@@ -27,7 +27,7 @@ app.include_router(activities.router, prefix="/api")
 app.include_router(ideas.router, prefix="/api")
 app.include_router(cms.router, prefix="/api")
 app.include_router(orders.router, prefix="/api")
-app.include_router(admin.router, prefix="/api")
+app.include_router(admin.router, prefix="/api/admin")
 
 
 @app.get("/api/health")
