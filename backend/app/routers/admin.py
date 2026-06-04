@@ -8,11 +8,11 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_admin, get_password_hash
 from app.database import get_db
 from app.models.activity import Activity, Registration
-from app.models.family import Family, Membership
+from app.models.member import Member, Membership
 from app.models.idea import Idea
-from app.models.order import Order, WebshopProduct, PaymentStatusEnum
-from app.models.user import AdminUser
-from app.schemas.auth import AdminUserResponse
+from app.models.order import Order, WebshopProduct
+from app.models.user import User, UserRole
+from app.schemas.auth import UserResponse
 from app.schemas.order import ProductResponse
 
 router = APIRouter(tags=["admin"])
@@ -21,11 +21,11 @@ router = APIRouter(tags=["admin"])
 @router.get("/stats")
 def get_stats(
     db: Session = Depends(get_db),
-    _admin: AdminUser = Depends(get_current_admin),
+    _admin: User = Depends(get_current_admin),
 ):
     today = date.today()
     return {
-        "families": db.query(func.count(Family.id)).scalar(),
+        "members": db.query(func.count(Member.id)).scalar(),
         "active_members": db.query(func.count(Membership.id))
             .filter(Membership.year == today.year, Membership.is_active == True)
             .scalar(),
@@ -36,7 +36,7 @@ def get_stats(
             .filter(Idea.is_reviewed == False)
             .scalar(),
         "pending_orders": db.query(func.count(Order.id))
-            .filter(Order.payment_status == PaymentStatusEnum.pending)
+            .filter(Order.payment_status == "PENDING")
             .scalar(),
     }
 
@@ -44,7 +44,7 @@ def get_stats(
 @router.get("/product-totals")
 def get_product_totals(
     db: Session = Depends(get_db),
-    _admin: AdminUser = Depends(get_current_admin),
+    _admin: User = Depends(get_current_admin),
 ):
     from app.models.order import OrderItem
     results = (
@@ -55,7 +55,7 @@ def get_product_totals(
         )
         .join(OrderItem, OrderItem.product_id == WebshopProduct.id)
         .join(Order, Order.id == OrderItem.order_id)
-        .filter(Order.payment_status == PaymentStatusEnum.paid)
+        .filter(Order.payment_status == "PAID")
         .group_by(WebshopProduct.id, WebshopProduct.name)
         .all()
     )
@@ -69,7 +69,7 @@ def get_product_totals(
 def create_product(
     data: ProductResponse,
     db: Session = Depends(get_db),
-    _admin: AdminUser = Depends(get_current_admin),
+    _admin: User = Depends(get_current_admin),
 ):
     product = WebshopProduct(
         name=data.name,
@@ -86,10 +86,17 @@ def create_product(
 
 @router.post("/seed-admin")
 def seed_admin(db: Session = Depends(get_db)):
-    existing = db.query(AdminUser).filter(AdminUser.username == "admin").first()
+    existing = db.query(User).filter(User.email == "admin@raakmillegem.be").first()
     if existing:
         raise HTTPException(status_code=400, detail="Admin already exists")
-    user = AdminUser(username="admin", hashed_password=get_password_hash("changeme"))
+    user = User(
+        email="admin@raakmillegem.be",
+        password_hash=get_password_hash("changeme"),
+        is_active=True,
+    )
     db.add(user)
+    db.flush()
+    role = UserRole(user_id=user.id, role_code="ADMIN")
+    db.add(role)
     db.commit()
-    return {"detail": "Admin created with username=admin password=changeme — change immediately!"}
+    return {"detail": "Admin created with email=admin@raakmillegem.be password=changeme — change immediately!"}

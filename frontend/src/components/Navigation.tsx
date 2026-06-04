@@ -13,13 +13,21 @@ export default function Navigation() {
   }, []);
 
   return (
-    <nav className="bg-blue-800 text-white shadow-md">
+    <nav style={{ backgroundColor: "var(--color-ocean-blue)" }} className="text-white shadow-md">
       <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
-        <Link href="/" className="text-xl font-bold tracking-tight hover:text-blue-200">
-          Raak Millegem
-        </Link>
+        <div>
+          <Link href="/" className="text-xl font-bold tracking-tight hover:opacity-80">
+            Raak Millegem
+          </Link>
+          <span
+            className="block text-xs font-medium"
+            style={{ color: "var(--color-golden-yellow)" }}
+          >
+            Samen sterker in de buurt
+          </span>
+        </div>
         <button
-          className="md:hidden p-2 rounded hover:bg-blue-700"
+          className="md:hidden p-2 rounded hover:opacity-80"
           onClick={() => setMenuOpen((o) => !o)}
           aria-label="Menu"
         >
@@ -27,17 +35,20 @@ export default function Navigation() {
           <span className="block w-6 h-0.5 bg-white mb-1" />
           <span className="block w-6 h-0.5 bg-white" />
         </button>
-        <ul className={`${menuOpen ? "flex" : "hidden"} md:flex flex-col md:flex-row gap-1 md:gap-2 absolute md:static top-16 left-0 right-0 bg-blue-800 md:bg-transparent p-4 md:p-0 z-50`}>
-          <li><Link href="/" className="block px-3 py-2 rounded hover:bg-blue-700 font-medium">Home</Link></li>
+        <ul
+          className={`${menuOpen ? "flex" : "hidden"} md:flex flex-col md:flex-row gap-1 md:gap-2 absolute md:static top-16 left-0 right-0 p-4 md:p-0 z-50`}
+          style={menuOpen ? { backgroundColor: "var(--color-ocean-blue)" } : {}}
+        >
+          <li><Link href="/" className="block px-3 py-2 rounded hover:opacity-80 font-medium">Home</Link></li>
           {pages.map((p) => (
             <li key={p.id}>
-              <Link href={`/${p.slug}`} className="block px-3 py-2 rounded hover:bg-blue-700 font-medium">
+              <Link href={`/${p.slug}`} className="block px-3 py-2 rounded hover:opacity-80 font-medium">
                 {p.title}
               </Link>
             </li>
           ))}
-          <li><Link href="/archief" className="block px-3 py-2 rounded hover:bg-blue-700 font-medium">Archief</Link></li>
-          <li><Link href="/webshop" className="block px-3 py-2 rounded hover:bg-blue-700 font-medium">Webshop</Link></li>
+          <li><Link href="/archief" className="block px-3 py-2 rounded hover:opacity-80 font-medium">Archief</Link></li>
+          <li><Link href="/webshop" className="block px-3 py-2 rounded hover:opacity-80 font-medium">Webshop</Link></li>
         </ul>
       </div>
     </nav>

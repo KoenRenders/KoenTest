@@ -1,0 +1,96 @@
+from datetime import date, datetime
+from typing import Optional, List
+from pydantic import BaseModel
+
+
+class PersonCreate(BaseModel):
+    last_name: str
+    first_name: str
+    date_of_birth: Optional[date] = None
+    gender_code: Optional[str] = None
+    is_primary: bool = False
+
+
+class PersonUpdate(BaseModel):
+    last_name: Optional[str] = None
+    first_name: Optional[str] = None
+    date_of_birth: Optional[date] = None
+    gender_code: Optional[str] = None
+
+
+class PersonResponse(BaseModel):
+    id: int
+    last_name: str
+    first_name: str
+    date_of_birth: Optional[date] = None
+    gender_code: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class AddressCreate(BaseModel):
+    street: str
+    house_number: str
+    bus_number: Optional[str] = None
+    postal_code_id: int
+
+
+class AddressResponse(BaseModel):
+    id: int
+    person_id: int
+    street: str
+    house_number: str
+    bus_number: Optional[str] = None
+    postal_code_id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class ContactDetailCreate(BaseModel):
+    contact_type_code: str
+    value: str
+    is_primary: bool = False
+
+
+class ContactDetailResponse(BaseModel):
+    id: int
+    person_id: int
+    contact_type_code: str
+    value: str
+    is_primary: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class MemberCreate(BaseModel):
+    persons: List[PersonCreate] = []
+
+
+class MemberResponse(BaseModel):
+    id: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class MembershipCreate(BaseModel):
+    year: int
+    is_active: bool = True
+
+
+class MembershipResponse(BaseModel):
+    id: int
+    member_id: int
+    year: int
+    is_active: bool
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}

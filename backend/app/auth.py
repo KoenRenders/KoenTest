@@ -11,7 +11,7 @@ from app.config import settings
 from app.database import get_db
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/auth/login")
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -46,19 +46,29 @@ def decode_token(token: str) -> dict:
 
 
 def get_current_admin(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    from app.models.user import AdminUser
+    from app.models.user import User, UserRole
 
     payload = decode_token(token)
-    username: str = payload.get("sub")
-    if username is None:
+    email: str = payload.get("sub")
+    if email is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
         )
-    user = db.query(AdminUser).filter(AdminUser.username == username).first()
+    user = db.query(User).filter(User.email == email, User.is_active == True).first()
     if user is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="User not found",
+        )
+    has_admin_role = (
+        db.query(UserRole)
+        .filter(UserRole.user_id == user.id, UserRole.role_code == "ADMIN")
+        .first()
+    )
+    if not has_admin_role:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Insufficient permissions",
         )
     return user

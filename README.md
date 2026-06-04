@@ -1,63 +1,96 @@
-# Raak Millegem — Web Portal
+# Raak Millegem — Community Portal
 
-Webapplicatie voor de Raak-Millegem (KWB Millegem) vereniging.
+Web portal for the Raak Millegem (KWB Millegem) community association in Millegem, Belgium.
 
-## Stack
+## Tech Stack
 
-| Laag | Technologie |
+| Layer | Technology |
 |---|---|
 | Database | PostgreSQL 16 |
 | Backend | Python 3.12 + FastAPI |
 | Frontend | Next.js 14 + React + TypeScript + Tailwind CSS |
 | Payments | Mollie (stub) |
 | Email | Python smtplib + Gmail SMTP |
-| Infra | Docker Compose + Caddy |
+| Infrastructure | Docker Compose + Caddy reverse proxy |
 
-## Snel starten
+## Local Development Setup
 
-### 1. Configuratie
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) (v2+)
+- No other dependencies required — everything runs in containers
+
+### 1. Configuration
 
 ```bash
 cp .env.example .env
-# Pas .env aan met jouw wachtwoorden
+# Edit .env with your own passwords and API keys
 ```
 
-### 2. Starten
+### 2. Start the stack
 
 ```bash
 docker compose up -d
 ```
 
-### 3. Seed data (eerste keer)
+### 3. Seed data (first run only)
 
 ```bash
+# Seed Belgian postal codes
+docker compose exec backend python seed_postal_codes.py
+
+# Seed webshop products and create the initial admin user
 docker compose exec backend python seed_products.py
 ```
 
-Dit maakt de webshop-producten aan en een admin-gebruiker:
-- **Gebruikersnaam:** `admin`
-- **Wachtwoord:** `changeme` → **direct aanpassen!**
+Default admin credentials (change immediately):
+- **Email:** `admin@raakmillegem.be`
+- **Password:** `changeme`
 
-### 4. Openen
+### 4. Access the application
 
-| URL | Beschrijving |
+| URL | Description |
 |---|---|
-| http://localhost:3000 | Website |
-| http://localhost:8000/docs | API documentatie (Swagger) |
-| http://localhost:3000/admin | Admin paneel |
+| http://localhost:3000 | Public website |
+| http://localhost:8000/docs | API documentation (Swagger UI) |
+| http://localhost:3000/admin | Admin panel |
 
-## Functionaliteiten
+## Environment Variables
 
-- **Homepage:** activiteitenoverzicht, lid worden, ideeënbus
-- **Activiteiten:** per jaar gegroepeerd, status (Open/Vol/Wachtlijst), inschrijven
-- **Archief:** automatisch alle verleden activiteiten
-- **Webshop:** Brood en Spelen producten, leden- vs. reguliere prijs
-- **CMS:** admin kan informatiepagina's aanmaken (Werking, Kerstradio, ...)
-- **Admin:** dashboard, activiteitenbeheer, ledenbeheer, bestellingen, ideeën
-- **E-mail:** bevestigingen via Gmail SMTP
+| Variable | Description | Example |
+|---|---|---|
+| `DATABASE_URL` | PostgreSQL connection string | `postgresql://user:pass@db:5432/raak` |
+| `SECRET_KEY` | JWT signing secret | `your-secret-key-here` |
+| `FRONTEND_URL` | Frontend origin for CORS | `http://localhost:3000` |
+| `MOLLIE_API_KEY` | Mollie payment API key | `test_xxxx` |
+| `GMAIL_USER` | Gmail address for sending email | `yourapp@gmail.com` |
+| `GMAIL_APP_PASSWORD` | Gmail app password | `xxxx xxxx xxxx xxxx` |
+| `ACCESS_TOKEN_EXPIRE_MINUTES` | JWT token TTL in minutes | `60` |
 
-## Hosting (productie)
+## Features
 
-Hetzner CX22 (€6/mnd) — Ubuntu 26.04 LTS, 4 Docker containers via Caddy reverse proxy.
+- **Homepage:** activity overview, membership registration, ideas box
+- **Activities:** grouped by year, status (Open / Full / Waitlist), registration
+- **Archive:** all past activities automatically listed
+- **Webshop:** Bread and Games products with member vs. regular pricing
+- **CMS:** admin can create information pages (How we work, Christmas Radio, …)
+- **Admin dashboard:** activity management, member management, orders, ideas
+- **Email:** confirmations via Gmail SMTP
 
-Zie `caddy/Caddyfile` voor domeinconfiguratie.
+## Deployment
+
+Production target: Hetzner CX22 (Ubuntu, 4 Docker containers behind Caddy reverse proxy).
+
+```bash
+# On the server
+git pull
+docker compose -f docker-compose.yml up -d --build
+docker compose exec backend alembic upgrade head
+```
+
+See `caddy/Caddyfile` for domain configuration.
+
+## Documentation
+
+- [Project Specification](docs/spec.md)
+- [Change Request Log](docs/change_request_01.md)

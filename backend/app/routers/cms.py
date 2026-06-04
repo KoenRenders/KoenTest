@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_admin
 from app.database import get_db
 from app.models.cms import CmsPage
-from app.models.user import AdminUser
+from app.models.user import User
 from app.schemas.cms import CmsPageCreate, CmsPageUpdate, CmsPageResponse
 
 router = APIRouter(tags=["cms"])
@@ -34,7 +34,7 @@ def get_page(slug: str, db: Session = Depends(get_db)):
 def create_page(
     data: CmsPageCreate,
     db: Session = Depends(get_db),
-    _admin: AdminUser = Depends(get_current_admin),
+    _admin: User = Depends(get_current_admin),
 ):
     existing = db.query(CmsPage).filter(CmsPage.slug == data.slug).first()
     if existing:
@@ -58,7 +58,7 @@ def update_page(
     page_id: int,
     data: CmsPageUpdate,
     db: Session = Depends(get_db),
-    _admin: AdminUser = Depends(get_current_admin),
+    _admin: User = Depends(get_current_admin),
 ):
     page = db.query(CmsPage).filter(CmsPage.id == page_id).first()
     if not page:
@@ -81,7 +81,7 @@ def update_page(
 def delete_page(
     page_id: int,
     db: Session = Depends(get_db),
-    _admin: AdminUser = Depends(get_current_admin),
+    _admin: User = Depends(get_current_admin),
 ):
     page = db.query(CmsPage).filter(CmsPage.id == page_id).first()
     if not page:
