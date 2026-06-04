@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
+import { Radio_Canada_Big } from "next/font/google";
 import "./globals.css";
 import Navigation from "@/components/Navigation";
+
+const radioCanadaBig = Radio_Canada_Big({
+  subsets: ["latin"],
+  variable: "--font-radio-canada-big",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Raak Millegem",
@@ -10,7 +17,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="nl">
-      <body>
+      <body className={`${radioCanadaBig.variable} font-primary`}>
         <Navigation />
         <main className="max-w-5xl mx-auto px-4 py-8">
           {children}

@@ -1,14 +1,7 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Numeric, Enum, Text
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey, Numeric, Text
 from sqlalchemy.orm import relationship
-import enum
 from app.database import Base
-
-
-class PaymentStatusEnum(str, enum.Enum):
-    pending = "pending"
-    paid = "paid"
-    failed = "failed"
 
 
 class WebshopProduct(Base):
@@ -29,17 +22,17 @@ class Order(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     confirmation_number = Column(String(20), unique=True, nullable=False, index=True)
-    family_id = Column(Integer, ForeignKey("families.id"), nullable=True)
+    member_id = Column(Integer, ForeignKey("members.id"), nullable=True)
     customer_name = Column(String(200), nullable=False)
     customer_email = Column(String(255), nullable=False)
     is_member = Column(Boolean, default=False, nullable=False)
     total_amount = Column(Numeric(10, 2), nullable=False)
-    payment_status = Column(Enum(PaymentStatusEnum), default=PaymentStatusEnum.pending, nullable=False)
+    payment_status = Column(String(10), ForeignKey("payment_status_codes.code"), nullable=False)
     mollie_payment_id = Column(String(100), nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
 
-    family = relationship("Family", back_populates="orders")
+    member = relationship("Member", back_populates="orders")
     items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
 
 

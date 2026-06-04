@@ -2,6 +2,19 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --font-primary: 'Radio Canada Big', sans-serif;
+  --color-ocean-blue: #0051a4;
+  --color-golden-yellow: #ffce00;
+  --color-white: #ffffff;
+  --color-pumpkin-orange: #f16532;
+  --color-cool-green: #3aba9b;
+  --color-dark-green: #005d29;
+  --color-hot-pink: #f17fb2;
+  --color-watermelon-red: #ee3a37;
+  --color-indigo: #460359;
+}
+
 @layer base {
   body {
     @apply text-gray-800 bg-gray-50;

@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_admin
 from app.database import get_db
 from app.models.idea import Idea
-from app.models.user import AdminUser
+from app.models.user import User
 from app.schemas.idea import IdeaCreate, IdeaResponse
 from app.services.email import send_idea_acknowledgement
 
@@ -39,7 +39,7 @@ def submit_idea(data: IdeaCreate, db: Session = Depends(get_db)):
 @router.get("/ideas", response_model=List[IdeaResponse])
 def list_ideas(
     db: Session = Depends(get_db),
-    _admin: AdminUser = Depends(get_current_admin),
+    _admin: User = Depends(get_current_admin),
 ):
     return db.query(Idea).order_by(Idea.submitted_at.desc()).all()
 
@@ -48,7 +48,7 @@ def list_ideas(
 def update_idea(
     idea_id: int,
     db: Session = Depends(get_db),
-    _admin: AdminUser = Depends(get_current_admin),
+    _admin: User = Depends(get_current_admin),
 ):
     idea = db.query(Idea).filter(Idea.id == idea_id).first()
     if not idea:

@@ -50,18 +50,16 @@ class ActivityResponse(BaseModel):
 
 
 class RegistrationCreate(BaseModel):
-    family_id: Optional[int] = None
-    family_member_id: Optional[int] = None
+    person_id: Optional[int] = None
     contact_name: Optional[str] = None
     contact_email: Optional[str] = None
-    registration_type: str = "individual"
+    registration_type: str = "INDIVIDUAL"
 
 
 class RegistrationResponse(BaseModel):
     id: int
     activity_id: int
-    family_id: Optional[int] = None
-    family_member_id: Optional[int] = None
+    person_id: Optional[int] = None
     is_waitlist: bool
     registered_at: datetime
     registration_type: str

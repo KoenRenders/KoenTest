@@ -2,7 +2,7 @@ from pydantic import BaseModel
 
 
 class LoginRequest(BaseModel):
-    username: str
+    email: str
     password: str
 
 
@@ -11,8 +11,13 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
-class AdminUserResponse(BaseModel):
+class UserResponse(BaseModel):
     id: int
-    username: str
+    email: str
+    is_active: bool
 
     model_config = {"from_attributes": True}
+
+
+# Kept for backward compatibility during transition
+AdminUserResponse = UserResponse

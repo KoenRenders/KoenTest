@@ -21,7 +21,7 @@ class OrderItemCreate(BaseModel):
 
 
 class OrderCreate(BaseModel):
-    family_id: Optional[int] = None
+    member_id: Optional[int] = None
     customer_name: str
     customer_email: str
     is_member: bool = False
@@ -42,7 +42,7 @@ class OrderItemResponse(BaseModel):
 class OrderResponse(BaseModel):
     id: int
     confirmation_number: str
-    family_id: Optional[int] = None
+    member_id: Optional[int] = None
     customer_name: str
     customer_email: str
     is_member: bool

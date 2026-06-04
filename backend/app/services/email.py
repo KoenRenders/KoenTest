@@ -89,7 +89,7 @@ def send_order_confirmation(to_email: str, name: str, order) -> None:
           {items_html}
           <tr><td colspan="2"><strong>Totaal</strong></td><td><strong>€{order.total_amount:.2f}</strong></td></tr>
         </table>
-        <p>Betaalstatus: {order.payment_status.value}</p>
+        <p>Betaalstatus: {order.payment_status}</p>
         <p>Met vriendelijke groeten,<br>Raak Millegem</p>
         """,
     )

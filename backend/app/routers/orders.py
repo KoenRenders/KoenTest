@@ -8,9 +8,9 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_admin
 from app.database import get_db
-from app.models.family import Membership
-from app.models.order import Order, OrderItem, WebshopProduct, PaymentStatusEnum
-from app.models.user import AdminUser
+from app.models.member import Membership
+from app.models.order import Order, OrderItem, WebshopProduct
+from app.models.user import User
 from app.schemas.order import OrderCreate, OrderResponse, ProductResponse
 from app.services.email import send_order_confirmation
 
@@ -42,11 +42,11 @@ def list_products(db: Session = Depends(get_db)):
 def create_order(data: OrderCreate, db: Session = Depends(get_db)):
     # Determine member status
     is_member = data.is_member
-    if data.family_id and not is_member:
+    if data.member_id and not is_member:
         membership = (
             db.query(Membership)
             .filter(
-                Membership.family_id == data.family_id,
+                Membership.member_id == data.member_id,
                 Membership.year == date.today().year,
                 Membership.is_active == True,
             )
@@ -67,12 +67,12 @@ def create_order(data: OrderCreate, db: Session = Depends(get_db)):
     confirmation_number = _next_confirmation_number(db)
     order = Order(
         confirmation_number=confirmation_number,
-        family_id=data.family_id,
+        member_id=data.member_id,
         customer_name=data.customer_name,
         customer_email=data.customer_email,
         is_member=is_member,
         total_amount=total,
-        payment_status=PaymentStatusEnum.pending,
+        payment_status="PENDING",
         notes=data.notes,
     )
     db.add(order)
@@ -99,7 +99,7 @@ def create_order(data: OrderCreate, db: Session = Depends(get_db)):
 @router.get("/orders", response_model=List[OrderResponse])
 def list_orders(
     db: Session = Depends(get_db),
-    _admin: AdminUser = Depends(get_current_admin),
+    _admin: User = Depends(get_current_admin),
 ):
     return db.query(Order).order_by(Order.created_at.desc()).all()
 
@@ -107,7 +107,7 @@ def list_orders(
 @router.get("/orders/export")
 def export_orders(
     db: Session = Depends(get_db),
-    _admin: AdminUser = Depends(get_current_admin),
+    _admin: User = Depends(get_current_admin),
 ):
     orders = db.query(Order).order_by(Order.created_at.asc()).all()
     output = io.StringIO()
@@ -124,7 +124,7 @@ def export_orders(
             order.customer_email,
             "Ja" if order.is_member else "Nee",
             f"€{order.total_amount}",
-            order.payment_status.value,
+            order.payment_status,
             order.created_at.strftime("%d/%m/%Y %H:%M"),
             items_str,
         ])
@@ -140,7 +140,7 @@ def export_orders(
 def get_order(
     order_id: int,
     db: Session = Depends(get_db),
-    _admin: AdminUser = Depends(get_current_admin),
+    _admin: User = Depends(get_current_admin),
 ):
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:

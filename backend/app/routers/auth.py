@@ -5,8 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.auth import verify_password, create_access_token, get_current_admin
 from app.database import get_db
-from app.models.user import AdminUser
-from app.schemas.auth import LoginRequest, TokenResponse, AdminUserResponse
+from app.models.user import User
+from app.schemas.auth import LoginRequest, TokenResponse, UserResponse
 from app.config import settings
 
 router = APIRouter(tags=["auth"])
@@ -14,19 +14,19 @@ router = APIRouter(tags=["auth"])
 
 @router.post("/auth/login", response_model=TokenResponse)
 def login(request: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(AdminUser).filter(AdminUser.username == request.username).first()
-    if not user or not verify_password(request.password, user.hashed_password):
+    user = db.query(User).filter(User.email == request.email, User.is_active == True).first()
+    if not user or not verify_password(request.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect email or password",
         )
     access_token = create_access_token(
-        data={"sub": user.username},
+        data={"sub": user.email},
         expires_delta=timedelta(minutes=settings.access_token_expire_minutes),
     )
     return TokenResponse(access_token=access_token)
 
 
-@router.get("/auth/me", response_model=AdminUserResponse)
-def get_me(current_admin: AdminUser = Depends(get_current_admin)):
-    return current_admin
+@router.get("/auth/me", response_model=UserResponse)
+def get_me(current_user: User = Depends(get_current_admin)):
+    return current_user

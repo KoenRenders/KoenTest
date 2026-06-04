@@ -6,9 +6,9 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_admin
 from app.database import get_db
-from app.models.activity import Activity, Registration, RegistrationTypeEnum
-from app.models.family import Family, Membership
-from app.models.user import AdminUser
+from app.models.activity import Activity, Registration
+from app.models.member import Membership
+from app.models.user import User
 from app.schemas.activity import (
     ActivityCreate,
     ActivityUpdate,
@@ -85,7 +85,7 @@ def list_archived_activities(db: Session = Depends(get_db)):
 def create_activity(
     data: ActivityCreate,
     db: Session = Depends(get_db),
-    _admin: AdminUser = Depends(get_current_admin),
+    _admin: User = Depends(get_current_admin),
 ):
     activity = Activity(
         name=data.name,
@@ -113,7 +113,7 @@ def update_activity(
     activity_id: int,
     data: ActivityUpdate,
     db: Session = Depends(get_db),
-    _admin: AdminUser = Depends(get_current_admin),
+    _admin: User = Depends(get_current_admin),
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
@@ -136,7 +136,7 @@ def update_activity(
 def delete_activity(
     activity_id: int,
     db: Session = Depends(get_db),
-    _admin: AdminUser = Depends(get_current_admin),
+    _admin: User = Depends(get_current_admin),
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
@@ -150,7 +150,7 @@ def delete_activity(
 def get_registrations(
     activity_id: int,
     db: Session = Depends(get_db),
-    _admin: AdminUser = Depends(get_current_admin),
+    _admin: User = Depends(get_current_admin),
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
@@ -162,7 +162,7 @@ def get_registrations(
 def get_waitlist(
     activity_id: int,
     db: Session = Depends(get_db),
-    _admin: AdminUser = Depends(get_current_admin),
+    _admin: User = Depends(get_current_admin),
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
@@ -189,25 +189,9 @@ def register_for_activity(
     is_full = activity.max_participants and len(current_registrations) >= activity.max_participants
     is_waitlist = bool(is_full)
 
-    # Determine if member for pricing
-    is_member = False
-    if data.family_id:
-        year = today.year
-        membership = (
-            db.query(Membership)
-            .filter(
-                Membership.family_id == data.family_id,
-                Membership.year == year,
-                Membership.is_active == True,
-            )
-            .first()
-        )
-        is_member = membership is not None
-
     registration = Registration(
         activity_id=activity_id,
-        family_id=data.family_id,
-        family_member_id=data.family_member_id,
+        person_id=data.person_id,
         is_waitlist=is_waitlist,
         registration_type=data.registration_type,
         contact_name=data.contact_name,

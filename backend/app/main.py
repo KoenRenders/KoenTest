@@ -5,7 +5,7 @@ from app.config import settings
 from app.database import engine
 from app.models import *  # noqa: F401, F403 - ensures all models are registered
 
-from app.routers import auth, families, activities, ideas, cms, orders, admin
+from app.routers import auth, members, activities, ideas, cms, orders, admin
 
 app = FastAPI(
     title="Raak Millegem API",
@@ -21,13 +21,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(auth.router, prefix="/api")
-app.include_router(families.router, prefix="/api")
-app.include_router(activities.router, prefix="/api")
-app.include_router(ideas.router, prefix="/api")
-app.include_router(cms.router, prefix="/api")
-app.include_router(orders.router, prefix="/api")
-app.include_router(admin.router, prefix="/api/admin")
+app.include_router(auth.router, prefix="/api/v1")
+app.include_router(members.router, prefix="/api/v1")
+app.include_router(activities.router, prefix="/api/v1")
+app.include_router(ideas.router, prefix="/api/v1")
+app.include_router(cms.router, prefix="/api/v1")
+app.include_router(orders.router, prefix="/api/v1")
+app.include_router(admin.router, prefix="/api/v1/admin")
 
 
 @app.get("/api/health")
