@@ -1,0 +1,71 @@
+from datetime import date, time, datetime
+from typing import Optional, List
+from decimal import Decimal
+from pydantic import BaseModel
+
+
+class ActivityCreate(BaseModel):
+    name: str
+    date: date
+    time: Optional[time] = None
+    location: Optional[str] = None
+    max_participants: Optional[int] = None
+    registration_type: str = "individual"
+    price: Decimal = Decimal("0.00")
+    member_price: Optional[Decimal] = None
+    poster_url: Optional[str] = None
+
+
+class ActivityUpdate(BaseModel):
+    name: Optional[str] = None
+    date: Optional[date] = None
+    time: Optional[time] = None
+    location: Optional[str] = None
+    max_participants: Optional[int] = None
+    registration_type: Optional[str] = None
+    price: Optional[Decimal] = None
+    member_price: Optional[Decimal] = None
+    poster_url: Optional[str] = None
+    is_archived: Optional[bool] = None
+
+
+class ActivityResponse(BaseModel):
+    id: int
+    name: str
+    date: date
+    time: Optional[time] = None
+    location: Optional[str] = None
+    max_participants: Optional[int] = None
+    registration_type: str
+    price: Decimal
+    member_price: Optional[Decimal] = None
+    poster_url: Optional[str] = None
+    is_archived: bool
+    created_at: datetime
+    status: Optional[str] = None
+    registration_count: Optional[int] = None
+    waitlist_count: Optional[int] = None
+
+    model_config = {"from_attributes": True}
+
+
+class RegistrationCreate(BaseModel):
+    family_id: Optional[int] = None
+    family_member_id: Optional[int] = None
+    contact_name: Optional[str] = None
+    contact_email: Optional[str] = None
+    registration_type: str = "individual"
+
+
+class RegistrationResponse(BaseModel):
+    id: int
+    activity_id: int
+    family_id: Optional[int] = None
+    family_member_id: Optional[int] = None
+    is_waitlist: bool
+    registered_at: datetime
+    registration_type: str
+    contact_name: Optional[str] = None
+    contact_email: Optional[str] = None
+
+    model_config = {"from_attributes": True}
