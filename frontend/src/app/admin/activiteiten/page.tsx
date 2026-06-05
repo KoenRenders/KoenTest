@@ -62,18 +62,24 @@ export default function AdminActiviteiten() {
       location: form.location || null,
       date_end: form.date_end || null,
       max_participants: form.max_participants ? parseInt(form.max_participants) : null,
-      member_price: form.member_price ? form.member_price : null,
+      price: parseFloat(form.price) || 0,
+      member_price: form.member_price ? parseFloat(form.member_price) : null,
       poster_url: form.poster_url || null,
     };
-    if (editing !== null) {
-      await updateActivity(editing, payload);
-    } else {
-      await createActivity(payload);
+    try {
+      if (editing !== null) {
+        await updateActivity(editing, payload);
+      } else {
+        await createActivity(payload);
+      }
+      setShowForm(false);
+      setEditing(null);
+      setForm(emptyActivity());
+      load();
+    } catch (err: unknown) {
+      const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      alert(msg || "Opslaan mislukt. Controleer de gegevens.");
     }
-    setShowForm(false);
-    setEditing(null);
-    setForm(emptyActivity());
-    load();
   }
 
   function startEdit(a: Activity) {
