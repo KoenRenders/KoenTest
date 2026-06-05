@@ -41,6 +41,8 @@ services:
       NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:8000}
     depends_on:
       - backend
+    ports:
+      - "3000:3000"
     networks:
       - internal
       - public
@@ -53,7 +55,7 @@ services:
       - "443:443"
       - "443:443/udp"
     volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:z
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
