@@ -77,9 +77,10 @@ export default function ActivityList({
                       )}
                     </div>
                     {activity.sub_registrations && activity.sub_registrations.length > 0 && (
-                      <div className="mt-3 space-y-1.5">
+                      activity.sub_registrations.length === 1 ? null : (
+                      <div className="mt-3 space-y-2">
                         {activity.sub_registrations.map((sub) => (
-                          <div key={sub.id} className="flex items-center gap-2 flex-wrap text-sm">
+                          <div key={sub.id} className="flex items-center gap-2 flex-wrap text-sm pl-3 border-l-2 border-blue-100">
                             <span className="text-gray-700 font-medium">{sub.name}</span>
                             {sub.info_url && (
                               <a href={sub.info_url} target="_blank" rel="noopener noreferrer"
@@ -95,15 +96,41 @@ export default function ActivityList({
                             )}
                             {sub.external_registrations_url && (
                               <a href={sub.external_registrations_url} target="_blank" rel="noopener noreferrer"
-                                className="px-2 py-0.5 rounded text-xs font-medium bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200">
+                                className="px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
                                 Inschrijvingen ↗
                               </a>
                             )}
                           </div>
                         ))}
                       </div>
+                      )
                     )}
                   </div>
+                  {activity.sub_registrations?.length === 1 && (() => {
+                    const sub = activity.sub_registrations![0];
+                    return (
+                      <div className="flex gap-2 self-start flex-wrap">
+                        {sub.info_url && (
+                          <a href={sub.info_url} target="_blank" rel="noopener noreferrer"
+                            className="text-xs text-gray-500 hover:text-blue-600 underline self-center">
+                            reglement ↗
+                          </a>
+                        )}
+                        {sub.external_register_url && (
+                          <a href={sub.external_register_url} target="_blank" rel="noopener noreferrer"
+                            className="px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 whitespace-nowrap">
+                            Inschrijven ↗
+                          </a>
+                        )}
+                        {sub.external_registrations_url && (
+                          <a href={sub.external_registrations_url} target="_blank" rel="noopener noreferrer"
+                            className="px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 whitespace-nowrap">
+                            Inschrijvingen ↗
+                          </a>
+                        )}
+                      </div>
+                    );
+                  })()}
                   {showRegister && onRegister && !activity.sub_registrations?.length && (
                     <button
                       className="btn-primary btn-sm whitespace-nowrap self-start"
