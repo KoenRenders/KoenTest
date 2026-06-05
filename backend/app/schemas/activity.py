@@ -33,6 +33,7 @@ class ActivityResponse(BaseModel):
     id: int
     name: str
     date: date
+    date_end: Optional[date] = None
     time: Optional[Time] = None
     location: Optional[str] = None
     max_participants: Optional[int] = None

@@ -2,6 +2,7 @@ export interface Activity {
   id: number;
   name: string;
   date: string;
+  date_end?: string;
   time?: string;
   location?: string;
   max_participants?: number;
