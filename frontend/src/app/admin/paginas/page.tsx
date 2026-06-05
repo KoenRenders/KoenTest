@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
-import { getPages, createPage, updatePage, deletePage } from "@/lib/api";
+import { getAllPages, createPage, updatePage, deletePage } from "@/lib/api";
 import type { CmsPage } from "@/lib/types";
 
 const emptyPage = () => ({ title: "", slug: "", content: "", is_published: false, sort_order: 0 });
@@ -73,7 +73,7 @@ export default function AdminPaginas() {
   const [showForm, setShowForm] = useState(false);
 
   function load() {
-    getPages().then((r) => setPages(r.data)).catch(() => {});
+    getAllPages().then((r) => setPages(r.data)).catch(() => {});
   }
 
   useEffect(() => { load(); }, []);

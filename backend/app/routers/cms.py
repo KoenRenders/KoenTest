@@ -30,6 +30,18 @@ def get_page(slug: str, db: Session = Depends(get_db)):
     return page
 
 
+@router.get("/admin/pages", response_model=List[CmsPageResponse])
+def list_all_pages(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    return (
+        db.query(CmsPage)
+        .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc())
+        .all()
+    )
+
+
 @router.post("/pages", response_model=CmsPageResponse)
 def create_page(
     data: CmsPageCreate,

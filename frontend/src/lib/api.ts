@@ -53,6 +53,7 @@ export const markIdeaReviewed = (id: number) => api.put(`/api/v1/ideas/${id}`);
 
 // CMS
 export const getPages = () => api.get("/api/v1/pages");
+export const getAllPages = () => api.get("/api/v1/admin/pages");
 export const getPage = (slug: string) => api.get(`/api/v1/pages/${slug}`);
 export const createPage = (data: unknown) => api.post("/api/v1/pages", data);
 export const updatePage = (id: number, data: unknown) => api.put(`/api/v1/pages/${id}`, data);
