@@ -2,9 +2,9 @@ import json
 from datetime import date, datetime
 from decimal import Decimal
 from sqlalchemy import or_, and_
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_admin
@@ -194,6 +194,7 @@ def delete_activity(
 @router.get("/activities/{activity_id}/registrations/public", response_model=PublicRegistrationSummary)
 def get_public_registrations(
     activity_id: int,
+    sub_registration_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
@@ -201,6 +202,8 @@ def get_public_registrations(
         raise HTTPException(status_code=404, detail="Activity not found")
 
     active_regs = [r for r in activity.registrations if not r.is_waitlist]
+    if sub_registration_id is not None:
+        active_regs = [r for r in active_regs if r.sub_registration_id == sub_registration_id]
     names = [r.contact_name or "Anoniem" for r in active_regs]
     total_participants = sum(compute_participant_count(r) for r in active_regs)
 

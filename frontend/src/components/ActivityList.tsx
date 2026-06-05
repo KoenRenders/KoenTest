@@ -1,4 +1,6 @@
 "use client";
+import { useState } from "react";
+import { getPublicRegistrations } from "@/lib/api";
 import type { Activity, SubRegistration } from "@/lib/types";
 
 function StatusBadge({ status }: { status?: string }) {
@@ -18,6 +20,117 @@ function formatTime(t?: string) {
   return t.substring(0, 5);
 }
 
+// Shared pill-button styles
+const pillBtn = "px-2 py-0.5 rounded text-xs font-medium border whitespace-nowrap";
+const pillPrimary = `${pillBtn} bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200`;
+const pillOutline = `${pillBtn} bg-white text-blue-600 hover:bg-blue-50 border-blue-200`;
+
+interface RegState {
+  names: string[];
+  total: number;
+}
+
+/** Sub-registration row: handles its own registrations fetch/toggle */
+function SubRegRow({
+  activity,
+  sub,
+  onSubRegister,
+  showRegister,
+  compact = false,
+}: {
+  activity: Activity;
+  sub: SubRegistration;
+  onSubRegister?: (a: Activity, s: SubRegistration) => void;
+  showRegister: boolean;
+  compact?: boolean;
+}) {
+  const [regs, setRegs] = useState<RegState | null>(null);
+  const [regsOpen, setRegsOpen] = useState(false);
+  const [regsLoading, setRegsLoading] = useState(false);
+
+  async function toggleRegs() {
+    if (regsOpen) {
+      setRegsOpen(false);
+      return;
+    }
+    setRegsOpen(true);
+    if (regs !== null) return; // already fetched
+    setRegsLoading(true);
+    try {
+      const res = await getPublicRegistrations(activity.id, sub.id);
+      setRegs({ names: res.data.names, total: res.data.total_participants });
+    } catch {
+      setRegs({ names: [], total: 0 });
+    } finally {
+      setRegsLoading(false);
+    }
+  }
+
+  const rowClass = compact
+    ? "flex items-center gap-2 flex-wrap text-sm"
+    : "flex items-center gap-2 flex-wrap text-sm pl-3 border-l-2 border-blue-100";
+
+  return (
+    <div>
+      <div className={rowClass}>
+        <span className="text-gray-700 font-medium">{sub.name}</span>
+        {sub.info_url && (
+          <a href={sub.info_url} target="_blank" rel="noopener noreferrer"
+            className="text-xs text-gray-500 hover:text-blue-600 underline">
+            reglement ↗
+          </a>
+        )}
+
+        {/* Internal form */}
+        {sub.reg_form_type && (
+          <>
+            {showRegister && onSubRegister && (
+              <button onClick={() => onSubRegister(activity, sub)} className={pillPrimary}>
+                Inschrijven
+              </button>
+            )}
+            <button onClick={toggleRegs} className={pillOutline}>
+              {regsOpen
+                ? "Verberg inschrijvingen"
+                : regs !== null
+                ? `Inschrijvingen (${regs.total})`
+                : "Inschrijvingen"}
+            </button>
+          </>
+        )}
+
+        {/* External links */}
+        {!sub.reg_form_type && sub.external_register_url && (
+          <a href={sub.external_register_url} target="_blank" rel="noopener noreferrer" className={pillPrimary}>
+            Inschrijven ↗
+          </a>
+        )}
+        {!sub.reg_form_type && sub.external_registrations_url && (
+          <a href={sub.external_registrations_url} target="_blank" rel="noopener noreferrer" className={pillOutline}>
+            Inschrijvingen ↗
+          </a>
+        )}
+      </div>
+
+      {/* Inline registrations list */}
+      {regsOpen && (
+        <div className="mt-1 ml-3 pl-3 border-l border-blue-100 text-xs text-gray-600 space-y-0.5">
+          {regsLoading && <p className="italic">Laden…</p>}
+          {!regsLoading && regs && regs.names.length === 0 && (
+            <p className="italic text-gray-400">Nog geen inschrijvingen.</p>
+          )}
+          {!regsLoading && regs && regs.names.length > 0 && (
+            <>
+              {regs.names.map((name, i) => <p key={i}>{name}</p>)}
+              <p className="font-medium text-gray-500 pt-0.5">Totaal: {regs.total}</p>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ActivityList({
   activities,
   onRegister,
@@ -35,7 +148,6 @@ export default function ActivityList({
     return <p className="text-gray-500 italic">Geen activiteiten gevonden.</p>;
   }
 
-  // Group by year
   const byYear = activities.reduce<Record<number, Activity[]>>((acc, a) => {
     const year = new Date(a.date).getFullYear();
     (acc[year] = acc[year] || []).push(a);
@@ -62,7 +174,8 @@ export default function ActivityList({
                     <div className="flex-1">
                       <div className="flex items-center gap-3 flex-wrap">
                         {activity.poster_url ? (
-                          <a href={activity.poster_url} target="_blank" rel="noopener noreferrer" className="font-semibold text-blue-700 hover:underline text-lg">
+                          <a href={activity.poster_url} target="_blank" rel="noopener noreferrer"
+                            className="font-semibold text-blue-700 hover:underline text-lg">
                             {activity.name}
                           </a>
                         ) : (
@@ -87,36 +200,8 @@ export default function ActivityList({
                       {subs.length > 1 && (
                         <div className="mt-3 space-y-2">
                           {subs.map((sub) => (
-                            <div key={sub.id} className="flex items-center gap-2 flex-wrap text-sm pl-3 border-l-2 border-blue-100">
-                              <span className="text-gray-700 font-medium">{sub.name}</span>
-                              {sub.info_url && (
-                                <a href={sub.info_url} target="_blank" rel="noopener noreferrer"
-                                  className="text-xs text-gray-500 hover:text-blue-600 underline">
-                                  reglement ↗
-                                </a>
-                              )}
-                              {/* Internal form button for sub with reg_form_type */}
-                              {sub.reg_form_type && onSubRegister && showRegister && (
-                                <button
-                                  onClick={() => onSubRegister(activity, sub)}
-                                  className="px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
-                                  Inschrijven
-                                </button>
-                              )}
-                              {/* External links when no internal form */}
-                              {!sub.reg_form_type && sub.external_register_url && (
-                                <a href={sub.external_register_url} target="_blank" rel="noopener noreferrer"
-                                  className="px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
-                                  Inschrijven ↗
-                                </a>
-                              )}
-                              {sub.external_registrations_url && (
-                                <a href={sub.external_registrations_url} target="_blank" rel="noopener noreferrer"
-                                  className="px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
-                                  Inschrijvingen ↗
-                                </a>
-                              )}
-                            </div>
+                            <SubRegRow key={sub.id} activity={activity} sub={sub}
+                              onSubRegister={onSubRegister} showRegister={showRegister} />
                           ))}
                         </div>
                       )}
@@ -124,56 +209,24 @@ export default function ActivityList({
 
                     {/* Right-side buttons */}
                     <div className="flex flex-col gap-2 self-start items-end">
-                      {/* Single sub-registration shortcuts */}
-                      {subs.length === 1 && (() => {
-                        const sub = subs[0];
-                        return (
-                          <div className="flex gap-2 flex-wrap">
-                            {sub.info_url && (
-                              <a href={sub.info_url} target="_blank" rel="noopener noreferrer"
-                                className="text-xs text-gray-500 hover:text-blue-600 underline self-center">
-                                reglement ↗
-                              </a>
-                            )}
-                            {sub.reg_form_type && onSubRegister && showRegister && (
-                              <button
-                                onClick={() => onSubRegister(activity, sub)}
-                                className="px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 whitespace-nowrap">
-                                Inschrijven
-                              </button>
-                            )}
-                            {!sub.reg_form_type && sub.external_register_url && (
-                              <a href={sub.external_register_url} target="_blank" rel="noopener noreferrer"
-                                className="px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 whitespace-nowrap">
-                                Inschrijven ↗
-                              </a>
-                            )}
-                            {sub.external_registrations_url && (
-                              <a href={sub.external_registrations_url} target="_blank" rel="noopener noreferrer"
-                                className="px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 whitespace-nowrap">
-                                Inschrijvingen ↗
-                              </a>
-                            )}
-                          </div>
-                        );
-                      })()}
+                      {/* Single sub-registration */}
+                      {subs.length === 1 && (
+                        <SubRegRow activity={activity} sub={subs[0]}
+                          onSubRegister={onSubRegister} showRegister={showRegister} compact />
+                      )}
 
-                      {/* Main activity register button (no sub-registrations OR has internal form) */}
+                      {/* Main activity registration button */}
                       {showRegister && hasInternalForm && onRegister && (
                         <button
                           className="btn-primary btn-sm whitespace-nowrap"
                           onClick={() => onRegister(activity)}
                           disabled={activity.status === "Vol"}
                         >
-                          {activity.status === "Vol"
-                            ? "Vol"
-                            : activity.reg_form_type === "PAID_PRODUCTS"
-                            ? "BBQ bestellen"
-                            : "Inschrijven"}
+                          {activity.status === "Vol" ? "Vol" : "Inschrijven"}
                         </button>
                       )}
 
-                      {/* Fallback: no sub-registrations and no internal form */}
+                      {/* No sub-registrations and no internal form */}
                       {showRegister && !hasInternalForm && subs.length === 0 && onRegister && (
                         <button
                           className="btn-primary btn-sm whitespace-nowrap self-start"

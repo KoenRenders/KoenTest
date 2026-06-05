@@ -83,16 +83,11 @@ try:
 
     add_activity("Brood en Spelen", date(2026, 8, 29), time="14:00", location="Chiro",
         poster_url="https://drive.google.com/file/d/1ZAQUQa8_OngLP9th2etPKON-6TZGkw4p/view",
-        is_archived=False, reg_form_type="PAID_PRODUCTS",
+        is_archived=False,
         sub_registrations=[
-            {"name": "Sjoelbak tornooi", "reg_form_type": "TEAM", "is_free": True},
             {"name": "Cornhole tornooi", "reg_form_type": "TEAM", "is_free": True},
-            {"name": "BBQ: Barbecue (3 stuks vlees)", "is_free": False, "price": 18},
-            {"name": "BBQ: Barbecue (3 stuks vegetarisch)", "is_free": False, "price": 18},
-            {"name": "BBQ: Barbecue (2 stuks vlees)", "is_free": False, "price": 16},
-            {"name": "BBQ: Barbecue (2 stuks vegetarisch)", "is_free": False, "price": 16},
-            {"name": "BBQ: Barbecue (kind)", "is_free": False, "price": 10},
-            {"name": "BBQ: Barbecue (kind vegetarisch)", "is_free": False, "price": 10},
+            {"name": "BBQ", "register_url": "/winkel", "is_free": False},
+            {"name": "Sjoelbak tornooi", "reg_form_type": "TEAM", "is_free": True},
         ])
 
     add_activity("Bezoek wijndomein Aldeneyck", date(2026, 9, 5), time="09:00", location="Kerk (vertrek, eigen vervoer)", is_archived=False, reg_form_type="GROUP")
