@@ -1,10 +1,19 @@
 """Seed all Raak Millegem activities from historical data."""
+import sys
 from datetime import date, datetime
 from app.database import SessionLocal
 from app.models.activity import Activity, Registration
 from app.models.activity_sub_registration import ActivitySubRegistration
 
 db = SessionLocal()
+
+if "--reset" in sys.argv:
+    print("Resetting activities...")
+    db.query(ActivitySubRegistration).delete()
+    db.query(Registration).delete()
+    db.query(Activity).delete()
+    db.commit()
+    print("Done.")
 
 def add_activity(
     name, date_start, location=None, time=None,
@@ -50,47 +59,49 @@ def add_activity(
     return activity
 
 try:
-    # === 2027 (upcoming) ===
-    add_activity("Mannenkroegentocht", date(2027, 6, 12), time="20:00", location="Millegem",
+    # === 2026 (upcoming) ===
+    add_activity("Mannenkroegentocht", date(2026, 6, 12), time="20:00", location="Millegem",
         poster_url="https://drive.google.com/file/d/1DyYBCYugRl8ygTdMnifQeAuzGX_xsAKz/view",
         members_only=True, is_archived=False,
         sub_registrations=[{"name": "Inschrijven", "register_url": "https://forms.gle/TXEVZXNL2GPEiyYx7", "registrations_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vR9RmgeoyuM2deAC_5ylhCqUY9kZsC-zHZ5tT4Md8I5Aggb_iwLKFOsQ3yOjxuWZqDgPwFookDzEEYE/pubhtml?gid=1101066722&single=true"}])
 
-    add_activity("Fotozoektocht", date(2027, 6, 1), location="Millegem", is_archived=False, notes="juni-september")
+    add_activity("Fotozoektocht", date(2026, 6, 1), location="Millegem", is_archived=False, notes="juni-september")
 
-    add_activity("Ledenfeest", date(2027, 6, 27), location="Chiro Millegem",
+    add_activity("Ledenfeest", date(2026, 6, 27), location="Chiro Millegem",
         poster_url="https://drive.google.com/file/d/1ih62JEP6vowgTfKdtc6MPwohZyvPvjzM/view",
         members_only=True, is_archived=False,
         sub_registrations=[{"name": "Inschrijven", "register_url": "https://forms.gle/erYgq7yWyh3EQJrF6", "registrations_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vR6AK7Ka3kATzeKi34Rb0hJHoTTrd-Gies-f-WB6ERlcn9BopmaayTNvxfpIEiiOK0rcG_Y-52ondrr/pubhtml?gid=2037320537&single=true"}])
 
-    add_activity("Gezinsuitstap Irrland", date(2027, 8, 16), time="07:45", location="Lindeplein (vertrek)",
+    add_activity("Gezinsuitstap Irrland", date(2026, 8, 16), time="07:45", location="Lindeplein (vertrek)",
         poster_url="https://drive.google.com/file/d/1DJUbe9LkJvmASEgtQxwKWYapFDspr7kF/view",
         is_archived=False,
         sub_registrations=[{"name": "Inschrijven", "register_url": "https://forms.gle/E4XYUEWFsDhrhEV99", "registrations_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRPa7U-ImQmV8qAuACy2vT6bTsdtOum-s9B_hJLiJ9GwwVRZwLl3uG7dVSMPlqWqQkRgBDNMbeGJohf/pubhtml?gid=2030255716&single=true"}])
 
-    add_activity("Brood en Spelen", date(2027, 8, 29), time="14:00", location="Chiro",
+    add_activity("Brood en Spelen", date(2026, 8, 29), time="14:00", location="Chiro",
         poster_url="https://drive.google.com/file/d/1ZAQUQa8_OngLP9th2etPKON-6TZGkw4p/view",
         is_archived=False)
 
-    add_activity("Bezoek wijndomein Aldeneyck", date(2027, 9, 5), time="09:00", location="Kerk (vertrek, eigen vervoer)", is_archived=False)
+    add_activity("Bezoek wijndomein Aldeneyck", date(2026, 9, 5), time="09:00", location="Kerk (vertrek, eigen vervoer)", is_archived=False)
 
-    add_activity("Comedy Festival", date(2027, 9, 11), time="20:00", location="Miloheem",
+    add_activity("Comedy Festival", date(2026, 9, 11), time="20:00", location="Miloheem",
         poster_url="https://drive.google.com/file/d/1t48_DsOjFZ6V-3xb4SPnI_DuDJBmdnrO/view",
         is_archived=False,
         sub_registrations=[{"name": "Inschrijven", "register_url": "https://shop.stamhoofd.be/comedy-raak-millegem"}])
 
-    add_activity("Wandelweekend Eifel", date(2027, 9, 18), date_end=date(2027, 9, 20), location="Eifel",
+    add_activity("Wandelweekend Eifel", date(2026, 9, 18), date_end=date(2026, 9, 20), location="Eifel",
         poster_url="https://drive.google.com/file/d/19E8CKprHDhPjMZRkCViI7ZcDi7CwZ3bN/view",
         is_archived=False,
         sub_registrations=[{"name": "Inschrijven", "register_url": "https://forms.gle/3CTvybCkt8QcGxcq6", "registrations_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRKYFtlTL5I_JYf2kk4UIL6gRRSlXunCGE_-plyMhpCF8baOfxiAX0akIzX3OT7DR4G1a_4dgUT_srm/pubhtml?gid=989683599&single=true"}])
 
-    add_activity("Zo vader zo zoon", date(2027, 9, 25), time="20:00", location="Miloheem", is_archived=False)
-    add_activity("Raak Café", date(2027, 10, 18), time="13:00", location="Miloheem", is_archived=False, notes="13u-16u30")
-    add_activity("Bowlen", date(2027, 11, 15), time="09:45", location="Bowling Bruul", is_archived=False, notes="10u start")
-    add_activity("Zettersprijskamp", date(2027, 11, 20), time="20:00", location="Miloheem", is_archived=False)
-    add_activity("Sint komt naar onze gezinnen", date(2027, 11, 27), date_end=date(2027, 11, 28), location="Bij de gezinnen", members_only=True, is_archived=False)
-    add_activity("Kerststal", date(2027, 12, 6), date_end=date(2028, 1, 7), location="Millegem", is_archived=False)
-    add_activity("Kerstherberg", date(2027, 12, 25), date_end=date(2027, 12, 30), location="Kerk & Lindeplein", is_archived=False)
+    add_activity("Zo vader zo zoon", date(2026, 9, 25), time="20:00", location="Miloheem", is_archived=False)
+    add_activity("Raak Café", date(2026, 10, 18), time="13:00", location="Miloheem", is_archived=False, notes="13u-16u30")
+    add_activity("Bowlen", date(2026, 11, 15), time="09:45", location="Bowling Bruul", is_archived=False, notes="10u start")
+    add_activity("Zettersprijskamp", date(2026, 11, 20), time="20:00", location="Miloheem", is_archived=False)
+    add_activity("Sint komt naar onze gezinnen", date(2026, 11, 27), date_end=date(2026, 11, 28), location="Bij de gezinnen", members_only=True, is_archived=False)
+    add_activity("Kerststal", date(2026, 12, 6), date_end=date(2027, 1, 7), location="Millegem", is_archived=False)
+    add_activity("Kerstherberg", date(2026, 12, 25), date_end=date(2026, 12, 30), location="Kerk & Lindeplein", is_archived=False)
+
+    # === 2027 (upcoming) ===
     add_activity("Fietsweekend Grubbenvorst", date(2027, 5, 7), date_end=date(2027, 5, 9), location="Witte Dame, Grubbenvorst (Venlo)", members_only=True, is_archived=False)
 
     # === 2026 (archived) ===
