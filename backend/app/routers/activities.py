@@ -237,7 +237,7 @@ def update_sub_registration(
     ).first()
     if not sub:
         raise HTTPException(status_code=404, detail="Sub-registration not found")
-    for field, value in data.model_dump(exclude_none=True).items():
+    for field, value in data.model_dump(exclude_unset=True).items():
         setattr(sub, field, value)
     db.commit()
     db.refresh(sub)
