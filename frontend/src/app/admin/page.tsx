@@ -7,7 +7,6 @@ interface Stats {
   active_members: number;
   upcoming_activities: number;
   open_ideas: number;
-  pending_orders: number;
 }
 
 export default function AdminDashboard() {
@@ -22,7 +21,6 @@ export default function AdminDashboard() {
     { label: "Actieve leden", value: stats.active_members, color: "bg-green-50 text-green-800" },
     { label: "Komende activiteiten", value: stats.upcoming_activities, color: "bg-purple-50 text-purple-800" },
     { label: "Ongelezen ideeën", value: stats.open_ideas, color: "bg-yellow-50 text-yellow-800" },
-    { label: "Openstaande bestellingen", value: stats.pending_orders, color: "bg-orange-50 text-orange-800" },
   ] : [];
 
   return (

@@ -90,37 +90,6 @@ export interface Idea {
   is_reviewed: boolean;
 }
 
-export interface Product {
-  id: number;
-  name: string;
-  regular_price: string;
-  member_price?: string;
-  category?: string;
-  is_active: boolean;
-}
-
-export interface OrderItem {
-  product_id: number;
-  quantity: number;
-}
-
-export interface CartItem {
-  product: Product;
-  quantity: number;
-}
-
-export interface Order {
-  id: number;
-  confirmation_number: string;
-  customer_name: string;
-  customer_email: string;
-  is_member: boolean;
-  total_amount: string;
-  payment_status: string;
-  created_at: string;
-  items: Array<{ product_id: number; quantity: number; unit_price: string; product?: Product }>;
-}
-
 export interface Registration {
   id: number;
   activity_id: number;
