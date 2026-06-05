@@ -60,7 +60,7 @@ export default function HomePage() {
         {loading ? (
           <p className="text-gray-500">Activiteiten laden…</p>
         ) : (
-          <ActivityList activities={activities} onRegister={setSelected} showRegister />
+          <ActivityList activities={activities} onRegister={setSelected} showRegister yearsAscending />
         )}
       </section>
 

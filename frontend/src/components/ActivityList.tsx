@@ -21,10 +21,12 @@ export default function ActivityList({
   activities,
   onRegister,
   showRegister = true,
+  yearsAscending = false,
 }: {
   activities: Activity[];
   onRegister?: (activity: Activity) => void;
   showRegister?: boolean;
+  yearsAscending?: boolean;
 }) {
   if (activities.length === 0) {
     return <p className="text-gray-500 italic">Geen activiteiten gevonden.</p>;
@@ -39,7 +41,7 @@ export default function ActivityList({
 
   const years = Object.keys(byYear)
     .map(Number)
-    .sort((a, b) => b - a);
+    .sort((a, b) => yearsAscending ? a - b : b - a);
 
   return (
     <div className="space-y-10">
