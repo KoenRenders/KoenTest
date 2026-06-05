@@ -19,7 +19,8 @@ def add_activity(
     name, date_start, location=None, time=None,
     poster_url=None, members_only=False, is_cancelled=False,
     is_archived=True, date_end=None, notes=None,
-    sub_registrations=None
+    sub_registrations=None, reg_form_type="NONE", age_category_config=None,
+    price=0,
 ):
     existing = db.query(Activity).filter(Activity.name == name, Activity.date == date_start).first()
     if existing:
@@ -36,8 +37,10 @@ def add_activity(
         is_cancelled=is_cancelled,
         is_archived=is_archived,
         registration_type_code="INDIVIDUAL",
-        price=0,
+        price=price,
         notes=notes,
+        reg_form_type=reg_form_type,
+        age_category_config=age_category_config,
     )
     db.add(activity)
     db.flush()
@@ -55,6 +58,7 @@ def add_activity(
                 is_free=sub.get("is_free", True),
                 price=sub.get("price", 0),
                 sort_order=i,
+                reg_form_type=sub.get("reg_form_type"),
             ))
 
     return activity
@@ -63,8 +67,7 @@ try:
     # === 2026 (upcoming) ===
     add_activity("Mannenkroegentocht", date(2026, 6, 12), time="20:00", location="Café Christiane, Millegem",
         poster_url="https://drive.google.com/file/d/1DyYBCYugRl8ygTdMnifQeAuzGX_xsAKz/view",
-        members_only=True, is_archived=False,
-        sub_registrations=[{"name": "Inschrijven", "register_url": "https://forms.gle/TXEVZXNL2GPEiyYx7", "registrations_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vR9RmgeoyuM2deAC_5ylhCqUY9kZsC-zHZ5tT4Md8I5Aggb_iwLKFOsQ3yOjxuWZqDgPwFookDzEEYE/pubhtml?gid=1101066722&single=true"}])
+        members_only=True, is_archived=False, reg_form_type="INDIVIDUAL")
 
     add_activity("Fotozoektocht", date(2026, 6, 1), date_end=date(2026, 9, 30), location="Millegem", is_archived=False, notes="juni-september")
 
@@ -80,9 +83,19 @@ try:
 
     add_activity("Brood en Spelen", date(2026, 8, 29), time="14:00", location="Chiro",
         poster_url="https://drive.google.com/file/d/1ZAQUQa8_OngLP9th2etPKON-6TZGkw4p/view",
-        is_archived=False)
+        is_archived=False, reg_form_type="PAID_PRODUCTS",
+        sub_registrations=[
+            {"name": "Sjoelbak tornooi", "reg_form_type": "TEAM", "is_free": True},
+            {"name": "Cornhole tornooi", "reg_form_type": "TEAM", "is_free": True},
+            {"name": "BBQ: Barbecue (3 stuks vlees)", "is_free": False, "price": 18},
+            {"name": "BBQ: Barbecue (3 stuks vegetarisch)", "is_free": False, "price": 18},
+            {"name": "BBQ: Barbecue (2 stuks vlees)", "is_free": False, "price": 16},
+            {"name": "BBQ: Barbecue (2 stuks vegetarisch)", "is_free": False, "price": 16},
+            {"name": "BBQ: Barbecue (kind)", "is_free": False, "price": 10},
+            {"name": "BBQ: Barbecue (kind vegetarisch)", "is_free": False, "price": 10},
+        ])
 
-    add_activity("Bezoek wijndomein Aldeneyck", date(2026, 9, 5), time="09:00", location="Kerk (vertrek, eigen vervoer)", is_archived=False)
+    add_activity("Bezoek wijndomein Aldeneyck", date(2026, 9, 5), time="09:00", location="Kerk (vertrek, eigen vervoer)", is_archived=False, reg_form_type="GROUP")
 
     add_activity("Comedy Festival", date(2026, 9, 11), time="20:00", location="Miloheem",
         poster_url="https://drive.google.com/file/d/1t48_DsOjFZ6V-3xb4SPnI_DuDJBmdnrO/view",
@@ -94,9 +107,12 @@ try:
         is_archived=False,
         sub_registrations=[{"name": "Inschrijven", "register_url": "https://forms.gle/3CTvybCkt8QcGxcq6", "registrations_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vRKYFtlTL5I_JYf2kk4UIL6gRRSlXunCGE_-plyMhpCF8baOfxiAX0akIzX3OT7DR4G1a_4dgUT_srm/pubhtml?gid=989683599&single=true"}])
 
-    add_activity("Zo vader zo zoon", date(2026, 9, 25), time="20:00", location="Miloheem", is_archived=False)
+    add_activity("Zo vader zo zoon", date(2026, 9, 25), time="20:00", location="Miloheem", is_archived=False,
+        reg_form_type="AGE_CATEGORY",
+        age_category_config='[{"key":"vader","label":"Vader"},{"key":"zoon","label":"(Meerderjarig) Zoon"}]')
     add_activity("Raak Café", date(2026, 10, 18), time="13:00", location="Miloheem", is_archived=False, notes="13u-16u30")
-    add_activity("Bowlen", date(2026, 11, 15), time="09:45", location="Bowling Bruul", is_archived=False, notes="10u start")
+    add_activity("Bowlen", date(2026, 11, 15), time="09:45", location="Bowling Bruul", is_archived=False, notes="10u start",
+        reg_form_type="PAID_PER_PERSON", price=6.00)
     add_activity("Zettersprijskamp", date(2026, 11, 20), time="20:00", location="Miloheem", is_archived=False)
     add_activity("Sint komt naar onze gezinnen", date(2026, 11, 27), date_end=date(2026, 11, 28), location="Bij de gezinnen", members_only=True, is_archived=False)
     add_activity("Kerststal", date(2026, 12, 6), date_end=date(2027, 1, 7), location="Millegem", is_archived=False)

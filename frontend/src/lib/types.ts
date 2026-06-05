@@ -8,6 +8,7 @@ export interface SubRegistration {
   is_free: boolean;
   price: string;
   sort_order: number;
+  reg_form_type?: string;
 }
 
 export interface Activity {
@@ -27,6 +28,19 @@ export interface Activity {
   registration_count?: number;
   waitlist_count?: number;
   sub_registrations?: SubRegistration[];
+  reg_form_type?: string;
+  age_category_config?: string;
+}
+
+export interface RegistrationItem {
+  sub_registration_id: number;
+  quantity: number;
+}
+
+export interface PublicRegistrationSummary {
+  names: string[];
+  total_registrations: number;
+  total_participants: number;
 }
 
 export interface Family {
