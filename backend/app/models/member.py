@@ -16,7 +16,6 @@ class Member(Base):
     board_member = relationship("Person", foreign_keys=[board_member_id])
     member_persons = relationship("MemberPerson", back_populates="member", cascade="all, delete-orphan")
     memberships = relationship("Membership", back_populates="member", cascade="all, delete-orphan")
-    orders = relationship("Order", back_populates="member")
 
 
 class Person(Base):
