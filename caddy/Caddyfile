@@ -1,8 +1,9 @@
-raakmillegem.be {
+# Local development — geen SSL, geen domeinnaam nodig
+:80 {
     reverse_proxy frontend:3000
 }
 
-api.raakmillegem.be {
+:8080 {
     reverse_proxy backend:8000
     header Access-Control-Allow-Origin *
 }
