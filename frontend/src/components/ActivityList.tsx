@@ -73,7 +73,7 @@ function SubRegRow({
   return (
     <div>
       <div className={rowClass}>
-        <span className="text-gray-700 font-medium">{sub.name}</span>
+        {!compact && <span className="text-gray-700 font-medium">{sub.name}</span>}
         {sub.external_register_url && (
           <a href={sub.external_register_url} target="_blank" rel="noopener noreferrer" className={pillPrimary}>
             Inschrijven ↗
