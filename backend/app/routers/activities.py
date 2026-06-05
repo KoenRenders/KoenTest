@@ -27,7 +27,11 @@ def compute_activity_status(activity: Activity) -> dict:
     count = len(registrations)
     wl_count = len(waitlist)
 
-    if activity.max_participants and count >= activity.max_participants:
+    if activity.date < date.today():
+        status = "Voorbij"
+    elif activity.is_cancelled:
+        status = "Geannuleerd"
+    elif activity.max_participants and count >= activity.max_participants:
         status = "Vol"
     elif wl_count > 0:
         status = "Wachtlijst"
