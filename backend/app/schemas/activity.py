@@ -141,8 +141,13 @@ class RegistrationResponse(BaseModel):
     payment_method: Optional[str] = None
     payment_status: Optional[str] = None
     items: List[RegistrationItemResponse] = []
+    total_amount: Optional[Decimal] = None
 
     model_config = {"from_attributes": True}
+
+
+class MessageResponse(BaseModel):
+    detail: str
 
 
 class PublicRegistrationSummary(BaseModel):

@@ -52,6 +52,7 @@ class Registration(Base):
     payment_method = Column(String(20), nullable=True)
     payment_status = Column(String(20), nullable=True)
     sub_registration_id = Column(Integer, ForeignKey("activity_sub_registrations.id"), nullable=True)
+    total_amount = Column(Numeric(10, 2), nullable=True)
 
     activity = relationship("Activity", back_populates="registrations")
     person = relationship("Person", back_populates="registrations")

@@ -23,6 +23,7 @@ from app.schemas.activity import (
     RegistrationCreate,
     RegistrationResponse,
     PublicRegistrationSummary,
+    MessageResponse,
 )
 from app.services.email import send_waitlist_notification
 
@@ -179,7 +180,7 @@ def update_activity(
     return resp
 
 
-@router.delete("/activities/{activity_id}")
+@router.delete("/activities/{activity_id}", response_model=MessageResponse)
 def delete_activity(
     activity_id: int,
     db: Session = Depends(get_db),
@@ -190,7 +191,7 @@ def delete_activity(
         raise HTTPException(status_code=404, detail="Activity not found")
     db.delete(activity)
     db.commit()
-    return {"detail": "Activity deleted"}
+    return MessageResponse(detail="Activity deleted")
 
 
 @router.post("/activities/{activity_id}/sub-registrations", response_model=SubRegistrationResponse)
@@ -244,7 +245,7 @@ def update_sub_registration(
     return sub
 
 
-@router.delete("/activities/{activity_id}/sub-registrations/{sub_id}")
+@router.delete("/activities/{activity_id}/sub-registrations/{sub_id}", response_model=MessageResponse)
 def delete_sub_registration(
     activity_id: int,
     sub_id: int,
@@ -259,7 +260,7 @@ def delete_sub_registration(
         raise HTTPException(status_code=404, detail="Sub-registration not found")
     db.delete(sub)
     db.commit()
-    return {"detail": "Sub-registration deleted"}
+    return MessageResponse(detail="Sub-registration deleted")
 
 
 @router.get("/activities/{activity_id}/registrations/public", response_model=PublicRegistrationSummary)
@@ -397,6 +398,18 @@ def register_for_activity(
                 updated_at=datetime.utcnow(),
             )
             db.add(reg_item)
+
+    # Compute total_amount server-side
+    if form_type == "PAID_PRODUCTS":
+        total_amount = sum(
+            item.quantity * item.unit_price
+            for item in registration.items
+        ) if registration.items else Decimal("0.00")
+    elif form_type == "PAID_PER_PERSON":
+        total_amount = (data.group_size or 1) * (activity.price or Decimal("0.00"))
+    else:
+        total_amount = Decimal("0.00")
+    registration.total_amount = total_amount
 
     db.commit()
     db.refresh(registration)

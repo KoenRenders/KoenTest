@@ -100,4 +100,5 @@ export interface Registration {
   registration_type: string;
   contact_name?: string;
   contact_email?: string;
+  total_amount?: string;
 }
