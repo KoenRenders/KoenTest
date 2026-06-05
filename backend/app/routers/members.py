@@ -124,6 +124,85 @@ def create_membership(
     return membership
 
 
+@router.get("/families")
+def list_families(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    families = db.query(Member).order_by(Member.created_at.desc()).all()
+    result = []
+    for m in families:
+        primary = next((mp.person for mp in m.member_persons if mp.is_primary), None)
+        address = primary.address if primary else None
+        result.append({
+            "id": m.id,
+            "street": address.street if address else "",
+            "house_number": address.house_number if address else "",
+            "bus_number": address.bus_number if address else None,
+            "postal_code": address.postal_code.postal_code if address and address.postal_code else "",
+            "municipality": address.postal_code.municipality if address and address.postal_code else "",
+            "members": [_person_to_dict(mp.person, mp.is_primary) for mp in m.member_persons],
+        })
+    return result
+
+
+@router.get("/families/{family_id}")
+def get_family(
+    family_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    m = db.query(Member).filter(Member.id == family_id).first()
+    if not m:
+        raise HTTPException(status_code=404, detail="Family not found")
+    primary = next((mp.person for mp in m.member_persons if mp.is_primary), None)
+    address = primary.address if primary else None
+    memberships = [{"id": ms.id, "year": ms.year, "is_active": ms.is_active} for ms in m.memberships]
+    return {
+        "id": m.id,
+        "street": address.street if address else "",
+        "house_number": address.house_number if address else "",
+        "bus_number": address.bus_number if address else None,
+        "postal_code": address.postal_code.postal_code if address and address.postal_code else "",
+        "municipality": address.postal_code.municipality if address and address.postal_code else "",
+        "members": [_person_to_dict(mp.person, mp.is_primary) for mp in m.member_persons],
+        "memberships": memberships,
+    }
+
+
+def _person_to_dict(person: Person, is_primary: bool) -> dict:
+    email = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
+    phone = next((c.value for c in person.contact_details if c.contact_type_code == "PHONE"), None)
+    return {
+        "id": person.id,
+        "family_id": None,
+        "last_name": person.last_name,
+        "first_name": person.first_name,
+        "date_of_birth": str(person.date_of_birth) if person.date_of_birth else None,
+        "gender": person.gender_code,
+        "email": email,
+        "phone": phone,
+        "is_primary": is_primary,
+    }
+
+
+@router.post("/families/{family_id}/memberships", status_code=201)
+def create_membership_for_family(
+    family_id: int,
+    data: MembershipCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    member = db.query(Member).filter(Member.id == family_id).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Family not found")
+    membership = Membership(member_id=family_id, year=data.year, is_active=data.is_active)
+    db.add(membership)
+    db.commit()
+    db.refresh(membership)
+    return {"id": membership.id, "year": membership.year, "is_active": membership.is_active}
+
+
 @router.post("/families", status_code=201)
 def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
     """Public endpoint: register a new family (member household)."""
