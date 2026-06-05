@@ -9,7 +9,7 @@ class Activity(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
-    date = Column(Date, nullable=False)
+    date = Column(Date, nullable=False, index=True)
     date_end = Column(Date, nullable=True)
     time = Column(Time, nullable=True)
     location = Column(String(255), nullable=True)
@@ -18,7 +18,7 @@ class Activity(Base):
     price = Column(Numeric(10, 2), default=0, nullable=False)
     member_price = Column(Numeric(10, 2), nullable=True)
     poster_url = Column(String(500), nullable=True)
-    is_archived = Column(Boolean, default=False, nullable=False)
+    is_archived = Column(Boolean, default=False, nullable=False, index=True)
     members_only = Column(Boolean, default=False, nullable=False)
     is_cancelled = Column(Boolean, default=False, nullable=False)
     notes = Column(Text, nullable=True)
@@ -35,7 +35,7 @@ class Registration(Base):
     __tablename__ = "registrations"
 
     id = Column(Integer, primary_key=True, index=True)
-    activity_id = Column(Integer, ForeignKey("activities.id"), nullable=False)
+    activity_id = Column(Integer, ForeignKey("activities.id"), nullable=False, index=True)
     person_id = Column(Integer, ForeignKey("persons.id"), nullable=True)
     is_waitlist = Column(Boolean, default=False, nullable=False)
     registered_at = Column(DateTime, default=datetime.utcnow, nullable=False)

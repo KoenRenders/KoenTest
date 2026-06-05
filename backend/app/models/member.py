@@ -58,8 +58,8 @@ class Membership(Base):
     __tablename__ = "memberships"
 
     id = Column(Integer, primary_key=True, index=True)
-    member_id = Column(Integer, ForeignKey("members.id"), nullable=False)
-    year = Column(Integer, nullable=False)
+    member_id = Column(Integer, ForeignKey("members.id"), nullable=False, index=True)
+    year = Column(Integer, nullable=False, index=True)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
