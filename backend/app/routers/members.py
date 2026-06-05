@@ -188,7 +188,7 @@ def get_family(
     return _build_family_response(m)
 
 
-def _person_to_schema(person: Person, is_primary: bool) -> FamilyMemberResponse:
+def _person_to_schema(person: Person, relation_type: str) -> FamilyMemberResponse:
     email = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
     phone = next((c.value for c in person.contact_details if c.contact_type_code == "PHONE"), None)
     return FamilyMemberResponse(
@@ -199,7 +199,8 @@ def _person_to_schema(person: Person, is_primary: bool) -> FamilyMemberResponse:
         gender=person.gender_code,
         email=email,
         phone=phone,
-        is_primary=is_primary,
+        relation_type=relation_type,
+        is_primary=relation_type == "hoofdlid",
     )
 
 
@@ -218,7 +219,7 @@ def _build_family_response(m: Member) -> FamilyResponse:
         bus_number=address.bus_number if address else None,
         postal_code=address.postal_code.postal_code if address and address.postal_code else "",
         municipality=address.postal_code.municipality if address and address.postal_code else "",
-        members=[_person_to_schema(mp.person, mp.is_primary) for mp in m.member_persons],
+        members=[_person_to_schema(mp.person, mp.relation_type) for mp in m.member_persons],
         memberships=[MembershipResponse.model_validate(ms) for ms in m.memberships],
         board_member=board_member,
     )
@@ -382,7 +383,7 @@ def add_person_to_family(
     db.add(person)
     db.flush()
 
-    db.add(MemberPerson(member_id=family_id, person_id=person.id, is_primary=data.is_primary))
+    db.add(MemberPerson(member_id=family_id, person_id=person.id, relation_type=data.relation_type))
 
     if primary_address:
         db.add(Address(
@@ -463,7 +464,7 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
         mp = MemberPerson(
             member_id=member.id,
             person_id=person.id,
-            is_primary=person_data.is_primary,
+            relation_type="hoofdlid" if person_data.is_primary else "partner",
         )
         db.add(mp)
 

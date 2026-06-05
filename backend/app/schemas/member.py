@@ -96,6 +96,9 @@ class MembershipResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+RELATION_TYPES = ["hoofdlid", "partner", "kind", "meerderjarig kind"]
+
+
 class FamilyMemberResponse(BaseModel):
     id: int
     last_name: str
@@ -104,6 +107,7 @@ class FamilyMemberResponse(BaseModel):
     gender: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    relation_type: str
     is_primary: bool
 
 
@@ -148,7 +152,7 @@ class PersonAddToFamily(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     mobile: Optional[str] = None
-    is_primary: bool = False
+    relation_type: str = "partner"
 
 
 class BoardMemberAssign(BaseModel):

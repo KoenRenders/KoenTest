@@ -9,9 +9,11 @@ import type { Family, FamilyMember, Membership } from "@/lib/types";
 
 interface PersonItem { id: number; last_name: string; first_name: string; }
 
+const RELATION_TYPES = ["hoofdlid", "partner", "kind", "meerderjarig kind"];
+
 const emptyPersonForm = () => ({
   last_name: "", first_name: "", date_of_birth: "", gender_code: "",
-  email: "", phone: "", mobile: "", is_primary: false,
+  email: "", phone: "", mobile: "", relation_type: "partner",
 });
 
 export default function AdminLeden() {
@@ -262,9 +264,11 @@ export default function AdminLeden() {
                     <label className="label">GSM</label>
                     <input className="input" value={newPersonForm.mobile} onChange={(e) => setNewPersonForm((f) => ({ ...f, mobile: e.target.value }))} />
                   </div>
-                  <div className="flex items-center gap-2 pt-5">
-                    <input type="checkbox" id="is_primary_new" checked={newPersonForm.is_primary} onChange={(e) => setNewPersonForm((f) => ({ ...f, is_primary: e.target.checked }))} />
-                    <label htmlFor="is_primary_new" className="text-sm">Hoofdlid</label>
+                  <div>
+                    <label className="label">Relatie</label>
+                    <select className="input" value={newPersonForm.relation_type} onChange={(e) => setNewPersonForm((f) => ({ ...f, relation_type: e.target.value }))}>
+                      {RELATION_TYPES.map((r) => <option key={r} value={r}>{r}</option>)}
+                    </select>
                   </div>
                 </div>
                 <div className="flex gap-2">
@@ -323,7 +327,7 @@ export default function AdminLeden() {
                     <div className="flex items-start justify-between text-sm py-2 border-b border-gray-100 last:border-0">
                       <div>
                         <span className="font-medium">{m.first_name} {m.last_name}</span>
-                        {m.is_primary && <span className="ml-2 text-xs bg-blue-100 text-blue-800 px-2 py-0.5 rounded-full">Hoofdlid</span>}
+                        <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${m.is_primary ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-600"}`}>{m.relation_type}</span>
                         <div className="text-gray-500 text-xs mt-0.5">
                           {m.date_of_birth && <span>{m.date_of_birth} · </span>}
                           {m.email && <span>{m.email} · </span>}
