@@ -8,6 +8,8 @@ from app.auth import get_current_admin
 from app.database import get_db
 from app.models.member import Member, Person, MemberPerson, Membership
 from app.models.postal_codes import PostalCode
+from app.models.address import Address
+from app.models.contact import ContactDetail
 from app.models.user import User
 from app.schemas.member import (
     MemberCreate,
@@ -17,6 +19,7 @@ from app.schemas.member import (
     MembershipCreate,
     MembershipResponse,
 )
+from app.schemas.family import FamilyCreate
 
 router = APIRouter(tags=["members"])
 
@@ -119,3 +122,52 @@ def create_membership(
     db.commit()
     db.refresh(membership)
     return membership
+
+
+@router.post("/families", status_code=201)
+def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
+    """Public endpoint: register a new family (member household)."""
+    pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
+    if not pc:
+        raise HTTPException(status_code=422, detail=f"Onbekende postcode: {data.postal_code}")
+
+    member = Member()
+    db.add(member)
+    db.flush()
+
+    for person_data in data.members:
+        person = Person(
+            last_name=person_data.last_name,
+            first_name=person_data.first_name,
+            date_of_birth=person_data.date_of_birth,
+            gender_code=person_data.gender or None,
+            mobile=person_data.mobile or None,
+        )
+        db.add(person)
+        db.flush()
+
+        mp = MemberPerson(
+            member_id=member.id,
+            person_id=person.id,
+            is_primary=person_data.is_primary,
+        )
+        db.add(mp)
+
+        address = Address(
+            person_id=person.id,
+            street=data.street,
+            house_number=data.house_number,
+            bus_number=data.bus_number or None,
+            postal_code_id=pc.id,
+        )
+        db.add(address)
+
+        if person_data.phone:
+            db.add(ContactDetail(person_id=person.id, contact_type_code="PHONE", value=person_data.phone, is_primary=True))
+        if person_data.mobile:
+            db.add(ContactDetail(person_id=person.id, contact_type_code="MOBILE", value=person_data.mobile, is_primary=not person_data.phone))
+        if person_data.email:
+            db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=person_data.email, is_primary=True))
+
+    db.commit()
+    return {"id": member.id, "status": "registered"}
