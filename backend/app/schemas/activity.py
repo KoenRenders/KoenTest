@@ -67,7 +67,7 @@ class SubRegistrationResponse(BaseModel):
     external_registrations_url: Optional[str] = None
     info_url: Optional[str] = None
     is_free: bool
-    price: float
+    price: Decimal
     sort_order: int
     reg_form_type: Optional[str] = None
 
@@ -83,8 +83,8 @@ class ActivityResponse(BaseModel):
     location: Optional[str] = None
     max_participants: Optional[int] = None
     registration_type_code: str
-    price: float
-    member_price: Optional[float] = None
+    price: Decimal
+    member_price: Optional[Decimal] = None
     poster_url: Optional[str] = None
     is_archived: bool
     created_at: datetime
@@ -120,7 +120,7 @@ class RegistrationItemResponse(BaseModel):
     id: int
     sub_registration_id: int
     quantity: int
-    unit_price: float
+    unit_price: Decimal
 
     model_config = {"from_attributes": True}
 

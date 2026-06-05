@@ -327,7 +327,7 @@ export default function AdminActiviteiten() {
                             )}
                             {!sub.is_free && (
                               <span className="ml-2 text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
-                                €{sub.price.toFixed(2)}
+                                €{parseFloat(sub.price).toFixed(2)}
                               </span>
                             )}
                             {sub.external_register_url && (
