@@ -9,7 +9,7 @@ export default function AdminLeden() {
   const [year, setYear] = useState(new Date().getFullYear());
 
   useEffect(() => {
-    getFamilies().then((r) => setFamilies(r.data)).catch(() => {});
+    getFamilies().then((r) => setFamilies(r.data.items)).catch(() => {});
   }, []);
 
   async function loadFamily(id: number) {
@@ -21,7 +21,7 @@ export default function AdminLeden() {
     if (!confirm("Verwijder dit gezin en alle gezinsleden? Dit kan niet ongedaan worden gemaakt.")) return;
     await deleteFamily(id);
     setSelected(null);
-    getFamilies().then((r) => setFamilies(r.data)).catch(() => {});
+    getFamilies().then((r) => setFamilies(r.data.items)).catch(() => {});
   }
 
   async function addMembership(familyId: number) {

@@ -3,6 +3,7 @@ import { useState } from "react";
 import { registerForActivity } from "@/lib/api";
 import type { Activity, SubRegistration } from "@/lib/types";
 import { parseApiError } from "@/lib/errors";
+import { formatPrice, isPositivePrice } from "@/lib/money";
 
 interface Props {
   activity: Activity;
@@ -33,7 +34,7 @@ export default function RegistrationForm({ activity, subRegistration, onClose, o
   const isPaid =
     formType === "PAID_PER_PERSON" ||
     formType === "PAID_PRODUCTS" ||
-    parseFloat(activity.price) > 0;
+    isPositivePrice(activity.price);
 
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
@@ -50,18 +51,6 @@ export default function RegistrationForm({ activity, subRegistration, onClose, o
   const [paymentMethod, setPaymentMethod] = useState("MOLLIE");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const unitPrice = parseFloat(activity.price) || 0;
-
-  // Compute total for display
-  let displayTotal = 0;
-  if (formType === "PAID_PER_PERSON") {
-    displayTotal = groupSize * unitPrice;
-  } else if (formType === "PAID_PRODUCTS") {
-    for (const p of paidProducts) {
-      displayTotal += (itemQuantities[p.id] || 0) * parseFloat(p.price);
-    }
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -182,11 +171,6 @@ export default function RegistrationForm({ activity, subRegistration, onClose, o
                 value={groupSize}
                 onChange={(e) => setGroupSize(parseInt(e.target.value) || 1)}
               />
-              {unitPrice > 0 && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Totaal: {groupSize} × €{unitPrice.toFixed(2)} = <strong>€{displayTotal.toFixed(2)}</strong>
-                </p>
-              )}
             </div>
           )}
 
@@ -211,7 +195,7 @@ export default function RegistrationForm({ activity, subRegistration, onClose, o
               {paidProducts.map((p) => (
                 <div key={p.id} className="flex items-center gap-3">
                   <span className="flex-1 text-sm text-gray-700">
-                    {p.name} (€{parseFloat(p.price).toFixed(2)})
+                    {p.name} ({formatPrice(p.price)})
                   </span>
                   <input
                     type="number"
@@ -224,11 +208,6 @@ export default function RegistrationForm({ activity, subRegistration, onClose, o
                   />
                 </div>
               ))}
-              {displayTotal > 0 && (
-                <p className="text-sm text-gray-600 font-medium">
-                  Totaal: <strong>€{displayTotal.toFixed(2)}</strong>
-                </p>
-              )}
             </div>
           )}
 

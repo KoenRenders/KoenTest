@@ -94,3 +94,51 @@ class MembershipResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class FamilyMemberResponse(BaseModel):
+    id: int
+    last_name: str
+    first_name: str
+    date_of_birth: Optional[date] = None
+    gender: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    is_primary: bool
+
+
+class FamilyResponse(BaseModel):
+    id: int
+    street: str
+    house_number: str
+    bus_number: Optional[str] = None
+    postal_code: str
+    municipality: str
+    members: List[FamilyMemberResponse]
+    memberships: List[MembershipResponse] = []
+
+
+class FamilyRegisteredResponse(BaseModel):
+    id: int
+    status: str
+
+
+class PostalCodeResponse(BaseModel):
+    postal_code: str
+    municipality: str
+
+
+class PaginatedFamiliesResponse(BaseModel):
+    items: List[FamilyResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class PaginatedMembersResponse(BaseModel):
+    items: List[MemberResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int

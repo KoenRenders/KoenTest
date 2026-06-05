@@ -1,7 +1,7 @@
 from datetime import date, time as Time, datetime
 from typing import Optional, List
 from decimal import Decimal
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 
 
 class ActivityCreate(BaseModel):
@@ -19,10 +19,12 @@ class ActivityCreate(BaseModel):
 class ActivityUpdate(BaseModel):
     name: Optional[str] = None
     date: Optional[date] = None
+    date_end: Optional[date] = None
     time: Optional[Time] = None
     location: Optional[str] = None
     max_participants: Optional[int] = None
     registration_type_code: Optional[str] = None
+    reg_form_type: Optional[str] = None
     price: Optional[Decimal] = None
     member_price: Optional[Decimal] = None
     poster_url: Optional[str] = None
@@ -103,10 +105,10 @@ class RegistrationItemCreate(BaseModel):
 
 class RegistrationCreate(BaseModel):
     contact_name: Optional[str] = None
-    contact_email: Optional[str] = None
+    contact_email: Optional[EmailStr] = None
     contact_phone: Optional[str] = None
     team_name: Optional[str] = None
-    group_size: Optional[int] = None
+    group_size: Optional[int] = Field(None, ge=1, le=500)
     age_categories: Optional[str] = None  # JSON string
     remarks: Optional[str] = None
     payment_method: Optional[str] = "FREE"
@@ -139,8 +141,13 @@ class RegistrationResponse(BaseModel):
     payment_method: Optional[str] = None
     payment_status: Optional[str] = None
     items: List[RegistrationItemResponse] = []
+    total_amount: Optional[Decimal] = None
 
     model_config = {"from_attributes": True}
+
+
+class MessageResponse(BaseModel):
+    detail: str
 
 
 class PublicRegistrationSummary(BaseModel):

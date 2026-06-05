@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { getPublicRegistrations } from "@/lib/api";
 import type { Activity, SubRegistration } from "@/lib/types";
+import { isPositivePrice, formatPrice } from "@/lib/money";
 
 function StatusBadge({ status }: { status?: string }) {
   if (status === "Vol") return <span className="status-vol">Vol</span>;
@@ -192,9 +193,9 @@ export default function ActivityList({
                         {activity.max_participants && (
                           <p>👥 {activity.registration_count ?? 0} / {activity.max_participants} deelnemers</p>
                         )}
-                        {parseFloat(activity.price) > 0 && (
-                          <p>💶 €{parseFloat(activity.price).toFixed(2)}
-                            {activity.member_price ? ` (leden: €${parseFloat(activity.member_price).toFixed(2)})` : ""}
+                        {isPositivePrice(activity.price) && (
+                          <p>💶 {formatPrice(activity.price)}
+                            {activity.member_price ? ` (leden: ${formatPrice(activity.member_price)})` : ""}
                           </p>
                         )}
                       </div>

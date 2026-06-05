@@ -1,3 +1,4 @@
+import time
 from datetime import date
 from typing import List, Optional
 
@@ -18,25 +19,51 @@ from app.schemas.member import (
     PersonResponse,
     MembershipCreate,
     MembershipResponse,
+    FamilyMemberResponse,
+    FamilyResponse,
+    FamilyRegisteredResponse,
+    PostalCodeResponse,
+    PaginatedFamiliesResponse,
+    PaginatedMembersResponse,
 )
 from app.schemas.family import FamilyCreate
+
+_postal_cache: Optional[list] = None
+_postal_cache_ts: float = 0
+POSTAL_CACHE_TTL = 3600  # 1 hour
 
 router = APIRouter(tags=["members"])
 
 
-@router.get("/postal-codes")
+@router.get("/postal-codes", response_model=List[PostalCodeResponse])
 def list_postal_codes(db: Session = Depends(get_db)):
     """Return all postal codes with their municipality names."""
+    global _postal_cache, _postal_cache_ts
+    now = time.time()
+    if _postal_cache is not None and (now - _postal_cache_ts) < POSTAL_CACHE_TTL:
+        return _postal_cache
     rows = db.query(PostalCode).order_by(PostalCode.postal_code).all()
-    return [{"postal_code": r.postal_code, "municipality": r.municipality} for r in rows]
+    _postal_cache = [PostalCodeResponse(postal_code=r.postal_code, municipality=r.municipality) for r in rows]
+    _postal_cache_ts = now
+    return _postal_cache
 
 
-@router.get("/members", response_model=List[MemberResponse])
+@router.get("/members", response_model=PaginatedMembersResponse)
 def list_members(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    return db.query(Member).order_by(Member.created_at.desc()).all()
+    total = db.query(Member).count()
+    members = db.query(Member).order_by(Member.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    return PaginatedMembersResponse(
+        items=members,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=(total + page_size - 1) // page_size,
+    )
 
 
 @router.post("/members", response_model=MemberResponse)
@@ -124,29 +151,40 @@ def create_membership(
     return membership
 
 
-@router.get("/families")
+@router.get("/families", response_model=PaginatedFamiliesResponse)
 def list_families(
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    families = db.query(Member).order_by(Member.created_at.desc()).all()
+    total = db.query(Member).count()
+    families = db.query(Member).order_by(Member.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     result = []
     for m in families:
         primary = next((mp.person for mp in m.member_persons if mp.is_primary), None)
         address = primary.address if primary else None
-        result.append({
-            "id": m.id,
-            "street": address.street if address else "",
-            "house_number": address.house_number if address else "",
-            "bus_number": address.bus_number if address else None,
-            "postal_code": address.postal_code.postal_code if address and address.postal_code else "",
-            "municipality": address.postal_code.municipality if address and address.postal_code else "",
-            "members": [_person_to_dict(mp.person, mp.is_primary) for mp in m.member_persons],
-        })
-    return result
+        memberships = [MembershipResponse.model_validate(ms) for ms in m.memberships]
+        result.append(FamilyResponse(
+            id=m.id,
+            street=address.street if address else "",
+            house_number=address.house_number if address else "",
+            bus_number=address.bus_number if address else None,
+            postal_code=address.postal_code.postal_code if address and address.postal_code else "",
+            municipality=address.postal_code.municipality if address and address.postal_code else "",
+            members=[_person_to_schema(mp.person, mp.is_primary) for mp in m.member_persons],
+            memberships=memberships,
+        ))
+    return PaginatedFamiliesResponse(
+        items=result,
+        total=total,
+        page=page,
+        page_size=page_size,
+        total_pages=(total + page_size - 1) // page_size,
+    )
 
 
-@router.get("/families/{family_id}")
+@router.get("/families/{family_id}", response_model=FamilyResponse)
 def get_family(
     family_id: int,
     db: Session = Depends(get_db),
@@ -157,36 +195,35 @@ def get_family(
         raise HTTPException(status_code=404, detail="Family not found")
     primary = next((mp.person for mp in m.member_persons if mp.is_primary), None)
     address = primary.address if primary else None
-    memberships = [{"id": ms.id, "year": ms.year, "is_active": ms.is_active} for ms in m.memberships]
-    return {
-        "id": m.id,
-        "street": address.street if address else "",
-        "house_number": address.house_number if address else "",
-        "bus_number": address.bus_number if address else None,
-        "postal_code": address.postal_code.postal_code if address and address.postal_code else "",
-        "municipality": address.postal_code.municipality if address and address.postal_code else "",
-        "members": [_person_to_dict(mp.person, mp.is_primary) for mp in m.member_persons],
-        "memberships": memberships,
-    }
+    memberships = [MembershipResponse.model_validate(ms) for ms in m.memberships]
+    return FamilyResponse(
+        id=m.id,
+        street=address.street if address else "",
+        house_number=address.house_number if address else "",
+        bus_number=address.bus_number if address else None,
+        postal_code=address.postal_code.postal_code if address and address.postal_code else "",
+        municipality=address.postal_code.municipality if address and address.postal_code else "",
+        members=[_person_to_schema(mp.person, mp.is_primary) for mp in m.member_persons],
+        memberships=memberships,
+    )
 
 
-def _person_to_dict(person: Person, is_primary: bool) -> dict:
+def _person_to_schema(person: Person, is_primary: bool) -> FamilyMemberResponse:
     email = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
     phone = next((c.value for c in person.contact_details if c.contact_type_code == "PHONE"), None)
-    return {
-        "id": person.id,
-        "family_id": None,
-        "last_name": person.last_name,
-        "first_name": person.first_name,
-        "date_of_birth": str(person.date_of_birth) if person.date_of_birth else None,
-        "gender": person.gender_code,
-        "email": email,
-        "phone": phone,
-        "is_primary": is_primary,
-    }
+    return FamilyMemberResponse(
+        id=person.id,
+        last_name=person.last_name,
+        first_name=person.first_name,
+        date_of_birth=person.date_of_birth,
+        gender=person.gender_code,
+        email=email,
+        phone=phone,
+        is_primary=is_primary,
+    )
 
 
-@router.post("/families/{family_id}/memberships", status_code=201)
+@router.post("/families/{family_id}/memberships", status_code=201, response_model=MembershipResponse)
 def create_membership_for_family(
     family_id: int,
     data: MembershipCreate,
@@ -200,7 +237,7 @@ def create_membership_for_family(
     db.add(membership)
     db.commit()
     db.refresh(membership)
-    return {"id": membership.id, "year": membership.year, "is_active": membership.is_active}
+    return MembershipResponse.model_validate(membership)
 
 
 @router.delete("/families/{family_id}", status_code=204)
@@ -223,7 +260,7 @@ def delete_family(
     db.commit()
 
 
-@router.post("/families", status_code=201)
+@router.post("/families", status_code=201, response_model=FamilyRegisteredResponse)
 def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
     """Public endpoint: register a new family (member household)."""
     pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
@@ -269,4 +306,4 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
             db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=person_data.email, is_primary=True))
 
     db.commit()
-    return {"id": member.id, "status": "registered"}
+    return FamilyRegisteredResponse(id=member.id, status="registered")

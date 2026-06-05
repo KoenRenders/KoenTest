@@ -1,6 +1,7 @@
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from html import escape
 from typing import Optional
 
 from app.config import settings
@@ -26,7 +27,7 @@ def send_registration_confirmation(to_email: str, name: str, family) -> None:
         to_email=to_email,
         subject="Welkom bij Raak Millegem!",
         body_html=f"""
-        <p>Beste {name},</p>
+        <p>Beste {escape(name)},</p>
         <p>Je registratie bij Raak Millegem is ontvangen. Welkom!</p>
         <p>Met vriendelijke groeten,<br>Raak Millegem</p>
         """,
@@ -36,38 +37,40 @@ def send_registration_confirmation(to_email: str, name: str, family) -> None:
 def send_activity_registration_confirmation(
     to_email: str, name: str, activity, is_waitlist: bool = False
 ) -> None:
+    activity_name = escape(activity.name)
     if is_waitlist:
-        subject = f"Wachtlijst: {activity.name}"
+        subject = f"Wachtlijst: {activity_name}"
         message = f"""
-        <p>Je staat op de wachtlijst voor <strong>{activity.name}</strong>.</p>
+        <p>Je staat op de wachtlijst voor <strong>{activity_name}</strong>.</p>
         <p>Je ontvangt automatisch een bericht als er een plaatsje vrijkomt.</p>
         """
     else:
-        subject = f"Inschrijving bevestigd: {activity.name}"
+        subject = f"Inschrijving bevestigd: {activity_name}"
         date_str = activity.date.strftime("%d/%m/%Y")
         time_str = activity.time.strftime("%H:%M") if activity.time else ""
+        location = escape(activity.location) if activity.location else ""
         message = f"""
-        <p>Je inschrijving voor <strong>{activity.name}</strong> is bevestigd.</p>
+        <p>Je inschrijving voor <strong>{activity_name}</strong> is bevestigd.</p>
         <ul>
           <li><strong>Datum:</strong> {date_str}</li>
           {'<li><strong>Tijdstip:</strong> ' + time_str + '</li>' if time_str else ''}
-          {'<li><strong>Locatie:</strong> ' + activity.location + '</li>' if activity.location else ''}
+          {'<li><strong>Locatie:</strong> ' + location + '</li>' if location else ''}
         </ul>
         """
     _send(
         to_email=to_email,
         subject=subject,
-        body_html=f"<p>Beste {name},</p>{message}<p>Met vriendelijke groeten,<br>Raak Millegem</p>",
+        body_html=f"<p>Beste {escape(name)},</p>{message}<p>Met vriendelijke groeten,<br>Raak Millegem</p>",
     )
 
 
 def send_waitlist_notification(to_email: str, name: str, activity_name: str) -> None:
     _send(
         to_email=to_email,
-        subject=f"Plaatsje vrijgekomen: {activity_name}",
+        subject=f"Plaatsje vrijgekomen: {escape(activity_name)}",
         body_html=f"""
-        <p>Beste {name},</p>
-        <p>Er is een plaatsje vrijgekomen voor <strong>{activity_name}</strong>. Je bent automatisch ingeschreven.</p>
+        <p>Beste {escape(name)},</p>
+        <p>Er is een plaatsje vrijgekomen voor <strong>{escape(activity_name)}</strong>. Je bent automatisch ingeschreven.</p>
         <p>Met vriendelijke groeten,<br>Raak Millegem</p>
         """,
     )
