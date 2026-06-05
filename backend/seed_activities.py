@@ -65,7 +65,7 @@ try:
         members_only=True, is_archived=False,
         sub_registrations=[{"name": "Inschrijven", "register_url": "https://forms.gle/TXEVZXNL2GPEiyYx7", "registrations_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vR9RmgeoyuM2deAC_5ylhCqUY9kZsC-zHZ5tT4Md8I5Aggb_iwLKFOsQ3yOjxuWZqDgPwFookDzEEYE/pubhtml?gid=1101066722&single=true"}])
 
-    add_activity("Fotozoektocht", date(2026, 6, 1), location="Millegem", is_archived=False, notes="juni-september")
+    add_activity("Fotozoektocht", date(2026, 6, 1), date_end=date(2026, 9, 30), location="Millegem", is_archived=False, notes="juni-september")
 
     add_activity("Ledenfeest", date(2026, 6, 27), location="Chiro Millegem",
         poster_url="https://drive.google.com/file/d/1ih62JEP6vowgTfKdtc6MPwohZyvPvjzM/view",

@@ -1,4 +1,5 @@
 from datetime import date
+from sqlalchemy import or_, and_
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -27,7 +28,8 @@ def compute_activity_status(activity: Activity) -> dict:
     count = len(registrations)
     wl_count = len(waitlist)
 
-    if activity.date < date.today():
+    end = activity.date_end or activity.date
+    if end < date.today():
         status = "Voorbij"
     elif activity.is_cancelled:
         status = "Geannuleerd"
@@ -48,9 +50,13 @@ def compute_activity_status(activity: Activity) -> dict:
 @router.get("/activities", response_model=List[ActivityResponse])
 def list_activities(db: Session = Depends(get_db)):
     today = date.today()
+    still_running = or_(
+        and_(Activity.date_end != None, Activity.date_end >= today),
+        and_(Activity.date_end == None, Activity.date >= today),
+    )
     activities = (
         db.query(Activity)
-        .filter(Activity.is_archived == False, Activity.date >= today)
+        .filter(Activity.is_archived == False, still_running)
         .order_by(Activity.date.asc())
         .all()
     )
@@ -70,7 +76,11 @@ def list_archived_activities(db: Session = Depends(get_db)):
     today = date.today()
     activities = (
         db.query(Activity)
-        .filter((Activity.is_archived == True) | (Activity.date < today))
+        .filter(
+            (Activity.is_archived == True) |
+            and_(Activity.date_end == None, Activity.date < today) |
+            and_(Activity.date_end != None, Activity.date_end < today)
+        )
         .order_by(Activity.date.desc())
         .all()
     )
