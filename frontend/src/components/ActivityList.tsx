@@ -73,7 +73,14 @@ function SubRegRow({
   return (
     <div>
       <div className={rowClass}>
-        <span className="text-gray-700 font-medium">{sub.name}</span>
+        {sub.external_register_url ? (
+          <a href={sub.external_register_url} target="_blank" rel="noopener noreferrer"
+            className="text-gray-700 font-medium hover:text-blue-600 underline">
+            {sub.name} ↗
+          </a>
+        ) : (
+          <span className="text-gray-700 font-medium">{sub.name}</span>
+        )}
         {sub.info_url && (
           <a href={sub.info_url} target="_blank" rel="noopener noreferrer"
             className="text-xs text-gray-500 hover:text-blue-600 underline">
@@ -100,11 +107,6 @@ function SubRegRow({
         )}
 
         {/* External links */}
-        {!sub.reg_form_type && sub.external_register_url && (
-          <a href={sub.external_register_url} target="_blank" rel="noopener noreferrer" className={pillPrimary}>
-            Inschrijven ↗
-          </a>
-        )}
         {!sub.reg_form_type && sub.external_registrations_url && (
           <a href={sub.external_registrations_url} target="_blank" rel="noopener noreferrer" className={pillOutline}>
             Inschrijvingen ↗
@@ -226,16 +228,6 @@ export default function ActivityList({
                         </button>
                       )}
 
-                      {/* No sub-registrations and no internal form */}
-                      {showRegister && !hasInternalForm && subs.length === 0 && onRegister && (
-                        <button
-                          className="btn-primary btn-sm whitespace-nowrap self-start"
-                          onClick={() => onRegister(activity)}
-                          disabled={activity.status === "Vol"}
-                        >
-                          {activity.status === "Vol" ? "Vol" : "Inschrijven"}
-                        </button>
-                      )}
                     </div>
                   </div>
                 </div>
