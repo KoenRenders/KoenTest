@@ -1,5 +1,6 @@
 "use client";
 import { useState, useEffect } from "react";
+import { parseApiError } from "@/lib/errors";
 
 interface PostalCodeOption {
   postal_code: string;
@@ -154,8 +155,8 @@ export default function FamilyRegistrationForm() {
         throw new Error(typeof detail === "string" ? detail : JSON.stringify(detail));
       }
       setStatus("success");
-    } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "Er is iets misgelopen. Controleer je gegevens en probeer opnieuw.");
+    } catch (err) {
+      setError(parseApiError(err));
       setStatus("error");
     }
   }
@@ -261,7 +262,11 @@ export default function FamilyRegistrationForm() {
         </button>
       </div>
 
-      {error && <p className="text-red-600 text-sm">{error}</p>}
+      {error && (
+        <div className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg p-3 whitespace-pre-line">
+          {error}
+        </div>
+      )}
 
       <button type="submit" disabled={status === "loading"} className="btn-primary w-full sm:w-auto">
         {status === "loading" ? "Bezig…" : "Gezin registreren"}
