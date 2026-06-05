@@ -4,7 +4,7 @@ from typing import Optional
 
 class Settings(BaseSettings):
     database_url: str = "postgresql://postgres:postgres@localhost:5432/raakmillegem"
-    secret_key: str = "change-me-in-production"
+    secret_key: str
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24  # 24 hours
 

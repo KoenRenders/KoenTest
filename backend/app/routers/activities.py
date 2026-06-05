@@ -353,7 +353,7 @@ def register_for_activity(
     # Check capacity
     current_registrations = [r for r in activity.registrations if not r.is_waitlist]
     current_participants = sum(compute_participant_count(r) for r in current_registrations)
-    is_full = activity.max_participants and (current_participants + participant_count) > activity.max_participants
+    is_full = activity.max_participants is not None and (current_participants + participant_count) > activity.max_participants
     is_waitlist = bool(is_full)
 
     # Determine payment status
