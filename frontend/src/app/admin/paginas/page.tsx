@@ -91,17 +91,8 @@ export default function AdminPaginas() {
               </div>
 
               {preview ? (
-                <div className="border border-gray-200 rounded-lg p-4 min-h-[300px] bg-white text-gray-800 leading-relaxed space-y-3">
-                  <ReactMarkdown components={{
-                    h2: ({children}) => <h2 className="text-xl font-bold text-blue-800 mt-4 mb-2">{children}</h2>,
-                    h3: ({children}) => <h3 className="text-lg font-semibold text-blue-700 mt-3 mb-1">{children}</h3>,
-                    p: ({children}) => <p className="mb-2">{children}</p>,
-                    ul: ({children}) => <ul className="list-disc list-outside ml-6 mb-2 space-y-1">{children}</ul>,
-                    ol: ({children}) => <ol className="list-decimal list-outside ml-6 mb-2 space-y-1">{children}</ol>,
-                    li: ({children}) => <li>{children}</li>,
-                    a: ({href, children}) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">{children}</a>,
-                    strong: ({children}) => <strong className="font-semibold">{children}</strong>,
-                  }}>{form.content}</ReactMarkdown>
+                <div className="border border-gray-200 rounded-lg p-4 min-h-[300px] bg-white prose prose-sm max-w-none prose-headings:text-blue-800 prose-a:text-blue-600">
+                  <ReactMarkdown>{form.content}</ReactMarkdown>
                 </div>
               ) : (
                 <textarea
