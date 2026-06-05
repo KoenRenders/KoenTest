@@ -26,6 +26,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("code", "language"),
+        sa.UniqueConstraint("code", name="uq_gender_codes_code"),
     )
 
     op.create_table(
@@ -37,6 +38,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("code", "language"),
+        sa.UniqueConstraint("code", name="uq_contact_type_codes_code"),
     )
 
     op.create_table(
@@ -48,6 +50,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("code", "language"),
+        sa.UniqueConstraint("code", name="uq_role_codes_code"),
     )
 
     op.create_table(
@@ -59,6 +62,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("code", "language"),
+        sa.UniqueConstraint("code", name="uq_registration_type_codes_code"),
     )
 
     op.create_table(
@@ -70,6 +74,7 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(), nullable=False),
         sa.Column("updated_at", sa.DateTime(), nullable=False),
         sa.PrimaryKeyConstraint("code", "language"),
+        sa.UniqueConstraint("code", name="uq_payment_status_codes_code"),
     )
 
     # --- Seed code tables ---
