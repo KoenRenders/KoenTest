@@ -32,10 +32,6 @@ export default function HomePage() {
     <div className="space-y-12">
       {/* Hero */}
       <section className="text-center py-8">
-        <h1 className="text-4xl font-extrabold text-blue-800 mb-3">Raak Millegem</h1>
-        <p className="text-gray-600 text-lg mb-6">
-          KWB-afdeling Millegem — activiteiten, nieuws en meer voor onze leden.
-        </p>
         <button className="btn-primary" onClick={() => setShowRegForm((s) => !s)}>
           {showRegForm ? "Sluit registratie" : "Word lid"}
         </button>
@@ -71,7 +67,10 @@ export default function HomePage() {
       </section>
 
       {/* Ideeënbus */}
-      <IdeaBox />
+      <section>
+        <h2 className="text-2xl font-bold mb-6 text-blue-800">Ideeënbus</h2>
+        <IdeaBox />
+      </section>
 
       {/* Registratie modal */}
       {selected && (
