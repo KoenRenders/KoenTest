@@ -464,7 +464,7 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
         mp = MemberPerson(
             member_id=member.id,
             person_id=person.id,
-            relation_type="hoofdlid" if person_data.is_primary else "partner",
+            relation_type=person_data.relation_type,
         )
         db.add(mp)
 
