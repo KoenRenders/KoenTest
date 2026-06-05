@@ -1,7 +1,7 @@
 from datetime import date, time as Time, datetime
 from typing import Optional, List
 from decimal import Decimal
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 
 class ActivityCreate(BaseModel):
@@ -39,6 +39,7 @@ class SubRegistrationResponse(BaseModel):
     is_free: bool
     price: Decimal
     sort_order: int
+    reg_form_type: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
@@ -61,15 +62,37 @@ class ActivityResponse(BaseModel):
     registration_count: Optional[int] = None
     waitlist_count: Optional[int] = None
     sub_registrations: List[SubRegistrationResponse] = []
+    reg_form_type: str = "NONE"
+    age_category_config: Optional[str] = None
 
     model_config = {"from_attributes": True}
 
 
+class RegistrationItemCreate(BaseModel):
+    sub_registration_id: int
+    quantity: int = 1
+
+
 class RegistrationCreate(BaseModel):
-    person_id: Optional[int] = None
     contact_name: Optional[str] = None
     contact_email: Optional[str] = None
-    registration_type: str = "INDIVIDUAL"
+    contact_phone: Optional[str] = None
+    team_name: Optional[str] = None
+    group_size: Optional[int] = None
+    age_categories: Optional[str] = None  # JSON string
+    remarks: Optional[str] = None
+    payment_method: Optional[str] = "FREE"
+    items: List[RegistrationItemCreate] = []
+    sub_registration_id: Optional[int] = None  # for sub-registration forms
+
+
+class RegistrationItemResponse(BaseModel):
+    id: int
+    sub_registration_id: int
+    quantity: int
+    unit_price: Decimal
+
+    model_config = {"from_attributes": True}
 
 
 class RegistrationResponse(BaseModel):
@@ -78,8 +101,21 @@ class RegistrationResponse(BaseModel):
     person_id: Optional[int] = None
     is_waitlist: bool
     registered_at: datetime
-    registration_type: str
     contact_name: Optional[str] = None
     contact_email: Optional[str] = None
+    contact_phone: Optional[str] = None
+    team_name: Optional[str] = None
+    group_size: Optional[int] = None
+    age_categories: Optional[str] = None
+    remarks: Optional[str] = None
+    payment_method: Optional[str] = None
+    payment_status: Optional[str] = None
+    items: List[RegistrationItemResponse] = []
 
     model_config = {"from_attributes": True}
+
+
+class PublicRegistrationSummary(BaseModel):
+    names: List[str]
+    total_registrations: int
+    total_participants: int

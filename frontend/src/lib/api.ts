@@ -20,6 +20,7 @@ export const createActivity = (data: unknown) => api.post("/api/v1/activities", 
 export const updateActivity = (id: number, data: unknown) => api.put(`/api/v1/activities/${id}`, data);
 export const deleteActivity = (id: number) => api.delete(`/api/v1/activities/${id}`);
 export const getRegistrations = (id: number) => api.get(`/api/v1/activities/${id}/registrations`);
+export const getPublicRegistrations = (id: number) => api.get(`/api/v1/activities/${id}/registrations/public`);
 export const getWaitlist = (id: number) => api.get(`/api/v1/activities/${id}/waitlist`);
 export const registerForActivity = (id: number, data: unknown) => api.post(`/api/v1/activities/${id}/register`, data);
 

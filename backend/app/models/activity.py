@@ -22,6 +22,8 @@ class Activity(Base):
     members_only = Column(Boolean, default=False, nullable=False)
     is_cancelled = Column(Boolean, default=False, nullable=False)
     notes = Column(Text, nullable=True)
+    reg_form_type = Column(String(20), nullable=False, default="NONE")
+    age_category_config = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -42,6 +44,30 @@ class Registration(Base):
     # Extra contact fields for non-member registrations
     contact_name = Column(String(200), nullable=True)
     contact_email = Column(String(255), nullable=True)
+    contact_phone = Column(String(30), nullable=True)
+    team_name = Column(String(200), nullable=True)
+    group_size = Column(Integer, nullable=True)
+    age_categories = Column(Text, nullable=True)  # JSON
+    remarks = Column(Text, nullable=True)
+    payment_method = Column(String(20), nullable=True)
+    payment_status = Column(String(20), nullable=True)
+    sub_registration_id = Column(Integer, ForeignKey("activity_sub_registrations.id"), nullable=True)
 
     activity = relationship("Activity", back_populates="registrations")
     person = relationship("Person", back_populates="registrations")
+    items = relationship("RegistrationItem", back_populates="registration", cascade="all, delete-orphan")
+
+
+class RegistrationItem(Base):
+    __tablename__ = "registration_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    registration_id = Column(Integer, ForeignKey("registrations.id"), nullable=False)
+    sub_registration_id = Column(Integer, ForeignKey("activity_sub_registrations.id"), nullable=False)
+    quantity = Column(Integer, nullable=False, default=1)
+    unit_price = Column(Numeric(10, 2), nullable=False)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    registration = relationship("Registration", back_populates="items")
+    sub_registration = relationship("ActivitySubRegistration")

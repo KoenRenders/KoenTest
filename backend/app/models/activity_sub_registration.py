@@ -20,6 +20,7 @@ class ActivitySubRegistration(Base):
     price = Column(Numeric(10, 2), nullable=False, default=0)
     member_price = Column(Numeric(10, 2), nullable=True)
     is_free = Column(Boolean, default=True, nullable=False)
+    reg_form_type = Column(String(20), nullable=True)
     sort_order = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

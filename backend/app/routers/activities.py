@@ -1,4 +1,6 @@
-from datetime import date
+import json
+from datetime import date, datetime
+from decimal import Decimal
 from sqlalchemy import or_, and_
 from typing import List
 
@@ -7,7 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_admin
 from app.database import get_db
-from app.models.activity import Activity, Registration
+from app.models.activity import Activity, Registration, RegistrationItem
 from app.models.member import Membership
 from app.models.user import User
 from app.models.activity_sub_registration import ActivitySubRegistration
@@ -18,10 +20,34 @@ from app.schemas.activity import (
     SubRegistrationResponse,
     RegistrationCreate,
     RegistrationResponse,
+    PublicRegistrationSummary,
 )
 from app.services.email import send_waitlist_notification
 
 router = APIRouter(tags=["activities"])
+
+
+def compute_participant_count(registration: Registration) -> int:
+    """Compute the effective participant count for a registration."""
+    form_type = None
+    # Try to determine form type from context
+    # We'll use group_size/age_categories/items as heuristics
+    if registration.group_size and registration.group_size > 1:
+        return registration.group_size
+    if registration.age_categories:
+        try:
+            cats = json.loads(registration.age_categories)
+            if isinstance(cats, dict):
+                total = sum(int(v) for v in cats.values() if v)
+                if total > 0:
+                    return total
+        except Exception:
+            pass
+    if registration.items:
+        total = sum(item.quantity for item in registration.items)
+        if total > 0:
+            return total
+    return 1
 
 
 def compute_activity_status(activity: Activity) -> dict:
@@ -30,12 +56,15 @@ def compute_activity_status(activity: Activity) -> dict:
     count = len(registrations)
     wl_count = len(waitlist)
 
+    # Compute total participants accounting for group sizes
+    total_participants = sum(compute_participant_count(r) for r in registrations)
+
     end = activity.date_end or activity.date
     if end < date.today():
         status = "Voorbij"
     elif activity.is_cancelled:
         status = "Geannuleerd"
-    elif activity.max_participants and count >= activity.max_participants:
+    elif activity.max_participants and total_participants >= activity.max_participants:
         status = "Vol"
     elif wl_count > 0:
         status = "Wachtlijst"
@@ -162,6 +191,26 @@ def delete_activity(
     return {"detail": "Activity deleted"}
 
 
+@router.get("/activities/{activity_id}/registrations/public", response_model=PublicRegistrationSummary)
+def get_public_registrations(
+    activity_id: int,
+    db: Session = Depends(get_db),
+):
+    activity = db.query(Activity).filter(Activity.id == activity_id).first()
+    if not activity:
+        raise HTTPException(status_code=404, detail="Activity not found")
+
+    active_regs = [r for r in activity.registrations if not r.is_waitlist]
+    names = [r.contact_name or "Anoniem" for r in active_regs]
+    total_participants = sum(compute_participant_count(r) for r in active_regs)
+
+    return PublicRegistrationSummary(
+        names=names,
+        total_registrations=len(active_regs),
+        total_participants=total_participants,
+    )
+
+
 @router.get("/activities/{activity_id}/registrations", response_model=List[RegistrationResponse])
 def get_registrations(
     activity_id: int,
@@ -200,20 +249,81 @@ def register_for_activity(
     if activity.date < today or activity.is_archived:
         raise HTTPException(status_code=400, detail="Activity is no longer open for registration")
 
+    # Determine effective participant count for capacity check
+    participant_count = 1
+    form_type = activity.reg_form_type or "NONE"
+
+    if data.sub_registration_id:
+        sub = db.query(ActivitySubRegistration).filter(
+            ActivitySubRegistration.id == data.sub_registration_id
+        ).first()
+        if sub and sub.reg_form_type:
+            form_type = sub.reg_form_type
+
+    if form_type in ("GROUP", "PAID_PER_PERSON"):
+        participant_count = data.group_size or 1
+    elif form_type == "AGE_CATEGORY" and data.age_categories:
+        try:
+            cats = json.loads(data.age_categories)
+            if isinstance(cats, dict):
+                participant_count = sum(int(v) for v in cats.values() if v) or 1
+        except Exception:
+            participant_count = 1
+    elif form_type == "PAID_PRODUCTS" and data.items:
+        participant_count = sum(item.quantity for item in data.items) or 1
+
     # Check capacity
     current_registrations = [r for r in activity.registrations if not r.is_waitlist]
-    is_full = activity.max_participants and len(current_registrations) >= activity.max_participants
+    current_participants = sum(compute_participant_count(r) for r in current_registrations)
+    is_full = activity.max_participants and (current_participants + participant_count) > activity.max_participants
     is_waitlist = bool(is_full)
+
+    # Determine payment status
+    payment_method = data.payment_method or "FREE"
+    is_free = float(activity.price or 0) == 0 and form_type not in ("PAID_PRODUCTS", "PAID_PER_PERSON")
+    if is_free or payment_method == "FREE":
+        payment_status = "FREE"
+    elif payment_method in ("CASH", "TRANSFER"):
+        payment_status = "PAID"
+    else:
+        payment_status = "PENDING"
 
     registration = Registration(
         activity_id=activity_id,
-        person_id=data.person_id,
+        person_id=None,
         is_waitlist=is_waitlist,
-        registration_type=data.registration_type_code,
+        registration_type="INDIVIDUAL",
         contact_name=data.contact_name,
         contact_email=data.contact_email,
+        contact_phone=data.contact_phone,
+        team_name=data.team_name,
+        group_size=data.group_size,
+        age_categories=data.age_categories,
+        remarks=data.remarks,
+        payment_method=payment_method,
+        payment_status=payment_status,
+        sub_registration_id=data.sub_registration_id,
     )
     db.add(registration)
+    db.flush()
+
+    # Create RegistrationItem records for PAID_PRODUCTS
+    for item_data in data.items:
+        sub = db.query(ActivitySubRegistration).filter(
+            ActivitySubRegistration.id == item_data.sub_registration_id
+        ).first()
+        if sub:
+            unit_price = sub.price or Decimal("0.00")
+            reg_item = RegistrationItem(
+                registration_id=registration.id,
+                sub_registration_id=item_data.sub_registration_id,
+                quantity=item_data.quantity,
+                unit_price=unit_price,
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+            )
+            db.add(reg_item)
+
     db.commit()
     db.refresh(registration)
 

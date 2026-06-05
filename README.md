@@ -1,6 +1,6 @@
 # Raak Millegem — Community Portal
 
-Web portal for the Raak Millegem (KWB Millegem) community association in Millegem, Belgium.
+Web portal for the Raak Millegem community association in Millegem, Belgium.
 
 ## Tech Stack
 
@@ -51,9 +51,9 @@ Default admin credentials (change immediately):
 
 | URL | Description |
 |---|---|
-| http://localhost:3000 | Public website |
-| http://localhost:8000/docs | API documentation (Swagger UI) |
-| http://localhost:3000/admin | Admin panel |
+| http://localhost | Public website (via Caddy) |
+| http://localhost/api/docs | API documentation (Swagger UI) |
+| http://localhost/admin | Admin panel |
 
 ## Environment Variables
 
@@ -93,4 +93,5 @@ See `caddy/Caddyfile` for domain configuration.
 ## Documentation
 
 - [Project Specification](docs/spec.md)
-- [Change Request Log](docs/change_request_01.md)
+- [Change Request 01](docs/change_request_01.md)
+- [Change Request 02](docs/change_request_02.md)
