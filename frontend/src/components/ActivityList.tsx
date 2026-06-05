@@ -192,9 +192,9 @@ export default function ActivityList({
                         {activity.max_participants && (
                           <p>👥 {activity.registration_count ?? 0} / {activity.max_participants} deelnemers</p>
                         )}
-                        {parseFloat(activity.price) > 0 && (
-                          <p>💶 €{parseFloat(activity.price).toFixed(2)}
-                            {activity.member_price ? ` (leden: €${parseFloat(activity.member_price).toFixed(2)})` : ""}
+                        {activity.price > 0 && (
+                          <p>💶 €{activity.price.toFixed(2)}
+                            {activity.member_price ? ` (leden: €${activity.member_price.toFixed(2)})` : ""}
                           </p>
                         )}
                       </div>

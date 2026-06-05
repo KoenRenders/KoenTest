@@ -6,7 +6,7 @@ export interface SubRegistration {
   external_registrations_url?: string;
   info_url?: string;
   is_free: boolean;
-  price: string;
+  price: number;
   sort_order: number;
   reg_form_type?: string;
 }
@@ -20,8 +20,8 @@ export interface Activity {
   location?: string;
   max_participants?: number;
   registration_type: "individual" | "family";
-  price: string;
-  member_price?: string;
+  price: number;
+  member_price?: number;
   poster_url?: string;
   is_archived: boolean;
   status?: string;
