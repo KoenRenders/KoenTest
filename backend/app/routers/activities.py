@@ -17,6 +17,8 @@ from app.schemas.activity import (
     ActivityCreate,
     ActivityUpdate,
     ActivityResponse,
+    SubRegistrationCreate,
+    SubRegistrationUpdate,
     SubRegistrationResponse,
     RegistrationCreate,
     RegistrationResponse,
@@ -189,6 +191,75 @@ def delete_activity(
     db.delete(activity)
     db.commit()
     return {"detail": "Activity deleted"}
+
+
+@router.post("/activities/{activity_id}/sub-registrations", response_model=SubRegistrationResponse)
+def create_sub_registration(
+    activity_id: int,
+    data: SubRegistrationCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    activity = db.query(Activity).filter(Activity.id == activity_id).first()
+    if not activity:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    sub = ActivitySubRegistration(
+        activity_id=activity_id,
+        name=data.name,
+        description=data.description,
+        external_register_url=data.external_register_url,
+        external_registrations_url=data.external_registrations_url,
+        info_url=data.info_url,
+        is_free=data.is_free,
+        price=data.price,
+        member_price=data.member_price,
+        max_participants=data.max_participants,
+        reg_form_type=data.reg_form_type,
+        sort_order=data.sort_order,
+    )
+    db.add(sub)
+    db.commit()
+    db.refresh(sub)
+    return sub
+
+
+@router.put("/activities/{activity_id}/sub-registrations/{sub_id}", response_model=SubRegistrationResponse)
+def update_sub_registration(
+    activity_id: int,
+    sub_id: int,
+    data: SubRegistrationUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    sub = db.query(ActivitySubRegistration).filter(
+        ActivitySubRegistration.id == sub_id,
+        ActivitySubRegistration.activity_id == activity_id,
+    ).first()
+    if not sub:
+        raise HTTPException(status_code=404, detail="Sub-registration not found")
+    for field, value in data.model_dump(exclude_none=True).items():
+        setattr(sub, field, value)
+    db.commit()
+    db.refresh(sub)
+    return sub
+
+
+@router.delete("/activities/{activity_id}/sub-registrations/{sub_id}")
+def delete_sub_registration(
+    activity_id: int,
+    sub_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    sub = db.query(ActivitySubRegistration).filter(
+        ActivitySubRegistration.id == sub_id,
+        ActivitySubRegistration.activity_id == activity_id,
+    ).first()
+    if not sub:
+        raise HTTPException(status_code=404, detail="Sub-registration not found")
+    db.delete(sub)
+    db.commit()
+    return {"detail": "Sub-registration deleted"}
 
 
 @router.get("/activities/{activity_id}/registrations/public", response_model=PublicRegistrationSummary)
