@@ -8,8 +8,10 @@ class FamilyMemberCreate(BaseModel):
     first_name: str
     date_of_birth: Optional[date] = None
     gender: Optional[str] = None
-    email: Optional[str] = None
+    email: Optional[EmailStr] = None
     phone: Optional[str] = None
+    mobile: Optional[str] = None
+    member_type: Optional[str] = None
     is_primary: bool = False
 
 
@@ -43,7 +45,7 @@ class FamilyCreate(BaseModel):
     house_number: str
     bus_number: Optional[str] = None
     postal_code: str
-    municipality: str
+    municipality: Optional[str] = None
     members: List[FamilyMemberCreate] = []
 
 

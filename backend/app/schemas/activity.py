@@ -1,4 +1,4 @@
-from datetime import date, time, datetime
+from datetime import date, time as Time, datetime
 from typing import Optional, List
 from decimal import Decimal
 from pydantic import BaseModel
@@ -7,7 +7,7 @@ from pydantic import BaseModel
 class ActivityCreate(BaseModel):
     name: str
     date: date
-    time: Optional[time] = None
+    time: Optional[Time] = None
     location: Optional[str] = None
     max_participants: Optional[int] = None
     registration_type_code: str = "INDIVIDUAL"
@@ -19,7 +19,7 @@ class ActivityCreate(BaseModel):
 class ActivityUpdate(BaseModel):
     name: Optional[str] = None
     date: Optional[date] = None
-    time: Optional[time] = None
+    time: Optional[Time] = None
     location: Optional[str] = None
     max_participants: Optional[int] = None
     registration_type_code: Optional[str] = None
@@ -29,11 +29,26 @@ class ActivityUpdate(BaseModel):
     is_archived: Optional[bool] = None
 
 
+class SubRegistrationResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    external_register_url: Optional[str] = None
+    external_registrations_url: Optional[str] = None
+    info_url: Optional[str] = None
+    is_free: bool
+    price: Decimal
+    sort_order: int
+
+    model_config = {"from_attributes": True}
+
+
 class ActivityResponse(BaseModel):
     id: int
     name: str
     date: date
-    time: Optional[time] = None
+    date_end: Optional[date] = None
+    time: Optional[Time] = None
     location: Optional[str] = None
     max_participants: Optional[int] = None
     registration_type_code: str
@@ -45,6 +60,7 @@ class ActivityResponse(BaseModel):
     status: Optional[str] = None
     registration_count: Optional[int] = None
     waitlist_count: Optional[int] = None
+    sub_registrations: List[SubRegistrationResponse] = []
 
     model_config = {"from_attributes": True}
 

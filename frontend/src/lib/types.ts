@@ -1,7 +1,20 @@
+export interface SubRegistration {
+  id: number;
+  name: string;
+  description?: string;
+  external_register_url?: string;
+  external_registrations_url?: string;
+  info_url?: string;
+  is_free: boolean;
+  price: string;
+  sort_order: number;
+}
+
 export interface Activity {
   id: number;
   name: string;
   date: string;
+  date_end?: string;
   time?: string;
   location?: string;
   max_participants?: number;
@@ -10,9 +23,10 @@ export interface Activity {
   member_price?: string;
   poster_url?: string;
   is_archived: boolean;
-  status?: "Open" | "Vol" | "Wachtlijst";
+  status?: string;
   registration_count?: number;
   waitlist_count?: number;
+  sub_registrations?: SubRegistration[];
 }
 
 export interface Family {
