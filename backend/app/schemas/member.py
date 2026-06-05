@@ -107,6 +107,14 @@ class FamilyMemberResponse(BaseModel):
     is_primary: bool
 
 
+class PersonListItem(BaseModel):
+    id: int
+    last_name: str
+    first_name: str
+
+    model_config = {"from_attributes": True}
+
+
 class FamilyResponse(BaseModel):
     id: int
     street: str
@@ -145,14 +153,6 @@ class PersonAddToFamily(BaseModel):
 
 class BoardMemberAssign(BaseModel):
     person_id: Optional[int] = None
-
-
-class PersonListItem(BaseModel):
-    id: int
-    last_name: str
-    first_name: str
-
-    model_config = {"from_attributes": True}
 
 
 class FamilyRegisteredResponse(BaseModel):
