@@ -1,4 +1,4 @@
-from datetime import date, time, datetime
+from datetime import date, time as Time, datetime
 from typing import Optional, List
 from decimal import Decimal
 from pydantic import BaseModel
@@ -7,7 +7,7 @@ from pydantic import BaseModel
 class ActivityCreate(BaseModel):
     name: str
     date: date
-    time: Optional[time] = None
+    time: Optional[Time] = None
     location: Optional[str] = None
     max_participants: Optional[int] = None
     registration_type_code: str = "INDIVIDUAL"
@@ -19,7 +19,7 @@ class ActivityCreate(BaseModel):
 class ActivityUpdate(BaseModel):
     name: Optional[str] = None
     date: Optional[date] = None
-    time: Optional[time] = None
+    time: Optional[Time] = None
     location: Optional[str] = None
     max_participants: Optional[int] = None
     registration_type_code: Optional[str] = None
@@ -33,7 +33,7 @@ class ActivityResponse(BaseModel):
     id: int
     name: str
     date: date
-    time: Optional[time] = None
+    time: Optional[Time] = None
     location: Optional[str] = None
     max_participants: Optional[int] = None
     registration_type_code: str
