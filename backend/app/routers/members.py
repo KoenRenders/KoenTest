@@ -355,6 +355,8 @@ def delete_person(
     person = db.query(Person).filter(Person.id == person_id).first()
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
+    for mp in person.member_persons:
+        db.delete(mp)
     if person.address:
         db.delete(person.address)
     db.delete(person)
