@@ -19,10 +19,12 @@ class ActivityCreate(BaseModel):
 class ActivityUpdate(BaseModel):
     name: Optional[str] = None
     date: Optional[date] = None
+    date_end: Optional[date] = None
     time: Optional[Time] = None
     location: Optional[str] = None
     max_participants: Optional[int] = None
     registration_type_code: Optional[str] = None
+    reg_form_type: Optional[str] = None
     price: Optional[Decimal] = None
     member_price: Optional[Decimal] = None
     poster_url: Optional[str] = None
