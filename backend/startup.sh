@@ -1,6 +1,9 @@
 #!/bin/sh
 set -e
 
+echo "==> Checking imports..."
+python check_imports.py
+
 echo "==> Running database migrations..."
 alembic upgrade head
 
