@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import verify_password, create_access_token, get_current_admin
 from app.database import get_db
-from app.main import limiter
+from app.limiter import limiter
 from app.models.user import User
 from app.schemas.auth import LoginRequest, TokenResponse, UserResponse
 from app.config import settings
