@@ -10,7 +10,7 @@ sys.path.insert(0, os.path.dirname(__file__))
 from app.database import SessionLocal
 from app.models.postal_codes import PostalCode
 
-CSV_PATH = os.path.join(os.path.dirname(__file__), "..", "docs", "postal_codes_seed.csv")
+CSV_PATH = os.path.join(os.path.dirname(__file__), "docs", "postal_codes_seed.csv")
 
 
 def seed():
