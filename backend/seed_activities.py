@@ -60,7 +60,7 @@ def add_activity(
 
 try:
     # === 2026 (upcoming) ===
-    add_activity("Mannenkroegentocht", date(2026, 6, 12), time="20:00", location="Millegem",
+    add_activity("Mannenkroegentocht", date(2026, 6, 12), time="20:00", location="Café Christiane, Millegem",
         poster_url="https://drive.google.com/file/d/1DyYBCYugRl8ygTdMnifQeAuzGX_xsAKz/view",
         members_only=True, is_archived=False,
         sub_registrations=[{"name": "Inschrijven", "register_url": "https://forms.gle/TXEVZXNL2GPEiyYx7", "registrations_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vR9RmgeoyuM2deAC_5ylhCqUY9kZsC-zHZ5tT4Md8I5Aggb_iwLKFOsQ3yOjxuWZqDgPwFookDzEEYE/pubhtml?gid=1101066722&single=true"}])
