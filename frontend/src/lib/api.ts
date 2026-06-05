@@ -50,8 +50,8 @@ export const updatePage = (id: number, data: unknown) => api.put(`/api/v1/pages/
 export const deletePage = (id: number) => api.delete(`/api/v1/pages/${id}`);
 
 // Auth
-export const login = (username: string, password: string) =>
-  api.post("/api/v1/auth/login", { username, password });
+export const login = (email: string, password: string) =>
+  api.post("/api/v1/auth/login", { email, password });
 export const getMe = () => api.get("/api/v1/auth/me");
 
 // Admin
