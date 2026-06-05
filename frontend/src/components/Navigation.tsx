@@ -16,15 +16,20 @@ export default function Navigation() {
     <nav style={{ backgroundColor: "var(--color-ocean-blue)" }} className="text-white shadow-md">
       <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
         <div>
-          <Link href="/" className="text-xl font-bold tracking-tight hover:opacity-80">
-            Raak Millegem
+          <Link href="/" className="hover:opacity-80">
+            <span
+              className="block font-bold tracking-tight leading-none"
+              style={{ color: "var(--color-white)", fontSize: "2rem" }}
+            >
+              Raak
+            </span>
+            <span
+              className="block text-sm font-medium"
+              style={{ color: "var(--color-golden-yellow)" }}
+            >
+              Beleef meer in Millegem
+            </span>
           </Link>
-          <span
-            className="block text-xs font-medium"
-            style={{ color: "var(--color-golden-yellow)" }}
-          >
-            Samen sterker in de buurt
-          </span>
         </div>
         <button
           className="md:hidden p-2 rounded hover:opacity-80"
