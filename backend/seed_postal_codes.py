@@ -2,7 +2,7 @@
 import csv
 import os
 import sys
-from datetime import datetime
+from datetime import datetime, timezone
 
 # Allow running from backend/ directory
 sys.path.insert(0, os.path.dirname(__file__))
@@ -21,7 +21,7 @@ def seed():
             print(f"postal_codes table already has {existing} rows — skipping seed.")
             return
 
-        now = datetime.utcnow()
+        now = datetime.now(timezone.utc)
         with open(CSV_PATH, newline="", encoding="utf-8") as f:
             reader = csv.DictReader(f)
             records = [
