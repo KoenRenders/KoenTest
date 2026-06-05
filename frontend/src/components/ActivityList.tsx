@@ -218,8 +218,8 @@ export default function ActivityList({
                           onSubRegister={onSubRegister} showRegister={showRegister} compact />
                       )}
 
-                      {/* Main activity registration button */}
-                      {showRegister && hasInternalForm && onRegister && (
+                      {/* Main activity registration button — only when no sub-regs handle it */}
+                      {showRegister && hasInternalForm && onRegister && subs.length === 0 && (
                         <button
                           className="btn-primary btn-sm whitespace-nowrap"
                           onClick={() => onRegister(activity)}
