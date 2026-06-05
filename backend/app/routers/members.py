@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_admin
 from app.database import get_db
 from app.models.member import Member, Person, MemberPerson, Membership
+from app.models.postal_codes import PostalCode
 from app.models.user import User
 from app.schemas.member import (
     MemberCreate,
@@ -18,6 +19,13 @@ from app.schemas.member import (
 )
 
 router = APIRouter(tags=["members"])
+
+
+@router.get("/postal-codes")
+def list_postal_codes(db: Session = Depends(get_db)):
+    """Return all postal codes with their municipality names."""
+    rows = db.query(PostalCode).order_by(PostalCode.postal_code).all()
+    return [{"postal_code": r.postal_code, "municipality": r.municipality} for r in rows]
 
 
 @router.get("/members", response_model=List[MemberResponse])
