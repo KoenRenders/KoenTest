@@ -2,6 +2,7 @@
 import { useState } from "react";
 import { registerForActivity } from "@/lib/api";
 import type { Activity, SubRegistration } from "@/lib/types";
+import { parseApiError } from "@/lib/errors";
 
 interface Props {
   activity: Activity;
@@ -96,8 +97,8 @@ export default function RegistrationForm({ activity, subRegistration, onClose, o
 
       await registerForActivity(activity.id, body);
       onSuccess();
-    } catch {
-      setError("Er is iets misgelopen. Probeer opnieuw.");
+    } catch (err) {
+      setError(parseApiError(err, "Er is iets misgelopen. Probeer opnieuw."));
     } finally {
       setLoading(false);
     }
@@ -258,7 +259,11 @@ export default function RegistrationForm({ activity, subRegistration, onClose, o
             </div>
           )}
 
-          {error && <p className="text-red-600 text-sm">{error}</p>}
+          {error && (
+            <div className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg p-3 whitespace-pre-line">
+              {error}
+            </div>
+          )}
 
           <div className="flex gap-3 pt-2">
             <button type="submit" disabled={loading} className="btn-primary flex-1">

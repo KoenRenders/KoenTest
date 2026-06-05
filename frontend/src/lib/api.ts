@@ -20,8 +20,12 @@ export const createActivity = (data: unknown) => api.post("/api/v1/activities", 
 export const updateActivity = (id: number, data: unknown) => api.put(`/api/v1/activities/${id}`, data);
 export const deleteActivity = (id: number) => api.delete(`/api/v1/activities/${id}`);
 export const getRegistrations = (id: number) => api.get(`/api/v1/activities/${id}/registrations`);
-export const getPublicRegistrations = (id: number) => api.get(`/api/v1/activities/${id}/registrations/public`);
+export const getPublicRegistrations = (id: number, subId?: number) =>
+  api.get(`/api/v1/activities/${id}/registrations/public`, { params: subId !== undefined ? { sub_registration_id: subId } : {} });
 export const getWaitlist = (id: number) => api.get(`/api/v1/activities/${id}/waitlist`);
+export const createSubRegistration = (activityId: number, data: unknown) => api.post(`/api/v1/activities/${activityId}/sub-registrations`, data);
+export const updateSubRegistration = (activityId: number, subId: number, data: unknown) => api.put(`/api/v1/activities/${activityId}/sub-registrations/${subId}`, data);
+export const deleteSubRegistration = (activityId: number, subId: number) => api.delete(`/api/v1/activities/${activityId}/sub-registrations/${subId}`);
 export const registerForActivity = (id: number, data: unknown) => api.post(`/api/v1/activities/${id}/register`, data);
 
 // Families

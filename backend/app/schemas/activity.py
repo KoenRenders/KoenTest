@@ -29,6 +29,34 @@ class ActivityUpdate(BaseModel):
     is_archived: Optional[bool] = None
 
 
+class SubRegistrationCreate(BaseModel):
+    name: str
+    description: Optional[str] = None
+    external_register_url: Optional[str] = None
+    external_registrations_url: Optional[str] = None
+    info_url: Optional[str] = None
+    is_free: bool = True
+    price: Decimal = Decimal("0.00")
+    member_price: Optional[Decimal] = None
+    max_participants: Optional[int] = None
+    reg_form_type: Optional[str] = None
+    sort_order: int = 0
+
+
+class SubRegistrationUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    external_register_url: Optional[str] = None
+    external_registrations_url: Optional[str] = None
+    info_url: Optional[str] = None
+    is_free: Optional[bool] = None
+    price: Optional[Decimal] = None
+    member_price: Optional[Decimal] = None
+    max_participants: Optional[int] = None
+    reg_form_type: Optional[str] = None
+    sort_order: Optional[int] = None
+
+
 class SubRegistrationResponse(BaseModel):
     id: int
     name: str

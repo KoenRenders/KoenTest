@@ -2,9 +2,9 @@ import json
 from datetime import date, datetime
 from decimal import Decimal
 from sqlalchemy import or_, and_
-from typing import List
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_admin
@@ -17,6 +17,8 @@ from app.schemas.activity import (
     ActivityCreate,
     ActivityUpdate,
     ActivityResponse,
+    SubRegistrationCreate,
+    SubRegistrationUpdate,
     SubRegistrationResponse,
     RegistrationCreate,
     RegistrationResponse,
@@ -191,9 +193,79 @@ def delete_activity(
     return {"detail": "Activity deleted"}
 
 
+@router.post("/activities/{activity_id}/sub-registrations", response_model=SubRegistrationResponse)
+def create_sub_registration(
+    activity_id: int,
+    data: SubRegistrationCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    activity = db.query(Activity).filter(Activity.id == activity_id).first()
+    if not activity:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    sub = ActivitySubRegistration(
+        activity_id=activity_id,
+        name=data.name,
+        description=data.description,
+        external_register_url=data.external_register_url,
+        external_registrations_url=data.external_registrations_url,
+        info_url=data.info_url,
+        is_free=data.is_free,
+        price=data.price,
+        member_price=data.member_price,
+        max_participants=data.max_participants,
+        reg_form_type=data.reg_form_type,
+        sort_order=data.sort_order,
+    )
+    db.add(sub)
+    db.commit()
+    db.refresh(sub)
+    return sub
+
+
+@router.put("/activities/{activity_id}/sub-registrations/{sub_id}", response_model=SubRegistrationResponse)
+def update_sub_registration(
+    activity_id: int,
+    sub_id: int,
+    data: SubRegistrationUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    sub = db.query(ActivitySubRegistration).filter(
+        ActivitySubRegistration.id == sub_id,
+        ActivitySubRegistration.activity_id == activity_id,
+    ).first()
+    if not sub:
+        raise HTTPException(status_code=404, detail="Sub-registration not found")
+    for field, value in data.model_dump(exclude_none=True).items():
+        setattr(sub, field, value)
+    db.commit()
+    db.refresh(sub)
+    return sub
+
+
+@router.delete("/activities/{activity_id}/sub-registrations/{sub_id}")
+def delete_sub_registration(
+    activity_id: int,
+    sub_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    sub = db.query(ActivitySubRegistration).filter(
+        ActivitySubRegistration.id == sub_id,
+        ActivitySubRegistration.activity_id == activity_id,
+    ).first()
+    if not sub:
+        raise HTTPException(status_code=404, detail="Sub-registration not found")
+    db.delete(sub)
+    db.commit()
+    return {"detail": "Sub-registration deleted"}
+
+
 @router.get("/activities/{activity_id}/registrations/public", response_model=PublicRegistrationSummary)
 def get_public_registrations(
     activity_id: int,
+    sub_registration_id: Optional[int] = Query(None),
     db: Session = Depends(get_db),
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
@@ -201,6 +273,8 @@ def get_public_registrations(
         raise HTTPException(status_code=404, detail="Activity not found")
 
     active_regs = [r for r in activity.registrations if not r.is_waitlist]
+    if sub_registration_id is not None:
+        active_regs = [r for r in active_regs if r.sub_registration_id == sub_registration_id]
     names = [r.contact_name or "Anoniem" for r in active_regs]
     total_participants = sum(compute_participant_count(r) for r in active_regs)
 
