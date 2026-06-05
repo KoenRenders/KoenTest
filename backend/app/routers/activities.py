@@ -1,29 +1,32 @@
+# Standard library
 import json
 from datetime import date, datetime
 from decimal import Decimal
-from sqlalchemy import or_, and_
 from typing import List, Optional
 
+# Third-party
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import and_, or_
 from sqlalchemy.orm import Session
 
+# Local
 from app.auth import get_current_admin
 from app.database import get_db
 from app.models.activity import Activity, Registration, RegistrationItem
+from app.models.activity_sub_registration import ActivitySubRegistration
 from app.models.member import Membership
 from app.models.user import User
-from app.models.activity_sub_registration import ActivitySubRegistration
 from app.schemas.activity import (
     ActivityCreate,
-    ActivityUpdate,
     ActivityResponse,
-    SubRegistrationCreate,
-    SubRegistrationUpdate,
-    SubRegistrationResponse,
+    ActivityUpdate,
+    MessageResponse,
+    PublicRegistrationSummary,
     RegistrationCreate,
     RegistrationResponse,
-    PublicRegistrationSummary,
-    MessageResponse,
+    SubRegistrationCreate,
+    SubRegistrationResponse,
+    SubRegistrationUpdate,
 )
 from app.services.email import send_waitlist_notification
 
