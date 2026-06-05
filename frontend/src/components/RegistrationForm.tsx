@@ -3,7 +3,7 @@ import { useState } from "react";
 import { registerForActivity } from "@/lib/api";
 import type { Activity, SubRegistration } from "@/lib/types";
 import { parseApiError } from "@/lib/errors";
-import { parsePrice, formatPrice, isPositivePrice } from "@/lib/money";
+import { formatPrice, isPositivePrice } from "@/lib/money";
 
 interface Props {
   activity: Activity;
@@ -51,18 +51,6 @@ export default function RegistrationForm({ activity, subRegistration, onClose, o
   const [paymentMethod, setPaymentMethod] = useState("MOLLIE");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const unitPrice = parsePrice(activity.price);
-
-  // Compute total for display only — financial calculations happen server-side
-  let displayTotal = 0;
-  if (formType === "PAID_PER_PERSON") {
-    displayTotal = groupSize * unitPrice;
-  } else if (formType === "PAID_PRODUCTS") {
-    for (const p of paidProducts) {
-      displayTotal += (itemQuantities[p.id] || 0) * parsePrice(p.price);
-    }
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -183,11 +171,6 @@ export default function RegistrationForm({ activity, subRegistration, onClose, o
                 value={groupSize}
                 onChange={(e) => setGroupSize(parseInt(e.target.value) || 1)}
               />
-              {unitPrice > 0 && (
-                <p className="text-sm text-gray-600 mt-1">
-                  Totaal: {groupSize} × {formatPrice(activity.price)} = <strong>€{displayTotal.toFixed(2)}</strong>
-                </p>
-              )}
             </div>
           )}
 
@@ -225,11 +208,6 @@ export default function RegistrationForm({ activity, subRegistration, onClose, o
                   />
                 </div>
               ))}
-              {displayTotal > 0 && (
-                <p className="text-sm text-gray-600 font-medium">
-                  Totaal: <strong>€{displayTotal.toFixed(2)}</strong>
-                </p>
-              )}
             </div>
           )}
 
