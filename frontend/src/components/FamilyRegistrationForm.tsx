@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { parseApiError } from "@/lib/errors";
 
-const RELATION_TYPES = ["hoofdlid", "partner", "kind", "meerderjarig kind"];
+const RELATION_TYPES = ["hoofdlid", "partner", "(meerderjarig) kind"];
 
 interface PostalCodeOption {
   postal_code: string;

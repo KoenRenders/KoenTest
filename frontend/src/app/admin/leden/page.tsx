@@ -9,7 +9,7 @@ import type { Family, FamilyMember, Membership } from "@/lib/types";
 
 interface PersonItem { id: number; last_name: string; first_name: string; }
 
-const RELATION_TYPES = ["hoofdlid", "partner", "kind", "meerderjarig kind"];
+const RELATION_TYPES = ["hoofdlid", "partner", "(meerderjarig) kind"];
 
 const emptyPersonForm = () => ({
   last_name: "", first_name: "", date_of_birth: "", gender_code: "",

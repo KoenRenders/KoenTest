@@ -96,7 +96,7 @@ class MembershipResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-RELATION_TYPES = ["hoofdlid", "partner", "kind", "meerderjarig kind"]
+RELATION_TYPES = ["hoofdlid", "partner", "(meerderjarig) kind"]
 
 
 class FamilyMemberResponse(BaseModel):
