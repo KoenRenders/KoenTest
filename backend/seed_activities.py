@@ -2,15 +2,16 @@
 import sys
 from datetime import date, datetime
 from app.database import SessionLocal
-from app.models.activity import Activity, Registration
+from app.models.activity import Activity, Registration, RegistrationItem
 from app.models.activity_sub_registration import ActivitySubRegistration
 
 db = SessionLocal()
 
 if "--reset" in sys.argv:
     print("Resetting activities...")
-    db.query(ActivitySubRegistration).delete()
+    db.query(RegistrationItem).delete()
     db.query(Registration).delete()
+    db.query(ActivitySubRegistration).delete()
     db.query(Activity).delete()
     db.commit()
     print("Done.")
