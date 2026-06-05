@@ -51,6 +51,8 @@ export interface Family {
   postal_code: string;
   municipality: string;
   members: FamilyMember[];
+  memberships: Membership[];
+  board_member?: { id: number; last_name: string; first_name: string };
 }
 
 export interface FamilyMember {
