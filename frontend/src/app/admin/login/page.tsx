@@ -30,7 +30,7 @@ export default function LoginPage() {
         <h1 className="text-2xl font-bold text-blue-800 mb-6">Admin inloggen</h1>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="label">Gebruikersnaam</label>
+            <label className="label">E-mailadres</label>
             <input className="input" required value={form.username} onChange={(e) => setForm((f) => ({ ...f, username: e.target.value }))} />
           </div>
           <div>

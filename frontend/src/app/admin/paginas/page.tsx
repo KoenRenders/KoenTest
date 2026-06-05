@@ -1,17 +1,76 @@
 "use client";
 import { useEffect, useState } from "react";
-import ReactMarkdown from "react-markdown";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
 import { getPages, createPage, updatePage, deletePage } from "@/lib/api";
 import type { CmsPage } from "@/lib/types";
 
 const emptyPage = () => ({ title: "", slug: "", content: "", is_published: false, sort_order: 0 });
+
+function MenuBar({ editor }: { editor: ReturnType<typeof useEditor> }) {
+  if (!editor) return null;
+  const btn = (active: boolean) =>
+    `px-2 py-1 rounded text-sm border transition-colors ${active ? "bg-blue-700 text-white border-blue-700" : "bg-white border-gray-300 hover:bg-gray-100"}`;
+  return (
+    <div className="flex flex-wrap gap-1 border border-gray-300 border-b-0 rounded-t-lg bg-gray-50 px-2 py-2">
+      <button type="button" className={btn(editor.isActive("bold"))} onClick={() => editor.chain().focus().toggleBold().run()}>V</button>
+      <button type="button" className={btn(editor.isActive("italic"))} onClick={() => editor.chain().focus().toggleItalic().run()}>S</button>
+      <button type="button" className={btn(editor.isActive("heading", { level: 2 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>H2</button>
+      <button type="button" className={btn(editor.isActive("heading", { level: 3 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>H3</button>
+      <button type="button" className={btn(editor.isActive("bulletList"))} onClick={() => editor.chain().focus().toggleBulletList().run()}>• lijst</button>
+      <button type="button" className={btn(editor.isActive("orderedList"))} onClick={() => editor.chain().focus().toggleOrderedList().run()}>1. lijst</button>
+      <button type="button" className={btn(editor.isActive("blockquote"))} onClick={() => editor.chain().focus().toggleBlockquote().run()}>❝</button>
+      <button type="button" className={btn(false)} onClick={() => editor.chain().focus().setHorizontalRule().run()}>—</button>
+      <button
+        type="button"
+        className={btn(editor.isActive("link"))}
+        onClick={() => {
+          if (editor.isActive("link")) { editor.chain().focus().unsetLink().run(); return; }
+          const url = window.prompt("URL:");
+          if (url) editor.chain().focus().setLink({ href: url }).run();
+        }}
+      >
+        🔗
+      </button>
+      <button type="button" className={btn(false)} onClick={() => editor.chain().focus().undo().run()}>↩</button>
+      <button type="button" className={btn(false)} onClick={() => editor.chain().focus().redo().run()}>↪</button>
+    </div>
+  );
+}
+
+function RichEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Link.configure({ openOnClick: false }),
+    ],
+    content: value,
+    onUpdate: ({ editor }) => onChange(editor.getHTML()),
+  });
+
+  useEffect(() => {
+    if (editor && value !== editor.getHTML()) {
+      editor.commands.setContent(value, false);
+    }
+  }, [value, editor]);
+
+  return (
+    <div>
+      <MenuBar editor={editor} />
+      <EditorContent
+        editor={editor}
+        className="border border-gray-300 rounded-b-lg bg-white min-h-[300px] px-4 py-3 focus-within:ring-2 focus-within:ring-blue-500 cms-editor"
+      />
+    </div>
+  );
+}
 
 export default function AdminPaginas() {
   const [pages, setPages] = useState<CmsPage[]>([]);
   const [form, setForm] = useState(emptyPage());
   const [editing, setEditing] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
-  const [preview, setPreview] = useState(false);
 
   function load() {
     getPages().then((r) => setPages(r.data)).catch(() => {});
@@ -36,7 +95,6 @@ export default function AdminPaginas() {
     setForm({ title: p.title, slug: p.slug, content: p.content || "", is_published: p.is_published, sort_order: p.sort_order });
     setEditing(p.id);
     setShowForm(true);
-    setPreview(false);
   }
 
   async function handleDelete(id: number) {
@@ -49,7 +107,7 @@ export default function AdminPaginas() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-blue-800">CMS Pagina's</h1>
-        <button className="btn-primary btn-sm" onClick={() => { setShowForm(true); setEditing(null); setForm(emptyPage()); setPreview(false); }}>
+        <button className="btn-primary btn-sm" onClick={() => { setShowForm(true); setEditing(null); setForm(emptyPage()); }}>
           + Nieuwe pagina
         </button>
       </div>
@@ -77,32 +135,9 @@ export default function AdminPaginas() {
               </div>
             </div>
 
-            {/* Editor / Preview toggle */}
             <div>
-              <div className="flex items-center justify-between mb-2">
-                <label className="label mb-0">Inhoud (Markdown)</label>
-                <button
-                  type="button"
-                  className="text-xs text-blue-600 hover:underline"
-                  onClick={() => setPreview((p) => !p)}
-                >
-                  {preview ? "← Bewerken" : "Voorbeeld →"}
-                </button>
-              </div>
-
-              {preview ? (
-                <div className="border border-gray-200 rounded-lg p-4 min-h-[300px] bg-white prose prose-sm max-w-none">
-                  <ReactMarkdown>{form.content}</ReactMarkdown>
-                </div>
-              ) : (
-                <textarea
-                  className="input font-mono text-sm min-h-[300px]"
-                  value={form.content}
-                  onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
-                  placeholder={"## Titel\n\nTekst hier…\n\n- Punt 1\n- Punt 2"}
-                />
-              )}
-              <p className="text-xs text-gray-400 mt-1">Markdown: ## kop, **vet**, *cursief*, - lijst, [link](url)</p>
+              <label className="label">Inhoud</label>
+              <RichEditor value={form.content} onChange={(html) => setForm((f) => ({ ...f, content: html }))} />
             </div>
 
             <div className="flex gap-3">

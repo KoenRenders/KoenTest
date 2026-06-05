@@ -73,7 +73,7 @@ function SubRegRow({
   return (
     <div>
       <div className={rowClass}>
-        <span className="text-gray-700 font-medium">{sub.name}</span>
+        {!compact && <span className="text-gray-700 font-medium">{sub.name}</span>}
         {sub.external_register_url && (
           <a href={sub.external_register_url} target="_blank" rel="noopener noreferrer" className={pillPrimary}>
             Inschrijven ↗
@@ -166,7 +166,10 @@ export default function ActivityList({
           <div className="space-y-4">
             {byYear[year].map((activity) => {
               const hasInternalForm = activity.reg_form_type && activity.reg_form_type !== "NONE";
-              const subs = activity.sub_registrations ?? [];
+              // Hide product-only sub-regs (no form, no external links) — used only as PAID_PRODUCTS options
+              const subs = (activity.sub_registrations ?? []).filter(
+                s => s.reg_form_type || s.external_register_url || s.external_registrations_url || s.info_url
+              );
 
               return (
                 <div key={activity.id} className="card">
@@ -215,8 +218,8 @@ export default function ActivityList({
                           onSubRegister={onSubRegister} showRegister={showRegister} compact />
                       )}
 
-                      {/* Main activity registration button */}
-                      {showRegister && hasInternalForm && onRegister && (
+                      {/* Main activity registration button — only when no sub-regs handle it */}
+                      {showRegister && hasInternalForm && onRegister && subs.length === 0 && (
                         <button
                           className="btn-primary btn-sm whitespace-nowrap"
                           onClick={() => onRegister(activity)}

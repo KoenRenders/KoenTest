@@ -86,9 +86,15 @@ try:
         poster_url="https://drive.google.com/file/d/1ZAQUQa8_OngLP9th2etPKON-6TZGkw4p/view",
         is_archived=False,
         sub_registrations=[
-            {"name": "Cornhole tornooi", "reg_form_type": "TEAM", "is_free": True},
-            {"name": "BBQ", "is_free": False},
-            {"name": "Sjoelbak tornooi", "reg_form_type": "TEAM", "is_free": True},
+            {"name": "Cornhole tornooi", "reg_form_type": "TEAM", "is_free": True, "sort_order": 0},
+            {"name": "BBQ", "reg_form_type": "PAID_PRODUCTS", "is_free": False, "sort_order": 1},
+            {"name": "Sjoelbak tornooi", "reg_form_type": "TEAM", "is_free": True, "sort_order": 2},
+            {"name": "Barbecue (3 stuks vlees)", "is_free": False, "price": 18, "sort_order": 10},
+            {"name": "Barbecue (3 stuks vegetarisch)", "is_free": False, "price": 18, "sort_order": 11},
+            {"name": "Barbecue (2 stuks vlees)", "is_free": False, "price": 16, "sort_order": 12},
+            {"name": "Barbecue (2 stuks vegetarisch)", "is_free": False, "price": 16, "sort_order": 13},
+            {"name": "Barbecue (kind)", "is_free": False, "price": 10, "sort_order": 14},
+            {"name": "Barbecue (kind vegetarisch)", "is_free": False, "price": 10, "sort_order": 15},
         ])
 
     add_activity("Bezoek wijndomein Aldeneyck", date(2026, 9, 5), time="09:00", location="Kerk (vertrek, eigen vervoer)", is_archived=False, reg_form_type="GROUP")
