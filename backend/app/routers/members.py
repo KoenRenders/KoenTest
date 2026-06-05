@@ -203,6 +203,26 @@ def create_membership_for_family(
     return {"id": membership.id, "year": membership.year, "is_active": membership.is_active}
 
 
+@router.delete("/families/{family_id}", status_code=204)
+def delete_family(
+    family_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    member = db.query(Member).filter(Member.id == family_id).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Family not found")
+
+    for mp in member.member_persons:
+        person = mp.person
+        if person.address:
+            db.delete(person.address)
+        db.delete(person)
+
+    db.delete(member)
+    db.commit()
+
+
 @router.post("/families", status_code=201)
 def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
     """Public endpoint: register a new family (member household)."""

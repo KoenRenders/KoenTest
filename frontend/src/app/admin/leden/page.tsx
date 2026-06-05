@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getFamilies, getFamily, createMembership } from "@/lib/api";
+import { getFamilies, getFamily, createMembership, deleteFamily } from "@/lib/api";
 import type { Family } from "@/lib/types";
 
 export default function AdminLeden() {
@@ -15,6 +15,13 @@ export default function AdminLeden() {
   async function loadFamily(id: number) {
     const r = await getFamily(id);
     setSelected(r.data);
+  }
+
+  async function handleDeleteFamily(id: number) {
+    if (!confirm("Verwijder dit gezin en alle gezinsleden? Dit kan niet ongedaan worden gemaakt.")) return;
+    await deleteFamily(id);
+    setSelected(null);
+    getFamilies().then((r) => setFamilies(r.data)).catch(() => {});
   }
 
   async function addMembership(familyId: number) {
@@ -44,7 +51,10 @@ export default function AdminLeden() {
       {selected && (
         <div className="flex-1 min-w-0">
           <div className="card mb-4">
-            <h2 className="font-bold text-lg mb-3">Gezin #{selected.id}</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-bold text-lg">Gezin #{selected.id}</h2>
+              <button className="btn-danger btn-sm" onClick={() => handleDeleteFamily(selected.id)}>Verwijderen</button>
+            </div>
             <p className="text-gray-700">{selected.street} {selected.house_number}{selected.bus_number ? ` bus ${selected.bus_number}` : ""}, {selected.postal_code} {selected.municipality}</p>
           </div>
           <div className="card mb-4">
