@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Date, Time, ForeignKey, Numeric
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Date, Time, ForeignKey, Numeric, Text
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -10,17 +10,23 @@ class Activity(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
     date = Column(Date, nullable=False)
+    date_end = Column(Date, nullable=True)
     time = Column(Time, nullable=True)
     location = Column(String(255), nullable=True)
     max_participants = Column(Integer, nullable=True)
-    registration_type = Column(String(10), ForeignKey("registration_type_codes.code"), nullable=False)
+    registration_type_code = Column(String(10), ForeignKey("registration_type_codes.code"), nullable=False)
     price = Column(Numeric(10, 2), default=0, nullable=False)
     member_price = Column(Numeric(10, 2), nullable=True)
     poster_url = Column(String(500), nullable=True)
     is_archived = Column(Boolean, default=False, nullable=False)
+    members_only = Column(Boolean, default=False, nullable=False)
+    is_cancelled = Column(Boolean, default=False, nullable=False)
+    notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     registrations = relationship("Registration", back_populates="activity", cascade="all, delete-orphan")
+    sub_registrations = relationship("ActivitySubRegistration", back_populates="activity", cascade="all, delete-orphan", order_by="ActivitySubRegistration.sort_order")
 
 
 class Registration(Base):

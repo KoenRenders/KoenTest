@@ -10,7 +10,7 @@ class ActivityCreate(BaseModel):
     time: Optional[time] = None
     location: Optional[str] = None
     max_participants: Optional[int] = None
-    registration_type: str = "individual"
+    registration_type_code: str = "INDIVIDUAL"
     price: Decimal = Decimal("0.00")
     member_price: Optional[Decimal] = None
     poster_url: Optional[str] = None
@@ -22,7 +22,7 @@ class ActivityUpdate(BaseModel):
     time: Optional[time] = None
     location: Optional[str] = None
     max_participants: Optional[int] = None
-    registration_type: Optional[str] = None
+    registration_type_code: Optional[str] = None
     price: Optional[Decimal] = None
     member_price: Optional[Decimal] = None
     poster_url: Optional[str] = None
@@ -36,7 +36,7 @@ class ActivityResponse(BaseModel):
     time: Optional[time] = None
     location: Optional[str] = None
     max_participants: Optional[int] = None
-    registration_type: str
+    registration_type_code: str
     price: Decimal
     member_price: Optional[Decimal] = None
     poster_url: Optional[str] = None

@@ -93,7 +93,7 @@ def create_activity(
         time=data.time,
         location=data.location,
         max_participants=data.max_participants,
-        registration_type=data.registration_type,
+        registration_type_code=data.registration_type_code,
         price=data.price,
         member_price=data.member_price,
         poster_url=data.poster_url,
@@ -193,7 +193,7 @@ def register_for_activity(
         activity_id=activity_id,
         person_id=data.person_id,
         is_waitlist=is_waitlist,
-        registration_type=data.registration_type,
+        registration_type=data.registration_type_code,
         contact_name=data.contact_name,
         contact_email=data.contact_email,
     )
