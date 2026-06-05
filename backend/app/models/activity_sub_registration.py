@@ -14,6 +14,7 @@ class ActivitySubRegistration(Base):
     description = Column(Text, nullable=True)
     external_register_url = Column(String(500), nullable=True)
     external_registrations_url = Column(String(500), nullable=True)
+    info_url = Column(String(500), nullable=True)
     registration_type_code = Column(String(10), ForeignKey("registration_type_codes.code"), nullable=False, default="INDIVIDUAL")
     max_participants = Column(Integer, nullable=True)
     price = Column(Numeric(10, 2), nullable=False, default=0)

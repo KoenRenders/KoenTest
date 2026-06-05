@@ -29,6 +29,20 @@ class ActivityUpdate(BaseModel):
     is_archived: Optional[bool] = None
 
 
+class SubRegistrationResponse(BaseModel):
+    id: int
+    name: str
+    description: Optional[str] = None
+    external_register_url: Optional[str] = None
+    external_registrations_url: Optional[str] = None
+    info_url: Optional[str] = None
+    is_free: bool
+    price: Decimal
+    sort_order: int
+
+    model_config = {"from_attributes": True}
+
+
 class ActivityResponse(BaseModel):
     id: int
     name: str
@@ -46,6 +60,7 @@ class ActivityResponse(BaseModel):
     status: Optional[str] = None
     registration_count: Optional[int] = None
     waitlist_count: Optional[int] = None
+    sub_registrations: List[SubRegistrationResponse] = []
 
     model_config = {"from_attributes": True}
 

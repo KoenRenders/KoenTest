@@ -50,6 +50,7 @@ def add_activity(
                 description=sub.get("description"),
                 external_register_url=sub.get("register_url"),
                 external_registrations_url=sub.get("registrations_url"),
+                info_url=sub.get("info_url"),
                 registration_type_code="INDIVIDUAL",
                 is_free=sub.get("is_free", True),
                 price=sub.get("price", 0),
@@ -209,7 +210,7 @@ try:
         sub_registrations=[
             {"name": "Barbecue", "register_url": "https://forms.gle/2ChSwo8BmJMaUt2t6", "registrations_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vQb3cIqNBqmguqvZTFX8Z9wamD3GCYxmoL-P0nZ5FQm61IQ-m7l77AmmQ8SumfyQBEhMGWmaXly7p9j/pubhtml?gid=254633452&single=true", "is_free": False},
             {"name": "Cornhole toernooi (ploeg 2 of 4 personen)", "register_url": "https://forms.gle/nSxqWVTtBmwih84V6", "registrations_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vR1ZmuuhoYyr9P9-7PuTQ5AVPBeru0cb7oIdepOBsRQGscpgSvlJkXiy7sWfMp6LTwclGg3w7OjAQXd/pubhtml?gid=1451593528&single=true"},
-            {"name": "Wereldkampioenschap Raakpong", "register_url": "https://forms.gle/r8BQCnFpmghUjayT7", "registrations_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vS79E8NawK2xba1eaYU9Ql9wy5lrfNyCOCii5PipvwfYvpDd7L00IQG-eSfx42xuP2o9VsJOGUeIXG0/pubhtml?gid=335029383&single=true"},
+            {"name": "Wereldkampioenschap Raakpong", "register_url": "https://forms.gle/r8BQCnFpmghUjayT7", "registrations_url": "https://docs.google.com/spreadsheets/d/e/2PACX-1vS79E8NawK2xba1eaYU9Ql9wy5lrfNyCOCii5PipvwfYvpDd7L00IQG-eSfx42xuP2o9VsJOGUeIXG0/pubhtml?gid=335029383&single=true", "info_url": "https://drive.google.com/file/d/1G7uBfGr1lPNbytHYW9NilTjvRH-cgmFb/view"},
             {"name": "Helpers", "register_url": "https://forms.gle/aEwQJadc3Fxe8Pqq6"},
         ])
 

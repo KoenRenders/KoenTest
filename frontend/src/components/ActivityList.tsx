@@ -1,5 +1,4 @@
 "use client";
-import Link from "next/link";
 import type { Activity } from "@/lib/types";
 
 function StatusBadge({ status }: { status?: string }) {
@@ -77,8 +76,35 @@ export default function ActivityList({
                         </p>
                       )}
                     </div>
+                    {activity.sub_registrations && activity.sub_registrations.length > 0 && (
+                      <div className="mt-3 space-y-1.5">
+                        {activity.sub_registrations.map((sub) => (
+                          <div key={sub.id} className="flex items-center gap-2 flex-wrap text-sm">
+                            <span className="text-gray-700 font-medium">{sub.name}</span>
+                            {sub.info_url && (
+                              <a href={sub.info_url} target="_blank" rel="noopener noreferrer"
+                                className="text-xs text-gray-500 hover:text-blue-600 underline">
+                                reglement ↗
+                              </a>
+                            )}
+                            {sub.external_register_url && (
+                              <a href={sub.external_register_url} target="_blank" rel="noopener noreferrer"
+                                className="px-2 py-0.5 rounded text-xs font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200">
+                                Inschrijven ↗
+                              </a>
+                            )}
+                            {sub.external_registrations_url && (
+                              <a href={sub.external_registrations_url} target="_blank" rel="noopener noreferrer"
+                                className="px-2 py-0.5 rounded text-xs font-medium bg-gray-50 text-gray-600 hover:bg-gray-100 border border-gray-200">
+                                Inschrijvingen ↗
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
-                  {showRegister && onRegister && (
+                  {showRegister && onRegister && !activity.sub_registrations?.length && (
                     <button
                       className="btn-primary btn-sm whitespace-nowrap self-start"
                       onClick={() => onRegister(activity)}

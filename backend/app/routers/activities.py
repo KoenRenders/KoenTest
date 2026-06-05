@@ -10,10 +10,12 @@ from app.database import get_db
 from app.models.activity import Activity, Registration
 from app.models.member import Membership
 from app.models.user import User
+from app.models.activity_sub_registration import ActivitySubRegistration
 from app.schemas.activity import (
     ActivityCreate,
     ActivityUpdate,
     ActivityResponse,
+    SubRegistrationResponse,
     RegistrationCreate,
     RegistrationResponse,
 )
