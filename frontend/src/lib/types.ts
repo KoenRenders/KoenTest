@@ -76,6 +76,11 @@ export interface OrderItem {
   quantity: number;
 }
 
+export interface CartItem {
+  product: Product;
+  quantity: number;
+}
+
 export interface Order {
   id: number;
   confirmation_number: string;

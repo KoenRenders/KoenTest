@@ -8,3 +8,4 @@ from app.models.activity import Activity, Registration
 from app.models.idea import Idea
 from app.models.cms import CmsPage
 from app.models.order import Order, OrderItem, WebshopProduct
+from app.models.activity_sub_registration import ActivitySubRegistration
