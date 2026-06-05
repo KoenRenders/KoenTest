@@ -53,7 +53,6 @@ export default function Navigation() {
             </li>
           ))}
           <li><Link href="/archief" className="block px-3 py-2 rounded hover:opacity-80 font-medium">Archief</Link></li>
-          <li><Link href="/webshop" className="block px-3 py-2 rounded hover:opacity-80 font-medium">Webshop</Link></li>
         </ul>
       </div>
     </nav>

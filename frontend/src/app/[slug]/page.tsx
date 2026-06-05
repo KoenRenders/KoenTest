@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
+import ReactMarkdown from "react-markdown";
 import { getPage } from "@/lib/api";
 import type { CmsPage } from "@/lib/types";
 
@@ -24,10 +25,9 @@ export default function CmsPageView() {
   return (
     <div>
       <h1 className="text-3xl font-bold text-blue-800 mb-8">{page.title}</h1>
-      <div
-        className="prose prose-lg max-w-none"
-        dangerouslySetInnerHTML={{ __html: page.content || "" }}
-      />
+      <div className="prose prose-lg max-w-none">
+        <ReactMarkdown>{page.content || ""}</ReactMarkdown>
+      </div>
     </div>
   );
 }

@@ -87,7 +87,7 @@ try:
         is_archived=False,
         sub_registrations=[
             {"name": "Cornhole tornooi", "reg_form_type": "TEAM", "is_free": True},
-            {"name": "BBQ", "register_url": "/winkel", "is_free": False},
+            {"name": "BBQ", "is_free": False},
             {"name": "Sjoelbak tornooi", "reg_form_type": "TEAM", "is_free": True},
         ])
 

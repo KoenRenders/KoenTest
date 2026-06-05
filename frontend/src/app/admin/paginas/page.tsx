@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { getPages, createPage, updatePage, deletePage } from "@/lib/api";
 import type { CmsPage } from "@/lib/types";
 
@@ -10,9 +11,9 @@ export default function AdminPaginas() {
   const [form, setForm] = useState(emptyPage());
   const [editing, setEditing] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [preview, setPreview] = useState(false);
 
   function load() {
-    // Fetch all pages including unpublished (we need admin endpoint but use public for now)
     getPages().then((r) => setPages(r.data)).catch(() => {});
   }
 
@@ -35,6 +36,7 @@ export default function AdminPaginas() {
     setForm({ title: p.title, slug: p.slug, content: p.content || "", is_published: p.is_published, sort_order: p.sort_order });
     setEditing(p.id);
     setShowForm(true);
+    setPreview(false);
   }
 
   async function handleDelete(id: number) {
@@ -47,7 +49,7 @@ export default function AdminPaginas() {
     <div>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-blue-800">CMS Pagina's</h1>
-        <button className="btn-primary btn-sm" onClick={() => { setShowForm(true); setEditing(null); setForm(emptyPage()); }}>
+        <button className="btn-primary btn-sm" onClick={() => { setShowForm(true); setEditing(null); setForm(emptyPage()); setPreview(false); }}>
           + Nieuwe pagina
         </button>
       </div>
@@ -74,16 +76,35 @@ export default function AdminPaginas() {
                 <label htmlFor="published">Gepubliceerd</label>
               </div>
             </div>
+
+            {/* Editor / Preview toggle */}
             <div>
-              <label className="label">Inhoud (HTML/rich text)</label>
-              <textarea
-                className="input font-mono text-sm min-h-[300px]"
-                value={form.content}
-                onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
-                placeholder="<p>Tekst hier…</p>"
-              />
-              <p className="text-xs text-gray-500 mt-1">HTML wordt ondersteund. Toekomstige versie: WYSIWYG editor (TipTap).</p>
+              <div className="flex items-center justify-between mb-2">
+                <label className="label mb-0">Inhoud (Markdown)</label>
+                <button
+                  type="button"
+                  className="text-xs text-blue-600 hover:underline"
+                  onClick={() => setPreview((p) => !p)}
+                >
+                  {preview ? "← Bewerken" : "Voorbeeld →"}
+                </button>
+              </div>
+
+              {preview ? (
+                <div className="border border-gray-200 rounded-lg p-4 min-h-[300px] bg-white prose prose-sm max-w-none">
+                  <ReactMarkdown>{form.content}</ReactMarkdown>
+                </div>
+              ) : (
+                <textarea
+                  className="input font-mono text-sm min-h-[300px]"
+                  value={form.content}
+                  onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
+                  placeholder={"## Titel\n\nTekst hier…\n\n- Punt 1\n- Punt 2"}
+                />
+              )}
+              <p className="text-xs text-gray-400 mt-1">Markdown: ## kop, **vet**, *cursief*, - lijst, [link](url)</p>
             </div>
+
             <div className="flex gap-3">
               <button type="submit" className="btn-primary">Opslaan</button>
               <button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setEditing(null); }}>Annuleren</button>
