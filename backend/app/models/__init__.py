@@ -8,3 +8,5 @@ from app.models.activity import Activity, Registration, RegistrationItem
 from app.models.idea import Idea
 from app.models.cms import CmsPage
 from app.models.activity_sub_registration import ActivitySubRegistration
+from app.domains.payment_gateway.models import GatewayPayment
+from app.domains.payment_status.models import PaymentRecord

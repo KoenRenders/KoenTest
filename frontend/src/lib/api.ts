@@ -20,12 +20,7 @@ export const createActivity = (data: unknown) => api.post("/api/v1/activities", 
 export const updateActivity = (id: number, data: unknown) => api.put(`/api/v1/activities/${id}`, data);
 export const deleteActivity = (id: number) => api.delete(`/api/v1/activities/${id}`);
 export const getRegistrations = (id: number) => api.get(`/api/v1/activities/${id}/registrations`);
-export const getPublicRegistrations = (id: number, subId?: number) =>
-  api.get(`/api/v1/activities/${id}/registrations/public`, { params: subId !== undefined ? { sub_registration_id: subId } : {} });
 export const getWaitlist = (id: number) => api.get(`/api/v1/activities/${id}/waitlist`);
-export const createSubRegistration = (activityId: number, data: unknown) => api.post(`/api/v1/activities/${activityId}/sub-registrations`, data);
-export const updateSubRegistration = (activityId: number, subId: number, data: unknown) => api.put(`/api/v1/activities/${activityId}/sub-registrations/${subId}`, data);
-export const deleteSubRegistration = (activityId: number, subId: number) => api.delete(`/api/v1/activities/${activityId}/sub-registrations/${subId}`);
 export const registerForActivity = (id: number, data: unknown) => api.post(`/api/v1/activities/${id}/register`, data);
 
 // Families
@@ -34,16 +29,7 @@ export const getFamily = (id: number) => api.get(`/api/v1/families/${id}`);
 export const createFamily = (data: unknown) => api.post("/api/v1/families", data);
 export const updateFamily = (id: number, data: unknown) => api.put(`/api/v1/families/${id}`, data);
 export const addFamilyMember = (familyId: number, data: unknown) => api.post(`/api/v1/families/${familyId}/members`, data);
-export const deleteFamily = (id: number) => api.delete(`/api/v1/families/${id}`);
-export const addPersonToFamily = (familyId: number, data: unknown) => api.post(`/api/v1/families/${familyId}/persons`, data);
-export const assignBoardMember = (familyId: number, data: unknown) => api.put(`/api/v1/families/${familyId}/board-member`, data);
 export const createMembership = (familyId: number, data: unknown) => api.post(`/api/v1/families/${familyId}/memberships`, data);
-export const deleteMembership = (id: number) => api.delete(`/api/v1/memberships/${id}`);
-export const listPersons = () => api.get("/api/v1/persons");
-export const updatePerson = (id: number, data: unknown) => api.put(`/api/v1/persons/${id}`, data);
-export const updatePersonAddress = (id: number, data: unknown) => api.put(`/api/v1/persons/${id}/address`, data);
-export const updatePersonContacts = (id: number, data: unknown) => api.put(`/api/v1/persons/${id}/contacts`, data);
-export const deletePerson = (id: number) => api.delete(`/api/v1/persons/${id}`);
 export const getMemberships = (year?: number) => api.get("/api/v1/memberships", { params: year ? { year } : {} });
 
 // Ideas
@@ -53,17 +39,26 @@ export const markIdeaReviewed = (id: number) => api.put(`/api/v1/ideas/${id}`);
 
 // CMS
 export const getPages = () => api.get("/api/v1/pages");
-export const getAllPages = () => api.get("/api/v1/admin/pages");
 export const getPage = (slug: string) => api.get(`/api/v1/pages/${slug}`);
-export const getBlock = (slug: string) => api.get(`/api/v1/blocks/${slug}`);
 export const createPage = (data: unknown) => api.post("/api/v1/pages", data);
 export const updatePage = (id: number, data: unknown) => api.put(`/api/v1/pages/${id}`, data);
 export const deletePage = (id: number) => api.delete(`/api/v1/pages/${id}`);
 
+// Webshop
+export const getProducts = () => api.get("/api/v1/products");
+export const createOrder = (data: unknown) => api.post("/api/v1/orders", data);
+export const getOrders = () => api.get("/api/v1/orders");
+export const exportOrders = () => api.get("/api/v1/orders/export", { responseType: "blob" });
+
 // Auth
-export const login = (email: string, password: string) =>
-  api.post("/api/v1/auth/login", { email, password });
+export const login = (username: string, password: string) =>
+  api.post("/api/v1/auth/login", { username, password });
 export const getMe = () => api.get("/api/v1/auth/me");
 
 // Admin
 export const getStats = () => api.get("/api/v1/admin/stats");
+export const getProductTotals = () => api.get("/api/v1/admin/product-totals");
+
+// CMS blocks (content blocks, not nav pages)
+export const getBlock = (slug: string) => api.get(`/api/v1/blocks/${slug}`);
+export const getAllPages = () => api.get("/api/v1/admin/pages");

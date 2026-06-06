@@ -33,6 +33,8 @@ from app.schemas.member import (
     BoardMemberAssign,
 )
 from app.schemas.family import FamilyCreate
+from app.domains.payment_status.service import create_payment_record, membership_price_for_date
+from app.config import settings
 
 _postal_cache: Optional[list] = None
 _postal_cache_ts: float = 0
@@ -91,7 +93,7 @@ def create_member(data: MemberCreate, db: Session = Depends(get_db)):
         mp = MemberPerson(
             member_id=member.id,
             person_id=person.id,
-            is_primary=person_data.is_primary,
+            relation_type=getattr(person_data, "relation_type", "hoofdlid"),
         )
         db.add(mp)
 
@@ -200,7 +202,6 @@ def _person_to_schema(person: Person, relation_type: str) -> FamilyMemberRespons
         email=email,
         phone=phone,
         relation_type=relation_type,
-        is_primary=relation_type == "hoofdlid",
     )
 
 
@@ -285,7 +286,7 @@ def update_person(
     db.commit()
     db.refresh(person)
     mp = next((mp for mp in person.member_persons), None)
-    return _person_to_schema(person, mp.is_primary if mp else False)
+    return _person_to_schema(person, mp.relation_type if mp else "hoofdlid")
 
 
 @router.put("/persons/{person_id}/address", response_model=FamilyMemberResponse)
@@ -313,7 +314,7 @@ def update_person_address(
     db.commit()
     db.refresh(person)
     mp = next((mp for mp in person.member_persons), None)
-    return _person_to_schema(person, mp.is_primary if mp else False)
+    return _person_to_schema(person, mp.relation_type if mp else "hoofdlid")
 
 
 @router.put("/persons/{person_id}/contacts", response_model=FamilyMemberResponse)
@@ -343,7 +344,7 @@ def update_person_contacts(
     db.commit()
     db.refresh(person)
     mp = next((mp for mp in person.member_persons), None)
-    return _person_to_schema(person, mp.is_primary if mp else False)
+    return _person_to_schema(person, mp.relation_type if mp else "hoofdlid")
 
 
 @router.delete("/persons/{person_id}", status_code=204)
@@ -486,5 +487,36 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
         if person_data.email:
             db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=person_data.email, is_primary=True))
 
+    # Annual membership record
+    current_year = date.today().year
+    membership = Membership(member_id=member.id, year=current_year, is_active=False)
+    db.add(membership)
+    db.flush()
+
+    # Payment
+    amount = membership_price_for_date()
+    hoofdlid = data.members[0]
+    description = f"KWB Millegem lidmaatschap {current_year} – {hoofdlid.last_name} {hoofdlid.first_name}"
+    redirect_url = f"{settings.frontend_url}/betaling/succes?member={member.id}"
+
+    payment_record = create_payment_record(
+        db=db,
+        payable_type="membership",
+        payable_id=membership.id,
+        amount=amount,
+        method=data.payment_method,
+        redirect_url=redirect_url,
+        description=description,
+    )
+
     db.commit()
-    return FamilyRegisteredResponse(id=member.id, status="registered")
+
+    checkout_url = None
+    if data.payment_method == "online" and payment_record.gateway_payment_id:
+        from app.domains.payment_gateway.models import GatewayPayment
+        gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
+        if gp:
+            checkout_url = gp.checkout_url
+
+    status = "pending_payment" if data.payment_method == "online" else "registered"
+    return FamilyRegisteredResponse(id=member.id, status=status, checkout_url=checkout_url, amount=amount)
