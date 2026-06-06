@@ -29,6 +29,8 @@ from app.schemas.activity import (
     SubRegistrationUpdate,
 )
 from app.services.email import send_waitlist_notification
+from app.domains.payment_status.service import create_payment_record
+from app.config import settings
 
 router = APIRouter(tags=["activities"])
 
@@ -414,6 +416,25 @@ def register_for_activity(
         total_amount = Decimal("0.00")
     registration.total_amount = total_amount
 
+    checkout_url = None
+    if payment_method == "MOLLIE" and total_amount > 0:
+        redirect_url = f"{settings.frontend_url}/betaling/succes"
+        description = f"{activity.name} – {data.contact_name or 'Deelnemer'}"
+        payment_record = create_payment_record(
+            db=db,
+            payable_type="activity_registration",
+            payable_id=registration.id,
+            amount=total_amount,
+            method="online",
+            redirect_url=redirect_url,
+            description=description,
+        )
+        if payment_record.gateway_payment_id:
+            from app.domains.payment_gateway.models import GatewayPayment
+            gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
+            if gp:
+                checkout_url = gp.checkout_url
+
     db.commit()
     db.refresh(registration)
 
@@ -428,4 +449,6 @@ def register_for_activity(
         except Exception:
             pass
 
-    return registration
+    response = RegistrationResponse.model_validate(registration)
+    response.checkout_url = checkout_url
+    return response

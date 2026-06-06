@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Date, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, DateTime, Date, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -9,13 +9,12 @@ class Member(Base):
     __tablename__ = "members"
 
     id = Column(Integer, primary_key=True, index=True)
-    board_member_id = Column(Integer, ForeignKey("persons.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-    board_member = relationship("Person", foreign_keys=[board_member_id])
     member_persons = relationship("MemberPerson", back_populates="member", cascade="all, delete-orphan")
     memberships = relationship("Membership", back_populates="member", cascade="all, delete-orphan")
+    orders = relationship("Order", back_populates="member")
 
 
 class Person(Base):
@@ -27,7 +26,6 @@ class Person(Base):
     first_name = Column(String(100), nullable=False)
     date_of_birth = Column(Date, nullable=True)
     gender_code = Column(String(10), ForeignKey("gender_codes.code"), nullable=True)
-    mobile = Column(String(30), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -45,13 +43,9 @@ class MemberPerson(Base):
     id = Column(Integer, primary_key=True, index=True)
     member_id = Column(Integer, ForeignKey("members.id"), nullable=False)
     person_id = Column(Integer, ForeignKey("persons.id"), nullable=False)
-    relation_type = Column(String(20), nullable=False, default="hoofdlid")
+    relation_type = Column(String(30), nullable=False, default="hoofdlid")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
-
-    @property
-    def is_primary(self) -> bool:
-        return self.relation_type == "hoofdlid"
 
     member = relationship("Member", back_populates="member_persons")
     person = relationship("Person", back_populates="member_persons")
@@ -62,8 +56,8 @@ class Membership(Base):
     __tablename__ = "memberships"
 
     id = Column(Integer, primary_key=True, index=True)
-    member_id = Column(Integer, ForeignKey("members.id"), nullable=False, index=True)
-    year = Column(Integer, nullable=False, index=True)
+    member_id = Column(Integer, ForeignKey("members.id"), nullable=False)
+    year = Column(Integer, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)

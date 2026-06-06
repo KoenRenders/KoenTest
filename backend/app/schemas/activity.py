@@ -142,6 +142,7 @@ class RegistrationResponse(BaseModel):
     payment_status: Optional[str] = None
     items: List[RegistrationItemResponse] = []
     total_amount: Optional[Decimal] = None
+    checkout_url: Optional[str] = None
 
     model_config = {"from_attributes": True}
 

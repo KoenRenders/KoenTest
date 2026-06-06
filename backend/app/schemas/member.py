@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Optional, List
 from pydantic import BaseModel
 
@@ -108,7 +109,6 @@ class FamilyMemberResponse(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     relation_type: str
-    is_primary: bool
 
 
 class PersonListItem(BaseModel):
@@ -162,6 +162,8 @@ class BoardMemberAssign(BaseModel):
 class FamilyRegisteredResponse(BaseModel):
     id: int
     status: str
+    checkout_url: Optional[str] = None
+    amount: Optional[Decimal] = None
 
 
 class PostalCodeResponse(BaseModel):
