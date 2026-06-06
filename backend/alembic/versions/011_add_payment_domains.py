@@ -24,7 +24,7 @@ def upgrade():
         sa.Column("status", sa.String(20), nullable=False, server_default="pending"),
         sa.Column("checkout_url", sa.String(500), nullable=True),
         sa.Column("description", sa.String(200), nullable=True),
-        sa.Column("metadata", sa.JSON, nullable=True),
+        sa.Column("payment_metadata", sa.JSON, nullable=True),
         sa.Column("created_at", sa.DateTime, nullable=False),
         sa.Column("updated_at", sa.DateTime, nullable=False),
     )

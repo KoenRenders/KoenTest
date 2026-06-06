@@ -37,7 +37,7 @@ def create_payment(
         status=result.status,
         checkout_url=result.checkout_url,
         description=description,
-        metadata=metadata,
+        payment_metadata=metadata,
     )
     db.add(gp)
     db.flush()

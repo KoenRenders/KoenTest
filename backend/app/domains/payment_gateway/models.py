@@ -15,6 +15,6 @@ class GatewayPayment(Base):
     status = Column(String(20), default="pending", nullable=False)
     checkout_url = Column(String(500), nullable=True)
     description = Column(String(200), nullable=True)
-    metadata = Column(JSON, nullable=True)
+    payment_metadata = Column(JSON, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
