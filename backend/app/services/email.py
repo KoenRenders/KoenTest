@@ -98,13 +98,14 @@ def send_order_confirmation(to_email: str, name: str, order) -> None:
     )
 
 
-def send_idea_acknowledgement(to_email: str, name: str) -> None:
+def send_idea_acknowledgement(to_email: str, name: str, message: str) -> None:
     _send(
         to_email=to_email,
         subject="Idee ontvangen – Raak Millegem",
         body_html=f"""
-        <p>Beste {name},</p>
+        <p>Beste {escape(name)},</p>
         <p>Bedankt voor je idee! We bekijken het zo snel mogelijk.</p>
+        <blockquote style="border-left:4px solid #ccc;padding-left:12px;color:#555;">{escape(message)}</blockquote>
         <p>Met vriendelijke groeten,<br>Raak Millegem</p>
         """,
     )
