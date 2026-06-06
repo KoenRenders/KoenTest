@@ -22,15 +22,30 @@ export const deleteActivity = (id: number) => api.delete(`/api/v1/activities/${i
 export const getRegistrations = (id: number) => api.get(`/api/v1/activities/${id}/registrations`);
 export const getWaitlist = (id: number) => api.get(`/api/v1/activities/${id}/waitlist`);
 export const registerForActivity = (id: number, data: unknown) => api.post(`/api/v1/activities/${id}/register`, data);
+export const getPublicRegistrations = (id: number) => api.get(`/api/v1/activities/${id}/public-registrations`);
+export const createSubRegistration = (activityId: number, data: unknown) => api.post(`/api/v1/activities/${activityId}/sub-registrations`, data);
+export const updateSubRegistration = (activityId: number, subId: number, data: unknown) => api.put(`/api/v1/activities/${activityId}/sub-registrations/${subId}`, data);
+export const deleteSubRegistration = (activityId: number, subId: number) => api.delete(`/api/v1/activities/${activityId}/sub-registrations/${subId}`);
 
 // Families
-export const getFamilies = () => api.get("/api/v1/families");
+export const getFamilies = (params?: { page?: number; page_size?: number }) => api.get("/api/v1/families", { params });
 export const getFamily = (id: number) => api.get(`/api/v1/families/${id}`);
 export const createFamily = (data: unknown) => api.post("/api/v1/families", data);
 export const updateFamily = (id: number, data: unknown) => api.put(`/api/v1/families/${id}`, data);
+export const deleteFamily = (id: number) => api.delete(`/api/v1/families/${id}`);
 export const addFamilyMember = (familyId: number, data: unknown) => api.post(`/api/v1/families/${familyId}/members`, data);
+export const addPersonToFamily = (familyId: number, data: unknown) => api.post(`/api/v1/families/${familyId}/persons`, data);
 export const createMembership = (familyId: number, data: unknown) => api.post(`/api/v1/families/${familyId}/memberships`, data);
+export const deleteMembership = (membershipId: number) => api.delete(`/api/v1/memberships/${membershipId}`);
 export const getMemberships = (year?: number) => api.get("/api/v1/memberships", { params: year ? { year } : {} });
+export const assignBoardMember = (familyId: number, data: unknown) => api.put(`/api/v1/families/${familyId}/board-member`, data);
+
+// Persons
+export const listPersons = () => api.get("/api/v1/persons");
+export const updatePerson = (personId: number, data: unknown) => api.put(`/api/v1/persons/${personId}`, data);
+export const updatePersonAddress = (personId: number, data: unknown) => api.put(`/api/v1/persons/${personId}/address`, data);
+export const updatePersonContacts = (personId: number, data: unknown) => api.put(`/api/v1/persons/${personId}/contacts`, data);
+export const deletePerson = (personId: number) => api.delete(`/api/v1/persons/${personId}`);
 
 // Ideas
 export const getIdeas = () => api.get("/api/v1/ideas");
