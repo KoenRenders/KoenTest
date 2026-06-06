@@ -29,6 +29,8 @@ class MollieProvider(BaseProvider):
         webhook_url: str,
         metadata: dict,
     ) -> PaymentResult:
+        if not settings.mollie_api_key:
+            raise ValueError("MOLLIE_API_KEY is niet geconfigureerd.")
         response = httpx.post(
             f"{MOLLIE_API_BASE}/payments",
             json={
@@ -41,6 +43,8 @@ class MollieProvider(BaseProvider):
             headers=self._headers(),
             timeout=10,
         )
+        if not response.is_success:
+            raise ValueError(f"Mollie fout ({response.status_code}): {response.text}")
         response.raise_for_status()
         data = response.json()
         return PaymentResult(

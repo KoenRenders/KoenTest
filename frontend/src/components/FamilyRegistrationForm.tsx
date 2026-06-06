@@ -1,19 +1,13 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
 import { createFamily } from "@/lib/api";
 
 const RELATION_TYPES = ["hoofdlid", "partner", "(meerderjarig) kind"];
 
+interface PostalOption { postal_code: string; municipality: string; }
 interface MemberForm {
-  first_name: string;
-  last_name: string;
-  date_of_birth: string;
-  gender: string;
-  email: string;
-  phone: string;
-  mobile: string;
-  relation_type: string;
+  first_name: string; last_name: string; date_of_birth: string;
+  gender: string; email: string; phone: string; mobile: string; relation_type: string;
 }
 
 const emptyMember = (relation_type = "hoofdlid"): MemberForm => ({
@@ -22,29 +16,52 @@ const emptyMember = (relation_type = "hoofdlid"): MemberForm => ({
 });
 
 export default function FamilyRegistrationForm() {
-  const router = useRouter();
   const [form, setForm] = useState({
     street: "", house_number: "", bus_number: "", postal_code: "", payment_method: "cash",
   });
+  const [postalInput, setPostalInput] = useState("");
+  const [postalOptions, setPostalOptions] = useState<PostalOption[]>([]);
+  const [postalFiltered, setPostalFiltered] = useState<PostalOption[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [members, setMembers] = useState<MemberForm[]>([emptyMember("hoofdlid")]);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [error, setError] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetch("/api/v1/postal-codes")
+      .then((r) => r.json())
+      .then((data: PostalOption[]) => setPostalOptions(data))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!postalInput) { setPostalFiltered([]); return; }
+    const q = postalInput.toLowerCase();
+    setPostalFiltered(
+      postalOptions.filter(
+        (p) => p.postal_code.startsWith(postalInput) || p.municipality.toLowerCase().includes(q)
+      ).slice(0, 8)
+    );
+  }, [postalInput, postalOptions]);
+
+  function selectPostal(p: PostalOption) {
+    setPostalInput(`${p.postal_code} — ${p.municipality}`);
+    setForm((f) => ({ ...f, postal_code: p.postal_code }));
+    setShowDropdown(false);
+  }
 
   function updateMember(i: number, field: keyof MemberForm, value: string) {
     setMembers((ms) => ms.map((m, idx) => idx === i ? { ...m, [field]: value } : m));
   }
 
-  function addMember() {
-    setMembers((ms) => [...ms, emptyMember("partner")]);
-  }
-
-  function removeMember(i: number) {
-    if (i === 0) return;
-    setMembers((ms) => ms.filter((_, idx) => idx !== i));
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.postal_code) {
+      setError("Selecteer een geldige postcode uit de lijst.");
+      setStatus("error");
+      return;
+    }
     setStatus("loading");
     setError("");
     try {
@@ -104,9 +121,29 @@ export default function FamilyRegistrationForm() {
             <label className="label">Bus</label>
             <input className="input" value={form.bus_number} onChange={(e) => setForm((f) => ({ ...f, bus_number: e.target.value }))} />
           </div>
-          <div className="sm:col-span-2">
+          <div className="sm:col-span-2 relative" ref={dropdownRef}>
             <label className="label">Postcode *</label>
-            <input className="input" required value={form.postal_code} onChange={(e) => setForm((f) => ({ ...f, postal_code: e.target.value }))} />
+            <input
+              className="input"
+              required
+              autoComplete="off"
+              value={postalInput}
+              onChange={(e) => { setPostalInput(e.target.value); setForm((f) => ({ ...f, postal_code: "" })); setShowDropdown(true); }}
+              onFocus={() => setShowDropdown(true)}
+              onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+              placeholder="Type postcode of gemeente…"
+            />
+            {showDropdown && postalFiltered.length > 0 && (
+              <ul className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                {postalFiltered.map((p) => (
+                  <li key={p.postal_code}
+                    className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                    onMouseDown={() => selectPostal(p)}>
+                    <span className="font-medium">{p.postal_code}</span> — {p.municipality}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       </div>
@@ -117,11 +154,9 @@ export default function FamilyRegistrationForm() {
           {members.map((member, i) => (
             <div key={i} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
               <div className="flex items-center justify-between mb-3">
-                <span className="font-medium text-sm text-gray-700">
-                  {i === 0 ? "Hoofdgezinslid" : `Gezinslid ${i + 1}`}
-                </span>
+                <span className="font-medium text-sm text-gray-700">{i === 0 ? "Hoofdgezinslid" : `Gezinslid ${i + 1}`}</span>
                 {i > 0 && (
-                  <button type="button" onClick={() => removeMember(i)} className="text-red-600 text-sm hover:underline">
+                  <button type="button" onClick={() => setMembers((ms) => ms.filter((_, idx) => idx !== i))} className="text-red-600 text-sm hover:underline">
                     Verwijderen
                   </button>
                 )}
@@ -170,7 +205,7 @@ export default function FamilyRegistrationForm() {
             </div>
           ))}
         </div>
-        <button type="button" onClick={addMember} className="mt-3 btn-secondary btn-sm">
+        <button type="button" onClick={() => setMembers((ms) => [...ms, emptyMember("partner")])} className="mt-3 btn-secondary btn-sm">
           + Gezinslid toevoegen
         </button>
       </div>
@@ -184,26 +219,18 @@ export default function FamilyRegistrationForm() {
             { value: "online", label: "Online betalen via Mollie" },
           ].map(({ value, label }) => (
             <label key={value} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="payment_method"
-                value={value}
+              <input type="radio" name="payment_method" value={value}
                 checked={form.payment_method === value}
-                onChange={() => setForm((f) => ({ ...f, payment_method: value }))}
-              />
+                onChange={() => setForm((f) => ({ ...f, payment_method: value }))} />
               <span>{label}</span>
             </label>
           ))}
         </div>
         {form.payment_method === "online" && (
-          <p className="mt-2 text-sm text-gray-600">
-            Je wordt doorgestuurd naar Mollie om veilig online te betalen.
-          </p>
+          <p className="mt-2 text-sm text-gray-600">Je wordt doorgestuurd naar Mollie om veilig online te betalen.</p>
         )}
         {form.payment_method === "transfer" && (
-          <p className="mt-2 text-sm text-gray-600">
-            Na registratie ontvang je de rekeninggegevens per e-mail.
-          </p>
+          <p className="mt-2 text-sm text-gray-600">Na registratie ontvang je de rekeninggegevens per e-mail.</p>
         )}
       </div>
 

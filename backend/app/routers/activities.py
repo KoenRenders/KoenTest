@@ -420,20 +420,24 @@ def register_for_activity(
     if payment_method == "MOLLIE" and total_amount > 0:
         redirect_url = f"{settings.frontend_url}/betaling/succes"
         description = f"{activity.name} – {data.contact_name or 'Deelnemer'}"
-        payment_record = create_payment_record(
-            db=db,
-            payable_type="activity_registration",
-            payable_id=registration.id,
-            amount=total_amount,
-            method="online",
-            redirect_url=redirect_url,
-            description=description,
-        )
-        if payment_record.gateway_payment_id:
-            from app.domains.payment_gateway.models import GatewayPayment
-            gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
-            if gp:
-                checkout_url = gp.checkout_url
+        try:
+            payment_record = create_payment_record(
+                db=db,
+                payable_type="activity_registration",
+                payable_id=registration.id,
+                amount=total_amount,
+                method="online",
+                redirect_url=redirect_url,
+                description=description,
+            )
+            if payment_record.gateway_payment_id:
+                from app.domains.payment_gateway.models import GatewayPayment
+                gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
+                if gp:
+                    checkout_url = gp.checkout_url
+        except ValueError as e:
+            db.rollback()
+            raise HTTPException(status_code=422, detail=str(e))
 
     db.commit()
     db.refresh(registration)
