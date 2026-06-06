@@ -138,19 +138,21 @@ export default function RegistrationForm({ activity, subRegistration, onClose, o
             />
           </div>
           <div>
-            <label className="label">E-mail</label>
+            <label className="label">E-mail *</label>
             <input
               type="email"
               className="input"
+              required
               value={contactEmail}
               onChange={(e) => setContactEmail(e.target.value)}
             />
           </div>
           <div>
-            <label className="label">GSM-nummer</label>
+            <label className="label">GSM-nummer *</label>
             <input
               type="tel"
               className="input"
+              required
               value={contactPhone}
               onChange={(e) => setContactPhone(e.target.value)}
             />

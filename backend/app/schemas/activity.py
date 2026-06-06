@@ -104,9 +104,9 @@ class RegistrationItemCreate(BaseModel):
 
 
 class RegistrationCreate(BaseModel):
-    contact_name: Optional[str] = None
-    contact_email: Optional[EmailStr] = None
-    contact_phone: Optional[str] = None
+    contact_name: str
+    contact_email: EmailStr
+    contact_phone: str
     team_name: Optional[str] = None
     group_size: Optional[int] = Field(None, ge=1, le=500)
     age_categories: Optional[str] = None  # JSON string
