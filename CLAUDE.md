@@ -125,6 +125,13 @@ For `PAID_PRODUCTS`: `paidProducts` on the frontend are sub-registrations where 
 - **Payment default:** Default payment method in `RegistrationForm` is `"MOLLIE"` (online). On success with `checkout_url`, do `window.location.href = checkout_url` — never use `router.push()` for Mollie redirect.
 - **`isPaid` check:** Must include `isPositivePrice(subRegistration?.price)` — sub-registrations can have their own price independent of the parent activity price.
 
+## Code change discipline
+
+- Only change what was explicitly requested. Nothing more.
+- If something looks odd or suboptimal but wasn't mentioned, say so in chat and wait for approval — do not change it.
+- Never "clean up" surrounding code while fixing something else.
+- If a requested change requires touching something adjacent, explain what and why before doing it.
+
 ## Common mistakes to avoid
 
 - Do not add `mobile` as a kwarg to `Person(...)` — it's not a column on Person.
