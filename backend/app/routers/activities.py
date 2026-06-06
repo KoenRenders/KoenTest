@@ -28,7 +28,7 @@ from app.schemas.activity import (
     SubRegistrationResponse,
     SubRegistrationUpdate,
 )
-from app.services.email import send_waitlist_notification
+from app.services.email import send_activity_registration_confirmation, send_waitlist_notification
 from app.domains.payment_status.service import create_payment_record
 from app.config import settings
 
@@ -443,14 +443,21 @@ def register_for_activity(
     db.commit()
     db.refresh(registration)
 
-    # Send notification email if on waitlist
-    if is_waitlist and data.contact_email:
+    # Send confirmation or waitlist email
+    if data.contact_email:
         try:
-            send_waitlist_notification(
-                to_email=data.contact_email,
-                name=data.contact_name or "Deelnemer",
-                activity_name=activity.name,
-            )
+            if is_waitlist:
+                send_waitlist_notification(
+                    to_email=data.contact_email,
+                    name=data.contact_name or "Deelnemer",
+                    activity_name=activity.name,
+                )
+            else:
+                send_activity_registration_confirmation(
+                    to_email=data.contact_email,
+                    name=data.contact_name or "Deelnemer",
+                    activity=activity,
+                )
         except Exception:
             pass
 
