@@ -22,7 +22,7 @@ export const deleteActivity = (id: number) => api.delete(`/api/v1/activities/${i
 export const getRegistrations = (id: number) => api.get(`/api/v1/activities/${id}/registrations`);
 export const getWaitlist = (id: number) => api.get(`/api/v1/activities/${id}/waitlist`);
 export const registerForActivity = (id: number, data: unknown) => api.post(`/api/v1/activities/${id}/register`, data);
-export const getPublicRegistrations = (id: number) => api.get(`/api/v1/activities/${id}/public-registrations`);
+export const getPublicRegistrations = (id: number, subId?: number) => api.get(`/api/v1/activities/${id}/public-registrations`, { params: subId ? { sub_id: subId } : {} });
 export const createSubRegistration = (activityId: number, data: unknown) => api.post(`/api/v1/activities/${activityId}/sub-registrations`, data);
 export const updateSubRegistration = (activityId: number, subId: number, data: unknown) => api.put(`/api/v1/activities/${activityId}/sub-registrations/${subId}`, data);
 export const deleteSubRegistration = (activityId: number, subId: number) => api.delete(`/api/v1/activities/${activityId}/sub-registrations/${subId}`);
