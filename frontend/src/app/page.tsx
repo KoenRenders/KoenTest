@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getActivities, getPage } from "@/lib/api";
+import { getActivities, getBlock } from "@/lib/api";
 import ActivityList from "@/components/ActivityList";
 import RegistrationForm from "@/components/RegistrationForm";
 import IdeaBox from "@/components/IdeaBox";
@@ -21,7 +21,7 @@ export default function HomePage() {
       .then((r) => setActivities(r.data))
       .catch(() => {})
       .finally(() => setLoading(false));
-    getPage("home-intro").then((r) => setIntroPage(r.data)).catch(() => {});
+    getBlock("home-intro").then((r) => setIntroPage(r.data)).catch(() => {});
   }, []);
 
   function handleRegistered() {
