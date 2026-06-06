@@ -34,6 +34,7 @@ from app.schemas.member import (
 )
 from app.schemas.family import FamilyCreate
 from app.domains.payment_status.service import create_payment_record, membership_price_for_date
+from app.services.email import send_registration_confirmation
 from app.config import settings
 
 _postal_cache: Optional[list] = None
@@ -520,6 +521,16 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
         gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
         if gp:
             checkout_url = gp.checkout_url
+
+    if hoofdlid.email:
+        try:
+            send_registration_confirmation(
+                to_email=hoofdlid.email,
+                name=f"{hoofdlid.first_name} {hoofdlid.last_name}",
+                family=member,
+            )
+        except Exception:
+            pass
 
     status = "pending_payment" if data.payment_method == "online" else "registered"
     return FamilyRegisteredResponse(id=member.id, status=status, checkout_url=checkout_url, amount=amount)
