@@ -34,6 +34,7 @@ export default function RegistrationForm({ activity, subRegistration, onClose, o
   const isPaid =
     formType === "PAID_PER_PERSON" ||
     formType === "PAID_PRODUCTS" ||
+    isPositivePrice(subRegistration?.price) ||
     isPositivePrice(activity.price);
 
   const [contactName, setContactName] = useState("");
@@ -49,6 +50,24 @@ export default function RegistrationForm({ activity, subRegistration, onClose, o
   );
   const [remarks, setRemarks] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("MOLLIE");
+
+  // Compute total amount for display
+  function computeTotal(): number | null {
+    if (formType === "PAID_PER_PERSON") {
+      const unitPrice = parseFloat(subRegistration?.price ?? activity.price ?? "0") || 0;
+      return groupSize * unitPrice;
+    }
+    if (formType === "PAID_PRODUCTS") {
+      return paidProducts.reduce((sum, p) => sum + (itemQuantities[p.id] || 0) * (parseFloat(p.price) || 0), 0);
+    }
+    if (isPositivePrice(subRegistration?.price)) {
+      return parseFloat(subRegistration!.price) || 0;
+    }
+    if (isPositivePrice(activity.price)) {
+      return parseFloat(activity.price ?? "0") || 0;
+    }
+    return null;
+  }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -228,17 +247,28 @@ export default function RegistrationForm({ activity, subRegistration, onClose, o
 
           {/* Betaling */}
           {isPaid && (
-            <div>
-              <label className="label">Betaalmethode *</label>
-              <select
-                className="input"
-                value={paymentMethod}
-                onChange={(e) => setPaymentMethod(e.target.value)}
-              >
-                <option value="MOLLIE">Mollie (online)</option>
-                <option value="CASH">Cash</option>
-                <option value="TRANSFER">Overschrijving</option>
-              </select>
+            <div className="space-y-3">
+              {(() => {
+                const total = computeTotal();
+                return total !== null && total > 0 ? (
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex justify-between items-center">
+                    <span className="font-medium text-blue-800">Totaal te betalen</span>
+                    <span className="font-bold text-blue-900 text-lg">{formatPrice(String(total.toFixed(2)))}</span>
+                  </div>
+                ) : null;
+              })()}
+              <div>
+                <label className="label">Betaalmethode *</label>
+                <select
+                  className="input"
+                  value={paymentMethod}
+                  onChange={(e) => setPaymentMethod(e.target.value)}
+                >
+                  <option value="MOLLIE">Mollie (online)</option>
+                  <option value="CASH">Cash</option>
+                  <option value="TRANSFER">Overschrijving</option>
+                </select>
+              </div>
             </div>
           )}
 
