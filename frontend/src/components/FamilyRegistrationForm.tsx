@@ -181,8 +181,8 @@ export default function FamilyRegistrationForm() {
                   <select className="input" value={member.gender} onChange={(e) => updateMember(i, "gender", e.target.value)}>
                     <option value="">— Kies —</option>
                     <option value="M">Man</option>
-                    <option value="V">Vrouw</option>
-                    <option value="X">Anders</option>
+                    <option value="F">Vrouw</option>
+                    <option value="O">Anders</option>
                   </select>
                 </div>
                 <div>
