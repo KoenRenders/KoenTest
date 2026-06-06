@@ -31,15 +31,21 @@ class MollieProvider(BaseProvider):
     ) -> PaymentResult:
         if not settings.mollie_api_key:
             raise ValueError("MOLLIE_API_KEY is niet geconfigureerd.")
+
+        # Mollie can't reach localhost/private URLs — omit webhook in that case
+        is_local = any(h in webhook_url for h in ("localhost", "127.0.0.1", "0.0.0.0"))
+        payload: dict = {
+            "amount": {"currency": "EUR", "value": f"{amount:.2f}"},
+            "description": description,
+            "redirectUrl": redirect_url,
+            "metadata": metadata,
+        }
+        if not is_local:
+            payload["webhookUrl"] = webhook_url
+
         response = httpx.post(
             f"{MOLLIE_API_BASE}/payments",
-            json={
-                "amount": {"currency": "EUR", "value": f"{amount:.2f}"},
-                "description": description,
-                "redirectUrl": redirect_url,
-                "webhookUrl": webhook_url,
-                "metadata": metadata,
-            },
+            json=payload,
             headers=self._headers(),
             timeout=10,
         )
