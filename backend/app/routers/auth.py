@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import verify_password, create_access_token, get_current_admin
 from app.database import get_db
-from app.limiter import limiter
+from app.limiter import login_limiter
 from app.models.user import User
 from app.schemas.auth import LoginRequest, TokenResponse, UserResponse
 from app.config import settings
@@ -14,8 +14,7 @@ router = APIRouter(tags=["auth"])
 
 
 @router.post("/auth/login", response_model=TokenResponse)
-@limiter.limit("10/minute")
-def login(request: Request, body: LoginRequest, db: Session = Depends(get_db)):
+def login(request: Request, body: LoginRequest, db: Session = Depends(get_db), _: None = Depends(login_limiter)):
     user = db.query(User).filter(User.email == body.email, User.is_active == True).first()
     if not user or not verify_password(body.password, user.password_hash):
         raise HTTPException(

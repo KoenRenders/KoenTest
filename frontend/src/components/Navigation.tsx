@@ -13,7 +13,7 @@ export default function Navigation() {
   }, []);
 
   return (
-    <nav style={{ backgroundColor: "var(--color-ocean-blue)" }} className="text-white shadow-md">
+    <nav style={{ backgroundColor: "var(--color-ocean-blue)" }} className="text-white shadow-md sticky top-0 z-50">
       <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
         <div>
           <Link href="/" className="hover:opacity-80">
@@ -45,7 +45,7 @@ export default function Navigation() {
           style={menuOpen ? { backgroundColor: "var(--color-ocean-blue)" } : {}}
         >
           <li><Link href="/" className="block px-3 py-2 rounded hover:opacity-80 font-medium">Home</Link></li>
-          {pages.map((p) => (
+          {pages.filter((p) => p.slug !== "home-intro").map((p) => (
             <li key={p.id}>
               <Link href={`/${p.slug}`} className="block px-3 py-2 rounded hover:opacity-80 font-medium">
                 {p.title}

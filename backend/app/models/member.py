@@ -45,9 +45,13 @@ class MemberPerson(Base):
     id = Column(Integer, primary_key=True, index=True)
     member_id = Column(Integer, ForeignKey("members.id"), nullable=False)
     person_id = Column(Integer, ForeignKey("persons.id"), nullable=False)
-    is_primary = Column(Boolean, default=False, nullable=False)
+    relation_type = Column(String(20), nullable=False, default="hoofdlid")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
+    @property
+    def is_primary(self) -> bool:
+        return self.relation_type == "hoofdlid"
 
     member = relationship("Member", back_populates="member_persons")
     person = relationship("Person", back_populates="member_persons")

@@ -2,6 +2,8 @@
 import { useState, useEffect } from "react";
 import { parseApiError } from "@/lib/errors";
 
+const RELATION_TYPES = ["hoofdlid", "partner", "(meerderjarig) kind"];
+
 interface PostalCodeOption {
   postal_code: string;
   municipality: string;
@@ -15,13 +17,12 @@ interface MemberForm {
   email: string;
   phone: string;
   mobile: string;
-  member_type: string;
-  is_primary: boolean;
+  relation_type: string;
 }
 
 const emptyMember = (): MemberForm => ({
   first_name: "", last_name: "", date_of_birth: "", gender: "",
-  email: "", phone: "", mobile: "", member_type: "", is_primary: false,
+  email: "", phone: "", mobile: "", relation_type: "partner",
 });
 
 function postalOption(p: PostalCodeOption) {
@@ -59,7 +60,6 @@ function MemberFields({
           <option value="U">Onbekend</option>
         </select>
       </div>
-      {/* Telefoon links, mobiel rechts */}
       <div>
         <label className="label">Telefoonnummer</label>
         <input type="tel" className="input" value={member.phone} onChange={(e) => onChange("phone", e.target.value)} />
@@ -68,15 +68,9 @@ function MemberFields({
         <label className="label">Gsm-nummer</label>
         <input type="tel" className="input" value={member.mobile} onChange={(e) => onChange("mobile", e.target.value)} />
       </div>
-      {/* E-mail full width */}
       <div className="sm:col-span-2">
         <label className="label">E-mailadres</label>
-        <input
-          type="email"
-          className="input"
-          value={member.email}
-          onChange={(e) => onChange("email", e.target.value)}
-        />
+        <input type="email" className="input" value={member.email} onChange={(e) => onChange("email", e.target.value)} />
       </div>
     </div>
   );
@@ -87,7 +81,7 @@ export default function FamilyRegistrationForm() {
     street: "", house_number: "", bus_number: "", postal_code: "",
   });
   const [postalInput, setPostalInput] = useState("");
-  const [members, setMembers] = useState<MemberForm[]>([{ ...emptyMember(), is_primary: true, member_type: "HOOFDLID" }]);
+  const [members, setMembers] = useState<MemberForm[]>([{ ...emptyMember(), relation_type: "hoofdlid" }]);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [error, setError] = useState("");
   const [postalCodes, setPostalCodes] = useState<PostalCodeOption[]>([]);
@@ -105,7 +99,7 @@ export default function FamilyRegistrationForm() {
     setForm((f) => ({ ...f, postal_code: match ? match.postal_code : "" }));
   }
 
-  function updateMember(i: number, field: keyof MemberForm, value: string | boolean) {
+  function updateMember(i: number, field: keyof MemberForm, value: string) {
     setMembers((ms) => ms.map((m, idx) => idx === i ? { ...m, [field]: value } : m));
   }
 
@@ -144,8 +138,7 @@ export default function FamilyRegistrationForm() {
             email: m.email || undefined,
             phone: m.phone || undefined,
             mobile: m.mobile || undefined,
-            member_type: m.member_type || undefined,
-            is_primary: m.is_primary,
+            relation_type: m.relation_type,
           })),
         }),
       });
@@ -170,29 +163,21 @@ export default function FamilyRegistrationForm() {
     );
   }
 
-  const memberTypeLabel = (m: MemberForm, i: number) => {
-    if (m.is_primary) return "Hoofdlid";
-    if (m.member_type === "PARTNER") return "Partner";
-    if (m.member_type === "KIND") return "(Meerderjarig) kind";
-    return `Gezinslid ${i + 1}`;
-  };
+  const hoofdlid = members.find((m) => m.relation_type === "hoofdlid")!;
+  const hoofdlidIndex = members.indexOf(hoofdlid);
+  const gezinsleden = members.filter((m) => m.relation_type !== "hoofdlid");
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-      {/* Primary member */}
-      {members.filter((m) => m.is_primary).map((member) => {
-        const i = members.indexOf(member);
-        return (
-          <div key={i}>
-            <h3 className="font-semibold text-lg mb-3 text-blue-800">Hoofdlid</h3>
-            <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-              <MemberFields member={member} index={i} onChange={(f, v) => updateMember(i, f, v)} />
-            </div>
-          </div>
-        );
-      })}
+      {/* Hoofdlid */}
+      <div>
+        <h3 className="font-semibold text-lg mb-3 text-blue-800">Hoofdlid</h3>
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <MemberFields member={hoofdlid} index={hoofdlidIndex} onChange={(f, v) => updateMember(hoofdlidIndex, f, v)} />
+        </div>
+      </div>
 
-      {/* Address — under primary member */}
+      {/* Adresgegevens */}
       <div>
         <h3 className="font-semibold text-lg mb-3 text-blue-800">Adresgegevens</h3>
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 mb-3">
@@ -230,26 +215,26 @@ export default function FamilyRegistrationForm() {
         </div>
       </div>
 
-      {/* Additional family members */}
+      {/* Gezinsleden */}
       <div>
         <h3 className="font-semibold text-lg mb-3 text-blue-800">Gezinsleden toevoegen</h3>
         <div className="space-y-4">
-          {members.filter((m) => !m.is_primary).map((member) => {
+          {gezinsleden.map((member) => {
             const i = members.indexOf(member);
             return (
               <div key={i} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
                 <div className="flex items-center justify-between mb-3">
-                  <span className="font-medium text-sm text-gray-700">{memberTypeLabel(member, i)}</span>
+                  <span className="font-medium text-sm text-gray-700 capitalize">{member.relation_type}</span>
                   <button type="button" onClick={() => removeMember(i)} className="text-red-600 text-sm hover:underline">
                     Verwijderen
                   </button>
                 </div>
                 <div className="mb-3">
-                  <label className="label">Type gezinslid</label>
-                  <select className="input" value={member.member_type} onChange={(e) => updateMember(i, "member_type", e.target.value)}>
-                    <option value="">— Kies —</option>
-                    <option value="PARTNER">Partner</option>
-                    <option value="KIND">(Meerderjarig) kind</option>
+                  <label className="label">Relatie</label>
+                  <select className="input" value={member.relation_type} onChange={(e) => updateMember(i, "relation_type", e.target.value)}>
+                    {RELATION_TYPES.filter((r) => r !== "hoofdlid").map((r) => (
+                      <option key={r} value={r}>{r}</option>
+                    ))}
                   </select>
                 </div>
                 <MemberFields member={member} index={i} onChange={(f, v) => updateMember(i, f, v)} />

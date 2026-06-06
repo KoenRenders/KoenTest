@@ -96,6 +96,9 @@ class MembershipResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+RELATION_TYPES = ["hoofdlid", "partner", "(meerderjarig) kind"]
+
+
 class FamilyMemberResponse(BaseModel):
     id: int
     last_name: str
@@ -104,7 +107,16 @@ class FamilyMemberResponse(BaseModel):
     gender: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    relation_type: str
     is_primary: bool
+
+
+class PersonListItem(BaseModel):
+    id: int
+    last_name: str
+    first_name: str
+
+    model_config = {"from_attributes": True}
 
 
 class FamilyResponse(BaseModel):
@@ -116,6 +128,35 @@ class FamilyResponse(BaseModel):
     municipality: str
     members: List[FamilyMemberResponse]
     memberships: List[MembershipResponse] = []
+    board_member: Optional[PersonListItem] = None
+
+
+class AddressUpdate(BaseModel):
+    street: Optional[str] = None
+    house_number: Optional[str] = None
+    bus_number: Optional[str] = None
+    postal_code: Optional[str] = None
+
+
+class ContactsUpdate(BaseModel):
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    mobile: Optional[str] = None
+
+
+class PersonAddToFamily(BaseModel):
+    last_name: str
+    first_name: str
+    date_of_birth: Optional[date] = None
+    gender_code: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    mobile: Optional[str] = None
+    relation_type: str = "partner"
+
+
+class BoardMemberAssign(BaseModel):
+    person_id: Optional[int] = None
 
 
 class FamilyRegisteredResponse(BaseModel):

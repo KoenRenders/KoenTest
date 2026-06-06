@@ -11,8 +11,7 @@ class FamilyMemberCreate(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     mobile: Optional[str] = None
-    member_type: Optional[str] = None
-    is_primary: bool = False
+    relation_type: str = "hoofdlid"
 
 
 class FamilyMemberUpdate(BaseModel):

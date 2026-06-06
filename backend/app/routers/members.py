@@ -17,6 +17,9 @@ from app.schemas.member import (
     MemberResponse,
     PersonCreate,
     PersonResponse,
+    PersonUpdate,
+    PersonAddToFamily,
+    PersonListItem,
     MembershipCreate,
     MembershipResponse,
     FamilyMemberResponse,
@@ -25,6 +28,9 @@ from app.schemas.member import (
     PostalCodeResponse,
     PaginatedFamiliesResponse,
     PaginatedMembersResponse,
+    AddressUpdate,
+    ContactsUpdate,
+    BoardMemberAssign,
 )
 from app.schemas.family import FamilyCreate
 
@@ -160,21 +166,7 @@ def list_families(
 ):
     total = db.query(Member).count()
     families = db.query(Member).order_by(Member.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
-    result = []
-    for m in families:
-        primary = next((mp.person for mp in m.member_persons if mp.is_primary), None)
-        address = primary.address if primary else None
-        memberships = [MembershipResponse.model_validate(ms) for ms in m.memberships]
-        result.append(FamilyResponse(
-            id=m.id,
-            street=address.street if address else "",
-            house_number=address.house_number if address else "",
-            bus_number=address.bus_number if address else None,
-            postal_code=address.postal_code.postal_code if address and address.postal_code else "",
-            municipality=address.postal_code.municipality if address and address.postal_code else "",
-            members=[_person_to_schema(mp.person, mp.is_primary) for mp in m.member_persons],
-            memberships=memberships,
-        ))
+    result = [_build_family_response(m) for m in families]
     return PaginatedFamiliesResponse(
         items=result,
         total=total,
@@ -193,22 +185,10 @@ def get_family(
     m = db.query(Member).filter(Member.id == family_id).first()
     if not m:
         raise HTTPException(status_code=404, detail="Family not found")
-    primary = next((mp.person for mp in m.member_persons if mp.is_primary), None)
-    address = primary.address if primary else None
-    memberships = [MembershipResponse.model_validate(ms) for ms in m.memberships]
-    return FamilyResponse(
-        id=m.id,
-        street=address.street if address else "",
-        house_number=address.house_number if address else "",
-        bus_number=address.bus_number if address else None,
-        postal_code=address.postal_code.postal_code if address and address.postal_code else "",
-        municipality=address.postal_code.municipality if address and address.postal_code else "",
-        members=[_person_to_schema(mp.person, mp.is_primary) for mp in m.member_persons],
-        memberships=memberships,
-    )
+    return _build_family_response(m)
 
 
-def _person_to_schema(person: Person, is_primary: bool) -> FamilyMemberResponse:
+def _person_to_schema(person: Person, relation_type: str) -> FamilyMemberResponse:
     email = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
     phone = next((c.value for c in person.contact_details if c.contact_type_code == "PHONE"), None)
     return FamilyMemberResponse(
@@ -219,7 +199,29 @@ def _person_to_schema(person: Person, is_primary: bool) -> FamilyMemberResponse:
         gender=person.gender_code,
         email=email,
         phone=phone,
-        is_primary=is_primary,
+        relation_type=relation_type,
+        is_primary=relation_type == "hoofdlid",
+    )
+
+
+def _build_family_response(m: Member) -> FamilyResponse:
+    primary = next((mp.person for mp in m.member_persons if mp.is_primary), None)
+    address = primary.address if primary else None
+    board_member = PersonListItem(
+        id=m.board_member.id,
+        last_name=m.board_member.last_name,
+        first_name=m.board_member.first_name,
+    ) if m.board_member else None
+    return FamilyResponse(
+        id=m.id,
+        street=address.street if address else "",
+        house_number=address.house_number if address else "",
+        bus_number=address.bus_number if address else None,
+        postal_code=address.postal_code.postal_code if address and address.postal_code else "",
+        municipality=address.postal_code.municipality if address and address.postal_code else "",
+        members=[_person_to_schema(mp.person, mp.relation_type) for mp in m.member_persons],
+        memberships=[MembershipResponse.model_validate(ms) for ms in m.memberships],
+        board_member=board_member,
     )
 
 
@@ -260,6 +262,185 @@ def delete_family(
     db.commit()
 
 
+@router.get("/persons", response_model=List[PersonListItem])
+def list_persons(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    return db.query(Person).order_by(Person.last_name, Person.first_name).all()
+
+
+@router.put("/persons/{person_id}", response_model=FamilyMemberResponse)
+def update_person(
+    person_id: int,
+    data: PersonUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    person = db.query(Person).filter(Person.id == person_id).first()
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(person, field, value)
+    db.commit()
+    db.refresh(person)
+    mp = next((mp for mp in person.member_persons), None)
+    return _person_to_schema(person, mp.is_primary if mp else False)
+
+
+@router.put("/persons/{person_id}/address", response_model=FamilyMemberResponse)
+def update_person_address(
+    person_id: int,
+    data: AddressUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    person = db.query(Person).filter(Person.id == person_id).first()
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
+    address = person.address
+    if not address:
+        raise HTTPException(status_code=404, detail="Address not found")
+    if data.postal_code is not None:
+        pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
+        if not pc:
+            raise HTTPException(status_code=422, detail=f"Onbekende postcode: {data.postal_code}")
+        address.postal_code_id = pc.id
+    for field in ("street", "house_number", "bus_number"):
+        value = getattr(data, field)
+        if value is not None:
+            setattr(address, field, value)
+    db.commit()
+    db.refresh(person)
+    mp = next((mp for mp in person.member_persons), None)
+    return _person_to_schema(person, mp.is_primary if mp else False)
+
+
+@router.put("/persons/{person_id}/contacts", response_model=FamilyMemberResponse)
+def update_person_contacts(
+    person_id: int,
+    data: ContactsUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    person = db.query(Person).filter(Person.id == person_id).first()
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
+
+    def _upsert_contact(type_code: str, value: Optional[str]):
+        existing = next((c for c in person.contact_details if c.contact_type_code == type_code), None)
+        if value:
+            if existing:
+                existing.value = value
+            else:
+                db.add(ContactDetail(person_id=person_id, contact_type_code=type_code, value=value, is_primary=True))
+        elif existing:
+            db.delete(existing)
+
+    _upsert_contact("EMAIL", data.email)
+    _upsert_contact("PHONE", data.phone)
+    _upsert_contact("MOBILE", data.mobile)
+    db.commit()
+    db.refresh(person)
+    mp = next((mp for mp in person.member_persons), None)
+    return _person_to_schema(person, mp.is_primary if mp else False)
+
+
+@router.delete("/persons/{person_id}", status_code=204)
+def delete_person(
+    person_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    person = db.query(Person).filter(Person.id == person_id).first()
+    if not person:
+        raise HTTPException(status_code=404, detail="Person not found")
+    for mp in person.member_persons:
+        db.delete(mp)
+    if person.address:
+        db.delete(person.address)
+    db.delete(person)
+    db.commit()
+
+
+@router.post("/families/{family_id}/persons", response_model=FamilyResponse)
+def add_person_to_family(
+    family_id: int,
+    data: PersonAddToFamily,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    member = db.query(Member).filter(Member.id == family_id).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Family not found")
+    primary = next((mp.person for mp in member.member_persons if mp.is_primary), None)
+    primary_address = primary.address if primary else None
+
+    person = Person(
+        last_name=data.last_name,
+        first_name=data.first_name,
+        date_of_birth=data.date_of_birth,
+        gender_code=data.gender_code,
+    )
+    db.add(person)
+    db.flush()
+
+    db.add(MemberPerson(member_id=family_id, person_id=person.id, relation_type=data.relation_type))
+
+    if primary_address:
+        db.add(Address(
+            person_id=person.id,
+            street=primary_address.street,
+            house_number=primary_address.house_number,
+            bus_number=primary_address.bus_number,
+            postal_code_id=primary_address.postal_code_id,
+        ))
+
+    if data.email:
+        db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=data.email, is_primary=True))
+    if data.phone:
+        db.add(ContactDetail(person_id=person.id, contact_type_code="PHONE", value=data.phone, is_primary=True))
+    if data.mobile:
+        db.add(ContactDetail(person_id=person.id, contact_type_code="MOBILE", value=data.mobile, is_primary=True))
+
+    db.commit()
+    db.refresh(member)
+    return _build_family_response(member)
+
+
+@router.delete("/memberships/{membership_id}", status_code=204)
+def delete_membership(
+    membership_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    membership = db.query(Membership).filter(Membership.id == membership_id).first()
+    if not membership:
+        raise HTTPException(status_code=404, detail="Membership not found")
+    db.delete(membership)
+    db.commit()
+
+
+@router.put("/families/{family_id}/board-member", response_model=FamilyResponse)
+def assign_board_member(
+    family_id: int,
+    data: BoardMemberAssign,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    member = db.query(Member).filter(Member.id == family_id).first()
+    if not member:
+        raise HTTPException(status_code=404, detail="Family not found")
+    if data.person_id is not None:
+        person = db.query(Person).filter(Person.id == data.person_id).first()
+        if not person:
+            raise HTTPException(status_code=404, detail="Person not found")
+    member.board_member_id = data.person_id
+    db.commit()
+    db.refresh(member)
+    return _build_family_response(member)
+
+
 @router.post("/families", status_code=201, response_model=FamilyRegisteredResponse)
 def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
     """Public endpoint: register a new family (member household)."""
@@ -285,7 +466,7 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
         mp = MemberPerson(
             member_id=member.id,
             person_id=person.id,
-            is_primary=person_data.is_primary,
+            relation_type=person_data.relation_type,
         )
         db.add(mp)
 
