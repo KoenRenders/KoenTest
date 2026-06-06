@@ -108,7 +108,7 @@ export default function FamilyRegistrationForm() {
     <form onSubmit={handleSubmit} className="space-y-6">
       <div>
         <h3 className="font-semibold text-lg mb-3 text-blue-800">Adresgegevens</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div className="sm:col-span-2">
             <label className="label">Straat *</label>
             <input className="input" required value={form.street} onChange={(e) => setForm((f) => ({ ...f, street: e.target.value }))} />
@@ -121,7 +121,7 @@ export default function FamilyRegistrationForm() {
             <label className="label">Bus</label>
             <input className="input" value={form.bus_number} onChange={(e) => setForm((f) => ({ ...f, bus_number: e.target.value }))} />
           </div>
-          <div className="sm:col-span-2 relative" ref={dropdownRef}>
+          <div className="sm:col-span-4 relative" ref={dropdownRef}>
             <label className="label">Postcode *</label>
             <input
               className="input"
