@@ -45,7 +45,7 @@ export default function HomePage() {
           <button className="btn-primary" onClick={() => { setShowRegForm((s) => !s); setShowContact(false); }}>
             {showRegForm ? "Sluit registratie" : "Word lid"}
           </button>
-          <button className="btn-secondary" onClick={() => { setShowContact((s) => !s); setShowRegForm(false); }}>
+          <button className="btn-primary" onClick={() => { setShowContact((s) => !s); setShowRegForm(false); }}>
             {showContact ? "Sluit" : "Contacteer ons"}
           </button>
         </div>
