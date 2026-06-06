@@ -332,13 +332,14 @@ def register_for_activity(
     # Determine effective participant count for capacity check
     participant_count = 1
     form_type = activity.reg_form_type or "NONE"
+    active_sub = None
 
     if data.sub_registration_id:
-        sub = db.query(ActivitySubRegistration).filter(
+        active_sub = db.query(ActivitySubRegistration).filter(
             ActivitySubRegistration.id == data.sub_registration_id
         ).first()
-        if sub and sub.reg_form_type:
-            form_type = sub.reg_form_type
+        if active_sub and active_sub.reg_form_type:
+            form_type = active_sub.reg_form_type
 
     if form_type in ("GROUP", "PAID_PER_PERSON"):
         participant_count = data.group_size or 1
@@ -411,7 +412,8 @@ def register_for_activity(
             for item in registration.items
         ) if registration.items else Decimal("0.00")
     elif form_type == "PAID_PER_PERSON":
-        total_amount = (data.group_size or 1) * (activity.price or Decimal("0.00"))
+        unit_price = (active_sub.price if active_sub and active_sub.price else None) or activity.price or Decimal("0.00")
+        total_amount = (data.group_size or 1) * unit_price
     else:
         total_amount = Decimal("0.00")
     registration.total_amount = total_amount
