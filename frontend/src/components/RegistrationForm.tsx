@@ -84,8 +84,12 @@ export default function RegistrationForm({ activity, subRegistration, onClose, o
           .map((p) => ({ sub_registration_id: p.id, quantity: itemQuantities[p.id] }));
       }
 
-      await registerForActivity(activity.id, body);
-      onSuccess();
+      const res = await registerForActivity(activity.id, body);
+      if (res.data?.checkout_url) {
+        window.location.href = res.data.checkout_url;
+      } else {
+        onSuccess();
+      }
     } catch (err) {
       setError(parseApiError(err, "Er is iets misgelopen. Probeer opnieuw."));
     } finally {
