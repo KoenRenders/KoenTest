@@ -388,7 +388,8 @@ def register_for_activity(
     db.add(registration)
     db.flush()
 
-    # Create RegistrationItem records for PAID_PRODUCTS
+    # Create RegistrationItem records for PAID_PRODUCTS and compute total in one pass
+    products_total = Decimal("0.00")
     for item_data in data.items:
         sub = db.query(ActivitySubRegistration).filter(
             ActivitySubRegistration.id == item_data.sub_registration_id
@@ -404,13 +405,11 @@ def register_for_activity(
                 updated_at=datetime.utcnow(),
             )
             db.add(reg_item)
+            products_total += item_data.quantity * unit_price
 
     # Compute total_amount server-side
     if form_type == "PAID_PRODUCTS":
-        total_amount = sum(
-            item.quantity * item.unit_price
-            for item in registration.items
-        ) if registration.items else Decimal("0.00")
+        total_amount = products_total
     elif form_type == "PAID_PER_PERSON":
         unit_price = (active_sub.price if active_sub and active_sub.price else None) or activity.price or Decimal("0.00")
         total_amount = (data.group_size or 1) * unit_price
