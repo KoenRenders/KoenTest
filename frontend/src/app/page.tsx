@@ -11,6 +11,7 @@ export default function HomePage() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Activity | null>(null);
+  const [selectedSub, setSelectedSub] = useState<import("@/lib/types").SubRegistration | undefined>(undefined);
   const [registered, setRegistered] = useState(false);
   const [showRegForm, setShowRegForm] = useState(false);
   const [showContact, setShowContact] = useState(false);
@@ -24,8 +25,14 @@ export default function HomePage() {
     getBlock("home-intro").then((r) => setIntroPage(r.data)).catch(() => {});
   }, []);
 
+  function handleSubRegister(activity: Activity, sub: import("@/lib/types").SubRegistration) {
+    setSelected(activity);
+    setSelectedSub(sub);
+  }
+
   function handleRegistered() {
     setSelected(null);
+    setSelectedSub(undefined);
     setRegistered(true);
     setTimeout(() => setRegistered(false), 5000);
     getActivities().then((r) => setActivities(r.data)).catch(() => {});
@@ -77,7 +84,7 @@ export default function HomePage() {
         {loading ? (
           <p className="text-gray-500">Activiteiten laden…</p>
         ) : (
-          <ActivityList activities={activities} onRegister={setSelected} showRegister yearsAscending />
+          <ActivityList activities={activities} onRegister={setSelected} onSubRegister={handleSubRegister} showRegister yearsAscending />
         )}
       </section>
 
@@ -85,7 +92,8 @@ export default function HomePage() {
       {selected && (
         <RegistrationForm
           activity={selected}
-          onClose={() => setSelected(null)}
+          subRegistration={selectedSub}
+          onClose={() => { setSelected(null); setSelectedSub(undefined); }}
           onSuccess={handleRegistered}
         />
       )}

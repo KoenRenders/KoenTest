@@ -1,19 +1,13 @@
 "use client";
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useState, useEffect, useRef } from "react";
 import { createFamily } from "@/lib/api";
 
 const RELATION_TYPES = ["hoofdlid", "partner", "(meerderjarig) kind"];
 
+interface PostalOption { postal_code: string; municipality: string; }
 interface MemberForm {
-  first_name: string;
-  last_name: string;
-  date_of_birth: string;
-  gender: string;
-  email: string;
-  phone: string;
-  mobile: string;
-  relation_type: string;
+  first_name: string; last_name: string; date_of_birth: string;
+  gender: string; email: string; phone: string; mobile: string; relation_type: string;
 }
 
 const emptyMember = (relation_type = "hoofdlid"): MemberForm => ({
@@ -22,29 +16,52 @@ const emptyMember = (relation_type = "hoofdlid"): MemberForm => ({
 });
 
 export default function FamilyRegistrationForm() {
-  const router = useRouter();
   const [form, setForm] = useState({
-    street: "", house_number: "", bus_number: "", postal_code: "", payment_method: "cash",
+    street: "", house_number: "", bus_number: "", postal_code: "", payment_method: "online",
   });
+  const [postalInput, setPostalInput] = useState("");
+  const [postalOptions, setPostalOptions] = useState<PostalOption[]>([]);
+  const [postalFiltered, setPostalFiltered] = useState<PostalOption[]>([]);
+  const [showDropdown, setShowDropdown] = useState(false);
   const [members, setMembers] = useState<MemberForm[]>([emptyMember("hoofdlid")]);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [error, setError] = useState("");
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    fetch("/api/v1/postal-codes")
+      .then((r) => r.json())
+      .then((data: PostalOption[]) => setPostalOptions(data))
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
+    if (!postalInput) { setPostalFiltered([]); return; }
+    const q = postalInput.toLowerCase();
+    setPostalFiltered(
+      postalOptions.filter(
+        (p) => p.postal_code.startsWith(postalInput) || p.municipality.toLowerCase().includes(q)
+      ).slice(0, 8)
+    );
+  }, [postalInput, postalOptions]);
+
+  function selectPostal(p: PostalOption) {
+    setPostalInput(`${p.postal_code} — ${p.municipality}`);
+    setForm((f) => ({ ...f, postal_code: p.postal_code }));
+    setShowDropdown(false);
+  }
 
   function updateMember(i: number, field: keyof MemberForm, value: string) {
     setMembers((ms) => ms.map((m, idx) => idx === i ? { ...m, [field]: value } : m));
   }
 
-  function addMember() {
-    setMembers((ms) => [...ms, emptyMember("partner")]);
-  }
-
-  function removeMember(i: number) {
-    if (i === 0) return;
-    setMembers((ms) => ms.filter((_, idx) => idx !== i));
-  }
-
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.postal_code) {
+      setError("Selecteer een geldige postcode uit de lijst.");
+      setStatus("error");
+      return;
+    }
     setStatus("loading");
     setError("");
     try {
@@ -89,9 +106,53 @@ export default function FamilyRegistrationForm() {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+
+      {/* Hoofdgezinslid */}
+      <div>
+        <h3 className="font-semibold text-lg mb-3 text-blue-800">Hoofdgezinslid</h3>
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label className="label">Voornaam *</label>
+              <input className="input" required value={members[0].first_name} onChange={(e) => updateMember(0, "first_name", e.target.value)} />
+            </div>
+            <div>
+              <label className="label">Achternaam *</label>
+              <input className="input" required value={members[0].last_name} onChange={(e) => updateMember(0, "last_name", e.target.value)} />
+            </div>
+            <div>
+              <label className="label">Geslacht</label>
+              <select className="input" value={members[0].gender} onChange={(e) => updateMember(0, "gender", e.target.value)}>
+                <option value="">— Kies —</option>
+                <option value="M">Man</option>
+                <option value="F">Vrouw</option>
+                <option value="O">Anders</option>
+              </select>
+            </div>
+            <div>
+              <label className="label">Geboortedatum</label>
+              <input type="date" className="input" value={members[0].date_of_birth} onChange={(e) => updateMember(0, "date_of_birth", e.target.value)} />
+            </div>
+            <div>
+              <label className="label">E-mailadres</label>
+              <input type="email" className="input" value={members[0].email} onChange={(e) => updateMember(0, "email", e.target.value)} />
+            </div>
+            <div>
+              <label className="label">Telefoon</label>
+              <input type="tel" className="input" value={members[0].phone} onChange={(e) => updateMember(0, "phone", e.target.value)} />
+            </div>
+            <div>
+              <label className="label">Gsm</label>
+              <input type="tel" className="input" value={members[0].mobile} onChange={(e) => updateMember(0, "mobile", e.target.value)} />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Adresgegevens */}
       <div>
         <h3 className="font-semibold text-lg mb-3 text-blue-800">Adresgegevens</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
           <div className="sm:col-span-2">
             <label className="label">Straat *</label>
             <input className="input" required value={form.street} onChange={(e) => setForm((f) => ({ ...f, street: e.target.value }))} />
@@ -104,106 +165,119 @@ export default function FamilyRegistrationForm() {
             <label className="label">Bus</label>
             <input className="input" value={form.bus_number} onChange={(e) => setForm((f) => ({ ...f, bus_number: e.target.value }))} />
           </div>
-          <div className="sm:col-span-2">
+          <div className="sm:col-span-4 relative" ref={dropdownRef}>
             <label className="label">Postcode *</label>
-            <input className="input" required value={form.postal_code} onChange={(e) => setForm((f) => ({ ...f, postal_code: e.target.value }))} />
+            <input
+              className="input"
+              required
+              autoComplete="off"
+              value={postalInput}
+              onChange={(e) => { setPostalInput(e.target.value); setForm((f) => ({ ...f, postal_code: "" })); setShowDropdown(true); }}
+              onFocus={() => setShowDropdown(true)}
+              onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
+              placeholder="Type postcode of gemeente…"
+            />
+            {showDropdown && postalFiltered.length > 0 && (
+              <ul className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
+                {postalFiltered.map((p) => (
+                  <li key={p.postal_code}
+                    className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+                    onMouseDown={() => selectPostal(p)}>
+                    <span className="font-medium">{p.postal_code}</span> — {p.municipality}
+                  </li>
+                ))}
+              </ul>
+            )}
           </div>
         </div>
       </div>
 
-      <div>
-        <h3 className="font-semibold text-lg mb-3 text-blue-800">Gezinsleden</h3>
-        <div className="space-y-4">
-          {members.map((member, i) => (
-            <div key={i} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-              <div className="flex items-center justify-between mb-3">
-                <span className="font-medium text-sm text-gray-700">
-                  {i === 0 ? "Hoofdgezinslid" : `Gezinslid ${i + 1}`}
-                </span>
-                {i > 0 && (
-                  <button type="button" onClick={() => removeMember(i)} className="text-red-600 text-sm hover:underline">
+      {/* Extra gezinsleden */}
+      {members.length > 1 && (
+        <div>
+          <h3 className="font-semibold text-lg mb-3 text-blue-800">Overige gezinsleden</h3>
+          <div className="space-y-4">
+            {members.slice(1).map((member, i) => (
+              <div key={i + 1} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-medium text-sm text-gray-700">Gezinslid {i + 2}</span>
+                  <button type="button" onClick={() => setMembers((ms) => ms.filter((_, idx) => idx !== i + 1))} className="text-red-600 text-sm hover:underline">
                     Verwijderen
                   </button>
-                )}
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="label">Voornaam *</label>
+                    <input className="input" required value={member.first_name} onChange={(e) => updateMember(i + 1, "first_name", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label">Achternaam *</label>
+                    <input className="input" required value={member.last_name} onChange={(e) => updateMember(i + 1, "last_name", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label">Relatie</label>
+                    <select className="input" value={member.relation_type} onChange={(e) => updateMember(i + 1, "relation_type", e.target.value)}>
+                      {RELATION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Geslacht</label>
+                    <select className="input" value={member.gender} onChange={(e) => updateMember(i + 1, "gender", e.target.value)}>
+                      <option value="">— Kies —</option>
+                      <option value="M">Man</option>
+                      <option value="F">Vrouw</option>
+                      <option value="O">Anders</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="label">Geboortedatum</label>
+                    <input type="date" className="input" value={member.date_of_birth} onChange={(e) => updateMember(i + 1, "date_of_birth", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label">E-mailadres</label>
+                    <input type="email" className="input" value={member.email} onChange={(e) => updateMember(i + 1, "email", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label">Telefoon</label>
+                    <input type="tel" className="input" value={member.phone} onChange={(e) => updateMember(i + 1, "phone", e.target.value)} />
+                  </div>
+                  <div>
+                    <label className="label">Gsm</label>
+                    <input type="tel" className="input" value={member.mobile} onChange={(e) => updateMember(i + 1, "mobile", e.target.value)} />
+                  </div>
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="label">Voornaam *</label>
-                  <input className="input" required value={member.first_name} onChange={(e) => updateMember(i, "first_name", e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">Achternaam *</label>
-                  <input className="input" required value={member.last_name} onChange={(e) => updateMember(i, "last_name", e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">Relatie</label>
-                  <select className="input" value={member.relation_type} onChange={(e) => updateMember(i, "relation_type", e.target.value)}>
-                    {RELATION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Geslacht</label>
-                  <select className="input" value={member.gender} onChange={(e) => updateMember(i, "gender", e.target.value)}>
-                    <option value="">— Kies —</option>
-                    <option value="M">Man</option>
-                    <option value="V">Vrouw</option>
-                    <option value="X">Anders</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Geboortedatum</label>
-                  <input type="date" className="input" value={member.date_of_birth} onChange={(e) => updateMember(i, "date_of_birth", e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">E-mailadres</label>
-                  <input type="email" className="input" value={member.email} onChange={(e) => updateMember(i, "email", e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">Telefoon</label>
-                  <input type="tel" className="input" value={member.phone} onChange={(e) => updateMember(i, "phone", e.target.value)} />
-                </div>
-                <div>
-                  <label className="label">Gsm</label>
-                  <input type="tel" className="input" value={member.mobile} onChange={(e) => updateMember(i, "mobile", e.target.value)} />
-                </div>
-              </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
-        <button type="button" onClick={addMember} className="mt-3 btn-secondary btn-sm">
-          + Gezinslid toevoegen
-        </button>
-      </div>
+      )}
 
+      <button type="button" onClick={() => setMembers((ms) => [...ms, emptyMember("partner")])} className="btn-secondary btn-sm">
+        + Gezinslid toevoegen
+      </button>
+
+      {/* Betaling */}
       <div>
         <h3 className="font-semibold text-lg mb-3 text-blue-800">Betaling</h3>
         <div className="space-y-2">
           {[
-            { value: "cash", label: "Cash betalen bij een bestuurslid" },
-            { value: "transfer", label: "Overschrijving" },
             { value: "online", label: "Online betalen via Mollie" },
+            { value: "transfer", label: "Overschrijving" },
+            { value: "cash", label: "Cash betalen bij een bestuurslid" },
           ].map(({ value, label }) => (
             <label key={value} className="flex items-center gap-2 cursor-pointer">
-              <input
-                type="radio"
-                name="payment_method"
-                value={value}
+              <input type="radio" name="payment_method" value={value}
                 checked={form.payment_method === value}
-                onChange={() => setForm((f) => ({ ...f, payment_method: value }))}
-              />
+                onChange={() => setForm((f) => ({ ...f, payment_method: value }))} />
               <span>{label}</span>
             </label>
           ))}
         </div>
         {form.payment_method === "online" && (
-          <p className="mt-2 text-sm text-gray-600">
-            Je wordt doorgestuurd naar Mollie om veilig online te betalen.
-          </p>
+          <p className="mt-2 text-sm text-gray-600">Je wordt doorgestuurd naar Mollie om veilig online te betalen.</p>
         )}
         {form.payment_method === "transfer" && (
-          <p className="mt-2 text-sm text-gray-600">
-            Na registratie ontvang je de rekeninggegevens per e-mail.
-          </p>
+          <p className="mt-2 text-sm text-gray-600">Na registratie ontvang je de rekeninggegevens per e-mail.</p>
         )}
       </div>
 

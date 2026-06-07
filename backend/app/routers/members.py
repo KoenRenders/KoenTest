@@ -34,6 +34,7 @@ from app.schemas.member import (
 )
 from app.schemas.family import FamilyCreate
 from app.domains.payment_status.service import create_payment_record, membership_price_for_date
+from app.services.email import send_registration_confirmation
 from app.config import settings
 
 _postal_cache: Optional[list] = None
@@ -459,7 +460,6 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
             first_name=person_data.first_name,
             date_of_birth=person_data.date_of_birth,
             gender_code=person_data.gender or None,
-            mobile=person_data.mobile or None,
         )
         db.add(person)
         db.flush()
@@ -499,15 +499,19 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
     description = f"KWB Millegem lidmaatschap {current_year} – {hoofdlid.last_name} {hoofdlid.first_name}"
     redirect_url = f"{settings.frontend_url}/betaling/succes?member={member.id}"
 
-    payment_record = create_payment_record(
-        db=db,
-        payable_type="membership",
-        payable_id=membership.id,
-        amount=amount,
-        method=data.payment_method,
-        redirect_url=redirect_url,
-        description=description,
-    )
+    try:
+        payment_record = create_payment_record(
+            db=db,
+            payable_type="membership",
+            payable_id=membership.id,
+            amount=amount,
+            method=data.payment_method,
+            redirect_url=redirect_url,
+            description=description,
+        )
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(e))
 
     db.commit()
 
@@ -517,6 +521,18 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
         gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
         if gp:
             checkout_url = gp.checkout_url
+
+    if hoofdlid.email:
+        try:
+            send_registration_confirmation(
+                to_email=hoofdlid.email,
+                name=f"{hoofdlid.first_name} {hoofdlid.last_name}",
+                family=member,
+                data=data,
+                pc_municipality=pc.municipality if pc else "",
+            )
+        except Exception:
+            pass
 
     status = "pending_payment" if data.payment_method == "online" else "registered"
     return FamilyRegisteredResponse(id=member.id, status=status, checkout_url=checkout_url, amount=amount)

@@ -28,7 +28,7 @@ from app.schemas.activity import (
     SubRegistrationResponse,
     SubRegistrationUpdate,
 )
-from app.services.email import send_waitlist_notification
+from app.services.email import send_activity_registration_confirmation, send_waitlist_notification
 from app.domains.payment_status.service import create_payment_record
 from app.config import settings
 
@@ -332,13 +332,14 @@ def register_for_activity(
     # Determine effective participant count for capacity check
     participant_count = 1
     form_type = activity.reg_form_type or "NONE"
+    active_sub = None
 
     if data.sub_registration_id:
-        sub = db.query(ActivitySubRegistration).filter(
+        active_sub = db.query(ActivitySubRegistration).filter(
             ActivitySubRegistration.id == data.sub_registration_id
         ).first()
-        if sub and sub.reg_form_type:
-            form_type = sub.reg_form_type
+        if active_sub and active_sub.reg_form_type:
+            form_type = active_sub.reg_form_type
 
     if form_type in ("GROUP", "PAID_PER_PERSON"):
         participant_count = data.group_size or 1
@@ -387,7 +388,8 @@ def register_for_activity(
     db.add(registration)
     db.flush()
 
-    # Create RegistrationItem records for PAID_PRODUCTS
+    # Create RegistrationItem records for PAID_PRODUCTS and compute total in one pass
+    products_total = Decimal("0.00")
     for item_data in data.items:
         sub = db.query(ActivitySubRegistration).filter(
             ActivitySubRegistration.id == item_data.sub_registration_id
@@ -403,15 +405,14 @@ def register_for_activity(
                 updated_at=datetime.utcnow(),
             )
             db.add(reg_item)
+            products_total += item_data.quantity * unit_price
 
     # Compute total_amount server-side
     if form_type == "PAID_PRODUCTS":
-        total_amount = sum(
-            item.quantity * item.unit_price
-            for item in registration.items
-        ) if registration.items else Decimal("0.00")
+        total_amount = products_total
     elif form_type == "PAID_PER_PERSON":
-        total_amount = (data.group_size or 1) * (activity.price or Decimal("0.00"))
+        unit_price = (active_sub.price if active_sub and active_sub.price else None) or activity.price or Decimal("0.00")
+        total_amount = (data.group_size or 1) * unit_price
     else:
         total_amount = Decimal("0.00")
     registration.total_amount = total_amount
@@ -420,32 +421,44 @@ def register_for_activity(
     if payment_method == "MOLLIE" and total_amount > 0:
         redirect_url = f"{settings.frontend_url}/betaling/succes"
         description = f"{activity.name} – {data.contact_name or 'Deelnemer'}"
-        payment_record = create_payment_record(
-            db=db,
-            payable_type="activity_registration",
-            payable_id=registration.id,
-            amount=total_amount,
-            method="online",
-            redirect_url=redirect_url,
-            description=description,
-        )
-        if payment_record.gateway_payment_id:
-            from app.domains.payment_gateway.models import GatewayPayment
-            gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
-            if gp:
-                checkout_url = gp.checkout_url
+        try:
+            payment_record = create_payment_record(
+                db=db,
+                payable_type="activity_registration",
+                payable_id=registration.id,
+                amount=total_amount,
+                method="online",
+                redirect_url=redirect_url,
+                description=description,
+            )
+            if payment_record.gateway_payment_id:
+                from app.domains.payment_gateway.models import GatewayPayment
+                gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
+                if gp:
+                    checkout_url = gp.checkout_url
+        except ValueError as e:
+            db.rollback()
+            raise HTTPException(status_code=422, detail=str(e))
 
     db.commit()
     db.refresh(registration)
 
-    # Send notification email if on waitlist
-    if is_waitlist and data.contact_email:
+    # Send confirmation or waitlist email
+    if data.contact_email:
         try:
-            send_waitlist_notification(
-                to_email=data.contact_email,
-                name=data.contact_name or "Deelnemer",
-                activity_name=activity.name,
-            )
+            if is_waitlist:
+                send_waitlist_notification(
+                    to_email=data.contact_email,
+                    name=data.contact_name or "Deelnemer",
+                    activity_name=activity.name,
+                )
+            else:
+                send_activity_registration_confirmation(
+                    to_email=data.contact_email,
+                    name=data.contact_name or "Deelnemer",
+                    activity=activity,
+                    registration=registration,
+                )
         except Exception:
             pass
 
