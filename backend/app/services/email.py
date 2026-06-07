@@ -13,7 +13,8 @@ def _send(to_email: str, subject: str, body_html: str) -> None:
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = subject
-    msg["From"] = f"Raak Millegem <{settings.gmail_user}>"
+    from_address = settings.gmail_from or settings.gmail_user
+    msg["From"] = f"Raak Millegem <{from_address}>"
     msg["To"] = to_email
     msg.attach(MIMEText(body_html, "html"))
 

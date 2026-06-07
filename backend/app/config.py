@@ -10,6 +10,7 @@ class Settings(BaseSettings):
 
     gmail_user: Optional[str] = None
     gmail_app_password: Optional[str] = None
+    gmail_from: Optional[str] = None  # if set, used as From address (e.g. raakmillegem@gmail.com)
 
     mollie_api_key: Optional[str] = None
     frontend_url: str = "http://localhost:3000"
