@@ -35,7 +35,7 @@ def send_registration_confirmation(to_email: str, name: str, family) -> None:
 
 
 def send_activity_registration_confirmation(
-    to_email: str, name: str, activity, is_waitlist: bool = False
+    to_email: str, name: str, activity, registration=None, is_waitlist: bool = False
 ) -> None:
     activity_name = escape(activity.name)
     if is_waitlist:
@@ -57,6 +57,31 @@ def send_activity_registration_confirmation(
           {'<li><strong>Locatie:</strong> ' + location + '</li>' if location else ''}
         </ul>
         """
+        if registration:
+            details = []
+            if registration.contact_email:
+                details.append(f"<li><strong>E-mail:</strong> {escape(registration.contact_email)}</li>")
+            if registration.contact_phone:
+                details.append(f"<li><strong>GSM:</strong> {escape(registration.contact_phone)}</li>")
+            if registration.team_name:
+                details.append(f"<li><strong>Ploeg:</strong> {escape(registration.team_name)}</li>")
+            if registration.group_size and registration.group_size > 1:
+                details.append(f"<li><strong>Aantal personen:</strong> {registration.group_size}</li>")
+            if registration.items:
+                items_html = "".join(
+                    f"<li>{escape(item.sub_registration.name) if hasattr(item, 'sub_registration') and item.sub_registration else str(item.sub_registration_id)} × {item.quantity}</li>"
+                    for item in registration.items
+                )
+                details.append(f"<li><strong>Producten:</strong><ul>{items_html}</ul></li>")
+            if registration.total_amount and registration.total_amount > 0:
+                details.append(f"<li><strong>Totaal:</strong> €{registration.total_amount:.2f}</li>")
+            if registration.payment_method and registration.payment_method != "FREE":
+                method_labels = {"MOLLIE": "Online (Mollie)", "CASH": "Cash", "TRANSFER": "Overschrijving"}
+                details.append(f"<li><strong>Betaalmethode:</strong> {method_labels.get(registration.payment_method, registration.payment_method)}</li>")
+            if registration.remarks:
+                details.append(f"<li><strong>Opmerkingen:</strong> {escape(registration.remarks)}</li>")
+            if details:
+                message += f"<h4 style='margin-top:12px;margin-bottom:4px'>Jouw gegevens</h4><ul>{''.join(details)}</ul>"
     _send(
         to_email=to_email,
         subject=subject,

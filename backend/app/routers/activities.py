@@ -457,6 +457,7 @@ def register_for_activity(
                     to_email=data.contact_email,
                     name=data.contact_name or "Deelnemer",
                     activity=activity,
+                    registration=registration,
                 )
         except Exception:
             pass
