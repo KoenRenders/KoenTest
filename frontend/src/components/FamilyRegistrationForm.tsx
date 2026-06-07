@@ -17,7 +17,7 @@ const emptyMember = (relation_type = "hoofdlid"): MemberForm => ({
 
 export default function FamilyRegistrationForm() {
   const [form, setForm] = useState({
-    street: "", house_number: "", bus_number: "", postal_code: "", payment_method: "cash",
+    street: "", house_number: "", bus_number: "", postal_code: "", payment_method: "online",
   });
   const [postalInput, setPostalInput] = useState("");
   const [postalOptions, setPostalOptions] = useState<PostalOption[]>([]);
@@ -261,9 +261,9 @@ export default function FamilyRegistrationForm() {
         <h3 className="font-semibold text-lg mb-3 text-blue-800">Betaling</h3>
         <div className="space-y-2">
           {[
-            { value: "cash", label: "Cash betalen bij een bestuurslid" },
-            { value: "transfer", label: "Overschrijving" },
             { value: "online", label: "Online betalen via Mollie" },
+            { value: "transfer", label: "Overschrijving" },
+            { value: "cash", label: "Cash betalen bij een bestuurslid" },
           ].map(({ value, label }) => (
             <label key={value} className="flex items-center gap-2 cursor-pointer">
               <input type="radio" name="payment_method" value={value}
