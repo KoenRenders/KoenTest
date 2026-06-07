@@ -528,6 +528,8 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
                 to_email=hoofdlid.email,
                 name=f"{hoofdlid.first_name} {hoofdlid.last_name}",
                 family=member,
+                data=data,
+                pc_municipality=pc.municipality if pc else "",
             )
         except Exception:
             pass

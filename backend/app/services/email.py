@@ -22,13 +22,48 @@ def _send(to_email: str, subject: str, body_html: str) -> None:
         server.sendmail(settings.gmail_user, to_email, msg.as_string())
 
 
-def send_registration_confirmation(to_email: str, name: str, family) -> None:
+def send_registration_confirmation(to_email: str, name: str, family, data=None, pc_municipality: str = "") -> None:
+    details = ""
+    if data:
+        address_parts = [data.street, data.house_number]
+        if data.bus_number:
+            address_parts.append(f"bus {data.bus_number}")
+        address_line = " ".join(str(p) for p in address_parts)
+        postal_line = f"{data.postal_code} {pc_municipality}".strip()
+
+        members_html = ""
+        for m in data.members:
+            member_name = escape(f"{m.first_name} {m.last_name}")
+            parts = [f"<strong>{member_name}</strong> ({escape(m.relation_type)})"]
+            if m.date_of_birth:
+                parts.append(str(m.date_of_birth.strftime("%d/%m/%Y") if hasattr(m.date_of_birth, "strftime") else m.date_of_birth))
+            if m.email:
+                parts.append(escape(m.email))
+            if m.phone:
+                parts.append(escape(m.phone))
+            if m.mobile:
+                parts.append(escape(m.mobile))
+            members_html += f"<li>{' — '.join(parts)}</li>"
+
+        method_labels = {"online": "Online (Mollie)", "cash": "Cash", "transfer": "Overschrijving"}
+        payment_label = method_labels.get(data.payment_method, data.payment_method)
+
+        details = f"""
+        <h4 style='margin-top:12px;margin-bottom:4px'>Adres</h4>
+        <p>{escape(address_line)}<br>{escape(postal_line)}</p>
+        <h4 style='margin-top:12px;margin-bottom:4px'>Gezinsleden</h4>
+        <ul>{members_html}</ul>
+        <h4 style='margin-top:12px;margin-bottom:4px'>Betaling</h4>
+        <p>{payment_label}</p>
+        """
+
     _send(
         to_email=to_email,
         subject="Welkom bij Raak Millegem!",
         body_html=f"""
         <p>Beste {escape(name)},</p>
         <p>Je registratie bij Raak Millegem is ontvangen. Welkom!</p>
+        {details}
         <p>Met vriendelijke groeten,<br>Raak Millegem</p>
         """,
     )
