@@ -49,7 +49,7 @@ export const updateFamily = (id: number, data: unknown) => api.put(`/api/v1/fami
 export const deleteFamily = (id: number) => api.delete(`/api/v1/families/${id}`);
 export const addFamilyMember = (familyId: number, data: unknown) => api.post(`/api/v1/families/${familyId}/members`, data);
 export const addPersonToFamily = (familyId: number, data: unknown) => api.post(`/api/v1/families/${familyId}/persons`, data);
-export const assignBoardMember = (familyId: number, data: unknown) => api.post(`/api/v1/families/${familyId}/board`, data);
+export const assignBoardMember = (familyId: number, data: unknown) => api.put(`/api/v1/families/${familyId}/board-member`, data);
 export const createMembership = (familyId: number, data: unknown) => api.post(`/api/v1/families/${familyId}/memberships`, data);
 export const deleteMembership = (id: number) => api.delete(`/api/v1/memberships/${id}`);
 export const getMemberships = (year?: number) => api.get("/api/v1/memberships", { params: year ? { year } : {} });
