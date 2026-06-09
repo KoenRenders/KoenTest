@@ -1,72 +1,75 @@
 "use client";
 import { useState } from "react";
 import { registerForActivity } from "@/lib/api";
-import type { Activity, SubRegistration } from "@/lib/types";
-import { parseApiError } from "@/lib/errors";
-import { formatPrice } from "@/lib/money";
+import type { Activity, ActivityProduct } from "@/lib/types";
 
 interface Props {
   activity: Activity;
-  subRegistration?: SubRegistration;
   onClose: () => void;
   onSuccess: () => void;
 }
 
-function isPositive(val?: string | null): boolean {
-  return !!val && parseFloat(val) > 0;
+function formatPrice(price: string, memberPrice?: string) {
+  const p = parseFloat(price);
+  if (p === 0) return "gratis";
+  let label = `€${p.toFixed(2)}`;
+  if (memberPrice && parseFloat(memberPrice) > 0) {
+    label += ` / leden €${parseFloat(memberPrice).toFixed(2)}`;
+  }
+  return label;
 }
 
 export default function RegistrationForm({ activity, onClose, onSuccess }: Props) {
-  const products = (activity.sub_registrations ?? []).filter((s) => !s.external_register_url);
-
   const [contactName, setContactName] = useState("");
-  const [contactEmail, setContactEmail] = useState("");
-  const [contactPhone, setContactPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [teamName, setTeamName] = useState("");
-  const [quantities, setQuantities] = useState<Record<number, number>>(
-    Object.fromEntries(products.map((p) => [p.id, 0]))
-  );
-  const [remarks, setRemarks] = useState("");
-  const [paymentMethod, setPaymentMethod] = useState("MOLLIE");
+  const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  function computeTotal(): number {
-    return products.reduce((sum, p) => {
-      if (p.is_free) return sum;
-      return sum + (quantities[p.id] || 0) * (parseFloat(p.price) || 0);
-    }, 0);
+  const components = activity.sub_registrations ?? [];
+  const needsTeamName = components.some((c) => c.team_name_required);
+
+  const allProducts: Array<{ product: ActivityProduct; componentName: string }> = [];
+  for (const comp of components) {
+    for (const p of comp.products) {
+      allProducts.push({ product: p, componentName: comp.name });
+    }
   }
 
-  const total = computeTotal();
-  const isPaid = total > 0;
+  const totalAmount = allProducts.reduce((sum, { product }) => {
+    const qty = quantities[product.id] ?? 0;
+    if (qty === 0 || product.is_free) return sum;
+    return sum + parseFloat(product.price) * qty;
+  }, 0);
+
+  const hasPaidItems = totalAmount > 0;
+  const hasSelection = allProducts.some(({ product }) => (quantities[product.id] ?? 0) > 0);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!hasSelection) {
+      setError("Selecteer minstens één product.");
+      return;
+    }
     setLoading(true);
     setError("");
-
-    const items = products
-      .filter((p) => (quantities[p.id] || 0) > 0)
-      .map((p) => ({ sub_registration_id: p.id, quantity: quantities[p.id] }));
-
     try {
-      const res = await registerForActivity(activity.id, {
+      const items = allProducts
+        .filter(({ product }) => (quantities[product.id] ?? 0) > 0)
+        .map(({ product }) => ({ product_id: product.id, quantity: quantities[product.id] }));
+
+      await registerForActivity(activity.id, {
         contact_name: contactName,
-        contact_email: contactEmail,
-        contact_phone: contactPhone,
-        team_name: activity.team_name_required ? teamName : undefined,
-        remarks: remarks || undefined,
-        payment_method: isPaid ? paymentMethod : "FREE",
+        contact_email: email || undefined,
+        phone: phone || undefined,
+        team_name: teamName || undefined,
         items,
       });
-      if (res.data?.checkout_url) {
-        window.location.href = res.data.checkout_url;
-      } else {
-        onSuccess();
-      }
-    } catch (err) {
-      setError(parseApiError(err, "Er is iets misgelopen. Probeer opnieuw."));
+      onSuccess();
+    } catch {
+      setError("Er is iets misgelopen. Probeer opnieuw.");
     } finally {
       setLoading(false);
     }
@@ -74,11 +77,9 @@ export default function RegistrationForm({ activity, onClose, onSuccess }: Props
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 overflow-y-auto max-h-[90vh]">
+      <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-bold mb-1">Inschrijven</h2>
-        <p className="text-gray-600 mb-6">
-          {activity.name} – {new Date(activity.date).toLocaleDateString("nl-BE")}
-        </p>
+        <p className="text-gray-600 mb-6">{activity.name} – {new Date(activity.date).toLocaleDateString("nl-BE")}</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
@@ -86,81 +87,62 @@ export default function RegistrationForm({ activity, onClose, onSuccess }: Props
             <input className="input" required value={contactName} onChange={(e) => setContactName(e.target.value)} />
           </div>
           <div>
-            <label className="label">E-mail *</label>
-            <input type="email" className="input" required value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
+            <label className="label">E-mailadres</label>
+            <input type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div>
-            <label className="label">GSM-nummer *</label>
-            <input type="tel" className="input" required value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
+            <label className="label">Telefoonnummer</label>
+            <input type="tel" className="input" value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
 
-          {activity.team_name_required && (
+          {needsTeamName && (
             <div>
               <label className="label">Ploegnaam *</label>
               <input className="input" required value={teamName} onChange={(e) => setTeamName(e.target.value)} />
             </div>
           )}
 
-          {products.length > 0 && (
-            <div className="space-y-2">
-              <p className="label">Inschrijving</p>
-              {products.map((p) => (
-                <div key={p.id} className="flex items-center gap-3">
-                  <div className="flex-1 text-sm text-gray-700">
-                    <span>{p.name}</span>
-                    {p.is_free
-                      ? <span className="ml-1 text-green-700">(gratis)</span>
-                      : <span className="ml-1 text-gray-500">
-                          ({formatPrice(p.price)}
-                          {isPositive(p.member_price) ? ` / leden ${formatPrice(p.member_price!)}` : ""})
-                        </span>
-                    }
+          {components.map((comp) => (
+            <div key={comp.id}>
+              <h3 className="font-semibold text-gray-800 mb-2 border-b pb-1">{comp.name}</h3>
+              {comp.products.length === 0 && (
+                <p className="text-sm text-gray-400 italic">Geen producten.</p>
+              )}
+              <div className="space-y-2">
+                {comp.products.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between gap-3">
+                    <div className="flex-1 text-sm">
+                      <span className="font-medium">{p.name}</span>
+                      <span className="ml-2 text-gray-500">{formatPrice(p.price, p.member_price)}</span>
+                    </div>
+                    <input
+                      type="number"
+                      min={0}
+                      max={p.max_participants ?? 99}
+                      className="input w-20 text-center"
+                      value={quantities[p.id] ?? 0}
+                      onChange={(e) => setQuantities((q) => ({ ...q, [p.id]: parseInt(e.target.value) || 0 }))}
+                    />
                   </div>
-                  <input
-                    type="number" min={0} className="input w-20"
-                    value={quantities[p.id] ?? 0}
-                    onChange={(e) => setQuantities((prev) => ({ ...prev, [p.id]: parseInt(e.target.value) || 0 }))}
-                  />
-                </div>
-              ))}
-            </div>
-          )}
-
-          <div>
-            <label className="label">Opmerkingen</label>
-            <textarea className="input" rows={3} value={remarks} onChange={(e) => setRemarks(e.target.value)} />
-          </div>
-
-          {isPaid && (
-            <div className="space-y-3">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex justify-between items-center">
-                <span className="font-medium text-blue-800">Totaal te betalen</span>
-                <span className="font-bold text-blue-900 text-lg">{formatPrice(String(total.toFixed(2)))}</span>
-              </div>
-              <div>
-                <label className="label">Betaalmethode *</label>
-                <select className="input" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
-                  <option value="MOLLIE">Online (Mollie)</option>
-                  <option value="CASH">Cash</option>
-                  <option value="TRANSFER">Overschrijving</option>
-                </select>
+                ))}
               </div>
             </div>
-          )}
+          ))}
 
-          {error && (
-            <div className="text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg p-3 whitespace-pre-line">
-              {error}
+          {hasPaidItems && (
+            <div className="bg-blue-50 rounded-lg p-3 text-sm font-medium text-blue-800">
+              Totaal: €{totalAmount.toFixed(2)}
+              <p className="text-xs font-normal text-blue-600 mt-1">Betaling via overschrijving of cash op het evenement.</p>
             </div>
           )}
+
+          {error && <p className="text-red-600 text-sm">{error}</p>}
 
           <div className="flex gap-3 pt-2">
-            <button type="submit" disabled={loading} className="btn-primary flex-1">
+            <button type="submit" className="btn-primary" disabled={loading}>
               {loading ? "Bezig…" : "Inschrijven"}
             </button>
-            <button type="button" onClick={onClose} className="btn-secondary flex-1">
-              Annuleren
-            </button>
+            <button type="button" className="btn-secondary" onClick={onClose}>Annuleren</button>
           </div>
         </form>
       </div>

@@ -1,46 +1,29 @@
-# Standard library
-from datetime import date, datetime
-from decimal import Decimal
-from typing import List, Optional
+from datetime import date
+from sqlalchemy import or_, and_
+from typing import List
 
-# Third-party
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, or_
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-# Local
 from app.auth import get_current_admin
 from app.database import get_db
 from app.models.activity import Activity, Registration, RegistrationItem
-from app.models.activity_sub_registration import ActivitySubRegistration
 from app.models.user import User
+from app.models.activity_sub_registration import ActivitySubRegistration, ActivityProduct
 from app.schemas.activity import (
     ActivityCreate,
-    ActivityResponse,
     ActivityUpdate,
-    MessageResponse,
-    PublicRegistrationSummary,
+    ActivityResponse,
+    ComponentCreate,
+    ComponentResponse,
+    ProductCreate,
+    ProductResponse,
     RegistrationCreate,
     RegistrationResponse,
-    SubRegistrationCreate,
-    SubRegistrationResponse,
-    SubRegistrationUpdate,
 )
-from app.services.email import send_activity_registration_confirmation, send_waitlist_notification
-from app.domains.payment_status.service import create_payment_record
-from app.config import settings
+from app.services.email import send_waitlist_notification
 
 router = APIRouter(tags=["activities"])
-
-
-def compute_participant_count(registration: Registration) -> int:
-    if registration.items:
-        total = sum(item.quantity for item in registration.items)
-        if total > 0:
-            return total
-    if registration.group_size and registration.group_size > 1:
-        return registration.group_size
-    return 1
 
 
 def compute_activity_status(activity: Activity) -> dict:
@@ -48,26 +31,23 @@ def compute_activity_status(activity: Activity) -> dict:
     waitlist = [r for r in activity.registrations if r.is_waitlist]
     count = len(registrations)
     wl_count = len(waitlist)
-    total_participants = sum(compute_participant_count(r) for r in registrations)
 
     end = activity.date_end or activity.date
     if end < date.today():
         status = "Voorbij"
     elif activity.is_cancelled:
         status = "Geannuleerd"
-    elif activity.max_participants and total_participants >= activity.max_participants:
+    elif activity.max_participants and count >= activity.max_participants:
         status = "Vol"
     elif wl_count > 0:
         status = "Wachtlijst"
     else:
         status = "Open"
 
-    return {
-        "status": status,
-        "registration_count": count,
-        "waitlist_count": wl_count,
-    }
+    return {"status": status, "registration_count": count, "waitlist_count": wl_count}
 
+
+# ── Activities ────────────────────────────────────────────────────────────────
 
 @router.get("/activities", response_model=List[ActivityResponse])
 def list_activities(db: Session = Depends(get_db)):
@@ -83,9 +63,9 @@ def list_activities(db: Session = Depends(get_db)):
         .all()
     )
     result = []
-    for activity in activities:
-        info = compute_activity_status(activity)
-        resp = ActivityResponse.model_validate(activity)
+    for a in activities:
+        info = compute_activity_status(a)
+        resp = ActivityResponse.model_validate(a)
         resp.status = info["status"]
         resp.registration_count = info["registration_count"]
         resp.waitlist_count = info["waitlist_count"]
@@ -108,9 +88,9 @@ def list_archived_activities(db: Session = Depends(get_db)):
         .all()
     )
     result = []
-    for activity in activities:
-        info = compute_activity_status(activity)
-        resp = ActivityResponse.model_validate(activity)
+    for a in activities:
+        info = compute_activity_status(a)
+        resp = ActivityResponse.model_validate(a)
         resp.status = info["status"]
         resp.registration_count = info["registration_count"]
         resp.waitlist_count = info["waitlist_count"]
@@ -131,11 +111,7 @@ def create_activity(
         time=data.time,
         location=data.location,
         max_participants=data.max_participants,
-        registration_type_code=data.registration_type_code,
-        price=data.price,
-        member_price=data.member_price,
         poster_url=data.poster_url,
-        team_name_required=data.team_name_required,
     )
     db.add(activity)
     db.commit()
@@ -169,7 +145,7 @@ def update_activity(
     return resp
 
 
-@router.delete("/activities/{activity_id}", response_model=MessageResponse)
+@router.delete("/activities/{activity_id}")
 def delete_activity(
     activity_id: int,
     db: Session = Depends(get_db),
@@ -180,113 +156,151 @@ def delete_activity(
         raise HTTPException(status_code=404, detail="Activity not found")
     db.delete(activity)
     db.commit()
-    return MessageResponse(detail="Activity deleted")
+    return {"detail": "deleted"}
 
 
-@router.post("/activities/{activity_id}/sub-registrations", response_model=SubRegistrationResponse)
-def create_sub_registration(
+# ── Components (Onderdelen) ───────────────────────────────────────────────────
+
+@router.post("/activities/{activity_id}/components", response_model=ComponentResponse)
+def add_component(
     activity_id: int,
-    data: SubRegistrationCreate,
+    data: ComponentCreate,
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
-    sub = ActivitySubRegistration(
+    component = ActivitySubRegistration(
         activity_id=activity_id,
         name=data.name,
-        description=data.description,
+        team_name_required=data.team_name_required,
+        sort_order=data.sort_order,
         external_register_url=data.external_register_url,
         external_registrations_url=data.external_registrations_url,
         info_url=data.info_url,
-        is_free=data.is_free,
+        registration_type_code="INDIVIDUAL",  # required FK, kept for DB compat
+        price=0,
+        is_free=True,
+    )
+    db.add(component)
+    db.commit()
+    db.refresh(component)
+    return component
+
+
+@router.put("/activities/{activity_id}/components/{component_id}", response_model=ComponentResponse)
+def update_component(
+    activity_id: int,
+    component_id: int,
+    data: ComponentCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    component = db.query(ActivitySubRegistration).filter(
+        ActivitySubRegistration.id == component_id,
+        ActivitySubRegistration.activity_id == activity_id,
+    ).first()
+    if not component:
+        raise HTTPException(status_code=404, detail="Component not found")
+    for field, value in data.model_dump(exclude_none=True).items():
+        setattr(component, field, value)
+    db.commit()
+    db.refresh(component)
+    return component
+
+
+@router.delete("/activities/{activity_id}/components/{component_id}")
+def delete_component(
+    activity_id: int,
+    component_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    component = db.query(ActivitySubRegistration).filter(
+        ActivitySubRegistration.id == component_id,
+        ActivitySubRegistration.activity_id == activity_id,
+    ).first()
+    if not component:
+        raise HTTPException(status_code=404, detail="Component not found")
+    db.delete(component)
+    db.commit()
+    return {"detail": "deleted"}
+
+
+# ── Products ──────────────────────────────────────────────────────────────────
+
+@router.post("/activities/{activity_id}/components/{component_id}/products", response_model=ProductResponse)
+def add_product(
+    activity_id: int,
+    component_id: int,
+    data: ProductCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    component = db.query(ActivitySubRegistration).filter(
+        ActivitySubRegistration.id == component_id,
+        ActivitySubRegistration.activity_id == activity_id,
+    ).first()
+    if not component:
+        raise HTTPException(status_code=404, detail="Component not found")
+    product = ActivityProduct(
+        component_id=component_id,
+        name=data.name,
         price=data.price,
         member_price=data.member_price,
+        is_free=data.is_free,
         max_participants=data.max_participants,
-        reg_form_type=data.reg_form_type,
         sort_order=data.sort_order,
     )
-    db.add(sub)
+    db.add(product)
     db.commit()
-    db.refresh(sub)
-    return sub
+    db.refresh(product)
+    return product
 
 
-@router.put("/activities/{activity_id}/sub-registrations/{sub_id}", response_model=SubRegistrationResponse)
-def update_sub_registration(
+@router.put("/activities/{activity_id}/components/{component_id}/products/{product_id}", response_model=ProductResponse)
+def update_product(
     activity_id: int,
-    sub_id: int,
-    data: SubRegistrationUpdate,
+    component_id: int,
+    product_id: int,
+    data: ProductCreate,
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    sub = db.query(ActivitySubRegistration).filter(
-        ActivitySubRegistration.id == sub_id,
-        ActivitySubRegistration.activity_id == activity_id,
+    product = db.query(ActivityProduct).filter(
+        ActivityProduct.id == product_id,
+        ActivityProduct.component_id == component_id,
     ).first()
-    if not sub:
-        raise HTTPException(status_code=404, detail="Sub-registration not found")
-    for field, value in data.model_dump(exclude_unset=True).items():
-        setattr(sub, field, value)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    for field, value in data.model_dump(exclude_none=True).items():
+        setattr(product, field, value)
     db.commit()
-    db.refresh(sub)
-    return sub
+    db.refresh(product)
+    return product
 
 
-@router.delete("/activities/{activity_id}/sub-registrations/{sub_id}", response_model=MessageResponse)
-def delete_sub_registration(
+@router.delete("/activities/{activity_id}/components/{component_id}/products/{product_id}")
+def delete_product(
     activity_id: int,
-    sub_id: int,
+    component_id: int,
+    product_id: int,
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    sub = db.query(ActivitySubRegistration).filter(
-        ActivitySubRegistration.id == sub_id,
-        ActivitySubRegistration.activity_id == activity_id,
+    product = db.query(ActivityProduct).filter(
+        ActivityProduct.id == product_id,
+        ActivityProduct.component_id == component_id,
     ).first()
-    if not sub:
-        raise HTTPException(status_code=404, detail="Sub-registration not found")
-    db.delete(sub)
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    db.delete(product)
     db.commit()
-    return MessageResponse(detail="Sub-registration deleted")
+    return {"detail": "deleted"}
 
 
-@router.get("/activities/{activity_id}/registrations/public", response_model=PublicRegistrationSummary)
-def get_public_registrations(
-    activity_id: int,
-    sub_registration_id: Optional[int] = Query(None),
-    db: Session = Depends(get_db),
-):
-    activity = db.query(Activity).filter(Activity.id == activity_id).first()
-    if not activity:
-        raise HTTPException(status_code=404, detail="Activity not found")
-
-    active_regs = [r for r in activity.registrations if not r.is_waitlist]
-
-    if sub_registration_id is not None:
-        active_regs = [
-            r for r in active_regs
-            if r.sub_registration_id == sub_registration_id
-            or any(item.sub_registration_id == sub_registration_id and item.quantity > 0 for item in r.items)
-        ]
-
-    names = [r.contact_name or "Anoniem" for r in active_regs]
-
-    if sub_registration_id is not None:
-        total_participants = sum(
-            next((item.quantity for item in r.items if item.sub_registration_id == sub_registration_id), 1)
-            for r in active_regs
-        )
-    else:
-        total_participants = sum(compute_participant_count(r) for r in active_regs)
-
-    return PublicRegistrationSummary(
-        names=names,
-        total_registrations=len(active_regs),
-        total_participants=total_participants,
-    )
-
+# ── Registrations ─────────────────────────────────────────────────────────────
 
 @router.get("/activities/{activity_id}/registrations", response_model=List[RegistrationResponse])
 def get_registrations(
@@ -312,6 +326,31 @@ def get_waitlist(
     return [r for r in activity.registrations if r.is_waitlist]
 
 
+@router.get("/activities/{activity_id}/public-registrations")
+def get_public_registrations(
+    activity_id: int,
+    product_id: int,
+    db: Session = Depends(get_db),
+):
+    """Return public participant list for a given product."""
+    activity = db.query(Activity).filter(Activity.id == activity_id).first()
+    if not activity:
+        raise HTTPException(status_code=404, detail="Activity not found")
+
+    result = []
+    for reg in activity.registrations:
+        if reg.is_waitlist:
+            continue
+        for item in reg.items:
+            if item.product_id == product_id and item.quantity > 0:
+                result.append({
+                    "contact_name": reg.contact_name or "",
+                    "quantity": item.quantity,
+                    "team_name": reg.team_name,
+                })
+    return result
+
+
 @router.post("/activities/{activity_id}/register", response_model=RegistrationResponse)
 def register_for_activity(
     activity_id: int,
@@ -322,115 +361,44 @@ def register_for_activity(
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
 
-    today = date.today()
     end = activity.date_end or activity.date
-    if end < today:
+    if end < date.today():
         raise HTTPException(status_code=400, detail="Activity is no longer open for registration")
 
-    # Compute total from items
-    products_total = Decimal("0.00")
-    for item_data in data.items:
-        sub = db.query(ActivitySubRegistration).filter(
-            ActivitySubRegistration.id == item_data.sub_registration_id
-        ).first()
-        if sub and not sub.is_free:
-            products_total += item_data.quantity * (sub.price or Decimal("0.00"))
-
-    total_amount = products_total
-    participant_count = sum(item.quantity for item in data.items) or 1
-
     current_registrations = [r for r in activity.registrations if not r.is_waitlist]
-    current_participants = sum(compute_participant_count(r) for r in current_registrations)
-    is_full = activity.max_participants is not None and (current_participants + participant_count) > activity.max_participants
-    is_waitlist = bool(is_full)
-
-    payment_method = data.payment_method or "FREE"
-    if total_amount == 0 or payment_method == "FREE":
-        payment_status = "FREE"
-    elif payment_method in ("CASH", "TRANSFER"):
-        payment_status = "PAID"
-    else:
-        payment_status = "PENDING"
+    is_waitlist = bool(activity.max_participants and len(current_registrations) >= activity.max_participants)
 
     registration = Registration(
         activity_id=activity_id,
-        person_id=None,
         is_waitlist=is_waitlist,
         registration_type="INDIVIDUAL",
         contact_name=data.contact_name,
         contact_email=data.contact_email,
-        contact_phone=data.contact_phone,
+        phone=data.phone,
         team_name=data.team_name,
-        group_size=participant_count,
-        remarks=data.remarks,
-        payment_method=payment_method,
-        payment_status=payment_status,
-        total_amount=total_amount,
     )
     db.add(registration)
     db.flush()
 
     for item_data in data.items:
-        if item_data.quantity <= 0:
-            continue
-        sub = db.query(ActivitySubRegistration).filter(
-            ActivitySubRegistration.id == item_data.sub_registration_id
-        ).first()
-        unit_price = Decimal("0.00") if (not sub or sub.is_free) else (sub.price or Decimal("0.00"))
-        reg_item = RegistrationItem(
-            registration_id=registration.id,
-            sub_registration_id=item_data.sub_registration_id,
-            quantity=item_data.quantity,
-            unit_price=unit_price,
-            created_at=datetime.utcnow(),
-            updated_at=datetime.utcnow(),
-        )
-        db.add(reg_item)
-
-    checkout_url = None
-    if payment_method == "MOLLIE" and total_amount > 0:
-        redirect_url = f"{settings.frontend_url}/betaling/succes"
-        description = f"{activity.name} – {data.contact_name or 'Deelnemer'}"
-        try:
-            payment_record = create_payment_record(
-                db=db,
-                payable_type="activity_registration",
-                payable_id=registration.id,
-                amount=total_amount,
-                method="online",
-                redirect_url=redirect_url,
-                description=description,
-            )
-            if payment_record.gateway_payment_id:
-                from app.domains.payment_gateway.models import GatewayPayment
-                gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
-                if gp:
-                    checkout_url = gp.checkout_url
-        except ValueError as e:
-            db.rollback()
-            raise HTTPException(status_code=422, detail=str(e))
+        if item_data.quantity > 0:
+            db.add(RegistrationItem(
+                registration_id=registration.id,
+                product_id=item_data.product_id,
+                quantity=item_data.quantity,
+            ))
 
     db.commit()
     db.refresh(registration)
 
-    if data.contact_email:
+    if is_waitlist and data.contact_email:
         try:
-            if is_waitlist:
-                send_waitlist_notification(
-                    to_email=data.contact_email,
-                    name=data.contact_name or "Deelnemer",
-                    activity_name=activity.name,
-                )
-            else:
-                send_activity_registration_confirmation(
-                    to_email=data.contact_email,
-                    name=data.contact_name or "Deelnemer",
-                    activity=activity,
-                    registration=registration,
-                )
+            send_waitlist_notification(
+                to_email=data.contact_email,
+                name=data.contact_name or "Deelnemer",
+                activity_name=activity.name,
+            )
         except Exception:
             pass
 
-    response = RegistrationResponse.model_validate(registration)
-    response.checkout_url = checkout_url
-    return response
+    return registration

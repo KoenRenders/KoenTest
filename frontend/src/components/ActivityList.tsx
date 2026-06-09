@@ -1,8 +1,7 @@
 "use client";
 import { useState } from "react";
 import { getPublicRegistrations } from "@/lib/api";
-import type { Activity, SubRegistration } from "@/lib/types";
-import { isPositivePrice, formatPrice } from "@/lib/money";
+import type { Activity, ActivityProduct } from "@/lib/types";
 
 function StatusBadge({ status }: { status?: string }) {
   if (status === "Vol") return <span className="status-vol">Vol</span>;
@@ -21,84 +20,69 @@ function formatTime(t?: string) {
   return t.substring(0, 5);
 }
 
-const pillBtn = "px-2 py-0.5 rounded text-xs font-medium border whitespace-nowrap";
-const pillOutline = `${pillBtn} bg-white text-blue-600 hover:bg-blue-50 border-blue-200`;
-const pillPrimary = `${pillBtn} bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200`;
+interface ParticipantEntry {
+  contact_name: string;
+  quantity: number;
+  team_name?: string;
+}
 
-interface RegState { names: string[]; total: number; }
+function ProductRow({ activityId, product }: { activityId: number; product: ActivityProduct }) {
+  const [open, setOpen] = useState(false);
+  const [participants, setParticipants] = useState<ParticipantEntry[]>([]);
+  const [loading, setLoading] = useState(false);
 
-function ProductRow({
-  activity, product, compact = false,
-}: {
-  activity: Activity;
-  product: SubRegistration;
-  compact?: boolean;
-}) {
-  const [regs, setRegs] = useState<RegState | null>(null);
-  const [regsOpen, setRegsOpen] = useState(false);
-  const [regsLoading, setRegsLoading] = useState(false);
-
-  async function toggleRegs() {
-    if (regsOpen) { setRegsOpen(false); return; }
-    setRegsOpen(true);
-    if (regs !== null) return;
-    setRegsLoading(true);
-    try {
-      const res = await getPublicRegistrations(activity.id, product.id);
-      setRegs({ names: res.data.names, total: res.data.total_participants });
-    } catch {
-      setRegs({ names: [], total: 0 });
-    } finally {
-      setRegsLoading(false);
+  async function toggle() {
+    if (!open && participants.length === 0) {
+      setLoading(true);
+      try {
+        const r = await getPublicRegistrations(activityId, product.id);
+        setParticipants(r.data);
+      } catch {
+        setParticipants([]);
+      } finally {
+        setLoading(false);
+      }
     }
+    setOpen((o) => !o);
   }
 
-  const rowClass = compact
-    ? "flex items-center gap-2 flex-wrap text-sm"
-    : "flex items-center gap-2 flex-wrap text-sm pl-3 border-l-2 border-blue-100";
+  const totalCount = participants.reduce((sum, p) => sum + p.quantity, 0);
 
   return (
-    <div>
-      <div className={rowClass}>
-        {!compact && <span className="text-gray-700 font-medium">{product.name}</span>}
-        {!compact && !product.is_free && (
+    <div className="text-sm">
+      <div className="flex items-center gap-2 flex-wrap">
+        <span className="font-medium text-gray-700">{product.name}</span>
+        {product.is_free ? (
+          <span className="text-xs text-green-600">gratis</span>
+        ) : (
           <span className="text-xs text-gray-500">
-            {formatPrice(product.price)}
-            {isPositivePrice(product.member_price) ? ` / leden ${formatPrice(product.member_price!)}` : ""}
+            €{parseFloat(product.price).toFixed(2)}
+            {product.member_price && parseFloat(product.member_price) > 0
+              ? ` / leden €${parseFloat(product.member_price).toFixed(2)}`
+              : ""}
           </span>
         )}
-        {product.external_register_url && (
-          <a href={product.external_register_url} target="_blank" rel="noopener noreferrer" className={pillPrimary}>
-            Inschrijven ↗
-          </a>
-        )}
-        {product.info_url && (
-          <a href={product.info_url} target="_blank" rel="noopener noreferrer"
-            className="text-xs text-gray-500 hover:text-blue-600 underline">
-            reglement ↗
-          </a>
-        )}
-        {!product.external_register_url && (
-          <button onClick={toggleRegs} className={pillOutline}>
-            {regsOpen ? "Verberg" : regs !== null ? `Wie doet er mee? (${regs.total})` : "Wie doet er mee?"}
-          </button>
-        )}
-        {!product.external_register_url && product.external_registrations_url && (
-          <a href={product.external_registrations_url} target="_blank" rel="noopener noreferrer" className={pillOutline}>
-            Inschrijvingen ↗
-          </a>
-        )}
+        <button
+          onClick={toggle}
+          className="text-xs text-blue-600 hover:underline"
+        >
+          {loading ? "…" : open ? "Verberg" : "Wie doet er mee?"}
+        </button>
       </div>
-      {regsOpen && (
-        <div className="mt-1 ml-3 pl-3 border-l border-blue-100 text-xs text-gray-600">
-          {regsLoading && <p className="italic">Laden…</p>}
-          {!regsLoading && regs && regs.names.length === 0 && (
-            <p className="italic text-gray-400">Nog geen inschrijvingen.</p>
-          )}
-          {!regsLoading && regs && regs.names.length > 0 && (
+      {open && (
+        <div className="mt-1 text-xs text-gray-600 pl-2">
+          {participants.length === 0 ? (
+            <span className="italic">Nog geen inschrijvingen.</span>
+          ) : (
             <>
-              <p className="font-medium text-gray-500">{regs.total} deelnemer{regs.total !== 1 ? "s" : ""}</p>
-              <p>{regs.names.join(" · ")}</p>
+              <span className="font-medium">{totalCount} deelnemer(s)</span>
+              {" — "}
+              {participants.map((p, i) => (
+                <span key={i}>
+                  {p.contact_name}{p.team_name ? ` (${p.team_name})` : ""}{p.quantity > 1 ? ` ×${p.quantity}` : ""}
+                  {i < participants.length - 1 ? " · " : ""}
+                </span>
+              ))}
             </>
           )}
         </div>
@@ -110,13 +94,11 @@ function ProductRow({
 export default function ActivityList({
   activities,
   onRegister,
-  onSubRegister,
   showRegister = true,
   yearsAscending = false,
 }: {
   activities: Activity[];
   onRegister?: (activity: Activity) => void;
-  onSubRegister?: (activity: Activity, sub: SubRegistration) => void;
   showRegister?: boolean;
   yearsAscending?: boolean;
 }) {
@@ -130,7 +112,14 @@ export default function ActivityList({
     return acc;
   }, {});
 
-  const years = Object.keys(byYear).map(Number).sort((a, b) => yearsAscending ? a - b : b - a);
+  const years = Object.keys(byYear)
+    .map(Number)
+    .sort((a, b) => yearsAscending ? a - b : b - a);
+
+  const past = ["Voorbij", "Geannuleerd"];
+  const canRegister = (a: Activity) =>
+    showRegister && onRegister && !past.includes(a.status ?? "") &&
+    (a.sub_registrations ?? []).some((c) => c.products.length > 0);
 
   return (
     <div className="space-y-10">
@@ -138,72 +127,75 @@ export default function ActivityList({
         <div key={year}>
           <h3 className="text-lg font-bold text-blue-800 mb-4 border-b border-blue-200 pb-2">{year}</h3>
           <div className="space-y-4">
-            {byYear[year].map((activity) => {
-              const allProducts = (activity.sub_registrations ?? []);
-              const internalProducts = allProducts.filter((s) => !s.external_register_url);
-              const hasInternalForm = internalProducts.length > 0;
-              const canRegister = showRegister && hasInternalForm && onRegister
-                && activity.status !== "Voorbij" && activity.status !== "Geannuleerd";
-
-              return (
-                <div key={activity.id} className="card">
-                  <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                    <div className="flex-1">
-                      <div className="flex items-center gap-3 flex-wrap">
-                        {activity.poster_url ? (
-                          <a href={activity.poster_url} target="_blank" rel="noopener noreferrer"
-                            className="font-semibold text-blue-700 hover:underline text-lg">
-                            {activity.name}
-                          </a>
-                        ) : (
-                          <span className="font-semibold text-gray-900 text-lg">{activity.name}</span>
-                        )}
-                        <StatusBadge status={activity.status} />
-                      </div>
-                      <div className="mt-2 text-gray-600 space-y-0.5 text-sm">
-                        <p>📅 {formatDate(activity.date)}{activity.date_end && activity.date_end !== activity.date ? ` – ${formatDate(activity.date_end)}` : ""}{formatTime(activity.time) ? ` om ${formatTime(activity.time)}` : ""}</p>
-                        {activity.location && <p>📍 {activity.location}</p>}
-                        {activity.max_participants && (
-                          <p>👥 {activity.registration_count ?? 0} / {activity.max_participants} deelnemers</p>
-                        )}
-                      </div>
-
-                      {allProducts.length > 1 && (
-                        <div className="mt-3 space-y-2">
-                          {allProducts.map((p) => (
-                            <ProductRow key={p.id} activity={activity} product={p} />
-                          ))}
-                        </div>
+            {byYear[year].map((activity) => (
+              <div key={activity.id} className="card">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 flex-wrap">
+                      {activity.poster_url ? (
+                        <a href={activity.poster_url} target="_blank" rel="noopener noreferrer"
+                          className="font-semibold text-blue-700 hover:underline text-lg">
+                          {activity.name}
+                        </a>
+                      ) : (
+                        <span className="font-semibold text-gray-900 text-lg">{activity.name}</span>
+                      )}
+                      <StatusBadge status={activity.status} />
+                    </div>
+                    <div className="mt-2 text-gray-600 space-y-0.5 text-sm">
+                      <p>📅 {formatDate(activity.date)}{activity.date_end && activity.date_end !== activity.date ? ` – ${formatDate(activity.date_end)}` : ""}{formatTime(activity.time) ? ` om ${formatTime(activity.time)}` : ""}</p>
+                      {activity.location && <p>📍 {activity.location}</p>}
+                      {activity.max_participants && (
+                        <p>👥 {activity.registration_count ?? 0} / {activity.max_participants} deelnemers</p>
                       )}
                     </div>
 
-                    <div className="flex flex-col gap-2 self-start items-end">
-                      {allProducts.length === 1 && (
-                        <ProductRow activity={activity} product={allProducts[0]} compact />
-                      )}
-                      {canRegister && allProducts.length !== 1 && (
-                        <button
-                          className="btn-primary btn-sm whitespace-nowrap"
-                          onClick={() => onRegister!(activity)}
-                          disabled={activity.status === "Vol"}
-                        >
-                          {activity.status === "Vol" ? "Vol" : "Inschrijven"}
-                        </button>
-                      )}
-                      {canRegister && allProducts.length === 1 && !allProducts[0].external_register_url && (
-                        <button
-                          className="btn-primary btn-sm whitespace-nowrap"
-                          onClick={() => onRegister!(activity)}
-                          disabled={activity.status === "Vol"}
-                        >
-                          {activity.status === "Vol" ? "Vol" : "Inschrijven"}
-                        </button>
-                      )}
-                    </div>
+                    {/* Components and products */}
+                    {(activity.sub_registrations ?? []).length > 0 && (
+                      <div className="mt-3 space-y-3">
+                        {(activity.sub_registrations ?? []).map((comp) => (
+                          <div key={comp.id}>
+                            <div className="text-sm font-semibold text-gray-800 mb-1">
+                              {comp.name}
+                              {comp.team_name_required && (
+                                <span className="ml-2 text-xs font-normal text-blue-600">(ploegnaam vereist)</span>
+                              )}
+                              {comp.external_register_url && (
+                                <a href={comp.external_register_url} target="_blank" rel="noopener noreferrer"
+                                  className="ml-2 text-xs text-blue-600 hover:underline">
+                                  Extern inschrijven ↗
+                                </a>
+                              )}
+                            </div>
+                            <div className="pl-3 border-l-2 border-blue-100 space-y-1">
+                              {comp.products.map((p) => (
+                                <ProductRow key={p.id} activityId={activity.id} product={p} />
+                              ))}
+                              {comp.products.length === 0 && comp.external_registrations_url && (
+                                <a href={comp.external_registrations_url} target="_blank" rel="noopener noreferrer"
+                                  className="text-xs text-blue-600 hover:underline">
+                                  Bekijk inschrijvingen ↗
+                                </a>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
+
+                  {canRegister(activity) && (
+                    <button
+                      className="btn-primary btn-sm whitespace-nowrap self-start"
+                      onClick={() => onRegister!(activity)}
+                      disabled={activity.status === "Vol"}
+                    >
+                      {activity.status === "Vol" ? "Vol" : "Inschrijven"}
+                    </button>
+                  )}
                 </div>
-              );
-            })}
+              </div>
+            ))}
           </div>
         </div>
       ))}
