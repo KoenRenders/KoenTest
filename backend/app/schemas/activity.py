@@ -15,6 +15,15 @@ class ProductCreate(BaseModel):
     sort_order: int = 0
 
 
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    price: Optional[Decimal] = None
+    member_price: Optional[Decimal] = None
+    is_free: Optional[bool] = None
+    max_participants: Optional[int] = None
+    sort_order: Optional[int] = None
+
+
 class ProductResponse(BaseModel):
     id: int
     component_id: int
@@ -34,6 +43,15 @@ class ComponentCreate(BaseModel):
     name: str
     team_name_required: bool = False
     sort_order: int = 0
+    external_register_url: Optional[str] = None
+    external_registrations_url: Optional[str] = None
+    info_url: Optional[str] = None
+
+
+class ComponentUpdate(BaseModel):
+    name: Optional[str] = None
+    team_name_required: Optional[bool] = None
+    sort_order: Optional[int] = None
     external_register_url: Optional[str] = None
     external_registrations_url: Optional[str] = None
     info_url: Optional[str] = None

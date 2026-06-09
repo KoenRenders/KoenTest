@@ -15,8 +15,10 @@ from app.schemas.activity import (
     ActivityUpdate,
     ActivityResponse,
     ComponentCreate,
+    ComponentUpdate,
     ComponentResponse,
     ProductCreate,
+    ProductUpdate,
     ProductResponse,
     RegistrationCreate,
     RegistrationResponse,
@@ -190,7 +192,7 @@ def add_component(
 def update_component(
     activity_id: int,
     component_id: int,
-    data: ComponentCreate,
+    data: ComponentUpdate,
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
@@ -200,7 +202,7 @@ def update_component(
     ).first()
     if not component:
         raise HTTPException(status_code=404, detail="Component not found")
-    for field, value in data.model_dump(exclude_none=True).items():
+    for field, value in data.model_dump(exclude_unset=True).items():
         setattr(component, field, value)
     db.commit()
     db.refresh(component)
@@ -261,7 +263,7 @@ def update_product(
     activity_id: int,
     component_id: int,
     product_id: int,
-    data: ProductCreate,
+    data: ProductUpdate,
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
@@ -271,7 +273,7 @@ def update_product(
     ).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    for field, value in data.model_dump(exclude_none=True).items():
+    for field, value in data.model_dump(exclude_unset=True).items():
         setattr(product, field, value)
     db.commit()
     db.refresh(product)
