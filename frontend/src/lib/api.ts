@@ -64,11 +64,6 @@ export const createPage = (data: unknown) => api.post("/api/v1/pages", data);
 export const updatePage = (id: number, data: unknown) => api.put(`/api/v1/pages/${id}`, data);
 export const deletePage = (id: number) => api.delete(`/api/v1/pages/${id}`);
 
-// Orders
-export const getOrders = () => api.get("/api/v1/orders");
-export const exportOrders = () => api.get("/api/v1/orders/export", { responseType: "blob" });
-export const getProductTotals = () => api.get("/api/v1/admin/product-totals");
-
 // Auth
 export const requestLogin = (email: string) =>
   api.post("/api/v1/auth/request-login", { email });
