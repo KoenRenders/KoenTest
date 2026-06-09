@@ -88,8 +88,8 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
             <input className="input" required value={contactName} onChange={(e) => setContactName(e.target.value)} />
           </div>
           <div>
-            <label className="label">E-mailadres</label>
-            <input type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
+            <label className="label">E-mailadres *</label>
+            <input type="email" className="input" required value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div>
             <label className="label">Mobiel nummer *</label>

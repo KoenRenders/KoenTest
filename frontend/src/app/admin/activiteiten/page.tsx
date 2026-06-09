@@ -40,7 +40,9 @@ export default function AdminActiviteiten() {
   const [editingProduct, setEditingProduct] = useState<number | null>(null);
   const [productForm, setProductForm] = useState(emptyProduct());
 
-  const [registrations, setRegistrations] = useState<{ [id: number]: { contact_name?: string; contact_email?: string; team_name?: string }[] }>({});
+  interface RegItem { product_id: number; quantity: number; product_name?: string; component_name?: string; }
+  interface Reg { id: number; contact_name?: string; contact_email?: string; phone?: string; team_name?: string; payment_method?: string; items: RegItem[]; }
+  const [registrations, setRegistrations] = useState<{ [id: number]: Reg[] }>({});
   const [viewRegs, setViewRegs] = useState<number | null>(null);
 
   function load() {
@@ -244,27 +246,68 @@ export default function AdminActiviteiten() {
         </div>
       )}
 
-      {viewRegs !== null && (
-        <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 max-h-[80vh] overflow-y-auto">
-            <h2 className="font-bold text-lg mb-4">Inschrijvingen</h2>
-            {(registrations[viewRegs] ?? []).length === 0 ? (
-              <p className="text-gray-500 text-sm">Geen inschrijvingen.</p>
-            ) : (
-              <ul className="space-y-1 text-sm">
-                {(registrations[viewRegs] ?? []).map((r, i) => (
-                  <li key={i} className="border-b pb-1">
-                    <span className="font-medium">{r.contact_name}</span>
-                    {r.contact_email && <span className="text-gray-500 ml-2">{r.contact_email}</span>}
-                    {r.team_name && <span className="ml-2 text-blue-600">🏅 {r.team_name}</span>}
-                  </li>
-                ))}
-              </ul>
-            )}
-            <button className="btn-secondary mt-4" onClick={() => setViewRegs(null)}>Sluiten</button>
+      {viewRegs !== null && (() => {
+        const regs = registrations[viewRegs] ?? [];
+        const activity = [...activities, ...archived].find((a) => a.id === viewRegs);
+        // Group registrations by component
+        const byComponent: Record<string, { regs: typeof regs; hasItems: boolean }> = {};
+        const noComponent: typeof regs = [];
+        for (const r of regs) {
+          if (r.items.length === 0) { noComponent.push(r); continue; }
+          const components = [...new Set(r.items.map((it) => it.component_name ?? "Onbekend"))];
+          for (const cname of components) {
+            if (!byComponent[cname]) byComponent[cname] = { regs: [], hasItems: true };
+            if (!byComponent[cname].regs.find((x) => x.id === r.id)) byComponent[cname].regs.push(r);
+          }
+        }
+        if (noComponent.length) byComponent["Algemeen"] = { regs: noComponent, hasItems: false };
+        const paymentLabel = (m?: string) => m === "ONLINE" ? "Online" : m === "OVERSCHRIJVING" ? "Overschrijving" : m ?? "";
+        return (
+          <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-xl max-w-xl w-full p-6 max-h-[85vh] overflow-y-auto">
+              <h2 className="font-bold text-lg mb-1">Inschrijvingen</h2>
+              {activity && <p className="text-sm text-gray-500 mb-4">{activity.name}</p>}
+              {regs.length === 0 ? (
+                <p className="text-gray-500 text-sm">Geen inschrijvingen.</p>
+              ) : (
+                <div className="space-y-5">
+                  {Object.entries(byComponent).map(([cname, { regs: cRegs, hasItems }]) => (
+                    <div key={cname}>
+                      <h3 className="font-semibold text-sm text-blue-800 border-b pb-1 mb-2">{cname}</h3>
+                      <ul className="space-y-2 text-sm">
+                        {cRegs.map((r, i) => {
+                          const compItems = hasItems ? r.items.filter((it) => it.component_name === cname) : r.items;
+                          return (
+                            <li key={i} className="border-b border-gray-100 pb-2">
+                              <div className="flex items-start justify-between gap-2">
+                                <div>
+                                  <span className="font-medium">{r.contact_name}</span>
+                                  {r.contact_email && <span className="text-gray-400 ml-2 text-xs">{r.contact_email}</span>}
+                                  {r.phone && <span className="text-gray-400 ml-2 text-xs">📱 {r.phone}</span>}
+                                  {r.team_name && <span className="ml-2 text-blue-600 text-xs">🏅 {r.team_name}</span>}
+                                </div>
+                                {r.payment_method && <span className="text-xs text-gray-500 whitespace-nowrap">{paymentLabel(r.payment_method)}</span>}
+                              </div>
+                              {compItems.length > 0 && (
+                                <ul className="mt-1 pl-3 text-xs text-gray-500">
+                                  {compItems.map((it, j) => (
+                                    <li key={j}>{it.product_name ?? `Product ${it.product_id}`} × {it.quantity}</li>
+                                  ))}
+                                </ul>
+                              )}
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <button className="btn-secondary mt-4" onClick={() => setViewRegs(null)}>Sluiten</button>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       <div className="flex gap-2 mb-4">
         <button className={tab === "upcoming" ? "btn-primary btn-sm" : "btn-secondary btn-sm"} onClick={() => setTab("upcoming")}>Komende</button>
