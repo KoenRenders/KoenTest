@@ -86,7 +86,7 @@ def create_member(data: MemberCreate, db: Session = Depends(get_db)):
             last_name=person_data.last_name,
             first_name=person_data.first_name,
             date_of_birth=person_data.date_of_birth,
-            gender_code=person_data.gender_code,
+            gender_code=person_data.gender_code or person_data.gender or None,
         )
         db.add(person)
         db.flush()
@@ -94,7 +94,7 @@ def create_member(data: MemberCreate, db: Session = Depends(get_db)):
         mp = MemberPerson(
             member_id=member.id,
             person_id=person.id,
-            relation_type=getattr(person_data, "relation_type", "hoofdlid"),
+            relation_type=person_data.relation_type,
         )
         db.add(mp)
 
@@ -287,7 +287,7 @@ def update_person(
     db.commit()
     db.refresh(person)
     mp = next((mp for mp in person.member_persons), None)
-    return _person_to_schema(person, mp.relation_type if mp else "hoofdlid")
+    return _person_to_schema(person, mp.relation_type if mp else "HOOFDLID")
 
 
 @router.put("/persons/{person_id}/address", response_model=FamilyMemberResponse)
@@ -315,7 +315,7 @@ def update_person_address(
     db.commit()
     db.refresh(person)
     mp = next((mp for mp in person.member_persons), None)
-    return _person_to_schema(person, mp.relation_type if mp else "hoofdlid")
+    return _person_to_schema(person, mp.relation_type if mp else "HOOFDLID")
 
 
 @router.put("/persons/{person_id}/contacts", response_model=FamilyMemberResponse)
@@ -345,7 +345,7 @@ def update_person_contacts(
     db.commit()
     db.refresh(person)
     mp = next((mp for mp in person.member_persons), None)
-    return _person_to_schema(person, mp.relation_type if mp else "hoofdlid")
+    return _person_to_schema(person, mp.relation_type if mp else "HOOFDLID")
 
 
 @router.delete("/persons/{person_id}", status_code=204)

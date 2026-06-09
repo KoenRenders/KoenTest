@@ -3,9 +3,6 @@ from decimal import Decimal
 from typing import Optional, List
 from pydantic import BaseModel, EmailStr
 
-RELATION_TYPES = ["hoofdlid", "partner", "(meerderjarig) kind"]
-
-
 class FamilyMemberCreate(BaseModel):
     last_name: str
     first_name: str
@@ -14,7 +11,7 @@ class FamilyMemberCreate(BaseModel):
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     mobile: Optional[str] = None
-    relation_type: str = "hoofdlid"
+    relation_type: str = "HOOFDLID"
 
 
 class FamilyMemberUpdate(BaseModel):
