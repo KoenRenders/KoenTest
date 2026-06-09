@@ -1,13 +1,23 @@
-export interface SubRegistration {
+export interface ActivityProduct {
+  id: number;
+  component_id: number;
+  name: string;
+  price: string;
+  member_price?: string;
+  is_free: boolean;
+  max_participants?: number;
+  sort_order: number;
+}
+
+export interface ActivityComponent {
   id: number;
   name: string;
-  description?: string;
+  team_name_required: boolean;
+  sort_order: number;
   external_register_url?: string;
   external_registrations_url?: string;
   info_url?: string;
-  is_free: boolean;
-  price: string;
-  sort_order: number;
+  products: ActivityProduct[];
 }
 
 export interface Activity {
@@ -18,15 +28,11 @@ export interface Activity {
   time?: string;
   location?: string;
   max_participants?: number;
-  registration_type: "individual" | "family";
-  price: string;
-  member_price?: string;
   poster_url?: string;
-  is_archived: boolean;
   status?: string;
   registration_count?: number;
   waitlist_count?: number;
-  sub_registrations?: SubRegistration[];
+  sub_registrations?: ActivityComponent[];
 }
 
 export interface Family {

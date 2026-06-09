@@ -4,43 +4,75 @@ from decimal import Decimal
 from pydantic import BaseModel
 
 
+# ── Products ──────────────────────────────────────────────────────────────────
+
+class ProductCreate(BaseModel):
+    name: str
+    price: Decimal = Decimal("0.00")
+    member_price: Optional[Decimal] = None
+    is_free: bool = True
+    max_participants: Optional[int] = None
+    sort_order: int = 0
+
+
+class ProductResponse(BaseModel):
+    id: int
+    component_id: int
+    name: str
+    price: Decimal
+    member_price: Optional[Decimal] = None
+    is_free: bool
+    max_participants: Optional[int] = None
+    sort_order: int
+
+    model_config = {"from_attributes": True}
+
+
+# ── Components (Onderdelen) ───────────────────────────────────────────────────
+
+class ComponentCreate(BaseModel):
+    name: str
+    team_name_required: bool = False
+    sort_order: int = 0
+    external_register_url: Optional[str] = None
+    external_registrations_url: Optional[str] = None
+    info_url: Optional[str] = None
+
+
+class ComponentResponse(BaseModel):
+    id: int
+    name: str
+    team_name_required: bool
+    sort_order: int
+    external_register_url: Optional[str] = None
+    external_registrations_url: Optional[str] = None
+    info_url: Optional[str] = None
+    products: List[ProductResponse] = []
+
+    model_config = {"from_attributes": True}
+
+
+# ── Activities ────────────────────────────────────────────────────────────────
+
 class ActivityCreate(BaseModel):
     name: str
     date: date
+    date_end: Optional[date] = None
     time: Optional[Time] = None
     location: Optional[str] = None
     max_participants: Optional[int] = None
-    registration_type_code: str = "INDIVIDUAL"
-    price: Decimal = Decimal("0.00")
-    member_price: Optional[Decimal] = None
     poster_url: Optional[str] = None
 
 
 class ActivityUpdate(BaseModel):
     name: Optional[str] = None
     date: Optional[date] = None
+    date_end: Optional[date] = None
     time: Optional[Time] = None
     location: Optional[str] = None
     max_participants: Optional[int] = None
-    registration_type_code: Optional[str] = None
-    price: Optional[Decimal] = None
-    member_price: Optional[Decimal] = None
     poster_url: Optional[str] = None
-    is_archived: Optional[bool] = None
-
-
-class SubRegistrationResponse(BaseModel):
-    id: int
-    name: str
-    description: Optional[str] = None
-    external_register_url: Optional[str] = None
-    external_registrations_url: Optional[str] = None
-    info_url: Optional[str] = None
-    is_free: bool
-    price: Decimal
-    sort_order: int
-
-    model_config = {"from_attributes": True}
+    is_cancelled: Optional[bool] = None
 
 
 class ActivityResponse(BaseModel):
@@ -51,25 +83,29 @@ class ActivityResponse(BaseModel):
     time: Optional[Time] = None
     location: Optional[str] = None
     max_participants: Optional[int] = None
-    registration_type_code: str
-    price: Decimal
-    member_price: Optional[Decimal] = None
     poster_url: Optional[str] = None
-    is_archived: bool
     created_at: datetime
     status: Optional[str] = None
     registration_count: Optional[int] = None
     waitlist_count: Optional[int] = None
-    sub_registrations: List[SubRegistrationResponse] = []
+    sub_registrations: List[ComponentResponse] = []
 
     model_config = {"from_attributes": True}
 
 
+# ── Registrations ─────────────────────────────────────────────────────────────
+
+class RegistrationItemCreate(BaseModel):
+    product_id: int
+    quantity: int = 1
+
+
 class RegistrationCreate(BaseModel):
-    person_id: Optional[int] = None
-    contact_name: Optional[str] = None
+    contact_name: str
     contact_email: Optional[str] = None
-    registration_type: str = "INDIVIDUAL"
+    phone: Optional[str] = None
+    team_name: Optional[str] = None
+    items: List[RegistrationItemCreate] = []
 
 
 class RegistrationResponse(BaseModel):
@@ -78,8 +114,14 @@ class RegistrationResponse(BaseModel):
     person_id: Optional[int] = None
     is_waitlist: bool
     registered_at: datetime
-    registration_type: str
     contact_name: Optional[str] = None
     contact_email: Optional[str] = None
+    phone: Optional[str] = None
+    team_name: Optional[str] = None
 
     model_config = {"from_attributes": True}
+
+
+# Keep for backwards compat in router imports
+SubRegistrationResponse = ComponentResponse
+SubRegistrationCreate = ComponentCreate

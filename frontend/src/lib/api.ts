@@ -22,6 +22,24 @@ export const deleteActivity = (id: number) => api.delete(`/api/v1/activities/${i
 export const getRegistrations = (id: number) => api.get(`/api/v1/activities/${id}/registrations`);
 export const getWaitlist = (id: number) => api.get(`/api/v1/activities/${id}/waitlist`);
 export const registerForActivity = (id: number, data: unknown) => api.post(`/api/v1/activities/${id}/register`, data);
+export const getPublicRegistrations = (activityId: number, productId: number) =>
+  api.get(`/api/v1/activities/${activityId}/public-registrations`, { params: { product_id: productId } });
+
+// Components (onderdelen) under an activity
+export const addComponent = (activityId: number, data: unknown) =>
+  api.post(`/api/v1/activities/${activityId}/components`, data);
+export const updateComponent = (activityId: number, componentId: number, data: unknown) =>
+  api.put(`/api/v1/activities/${activityId}/components/${componentId}`, data);
+export const deleteComponent = (activityId: number, componentId: number) =>
+  api.delete(`/api/v1/activities/${activityId}/components/${componentId}`);
+
+// Products under a component
+export const addProduct = (activityId: number, componentId: number, data: unknown) =>
+  api.post(`/api/v1/activities/${activityId}/components/${componentId}/products`, data);
+export const updateProduct = (activityId: number, componentId: number, productId: number, data: unknown) =>
+  api.put(`/api/v1/activities/${activityId}/components/${componentId}/products/${productId}`, data);
+export const deleteProduct = (activityId: number, componentId: number, productId: number) =>
+  api.delete(`/api/v1/activities/${activityId}/components/${componentId}/products/${productId}`);
 
 // Families
 export const getFamilies = () => api.get("/api/v1/families");
@@ -44,17 +62,11 @@ export const createPage = (data: unknown) => api.post("/api/v1/pages", data);
 export const updatePage = (id: number, data: unknown) => api.put(`/api/v1/pages/${id}`, data);
 export const deletePage = (id: number) => api.delete(`/api/v1/pages/${id}`);
 
-// Webshop
-export const getProducts = () => api.get("/api/v1/products");
-export const createOrder = (data: unknown) => api.post("/api/v1/orders", data);
-export const getOrders = () => api.get("/api/v1/orders");
-export const exportOrders = () => api.get("/api/v1/orders/export", { responseType: "blob" });
-
 // Auth
-export const login = (username: string, password: string) =>
-  api.post("/api/v1/auth/login", { username, password });
+export const requestLogin = (email: string) => api.post("/api/v1/auth/request-login", { email });
+export const verifyLoginToken = (token: string) => api.get("/api/v1/auth/verify-login", { params: { token } });
 export const getMe = () => api.get("/api/v1/auth/me");
 
 // Admin
 export const getStats = () => api.get("/api/v1/admin/stats");
-export const getProductTotals = () => api.get("/api/v1/admin/product-totals");
+export const getAllPages = () => api.get("/api/v1/admin/pages");

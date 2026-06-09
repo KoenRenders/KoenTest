@@ -30,13 +30,10 @@ def get_stats(
             .filter(Membership.year == today.year, Membership.is_active == True)
             .scalar(),
         "upcoming_activities": db.query(func.count(Activity.id))
-            .filter(Activity.date >= today, Activity.is_archived == False)
+            .filter(Activity.date >= today)
             .scalar(),
         "open_ideas": db.query(func.count(Idea.id))
             .filter(Idea.is_reviewed == False)
-            .scalar(),
-        "pending_orders": db.query(func.count(Order.id))
-            .filter(Order.payment_status == "PENDING")
             .scalar(),
     }
 
