@@ -4,6 +4,7 @@ import {
   getFamilies, getFamily, createMembership, deleteMembership, deleteFamily,
   addPersonToFamily, assignBoardMember, listPersons,
   updatePerson, updatePersonAddress, updatePersonContacts, deletePerson,
+  getGenderCodes,
 } from "@/lib/api";
 import type { Family, FamilyMember, Membership } from "@/lib/types";
 
@@ -20,6 +21,7 @@ export default function AdminLeden() {
   const [families, setFamilies] = useState<Family[]>([]);
   const [selected, setSelected] = useState<Family | null>(null);
   const [allPersons, setAllPersons] = useState<PersonItem[]>([]);
+  const [genderCodes, setGenderCodes] = useState<{ code: string; value: string }[]>([]);
   const [year, setYear] = useState(new Date().getFullYear());
 
   // edit states
@@ -43,6 +45,7 @@ export default function AdminLeden() {
   useEffect(() => {
     loadFamilies();
     listPersons().then((r) => setAllPersons(r.data)).catch(() => {});
+    getGenderCodes().then((r) => setGenderCodes(r.data)).catch(() => {});
   }, []);
 
   async function handleDeleteFamily(id: number) {
@@ -247,9 +250,7 @@ export default function AdminLeden() {
                     <label className="label">Geslacht</label>
                     <select className="input" value={newPersonForm.gender_code} onChange={(e) => setNewPersonForm((f) => ({ ...f, gender_code: e.target.value }))}>
                       <option value="">—</option>
-                      <option value="M">Man</option>
-                      <option value="F">Vrouw</option>
-                      <option value="X">Anders</option>
+                      {genderCodes.map((g) => <option key={g.code} value={g.code}>{g.value}</option>)}
                     </select>
                   </div>
                   <div>
@@ -300,9 +301,7 @@ export default function AdminLeden() {
                           <label className="label">Geslacht</label>
                           <select className="input" value={personForm.gender_code} onChange={(e) => setPersonForm((f) => ({ ...f, gender_code: e.target.value }))}>
                             <option value="">—</option>
-                            <option value="M">Man</option>
-                            <option value="F">Vrouw</option>
-                            <option value="X">Anders</option>
+                            {genderCodes.map((g) => <option key={g.code} value={g.code}>{g.value}</option>)}
                           </select>
                         </div>
                         <div>

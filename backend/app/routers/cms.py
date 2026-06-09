@@ -6,10 +6,22 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_admin
 from app.database import get_db
 from app.models.cms import CmsPage
+from app.models.codes import GenderCode
 from app.models.user import User
 from app.schemas.cms import CmsPageCreate, CmsPageUpdate, CmsPageResponse
 
 router = APIRouter(tags=["cms"])
+
+
+@router.get("/gender-codes")
+def list_gender_codes(db: Session = Depends(get_db)):
+    rows = (
+        db.query(GenderCode)
+        .filter(GenderCode.language == "nl")
+        .order_by(GenderCode.code)
+        .all()
+    )
+    return [{"code": r.code, "value": r.value} for r in rows]
 
 
 @router.get("/pages", response_model=List[CmsPageResponse])

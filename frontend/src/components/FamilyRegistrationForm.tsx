@@ -1,6 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { createFamily } from "@/lib/api";
+import { createFamily, getGenderCodes } from "@/lib/api";
 
 const RELATION_TYPES = ["hoofdlid", "partner", "(meerderjarig) kind"];
 
@@ -24,9 +24,14 @@ export default function FamilyRegistrationForm() {
   const [postalFiltered, setPostalFiltered] = useState<PostalOption[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const [members, setMembers] = useState<MemberForm[]>([emptyMember("hoofdlid")]);
+  const [genderCodes, setGenderCodes] = useState<{ code: string; value: string }[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [error, setError] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    getGenderCodes().then((r) => setGenderCodes(r.data)).catch(() => {});
+  }, []);
 
   useEffect(() => {
     fetch("/api/v1/postal-codes")
@@ -124,9 +129,7 @@ export default function FamilyRegistrationForm() {
               <label className="label">Geslacht</label>
               <select className="input" value={members[0].gender} onChange={(e) => updateMember(0, "gender", e.target.value)}>
                 <option value="">— Kies —</option>
-                <option value="M">Man</option>
-                <option value="F">Vrouw</option>
-                <option value="O">Anders</option>
+                {genderCodes.map((g) => <option key={g.code} value={g.code}>{g.value}</option>)}
               </select>
             </div>
             <div>
@@ -224,9 +227,7 @@ export default function FamilyRegistrationForm() {
                     <label className="label">Geslacht</label>
                     <select className="input" value={member.gender} onChange={(e) => updateMember(i + 1, "gender", e.target.value)}>
                       <option value="">— Kies —</option>
-                      <option value="M">Man</option>
-                      <option value="F">Vrouw</option>
-                      <option value="O">Anders</option>
+                      {genderCodes.map((g) => <option key={g.code} value={g.code}>{g.value}</option>)}
                     </select>
                   </div>
                   <div>
