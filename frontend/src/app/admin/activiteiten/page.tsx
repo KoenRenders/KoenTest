@@ -171,6 +171,26 @@ export default function AdminActiviteiten() {
     load();
   }
 
+  async function moveComponent(activityId: number, components: ActivityComponent[], idx: number, dir: -1 | 1) {
+    const other = components[idx + dir];
+    const current = components[idx];
+    await Promise.all([
+      updateComponent(activityId, current.id, { sort_order: other.sort_order }),
+      updateComponent(activityId, other.id, { sort_order: current.sort_order }),
+    ]);
+    load();
+  }
+
+  async function moveProduct(activityId: number, componentId: number, products: ActivityProduct[], idx: number, dir: -1 | 1) {
+    const other = products[idx + dir];
+    const current = products[idx];
+    await Promise.all([
+      updateProduct(activityId, componentId, current.id, { sort_order: other.sort_order }),
+      updateProduct(activityId, componentId, other.id, { sort_order: current.sort_order }),
+    ]);
+    load();
+  }
+
   const list = tab === "upcoming" ? activities : archived;
 
   return (
@@ -321,10 +341,14 @@ export default function AdminActiviteiten() {
                   <p className="text-sm text-gray-400 italic">Geen onderdelen.</p>
                 )}
 
-                {(a.sub_registrations ?? []).map((comp) => (
+                {(a.sub_registrations ?? []).map((comp, ci) => (
                   <div key={comp.id} className="border border-gray-200 rounded-lg">
                     <div className="flex items-center justify-between p-3 bg-gray-50 rounded-t-lg">
                       <div className="flex items-center gap-2">
+                        <div className="flex flex-col gap-0.5">
+                          <button className="text-gray-400 hover:text-gray-700 disabled:opacity-30 leading-none text-xs" disabled={ci === 0} onClick={() => moveComponent(a.id, a.sub_registrations ?? [], ci, -1)}>▲</button>
+                          <button className="text-gray-400 hover:text-gray-700 disabled:opacity-30 leading-none text-xs" disabled={ci === (a.sub_registrations ?? []).length - 1} onClick={() => moveComponent(a.id, a.sub_registrations ?? [], ci, 1)}>▼</button>
+                        </div>
                         <span className="font-medium text-sm">{comp.name}</span>
                         {comp.team_name_required && (
                           <span className="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">ploegnaam</span>
@@ -394,19 +418,25 @@ export default function AdminActiviteiten() {
                         {comp.products.length === 0 && showProductForm !== comp.id && (
                           <p className="text-xs text-gray-400 italic">Geen producten.</p>
                         )}
-                        {comp.products.map((p) => (
+                        {comp.products.map((p, pi) => (
                           <div key={p.id} className="flex items-center justify-between text-sm py-1 border-b border-gray-100 last:border-0">
-                            <div>
-                              <span className="font-medium">{p.name}</span>
-                              {p.is_free ? (
-                                <span className="ml-2 text-xs text-green-600">gratis</span>
-                              ) : (
-                                <span className="ml-2 text-xs text-gray-500">
-                                  €{parseFloat(p.price).toFixed(2)}
-                                  {p.member_price ? ` / leden €${parseFloat(p.member_price).toFixed(2)}` : ""}
-                                </span>
-                              )}
-                              {p.max_participants && <span className="ml-2 text-xs text-gray-400">max {p.max_participants}</span>}
+                            <div className="flex items-center gap-2">
+                              <div className="flex flex-col gap-0.5">
+                                <button className="text-gray-400 hover:text-gray-700 disabled:opacity-30 leading-none text-xs" disabled={pi === 0} onClick={() => moveProduct(a.id, comp.id, comp.products, pi, -1)}>▲</button>
+                                <button className="text-gray-400 hover:text-gray-700 disabled:opacity-30 leading-none text-xs" disabled={pi === comp.products.length - 1} onClick={() => moveProduct(a.id, comp.id, comp.products, pi, 1)}>▼</button>
+                              </div>
+                              <div>
+                                <span className="font-medium">{p.name}</span>
+                                {p.is_free ? (
+                                  <span className="ml-2 text-xs text-green-600">gratis</span>
+                                ) : (
+                                  <span className="ml-2 text-xs text-gray-500">
+                                    €{parseFloat(p.price).toFixed(2)}
+                                    {p.member_price ? ` / leden €${parseFloat(p.member_price).toFixed(2)}` : ""}
+                                  </span>
+                                )}
+                                {p.max_participants && <span className="ml-2 text-xs text-gray-400">max {p.max_participants}</span>}
+                              </div>
                             </div>
                             <div className="flex gap-1">
                               <button className="btn-secondary btn-sm text-xs" onClick={() => startEditProduct(a.id, comp.id, p)}>✏️</button>

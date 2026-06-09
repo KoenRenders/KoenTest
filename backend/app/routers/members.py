@@ -339,9 +339,9 @@ def update_person_contacts(
             if existing:
                 existing.value = value
             else:
-                db.add(ContactDetail(person_id=person_id, contact_type_code=type_code, value=value, is_primary=True))
+                person.contact_details.append(ContactDetail(person_id=person_id, contact_type_code=type_code, value=value, is_primary=True))
         elif existing:
-            db.delete(existing)
+            person.contact_details.remove(existing)
 
     _upsert_contact("EMAIL", data.email)
     _upsert_contact("PHONE", data.phone)

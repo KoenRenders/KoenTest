@@ -5,12 +5,12 @@ import ActivityList from "@/components/ActivityList";
 import RegistrationForm from "@/components/RegistrationForm";
 import IdeaBox from "@/components/IdeaBox";
 import FamilyRegistrationForm from "@/components/FamilyRegistrationForm";
-import type { Activity, CmsPage } from "@/lib/types";
+import type { Activity, ActivityComponent, CmsPage } from "@/lib/types";
 
 export default function HomePage() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selected, setSelected] = useState<Activity | null>(null);
+  const [selected, setSelected] = useState<{ activity: Activity; component: ActivityComponent } | null>(null);
   const [registered, setRegistered] = useState(false);
   const [showRegForm, setShowRegForm] = useState(false);
   const [showContact, setShowContact] = useState(false);
@@ -77,14 +77,15 @@ export default function HomePage() {
         {loading ? (
           <p className="text-gray-500">Activiteiten laden…</p>
         ) : (
-          <ActivityList activities={activities} onRegister={setSelected} showRegister yearsAscending />
+          <ActivityList activities={activities} onRegister={(a, c) => setSelected({ activity: a, component: c })} showRegister yearsAscending />
         )}
       </section>
 
       {/* Registratie modal */}
       {selected && (
         <RegistrationForm
-          activity={selected}
+          activity={selected.activity}
+          component={selected.component}
           onClose={() => setSelected(null)}
           onSuccess={handleRegistered}
         />
