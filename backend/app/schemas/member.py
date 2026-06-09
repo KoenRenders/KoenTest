@@ -9,7 +9,9 @@ class PersonCreate(BaseModel):
     first_name: str
     date_of_birth: Optional[date] = None
     gender_code: Optional[str] = None
+    gender: Optional[str] = None  # alias used by public registration form
     is_primary: bool = False
+    relation_type: str = "HOOFDLID"
 
 
 class PersonUpdate(BaseModel):
@@ -97,8 +99,6 @@ class MembershipResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-RELATION_TYPES = ["hoofdlid", "partner", "(meerderjarig) kind"]
-
 
 class FamilyMemberResponse(BaseModel):
     id: int
@@ -152,7 +152,7 @@ class PersonAddToFamily(BaseModel):
     email: Optional[str] = None
     phone: Optional[str] = None
     mobile: Optional[str] = None
-    relation_type: str = "partner"
+    relation_type: str = "PARTNER"
 
 
 class BoardMemberAssign(BaseModel):
