@@ -36,7 +36,7 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
   }, 0);
 
   const hasPaidItems = totalAmount > 0;
-  const hasSelection = component.products.some((p) => (quantities[p.id] ?? 0) > 0);
+  const hasSelection = component.products.length === 0 || component.products.some((p) => (quantities[p.id] ?? 0) > 0);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

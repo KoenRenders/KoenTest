@@ -65,21 +65,16 @@ function ComponentRow({
     <div>
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-sm font-semibold text-gray-800">{component.name}</span>
-        {component.team_name_required && (
-          <span className="text-xs font-normal text-blue-600">(ploegnaam vereist)</span>
-        )}
         {component.external_register_url && (
           <a href={component.external_register_url} target="_blank" rel="noopener noreferrer"
             className="text-xs text-blue-600 hover:underline">
             Extern inschrijven ↗
           </a>
         )}
-        {hasProducts && (
-          <button onClick={toggle} className="text-xs text-blue-600 hover:underline">
-            {loading ? "…" : open ? "Verberg" : "Wie doet er mee?"}
-          </button>
-        )}
-        {hasProducts && canRegister && onRegister && (
+        <button onClick={toggle} className="text-xs text-blue-600 hover:underline">
+          {loading ? "…" : open ? "Verberg" : "Wie doet er mee?"}
+        </button>
+        {canRegister && onRegister && (
           <button
             className="btn-primary btn-sm whitespace-nowrap"
             onClick={() => onRegister(component)}
