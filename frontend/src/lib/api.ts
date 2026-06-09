@@ -76,6 +76,10 @@ export const createPage = (data: unknown) => api.post("/api/v1/pages", data);
 export const updatePage = (id: number, data: unknown) => api.put(`/api/v1/pages/${id}`, data);
 export const deletePage = (id: number) => api.delete(`/api/v1/pages/${id}`);
 
+// Payment records
+export const listPaymentRecords = () => api.get("/api/v1/payment-status/records");
+export const updatePaymentRecord = (id: string, data: unknown) => api.patch(`/api/v1/payment-status/records/${id}`, data);
+
 // Auth
 export const requestLogin = (email: string) => api.post("/api/v1/auth/request-login", { email });
 export const verifyLoginToken = (token: string) => api.get("/api/v1/auth/verify-login", { params: { token } });

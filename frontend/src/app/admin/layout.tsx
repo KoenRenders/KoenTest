@@ -9,6 +9,7 @@ const navItems = [
   { href: "/admin/leden", label: "Leden" },
   { href: "/admin/paginas", label: "CMS Pagina's" },
   { href: "/admin/ideeen", label: "Ideeën" },
+  { href: "/admin/betalingen", label: "Betalingen" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
