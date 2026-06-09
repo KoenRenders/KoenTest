@@ -30,6 +30,7 @@ export interface Activity {
   max_participants?: number;
   poster_url?: string;
   status?: string;
+  is_cancelled?: boolean;
   registration_count?: number;
   waitlist_count?: number;
   sub_registrations?: ActivityComponent[];
