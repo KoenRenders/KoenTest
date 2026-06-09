@@ -1,3 +1,4 @@
+import logging
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -6,9 +7,12 @@ from typing import Optional
 
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
 
 def _send(to_email: str, subject: str, body_html: str) -> None:
     if not settings.gmail_user or not settings.gmail_app_password:
+        logger.warning("E-mail niet verstuurd (GMAIL_USER of GMAIL_APP_PASSWORD niet ingesteld): %s", subject)
         return
 
     msg = MIMEMultipart("alternative")
@@ -18,9 +22,12 @@ def _send(to_email: str, subject: str, body_html: str) -> None:
     msg["To"] = to_email
     msg.attach(MIMEText(body_html, "html"))
 
-    with smtplib.SMTP_SSL("smtp.gmail.com", 465) as server:
-        server.login(settings.gmail_user, settings.gmail_app_password)
-        server.sendmail(settings.gmail_user, to_email, msg.as_string())
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as server:
+            server.login(settings.gmail_user, settings.gmail_app_password)
+            server.sendmail(settings.gmail_user, to_email, msg.as_string())
+    except Exception as exc:
+        logger.error("E-mail versturen mislukt naar %s: %s", to_email, exc)
 
 
 def send_magic_link(to_email: str, magic_link: str) -> None:
