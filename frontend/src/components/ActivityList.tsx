@@ -65,34 +65,34 @@ function ComponentRow({
     <div>
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-sm font-semibold text-gray-800">{component.name}</span>
-        {component.external_register_url && (
+        {component.external_register_url ? (
           <a href={component.external_register_url} target="_blank" rel="noopener noreferrer"
-            className="text-xs text-blue-600 hover:underline">
-            Extern inschrijven ↗
+            className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-0.5 hover:bg-blue-50">
+            Inschrijven ↗
           </a>
-        )}
-        {canRegister && onRegister && (
+        ) : canRegister && onRegister ? (
           <button
-            className="text-xs text-blue-600 hover:underline disabled:opacity-40"
+            className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-0.5 hover:bg-blue-50 disabled:opacity-40"
             onClick={() => onRegister(component)}
             disabled={activityStatus === "Vol"}
           >
             {activityStatus === "Vol" ? "Vol" : "Inschrijven"}
           </button>
+        ) : null}
+        {!component.external_register_url && (
+          component.external_registrations_url ? (
+            <a href={component.external_registrations_url} target="_blank" rel="noopener noreferrer"
+              className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-0.5 hover:bg-blue-50">
+              Inschrijvingen ↗
+            </a>
+          ) : (
+            <button onClick={toggle} className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-0.5 hover:bg-blue-50">
+              {loading ? "…" : open ? "Verberg" : "Wie doet er mee?"}
+            </button>
+          )
         )}
-        <button onClick={toggle} className="text-xs text-blue-600 hover:underline">
-          {loading ? "…" : open ? "Verberg" : "Wie doet er mee?"}
-        </button>
       </div>
 
-      {component.external_registrations_url && (
-        <div className="pl-3 mt-1">
-          <a href={component.external_registrations_url} target="_blank" rel="noopener noreferrer"
-            className="text-xs text-blue-600 hover:underline">
-            Bekijk inschrijvingen ↗
-          </a>
-        </div>
-      )}
 
       {/* Participant list */}
       {open && (
