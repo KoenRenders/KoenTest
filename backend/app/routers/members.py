@@ -207,7 +207,7 @@ def _person_to_schema(person: Person, relation_type: str) -> FamilyMemberRespons
 
 
 def _build_family_response(m: Member) -> FamilyResponse:
-    primary = next((mp.person for mp in m.member_persons if mp.is_primary), None)
+    primary = next((mp.person for mp in m.member_persons if mp.relation_type == "HOOFDLID"), None)
     address = primary.address if primary else None
     board_member = PersonListItem(
         id=m.board_member.id,
