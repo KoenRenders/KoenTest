@@ -7,7 +7,7 @@ export default function BetalingSucces() {
         <div className="text-5xl mb-4">✅</div>
         <h1 className="text-2xl font-bold text-gray-900 mb-2">Betaling ontvangen!</h1>
         <p className="text-gray-600 mb-6">
-          Bedankt! Je lidmaatschap bij KWB Millegem is bevestigd. Je ontvangt een bevestiging per e-mail.
+          Bedankt! Je inschrijving bij Raak Millegem is bevestigd. Je ontvangt een bevestiging per e-mail.
         </p>
         <Link href="/" className="btn-primary">
           Terug naar de startpagina
