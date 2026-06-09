@@ -308,10 +308,12 @@ def update_person_address(
         if not pc:
             raise HTTPException(status_code=422, detail=f"Onbekende postcode: {data.postal_code}")
         address.postal_code_id = pc.id
-    for field in ("street", "house_number", "bus_number"):
+    for field in ("street", "house_number"):
         value = getattr(data, field)
         if value is not None:
             setattr(address, field, value)
+    if data.bus_number is not None or "bus_number" in (data.model_fields_set or set()):
+        address.bus_number = data.bus_number or None
     db.commit()
     db.refresh(person)
     mp = next((mp for mp in person.member_persons), None)
