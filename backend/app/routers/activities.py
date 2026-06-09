@@ -37,8 +37,6 @@ def compute_activity_status(activity: Activity) -> dict:
         status = "Voorbij"
     elif activity.is_cancelled:
         status = "Geannuleerd"
-    elif activity.max_participants and count >= activity.max_participants:
-        status = "Vol"
     elif wl_count > 0:
         status = "Wachtlijst"
     else:
@@ -110,7 +108,6 @@ def create_activity(
         date_end=data.date_end,
         time=data.time,
         location=data.location,
-        max_participants=data.max_participants,
         poster_url=data.poster_url,
     )
     db.add(activity)
@@ -365,12 +362,9 @@ def register_for_activity(
     if end < date.today():
         raise HTTPException(status_code=400, detail="Activity is no longer open for registration")
 
-    current_registrations = [r for r in activity.registrations if not r.is_waitlist]
-    is_waitlist = bool(activity.max_participants and len(current_registrations) >= activity.max_participants)
-
     registration = Registration(
         activity_id=activity_id,
-        is_waitlist=is_waitlist,
+        is_waitlist=False,
         registration_type="INDIVIDUAL",
         contact_name=data.contact_name,
         contact_email=data.contact_email,

@@ -9,7 +9,7 @@ import type { Activity, ActivityComponent, ActivityProduct } from "@/lib/types";
 
 const emptyActivity = () => ({
   name: "", date: "", date_end: "", time: "", location: "",
-  max_participants: "", poster_url: "", is_cancelled: false,
+  poster_url: "", is_cancelled: false,
 });
 
 const emptyComponent = () => ({
@@ -58,7 +58,6 @@ export default function AdminActiviteiten() {
       date_end: activityForm.date_end || null,
       time: activityForm.time || null,
       location: activityForm.location || null,
-      max_participants: activityForm.max_participants ? parseInt(activityForm.max_participants) : null,
       poster_url: activityForm.poster_url || null,
       is_cancelled: activityForm.is_cancelled,
     };
@@ -77,7 +76,6 @@ export default function AdminActiviteiten() {
     setActivityForm({
       name: a.name, date: a.date, date_end: a.date_end || "",
       time: a.time || "", location: a.location || "",
-      max_participants: a.max_participants?.toString() || "",
       poster_url: a.poster_url || "",
       is_cancelled: a.is_cancelled ?? false,
     });
@@ -208,10 +206,6 @@ export default function AdminActiviteiten() {
               <div>
                 <label className="label">Locatie</label>
                 <input className="input" value={activityForm.location} onChange={(e) => setActivityForm((f) => ({ ...f, location: e.target.value }))} />
-              </div>
-              <div>
-                <label className="label">Max. deelnemers (activiteit)</label>
-                <input type="number" className="input" value={activityForm.max_participants} onChange={(e) => setActivityForm((f) => ({ ...f, max_participants: e.target.value }))} />
               </div>
               <div>
                 <label className="label">Poster URL</label>

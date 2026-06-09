@@ -27,7 +27,6 @@ export interface Activity {
   date_end?: string;
   time?: string;
   location?: string;
-  max_participants?: number;
   poster_url?: string;
   status?: string;
   is_cancelled?: boolean;

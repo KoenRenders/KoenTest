@@ -29,7 +29,7 @@ def upgrade() -> None:
 
     # Drop old activity columns (may already be absent if re-run)
     with op.batch_alter_table("activities") as batch_op:
-        for col in ("price", "member_price", "is_archived", "members_only", "registration_type_code"):
+        for col in ("price", "member_price", "is_archived", "members_only", "registration_type_code", "max_participants"):
             if _has_column(conn, "activities", col):
                 batch_op.drop_column(col)
 
