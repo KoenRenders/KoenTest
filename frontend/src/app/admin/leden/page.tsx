@@ -104,7 +104,7 @@ export default function AdminLeden() {
 
   async function handleSaveAddress() {
     if (!selected) return;
-    const primary = selected.members.find((m) => m.is_primary);
+    const primary = selected.members.find((m) => m.relation_type === "HOOFDLID");
     if (!primary) return;
     await updatePersonAddress(primary.id, {
       street: addressForm.street,
@@ -150,7 +150,7 @@ export default function AdminLeden() {
         <h1 className="text-2xl font-bold text-blue-800 mb-4">Leden</h1>
         <div className="space-y-2">
           {families.map((f) => {
-            const primary = f.members.find((m) => m.is_primary);
+            const primary = f.members.find((m) => m.relation_type === "HOOFDLID");
             return (
               <button
                 key={f.id}
@@ -327,7 +327,7 @@ export default function AdminLeden() {
                     <div className="flex items-start justify-between text-sm py-2 border-b border-gray-100 last:border-0">
                       <div>
                         <span className="font-medium">{m.first_name} {m.last_name}</span>
-                        <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${m.is_primary ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-600"}`}>{m.relation_type}</span>
+                        <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${"HOOFDLID" === m.relation_type ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-600"}`}>{m.relation_type}</span>
                         <div className="text-gray-500 text-xs mt-0.5">
                           {m.date_of_birth && <span>{m.date_of_birth} · </span>}
                           {m.email && <span>{m.email} · </span>}
@@ -336,7 +336,7 @@ export default function AdminLeden() {
                       </div>
                       <div className="flex gap-1 shrink-0 ml-2">
                         <button className="btn-secondary btn-sm" onClick={() => startEditPerson(m)}>Bewerken</button>
-                        {!m.is_primary && (
+                        {m.relation_type !== "HOOFDLID" && (
                           <button className="btn-danger btn-sm" onClick={() => handleDeletePerson(m)}>Verwijderen</button>
                         )}
                       </div>

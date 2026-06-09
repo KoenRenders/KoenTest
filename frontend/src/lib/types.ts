@@ -58,8 +58,7 @@ export interface FamilyMember {
   email?: string;
   phone?: string;
   mobile?: string;
-  relation_type?: string;
-  is_primary: boolean;
+  relation_type: string;
 }
 
 export interface Membership {
