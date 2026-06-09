@@ -103,7 +103,7 @@ function ComponentRow({
               {" — "}
               {participants.map((p, i) => (
                 <span key={i}>
-                  {p.contact_name}{p.team_name ? ` (${p.team_name})` : ""}
+                  {p.team_name || p.contact_name}
                   {i < participants.length - 1 ? " · " : ""}
                 </span>
               ))}
