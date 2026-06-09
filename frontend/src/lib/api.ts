@@ -46,9 +46,20 @@ export const getFamilies = () => api.get("/api/v1/families");
 export const getFamily = (id: number) => api.get(`/api/v1/families/${id}`);
 export const createFamily = (data: unknown) => api.post("/api/v1/families", data);
 export const updateFamily = (id: number, data: unknown) => api.put(`/api/v1/families/${id}`, data);
+export const deleteFamily = (id: number) => api.delete(`/api/v1/families/${id}`);
 export const addFamilyMember = (familyId: number, data: unknown) => api.post(`/api/v1/families/${familyId}/members`, data);
+export const addPersonToFamily = (familyId: number, data: unknown) => api.post(`/api/v1/families/${familyId}/persons`, data);
+export const assignBoardMember = (familyId: number, data: unknown) => api.post(`/api/v1/families/${familyId}/board`, data);
 export const createMembership = (familyId: number, data: unknown) => api.post(`/api/v1/families/${familyId}/memberships`, data);
+export const deleteMembership = (id: number) => api.delete(`/api/v1/memberships/${id}`);
 export const getMemberships = (year?: number) => api.get("/api/v1/memberships", { params: year ? { year } : {} });
+
+// Persons
+export const listPersons = () => api.get("/api/v1/persons");
+export const updatePerson = (id: number, data: unknown) => api.put(`/api/v1/persons/${id}`, data);
+export const updatePersonAddress = (id: number, data: unknown) => api.put(`/api/v1/persons/${id}/address`, data);
+export const updatePersonContacts = (id: number, data: unknown) => api.put(`/api/v1/persons/${id}/contacts`, data);
+export const deletePerson = (id: number) => api.delete(`/api/v1/persons/${id}`);
 
 // Ideas
 export const getIdeas = () => api.get("/api/v1/ideas");
@@ -58,6 +69,7 @@ export const markIdeaReviewed = (id: number) => api.put(`/api/v1/ideas/${id}`);
 // CMS
 export const getPages = () => api.get("/api/v1/pages");
 export const getPage = (slug: string) => api.get(`/api/v1/pages/${slug}`);
+export const getBlock = (slug: string) => api.get(`/api/v1/blocks/${slug}`);
 export const createPage = (data: unknown) => api.post("/api/v1/pages", data);
 export const updatePage = (id: number, data: unknown) => api.put(`/api/v1/pages/${id}`, data);
 export const deletePage = (id: number) => api.delete(`/api/v1/pages/${id}`);
