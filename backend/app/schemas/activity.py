@@ -117,11 +117,20 @@ class RegistrationItemCreate(BaseModel):
 
 class RegistrationCreate(BaseModel):
     contact_name: str
-    contact_email: Optional[str] = None
+    contact_email: str
     phone: Optional[str] = None
     team_name: Optional[str] = None
     payment_method: Optional[str] = None
     items: List[RegistrationItemCreate] = []
+
+
+class RegistrationItemResponse(BaseModel):
+    product_id: int
+    quantity: int
+    product_name: Optional[str] = None
+    component_name: Optional[str] = None
+
+    model_config = {"from_attributes": True}
 
 
 class RegistrationResponse(BaseModel):
@@ -134,6 +143,8 @@ class RegistrationResponse(BaseModel):
     contact_email: Optional[str] = None
     phone: Optional[str] = None
     team_name: Optional[str] = None
+    payment_method: Optional[str] = None
+    items: List[RegistrationItemResponse] = []
 
     model_config = {"from_attributes": True}
 

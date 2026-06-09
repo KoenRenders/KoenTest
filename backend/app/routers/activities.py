@@ -301,6 +301,36 @@ def delete_product(
 
 # ── Registrations ─────────────────────────────────────────────────────────────
 
+def _enrich_registration(reg, activity):
+    """Attach product_name and component_name to each registration item."""
+    product_map = {}
+    for comp in activity.sub_registrations:
+        for p in comp.products:
+            product_map[p.id] = (p.name, comp.name)
+    items = []
+    for item in reg.items:
+        pname, cname = product_map.get(item.product_id, (None, None))
+        items.append({
+            "product_id": item.product_id,
+            "quantity": item.quantity,
+            "product_name": pname,
+            "component_name": cname,
+        })
+    return {
+        "id": reg.id,
+        "activity_id": reg.activity_id,
+        "person_id": reg.person_id,
+        "is_waitlist": reg.is_waitlist,
+        "registered_at": reg.registered_at,
+        "contact_name": reg.contact_name,
+        "contact_email": reg.contact_email,
+        "phone": reg.phone,
+        "team_name": reg.team_name,
+        "payment_method": reg.payment_method if hasattr(reg, "payment_method") else None,
+        "items": items,
+    }
+
+
 @router.get("/activities/{activity_id}/registrations", response_model=List[RegistrationResponse])
 def get_registrations(
     activity_id: int,
@@ -310,7 +340,7 @@ def get_registrations(
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
-    return [r for r in activity.registrations if not r.is_waitlist]
+    return [_enrich_registration(r, activity) for r in activity.registrations if not r.is_waitlist]
 
 
 @router.get("/activities/{activity_id}/waitlist", response_model=List[RegistrationResponse])
