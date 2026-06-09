@@ -7,9 +7,11 @@ services:
       POSTGRES_USER: ${DB_USER:-postgres}
       POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_dev_data:/var/lib/postgresql/data
     networks:
       - internal
+    ports:
+      - "5432:5432"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
       interval: 10s
@@ -21,55 +23,46 @@ services:
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/raakmillegem
-      SECRET_KEY: ${SECRET_KEY:-change-me-in-production}
+      SECRET_KEY: ${SECRET_KEY:-change-me}
       GMAIL_USER: ${GMAIL_USER:-}
       GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-}
+      GMAIL_FROM: ${GMAIL_FROM:-}
       MOLLIE_API_KEY: ${MOLLIE_API_KEY:-}
-      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost}
     depends_on:
       db:
         condition: service_healthy
     networks:
       - internal
-    ports:
-      - "8000:8000"
 
   frontend:
     build: ./frontend
     restart: unless-stopped
-    environment:
-      NEXT_PUBLIC_API_URL: ${API_URL:-http://localhost:8000}
     depends_on:
       - backend
-    ports:
-      - "3000:3000"
     networks:
       - internal
-      - public
 
   caddy:
     image: caddy:2
     restart: unless-stopped
     ports:
       - "80:80"
-      - "443:443"
-      - "443:443/udp"
     volumes:
-      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:z
-      - caddy_data:/data
-      - caddy_config:/config
+      - ./caddy/Caddyfile.dev:/etc/caddy/Caddyfile:z
+      - caddy_dev_data:/data
+      - caddy_dev_config:/config
     depends_on:
       - frontend
       - backend
     networks:
-      - public
       - internal
 
 volumes:
-  postgres_data:
-  caddy_data:
-  caddy_config:
+  postgres_dev_data:
+  caddy_dev_data:
+  caddy_dev_config:
 
 networks:
   internal:
-  public:
