@@ -55,6 +55,7 @@ export interface FamilyMember {
   gender?: string;
   email?: string;
   phone?: string;
+  relation_type?: string;
   is_primary: boolean;
 }
 
