@@ -8,7 +8,7 @@ interface MemberForm {
   gender: string; email: string; phone: string; mobile: string; relation_type: string;
 }
 
-const emptyMember = (relation_type = "hoofdlid"): MemberForm => ({
+const emptyMember = (relation_type = "HOOFDLID"): MemberForm => ({
   first_name: "", last_name: "", date_of_birth: "", gender: "",
   email: "", phone: "", mobile: "", relation_type,
 });
@@ -21,7 +21,7 @@ export default function FamilyRegistrationForm() {
   const [postalOptions, setPostalOptions] = useState<PostalOption[]>([]);
   const [postalFiltered, setPostalFiltered] = useState<PostalOption[]>([]);
   const [showDropdown, setShowDropdown] = useState(false);
-  const [members, setMembers] = useState<MemberForm[]>([emptyMember("hoofdlid")]);
+  const [members, setMembers] = useState<MemberForm[]>([emptyMember("HOOFDLID")]);
   const [genderCodes, setGenderCodes] = useState<{ code: string; value: string }[]>([]);
   const [relationTypes, setRelationTypes] = useState<{ code: string; value: string }[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
@@ -253,7 +253,7 @@ export default function FamilyRegistrationForm() {
         </div>
       )}
 
-      <button type="button" onClick={() => setMembers((ms) => [...ms, emptyMember("partner")])} className="btn-secondary btn-sm">
+      <button type="button" onClick={() => setMembers((ms) => [...ms, emptyMember("PARTNER")])} className="btn-secondary btn-sm">
         + Gezinslid toevoegen
       </button>
 
