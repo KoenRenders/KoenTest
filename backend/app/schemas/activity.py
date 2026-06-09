@@ -120,6 +120,7 @@ class RegistrationCreate(BaseModel):
     contact_email: Optional[str] = None
     phone: Optional[str] = None
     team_name: Optional[str] = None
+    payment_method: Optional[str] = None
     items: List[RegistrationItemCreate] = []
 
 

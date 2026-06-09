@@ -37,6 +37,7 @@ class Registration(Base):
     contact_email = Column(String(255), nullable=True)
     phone = Column(String(50), nullable=True)
     team_name = Column(String(200), nullable=True)
+    payment_method = Column(String(20), nullable=True)
 
     activity = relationship("Activity", back_populates="registrations")
     person = relationship("Person", back_populates="registrations")

@@ -378,6 +378,7 @@ def register_for_activity(
         contact_email=data.contact_email,
         phone=data.phone,
         team_name=data.team_name,
+        payment_method=data.payment_method,
     )
     db.add(registration)
     db.flush()
@@ -393,7 +394,7 @@ def register_for_activity(
     db.commit()
     db.refresh(registration)
 
-    if is_waitlist and data.contact_email:
+    if registration.is_waitlist and data.contact_email:
         try:
             send_waitlist_notification(
                 to_email=data.contact_email,

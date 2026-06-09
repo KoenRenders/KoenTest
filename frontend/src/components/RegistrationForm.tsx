@@ -20,14 +20,22 @@ function formatPrice(price: string, memberPrice?: string) {
   return label;
 }
 
+const PAYMENT_METHODS = [
+  { value: "ONLINE", label: "Online betalen" },
+  { value: "OVERSCHRIJVING", label: "Overschrijving" },
+];
+
 export default function RegistrationForm({ activity, component, onClose, onSuccess }: Props) {
   const [contactName, setContactName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [teamName, setTeamName] = useState("");
   const [quantities, setQuantities] = useState<Record<number, number>>({});
+  const [paymentMethod, setPaymentMethod] = useState("ONLINE");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const hasProducts = component.products.length > 0;
 
   const totalAmount = component.products.reduce((sum, p) => {
     const qty = quantities[p.id] ?? 0;
@@ -36,7 +44,7 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
   }, 0);
 
   const hasPaidItems = totalAmount > 0;
-  const hasSelection = component.products.length === 0 || component.products.some((p) => (quantities[p.id] ?? 0) > 0);
+  const hasSelection = !hasProducts || component.products.some((p) => (quantities[p.id] ?? 0) > 0);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -56,6 +64,7 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
         contact_email: email || undefined,
         phone: phone || undefined,
         team_name: teamName || undefined,
+        payment_method: hasPaidItems ? paymentMethod : undefined,
         items,
       });
       onSuccess();
@@ -83,8 +92,8 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
             <input type="email" className="input" value={email} onChange={(e) => setEmail(e.target.value)} />
           </div>
           <div>
-            <label className="label">Telefoonnummer</label>
-            <input type="tel" className="input" value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <label className="label">Mobiel nummer *</label>
+            <input type="tel" className="input" required value={phone} onChange={(e) => setPhone(e.target.value)} />
           </div>
 
           {component.team_name_required && (
@@ -94,36 +103,53 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
             </div>
           )}
 
-          <div>
-            <h3 className="font-semibold text-gray-800 mb-2 border-b pb-1">{component.name}</h3>
-            {component.products.length === 0 && (
-              <p className="text-sm text-gray-400 italic">Geen producten.</p>
-            )}
-            <div className="space-y-2">
-              {component.products.map((p) => (
-                <div key={p.id} className="flex items-center justify-between gap-3">
-                  <div className="flex-1 text-sm">
-                    <span className="font-medium">{p.name}</span>
-                    <span className="ml-2 text-gray-500">{formatPrice(p.price, p.member_price)}</span>
+          {hasProducts && (
+            <div>
+              <h3 className="font-semibold text-gray-800 mb-2 border-b pb-1">{component.name}</h3>
+              <div className="space-y-2">
+                {component.products.map((p) => (
+                  <div key={p.id} className="flex items-center justify-between gap-3">
+                    <div className="flex-1 text-sm">
+                      <span className="font-medium">{p.name}</span>
+                      <span className="ml-2 text-gray-500">{formatPrice(p.price, p.member_price)}</span>
+                    </div>
+                    <input
+                      type="number"
+                      min={0}
+                      max={p.max_participants ?? 99}
+                      className="input w-20 text-center"
+                      value={quantities[p.id] ?? 0}
+                      onChange={(e) => setQuantities((q) => ({ ...q, [p.id]: parseInt(e.target.value) || 0 }))}
+                    />
                   </div>
-                  <input
-                    type="number"
-                    min={0}
-                    max={p.max_participants ?? 99}
-                    className="input w-20 text-center"
-                    value={quantities[p.id] ?? 0}
-                    onChange={(e) => setQuantities((q) => ({ ...q, [p.id]: parseInt(e.target.value) || 0 }))}
-                  />
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
+          )}
 
           {hasPaidItems && (
-            <div className="bg-blue-50 rounded-lg p-3 text-sm font-medium text-blue-800">
-              Totaal: €{totalAmount.toFixed(2)}
-              <p className="text-xs font-normal text-blue-600 mt-1">Betaling via overschrijving of cash op het evenement.</p>
-            </div>
+            <>
+              <div className="bg-blue-50 rounded-lg p-3 text-sm font-medium text-blue-800">
+                Totaal: €{totalAmount.toFixed(2)}
+              </div>
+              <div>
+                <label className="label">Betaalwijze *</label>
+                <div className="space-y-2">
+                  {PAYMENT_METHODS.map((m) => (
+                    <label key={m.value} className="flex items-center gap-2 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="paymentMethod"
+                        value={m.value}
+                        checked={paymentMethod === m.value}
+                        onChange={() => setPaymentMethod(m.value)}
+                      />
+                      <span className="text-sm">{m.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            </>
           )}
 
           {error && <p className="text-red-600 text-sm">{error}</p>}
