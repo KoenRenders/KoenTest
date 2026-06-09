@@ -1,8 +1,6 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { createFamily, getGenderCodes } from "@/lib/api";
-
-const RELATION_TYPES = ["hoofdlid", "partner", "(meerderjarig) kind"];
+import { createFamily, getGenderCodes, getRelationTypes } from "@/lib/api";
 
 interface PostalOption { postal_code: string; municipality: string; }
 interface MemberForm {
@@ -25,12 +23,14 @@ export default function FamilyRegistrationForm() {
   const [showDropdown, setShowDropdown] = useState(false);
   const [members, setMembers] = useState<MemberForm[]>([emptyMember("hoofdlid")]);
   const [genderCodes, setGenderCodes] = useState<{ code: string; value: string }[]>([]);
+  const [relationTypes, setRelationTypes] = useState<{ code: string; value: string }[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [error, setError] = useState("");
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     getGenderCodes().then((r) => setGenderCodes(r.data)).catch(() => {});
+    getRelationTypes().then((r) => setRelationTypes(r.data)).catch(() => {});
   }, []);
 
   useEffect(() => {
@@ -220,7 +220,7 @@ export default function FamilyRegistrationForm() {
                   <div>
                     <label className="label">Relatie</label>
                     <select className="input" value={member.relation_type} onChange={(e) => updateMember(i + 1, "relation_type", e.target.value)}>
-                      {RELATION_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                      {relationTypes.map((t) => <option key={t.code} value={t.code}>{t.value}</option>)}
                     </select>
                   </div>
                   <div>

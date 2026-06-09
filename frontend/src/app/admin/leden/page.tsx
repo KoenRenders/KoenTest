@@ -4,13 +4,12 @@ import {
   getFamilies, getFamily, createMembership, deleteMembership, deleteFamily,
   addPersonToFamily, assignBoardMember, listPersons,
   updatePerson, updatePersonAddress, updatePersonContacts, deletePerson,
-  getGenderCodes,
+  getGenderCodes, getRelationTypes,
 } from "@/lib/api";
 import type { Family, FamilyMember, Membership } from "@/lib/types";
 
 interface PersonItem { id: number; last_name: string; first_name: string; }
 
-const RELATION_TYPES = ["hoofdlid", "partner", "(meerderjarig) kind"];
 
 const emptyPersonForm = () => ({
   last_name: "", first_name: "", date_of_birth: "", gender_code: "",
@@ -22,6 +21,7 @@ export default function AdminLeden() {
   const [selected, setSelected] = useState<Family | null>(null);
   const [allPersons, setAllPersons] = useState<PersonItem[]>([]);
   const [genderCodes, setGenderCodes] = useState<{ code: string; value: string }[]>([]);
+  const [relationTypes, setRelationTypes] = useState<{ code: string; value: string }[]>([]);
   const [year, setYear] = useState(new Date().getFullYear());
 
   // edit states
@@ -46,6 +46,7 @@ export default function AdminLeden() {
     loadFamilies();
     listPersons().then((r) => setAllPersons(r.data)).catch(() => {});
     getGenderCodes().then((r) => setGenderCodes(r.data)).catch(() => {});
+    getRelationTypes().then((r) => setRelationTypes(r.data)).catch(() => {});
   }, []);
 
   async function handleDeleteFamily(id: number) {
@@ -268,7 +269,7 @@ export default function AdminLeden() {
                   <div>
                     <label className="label">Relatie</label>
                     <select className="input" value={newPersonForm.relation_type} onChange={(e) => setNewPersonForm((f) => ({ ...f, relation_type: e.target.value }))}>
-                      {RELATION_TYPES.map((r) => <option key={r} value={r}>{r}</option>)}
+                      {relationTypes.map((r) => <option key={r.code} value={r.code}>{r.value}</option>)}
                     </select>
                   </div>
                 </div>
