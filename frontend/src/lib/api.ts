@@ -22,8 +22,8 @@ export const deleteActivity = (id: number) => api.delete(`/api/v1/activities/${i
 export const getRegistrations = (id: number) => api.get(`/api/v1/activities/${id}/registrations`);
 export const getWaitlist = (id: number) => api.get(`/api/v1/activities/${id}/waitlist`);
 export const registerForActivity = (id: number, data: unknown) => api.post(`/api/v1/activities/${id}/register`, data);
-export const getPublicRegistrations = (activityId: number, productId: number) =>
-  api.get(`/api/v1/activities/${activityId}/public-registrations`, { params: { product_id: productId } });
+export const getPublicRegistrations = (activityId: number, componentId: number) =>
+  api.get(`/api/v1/activities/${activityId}/public-registrations`, { params: { component_id: componentId } });
 
 // Components (onderdelen) under an activity
 export const addComponent = (activityId: number, data: unknown) =>

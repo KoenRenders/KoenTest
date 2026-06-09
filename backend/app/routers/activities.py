@@ -326,25 +326,31 @@ def get_waitlist(
 @router.get("/activities/{activity_id}/public-registrations")
 def get_public_registrations(
     activity_id: int,
-    product_id: int,
+    component_id: int,
     db: Session = Depends(get_db),
 ):
-    """Return public participant list for a given product."""
+    """Return public participant list for a given component."""
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
+
+    component = next((c for c in activity.sub_registrations if c.id == component_id), None)
+    if not component:
+        raise HTTPException(status_code=404, detail="Component not found")
+
+    product_ids = {p.id for p in component.products}
 
     result = []
     for reg in activity.registrations:
         if reg.is_waitlist:
             continue
-        for item in reg.items:
-            if item.product_id == product_id and item.quantity > 0:
-                result.append({
-                    "contact_name": reg.contact_name or "",
-                    "quantity": item.quantity,
-                    "team_name": reg.team_name,
-                })
+        qty = sum(item.quantity for item in reg.items if item.product_id in product_ids and item.quantity > 0)
+        if qty > 0:
+            result.append({
+                "contact_name": reg.contact_name or "",
+                "quantity": qty,
+                "team_name": reg.team_name,
+            })
     return result
 
 
