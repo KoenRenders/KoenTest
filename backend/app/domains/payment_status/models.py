@@ -15,6 +15,7 @@ class PaymentRecord(Base):
     method = Column(String(20), nullable=False)   # "online", "cash", "transfer"
     status = Column(String(20), default="pending", nullable=False)  # "pending", "paid", "failed", "cancelled"
     gateway_payment_id = Column(String(36), ForeignKey("gateway_payments.id"), nullable=True)
+    amount_paid = Column(Numeric(10, 2), nullable=True)
     note = Column(String(200), nullable=True)
     paid_at = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
