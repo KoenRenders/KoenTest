@@ -266,9 +266,26 @@ export default function AdminActiviteiten() {
                 <p className="text-gray-500 text-sm">Geen inschrijvingen.</p>
               ) : (
                 <div className="space-y-5">
-                  {Object.entries(byComponent).map(([cname, cRegs]) => (
+                  {Object.entries(byComponent).map(([cname, cRegs]) => {
+                    // Totals per product for this component
+                    const productTotals: Record<string, number> = {};
+                    for (const r of cRegs) {
+                      for (const it of r.items) {
+                        const key = it.product_name ?? `Product ${it.product_id}`;
+                        productTotals[key] = (productTotals[key] ?? 0) + it.quantity;
+                      }
+                    }
+                    const hasProducts = Object.keys(productTotals).length > 0;
+                    return (
                     <div key={cname}>
-                      <h3 className="font-semibold text-sm text-blue-800 border-b pb-1 mb-2">{cname}</h3>
+                      <div className="flex items-baseline justify-between border-b pb-1 mb-2">
+                        <h3 className="font-semibold text-sm text-blue-800">{cname}</h3>
+                        <span className="text-xs text-gray-500">
+                          {hasProducts
+                            ? Object.entries(productTotals).map(([pname, qty]) => `${pname}: ${qty}`).join(" · ")
+                            : `${cRegs.length} inschrijving${cRegs.length !== 1 ? "en" : ""}`}
+                        </span>
+                      </div>
                       <ul className="space-y-2 text-sm">
                         {cRegs.map((r, i) => {
                           const compItems = r.items;
@@ -295,7 +312,8 @@ export default function AdminActiviteiten() {
                         })}
                       </ul>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
               <button className="btn-secondary mt-4" onClick={() => setViewRegs(null)}>Sluiten</button>
