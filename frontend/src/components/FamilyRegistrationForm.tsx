@@ -220,7 +220,7 @@ export default function FamilyRegistrationForm() {
                   <div>
                     <label className="label">Relatie</label>
                     <select className="input" value={member.relation_type} onChange={(e) => updateMember(i + 1, "relation_type", e.target.value)}>
-                      {relationTypes.map((t) => <option key={t.code} value={t.code}>{t.value}</option>)}
+                      {relationTypes.filter((t) => t.code !== "HOOFDLID").map((t) => <option key={t.code} value={t.code}>{t.value}</option>)}
                     </select>
                   </div>
                   <div>
