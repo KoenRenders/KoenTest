@@ -71,7 +71,7 @@ export default function AdminLeden() {
   function startEditPerson(m: FamilyMember) {
     setEditingPerson(m);
     setPersonForm({ last_name: m.last_name, first_name: m.first_name, date_of_birth: m.date_of_birth || "", gender_code: m.gender || "" });
-    setContactForm({ email: m.email || "", phone: m.phone || "", mobile: "" });
+    setContactForm({ email: m.email || "", phone: m.phone || "", mobile: m.mobile || "" });
   }
 
   async function handleSavePerson() {
@@ -331,7 +331,8 @@ export default function AdminLeden() {
                         <div className="text-gray-500 text-xs mt-0.5">
                           {m.date_of_birth && <span>{m.date_of_birth} · </span>}
                           {m.email && <span>{m.email} · </span>}
-                          {m.phone && <span>{m.phone}</span>}
+                          {m.phone && <span>{m.phone}{m.mobile ? " · " : ""}</span>}
+                          {m.mobile && <span>{m.mobile}</span>}
                         </div>
                       </div>
                       <div className="flex gap-1 shrink-0 ml-2">
