@@ -32,12 +32,14 @@ function ComponentRow({
   canRegister,
   onRegister,
   activityStatus,
+  hideName = false,
 }: {
   activityId: number;
   component: ActivityComponent;
   canRegister: boolean;
   onRegister?: (component: ActivityComponent) => void;
   activityStatus?: string;
+  hideName?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [participants, setParticipants] = useState<ParticipantEntry[]>([]);
@@ -64,7 +66,7 @@ function ComponentRow({
   return (
     <div>
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-sm font-semibold text-gray-800">{component.name}</span>
+        {!hideName && <span className="text-sm font-semibold text-gray-800">{component.name}</span>}
         {component.external_register_url ? (
           <a href={component.external_register_url} target="_blank" rel="noopener noreferrer"
             className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-0.5 hover:bg-blue-50">
@@ -178,6 +180,7 @@ export default function ActivityList({
                           canRegister={showRegister && !past.includes(activity.status ?? "")}
                           onRegister={onRegister ? (c) => onRegister(activity, c) : undefined}
                           activityStatus={activity.status}
+                          hideName={(activity.sub_registrations ?? []).length === 1}
                         />
                       ))}
                     </div>
