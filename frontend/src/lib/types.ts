@@ -43,7 +43,7 @@ export interface Family {
   postal_code: string;
   municipality: string;
   members: FamilyMember[];
-  memberships?: Membership[];
+  memberships: Membership[];
   board_member?: { id: number; first_name: string; last_name: string };
 }
 
