@@ -9,11 +9,13 @@ class Member(Base):
     __tablename__ = "members"
 
     id = Column(Integer, primary_key=True, index=True)
+    board_member_id = Column(Integer, ForeignKey("persons.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     member_persons = relationship("MemberPerson", back_populates="member", cascade="all, delete-orphan")
     memberships = relationship("Membership", back_populates="member", cascade="all, delete-orphan")
+    board_member = relationship("Person", foreign_keys=[board_member_id])
 
 
 class Person(Base):
