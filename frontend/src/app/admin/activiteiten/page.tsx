@@ -12,7 +12,10 @@ const emptyActivity = () => ({
   max_participants: "", poster_url: "", is_cancelled: false,
 });
 
-const emptyComponent = () => ({ name: "", team_name_required: false, sort_order: 0 });
+const emptyComponent = () => ({
+  name: "", team_name_required: false, sort_order: 0,
+  external_register_url: "", external_registrations_url: "", info_url: "",
+});
 
 const emptyProduct = () => ({
   name: "", is_free: true, price: "0", member_price: "", max_participants: "", sort_order: 0,
@@ -96,10 +99,16 @@ export default function AdminActiviteiten() {
 
   async function handleComponentSubmit(e: React.FormEvent, activityId: number) {
     e.preventDefault();
+    const payload = {
+      ...componentForm,
+      external_register_url: componentForm.external_register_url || null,
+      external_registrations_url: componentForm.external_registrations_url || null,
+      info_url: componentForm.info_url || null,
+    };
     if (editingComponent !== null) {
-      await updateComponent(activityId, editingComponent, componentForm);
+      await updateComponent(activityId, editingComponent, payload);
     } else {
-      await addComponent(activityId, componentForm);
+      await addComponent(activityId, payload);
     }
     setShowComponentForm(null);
     setEditingComponent(null);
@@ -108,7 +117,12 @@ export default function AdminActiviteiten() {
   }
 
   function startEditComponent(activityId: number, c: ActivityComponent) {
-    setComponentForm({ name: c.name, team_name_required: c.team_name_required, sort_order: c.sort_order });
+    setComponentForm({
+      name: c.name, team_name_required: c.team_name_required, sort_order: c.sort_order,
+      external_register_url: c.external_register_url || "",
+      external_registrations_url: c.external_registrations_url || "",
+      info_url: c.info_url || "",
+    });
     setEditingComponent(c.id);
     setShowComponentForm(activityId);
   }
@@ -282,6 +296,24 @@ export default function AdminActiviteiten() {
                         <input type="checkbox" id={`tnr-${a.id}`} checked={componentForm.team_name_required}
                           onChange={(e) => setComponentForm((f) => ({ ...f, team_name_required: e.target.checked }))} />
                         <label htmlFor={`tnr-${a.id}`}>Ploegnaam vereist</label>
+                      </div>
+                      <div>
+                        <label className="label">Externe inschrijvingslink</label>
+                        <input className="input" type="url" value={componentForm.external_register_url}
+                          onChange={(e) => setComponentForm((f) => ({ ...f, external_register_url: e.target.value }))}
+                          placeholder="https://forms.gle/…" />
+                      </div>
+                      <div>
+                        <label className="label">Link inschrijvingen bekijken</label>
+                        <input className="input" type="url" value={componentForm.external_registrations_url}
+                          onChange={(e) => setComponentForm((f) => ({ ...f, external_registrations_url: e.target.value }))}
+                          placeholder="https://docs.google.com/…" />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="label">Info/reglement URL</label>
+                        <input className="input" type="url" value={componentForm.info_url}
+                          onChange={(e) => setComponentForm((f) => ({ ...f, info_url: e.target.value }))}
+                          placeholder="https://drive.google.com/…" />
                       </div>
                     </div>
                     <div className="flex gap-2">
