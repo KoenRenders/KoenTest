@@ -41,7 +41,7 @@ export default function AdminActiviteiten() {
   const [productForm, setProductForm] = useState(emptyProduct());
 
   interface RegItem { product_id: number; quantity: number; product_name?: string; component_name?: string; }
-  interface Reg { id: number; contact_name?: string; contact_email?: string; phone?: string; team_name?: string; payment_method?: string; items: RegItem[]; }
+  interface Reg { id: number; component_id?: number; contact_name?: string; contact_email?: string; phone?: string; team_name?: string; payment_method?: string; items: RegItem[]; }
   const [registrations, setRegistrations] = useState<{ [id: number]: Reg[] }>({});
   const [viewRegs, setViewRegs] = useState<number | null>(null);
 
@@ -249,18 +249,13 @@ export default function AdminActiviteiten() {
       {viewRegs !== null && (() => {
         const regs = registrations[viewRegs] ?? [];
         const activity = [...activities, ...archived].find((a) => a.id === viewRegs);
-        // Group registrations by component
-        const byComponent: Record<string, { regs: typeof regs; hasItems: boolean }> = {};
-        const noComponent: typeof regs = [];
+        // Group registrations by component using component_id from items or directly
+        const byComponent: Record<string, typeof regs> = {};
         for (const r of regs) {
-          if (r.items.length === 0) { noComponent.push(r); continue; }
-          const components = [...new Set(r.items.map((it) => it.component_name ?? "Onbekend"))];
-          for (const cname of components) {
-            if (!byComponent[cname]) byComponent[cname] = { regs: [], hasItems: true };
-            if (!byComponent[cname].regs.find((x) => x.id === r.id)) byComponent[cname].regs.push(r);
-          }
+          const cname = r.items[0]?.component_name ?? (activity?.sub_registrations?.find((c) => c.id === r.component_id)?.name) ?? "Algemeen";
+          if (!byComponent[cname]) byComponent[cname] = [];
+          byComponent[cname].push(r);
         }
-        if (noComponent.length) byComponent["Algemeen"] = { regs: noComponent, hasItems: false };
         const paymentLabel = (m?: string) => m === "ONLINE" ? "Online" : m === "OVERSCHRIJVING" ? "Overschrijving" : m ?? "";
         return (
           <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
@@ -271,12 +266,12 @@ export default function AdminActiviteiten() {
                 <p className="text-gray-500 text-sm">Geen inschrijvingen.</p>
               ) : (
                 <div className="space-y-5">
-                  {Object.entries(byComponent).map(([cname, { regs: cRegs, hasItems }]) => (
+                  {Object.entries(byComponent).map(([cname, cRegs]) => (
                     <div key={cname}>
                       <h3 className="font-semibold text-sm text-blue-800 border-b pb-1 mb-2">{cname}</h3>
                       <ul className="space-y-2 text-sm">
                         {cRegs.map((r, i) => {
-                          const compItems = hasItems ? r.items.filter((it) => it.component_name === cname) : r.items;
+                          const compItems = r.items;
                           return (
                             <li key={i} className="border-b border-gray-100 pb-2">
                               <div className="flex items-start justify-between gap-2">

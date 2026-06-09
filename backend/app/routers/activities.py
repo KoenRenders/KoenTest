@@ -304,21 +304,24 @@ def delete_product(
 def _enrich_registration(reg, activity):
     """Attach product_name and component_name to each registration item."""
     product_map = {}
+    comp_map = {c.id: c.name for c in activity.sub_registrations}
     for comp in activity.sub_registrations:
         for p in comp.products:
             product_map[p.id] = (p.name, comp.name)
+    component_name = comp_map.get(reg.component_id) if reg.component_id else None
     items = []
     for item in reg.items:
-        pname, cname = product_map.get(item.product_id, (None, None))
+        pname, cname = product_map.get(item.product_id, (None, component_name))
         items.append({
             "product_id": item.product_id,
             "quantity": item.quantity,
             "product_name": pname,
-            "component_name": cname,
+            "component_name": cname or component_name,
         })
     return {
         "id": reg.id,
         "activity_id": reg.activity_id,
+        "component_id": reg.component_id,
         "person_id": reg.person_id,
         "is_waitlist": reg.is_waitlist,
         "registered_at": reg.registered_at,
@@ -326,7 +329,7 @@ def _enrich_registration(reg, activity):
         "contact_email": reg.contact_email,
         "phone": reg.phone,
         "team_name": reg.team_name,
-        "payment_method": reg.payment_method if hasattr(reg, "payment_method") else None,
+        "payment_method": getattr(reg, "payment_method", None),
         "items": items,
     }
 
@@ -366,18 +369,12 @@ def get_public_registrations(
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
 
-    component = next((c for c in activity.sub_registrations if c.id == component_id), None)
-    if not component:
-        raise HTTPException(status_code=404, detail="Component not found")
-
-    product_ids = {p.id for p in component.products}
-
     result = []
     for reg in activity.registrations:
         if reg.is_waitlist:
             continue
-        qty = sum(item.quantity for item in reg.items if item.product_id in product_ids and item.quantity > 0)
-        if qty > 0:
+        if reg.component_id == component_id:
+            qty = sum(item.quantity for item in reg.items) if reg.items else 1
             result.append({
                 "contact_name": reg.contact_name or "",
                 "quantity": qty,
@@ -402,6 +399,7 @@ def register_for_activity(
 
     registration = Registration(
         activity_id=activity_id,
+        component_id=data.component_id,
         is_waitlist=False,
         registration_type="INDIVIDUAL",
         contact_name=data.contact_name,
