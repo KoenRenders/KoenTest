@@ -79,7 +79,7 @@ export default function AdminActiviteiten() {
       time: a.time || "", location: a.location || "",
       max_participants: a.max_participants?.toString() || "",
       poster_url: a.poster_url || "",
-      is_cancelled: (a as unknown as { is_cancelled?: boolean }).is_cancelled ?? false,
+      is_cancelled: a.is_cancelled ?? false,
     });
     setEditingActivity(a.id);
     setShowActivityForm(true);
