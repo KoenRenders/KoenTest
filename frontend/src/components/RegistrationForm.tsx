@@ -59,7 +59,7 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
         .filter((p) => (quantities[p.id] ?? 0) > 0)
         .map((p) => ({ product_id: p.id, quantity: quantities[p.id] }));
 
-      await registerForActivity(activity.id, {
+      const resp = await registerForActivity(activity.id, {
         contact_name: contactName,
         contact_email: email,
         phone: phone || undefined,
@@ -68,7 +68,12 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
         component_id: component.id,
         items,
       });
-      onSuccess();
+      const checkout_url = resp.data?.checkout_url;
+      if (checkout_url) {
+        window.location.href = checkout_url;
+      } else {
+        onSuccess();
+      }
     } catch (err: unknown) {
       const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
       setError(detail ? `Fout: ${detail}` : "Er is iets misgelopen. Probeer opnieuw.");

@@ -24,6 +24,8 @@ from app.schemas.activity import (
     RegistrationResponse,
 )
 from app.services.email import send_waitlist_notification
+from app.config import settings
+from app.domains.payment_status.service import create_payment_record
 
 router = APIRouter(tags=["activities"])
 
@@ -419,6 +421,44 @@ def register_for_activity(
                 quantity=item_data.quantity,
             ))
 
+    # Compute total amount from items
+    product_prices = {}
+    for comp in activity.sub_registrations:
+        for p in comp.products:
+            product_prices[p.id] = p.price
+
+    from decimal import Decimal
+    total_amount = sum(
+        product_prices.get(item.product_id, Decimal("0")) * item.quantity
+        for item in data.items
+        if item.quantity > 0 and not next(
+            (p for comp in activity.sub_registrations for p in comp.products if p.id == item.product_id and p.is_free), None
+        )
+    )
+
+    checkout_url = None
+    if data.payment_method and total_amount > 0:
+        method = "online" if data.payment_method == "ONLINE" else "transfer"
+        redirect_url = f"{settings.frontend_url}/betaling/succes?registration={registration.id}"
+        description = f"Inschrijving {activity.name} – {data.contact_name}"
+        try:
+            payment_record = create_payment_record(
+                db=db,
+                payable_type="registration",
+                payable_id=registration.id,
+                amount=total_amount,
+                method=method,
+                redirect_url=redirect_url,
+                description=description,
+            )
+            if method == "online" and payment_record.gateway_payment_id:
+                from app.domains.payment_gateway.models import GatewayPayment
+                gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
+                if gp:
+                    checkout_url = gp.checkout_url
+        except Exception:
+            pass
+
     db.commit()
     db.refresh(registration)
 
@@ -432,4 +472,6 @@ def register_for_activity(
         except Exception:
             pass
 
-    return registration
+    result = _enrich_registration(registration, activity)
+    result["checkout_url"] = checkout_url
+    return result

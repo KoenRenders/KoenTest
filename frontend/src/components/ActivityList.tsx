@@ -99,11 +99,11 @@ function ComponentRow({
             <span className="italic">Nog geen inschrijvingen.</span>
           ) : (
             <>
-              <span className="font-medium">{totalCount} deelnemer(s)</span>
+              <span className="font-medium">{totalCount} ingeschreven</span>
               {" — "}
               {participants.map((p, i) => (
                 <span key={i}>
-                  {p.contact_name}{p.team_name ? ` (${p.team_name})` : ""}{p.quantity > 1 ? ` ×${p.quantity}` : ""}
+                  {p.contact_name}{p.team_name ? ` (${p.team_name})` : ""}
                   {i < participants.length - 1 ? " · " : ""}
                 </span>
               ))}
