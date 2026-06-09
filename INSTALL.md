@@ -5,6 +5,7 @@
 | Omgeving | `.env` bestand | `docker-compose` bestand | Caddyfile | URL |
 |---|---|---|---|---|
 | DEV (lokaal) | `.env.dev` | `docker-compose.dev.yml` | `caddy/Caddyfile.dev` | http://localhost |
+| HDEV (Hetzner) | `.env.hdev` | `docker-compose.hdev.yml` | `caddy/Caddyfile.hdev` | http://128.140.125.218:8081 |
 | UAT (Hetzner) | `.env.uat` | `docker-compose.uat.yml` | `caddy/Caddyfile.uat` | http://128.140.125.218:8080 |
 | PROD (Hetzner) | `.env.prod` | `docker-compose.prod.yml` | `caddy/Caddyfile.prod` | http://128.140.125.218 |
 
@@ -25,7 +26,7 @@ main                     ← Productie
 git checkout develop
 git merge feature/mijn-wijziging
 git push origin develop
-# Op server: cd /opt/raakmillegem/uat && git pull && docker compose -f docker-compose.uat.yml --env-file .env.uat up --build -d
+# Op server: cd /opt/raakmillegem/uat && ./deploy-uat.sh
 ```
 
 ### UAT goedgekeurd → naar PROD
@@ -35,7 +36,7 @@ git merge develop
 git tag v1.2.0
 git push origin main
 git push origin v1.2.0
-# Op server: cd /opt/raakmillegem/prod && git pull && docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
+# Op server: cd /opt/raakmillegem/prod && ./deploy-prod.sh
 ```
 
 ### Hotfix op productie (zonder UAT-wijzigingen mee te nemen)
@@ -59,7 +60,7 @@ git clone -b develop https://github.com/KoenRenders/KoenTest.git
 cd KoenTest
 cp .env.dev.example .env.dev
 # Pas .env.dev aan indien nodig
-docker compose -f docker-compose.dev.yml --env-file .env.dev up --build -d
+./deploy-dev.sh
 ```
 
 Bereikbaar op http://localhost en http://localhost/admin/login
@@ -82,6 +83,7 @@ Ga naar je server → **Firewalls** → nieuwe firewall:
 | Inkomend | TCP | 80 | Any |
 | Inkomend | TCP | 443 | Any |
 | Inkomend | TCP | 8080 | Any (UAT) |
+| Inkomend | TCP | 8081 | Any (HDEV) |
 
 Poort 5432 (PostgreSQL) en 8000 (backend) **niet** openzetten.
 
@@ -91,7 +93,7 @@ ssh -i ~/.ssh/raak-millegem-hetzner root@128.140.125.218
 apt update && apt upgrade -y
 apt install -y docker.io docker-compose-v2 git
 systemctl enable --now docker
-mkdir -p /opt/raakmillegem/prod /opt/raakmillegem/uat
+mkdir -p /opt/raakmillegem/prod /opt/raakmillegem/uat /opt/raakmillegem/hdev
 ```
 
 ### 4. PROD installeren
@@ -100,7 +102,7 @@ cd /opt/raakmillegem/prod
 git clone -b main https://github.com/KoenRenders/KoenTest.git .
 cp .env.prod.example .env.prod
 nano .env.prod   # vul alle waarden in
-docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
+./deploy-prod.sh
 ```
 
 ### 5. UAT installeren
@@ -109,12 +111,22 @@ cd /opt/raakmillegem/uat
 git clone -b develop https://github.com/KoenRenders/KoenTest.git .
 cp .env.uat.example .env.uat
 nano .env.uat    # vul alle waarden in
-docker compose -f docker-compose.uat.yml --env-file .env.uat up --build -d
+./deploy-uat.sh
 ```
 
-### 6. Inloggen
+### 6. HDEV installeren
+```bash
+cd /opt/raakmillegem/hdev
+git clone -b claude/nifty-dirac-dQVvd https://github.com/KoenRenders/KoenTest.git .
+cp .env.hdev.example .env.hdev
+nano .env.hdev   # vul alle waarden in
+./deploy-hdev.sh
+```
+
+### 7. Inloggen
 - PROD: http://128.140.125.218/admin/login
 - UAT:  http://128.140.125.218:8080/admin/login
+- HDEV: http://128.140.125.218:8081/admin/login
 
 Log in met `koen.renders@gmail.com` — je ontvangt een magic link via e-mail.
 
@@ -126,16 +138,21 @@ Log in met `koen.renders@gmail.com` — je ontvangt een magic link via e-mail.
 ```bash
 ssh -i ~/.ssh/raak-millegem-hetzner root@128.140.125.218
 cd /opt/raakmillegem/prod
-git pull
-docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
+./deploy-prod.sh
 ```
 
 ### UAT updaten
 ```bash
 ssh -i ~/.ssh/raak-millegem-hetzner root@128.140.125.218
 cd /opt/raakmillegem/uat
-git pull
-docker compose -f docker-compose.uat.yml --env-file .env.uat up --build -d
+./deploy-uat.sh
+```
+
+### HDEV updaten
+```bash
+ssh -i ~/.ssh/raak-millegem-hetzner root@128.140.125.218
+cd /opt/raakmillegem/hdev
+./deploy-hdev.sh
 ```
 
 ---
