@@ -42,7 +42,7 @@ class MemberPerson(Base):
     id = Column(Integer, primary_key=True, index=True)
     member_id = Column(Integer, ForeignKey("members.id"), nullable=False)
     person_id = Column(Integer, ForeignKey("persons.id"), nullable=False)
-    relation_type = Column(String(30), nullable=False, default="hoofdlid")
+    relation_type = Column(String(10), ForeignKey("relation_type_codes.code"), nullable=False, default="HOOFDLID")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
