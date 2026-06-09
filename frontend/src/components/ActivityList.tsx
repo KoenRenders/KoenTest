@@ -145,9 +145,7 @@ export default function ActivityList({
                     <div className="mt-2 text-gray-600 space-y-0.5 text-sm">
                       <p>📅 {formatDate(activity.date)}{activity.date_end && activity.date_end !== activity.date ? ` – ${formatDate(activity.date_end)}` : ""}{formatTime(activity.time) ? ` om ${formatTime(activity.time)}` : ""}</p>
                       {activity.location && <p>📍 {activity.location}</p>}
-                      {activity.max_participants && (
-                        <p>👥 {activity.registration_count ?? 0} / {activity.max_participants} deelnemers</p>
-                      )}
+
                     </div>
 
                     {/* Components and products */}
