@@ -69,8 +69,9 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
         items,
       });
       onSuccess();
-    } catch {
-      setError("Er is iets misgelopen. Probeer opnieuw.");
+    } catch (err: unknown) {
+      const detail = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
+      setError(detail ? `Fout: ${detail}` : "Er is iets misgelopen. Probeer opnieuw.");
     } finally {
       setLoading(false);
     }

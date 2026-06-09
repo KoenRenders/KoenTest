@@ -79,18 +79,16 @@ function ComponentRow({
             {activityStatus === "Vol" ? "Vol" : "Inschrijven"}
           </button>
         ) : null}
-        {!component.external_register_url && (
-          component.external_registrations_url ? (
-            <a href={component.external_registrations_url} target="_blank" rel="noopener noreferrer"
-              className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-0.5 hover:bg-blue-50">
-              Inschrijvingen ↗
-            </a>
-          ) : (
-            <button onClick={toggle} className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-0.5 hover:bg-blue-50">
-              {loading ? "…" : open ? "Verberg" : "Wie doet er mee?"}
-            </button>
-          )
-        )}
+        {component.external_registrations_url ? (
+          <a href={component.external_registrations_url} target="_blank" rel="noopener noreferrer"
+            className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-0.5 hover:bg-blue-50">
+            Inschrijvingen ↗
+          </a>
+        ) : !component.external_register_url ? (
+          <button onClick={toggle} className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-0.5 hover:bg-blue-50">
+            {loading ? "…" : open ? "Verberg" : "Wie doet er mee?"}
+          </button>
+        ) : null}
       </div>
 
 
