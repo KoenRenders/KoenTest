@@ -22,7 +22,10 @@ export const deleteActivity = (id: number) => api.delete(`/api/v1/activities/${i
 export const getRegistrations = (id: number) => api.get(`/api/v1/activities/${id}/registrations`);
 export const getWaitlist = (id: number) => api.get(`/api/v1/activities/${id}/waitlist`);
 export const registerForActivity = (id: number, data: unknown) => api.post(`/api/v1/activities/${id}/register`, data);
-export const getPublicRegistrations = (id: number, subId?: number) => api.get(`/api/v1/activities/${id}/public-registrations`, { params: subId ? { sub_id: subId } : {} });
+export const getPublicRegistrations = (activityId: number, subRegistrationId?: number) =>
+  api.get(`/api/v1/activities/${activityId}/registrations/public`, {
+    params: subRegistrationId ? { sub_registration_id: subRegistrationId } : {},
+  });
 export const createSubRegistration = (activityId: number, data: unknown) => api.post(`/api/v1/activities/${activityId}/sub-registrations`, data);
 export const updateSubRegistration = (activityId: number, subId: number, data: unknown) => api.put(`/api/v1/activities/${activityId}/sub-registrations/${subId}`, data);
 export const deleteSubRegistration = (activityId: number, subId: number) => api.delete(`/api/v1/activities/${activityId}/sub-registrations/${subId}`);
@@ -59,21 +62,12 @@ export const createPage = (data: unknown) => api.post("/api/v1/pages", data);
 export const updatePage = (id: number, data: unknown) => api.put(`/api/v1/pages/${id}`, data);
 export const deletePage = (id: number) => api.delete(`/api/v1/pages/${id}`);
 
-// Webshop
-export const getProducts = () => api.get("/api/v1/products");
-export const createOrder = (data: unknown) => api.post("/api/v1/orders", data);
-export const getOrders = () => api.get("/api/v1/orders");
-export const exportOrders = () => api.get("/api/v1/orders/export", { responseType: "blob" });
-
 // Auth
-export const login = (username: string, password: string) =>
-  api.post("/api/v1/auth/login", { username, password });
+export const requestLogin = (email: string) =>
+  api.post("/api/v1/auth/request-login", { email });
+export const verifyLoginToken = (token: string) =>
+  api.get("/api/v1/auth/verify-login", { params: { token } });
 export const getMe = () => api.get("/api/v1/auth/me");
 
 // Admin
 export const getStats = () => api.get("/api/v1/admin/stats");
-export const getProductTotals = () => api.get("/api/v1/admin/product-totals");
-
-// CMS blocks (content blocks, not nav pages)
-export const getBlock = (slug: string) => api.get(`/api/v1/blocks/${slug}`);
-export const getAllPages = () => api.get("/api/v1/admin/pages");

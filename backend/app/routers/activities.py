@@ -36,10 +36,6 @@ router = APIRouter(tags=["activities"])
 
 
 def compute_participant_count(registration: Registration) -> int:
-    """Compute the effective participant count for a registration."""
-    form_type = None
-    # Try to determine form type from context
-    # We'll use group_size/age_categories/items as heuristics
     if registration.group_size and registration.group_size > 1:
         return registration.group_size
     if registration.age_categories:
@@ -63,8 +59,6 @@ def compute_activity_status(activity: Activity) -> dict:
     waitlist = [r for r in activity.registrations if r.is_waitlist]
     count = len(registrations)
     wl_count = len(waitlist)
-
-    # Compute total participants accounting for group sizes
     total_participants = sum(compute_participant_count(r) for r in registrations)
 
     end = activity.date_end or activity.date
@@ -95,7 +89,7 @@ def list_activities(db: Session = Depends(get_db)):
     )
     activities = (
         db.query(Activity)
-        .filter(Activity.is_archived == False, still_running)
+        .filter(still_running)
         .order_by(Activity.date.asc())
         .all()
     )
@@ -116,9 +110,10 @@ def list_archived_activities(db: Session = Depends(get_db)):
     activities = (
         db.query(Activity)
         .filter(
-            (Activity.is_archived == True) |
-            and_(Activity.date_end == None, Activity.date < today) |
-            and_(Activity.date_end != None, Activity.date_end < today)
+            or_(
+                and_(Activity.date_end == None, Activity.date < today),
+                and_(Activity.date_end != None, Activity.date_end < today),
+            )
         )
         .order_by(Activity.date.desc())
         .all()
@@ -171,10 +166,8 @@ def update_activity(
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
-
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(activity, field, value)
-
     db.commit()
     db.refresh(activity)
     info = compute_activity_status(activity)
@@ -326,10 +319,10 @@ def register_for_activity(
         raise HTTPException(status_code=404, detail="Activity not found")
 
     today = date.today()
-    if activity.date < today or activity.is_archived:
+    end = activity.date_end or activity.date
+    if end < today:
         raise HTTPException(status_code=400, detail="Activity is no longer open for registration")
 
-    # Determine effective participant count for capacity check
     participant_count = 1
     form_type = activity.reg_form_type or "NONE"
     active_sub = None
@@ -353,13 +346,11 @@ def register_for_activity(
     elif form_type == "PAID_PRODUCTS" and data.items:
         participant_count = sum(item.quantity for item in data.items) or 1
 
-    # Check capacity
     current_registrations = [r for r in activity.registrations if not r.is_waitlist]
     current_participants = sum(compute_participant_count(r) for r in current_registrations)
     is_full = activity.max_participants is not None and (current_participants + participant_count) > activity.max_participants
     is_waitlist = bool(is_full)
 
-    # Determine payment status
     payment_method = data.payment_method or "FREE"
     is_free = float(activity.price or 0) == 0 and form_type not in ("PAID_PRODUCTS", "PAID_PER_PERSON")
     if is_free or payment_method == "FREE":
@@ -388,7 +379,6 @@ def register_for_activity(
     db.add(registration)
     db.flush()
 
-    # Create RegistrationItem records for PAID_PRODUCTS and compute total in one pass
     products_total = Decimal("0.00")
     for item_data in data.items:
         sub = db.query(ActivitySubRegistration).filter(
@@ -407,7 +397,6 @@ def register_for_activity(
             db.add(reg_item)
             products_total += item_data.quantity * unit_price
 
-    # Compute total_amount server-side
     if form_type == "PAID_PRODUCTS":
         total_amount = products_total
     elif form_type == "PAID_PER_PERSON":
@@ -443,7 +432,6 @@ def register_for_activity(
     db.commit()
     db.refresh(registration)
 
-    # Send confirmation or waitlist email
     if data.contact_email:
         try:
             if is_waitlist:
