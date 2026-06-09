@@ -1,9 +1,8 @@
 from pydantic import BaseModel
 
 
-class LoginRequest(BaseModel):
+class MagicLinkRequest(BaseModel):
     email: str
-    password: str
 
 
 class TokenResponse(BaseModel):
@@ -19,5 +18,4 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# Kept for backward compatibility during transition
 AdminUserResponse = UserResponse

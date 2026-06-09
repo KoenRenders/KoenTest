@@ -23,6 +23,19 @@ def _send(to_email: str, subject: str, body_html: str) -> None:
         server.sendmail(settings.gmail_user, to_email, msg.as_string())
 
 
+def send_magic_link(to_email: str, magic_link: str) -> None:
+    _send(
+        to_email=to_email,
+        subject="Inloglink Raak Millegem",
+        body_html=f"""
+        <p>Klik op onderstaande link om in te loggen. De link is 15 minuten geldig.</p>
+        <p><a href="{magic_link}">{magic_link}</a></p>
+        <p>Als je deze mail niet verwachtte, kun je hem negeren.</p>
+        <p>Met vriendelijke groeten,<br>Raak Millegem</p>
+        """,
+    )
+
+
 def send_registration_confirmation(to_email: str, name: str, family, data=None, pc_municipality: str = "") -> None:
     details = ""
     if data:
@@ -105,7 +118,7 @@ def send_activity_registration_confirmation(
                 details.append(f"<li><strong>Aantal personen:</strong> {registration.group_size}</li>")
             if registration.items:
                 items_html = "".join(
-                    f"<li>{escape(item.sub_registration.name) if hasattr(item, 'sub_registration') and item.sub_registration else str(item.sub_registration_id)} × {item.quantity}</li>"
+                    f"<li>{escape(item.product.name) if hasattr(item, 'product') and item.product else str(item.sub_registration_id)} × {item.quantity}</li>"
                     for item in registration.items
                 )
                 details.append(f"<li><strong>Producten:</strong><ul>{items_html}</ul></li>")
@@ -132,28 +145,6 @@ def send_waitlist_notification(to_email: str, name: str, activity_name: str) -> 
         body_html=f"""
         <p>Beste {escape(name)},</p>
         <p>Er is een plaatsje vrijgekomen voor <strong>{escape(activity_name)}</strong>. Je bent automatisch ingeschreven.</p>
-        <p>Met vriendelijke groeten,<br>Raak Millegem</p>
-        """,
-    )
-
-
-def send_order_confirmation(to_email: str, name: str, order) -> None:
-    items_html = "".join(
-        f"<tr><td>{item.product.name}</td><td>{item.quantity}</td><td>€{item.unit_price:.2f}</td></tr>"
-        for item in order.items
-    )
-    _send(
-        to_email=to_email,
-        subject=f"Bestelling bevestigd – {order.confirmation_number}",
-        body_html=f"""
-        <p>Beste {name},</p>
-        <p>Je bestelling <strong>{order.confirmation_number}</strong> is ontvangen.</p>
-        <table border="1" cellpadding="5">
-          <tr><th>Product</th><th>Aantal</th><th>Prijs</th></tr>
-          {items_html}
-          <tr><td colspan="2"><strong>Totaal</strong></td><td><strong>€{order.total_amount:.2f}</strong></td></tr>
-        </table>
-        <p>Betaalstatus: {order.payment_status}</p>
         <p>Met vriendelijke groeten,<br>Raak Millegem</p>
         """,
     )
