@@ -108,6 +108,7 @@ class FamilyMemberResponse(BaseModel):
     gender: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    mobile: Optional[str] = None
     relation_type: str
 
 

@@ -194,6 +194,7 @@ def get_family(
 def _person_to_schema(person: Person, relation_type: str) -> FamilyMemberResponse:
     email = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
     phone = next((c.value for c in person.contact_details if c.contact_type_code == "PHONE"), None)
+    mobile = next((c.value for c in person.contact_details if c.contact_type_code == "MOBILE"), None)
     return FamilyMemberResponse(
         id=person.id,
         last_name=person.last_name,
@@ -202,6 +203,7 @@ def _person_to_schema(person: Person, relation_type: str) -> FamilyMemberRespons
         gender=person.gender_code,
         email=email,
         phone=phone,
+        mobile=mobile,
         relation_type=relation_type,
     )
 
