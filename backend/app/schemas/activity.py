@@ -146,6 +146,7 @@ class RegistrationResponse(BaseModel):
     phone: Optional[str] = None
     team_name: Optional[str] = None
     payment_method: Optional[str] = None
+    checkout_url: Optional[str] = None
     items: List[RegistrationItemResponse] = []
 
     model_config = {"from_attributes": True}
