@@ -7,5 +7,4 @@ from app.models.user import User, UserRole
 from app.models.activity import Activity, Registration, RegistrationItem
 from app.models.idea import Idea
 from app.models.cms import CmsPage
-from app.models.order import Order, OrderItem, WebshopProduct
 from app.models.activity_sub_registration import ActivitySubRegistration, ActivityProduct
