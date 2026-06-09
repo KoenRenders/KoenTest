@@ -13,7 +13,13 @@ The user runs this after every session:
 git pull && sudo docker-compose up --build -d
 ```
 
-All commits and pushes are done by Claude — the user never commits manually. Always develop on branch `claude/nifty-dirac-dQVvd` and push there.
+All commits, pushes, PR creation and PR merging are done by Claude — the user never does this manually. Always develop on branch `claude/nifty-dirac-dQVvd` and push there.
+
+After completing a task, always:
+1. Commit and push to `claude/nifty-dirac-dQVvd`
+2. Create a PR via `mcp__github__create_pull_request` (base: `master`)
+3. Immediately merge it via `mcp__github__merge_pull_request` (squash)
+4. Sync the branch: `git fetch origin && git rebase origin/master && git push -u origin claude/nifty-dirac-dQVvd --force-with-lease`
 
 At the start of each session, sync with master:
 ```bash
