@@ -7,6 +7,7 @@ export interface SubRegistration {
   info_url?: string;
   is_free: boolean;
   price: string;
+  member_price?: string;
   sort_order: number;
   reg_form_type?: string;
 }
@@ -30,6 +31,7 @@ export interface Activity {
   sub_registrations?: SubRegistration[];
   reg_form_type?: string;
   age_category_config?: string;
+  team_name_required?: boolean;
 }
 
 export interface RegistrationItem {

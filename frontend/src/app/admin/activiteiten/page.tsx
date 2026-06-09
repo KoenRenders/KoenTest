@@ -6,31 +6,20 @@ import {
 } from "@/lib/api";
 import type { Activity, SubRegistration, Registration } from "@/lib/types";
 
-const REG_FORM_TYPES = [
-  { value: "NONE", label: "Geen formulier" },
-  { value: "INDIVIDUAL", label: "Individueel" },
-  { value: "GROUP", label: "Groep" },
-  { value: "TEAM", label: "Team" },
-  { value: "AGE_CATEGORY", label: "Leeftijdscategorie" },
-  { value: "PAID_PER_PERSON", label: "Betaald per persoon" },
-  { value: "PAID_PRODUCTS", label: "Betaalde producten" },
-];
-
 const emptyActivity = () => ({
   name: "", date: "", date_end: "", time: "", location: "", max_participants: "",
-  registration_type_code: "INDIVIDUAL", price: "0", member_price: "", poster_url: "",
-  is_archived: false, reg_form_type: "NONE",
+  poster_url: "", is_archived: false, team_name_required: false,
 });
 
-const emptySub = () => ({
+const emptyProduct = () => ({
   name: "", description: "", external_register_url: "", external_registrations_url: "",
-  info_url: "", is_free: true, price: "0", reg_form_type: "", sort_order: 0,
+  info_url: "", is_free: true, price: "0", member_price: "", sort_order: 0,
 });
 
-interface SubForm {
+interface ProductForm {
   name: string; description: string; external_register_url: string;
   external_registrations_url: string; info_url: string;
-  is_free: boolean; price: string; reg_form_type: string; sort_order: number;
+  is_free: boolean; price: string; member_price: string; sort_order: number;
 }
 
 export default function AdminActiviteiten() {
@@ -42,10 +31,10 @@ export default function AdminActiviteiten() {
   const [registrations, setRegistrations] = useState<{ [id: number]: Registration[] }>({});
   const [viewRegs, setViewRegs] = useState<number | null>(null);
   const [tab, setTab] = useState<"upcoming" | "archived">("upcoming");
-  const [expandedSubs, setExpandedSubs] = useState<number | null>(null);
-  const [subForm, setSubForm] = useState<SubForm>(emptySub());
-  const [editingSub, setEditingSub] = useState<number | null>(null);
-  const [showSubForm, setShowSubForm] = useState<number | null>(null); // activity id
+  const [expandedProducts, setExpandedProducts] = useState<number | null>(null);
+  const [productForm, setProductForm] = useState<ProductForm>(emptyProduct());
+  const [editingProduct, setEditingProduct] = useState<number | null>(null);
+  const [showProductForm, setShowProductForm] = useState<number | null>(null);
 
   function load() {
     getActivities().then((r) => setActivities(r.data)).catch(() => {});
@@ -62,9 +51,8 @@ export default function AdminActiviteiten() {
       location: form.location || null,
       date_end: form.date_end || null,
       max_participants: form.max_participants ? parseInt(form.max_participants) : null,
-      price: parseFloat(form.price) || 0,
-      member_price: form.member_price ? parseFloat(form.member_price) : null,
       poster_url: form.poster_url || null,
+      price: 0,
     };
     try {
       if (editing !== null) {
@@ -78,7 +66,7 @@ export default function AdminActiviteiten() {
       load();
     } catch (err: unknown) {
       const msg = (err as { response?: { data?: { detail?: string } } })?.response?.data?.detail;
-      alert(msg || "Opslaan mislukt. Controleer de gegevens.");
+      alert(msg || "Opslaan mislukt.");
     }
   }
 
@@ -86,10 +74,8 @@ export default function AdminActiviteiten() {
     setForm({
       name: a.name, date: a.date, date_end: a.date_end || "", time: a.time || "",
       location: a.location || "", max_participants: a.max_participants?.toString() || "",
-      registration_type_code: a.registration_type ?? "INDIVIDUAL",
-      price: a.price.toString(),
-      member_price: a.member_price?.toString() || "", poster_url: a.poster_url || "",
-      is_archived: a.is_archived, reg_form_type: a.reg_form_type || "NONE",
+      poster_url: a.poster_url || "", is_archived: a.is_archived,
+      team_name_required: a.team_name_required ?? false,
     });
     setEditing(a.id);
     setShowForm(true);
@@ -107,46 +93,49 @@ export default function AdminActiviteiten() {
     setViewRegs(id);
   }
 
-  async function handleSubSubmit(activityId: number, e: React.FormEvent) {
+  async function handleProductSubmit(activityId: number, e: React.FormEvent) {
     e.preventDefault();
     const payload = {
-      ...subForm,
-      price: subForm.is_free ? "0" : subForm.price,
-      reg_form_type: subForm.reg_form_type || null,
-      description: subForm.description || null,
-      external_register_url: subForm.external_register_url || null,
-      external_registrations_url: subForm.external_registrations_url || null,
-      info_url: subForm.info_url || null,
+      ...productForm,
+      price: productForm.is_free ? "0" : productForm.price,
+      member_price: productForm.is_free ? null : (productForm.member_price || null),
+      description: productForm.description || null,
+      external_register_url: productForm.external_register_url || null,
+      external_registrations_url: productForm.external_registrations_url || null,
+      info_url: productForm.info_url || null,
     };
-    if (editingSub !== null) {
-      await updateSubRegistration(activityId, editingSub, payload);
+    if (editingProduct !== null) {
+      await updateSubRegistration(activityId, editingProduct, payload);
     } else {
       await createSubRegistration(activityId, payload);
     }
-    setShowSubForm(null);
-    setEditingSub(null);
-    setSubForm(emptySub());
+    setShowProductForm(null);
+    setEditingProduct(null);
+    setProductForm(emptyProduct());
     load();
   }
 
-  function startEditSub(activityId: number, sub: SubRegistration) {
-    setSubForm({
-      name: sub.name, description: sub.description || "", external_register_url: sub.external_register_url || "",
-      external_registrations_url: sub.external_registrations_url || "", info_url: sub.info_url || "",
+  function startEditProduct(activityId: number, sub: SubRegistration) {
+    setProductForm({
+      name: sub.name, description: sub.description || "",
+      external_register_url: sub.external_register_url || "",
+      external_registrations_url: sub.external_registrations_url || "",
+      info_url: sub.info_url || "",
       is_free: sub.is_free, price: sub.price?.toString() || "0",
-      reg_form_type: sub.reg_form_type || "", sort_order: sub.sort_order,
+      member_price: sub.member_price?.toString() || "",
+      sort_order: sub.sort_order,
     });
-    setEditingSub(sub.id);
-    setShowSubForm(activityId);
+    setEditingProduct(sub.id);
+    setShowProductForm(activityId);
   }
 
-  async function handleDeleteSub(activityId: number, subId: number) {
-    if (!confirm("Verwijder deze sub-registratie?")) return;
+  async function handleDeleteProduct(activityId: number, subId: number) {
+    if (!confirm("Verwijder dit product?")) return;
     await deleteSubRegistration(activityId, subId);
     load();
   }
 
-  async function moveSub(activityId: number, subs: SubRegistration[], idx: number, dir: -1 | 1) {
+  async function moveProduct(activityId: number, subs: SubRegistration[], idx: number, dir: -1 | 1) {
     const target = subs[idx];
     const swap = subs[idx + dir];
     await Promise.all([
@@ -196,27 +185,19 @@ export default function AdminActiviteiten() {
                 <label className="label">Locatie</label>
                 <input className="input" value={form.location} onChange={(e) => setForm((f) => ({ ...f, location: e.target.value }))} />
               </div>
-              <div>
-                <label className="label">Inschrijvingsformulier</label>
-                <select className="input" value={form.reg_form_type} onChange={(e) => setForm((f) => ({ ...f, reg_form_type: e.target.value }))}>
-                  {REG_FORM_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="label">Prijs (€)</label>
-                <input type="number" step="0.01" className="input" value={form.price} onChange={(e) => setForm((f) => ({ ...f, price: e.target.value }))} />
-              </div>
-              <div>
-                <label className="label">Ledenprijs (€)</label>
-                <input type="number" step="0.01" className="input" value={form.member_price} onChange={(e) => setForm((f) => ({ ...f, member_price: e.target.value }))} />
-              </div>
               <div className="sm:col-span-2">
                 <label className="label">Affiche URL</label>
                 <input className="input" value={form.poster_url} onChange={(e) => setForm((f) => ({ ...f, poster_url: e.target.value }))} />
               </div>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="team_name_required" checked={form.team_name_required}
+                  onChange={(e) => setForm((f) => ({ ...f, team_name_required: e.target.checked }))} />
+                <label htmlFor="team_name_required">Ploegnaam vereist?</label>
+              </div>
               {editing !== null && (
                 <div className="flex items-center gap-2">
-                  <input type="checkbox" id="archived" checked={form.is_archived} onChange={(e) => setForm((f) => ({ ...f, is_archived: e.target.checked }))} />
+                  <input type="checkbox" id="archived" checked={form.is_archived}
+                    onChange={(e) => setForm((f) => ({ ...f, is_archived: e.target.checked }))} />
                   <label htmlFor="archived">Gearchiveerd</label>
                 </div>
               )}
@@ -236,30 +217,32 @@ export default function AdminActiviteiten() {
 
       <div className="space-y-3">
         {list.map((a) => {
-          const subs = (a.sub_registrations ?? []).slice().sort((x, y) => x.sort_order - y.sort_order);
-          const subsExpanded = expandedSubs === a.id;
+          const products = (a.sub_registrations ?? []).slice().sort((x, y) => x.sort_order - y.sort_order);
+          const productsExpanded = expandedProducts === a.id;
           return (
             <div key={a.id} className="card">
               <div className="flex items-start justify-between gap-3">
                 <div>
                   <div className="font-semibold">{a.name}</div>
                   <div className="text-sm text-gray-600">{new Date(a.date).toLocaleDateString("nl-BE")} · {a.location}</div>
-                  <div className="text-sm text-gray-500">{a.registration_count ?? 0} ingeschreven{a.max_participants ? ` / ${a.max_participants}` : ""}</div>
+                  <div className="text-sm text-gray-500">
+                    {a.registration_count ?? 0} ingeschreven{a.max_participants ? ` / ${a.max_participants}` : ""}
+                    {a.team_name_required && <span className="ml-2 text-xs bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded">ploegnaam</span>}
+                  </div>
                 </div>
                 <div className="flex gap-2 flex-wrap justify-end">
                   <button className="btn-secondary btn-sm" onClick={() => loadRegistrations(a.id)}>Inschrijvingen</button>
                   <button
-                    className={subsExpanded ? "btn-primary btn-sm" : "btn-secondary btn-sm"}
-                    onClick={() => setExpandedSubs(subsExpanded ? null : a.id)}
+                    className={productsExpanded ? "btn-primary btn-sm" : "btn-secondary btn-sm"}
+                    onClick={() => setExpandedProducts(productsExpanded ? null : a.id)}
                   >
-                    Sub-registraties {subs.length > 0 ? `(${subs.length})` : ""}
+                    Producten {products.length > 0 ? `(${products.length})` : ""}
                   </button>
                   <button className="btn-secondary btn-sm" onClick={() => startEdit(a)}>Bewerken</button>
                   <button className="btn-danger btn-sm" onClick={() => handleDelete(a.id)}>Verwijderen</button>
                 </div>
               </div>
 
-              {/* Registrations */}
               {viewRegs === a.id && registrations[a.id] && (
                 <div className="mt-3 border-t pt-3">
                   <div className="flex justify-between mb-2">
@@ -271,11 +254,12 @@ export default function AdminActiviteiten() {
                   ) : (
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
-                        <thead><tr className="text-left text-gray-500"><th className="pb-1 pr-4">Naam</th><th className="pb-1 pr-4">E-mail</th><th className="pb-1">Datum</th></tr></thead>
+                        <thead><tr className="text-left text-gray-500"><th className="pb-1 pr-4">Naam</th><th className="pb-1 pr-4">Ploeg</th><th className="pb-1 pr-4">E-mail</th><th className="pb-1">Datum</th></tr></thead>
                         <tbody>
                           {registrations[a.id].map((r) => (
                             <tr key={r.id}>
                               <td className="pr-4 py-1">{r.contact_name || `Gezin #${r.family_id}`}</td>
+                              <td className="pr-4 py-1">{(r as unknown as { team_name?: string }).team_name || "—"}</td>
                               <td className="pr-4 py-1">{r.contact_email || "—"}</td>
                               <td className="py-1">{new Date(r.registered_at).toLocaleDateString("nl-BE")}</td>
                             </tr>
@@ -287,113 +271,108 @@ export default function AdminActiviteiten() {
                 </div>
               )}
 
-              {/* Sub-registrations */}
-              {subsExpanded && (
+              {productsExpanded && (
                 <div className="mt-3 border-t pt-3">
                   <div className="flex items-center justify-between mb-3">
-                    <span className="font-medium text-sm">Sub-registraties</span>
-                    {showSubForm !== a.id && (
-                      <button
-                        className="btn-primary btn-sm"
-                        onClick={() => { setSubForm(emptySub()); setEditingSub(null); setShowSubForm(a.id); }}
-                      >
+                    <span className="font-medium text-sm">Producten</span>
+                    {showProductForm !== a.id && (
+                      <button className="btn-primary btn-sm"
+                        onClick={() => { setProductForm(emptyProduct()); setEditingProduct(null); setShowProductForm(a.id); }}>
                         + Toevoegen
                       </button>
                     )}
                   </div>
 
-                  {subs.length === 0 && showSubForm !== a.id && (
-                    <p className="text-sm text-gray-500 mb-3">Nog geen sub-registraties.</p>
+                  {products.length === 0 && showProductForm !== a.id && (
+                    <p className="text-sm text-gray-500 mb-3">Nog geen producten.</p>
                   )}
 
-                  {subs.length > 0 && (
+                  {products.length > 0 && (
                     <div className="space-y-2 mb-3">
-                      {subs.map((sub, idx) => (
-                        <div key={sub.id} className="flex items-center gap-2 bg-gray-50 rounded p-2 text-sm">
+                      {products.map((p, idx) => (
+                        <div key={p.id} className="flex items-center gap-2 bg-gray-50 rounded p-2 text-sm">
                           <div className="flex flex-col gap-0.5">
-                            <button
-                              className="text-gray-400 hover:text-gray-700 disabled:opacity-30 leading-none"
-                              disabled={idx === 0}
-                              onClick={() => moveSub(a.id, subs, idx, -1)}
-                              title="Omhoog"
-                            >▲</button>
-                            <button
-                              className="text-gray-400 hover:text-gray-700 disabled:opacity-30 leading-none"
-                              disabled={idx === subs.length - 1}
-                              onClick={() => moveSub(a.id, subs, idx, 1)}
-                              title="Omlaag"
-                            >▼</button>
+                            <button className="text-gray-400 hover:text-gray-700 disabled:opacity-30 leading-none"
+                              disabled={idx === 0} onClick={() => moveProduct(a.id, products, idx, -1)}>▲</button>
+                            <button className="text-gray-400 hover:text-gray-700 disabled:opacity-30 leading-none"
+                              disabled={idx === products.length - 1} onClick={() => moveProduct(a.id, products, idx, 1)}>▼</button>
                           </div>
                           <div className="flex-1 min-w-0">
-                            <span className="font-medium">{sub.name}</span>
-                            {sub.reg_form_type && (
-                              <span className="ml-2 text-xs text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
-                                {REG_FORM_TYPES.find((t) => t.value === sub.reg_form_type)?.label ?? sub.reg_form_type}
-                              </span>
-                            )}
-                            {!sub.is_free && (
-                              <span className="ml-2 text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded">
-                                €{parseFloat(sub.price).toFixed(2)}
-                              </span>
-                            )}
-                            {sub.external_register_url && (
-                              <span className="ml-2 text-xs text-gray-500">↗ extern</span>
-                            )}
+                            <span className="font-medium">{p.name}</span>
+                            {p.is_free
+                              ? <span className="ml-2 text-xs text-green-700 bg-green-50 px-1.5 py-0.5 rounded">Gratis</span>
+                              : <span className="ml-2 text-xs text-blue-700 bg-blue-50 px-1.5 py-0.5 rounded">
+                                  €{parseFloat(p.price).toFixed(2)}
+                                  {p.member_price ? ` / leden €${parseFloat(p.member_price).toFixed(2)}` : ""}
+                                </span>
+                            }
+                            {p.external_register_url && <span className="ml-2 text-xs text-gray-500">↗ extern</span>}
                           </div>
-                          <button className="btn-secondary btn-sm" onClick={() => startEditSub(a.id, sub)}>Bewerken</button>
-                          <button className="btn-danger btn-sm" onClick={() => handleDeleteSub(a.id, sub.id)}>×</button>
+                          <button className="btn-secondary btn-sm" onClick={() => startEditProduct(a.id, p)}>Bewerken</button>
+                          <button className="btn-danger btn-sm" onClick={() => handleDeleteProduct(a.id, p.id)}>×</button>
                         </div>
                       ))}
                     </div>
                   )}
 
-                  {showSubForm === a.id && (
-                    <form onSubmit={(e) => handleSubSubmit(a.id, e)} className="bg-blue-50 rounded-lg p-3 space-y-3">
-                      <p className="font-medium text-sm">{editingSub !== null ? "Sub-registratie bewerken" : "Nieuwe sub-registratie"}</p>
+                  {showProductForm === a.id && (
+                    <form onSubmit={(e) => handleProductSubmit(a.id, e)} className="bg-blue-50 rounded-lg p-3 space-y-3">
+                      <p className="font-medium text-sm">{editingProduct !== null ? "Product bewerken" : "Nieuw product"}</p>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div className="sm:col-span-2">
                           <label className="label">Naam *</label>
-                          <input className="input" required value={subForm.name} onChange={(e) => setSubForm((f) => ({ ...f, name: e.target.value }))} />
+                          <input className="input" required value={productForm.name}
+                            onChange={(e) => setProductForm((f) => ({ ...f, name: e.target.value }))} />
                         </div>
-                        <div>
-                          <label className="label">Inschrijvingsformulier</label>
-                          <select className="input" value={subForm.reg_form_type} onChange={(e) => setSubForm((f) => ({ ...f, reg_form_type: e.target.value }))}>
-                            <option value="">— geen intern formulier —</option>
-                            {REG_FORM_TYPES.filter((t) => t.value !== "NONE").map((t) => (
-                              <option key={t.value} value={t.value}>{t.label}</option>
-                            ))}
-                          </select>
-                        </div>
-                        <div className="flex items-center gap-2 pt-5">
-                          <input type="checkbox" id={`is_free_${a.id}`} checked={subForm.is_free} onChange={(e) => setSubForm((f) => ({ ...f, is_free: e.target.checked }))} />
+                        <div className="flex items-center gap-2 pt-1">
+                          <input type="checkbox" id={`is_free_${a.id}`} checked={productForm.is_free}
+                            onChange={(e) => setProductForm((f) => ({ ...f, is_free: e.target.checked }))} />
                           <label htmlFor={`is_free_${a.id}`}>Gratis</label>
                         </div>
-                        {!subForm.is_free && (
-                          <div>
-                            <label className="label">Prijs (€)</label>
-                            <input type="number" step="0.01" className="input" value={subForm.price} onChange={(e) => setSubForm((f) => ({ ...f, price: e.target.value }))} />
-                          </div>
+                        {!productForm.is_free && (
+                          <>
+                            <div>
+                              <label className="label">Prijs niet-leden (€)</label>
+                              <input type="number" step="0.01" className="input" value={productForm.price}
+                                onChange={(e) => setProductForm((f) => ({ ...f, price: e.target.value }))} />
+                            </div>
+                            <div>
+                              <label className="label">Ledenprijs (€, optioneel)</label>
+                              <input type="number" step="0.01" className="input" value={productForm.member_price}
+                                onChange={(e) => setProductForm((f) => ({ ...f, member_price: e.target.value }))} />
+                            </div>
+                          </>
                         )}
                         <div>
+                          <label className="label">Max. deelnemers (optioneel)</label>
+                          <input type="number" className="input" value={""}
+                            onChange={() => {}} placeholder="onbeperkt" />
+                        </div>
+                        <div>
                           <label className="label">Volgorde</label>
-                          <input type="number" className="input" value={subForm.sort_order} onChange={(e) => setSubForm((f) => ({ ...f, sort_order: parseInt(e.target.value) || 0 }))} />
+                          <input type="number" className="input" value={productForm.sort_order}
+                            onChange={(e) => setProductForm((f) => ({ ...f, sort_order: parseInt(e.target.value) || 0 }))} />
                         </div>
                         <div className="sm:col-span-2">
-                          <label className="label">Externe inschrijvingslink</label>
-                          <input className="input" placeholder="https://…" value={subForm.external_register_url} onChange={(e) => setSubForm((f) => ({ ...f, external_register_url: e.target.value }))} />
+                          <label className="label">Externe inschrijvingslink (optioneel)</label>
+                          <input className="input" placeholder="https://…" value={productForm.external_register_url}
+                            onChange={(e) => setProductForm((f) => ({ ...f, external_register_url: e.target.value }))} />
                         </div>
                         <div className="sm:col-span-2">
-                          <label className="label">Externe inschrijvingenlink</label>
-                          <input className="input" placeholder="https://…" value={subForm.external_registrations_url} onChange={(e) => setSubForm((f) => ({ ...f, external_registrations_url: e.target.value }))} />
+                          <label className="label">Link om inschrijvingen te bekijken (optioneel)</label>
+                          <input className="input" placeholder="https://…" value={productForm.external_registrations_url}
+                            onChange={(e) => setProductForm((f) => ({ ...f, external_registrations_url: e.target.value }))} />
                         </div>
                         <div className="sm:col-span-2">
-                          <label className="label">Info URL (reglement)</label>
-                          <input className="input" placeholder="https://…" value={subForm.info_url} onChange={(e) => setSubForm((f) => ({ ...f, info_url: e.target.value }))} />
+                          <label className="label">Info/reglement URL (optioneel)</label>
+                          <input className="input" placeholder="https://…" value={productForm.info_url}
+                            onChange={(e) => setProductForm((f) => ({ ...f, info_url: e.target.value }))} />
                         </div>
                       </div>
                       <div className="flex gap-2">
                         <button type="submit" className="btn-primary btn-sm">Opslaan</button>
-                        <button type="button" className="btn-secondary btn-sm" onClick={() => { setShowSubForm(null); setEditingSub(null); }}>Annuleren</button>
+                        <button type="button" className="btn-secondary btn-sm"
+                          onClick={() => { setShowProductForm(null); setEditingProduct(null); }}>Annuleren</button>
                       </div>
                     </form>
                   )}

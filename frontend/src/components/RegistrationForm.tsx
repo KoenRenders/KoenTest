@@ -3,7 +3,7 @@ import { useState } from "react";
 import { registerForActivity } from "@/lib/api";
 import type { Activity, SubRegistration } from "@/lib/types";
 import { parseApiError } from "@/lib/errors";
-import { formatPrice, isPositivePrice } from "@/lib/money";
+import { formatPrice } from "@/lib/money";
 
 interface Props {
   activity: Activity;
@@ -12,98 +12,54 @@ interface Props {
   onSuccess: () => void;
 }
 
-export default function RegistrationForm({ activity, subRegistration, onClose, onSuccess }: Props) {
-  const formType = subRegistration?.reg_form_type ?? activity.reg_form_type ?? "INDIVIDUAL";
+function isPositive(val?: string | null): boolean {
+  return !!val && parseFloat(val) > 0;
+}
 
-  // Parse age category config
-  let ageCategories: { key: string; label: string }[] = [];
-  if (formType === "AGE_CATEGORY" && activity.age_category_config) {
-    try {
-      ageCategories = JSON.parse(activity.age_category_config);
-    } catch {
-      ageCategories = [];
-    }
-  }
-
-  // Parse paid products (sub_registrations where is_free=false and no reg_form_type)
-  const paidProducts =
-    formType === "PAID_PRODUCTS"
-      ? (activity.sub_registrations ?? []).filter((s) => !s.is_free && !s.reg_form_type)
-      : [];
-
-  const isPaid =
-    formType === "PAID_PER_PERSON" ||
-    formType === "PAID_PRODUCTS" ||
-    isPositivePrice(subRegistration?.price) ||
-    isPositivePrice(activity.price);
+export default function RegistrationForm({ activity, onClose, onSuccess }: Props) {
+  const products = (activity.sub_registrations ?? []).filter((s) => !s.external_register_url);
 
   const [contactName, setContactName] = useState("");
   const [contactEmail, setContactEmail] = useState("");
   const [contactPhone, setContactPhone] = useState("");
   const [teamName, setTeamName] = useState("");
-  const [groupSize, setGroupSize] = useState(1);
-  const [ageCounts, setAgeCounts] = useState<Record<string, number>>(
-    Object.fromEntries(ageCategories.map((c) => [c.key, 0]))
-  );
-  const [itemQuantities, setItemQuantities] = useState<Record<number, number>>(
-    Object.fromEntries(paidProducts.map((p) => [p.id, 0]))
+  const [quantities, setQuantities] = useState<Record<number, number>>(
+    Object.fromEntries(products.map((p) => [p.id, 0]))
   );
   const [remarks, setRemarks] = useState("");
   const [paymentMethod, setPaymentMethod] = useState("MOLLIE");
-
-  // Compute total amount for display
-  function computeTotal(): number | null {
-    if (formType === "PAID_PER_PERSON") {
-      const unitPrice = parseFloat(subRegistration?.price ?? activity.price ?? "0") || 0;
-      return groupSize * unitPrice;
-    }
-    if (formType === "PAID_PRODUCTS") {
-      return paidProducts.reduce((sum, p) => sum + (itemQuantities[p.id] || 0) * (parseFloat(p.price) || 0), 0);
-    }
-    if (isPositivePrice(subRegistration?.price)) {
-      return parseFloat(subRegistration!.price) || 0;
-    }
-    if (isPositivePrice(activity.price)) {
-      return parseFloat(activity.price ?? "0") || 0;
-    }
-    return null;
-  }
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  function computeTotal(): number {
+    return products.reduce((sum, p) => {
+      if (p.is_free) return sum;
+      return sum + (quantities[p.id] || 0) * (parseFloat(p.price) || 0);
+    }, 0);
+  }
+
+  const total = computeTotal();
+  const isPaid = total > 0;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setLoading(true);
     setError("");
 
+    const items = products
+      .filter((p) => (quantities[p.id] || 0) > 0)
+      .map((p) => ({ sub_registration_id: p.id, quantity: quantities[p.id] }));
+
     try {
-      const effectivePaymentMethod = isPaid ? paymentMethod : "FREE";
-
-      const body: Record<string, unknown> = {
+      const res = await registerForActivity(activity.id, {
         contact_name: contactName,
-        contact_email: contactEmail || undefined,
-        contact_phone: contactPhone || undefined,
+        contact_email: contactEmail,
+        contact_phone: contactPhone,
+        team_name: activity.team_name_required ? teamName : undefined,
         remarks: remarks || undefined,
-        payment_method: effectivePaymentMethod,
-        sub_registration_id: subRegistration?.id ?? undefined,
-      };
-
-      if (formType === "TEAM") {
-        body.team_name = teamName;
-      }
-      if (formType === "GROUP" || formType === "PAID_PER_PERSON") {
-        body.group_size = groupSize;
-      }
-      if (formType === "AGE_CATEGORY") {
-        body.age_categories = JSON.stringify(ageCounts);
-      }
-      if (formType === "PAID_PRODUCTS") {
-        body.items = paidProducts
-          .filter((p) => (itemQuantities[p.id] || 0) > 0)
-          .map((p) => ({ sub_registration_id: p.id, quantity: itemQuantities[p.id] }));
-      }
-
-      const res = await registerForActivity(activity.id, body);
+        payment_method: isPaid ? paymentMethod : "FREE",
+        items,
+      });
       if (res.data?.checkout_url) {
         window.location.href = res.data.checkout_url;
       } else {
@@ -116,157 +72,75 @@ export default function RegistrationForm({ activity, subRegistration, onClose, o
     }
   }
 
-  const title = subRegistration ? `${activity.name} – ${subRegistration.name}` : activity.name;
-
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 overflow-y-auto max-h-[90vh]">
         <h2 className="text-xl font-bold mb-1">Inschrijven</h2>
         <p className="text-gray-600 mb-6">
-          {title} – {new Date(activity.date).toLocaleDateString("nl-BE")}
+          {activity.name} – {new Date(activity.date).toLocaleDateString("nl-BE")}
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
-          {/* Contact */}
           <div>
             <label className="label">Naam *</label>
-            <input
-              className="input"
-              required
-              value={contactName}
-              onChange={(e) => setContactName(e.target.value)}
-            />
+            <input className="input" required value={contactName} onChange={(e) => setContactName(e.target.value)} />
           </div>
           <div>
             <label className="label">E-mail *</label>
-            <input
-              type="email"
-              className="input"
-              required
-              value={contactEmail}
-              onChange={(e) => setContactEmail(e.target.value)}
-            />
+            <input type="email" className="input" required value={contactEmail} onChange={(e) => setContactEmail(e.target.value)} />
           </div>
           <div>
             <label className="label">GSM-nummer *</label>
-            <input
-              type="tel"
-              className="input"
-              required
-              value={contactPhone}
-              onChange={(e) => setContactPhone(e.target.value)}
-            />
+            <input type="tel" className="input" required value={contactPhone} onChange={(e) => setContactPhone(e.target.value)} />
           </div>
 
-          {/* Form-type specific */}
-          {formType === "TEAM" && (
+          {activity.team_name_required && (
             <div>
               <label className="label">Ploegnaam *</label>
-              <input
-                className="input"
-                required
-                value={teamName}
-                onChange={(e) => setTeamName(e.target.value)}
-              />
+              <input className="input" required value={teamName} onChange={(e) => setTeamName(e.target.value)} />
             </div>
           )}
 
-          {(formType === "GROUP") && (
-            <div>
-              <label className="label">Aantal personen *</label>
-              <input
-                type="number"
-                min={1}
-                className="input"
-                required
-                value={groupSize}
-                onChange={(e) => setGroupSize(parseInt(e.target.value) || 1)}
-              />
-            </div>
-          )}
-
-          {formType === "PAID_PER_PERSON" && (
-            <div>
-              <label className="label">Aantal personen *</label>
-              <input
-                type="number"
-                min={1}
-                className="input"
-                required
-                value={groupSize}
-                onChange={(e) => setGroupSize(parseInt(e.target.value) || 1)}
-              />
-            </div>
-          )}
-
-          {formType === "AGE_CATEGORY" && ageCategories.map((cat) => (
-            <div key={cat.key}>
-              <label className="label">{cat.label}</label>
-              <input
-                type="number"
-                min={0}
-                className="input"
-                value={ageCounts[cat.key] ?? 0}
-                onChange={(e) =>
-                  setAgeCounts((prev) => ({ ...prev, [cat.key]: parseInt(e.target.value) || 0 }))
-                }
-              />
-            </div>
-          ))}
-
-          {formType === "PAID_PRODUCTS" && paidProducts.length > 0 && (
+          {products.length > 0 && (
             <div className="space-y-2">
-              <p className="label">Producten</p>
-              {paidProducts.map((p) => (
+              <p className="label">Inschrijving</p>
+              {products.map((p) => (
                 <div key={p.id} className="flex items-center gap-3">
-                  <span className="flex-1 text-sm text-gray-700">
-                    {p.name} ({formatPrice(p.price)})
-                  </span>
-                  <input
-                    type="number"
-                    min={0}
-                    className="input w-20"
-                    value={itemQuantities[p.id] ?? 0}
-                    onChange={(e) =>
-                      setItemQuantities((prev) => ({ ...prev, [p.id]: parseInt(e.target.value) || 0 }))
+                  <div className="flex-1 text-sm text-gray-700">
+                    <span>{p.name}</span>
+                    {p.is_free
+                      ? <span className="ml-1 text-green-700">(gratis)</span>
+                      : <span className="ml-1 text-gray-500">
+                          ({formatPrice(p.price)}
+                          {isPositive(p.member_price) ? ` / leden ${formatPrice(p.member_price!)}` : ""})
+                        </span>
                     }
+                  </div>
+                  <input
+                    type="number" min={0} className="input w-20"
+                    value={quantities[p.id] ?? 0}
+                    onChange={(e) => setQuantities((prev) => ({ ...prev, [p.id]: parseInt(e.target.value) || 0 }))}
                   />
                 </div>
               ))}
             </div>
           )}
 
-          {/* Opmerkingen */}
           <div>
             <label className="label">Opmerkingen</label>
-            <textarea
-              className="input"
-              rows={3}
-              value={remarks}
-              onChange={(e) => setRemarks(e.target.value)}
-            />
+            <textarea className="input" rows={3} value={remarks} onChange={(e) => setRemarks(e.target.value)} />
           </div>
 
-          {/* Betaling */}
           {isPaid && (
             <div className="space-y-3">
-              {(() => {
-                const total = computeTotal();
-                return total !== null && total > 0 ? (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex justify-between items-center">
-                    <span className="font-medium text-blue-800">Totaal te betalen</span>
-                    <span className="font-bold text-blue-900 text-lg">{formatPrice(String(total.toFixed(2)))}</span>
-                  </div>
-                ) : null;
-              })()}
+              <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 flex justify-between items-center">
+                <span className="font-medium text-blue-800">Totaal te betalen</span>
+                <span className="font-bold text-blue-900 text-lg">{formatPrice(String(total.toFixed(2)))}</span>
+              </div>
               <div>
                 <label className="label">Betaalmethode *</label>
-                <select
-                  className="input"
-                  value={paymentMethod}
-                  onChange={(e) => setPaymentMethod(e.target.value)}
-                >
-                  <option value="MOLLIE">Mollie (online)</option>
+                <select className="input" value={paymentMethod} onChange={(e) => setPaymentMethod(e.target.value)}>
+                  <option value="MOLLIE">Online (Mollie)</option>
                   <option value="CASH">Cash</option>
                   <option value="TRANSFER">Overschrijving</option>
                 </select>

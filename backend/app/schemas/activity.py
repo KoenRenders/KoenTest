@@ -7,6 +7,7 @@ from pydantic import BaseModel, EmailStr, Field
 class ActivityCreate(BaseModel):
     name: str
     date: date
+    date_end: Optional[date] = None
     time: Optional[Time] = None
     location: Optional[str] = None
     max_participants: Optional[int] = None
@@ -14,6 +15,7 @@ class ActivityCreate(BaseModel):
     price: Decimal = Decimal("0.00")
     member_price: Optional[Decimal] = None
     poster_url: Optional[str] = None
+    team_name_required: bool = False
 
 
 class ActivityUpdate(BaseModel):
@@ -29,6 +31,7 @@ class ActivityUpdate(BaseModel):
     member_price: Optional[Decimal] = None
     poster_url: Optional[str] = None
     is_archived: Optional[bool] = None
+    team_name_required: Optional[bool] = None
 
 
 class SubRegistrationCreate(BaseModel):
@@ -68,6 +71,7 @@ class SubRegistrationResponse(BaseModel):
     info_url: Optional[str] = None
     is_free: bool
     price: Decimal
+    member_price: Optional[Decimal] = None
     sort_order: int
     reg_form_type: Optional[str] = None
 
@@ -94,6 +98,7 @@ class ActivityResponse(BaseModel):
     sub_registrations: List[SubRegistrationResponse] = []
     reg_form_type: str = "NONE"
     age_category_config: Optional[str] = None
+    team_name_required: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -109,11 +114,11 @@ class RegistrationCreate(BaseModel):
     contact_phone: str
     team_name: Optional[str] = None
     group_size: Optional[int] = Field(None, ge=1, le=500)
-    age_categories: Optional[str] = None  # JSON string
+    age_categories: Optional[str] = None
     remarks: Optional[str] = None
     payment_method: Optional[str] = "FREE"
     items: List[RegistrationItemCreate] = []
-    sub_registration_id: Optional[int] = None  # for sub-registration forms
+    sub_registration_id: Optional[int] = None
 
 
 class RegistrationItemResponse(BaseModel):

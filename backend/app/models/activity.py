@@ -24,6 +24,7 @@ class Activity(Base):
     notes = Column(Text, nullable=True)
     reg_form_type = Column(String(20), nullable=False, default="NONE")
     age_category_config = Column(Text, nullable=True)
+    team_name_required = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
@@ -41,13 +42,12 @@ class Registration(Base):
     registered_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     registration_type = Column(String(10), ForeignKey("registration_type_codes.code"), nullable=False)
 
-    # Extra contact fields for non-member registrations
     contact_name = Column(String(200), nullable=True)
     contact_email = Column(String(255), nullable=True)
     contact_phone = Column(String(30), nullable=True)
     team_name = Column(String(200), nullable=True)
     group_size = Column(Integer, nullable=True)
-    age_categories = Column(Text, nullable=True)  # JSON
+    age_categories = Column(Text, nullable=True)
     remarks = Column(Text, nullable=True)
     payment_method = Column(String(20), nullable=True)
     payment_status = Column(String(20), nullable=True)

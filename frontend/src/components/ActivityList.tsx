@@ -21,28 +21,17 @@ function formatTime(t?: string) {
   return t.substring(0, 5);
 }
 
-// Shared pill-button styles
 const pillBtn = "px-2 py-0.5 rounded text-xs font-medium border whitespace-nowrap";
-const pillPrimary = `${pillBtn} bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200`;
 const pillOutline = `${pillBtn} bg-white text-blue-600 hover:bg-blue-50 border-blue-200`;
+const pillPrimary = `${pillBtn} bg-blue-50 text-blue-700 hover:bg-blue-100 border-blue-200`;
 
-interface RegState {
-  names: string[];
-  total: number;
-}
+interface RegState { names: string[]; total: number; }
 
-/** Sub-registration row: handles its own registrations fetch/toggle */
-function SubRegRow({
-  activity,
-  sub,
-  onSubRegister,
-  showRegister,
-  compact = false,
+function ProductRow({
+  activity, product, compact = false,
 }: {
   activity: Activity;
-  sub: SubRegistration;
-  onSubRegister?: (a: Activity, s: SubRegistration) => void;
-  showRegister: boolean;
+  product: SubRegistration;
   compact?: boolean;
 }) {
   const [regs, setRegs] = useState<RegState | null>(null);
@@ -50,15 +39,12 @@ function SubRegRow({
   const [regsLoading, setRegsLoading] = useState(false);
 
   async function toggleRegs() {
-    if (regsOpen) {
-      setRegsOpen(false);
-      return;
-    }
+    if (regsOpen) { setRegsOpen(false); return; }
     setRegsOpen(true);
-    if (regs !== null) return; // already fetched
+    if (regs !== null) return;
     setRegsLoading(true);
     try {
-      const res = await getPublicRegistrations(activity.id, sub.id);
+      const res = await getPublicRegistrations(activity.id, product.id);
       setRegs({ names: res.data.names, total: res.data.total_participants });
     } catch {
       setRegs({ names: [], total: 0 });
@@ -74,56 +60,45 @@ function SubRegRow({
   return (
     <div>
       <div className={rowClass}>
-        {!compact && <span className="text-gray-700 font-medium">{sub.name}</span>}
-        {sub.external_register_url && (
-          <a href={sub.external_register_url} target="_blank" rel="noopener noreferrer" className={pillPrimary}>
+        {!compact && <span className="text-gray-700 font-medium">{product.name}</span>}
+        {!compact && !product.is_free && (
+          <span className="text-xs text-gray-500">
+            {formatPrice(product.price)}
+            {isPositivePrice(product.member_price) ? ` / leden ${formatPrice(product.member_price!)}` : ""}
+          </span>
+        )}
+        {product.external_register_url && (
+          <a href={product.external_register_url} target="_blank" rel="noopener noreferrer" className={pillPrimary}>
             Inschrijven ↗
           </a>
         )}
-        {sub.info_url && (
-          <a href={sub.info_url} target="_blank" rel="noopener noreferrer"
+        {product.info_url && (
+          <a href={product.info_url} target="_blank" rel="noopener noreferrer"
             className="text-xs text-gray-500 hover:text-blue-600 underline">
             reglement ↗
           </a>
         )}
-
-        {/* Internal form */}
-        {sub.reg_form_type && (
-          <>
-            {showRegister && onSubRegister && (
-              <button onClick={() => onSubRegister(activity, sub)} className={pillPrimary}>
-                Inschrijven
-              </button>
-            )}
-            <button onClick={toggleRegs} className={pillOutline}>
-              {regsOpen
-                ? "Verberg inschrijvingen"
-                : regs !== null
-                ? `Inschrijvingen (${regs.total})`
-                : "Inschrijvingen"}
-            </button>
-          </>
+        {!product.external_register_url && (
+          <button onClick={toggleRegs} className={pillOutline}>
+            {regsOpen ? "Verberg" : regs !== null ? `Wie doet er mee? (${regs.total})` : "Wie doet er mee?"}
+          </button>
         )}
-
-        {/* External links */}
-        {!sub.reg_form_type && sub.external_registrations_url && (
-          <a href={sub.external_registrations_url} target="_blank" rel="noopener noreferrer" className={pillOutline}>
+        {!product.external_register_url && product.external_registrations_url && (
+          <a href={product.external_registrations_url} target="_blank" rel="noopener noreferrer" className={pillOutline}>
             Inschrijvingen ↗
           </a>
         )}
       </div>
-
-      {/* Inline registrations list */}
       {regsOpen && (
-        <div className="mt-1 ml-3 pl-3 border-l border-blue-100 text-xs text-gray-600 space-y-0.5">
+        <div className="mt-1 ml-3 pl-3 border-l border-blue-100 text-xs text-gray-600">
           {regsLoading && <p className="italic">Laden…</p>}
           {!regsLoading && regs && regs.names.length === 0 && (
             <p className="italic text-gray-400">Nog geen inschrijvingen.</p>
           )}
           {!regsLoading && regs && regs.names.length > 0 && (
             <>
-              {regs.names.map((name, i) => <p key={i}>{name}</p>)}
-              <p className="font-medium text-gray-500 pt-0.5">Totaal: {regs.total}</p>
+              <p className="font-medium text-gray-500">{regs.total} deelnemer{regs.total !== 1 ? "s" : ""}</p>
+              <p>{regs.names.join(" · ")}</p>
             </>
           )}
         </div>
@@ -155,9 +130,7 @@ export default function ActivityList({
     return acc;
   }, {});
 
-  const years = Object.keys(byYear)
-    .map(Number)
-    .sort((a, b) => yearsAscending ? a - b : b - a);
+  const years = Object.keys(byYear).map(Number).sort((a, b) => yearsAscending ? a - b : b - a);
 
   return (
     <div className="space-y-10">
@@ -166,11 +139,11 @@ export default function ActivityList({
           <h3 className="text-lg font-bold text-blue-800 mb-4 border-b border-blue-200 pb-2">{year}</h3>
           <div className="space-y-4">
             {byYear[year].map((activity) => {
-              const hasInternalForm = activity.reg_form_type && activity.reg_form_type !== "NONE";
-              // Hide product-only sub-regs (no form, no external links) — used only as PAID_PRODUCTS options
-              const subs = (activity.sub_registrations ?? []).filter(
-                s => s.reg_form_type || s.external_register_url || s.external_registrations_url || s.info_url
-              );
+              const allProducts = (activity.sub_registrations ?? []);
+              const internalProducts = allProducts.filter((s) => !s.external_register_url);
+              const hasInternalForm = internalProducts.length > 0;
+              const canRegister = showRegister && hasInternalForm && onRegister
+                && activity.status !== "Voorbij" && activity.status !== "Geannuleerd";
 
               return (
                 <div key={activity.id} className="card">
@@ -193,43 +166,39 @@ export default function ActivityList({
                         {activity.max_participants && (
                           <p>👥 {activity.registration_count ?? 0} / {activity.max_participants} deelnemers</p>
                         )}
-                        {isPositivePrice(activity.price) && (
-                          <p>💶 {formatPrice(activity.price)}
-                            {activity.member_price ? ` (leden: ${formatPrice(activity.member_price)})` : ""}
-                          </p>
-                        )}
                       </div>
 
-                      {/* Sub-registrations list (multiple) */}
-                      {subs.length > 1 && (
+                      {allProducts.length > 1 && (
                         <div className="mt-3 space-y-2">
-                          {subs.map((sub) => (
-                            <SubRegRow key={sub.id} activity={activity} sub={sub}
-                              onSubRegister={onSubRegister} showRegister={showRegister} />
+                          {allProducts.map((p) => (
+                            <ProductRow key={p.id} activity={activity} product={p} />
                           ))}
                         </div>
                       )}
                     </div>
 
-                    {/* Right-side buttons */}
                     <div className="flex flex-col gap-2 self-start items-end">
-                      {/* Single sub-registration */}
-                      {subs.length === 1 && (
-                        <SubRegRow activity={activity} sub={subs[0]}
-                          onSubRegister={onSubRegister} showRegister={showRegister} compact />
+                      {allProducts.length === 1 && (
+                        <ProductRow activity={activity} product={allProducts[0]} compact />
                       )}
-
-                      {/* Main activity registration button — only when no sub-regs handle it */}
-                      {showRegister && hasInternalForm && onRegister && subs.length === 0 && (
+                      {canRegister && allProducts.length !== 1 && (
                         <button
                           className="btn-primary btn-sm whitespace-nowrap"
-                          onClick={() => onRegister(activity)}
+                          onClick={() => onRegister!(activity)}
                           disabled={activity.status === "Vol"}
                         >
                           {activity.status === "Vol" ? "Vol" : "Inschrijven"}
                         </button>
                       )}
-
+                      {canRegister && allProducts.length === 1 && !allProducts[0].external_register_url && (
+                        <button
+                          className="btn-primary btn-sm whitespace-nowrap"
+                          onClick={() => onRegister!(activity)}
+                          disabled={activity.status === "Vol"}
+                        >
+                          {activity.status === "Vol" ? "Vol" : "Inschrijven"}
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

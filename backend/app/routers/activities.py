@@ -1,5 +1,4 @@
 # Standard library
-import json
 from datetime import date, datetime
 from decimal import Decimal
 from typing import List, Optional
@@ -14,7 +13,6 @@ from app.auth import get_current_admin
 from app.database import get_db
 from app.models.activity import Activity, Registration, RegistrationItem
 from app.models.activity_sub_registration import ActivitySubRegistration
-from app.models.member import Membership
 from app.models.user import User
 from app.schemas.activity import (
     ActivityCreate,
@@ -36,21 +34,12 @@ router = APIRouter(tags=["activities"])
 
 
 def compute_participant_count(registration: Registration) -> int:
-    if registration.group_size and registration.group_size > 1:
-        return registration.group_size
-    if registration.age_categories:
-        try:
-            cats = json.loads(registration.age_categories)
-            if isinstance(cats, dict):
-                total = sum(int(v) for v in cats.values() if v)
-                if total > 0:
-                    return total
-        except Exception:
-            pass
     if registration.items:
         total = sum(item.quantity for item in registration.items)
         if total > 0:
             return total
+    if registration.group_size and registration.group_size > 1:
+        return registration.group_size
     return 1
 
 
@@ -138,6 +127,7 @@ def create_activity(
     activity = Activity(
         name=data.name,
         date=data.date,
+        date_end=data.date_end,
         time=data.time,
         location=data.location,
         max_participants=data.max_participants,
@@ -145,6 +135,7 @@ def create_activity(
         price=data.price,
         member_price=data.member_price,
         poster_url=data.poster_url,
+        team_name_required=data.team_name_required,
     )
     db.add(activity)
     db.commit()
@@ -272,10 +263,23 @@ def get_public_registrations(
         raise HTTPException(status_code=404, detail="Activity not found")
 
     active_regs = [r for r in activity.registrations if not r.is_waitlist]
+
     if sub_registration_id is not None:
-        active_regs = [r for r in active_regs if r.sub_registration_id == sub_registration_id]
+        active_regs = [
+            r for r in active_regs
+            if r.sub_registration_id == sub_registration_id
+            or any(item.sub_registration_id == sub_registration_id and item.quantity > 0 for item in r.items)
+        ]
+
     names = [r.contact_name or "Anoniem" for r in active_regs]
-    total_participants = sum(compute_participant_count(r) for r in active_regs)
+
+    if sub_registration_id is not None:
+        total_participants = sum(
+            next((item.quantity for item in r.items if item.sub_registration_id == sub_registration_id), 1)
+            for r in active_regs
+        )
+    else:
+        total_participants = sum(compute_participant_count(r) for r in active_regs)
 
     return PublicRegistrationSummary(
         names=names,
@@ -323,28 +327,17 @@ def register_for_activity(
     if end < today:
         raise HTTPException(status_code=400, detail="Activity is no longer open for registration")
 
-    participant_count = 1
-    form_type = activity.reg_form_type or "NONE"
-    active_sub = None
-
-    if data.sub_registration_id:
-        active_sub = db.query(ActivitySubRegistration).filter(
-            ActivitySubRegistration.id == data.sub_registration_id
+    # Compute total from items
+    products_total = Decimal("0.00")
+    for item_data in data.items:
+        sub = db.query(ActivitySubRegistration).filter(
+            ActivitySubRegistration.id == item_data.sub_registration_id
         ).first()
-        if active_sub and active_sub.reg_form_type:
-            form_type = active_sub.reg_form_type
+        if sub and not sub.is_free:
+            products_total += item_data.quantity * (sub.price or Decimal("0.00"))
 
-    if form_type in ("GROUP", "PAID_PER_PERSON"):
-        participant_count = data.group_size or 1
-    elif form_type == "AGE_CATEGORY" and data.age_categories:
-        try:
-            cats = json.loads(data.age_categories)
-            if isinstance(cats, dict):
-                participant_count = sum(int(v) for v in cats.values() if v) or 1
-        except Exception:
-            participant_count = 1
-    elif form_type == "PAID_PRODUCTS" and data.items:
-        participant_count = sum(item.quantity for item in data.items) or 1
+    total_amount = products_total
+    participant_count = sum(item.quantity for item in data.items) or 1
 
     current_registrations = [r for r in activity.registrations if not r.is_waitlist]
     current_participants = sum(compute_participant_count(r) for r in current_registrations)
@@ -352,8 +345,7 @@ def register_for_activity(
     is_waitlist = bool(is_full)
 
     payment_method = data.payment_method or "FREE"
-    is_free = float(activity.price or 0) == 0 and form_type not in ("PAID_PRODUCTS", "PAID_PER_PERSON")
-    if is_free or payment_method == "FREE":
+    if total_amount == 0 or payment_method == "FREE":
         payment_status = "FREE"
     elif payment_method in ("CASH", "TRANSFER"):
         payment_status = "PAID"
@@ -369,42 +361,31 @@ def register_for_activity(
         contact_email=data.contact_email,
         contact_phone=data.contact_phone,
         team_name=data.team_name,
-        group_size=data.group_size,
-        age_categories=data.age_categories,
+        group_size=participant_count,
         remarks=data.remarks,
         payment_method=payment_method,
         payment_status=payment_status,
-        sub_registration_id=data.sub_registration_id,
+        total_amount=total_amount,
     )
     db.add(registration)
     db.flush()
 
-    products_total = Decimal("0.00")
     for item_data in data.items:
+        if item_data.quantity <= 0:
+            continue
         sub = db.query(ActivitySubRegistration).filter(
             ActivitySubRegistration.id == item_data.sub_registration_id
         ).first()
-        if sub:
-            unit_price = sub.price or Decimal("0.00")
-            reg_item = RegistrationItem(
-                registration_id=registration.id,
-                sub_registration_id=item_data.sub_registration_id,
-                quantity=item_data.quantity,
-                unit_price=unit_price,
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
-            )
-            db.add(reg_item)
-            products_total += item_data.quantity * unit_price
-
-    if form_type == "PAID_PRODUCTS":
-        total_amount = products_total
-    elif form_type == "PAID_PER_PERSON":
-        unit_price = (active_sub.price if active_sub and active_sub.price else None) or activity.price or Decimal("0.00")
-        total_amount = (data.group_size or 1) * unit_price
-    else:
-        total_amount = Decimal("0.00")
-    registration.total_amount = total_amount
+        unit_price = Decimal("0.00") if (not sub or sub.is_free) else (sub.price or Decimal("0.00"))
+        reg_item = RegistrationItem(
+            registration_id=registration.id,
+            sub_registration_id=item_data.sub_registration_id,
+            quantity=item_data.quantity,
+            unit_price=unit_price,
+            created_at=datetime.utcnow(),
+            updated_at=datetime.utcnow(),
+        )
+        db.add(reg_item)
 
     checkout_url = None
     if payment_method == "MOLLIE" and total_amount > 0:
