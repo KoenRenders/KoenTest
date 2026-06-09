@@ -67,6 +67,7 @@ export const submitIdea = (data: unknown) => api.post("/api/v1/ideas", data);
 export const markIdeaReviewed = (id: number) => api.put(`/api/v1/ideas/${id}`);
 
 // CMS
+export const getGenderCodes = () => api.get<{ code: string; value: string }[]>("/api/v1/gender-codes");
 export const getPages = () => api.get("/api/v1/pages");
 export const getPage = (slug: string) => api.get(`/api/v1/pages/${slug}`);
 export const getBlock = (slug: string) => api.get(`/api/v1/blocks/${slug}`);
