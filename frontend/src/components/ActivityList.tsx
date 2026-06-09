@@ -71,18 +71,18 @@ function ComponentRow({
             Extern inschrijven ↗
           </a>
         )}
-        <button onClick={toggle} className="text-xs text-blue-600 hover:underline">
-          {loading ? "…" : open ? "Verberg" : "Wie doet er mee?"}
-        </button>
         {canRegister && onRegister && (
           <button
-            className="btn-primary btn-sm whitespace-nowrap"
+            className="text-xs text-blue-600 hover:underline disabled:opacity-40"
             onClick={() => onRegister(component)}
             disabled={activityStatus === "Vol"}
           >
             {activityStatus === "Vol" ? "Vol" : "Inschrijven"}
           </button>
         )}
+        <button onClick={toggle} className="text-xs text-blue-600 hover:underline">
+          {loading ? "…" : open ? "Verberg" : "Wie doet er mee?"}
+        </button>
       </div>
 
       {component.external_registrations_url && (
