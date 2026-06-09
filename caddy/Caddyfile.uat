@@ -1,0 +1,9 @@
+# UAT — geen SSL, bereikbaar via IP op poort 8080
+:8080 {
+    handle /api/* {
+        reverse_proxy backend:8000
+    }
+    handle {
+        reverse_proxy frontend:3000
+    }
+}

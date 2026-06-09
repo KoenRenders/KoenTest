@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from decimal import Decimal
 from typing import Optional, List
 from pydantic import BaseModel
 
@@ -94,3 +95,93 @@ class MembershipResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+RELATION_TYPES = ["hoofdlid", "partner", "(meerderjarig) kind"]
+
+
+class FamilyMemberResponse(BaseModel):
+    id: int
+    last_name: str
+    first_name: str
+    date_of_birth: Optional[date] = None
+    gender: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    relation_type: str
+
+
+class PersonListItem(BaseModel):
+    id: int
+    last_name: str
+    first_name: str
+
+    model_config = {"from_attributes": True}
+
+
+class FamilyResponse(BaseModel):
+    id: int
+    street: str
+    house_number: str
+    bus_number: Optional[str] = None
+    postal_code: str
+    municipality: str
+    members: List[FamilyMemberResponse]
+    memberships: List[MembershipResponse] = []
+    board_member: Optional[PersonListItem] = None
+
+
+class AddressUpdate(BaseModel):
+    street: Optional[str] = None
+    house_number: Optional[str] = None
+    bus_number: Optional[str] = None
+    postal_code: Optional[str] = None
+
+
+class ContactsUpdate(BaseModel):
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    mobile: Optional[str] = None
+
+
+class PersonAddToFamily(BaseModel):
+    last_name: str
+    first_name: str
+    date_of_birth: Optional[date] = None
+    gender_code: Optional[str] = None
+    email: Optional[str] = None
+    phone: Optional[str] = None
+    mobile: Optional[str] = None
+    relation_type: str = "partner"
+
+
+class BoardMemberAssign(BaseModel):
+    person_id: Optional[int] = None
+
+
+class FamilyRegisteredResponse(BaseModel):
+    id: int
+    status: str
+    checkout_url: Optional[str] = None
+    amount: Optional[Decimal] = None
+
+
+class PostalCodeResponse(BaseModel):
+    postal_code: str
+    municipality: str
+
+
+class PaginatedFamiliesResponse(BaseModel):
+    items: List[FamilyResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int
+
+
+class PaginatedMembersResponse(BaseModel):
+    items: List[MemberResponse]
+    total: int
+    page: int
+    page_size: int
+    total_pages: int

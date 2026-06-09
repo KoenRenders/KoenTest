@@ -20,9 +20,9 @@ export default function IdeaBox() {
 
   return (
     <section className="card">
-      <h2 className="text-xl font-bold mb-2 text-blue-800">💡 Ideeënbus</h2>
+      <h2 className="text-xl font-bold mb-2 text-blue-800">Contacteer ons</h2>
       <p className="text-gray-600 mb-4 text-sm">
-        Heb je een idee voor een activiteit of suggestie voor de vereniging? Laat het ons weten!
+        Heb je een vraag, idee of suggestie? Laat het ons weten!
       </p>
       {status === "success" ? (
         <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-green-800">

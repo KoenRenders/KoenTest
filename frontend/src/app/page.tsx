@@ -1,28 +1,38 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getActivities } from "@/lib/api";
+import { getActivities, getBlock } from "@/lib/api";
 import ActivityList from "@/components/ActivityList";
 import RegistrationForm from "@/components/RegistrationForm";
 import IdeaBox from "@/components/IdeaBox";
 import FamilyRegistrationForm from "@/components/FamilyRegistrationForm";
-import type { Activity } from "@/lib/types";
+import type { Activity, CmsPage } from "@/lib/types";
 
 export default function HomePage() {
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
   const [selected, setSelected] = useState<Activity | null>(null);
+  const [selectedSub, setSelectedSub] = useState<import("@/lib/types").SubRegistration | undefined>(undefined);
   const [registered, setRegistered] = useState(false);
   const [showRegForm, setShowRegForm] = useState(false);
+  const [showContact, setShowContact] = useState(false);
+  const [introPage, setIntroPage] = useState<CmsPage | null>(null);
 
   useEffect(() => {
     getActivities()
       .then((r) => setActivities(r.data))
       .catch(() => {})
       .finally(() => setLoading(false));
+    getBlock("home-intro").then((r) => setIntroPage(r.data)).catch(() => {});
   }, []);
+
+  function handleSubRegister(activity: Activity, sub: import("@/lib/types").SubRegistration) {
+    setSelected(activity);
+    setSelectedSub(sub);
+  }
 
   function handleRegistered() {
     setSelected(null);
+    setSelectedSub(undefined);
     setRegistered(true);
     setTimeout(() => setRegistered(false), 5000);
     getActivities().then((r) => setActivities(r.data)).catch(() => {});
@@ -31,14 +41,21 @@ export default function HomePage() {
   return (
     <div className="space-y-12">
       {/* Hero */}
-      <section className="text-center py-8">
-        <h1 className="text-4xl font-extrabold text-blue-800 mb-3">Raak Millegem</h1>
-        <p className="text-gray-600 text-lg mb-6">
-          KWB-afdeling Millegem — activiteiten, nieuws en meer voor onze leden.
-        </p>
-        <button className="btn-primary" onClick={() => setShowRegForm((s) => !s)}>
-          {showRegForm ? "Sluit registratie" : "Word lid"}
-        </button>
+      <section className="py-8">
+        {introPage?.content && (
+          <div
+            className="cms-content mb-6 text-gray-700"
+            dangerouslySetInnerHTML={{ __html: introPage.content }}
+          />
+        )}
+        <div className="flex flex-wrap gap-3">
+          <button className="btn-primary" onClick={() => { setShowRegForm((s) => !s); setShowContact(false); }}>
+            {showRegForm ? "Sluit registratie" : "Word lid"}
+          </button>
+          <button className="btn-primary" onClick={() => { setShowContact((s) => !s); setShowRegForm(false); }}>
+            {showContact ? "Sluit" : "Contacteer ons"}
+          </button>
+        </div>
       </section>
 
       {/* Lid worden */}
@@ -46,6 +63,13 @@ export default function HomePage() {
         <section className="card">
           <h2 className="text-2xl font-bold mb-6 text-blue-800">Lid worden</h2>
           <FamilyRegistrationForm />
+        </section>
+      )}
+
+      {/* Contacteer ons */}
+      {showContact && (
+        <section>
+          <IdeaBox />
         </section>
       )}
 
@@ -60,18 +84,16 @@ export default function HomePage() {
         {loading ? (
           <p className="text-gray-500">Activiteiten laden…</p>
         ) : (
-          <ActivityList activities={activities} onRegister={setSelected} showRegister yearsAscending />
+          <ActivityList activities={activities} onRegister={setSelected} onSubRegister={handleSubRegister} showRegister yearsAscending />
         )}
       </section>
-
-      {/* Ideeënbus */}
-      <IdeaBox />
 
       {/* Registratie modal */}
       {selected && (
         <RegistrationForm
           activity={selected}
-          onClose={() => setSelected(null)}
+          subRegistration={selectedSub}
+          onClose={() => { setSelected(null); setSelectedSub(undefined); }}
           onSuccess={handleRegistered}
         />
       )}

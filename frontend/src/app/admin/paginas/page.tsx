@@ -1,9 +1,70 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getPages, createPage, updatePage, deletePage } from "@/lib/api";
+import { useEditor, EditorContent } from "@tiptap/react";
+import StarterKit from "@tiptap/starter-kit";
+import Link from "@tiptap/extension-link";
+import { getAllPages, createPage, updatePage, deletePage } from "@/lib/api";
 import type { CmsPage } from "@/lib/types";
 
 const emptyPage = () => ({ title: "", slug: "", content: "", is_published: false, sort_order: 0 });
+
+function MenuBar({ editor }: { editor: ReturnType<typeof useEditor> }) {
+  if (!editor) return null;
+  const btn = (active: boolean) =>
+    `px-2 py-1 rounded text-sm border transition-colors ${active ? "bg-blue-700 text-white border-blue-700" : "bg-white border-gray-300 hover:bg-gray-100"}`;
+  return (
+    <div className="flex flex-wrap gap-1 border border-gray-300 border-b-0 rounded-t-lg bg-gray-50 px-2 py-2">
+      <button type="button" className={btn(editor.isActive("bold"))} onClick={() => editor.chain().focus().toggleBold().run()}>V</button>
+      <button type="button" className={btn(editor.isActive("italic"))} onClick={() => editor.chain().focus().toggleItalic().run()}>S</button>
+      <button type="button" className={btn(editor.isActive("heading", { level: 2 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()}>H2</button>
+      <button type="button" className={btn(editor.isActive("heading", { level: 3 }))} onClick={() => editor.chain().focus().toggleHeading({ level: 3 }).run()}>H3</button>
+      <button type="button" className={btn(editor.isActive("bulletList"))} onClick={() => editor.chain().focus().toggleBulletList().run()}>• lijst</button>
+      <button type="button" className={btn(editor.isActive("orderedList"))} onClick={() => editor.chain().focus().toggleOrderedList().run()}>1. lijst</button>
+      <button type="button" className={btn(editor.isActive("blockquote"))} onClick={() => editor.chain().focus().toggleBlockquote().run()}>❝</button>
+      <button type="button" className={btn(false)} onClick={() => editor.chain().focus().setHorizontalRule().run()}>—</button>
+      <button
+        type="button"
+        className={btn(editor.isActive("link"))}
+        onClick={() => {
+          if (editor.isActive("link")) { editor.chain().focus().unsetLink().run(); return; }
+          const url = window.prompt("URL:");
+          if (url) editor.chain().focus().setLink({ href: url }).run();
+        }}
+      >
+        🔗
+      </button>
+      <button type="button" className={btn(false)} onClick={() => editor.chain().focus().undo().run()}>↩</button>
+      <button type="button" className={btn(false)} onClick={() => editor.chain().focus().redo().run()}>↪</button>
+    </div>
+  );
+}
+
+function RichEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Link.configure({ openOnClick: false }),
+    ],
+    content: value,
+    onUpdate: ({ editor }) => onChange(editor.getHTML()),
+  });
+
+  useEffect(() => {
+    if (editor && value !== editor.getHTML()) {
+      editor.commands.setContent(value, false);
+    }
+  }, [value, editor]);
+
+  return (
+    <div>
+      <MenuBar editor={editor} />
+      <EditorContent
+        editor={editor}
+        className="border border-gray-300 rounded-b-lg bg-white min-h-[300px] px-4 py-3 focus-within:ring-2 focus-within:ring-blue-500 cms-editor"
+      />
+    </div>
+  );
+}
 
 export default function AdminPaginas() {
   const [pages, setPages] = useState<CmsPage[]>([]);
@@ -12,8 +73,7 @@ export default function AdminPaginas() {
   const [showForm, setShowForm] = useState(false);
 
   function load() {
-    // Fetch all pages including unpublished (we need admin endpoint but use public for now)
-    getPages().then((r) => setPages(r.data)).catch(() => {});
+    getAllPages().then((r) => setPages(r.data)).catch(() => {});
   }
 
   useEffect(() => { load(); }, []);
@@ -74,16 +134,12 @@ export default function AdminPaginas() {
                 <label htmlFor="published">Gepubliceerd</label>
               </div>
             </div>
+
             <div>
-              <label className="label">Inhoud (HTML/rich text)</label>
-              <textarea
-                className="input font-mono text-sm min-h-[300px]"
-                value={form.content}
-                onChange={(e) => setForm((f) => ({ ...f, content: e.target.value }))}
-                placeholder="<p>Tekst hier…</p>"
-              />
-              <p className="text-xs text-gray-500 mt-1">HTML wordt ondersteund. Toekomstige versie: WYSIWYG editor (TipTap).</p>
+              <label className="label">Inhoud</label>
+              <RichEditor value={form.content} onChange={(html) => setForm((f) => ({ ...f, content: html }))} />
             </div>
+
             <div className="flex gap-3">
               <button type="submit" className="btn-primary">Opslaan</button>
               <button type="button" className="btn-secondary" onClick={() => { setShowForm(false); setEditing(null); }}>Annuleren</button>
