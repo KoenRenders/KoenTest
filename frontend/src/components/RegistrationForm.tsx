@@ -61,10 +61,11 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
 
       await registerForActivity(activity.id, {
         contact_name: contactName,
-        contact_email: email || undefined,
+        contact_email: email,
         phone: phone || undefined,
         team_name: teamName || undefined,
         payment_method: hasPaidItems ? paymentMethod : undefined,
+        component_id: component.id,
         items,
       });
       onSuccess();

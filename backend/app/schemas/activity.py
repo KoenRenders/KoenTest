@@ -121,6 +121,7 @@ class RegistrationCreate(BaseModel):
     phone: Optional[str] = None
     team_name: Optional[str] = None
     payment_method: Optional[str] = None
+    component_id: Optional[int] = None
     items: List[RegistrationItemCreate] = []
 
 
@@ -136,6 +137,7 @@ class RegistrationItemResponse(BaseModel):
 class RegistrationResponse(BaseModel):
     id: int
     activity_id: int
+    component_id: Optional[int] = None
     person_id: Optional[int] = None
     is_waitlist: bool
     registered_at: datetime
