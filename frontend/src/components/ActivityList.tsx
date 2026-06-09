@@ -85,30 +85,12 @@ function ComponentRow({
         )}
       </div>
 
-      {/* Product list (prices) */}
-      {hasProducts && (
-        <div className="pl-3 border-l-2 border-blue-100 mt-1 space-y-0.5">
-          {component.products.map((p) => (
-            <div key={p.id} className="text-sm flex items-center gap-2">
-              <span className="font-medium text-gray-700">{p.name}</span>
-              {p.is_free ? (
-                <span className="text-xs text-green-600">gratis</span>
-              ) : (
-                <span className="text-xs text-gray-500">
-                  €{parseFloat(p.price).toFixed(2)}
-                  {p.member_price && parseFloat(p.member_price) > 0
-                    ? ` / leden €${parseFloat(p.member_price).toFixed(2)}`
-                    : ""}
-                </span>
-              )}
-            </div>
-          ))}
-          {component.external_registrations_url && (
-            <a href={component.external_registrations_url} target="_blank" rel="noopener noreferrer"
-              className="text-xs text-blue-600 hover:underline">
-              Bekijk inschrijvingen ↗
-            </a>
-          )}
+      {component.external_registrations_url && (
+        <div className="pl-3 mt-1">
+          <a href={component.external_registrations_url} target="_blank" rel="noopener noreferrer"
+            className="text-xs text-blue-600 hover:underline">
+            Bekijk inschrijvingen ↗
+          </a>
         </div>
       )}
 
