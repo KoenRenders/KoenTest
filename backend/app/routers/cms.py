@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_admin
 from app.database import get_db
 from app.models.cms import CmsPage
-from app.models.codes import GenderCode, RoleCode
+from app.models.codes import GenderCode, RelationTypeCode
 from app.models.user import User
 from app.schemas.cms import CmsPageCreate, CmsPageUpdate, CmsPageResponse
 
@@ -27,12 +27,12 @@ def list_gender_codes(db: Session = Depends(get_db)):
 @router.get("/relation-types")
 def list_relation_types(db: Session = Depends(get_db)):
     rows = (
-        db.query(RoleCode)
-        .filter(RoleCode.language == "nl", RoleCode.code.in_(["HOOFDLID", "PARTNER", "KIND"]))
-        .order_by(RoleCode.code)
+        db.query(RelationTypeCode)
+        .filter(RelationTypeCode.language == "nl")
+        .order_by(RelationTypeCode.code)
         .all()
     )
-    return [{"code": r.value.lower(), "value": r.value} for r in rows]
+    return [{"code": r.code, "value": r.value} for r in rows]
 
 
 @router.get("/pages", response_model=List[CmsPageResponse])

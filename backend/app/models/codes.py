@@ -38,6 +38,15 @@ class RegistrationTypeCode(Base):
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
+class RelationTypeCode(Base):
+    __tablename__ = "relation_type_codes"
+    code = Column(String(10), primary_key=True)
+    language = Column(String(5), primary_key=True)
+    value = Column(String(100), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+
 class PaymentStatusCode(Base):
     __tablename__ = "payment_status_codes"
     code = Column(String(10), primary_key=True)

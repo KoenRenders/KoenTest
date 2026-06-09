@@ -1,4 +1,4 @@
-from app.models.codes import GenderCode, ContactTypeCode, RoleCode, RegistrationTypeCode, PaymentStatusCode
+from app.models.codes import GenderCode, ContactTypeCode, RoleCode, RegistrationTypeCode, PaymentStatusCode, RelationTypeCode
 from app.models.postal_codes import PostalCode
 from app.models.member import Member, Person, MemberPerson, Membership
 from app.models.address import Address
