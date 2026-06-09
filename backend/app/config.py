@@ -8,9 +8,11 @@ class Settings(BaseSettings):
     algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24  # 24 hours
 
+    debug: bool = False
+
     gmail_user: Optional[str] = None
     gmail_app_password: Optional[str] = None
-    gmail_from: Optional[str] = None  # if set, used as From address (e.g. raakmillegem@gmail.com)
+    gmail_from: Optional[str] = None
 
     mollie_api_key: Optional[str] = None
     frontend_url: str = "http://localhost:3000"

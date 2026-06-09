@@ -1,3 +1,4 @@
+import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
@@ -12,6 +13,8 @@ from app.schemas.auth import MagicLinkRequest, TokenResponse, UserResponse
 from app.services.email import send_magic_link
 from app.config import settings
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(tags=["auth"])
 
 MAGIC_LINK_EXPIRE_MINUTES = 15
@@ -21,7 +24,6 @@ MAGIC_LINK_EXPIRE_MINUTES = 15
 def request_login(body: MagicLinkRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email, User.is_active == True).first()
     if not user:
-        # Geef geen foutmelding terug — security by obscurity
         return {"detail": "Als dit e-mailadres gekend is, ontvang je een inloglink."}
 
     token = secrets.token_urlsafe(64)
@@ -31,6 +33,10 @@ def request_login(body: MagicLinkRequest, db: Session = Depends(get_db)):
     db.commit()
 
     magic_link = f"{settings.frontend_url}/admin/login/verify?token={token}"
+
+    if settings.debug:
+        logger.warning("[DEBUG] Magic link for %s: %s", user.email, magic_link)
+
     send_magic_link(to_email=user.email, magic_link=magic_link)
 
     return {"detail": "Als dit e-mailadres gekend is, ontvang je een inloglink."}
