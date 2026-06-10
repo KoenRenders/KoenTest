@@ -109,6 +109,42 @@ export default function FamilyRegistrationForm() {
     );
   }
 
+  const memberFields = (i: number, member: MemberForm) => (
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>
+        <label className="label">Voornaam *</label>
+        <input className="input" required value={member.first_name} onChange={(e) => updateMember(i, "first_name", e.target.value)} />
+      </div>
+      <div>
+        <label className="label">Achternaam *</label>
+        <input className="input" required value={member.last_name} onChange={(e) => updateMember(i, "last_name", e.target.value)} />
+      </div>
+      <div>
+        <label className="label">Geslacht</label>
+        <select className="input" value={member.gender} onChange={(e) => updateMember(i, "gender", e.target.value)}>
+          <option value="">— Kies —</option>
+          {genderCodes.map((g) => <option key={g.code} value={g.code}>{g.value}</option>)}
+        </select>
+      </div>
+      <div>
+        <label className="label">Geboortedatum</label>
+        <input type="date" className="input" value={member.date_of_birth} onChange={(e) => updateMember(i, "date_of_birth", e.target.value)} />
+      </div>
+      <div>
+        <label className="label">E-mailadres</label>
+        <input type="email" className="input" value={member.email} onChange={(e) => updateMember(i, "email", e.target.value)} />
+      </div>
+      <div>
+        <label className="label">Mobiel nummer</label>
+        <input type="tel" className="input" value={member.mobile} onChange={(e) => updateMember(i, "mobile", e.target.value)} />
+      </div>
+      <div>
+        <label className="label">Telefoon</label>
+        <input type="tel" className="input" value={member.phone} onChange={(e) => updateMember(i, "phone", e.target.value)} />
+      </div>
+    </div>
+  );
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
 
@@ -116,39 +152,7 @@ export default function FamilyRegistrationForm() {
       <div>
         <h3 className="font-semibold text-lg mb-3 text-blue-800">Hoofdgezinslid</h3>
         <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label className="label">Voornaam *</label>
-              <input className="input" required value={members[0].first_name} onChange={(e) => updateMember(0, "first_name", e.target.value)} />
-            </div>
-            <div>
-              <label className="label">Achternaam *</label>
-              <input className="input" required value={members[0].last_name} onChange={(e) => updateMember(0, "last_name", e.target.value)} />
-            </div>
-            <div>
-              <label className="label">Geslacht</label>
-              <select className="input" value={members[0].gender} onChange={(e) => updateMember(0, "gender", e.target.value)}>
-                <option value="">— Kies —</option>
-                {genderCodes.map((g) => <option key={g.code} value={g.code}>{g.value}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="label">Geboortedatum</label>
-              <input type="date" className="input" value={members[0].date_of_birth} onChange={(e) => updateMember(0, "date_of_birth", e.target.value)} />
-            </div>
-            <div>
-              <label className="label">E-mailadres</label>
-              <input type="email" className="input" value={members[0].email} onChange={(e) => updateMember(0, "email", e.target.value)} />
-            </div>
-            <div>
-              <label className="label">Telefoon</label>
-              <input type="tel" className="input" value={members[0].phone} onChange={(e) => updateMember(0, "phone", e.target.value)} />
-            </div>
-            <div>
-              <label className="label">Gsm</label>
-              <input type="tel" className="input" value={members[0].mobile} onChange={(e) => updateMember(0, "mobile", e.target.value)} />
-            </div>
-          </div>
+          {memberFields(0, members[0])}
         </div>
       </div>
 
@@ -202,51 +206,21 @@ export default function FamilyRegistrationForm() {
           <div className="space-y-4">
             {members.slice(1).map((member, i) => (
               <div key={i + 1} className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-medium text-sm text-gray-700">Gezinslid {i + 2}</span>
-                  <button type="button" onClick={() => setMembers((ms) => ms.filter((_, idx) => idx !== i + 1))} className="text-red-600 text-sm hover:underline">
+                <div className="flex items-center gap-3 justify-between mb-3">
+                  <select
+                    className="input flex-1 max-w-xs font-medium text-sm"
+                    value={member.relation_type}
+                    onChange={(e) => updateMember(i + 1, "relation_type", e.target.value)}
+                  >
+                    {relationTypes.filter((t) => t.code !== "HOOFDLID").map((t) => (
+                      <option key={t.code} value={t.code}>{t.value}</option>
+                    ))}
+                  </select>
+                  <button type="button" onClick={() => setMembers((ms) => ms.filter((_, idx) => idx !== i + 1))} className="text-red-600 text-sm hover:underline whitespace-nowrap">
                     Verwijderen
                   </button>
                 </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <label className="label">Voornaam *</label>
-                    <input className="input" required value={member.first_name} onChange={(e) => updateMember(i + 1, "first_name", e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="label">Achternaam *</label>
-                    <input className="input" required value={member.last_name} onChange={(e) => updateMember(i + 1, "last_name", e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="label">Relatie</label>
-                    <select className="input" value={member.relation_type} onChange={(e) => updateMember(i + 1, "relation_type", e.target.value)}>
-                      {relationTypes.filter((t) => t.code !== "HOOFDLID").map((t) => <option key={t.code} value={t.code}>{t.value}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label">Geslacht</label>
-                    <select className="input" value={member.gender} onChange={(e) => updateMember(i + 1, "gender", e.target.value)}>
-                      <option value="">— Kies —</option>
-                      {genderCodes.map((g) => <option key={g.code} value={g.code}>{g.value}</option>)}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="label">Geboortedatum</label>
-                    <input type="date" className="input" value={member.date_of_birth} onChange={(e) => updateMember(i + 1, "date_of_birth", e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="label">E-mailadres</label>
-                    <input type="email" className="input" value={member.email} onChange={(e) => updateMember(i + 1, "email", e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="label">Telefoon</label>
-                    <input type="tel" className="input" value={member.phone} onChange={(e) => updateMember(i + 1, "phone", e.target.value)} />
-                  </div>
-                  <div>
-                    <label className="label">Gsm</label>
-                    <input type="tel" className="input" value={member.mobile} onChange={(e) => updateMember(i + 1, "mobile", e.target.value)} />
-                  </div>
-                </div>
+                {memberFields(i + 1, member)}
               </div>
             ))}
           </div>
@@ -262,9 +236,8 @@ export default function FamilyRegistrationForm() {
         <h3 className="font-semibold text-lg mb-3 text-blue-800">Betaling</h3>
         <div className="space-y-2">
           {[
-            { value: "online", label: "Online betalen via Mollie" },
+            { value: "online", label: "Online betalen" },
             { value: "transfer", label: "Overschrijving" },
-            { value: "cash", label: "Cash betalen bij een bestuurslid" },
           ].map(({ value, label }) => (
             <label key={value} className="flex items-center gap-2 cursor-pointer">
               <input type="radio" name="payment_method" value={value}
