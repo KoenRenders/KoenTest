@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import {
   getActivities, getArchivedActivities, createActivity, updateActivity, deleteActivity,
@@ -21,6 +21,15 @@ const emptyComponent = () => ({
 const emptyProduct = () => ({
   name: "", is_free: true, price: "0", member_price: "", max_participants: "", sort_order: 0,
 });
+
+function SearchParamsHandler({ onId }: { onId: (id: number) => void }) {
+  const searchParams = useSearchParams();
+  useEffect(() => {
+    const id = searchParams.get("inschrijvingen");
+    if (id) onId(Number(id));
+  }, [searchParams, onId]);
+  return null;
+}
 
 export default function AdminActiviteiten() {
   const [activities, setActivities] = useState<Activity[]>([]);
@@ -45,7 +54,6 @@ export default function AdminActiviteiten() {
   interface Reg { id: number; component_id?: number; contact_name?: string; contact_email?: string; phone?: string; team_name?: string; payment_method?: string; items: RegItem[]; }
   const [registrations, setRegistrations] = useState<{ [id: number]: Reg[] }>({});
   const [viewRegs, setViewRegs] = useState<number | null>(null);
-  const searchParams = useSearchParams();
 
   function load() {
     getActivities().then((r) => setActivities(r.data)).catch(() => {});
@@ -53,11 +61,6 @@ export default function AdminActiviteiten() {
   }
 
   useEffect(() => { load(); }, []);
-
-  useEffect(() => {
-    const id = searchParams.get("inschrijvingen");
-    if (id) setViewRegs(Number(id));
-  }, [searchParams]);
 
   async function handleActivitySubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -204,6 +207,9 @@ export default function AdminActiviteiten() {
 
   return (
     <div>
+      <Suspense fallback={null}>
+        <SearchParamsHandler onId={setViewRegs} />
+      </Suspense>
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-blue-800">Activiteiten</h1>
         <button className="btn-primary btn-sm" onClick={() => { setShowActivityForm(true); setEditingActivity(null); setActivityForm(emptyActivity()); }}>
