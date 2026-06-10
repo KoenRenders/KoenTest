@@ -10,13 +10,20 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
+def _env_prefix() -> str:
+    env = (settings.app_env or "").lower()
+    if env in ("dev", "hdev", "uat"):
+        return f"[{env.upper()}] "
+    return ""
+
+
 def _send(to_email: str, subject: str, body_html: str, cc: Optional[str] = None) -> None:
     if not settings.gmail_user or not settings.gmail_app_password:
         logger.warning("E-mail niet verstuurd (GMAIL_USER of GMAIL_APP_PASSWORD niet ingesteld): %s", subject)
         return
 
     msg = MIMEMultipart("alternative")
-    msg["Subject"] = subject
+    msg["Subject"] = f"{_env_prefix()}{subject}"
     from_address = settings.gmail_from or settings.gmail_user
     msg["From"] = f"Raak Millegem <{from_address}>"
     msg["To"] = to_email
