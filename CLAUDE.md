@@ -13,20 +13,27 @@ The user runs this after every session:
 git pull && sudo docker-compose up --build -d
 ```
 
-All commits, pushes, PR creation and PR merging are done by Claude — the user never does this manually. Always develop on branch `claude/nifty-dirac-dQVvd` and push there.
+All commits and pushes are done by Claude — the user never does this manually. Work directly on `master`. No feature branches, no PRs.
 
-After completing a task, always:
-1. Commit and push to `claude/nifty-dirac-dQVvd`
-2. Create a PR via `mcp__github__create_pull_request` (base: `master`)
-3. Immediately merge it via `mcp__github__merge_pull_request` (squash)
-4. Sync the branch: `git fetch origin && git rebase origin/master && git push -u origin claude/nifty-dirac-dQVvd --force-with-lease`
+After completing a task:
+1. Commit and push directly to `master`
 
 At the start of each session, sync with master:
 ```bash
-git fetch origin
-git rebase origin/master
-git push -u origin claude/nifty-dirac-dQVvd --force-with-lease
+git fetch origin master && git reset --hard origin/master
 ```
+
+## Releases and hotfixes
+
+Tag each release before deploying to production:
+```bash
+git tag v1.x.x && git push origin v1.x.x
+```
+
+For a hotfix on a released version while newer work is in progress:
+1. `git checkout -b hotfix/1.x.x v1.x.x`
+2. Apply fix, commit, tag as `v1.x.x`, push
+3. Merge back into master
 
 ## Docker stack
 
