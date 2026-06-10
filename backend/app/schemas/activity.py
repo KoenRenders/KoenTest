@@ -123,6 +123,7 @@ class RegistrationCreate(BaseModel):
     payment_method: Optional[str] = None
     component_id: Optional[int] = None
     items: List[RegistrationItemCreate] = []
+    remarks: Optional[str] = None
 
 
 class RegistrationItemResponse(BaseModel):
@@ -147,6 +148,7 @@ class RegistrationResponse(BaseModel):
     team_name: Optional[str] = None
     payment_method: Optional[str] = None
     checkout_url: Optional[str] = None
+    remarks: Optional[str] = None
     items: List[RegistrationItemResponse] = []
 
     model_config = {"from_attributes": True}

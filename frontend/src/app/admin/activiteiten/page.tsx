@@ -42,7 +42,7 @@ export default function AdminActiviteiten() {
   const [productForm, setProductForm] = useState(emptyProduct());
 
   interface RegItem { product_id: number; quantity: number; product_name?: string; component_name?: string; }
-  interface Reg { id: number; component_id?: number; contact_name?: string; contact_email?: string; phone?: string; team_name?: string; payment_method?: string; items: RegItem[]; }
+  interface Reg { id: number; component_id?: number; contact_name?: string; contact_email?: string; phone?: string; team_name?: string; payment_method?: string; remarks?: string; items: RegItem[]; }
   const [registrations, setRegistrations] = useState<{ [id: number]: Reg[] }>({});
   const [viewRegs, setViewRegs] = useState<number | null>(null);
 
@@ -307,6 +307,9 @@ export default function AdminActiviteiten() {
                                     <li key={j}>{it.product_name ?? `Product ${it.product_id}`} × {it.quantity}</li>
                                   ))}
                                 </ul>
+                              )}
+                              {r.remarks && (
+                                <p className="mt-1 pl-3 text-xs text-amber-700 italic">💬 {r.remarks}</p>
                               )}
                             </li>
                           );
