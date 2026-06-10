@@ -141,23 +141,6 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
               <div className="bg-blue-50 rounded-lg p-3 text-sm font-medium text-blue-800">
                 Totaal: €{totalAmount.toFixed(2)}
               </div>
-              <div>
-                <label className="label">Betaalwijze *</label>
-                <div className="space-y-2">
-                  {PAYMENT_METHODS.map((m) => (
-                    <label key={m.value} className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="radio"
-                        name="paymentMethod"
-                        value={m.value}
-                        checked={paymentMethod === m.value}
-                        onChange={() => setPaymentMethod(m.value)}
-                      />
-                      <span className="text-sm">{m.label}</span>
-                    </label>
-                  ))}
-                </div>
-              </div>
             </>
           )}
 
@@ -171,6 +154,26 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
               onChange={(e) => setRemarks(e.target.value)}
             />
           </div>
+
+          {hasPaidItems && (
+            <div>
+              <label className="label">Betaalwijze *</label>
+              <div className="space-y-2">
+                {PAYMENT_METHODS.map((m) => (
+                  <label key={m.value} className="flex items-center gap-2 cursor-pointer">
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value={m.value}
+                      checked={paymentMethod === m.value}
+                      onChange={() => setPaymentMethod(m.value)}
+                    />
+                    <span className="text-sm">{m.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           {error && <p className="text-red-600 text-sm">{error}</p>}
 
