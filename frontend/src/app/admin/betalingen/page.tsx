@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import Link from "next/link";
 import { listPaymentRecords, updatePaymentRecord } from "@/lib/api";
 
 interface RegItem {
@@ -51,16 +50,6 @@ const PAYABLE_LABELS: Record<string, string> = {
   registration: "Inschrijving",
   membership: "Lidmaatschap",
 };
-
-function getDetailUrl(r: PaymentRecord): string | null {
-  if (r.payable_type === "registration" && r.activity_id) {
-    return `/admin/activiteiten?inschrijvingen=${r.activity_id}`;
-  }
-  if (r.payable_type === "membership") {
-    return `/admin/leden?lid=${r.payable_id}`;
-  }
-  return null;
-}
 
 export default function BetalingenPage() {
   const [records, setRecords] = useState<PaymentRecord[]>([]);
@@ -170,15 +159,9 @@ export default function BetalingenPage() {
                       {r.contact_name || "—"}
                     </span>
                     <span className="text-gray-400">·</span>
-                    {(() => {
-                      const url = getDetailUrl(r);
-                      const label = r.description || PAYABLE_LABELS[r.payable_type] || r.payable_type;
-                      return url ? (
-                        <Link href={url} className="text-sm text-blue-600 hover:underline">{label}</Link>
-                      ) : (
-                        <span className="text-sm text-gray-600">{label}</span>
-                      );
-                    })()}
+                    <span className="text-sm text-gray-600">
+                      {r.description || PAYABLE_LABELS[r.payable_type] || r.payable_type}
+                    </span>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[r.status] ?? "bg-gray-100 text-gray-600"}`}>
                       {STATUS_LABELS[r.status] ?? r.status}
                     </span>
