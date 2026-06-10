@@ -335,6 +335,7 @@ def _enrich_registration(reg, activity):
         "phone": reg.phone,
         "team_name": reg.team_name,
         "payment_method": getattr(reg, "payment_method", None),
+        "remarks": getattr(reg, "remarks", None),
         "items": items,
     }
 
@@ -412,6 +413,7 @@ def register_for_activity(
         phone=data.phone,
         team_name=data.team_name,
         payment_method=data.payment_method,
+        remarks=data.remarks,
     )
     db.add(registration)
     db.flush()

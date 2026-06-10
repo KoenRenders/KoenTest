@@ -30,6 +30,7 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [teamName, setTeamName] = useState("");
+  const [remarks, setRemarks] = useState("");
   const [quantities, setQuantities] = useState<Record<number, number>>({});
   const [paymentMethod, setPaymentMethod] = useState("ONLINE");
   const [loading, setLoading] = useState(false);
@@ -67,6 +68,7 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
         payment_method: hasPaidItems ? paymentMethod : undefined,
         component_id: component.id,
         items,
+        remarks: remarks || undefined,
       });
       const checkout_url = resp.data?.checkout_url;
       if (checkout_url) {
@@ -158,6 +160,17 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
               </div>
             </>
           )}
+
+          <div>
+            <label className="label">Opmerkingen</label>
+            <textarea
+              className="input"
+              rows={3}
+              placeholder="Eventuele boodschap voor de organisatie…"
+              value={remarks}
+              onChange={(e) => setRemarks(e.target.value)}
+            />
+          </div>
 
           {error && <p className="text-red-600 text-sm">{error}</p>}
 

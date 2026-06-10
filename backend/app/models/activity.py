@@ -39,6 +39,7 @@ class Registration(Base):
     team_name = Column(String(200), nullable=True)
     payment_method = Column(String(20), nullable=True)
     component_id = Column(Integer, ForeignKey("activity_sub_registrations.id", ondelete="SET NULL"), nullable=True)
+    remarks = Column(Text, nullable=True)
 
     activity = relationship("Activity", back_populates="registrations")
     person = relationship("Person", back_populates="registrations")
