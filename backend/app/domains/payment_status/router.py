@@ -42,11 +42,13 @@ def list_all_payment_records(
     for r in records:
         contact_name: Optional[str] = None
         description: Optional[str] = None
+        activity_id: Optional[int] = None
 
         if r.payable_type == "registration":
             reg = db.query(Registration).filter(Registration.id == r.payable_id).first()
             if reg:
                 contact_name = reg.contact_name
+                activity_id = reg.activity_id
                 activity = db.query(Activity).filter(Activity.id == reg.activity_id).first()
                 if activity:
                     description = activity.name
@@ -68,6 +70,7 @@ def list_all_payment_records(
             id=r.id,
             payable_type=r.payable_type,
             payable_id=r.payable_id,
+            activity_id=activity_id,
             amount=r.amount,
             amount_paid=r.amount_paid,
             method=r.method,
