@@ -1,8 +1,7 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Form
 from sqlalchemy.orm import Session
 from app.database import get_db
 from .models import GatewayPayment
-from .schemas import WebhookPayload
 from .service import refresh_payment_status
 from app.domains.payment_status.service import handle_gateway_update
 
@@ -18,10 +17,10 @@ def get_payment(payment_id: str, db: Session = Depends(get_db)):
 
 
 @router.post("/webhooks/mollie", status_code=200)
-def mollie_webhook(payload: WebhookPayload, db: Session = Depends(get_db)):
-    """Mollie calls this when a payment status changes."""
+def mollie_webhook(id: str = Form(...), db: Session = Depends(get_db)):
+    """Mollie calls this when a payment status changes (form-encoded body with 'id')."""
     gp = db.query(GatewayPayment).filter(
-        GatewayPayment.provider_payment_id == payload.id
+        GatewayPayment.provider_payment_id == id
     ).first()
     if not gp:
         return {"status": "ignored"}
