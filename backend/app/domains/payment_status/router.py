@@ -69,7 +69,7 @@ def list_all_payment_records(
                 # get hoofdlid name
                 mp = db.query(MemberPerson).filter(
                     MemberPerson.member_id == member.id,
-                    MemberPerson.relation_type == "hoofdlid",
+                    MemberPerson.relation_type == "HOOFDLID",
                 ).first()
                 if mp:
                     person = db.query(Person).filter(Person.id == mp.person_id).first()
