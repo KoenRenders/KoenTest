@@ -47,7 +47,7 @@ export default function BetalingenPage() {
     status: "",
   });
   const [saving, setSaving] = useState(false);
-  const [filter, setFilter] = useState<"all" | "pending" | "paid">("all");
+  const [filter, setFilter] = useState<"all" | "openstaand" | "pending" | "paid">("all");
 
   async function load() {
     try {
@@ -84,14 +84,20 @@ export default function BetalingenPage() {
     }
   }
 
+  function saldo(r: PaymentRecord) {
+    return parseFloat(r.amount) - (r.amount_paid ? parseFloat(r.amount_paid) : 0);
+  }
+
   const filtered = records.filter((r) => {
     if (filter === "pending") return r.status === "pending";
     if (filter === "paid") return r.status === "paid";
+    if (filter === "openstaand") return saldo(r) > 0.001;
     return true;
   });
 
   const totalExpected = filtered.reduce((s, r) => s + parseFloat(r.amount), 0);
   const totalPaid = filtered.reduce((s, r) => s + (r.amount_paid ? parseFloat(r.amount_paid) : 0), 0);
+  const totalSaldo = totalExpected - totalPaid;
 
   if (loading) return <p className="p-8 text-gray-500">Laden…</p>;
 
@@ -101,7 +107,7 @@ export default function BetalingenPage() {
 
       {/* Filter tabs */}
       <div className="flex gap-2 mb-6">
-        {(["all", "pending", "paid"] as const).map((f) => (
+        {(["all", "openstaand", "pending", "paid"] as const).map((f) => (
           <button
             key={f}
             onClick={() => setFilter(f)}
@@ -111,16 +117,19 @@ export default function BetalingenPage() {
                 : "bg-white text-gray-600 border-gray-300 hover:bg-gray-50"
             }`}
           >
-            {f === "all" ? "Alle" : f === "pending" ? "In afwachting" : "Betaald"}
+            {f === "all" ? "Alle" : f === "openstaand" ? "Openstaand saldo" : f === "pending" ? "In afwachting" : "Betaald"}
           </button>
         ))}
       </div>
 
       {/* Totals */}
-      <div className="flex gap-6 mb-6 text-sm text-gray-600">
+      <div className="flex gap-6 mb-6 text-sm text-gray-600 flex-wrap">
         <span>{filtered.length} betaling{filtered.length !== 1 ? "en" : ""}</span>
         <span>Verwacht: <strong>€{totalExpected.toFixed(2)}</strong></span>
         <span>Ontvangen: <strong>€{totalPaid.toFixed(2)}</strong></span>
+        <span className={totalSaldo > 0.001 ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>
+          Saldo: €{totalSaldo.toFixed(2)}
+        </span>
       </div>
 
       {filtered.length === 0 ? (
@@ -147,6 +156,11 @@ export default function BetalingenPage() {
                     {r.amount_paid && (
                       <span className="text-green-700">Ontvangen: €{parseFloat(r.amount_paid).toFixed(2)}</span>
                     )}
+                    {(() => { const s = saldo(r); return s > 0.001 ? (
+                      <span className="text-red-600 font-medium">Saldo: €{s.toFixed(2)}</span>
+                    ) : s <= 0 && r.amount_paid ? (
+                      <span className="text-green-600 font-medium">Saldo: €0.00</span>
+                    ) : null; })()}
                     {r.paid_at && (
                       <span>Betaald op: {new Date(r.paid_at).toLocaleDateString("nl-BE")}</span>
                     )}
