@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   getActivities, getArchivedActivities, createActivity, updateActivity, deleteActivity,
   getRegistrations, addComponent, updateComponent, deleteComponent,
@@ -44,6 +45,7 @@ export default function AdminActiviteiten() {
   interface Reg { id: number; component_id?: number; contact_name?: string; contact_email?: string; phone?: string; team_name?: string; payment_method?: string; items: RegItem[]; }
   const [registrations, setRegistrations] = useState<{ [id: number]: Reg[] }>({});
   const [viewRegs, setViewRegs] = useState<number | null>(null);
+  const searchParams = useSearchParams();
 
   function load() {
     getActivities().then((r) => setActivities(r.data)).catch(() => {});
@@ -51,6 +53,11 @@ export default function AdminActiviteiten() {
   }
 
   useEffect(() => { load(); }, []);
+
+  useEffect(() => {
+    const id = searchParams.get("inschrijvingen");
+    if (id) setViewRegs(Number(id));
+  }, [searchParams]);
 
   async function handleActivitySubmit(e: React.FormEvent) {
     e.preventDefault();

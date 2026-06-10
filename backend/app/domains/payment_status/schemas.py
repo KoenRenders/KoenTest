@@ -32,6 +32,7 @@ class PaymentRecordResponse(BaseModel):
 class EnrichedPaymentRecord(PaymentRecordResponse):
     description: Optional[str] = None
     contact_name: Optional[str] = None
+    activity_id: Optional[int] = None
 
 
 class PaymentRecordUpdate(BaseModel):
