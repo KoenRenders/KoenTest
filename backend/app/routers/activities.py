@@ -1,8 +1,11 @@
+import logging
 from datetime import date
 from sqlalchemy import or_, and_
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
+
+logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_admin
@@ -23,7 +26,7 @@ from app.schemas.activity import (
     RegistrationCreate,
     RegistrationResponse,
 )
-from app.services.email import send_waitlist_notification
+from app.services.email import send_waitlist_notification, send_activity_registration_confirmation
 from app.config import settings
 from app.domains.payment_status.service import create_payment_record
 
@@ -462,15 +465,22 @@ def register_for_activity(
     db.commit()
     db.refresh(registration)
 
-    if registration.is_waitlist and data.contact_email:
+    if data.contact_email:
         try:
-            send_waitlist_notification(
-                to_email=data.contact_email,
-                name=data.contact_name or "Deelnemer",
-                activity_name=activity.name,
-            )
-        except Exception:
-            pass
+            if registration.is_waitlist:
+                send_waitlist_notification(
+                    to_email=data.contact_email,
+                    name=data.contact_name or "Deelnemer",
+                    activity_name=activity.name,
+                )
+            else:
+                send_activity_registration_confirmation(
+                    to_email=data.contact_email,
+                    name=data.contact_name or "Deelnemer",
+                    activity=activity,
+                )
+        except Exception as e:
+            logger.error("Activiteit bevestigingsmail mislukt naar %s: %s", data.contact_email, e)
 
     result = _enrich_registration(registration, activity)
     result["checkout_url"] = checkout_url

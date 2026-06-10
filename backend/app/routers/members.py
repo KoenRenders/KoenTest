@@ -1,6 +1,9 @@
+import logging
 import time
 from datetime import date
 from typing import List, Optional
+
+logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
@@ -535,8 +538,8 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
                 data=data,
                 pc_municipality=pc.municipality if pc else "",
             )
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("Lidmaatschap bevestigingsmail mislukt naar %s: %s", hoofdlid.email, e)
 
     status = "pending_payment" if data.payment_method == "online" else "registered"
     return FamilyRegisteredResponse(id=member.id, status=status, checkout_url=checkout_url, amount=amount)
