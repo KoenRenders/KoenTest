@@ -10,7 +10,7 @@ from app.config import settings
 logger = logging.getLogger(__name__)
 
 
-def _send(to_email: str, subject: str, body_html: str) -> None:
+def _send(to_email: str, subject: str, body_html: str, cc: Optional[str] = None) -> None:
     if not settings.gmail_user or not settings.gmail_app_password:
         logger.warning("E-mail niet verstuurd (GMAIL_USER of GMAIL_APP_PASSWORD niet ingesteld): %s", subject)
         return
@@ -20,12 +20,15 @@ def _send(to_email: str, subject: str, body_html: str) -> None:
     from_address = settings.gmail_from or settings.gmail_user
     msg["From"] = f"Raak Millegem <{from_address}>"
     msg["To"] = to_email
+    if cc:
+        msg["Cc"] = cc
     msg.attach(MIMEText(body_html, "html"))
 
+    recipients = [to_email] + ([cc] if cc else [])
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as server:
             server.login(settings.gmail_user, settings.gmail_app_password)
-            server.sendmail(settings.gmail_user, to_email, msg.as_string())
+            server.sendmail(settings.gmail_user, recipients, msg.as_string())
     except Exception as exc:
         logger.error("E-mail versturen mislukt naar %s: %s", to_email, exc)
 
@@ -81,6 +84,7 @@ def send_registration_confirmation(to_email: str, name: str, family, data=None, 
     _send(
         to_email=to_email,
         subject="Welkom bij Raak Millegem!",
+        cc=settings.gmail_from or settings.gmail_user or None,
         body_html=f"""
         <p>Beste {escape(name)},</p>
         <p>Je registratie bij Raak Millegem is ontvangen. Welkom!</p>
