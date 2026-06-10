@@ -1,5 +1,5 @@
-# UAT — geen SSL, bereikbaar via IP op poort 8080
-:8080 {
+# UAT — automatische HTTPS via Let's Encrypt
+uat.raakmillegem.be {
     handle /api/* {
         reverse_proxy backend:8000
     }

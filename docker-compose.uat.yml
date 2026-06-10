@@ -22,12 +22,13 @@ services:
     environment:
       DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/raakmillegem_uat
       SECRET_KEY: ${SECRET_KEY:-change-me}
+      DEBUG: ${DEBUG:-false}
       GMAIL_USER: ${GMAIL_USER:-}
       GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-}
       GMAIL_FROM: ${GMAIL_FROM:-}
       MOLLIE_API_KEY: ${MOLLIE_API_KEY:-}
-      FRONTEND_URL: ${FRONTEND_URL:-http://128.140.125.218:8080}
-      PUBLIC_URL: ${PUBLIC_URL:-http://128.140.125.218:8080}
+      FRONTEND_URL: ${FRONTEND_URL:-https://uat.raakmillegem.be}
+      PUBLIC_URL: ${PUBLIC_URL:-https://uat.raakmillegem.be}
       APP_ENV: uat
     depends_on:
       db:
@@ -47,7 +48,9 @@ services:
     image: caddy:2
     restart: unless-stopped
     ports:
-      - "8080:8080"
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
     volumes:
       - ./caddy/Caddyfile.uat:/etc/caddy/Caddyfile:z
       - caddy_uat_data:/data
