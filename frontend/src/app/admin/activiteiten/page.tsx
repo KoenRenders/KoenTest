@@ -6,6 +6,7 @@ import {
   addProduct, updateProduct, deleteProduct,
 } from "@/lib/api";
 import type { Activity, ActivityComponent, ActivityProduct } from "@/lib/types";
+import RegistrationList, { type RegistrationEntry } from "@/components/RegistrationList";
 
 const emptyActivity = () => ({
   name: "", date: "", date_end: "", time: "", location: "",
@@ -44,7 +45,7 @@ export default function AdminActiviteiten() {
   interface RegItem { product_id: number; quantity: number; product_name?: string; component_name?: string; }
   interface Reg { id: number; component_id?: number; contact_name?: string; contact_email?: string; phone?: string; team_name?: string; payment_method?: string; remarks?: string; items: RegItem[]; }
   const [registrations, setRegistrations] = useState<{ [id: number]: Reg[] }>({});
-  const [viewRegs, setViewRegs] = useState<number | null>(null);
+  const [viewRegs, setViewRegs] = useState<{ activityId: number; componentId: number | null } | null>(null);
 
   function load() {
     getActivities().then((r) => setActivities(r.data)).catch(() => {});
@@ -92,10 +93,10 @@ export default function AdminActiviteiten() {
     load();
   }
 
-  async function loadRegistrations(id: number) {
-    const r = await getRegistrations(id);
-    setRegistrations((prev) => ({ ...prev, [id]: r.data }));
-    setViewRegs(id);
+  async function loadRegistrations(activityId: number, componentId: number | null) {
+    const r = await getRegistrations(activityId);
+    setRegistrations((prev) => ({ ...prev, [activityId]: r.data }));
+    setViewRegs({ activityId, componentId });
   }
 
   async function handleComponentSubmit(e: React.FormEvent, activityId: number) {
@@ -248,78 +249,51 @@ export default function AdminActiviteiten() {
       )}
 
       {viewRegs !== null && (() => {
-        const regs = registrations[viewRegs] ?? [];
-        const activity = [...activities, ...archived].find((a) => a.id === viewRegs);
-        // Group registrations by component using component_id from items or directly
-        const byComponent: Record<string, typeof regs> = {};
+        const { activityId, componentId } = viewRegs;
+        const allRegs = registrations[activityId] ?? [];
+        const regs = componentId !== null
+          ? allRegs.filter((r) => r.component_id === componentId)
+          : allRegs;
+        const activity = [...activities, ...archived].find((a) => a.id === activityId);
+        const component = componentId !== null
+          ? activity?.sub_registrations?.find((c) => c.id === componentId)
+          : null;
+
+        // Product totals summary
+        const productTotals: Record<string, number> = {};
         for (const r of regs) {
-          const cname = r.items[0]?.component_name ?? (activity?.sub_registrations?.find((c) => c.id === r.component_id)?.name) ?? "Algemeen";
-          if (!byComponent[cname]) byComponent[cname] = [];
-          byComponent[cname].push(r);
+          for (const it of r.items) {
+            const key = it.product_name ?? `Product ${it.product_id}`;
+            productTotals[key] = (productTotals[key] ?? 0) + it.quantity;
+          }
         }
-        const paymentLabel = (m?: string) => m === "ONLINE" ? "Online" : m === "OVERSCHRIJVING" ? "Overschrijving" : m ?? "";
+        const hasTotals = Object.keys(productTotals).length > 0;
+
+        const entries: RegistrationEntry[] = regs.map((r) => ({
+          contact_name: r.contact_name,
+          contact_email: r.contact_email,
+          phone: r.phone,
+          team_name: r.team_name,
+          payment_method: r.payment_method,
+          remarks: r.remarks,
+          items: r.items.map((it) => ({
+            product_name: it.product_name,
+            quantity: it.quantity,
+          })),
+        }));
+
         return (
           <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-xl max-w-xl w-full p-6 max-h-[85vh] overflow-y-auto">
               <h2 className="font-bold text-lg mb-1">Inschrijvingen</h2>
-              {activity && <p className="text-sm text-gray-500 mb-4">{activity.name}</p>}
-              {regs.length === 0 ? (
-                <p className="text-gray-500 text-sm">Geen inschrijvingen.</p>
-              ) : (
-                <div className="space-y-5">
-                  {Object.entries(byComponent).map(([cname, cRegs]) => {
-                    // Totals per product for this component
-                    const productTotals: Record<string, number> = {};
-                    for (const r of cRegs) {
-                      for (const it of r.items) {
-                        const key = it.product_name ?? `Product ${it.product_id}`;
-                        productTotals[key] = (productTotals[key] ?? 0) + it.quantity;
-                      }
-                    }
-                    const hasProducts = Object.keys(productTotals).length > 0;
-                    return (
-                    <div key={cname}>
-                      <div className="flex items-baseline justify-between border-b pb-1 mb-2">
-                        <h3 className="font-semibold text-sm text-blue-800">{cname}</h3>
-                        <span className="text-xs text-gray-500">
-                          {hasProducts
-                            ? Object.entries(productTotals).map(([pname, qty]) => `${pname}: ${qty}`).join(" · ")
-                            : `${cRegs.length} inschrijving${cRegs.length !== 1 ? "en" : ""}`}
-                        </span>
-                      </div>
-                      <ul className="space-y-2 text-sm">
-                        {cRegs.map((r, i) => {
-                          const compItems = r.items;
-                          return (
-                            <li key={i} className="border-b border-gray-100 pb-2">
-                              <div className="flex items-start justify-between gap-2">
-                                <div>
-                                  <span className="font-medium">{r.contact_name}</span>
-                                  {r.contact_email && <span className="text-gray-400 ml-2 text-xs">{r.contact_email}</span>}
-                                  {r.phone && <span className="text-gray-400 ml-2 text-xs">📱 {r.phone}</span>}
-                                  {r.team_name && <span className="ml-2 text-blue-600 text-xs">🏅 {r.team_name}</span>}
-                                </div>
-                                {r.payment_method && <span className="text-xs text-gray-500 whitespace-nowrap">{paymentLabel(r.payment_method)}</span>}
-                              </div>
-                              {compItems.length > 0 && (
-                                <ul className="mt-1 pl-3 text-xs text-gray-500">
-                                  {compItems.map((it, j) => (
-                                    <li key={j}>{it.product_name ?? `Product ${it.product_id}`} × {it.quantity}</li>
-                                  ))}
-                                </ul>
-                              )}
-                              {r.remarks && (
-                                <p className="mt-1 pl-3 text-xs text-amber-700 italic">💬 {r.remarks}</p>
-                              )}
-                            </li>
-                          );
-                        })}
-                      </ul>
-                    </div>
-                    );
-                  })}
+              <p className="text-sm text-gray-500 mb-1">{activity?.name}</p>
+              {component && <p className="text-sm font-medium text-blue-700 mb-3">{component.name}</p>}
+              {hasTotals && (
+                <div className="text-xs text-gray-500 bg-gray-50 rounded px-3 py-2 mb-3">
+                  {Object.entries(productTotals).map(([name, qty]) => `${name}: ${qty}`).join(" · ")}
                 </div>
               )}
+              <RegistrationList entries={entries} />
               <button className="btn-secondary mt-4" onClick={() => setViewRegs(null)}>Sluiten</button>
             </div>
           </div>
@@ -341,7 +315,9 @@ export default function AdminActiviteiten() {
                 {a.location && <span className="ml-2 text-sm text-gray-400">📍 {a.location}</span>}
               </div>
               <div className="flex gap-2 flex-wrap">
-                <button className="btn-secondary btn-sm" onClick={() => loadRegistrations(a.id)}>Inschrijvingen</button>
+                {(a.sub_registrations?.length ?? 0) === 0 && (
+                  <button className="btn-secondary btn-sm" onClick={() => loadRegistrations(a.id, null)}>Inschrijvingen</button>
+                )}
                 <button className="btn-secondary btn-sm" onClick={() => setExpandedActivity(expandedActivity === a.id ? null : a.id)}>
                   {expandedActivity === a.id ? "Verberg" : "Onderdelen"}
                 </button>
@@ -349,6 +325,20 @@ export default function AdminActiviteiten() {
                 <button className="btn-danger btn-sm" onClick={() => handleDeleteActivity(a.id)}>Verwijderen</button>
               </div>
             </div>
+
+            {(a.sub_registrations?.length ?? 0) > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {a.sub_registrations!.map((comp) => (
+                  <button
+                    key={comp.id}
+                    className="btn-secondary btn-sm text-xs"
+                    onClick={() => loadRegistrations(a.id, comp.id)}
+                  >
+                    {comp.name} – Inschrijvingen
+                  </button>
+                ))}
+              </div>
+            )}
 
             {expandedActivity === a.id && (
               <div className="mt-4 border-t pt-4 space-y-3">

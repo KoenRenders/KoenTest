@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
-import { listPaymentRecords, updatePaymentRecord } from "@/lib/api";
+import { listPaymentRecords, updatePaymentRecord, getRegistrations } from "@/lib/api";
+import RegistrationList, { type RegistrationEntry } from "@/components/RegistrationList";
 
 interface RegItem {
   product_name: string;
@@ -63,6 +64,9 @@ export default function BetalingenPage() {
   const [saving, setSaving] = useState(false);
   const [filter, setFilter] = useState<"all" | "openstaand" | "pending" | "paid">("all");
 
+  // Registration details: record id -> RegistrationEntry | null (null = loading)
+  const [regDetails, setRegDetails] = useState<Record<string, RegistrationEntry | null>>({});
+
   async function load() {
     try {
       const resp = await listPaymentRecords();
@@ -73,6 +77,42 @@ export default function BetalingenPage() {
   }
 
   useEffect(() => { load(); }, []);
+
+  async function loadRegDetails(record: PaymentRecord) {
+    if (!record.activity_id || record.payable_type !== "registration") return;
+    setRegDetails((prev) => ({ ...prev, [record.id]: null }));
+    try {
+      const resp = await getRegistrations(record.activity_id);
+      const reg = resp.data.find((r: { id: number }) => r.id === record.payable_id);
+      if (!reg) {
+        setRegDetails((prev) => { const next = { ...prev }; delete next[record.id]; return next; });
+        return;
+      }
+      const entry: RegistrationEntry = {
+        contact_name: reg.contact_name,
+        contact_email: reg.contact_email,
+        phone: reg.phone,
+        team_name: reg.team_name,
+        payment_method: reg.payment_method,
+        remarks: reg.remarks,
+        items: reg.items.map((it: { product_name?: string; quantity: number }) => ({
+          product_name: it.product_name,
+          quantity: it.quantity,
+        })),
+      };
+      setRegDetails((prev) => ({ ...prev, [record.id]: entry }));
+    } catch {
+      setRegDetails((prev) => { const next = { ...prev }; delete next[record.id]; return next; });
+    }
+  }
+
+  function toggleRegDetails(record: PaymentRecord) {
+    if (record.id in regDetails) {
+      setRegDetails((prev) => { const next = { ...prev }; delete next[record.id]; return next; });
+    } else {
+      loadRegDetails(record);
+    }
+  }
 
   function startEdit(r: PaymentRecord) {
     setEditing(r.id);
@@ -119,7 +159,6 @@ export default function BetalingenPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Betalingen</h1>
 
-      {/* Filter tabs */}
       <div className="flex gap-2 mb-6">
         {(["all", "openstaand", "pending", "paid"] as const).map((f) => (
           <button
@@ -136,7 +175,6 @@ export default function BetalingenPage() {
         ))}
       </div>
 
-      {/* Totals */}
       <div className="flex gap-6 mb-6 text-sm text-gray-600 flex-wrap">
         <span>{filtered.length} betaling{filtered.length !== 1 ? "en" : ""}</span>
         <span>Verwacht: <strong>€{totalExpected.toFixed(2)}</strong></span>
@@ -193,6 +231,27 @@ export default function BetalingenPage() {
                   )}
                   {r.note && (
                     <p className="mt-1 text-sm text-gray-500 italic">{r.note}</p>
+                  )}
+
+                  {/* Registration details (on-demand) */}
+                  {r.payable_type === "registration" && r.activity_id && (
+                    <div className="mt-2">
+                      <button
+                        className="text-xs text-blue-600 hover:underline"
+                        onClick={() => toggleRegDetails(r)}
+                      >
+                        {r.id in regDetails ? "Verberg details" : "Toon inschrijvingsdetails"}
+                      </button>
+                      {r.id in regDetails && (
+                        <div className="mt-2 border-t border-gray-100 pt-2">
+                          {regDetails[r.id] === null ? (
+                            <p className="text-xs text-gray-400">Laden…</p>
+                          ) : (
+                            <RegistrationList entries={[regDetails[r.id]!]} />
+                          )}
+                        </div>
+                      )}
+                    </div>
                   )}
                 </div>
                 {editing !== r.id && (
