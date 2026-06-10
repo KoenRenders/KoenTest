@@ -95,9 +95,10 @@ export default function BetalingenPage() {
         team_name: reg.team_name,
         payment_method: reg.payment_method,
         remarks: reg.remarks,
-        items: reg.items.map((it: { product_name?: string; quantity: number }) => ({
+        items: record.items.map((it) => ({
           product_name: it.product_name,
           quantity: it.quantity,
+          subtotal: it.subtotal,
         })),
       };
       setRegDetails((prev) => ({ ...prev, [record.id]: entry }));
@@ -219,16 +220,6 @@ export default function BetalingenPage() {
                       <span>Betaald op: {new Date(r.paid_at).toLocaleDateString("nl-BE")}</span>
                     )}
                   </div>
-                  {r.items.length > 0 && (
-                    <div className="mt-2 text-xs text-gray-600 border-t border-gray-100 pt-2 space-y-0.5">
-                      {r.items.map((item, i) => (
-                        <div key={i} className="flex justify-between gap-4">
-                          <span>{item.quantity} × {item.product_name}</span>
-                          <span className="tabular-nums">€{item.subtotal.toFixed(2)}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
                   {r.note && (
                     <p className="mt-1 text-sm text-gray-500 italic">{r.note}</p>
                   )}
