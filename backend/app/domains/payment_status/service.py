@@ -66,6 +66,7 @@ def handle_gateway_update(db: Session, gateway_payment_id: str, new_status: str)
         record.status = new_status
         if new_status == "paid" and record.paid_at is None:
             record.paid_at = datetime.utcnow()
+            record.amount_paid = record.amount
 
 
 def confirm_manual_payment(
