@@ -29,6 +29,7 @@ def submit_idea(data: IdeaCreate, db: Session = Depends(get_db)):
             send_idea_acknowledgement(
                 to_email=data.submitter_email,
                 name=data.submitter_name,
+                message=data.content,
             )
         except Exception:
             pass

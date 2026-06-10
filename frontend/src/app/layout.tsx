@@ -12,7 +12,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="nl">
       <body className="font-primary">
         <Navigation />
-        <main className="max-w-5xl mx-auto px-4 py-8">
+        <main className="max-w-7xl mx-auto px-4 py-8">
           {children}
         </main>
         <footer className="mt-16 border-t border-gray-200 py-6 text-center text-sm text-gray-500">

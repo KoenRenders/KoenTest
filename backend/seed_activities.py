@@ -32,11 +32,7 @@ def add_activity(
         time=time,
         location=location or "Millegem",
         poster_url=poster_url,
-        members_only=members_only,
         is_cancelled=is_cancelled,
-        is_archived=is_archived,
-        registration_type_code="INDIVIDUAL",
-        price=0,
         notes=notes,
     )
     db.add(activity)

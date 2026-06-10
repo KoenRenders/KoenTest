@@ -1,13 +1,23 @@
-export interface SubRegistration {
+export interface ActivityProduct {
+  id: number;
+  component_id: number;
+  name: string;
+  price: string;
+  member_price?: string;
+  is_free: boolean;
+  max_participants?: number;
+  sort_order: number;
+}
+
+export interface ActivityComponent {
   id: number;
   name: string;
-  description?: string;
+  team_name_required: boolean;
+  sort_order: number;
   external_register_url?: string;
   external_registrations_url?: string;
   info_url?: string;
-  is_free: boolean;
-  price: string;
-  sort_order: number;
+  products: ActivityProduct[];
 }
 
 export interface Activity {
@@ -17,16 +27,12 @@ export interface Activity {
   date_end?: string;
   time?: string;
   location?: string;
-  max_participants?: number;
-  registration_type: "individual" | "family";
-  price: string;
-  member_price?: string;
   poster_url?: string;
-  is_archived: boolean;
   status?: string;
+  is_cancelled?: boolean;
   registration_count?: number;
   waitlist_count?: number;
-  sub_registrations?: SubRegistration[];
+  sub_registrations?: ActivityComponent[];
 }
 
 export interface Family {
@@ -37,6 +43,8 @@ export interface Family {
   postal_code: string;
   municipality: string;
   members: FamilyMember[];
+  memberships: Membership[];
+  board_member?: { id: number; first_name: string; last_name: string };
 }
 
 export interface FamilyMember {
@@ -46,9 +54,11 @@ export interface FamilyMember {
   first_name: string;
   date_of_birth?: string;
   gender?: string;
+  gender_code?: string;
   email?: string;
   phone?: string;
-  is_primary: boolean;
+  mobile?: string;
+  relation_type: string;
 }
 
 export interface Membership {

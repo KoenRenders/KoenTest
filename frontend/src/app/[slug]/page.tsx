@@ -25,7 +25,7 @@ export default function CmsPageView() {
     <div>
       <h1 className="text-3xl font-bold text-blue-800 mb-8">{page.title}</h1>
       <div
-        className="prose prose-lg max-w-none"
+        className="cms-content"
         dangerouslySetInnerHTML={{ __html: page.content || "" }}
       />
     </div>

@@ -26,7 +26,7 @@ export default function AdminIdeeen() {
 
   return (
     <div>
-      <h1 className="text-2xl font-bold text-blue-800 mb-4">Ideeënbus</h1>
+      <h1 className="text-2xl font-bold text-blue-800 mb-4">Berichten</h1>
       <div className="flex gap-2 mb-4">
         {(["open", "reviewed", "all"] as const).map((f) => (
           <button key={f} className={filter === f ? "btn-primary btn-sm" : "btn-secondary btn-sm"} onClick={() => setFilter(f)}>
@@ -56,7 +56,7 @@ export default function AdminIdeeen() {
             </div>
           </div>
         ))}
-        {filtered.length === 0 && <p className="text-gray-500 text-sm">Geen ideeën in deze categorie.</p>}
+        {filtered.length === 0 && <p className="text-gray-500 text-sm">Geen berichten in deze categorie.</p>}
       </div>
     </div>
   );

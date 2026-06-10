@@ -1,0 +1,68 @@
+services:
+  db:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: raakmillegem
+      POSTGRES_USER: ${DB_USER:-postgres}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+    networks:
+      - internal
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-postgres}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/raakmillegem
+      SECRET_KEY: ${SECRET_KEY:-change-me}
+      GMAIL_USER: ${GMAIL_USER:-}
+      GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-}
+      GMAIL_FROM: ${GMAIL_FROM:-}
+      MOLLIE_API_KEY: ${MOLLIE_API_KEY:-}
+      FRONTEND_URL: ${FRONTEND_URL:-http://128.140.125.218}
+      PUBLIC_URL: ${PUBLIC_URL:-http://128.140.125.218}
+      APP_ENV: prod
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+
+  frontend:
+    build: ./frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    networks:
+      - internal
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile.prod:/etc/caddy/Caddyfile:z
+      - caddy_prod_data:/data
+      - caddy_prod_config:/config
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - internal
+
+volumes:
+  postgres_prod_data:
+  caddy_prod_data:
+  caddy_prod_config:
+
+networks:
+  internal:

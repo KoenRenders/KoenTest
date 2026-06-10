@@ -1,5 +1,5 @@
 from datetime import datetime
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Date, ForeignKey, Text
+from sqlalchemy import Column, Integer, String, DateTime, Date, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
 
@@ -9,12 +9,13 @@ class Member(Base):
     __tablename__ = "members"
 
     id = Column(Integer, primary_key=True, index=True)
+    board_member_id = Column(Integer, ForeignKey("persons.id"), nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
     member_persons = relationship("MemberPerson", back_populates="member", cascade="all, delete-orphan")
     memberships = relationship("Membership", back_populates="member", cascade="all, delete-orphan")
-    orders = relationship("Order", back_populates="member")
+    board_member = relationship("Person", foreign_keys=[board_member_id])
 
 
 class Person(Base):
@@ -43,7 +44,7 @@ class MemberPerson(Base):
     id = Column(Integer, primary_key=True, index=True)
     member_id = Column(Integer, ForeignKey("members.id"), nullable=False)
     person_id = Column(Integer, ForeignKey("persons.id"), nullable=False)
-    is_primary = Column(Boolean, default=False, nullable=False)
+    relation_type = Column(String(10), ForeignKey("relation_type_codes.code"), nullable=False, default="HOOFDLID")
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
