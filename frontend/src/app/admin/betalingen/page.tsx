@@ -3,6 +3,13 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { listPaymentRecords, updatePaymentRecord } from "@/lib/api";
 
+interface RegItem {
+  product_name: string;
+  quantity: number;
+  unit_price: number;
+  subtotal: number;
+}
+
 interface PaymentRecord {
   id: string;
   payable_type: string;
@@ -10,6 +17,7 @@ interface PaymentRecord {
   amount: string;
   amount_paid: string | null;
   activity_id: number | null;
+  items: RegItem[];
   method: string;
   status: string;
   note: string | null;
@@ -190,6 +198,16 @@ export default function BetalingenPage() {
                       <span>Betaald op: {new Date(r.paid_at).toLocaleDateString("nl-BE")}</span>
                     )}
                   </div>
+                  {r.items.length > 0 && (
+                    <div className="mt-2 text-xs text-gray-600 border-t border-gray-100 pt-2 space-y-0.5">
+                      {r.items.map((item, i) => (
+                        <div key={i} className="flex justify-between gap-4">
+                          <span>{item.quantity} × {item.product_name}</span>
+                          <span className="tabular-nums">€{item.subtotal.toFixed(2)}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
                   {r.note && (
                     <p className="mt-1 text-sm text-gray-500 italic">{r.note}</p>
                   )}
