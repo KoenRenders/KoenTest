@@ -43,6 +43,7 @@ def list_all_payment_records(
         contact_name: Optional[str] = None
         description: Optional[str] = None
         activity_id: Optional[int] = None
+        reg_items: list = []
 
         if r.payable_type == "registration":
             reg = db.query(Registration).filter(Registration.id == r.payable_id).first()
@@ -52,6 +53,15 @@ def list_all_payment_records(
                 activity = db.query(Activity).filter(Activity.id == reg.activity_id).first()
                 if activity:
                     description = activity.name
+                    product_map = {p.id: p for comp in activity.sub_registrations for p in comp.products}
+                    for item in reg.items:
+                        p = product_map.get(item.product_id)
+                        reg_items.append({
+                            "product_name": p.name if p else f"product {item.product_id}",
+                            "quantity": item.quantity,
+                            "unit_price": float(p.price) if p else 0,
+                            "subtotal": float(p.price) * item.quantity if p else 0,
+                        })
         elif r.payable_type == "membership":
             member = db.query(Member).filter(Member.id == r.payable_id).first()
             if member:
@@ -71,6 +81,7 @@ def list_all_payment_records(
             payable_type=r.payable_type,
             payable_id=r.payable_id,
             activity_id=activity_id,
+            items=reg_items,
             amount=r.amount,
             amount_paid=r.amount_paid,
             method=r.method,
