@@ -28,6 +28,7 @@ services:
       MOLLIE_API_KEY: ${MOLLIE_API_KEY:-}
       FRONTEND_URL: ${FRONTEND_URL:-http://128.140.125.218:8080}
       PUBLIC_URL: ${PUBLIC_URL:-http://128.140.125.218:8080}
+      APP_ENV: uat
     depends_on:
       db:
         condition: service_healthy

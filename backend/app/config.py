@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     mollie_api_key: Optional[str] = None
     frontend_url: str = "http://localhost:3000"
     public_url: str = "http://localhost:8000"
+    app_env: str = "prod"  # dev, hdev, uat, prod
 
     class Config:
         env_file = ".env"

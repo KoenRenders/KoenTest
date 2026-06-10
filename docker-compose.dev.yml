@@ -30,6 +30,7 @@ services:
       MOLLIE_API_KEY: ${MOLLIE_API_KEY:-}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost}
+      APP_ENV: dev
     depends_on:
       db:
         condition: service_healthy
