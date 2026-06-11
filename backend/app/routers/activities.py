@@ -501,7 +501,7 @@ def register_for_activity(
                 db.rollback()
                 raise HTTPException(
                     status_code=502,
-                    detail="De online betaling kon niet gestart worden. Probeer het later opnieuw.",
+                    detail="De online betaling kon niet gestart worden. Je inschrijving is niet bewaard — probeer ze later opnieuw.",
                 )
 
         # Online betaling zonder checkout-URL is onbruikbaar — niet bewaren.
@@ -509,7 +509,7 @@ def register_for_activity(
             db.rollback()
             raise HTTPException(
                 status_code=502,
-                detail="De online betaling kon niet gestart worden. Probeer het later opnieuw.",
+                detail="De online betaling kon niet gestart worden. Je inschrijving is niet bewaard — probeer ze later opnieuw.",
             )
 
     db.commit()
