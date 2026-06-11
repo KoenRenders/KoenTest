@@ -59,6 +59,7 @@ services:
       DB_NAME: raakmillegem
       BACKUP_PREFIX: prod
       KEEP_DAYS: 7
+      BACKUP_HOUR: "02"
     volumes:
       - ./backups:/backups
       - ./scripts/db-backup.sh:/db-backup.sh:ro

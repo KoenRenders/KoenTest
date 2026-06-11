@@ -3,9 +3,11 @@
 ## Hoe het werkt
 
 De PROD-stack bevat een service `db-backup` (zie `docker-compose.prod.yml`).
-Die draait `scripts/db-backup.sh`: elke 24 uur een `pg_dump` van de database
-`raakmillegem`, gecomprimeerd weggeschreven naar de host-map
-`/opt/raakmillegem/prod/backups/` als `prod-JJJJMMDD-UUMMSS.sql.gz`.
+Die draait `scripts/db-backup.sh`: elke nacht om **02:00 (UTC)** een `pg_dump`
+van de database `raakmillegem`, gecomprimeerd weggeschreven naar de host-map
+`/opt/raakmillegem/prod/backups/` als `prod-JJJJMMDD-UUMMSS.sql.gz`. Het uur is
+instelbaar via `BACKUP_HOUR` in `docker-compose.prod.yml`. 02:00 ligt vóór de
+Restic-run (03:30) en ná de avondactiviteit, zodat de dag volledig is.
 
 Lokaal worden enkel de laatste **7 dagen** bewaard. De lange historie en de
 off-site kopie komen van **Restic**.
