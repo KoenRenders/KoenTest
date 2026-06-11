@@ -17,6 +17,15 @@
 	}
 }
 
+http://hdev.raakmillegem.be {
+	handle /api/* {
+		reverse_proxy hdev-backend:8000
+	}
+	handle {
+		reverse_proxy hdev-frontend:3000
+	}
+}
+
 uat.raakmillegem.be {
 	import security_headers
 	handle /api/* {
