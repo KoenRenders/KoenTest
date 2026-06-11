@@ -17,6 +17,9 @@ LOG_DIR="/var/log/raakmillegem"
 TIMESTAMP="$(date '+%Y-%m-%d_%H-%M-%S')"
 LOG_FILE="${LOG_DIR}/restic_backup_${TIMESTAMP}.log"
 
+# Logmap aanmaken vóór de eerste log-aanroep (anders faalt tee).
+mkdir -p "$LOG_DIR"
+
 # De volledige projectmap back-uppen: code-checkouts (prod/uat/hdev),
 # .env-files en de pg_dump-SQL-dumps. Samen met de SQL-dump (consistente
 # momentopname van de database) geeft dit een volledige, consistente restore.
@@ -60,8 +63,6 @@ require_cmd() {
 ################################
 
 log "==== PRECHECKS ===="
-
-mkdir -p "$LOG_DIR"
 
 require_cmd restic
 require_cmd tee
