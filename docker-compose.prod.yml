@@ -4,8 +4,8 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_DB: raakmillegem
-      POSTGRES_USER: ${DB_USER:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-postgres}
+      POSTGRES_USER: ${DB_USER:?DB_USER ontbreekt in .env.prod}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD ontbreekt in .env.prod}
     volumes:
       - postgres_prod_data:/var/lib/postgresql/data
     networks:
@@ -20,8 +20,8 @@ services:
     build: ./backend
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/raakmillegem
-      SECRET_KEY: ${SECRET_KEY:-change-me}
+      DATABASE_URL: postgresql://${DB_USER:?DB_USER ontbreekt in .env.prod}:${DB_PASSWORD:?DB_PASSWORD ontbreekt in .env.prod}@db:5432/raakmillegem
+      SECRET_KEY: ${SECRET_KEY:?SECRET_KEY ontbreekt in .env.prod}
       DEBUG: ${DEBUG:-false}
       GMAIL_USER: ${GMAIL_USER:-}
       GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-}
