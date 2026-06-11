@@ -5,9 +5,9 @@
 | Omgeving | `.env` bestand | `docker-compose` bestand | Caddyfile | URL |
 |---|---|---|---|---|
 | DEV (lokaal) | `.env.dev` | `docker-compose.dev.yml` | `caddy/Caddyfile.dev` | http://localhost |
-| HDEV (Hetzner) | `.env.hdev` | `docker-compose.hdev.yml` | `caddy/Caddyfile.hdev` | http://128.140.125.218:8081 |
-| UAT (Hetzner) | `.env.uat` | `docker-compose.uat.yml` | `caddy/Caddyfile.uat` | http://128.140.125.218:8080 |
-| PROD (Hetzner) | `.env.prod` | `docker-compose.prod.yml` | `caddy/Caddyfile.prod` | http://128.140.125.218 |
+| HDEV (Hetzner) | `.env.hdev` | `docker-compose.hdev.yml` | `caddy/Caddyfile.hdev` | http://<SERVER_IP>:8081 |
+| UAT (Hetzner) | `.env.uat` | `docker-compose.uat.yml` | `caddy/Caddyfile.uat` | http://<SERVER_IP>:8080 |
+| PROD (Hetzner) | `.env.prod` | `docker-compose.prod.yml` | `caddy/Caddyfile.prod` | http://<SERVER_IP> |
 
 ---
 
@@ -72,7 +72,7 @@ Bereikbaar op http://localhost en http://localhost/admin/login
 ### 1. Server aanmaken
 - Cloud server: Ubuntu 24.04, minimaal CX22 (2 vCPU, 4 GB RAM)
 - SSH-sleutel toevoegen bij aanmaken
-- IP: 128.140.125.218
+- IP: <SERVER_IP>
 
 ### 2. Firewall instellen in Hetzner controlepaneel
 Ga naar je server → **Firewalls** → nieuwe firewall:
@@ -89,7 +89,7 @@ Poort 5432 (PostgreSQL) en 8000 (backend) **niet** openzetten.
 
 ### 3. Server voorbereiden
 ```bash
-ssh -i ~/.ssh/raak-millegem-hetzner root@128.140.125.218
+ssh -i ~/.ssh/raak-millegem-hetzner root@<SERVER_IP>
 apt update && apt upgrade -y
 apt install -y docker.io docker-compose-v2 git
 systemctl enable --now docker
@@ -130,9 +130,9 @@ docker compose -f docker-compose.prod.yml --env-file .env.prod exec backend alem
 ```
 
 ### 7. Inloggen
-- PROD: http://128.140.125.218/admin/login
-- UAT:  http://128.140.125.218:8080/admin/login
-- HDEV: http://128.140.125.218:8081/admin/login
+- PROD: http://<SERVER_IP>/admin/login
+- UAT:  http://<SERVER_IP>:8080/admin/login
+- HDEV: http://<SERVER_IP>:8081/admin/login
 
 Log in met `koen.renders@gmail.com` — je ontvangt een magic link via e-mail.
 
@@ -142,21 +142,21 @@ Log in met `koen.renders@gmail.com` — je ontvangt een magic link via e-mail.
 
 ### HDEV updaten
 ```bash
-ssh -i ~/.ssh/raak-millegem-hetzner root@128.140.125.218
+ssh -i ~/.ssh/raak-millegem-hetzner root@<SERVER_IP>
 cd /opt/raakmillegem/hdev
 ./deploy-hdev.sh
 ```
 
 ### UAT updaten
 ```bash
-ssh -i ~/.ssh/raak-millegem-hetzner root@128.140.125.218
+ssh -i ~/.ssh/raak-millegem-hetzner root@<SERVER_IP>
 cd /opt/raakmillegem/uat
 ./deploy-uat.sh
 ```
 
 ### PROD updaten
 ```bash
-ssh -i ~/.ssh/raak-millegem-hetzner root@128.140.125.218
+ssh -i ~/.ssh/raak-millegem-hetzner root@<SERVER_IP>
 cd /opt/raakmillegem/prod
 ./deploy-prod.sh
 ```
@@ -169,7 +169,7 @@ Dagelijkse pg_dump ophalen naar je pc (uitvoeren vóór je restic-backup):
 
 ```bash
 #!/bin/bash
-ssh -i ~/.ssh/raak-millegem-hetzner root@128.140.125.218 \
+ssh -i ~/.ssh/raak-millegem-hetzner root@<SERVER_IP> \
   "docker exec \$(docker ps -qf name=prod-db-1) pg_dump -U postgres raakmillegem | gzip" \
   > ~/backups/raakmillegem_$(date +%Y%m%d).sql.gz
 ```
@@ -182,7 +182,7 @@ Voeg `~/backups/` toe aan je restic-configuratie zodat de dump automatisch meege
 
 Pas `caddy/Caddyfile.prod` aan:
 ```
-raakmillegem.be {
+<DOMAIN> {
     handle /api/* {
         reverse_proxy backend:8000
     }
@@ -192,4 +192,4 @@ raakmillegem.be {
 }
 ```
 
-En update `FRONTEND_URL` en `PUBLIC_URL` in `.env.prod` naar `https://raakmillegem.be`.
+En update `FRONTEND_URL` en `PUBLIC_URL` in `.env.prod` naar `https://<DOMAIN>`.

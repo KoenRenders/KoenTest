@@ -27,8 +27,8 @@ services:
       GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-}
       GMAIL_FROM: ${GMAIL_FROM:-}
       MOLLIE_API_KEY: ${MOLLIE_API_KEY:-}
-      FRONTEND_URL: ${FRONTEND_URL:-https://prod.raakmillegem.be}
-      PUBLIC_URL: ${PUBLIC_URL:-https://prod.raakmillegem.be}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL ontbreekt in .env.prod}
+      PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL ontbreekt in .env.prod}
       APP_ENV: prod
     depends_on:
       db:

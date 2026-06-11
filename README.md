@@ -44,7 +44,7 @@ docker compose exec backend python seed_products.py
 ```
 
 Default admin credentials (change immediately):
-- **Email:** `admin@raakmillegem.be`
+- **Email:** `admin@your-domain.example`
 - **Password:** `changeme`
 
 ### 4. Access the application

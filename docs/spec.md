@@ -405,8 +405,8 @@ A single **VPS (Virtual Private Server)** is sufficient for Raak Millegem and th
 Internet
     │
   Caddy (port 443, HTTPS)
-    ├── raakmillegem.be      → Next.js (frontend)
-    └── api.raakmillegem.be  → FastAPI (backend)
+    ├── <DOMAIN>      → Next.js (frontend)
+    └── api.<DOMAIN>  → FastAPI (backend)
                                     │
                                PostgreSQL
                           (internal, not public)

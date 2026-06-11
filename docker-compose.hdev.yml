@@ -27,8 +27,8 @@ services:
       GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-}
       GMAIL_FROM: ${GMAIL_FROM:-}
       MOLLIE_API_KEY: ${MOLLIE_API_KEY:-}
-      FRONTEND_URL: ${FRONTEND_URL:-http://128.140.125.218:8081}
-      PUBLIC_URL: ${PUBLIC_URL:-http://128.140.125.218:8081}
+      FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL ontbreekt in .env.hdev}
+      PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL ontbreekt in .env.hdev}
       APP_ENV: hdev
     depends_on:
       db:

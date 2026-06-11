@@ -8,6 +8,7 @@ __pycache__/
 .env.hdev
 .env.uat
 .env.prod
+.env.caddy
 .env.local
 *.egg-info/
 dist/

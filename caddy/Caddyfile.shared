@@ -17,7 +17,8 @@
 	}
 }
 
-uat.raakmillegem.be {
+# Domeinen komen uit .env.caddy (niet in git). Zie .env.caddy.example.
+{$UAT_DOMAIN} {
 	import security_headers
 	handle /api/* {
 		reverse_proxy uat-backend:8000
@@ -27,10 +28,7 @@ uat.raakmillegem.be {
 	}
 }
 
-# PROD — voorlopig enkel via prod.raakmillegem.be bereikbaar.
-# Zodra de DNS van raakmillegem.be + www naar deze server wijst,
-# voeg je ze toe aan de domeinregel hieronder en herlaad je Caddy.
-prod.raakmillegem.be {
+{$PROD_DOMAIN} {
 	import security_headers
 	handle /api/* {
 		reverse_proxy prod-backend:8000
@@ -39,15 +37,3 @@ prod.raakmillegem.be {
 		reverse_proxy prod-frontend:3000
 	}
 }
-
-# Later activeren (na DNS-omschakeling weg van Google Sites):
-#
-# raakmillegem.be, www.raakmillegem.be {
-#	import security_headers
-#	handle /api/* {
-#		reverse_proxy prod-backend:8000
-#	}
-#	handle {
-#		reverse_proxy prod-frontend:3000
-#	}
-# }
