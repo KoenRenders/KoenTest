@@ -1,0 +1,11 @@
+[Unit]
+Description=Dagelijkse Restic-back-up van Raak Millegem PROD
+
+[Timer]
+# Elke nacht om 03:30, na de pg_dump. Persistent: gemiste runs (server uit)
+# worden ingehaald bij de volgende start.
+OnCalendar=*-*-* 03:30:00
+Persistent=true
+
+[Install]
+WantedBy=timers.target

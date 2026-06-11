@@ -1,0 +1,10 @@
+[Unit]
+Description=Restic-back-up van Raak Millegem PROD naar Hetzner Storage Box
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/opt/raakmillegem/prod/scripts/restic-backup.sh
+# Niet eindeloos blijven hangen als de Storage Box onbereikbaar is.
+TimeoutStartSec=3600
