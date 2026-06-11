@@ -1,0 +1,3 @@
+# Back-updumps niet in git — enkel de map behouden.
+*.sql.gz
+*.tmp

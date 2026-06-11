@@ -50,6 +50,25 @@ services:
         aliases:
           - prod-frontend
 
+  db-backup:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${DB_PASSWORD:?DB_PASSWORD ontbreekt in .env.prod}
+      DB_USER: ${DB_USER:?DB_USER ontbreekt in .env.prod}
+      DB_NAME: raakmillegem
+      BACKUP_PREFIX: prod
+      KEEP_DAYS: 7
+    volumes:
+      - ./backups:/backups
+      - ./scripts/db-backup.sh:/db-backup.sh:ro
+    entrypoint: ["bash", "/db-backup.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+
 volumes:
   postgres_prod_data:
 
