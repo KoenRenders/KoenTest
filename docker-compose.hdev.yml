@@ -27,17 +27,14 @@ services:
       GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-}
       GMAIL_FROM: ${GMAIL_FROM:-}
       MOLLIE_API_KEY: ${MOLLIE_API_KEY:-}
-      FRONTEND_URL: ${FRONTEND_URL:-http://hdev.raakmillegem.be}
-      PUBLIC_URL: ${PUBLIC_URL:-http://hdev.raakmillegem.be}
+      FRONTEND_URL: ${FRONTEND_URL:-http://128.140.125.218:8081}
+      PUBLIC_URL: ${PUBLIC_URL:-http://128.140.125.218:8081}
       APP_ENV: hdev
     depends_on:
       db:
         condition: service_healthy
     networks:
-      internal:
-      proxy:
-        aliases:
-          - hdev-backend
+      - internal
 
   frontend:
     build: ./frontend
@@ -45,16 +42,27 @@ services:
     depends_on:
       - backend
     networks:
-      internal:
-      proxy:
-        aliases:
-          - hdev-frontend
+      - internal
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    volumes:
+      - ./caddy/Caddyfile.hdev:/etc/caddy/Caddyfile:z
+      - caddy_hdev_data:/data
+      - caddy_hdev_config:/config
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - internal
 
 volumes:
   postgres_hdev_data:
+  caddy_hdev_data:
+  caddy_hdev_config:
 
 networks:
   internal:
-  proxy:
-    external: true
-    name: raak_proxy
