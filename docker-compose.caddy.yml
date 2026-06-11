@@ -1,0 +1,35 @@
+# Gedeelde Caddy reverse proxy voor alle omgevingen (UAT, PROD, ...).
+# Draait apart van de stacks en verbindt via het externe netwerk 'raak_proxy'.
+#
+# Eenmalig aanmaken vóór de eerste start:
+#   docker network create raak_proxy
+#
+# Starten:
+#   docker compose -f docker-compose.caddy.yml up -d
+#
+# Caddyfile herladen na een wijziging (zonder herstart):
+#   docker compose -f docker-compose.caddy.yml exec caddy caddy reload --config /etc/caddy/Caddyfile
+
+services:
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./caddy/Caddyfile.shared:/etc/caddy/Caddyfile:z
+      - caddy_shared_data:/data
+      - caddy_shared_config:/config
+    networks:
+      - proxy
+
+volumes:
+  caddy_shared_data:
+  caddy_shared_config:
+
+networks:
+  proxy:
+    external: true
+    name: raak_proxy

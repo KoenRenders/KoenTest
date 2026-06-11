@@ -22,18 +22,22 @@ services:
     environment:
       DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/raakmillegem
       SECRET_KEY: ${SECRET_KEY:-change-me}
+      DEBUG: ${DEBUG:-false}
       GMAIL_USER: ${GMAIL_USER:-}
       GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-}
       GMAIL_FROM: ${GMAIL_FROM:-}
       MOLLIE_API_KEY: ${MOLLIE_API_KEY:-}
-      FRONTEND_URL: ${FRONTEND_URL:-http://128.140.125.218}
-      PUBLIC_URL: ${PUBLIC_URL:-http://128.140.125.218}
+      FRONTEND_URL: ${FRONTEND_URL:-https://prod.raakmillegem.be}
+      PUBLIC_URL: ${PUBLIC_URL:-https://prod.raakmillegem.be}
       APP_ENV: prod
     depends_on:
       db:
         condition: service_healthy
     networks:
-      - internal
+      internal:
+      proxy:
+        aliases:
+          - prod-backend
 
   frontend:
     build: ./frontend
@@ -41,28 +45,16 @@ services:
     depends_on:
       - backend
     networks:
-      - internal
-
-  caddy:
-    image: caddy:2
-    restart: unless-stopped
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./caddy/Caddyfile.prod:/etc/caddy/Caddyfile:z
-      - caddy_prod_data:/data
-      - caddy_prod_config:/config
-    depends_on:
-      - frontend
-      - backend
-    networks:
-      - internal
+      internal:
+      proxy:
+        aliases:
+          - prod-frontend
 
 volumes:
   postgres_prod_data:
-  caddy_prod_data:
-  caddy_prod_config:
 
 networks:
   internal:
+  proxy:
+    external: true
+    name: raak_proxy
