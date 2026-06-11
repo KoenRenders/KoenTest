@@ -6,6 +6,20 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Community association website with public activity registration, family membership, Mollie payment integration, and an admin dashboard. Language: Dutch (nl-BE).
 
+## This repository is PUBLIC
+
+Never commit secrets, credentials, or operational/infrastructure details to this
+repo. Specifically NOT in git:
+- Server IPs, real domain names, Storage Box users/hosts → use placeholders or env vars.
+- Personal backup/ops tooling (Restic scripts, off-site backup pipelines, server
+  runbooks, systemd units for personal infra). Keep those local on the server only,
+  outside the git checkout.
+- Any `.env*` file with real values (only `.env.*.example` with placeholders).
+
+App-stack infrastructure that ships with the deployable stack (e.g. the
+`db-backup` service in docker-compose, generic scripts without secrets) may stay
+in the repo, as long as it contains no secrets or personal infra details.
+
 ## Development workflow
 
 The user runs this after every session:
