@@ -25,23 +25,24 @@ apt update && apt install -y restic
 
 ### 2. SSH-toegang tot de Storage Box
 
-De Storage Box gebruikt SFTP over SSH op **poort 23**. Maak een sleutel voor
-root en geef die toegang tot de box (gebruiker `u578746`):
+De Storage Box gebruikt SFTP over SSH op **poort 23**. Vervang hieronder
+`<BOX_USER>` door je eigen Storage Box-gebruiker (vorm `uXXXXXX`) — die hoort
+niet in deze (publieke) repo, dus vul hem enkel lokaal op de server in.
 
 ```bash
 # Sleutel aanmaken (indien nog niet aanwezig)
 ssh-keygen -t ed25519 -f /root/.ssh/id_ed25519 -N ""
 
 # Publieke sleutel op de Storage Box plaatsen (vraagt eenmalig je box-wachtwoord)
-cat /root/.ssh/id_ed25519.pub | ssh -p 23 u578746@u578746.your-storagebox.de install-ssh-key
+cat /root/.ssh/id_ed25519.pub | ssh -p 23 <BOX_USER>@<BOX_USER>.your-storagebox.de install-ssh-key
 ```
 
 Maak een SSH-alias `hetzner-storagebox` aan in `/root/.ssh/config`:
 
 ```
 Host hetzner-storagebox
-    HostName u578746.your-storagebox.de
-    User u578746
+    HostName <BOX_USER>.your-storagebox.de
+    User <BOX_USER>
     Port 23
     IdentityFile /root/.ssh/id_ed25519
 ```
