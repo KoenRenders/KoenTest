@@ -405,12 +405,13 @@ def register_for_activity(
     if end < date.today():
         raise HTTPException(status_code=400, detail="Activity is no longer open for registration")
 
-    # Sanity-grens op aantallen: geen negatieve, nul of absurd hoge waarden.
+    # Sanity-grens op aantallen: geen negatieve of absurd hoge waarden.
+    # 0 mag (bv. een vleessoort die je niet bestelt) en wordt verderop overgeslagen.
     for item_data in data.items:
-        if item_data.quantity < 1 or item_data.quantity > settings.max_item_quantity:
+        if item_data.quantity < 0 or item_data.quantity > settings.max_item_quantity:
             raise HTTPException(
                 status_code=400,
-                detail=f"Ongeldig aantal: kies een waarde tussen 1 en {settings.max_item_quantity}.",
+                detail=f"Ongeldig aantal: kies een waarde tussen 0 en {settings.max_item_quantity}.",
             )
 
     # Aantal nieuwe deelnemers in deze inschrijving (1 als er geen items zijn).
