@@ -31,6 +31,10 @@ class Settings(BaseSettings):
     public_url: str = "http://localhost:8000"
     app_env: str = "prod"  # dev, hdev, uat, prod
 
+    # Sanity-bovengrens op het aantal per inschrijvingsitem. Voorkomt
+    # negatieve/absurde aantallen via de API. Overschrijfbaar via .env.
+    max_item_quantity: int = 50
+
     class Config:
         env_file = ".env"
 

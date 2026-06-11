@@ -46,6 +46,7 @@ class ComponentCreate(BaseModel):
     external_register_url: Optional[str] = None
     external_registrations_url: Optional[str] = None
     info_url: Optional[str] = None
+    max_participants: Optional[int] = None
 
 
 class ComponentUpdate(BaseModel):
@@ -55,6 +56,7 @@ class ComponentUpdate(BaseModel):
     external_register_url: Optional[str] = None
     external_registrations_url: Optional[str] = None
     info_url: Optional[str] = None
+    max_participants: Optional[int] = None
 
 
 class ComponentResponse(BaseModel):
@@ -65,6 +67,7 @@ class ComponentResponse(BaseModel):
     external_register_url: Optional[str] = None
     external_registrations_url: Optional[str] = None
     info_url: Optional[str] = None
+    max_participants: Optional[int] = None
     products: List[ProductResponse] = []
 
     model_config = {"from_attributes": True}

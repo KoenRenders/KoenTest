@@ -17,6 +17,7 @@ export interface ActivityComponent {
   external_register_url?: string;
   external_registrations_url?: string;
   info_url?: string;
+  max_participants?: number;
   products: ActivityProduct[];
 }
 

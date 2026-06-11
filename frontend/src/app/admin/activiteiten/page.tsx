@@ -16,6 +16,7 @@ const emptyActivity = () => ({
 const emptyComponent = () => ({
   name: "", team_name_required: false, sort_order: 0,
   external_register_url: "", external_registrations_url: "", info_url: "",
+  max_participants: "",
 });
 
 const emptyProduct = () => ({
@@ -106,6 +107,7 @@ export default function AdminActiviteiten() {
       external_register_url: componentForm.external_register_url || null,
       external_registrations_url: componentForm.external_registrations_url || null,
       info_url: componentForm.info_url || null,
+      max_participants: componentForm.max_participants ? parseInt(componentForm.max_participants) : null,
     };
     if (editingComponent !== null) {
       await updateComponent(activityId, editingComponent, payload);
@@ -124,6 +126,7 @@ export default function AdminActiviteiten() {
       external_register_url: c.external_register_url || "",
       external_registrations_url: c.external_registrations_url || "",
       info_url: c.info_url || "",
+      max_participants: c.max_participants?.toString() || "",
     });
     setEditingComponent(c.id);
     setShowComponentForm(activityId);
@@ -378,6 +381,12 @@ export default function AdminActiviteiten() {
                         <input className="input" type="url" value={componentForm.info_url}
                           onChange={(e) => setComponentForm((f) => ({ ...f, info_url: e.target.value }))}
                           placeholder="https://drive.google.com/…" />
+                      </div>
+                      <div>
+                        <label className="label">Max. deelnemers</label>
+                        <input className="input" type="number" min="1" value={componentForm.max_participants}
+                          onChange={(e) => setComponentForm((f) => ({ ...f, max_participants: e.target.value }))}
+                          placeholder="onbeperkt" />
                       </div>
                     </div>
                     <div className="flex gap-2">
