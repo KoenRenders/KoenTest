@@ -492,8 +492,25 @@ def register_for_activity(
                 gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
                 if gp:
                     checkout_url = gp.checkout_url
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error("Betaling aanmaken mislukt voor inschrijving (%s): %s", method, e)
+            # Bij een online betaling is een mislukking blokkerend: draai de
+            # inschrijving terug zodat de bezoeker niet 'ingeschreven' is zonder
+            # te kunnen betalen. Bij overschrijving loggen we en gaan we door.
+            if method == "online":
+                db.rollback()
+                raise HTTPException(
+                    status_code=502,
+                    detail="De online betaling kon niet gestart worden. Probeer het later opnieuw.",
+                )
+
+        # Online betaling zonder checkout-URL is onbruikbaar — niet bewaren.
+        if method == "online" and not checkout_url:
+            db.rollback()
+            raise HTTPException(
+                status_code=502,
+                detail="De online betaling kon niet gestart worden. Probeer het later opnieuw.",
+            )
 
     db.commit()
     db.refresh(registration)

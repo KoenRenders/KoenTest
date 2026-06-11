@@ -1,11 +1,11 @@
 from datetime import datetime
 from typing import Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 
 class IdeaCreate(BaseModel):
     submitter_name: str
-    submitter_email: Optional[str] = None
+    submitter_email: Optional[EmailStr] = None
     content: str
 
 

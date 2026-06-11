@@ -1,7 +1,7 @@
 from datetime import date, time as Time, datetime
 from typing import Optional, List
 from decimal import Decimal
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 
 
 # ── Products ──────────────────────────────────────────────────────────────────
@@ -120,7 +120,7 @@ class RegistrationItemCreate(BaseModel):
 
 class RegistrationCreate(BaseModel):
     contact_name: str
-    contact_email: str
+    contact_email: EmailStr
     phone: Optional[str] = None
     team_name: Optional[str] = None
     payment_method: Optional[str] = None
