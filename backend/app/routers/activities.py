@@ -417,9 +417,7 @@ def register_for_activity(
     # Aantal nieuwe deelnemers in deze inschrijving (1 als er geen items zijn).
     new_qty = sum(i.quantity for i in data.items) if data.items else 1
 
-    # Capaciteit afdwingen op component-niveau: bij overschrijding van
-    # max_participants komt de inschrijving automatisch op de wachtlijst.
-    is_waitlist = False
+    # Capaciteit afdwingen op component-niveau.
     if data.component_id:
         component = next(
             (c for c in activity.sub_registrations if c.id == data.component_id), None
@@ -431,12 +429,15 @@ def register_for_activity(
                     continue
                 current_qty += sum(it.quantity for it in reg.items) if reg.items else 1
             if current_qty + new_qty > component.max_participants:
-                is_waitlist = True
+                raise HTTPException(
+                    status_code=400,
+                    detail="Dit onderdeel is volzet. Inschrijven is niet meer mogelijk.",
+                )
 
     registration = Registration(
         activity_id=activity_id,
         component_id=data.component_id,
-        is_waitlist=is_waitlist,
+        is_waitlist=False,
         registration_type="INDIVIDUAL",
         contact_name=data.contact_name,
         contact_email=data.contact_email,
@@ -472,7 +473,7 @@ def register_for_activity(
     )
 
     checkout_url = None
-    if data.payment_method and total_amount > 0 and not is_waitlist:
+    if data.payment_method and total_amount > 0:
         method = "online" if data.payment_method == "ONLINE" else "transfer"
         redirect_url = f"{settings.frontend_url}/betaling/succes?registration={registration.id}"
         description = f"Inschrijving {activity.name} – {data.contact_name}"
