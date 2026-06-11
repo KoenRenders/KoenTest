@@ -1,13 +1,14 @@
 # Restic-back-up op de PROD-server (Hetzner Storage Box)
 
 De server maakt dagelijks een `pg_dump` (zie `backups.md`). Dit document zet
-op dat **heel `/opt`** via Restic off-site naar de Hetzner Storage Box gaat,
-met dezelfde retentie als je desktop-back-up.
+op dat **`/opt/raakmillegem`** via Restic off-site naar de Hetzner Storage Box
+gaat, met dezelfde retentie als je desktop-back-up.
 
-`/opt` bevat de code-checkouts, de `.env`-files (secrets, niet in git) en de
-`pg_dump`-SQL-dumps. Samen met die SQL-dump heb je alles voor een volledige,
-consistente restore. De live PostgreSQL-datafiles (Docker-volume buiten `/opt`)
-worden bewust niet rauw mee gekopieerd — daarvoor dient juist de dump.
+`/opt/raakmillegem` bevat de code-checkouts (prod/uat/hdev), de `.env`-files
+(secrets, niet in git) en de `pg_dump`-SQL-dumps. Samen met die SQL-dump heb je
+alles voor een volledige, consistente restore. De live PostgreSQL-datafiles
+(Docker-volume) worden bewust niet rauw mee gekopieerd — daarvoor dient juist
+de dump; andere `/opt`-software (bin, lib) is herinstalleerbaar.
 
 Bestanden in de repo:
 - `scripts/restic-backup.sh` — de back-uprun (aparte repo `restic-raakmillegem`)

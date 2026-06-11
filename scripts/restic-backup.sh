@@ -17,12 +17,13 @@ LOG_DIR="/var/log/raakmillegem"
 TIMESTAMP="$(date '+%Y-%m-%d_%H-%M-%S')"
 LOG_FILE="${LOG_DIR}/restic_backup_${TIMESTAMP}.log"
 
-# Heel /opt back-uppen: code-checkouts, .env-files en de pg_dump-SQL-dumps.
-# Samen met de SQL-dump (consistente momentopname van de database) geeft dit
-# een volledige, consistente restore. De live PostgreSQL-datafiles zitten in
-# een Docker-volume buiten /opt en worden bewust niet rauw mee gekopieerd.
+# De volledige projectmap back-uppen: code-checkouts (prod/uat/hdev),
+# .env-files en de pg_dump-SQL-dumps. Samen met de SQL-dump (consistente
+# momentopname van de database) geeft dit een volledige, consistente restore.
+# De live PostgreSQL-datafiles zitten in een Docker-volume en worden bewust
+# niet rauw mee gekopieerd; andere /opt-software (bin, lib) is herinstalleerbaar.
 BACKUP_PATHS=(
-  "/opt"
+  "/opt/raakmillegem"
 )
 
 KEEP_DAILY=7
