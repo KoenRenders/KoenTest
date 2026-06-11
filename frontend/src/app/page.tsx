@@ -5,6 +5,7 @@ import ActivityList from "@/components/ActivityList";
 import RegistrationForm from "@/components/RegistrationForm";
 import IdeaBox from "@/components/IdeaBox";
 import FamilyRegistrationForm from "@/components/FamilyRegistrationForm";
+import { sanitizeCmsHtml } from "@/lib/sanitize";
 import type { Activity, ActivityComponent, CmsPage } from "@/lib/types";
 
 export default function HomePage() {
@@ -38,7 +39,7 @@ export default function HomePage() {
         {introPage?.content && (
           <div
             className="cms-content mb-6 text-gray-700"
-            dangerouslySetInnerHTML={{ __html: introPage.content }}
+            dangerouslySetInnerHTML={{ __html: sanitizeCmsHtml(introPage.content) }}
           />
         )}
         <div className="flex flex-wrap gap-3">

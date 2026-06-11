@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import { getPage } from "@/lib/api";
+import { sanitizeCmsHtml } from "@/lib/sanitize";
 import type { CmsPage } from "@/lib/types";
 
 export default function CmsPageView() {
@@ -26,7 +27,7 @@ export default function CmsPageView() {
       <h1 className="text-3xl font-bold text-blue-800 mb-8">{page.title}</h1>
       <div
         className="cms-content"
-        dangerouslySetInnerHTML={{ __html: page.content || "" }}
+        dangerouslySetInnerHTML={{ __html: sanitizeCmsHtml(page.content || "") }}
       />
     </div>
   );
