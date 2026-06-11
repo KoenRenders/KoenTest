@@ -9,11 +9,12 @@ from app.models.idea import Idea
 from app.models.user import User
 from app.schemas.idea import IdeaCreate, IdeaResponse
 from app.services.email import send_idea_acknowledgement
+from app.limiter import idea_limiter
 
 router = APIRouter(tags=["ideas"])
 
 
-@router.post("/ideas", response_model=IdeaResponse)
+@router.post("/ideas", response_model=IdeaResponse, dependencies=[Depends(idea_limiter)])
 def submit_idea(data: IdeaCreate, db: Session = Depends(get_db)):
     idea = Idea(
         submitter_name=data.submitter_name,

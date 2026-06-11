@@ -29,6 +29,7 @@ from app.schemas.activity import (
 from app.services.email import send_waitlist_notification, send_activity_registration_confirmation
 from app.config import settings
 from app.domains.payment_status.service import create_payment_record
+from app.limiter import registration_limiter
 
 router = APIRouter(tags=["activities"])
 
@@ -389,7 +390,7 @@ def get_public_registrations(
     return result
 
 
-@router.post("/activities/{activity_id}/register", response_model=RegistrationResponse)
+@router.post("/activities/{activity_id}/register", response_model=RegistrationResponse, dependencies=[Depends(registration_limiter)])
 def register_for_activity(
     activity_id: int,
     data: RegistrationCreate,

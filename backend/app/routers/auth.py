@@ -12,6 +12,7 @@ from app.models.login_token import LoginToken
 from app.schemas.auth import MagicLinkRequest, TokenResponse, UserResponse
 from app.services.email import send_magic_link
 from app.config import settings
+from app.limiter import login_limiter
 
 logger = logging.getLogger(__name__)
 
@@ -20,7 +21,7 @@ router = APIRouter(tags=["auth"])
 MAGIC_LINK_EXPIRE_MINUTES = 15
 
 
-@router.post("/auth/request-login", status_code=200)
+@router.post("/auth/request-login", status_code=200, dependencies=[Depends(login_limiter)])
 def request_login(body: MagicLinkRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == body.email, User.is_active == True).first()
     if not user:

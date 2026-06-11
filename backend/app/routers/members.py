@@ -39,6 +39,7 @@ from app.schemas.family import FamilyCreate
 from app.domains.payment_status.service import create_payment_record, membership_price_for_date
 from app.services.email import send_registration_confirmation
 from app.config import settings
+from app.limiter import registration_limiter
 
 _postal_cache: Optional[list] = None
 _postal_cache_ts: float = 0
@@ -450,7 +451,7 @@ def assign_board_member(
     return _build_family_response(member)
 
 
-@router.post("/families", status_code=201, response_model=FamilyRegisteredResponse)
+@router.post("/families", status_code=201, response_model=FamilyRegisteredResponse, dependencies=[Depends(registration_limiter)])
 def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
     """Public endpoint: register a new family (member household)."""
     pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
