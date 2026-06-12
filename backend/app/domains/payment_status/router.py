@@ -8,6 +8,7 @@ from app.models.user import User
 from .models import PaymentRecord
 from .schemas import PaymentRecordResponse, PaymentRecordUpdate, EnrichedPaymentRecord
 from .service import confirm_manual_payment, get_records_for, handle_gateway_update
+from app.domains.audit.service import snapshot_payment_record
 
 router = APIRouter(prefix="/payment-status", tags=["payment-status"])
 
@@ -111,7 +112,7 @@ def get_payment_records(
 def refresh_payment_record(
     record_id: str,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     """Haal de actuele status bij de gateway (Mollie) op voor één betaling.
 
@@ -131,7 +132,10 @@ def refresh_payment_record(
     from app.domains.payment_gateway.service import refresh_payment_status
 
     gp = refresh_payment_status(db, record.gateway_payment_id)
-    handle_gateway_update(db, gateway_payment_id=gp.id, new_status=gp.status)
+    handle_gateway_update(
+        db, gateway_payment_id=gp.id, new_status=gp.status,
+        source="admin_refresh", actor=admin.email,
+    )
     db.commit()
     db.refresh(record)
     return _to_response(record)
@@ -142,7 +146,7 @@ def update_payment_record(
     record_id: str,
     data: PaymentRecordUpdate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
     if not record:
@@ -158,7 +162,7 @@ def update_payment_record(
             )
 
     if data.status == "paid":
-        confirm_manual_payment(db, record_id, data.note)
+        confirm_manual_payment(db, record_id, data.note, actor=admin.email)
         if data.amount_paid is not None:
             record.amount_paid = data.amount_paid
     else:
@@ -168,6 +172,11 @@ def update_payment_record(
             record.note = data.note
         if data.amount_paid is not None:
             record.amount_paid = data.amount_paid
+        snapshot_payment_record(
+            db, record,
+            operation="update", action="payment_updated",
+            source="admin_update", actor=admin.email,
+        )
 
     db.commit()
     db.refresh(record)

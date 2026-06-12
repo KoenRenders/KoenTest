@@ -3,6 +3,7 @@ from decimal import Decimal
 from typing import Optional, Tuple
 from sqlalchemy.orm import Session
 from .models import PaymentRecord
+from app.domains.audit.service import snapshot_payment_record
 
 
 def _parse_md(md_str: str, year: int) -> date:
@@ -54,6 +55,8 @@ def create_payment_record(
     method: str,
     redirect_url: Optional[str] = None,
     description: Optional[str] = None,
+    audit_source: str = "system",
+    audit_actor: Optional[str] = None,
 ) -> PaymentRecord:
     if method == "online":
         from app.domains.payment_gateway.service import create_payment as gw_create
@@ -83,25 +86,44 @@ def create_payment_record(
 
     db.add(record)
     db.flush()
+    snapshot_payment_record(
+        db, record,
+        operation="insert", action="payment_created",
+        source=audit_source, actor=audit_actor,
+    )
     return record
 
 
-def handle_gateway_update(db: Session, gateway_payment_id: str, new_status: str) -> None:
+def handle_gateway_update(
+    db: Session,
+    gateway_payment_id: str,
+    new_status: str,
+    source: str = "mollie",
+    actor: Optional[str] = None,
+) -> None:
     """Called by gateway webhook handler to propagate status to PaymentRecord."""
     records = db.query(PaymentRecord).filter(
         PaymentRecord.gateway_payment_id == gateway_payment_id
     ).all()
     for record in records:
+        if record.status == new_status:
+            continue
         record.status = new_status
         if new_status == "paid" and record.paid_at is None:
             record.paid_at = datetime.now(timezone.utc)
             record.amount_paid = record.amount
+        snapshot_payment_record(
+            db, record,
+            operation="update", action="payment_status_changed",
+            source=source, actor=actor,
+        )
 
 
 def confirm_manual_payment(
     db: Session,
     record_id: str,
     note: Optional[str] = None,
+    actor: Optional[str] = None,
 ) -> PaymentRecord:
     record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
     if not record:
@@ -111,6 +133,11 @@ def confirm_manual_payment(
     if note:
         record.note = note
     db.flush()
+    snapshot_payment_record(
+        db, record,
+        operation="update", action="payment_manually_confirmed",
+        source="admin_manual", actor=actor,
+    )
     return record
 
 

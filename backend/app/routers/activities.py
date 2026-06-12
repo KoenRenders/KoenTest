@@ -498,6 +498,7 @@ def register_for_activity(
                 method=method,
                 redirect_url=redirect_url,
                 description=description,
+                audit_source="registration",
             )
             if method == "online" and payment_record.gateway_payment_id:
                 from app.domains.payment_gateway.models import GatewayPayment

@@ -37,6 +37,14 @@ from app.schemas.member import (
 )
 from app.schemas.family import FamilyCreate
 from app.domains.payment_status.service import create_payment_record, membership_price_for_date, membership_valid_period
+from app.domains.audit.service import (
+    snapshot_person,
+    snapshot_member,
+    snapshot_member_person,
+    snapshot_membership,
+    snapshot_address,
+    snapshot_contact_detail,
+)
 from app.services.email import send_registration_confirmation
 from app.config import settings
 from app.limiter import registration_limiter
@@ -84,6 +92,7 @@ def create_member(data: MemberCreate, db: Session = Depends(get_db)):
     member = Member()
     db.add(member)
     db.flush()
+    snapshot_member(db, member, operation="insert", action="member_created", source="system")
 
     for person_data in data.persons:
         person = Person(
@@ -94,6 +103,7 @@ def create_member(data: MemberCreate, db: Session = Depends(get_db)):
         )
         db.add(person)
         db.flush()
+        snapshot_person(db, person, operation="insert", action="person_created", source="system")
 
         mp = MemberPerson(
             member_id=member.id,
@@ -101,6 +111,8 @@ def create_member(data: MemberCreate, db: Session = Depends(get_db)):
             relation_type=person_data.relation_type,
         )
         db.add(mp)
+        db.flush()
+        snapshot_member_person(db, mp, operation="insert", action="person_created", source="system")
 
     db.commit()
     db.refresh(member)
@@ -136,7 +148,7 @@ def create_membership(
     member_id: int,
     data: MembershipCreate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     member = db.query(Member).filter(Member.id == member_id).first()
     if not member:
@@ -149,6 +161,7 @@ def create_membership(
     )
     if existing:
         existing.is_active = data.is_active
+        snapshot_membership(db, existing, operation="update", action="membership_updated", source="admin_update", actor=admin.email)
         db.commit()
         db.refresh(existing)
         return existing
@@ -159,6 +172,8 @@ def create_membership(
         is_active=data.is_active,
     )
     db.add(membership)
+    db.flush()
+    snapshot_membership(db, membership, operation="insert", action="membership_created", source="admin_manual", actor=admin.email)
     db.commit()
     db.refresh(membership)
     return membership
@@ -238,13 +253,15 @@ def create_membership_for_family(
     family_id: int,
     data: MembershipCreate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
         raise HTTPException(status_code=404, detail="Family not found")
     membership = Membership(member_id=family_id, year=data.year, is_active=data.is_active)
     db.add(membership)
+    db.flush()
+    snapshot_membership(db, membership, operation="insert", action="membership_created", source="admin_manual", actor=admin.email)
     db.commit()
     db.refresh(membership)
     return MembershipResponse.model_validate(membership)
@@ -254,11 +271,24 @@ def create_membership_for_family(
 def delete_family(
     family_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
         raise HTTPException(status_code=404, detail="Family not found")
+
+    # Eerst alles als delete-snapshot vastleggen, dan pas verwijderen.
+    for ms in member.memberships:
+        snapshot_membership(db, ms, operation="delete", action="family_deleted", source="admin_manual", actor=admin.email)
+    for mp in member.member_persons:
+        person = mp.person
+        for contact in person.contact_details:
+            snapshot_contact_detail(db, contact, operation="delete", action="family_deleted", source="admin_manual", actor=admin.email)
+        if person.address:
+            snapshot_address(db, person.address, operation="delete", action="family_deleted", source="admin_manual", actor=admin.email)
+        snapshot_member_person(db, mp, operation="delete", action="family_deleted", source="admin_manual", actor=admin.email)
+        snapshot_person(db, person, operation="delete", action="family_deleted", source="admin_manual", actor=admin.email)
+    snapshot_member(db, member, operation="delete", action="family_deleted", source="admin_manual", actor=admin.email)
 
     for mp in member.member_persons:
         person = mp.person
@@ -283,13 +313,14 @@ def update_person(
     person_id: int,
     data: PersonUpdate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     person = db.query(Person).filter(Person.id == person_id).first()
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(person, field, value)
+    snapshot_person(db, person, operation="update", action="person_updated", source="admin_update", actor=admin.email)
     db.commit()
     db.refresh(person)
     mp = next((mp for mp in person.member_persons), None)
@@ -301,7 +332,7 @@ def update_person_address(
     person_id: int,
     data: AddressUpdate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     person = db.query(Person).filter(Person.id == person_id).first()
     if not person:
@@ -320,6 +351,7 @@ def update_person_address(
             setattr(address, field, value)
     if data.bus_number is not None or "bus_number" in (data.model_fields_set or set()):
         address.bus_number = data.bus_number or None
+    snapshot_address(db, address, operation="update", action="address_updated", source="admin_update", actor=admin.email)
     db.commit()
     db.refresh(person)
     mp = next((mp for mp in person.member_persons), None)
@@ -331,7 +363,7 @@ def update_person_contacts(
     person_id: int,
     data: ContactsUpdate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     person = db.query(Person).filter(Person.id == person_id).first()
     if not person:
@@ -342,9 +374,15 @@ def update_person_contacts(
         if value:
             if existing:
                 existing.value = value
+                db.flush()
+                snapshot_contact_detail(db, existing, operation="update", action="contacts_updated", source="admin_update", actor=admin.email)
             else:
-                person.contact_details.append(ContactDetail(person_id=person_id, contact_type_code=type_code, value=value, is_primary=True))
+                contact = ContactDetail(person_id=person_id, contact_type_code=type_code, value=value, is_primary=True)
+                person.contact_details.append(contact)
+                db.flush()
+                snapshot_contact_detail(db, contact, operation="insert", action="contacts_updated", source="admin_update", actor=admin.email)
         elif existing:
+            snapshot_contact_detail(db, existing, operation="delete", action="contacts_updated", source="admin_update", actor=admin.email)
             person.contact_details.remove(existing)
 
     _upsert_contact("EMAIL", data.email)
@@ -360,15 +398,20 @@ def update_person_contacts(
 def delete_person(
     person_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     person = db.query(Person).filter(Person.id == person_id).first()
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
+    for contact in person.contact_details:
+        snapshot_contact_detail(db, contact, operation="delete", action="person_deleted", source="admin_manual", actor=admin.email)
     for mp in person.member_persons:
+        snapshot_member_person(db, mp, operation="delete", action="person_deleted", source="admin_manual", actor=admin.email)
         db.delete(mp)
     if person.address:
+        snapshot_address(db, person.address, operation="delete", action="person_deleted", source="admin_manual", actor=admin.email)
         db.delete(person.address)
+    snapshot_person(db, person, operation="delete", action="person_deleted", source="admin_manual", actor=admin.email)
     db.delete(person)
     db.commit()
 
@@ -378,7 +421,7 @@ def add_person_to_family(
     family_id: int,
     data: PersonAddToFamily,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
@@ -394,24 +437,31 @@ def add_person_to_family(
     )
     db.add(person)
     db.flush()
+    snapshot_person(db, person, operation="insert", action="person_added_to_family", source="admin_manual", actor=admin.email)
 
-    db.add(MemberPerson(member_id=family_id, person_id=person.id, relation_type=data.relation_type))
+    mp = MemberPerson(member_id=family_id, person_id=person.id, relation_type=data.relation_type)
+    db.add(mp)
+    db.flush()
+    snapshot_member_person(db, mp, operation="insert", action="person_added_to_family", source="admin_manual", actor=admin.email)
 
     if primary_address:
-        db.add(Address(
+        address = Address(
             person_id=person.id,
             street=primary_address.street,
             house_number=primary_address.house_number,
             bus_number=primary_address.bus_number,
             postal_code_id=primary_address.postal_code_id,
-        ))
+        )
+        db.add(address)
+        db.flush()
+        snapshot_address(db, address, operation="insert", action="person_added_to_family", source="admin_manual", actor=admin.email)
 
-    if data.email:
-        db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=data.email, is_primary=True))
-    if data.phone:
-        db.add(ContactDetail(person_id=person.id, contact_type_code="PHONE", value=data.phone, is_primary=True))
-    if data.mobile:
-        db.add(ContactDetail(person_id=person.id, contact_type_code="MOBILE", value=data.mobile, is_primary=True))
+    for type_code, value in (("EMAIL", data.email), ("PHONE", data.phone), ("MOBILE", data.mobile)):
+        if value:
+            contact = ContactDetail(person_id=person.id, contact_type_code=type_code, value=value, is_primary=True)
+            db.add(contact)
+            db.flush()
+            snapshot_contact_detail(db, contact, operation="insert", action="person_added_to_family", source="admin_manual", actor=admin.email)
 
     db.commit()
     db.refresh(member)
@@ -422,11 +472,12 @@ def add_person_to_family(
 def delete_membership(
     membership_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     membership = db.query(Membership).filter(Membership.id == membership_id).first()
     if not membership:
         raise HTTPException(status_code=404, detail="Membership not found")
+    snapshot_membership(db, membership, operation="delete", action="membership_deleted", source="admin_manual", actor=admin.email)
     db.delete(membership)
     db.commit()
 
@@ -436,7 +487,7 @@ def assign_board_member(
     family_id: int,
     data: BoardMemberAssign,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
@@ -446,6 +497,7 @@ def assign_board_member(
         if not person:
             raise HTTPException(status_code=404, detail="Person not found")
     member.board_member_id = data.person_id
+    snapshot_member(db, member, operation="update", action="board_member_assigned", source="admin_update", actor=admin.email)
     db.commit()
     db.refresh(member)
     return _build_family_response(member)
@@ -461,6 +513,7 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
     member = Member()
     db.add(member)
     db.flush()
+    snapshot_member(db, member, operation="insert", action="family_registered", source="registration")
 
     for person_data in data.members:
         person = Person(
@@ -471,6 +524,7 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
         )
         db.add(person)
         db.flush()
+        snapshot_person(db, person, operation="insert", action="family_registered", source="registration")
 
         mp = MemberPerson(
             member_id=member.id,
@@ -478,6 +532,8 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
             relation_type=person_data.relation_type,
         )
         db.add(mp)
+        db.flush()
+        snapshot_member_person(db, mp, operation="insert", action="family_registered", source="registration")
 
         address = Address(
             person_id=person.id,
@@ -487,13 +543,22 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
             postal_code_id=pc.id,
         )
         db.add(address)
+        db.flush()
+        snapshot_address(db, address, operation="insert", action="family_registered", source="registration")
 
+        contacts = []
         if person_data.phone:
-            db.add(ContactDetail(person_id=person.id, contact_type_code="PHONE", value=person_data.phone, is_primary=True))
+            contacts.append(ContactDetail(person_id=person.id, contact_type_code="PHONE", value=person_data.phone, is_primary=True))
         if person_data.mobile:
-            db.add(ContactDetail(person_id=person.id, contact_type_code="MOBILE", value=person_data.mobile, is_primary=not person_data.phone))
+            contacts.append(ContactDetail(person_id=person.id, contact_type_code="MOBILE", value=person_data.mobile, is_primary=not person_data.phone))
         if person_data.email:
-            db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=person_data.email, is_primary=True))
+            contacts.append(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=person_data.email, is_primary=True))
+        for contact in contacts:
+            db.add(contact)
+        if contacts:
+            db.flush()
+            for contact in contacts:
+                snapshot_contact_detail(db, contact, operation="insert", action="family_registered", source="registration")
 
     # Annual membership record
     today = date.today()
@@ -507,6 +572,7 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
     )
     db.add(membership)
     db.flush()
+    snapshot_membership(db, membership, operation="insert", action="family_registered", source="registration")
 
     # Payment
     amount = membership_price_for_date(today)
@@ -523,6 +589,7 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
             method=data.payment_method,
             redirect_url=redirect_url,
             description=description,
+            audit_source="registration",
         )
     except ValueError as e:
         db.rollback()
