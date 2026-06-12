@@ -511,7 +511,7 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
     # Payment
     amount = membership_price_for_date(today)
     hoofdlid = data.members[0]
-    description = f"KWB Millegem lidmaatschap {current_year} – {hoofdlid.last_name} {hoofdlid.first_name}"
+    description = f"KWB Millegem lidmaatschap {today.year} – {hoofdlid.last_name} {hoofdlid.first_name}"
     redirect_url = f"{settings.frontend_url}/betaling/succes?member={member.id}"
 
     try:
