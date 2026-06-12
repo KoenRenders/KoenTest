@@ -1,6 +1,6 @@
 import logging
 from datetime import date
-from sqlalchemy import or_, and_
+from sqlalchemy import or_, and_, func
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -404,6 +404,21 @@ def register_for_activity(
     end = activity.date_end or activity.date
     if end < date.today():
         raise HTTPException(status_code=400, detail="Activity is no longer open for registration")
+
+    # Begrens het aantal inschrijvingen per e-mailadres voor dezelfde activiteit.
+    # Gezinnen schrijven soms in meerdere keren in; dit laat dat legitiem toe maar
+    # voorkomt onbedoelde dubbels/teveelbetalingen. Limiet via .env instelbaar.
+    if data.contact_email:
+        existing_count = db.query(Registration).filter(
+            Registration.activity_id == activity_id,
+            func.lower(Registration.contact_email) == data.contact_email.lower(),
+        ).count()
+        if existing_count >= settings.max_registrations_per_email:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Er zijn al {settings.max_registrations_per_email} inschrijvingen voor deze "
+                       "activiteit met dit e-mailadres. Neem contact op met het bestuur als je er meer nodig hebt.",
+            )
 
     # Geldige producten voor deze activiteit (over alle onderdelen heen). Enkel
     # hiermee mag een inschrijving line-items bevatten — zo kan niemand met een

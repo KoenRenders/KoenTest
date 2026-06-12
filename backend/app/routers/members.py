@@ -6,6 +6,7 @@ from typing import List, Optional
 logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_admin
@@ -510,6 +511,42 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
     if not pc:
         raise HTTPException(status_code=422, detail=f"Onbekende postcode: {data.postal_code}")
 
+    today = date.today()
+
+    # Dedup: voorkom een dubbel lidmaatschap (en dus dubbele betaling) voor
+    # hetzelfde hoofdlid-e-mailadres in hetzelfde jaar. We blokkeren zodra er al
+    # een lidmaatschap bestaat dat nog "leeft": betaald, in afwachting, of zonder
+    # betaalrecord (bv. door een beheerder aangemaakt). Een eerdere inschrijving
+    # waarvan de betaling mislukte/geannuleerd werd, blokkeert niet.
+    hoofdlid_email = data.members[0].email
+    existing_memberships = (
+        db.query(Membership)
+        .join(MemberPerson, and_(
+            MemberPerson.member_id == Membership.member_id,
+            MemberPerson.relation_type == "HOOFDLID",
+        ))
+        .join(ContactDetail, and_(
+            ContactDetail.person_id == MemberPerson.person_id,
+            ContactDetail.contact_type_code == "EMAIL",
+            func.lower(ContactDetail.value) == hoofdlid_email.lower(),
+        ))
+        .filter(Membership.year == today.year)
+        .all()
+    )
+    if existing_memberships:
+        from app.domains.payment_status.models import PaymentRecord
+        for ms in existing_memberships:
+            recs = db.query(PaymentRecord).filter(
+                PaymentRecord.payable_type == "membership",
+                PaymentRecord.payable_id == ms.id,
+            ).all()
+            if not recs or any(r.status in ("paid", "pending") for r in recs):
+                raise HTTPException(
+                    status_code=409,
+                    detail=f"Er bestaat al een inschrijving voor {today.year} met dit e-mailadres. "
+                           "Neem contact op met het bestuur als dit niet klopt.",
+                )
+
     member = Member()
     db.add(member)
     db.flush()
@@ -561,7 +598,6 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
                 snapshot_contact_detail(db, contact, operation="insert", action="family_registered", source="registration")
 
     # Annual membership record
-    today = date.today()
     valid_from, valid_to = membership_valid_period(today)
     membership = Membership(
         member_id=member.id,

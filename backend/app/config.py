@@ -36,6 +36,12 @@ class Settings(BaseSettings):
     # negatieve/absurde aantallen via de API. Overschrijfbaar via .env.
     max_item_quantity: int = 50
 
+    # Maximaal aantal activiteit-inschrijvingen per e-mailadres voor dezelfde
+    # activiteit. Gezinnen schrijven soms in meerdere keren in; dit voorkomt
+    # onbedoelde dubbels/teveelbetalingen zonder legitiem meermaals inschrijven
+    # te blokkeren. Overschrijfbaar via .env.
+    max_registrations_per_email: int = 3
+
     # Lidmaatschapsprijzen en datumgrenzen (MM-DD formaat).
     # Halfprijs: van half_price_start t/m half_price_end (inclusief).
     # Volgende-jaar-dekking: vanaf next_year_from dekt de betaling ook heel

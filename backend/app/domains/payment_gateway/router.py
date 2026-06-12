@@ -13,7 +13,9 @@ def get_payment(payment_id: str, db: Session = Depends(get_db)):
     gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_id).first()
     if not gp:
         raise HTTPException(status_code=404, detail="Payment not found")
-    return {"id": gp.id, "status": gp.status, "checkout_url": gp.checkout_url}
+    # Bewust geen checkout_url: dit endpoint is publiek; de betaallink mag niet
+    # via een (geraden) payment-id opvraagbaar zijn.
+    return {"id": gp.id, "status": gp.status}
 
 
 @router.post("/webhooks/mollie", status_code=200)
