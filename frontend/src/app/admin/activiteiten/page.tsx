@@ -112,7 +112,9 @@ export default function AdminActiviteiten() {
     if (editingComponent !== null) {
       await updateComponent(activityId, editingComponent, payload);
     } else {
-      await addComponent(activityId, payload);
+      const activity = activities.find(a => a.id === activityId) ?? archived.find(a => a.id === activityId);
+      const nextOrder = (activity?.sub_registrations ?? []).length;
+      await addComponent(activityId, { ...payload, sort_order: nextOrder });
     }
     setShowComponentForm(null);
     setEditingComponent(null);
@@ -151,7 +153,10 @@ export default function AdminActiviteiten() {
     if (editingProduct !== null) {
       await updateProduct(activityId, componentId, editingProduct, payload);
     } else {
-      await addProduct(activityId, componentId, payload);
+      const activity = activities.find(a => a.id === activityId) ?? archived.find(a => a.id === activityId);
+      const component = (activity?.sub_registrations ?? []).find(c => c.id === componentId);
+      const nextOrder = (component?.products ?? []).length;
+      await addProduct(activityId, componentId, { ...payload, sort_order: nextOrder });
     }
     setShowProductForm(null);
     setEditingProduct(null);
