@@ -114,6 +114,43 @@ def test_cms_placeholders_public_vs_editor(client, admin_headers):
     assert "{{membership_price_full}}" in home["content"]   # ruwe code blijft
 
 
+def test_admin_creates_paid_activity_and_public_registration(client, db_session, admin_headers):
+    """End-to-end: admin maakt via de API een activiteit + onderdeel + betaald
+    product; een bezoeker schrijft zich publiek in via overschrijving; het
+    betaalrecord-bedrag is gelijk aan de productprijs."""
+    act = client.post("/api/v1/activities", headers=admin_headers, json={
+        "name": "Flowtest betaalde activiteit", "date": "2099-12-31", "location": "Teststraat",
+    })
+    assert act.status_code == 200, act.text
+    activity_id = act.json()["id"]
+
+    comp = client.post(f"/api/v1/activities/{activity_id}/components",
+                       headers=admin_headers, json={"name": "Flowtest onderdeel"})
+    assert comp.status_code == 200, comp.text
+    component_id = comp.json()["id"]
+
+    prod = client.post(
+        f"/api/v1/activities/{activity_id}/components/{component_id}/products",
+        headers=admin_headers, json={"name": "Flowtest product", "price": "7.50", "is_free": False},
+    )
+    assert prod.status_code == 200, prod.text
+    product_id = prod.json()["id"]
+
+    reg = client.post(f"/api/v1/activities/{activity_id}/register", json={
+        "contact_name": "Flow Inschrijver", "contact_email": "flow+act@example.com",
+        "payment_method": "transfer", "component_id": component_id,
+        "items": [{"product_id": product_id, "quantity": 1}],
+    })
+    assert reg.status_code == 200, reg.text
+
+    from app.domains.payment_status.models import PaymentRecord
+    rec = db_session.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "registration"
+    ).first()
+    assert rec is not None
+    assert rec.amount == Decimal("7.50")
+
+
 def test_registration_total_matches_payment_amount(client, db_session, mock_mollie):
     """De gedeelde totaalberekening voedt zowel het bedrag richting Mollie als de
     bevestiging; ze moeten gelijk zijn."""
