@@ -73,6 +73,45 @@ sudo docker-compose logs frontend --tail=50
 
 The backend runs `startup.sh` on container start, which runs `alembic upgrade head` then `uvicorn`. Build-time import check runs via `check_imports.py` in the Dockerfile — if any import fails, the Docker build fails.
 
+### Running `docker compose` commands on the server (IMPORTANT)
+
+This deployment uses **per-environment compose files** (`docker-compose.hdev.yml`,
+`.uat.yml`, `.prod.yml`) with **per-environment env files** (`.env.hdev`, etc.).
+The compose files use `${VAR:?...}` guards (e.g. `FRONTEND_URL`), so any
+`docker compose` command **fails unless you pass the matching env file**. Always
+include `-f docker-compose.<env>.yml --env-file .env.<env>`:
+
+```bash
+sudo docker compose -f docker-compose.hdev.yml --env-file .env.hdev <cmd>
+```
+
+The DB user/password are **not** the defaults — they come from `DB_USER`/
+`DB_PASSWORD` in the env file. Never hardcode `postgres:postgres`. Instead derive
+credentials from the container's own environment:
+
+```bash
+# Run psql as the real superuser
+... exec db sh -c 'psql -U "$POSTGRES_USER" -c "..."'
+
+# Run the test suite against a throwaway raaktest DB (derives creds from DATABASE_URL)
+... exec db sh -c 'psql -U "$POSTGRES_USER" -c "CREATE DATABASE raaktest;"'
+... exec backend sh -c 'export TEST_DATABASE_URL=$(echo "$DATABASE_URL" | sed "s#postgresql://#postgresql+psycopg2://#; s#/[^/]*\$#/raaktest#") && pip install -q -r requirements-dev.txt && python -m pytest -v'
+```
+
+The pytest suite **drops and recreates the schema** of its target DB, so it must
+only ever point at a separate `raaktest` database — never the real one.
+
+> Note: this repo uses Docker Compose v2 (`docker compose`, space), not v1
+> (`docker-compose`, hyphen). The older `docker-compose` examples elsewhere in
+> this file are legacy; prefer `docker compose`.
+
+### CI
+
+`.github/workflows/backend-tests.yml` runs the pytest suite on every push/PR to
+`master`, using a disposable Postgres 16 service container. Green/red shows up
+per commit on GitHub.
+
+
 ## Backend architecture (FastAPI + SQLAlchemy)
 
 **Entry point:** `backend/app/main.py` — registers all routers under `/api/v1`.
