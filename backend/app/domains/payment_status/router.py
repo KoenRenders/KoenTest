@@ -7,7 +7,7 @@ from app.database import get_db
 from app.models.user import User
 from .models import PaymentRecord
 from .schemas import PaymentRecordResponse, PaymentRecordUpdate, EnrichedPaymentRecord
-from .service import confirm_manual_payment, get_records_for
+from .service import confirm_manual_payment, get_records_for, handle_gateway_update
 
 router = APIRouter(prefix="/payment-status", tags=["payment-status"])
 
@@ -105,6 +105,36 @@ def get_payment_records(
 ):
     records = get_records_for(db, payable_type, payable_id)
     return [_to_response(r) for r in records]
+
+
+@router.post("/records/{record_id}/refresh", response_model=PaymentRecordResponse)
+def refresh_payment_record(
+    record_id: str,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    """Haal de actuele status bij de gateway (Mollie) op voor één betaling.
+
+    Vangnet voor de zeldzame gemiste webhook: de webhook blijft het primaire
+    pad, maar hiermee kan een admin de waarheid bij Mollie opvragen en de
+    PaymentRecord bijwerken. Werkt enkel voor online betalingen.
+    """
+    record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Payment record not found")
+    if record.method != "online" or not record.gateway_payment_id:
+        raise HTTPException(
+            status_code=400,
+            detail="Alleen online betalingen kunnen bij Mollie ververst worden.",
+        )
+
+    from app.domains.payment_gateway.service import refresh_payment_status
+
+    gp = refresh_payment_status(db, record.gateway_payment_id)
+    handle_gateway_update(db, gateway_payment_id=gp.id, new_status=gp.status)
+    db.commit()
+    db.refresh(record)
+    return _to_response(record)
 
 
 @router.patch("/records/{record_id}", response_model=PaymentRecordResponse)

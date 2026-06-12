@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { listPaymentRecords, updatePaymentRecord, getRegistrations } from "@/lib/api";
+import { listPaymentRecords, updatePaymentRecord, refreshPaymentRecord, getRegistrations } from "@/lib/api";
 import RegistrationList, { type RegistrationEntry } from "@/components/RegistrationList";
 
 interface RegItem {
@@ -62,6 +62,7 @@ export default function BetalingenPage() {
     status: "",
   });
   const [saving, setSaving] = useState(false);
+  const [refreshing, setRefreshing] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "openstaand" | "pending" | "paid">("all");
 
   // Registration details: record id -> RegistrationEntry | null (null = loading)
@@ -136,6 +137,16 @@ export default function BetalingenPage() {
       await load();
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function refreshStatus(id: string) {
+    setRefreshing(id);
+    try {
+      await refreshPaymentRecord(id);
+      await load();
+    } finally {
+      setRefreshing(null);
     }
   }
 
@@ -246,12 +257,24 @@ export default function BetalingenPage() {
                   )}
                 </div>
                 {editing !== r.id && (
-                  <button
-                    onClick={() => startEdit(r)}
-                    className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-0.5 hover:bg-blue-50 whitespace-nowrap"
-                  >
-                    Bewerken
-                  </button>
+                  <div className="flex flex-col gap-1 items-end">
+                    <button
+                      onClick={() => startEdit(r)}
+                      className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-0.5 hover:bg-blue-50 whitespace-nowrap"
+                    >
+                      Bewerken
+                    </button>
+                    {r.method === "online" && (
+                      <button
+                        onClick={() => refreshStatus(r.id)}
+                        disabled={refreshing === r.id}
+                        className="text-xs text-gray-600 border border-gray-200 rounded px-2 py-0.5 hover:bg-gray-50 whitespace-nowrap disabled:opacity-50"
+                        title="Haal de actuele betaalstatus bij Mollie op"
+                      >
+                        {refreshing === r.id ? "Verversen…" : "Status verversen"}
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
 

@@ -79,6 +79,7 @@ export const deletePage = (id: number) => api.delete(`/api/v1/pages/${id}`);
 // Payment records
 export const listPaymentRecords = () => api.get("/api/v1/payment-status/records");
 export const updatePaymentRecord = (id: string, data: unknown) => api.patch(`/api/v1/payment-status/records/${id}`, data);
+export const refreshPaymentRecord = (id: string) => api.post(`/api/v1/payment-status/records/${id}/refresh`);
 
 // Auth
 export const requestLogin = (email: string) => api.post("/api/v1/auth/request-login", { email });

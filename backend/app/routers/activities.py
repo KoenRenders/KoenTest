@@ -405,9 +405,21 @@ def register_for_activity(
     if end < date.today():
         raise HTTPException(status_code=400, detail="Activity is no longer open for registration")
 
+    # Geldige producten voor deze activiteit (over alle onderdelen heen). Enkel
+    # hiermee mag een inschrijving line-items bevatten — zo kan niemand met een
+    # vreemd of onbestaand product_id een gratis (€0) regel binnensmokkelen.
+    valid_product_ids = {
+        p.id for comp in activity.sub_registrations for p in comp.products
+    }
+
     # Sanity-grens op aantallen: geen negatieve of absurd hoge waarden.
     # 0 mag (bv. een vleessoort die je niet bestelt) en wordt verderop overgeslagen.
     for item_data in data.items:
+        if item_data.product_id not in valid_product_ids:
+            raise HTTPException(
+                status_code=400,
+                detail="Ongeldig product in de inschrijving.",
+            )
         if item_data.quantity < 0 or item_data.quantity > settings.max_item_quantity:
             raise HTTPException(
                 status_code=400,
