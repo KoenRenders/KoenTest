@@ -96,6 +96,21 @@ export interface Product {
   is_active: boolean;
 }
 
+export interface MediaAsset {
+  id: number;
+  kind: "sponsor" | "activity_photo";
+  activity_id?: number | null;
+  title?: string | null;
+  link_url?: string | null;
+  sort_order: number;
+  is_active: boolean;
+  width?: number | null;
+  height?: number | null;
+  byte_size?: number | null;
+  url: string;
+  thumb_url: string;
+}
+
 export interface OrderItem {
   product_id: number;
   quantity: number;

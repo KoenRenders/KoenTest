@@ -8,6 +8,7 @@ const navItems = [
   { href: "/admin/activiteiten", label: "Activiteiten" },
   { href: "/admin/leden", label: "Leden" },
   { href: "/admin/paginas", label: "CMS Pagina's" },
+  { href: "/admin/media", label: "Media" },
   { href: "/admin/ideeen", label: "Berichten" },
   { href: "/admin/betalingen", label: "Betalingen" },
 ];

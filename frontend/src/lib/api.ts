@@ -78,6 +78,31 @@ export const createPage = (data: unknown) => api.post("/api/v1/pages", data);
 export const updatePage = (id: number, data: unknown) => api.put(`/api/v1/pages/${id}`, data);
 export const deletePage = (id: number) => api.delete(`/api/v1/pages/${id}`);
 
+// Media / assetbibliotheek
+import type { MediaAsset } from "@/lib/types";
+export const getSponsors = () => api.get<MediaAsset[]>("/api/v1/sponsors");
+export const getActivityPhotos = (activityId: number) =>
+  api.get<MediaAsset[]>(`/api/v1/activities/${activityId}/photos`);
+export const adminListMedia = (params: { kind?: string; activity_id?: number } = {}) =>
+  api.get<MediaAsset[]>("/api/v1/admin/media", { params });
+export const uploadMedia = (
+  files: File[],
+  opts: { kind: string; activity_id?: number; title?: string; link_url?: string }
+) => {
+  const fd = new FormData();
+  files.forEach((f) => fd.append("files", f));
+  fd.append("kind", opts.kind);
+  if (opts.activity_id != null) fd.append("activity_id", String(opts.activity_id));
+  if (opts.title) fd.append("title", opts.title);
+  if (opts.link_url) fd.append("link_url", opts.link_url);
+  return api.post<MediaAsset[]>("/api/v1/admin/media", fd, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+export const updateMedia = (id: number, data: Partial<MediaAsset>) =>
+  api.patch<MediaAsset>(`/api/v1/admin/media/${id}`, data);
+export const deleteMedia = (id: number) => api.delete(`/api/v1/admin/media/${id}`);
+
 // Payment records
 export const listPaymentRecords = () => api.get("/api/v1/payment-status/records");
 export const updatePaymentRecord = (id: string, data: unknown) => api.patch(`/api/v1/payment-status/records/${id}`, data);

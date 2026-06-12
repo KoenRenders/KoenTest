@@ -20,6 +20,7 @@ MODULES = [
     "app.routers.ideas",
     "app.routers.cms",
     "app.routers.admin",
+    "app.routers.media",
     # Main app
     "app.main",
 ]

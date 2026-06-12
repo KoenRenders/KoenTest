@@ -1,14 +1,16 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getBlock } from "@/lib/api";
+import { getBlock, getSponsors } from "@/lib/api";
 import { sanitizeCmsHtml } from "@/lib/sanitize";
-import type { CmsPage } from "@/lib/types";
+import type { CmsPage, MediaAsset } from "@/lib/types";
 
 export default function Footer() {
   const [block, setBlock] = useState<CmsPage | null>(null);
+  const [sponsors, setSponsors] = useState<MediaAsset[]>([]);
 
   useEffect(() => {
     getBlock("site-footer").then((r) => setBlock(r.data)).catch(() => {});
+    getSponsors().then((r) => setSponsors(r.data)).catch(() => {});
   }, []);
 
   const year = new Date().getFullYear();
@@ -55,30 +57,35 @@ export default function Footer() {
         </a>
       </div>
 
-      {/* Sponsor Mona */}
+      {/* Sponsors */}
       <div className="flex justify-center mb-6">
         <div className="text-center">
           <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Met steun van</p>
-          {/* Het echte logobestand staat in /public/sponsors/mona.png.
-              Ontbreekt het, dan valt het terug op de tekstversie. */}
-          <img
-            src="/sponsors/mona.png"
-            alt="Mona — Samen veilig naar onze toekomst"
-            className="h-16 mx-auto"
-            onError={(e) => {
-              const img = e.currentTarget;
-              img.style.display = "none";
-              const fallback = img.nextElementSibling as HTMLElement | null;
-              if (fallback) fallback.style.display = "inline-flex";
-            }}
-          />
-          <span
-            className="items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg border border-gray-100"
-            style={{ display: "none" }}
-          >
-            <span className="font-bold text-lg tracking-wide text-teal-600">mona</span>
-            <span className="text-xs text-gray-500 italic">Samen veilig naar onze toekomst</span>
-          </span>
+          {sponsors.length > 0 ? (
+            <div className="flex flex-wrap justify-center items-center gap-6">
+              {sponsors.map((s) => {
+                const logo = (
+                  <img
+                    src={s.url}
+                    alt={s.title || "Sponsor"}
+                    className="h-16 w-auto object-contain"
+                  />
+                );
+                return s.link_url ? (
+                  <a key={s.id} href={s.link_url} target="_blank" rel="noopener noreferrer" aria-label={s.title || "Sponsor"}>
+                    {logo}
+                  </a>
+                ) : (
+                  <span key={s.id}>{logo}</span>
+                );
+              })}
+            </div>
+          ) : (
+            <span className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg border border-gray-100">
+              <span className="font-bold text-lg tracking-wide text-teal-600">mona</span>
+              <span className="text-xs text-gray-500 italic">Samen veilig naar onze toekomst</span>
+            </span>
+          )}
         </div>
       </div>
 

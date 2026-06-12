@@ -16,7 +16,7 @@ export default function ArchiefPage() {
     <div>
       <h1 className="text-3xl font-bold text-blue-800 mb-2">Archief</h1>
       <p className="text-gray-600 mb-8">Overzicht van alle voorbije activiteiten.</p>
-      {loading ? <p className="text-gray-500">Laden…</p> : <ActivityList activities={activities} showRegister={false} />}
+      {loading ? <p className="text-gray-500">Laden…</p> : <ActivityList activities={activities} showRegister={false} showPhotos />}
     </div>
   );
 }
