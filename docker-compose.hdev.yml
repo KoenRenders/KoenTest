@@ -30,6 +30,7 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL ontbreekt in .env.hdev}
       PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL ontbreekt in .env.hdev}
       APP_ENV: hdev
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
     depends_on:
       db:
         condition: service_healthy

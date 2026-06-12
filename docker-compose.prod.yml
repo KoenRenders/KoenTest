@@ -30,6 +30,7 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL ontbreekt in .env.prod}
       PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL ontbreekt in .env.prod}
       APP_ENV: prod
+      LOG_LEVEL: ${LOG_LEVEL:-WARNING}
     depends_on:
       db:
         condition: service_healthy

@@ -31,6 +31,7 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost}
       APP_ENV: dev
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
     depends_on:
       db:
         condition: service_healthy

@@ -30,6 +30,7 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL ontbreekt in .env.uat}
       PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL ontbreekt in .env.uat}
       APP_ENV: uat
+      LOG_LEVEL: ${LOG_LEVEL:-INFO}
     depends_on:
       db:
         condition: service_healthy
