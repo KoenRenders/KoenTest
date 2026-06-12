@@ -33,6 +33,7 @@ class Person(Base):
     member_persons = relationship("MemberPerson", back_populates="person")
     address = relationship("Address", back_populates="person", uselist=False)
     contact_details = relationship("ContactDetail", back_populates="person", cascade="all, delete-orphan")
+    external_numbers = relationship("ExternalNumber", back_populates="person", cascade="all, delete-orphan")
     user = relationship("User", back_populates="person", uselist=False)
     registrations = relationship("Registration", back_populates="person")
 

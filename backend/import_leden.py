@@ -27,8 +27,12 @@ from app.database import SessionLocal
 from app.models.member import Member, Person, MemberPerson, Membership
 from app.models.address import Address
 from app.models.contact import ContactDetail
+from app.models.external_number import ExternalNumber
 from app.models.postal_codes import PostalCode
 from app.models.user import User, UserRole
+
+# Bronsysteem-label voor de oude lidnummers
+LEGACY_SOURCE = "ledenadministratie"
 
 # Testadressen voor niet-PROD omgevingen (straat lowercase, huisnummer exact)
 TEST_ADDRESSES = [
@@ -214,6 +218,13 @@ def run(excel_path: str, dry_run: bool, is_prod: bool):
                 db.flush()
                 p["_person_id"] = person.id
 
+                if p["lidnr"]:
+                    db.add(ExternalNumber(
+                        person_id=person.id,
+                        source=LEGACY_SOURCE,
+                        external_id=p["lidnr"],
+                    ))
+
                 db.add(MemberPerson(
                     member_id=member.id,
                     person_id=person.id,
@@ -344,7 +355,7 @@ def _dry_run_report(families: list[list[dict]], bl_index: dict):
         for p in fam:
             geb = p["geboortedatum"].isoformat() if p["geboortedatum"] else "—"
             email = p["email"] or "—"
-            print(f"  [{p['_relatie']:8}] {p['voornaam']} {p['naam']:20} "
+            print(f"  [{p['_relatie']:8}] #{p['lidnr']:6}  {p['voornaam']} {p['naam']:20} "
                   f"geb:{geb}  {email}")
 
     print(f"\n{'—'*60}")
