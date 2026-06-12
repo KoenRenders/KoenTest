@@ -25,6 +25,17 @@ BASE=http://localhost:8081 ./run-all.sh
 Werkt `localhost:8081` niet door Caddy's TLS/Host-eisen, gebruik dan het
 domein: `BASE=https://hdev.jouw-domein ./run-all.sh`.
 
+Flows die admin-rechten nodig hebben lezen een JWT uit `ADMIN_TOKEN` (de
+admin-login is passwordless via magic-link en dus niet automatiseerbaar). Log
+in op de admin-GUI, kopieer in de devtools de localStorage-sleutel
+`admin_token` en geef die mee:
+
+```bash
+ADMIN_TOKEN=xxx BASE=http://localhost:8081 ./run-all.sh
+```
+
+Zonder `ADMIN_TOKEN` worden de admin-flows als `SKIP` getoond i.p.v. te falen.
+
 ## Uitvoer
 
 Per test één regel: `PASS` / `FAIL` / `SKIP`. Bij `FAIL` of `SKIP` toont de
@@ -47,6 +58,7 @@ OK, 1 = minstens één test faalde (bruikbaar in scripts/CI later).
 | Script | Wat het controleert |
 |---|---|
 | `lidmaatschap.sh` | Publiek lid worden via overschrijving: postcode -> persoon -> lidmaatschap -> betaalrecord. Status `registered`, lidgeld > 0. |
+| `activiteit-inschrijving.sh` | Admin maakt een betaalde activiteit (onderdeel + betaald product), bezoeker schrijft zich publiek in. Verifieert dat het betaalrecord-bedrag = productprijs. Vereist `ADMIN_TOKEN`, anders SKIP. |
 
 > **Let op:** flows schrijven echte (test)data weg (bv. een testlid). Draai ze
 > enkel op HDEV/UAT, **nooit op PROD**. Op HDEV is dat geen probleem; je kunt de

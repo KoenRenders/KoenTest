@@ -27,7 +27,7 @@ for script in smoke/*.sh flows/*.sh; do
   desc=$(sed -n 's/^DESC="\(.*\)"$/\1/p' "$script" | head -n1)
   label="${desc:-$script}"
 
-  out=$(BASE="$BASE" bash "$script" 2>&1)
+  out=$(BASE="$BASE" ADMIN_TOKEN="${ADMIN_TOKEN:-}" bash "$script" 2>&1)
   code=$?
   case "$code" in
     0)

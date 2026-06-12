@@ -93,3 +93,18 @@ discover_product() {
 discover_postal_code() {
   curl -fsS "${BASE}/api/v1/postal-codes" 2>/dev/null | jq -r '.[0].postal_code // empty'
 }
+
+# require_admin_token — staakt de test als SKIP (exit 2) wanneer er geen
+# ADMIN_TOKEN in de omgeving staat. De admin-login is passwordless via een
+# magic-link (mail), dus niet automatiseerbaar; we hergebruiken daarom het JWT
+# dat na inloggen in de admin-GUI in localStorage onder 'admin_token' staat.
+require_admin_token() {
+  [ -n "${ADMIN_TOKEN:-}" ] || \
+    fatal "zet ADMIN_TOKEN=... (kopieer uit localStorage 'admin_token' na inloggen in de admin-GUI)"
+}
+
+# auth_header — echoot de Authorization-header voor admin-calls. Bedoeld om mee
+# te geven aan curl: curl -H "$(auth_header)" ...
+auth_header() {
+  echo "Authorization: Bearer ${ADMIN_TOKEN}"
+}
