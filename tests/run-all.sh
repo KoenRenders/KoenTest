@@ -49,7 +49,7 @@ done
 echo
 echo "${BOLD}Resultaat: ${PASS} OK · ${FAIL} gefaald · ${SKIP} overgeslagen${RESET}"
 
-if [ "${#PROBLEM_NAMES[@]}" -gt 0 ]; then
+if [ $((FAIL + SKIP)) -gt 0 ]; then
   echo
   echo "${BOLD}${RED}Te behartigen:${RESET}"
   for i in "${!PROBLEM_NAMES[@]}"; do
