@@ -26,7 +26,8 @@ from app.schemas.activity import (
     RegistrationCreate,
     RegistrationResponse,
 )
-from app.services.email import send_waitlist_notification, send_activity_registration_confirmation, compute_registration_total
+from app.services.email import send_waitlist_notification, send_activity_registration_confirmation
+from app.services.registration_totals import compute_registration_total
 from app.config import settings
 from app.domains.payment_status.service import create_payment_record
 from app.limiter import registration_limiter

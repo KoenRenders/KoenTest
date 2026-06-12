@@ -9,6 +9,7 @@ from .models import PaymentRecord
 from .schemas import PaymentRecordResponse, PaymentRecordUpdate, EnrichedPaymentRecord
 from .service import confirm_manual_payment, get_records_for, handle_gateway_update
 from app.domains.audit.service import snapshot_payment_record
+from app.services.registration_totals import compute_registration_total
 
 router = APIRouter(prefix="/payment-status", tags=["payment-status"])
 
@@ -54,15 +55,16 @@ def list_all_payment_records(
                 activity = db.query(Activity).filter(Activity.id == reg.activity_id).first()
                 if activity:
                     description = activity.name
-                    product_map = {p.id: p for comp in activity.sub_registrations for p in comp.products}
-                    for item in reg.items:
-                        p = product_map.get(item.product_id)
-                        reg_items.append({
-                            "product_name": p.name if p else f"product {item.product_id}",
-                            "quantity": item.quantity,
-                            "unit_price": float(p.price) if p else 0,
-                            "subtotal": float(p.price) * item.quantity if p else 0,
-                        })
+                    _total, regels = compute_registration_total(reg)
+                    reg_items = [
+                        {
+                            "product_name": line["name"],
+                            "quantity": line["quantity"],
+                            "unit_price": float(line["unit_price"]),
+                            "subtotal": float(line["subtotal"]),
+                        }
+                        for line in regels
+                    ]
         elif r.payable_type == "membership":
             member = db.query(Member).filter(Member.id == r.payable_id).first()
             if member:

@@ -6,6 +6,7 @@ from html import escape
 from typing import Optional
 
 from app.config import settings
+from app.services.registration_totals import compute_registration_total
 
 logger = logging.getLogger(__name__)
 
@@ -99,34 +100,6 @@ def send_registration_confirmation(to_email: str, name: str, family, data=None, 
         <p>Met vriendelijke groeten,<br>Raak Millegem</p>
         """,
     )
-
-
-def compute_registration_total(registration) -> tuple:
-    """Bereken het totaalbedrag en de regellijst van een activiteitsinschrijving.
-
-    Geeft (totaal: Decimal, regels: list[dict]) terug.
-    Elke regel: {"name": str, "quantity": int, "unit_price": Decimal, "subtotal": Decimal}.
-    Gratis producten (is_free=True) worden niet meegeteld in het totaal maar
-    wel getoond met prijs €0,00.
-    """
-    from decimal import Decimal
-    regels = []
-    totaal = Decimal("0")
-    for item in (registration.items or []):
-        product = getattr(item, "product", None)
-        if product is None:
-            continue
-        prijs = Decimal(str(product.price))
-        subtotaal = prijs * item.quantity
-        regels.append({
-            "name": product.name,
-            "quantity": item.quantity,
-            "unit_price": prijs,
-            "subtotal": subtotaal,
-        })
-        if not product.is_free:
-            totaal += subtotaal
-    return totaal, regels
 
 
 def send_activity_registration_confirmation(
