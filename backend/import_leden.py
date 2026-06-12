@@ -1,14 +1,16 @@
 """Import leden uit het Excel-ledenrapport.
 
 Gebruik:
-    python3 import_leden.py <pad/naar/Ledenrapport.xls> [--dry-run]
+    python3 import_leden.py <pad/naar/Ledenrapport.xls> [--dry-run] [--all-members]
 
 De omgeving wordt bepaald door de container zelf via APP_ENV:
   - APP_ENV=prod  → ALLE leden worden geladen.
   - elke andere   → enkel de testgezinnen (Kerkebossenstraat 21 en
     (dev/hdev/uat)   Milostraat 40).
-Een volledige load kan dus enkel in de PROD-container gebeuren, nooit
-per ongeluk op HDEV/UAT.
+
+Wil je tóch alle leden laden buiten PROD (bv. om de volledige load te
+repeteren op HDEV/UAT), gebruik dan --all-members. Dat vraagt een
+expliciete bevestiging, zodat het nooit per ongeluk gebeurt.
 
 Zonder --dry-run schrijft het script effectief naar de DB.
 Met --dry-run wordt enkel een rapport geprint zonder DB-wijzigingen.
@@ -155,16 +157,20 @@ def build_bestuurslid_index(rows: list[dict]) -> dict[str, list[dict]]:
     return idx
 
 
-def run(excel_path: str, dry_run: bool, is_prod: bool, app_env: str):
+def run(excel_path: str, dry_run: bool, load_all: bool, app_env: str, forced: bool):
     print(f"\n{'=== DROOGLOOP ===' if dry_run else '=== IMPORT ==='}")
     print(f"APP_ENV: {app_env}")
-    print(f"Omgeving: {'PROD (alle leden)' if is_prod else 'NIET-PROD (enkel testadressen)'}")
+    if load_all:
+        extra = "  (GEFORCEERD via --all-members)" if forced else ""
+        print(f"Omgeving: ALLE LEDEN{extra}")
+    else:
+        print(f"Omgeving: NIET-PROD (enkel testadressen)")
     print(f"Excel: {excel_path}\n")
 
     rows = read_excel(excel_path)
     families = group_families(rows)
 
-    if not is_prod:
+    if not load_all:
         families = filter_test(families)
         print(f"Testfilter actief: {len(families)} gezin(nen) geselecteerd.\n")
 
@@ -185,6 +191,18 @@ def run(excel_path: str, dry_run: bool, is_prod: bool, app_env: str):
     if dry_run:
         _dry_run_report(families, bl_index)
         return
+
+    # Een geforceerde volledige load buiten PROD vraagt expliciete bevestiging,
+    # zodat dit nooit per ongeluk gebeurt.
+    if forced:
+        antwoord = input(
+            f"\nJe staat op het punt ALLE {sum(len(f) for f in families)} personen "
+            f"te laden in omgeving '{app_env}'.\n"
+            f"Typ '{app_env}' om te bevestigen: "
+        ).strip()
+        if antwoord != app_env:
+            print("Geannuleerd — geen bevestiging.")
+            return
 
     db = SessionLocal()
     try:
@@ -381,19 +399,26 @@ if __name__ == "__main__":
     parser.add_argument("excel", help="Pad naar het Excel-ledenrapport (.xls)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Droogloop: print rapport zonder DB-wijzigingen")
+    parser.add_argument("--all-members", action="store_true",
+                        help="Forceer het laden van ALLE leden, ook buiten PROD "
+                             "(vraagt bevestiging). Bedoeld om de volledige load "
+                             "te repeteren op bv. HDEV/UAT.")
     args = parser.parse_args()
 
-    # De omgeving wordt bepaald door de container zelf (APP_ENV), niet door een
-    # vlag. Alleen in de PROD-container worden alle leden geladen; in elke andere
-    # omgeving (dev/hdev/uat) enkel de testadressen. Zo kan een volledige load
-    # nooit per ongeluk op HDEV/UAT belanden.
+    # De omgeving wordt bepaald door de container zelf (APP_ENV). Alleen in de
+    # PROD-container worden standaard alle leden geladen; in elke andere omgeving
+    # (dev/hdev/uat) enkel de testadressen. Een volledige load buiten PROD kan
+    # enkel bewust via --all-members (met bevestiging), nooit per ongeluk.
     from app.config import settings
     app_env = settings.app_env
     is_prod = app_env == "prod"
+    load_all = is_prod or args.all_members
+    forced = args.all_members and not is_prod
 
     run(
         excel_path=args.excel,
         dry_run=args.dry_run,
-        is_prod=is_prod,
+        load_all=load_all,
         app_env=app_env,
+        forced=forced,
     )
