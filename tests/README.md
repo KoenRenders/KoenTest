@@ -52,6 +52,8 @@ OK, 1 = minstens één test faalde (bruikbaar in scripts/CI later).
 | `betaling-veiligheid.sh` | Vals `product_id` -> 400 "Ongeldig product"; refresh-endpoint eist admin-auth. |
 | `rate-limiting.sh` | Login-limiter geeft 429 na te veel pogingen per minuut. |
 | `input-validatie.sh` | Ongeldig e-mailadres -> 422; negatief en absurd hoog aantal -> 400. |
+| `prijs-validatie.sh` | Product met negatieve prijs wordt geweigerd (vorm-validatie + DB-constraint). Vereist `ADMIN_TOKEN`, anders SKIP. |
+| `betaalrecord-validatie.sh` | Admin-PATCH weigert een negatief `amount_paid` of een bedrag hoger dan verschuldigd (400). Vereist `ADMIN_TOKEN`, anders SKIP. |
 
 ### flows/ — functionele stromen
 

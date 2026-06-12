@@ -1,7 +1,15 @@
 from datetime import date, time as Time, datetime
 from typing import Optional, List
 from decimal import Decimal
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, field_validator
+
+
+def _non_negative_price(v: Optional[Decimal]) -> Optional[Decimal]:
+    """Weiger negatieve prijzen al op vorm-niveau (nette 422) — naast de
+    DB-constraint CHECK (price >= 0) als laatste vangnet."""
+    if v is not None and v < 0:
+        raise ValueError("prijs mag niet negatief zijn")
+    return v
 
 
 # ── Products ──────────────────────────────────────────────────────────────────
@@ -14,6 +22,8 @@ class ProductCreate(BaseModel):
     max_participants: Optional[int] = None
     sort_order: int = 0
 
+    _v_price = field_validator("price", "member_price")(_non_negative_price)
+
 
 class ProductUpdate(BaseModel):
     name: Optional[str] = None
@@ -22,6 +32,8 @@ class ProductUpdate(BaseModel):
     is_free: Optional[bool] = None
     max_participants: Optional[int] = None
     sort_order: Optional[int] = None
+
+    _v_price = field_validator("price", "member_price")(_non_negative_price)
 
 
 class ProductResponse(BaseModel):
