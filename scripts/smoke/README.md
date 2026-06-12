@@ -16,8 +16,19 @@ een onbevoegde call om afscherming te testen.
 
 ## Draaien
 
+Alles in één keer, met een samenvattend overzicht (aanbevolen):
+
 ```bash
 cd /opt/raakmillegem/hdev/scripts/smoke
+BASE=http://localhost:8081 ./run-all.sh
+```
+
+Je ziet per test `PASS`/`FAIL`, en bij falen onderaan de volledige uitvoer van
+de gefaalde test(s). Exit-code 0 = alles OK, 1 = minstens één test faalde.
+
+Eén losse test draaien kan ook:
+
+```bash
 BASE=http://localhost:8081 ./betaal-hardening.sh
 ```
 
