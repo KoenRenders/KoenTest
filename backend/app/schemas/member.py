@@ -93,6 +93,8 @@ class MembershipResponse(BaseModel):
     member_id: int
     year: int
     is_active: bool
+    valid_from: Optional[date] = None
+    valid_to: Optional[date] = None
     created_at: datetime
     updated_at: datetime
 

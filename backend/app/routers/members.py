@@ -36,7 +36,7 @@ from app.schemas.member import (
     BoardMemberAssign,
 )
 from app.schemas.family import FamilyCreate
-from app.domains.payment_status.service import create_payment_record, membership_price_for_date
+from app.domains.payment_status.service import create_payment_record, membership_price_for_date, membership_valid_period
 from app.services.email import send_registration_confirmation
 from app.config import settings
 from app.limiter import registration_limiter
@@ -496,13 +496,20 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
             db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=person_data.email, is_primary=True))
 
     # Annual membership record
-    current_year = date.today().year
-    membership = Membership(member_id=member.id, year=current_year, is_active=False)
+    today = date.today()
+    valid_from, valid_to = membership_valid_period(today)
+    membership = Membership(
+        member_id=member.id,
+        year=today.year,
+        is_active=False,
+        valid_from=valid_from,
+        valid_to=valid_to,
+    )
     db.add(membership)
     db.flush()
 
     # Payment
-    amount = membership_price_for_date()
+    amount = membership_price_for_date(today)
     hoofdlid = data.members[0]
     description = f"KWB Millegem lidmaatschap {current_year} – {hoofdlid.last_name} {hoofdlid.first_name}"
     redirect_url = f"{settings.frontend_url}/betaling/succes?member={member.id}"

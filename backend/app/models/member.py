@@ -60,6 +60,10 @@ class Membership(Base):
     member_id = Column(Integer, ForeignKey("members.id"), nullable=False)
     year = Column(Integer, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
+    # Geldigheidsperiode: gezet zodra de betaling bevestigd is.
+    # valid_from = betaaldatum; valid_to = 31 dec dit of volgend jaar (zie service).
+    valid_from = Column(Date, nullable=True)
+    valid_to = Column(Date, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 

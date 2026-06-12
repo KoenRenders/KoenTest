@@ -1,3 +1,4 @@
+from decimal import Decimal
 from pydantic_settings import BaseSettings
 from pydantic import model_validator
 from typing import Optional
@@ -34,6 +35,16 @@ class Settings(BaseSettings):
     # Sanity-bovengrens op het aantal per inschrijvingsitem. Voorkomt
     # negatieve/absurde aantallen via de API. Overschrijfbaar via .env.
     max_item_quantity: int = 50
+
+    # Lidmaatschapsprijzen en datumgrenzen (MM-DD formaat).
+    # Halfprijs: van half_price_start t/m half_price_end (inclusief).
+    # Volgende-jaar-dekking: vanaf next_year_from dekt de betaling ook heel
+    # het volgende jaar (valid_to = 31 dec volgend jaar i.p.v. dit jaar).
+    membership_price_full: Decimal = Decimal("35.00")
+    membership_price_half: Decimal = Decimal("17.50")
+    membership_half_price_start_md: str = "04-16"   # MM-DD
+    membership_half_price_end_md: str = "09-16"     # MM-DD
+    membership_next_year_from_md: str = "09-17"     # MM-DD
 
     class Config:
         env_file = ".env"

@@ -1,20 +1,49 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from decimal import Decimal
-from typing import Optional
+from typing import Optional, Tuple
 from sqlalchemy.orm import Session
 from .models import PaymentRecord
-from .schemas import MEMBERSHIP_PRICE_FULL, MEMBERSHIP_PRICE_HALF
+
+
+def _parse_md(md_str: str, year: int) -> date:
+    """Zet "MM-DD" om naar een datum in het opgegeven jaar."""
+    month, day = md_str.split("-")
+    return date(year, int(month), int(day))
 
 
 def membership_price_for_date(today: Optional[date] = None) -> Decimal:
-    """Half price from April 16 to September 16 (inclusive)."""
+    """Geeft de lidmaatschapsprijs op basis van de datum (vol of half).
+
+    De datumgrenzen en bedragen komen uit de app-configuratie:
+      MEMBERSHIP_HALF_PRICE_START_MD / END_MD en MEMBERSHIP_PRICE_FULL / HALF.
+    """
+    from app.config import settings
     if today is None:
         today = date.today()
-    half_start = date(today.year, 4, 16)
-    half_end = date(today.year, 9, 16)
+    half_start = _parse_md(settings.membership_half_price_start_md, today.year)
+    half_end = _parse_md(settings.membership_half_price_end_md, today.year)
     if half_start <= today <= half_end:
-        return MEMBERSHIP_PRICE_HALF
-    return MEMBERSHIP_PRICE_FULL
+        return settings.membership_price_half
+    return settings.membership_price_full
+
+
+def membership_valid_period(paid_at: Optional[date] = None) -> Tuple[date, date]:
+    """Geeft (valid_from, valid_to) voor een nieuw lidmaatschap.
+
+    Regel: betaling vanaf MEMBERSHIP_NEXT_YEAR_FROM_MD dekt ook het volgende
+    kalenderjaar (valid_to = 31 dec volgend jaar), betaling daarvoor enkel
+    het huidige jaar (valid_to = 31 dec dit jaar).
+    """
+    from app.config import settings
+    if paid_at is None:
+        paid_at = date.today()
+    next_year_cutoff = _parse_md(settings.membership_next_year_from_md, paid_at.year)
+    valid_from = paid_at
+    if paid_at >= next_year_cutoff:
+        valid_to = date(paid_at.year + 1, 12, 31)
+    else:
+        valid_to = date(paid_at.year, 12, 31)
+    return valid_from, valid_to
 
 
 def create_payment_record(
@@ -65,7 +94,7 @@ def handle_gateway_update(db: Session, gateway_payment_id: str, new_status: str)
     for record in records:
         record.status = new_status
         if new_status == "paid" and record.paid_at is None:
-            record.paid_at = datetime.utcnow()
+            record.paid_at = datetime.now(timezone.utc)
             record.amount_paid = record.amount
 
 
@@ -78,7 +107,7 @@ def confirm_manual_payment(
     if not record:
         raise ValueError(f"PaymentRecord {record_id} not found")
     record.status = "paid"
-    record.paid_at = datetime.utcnow()
+    record.paid_at = datetime.now(timezone.utc)
     if note:
         record.note = note
     db.flush()

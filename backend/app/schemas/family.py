@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional, List
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, model_validator
 
 class FamilyMemberCreate(BaseModel):
     last_name: str
@@ -46,6 +46,17 @@ class FamilyCreate(BaseModel):
     payment_method: str = "cash"  # "cash", "transfer", "online"
     members: List[FamilyMemberCreate] = []
 
+    @model_validator(mode="after")
+    def _hoofdlid_contactgegevens_verplicht(self):
+        hoofdlid = next((m for m in self.members if m.relation_type == "HOOFDLID"), None)
+        if hoofdlid is None:
+            raise ValueError("Minstens één gezinslid moet het type 'HOOFDLID' hebben.")
+        if not hoofdlid.email:
+            raise ValueError("E-mailadres is verplicht voor het hoofdgezinslid.")
+        if not hoofdlid.mobile:
+            raise ValueError("Mobiel nummer is verplicht voor het hoofdgezinslid.")
+        return self
+
 
 class FamilyRegisteredResponse(BaseModel):
     id: int
@@ -64,6 +75,8 @@ class MembershipResponse(BaseModel):
     member_id: int
     year: int
     is_active: bool
+    valid_from: Optional[date] = None
+    valid_to: Optional[date] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}

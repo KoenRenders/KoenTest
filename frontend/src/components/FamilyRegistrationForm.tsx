@@ -109,7 +109,7 @@ export default function FamilyRegistrationForm() {
     );
   }
 
-  const memberFields = (i: number, member: MemberForm) => (
+  const memberFields = (i: number, member: MemberForm, isHoofdlid = false) => (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div>
         <label className="label">Voornaam *</label>
@@ -131,12 +131,12 @@ export default function FamilyRegistrationForm() {
         <input type="date" className="input" value={member.date_of_birth} onChange={(e) => updateMember(i, "date_of_birth", e.target.value)} />
       </div>
       <div>
-        <label className="label">E-mailadres</label>
-        <input type="email" className="input" value={member.email} onChange={(e) => updateMember(i, "email", e.target.value)} />
+        <label className="label">E-mailadres{isHoofdlid ? " *" : ""}</label>
+        <input type="email" className="input" required={isHoofdlid} value={member.email} onChange={(e) => updateMember(i, "email", e.target.value)} />
       </div>
       <div>
-        <label className="label">Mobiel nummer</label>
-        <input type="tel" className="input" value={member.mobile} onChange={(e) => updateMember(i, "mobile", e.target.value)} />
+        <label className="label">Mobiel nummer{isHoofdlid ? " *" : ""}</label>
+        <input type="tel" className="input" required={isHoofdlid} value={member.mobile} onChange={(e) => updateMember(i, "mobile", e.target.value)} />
       </div>
       <div>
         <label className="label">Telefoon</label>
@@ -152,7 +152,7 @@ export default function FamilyRegistrationForm() {
       <div>
         <h3 className="font-semibold text-lg mb-3 text-blue-800">Hoofdgezinslid</h3>
         <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-          {memberFields(0, members[0])}
+          {memberFields(0, members[0], true)}
         </div>
       </div>
 

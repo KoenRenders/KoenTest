@@ -42,5 +42,3 @@ class PaymentRecordUpdate(BaseModel):
     note: Optional[str] = None
 
 
-MEMBERSHIP_PRICE_FULL = Decimal("35.00")
-MEMBERSHIP_PRICE_HALF = Decimal("17.50")
