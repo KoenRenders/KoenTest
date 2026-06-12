@@ -111,7 +111,7 @@ def test_cms_placeholders_public_vs_editor(client, admin_headers):
     admin = client.get("/api/v1/admin/pages", headers=admin_headers)
     assert admin.status_code == 200
     home = next(p for p in admin.json() if p["slug"] == "home-intro")
-    assert "{{lidgeld_vol}}" in home["content"]   # ruwe code blijft
+    assert "{{membership_price_full}}" in home["content"]   # ruwe code blijft
 
 
 def test_registration_total_matches_payment_amount(client, db_session, mock_mollie):

@@ -14,11 +14,11 @@ from typing import Dict, Optional
 
 # Lijst met beschikbare codes — ook gebruikt om een legende in de editor te tonen.
 PLACEHOLDER_LABELS = {
-    "lidgeld_vol": "Lidgeld volledig (bv. 35,00)",
-    "lidgeld_half": "Lidgeld halftarief (bv. 17,50)",
-    "halfprijs_start": "Startdatum halftarief (bv. 16 april)",
-    "halfprijs_einde": "Einddatum halftarief (bv. 16 september)",
-    "volgend_jaar_vanaf": "Vanaf deze datum lid voor volgend jaar (bv. 17 september)",
+    "membership_price_full": "Lidgeld volledig (bv. 35,00)",
+    "membership_price_half": "Lidgeld halftarief (bv. 17,50)",
+    "half_price_start": "Startdatum halftarief (bv. 16 april)",
+    "half_price_end": "Einddatum halftarief (bv. 16 september)",
+    "next_year_from": "Vanaf deze datum lid voor volgend jaar (bv. 17 september)",
 }
 
 _MAANDEN = ["", "januari", "februari", "maart", "april", "mei", "juni",
@@ -39,11 +39,11 @@ def _format_md(md: str) -> str:
 def _values() -> Dict[str, str]:
     from app.config import settings
     return {
-        "lidgeld_vol": _format_price(settings.membership_price_full),
-        "lidgeld_half": _format_price(settings.membership_price_half),
-        "halfprijs_start": _format_md(settings.membership_half_price_start_md),
-        "halfprijs_einde": _format_md(settings.membership_half_price_end_md),
-        "volgend_jaar_vanaf": _format_md(settings.membership_next_year_from_md),
+        "membership_price_full": _format_price(settings.membership_price_full),
+        "membership_price_half": _format_price(settings.membership_price_half),
+        "half_price_start": _format_md(settings.membership_half_price_start_md),
+        "half_price_end": _format_md(settings.membership_half_price_end_md),
+        "next_year_from": _format_md(settings.membership_next_year_from_md),
     }
 
 

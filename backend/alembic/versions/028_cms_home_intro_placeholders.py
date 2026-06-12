@@ -24,9 +24,9 @@ depends_on = None
 
 # Nieuwe content met placeholders.
 PLACEHOLDER_CONTENT = (
-    "<p>Heb je zin om lid te worden? Het lidmaatschap bedraagt €{{lidgeld_vol}} "
-    "voor een gezin. Van {{halfprijs_start}} tot {{halfprijs_einde}} betaal je "
-    "slechts €{{lidgeld_half}}. Vanaf {{volgend_jaar_vanaf}} ben je meteen ook "
+    "<p>Heb je zin om lid te worden? Het lidmaatschap bedraagt €{{membership_price_full}} "
+    "voor een gezin. Van {{half_price_start}} tot {{half_price_end}} betaal je "
+    "slechts €{{membership_price_half}}. Vanaf {{next_year_from}} ben je meteen ook "
     "lid voor het volgende jaar.</p>"
     "<p>Heb je gewoon een vraag? Gebruik het contactformulier hieronder.</p>"
 )
