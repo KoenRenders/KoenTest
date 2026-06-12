@@ -14,7 +14,7 @@ _SEED_DIR = os.path.join(os.path.dirname(__file__), "assets", "seed")
 
 # (bestandsnaam, sponsornaam, optionele website)
 SPONSORS = [
-    ("mona.png", "Mona", None),
+    ("mona.jpg", "Mona", None),
 ]
 
 
