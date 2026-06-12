@@ -1,50 +1,59 @@
 # Tests
 
-Drie lagen, elk met een eigen scope en trigger. Alles zit in submappen hier.
+Een groeiende testset tegen een **draaiende** omgeving (HDEV/UAT, niet PROD).
+Bedoeld om dingen te bewaken die je niet (vlot) via de GUI kunt nagaan, en om
+regressies te vangen. Geen secrets; alles via publieke endpoints of een
+onbevoegde call om afscherming te testen.
 
 ## Structuur
 
 ```
 tests/
-├── unit/          Pytest — pure functies, geen netwerk of DB. Draait bij elke build.
-├── integration/   Pytest + test-DB — endpoints in-proces. Draait in CI.
-└── smoke/         Curl-scripts tegen een draaiende omgeving — na een deploy.
+├── lib.sh        Gedeelde helpers — stil bij succes, gericht bij falen.
+├── run-all.sh    Draait alles en toont één beknopt overzicht.
+├── smoke/        Korte checks tegen een live stack (na een deploy).
+└── flows/        Functionele end-to-end stromen (op termijn).
 ```
 
-## Lagen
+## Draaien
 
-### unit/
-Pure functies geïsoleerd van I/O. Geen Caddy, geen DB, geen Mollie.
-Draait automatisch bij elke Docker-build (backend Dockerfile).
-Als dit faalt, faalt de build — snelste vangnet.
+```bash
+cd /opt/raakmillegem/hdev/tests
+BASE=http://localhost:8081 ./run-all.sh
+```
 
-**Wat er in hoort:** prijsberekening, validatielogica, statusmapping, helpers.
+Werkt `localhost:8081` niet door Caddy's TLS/Host-eisen, gebruik dan het
+domein: `BASE=https://hdev.jouw-domein ./run-all.sh`.
 
-### integration/
-Backend + test-DB samen, endpoints in-proces via FastAPI's TestClient.
-Draait in CI (GitHub Actions) bij elke push.
-Vereist: een `test`-variant van de Docker-stack of een ephemere test-DB.
+## Uitvoer
 
-**Wat er in hoort:** endpoint-gedrag end-to-end, betaalstromen, auth-grenzen.
+Per test één regel: `PASS` / `FAIL` / `SKIP`. Bij `FAIL` of `SKIP` toont de
+runner onderaan, onder **"Te behartigen"**, enkel de uitvoer van díe test —
+geen muur van geslaagde checks om één probleem te vinden. Exit-code 0 = alles
+OK, 1 = minstens één test faalde (bruikbaar in scripts/CI later).
 
-### smoke/
-Curl-scripts tegen een **draaiende** omgeving (HDEV/UAT) na een deploy.
-Heeft Caddy + backend + DB nodig — kan niet automatisch bij de build draaien.
-Draai altijd `run-all.sh` na een deploy op HDEV voordat je naar UAT/PROD gaat.
+## Beschikbare tests (smoke)
 
-**Wat er in hoort:** kritieke paden die echte HTTP-responses testen.
+| Script | Wat het controleert |
+|---|---|
+| `betaal-hardening.sh` | Vals `product_id` -> 400 "Ongeldig product"; refresh-endpoint eist admin-auth. |
+| `rate-limiting.sh` | Login-limiter geeft 429 na te veel pogingen per minuut. |
+| `input-validatie.sh` | Ongeldig e-mailadres -> 422; negatief en absurd hoog aantal -> 400. |
 
 ## Afspraken
 
-- Elke bug die we fixen, krijgt een test. Label de testfunctie of het script
-  met wat het dekt, zodat duidelijk is welke regressie het bewaakt.
-- Smoke-scripts lezen de doel-URL uit `BASE` (default `http://localhost:8081`).
-- Exit-code 0 = OK, 1 = fout. Bruikbaar in scripts en later in CI.
-- Geen secrets in tests — gebruik `example.com`-adressen en publieke endpoints.
+- Elk script `source`t `../lib.sh` en eindigt met `t_summary` voor uniforme,
+  beknopte uitvoer.
+- Doel-URL via `BASE` (default `http://localhost:8081`).
+- Exit: 0 = OK, 1 = check gefaald, 2 = kon niet draaien (setup).
+- Een nieuw script in `smoke/` of `flows/` wordt automatisch meegenomen door
+  `run-all.sh` — niets te registreren.
+- Geen secrets; gebruik `example.com`-adressen.
+- Vereist op de server: `curl` en `jq`.
 
-## Smoke-tests draaien
+## Niet via een script
 
-```bash
-cd /opt/raakmillegem/hdev/tests/smoke
-BASE=http://localhost:8081 ./run-all.sh
-```
+Flows die een echte betaling of admin-login vereisen, test je handmatig.
+Voorbeeld — de positieve "Status verversen": doe één online inschrijving, log
+in op `/admin/betalingen` en klik bij die betaling op **Status verversen**;
+de status moet overeenkomen met wat Mollie toont.
