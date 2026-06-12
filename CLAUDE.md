@@ -89,12 +89,16 @@ The DB user/password are **not** the defaults — they come from `DB_USER`/
 `DB_PASSWORD` in the env file. Never hardcode `postgres:postgres`. Instead derive
 credentials from the container's own environment:
 
+`psql -U <user>` defaults to a database named after the user, which doesn't
+exist here — always pass `-d "$POSTGRES_DB"` (the real DB, e.g.
+`raakmillegem_hdev`) to connect:
+
 ```bash
-# Run psql as the real superuser
-... exec db sh -c 'psql -U "$POSTGRES_USER" -c "..."'
+# Run psql as the real superuser, connected to the real DB
+... exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "..."'
 
 # Run the test suite against a throwaway raaktest DB (derives creds from DATABASE_URL)
-... exec db sh -c 'psql -U "$POSTGRES_USER" -c "CREATE DATABASE raaktest;"'
+... exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE DATABASE raaktest;"'
 ... exec backend sh -c 'export TEST_DATABASE_URL=$(echo "$DATABASE_URL" | sed "s#postgresql://#postgresql+psycopg2://#; s#/[^/]*\$#/raaktest#") && pip install -q -r requirements-dev.txt && python -m pytest -v'
 ```
 
