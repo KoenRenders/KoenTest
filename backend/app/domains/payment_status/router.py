@@ -162,9 +162,7 @@ def update_payment_record(
             )
 
     if data.status == "paid":
-        confirm_manual_payment(db, record_id, data.note, actor=admin.email)
-        if data.amount_paid is not None:
-            record.amount_paid = data.amount_paid
+        confirm_manual_payment(db, record_id, data.note, actor=admin.email, amount_paid=data.amount_paid)
     else:
         if data.status is not None:
             record.status = data.status
