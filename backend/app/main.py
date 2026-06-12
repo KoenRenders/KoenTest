@@ -1,4 +1,5 @@
 import logging
+import time
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
@@ -39,6 +40,25 @@ app.include_router(media.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1/admin")
 app.include_router(payment_gateway_router, prefix="/api/v1")
 app.include_router(payment_status_router, prefix="/api/v1")
+
+
+@app.middleware("http")
+async def _access_log(request: Request, call_next):
+    # Toegangslog op INFO: methode, pad, status en duur. Health-checks
+    # overslaan om ruis te beperken. Geen query-strings of bodies — die
+    # kunnen persoonsgegevens bevatten.
+    start = time.perf_counter()
+    response = await call_next(request)
+    if request.url.path != "/api/health":
+        duration_ms = (time.perf_counter() - start) * 1000
+        logger.info(
+            "%s %s -> %s (%.1f ms)",
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration_ms,
+        )
+    return response
 
 
 @app.exception_handler(Exception)
