@@ -184,22 +184,28 @@ export default function AdminActiviteiten() {
   }
 
   async function moveComponent(activityId: number, components: ActivityComponent[], idx: number, dir: -1 | 1) {
-    const other = components[idx + dir];
-    const current = components[idx];
-    await Promise.all([
-      updateComponent(activityId, current.id, { sort_order: other.sort_order }),
-      updateComponent(activityId, other.id, { sort_order: current.sort_order }),
-    ]);
+    const reordered = [...components];
+    [reordered[idx], reordered[idx + dir]] = [reordered[idx + dir], reordered[idx]];
+    // Normaliseer sort_order naar de nieuwe positie voor elk gewijzigd item.
+    // Zelfherstellend: werkt ook als bestaande data allemaal sort_order 0 heeft.
+    await Promise.all(
+      reordered
+        .map((c, i) => ({ c, i }))
+        .filter(({ c, i }) => c.sort_order !== i)
+        .map(({ c, i }) => updateComponent(activityId, c.id, { sort_order: i }))
+    );
     load();
   }
 
   async function moveProduct(activityId: number, componentId: number, products: ActivityProduct[], idx: number, dir: -1 | 1) {
-    const other = products[idx + dir];
-    const current = products[idx];
-    await Promise.all([
-      updateProduct(activityId, componentId, current.id, { sort_order: other.sort_order }),
-      updateProduct(activityId, componentId, other.id, { sort_order: current.sort_order }),
-    ]);
+    const reordered = [...products];
+    [reordered[idx], reordered[idx + dir]] = [reordered[idx + dir], reordered[idx]];
+    await Promise.all(
+      reordered
+        .map((p, i) => ({ p, i }))
+        .filter(({ p, i }) => p.sort_order !== i)
+        .map(({ p, i }) => updateProduct(activityId, componentId, p.id, { sort_order: i }))
+    );
     load();
   }
 
