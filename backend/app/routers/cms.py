@@ -9,8 +9,16 @@ from app.models.cms import CmsPage
 from app.models.codes import GenderCode, RelationTypeCode
 from app.models.user import User
 from app.schemas.cms import CmsPageCreate, CmsPageUpdate, CmsPageResponse
+from app.services.cms_render import render_cms_content
 
 router = APIRouter(tags=["cms"])
+
+
+def _public_page(page: CmsPage) -> CmsPageResponse:
+    """Bouw een publieke respons met placeholders ingevuld vanuit config."""
+    resp = CmsPageResponse.model_validate(page)
+    resp.content = render_cms_content(resp.content)
+    return resp
 
 
 @router.get("/gender-codes")
@@ -37,12 +45,13 @@ def list_relation_types(db: Session = Depends(get_db)):
 
 @router.get("/pages", response_model=List[CmsPageResponse])
 def list_pages(db: Session = Depends(get_db)):
-    return (
+    pages = (
         db.query(CmsPage)
         .filter(CmsPage.is_published == True)
         .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc())
         .all()
     )
+    return [_public_page(p) for p in pages]
 
 
 @router.get("/pages/{slug}", response_model=CmsPageResponse)
@@ -50,7 +59,7 @@ def get_page(slug: str, db: Session = Depends(get_db)):
     page = db.query(CmsPage).filter(CmsPage.slug == slug, CmsPage.is_published == True).first()
     if not page:
         raise HTTPException(status_code=404, detail="Page not found")
-    return page
+    return _public_page(page)
 
 
 @router.get("/blocks/{slug}", response_model=CmsPageResponse)
@@ -59,7 +68,21 @@ def get_block(slug: str, db: Session = Depends(get_db)):
     page = db.query(CmsPage).filter(CmsPage.slug == slug).first()
     if not page:
         raise HTTPException(status_code=404, detail="Block not found")
-    return page
+    return _public_page(page)
+
+
+@router.get("/cms/placeholders")
+def list_cms_placeholders():
+    """Beschikbare codes voor de CMS-editor (code → omschrijving)."""
+    from app.services.cms_render import PLACEHOLDER_LABELS, render_cms_content
+    return [
+        {
+            "code": f"{{{{{code}}}}}",
+            "label": label,
+            "preview": render_cms_content(f"{{{{{code}}}}}"),
+        }
+        for code, label in PLACEHOLDER_LABELS.items()
+    ]
 
 
 @router.get("/admin/pages", response_model=List[CmsPageResponse])

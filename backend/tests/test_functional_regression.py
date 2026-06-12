@@ -99,6 +99,21 @@ def test_webhook_update_idempotent_no_double_credit(client, db_session):
     assert transitions == 1
 
 
+def test_cms_placeholders_public_vs_editor(client, admin_headers):
+    """Publiek wordt de home-intro ingevuld vanuit config; de editor (admin)
+    krijgt de ruwe codes zodat ze bewerkbaar blijven."""
+    public = client.get("/api/v1/blocks/home-intro")
+    assert public.status_code == 200
+    content = public.json()["content"]
+    assert "{{" not in content              # codes vervangen
+    assert "€35,00" in content or "€17,50" in content
+
+    admin = client.get("/api/v1/admin/pages", headers=admin_headers)
+    assert admin.status_code == 200
+    home = next(p for p in admin.json() if p["slug"] == "home-intro")
+    assert "{{lidgeld_vol}}" in home["content"]   # ruwe code blijft
+
+
 def test_registration_total_matches_payment_amount(client, db_session, mock_mollie):
     """De gedeelde totaalberekening voedt zowel het bedrag richting Mollie als de
     bevestiging; ze moeten gelijk zijn."""

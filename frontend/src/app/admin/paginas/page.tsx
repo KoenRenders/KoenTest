@@ -3,8 +3,10 @@ import { useEffect, useState } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Link from "@tiptap/extension-link";
-import { getAllPages, createPage, updatePage, deletePage } from "@/lib/api";
+import { getAllPages, createPage, updatePage, deletePage, getCmsPlaceholders } from "@/lib/api";
 import type { CmsPage } from "@/lib/types";
+
+type Placeholder = { code: string; label: string; preview: string };
 
 const emptyPage = () => ({ title: "", slug: "", content: "", is_published: false, sort_order: 0 });
 
@@ -39,7 +41,7 @@ function MenuBar({ editor }: { editor: ReturnType<typeof useEditor> }) {
   );
 }
 
-function RichEditor({ value, onChange }: { value: string; onChange: (html: string) => void }) {
+function RichEditor({ value, onChange, placeholders }: { value: string; onChange: (html: string) => void; placeholders: Placeholder[] }) {
   const editor = useEditor({
     extensions: [
       StarterKit,
@@ -62,6 +64,24 @@ function RichEditor({ value, onChange }: { value: string; onChange: (html: strin
         editor={editor}
         className="border border-gray-300 rounded-b-lg bg-white min-h-[300px] px-4 py-3 focus-within:ring-2 focus-within:ring-blue-500 cms-editor"
       />
+      {placeholders.length > 0 && (
+        <div className="mt-2 text-xs text-gray-600">
+          <span className="font-medium">Codes (worden automatisch ingevuld op de site):</span>
+          <div className="flex flex-wrap gap-1 mt-1">
+            {placeholders.map((p) => (
+              <button
+                key={p.code}
+                type="button"
+                title={`${p.label} → ${p.preview}`}
+                className="px-2 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 hover:bg-blue-100 font-mono"
+                onClick={() => editor?.chain().focus().insertContent(p.code).run()}
+              >
+                {p.code}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -71,12 +91,16 @@ export default function AdminPaginas() {
   const [form, setForm] = useState(emptyPage());
   const [editing, setEditing] = useState<number | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [placeholders, setPlaceholders] = useState<Placeholder[]>([]);
 
   function load() {
     getAllPages().then((r) => setPages(r.data)).catch(() => {});
   }
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => {
+    load();
+    getCmsPlaceholders().then((r) => setPlaceholders(r.data)).catch(() => {});
+  }, []);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -137,7 +161,7 @@ export default function AdminPaginas() {
 
             <div>
               <label className="label">Inhoud</label>
-              <RichEditor value={form.content} onChange={(html) => setForm((f) => ({ ...f, content: html }))} />
+              <RichEditor value={form.content} onChange={(html) => setForm((f) => ({ ...f, content: html }))} placeholders={placeholders} />
             </div>
 
             <div className="flex gap-3">

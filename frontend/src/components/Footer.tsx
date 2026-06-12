@@ -59,10 +59,26 @@ export default function Footer() {
       <div className="flex justify-center mb-6">
         <div className="text-center">
           <p className="text-xs text-gray-400 uppercase tracking-wide mb-2">Met steun van</p>
-          <div className="inline-flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg border border-gray-100">
+          {/* Het echte logobestand staat in /public/sponsors/mona.png.
+              Ontbreekt het, dan valt het terug op de tekstversie. */}
+          <img
+            src="/sponsors/mona.png"
+            alt="Mona — Samen veilig naar onze toekomst"
+            className="h-16 mx-auto"
+            onError={(e) => {
+              const img = e.currentTarget;
+              img.style.display = "none";
+              const fallback = img.nextElementSibling as HTMLElement | null;
+              if (fallback) fallback.style.display = "inline-flex";
+            }}
+          />
+          <span
+            className="items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg border border-gray-100"
+            style={{ display: "none" }}
+          >
             <span className="font-bold text-lg tracking-wide text-teal-600">mona</span>
             <span className="text-xs text-gray-500 italic">Samen veilig naar onze toekomst</span>
-          </div>
+          </span>
         </div>
       </div>
 
