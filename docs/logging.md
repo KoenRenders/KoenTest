@@ -15,8 +15,30 @@ Van meest naar minst uitgebreid:
 | **ERROR** | Een operatie is mislukt (app crasht niet) | Betaling aanmaken mislukt, e-mailserver onbereikbaar. |
 | **CRITICAL** | Fatale fout, app kan niet verder | Momenteel niet actief gebruikt. |
 
-Een niveau toont zichzelf **en alles erboven**. `WARNING` toont dus ook
-`ERROR` en `CRITICAL`, maar niet `INFO`/`DEBUG`.
+## Niveaus zijn cumulatief (een drempel)
+
+`LOG_LEVEL` zet een **drempel**: je ziet het gekozen niveau **en alles wat
+ernstiger is** — niet wat minder ernstig is. Van licht naar zwaar:
+
+```
+DEBUG  →  INFO  →  WARNING  →  ERROR  →  CRITICAL
+(licht)                                  (zwaar)
+```
+
+Hoe lager je de drempel zet, hoe méér je ziet:
+
+| `LOG_LEVEL` | Toont | Verbergt |
+|---|---|---|
+| `DEBUG` | DEBUG, INFO, WARNING, ERROR, CRITICAL | niets |
+| `INFO` | INFO, WARNING, ERROR, CRITICAL | DEBUG |
+| `WARNING` | WARNING, ERROR, CRITICAL | DEBUG, INFO |
+| `ERROR` | ERROR, CRITICAL | DEBUG, INFO, WARNING |
+| `CRITICAL` | CRITICAL | al de rest |
+
+Voorbeeld: met `LOG_LEVEL=INFO` zie je dus óók alle warnings, errors en
+critical-meldingen — enkel de DEBUG-ruis blijft verborgen. Met `WARNING`
+(de PROD-instelling) mis je geen enkel echt probleem, maar verdwijnt de
+routine-INFO uit de log.
 
 ## Aanbevolen instelling per omgeving
 
