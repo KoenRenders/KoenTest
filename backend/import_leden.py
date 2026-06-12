@@ -1,10 +1,14 @@
 """Import leden uit het Excel-ledenrapport.
 
 Gebruik:
-    python3 import_leden.py <pad/naar/Ledenrapport.xls> [--dry-run] [--env prod]
+    python3 import_leden.py <pad/naar/Ledenrapport.xls> [--dry-run]
 
-Zonder --env prod worden enkel de testgezinnen geladen
-(Kerkebossenstraat 21 en Milostraat 40).
+De omgeving wordt bepaald door de container zelf via APP_ENV:
+  - APP_ENV=prod  → ALLE leden worden geladen.
+  - elke andere   → enkel de testgezinnen (Kerkebossenstraat 21 en
+    (dev/hdev/uat)   Milostraat 40).
+Een volledige load kan dus enkel in de PROD-container gebeuren, nooit
+per ongeluk op HDEV/UAT.
 
 Zonder --dry-run schrijft het script effectief naar de DB.
 Met --dry-run wordt enkel een rapport geprint zonder DB-wijzigingen.
@@ -151,9 +155,10 @@ def build_bestuurslid_index(rows: list[dict]) -> dict[str, list[dict]]:
     return idx
 
 
-def run(excel_path: str, dry_run: bool, is_prod: bool):
+def run(excel_path: str, dry_run: bool, is_prod: bool, app_env: str):
     print(f"\n{'=== DROOGLOOP ===' if dry_run else '=== IMPORT ==='}")
-    print(f"Omgeving: {'PROD (alle leden)' if is_prod else 'DEV/UAT (enkel testadressen)'}")
+    print(f"APP_ENV: {app_env}")
+    print(f"Omgeving: {'PROD (alle leden)' if is_prod else 'NIET-PROD (enkel testadressen)'}")
     print(f"Excel: {excel_path}\n")
 
     rows = read_excel(excel_path)
@@ -376,12 +381,19 @@ if __name__ == "__main__":
     parser.add_argument("excel", help="Pad naar het Excel-ledenrapport (.xls)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Droogloop: print rapport zonder DB-wijzigingen")
-    parser.add_argument("--env", default="dev",
-                        help="'prod' = alle leden; anders enkel testadressen (standaard)")
     args = parser.parse_args()
+
+    # De omgeving wordt bepaald door de container zelf (APP_ENV), niet door een
+    # vlag. Alleen in de PROD-container worden alle leden geladen; in elke andere
+    # omgeving (dev/hdev/uat) enkel de testadressen. Zo kan een volledige load
+    # nooit per ongeluk op HDEV/UAT belanden.
+    from app.config import settings
+    app_env = settings.app_env
+    is_prod = app_env == "prod"
 
     run(
         excel_path=args.excel,
         dry_run=args.dry_run,
-        is_prod=args.env.lower() == "prod",
+        is_prod=is_prod,
+        app_env=app_env,
     )
