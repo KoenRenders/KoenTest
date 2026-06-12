@@ -55,5 +55,8 @@ else:
     print(f'  {count} CMS pages already present, skipping.')
 "
 
+echo "==> Seeding sponsors from assets/seed (if present)..."
+python seed_sponsors.py || echo "  sponsor seeding skipped/failed (non-fatal)"
+
 echo "==> Starting API server..."
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000
