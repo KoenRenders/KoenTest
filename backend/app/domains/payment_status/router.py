@@ -148,6 +148,15 @@ def update_payment_record(
     if not record:
         raise HTTPException(status_code=404, detail="Payment record not found")
 
+    if data.amount_paid is not None:
+        if data.amount_paid < 0:
+            raise HTTPException(status_code=400, detail="amount_paid mag niet negatief zijn")
+        if data.amount_paid > record.amount:
+            raise HTTPException(
+                status_code=400,
+                detail=f"amount_paid ({data.amount_paid}) mag het verschuldigde bedrag ({record.amount}) niet overschrijden",
+            )
+
     if data.status == "paid":
         confirm_manual_payment(db, record_id, data.note)
         if data.amount_paid is not None:
