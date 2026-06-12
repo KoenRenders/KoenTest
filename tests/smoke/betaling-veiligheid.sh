@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Smoke: betaal-hardening — product-id-validatie + afscherming refresh-endpoint.
+DESC="Prijs niet manipuleerbaar (vals product_id geweigerd) en betaalstatus enkel door admin te verversen"
+# Een vals/onbestaand product_id mag geen gratis regel opleveren, en het
+# refresh-endpoint moet admin-auth eisen.
 set -uo pipefail
 source "$(dirname "$0")/../lib.sh"
 

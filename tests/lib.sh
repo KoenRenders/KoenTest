@@ -58,6 +58,16 @@ expect_true() {
   fi
 }
 
+# expect_eq VERWACHT ACTUEEL OMSCHRIJVING
+expect_eq() {
+  if [ "$1" = "$2" ]; then
+    _PASS=$((_PASS + 1))
+  else
+    _FAIL=$((_FAIL + 1))
+    echo "  ${RED}✗${RESET} $3 — verwacht '$1', kreeg '$2'"
+  fi
+}
+
 # fatal OMSCHRIJVING — onmiddellijke stop, test kon niet draaien (exit 2).
 fatal() { echo "  ${RED}✗ setup: $1${RESET}"; exit 2; }
 
@@ -77,4 +87,9 @@ discover_product() {
   curl -fsS "${BASE}/api/v1/activities" 2>/dev/null | jq -r '
     [ .[] as $a | $a.sub_registrations[]? as $c | $c.products[]? as $p
       | "\($a.id) \($c.id) \($p.id)" ] | first // empty'
+}
+
+# discover_postal_code — echoot een geldige postcode of niets. Vereist jq.
+discover_postal_code() {
+  curl -fsS "${BASE}/api/v1/postal-codes" 2>/dev/null | jq -r '.[0].postal_code // empty'
 }

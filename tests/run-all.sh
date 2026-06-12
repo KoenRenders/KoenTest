@@ -22,21 +22,26 @@ declare -a PROBLEM_NAMES PROBLEM_OUTPUT
 shopt -s nullglob
 for script in smoke/*.sh flows/*.sh; do
   [ "$(basename "$script")" = "lib.sh" ] && continue
+  # Toon de DESC-zin uit het script (één zin die zegt wat het garandeert),
+  # met de bestandsnaam als terugval.
+  desc=$(sed -n 's/^DESC="\(.*\)"$/\1/p' "$script" | head -n1)
+  label="${desc:-$script}"
+
   out=$(BASE="$BASE" bash "$script" 2>&1)
   code=$?
   case "$code" in
     0)
-      echo "  ${GREEN}PASS${RESET}  ${script}"
+      echo "  ${GREEN}PASS${RESET}  ${label}"
       PASS=$((PASS + 1)) ;;
     2)
-      echo "  ${YELLOW}SKIP${RESET}  ${script}  (kon niet draaien)"
+      echo "  ${YELLOW}SKIP${RESET}  ${label}  (kon niet draaien)"
       SKIP=$((SKIP + 1))
-      PROBLEM_NAMES+=("${script}  (setup)")
+      PROBLEM_NAMES+=("${script} — ${label}")
       PROBLEM_OUTPUT+=("$out") ;;
     *)
-      echo "  ${RED}FAIL${RESET}  ${script}"
+      echo "  ${RED}FAIL${RESET}  ${label}"
       FAIL=$((FAIL + 1))
-      PROBLEM_NAMES+=("${script}")
+      PROBLEM_NAMES+=("${script} — ${label}")
       PROBLEM_OUTPUT+=("$out") ;;
   esac
 done

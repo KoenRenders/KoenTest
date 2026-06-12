@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Smoke: invoervalidatie bij inschrijving die je niet via de GUI kunt forceren
+DESC="Server weigert ongeldig e-mailadres en foute aantallen bij inschrijving"
+# Invoervalidatie bij inschrijving die je niet via de GUI kunt forceren
 # (de GUI blokkeert zulke invoer al; dit test de server zelf).
 #   - ongeldig e-mailadres        -> 422 (EmailStr)
 #   - negatief aantal             -> 400

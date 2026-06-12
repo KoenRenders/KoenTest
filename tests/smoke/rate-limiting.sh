@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Smoke: rate limiting op de login (request-login). Niet via de GUI te testen.
+DESC="Login blokkeert na te veel pogingen per minuut (429)"
+# Rate limiting op de login (request-login). Niet via de GUI te testen.
 #
 # De login-limiter staat op 5 pogingen per minuut per IP. We sturen tot 11
 # pogingen met een ONBEKEND e-mailadres — dat heeft geen neveneffecten (een
