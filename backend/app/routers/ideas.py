@@ -1,7 +1,10 @@
+import logging
 from typing import List
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.auth import get_current_admin
 from app.database import get_db
@@ -32,8 +35,8 @@ def submit_idea(data: IdeaCreate, db: Session = Depends(get_db)):
                 name=data.submitter_name,
                 message=data.content,
             )
-        except Exception:
-            pass
+        except Exception as exc:
+            logger.warning("Bevestigingsmail voor idee kon niet verstuurd worden: %s", exc)
 
     return idea
 
