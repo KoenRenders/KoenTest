@@ -1,0 +1,4 @@
+-r requirements.txt
+
+# Test-only dependencies (niet nodig in productie-image).
+pytest==8.3.4
