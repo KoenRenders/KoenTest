@@ -26,7 +26,7 @@ from app.schemas.activity import (
     RegistrationCreate,
     RegistrationResponse,
 )
-from app.services.email import send_waitlist_notification, send_activity_registration_confirmation
+from app.services.email import send_waitlist_notification, send_activity_registration_confirmation, compute_registration_total
 from app.config import settings
 from app.domains.payment_status.service import create_payment_record
 from app.limiter import registration_limiter
@@ -484,20 +484,10 @@ def register_for_activity(
                 quantity=item_data.quantity,
             ))
 
-    # Compute total amount from items
-    product_prices = {}
-    for comp in activity.sub_registrations:
-        for p in comp.products:
-            product_prices[p.id] = p.price
-
-    from decimal import Decimal
-    total_amount = sum(
-        product_prices.get(item.product_id, Decimal("0")) * item.quantity
-        for item in data.items
-        if item.quantity > 0 and not next(
-            (p for comp in activity.sub_registrations for p in comp.products if p.id == item.product_id and p.is_free), None
-        )
-    )
+    # Totaalbedrag via gecentraliseerde helper — zelfde logica als in de bevestigingsmail.
+    db.flush()
+    db.refresh(registration)
+    total_amount, _ = compute_registration_total(registration)
 
     checkout_url = None
     if data.payment_method and total_amount > 0:
@@ -556,6 +546,7 @@ def register_for_activity(
                     to_email=data.contact_email,
                     name=data.contact_name or "Deelnemer",
                     activity=activity,
+                    registration=registration,
                 )
         except Exception as e:
             logger.error("Activiteit bevestigingsmail mislukt naar %s: %s", data.contact_email, e)

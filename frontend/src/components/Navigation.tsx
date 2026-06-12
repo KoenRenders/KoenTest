@@ -14,7 +14,7 @@ export default function Navigation() {
 
   return (
     <nav style={{ backgroundColor: "var(--color-ocean-blue)" }} className="text-white shadow-md sticky top-0 z-50">
-      <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
+      <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
         <div>
           <Link href="/" className="hover:opacity-80">
             <span

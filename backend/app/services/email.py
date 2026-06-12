@@ -101,54 +101,92 @@ def send_registration_confirmation(to_email: str, name: str, family, data=None, 
     )
 
 
+def compute_registration_total(registration) -> tuple:
+    """Bereken het totaalbedrag en de regellijst van een activiteitsinschrijving.
+
+    Geeft (totaal: Decimal, regels: list[dict]) terug.
+    Elke regel: {"name": str, "quantity": int, "unit_price": Decimal, "subtotal": Decimal}.
+    Gratis producten (is_free=True) worden niet meegeteld in het totaal maar
+    wel getoond met prijs €0,00.
+    """
+    from decimal import Decimal
+    regels = []
+    totaal = Decimal("0")
+    for item in (registration.items or []):
+        product = getattr(item, "product", None)
+        if product is None:
+            continue
+        prijs = Decimal(str(product.price))
+        subtotaal = prijs * item.quantity
+        regels.append({
+            "name": product.name,
+            "quantity": item.quantity,
+            "unit_price": prijs,
+            "subtotal": subtotaal,
+        })
+        if not product.is_free:
+            totaal += subtotaal
+    return totaal, regels
+
+
 def send_activity_registration_confirmation(
     to_email: str, name: str, activity, registration=None, is_waitlist: bool = False
 ) -> None:
     activity_name = escape(activity.name)
     if is_waitlist:
         subject = f"Wachtlijst: {activity_name}"
-        message = f"""
-        <p>Je staat op de wachtlijst voor <strong>{activity_name}</strong>.</p>
-        <p>Je ontvangt automatisch een bericht als er een plaatsje vrijkomt.</p>
-        """
+        message = (
+            f"<p>Je staat op de wachtlijst voor <strong>{activity_name}</strong>.</p>"
+            "<p>Je ontvangt automatisch een bericht als er een plaatsje vrijkomt.</p>"
+        )
     else:
         subject = f"Inschrijving bevestigd: {activity_name}"
         date_str = activity.date.strftime("%d/%m/%Y")
         time_str = activity.time.strftime("%H:%M") if activity.time else ""
         location = escape(activity.location) if activity.location else ""
-        message = f"""
-        <p>Je inschrijving voor <strong>{activity_name}</strong> is bevestigd.</p>
-        <ul>
-          <li><strong>Datum:</strong> {date_str}</li>
-          {'<li><strong>Tijdstip:</strong> ' + time_str + '</li>' if time_str else ''}
-          {'<li><strong>Locatie:</strong> ' + location + '</li>' if location else ''}
-        </ul>
-        """
+
+        loc_li = f"<li><strong>Locatie:</strong> {location}</li>" if location else ""
+        time_li = f"<li><strong>Tijdstip:</strong> {time_str}</li>" if time_str else ""
+        message = (
+            f"<p>Je inschrijving voor <strong>{activity_name}</strong> is bevestigd.</p>"
+            f"<ul><li><strong>Datum:</strong> {date_str}</li>{time_li}{loc_li}</ul>"
+        )
+
         if registration:
             details = []
             if registration.contact_email:
                 details.append(f"<li><strong>E-mail:</strong> {escape(registration.contact_email)}</li>")
-            if registration.contact_phone:
-                details.append(f"<li><strong>GSM:</strong> {escape(registration.contact_phone)}</li>")
+            if registration.phone:
+                details.append(f"<li><strong>GSM:</strong> {escape(registration.phone)}</li>")
             if registration.team_name:
                 details.append(f"<li><strong>Ploeg:</strong> {escape(registration.team_name)}</li>")
-            if registration.group_size and registration.group_size > 1:
-                details.append(f"<li><strong>Aantal personen:</strong> {registration.group_size}</li>")
-            if registration.items:
-                items_html = "".join(
-                    f"<li>{escape(item.product.name) if hasattr(item, 'product') and item.product else str(item.sub_registration_id)} × {item.quantity}</li>"
-                    for item in registration.items
-                )
-                details.append(f"<li><strong>Producten:</strong><ul>{items_html}</ul></li>")
-            if registration.total_amount and registration.total_amount > 0:
-                details.append(f"<li><strong>Totaal:</strong> €{registration.total_amount:.2f}</li>")
-            if registration.payment_method and registration.payment_method != "FREE":
-                method_labels = {"MOLLIE": "Online (Mollie)", "CASH": "Cash", "TRANSFER": "Overschrijving"}
-                details.append(f"<li><strong>Betaalmethode:</strong> {method_labels.get(registration.payment_method, registration.payment_method)}</li>")
             if registration.remarks:
                 details.append(f"<li><strong>Opmerkingen:</strong> {escape(registration.remarks)}</li>")
+
+            totaal, regels = compute_registration_total(registration)
+            if regels:
+                regels_html = "".join(
+                    f"<li>{escape(r['name'])} × {r['quantity']} "
+                    f"— €{r['unit_price']:.2f} / stuk "
+                    f"= <strong>€{r['subtotal']:.2f}</strong></li>"
+                    for r in regels
+                )
+                details.append(f"<li><strong>Producten:</strong><ul>{regels_html}</ul></li>")
+                details.append(f"<li><strong>Totaal:</strong> <strong>€{totaal:.2f}</strong></li>")
+
+            if registration.payment_method and registration.payment_method != "FREE":
+                method_labels = {"ONLINE": "Online (Mollie)", "CASH": "Cash", "TRANSFER": "Overschrijving"}
+                details.append(
+                    f"<li><strong>Betaalmethode:</strong> "
+                    f"{method_labels.get(registration.payment_method, registration.payment_method)}</li>"
+                )
+
             if details:
-                message += f"<h4 style='margin-top:12px;margin-bottom:4px'>Jouw gegevens</h4><ul>{''.join(details)}</ul>"
+                message += (
+                    "<h4 style='margin-top:12px;margin-bottom:4px'>Jouw gegevens</h4>"
+                    f"<ul>{''.join(details)}</ul>"
+                )
+
     _send(
         to_email=to_email,
         subject=subject,
