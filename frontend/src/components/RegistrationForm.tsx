@@ -43,7 +43,9 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
     if (typeof window === "undefined" || !localStorage.getItem("auth_token")) return;
     getMemberMe()
       .then((r) => {
-        setIsMember(true);
+        // Ledenprijs enkel tonen bij een geldig lidmaatschap op vandaag (#111).
+        // De backend blijft de bron van waarheid voor het effectieve bedrag.
+        setIsMember(r.data.has_valid_membership);
         setContactName((v) => v || r.data.name);
         setEmail((v) => v || r.data.email);
         setPhone((v) => v || r.data.phone || "");

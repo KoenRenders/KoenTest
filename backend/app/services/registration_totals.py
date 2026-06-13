@@ -27,13 +27,21 @@ def compute_registration_total(registration) -> Tuple[Decimal, List[Registration
     (is_free=True) worden wel als regel getoond (prijs €0,00) maar niet in het
     totaal meegerekend. Items zonder gekoppeld product worden overgeslagen.
 
-    Ledenprijs (#93): is de inschrijving gekoppeld aan een lid
-    (``registration.person_id`` ingevuld) en heeft het product een
-    ``member_price``, dan rekenen we die i.p.v. de gewone prijs. Zo nooit een
-    verschil tussen scherm, mail, Mollie-bedrag en betaalrecord — dit blijft de
-    enige bron van waarheid.
+    Ledenprijs (#93, #111): is de inschrijving gekoppeld aan een persoon
+    (``registration.person``) die op de inschrijfdatum een **geldig**
+    lidmaatschap heeft, en heeft het product een ``member_price``, dan rekenen
+    we die i.p.v. de gewone prijs. Een loutere koppeling aan een persoon volstaat
+    niet — er moet een actief lidmaatschap zijn dat de inschrijfdatum dekt (zie
+    ``app.services.membership.has_valid_membership``). De datum is de
+    inschrijfdatum (``registered_at``), zodat de prijs deterministisch blijft en
+    scherm, mail, Mollie-bedrag en betaalrecord nooit uit elkaar lopen.
     """
-    is_member = getattr(registration, "person_id", None) is not None
+    from app.services.membership import has_valid_membership
+
+    person = getattr(registration, "person", None)
+    registered_at = getattr(registration, "registered_at", None)
+    ref_date = registered_at.date() if registered_at is not None else None
+    is_member = has_valid_membership(person, ref_date)
     regels: List[RegistrationLine] = []
     totaal = Decimal("0")
     for item in (registration.items or []):

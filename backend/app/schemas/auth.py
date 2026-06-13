@@ -48,3 +48,7 @@ class MemberMeResponse(BaseModel):
     name: str
     email: str
     phone: Optional[str] = None
+    # Geldig lidmaatschap vandaag? Stuurt of de ledenprijs in het
+    # inschrijfformulier getoond wordt (#111). De backend blijft de bron van
+    # waarheid voor het effectieve bedrag.
+    has_valid_membership: bool = False
