@@ -1,16 +1,31 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getPages } from "@/lib/api";
+import { getPages, getMemberMe } from "@/lib/api";
 import type { CmsPage } from "@/lib/types";
 
 export default function Navigation() {
   const [pages, setPages] = useState<CmsPage[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [memberName, setMemberName] = useState<string | null>(null);
 
   useEffect(() => {
     getPages().then((r) => setPages(r.data)).catch(() => {});
+    if (typeof window !== "undefined" && localStorage.getItem("member_token")) {
+      getMemberMe()
+        .then((r) => setMemberName(r.data.name))
+        .catch(() => {
+          // Verlopen/ongeldig lid-token: opruimen.
+          localStorage.removeItem("member_token");
+        });
+    }
   }, []);
+
+  function logoutMember() {
+    localStorage.removeItem("member_token");
+    setMemberName(null);
+    window.location.href = "/";
+  }
 
   return (
     <nav style={{ backgroundColor: "var(--color-ocean-blue)" }} className="text-white shadow-md sticky top-0 z-50">
@@ -54,6 +69,14 @@ export default function Navigation() {
           ))}
           <li><Link href="/fotos" className="block px-3 py-2 rounded hover:opacity-80 font-medium">Foto&apos;s</Link></li>
           <li><Link href="/archief" className="block px-3 py-2 rounded hover:opacity-80 font-medium">Archief</Link></li>
+          {memberName ? (
+            <li className="flex items-center gap-2 px-3 py-2">
+              <span className="text-sm" style={{ color: "var(--color-golden-yellow)" }}>{memberName}</span>
+              <button onClick={logoutMember} className="text-sm underline hover:opacity-80">Uitloggen</button>
+            </li>
+          ) : (
+            <li><Link href="/leden/login" className="block px-3 py-2 rounded hover:opacity-80 font-medium">Inloggen als lid</Link></li>
+          )}
         </ul>
       </div>
     </nav>

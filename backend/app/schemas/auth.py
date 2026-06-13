@@ -1,4 +1,5 @@
 from __future__ import annotations
+from typing import Optional
 from pydantic import BaseModel
 
 
@@ -20,3 +21,11 @@ class UserResponse(BaseModel):
 
 
 AdminUserResponse = UserResponse
+
+
+class MemberMeResponse(BaseModel):
+    person_id: int
+    member_id: int
+    name: str
+    email: str
+    phone: Optional[str] = None

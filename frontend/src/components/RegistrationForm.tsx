@@ -1,6 +1,6 @@
 "use client";
-import { useState } from "react";
-import { registerForActivity } from "@/lib/api";
+import { useEffect, useState } from "react";
+import { registerForActivity, getMemberMe } from "@/lib/api";
 import type { Activity, ActivityComponent } from "@/lib/types";
 
 interface Props {
@@ -35,13 +35,33 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
   const [paymentMethod, setPaymentMethod] = useState("ONLINE");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [isMember, setIsMember] = useState(false);
+
+  // Ingelogd lid? Velden voorinvullen en ledenprijs tonen. De backend blijft
+  // de bron van waarheid voor het effectieve bedrag (op basis van person_id).
+  useEffect(() => {
+    if (typeof window === "undefined" || !localStorage.getItem("member_token")) return;
+    getMemberMe()
+      .then((r) => {
+        setIsMember(true);
+        setContactName((v) => v || r.data.name);
+        setEmail((v) => v || r.data.email);
+        setPhone((v) => v || r.data.phone || "");
+      })
+      .catch(() => {});
+  }, []);
 
   const hasProducts = component.products.length > 0;
+
+  function unitPrice(p: ActivityComponent["products"][number]) {
+    if (isMember && p.member_price && parseFloat(p.member_price) >= 0) return parseFloat(p.member_price);
+    return parseFloat(p.price);
+  }
 
   const totalAmount = component.products.reduce((sum, p) => {
     const qty = quantities[p.id] ?? 0;
     if (qty === 0 || p.is_free) return sum;
-    return sum + parseFloat(p.price) * qty;
+    return sum + unitPrice(p) * qty;
   }, 0);
 
   const hasPaidItems = totalAmount > 0;
@@ -140,6 +160,7 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
             <>
               <div className="bg-blue-50 rounded-lg p-3 text-sm font-medium text-blue-800">
                 Totaal: €{totalAmount.toFixed(2)}
+                {isMember && <span className="ml-2 font-normal text-blue-600">(ledenprijs)</span>}
               </div>
             </>
           )}

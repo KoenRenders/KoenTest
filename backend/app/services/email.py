@@ -54,6 +54,23 @@ def send_magic_link(to_email: str, magic_link: str) -> None:
     )
 
 
+def send_member_contact_board_notice(to_email: str) -> None:
+    """Wanneer een e-mailadres aan meerdere gezinnen hangt, kunnen we niet
+    veilig bepalen op welk gezin in te loggen. We sturen geen inloglink maar
+    vragen contact op te nemen met het bestuur."""
+    _send(
+        to_email=to_email,
+        subject="Inloggen Raak Millegem",
+        body_html="""
+        <p>Je probeerde in te loggen als lid, maar dit e-mailadres is bij meerdere
+        gezinnen gekend. Daardoor kunnen we niet automatisch bepalen welk gezin
+        je wil beheren.</p>
+        <p>Neem contact op met het bestuur, dan zetten we dit recht.</p>
+        <p>Met vriendelijke groeten,<br>Raak Millegem</p>
+        """,
+    )
+
+
 def send_registration_confirmation(to_email: str, name: str, family, data=None, pc_municipality: str = "") -> None:
     details = ""
     if data:

@@ -10,6 +10,11 @@ from app.config import settings
 from app.database import get_db
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
+# Voor lid-endpoints: een ontbrekend token mag geen 401 geven (publieke
+# registratie werkt ook zonder login), vandaar auto_error=False.
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
+
+MEMBER_SCOPE = "member"
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -62,3 +67,42 @@ def get_current_admin(token: str = Depends(oauth2_scheme), db: Session = Depends
             detail="Insufficient permissions",
         )
     return user
+
+
+def get_current_member(
+    token: Optional[str] = Depends(oauth2_scheme_optional),
+    db: Session = Depends(get_db),
+):
+    """Optionele lid-identificatie. Geeft de ingelogde Person terug, of None.
+
+    Geeft nooit 401: ontbreekt het token of is het geen geldig lid-token, dan
+    is de aanvrager simpelweg anoniem (None). Een admin-token (zonder
+    member-scope) telt hier NIET als lid. De koppeling e-mail -> Person gebeurt
+    elke aanvraag opnieuw, zodat een token niet meer toegang geeft dan het
+    onderliggende gezin op dat moment.
+    """
+    from app.services.member_auth import login_person_for_email
+
+    if not token:
+        return None
+    try:
+        payload = decode_token(token)
+    except HTTPException:
+        return None
+    if payload.get("scope") != MEMBER_SCOPE:
+        return None
+    email = payload.get("sub")
+    if not email:
+        return None
+    return login_person_for_email(db, email)
+
+
+def require_member(member=Depends(get_current_member)):
+    """Lid-endpoints die wél inloggen vereisen (bv. profiel, gezin)."""
+    if member is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Niet ingelogd als lid.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return member

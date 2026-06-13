@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException
 logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session, selectinload
 
-from app.auth import get_current_admin
+from app.auth import get_current_admin, get_current_member
 from app.database import get_db
 from app.models.activity import Activity, Registration, RegistrationItem
 from app.models.user import User
@@ -442,6 +442,7 @@ def register_for_activity(
     activity_id: int,
     data: RegistrationCreate,
     db: Session = Depends(get_db),
+    current_member=Depends(get_current_member),
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
@@ -518,6 +519,9 @@ def register_for_activity(
         team_name=data.team_name,
         payment_method=data.payment_method,
         remarks=data.remarks,
+        # Ingelogd lid? Koppel de inschrijving aan de persoon — dit activeert
+        # meteen de ledenprijs in compute_registration_total (#80, #93).
+        person_id=current_member.id if current_member else None,
     )
     db.add(registration)
     db.flush()

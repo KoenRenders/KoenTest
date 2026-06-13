@@ -4,10 +4,17 @@ const BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 export const api = axios.create({ baseURL: BASE, withCredentials: false });
 
-// Attach JWT token from localStorage for admin requests
+// Attach the juiste JWT uit localStorage. Adminpaden krijgen het admin-token;
+// publieke/lid-aanvragen krijgen bij voorkeur het lid-token (en vallen anders
+// terug op het admin-token). Zo wordt een activiteitsinschrijving aan het
+// ingelogde lid gekoppeld, terwijl het adminpaneel ongemoeid blijft.
 if (typeof window !== "undefined") {
   api.interceptors.request.use((config) => {
-    const token = localStorage.getItem("admin_token");
+    const url = config.url || "";
+    const adminToken = localStorage.getItem("admin_token");
+    const memberToken = localStorage.getItem("member_token");
+    const isAdminCall = url.includes("/admin") || url.includes("/auth/verify-login") || url.includes("/auth/me");
+    const token = isAdminCall ? adminToken : memberToken || adminToken;
     if (token) config.headers.Authorization = `Bearer ${token}`;
     return config;
   });
@@ -112,10 +119,24 @@ export const listPaymentRecords = () => api.get("/api/v1/payment-status/records"
 export const updatePaymentRecord = (id: string, data: unknown) => api.patch(`/api/v1/payment-status/records/${id}`, data);
 export const refreshPaymentRecord = (id: string) => api.post(`/api/v1/payment-status/records/${id}/refresh`);
 
-// Auth
+// Auth (admin)
 export const requestLogin = (email: string) => api.post("/api/v1/auth/request-login", { email });
 export const verifyLoginToken = (token: string) => api.get("/api/v1/auth/verify-login", { params: { token } });
 export const getMe = () => api.get("/api/v1/auth/me");
+
+// Auth (lid)
+export interface MemberMe {
+  person_id: number;
+  member_id: number;
+  name: string;
+  email: string;
+  phone?: string | null;
+}
+export const memberRequestLogin = (email: string) =>
+  api.post("/api/v1/auth/member/request-login", { email });
+export const memberVerifyLogin = (token: string) =>
+  api.get<{ access_token: string }>("/api/v1/auth/member/verify-login", { params: { token } });
+export const getMemberMe = () => api.get<MemberMe>("/api/v1/auth/member/me");
 
 // Admin
 export const getStats = () => api.get("/api/v1/admin/stats");
