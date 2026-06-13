@@ -50,6 +50,14 @@ does `git reset --hard origin/master` (integration line). `deploy-uat.sh` and
 do NOT assume master equals the latest release, because master may already be
 ahead. A release tag is the **single source of truth** for what runs on UAT/PROD.
 
+**Test on HDEV against master BEFORE creating the Release tag.** The release
+tag is the single source of truth for UAT/PROD, so it must point at a commit
+that has already been validated on HDEV — never tag an untested commit. Correct
+order: (1) deploy master to HDEV (`./deploy-hdev.sh`), (2) test on HDEV,
+(3) only then create the GitHub Release targeting that tested master commit.
+Re-check the exact target commit at tag-time — master may have moved since the
+work started.
+
 **Mark each release with a GitHub Release (not a manual `git tag` push).**
 Creating a Release on GitHub creates the tag **server-side**, so there is no
 separate `git push origin <tag>` step (which is also blocked in the Claude
