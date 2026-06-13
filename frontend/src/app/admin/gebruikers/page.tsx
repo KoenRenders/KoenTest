@@ -142,7 +142,8 @@ export default function AdminGebruikers() {
                 ))}
               </div>
             </div>
-            <div>
+            <div className="pt-2 border-t">
+              <label className="block text-sm font-medium mb-1">Status</label>
               <label className="flex items-center gap-2 text-sm cursor-pointer">
                 <input type="checkbox" checked={form.is_active}
                   onChange={(e) => setForm((f) => ({ ...f, is_active: e.target.checked }))} />
