@@ -6,7 +6,7 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 
 logger = logging.getLogger(__name__)
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, selectinload
 
 from app.auth import get_current_admin
 from app.database import get_db
@@ -35,23 +35,53 @@ from app.limiter import registration_limiter
 router = APIRouter(tags=["activities"])
 
 
-def compute_activity_status(activity: Activity) -> dict:
-    registrations = [r for r in activity.registrations if not r.is_waitlist]
-    waitlist = [r for r in activity.registrations if r.is_waitlist]
-    count = len(registrations)
-    wl_count = len(waitlist)
+def compute_activity_status(
+    activity: Activity,
+    registration_count: int | None = None,
+    waitlist_count: int | None = None,
+) -> dict:
+    # Tellingen mogen vooraf berekend worden meegegeven (lijst-endpoints, 1
+    # GROUP BY-query) om N+1 te vermijden. Worden ze niet meegegeven, dan vallen
+    # we terug op de relatie (prima voor één activiteit, bv. na een update).
+    if registration_count is None or waitlist_count is None:
+        registration_count = sum(1 for r in activity.registrations if not r.is_waitlist)
+        waitlist_count = sum(1 for r in activity.registrations if r.is_waitlist)
 
     end = activity.date_end or activity.date
     if end < date.today():
         status = "Voorbij"
     elif activity.is_cancelled:
         status = "Geannuleerd"
-    elif wl_count > 0:
+    elif waitlist_count > 0:
         status = "Wachtlijst"
     else:
         status = "Open"
 
-    return {"status": status, "registration_count": count, "waitlist_count": wl_count}
+    return {
+        "status": status,
+        "registration_count": registration_count,
+        "waitlist_count": waitlist_count,
+    }
+
+
+def _registration_counts(db: Session, activity_ids: List[int]) -> dict:
+    """Tellingen (regulier, wachtlijst) per activiteit in één GROUP BY-query.
+
+    Geeft {activity_id: (registration_count, waitlist_count)}. Vermijdt het
+    N+1-patroon waarbij per activiteit de registraties werden opgevraagd.
+    """
+    counts: dict = {aid: [0, 0] for aid in activity_ids}
+    if not activity_ids:
+        return counts
+    rows = (
+        db.query(Registration.activity_id, Registration.is_waitlist, func.count())
+        .filter(Registration.activity_id.in_(activity_ids))
+        .group_by(Registration.activity_id, Registration.is_waitlist)
+        .all()
+    )
+    for activity_id, is_waitlist, cnt in rows:
+        counts.setdefault(activity_id, [0, 0])[1 if is_waitlist else 0] = cnt
+    return counts
 
 
 # ── Activities ────────────────────────────────────────────────────────────────
@@ -65,13 +95,20 @@ def list_activities(db: Session = Depends(get_db)):
     )
     activities = (
         db.query(Activity)
+        .options(
+            selectinload(Activity.sub_registrations).selectinload(
+                ActivitySubRegistration.products
+            )
+        )
         .filter(still_running)
         .order_by(Activity.date.asc())
         .all()
     )
+    counts = _registration_counts(db, [a.id for a in activities])
     result = []
     for a in activities:
-        info = compute_activity_status(a)
+        reg_count, wl_count = counts.get(a.id, (0, 0))
+        info = compute_activity_status(a, reg_count, wl_count)
         resp = ActivityResponse.model_validate(a)
         resp.status = info["status"]
         resp.registration_count = info["registration_count"]
@@ -85,6 +122,11 @@ def list_archived_activities(db: Session = Depends(get_db)):
     today = date.today()
     activities = (
         db.query(Activity)
+        .options(
+            selectinload(Activity.sub_registrations).selectinload(
+                ActivitySubRegistration.products
+            )
+        )
         .filter(
             or_(
                 and_(Activity.date_end == None, Activity.date < today),
@@ -94,9 +136,11 @@ def list_archived_activities(db: Session = Depends(get_db)):
         .order_by(Activity.date.desc())
         .all()
     )
+    counts = _registration_counts(db, [a.id for a in activities])
     result = []
     for a in activities:
-        info = compute_activity_status(a)
+        reg_count, wl_count = counts.get(a.id, (0, 0))
+        info = compute_activity_status(a, reg_count, wl_count)
         resp = ActivityResponse.model_validate(a)
         resp.status = info["status"]
         resp.registration_count = info["registration_count"]
