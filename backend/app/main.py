@@ -2,6 +2,7 @@ import logging
 import time
 
 from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
@@ -59,6 +60,19 @@ async def _access_log(request: Request, call_next):
             duration_ms,
         )
     return response
+
+
+@app.exception_handler(RequestValidationError)
+async def _validation_error_handler(request: Request, exc: RequestValidationError):
+    body = None
+    try:
+        body = await request.body()
+        body = body.decode("utf-8")
+    except Exception:
+        pass
+    logger.warning("422 validatiefout op %s %s — body: %s — fouten: %s",
+                   request.method, request.url.path, body, exc.errors())
+    return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 
 @app.exception_handler(Exception)
