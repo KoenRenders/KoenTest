@@ -1,5 +1,8 @@
 node_modules/
 .next/
+# Door Next.js gegenereerd; en deze repo commit geen npm-lockfile.
+frontend/next-env.d.ts
+frontend/package-lock.json
 .venv/
 __pycache__/
 *.pyc
