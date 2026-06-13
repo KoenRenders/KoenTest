@@ -2,6 +2,7 @@ import logging
 import time
 
 from fastapi import FastAPI, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -75,7 +76,10 @@ async def _validation_error_handler(request: Request, exc: RequestValidationErro
         "422 validatiefout op %s %s — velden: %s",
         request.method, request.url.path, velden,
     )
-    return JSONResponse(status_code=422, content={"detail": exc.errors()})
+    # jsonable_encoder maakt eventuele ValueError-objecten in ctx (afkomstig
+    # van custom validators) serialiseerbaar — net zoals FastAPI's eigen
+    # handler. Zonder dit faalt json.dumps met een 500 i.p.v. een nette 422.
+    return JSONResponse(status_code=422, content={"detail": jsonable_encoder(exc.errors())})
 
 
 @app.exception_handler(Exception)
