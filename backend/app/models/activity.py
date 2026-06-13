@@ -13,7 +13,7 @@ class Activity(Base):
     date_end = Column(Date, nullable=True)
     time = Column(Time, nullable=True)
     location = Column(String(255), nullable=True)
-    poster_url = Column(String(500), nullable=True)
+    poster_url = Column(Text, nullable=True)
     is_cancelled = Column(Boolean, default=False, nullable=False)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
