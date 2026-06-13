@@ -6,6 +6,7 @@ import {
   addProduct, updateProduct, deleteProduct,
 } from "@/lib/api";
 import type { Activity, ActivityComponent, ActivityProduct } from "@/lib/types";
+import { parseApiError } from "@/lib/errors";
 import RegistrationList, { type RegistrationEntry } from "@/components/RegistrationList";
 
 const emptyActivity = () => ({
@@ -32,6 +33,8 @@ export default function AdminActiviteiten() {
   const [showActivityForm, setShowActivityForm] = useState(false);
   const [editingActivity, setEditingActivity] = useState<number | null>(null);
   const [activityForm, setActivityForm] = useState(emptyActivity());
+  const [activityError, setActivityError] = useState<string | null>(null);
+  const [savingActivity, setSavingActivity] = useState(false);
 
   const [expandedActivity, setExpandedActivity] = useState<number | null>(null);
   const [showComponentForm, setShowComponentForm] = useState<number | null>(null);
@@ -66,15 +69,23 @@ export default function AdminActiviteiten() {
       poster_url: activityForm.poster_url || null,
       is_cancelled: activityForm.is_cancelled,
     };
-    if (editingActivity !== null) {
-      await updateActivity(editingActivity, payload);
-    } else {
-      await createActivity(payload);
+    setActivityError(null);
+    setSavingActivity(true);
+    try {
+      if (editingActivity !== null) {
+        await updateActivity(editingActivity, payload);
+      } else {
+        await createActivity(payload);
+      }
+      setShowActivityForm(false);
+      setEditingActivity(null);
+      setActivityForm(emptyActivity());
+      load();
+    } catch (err) {
+      setActivityError(parseApiError(err, "Opslaan van de activiteit is mislukt."));
+    } finally {
+      setSavingActivity(false);
     }
-    setShowActivityForm(false);
-    setEditingActivity(null);
-    setActivityForm(emptyActivity());
-    load();
   }
 
   function startEditActivity(a: Activity) {
@@ -85,6 +96,7 @@ export default function AdminActiviteiten() {
       is_cancelled: a.is_cancelled ?? false,
     });
     setEditingActivity(a.id);
+    setActivityError(null);
     setShowActivityForm(true);
   }
 
@@ -215,7 +227,7 @@ export default function AdminActiviteiten() {
     <div>
 <div className="flex items-center justify-between mb-6">
         <h1 className="text-2xl font-bold text-blue-800">Activiteiten</h1>
-        <button className="btn-primary btn-sm" onClick={() => { setShowActivityForm(true); setEditingActivity(null); setActivityForm(emptyActivity()); }}>
+        <button className="btn-primary btn-sm" onClick={() => { setShowActivityForm(true); setEditingActivity(null); setActivityForm(emptyActivity()); setActivityError(null); }}>
           + Nieuwe activiteit
         </button>
       </div>
@@ -254,9 +266,14 @@ export default function AdminActiviteiten() {
                 <label htmlFor="is_cancelled">Geannuleerd</label>
               </div>
             </div>
+            {activityError && (
+              <p className="text-red-600 text-sm" role="alert">{activityError}</p>
+            )}
             <div className="flex gap-3">
-              <button type="submit" className="btn-primary">Opslaan</button>
-              <button type="button" className="btn-secondary" onClick={() => { setShowActivityForm(false); setEditingActivity(null); }}>Annuleren</button>
+              <button type="submit" className="btn-primary" disabled={savingActivity}>
+                {savingActivity ? "Opslaan…" : "Opslaan"}
+              </button>
+              <button type="button" className="btn-secondary" onClick={() => { setShowActivityForm(false); setEditingActivity(null); setActivityError(null); }}>Annuleren</button>
             </div>
           </form>
         </div>
