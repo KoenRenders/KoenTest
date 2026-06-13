@@ -138,6 +138,15 @@ export const memberVerifyLogin = (token: string) =>
   api.get<{ access_token: string }>("/api/v1/auth/member/verify-login", { params: { token } });
 export const getMemberMe = () => api.get<MemberMe>("/api/v1/auth/member/me");
 
+// Lid-zelfbediening (mijn gezin)
+export const getMemberHousehold = () => api.get("/api/v1/member/household");
+export const updateMemberPerson = (personId: number, data: unknown) =>
+  api.put(`/api/v1/member/household/persons/${personId}`, data);
+export const addMemberPerson = (data: unknown) =>
+  api.post("/api/v1/member/household/persons", data);
+export const removeMemberPerson = (personId: number) =>
+  api.delete(`/api/v1/member/household/persons/${personId}`);
+
 // Admin
 export const getStats = () => api.get("/api/v1/admin/stats");
 export const getAllPages = () => api.get("/api/v1/admin/pages");

@@ -70,10 +70,12 @@ export default function Navigation() {
           <li><Link href="/fotos" className="block px-3 py-2 rounded hover:opacity-80 font-medium">Foto&apos;s</Link></li>
           <li><Link href="/archief" className="block px-3 py-2 rounded hover:opacity-80 font-medium">Archief</Link></li>
           {memberName ? (
-            <li className="flex items-center gap-2 px-3 py-2">
-              <span className="text-sm" style={{ color: "var(--color-golden-yellow)" }}>{memberName}</span>
-              <button onClick={logoutMember} className="text-sm underline hover:opacity-80">Uitloggen</button>
-            </li>
+            <>
+              <li><Link href="/leden/gezin" className="block px-3 py-2 rounded hover:opacity-80 font-medium" style={{ color: "var(--color-golden-yellow)" }}>Mijn gezin</Link></li>
+              <li className="flex items-center px-3 py-2">
+                <button onClick={logoutMember} className="text-sm underline hover:opacity-80">Uitloggen ({memberName})</button>
+              </li>
+            </>
           ) : (
             <li><Link href="/leden/login" className="block px-3 py-2 rounded hover:opacity-80 font-medium">Inloggen als lid</Link></li>
           )}
