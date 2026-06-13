@@ -64,14 +64,17 @@ async def _access_log(request: Request, call_next):
 
 @app.exception_handler(RequestValidationError)
 async def _validation_error_handler(request: Request, exc: RequestValidationError):
-    body = None
-    try:
-        body = await request.body()
-        body = body.decode("utf-8")
-    except Exception:
-        pass
-    logger.warning("422 validatiefout op %s %s — body: %s — fouten: %s",
-                   request.method, request.url.path, body, exc.errors())
+    # Log alleen welke velden faalden en waarom (type + locatie) — NOOIT de
+    # ingevoerde waarden of de request-body, want die kunnen persoonsgegevens
+    # bevatten. Genoeg om 422's te diagnosticeren zonder PII te lekken.
+    velden = [
+        {"loc": e.get("loc"), "type": e.get("type"), "msg": e.get("msg")}
+        for e in exc.errors()
+    ]
+    logger.warning(
+        "422 validatiefout op %s %s — velden: %s",
+        request.method, request.url.path, velden,
+    )
     return JSONResponse(status_code=422, content={"detail": exc.errors()})
 
 

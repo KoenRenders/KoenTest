@@ -1,4 +1,4 @@
-from datetime import date, time as Time, datetime
+from datetime import date as Date, time as Time, datetime
 from typing import Optional, List
 from decimal import Decimal
 from pydantic import BaseModel, EmailStr, field_validator
@@ -89,8 +89,8 @@ class ComponentResponse(BaseModel):
 
 class ActivityCreate(BaseModel):
     name: str
-    date: date
-    date_end: Optional[date] = None
+    date: Date
+    date_end: Optional[Date] = None
     time: Optional[Time] = None
     location: Optional[str] = None
     poster_url: Optional[str] = None
@@ -98,8 +98,8 @@ class ActivityCreate(BaseModel):
 
 class ActivityUpdate(BaseModel):
     name: Optional[str] = None
-    date: Optional[date] = None
-    date_end: Optional[date] = None
+    date: Optional[Date] = None
+    date_end: Optional[Date] = None
     time: Optional[Time] = None
     location: Optional[str] = None
     poster_url: Optional[str] = None
@@ -109,8 +109,8 @@ class ActivityUpdate(BaseModel):
 class ActivityResponse(BaseModel):
     id: int
     name: str
-    date: date
-    date_end: Optional[date] = None
+    date: Date
+    date_end: Optional[Date] = None
     time: Optional[Time] = None
     location: Optional[str] = None
     poster_url: Optional[str] = None

@@ -69,7 +69,6 @@ export default function AdminActiviteiten() {
       poster_url: activityForm.poster_url || null,
       is_cancelled: activityForm.is_cancelled,
     };
-    console.log("[activiteit opslaan] payload:", JSON.stringify(payload));
     setActivityError(null);
     setSavingActivity(true);
     try {
