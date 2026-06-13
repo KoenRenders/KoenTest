@@ -92,6 +92,27 @@ def list_sponsors(db: Session = Depends(get_db)):
     return [_meta(a) for a in rows]
 
 
+@router.get("/media/activity-photos/availability")
+def activity_photos_availability(db: Session = Depends(get_db)):
+    """Activity-id's die actieve foto's hebben — in één query.
+
+    Laat de frontend de "Foto's"-knop tonen zonder per activiteit een aparte
+    fotorequest te doen (vermijdt het N+1-patroon op de archieflijst). Blijft
+    volledig binnen het media-domein; raakt het activiteiten-schema niet aan.
+    """
+    rows = (
+        db.query(MediaAsset.activity_id)
+        .filter(
+            MediaAsset.kind == "activity_photo",
+            MediaAsset.is_active == True,  # noqa: E712
+            MediaAsset.activity_id.isnot(None),
+        )
+        .distinct()
+        .all()
+    )
+    return [r[0] for r in rows]
+
+
 @router.get("/activities/{activity_id}/photos")
 def list_activity_photos(activity_id: int, db: Session = Depends(get_db)):
     rows = (

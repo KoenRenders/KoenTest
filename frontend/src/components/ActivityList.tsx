@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
+import Link from "next/link";
 import { getPublicRegistrations } from "@/lib/api";
-import PhotoGallery from "@/components/PhotoGallery";
 import type { Activity, ActivityComponent } from "@/lib/types";
 
 function StatusBadge({ status }: { status?: string }) {
@@ -124,12 +124,14 @@ export default function ActivityList({
   showRegister = true,
   yearsAscending = false,
   showPhotos = false,
+  photoActivityIds,
 }: {
   activities: Activity[];
   onRegister?: (activity: Activity, component: ActivityComponent) => void;
   showRegister?: boolean;
   yearsAscending?: boolean;
   showPhotos?: boolean;
+  photoActivityIds?: number[];
 }) {
   if (activities.length === 0) {
     return <p className="text-gray-500 italic">Geen activiteiten gevonden.</p>;
@@ -189,7 +191,14 @@ export default function ActivityList({
                     </div>
                   )}
 
-                  {showPhotos && <PhotoGallery activityId={activity.id} />}
+                  {showPhotos && photoActivityIds?.includes(activity.id) && (
+                    <Link
+                      href={`/activiteiten/${activity.id}/fotos`}
+                      className="inline-block mt-3 text-sm text-blue-700 hover:underline"
+                    >
+                      📷 Foto&apos;s bekijken
+                    </Link>
+                  )}
                 </div>
               </div>
             ))}
