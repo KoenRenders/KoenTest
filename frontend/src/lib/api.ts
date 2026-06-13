@@ -85,6 +85,8 @@ export const getActivityPhotos = (activityId: number) =>
   api.get<MediaAsset[]>(`/api/v1/activities/${activityId}/photos`);
 export const getActivityPhotoAvailability = () =>
   api.get<number[]>("/api/v1/media/activity-photos/availability");
+export const getActivityPhotoCovers = () =>
+  api.get<{ activity_id: number; thumb_url: string }[]>("/api/v1/media/activity-photos/covers");
 export const adminListMedia = (params: { kind?: string; activity_id?: number } = {}) =>
   api.get<MediaAsset[]>("/api/v1/admin/media", { params });
 export const uploadMedia = (

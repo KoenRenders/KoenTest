@@ -113,6 +113,29 @@ def activity_photos_availability(db: Session = Depends(get_db)):
     return [r[0] for r in rows]
 
 
+@router.get("/media/activity-photos/covers")
+def activity_photo_covers(db: Session = Depends(get_db)):
+    """Per activiteit met foto's één cover-thumbnail — in één query.
+
+    Gebruikt door de fotopagina om albumkaartjes met een echte beeld-preview
+    te tonen i.p.v. een placeholder-icoon. DISTINCT ON (activity_id) pakt per
+    activiteit de eerste foto (laagste sort_order, dan id). Blijft binnen het
+    media-domein; raakt het activiteiten-schema niet aan.
+    """
+    rows = (
+        db.query(MediaAsset)
+        .filter(
+            MediaAsset.kind == "activity_photo",
+            MediaAsset.is_active == True,  # noqa: E712
+            MediaAsset.activity_id.isnot(None),
+        )
+        .order_by(MediaAsset.activity_id, MediaAsset.sort_order.asc(), MediaAsset.id.asc())
+        .distinct(MediaAsset.activity_id)
+        .all()
+    )
+    return [{"activity_id": a.activity_id, "thumb_url": f"/api/v1/media/{a.id}/thumb"} for a in rows]
+
+
 @router.get("/activities/{activity_id}/photos")
 def list_activity_photos(activity_id: int, db: Session = Depends(get_db)):
     rows = (

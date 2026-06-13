@@ -1,22 +1,16 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getArchivedActivities, getActivityPhotoAvailability } from "@/lib/api";
+import { getArchivedActivities } from "@/lib/api";
 import ActivityList from "@/components/ActivityList";
 import type { Activity } from "@/lib/types";
 
 export default function ArchiefPage() {
   const [activities, setActivities] = useState<Activity[]>([]);
-  const [photoActivityIds, setPhotoActivityIds] = useState<number[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    // Twee requests totaal: de activiteitenlijst + welke activiteiten foto's
-    // hebben. Geen losse fotorequest meer per activiteit.
-    Promise.all([getArchivedActivities(), getActivityPhotoAvailability()])
-      .then(([a, p]) => {
-        setActivities(a.data);
-        setPhotoActivityIds(p.data);
-      })
+    getArchivedActivities()
+      .then((a) => setActivities(a.data))
       .catch(() => {})
       .finally(() => setLoading(false));
   }, []);
@@ -28,12 +22,7 @@ export default function ArchiefPage() {
       {loading ? (
         <p className="text-gray-500">Laden…</p>
       ) : (
-        <ActivityList
-          activities={activities}
-          showRegister={false}
-          showPhotos
-          photoActivityIds={photoActivityIds}
-        />
+        <ActivityList activities={activities} showRegister={false} />
       )}
     </div>
   );

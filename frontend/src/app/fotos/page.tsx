@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getArchivedActivities, getActivityPhotoAvailability } from "@/lib/api";
+import { getArchivedActivities, getActivityPhotoCovers } from "@/lib/api";
 import type { Activity } from "@/lib/types";
 
 function formatDate(d: string) {
@@ -10,13 +10,16 @@ function formatDate(d: string) {
 
 export default function FotosPage() {
   const [albums, setAlbums] = useState<Activity[]>([]);
+  const [covers, setCovers] = useState<Record<number, string>>({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    Promise.all([getArchivedActivities(), getActivityPhotoAvailability()])
-      .then(([a, p]) => {
-        const ids = new Set(p.data as number[]);
-        setAlbums((a.data as Activity[]).filter((act) => ids.has(act.id)));
+    Promise.all([getArchivedActivities(), getActivityPhotoCovers()])
+      .then(([a, c]) => {
+        const coverMap: Record<number, string> = {};
+        c.data.forEach((row) => { coverMap[row.activity_id] = row.thumb_url; });
+        setCovers(coverMap);
+        setAlbums((a.data as Activity[]).filter((act) => act.id in coverMap));
       })
       .catch(() => {})
       .finally(() => setLoading(false));
@@ -48,11 +51,20 @@ export default function FotosPage() {
                   <Link
                     key={act.id}
                     href={`/activiteiten/${act.id}/fotos`}
-                    className="card hover:shadow-md transition-shadow"
+                    className="card !p-0 overflow-hidden hover:shadow-md transition-shadow"
                   >
-                    <div className="text-2xl mb-2">📷</div>
-                    <div className="font-semibold text-blue-700">{act.name}</div>
-                    <div className="text-sm text-gray-500 mt-1">{formatDate(act.date)}</div>
+                    <div className="aspect-video bg-gray-100 overflow-hidden">
+                      <img
+                        src={covers[act.id]}
+                        alt={act.name}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                    <div className="p-4">
+                      <div className="font-semibold text-blue-700">{act.name}</div>
+                      <div className="text-sm text-gray-500 mt-1">{formatDate(act.date)}</div>
+                    </div>
                   </Link>
                 ))}
               </div>
