@@ -76,12 +76,16 @@ def get_current_member(
     """Optionele lid-identificatie. Geeft de ingelogde Person terug, of None.
 
     Geeft nooit 401: ontbreekt het token of is het geen geldig lid-token, dan
-    is de aanvrager simpelweg anoniem (None). Een admin-token (zonder
-    member-scope) telt hier NIET als lid. De koppeling e-mail -> Person gebeurt
-    elke aanvraag opnieuw, zodat een token niet meer toegang geeft dan het
-    onderliggende gezin op dat moment.
+    is de aanvrager simpelweg anoniem (None).
+
+    Twee paden:
+    - Lid-token (scope=member): e-mail → Person via ContactDetail.
+    - Admin-token (geen scope): als de User een person_id heeft, wordt die
+      Person teruggegeven — admins kunnen zo hun gezin beheren en zich
+      inschrijven zonder aparte ledenlogin.
     """
     from app.services.member_auth import login_person_for_email
+    from app.models.member import Person
 
     if not token:
         return None
@@ -89,12 +93,21 @@ def get_current_member(
         payload = decode_token(token)
     except HTTPException:
         return None
-    if payload.get("scope") != MEMBER_SCOPE:
-        return None
+
+    if payload.get("scope") == MEMBER_SCOPE:
+        email = payload.get("sub")
+        if not email:
+            return None
+        return login_person_for_email(db, email)
+
+    # Admin-token: gebruik person_id als die gekoppeld is
     email = payload.get("sub")
     if not email:
         return None
-    return login_person_for_email(db, email)
+    user = db.query(User).filter(User.email == email, User.is_active == True).first()
+    if user and user.person_id:
+        return db.query(Person).filter(Person.id == user.person_id).first()
+    return None
 
 
 def require_member(member=Depends(get_current_member)):
