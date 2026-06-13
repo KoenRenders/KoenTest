@@ -93,6 +93,7 @@ class ActivityCreate(BaseModel):
     date: Date
     date_end: Optional[Date] = None
     time: Optional[Time] = None
+    time_end: Optional[Time] = None
     location: Optional[str] = None
     poster_url: Optional[str] = None
 
@@ -102,6 +103,7 @@ class ActivityUpdate(BaseModel):
     date: Optional[Date] = None
     date_end: Optional[Date] = None
     time: Optional[Time] = None
+    time_end: Optional[Time] = None
     location: Optional[str] = None
     poster_url: Optional[str] = None
     is_cancelled: Optional[bool] = None
@@ -113,6 +115,7 @@ class ActivityResponse(BaseModel):
     date: Date
     date_end: Optional[Date] = None
     time: Optional[Time] = None
+    time_end: Optional[Time] = None
     location: Optional[str] = None
     poster_url: Optional[str] = None
     created_at: datetime

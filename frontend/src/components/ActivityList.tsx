@@ -168,7 +168,7 @@ export default function ActivityList({
                     <StatusBadge status={activity.status} />
                   </div>
                   <div className="mt-2 text-gray-600 space-y-0.5 text-sm">
-                    <p>📅 {formatDate(activity.date)}{activity.date_end && activity.date_end !== activity.date ? ` – ${formatDate(activity.date_end)}` : ""}{formatTime(activity.time) ? ` om ${formatTime(activity.time)}` : ""}</p>
+                    <p>📅 {formatDate(activity.date)}{activity.date_end && activity.date_end !== activity.date ? ` – ${formatDate(activity.date_end)}` : ""}{formatTime(activity.time) ? ` om ${formatTime(activity.time)}${formatTime(activity.time_end) ? ` – ${formatTime(activity.time_end)}` : ""}` : ""}</p>
                     {activity.location && <p>📍 {activity.location}</p>}
                   </div>
 

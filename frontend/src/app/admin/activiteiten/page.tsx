@@ -10,7 +10,7 @@ import { parseApiError } from "@/lib/errors";
 import RegistrationList, { type RegistrationEntry } from "@/components/RegistrationList";
 
 const emptyActivity = () => ({
-  name: "", date: "", date_end: "", time: "", location: "",
+  name: "", date: "", date_end: "", time: "", time_end: "", location: "",
   poster_url: "", is_cancelled: false,
 });
 
@@ -65,6 +65,7 @@ export default function AdminActiviteiten() {
       date: activityForm.date,
       date_end: activityForm.date_end || null,
       time: activityForm.time || null,
+      time_end: activityForm.time_end || null,
       location: activityForm.location || null,
       poster_url: activityForm.poster_url || null,
       is_cancelled: activityForm.is_cancelled,
@@ -91,7 +92,7 @@ export default function AdminActiviteiten() {
   function startEditActivity(a: Activity) {
     setActivityForm({
       name: a.name, date: a.date, date_end: a.date_end || "",
-      time: a.time || "", location: a.location || "",
+      time: a.time || "", time_end: a.time_end || "", location: a.location || "",
       poster_url: a.poster_url || "",
       is_cancelled: a.is_cancelled ?? false,
     });
@@ -252,6 +253,10 @@ export default function AdminActiviteiten() {
               <div>
                 <label className="label">Tijdstip</label>
                 <input type="time" className="input" value={activityForm.time} onChange={(e) => setActivityForm((f) => ({ ...f, time: e.target.value }))} />
+              </div>
+              <div>
+                <label className="label">Eindtijdstip</label>
+                <input type="time" className="input" value={activityForm.time_end} onChange={(e) => setActivityForm((f) => ({ ...f, time_end: e.target.value }))} />
               </div>
               <div>
                 <label className="label">Locatie</label>

@@ -160,6 +160,7 @@ def create_activity(
         date=data.date,
         date_end=data.date_end,
         time=data.time,
+        time_end=data.time_end,
         location=data.location,
         poster_url=data.poster_url,
     )

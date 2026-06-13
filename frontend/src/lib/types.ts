@@ -27,6 +27,7 @@ export interface Activity {
   date: string;
   date_end?: string;
   time?: string;
+  time_end?: string;
   location?: string;
   poster_url?: string;
   status?: string;
