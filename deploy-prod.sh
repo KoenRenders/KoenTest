@@ -1,7 +1,16 @@
 #!/usr/bin/env bash
-set -x
+# Deployt een EXACTE release-tag naar PROD (geen bewegende branch).
+# Gebruik: ./deploy-prod.sh v1.2.1
+#
+# UAT/PROD draaien bewust op een vastgepinde tag — we gaan er NIET van uit dat
+# master gelijk is aan de laatste release. master kan al verder staan.
+set -euxo pipefail
 
-git pull
+REF="${1:?Geef de te deployen release-tag op, bv: ./deploy-prod.sh v1.2.1}"
+
+# Haal de tags op en check de exacte commit uit (detached HEAD is hier gewenst).
+git fetch --tags --prune origin
+git checkout --detach "$REF"
 
 docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
 

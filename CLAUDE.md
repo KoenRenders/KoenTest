@@ -44,11 +44,11 @@ git fetch origin master && git reset --hard origin/master
 
 ## Releases and hotfixes
 
-**Deployment deploys `master` HEAD.** The deploy scripts (`deploy-uat.sh`,
-`deploy-prod.sh`) do `git pull` on master — they do NOT check out a tag. A
-release tag is therefore a **marker** ("this commit on master is v1.x.x") for
-traceability and rollback, not the deploy source. So always make sure master
-HEAD is exactly what you want live before deploying.
+**HDEV deploys `master` HEAD; UAT and PROD deploy a pinned tag.** `deploy-hdev.sh`
+does `git reset --hard origin/master` (integration line). `deploy-uat.sh` and
+`deploy-prod.sh` take a release tag as argument and check it out detached — they
+do NOT assume master equals the latest release, because master may already be
+ahead. A release tag is the **single source of truth** for what runs on UAT/PROD.
 
 **Mark each release with a GitHub Release (not a manual `git tag` push).**
 Creating a Release on GitHub creates the tag **server-side**, so there is no
@@ -60,8 +60,6 @@ remote environment with a 403 on tag refs). Steps:
 4. Title `v1.x.x`, write notes, reference issues with `Fixes #NN`.
 5. **Publish release** → the tag is created on the target commit.
 
-Then deploy (see below) and afterwards `git fetch --tags` locally to sync.
-
 For a hotfix on a released version while newer work is in progress:
 1. `git checkout -b hotfix/1.x.x v1.x.x`
 2. Apply fix, commit, merge back into master.
@@ -69,20 +67,31 @@ For a hotfix on a released version while newer work is in progress:
 
 ## Deploying a release to UAT / PROD
 
-Each environment has its own deploy script that pulls master and rebuilds with
-the matching compose + env file. On the server, in the repo checkout:
+UAT and PROD pin an exact tag (passed as argument). Promote in order:
+HDEV → UAT → PROD. On the server, in the repo checkout:
 
 ```bash
-# UAT
-git pull && ./deploy-uat.sh        # == docker compose -f docker-compose.uat.yml  --env-file .env.uat  up --build -d
-# PROD
-git pull && ./deploy-prod.sh       # == docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
+# HDEV — always tracks master (integration; no tag)
+./deploy-hdev.sh
+
+# UAT — deploy a specific tag
+./deploy-uat.sh v1.x.x        # fetch --tags && checkout --detach <tag> && compose up --build -d
+
+# PROD — same tag, after UAT looks good
+./deploy-prod.sh v1.x.x
 ```
 
-Both scripts run a **read-only** post-deploy smoke test (`tests/run-all.sh`
-against `FRONTEND_URL`) that creates no data. The backend runs
-`alembic upgrade head` on startup, so DB migrations (e.g. 031) apply
-automatically during the rebuild. Promote in order: HDEV → UAT → PROD.
+Each UAT/PROD script does `git fetch --tags --prune` then `git checkout --detach
+<tag>` (detached HEAD is intended — you run an exact commit, not a moving branch),
+then rebuilds with the matching compose + env file and runs a **read-only**
+post-deploy smoke test (`tests/run-all.sh`) that creates no data. The backend runs
+`alembic upgrade head` on startup, so DB migrations (e.g. 031) apply automatically
+during the rebuild.
+
+> First-time note: the tag must contain these tag-aware deploy scripts. For a
+> release predating them, run the equivalent by hand once:
+> `git fetch --tags origin && git checkout --detach v1.x.x && docker compose -f
+> docker-compose.uat.yml --env-file .env.uat up --build -d`.
 
 ## Docker stack
 
