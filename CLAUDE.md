@@ -215,3 +215,37 @@ For `PAID_PRODUCTS`: `paidProducts` on the frontend are sub-registrations where 
 - Do not compute `total_amount` from `registration.items` after `db.flush()` — the ORM relationship is not populated yet. Compute inline while creating the items.
 - Do not use `datetime.utcnow()` — use `datetime.now(timezone.utc)`.
 - After any change to `backend/app/main.py` router includes or domain imports, verify `check_imports.py` would pass by checking that all imported modules exist.
+- Never name a Pydantic field the same as its type **when it has a default** —
+  e.g. `date: Optional[date] = None`. Python binds `date = None` in the class
+  namespace before evaluating the annotation, so the field type silently becomes
+  `NoneType` and Pydantic rejects every value with 422 "Input should be None".
+  Alias the type import instead (`from datetime import date as Date`, mirroring
+  `time as Time`). This bit us in `ActivityUpdate` (hotfix v1.2.1). The blanket
+  fix `from __future__ import annotations` per schema file is tracked in #100.
+
+## Validation layers — DB vs. service vs. router
+
+Three layers, each with one job. Put each check where it belongs; don't collapse
+them into one.
+
+1. **Router (HTTP-laag)** — the doorman. Only cares about the *request*: is the
+   caller authenticated/authorised (`get_current_admin`), does the JSON parse into
+   the Pydantic schema (shape/types/required fields → automatic 422), and shaping
+   the *response*. It does NOT contain business rules. Pydantic schemas live here:
+   they validate **form** (is `price` a number? is `email` an email?), not
+   **meaning**.
+2. **Service / domain-laag** — the rulebook. Business invariants that need other
+   data or domain knowledge: "can this member be reminded twice?", "does
+   `amount_paid` match the expected total?", "is this sub-registration still
+   open?". These are the rules that must hold no matter *which* router calls them,
+   so they live in `app/services/` or `app/domains/`, never inline in a router.
+   A rule enforced only in the router can be bypassed by any other caller.
+3. **Database (laatste vangnet)** — the safety net. Constraints that must be true
+   even if a bug slips past the code: `UNIQUE`, `NOT NULL`, `CHECK (price >= 0)`,
+   foreign keys. The DB is the last line; it guarantees integrity at rest even if
+   two requests race or a migration/script writes directly. Tracked broadly in #94.
+
+Rule of thumb: **form → router (Pydantic); meaning → service; integrity-at-rest →
+DB.** A critical invariant (e.g. no negative price) is often worth enforcing in
+*both* the schema (nice 422 for the user) and the DB (hard guarantee) — that's
+defence in depth, not duplication.
