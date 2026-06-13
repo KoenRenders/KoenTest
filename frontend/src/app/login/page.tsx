@@ -34,7 +34,7 @@ export default function LoginPage() {
     try {
       const res = await verifyLoginOtp(email, code.trim());
       localStorage.setItem("auth_token", res.data.access_token);
-      router.push("/");
+      window.location.href = "/";
     } catch {
       setOtpError("Ongeldige of verlopen code.");
     } finally {

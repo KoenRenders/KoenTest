@@ -17,7 +17,9 @@ function VerifyContent() {
     verifyLoginToken(token)
       .then((res) => {
         localStorage.setItem("auth_token", res.data.access_token);
-        router.push("/");
+        // Volledige reload zodat Navigation getAuthMe() opnieuw uitvoert en de
+        // admin-knop meteen zichtbaar is zonder handmatige F5.
+        window.location.href = "/";
       })
       .catch(() => setError("Ongeldige of verlopen inloglink."));
   }, [searchParams, router]);
