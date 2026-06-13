@@ -163,6 +163,7 @@ def create_activity(
         time_end=data.time_end,
         location=data.location,
         poster_url=data.poster_url,
+        members_only=bool(data.members_only),
     )
     db.add(activity)
     db.commit()

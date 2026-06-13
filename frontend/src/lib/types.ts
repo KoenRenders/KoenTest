@@ -30,6 +30,7 @@ export interface Activity {
   time_end?: string;
   location?: string;
   poster_url?: string;
+  members_only?: boolean;
   status?: string;
   is_cancelled?: boolean;
   registration_count?: number;

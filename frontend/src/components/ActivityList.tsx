@@ -163,6 +163,9 @@ export default function ActivityList({
                       <span className="font-semibold text-gray-900 text-lg">{activity.name}</span>
                     )}
                     <StatusBadge status={activity.status} />
+                    {activity.members_only && (
+                      <span className="text-xs font-medium text-amber-700">(enkel leden)</span>
+                    )}
                   </div>
                   <div className="mt-2 text-gray-600 space-y-0.5 text-sm">
                     <p>📅 {formatDate(activity.date)}{activity.date_end && activity.date_end !== activity.date ? ` – ${formatDate(activity.date_end)}` : ""}{formatTime(activity.time) ? ` om ${formatTime(activity.time)}${formatTime(activity.time_end) ? ` – ${formatTime(activity.time_end)}` : ""}` : ""}</p>

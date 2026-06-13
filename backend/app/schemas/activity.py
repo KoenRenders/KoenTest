@@ -96,6 +96,7 @@ class ActivityCreate(BaseModel):
     time_end: Optional[Time] = None
     location: Optional[str] = None
     poster_url: Optional[str] = None
+    members_only: Optional[bool] = None
 
 
 class ActivityUpdate(BaseModel):
@@ -107,6 +108,7 @@ class ActivityUpdate(BaseModel):
     location: Optional[str] = None
     poster_url: Optional[str] = None
     is_cancelled: Optional[bool] = None
+    members_only: Optional[bool] = None
 
 
 class ActivityResponse(BaseModel):
@@ -118,6 +120,7 @@ class ActivityResponse(BaseModel):
     time_end: Optional[Time] = None
     location: Optional[str] = None
     poster_url: Optional[str] = None
+    members_only: bool = False
     created_at: datetime
     status: Optional[str] = None
     registration_count: Optional[int] = None

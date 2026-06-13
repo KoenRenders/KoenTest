@@ -11,7 +11,7 @@ import RegistrationList, { type RegistrationEntry } from "@/components/Registrat
 
 const emptyActivity = () => ({
   name: "", date: "", date_end: "", time: "", time_end: "", location: "",
-  poster_url: "", is_cancelled: false,
+  poster_url: "", is_cancelled: false, members_only: false,
 });
 
 const emptyComponent = () => ({
@@ -68,6 +68,7 @@ export default function AdminActiviteiten() {
       location: activityForm.location || null,
       poster_url: activityForm.poster_url || null,
       is_cancelled: activityForm.is_cancelled,
+      members_only: activityForm.members_only,
     };
     setActivityError(null);
     setSavingActivity(true);
@@ -94,6 +95,7 @@ export default function AdminActiviteiten() {
       time: a.time || "", time_end: a.time_end || "", location: a.location || "",
       poster_url: a.poster_url || "",
       is_cancelled: a.is_cancelled ?? false,
+      members_only: a.members_only ?? false,
     });
     setEditingActivity(a.id);
     setActivityError(null);
@@ -267,6 +269,10 @@ export default function AdminActiviteiten() {
               <div className="flex items-center gap-2 pt-5">
                 <input type="checkbox" id="is_cancelled" checked={activityForm.is_cancelled} onChange={(e) => setActivityForm((f) => ({ ...f, is_cancelled: e.target.checked }))} />
                 <label htmlFor="is_cancelled">Geannuleerd</label>
+              </div>
+              <div className="flex items-center gap-2 pt-5">
+                <input type="checkbox" id="members_only" checked={activityForm.members_only} onChange={(e) => setActivityForm((f) => ({ ...f, members_only: e.target.checked }))} />
+                <label htmlFor="members_only">Enkel leden</label>
               </div>
             </div>
             {activityError && (
