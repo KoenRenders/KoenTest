@@ -35,6 +35,11 @@ class Settings(BaseSettings):
     # Logniveau: DEBUG | INFO | WARNING | ERROR (default INFO)
     log_level: str = "INFO"
 
+    # SQL-echo: logt ALLE queries mét bind-parameters (= mogelijk
+    # persoonsgegevens). Staat los van LOG_LEVEL en standaard uit. Enkel voor
+    # diepgaande lokale diagnose; geblokkeerd op uat/prod.
+    sql_echo: bool = False
+
     # Sanity-bovengrens op het aantal per inschrijvingsitem. Voorkomt
     # negatieve/absurde aantallen via de API. Overschrijfbaar via .env.
     max_item_quantity: int = 50
@@ -73,6 +78,12 @@ class Settings(BaseSettings):
             if self.debug:
                 raise ValueError(
                     f"DEBUG mag niet aanstaan in APP_ENV={self.app_env}."
+                )
+            if self.sql_echo:
+                raise ValueError(
+                    f"SQL_ECHO mag niet aanstaan in APP_ENV={self.app_env}: "
+                    "het logt alle queries met bind-parameters "
+                    "(persoonsgegevens)."
                 )
         return self
 

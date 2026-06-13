@@ -16,6 +16,7 @@ def configure_logging() -> None:
 
     # Verlaag ruis van drukke third-party loggers
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
-    logging.getLogger("sqlalchemy.engine").setLevel(
-        logging.INFO if settings.log_level.upper() == "DEBUG" else logging.WARNING
-    )
+    # SQL-echo loopt via de engine (settings.sql_echo), NIET via LOG_LEVEL.
+    # Zo logt LOG_LEVEL=DEBUG wel rijke app-logs, maar geen queries met
+    # persoonsgegevens. De engine-logger houden we daarom op WARNING.
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
