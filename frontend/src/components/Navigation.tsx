@@ -1,23 +1,28 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getPages, getMemberMe } from "@/lib/api";
+import { getPages, getMemberMe, getMe } from "@/lib/api";
 import type { CmsPage } from "@/lib/types";
 
 export default function Navigation() {
   const [pages, setPages] = useState<CmsPage[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [memberName, setMemberName] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     getPages().then((r) => setPages(r.data)).catch(() => {});
-    if (typeof window !== "undefined" && localStorage.getItem("member_token")) {
-      getMemberMe()
-        .then((r) => setMemberName(r.data.name))
-        .catch(() => {
-          // Verlopen/ongeldig lid-token: opruimen.
-          localStorage.removeItem("member_token");
-        });
+    if (typeof window !== "undefined") {
+      if (localStorage.getItem("member_token")) {
+        getMemberMe()
+          .then((r) => setMemberName(r.data.name))
+          .catch(() => { localStorage.removeItem("member_token"); });
+      }
+      if (localStorage.getItem("admin_token")) {
+        getMe()
+          .then(() => setIsAdmin(true))
+          .catch(() => {});
+      }
     }
   }, []);
 
@@ -69,6 +74,9 @@ export default function Navigation() {
           ))}
           <li><Link href="/fotos" className="block px-3 py-2 rounded hover:opacity-80 font-medium">Foto&apos;s</Link></li>
           <li><Link href="/archief" className="block px-3 py-2 rounded hover:opacity-80 font-medium">Archief</Link></li>
+          {isAdmin && (
+            <li><Link href="/admin" className="block px-3 py-2 rounded hover:opacity-80 font-medium" style={{ color: "var(--color-golden-yellow)" }}>Admin</Link></li>
+          )}
           {memberName ? (
             <>
               <li><Link href="/leden/gezin" className="block px-3 py-2 rounded hover:opacity-80 font-medium" style={{ color: "var(--color-golden-yellow)" }}>Mijn gezin</Link></li>

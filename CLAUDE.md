@@ -37,6 +37,12 @@ All commits and pushes are done by Claude — the user never does this manually.
 After completing a task:
 1. Commit and push directly to `master`
 
+**Always create a release tracking issue** when starting a new batch of work
+(e.g. "Release v1.x.0 — <short description>"). List all planned issues with
+checkboxes, and add the full deploy checklist (HDEV test → GitHub Release →
+UAT → PROD → verify logs). Close the issue when the release is on PROD.
+This is the single source of truth for what's in a release and how to deploy it.
+
 At the start of each session, sync with master:
 ```bash
 git fetch origin master && git reset --hard origin/master
