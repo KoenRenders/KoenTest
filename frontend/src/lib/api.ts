@@ -154,3 +154,10 @@ export const removeMemberPerson = (personId: number) =>
 // Admin
 export const getStats = () => api.get("/api/v1/admin/stats");
 export const getAllPages = () => api.get("/api/v1/admin/pages");
+
+
+// Admin — gebruikersbeheer
+export const getAdminUsers = () => api.get("/api/v1/admin/users");
+export const createAdminUser = (data: unknown) => api.post("/api/v1/admin/users", data);
+export const updateAdminUser = (id: number, data: unknown) => api.put(`/api/v1/admin/users/${id}`, data);
+export const deleteAdminUser = (id: number) => api.delete(`/api/v1/admin/users/${id}`);

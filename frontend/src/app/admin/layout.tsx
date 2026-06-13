@@ -11,6 +11,7 @@ const navItems = [
   { href: "/admin/media", label: "Media" },
   { href: "/admin/ideeen", label: "Berichten" },
   { href: "/admin/betalingen", label: "Betalingen" },
+  { href: "/admin/gebruikers", label: "Gebruikers" },
 ];
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
