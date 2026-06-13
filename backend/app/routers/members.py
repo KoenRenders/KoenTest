@@ -306,7 +306,8 @@ def list_persons(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    return db.query(Person).order_by(Person.last_name, Person.first_name).all()
+    persons = db.query(Person).order_by(Person.last_name, Person.first_name).all()
+    return [PersonListItem.from_person(p) for p in persons]
 
 
 @router.put("/persons/{person_id}", response_model=FamilyMemberResponse)

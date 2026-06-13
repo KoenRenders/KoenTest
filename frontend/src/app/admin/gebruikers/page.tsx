@@ -1,9 +1,19 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser } from "@/lib/api";
+import { getAdminUsers, createAdminUser, updateAdminUser, deleteAdminUser, listPersons } from "@/lib/api";
 import { parseApiError } from "@/lib/errors";
 
 const ALL_ROLES = ["ADMIN", "MEMBER", "USER"];
+
+interface PersonOption {
+  id: number;
+  first_name: string;
+  last_name: string;
+  street?: string;
+  house_number?: string;
+  postal_code?: string;
+  municipality?: string;
+}
 
 interface UserEntry {
   id: number;
@@ -17,27 +27,36 @@ interface UserEntry {
 const emptyForm = () => ({
   email: "",
   is_active: true,
+  person_id: null as number | null,
   role_codes: [] as string[],
 });
 
+function personLabel(p: PersonOption) {
+  const addr = [p.street, p.house_number, p.postal_code, p.municipality].filter(Boolean).join(" ");
+  return `${p.last_name} ${p.first_name}${addr ? ` — ${addr}` : ""}`;
+}
+
 export default function AdminGebruikers() {
   const [users, setUsers] = useState<UserEntry[]>([]);
+  const [persons, setPersons] = useState<PersonOption[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
   const [showForm, setShowForm] = useState(false);
   const [editId, setEditId] = useState<number | null>(null);
   const [form, setForm] = useState(emptyForm());
+  const [personSearch, setPersonSearch] = useState("");
   const [saving, setSaving] = useState(false);
   const [formError, setFormError] = useState("");
 
   async function load() {
     setLoading(true);
     try {
-      const r = await getAdminUsers();
-      setUsers(r.data);
+      const [ur, pr] = await Promise.all([getAdminUsers(), listPersons()]);
+      setUsers(ur.data);
+      setPersons(pr.data);
     } catch (e) {
-      setError(parseApiError(e, "Kon gebruikers niet laden."));
+      setError(parseApiError(e, "Kon gegevens niet laden."));
     } finally {
       setLoading(false);
     }
@@ -48,6 +67,7 @@ export default function AdminGebruikers() {
   function startCreate() {
     setEditId(null);
     setForm(emptyForm());
+    setPersonSearch("");
     setFormError("");
     setShowForm(true);
   }
@@ -57,8 +77,11 @@ export default function AdminGebruikers() {
     setForm({
       email: u.email,
       is_active: u.is_active,
+      person_id: u.person_id,
       role_codes: u.roles.map((r) => r.role_code),
     });
+    const p = persons.find((p) => p.id === u.person_id);
+    setPersonSearch(p ? personLabel(p) : "");
     setFormError("");
     setShowForm(true);
   }
@@ -72,6 +95,22 @@ export default function AdminGebruikers() {
     }));
   }
 
+  const filteredPersons = personSearch.length >= 2
+    ? persons.filter((p) =>
+        personLabel(p).toLowerCase().includes(personSearch.toLowerCase())
+      ).slice(0, 8)
+    : [];
+
+  function selectPerson(p: PersonOption) {
+    setForm((f) => ({ ...f, person_id: p.id }));
+    setPersonSearch(personLabel(p));
+  }
+
+  function clearPerson() {
+    setForm((f) => ({ ...f, person_id: null }));
+    setPersonSearch("");
+  }
+
   async function save() {
     setSaving(true);
     setFormError("");
@@ -79,6 +118,7 @@ export default function AdminGebruikers() {
       const payload = {
         email: form.email.trim(),
         is_active: form.is_active,
+        person_id: form.person_id,
         role_codes: form.role_codes,
       };
       if (editId !== null) {
@@ -124,6 +164,42 @@ export default function AdminGebruikers() {
               <input className="input w-full" type="email" value={form.email}
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
             </div>
+
+            <div>
+              <label className="block text-sm font-medium mb-1">Persoon (optioneel)</label>
+              <div className="relative">
+                <div className="flex gap-2">
+                  <input
+                    className="input flex-1"
+                    placeholder="Zoek op naam of adres…"
+                    value={personSearch}
+                    onChange={(e) => {
+                      setPersonSearch(e.target.value);
+                      if (form.person_id !== null) setForm((f) => ({ ...f, person_id: null }));
+                    }}
+                  />
+                  {form.person_id !== null && (
+                    <button type="button" onClick={clearPerson}
+                      className="text-xs text-gray-500 hover:text-red-600 px-2">✕</button>
+                  )}
+                </div>
+                {filteredPersons.length > 0 && form.person_id === null && (
+                  <ul className="absolute z-10 mt-1 w-full bg-white border rounded shadow-md text-sm max-h-48 overflow-y-auto">
+                    {filteredPersons.map((p) => (
+                      <li key={p.id}
+                        className="px-3 py-2 hover:bg-blue-50 cursor-pointer"
+                        onMouseDown={() => selectPerson(p)}>
+                        {personLabel(p)}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+              {form.person_id !== null && (
+                <p className="text-xs text-green-700 mt-1">Gekoppeld aan persoon #{form.person_id}</p>
+              )}
+            </div>
+
             <div>
               <label className="block text-sm font-medium mb-1">Rollen</label>
               <div className="flex gap-3">
@@ -159,6 +235,7 @@ export default function AdminGebruikers() {
           <thead className="bg-gray-50 border-b">
             <tr>
               <th className="text-left px-4 py-3 font-medium">E-mail</th>
+              <th className="text-left px-4 py-3 font-medium">Persoon</th>
               <th className="text-left px-4 py-3 font-medium">Rollen</th>
               <th className="text-left px-4 py-3 font-medium">Actief</th>
               <th className="px-4 py-3"></th>
@@ -168,6 +245,11 @@ export default function AdminGebruikers() {
             {users.map((u) => (
               <tr key={u.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3">{u.email}</td>
+                <td className="px-4 py-3 text-gray-600">
+                  {u.person
+                    ? `${u.person.first_name} ${u.person.last_name}`
+                    : <span className="italic text-gray-400">—</span>}
+                </td>
                 <td className="px-4 py-3">
                   {u.roles.length === 0 ? (
                     <span className="italic text-gray-400">—</span>
@@ -178,11 +260,9 @@ export default function AdminGebruikers() {
                   ))}
                 </td>
                 <td className="px-4 py-3">
-                  {u.is_active ? (
-                    <span className="text-green-700 font-medium">Ja</span>
-                  ) : (
-                    <span className="text-gray-400">Nee</span>
-                  )}
+                  {u.is_active
+                    ? <span className="text-green-700 font-medium">Ja</span>
+                    : <span className="text-gray-400">Nee</span>}
                 </td>
                 <td className="px-4 py-3 text-right space-x-2">
                   <button className="text-blue-600 hover:underline text-xs" onClick={() => startEdit(u)}>Bewerken</button>
