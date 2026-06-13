@@ -7,6 +7,11 @@ class MagicLinkRequest(BaseModel):
     email: str
 
 
+class OtpVerifyRequest(BaseModel):
+    email: str
+    code: str
+
+
 class TokenResponse(BaseModel):
     access_token: str
     token_type: str = "bearer"

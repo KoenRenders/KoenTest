@@ -122,6 +122,8 @@ export const refreshPaymentRecord = (id: string) => api.post(`/api/v1/payment-st
 // Auth (admin)
 export const requestLogin = (email: string) => api.post("/api/v1/auth/request-login", { email });
 export const verifyLoginToken = (token: string) => api.get("/api/v1/auth/verify-login", { params: { token } });
+export const verifyLoginOtp = (email: string, code: string) =>
+  api.post<{ access_token: string }>("/api/v1/auth/verify-otp", { email, code });
 export const getMe = () => api.get("/api/v1/auth/me");
 
 // Auth (lid)
@@ -136,6 +138,8 @@ export const memberRequestLogin = (email: string) =>
   api.post("/api/v1/auth/member/request-login", { email });
 export const memberVerifyLogin = (token: string) =>
   api.get<{ access_token: string }>("/api/v1/auth/member/verify-login", { params: { token } });
+export const memberVerifyOtp = (email: string, code: string) =>
+  api.post<{ access_token: string }>("/api/v1/auth/member/verify-otp", { email, code });
 export const getMemberMe = () => api.get<MemberMe>("/api/v1/auth/member/me");
 
 // Lid-zelfbediening (mijn gezin)

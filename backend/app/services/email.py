@@ -41,13 +41,20 @@ def _send(to_email: str, subject: str, body_html: str, cc: Optional[str] = None)
         logger.error("E-mail versturen mislukt naar %s: %s", to_email, exc)
 
 
-def send_magic_link(to_email: str, magic_link: str) -> None:
+def send_magic_link(to_email: str, magic_link: str, otp_code: Optional[str] = None) -> None:
+    otp_block = ""
+    if otp_code:
+        otp_block = f"""
+        <p>Of voer deze code in op het apparaat waar je wil inloggen:</p>
+        <p style="font-size:1.6em;font-weight:bold;letter-spacing:0.15em">{otp_code}</p>
+        """
     _send(
         to_email=to_email,
         subject="Inloglink Raak Millegem",
         body_html=f"""
         <p>Klik op onderstaande link om in te loggen. De link is 15 minuten geldig.</p>
         <p><a href="{magic_link}">{magic_link}</a></p>
+        {otp_block}
         <p>Als je deze mail niet verwachtte, kun je hem negeren.</p>
         <p>Met vriendelijke groeten,<br>Raak Millegem</p>
         """,

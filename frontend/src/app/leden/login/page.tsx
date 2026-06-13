@@ -1,12 +1,17 @@
 "use client";
 import { useState } from "react";
-import { memberRequestLogin } from "@/lib/api";
+import { useRouter } from "next/navigation";
+import { memberRequestLogin, memberVerifyOtp } from "@/lib/api";
 
 export default function LedenLoginPage() {
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [code, setCode] = useState("");
+  const [otpLoading, setOtpLoading] = useState(false);
+  const [otpError, setOtpError] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -22,15 +27,45 @@ export default function LedenLoginPage() {
     }
   }
 
+  async function handleOtp(e: React.FormEvent) {
+    e.preventDefault();
+    setOtpLoading(true);
+    setOtpError("");
+    try {
+      const res = await memberVerifyOtp(email, code.trim());
+      localStorage.setItem("member_token", res.data.access_token);
+      router.push("/");
+    } catch {
+      setOtpError("Ongeldige of verlopen code.");
+    } finally {
+      setOtpLoading(false);
+    }
+  }
+
   if (sent) {
     return (
       <div className="max-w-sm mx-auto mt-16">
         <div className="card">
           <h1 className="text-2xl font-bold text-blue-800 mb-4">Controleer je e-mail</h1>
-          <p className="text-gray-600">
+          <p className="text-gray-600 mb-6">
             Als <strong>{email}</strong> bij ons gekend is, ontvang je een inloglink.
             De link is 15 minuten geldig.
           </p>
+          <form onSubmit={handleOtp} className="space-y-3 border-t pt-4">
+            <label className="label">Of voer de 6-cijferige code uit je e-mail in</label>
+            <input
+              className="input tracking-widest text-center"
+              inputMode="numeric"
+              maxLength={6}
+              placeholder="123456"
+              value={code}
+              onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
+            />
+            {otpError && <p className="text-red-600 text-sm">{otpError}</p>}
+            <button type="submit" disabled={otpLoading || code.length !== 6} className="btn-primary w-full">
+              {otpLoading ? "Bezig…" : "Inloggen met code"}
+            </button>
+          </form>
         </div>
       </div>
     );

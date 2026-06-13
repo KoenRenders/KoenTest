@@ -13,6 +13,8 @@ class LoginToken(Base):
     user_id = Column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=True)
     email = Column(String(255), nullable=True)
     token = Column(String(128), nullable=False, unique=True, index=True)
+    # 6-cijferige code als alternatief voor de magic-link (cross-device login).
+    otp_code = Column(String(6), nullable=True, index=True)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     used = Column(Boolean, nullable=False, default=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
