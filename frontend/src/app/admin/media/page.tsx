@@ -33,7 +33,17 @@ export default function AdminMedia() {
 
   useEffect(() => {
     Promise.all([getActivities(), getArchivedActivities()])
-      .then(([a, b]) => setActivities([...a.data, ...b.data]))
+      .then(([a, b]) => {
+        // Nieuwste datum eerst, oudste laatst; activiteiten zonder datum onderaan.
+        // (Komende en archief komen uit gedeelde endpoints met elk hun eigen
+        // publieke ordening, dus hier client-side hersorteren.)
+        const merged = [...a.data, ...b.data].sort((x, y) => {
+          if (!x.date) return 1;
+          if (!y.date) return -1;
+          return y.date.localeCompare(x.date);
+        });
+        setActivities(merged);
+      })
       .catch(() => {});
   }, []);
 
