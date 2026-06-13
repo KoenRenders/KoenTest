@@ -7,6 +7,7 @@ import {
   updateMemberPerson,
   addMemberPerson,
   removeMemberPerson,
+  renewMembership,
 } from "@/lib/api";
 
 interface PostalOption { postal_code: string; municipality: string; }
@@ -247,6 +248,8 @@ export default function MijnGezinPage() {
   const [saveError, setSaveError] = useState("");
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [memberEmail, setMemberEmail] = useState("");
+  const [membershipValidUntil, setMembershipValidUntil] = useState<string | null>(null);
+  const [renewing, setRenewing] = useState(false);
 
   useEffect(() => {
     if (typeof window === "undefined" || !localStorage.getItem("auth_token")) {
@@ -257,11 +260,23 @@ export default function MijnGezinPage() {
       .then(([h, me, pc]) => {
         setHousehold(h.data);
         setMemberEmail(me.data.email);
+        setMembershipValidUntil(me.data.membership_valid_until);
         setPostalCodes(pc);
       })
       .catch(() => router.push("/login"))
       .finally(() => setLoading(false));
   }, [router]);
+
+  async function handleRenew() {
+    setRenewing(true);
+    try {
+      const res = await renewMembership();
+      window.location.href = res.data.checkout_url;
+    } catch {
+      alert("Vernieuwen mislukt. Probeer het later opnieuw.");
+      setRenewing(false);
+    }
+  }
 
   async function savePerson(personId: number, data: Record<string, unknown>) {
     setSaving(true);
@@ -319,6 +334,28 @@ export default function MijnGezinPage() {
           <span>Verantwoordelijk lid: <strong>{household.board_member_name}</strong> (alleen bestuur kan dit wijzigen).</span>
         )}
       </p>
+
+      <div className={`card mb-6 ${membershipValidUntil ? "" : "border-l-4 border-amber-400"}`}>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h2 className="font-semibold text-gray-900">Lidmaatschap</h2>
+            {membershipValidUntil ? (
+              <p className="text-sm text-green-700 mt-0.5">
+                Actief — geldig tot {new Date(membershipValidUntil).toLocaleDateString("nl-BE")}.
+              </p>
+            ) : (
+              <p className="text-sm text-amber-700 mt-0.5">
+                Je hebt op dit moment geen geldig lidmaatschap.
+              </p>
+            )}
+          </div>
+          {!membershipValidUntil && (
+            <button className="btn-primary" onClick={handleRenew} disabled={renewing}>
+              {renewing ? "Bezig…" : "Lidmaatschap vernieuwen"}
+            </button>
+          )}
+        </div>
+      </div>
 
       <div className="space-y-4">
         {household.persons.map((p) => (

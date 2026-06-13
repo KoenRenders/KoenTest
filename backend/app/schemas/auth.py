@@ -1,4 +1,5 @@
 from __future__ import annotations
+from datetime import date as Date
 from typing import List, Optional
 from pydantic import BaseModel
 
@@ -52,3 +53,6 @@ class MemberMeResponse(BaseModel):
     # inschrijfformulier getoond wordt (#111). De backend blijft de bron van
     # waarheid voor het effectieve bedrag.
     has_valid_membership: bool = False
+    # Tot wanneer het lidmaatschap geldig is (None = geen geldig lidmaatschap);
+    # stuurt de status + vernieuwknop op het gezinscherm (#113).
+    membership_valid_until: Optional[Date] = None

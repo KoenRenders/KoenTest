@@ -28,6 +28,20 @@ def has_valid_membership(person, ref_date: Optional[date] = None) -> bool:
         return False
     if ref_date is None:
         ref_date = date.today()
+    return valid_membership_until(person, ref_date) is not None
+
+
+def valid_membership_until(person, ref_date: Optional[date] = None):
+    """Geeft de ``valid_to``-datum van een actief, geldig lidmaatschap op
+    ``ref_date``, of None als er geen geldig lidmaatschap is. Bij meerdere
+    geldige lidmaatschappen de verst reikende ``valid_to`` (gunstigst voor het
+    lid). Wordt gebruikt door het gezinscherm om de status + vernieuwknop te
+    tonen (#113)."""
+    if person is None:
+        return None
+    if ref_date is None:
+        ref_date = date.today()
+    best = None
     for mp in getattr(person, "member_persons", None) or []:
         member = getattr(mp, "member", None)
         if member is None:
@@ -39,5 +53,6 @@ def has_valid_membership(person, ref_date: Optional[date] = None) -> bool:
                 and ms.valid_to is not None
                 and ms.valid_from <= ref_date <= ms.valid_to
             ):
-                return True
-    return False
+                if best is None or ms.valid_to > best:
+                    best = ms.valid_to
+    return best

@@ -138,11 +138,14 @@ export interface MemberMe {
   email: string;
   phone?: string | null;
   has_valid_membership: boolean;
+  membership_valid_until: string | null;
 }
 export const getMemberMe = () => api.get<MemberMe>("/api/v1/auth/member/me");
 
 // Lid-zelfbediening (mijn gezin)
 export const getMemberHousehold = () => api.get("/api/v1/member/household");
+export const renewMembership = () =>
+  api.post<{ checkout_url: string; amount: string }>("/api/v1/member/household/renew-membership");
 export const updateMemberPerson = (personId: number, data: unknown) =>
   api.put(`/api/v1/member/household/persons/${personId}`, data);
 export const addMemberPerson = (data: unknown) =>

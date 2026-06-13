@@ -146,13 +146,15 @@ def member_me(person=Depends(require_member), db: Session = Depends(get_db)):
          if c.contact_type_code in ("MOBILE", "PHONE")),
         None,
     )
-    from app.services.membership import has_valid_membership
+    from app.services.membership import valid_membership_until
 
+    valid_until = valid_membership_until(person)
     return MemberMeResponse(
         person_id=person.id,
         member_id=member_id,
         name=f"{person.first_name} {person.last_name}".strip(),
         email=email,
         phone=phone,
-        has_valid_membership=has_valid_membership(person),
+        has_valid_membership=valid_until is not None,
+        membership_valid_until=valid_until,
     )

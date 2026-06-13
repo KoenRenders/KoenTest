@@ -126,6 +126,31 @@ def handle_gateway_update(
             operation="update", action=_GATEWAY_ACTION.get(new_status, "payment_status_changed"),
             source=source, actor=actor,
         )
+        # Lidmaatschap-betaling bevestigd -> lidmaatschap activeren (#113). Geldt
+        # zowel voor een nieuwe gezinsregistratie als voor een vernieuwing vanuit
+        # het gezinscherm: beide maken een Membership (is_active=False) met
+        # payable_type="membership", payable_id=membership.id.
+        if new_status == "paid" and record.payable_type == "membership":
+            _activate_membership(db, record.payable_id, source=source, actor=actor)
+
+
+def _activate_membership(db: Session, membership_id: int, source: str, actor: Optional[str]) -> None:
+    """Zet een lidmaatschap actief na bevestigde betaling. Idempotent: een reeds
+    actief lidmaatschap wordt niet opnieuw aangeraakt (geen dubbele history-rij)."""
+    from app.models.member import Membership
+    from app.domains.audit.service import snapshot_membership
+
+    ms = db.query(Membership).filter(Membership.id == membership_id).first()
+    if ms is None or ms.is_active:
+        return
+    ms.is_active = True
+    if ms.valid_from is None or ms.valid_to is None:
+        vf, vt = membership_valid_period(date.today())
+        ms.valid_from = ms.valid_from or vf
+        ms.valid_to = ms.valid_to or vt
+    db.flush()
+    snapshot_membership(db, ms, operation="update", action="membership_activated",
+                        source=source, actor=actor)
 
 
 def confirm_manual_payment(

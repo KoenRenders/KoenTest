@@ -81,6 +81,85 @@ def _person_payload(p: Person):
     }
 
 
+@router.post("/member/household/renew-membership")
+def renew_membership(person=Depends(require_member), db: Session = Depends(get_db)):
+    """Activeer/vernieuw het lidmaatschap van het eigen gezin via een online
+    betaling (#113). Maakt géén nieuw gezin: het bestaande Member-record wordt
+    hergebruikt. Een nieuw (nog niet-actief) Membership wordt aangemaakt; de
+    Mollie-webhook activeert het bij betaling (zie handle_gateway_update).
+
+    Weigert als er al een geldig lidmaatschap is — geen dubbele betaling.
+    """
+    from datetime import date
+
+    from app.models.member import Membership
+    from app.domains.payment_status.service import (
+        membership_price_for_date,
+        membership_valid_period,
+        create_payment_record,
+    )
+    from app.domains.audit.service import snapshot_membership
+    from app.config import settings
+    from app.services.membership import has_valid_membership
+
+    member = _member_for(person, db)
+    actor = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
+
+    if has_valid_membership(person):
+        raise HTTPException(status_code=409, detail="Je hebt al een geldig lidmaatschap.")
+
+    today = date.today()
+    valid_from, valid_to = membership_valid_period(today)
+    membership = Membership(
+        member_id=member.id,
+        year=today.year,
+        is_active=False,
+        valid_from=valid_from,
+        valid_to=valid_to,
+    )
+    db.add(membership)
+    db.flush()
+    snapshot_membership(db, membership, operation="insert", action="membership_renewal_started",
+                        source="member_self", actor=actor)
+
+    amount = membership_price_for_date(today)
+    description = f"KWB Millegem lidmaatschap {today.year} – {person.last_name} {person.first_name}"
+    redirect_url = f"{settings.frontend_url}/betaling/succes?member={member.id}"
+    try:
+        payment_record = create_payment_record(
+            db=db,
+            payable_type="membership",
+            payable_id=membership.id,
+            amount=amount,
+            method="online",
+            redirect_url=redirect_url,
+            description=description,
+            audit_source="member_self",
+            audit_actor=actor,
+        )
+    except ValueError as e:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(e))
+
+    checkout_url = None
+    if payment_record.gateway_payment_id:
+        from app.domains.payment_gateway.models import GatewayPayment
+        gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
+        if gp:
+            checkout_url = gp.checkout_url
+
+    # Online betaling zonder checkout-URL is onbruikbaar — niet bewaren.
+    if not checkout_url:
+        db.rollback()
+        raise HTTPException(
+            status_code=502,
+            detail="De online betaling kon niet gestart worden. Probeer het later opnieuw.",
+        )
+
+    db.commit()
+    return {"checkout_url": checkout_url, "amount": str(amount)}
+
+
 @router.get("/member/household")
 def get_household(person=Depends(require_member), db: Session = Depends(get_db)):
     member = _member_for(person, db)
