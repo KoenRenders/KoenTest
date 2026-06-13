@@ -17,7 +17,6 @@ interface UserEntry {
 const emptyForm = () => ({
   email: "",
   is_active: true,
-  person_id: "",
   role_codes: [] as string[],
 });
 
@@ -58,7 +57,6 @@ export default function AdminGebruikers() {
     setForm({
       email: u.email,
       is_active: u.is_active,
-      person_id: u.person_id != null ? String(u.person_id) : "",
       role_codes: u.roles.map((r) => r.role_code),
     });
     setFormError("");
@@ -81,7 +79,6 @@ export default function AdminGebruikers() {
       const payload = {
         email: form.email.trim(),
         is_active: form.is_active,
-        person_id: form.person_id !== "" ? Number(form.person_id) : null,
         role_codes: form.role_codes,
       };
       if (editId !== null) {
@@ -128,12 +125,6 @@ export default function AdminGebruikers() {
                 onChange={(e) => setForm((f) => ({ ...f, email: e.target.value }))} />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-1">Persoon-ID (optioneel)</label>
-              <input className="input w-full" type="number" placeholder="bijv. 42"
-                value={form.person_id}
-                onChange={(e) => setForm((f) => ({ ...f, person_id: e.target.value }))} />
-            </div>
-            <div>
               <label className="block text-sm font-medium mb-1">Rollen</label>
               <div className="flex gap-3">
                 {ALL_ROLES.map((code) => (
@@ -168,7 +159,6 @@ export default function AdminGebruikers() {
           <thead className="bg-gray-50 border-b">
             <tr>
               <th className="text-left px-4 py-3 font-medium">E-mail</th>
-              <th className="text-left px-4 py-3 font-medium">Persoon</th>
               <th className="text-left px-4 py-3 font-medium">Rollen</th>
               <th className="text-left px-4 py-3 font-medium">Actief</th>
               <th className="px-4 py-3"></th>
@@ -178,9 +168,6 @@ export default function AdminGebruikers() {
             {users.map((u) => (
               <tr key={u.id} className="hover:bg-gray-50">
                 <td className="px-4 py-3">{u.email}</td>
-                <td className="px-4 py-3 text-gray-600">
-                  {u.person ? `${u.person.first_name} ${u.person.last_name}` : <span className="italic text-gray-400">—</span>}
-                </td>
                 <td className="px-4 py-3">
                   {u.roles.length === 0 ? (
                     <span className="italic text-gray-400">—</span>
