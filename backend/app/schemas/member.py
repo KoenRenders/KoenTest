@@ -119,26 +119,8 @@ class PersonListItem(BaseModel):
     id: int
     last_name: str
     first_name: str
-    street: Optional[str] = None
-    house_number: Optional[str] = None
-    postal_code: Optional[str] = None
-    municipality: Optional[str] = None
 
     model_config = {"from_attributes": True}
-
-    @classmethod
-    def from_person(cls, person) -> "PersonListItem":
-        addr = getattr(person, "address", None)
-        pc = getattr(addr, "postal_code", None) if addr else None
-        return cls(
-            id=person.id,
-            last_name=person.last_name,
-            first_name=person.first_name,
-            street=addr.street if addr else None,
-            house_number=addr.house_number if addr else None,
-            postal_code=pc.postal_code if pc else None,
-            municipality=pc.municipality if pc else None,
-        )
 
 
 class FamilyResponse(BaseModel):

@@ -1,34 +1,35 @@
 "use client";
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getPages, getMemberMe, getMe } from "@/lib/api";
+import { getPages, getAuthMe } from "@/lib/api";
 import type { CmsPage } from "@/lib/types";
 
 export default function Navigation() {
   const [pages, setPages] = useState<CmsPage[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [memberName, setMemberName] = useState<string | null>(null);
+  const [loggedIn, setLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
 
   useEffect(() => {
     getPages().then((r) => setPages(r.data)).catch(() => {});
-    if (typeof window !== "undefined") {
-      if (localStorage.getItem("member_token")) {
-        getMemberMe()
-          .then((r) => setMemberName(r.data.name))
-          .catch(() => { localStorage.removeItem("member_token"); });
-      }
-      if (localStorage.getItem("admin_token")) {
-        getMe()
-          .then(() => setIsAdmin(true))
-          .catch(() => {});
-      }
+    if (typeof window !== "undefined" && localStorage.getItem("auth_token")) {
+      // Eén token, één bron van waarheid: de server leidt admin/lid af.
+      getAuthMe()
+        .then((r) => {
+          setLoggedIn(true);
+          setIsAdmin(r.data.is_admin);
+          setMemberName(r.data.is_member ? r.data.member_name : null);
+        })
+        .catch(() => { localStorage.removeItem("auth_token"); });
     }
   }, []);
 
-  function logoutMember() {
-    localStorage.removeItem("member_token");
+  function logout() {
+    localStorage.removeItem("auth_token");
     setMemberName(null);
+    setLoggedIn(false);
+    setIsAdmin(false);
     window.location.href = "/";
   }
 
@@ -77,15 +78,19 @@ export default function Navigation() {
           {isAdmin && (
             <li><Link href="/admin" className="block px-3 py-2 rounded hover:opacity-80 font-medium" style={{ color: "var(--color-golden-yellow)" }}>Admin</Link></li>
           )}
-          {memberName ? (
+          {loggedIn ? (
             <>
-              <li><Link href="/leden/gezin" className="block px-3 py-2 rounded hover:opacity-80 font-medium" style={{ color: "var(--color-golden-yellow)" }}>Mijn gezin</Link></li>
+              {memberName && (
+                <li><Link href="/leden/gezin" className="block px-3 py-2 rounded hover:opacity-80 font-medium" style={{ color: "var(--color-golden-yellow)" }}>Mijn gezin</Link></li>
+              )}
               <li className="flex items-center px-3 py-2">
-                <button onClick={logoutMember} className="text-sm underline hover:opacity-80">Uitloggen ({memberName})</button>
+                <button onClick={logout} className="text-sm underline hover:opacity-80">
+                  Uitloggen{memberName ? ` (${memberName})` : ""}
+                </button>
               </li>
             </>
           ) : (
-            <li><Link href="/leden/login" className="block px-3 py-2 rounded hover:opacity-80 font-medium">Inloggen als lid</Link></li>
+            <li><Link href="/login" className="block px-3 py-2 rounded hover:opacity-80 font-medium">Inloggen</Link></li>
           )}
         </ul>
       </div>

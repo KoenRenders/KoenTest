@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Optional
+from typing import List, Optional
 from pydantic import BaseModel
 
 
@@ -26,6 +26,20 @@ class UserResponse(BaseModel):
 
 
 AdminUserResponse = UserResponse
+
+
+class AuthMeResponse(BaseModel):
+    """Wie ben ik en wat mag ik — capabilities per request afgeleid.
+
+    `roles` = backoffice-rollen (users/user_roles, bv. ADMIN). `is_member`/
+    `member_name` komen uit het leden-domein (e-mail -> Person), volledig los
+    van het rollensysteem.
+    """
+    email: str
+    roles: List[str] = []
+    is_admin: bool = False
+    is_member: bool = False
+    member_name: Optional[str] = None
 
 
 class MemberMeResponse(BaseModel):

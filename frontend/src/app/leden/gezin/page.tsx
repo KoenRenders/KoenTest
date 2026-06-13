@@ -249,8 +249,8 @@ export default function MijnGezinPage() {
   const [memberEmail, setMemberEmail] = useState("");
 
   useEffect(() => {
-    if (typeof window === "undefined" || !localStorage.getItem("member_token")) {
-      router.push("/leden/login");
+    if (typeof window === "undefined" || !localStorage.getItem("auth_token")) {
+      router.push("/login");
       return;
     }
     Promise.all([getMemberHousehold(), getMemberMe(), fetch("/api/v1/postal-codes").then((r) => r.json())])
@@ -259,7 +259,7 @@ export default function MijnGezinPage() {
         setMemberEmail(me.data.email);
         setPostalCodes(pc);
       })
-      .catch(() => router.push("/leden/login"))
+      .catch(() => router.push("/login"))
       .finally(() => setLoading(false));
   }, [router]);
 

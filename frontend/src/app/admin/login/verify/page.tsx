@@ -1,52 +1,19 @@
 "use client";
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { verifyLoginToken } from "@/lib/api";
 
-function VerifyContent() {
-  const searchParams = useSearchParams();
+// Magic-links wijzen nu naar /login/verify; deze route blijft als redirect
+// bestaan voor oude links en geeft het token mee door.
+function Redirect() {
   const router = useRouter();
-  const [error, setError] = useState("");
-
+  const params = useSearchParams();
   useEffect(() => {
-    const token = searchParams.get("token");
-    if (!token) {
-      setError("Geen token gevonden.");
-      return;
-    }
-    verifyLoginToken(token)
-      .then((res) => {
-        localStorage.setItem("admin_token", res.data.access_token);
-        router.push("/admin");
-      })
-      .catch(() => setError("Ongeldige of verlopen inloglink."));
-  }, [searchParams, router]);
-
-  if (error) {
-    return (
-      <div className="max-w-sm mx-auto mt-16">
-        <div className="card">
-          <h1 className="text-2xl font-bold text-red-700 mb-4">Inloggen mislukt</h1>
-          <p className="text-gray-600">{error}</p>
-          <a href="/admin/login" className="btn-primary mt-4 inline-block">Opnieuw proberen</a>
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <div className="max-w-sm mx-auto mt-16">
-      <div className="card">
-        <p className="text-gray-600">Bezig met inloggen…</p>
-      </div>
-    </div>
-  );
+    const token = params.get("token");
+    router.replace(token ? `/login/verify?token=${encodeURIComponent(token)}` : "/login");
+  }, [router, params]);
+  return null;
 }
 
-export default function VerifyPage() {
-  return (
-    <Suspense>
-      <VerifyContent />
-    </Suspense>
-  );
+export default function AdminVerifyRedirect() {
+  return <Suspense><Redirect /></Suspense>;
 }

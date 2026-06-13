@@ -7,14 +7,15 @@ from app.database import Base
 class User(Base):
     __tablename__ = "users"
 
+    # Een User is een backoffice-account (rollen via user_roles). Lid-zijn staat
+    # hier volledig los van: dat wordt afgeleid uit ContactDetail (e-mail ->
+    # Person). Er is daarom bewust GEEN koppeling naar Person op dit model.
     id = Column(Integer, primary_key=True, index=True)
-    person_id = Column(Integer, ForeignKey("persons.id"), nullable=True)
     email = Column(String(255), unique=True, nullable=False, index=True)
     is_active = Column(Boolean, default=True, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
 
-    person = relationship("Person", back_populates="user")
     roles = relationship("UserRole", back_populates="user", cascade="all, delete-orphan")
 
 

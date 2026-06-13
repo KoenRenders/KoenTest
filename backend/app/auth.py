@@ -4,6 +4,7 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import JWTError, jwt
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.config import settings
@@ -13,8 +14,6 @@ oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 # Voor lid-endpoints: een ontbrekend token mag geen 401 geven (publieke
 # registratie werkt ook zonder login), vandaar auto_error=False.
 oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login", auto_error=False)
-
-MEMBER_SCOPE = "member"
 
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
@@ -40,33 +39,83 @@ def decode_token(token: str) -> dict:
         )
 
 
-def get_current_admin(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    from app.models.user import User, UserRole
-
+def _email_from_token(token: str) -> str:
+    """Het e-mailadres (`sub`) uit een geldig token, of 401."""
     payload = decode_token(token)
-    email: str = payload.get("sub")
-    if email is None:
+    email = payload.get("sub")
+    if not email:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Could not validate credentials",
         )
-    user = db.query(User).filter(User.email == email, User.is_active == True).first()
-    if user is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
-        )
-    has_admin_role = (
-        db.query(UserRole)
-        .filter(UserRole.user_id == user.id, UserRole.role_code == "ADMIN")
-        .first()
+    return email
+
+
+# ── Eén identiteit, capabilities per request afgeleid ──────────────────────────
+#
+# Het token bevat enkel de identiteit ({"sub": email}). Wat iemand mág wordt bij
+# élke request opnieuw bepaald uit de data — nooit gebakken in het token. Zo
+# verleent een token altijd exact wat de data op dat moment zegt (een ingetrokken
+# rol of vervallen koppeling werkt meteen door) en blijven twee domeinen
+# maximaal gescheiden:
+#   - backoffice-rollen (ADMIN, later bv. FINANCE) leven in users/user_roles;
+#   - lid-zijn is afgeleid uit ContactDetail (e-mail hangt aan een Person).
+# De enige brug tussen beide domeinen is de e-mailwaarde, geen foreign key.
+
+
+def get_user_roles(db: Session, email: str) -> set:
+    """Backoffice-rollen voor dit e-mailadres. Leeg als er geen actief account is."""
+    from app.models.user import User, UserRole
+
+    rows = (
+        db.query(UserRole.role_code)
+        .join(User, User.id == UserRole.user_id)
+        .filter(func.lower(User.email) == email.strip().lower(), User.is_active == True)
+        .all()
     )
-    if not has_admin_role:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Insufficient permissions",
+    return {r[0] for r in rows}
+
+
+def get_current_identity(token: str = Depends(oauth2_scheme)) -> str:
+    """Vereist enkel een geldig token; geeft het e-mailadres terug (geen rolcheck)."""
+    return _email_from_token(token)
+
+
+def require_roles(*codes: str):
+    """Dependency-factory: vereist minstens één van de opgegeven backoffice-rollen.
+
+    Generiek opgezet: een nieuwe rol (bv. FINANCE) aan een router hangen is
+    `Depends(require_roles("ADMIN", "FINANCE"))` — zonder wijziging aan de
+    auth-laag zelf. Geeft de bijbehorende User terug.
+    """
+    from app.models.user import User
+
+    def _dep(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+        email = _email_from_token(token)
+        roles = get_user_roles(db, email)
+        if not roles.intersection(codes):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+        user = (
+            db.query(User)
+            .filter(func.lower(User.email) == email.strip().lower(), User.is_active == True)
+            .first()
         )
-    return user
+        if user is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="User not found",
+            )
+        return user
+
+    return _dep
+
+
+# Admin = backoffice-rol ADMIN. Dunne alias bovenop de generieke require_roles,
+# zodat bestaande routers (Depends(get_current_admin)) ongemoeid blijven.
+get_current_admin = require_roles("ADMIN")
 
 
 def get_current_member(
@@ -75,17 +124,14 @@ def get_current_member(
 ):
     """Optionele lid-identificatie. Geeft de ingelogde Person terug, of None.
 
-    Geeft nooit 401: ontbreekt het token of is het geen geldig lid-token, dan
-    is de aanvrager simpelweg anoniem (None).
-
-    Twee paden:
-    - Lid-token (scope=member): e-mail → Person via ContactDetail.
-    - Admin-token (geen scope): als de User een person_id heeft, wordt die
-      Person teruggegeven — admins kunnen zo hun gezin beheren en zich
-      inschrijven zonder aparte ledenlogin.
+    Geeft nooit 401: ontbreekt het token of leidt het e-mailadres niet naar een
+    Person, dan is de aanvrager simpelweg anoniem (None). De koppeling
+    e-mail -> Person gebeurt elke request opnieuw via het leden-domein
+    (ContactDetail), volledig los van het users-domein. Een admin die met
+    hetzelfde e-mailadres als zijn Person inlogt, is daardoor automatisch óók
+    lid — zonder opgeslagen koppeling.
     """
     from app.services.member_auth import login_person_for_email
-    from app.models.member import Person
 
     if not token:
         return None
@@ -93,21 +139,10 @@ def get_current_member(
         payload = decode_token(token)
     except HTTPException:
         return None
-
-    if payload.get("scope") == MEMBER_SCOPE:
-        email = payload.get("sub")
-        if not email:
-            return None
-        return login_person_for_email(db, email)
-
-    # Admin-token: gebruik person_id als die gekoppeld is
     email = payload.get("sub")
     if not email:
         return None
-    user = db.query(User).filter(User.email == email, User.is_active == True).first()
-    if user and user.person_id:
-        return db.query(Person).filter(Person.id == user.person_id).first()
-    return None
+    return login_person_for_email(db, email)
 
 
 def require_member(member=Depends(get_current_member)):

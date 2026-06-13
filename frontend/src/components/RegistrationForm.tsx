@@ -40,7 +40,7 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
   // Ingelogd lid? Velden voorinvullen en ledenprijs tonen. De backend blijft
   // de bron van waarheid voor het effectieve bedrag (op basis van person_id).
   useEffect(() => {
-    if (typeof window === "undefined" || !localStorage.getItem("member_token")) return;
+    if (typeof window === "undefined" || !localStorage.getItem("auth_token")) return;
     getMemberMe()
       .then((r) => {
         setIsMember(true);
