@@ -36,7 +36,6 @@ export default function AdminActiviteiten() {
   const [activityError, setActivityError] = useState<string | null>(null);
   const [savingActivity, setSavingActivity] = useState(false);
 
-  const [expandedActivity, setExpandedActivity] = useState<number | null>(null);
   const [showComponentForm, setShowComponentForm] = useState<number | null>(null);
   const [editingComponent, setEditingComponent] = useState<number | null>(null);
   const [componentForm, setComponentForm] = useState(emptyComponent());
@@ -185,7 +184,6 @@ export default function AdminActiviteiten() {
       sort_order: p.sort_order,
     });
     setEditingProduct(p.id);
-    setExpandedActivity(activityId);
     setExpandedComponent(componentId);
     setShowProductForm(componentId);
   }
@@ -354,30 +352,12 @@ export default function AdminActiviteiten() {
                 {(a.sub_registrations?.length ?? 0) === 0 && (
                   <button className="btn-secondary btn-sm" onClick={() => loadRegistrations(a.id, null)}>Inschrijvingen</button>
                 )}
-                <button className="btn-secondary btn-sm" onClick={() => setExpandedActivity(expandedActivity === a.id ? null : a.id)}>
-                  {expandedActivity === a.id ? "Verberg" : "Onderdelen"}
-                </button>
                 <button className="btn-secondary btn-sm" onClick={() => startEditActivity(a)}>Bewerken</button>
                 <button className="btn-danger btn-sm" onClick={() => handleDeleteActivity(a.id)}>Verwijderen</button>
               </div>
             </div>
 
-            {(a.sub_registrations?.length ?? 0) > 0 && (
-              <div className="mt-2 flex flex-wrap gap-2">
-                {a.sub_registrations!.map((comp) => (
-                  <button
-                    key={comp.id}
-                    className="btn-secondary btn-sm text-xs"
-                    onClick={() => loadRegistrations(a.id, comp.id)}
-                  >
-                    {comp.name} – Inschrijvingen
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {expandedActivity === a.id && (
-              <div className="mt-4 border-t pt-4 space-y-3">
+            <div className="mt-4 border-t pt-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <span className="font-medium text-sm text-gray-700">Onderdelen</span>
                   <button className="btn-secondary btn-sm text-xs" onClick={() => { setShowComponentForm(a.id); setEditingComponent(null); setComponentForm(emptyComponent()); }}>
@@ -447,6 +427,9 @@ export default function AdminActiviteiten() {
                         )}
                       </div>
                       <div className="flex gap-2">
+                        {!comp.external_register_url && (
+                          <button className="btn-secondary btn-sm text-xs" onClick={() => loadRegistrations(a.id, comp.id)}>Inschrijvingen</button>
+                        )}
                         <button className="btn-secondary btn-sm text-xs" onClick={() => {
                           setExpandedComponent(expandedComponent === comp.id ? null : comp.id);
                           setShowProductForm(null);
@@ -541,7 +524,6 @@ export default function AdminActiviteiten() {
                   </div>
                 ))}
               </div>
-            )}
           </div>
         ))}
         {list.length === 0 && <p className="text-gray-500 text-sm">Geen activiteiten.</p>}
