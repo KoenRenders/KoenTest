@@ -93,6 +93,12 @@ export default function AdminMedia() {
     load();
   }
 
+  async function saveLink(a: MediaAsset, value: string) {
+    if (value === (a.link_url || "")) return;
+    await updateMedia(a.id, { link_url: value });
+    load();
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-blue-800 mb-6">Media­bibliotheek</h1>
@@ -171,6 +177,14 @@ export default function AdminMedia() {
               onBlur={(e) => saveTitle(a, e.target.value)}
               placeholder="Titel"
             />
+            {a.kind === "sponsor" && (
+              <input
+                className="input !py-1 !text-sm mb-2"
+                defaultValue={a.link_url || ""}
+                onBlur={(e) => saveLink(a, e.target.value)}
+                placeholder="Website (https://…)"
+              />
+            )}
             {a.link_url && (
               <a href={a.link_url} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 hover:underline block truncate mb-2">
                 {a.link_url}
