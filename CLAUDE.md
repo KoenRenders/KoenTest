@@ -44,15 +44,45 @@ git fetch origin master && git reset --hard origin/master
 
 ## Releases and hotfixes
 
-Tag each release before deploying to production:
-```bash
-git tag v1.x.x && git push origin v1.x.x
-```
+**Deployment deploys `master` HEAD.** The deploy scripts (`deploy-uat.sh`,
+`deploy-prod.sh`) do `git pull` on master — they do NOT check out a tag. A
+release tag is therefore a **marker** ("this commit on master is v1.x.x") for
+traceability and rollback, not the deploy source. So always make sure master
+HEAD is exactly what you want live before deploying.
+
+**Mark each release with a GitHub Release (not a manual `git tag` push).**
+Creating a Release on GitHub creates the tag **server-side**, so there is no
+separate `git push origin <tag>` step (which is also blocked in the Claude
+remote environment with a 403 on tag refs). Steps:
+1. GitHub → **Releases** → **Draft a new release**.
+2. **Choose a tag** → type `v1.x.x` → *"Create new tag: v1.x.x on publish"*.
+3. **Target** → `master` (the commit you're releasing — must contain the fix).
+4. Title `v1.x.x`, write notes, reference issues with `Fixes #NN`.
+5. **Publish release** → the tag is created on the target commit.
+
+Then deploy (see below) and afterwards `git fetch --tags` locally to sync.
 
 For a hotfix on a released version while newer work is in progress:
 1. `git checkout -b hotfix/1.x.x v1.x.x`
-2. Apply fix, commit, tag as `v1.x.x`, push
-3. Merge back into master
+2. Apply fix, commit, merge back into master.
+3. Publish a GitHub Release `v1.x.x` targeting master.
+
+## Deploying a release to UAT / PROD
+
+Each environment has its own deploy script that pulls master and rebuilds with
+the matching compose + env file. On the server, in the repo checkout:
+
+```bash
+# UAT
+git pull && ./deploy-uat.sh        # == docker compose -f docker-compose.uat.yml  --env-file .env.uat  up --build -d
+# PROD
+git pull && ./deploy-prod.sh       # == docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
+```
+
+Both scripts run a **read-only** post-deploy smoke test (`tests/run-all.sh`
+against `FRONTEND_URL`) that creates no data. The backend runs
+`alembic upgrade head` on startup, so DB migrations (e.g. 031) apply
+automatically during the rebuild. Promote in order: HDEV → UAT → PROD.
 
 ## Docker stack
 
