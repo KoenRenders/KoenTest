@@ -99,6 +99,21 @@ export default function AdminMedia() {
     load();
   }
 
+  // Verschuif een item links/rechts in de getoonde groep. Normaliseert
+  // sort_order naar de nieuwe positie (zelfherstellend, zelfde patroon als
+  // de componenten/producten op de activiteitenpagina).
+  async function moveAsset(idx: number, dir: -1 | 1) {
+    const reordered = [...assets];
+    [reordered[idx], reordered[idx + dir]] = [reordered[idx + dir], reordered[idx]];
+    await Promise.all(
+      reordered
+        .map((a, i) => ({ a, i }))
+        .filter(({ a, i }) => a.sort_order !== i)
+        .map(({ a, i }) => updateMedia(a.id, { sort_order: i }))
+    );
+    load();
+  }
+
   return (
     <div>
       <h1 className="text-2xl font-bold text-blue-800 mb-6">Media­bibliotheek</h1>
@@ -166,7 +181,7 @@ export default function AdminMedia() {
       </form>
 
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-        {assets.map((a) => (
+        {assets.map((a, idx) => (
           <div key={a.id} className={`card !p-3 ${a.is_active ? "" : "opacity-50"}`}>
             <div className="aspect-square bg-gray-50 rounded mb-2 flex items-center justify-center overflow-hidden">
               <img src={a.thumb_url} alt={a.title || ""} className="max-w-full max-h-full object-contain" />
@@ -190,7 +205,19 @@ export default function AdminMedia() {
                 {a.link_url}
               </a>
             )}
-            <div className="flex gap-2 text-xs">
+            <div className="flex gap-2 text-xs items-center">
+              <button
+                className="text-gray-500 hover:text-gray-800 disabled:opacity-30 leading-none"
+                disabled={idx === 0}
+                onClick={() => moveAsset(idx, -1)}
+                aria-label="Naar links"
+              >◀</button>
+              <button
+                className="text-gray-500 hover:text-gray-800 disabled:opacity-30 leading-none"
+                disabled={idx === assets.length - 1}
+                onClick={() => moveAsset(idx, 1)}
+                aria-label="Naar rechts"
+              >▶</button>
               <button className="text-gray-600 hover:underline" onClick={() => toggleActive(a)}>
                 {a.is_active ? "Verbergen" : "Tonen"}
               </button>
