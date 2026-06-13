@@ -186,6 +186,18 @@ only ever point at a separate `raaktest` database — never the real one.
 `master`, using a disposable Postgres 16 service container. Green/red shows up
 per commit on GitHub.
 
+### Testen en test-evidence (conventie)
+
+- **Elke functionele wijziging in een release krijgt waardecreërende pytests** —
+  geen tests pro forma, wel de invarianten die ertoe doen (security, geld,
+  autorisatie, datakoppelingen).
+- **Test-evidence in het release-issue:** na de push haalt Claude de geslaagde
+  CI-run op (`backend-tests.yml`) en noteert in het release-issue de **run-id +
+  link** en de **pytest-samenvatting** (`N passed`). De CI draait tegen een echte
+  Postgres 16 — dat is het bewijs dat de suite groen was, niet een lokale claim.
+- **Per issue twee checkboxes** in het release-issue: implementatie (door Claude
+  afgevinkt) en **"getest op HDEV door Koen"** (door Koen afgevinkt).
+
 
 ## Backend architecture (FastAPI + SQLAlchemy)
 
