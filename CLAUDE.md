@@ -101,6 +101,24 @@ during the rebuild.
 > `git fetch --tags origin && git checkout --detach v1.x.x && docker compose -f
 > docker-compose.uat.yml --env-file .env.uat up --build -d`.
 
+### Verifying a deploy via the backend logs
+
+After every rebuild, check the backend logs to confirm migrations applied and
+Uvicorn started cleanly. Always pass the matching `-f`/`--env-file` pair:
+
+```bash
+sudo docker compose -f docker-compose.<env>.yml --env-file .env.<env> logs backend --tail=80
+# add -f instead of --tail to follow live (Ctrl+C to stop)
+```
+
+What to look for:
+- `Running upgrade NNN -> NNN+1` lines → the new migrations applied. These show
+  **only the first time** a migration runs; on a restart with no new migrations
+  there are no "Running upgrade" lines and that is normal.
+- `Uvicorn running on http://0.0.0.0:8000` → the app started.
+- **No** tracebacks / `ERROR` lines between those two — a failed migration or
+  import error aborts startup.
+
 ## Docker stack
 
 | Service | Port | Notes |
