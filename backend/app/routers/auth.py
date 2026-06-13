@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import create_access_token, get_current_admin, require_member, MEMBER_SCOPE
 from app.database import get_db
-from app.models.user import User
+from app.models.user import User, UserRole
 from app.models.login_token import LoginToken
 from app.models.contact import ContactDetail
 from app.schemas.auth import MagicLinkRequest, OtpVerifyRequest, TokenResponse, UserResponse, MemberMeResponse
@@ -22,6 +22,16 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["auth"])
 
 MAGIC_LINK_EXPIRE_MINUTES = 15
+
+
+def _ensure_member_user(db: Session, email: str) -> None:
+    """Maak een User aan met rol MEMBER als die nog niet bestaat voor dit e-mailadres."""
+    user = db.query(User).filter(func.lower(User.email) == email.strip().lower()).first()
+    if not user:
+        user = User(email=email.strip().lower(), is_active=True)
+        db.add(user)
+        db.flush()
+        db.add(UserRole(user_id=user.id, role_code="MEMBER"))
 
 
 def _generate_otp() -> str:
@@ -137,6 +147,7 @@ def member_verify_login(token: str, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ongeldige of verlopen inloglink.")
 
     login_token.used = True
+    _ensure_member_user(db, login_token.email)
     db.commit()
 
     access_token = create_access_token(data={"sub": login_token.email, "scope": MEMBER_SCOPE})
@@ -160,6 +171,7 @@ def member_verify_otp(body: OtpVerifyRequest, db: Session = Depends(get_db)):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ongeldige of verlopen code.")
 
     login_token.used = True
+    _ensure_member_user(db, login_token.email)
     db.commit()
     access_token = create_access_token(data={"sub": login_token.email, "scope": MEMBER_SCOPE})
     return TokenResponse(access_token=access_token)
