@@ -39,6 +39,8 @@ def test_default_scope_is_upcoming(client, db_session):
 
 
 def test_old_archived_endpoint_is_gone(client):
-    """De aparte /activities/archived is weg (harde cut)."""
+    """De aparte GET /activities/archived is weg (harde cut). Het pad matcht nu de
+    /activities/{activity_id}-route zonder GET-handler → 405 (of 404); in elk geval
+    geen geldige archieflijst (200)."""
     resp = client.get("/api/v1/activities/archived")
-    assert resp.status_code == 404
+    assert resp.status_code in (404, 405)
