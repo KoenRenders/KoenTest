@@ -427,8 +427,6 @@ def add_person_to_family(
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
         raise HTTPException(status_code=404, detail="Family not found")
-    primary = next((mp.person for mp in member.member_persons if mp.is_primary), None)
-    primary_address = primary.address if primary else None
 
     person = Person(
         last_name=data.last_name,
@@ -445,17 +443,7 @@ def add_person_to_family(
     db.flush()
     snapshot_member_person(db, mp, operation="insert", action="person_added_to_family", source="admin_manual", actor=admin.email)
 
-    if primary_address:
-        address = Address(
-            person_id=person.id,
-            street=primary_address.street,
-            house_number=primary_address.house_number,
-            bus_number=primary_address.bus_number,
-            postal_code_id=primary_address.postal_code_id,
-        )
-        db.add(address)
-        db.flush()
-        snapshot_address(db, address, operation="insert", action="person_added_to_family", source="admin_manual", actor=admin.email)
+    # Geen adres voor extra gezinsleden: het adres hoort enkel bij het hoofdlid (#125).
 
     for type_code, value in (("EMAIL", data.email), ("PHONE", data.phone), ("MOBILE", data.mobile)):
         if value:
@@ -557,7 +545,7 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
             last_name=person_data.last_name,
             first_name=person_data.first_name,
             date_of_birth=person_data.date_of_birth,
-            gender_code=person_data.gender or None,
+            gender_code=person_data.resolved_gender_code,
         )
         db.add(person)
         db.flush()
@@ -572,16 +560,18 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
         db.flush()
         snapshot_member_person(db, mp, operation="insert", action="family_registered", source="registration")
 
-        address = Address(
-            person_id=person.id,
-            street=data.street,
-            house_number=data.house_number,
-            bus_number=data.bus_number or None,
-            postal_code_id=pc.id,
-        )
-        db.add(address)
-        db.flush()
-        snapshot_address(db, address, operation="insert", action="family_registered", source="registration")
+        # Adres hoort enkel bij het hoofdlid (= gezinsadres). #125
+        if person_data.relation_type == "HOOFDLID":
+            address = Address(
+                person_id=person.id,
+                street=data.street,
+                house_number=data.house_number,
+                bus_number=data.bus_number or None,
+                postal_code_id=pc.id,
+            )
+            db.add(address)
+            db.flush()
+            snapshot_address(db, address, operation="insert", action="family_registered", source="registration")
 
         contacts = []
         if person_data.phone:

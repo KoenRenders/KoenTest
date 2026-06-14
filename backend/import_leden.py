@@ -253,13 +253,15 @@ def run(excel_path: str, dry_run: bool, load_all: bool, app_env: str, forced: bo
                     person_id=person.id,
                     relation_type=p["_relatie"],
                 ))
-                db.add(Address(
-                    person_id=person.id,
-                    street=p["straat"],
-                    house_number=p["huisnummer"],
-                    bus_number=p["busnummer"] or None,
-                    postal_code_id=pc.id,
-                ))
+                # Adres hoort enkel bij het hoofdlid (= gezinsadres). #125
+                if p["_relatie"] == "HOOFDLID":
+                    db.add(Address(
+                        person_id=person.id,
+                        street=p["straat"],
+                        house_number=p["huisnummer"],
+                        bus_number=p["busnummer"] or None,
+                        postal_code_id=pc.id,
+                    ))
                 if p["telefoon"]:
                     db.add(ContactDetail(
                         person_id=person.id,

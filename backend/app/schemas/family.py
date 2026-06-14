@@ -8,11 +8,17 @@ class FamilyMemberCreate(BaseModel):
     last_name: str
     first_name: str
     date_of_birth: Optional[date] = None
+    # Canoniek is `gender_code`; `gender` blijft als alias aanvaard voor compat (#125).
+    gender_code: Optional[str] = None
     gender: Optional[str] = None
     email: Optional[EmailStr] = None
     phone: Optional[str] = None
     mobile: Optional[str] = None
     relation_type: str = "HOOFDLID"
+
+    @property
+    def resolved_gender_code(self) -> Optional[str]:
+        return self.gender_code or self.gender
 
 
 class FamilyMemberUpdate(BaseModel):

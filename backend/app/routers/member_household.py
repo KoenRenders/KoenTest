@@ -22,7 +22,6 @@ from sqlalchemy.orm import Session
 from app.auth import require_member
 from app.database import get_db
 from app.models.member import Member, Person, MemberPerson
-from app.models.address import Address
 from app.models.contact import ContactDetail
 from app.models.postal_codes import PostalCode
 from app.domains.audit.service import (
@@ -312,22 +311,7 @@ def add_person(
     snapshot_member_person(db, mp, operation="insert", action="person_added_to_family",
                            source="member_self", actor=actor)
 
-    if "postal_code" in data and data["postal_code"]:
-        pc = db.query(PostalCode).filter(PostalCode.postal_code == data["postal_code"]).first()
-        if not pc:
-            raise HTTPException(status_code=422, detail=f"Onbekende postcode: {data['postal_code']}")
-        address = Address(
-            person_id=new_person.id,
-            street=data.get("street", ""),
-            house_number=data.get("house_number", ""),
-            bus_number=data.get("bus_number") or None,
-            postal_code_id=pc.id,
-        )
-        db.add(address)
-        db.flush()
-        from app.domains.audit.service import snapshot_address as _sa
-        _sa(db, address, operation="insert", action="address_updated",
-            source="member_self", actor=actor)
+    # Geen adres voor extra gezinsleden: het adres hoort enkel bij het hoofdlid (#125).
 
     for type_code, key in [("EMAIL", "email"), ("PHONE", "phone"), ("MOBILE", "mobile")]:
         if data.get(key):
