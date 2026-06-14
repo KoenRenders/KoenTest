@@ -126,6 +126,12 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     else:
         valid_from, valid_to = membership_valid_period(today)
 
+    # Prijs: een hernieuwing voor een vol kalenderjaar (valid_from = 1 jan) kost
+    # altijd de volle prijs. De halve prijs geldt enkel voor een (her)instap mid-jaar
+    # voor de rest van het lopende jaar — dus enkel in de verlopen-fallback hierboven.
+    is_full_year = (valid_from.month, valid_from.day) == (1, 1)
+    amount = settings.membership_price_full if is_full_year else membership_price_for_date(today)
+
     if has_valid_membership(person) and not renewal_window_open:
         raise HTTPException(status_code=409, detail="Je hebt al een geldig lidmaatschap.")
 
@@ -171,8 +177,7 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
         snapshot_membership(db, membership, operation="insert", action="membership_renewal_started",
                             source="member_self", actor=actor)
 
-    amount = membership_price_for_date(today)
-    description = f"KWB Millegem lidmaatschap {today.year} – {person.last_name} {person.first_name}"
+    description = f"KWB Millegem lidmaatschap {valid_to.year} – {person.last_name} {person.first_name}"
     redirect_url = f"{settings.frontend_url}/betaling/succes?member={member.id}"
     try:
         payment_record = create_payment_record(

@@ -65,6 +65,16 @@ def test_early_renew_while_valid_targets_next_year(client, db_session, mock_moll
     assert this_year in years
     assert this_year + 1 in years
 
+    # Een hernieuwing dekt een vol jaar → altijd volle prijs (geen halve-prijs-venster).
+    from app.domains.payment_status.models import PaymentRecord
+    rec = (
+        db_session.query(PaymentRecord)
+        .filter(PaymentRecord.payable_type == "membership")
+        .order_by(PaymentRecord.id.desc())
+        .first()
+    )
+    assert rec.amount == settings.membership_price_full
+
 
 def test_webhook_activates_membership_on_paid(client, db_session, mock_mollie):
     email = "activate@example.com"
