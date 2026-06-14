@@ -18,6 +18,16 @@ def _env_prefix() -> str:
     return ""
 
 
+def _dispatch(background_tasks, to_email: str, subject: str, body_html: str, cc: Optional[str] = None) -> None:
+    """Verstuur de mail. Met een FastAPI BackgroundTasks wordt de trage SMTP-call
+    ná de response uitgevoerd (#78); zonder, synchroon (bv. in scripts/tests).
+    De mailtekst is op dit punt al opgebouwd, dus er is geen DB-sessie meer nodig."""
+    if background_tasks is not None:
+        background_tasks.add_task(_send, to_email, subject, body_html, cc)
+    else:
+        _send(to_email, subject, body_html, cc)
+
+
 def _send(to_email: str, subject: str, body_html: str, cc: Optional[str] = None) -> None:
     if not settings.gmail_user or not settings.gmail_app_password:
         logger.warning("E-mail niet verstuurd (GMAIL_USER of GMAIL_APP_PASSWORD niet ingesteld): %s", subject)
@@ -78,7 +88,7 @@ def send_member_contact_board_notice(to_email: str) -> None:
     )
 
 
-def send_registration_confirmation(to_email: str, name: str, family, data=None, pc_municipality: str = "") -> None:
+def send_registration_confirmation(to_email: str, name: str, family, data=None, pc_municipality: str = "", background_tasks=None) -> None:
     details = ""
     if data:
         address_parts = [data.street, data.house_number]
@@ -113,7 +123,8 @@ def send_registration_confirmation(to_email: str, name: str, family, data=None, 
         <p>{payment_label}</p>
         """
 
-    _send(
+    _dispatch(
+        background_tasks,
         to_email=to_email,
         subject="Welkom bij Raak Millegem!",
         cc=settings.gmail_from or settings.gmail_user or None,
@@ -127,7 +138,7 @@ def send_registration_confirmation(to_email: str, name: str, family, data=None, 
 
 
 def send_activity_registration_confirmation(
-    to_email: str, name: str, activity, registration=None
+    to_email: str, name: str, activity, registration=None, background_tasks=None
 ) -> None:
     activity_name = escape(activity.name)
     subject = f"Inschrijving bevestigd: {activity_name}"
@@ -181,7 +192,8 @@ def send_activity_registration_confirmation(
                 f"<ul>{''.join(details)}</ul>"
             )
 
-    _send(
+    _dispatch(
+        background_tasks,
         to_email=to_email,
         subject=subject,
         body_html=f"<p>Beste {escape(name)},</p>{message}<p>Met vriendelijke groeten,<br>Raak Millegem</p>",

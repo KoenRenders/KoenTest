@@ -5,7 +5,7 @@ from typing import List, Optional
 
 logger = logging.getLogger(__name__)
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import and_, func
 from sqlalchemy.orm import Session
 
@@ -517,7 +517,7 @@ def assign_board_member(
 
 
 @router.post("/families", status_code=201, response_model=FamilyRegisteredResponse, dependencies=[Depends(registration_limiter)])
-def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
+def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     """Public endpoint: register a new family (member household)."""
     pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
     if not pc:
@@ -662,6 +662,7 @@ def register_family(data: FamilyCreate, db: Session = Depends(get_db)):
                 family=member,
                 data=data,
                 pc_municipality=pc.municipality if pc else "",
+                background_tasks=background_tasks,
             )
         except Exception as e:
             logger.error("Lidmaatschap bevestigingsmail mislukt naar %s: %s", hoofdlid.email, e)

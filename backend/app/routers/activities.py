@@ -3,7 +3,7 @@ from datetime import date
 from sqlalchemy import or_, and_, func
 from typing import List
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
 logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session, selectinload
@@ -570,6 +570,7 @@ def get_public_registrations(
 def register_for_activity(
     activity_id: int,
     data: RegistrationCreate,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     current_member=Depends(get_current_member),
 ):
@@ -706,6 +707,7 @@ def register_for_activity(
                 name=data.contact_name or "Deelnemer",
                 activity=activity,
                 registration=registration,
+                background_tasks=background_tasks,
             )
         except Exception as e:
             logger.error("Activiteit bevestigingsmail mislukt naar %s: %s", data.contact_email, e)
