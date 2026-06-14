@@ -139,6 +139,7 @@ export interface MemberMe {
   phone?: string | null;
   has_valid_membership: boolean;
   membership_valid_until: string | null;
+  renewal_available: boolean;
 }
 export const getMemberMe = () => api.get<MemberMe>("/api/v1/auth/member/me");
 

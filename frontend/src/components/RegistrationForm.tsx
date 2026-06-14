@@ -10,11 +10,11 @@ interface Props {
   onSuccess: () => void;
 }
 
-function formatPrice(price: string, memberPrice?: string) {
+function formatPrice(price: string, memberPrice: string | undefined, isMember: boolean) {
   const p = parseFloat(price);
   if (p === 0) return "gratis";
   let label = `€${p.toFixed(2)}`;
-  if (memberPrice && parseFloat(memberPrice) > 0) {
+  if (isMember && memberPrice && parseFloat(memberPrice) > 0) {
     label += ` / leden €${parseFloat(memberPrice).toFixed(2)}`;
   }
   return label;
@@ -142,7 +142,7 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
                   <div key={p.id} className="flex items-center justify-between gap-3">
                     <div className="flex-1 text-sm">
                       <span className="font-medium">{p.name}</span>
-                      <span className="ml-2 text-gray-500">{formatPrice(p.price, p.member_price)}</span>
+                      <span className="ml-2 text-gray-500">{formatPrice(p.price, p.member_price, isMember)}</span>
                     </div>
                     <input
                       type="number"

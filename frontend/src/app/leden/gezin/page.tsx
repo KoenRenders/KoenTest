@@ -208,18 +208,20 @@ function PersonForm({
         </div>
       </div>
 
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="label">E-mail</label>
           <input type="email" className="input" value={form.email ?? ""} onChange={(e) => set("email", e.target.value)} />
         </div>
         <div>
-          <label className="label">Telefoon</label>
-          <input type="tel" className="input" value={form.phone ?? ""} onChange={(e) => set("phone", e.target.value)} />
-        </div>
-        <div>
           <label className="label">Mobiel</label>
           <input type="tel" className="input" value={form.mobile ?? ""} onChange={(e) => set("mobile", e.target.value)} />
+        </div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="label">Telefoon</label>
+          <input type="tel" className="input" value={form.phone ?? ""} onChange={(e) => set("phone", e.target.value)} />
         </div>
       </div>
 
@@ -249,6 +251,7 @@ export default function MijnGezinPage() {
   const [removingId, setRemovingId] = useState<number | null>(null);
   const [memberEmail, setMemberEmail] = useState("");
   const [membershipValidUntil, setMembershipValidUntil] = useState<string | null>(null);
+  const [renewalAvailable, setRenewalAvailable] = useState(false);
   const [renewing, setRenewing] = useState(false);
 
   useEffect(() => {
@@ -261,6 +264,7 @@ export default function MijnGezinPage() {
         setHousehold(h.data);
         setMemberEmail(me.data.email);
         setMembershipValidUntil(me.data.membership_valid_until);
+        setRenewalAvailable(me.data.renewal_available);
         setPostalCodes(pc);
       })
       .catch(() => router.push("/login"))
@@ -349,7 +353,7 @@ export default function MijnGezinPage() {
               </p>
             )}
           </div>
-          {!membershipValidUntil && (
+          {renewalAvailable && (
             <button className="btn-primary" onClick={handleRenew} disabled={renewing}>
               {renewing ? "Bezig…" : "Lidmaatschap vernieuwen"}
             </button>
@@ -374,10 +378,12 @@ export default function MijnGezinPage() {
                     {p.address.street} {p.address.house_number}{p.address.bus_number ? ` bus ${p.address.bus_number}` : ""}, {p.address.postal_code} {p.address.municipality}
                   </p>
                 )}
-                <div className="text-sm text-gray-500 mt-0.5 space-x-3">
-                  {p.email && <span>✉ {p.email}</span>}
-                  {p.phone && <span>☎ {p.phone}</span>}
-                  {p.mobile && <span>📱 {p.mobile}</span>}
+                <div className="text-sm text-gray-500 mt-0.5">
+                  <div className="flex gap-3 flex-wrap">
+                    {p.email && <span>✉ {p.email}</span>}
+                    {p.mobile && <span>📱 {p.mobile}</span>}
+                  </div>
+                  {p.phone && <div>☎ {p.phone}</div>}
                 </div>
               </div>
               <div className="flex gap-2 ml-4 shrink-0">

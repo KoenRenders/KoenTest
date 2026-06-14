@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getActivities, getBlock } from "@/lib/api";
+import { getActivities, getBlock, getAuthMe } from "@/lib/api";
 import ActivityList from "@/components/ActivityList";
 import RegistrationForm from "@/components/RegistrationForm";
 import IdeaBox from "@/components/IdeaBox";
@@ -16,8 +16,12 @@ export default function HomePage() {
   const [showRegForm, setShowRegForm] = useState(false);
   const [showContact, setShowContact] = useState(false);
   const [introPage, setIntroPage] = useState<CmsPage | null>(null);
+  const [isMember, setIsMember] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== "undefined" && localStorage.getItem("auth_token")) {
+      getAuthMe().then((r) => { if (r.data.is_member) setIsMember(true); }).catch(() => {});
+    }
     getActivities()
       .then((r) => setActivities(r.data))
       .catch(() => {})
@@ -43,7 +47,10 @@ export default function HomePage() {
           />
         )}
         <div className="flex flex-wrap gap-3">
-          <button className="btn-primary" onClick={() => { setShowRegForm((s) => !s); setShowContact(false); }}>
+          <button className="btn-primary" onClick={() => {
+            if (isMember) { window.location.href = "/leden/gezin"; return; }
+            setShowRegForm((s) => !s); setShowContact(false);
+          }}>
             {showRegForm ? "Sluit registratie" : "Word lid"}
           </button>
           <button className="btn-primary" onClick={() => { setShowContact((s) => !s); setShowRegForm(false); }}>

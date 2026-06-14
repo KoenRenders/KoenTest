@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   getFamilies, getFamily, createMembership, deleteMembership, deleteFamily,
   addPersonToFamily, assignBoardMember, listPersons,
@@ -9,7 +9,56 @@ import {
 import type { Family, FamilyMember, Membership } from "@/lib/types";
 
 interface PersonItem { id: number; last_name: string; first_name: string; }
+interface PostalOption { postal_code: string; municipality: string; }
 
+function PostalAutocomplete({ value, onChange, postalCodes }: {
+  value: string; onChange: (code: string) => void; postalCodes: PostalOption[];
+}) {
+  const [input, setInput] = useState(value);
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+
+  const filtered = input.length < 2
+    ? []
+    : postalCodes.filter(
+        (p) => p.postal_code.startsWith(input) || p.municipality.toLowerCase().includes(input.toLowerCase())
+      ).slice(0, 8);
+
+  useEffect(() => {
+    function outside(e: MouseEvent) {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    }
+    document.addEventListener("mousedown", outside);
+    return () => document.removeEventListener("mousedown", outside);
+  }, []);
+
+  useEffect(() => { setInput(value); }, [value]);
+
+  return (
+    <div className="relative" ref={ref}>
+      <input
+        className="input"
+        value={input}
+        placeholder="Postcode of gemeente…"
+        onChange={(e) => { setInput(e.target.value); onChange(""); setOpen(true); }}
+        onFocus={() => setOpen(true)}
+      />
+      {open && filtered.length > 0 && (
+        <ul className="absolute z-10 bg-white border border-gray-200 rounded shadow w-full mt-1 max-h-48 overflow-y-auto">
+          {filtered.map((p) => (
+            <li
+              key={p.postal_code}
+              className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
+              onMouseDown={() => { setInput(`${p.postal_code} — ${p.municipality}`); onChange(p.postal_code); setOpen(false); }}
+            >
+              <span className="font-medium">{p.postal_code}</span> — {p.municipality}
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
 
 const emptyPersonForm = () => ({
   last_name: "", first_name: "", date_of_birth: "", gender_code: "",
@@ -25,6 +74,7 @@ export default function AdminLeden() {
   const [year, setYear] = useState(new Date().getFullYear());
 
   // edit states
+  const [postalCodes, setPostalCodes] = useState<PostalOption[]>([]);
   const [editingPerson, setEditingPerson] = useState<FamilyMember | null>(null);
   const [personForm, setPersonForm] = useState({ last_name: "", first_name: "", date_of_birth: "", gender_code: "" });
   const [contactForm, setContactForm] = useState({ email: "", phone: "", mobile: "" });
@@ -47,6 +97,7 @@ export default function AdminLeden() {
     listPersons().then((r) => setAllPersons(r.data)).catch(() => {});
     getGenderCodes().then((r) => setGenderCodes(r.data)).catch(() => {});
     getRelationTypes().then((r) => setRelationTypes(r.data)).catch(() => {});
+    fetch("/api/v1/postal-codes").then((r) => r.json()).then(setPostalCodes).catch(() => {});
   }, []);
 
   async function handleDeleteFamily(id: number) {
@@ -194,9 +245,13 @@ export default function AdminLeden() {
                     <label className="label">Bus</label>
                     <input className="input" value={addressForm.bus_number} onChange={(e) => setAddressForm((f) => ({ ...f, bus_number: e.target.value }))} />
                   </div>
-                  <div>
+                  <div className="col-span-2">
                     <label className="label">Postcode</label>
-                    <input className="input" value={addressForm.postal_code} onChange={(e) => setAddressForm((f) => ({ ...f, postal_code: e.target.value }))} />
+                    <PostalAutocomplete
+                      value={addressForm.postal_code}
+                      postalCodes={postalCodes}
+                      onChange={(code) => setAddressForm((f) => ({ ...f, postal_code: code }))}
+                    />
                   </div>
                 </div>
                 <div className="flex gap-2">

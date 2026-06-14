@@ -147,8 +147,19 @@ def member_me(person=Depends(require_member), db: Session = Depends(get_db)):
         None,
     )
     from app.services.membership import valid_membership_until
+    from datetime import date
 
     valid_until = valid_membership_until(person)
+    today = date.today()
+    renewal_open = False
+    if settings.membership_renewal_start_md:
+        try:
+            month, day = (int(x) for x in settings.membership_renewal_start_md.split("-"))
+            renewal_open = today >= date(today.year, month, day)
+        except (ValueError, TypeError):
+            pass
+    renewal_available = (valid_until is None) or renewal_open
+
     return MemberMeResponse(
         person_id=person.id,
         member_id=member_id,
@@ -157,4 +168,5 @@ def member_me(person=Depends(require_member), db: Session = Depends(get_db)):
         phone=phone,
         has_valid_membership=valid_until is not None,
         membership_valid_until=valid_until,
+        renewal_available=renewal_available,
     )

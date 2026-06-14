@@ -105,14 +105,37 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     member = _member_for(person, db)
     actor = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
 
-    if has_valid_membership(person):
-        raise HTTPException(status_code=409, detail="Je hebt al een geldig lidmaatschap.")
-
     today = date.today()
     valid_from, valid_to = membership_valid_period(today)
+
+    # Controleer of de hernieuwingscampagne open is.
+    renewal_window_open = False
+    if settings.membership_renewal_start_md:
+        try:
+            month, day = (int(x) for x in settings.membership_renewal_start_md.split("-"))
+            renewal_window_open = today >= date(today.year, month, day)
+        except (ValueError, TypeError):
+            pass
+
+    if has_valid_membership(person) and not renewal_window_open:
+        raise HTTPException(status_code=409, detail="Je hebt al een geldig lidmaatschap.")
+
+    # Blokkeer een dubbele vernieuwingsprocedure als er al een niet-betaalde/
+    # niet-geannuleerde PaymentRecord voor dit lid bestaat.
+    from app.domains.payment_status.models import PaymentRecord as PR
+    existing_pending = (
+        db.query(PR)
+        .filter(PR.payable_type == "membership", PR.status.notin_(["paid", "cancelled", "failed"]))
+        .join(Membership, Membership.id == PR.payable_id)
+        .filter(Membership.member_id == member.id)
+        .first()
+    )
+    if existing_pending:
+        raise HTTPException(status_code=409, detail="Er loopt al een niet-afgeronde betalingsprocedure.")
+
     membership = Membership(
         member_id=member.id,
-        year=today.year,
+        year=valid_to.year,
         is_active=False,
         valid_from=valid_from,
         valid_to=valid_to,

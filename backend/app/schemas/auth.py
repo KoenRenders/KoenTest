@@ -56,3 +56,6 @@ class MemberMeResponse(BaseModel):
     # Tot wanneer het lidmaatschap geldig is (None = geen geldig lidmaatschap);
     # stuurt de status + vernieuwknop op het gezinscherm (#113).
     membership_valid_until: Optional[Date] = None
+    # Mag de vernieuwknop getoond worden? True als: geen geldig lidmaatschap, OF
+    # vandaag >= membership_renewal_start_md (jaarlijkse vernieuwingscampagne).
+    renewal_available: bool = False

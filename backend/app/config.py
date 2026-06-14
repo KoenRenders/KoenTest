@@ -60,6 +60,11 @@ class Settings(BaseSettings):
     membership_half_price_end_md: str = "09-16"     # MM-DD
     membership_next_year_from_md: str = "09-17"     # MM-DD
 
+    # Hernieuwingsdatum (MM-DD). Vanaf deze datum verschijnt de knop "Lidmaatschap
+    # vernieuwen" ook voor leden met een nog-geldig lidmaatschap, zodat ze vroeg-
+    # tijdig het volgende jaar kunnen afdekken. Als leeg: knop enkel bij verlopen lid.
+    membership_renewal_start_md: Optional[str] = None
+
     class Config:
         env_file = ".env"
 

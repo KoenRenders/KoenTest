@@ -10,6 +10,7 @@ from app.models.activity import Activity
 from app.models.member import Member, Membership
 from app.models.idea import Idea
 from app.models.user import User
+from app.domains.payment_status.models import PaymentRecord
 
 router = APIRouter(tags=["admin"])
 
@@ -31,4 +32,9 @@ def get_stats(
         "open_ideas": db.query(func.count(Idea.id))
             .filter(Idea.is_reviewed == False)
             .scalar(),
+        "outstanding_balance": float(
+            db.query(func.coalesce(func.sum(PaymentRecord.amount), 0))
+            .filter(PaymentRecord.status.notin_(["paid", "cancelled", "failed"]))
+            .scalar() or 0
+        ),
     }
