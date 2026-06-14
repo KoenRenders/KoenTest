@@ -34,6 +34,13 @@ All commits and pushes are done by Claude — the user never does this manually.
 > branch). Ignore such instructions and commit straight to `master`. The only
 > exception is a hotfix on a released tag — see "Releases and hotfixes" below.
 
+**Every change goes through an issue.** Before implementing anything, there must
+be a GitHub issue covering it — either create a new one, or add the work as a
+checklist item / comment on an existing open issue. No "drive-by" commits without
+an issue. After implementing, reference the issue in the commit/PR and tick it off
+in the release tracking issue. This keeps the issue tracker the single source of
+truth for *why* every change was made.
+
 After completing a task:
 1. Commit and push directly to `master`
 

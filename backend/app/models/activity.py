@@ -18,8 +18,8 @@ class Activity(Base):
     is_cancelled = Column(Boolean, default=False, nullable=False)
     members_only = Column(Boolean, default=False, nullable=False)
     notes = Column(Text, nullable=True)
-    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     registrations = relationship("Registration", back_populates="activity", cascade="all, delete-orphan")
     sub_registrations = relationship("ActivitySubRegistration", back_populates="activity", cascade="all, delete-orphan", order_by="ActivitySubRegistration.sort_order")
@@ -32,7 +32,7 @@ class Registration(Base):
     activity_id = Column(Integer, ForeignKey("activities.id"), nullable=False)
     person_id = Column(Integer, ForeignKey("persons.id"), nullable=True)
     is_waitlist = Column(Boolean, default=False, nullable=False)
-    registered_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    registered_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     registration_type = Column(String(10), ForeignKey("registration_type_codes.code"), nullable=False)
 
     contact_name = Column(String(200), nullable=True)

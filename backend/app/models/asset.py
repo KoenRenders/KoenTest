@@ -54,6 +54,6 @@ class MediaAsset(Base):
     sort_order = Column(Integer, nullable=False, default=0)
     is_active = Column(Boolean, nullable=False, default=True)
 
-    created_at = Column(DateTime, default=_now_utc, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
 
     activity = relationship("Activity")

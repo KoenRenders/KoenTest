@@ -10,5 +10,5 @@ class Idea(Base):
     submitter_name = Column(String(200), nullable=False)
     submitter_email = Column(String(255), nullable=True)
     content = Column(Text, nullable=False)
-    submitted_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    submitted_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     is_reviewed = Column(Boolean, default=False, nullable=False)

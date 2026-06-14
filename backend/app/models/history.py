@@ -29,7 +29,7 @@ class HistoryMixin:
     action = Column(String(40), nullable=False)       # semantische business-actie
     source = Column(String(30), nullable=False)       # system / registration / mollie / ...
     actor = Column(String(255), nullable=True)        # admin-e-mail of None
-    recorded_at = Column(DateTime, default=_now_utc, nullable=False, index=True)
+    recorded_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False, index=True)
 
 
 class PersonHistory(HistoryMixin, Base):
@@ -102,4 +102,4 @@ class PaymentRecordHistory(HistoryMixin, Base):
     status = Column(String(20), nullable=True)
     gateway_payment_id = Column(String(36), nullable=True)
     note = Column(String(200), nullable=True)
-    paid_at = Column(DateTime, nullable=True)
+    paid_at = Column(DateTime(timezone=True), nullable=True)
