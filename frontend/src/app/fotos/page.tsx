@@ -64,7 +64,7 @@ export default function FotosPage() {
                     </div>
                     <div className="p-4">
                       <div className="font-semibold text-blue-700">{act.name}</div>
-                      <div className="text-sm text-gray-500 mt-1">{formatDate(act.date)}</div>
+                      <div className="text-sm text-gray-500 mt-1">{act.sort_date ? formatDate(act.sort_date) : (act.dates[0]?.start_date ? formatDate(act.dates[0].start_date) : "")}</div>
                     </div>
                   </Link>
                 ))}

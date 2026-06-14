@@ -38,9 +38,11 @@ export default function AdminMedia() {
         // (Komende en archief komen uit gedeelde endpoints met elk hun eigen
         // publieke ordening, dus hier client-side hersorteren.)
         const merged = [...a.data, ...b.data].sort((x, y) => {
-          if (!x.date) return 1;
-          if (!y.date) return -1;
-          return y.date.localeCompare(x.date);
+          const xd = x.sort_date || x.dates[0]?.start_date;
+          const yd = y.sort_date || y.dates[0]?.start_date;
+          if (!xd) return 1;
+          if (!yd) return -1;
+          return yd.localeCompare(xd);
         });
         setActivities(merged);
       })
