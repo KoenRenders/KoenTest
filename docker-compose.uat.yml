@@ -31,6 +31,7 @@ services:
       PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL ontbreekt in .env.uat}
       APP_ENV: uat
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      MEMBERSHIP_RENEWAL_START_MD: ${MEMBERSHIP_RENEWAL_START_MD:-}
     depends_on:
       db:
         condition: service_healthy

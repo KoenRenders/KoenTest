@@ -31,6 +31,7 @@ services:
       PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL ontbreekt in .env.prod}
       APP_ENV: prod
       LOG_LEVEL: ${LOG_LEVEL:-WARNING}
+      MEMBERSHIP_RENEWAL_START_MD: ${MEMBERSHIP_RENEWAL_START_MD:-}
     depends_on:
       db:
         condition: service_healthy
