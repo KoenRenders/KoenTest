@@ -38,6 +38,35 @@ def test_renew_refused_when_already_valid(client, db_session, mock_mollie):
     assert resp.status_code == 409, resp.text
 
 
+def test_double_renew_is_refused(client, db_session, mock_mollie):
+    """Invariant: een tweede hernieuwing voor hetzelfde doeljaar wordt geweigerd
+    (409) zodat er nooit een dubbel lidmaatschap of dubbele betaling ontstaat.
+    Het venster staat open en het lid is nog geldig (vroeg hernieuwen)."""
+    from app.config import settings
+    from app.models.member import Membership
+    from app.domains.payment_status.models import PaymentRecord
+
+    email = "double@example.com"
+    member, _person = seed_household(db_session, email)  # actief, geldig dit jaar
+
+    old = settings.membership_renewal_start_md
+    settings.membership_renewal_start_md = "01-01"
+    try:
+        first = client.post("/api/v1/member/household/renew-membership", headers=_headers(email))
+        assert first.status_code == 200, first.text
+        second = client.post("/api/v1/member/household/renew-membership", headers=_headers(email))
+    finally:
+        settings.membership_renewal_start_md = old
+
+    assert second.status_code == 409, second.text
+    # Geen dubbel lidmaatschap voor het doeljaar, geen tweede betaalrecord.
+    memberships = db_session.query(Membership).filter(Membership.member_id == member.id).all()
+    years = [m.year for m in memberships]
+    assert len(years) == len(set(years))  # geen duplicaat (member_id, year)
+    rec_count = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "membership").count()
+    assert rec_count == 1
+
+
 def test_early_renew_while_valid_targets_next_year(client, db_session, mock_mollie):
     """Met open hernieuwingsvenster mag een lid met een nog-geldig lidmaatschap
     vroeg hernieuwen. De nieuwe periode dekt het JAAR ná de huidige geldigheid —
