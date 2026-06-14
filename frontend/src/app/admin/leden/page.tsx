@@ -17,6 +17,11 @@ function isHoofdlid(m: FamilyMember) {
   return m.relation_type?.toUpperCase() === "HOOFDLID";
 }
 
+function relationLabel(code: string | null) {
+  const map: Record<string, string> = { HOOFDLID: "Hoofdlid", PARTNER: "Partner", KIND: "Kind" };
+  return code ? (map[code.toUpperCase()] ?? code) : "—";
+}
+
 export default function AdminLeden() {
   const [families, setFamilies] = useState<Family[]>([]);
   const [selected, setSelected] = useState<Family | null>(null);
@@ -158,36 +163,43 @@ export default function AdminLeden() {
   function memberRow(m: FamilyMember) {
     if (editingPerson?.id === m.id) {
       return (
-        <div key={m.id} className="bg-gray-50 rounded-lg p-4 space-y-3">
+        <div key={m.id} className="card">
           <PersonFields
             person={editForm}
             onChange={(patch) => setEditForm((f) => ({ ...f, ...patch }))}
             genderCodes={genderCodes}
           />
-          <div className="flex gap-2">
+          <div className="flex gap-2 mt-3">
             <button className="btn-primary btn-sm" onClick={handleSavePerson}>Opslaan</button>
             <button className="btn-secondary btn-sm" onClick={() => setEditingPerson(null)}>Annuleren</button>
           </div>
         </div>
       );
     }
+    // Card-stijl van "Mijn gezin", met de boxed knoppen van admin.
     return (
-      <div key={m.id} className="flex items-start justify-between text-sm py-2 border-b border-gray-100 last:border-0">
-        <div>
-          <span className="font-medium">{m.first_name} {m.last_name}</span>
-          <span className={`ml-2 text-xs px-2 py-0.5 rounded-full ${isHoofdlid(m) ? "bg-blue-100 text-blue-800" : "bg-gray-100 text-gray-600"}`}>{m.relation_type}</span>
-          <div className="text-gray-500 text-xs mt-0.5">
-            {m.date_of_birth && <span>{m.date_of_birth} · </span>}
-            {m.email && <span>{m.email} · </span>}
-            {m.phone && <span>{m.phone}{m.mobile ? " · " : ""}</span>}
-            {m.mobile && <span>{m.mobile}</span>}
+      <div key={m.id} className="card">
+        <div className="flex items-start justify-between">
+          <div>
+            <span className="font-semibold text-gray-900">{m.first_name} {m.last_name}</span>
+            <span className="text-xs text-gray-500 ml-1">({relationLabel(m.relation_type)})</span>
+            {m.date_of_birth && (
+              <p className="text-sm text-gray-500 mt-0.5">° {new Date(m.date_of_birth).toLocaleDateString("nl-BE")}</p>
+            )}
+            <div className="text-sm text-gray-500 mt-0.5">
+              <div className="flex gap-3 flex-wrap">
+                {m.email && <span>✉ {m.email}</span>}
+                {m.mobile && <span>📱 {m.mobile}</span>}
+              </div>
+              {m.phone && <div>☎ {m.phone}</div>}
+            </div>
           </div>
-        </div>
-        <div className="flex gap-1 shrink-0 ml-2">
-          <button className="btn-secondary btn-sm" onClick={() => startEditPerson(m)}>Bewerken</button>
-          {!isHoofdlid(m) && (
-            <button className="btn-danger btn-sm" onClick={() => handleDeletePerson(m)}>Verwijderen</button>
-          )}
+          <div className="flex gap-2 shrink-0 ml-4">
+            <button className="btn-secondary btn-sm" onClick={() => startEditPerson(m)}>Bewerken</button>
+            {!isHoofdlid(m) && (
+              <button className="btn-danger btn-sm" onClick={() => handleDeletePerson(m)}>Verwijderen</button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -231,62 +243,58 @@ export default function AdminLeden() {
             </div>
           </div>
 
-          {/* Gezinsleden — hoofdlid → adres → overige leden */}
-          <div className="card">
-            <div className="flex items-center justify-between mb-3">
-              <h3 className="font-semibold">Gezinsleden</h3>
-              <button className="btn-secondary btn-sm" onClick={() => setShowAddPerson((v) => !v)}>+ Persoon toevoegen</button>
-            </div>
+          {/* Gezinsleden — hoofdlid → adres → overige leden (cards zoals "Mijn gezin") */}
+          <div className="flex items-center justify-between">
+            <h3 className="font-semibold text-gray-700">Gezinsleden</h3>
+            <button className="btn-secondary btn-sm" onClick={() => setShowAddPerson((v) => !v)}>+ Persoon toevoegen</button>
+          </div>
 
-            {showAddPerson && (
-              <div className="bg-blue-50 rounded-lg p-4 mb-4 space-y-3">
-                <h4 className="font-medium text-sm">Nieuwe persoon</h4>
-                <PersonFields
-                  person={newPersonForm}
-                  onChange={(patch) => setNewPersonForm((f) => ({ ...f, ...patch }))}
-                  genderCodes={genderCodes}
-                />
-                <div>
-                  <label className="label">Relatie</label>
-                  <select className="input" value={newPersonForm.relation_type} onChange={(e) => setNewPersonForm((f) => ({ ...f, relation_type: e.target.value }))}>
-                    {relationTypes.filter((r) => r.code !== "HOOFDLID").map((r) => <option key={r.code} value={r.code}>{r.value}</option>)}
-                  </select>
-                </div>
+          {showAddPerson && (
+            <div className="card bg-blue-50 space-y-3">
+              <h4 className="font-medium text-sm">Nieuwe persoon</h4>
+              <PersonFields
+                person={newPersonForm}
+                onChange={(patch) => setNewPersonForm((f) => ({ ...f, ...patch }))}
+                genderCodes={genderCodes}
+              />
+              <div>
+                <label className="label">Relatie</label>
+                <select className="input" value={newPersonForm.relation_type} onChange={(e) => setNewPersonForm((f) => ({ ...f, relation_type: e.target.value }))}>
+                  {relationTypes.filter((r) => r.code !== "HOOFDLID").map((r) => <option key={r.code} value={r.code}>{r.value}</option>)}
+                </select>
+              </div>
+              <div className="flex gap-2">
+                <button className="btn-primary btn-sm" onClick={handleAddPerson} disabled={!newPersonForm.last_name || !newPersonForm.first_name}>Toevoegen</button>
+                <button className="btn-secondary btn-sm" onClick={() => { setShowAddPerson(false); setNewPersonForm(emptyPerson("PARTNER")); }}>Annuleren</button>
+              </div>
+            </div>
+          )}
+
+          {/* Hoofdlid */}
+          {hoofdlid && memberRow(hoofdlid)}
+
+          {/* Adres — hoort bij het hoofdlid, getoond ná het hoofdlid (#133) */}
+          <div className="card">
+            {editingAddress ? (
+              <div className="space-y-3">
+                <AddressFields address={addressForm} onChange={(patch) => setAddressForm((f) => ({ ...f, ...patch }))} postalCodes={postalCodes} />
                 <div className="flex gap-2">
-                  <button className="btn-primary btn-sm" onClick={handleAddPerson} disabled={!newPersonForm.last_name || !newPersonForm.first_name}>Toevoegen</button>
-                  <button className="btn-secondary btn-sm" onClick={() => { setShowAddPerson(false); setNewPersonForm(emptyPerson("PARTNER")); }}>Annuleren</button>
+                  <button className="btn-primary btn-sm" onClick={handleSaveAddress}>Opslaan</button>
+                  <button className="btn-secondary btn-sm" onClick={() => setEditingAddress(false)}>Annuleren</button>
                 </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm text-gray-700">
+                  📍 {selected.street} {selected.house_number}{selected.bus_number ? ` bus ${selected.bus_number}` : ""}, {selected.postal_code} {selected.municipality}
+                </span>
+                <button className="btn-secondary btn-sm shrink-0" onClick={startEditAddress}>Adres bewerken</button>
               </div>
             )}
-
-            <div className="space-y-3">
-              {/* Hoofdlid */}
-              {hoofdlid && memberRow(hoofdlid)}
-
-              {/* Adres — hoort bij het hoofdlid, getoond ná het hoofdlid (#133) */}
-              <div className="bg-gray-50 rounded-lg p-3">
-                {editingAddress ? (
-                  <div className="space-y-3">
-                    <AddressFields address={addressForm} onChange={(patch) => setAddressForm((f) => ({ ...f, ...patch }))} postalCodes={postalCodes} />
-                    <div className="flex gap-2">
-                      <button className="btn-primary btn-sm" onClick={handleSaveAddress}>Opslaan</button>
-                      <button className="btn-secondary btn-sm" onClick={() => setEditingAddress(false)}>Annuleren</button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="flex items-center justify-between gap-2">
-                    <span className="text-sm text-gray-700">
-                      📍 {selected.street} {selected.house_number}{selected.bus_number ? ` bus ${selected.bus_number}` : ""}, {selected.postal_code} {selected.municipality}
-                    </span>
-                    <button className="btn-secondary btn-sm shrink-0" onClick={startEditAddress}>Adres bewerken</button>
-                  </div>
-                )}
-              </div>
-
-              {/* Overige gezinsleden */}
-              {overige.map((m) => memberRow(m))}
-            </div>
           </div>
+
+          {/* Overige gezinsleden */}
+          {overige.map((m) => memberRow(m))}
 
           {/* Bestuurslid — tussen gezinsleden en lidmaatschappen (#133) */}
           <div className="card">
