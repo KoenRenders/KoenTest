@@ -63,7 +63,7 @@ def test_product_member_price_non_negative(db_session):
 def test_registration_item_quantity_positive(db_session):
     activity, comp, product = seed_activity_with_product(db_session, price="10.00")
     reg = Registration(
-        activity_id=activity.id, component_id=comp.id, is_waitlist=False,
+        activity_id=activity.id, component_id=comp.id,
         registration_type="INDIVIDUAL", contact_name="Test",
     )
     db_session.add(reg)
@@ -80,7 +80,7 @@ def test_product_delete_blocked_while_items_exist(db_session):
     dat zou financiële historiek wezen (RESTRICT)."""
     activity, comp, product = seed_activity_with_product(db_session, price="10.00")
     reg = Registration(
-        activity_id=activity.id, component_id=comp.id, is_waitlist=False,
+        activity_id=activity.id, component_id=comp.id,
         registration_type="INDIVIDUAL", contact_name="Test",
     )
     db_session.add(reg)

@@ -127,83 +127,64 @@ def send_registration_confirmation(to_email: str, name: str, family, data=None, 
 
 
 def send_activity_registration_confirmation(
-    to_email: str, name: str, activity, registration=None, is_waitlist: bool = False
+    to_email: str, name: str, activity, registration=None
 ) -> None:
     activity_name = escape(activity.name)
-    if is_waitlist:
-        subject = f"Wachtlijst: {activity_name}"
-        message = (
-            f"<p>Je staat op de wachtlijst voor <strong>{activity_name}</strong>.</p>"
-            "<p>Je ontvangt automatisch een bericht als er een plaatsje vrijkomt.</p>"
-        )
-    else:
-        subject = f"Inschrijving bevestigd: {activity_name}"
-        from datetime import date as _date
-        today = _date.today()
-        all_dates = sorted(activity.dates, key=lambda d: d.start_date) if activity.dates else []
-        relevant = next((d for d in all_dates if (d.end_date or d.start_date) >= today), all_dates[0] if all_dates else None)
-        date_str = relevant.start_date.strftime("%d/%m/%Y") if relevant else ""
-        time_str = relevant.start_time.strftime("%H:%M") if (relevant and relevant.start_time) else ""
-        location = escape(activity.location) if activity.location else ""
+    subject = f"Inschrijving bevestigd: {activity_name}"
+    from datetime import date as _date
+    today = _date.today()
+    all_dates = sorted(activity.dates, key=lambda d: d.start_date) if activity.dates else []
+    relevant = next((d for d in all_dates if (d.end_date or d.start_date) >= today), all_dates[0] if all_dates else None)
+    date_str = relevant.start_date.strftime("%d/%m/%Y") if relevant else ""
+    time_str = relevant.start_time.strftime("%H:%M") if (relevant and relevant.start_time) else ""
+    location = escape(activity.location) if activity.location else ""
 
-        loc_li = f"<li><strong>Locatie:</strong> {location}</li>" if location else ""
-        time_li = f"<li><strong>Tijdstip:</strong> {time_str}</li>" if time_str else ""
-        message = (
-            f"<p>Je inschrijving voor <strong>{activity_name}</strong> is bevestigd.</p>"
-            f"<ul><li><strong>Datum:</strong> {date_str}</li>{time_li}{loc_li}</ul>"
-        )
+    loc_li = f"<li><strong>Locatie:</strong> {location}</li>" if location else ""
+    time_li = f"<li><strong>Tijdstip:</strong> {time_str}</li>" if time_str else ""
+    message = (
+        f"<p>Je inschrijving voor <strong>{activity_name}</strong> is bevestigd.</p>"
+        f"<ul><li><strong>Datum:</strong> {date_str}</li>{time_li}{loc_li}</ul>"
+    )
 
-        if registration:
-            details = []
-            if registration.contact_email:
-                details.append(f"<li><strong>E-mail:</strong> {escape(registration.contact_email)}</li>")
-            if registration.phone:
-                details.append(f"<li><strong>GSM:</strong> {escape(registration.phone)}</li>")
-            if registration.team_name:
-                details.append(f"<li><strong>Ploeg:</strong> {escape(registration.team_name)}</li>")
-            if registration.remarks:
-                details.append(f"<li><strong>Opmerkingen:</strong> {escape(registration.remarks)}</li>")
+    if registration:
+        details = []
+        if registration.contact_email:
+            details.append(f"<li><strong>E-mail:</strong> {escape(registration.contact_email)}</li>")
+        if registration.phone:
+            details.append(f"<li><strong>GSM:</strong> {escape(registration.phone)}</li>")
+        if registration.team_name:
+            details.append(f"<li><strong>Ploeg:</strong> {escape(registration.team_name)}</li>")
+        if registration.remarks:
+            details.append(f"<li><strong>Opmerkingen:</strong> {escape(registration.remarks)}</li>")
 
-            totaal, regels = compute_registration_total(registration)
-            if regels:
-                regels_html = "".join(
-                    f"<li>{escape(r['name'])} × {r['quantity']} "
-                    f"— €{r['unit_price']:.2f} / stuk "
-                    f"= <strong>€{r['subtotal']:.2f}</strong></li>"
-                    for r in regels
-                )
-                details.append(f"<li><strong>Producten:</strong><ul>{regels_html}</ul></li>")
-                details.append(f"<li><strong>Totaal:</strong> <strong>€{totaal:.2f}</strong></li>")
+        totaal, regels = compute_registration_total(registration)
+        if regels:
+            regels_html = "".join(
+                f"<li>{escape(r['name'])} × {r['quantity']} "
+                f"— €{r['unit_price']:.2f} / stuk "
+                f"= <strong>€{r['subtotal']:.2f}</strong></li>"
+                for r in regels
+            )
+            details.append(f"<li><strong>Producten:</strong><ul>{regels_html}</ul></li>")
+            details.append(f"<li><strong>Totaal:</strong> <strong>€{totaal:.2f}</strong></li>")
 
-            if registration.payment_method and registration.payment_method != "FREE":
-                method_labels = {"ONLINE": "Online (Mollie)", "CASH": "Cash", "TRANSFER": "Overschrijving"}
-                details.append(
-                    f"<li><strong>Betaalmethode:</strong> "
-                    f"{method_labels.get(registration.payment_method, registration.payment_method)}</li>"
-                )
+        if registration.payment_method and registration.payment_method != "FREE":
+            method_labels = {"ONLINE": "Online (Mollie)", "CASH": "Cash", "TRANSFER": "Overschrijving"}
+            details.append(
+                f"<li><strong>Betaalmethode:</strong> "
+                f"{method_labels.get(registration.payment_method, registration.payment_method)}</li>"
+            )
 
-            if details:
-                message += (
-                    "<h4 style='margin-top:12px;margin-bottom:4px'>Jouw gegevens</h4>"
-                    f"<ul>{''.join(details)}</ul>"
-                )
+        if details:
+            message += (
+                "<h4 style='margin-top:12px;margin-bottom:4px'>Jouw gegevens</h4>"
+                f"<ul>{''.join(details)}</ul>"
+            )
 
     _send(
         to_email=to_email,
         subject=subject,
         body_html=f"<p>Beste {escape(name)},</p>{message}<p>Met vriendelijke groeten,<br>Raak Millegem</p>",
-    )
-
-
-def send_waitlist_notification(to_email: str, name: str, activity_name: str) -> None:
-    _send(
-        to_email=to_email,
-        subject=f"Plaatsje vrijgekomen: {escape(activity_name)}",
-        body_html=f"""
-        <p>Beste {escape(name)},</p>
-        <p>Er is een plaatsje vrijgekomen voor <strong>{escape(activity_name)}</strong>. Je bent automatisch ingeschreven.</p>
-        <p>Met vriendelijke groeten,<br>Raak Millegem</p>
-        """,
     )
 
 

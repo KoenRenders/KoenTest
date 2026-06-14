@@ -142,7 +142,6 @@ class ActivityResponse(BaseModel):
     created_at: datetime
     status: Optional[str] = None
     registration_count: Optional[int] = None
-    waitlist_count: Optional[int] = None
     sub_registrations: List[ComponentResponse] = []
 
     model_config = {"from_attributes": True}
@@ -180,7 +179,6 @@ class RegistrationResponse(BaseModel):
     activity_id: int
     component_id: Optional[int] = None
     person_id: Optional[int] = None
-    is_waitlist: bool
     registered_at: datetime
     contact_name: Optional[str] = None
     contact_email: Optional[str] = None

@@ -41,7 +41,6 @@ class Registration(Base):
     id = Column(Integer, primary_key=True, index=True)
     activity_id = Column(Integer, ForeignKey("activities.id"), nullable=False)
     person_id = Column(Integer, ForeignKey("persons.id"), nullable=True)
-    is_waitlist = Column(Boolean, default=False, nullable=False)
     registered_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     registration_type = Column(String(10), ForeignKey("registration_type_codes.code"), nullable=False)
 

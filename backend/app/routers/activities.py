@@ -29,7 +29,7 @@ from app.schemas.activity import (
     RegistrationCreate,
     RegistrationResponse,
 )
-from app.services.email import send_waitlist_notification, send_activity_registration_confirmation
+from app.services.email import send_activity_registration_confirmation
 from app.services.registration_totals import compute_registration_total
 from app.config import settings
 from app.domains.payment_status.service import create_payment_record
@@ -49,11 +49,9 @@ def _is_future(ad: ActivityDate, today: date) -> bool:
 def compute_activity_status(
     activity: Activity,
     registration_count: int | None = None,
-    waitlist_count: int | None = None,
 ) -> dict:
-    if registration_count is None or waitlist_count is None:
-        registration_count = sum(1 for r in activity.registrations if not r.is_waitlist)
-        waitlist_count = sum(1 for r in activity.registrations if r.is_waitlist)
+    if registration_count is None:
+        registration_count = len(activity.registrations)
 
     today = date.today()
     all_past = not any(_is_future(d, today) for d in activity.dates)
@@ -62,31 +60,28 @@ def compute_activity_status(
         status = "Voorbij"
     elif activity.is_cancelled:
         status = "Geannuleerd"
-    elif waitlist_count > 0:
-        status = "Wachtlijst"
     else:
         status = "Open"
 
     return {
         "status": status,
         "registration_count": registration_count,
-        "waitlist_count": waitlist_count,
     }
 
 
 def _registration_counts(db: Session, activity_ids: List[int]) -> dict:
-    """Tellingen (regulier, wachtlijst) per activiteit in één GROUP BY-query."""
-    counts: dict = {aid: [0, 0] for aid in activity_ids}
+    """Aantal inschrijvingen per activiteit in één GROUP BY-query (vermijdt N+1)."""
+    counts: dict = {aid: 0 for aid in activity_ids}
     if not activity_ids:
         return counts
     rows = (
-        db.query(Registration.activity_id, Registration.is_waitlist, func.count())
+        db.query(Registration.activity_id, func.count())
         .filter(Registration.activity_id.in_(activity_ids))
-        .group_by(Registration.activity_id, Registration.is_waitlist)
+        .group_by(Registration.activity_id)
         .all()
     )
-    for activity_id, is_waitlist, cnt in rows:
-        counts.setdefault(activity_id, [0, 0])[1 if is_waitlist else 0] = cnt
+    for activity_id, cnt in rows:
+        counts[activity_id] = cnt
     return counts
 
 
@@ -96,7 +91,6 @@ def _build_response(
     for_archive: bool = False,
     all_dates: bool = False,
     reg_count: int = 0,
-    wl_count: int = 0,
     status: str | None = None,
 ) -> ActivityResponse:
     sorted_dates = sorted(activity.dates, key=lambda d: d.start_date)
@@ -115,7 +109,6 @@ def _build_response(
     resp.sort_date = sort_date
     resp.status = status
     resp.registration_count = reg_count
-    resp.waitlist_count = wl_count
     return resp
 
 
@@ -160,9 +153,9 @@ def list_activities(include_all_dates: bool = False, db: Session = Depends(get_d
     counts = _registration_counts(db, [a.id for a in activities])
     result = []
     for a in activities:
-        reg_count, wl_count = counts.get(a.id, (0, 0))
-        info = compute_activity_status(a, reg_count, wl_count)
-        result.append(_build_response(a, today, all_dates=include_all_dates, reg_count=info["registration_count"], wl_count=info["waitlist_count"], status=info["status"]))
+        reg_count = counts.get(a.id, 0)
+        info = compute_activity_status(a, reg_count)
+        result.append(_build_response(a, today, all_dates=include_all_dates, reg_count=info["registration_count"], status=info["status"]))
     return result
 
 
@@ -206,11 +199,11 @@ def list_archived_activities(include_all_dates: bool = False, db: Session = Depe
     counts = _registration_counts(db, [a.id for a in activities])
     result = []
     for a in activities:
-        reg_count, wl_count = counts.get(a.id, (0, 0))
+        reg_count = counts.get(a.id, 0)
         # Archiefkaarten tonen enkel voorbije datums → status is altijd "Voorbij"
         # (of "Geannuleerd"), ook als de activiteit nog toekomstige datums heeft.
         status = "Geannuleerd" if a.is_cancelled else "Voorbij"
-        result.append(_build_response(a, today, for_archive=True, all_dates=include_all_dates, reg_count=reg_count, wl_count=wl_count, status=status))
+        result.append(_build_response(a, today, for_archive=True, all_dates=include_all_dates, reg_count=reg_count, status=status))
     return result
 
 
@@ -251,7 +244,7 @@ def create_activity(
     )
 
     today = date.today()
-    resp = _build_response(activity, today, status="Open", reg_count=0, wl_count=0)
+    resp = _build_response(activity, today, status="Open", reg_count=0)
     return resp
 
 
@@ -280,7 +273,7 @@ def update_activity(
 
     today = date.today()
     info = compute_activity_status(activity)
-    return _build_response(activity, today, status=info["status"], reg_count=info["registration_count"], wl_count=info["waitlist_count"])
+    return _build_response(activity, today, status=info["status"], reg_count=info["registration_count"])
 
 
 @router.delete("/activities/{activity_id}")
@@ -527,7 +520,6 @@ def _enrich_registration(reg, activity):
         "activity_id": reg.activity_id,
         "component_id": reg.component_id,
         "person_id": reg.person_id,
-        "is_waitlist": reg.is_waitlist,
         "registered_at": reg.registered_at,
         "contact_name": reg.contact_name,
         "contact_email": reg.contact_email,
@@ -548,19 +540,7 @@ def get_registrations(
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
-    return [_enrich_registration(r, activity) for r in activity.registrations if not r.is_waitlist]
-
-
-@router.get("/activities/{activity_id}/waitlist", response_model=List[RegistrationResponse])
-def get_waitlist(
-    activity_id: int,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    activity = db.query(Activity).filter(Activity.id == activity_id).first()
-    if not activity:
-        raise HTTPException(status_code=404, detail="Activity not found")
-    return [r for r in activity.registrations if r.is_waitlist]
+    return [_enrich_registration(r, activity) for r in activity.registrations]
 
 
 @router.get("/activities/{activity_id}/public-registrations")
@@ -576,8 +556,6 @@ def get_public_registrations(
 
     result = []
     for reg in activity.registrations:
-        if reg.is_waitlist:
-            continue
         if reg.component_id == component_id:
             qty = sum(item.quantity for item in reg.items) if reg.items else 1
             result.append({
@@ -645,7 +623,7 @@ def register_for_activity(
         if component and component.max_participants is not None:
             current_qty = 0
             for reg in activity.registrations:
-                if reg.is_waitlist or reg.component_id != data.component_id:
+                if reg.component_id != data.component_id:
                     continue
                 current_qty += sum(it.quantity for it in reg.items) if reg.items else 1
             if current_qty + new_qty > component.max_participants:
@@ -657,7 +635,6 @@ def register_for_activity(
     registration = Registration(
         activity_id=activity_id,
         component_id=data.component_id,
-        is_waitlist=False,
         registration_type="INDIVIDUAL",
         contact_name=data.contact_name,
         contact_email=data.contact_email,
@@ -724,19 +701,12 @@ def register_for_activity(
 
     if data.contact_email:
         try:
-            if registration.is_waitlist:
-                send_waitlist_notification(
-                    to_email=data.contact_email,
-                    name=data.contact_name or "Deelnemer",
-                    activity_name=activity.name,
-                )
-            else:
-                send_activity_registration_confirmation(
-                    to_email=data.contact_email,
-                    name=data.contact_name or "Deelnemer",
-                    activity=activity,
-                    registration=registration,
-                )
+            send_activity_registration_confirmation(
+                to_email=data.contact_email,
+                name=data.contact_name or "Deelnemer",
+                activity=activity,
+                registration=registration,
+            )
         except Exception as e:
             logger.error("Activiteit bevestigingsmail mislukt naar %s: %s", data.contact_email, e)
 

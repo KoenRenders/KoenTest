@@ -41,7 +41,6 @@ export interface Activity {
   status?: string;
   is_cancelled?: boolean;
   registration_count?: number;
-  waitlist_count?: number;
   sub_registrations?: ActivityComponent[];
 }
 
@@ -147,7 +146,6 @@ export interface Registration {
   activity_id: number;
   family_id?: number;
   family_member_id?: number;
-  is_waitlist: boolean;
   registered_at: string;
   registration_type: string;
   contact_name?: string;
