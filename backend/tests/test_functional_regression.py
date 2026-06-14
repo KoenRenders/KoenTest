@@ -119,7 +119,9 @@ def test_admin_creates_paid_activity_and_public_registration(client, db_session,
     product; een bezoeker schrijft zich publiek in via overschrijving; het
     betaalrecord-bedrag is gelijk aan de productprijs."""
     act = client.post("/api/v1/activities", headers=admin_headers, json={
-        "name": "Flowtest betaalde activiteit", "date": "2099-12-31", "location": "Teststraat",
+        "name": "Flowtest betaalde activiteit",
+        "dates": [{"start_date": "2099-12-31"}],
+        "location": "Teststraat",
     })
     assert act.status_code == 200, act.text
     activity_id = act.json()["id"]

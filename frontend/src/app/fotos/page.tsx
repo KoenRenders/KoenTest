@@ -26,7 +26,8 @@ export default function FotosPage() {
   }, []);
 
   const byYear = albums.reduce<Record<number, Activity[]>>((acc, a) => {
-    const year = new Date(a.date).getFullYear();
+    const primary = a.sort_date || a.dates[0]?.start_date;
+    const year = primary ? new Date(primary).getFullYear() : 0;
     (acc[year] = acc[year] || []).push(a);
     return acc;
   }, {});

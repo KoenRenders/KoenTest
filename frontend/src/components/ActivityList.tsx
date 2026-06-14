@@ -133,7 +133,8 @@ export default function ActivityList({
   }
 
   const byYear = activities.reduce<Record<number, Activity[]>>((acc, a) => {
-    const year = new Date(a.date).getFullYear();
+    const primary = a.sort_date || a.dates[0]?.start_date;
+    const year = primary ? new Date(primary).getFullYear() : 0;
     (acc[year] = acc[year] || []).push(a);
     return acc;
   }, {});
@@ -168,7 +169,13 @@ export default function ActivityList({
                     )}
                   </div>
                   <div className="mt-2 text-gray-600 space-y-0.5 text-sm">
-                    <p>📅 {formatDate(activity.date)}{activity.date_end && activity.date_end !== activity.date ? ` – ${formatDate(activity.date_end)}` : ""}{formatTime(activity.time) ? ` om ${formatTime(activity.time)}${formatTime(activity.time_end) ? ` – ${formatTime(activity.time_end)}` : ""}` : ""}</p>
+                    {(activity.dates ?? []).map((d, i) => (
+                      <p key={i}>
+                        📅 {formatDate(d.start_date)}
+                        {d.end_date && d.end_date !== d.start_date ? ` – ${formatDate(d.end_date)}` : ""}
+                        {formatTime(d.start_time) ? ` om ${formatTime(d.start_time)}${formatTime(d.end_time) ? ` – ${formatTime(d.end_time)}` : ""}` : ""}
+                      </p>
+                    ))}
                     {activity.location && <p>📍 {activity.location}</p>}
                   </div>
 

@@ -21,13 +21,20 @@ export interface ActivityComponent {
   products: ActivityProduct[];
 }
 
+export interface ActivityDate {
+  id: number;
+  activity_id: number;
+  start_date: string;
+  end_date?: string;
+  start_time?: string;
+  end_time?: string;
+}
+
 export interface Activity {
   id: number;
   name: string;
-  date: string;
-  date_end?: string;
-  time?: string;
-  time_end?: string;
+  sort_date?: string;
+  dates: ActivityDate[];
   location?: string;
   poster_url?: string;
   members_only?: boolean;

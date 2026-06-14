@@ -2,7 +2,7 @@ from __future__ import annotations
 from datetime import date as Date, time as Time, datetime
 from typing import Optional, List
 from decimal import Decimal
-from pydantic import BaseModel, EmailStr, field_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator
 
 
 def _non_negative_price(v: Optional[Decimal]) -> Optional[Decimal]:
@@ -86,14 +86,38 @@ class ComponentResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
+# ── Activity dates ────────────────────────────────────────────────────────────
+
+class ActivityDateCreate(BaseModel):
+    start_date: Date
+    end_date: Optional[Date] = None
+    start_time: Optional[Time] = None
+    end_time: Optional[Time] = None
+
+
+class ActivityDateUpdate(BaseModel):
+    start_date: Optional[Date] = None
+    end_date: Optional[Date] = None
+    start_time: Optional[Time] = None
+    end_time: Optional[Time] = None
+
+
+class ActivityDateResponse(BaseModel):
+    id: int
+    activity_id: int
+    start_date: Date
+    end_date: Optional[Date] = None
+    start_time: Optional[Time] = None
+    end_time: Optional[Time] = None
+
+    model_config = {"from_attributes": True}
+
+
 # ── Activities ────────────────────────────────────────────────────────────────
 
 class ActivityCreate(BaseModel):
     name: str
-    date: Date
-    date_end: Optional[Date] = None
-    time: Optional[Time] = None
-    time_end: Optional[Time] = None
+    dates: List[ActivityDateCreate] = Field(min_length=1)
     location: Optional[str] = None
     poster_url: Optional[str] = None
     members_only: Optional[bool] = None
@@ -101,10 +125,6 @@ class ActivityCreate(BaseModel):
 
 class ActivityUpdate(BaseModel):
     name: Optional[str] = None
-    date: Optional[Date] = None
-    date_end: Optional[Date] = None
-    time: Optional[Time] = None
-    time_end: Optional[Time] = None
     location: Optional[str] = None
     poster_url: Optional[str] = None
     is_cancelled: Optional[bool] = None
@@ -114,10 +134,8 @@ class ActivityUpdate(BaseModel):
 class ActivityResponse(BaseModel):
     id: int
     name: str
-    date: Date
-    date_end: Optional[Date] = None
-    time: Optional[Time] = None
-    time_end: Optional[Time] = None
+    sort_date: Optional[Date] = None
+    dates: List[ActivityDateResponse] = []
     location: Optional[str] = None
     poster_url: Optional[str] = None
     members_only: bool = False

@@ -110,7 +110,7 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
         <h2 className="text-xl font-bold mb-1">Inschrijven</h2>
-        <p className="text-gray-500 text-sm mb-1">{activity.name} – {new Date(activity.date).toLocaleDateString("nl-BE")}</p>
+        <p className="text-gray-500 text-sm mb-1">{activity.name}{activity.sort_date ? ` – ${new Date(activity.sort_date).toLocaleDateString("nl-BE")}` : ""}</p>
         <p className="text-gray-800 font-semibold mb-5">{component.name}</p>
 
         <form onSubmit={handleSubmit} className="space-y-4">

@@ -27,6 +27,14 @@ export const registerForActivity = (id: number, data: unknown) => api.post(`/api
 export const getPublicRegistrations = (activityId: number, componentId: number) =>
   api.get(`/api/v1/activities/${activityId}/public-registrations`, { params: { component_id: componentId } });
 
+// Activity dates
+export const addActivityDate = (activityId: number, data: unknown) =>
+  api.post(`/api/v1/activities/${activityId}/dates`, data);
+export const updateActivityDate = (activityId: number, dateId: number, data: unknown) =>
+  api.put(`/api/v1/activities/${activityId}/dates/${dateId}`, data);
+export const deleteActivityDate = (activityId: number, dateId: number) =>
+  api.delete(`/api/v1/activities/${activityId}/dates/${dateId}`);
+
 // Components (onderdelen) under an activity
 export const addComponent = (activityId: number, data: unknown) =>
   api.post(`/api/v1/activities/${activityId}/components`, data);

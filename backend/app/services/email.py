@@ -138,8 +138,12 @@ def send_activity_registration_confirmation(
         )
     else:
         subject = f"Inschrijving bevestigd: {activity_name}"
-        date_str = activity.date.strftime("%d/%m/%Y")
-        time_str = activity.time.strftime("%H:%M") if activity.time else ""
+        from datetime import date as _date
+        today = _date.today()
+        all_dates = sorted(activity.dates, key=lambda d: d.start_date) if activity.dates else []
+        relevant = next((d for d in all_dates if (d.end_date or d.start_date) >= today), all_dates[0] if all_dates else None)
+        date_str = relevant.start_date.strftime("%d/%m/%Y") if relevant else ""
+        time_str = relevant.start_time.strftime("%H:%M") if (relevant and relevant.start_time) else ""
         location = escape(activity.location) if activity.location else ""
 
         loc_li = f"<li><strong>Locatie:</strong> {location}</li>" if location else ""

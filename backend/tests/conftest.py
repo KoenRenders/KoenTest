@@ -138,8 +138,11 @@ def seed_activity_with_product(db, price="10.00", is_free=False, max_participant
     from app.models.activity import Activity
     from app.models.activity_sub_registration import ActivitySubRegistration, ActivityProduct
 
-    activity = Activity(name="Testactiviteit", date=date.today() + timedelta(days=30))
+    from app.models.activity import ActivityDate
+    activity = Activity(name="Testactiviteit")
     db.add(activity)
+    db.flush()
+    db.add(ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=30)))
     db.flush()
     comp = ActivitySubRegistration(
         activity_id=activity.id, name="Onderdeel", registration_type_code="INDIVIDUAL",

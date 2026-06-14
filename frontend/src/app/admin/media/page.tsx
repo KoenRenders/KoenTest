@@ -147,9 +147,11 @@ export default function AdminMedia() {
               onChange={(e) => setActivityId(e.target.value ? Number(e.target.value) : "")}
             >
               <option value="">— Kies een activiteit —</option>
-              {activities.map((a) => (
-                <option key={a.id} value={a.id}>{a.name} ({new Date(a.date).getFullYear()})</option>
-              ))}
+              {activities.map((a) => {
+                const primary = a.sort_date || a.dates[0]?.start_date;
+                const year = primary ? new Date(primary).getFullYear() : "";
+                return <option key={a.id} value={a.id}>{a.name}{year ? ` (${year})` : ""}</option>;
+              })}
             </select>
           </div>
         )}

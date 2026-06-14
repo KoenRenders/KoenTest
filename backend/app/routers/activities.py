@@ -10,13 +10,16 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.auth import get_current_admin, get_current_member
 from app.database import get_db
-from app.models.activity import Activity, Registration, RegistrationItem
+from app.models.activity import ActivityDate, Activity, Registration, RegistrationItem
 from app.models.user import User
 from app.models.activity_sub_registration import ActivitySubRegistration, ActivityProduct
 from app.schemas.activity import (
     ActivityCreate,
     ActivityUpdate,
     ActivityResponse,
+    ActivityDateCreate,
+    ActivityDateUpdate,
+    ActivityDateResponse,
     ComponentCreate,
     ComponentUpdate,
     ComponentResponse,
@@ -35,20 +38,27 @@ from app.limiter import registration_limiter
 router = APIRouter(tags=["activities"])
 
 
+def _effective_end(ad: ActivityDate) -> date:
+    return ad.end_date or ad.start_date
+
+
+def _is_future(ad: ActivityDate, today: date) -> bool:
+    return _effective_end(ad) >= today
+
+
 def compute_activity_status(
     activity: Activity,
     registration_count: int | None = None,
     waitlist_count: int | None = None,
 ) -> dict:
-    # Tellingen mogen vooraf berekend worden meegegeven (lijst-endpoints, 1
-    # GROUP BY-query) om N+1 te vermijden. Worden ze niet meegegeven, dan vallen
-    # we terug op de relatie (prima voor één activiteit, bv. na een update).
     if registration_count is None or waitlist_count is None:
         registration_count = sum(1 for r in activity.registrations if not r.is_waitlist)
         waitlist_count = sum(1 for r in activity.registrations if r.is_waitlist)
 
-    end = activity.date_end or activity.date
-    if end < date.today():
+    today = date.today()
+    all_past = not any(_is_future(d, today) for d in activity.dates)
+
+    if all_past or not activity.dates:
         status = "Voorbij"
     elif activity.is_cancelled:
         status = "Geannuleerd"
@@ -65,11 +75,7 @@ def compute_activity_status(
 
 
 def _registration_counts(db: Session, activity_ids: List[int]) -> dict:
-    """Tellingen (regulier, wachtlijst) per activiteit in één GROUP BY-query.
-
-    Geeft {activity_id: (registration_count, waitlist_count)}. Vermijdt het
-    N+1-patroon waarbij per activiteit de registraties werden opgevraagd.
-    """
+    """Tellingen (regulier, wachtlijst) per activiteit in één GROUP BY-query."""
     counts: dict = {aid: [0, 0] for aid in activity_ids}
     if not activity_ids:
         return counts
@@ -84,68 +90,114 @@ def _registration_counts(db: Session, activity_ids: List[int]) -> dict:
     return counts
 
 
+def _build_response(
+    activity: Activity,
+    today: date,
+    for_archive: bool = False,
+    reg_count: int = 0,
+    wl_count: int = 0,
+    status: str | None = None,
+) -> ActivityResponse:
+    sorted_dates = sorted(activity.dates, key=lambda d: d.start_date)
+    resp = ActivityResponse.model_validate(activity)
+    resp.dates = [ActivityDateResponse.model_validate(d) for d in sorted_dates]
+    if for_archive:
+        resp.sort_date = sorted_dates[-1].start_date if sorted_dates else None
+    else:
+        future = [d for d in sorted_dates if _is_future(d, today)]
+        resp.sort_date = future[0].start_date if future else (sorted_dates[0].start_date if sorted_dates else None)
+    resp.status = status
+    resp.registration_count = reg_count
+    resp.waitlist_count = wl_count
+    return resp
+
+
 # ── Activities ────────────────────────────────────────────────────────────────
 
 @router.get("/activities", response_model=List[ActivityResponse])
 def list_activities(db: Session = Depends(get_db)):
     today = date.today()
-    still_running = or_(
-        and_(Activity.date_end != None, Activity.date_end >= today),
-        and_(Activity.date_end == None, Activity.date >= today),
+    effective_end = func.coalesce(ActivityDate.end_date, ActivityDate.start_date)
+
+    has_future = (
+        db.query(ActivityDate.id)
+        .filter(
+            ActivityDate.activity_id == Activity.id,
+            effective_end >= today,
+        )
+        .correlate(Activity)
+        .exists()
     )
+
+    sort_date_sq = (
+        db.query(func.min(ActivityDate.start_date))
+        .filter(
+            ActivityDate.activity_id == Activity.id,
+            effective_end >= today,
+        )
+        .correlate(Activity)
+        .scalar_subquery()
+    )
+
     activities = (
         db.query(Activity)
         .options(
-            selectinload(Activity.sub_registrations).selectinload(
-                ActivitySubRegistration.products
-            )
+            selectinload(Activity.dates),
+            selectinload(Activity.sub_registrations).selectinload(ActivitySubRegistration.products),
         )
-        .filter(still_running)
-        .order_by(Activity.date.asc())
+        .filter(has_future)
+        .order_by(sort_date_sq.asc())
         .all()
     )
+
     counts = _registration_counts(db, [a.id for a in activities])
     result = []
     for a in activities:
         reg_count, wl_count = counts.get(a.id, (0, 0))
         info = compute_activity_status(a, reg_count, wl_count)
-        resp = ActivityResponse.model_validate(a)
-        resp.status = info["status"]
-        resp.registration_count = info["registration_count"]
-        resp.waitlist_count = info["waitlist_count"]
-        result.append(resp)
+        result.append(_build_response(a, today, reg_count=info["registration_count"], wl_count=info["waitlist_count"], status=info["status"]))
     return result
 
 
 @router.get("/activities/archived", response_model=List[ActivityResponse])
 def list_archived_activities(db: Session = Depends(get_db)):
     today = date.today()
+    effective_end = func.coalesce(ActivityDate.end_date, ActivityDate.start_date)
+
+    has_future = (
+        db.query(ActivityDate.id)
+        .filter(
+            ActivityDate.activity_id == Activity.id,
+            effective_end >= today,
+        )
+        .correlate(Activity)
+        .exists()
+    )
+
+    sort_date_sq = (
+        db.query(func.max(ActivityDate.start_date))
+        .filter(ActivityDate.activity_id == Activity.id)
+        .correlate(Activity)
+        .scalar_subquery()
+    )
+
     activities = (
         db.query(Activity)
         .options(
-            selectinload(Activity.sub_registrations).selectinload(
-                ActivitySubRegistration.products
-            )
+            selectinload(Activity.dates),
+            selectinload(Activity.sub_registrations).selectinload(ActivitySubRegistration.products),
         )
-        .filter(
-            or_(
-                and_(Activity.date_end == None, Activity.date < today),
-                and_(Activity.date_end != None, Activity.date_end < today),
-            )
-        )
-        .order_by(Activity.date.desc())
+        .filter(~has_future)
+        .order_by(sort_date_sq.desc())
         .all()
     )
+
     counts = _registration_counts(db, [a.id for a in activities])
     result = []
     for a in activities:
         reg_count, wl_count = counts.get(a.id, (0, 0))
         info = compute_activity_status(a, reg_count, wl_count)
-        resp = ActivityResponse.model_validate(a)
-        resp.status = info["status"]
-        resp.registration_count = info["registration_count"]
-        resp.waitlist_count = info["waitlist_count"]
-        result.append(resp)
+        result.append(_build_response(a, today, for_archive=True, reg_count=info["registration_count"], wl_count=info["waitlist_count"], status=info["status"]))
     return result
 
 
@@ -157,21 +209,36 @@ def create_activity(
 ):
     activity = Activity(
         name=data.name,
-        date=data.date,
-        date_end=data.date_end,
-        time=data.time,
-        time_end=data.time_end,
         location=data.location,
         poster_url=data.poster_url,
         members_only=bool(data.members_only),
     )
     db.add(activity)
+    db.flush()
+
+    for date_data in data.dates:
+        db.add(ActivityDate(
+            activity_id=activity.id,
+            start_date=date_data.start_date,
+            end_date=date_data.end_date,
+            start_time=date_data.start_time,
+            end_time=date_data.end_time,
+        ))
+
     db.commit()
-    db.refresh(activity)
-    resp = ActivityResponse.model_validate(activity)
-    resp.status = "Open"
-    resp.registration_count = 0
-    resp.waitlist_count = 0
+
+    activity = (
+        db.query(Activity)
+        .options(
+            selectinload(Activity.dates),
+            selectinload(Activity.sub_registrations).selectinload(ActivitySubRegistration.products),
+        )
+        .filter(Activity.id == activity.id)
+        .first()
+    )
+
+    today = date.today()
+    resp = _build_response(activity, today, status="Open", reg_count=0, wl_count=0)
     return resp
 
 
@@ -182,19 +249,25 @@ def update_activity(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    activity = db.query(Activity).filter(Activity.id == activity_id).first()
+    activity = (
+        db.query(Activity)
+        .options(
+            selectinload(Activity.dates),
+            selectinload(Activity.sub_registrations).selectinload(ActivitySubRegistration.products),
+        )
+        .filter(Activity.id == activity_id)
+        .first()
+    )
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(activity, field, value)
     db.commit()
     db.refresh(activity)
+
+    today = date.today()
     info = compute_activity_status(activity)
-    resp = ActivityResponse.model_validate(activity)
-    resp.status = info["status"]
-    resp.registration_count = info["registration_count"]
-    resp.waitlist_count = info["waitlist_count"]
-    return resp
+    return _build_response(activity, today, status=info["status"], reg_count=info["registration_count"], wl_count=info["waitlist_count"])
 
 
 @router.delete("/activities/{activity_id}")
@@ -207,6 +280,70 @@ def delete_activity(
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
     db.delete(activity)
+    db.commit()
+    return {"detail": "deleted"}
+
+
+# ── Activity dates ────────────────────────────────────────────────────────────
+
+@router.post("/activities/{activity_id}/dates", response_model=ActivityDateResponse)
+def add_activity_date(
+    activity_id: int,
+    data: ActivityDateCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    activity = db.query(Activity).filter(Activity.id == activity_id).first()
+    if not activity:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    ad = ActivityDate(
+        activity_id=activity_id,
+        start_date=data.start_date,
+        end_date=data.end_date,
+        start_time=data.start_time,
+        end_time=data.end_time,
+    )
+    db.add(ad)
+    db.commit()
+    db.refresh(ad)
+    return ad
+
+
+@router.put("/activities/{activity_id}/dates/{date_id}", response_model=ActivityDateResponse)
+def update_activity_date(
+    activity_id: int,
+    date_id: int,
+    data: ActivityDateUpdate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    ad = db.query(ActivityDate).filter(
+        ActivityDate.id == date_id,
+        ActivityDate.activity_id == activity_id,
+    ).first()
+    if not ad:
+        raise HTTPException(status_code=404, detail="Date not found")
+    for field, value in data.model_dump(exclude_unset=True).items():
+        setattr(ad, field, value)
+    db.commit()
+    db.refresh(ad)
+    return ad
+
+
+@router.delete("/activities/{activity_id}/dates/{date_id}")
+def delete_activity_date(
+    activity_id: int,
+    date_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    ad = db.query(ActivityDate).filter(
+        ActivityDate.id == date_id,
+        ActivityDate.activity_id == activity_id,
+    ).first()
+    if not ad:
+        raise HTTPException(status_code=404, detail="Date not found")
+    db.delete(ad)
     db.commit()
     return {"detail": "deleted"}
 
@@ -445,17 +582,19 @@ def register_for_activity(
     db: Session = Depends(get_db),
     current_member=Depends(get_current_member),
 ):
-    activity = db.query(Activity).filter(Activity.id == activity_id).first()
+    activity = (
+        db.query(Activity)
+        .options(selectinload(Activity.dates))
+        .filter(Activity.id == activity_id)
+        .first()
+    )
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
 
-    end = activity.date_end or activity.date
-    if end < date.today():
+    today = date.today()
+    if not any(_is_future(d, today) for d in activity.dates):
         raise HTTPException(status_code=400, detail="Activity is no longer open for registration")
 
-    # Begrens het aantal inschrijvingen per e-mailadres voor dezelfde activiteit.
-    # Gezinnen schrijven soms in meerdere keren in; dit laat dat legitiem toe maar
-    # voorkomt onbedoelde dubbels/teveelbetalingen. Limiet via .env instelbaar.
     if data.contact_email:
         existing_count = db.query(Registration).filter(
             Registration.activity_id == activity_id,
@@ -468,15 +607,10 @@ def register_for_activity(
                        "activiteit met dit e-mailadres. Neem contact op met het bestuur als je er meer nodig hebt.",
             )
 
-    # Geldige producten voor deze activiteit (over alle onderdelen heen). Enkel
-    # hiermee mag een inschrijving line-items bevatten — zo kan niemand met een
-    # vreemd of onbestaand product_id een gratis (€0) regel binnensmokkelen.
     valid_product_ids = {
         p.id for comp in activity.sub_registrations for p in comp.products
     }
 
-    # Sanity-grens op aantallen: geen negatieve of absurd hoge waarden.
-    # 0 mag (bv. een vleessoort die je niet bestelt) en wordt verderop overgeslagen.
     for item_data in data.items:
         if item_data.product_id not in valid_product_ids:
             raise HTTPException(
@@ -489,10 +623,8 @@ def register_for_activity(
                 detail=f"Ongeldig aantal: kies een waarde tussen 0 en {settings.max_item_quantity}.",
             )
 
-    # Aantal nieuwe deelnemers in deze inschrijving (1 als er geen items zijn).
     new_qty = sum(i.quantity for i in data.items) if data.items else 1
 
-    # Capaciteit afdwingen op component-niveau.
     if data.component_id:
         component = next(
             (c for c in activity.sub_registrations if c.id == data.component_id), None
@@ -520,8 +652,6 @@ def register_for_activity(
         team_name=data.team_name,
         payment_method=data.payment_method,
         remarks=data.remarks,
-        # Ingelogd lid? Koppel de inschrijving aan de persoon — dit activeert
-        # meteen de ledenprijs in compute_registration_total (#80, #93).
         person_id=current_member.id if current_member else None,
     )
     db.add(registration)
@@ -535,7 +665,6 @@ def register_for_activity(
                 quantity=item_data.quantity,
             ))
 
-    # Totaalbedrag via gecentraliseerde helper — zelfde logica als in de bevestigingsmail.
     db.flush()
     db.refresh(registration)
     total_amount, _ = compute_registration_total(registration)
@@ -563,9 +692,6 @@ def register_for_activity(
                     checkout_url = gp.checkout_url
         except Exception as e:
             logger.error("Betaling aanmaken mislukt voor inschrijving (%s): %s", method, e)
-            # Bij een online betaling is een mislukking blokkerend: draai de
-            # inschrijving terug zodat de bezoeker niet 'ingeschreven' is zonder
-            # te kunnen betalen. Bij overschrijving loggen we en gaan we door.
             if method == "online":
                 db.rollback()
                 raise HTTPException(
@@ -573,7 +699,6 @@ def register_for_activity(
                     detail="De online betaling kon niet gestart worden. Je inschrijving is niet bewaard — probeer ze later opnieuw.",
                 )
 
-        # Online betaling zonder checkout-URL is onbruikbaar — niet bewaren.
         if method == "online" and not checkout_url:
             db.rollback()
             raise HTTPException(
