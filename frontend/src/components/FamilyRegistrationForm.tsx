@@ -1,68 +1,34 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { createFamily, getGenderCodes, getRelationTypes } from "@/lib/api";
-
-interface PostalOption { postal_code: string; municipality: string; }
-interface MemberForm {
-  first_name: string; last_name: string; date_of_birth: string;
-  gender: string; email: string; phone: string; mobile: string; relation_type: string;
-}
-
-const emptyMember = (relation_type = "HOOFDLID"): MemberForm => ({
-  first_name: "", last_name: "", date_of_birth: "", gender: "",
-  email: "", phone: "", mobile: "", relation_type,
-});
+import { type PersonInput, type AddressInput, emptyPerson, emptyAddress } from "./household/types";
+import { usePostalCodes } from "./household/usePostalCodes";
+import PersonFields from "./household/PersonFields";
+import AddressFields from "./household/AddressFields";
+import PaymentMethodChoice from "./household/PaymentMethodChoice";
 
 export default function FamilyRegistrationForm() {
-  const [form, setForm] = useState({
-    street: "", house_number: "", bus_number: "", postal_code: "", payment_method: "online",
-  });
-  const [postalInput, setPostalInput] = useState("");
-  const [postalOptions, setPostalOptions] = useState<PostalOption[]>([]);
-  const [postalFiltered, setPostalFiltered] = useState<PostalOption[]>([]);
-  const [showDropdown, setShowDropdown] = useState(false);
-  const [members, setMembers] = useState<MemberForm[]>([emptyMember("HOOFDLID")]);
+  const [members, setMembers] = useState<PersonInput[]>([emptyPerson("HOOFDLID")]);
+  const [address, setAddress] = useState<AddressInput>(emptyAddress());
+  const [paymentMethod, setPaymentMethod] = useState("online");
   const [genderCodes, setGenderCodes] = useState<{ code: string; value: string }[]>([]);
   const [relationTypes, setRelationTypes] = useState<{ code: string; value: string }[]>([]);
   const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
   const [error, setError] = useState("");
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const postalCodes = usePostalCodes();
 
   useEffect(() => {
     getGenderCodes().then((r) => setGenderCodes(r.data)).catch(() => {});
     getRelationTypes().then((r) => setRelationTypes(r.data)).catch(() => {});
   }, []);
 
-  useEffect(() => {
-    fetch("/api/v1/postal-codes")
-      .then((r) => r.json())
-      .then((data: PostalOption[]) => setPostalOptions(data))
-      .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    if (!postalInput) { setPostalFiltered([]); return; }
-    const q = postalInput.toLowerCase();
-    setPostalFiltered(
-      postalOptions.filter(
-        (p) => p.postal_code.startsWith(postalInput) || p.municipality.toLowerCase().includes(q)
-      ).slice(0, 8)
-    );
-  }, [postalInput, postalOptions]);
-
-  function selectPostal(p: PostalOption) {
-    setPostalInput(`${p.postal_code} — ${p.municipality}`);
-    setForm((f) => ({ ...f, postal_code: p.postal_code }));
-    setShowDropdown(false);
-  }
-
-  function updateMember(i: number, field: keyof MemberForm, value: string) {
-    setMembers((ms) => ms.map((m, idx) => idx === i ? { ...m, [field]: value } : m));
+  function updateMember(i: number, patch: Partial<PersonInput>) {
+    setMembers((ms) => ms.map((m, idx) => idx === i ? { ...m, ...patch } : m));
   }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.postal_code) {
+    if (!address.postal_code) {
       setError("Selecteer een geldige postcode uit de lijst.");
       setStatus("error");
       return;
@@ -71,16 +37,16 @@ export default function FamilyRegistrationForm() {
     setError("");
     try {
       const res = await createFamily({
-        street: form.street,
-        house_number: form.house_number,
-        bus_number: form.bus_number || undefined,
-        postal_code: form.postal_code,
-        payment_method: form.payment_method,
+        street: address.street,
+        house_number: address.house_number,
+        bus_number: address.bus_number || undefined,
+        postal_code: address.postal_code,
+        payment_method: paymentMethod,
         members: members.map((m) => ({
           first_name: m.first_name,
           last_name: m.last_name,
           date_of_birth: m.date_of_birth || undefined,
-          gender: m.gender || undefined,
+          gender_code: m.gender_code || undefined,
           email: m.email || undefined,
           phone: m.phone || undefined,
           mobile: m.mobile || undefined,
@@ -88,7 +54,7 @@ export default function FamilyRegistrationForm() {
         })),
       });
       const data = res.data;
-      if (form.payment_method === "online" && data.checkout_url) {
+      if (paymentMethod === "online" && data.checkout_url) {
         window.location.href = data.checkout_url;
       } else {
         setStatus("success");
@@ -109,94 +75,25 @@ export default function FamilyRegistrationForm() {
     );
   }
 
-  const memberFields = (i: number, member: MemberForm, isHoofdlid = false) => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div>
-        <label className="label">Voornaam *</label>
-        <input className="input" required value={member.first_name} onChange={(e) => updateMember(i, "first_name", e.target.value)} />
-      </div>
-      <div>
-        <label className="label">Achternaam *</label>
-        <input className="input" required value={member.last_name} onChange={(e) => updateMember(i, "last_name", e.target.value)} />
-      </div>
-      <div>
-        <label className="label">Geslacht</label>
-        <select className="input" value={member.gender} onChange={(e) => updateMember(i, "gender", e.target.value)}>
-          <option value="">— Kies —</option>
-          {genderCodes.map((g) => <option key={g.code} value={g.code}>{g.value}</option>)}
-        </select>
-      </div>
-      <div>
-        <label className="label">Geboortedatum</label>
-        <input type="date" className="input" value={member.date_of_birth} onChange={(e) => updateMember(i, "date_of_birth", e.target.value)} />
-      </div>
-      <div>
-        <label className="label">E-mailadres{isHoofdlid ? " *" : ""}</label>
-        <input type="email" className="input" required={isHoofdlid} value={member.email} onChange={(e) => updateMember(i, "email", e.target.value)} />
-      </div>
-      <div>
-        <label className="label">Mobiel nummer{isHoofdlid ? " *" : ""}</label>
-        <input type="tel" className="input" required={isHoofdlid} value={member.mobile} onChange={(e) => updateMember(i, "mobile", e.target.value)} />
-      </div>
-      <div>
-        <label className="label">Telefoon</label>
-        <input type="tel" className="input" value={member.phone} onChange={(e) => updateMember(i, "phone", e.target.value)} />
-      </div>
-    </div>
-  );
-
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
-
       {/* Hoofdgezinslid */}
       <div>
         <h3 className="font-semibold text-lg mb-3 text-blue-800">Hoofdgezinslid</h3>
         <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
-          {memberFields(0, members[0], true)}
+          <PersonFields
+            person={members[0]}
+            onChange={(patch) => updateMember(0, patch)}
+            genderCodes={genderCodes}
+            requireContact
+          />
         </div>
       </div>
 
-      {/* Adresgegevens */}
+      {/* Adresgegevens — enkel het hoofdlid (= gezinsadres) */}
       <div>
         <h3 className="font-semibold text-lg mb-3 text-blue-800">Adresgegevens</h3>
-        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-          <div className="sm:col-span-2">
-            <label className="label">Straat *</label>
-            <input className="input" required value={form.street} onChange={(e) => setForm((f) => ({ ...f, street: e.target.value }))} />
-          </div>
-          <div>
-            <label className="label">Nr. *</label>
-            <input className="input" required value={form.house_number} onChange={(e) => setForm((f) => ({ ...f, house_number: e.target.value }))} />
-          </div>
-          <div>
-            <label className="label">Bus</label>
-            <input className="input" value={form.bus_number} onChange={(e) => setForm((f) => ({ ...f, bus_number: e.target.value }))} />
-          </div>
-          <div className="sm:col-span-4 relative" ref={dropdownRef}>
-            <label className="label">Postcode *</label>
-            <input
-              className="input"
-              required
-              autoComplete="off"
-              value={postalInput}
-              onChange={(e) => { setPostalInput(e.target.value); setForm((f) => ({ ...f, postal_code: "" })); setShowDropdown(true); }}
-              onFocus={() => setShowDropdown(true)}
-              onBlur={() => setTimeout(() => setShowDropdown(false), 150)}
-              placeholder="Type postcode of gemeente…"
-            />
-            {showDropdown && postalFiltered.length > 0 && (
-              <ul className="absolute z-10 w-full bg-white border border-gray-200 rounded-lg shadow-lg mt-1 max-h-48 overflow-y-auto">
-                {postalFiltered.map((p) => (
-                  <li key={p.postal_code}
-                    className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
-                    onMouseDown={() => selectPostal(p)}>
-                    <span className="font-medium">{p.postal_code}</span> — {p.municipality}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        </div>
+        <AddressFields address={address} onChange={(patch) => setAddress((a) => ({ ...a, ...patch }))} postalCodes={postalCodes} />
       </div>
 
       {/* Extra gezinsleden */}
@@ -210,7 +107,7 @@ export default function FamilyRegistrationForm() {
                   <select
                     className="input flex-1 max-w-xs font-medium text-sm"
                     value={member.relation_type}
-                    onChange={(e) => updateMember(i + 1, "relation_type", e.target.value)}
+                    onChange={(e) => updateMember(i + 1, { relation_type: e.target.value })}
                   >
                     {relationTypes.filter((t) => t.code !== "HOOFDLID").map((t) => (
                       <option key={t.code} value={t.code}>{t.value}</option>
@@ -220,45 +117,28 @@ export default function FamilyRegistrationForm() {
                     Verwijderen
                   </button>
                 </div>
-                {memberFields(i + 1, member)}
+                <PersonFields
+                  person={member}
+                  onChange={(patch) => updateMember(i + 1, patch)}
+                  genderCodes={genderCodes}
+                />
               </div>
             ))}
           </div>
         </div>
       )}
 
-      <button type="button" onClick={() => setMembers((ms) => [...ms, emptyMember("PARTNER")])} className="btn-secondary btn-sm">
+      <button type="button" onClick={() => setMembers((ms) => [...ms, emptyPerson("PARTNER")])} className="btn-secondary btn-sm">
         + Gezinslid toevoegen
       </button>
 
       {/* Betaling */}
-      <div>
-        <h3 className="font-semibold text-lg mb-3 text-blue-800">Betaling</h3>
-        <div className="space-y-2">
-          {[
-            { value: "online", label: "Online betalen" },
-            { value: "transfer", label: "Overschrijving" },
-          ].map(({ value, label }) => (
-            <label key={value} className="flex items-center gap-2 cursor-pointer">
-              <input type="radio" name="payment_method" value={value}
-                checked={form.payment_method === value}
-                onChange={() => setForm((f) => ({ ...f, payment_method: value }))} />
-              <span>{label}</span>
-            </label>
-          ))}
-        </div>
-        {form.payment_method === "online" && (
-          <p className="mt-2 text-sm text-gray-600">Je wordt doorgestuurd naar Mollie om veilig online te betalen.</p>
-        )}
-        {form.payment_method === "transfer" && (
-          <p className="mt-2 text-sm text-gray-600">Na registratie ontvang je de rekeninggegevens per e-mail.</p>
-        )}
-      </div>
+      <PaymentMethodChoice value={paymentMethod} onChange={setPaymentMethod} />
 
       {error && <p className="text-red-600 text-sm">{error}</p>}
 
       <button type="submit" disabled={status === "loading"} className="btn-primary">
-        {status === "loading" ? "Bezig…" : form.payment_method === "online" ? "Registreren en betalen" : "Gezin registreren"}
+        {status === "loading" ? "Bezig…" : paymentMethod === "online" ? "Registreren en betalen" : "Gezin registreren"}
       </button>
     </form>
   );
