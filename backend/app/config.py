@@ -1,6 +1,6 @@
 from decimal import Decimal
 from pydantic_settings import BaseSettings
-from pydantic import model_validator
+from pydantic import field_validator, model_validator
 from typing import Optional
 
 
@@ -67,6 +67,23 @@ class Settings(BaseSettings):
 
     class Config:
         env_file = ".env"
+
+    @field_validator(
+        "membership_half_price_start_md",
+        "membership_half_price_end_md",
+        "membership_next_year_from_md",
+        "membership_renewal_start_md",
+        mode="before",
+    )
+    @classmethod
+    def _strip_md(cls, v):
+        """Saneer MM-DD-waarden uit .env: docker-compose neemt álles na '=' als
+        waarde, inclusief een eventuele inline `# comment`. Neem enkel het eerste
+        token zodat 'MM-DD   # uitleg' correct 'MM-DD' wordt. Lege string → None."""
+        if v is None:
+            return None
+        token = str(v).split()[0] if str(v).strip() else ""
+        return token or None
 
     @model_validator(mode="after")
     def _enforce_secure_config(self):
