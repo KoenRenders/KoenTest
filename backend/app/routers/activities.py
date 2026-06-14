@@ -115,95 +115,66 @@ def _build_response(
 # ── Activities ────────────────────────────────────────────────────────────────
 
 @router.get("/activities", response_model=List[ActivityResponse])
-def list_activities(include_all_dates: bool = False, db: Session = Depends(get_db)):
+def list_activities(scope: str = "upcoming", db: Session = Depends(get_db)):
+    """Eén endpoint met een scope-param (#136):
+      - ``upcoming`` (default): activiteiten met ≥1 toekomstige datum, gesorteerd op
+        de eerstvolgende datum; enkel de toekomstige datums worden getoond.
+      - ``archived``: activiteiten met ≥1 voorbije datum, gesorteerd op de meest
+        recente voorbije datum; enkel de voorbije datums; status altijd Voorbij.
+      - ``all`` (admin): álle activiteiten met álle datums.
+    """
     today = date.today()
     effective_end = func.coalesce(ActivityDate.end_date, ActivityDate.start_date)
 
-    has_future = (
-        db.query(ActivityDate.id)
-        .filter(
-            ActivityDate.activity_id == Activity.id,
-            effective_end >= today,
-        )
-        .correlate(Activity)
-        .exists()
+    base = db.query(Activity).options(
+        selectinload(Activity.dates),
+        selectinload(Activity.sub_registrations).selectinload(ActivitySubRegistration.products),
     )
 
-    sort_date_sq = (
-        db.query(func.min(ActivityDate.start_date))
-        .filter(
-            ActivityDate.activity_id == Activity.id,
-            effective_end >= today,
+    if scope == "archived":
+        has_past = (
+            db.query(ActivityDate.id)
+            .filter(ActivityDate.activity_id == Activity.id, effective_end < today)
+            .correlate(Activity).exists()
         )
-        .correlate(Activity)
-        .scalar_subquery()
-    )
-
-    activities = (
-        db.query(Activity)
-        .options(
-            selectinload(Activity.dates),
-            selectinload(Activity.sub_registrations).selectinload(ActivitySubRegistration.products),
+        sort_sq = (
+            db.query(func.max(ActivityDate.start_date))
+            .filter(ActivityDate.activity_id == Activity.id, effective_end < today)
+            .correlate(Activity).scalar_subquery()
         )
-        .filter(has_future)
-        .order_by(sort_date_sq.asc())
-        .all()
-    )
+        activities = base.filter(has_past).order_by(sort_sq.desc()).all()
+    elif scope == "all":
+        sort_sq = (
+            db.query(func.max(ActivityDate.start_date))
+            .filter(ActivityDate.activity_id == Activity.id)
+            .correlate(Activity).scalar_subquery()
+        )
+        activities = base.order_by(sort_sq.desc()).all()
+    else:  # upcoming (default)
+        scope = "upcoming"
+        has_future = (
+            db.query(ActivityDate.id)
+            .filter(ActivityDate.activity_id == Activity.id, effective_end >= today)
+            .correlate(Activity).exists()
+        )
+        sort_sq = (
+            db.query(func.min(ActivityDate.start_date))
+            .filter(ActivityDate.activity_id == Activity.id, effective_end >= today)
+            .correlate(Activity).scalar_subquery()
+        )
+        activities = base.filter(has_future).order_by(sort_sq.asc()).all()
 
     counts = _registration_counts(db, [a.id for a in activities])
     result = []
     for a in activities:
         reg_count = counts.get(a.id, 0)
-        info = compute_activity_status(a, reg_count)
-        result.append(_build_response(a, today, all_dates=include_all_dates, reg_count=info["registration_count"], status=info["status"]))
-    return result
-
-
-@router.get("/activities/archived", response_model=List[ActivityResponse])
-def list_archived_activities(include_all_dates: bool = False, db: Session = Depends(get_db)):
-    today = date.today()
-    effective_end = func.coalesce(ActivityDate.end_date, ActivityDate.start_date)
-
-    has_past = (
-        db.query(ActivityDate.id)
-        .filter(
-            ActivityDate.activity_id == Activity.id,
-            effective_end < today,
-        )
-        .correlate(Activity)
-        .exists()
-    )
-
-    # Sorteer op de meest recente voorbije datum.
-    sort_date_sq = (
-        db.query(func.max(ActivityDate.start_date))
-        .filter(
-            ActivityDate.activity_id == Activity.id,
-            effective_end < today,
-        )
-        .correlate(Activity)
-        .scalar_subquery()
-    )
-
-    activities = (
-        db.query(Activity)
-        .options(
-            selectinload(Activity.dates),
-            selectinload(Activity.sub_registrations).selectinload(ActivitySubRegistration.products),
-        )
-        .filter(has_past)
-        .order_by(sort_date_sq.desc())
-        .all()
-    )
-
-    counts = _registration_counts(db, [a.id for a in activities])
-    result = []
-    for a in activities:
-        reg_count = counts.get(a.id, 0)
-        # Archiefkaarten tonen enkel voorbije datums → status is altijd "Voorbij"
-        # (of "Geannuleerd"), ook als de activiteit nog toekomstige datums heeft.
-        status = "Geannuleerd" if a.is_cancelled else "Voorbij"
-        result.append(_build_response(a, today, for_archive=True, all_dates=include_all_dates, reg_count=reg_count, status=status))
+        if scope == "archived":
+            # Archiefkaarten tonen enkel voorbije datums → status altijd Voorbij/Geannuleerd.
+            status = "Geannuleerd" if a.is_cancelled else "Voorbij"
+            result.append(_build_response(a, today, for_archive=True, reg_count=reg_count, status=status))
+        else:
+            info = compute_activity_status(a, reg_count)
+            result.append(_build_response(a, today, all_dates=(scope == "all"), reg_count=reg_count, status=info["status"]))
     return result
 
 

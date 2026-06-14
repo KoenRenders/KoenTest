@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import {
-  getActivities, getArchivedActivities, createActivity, updateActivity, deleteActivity,
+  getActivities, createActivity, updateActivity, deleteActivity,
   getRegistrations, addComponent, updateComponent, deleteComponent,
   addProduct, updateProduct, deleteProduct,
   addActivityDate, updateActivityDate, deleteActivityDate,
@@ -64,9 +64,18 @@ export default function AdminActiviteiten() {
   const [viewRegs, setViewRegs] = useState<{ activityId: number; componentId: number | null } | null>(null);
 
   function load() {
-    // Admin toont altijd álle datums per activiteit (#122 vervolg).
-    getActivities(true).then((r) => setActivities(r.data)).catch(() => {});
-    getArchivedActivities(true).then((r) => setArchived(r.data)).catch(() => {});
+    // Admin haalt álle activiteiten + álle datums op via scope=all (#136) en
+    // splitst client-side in de tabs "Komende" (heeft nog een toekomstige datum)
+    // en "Archief" (enkel voorbije datums).
+    getActivities("all").then((r) => {
+      const all = r.data as Activity[];
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const hasFuture = (a: Activity) =>
+        (a.dates ?? []).some((d) => new Date(d.end_date ?? d.start_date) >= today);
+      setActivities(all.filter(hasFuture));
+      setArchived(all.filter((a) => !hasFuture(a)));
+    }).catch(() => {});
   }
 
   useEffect(() => { load(); }, []);

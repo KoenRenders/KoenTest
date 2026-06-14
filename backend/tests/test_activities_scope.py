@@ -1,0 +1,44 @@
+"""Eén /activities-endpoint met scope-param (#136): upcoming/archived/all.
+
+Invariant: upcoming toont enkel activiteiten met een toekomstige datum, archived
+enkel die met een voorbije datum, all toont beide. Default = upcoming.
+"""
+from datetime import date, timedelta
+
+
+def _make_activity(db, name, day_offset):
+    from app.models.activity import Activity, ActivityDate
+    a = Activity(name=name)
+    db.add(a)
+    db.flush()
+    db.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=day_offset)))
+    db.flush()
+    return a
+
+
+def test_scope_filters_upcoming_archived_all(client, db_session):
+    _make_activity(db_session, "Toekomst", 10)
+    _make_activity(db_session, "Verleden", -10)
+
+    up = [a["name"] for a in client.get("/api/v1/activities?scope=upcoming").json()]
+    assert "Toekomst" in up and "Verleden" not in up
+
+    arch = [a["name"] for a in client.get("/api/v1/activities?scope=archived").json()]
+    assert "Verleden" in arch and "Toekomst" not in arch
+
+    allr = [a["name"] for a in client.get("/api/v1/activities?scope=all").json()]
+    assert "Toekomst" in allr and "Verleden" in allr
+
+
+def test_default_scope_is_upcoming(client, db_session):
+    _make_activity(db_session, "DefaultToekomst", 10)
+    _make_activity(db_session, "DefaultVerleden", -10)
+    names = [a["name"] for a in client.get("/api/v1/activities").json()]
+    assert "DefaultToekomst" in names
+    assert "DefaultVerleden" not in names
+
+
+def test_old_archived_endpoint_is_gone(client):
+    """De aparte /activities/archived is weg (harde cut)."""
+    resp = client.get("/api/v1/activities/archived")
+    assert resp.status_code == 404
