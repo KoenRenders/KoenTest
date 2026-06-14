@@ -123,6 +123,39 @@ def mock_mollie(monkeypatch):
     monkeypatch.setattr(mollie.MollieProvider, "get_payment_details", fake_get_details)
 
 
+# ── Factories (#130) ───────────────────────────────────────────────────────────
+# Generieke bouwstenen voor testdata; overschrijf velden via kwargs.
+
+def create_test_person(db, **kwargs):
+    from datetime import date
+    from app.models.member import Person
+    defaults = {"first_name": "Test", "last_name": "Persoon", "date_of_birth": date(1990, 1, 1)}
+    person = Person(**{**defaults, **kwargs})
+    db.add(person)
+    db.flush()
+    return person
+
+
+def create_test_member(db, **kwargs):
+    from app.models.member import Member
+    member = Member(**kwargs)
+    db.add(member)
+    db.flush()
+    return member
+
+
+def create_test_family(db, *, email="hoofdlid@example.com", relation_type="HOOFDLID"):
+    """Eén gezin met één persoon (als hoofdlid) en een EMAIL-contact."""
+    from app.models.member import MemberPerson
+    from app.models.contact import ContactDetail
+    member = create_test_member(db)
+    person = create_test_person(db)
+    db.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type=relation_type))
+    db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL", value=email, is_primary=True))
+    db.flush()
+    return member, person
+
+
 # ── Seed-helpers ──────────────────────────────────────────────────────────────
 
 def seed_postal_code(db, code="2400", municipality="Mol"):
