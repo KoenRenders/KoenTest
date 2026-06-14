@@ -64,8 +64,9 @@ export default function AdminActiviteiten() {
   const [viewRegs, setViewRegs] = useState<{ activityId: number; componentId: number | null } | null>(null);
 
   function load() {
-    getActivities().then((r) => setActivities(r.data)).catch(() => {});
-    getArchivedActivities().then((r) => setArchived(r.data)).catch(() => {});
+    // Admin toont altijd álle datums per activiteit (#122 vervolg).
+    getActivities(true).then((r) => setActivities(r.data)).catch(() => {});
+    getArchivedActivities(true).then((r) => setArchived(r.data)).catch(() => {});
   }
 
   useEffect(() => { load(); }, []);

@@ -16,8 +16,12 @@ if (typeof window !== "undefined") {
 }
 
 // Activities
-export const getActivities = () => api.get("/api/v1/activities");
-export const getArchivedActivities = () => api.get("/api/v1/activities/archived");
+// allDates=true geeft álle datums per activiteit terug (admin); publiek (default
+// false) krijgt enkel de relevante datums (toekomst op homepage, verleden in archief).
+export const getActivities = (allDates = false) =>
+  api.get("/api/v1/activities", { params: allDates ? { include_all_dates: true } : {} });
+export const getArchivedActivities = (allDates = false) =>
+  api.get("/api/v1/activities/archived", { params: allDates ? { include_all_dates: true } : {} });
 export const createActivity = (data: unknown) => api.post("/api/v1/activities", data);
 export const updateActivity = (id: number, data: unknown) => api.put(`/api/v1/activities/${id}`, data);
 export const deleteActivity = (id: number) => api.delete(`/api/v1/activities/${id}`);
