@@ -27,8 +27,11 @@ def _expect_violation(db, obj):
 # ── #96: prijs- en aantal-checks ────────────────────────────────────────────
 
 def test_sub_registration_price_non_negative(db_session):
-    activity = Activity(name="A", date=date.today() + timedelta(days=10))
+    from app.models.activity import ActivityDate
+    activity = Activity(name="A")
     db_session.add(activity)
+    db_session.flush()
+    db_session.add(ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=10)))
     db_session.flush()
     _expect_violation(db_session, ActivitySubRegistration(
         activity_id=activity.id, name="X", registration_type_code="INDIVIDUAL",
@@ -37,8 +40,11 @@ def test_sub_registration_price_non_negative(db_session):
 
 
 def test_sub_registration_member_price_non_negative(db_session):
-    activity = Activity(name="A", date=date.today() + timedelta(days=10))
+    from app.models.activity import ActivityDate
+    activity = Activity(name="A")
     db_session.add(activity)
+    db_session.flush()
+    db_session.add(ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=10)))
     db_session.flush()
     _expect_violation(db_session, ActivitySubRegistration(
         activity_id=activity.id, name="X", registration_type_code="INDIVIDUAL",
@@ -93,8 +99,11 @@ def test_product_delete_blocked_while_items_exist(db_session):
 # ── #98: optionele hardening ────────────────────────────────────────────────
 
 def test_sub_registration_max_participants_positive(db_session):
-    activity = Activity(name="A", date=date.today() + timedelta(days=10))
+    from app.models.activity import ActivityDate
+    activity = Activity(name="A")
     db_session.add(activity)
+    db_session.flush()
+    db_session.add(ActivityDate(activity_id=activity.id, start_date=date.today() + timedelta(days=10)))
     db_session.flush()
     _expect_violation(db_session, ActivitySubRegistration(
         activity_id=activity.id, name="X", registration_type_code="INDIVIDUAL",
