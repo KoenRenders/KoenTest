@@ -1,7 +1,7 @@
 import httpx
 from decimal import Decimal
 from app.config import settings
-from .base import BaseProvider, PaymentResult
+from .base import BaseProvider, PaymentResult, PaymentStatusResult
 
 MOLLIE_API_BASE = "https://api.mollie.com/v2"
 
@@ -59,12 +59,18 @@ class MollieProvider(BaseProvider):
             status=MOLLIE_STATUS_MAP.get(data["status"], "pending"),
         )
 
-    def get_payment_status(self, provider_payment_id: str) -> str:
+    def get_payment_details(self, provider_payment_id: str) -> PaymentStatusResult:
         response = httpx.get(
             f"{MOLLIE_API_BASE}/payments/{provider_payment_id}",
             headers=self._headers(),
             timeout=10,
         )
         response.raise_for_status()
-        mollie_status = response.json()["status"]
-        return MOLLIE_STATUS_MAP.get(mollie_status, "pending")
+        data = response.json()
+        amount = data.get("amount") or {}
+        value = amount.get("value")
+        return PaymentStatusResult(
+            status=MOLLIE_STATUS_MAP.get(data["status"], "pending"),
+            amount=Decimal(str(value)) if value is not None else None,
+            currency=amount.get("currency"),
+        )

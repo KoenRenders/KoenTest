@@ -105,7 +105,7 @@ def admin_headers():
 def mock_mollie(monkeypatch):
     """Vervang de Mollie-provider zodat online betalingen geen netwerk raken."""
     from app.domains.payment_gateway.providers import mollie
-    from app.domains.payment_gateway.providers.base import PaymentResult
+    from app.domains.payment_gateway.providers.base import PaymentResult, PaymentStatusResult
 
     def fake_create_payment(self, amount, description, redirect_url, webhook_url, metadata):
         return PaymentResult(
@@ -114,11 +114,13 @@ def mock_mollie(monkeypatch):
             status="pending",
         )
 
-    def fake_get_status(self, provider_payment_id):
-        return "paid"
+    # Geen bedrag teruggeven → de bedragverificatie (#92) wordt overgeslagen en het
+    # gedrag blijft als voorheen (paid → activeren). De mismatch-test patcht dit zelf.
+    def fake_get_details(self, provider_payment_id):
+        return PaymentStatusResult(status="paid", amount=None, currency=None)
 
     monkeypatch.setattr(mollie.MollieProvider, "create_payment", fake_create_payment)
-    monkeypatch.setattr(mollie.MollieProvider, "get_payment_status", fake_get_status)
+    monkeypatch.setattr(mollie.MollieProvider, "get_payment_details", fake_get_details)
 
 
 # ── Seed-helpers ──────────────────────────────────────────────────────────────

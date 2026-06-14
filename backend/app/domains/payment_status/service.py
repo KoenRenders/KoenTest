@@ -110,10 +110,16 @@ def handle_gateway_update(
     source: str = "mollie",
     actor: Optional[str] = None,
 ) -> None:
-    """Called by gateway webhook handler to propagate status to PaymentRecord."""
+    """Called by gateway webhook handler to propagate status to PaymentRecord.
+
+    Idempotent en concurrency-veilig (#91): we vergrendelen de betrokken
+    PaymentRecord-rij(en) (SELECT ... FOR UPDATE) zodat gelijktijdige/herhaalde
+    webhooks serialiseren. Een herhaalde 'paid' is een no-op (status ongewijzigd →
+    `continue`) en stempelt paid_at/amount_paid niet opnieuw. Een DB-unieke index
+    op gateway_payment_id garandeert bovendien max. één record per gateway-betaling."""
     records = db.query(PaymentRecord).filter(
         PaymentRecord.gateway_payment_id == gateway_payment_id
-    ).all()
+    ).with_for_update().all()
     for record in records:
         if record.status == new_status:
             continue
