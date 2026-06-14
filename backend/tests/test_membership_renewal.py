@@ -9,10 +9,56 @@ Invarianten:
 """
 from app.auth import create_access_token
 from tests.test_membership_pricing import seed_household
+from tests.test_functional_regression import _family_payload
+from tests.conftest import seed_postal_code
 
 
 def _headers(email):
     return {"Authorization": f"Bearer {create_access_token({'sub': email})}"}
+
+
+def test_admin_created_membership_is_valid(client, db_session, admin_headers):
+    """Admin 'Lid maken' moet een geldig lidmaatschap opleveren (met
+    valid_from/valid_to), anders telt het nergens als geldig (#143)."""
+    from datetime import date
+    from app.services.membership import has_valid_membership
+
+    member, person = seed_household(db_session, "adminmade@example.com", with_membership=False)
+    year = date.today().year
+    resp = client.post(
+        f"/api/v1/families/{member.id}/memberships",
+        headers=admin_headers, json={"year": year, "is_active": True},
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["valid_from"] is not None and body["valid_to"] is not None
+    db_session.expire_all()
+    assert has_valid_membership(person) is True
+
+
+def test_manual_payment_confirmation_activates_membership(client, db_session, admin_headers):
+    """Een handmatig bevestigde lidmaatschap-betaling (cash/overschrijving) moet het
+    lidmaatschap activeren — net als de Mollie-webhook (#143)."""
+    seed_postal_code(db_session)
+    assert client.post("/api/v1/families", json=_family_payload(email="manualpay@example.com")).status_code == 201
+
+    from app.domains.payment_status.models import PaymentRecord
+    from app.models.member import Membership
+
+    rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "membership").first()
+    assert rec is not None
+    ms = db_session.query(Membership).first()
+    assert ms.is_active is False  # nog niet betaald
+
+    resp = client.patch(
+        f"/api/v1/payment-status/records/{rec.id}",
+        headers=admin_headers, json={"status": "paid"},
+    )
+    assert resp.status_code == 200, resp.text
+
+    db_session.expire_all()
+    ms = db_session.query(Membership).first()
+    assert ms.is_active is True
 
 
 def test_renew_creates_inactive_membership_and_checkout(client, db_session, mock_mollie):

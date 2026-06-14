@@ -162,6 +162,10 @@ def create_membership(
     )
     if existing:
         existing.is_active = data.is_active
+        # Vul een ontbrekende geldigheidsperiode aan, anders telt het lidmaatschap
+        # nooit als 'geldig' (valid_membership_until vereist valid_from/valid_to). #143
+        existing.valid_from = existing.valid_from or date(data.year, 1, 1)
+        existing.valid_to = existing.valid_to or date(data.year, 12, 31)
         snapshot_membership(db, existing, operation="update", action="membership_updated", source="admin_update", actor=admin.email)
         db.commit()
         db.refresh(existing)
@@ -171,6 +175,8 @@ def create_membership(
         member_id=member_id,
         year=data.year,
         is_active=data.is_active,
+        valid_from=date(data.year, 1, 1),
+        valid_to=date(data.year, 12, 31),
     )
     db.add(membership)
     db.flush()
@@ -259,7 +265,25 @@ def create_membership_for_family(
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
         raise HTTPException(status_code=404, detail="Family not found")
-    membership = Membership(member_id=family_id, year=data.year, is_active=data.is_active)
+    existing = (
+        db.query(Membership)
+        .filter(Membership.member_id == family_id, Membership.year == data.year)
+        .first()
+    )
+    if existing:
+        existing.is_active = data.is_active
+        existing.valid_from = existing.valid_from or date(data.year, 1, 1)
+        existing.valid_to = existing.valid_to or date(data.year, 12, 31)
+        snapshot_membership(db, existing, operation="update", action="membership_updated", source="admin_update", actor=admin.email)
+        db.commit()
+        db.refresh(existing)
+        return MembershipResponse.model_validate(existing)
+    # Geldigheidsperiode meteen zetten, anders telt het lidmaatschap nooit als
+    # 'geldig' (valid_membership_until vereist valid_from/valid_to). #143
+    membership = Membership(
+        member_id=family_id, year=data.year, is_active=data.is_active,
+        valid_from=date(data.year, 1, 1), valid_to=date(data.year, 12, 31),
+    )
     db.add(membership)
     db.flush()
     snapshot_membership(db, membership, operation="insert", action="membership_created", source="admin_manual", actor=admin.email)

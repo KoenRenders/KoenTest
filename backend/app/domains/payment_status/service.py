@@ -182,6 +182,11 @@ def confirm_manual_payment(
         operation="update", action="payment_manually_confirmed",
         source="admin_manual", actor=actor,
     )
+    # Handmatige bevestiging van een lidmaatschap-betaling (cash/overschrijving of
+    # een vastgelopen online betaling) moet het lidmaatschap ook activeren — net
+    # als de Mollie-webhook doet. Idempotent. #143
+    if record.payable_type == "membership":
+        _activate_membership(db, record.payable_id, source="admin_manual", actor=actor)
     return record
 
 
