@@ -14,6 +14,7 @@ import { type PersonInput, type AddressInput, type PostalOption } from "@/compon
 import PersonFields from "@/components/household/PersonFields";
 import AddressFields from "@/components/household/AddressFields";
 import { usePostalCodes } from "@/components/household/usePostalCodes";
+import { parseApiError } from "@/lib/errors";
 
 interface PersonData {
   id: number;
@@ -172,8 +173,10 @@ export default function MijnGezinPage() {
     try {
       const res = await renewMembership();
       window.location.href = res.data.checkout_url;
-    } catch {
-      alert("Vernieuwen mislukt. Probeer het later opnieuw.");
+    } catch (err) {
+      // Toon de concrete reden van de server (bv. "Je hebt je lidmaatschap voor
+      // 2027 al vernieuwd.") i.p.v. een generieke melding.
+      alert(parseApiError(err, "Vernieuwen mislukt. Probeer het later opnieuw."));
       setRenewing(false);
     }
   }

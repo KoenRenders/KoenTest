@@ -146,7 +146,10 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
         .first()
     )
     if existing_pending:
-        raise HTTPException(status_code=409, detail="Er loopt al een niet-afgeronde betalingsprocedure.")
+        raise HTTPException(
+            status_code=409,
+            detail="Je vernieuwing loopt nog — rond eerst de openstaande betaling af.",
+        )
 
     # Hergebruik een bestaand (niet-actief) lidmaatschap voor het doeljaar i.p.v.
     # een tweede rij in te voegen — voorkomt uq_memberships_member_year bij een
@@ -157,7 +160,10 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
         .first()
     )
     if membership and membership.is_active:
-        raise HTTPException(status_code=409, detail=f"Er is al een actief lidmaatschap voor {valid_to.year}.")
+        raise HTTPException(
+            status_code=409,
+            detail=f"Je hebt je lidmaatschap voor {valid_to.year} al vernieuwd.",
+        )
     if membership:
         membership.valid_from = valid_from
         membership.valid_to = valid_to
