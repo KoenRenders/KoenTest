@@ -1,6 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Form
 from sqlalchemy.orm import Session
 from app.database import get_db
+from app.auth import get_current_admin
+from app.models.user import User
 from .models import GatewayPayment
 from .service import refresh_payment_status
 from app.domains.payment_status.service import handle_gateway_update
@@ -9,12 +11,16 @@ router = APIRouter(prefix="/payment-gateway", tags=["payment-gateway"])
 
 
 @router.get("/payments/{payment_id}")
-def get_payment(payment_id: str, db: Session = Depends(get_db)):
+def get_payment(
+    payment_id: str,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    # Admin-only: dit endpoint wordt niet door de publieke frontend gebruikt; een
+    # (geraden) payment-id mag geen betaalstatus prijsgeven (#146).
     gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_id).first()
     if not gp:
         raise HTTPException(status_code=404, detail="Payment not found")
-    # Bewust geen checkout_url: dit endpoint is publiek; de betaallink mag niet
-    # via een (geraden) payment-id opvraagbaar zijn.
     return {"id": gp.id, "status": gp.status}
 
 

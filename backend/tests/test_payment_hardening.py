@@ -4,7 +4,10 @@
   bedrag/valuta overeenkomen met het verwachte (gateway_payments.amount, EUR).
   Bij een mismatch wordt NIET als betaald gemarkeerd, maar gemarkeerd voor controle.
 - #91: één gateway-betaling kan maar één PaymentRecord backen (DB-unieke index).
+- #146: amount_paid mag het verschuldigde niet overschrijden (ook in de service);
+  de publieke get_payment is admin-only.
 """
+import pytest
 from decimal import Decimal
 
 from app.domains.payment_gateway.providers.base import PaymentStatusResult
@@ -89,3 +92,26 @@ def test_gateway_payment_id_is_unique_on_payment_records(db_session):
     ))
     with pytest.raises(IntegrityError):
         db_session.flush()
+
+
+def test_confirm_manual_payment_rejects_overpayment(db_session):
+    """#146: amount_paid > verschuldigd bedrag wordt door de service geweigerd
+    (defense-in-depth, naast de router-validatie)."""
+    from app.domains.payment_status.service import confirm_manual_payment
+    from app.domains.payment_status.models import PaymentRecord
+
+    rec = PaymentRecord(
+        payable_type="membership", payable_id=1, amount=Decimal("35.00"),
+        method="transfer", status="pending",
+    )
+    db_session.add(rec)
+    db_session.flush()
+
+    with pytest.raises(ValueError):
+        confirm_manual_payment(db_session, rec.id, amount_paid=Decimal("100.00"))
+
+
+def test_get_payment_endpoint_is_admin_only(client):
+    """#146: GET /payment-gateway/payments/{id} mag niet publiek toegankelijk zijn."""
+    resp = client.get("/api/v1/payment-gateway/payments/whatever-id")
+    assert resp.status_code == 401
