@@ -1,5 +1,6 @@
 "use client";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { getPages, getAuthMe } from "@/lib/api";
 import type { CmsPage } from "@/lib/types";
@@ -7,9 +8,12 @@ import type { CmsPage } from "@/lib/types";
 export default function Navigation() {
   const [pages, setPages] = useState<CmsPage[]>([]);
   const [menuOpen, setMenuOpen] = useState(false);
+  const pathname = usePathname();
   const [memberName, setMemberName] = useState<string | null>(null);
   const [loggedIn, setLoggedIn] = useState(false);
   const [isAdmin, setIsAdmin] = useState(false);
+
+  useEffect(() => { setMenuOpen(false); }, [pathname]);
 
   useEffect(() => {
     getPages().then((r) => setPages(r.data)).catch(() => {});
