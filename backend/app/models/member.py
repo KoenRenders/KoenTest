@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, Date, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
@@ -10,8 +10,8 @@ class Member(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     board_member_id = Column(Integer, ForeignKey("persons.id"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     member_persons = relationship("MemberPerson", back_populates="member", cascade="all, delete-orphan")
     memberships = relationship("Membership", back_populates="member", cascade="all, delete-orphan")
@@ -27,8 +27,8 @@ class Person(Base):
     first_name = Column(String(100), nullable=False)
     date_of_birth = Column(Date, nullable=True)
     gender_code = Column(String(10), ForeignKey("gender_codes.code"), nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     member_persons = relationship("MemberPerson", back_populates="person")
     address = relationship("Address", back_populates="person", uselist=False)
@@ -45,8 +45,8 @@ class MemberPerson(Base):
     member_id = Column(Integer, ForeignKey("members.id"), nullable=False)
     person_id = Column(Integer, ForeignKey("persons.id"), nullable=False)
     relation_type = Column(String(10), ForeignKey("relation_type_codes.code"), nullable=False, default="HOOFDLID")
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     member = relationship("Member", back_populates="member_persons")
     person = relationship("Person", back_populates="member_persons")
@@ -64,7 +64,7 @@ class Membership(Base):
     # valid_from = betaaldatum; valid_to = 31 dec dit of volgend jaar (zie service).
     valid_from = Column(Date, nullable=True)
     valid_to = Column(Date, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
     member = relationship("Member", back_populates="memberships")

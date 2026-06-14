@@ -1,5 +1,5 @@
 import uuid as uuid_lib
-from datetime import datetime
+from datetime import datetime, timezone
 from sqlalchemy import Column, String, Numeric, DateTime, JSON
 from app.database import Base
 
@@ -16,5 +16,5 @@ class GatewayPayment(Base):
     checkout_url = Column(String(500), nullable=True)
     description = Column(String(200), nullable=True)
     payment_metadata = Column(JSON, nullable=True)
-    created_at = Column(DateTime, default=datetime.utcnow, nullable=False)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow, nullable=False)
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime, default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
