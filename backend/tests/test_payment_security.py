@@ -188,8 +188,8 @@ def test_admin_endpoints_require_auth(client):
     assert resp.status_code == 401
 
 
-def test_public_payment_endpoint_hides_checkout_url(client, db_session):
-    """Het publieke gateway-endpoint mag de betaallink niet teruggeven."""
+def test_payment_endpoint_admin_only_and_hides_checkout_url(client, db_session, admin_headers):
+    """Het gateway-endpoint is admin-only (#146) en geeft nooit de betaallink terug."""
     from decimal import Decimal
     from app.domains.payment_gateway.models import GatewayPayment
     gp = GatewayPayment(
@@ -200,7 +200,11 @@ def test_public_payment_endpoint_hides_checkout_url(client, db_session):
     db_session.add(gp)
     db_session.flush()
 
-    resp = client.get(f"/api/v1/payment-gateway/payments/{gp.id}")
+    # Zonder admin: geweigerd.
+    assert client.get(f"/api/v1/payment-gateway/payments/{gp.id}").status_code == 401
+
+    # Met admin: 200, maar zonder checkout_url.
+    resp = client.get(f"/api/v1/payment-gateway/payments/{gp.id}", headers=admin_headers)
     assert resp.status_code == 200
     body = resp.json()
     assert "checkout_url" not in body
