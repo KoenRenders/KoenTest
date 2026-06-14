@@ -2,3 +2,4 @@
 
 # Test-only dependencies (niet nodig in productie-image).
 pytest==8.3.4
+pytest-cov==6.0.0

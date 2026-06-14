@@ -1,4 +1,4 @@
-name: Backend tests
+name: CI
 
 on:
   push:
@@ -41,9 +41,33 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
-      - name: Run pytest
+      - name: Run pytest (met coverage-rapport)
         env:
           TEST_DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/raaktest
           SECRET_KEY: ci-test-secret-key-long-enough-for-hs256
           APP_ENV: dev
-        run: python -m pytest -v --tb=short
+        # Coverage wordt enkel gerapporteerd (geen faaldrempel; #127). Een drempel
+        # kan later stapsgewijs via --cov-fail-under.
+        run: python -m pytest -v --tb=short --cov=app --cov-report=term-missing
+
+  frontend:
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: frontend
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install dependencies
+        run: npm install
+
+      # Type-check vangt fouten als "Property 'x' does not exist" vóór de deploy —
+      # voorheen brak dat soort fout pas de Docker-build op HDEV (#127).
+      - name: Typecheck (tsc --noEmit)
+        run: npx tsc --noEmit
