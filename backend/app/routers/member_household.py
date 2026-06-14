@@ -99,13 +99,12 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     )
     from app.domains.audit.service import snapshot_membership
     from app.config import settings
-    from app.services.membership import has_valid_membership
+    from app.services.membership import has_valid_membership, valid_membership_until
 
     member = _member_for(person, db)
     actor = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
 
     today = date.today()
-    valid_from, valid_to = membership_valid_period(today)
 
     # Controleer of de hernieuwingscampagne open is.
     renewal_window_open = False
@@ -115,6 +114,17 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
             renewal_window_open = today >= date(today.year, month, day)
         except (ValueError, TypeError):
             pass
+
+    # Doeljaar van de hernieuwing. Heeft het lid al een geldig lidmaatschap, dan
+    # dekt de hernieuwing het jaar ná de huidige geldigheid — anders zouden we het
+    # lopende jaar dupliceren (uq_memberships_member_year). Geen geldig lidmaatschap
+    # (verlopen): val terug op de normale periode-regel (huidig of volgend jaar).
+    current_until = valid_membership_until(person, today)
+    if current_until is not None:
+        ny = current_until.year + 1
+        valid_from, valid_to = date(ny, 1, 1), date(ny, 12, 31)
+    else:
+        valid_from, valid_to = membership_valid_period(today)
 
     if has_valid_membership(person) and not renewal_window_open:
         raise HTTPException(status_code=409, detail="Je hebt al een geldig lidmaatschap.")
@@ -132,17 +142,34 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     if existing_pending:
         raise HTTPException(status_code=409, detail="Er loopt al een niet-afgeronde betalingsprocedure.")
 
-    membership = Membership(
-        member_id=member.id,
-        year=valid_to.year,
-        is_active=False,
-        valid_from=valid_from,
-        valid_to=valid_to,
+    # Hergebruik een bestaand (niet-actief) lidmaatschap voor het doeljaar i.p.v.
+    # een tweede rij in te voegen — voorkomt uq_memberships_member_year bij een
+    # herpoging na een geannuleerde/mislukte betaling.
+    membership = (
+        db.query(Membership)
+        .filter(Membership.member_id == member.id, Membership.year == valid_to.year)
+        .first()
     )
-    db.add(membership)
-    db.flush()
-    snapshot_membership(db, membership, operation="insert", action="membership_renewal_started",
-                        source="member_self", actor=actor)
+    if membership and membership.is_active:
+        raise HTTPException(status_code=409, detail=f"Er is al een actief lidmaatschap voor {valid_to.year}.")
+    if membership:
+        membership.valid_from = valid_from
+        membership.valid_to = valid_to
+        db.flush()
+        snapshot_membership(db, membership, operation="update", action="membership_renewal_started",
+                            source="member_self", actor=actor)
+    else:
+        membership = Membership(
+            member_id=member.id,
+            year=valid_to.year,
+            is_active=False,
+            valid_from=valid_from,
+            valid_to=valid_to,
+        )
+        db.add(membership)
+        db.flush()
+        snapshot_membership(db, membership, operation="insert", action="membership_renewal_started",
+                            source="member_self", actor=actor)
 
     amount = membership_price_for_date(today)
     description = f"KWB Millegem lidmaatschap {today.year} – {person.last_name} {person.first_name}"

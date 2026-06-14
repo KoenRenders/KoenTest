@@ -38,6 +38,34 @@ def test_renew_refused_when_already_valid(client, db_session, mock_mollie):
     assert resp.status_code == 409, resp.text
 
 
+def test_early_renew_while_valid_targets_next_year(client, db_session, mock_mollie):
+    """Met open hernieuwingsvenster mag een lid met een nog-geldig lidmaatschap
+    vroeg hernieuwen. De nieuwe periode dekt het JAAR ná de huidige geldigheid —
+    niet het lopende jaar (anders botst uq_memberships_member_year). Regressie #134-flow."""
+    from datetime import date
+    from app.config import settings
+    from app.models.member import Membership
+
+    email = "early@example.com"
+    member, _person = seed_household(db_session, email)  # actief, geldig dit jaar
+    this_year = date.today().year
+
+    # Open het hernieuwingsvenster (1 januari) voor deze test.
+    old = settings.membership_renewal_start_md
+    settings.membership_renewal_start_md = "01-01"
+    try:
+        resp = client.post("/api/v1/member/household/renew-membership", headers=_headers(email))
+    finally:
+        settings.membership_renewal_start_md = old
+
+    assert resp.status_code == 200, resp.text
+
+    # Er moet nu een lidmaatschap voor volgend jaar bestaan, naast dat van dit jaar.
+    years = {ms.year for ms in db_session.query(Membership).filter(Membership.member_id == member.id).all()}
+    assert this_year in years
+    assert this_year + 1 in years
+
+
 def test_webhook_activates_membership_on_paid(client, db_session, mock_mollie):
     email = "activate@example.com"
     _member, person = seed_household(db_session, email, with_membership=False)
