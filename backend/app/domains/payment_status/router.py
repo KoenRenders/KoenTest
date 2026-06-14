@@ -66,18 +66,22 @@ def list_all_payment_records(
                         for line in regels
                     ]
         elif r.payable_type == "membership":
-            member = db.query(Member).filter(Member.id == r.payable_id).first()
-            if member:
-                description = "Lidmaatschap"
-                # get hoofdlid name
-                mp = db.query(MemberPerson).filter(
-                    MemberPerson.member_id == member.id,
-                    MemberPerson.relation_type == "HOOFDLID",
-                ).first()
-                if mp:
-                    person = db.query(Person).filter(Person.id == mp.person_id).first()
-                    if person:
-                        contact_name = f"{person.first_name} {person.last_name}"
+            # payable_id is de Membership.id (niet de Member.id) — eerst het
+            # lidmaatschap ophalen voor het jaar, dan het gezin + hoofdlid (#141).
+            from app.models.member import Membership
+            ms = db.query(Membership).filter(Membership.id == r.payable_id).first()
+            description = f"Lidmaatschap {ms.year}" if ms else "Lidmaatschap"
+            if ms:
+                member = db.query(Member).filter(Member.id == ms.member_id).first()
+                if member:
+                    mp = db.query(MemberPerson).filter(
+                        MemberPerson.member_id == member.id,
+                        MemberPerson.relation_type == "HOOFDLID",
+                    ).first()
+                    if mp:
+                        person = db.query(Person).filter(Person.id == mp.person_id).first()
+                        if person:
+                            contact_name = f"{person.first_name} {person.last_name}"
 
         result.append(EnrichedPaymentRecord(
             id=r.id,

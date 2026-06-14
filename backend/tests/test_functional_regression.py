@@ -38,6 +38,22 @@ def test_family_registration_happy_path_writes_data_and_audit(client, db_session
     assert ph is not None and ph.source == "registration"
 
 
+def test_payment_overview_membership_shows_family_and_year(client, db_session, admin_headers):
+    """Het betaaloverzicht verrijkt een lidmaatschapsbetaling met het gezin
+    (hoofdlid-naam) en het jaar — payable_id is de Membership.id, niet de Member.id (#141)."""
+    seed_postal_code(db_session)
+    assert client.post("/api/v1/families", json=_family_payload(email="overview@example.com")).status_code == 201
+
+    from app.models.member import Membership
+    ms = db_session.query(Membership).first()
+
+    resp = client.get("/api/v1/payment-status/records", headers=admin_headers)
+    assert resp.status_code == 200, resp.text
+    rec = next(r for r in resp.json() if r["payable_type"] == "membership")
+    assert rec["description"] == f"Lidmaatschap {ms.year}"
+    assert rec["contact_name"] == "Jan Peeters"  # hoofdlid uit _family_payload
+
+
 def test_family_registration_requires_hoofdlid_contact(client, db_session):
     seed_postal_code(db_session)
     payload = _family_payload()
