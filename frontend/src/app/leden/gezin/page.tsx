@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import {
   getMemberHousehold,
@@ -8,9 +8,12 @@ import {
   addMemberPerson,
   removeMemberPerson,
   renewMembership,
+  getGenderCodes,
 } from "@/lib/api";
-
-interface PostalOption { postal_code: string; municipality: string; }
+import { type PersonInput, type AddressInput, type PostalOption } from "@/components/household/types";
+import PersonFields from "@/components/household/PersonFields";
+import AddressFields from "@/components/household/AddressFields";
+import { usePostalCodes } from "@/components/household/usePostalCodes";
 
 interface PersonData {
   id: number;
@@ -40,81 +43,26 @@ interface Household {
   persons: PersonData[];
 }
 
-function PostalAutocomplete({
-  value,
-  onChange,
-  postalCodes,
-}: {
-  value: string;
-  onChange: (code: string) => void;
-  postalCodes: PostalOption[];
-}) {
-  const [input, setInput] = useState(value);
-  const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
-
-  const filtered = input.length < 2
-    ? []
-    : postalCodes.filter(
-        (p) => p.postal_code.startsWith(input) || p.municipality.toLowerCase().includes(input.toLowerCase())
-      ).slice(0, 8);
-
-  useEffect(() => {
-    function outside(e: MouseEvent) {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
-    }
-    document.addEventListener("mousedown", outside);
-    return () => document.removeEventListener("mousedown", outside);
-  }, []);
-
-  return (
-    <div className="relative" ref={ref}>
-      <input
-        className="input"
-        value={input}
-        placeholder="Postcode of gemeente…"
-        onChange={(e) => { setInput(e.target.value); onChange(""); setOpen(true); }}
-        onFocus={() => setOpen(true)}
-      />
-      {open && filtered.length > 0 && (
-        <ul className="absolute z-10 bg-white border border-gray-200 rounded shadow w-full mt-1 max-h-48 overflow-y-auto">
-          {filtered.map((p) => (
-            <li
-              key={p.postal_code}
-              className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
-              onMouseDown={() => {
-                setInput(`${p.postal_code} — ${p.municipality}`);
-                onChange(p.postal_code);
-                setOpen(false);
-              }}
-            >
-              <span className="font-medium">{p.postal_code}</span> — {p.municipality}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 function PersonForm({
   initial,
   postalCodes,
+  genderCodes,
+  isHoofdlid,
   onSave,
   onCancel,
   saving,
   error,
-  isNew = false,
 }: {
   initial: Partial<PersonData>;
   postalCodes: PostalOption[];
+  genderCodes: { code: string; value: string }[];
+  isHoofdlid: boolean;
   onSave: (data: Record<string, unknown>) => void;
   onCancel: () => void;
   saving: boolean;
   error: string;
-  isNew?: boolean;
 }) {
-  const [form, setForm] = useState({
+  const [person, setPerson] = useState<PersonInput>({
     first_name: initial.first_name ?? "",
     last_name: initial.last_name ?? "",
     date_of_birth: initial.date_of_birth ?? "",
@@ -122,108 +70,53 @@ function PersonForm({
     email: initial.email ?? "",
     phone: initial.phone ?? "",
     mobile: initial.mobile ?? "",
+    relation_type: initial.relation_type ?? "",
+  });
+  const [address, setAddress] = useState<AddressInput>({
     street: initial.address?.street ?? "",
     house_number: initial.address?.house_number ?? "",
     bus_number: initial.address?.bus_number ?? "",
     postal_code: initial.address?.postal_code ?? "",
   });
 
-  function set(k: string, v: string) { setForm((f) => ({ ...f, [k]: v })); }
-
   function submit(e: React.FormEvent) {
     e.preventDefault();
-    onSave({
-      first_name: form.first_name,
-      last_name: form.last_name,
-      date_of_birth: form.date_of_birth || null,
-      gender_code: form.gender_code || null,
-      email: form.email || null,
-      phone: form.phone || null,
-      mobile: form.mobile || null,
-      address: {
-        street: form.street,
-        house_number: form.house_number,
-        bus_number: form.bus_number || null,
-        postal_code: form.postal_code || null,
-      },
-      ...(isNew && {
-        street: form.street,
-        house_number: form.house_number,
-        bus_number: form.bus_number || null,
-        postal_code: form.postal_code || null,
-      }),
-    });
+    const payload: Record<string, unknown> = {
+      first_name: person.first_name,
+      last_name: person.last_name,
+      date_of_birth: person.date_of_birth || null,
+      gender_code: person.gender_code || null,
+      email: person.email || null,
+      phone: person.phone || null,
+      mobile: person.mobile || null,
+    };
+    // Adres hoort enkel bij het hoofdlid (= gezinsadres). #125
+    if (isHoofdlid) {
+      payload.address = {
+        street: address.street,
+        house_number: address.house_number,
+        bus_number: address.bus_number || null,
+        postal_code: address.postal_code || null,
+      };
+    }
+    onSave(payload);
   }
 
   return (
     <form onSubmit={submit} className="space-y-3 mt-3 border-t pt-3">
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label">Voornaam *</label>
-          <input className="input" required value={form.first_name} onChange={(e) => set("first_name", e.target.value)} />
-        </div>
-        <div>
-          <label className="label">Achternaam *</label>
-          <input className="input" required value={form.last_name} onChange={(e) => set("last_name", e.target.value)} />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label">Geboortedatum</label>
-          <input type="date" className="input" value={form.date_of_birth ?? ""} onChange={(e) => set("date_of_birth", e.target.value)} />
-        </div>
-        <div>
-          <label className="label">Geslacht</label>
-          <select className="input" value={form.gender_code} onChange={(e) => set("gender_code", e.target.value)}>
-            <option value="">—</option>
-            <option value="M">Man</option>
-            <option value="V">Vrouw</option>
-            <option value="X">Niet-binair</option>
-          </select>
-        </div>
-      </div>
+      <PersonFields
+        person={person}
+        onChange={(patch) => setPerson((p) => ({ ...p, ...patch }))}
+        genderCodes={genderCodes}
+        requireContact={isHoofdlid}
+      />
 
-      <div className="grid grid-cols-4 gap-3">
-        <div className="col-span-2">
-          <label className="label">Straat</label>
-          <input className="input" value={form.street} onChange={(e) => set("street", e.target.value)} />
-        </div>
+      {isHoofdlid && (
         <div>
-          <label className="label">Huisnr.</label>
-          <input className="input" value={form.house_number} onChange={(e) => set("house_number", e.target.value)} />
+          <label className="label">Adres</label>
+          <AddressFields address={address} onChange={(patch) => setAddress((a) => ({ ...a, ...patch }))} postalCodes={postalCodes} />
         </div>
-        <div>
-          <label className="label">Bus</label>
-          <input className="input" value={form.bus_number ?? ""} onChange={(e) => set("bus_number", e.target.value)} />
-        </div>
-      </div>
-      <div className="grid grid-cols-4 gap-3">
-        <div className="col-span-4">
-          <label className="label">Postcode</label>
-          <PostalAutocomplete
-            value={form.postal_code}
-            postalCodes={postalCodes}
-            onChange={(code) => set("postal_code", code)}
-          />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label">E-mail</label>
-          <input type="email" className="input" value={form.email ?? ""} onChange={(e) => set("email", e.target.value)} />
-        </div>
-        <div>
-          <label className="label">Mobiel</label>
-          <input type="tel" className="input" value={form.mobile ?? ""} onChange={(e) => set("mobile", e.target.value)} />
-        </div>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="label">Telefoon</label>
-          <input type="tel" className="input" value={form.phone ?? ""} onChange={(e) => set("phone", e.target.value)} />
-        </div>
-      </div>
+      )}
 
       {error && <p className="text-red-600 text-sm">{error}</p>}
       <div className="flex gap-2">
@@ -242,7 +135,8 @@ function RelationLabel({ code }: { code: string | null }) {
 export default function MijnGezinPage() {
   const router = useRouter();
   const [household, setHousehold] = useState<Household | null>(null);
-  const [postalCodes, setPostalCodes] = useState<PostalOption[]>([]);
+  const postalCodes = usePostalCodes();
+  const [genderCodes, setGenderCodes] = useState<{ code: string; value: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [editingId, setEditingId] = useState<number | null>(null);
   const [addingPerson, setAddingPerson] = useState(false);
@@ -259,17 +153,19 @@ export default function MijnGezinPage() {
       router.push("/login");
       return;
     }
-    Promise.all([getMemberHousehold(), getMemberMe(), fetch("/api/v1/postal-codes").then((r) => r.json())])
-      .then(([h, me, pc]) => {
+    getGenderCodes().then((r) => setGenderCodes(r.data)).catch(() => {});
+    Promise.all([getMemberHousehold(), getMemberMe()])
+      .then(([h, me]) => {
         setHousehold(h.data);
         setMemberEmail(me.data.email);
         setMembershipValidUntil(me.data.membership_valid_until);
         setRenewalAvailable(me.data.renewal_available);
-        setPostalCodes(pc);
       })
       .catch(() => router.push("/login"))
       .finally(() => setLoading(false));
   }, [router]);
+
+  const hoofdlidId = household?.persons.find((x) => x.relation_type === "HOOFDLID")?.id ?? null;
 
   async function handleRenew() {
     setRenewing(true);
@@ -393,7 +289,7 @@ export default function MijnGezinPage() {
                 >
                   {editingId === p.id ? "Sluiten" : "Bewerken"}
                 </button>
-                {p.id !== household.persons.find((x) => x.relation_type === "HOOFDLID")?.id && (
+                {p.id !== hoofdlidId && (
                   <button
                     className="text-sm text-red-600 hover:underline"
                     onClick={() => removePerson(p.id)}
@@ -409,6 +305,8 @@ export default function MijnGezinPage() {
               <PersonForm
                 initial={p}
                 postalCodes={postalCodes}
+                genderCodes={genderCodes}
+                isHoofdlid={p.id === hoofdlidId}
                 onSave={(data) => savePerson(p.id, data)}
                 onCancel={() => setEditingId(null)}
                 saving={saving}
@@ -425,11 +323,12 @@ export default function MijnGezinPage() {
           <PersonForm
             initial={{}}
             postalCodes={postalCodes}
+            genderCodes={genderCodes}
+            isHoofdlid={false}
             onSave={addPerson}
             onCancel={() => setAddingPerson(false)}
             saving={saving}
             error={saveError}
-            isNew
           />
         </div>
       ) : (
