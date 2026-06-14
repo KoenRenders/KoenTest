@@ -266,21 +266,27 @@ export default function MijnGezinPage() {
                   {p.first_name} {p.last_name}
                 </span>
                 <RelationLabel code={p.relation_type} />
-                {p.date_of_birth && (
-                  <p className="text-sm text-gray-500 mt-0.5">° {new Date(p.date_of_birth).toLocaleDateString("nl-BE")}</p>
+                {/* In bewerkmodus de samenvatting verbergen — anders staat de oude
+                    data verwarrend boven het formulier (#132). */}
+                {editingId !== p.id && (
+                  <>
+                    {p.date_of_birth && (
+                      <p className="text-sm text-gray-500 mt-0.5">° {new Date(p.date_of_birth).toLocaleDateString("nl-BE")}</p>
+                    )}
+                    {p.address && (
+                      <p className="text-sm text-gray-600 mt-0.5">
+                        {p.address.street} {p.address.house_number}{p.address.bus_number ? ` bus ${p.address.bus_number}` : ""}, {p.address.postal_code} {p.address.municipality}
+                      </p>
+                    )}
+                    <div className="text-sm text-gray-500 mt-0.5">
+                      <div className="flex gap-3 flex-wrap">
+                        {p.email && <span>✉ {p.email}</span>}
+                        {p.mobile && <span>📱 {p.mobile}</span>}
+                      </div>
+                      {p.phone && <div>☎ {p.phone}</div>}
+                    </div>
+                  </>
                 )}
-                {p.address && (
-                  <p className="text-sm text-gray-600 mt-0.5">
-                    {p.address.street} {p.address.house_number}{p.address.bus_number ? ` bus ${p.address.bus_number}` : ""}, {p.address.postal_code} {p.address.municipality}
-                  </p>
-                )}
-                <div className="text-sm text-gray-500 mt-0.5">
-                  <div className="flex gap-3 flex-wrap">
-                    {p.email && <span>✉ {p.email}</span>}
-                    {p.mobile && <span>📱 {p.mobile}</span>}
-                  </div>
-                  {p.phone && <div>☎ {p.phone}</div>}
-                </div>
               </div>
               <div className="flex gap-2 ml-4 shrink-0">
                 <button
