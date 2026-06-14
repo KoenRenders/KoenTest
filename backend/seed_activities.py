@@ -2,7 +2,7 @@
 import sys
 from datetime import date, datetime
 from app.database import SessionLocal
-from app.models.activity import Activity, Registration
+from app.models.activity import Activity, ActivityDate, Registration
 from app.models.activity_sub_registration import ActivitySubRegistration
 
 db = SessionLocal()
@@ -11,6 +11,7 @@ if "--reset" in sys.argv:
     print("Resetting activities...")
     db.query(ActivitySubRegistration).delete()
     db.query(Registration).delete()
+    db.query(ActivityDate).delete()
     db.query(Activity).delete()
     db.commit()
     print("Done.")
@@ -21,21 +22,31 @@ def add_activity(
     is_archived=True, date_end=None, notes=None,
     sub_registrations=None
 ):
-    existing = db.query(Activity).filter(Activity.name == name, Activity.date == date_start).first()
+    existing = (
+        db.query(Activity)
+        .join(ActivityDate, ActivityDate.activity_id == Activity.id)
+        .filter(Activity.name == name, ActivityDate.start_date == date_start)
+        .first()
+    )
     if existing:
         return existing
 
     activity = Activity(
         name=name,
-        date=date_start,
-        date_end=date_end,
-        time=time,
         location=location or "Millegem",
         poster_url=poster_url,
         is_cancelled=is_cancelled,
         notes=notes,
     )
     db.add(activity)
+    db.flush()
+
+    db.add(ActivityDate(
+        activity_id=activity.id,
+        start_date=date_start,
+        end_date=date_end,
+        start_time=time,
+    ))
     db.flush()
 
     if sub_registrations:

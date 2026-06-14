@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_admin
 from app.database import get_db
-from app.models.activity import Activity
+from app.models.activity import Activity, ActivityDate
 from app.models.member import Member, Membership
 from app.models.idea import Idea
 from app.models.user import User
@@ -26,8 +26,8 @@ def get_stats(
         "active_members": db.query(func.count(Membership.id))
             .filter(Membership.year == today.year, Membership.is_active == True)
             .scalar(),
-        "upcoming_activities": db.query(func.count(Activity.id))
-            .filter(Activity.date >= today)
+        "upcoming_activities": db.query(func.count(func.distinct(ActivityDate.activity_id)))
+            .filter(func.coalesce(ActivityDate.end_date, ActivityDate.start_date) >= today)
             .scalar(),
         "open_ideas": db.query(func.count(Idea.id))
             .filter(Idea.is_reviewed == False)

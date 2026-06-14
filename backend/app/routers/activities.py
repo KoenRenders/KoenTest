@@ -99,13 +99,18 @@ def _build_response(
     status: str | None = None,
 ) -> ActivityResponse:
     sorted_dates = sorted(activity.dates, key=lambda d: d.start_date)
-    resp = ActivityResponse.model_validate(activity)
-    resp.dates = [ActivityDateResponse.model_validate(d) for d in sorted_dates]
+    # Homepage toont enkel de toekomstige datums; het archief enkel de voorbije.
+    # Een activiteit met beide verschijnt dus in beide lijsten, telkens met het
+    # relevante deel van de datums.
     if for_archive:
-        resp.sort_date = sorted_dates[-1].start_date if sorted_dates else None
+        relevant = [d for d in sorted_dates if not _is_future(d, today)]
+        sort_date = relevant[-1].start_date if relevant else None
     else:
-        future = [d for d in sorted_dates if _is_future(d, today)]
-        resp.sort_date = future[0].start_date if future else (sorted_dates[0].start_date if sorted_dates else None)
+        relevant = [d for d in sorted_dates if _is_future(d, today)]
+        sort_date = relevant[0].start_date if relevant else None
+    resp = ActivityResponse.model_validate(activity)
+    resp.dates = [ActivityDateResponse.model_validate(d) for d in relevant]
+    resp.sort_date = sort_date
     resp.status = status
     resp.registration_count = reg_count
     resp.waitlist_count = wl_count
@@ -164,19 +169,23 @@ def list_archived_activities(db: Session = Depends(get_db)):
     today = date.today()
     effective_end = func.coalesce(ActivityDate.end_date, ActivityDate.start_date)
 
-    has_future = (
+    has_past = (
         db.query(ActivityDate.id)
         .filter(
             ActivityDate.activity_id == Activity.id,
-            effective_end >= today,
+            effective_end < today,
         )
         .correlate(Activity)
         .exists()
     )
 
+    # Sorteer op de meest recente voorbije datum.
     sort_date_sq = (
         db.query(func.max(ActivityDate.start_date))
-        .filter(ActivityDate.activity_id == Activity.id)
+        .filter(
+            ActivityDate.activity_id == Activity.id,
+            effective_end < today,
+        )
         .correlate(Activity)
         .scalar_subquery()
     )
@@ -187,7 +196,7 @@ def list_archived_activities(db: Session = Depends(get_db)):
             selectinload(Activity.dates),
             selectinload(Activity.sub_registrations).selectinload(ActivitySubRegistration.products),
         )
-        .filter(~has_future)
+        .filter(has_past)
         .order_by(sort_date_sq.desc())
         .all()
     )
@@ -196,8 +205,10 @@ def list_archived_activities(db: Session = Depends(get_db)):
     result = []
     for a in activities:
         reg_count, wl_count = counts.get(a.id, (0, 0))
-        info = compute_activity_status(a, reg_count, wl_count)
-        result.append(_build_response(a, today, for_archive=True, reg_count=info["registration_count"], wl_count=info["waitlist_count"], status=info["status"]))
+        # Archiefkaarten tonen enkel voorbije datums → status is altijd "Voorbij"
+        # (of "Geannuleerd"), ook als de activiteit nog toekomstige datums heeft.
+        status = "Geannuleerd" if a.is_cancelled else "Voorbij"
+        result.append(_build_response(a, today, for_archive=True, reg_count=reg_count, wl_count=wl_count, status=status))
     return result
 
 

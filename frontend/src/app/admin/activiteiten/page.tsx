@@ -334,18 +334,18 @@ export default function AdminActiviteiten() {
                             onChange={(e) => setCreateDates((ds) => ds.map((x, j) => j === i ? { ...x, start_date: e.target.value } : x))} />
                         </div>
                         <div>
+                          <label className="label text-xs">Starttijd</label>
+                          <input type="time" className="input" value={d.start_time}
+                            onChange={(e) => setCreateDates((ds) => ds.map((x, j) => j === i ? { ...x, start_time: e.target.value } : x))} />
+                        </div>
+                        <div>
                           <label className="label text-xs">Einddatum</label>
                           <input type="date" className="input" value={d.end_date}
                             onChange={(e) => setCreateDates((ds) => ds.map((x, j) => j === i ? { ...x, end_date: e.target.value } : x))} />
                         </div>
-                        <div>
-                          <label className="label text-xs">Tijdstip</label>
-                          <input type="time" className="input" value={d.start_time}
-                            onChange={(e) => setCreateDates((ds) => ds.map((x, j) => j === i ? { ...x, start_time: e.target.value } : x))} />
-                        </div>
                         <div className="flex gap-2 items-end">
                           <div className="flex-1">
-                            <label className="label text-xs">Eindtijdstip</label>
+                            <label className="label text-xs">Eindtijd</label>
                             <input type="time" className="input" value={d.end_time}
                               onChange={(e) => setCreateDates((ds) => ds.map((x, j) => j === i ? { ...x, end_time: e.target.value } : x))} />
                           </div>
@@ -468,17 +468,17 @@ export default function AdminActiviteiten() {
                         onChange={(e) => setDateForm((f) => ({ ...f, start_date: e.target.value }))} />
                     </div>
                     <div>
+                      <label className="label">Starttijd</label>
+                      <input type="time" className="input" value={dateForm.start_time}
+                        onChange={(e) => setDateForm((f) => ({ ...f, start_time: e.target.value }))} />
+                    </div>
+                    <div>
                       <label className="label">Einddatum</label>
                       <input type="date" className="input" value={dateForm.end_date}
                         onChange={(e) => setDateForm((f) => ({ ...f, end_date: e.target.value }))} />
                     </div>
                     <div>
-                      <label className="label">Tijdstip</label>
-                      <input type="time" className="input" value={dateForm.start_time}
-                        onChange={(e) => setDateForm((f) => ({ ...f, start_time: e.target.value }))} />
-                    </div>
-                    <div>
-                      <label className="label">Eindtijdstip</label>
+                      <label className="label">Eindtijd</label>
                       <input type="time" className="input" value={dateForm.end_time}
                         onChange={(e) => setDateForm((f) => ({ ...f, end_time: e.target.value }))} />
                     </div>
