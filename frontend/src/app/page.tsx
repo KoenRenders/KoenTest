@@ -37,9 +37,9 @@ export default function HomePage() {
   }
 
   return (
-    <div className="space-y-12">
+    <div className="space-y-6">
       {/* Hero */}
-      <section className="py-8">
+      <section className="py-4">
         {introPage?.content && (
           <div
             className="cms-content mb-6 text-gray-700"
