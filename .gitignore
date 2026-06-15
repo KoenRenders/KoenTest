@@ -3,6 +3,7 @@ node_modules/
 # Door Next.js/tsc gegenereerd.
 frontend/next-env.d.ts
 frontend/tsconfig.tsbuildinfo
+# package-lock.json wordt nu WEL gecommit (deterministische installs, npm ci) — #173.
 .venv/
 __pycache__/
 *.pyc

@@ -6,9 +6,16 @@ from app.auth import get_current_admin
 from app.database import get_db
 from app.models.user import User
 from .models import PaymentRecord
-from .schemas import PaymentRecordResponse, PaymentRecordUpdate, EnrichedPaymentRecord
-from .service import confirm_manual_payment, get_records_for, handle_gateway_update
+from .schemas import (
+    PaymentRecordResponse, PaymentRecordUpdate, EnrichedPaymentRecord,
+    RefundCreate, RegistrationBalance,
+)
+from .service import (
+    confirm_manual_payment, get_records_for, handle_gateway_update,
+    create_refund, registration_balance,
+)
 from app.domains.audit.service import snapshot_payment_record
+from app.soft_delete import soft_delete
 from app.services.registration_totals import compute_registration_total
 
 router = APIRouter(prefix="/payment-status", tags=["payment-status"])
@@ -23,6 +30,8 @@ def _to_response(r: PaymentRecord) -> PaymentRecordResponse:
         amount_paid=r.amount_paid,
         method=r.method,
         status=r.status,
+        type=r.type,
+        refund_of_id=r.refund_of_id,
         note=r.note,
         paid_at=r.paid_at,
         checkout_url=r.gateway_payment.checkout_url if r.gateway_payment else None,
@@ -37,6 +46,7 @@ def list_all_payment_records(
 ):
     """List all payment records, enriched with contact name and description."""
     from app.models.activity import Registration, Activity
+    from app.models.activity_sub_registration import ActivitySubRegistration
     from app.models.member import Member, MemberPerson, Person
 
     records = db.query(PaymentRecord).order_by(PaymentRecord.created_at.desc()).all()
@@ -45,6 +55,8 @@ def list_all_payment_records(
         contact_name: Optional[str] = None
         description: Optional[str] = None
         activity_id: Optional[int] = None
+        component_id: Optional[int] = None
+        component_name: Optional[str] = None
         reg_items: list = []
 
         if r.payable_type == "registration":
@@ -52,6 +64,12 @@ def list_all_payment_records(
             if reg:
                 contact_name = reg.contact_name
                 activity_id = reg.activity_id
+                component_id = reg.component_id
+                if reg.component_id is not None:
+                    comp = db.query(ActivitySubRegistration).filter(
+                        ActivitySubRegistration.id == reg.component_id
+                    ).first()
+                    component_name = comp.name if comp else None
                 activity = db.query(Activity).filter(Activity.id == reg.activity_id).first()
                 if activity:
                     description = activity.name
@@ -88,11 +106,15 @@ def list_all_payment_records(
             payable_type=r.payable_type,
             payable_id=r.payable_id,
             activity_id=activity_id,
+            component_id=component_id,
+            component_name=component_name,
             items=reg_items,
             amount=r.amount,
             amount_paid=r.amount_paid,
             method=r.method,
             status=r.status,
+            type=r.type,
+            refund_of_id=r.refund_of_id,
             note=r.note,
             paid_at=r.paid_at,
             checkout_url=r.gateway_payment.checkout_url if r.gateway_payment else None,
@@ -147,6 +169,46 @@ def refresh_payment_record(
     return _to_response(record)
 
 
+@router.post("/records/{record_id}/refund", response_model=PaymentRecordResponse)
+def refund_payment_record(
+    record_id: str,
+    data: RefundCreate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Registreer een terugbetaling op een charge-record (#83).
+
+    Maakt een apart, negatief PaymentRecord (``type="refund"``) dat naar de
+    charge verwijst. De financiële invarianten zitten in de service-laag.
+    """
+    try:
+        refund = create_refund(
+            db, record_id, data.amount,
+            note=data.note, method=data.method, actor=admin.email,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    db.commit()
+    db.refresh(refund)
+    return _to_response(refund)
+
+
+@router.get("/registrations/{registration_id}/balance", response_model=RegistrationBalance)
+def get_registration_balance(
+    registration_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    """Financiële stand van een inschrijving: verschuldigd, betaald, terugbetaald,
+    saldo (#83). De live DB is de bron van waarheid."""
+    from app.models.activity import Registration
+
+    reg = db.query(Registration).filter(Registration.id == registration_id).first()
+    if not reg:
+        raise HTTPException(status_code=404, detail="Registration not found")
+    return RegistrationBalance(**registration_balance(db, reg))
+
+
 @router.patch("/records/{record_id}", response_model=PaymentRecordResponse)
 def update_payment_record(
     record_id: str,
@@ -185,3 +247,25 @@ def update_payment_record(
     db.commit()
     db.refresh(record)
     return _to_response(record)
+
+
+@router.delete("/records/{record_id}", status_code=204)
+def delete_payment_record(
+    record_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Verwijder één betaalrecord als bewuste admin-actie (#167) — bv. een
+    foutieve/test-betaling of een weesbetaling na een gezin-delete. Soft delete
+    (#166): de rij wordt gemarkeerd (deleted_at) en globaal uit reads gefilterd,
+    met audit-snapshot zodat het financiële feit in de history bewaard blijft."""
+    record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Payment record not found")
+    snapshot_payment_record(
+        db, record,
+        operation="delete", action="payment_deleted",
+        source="admin_manual", actor=admin.email,
+    )
+    soft_delete(record)
+    db.commit()

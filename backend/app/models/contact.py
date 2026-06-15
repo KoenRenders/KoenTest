@@ -2,9 +2,10 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
+from app.soft_delete import SoftDeleteMixin
 
 
-class ContactDetail(Base):
+class ContactDetail(SoftDeleteMixin, Base):
     __tablename__ = "contact_details"
 
     id = Column(Integer, primary_key=True, index=True)

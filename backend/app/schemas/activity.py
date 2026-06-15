@@ -154,6 +154,13 @@ class RegistrationItemCreate(BaseModel):
     quantity: int = 1
 
 
+class RegistrationItemUpdate(BaseModel):
+    """Admin past een bestaande bestelregel aan (#84): product wisselen en/of
+    aantal wijzigen. Beide optioneel; minstens één is zinvol."""
+    product_id: Optional[int] = None
+    quantity: Optional[int] = None
+
+
 class RegistrationCreate(BaseModel):
     contact_name: str
     contact_email: EmailStr
@@ -166,6 +173,7 @@ class RegistrationCreate(BaseModel):
 
 
 class RegistrationItemResponse(BaseModel):
+    id: Optional[int] = None  # registratie-item-id, nodig om regels te bewerken (#84)
     product_id: int
     quantity: int
     product_name: Optional[str] = None

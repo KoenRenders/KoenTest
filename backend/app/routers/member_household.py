@@ -30,6 +30,7 @@ from app.domains.audit.service import (
     snapshot_address,
     snapshot_contact_detail,
 )
+from app.soft_delete import soft_delete
 
 logger = logging.getLogger(__name__)
 
@@ -400,6 +401,6 @@ def remove_person(
     if mp:
         snapshot_member_person(db, mp, operation="delete", action="person_removed_from_family",
                                source="member_self", actor=actor)
-        db.delete(mp)
+        soft_delete(mp)
 
     db.commit()

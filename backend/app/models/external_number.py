@@ -1,10 +1,11 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, UniqueConstraint
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
+from app.soft_delete import SoftDeleteMixin
 
 
-class ExternalNumber(Base):
+class ExternalNumber(SoftDeleteMixin, Base):
     """External identifier for a person from another system.
 
     Bijvoorbeeld het oude lidnummer uit de vorige ledenadministratie.
@@ -20,8 +21,6 @@ class ExternalNumber(Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
-    __table_args__ = (
-        UniqueConstraint("source", "external_id", name="uq_external_numbers_source_external_id"),
-    )
+    # Uniciteit op (source, external_id) is partieel (WHERE deleted_at IS NULL) — zie migratie 050.
 
     person = relationship("Person", back_populates="external_numbers")

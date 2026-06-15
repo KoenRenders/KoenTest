@@ -10,6 +10,7 @@ from fastapi.responses import JSONResponse
 from app.config import settings
 from app.database import engine
 from app.logging_config import configure_logging
+from app import soft_delete  # noqa: F401 - registreert de globale soft-delete-filter
 from app.models import *  # noqa: F401, F403 - ensures all models are registered
 from app.routers import auth, members, activities, ideas, cms, admin, media
 from app.routers.member_household import router as member_household_router
