@@ -2,9 +2,10 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Numeric, Text, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
+from app.soft_delete import SoftDeleteMixin
 
 
-class ActivitySubRegistration(Base):
+class ActivitySubRegistration(SoftDeleteMixin, Base):
     """A component (onderdeel) of an activity. Each component can have products."""
     __tablename__ = "activity_sub_registrations"
 
@@ -29,7 +30,7 @@ class ActivitySubRegistration(Base):
     products = relationship("ActivityProduct", back_populates="component", cascade="all, delete-orphan", order_by="ActivityProduct.sort_order")
 
 
-class ActivityProduct(Base):
+class ActivityProduct(SoftDeleteMixin, Base):
     """A product (inschrijvingsoptie) within an activity component."""
     __tablename__ = "activity_products"
 

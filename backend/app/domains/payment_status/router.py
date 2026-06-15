@@ -15,6 +15,7 @@ from .service import (
     create_refund, registration_balance,
 )
 from app.domains.audit.service import snapshot_payment_record
+from app.soft_delete import soft_delete
 from app.services.registration_totals import compute_registration_total
 
 router = APIRouter(prefix="/payment-status", tags=["payment-status"])
@@ -255,10 +256,9 @@ def delete_payment_record(
     admin: User = Depends(get_current_admin),
 ):
     """Verwijder één betaalrecord als bewuste admin-actie (#167) — bv. een
-    foutieve/test-betaling of een weesbetaling na een gezin-delete. Mét audit
-    (snapshot vóór delete) zodat het financiële feit in de history bewaard blijft.
-    Een eventuele refund die naar deze charge wees, krijgt refund_of_id = NULL
-    (ON DELETE SET NULL)."""
+    foutieve/test-betaling of een weesbetaling na een gezin-delete. Soft delete
+    (#166): de rij wordt gemarkeerd (deleted_at) en globaal uit reads gefilterd,
+    met audit-snapshot zodat het financiële feit in de history bewaard blijft."""
     record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Payment record not found")
@@ -267,5 +267,5 @@ def delete_payment_record(
         operation="delete", action="payment_deleted",
         source="admin_manual", actor=admin.email,
     )
-    db.delete(record)
+    soft_delete(record)
     db.commit()

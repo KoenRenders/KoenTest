@@ -3,8 +3,11 @@ reads gefilterd maar blijven in de DB; partiële uniciteit laat heraanmaak toe;
 de history (en dus de #82-export) toont de verwijdering nog steeds."""
 from datetime import date
 
+from app.domains.payment_status.models import PaymentRecord
+from app.models.activity import Activity, Registration
 from app.models.member import Member, Membership, Person
-from tests.conftest import seed_postal_code
+from app.models.user import User
+from tests.conftest import seed_activity_with_product, seed_postal_code
 
 
 def _payload(email="lid@example.com"):
@@ -76,3 +79,59 @@ def test_soft_delete_still_recorded_in_member_changes(client, db_session, admin_
     changes = client.get("/api/v1/admin/member-changes",
                          params={"since": date.today().isoformat()}, headers=admin_headers).json()
     assert any(c["operation_label"] == "Verwijderd" for c in changes)
+
+
+# ── Stage 2/3: activiteiten, betalingen, gebruikers ──────────────────────────
+
+def test_soft_delete_activity_hides_tree_keeps_payment(client, db_session, admin_headers):
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    activity_id = comp.activity_id
+    client.post(f"/api/v1/activities/{activity_id}/register", json={
+        "contact_name": "An", "contact_email": "an@example.com", "component_id": comp.id,
+        "payment_method": "TRANSFER", "items": [{"product_id": product.id, "quantity": 1}],
+    })
+    reg = db_session.query(Registration).filter(Registration.activity_id == activity_id).first()
+    assert reg is not None
+
+    assert client.delete(f"/api/v1/activities/{activity_id}", headers=admin_headers).status_code == 200
+
+    # Activiteit + inschrijving verborgen, maar bewaard.
+    assert db_session.query(Activity).filter(Activity.id == activity_id).first() is None
+    assert db_session.query(Registration).filter(Registration.id == reg.id).first() is None
+    kept = (db_session.query(Activity).execution_options(include_deleted=True)
+            .filter(Activity.id == activity_id).first())
+    assert kept.deleted_at is not None
+
+    # De betaling blijft een financieel feit (NIET mee soft-deleted).
+    pay = db_session.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
+    ).first()
+    assert pay is not None and pay.deleted_at is None
+
+
+def test_soft_delete_payment_hidden_but_kept(client, db_session, admin_headers):
+    member = _create_family(client, db_session)
+    ms = db_session.query(Membership).filter(Membership.member_id == member.id).first()
+    pay = db_session.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "membership", PaymentRecord.payable_id == ms.id,
+    ).first()
+    pid = pay.id
+    assert client.delete(f"/api/v1/payment-status/records/{pid}", headers=admin_headers).status_code == 204
+    assert db_session.query(PaymentRecord).filter(PaymentRecord.id == pid).first() is None
+    kept = (db_session.query(PaymentRecord).execution_options(include_deleted=True)
+            .filter(PaymentRecord.id == pid).first())
+    assert kept is not None and kept.deleted_at is not None
+
+
+def test_soft_delete_user_and_reuse_email(client, db_session, admin_headers):
+    u = User(email="temp@example.com")
+    db_session.add(u)
+    db_session.flush()
+    uid = u.id
+    assert client.delete(f"/api/v1/users/{uid}", headers=admin_headers).status_code == 204
+    assert db_session.query(User).filter(User.id == uid).first() is None
+    # Zelfde e-mail opnieuw mag (partiële uniciteit).
+    u2 = User(email="temp@example.com")
+    db_session.add(u2)
+    db_session.flush()
+    assert u2.id != uid

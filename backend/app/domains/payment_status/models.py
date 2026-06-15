@@ -3,9 +3,10 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, String, Numeric, DateTime, Integer, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
+from app.soft_delete import SoftDeleteMixin
 
 
-class PaymentRecord(Base):
+class PaymentRecord(SoftDeleteMixin, Base):
     __tablename__ = "payment_records"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid_lib.uuid4()))

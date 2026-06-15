@@ -90,5 +90,6 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_admin: User
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="Gebruiker niet gevonden.")
-    db.delete(user)
+    from app.soft_delete import soft_delete
+    soft_delete(user)
     db.commit()

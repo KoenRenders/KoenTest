@@ -37,6 +37,7 @@ from app.config import settings
 from app.domains.payment_status.service import create_payment_record, registration_balance
 from app.domains.audit.service import snapshot_registration_item
 from app.services.activity_export import build_component_export_xlsx
+from app.soft_delete import soft_delete
 from app.limiter import registration_limiter
 
 router = APIRouter(tags=["activities"])
@@ -260,7 +261,19 @@ def delete_activity(
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
-    db.delete(activity)
+    # Soft delete (#166): de hele boom mee markeren (datums, onderdelen, producten,
+    # inschrijvingen, bestelregels). Betalingen blijven bestaan (financieel feit).
+    for d in activity.dates:
+        soft_delete(d)
+    for comp in activity.sub_registrations:
+        for p in comp.products:
+            soft_delete(p)
+        soft_delete(comp)
+    for reg in activity.registrations:
+        for item in reg.items:
+            soft_delete(item)
+        soft_delete(reg)
+    soft_delete(activity)
     db.commit()
     return {"detail": "deleted"}
 
@@ -324,7 +337,7 @@ def delete_activity_date(
     ).first()
     if not ad:
         raise HTTPException(status_code=404, detail="Date not found")
-    db.delete(ad)
+    soft_delete(ad)
     db.commit()
     return {"detail": "deleted"}
 
@@ -394,7 +407,9 @@ def delete_component(
     ).first()
     if not component:
         raise HTTPException(status_code=404, detail="Component not found")
-    db.delete(component)
+    for p in component.products:
+        soft_delete(p)
+    soft_delete(component)
     db.commit()
     return {"detail": "deleted"}
 
@@ -466,7 +481,7 @@ def delete_product(
     ).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
-    db.delete(product)
+    soft_delete(product)
     db.commit()
     return {"detail": "deleted"}
 
@@ -670,12 +685,13 @@ def delete_order_line(
     ).first()
     if not item:
         raise HTTPException(status_code=404, detail="Order line not found")
-    # Snapshot vóór de delete (#84): de bronrij moet nog leesbaar zijn.
+    # Snapshot vóór de (soft) delete (#84/#166): de bronrij blijft bestaan maar
+    # wordt gemarkeerd; de globale filter sluit ze uit bij de saldo-herberekening.
     snapshot_registration_item(
         db, item, operation="delete", action="order_changed",
         source="admin_manual", actor=admin.email,
     )
-    db.delete(item)
+    soft_delete(item)
     db.commit()
     return _order_edit_result(db, activity, reg)
 
