@@ -108,6 +108,41 @@ def test_activity_registration_limit_per_email(client, db_session):
     assert register().status_code == 409
 
 
+def test_registration_limit_is_per_component_not_per_activity(client, db_session):
+    """#158 — de limiet telt per onderdeel, niet per activiteit: vol zitten op
+    onderdeel A mag inschrijven op onderdeel B van dezelfde activiteit niet blokkeren."""
+    from decimal import Decimal
+    from app.config import settings
+    from app.models.activity_sub_registration import ActivitySubRegistration, ActivityProduct
+
+    activity, comp_a, product_a = seed_activity_with_product(db_session, is_free=True)
+    comp_b = ActivitySubRegistration(
+        activity_id=activity.id, name="Onderdeel B",
+        registration_type_code="INDIVIDUAL", price=Decimal("0"), is_free=True,
+    )
+    db_session.add(comp_b)
+    db_session.flush()
+    product_b = ActivityProduct(component_id=comp_b.id, name="Product B", price=Decimal("0"), is_free=True)
+    db_session.add(product_b)
+    db_session.flush()
+
+    email = "multi@example.com"
+
+    def register(comp, product):
+        return client.post(f"/api/v1/activities/{activity.id}/register", json={
+            "contact_name": "Gezin", "contact_email": email,
+            "component_id": comp.id,
+            "items": [{"product_id": product.id, "quantity": 1}],
+        })
+
+    for _ in range(settings.max_registrations_per_email):
+        assert register(comp_a, product_a).status_code == 200
+    # 4e op onderdeel A overschrijdt de limiet.
+    assert register(comp_a, product_a).status_code == 409
+    # Onderdeel B (zelfde activiteit + e-mail) moet wél kunnen.
+    assert register(comp_b, product_b).status_code == 200
+
+
 def test_amount_paid_cannot_exceed_due(client, db_session, admin_headers):
     """Admin kan geen hoger betaald bedrag registreren dan verschuldigd."""
     seed_postal_code(db_session)

@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -euxo pipefail
 
-# Sync met master — lokale wijzigingen worden weggegooid.
-git fetch origin master
+# Sync met master — lokale wijzigingen worden weggegooid. --tags zodat
+# `git describe` een zinnige release-tag toont in de versie-log (#151).
+git fetch --tags --force origin master
 git reset --hard origin/master
 
 # Versie + commit voor de startup-log (#151); als build-args naar de backend-image.

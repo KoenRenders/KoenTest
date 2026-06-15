@@ -6,16 +6,16 @@ blok-/juridische pagina's 'home-intro' en 'privacy' worden op false gezet.
 
 Idempotent: controleert of de kolom al bestaat voor hij hem toevoegt.
 
-Revision ID: 049
-Revises: 048
+Revision ID: 050
+Revises: 049
 Create Date: 2026-06-15
 """
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import text
 
-revision = "049"
-down_revision = "048"
+revision = "050"
+down_revision = "049"
 branch_labels = None
 depends_on = None
 

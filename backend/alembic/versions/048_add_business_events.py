@@ -6,8 +6,8 @@ verwijderen van de bron-rij — zie app/models/business_event.py).
 
 Idempotent: controleert of de tabel/indexen al bestaan voor het aanmaken.
 
-Revision ID: 047
-Revises: 046
+Revision ID: 048
+Revises: 047
 Create Date: 2026-06-15
 """
 from alembic import op
@@ -15,8 +15,8 @@ import sqlalchemy as sa
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy import text
 
-revision = "047"
-down_revision = "046"
+revision = "048"
+down_revision = "047"
 branch_labels = None
 depends_on = None
 

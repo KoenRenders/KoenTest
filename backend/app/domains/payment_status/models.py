@@ -17,6 +17,7 @@ class PaymentRecord(Base):
     gateway_payment_id = Column(String(36), ForeignKey("gateway_payments.id"), nullable=True)
     amount_paid = Column(Numeric(10, 2), nullable=True)
     note = Column(String(200), nullable=True)
+    structured_communication = Column(String(20), nullable=True)  # OGM voor overschrijving (#157)
     paid_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)

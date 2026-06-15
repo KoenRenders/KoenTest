@@ -20,8 +20,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="nl">
       <body className="font-primary">
         <Analytics />
-        <EnvBar />
-        <Navigation />
+        <header className="sticky top-0 z-50">
+          <EnvBar />
+          <Navigation />
+        </header>
         <main className="max-w-7xl mx-auto px-4 py-8">
           {children}
         </main>

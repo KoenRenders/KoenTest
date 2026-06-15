@@ -19,11 +19,11 @@ export default function PersonFields({
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div>
         <label className="label">Voornaam *</label>
-        <input className="input" required value={person.first_name} onChange={(e) => onChange({ first_name: e.target.value })} />
+        <input className="input" required data-testid="person-first-name" value={person.first_name} onChange={(e) => onChange({ first_name: e.target.value })} />
       </div>
       <div>
         <label className="label">Achternaam *</label>
-        <input className="input" required value={person.last_name} onChange={(e) => onChange({ last_name: e.target.value })} />
+        <input className="input" required data-testid="person-last-name" value={person.last_name} onChange={(e) => onChange({ last_name: e.target.value })} />
       </div>
       <div>
         <label className="label">Geslacht</label>
@@ -38,11 +38,11 @@ export default function PersonFields({
       </div>
       <div>
         <label className="label">E-mailadres{requireContact ? " *" : ""}</label>
-        <input type="email" className="input" required={requireContact} value={person.email} onChange={(e) => onChange({ email: e.target.value })} />
+        <input type="email" className="input" required={requireContact} data-testid="person-email" value={person.email} onChange={(e) => onChange({ email: e.target.value })} />
       </div>
       <div>
         <label className="label">Mobiel nummer{requireContact ? " *" : ""}</label>
-        <input type="tel" className="input" required={requireContact} value={person.mobile} onChange={(e) => onChange({ mobile: e.target.value })} />
+        <input type="tel" className="input" required={requireContact} data-testid="person-mobile" value={person.mobile} onChange={(e) => onChange({ mobile: e.target.value })} />
       </div>
       <div>
         <label className="label">Telefoon</label>

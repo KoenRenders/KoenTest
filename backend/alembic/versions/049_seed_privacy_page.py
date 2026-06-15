@@ -9,15 +9,15 @@ via de CMS-beheerpagina.
 Idempotent: voegt enkel in als de slug nog niet bestaat (raakt een bestaande,
 mogelijk al aangepaste, pagina niet aan).
 
-Revision ID: 048
-Revises: 047
+Revision ID: 049
+Revises: 048
 Create Date: 2026-06-15
 """
 from alembic import op
 import sqlalchemy as sa
 
-revision = "048"
-down_revision = "047"
+revision = "049"
+down_revision = "048"
 branch_labels = None
 depends_on = None
 

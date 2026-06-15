@@ -6,12 +6,15 @@ const APP_ENV = (process.env.NEXT_PUBLIC_APP_ENV || "").toUpperCase();
 
 export default function EnvBar() {
   if (!ENV_COLOR) return null;
+  // Sticky volle balk: blijft bij het scrollen altijd bovenaan zichtbaar en
+  // toont de omgevingsnaam. Op PROD is ENV_COLOR leeg → geen balk.
   return (
     <div
-      className="h-1.5 w-full"
+      className="flex h-7 items-center justify-center text-xs font-bold uppercase tracking-widest text-white"
       style={{ backgroundColor: ENV_COLOR }}
       title={`Omgeving: ${APP_ENV}`}
-      aria-hidden="true"
-    />
+    >
+      {APP_ENV}
+    </div>
   );
 }
