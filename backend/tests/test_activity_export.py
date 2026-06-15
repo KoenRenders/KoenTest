@@ -6,9 +6,16 @@ from io import BytesIO
 from openpyxl import load_workbook
 
 from app.domains.payment_status.models import PaymentRecord
+from app.models.activity import Registration, RegistrationItem
+from app.models.activity_sub_registration import ActivityProduct
 from tests.conftest import seed_activity_with_product
 
 _XLSX_MIME = "spreadsheetml"
+
+
+def _load(resp):
+    from openpyxl import load_workbook
+    return list(load_workbook(BytesIO(resp.content)).active.iter_rows(values_only=True))
 
 
 def test_export_requires_admin(client, db_session):
@@ -82,3 +89,71 @@ def test_export_quantities_and_financials(client, db_session, admin_headers):
     assert total[i_due] == 36.0
     assert total[i_refunded] == 6.0
     assert total[i_saldo] == 6.0
+
+
+def test_export_empty_component_does_not_crash(client, db_session, admin_headers):
+    _, comp, _ = seed_activity_with_product(db_session, price="18.00")
+    resp = client.get(f"/api/v1/activities/{comp.activity_id}/components/{comp.id}/export",
+                      headers=admin_headers)
+    assert resp.status_code == 200, resp.text
+    rows = _load(resp)
+    assert rows[0][0] == "Naam"
+    assert rows[-1][0] == "Totaal"  # totaalrij bestaat ook zonder inschrijvingen
+
+
+def test_export_multiple_products_and_registrations(client, db_session, admin_headers):
+    _, comp, p1 = seed_activity_with_product(db_session, price="10.00")
+    p2 = ActivityProduct(component_id=comp.id, name="Tweede", price=Decimal("5.00"), is_free=False)
+    db_session.add(p2)
+    db_session.flush()
+    activity_id = comp.activity_id
+
+    # Inschrijving A: 2× p1, 1× p2 = 25 ; B: 3× p2 = 15
+    client.post(f"/api/v1/activities/{activity_id}/register", json={
+        "contact_name": "A", "contact_email": "a@example.com", "component_id": comp.id,
+        "payment_method": "TRANSFER",
+        "items": [{"product_id": p1.id, "quantity": 2}, {"product_id": p2.id, "quantity": 1}],
+    })
+    client.post(f"/api/v1/activities/{activity_id}/register", json={
+        "contact_name": "B", "contact_email": "b@example.com", "component_id": comp.id,
+        "payment_method": "TRANSFER",
+        "items": [{"product_id": p2.id, "quantity": 3}],
+    })
+
+    resp = client.get(f"/api/v1/activities/{activity_id}/components/{comp.id}/export", headers=admin_headers)
+    rows = _load(resp)
+    headers = list(rows[0])
+    i_due = headers.index("Verschuldigd")
+    # Productkolommen staan op index 1 (p1) en 2 (p2).
+    total = rows[-1]
+    assert total[1] == 2          # totaal p1
+    assert total[2] == 4          # totaal p2 (1 + 3)
+    assert total[i_due] == 40.0   # 25 + 15
+
+
+def test_export_online_payment_in_online_column(client, db_session, admin_headers):
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    activity_id = comp.activity_id
+    client.post(f"/api/v1/activities/{activity_id}/register", json={
+        "contact_name": "An", "contact_email": "an@example.com", "component_id": comp.id,
+        "payment_method": "TRANSFER",
+        "items": [{"product_id": product.id, "quantity": 1}],
+    })
+    reg = db_session.query(Registration).filter(Registration.component_id == comp.id).first()
+    # Vervang de betaling door een betaalde online-charge.
+    db_session.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
+    ).delete()
+    db_session.add(PaymentRecord(
+        payable_type="registration", payable_id=reg.id, amount=Decimal("18.00"),
+        amount_paid=Decimal("18.00"), method="online", status="paid", type="charge",
+    ))
+    db_session.flush()
+
+    resp = client.get(f"/api/v1/activities/{activity_id}/components/{comp.id}/export", headers=admin_headers)
+    rows = _load(resp)
+    headers = list(rows[0])
+    i_online = headers.index("Betaald online")
+    i_offline = headers.index("Betaald overschr./cash")
+    assert rows[1][i_online] == 18.0
+    assert rows[1][i_offline] == 0.0
