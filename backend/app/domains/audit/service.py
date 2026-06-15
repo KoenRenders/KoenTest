@@ -17,6 +17,7 @@ from app.models.history import (
     AddressHistory,
     ContactDetailHistory,
     PaymentRecordHistory,
+    RegistrationItemHistory,
 )
 
 
@@ -86,6 +87,17 @@ def snapshot_contact_detail(db: Session, contact, *, operation: str, action: str
         contact_type_code=contact.contact_type_code,
         value=contact.value,
         is_primary=contact.is_primary,
+        operation=operation, action=action, source=source, actor=actor,
+    ))
+
+
+def snapshot_registration_item(db: Session, item, *, operation: str, action: str,
+                               source: str, actor: Optional[str] = None) -> None:
+    db.add(RegistrationItemHistory(
+        registration_item_id=item.id,
+        registration_id=item.registration_id,
+        product_id=item.product_id,
+        quantity=item.quantity,
         operation=operation, action=action, source=source, actor=actor,
     ))
 

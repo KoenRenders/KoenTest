@@ -28,11 +28,14 @@ from app.schemas.activity import (
     ProductResponse,
     RegistrationCreate,
     RegistrationResponse,
+    RegistrationItemCreate,
+    RegistrationItemUpdate,
 )
 from app.services.email import send_activity_registration_confirmation
 from app.services.registration_totals import compute_registration_total
 from app.config import settings
-from app.domains.payment_status.service import create_payment_record
+from app.domains.payment_status.service import create_payment_record, registration_balance
+from app.domains.audit.service import snapshot_registration_item
 from app.limiter import registration_limiter
 
 router = APIRouter(tags=["activities"])
@@ -514,6 +517,135 @@ def get_registrations(
     return [_enrich_registration(r, activity) for r in activity.registrations]
 
 
+# ── Bestelregels bewerken (admin) + audit (#84) ───────────────────────────────
+
+def _load_activity_or_404(db: Session, activity_id: int) -> Activity:
+    activity = db.query(Activity).filter(Activity.id == activity_id).first()
+    if not activity:
+        raise HTTPException(status_code=404, detail="Activity not found")
+    return activity
+
+
+def _load_registration_or_404(db: Session, activity: Activity, registration_id: int) -> Registration:
+    reg = db.query(Registration).filter(
+        Registration.id == registration_id,
+        Registration.activity_id == activity.id,
+    ).first()
+    if not reg:
+        raise HTTPException(status_code=404, detail="Registration not found")
+    return reg
+
+
+def _validate_order_product(db: Session, activity: Activity, reg: Registration, product_id: int) -> ActivityProduct:
+    """Een bestelregel mag enkel een product van dit onderdeel/deze activiteit bevatten."""
+    product = db.query(ActivityProduct).filter(ActivityProduct.id == product_id).first()
+    if not product:
+        raise HTTPException(status_code=404, detail="Product not found")
+    comp = db.query(ActivitySubRegistration).filter(
+        ActivitySubRegistration.id == product.component_id
+    ).first()
+    if not comp or comp.activity_id != activity.id:
+        raise HTTPException(status_code=400, detail="Product hoort niet bij deze activiteit.")
+    if reg.component_id is not None and product.component_id != reg.component_id:
+        raise HTTPException(status_code=400, detail="Product hoort niet bij het onderdeel van deze inschrijving.")
+    return product
+
+
+def _order_edit_result(db: Session, activity: Activity, reg: Registration) -> dict:
+    """Vernieuwde bestelling + financiële stand; signaleert of er nu een
+    terugbetaling openstaat (saldo < 0) zodat de UI naar de refund-flow kan wijzen."""
+    db.refresh(reg)
+    bal = registration_balance(db, reg)
+    return {
+        "registration": _enrich_registration(reg, activity),
+        "balance": bal,
+        "refund_due": bal["balance"] < 0,
+    }
+
+
+@router.post("/activities/{activity_id}/registrations/{registration_id}/items")
+def add_order_line(
+    activity_id: int,
+    registration_id: int,
+    data: RegistrationItemCreate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    activity = _load_activity_or_404(db, activity_id)
+    reg = _load_registration_or_404(db, activity, registration_id)
+    if data.quantity < 1:
+        raise HTTPException(status_code=400, detail="Aantal moet minstens 1 zijn.")
+    _validate_order_product(db, activity, reg, data.product_id)
+    item = RegistrationItem(registration_id=reg.id, product_id=data.product_id, quantity=data.quantity)
+    db.add(item)
+    db.flush()
+    snapshot_registration_item(
+        db, item, operation="insert", action="order_changed",
+        source="admin_manual", actor=admin.email,
+    )
+    db.commit()
+    return _order_edit_result(db, activity, reg)
+
+
+@router.patch("/activities/{activity_id}/registrations/{registration_id}/items/{item_id}")
+def update_order_line(
+    activity_id: int,
+    registration_id: int,
+    item_id: int,
+    data: RegistrationItemUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    activity = _load_activity_or_404(db, activity_id)
+    reg = _load_registration_or_404(db, activity, registration_id)
+    item = db.query(RegistrationItem).filter(
+        RegistrationItem.id == item_id,
+        RegistrationItem.registration_id == reg.id,
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Order line not found")
+    if data.product_id is not None:
+        _validate_order_product(db, activity, reg, data.product_id)
+        item.product_id = data.product_id
+    if data.quantity is not None:
+        if data.quantity < 1:
+            raise HTTPException(status_code=400, detail="Aantal moet minstens 1 zijn; verwijder de regel om ze te schrappen.")
+        item.quantity = data.quantity
+    db.flush()
+    snapshot_registration_item(
+        db, item, operation="update", action="order_changed",
+        source="admin_manual", actor=admin.email,
+    )
+    db.commit()
+    return _order_edit_result(db, activity, reg)
+
+
+@router.delete("/activities/{activity_id}/registrations/{registration_id}/items/{item_id}")
+def delete_order_line(
+    activity_id: int,
+    registration_id: int,
+    item_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    activity = _load_activity_or_404(db, activity_id)
+    reg = _load_registration_or_404(db, activity, registration_id)
+    item = db.query(RegistrationItem).filter(
+        RegistrationItem.id == item_id,
+        RegistrationItem.registration_id == reg.id,
+    ).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Order line not found")
+    # Snapshot vóór de delete (#84): de bronrij moet nog leesbaar zijn.
+    snapshot_registration_item(
+        db, item, operation="delete", action="order_changed",
+        source="admin_manual", actor=admin.email,
+    )
+    db.delete(item)
+    db.commit()
+    return _order_edit_result(db, activity, reg)
+
+
 @router.get("/activities/{activity_id}/public-registrations")
 def get_public_registrations(
     activity_id: int,
@@ -622,11 +754,19 @@ def register_for_activity(
 
     for item_data in data.items:
         if item_data.quantity > 0:
-            db.add(RegistrationItem(
+            item = RegistrationItem(
                 registration_id=registration.id,
                 product_id=item_data.product_id,
                 quantity=item_data.quantity,
-            ))
+            )
+            db.add(item)
+            db.flush()
+            # Auditeer de initiële bestelregels (#84), zodat latere wijzigingen
+            # tegen een vastgelegde startsituatie afgezet kunnen worden.
+            snapshot_registration_item(
+                db, item,
+                operation="insert", action="order_created", source="registration",
+            )
 
     db.flush()
     db.refresh(registration)

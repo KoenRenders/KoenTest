@@ -90,6 +90,18 @@ class ContactDetailHistory(HistoryMixin, Base):
     is_primary = Column(Boolean, nullable=True)
 
 
+class RegistrationItemHistory(HistoryMixin, Base):
+    """Append-only audit van bestelregels (#84): elke insert/update/delete van een
+    RegistrationItem, zodat wijzigingen aan een bestelling ná betaling traceerbaar
+    zijn (bv. product wisselen naar een helper-variant, of een regel verwijderen)."""
+    __tablename__ = "registration_item_history"
+
+    registration_item_id = Column(Integer, nullable=False, index=True)
+    registration_id = Column(Integer, nullable=True, index=True)
+    product_id = Column(Integer, nullable=True)
+    quantity = Column(Integer, nullable=True)
+
+
 class PaymentRecordHistory(HistoryMixin, Base):
     __tablename__ = "payment_record_history"
 
