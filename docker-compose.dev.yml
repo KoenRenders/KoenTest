@@ -36,6 +36,9 @@ services:
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost}
       APP_ENV: dev
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
+      PAYMENT_IBAN: ${PAYMENT_IBAN:-}
+      PAYMENT_BENEFICIARY: ${PAYMENT_BENEFICIARY:-}
+      PAYMENT_TERM_DAYS: ${PAYMENT_TERM_DAYS:-7}
     depends_on:
       db:
         condition: service_healthy

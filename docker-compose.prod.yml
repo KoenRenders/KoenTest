@@ -36,6 +36,9 @@ services:
       APP_ENV: prod
       LOG_LEVEL: ${LOG_LEVEL:-WARNING}
       MEMBERSHIP_RENEWAL_START_MD: ${MEMBERSHIP_RENEWAL_START_MD:-}
+      PAYMENT_IBAN: ${PAYMENT_IBAN:-}
+      PAYMENT_BENEFICIARY: ${PAYMENT_BENEFICIARY:-}
+      PAYMENT_TERM_DAYS: ${PAYMENT_TERM_DAYS:-7}
     depends_on:
       db:
         condition: service_healthy
