@@ -38,6 +38,10 @@ export const updateOrderLine = (activityId: number, registrationId: number, item
 export const deleteOrderLine = (activityId: number, registrationId: number, itemId: number) =>
   api.delete(`/api/v1/activities/${activityId}/registrations/${registrationId}/items/${itemId}`);
 
+// Excel-export per onderdeel (#85) — blob, met Bearer-token via de axios-instance
+export const exportComponentXlsx = (activityId: number, componentId: number) =>
+  api.get(`/api/v1/activities/${activityId}/components/${componentId}/export`, { responseType: "blob" });
+
 // Activity dates
 export const addActivityDate = (activityId: number, data: unknown) =>
   api.post(`/api/v1/activities/${activityId}/dates`, data);

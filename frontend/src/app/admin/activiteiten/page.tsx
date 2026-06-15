@@ -5,6 +5,7 @@ import {
   getRegistrations, addComponent, updateComponent, deleteComponent,
   addProduct, updateProduct, deleteProduct,
   addActivityDate, updateActivityDate, deleteActivityDate,
+  exportComponentXlsx,
 } from "@/lib/api";
 import type { Activity, ActivityComponent, ActivityProduct, ActivityDate } from "@/lib/types";
 import { parseApiError } from "@/lib/errors";
@@ -144,6 +145,23 @@ export default function AdminActiviteiten() {
     const r = await getRegistrations(activityId);
     setRegistrations((prev) => ({ ...prev, [activityId]: r.data }));
     setViewRegs({ activityId, componentId });
+  }
+
+  async function downloadExport(activityId: number, comp: ActivityComponent, activityName?: string) {
+    try {
+      const resp = await exportComponentXlsx(activityId, comp.id);
+      const url = URL.createObjectURL(resp.data as Blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const safe = `${activityName ?? "activiteit"}-${comp.name}`.replace(/[^A-Za-z0-9_-]+/g, "_");
+      link.download = `${safe || "export"}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(parseApiError(e, "Export mislukt."));
+    }
   }
 
   // ── Date management ──────────────────────────────────────────────────────────
@@ -610,6 +628,9 @@ export default function AdminActiviteiten() {
                     <div className="flex gap-2">
                       {!comp.external_register_url && (
                         <button className="btn-secondary btn-sm text-xs" onClick={() => loadRegistrations(a.id, comp.id)}>Inschrijvingen</button>
+                      )}
+                      {!comp.external_register_url && (
+                        <button className="btn-secondary btn-sm text-xs" onClick={() => downloadExport(a.id, comp, a.name)} title="Excel-export: aantallen + financials">Export</button>
                       )}
                       <button className="btn-secondary btn-sm text-xs" onClick={() => {
                         setExpandedComponent(expandedComponent === comp.id ? null : comp.id);

@@ -3,7 +3,7 @@ from datetime import date
 from sqlalchemy import or_, and_, func
 from typing import List
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
 
 logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session, selectinload
@@ -36,6 +36,7 @@ from app.services.registration_totals import compute_registration_total
 from app.config import settings
 from app.domains.payment_status.service import create_payment_record, registration_balance
 from app.domains.audit.service import snapshot_registration_item
+from app.services.activity_export import build_component_export_xlsx
 from app.limiter import registration_limiter
 
 router = APIRouter(tags=["activities"])
@@ -516,6 +517,38 @@ def get_registrations(
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
     return [_enrich_registration(r, activity) for r in activity.registrations]
+
+
+# ── Excel-export per onderdeel (#85) ──────────────────────────────────────────
+
+@router.get("/activities/{activity_id}/components/{component_id}/export")
+def export_component_xlsx(
+    activity_id: int,
+    component_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    """Download een .xlsx met aantallen per product + financials voor één
+    onderdeel, zoals ze nu in de DB staan (#85). Admin-only; bevat persoons- en
+    financiële data."""
+    import re
+
+    activity = _load_activity_or_404(db, activity_id)
+    component = db.query(ActivitySubRegistration).filter(
+        ActivitySubRegistration.id == component_id,
+        ActivitySubRegistration.activity_id == activity.id,
+    ).first()
+    if not component:
+        raise HTTPException(status_code=404, detail="Component not found")
+
+    content = build_component_export_xlsx(db, activity, component)
+    raw_name = f"{activity.name}-{component.name}"
+    safe = re.sub(r"[^A-Za-z0-9_-]+", "_", raw_name).strip("_") or "export"
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{safe}.xlsx"'},
+    )
 
 
 # ── Bestelregels bewerken (admin) + audit (#84) ───────────────────────────────
