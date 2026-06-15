@@ -19,3 +19,4 @@ from app.models.history import (
     ContactDetailHistory,
     PaymentRecordHistory,
 )
+from app.models.business_event import BusinessEvent

@@ -104,7 +104,8 @@ export default function Footer() {
       )}
 
       <p className="text-center text-xs text-gray-400">
-        © {year} Raak Millegem
+        © {year} Raak Millegem ·{" "}
+        <a href="/privacy" className="hover:underline">Privacyverklaring</a>
       </p>
     </footer>
   );

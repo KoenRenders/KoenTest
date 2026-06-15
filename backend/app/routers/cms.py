@@ -112,6 +112,7 @@ def create_page(
         slug=data.slug,
         content=data.content,
         is_published=data.is_published,
+        show_in_nav=data.show_in_nav,
         sort_order=data.sort_order,
     )
     db.add(page)

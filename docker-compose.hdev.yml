@@ -53,9 +53,33 @@ services:
       args:
         NEXT_PUBLIC_APP_ENV: hdev
         NEXT_PUBLIC_ENV_COLOR: ${ENV_COLOR:-#15803D}
+        # Umami web-analytics (#152, laag 1). Leeg = tracker laadt niet (no-op).
+        # Vul NEXT_PUBLIC_UMAMI_WEBSITE_ID pas in nadat je in Umami een website hebt
+        # aangemaakt; src wijst via de hdev-Caddy naar /umami/script.js.
+        NEXT_PUBLIC_UMAMI_SRC: ${NEXT_PUBLIC_UMAMI_SRC:-}
+        NEXT_PUBLIC_UMAMI_WEBSITE_ID: ${NEXT_PUBLIC_UMAMI_WEBSITE_ID:-}
     restart: unless-stopped
     depends_on:
       - backend
+    networks:
+      - internal
+
+  # Zelf-gehoste, cookieloze web-analytics (#152, laag 1). Hergebruikt de
+  # bestaande Postgres via een EIGEN database (umami_hdev) — geen tweede DB-engine,
+  # en zo automatisch meegenomen in db-backup. Eenmalig provisionen: zie docs/umami.md
+  # (CREATE DATABASE umami_hdev). Umami draait Prisma-migraties zelf bij startup.
+  # Bereikbaar via de hdev-Caddy op /umami (BASE_PATH).
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/umami_hdev
+      DATABASE_TYPE: postgresql
+      APP_SECRET: ${UMAMI_APP_SECRET:?UMAMI_APP_SECRET ontbreekt in .env.hdev}
+      BASE_PATH: /umami
+    depends_on:
+      db:
+        condition: service_healthy
     networks:
       - internal
 

@@ -3,6 +3,10 @@
     handle /api/* {
         reverse_proxy backend:8000
     }
+    # Umami web-analytics (#152, laag 1) — serveert onder /umami (BASE_PATH).
+    handle /umami/* {
+        reverse_proxy umami:3000
+    }
     handle {
         reverse_proxy frontend:3000
     }

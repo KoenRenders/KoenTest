@@ -98,6 +98,7 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
         create_payment_record,
     )
     from app.domains.audit.service import snapshot_membership
+    from app.domains.analytics.service import log_business_event
     from app.config import settings
     from app.services.membership import has_valid_membership, valid_membership_until
 
@@ -215,6 +216,18 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
             status_code=502,
             detail="De online betaling kon niet gestart worden. Probeer het later opnieuw.",
         )
+
+    # Business-event (#152): hernieuwing gestart (betaling nog in afwachting). Geen PII.
+    log_business_event(
+        db, "hernieuwing_gestart",
+        member_id=member.id,
+        payment_record_id=payment_record.id if payment_record else None,
+        payload={
+            "amount": str(amount),
+            "target_year": valid_to.year,
+            "payment_method": "online",
+        },
+    )
 
     db.commit()
     return {"checkout_url": checkout_url, "amount": str(amount)}

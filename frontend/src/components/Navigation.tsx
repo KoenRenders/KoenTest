@@ -70,7 +70,7 @@ export default function Navigation() {
           style={menuOpen ? { backgroundColor: "var(--color-ocean-blue)" } : {}}
         >
           <li><Link href="/" className="block px-3 py-2 rounded hover:opacity-80 font-medium">Home</Link></li>
-          {pages.filter((p) => p.slug !== "home-intro").map((p) => (
+          {pages.filter((p) => p.show_in_nav).map((p) => (
             <li key={p.id}>
               <Link href={`/${p.slug}`} className="block px-3 py-2 rounded hover:opacity-80 font-medium">
                 {p.title}

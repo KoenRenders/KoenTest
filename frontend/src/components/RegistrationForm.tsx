@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { registerForActivity, getMemberMe } from "@/lib/api";
+import { trackEvent } from "@/lib/analytics";
 import type { Activity, ActivityComponent } from "@/lib/types";
 
 interface Props {
@@ -91,6 +92,10 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
         component_id: component.id,
         items,
         remarks: remarks || undefined,
+      });
+      // Funnel-event (#152, laag 1) — geen PII, enkel de betaalkeuze.
+      trackEvent("inschrijving-verzonden", {
+        betaalkeuze: hasPaidItems ? paymentMethod : "gratis",
       });
       const checkout_url = resp.data?.checkout_url;
       if (checkout_url) {

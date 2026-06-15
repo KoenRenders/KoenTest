@@ -14,6 +14,13 @@ _GATEWAY_ACTION = {
     "pending": "payment_pending",
 }
 
+# Business-event-type per (interne) gateway-status (#152). Enkel de uitkomsten die
+# we voor conversie-/omzetrapporten willen tellen — geen pending/failed-ruis.
+_GATEWAY_EVENT_TYPE = {
+    "paid": "betaling_succes",
+    "cancelled": "betaling_geannuleerd",
+}
+
 
 def _parse_md(md_str: str, year: int) -> date:
     """Zet "MM-DD" om naar een datum in het opgegeven jaar."""
@@ -139,6 +146,20 @@ def handle_gateway_update(
             operation="update", action=_GATEWAY_ACTION.get(new_status, "payment_status_changed"),
             source=source, actor=actor,
         )
+        # Business-event (#152): betaaluitkomst voor conversie-/omzetrapporten. Geen PII.
+        event_type = _GATEWAY_EVENT_TYPE.get(new_status)
+        if event_type:
+            from app.domains.analytics.service import log_business_event
+            log_business_event(
+                db, event_type,
+                payment_record_id=record.id,
+                payload={
+                    "payable_type": record.payable_type,
+                    "payable_id": record.payable_id,
+                    "amount": str(record.amount),
+                    "method": record.method,
+                },
+            )
         # Lidmaatschap-betaling bevestigd -> lidmaatschap activeren (#113). Geldt
         # zowel voor een nieuwe gezinsregistratie als voor een vernieuwing vanuit
         # het gezinscherm: beide maken een Membership (is_active=False) met

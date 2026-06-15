@@ -3,6 +3,7 @@ import "./globals.css";
 import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import EnvBar from "@/components/EnvBar";
+import Analytics from "@/components/Analytics";
 
 // Omgevingsindicator (#145): op niet-PROD prefixen we de tab-titel met
 // [HDEV]/[UAT]/[DEV]. Op PROD (of zonder waarde) blijft het "Raak Millegem".
@@ -18,6 +19,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="nl">
       <body className="font-primary">
+        <Analytics />
         <header className="sticky top-0 z-50">
           <EnvBar />
           <Navigation />
