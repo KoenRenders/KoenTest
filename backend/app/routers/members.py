@@ -663,6 +663,7 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
                 data=data,
                 pc_municipality=pc.municipality if pc else "",
                 background_tasks=background_tasks,
+                payment_record=payment_record,
             )
         except Exception as e:
             logger.error("Lidmaatschap bevestigingsmail mislukt naar %s: %s", hoofdlid.email, e)

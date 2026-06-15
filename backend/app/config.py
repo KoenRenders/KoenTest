@@ -28,6 +28,12 @@ class Settings(BaseSettings):
     gmail_from: Optional[str] = None
 
     mollie_api_key: Optional[str] = None
+
+    # Overschrijvings-instructies (#157): rekeningnummer + begunstigde + termijn (dagen).
+    payment_iban: Optional[str] = None
+    payment_beneficiary: Optional[str] = None
+    payment_term_days: int = 7
+
     frontend_url: str = "http://localhost:3000"
     public_url: str = "http://localhost:8000"
     app_env: str = "prod"  # dev, hdev, uat, prod

@@ -632,6 +632,7 @@ def register_for_activity(
     total_amount, _ = compute_registration_total(registration)
 
     checkout_url = None
+    payment_record = None
     if data.payment_method and total_amount > 0:
         method = "online" if data.payment_method == "ONLINE" else "transfer"
         redirect_url = f"{settings.frontend_url}/betaling/succes?registration={registration.id}"
@@ -679,6 +680,7 @@ def register_for_activity(
                 activity=activity,
                 registration=registration,
                 background_tasks=background_tasks,
+                payment_record=payment_record,
             )
         except Exception as e:
             logger.error("Activiteit bevestigingsmail mislukt naar %s: %s", data.contact_email, e)

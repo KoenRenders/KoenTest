@@ -92,6 +92,13 @@ def create_payment_record(
             method=method,
             status="pending",
         )
+        # Overschrijving: genereer een unieke gestructureerde mededeling (OGM) zodat
+        # de inschrijver met referentie betaalt en de penningmeester kan reconciliëren (#157).
+        if method == "transfer":
+            from sqlalchemy import text
+            from app.services.structured_communication import generate_structured_communication
+            seq = db.execute(text("SELECT nextval('payment_ogm_seq')")).scalar()
+            record.structured_communication = generate_structured_communication(int(seq))
 
     db.add(record)
     db.flush()

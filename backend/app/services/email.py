@@ -51,6 +51,32 @@ def _send(to_email: str, subject: str, body_html: str, cc: Optional[str] = None)
         logger.error("E-mail versturen mislukt naar %s: %s", to_email, exc)
 
 
+def _transfer_instructions_html(payment_record) -> str:
+    """Betaalinstructies-blok voor een overschrijving (#157): bedrag, IBAN,
+    begunstigde, gestructureerde mededeling en betaaltermijn. Leeg voor andere
+    betaalmethodes of wanneer de OGM ontbreekt."""
+    if not payment_record or getattr(payment_record, "method", None) != "transfer":
+        return ""
+    ogm = getattr(payment_record, "structured_communication", None)
+    if not ogm:
+        return ""
+    from datetime import date, timedelta
+    due = date.today() + timedelta(days=settings.payment_term_days)
+    rows = [f"<li><strong>Bedrag:</strong> €{payment_record.amount:.2f}</li>"]
+    if settings.payment_iban:
+        rows.append(f"<li><strong>Rekeningnummer:</strong> {escape(settings.payment_iban)}</li>")
+    if settings.payment_beneficiary:
+        rows.append(f"<li><strong>Begunstigde:</strong> {escape(settings.payment_beneficiary)}</li>")
+    rows.append(f"<li><strong>Gestructureerde mededeling:</strong> {escape(ogm)}</li>")
+    rows.append(f"<li><strong>Te betalen vóór:</strong> {due.strftime('%d/%m/%Y')}</li>")
+    return (
+        "<h4 style='margin-top:12px;margin-bottom:4px'>Betaalinstructies (overschrijving)</h4>"
+        "<p>Schrijf het bedrag over met de gestructureerde mededeling hieronder, "
+        "zodat we je betaling correct kunnen verwerken:</p>"
+        f"<ul>{''.join(rows)}</ul>"
+    )
+
+
 def send_magic_link(to_email: str, magic_link: str, otp_code: Optional[str] = None) -> None:
     otp_block = ""
     if otp_code:
@@ -88,7 +114,7 @@ def send_member_contact_board_notice(to_email: str) -> None:
     )
 
 
-def send_registration_confirmation(to_email: str, name: str, family, data=None, pc_municipality: str = "", background_tasks=None) -> None:
+def send_registration_confirmation(to_email: str, name: str, family, data=None, pc_municipality: str = "", background_tasks=None, payment_record=None) -> None:
     details = ""
     if data:
         address_parts = [data.street, data.house_number]
@@ -132,13 +158,14 @@ def send_registration_confirmation(to_email: str, name: str, family, data=None, 
         <p>Beste {escape(name)},</p>
         <p>Je registratie bij Raak Millegem is ontvangen. Welkom!</p>
         {details}
+        {_transfer_instructions_html(payment_record)}
         <p>Met vriendelijke groeten,<br>Raak Millegem</p>
         """,
     )
 
 
 def send_activity_registration_confirmation(
-    to_email: str, name: str, activity, registration=None, background_tasks=None
+    to_email: str, name: str, activity, registration=None, background_tasks=None, payment_record=None
 ) -> None:
     activity_name = escape(activity.name)
     subject = f"Inschrijving bevestigd: {activity_name}"
@@ -191,6 +218,8 @@ def send_activity_registration_confirmation(
                 "<h4 style='margin-top:12px;margin-bottom:4px'>Jouw gegevens</h4>"
                 f"<ul>{''.join(details)}</ul>"
             )
+
+    message += _transfer_instructions_html(payment_record)
 
     _dispatch(
         background_tasks,
