@@ -1,13 +1,14 @@
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends
-from sqlalchemy import func
+from sqlalchemy import Numeric, cast, func
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_admin
 from app.config import settings
 from app.database import get_db
 from app.models.activity import Activity, ActivityDate
+from app.models.business_event import BusinessEvent
 from app.models.member import Member, Membership
 from app.models.idea import Idea
 from app.models.user import User
@@ -38,6 +39,51 @@ def get_stats(
             .filter(PaymentRecord.status.notin_(["paid", "cancelled", "failed"]))
             .scalar() or 0
         ),
+    }
+
+
+@router.get("/business-events")
+def get_business_event_stats(
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    """Geaggregeerd rapport over de first-party business-events (#152, laag 2):
+    tellingen per event-type (alle tijd + laatste 30 dagen) en de omzet uit
+    bevestigde betalingen. Bevat GEEN PII — enkel geaggregeerde, niet-
+    identificerende cijfers afgeleid uit de event-payloads."""
+    since_30d = datetime.now(timezone.utc) - timedelta(days=30)
+
+    def _counts(query):
+        return {et: c for et, c in query.group_by(BusinessEvent.event_type).all()}
+
+    totals = _counts(db.query(BusinessEvent.event_type, func.count(BusinessEvent.id)))
+    totals_30d = _counts(
+        db.query(BusinessEvent.event_type, func.count(BusinessEvent.id))
+        .filter(BusinessEvent.occurred_at >= since_30d)
+    )
+
+    # Omzet = som van payload->>'amount' over bevestigde betalingen. De cast naar
+    # Numeric gebeurt in SQL; ontbrekende/lege bedragen tellen als NULL (genegeerd).
+    def _revenue(query):
+        return float(query.scalar() or 0)
+
+    amount_expr = func.sum(cast(BusinessEvent.payload["amount"].astext, Numeric))
+    revenue = _revenue(
+        db.query(func.coalesce(amount_expr, 0))
+        .filter(BusinessEvent.event_type == "betaling_succes")
+    )
+    revenue_30d = _revenue(
+        db.query(func.coalesce(amount_expr, 0))
+        .filter(BusinessEvent.event_type == "betaling_succes",
+                BusinessEvent.occurred_at >= since_30d)
+    )
+
+    return {
+        "period_days": 30,
+        "totals": totals,
+        "totals_30d": totals_30d,
+        "revenue_paid_eur": revenue,
+        "revenue_paid_eur_30d": revenue_30d,
     }
 
 

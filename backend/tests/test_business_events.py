@@ -133,3 +133,30 @@ def test_renewal_and_payment_success_log_events(client, db_session, mock_mollie)
     assert ev.payload["payable_type"] == "membership"
     assert "amount" in ev.payload
     _assert_no_pii_anywhere(db_session)
+
+
+# ── Admin-rapport over de business-events ─────────────────────────────────────
+
+def test_business_event_stats_aggregates(client, db_session, admin_headers):
+    """Het admin-rapport telt per type en sommeert de omzet uit bevestigde
+    betalingen (payload->>'amount') — de kern van het conversie-/omzetinzicht."""
+    log_business_event(db_session, "betaling_succes", payload={"amount": "35.00", "payable_type": "membership"})
+    log_business_event(db_session, "betaling_succes", payload={"amount": "10.00", "payable_type": "registration"})
+    log_business_event(db_session, "betaling_geannuleerd", payload={"amount": "5.00", "payable_type": "membership"})
+    log_business_event(db_session, "inschrijving_voltooid", payload={"amount": "10.00", "paid": True})
+    db_session.flush()
+
+    resp = client.get("/api/v1/admin/business-events", headers=admin_headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["totals"]["betaling_succes"] == 2
+    assert body["totals"]["betaling_geannuleerd"] == 1
+    assert body["totals"]["inschrijving_voltooid"] == 1
+    assert body["revenue_paid_eur"] == 45.0          # 35 + 10, niet de geannuleerde 5
+    assert body["revenue_paid_eur_30d"] == 45.0
+
+
+def test_business_event_stats_requires_admin(client, db_session):
+    """Het rapport is admin-only — geen token mag geen cijfers prijsgeven."""
+    resp = client.get("/api/v1/admin/business-events")
+    assert resp.status_code in (401, 403)
