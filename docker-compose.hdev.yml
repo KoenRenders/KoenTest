@@ -73,7 +73,7 @@ services:
     image: ghcr.io/umami-software/umami:postgresql-latest
     restart: unless-stopped
     environment:
-      DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/umami_hdev
+      DATABASE_URL: ${UMAMI_DATABASE_URL:-postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/umami_hdev}
       DATABASE_TYPE: postgresql
       APP_SECRET: ${UMAMI_APP_SECRET:?UMAMI_APP_SECRET ontbreekt in .env.hdev}
       BASE_PATH: /umami
