@@ -21,6 +21,7 @@ export default function PaymentMethodChoice({
             <input
               type="radio"
               name="payment_method"
+              data-testid={`payment-${v}`}
               value={v}
               checked={value === v}
               onChange={() => onChange(v)}

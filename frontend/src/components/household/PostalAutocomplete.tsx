@@ -48,6 +48,7 @@ export default function PostalAutocomplete({
       <input
         className="input"
         required={required}
+        data-testid="postal-input"
         autoComplete="off"
         value={input}
         placeholder={placeholder}
@@ -59,6 +60,7 @@ export default function PostalAutocomplete({
           {filtered.map((p) => (
             <li
               key={p.postal_code}
+              data-testid="postal-option"
               className="px-3 py-2 hover:bg-blue-50 cursor-pointer text-sm"
               onMouseDown={() => { setInput(`${p.postal_code} — ${p.municipality}`); onChange(p.postal_code); setOpen(false); }}
             >

@@ -1,0 +1,4 @@
+# Playwright e2e (#128)
+/playwright-report/
+/test-results/
+/playwright/.cache/

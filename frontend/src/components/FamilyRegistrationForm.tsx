@@ -68,7 +68,7 @@ export default function FamilyRegistrationForm() {
 
   if (status === "success") {
     return (
-      <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-green-800">
+      <div className="bg-green-50 border border-green-200 rounded-xl p-6 text-green-800" data-testid="registration-success">
         <h3 className="font-bold text-lg mb-2">Registratie ontvangen!</h3>
         <p>Je gezin is geregistreerd. Je ontvangt een bevestiging per e-mail zodra de betaling verwerkt is.</p>
       </div>
@@ -137,7 +137,7 @@ export default function FamilyRegistrationForm() {
 
       {error && <p className="text-red-600 text-sm">{error}</p>}
 
-      <button type="submit" disabled={status === "loading"} className="btn-primary">
+      <button type="submit" disabled={status === "loading"} className="btn-primary" data-testid="family-submit">
         {status === "loading" ? "Bezig…" : paymentMethod === "online" ? "Registreren en betalen" : "Gezin registreren"}
       </button>
     </form>

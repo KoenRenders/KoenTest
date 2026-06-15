@@ -71,3 +71,81 @@ jobs:
       # voorheen brak dat soort fout pas de Docker-build op HDEV (#127).
       - name: Typecheck (tsc --noEmit)
         run: npx tsc --noEmit
+
+  e2e:
+    runs-on: ubuntu-latest
+    # Non-blocking (#128): mag de pijplijn niet breken terwijl de e2e-suite
+    # wordt uitgebreid. continue-on-error rapporteert falen zonder te blokkeren.
+    continue-on-error: true
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: raake2e
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/raake2e
+      SECRET_KEY: ci-e2e-secret-key-long-enough-for-hs256
+      APP_ENV: dev
+      E2E_BASE_URL: http://localhost:3000
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Backend-deps
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: Migraties + seed postcodes
+        working-directory: backend
+        run: |
+          alembic upgrade head
+          python seed_postal_codes.py
+
+      - name: Start backend
+        working-directory: backend
+        run: nohup uvicorn app.main:app --host 0.0.0.0 --port 8000 > /tmp/backend.log 2>&1 &
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Frontend-deps + Playwright-browser
+        working-directory: frontend
+        run: |
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: Start frontend (next dev)
+        working-directory: frontend
+        run: nohup npm run dev > /tmp/frontend.log 2>&1 &
+
+      - name: Wachten tot backend + frontend bereikbaar zijn
+        run: npx --yes wait-on http-get://localhost:8000/api/health http-get://localhost:3000 --timeout 180000
+
+      - name: Run e2e
+        working-directory: frontend
+        run: npm run e2e
+
+      - name: Upload Playwright-rapport
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7

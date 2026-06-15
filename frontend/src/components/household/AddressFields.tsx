@@ -18,11 +18,11 @@ export default function AddressFields({
     <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
       <div className="sm:col-span-2">
         <label className="label">Straat *</label>
-        <input className="input" required value={address.street} onChange={(e) => onChange({ street: e.target.value })} />
+        <input className="input" required data-testid="address-street" value={address.street} onChange={(e) => onChange({ street: e.target.value })} />
       </div>
       <div>
         <label className="label">Nr. *</label>
-        <input className="input" required value={address.house_number} onChange={(e) => onChange({ house_number: e.target.value })} />
+        <input className="input" required data-testid="address-house-number" value={address.house_number} onChange={(e) => onChange({ house_number: e.target.value })} />
       </div>
       <div>
         <label className="label">Bus</label>
