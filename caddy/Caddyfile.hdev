@@ -4,6 +4,10 @@
         reverse_proxy backend:8000
     }
     # Umami web-analytics (#152, laag 1) — serveert onder /umami (BASE_PATH).
+    # Kale /umami → /umami/ (de browser strípt de trailing slash, anders 404).
+    handle /umami {
+        redir * /umami/ permanent
+    }
     handle /umami/* {
         reverse_proxy umami:3000
     }
