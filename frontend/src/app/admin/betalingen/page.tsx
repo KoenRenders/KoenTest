@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { listPaymentRecords, updatePaymentRecord, refreshPaymentRecord, refundPaymentRecord, getRegistrations } from "@/lib/api";
+import { listPaymentRecords, updatePaymentRecord, refreshPaymentRecord, refundPaymentRecord, deletePaymentRecord, getRegistrations } from "@/lib/api";
 import { parseApiError } from "@/lib/errors";
 import RegistrationList, { type RegistrationEntry } from "@/components/RegistrationList";
 
@@ -198,6 +198,18 @@ export default function BetalingenPage() {
       setError(parseApiError(e, "Status verversen mislukt."));
     } finally {
       setRefreshing(null);
+    }
+  }
+
+  async function removePayment(r: PaymentRecord) {
+    const label = r.contact_name || r.description || "deze betaling";
+    if (!confirm(`Betaling van "${label}" definitief verwijderen? Het feit blijft in de audit-historie bewaard.`)) return;
+    setError(null);
+    try {
+      await deletePaymentRecord(r.id);
+      await load();
+    } catch (e) {
+      setError(parseApiError(e, "Betaling verwijderen mislukt."));
     }
   }
 
@@ -399,6 +411,13 @@ export default function BetalingenPage() {
                         Terugbetaling registreren
                       </button>
                     )}
+                    <button
+                      onClick={() => removePayment(r)}
+                      className="text-xs text-red-600 border border-red-200 rounded px-2 py-0.5 hover:bg-red-50 whitespace-nowrap"
+                      title="Betaling verwijderen (blijft in audit-historie)"
+                    >
+                      Verwijderen
+                    </button>
                   </div>
                 )}
               </div>

@@ -303,18 +303,11 @@ def delete_family(
         raise HTTPException(status_code=404, detail="Family not found")
 
     # Eerst alles als delete-snapshot vastleggen, dan pas verwijderen.
-    from app.domains.payment_status.models import PaymentRecord
-    from app.domains.audit.service import snapshot_payment_record
+    # Lidmaatschap-betalingen worden bewust NIET mee verwijderd: een betaling die
+    # echt gebeurde is een financieel feit. Ze blijven in het overzicht (degradeert
+    # netjes naar "Lidmaatschap" zonder lid); de admin kan een individuele betaling
+    # apart verwijderen via het betaalscherm (#167).
     for ms in member.memberships:
-        # Lidmaatschap-betalingen hebben geen FK naar membership; zonder opruiming
-        # blijven ze als weesbetaling (zonder lid) in het betaaloverzicht hangen.
-        # Ruim ze mee op, met audit zodat de financiële historie bewaard blijft.
-        for rec in db.query(PaymentRecord).filter(
-            PaymentRecord.payable_type == "membership", PaymentRecord.payable_id == ms.id,
-        ).all():
-            snapshot_payment_record(db, rec, operation="delete", action="family_deleted",
-                                    source="admin_manual", actor=admin.email)
-            db.delete(rec)
         snapshot_membership(db, ms, operation="delete", action="family_deleted", source="admin_manual", actor=admin.email)
     for mp in member.member_persons:
         person = mp.person

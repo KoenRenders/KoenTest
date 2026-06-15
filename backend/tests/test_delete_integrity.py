@@ -4,6 +4,7 @@ ledenwijzigingen-export niet breken, en mag geen weesbetalingen achterlaten (#82
 from datetime import date
 
 from app.domains.payment_status.models import PaymentRecord
+from app.models.history import PaymentRecordHistory
 from app.models.member import Member, Membership
 from app.models.external_number import ExternalNumber
 from tests.conftest import seed_postal_code
@@ -44,16 +45,46 @@ def test_delete_family_with_membership_payment(client, db_session, admin_headers
     overview = client.get("/api/v1/payment-status/records", headers=admin_headers)
     assert overview.status_code == 200, overview.text
 
-    # Geen weesbetaling: de lidmaatschap-betaling hoort opgeruimd (met audit).
+    # De betaling is een financieel feit en BLIJFT bestaan (niet stil gewist bij
+    # gezin-delete). De admin kan ze desgewenst apart verwijderen.
     leftover = db_session.query(PaymentRecord).filter(
         PaymentRecord.payable_type == "membership", PaymentRecord.payable_id == membership.id,
     ).first()
-    assert leftover is None
+    assert leftover is not None
 
-    # De verwijdering staat in de ledenwijzigingen-export.
+    # De verwijdering van het gezin staat wél in de ledenwijzigingen-export.
     changes = client.get("/api/v1/admin/member-changes",
                          params={"since": date.today().isoformat()}, headers=admin_headers).json()
     assert any(c["operation_label"] == "Verwijderd" for c in changes)
+
+
+def test_admin_can_delete_payment_record(client, db_session, admin_headers):
+    member = _create_family(client, db_session)
+    membership = db_session.query(Membership).filter(Membership.member_id == member.id).first()
+    pay = db_session.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "membership", PaymentRecord.payable_id == membership.id,
+    ).first()
+    pay_id = pay.id
+
+    # Niet-admin mag niet.
+    assert client.delete(f"/api/v1/payment-status/records/{pay_id}").status_code in (401, 403)
+
+    # Admin verwijdert de betaling bewust.
+    resp = client.delete(f"/api/v1/payment-status/records/{pay_id}", headers=admin_headers)
+    assert resp.status_code == 204, resp.text
+    assert db_session.query(PaymentRecord).filter(PaymentRecord.id == pay_id).first() is None
+
+    # Het financiële feit blijft in de audit-history bewaard.
+    hist = db_session.query(PaymentRecordHistory).filter(
+        PaymentRecordHistory.payment_record_id == pay_id,
+        PaymentRecordHistory.operation == "delete",
+    ).first()
+    assert hist is not None
+    assert hist.action == "payment_deleted"
+
+
+def test_delete_unknown_payment_record_404(client, admin_headers):
+    assert client.delete("/api/v1/payment-status/records/nope", headers=admin_headers).status_code == 404
 
 
 def test_delete_family_with_external_number(client, db_session, admin_headers):

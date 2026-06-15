@@ -246,3 +246,26 @@ def update_payment_record(
     db.commit()
     db.refresh(record)
     return _to_response(record)
+
+
+@router.delete("/records/{record_id}", status_code=204)
+def delete_payment_record(
+    record_id: str,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Verwijder één betaalrecord als bewuste admin-actie (#167) — bv. een
+    foutieve/test-betaling of een weesbetaling na een gezin-delete. Mét audit
+    (snapshot vóór delete) zodat het financiële feit in de history bewaard blijft.
+    Een eventuele refund die naar deze charge wees, krijgt refund_of_id = NULL
+    (ON DELETE SET NULL)."""
+    record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
+    if not record:
+        raise HTTPException(status_code=404, detail="Payment record not found")
+    snapshot_payment_record(
+        db, record,
+        operation="delete", action="payment_deleted",
+        source="admin_manual", actor=admin.email,
+    )
+    db.delete(record)
+    db.commit()
