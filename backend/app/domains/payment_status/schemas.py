@@ -21,12 +21,29 @@ class PaymentRecordResponse(BaseModel):
     amount_paid: Optional[Decimal] = None
     method: str
     status: str
+    type: str = "charge"
+    refund_of_id: Optional[str] = None
     note: Optional[str] = None
     paid_at: Optional[datetime] = None
     checkout_url: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class RefundCreate(BaseModel):
+    """Terugbetaling op een charge-record. ``amount`` is het positieve te
+    refunden bedrag; de service slaat het op als negatief record."""
+    amount: Decimal
+    note: Optional[str] = None
+    method: str = "transfer"
+
+
+class RegistrationBalance(BaseModel):
+    total_due: Decimal
+    total_paid: Decimal
+    total_refunded: Decimal
+    balance: Decimal
 
 
 class EnrichedPaymentRecord(PaymentRecordResponse):

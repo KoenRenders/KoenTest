@@ -6,8 +6,14 @@ from app.auth import get_current_admin
 from app.database import get_db
 from app.models.user import User
 from .models import PaymentRecord
-from .schemas import PaymentRecordResponse, PaymentRecordUpdate, EnrichedPaymentRecord
-from .service import confirm_manual_payment, get_records_for, handle_gateway_update
+from .schemas import (
+    PaymentRecordResponse, PaymentRecordUpdate, EnrichedPaymentRecord,
+    RefundCreate, RegistrationBalance,
+)
+from .service import (
+    confirm_manual_payment, get_records_for, handle_gateway_update,
+    create_refund, registration_balance,
+)
 from app.domains.audit.service import snapshot_payment_record
 from app.services.registration_totals import compute_registration_total
 
@@ -23,6 +29,8 @@ def _to_response(r: PaymentRecord) -> PaymentRecordResponse:
         amount_paid=r.amount_paid,
         method=r.method,
         status=r.status,
+        type=r.type,
+        refund_of_id=r.refund_of_id,
         note=r.note,
         paid_at=r.paid_at,
         checkout_url=r.gateway_payment.checkout_url if r.gateway_payment else None,
@@ -93,6 +101,8 @@ def list_all_payment_records(
             amount_paid=r.amount_paid,
             method=r.method,
             status=r.status,
+            type=r.type,
+            refund_of_id=r.refund_of_id,
             note=r.note,
             paid_at=r.paid_at,
             checkout_url=r.gateway_payment.checkout_url if r.gateway_payment else None,
@@ -145,6 +155,46 @@ def refresh_payment_record(
     db.commit()
     db.refresh(record)
     return _to_response(record)
+
+
+@router.post("/records/{record_id}/refund", response_model=PaymentRecordResponse)
+def refund_payment_record(
+    record_id: str,
+    data: RefundCreate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Registreer een terugbetaling op een charge-record (#83).
+
+    Maakt een apart, negatief PaymentRecord (``type="refund"``) dat naar de
+    charge verwijst. De financiële invarianten zitten in de service-laag.
+    """
+    try:
+        refund = create_refund(
+            db, record_id, data.amount,
+            note=data.note, method=data.method, actor=admin.email,
+        )
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    db.commit()
+    db.refresh(refund)
+    return _to_response(refund)
+
+
+@router.get("/registrations/{registration_id}/balance", response_model=RegistrationBalance)
+def get_registration_balance(
+    registration_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    """Financiële stand van een inschrijving: verschuldigd, betaald, terugbetaald,
+    saldo (#83). De live DB is de bron van waarheid."""
+    from app.models.activity import Registration
+
+    reg = db.query(Registration).filter(Registration.id == registration_id).first()
+    if not reg:
+        raise HTTPException(status_code=404, detail="Registration not found")
+    return RegistrationBalance(**registration_balance(db, reg))
 
 
 @router.patch("/records/{record_id}", response_model=PaymentRecordResponse)
