@@ -166,7 +166,27 @@ export const removeMemberPerson = (personId: number) =>
   api.delete(`/api/v1/member/household/persons/${personId}`);
 
 // Admin
+export interface SystemInfo {
+  version: string;
+  commit: string;
+  environment: string;
+  server_time: string;
+  timezone: string;
+  flags: { log_level: string; debug: boolean; sql_echo: boolean };
+  limits: { max_item_quantity: number; max_registrations_per_email: number };
+  membership: {
+    price_full: string;
+    price_half: string;
+    half_price_start_md: string;
+    half_price_end_md: string;
+    next_year_from_md: string;
+    renewal_start_md: string | null;
+  };
+  urls: { frontend_url: string; public_url: string };
+  mollie_mode: string;
+}
 export const getStats = () => api.get("/api/v1/admin/stats");
+export const getSystemInfo = () => api.get<SystemInfo>("/api/v1/admin/system-info");
 export const getAllPages = () => api.get("/api/v1/admin/pages");
 
 
