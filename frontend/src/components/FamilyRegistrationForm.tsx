@@ -1,6 +1,7 @@
 "use client";
 import { useState, useEffect } from "react";
 import { createFamily, getGenderCodes, getRelationTypes } from "@/lib/api";
+import { trackEvent } from "@/lib/analytics";
 import { type PersonInput, type AddressInput, emptyPerson, emptyAddress } from "./household/types";
 import { usePostalCodes } from "./household/usePostalCodes";
 import PersonFields from "./household/PersonFields";
@@ -54,6 +55,8 @@ export default function FamilyRegistrationForm() {
         })),
       });
       const data = res.data;
+      // Funnel-event (#152, laag 1) — geen PII, enkel de betaalkeuze.
+      trackEvent("lid-worden-verzonden", { betaalkeuze: paymentMethod });
       if (paymentMethod === "online" && data.checkout_url) {
         window.location.href = data.checkout_url;
       } else {
