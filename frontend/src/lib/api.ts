@@ -124,6 +124,8 @@ export const deleteMedia = (id: number) => api.delete(`/api/v1/admin/media/${id}
 export const listPaymentRecords = () => api.get("/api/v1/payment-status/records");
 export const updatePaymentRecord = (id: string, data: unknown) => api.patch(`/api/v1/payment-status/records/${id}`, data);
 export const refreshPaymentRecord = (id: string) => api.post(`/api/v1/payment-status/records/${id}/refresh`);
+export const refundPaymentRecord = (id: string, data: { amount: number; note?: string }) =>
+  api.post(`/api/v1/payment-status/records/${id}/refund`, data);
 
 // Auth — één login voor iedereen (magic link + OTP)
 export const requestLogin = (email: string) => api.post("/api/v1/auth/request-login", { email });

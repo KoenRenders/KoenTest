@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { listPaymentRecords, updatePaymentRecord, refreshPaymentRecord, getRegistrations } from "@/lib/api";
+import { listPaymentRecords, updatePaymentRecord, refreshPaymentRecord, refundPaymentRecord, getRegistrations } from "@/lib/api";
 import { parseApiError } from "@/lib/errors";
 import RegistrationList, { type RegistrationEntry } from "@/components/RegistrationList";
 
@@ -21,6 +21,8 @@ interface PaymentRecord {
   items: RegItem[];
   method: string;
   status: string;
+  type: string;             // "charge" | "refund" (#83)
+  refund_of_id: string | null;
   note: string | null;
   paid_at: string | null;
   created_at: string;
@@ -67,6 +69,12 @@ export default function BetalingenPage() {
   const [editError, setEditError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "openstaand" | "pending" | "paid">("all");
+
+  // Terugbetaling registreren (#83): record id -> formulier
+  const [refunding, setRefunding] = useState<string | null>(null);
+  const [refundData, setRefundData] = useState<{ amount: string; note: string }>({ amount: "", note: "" });
+  const [refundSaving, setRefundSaving] = useState(false);
+  const [refundError, setRefundError] = useState<string | null>(null);
 
   // Registration details: record id -> RegistrationEntry | null (null = loading)
   const [regDetails, setRegDetails] = useState<Record<string, RegistrationEntry | null>>({});
@@ -150,6 +158,31 @@ export default function BetalingenPage() {
     }
   }
 
+  function startRefund(r: PaymentRecord) {
+    setRefunding(r.id);
+    setRefundError(null);
+    setRefundData({ amount: "", note: "" });
+  }
+
+  async function saveRefund(id: string) {
+    const amount = parseFloat(refundData.amount);
+    if (!amount || amount <= 0) {
+      setRefundError("Geef een terug te betalen bedrag op (groter dan 0).");
+      return;
+    }
+    setRefundSaving(true);
+    setRefundError(null);
+    try {
+      await refundPaymentRecord(id, { amount, note: refundData.note || undefined });
+      setRefunding(null);
+      await load();
+    } catch (e) {
+      setRefundError(parseApiError(e, "Terugbetaling registreren mislukt."));
+    } finally {
+      setRefundSaving(false);
+    }
+  }
+
   async function refreshStatus(id: string) {
     setRefreshing(id);
     setError(null);
@@ -177,6 +210,11 @@ export default function BetalingenPage() {
   const totalExpected = filtered.reduce((s, r) => s + parseFloat(r.amount), 0);
   const totalPaid = filtered.reduce((s, r) => s + (r.amount_paid ? parseFloat(r.amount_paid) : 0), 0);
   const totalSaldo = totalExpected - totalPaid;
+  // Terugbetalingen zijn negatieve records; toon het teruggestorte bedrag positief (#83).
+  const totalRefunded = filtered.reduce(
+    (s, r) => s + (r.type === "refund" && r.amount_paid ? -parseFloat(r.amount_paid) : 0),
+    0,
+  );
 
   if (loading) return <p className="p-8 text-gray-500">Laden…</p>;
 
@@ -208,6 +246,9 @@ export default function BetalingenPage() {
         <span>{filtered.length} betaling{filtered.length !== 1 ? "en" : ""}</span>
         <span>Verwacht: <strong>€{totalExpected.toFixed(2)}</strong></span>
         <span>Ontvangen: <strong>€{totalPaid.toFixed(2)}</strong></span>
+        {totalRefunded > 0.001 && (
+          <span className="text-orange-600">Terugbetaald: <strong>€{totalRefunded.toFixed(2)}</strong></span>
+        )}
         <span className={totalSaldo > 0.001 ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>
           Saldo: €{totalSaldo.toFixed(2)}
         </span>
@@ -232,6 +273,11 @@ export default function BetalingenPage() {
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[r.status] ?? "bg-gray-100 text-gray-600"}`}>
                       {STATUS_LABELS[r.status] ?? r.status}
                     </span>
+                    {r.type === "refund" && (
+                      <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">
+                        Terugbetaling
+                      </span>
+                    )}
                   </div>
                   <div className="mt-1 text-sm text-gray-500 flex gap-4 flex-wrap">
                     <span>{METHOD_LABELS[r.method] ?? r.method}</span>
@@ -273,7 +319,7 @@ export default function BetalingenPage() {
                     </div>
                   )}
                 </div>
-                {editing !== r.id && (
+                {editing !== r.id && refunding !== r.id && (
                   <div className="flex flex-col gap-1 items-end">
                     <button
                       onClick={() => startEdit(r)}
@@ -289,6 +335,15 @@ export default function BetalingenPage() {
                         title="Haal de actuele betaalstatus bij Mollie op"
                       >
                         {refreshing === r.id ? "Verversen…" : "Status verversen"}
+                      </button>
+                    )}
+                    {/* Terugbetalen kan enkel op een charge waar geld op ontvangen is (#83) */}
+                    {r.type !== "refund" && r.amount_paid && parseFloat(r.amount_paid) > 0 && (
+                      <button
+                        onClick={() => startRefund(r)}
+                        className="text-xs text-orange-600 border border-orange-200 rounded px-2 py-0.5 hover:bg-orange-50 whitespace-nowrap"
+                      >
+                        Terugbetaling registreren
                       </button>
                     )}
                   </div>
@@ -347,6 +402,54 @@ export default function BetalingenPage() {
                     </button>
                     <button
                       onClick={() => { setEditing(null); setEditError(null); }}
+                      className="btn-secondary text-sm"
+                    >
+                      Annuleren
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {refunding === r.id && (
+                <div className="mt-3 pt-3 border-t border-orange-100 space-y-3">
+                  <p className="text-sm font-medium text-orange-700">Terugbetaling registreren</p>
+                  <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Bedrag (€)</label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        className="input text-sm"
+                        placeholder={r.amount_paid ? parseFloat(r.amount_paid).toFixed(2) : "0.00"}
+                        value={refundData.amount}
+                        onChange={(e) => setRefundData((d) => ({ ...d, amount: e.target.value }))}
+                      />
+                    </div>
+                    <div className="sm:col-span-3">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Reden / opmerking</label>
+                      <input
+                        type="text"
+                        className="input text-sm"
+                        placeholder="bv. afgehaakt, helper-tarief…"
+                        value={refundData.note}
+                        onChange={(e) => setRefundData((d) => ({ ...d, note: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  {refundError && (
+                    <p className="text-red-600 text-sm mb-2">{refundError}</p>
+                  )}
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => saveRefund(r.id)}
+                      disabled={refundSaving}
+                      className="btn-primary text-sm"
+                    >
+                      {refundSaving ? "Bezig…" : "Terugbetaling opslaan"}
+                    </button>
+                    <button
+                      onClick={() => { setRefunding(null); setRefundError(null); }}
                       className="btn-secondary text-sm"
                     >
                       Annuleren
