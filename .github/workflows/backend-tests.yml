@@ -65,7 +65,7 @@ jobs:
           node-version: "20"
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
 
       # Type-check vangt fouten als "Property 'x' does not exist" vóór de deploy —
       # voorheen brak dat soort fout pas de Docker-build op HDEV (#127).
@@ -128,7 +128,7 @@ jobs:
       - name: Frontend-deps + Playwright-browser
         working-directory: frontend
         run: |
-          npm install
+          npm ci
           npx playwright install --with-deps chromium
 
       - name: Start frontend (next dev)
