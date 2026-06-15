@@ -21,6 +21,13 @@ configure_logging()
 
 logger = logging.getLogger(__name__)
 
+logger.info(
+    "Starting Raak Millegem %s (%s) [omgeving=%s]",
+    settings.app_version,
+    settings.git_sha,
+    settings.app_env,
+)
+
 app = FastAPI(
     title="Raak Millegem API",
     description="API for the Raak Millegem community association",
@@ -96,4 +103,9 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
 
 @app.get("/api/health")
 def health_check():
-    return {"status": "ok", "service": "Raak Millegem API"}
+    return {
+        "status": "ok",
+        "service": "Raak Millegem API",
+        "version": settings.app_version,
+        "commit": settings.git_sha,
+    }

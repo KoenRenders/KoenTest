@@ -12,6 +12,10 @@ REF="${1:?Geef de te deployen release-tag op, bv: ./deploy-prod.sh v1.2.1}"
 git fetch --tags --prune origin
 git checkout --detach "$REF"
 
+# Versie + commit voor de startup-log (#151); als build-args naar de backend-image.
+export APP_VERSION="$(git describe --tags --always 2>/dev/null || echo onbekend)"
+export GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo onbekend)"
+
 docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
 
 # Post-deploy rooktest — STRIKT ALLEEN-LEZEN, maakt geen data aan (veilig op PROD).

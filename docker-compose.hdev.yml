@@ -17,7 +17,11 @@ services:
       retries: 5
 
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      args:
+        APP_VERSION: ${APP_VERSION:-onbekend}
+        GIT_SHA: ${GIT_SHA:-onbekend}
     restart: unless-stopped
     environment:
       DATABASE_URL: postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/raakmillegem_hdev

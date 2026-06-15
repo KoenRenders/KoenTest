@@ -32,6 +32,11 @@ class Settings(BaseSettings):
     public_url: str = "http://localhost:8000"
     app_env: str = "prod"  # dev, hdev, uat, prod
 
+    # Versie + korte commit-SHA, gevoed via build-args (zie Dockerfile +
+    # deploy-scripts). Fallback 'onbekend' lokaal/zonder build-info.
+    app_version: str = "onbekend"
+    git_sha: str = "onbekend"
+
     # Logniveau: DEBUG | INFO | WARNING | ERROR (default INFO)
     log_level: str = "INFO"
 
