@@ -48,7 +48,7 @@ jobs:
           APP_ENV: dev
         # Coverage wordt enkel gerapporteerd (geen faaldrempel; #127). Een drempel
         # kan later stapsgewijs via --cov-fail-under.
-        run: python -m pytest -v --tb=short --cov=app --cov-report=term-missing
+        run: python -m pytest -v --tb=short --cov=app --cov-report=term-missing --cov-fail-under=73
 
   frontend:
     runs-on: ubuntu-latest
