@@ -10,7 +10,7 @@ export default function EnvBar() {
   // toont de omgevingsnaam. Op PROD is ENV_COLOR leeg → geen balk.
   return (
     <div
-      className="sticky top-0 z-50 flex h-7 items-center justify-center text-xs font-bold uppercase tracking-widest text-white"
+      className="flex h-7 items-center justify-center text-xs font-bold uppercase tracking-widest text-white"
       style={{ backgroundColor: ENV_COLOR }}
       title={`Omgeving: ${APP_ENV}`}
     >
