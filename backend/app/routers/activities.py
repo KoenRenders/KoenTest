@@ -561,13 +561,14 @@ def register_for_activity(
     if data.contact_email:
         existing_count = db.query(Registration).filter(
             Registration.activity_id == activity_id,
+            Registration.component_id == data.component_id,
             func.lower(Registration.contact_email) == data.contact_email.lower(),
         ).count()
         if existing_count >= settings.max_registrations_per_email:
             raise HTTPException(
                 status_code=409,
-                detail=f"Er zijn al {settings.max_registrations_per_email} inschrijvingen voor deze "
-                       "activiteit met dit e-mailadres. Neem contact op met het bestuur als je er meer nodig hebt.",
+                detail=f"Er zijn al {settings.max_registrations_per_email} inschrijvingen met dit "
+                       "e-mailadres voor dit onderdeel. Neem contact op met het bestuur als je er meer nodig hebt.",
             )
 
     valid_product_ids = {
