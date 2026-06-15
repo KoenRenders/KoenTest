@@ -10,6 +10,8 @@
 # Caddyfile herladen na een wijziging (zonder herstart):
 #   docker compose -f docker-compose.caddy.yml exec caddy caddy reload --config /etc/caddy/Caddyfile
 
+name: caddy
+
 services:
   caddy:
     image: caddy:2

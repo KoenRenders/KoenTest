@@ -163,6 +163,16 @@ include `-f docker-compose.<env>.yml --env-file .env.<env>`:
 sudo docker compose -f docker-compose.hdev.yml --env-file .env.hdev <cmd>
 ```
 
+**Elk compose-bestand zet een expliciete projectnaam via de top-level `name:`-key**
+(`caddy`, `dev`, `hdev`, `uat`, `prod`) (#155). Daardoor is de projectnaam
+onafhankelijk van de map waaruit je `docker compose` draait: de gedeelde Caddy
+(`name: caddy`) en de prod-stack (`name: prod`) kunnen veilig uit dezelfde map
+draaien zonder elkaars containers als "orphans" te zien. Gevolg: **geen
+`Found orphan containers`-warnings meer**, en `--remove-orphans` op één stack kan
+een andere stack niet meer slopen. Bij de eerste deploy ná deze wijziging verhuist
+`prod-caddy-1` naar het project `caddy` (= `caddy-caddy-1`); ruim de oude
+`prod-caddy-1` één keer handmatig op als die blijft staan.
+
 The DB user/password are **not** the defaults — they come from `DB_USER`/
 `DB_PASSWORD` in the env file. Never hardcode `postgres:postgres`. Instead derive
 credentials from the container's own environment:
