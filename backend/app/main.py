@@ -13,6 +13,7 @@ from app.logging_config import configure_logging
 from app.models import *  # noqa: F401, F403 - ensures all models are registered
 from app.routers import auth, members, activities, ideas, cms, admin, media
 from app.routers.member_household import router as member_household_router
+from app.routers.member_import import router as member_import_router
 from app.routers.users import router as users_router
 from app.domains.payment_gateway.router import router as payment_gateway_router
 from app.domains.payment_status.router import router as payment_status_router
@@ -51,6 +52,7 @@ app.include_router(media.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1/admin")
 app.include_router(users_router, prefix="/api/v1")
 app.include_router(member_household_router, prefix="/api/v1")
+app.include_router(member_import_router, prefix="/api/v1")
 app.include_router(payment_gateway_router, prefix="/api/v1")
 app.include_router(payment_status_router, prefix="/api/v1")
 

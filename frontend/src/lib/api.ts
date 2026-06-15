@@ -120,6 +120,39 @@ export const updateMedia = (id: number, data: Partial<MediaAsset>) =>
   api.patch<MediaAsset>(`/api/v1/admin/media/${id}`, data);
 export const deleteMedia = (id: number) => api.delete(`/api/v1/admin/media/${id}`);
 
+// Ledenrapport-import (#170): upload .xls → dry-run preview → bevestigen.
+export interface MemberImportReport {
+  new_families: number;
+  updated_families: number;
+  persons_added: number;
+  persons_updated: number;
+  persons_removed: number;
+  memberships_created: number;
+  admins_created: number;
+  skipped: number;
+  warnings: string[];
+  lines: string[];
+}
+export interface MemberImportResult {
+  selected_families: number;
+  total_persons: number;
+  report: MemberImportReport;
+}
+export interface MemberImportPreview extends MemberImportResult {
+  token: string;
+  load_all: boolean;
+}
+export const memberImportPreview = (file: File, allMembers = false) => {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("all_members", String(allMembers));
+  return api.post<MemberImportPreview>("/api/v1/admin/member-import/preview", fd, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+export const memberImportCommit = (token: string) =>
+  api.post<MemberImportResult>("/api/v1/admin/member-import/commit", { token });
+
 // Payment records
 export const listPaymentRecords = () => api.get("/api/v1/payment-status/records");
 export const updatePaymentRecord = (id: string, data: unknown) => api.patch(`/api/v1/payment-status/records/${id}`, data);
