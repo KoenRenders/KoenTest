@@ -38,6 +38,7 @@ from app.schemas.member import (
 )
 from app.schemas.family import FamilyCreate
 from app.domains.payment_status.service import create_payment_record, membership_price_for_date, membership_valid_period
+from app.domains.analytics.service import log_business_event
 from app.domains.audit.service import (
     snapshot_person,
     snapshot_member,
@@ -650,6 +651,14 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
     except ValueError as e:
         db.rollback()
         raise HTTPException(status_code=422, detail=str(e))
+
+    # Business-event (#152): nieuw gezin/lidmaatschap aangevraagd. Geen PII.
+    log_business_event(
+        db, "lid_worden_voltooid",
+        member_id=member.id,
+        payment_record_id=payment_record.id if payment_record else None,
+        payload={"amount": str(amount), "payment_method": data.payment_method},
+    )
 
     db.commit()
 

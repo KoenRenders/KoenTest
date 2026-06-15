@@ -12,6 +12,7 @@ const navItems = [
   { href: "/admin/media", label: "Media" },
   { href: "/admin/ideeen", label: "Berichten" },
   { href: "/admin/betalingen", label: "Betalingen" },
+  { href: "/admin/analyse", label: "Analyse" },
   { href: "/admin/gebruikers", label: "Gebruikers" },
   { href: "/admin/info", label: "Info" },
 ];

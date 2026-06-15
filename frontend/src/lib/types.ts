@@ -83,6 +83,7 @@ export interface CmsPage {
   slug: string;
   content?: string;
   is_published: boolean;
+  show_in_nav: boolean;
   sort_order: number;
 }
 

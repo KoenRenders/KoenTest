@@ -209,6 +209,16 @@ export interface SystemInfo {
 }
 export const getStats = () => api.get("/api/v1/admin/stats");
 export const getSystemInfo = () => api.get<SystemInfo>("/api/v1/admin/system-info");
+
+export interface BusinessEventStats {
+  period_days: number;
+  totals: Record<string, number>;
+  totals_30d: Record<string, number>;
+  revenue_paid_eur: number;
+  revenue_paid_eur_30d: number;
+}
+export const getBusinessEventStats = () =>
+  api.get<BusinessEventStats>("/api/v1/admin/business-events");
 export const getAllPages = () => api.get("/api/v1/admin/pages");
 
 

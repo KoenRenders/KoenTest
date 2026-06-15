@@ -8,7 +8,7 @@ import type { CmsPage } from "@/lib/types";
 
 type Placeholder = { code: string; label: string; preview: string };
 
-const emptyPage = () => ({ title: "", slug: "", content: "", is_published: false, sort_order: 0 });
+const emptyPage = () => ({ title: "", slug: "", content: "", is_published: false, show_in_nav: true, sort_order: 0 });
 
 function MenuBar({ editor }: { editor: ReturnType<typeof useEditor> }) {
   if (!editor) return null;
@@ -116,7 +116,7 @@ export default function AdminPaginas() {
   }
 
   function startEdit(p: CmsPage) {
-    setForm({ title: p.title, slug: p.slug, content: p.content || "", is_published: p.is_published, sort_order: p.sort_order });
+    setForm({ title: p.title, slug: p.slug, content: p.content || "", is_published: p.is_published, show_in_nav: p.show_in_nav, sort_order: p.sort_order });
     setEditing(p.id);
     setShowForm(true);
   }
@@ -156,6 +156,10 @@ export default function AdminPaginas() {
               <div className="flex items-center gap-2 pt-6">
                 <input type="checkbox" id="published" checked={form.is_published} onChange={(e) => setForm((f) => ({ ...f, is_published: e.target.checked }))} />
                 <label htmlFor="published">Gepubliceerd</label>
+              </div>
+              <div className="flex items-center gap-2">
+                <input type="checkbox" id="show_in_nav" checked={form.show_in_nav} onChange={(e) => setForm((f) => ({ ...f, show_in_nav: e.target.checked }))} />
+                <label htmlFor="show_in_nav">In navigatie tonen</label>
               </div>
             </div>
 

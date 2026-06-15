@@ -11,8 +11,8 @@ Revises: 047
 from alembic import op
 import sqlalchemy as sa
 
-revision = "048"
-down_revision = "047"
+revision = "051"
+down_revision = "050"
 branch_labels = None
 depends_on = None
 
