@@ -28,6 +28,12 @@
 	}
 }
 
+# www → apex: 301-redirect naar de canonieke URL (best practice, één canonieke host)
+{$PROD_WWW_DOMAIN} {
+	import security_headers
+	redir https://{$PROD_DOMAIN}{uri} permanent
+}
+
 {$PROD_DOMAIN} {
 	import security_headers
 	handle /api/* {
