@@ -45,6 +45,7 @@ def list_all_payment_records(
 ):
     """List all payment records, enriched with contact name and description."""
     from app.models.activity import Registration, Activity
+    from app.models.activity_sub_registration import ActivitySubRegistration
     from app.models.member import Member, MemberPerson, Person
 
     records = db.query(PaymentRecord).order_by(PaymentRecord.created_at.desc()).all()
@@ -53,6 +54,8 @@ def list_all_payment_records(
         contact_name: Optional[str] = None
         description: Optional[str] = None
         activity_id: Optional[int] = None
+        component_id: Optional[int] = None
+        component_name: Optional[str] = None
         reg_items: list = []
 
         if r.payable_type == "registration":
@@ -60,6 +63,12 @@ def list_all_payment_records(
             if reg:
                 contact_name = reg.contact_name
                 activity_id = reg.activity_id
+                component_id = reg.component_id
+                if reg.component_id is not None:
+                    comp = db.query(ActivitySubRegistration).filter(
+                        ActivitySubRegistration.id == reg.component_id
+                    ).first()
+                    component_name = comp.name if comp else None
                 activity = db.query(Activity).filter(Activity.id == reg.activity_id).first()
                 if activity:
                     description = activity.name
@@ -96,6 +105,8 @@ def list_all_payment_records(
             payable_type=r.payable_type,
             payable_id=r.payable_id,
             activity_id=activity_id,
+            component_id=component_id,
+            component_name=component_name,
             items=reg_items,
             amount=r.amount,
             amount_paid=r.amount_paid,

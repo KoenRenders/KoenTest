@@ -50,6 +50,8 @@ class EnrichedPaymentRecord(PaymentRecordResponse):
     description: Optional[str] = None
     contact_name: Optional[str] = None
     activity_id: Optional[int] = None
+    component_id: Optional[int] = None      # voor de penningmeester-filter (#90)
+    component_name: Optional[str] = None
     items: list = []
 
 

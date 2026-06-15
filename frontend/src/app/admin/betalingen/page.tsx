@@ -19,6 +19,8 @@ interface PaymentRecord {
   amount: string;
   amount_paid: string | null;
   activity_id: number | null;
+  component_id: number | null;
+  component_name: string | null;
   items: RegItem[];
   method: string;
   status: string;
@@ -70,6 +72,8 @@ export default function BetalingenPage() {
   const [editError, setEditError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "openstaand" | "pending" | "paid">("all");
+  // Context-filter (#90): "all" | "membership" | "comp-<id>"
+  const [context, setContext] = useState<string>("all");
 
   // Terugbetaling registreren (#83): record id -> formulier
   const [refunding, setRefunding] = useState<string | null>(null);
@@ -202,11 +206,36 @@ export default function BetalingenPage() {
   }
 
   const filtered = records.filter((r) => {
+    // Context-filter (#90): lidmaatschap-vernieuwing of één activiteit-onderdeel.
+    if (context === "membership" && r.payable_type !== "membership") return false;
+    if (context.startsWith("comp-")) {
+      const cid = parseInt(context.slice(5), 10);
+      if (r.payable_type !== "registration" || r.component_id !== cid) return false;
+    }
+    // Status-filter (#83).
     if (filter === "pending") return r.status === "pending";
     if (filter === "paid") return r.status === "paid";
     if (filter === "openstaand") return saldo(r) > 0.001;
     return true;
   });
+
+  // Opties voor het context-filter, afgeleid uit de records: één optgroup per
+  // activiteit met haar onderdelen (zoals de Media-bibliotheek), plus lidmaatschap.
+  const hasMembership = records.some((r) => r.payable_type === "membership");
+  const activityGroups = (() => {
+    const byActivity = new Map<number, { name: string; comps: Map<number, string> }>();
+    for (const r of records) {
+      if (r.payable_type !== "registration" || r.activity_id == null || r.component_id == null) continue;
+      const g = byActivity.get(r.activity_id) ?? { name: r.description ?? `Activiteit ${r.activity_id}`, comps: new Map() };
+      g.comps.set(r.component_id, r.component_name ?? `Onderdeel ${r.component_id}`);
+      byActivity.set(r.activity_id, g);
+    }
+    return Array.from(byActivity.entries()).map(([activityId, g]) => ({
+      activityId,
+      activityName: g.name,
+      components: Array.from(g.comps.entries()).map(([id, name]) => ({ id, name })),
+    }));
+  })();
 
   const totalExpected = filtered.reduce((s, r) => s + parseFloat(r.amount), 0);
   const totalPaid = filtered.reduce((s, r) => s + (r.amount_paid ? parseFloat(r.amount_paid) : 0), 0);
@@ -223,7 +252,7 @@ export default function BetalingenPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Betalingen</h1>
 
-      <div className="flex gap-2 mb-6">
+      <div className="flex gap-2 mb-4 flex-wrap items-center">
         {(["all", "openstaand", "pending", "paid"] as const).map((f) => (
           <button
             key={f}
@@ -237,6 +266,25 @@ export default function BetalingenPage() {
             {f === "all" ? "Alle" : f === "openstaand" ? "Openstaand saldo" : f === "pending" ? "In afwachting" : "Betaald"}
           </button>
         ))}
+      </div>
+
+      {/* Context-filter (#90): lidmaatschap-vernieuwing of een activiteit-onderdeel */}
+      <div className="mb-6">
+        <select
+          className="input text-sm max-w-md"
+          value={context}
+          onChange={(e) => setContext(e.target.value)}
+        >
+          <option value="all">Alle contexten</option>
+          {hasMembership && <option value="membership">Lidmaatschap-vernieuwing</option>}
+          {activityGroups.map((g) => (
+            <optgroup key={g.activityId} label={g.activityName}>
+              {g.components.map((c) => (
+                <option key={c.id} value={`comp-${c.id}`}>{c.name}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
       </div>
 
       {error && (
