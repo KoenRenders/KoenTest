@@ -11,8 +11,9 @@ PII: enkel anoniem bezoek + een handvol funnel-events.
 
 ## Wat zit al in de repo
 
-- **HDEV**: `umami`-service in `docker-compose.hdev.yml` (database `umami_hdev`,
-  `BASE_PATH=/umami`) + route in `caddy/Caddyfile.hdev` (`/umami/*`).
+- **HDEV**: `umami`-service in `docker-compose.hdev.yml` (database `umami_hdev`)
+  op een **eigen poort `8082`** (root-served, geen subpad/Caddy-route). Het prebuilt
+  image past runtime-`BASE_PATH` niet toe, daarom geen `/umami`-subpad.
 - **Frontend**: `components/Analytics.tsx` laadt de tracker **enkel** op publieke
   pagina's (nooit `/admin` of `/login`) en **enkel** wanneer geconfigureerd
   (`NEXT_PUBLIC_UMAMI_SRC` + `NEXT_PUBLIC_UMAMI_WEBSITE_ID`, build-time). DNT via
@@ -38,12 +39,12 @@ PII: enkel anoniem bezoek + een handvol funnel-events.
    ```
    ./deploy-hdev.sh
    ```
-4. **Inloggen** op `http://YOUR_SERVER_IP:8081/umami` (standaard `admin` / `umami`
+4. **Inloggen** op `http://YOUR_SERVER_IP:8082/` (standaard `admin` / `umami`
    — **meteen het wachtwoord wijzigen**).
 5. **Website aanmaken** in de Umami-UI → kopieer het gegenereerde **Website ID**.
 6. **Frontend koppelen** in `.env.hdev` en herbouwen:
    ```
-   NEXT_PUBLIC_UMAMI_SRC=/umami/script.js
+   NEXT_PUBLIC_UMAMI_SRC=http://YOUR_SERVER_IP:8082/script.js
    NEXT_PUBLIC_UMAMI_WEBSITE_ID=<website-id-uit-stap-5>
    ```
    ```

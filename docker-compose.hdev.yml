@@ -68,7 +68,8 @@ services:
   # bestaande Postgres via een EIGEN database (umami_hdev) — geen tweede DB-engine,
   # en zo automatisch meegenomen in db-backup. Eenmalig provisionen: zie docs/umami.md
   # (CREATE DATABASE umami_hdev). Umami draait Prisma-migraties zelf bij startup.
-  # Bereikbaar via de hdev-Caddy op /umami (BASE_PATH).
+  # Bereikbaar op een EIGEN poort (8082, root): het prebuilt image past runtime-
+  # BASE_PATH niet toe, dus geen subpad via de Caddy.
   umami:
     image: ghcr.io/umami-software/umami:postgresql-latest
     restart: unless-stopped
@@ -76,7 +77,10 @@ services:
       DATABASE_URL: ${UMAMI_DATABASE_URL:-postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/umami_hdev}
       DATABASE_TYPE: postgresql
       APP_SECRET: ${UMAMI_APP_SECRET:?UMAMI_APP_SECRET ontbreekt in .env.hdev}
-      BASE_PATH: /umami
+    ports:
+      # Eigen poort, root-served. Het prebuilt image negeert runtime-BASE_PATH,
+      # dus geen subpad via de Caddy (#172 vervangen door #174).
+      - "8082:3000"
     depends_on:
       db:
         condition: service_healthy
