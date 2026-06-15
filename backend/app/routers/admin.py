@@ -1,6 +1,6 @@
 from datetime import date, datetime, timezone
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -86,3 +86,33 @@ def get_system_info(_admin: User = Depends(get_current_admin)):
         },
         "mollie_mode": _mollie_mode(settings.mollie_api_key),
     }
+
+
+# ── Ledendata-wijzigingen sinds datum (#82) ───────────────────────────────────
+
+@router.get("/member-changes")
+def list_member_changes(
+    since: date = Query(..., description="Toon wijzigingen vanaf deze datum (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    """Alle ledendata-wijzigingen sinds `since`, voor manuele overname in Raak
+    Nationaal. Admin-only; bevat persoonsdata."""
+    from app.services.member_changes import member_changes_since
+    return member_changes_since(db, since)
+
+
+@router.get("/member-changes/export")
+def export_member_changes(
+    since: date = Query(..., description="Toon wijzigingen vanaf deze datum (YYYY-MM-DD)"),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    """Dezelfde wijzigingen als .xlsx-download."""
+    from app.services.member_changes import member_changes_since, build_member_changes_xlsx
+    content = build_member_changes_xlsx(member_changes_since(db, since))
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="ledenwijzigingen-vanaf-{since}.xlsx"'},
+    )

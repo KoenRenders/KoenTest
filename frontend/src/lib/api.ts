@@ -42,6 +42,12 @@ export const deleteOrderLine = (activityId: number, registrationId: number, item
 export const exportComponentXlsx = (activityId: number, componentId: number) =>
   api.get(`/api/v1/activities/${activityId}/components/${componentId}/export`, { responseType: "blob" });
 
+// Ledendata-wijzigingen sinds datum (#82)
+export const getMemberChanges = (since: string) =>
+  api.get("/api/v1/admin/member-changes", { params: { since } });
+export const exportMemberChanges = (since: string) =>
+  api.get("/api/v1/admin/member-changes/export", { params: { since }, responseType: "blob" });
+
 // Activity dates
 export const addActivityDate = (activityId: number, data: unknown) =>
   api.post(`/api/v1/activities/${activityId}/dates`, data);

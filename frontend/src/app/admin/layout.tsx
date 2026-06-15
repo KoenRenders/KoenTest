@@ -7,6 +7,7 @@ const navItems = [
   { href: "/admin", label: "Dashboard" },
   { href: "/admin/activiteiten", label: "Activiteiten" },
   { href: "/admin/leden", label: "Leden" },
+  { href: "/admin/ledenwijzigingen", label: "Ledenwijzigingen" },
   { href: "/admin/paginas", label: "CMS Pagina's" },
   { href: "/admin/media", label: "Media" },
   { href: "/admin/ideeen", label: "Berichten" },
