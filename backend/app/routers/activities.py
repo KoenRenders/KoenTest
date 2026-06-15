@@ -33,6 +33,7 @@ from app.services.email import send_activity_registration_confirmation
 from app.services.registration_totals import compute_registration_total
 from app.config import settings
 from app.domains.payment_status.service import create_payment_record
+from app.domains.analytics.service import log_business_event
 from app.limiter import registration_limiter
 
 router = APIRouter(tags=["activities"])
@@ -632,6 +633,7 @@ def register_for_activity(
     total_amount, _ = compute_registration_total(registration)
 
     checkout_url = None
+    payment_record = None
     if data.payment_method and total_amount > 0:
         method = "online" if data.payment_method == "ONLINE" else "transfer"
         redirect_url = f"{settings.frontend_url}/betaling/succes?registration={registration.id}"
@@ -667,6 +669,20 @@ def register_for_activity(
                 status_code=502,
                 detail="De online betaling kon niet gestart worden. Je inschrijving is niet bewaard — probeer ze later opnieuw.",
             )
+
+    # Business-event (#152): inschrijving voltooid. Geen PII — enkel niet-
+    # identificerende context. Commit mee in dezelfde transactie.
+    log_business_event(
+        db, "inschrijving_voltooid",
+        activity_id=activity_id,
+        payment_record_id=payment_record.id if payment_record else None,
+        payload={
+            "form_type": getattr(activity, "reg_form_type", None),
+            "paid": total_amount > 0,
+            "amount": str(total_amount),
+            "payment_method": data.payment_method,
+        },
+    )
 
     db.commit()
     db.refresh(registration)
