@@ -53,13 +53,19 @@ PII: enkel anoniem bezoek + een handvol funnel-events.
    Controleer dat `/admin` **niet** getrackt wordt en dat een browser met DNT geen
    hits genereert.
 
-## Privacyverklaring (verplichte stap)
+## Privacyverklaring
 
-Voeg in de admin (CMS → Pagina's) één regel toe aan de privacyverklaring, bv.:
+Een gepubliceerde privacypagina wordt geseed via migratie 048 (slug `privacy`,
+bereikbaar op `/privacy`, gelinkt vanuit de footer, niet in de hoofdnavigatie).
+Ze bevat al de vereiste regel over de cookieloze analytics:
 
 > *"Deze website gebruikt Umami, een zelf-gehoste en cookieloze
 > bezoekersstatistiek. Er worden geen persoonsgegevens verzameld en je IP-adres
 > wordt geanonimiseerd. We respecteren de Do-Not-Track-instelling van je browser."*
+
+De tekst is een **template** — pas hem aan via CMS → Pagina's (en laat hem zo
+nodig juridisch nakijken). De seed is idempotent en raakt een al aangepaste
+pagina niet meer aan.
 
 ## Promotie naar UAT / PROD
 
