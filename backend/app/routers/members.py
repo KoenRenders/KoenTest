@@ -46,6 +46,7 @@ from app.domains.audit.service import (
     snapshot_address,
     snapshot_contact_detail,
 )
+from app.soft_delete import soft_delete
 from app.services.email import send_registration_confirmation
 from app.config import settings
 from app.limiter import registration_limiter
@@ -302,30 +303,28 @@ def delete_family(
     if not member:
         raise HTTPException(status_code=404, detail="Family not found")
 
-    # Eerst alles als delete-snapshot vastleggen, dan pas verwijderen.
-    # Lidmaatschap-betalingen worden bewust NIET mee verwijderd: een betaling die
-    # echt gebeurde is een financieel feit. Ze blijven in het overzicht (degradeert
-    # netjes naar "Lidmaatschap" zonder lid); de admin kan een individuele betaling
-    # apart verwijderen via het betaalscherm (#167).
+    # Soft delete (#166): snapshot vastleggen en deleted_at zetten — niets hard
+    # verwijderen. Lidmaatschap-betalingen blijven bestaan (financieel feit); de
+    # admin kan een individuele betaling apart verwijderen via het betaalscherm.
     for ms in member.memberships:
         snapshot_membership(db, ms, operation="delete", action="family_deleted", source="admin_manual", actor=admin.email)
+        soft_delete(ms)
     for mp in member.member_persons:
         person = mp.person
         for contact in person.contact_details:
             snapshot_contact_detail(db, contact, operation="delete", action="family_deleted", source="admin_manual", actor=admin.email)
+            soft_delete(contact)
+        for en in person.external_numbers:
+            soft_delete(en)
         if person.address:
             snapshot_address(db, person.address, operation="delete", action="family_deleted", source="admin_manual", actor=admin.email)
+            soft_delete(person.address)
         snapshot_member_person(db, mp, operation="delete", action="family_deleted", source="admin_manual", actor=admin.email)
+        soft_delete(mp)
         snapshot_person(db, person, operation="delete", action="family_deleted", source="admin_manual", actor=admin.email)
+        soft_delete(person)
     snapshot_member(db, member, operation="delete", action="family_deleted", source="admin_manual", actor=admin.email)
-
-    for mp in member.member_persons:
-        person = mp.person
-        if person.address:
-            db.delete(person.address)
-        db.delete(person)
-
-    db.delete(member)
+    soft_delete(member)
     db.commit()
 
 
@@ -434,14 +433,17 @@ def delete_person(
         raise HTTPException(status_code=404, detail="Person not found")
     for contact in person.contact_details:
         snapshot_contact_detail(db, contact, operation="delete", action="person_deleted", source="admin_manual", actor=admin.email)
+        soft_delete(contact)
+    for en in person.external_numbers:
+        soft_delete(en)
     for mp in person.member_persons:
         snapshot_member_person(db, mp, operation="delete", action="person_deleted", source="admin_manual", actor=admin.email)
-        db.delete(mp)
+        soft_delete(mp)
     if person.address:
         snapshot_address(db, person.address, operation="delete", action="person_deleted", source="admin_manual", actor=admin.email)
-        db.delete(person.address)
+        soft_delete(person.address)
     snapshot_person(db, person, operation="delete", action="person_deleted", source="admin_manual", actor=admin.email)
-    db.delete(person)
+    soft_delete(person)
     db.commit()
 
 
@@ -495,7 +497,7 @@ def delete_membership(
     if not membership:
         raise HTTPException(status_code=404, detail="Membership not found")
     snapshot_membership(db, membership, operation="delete", action="membership_deleted", source="admin_manual", actor=admin.email)
-    db.delete(membership)
+    soft_delete(membership)
     db.commit()
 
 
