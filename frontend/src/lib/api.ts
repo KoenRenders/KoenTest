@@ -30,6 +30,14 @@ export const registerForActivity = (id: number, data: unknown) => api.post(`/api
 export const getPublicRegistrations = (activityId: number, componentId: number) =>
   api.get(`/api/v1/activities/${activityId}/public-registrations`, { params: { component_id: componentId } });
 
+// Bestelregels bewerken (admin) — audit + herberekend saldo (#84)
+export const addOrderLine = (activityId: number, registrationId: number, data: { product_id: number; quantity: number }) =>
+  api.post(`/api/v1/activities/${activityId}/registrations/${registrationId}/items`, data);
+export const updateOrderLine = (activityId: number, registrationId: number, itemId: number, data: { product_id?: number; quantity?: number }) =>
+  api.patch(`/api/v1/activities/${activityId}/registrations/${registrationId}/items/${itemId}`, data);
+export const deleteOrderLine = (activityId: number, registrationId: number, itemId: number) =>
+  api.delete(`/api/v1/activities/${activityId}/registrations/${registrationId}/items/${itemId}`);
+
 // Activity dates
 export const addActivityDate = (activityId: number, data: unknown) =>
   api.post(`/api/v1/activities/${activityId}/dates`, data);

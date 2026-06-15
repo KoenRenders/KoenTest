@@ -173,6 +173,7 @@ class RegistrationCreate(BaseModel):
 
 
 class RegistrationItemResponse(BaseModel):
+    id: Optional[int] = None  # registratie-item-id, nodig om regels te bewerken (#84)
     product_id: int
     quantity: int
     product_name: Optional[str] = None

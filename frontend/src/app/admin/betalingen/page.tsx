@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { listPaymentRecords, updatePaymentRecord, refreshPaymentRecord, refundPaymentRecord, getRegistrations } from "@/lib/api";
 import { parseApiError } from "@/lib/errors";
 import RegistrationList, { type RegistrationEntry } from "@/components/RegistrationList";
@@ -314,6 +315,10 @@ export default function BetalingenPage() {
                           ) : (
                             <RegistrationList entries={[regDetails[r.id]!]} />
                           )}
+                          {/* Bestelregels bewerken gebeurt op het activiteiten-scherm (#84) */}
+                          <Link href="/admin/activiteiten" className="text-xs text-blue-600 hover:underline mt-2 inline-block">
+                            Bestelregels bewerken in Activiteiten →
+                          </Link>
                         </div>
                       )}
                     </div>

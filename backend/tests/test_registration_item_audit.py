@@ -149,6 +149,17 @@ def test_product_from_other_activity_rejected(client, db_session, admin_headers)
     assert resp.status_code == 400
 
 
+def test_registrations_expose_item_id(client, db_session, admin_headers):
+    """De admin-registratielijst geeft het item-id mee, zodat de UI regels kan
+    bewerken (#84)."""
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    activity_id, reg, item = _register(client, db_session, comp, product)
+    resp = client.get(f"/api/v1/activities/{activity_id}/registrations", headers=admin_headers)
+    assert resp.status_code == 200, resp.text
+    items = resp.json()[0]["items"]
+    assert items[0]["id"] == item.id
+
+
 def test_order_line_edit_requires_admin(client, db_session):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id, reg, item = _register(client, db_session, comp, product)

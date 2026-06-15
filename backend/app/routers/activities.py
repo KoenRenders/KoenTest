@@ -484,6 +484,7 @@ def _enrich_registration(reg, activity):
     for item in reg.items:
         pname, cname = product_map.get(item.product_id, (None, component_name))
         items.append({
+            "id": item.id,
             "product_id": item.product_id,
             "quantity": item.quantity,
             "product_name": pname,
