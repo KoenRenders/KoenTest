@@ -46,7 +46,12 @@ services:
           - prod-backend
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        # PROD heeft bewust geen omgevingsindicator (lege kleur → geen balk/prefix).
+        NEXT_PUBLIC_APP_ENV: prod
+        NEXT_PUBLIC_ENV_COLOR: ${ENV_COLOR:-}
     restart: unless-stopped
     depends_on:
       - backend

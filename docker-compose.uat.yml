@@ -46,7 +46,11 @@ services:
           - uat-backend
 
   frontend:
-    build: ./frontend
+    build:
+      context: ./frontend
+      args:
+        NEXT_PUBLIC_APP_ENV: uat
+        NEXT_PUBLIC_ENV_COLOR: ${ENV_COLOR:-#B45309}
     restart: unless-stopped
     depends_on:
       - backend

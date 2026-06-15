@@ -3,6 +3,12 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 COPY . .
+# Omgevingsindicator (#145): build-time ingebakken (NEXT_PUBLIC_* wordt door Next
+# bij de build geïnlined). Per omgeving gezet via de compose-build-args.
+ARG NEXT_PUBLIC_APP_ENV=prod
+ARG NEXT_PUBLIC_ENV_COLOR=
+ENV NEXT_PUBLIC_APP_ENV=$NEXT_PUBLIC_APP_ENV
+ENV NEXT_PUBLIC_ENV_COLOR=$NEXT_PUBLIC_ENV_COLOR
 RUN npm run build
 
 FROM node:20-alpine AS runner
