@@ -56,6 +56,9 @@ services:
       args:
         NEXT_PUBLIC_APP_ENV: uat
         NEXT_PUBLIC_ENV_COLOR: ${ENV_COLOR:-#B45309}
+        # Umami web-analytics (#152/#176, laag 1). Leeg = tracker laadt niet (no-op).
+        NEXT_PUBLIC_UMAMI_SRC: ${NEXT_PUBLIC_UMAMI_SRC:-}
+        NEXT_PUBLIC_UMAMI_WEBSITE_ID: ${NEXT_PUBLIC_UMAMI_WEBSITE_ID:-}
     restart: unless-stopped
     depends_on:
       - backend
@@ -64,6 +67,23 @@ services:
       proxy:
         aliases:
           - uat-frontend
+
+  # Umami (#176) — via subdomein door de gedeelde Caddy (alias uat-umami), eigen DB.
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${UMAMI_DATABASE_URL:-postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/umami_uat}
+      DATABASE_TYPE: postgresql
+      APP_SECRET: ${UMAMI_APP_SECRET:?UMAMI_APP_SECRET ontbreekt in .env.uat}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      internal:
+      proxy:
+        aliases:
+          - uat-umami
 
 volumes:
   postgres_uat_data:
