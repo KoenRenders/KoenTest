@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { listPaymentRecords, updatePaymentRecord, refreshPaymentRecord, getRegistrations } from "@/lib/api";
+import { parseApiError } from "@/lib/errors";
 import RegistrationList, { type RegistrationEntry } from "@/components/RegistrationList";
 
 interface RegItem {
@@ -62,6 +63,8 @@ export default function BetalingenPage() {
     status: "",
   });
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "openstaand" | "pending" | "paid">("all");
 
@@ -72,6 +75,9 @@ export default function BetalingenPage() {
     try {
       const resp = await listPaymentRecords();
       setRecords(resp.data);
+      setError(null);
+    } catch (e) {
+      setError(parseApiError(e, "Kon de betalingen niet laden."));
     } finally {
       setLoading(false);
     }
@@ -118,6 +124,7 @@ export default function BetalingenPage() {
 
   function startEdit(r: PaymentRecord) {
     setEditing(r.id);
+    setEditError(null);
     setEditData({
       amount_paid: r.amount_paid ?? "",
       note: r.note ?? "",
@@ -127,6 +134,7 @@ export default function BetalingenPage() {
 
   async function saveEdit(id: string) {
     setSaving(true);
+    setEditError(null);
     try {
       await updatePaymentRecord(id, {
         status: editData.status || undefined,
@@ -135,6 +143,8 @@ export default function BetalingenPage() {
       });
       setEditing(null);
       await load();
+    } catch (e) {
+      setEditError(parseApiError(e, "Opslaan mislukt. Controleer de ingevoerde waarden."));
     } finally {
       setSaving(false);
     }
@@ -142,9 +152,12 @@ export default function BetalingenPage() {
 
   async function refreshStatus(id: string) {
     setRefreshing(id);
+    setError(null);
     try {
       await refreshPaymentRecord(id);
       await load();
+    } catch (e) {
+      setError(parseApiError(e, "Status verversen mislukt."));
     } finally {
       setRefreshing(null);
     }
@@ -186,6 +199,10 @@ export default function BetalingenPage() {
           </button>
         ))}
       </div>
+
+      {error && (
+        <p className="mb-4 text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg p-3">{error}</p>
+      )}
 
       <div className="flex gap-6 mb-6 text-sm text-gray-600 flex-wrap">
         <span>{filtered.length} betaling{filtered.length !== 1 ? "en" : ""}</span>
@@ -317,6 +334,9 @@ export default function BetalingenPage() {
                       />
                     </div>
                   </div>
+                  {editError && (
+                    <p className="text-red-600 text-sm mb-2">{editError}</p>
+                  )}
                   <div className="flex gap-2">
                     <button
                       onClick={() => saveEdit(r.id)}
@@ -326,7 +346,7 @@ export default function BetalingenPage() {
                       {saving ? "Opslaan…" : "Opslaan"}
                     </button>
                     <button
-                      onClick={() => setEditing(null)}
+                      onClick={() => { setEditing(null); setEditError(null); }}
                       className="btn-secondary text-sm"
                     >
                       Annuleren
