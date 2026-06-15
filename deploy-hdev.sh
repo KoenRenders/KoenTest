@@ -6,6 +6,14 @@ set -euxo pipefail
 git fetch --tags --force origin master
 git reset --hard origin/master
 
+# Robuustheid (#162): na de reset draait mogelijk nog de vorige scriptversie.
+# Re-exec één keer de nu-uitgecheckte versie zodat de rest (versie-export, build,
+# smoke) uit de juiste scriptinhoud komt. De guard voorkomt een oneindige lus.
+if [ -z "${DEPLOY_REEXEC:-}" ]; then
+  export DEPLOY_REEXEC=1
+  exec "$0" "$@"
+fi
+
 # Versie + commit voor de startup-log (#151); als build-args naar de backend-image.
 export APP_VERSION="$(git describe --tags --always 2>/dev/null || echo onbekend)"
 export GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo onbekend)"
