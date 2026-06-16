@@ -363,31 +363,35 @@ def reconcile_registration_charges(
         )
     elif delta < 0:
         shortfall = -delta
-        # 1) Onbetaalde pending-charges laten krimpen (nieuwste eerst).
-        reducible = [
-            c for c in sorted(charges, key=lambda c: c.created_at, reverse=True)
-            if c.status != "paid" and (c.amount_paid is None or Decimal(str(c.amount_paid)) == 0)
-        ]
-        for c in reducible:
+        # 1) Charges laten krimpen tot hun reeds **betaalde** deel (nieuwste eerst):
+        #    het onbetaalde deel mag verdwijnen, het reeds ontvangen deel niet (#193).
+        for c in sorted(charges, key=lambda c: c.created_at, reverse=True):
             if shortfall <= 0:
                 break
             amt = Decimal(str(c.amount))
-            if amt <= shortfall:
-                shortfall -= amt
+            paid = Decimal(str(c.amount_paid)) if c.amount_paid is not None else Decimal("0")
+            unpaid = amt - paid
+            if unpaid <= 0:
+                continue
+            cut = min(unpaid, shortfall)
+            shortfall -= cut
+            new_amt = amt - cut
+            if new_amt <= 0:
                 snapshot_payment_record(
                     db, c, operation="delete", action="order_reconciled",
                     source="order-edit", actor=audit_actor,
                 )
                 soft_delete(c)
             else:
-                c.amount = amt - shortfall
-                shortfall = Decimal("0")
+                c.amount = new_amt
                 snapshot_payment_record(
                     db, c, operation="update", action="order_reconciled",
                     source="order-edit", actor=audit_actor,
                 )
-        # 2) Wat overblijft is al betaald → automatische terugbetaling (#191), met de
-        #    methode van de betaalde charge (online → overschrijving, nooit auto-online).
+        # 2) Wat dan nog overblijft is reeds **ontvangen** geld → automatische
+        #    terugbetaling (#191/#193), met de methode van de betaalde charge
+        #    (online → overschrijving, nooit auto-online). create_refund capt op
+        #    het netto-ontvangene, dus nooit meer dan er binnenkwam.
         if shortfall > 0:
             paid_charge = next(
                 (c for c in sorted(charges, key=lambda c: c.created_at, reverse=True)

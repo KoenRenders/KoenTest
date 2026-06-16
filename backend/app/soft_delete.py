@@ -36,10 +36,12 @@ def soft_delete(obj) -> None:
 
 @event.listens_for(Session, "do_orm_execute")
 def _filter_soft_deleted(execute_state):
+    # Bewust óók op relationship-loads (lazy loads van bv. activity.registrations of
+    # reg.items): anders lekken soft-deleted rijen in aantallen/saldo-berekeningen die
+    # via een relatie lui inladen (#194). Column-loads/refreshes blijven uitgesloten.
     if (
         execute_state.is_select
         and not execute_state.is_column_load
-        and not execute_state.is_relationship_load
         and not execute_state.execution_options.get("include_deleted", False)
     ):
         execute_state.statement = execute_state.statement.options(

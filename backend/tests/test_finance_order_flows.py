@@ -174,6 +174,69 @@ def test_quantity_increase_creates_supplemental_charge(client, db_session, admin
     assert amounts == [Decimal("18.00"), Decimal("36.00")]
 
 
+def test_deleted_order_line_excluded_from_balance(client, db_session, admin_headers):
+    """#194: een soft-deleted bestelregel telt niet meer mee in het verschuldigde
+    (lazy relationship-load wordt nu ook gefilterd)."""
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    extra = _add_product(db_session, comp, name="Dessert", price="5.00")
+    activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)  # 18
+    client.post(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
+                json={"product_id": extra.id, "quantity": 1}, headers=admin_headers)  # +5 → 23
+    bal = client.get(f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers).json()
+    assert Decimal(str(bal["total_due"])) == Decimal("23.00")
+
+    item = db_session.query(RegistrationItem).filter(
+        RegistrationItem.registration_id == reg.id, RegistrationItem.product_id == extra.id).first()
+    client.delete(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}", headers=admin_headers)
+    bal = client.get(f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers).json()
+    assert Decimal(str(bal["total_due"])) == Decimal("18.00")  # verwijderde regel telt niet meer
+
+
+def test_partial_payment_lower_via_patch_reduces_to_paid(client, db_session, admin_headers):
+    """#193: een partieel betaalde charge krimpt bij verlaging tot het betaalde deel,
+    zonder terugbetaling (enkel het onbetaalde deel vervalt)."""
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    activity_id, reg, charge = _register(client, db_session, comp, product, qty=2)  # 36, pending
+    _pay(client, admin_headers, charge.id, "18.00")  # partieel 18 van 36
+
+    item = db_session.query(RegistrationItem).filter(RegistrationItem.registration_id == reg.id).first()
+    client.patch(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
+                 json={"quantity": 1}, headers=admin_headers)  # D = 18
+    charges = _charges(db_session, reg)
+    assert len(charges) == 1
+    assert Decimal(str(charges[0].amount)) == Decimal("18.00")  # gekrompen tot het betaalde deel
+    refunds = db_session.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
+        PaymentRecord.type == "refund").all()
+    assert refunds == []
+
+
+def test_partial_payment_remove_extra_refunds_only_received(client, db_session, admin_headers):
+    """#193: na een partiële betaling op een aanvullende charge wordt bij het verwijderen
+    enkel het te véél ontvangene terugbetaald (niet het volledige charge-bedrag); geen 500."""
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    extra = _add_product(db_session, comp, name="Dessert", price="18.00")
+    activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)  # 18
+    _pay(client, admin_headers, charge.id, "18.00")  # origineel volledig betaald
+    client.post(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
+                json={"product_id": extra.id, "quantity": 1}, headers=admin_headers)  # +18 → supplement
+    supp = next(c for c in _charges(db_session, reg) if c.id != charge.id)
+    _pay(client, admin_headers, supp.id, "8.00")  # partieel 8 → netto ontvangen 26
+
+    item = db_session.query(RegistrationItem).filter(
+        RegistrationItem.registration_id == reg.id, RegistrationItem.product_id == extra.id).first()
+    resp = client.delete(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
+                         headers=admin_headers)  # D = 18
+    assert resp.status_code == 200, resp.text  # geen 500
+    db_session.expire_all()
+    refunds = db_session.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
+        PaymentRecord.type == "refund").all()
+    assert sum((Decimal(str(r.amount)) for r in refunds), Decimal("0")) == Decimal("-8.00")
+    bal = client.get(f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers).json()
+    assert Decimal(str(bal["balance"])) == Decimal("0.00")
+
+
 def test_refund_on_membership_payment(client, db_session, admin_headers):
     seed_postal_code(db_session)
     resp = client.post("/api/v1/families", json={
