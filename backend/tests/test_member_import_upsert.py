@@ -404,6 +404,32 @@ def test_commit_creates_admin_login_for_board_member_end_to_end(db_session):
                for r in feed)
 
 
+def test_import_reverts_manually_changed_board_member(db_session):
+    """De import zet het verantwoordelijke bestuurslid terug volgens het rapport,
+    ook als het manueel gewijzigd was — en logt dat leesbaar (#228)."""
+    from app.services.member_import import _norm
+    from app.services.member_changes import member_changes_since
+    seed_postal_code(db_session)
+    member, hoofd, _mp, _en = _seed_imported(db_session, "100", "Mon", "Essers", date(1956, 5, 8))
+    other = Person(first_name="Andere", last_name="Persoon",
+                   date_of_birth=date(1990, 1, 1), gender_code="M")
+    db_session.add(other)
+    db_session.flush()
+    member.board_member_id = other.id            # manueel "fout" gezet
+    db_session.flush()
+
+    head = _row("100", "Mon", "Essers", "HOOFDLID", geboortedatum=date(1956, 5, 8))
+    head["bestuurslid"] = "Essers Mon"           # zoals kol 13 ("NAAM Voornaam")
+    key = _norm("Essers Mon")
+    upsert_families(db_session, [[head]], {key: [head]}, [key], apply=True)
+
+    db_session.refresh(member)
+    assert member.board_member_id == hoofd.id    # teruggezet naar het rapport
+    feed = member_changes_since(db_session, date(2000, 1, 1))
+    assert any(r["entity"] == "Gezin" and r["summary"] == "Bestuurslid: Mon Essers"
+               for r in feed)
+
+
 # ── #227: soft-deleted persoon/gezin herleeft bij her-import ─────────────────────
 
 def _seed_imported(db, lidnr, voornaam, naam, dob, *, relatie="HOOFDLID", member=None):
