@@ -76,7 +76,13 @@ def test_order_lowered_after_payment_creates_pending_refund(client, db_session, 
     assert body["refund_due"] is True
     assert Decimal(str(body["balance"]["total_refunded"])) == Decimal("0.00")
 
-    refund = _latest_refund(db_session, reg)
+    # De refund is automatisch aangemaakt: precies één, dus de penningmeester moet
+    # hem bevestigen — niet zelf een tweede registreren (#220 / UI-melding).
+    refunds = db_session.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
+        PaymentRecord.type == "refund").all()
+    assert len(refunds) == 1
+    refund = refunds[0]
     assert Decimal(str(refund.amount)) == Decimal("-18.00")
     assert refund.status == "pending" and refund.amount_paid is None
     assert refund.refund_of_id == charge.id

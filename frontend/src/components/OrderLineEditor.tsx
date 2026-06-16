@@ -201,8 +201,8 @@ export default function OrderLineEditor({ activityId, registrationId, items, pro
           </span>
           {result.refund_due && (
             <p className="mt-1 text-orange-700 font-medium">
-              Saldo negatief — er staat een terugbetaling open.{" "}
-              <Link href="/admin/betalingen" className="underline">Registreer ze in Betalingen →</Link>
+              Saldo negatief — er is automatisch een terugbetaling aangemaakt.{" "}
+              <Link href="/admin/betalingen" className="underline">Bevestig de terugstorting in Betalingen →</Link>
             </p>
           )}
         </div>
