@@ -209,8 +209,9 @@ def confirm_manual_payment(
     if note:
         record.note = note
     # amount_paid vóór de snapshot zetten, zodat de history het juiste bedrag vastlegt.
-    if amount_paid is not None:
-        record.amount_paid = amount_paid
+    # #199: zonder expliciet bedrag → het volledige verschuldigde (resp. de volledige
+    # refund) boeken, zodat het saldo meteen klopt en één klik "betaald" volstaat.
+    record.amount_paid = amount_paid if amount_paid is not None else record.amount
     db.flush()
     snapshot_payment_record(
         db, record,

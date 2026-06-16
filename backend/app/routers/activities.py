@@ -691,13 +691,27 @@ def add_order_line(
     if data.quantity < 1:
         raise HTTPException(status_code=400, detail="Aantal moet minstens 1 zijn.")
     _validate_order_product(db, activity, reg, data.product_id)
-    item = RegistrationItem(registration_id=reg.id, product_id=data.product_id, quantity=data.quantity)
-    db.add(item)
-    db.flush()
-    snapshot_registration_item(
-        db, item, operation="insert", action="order_changed",
-        source="admin_manual", actor=admin.email,
-    )
+    # #197: bestaat er al een (niet-verwijderde) regel voor dit product, hoog dan het
+    # aantal op i.p.v. een dubbele regel aan te maken.
+    existing = db.query(RegistrationItem).filter(
+        RegistrationItem.registration_id == reg.id,
+        RegistrationItem.product_id == data.product_id,
+    ).first()
+    if existing is not None:
+        existing.quantity += data.quantity
+        db.flush()
+        snapshot_registration_item(
+            db, existing, operation="update", action="order_changed",
+            source="admin_manual", actor=admin.email,
+        )
+    else:
+        item = RegistrationItem(registration_id=reg.id, product_id=data.product_id, quantity=data.quantity)
+        db.add(item)
+        db.flush()
+        snapshot_registration_item(
+            db, item, operation="insert", action="order_changed",
+            source="admin_manual", actor=admin.email,
+        )
     db.commit()
     return _order_edit_result(db, activity, reg, actor=admin.email)
 

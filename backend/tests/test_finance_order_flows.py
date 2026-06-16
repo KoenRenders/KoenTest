@@ -359,6 +359,35 @@ def test_full_refund_scenario(client, db_session, admin_headers):
     assert sum((Decimal(str(r.amount)) for r in recs), Decimal("0")) == Decimal("0.00")
 
 
+def test_marking_paid_without_amount_autofills_full_amount(client, db_session, admin_headers):
+    """#199: 'betaald' zetten zonder bedrag vult amount_paid = het verschuldigde; saldo €0."""
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)
+    r = client.patch(f"/api/v1/payment-status/records/{charge.id}",
+                     json={"status": "paid"}, headers=admin_headers)  # géén amount_paid
+    assert r.status_code == 200, r.text
+    db_session.expire_all()
+    row = db_session.query(PaymentRecord).filter(PaymentRecord.id == charge.id).first()
+    assert Decimal(str(row.amount_paid)) == Decimal("18.00")
+    bal = client.get(f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers).json()
+    assert Decimal(str(bal["balance"])) == Decimal("0.00")
+
+
+def test_adding_same_product_increments_quantity(client, db_session, admin_headers):
+    """#197: hetzelfde product toevoegen verhoogt het aantal i.p.v. een dubbele regel."""
+    _, comp, product = seed_activity_with_product(db_session, price="10.00")
+    extra = _add_product(db_session, comp, name="Extra", price="5.00")
+    activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)
+    for _ in range(2):
+        client.post(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
+                    json={"product_id": extra.id, "quantity": 1}, headers=admin_headers)
+    db_session.expire_all()
+    items = db_session.query(RegistrationItem).filter(
+        RegistrationItem.registration_id == reg.id, RegistrationItem.product_id == extra.id).all()
+    assert len(items) == 1
+    assert items[0].quantity == 2
+
+
 def test_refund_on_membership_payment(client, db_session, admin_headers):
     seed_postal_code(db_session)
     resp = client.post("/api/v1/families", json={
