@@ -8,13 +8,13 @@ const navItems = [
   { href: "/admin/activiteiten", label: "Activiteiten" },
   { href: "/admin/leden", label: "Leden" },
   { href: "/admin/leden-import", label: "Ledenimport" },
-  { href: "/admin/ledenwijzigingen", label: "Ledenwijzigingen" },
   { href: "/admin/paginas", label: "CMS Pagina's" },
   { href: "/admin/media", label: "Media" },
   { href: "/admin/ideeen", label: "Berichten" },
   { href: "/admin/betalingen", label: "Betalingen" },
-  { href: "/admin/analyse", label: "Analyse" },
   { href: "/admin/gebruikers", label: "Gebruikers" },
+  { href: "/admin/ledenwijzigingen", label: "Wijzigingen" },
+  { href: "/admin/analyse", label: "Analyse" },
   { href: "/admin/info", label: "Info" },
 ];
 

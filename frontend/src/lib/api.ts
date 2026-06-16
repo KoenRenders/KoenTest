@@ -48,6 +48,10 @@ export const getMemberChanges = (since: string) =>
 export const exportMemberChanges = (since: string) =>
   api.get("/api/v1/admin/member-changes/export", { params: { since }, responseType: "blob" });
 
+// Uniforme Wijzigingen/audit-feed (#189)
+export const getChanges = (since: string, group?: string) =>
+  api.get("/api/v1/admin/changes", { params: { since, ...(group ? { group } : {}) } });
+
 // Activity dates
 export const addActivityDate = (activityId: number, data: unknown) =>
   api.post(`/api/v1/activities/${activityId}/dates`, data);
@@ -171,6 +175,25 @@ export const memberImportPreview = (file: File, allMembers = false) => {
 export const memberImportCommit = (token: string) =>
   api.post<MemberImportResult>("/api/v1/admin/member-import/commit", { token });
 
+// Poster (activiteit) en info/reglement (onderdeel): één bestand, afbeelding of PDF (#223).
+function _fileForm(file: File) {
+  const fd = new FormData();
+  fd.append("file", file);
+  return fd;
+}
+export const uploadActivityPoster = (activityId: number, file: File) =>
+  api.post(`/api/v1/admin/activities/${activityId}/poster`, _fileForm(file), {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+export const deleteActivityPoster = (activityId: number) =>
+  api.delete(`/api/v1/admin/activities/${activityId}/poster`);
+export const uploadComponentInfo = (componentId: number, file: File) =>
+  api.post(`/api/v1/admin/components/${componentId}/info`, _fileForm(file), {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+export const deleteComponentInfo = (componentId: number) =>
+  api.delete(`/api/v1/admin/components/${componentId}/info`);
+
 // Payment records
 export const listPaymentRecords = () => api.get("/api/v1/payment-status/records");
 export const updatePaymentRecord = (id: string, data: unknown) => api.patch(`/api/v1/payment-status/records/${id}`, data);
@@ -191,6 +214,7 @@ export interface AuthMe {
   email: string;
   roles: string[];
   is_admin: boolean;
+  is_finance: boolean;
   is_member: boolean;
   member_name: string | null;
 }

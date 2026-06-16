@@ -17,6 +17,8 @@ export interface ActivityComponent {
   external_register_url?: string;
   external_registrations_url?: string;
   info_url?: string;
+  info_asset_url?: string;
+  info_asset_is_pdf?: boolean;
   max_participants?: number;
   products: ActivityProduct[];
 }
@@ -37,6 +39,8 @@ export interface Activity {
   dates: ActivityDate[];
   location?: string;
   poster_url?: string;
+  poster_asset_url?: string;
+  poster_asset_is_pdf?: boolean;
   members_only?: boolean;
   status?: string;
   is_cancelled?: boolean;

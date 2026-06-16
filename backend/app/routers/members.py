@@ -347,9 +347,15 @@ def update_person(
     person = db.query(Person).filter(Person.id == person_id).first()
     if not person:
         raise HTTPException(status_code=404, detail="Person not found")
+    # Enkel snapshotten wat écht wijzigt (#188): een formulier stuurt alle velden mee,
+    # maar een onveranderd veld hoort geen history-rij te maken.
+    changed = False
     for field, value in data.model_dump(exclude_unset=True).items():
-        setattr(person, field, value)
-    snapshot_person(db, person, operation="update", action="person_updated", source="admin_update", actor=admin.email)
+        if getattr(person, field) != value:
+            setattr(person, field, value)
+            changed = True
+    if changed:
+        snapshot_person(db, person, operation="update", action="person_updated", source="admin_update", actor=admin.email)
     db.commit()
     db.refresh(person)
     mp = next((mp for mp in person.member_persons), None)
@@ -402,9 +408,10 @@ def update_person_contacts(
         existing = next((c for c in person.contact_details if c.contact_type_code == type_code), None)
         if value:
             if existing:
-                existing.value = value
-                db.flush()
-                snapshot_contact_detail(db, existing, operation="update", action="contacts_updated", source="admin_update", actor=admin.email)
+                if existing.value != value:
+                    existing.value = value
+                    db.flush()
+                    snapshot_contact_detail(db, existing, operation="update", action="contacts_updated", source="admin_update", actor=admin.email)
             else:
                 contact = ContactDetail(person_id=person_id, contact_type_code=type_code, value=value, is_primary=True)
                 person.contact_details.append(contact)

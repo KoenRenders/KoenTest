@@ -1,8 +1,26 @@
 from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Date, Time, ForeignKey, Numeric, Text
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, object_session
 from app.database import Base
 from app.soft_delete import SoftDeleteMixin
+
+
+def _single_asset(obj, kind, fk_attr):
+    """De (max. één) MediaAsset van een bepaald ``kind`` die aan dit object hangt.
+
+    Via de live sessie opgehaald i.p.v. een mapper-relationship met constante in de
+    join (eenvoudiger, geen overlap-config). MediaAsset is niet soft-deletable, dus
+    de globale filter raakt deze query niet."""
+    sess = object_session(obj)
+    if sess is None or obj.id is None:
+        return None
+    from app.models.asset import MediaAsset
+    return (
+        sess.query(MediaAsset)
+        .filter(MediaAsset.kind == kind, getattr(MediaAsset, fk_attr) == obj.id)
+        .order_by(MediaAsset.id.desc())
+        .first()
+    )
 
 
 class ActivityDate(SoftDeleteMixin, Base):
@@ -34,6 +52,17 @@ class Activity(SoftDeleteMixin, Base):
     dates = relationship("ActivityDate", back_populates="activity", cascade="all, delete-orphan")
     registrations = relationship("Registration", back_populates="activity", cascade="all, delete-orphan")
     sub_registrations = relationship("ActivitySubRegistration", back_populates="activity", cascade="all, delete-orphan", order_by="ActivitySubRegistration.sort_order")
+
+    @property
+    def poster_asset_url(self):
+        """Een geüploade poster primeert op ``poster_url`` (#223)."""
+        a = _single_asset(self, "activity_poster", "activity_id")
+        return f"/api/v1/media/{a.id}" if a else None
+
+    @property
+    def poster_asset_is_pdf(self):
+        a = _single_asset(self, "activity_poster", "activity_id")
+        return bool(a and a.content_type == "application/pdf")
 
 
 class Registration(SoftDeleteMixin, Base):

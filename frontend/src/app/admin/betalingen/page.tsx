@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { listPaymentRecords, updatePaymentRecord, refreshPaymentRecord, refundPaymentRecord, deletePaymentRecord, getRegistrations } from "@/lib/api";
+import { listPaymentRecords, updatePaymentRecord, refreshPaymentRecord, refundPaymentRecord, deletePaymentRecord, getRegistrations, getAuthMe } from "@/lib/api";
 import { parseApiError } from "@/lib/errors";
 import RegistrationList, { type RegistrationEntry } from "@/components/RegistrationList";
 
@@ -28,6 +28,7 @@ interface PaymentRecord {
   refund_of_id: string | null;
   note: string | null;
   paid_at: string | null;
+  structured_communication: string | null;  // OGM voor overschrijving (#224)
   created_at: string;
   description: string | null;
   contact_name: string | null;
@@ -61,6 +62,8 @@ const PAYABLE_LABELS: Record<string, string> = {
 export default function BetalingenPage() {
   const [records, setRecords] = useState<PaymentRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  // Enkel FINANCE mag betalingen muteren; ADMIN ziet alles read-only (#207).
+  const [canEdit, setCanEdit] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [editData, setEditData] = useState<{ amount_paid: string; note: string; status: string }>({
     amount_paid: "",
@@ -84,6 +87,40 @@ export default function BetalingenPage() {
   // Registration details: record id -> RegistrationEntry | null (null = loading)
   const [regDetails, setRegDetails] = useState<Record<string, RegistrationEntry | null>>({});
 
+  // Welke OGM net gekopieerd is (voor "gekopieerd ✓"-feedback).
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Kopiëren dat óók over HTTP werkt: de Clipboard-API vereist een secure context
+  // (HTTPS/localhost); valt die weg, dan via een tijdelijke textarea + execCommand (#224).
+  async function copyOgm(id: string, text: string) {
+    let ok = false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        ok = true;
+      }
+    } catch { /* val terug op execCommand */ }
+    if (!ok) {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch { ok = false; }
+    }
+    if (ok) {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId((c) => (c === id ? null : c)), 1500);
+    } else {
+      alert("Kopiëren lukte niet — selecteer de mededeling en kopieer ze handmatig.");
+    }
+  }
+
   async function load() {
     try {
       const resp = await listPaymentRecords();
@@ -97,6 +134,9 @@ export default function BetalingenPage() {
   }
 
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    getAuthMe().then((r) => setCanEdit(r.data.is_finance)).catch(() => setCanEdit(false));
+  }, []);
 
   async function loadRegDetails(record: PaymentRecord) {
     if (!record.activity_id || record.payable_type !== "registration") return;
@@ -217,6 +257,17 @@ export default function BetalingenPage() {
     return parseFloat(r.amount) - (r.amount_paid ? parseFloat(r.amount_paid) : 0);
   }
 
+  // Betaald/openstaand wordt afgeleid uit het saldo (betaald = waarheid), niet uit de
+  // status-badge (#198). Mislukt/geannuleerd komen nog van de online/Mollie-status.
+  function paymentState(r: PaymentRecord): { label: string; cls: string } {
+    if (r.status === "failed") return { label: "Mislukt", cls: STATUS_COLORS["failed"] ?? "bg-red-100 text-red-700" };
+    if (r.status === "cancelled") return { label: "Geannuleerd", cls: STATUS_COLORS["cancelled"] ?? "bg-gray-100 text-gray-600" };
+    const s = saldo(r);
+    if (Math.abs(s) < 0.005) return { label: "Vereffend", cls: "bg-green-100 text-green-700" };
+    if (s > 0) return { label: "Openstaand", cls: "bg-amber-100 text-amber-800" };
+    return { label: "Terug te betalen", cls: "bg-orange-100 text-orange-700" };
+  }
+
   const filtered = records.filter((r) => {
     // Context-filter (#90): lidmaatschap-vernieuwing of één activiteit-onderdeel.
     if (context === "membership" && r.payable_type !== "membership") return false;
@@ -258,11 +309,35 @@ export default function BetalingenPage() {
     0,
   );
 
+  // Bundel alle betalingen/refunds van dezelfde inschrijving (payable) in één groep,
+  // gesorteerd op de datum van de laatst aangemaakte betaling (#204).
+  const groups = (() => {
+    const map = new Map<string, PaymentRecord[]>();
+    for (const r of filtered) {
+      const key = `${r.payable_type}:${r.payable_id}`;
+      const arr = map.get(key);
+      if (arr) arr.push(r); else map.set(key, [r]);
+    }
+    const out = Array.from(map.values()).map((recs) => {
+      const sorted = [...recs].sort((a, b) => a.created_at.localeCompare(b.created_at));
+      const latest = sorted.reduce((m, r) => (r.created_at > m ? r.created_at : m), sorted[0].created_at);
+      return { recs: sorted, latest, head: sorted[0] };
+    });
+    out.sort((a, b) => b.latest.localeCompare(a.latest));
+    return out;
+  })();
+
   if (loading) return <p className="p-8 text-gray-500">Laden…</p>;
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Betalingen</h1>
+
+      {!canEdit && (
+        <p className="mb-4 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-800">
+          Alleen-lezen: enkel de penningmeester (rol FINANCE) kan betalingen invullen, bewerken of terugbetalen.
+        </p>
+      )}
 
       <div className="flex gap-2 mb-4 flex-wrap items-center">
         {(["all", "openstaand", "pending", "paid"] as const).map((f) => (
@@ -319,7 +394,12 @@ export default function BetalingenPage() {
         <p className="text-gray-500 italic">Geen betalingen gevonden.</p>
       ) : (
         <div className="space-y-3">
-          {filtered.map((r) => (
+          {groups.map((g) => (
+            <div
+              key={`${g.head.payable_type}:${g.head.payable_id}`}
+              className={g.recs.length > 1 ? "rounded-xl border border-blue-200 bg-blue-50/40 p-2 space-y-2" : ""}
+            >
+              {g.recs.map((r) => (
             <div key={r.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex-1 min-w-0">
@@ -330,10 +410,15 @@ export default function BetalingenPage() {
                     <span className="text-gray-400">·</span>
                     <span className="text-sm text-gray-600">
                       {r.description || PAYABLE_LABELS[r.payable_type] || r.payable_type}
+                      {r.component_name && (
+                        <span className="text-gray-500"> · {r.component_name}</span>
+                      )}
                     </span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[r.status] ?? "bg-gray-100 text-gray-600"}`}>
-                      {STATUS_LABELS[r.status] ?? r.status}
-                    </span>
+                    {(() => { const st = paymentState(r); return (
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${st.cls}`}>
+                        {st.label}
+                      </span>
+                    ); })()}
                     {r.type === "refund" && (
                       <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">
                         Terugbetaling
@@ -358,6 +443,24 @@ export default function BetalingenPage() {
                   {r.note && (
                     <p className="mt-1 text-sm text-gray-500 italic">{r.note}</p>
                   )}
+                  {/* Gestructureerde mededeling (OGM) — voor manueel afboeken van een
+                      overschrijving op het rekeninguittreksel (#224). */}
+                  {r.structured_communication && (
+                    <div className="mt-1 flex items-center gap-2 text-sm flex-wrap">
+                      <span className="text-gray-500">Mededeling:</span>
+                      <code className="font-mono text-gray-800 bg-gray-100 rounded px-1.5 py-0.5">
+                        {r.structured_communication}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => copyOgm(r.id, r.structured_communication!)}
+                        className="text-xs text-blue-600 hover:underline"
+                        title="Kopieer de gestructureerde mededeling"
+                      >
+                        {copiedId === r.id ? "gekopieerd ✓" : "kopieer"}
+                      </button>
+                    </div>
+                  )}
 
                   {/* Registration details (on-demand) */}
                   {r.payable_type === "registration" && r.activity_id && (
@@ -375,8 +478,11 @@ export default function BetalingenPage() {
                           ) : (
                             <RegistrationList entries={[regDetails[r.id]!]} />
                           )}
-                          {/* Bestelregels bewerken gebeurt op het activiteiten-scherm (#84) */}
-                          <Link href="/admin/activiteiten" className="text-xs text-blue-600 hover:underline mt-2 inline-block">
+                          {/* Deep-link naar het bestelregel-scherm van net deze inschrijving (#187). */}
+                          <Link
+                            href={`/admin/activiteiten?activity=${r.activity_id}${r.component_id ? `&component=${r.component_id}` : ""}&reg=${r.payable_id}&from=betalingen`}
+                            className="text-xs text-blue-600 hover:underline mt-2 inline-block"
+                          >
                             Bestelregels bewerken in Activiteiten →
                           </Link>
                         </div>
@@ -384,7 +490,7 @@ export default function BetalingenPage() {
                     </div>
                   )}
                 </div>
-                {editing !== r.id && refunding !== r.id && (
+                {canEdit && editing !== r.id && refunding !== r.id && (
                   <div className="flex flex-col gap-1 items-end">
                     <button
                       onClick={() => startEdit(r)}
@@ -411,13 +517,18 @@ export default function BetalingenPage() {
                         Terugbetaling registreren
                       </button>
                     )}
-                    <button
-                      onClick={() => removePayment(r)}
-                      className="text-xs text-red-600 border border-red-200 rounded px-2 py-0.5 hover:bg-red-50 whitespace-nowrap"
-                      title="Betaling verwijderen (blijft in audit-historie)"
-                    >
-                      Verwijderen
-                    </button>
+                    {/* Verwijderen kan niet als er geld bewoog: Mollie-betaald of een
+                        ontvangen/betaald bedrag (#218) — corrigeer via terugbetaling. */}
+                    {!((r.method === "online" && r.status === "paid")
+                       || (r.amount_paid != null && parseFloat(r.amount_paid) !== 0)) && (
+                      <button
+                        onClick={() => removePayment(r)}
+                        className="text-xs text-red-600 border border-red-200 rounded px-2 py-0.5 hover:bg-red-50 whitespace-nowrap"
+                        title="Betaling verwijderen (blijft in audit-historie)"
+                      >
+                        Verwijderen
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -430,7 +541,18 @@ export default function BetalingenPage() {
                       <select
                         className="input text-sm"
                         value={editData.status}
-                        onChange={(e) => setEditData((d) => ({ ...d, status: e.target.value }))}
+                        onChange={(e) => {
+                          const status = e.target.value;
+                          // Bij 'Betaald' meteen het volledige (verschuldigde resp. terug te
+                          // betalen) bedrag voorvullen als nog leeg (#199); de penningmeester kan
+                          // het nog corrigeren (bv. op 0 zetten, #222).
+                          setEditData((d) => ({
+                            ...d,
+                            status,
+                            amount_paid: status === "paid" && !d.amount_paid
+                              ? parseFloat(r.amount).toFixed(2) : d.amount_paid,
+                          }));
+                        }}
                       >
                         <option value="pending">In afwachting</option>
                         <option value="paid">Betaald</option>
@@ -438,17 +560,27 @@ export default function BetalingenPage() {
                         <option value="cancelled">Geannuleerd</option>
                       </select>
                     </div>
+                    {/* Bedrag blijft corrigeerbaar (#222): bij een refund is het negatief
+                        (max 0), bij een charge positief (min 0). 0 = correctie → daarna
+                        verwijderbaar. */}
                     <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Betaald bedrag (€)</label>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        {r.type === "refund" ? "Terugbetaald bedrag (€)" : "Betaald bedrag (€)"}
+                      </label>
                       <input
                         type="number"
                         step="0.01"
-                        min="0"
+                        {...(r.type === "refund" ? { max: 0 } : { min: 0 })}
                         className="input text-sm"
                         placeholder={parseFloat(r.amount).toFixed(2)}
                         value={editData.amount_paid}
                         onChange={(e) => setEditData((d) => ({ ...d, amount_paid: e.target.value }))}
                       />
+                      {r.type === "refund" && (
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                          Negatief bedrag; zet op 0 om te corrigeren (dan verwijderbaar).
+                        </p>
+                      )}
                     </div>
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-medium text-gray-600 mb-1">Opmerking</label>
@@ -529,6 +661,23 @@ export default function BetalingenPage() {
                   </div>
                 </div>
               )}
+            </div>
+              ))}
+              {g.recs.length > 1 && (() => {
+                const sumA = g.recs.reduce((s, r) => s + parseFloat(r.amount), 0);
+                const sumP = g.recs.reduce((s, r) => s + (r.amount_paid ? parseFloat(r.amount_paid) : 0), 0);
+                const sumS = sumA - sumP;
+                return (
+                  <div className="flex justify-end gap-4 px-2 pb-1 text-sm font-semibold text-gray-700 flex-wrap">
+                    <span>Totaal inschrijving</span>
+                    <span>Bedrag: €{sumA.toFixed(2)}</span>
+                    <span className="text-green-700">Ontvangen: €{sumP.toFixed(2)}</span>
+                    <span className={sumS > 0.001 ? "text-red-600" : "text-green-600"}>
+                      Saldo: €{sumS.toFixed(2)}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>

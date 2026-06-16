@@ -117,3 +117,43 @@ class PaymentRecordHistory(HistoryMixin, Base):
     gateway_payment_id = Column(String(36), nullable=True)
     note = Column(String(200), nullable=True)
     paid_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class ActivityHistory(HistoryMixin, Base):
+    """Append-only audit van activiteiten (#189), incl. soft-delete."""
+    __tablename__ = "activity_history"
+
+    activity_id = Column(Integer, nullable=False, index=True)
+    name = Column(String(255), nullable=True)
+
+
+class ActivityDateHistory(HistoryMixin, Base):
+    """Append-only audit van activiteitdatums (#189)."""
+    __tablename__ = "activity_date_history"
+
+    activity_date_id = Column(Integer, nullable=False, index=True)
+    activity_id = Column(Integer, nullable=True, index=True)
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
+
+
+class ComponentHistory(HistoryMixin, Base):
+    """Append-only audit van onderdelen (activity_sub_registration) (#189)."""
+    __tablename__ = "component_history"
+
+    component_id = Column(Integer, nullable=False, index=True)
+    activity_id = Column(Integer, nullable=True, index=True)
+    name = Column(String(255), nullable=True)
+    price = Column(Numeric(10, 2), nullable=True)
+    member_price = Column(Numeric(10, 2), nullable=True)
+
+
+class ProductHistory(HistoryMixin, Base):
+    """Append-only audit van producten (activity_product) (#189)."""
+    __tablename__ = "product_history"
+
+    product_id = Column(Integer, nullable=False, index=True)
+    component_id = Column(Integer, nullable=True, index=True)
+    name = Column(String(255), nullable=True)
+    price = Column(Numeric(10, 2), nullable=True)
+    member_price = Column(Numeric(10, 2), nullable=True)

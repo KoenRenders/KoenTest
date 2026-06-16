@@ -198,19 +198,21 @@ def confirm_manual_payment(
     if not record:
         raise ValueError(f"PaymentRecord {record_id} not found")
     # Defense-in-depth (#146): betaald bedrag mag het verschuldigde nooit overschrijden.
-    # De router valideert dit ook (nette 422), maar de regel hoort óók in de service
-    # zodat elke toekomstige aanroeper beschermd is.
-    if amount_paid is not None and amount_paid > record.amount:
-        raise ValueError(
-            f"Betaald bedrag ({amount_paid}) mag niet hoger zijn dan verschuldigd ({record.amount})."
-        )
+    # Tekengevoelig (#219): charge → [0, amount]; refund (negatief) → [amount, 0].
+    if amount_paid is not None:
+        lo, hi = sorted((Decimal("0"), Decimal(str(record.amount))))
+        if not (lo <= amount_paid <= hi):
+            raise ValueError(
+                f"Betaald bedrag ({amount_paid}) moet tussen {lo} en {hi} liggen."
+            )
     record.status = "paid"
     record.paid_at = datetime.now(timezone.utc)
     if note:
         record.note = note
     # amount_paid vóór de snapshot zetten, zodat de history het juiste bedrag vastlegt.
-    if amount_paid is not None:
-        record.amount_paid = amount_paid
+    # #199: zonder expliciet bedrag → het volledige verschuldigde (resp. de volledige
+    # refund) boeken, zodat het saldo meteen klopt en één klik "betaald" volstaat.
+    record.amount_paid = amount_paid if amount_paid is not None else record.amount
     db.flush()
     snapshot_payment_record(
         db, record,
@@ -251,6 +253,8 @@ def create_refund(
     note: Optional[str] = None,
     method: str = "transfer",
     actor: Optional[str] = None,
+    source: str = "admin_manual",
+    settled: bool = True,
 ) -> PaymentRecord:
     """Registreer een terugbetaling als apart PaymentRecord (#83).
 
@@ -261,6 +265,13 @@ def create_refund(
       - je kunt enkel een 'charge' terugbetalen, geen refund;
       - het bedrag is strikt positief;
       - je kunt nooit méér terugbetalen dan er netto ontvangen is op de payable.
+
+    ``settled``: True wanneer de penningmeester een reeds uitgevoerde
+    terugbetaling registreert (meteen ``paid``, geld is terug). False voor een
+    automatisch gegenereerde **verplichting** (bv. bij bestelverlaging, #216): de
+    refund staat dan ``pending`` met ``amount_paid=None`` tot de penningmeester de
+    effectieve terugstorting bevestigt. Zo wordt het geld nooit als teruggestort
+    getoond vóór iemand het echt heeft uitbetaald.
     """
     charge = db.query(PaymentRecord).filter(PaymentRecord.id == charge_record_id).first()
     if not charge:
@@ -282,20 +293,20 @@ def create_refund(
         payable_type=charge.payable_type,
         payable_id=charge.payable_id,
         amount=-refund_amount,
-        amount_paid=-refund_amount,
+        amount_paid=(-refund_amount if settled else None),
         method=method,
-        status="paid",
+        status=("paid" if settled else "pending"),
         type="refund",
         refund_of_id=charge.id,
         note=note,
-        paid_at=datetime.now(timezone.utc),
+        paid_at=(datetime.now(timezone.utc) if settled else None),
     )
     db.add(record)
     db.flush()
     snapshot_payment_record(
         db, record,
         operation="insert", action="payment_refunded",
-        source="admin_manual", actor=actor,
+        source=source, actor=actor,
     )
     return record
 
@@ -325,3 +336,68 @@ def registration_balance(db: Session, registration) -> dict:
         "total_refunded": total_refunded,
         "balance": total_due - total_paid,
     }
+
+
+def reconcile_registration_charges(
+    db: Session, registration, *, audit_actor: Optional[str] = None
+) -> None:
+    """Herreken integraal bij elke bestelwijziging (#195): de reeds **betaalde**
+    bedragen zijn de waarheid; het openstaande saldo wordt herleid tot één open post.
+
+    - Onbetaalde (pending) charges/refunds worden verwijderd (ze worden herrekend).
+    - Een partieel betaalde charge wordt gesloten op zijn effectief betaalde bedrag.
+    - ``saldo = besteltotaal − netto ontvangen``:
+        * > 0 → één openstaande ``transfer``-charge (met OGM);
+        * < 0 → één terugbetaling van het te veel ontvangene.
+
+    Invariant na afloop: som van alle (niet-verwijderde) records == besteltotaal.
+    """
+    from app.services.registration_totals import compute_registration_total
+    from app.soft_delete import soft_delete
+
+    total_due = Decimal(str(compute_registration_total(registration)[0]))
+    records = get_records_for(db, "registration", registration.id)
+
+    net_paid = sum(
+        (Decimal(str(r.amount_paid)) for r in records if r.amount_paid is not None),
+        Decimal("0"),
+    )
+    paid_charge = None
+    for r in records:
+        if r.amount_paid is None:
+            # Open (onbetaalde) post → weg; het openstaande wordt herleid tot één post.
+            snapshot_payment_record(
+                db, r, operation="delete", action="order_reconciled",
+                source="order-edit", actor=audit_actor,
+            )
+            soft_delete(r)
+        else:
+            # Betaalde post = waarheid; sluit een partieel betaalde charge op zijn
+            # effectief betaalde bedrag.
+            if Decimal(str(r.amount)) != Decimal(str(r.amount_paid)):
+                r.amount = r.amount_paid
+                snapshot_payment_record(
+                    db, r, operation="update", action="order_reconciled",
+                    source="order-edit", actor=audit_actor,
+                )
+            if r.type == "charge" and Decimal(str(r.amount_paid)) > 0:
+                paid_charge = r
+
+    outstanding = total_due - net_paid
+    if outstanding > 0:
+        # Eén openstaande charge voor het volledige openstaande bedrag (met OGM).
+        create_payment_record(
+            db, "registration", registration.id, amount=outstanding, method="transfer",
+            audit_source="order-edit", audit_actor=audit_actor,
+        )
+    elif outstanding < 0 and paid_charge is not None:
+        # Te veel ontvangen → één terugbetaling, met de methode van de betaalde charge.
+        method = paid_charge.method if paid_charge.method in ("transfer", "cash") else "transfer"
+        # Verplichting, geen voldongen feit: de penningmeester bevestigt de
+        # effectieve terugstorting (#216). Daarom pending, niet meteen 'paid'.
+        create_refund(
+            db, paid_charge.id, -outstanding, method=method,
+            note="Automatisch bij bestelverlaging — terugstorting te bevestigen",
+            actor=audit_actor, source="order-edit", settled=False,
+        )
+    db.flush()

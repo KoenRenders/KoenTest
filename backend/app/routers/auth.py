@@ -130,6 +130,7 @@ def auth_me(email: str = Depends(get_current_identity), db: Session = Depends(ge
         email=email,
         roles=roles,
         is_admin="ADMIN" in roles,
+        is_finance="FINANCE" in roles,
         is_member=person is not None,
         member_name=(f"{person.first_name} {person.last_name}".strip() if person else None),
     )

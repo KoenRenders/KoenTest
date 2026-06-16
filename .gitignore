@@ -23,3 +23,6 @@ test_tmp.db
 *.db
 backend/tests/__pycache__/
 .pytest_cache/
+
+# Claude Code: getrackte settings.json wordt gedeeld; lokale (persoonlijke paden) niet
+.claude/settings.local.json

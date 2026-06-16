@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Numeric, Text, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, object_session
 from app.database import Base
 from app.soft_delete import SoftDeleteMixin
 
@@ -28,6 +28,29 @@ class ActivitySubRegistration(SoftDeleteMixin, Base):
 
     activity = relationship("Activity", back_populates="sub_registrations")
     products = relationship("ActivityProduct", back_populates="component", cascade="all, delete-orphan", order_by="ActivityProduct.sort_order")
+
+    def _info_asset(self):
+        sess = object_session(self)
+        if sess is None or self.id is None:
+            return None
+        from app.models.asset import MediaAsset
+        return (
+            sess.query(MediaAsset)
+            .filter(MediaAsset.kind == "component_info", MediaAsset.component_id == self.id)
+            .order_by(MediaAsset.id.desc())
+            .first()
+        )
+
+    @property
+    def info_asset_url(self):
+        """Een geüpload info/reglement-bestand primeert op ``info_url`` (#223)."""
+        a = self._info_asset()
+        return f"/api/v1/media/{a.id}" if a else None
+
+    @property
+    def info_asset_is_pdf(self):
+        a = self._info_asset()
+        return bool(a and a.content_type == "application/pdf")
 
 
 class ActivityProduct(SoftDeleteMixin, Base):

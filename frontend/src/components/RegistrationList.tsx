@@ -64,6 +64,12 @@ export default function RegistrationList({ entries }: Props) {
                   )}
                 </li>
               ))}
+              <li className="flex justify-between gap-4 border-t border-gray-200 pt-0.5 font-medium text-gray-700">
+                <span>Totaal</span>
+                <span className="tabular-nums">
+                  €{entry.items.reduce((s, it) => s + (it.subtotal ?? 0), 0).toFixed(2)}
+                </span>
+              </li>
             </ul>
           )}
           {entry.remarks && (

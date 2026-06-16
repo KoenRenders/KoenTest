@@ -1,6 +1,6 @@
 import logging
 from datetime import date
-from sqlalchemy import or_, and_, func
+from sqlalchemy import or_, and_, func, nulls_last
 from typing import List
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
@@ -34,10 +34,18 @@ from app.schemas.activity import (
 from app.services.email import send_activity_registration_confirmation
 from app.services.registration_totals import compute_registration_total
 from app.config import settings
-from app.domains.payment_status.service import create_payment_record, registration_balance
+from app.domains.payment_status.service import (
+    create_payment_record, registration_balance, reconcile_registration_charges,
+)
 from app.domains.analytics.service import log_business_event
-from app.domains.audit.service import snapshot_registration_item
-from app.services.activity_export import build_component_export_xlsx
+from app.domains.audit.service import (
+    snapshot_registration_item,
+    snapshot_activity,
+    snapshot_activity_date,
+    snapshot_component,
+    snapshot_product,
+)
+from app.services.activity_export import build_component_export_ods
 from app.soft_delete import soft_delete
 from app.limiter import registration_limiter
 
@@ -150,12 +158,24 @@ def list_activities(scope: str = "upcoming", db: Session = Depends(get_db)):
         )
         activities = base.filter(has_past).order_by(sort_sq.desc()).all()
     elif scope == "all":
-        sort_sq = (
-            db.query(func.max(ActivityDate.start_date))
-            .filter(ActivityDate.activity_id == Activity.id)
+        # Admin (#186): toekomstige activiteiten eerst (de snelst komende bovenaan),
+        # daarna de voorbije (meest recente eerst). Toekomst heeft een niet-lege
+        # `upcoming_sort` → sorteert vooraan oplopend; voorbij-enkel valt op NULL en
+        # komt erachter, aflopend op de meest recente voorbije datum.
+        upcoming_sort = (
+            db.query(func.min(ActivityDate.start_date))
+            .filter(ActivityDate.activity_id == Activity.id, effective_end >= today)
             .correlate(Activity).scalar_subquery()
         )
-        activities = base.order_by(sort_sq.desc()).all()
+        past_sort = (
+            db.query(func.max(ActivityDate.start_date))
+            .filter(ActivityDate.activity_id == Activity.id, effective_end < today)
+            .correlate(Activity).scalar_subquery()
+        )
+        activities = base.order_by(
+            nulls_last(upcoming_sort.asc()),
+            nulls_last(past_sort.desc()),
+        ).all()
     else:  # upcoming (default)
         scope = "upcoming"
         has_future = (
@@ -188,7 +208,7 @@ def list_activities(scope: str = "upcoming", db: Session = Depends(get_db)):
 def create_activity(
     data: ActivityCreate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     activity = Activity(
         name=data.name,
@@ -198,15 +218,21 @@ def create_activity(
     )
     db.add(activity)
     db.flush()
+    snapshot_activity(db, activity, operation="insert", action="activity_created",
+                      source="admin_manual", actor=admin.email)
 
     for date_data in data.dates:
-        db.add(ActivityDate(
+        ad = ActivityDate(
             activity_id=activity.id,
             start_date=date_data.start_date,
             end_date=date_data.end_date,
             start_time=date_data.start_time,
             end_time=date_data.end_time,
-        ))
+        )
+        db.add(ad)
+        db.flush()
+        snapshot_activity_date(db, ad, operation="insert", action="activity_created",
+                               source="admin_manual", actor=admin.email)
 
     db.commit()
 
@@ -230,7 +256,7 @@ def update_activity(
     activity_id: int,
     data: ActivityUpdate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     activity = (
         db.query(Activity)
@@ -245,6 +271,8 @@ def update_activity(
         raise HTTPException(status_code=404, detail="Activity not found")
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(activity, field, value)
+    snapshot_activity(db, activity, operation="update", action="activity_updated",
+                      source="admin_manual", actor=admin.email)
     db.commit()
     db.refresh(activity)
 
@@ -257,7 +285,7 @@ def update_activity(
 def delete_activity(
     activity_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
@@ -265,15 +293,23 @@ def delete_activity(
     # Soft delete (#166): de hele boom mee markeren (datums, onderdelen, producten,
     # inschrijvingen, bestelregels). Betalingen blijven bestaan (financieel feit).
     for d in activity.dates:
+        snapshot_activity_date(db, d, operation="delete", action="activity_deleted",
+                               source="admin_manual", actor=admin.email)
         soft_delete(d)
     for comp in activity.sub_registrations:
         for p in comp.products:
+            snapshot_product(db, p, operation="delete", action="activity_deleted",
+                             source="admin_manual", actor=admin.email)
             soft_delete(p)
+        snapshot_component(db, comp, operation="delete", action="activity_deleted",
+                           source="admin_manual", actor=admin.email)
         soft_delete(comp)
     for reg in activity.registrations:
         for item in reg.items:
             soft_delete(item)
         soft_delete(reg)
+    snapshot_activity(db, activity, operation="delete", action="activity_deleted",
+                      source="admin_manual", actor=admin.email)
     soft_delete(activity)
     db.commit()
     return {"detail": "deleted"}
@@ -286,7 +322,7 @@ def add_activity_date(
     activity_id: int,
     data: ActivityDateCreate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
@@ -299,6 +335,9 @@ def add_activity_date(
         end_time=data.end_time,
     )
     db.add(ad)
+    db.flush()
+    snapshot_activity_date(db, ad, operation="insert", action="date_created",
+                           source="admin_manual", actor=admin.email)
     db.commit()
     db.refresh(ad)
     return ad
@@ -310,7 +349,7 @@ def update_activity_date(
     date_id: int,
     data: ActivityDateUpdate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     ad = db.query(ActivityDate).filter(
         ActivityDate.id == date_id,
@@ -320,6 +359,8 @@ def update_activity_date(
         raise HTTPException(status_code=404, detail="Date not found")
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(ad, field, value)
+    snapshot_activity_date(db, ad, operation="update", action="date_updated",
+                           source="admin_manual", actor=admin.email)
     db.commit()
     db.refresh(ad)
     return ad
@@ -330,7 +371,7 @@ def delete_activity_date(
     activity_id: int,
     date_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     ad = db.query(ActivityDate).filter(
         ActivityDate.id == date_id,
@@ -338,6 +379,8 @@ def delete_activity_date(
     ).first()
     if not ad:
         raise HTTPException(status_code=404, detail="Date not found")
+    snapshot_activity_date(db, ad, operation="delete", action="date_deleted",
+                           source="admin_manual", actor=admin.email)
     soft_delete(ad)
     db.commit()
     return {"detail": "deleted"}
@@ -350,7 +393,7 @@ def add_component(
     activity_id: int,
     data: ComponentCreate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
@@ -369,6 +412,9 @@ def add_component(
         is_free=True,
     )
     db.add(component)
+    db.flush()
+    snapshot_component(db, component, operation="insert", action="component_created",
+                       source="admin_manual", actor=admin.email)
     db.commit()
     db.refresh(component)
     return component
@@ -380,7 +426,7 @@ def update_component(
     component_id: int,
     data: ComponentUpdate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     component = db.query(ActivitySubRegistration).filter(
         ActivitySubRegistration.id == component_id,
@@ -390,6 +436,8 @@ def update_component(
         raise HTTPException(status_code=404, detail="Component not found")
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(component, field, value)
+    snapshot_component(db, component, operation="update", action="component_updated",
+                       source="admin_manual", actor=admin.email)
     db.commit()
     db.refresh(component)
     return component
@@ -400,7 +448,7 @@ def delete_component(
     activity_id: int,
     component_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     component = db.query(ActivitySubRegistration).filter(
         ActivitySubRegistration.id == component_id,
@@ -409,7 +457,11 @@ def delete_component(
     if not component:
         raise HTTPException(status_code=404, detail="Component not found")
     for p in component.products:
+        snapshot_product(db, p, operation="delete", action="component_deleted",
+                         source="admin_manual", actor=admin.email)
         soft_delete(p)
+    snapshot_component(db, component, operation="delete", action="component_deleted",
+                       source="admin_manual", actor=admin.email)
     soft_delete(component)
     db.commit()
     return {"detail": "deleted"}
@@ -423,7 +475,7 @@ def add_product(
     component_id: int,
     data: ProductCreate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     component = db.query(ActivitySubRegistration).filter(
         ActivitySubRegistration.id == component_id,
@@ -441,6 +493,9 @@ def add_product(
         sort_order=data.sort_order,
     )
     db.add(product)
+    db.flush()
+    snapshot_product(db, product, operation="insert", action="product_created",
+                     source="admin_manual", actor=admin.email)
     db.commit()
     db.refresh(product)
     return product
@@ -453,7 +508,7 @@ def update_product(
     product_id: int,
     data: ProductUpdate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     product = db.query(ActivityProduct).filter(
         ActivityProduct.id == product_id,
@@ -463,6 +518,8 @@ def update_product(
         raise HTTPException(status_code=404, detail="Product not found")
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(product, field, value)
+    snapshot_product(db, product, operation="update", action="product_updated",
+                     source="admin_manual", actor=admin.email)
     db.commit()
     db.refresh(product)
     return product
@@ -474,7 +531,7 @@ def delete_product(
     component_id: int,
     product_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     product = db.query(ActivityProduct).filter(
         ActivityProduct.id == product_id,
@@ -482,6 +539,8 @@ def delete_product(
     ).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+    snapshot_product(db, product, operation="delete", action="product_deleted",
+                     source="admin_manual", actor=admin.email)
     soft_delete(product)
     db.commit()
     return {"detail": "deleted"}
@@ -527,7 +586,7 @@ def _enrich_registration(reg, activity):
 def get_registrations(
     activity_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
@@ -535,16 +594,16 @@ def get_registrations(
     return [_enrich_registration(r, activity) for r in activity.registrations]
 
 
-# ── Excel-export per onderdeel (#85) ──────────────────────────────────────────
+# ── OpenDocument-export per onderdeel (#85/#200) ──────────────────────────────
 
 @router.get("/activities/{activity_id}/components/{component_id}/export")
-def export_component_xlsx(
+def export_component_ods(
     activity_id: int,
     component_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
-    """Download een .xlsx met aantallen per product + financials voor één
+    """Download een .ods met aantallen per product + financials voor één
     onderdeel, zoals ze nu in de DB staan (#85). Admin-only; bevat persoons- en
     financiële data."""
     import re
@@ -557,13 +616,13 @@ def export_component_xlsx(
     if not component:
         raise HTTPException(status_code=404, detail="Component not found")
 
-    content = build_component_export_xlsx(db, activity, component)
+    content = build_component_export_ods(db, activity, component)
     raw_name = f"{activity.name}-{component.name}"
     safe = re.sub(r"[^A-Za-z0-9_-]+", "_", raw_name).strip("_") or "export"
     return Response(
         content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{safe}.xlsx"'},
+        media_type="application/vnd.oasis.opendocument.spreadsheet",
+        headers={"Content-Disposition": f'attachment; filename="{safe}.ods"'},
     )
 
 
@@ -601,9 +660,15 @@ def _validate_order_product(db: Session, activity: Activity, reg: Registration, 
     return product
 
 
-def _order_edit_result(db: Session, activity: Activity, reg: Registration) -> dict:
-    """Vernieuwde bestelling + financiële stand; signaleert of er nu een
+def _order_edit_result(
+    db: Session, activity: Activity, reg: Registration, actor: str | None = None
+) -> dict:
+    """Reconcilieer de charges met het nieuwe besteltotaal (#185) en geef de
+    vernieuwde bestelling + financiële stand terug; signaleert of er nu een
     terugbetaling openstaat (saldo < 0) zodat de UI naar de refund-flow kan wijzen."""
+    db.refresh(reg)
+    reconcile_registration_charges(db, reg, audit_actor=actor)
+    db.commit()
     db.refresh(reg)
     bal = registration_balance(db, reg)
     return {
@@ -626,15 +691,29 @@ def add_order_line(
     if data.quantity < 1:
         raise HTTPException(status_code=400, detail="Aantal moet minstens 1 zijn.")
     _validate_order_product(db, activity, reg, data.product_id)
-    item = RegistrationItem(registration_id=reg.id, product_id=data.product_id, quantity=data.quantity)
-    db.add(item)
-    db.flush()
-    snapshot_registration_item(
-        db, item, operation="insert", action="order_changed",
-        source="admin_manual", actor=admin.email,
-    )
+    # #197: bestaat er al een (niet-verwijderde) regel voor dit product, hoog dan het
+    # aantal op i.p.v. een dubbele regel aan te maken.
+    existing = db.query(RegistrationItem).filter(
+        RegistrationItem.registration_id == reg.id,
+        RegistrationItem.product_id == data.product_id,
+    ).first()
+    if existing is not None:
+        existing.quantity += data.quantity
+        db.flush()
+        snapshot_registration_item(
+            db, existing, operation="update", action="order_changed",
+            source="admin_manual", actor=admin.email,
+        )
+    else:
+        item = RegistrationItem(registration_id=reg.id, product_id=data.product_id, quantity=data.quantity)
+        db.add(item)
+        db.flush()
+        snapshot_registration_item(
+            db, item, operation="insert", action="order_changed",
+            source="admin_manual", actor=admin.email,
+        )
     db.commit()
-    return _order_edit_result(db, activity, reg)
+    return _order_edit_result(db, activity, reg, actor=admin.email)
 
 
 @router.patch("/activities/{activity_id}/registrations/{registration_id}/items/{item_id}")
@@ -667,7 +746,7 @@ def update_order_line(
         source="admin_manual", actor=admin.email,
     )
     db.commit()
-    return _order_edit_result(db, activity, reg)
+    return _order_edit_result(db, activity, reg, actor=admin.email)
 
 
 @router.delete("/activities/{activity_id}/registrations/{registration_id}/items/{item_id}")
@@ -694,7 +773,7 @@ def delete_order_line(
     )
     soft_delete(item)
     db.commit()
-    return _order_edit_result(db, activity, reg)
+    return _order_edit_result(db, activity, reg, actor=admin.email)
 
 
 @router.get("/activities/{activity_id}/public-registrations")
