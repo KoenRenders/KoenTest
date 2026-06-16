@@ -252,6 +252,113 @@ def test_partial_payment_remove_extra_refunds_only_received(client, db_session, 
     assert Decimal(str(bal["balance"])) == Decimal("0.00")
 
 
+def test_koen_scenario_integral_recompute(client, db_session, admin_headers):
+    """Scenario van Koen (#195): initiële bestelling volledig betaald → verlaging met
+    uitgevoerde refund → verhoging met partiële betaling → verhoging met 2× hetzelfde
+    product. Na elke bewerking geldt de invariant; er is hoogstens één open post."""
+    _, comp, p1 = seed_activity_with_product(db_session, price="18.00")
+    p2 = _add_product(db_session, comp, name="P2", price="20.00")
+    p3 = _add_product(db_session, comp, name="P3", price="15.00")
+
+    def _bal():
+        return client.get(f"/api/v1/payment-status/registrations/{reg.id}/balance",
+                          headers=admin_headers).json()
+
+    def _open():
+        return [c for c in _charges(db_session, reg)
+                if c.amount_paid is None or Decimal(str(c.amount_paid)) == 0]
+
+    # 1) Initieel P1×2 = €36, volledig betaald via overschrijving.
+    activity_id, reg, charge = _register(client, db_session, comp, p1, qty=2)
+    _pay(client, admin_headers, charge.id, "36.00")
+    assert Decimal(str(_bal()["balance"])) == Decimal("0.00")
+
+    item1 = db_session.query(RegistrationItem).filter(
+        RegistrationItem.registration_id == reg.id, RegistrationItem.product_id == p1.id).first()
+
+    # 2) Verlaging P1×2 → ×1 (€18) → automatische terugbetaling €18.
+    client.patch(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item1.id}",
+                 json={"quantity": 1}, headers=admin_headers)
+    b = _bal()
+    assert Decimal(str(b["total_due"])) == Decimal("18.00")
+    assert Decimal(str(b["balance"])) == Decimal("0.00")
+    assert Decimal(str(b["total_refunded"])) == Decimal("18.00")
+
+    # 3) Verhoging: P2 (€20) → totaal €38. Eén open charge €20, partieel €8 betaald.
+    client.post(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
+                json={"product_id": p2.id, "quantity": 1}, headers=admin_headers)
+    oc = _open()
+    assert len(oc) == 1 and Decimal(str(oc[0].amount)) == Decimal("20.00")
+    _pay(client, admin_headers, oc[0].id, "8.00")                  # partieel
+    assert Decimal(str(_bal()["balance"])) == Decimal("12.00")     # 38 − (18 + 8)
+
+    # 4) Verhoging met 2× hetzelfde product P3 (€15) → totaal €68. Eén open post.
+    for _ in range(2):
+        client.post(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
+                    json={"product_id": p3.id, "quantity": 1}, headers=admin_headers)
+    b = _bal()
+    assert Decimal(str(b["total_due"])) == Decimal("68.00")
+    # netto ontvangen = 36 − 18 (refund) + 8 (partieel) = 26 → openstaand 42
+    assert Decimal(str(b["balance"])) == Decimal("42.00")
+    oc = _open()
+    assert len(oc) == 1 and Decimal(str(oc[0].amount)) == Decimal("42.00")
+
+    # Invariant: som van alle records = besteltotaal.
+    recs = db_session.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id).all()
+    assert sum((Decimal(str(r.amount)) for r in recs), Decimal("0")) == Decimal("68.00")
+
+
+def test_full_refund_scenario(client, db_session, admin_headers):
+    """Omgekeerd scenario (#195): een betaalde bestelling volledig afbouwen → het hele
+    betaalde bedrag wordt terugbetaald; besteltotaal €0, saldo €0, geen open post."""
+    _, comp, p1 = seed_activity_with_product(db_session, price="18.00")
+    p2 = _add_product(db_session, comp, name="P2", price="20.00")
+    free = _add_product(db_session, comp, name="Gratis", price="0", is_free=True)
+
+    def _bal():
+        return client.get(f"/api/v1/payment-status/registrations/{reg.id}/balance",
+                          headers=admin_headers).json()
+
+    # 1) P1×1 = €18, volledig betaald.
+    activity_id, reg, charge = _register(client, db_session, comp, p1, qty=1)
+    _pay(client, admin_headers, charge.id, "18.00")
+
+    # 2) P2 (€20) erbij → totaal €38; de open charge €20 volledig betaald.
+    client.post(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
+                json={"product_id": p2.id, "quantity": 1}, headers=admin_headers)
+    open20 = [c for c in _charges(db_session, reg)
+              if c.amount_paid is None or Decimal(str(c.amount_paid)) == 0][0]
+    _pay(client, admin_headers, open20.id, "20.00")
+    assert Decimal(str(_bal()["balance"])) == Decimal("0.00")
+
+    # 3) P2 verwijderen → €20 terugbetaald.
+    item_p2 = db_session.query(RegistrationItem).filter(
+        RegistrationItem.registration_id == reg.id, RegistrationItem.product_id == p2.id).first()
+    client.delete(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item_p2.id}",
+                  headers=admin_headers)
+    assert Decimal(str(_bal()["total_refunded"])) == Decimal("20.00")
+
+    # 4) P1 → gratis product → totaal €0; de resterende €18 wordt ook terugbetaald.
+    item_p1 = db_session.query(RegistrationItem).filter(
+        RegistrationItem.registration_id == reg.id, RegistrationItem.product_id == p1.id).first()
+    client.patch(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item_p1.id}",
+                 json={"product_id": free.id}, headers=admin_headers)
+
+    b = _bal()
+    assert Decimal(str(b["total_due"])) == Decimal("0.00")
+    assert Decimal(str(b["balance"])) == Decimal("0.00")
+    assert Decimal(str(b["total_refunded"])) == Decimal("38.00")   # alles terugbetaald
+
+    open_charges = [c for c in _charges(db_session, reg)
+                    if c.amount_paid is None or Decimal(str(c.amount_paid)) == 0]
+    assert open_charges == []   # geen open post meer
+
+    recs = db_session.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id).all()
+    assert sum((Decimal(str(r.amount)) for r in recs), Decimal("0")) == Decimal("0.00")
+
+
 def test_refund_on_membership_payment(client, db_session, admin_headers):
     seed_postal_code(db_session)
     resp = client.post("/api/v1/families", json={

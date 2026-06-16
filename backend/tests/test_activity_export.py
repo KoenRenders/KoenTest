@@ -91,6 +91,32 @@ def test_export_quantities_and_financials(client, db_session, admin_headers):
     assert total[i_saldo] == 6.0
 
 
+def test_export_aggregates_duplicate_product_lines(client, db_session, admin_headers):
+    """#85: twee aparte bestelregels van hetzelfde product worden in de export per
+    product opgeteld (1 + 2 = 3), niet als losse/verloren aantallen."""
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    activity_id = comp.activity_id
+    reg_resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
+        "contact_name": "An", "contact_email": "an@example.com",
+        "component_id": comp.id, "payment_method": "TRANSFER",
+        "items": [{"product_id": product.id, "quantity": 1}],
+    })
+    assert reg_resp.status_code in (200, 201), reg_resp.text
+    reg = db_session.query(Registration).filter(
+        Registration.component_id == comp.id).order_by(Registration.id.desc()).first()
+    # Zelfde product nog eens als aparte regel (×2).
+    client.post(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
+                json={"product_id": product.id, "quantity": 2}, headers=admin_headers)
+
+    rows = _load(client.get(f"/api/v1/activities/{activity_id}/components/{comp.id}/export",
+                            headers=admin_headers))
+    col = 1  # de enige productkolom (na "Naam")
+    data_rows = [r for r in rows[1:] if r[0] not in (None, "", "Totaal")]
+    assert any(r[col] == 3 for r in data_rows)
+    total_row = next(r for r in rows if r[0] == "Totaal")
+    assert total_row[col] == 3
+
+
 def test_export_empty_component_does_not_crash(client, db_session, admin_headers):
     _, comp, _ = seed_activity_with_product(db_session, price="18.00")
     resp = client.get(f"/api/v1/activities/{comp.activity_id}/components/{comp.id}/export",
