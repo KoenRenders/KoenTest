@@ -2,27 +2,99 @@
 import { useEffect, useRef, useState } from "react";
 import { streamChat, type ChatMsg } from "@/lib/api";
 
-// Zwevende chatbot 'Raakje' (#205). Tekst-first; de microfoon-knop (Web Speech
-// API) komt als progressive enhancement in een latere fase. De LLM zit achter
-// het backend-laagje — deze widget weet niets van de provider.
+// Zwevende chatbot 'Raakje' (#205). Tekst-first met spraakinvoer (STT) als
+// progressive enhancement: de microfoonknop verschijnt enkel als de browser de
+// Web Speech API ondersteunt. STT staat volledig los van de LLM. Let op: in
+// Chrome/Safari verloopt de herkenning via de servers van de browserleverancier
+// (Google/Apple) — vermeld dit in de privacyverklaring.
 
 const WELCOME =
   "Hallo, ik ben Raakje! 👋 Stel me gerust een vraag over Raak Millegem, onze activiteiten of het lidmaatschap. Ik kan ook je vraag of idee doorgeven aan het bestuur.";
+
+// Minimale shim voor de niet-gestandaardiseerde Web Speech API-types.
+type SpeechRecognitionLike = {
+  lang: string;
+  interimResults: boolean;
+  continuous: boolean;
+  onresult: (e: SpeechResultEvent) => void;
+  onerror: () => void;
+  onend: () => void;
+  start: () => void;
+  stop: () => void;
+};
+type SpeechResultEvent = {
+  resultIndex: number;
+  results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }>;
+};
+type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
+  const [listening, setListening] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const recRef = useRef<SpeechRecognitionLike | null>(null);
+  const ctorRef = useRef<SpeechRecognitionCtor | null>(null);
+  const [sttSupported, setSttSupported] = useState(false);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, open]);
 
+  // Feature-detectie van de Web Speech API (alleen client-side).
+  useEffect(() => {
+    const w = window as unknown as {
+      SpeechRecognition?: SpeechRecognitionCtor;
+      webkitSpeechRecognition?: SpeechRecognitionCtor;
+    };
+    const Ctor = w.SpeechRecognition || w.webkitSpeechRecognition;
+    if (Ctor) {
+      ctorRef.current = Ctor;
+      setSttSupported(true);
+    }
+    return () => recRef.current?.stop();
+  }, []);
+
+  function toggleMic() {
+    if (busy) return;
+    if (listening) {
+      recRef.current?.stop();
+      return;
+    }
+    const Ctor = ctorRef.current;
+    if (!Ctor) return;
+
+    const rec = new Ctor();
+    rec.lang = "nl-BE";
+    rec.interimResults = true;
+    rec.continuous = false;
+
+    let finalText = "";
+    rec.onresult = (e) => {
+      let interim = "";
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const res = e.results[i];
+        const transcript = res[0].transcript;
+        if (res.isFinal) finalText += transcript;
+        else interim += transcript;
+      }
+      setInput((finalText + interim).trim());
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+
+    recRef.current = rec;
+    setInput("");
+    setListening(true);
+    rec.start();
+  }
+
   async function send() {
     const text = input.trim();
     if (!text || busy) return;
+    recRef.current?.stop();
 
     const history: ChatMsg[] = [...messages, { role: "user", content: text }];
     setMessages([...history, { role: "assistant", content: "" }]);
@@ -82,10 +154,26 @@ export default function ChatWidget() {
           </div>
 
           <div className="border-t border-gray-200 p-2 flex items-end gap-2">
+            {sttSupported && (
+              <button
+                onClick={toggleMic}
+                disabled={busy}
+                aria-label={listening ? "Stop met opnemen" : "Spreek je vraag in"}
+                title="Spreek je vraag in (spraakherkenning via de browser)"
+                className={
+                  "shrink-0 h-10 w-10 rounded-lg flex items-center justify-center text-lg transition-colors disabled:opacity-40 " +
+                  (listening
+                    ? "bg-red-600 text-white animate-pulse"
+                    : "bg-gray-100 hover:bg-gray-200 text-gray-700")
+                }
+              >
+                🎤
+              </button>
+            )}
             <textarea
               className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 max-h-28"
               rows={1}
-              placeholder="Typ je vraag…"
+              placeholder={listening ? "Aan het luisteren…" : "Typ je vraag…"}
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={onKeyDown}
