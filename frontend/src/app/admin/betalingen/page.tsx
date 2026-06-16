@@ -87,6 +87,40 @@ export default function BetalingenPage() {
   // Registration details: record id -> RegistrationEntry | null (null = loading)
   const [regDetails, setRegDetails] = useState<Record<string, RegistrationEntry | null>>({});
 
+  // Welke OGM net gekopieerd is (voor "gekopieerd ✓"-feedback).
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
+  // Kopiëren dat óók over HTTP werkt: de Clipboard-API vereist een secure context
+  // (HTTPS/localhost); valt die weg, dan via een tijdelijke textarea + execCommand (#224).
+  async function copyOgm(id: string, text: string) {
+    let ok = false;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(text);
+        ok = true;
+      }
+    } catch { /* val terug op execCommand */ }
+    if (!ok) {
+      try {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        ok = document.execCommand("copy");
+        document.body.removeChild(ta);
+      } catch { ok = false; }
+    }
+    if (ok) {
+      setCopiedId(id);
+      setTimeout(() => setCopiedId((c) => (c === id ? null : c)), 1500);
+    } else {
+      alert("Kopiëren lukte niet — selecteer de mededeling en kopieer ze handmatig.");
+    }
+  }
+
   async function load() {
     try {
       const resp = await listPaymentRecords();
@@ -419,11 +453,11 @@ export default function BetalingenPage() {
                       </code>
                       <button
                         type="button"
-                        onClick={() => navigator.clipboard?.writeText(r.structured_communication!)}
+                        onClick={() => copyOgm(r.id, r.structured_communication!)}
                         className="text-xs text-blue-600 hover:underline"
                         title="Kopieer de gestructureerde mededeling"
                       >
-                        kopieer
+                        {copiedId === r.id ? "gekopieerd ✓" : "kopieer"}
                       </button>
                     </div>
                   )}
