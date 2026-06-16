@@ -41,7 +41,9 @@ def _pay(client, admin_headers, charge_id, amount):
     assert r.status_code == 200, r.text
 
 
-def test_order_lowered_after_payment_then_refund_settles(client, db_session, admin_headers):
+def test_order_lowered_after_payment_auto_refunds(client, db_session, admin_headers):
+    """#191: een betaalde bestelling verlagen maakt automatisch een terugbetaling aan;
+    het saldo vereffent meteen (geen handmatige refund-stap meer)."""
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id, reg, charge = _register(client, db_session, comp, product, qty=2)  # verschuldigd 36
     _pay(client, admin_headers, charge.id, "36.00")
@@ -52,14 +54,34 @@ def test_order_lowered_after_payment_then_refund_settles(client, db_session, adm
         json={"quantity": 1}, headers=admin_headers,   # verschuldigd zakt naar 18
     )
     body = resp.json()
-    assert Decimal(str(body["balance"]["balance"])) == Decimal("-18.00")  # €18 te veel betaald
-    assert body["refund_due"] is True
+    assert Decimal(str(body["balance"]["balance"])) == Decimal("0.00")        # auto-refund vereffent
+    assert body["refund_due"] is False
+    assert Decimal(str(body["balance"]["total_refunded"])) == Decimal("18.00")
 
-    client.post(f"/api/v1/payment-status/records/{charge.id}/refund",
-                json={"amount": "18.00"}, headers=admin_headers)
-    bal = client.get(f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers).json()
-    assert Decimal(str(bal["balance"])) == Decimal("0.00")
-    assert Decimal(str(bal["total_refunded"])) == Decimal("18.00")
+    db_session.expire_all()
+    refund = db_session.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
+        PaymentRecord.type == "refund",
+    ).one()
+    assert Decimal(str(refund.amount)) == Decimal("-18.00")
+    assert refund.refund_of_id == charge.id
+
+
+def test_order_decrease_does_not_double_refund(client, db_session, admin_headers):
+    """#191: een tweede (no-op) edit maakt geen tweede terugbetaling."""
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    activity_id, reg, charge = _register(client, db_session, comp, product, qty=2)  # 36
+    _pay(client, admin_headers, charge.id, "36.00")
+    item = db_session.query(RegistrationItem).filter(RegistrationItem.registration_id == reg.id).first()
+    for _ in range(2):
+        client.patch(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
+                     json={"quantity": 1}, headers=admin_headers)
+    db_session.expire_all()
+    refunds = db_session.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
+        PaymentRecord.type == "refund",
+    ).all()
+    assert len(refunds) == 1
 
 
 def test_order_increased_after_payment_leaves_balance_owed(client, db_session, admin_headers):

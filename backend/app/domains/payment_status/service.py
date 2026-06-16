@@ -251,6 +251,7 @@ def create_refund(
     note: Optional[str] = None,
     method: str = "transfer",
     actor: Optional[str] = None,
+    source: str = "admin_manual",
 ) -> PaymentRecord:
     """Registreer een terugbetaling als apart PaymentRecord (#83).
 
@@ -295,7 +296,7 @@ def create_refund(
     snapshot_payment_record(
         db, record,
         operation="insert", action="payment_refunded",
-        source="admin_manual", actor=actor,
+        source=source, actor=actor,
     )
     return record
 
@@ -347,12 +348,13 @@ def reconcile_registration_charges(
     from app.soft_delete import soft_delete
 
     total_due = Decimal(str(compute_registration_total(registration)[0]))
-    charges = [
-        r for r in get_records_for(db, "registration", registration.id)
-        if r.type == "charge"
-    ]
-    total_charged = sum((Decimal(str(c.amount)) for c in charges), Decimal("0"))
-    delta = total_due - total_charged
+    records = get_records_for(db, "registration", registration.id)
+    charges = [r for r in records if r.type == "charge"]
+    # Charges minus reeds (deels) terugbetaalde bedragen: refunds hebben een negatief
+    # `amount`, dus optellen volstaat. Zo telt een bestaande terugbetaling mee en maken
+    # we er bij een volgende edit geen tweede aan.
+    net_charged = sum((Decimal(str(r.amount)) for r in records), Decimal("0"))
+    delta = total_due - net_charged
 
     if delta > 0:
         create_payment_record(
@@ -361,6 +363,7 @@ def reconcile_registration_charges(
         )
     elif delta < 0:
         shortfall = -delta
+        # 1) Onbetaalde pending-charges laten krimpen (nieuwste eerst).
         reducible = [
             c for c in sorted(charges, key=lambda c: c.created_at, reverse=True)
             if c.status != "paid" and (c.amount_paid is None or Decimal(str(c.amount_paid)) == 0)
@@ -382,5 +385,19 @@ def reconcile_registration_charges(
                 snapshot_payment_record(
                     db, c, operation="update", action="order_reconciled",
                     source="order-edit", actor=audit_actor,
+                )
+        # 2) Wat overblijft is al betaald → automatische terugbetaling (#191), met de
+        #    methode van de betaalde charge (online → overschrijving, nooit auto-online).
+        if shortfall > 0:
+            paid_charge = next(
+                (c for c in sorted(charges, key=lambda c: c.created_at, reverse=True)
+                 if c.amount_paid is not None and Decimal(str(c.amount_paid)) > 0),
+                None,
+            )
+            if paid_charge is not None:
+                method = paid_charge.method if paid_charge.method in ("transfer", "cash") else "transfer"
+                create_refund(
+                    db, paid_charge.id, shortfall, method=method,
+                    note="Automatisch bij bestelverlaging", actor=audit_actor, source="order-edit",
                 )
         db.flush()
