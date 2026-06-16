@@ -508,18 +508,26 @@ export default function BetalingenPage() {
                         <option value="cancelled">Geannuleerd</option>
                       </select>
                     </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1">Betaald bedrag (€)</label>
-                      <input
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        className="input text-sm"
-                        placeholder={parseFloat(r.amount).toFixed(2)}
-                        value={editData.amount_paid}
-                        onChange={(e) => setEditData((d) => ({ ...d, amount_paid: e.target.value }))}
-                      />
-                    </div>
+                    {/* Bij een terugbetaling boekt de server automatisch het volledige
+                        (negatieve) bedrag; geen handmatig veld (#219). */}
+                    {r.type === "refund" ? (
+                      <div className="self-end text-xs text-gray-500">
+                        De volledige terugbetaling van €{Math.abs(parseFloat(r.amount)).toFixed(2)} wordt geboekt.
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1">Betaald bedrag (€)</label>
+                        <input
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          className="input text-sm"
+                          placeholder={parseFloat(r.amount).toFixed(2)}
+                          value={editData.amount_paid}
+                          onChange={(e) => setEditData((d) => ({ ...d, amount_paid: e.target.value }))}
+                        />
+                      </div>
+                    )}
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-medium text-gray-600 mb-1">Opmerking</label>
                       <input

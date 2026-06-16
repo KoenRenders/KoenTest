@@ -1,4 +1,5 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
@@ -229,12 +230,13 @@ def update_payment_record(
         raise HTTPException(status_code=404, detail="Payment record not found")
 
     if data.amount_paid is not None:
-        if data.amount_paid < 0:
-            raise HTTPException(status_code=400, detail="amount_paid mag niet negatief zijn")
-        if data.amount_paid > record.amount:
+        # Tekengevoelige grens (#219): een charge heeft een positief bedrag → betaald
+        # bedrag in [0, amount]; een refund is negatief → betaald bedrag in [amount, 0].
+        lo, hi = sorted((Decimal("0"), Decimal(str(record.amount))))
+        if not (lo <= data.amount_paid <= hi):
             raise HTTPException(
                 status_code=400,
-                detail=f"amount_paid ({data.amount_paid}) mag het verschuldigde bedrag ({record.amount}) niet overschrijden",
+                detail=f"Betaald bedrag ({data.amount_paid}) moet tussen {lo} en {hi} liggen.",
             )
 
     if data.status == "paid":

@@ -198,12 +198,13 @@ def confirm_manual_payment(
     if not record:
         raise ValueError(f"PaymentRecord {record_id} not found")
     # Defense-in-depth (#146): betaald bedrag mag het verschuldigde nooit overschrijden.
-    # De router valideert dit ook (nette 422), maar de regel hoort óók in de service
-    # zodat elke toekomstige aanroeper beschermd is.
-    if amount_paid is not None and amount_paid > record.amount:
-        raise ValueError(
-            f"Betaald bedrag ({amount_paid}) mag niet hoger zijn dan verschuldigd ({record.amount})."
-        )
+    # Tekengevoelig (#219): charge → [0, amount]; refund (negatief) → [amount, 0].
+    if amount_paid is not None:
+        lo, hi = sorted((Decimal("0"), Decimal(str(record.amount))))
+        if not (lo <= amount_paid <= hi):
+            raise ValueError(
+                f"Betaald bedrag ({amount_paid}) moet tussen {lo} en {hi} liggen."
+            )
     record.status = "paid"
     record.paid_at = datetime.now(timezone.utc)
     if note:
