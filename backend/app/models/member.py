@@ -44,7 +44,9 @@ class MemberPerson(SoftDeleteMixin, Base):
 
     id = Column(Integer, primary_key=True, index=True)
     member_id = Column(Integer, ForeignKey("members.id"), nullable=False)
-    person_id = Column(Integer, ForeignKey("persons.id"), nullable=False)
+    # ondelete RESTRICT: een persoon kan niet hard verdwijnen zolang er
+    # gezinskoppelingen aan hangen (DB als laatste vangnet, #97 / migr. 058).
+    person_id = Column(Integer, ForeignKey("persons.id", ondelete="RESTRICT"), nullable=False)
     relation_type = Column(String(10), ForeignKey("relation_type_codes.code"), nullable=False, default="HOOFDLID")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
