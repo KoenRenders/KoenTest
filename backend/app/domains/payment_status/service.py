@@ -253,6 +253,7 @@ def create_refund(
     method: str = "transfer",
     actor: Optional[str] = None,
     source: str = "admin_manual",
+    settled: bool = True,
 ) -> PaymentRecord:
     """Registreer een terugbetaling als apart PaymentRecord (#83).
 
@@ -263,6 +264,13 @@ def create_refund(
       - je kunt enkel een 'charge' terugbetalen, geen refund;
       - het bedrag is strikt positief;
       - je kunt nooit méér terugbetalen dan er netto ontvangen is op de payable.
+
+    ``settled``: True wanneer de penningmeester een reeds uitgevoerde
+    terugbetaling registreert (meteen ``paid``, geld is terug). False voor een
+    automatisch gegenereerde **verplichting** (bv. bij bestelverlaging, #216): de
+    refund staat dan ``pending`` met ``amount_paid=None`` tot de penningmeester de
+    effectieve terugstorting bevestigt. Zo wordt het geld nooit als teruggestort
+    getoond vóór iemand het echt heeft uitbetaald.
     """
     charge = db.query(PaymentRecord).filter(PaymentRecord.id == charge_record_id).first()
     if not charge:
@@ -284,13 +292,13 @@ def create_refund(
         payable_type=charge.payable_type,
         payable_id=charge.payable_id,
         amount=-refund_amount,
-        amount_paid=-refund_amount,
+        amount_paid=(-refund_amount if settled else None),
         method=method,
-        status="paid",
+        status=("paid" if settled else "pending"),
         type="refund",
         refund_of_id=charge.id,
         note=note,
-        paid_at=datetime.now(timezone.utc),
+        paid_at=(datetime.now(timezone.utc) if settled else None),
     )
     db.add(record)
     db.flush()
@@ -384,8 +392,11 @@ def reconcile_registration_charges(
     elif outstanding < 0 and paid_charge is not None:
         # Te veel ontvangen → één terugbetaling, met de methode van de betaalde charge.
         method = paid_charge.method if paid_charge.method in ("transfer", "cash") else "transfer"
+        # Verplichting, geen voldongen feit: de penningmeester bevestigt de
+        # effectieve terugstorting (#216). Daarom pending, niet meteen 'paid'.
         create_refund(
             db, paid_charge.id, -outstanding, method=method,
-            note="Automatisch bij bestelverlaging", actor=audit_actor, source="order-edit",
+            note="Automatisch bij bestelverlaging — terugstorting te bevestigen",
+            actor=audit_actor, source="order-edit", settled=False,
         )
     db.flush()

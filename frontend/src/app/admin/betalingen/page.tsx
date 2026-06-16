@@ -487,10 +487,12 @@ export default function BetalingenPage() {
                           const status = e.target.value;
                           // Bij 'Betaald' meteen het verschuldigde bedrag voorvullen als nog
                           // leeg (#199), zodat zichtbaar is wat geboekt wordt vóór het opslaan.
+                          // Niet voor refunds: dat bedrag is negatief (door de server gevuld) en
+                          // het invoerveld weigert negatieve waarden (#216).
                           setEditData((d) => ({
                             ...d,
                             status,
-                            amount_paid: status === "paid" && !d.amount_paid
+                            amount_paid: status === "paid" && !d.amount_paid && r.type !== "refund"
                               ? parseFloat(r.amount).toFixed(2) : d.amount_paid,
                           }));
                         }}

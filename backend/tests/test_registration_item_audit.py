@@ -86,8 +86,8 @@ def test_swap_to_helper_product_auto_refunds(client, db_session, admin_headers):
     client.patch(f"/api/v1/payment-status/records/{charge.id}",
                  json={"status": "paid", "amount_paid": "18.00"}, headers=admin_headers)
 
-    # Bestelregel naar de gratis helper-variant → verschuldigd 0; de €18 wordt
-    # automatisch terugbetaald (#191), dus het saldo vereffent meteen.
+    # Bestelregel naar de gratis helper-variant → verschuldigd 0; de €18 wordt als
+    # terugbetaal-verplichting aangemaakt (#216), pending tot bevestiging.
     resp = client.patch(
         f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
         json={"product_id": helper.id}, headers=admin_headers,
@@ -95,9 +95,21 @@ def test_swap_to_helper_product_auto_refunds(client, db_session, admin_headers):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert Decimal(str(body["balance"]["total_due"])) == Decimal("0.00")
-    assert Decimal(str(body["balance"]["balance"])) == Decimal("0.00")
-    assert body["refund_due"] is False
-    assert Decimal(str(body["balance"]["total_refunded"])) == Decimal("18.00")
+    assert Decimal(str(body["balance"]["balance"])) == Decimal("-18.00")
+    assert body["refund_due"] is True
+    assert Decimal(str(body["balance"]["total_refunded"])) == Decimal("0.00")
+
+    # Penningmeester bevestigt de terugstorting → nu pas vereffend.
+    refund = db_session.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
+        PaymentRecord.type == "refund").order_by(PaymentRecord.created_at.desc()).first()
+    assert refund.status == "pending" and refund.amount_paid is None
+    client.patch(f"/api/v1/payment-status/records/{refund.id}",
+                 json={"status": "paid"}, headers=admin_headers)
+    bal = client.get(f"/api/v1/payment-status/registrations/{reg.id}/balance",
+                     headers=admin_headers).json()
+    assert Decimal(str(bal["balance"])) == Decimal("0.00")
+    assert Decimal(str(bal["total_refunded"])) == Decimal("18.00")
 
 
 def test_add_order_line(client, db_session, admin_headers):
