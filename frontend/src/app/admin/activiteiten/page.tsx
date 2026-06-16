@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   getActivities, createActivity, updateActivity, deleteActivity,
   getRegistrations, addComponent, updateComponent, deleteComponent,
@@ -63,6 +64,10 @@ export default function AdminActiviteiten() {
   interface Reg { id: number; component_id?: number; contact_name?: string; contact_email?: string; phone?: string; team_name?: string; payment_method?: string; remarks?: string; items: RegItem[]; }
   const [registrations, setRegistrations] = useState<{ [id: number]: Reg[] }>({});
   const [viewRegs, setViewRegs] = useState<{ activityId: number; componentId: number | null } | null>(null);
+  // Waar 'Sluiten' naartoe keert: gezet als de penningmeester via een deep-link
+  // vanuit Betalingen binnenkwam (?from=betalingen), zodat hij daar weer belandt.
+  const [returnTo, setReturnTo] = useState<string | null>(null);
+  const router = useRouter();
 
   function load() {
     // Admin haalt álle activiteiten + álle datums op via scope=all (#136) en
@@ -88,6 +93,7 @@ export default function AdminActiviteiten() {
     const params = new URLSearchParams(window.location.search);
     const activityId = parseInt(params.get("activity") ?? "", 10);
     if (!activityId) return;
+    setReturnTo(params.get("from"));
     const compRaw = params.get("component");
     loadRegistrations(activityId, compRaw ? parseInt(compRaw, 10) : null);
     const regId = params.get("reg");
@@ -490,7 +496,18 @@ export default function AdminActiviteiten() {
                   })}
                 </div>
               )}
-              <button className="btn-secondary mt-4" onClick={() => setViewRegs(null)}>Sluiten</button>
+              <button
+                className="btn-secondary mt-4"
+                onClick={() => {
+                  if (returnTo === "betalingen") {
+                    router.push("/admin/betalingen");
+                  } else {
+                    setViewRegs(null);
+                  }
+                }}
+              >
+                {returnTo === "betalingen" ? "Sluiten en terug naar Betalingen" : "Sluiten"}
+              </button>
             </div>
           </div>
         );
@@ -511,7 +528,7 @@ export default function AdminActiviteiten() {
               </div>
               <div className="flex gap-2 flex-wrap">
                 {(a.sub_registrations?.length ?? 0) === 0 && (
-                  <button className="btn-secondary btn-sm" onClick={() => loadRegistrations(a.id, null)}>Inschrijvingen</button>
+                  <button className="btn-secondary btn-sm" onClick={() => { setReturnTo(null); loadRegistrations(a.id, null); }}>Inschrijvingen</button>
                 )}
                 <button className="btn-secondary btn-sm" onClick={() => startEditActivity(a)}>Bewerken</button>
                 <button className="btn-danger btn-sm" onClick={() => handleDeleteActivity(a.id)}>Verwijderen</button>
@@ -649,7 +666,7 @@ export default function AdminActiviteiten() {
                     </div>
                     <div className="flex gap-2">
                       {!comp.external_register_url && (
-                        <button className="btn-secondary btn-sm text-xs" onClick={() => loadRegistrations(a.id, comp.id)}>Inschrijvingen</button>
+                        <button className="btn-secondary btn-sm text-xs" onClick={() => { setReturnTo(null); loadRegistrations(a.id, comp.id); }}>Inschrijvingen</button>
                       )}
                       {!comp.external_register_url && (
                         <button className="btn-secondary btn-sm text-xs" onClick={() => downloadExport(a.id, comp, a.name)} title="Export (.ods): aantallen + financials">Export</button>

@@ -427,7 +427,7 @@ export default function BetalingenPage() {
                           )}
                           {/* Deep-link naar het bestelregel-scherm van net deze inschrijving (#187). */}
                           <Link
-                            href={`/admin/activiteiten?activity=${r.activity_id}${r.component_id ? `&component=${r.component_id}` : ""}&reg=${r.payable_id}`}
+                            href={`/admin/activiteiten?activity=${r.activity_id}${r.component_id ? `&component=${r.component_id}` : ""}&reg=${r.payable_id}&from=betalingen`}
                             className="text-xs text-blue-600 hover:underline mt-2 inline-block"
                           >
                             Bestelregels bewerken in Activiteiten →
@@ -447,7 +447,7 @@ export default function BetalingenPage() {
                     </button>
                     {r.payable_type === "registration" && r.activity_id && (
                       <Link
-                        href={`/admin/activiteiten?activity=${r.activity_id}${r.component_id ? `&component=${r.component_id}` : ""}&reg=${r.payable_id}`}
+                        href={`/admin/activiteiten?activity=${r.activity_id}${r.component_id ? `&component=${r.component_id}` : ""}&reg=${r.payable_id}&from=betalingen`}
                         className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-0.5 hover:bg-blue-50 whitespace-nowrap"
                         title="Spring naar de bestelregels van deze inschrijving"
                       >
