@@ -270,6 +270,21 @@ def delete_payment_record(
     record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Payment record not found")
+    # Een betaling waar effectief geld bewoog, mag niet verdwijnen (#218):
+    #   1) een online betaling die Mollie als 'paid' bevestigde;
+    #   2) elk record met een betaald/ontvangen bedrag (cash/overschrijving bevestigd,
+    #      of een uitgevoerde terugbetaling — amount_paid ≠ 0).
+    # Zo'n record corrigeer je via een terugbetaling, niet via verwijderen.
+    if record.method == "online" and record.status == "paid":
+        raise HTTPException(
+            status_code=400,
+            detail="Een door Mollie betaalde online betaling kan niet verwijderd worden.",
+        )
+    if record.amount_paid is not None and record.amount_paid != 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Een betaling met een ontvangen/betaald bedrag kan niet verwijderd worden.",
+        )
     snapshot_payment_record(
         db, record,
         operation="delete", action="payment_deleted",

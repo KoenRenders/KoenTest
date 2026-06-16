@@ -464,13 +464,18 @@ export default function BetalingenPage() {
                         Terugbetaling registreren
                       </button>
                     )}
-                    <button
-                      onClick={() => removePayment(r)}
-                      className="text-xs text-red-600 border border-red-200 rounded px-2 py-0.5 hover:bg-red-50 whitespace-nowrap"
-                      title="Betaling verwijderen (blijft in audit-historie)"
-                    >
-                      Verwijderen
-                    </button>
+                    {/* Verwijderen kan niet als er geld bewoog: Mollie-betaald of een
+                        ontvangen/betaald bedrag (#218) — corrigeer via terugbetaling. */}
+                    {!((r.method === "online" && r.status === "paid")
+                       || (r.amount_paid != null && parseFloat(r.amount_paid) !== 0)) && (
+                      <button
+                        onClick={() => removePayment(r)}
+                        className="text-xs text-red-600 border border-red-200 rounded px-2 py-0.5 hover:bg-red-50 whitespace-nowrap"
+                        title="Betaling verwijderen (blijft in audit-historie)"
+                      >
+                        Verwijderen
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
