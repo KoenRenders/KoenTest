@@ -20,6 +20,12 @@ from app.models.history import (
     MembershipHistory,
     AddressHistory,
     ContactDetailHistory,
+    PaymentRecordHistory,
+    RegistrationItemHistory,
+    ActivityHistory,
+    ActivityDateHistory,
+    ComponentHistory,
+    ProductHistory,
 )
 
 _OPERATION_LABELS = {"insert": "Toegevoegd", "update": "Gewijzigd", "delete": "Verwijderd"}
@@ -29,9 +35,10 @@ def _fmt(value) -> str:
     return "" if value is None else str(value)
 
 
-def _row(h, *, entity: str, entity_id: Optional[int], summary: str) -> dict:
+def _row(h, *, entity: str, entity_id: Optional[int], summary: str, group: str = "Leden") -> dict:
     return {
         "recorded_at": h.recorded_at,
+        "group": group,
         "entity": entity,
         "entity_id": entity_id,
         "operation": h.operation,
@@ -82,6 +89,51 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
             summary=f"jaar {_fmt(h.year)}, actief={_fmt(h.is_active)}, {_fmt(h.valid_from)}–{_fmt(h.valid_to)} (gezin #{_fmt(h.member_id)})",
         ))
 
+    rows.sort(key=lambda r: r["recorded_at"], reverse=True)
+    return rows
+
+
+# Objectgroepen voor de filter op de Wijzigingen-pagina (#189).
+GROUPS = ["Leden", "Activiteiten", "Inschrijvingen", "Betalingen"]
+
+
+def all_changes_since(
+    db: Session, since: date, *, group: Optional[str] = None, actor: Optional[str] = None
+) -> List[dict]:
+    """Unified audit-feed (#189): alle history-tabellen sinds ``since``, met een
+    objectgroep per rij; optioneel gefilterd op groep en/of actor. Nieuw → oud."""
+    since_dt = datetime.combine(since, time.min, tzinfo=timezone.utc)
+    rows: List[dict] = list(member_changes_since(db, since))  # groep "Leden"
+
+    for h in db.query(ActivityHistory).filter(ActivityHistory.recorded_at >= since_dt):
+        rows.append(_row(h, entity="Activiteit", entity_id=h.activity_id,
+                         summary=_fmt(h.name) or f"activiteit #{_fmt(h.activity_id)}",
+                         group="Activiteiten"))
+    for h in db.query(ActivityDateHistory).filter(ActivityDateHistory.recorded_at >= since_dt):
+        rows.append(_row(h, entity="Datum", entity_id=h.activity_date_id,
+                         summary=f"{_fmt(h.start_date)}–{_fmt(h.end_date)} (activiteit #{_fmt(h.activity_id)})",
+                         group="Activiteiten"))
+    for h in db.query(ComponentHistory).filter(ComponentHistory.recorded_at >= since_dt):
+        rows.append(_row(h, entity="Onderdeel", entity_id=h.component_id,
+                         summary=f"{_fmt(h.name)} (activiteit #{_fmt(h.activity_id)})",
+                         group="Activiteiten"))
+    for h in db.query(ProductHistory).filter(ProductHistory.recorded_at >= since_dt):
+        rows.append(_row(h, entity="Product", entity_id=h.product_id,
+                         summary=f"{_fmt(h.name)} €{_fmt(h.price)} (onderdeel #{_fmt(h.component_id)})",
+                         group="Activiteiten"))
+    for h in db.query(RegistrationItemHistory).filter(RegistrationItemHistory.recorded_at >= since_dt):
+        rows.append(_row(h, entity="Bestelregel", entity_id=h.registration_item_id,
+                         summary=f"product #{_fmt(h.product_id)} ×{_fmt(h.quantity)} (inschrijving #{_fmt(h.registration_id)})",
+                         group="Inschrijvingen"))
+    for h in db.query(PaymentRecordHistory).filter(PaymentRecordHistory.recorded_at >= since_dt):
+        rows.append(_row(h, entity="Betaling", entity_id=None,
+                         summary=f"{_fmt(h.type)} €{_fmt(h.amount)} {_fmt(h.method)}/{_fmt(h.status)} ({_fmt(h.payable_type)} #{_fmt(h.payable_id)})",
+                         group="Betalingen"))
+
+    if group:
+        rows = [r for r in rows if r["group"] == group]
+    if actor:
+        rows = [r for r in rows if (r["actor"] or "") == actor]
     rows.sort(key=lambda r: r["recorded_at"], reverse=True)
     return rows
 

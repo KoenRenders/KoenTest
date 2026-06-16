@@ -1,6 +1,27 @@
 """Auditdekking activiteiten-domein (#189): create/update/delete van
 activiteit/onderdeel/product schrijft een history-rij (incl. soft-delete)."""
+from datetime import date
+
 from app.models.history import ActivityHistory, ComponentHistory, ProductHistory
+
+
+def test_unified_changes_feed(client, db_session, admin_headers):
+    """#189: de uniforme feed bevat activiteit-wijzigingen, met een werkende
+    objectgroep-filter."""
+    client.post("/api/v1/activities", headers=admin_headers, json={
+        "name": "Feeddag", "dates": [{"start_date": "2099-12-31"}], "location": "X"})
+    since = date.today().isoformat()
+
+    r = client.get(f"/api/v1/admin/changes?since={since}", headers=admin_headers)
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert "Activiteiten" in body["groups"]
+    assert any(row["group"] == "Activiteiten" and row["entity"] == "Activiteit"
+               for row in body["rows"])
+
+    r2 = client.get(f"/api/v1/admin/changes?since={since}&group=Activiteiten", headers=admin_headers)
+    rows2 = r2.json()["rows"]
+    assert rows2 and all(row["group"] == "Activiteiten" for row in rows2)
 
 
 def test_activity_domain_changes_are_audited(client, db_session, admin_headers):

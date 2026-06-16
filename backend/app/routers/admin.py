@@ -1,4 +1,5 @@
 from datetime import date, datetime, timedelta, timezone
+from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import Numeric, cast, func
@@ -162,3 +163,20 @@ def export_member_changes(
         media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
         headers={"Content-Disposition": f'attachment; filename="ledenwijzigingen-vanaf-{since}.xlsx"'},
     )
+
+
+# ── Uniforme Wijzigingen/audit-feed (#189) ────────────────────────────────────
+
+@router.get("/changes")
+def list_all_changes(
+    since: date = Query(..., description="Toon wijzigingen vanaf deze datum (YYYY-MM-DD)"),
+    group: Optional[str] = Query(None, description="Filter op objectgroep"),
+    actor: Optional[str] = Query(None, description="Filter op actor (e-mail)"),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    """Uniforme audit-feed: alle wijzigingen (leden, activiteiten, inschrijvingen,
+    betalingen) sinds `since`, optioneel gefilterd op objectgroep en/of actor.
+    Admin-only; bevat persoonsdata."""
+    from app.services.member_changes import all_changes_since, GROUPS
+    return {"groups": GROUPS, "rows": all_changes_since(db, since, group=group, actor=actor)}
