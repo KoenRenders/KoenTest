@@ -149,6 +149,7 @@ export interface MemberImportReport {
   persons_added: number;
   persons_updated: number;
   persons_removed: number;
+  persons_revived: number;
   memberships_created: number;
   admins_created: number;
   skipped: number;

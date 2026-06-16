@@ -395,3 +395,86 @@ def test_commit_creates_admin_login_for_board_member_end_to_end(db_session):
     member = db_session.query(Member).filter(
         Member.board_member_id == head["_person_id"]).first()
     assert member is not None
+
+
+# ── #227: soft-deleted persoon/gezin herleeft bij her-import ─────────────────────
+
+def _seed_imported(db, lidnr, voornaam, naam, dob, *, relatie="HOOFDLID", member=None):
+    """Een eerder geïmporteerd lid mét lidnummer (ExternalNumber)."""
+    if member is None:
+        member = Member()
+        db.add(member)
+        db.flush()
+    person = Person(first_name=voornaam, last_name=naam, date_of_birth=dob, gender_code="M")
+    db.add(person)
+    db.flush()
+    mp = MemberPerson(member_id=member.id, person_id=person.id, relation_type=relatie)
+    en = ExternalNumber(person_id=person.id, source=LEGACY_SOURCE, external_id=lidnr)
+    db.add_all([mp, en])
+    db.flush()
+    return member, person, mp, en
+
+
+def test_soft_deleted_person_revived_on_reimport(db_session):
+    """Scenario 2 (#227): een soft-deleted lid dat met hetzelfde lidnummer terugkomt,
+    wordt hersteld (de-soft-deleted), niet gedupliceerd."""
+    from app.soft_delete import soft_delete
+    seed_postal_code(db_session)
+    member, person, mp, en = _seed_imported(db_session, "100", "Jan", "Janssens", date(1980, 5, 1))
+    pid = person.id
+    for o in (person, mp, en):
+        soft_delete(o)
+    db_session.flush()
+
+    report = upsert_families(db_session, [[
+        _row("100", "Jan", "Janssens", "HOOFDLID", geboortedatum=date(1980, 5, 1)),
+    ]], {}, [], apply=True)
+
+    assert report.persons_revived == 1
+    assert report.persons_added == 0
+    persons = (db_session.query(Person).execution_options(include_deleted=True)
+               .filter(Person.first_name == "Jan", Person.last_name == "Janssens").all())
+    assert len(persons) == 1                                # geen duplicaat
+    assert persons[0].id == pid and persons[0].deleted_at is None   # hersteld
+
+
+def test_soft_deleted_family_revived_on_reimport(db_session):
+    """Scenario 3 (#227): een volledig soft-deleted gezin dat integraal terugkomt via
+    het rapport wordt hersteld, niet als nieuw gezin gedupliceerd."""
+    from app.soft_delete import soft_delete
+    seed_postal_code(db_session)
+    member, hoofd, mp1, en1 = _seed_imported(db_session, "200", "Mon", "Essers", date(1956, 5, 8))
+    _m, kind, mp2, en2 = _seed_imported(db_session, "201", "Tom", "Essers", date(2010, 1, 1),
+                                        relatie="KIND", member=member)
+    mid = member.id
+    for o in (member, mp1, mp2, en1, en2, hoofd, kind):
+        soft_delete(o)
+    db_session.flush()
+
+    report = upsert_families(db_session, [[
+        _row("200", "Mon", "Essers", "HOOFDLID", geboortedatum=date(1956, 5, 8)),
+        _row("201", "Tom", "Essers", "KIND", geboortedatum=date(2010, 1, 1)),
+    ]], {}, [], apply=True)
+
+    assert report.persons_revived == 2
+    # Geen duplicaat-gezin: het oorspronkelijke gezin is hersteld.
+    active = [m for m in db_session.query(Member).execution_options(include_deleted=True).all()
+              if m.deleted_at is None]
+    assert len(active) == 1 and active[0].id == mid
+
+
+def test_absent_family_left_untouched(db_session):
+    """Een gezin dat niet in het rapport staat, wordt niet aangeraakt: de import wist
+    enkel personen bínnen aanwezige gezinnen, nooit een volledig afwezig gezin (#179)."""
+    seed_postal_code(db_session)
+    _member, person = _seed_selfreg(db_session, "Wim", "Weg", date(1970, 1, 1))
+    pid = person.id
+
+    report = upsert_families(db_session, [[
+        _row("300", "Ander", "Lid", "HOOFDLID", geboortedatum=date(1990, 1, 1)),
+    ]], {}, [], apply=True)
+
+    assert report.persons_removed == 0
+    persoon = db_session.query(Person).filter(Person.id == pid).first()
+    assert persoon is not None and persoon.deleted_at is None         # ongemoeid
+    assert db_session.query(MemberPerson).filter(MemberPerson.person_id == pid).first() is not None

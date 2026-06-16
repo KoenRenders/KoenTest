@@ -15,6 +15,7 @@ function ReportSummary({ r }: { r: MemberImportReport }) {
     ["Bijgewerkte gezinnen", r.updated_families],
     ["Personen toegevoegd", r.persons_added],
     ["Personen bijgewerkt", r.persons_updated],
+    ["Personen hersteld", r.persons_revived],
     ["Personen verwijderd", r.persons_removed],
     ["Lidmaatschappen", r.memberships_created],
     ["Admin-gebruikers", r.admins_created],

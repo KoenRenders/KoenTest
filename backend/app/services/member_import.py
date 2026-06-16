@@ -64,6 +64,7 @@ class ImportReport:
     persons_added: int = 0
     persons_updated: int = 0
     persons_removed: int = 0
+    persons_revived: int = 0
     memberships_created: int = 0
     admins_created: int = 0
     skipped: int = 0
@@ -84,6 +85,7 @@ class ImportReport:
             "persons_added": self.persons_added,
             "persons_updated": self.persons_updated,
             "persons_removed": self.persons_removed,
+            "persons_revived": self.persons_revived,
             "memberships_created": self.memberships_created,
             "admins_created": self.admins_created,
             "skipped": self.skipped,
@@ -521,6 +523,55 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", str(s).strip()).strip()
 
 
+def _revive(obj) -> None:
+    """De-soft-delete één object (idempotent)."""
+    if getattr(obj, "deleted_at", None) is not None:
+        obj.deleted_at = None
+
+
+def _revive_soft_deleted(db: Session, families: list[list[dict]], *, apply: bool,
+                         report: ImportReport, actor: str | None = None) -> None:
+    """Herleef soft-deleted personen/gezinnen die met hetzelfde lidnummer terugkomen,
+    vóór de upsert (#227). Zonder dit zou de import ze — onzichtbaar door de
+    soft-delete-filter — als nieuw beschouwen en een duplicaat aanmaken. We herleven
+    de persoon + het lidnummer + de meest recente gezinskoppeling + dat gezin, zodat
+    de gewone upsert ze als bestaand bijwerkt. Mutaties gebeuren in-sessie; de caller
+    commit (apply) of verwerpt ze (dry-run, niet gecommit)."""
+    lidnrs = {r["lidnr"] for fam in families for r in fam if r["lidnr"]}
+    if not lidnrs:
+        return
+
+    def inc(model):
+        return db.query(model).execution_options(include_deleted=True)
+
+    ens = (inc(ExternalNumber)
+           .filter(ExternalNumber.source == LEGACY_SOURCE,
+                   ExternalNumber.external_id.in_(lidnrs))
+           .all())
+    for en in ens:
+        person = inc(Person).filter(Person.id == en.person_id).first()
+        if person is None or person.deleted_at is None:
+            continue   # persoon nog actief → niets te herstellen
+        report.persons_revived += 1
+        report.line(f"  ↺ hersteld #{en.external_id}  {person.first_name} {person.last_name}")
+        _revive(person)
+        _revive(en)
+        # De meest recente gezinskoppeling + dat gezin herleven, zodat het gezin
+        # terugkomt i.p.v. dat er een duplicaat-gezin wordt aangemaakt.
+        latest_mp = (inc(MemberPerson)
+                     .filter(MemberPerson.person_id == person.id)
+                     .order_by(MemberPerson.id.desc()).first())
+        if latest_mp is not None:
+            _revive(latest_mp)
+            member = inc(Member).filter(Member.id == latest_mp.member_id).first()
+            if member is not None:
+                _revive(member)
+        db.flush()
+        if apply:
+            snapshot_person(db, person, operation="update", action="person_revived",
+                            source=LEGACY_SOURCE, actor=actor)
+
+
 def _resolve_existing_member(fam: list[dict], ext_map: dict, identity_map: dict,
                              report: ImportReport) -> Member | None:
     """Bepaal het bestaande gezin voor een adresgroep uit het rapport via het
@@ -564,6 +615,11 @@ def upsert_families(db: Session, families: list[list[dict]], bl_index: dict,
     zonder de DB te muteren. ``actor`` belandt in elke history-rij (#214).
     """
     report = ImportReport()
+
+    # Eerst: soft-deleted personen/gezinnen die terugkeren herleven (#227), zodat de
+    # maps hieronder (gewone, gefilterde queries) ze als actief zien en de upsert ze
+    # bijwerkt i.p.v. dupliceert.
+    _revive_soft_deleted(db, families, apply=apply, report=report, actor=actor)
 
     # Preload bestaande lidnummers → persoon (met gezinnen/contacten/adres).
     ext_rows = (
