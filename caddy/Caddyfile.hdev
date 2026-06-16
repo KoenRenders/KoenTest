@@ -3,10 +3,8 @@
     handle /api/* {
         reverse_proxy backend:8000
     }
-    # Umami web-analytics (#152, laag 1) — serveert onder /umami (BASE_PATH).
-    handle /umami/* {
-        reverse_proxy umami:3000
-    }
+    # Umami (laag 1) draait op een eigen poort (8082, root), niet via Caddy: het
+    # prebuilt image past runtime-BASE_PATH niet toe → geen subpad. Zie docs/umami.md.
     handle {
         reverse_proxy frontend:3000
     }

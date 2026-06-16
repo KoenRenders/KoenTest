@@ -2,9 +2,10 @@ import uuid as uuid_lib
 from datetime import datetime, timezone
 from sqlalchemy import Column, String, Numeric, DateTime, JSON
 from app.database import Base
+from app.soft_delete import SoftDeleteMixin
 
 
-class GatewayPayment(Base):
+class GatewayPayment(SoftDeleteMixin, Base):
     __tablename__ = "gateway_payments"
 
     id = Column(String(36), primary_key=True, default=lambda: str(uuid_lib.uuid4()))

@@ -57,6 +57,9 @@ services:
         # PROD heeft bewust geen omgevingsindicator (lege kleur → geen balk/prefix).
         NEXT_PUBLIC_APP_ENV: prod
         NEXT_PUBLIC_ENV_COLOR: ${ENV_COLOR:-}
+        # Umami web-analytics (#152/#176, laag 1). Leeg = tracker laadt niet (no-op).
+        NEXT_PUBLIC_UMAMI_SRC: ${NEXT_PUBLIC_UMAMI_SRC:-}
+        NEXT_PUBLIC_UMAMI_WEBSITE_ID: ${NEXT_PUBLIC_UMAMI_WEBSITE_ID:-}
     restart: unless-stopped
     depends_on:
       - backend
@@ -65,6 +68,23 @@ services:
       proxy:
         aliases:
           - prod-frontend
+
+  # Umami (#176) — via subdomein door de gedeelde Caddy (alias prod-umami), eigen DB.
+  umami:
+    image: ghcr.io/umami-software/umami:postgresql-latest
+    restart: unless-stopped
+    environment:
+      DATABASE_URL: ${UMAMI_DATABASE_URL:-postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/umami_prod}
+      DATABASE_TYPE: postgresql
+      APP_SECRET: ${UMAMI_APP_SECRET:?UMAMI_APP_SECRET ontbreekt in .env.prod}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      internal:
+      proxy:
+        aliases:
+          - prod-umami
 
   db-backup:
     image: postgres:16
@@ -76,6 +96,27 @@ services:
       BACKUP_PREFIX: prod
       KEEP_DAYS: 7
       BACKUP_HOUR: "02"
+    volumes:
+      - ./backups:/backups
+      - ./scripts/db-backup.sh:/db-backup.sh:ro
+    entrypoint: ["bash", "/db-backup.sh"]
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+
+  # Aparte dagelijkse back-up van de Umami-analytics-DB (#176).
+  umami-db-backup:
+    image: postgres:16
+    restart: unless-stopped
+    environment:
+      PGPASSWORD: ${DB_PASSWORD:?DB_PASSWORD ontbreekt in .env.prod}
+      DB_USER: ${DB_USER:?DB_USER ontbreekt in .env.prod}
+      DB_NAME: umami_prod
+      BACKUP_PREFIX: prod-umami
+      KEEP_DAYS: 7
+      BACKUP_HOUR: "03"
     volumes:
       - ./backups:/backups
       - ./scripts/db-backup.sh:/db-backup.sh:ro

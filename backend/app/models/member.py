@@ -2,9 +2,10 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, Date, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 from app.database import Base
+from app.soft_delete import SoftDeleteMixin
 
 
-class Member(Base):
+class Member(SoftDeleteMixin, Base):
     """Household grouping — dynamic, can change over time."""
     __tablename__ = "members"
 
@@ -18,7 +19,7 @@ class Member(Base):
     board_member = relationship("Person", foreign_keys=[board_member_id])
 
 
-class Person(Base):
+class Person(SoftDeleteMixin, Base):
     """Stable, permanent individual entity."""
     __tablename__ = "persons"
 
@@ -37,7 +38,7 @@ class Person(Base):
     registrations = relationship("Registration", back_populates="person")
 
 
-class MemberPerson(Base):
+class MemberPerson(SoftDeleteMixin, Base):
     """Junction table linking persons to member households."""
     __tablename__ = "member_persons"
 
@@ -52,7 +53,7 @@ class MemberPerson(Base):
     person = relationship("Person", back_populates="member_persons")
 
 
-class Membership(Base):
+class Membership(SoftDeleteMixin, Base):
     """Annual membership record per member household."""
     __tablename__ = "memberships"
 

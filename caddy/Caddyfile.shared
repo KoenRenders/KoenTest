@@ -28,6 +28,12 @@
 	}
 }
 
+# Umami-analytics op een eigen subdomein, root-served (#176).
+{$STATS_UAT_DOMAIN} {
+	import security_headers
+	reverse_proxy uat-umami:3000
+}
+
 # www → apex: 301-redirect naar de canonieke URL (best practice, één canonieke host)
 {$PROD_WWW_DOMAIN} {
 	import security_headers
@@ -42,4 +48,10 @@
 	handle {
 		reverse_proxy prod-frontend:3000
 	}
+}
+
+# Umami-analytics op een eigen subdomein, root-served (#176).
+{$STATS_PROD_DOMAIN} {
+	import security_headers
+	reverse_proxy prod-umami:3000
 }

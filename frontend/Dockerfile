@@ -1,7 +1,7 @@
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+RUN npm ci
 COPY . .
 # Omgevingsindicator (#145): build-time ingebakken (NEXT_PUBLIC_* wordt door Next
 # bij de build geïnlined). Per omgeving gezet via de compose-build-args.

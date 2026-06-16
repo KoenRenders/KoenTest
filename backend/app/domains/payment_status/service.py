@@ -230,3 +230,98 @@ def get_records_for(db: Session, payable_type: str, payable_id: int) -> list[Pay
         PaymentRecord.payable_type == payable_type,
         PaymentRecord.payable_id == payable_id,
     ).all()
+
+
+def net_paid(db: Session, payable_type: str, payable_id: int) -> Decimal:
+    """Netto ontvangen bedrag op een payable: som van amount_paid over alle
+    records (charges positief, refunds negatief). Een nog niet betaalde charge
+    (amount_paid is None) telt als 0."""
+    rows = db.query(PaymentRecord.amount_paid).filter(
+        PaymentRecord.payable_type == payable_type,
+        PaymentRecord.payable_id == payable_id,
+    ).all()
+    return sum((Decimal(str(r[0])) for r in rows if r[0] is not None), Decimal("0"))
+
+
+def create_refund(
+    db: Session,
+    charge_record_id: str,
+    amount: Decimal,
+    *,
+    note: Optional[str] = None,
+    method: str = "transfer",
+    actor: Optional[str] = None,
+) -> PaymentRecord:
+    """Registreer een terugbetaling als apart PaymentRecord (#83).
+
+    Een refund is een negatief record met ``type="refund"`` dat via
+    ``refund_of_id`` naar de oorspronkelijke charge wijst. ``amount`` is het
+    **positieve** terug te betalen bedrag. Invarianten (service-laag, zodat elke
+    aanroeper beschermd is):
+      - je kunt enkel een 'charge' terugbetalen, geen refund;
+      - het bedrag is strikt positief;
+      - je kunt nooit méér terugbetalen dan er netto ontvangen is op de payable.
+    """
+    charge = db.query(PaymentRecord).filter(PaymentRecord.id == charge_record_id).first()
+    if not charge:
+        raise ValueError(f"PaymentRecord {charge_record_id} not found")
+    if charge.type != "charge":
+        raise ValueError("Een terugbetaling kan enkel een 'charge'-record terugdraaien.")
+
+    refund_amount = Decimal(str(amount))
+    if refund_amount <= 0:
+        raise ValueError("Het terug te betalen bedrag moet strikt positief zijn.")
+
+    available = net_paid(db, charge.payable_type, charge.payable_id)
+    if refund_amount > available:
+        raise ValueError(
+            f"Kan niet meer terugbetalen ({refund_amount}) dan er netto ontvangen is ({available})."
+        )
+
+    record = PaymentRecord(
+        payable_type=charge.payable_type,
+        payable_id=charge.payable_id,
+        amount=-refund_amount,
+        amount_paid=-refund_amount,
+        method=method,
+        status="paid",
+        type="refund",
+        refund_of_id=charge.id,
+        note=note,
+        paid_at=datetime.now(timezone.utc),
+    )
+    db.add(record)
+    db.flush()
+    snapshot_payment_record(
+        db, record,
+        operation="insert", action="payment_refunded",
+        source="admin_manual", actor=actor,
+    )
+    return record
+
+
+def registration_balance(db: Session, registration) -> dict:
+    """Financiële stand van één inschrijving (#83): verschuldigd vs. netto betaald.
+
+    ``balance > 0`` → nog te ontvangen, ``< 0`` → te veel ontvangen (refund due),
+    ``= 0`` → vereffend. De live DB is de enige bron van waarheid.
+    """
+    from app.services.registration_totals import compute_registration_total
+
+    total_due, _ = compute_registration_total(registration)
+    records = get_records_for(db, "registration", registration.id)
+    total_paid = sum(
+        (Decimal(str(r.amount_paid)) for r in records if r.amount_paid is not None),
+        Decimal("0"),
+    )
+    total_refunded = -sum(
+        (Decimal(str(r.amount_paid)) for r in records
+         if r.type == "refund" and r.amount_paid is not None),
+        Decimal("0"),
+    )
+    return {
+        "total_due": total_due,
+        "total_paid": total_paid,
+        "total_refunded": total_refunded,
+        "balance": total_due - total_paid,
+    }

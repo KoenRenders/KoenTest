@@ -2,9 +2,10 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Date, Time, ForeignKey, Numeric, Text
 from sqlalchemy.orm import relationship
 from app.database import Base
+from app.soft_delete import SoftDeleteMixin
 
 
-class ActivityDate(Base):
+class ActivityDate(SoftDeleteMixin, Base):
     __tablename__ = "activity_dates"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -17,7 +18,7 @@ class ActivityDate(Base):
     activity = relationship("Activity", back_populates="dates")
 
 
-class Activity(Base):
+class Activity(SoftDeleteMixin, Base):
     __tablename__ = "activities"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -35,7 +36,7 @@ class Activity(Base):
     sub_registrations = relationship("ActivitySubRegistration", back_populates="activity", cascade="all, delete-orphan", order_by="ActivitySubRegistration.sort_order")
 
 
-class Registration(Base):
+class Registration(SoftDeleteMixin, Base):
     __tablename__ = "registrations"
 
     id = Column(Integer, primary_key=True, index=True)
@@ -57,7 +58,7 @@ class Registration(Base):
     items = relationship("RegistrationItem", back_populates="registration", cascade="all, delete-orphan")
 
 
-class RegistrationItem(Base):
+class RegistrationItem(SoftDeleteMixin, Base):
     __tablename__ = "registration_items"
 
     id = Column(Integer, primary_key=True, index=True)

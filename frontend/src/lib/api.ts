@@ -30,6 +30,24 @@ export const registerForActivity = (id: number, data: unknown) => api.post(`/api
 export const getPublicRegistrations = (activityId: number, componentId: number) =>
   api.get(`/api/v1/activities/${activityId}/public-registrations`, { params: { component_id: componentId } });
 
+// Bestelregels bewerken (admin) — audit + herberekend saldo (#84)
+export const addOrderLine = (activityId: number, registrationId: number, data: { product_id: number; quantity: number }) =>
+  api.post(`/api/v1/activities/${activityId}/registrations/${registrationId}/items`, data);
+export const updateOrderLine = (activityId: number, registrationId: number, itemId: number, data: { product_id?: number; quantity?: number }) =>
+  api.patch(`/api/v1/activities/${activityId}/registrations/${registrationId}/items/${itemId}`, data);
+export const deleteOrderLine = (activityId: number, registrationId: number, itemId: number) =>
+  api.delete(`/api/v1/activities/${activityId}/registrations/${registrationId}/items/${itemId}`);
+
+// Excel-export per onderdeel (#85) — blob, met Bearer-token via de axios-instance
+export const exportComponentXlsx = (activityId: number, componentId: number) =>
+  api.get(`/api/v1/activities/${activityId}/components/${componentId}/export`, { responseType: "blob" });
+
+// Ledendata-wijzigingen sinds datum (#82)
+export const getMemberChanges = (since: string) =>
+  api.get("/api/v1/admin/member-changes", { params: { since } });
+export const exportMemberChanges = (since: string) =>
+  api.get("/api/v1/admin/member-changes/export", { params: { since }, responseType: "blob" });
+
 // Activity dates
 export const addActivityDate = (activityId: number, data: unknown) =>
   api.post(`/api/v1/activities/${activityId}/dates`, data);
@@ -157,6 +175,10 @@ export const memberImportCommit = (token: string) =>
 export const listPaymentRecords = () => api.get("/api/v1/payment-status/records");
 export const updatePaymentRecord = (id: string, data: unknown) => api.patch(`/api/v1/payment-status/records/${id}`, data);
 export const refreshPaymentRecord = (id: string) => api.post(`/api/v1/payment-status/records/${id}/refresh`);
+export const refundPaymentRecord = (id: string, data: { amount: number; note?: string }) =>
+  api.post(`/api/v1/payment-status/records/${id}/refund`, data);
+export const deletePaymentRecord = (id: string) =>
+  api.delete(`/api/v1/payment-status/records/${id}`);
 
 // Auth — één login voor iedereen (magic link + OTP)
 export const requestLogin = (email: string) => api.post("/api/v1/auth/request-login", { email });

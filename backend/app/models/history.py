@@ -90,6 +90,18 @@ class ContactDetailHistory(HistoryMixin, Base):
     is_primary = Column(Boolean, nullable=True)
 
 
+class RegistrationItemHistory(HistoryMixin, Base):
+    """Append-only audit van bestelregels (#84): elke insert/update/delete van een
+    RegistrationItem, zodat wijzigingen aan een bestelling ná betaling traceerbaar
+    zijn (bv. product wisselen naar een helper-variant, of een regel verwijderen)."""
+    __tablename__ = "registration_item_history"
+
+    registration_item_id = Column(Integer, nullable=False, index=True)
+    registration_id = Column(Integer, nullable=True, index=True)
+    product_id = Column(Integer, nullable=True)
+    quantity = Column(Integer, nullable=True)
+
+
 class PaymentRecordHistory(HistoryMixin, Base):
     __tablename__ = "payment_record_history"
 
@@ -100,6 +112,8 @@ class PaymentRecordHistory(HistoryMixin, Base):
     amount_paid = Column(Numeric(10, 2), nullable=True)
     method = Column(String(20), nullable=True)
     status = Column(String(20), nullable=True)
+    type = Column(String(10), nullable=True)          # charge / refund (#83)
+    refund_of_id = Column(String(36), nullable=True)  # charge die deze refund terugdraait (#83)
     gateway_payment_id = Column(String(36), nullable=True)
     note = Column(String(200), nullable=True)
     paid_at = Column(DateTime(timezone=True), nullable=True)

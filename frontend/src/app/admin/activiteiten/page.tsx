@@ -5,10 +5,11 @@ import {
   getRegistrations, addComponent, updateComponent, deleteComponent,
   addProduct, updateProduct, deleteProduct,
   addActivityDate, updateActivityDate, deleteActivityDate,
+  exportComponentXlsx,
 } from "@/lib/api";
 import type { Activity, ActivityComponent, ActivityProduct, ActivityDate } from "@/lib/types";
 import { parseApiError } from "@/lib/errors";
-import RegistrationList, { type RegistrationEntry } from "@/components/RegistrationList";
+import OrderLineEditor from "@/components/OrderLineEditor";
 
 const emptyActivity = () => ({
   name: "", location: "", poster_url: "", is_cancelled: false, members_only: false,
@@ -58,7 +59,7 @@ export default function AdminActiviteiten() {
   const [editingProduct, setEditingProduct] = useState<number | null>(null);
   const [productForm, setProductForm] = useState(emptyProduct());
 
-  interface RegItem { product_id: number; quantity: number; product_name?: string; component_name?: string; }
+  interface RegItem { id?: number; product_id: number; quantity: number; product_name?: string; component_name?: string; }
   interface Reg { id: number; component_id?: number; contact_name?: string; contact_email?: string; phone?: string; team_name?: string; payment_method?: string; remarks?: string; items: RegItem[]; }
   const [registrations, setRegistrations] = useState<{ [id: number]: Reg[] }>({});
   const [viewRegs, setViewRegs] = useState<{ activityId: number; componentId: number | null } | null>(null);
@@ -144,6 +145,23 @@ export default function AdminActiviteiten() {
     const r = await getRegistrations(activityId);
     setRegistrations((prev) => ({ ...prev, [activityId]: r.data }));
     setViewRegs({ activityId, componentId });
+  }
+
+  async function downloadExport(activityId: number, comp: ActivityComponent, activityName?: string) {
+    try {
+      const resp = await exportComponentXlsx(activityId, comp.id);
+      const url = URL.createObjectURL(resp.data as Blob);
+      const link = document.createElement("a");
+      link.href = url;
+      const safe = `${activityName ?? "activiteit"}-${comp.name}`.replace(/[^A-Za-z0-9_-]+/g, "_");
+      link.download = `${safe || "export"}.xlsx`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      alert(parseApiError(e, "Export mislukt."));
+    }
   }
 
   // ── Date management ──────────────────────────────────────────────────────────
@@ -407,19 +425,6 @@ export default function AdminActiviteiten() {
         }
         const hasTotals = Object.keys(productTotals).length > 0;
 
-        const entries: RegistrationEntry[] = regs.map((r) => ({
-          contact_name: r.contact_name,
-          contact_email: r.contact_email,
-          phone: r.phone,
-          team_name: r.team_name,
-          payment_method: r.payment_method,
-          remarks: r.remarks,
-          items: r.items.map((it) => ({
-            product_name: it.product_name,
-            quantity: it.quantity,
-          })),
-        }));
-
         return (
           <div className="fixed inset-0 bg-black bg-opacity-40 flex items-center justify-center z-50 p-4">
             <div className="bg-white rounded-xl shadow-xl max-w-xl w-full p-6 max-h-[85vh] overflow-y-auto">
@@ -431,7 +436,38 @@ export default function AdminActiviteiten() {
                   {Object.entries(productTotals).map(([name, qty]) => `${name}: ${qty}`).join(" · ")}
                 </div>
               )}
-              <RegistrationList entries={entries} />
+              {regs.length === 0 ? (
+                <p className="text-gray-500 text-sm">Geen inschrijvingen.</p>
+              ) : (
+                <div className="space-y-4">
+                  {regs.map((r) => {
+                    const comp = activity?.sub_registrations?.find((c) => c.id === r.component_id);
+                    const products = (comp?.products ?? []).map((p) => ({ id: p.id, name: p.name }));
+                    return (
+                      <div key={r.id} className="border border-gray-100 rounded-lg p-3">
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="font-medium text-sm">{r.contact_name ?? "—"}</span>
+                            {r.contact_email && <span className="text-gray-400 ml-2 text-xs">{r.contact_email}</span>}
+                            {r.team_name && <span className="ml-2 text-blue-600 text-xs">🏅 {r.team_name}</span>}
+                          </div>
+                          {r.payment_method && (
+                            <span className="text-xs text-gray-500 whitespace-nowrap">{r.payment_method}</span>
+                          )}
+                        </div>
+                        {r.remarks && <p className="text-xs text-gray-400 italic mt-0.5">{r.remarks}</p>}
+                        <OrderLineEditor
+                          activityId={activityId}
+                          registrationId={r.id}
+                          items={r.items}
+                          products={products}
+                          onChanged={() => loadRegistrations(activityId, componentId)}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
               <button className="btn-secondary mt-4" onClick={() => setViewRegs(null)}>Sluiten</button>
             </div>
           </div>
@@ -592,6 +628,9 @@ export default function AdminActiviteiten() {
                     <div className="flex gap-2">
                       {!comp.external_register_url && (
                         <button className="btn-secondary btn-sm text-xs" onClick={() => loadRegistrations(a.id, comp.id)}>Inschrijvingen</button>
+                      )}
+                      {!comp.external_register_url && (
+                        <button className="btn-secondary btn-sm text-xs" onClick={() => downloadExport(a.id, comp, a.name)} title="Excel-export: aantallen + financials">Export</button>
                       )}
                       <button className="btn-secondary btn-sm text-xs" onClick={() => {
                         setExpandedComponent(expandedComponent === comp.id ? null : comp.id);
