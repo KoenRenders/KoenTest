@@ -143,23 +143,38 @@ def test_paying_supplemental_charge_settles_balance(client, db_session, admin_he
     assert Decimal(str(bal["balance"])) == Decimal("0.00")
 
 
-def test_lowering_unpaid_order_shrinks_supplemental_charge(client, db_session, admin_headers):
-    """#185 (C): een nog niet-betaalde aanvullende bestelling weer verlagen laat de
-    aanvullende pending-charge mee krimpen (geen overstaande charge)."""
+def test_lowering_unpaid_order_consolidates_to_one_open_charge(client, db_session, admin_headers):
+    """#195: zonder betaling is er één open charge voor het volledige openstaande
+    bedrag; verhogen/verlagen herrekent die integraal (geen stapeling)."""
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     extra = _add_product(db_session, comp, name="Dessert", price="16.00")
-    activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)  # €18 pending, onbetaald
+    activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)  # 18 open
     client.post(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
-                json={"product_id": extra.id, "quantity": 2}, headers=admin_headers)  # +€32 → aanvullende charge €32
-    assert sorted(Decimal(str(c.amount)) for c in _charges(db_session, reg)) == [Decimal("18.00"), Decimal("32.00")]
+                json={"product_id": extra.id, "quantity": 2}, headers=admin_headers)  # +32 → 50
+    assert sorted(Decimal(str(c.amount)) for c in _charges(db_session, reg)) == [Decimal("50.00")]
 
     item = db_session.query(RegistrationItem).filter(
         RegistrationItem.registration_id == reg.id, RegistrationItem.product_id == extra.id,
     ).first()
     client.patch(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
-                 json={"quantity": 1}, headers=admin_headers)  # extra → €16, aanvullende charge moet €16 worden
-    amounts = sorted(Decimal(str(c.amount)) for c in _charges(db_session, reg))
-    assert amounts == [Decimal("16.00"), Decimal("18.00")]
+                 json={"quantity": 1}, headers=admin_headers)  # → 34
+    assert sorted(Decimal(str(c.amount)) for c in _charges(db_session, reg)) == [Decimal("34.00")]
+
+
+def test_multiple_increases_consolidate_to_single_open_charge(client, db_session, admin_headers):
+    """#195: na een volledige betaling meerdere keren verhogen → één open charge voor
+    het totale openstaande bedrag, niet één per toevoeging."""
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    extra = _add_product(db_session, comp, name="Dessert", price="10.00")
+    activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)  # 18
+    _pay(client, admin_headers, charge.id, "18.00")  # volledig betaald
+    for _ in range(2):
+        client.post(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
+                    json={"product_id": extra.id, "quantity": 1}, headers=admin_headers)
+    open_charges = [c for c in _charges(db_session, reg)
+                    if c.amount_paid is None or Decimal(str(c.amount_paid)) == 0]
+    assert len(open_charges) == 1
+    assert Decimal(str(open_charges[0].amount)) == Decimal("20.00")
 
 
 def test_quantity_increase_creates_supplemental_charge(client, db_session, admin_headers):
