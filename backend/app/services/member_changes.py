@@ -121,12 +121,27 @@ class _SubjectResolver:
             self._head_of_member[member_id] = mp.person_id if mp else None
         return self._head_of_member[member_id]
 
+    def _person_by_email(self, email):
+        """Person-id achter een e-mailadres (gast-inschrijving zonder gekoppeld lid)."""
+        if not email:
+            return None
+        from sqlalchemy import func
+        from app.models.contact import ContactDetail
+        cd = (self._q(ContactDetail)
+              .filter(func.lower(ContactDetail.value) == email.strip().lower(),
+                      ContactDetail.contact_type_code == "EMAIL").first())
+        return cd.person_id if cd else None
+
     def fields(self, *, person_id=None, member_id=None) -> dict:
         """De vier extra kolommen voor één wijziging. Subject = de betrokken
         persoon (of, bij een gezin/lidmaatschap-wijziging, het hoofdlid)."""
         head_member_id = member_id if member_id is not None else self._member_of(person_id)
         subject_person_id = person_id if person_id is not None else self._head_of(head_member_id)
         head_person_id = self._head_of(head_member_id)
+        # Geen gezin/hoofdlid gevonden → val terug op de persoon zelf, zodat het
+        # adres/extern nummer toch ingevuld raken (bv. een lid zonder gezinskoppeling).
+        if head_person_id is None:
+            head_person_id = subject_person_id
         return {
             "person_name": self._name_of(subject_person_id),
             "person_external_id": self._ext_of(subject_person_id),
@@ -146,6 +161,11 @@ class _SubjectResolver:
             return None
         if reg.person_id is not None:
             return self.fields(person_id=reg.person_id)
+        # Gast-inschrijving: probeer het lid te matchen op het contact-e-mailadres,
+        # zodat persoon + hoofdlid-adres tóch ingevuld raken (#221).
+        pid = self._person_by_email(reg.contact_email)
+        if pid is not None:
+            return self.fields(person_id=pid)
         return {"person_name": _fmt(reg.contact_name), "person_external_id": "",
                 "head_address": "", "head_external_id": ""}
 
