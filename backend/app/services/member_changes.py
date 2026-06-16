@@ -9,9 +9,9 @@ from datetime import date, datetime, time, timezone
 from io import BytesIO
 from typing import List, Optional
 
-from openpyxl import Workbook
-from openpyxl.styles import Font, PatternFill
 from sqlalchemy.orm import Session
+
+from app.services.ods_export import build_ods
 
 from app.models.history import (
     PersonHistory,
@@ -138,30 +138,16 @@ def all_changes_since(
     return rows
 
 
-def build_member_changes_xlsx(rows: List[dict]) -> bytes:
-    wb = Workbook()
-    ws = wb.active
-    ws.title = "Ledenwijzigingen"
+def build_member_changes_ods(rows: List[dict]) -> bytes:
     headers = ["Tijdstip", "Wat", "Type", "ID", "Actie", "Door", "Details"]
-    ws.append(headers)
-    for col in range(1, len(headers) + 1):
-        c = ws.cell(row=1, column=col)
-        c.font = Font(bold=True)
-        c.fill = PatternFill("solid", fgColor="E5E7EB")
-
+    data = []
     for r in rows:
         ts = r["recorded_at"]
         ts_str = ts.strftime("%Y-%m-%d %H:%M") if ts else ""
-        ws.append([
-            ts_str, r["operation_label"], r["entity"], r["entity_id"],
+        data.append([
+            ts_str, r["operation_label"], r["entity"],
+            "" if r["entity_id"] is None else str(r["entity_id"]),
             r["action"], r["actor"] or "", r["summary"],
         ])
-
-    widths = [16, 12, 14, 8, 26, 26, 60]
-    for i, w in enumerate(widths, start=1):
-        ws.column_dimensions[ws.cell(row=1, column=i).column_letter].width = w
-    ws.freeze_panes = "A2"
-
-    buf = BytesIO()
-    wb.save(buf)
-    return buf.getvalue()
+    return build_ods("Ledenwijzigingen", headers, data,
+                     col_widths=[4.0, 3.0, 3.5, 2.0, 6.5, 6.5, 14.0])

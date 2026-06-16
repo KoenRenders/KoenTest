@@ -154,7 +154,7 @@ export default function AdminActiviteiten() {
       const link = document.createElement("a");
       link.href = url;
       const safe = `${activityName ?? "activiteit"}-${comp.name}`.replace(/[^A-Za-z0-9_-]+/g, "_");
-      link.download = `${safe || "export"}.xlsx`;
+      link.download = `${safe || "export"}.ods`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -630,7 +630,7 @@ export default function AdminActiviteiten() {
                         <button className="btn-secondary btn-sm text-xs" onClick={() => loadRegistrations(a.id, comp.id)}>Inschrijvingen</button>
                       )}
                       {!comp.external_register_url && (
-                        <button className="btn-secondary btn-sm text-xs" onClick={() => downloadExport(a.id, comp, a.name)} title="Excel-export: aantallen + financials">Export</button>
+                        <button className="btn-secondary btn-sm text-xs" onClick={() => downloadExport(a.id, comp, a.name)} title="Export (.ods): aantallen + financials">Export</button>
                       )}
                       <button className="btn-secondary btn-sm text-xs" onClick={() => {
                         setExpandedComponent(expandedComponent === comp.id ? null : comp.id);

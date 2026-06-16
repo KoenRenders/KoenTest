@@ -45,7 +45,7 @@ from app.domains.audit.service import (
     snapshot_component,
     snapshot_product,
 )
-from app.services.activity_export import build_component_export_xlsx
+from app.services.activity_export import build_component_export_ods
 from app.soft_delete import soft_delete
 from app.limiter import registration_limiter
 
@@ -594,16 +594,16 @@ def get_registrations(
     return [_enrich_registration(r, activity) for r in activity.registrations]
 
 
-# ── Excel-export per onderdeel (#85) ──────────────────────────────────────────
+# ── OpenDocument-export per onderdeel (#85/#200) ──────────────────────────────
 
 @router.get("/activities/{activity_id}/components/{component_id}/export")
-def export_component_xlsx(
+def export_component_ods(
     activity_id: int,
     component_id: int,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    """Download een .xlsx met aantallen per product + financials voor één
+    """Download een .ods met aantallen per product + financials voor één
     onderdeel, zoals ze nu in de DB staan (#85). Admin-only; bevat persoons- en
     financiële data."""
     import re
@@ -616,13 +616,13 @@ def export_component_xlsx(
     if not component:
         raise HTTPException(status_code=404, detail="Component not found")
 
-    content = build_component_export_xlsx(db, activity, component)
+    content = build_component_export_ods(db, activity, component)
     raw_name = f"{activity.name}-{component.name}"
     safe = re.sub(r"[^A-Za-z0-9_-]+", "_", raw_name).strip("_") or "export"
     return Response(
         content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="{safe}.xlsx"'},
+        media_type="application/vnd.oasis.opendocument.spreadsheet",
+        headers={"Content-Disposition": f'attachment; filename="{safe}.ods"'},
     )
 
 

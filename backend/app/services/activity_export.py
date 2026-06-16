@@ -1,29 +1,18 @@
-"""Excel (.xlsx) export per activiteit-onderdeel (#85).
+"""OpenDocument (.ods) export per activiteit-onderdeel (#85/#200).
 
-Genereert een werkboek met, per onderdeel (ActivitySubRegistration), één rij per
-inschrijving: aantallen per product + financials (verschuldigd, betaald
-online/overschrijving-cash, terugbetaald, saldo) zoals ze NU in de DB staan, met
-een totaalrij. De live DB is de bron van waarheid — er wordt aangenomen dat de
-penningmeester overschrijvingen via de admin heeft ingevoerd.
+Genereert per onderdeel (ActivitySubRegistration) één rij per inschrijving: aantallen
+per product + financials (verschuldigd, betaald online/overschrijving-cash,
+terugbetaald, saldo) zoals ze NU in de DB staan, met een totaalrij. De live DB is de
+bron van waarheid.
 
 Bevat persoons- en financiële data: enkel admin, nooit in de repo.
 """
 from decimal import Decimal
-from io import BytesIO
-from typing import List, Tuple
-
-from openpyxl import Workbook
-from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
-from openpyxl.utils import get_column_letter
+from typing import Tuple
 
 from app.domains.payment_status.service import get_records_for
 from app.services.registration_totals import compute_registration_total
-
-_EURO_FMT = '#,##0.00'
-_HEADER_FILL = PatternFill("solid", fgColor="E5E7EB")
-_HEADER_FONT = Font(bold=True)
-_TOTAL_FONT = Font(bold=True)
-_TOP_BORDER = Border(top=Side(style="thin", color="9CA3AF"))
+from app.services.ods_export import build_ods
 
 _METHOD_LABELS = {"ONLINE": "Online", "TRANSFER": "Overschrijving", "CASH": "Cash"}
 
@@ -57,14 +46,10 @@ def _status_label(due: Decimal, saldo: Decimal) -> str:
     return "Vereffend" if due > 0 else "Gratis"
 
 
-def build_component_export_xlsx(db, activity, component) -> bytes:
-    """Bouw het .xlsx-werkboek voor één onderdeel en geef de bytes terug."""
+def build_component_export_ods(db, activity, component) -> bytes:
+    """Bouw de .ods-export voor één onderdeel en geef de bytes terug."""
     products = list(component.products)
     registrations = [r for r in activity.registrations if r.component_id == component.id]
-
-    wb = Workbook()
-    ws = wb.active
-    ws.title = (component.name or "Onderdeel")[:31]  # Excel-tabbladlimiet
 
     headers = (
         ["Naam"]
@@ -72,21 +57,10 @@ def build_component_export_xlsx(db, activity, component) -> bytes:
         + ["Verschuldigd", "Betaald online", "Betaald overschr./cash",
            "Terugbetaald", "Saldo", "Betaalwijze", "Status"]
     )
-    ws.append(headers)
-    for col in range(1, len(headers) + 1):
-        cell = ws.cell(row=1, column=col)
-        cell.font = _HEADER_FONT
-        cell.fill = _HEADER_FILL
-        cell.alignment = Alignment(horizontal="center" if col > 1 else "left")
 
-    n_products = len(products)
-    # Kolomindexen (1-based) van de geldkolommen, voor opmaak + totalen.
-    first_money_col = 2 + n_products  # na Naam + productkolommen
-    money_cols = list(range(first_money_col, first_money_col + 5))  # 5 geldkolommen
-
-    product_totals = [0] * n_products
+    product_totals = [0] * len(products)
     money_totals = [Decimal("0")] * 5
-
+    rows = []
     for reg in registrations:
         qty_by_product = {}
         for item in reg.items:
@@ -98,33 +72,15 @@ def build_component_export_xlsx(db, activity, component) -> bytes:
             q = qty_by_product.get(p.id, 0)
             product_totals[idx] += q
             row.append(q)
-        money_vals = [due, online, offline, refunded, saldo]
-        for i, v in enumerate(money_vals):
+        for i, v in enumerate([due, online, offline, refunded, saldo]):
             money_totals[i] += v
             row.append(float(v))
         row.append(_METHOD_LABELS.get(reg.payment_method or "", reg.payment_method or "—"))
         row.append(_status_label(due, saldo))
-        ws.append(row)
+        rows.append(row)
 
-    # Totaalrij
-    total_row = ["Totaal"] + product_totals + [float(v) for v in money_totals] + ["", ""]
-    ws.append(total_row)
-    total_row_idx = ws.max_row
-    for col in range(1, len(headers) + 1):
-        cell = ws.cell(row=total_row_idx, column=col)
-        cell.font = _TOTAL_FONT
-        cell.border = _TOP_BORDER
+    rows.append(["Totaal"] + product_totals + [float(v) for v in money_totals] + ["", ""])
 
-    # Euro-opmaak op de geldkolommen (alle datarijen + totaalrij)
-    for col in money_cols:
-        for r in range(2, total_row_idx + 1):
-            ws.cell(row=r, column=col).number_format = _EURO_FMT
-
-    # Kolombreedtes globaal wat ruimer
-    for col in range(1, len(headers) + 1):
-        ws.column_dimensions[get_column_letter(col)].width = 18 if col == 1 else 14
-    ws.freeze_panes = "A2"
-
-    buf = BytesIO()
-    wb.save(buf)
-    return buf.getvalue()
+    col_widths = [4.5] + [3.0] * len(products) + [3.5, 3.5, 4.0, 3.5, 3.0, 3.5, 3.0]
+    return build_ods(component.name or "Onderdeel", headers, rows,
+                     col_widths=col_widths, bold_last_row=True)

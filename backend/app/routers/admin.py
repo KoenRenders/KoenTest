@@ -155,13 +155,13 @@ def export_member_changes(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    """Dezelfde wijzigingen als .xlsx-download."""
-    from app.services.member_changes import member_changes_since, build_member_changes_xlsx
-    content = build_member_changes_xlsx(member_changes_since(db, since))
+    """Dezelfde wijzigingen als .ods-download (OpenDocument)."""
+    from app.services.member_changes import member_changes_since, build_member_changes_ods
+    content = build_member_changes_ods(member_changes_since(db, since))
     return Response(
         content=content,
-        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-        headers={"Content-Disposition": f'attachment; filename="ledenwijzigingen-vanaf-{since}.xlsx"'},
+        media_type="application/vnd.oasis.opendocument.spreadsheet",
+        headers={"Content-Disposition": f'attachment; filename="ledenwijzigingen-vanaf-{since}.ods"'},
     )
 
 

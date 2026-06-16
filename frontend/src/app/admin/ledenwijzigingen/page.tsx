@@ -51,7 +51,7 @@ export default function LedenwijzigingenPage() {
       const url = URL.createObjectURL(resp.data as Blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = `ledenwijzigingen-vanaf-${since}.xlsx`;
+      link.download = `ledenwijzigingen-vanaf-${since}.ods`;
       document.body.appendChild(link);
       link.click();
       link.remove();
@@ -79,7 +79,7 @@ export default function LedenwijzigingenPage() {
           />
         </div>
         <button onClick={download} className="btn-secondary text-sm" disabled={rows.length === 0}>
-          Export .xlsx
+          Export .ods
         </button>
         <span className="text-sm text-gray-500 ml-auto">
           {loading ? "Laden…" : `${rows.length} wijziging${rows.length !== 1 ? "en" : ""}`}

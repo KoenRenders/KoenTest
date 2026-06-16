@@ -2,7 +2,9 @@
 from datetime import date, timedelta
 from io import BytesIO
 
-from openpyxl import load_workbook
+from odf.opendocument import load
+from odf.table import Table, TableRow, TableCell
+from odf.teletype import extractText
 
 from tests.conftest import seed_postal_code
 
@@ -52,14 +54,14 @@ def test_member_changes_respects_since_date(client, db_session, admin_headers):
     assert resp.json() == []
 
 
-def test_member_changes_xlsx_export(client, db_session, admin_headers):
+def test_member_changes_ods_export(client, db_session, admin_headers):
     _create_family(client, db_session)
     resp = client.get("/api/v1/admin/member-changes/export",
                       params={"since": date.today().isoformat()}, headers=admin_headers)
     assert resp.status_code == 200, resp.text
-    assert "spreadsheetml" in resp.headers.get("content-type", "")
-    wb = load_workbook(BytesIO(resp.content))
-    ws = wb.active
-    headers = [c.value for c in ws[1]]
+    assert "opendocument.spreadsheet" in resp.headers.get("content-type", "")
+    table = load(BytesIO(resp.content)).getElementsByType(Table)[0]
+    trs = table.getElementsByType(TableRow)
+    headers = [extractText(tc) for tc in trs[0].getElementsByType(TableCell)]
     assert headers[0] == "Tijdstip" and "Details" in headers
-    assert ws.max_row >= 2  # minstens één wijziging
+    assert len(trs) >= 2  # kop + minstens één wijziging
