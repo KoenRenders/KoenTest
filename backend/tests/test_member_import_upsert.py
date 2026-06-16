@@ -272,6 +272,10 @@ def test_identity_match_attaches_lidnr_no_duplicate(db_session):
     # Audit: lidnr_attached-snapshot.
     assert db_session.query(PersonHistory).filter_by(
         action="lidnr_attached", source=LEGACY_SOURCE).count() == 1
+    # En leesbaar in de Wijzigingen-feed: "Lidnummer gekoppeld" (#229), niet enkel de naam.
+    from app.services.member_changes import member_changes_since
+    feed = member_changes_since(db_session, date(2000, 1, 1))
+    assert any(r["entity"] == "Persoon" and r["summary"] == "Lidnummer gekoppeld" for r in feed)
 
 
 def test_identity_ambiguous_not_linked(db_session):

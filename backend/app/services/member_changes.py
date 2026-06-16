@@ -226,6 +226,11 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
             rows.append(_row(h, entity="Persoon", entity_id=h.person_id,
                              summary="Heractivering", subject=subj.fields(person_id=h.person_id)))
             continue
+        if h.action == "lidnr_attached":
+            # Identiteitsmatch (#192): lidnummer gehecht aan een bestaand lid (#229).
+            rows.append(_row(h, entity="Persoon", entity_id=h.person_id,
+                             summary="Lidnummer gekoppeld", subject=subj.fields(person_id=h.person_id)))
+            continue
         naam = f"{_fmt(h.first_name)} {_fmt(h.last_name)}".strip() or "—"
         dob = f" (geb. {h.date_of_birth})" if h.date_of_birth else ""
         body = naam
