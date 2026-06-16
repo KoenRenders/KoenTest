@@ -44,10 +44,18 @@ def list_all_payment_records(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    """List all payment records, enriched with contact name and description."""
+    """List all payment records, enriched with contact name and description.
+
+    De betaling-records zelf volgen de gewone soft-delete-filter (verwijderde
+    betalingen tonen niet), maar de **verrijking** (naam/activiteit/onderdeel) haalt
+    bewust ook soft-deleted entiteiten op (`include_deleted=True`, #190): een betaling
+    is een financieel feit en moet de (bewaarde) naam blijven tonen, niet "—"."""
     from app.models.activity import Registration, Activity
     from app.models.activity_sub_registration import ActivitySubRegistration
     from app.models.member import Member, MemberPerson, Person
+
+    def _q(model):
+        return db.query(model).execution_options(include_deleted=True)
 
     records = db.query(PaymentRecord).order_by(PaymentRecord.created_at.desc()).all()
     result = []
@@ -60,17 +68,17 @@ def list_all_payment_records(
         reg_items: list = []
 
         if r.payable_type == "registration":
-            reg = db.query(Registration).filter(Registration.id == r.payable_id).first()
+            reg = _q(Registration).filter(Registration.id == r.payable_id).first()
             if reg:
                 contact_name = reg.contact_name
                 activity_id = reg.activity_id
                 component_id = reg.component_id
                 if reg.component_id is not None:
-                    comp = db.query(ActivitySubRegistration).filter(
+                    comp = _q(ActivitySubRegistration).filter(
                         ActivitySubRegistration.id == reg.component_id
                     ).first()
                     component_name = comp.name if comp else None
-                activity = db.query(Activity).filter(Activity.id == reg.activity_id).first()
+                activity = _q(Activity).filter(Activity.id == reg.activity_id).first()
                 if activity:
                     description = activity.name
                     _total, regels = compute_registration_total(reg)
@@ -87,17 +95,17 @@ def list_all_payment_records(
             # payable_id is de Membership.id (niet de Member.id) — eerst het
             # lidmaatschap ophalen voor het jaar, dan het gezin + hoofdlid (#141).
             from app.models.member import Membership
-            ms = db.query(Membership).filter(Membership.id == r.payable_id).first()
+            ms = _q(Membership).filter(Membership.id == r.payable_id).first()
             description = f"Lidmaatschap {ms.year}" if ms else "Lidmaatschap"
             if ms:
-                member = db.query(Member).filter(Member.id == ms.member_id).first()
+                member = _q(Member).filter(Member.id == ms.member_id).first()
                 if member:
-                    mp = db.query(MemberPerson).filter(
+                    mp = _q(MemberPerson).filter(
                         MemberPerson.member_id == member.id,
                         MemberPerson.relation_type == "HOOFDLID",
                     ).first()
                     if mp:
-                        person = db.query(Person).filter(Person.id == mp.person_id).first()
+                        person = _q(Person).filter(Person.id == mp.person_id).first()
                         if person:
                             contact_name = f"{person.first_name} {person.last_name}"
 
