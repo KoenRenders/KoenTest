@@ -2,6 +2,8 @@
 
 Een formulier stuurt alle velden mee; onveranderde velden/contacten mogen geen
 history-rij maken (anders 3 rijen voor één mobiel-wijziging)."""
+from datetime import date
+
 from app.models.history import PersonHistory, ContactDetailHistory
 from app.models.member import Person
 from tests.conftest import seed_postal_code
@@ -41,6 +43,20 @@ def test_only_changed_contact_is_snapshotted(client, db_session, admin_headers):
     after_persons = db_session.query(PersonHistory).filter(
         PersonHistory.person_id == person.id).count()
     assert after_persons == before_persons               # geen onnodige persoon-rij
+
+
+def test_contact_change_shows_old_to_new(client, db_session, admin_headers):
+    """#188: een gewijzigd contact toont 'oud → nieuw' in de wijzigingen-feed."""
+    person = _make_person(client, db_session)
+    client.put(f"/api/v1/persons/{person.id}/contacts",
+               json={"email": "suske@suske.be", "mobile": "0470222222"}, headers=admin_headers)
+    resp = client.get("/api/v1/admin/member-changes",
+                      params={"since": date.today().isoformat()}, headers=admin_headers)
+    rows = resp.json()
+    mobile = [r for r in rows
+              if r["entity"] == "Contact" and "MOBILE" in r["summary"] and "→" in r["summary"]]
+    assert mobile, rows
+    assert "0470111111" in mobile[0]["summary"] and "0470222222" in mobile[0]["summary"]
 
 
 def test_person_update_without_change_makes_no_history(client, db_session, admin_headers):

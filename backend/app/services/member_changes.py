@@ -78,9 +78,24 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
         ))
 
     for h in db.query(ContactDetailHistory).filter(ContactDetailHistory.recorded_at >= since_dt):
+        # Bij een wijziging "oud → nieuw" tonen door de vorige snapshot van ditzelfde
+        # contact op te zoeken (#188).
+        value_part = _fmt(h.value)
+        if h.operation == "update":
+            prev = (
+                db.query(ContactDetailHistory)
+                .filter(
+                    ContactDetailHistory.contact_detail_id == h.contact_detail_id,
+                    ContactDetailHistory.recorded_at < h.recorded_at,
+                )
+                .order_by(ContactDetailHistory.recorded_at.desc())
+                .first()
+            )
+            if prev is not None and prev.value != h.value:
+                value_part = f"{_fmt(prev.value)} → {_fmt(h.value)}"
         rows.append(_row(
             h, entity="Contact", entity_id=h.contact_detail_id,
-            summary=f"{_fmt(h.contact_type_code)}: {_fmt(h.value)} (persoon #{_fmt(h.person_id)})",
+            summary=f"{_fmt(h.contact_type_code)}: {value_part} (persoon #{_fmt(h.person_id)})",
         ))
 
     for h in db.query(MembershipHistory).filter(MembershipHistory.recorded_at >= since_dt):

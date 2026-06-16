@@ -217,6 +217,17 @@ export default function BetalingenPage() {
     return parseFloat(r.amount) - (r.amount_paid ? parseFloat(r.amount_paid) : 0);
   }
 
+  // Betaald/openstaand wordt afgeleid uit het saldo (betaald = waarheid), niet uit de
+  // status-badge (#198). Mislukt/geannuleerd komen nog van de online/Mollie-status.
+  function paymentState(r: PaymentRecord): { label: string; cls: string } {
+    if (r.status === "failed") return { label: "Mislukt", cls: STATUS_COLORS["failed"] ?? "bg-red-100 text-red-700" };
+    if (r.status === "cancelled") return { label: "Geannuleerd", cls: STATUS_COLORS["cancelled"] ?? "bg-gray-100 text-gray-600" };
+    const s = saldo(r);
+    if (Math.abs(s) < 0.005) return { label: "Vereffend", cls: "bg-green-100 text-green-700" };
+    if (s > 0) return { label: "Openstaand", cls: "bg-amber-100 text-amber-800" };
+    return { label: "Terug te betalen", cls: "bg-orange-100 text-orange-700" };
+  }
+
   const filtered = records.filter((r) => {
     // Context-filter (#90): lidmaatschap-vernieuwing of één activiteit-onderdeel.
     if (context === "membership" && r.payable_type !== "membership") return false;
@@ -334,9 +345,11 @@ export default function BetalingenPage() {
                         <span className="text-gray-500"> · {r.component_name}</span>
                       )}
                     </span>
-                    <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[r.status] ?? "bg-gray-100 text-gray-600"}`}>
-                      {STATUS_LABELS[r.status] ?? r.status}
-                    </span>
+                    {(() => { const st = paymentState(r); return (
+                      <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${st.cls}`}>
+                        {st.label}
+                      </span>
+                    ); })()}
                     {r.type === "refund" && (
                       <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-orange-100 text-orange-700">
                         Terugbetaling
