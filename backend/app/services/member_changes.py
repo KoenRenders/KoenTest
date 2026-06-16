@@ -58,9 +58,20 @@ class _SubjectResolver:
         self._addr: dict = {}
         self._member_of_person: dict = {}
         self._head_of_member: dict = {}
+        self._pc: dict = {}
 
     def _q(self, model):
         return self.db.query(model).execution_options(include_deleted=True)
+
+    def postcode_label(self, postal_code_id) -> str:
+        """"2400 Mol" voor een postcode-id (i.p.v. de nietszeggende id)."""
+        if postal_code_id is None:
+            return ""
+        if postal_code_id not in self._pc:
+            from app.models.postal_codes import PostalCode
+            pc = self._q(PostalCode).filter(PostalCode.id == postal_code_id).first()
+            self._pc[postal_code_id] = f"{_fmt(pc.postal_code)} {_fmt(pc.municipality)}".strip() if pc else ""
+        return self._pc[postal_code_id]
 
     def _name_of(self, person_id):
         if person_id is None:
@@ -226,13 +237,13 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
                          subject=subj.fields(person_id=h.person_id)))
 
     for h in db.query(MemberHistory).filter(MemberHistory.recorded_at >= since_dt):
-        rows.append(_row(h, entity="Gezin", entity_id=h.member_id, summary=f"gezin #{_fmt(h.member_id)}",
+        rows.append(_row(h, entity="Gezin", entity_id=h.member_id, summary="Gezin",
                          subject=subj.fields(member_id=h.member_id)))
 
     for h in db.query(MemberPersonHistory).filter(MemberPersonHistory.recorded_at >= since_dt):
         rows.append(_row(
             h, entity="Gezinslid", entity_id=h.member_person_id,
-            summary=f"persoon #{_fmt(h.person_id)} in gezin #{_fmt(h.member_id)} ({_fmt(h.relation_type)})",
+            summary=f"In gezin als {_fmt(h.relation_type)}",
             subject=subj.fields(person_id=h.person_id, member_id=h.member_id),
         ))
 
@@ -248,9 +259,11 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
                 prev_adres = _addr_text(prev.street, prev.house_number, prev.bus_number)
                 if prev_adres != adres:
                     body = f"{prev_adres} → {adres}"
+        pc = subj.postcode_label(h.postal_code_id)
+        summary = f"{body}, {pc}" if pc else body
         rows.append(_row(
             h, entity="Adres", entity_id=h.address_id,
-            summary=f"{body} (persoon #{_fmt(h.person_id)}, postcode-id {_fmt(h.postal_code_id)})",
+            summary=summary,
             subject=subj.fields(person_id=h.person_id),
         ))
 
@@ -272,14 +285,14 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
                 value_part = f"{_fmt(prev.value)} → {_fmt(h.value)}"
         rows.append(_row(
             h, entity="Contact", entity_id=h.contact_detail_id,
-            summary=f"{_fmt(h.contact_type_code)}: {value_part} (persoon #{_fmt(h.person_id)})",
+            summary=f"{_fmt(h.contact_type_code)}: {value_part}",
             subject=subj.fields(person_id=h.person_id),
         ))
 
     for h in db.query(MembershipHistory).filter(MembershipHistory.recorded_at >= since_dt):
         rows.append(_row(
             h, entity="Lidmaatschap", entity_id=h.membership_id,
-            summary=f"jaar {_fmt(h.year)}, actief={_fmt(h.is_active)}, {_fmt(h.valid_from)}–{_fmt(h.valid_to)} (gezin #{_fmt(h.member_id)})",
+            summary=f"jaar {_fmt(h.year)}, actief={_fmt(h.is_active)}, {_fmt(h.valid_from)}–{_fmt(h.valid_to)}",
             subject=subj.fields(member_id=h.member_id),
         ))
 

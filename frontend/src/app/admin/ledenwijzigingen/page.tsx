@@ -120,6 +120,7 @@ export default function WijzigingenPage() {
                 <th className="py-2 pr-3 font-medium">Naam persoon</th>
                 <th className="py-2 pr-3 font-medium">Adres hoofdlid</th>
                 <th className="py-2 pr-3 font-medium">Details</th>
+                <th className="py-2 pr-3 font-medium">Actie</th>
                 <th className="py-2 pr-3 font-medium">Door</th>
               </tr>
             </thead>
@@ -139,6 +140,7 @@ export default function WijzigingenPage() {
                   <td className="py-2 pr-3 text-gray-700">{r.person_name || "—"}</td>
                   <td className="py-2 pr-3 text-gray-500">{r.head_address || "—"}</td>
                   <td className="py-2 pr-3 text-gray-800">{r.summary}</td>
+                  <td className="py-2 pr-3 text-gray-500 whitespace-nowrap">{r.action}</td>
                   <td className="py-2 pr-3 text-gray-500 whitespace-nowrap">{r.actor ?? "systeem"}</td>
                 </tr>
               ))}
