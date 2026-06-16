@@ -81,6 +81,28 @@ export default function AdminActiviteiten() {
 
   useEffect(() => { load(); }, []);
 
+  // Deep-link (#187): vanuit Betalingen meteen het bestelregel-scherm van de
+  // aangevraagde inschrijving openen. window.location i.p.v. useSearchParams, zodat er
+  // geen Suspense-boundary nodig is (dat zou next build breken).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const activityId = parseInt(params.get("activity") ?? "", 10);
+    if (!activityId) return;
+    const compRaw = params.get("component");
+    loadRegistrations(activityId, compRaw ? parseInt(compRaw, 10) : null);
+    const regId = params.get("reg");
+    if (regId) {
+      setTimeout(() => {
+        const el = document.getElementById(`reg-${regId}`);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "center" });
+          el.classList.add("ring-2", "ring-blue-400");
+        }
+      }, 500);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   async function handleActivitySubmit(e: React.FormEvent) {
     e.preventDefault();
     setActivityError(null);
@@ -444,7 +466,7 @@ export default function AdminActiviteiten() {
                     const comp = activity?.sub_registrations?.find((c) => c.id === r.component_id);
                     const products = (comp?.products ?? []).map((p) => ({ id: p.id, name: p.name }));
                     return (
-                      <div key={r.id} className="border border-gray-100 rounded-lg p-3">
+                      <div key={r.id} id={`reg-${r.id}`} className="border border-gray-100 rounded-lg p-3 transition-shadow">
                         <div className="flex items-start justify-between gap-2">
                           <div className="min-w-0">
                             <span className="font-medium text-sm">{r.contact_name ?? "—"}</span>
