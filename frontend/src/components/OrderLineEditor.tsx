@@ -66,15 +66,38 @@ export default function OrderLineEditor({ activityId, registrationId, items, pro
     }
   }
 
-  function saveQuantity(item: EditableItem) {
-    if (item.id == null) return;
-    const raw = qtyDraft[item.id];
-    const q = parseInt(raw ?? "", 10);
-    if (!q || q < 1) {
-      setError("Aantal moet minstens 1 zijn (verwijder de regel om ze te schrappen).");
-      return;
+  // Eén bewaarknop voor de hele inschrijving: sla in één klik elk gewijzigd
+  // aantal op. De penningmeester hoeft niet per regel te bewaren.
+  async function saveAll() {
+    const changed: { id: number; q: number }[] = [];
+    for (const it of items) {
+      if (it.id == null) continue;
+      const raw = qtyDraft[it.id];
+      if (raw === undefined) continue;
+      const q = parseInt(raw, 10);
+      if (!q || q < 1) {
+        setError("Aantal moet minstens 1 zijn (verwijder de regel om ze te schrappen).");
+        return;
+      }
+      if (q !== it.quantity) changed.push({ id: it.id, q });
     }
-    run(() => updateOrderLine(activityId, registrationId, item.id!, { quantity: q }));
+    if (changed.length === 0) return;
+    setBusy(true);
+    setError(null);
+    try {
+      let last: ApiResult | null = null;
+      for (const c of changed) {
+        const resp = await updateOrderLine(activityId, registrationId, c.id, { quantity: c.q });
+        last = resp.data;
+      }
+      if (last) setResult(last);
+      setQtyDraft({});
+      onChanged();
+    } catch (e) {
+      setError(parseApiError(e, "Bewerken van de bestelregels mislukt."));
+    } finally {
+      setBusy(false);
+    }
   }
 
   function removeLine(item: EditableItem) {
@@ -91,6 +114,12 @@ export default function OrderLineEditor({ activityId, registrationId, items, pro
       .then(() => { setAddProductId(""); setAddQty("1"); });
   }
 
+  // Is er minstens één regel met een gewijzigd (en geldig afwijkend) aantal?
+  const hasChanges = items.some(
+    (it) => it.id != null && qtyDraft[it.id] !== undefined
+      && parseInt(qtyDraft[it.id] ?? "", 10) !== it.quantity,
+  );
+
   return (
     <div className="mt-2 border-t border-gray-100 pt-2">
       <ul className="space-y-1">
@@ -106,13 +135,6 @@ export default function OrderLineEditor({ activityId, registrationId, items, pro
               disabled={busy || it.id == null}
             />
             <button
-              onClick={() => saveQuantity(it)}
-              disabled={busy || it.id == null || qtyDraft[it.id ?? -1] === undefined}
-              className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-0.5 hover:bg-blue-50 disabled:opacity-40"
-            >
-              Bewaar
-            </button>
-            <button
               onClick={() => removeLine(it)}
               disabled={busy || it.id == null}
               className="text-xs text-red-600 border border-red-200 rounded px-2 py-0.5 hover:bg-red-50 disabled:opacity-40"
@@ -123,6 +145,18 @@ export default function OrderLineEditor({ activityId, registrationId, items, pro
           </li>
         ))}
       </ul>
+
+      {items.length > 0 && (
+        <div className="flex justify-end mt-1">
+          <button
+            onClick={saveAll}
+            disabled={busy || !hasChanges}
+            className="text-xs text-blue-600 border border-blue-200 rounded px-3 py-0.5 hover:bg-blue-50 disabled:opacity-40"
+          >
+            Bewaar
+          </button>
+        </div>
+      )}
 
       <div className="flex items-center gap-2 mt-2">
         <select
