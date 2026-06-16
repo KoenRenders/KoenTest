@@ -60,10 +60,13 @@ relevante stukjes ophalen). Voor één vereniging is dat niet nodig.
   opslaan i.p.v. een rauwe dump, (3) enkel het relevante stukje meesturen
   (tool/RAG i.p.v. alles).
 
-## Gepland: flyer-/poster-extractie (#206)
+## Flyer-/poster-extractie (#206)
 
-> Status: **ontworpen, nog niet gebouwd.** Koen vult flyertekst voorlopig
-> manueel in de DB. Zodra `flyer_text` bestaat, voedt de bot het als context.
+> Status: **geïmplementeerd.** PDF met tekstlaag → `pypdf` (gratis); scan/
+> afbeelding → Mistral OCR. Extractie loopt als achtergrond-taak bij poster-
+> upload; `Activity.flyer_text` voedt de bot via `get_activity_detail`.
+> Code: `backend/app/services/flyer_extraction.py`, migratie 058. Backfill voor
+> bestaande posters: `backend/backfill_flyer_text.py`.
 
 Een flyer is een **afbeelding/PDF**; die sturen we niet per vraag mee. We slaan
 hem éénmalig plat tot tekst (`Activity.flyer_text`) en voeden daarna die goedkope

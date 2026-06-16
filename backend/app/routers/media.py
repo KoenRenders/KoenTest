@@ -8,7 +8,9 @@ import hashlib
 import re
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, Request
+from fastapi import (
+    APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Form, Query, Request,
+)
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -18,6 +20,7 @@ from app.models.asset import MediaAsset
 from app.models.activity import Activity
 from app.models.activity_sub_registration import ActivitySubRegistration
 from app.models.user import User
+from app.services.flyer_extraction import update_activity_flyer_text
 from app.services.images import (
     process_image, ImageError, ALLOWED_CONTENT_TYPES, MAX_UPLOAD_BYTES,
 )
@@ -314,6 +317,7 @@ async def upload_media(
 @router.post("/admin/activities/{activity_id}/poster")
 async def upload_activity_poster(
     activity_id: int,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
@@ -325,6 +329,9 @@ async def upload_activity_poster(
         db, file, kind="activity_poster", activity_id=activity_id,
         title_base=f"{activity.name} - poster",
     )
+    # Flyertekst-extractie op de achtergrond (#206): de upload slaagt direct, de
+    # (eventueel betalende) OCR loopt erachteraan en raakt de respons niet.
+    background_tasks.add_task(update_activity_flyer_text, activity_id)
     return _meta(asset)
 
 
@@ -338,6 +345,11 @@ def delete_activity_poster(
         MediaAsset.kind == "activity_poster", MediaAsset.activity_id == activity_id
     ).all():
         db.delete(a)
+    # Poster weg → de afgeleide flyertekst is stale; mee opruimen (#206).
+    activity = db.query(Activity).filter(Activity.id == activity_id).first()
+    if activity:
+        activity.flyer_text = None
+        activity.flyer_text_hash = None
     db.commit()
 
 

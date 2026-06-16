@@ -192,6 +192,8 @@ def get_activity_detail(db: Session, activity_id: int) -> dict[str, Any]:
         "location": a.location,
         "members_only": a.members_only,
         "notes": a.notes,
+        # Zachte info uit de poster (#206); structuurvelden hierboven winnen altijd.
+        "flyer_text": a.flyer_text,
         "price_from": _price_from(a),
         "dates": _serialise_dates(a),
         "components": components,
