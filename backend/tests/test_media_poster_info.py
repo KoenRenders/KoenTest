@@ -43,10 +43,12 @@ def test_upload_activity_poster_pdf(client, db_session, admin_headers):
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["is_pdf"] is True
-    # Wordt als PDF geserveerd.
+    # Wordt als PDF inline geserveerd, met een nette bestandsnaam (#223).
     served = client.get(body["url"])
     assert served.status_code == 200
     assert "application/pdf" in served.headers.get("content-type", "")
+    disp = served.headers.get("content-disposition", "")
+    assert "inline" in disp and "affiche" in disp
 
     db_session.expire_all()
     a = db_session.query(Activity).filter(Activity.id == activity.id).first()

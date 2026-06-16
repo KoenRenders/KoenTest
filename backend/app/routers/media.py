@@ -5,6 +5,7 @@ in de DB-backup. Bij upload worden ze verkleind en van een thumbnail voorzien
 (zie :mod:`app.services.images`).
 """
 import hashlib
+import re
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, Request
@@ -99,20 +100,32 @@ def _meta(a: MediaAsset) -> dict:
 # ---------------------------------------------------------------------------
 # Publiek serveren
 # ---------------------------------------------------------------------------
-def _serve(blob: Optional[bytes], content_type: Optional[str], request: Request, etag_seed: str):
+def _safe_filename(name: Optional[str], fallback: str) -> str:
+    """Header-veilige bestandsnaam (ASCII-subset) voor Content-Disposition."""
+    cleaned = re.sub(r"[^A-Za-z0-9._ -]", "_", (name or "").strip())
+    return cleaned or fallback
+
+
+def _serve(blob: Optional[bytes], content_type: Optional[str], request: Request,
+           etag_seed: str, *, filename: Optional[str] = None):
     if not blob:
         raise HTTPException(status_code=404, detail="Niet gevonden")
     etag = '"' + hashlib.md5(etag_seed.encode()).hexdigest() + '"'  # noqa: S324 - alleen cache-validatie
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304)
+    headers = {
+        # Inhoud verandert nooit na upload → lang en immutable cachen.
+        "Cache-Control": "public, max-age=31536000, immutable",
+        "ETag": etag,
+    }
+    if filename:
+        # Inline tonen (PDF in de native viewer, afbeelding gewoon) met een nette
+        # naam bij delen/bewaren (#223).
+        headers["Content-Disposition"] = f'inline; filename="{filename}"'
     return Response(
         content=blob,
         media_type=content_type or "application/octet-stream",
-        headers={
-            # Inhoud verandert nooit na upload → lang en immutable cachen.
-            "Cache-Control": "public, max-age=31536000, immutable",
-            "ETag": etag,
-        },
+        headers=headers,
     )
 
 
@@ -121,7 +134,8 @@ def serve_media(asset_id: int, request: Request, db: Session = Depends(get_db)):
     a = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if not a:
         raise HTTPException(status_code=404, detail="Niet gevonden")
-    return _serve(a.data, a.content_type, request, f"full-{a.id}")
+    return _serve(a.data, a.content_type, request, f"full-{a.id}",
+                  filename=_safe_filename(a.title, f"bestand-{a.id}"))
 
 
 @router.get("/media/{asset_id}/thumb")
