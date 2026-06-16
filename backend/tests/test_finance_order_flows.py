@@ -140,6 +140,18 @@ def test_lowering_unpaid_order_shrinks_supplemental_charge(client, db_session, a
     assert amounts == [Decimal("16.00"), Decimal("18.00")]
 
 
+def test_quantity_increase_creates_supplemental_charge(client, db_session, admin_headers):
+    """#185 (C): óók een aantalverhoging (geen los product) maakt een aanvullende charge."""
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)  # €18
+    _pay(client, admin_headers, charge.id, "18.00")
+    item = db_session.query(RegistrationItem).filter(RegistrationItem.registration_id == reg.id).first()
+    client.patch(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
+                 json={"quantity": 3}, headers=admin_headers)  # €54 → +€36
+    amounts = sorted(Decimal(str(c.amount)) for c in _charges(db_session, reg))
+    assert amounts == [Decimal("18.00"), Decimal("36.00")]
+
+
 def test_refund_on_membership_payment(client, db_session, admin_headers):
     seed_postal_code(db_session)
     resp = client.post("/api/v1/families", json={
