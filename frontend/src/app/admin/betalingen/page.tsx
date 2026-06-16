@@ -490,14 +490,13 @@ export default function BetalingenPage() {
                         value={editData.status}
                         onChange={(e) => {
                           const status = e.target.value;
-                          // Bij 'Betaald' meteen het verschuldigde bedrag voorvullen als nog
-                          // leeg (#199), zodat zichtbaar is wat geboekt wordt vóór het opslaan.
-                          // Niet voor refunds: dat bedrag is negatief (door de server gevuld) en
-                          // het invoerveld weigert negatieve waarden (#216).
+                          // Bij 'Betaald' meteen het volledige (verschuldigde resp. terug te
+                          // betalen) bedrag voorvullen als nog leeg (#199); de penningmeester kan
+                          // het nog corrigeren (bv. op 0 zetten, #222).
                           setEditData((d) => ({
                             ...d,
                             status,
-                            amount_paid: status === "paid" && !d.amount_paid && r.type !== "refund"
+                            amount_paid: status === "paid" && !d.amount_paid
                               ? parseFloat(r.amount).toFixed(2) : d.amount_paid,
                           }));
                         }}
@@ -508,26 +507,28 @@ export default function BetalingenPage() {
                         <option value="cancelled">Geannuleerd</option>
                       </select>
                     </div>
-                    {/* Bij een terugbetaling boekt de server automatisch het volledige
-                        (negatieve) bedrag; geen handmatig veld (#219). */}
-                    {r.type === "refund" ? (
-                      <div className="self-end text-xs text-gray-500">
-                        De volledige terugbetaling van €{Math.abs(parseFloat(r.amount)).toFixed(2)} wordt geboekt.
-                      </div>
-                    ) : (
-                      <div>
-                        <label className="block text-xs font-medium text-gray-600 mb-1">Betaald bedrag (€)</label>
-                        <input
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          className="input text-sm"
-                          placeholder={parseFloat(r.amount).toFixed(2)}
-                          value={editData.amount_paid}
-                          onChange={(e) => setEditData((d) => ({ ...d, amount_paid: e.target.value }))}
-                        />
-                      </div>
-                    )}
+                    {/* Bedrag blijft corrigeerbaar (#222): bij een refund is het negatief
+                        (max 0), bij een charge positief (min 0). 0 = correctie → daarna
+                        verwijderbaar. */}
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">
+                        {r.type === "refund" ? "Terugbetaald bedrag (€)" : "Betaald bedrag (€)"}
+                      </label>
+                      <input
+                        type="number"
+                        step="0.01"
+                        {...(r.type === "refund" ? { max: 0 } : { min: 0 })}
+                        className="input text-sm"
+                        placeholder={parseFloat(r.amount).toFixed(2)}
+                        value={editData.amount_paid}
+                        onChange={(e) => setEditData((d) => ({ ...d, amount_paid: e.target.value }))}
+                      />
+                      {r.type === "refund" && (
+                        <p className="text-[11px] text-gray-400 mt-0.5">
+                          Negatief bedrag; zet op 0 om te corrigeren (dan verwijderbaar).
+                        </p>
+                      )}
+                    </div>
                     <div className="sm:col-span-2">
                       <label className="block text-xs font-medium text-gray-600 mb-1">Opmerking</label>
                       <input

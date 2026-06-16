@@ -52,3 +52,25 @@ def test_pending_unpaid_record_can_still_be_deleted(client, db_session, admin_he
     resp = _delete(client, admin_headers, rid)
     assert resp.status_code == 204, resp.text
     assert db_session.query(PaymentRecord).filter(PaymentRecord.id == rid).first() is None
+
+
+def test_can_delete_transfer_payment_after_correcting_amount_to_zero(client, db_session, admin_headers):
+    """Correctieflow (#222): bewerken blijft toegestaan; zet het betaald bedrag op 0,
+    dan mag de overschrijving wél verwijderd worden."""
+    rec = _seed(db_session, method="transfer", status="paid", amount_paid="18.00")
+    assert _delete(client, admin_headers, rec.id).status_code == 400  # eerst geweigerd
+    patch = client.patch(f"/api/v1/payment-status/records/{rec.id}",
+                         json={"status": "paid", "amount_paid": "0"}, headers=admin_headers)
+    assert patch.status_code == 200, patch.text
+    assert _delete(client, admin_headers, rec.id).status_code == 204
+
+
+def test_can_delete_transfer_refund_after_correcting_amount_to_zero(client, db_session, admin_headers):
+    """Idem voor een terugbetaling van type overschrijving (#222)."""
+    rec = _seed(db_session, method="transfer", status="paid",
+                amount="-40.00", amount_paid="-40.00", type="refund")
+    assert _delete(client, admin_headers, rec.id).status_code == 400
+    patch = client.patch(f"/api/v1/payment-status/records/{rec.id}",
+                         json={"status": "paid", "amount_paid": "0"}, headers=admin_headers)
+    assert patch.status_code == 200, patch.text
+    assert _delete(client, admin_headers, rec.id).status_code == 204
