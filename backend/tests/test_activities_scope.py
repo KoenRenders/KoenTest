@@ -38,6 +38,18 @@ def test_default_scope_is_upcoming(client, db_session):
     assert "DefaultVerleden" not in names
 
 
+def test_all_scope_orders_upcoming_first_soonest_top(client, db_session):
+    """admin-sortering (#186): toekomstige activiteiten eerst, de snelst komende
+    bovenaan; daarna de voorbije, meest recente eerst."""
+    _make_activity(db_session, "VerVerleden", -30)
+    _make_activity(db_session, "RecentVerleden", -5)
+    _make_activity(db_session, "Binnenkort", 3)
+    _make_activity(db_session, "VerToekomst", 30)
+
+    names = [a["name"] for a in client.get("/api/v1/activities?scope=all").json()]
+    assert names == ["Binnenkort", "VerToekomst", "RecentVerleden", "VerVerleden"]
+
+
 def test_old_archived_endpoint_is_gone(client):
     """De aparte GET /activities/archived is weg (harde cut). Het pad matcht nu de
     /activities/{activity_id}-route zonder GET-handler → 405 (of 404); in elk geval

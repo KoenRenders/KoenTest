@@ -325,3 +325,62 @@ def registration_balance(db: Session, registration) -> dict:
         "total_refunded": total_refunded,
         "balance": total_due - total_paid,
     }
+
+
+def reconcile_registration_charges(
+    db: Session, registration, *, audit_actor: Optional[str] = None
+) -> None:
+    """Houd de som van de charges van een inschrijving gelijk aan het besteltotaal (#185).
+
+    - Besteltotaal **hoger** dan de som van de charges → een aanvullende charge voor
+      het verschil aanmaken (``transfer`` + ``pending``, met OGM), zodat het
+      openstaande bedrag in het betalingenoverzicht verschijnt met een eerlijke
+      methode/status i.p.v. mee te liften op de oorspronkelijke betaling.
+    - Besteltotaal **lager** → onbetaalde pending-charges laten krimpen (nieuwste
+      eerst); blijft er een overschot dat al betaald is, dan signaleert
+      ``registration_balance`` een negatief saldo (het bestaande refund-pad).
+
+    Invariant na afloop: som van de (niet-verwijderde) charges == besteltotaal,
+    tenzij er al méér betaald is dan verschuldigd (dan staat er een refund open).
+    """
+    from app.services.registration_totals import compute_registration_total
+    from app.soft_delete import soft_delete
+
+    total_due = Decimal(str(compute_registration_total(registration)[0]))
+    charges = [
+        r for r in get_records_for(db, "registration", registration.id)
+        if r.type == "charge"
+    ]
+    total_charged = sum((Decimal(str(c.amount)) for c in charges), Decimal("0"))
+    delta = total_due - total_charged
+
+    if delta > 0:
+        create_payment_record(
+            db, "registration", registration.id, amount=delta, method="transfer",
+            audit_source="order-edit", audit_actor=audit_actor,
+        )
+    elif delta < 0:
+        shortfall = -delta
+        reducible = [
+            c for c in sorted(charges, key=lambda c: c.created_at, reverse=True)
+            if c.status != "paid" and (c.amount_paid is None or Decimal(str(c.amount_paid)) == 0)
+        ]
+        for c in reducible:
+            if shortfall <= 0:
+                break
+            amt = Decimal(str(c.amount))
+            if amt <= shortfall:
+                shortfall -= amt
+                snapshot_payment_record(
+                    db, c, operation="delete", action="order_reconciled",
+                    source="order-edit", actor=audit_actor,
+                )
+                soft_delete(c)
+            else:
+                c.amount = amt - shortfall
+                shortfall = Decimal("0")
+                snapshot_payment_record(
+                    db, c, operation="update", action="order_reconciled",
+                    source="order-edit", actor=audit_actor,
+                )
+        db.flush()

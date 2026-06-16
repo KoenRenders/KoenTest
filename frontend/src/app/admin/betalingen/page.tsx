@@ -330,6 +330,9 @@ export default function BetalingenPage() {
                     <span className="text-gray-400">·</span>
                     <span className="text-sm text-gray-600">
                       {r.description || PAYABLE_LABELS[r.payable_type] || r.payable_type}
+                      {r.component_name && (
+                        <span className="text-gray-500"> · {r.component_name}</span>
+                      )}
                     </span>
                     <span className={`px-2 py-0.5 rounded-full text-xs font-semibold ${STATUS_COLORS[r.status] ?? "bg-gray-100 text-gray-600"}`}>
                       {STATUS_LABELS[r.status] ?? r.status}

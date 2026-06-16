@@ -1,6 +1,6 @@
 import logging
 from datetime import date
-from sqlalchemy import or_, and_, func
+from sqlalchemy import or_, and_, func, nulls_last
 from typing import List
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
@@ -34,7 +34,9 @@ from app.schemas.activity import (
 from app.services.email import send_activity_registration_confirmation
 from app.services.registration_totals import compute_registration_total
 from app.config import settings
-from app.domains.payment_status.service import create_payment_record, registration_balance
+from app.domains.payment_status.service import (
+    create_payment_record, registration_balance, reconcile_registration_charges,
+)
 from app.domains.analytics.service import log_business_event
 from app.domains.audit.service import snapshot_registration_item
 from app.services.activity_export import build_component_export_xlsx
@@ -150,12 +152,24 @@ def list_activities(scope: str = "upcoming", db: Session = Depends(get_db)):
         )
         activities = base.filter(has_past).order_by(sort_sq.desc()).all()
     elif scope == "all":
-        sort_sq = (
-            db.query(func.max(ActivityDate.start_date))
-            .filter(ActivityDate.activity_id == Activity.id)
+        # Admin (#186): toekomstige activiteiten eerst (de snelst komende bovenaan),
+        # daarna de voorbije (meest recente eerst). Toekomst heeft een niet-lege
+        # `upcoming_sort` → sorteert vooraan oplopend; voorbij-enkel valt op NULL en
+        # komt erachter, aflopend op de meest recente voorbije datum.
+        upcoming_sort = (
+            db.query(func.min(ActivityDate.start_date))
+            .filter(ActivityDate.activity_id == Activity.id, effective_end >= today)
             .correlate(Activity).scalar_subquery()
         )
-        activities = base.order_by(sort_sq.desc()).all()
+        past_sort = (
+            db.query(func.max(ActivityDate.start_date))
+            .filter(ActivityDate.activity_id == Activity.id, effective_end < today)
+            .correlate(Activity).scalar_subquery()
+        )
+        activities = base.order_by(
+            nulls_last(upcoming_sort.asc()),
+            nulls_last(past_sort.desc()),
+        ).all()
     else:  # upcoming (default)
         scope = "upcoming"
         has_future = (
@@ -601,9 +615,15 @@ def _validate_order_product(db: Session, activity: Activity, reg: Registration, 
     return product
 
 
-def _order_edit_result(db: Session, activity: Activity, reg: Registration) -> dict:
-    """Vernieuwde bestelling + financiële stand; signaleert of er nu een
+def _order_edit_result(
+    db: Session, activity: Activity, reg: Registration, actor: str | None = None
+) -> dict:
+    """Reconcilieer de charges met het nieuwe besteltotaal (#185) en geef de
+    vernieuwde bestelling + financiële stand terug; signaleert of er nu een
     terugbetaling openstaat (saldo < 0) zodat de UI naar de refund-flow kan wijzen."""
+    db.refresh(reg)
+    reconcile_registration_charges(db, reg, audit_actor=actor)
+    db.commit()
     db.refresh(reg)
     bal = registration_balance(db, reg)
     return {
@@ -634,7 +654,7 @@ def add_order_line(
         source="admin_manual", actor=admin.email,
     )
     db.commit()
-    return _order_edit_result(db, activity, reg)
+    return _order_edit_result(db, activity, reg, actor=admin.email)
 
 
 @router.patch("/activities/{activity_id}/registrations/{registration_id}/items/{item_id}")
@@ -667,7 +687,7 @@ def update_order_line(
         source="admin_manual", actor=admin.email,
     )
     db.commit()
-    return _order_edit_result(db, activity, reg)
+    return _order_edit_result(db, activity, reg, actor=admin.email)
 
 
 @router.delete("/activities/{activity_id}/registrations/{registration_id}/items/{item_id}")
@@ -694,7 +714,7 @@ def delete_order_line(
     )
     soft_delete(item)
     db.commit()
-    return _order_edit_result(db, activity, reg)
+    return _order_edit_result(db, activity, reg, actor=admin.email)
 
 
 @router.get("/activities/{activity_id}/public-registrations")

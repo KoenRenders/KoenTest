@@ -78,6 +78,68 @@ def test_order_increased_after_payment_leaves_balance_owed(client, db_session, a
     assert body["refund_due"] is False
 
 
+def _charges(db, reg):
+    db.expire_all()
+    return db.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
+        PaymentRecord.type == "charge",
+    ).all()
+
+
+def test_order_increase_creates_supplemental_transfer_charge(client, db_session, admin_headers):
+    """#185 (C): een bestelregel toevoegen maakt een aanvullende charge voor het
+    verschil aan — transfer + pending, met OGM — zodat het saldo in het
+    betalingenoverzicht klopt met een eerlijke methode."""
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    extra = _add_product(db_session, comp, name="Dessert", price="16.00")
+    activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)  # €18
+    _pay(client, admin_headers, charge.id, "18.00")
+
+    client.post(
+        f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
+        json={"product_id": extra.id, "quantity": 1}, headers=admin_headers,  # +€16
+    )
+    amounts = sorted(Decimal(str(c.amount)) for c in _charges(db_session, reg))
+    assert amounts == [Decimal("16.00"), Decimal("18.00")]
+    supp = next(c for c in _charges(db_session, reg) if Decimal(str(c.amount)) == Decimal("16.00"))
+    assert supp.method == "transfer"
+    assert supp.status == "pending"
+    assert supp.structured_communication  # OGM aanwezig
+
+
+def test_paying_supplemental_charge_settles_balance(client, db_session, admin_headers):
+    """#185 (C): de aanvullende charge op 'betaald' zetten vereffent het saldo."""
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    extra = _add_product(db_session, comp, name="Dessert", price="16.00")
+    activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)
+    _pay(client, admin_headers, charge.id, "18.00")
+    client.post(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
+                json={"product_id": extra.id, "quantity": 1}, headers=admin_headers)
+    supp = next(c for c in _charges(db_session, reg) if Decimal(str(c.amount)) == Decimal("16.00"))
+    _pay(client, admin_headers, supp.id, "16.00")
+    bal = client.get(f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers).json()
+    assert Decimal(str(bal["balance"])) == Decimal("0.00")
+
+
+def test_lowering_unpaid_order_shrinks_supplemental_charge(client, db_session, admin_headers):
+    """#185 (C): een nog niet-betaalde aanvullende bestelling weer verlagen laat de
+    aanvullende pending-charge mee krimpen (geen overstaande charge)."""
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    extra = _add_product(db_session, comp, name="Dessert", price="16.00")
+    activity_id, reg, charge = _register(client, db_session, comp, product, qty=1)  # €18 pending, onbetaald
+    client.post(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items",
+                json={"product_id": extra.id, "quantity": 2}, headers=admin_headers)  # +€32 → aanvullende charge €32
+    assert sorted(Decimal(str(c.amount)) for c in _charges(db_session, reg)) == [Decimal("18.00"), Decimal("32.00")]
+
+    item = db_session.query(RegistrationItem).filter(
+        RegistrationItem.registration_id == reg.id, RegistrationItem.product_id == extra.id,
+    ).first()
+    client.patch(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
+                 json={"quantity": 1}, headers=admin_headers)  # extra → €16, aanvullende charge moet €16 worden
+    amounts = sorted(Decimal(str(c.amount)) for c in _charges(db_session, reg))
+    assert amounts == [Decimal("16.00"), Decimal("18.00")]
+
+
 def test_refund_on_membership_payment(client, db_session, admin_headers):
     seed_postal_code(db_session)
     resp = client.post("/api/v1/families", json={
