@@ -36,6 +36,7 @@ def _to_response(r: PaymentRecord) -> PaymentRecordResponse:
         note=r.note,
         paid_at=r.paid_at,
         checkout_url=r.gateway_payment.checkout_url if r.gateway_payment else None,
+        structured_communication=r.structured_communication,
         created_at=r.created_at,
     )
 
@@ -127,6 +128,7 @@ def list_all_payment_records(
             note=r.note,
             paid_at=r.paid_at,
             checkout_url=r.gateway_payment.checkout_url if r.gateway_payment else None,
+            structured_communication=r.structured_communication,
             created_at=r.created_at,
             description=description,
             contact_name=contact_name,

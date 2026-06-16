@@ -26,6 +26,7 @@ class PaymentRecordResponse(BaseModel):
     note: Optional[str] = None
     paid_at: Optional[datetime] = None
     checkout_url: Optional[str] = None
+    structured_communication: Optional[str] = None  # OGM voor overschrijving (#224)
     created_at: datetime
 
     model_config = {"from_attributes": True}

@@ -28,6 +28,7 @@ interface PaymentRecord {
   refund_of_id: string | null;
   note: string | null;
   paid_at: string | null;
+  structured_communication: string | null;  // OGM voor overschrijving (#224)
   created_at: string;
   description: string | null;
   contact_name: string | null;
@@ -407,6 +408,24 @@ export default function BetalingenPage() {
                   </div>
                   {r.note && (
                     <p className="mt-1 text-sm text-gray-500 italic">{r.note}</p>
+                  )}
+                  {/* Gestructureerde mededeling (OGM) — voor manueel afboeken van een
+                      overschrijving op het rekeninguittreksel (#224). */}
+                  {r.structured_communication && (
+                    <div className="mt-1 flex items-center gap-2 text-sm flex-wrap">
+                      <span className="text-gray-500">Mededeling:</span>
+                      <code className="font-mono text-gray-800 bg-gray-100 rounded px-1.5 py-0.5">
+                        {r.structured_communication}
+                      </code>
+                      <button
+                        type="button"
+                        onClick={() => navigator.clipboard?.writeText(r.structured_communication!)}
+                        className="text-xs text-blue-600 hover:underline"
+                        title="Kopieer de gestructureerde mededeling"
+                      >
+                        kopieer
+                      </button>
+                    </div>
                   )}
 
                   {/* Registration details (on-demand) */}
