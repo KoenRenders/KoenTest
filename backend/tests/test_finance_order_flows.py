@@ -12,8 +12,8 @@ from app.models.member import Member, Membership
 from tests.conftest import seed_activity_with_product, seed_postal_code
 
 
-def _add_product(db, comp, *, name, price):
-    p = ActivityProduct(component_id=comp.id, name=name, price=Decimal(str(price)), is_free=False)
+def _add_product(db, comp, *, name, price, is_free=False):
+    p = ActivityProduct(component_id=comp.id, name=name, price=Decimal(str(price)), is_free=is_free)
     db.add(p)
     db.flush()
     return p
