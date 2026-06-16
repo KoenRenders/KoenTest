@@ -17,6 +17,10 @@ branch_labels = None
 depends_on = None
 
 
+_KINDS_NEW = "kind IN ('sponsor','activity_photo','activity_poster','component_info')"
+_KINDS_OLD = "kind IN ('sponsor','activity_photo')"
+
+
 def upgrade():
     op.add_column("media_assets", sa.Column("component_id", sa.Integer(), nullable=True))
     op.create_index("ix_media_assets_component_id", "media_assets", ["component_id"])
@@ -24,9 +28,14 @@ def upgrade():
         "fk_media_assets_component_id", "media_assets",
         "activity_sub_registrations", ["component_id"], ["id"], ondelete="CASCADE",
     )
+    # CHECK op kind verruimen met de twee nieuwe soorten (#223, was #040).
+    op.drop_constraint("ck_media_assets_kind_valid", "media_assets", type_="check")
+    op.create_check_constraint("ck_media_assets_kind_valid", "media_assets", _KINDS_NEW)
 
 
 def downgrade():
+    op.drop_constraint("ck_media_assets_kind_valid", "media_assets", type_="check")
+    op.create_check_constraint("ck_media_assets_kind_valid", "media_assets", _KINDS_OLD)
     op.drop_constraint("fk_media_assets_component_id", "media_assets", type_="foreignkey")
     op.drop_index("ix_media_assets_component_id", table_name="media_assets")
     op.drop_column("media_assets", "component_id")
