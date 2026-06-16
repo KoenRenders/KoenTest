@@ -341,3 +341,26 @@ def test_actor_defaults_to_none(db_session):
     rows = db_session.query(MemberHistory).filter_by(source=LEGACY_SOURCE).all()
     assert rows
     assert all(r.actor is None for r in rows)
+
+
+# ── #226: admin-login voor bestuurslid mag het commit-pad niet doen crashen ──────
+
+def test_admin_user_created_for_board_member(db_session):
+    """Een bestuurslid met e-mail krijgt bij commit een admin-login. User heeft géén
+    person_id-kolom (User↔Person koppelt via e-mail); het apply-pad mag dus niet
+    crashen op een person_id-kwarg (#226 — droogloop OK maar 'Definitief importeren' 500)."""
+    from app.services.member_import import _create_admin_users, ImportReport
+    from app.models.user import User, UserRole
+    from tests.conftest import create_test_person
+
+    person = create_test_person(db_session, first_name="Mon", last_name="Essers")
+    row = {"lidnr": "100", "voornaam": "Mon", "naam": "Essers",
+           "email": "mon@example.com", "_person_id": person.id}
+    report = ImportReport()
+    _create_admin_users(db_session, ["mon essers"], {"mon essers": [row]},
+                        apply=True, report=report)
+
+    user = db_session.query(User).filter(User.email == "mon@example.com").first()
+    assert user is not None and user.is_active
+    roles = db_session.query(UserRole).filter(UserRole.user_id == user.id).all()
+    assert any(r.role_code == "ADMIN" for r in roles)

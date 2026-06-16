@@ -499,7 +499,9 @@ def _create_admin_users(db: Session, all_bl_names: list[str], bl_index: dict,
         report.admins_created += 1
         report.line(f"  admin: {best['voornaam']} {best['naam']} <{best['email']}>")
         if apply:
-            user = User(email=best["email"], person_id=pid, is_active=True)
+            # User↔Person koppelt enkel via e-mail (geen FK/person_id-kolom op users):
+            # dat is de bewuste auth-scheiding. Hier dus géén person_id meegeven (#226).
+            user = User(email=best["email"], is_active=True)
             db.add(user)
             db.flush()
             db.add(UserRole(user_id=user.id, role_code="ADMIN"))
