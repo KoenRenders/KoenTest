@@ -18,6 +18,13 @@
       "Bash(git stash *)",
       "Bash(sg docker *)",
       "Bash(python3 -m py_compile *)",
+      "Bash(python3 *)",
+      "Bash(PYTHONPATH=* python3 *)",
+      "Bash(pip *)",
+      "Bash(pip3 *)",
+      "Bash(/tmp/*/bin/python *)",
+      "Bash(/tmp/*/bin/pip *)",
+      "Bash(PYTHONPATH=* /tmp/*/bin/python *)",
       "Skill(update-config)"
     ]
   }
