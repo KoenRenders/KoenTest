@@ -269,6 +269,24 @@ export default function BetalingenPage() {
     0,
   );
 
+  // Bundel alle betalingen/refunds van dezelfde inschrijving (payable) in één groep,
+  // gesorteerd op de datum van de laatst aangemaakte betaling (#204).
+  const groups = (() => {
+    const map = new Map<string, PaymentRecord[]>();
+    for (const r of filtered) {
+      const key = `${r.payable_type}:${r.payable_id}`;
+      const arr = map.get(key);
+      if (arr) arr.push(r); else map.set(key, [r]);
+    }
+    const out = Array.from(map.values()).map((recs) => {
+      const sorted = [...recs].sort((a, b) => a.created_at.localeCompare(b.created_at));
+      const latest = sorted.reduce((m, r) => (r.created_at > m ? r.created_at : m), sorted[0].created_at);
+      return { recs: sorted, latest, head: sorted[0] };
+    });
+    out.sort((a, b) => b.latest.localeCompare(a.latest));
+    return out;
+  })();
+
   if (loading) return <p className="p-8 text-gray-500">Laden…</p>;
 
   return (
@@ -330,7 +348,12 @@ export default function BetalingenPage() {
         <p className="text-gray-500 italic">Geen betalingen gevonden.</p>
       ) : (
         <div className="space-y-3">
-          {filtered.map((r) => (
+          {groups.map((g) => (
+            <div
+              key={`${g.head.payable_type}:${g.head.payable_id}`}
+              className={g.recs.length > 1 ? "rounded-xl border border-blue-200 bg-blue-50/40 p-2 space-y-2" : ""}
+            >
+              {g.recs.map((r) => (
             <div key={r.id} className="bg-white rounded-xl border border-gray-200 p-4 shadow-sm">
               <div className="flex items-start justify-between gap-4 flex-wrap">
                 <div className="flex-1 min-w-0">
@@ -557,6 +580,23 @@ export default function BetalingenPage() {
                   </div>
                 </div>
               )}
+            </div>
+              ))}
+              {g.recs.length > 1 && (() => {
+                const sumA = g.recs.reduce((s, r) => s + parseFloat(r.amount), 0);
+                const sumP = g.recs.reduce((s, r) => s + (r.amount_paid ? parseFloat(r.amount_paid) : 0), 0);
+                const sumS = sumA - sumP;
+                return (
+                  <div className="flex justify-end gap-4 px-2 pb-1 text-sm font-semibold text-gray-700 flex-wrap">
+                    <span>Totaal inschrijving</span>
+                    <span>Bedrag: €{sumA.toFixed(2)}</span>
+                    <span className="text-green-700">Ontvangen: €{sumP.toFixed(2)}</span>
+                    <span className={sumS > 0.001 ? "text-red-600" : "text-green-600"}>
+                      Saldo: €{sumS.toFixed(2)}
+                    </span>
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>
