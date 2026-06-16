@@ -21,22 +21,31 @@ def _now_utc():
 class MediaAsset(Base):
     """Binaire assetbibliotheek, opgeslagen in Postgres (BYTEA).
 
-    Eén tabel voor twee soorten media:
+    Eén tabel voor meerdere soorten media:
     - ``kind="sponsor"``  → logo's die in de footer/homepage verschijnen
       (optioneel met ``link_url`` als doorklik).
     - ``kind="activity_photo"`` → foto's bij een activiteit (``activity_id``),
       getoond in het archief.
+    - ``kind="activity_poster"`` → de poster van één activiteit (``activity_id``):
+      afbeelding óf PDF; primeert op ``Activity.poster_url`` (#223).
+    - ``kind="component_info"`` → info/reglement bij één onderdeel (``component_id``):
+      afbeelding óf PDF; primeert op ``ActivitySubRegistration.info_url`` (#223).
 
-    Naast het volledige (verkleinde) beeld bewaren we een aparte thumbnail,
-    zodat galerij-grids licht blijven en niet telkens de grote blob laden.
+    PDF's worden ongewijzigd bewaard (geen thumbnail); afbeeldingen verkleind +
+    voorzien van een aparte thumbnail. Geen soft delete (bewust, zoals #166): bij
+    vervangen/verwijderen verdwijnt de blob écht — geen ballast in DB/back-up.
     """
 
     __tablename__ = "media_assets"
 
     id = Column(Integer, primary_key=True, index=True)
-    kind = Column(String(20), nullable=False, index=True)  # sponsor | activity_photo
+    kind = Column(String(20), nullable=False, index=True)  # sponsor | activity_photo | activity_poster | component_info
     activity_id = Column(
         Integer, ForeignKey("activities.id", ondelete="CASCADE"), nullable=True, index=True
+    )
+    component_id = Column(
+        Integer, ForeignKey("activity_sub_registrations.id", ondelete="CASCADE"),
+        nullable=True, index=True,
     )
 
     # Volledig beeld (verkleind) + losse thumbnail.
@@ -56,4 +65,5 @@ class MediaAsset(Base):
 
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
 
-    activity = relationship("Activity")
+    activity = relationship("Activity", foreign_keys=[activity_id])
+    component = relationship("ActivitySubRegistration", foreign_keys=[component_id])

@@ -1,6 +1,11 @@
 {
   "permissions": {
     "allow": [
+      "Edit",
+      "Write",
+      "Bash(docker:*)",
+      "Bash(docker compose:*)",
+      "Bash(sg docker:*)",
       "Bash(git:*)",
       "Bash(gh:*)",
       "Bash(python3:*)",

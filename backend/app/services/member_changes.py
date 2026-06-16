@@ -35,7 +35,160 @@ def _fmt(value) -> str:
     return "" if value is None else str(value)
 
 
-def _row(h, *, entity: str, entity_id: Optional[int], summary: str, group: str = "Leden") -> dict:
+def _addr_text(street, house_number, bus_number) -> str:
+    s = f"{_fmt(street)} {_fmt(house_number)}".strip()
+    if bus_number:
+        s += f" bus {bus_number}"
+    return s
+
+
+class _SubjectResolver:
+    """Leidt per wijziging de betrokken persoon + het hoofdlid van diens gezin af.
+
+    Voor manuele overname in Raak Nationaal wil de admin per wijziging zien om
+    wélke persoon het gaat en op welk gezinsadres. Soft-deleted entiteiten worden
+    bewust meegenomen (``include_deleted=True``, zoals #190): een wijziging is een
+    historisch feit en moet de bewaarde naam/adres blijven tonen.
+    """
+
+    def __init__(self, db: Session):
+        self.db = db
+        self._name: dict = {}
+        self._ext: dict = {}
+        self._addr: dict = {}
+        self._member_of_person: dict = {}
+        self._head_of_member: dict = {}
+
+    def _q(self, model):
+        return self.db.query(model).execution_options(include_deleted=True)
+
+    def _name_of(self, person_id):
+        if person_id is None:
+            return ""
+        if person_id not in self._name:
+            from app.models.member import Person
+            p = self._q(Person).filter(Person.id == person_id).first()
+            self._name[person_id] = f"{_fmt(p.first_name)} {_fmt(p.last_name)}".strip() if p else ""
+        return self._name[person_id]
+
+    def _ext_of(self, person_id):
+        if person_id is None:
+            return ""
+        if person_id not in self._ext:
+            from app.models.external_number import ExternalNumber
+            en = (self._q(ExternalNumber)
+                  .filter(ExternalNumber.person_id == person_id)
+                  .order_by(ExternalNumber.id).first())
+            self._ext[person_id] = _fmt(en.external_id) if en else ""
+        return self._ext[person_id]
+
+    def _addr_of(self, person_id):
+        if person_id is None:
+            return ""
+        if person_id not in self._addr:
+            from app.models.address import Address
+            from app.models.postal_codes import PostalCode
+            a = self._q(Address).filter(Address.person_id == person_id).first()
+            if a is None:
+                self._addr[person_id] = ""
+            else:
+                s = f"{_fmt(a.street)} {_fmt(a.house_number)}".strip()
+                if a.bus_number:
+                    s += f" bus {a.bus_number}"
+                pc = self._q(PostalCode).filter(PostalCode.id == a.postal_code_id).first()
+                if pc:
+                    s += f", {_fmt(pc.postal_code)} {_fmt(pc.municipality)}".rstrip()
+                self._addr[person_id] = s
+        return self._addr[person_id]
+
+    def _member_of(self, person_id):
+        if person_id is None:
+            return None
+        if person_id not in self._member_of_person:
+            from app.models.member import MemberPerson
+            mp = self._q(MemberPerson).filter(MemberPerson.person_id == person_id).first()
+            self._member_of_person[person_id] = mp.member_id if mp else None
+        return self._member_of_person[person_id]
+
+    def _head_of(self, member_id):
+        if member_id is None:
+            return None
+        if member_id not in self._head_of_member:
+            from app.models.member import MemberPerson
+            mp = (self._q(MemberPerson)
+                  .filter(MemberPerson.member_id == member_id,
+                          MemberPerson.relation_type == "HOOFDLID").first())
+            self._head_of_member[member_id] = mp.person_id if mp else None
+        return self._head_of_member[member_id]
+
+    def _person_by_email(self, email):
+        """Person-id achter een e-mailadres (gast-inschrijving zonder gekoppeld lid)."""
+        if not email:
+            return None
+        from sqlalchemy import func
+        from app.models.contact import ContactDetail
+        cd = (self._q(ContactDetail)
+              .filter(func.lower(ContactDetail.value) == email.strip().lower(),
+                      ContactDetail.contact_type_code == "EMAIL").first())
+        return cd.person_id if cd else None
+
+    def fields(self, *, person_id=None, member_id=None) -> dict:
+        """De vier extra kolommen voor één wijziging. Subject = de betrokken
+        persoon (of, bij een gezin/lidmaatschap-wijziging, het hoofdlid)."""
+        head_member_id = member_id if member_id is not None else self._member_of(person_id)
+        subject_person_id = person_id if person_id is not None else self._head_of(head_member_id)
+        head_person_id = self._head_of(head_member_id)
+        # Geen gezin/hoofdlid gevonden → val terug op de persoon zelf, zodat het
+        # adres/extern nummer toch ingevuld raken (bv. een lid zonder gezinskoppeling).
+        if head_person_id is None:
+            head_person_id = subject_person_id
+        return {
+            "person_name": self._name_of(subject_person_id),
+            "person_external_id": self._ext_of(subject_person_id),
+            "head_address": self._addr_of(head_person_id),
+            "head_external_id": self._ext_of(head_person_id),
+        }
+
+    def from_registration(self, registration_id) -> Optional[dict]:
+        """Verrijking voor een wijziging die aan een inschrijving hangt
+        (betaling of bestelregel). Gekoppeld lid → persoon + hoofdlid; een gast
+        zonder persoon toont enkel de contactnaam."""
+        if registration_id is None:
+            return None
+        from app.models.activity import Registration
+        reg = self._q(Registration).filter(Registration.id == registration_id).first()
+        if reg is None:
+            return None
+        if reg.person_id is not None:
+            return self.fields(person_id=reg.person_id)
+        # Gast-inschrijving: probeer het lid te matchen op het contact-e-mailadres,
+        # zodat persoon + hoofdlid-adres tóch ingevuld raken (#221).
+        pid = self._person_by_email(reg.contact_email)
+        if pid is not None:
+            return self.fields(person_id=pid)
+        return {"person_name": _fmt(reg.contact_name), "person_external_id": "",
+                "head_address": "", "head_external_id": ""}
+
+    def from_payment(self, payable_type, payable_id) -> Optional[dict]:
+        """Verrijking voor een betaling-wijziging: via de inschrijving of het
+        lidmaatschap waar de betaling aan hangt."""
+        if payable_type == "registration":
+            return self.from_registration(payable_id)
+        if payable_type == "membership":
+            from app.models.member import Membership
+            ms = self._q(Membership).filter(Membership.id == payable_id).first()
+            if ms is not None:
+                return self.fields(member_id=ms.member_id)
+        return None
+
+
+_EMPTY_SUBJECT = {
+    "person_name": "", "person_external_id": "", "head_address": "", "head_external_id": "",
+}
+
+
+def _row(h, *, entity: str, entity_id: Optional[int], summary: str, group: str = "Leden",
+         subject: Optional[dict] = None) -> dict:
     return {
         "recorded_at": h.recorded_at,
         "group": group,
@@ -46,6 +199,7 @@ def _row(h, *, entity: str, entity_id: Optional[int], summary: str, group: str =
         "action": h.action,
         "actor": h.actor,
         "summary": summary,
+        **(subject or _EMPTY_SUBJECT),
     }
 
 
@@ -53,28 +207,51 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
     """Alle ledendata-wijzigingen met recorded_at >= since, nieuw → oud."""
     since_dt = datetime.combine(since, time.min, tzinfo=timezone.utc)
     rows: List[dict] = []
+    subj = _SubjectResolver(db)
 
     for h in db.query(PersonHistory).filter(PersonHistory.recorded_at >= since_dt):
         naam = f"{_fmt(h.first_name)} {_fmt(h.last_name)}".strip() or "—"
         dob = f" (geb. {h.date_of_birth})" if h.date_of_birth else ""
-        rows.append(_row(h, entity="Persoon", entity_id=h.person_id, summary=f"{naam}{dob}"))
+        body = naam
+        if h.operation == "update":
+            prev = (db.query(PersonHistory)
+                    .filter(PersonHistory.person_id == h.person_id,
+                            PersonHistory.recorded_at < h.recorded_at)
+                    .order_by(PersonHistory.recorded_at.desc()).first())
+            if prev is not None:
+                prev_naam = f"{_fmt(prev.first_name)} {_fmt(prev.last_name)}".strip() or "—"
+                if prev_naam != naam:
+                    body = f"{prev_naam} → {naam}"
+        rows.append(_row(h, entity="Persoon", entity_id=h.person_id, summary=f"{body}{dob}",
+                         subject=subj.fields(person_id=h.person_id)))
 
     for h in db.query(MemberHistory).filter(MemberHistory.recorded_at >= since_dt):
-        rows.append(_row(h, entity="Gezin", entity_id=h.member_id, summary=f"gezin #{_fmt(h.member_id)}"))
+        rows.append(_row(h, entity="Gezin", entity_id=h.member_id, summary=f"gezin #{_fmt(h.member_id)}",
+                         subject=subj.fields(member_id=h.member_id)))
 
     for h in db.query(MemberPersonHistory).filter(MemberPersonHistory.recorded_at >= since_dt):
         rows.append(_row(
             h, entity="Gezinslid", entity_id=h.member_person_id,
             summary=f"persoon #{_fmt(h.person_id)} in gezin #{_fmt(h.member_id)} ({_fmt(h.relation_type)})",
+            subject=subj.fields(person_id=h.person_id, member_id=h.member_id),
         ))
 
     for h in db.query(AddressHistory).filter(AddressHistory.recorded_at >= since_dt):
-        adres = f"{_fmt(h.street)} {_fmt(h.house_number)}".strip()
-        if h.bus_number:
-            adres += f" bus {h.bus_number}"
+        adres = _addr_text(h.street, h.house_number, h.bus_number)
+        body = adres
+        if h.operation == "update":
+            prev = (db.query(AddressHistory)
+                    .filter(AddressHistory.address_id == h.address_id,
+                            AddressHistory.recorded_at < h.recorded_at)
+                    .order_by(AddressHistory.recorded_at.desc()).first())
+            if prev is not None:
+                prev_adres = _addr_text(prev.street, prev.house_number, prev.bus_number)
+                if prev_adres != adres:
+                    body = f"{prev_adres} → {adres}"
         rows.append(_row(
             h, entity="Adres", entity_id=h.address_id,
-            summary=f"{adres} (persoon #{_fmt(h.person_id)}, postcode-id {_fmt(h.postal_code_id)})",
+            summary=f"{body} (persoon #{_fmt(h.person_id)}, postcode-id {_fmt(h.postal_code_id)})",
+            subject=subj.fields(person_id=h.person_id),
         ))
 
     for h in db.query(ContactDetailHistory).filter(ContactDetailHistory.recorded_at >= since_dt):
@@ -96,12 +273,14 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
         rows.append(_row(
             h, entity="Contact", entity_id=h.contact_detail_id,
             summary=f"{_fmt(h.contact_type_code)}: {value_part} (persoon #{_fmt(h.person_id)})",
+            subject=subj.fields(person_id=h.person_id),
         ))
 
     for h in db.query(MembershipHistory).filter(MembershipHistory.recorded_at >= since_dt):
         rows.append(_row(
             h, entity="Lidmaatschap", entity_id=h.membership_id,
             summary=f"jaar {_fmt(h.year)}, actief={_fmt(h.is_active)}, {_fmt(h.valid_from)}–{_fmt(h.valid_to)} (gezin #{_fmt(h.member_id)})",
+            subject=subj.fields(member_id=h.member_id),
         ))
 
     rows.sort(key=lambda r: r["recorded_at"], reverse=True)
@@ -119,6 +298,7 @@ def all_changes_since(
     objectgroep per rij; optioneel gefilterd op groep en/of actor. Nieuw → oud."""
     since_dt = datetime.combine(since, time.min, tzinfo=timezone.utc)
     rows: List[dict] = list(member_changes_since(db, since))  # groep "Leden"
+    subj = _SubjectResolver(db)
 
     for h in db.query(ActivityHistory).filter(ActivityHistory.recorded_at >= since_dt):
         rows.append(_row(h, entity="Activiteit", entity_id=h.activity_id,
@@ -139,11 +319,13 @@ def all_changes_since(
     for h in db.query(RegistrationItemHistory).filter(RegistrationItemHistory.recorded_at >= since_dt):
         rows.append(_row(h, entity="Bestelregel", entity_id=h.registration_item_id,
                          summary=f"product #{_fmt(h.product_id)} ×{_fmt(h.quantity)} (inschrijving #{_fmt(h.registration_id)})",
-                         group="Inschrijvingen"))
+                         group="Inschrijvingen",
+                         subject=subj.from_registration(h.registration_id)))
     for h in db.query(PaymentRecordHistory).filter(PaymentRecordHistory.recorded_at >= since_dt):
         rows.append(_row(h, entity="Betaling", entity_id=None,
                          summary=f"{_fmt(h.type)} €{_fmt(h.amount)} {_fmt(h.method)}/{_fmt(h.status)} ({_fmt(h.payable_type)} #{_fmt(h.payable_id)})",
-                         group="Betalingen"))
+                         group="Betalingen",
+                         subject=subj.from_payment(h.payable_type, h.payable_id)))
 
     if group:
         rows = [r for r in rows if r["group"] == group]
@@ -154,7 +336,10 @@ def all_changes_since(
 
 
 def build_member_changes_ods(rows: List[dict]) -> bytes:
-    headers = ["Tijdstip", "Wat", "Type", "ID", "Actie", "Door", "Details"]
+    headers = [
+        "Tijdstip", "Wat", "Type", "ID", "Naam persoon", "Adres hoofdlid",
+        "Externe ID persoon", "Externe ID hoofdlid", "Actie", "Door", "Details",
+    ]
     data = []
     for r in rows:
         ts = r["recorded_at"]
@@ -162,7 +347,9 @@ def build_member_changes_ods(rows: List[dict]) -> bytes:
         data.append([
             ts_str, r["operation_label"], r["entity"],
             "" if r["entity_id"] is None else str(r["entity_id"]),
+            r.get("person_name", ""), r.get("head_address", ""),
+            r.get("person_external_id", ""), r.get("head_external_id", ""),
             r["action"], r["actor"] or "", r["summary"],
         ])
     return build_ods("Ledenwijzigingen", headers, data,
-                     col_widths=[4.0, 3.0, 3.5, 2.0, 6.5, 6.5, 14.0])
+                     col_widths=[4.0, 3.0, 3.5, 2.0, 7.0, 12.0, 4.5, 4.5, 6.5, 6.5, 14.0])

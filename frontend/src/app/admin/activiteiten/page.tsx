@@ -1,11 +1,13 @@
 "use client";
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   getActivities, createActivity, updateActivity, deleteActivity,
   getRegistrations, addComponent, updateComponent, deleteComponent,
   addProduct, updateProduct, deleteProduct,
   addActivityDate, updateActivityDate, deleteActivityDate,
   exportComponentXlsx,
+  uploadActivityPoster, deleteActivityPoster, uploadComponentInfo, deleteComponentInfo,
 } from "@/lib/api";
 import type { Activity, ActivityComponent, ActivityProduct, ActivityDate } from "@/lib/types";
 import { parseApiError } from "@/lib/errors";
@@ -63,6 +65,10 @@ export default function AdminActiviteiten() {
   interface Reg { id: number; component_id?: number; contact_name?: string; contact_email?: string; phone?: string; team_name?: string; payment_method?: string; remarks?: string; items: RegItem[]; }
   const [registrations, setRegistrations] = useState<{ [id: number]: Reg[] }>({});
   const [viewRegs, setViewRegs] = useState<{ activityId: number; componentId: number | null } | null>(null);
+  // Waar 'Sluiten' naartoe keert: gezet als de penningmeester via een deep-link
+  // vanuit Betalingen binnenkwam (?from=betalingen), zodat hij daar weer belandt.
+  const [returnTo, setReturnTo] = useState<string | null>(null);
+  const router = useRouter();
 
   function load() {
     // Admin haalt álle activiteiten + álle datums op via scope=all (#136) en
@@ -88,6 +94,7 @@ export default function AdminActiviteiten() {
     const params = new URLSearchParams(window.location.search);
     const activityId = parseInt(params.get("activity") ?? "", 10);
     if (!activityId) return;
+    setReturnTo(params.get("from"));
     const compRaw = params.get("component");
     loadRegistrations(activityId, compRaw ? parseInt(compRaw, 10) : null);
     const regId = params.get("reg");
@@ -102,6 +109,26 @@ export default function AdminActiviteiten() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Poster (activiteit) en info/reglement (onderdeel) opladen — afbeelding of PDF (#223).
+  const [uploadBusy, setUploadBusy] = useState(false);
+  async function uploadFor(action: () => Promise<unknown>) {
+    setUploadBusy(true);
+    try { await action(); await load(); }
+    catch (err) { alert(parseApiError(err, "Opladen mislukt.")); }
+    finally { setUploadBusy(false); }
+  }
+
+  async function handlePosterUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file && editingActivity != null) await uploadFor(() => uploadActivityPoster(editingActivity, file));
+  }
+  async function handleComponentInfoUpload(componentId: number, e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) await uploadFor(() => uploadComponentInfo(componentId, file));
+  }
 
   async function handleActivitySubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -359,6 +386,26 @@ export default function AdminActiviteiten() {
               <div>
                 <label className="label">Poster URL</label>
                 <input className="input" value={activityForm.poster_url} onChange={(e) => setActivityForm((f) => ({ ...f, poster_url: e.target.value }))} />
+                {editingActivity !== null && (() => {
+                  const a = [...activities, ...archived].find((x) => x.id === editingActivity);
+                  return (
+                    <div className="mt-1 text-xs text-gray-600 flex items-center gap-2 flex-wrap">
+                      <span>of opladen (afbeelding/PDF):</span>
+                      <input type="file" accept="image/*,application/pdf" disabled={uploadBusy} onChange={handlePosterUpload} className="text-xs" />
+                      {a?.poster_asset_url && (
+                        <>
+                          <a href={a.poster_asset_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                            {a.poster_asset_is_pdf ? "PDF" : "afbeelding"} opgeladen (primeert)
+                          </a>
+                          <button type="button" className="text-red-600 hover:underline"
+                            onClick={() => uploadFor(() => deleteActivityPoster(editingActivity!))}>
+                            verwijderen
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
               {editingActivity !== null && (
                 <div className="flex items-center gap-2 pt-5">
@@ -490,7 +537,18 @@ export default function AdminActiviteiten() {
                   })}
                 </div>
               )}
-              <button className="btn-secondary mt-4" onClick={() => setViewRegs(null)}>Sluiten</button>
+              <button
+                className="btn-secondary mt-4"
+                onClick={() => {
+                  if (returnTo === "betalingen") {
+                    router.push("/admin/betalingen");
+                  } else {
+                    setViewRegs(null);
+                  }
+                }}
+              >
+                {returnTo === "betalingen" ? "Sluiten en terug naar Betalingen" : "Sluiten"}
+              </button>
             </div>
           </div>
         );
@@ -511,7 +569,7 @@ export default function AdminActiviteiten() {
               </div>
               <div className="flex gap-2 flex-wrap">
                 {(a.sub_registrations?.length ?? 0) === 0 && (
-                  <button className="btn-secondary btn-sm" onClick={() => loadRegistrations(a.id, null)}>Inschrijvingen</button>
+                  <button className="btn-secondary btn-sm" onClick={() => { setReturnTo(null); loadRegistrations(a.id, null); }}>Inschrijvingen</button>
                 )}
                 <button className="btn-secondary btn-sm" onClick={() => startEditActivity(a)}>Bewerken</button>
                 <button className="btn-danger btn-sm" onClick={() => handleDeleteActivity(a.id)}>Verwijderen</button>
@@ -611,10 +669,31 @@ export default function AdminActiviteiten() {
                         placeholder="https://docs.google.com/…" />
                     </div>
                     <div className="sm:col-span-2">
-                      <label className="label">Info/reglement URL</label>
+                      <label className="label">Info URL</label>
                       <input className="input" type="url" value={componentForm.info_url}
                         onChange={(e) => setComponentForm((f) => ({ ...f, info_url: e.target.value }))}
                         placeholder="https://drive.google.com/…" />
+                      {editingComponent !== null && (() => {
+                        const c = a.sub_registrations?.find((x) => x.id === editingComponent);
+                        return (
+                          <div className="mt-1 text-xs text-gray-600 flex items-center gap-2 flex-wrap">
+                            <span>of opladen (afbeelding/PDF):</span>
+                            <input type="file" accept="image/*,application/pdf" disabled={uploadBusy}
+                              onChange={(e) => handleComponentInfoUpload(editingComponent!, e)} className="text-xs" />
+                            {c?.info_asset_url && (
+                              <>
+                                <a href={c.info_asset_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                                  {c.info_asset_is_pdf ? "PDF" : "afbeelding"} opgeladen (primeert)
+                                </a>
+                                <button type="button" className="text-red-600 hover:underline"
+                                  onClick={() => uploadFor(() => deleteComponentInfo(editingComponent!))}>
+                                  verwijderen
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div>
                       <label className="label">Max. deelnemers</label>
@@ -649,7 +728,7 @@ export default function AdminActiviteiten() {
                     </div>
                     <div className="flex gap-2">
                       {!comp.external_register_url && (
-                        <button className="btn-secondary btn-sm text-xs" onClick={() => loadRegistrations(a.id, comp.id)}>Inschrijvingen</button>
+                        <button className="btn-secondary btn-sm text-xs" onClick={() => { setReturnTo(null); loadRegistrations(a.id, comp.id); }}>Inschrijvingen</button>
                       )}
                       {!comp.external_register_url && (
                         <button className="btn-secondary btn-sm text-xs" onClick={() => downloadExport(a.id, comp, a.name)} title="Export (.ods): aantallen + financials">Export</button>

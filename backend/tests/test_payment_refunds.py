@@ -89,6 +89,29 @@ def test_refund_writes_audit_history(db_session):
     assert rows[0].amount == Decimal("-5.00")
 
 
+# ── Pending refund bevestigen (#219) ──────────────────────────────────────────
+
+def test_confirm_pending_refund_books_full_amount(client, db_session, admin_headers):
+    """Een pending refund bevestigen (status=paid, géén bedrag) boekt het volledige
+    negatieve bedrag; de tekengevoelige validatie blokkeert dit niet (#219)."""
+    charge = _seed_charge(db_session)
+    refund = create_refund(db_session, charge.id, Decimal("18.00"), settled=False)
+    assert refund.status == "pending" and refund.amount_paid is None
+    resp = client.patch(f"/api/v1/payment-status/records/{refund.id}",
+                        json={"status": "paid"}, headers=admin_headers)
+    assert resp.status_code == 200, resp.text
+    assert Decimal(str(resp.json()["amount_paid"])) == Decimal("-18.00")
+
+
+def test_refund_rejects_positive_amount_paid(client, db_session, admin_headers):
+    """Een positief betaald bedrag op een (negatieve) refund wordt geweigerd."""
+    charge = _seed_charge(db_session)
+    refund = create_refund(db_session, charge.id, Decimal("18.00"), settled=False)
+    resp = client.patch(f"/api/v1/payment-status/records/{refund.id}",
+                        json={"status": "paid", "amount_paid": "5.00"}, headers=admin_headers)
+    assert resp.status_code == 400, resp.text
+
+
 # ── Endpoint-laag (admin-only) ────────────────────────────────────────────────
 
 def test_refund_endpoint_requires_admin(client):

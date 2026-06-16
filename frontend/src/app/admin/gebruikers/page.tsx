@@ -4,9 +4,9 @@ import { getUsers, createUser, updateUser, deleteUser } from "@/lib/api";
 import { parseApiError } from "@/lib/errors";
 
 // Toewijsbare backoffice-rollen. Lid-zijn staat hier los van (afgeleid uit het
-// leden-domein) en is dus géén toewijsbare rol. Nieuwe rollen (bv. "FINANCE")
-// komen hier later bij.
-const ALL_ROLES = ["ADMIN"];
+// leden-domein) en is dus géén toewijsbare rol.
+// FINANCE = penningmeester: enkel die rol mag betalingen beheren (#207).
+const ALL_ROLES = ["ADMIN", "FINANCE"];
 
 interface UserEntry {
   id: number;

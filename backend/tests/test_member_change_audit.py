@@ -59,6 +59,20 @@ def test_contact_change_shows_old_to_new(client, db_session, admin_headers):
     assert "0470111111" in mobile[0]["summary"] and "0470222222" in mobile[0]["summary"]
 
 
+def test_person_name_change_shows_old_to_new(client, db_session, admin_headers):
+    """#188: een naamswijziging toont 'oud → nieuw' in de wijzigingen-feed."""
+    person = _make_person(client, db_session)
+    r = client.put(f"/api/v1/persons/{person.id}",
+                   json={"first_name": "Suske", "last_name": "Vandersteen"}, headers=admin_headers)
+    assert r.status_code == 200, r.text
+    resp = client.get("/api/v1/admin/member-changes",
+                      params={"since": date.today().isoformat()}, headers=admin_headers)
+    rows = resp.json()
+    naam = [row for row in rows if row["entity"] == "Persoon" and "→" in row["summary"]]
+    assert naam, rows
+    assert "Suske Wiske" in naam[0]["summary"] and "Suske Vandersteen" in naam[0]["summary"]
+
+
 def test_person_update_without_change_makes_no_history(client, db_session, admin_headers):
     person = _make_person(client, db_session)
     before = db_session.query(PersonHistory).filter(PersonHistory.person_id == person.id).count()

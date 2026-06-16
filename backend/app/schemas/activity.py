@@ -80,6 +80,8 @@ class ComponentResponse(BaseModel):
     external_register_url: Optional[str] = None
     external_registrations_url: Optional[str] = None
     info_url: Optional[str] = None
+    info_asset_url: Optional[str] = None
+    info_asset_is_pdf: bool = False
     max_participants: Optional[int] = None
     products: List[ProductResponse] = []
 
@@ -138,6 +140,8 @@ class ActivityResponse(BaseModel):
     dates: List[ActivityDateResponse] = []
     location: Optional[str] = None
     poster_url: Optional[str] = None
+    poster_asset_url: Optional[str] = None
+    poster_asset_is_pdf: bool = False
     members_only: bool = False
     created_at: datetime
     status: Optional[str] = None

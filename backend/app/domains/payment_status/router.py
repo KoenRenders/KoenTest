@@ -1,8 +1,9 @@
 from datetime import datetime, timezone
+from decimal import Decimal
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.auth import get_current_admin
+from app.auth import get_finance_or_admin, get_current_finance
 from app.database import get_db
 from app.models.user import User
 from .models import PaymentRecord
@@ -35,6 +36,7 @@ def _to_response(r: PaymentRecord) -> PaymentRecordResponse:
         note=r.note,
         paid_at=r.paid_at,
         checkout_url=r.gateway_payment.checkout_url if r.gateway_payment else None,
+        structured_communication=r.structured_communication,
         created_at=r.created_at,
     )
 
@@ -42,7 +44,7 @@ def _to_response(r: PaymentRecord) -> PaymentRecordResponse:
 @router.get("/records", response_model=List[EnrichedPaymentRecord])
 def list_all_payment_records(
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    _viewer: User = Depends(get_finance_or_admin),
 ):
     """List all payment records, enriched with contact name and description.
 
@@ -126,6 +128,7 @@ def list_all_payment_records(
             note=r.note,
             paid_at=r.paid_at,
             checkout_url=r.gateway_payment.checkout_url if r.gateway_payment else None,
+            structured_communication=r.structured_communication,
             created_at=r.created_at,
             description=description,
             contact_name=contact_name,
@@ -138,7 +141,7 @@ def get_payment_records(
     payable_type: str,
     payable_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    _viewer: User = Depends(get_finance_or_admin),
 ):
     records = get_records_for(db, payable_type, payable_id)
     return [_to_response(r) for r in records]
@@ -148,7 +151,7 @@ def get_payment_records(
 def refresh_payment_record(
     record_id: str,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_finance),
 ):
     """Haal de actuele status bij de gateway (Mollie) op voor één betaling.
 
@@ -182,7 +185,7 @@ def refund_payment_record(
     record_id: str,
     data: RefundCreate,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_finance),
 ):
     """Registreer een terugbetaling op een charge-record (#83).
 
@@ -205,7 +208,7 @@ def refund_payment_record(
 def get_registration_balance(
     registration_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    _viewer: User = Depends(get_finance_or_admin),
 ):
     """Financiële stand van een inschrijving: verschuldigd, betaald, terugbetaald,
     saldo (#83). De live DB is de bron van waarheid."""
@@ -222,19 +225,20 @@ def update_payment_record(
     record_id: str,
     data: PaymentRecordUpdate,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_finance),
 ):
     record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Payment record not found")
 
     if data.amount_paid is not None:
-        if data.amount_paid < 0:
-            raise HTTPException(status_code=400, detail="amount_paid mag niet negatief zijn")
-        if data.amount_paid > record.amount:
+        # Tekengevoelige grens (#219): een charge heeft een positief bedrag → betaald
+        # bedrag in [0, amount]; een refund is negatief → betaald bedrag in [amount, 0].
+        lo, hi = sorted((Decimal("0"), Decimal(str(record.amount))))
+        if not (lo <= data.amount_paid <= hi):
             raise HTTPException(
                 status_code=400,
-                detail=f"amount_paid ({data.amount_paid}) mag het verschuldigde bedrag ({record.amount}) niet overschrijden",
+                detail=f"Betaald bedrag ({data.amount_paid}) moet tussen {lo} en {hi} liggen.",
             )
 
     if data.status == "paid":
@@ -261,7 +265,7 @@ def update_payment_record(
 def delete_payment_record(
     record_id: str,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_finance),
 ):
     """Verwijder één betaalrecord als bewuste admin-actie (#167) — bv. een
     foutieve/test-betaling of een weesbetaling na een gezin-delete. Soft delete
@@ -270,6 +274,21 @@ def delete_payment_record(
     record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
     if not record:
         raise HTTPException(status_code=404, detail="Payment record not found")
+    # Een betaling waar effectief geld bewoog, mag niet verdwijnen (#218):
+    #   1) een online betaling die Mollie als 'paid' bevestigde;
+    #   2) elk record met een betaald/ontvangen bedrag (cash/overschrijving bevestigd,
+    #      of een uitgevoerde terugbetaling — amount_paid ≠ 0).
+    # Zo'n record corrigeer je via een terugbetaling, niet via verwijderen.
+    if record.method == "online" and record.status == "paid":
+        raise HTTPException(
+            status_code=400,
+            detail="Een door Mollie betaalde online betaling kan niet verwijderd worden.",
+        )
+    if record.amount_paid is not None and record.amount_paid != 0:
+        raise HTTPException(
+            status_code=400,
+            detail="Een betaling met een ontvangen/betaald bedrag kan niet verwijderd worden.",
+        )
     snapshot_payment_record(
         db, record,
         operation="delete", action="payment_deleted",

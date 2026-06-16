@@ -41,9 +41,26 @@ def _pay(client, admin_headers, charge_id, amount):
     assert r.status_code == 200, r.text
 
 
-def test_order_lowered_after_payment_auto_refunds(client, db_session, admin_headers):
-    """#191: een betaalde bestelling verlagen maakt automatisch een terugbetaling aan;
-    het saldo vereffent meteen (geen handmatige refund-stap meer)."""
+def _latest_refund(db, reg):
+    db.expire_all()
+    return db.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
+        PaymentRecord.type == "refund",
+    ).order_by(PaymentRecord.created_at.desc()).first()
+
+
+def _confirm_refund(client, admin_headers, refund_id):
+    """Penningmeester bevestigt de effectieve terugstorting (#216): status → paid
+    zonder bedrag, de server vult amount_paid = het volledige (negatieve) refundbedrag."""
+    r = client.patch(f"/api/v1/payment-status/records/{refund_id}",
+                     json={"status": "paid"}, headers=admin_headers)
+    assert r.status_code == 200, r.text
+
+
+def test_order_lowered_after_payment_creates_pending_refund(client, db_session, admin_headers):
+    """#216: een betaalde bestelling verlagen maakt een terugbetaling als *verplichting*
+    aan (pending, amount_paid leeg) — niet meteen als teruggestort. Het saldo blijft
+    negatief tot de penningmeester de effectieve terugstorting bevestigt."""
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id, reg, charge = _register(client, db_session, comp, product, qty=2)  # verschuldigd 36
     _pay(client, admin_headers, charge.id, "36.00")
@@ -54,17 +71,28 @@ def test_order_lowered_after_payment_auto_refunds(client, db_session, admin_head
         json={"quantity": 1}, headers=admin_headers,   # verschuldigd zakt naar 18
     )
     body = resp.json()
-    assert Decimal(str(body["balance"]["balance"])) == Decimal("0.00")        # auto-refund vereffent
-    assert body["refund_due"] is False
-    assert Decimal(str(body["balance"]["total_refunded"])) == Decimal("18.00")
+    # Verplichting, nog niet uitbetaald: saldo blijft −18, refund_due True, niets terugbetaald.
+    assert Decimal(str(body["balance"]["balance"])) == Decimal("-18.00")
+    assert body["refund_due"] is True
+    assert Decimal(str(body["balance"]["total_refunded"])) == Decimal("0.00")
 
-    db_session.expire_all()
-    refund = db_session.query(PaymentRecord).filter(
+    # De refund is automatisch aangemaakt: precies één, dus de penningmeester moet
+    # hem bevestigen — niet zelf een tweede registreren (#220 / UI-melding).
+    refunds = db_session.query(PaymentRecord).filter(
         PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
-        PaymentRecord.type == "refund",
-    ).one()
+        PaymentRecord.type == "refund").all()
+    assert len(refunds) == 1
+    refund = refunds[0]
     assert Decimal(str(refund.amount)) == Decimal("-18.00")
+    assert refund.status == "pending" and refund.amount_paid is None
     assert refund.refund_of_id == charge.id
+
+    # Penningmeester bevestigt de terugstorting → pas nu vereffent het saldo.
+    _confirm_refund(client, admin_headers, refund.id)
+    bal = client.get(f"/api/v1/payment-status/registrations/{reg.id}/balance",
+                     headers=admin_headers).json()
+    assert Decimal(str(bal["balance"])) == Decimal("0.00")
+    assert Decimal(str(bal["total_refunded"])) == Decimal("18.00")
 
 
 def test_order_decrease_does_not_double_refund(client, db_session, admin_headers):
@@ -248,6 +276,10 @@ def test_partial_payment_remove_extra_refunds_only_received(client, db_session, 
         PaymentRecord.payable_type == "registration", PaymentRecord.payable_id == reg.id,
         PaymentRecord.type == "refund").all()
     assert sum((Decimal(str(r.amount)) for r in refunds), Decimal("0")) == Decimal("-8.00")
+    # Verplichting nog niet uitbetaald → saldo −8; na bevestiging door de penningmeester €0.
+    bal = client.get(f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers).json()
+    assert Decimal(str(bal["balance"])) == Decimal("-8.00")
+    _confirm_refund(client, admin_headers, _latest_refund(db_session, reg).id)
     bal = client.get(f"/api/v1/payment-status/registrations/{reg.id}/balance", headers=admin_headers).json()
     assert Decimal(str(bal["balance"])) == Decimal("0.00")
 
@@ -276,9 +308,13 @@ def test_koen_scenario_integral_recompute(client, db_session, admin_headers):
     item1 = db_session.query(RegistrationItem).filter(
         RegistrationItem.registration_id == reg.id, RegistrationItem.product_id == p1.id).first()
 
-    # 2) Verlaging P1×2 → ×1 (€18) → automatische terugbetaling €18.
+    # 2) Verlaging P1×2 → ×1 (€18) → terugbetaling €18 als verplichting; de
+    #    penningmeester bevestigt de terugstorting, pas dan vereffent het saldo.
     client.patch(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item1.id}",
                  json={"quantity": 1}, headers=admin_headers)
+    refund = _latest_refund(db_session, reg)
+    assert refund.status == "pending" and refund.amount_paid is None
+    _confirm_refund(client, admin_headers, refund.id)
     b = _bal()
     assert Decimal(str(b["total_due"])) == Decimal("18.00")
     assert Decimal(str(b["balance"])) == Decimal("0.00")
@@ -332,11 +368,12 @@ def test_full_refund_scenario(client, db_session, admin_headers):
     _pay(client, admin_headers, open20.id, "20.00")
     assert Decimal(str(_bal()["balance"])) == Decimal("0.00")
 
-    # 3) P2 verwijderen → €20 terugbetaald.
+    # 3) P2 verwijderen → €20 terugbetaling (verplichting), penningmeester bevestigt.
     item_p2 = db_session.query(RegistrationItem).filter(
         RegistrationItem.registration_id == reg.id, RegistrationItem.product_id == p2.id).first()
     client.delete(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item_p2.id}",
                   headers=admin_headers)
+    _confirm_refund(client, admin_headers, _latest_refund(db_session, reg).id)
     assert Decimal(str(_bal()["total_refunded"])) == Decimal("20.00")
 
     # 4) P1 → gratis product → totaal €0; de resterende €18 wordt ook terugbetaald.
@@ -344,6 +381,7 @@ def test_full_refund_scenario(client, db_session, admin_headers):
         RegistrationItem.registration_id == reg.id, RegistrationItem.product_id == p1.id).first()
     client.patch(f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item_p1.id}",
                  json={"product_id": free.id}, headers=admin_headers)
+    _confirm_refund(client, admin_headers, _latest_refund(db_session, reg).id)
 
     b = _bal()
     assert Decimal(str(b["total_due"])) == Decimal("0.00")
