@@ -138,7 +138,7 @@ export const updateMedia = (id: number, data: Partial<MediaAsset>) =>
   api.patch<MediaAsset>(`/api/v1/admin/media/${id}`, data);
 export const deleteMedia = (id: number) => api.delete(`/api/v1/admin/media/${id}`);
 
-// Ledenrapport-import (#170): upload .xls → dry-run preview → bevestigen.
+// Ledenrapport-import (#170): upload .xls/.ods → dry-run preview → bevestigen.
 export interface MemberImportReport {
   new_families: number;
   updated_families: number;

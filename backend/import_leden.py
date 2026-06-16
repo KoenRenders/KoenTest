@@ -1,7 +1,7 @@
-"""Import leden uit het Excel-ledenrapport.
+"""Import leden uit het Raak-Nationaal-ledenrapport (.xls of .ods).
 
 Gebruik:
-    python3 import_leden.py <pad/naar/Ledenrapport.xls> [--dry-run] [--all-members]
+    python3 import_leden.py <pad/naar/Ledenrapport.xls|.ods> [--dry-run] [--all-members]
 
 De omgeving wordt bepaald door de container zelf via APP_ENV:
   - APP_ENV=prod  → ALLE leden worden geladen.
@@ -15,7 +15,7 @@ expliciete bevestiging, zodat het nooit per ongeluk gebeurt.
 Zonder --dry-run schrijft het script effectief naar de DB.
 Met --dry-run wordt enkel een rapport geprint zonder DB-wijzigingen.
 
-OPGELET: Het Excel-bestand bevat persoonsgegevens en mag NIET in git.
+OPGELET: Het rapportbestand bevat persoonsgegevens en mag NIET in git.
 """
 
 import sys
@@ -26,8 +26,8 @@ sys.path.insert(0, os.path.dirname(__file__))
 
 from app.database import SessionLocal
 from app.services.member_import import upsert_families
-from app.services.ledenrapport_excel import (
-    read_excel,
+from app.services.ledenrapport import (
+    read_ledenrapport,
     group_families,
     filter_test,
     build_bestuurslid_index,
@@ -35,7 +35,7 @@ from app.services.ledenrapport_excel import (
 )
 
 
-def run(excel_path: str, dry_run: bool, load_all: bool, app_env: str, forced: bool):
+def run(report_path: str, dry_run: bool, load_all: bool, app_env: str, forced: bool):
     print(f"\n{'=== DROOGLOOP ===' if dry_run else '=== IMPORT ==='}")
     print(f"APP_ENV: {app_env}")
     if load_all:
@@ -43,9 +43,9 @@ def run(excel_path: str, dry_run: bool, load_all: bool, app_env: str, forced: bo
         print(f"Omgeving: ALLE LEDEN{extra}")
     else:
         print(f"Omgeving: NIET-PROD (enkel testadressen)")
-    print(f"Excel: {excel_path}\n")
+    print(f"Bestand: {report_path}\n")
 
-    rows = read_excel(excel_path)
+    rows = read_ledenrapport(report_path)
     families = group_families(rows)
 
     if not load_all:
@@ -78,10 +78,12 @@ def run(excel_path: str, dry_run: bool, load_all: bool, app_env: str, forced: bo
 
     db = SessionLocal()
     try:
-        # De Excel is de bron van waarheid: bestaande gezinnen worden bijgewerkt,
-        # onbekende lidnummers ingevoegd, afwezige personen verwijderd (#74).
+        # Het ledenrapport is de bron van waarheid: bestaande gezinnen worden
+        # bijgewerkt, onbekende lidnummers ingevoegd, afwezige personen
+        # verwijderd (#74). Actor-sentinel markeert een CLI-load in de audit (#214).
         report = upsert_families(
             db, families, bl_index, all_bl_names, apply=not dry_run,
+            actor="cli:import_leden",
         )
 
         for line in report.lines:
@@ -115,7 +117,7 @@ def run(excel_path: str, dry_run: bool, load_all: bool, app_env: str, forced: bo
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("excel", help="Pad naar het Excel-ledenrapport (.xls)")
+    parser.add_argument("bestand", help="Pad naar het ledenrapport (.xls of .ods)")
     parser.add_argument("--dry-run", action="store_true",
                         help="Droogloop: print rapport zonder DB-wijzigingen")
     parser.add_argument("--all-members", action="store_true",
@@ -135,7 +137,7 @@ if __name__ == "__main__":
     forced = args.all_members and not is_prod
 
     run(
-        excel_path=args.excel,
+        report_path=args.bestand,
         dry_run=args.dry_run,
         load_all=load_all,
         app_env=app_env,

@@ -73,7 +73,7 @@ export default function LedenImport() {
   async function doCommit() {
     if (!preview) return;
     if (!confirm(
-      `Definitief importeren? Dit overschrijft de ledendata met de Excel ` +
+      `Definitief importeren? Dit overschrijft de ledendata met het ledenrapport ` +
       `(${preview.selected_families} gezinnen, ${preview.total_persons} personen).`
     )) return;
     setBusy(true);
@@ -96,10 +96,13 @@ export default function LedenImport() {
       <div>
         <h1 className="text-2xl font-semibold">Ledenrapport importeren</h1>
         <p className="mt-1 text-sm text-gray-600">
-          Laad het Raak-Nationaal-ledenrapport (.xls) op. Bekijk eerst de
-          droogloop, bevestig daarna om de wijzigingen door te voeren. De Excel is
+          Laad het Raak-Nationaal-ledenrapport op. Bekijk eerst de droogloop,
+          bevestig daarna om de wijzigingen door te voeren. Het ledenrapport is
           de bron van waarheid: bestaande gezinnen worden bijgewerkt en personen
           die niet meer in het bestand staan, worden uit hun gezin verwijderd.
+        </p>
+        <p className="mt-1 text-xs text-gray-500">
+          Ondersteunde formaten: Excel (.xls) en LibreOffice Calc (.ods).
         </p>
       </div>
 
@@ -107,7 +110,7 @@ export default function LedenImport() {
         <input
           ref={fileRef}
           type="file"
-          accept=".xls"
+          accept=".xls,.ods"
           onChange={(e) => onPick(e.target.files?.[0] ?? null)}
           className="block text-sm"
         />

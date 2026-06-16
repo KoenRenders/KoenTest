@@ -1,24 +1,30 @@
 """Upsert-service voor het opladen van het Raak-Nationaal-ledenrapport (#74).
 
-Bij het opladen is het **Raak-Nationaal-Excel de bron van waarheid**: bestaande
-gezinnen worden bijgewerkt in plaats van te aborteren. De match gebeurt op het
-**lidnummer** (``ExternalNumber(source="ledenadministratie")``):
+Bij het opladen is het **Raak-Nationaal-ledenrapport de bron van waarheid**:
+bestaande gezinnen worden bijgewerkt in plaats van te aborteren. De match gebeurt
+op het **lidnummer** (``ExternalNumber(source="ledenadministratie")``):
 
   - Een gezin wordt herkend aan het lidnummer van zijn **hoofdlid**.
   - Een rij met een bekend lidnummer is een *update*; een onbekend lidnummer is
-    een *nieuwe* persoon/gezin.
-  - Personen die wél in ons gezin zitten maar **niet** in de Excel-adresgroep
-    staan, worden uit het gezin verwijderd (verhuisd of weggevallen). Wie
-    verhuist, staat in de Excel onder zijn nieuwe adres en wordt daar toegevoegd.
+    een *nieuwe* persoon/gezin — tenzij het op identiteit (naam+geboortedatum)
+    een bestaand, lidnummer-loos lid matcht: dan wordt het lidnummer aan dat
+    bestaande lid gehecht in plaats van een duplicaat te maken (#192).
+  - Personen die wél in ons gezin zitten maar **niet** in de adresgroep van het
+    rapport staan, worden uit het gezin verwijderd (verhuisd of weggevallen). Wie
+    verhuist, staat in het rapport onder zijn nieuwe adres en wordt daar
+    toegevoegd.
 
 Elke insert/update/delete wordt geauditeerd via de history-infrastructuur met
 ``source="ledenadministratie"`` (snapshot vóór een delete, zodat #82 / de
-wijzigingslijst de verwijderde persoon nog ziet).
+wijzigingslijst de verwijderde persoon nog ziet). De aanroeper kan een ``actor``
+meegeven (de ingelogde admin-email bij de upload, een sentinel bij het CLI) die
+in elke history-rij belandt (#214).
 
 De service muteert de sessie maar **commit niet**: de aanroeper (CLI of test)
 beslist over commit/rollback. Met ``apply=False`` worden geen DB-wijzigingen
 gedaan — enkel het rapport van wat *zou* veranderen wordt opgebouwd (dry-run).
 """
+from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import date
 
@@ -45,7 +51,7 @@ LEGACY_SOURCE = "ledenadministratie"
 # Jaar waarvoor het lidmaatschap wordt aangemaakt.
 IMPORT_YEAR = 2026
 
-# Excel-kolom → contacttype.
+# Rapportkolom → contacttype.
 _CONTACT_FIELDS = (("EMAIL", "email"), ("PHONE", "telefoon"), ("MOBILE", "gsm"))
 
 
@@ -107,8 +113,44 @@ def _current_member(person: Person) -> Member | None:
     return mp.member if mp else None
 
 
+# ── Identiteitsmatch (lidnummer-loze bestaande leden) ─────────────────────────
+
+def _ident_norm(s) -> str:
+    return _norm(str(s or "")).lower()
+
+
+def _identity_key(first, last, dob):
+    """Sleutel voor de identiteitsindex: genormaliseerde naam + geboortedatum."""
+    return (_ident_norm(first), _ident_norm(last), dob)
+
+
+def _identity_lookup(identity_map: dict, row: dict):
+    """Zoek een bestaand lidnummer-loos lid op identiteit.
+
+    Geeft ``(person, ambiguous)``. ``person`` is None bij 0 of >1 matches. Een
+    geboortedatum is vereist — naam alleen is te zwak om automatisch te koppelen.
+    """
+    dob = row["geboortedatum"]
+    if not dob:
+        return None, False
+    cands = identity_map.get(_identity_key(row["voornaam"], row["naam"], dob), [])
+    if len(cands) == 1:
+        return cands[0], False
+    if len(cands) > 1:
+        return None, True
+    return None, False
+
+
+def _identity_remove(identity_map: dict, person: Person) -> None:
+    """Haal een persoon uit de identiteitsindex (nadat hij een lidnummer kreeg)."""
+    key = _identity_key(person.first_name, person.last_name, person.date_of_birth)
+    lst = identity_map.get(key)
+    if lst and person in lst:
+        lst.remove(person)
+
+
 def _person_field_changes(person: Person, row: dict) -> list[str]:
-    """Welke persoonsvelden wijken af van de Excel-rij?"""
+    """Welke persoonsvelden wijken af van de rapportrij?"""
     changes = []
     if person.last_name != row["naam"]:
         changes.append("naam")
@@ -131,7 +173,7 @@ def _apply_person_fields(person: Person, row: dict) -> None:
 # ── Contacten ───────────────────────────────────────────────────────────────
 
 def _upsert_contact(db: Session, person: Person, type_code: str, value: str | None,
-                    is_primary: bool, *, apply: bool) -> None:
+                    is_primary: bool, *, apply: bool, actor: str | None = None) -> None:
     """Maak/werk bij/verwijder één contactgegeven; snapshot elke wijziging."""
     existing = next((c for c in person.contact_details
                      if c.contact_type_code == type_code), None)
@@ -144,7 +186,8 @@ def _upsert_contact(db: Session, person: Person, type_code: str, value: str | No
                 existing.is_primary = is_primary
                 db.flush()
                 snapshot_contact_detail(db, existing, operation="update",
-                                        action="contacts_imported", source=LEGACY_SOURCE)
+                                        action="contacts_imported", source=LEGACY_SOURCE,
+                                        actor=actor)
         else:
             if apply:
                 contact = ContactDetail(person_id=person.id, contact_type_code=type_code,
@@ -152,26 +195,29 @@ def _upsert_contact(db: Session, person: Person, type_code: str, value: str | No
                 db.add(contact)
                 db.flush()
                 snapshot_contact_detail(db, contact, operation="insert",
-                                        action="contacts_imported", source=LEGACY_SOURCE)
+                                        action="contacts_imported", source=LEGACY_SOURCE,
+                                        actor=actor)
     elif existing:
         if apply:
             snapshot_contact_detail(db, existing, operation="delete",
-                                    action="contacts_imported", source=LEGACY_SOURCE)
+                                    action="contacts_imported", source=LEGACY_SOURCE,
+                                    actor=actor)
             person.contact_details.remove(existing)
             db.flush()
 
 
-def _sync_contacts(db: Session, person: Person, row: dict, *, apply: bool) -> None:
+def _sync_contacts(db: Session, person: Person, row: dict, *, apply: bool,
+                   actor: str | None = None) -> None:
     has_phone = bool(row["telefoon"])
-    _upsert_contact(db, person, "EMAIL", row["email"], True, apply=apply)
-    _upsert_contact(db, person, "PHONE", row["telefoon"], True, apply=apply)
-    _upsert_contact(db, person, "MOBILE", row["gsm"], not has_phone, apply=apply)
+    _upsert_contact(db, person, "EMAIL", row["email"], True, apply=apply, actor=actor)
+    _upsert_contact(db, person, "PHONE", row["telefoon"], True, apply=apply, actor=actor)
+    _upsert_contact(db, person, "MOBILE", row["gsm"], not has_phone, apply=apply, actor=actor)
 
 
 # ── Adres (enkel hoofdlid) ──────────────────────────────────────────────────
 
 def _sync_address(db: Session, person: Person, row: dict, pc: PostalCode,
-                  *, apply: bool) -> None:
+                  *, apply: bool, actor: str | None = None) -> None:
     """Adres hoort enkel bij het hoofdlid (#125). Maak/werk bij."""
     bus = row["busnummer"] or None
     existing = person.address
@@ -186,7 +232,7 @@ def _sync_address(db: Session, person: Person, row: dict, pc: PostalCode,
             existing.postal_code_id = pc.id
             db.flush()
             snapshot_address(db, existing, operation="update",
-                             action="address_imported", source=LEGACY_SOURCE)
+                             action="address_imported", source=LEGACY_SOURCE, actor=actor)
     else:
         if apply:
             addr = Address(person_id=person.id, street=row["straat"],
@@ -195,13 +241,13 @@ def _sync_address(db: Session, person: Person, row: dict, pc: PostalCode,
             db.add(addr)
             db.flush()
             snapshot_address(db, addr, operation="insert",
-                             action="address_imported", source=LEGACY_SOURCE)
+                             action="address_imported", source=LEGACY_SOURCE, actor=actor)
 
 
 # ── Persoon aanmaken ────────────────────────────────────────────────────────
 
 def _create_person(db: Session, row: dict, member: Member, pc: PostalCode | None,
-                   *, apply: bool, report: ImportReport) -> Person | None:
+                   *, apply: bool, report: ImportReport, actor: str | None = None) -> Person | None:
     """Maak een nieuwe persoon, koppel aan het gezin, met externe-nummer,
     adres (enkel hoofdlid), contacten — alles geauditeerd."""
     report.persons_added += 1
@@ -213,7 +259,7 @@ def _create_person(db: Session, row: dict, member: Member, pc: PostalCode | None
     db.add(person)
     db.flush()
     snapshot_person(db, person, operation="insert", action="person_imported",
-                    source=LEGACY_SOURCE)
+                    source=LEGACY_SOURCE, actor=actor)
     row["_person_id"] = person.id
 
     if row["lidnr"]:
@@ -225,18 +271,18 @@ def _create_person(db: Session, row: dict, member: Member, pc: PostalCode | None
     db.add(mp)
     db.flush()
     snapshot_member_person(db, mp, operation="insert", action="person_imported",
-                           source=LEGACY_SOURCE)
+                           source=LEGACY_SOURCE, actor=actor)
 
     if row["_relatie"] == "HOOFDLID" and pc is not None:
-        _sync_address(db, person, row, pc, apply=apply)
-    _sync_contacts(db, person, row, apply=apply)
+        _sync_address(db, person, row, pc, apply=apply, actor=actor)
+    _sync_contacts(db, person, row, apply=apply, actor=actor)
     return person
 
 
 # ── Lidmaatschap ────────────────────────────────────────────────────────────
 
 def _ensure_membership(db: Session, member: Member, import_year: int,
-                       *, apply: bool, report: ImportReport) -> None:
+                       *, apply: bool, report: ImportReport, actor: str | None = None) -> None:
     """Eén lidmaatschap voor het importjaar — nooit dupliceren (#74)."""
     existing = next((m for m in member.memberships if m.year == import_year), None)
     if existing:
@@ -249,21 +295,24 @@ def _ensure_membership(db: Session, member: Member, import_year: int,
     db.add(ms)
     db.flush()
     snapshot_membership(db, ms, operation="insert", action="membership_imported",
-                        source=LEGACY_SOURCE)
+                        source=LEGACY_SOURCE, actor=actor)
 
 
 # ── Gezin synchroniseren (nieuw én bestaand via één pad) ─────────────────────
 
 def _sync_family(db: Session, member: Member, fam: list[dict], pc: PostalCode | None,
-                 ext_map: dict, *, is_new: bool, apply: bool, report: ImportReport) -> None:
-    """Synchroniseer één gezin met zijn Excel-adresgroep.
+                 ext_map: dict, identity_map: dict, *, is_new: bool, apply: bool,
+                 report: ImportReport, actor: str | None = None) -> None:
+    """Synchroniseer één gezin met zijn adresgroep uit het rapport.
 
     ``member`` is een echt object (bestaand of net aangemaakt) in apply-modus, of
     een transient object in dry-run voor een nieuw gezin. Bestaande personen
     worden ALTIJD hergebruikt op lidnummer (nooit gedupliceerd — dat zou de
-    unieke (source, external_id)-constraint schenden); onbekende lidnummers worden
-    aangemaakt; personen die niet meer in de adresgroep staan, worden bij een
-    bestaand gezin uit het gezin verwijderd."""
+    unieke (source, external_id)-constraint schenden); een onbekend lidnummer dat
+    op identiteit een bestaand lidnummer-loos lid matcht krijgt dat lidnummer
+    gehecht (#192); overige onbekende lidnummers worden aangemaakt; personen die
+    niet meer in de adresgroep staan, worden bij een bestaand gezin uit het gezin
+    verwijderd."""
     if is_new:
         report.new_families += 1
         report.line(f"NIEUW gezin: {_family_label(fam)}")
@@ -272,18 +321,50 @@ def _sync_family(db: Session, member: Member, fam: list[dict], pc: PostalCode | 
         report.line(f"UPDATE gezin (#{member.id}): {_family_label(fam)}")
 
     desired_lidnrs = {r["lidnr"] for r in fam if r["lidnr"]}
+    # Personen (op id) die dit rapport voor dit gezin aanlevert — bepaalt straks
+    # wie er níét meer in staat en dus verwijderd wordt. Robuuster dan enkel op
+    # lidnummer, want het dekt ook identiteitsmatches en dry-run.
+    processed_person_ids: set[int] = set()
 
     for row in fam:
         existing = ext_map.get(row["lidnr"]) if row["lidnr"] else None
+
+        if existing is None and row["lidnr"]:
+            # (#192) Probeer een identiteitsmatch op een bestaand lidnummer-loos
+            # lid vóór we een nieuwe persoon aanmaken — anders dupliceren we elk
+            # net-geregistreerd lid bij de eerste her-import.
+            match, ambiguous = _identity_lookup(identity_map, row)
+            if ambiguous:
+                report.warn(f"{row['voornaam']} {row['naam']} (geb. {row['geboortedatum']}): "
+                            f"meerdere bestaande leden zonder lidnummer matchen op identiteit — "
+                            f"niet automatisch gekoppeld, als nieuw behandeld.")
+            elif match is not None:
+                existing = match
+                report.line(f"  ⇄ identiteit #{row['lidnr']}  {row['voornaam']} {row['naam']}"
+                            f"  — lidnummer gehecht aan bestaand lid")
+                if apply:
+                    en = ExternalNumber(source=LEGACY_SOURCE, external_id=row["lidnr"])
+                    en.person = match   # zet person_id én vult match.external_numbers in-sessie
+                    db.add(en)
+                    db.flush()
+                    snapshot_person(db, match, operation="update", action="lidnr_attached",
+                                    source=LEGACY_SOURCE, actor=actor)
+                ext_map[row["lidnr"]] = match
+                _identity_remove(identity_map, match)
+
         if existing is None:
-            # Onbekend lidnummer → nieuwe persoon.
+            # Onbekend lidnummer (en geen identiteitsmatch) → nieuwe persoon.
             report.line(f"  + nieuw  #{row['lidnr']}  {row['voornaam']} {row['naam']}")
-            person = _create_person(db, row, member, pc, apply=apply, report=report)
-            if person is not None and row["lidnr"]:
-                ext_map[row["lidnr"]] = person
+            person = _create_person(db, row, member, pc, apply=apply, report=report, actor=actor)
+            if person is not None:
+                processed_person_ids.add(person.id)
+                if row["lidnr"]:
+                    ext_map[row["lidnr"]] = person
             continue
 
-        # Bestaande persoon (mogelijk in een ander gezin of verweesd) → hergebruik.
+        # Bestaande persoon (lidnummer- of identiteitsmatch; mogelijk in een
+        # ander gezin of verweesd) → hergebruik.
+        processed_person_ids.add(existing.id)
         row["_person_id"] = existing.id
         cur_member = _current_member(existing)
         # Bij een nieuw (transient) gezin heeft member.id geen betekenis.
@@ -300,7 +381,8 @@ def _sync_family(db: Session, member: Member, fam: list[dict], pc: PostalCode | 
                                    if m.member_id == cur_member.id), None)
                     if old_mp:
                         snapshot_member_person(db, old_mp, operation="delete",
-                                               action="person_moved", source=LEGACY_SOURCE)
+                                               action="person_moved", source=LEGACY_SOURCE,
+                                               actor=actor)
                         db.delete(old_mp)
                         db.flush()
                 # Relatie-attributen zetten (niet enkel de FK's) zodat zowel
@@ -314,7 +396,7 @@ def _sync_family(db: Session, member: Member, fam: list[dict], pc: PostalCode | 
                 snapshot_member_person(
                     db, mp, operation="insert",
                     action="person_moved" if cur_member is not None else "person_imported",
-                    source=LEGACY_SOURCE)
+                    source=LEGACY_SOURCE, actor=actor)
 
         changes = _person_field_changes(existing, row)
         rel_changed = mp is not None and mp.relation_type != row["_relatie"]
@@ -328,20 +410,23 @@ def _sync_family(db: Session, member: Member, fam: list[dict], pc: PostalCode | 
                 _apply_person_fields(existing, row)
                 db.flush()
                 snapshot_person(db, existing, operation="update",
-                                action="person_imported", source=LEGACY_SOURCE)
+                                action="person_imported", source=LEGACY_SOURCE, actor=actor)
             if rel_changed and mp is not None:
                 mp.relation_type = row["_relatie"]
                 db.flush()
                 snapshot_member_person(db, mp, operation="update",
-                                       action="person_imported", source=LEGACY_SOURCE)
+                                       action="person_imported", source=LEGACY_SOURCE,
+                                       actor=actor)
             if row["_relatie"] == "HOOFDLID" and pc is not None:
-                _sync_address(db, existing, row, pc, apply=apply)
-            _sync_contacts(db, existing, row, apply=apply)
+                _sync_address(db, existing, row, pc, apply=apply, actor=actor)
+            _sync_contacts(db, existing, row, apply=apply, actor=actor)
 
-    # Verwijder personen die niet (meer) in de Excel-adresgroep staan (enkel
-    # bij een bestaand gezin; een nieuw gezin heeft nog geen leden).
+    # Verwijder personen die niet (meer) in de adresgroep van het rapport staan
+    # (enkel bij een bestaand gezin; een nieuw gezin heeft nog geen leden).
     if not is_new:
         for mp in list(member.member_persons):
+            if mp.person_id in processed_person_ids:
+                continue
             lidnr = _person_lidnr(mp.person, LEGACY_SOURCE)
             if lidnr in desired_lidnrs:
                 continue
@@ -350,11 +435,12 @@ def _sync_family(db: Session, member: Member, fam: list[dict], pc: PostalCode | 
                         f"{mp.person.first_name} {mp.person.last_name}")
             if apply:
                 snapshot_member_person(db, mp, operation="delete",
-                                       action="person_removed", source=LEGACY_SOURCE)
+                                       action="person_removed", source=LEGACY_SOURCE,
+                                       actor=actor)
                 db.delete(mp)
                 db.flush()
 
-    _ensure_membership(db, member, IMPORT_YEAR, apply=apply, report=report)
+    _ensure_membership(db, member, IMPORT_YEAR, apply=apply, report=report, actor=actor)
 
 
 def _family_label(fam: list[dict]) -> str:
@@ -368,9 +454,9 @@ def _family_label(fam: list[dict]) -> str:
 # ── Bestuursleden + admin-gebruikers ────────────────────────────────────────
 
 def _link_board_members(db: Session, families: list[list[dict]], bl_index: dict,
-                        *, apply: bool, report: ImportReport) -> None:
+                        *, apply: bool, report: ImportReport, actor: str | None = None) -> None:
     """Koppel het verantwoordelijke bestuurslid per gezin (herkoppelen mag —
-    de Excel wint, alle velden worden overschreven)."""
+    het rapport wint, alle velden worden overschreven)."""
     if not apply:
         return
     for fam in families:
@@ -391,7 +477,7 @@ def _link_board_members(db: Session, families: list[list[dict]], bl_index: dict,
             member.board_member_id = pid
             db.flush()
             snapshot_member(db, member, operation="update", action="board_member_imported",
-                            source=LEGACY_SOURCE)
+                            source=LEGACY_SOURCE, actor=actor)
 
 
 def _create_admin_users(db: Session, all_bl_names: list[str], bl_index: dict,
@@ -433,11 +519,13 @@ def _norm(s: str) -> str:
     return re.sub(r"\s+", " ", str(s).strip()).strip()
 
 
-def _resolve_existing_member(fam: list[dict], ext_map: dict,
+def _resolve_existing_member(fam: list[dict], ext_map: dict, identity_map: dict,
                              report: ImportReport) -> Member | None:
-    """Bepaal het bestaande gezin voor een Excel-adresgroep via het lidnummer van
-    het hoofdlid. Lukt dat niet (hoofdlid onbekend of verweesd), val terug op een
-    bestaand gezin van een ander gematcht gezinslid. Geen match → None (nieuw)."""
+    """Bepaal het bestaande gezin voor een adresgroep uit het rapport via het
+    lidnummer van het hoofdlid. Lukt dat niet (hoofdlid onbekend of verweesd),
+    val terug op een bestaand gezin van een ander gematcht gezinslid, en als
+    laatste op het bestaande gezin van een lidnummer-loos lid dat op identiteit
+    matcht (#192). Geen match → None (nieuw)."""
     hoofd = ext_map.get(fam[0]["lidnr"]) if fam[0]["lidnr"] else None
     member = _current_member(hoofd) if hoofd else None
     if member is not None:
@@ -450,6 +538,16 @@ def _resolve_existing_member(fam: list[dict], ext_map: dict,
                         f"{fam[0]['lidnr']} onbekend of verweesd; gekoppeld via "
                         f"bestaand gezinslid #{row['lidnr']}.")
             return m
+    # (#192) identiteit-terugval: het bestaande gezin van een lidnummer-loos lid
+    # dat op naam+geboortedatum matcht (typisch een zelf-geregistreerd lid).
+    for row in fam:
+        p, _ambiguous = _identity_lookup(identity_map, row)
+        m = _current_member(p) if p else None
+        if m is not None:
+            report.warn(f"gezin {fam[0]['naam']}: geen lidnummer-match; gekoppeld "
+                        f"aan bestaand gezin via identiteit "
+                        f"({row['voornaam']} {row['naam']}).")
+            return m
     return None
 
 
@@ -457,11 +555,11 @@ def _resolve_existing_member(fam: list[dict], ext_map: dict,
 
 def upsert_families(db: Session, families: list[list[dict]], bl_index: dict,
                     all_bl_names: list[str], *, apply: bool = True,
-                    import_year: int = IMPORT_YEAR) -> ImportReport:
+                    import_year: int = IMPORT_YEAR, actor: str | None = None) -> ImportReport:
     """Upsert alle gezinnen uit het ledenrapport. Commit NIET.
 
     ``apply=False`` (dry-run): bepaalt alle wijzigingen en bouwt het rapport op,
-    zonder de DB te muteren.
+    zonder de DB te muteren. ``actor`` belandt in elke history-rij (#214).
     """
     report = ImportReport()
 
@@ -474,11 +572,21 @@ def upsert_families(db: Session, families: list[list[dict]], bl_index: dict,
     )
     ext_map: dict[str, Person] = {e.external_id: e.person for e in ext_rows}
 
+    # Bestaande personen ZONDER ledenadministratie-lidnummer, geïndexeerd op
+    # identiteit (naam+geboortedatum) — voor de identiteitsmatch (#192). Een
+    # geboortedatum is vereist; naamgenoten zonder datum komen niet in de index.
+    lidnr_person_ids = {e.person_id for e in ext_rows}
+    identity_map: dict[tuple, list[Person]] = defaultdict(list)
+    for p in db.query(Person).options(joinedload(Person.member_persons)).all():
+        if p.id in lidnr_person_ids or p.date_of_birth is None:
+            continue
+        identity_map[_identity_key(p.first_name, p.last_name, p.date_of_birth)].append(p)
+
     pc_map = {pc.postal_code: pc for pc in db.query(PostalCode).all()}
 
     for fam in families:
         pc = pc_map.get(fam[0]["postcode"])
-        member = _resolve_existing_member(fam, ext_map, report)
+        member = _resolve_existing_member(fam, ext_map, identity_map, report)
         is_new = member is None
 
         if is_new:
@@ -492,14 +600,15 @@ def upsert_families(db: Session, families: list[list[dict]], bl_index: dict,
                 db.add(member)
                 db.flush()
                 snapshot_member(db, member, operation="insert", action="member_imported",
-                                source=LEGACY_SOURCE)
+                                source=LEGACY_SOURCE, actor=actor)
             else:
                 member = Member()   # transient: enkel voor het dry-run-rapport
 
-        _sync_family(db, member, fam, pc, ext_map, is_new=is_new, apply=apply, report=report)
+        _sync_family(db, member, fam, pc, ext_map, identity_map, is_new=is_new,
+                     apply=apply, report=report, actor=actor)
 
     # Fase 2 + 3: bestuursleden koppelen en admin-gebruikers aanmaken.
-    _link_board_members(db, families, bl_index, apply=apply, report=report)
+    _link_board_members(db, families, bl_index, apply=apply, report=report, actor=actor)
     _create_admin_users(db, all_bl_names, bl_index, apply=apply, report=report)
 
     return report

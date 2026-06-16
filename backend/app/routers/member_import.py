@@ -2,13 +2,13 @@
 
 Twee stappen, met het bestand server-side gecachet tussen beide:
 
-1. ``POST /admin/member-import/preview`` — upload het .xls, parse het in geheugen
-   en draai een **dry-run** (``upsert_families(apply=False)``). Geeft een token +
-   rapport terug van wat *zou* veranderen.
+1. ``POST /admin/member-import/preview`` — upload het rapport (.xls of .ods),
+   parse het in geheugen en draai een **dry-run** (``upsert_families(apply=False)``).
+   Geeft een token + rapport terug van wat *zou* veranderen.
 2. ``POST /admin/member-import/commit`` — met dat token wordt het gecachete
    bestand opnieuw geparsed en **echt** toegepast (``apply=True``) + commit.
 
-De upsert-logica en de Excel-parsing zijn gedeeld met het CLI-script.
+De upsert-logica en de rapport-parsing zijn gedeeld met het CLI-script.
 """
 import secrets
 import time
@@ -21,7 +21,7 @@ from app.auth import get_current_admin
 from app.config import settings
 from app.database import get_db
 from app.models.user import User
-from app.services.ledenrapport_excel import parse_families
+from app.services.ledenrapport import parse_families
 from app.services.member_import import upsert_families
 
 router = APIRouter(tags=["member-import"])
@@ -67,11 +67,11 @@ def _take(token: str) -> dict:
 def _parse_or_400(content: bytes, load_all: bool, filename: str | None):
     if filename and filename.lower().endswith(".xlsx"):
         raise HTTPException(status_code=400,
-                            detail="Enkel .xls wordt ondersteund (geen .xlsx). Exporteer als .xls uit Raak Nationaal.")
+                            detail="Het .xlsx-formaat wordt niet ondersteund. Gebruik .xls (export uit Raak Nationaal) of .ods (LibreOffice Calc).")
     try:
         return parse_families(content, load_all=load_all)
     except Exception:
-        raise HTTPException(status_code=400, detail="Kon het Excel-bestand niet lezen. Is het een geldig .xls-ledenrapport?")
+        raise HTTPException(status_code=400, detail="Kon het ledenrapport niet lezen. Is het een geldig .xls- of .ods-bestand?")
 
 
 class CommitRequest(BaseModel):
@@ -83,7 +83,7 @@ async def preview(
     file: UploadFile = File(...),
     all_members: bool = Form(False),
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     content = await file.read()
     if not content:
@@ -98,7 +98,8 @@ async def preview(
     families, bl_index, all_bl_names, _ = _parse_or_400(content, load_all, file.filename)
     # apply=False muteert de sessie niet: het rapport beschrijft enkel wat zou
     # veranderen. Pas bij commit wordt er weggeschreven.
-    report = upsert_families(db, families, bl_index, all_bl_names, apply=False)
+    report = upsert_families(db, families, bl_index, all_bl_names, apply=False,
+                             actor=admin.email)
 
     token = _store(content, load_all)
     return {
@@ -114,12 +115,13 @@ async def preview(
 def commit(
     req: CommitRequest,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     entry = _take(req.token)
     families, bl_index, all_bl_names, _ = _parse_or_400(
         entry["content"], entry["load_all"], None)
-    report = upsert_families(db, families, bl_index, all_bl_names, apply=True)
+    report = upsert_families(db, families, bl_index, all_bl_names, apply=True,
+                             actor=admin.email)
     db.commit()
     return {
         "selected_families": len(families),

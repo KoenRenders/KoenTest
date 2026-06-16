@@ -1,9 +1,12 @@
-"""Tests voor de upsert-import van het ledenrapport (#74).
+"""Tests voor de upsert-import van het ledenrapport (#74, #192, #214).
 
-De Excel is bij het opladen de bron van waarheid: bestaande gezinnen worden
-bijgewerkt, onbekende lidnummers ingevoegd, en personen die niet meer in de
-Excel-adresgroep staan worden uit het gezin verwijderd. Elke insert/update/delete
-wordt geauditeerd met source="ledenadministratie".
+Het ledenrapport is bij het opladen de bron van waarheid: bestaande gezinnen
+worden bijgewerkt, onbekende lidnummers ingevoegd, en personen die niet meer in
+de adresgroep van het rapport staan worden uit het gezin verwijderd. Een onbekend
+lidnummer dat op identiteit (naam+geboortedatum) een bestaand lidnummer-loos lid
+matcht, krijgt dat lidnummer gehecht i.p.v. een duplicaat (#192). Elke
+insert/update/delete wordt geauditeerd met source="ledenadministratie" en een
+optionele actor (#214).
 
 De service muteert de sessie maar commit niet; we asserten binnen dezelfde sessie.
 """
@@ -24,7 +27,7 @@ from tests.conftest import seed_postal_code
 
 def _row(lidnr, voornaam, naam, relatie, *, email=None, geboortedatum=None,
          geslacht=None, huisnummer="40", busnummer="", telefoon=None, gsm=None):
-    """Eén Excel-rij zoals read_excel + group_families die aanleveren."""
+    """Eén rij zoals read_ledenrapport + group_families die aanleveren."""
     return {
         "lidnr": lidnr, "voornaam": voornaam, "naam": naam,
         "straat": "milostraat", "huisnummer": huisnummer, "busnummer": busnummer,
@@ -85,7 +88,7 @@ def test_existing_member_fields_overwritten(db_session):
     _load(db_session, [[_row("100", "Jan", "Janssens", "HOOFDLID",
                              email="oud@example.com", geslacht="M")]])
 
-    # Re-upload met gewijzigde voornaam + e-mail: de Excel wint.
+    # Re-upload met gewijzigde voornaam + e-mail: het rapport wint.
     report = _load(db_session, [[_row("100", "Johan", "Janssens", "HOOFDLID",
                                      email="nieuw@example.com", geslacht="M")]])
 
@@ -119,7 +122,7 @@ def test_unknown_lidnr_added_to_household(db_session):
     assert db_session.query(ExternalNumber).filter_by(external_id="200").count() == 1
 
 
-# ── Persoon afwezig in de Excel wordt uit het gezin verwijderd ───────────────
+# ── Persoon afwezig in het rapport wordt uit het gezin verwijderd ────────────
 
 def test_person_absent_is_removed(db_session):
     seed_postal_code(db_session)
@@ -228,3 +231,113 @@ def test_dry_run_makes_no_changes(db_session):
     person = db_session.query(Person).join(ExternalNumber).filter(
         ExternalNumber.external_id == "100").one()
     assert person.first_name == "Jan"  # ongewijzigd
+
+
+# ── #192: identiteitsmatch van een lidnummer-loos bestaand lid ───────────────
+
+def _seed_selfreg(db, voornaam, naam, dob, *, geslacht="M", huisnummer="40"):
+    """Een zelf-geregistreerd lid: Person + gezin, maar GEEN lidnummer."""
+    member = Member()
+    db.add(member)
+    db.flush()
+    person = Person(first_name=voornaam, last_name=naam, date_of_birth=dob,
+                    gender_code=geslacht)
+    db.add(person)
+    db.flush()
+    db.add(MemberPerson(member_id=member.id, person_id=person.id,
+                        relation_type="HOOFDLID"))
+    db.flush()
+    return member, person
+
+
+def test_identity_match_attaches_lidnr_no_duplicate(db_session):
+    seed_postal_code(db_session)
+    member, person = _seed_selfreg(db_session, "Jan", "Janssens", date(1980, 5, 1))
+    members_before = db_session.query(Member).count()
+
+    report = _load(db_session, [[
+        _row("100", "Jan", "Janssens", "HOOFDLID",
+             geboortedatum=date(1980, 5, 1), geslacht="M"),
+    ]])
+
+    # Geen nieuwe persoon, geen nieuw gezin.
+    assert report.persons_added == 0
+    assert db_session.query(Person).count() == 1
+    assert db_session.query(Member).count() == members_before
+    # Lidnummer gehecht aan het bestaande lid.
+    ext = db_session.query(ExternalNumber).filter_by(external_id="100").one()
+    assert ext.person_id == person.id
+    # Bestaand gezin hergebruikt.
+    assert _household(db_session, member.id)[0].person_id == person.id
+    # Audit: lidnr_attached-snapshot.
+    assert db_session.query(PersonHistory).filter_by(
+        action="lidnr_attached", source=LEGACY_SOURCE).count() == 1
+
+
+def test_identity_ambiguous_not_linked(db_session):
+    seed_postal_code(db_session)
+    # Twee lidnummer-loze personen met identieke naam + geboortedatum.
+    _seed_selfreg(db_session, "Jan", "Janssens", date(1980, 5, 1), huisnummer="40")
+    _seed_selfreg(db_session, "Jan", "Janssens", date(1980, 5, 1), huisnummer="42")
+
+    report = _load(db_session, [[
+        _row("100", "Jan", "Janssens", "HOOFDLID",
+             geboortedatum=date(1980, 5, 1), geslacht="M"),
+    ]])
+
+    # Ambigu → niet automatisch gekoppeld, als nieuw behandeld.
+    assert report.persons_added == 1
+    assert db_session.query(ExternalNumber).filter_by(external_id="100").count() == 1
+    assert any("meerdere bestaande leden" in w for w in report.warnings)
+
+
+def test_identity_match_requires_birthdate(db_session):
+    seed_postal_code(db_session)
+    # Bestaand lid zonder geboortedatum → komt niet in de identiteitsindex.
+    _seed_selfreg(db_session, "Jan", "Janssens", None)
+
+    report = _load(db_session, [[
+        _row("100", "Jan", "Janssens", "HOOFDLID", geboortedatum=date(1980, 5, 1)),
+    ]])
+
+    # Geen match op naam alleen → nieuw lid aangemaakt.
+    assert report.persons_added == 1
+
+
+def test_identity_match_dry_run_no_changes_or_removal(db_session):
+    seed_postal_code(db_session)
+    _seed_selfreg(db_session, "Jan", "Janssens", date(1980, 5, 1))
+
+    report = _load(db_session, [[
+        _row("100", "Jan", "Janssens", "HOOFDLID",
+             geboortedatum=date(1980, 5, 1), geslacht="M"),
+    ]], apply=False)
+
+    # Match herkend zonder duplicaat, en het bestaande lid wordt NIET als
+    # 'verwijderd' gerapporteerd (processed_person_ids dekt de dry-run).
+    assert report.persons_added == 0
+    assert report.persons_removed == 0
+    assert db_session.query(ExternalNumber).count() == 0   # niets weggeschreven
+
+
+# ── #214: actor in de audit ──────────────────────────────────────────────────
+
+def test_actor_recorded_in_history(db_session):
+    seed_postal_code(db_session)
+    upsert_families(
+        db_session,
+        [[_row("100", "Jan", "Janssens", "HOOFDLID",
+               geboortedatum=date(1980, 5, 1), geslacht="M")]],
+        {}, [], apply=True, actor="admin@raak.be",
+    )
+    rows = db_session.query(PersonHistory).filter_by(source=LEGACY_SOURCE).all()
+    assert rows
+    assert all(r.actor == "admin@raak.be" for r in rows)
+
+
+def test_actor_defaults_to_none(db_session):
+    seed_postal_code(db_session)
+    _load(db_session, [[_row("100", "Jan", "Janssens", "HOOFDLID")]])
+    rows = db_session.query(MemberHistory).filter_by(source=LEGACY_SOURCE).all()
+    assert rows
+    assert all(r.actor is None for r in rows)
