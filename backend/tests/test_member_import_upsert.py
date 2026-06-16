@@ -434,6 +434,27 @@ def test_import_reverts_manually_changed_board_member(db_session):
                for r in feed)
 
 
+def test_person_field_change_shows_old_to_new(db_session):
+    """#230: een persoonswijziging die de naam niet raakt (geboortedatum) toont
+    'geb. oud → nieuw' in de Details — niet langer de ongewijzigde naam."""
+    from app.services.member_changes import member_changes_since
+    seed_postal_code(db_session)
+    # Eerste import maakt de persoon (geb. 1980-05-01).
+    upsert_families(db_session, [[
+        _row("100", "Jan", "Janssens", "HOOFDLID", geboortedatum=date(1980, 5, 1)),
+    ]], {}, [], apply=True)
+    # Tweede import met een andere geboortedatum → persoonswijziging.
+    upsert_families(db_session, [[
+        _row("100", "Jan", "Janssens", "HOOFDLID", geboortedatum=date(1981, 6, 2)),
+    ]], {}, [], apply=True)
+
+    feed = member_changes_since(db_session, date(2000, 1, 1))
+    persoon = [r for r in feed if r["entity"] == "Persoon"
+               and "geb." in r["summary"] and "→" in r["summary"]]
+    assert any("1980-05-01" in r["summary"] and "1981-06-02" in r["summary"]
+               for r in persoon), persoon
+
+
 # ── #227: soft-deleted persoon/gezin herleeft bij her-import ─────────────────────
 
 def _seed_imported(db, lidnr, voornaam, naam, dob, *, relatie="HOOFDLID", member=None):

@@ -233,17 +233,26 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
             continue
         naam = f"{_fmt(h.first_name)} {_fmt(h.last_name)}".strip() or "—"
         dob = f" (geb. {h.date_of_birth})" if h.date_of_birth else ""
-        body = naam
+        summary = f"{naam}{dob}"
         if h.operation == "update":
             prev = (db.query(PersonHistory)
                     .filter(PersonHistory.person_id == h.person_id,
                             PersonHistory.recorded_at < h.recorded_at)
                     .order_by(PersonHistory.recorded_at.desc()).first())
             if prev is not None:
+                # Per gewijzigd veld een "oud → nieuw" tonen (#230), zodat ook een
+                # wijziging die de naam niet raakt (geboortedatum/geslacht) zichtbaar is.
+                changes: List[str] = []
                 prev_naam = f"{_fmt(prev.first_name)} {_fmt(prev.last_name)}".strip() or "—"
                 if prev_naam != naam:
-                    body = f"{prev_naam} → {naam}"
-        rows.append(_row(h, entity="Persoon", entity_id=h.person_id, summary=f"{body}{dob}",
+                    changes.append(f"{prev_naam} → {naam}")
+                if prev.date_of_birth != h.date_of_birth:
+                    changes.append(f"geb. {_fmt(prev.date_of_birth)} → {_fmt(h.date_of_birth)}")
+                if _fmt(prev.gender_code) != _fmt(h.gender_code):
+                    changes.append(f"geslacht {_fmt(prev.gender_code)} → {_fmt(h.gender_code)}")
+                if changes:
+                    summary = "; ".join(changes)
+        rows.append(_row(h, entity="Persoon", entity_id=h.person_id, summary=summary,
                          subject=subj.fields(person_id=h.person_id)))
 
     for h in db.query(MemberHistory).filter(MemberHistory.recorded_at >= since_dt):
