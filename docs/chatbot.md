@@ -48,6 +48,46 @@ Per call ≈ persona + afgetopte CMS-tekst + kort gesprek + (eventueel) klein
 JSON-resultaat. Zou de CMS ooit enorm worden, dan stap je over op RAG (alleen
 relevante stukjes ophalen). Voor één vereniging is dat niet nodig.
 
+## In welk formaat sturen we content mee?
+
+- **Transport = JSON** (de Mistral-API is JSON over HTTPS), maar de *inhoud* die
+  het model leest is **platte tekst / lichte markdown** — géén XML of zware JSON.
+  Markup (`<tag>`, geneste sleutels) is voor een taalmodel enkel extra tokens +
+  ruis; het leest proza het best.
+- **Geen byte-compressie** (gzip/binair): het model leest **tokens, geen bytes**.
+  Gecomprimeerde data zou het niet begrijpen. "Comprimeren" gebeurt hier
+  **semantisch**: (1) token-zuinig platte tekst, (2) enkel de *nuttige* info
+  opslaan i.p.v. een rauwe dump, (3) enkel het relevante stukje meesturen
+  (tool/RAG i.p.v. alles).
+
+## Gepland: flyer-/poster-extractie (#206)
+
+> Status: **ontworpen, nog niet gebouwd.** Koen vult flyertekst voorlopig
+> manueel in de DB. Zodra `flyer_text` bestaat, voedt de bot het als context.
+
+Een flyer is een **afbeelding/PDF**; die sturen we niet per vraag mee. We slaan
+hem éénmalig plat tot tekst (`Activity.flyer_text`) en voeden daarna die goedkope
+tekst — zoals CMS-tekst.
+
+- **Wanneer:** bij **upload/wijziging** van een poster, één keer, op de
+  **achtergrond** (FastAPI `BackgroundTasks` — geen queue/Redis nodig). De upload
+  slaagt direct; de extractie loopt erachteraan. Een **hash** van het bestand
+  staat naast `flyer_text`: ongewijzigde hash → niet opnieuw extraheren. Voor
+  bestaande posters één keer een **backfill-commando**. Geen cron/periodiek.
+- **Hoe (PDF vs afbeelding):**
+  - PDF **mét tekstlaag** → tekst **rechtstreeks** extraheren (pypdf/pdfminer):
+    exact en gratis, geen AI. Eerst dit proberen.
+  - Scan / afbeelding (jpg/png) → **vision/OCR** (Mistral OCR of Small-4-vision,
+    EU, achter het swapbare laagje), éénmalig.
+- **Bronwaarheid:** datum/prijs/locatie uit de DB-kolommen **winnen** altijd;
+  `flyer_text` vult enkel de zachte info aan (wat meebrengen, randprogramma,
+  doelgroep, contact) als proza.
+- **Controle:** `flyer_text` **bewerkbaar** in de admin vóór gebruik — vision kan
+  hallucineren.
+- **Levering aan de bot:** via `get_activity_detail`, zodat de tekst enkel bij de
+  juiste activiteit meegaat (niet alle flyers tegelijk). Bijvangst: bruikbaar als
+  alt-tekst/SEO, los van de chatbot.
+
 ## De reisweg van één vraag
 
 ```
