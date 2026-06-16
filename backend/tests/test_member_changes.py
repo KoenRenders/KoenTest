@@ -64,4 +64,34 @@ def test_member_changes_ods_export(client, db_session, admin_headers):
     trs = table.getElementsByType(TableRow)
     headers = [extractText(tc) for tc in trs[0].getElementsByType(TableCell)]
     assert headers[0] == "Tijdstip" and "Details" in headers
+    # Nieuwe kolommen: naam + hoofdlid-adres (scherm + export) en externe ID's (export).
+    for col in ("Naam persoon", "Adres hoofdlid", "Externe ID persoon", "Externe ID hoofdlid"):
+        assert col in headers, headers
     assert len(trs) >= 2  # kop + minstens één wijziging
+
+
+def test_member_changes_enriched_with_person_and_head(client, db_session, admin_headers):
+    """Elke ledenwijziging draagt de naam van de persoon, het hoofdlid-adres en
+    (in de feed/export) de externe ID's van persoon en hoofdlid."""
+    _create_family(client, db_session)
+    # Geef het hoofdlid een extern lidnummer (Raak Nationaal).
+    from app.models.member import Person
+    from app.models.external_number import ExternalNumber
+    person = db_session.query(Person).filter(Person.first_name == "An").first()
+    db_session.add(ExternalNumber(person_id=person.id, source="ledenadministratie",
+                                  external_id="RN-12345"))
+    db_session.flush()
+
+    resp = client.get("/api/v1/admin/member-changes",
+                      params={"since": date.today().isoformat()}, headers=admin_headers)
+    rows = resp.json()
+    person_row = next(r for r in rows if r["entity"] == "Persoon")
+    assert person_row["person_name"] == "An Janssens"
+    assert person_row["head_address"] == "Milostraat 40, 2400 Mol"
+    assert person_row["person_external_id"] == "RN-12345"
+    assert person_row["head_external_id"] == "RN-12345"  # An is zelf het hoofdlid
+
+    # En het gezin/lidmaatschap-rij (enkel member_id) valt terug op het hoofdlid.
+    gezin_row = next(r for r in rows if r["entity"] == "Gezin")
+    assert gezin_row["person_name"] == "An Janssens"
+    assert gezin_row["head_address"] == "Milostraat 40, 2400 Mol"

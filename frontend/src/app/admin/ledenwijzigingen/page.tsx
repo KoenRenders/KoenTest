@@ -13,6 +13,8 @@ interface Change {
   action: string;
   actor: string | null;
   summary: string;
+  person_name?: string;
+  head_address?: string;
 }
 
 const OP_COLORS: Record<string, string> = {
@@ -115,6 +117,8 @@ export default function WijzigingenPage() {
                 <th className="py-2 pr-3 font-medium">Wat</th>
                 <th className="py-2 pr-3 font-medium">Groep</th>
                 <th className="py-2 pr-3 font-medium">Type</th>
+                <th className="py-2 pr-3 font-medium">Naam persoon</th>
+                <th className="py-2 pr-3 font-medium">Adres hoofdlid</th>
                 <th className="py-2 pr-3 font-medium">Details</th>
                 <th className="py-2 pr-3 font-medium">Door</th>
               </tr>
@@ -132,6 +136,8 @@ export default function WijzigingenPage() {
                   </td>
                   <td className="py-2 pr-3 text-gray-500">{r.group}</td>
                   <td className="py-2 pr-3 text-gray-700">{r.entity}</td>
+                  <td className="py-2 pr-3 text-gray-700">{r.person_name || "—"}</td>
+                  <td className="py-2 pr-3 text-gray-500">{r.head_address || "—"}</td>
                   <td className="py-2 pr-3 text-gray-800">{r.summary}</td>
                   <td className="py-2 pr-3 text-gray-500 whitespace-nowrap">{r.actor ?? "systeem"}</td>
                 </tr>
