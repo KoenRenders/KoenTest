@@ -83,8 +83,11 @@ def test_delete_poster_falls_back_to_url(client, db_session, admin_headers):
 def test_upload_component_info_pdf(client, db_session, admin_headers):
     _activity, comp, _p = seed_activity_with_product(db_session)
     resp = client.post(f"/api/v1/admin/components/{comp.id}/info",
-                       files={"file": ("reglement.pdf", _PDF, "application/pdf")}, headers=admin_headers)
+                       files={"file": ("zomaar.pdf", _PDF, "application/pdf")}, headers=admin_headers)
     assert resp.status_code == 200, resp.text
+    # Betekenisvolle bestandsnaam o.b.v. de context, niet de geüploade naam (#223).
+    disp = client.get(resp.json()["url"]).headers.get("content-disposition", "")
+    assert "info" in disp and "zomaar" not in disp
     db_session.expire_all()
     c = db_session.query(ActivitySubRegistration).filter(ActivitySubRegistration.id == comp.id).first()
     assert c.info_asset_url is not None

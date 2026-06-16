@@ -29,6 +29,10 @@ MAX_BATCH = 20
 
 # Poster/reglement mag een afbeelding óf een PDF zijn (#223).
 DOC_CONTENT_TYPES = ALLOWED_CONTENT_TYPES | {"application/pdf"}
+_EXT_BY_TYPE = {
+    "application/pdf": ".pdf", "image/png": ".png", "image/jpeg": ".jpg",
+    "image/webp": ".webp", "image/gif": ".gif",
+}
 
 
 def _process_document(raw: bytes, content_type: str) -> dict:
@@ -48,9 +52,11 @@ def _process_document(raw: bytes, content_type: str) -> dict:
 
 
 async def _replace_single_asset(db, file: UploadFile, *, kind: str,
-                                activity_id=None, component_id=None) -> MediaAsset:
+                                activity_id=None, component_id=None,
+                                title_base: Optional[str] = None) -> MediaAsset:
     """Bewaar één poster/reglement-bestand en vervang het vorige (hard delete —
-    media kent geen soft delete). Geeft het nieuwe MediaAsset terug."""
+    media kent geen soft delete). ``title_base`` geeft een betekenisvolle naam
+    (zonder extensie); de extensie volgt uit het type. Geeft het nieuwe asset terug."""
     if file.content_type not in DOC_CONTENT_TYPES:
         raise HTTPException(status_code=400,
                             detail=f"Niet-ondersteund bestandstype: {file.filename}")
@@ -66,9 +72,13 @@ async def _replace_single_asset(db, file: UploadFile, *, kind: str,
     for old in q.all():
         db.delete(old)  # hard delete, geen ballast
 
+    if title_base:
+        title = f"{title_base}{_EXT_BY_TYPE.get(processed['content_type'], '')}"
+    else:
+        title = file.filename
     asset = MediaAsset(
         kind=kind, activity_id=activity_id, component_id=component_id,
-        title=file.filename, sort_order=0, is_active=True, **processed,
+        title=title, sort_order=0, is_active=True, **processed,
     )
     db.add(asset)
     db.commit()
@@ -308,9 +318,13 @@ async def upload_activity_poster(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    if not db.query(Activity).filter(Activity.id == activity_id).first():
+    activity = db.query(Activity).filter(Activity.id == activity_id).first()
+    if not activity:
         raise HTTPException(status_code=404, detail="Activiteit niet gevonden")
-    asset = await _replace_single_asset(db, file, kind="activity_poster", activity_id=activity_id)
+    asset = await _replace_single_asset(
+        db, file, kind="activity_poster", activity_id=activity_id,
+        title_base=f"{activity.name} - affiche",
+    )
     return _meta(asset)
 
 
@@ -334,11 +348,16 @@ async def upload_component_info(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    if not db.query(ActivitySubRegistration).filter(
+    component = db.query(ActivitySubRegistration).filter(
         ActivitySubRegistration.id == component_id
-    ).first():
+    ).first()
+    if not component:
         raise HTTPException(status_code=404, detail="Onderdeel niet gevonden")
-    asset = await _replace_single_asset(db, file, kind="component_info", component_id=component_id)
+    activity_name = component.activity.name if component.activity else "activiteit"
+    asset = await _replace_single_asset(
+        db, file, kind="component_info", component_id=component_id,
+        title_base=f"{activity_name} - {component.name} - info",
+    )
     return _meta(asset)
 
 
