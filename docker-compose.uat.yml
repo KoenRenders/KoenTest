@@ -33,6 +33,8 @@ services:
       GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-}
       GMAIL_FROM: ${GMAIL_FROM:-}
       MOLLIE_API_KEY: ${MOLLIE_API_KEY:-}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      CHAT_LLM_PROVIDER: ${CHAT_LLM_PROVIDER:-auto}
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL ontbreekt in .env.uat}
       PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL ontbreekt in .env.uat}
       APP_ENV: uat
