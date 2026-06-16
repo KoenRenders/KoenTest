@@ -364,3 +364,34 @@ def test_admin_user_created_for_board_member(db_session):
     assert user is not None and user.is_active
     roles = db_session.query(UserRole).filter(UserRole.user_id == user.id).all()
     assert any(r.role_code == "ADMIN" for r in roles)
+
+
+def test_commit_creates_admin_login_for_board_member_end_to_end(db_session):
+    """End-to-end (#226): de volledige import (`upsert_families`, apply=True) met een
+    gevulde bestuurslid-index maakt de admin-login aan — inclusief het propageren van
+    `_person_id` naar de bestuurslid-rij en de gezin-koppeling — zonder crash."""
+    from app.services.member_import import _norm
+    from app.models.user import User, UserRole
+    seed_postal_code(db_session)
+
+    head = _row("100", "Mon", "Essers", "HOOFDLID", email="mon@example.com",
+                geboortedatum=date(1980, 5, 1), geslacht="M")
+    head["bestuurslid"] = "Mon Essers"            # dit gezin heeft een verantwoordelijk bestuurslid
+    key = _norm("Mon Essers")
+    # De bestuurslid-index verwijst naar dezelfde rij-objecten als de gezinnen,
+    # zoals de parser ze aanlevert — zo erft de rij het _person_id na verwerking.
+    report = upsert_families(db_session, [[head]], {key: [head]}, [key],
+                             apply=True, actor="admin@raak.be")
+
+    assert head["_person_id"] is not None                  # persoon aangemaakt + gepropageerd
+    assert report.admins_created == 1
+
+    user = db_session.query(User).filter(User.email == "mon@example.com").first()
+    assert user is not None and user.is_active
+    assert any(r.role_code == "ADMIN"
+               for r in db_session.query(UserRole).filter(UserRole.user_id == user.id))
+
+    # Het gezin is aan dat bestuurslid gekoppeld (board_member_id).
+    member = db_session.query(Member).filter(
+        Member.board_member_id == head["_person_id"]).first()
+    assert member is not None
