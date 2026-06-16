@@ -492,7 +492,17 @@ export default function BetalingenPage() {
                       <select
                         className="input text-sm"
                         value={editData.status}
-                        onChange={(e) => setEditData((d) => ({ ...d, status: e.target.value }))}
+                        onChange={(e) => {
+                          const status = e.target.value;
+                          // Bij 'Betaald' meteen het verschuldigde bedrag voorvullen als nog
+                          // leeg (#199), zodat zichtbaar is wat geboekt wordt vóór het opslaan.
+                          setEditData((d) => ({
+                            ...d,
+                            status,
+                            amount_paid: status === "paid" && !d.amount_paid
+                              ? parseFloat(r.amount).toFixed(2) : d.amount_paid,
+                          }));
+                        }}
                       >
                         <option value="pending">In afwachting</option>
                         <option value="paid">Betaald</option>
