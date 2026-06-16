@@ -94,7 +94,7 @@ function ComponentRow({
         {(component.info_asset_url || component.info_url) && (
           <a href={component.info_asset_url || component.info_url} target="_blank" rel="noopener noreferrer"
             className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-0.5 hover:bg-blue-50">
-            Info / reglement ↗
+            Info ↗
           </a>
         )}
       </div>

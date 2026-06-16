@@ -323,7 +323,7 @@ async def upload_activity_poster(
         raise HTTPException(status_code=404, detail="Activiteit niet gevonden")
     asset = await _replace_single_asset(
         db, file, kind="activity_poster", activity_id=activity_id,
-        title_base=f"{activity.name} - affiche",
+        title_base=f"{activity.name} - poster",
     )
     return _meta(asset)
 

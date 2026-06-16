@@ -669,7 +669,7 @@ export default function AdminActiviteiten() {
                         placeholder="https://docs.google.com/…" />
                     </div>
                     <div className="sm:col-span-2">
-                      <label className="label">Info/reglement URL</label>
+                      <label className="label">Info URL</label>
                       <input className="input" type="url" value={componentForm.info_url}
                         onChange={(e) => setComponentForm((f) => ({ ...f, info_url: e.target.value }))}
                         placeholder="https://drive.google.com/…" />

@@ -26,7 +26,7 @@ class MediaAsset(Base):
       (optioneel met ``link_url`` als doorklik).
     - ``kind="activity_photo"`` → foto's bij een activiteit (``activity_id``),
       getoond in het archief.
-    - ``kind="activity_poster"`` → de affiche van één activiteit (``activity_id``):
+    - ``kind="activity_poster"`` → de poster van één activiteit (``activity_id``):
       afbeelding óf PDF; primeert op ``Activity.poster_url`` (#223).
     - ``kind="component_info"`` → info/reglement bij één onderdeel (``component_id``):
       afbeelding óf PDF; primeert op ``ActivitySubRegistration.info_url`` (#223).

@@ -48,7 +48,7 @@ def test_upload_activity_poster_pdf(client, db_session, admin_headers):
     assert served.status_code == 200
     assert "application/pdf" in served.headers.get("content-type", "")
     disp = served.headers.get("content-disposition", "")
-    assert "inline" in disp and "affiche" in disp
+    assert "inline" in disp and "poster" in disp
 
     db_session.expire_all()
     a = db_session.query(Activity).filter(Activity.id == activity.id).first()

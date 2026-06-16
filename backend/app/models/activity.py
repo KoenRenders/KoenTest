@@ -55,7 +55,7 @@ class Activity(SoftDeleteMixin, Base):
 
     @property
     def poster_asset_url(self):
-        """Een geüploade affiche primeert op ``poster_url`` (#223)."""
+        """Een geüploade poster primeert op ``poster_url`` (#223)."""
         a = _single_asset(self, "activity_poster", "activity_id")
         return f"/api/v1/media/{a.id}" if a else None
 
