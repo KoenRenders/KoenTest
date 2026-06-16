@@ -134,5 +134,5 @@ def test_chat_endpoint_mock_runs_tool_loop(client, db_session, monkeypatch):
     )
     assert r.status_code == 200
     answer = _collect_sse(r.text)
-    # De mock geeft na een tool-resultaat een herkenbaar eindantwoord.
-    assert "mock-provider" in answer.lower()
+    # De data-bewuste mock toont de echte opgehaalde activiteit in het antwoord.
+    assert "Quiz" in answer
