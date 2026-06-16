@@ -48,6 +48,10 @@ export const getMemberChanges = (since: string) =>
 export const exportMemberChanges = (since: string) =>
   api.get("/api/v1/admin/member-changes/export", { params: { since }, responseType: "blob" });
 
+// Uniforme Wijzigingen/audit-feed (#189)
+export const getChanges = (since: string, group?: string) =>
+  api.get("/api/v1/admin/changes", { params: { since, ...(group ? { group } : {}) } });
+
 // Activity dates
 export const addActivityDate = (activityId: number, data: unknown) =>
   api.post(`/api/v1/activities/${activityId}/dates`, data);
