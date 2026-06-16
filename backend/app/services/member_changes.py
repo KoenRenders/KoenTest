@@ -35,6 +35,13 @@ def _fmt(value) -> str:
     return "" if value is None else str(value)
 
 
+def _addr_text(street, house_number, bus_number) -> str:
+    s = f"{_fmt(street)} {_fmt(house_number)}".strip()
+    if bus_number:
+        s += f" bus {bus_number}"
+    return s
+
+
 class _SubjectResolver:
     """Leidt per wijziging de betrokken persoon + het hoofdlid van diens gezin af.
 
@@ -127,6 +134,33 @@ class _SubjectResolver:
             "head_external_id": self._ext_of(head_person_id),
         }
 
+    def from_registration(self, registration_id) -> Optional[dict]:
+        """Verrijking voor een wijziging die aan een inschrijving hangt
+        (betaling of bestelregel). Gekoppeld lid → persoon + hoofdlid; een gast
+        zonder persoon toont enkel de contactnaam."""
+        if registration_id is None:
+            return None
+        from app.models.activity import Registration
+        reg = self._q(Registration).filter(Registration.id == registration_id).first()
+        if reg is None:
+            return None
+        if reg.person_id is not None:
+            return self.fields(person_id=reg.person_id)
+        return {"person_name": _fmt(reg.contact_name), "person_external_id": "",
+                "head_address": "", "head_external_id": ""}
+
+    def from_payment(self, payable_type, payable_id) -> Optional[dict]:
+        """Verrijking voor een betaling-wijziging: via de inschrijving of het
+        lidmaatschap waar de betaling aan hangt."""
+        if payable_type == "registration":
+            return self.from_registration(payable_id)
+        if payable_type == "membership":
+            from app.models.member import Membership
+            ms = self._q(Membership).filter(Membership.id == payable_id).first()
+            if ms is not None:
+                return self.fields(member_id=ms.member_id)
+        return None
+
 
 _EMPTY_SUBJECT = {
     "person_name": "", "person_external_id": "", "head_address": "", "head_external_id": "",
@@ -158,7 +192,17 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
     for h in db.query(PersonHistory).filter(PersonHistory.recorded_at >= since_dt):
         naam = f"{_fmt(h.first_name)} {_fmt(h.last_name)}".strip() or "—"
         dob = f" (geb. {h.date_of_birth})" if h.date_of_birth else ""
-        rows.append(_row(h, entity="Persoon", entity_id=h.person_id, summary=f"{naam}{dob}",
+        body = naam
+        if h.operation == "update":
+            prev = (db.query(PersonHistory)
+                    .filter(PersonHistory.person_id == h.person_id,
+                            PersonHistory.recorded_at < h.recorded_at)
+                    .order_by(PersonHistory.recorded_at.desc()).first())
+            if prev is not None:
+                prev_naam = f"{_fmt(prev.first_name)} {_fmt(prev.last_name)}".strip() or "—"
+                if prev_naam != naam:
+                    body = f"{prev_naam} → {naam}"
+        rows.append(_row(h, entity="Persoon", entity_id=h.person_id, summary=f"{body}{dob}",
                          subject=subj.fields(person_id=h.person_id)))
 
     for h in db.query(MemberHistory).filter(MemberHistory.recorded_at >= since_dt):
@@ -173,12 +217,20 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
         ))
 
     for h in db.query(AddressHistory).filter(AddressHistory.recorded_at >= since_dt):
-        adres = f"{_fmt(h.street)} {_fmt(h.house_number)}".strip()
-        if h.bus_number:
-            adres += f" bus {h.bus_number}"
+        adres = _addr_text(h.street, h.house_number, h.bus_number)
+        body = adres
+        if h.operation == "update":
+            prev = (db.query(AddressHistory)
+                    .filter(AddressHistory.address_id == h.address_id,
+                            AddressHistory.recorded_at < h.recorded_at)
+                    .order_by(AddressHistory.recorded_at.desc()).first())
+            if prev is not None:
+                prev_adres = _addr_text(prev.street, prev.house_number, prev.bus_number)
+                if prev_adres != adres:
+                    body = f"{prev_adres} → {adres}"
         rows.append(_row(
             h, entity="Adres", entity_id=h.address_id,
-            summary=f"{adres} (persoon #{_fmt(h.person_id)}, postcode-id {_fmt(h.postal_code_id)})",
+            summary=f"{body} (persoon #{_fmt(h.person_id)}, postcode-id {_fmt(h.postal_code_id)})",
             subject=subj.fields(person_id=h.person_id),
         ))
 
@@ -226,6 +278,7 @@ def all_changes_since(
     objectgroep per rij; optioneel gefilterd op groep en/of actor. Nieuw → oud."""
     since_dt = datetime.combine(since, time.min, tzinfo=timezone.utc)
     rows: List[dict] = list(member_changes_since(db, since))  # groep "Leden"
+    subj = _SubjectResolver(db)
 
     for h in db.query(ActivityHistory).filter(ActivityHistory.recorded_at >= since_dt):
         rows.append(_row(h, entity="Activiteit", entity_id=h.activity_id,
@@ -246,11 +299,13 @@ def all_changes_since(
     for h in db.query(RegistrationItemHistory).filter(RegistrationItemHistory.recorded_at >= since_dt):
         rows.append(_row(h, entity="Bestelregel", entity_id=h.registration_item_id,
                          summary=f"product #{_fmt(h.product_id)} ×{_fmt(h.quantity)} (inschrijving #{_fmt(h.registration_id)})",
-                         group="Inschrijvingen"))
+                         group="Inschrijvingen",
+                         subject=subj.from_registration(h.registration_id)))
     for h in db.query(PaymentRecordHistory).filter(PaymentRecordHistory.recorded_at >= since_dt):
         rows.append(_row(h, entity="Betaling", entity_id=None,
                          summary=f"{_fmt(h.type)} €{_fmt(h.amount)} {_fmt(h.method)}/{_fmt(h.status)} ({_fmt(h.payable_type)} #{_fmt(h.payable_id)})",
-                         group="Betalingen"))
+                         group="Betalingen",
+                         subject=subj.from_payment(h.payable_type, h.payable_id)))
 
     if group:
         rows = [r for r in rows if r["group"] == group]
