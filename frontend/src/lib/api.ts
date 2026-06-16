@@ -142,6 +142,25 @@ export const updateMedia = (id: number, data: Partial<MediaAsset>) =>
   api.patch<MediaAsset>(`/api/v1/admin/media/${id}`, data);
 export const deleteMedia = (id: number) => api.delete(`/api/v1/admin/media/${id}`);
 
+// Poster (activiteit) en info/reglement (onderdeel): één bestand, afbeelding of PDF (#223).
+function _fileForm(file: File) {
+  const fd = new FormData();
+  fd.append("file", file);
+  return fd;
+}
+export const uploadActivityPoster = (activityId: number, file: File) =>
+  api.post(`/api/v1/admin/activities/${activityId}/poster`, _fileForm(file), {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+export const deleteActivityPoster = (activityId: number) =>
+  api.delete(`/api/v1/admin/activities/${activityId}/poster`);
+export const uploadComponentInfo = (componentId: number, file: File) =>
+  api.post(`/api/v1/admin/components/${componentId}/info`, _fileForm(file), {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+export const deleteComponentInfo = (componentId: number) =>
+  api.delete(`/api/v1/admin/components/${componentId}/info`);
+
 // Payment records
 export const listPaymentRecords = () => api.get("/api/v1/payment-status/records");
 export const updatePaymentRecord = (id: string, data: unknown) => api.patch(`/api/v1/payment-status/records/${id}`, data);

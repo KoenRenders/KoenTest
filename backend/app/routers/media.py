@@ -15,13 +15,64 @@ from app.auth import get_current_admin
 from app.database import get_db
 from app.models.asset import MediaAsset
 from app.models.activity import Activity
+from app.models.activity_sub_registration import ActivitySubRegistration
 from app.models.user import User
-from app.services.images import process_image, ImageError, ALLOWED_CONTENT_TYPES
+from app.services.images import (
+    process_image, ImageError, ALLOWED_CONTENT_TYPES, MAX_UPLOAD_BYTES,
+)
 
 router = APIRouter(tags=["media"])
 
 VALID_KINDS = {"sponsor", "activity_photo"}
 MAX_BATCH = 20
+
+# Poster/reglement mag een afbeelding óf een PDF zijn (#223).
+DOC_CONTENT_TYPES = ALLOWED_CONTENT_TYPES | {"application/pdf"}
+
+
+def _process_document(raw: bytes, content_type: str) -> dict:
+    """Verwerk een poster/reglement-upload: PDF wordt ongewijzigd bewaard (geen
+    thumbnail), een afbeelding gaat door de gewone verkleining + thumbnail."""
+    if content_type == "application/pdf":
+        if not raw:
+            raise ImageError("Leeg bestand")
+        if len(raw) > MAX_UPLOAD_BYTES:
+            raise ImageError("Bestand te groot")
+        return {
+            "data": raw, "content_type": "application/pdf",
+            "thumbnail": None, "thumb_content_type": None,
+            "width": None, "height": None, "byte_size": len(raw),
+        }
+    return process_image(raw)
+
+
+async def _replace_single_asset(db, file: UploadFile, *, kind: str,
+                                activity_id=None, component_id=None) -> MediaAsset:
+    """Bewaar één poster/reglement-bestand en vervang het vorige (hard delete —
+    media kent geen soft delete). Geeft het nieuwe MediaAsset terug."""
+    if file.content_type not in DOC_CONTENT_TYPES:
+        raise HTTPException(status_code=400,
+                            detail=f"Niet-ondersteund bestandstype: {file.filename}")
+    raw = await file.read()
+    try:
+        processed = _process_document(raw, file.content_type)
+    except ImageError as exc:
+        raise HTTPException(status_code=400, detail=f"{file.filename}: {exc}")
+
+    q = db.query(MediaAsset).filter(MediaAsset.kind == kind)
+    q = q.filter(MediaAsset.activity_id == activity_id) if activity_id is not None \
+        else q.filter(MediaAsset.component_id == component_id)
+    for old in q.all():
+        db.delete(old)  # hard delete, geen ballast
+
+    asset = MediaAsset(
+        kind=kind, activity_id=activity_id, component_id=component_id,
+        title=file.filename, sort_order=0, is_active=True, **processed,
+    )
+    db.add(asset)
+    db.commit()
+    db.refresh(asset)
+    return asset
 
 
 def _meta(a: MediaAsset) -> dict:
@@ -30,6 +81,7 @@ def _meta(a: MediaAsset) -> dict:
         "id": a.id,
         "kind": a.kind,
         "activity_id": a.activity_id,
+        "component_id": a.component_id,
         "title": a.title,
         "link_url": a.link_url,
         "sort_order": a.sort_order,
@@ -37,6 +89,8 @@ def _meta(a: MediaAsset) -> dict:
         "width": a.width,
         "height": a.height,
         "byte_size": a.byte_size,
+        "content_type": a.content_type,
+        "is_pdf": a.content_type == "application/pdf",
         "url": f"/api/v1/media/{a.id}",
         "thumb_url": f"/api/v1/media/{a.id}/thumb",
     }
@@ -227,6 +281,64 @@ async def upload_media(
     for a in created:
         db.refresh(a)
     return [_meta(a) for a in created]
+
+
+# ---------------------------------------------------------------------------
+# Poster (activiteit) en info/reglement (onderdeel): één bestand, vervangbaar (#223)
+# ---------------------------------------------------------------------------
+
+@router.post("/admin/activities/{activity_id}/poster")
+async def upload_activity_poster(
+    activity_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    if not db.query(Activity).filter(Activity.id == activity_id).first():
+        raise HTTPException(status_code=404, detail="Activiteit niet gevonden")
+    asset = await _replace_single_asset(db, file, kind="activity_poster", activity_id=activity_id)
+    return _meta(asset)
+
+
+@router.delete("/admin/activities/{activity_id}/poster", status_code=204)
+def delete_activity_poster(
+    activity_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    for a in db.query(MediaAsset).filter(
+        MediaAsset.kind == "activity_poster", MediaAsset.activity_id == activity_id
+    ).all():
+        db.delete(a)
+    db.commit()
+
+
+@router.post("/admin/components/{component_id}/info")
+async def upload_component_info(
+    component_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    if not db.query(ActivitySubRegistration).filter(
+        ActivitySubRegistration.id == component_id
+    ).first():
+        raise HTTPException(status_code=404, detail="Onderdeel niet gevonden")
+    asset = await _replace_single_asset(db, file, kind="component_info", component_id=component_id)
+    return _meta(asset)
+
+
+@router.delete("/admin/components/{component_id}/info", status_code=204)
+def delete_component_info(
+    component_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    for a in db.query(MediaAsset).filter(
+        MediaAsset.kind == "component_info", MediaAsset.component_id == component_id
+    ).all():
+        db.delete(a)
+    db.commit()
 
 
 @router.patch("/admin/media/{asset_id}")

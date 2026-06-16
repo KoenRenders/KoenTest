@@ -7,6 +7,7 @@ import {
   addProduct, updateProduct, deleteProduct,
   addActivityDate, updateActivityDate, deleteActivityDate,
   exportComponentXlsx,
+  uploadActivityPoster, deleteActivityPoster, uploadComponentInfo, deleteComponentInfo,
 } from "@/lib/api";
 import type { Activity, ActivityComponent, ActivityProduct, ActivityDate } from "@/lib/types";
 import { parseApiError } from "@/lib/errors";
@@ -108,6 +109,26 @@ export default function AdminActiviteiten() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Poster (activiteit) en info/reglement (onderdeel) opladen — afbeelding of PDF (#223).
+  const [uploadBusy, setUploadBusy] = useState(false);
+  async function uploadFor(action: () => Promise<unknown>) {
+    setUploadBusy(true);
+    try { await action(); await load(); }
+    catch (err) { alert(parseApiError(err, "Opladen mislukt.")); }
+    finally { setUploadBusy(false); }
+  }
+
+  async function handlePosterUpload(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file && editingActivity != null) await uploadFor(() => uploadActivityPoster(editingActivity, file));
+  }
+  async function handleComponentInfoUpload(componentId: number, e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (file) await uploadFor(() => uploadComponentInfo(componentId, file));
+  }
 
   async function handleActivitySubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -365,6 +386,26 @@ export default function AdminActiviteiten() {
               <div>
                 <label className="label">Poster URL</label>
                 <input className="input" value={activityForm.poster_url} onChange={(e) => setActivityForm((f) => ({ ...f, poster_url: e.target.value }))} />
+                {editingActivity !== null && (() => {
+                  const a = [...activities, ...archived].find((x) => x.id === editingActivity);
+                  return (
+                    <div className="mt-1 text-xs text-gray-600 flex items-center gap-2 flex-wrap">
+                      <span>of opladen (afbeelding/PDF):</span>
+                      <input type="file" accept="image/*,application/pdf" disabled={uploadBusy} onChange={handlePosterUpload} className="text-xs" />
+                      {a?.poster_asset_url && (
+                        <>
+                          <a href={a.poster_asset_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                            {a.poster_asset_is_pdf ? "PDF" : "afbeelding"} opgeladen (primeert)
+                          </a>
+                          <button type="button" className="text-red-600 hover:underline"
+                            onClick={() => uploadFor(() => deleteActivityPoster(editingActivity!))}>
+                            verwijderen
+                          </button>
+                        </>
+                      )}
+                    </div>
+                  );
+                })()}
               </div>
               {editingActivity !== null && (
                 <div className="flex items-center gap-2 pt-5">
@@ -632,6 +673,27 @@ export default function AdminActiviteiten() {
                       <input className="input" type="url" value={componentForm.info_url}
                         onChange={(e) => setComponentForm((f) => ({ ...f, info_url: e.target.value }))}
                         placeholder="https://drive.google.com/…" />
+                      {editingComponent !== null && (() => {
+                        const c = a.sub_registrations?.find((x) => x.id === editingComponent);
+                        return (
+                          <div className="mt-1 text-xs text-gray-600 flex items-center gap-2 flex-wrap">
+                            <span>of opladen (afbeelding/PDF):</span>
+                            <input type="file" accept="image/*,application/pdf" disabled={uploadBusy}
+                              onChange={(e) => handleComponentInfoUpload(editingComponent!, e)} className="text-xs" />
+                            {c?.info_asset_url && (
+                              <>
+                                <a href={c.info_asset_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                                  {c.info_asset_is_pdf ? "PDF" : "afbeelding"} opgeladen (primeert)
+                                </a>
+                                <button type="button" className="text-red-600 hover:underline"
+                                  onClick={() => uploadFor(() => deleteComponentInfo(editingComponent!))}>
+                                  verwijderen
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
                     <div>
                       <label className="label">Max. deelnemers</label>

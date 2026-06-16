@@ -90,6 +90,13 @@ function ComponentRow({
             {loading ? "…" : open ? "Verberg" : "Wie doet er mee?"}
           </button>
         ) : null}
+        {/* Een geüpload info/reglement-bestand primeert op de URL (#223). */}
+        {(component.info_asset_url || component.info_url) && (
+          <a href={component.info_asset_url || component.info_url} target="_blank" rel="noopener noreferrer"
+            className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-0.5 hover:bg-blue-50">
+            Info / reglement ↗
+          </a>
+        )}
       </div>
 
 
@@ -154,8 +161,8 @@ export default function ActivityList({
               <div key={activity.id} className="card">
                 <div className="flex-1">
                   <div className="flex items-center gap-3 flex-wrap">
-                    {activity.poster_url ? (
-                      <a href={activity.poster_url} target="_blank" rel="noopener noreferrer"
+                    {(activity.poster_asset_url || activity.poster_url) ? (
+                      <a href={activity.poster_asset_url || activity.poster_url} target="_blank" rel="noopener noreferrer"
                         className="font-semibold text-blue-700 hover:underline text-lg">
                         {activity.name}
                       </a>
