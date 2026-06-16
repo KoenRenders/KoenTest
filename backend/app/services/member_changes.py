@@ -221,6 +221,11 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
     subj = _SubjectResolver(db)
 
     for h in db.query(PersonHistory).filter(PersonHistory.recorded_at >= since_dt):
+        if h.action == "person_revived":
+            # Heractivering bij her-import (#227): de naam staat al in de eigen kolom.
+            rows.append(_row(h, entity="Persoon", entity_id=h.person_id,
+                             summary="Heractivering", subject=subj.fields(person_id=h.person_id)))
+            continue
         naam = f"{_fmt(h.first_name)} {_fmt(h.last_name)}".strip() or "—"
         dob = f" (geb. {h.date_of_birth})" if h.date_of_birth else ""
         body = naam
@@ -237,7 +242,15 @@ def member_changes_since(db: Session, since: date) -> List[dict]:
                          subject=subj.fields(person_id=h.person_id)))
 
     for h in db.query(MemberHistory).filter(MemberHistory.recorded_at >= since_dt):
-        rows.append(_row(h, entity="Gezin", entity_id=h.member_id, summary="Gezin",
+        if h.action == "member_revived":
+            summary = "Heractivering gezin"
+        elif h.action in ("board_member_assigned", "board_member_imported"):
+            # Toon wíé het (nieuwe) verantwoordelijke bestuurslid is i.p.v. enkel "Gezin".
+            naam = subj._name_of(h.board_member_id)
+            summary = f"Bestuurslid: {naam}" if naam else "Bestuurslid gewijzigd"
+        else:
+            summary = "Gezin"
+        rows.append(_row(h, entity="Gezin", entity_id=h.member_id, summary=summary,
                          subject=subj.fields(member_id=h.member_id)))
 
     for h in db.query(MemberPersonHistory).filter(MemberPersonHistory.recorded_at >= since_dt):

@@ -564,8 +564,11 @@ def _revive_soft_deleted(db: Session, families: list[list[dict]], *, apply: bool
         if latest_mp is not None:
             _revive(latest_mp)
             member = inc(Member).filter(Member.id == latest_mp.member_id).first()
-            if member is not None:
+            if member is not None and member.deleted_at is not None:
                 _revive(member)
+                if apply:
+                    snapshot_member(db, member, operation="update", action="member_revived",
+                                    source=LEGACY_SOURCE, actor=actor)
         db.flush()
         if apply:
             snapshot_person(db, person, operation="update", action="person_revived",

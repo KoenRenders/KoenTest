@@ -396,6 +396,13 @@ def test_commit_creates_admin_login_for_board_member_end_to_end(db_session):
         Member.board_member_id == head["_person_id"]).first()
     assert member is not None
 
+    # In de Wijzigingen-feed staat de bestuurslid-wijziging met de naam (#228),
+    # niet enkel "Gezin".
+    from app.services.member_changes import member_changes_since
+    feed = member_changes_since(db_session, date(2000, 1, 1))
+    assert any(r["entity"] == "Gezin" and r["summary"] == "Bestuurslid: Mon Essers"
+               for r in feed)
+
 
 # ── #227: soft-deleted persoon/gezin herleeft bij her-import ─────────────────────
 
@@ -437,6 +444,11 @@ def test_soft_deleted_person_revived_on_reimport(db_session):
     assert len(persons) == 1                                # geen duplicaat
     assert persons[0].id == pid and persons[0].deleted_at is None   # hersteld
 
+    # In de Wijzigingen-feed staat de heractivering leesbaar in Details (#227).
+    from app.services.member_changes import member_changes_since
+    feed = member_changes_since(db_session, date(2000, 1, 1))
+    assert any(r["entity"] == "Persoon" and r["summary"] == "Heractivering" for r in feed)
+
 
 def test_soft_deleted_family_revived_on_reimport(db_session):
     """Scenario 3 (#227): een volledig soft-deleted gezin dat integraal terugkomt via
@@ -461,6 +473,11 @@ def test_soft_deleted_family_revived_on_reimport(db_session):
     active = [m for m in db_session.query(Member).execution_options(include_deleted=True).all()
               if m.deleted_at is None]
     assert len(active) == 1 and active[0].id == mid
+
+    # De gezin-heractivering staat als eigen, leesbare rij in de feed (#227).
+    from app.services.member_changes import member_changes_since
+    feed = member_changes_since(db_session, date(2000, 1, 1))
+    assert any(r["entity"] == "Gezin" and r["summary"] == "Heractivering gezin" for r in feed)
 
 
 def test_absent_family_left_untouched(db_session):
