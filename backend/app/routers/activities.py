@@ -38,7 +38,13 @@ from app.domains.payment_status.service import (
     create_payment_record, registration_balance, reconcile_registration_charges,
 )
 from app.domains.analytics.service import log_business_event
-from app.domains.audit.service import snapshot_registration_item
+from app.domains.audit.service import (
+    snapshot_registration_item,
+    snapshot_activity,
+    snapshot_activity_date,
+    snapshot_component,
+    snapshot_product,
+)
 from app.services.activity_export import build_component_export_xlsx
 from app.soft_delete import soft_delete
 from app.limiter import registration_limiter
@@ -202,7 +208,7 @@ def list_activities(scope: str = "upcoming", db: Session = Depends(get_db)):
 def create_activity(
     data: ActivityCreate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     activity = Activity(
         name=data.name,
@@ -212,15 +218,21 @@ def create_activity(
     )
     db.add(activity)
     db.flush()
+    snapshot_activity(db, activity, operation="insert", action="activity_created",
+                      source="admin_manual", actor=admin.email)
 
     for date_data in data.dates:
-        db.add(ActivityDate(
+        ad = ActivityDate(
             activity_id=activity.id,
             start_date=date_data.start_date,
             end_date=date_data.end_date,
             start_time=date_data.start_time,
             end_time=date_data.end_time,
-        ))
+        )
+        db.add(ad)
+        db.flush()
+        snapshot_activity_date(db, ad, operation="insert", action="activity_created",
+                               source="admin_manual", actor=admin.email)
 
     db.commit()
 
@@ -244,7 +256,7 @@ def update_activity(
     activity_id: int,
     data: ActivityUpdate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     activity = (
         db.query(Activity)
@@ -259,6 +271,8 @@ def update_activity(
         raise HTTPException(status_code=404, detail="Activity not found")
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(activity, field, value)
+    snapshot_activity(db, activity, operation="update", action="activity_updated",
+                      source="admin_manual", actor=admin.email)
     db.commit()
     db.refresh(activity)
 
@@ -271,7 +285,7 @@ def update_activity(
 def delete_activity(
     activity_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
@@ -279,15 +293,23 @@ def delete_activity(
     # Soft delete (#166): de hele boom mee markeren (datums, onderdelen, producten,
     # inschrijvingen, bestelregels). Betalingen blijven bestaan (financieel feit).
     for d in activity.dates:
+        snapshot_activity_date(db, d, operation="delete", action="activity_deleted",
+                               source="admin_manual", actor=admin.email)
         soft_delete(d)
     for comp in activity.sub_registrations:
         for p in comp.products:
+            snapshot_product(db, p, operation="delete", action="activity_deleted",
+                             source="admin_manual", actor=admin.email)
             soft_delete(p)
+        snapshot_component(db, comp, operation="delete", action="activity_deleted",
+                           source="admin_manual", actor=admin.email)
         soft_delete(comp)
     for reg in activity.registrations:
         for item in reg.items:
             soft_delete(item)
         soft_delete(reg)
+    snapshot_activity(db, activity, operation="delete", action="activity_deleted",
+                      source="admin_manual", actor=admin.email)
     soft_delete(activity)
     db.commit()
     return {"detail": "deleted"}
@@ -300,7 +322,7 @@ def add_activity_date(
     activity_id: int,
     data: ActivityDateCreate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
@@ -313,6 +335,9 @@ def add_activity_date(
         end_time=data.end_time,
     )
     db.add(ad)
+    db.flush()
+    snapshot_activity_date(db, ad, operation="insert", action="date_created",
+                           source="admin_manual", actor=admin.email)
     db.commit()
     db.refresh(ad)
     return ad
@@ -324,7 +349,7 @@ def update_activity_date(
     date_id: int,
     data: ActivityDateUpdate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     ad = db.query(ActivityDate).filter(
         ActivityDate.id == date_id,
@@ -334,6 +359,8 @@ def update_activity_date(
         raise HTTPException(status_code=404, detail="Date not found")
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(ad, field, value)
+    snapshot_activity_date(db, ad, operation="update", action="date_updated",
+                           source="admin_manual", actor=admin.email)
     db.commit()
     db.refresh(ad)
     return ad
@@ -344,7 +371,7 @@ def delete_activity_date(
     activity_id: int,
     date_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     ad = db.query(ActivityDate).filter(
         ActivityDate.id == date_id,
@@ -352,6 +379,8 @@ def delete_activity_date(
     ).first()
     if not ad:
         raise HTTPException(status_code=404, detail="Date not found")
+    snapshot_activity_date(db, ad, operation="delete", action="date_deleted",
+                           source="admin_manual", actor=admin.email)
     soft_delete(ad)
     db.commit()
     return {"detail": "deleted"}
@@ -364,7 +393,7 @@ def add_component(
     activity_id: int,
     data: ComponentCreate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
@@ -383,6 +412,9 @@ def add_component(
         is_free=True,
     )
     db.add(component)
+    db.flush()
+    snapshot_component(db, component, operation="insert", action="component_created",
+                       source="admin_manual", actor=admin.email)
     db.commit()
     db.refresh(component)
     return component
@@ -394,7 +426,7 @@ def update_component(
     component_id: int,
     data: ComponentUpdate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     component = db.query(ActivitySubRegistration).filter(
         ActivitySubRegistration.id == component_id,
@@ -404,6 +436,8 @@ def update_component(
         raise HTTPException(status_code=404, detail="Component not found")
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(component, field, value)
+    snapshot_component(db, component, operation="update", action="component_updated",
+                       source="admin_manual", actor=admin.email)
     db.commit()
     db.refresh(component)
     return component
@@ -414,7 +448,7 @@ def delete_component(
     activity_id: int,
     component_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     component = db.query(ActivitySubRegistration).filter(
         ActivitySubRegistration.id == component_id,
@@ -423,7 +457,11 @@ def delete_component(
     if not component:
         raise HTTPException(status_code=404, detail="Component not found")
     for p in component.products:
+        snapshot_product(db, p, operation="delete", action="component_deleted",
+                         source="admin_manual", actor=admin.email)
         soft_delete(p)
+    snapshot_component(db, component, operation="delete", action="component_deleted",
+                       source="admin_manual", actor=admin.email)
     soft_delete(component)
     db.commit()
     return {"detail": "deleted"}
@@ -437,7 +475,7 @@ def add_product(
     component_id: int,
     data: ProductCreate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     component = db.query(ActivitySubRegistration).filter(
         ActivitySubRegistration.id == component_id,
@@ -455,6 +493,9 @@ def add_product(
         sort_order=data.sort_order,
     )
     db.add(product)
+    db.flush()
+    snapshot_product(db, product, operation="insert", action="product_created",
+                     source="admin_manual", actor=admin.email)
     db.commit()
     db.refresh(product)
     return product
@@ -467,7 +508,7 @@ def update_product(
     product_id: int,
     data: ProductUpdate,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     product = db.query(ActivityProduct).filter(
         ActivityProduct.id == product_id,
@@ -477,6 +518,8 @@ def update_product(
         raise HTTPException(status_code=404, detail="Product not found")
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(product, field, value)
+    snapshot_product(db, product, operation="update", action="product_updated",
+                     source="admin_manual", actor=admin.email)
     db.commit()
     db.refresh(product)
     return product
@@ -488,7 +531,7 @@ def delete_product(
     component_id: int,
     product_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     product = db.query(ActivityProduct).filter(
         ActivityProduct.id == product_id,
@@ -496,6 +539,8 @@ def delete_product(
     ).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+    snapshot_product(db, product, operation="delete", action="product_deleted",
+                     source="admin_manual", actor=admin.email)
     soft_delete(product)
     db.commit()
     return {"detail": "deleted"}
@@ -541,7 +586,7 @@ def _enrich_registration(reg, activity):
 def get_registrations(
     activity_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
@@ -556,7 +601,7 @@ def export_component_xlsx(
     activity_id: int,
     component_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_admin),
 ):
     """Download een .xlsx met aantallen per product + financials voor één
     onderdeel, zoals ze nu in de DB staan (#85). Admin-only; bevat persoons- en
