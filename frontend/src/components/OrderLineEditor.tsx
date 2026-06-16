@@ -130,7 +130,10 @@ export default function OrderLineEditor({ activityId, registrationId, items, pro
               type="number"
               min="1"
               className="input w-16 text-sm py-0.5"
-              defaultValue={it.quantity}
+              // Controlled: toont de lokale bewerking, anders het actuele aantal uit de
+              // (herladen) data — zo volgt het scherm een samenvoeging van eenzelfde
+              // product meteen (#197).
+              value={it.id != null && qtyDraft[it.id] !== undefined ? qtyDraft[it.id] : String(it.quantity)}
               onChange={(e) => it.id != null && setQtyDraft((d) => ({ ...d, [it.id!]: e.target.value }))}
               disabled={busy || it.id == null}
             />
