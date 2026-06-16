@@ -4,6 +4,7 @@ import Navigation from "@/components/Navigation";
 import Footer from "@/components/Footer";
 import EnvBar from "@/components/EnvBar";
 import Analytics from "@/components/Analytics";
+import ChatWidget from "@/components/ChatWidget";
 
 // Omgevingsindicator (#145): op niet-PROD prefixen we de tab-titel met
 // [HDEV]/[UAT]/[DEV]. Op PROD (of zonder waarde) blijft het "Raak Millegem".
@@ -30,6 +31,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <div className="max-w-7xl mx-auto px-4">
           <Footer />
         </div>
+        <ChatWidget />
       </body>
     </html>
   );

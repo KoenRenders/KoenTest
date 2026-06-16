@@ -226,6 +226,63 @@ export const getBusinessEventStats = () =>
 export const getAllPages = () => api.get("/api/v1/admin/pages");
 
 
+// Chatbot 'Raakje' (#205) — SSE-stream. fetch i.p.v. axios omdat we de
+// response incrementeel lezen; bewust binnen api.ts gehouden (geen losse
+// fetch-aanroepen elders in de app).
+export type ChatRole = "user" | "assistant";
+export interface ChatMsg {
+  role: ChatRole;
+  content: string;
+}
+
+export async function* streamChat(
+  messages: ChatMsg[],
+  signal?: AbortSignal
+): AsyncGenerator<string> {
+  const res = await fetch(`${BASE}/api/v1/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages }),
+    signal,
+  });
+
+  if (!res.ok || !res.body) {
+    let detail = "Er ging iets mis. Probeer het later opnieuw.";
+    try {
+      const data = await res.json();
+      if (typeof data?.detail === "string") detail = data.detail;
+    } catch {
+      /* geen JSON-body */
+    }
+    throw new Error(detail);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const events = buffer.split("\n\n");
+    buffer = events.pop() || "";
+    for (const evt of events) {
+      const line = evt.trim();
+      if (!line.startsWith("data:")) continue;
+      try {
+        const payload = JSON.parse(line.slice(5).trim());
+        if (payload.delta) yield payload.delta as string;
+        if (payload.done) return;
+      } catch {
+        /* onvolledig event, sla over */
+      }
+    }
+  }
+}
+
+
 // Gebruikers- en rollenbeheer (ADMIN-gated)
 export const getUsers = () => api.get("/api/v1/users");
 export const createUser = (data: unknown) => api.post("/api/v1/users", data);

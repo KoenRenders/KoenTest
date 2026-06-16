@@ -29,6 +29,18 @@ class Settings(BaseSettings):
 
     mollie_api_key: Optional[str] = None
 
+    # Chatbot 'Raakje' (#205). LLM-provider zit achter een swapbaar laagje.
+    # chat_llm_provider: 'auto' (Mistral zodra er een key staat, anders mock),
+    # 'mistral' (forceer), of 'mock' (afhankelijkheidsvrij, CI/lokaal).
+    mistral_api_key: Optional[str] = None
+    chat_llm_provider: str = "auto"
+    chat_model: str = "mistral-small-latest"  # = Mistral Small 4
+    # Vangrails (kosten/misbruik): cap per bericht, geschiedenis en dag.
+    chat_max_input_chars: int = 2000
+    chat_max_history_messages: int = 20
+    chat_daily_char_budget: int = 20000
+    chat_max_tool_rounds: int = 4
+
     # Overschrijvings-instructies (#157): rekeningnummer + begunstigde + termijn (dagen).
     payment_iban: Optional[str] = None
     payment_beneficiary: Optional[str] = None
