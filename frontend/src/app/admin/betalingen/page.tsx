@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { listPaymentRecords, updatePaymentRecord, refreshPaymentRecord, refundPaymentRecord, deletePaymentRecord, getRegistrations } from "@/lib/api";
+import { listPaymentRecords, updatePaymentRecord, refreshPaymentRecord, refundPaymentRecord, deletePaymentRecord, getRegistrations, getAuthMe } from "@/lib/api";
 import { parseApiError } from "@/lib/errors";
 import RegistrationList, { type RegistrationEntry } from "@/components/RegistrationList";
 
@@ -61,6 +61,8 @@ const PAYABLE_LABELS: Record<string, string> = {
 export default function BetalingenPage() {
   const [records, setRecords] = useState<PaymentRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  // Enkel FINANCE mag betalingen muteren; ADMIN ziet alles read-only (#207).
+  const [canEdit, setCanEdit] = useState(false);
   const [editing, setEditing] = useState<string | null>(null);
   const [editData, setEditData] = useState<{ amount_paid: string; note: string; status: string }>({
     amount_paid: "",
@@ -97,6 +99,9 @@ export default function BetalingenPage() {
   }
 
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    getAuthMe().then((r) => setCanEdit(r.data.is_finance)).catch(() => setCanEdit(false));
+  }, []);
 
   async function loadRegDetails(record: PaymentRecord) {
     if (!record.activity_id || record.payable_type !== "registration") return;
@@ -293,6 +298,12 @@ export default function BetalingenPage() {
     <div className="p-6 max-w-5xl mx-auto">
       <h1 className="text-2xl font-bold text-gray-900 mb-6">Betalingen</h1>
 
+      {!canEdit && (
+        <p className="mb-4 rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-800">
+          Alleen-lezen: enkel de penningmeester (rol FINANCE) kan betalingen invullen, bewerken of terugbetalen.
+        </p>
+      )}
+
       <div className="flex gap-2 mb-4 flex-wrap items-center">
         {(["all", "openstaand", "pending", "paid"] as const).map((f) => (
           <button
@@ -426,7 +437,7 @@ export default function BetalingenPage() {
                     </div>
                   )}
                 </div>
-                {editing !== r.id && refunding !== r.id && (
+                {canEdit && editing !== r.id && refunding !== r.id && (
                   <div className="flex flex-col gap-1 items-end">
                     <button
                       onClick={() => startEdit(r)}

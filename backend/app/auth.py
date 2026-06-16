@@ -117,6 +117,12 @@ def require_roles(*codes: str):
 # zodat bestaande routers (Depends(get_current_admin)) ongemoeid blijven.
 get_current_admin = require_roles("ADMIN")
 
+# Financiële scheiding (penningmeester): enkel FINANCE mag betalingen invullen,
+# bewerken, terugbetalen of verwijderen. ADMIN mag betalingen wél inkijken maar
+# niet wijzigen → de view-endpoints aanvaarden beide rollen.
+get_current_finance = require_roles("FINANCE")
+get_finance_or_admin = require_roles("ADMIN", "FINANCE")
+
 
 def get_current_member(
     token: Optional[str] = Depends(oauth2_scheme_optional),

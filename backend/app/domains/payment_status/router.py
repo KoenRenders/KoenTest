@@ -2,7 +2,7 @@ from datetime import datetime, timezone
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
-from app.auth import get_current_admin
+from app.auth import get_finance_or_admin, get_current_finance
 from app.database import get_db
 from app.models.user import User
 from .models import PaymentRecord
@@ -42,7 +42,7 @@ def _to_response(r: PaymentRecord) -> PaymentRecordResponse:
 @router.get("/records", response_model=List[EnrichedPaymentRecord])
 def list_all_payment_records(
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    _viewer: User = Depends(get_finance_or_admin),
 ):
     """List all payment records, enriched with contact name and description.
 
@@ -138,7 +138,7 @@ def get_payment_records(
     payable_type: str,
     payable_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    _viewer: User = Depends(get_finance_or_admin),
 ):
     records = get_records_for(db, payable_type, payable_id)
     return [_to_response(r) for r in records]
@@ -148,7 +148,7 @@ def get_payment_records(
 def refresh_payment_record(
     record_id: str,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_finance),
 ):
     """Haal de actuele status bij de gateway (Mollie) op voor één betaling.
 
@@ -182,7 +182,7 @@ def refund_payment_record(
     record_id: str,
     data: RefundCreate,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_finance),
 ):
     """Registreer een terugbetaling op een charge-record (#83).
 
@@ -205,7 +205,7 @@ def refund_payment_record(
 def get_registration_balance(
     registration_id: int,
     db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
+    _viewer: User = Depends(get_finance_or_admin),
 ):
     """Financiële stand van een inschrijving: verschuldigd, betaald, terugbetaald,
     saldo (#83). De live DB is de bron van waarheid."""
@@ -222,7 +222,7 @@ def update_payment_record(
     record_id: str,
     data: PaymentRecordUpdate,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_finance),
 ):
     record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
     if not record:
@@ -261,7 +261,7 @@ def update_payment_record(
 def delete_payment_record(
     record_id: str,
     db: Session = Depends(get_db),
-    admin: User = Depends(get_current_admin),
+    admin: User = Depends(get_current_finance),
 ):
     """Verwijder één betaalrecord als bewuste admin-actie (#167) — bv. een
     foutieve/test-betaling of een weesbetaling na een gezin-delete. Soft delete

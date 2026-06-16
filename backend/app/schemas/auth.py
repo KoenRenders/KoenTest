@@ -39,6 +39,7 @@ class AuthMeResponse(BaseModel):
     email: str
     roles: List[str] = []
     is_admin: bool = False
+    is_finance: bool = False
     is_member: bool = False
     member_name: Optional[str] = None
 

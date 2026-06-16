@@ -162,6 +162,7 @@ export interface AuthMe {
   email: string;
   roles: string[];
   is_admin: boolean;
+  is_finance: boolean;
   is_member: boolean;
   member_name: string | null;
 }
