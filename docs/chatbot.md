@@ -74,16 +74,16 @@ ONZE BACKEND streamt het eindantwoord als SSE terug → Browser toont het live
 
 | Bestand | Rol |
 |---|---|
-| `providers/base.py` | De naad: `LLMProvider.complete(messages, tools)`. |
-| `providers/mistral.py` | **Enige** plek die met Mistral praat (httpx → REST). |
-| `providers/mock.py` | Afhankelijkheidsvrije, data-bewuste stub (CI/lokaal, geen kost). |
-| `providers/factory.py` | Kiest provider op `CHAT_LLM_PROVIDER` (auto/mistral/mock). |
-| `context.py` | System-prompt: persona + vangrails + gepubliceerde CMS-tekst. |
-| `tools.py` | De 3 publieke tools + dispatch = de **security-grens** (allowlist). |
-| `service.py` | De tool-loop tussen provider en tools. |
-| `../../routers/chat.py` | `POST /api/v1/chat` (SSE), key serverside, limieten. |
-| `../../schemas/chat.py` | Vorm-validatie (per-bericht cap, geschiedenis). |
-| `frontend/.../ChatWidget.tsx` | Zwevend widget, SSE-streaming, STT-mic. |
+| `backend/app/domains/chatbot/providers/base.py` | De naad: `LLMProvider.complete(messages, tools)`. |
+| `backend/app/domains/chatbot/providers/mistral.py` | **Enige** plek die met Mistral praat (httpx → REST). |
+| `backend/app/domains/chatbot/providers/mock.py` | Afhankelijkheidsvrije, data-bewuste stub (CI/lokaal, geen kost). |
+| `backend/app/domains/chatbot/providers/factory.py` | Kiest provider op `CHAT_LLM_PROVIDER` (auto/mistral/mock). |
+| `backend/app/domains/chatbot/context.py` | System-prompt: persona + vangrails + gepubliceerde CMS-tekst. |
+| `backend/app/domains/chatbot/tools.py` | De 3 publieke tools + dispatch = de **security-grens** (allowlist). |
+| `backend/app/domains/chatbot/service.py` | De tool-loop tussen provider en tools. |
+| `backend/app/routers/chat.py` | `POST /api/v1/chat` (SSE), key serverside, limieten. |
+| `backend/app/schemas/chat.py` | Vorm-validatie (per-bericht cap, geschiedenis). |
+| `frontend/src/components/ChatWidget.tsx` | Zwevend widget, SSE-streaming, STT-mic. |
 
 ## Swapbare provider-laag
 
