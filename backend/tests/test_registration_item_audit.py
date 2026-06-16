@@ -74,7 +74,7 @@ def test_update_quantity_recomputes_due_and_audits(client, db_session, admin_hea
     assert rows[-1].source == "admin_manual"
 
 
-def test_swap_to_helper_product_flags_refund_due(client, db_session, admin_headers):
+def test_swap_to_helper_product_auto_refunds(client, db_session, admin_headers):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     helper = _add_product(db_session, comp, name="Vlees - helper", price="0", is_free=True)
     activity_id, reg, item = _register(client, db_session, comp, product)
@@ -86,7 +86,8 @@ def test_swap_to_helper_product_flags_refund_due(client, db_session, admin_heade
     client.patch(f"/api/v1/payment-status/records/{charge.id}",
                  json={"status": "paid", "amount_paid": "18.00"}, headers=admin_headers)
 
-    # Bestelregel naar de gratis helper-variant → verschuldigd 0, dus €18 te veel.
+    # Bestelregel naar de gratis helper-variant → verschuldigd 0; de €18 wordt
+    # automatisch terugbetaald (#191), dus het saldo vereffent meteen.
     resp = client.patch(
         f"/api/v1/activities/{activity_id}/registrations/{reg.id}/items/{item.id}",
         json={"product_id": helper.id}, headers=admin_headers,
@@ -94,8 +95,9 @@ def test_swap_to_helper_product_flags_refund_due(client, db_session, admin_heade
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert Decimal(str(body["balance"]["total_due"])) == Decimal("0.00")
-    assert Decimal(str(body["balance"]["balance"])) == Decimal("-18.00")
-    assert body["refund_due"] is True
+    assert Decimal(str(body["balance"]["balance"])) == Decimal("0.00")
+    assert body["refund_due"] is False
+    assert Decimal(str(body["balance"]["total_refunded"])) == Decimal("18.00")
 
 
 def test_add_order_line(client, db_session, admin_headers):
