@@ -14,6 +14,7 @@ Elke schrijfactie logt een audit-rij (source="member_self", actor=e-mail).
 De member_id wordt server-side afgeleid uit het JWT, nooit uit de request.
 """
 import logging
+from datetime import date
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -269,8 +270,15 @@ def update_person(
     actor = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
     changed = False
     for field in ("first_name", "last_name", "date_of_birth", "gender_code"):
-        if field in data:
-            setattr(target, field, data[field] or None)
+        if field not in data:
+            continue
+        new_val = data[field] or None
+        if field == "date_of_birth" and new_val is not None and not isinstance(new_val, date):
+            new_val = date.fromisoformat(new_val)
+        # Enkel snapshotten wat écht wijzigt (#188): een formulier stuurt alle velden,
+        # maar een onveranderd veld hoort geen history-rij te maken.
+        if getattr(target, field) != new_val:
+            setattr(target, field, new_val)
             changed = True
     if changed:
         snapshot_person(db, target, operation="update", action="person_updated",
@@ -303,10 +311,11 @@ def update_person(
         existing = next((c for c in target.contact_details if c.contact_type_code == type_code), None)
         if value:
             if existing:
-                existing.value = value
-                db.flush()
-                snapshot_contact_detail(db, existing, operation="update", action="contacts_updated",
-                                        source="member_self", actor=actor)
+                if existing.value != value:
+                    existing.value = value
+                    db.flush()
+                    snapshot_contact_detail(db, existing, operation="update", action="contacts_updated",
+                                            source="member_self", actor=actor)
             else:
                 contact = ContactDetail(person_id=target.id, contact_type_code=type_code,
                                         value=value, is_primary=True)
