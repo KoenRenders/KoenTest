@@ -18,6 +18,10 @@ from app.models.history import (
     ContactDetailHistory,
     PaymentRecordHistory,
     RegistrationItemHistory,
+    ActivityHistory,
+    ActivityDateHistory,
+    ComponentHistory,
+    ProductHistory,
 )
 
 
@@ -117,5 +121,49 @@ def snapshot_payment_record(db: Session, record, *, operation: str, action: str,
         gateway_payment_id=record.gateway_payment_id,
         note=record.note,
         paid_at=record.paid_at,
+        operation=operation, action=action, source=source, actor=actor,
+    ))
+
+
+def snapshot_activity(db: Session, activity, *, operation: str, action: str,
+                      source: str, actor: Optional[str] = None) -> None:
+    db.add(ActivityHistory(
+        activity_id=activity.id,
+        name=activity.name,
+        operation=operation, action=action, source=source, actor=actor,
+    ))
+
+
+def snapshot_activity_date(db: Session, ad, *, operation: str, action: str,
+                           source: str, actor: Optional[str] = None) -> None:
+    db.add(ActivityDateHistory(
+        activity_date_id=ad.id,
+        activity_id=ad.activity_id,
+        start_date=ad.start_date,
+        end_date=ad.end_date,
+        operation=operation, action=action, source=source, actor=actor,
+    ))
+
+
+def snapshot_component(db: Session, comp, *, operation: str, action: str,
+                       source: str, actor: Optional[str] = None) -> None:
+    db.add(ComponentHistory(
+        component_id=comp.id,
+        activity_id=comp.activity_id,
+        name=comp.name,
+        price=comp.price,
+        member_price=comp.member_price,
+        operation=operation, action=action, source=source, actor=actor,
+    ))
+
+
+def snapshot_product(db: Session, product, *, operation: str, action: str,
+                     source: str, actor: Optional[str] = None) -> None:
+    db.add(ProductHistory(
+        product_id=product.id,
+        component_id=product.component_id,
+        name=product.name,
+        price=product.price,
+        member_price=product.member_price,
         operation=operation, action=action, source=source, actor=actor,
     ))
