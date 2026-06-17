@@ -230,6 +230,26 @@ def test_long_user_message_is_rejected():
         ChatRequest(messages=[{"role": "user", "content": "a" * 5000}])
 
 
+def test_submit_idea_notifies_board(db_session, monkeypatch):
+    """#260: een ingediend idee verwittigt het bestuur per e-mail."""
+    import app.domains.chatbot.tools as tools
+
+    monkeypatch.setattr(tools, "send_idea_acknowledgement", lambda **kw: None)
+    seen: dict = {}
+    monkeypatch.setattr(tools, "send_idea_board_notification", lambda **kw: seen.update(kw))
+
+    out = json.loads(
+        execute_tool(
+            "submit_idea",
+            {"name": "Jan", "content": "Test idee", "email": "jan@example.com"},
+            db_session,
+        )
+    )
+    assert out["ok"] is True
+    assert seen.get("email") == "jan@example.com"
+    assert seen.get("message") == "Test idee"
+
+
 # ── Anti-hallucinatie (lagen 1–4) ────────────────────────────────────────────
 
 def test_activity_detail_marks_empty_fields_as_unspecified(db_session):

@@ -23,7 +23,7 @@ from app.models.activity import Activity, ActivityDate
 from app.models.asset import MediaAsset
 from app.models.chatbot_info import ChatbotInfo
 from app.models.idea import Idea
-from app.services.email import send_idea_acknowledgement
+from app.services.email import send_idea_acknowledgement, send_idea_board_notification
 
 logger = logging.getLogger(__name__)
 
@@ -316,6 +316,12 @@ def submit_idea(
         send_idea_acknowledgement(to_email=email, name=name, message=content)
     except Exception as exc:  # mail mag de flow nooit breken
         logger.warning("Bevestigingsmail voor idee (chatbot) mislukt: %s", exc)
+
+    # Verwittig het bestuur (#260), zodat het bericht niet onopgemerkt blijft.
+    try:
+        send_idea_board_notification(name=name, email=email, message=content)
+    except Exception as exc:  # mail mag de flow nooit breken
+        logger.warning("Bestuursnotificatie voor idee (chatbot) mislukt: %s", exc)
 
     return {
         "ok": True,

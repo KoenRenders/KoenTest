@@ -11,7 +11,7 @@ from app.database import get_db
 from app.models.idea import Idea
 from app.models.user import User
 from app.schemas.idea import IdeaCreate, IdeaResponse
-from app.services.email import send_idea_acknowledgement
+from app.services.email import send_idea_acknowledgement, send_idea_board_notification
 from app.limiter import idea_limiter
 
 router = APIRouter(tags=["ideas"])
@@ -37,6 +37,16 @@ def submit_idea(data: IdeaCreate, db: Session = Depends(get_db)):
             )
         except Exception as exc:
             logger.warning("Bevestigingsmail voor idee kon niet verstuurd worden: %s", exc)
+
+    # Verwittig het bestuur (#260) — altijd, ook als de indiener geen e-mail gaf.
+    try:
+        send_idea_board_notification(
+            name=data.submitter_name,
+            email=data.submitter_email,
+            message=data.content,
+        )
+    except Exception as exc:
+        logger.warning("Bestuursnotificatie voor idee kon niet verstuurd worden: %s", exc)
 
     return idea
 
