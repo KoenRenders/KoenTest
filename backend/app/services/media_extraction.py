@@ -21,6 +21,7 @@ from __future__ import annotations
 import base64
 import io
 import logging
+import re
 from datetime import datetime, timezone
 
 import httpx
@@ -36,6 +37,31 @@ MISTRAL_OCR_URL = "https://api.mistral.ai/v1/ocr"
 
 # Soorten media waarvan we tekst extraheren (documenten, geen sponsor/foto).
 EXTRACTABLE_KINDS = {"activity_poster", "component_info"}
+
+# Opkuis-patronen (#240). Mistral OCR zet per gedetecteerde figuur een
+# markdown-image-referentie in de tekst (``![img-0.jpeg](img-0.jpeg)``) — ruis
+# voor de bot. PDF-tekstlagen brengen layout-witruimte mee. Beide weg vóór opslag.
+_MD_IMAGE = re.compile(r"!\[[^\]]*\]\([^)]*\)")
+_INLINE_WS = re.compile(r"[ \t\u00a0]+")
+_BLANK_LINES = re.compile(r"\n{3,}")
+
+
+def _clean_extracted_text(text: str) -> str:
+    """Normaliseer geëxtraheerde tekst vóór opslag: minder ruis, minder tokens.
+
+    - verwijdert markdown-image-placeholders die Mistral OCR voor figuren genereert;
+    - klapt runs van spaties/tabs/non-breaking spaces samen tot één spatie en
+      stript elke regel rechts af;
+    - klapt 3+ lege regels samen tot één lege regel.
+
+    De bot krijgt zo enkel de echte tekst; opmaak-ruis kost geen tokens meer.
+    """
+    if not text:
+        return ""
+    text = _MD_IMAGE.sub("", text)
+    text = "\n".join(_INLINE_WS.sub(" ", line).strip() for line in text.splitlines())
+    text = _BLANK_LINES.sub("\n\n", text)
+    return text.strip()
 
 
 def _extract_pdf_text_layer(raw: bytes) -> str:
@@ -76,8 +102,8 @@ def _ocr_via_mistral(raw: bytes, content_type: str) -> str:
     return "\n\n".join((p.get("markdown") or "").strip() for p in pages).strip()
 
 
-def extract_document_text(raw: bytes, content_type: str) -> str:
-    """Kies het goedkoopste pad dat tekst oplevert.
+def _select_text(raw: bytes, content_type: str) -> str:
+    """Kies het goedkoopste pad dat tekst oplevert (nog ongekuist).
 
     PDF met bruikbare tekstlaag → die tekst. Anders (scan/afbeelding) → OCR, mits
     er een key is en OCR aanstaat. Zonder key valt OCR weg en geven we terug wat
@@ -98,6 +124,15 @@ def extract_document_text(raw: bytes, content_type: str) -> str:
     except httpx.HTTPError as exc:
         logger.warning("Mistral OCR mislukte: %s", exc)
         return pdf_text  # val terug op wat we al hadden
+
+
+def extract_document_text(raw: bytes, content_type: str) -> str:
+    """Geëxtraheerde tekst, opgekuist voor de bot (#240).
+
+    Kiest het goedkoopste pad (tekstlaag of OCR) en normaliseert het resultaat:
+    OCR-image-placeholders weg, witruimte/lege regels samengeklapt.
+    """
+    return _clean_extracted_text(_select_text(raw, content_type))
 
 
 def update_media_extracted_text(asset_id: int, db=None, force: bool = False) -> None:

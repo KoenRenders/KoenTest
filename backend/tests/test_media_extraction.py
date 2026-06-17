@@ -44,6 +44,43 @@ def test_image_without_key_returns_empty(monkeypatch):
     assert mx.extract_document_text(b"\x89PNG", "image/png") == ""
 
 
+# ── Opkuis vóór de bot (#240) ────────────────────────────────────────────────
+
+def test_clean_strips_ocr_image_placeholders():
+    raw = "# Titel\n\n![img-0.jpeg](img-0.jpeg)\n\nVAN JUNI\n\n![img-1.jpeg](img-1.jpeg)\n\n## ROUTE"
+    out = mx._clean_extracted_text(raw)
+    assert "img-0.jpeg" not in out
+    assert "![" not in out
+    assert "# Titel" in out and "VAN JUNI" in out and "## ROUTE" in out
+
+
+def test_clean_collapses_layout_whitespace():
+    raw = "Voor wie:   onze leden \n  \nPrijs:   30,00 euro  \n       \nWat:  receptie"
+    out = mx._clean_extracted_text(raw)
+    # Runs van spaties → één spatie, regels rechts afgestript, lege-regel-run → één.
+    assert "Voor wie: onze leden" in out
+    assert "   " not in out
+    assert "\n\n\n" not in out
+    assert not any(line != line.strip() for line in out.splitlines())
+
+
+def test_clean_preserves_single_spaces_in_iban():
+    # Enkele spaties (bv. in een rekeningnummer) blijven behouden.
+    assert mx._clean_extracted_text("BE48 7875 5016 1327") == "BE48 7875 5016 1327"
+
+
+def test_extract_document_text_cleans_ocr_output(monkeypatch):
+    """Integratie: ruwe OCR-markdown met placeholder + witruimte komt schoon terug."""
+    monkeypatch.setattr(mx, "_extract_pdf_text_layer", lambda raw: "")
+    monkeypatch.setattr(settings, "mistral_api_key", "test-key")
+    monkeypatch.setattr(settings, "ocr_enabled", True)
+    monkeypatch.setattr(
+        mx, "_ocr_via_mistral", lambda raw, ct: "![img-0.jpeg](img-0.jpeg)\n\nKostprijs:   €5"
+    )
+    out = mx.extract_document_text(b"%PDF", "application/pdf")
+    assert out == "Kostprijs: €5"
+
+
 # ── update_media_extracted_text → chatbot_info-rij ───────────────────────────
 
 def _poster(db, activity, data=b"posterbytes", content_type="image/png"):
