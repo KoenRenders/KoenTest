@@ -70,7 +70,7 @@ TOOL_SPECS: list[dict[str, Any]] = [
             "name": "submit_idea",
             "description": (
                 "Geeft de vraag, opmerking of het idee van de bezoeker door aan "
-                "het bestuur via de IdeaBox. Gebruik dit wanneer je een vraag "
+                "het bestuur via het contactformulier. Gebruik dit wanneer je een vraag "
                 "niet met zekerheid kan beantwoorden, of wanneer de bezoeker "
                 "iets wil achterlaten. Vraag ALTIJD eerst zowel de naam ALS het "
                 "e-mailadres — beide zijn verplicht, want zonder e-mailadres kan "
