@@ -37,6 +37,7 @@ services:
       MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
       CHAT_LLM_PROVIDER: ${CHAT_LLM_PROVIDER:-auto}
       CHAT_ENABLED: ${CHAT_ENABLED:-false}
+      CHAT_MAX_INPUT_CHARS: ${CHAT_MAX_INPUT_CHARS:-2000}
       FRONTEND_URL: ${FRONTEND_URL:-http://localhost}
       PUBLIC_URL: ${PUBLIC_URL:-http://localhost}
       APP_ENV: dev
