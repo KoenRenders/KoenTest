@@ -6,15 +6,15 @@ context kan voeden en ze herbruikbaar is als alt-tekst/SEO. ``flyer_text_hash``
 is de sha256 van de posterbytes op het moment van extractie, om bij ongewijzigde
 poster geen dubbel werk (en geen OCR-kost) te doen.
 
-Revision ID: 058
-Revises: 057
+Revision ID: 059
+Revises: 058
 """
 from alembic import op
 import sqlalchemy as sa
 from sqlalchemy import inspect
 
-revision = "058"
-down_revision = "057"
+revision = "059"
+down_revision = "058"
 branch_labels = None
 depends_on = None
 
