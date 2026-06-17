@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import { streamChat, type ChatMsg } from "@/lib/api";
 
 // Zwevende chatbot 'Raakje' (#205). Tekst-first met spraakinvoer (STT) als
@@ -31,6 +32,24 @@ type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 // Hoofdschakelaar via .env (CHAT_ENABLED → build-arg NEXT_PUBLIC_CHATBOT_ENABLED).
 // Staat de bot uit, dan rendert de widget niets.
 const CHATBOT_ENABLED = process.env.NEXT_PUBLIC_CHATBOT_ENABLED === "true";
+
+// Strip markdown-opmaak voor tekst-naar-spraak (#241): anders leest de stem de
+// ruwe tekens voor ("sterretje sterretje"). Het scherm rendert wél de opmaak.
+function stripMarkdown(text: string): string {
+  return text
+    .replace(/```[\s\S]*?```/g, "")            // codeblokken
+    .replace(/`([^`]+)`/g, "$1")               // inline code
+    .replace(/!\[[^\]]*\]\([^)]*\)/g, "")       // afbeeldingen
+    .replace(/\[([^\]]+)\]\([^)]*\)/g, "$1")     // links → enkel tekst
+    .replace(/^\s{0,3}#{1,6}\s+/gm, "")          // koppen
+    .replace(/^\s*>\s?/gm, "")                   // citaten
+    .replace(/^\s*[-*+]\s+/gm, "")               // opsommingstekens
+    .replace(/^\s*\d+\.\s+/gm, "")               // genummerde lijst
+    .replace(/(\*\*|__)(.*?)\1/g, "$2")          // vet
+    .replace(/(\*|_)(.*?)\1/g, "$2")             // cursief
+    .replace(/~~(.*?)~~/g, "$1")                 // doorhaling
+    .trim();
+}
 
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
@@ -70,9 +89,10 @@ export default function ChatWidget() {
   // Tekst-naar-spraak (voorlezen) via de Web Speech API — on-device, gratis,
   // los van de LLM. nl-stem indien beschikbaar.
   function speak(text: string) {
-    if (!("speechSynthesis" in window) || !text.trim()) return;
+    const plain = stripMarkdown(text);
+    if (!("speechSynthesis" in window) || !plain.trim()) return;
     window.speechSynthesis.cancel();
-    const u = new SpeechSynthesisUtterance(text);
+    const u = new SpeechSynthesisUtterance(plain);
     u.lang = "nl-BE";
     const voice = window.speechSynthesis
       .getVoices()
@@ -266,13 +286,34 @@ function Bubble({
     <div className={isUser ? "flex justify-end" : "flex justify-start"}>
       <div
         className={
-          "max-w-[85%] rounded-2xl px-3 py-2 text-sm whitespace-pre-wrap " +
+          "max-w-[85%] rounded-2xl px-3 py-2 text-sm " +
           (isUser
-            ? "bg-blue-700 text-white rounded-br-sm"
+            ? "whitespace-pre-wrap bg-blue-700 text-white rounded-br-sm"
             : "bg-white border border-gray-200 text-gray-800 rounded-bl-sm")
         }
       >
-        {typing ? <span className="text-gray-400">Raakje typt…</span> : content}
+        {typing ? (
+          <span className="text-gray-400">Raakje typt…</span>
+        ) : isUser ? (
+          content
+        ) : (
+          // Lichte, veilige markdown-rendering (#241): react-markdown rendert geen
+          // ruwe HTML en saneert link-URL's standaard. Opmaak via descendant-
+          // varianten (geen typography-plugin nodig).
+          <div className="space-y-2 [&_a]:text-blue-700 [&_a]:underline [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5">
+            <ReactMarkdown
+              components={{
+                a: ({ href, children }) => (
+                  <a href={href} target="_blank" rel="noopener noreferrer">
+                    {children}
+                  </a>
+                ),
+              }}
+            >
+              {content}
+            </ReactMarkdown>
+          </div>
+        )}
         {!isUser && !typing && content && onSpeak && (
           <button
             onClick={() => onSpeak(content)}
