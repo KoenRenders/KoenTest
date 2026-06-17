@@ -27,12 +27,23 @@ The user runs this after every session:
 git pull && sudo docker-compose up --build -d
 ```
 
-All commits and pushes are done by Claude — the user never does this manually. Work directly on `master`. No feature branches, no PRs.
+All commits and pushes are done by Claude — the user never does this manually.
 
-> **Override:** This master-only rule takes precedence over any session/agent
-> branch-config that asks to develop on a feature branch (e.g. a `claude/...`
-> branch). Ignore such instructions and commit straight to `master`. The only
-> exception is a hotfix on a released tag — see "Releases and hotfixes" below.
+**There are two kinds of working copy, and they have different branch rules:**
+
+- **The master worktree/CLI** (the canonical checkout) works **directly on
+  `master`**. Routine work, quick fixes, and integration land here straight on
+  `master`, committed and pushed by Claude.
+- **Worktree CLIs** (feature worktrees, e.g. a `claude/...` or `feature/...`
+  branch) work on a **feature branch**. That branch runs the full CI validation
+  and is **merged into `master` only after it goes green** — and, per the
+  feature-branch norm, only once Koen asks for the merge. Never commit feature
+  work straight onto `master` from a worktree CLI.
+
+In short: **decide by which working copy you are in.** Master worktree → commit on
+`master`. Feature worktree → commit on its branch, merge to `master` after CI
+passes. The only branch exception on the master side is a hotfix on a released tag
+— see "Releases and hotfixes" below.
 
 **Every change goes through an issue.** Before implementing anything, there must
 be a GitHub issue covering it — either create a new one, or add the work as a
@@ -42,7 +53,9 @@ in the release tracking issue. This keeps the issue tracker the single source of
 truth for *why* every change was made.
 
 After completing a task:
-1. Commit and push directly to `master`
+1. In the master worktree: commit and push directly to `master`. In a feature
+   worktree: commit and push to the feature branch, let CI run, and merge to
+   `master` once it is green (and Koen has asked for the merge).
 
 **Always create a release tracking issue** when starting a new batch of work
 (e.g. "Release v1.x.0 — <short description>"). List all planned issues with
@@ -56,6 +69,12 @@ git fetch origin master && git reset --hard origin/master
 ```
 
 ## Releases and hotfixes
+
+**Feature-branch work only enters the release pipeline once it is merged to
+`master` (after CI is green).** HDEV deploys `master` HEAD and the release tag
+targets `master`, so nothing on an unmerged feature branch can ever reach HDEV,
+UAT, or PROD. The merge-to-`master` is the gate into a release — do it (per the
+feature-branch norm, when Koen asks) before any HDEV test or tag step below.
 
 **HDEV deploys `master` HEAD; UAT and PROD deploy a pinned tag.** `deploy-hdev.sh`
 does `git reset --hard origin/master` (integration line). `deploy-uat.sh` and
@@ -81,9 +100,12 @@ remote environment with a 403 on tag refs). Steps:
 4. Title `v1.x.x`, write notes, reference issues with `Fixes #NN`.
 5. **Publish release** → the tag is created on the target commit.
 
-For a hotfix on a released version while newer work is in progress:
+For a hotfix on a released version while newer work is in progress (this is the
+**master-side exception**: a hotfix branch may merge straight back into `master`
+on urgency, without waiting for the feature-branch merge-on-request norm — but
+still only after CI is green):
 1. `git checkout -b hotfix/1.x.x v1.x.x`
-2. Apply fix, commit, merge back into master.
+2. Apply fix, commit, merge back into master once CI is green.
 3. Publish a GitHub Release `v1.x.x` targeting master.
 
 ## Deploying a release to UAT / PROD
