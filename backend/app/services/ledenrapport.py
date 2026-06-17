@@ -14,8 +14,10 @@ Gedeeld tussen het CLI-script (``import_leden.py``) en het admin-upload-endpoint
 (``app/routers/member_import.py``), zodat er maar één plek is die de rapportvorm
 kent. De upsert zelf zit in :mod:`app.services.member_import`.
 
-De kolomvolgorde is identiek voor beide formaten; alleen het uitlezen van de
-cellen en de datums verschilt (Excel bewaart een serienummer, ODS een ISO-datum).
+Kolommen worden op hun **header (koptekst)** gemapt, niet op een vaste positie —
+zo breken extra of herschikte kolommen in de export de import niet (#231). Alleen
+het uitlezen van de cellen en de datums verschilt per formaat (Excel bewaart een
+serienummer, ODS een ISO-datum).
 """
 import io
 import re
@@ -41,12 +43,36 @@ RELATIE_MAP = {
 # Sorteervolgorde voor relaties binnen een gezin (hoofdlid eerst).
 RELATIE_ORDER = {"HOOFDLID": 0, "PARTNER": 1, "KIND": 2}
 
-# Aantal kolommen dat de rij-mapping verwacht (t/m kolom 15 = 'soort').
-_NUM_COLS = 16
+# ── Kolommen op naam (robuust voor extra/herschikte kolommen, #231) ───────────
+# Het Raak-Nationaal-rapport heeft een header-rij; we mappen elk veld op zijn
+# koptekst i.p.v. op een vaste positie, zodat extra of herschikte kolommen de
+# import niet meer kapotmaken. Sleutels zijn genormaliseerde (lowercase) koppen.
+_HEADER_ALIASES: dict[str, set[str]] = {
+    "lidnr":         {"lidnummer"},
+    "voornaam":      {"voornaam"},
+    "naam":          {"naam"},
+    "straat":        {"straat"},
+    "huisnummer":    {"huisnummer"},
+    "busnummer":     {"busnummer"},
+    "postcode":      {"postcode"},
+    "gemeente":      {"gemeente"},
+    "email":         {"e-mail adres", "e-mailadres", "email", "e-mail"},
+    "telefoon":      {"telefoon"},
+    "gsm":           {"gsm"},
+    "geboortedatum": {"geboortedatum"},
+    "geslacht":      {"geslacht"},
+    "bestuurslid":   {"verantwoordelijk bestuurslid2", "verantwoordelijk bestuurslid", "bestuurslid"},
+    "soort":         {"soort lid", "soort"},
+}
+# Verplicht aanwezig om een geldige header-rij te zijn (en voor een correcte import).
+_REQUIRED_FIELDS = {
+    "lidnr", "voornaam", "naam", "straat", "huisnummer", "postcode",
+    "gemeente", "geboortedatum", "soort",
+}
 
 
 def normalize(s: str) -> str:
-    """Verwijder overbodige spaties en zet om naar lowercase."""
+    """Verwijder overbodige spaties (geen lowercasing — dat doen de callers zelf)."""
     return re.sub(r"\s+", " ", str(s).strip()).strip()
 
 
@@ -66,37 +92,77 @@ def clean_phone(v: str) -> str | None:
     return v if v else None
 
 
-def _row_from_values(v: list) -> dict:
-    """Bouw één genormaliseerde rij-dict uit een lijst celwaarden.
+def _xls_str(v) -> str:
+    """Celwaarde → string; een geheel float (lidnummer/postcode/huisnr) zonder '.0'."""
+    if isinstance(v, float) and v.is_integer():
+        return str(int(v))
+    return "" if v is None else str(v)
 
-    ``v`` is format-onafhankelijk: ``v[11]`` (geboortedatum) is door de
-    format-specifieke reader al naar een ``date | None`` omgezet; de overige
-    cellen zijn ruwe waarden. De lijst is minstens ``_NUM_COLS`` lang (gepad).
-    """
+
+def _build_colmap(header_texts: list[str]) -> dict[str, int]:
+    """Map veld → kolomindex door elke koptekst (genormaliseerd + lowercase) tegen
+    de aliassen te leggen. Bevat enkel de gevonden velden (exacte match)."""
+    norm = [normalize(h).lower() for h in header_texts]
+    colmap: dict[str, int] = {}
+    for field, aliases in _HEADER_ALIASES.items():
+        for i, h in enumerate(norm):
+            if h in aliases:
+                colmap[field] = i
+                break
+    return colmap
+
+
+def _locate_header(text_rows: list[list[str]]) -> tuple[dict[str, int], int]:
+    """Vind de header-rij (eerste rij met álle verplichte kolommen) en geef
+    (colmap, index van de eerste datarij) terug. Duidelijke fout als de header
+    ontbreekt of een verplichte kolom hernoemd is."""
+    best_score, best_map = -1, {}
+    for i, row in enumerate(text_rows):
+        colmap = _build_colmap(row)
+        score = len(_REQUIRED_FIELDS & colmap.keys())
+        if score > best_score:
+            best_score, best_map = score, colmap
+        if score == len(_REQUIRED_FIELDS):
+            return colmap, i + 1
+    if best_score >= 4:
+        missing = ", ".join(sorted(_REQUIRED_FIELDS - best_map.keys()))
+        raise ValueError(
+            "Header-rij gevonden maar verplichte kolommen ontbreken of zijn "
+            f"hernoemd: {missing}. Verwacht o.a. 'Lidnummer', 'Soort lid', 'Geboortedatum'."
+        )
+    raise ValueError(
+        "Geen header-rij met de verwachte kolommen gevonden; is dit een "
+        "Raak-Nationaal-ledenrapport (.xls/.ods)?"
+    )
+
+
+def _row_from_cells(cells: list, colmap: dict[str, int], *, to_text, to_date) -> dict:
+    """Bouw één genormaliseerde rij-dict door per veld de juiste kolom te lezen
+    (op naam, via ``colmap``). ``to_text``/``to_date`` zijn format-specifiek."""
+    def g(field: str) -> str:
+        i = colmap.get(field)
+        return to_text(cells[i]) if i is not None and i < len(cells) else ""
+
+    gb_i = colmap.get("geboortedatum")
+    geboortedatum = to_date(cells[gb_i]) if gb_i is not None and gb_i < len(cells) else None
+
     return {
-        "lidnr":         str(v[0]).strip(),
-        "voornaam":      normalize(v[1]),
-        "naam":          normalize(v[2]),
-        "straat":        normalize(v[3]),
-        "huisnummer":    normalize(v[4]),
-        "busnummer":     normalize(v[5]),
-        "postcode":      str(v[6]).strip(),
-        "gemeente":      normalize(v[7]),
-        "email":         normalize(v[8]).lower() or None,
-        "telefoon":      clean_phone(str(v[9])),
-        "gsm":           clean_phone(str(v[10])),
-        "geboortedatum": v[11],                       # reeds date | None
-        "geslacht":      parse_gender(str(v[12])),
-        "bestuurslid":   normalize(v[13]) or None,    # "NAAM Voornaam"
-        "soort":         normalize(v[15]).lower(),    # lid / partner / kind
+        "lidnr":         g("lidnr").strip(),
+        "voornaam":      normalize(g("voornaam")),
+        "naam":          normalize(g("naam")),
+        "straat":        normalize(g("straat")),
+        "huisnummer":    normalize(g("huisnummer")),
+        "busnummer":     normalize(g("busnummer")),
+        "postcode":      g("postcode").strip(),
+        "gemeente":      normalize(g("gemeente")),
+        "email":         normalize(g("email")).lower() or None,
+        "telefoon":      clean_phone(g("telefoon")),
+        "gsm":           clean_phone(g("gsm")),
+        "geboortedatum": geboortedatum,
+        "geslacht":      parse_gender(g("geslacht")),
+        "bestuurslid":   normalize(g("bestuurslid")) or None,
+        "soort":         normalize(g("soort")).lower(),   # lid / partner / kind
     }
-
-
-def _pad(values: list, n: int) -> list:
-    """Pad een rij tot minstens ``n`` cellen met lege strings."""
-    if len(values) >= n:
-        return values
-    return list(values) + [""] * (n - len(values))
 
 
 # ── Excel (.xls) ─────────────────────────────────────────────────────────────
@@ -113,15 +179,19 @@ def _xls_date(serial, datemode: int) -> date | None:
 
 def _rows_from_xls(content: bytes) -> list[dict]:
     wb = xlrd.open_workbook(file_contents=content)
-    sh = wb.sheet_by_name("Sheet1")
+    sh = wb.sheet_by_index(0)
+    raw_rows = [[sh.cell_value(r, c) for c in range(sh.ncols)] for r in range(sh.nrows)]
+    text_rows = [[_xls_str(v) for v in row] for row in raw_rows]
+    colmap, data_start = _locate_header(text_rows)
+
+    def to_date(v):
+        return _xls_date(v, wb.datemode)
+
     rows = []
-    for r in range(4, sh.nrows):
-        raw = [sh.cell_value(r, c) for c in range(sh.ncols)]
-        if not str(raw[0]).strip():
-            continue
-        vals = _pad(list(raw), _NUM_COLS)
-        vals[11] = _xls_date(raw[11] if len(raw) > 11 else None, wb.datemode)
-        rows.append(_row_from_values(vals))
+    for raw in raw_rows[data_start:]:
+        row = _row_from_cells(raw, colmap, to_text=_xls_str, to_date=to_date)
+        if row["lidnr"]:            # lege/voet-rijen overslaan
+            rows.append(row)
     return rows
 
 
@@ -163,7 +233,7 @@ def _ods_expand_cells(tr) -> list:
     out: list = []
     for c in tr.getElementsByType(TableCell):
         rep = c.getAttrNS(TABLENS, "number-columns-repeated")
-        n = min(int(rep), 64) if rep else 1   # cap: ons blad heeft 16 kolommen
+        n = min(int(rep), 128) if rep else 1   # cap tegen enorme herhaal-runs
         out.extend([c] * n)
     return out
 
@@ -186,18 +256,15 @@ def _rows_from_ods(content: bytes) -> list[dict]:
     from odf.table import TableRow
     doc = load(io.BytesIO(content))
     sheet = _find_ods_sheet(doc)
+    cell_rows = [_ods_expand_cells(tr) for tr in sheet.getElementsByType(TableRow)]
+    text_rows = [[_ods_cell_text(c) for c in cells] for cells in cell_rows]
+    colmap, data_start = _locate_header(text_rows)
+
     rows = []
-    for i, tr in enumerate(sheet.getElementsByType(TableRow)):
-        if i < 4:                       # zelfde 4 kop-rijen als bij .xls
-            continue
-        cells = _ods_expand_cells(tr)
-        if not cells or not _ods_cell_text(cells[0]).strip():
-            continue
-        vals = []
-        for idx in range(_NUM_COLS):
-            cell = cells[idx] if idx < len(cells) else None
-            vals.append(_ods_date(cell) if idx == 11 else _ods_cell_text(cell))
-        rows.append(_row_from_values(vals))
+    for cells in cell_rows[data_start:]:
+        row = _row_from_cells(cells, colmap, to_text=_ods_cell_text, to_date=_ods_date)
+        if row["lidnr"]:            # lege/voet-rijen overslaan
+            rows.append(row)
     return rows
 
 
