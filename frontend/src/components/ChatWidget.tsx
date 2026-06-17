@@ -58,6 +58,7 @@ export default function ChatWidget() {
   const [busy, setBusy] = useState(false);
   const [listening, setListening] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const recRef = useRef<SpeechRecognitionLike | null>(null);
   const ctorRef = useRef<SpeechRecognitionCtor | null>(null);
   const [sttSupported, setSttSupported] = useState(false);
@@ -67,6 +68,15 @@ export default function ChatWidget() {
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages, open]);
+
+  // Meegroeiende invoerbox (#252): de hoogte volgt de inhoud, tot een maximum
+  // (daarna scrollt het). Bij het legen na verzenden gaat hij terug naar één regel.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight, 120) + "px";
+  }, [input]);
 
   // Feature-detectie van de Web Speech API (alleen client-side).
   useEffect(() => {
@@ -148,13 +158,16 @@ export default function ChatWidget() {
     recRef.current?.stop();
 
     const history: ChatMsg[] = [...messages, { role: "user", content: text }];
+    // Sliding window (#251): stuur enkel de recentste berichten mee (server-cap 20),
+    // zodat een lang gesprek niet tegen de limiet loopt. De weergave blijft volledig.
+    const toSend = history.slice(-20);
     setMessages([...history, { role: "assistant", content: "" }]);
     setInput("");
     setBusy(true);
 
     try {
       let answer = "";
-      for await (const delta of streamChat(history)) {
+      for await (const delta of streamChat(toSend)) {
         answer += delta;
         setMessages([...history, { role: "assistant", content: answer }]);
       }
@@ -248,7 +261,8 @@ export default function ChatWidget() {
               </button>
             )}
             <textarea
-              className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 max-h-28"
+              ref={inputRef}
+              className="flex-1 resize-none overflow-y-auto border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               rows={1}
               placeholder={listening ? "Aan het luisteren…" : "Typ je vraag…"}
               value={input}

@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator
 
 from app.config import settings
 
@@ -19,8 +19,11 @@ class ChatMessage(BaseModel):
 
     @field_validator("content")
     @classmethod
-    def _cap_length(cls, v: str) -> str:
-        if len(v) > settings.chat_max_input_chars:
+    def _cap_length(cls, v: str, info: ValidationInfo) -> str:
+        # De cap geldt enkel voor wat de BEZOEKER typt. Historische bot-antwoorden
+        # mogen langer zijn — anders blokkeert één lang antwoord in de geschiedenis
+        # het hele gesprek met een 422 (zie #251).
+        if info.data.get("role") == "user" and len(v) > settings.chat_max_input_chars:
             raise ValueError(
                 f"Bericht is te lang (max {settings.chat_max_input_chars} tekens). "
                 "Stel je vraag korter."

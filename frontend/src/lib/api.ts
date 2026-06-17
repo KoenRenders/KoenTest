@@ -343,7 +343,13 @@ export async function* streamChat(
     let detail = "Er ging iets mis. Probeer het later opnieuw.";
     try {
       const data = await res.json();
-      if (typeof data?.detail === "string") detail = data.detail;
+      if (typeof data?.detail === "string") {
+        detail = data.detail;
+      } else if (Array.isArray(data?.detail) && typeof data.detail[0]?.msg === "string") {
+        // Pydantic-validatiefout (422): detail is een lijst. Toon de eerste reden,
+        // zonder het "Value error, "-voorvoegsel.
+        detail = data.detail[0].msg.replace(/^Value error,\s*/, "");
+      }
     } catch {
       /* geen JSON-body */
     }

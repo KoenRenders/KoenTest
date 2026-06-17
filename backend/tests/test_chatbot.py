@@ -203,6 +203,33 @@ def test_system_prompt_includes_today(db_session):
     assert "Bereken zelf geen concrete datums" in prompt
 
 
+# ── Vorm-validatie: cap enkel op bezoeker-berichten (#251) ───────────────────
+
+def test_long_assistant_message_in_history_is_allowed():
+    """Een lang bot-antwoord in de geschiedenis mag — anders blokkeert één lang
+    antwoord het hele gesprek met een 422."""
+    from app.schemas.chat import ChatRequest
+
+    req = ChatRequest(
+        messages=[
+            {"role": "user", "content": "hoi"},
+            {"role": "assistant", "content": "a" * 5000},
+            {"role": "user", "content": "en nu?"},
+        ]
+    )
+    assert len(req.messages) == 3
+
+
+def test_long_user_message_is_rejected():
+    import pytest
+    from pydantic import ValidationError
+
+    from app.schemas.chat import ChatRequest
+
+    with pytest.raises(ValidationError):
+        ChatRequest(messages=[{"role": "user", "content": "a" * 5000}])
+
+
 # ── HTTP-vangrails op /api/v1/chat ───────────────────────────────────────────
 
 def test_message_over_cap_is_rejected_422(client):
