@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import {
   getFamilies, getFamily, createMembership, deleteMembership, deleteFamily,
   addPersonToFamily, assignBoardMember, listPersons,
@@ -39,9 +39,17 @@ export default function AdminLeden() {
   const [showAddPerson, setShowAddPerson] = useState(false);
   const [newPersonForm, setNewPersonForm] = useState<PersonInput>(emptyPerson("PARTNER"));
 
-  function loadFamilies() {
-    getFamilies().then((r) => setFamilies(r.data.items)).catch(() => {});
-  }
+  // Zoek + paginatie (#233): de lijst is server-side gepagineerd, dus we zoeken
+  // server-side zodat ook leden buiten de huidige pagina vindbaar zijn.
+  const [q, setQ] = useState("");
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  const loadFamilies = useCallback(() => {
+    return getFamilies({ page, q: q.trim() || undefined })
+      .then((r) => { setFamilies(r.data.items); setTotalPages(r.data.total_pages || 1); })
+      .catch(() => {});
+  }, [page, q]);
 
   async function loadFamily(id: number) {
     const r = await getFamily(id);
@@ -49,12 +57,17 @@ export default function AdminLeden() {
   }
 
   useEffect(() => {
-    loadFamilies();
     listPersons().then((r) => setAllPersons(r.data)).catch(() => {});
     getGenderCodes().then((r) => setGenderCodes(r.data)).catch(() => {});
     getRelationTypes().then((r) => setRelationTypes(r.data)).catch(() => {});
     fetch("/api/v1/postal-codes").then((r) => r.json()).then(setPostalCodes).catch(() => {});
   }, []);
+
+  // Gezinnen (her)laden bij wijziging van pagina of zoekterm (zoek licht gedebounced).
+  useEffect(() => {
+    const t = setTimeout(loadFamilies, q ? 250 : 0);
+    return () => clearTimeout(t);
+  }, [loadFamilies, q]);
 
   async function handleDeleteFamily(id: number) {
     if (!confirm("Verwijder dit gezin en alle gezinsleden?")) return;
@@ -213,6 +226,13 @@ export default function AdminLeden() {
       {/* Gezinnenlijst */}
       <div className="md:w-64 shrink-0">
         <h1 className="text-2xl font-bold text-blue-800 mb-4">Leden</h1>
+        <input
+          type="search"
+          placeholder="Zoek op naam of e-mail…"
+          className="input text-sm mb-3 w-full"
+          value={q}
+          onChange={(e) => { setQ(e.target.value); setPage(1); }}
+        />
         <div className="space-y-2">
           {families.map((f) => {
             const primary = f.members.find(isHoofdlid) ?? f.members[0];
@@ -229,6 +249,25 @@ export default function AdminLeden() {
           })}
           {families.length === 0 && <p className="text-sm text-gray-500">Geen gezinnen gevonden.</p>}
         </div>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between mt-3 text-sm">
+            <button
+              className="px-2 py-1 rounded border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              disabled={page <= 1}
+            >
+              ← Vorige
+            </button>
+            <span className="text-gray-500">pagina {page} van {totalPages}</span>
+            <button
+              className="px-2 py-1 rounded border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
+              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              disabled={page >= totalPages}
+            >
+              Volgende →
+            </button>
+          </div>
+        )}
       </div>
 
       {/* Detail */}

@@ -77,7 +77,8 @@ export const deleteProduct = (activityId: number, componentId: number, productId
   api.delete(`/api/v1/activities/${activityId}/components/${componentId}/products/${productId}`);
 
 // Families
-export const getFamilies = () => api.get("/api/v1/families");
+export const getFamilies = (params?: { page?: number; page_size?: number; q?: string }) =>
+  api.get("/api/v1/families", { params });
 export const getFamily = (id: number) => api.get(`/api/v1/families/${id}`);
 export const createFamily = (data: unknown) => api.post("/api/v1/families", data);
 export const updateFamily = (id: number, data: unknown) => api.put(`/api/v1/families/${id}`, data);
