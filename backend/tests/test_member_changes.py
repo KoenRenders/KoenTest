@@ -45,6 +45,20 @@ def test_member_changes_lists_recent_changes(client, db_session, admin_headers):
     assert "An" in person_row["summary"]
 
 
+def test_change_summaries_have_no_raw_ids(client, db_session, admin_headers):
+    """De Details-kolom toont geen nietszeggende #ID's meer; een adres toont de
+    gemeente i.p.v. een postcode-id."""
+    _create_family(client, db_session)
+    rows = client.get("/api/v1/admin/member-changes",
+                      params={"since": date.today().isoformat()}, headers=admin_headers).json()
+    summaries = " | ".join(r["summary"] for r in rows)
+    assert "persoon #" not in summaries
+    assert "gezin #" not in summaries
+    assert "postcode-id" not in summaries
+    adres = next(r for r in rows if r["entity"] == "Adres")
+    assert "2400 Mol" in adres["summary"]
+
+
 def test_member_changes_respects_since_date(client, db_session, admin_headers):
     _create_family(client, db_session)
     tomorrow = (date.today() + timedelta(days=1)).isoformat()

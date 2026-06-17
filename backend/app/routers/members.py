@@ -6,7 +6,7 @@ from typing import List, Optional
 logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
-from sqlalchemy import and_, func
+from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_admin
@@ -192,11 +192,33 @@ def create_membership(
 def list_families(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
+    q: Optional[str] = Query(None, description="Zoek op naam of e-mail van een gezinslid"),
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    total = db.query(Member).count()
-    families = db.query(Member).order_by(Member.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    query = db.query(Member)
+    if q and q.strip():
+        # Server-side zoeken over álle leden (niet enkel de geladen pagina): match
+        # op voornaam/achternaam/volledige naam of e-mail van een gezinslid (#233).
+        like = f"%{q.strip()}%"
+        match_ids = (
+            db.query(MemberPerson.member_id)
+            .join(Person, Person.id == MemberPerson.person_id)
+            .outerjoin(ContactDetail, and_(
+                ContactDetail.person_id == Person.id,
+                ContactDetail.contact_type_code == "EMAIL",
+            ))
+            .filter(or_(
+                func.concat(Person.first_name, " ", Person.last_name).ilike(like),
+                Person.first_name.ilike(like),
+                Person.last_name.ilike(like),
+                ContactDetail.value.ilike(like),
+            ))
+            .distinct()
+        )
+        query = query.filter(Member.id.in_(match_ids))
+    total = query.count()
+    families = query.order_by(Member.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     result = [_build_family_response(m) for m in families]
     return PaginatedFamiliesResponse(
         items=result,

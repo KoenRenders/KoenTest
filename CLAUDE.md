@@ -212,8 +212,16 @@ per commit on GitHub.
   CI-run op (`backend-tests.yml`) en noteert in het release-issue de **run-id +
   link** en de **pytest-samenvatting** (`N passed`). De CI draait tegen een echte
   Postgres 16 — dat is het bewijs dat de suite groen was, niet een lokale claim.
-- **Per issue twee checkboxes** in het release-issue: implementatie (door Claude
-  afgevinkt) en **"getest op HDEV door Koen"** (door Koen afgevinkt).
+- **Release-tracker format — één checkbox per issue.** Elk issue staat als één
+  regel `- [ ] #NN (korte omschrijving)`. **NIET** twee checkboxes per issue, en
+  de zin **"getest op HDEV door Koen" hoort NERGENS** in een issue of tracker.
+  Claude **sluit** elk geïmplementeerd issue zelf zodra CI groen is — met een
+  afsluit-comment dat beschrijft wat gerealiseerd is + hoe te testen op HDEV. De
+  ene checkbox in het tracker-issue staat voor Koens HDEV-validatie en vinkt
+  **Koen zelf** af (nooit Claude). Eén intro-zin volstaat: *"De checkbox hieronder
+  vink jij af zodra je het op HDEV gevalideerd hebt."* Geen
+  "PR groen / gemerged naar master"-ruis in de issuelijst — CI-evidence (run-id +
+  `N passed`) mag in een aparte sectie van het tracker-issue.
 
 
 ## Backend architecture (FastAPI + SQLAlchemy)

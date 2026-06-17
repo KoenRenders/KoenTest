@@ -96,6 +96,30 @@ def test_product_delete_blocked_while_items_exist(db_session):
             db_session.flush()
 
 
+# ── #97: RESTRICT op member_persons.person_id ───────────────────────────────
+
+def test_person_delete_blocked_while_member_link_exists(db_session):
+    """Een persoon met een gezinskoppeling mag niet hard verdwijnen: dat zou
+    member_persons-rijen wezen (RESTRICT — DB als laatste vangnet, migr. 058).
+    De app hard-delete nooit een persoon (soft-delete #166); deze test bewijst
+    dat een direct ``DELETE`` op de DB toch geweigerd wordt."""
+    from sqlalchemy import text
+    from app.models.member import MemberPerson
+    from tests.conftest import create_test_member, create_test_person
+
+    member = create_test_member(db_session)
+    person = create_test_person(db_session)
+    db_session.add(MemberPerson(
+        member_id=member.id, person_id=person.id, relation_type="HOOFDLID",
+    ))
+    db_session.flush()
+
+    # Raw DELETE: omzeilt ORM-cascades en raakt rechtstreeks de FK-constraint.
+    with pytest.raises(IntegrityError):
+        with db_session.begin_nested():
+            db_session.execute(text("DELETE FROM persons WHERE id = :id"), {"id": person.id})
+
+
 # ── #98: optionele hardening ────────────────────────────────────────────────
 
 def test_sub_registration_max_participants_positive(db_session):

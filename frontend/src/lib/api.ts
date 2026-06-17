@@ -77,7 +77,8 @@ export const deleteProduct = (activityId: number, componentId: number, productId
   api.delete(`/api/v1/activities/${activityId}/components/${componentId}/products/${productId}`);
 
 // Families
-export const getFamilies = () => api.get("/api/v1/families");
+export const getFamilies = (params?: { page?: number; page_size?: number; q?: string }) =>
+  api.get("/api/v1/families", { params });
 export const getFamily = (id: number) => api.get(`/api/v1/families/${id}`);
 export const createFamily = (data: unknown) => api.post("/api/v1/families", data);
 export const updateFamily = (id: number, data: unknown) => api.put(`/api/v1/families/${id}`, data);
@@ -141,6 +142,40 @@ export const uploadMedia = (
 export const updateMedia = (id: number, data: Partial<MediaAsset>) =>
   api.patch<MediaAsset>(`/api/v1/admin/media/${id}`, data);
 export const deleteMedia = (id: number) => api.delete(`/api/v1/admin/media/${id}`);
+
+// Ledenrapport-import (#170): upload .xls/.ods → dry-run preview → bevestigen.
+export interface MemberImportReport {
+  new_families: number;
+  updated_families: number;
+  persons_added: number;
+  persons_updated: number;
+  persons_removed: number;
+  persons_revived: number;
+  memberships_created: number;
+  admins_created: number;
+  skipped: number;
+  warnings: string[];
+  lines: string[];
+}
+export interface MemberImportResult {
+  selected_families: number;
+  total_persons: number;
+  report: MemberImportReport;
+}
+export interface MemberImportPreview extends MemberImportResult {
+  token: string;
+  load_all: boolean;
+}
+export const memberImportPreview = (file: File, allMembers = false) => {
+  const fd = new FormData();
+  fd.append("file", file);
+  fd.append("all_members", String(allMembers));
+  return api.post<MemberImportPreview>("/api/v1/admin/member-import/preview", fd, {
+    headers: { "Content-Type": "multipart/form-data" },
+  });
+};
+export const memberImportCommit = (token: string) =>
+  api.post<MemberImportResult>("/api/v1/admin/member-import/commit", { token });
 
 // Poster (activiteit) en info/reglement (onderdeel): één bestand, afbeelding of PDF (#223).
 function _fileForm(file: File) {

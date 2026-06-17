@@ -55,6 +55,10 @@
       "Bash(date:*)",
       "Bash(curl:*)",
       "Bash(dig:*)",
+      "Bash(/tmp/*/bin/python *)",
+      "Bash(/tmp/*/bin/pip *)",
+      "Bash(PYTHONPATH=* python3 *)",
+      "Bash(PYTHONPATH=* /tmp/*/bin/python *)",
       "Skill(update-config)"
     ]
   }
