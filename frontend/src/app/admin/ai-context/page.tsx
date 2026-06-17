@@ -203,19 +203,21 @@ function CmsCard({
 
   return (
     <div className="card">
-      <div className="flex items-center justify-between mb-2">
+      <div className="mb-2">
         <span className="font-medium">{page.title}</span>
-        <ActiveToggle checked={active} onChange={setActive} label="Mee naar Raakje" />
       </div>
       <label className="label text-xs">Override (vervangt de pagina-inhoud voor de bot)</label>
       <textarea className="input mb-2" rows={2} value={override} onChange={(e) => setOverride(e.target.value)} placeholder="Leeg = de bot gebruikt de gewone pagina-inhoud" />
       <label className="label text-xs">Aanvulling (extra info voor de bot)</label>
       <textarea className="input mb-2" rows={2} value={addition} onChange={(e) => setAddition(e.target.value)} />
-      <div className="flex items-center gap-2 justify-end">
-        {info && (
-          <button className="btn-secondary btn-sm" onClick={reset} disabled={busy}>Herstel naar standaard</button>
-        )}
-        <button className="btn-primary btn-sm" onClick={save} disabled={busy}>Bewaar</button>
+      <div className="flex items-center justify-between gap-2">
+        <ActiveToggle checked={active} onChange={setActive} label="Mee naar Raakje" />
+        <div className="flex items-center gap-2">
+          {info && (
+            <button className="btn-secondary btn-sm" onClick={reset} disabled={busy}>Herstel naar standaard</button>
+          )}
+          <button className="btn-primary btn-sm" onClick={save} disabled={busy}>Bewaar</button>
+        </div>
       </div>
     </div>
   );
@@ -256,7 +258,7 @@ function NoteCard({ note, onReload }: { note: ChatbotInfoRow; onReload: () => vo
       <input className="input mb-2" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Titel" />
       <textarea className="input mb-2" rows={3} value={text} onChange={(e) => setText(e.target.value)} />
       <div className="flex items-center justify-between">
-        <ActiveToggle checked={active} onChange={setActive} label="Actief" />
+        <ActiveToggle checked={active} onChange={setActive} label="Mee naar Raakje" />
         <div className="flex gap-2">
           <button className="btn-danger btn-sm" onClick={remove} disabled={busy}>Verwijder</button>
           <button className="btn-primary btn-sm" onClick={save} disabled={busy}>Bewaar</button>
