@@ -127,9 +127,22 @@ def _collect_sse(text: str) -> str:
     return "".join(parts)
 
 
+def test_chat_disabled_returns_404(client, monkeypatch):
+    """Hoofdschakelaar uit (default) → het endpoint bestaat 'niet'."""
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "chat_enabled", False)
+    r = client.post(
+        "/api/v1/chat",
+        json={"messages": [{"role": "user", "content": "Hallo"}]},
+    )
+    assert r.status_code == 404
+
+
 def test_chat_endpoint_mock_simple_answer(client, monkeypatch):
     from app.config import settings
 
+    monkeypatch.setattr(settings, "chat_enabled", True)
     monkeypatch.setattr(settings, "chat_llm_provider", "mock")
     r = client.post(
         "/api/v1/chat",
@@ -143,6 +156,7 @@ def test_chat_endpoint_mock_simple_answer(client, monkeypatch):
 def test_chat_endpoint_mock_runs_tool_loop(client, db_session, monkeypatch):
     from app.config import settings
 
+    monkeypatch.setattr(settings, "chat_enabled", True)
     monkeypatch.setattr(settings, "chat_llm_provider", "mock")
     # Een activiteit zodat de tool data heeft.
     _activity(db_session, "Quiz", date.today() + timedelta(days=5))

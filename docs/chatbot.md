@@ -189,6 +189,19 @@ Een andere provider (Ionos, Infomaniak, self-hosted open model) inschuiven raakt
 `CHAT_LLM_PROVIDER=auto` kiest Mistral zodra er een `MISTRAL_API_KEY` staat, anders
 de kosteloze mock.
 
+## Aan/uit-schakelaar (`CHAT_ENABLED`)
+
+Eén `.env`-variabele **`CHAT_ENABLED`** (standaard `false`) zet de hele chatbot
+aan of uit — backend én frontend:
+- Backend: `settings.chat_enabled`; staat hij uit, dan geeft `POST /api/v1/chat`
+  een **404** (alsof het endpoint niet bestaat).
+- Frontend: via de compose-build-arg `NEXT_PUBLIC_CHATBOT_ENABLED` (gevoed uit
+  dezelfde `CHAT_ENABLED`); de `ChatWidget` rendert dan **niets**.
+
+Zo kan de code mee naar PROD zonder dat de bot live is; aanzetten zodra de
+`MISTRAL_API_KEY` staat en de boel op HDEV gevalideerd is. (Frontend-flag is
+build-time → een rebuild zet hem live, wat een deploy toch al doet.)
+
 ## Security-grens
 
 De bot kan **uitsluitend** de 3 tools in de allowlist aanroepen — twee publieke

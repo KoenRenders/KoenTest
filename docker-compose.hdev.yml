@@ -35,6 +35,7 @@ services:
       MOLLIE_API_KEY: ${MOLLIE_API_KEY:-}
       MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
       CHAT_LLM_PROVIDER: ${CHAT_LLM_PROVIDER:-auto}
+      CHAT_ENABLED: ${CHAT_ENABLED:-false}
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL ontbreekt in .env.hdev}
       PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL ontbreekt in .env.hdev}
       APP_ENV: hdev
@@ -54,6 +55,7 @@ services:
       context: ./frontend
       args:
         NEXT_PUBLIC_APP_ENV: hdev
+        NEXT_PUBLIC_CHATBOT_ENABLED: ${CHAT_ENABLED:-false}
         NEXT_PUBLIC_ENV_COLOR: ${ENV_COLOR:-#15803D}
         # Umami web-analytics (#152, laag 1). Leeg = tracker laadt niet (no-op).
         # Vul NEXT_PUBLIC_UMAMI_WEBSITE_ID pas in nadat je in Umami een website hebt

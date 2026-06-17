@@ -28,6 +28,10 @@ type SpeechResultEvent = {
 };
 type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 
+// Hoofdschakelaar via .env (CHAT_ENABLED → build-arg NEXT_PUBLIC_CHATBOT_ENABLED).
+// Staat de bot uit, dan rendert de widget niets.
+const CHATBOT_ENABLED = process.env.NEXT_PUBLIC_CHATBOT_ENABLED === "true";
+
 export default function ChatWidget() {
   const [open, setOpen] = useState(false);
   const [messages, setMessages] = useState<ChatMsg[]>([]);
@@ -127,6 +131,9 @@ export default function ChatWidget() {
       send();
     }
   }
+
+  // Na alle hooks (React-regel), zodat de schakelaar de hook-volgorde niet breekt.
+  if (!CHATBOT_ENABLED) return null;
 
   return (
     <>

@@ -11,7 +11,7 @@ We draaien de tool-loop af en streamen daarna het eindantwoord in stukjes
 import json
 import logging
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 
@@ -42,6 +42,10 @@ def chat(
     request: Request,
     db: Session = Depends(get_db),
 ):
+    # Hoofdschakelaar (CHAT_ENABLED in .env). Uit → endpoint bestaat 'niet'.
+    if not settings.chat_enabled:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Niet gevonden")
+
     # Dagbudget: tel enkel wat de bezoeker zelf typte (user-berichten).
     typed = sum(len(m.content) for m in data.messages if m.role == "user")
     chat_char_budget.charge(request, typed)

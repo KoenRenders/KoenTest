@@ -32,6 +32,9 @@ class Settings(BaseSettings):
     # Chatbot 'Raakje' (#205). LLM-provider zit achter een swapbaar laagje.
     # chat_llm_provider: 'auto' (Mistral zodra er een key staat, anders mock),
     # 'mistral' (forceer), of 'mock' (afhankelijkheidsvrij, CI/lokaal).
+    # chat_enabled: hoofdschakelaar. Standaard UIT → de code mag mee naar PROD
+    # zonder dat de bot live is; aanzetten zodra key + HDEV-validatie klaar zijn.
+    chat_enabled: bool = False
     mistral_api_key: Optional[str] = None
     chat_llm_provider: str = "auto"
     chat_model: str = "mistral-small-latest"  # = Mistral Small 4
