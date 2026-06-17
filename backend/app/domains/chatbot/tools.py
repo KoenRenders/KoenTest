@@ -69,8 +69,8 @@ TOOL_SPECS: list[dict[str, Any]] = [
         "function": {
             "name": "submit_idea",
             "description": (
-                "Geeft de vraag, opmerking of het idee van de bezoeker door aan "
-                "het bestuur via het contactformulier. Gebruik dit wanneer je een vraag "
+                "Bezorgt de vraag, opmerking of het idee van de bezoeker via het "
+                "contactformulier. Gebruik dit wanneer je een vraag "
                 "niet met zekerheid kan beantwoorden, of wanneer de bezoeker "
                 "iets wil achterlaten. Vraag ALTIJD eerst zowel de naam ALS het "
                 "e-mailadres — beide zijn verplicht, want zonder e-mailadres kan "
@@ -284,7 +284,7 @@ def submit_idea(
 
     return {
         "ok": True,
-        "message": "Je bericht is doorgegeven aan het bestuur. Je krijgt een bevestiging per e-mail.",
+        "message": "Je bericht is doorgegeven. Je krijgt een bevestiging per e-mail.",
     }
 
 

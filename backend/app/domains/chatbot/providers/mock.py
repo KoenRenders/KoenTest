@@ -76,7 +76,7 @@ def _format_tool_result(name: str, content: str) -> Optional[str]:
     if name == "get_activity_detail":
         return _format_detail(data)
     if name == "submit_idea":
-        return data.get("message") or "Je bericht is doorgegeven aan het bestuur."
+        return data.get("message") or "Je bericht is doorgegeven."
     return None
 
 

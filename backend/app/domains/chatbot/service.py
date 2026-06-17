@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 
 _FALLBACK = (
     "Sorry, dat lukt me even niet. Wil je het anders formuleren, of zal ik je "
-    "vraag doorgeven aan het bestuur?"
+    "vraag doorgeven?"
 )
 
 
