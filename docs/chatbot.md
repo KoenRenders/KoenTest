@@ -5,6 +5,49 @@ juiste activiteit begeleidt, en hen via de bestaande IdeaBox een vraag/idee laat
 achterlaten. Dit document legt uit **hoe data van ons systeem bij het taalmodel
 komt** en waar de grenzen liggen.
 
+## Schema — hoe de chat werkt
+
+Architectuur op hoog niveau (de browser praat nooit rechtstreeks met Mistral; de
+API-sleutel staat serverside):
+
+```mermaid
+flowchart LR
+    U[Bezoeker] -->|tekst/STT| W[ChatWidget<br/>SSE]
+    W -->|POST /api/v1/chat| R[Backend-router<br/>chat.py<br/>key serverside]
+    R --> G[Vangrails<br/>rate-limit · dagbudget · 2000-tekens]
+    G --> S[Tool-loop<br/>service.py]
+    S -->|prompt: persona + CMS + tools| P[Provider-naad<br/>providers/]
+    P -->|Mistral Small 4| M[(Mistral API<br/>EU)]
+    P -. swapbaar .-> ALT[Mock / Ionos /<br/>Infomaniak / self-hosted]
+    S -->|tool-call| T[Tools = security-grens<br/>get_upcoming_activities<br/>get_activity_detail<br/>submit_idea]
+    T --> DB[(Onze DB<br/>publieke data + idee)]
+    M -->|antwoord/tool-keuze| S
+    S -->|SSE-stream| W
+```
+
+Eén chatbeurt met de tool-lus (max 4 rondes), schematisch:
+
+```mermaid
+sequenceDiagram
+    participant W as ChatWidget
+    participant R as Backend (chat.py)
+    participant L as Mistral Small 4
+    participant T as Tools (DB)
+    W->>R: POST /api/v1/chat (geschiedenis + vraag)
+    R->>R: vangrails + system-prompt (persona + CMS-tekst)
+    loop tot eindantwoord (max 4 rondes)
+        R->>L: messages + lijst van 3 tools
+        alt model wil data
+            L-->>R: tool-call (bv. get_upcoming_activities)
+            R->>T: voer tool uit (allowlist)
+            T-->>R: klein JSON-resultaat
+        else model kan antwoorden
+            L-->>R: eindtekst
+        end
+    end
+    R-->>W: SSE-stream van het antwoord
+```
+
 ## De kern in drie zinnen
 
 1. **Wij trainen niets en hebben geen privé-model.** We gebruiken Mistral's
