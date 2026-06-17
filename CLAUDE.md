@@ -81,6 +81,26 @@ targets `master`, so nothing on an unmerged feature branch can ever reach HDEV,
 UAT, or PROD. The merge-to-`master` is the gate into a release — do it (per the
 feature-branch norm, when Koen asks) before any HDEV test or tag step below.
 
+### Handoff from a feature worktree to master
+
+The merge to `master` is also a **handoff**: the feature-worktree CLI holds all
+the context for going live; the master CLI that runs the release starts cold. So
+the merging PR body (mirrored into the release tracking issue) must carry a
+short **"Na de merge"** block capturing everything CI cannot:
+
+- **Migration?** the new alembic head (e.g. `058 -> 059`).
+- **New/changed env vars?** name them — they are NOT auto-added to the real
+  `.env.<env>` files; each host must be updated before deploy.
+- **Feature flag / kill-switch?** name it + intended default per environment
+  (dark-launch vs. live).
+- **One-off script?** (backfill, data fix) — what runs, when, where.
+- **Manual validation?** anything an external dependency (Mollie/Gmail/Mistral)
+  needs that the read-only smoke test does not exercise.
+
+The master CLI taking over reads that block first, then drives HDEV → UAT → PROD.
+From the merge onward the master CLI owns tagging and issue-closing; the feature
+worktree does not tag.
+
 **HDEV deploys `master` HEAD; UAT and PROD deploy a pinned tag.** `deploy-hdev.sh`
 does `git reset --hard origin/master` (integration line). `deploy-uat.sh` and
 `deploy-prod.sh` take a release tag as argument and check it out detached — they
