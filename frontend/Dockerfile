@@ -14,6 +14,10 @@ ARG NEXT_PUBLIC_UMAMI_SRC=
 ARG NEXT_PUBLIC_UMAMI_WEBSITE_ID=
 ENV NEXT_PUBLIC_UMAMI_SRC=$NEXT_PUBLIC_UMAMI_SRC
 ENV NEXT_PUBLIC_UMAMI_WEBSITE_ID=$NEXT_PUBLIC_UMAMI_WEBSITE_ID
+# Chatbot 'Raakje' (#205) — hoofdschakelaar, build-time ingebakken (#239). Zonder
+# deze ARG dropt Docker de compose-build-arg stil en blijft de widget verborgen.
+ARG NEXT_PUBLIC_CHATBOT_ENABLED=false
+ENV NEXT_PUBLIC_CHATBOT_ENABLED=$NEXT_PUBLIC_CHATBOT_ENABLED
 RUN npm run build
 
 FROM node:20-alpine AS runner
