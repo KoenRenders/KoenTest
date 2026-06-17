@@ -13,6 +13,7 @@ from datetime import date, timedelta
 from app.models.activity import Activity, ActivityDate
 from app.models.idea import Idea
 from app.domains.chatbot.tools import execute_tool, ALLOWED_TOOLS
+from app.domains.chatbot.context import build_system_prompt
 
 
 # ── Security-grens van de tools ──────────────────────────────────────────────
@@ -190,6 +191,16 @@ def test_past_respects_limit(db_session):
         _activity(db_session, f"Verleden {i}", today - timedelta(days=i + 1))
     out = json.loads(execute_tool("get_activities", {"when": "past"}, db_session))
     assert len(out["activities"]) == 20
+
+
+# ── System-prompt: temporeel anker (#249) ────────────────────────────────────
+
+def test_system_prompt_includes_today(db_session):
+    """De prompt geeft de datum van vandaag mee, zodat het model verleden/toekomst
+    kan onderscheiden en geen voorbije datum als 'eerstvolgende' verzint."""
+    prompt = build_system_prompt(db_session)
+    assert date.today().isoformat() in prompt
+    assert "Bereken zelf geen concrete datums" in prompt
 
 
 # ── HTTP-vangrails op /api/v1/chat ───────────────────────────────────────────

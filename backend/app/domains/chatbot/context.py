@@ -141,9 +141,24 @@ def _free_notes_block(db: Session) -> str:
     return "\n\n".join(chunks)
 
 
+def _today_block() -> str:
+    """Temporeel anker (v1.9.1, #249): zonder 'vandaag' kan het model verleden niet
+    van toekomst onderscheiden en verzint het datums (bv. een voorbije datum als
+    'eerstvolgende'). We geven de datum mee én verbieden zelf datums te berekenen
+    uit terugkerende afspraken."""
+    return (
+        "## Vandaag\n"
+        f"Vandaag is {date.today().isoformat()} (formaat JJJJ-MM-DD). Gebruik deze "
+        "datum om te bepalen wat al voorbij is en wat nog komt; presenteer nooit een "
+        "datum uit het verleden als 'eerstvolgende'. Bereken zelf geen concrete datums "
+        "uit terugkerende regels (zoals 'de eerste donderdag van de maand'): geef dan "
+        "de regel zelf weer. Concrete activiteitsdatums komen enkel uit get_activities."
+    )
+
+
 def build_system_prompt(db: Session) -> str:
-    """Stel de volledige system-prompt samen: persona + membership + CMS + notities."""
-    sections = [SYSTEM_PERSONA, _membership_block()]
+    """Stel de volledige system-prompt samen: persona + vandaag + membership + CMS + notities."""
+    sections = [SYSTEM_PERSONA, _today_block(), _membership_block()]
     cms = _published_pages_block(db)
     if cms:
         sections.append(
