@@ -355,6 +355,22 @@ For `PAID_PRODUCTS`: `paidProducts` on the frontend are sub-registrations where 
 - **Payment default:** Default payment method in `RegistrationForm` is `"MOLLIE"` (online). On success with `checkout_url`, do `window.location.href = checkout_url` — never use `router.push()` for Mollie redirect.
 - **`isPaid` check:** Must include `isPositivePrice(subRegistration?.price)` — sub-registrations can have their own price independent of the parent activity price.
 
+## Choosing new tools / dependencies — Europe First
+
+Before proposing **or** adding any new tool, library, service, model or external
+dependency, **first check whether a European (EU) alternative exists, and prefer
+it.** Europe First.
+
+- This applies to cloud services, APIs, hosted models and SaaS, **and** to
+  self-hosted options (where the audio/data stays within the EU).
+- Always surface the EU-vs-non-EU options in the proposal, with the chosen option
+  and the reason.
+- Prefer, in order: data stays in the EU → EU-based vendor → open-source that we
+  self-host on our own EU infrastructure. Avoid sending personal data to non-EU
+  cloud services.
+- If no viable EU option exists, say so explicitly and explain the trade-off
+  before adding the non-EU dependency.
+
 ## Code change discipline
 
 - Only change what was explicitly requested. Nothing more.
