@@ -10,6 +10,7 @@ from app.models.idea import Idea
 from app.models.cms import CmsPage
 from app.models.activity_sub_registration import ActivitySubRegistration, ActivityProduct
 from app.models.asset import MediaAsset
+from app.models.chatbot_info import ChatbotInfo
 from app.models.history import (
     PersonHistory,
     MemberHistory,

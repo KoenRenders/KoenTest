@@ -1,7 +1,7 @@
 """Documenttekst-extractie (#206): media-asset (afbeelding/PDF) → tekst.
 
-De tekst hoort bij het **media-record** (de poster of het reglement), niet bij de
-activiteit — daar staat ze ook in de DB (``media_assets.extracted_text``).
+De tekst gaat naar een **``chatbot_info``-rij** die naar het media-asset verwijst
+(``media_asset_id``) — alle chatbot-tekst staat los van de domeintabellen.
 
 Strategie, in volgorde van kost:
 1. **PDF mét tekstlaag** → rechtstreeks uitlezen met ``pypdf`` (gratis, exact).
@@ -28,6 +28,7 @@ import httpx
 from app.config import settings
 from app.database import SessionLocal
 from app.models.asset import MediaAsset
+from app.models.chatbot_info import ChatbotInfo
 
 logger = logging.getLogger(__name__)
 
@@ -100,10 +101,12 @@ def extract_document_text(raw: bytes, content_type: str) -> str:
 
 
 def update_media_extracted_text(asset_id: int, db=None, force: bool = False) -> None:
-    """Achtergrond-taak: extraheer de tekst van één media-asset.
+    """Achtergrond-taak: extraheer de tekst van één media-asset naar chatbot_info.
 
-    Zonder ``db`` (als achtergrond-taak) → eigen sessie. Slaat over als het asset
-    al ``extracted_text`` heeft, tenzij ``force`` (de 'Opnieuw lezen'-knop).
+    Zonder ``db`` (als achtergrond-taak) → eigen sessie. Vindt-of-maakt de
+    ``chatbot_info``-rij voor dit asset en vult ``extracted_text``. Slaat over als
+    die al gevuld is, tenzij ``force`` (de 'Opnieuw lezen'-knop). Raakt nooit
+    ``text_override``/``text_addition`` aan — handmatige bewerkingen blijven staan.
     """
     own_session = db is None
     if own_session:
@@ -114,15 +117,24 @@ def update_media_extracted_text(asset_id: int, db=None, force: bool = False) -> 
             return
         if asset.kind not in EXTRACTABLE_KINDS:
             return
-        if asset.extracted_text and not force:
+
+        row = (
+            db.query(ChatbotInfo)
+            .filter(ChatbotInfo.media_asset_id == asset_id)
+            .first()
+        )
+        if row and row.extracted_text and not force:
             return  # al uitgelezen → niets te doen
 
         text = extract_document_text(asset.data, asset.content_type)
-        asset.extracted_text = text or None
-        asset.extracted_at = datetime.now(timezone.utc)
+        if row is None:
+            row = ChatbotInfo(media_asset_id=asset_id, title=asset.title)
+            db.add(row)
+        row.extracted_text = text or None
+        row.extracted_at = datetime.now(timezone.utc)
         db.commit()
         logger.info(
-            "extracted_text bijgewerkt voor media-asset %s (%d tekens)",
+            "chatbot_info.extracted_text bijgewerkt voor media-asset %s (%d tekens)",
             asset_id,
             len(text or ""),
         )

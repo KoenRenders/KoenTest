@@ -78,12 +78,13 @@ De *wijsheid* (taal/intelligentie) komt van Mistral; de *waarheid* (data) van on
 
 Twee mechanismen, allebei strak begrensd:
 
-- **Context-stuffing** (`context.py`): enkel de tekst van **gepubliceerde
-  CMS-pagina's**, afgetopt op `MAX_CMS_CHARS` (12.000 tekens). Geen ledentabel,
-  geen activiteitentabel — alleen publieke paginatekst. Placeholders zoals
-  `{{membership_price_full}}` worden eerst **gerenderd** (via `render_cms_content`,
-  zoals de publieke site), zodat de bot de echte waarde ("35,00") ziet en niet de
-  ruwe code.
+- **Context-stuffing** (`context.py`): persona + een **membership-blok** (prijzen/
+  tarieven + het nu geldende tarief, uit de config) + de tekst van **gepubliceerde
+  CMS-pagina's** + vrije **AI-context-notities**. Afgetopt op `MAX_CMS_CHARS`
+  (12.000 tekens). Geen ledentabel, geen activiteitentabel. Placeholders zoals
+  `{{membership_price_full}}` worden **gerenderd** (via `render_cms_content`) →
+  de bot ziet "35,00", niet de ruwe code. CMS-pagina's gaan **opt-out** mee (alle
+  gepubliceerde, tenzij uitgezet/overschreven via `chatbot_info`).
 - **Tool use** (`tools.py`): activiteiten/prijzen gaan **niet** vooraf mee. Het
   model krijgt een lijst functies die het mág aanroepen; pas op aanvraag voert
   **onze** backend de query uit en stuurt enkel het **gevraagde stukje** als JSON
@@ -106,43 +107,48 @@ relevante stukjes ophalen). Voor één vereniging is dat niet nodig.
   opslaan i.p.v. een rauwe dump, (3) enkel het relevante stukje meesturen
   (tool/RAG i.p.v. alles).
 
-## Document-/poster-extractie (#206)
+## `chatbot_info` — één tabel voor alle bot-tekst
+
+Alle admin-/extractie-tekst voor de bot staat in **`chatbot_info`**, **losgekoppeld**
+van de domeintabellen (geen kolommen op activity/media/cms). Een rij verwijst via
+een **nullable FK** naar precies één ding (CHECK: hoogstens één FK):
+
+| Rij verwijst naar | `extracted_text` | rol |
+|---|---|---|
+| **media-asset** (`media_asset_id`) | machine-lezing van poster/reglement | document |
+| **CMS-pagina** (`cms_page_id`) | — | opt-out/override van die pagina |
+| **niets** | — | vrijstaande 'eigen AI-context'-notitie |
+
+Drie tekstvelden, elk met eigen bedoeling: `extracted_text` (machine),
+`text_override` (vervangt de basis), `text_addition` (vult aan). **Effectieve
+tekst** = `COALESCE(text_override, basis)` ＋ `text_addition`; `is_active=false`
+→ niets. Basis = `extracted_text` (media) of de live pagina-inhoud (cms).
+
+### Document-extractie (#206)
 
 > Status: **geïmplementeerd.** PDF met tekstlaag → `pypdf` (gratis); scan/
-> afbeelding → Mistral OCR. Extractie loopt als achtergrond-taak bij upload van
-> een **poster** (`activity_poster`) óf een **reglement/info-PDF**
-> (`component_info`). De tekst staat op het **media-record**
-> (`media_assets.extracted_text`), niet op de activiteit — daar hoort ze thuis en
-> het generaliseert naar beide soorten. De bot leest ze via `get_activity_detail`
+> afbeelding → Mistral OCR. Achtergrond-taak bij upload van een **poster**
+> (`activity_poster`) of **reglement/info-PDF** (`component_info`); schrijft naar
+> de `chatbot_info`-rij van dat asset. De bot leest via `get_activity_detail`
 > (poster → `flyer_text`, onderdeel → `info_text`).
-> Code: `backend/app/services/media_extraction.py`, migratie 059. Backfill:
-> `backend/backfill_extracted_text.py`. Admin-UI om de tekst te reviewen/
-> corrigeren + 'eigen AI-context': aparte issue (1.9.x).
+> Code: `app/services/media_extraction.py`, model `app/models/chatbot_info.py`,
+> migratie 059. Backfill: `backend/backfill_extracted_text.py`.
 
-Een poster/reglement is een **afbeelding/PDF**; die sturen we niet per vraag mee.
-We slaan ze éénmalig plat tot tekst (`media_assets.extracted_text`) en voeden
-daarna die goedkope tekst — zoals CMS-tekst.
+- **Wanneer:** bij **upload**, één keer, op de **achtergrond** (`BackgroundTasks`
+  — geen queue/Redis). De upload slaagt direct; extractie loopt erachteraan. De
+  `chatbot_info`-rij met al `extracted_text` wordt overgeslagen, tenzij `force`
+  (de 'Opnieuw lezen'-knop). **`force` raakt nooit `text_override`/`text_addition`
+  aan** — handmatige correcties/aanvullingen blijven dus staan.
+- **Hoe:** PDF mét tekstlaag → `pypdf` (gratis). Scan/afbeelding → **Mistral OCR**
+  (`/v1/ocr`, EU, zelfde key als de chat).
+- **Bronwaarheid:** datum/prijs/locatie uit de structuurvelden **winnen** altijd;
+  de tekst vult enkel de zachte info aan.
+- Poster verwijderd → asset hard-deleted → de `chatbot_info`-rij verdwijnt mee
+  (FK `ON DELETE CASCADE`).
 
-- **Wanneer:** bij **upload** van een poster/reglement, één keer, op de
-  **achtergrond** (FastAPI `BackgroundTasks` — geen queue/Redis nodig). De upload
-  slaagt direct; de extractie loopt erachteraan. Een upload is een **nieuw
-  asset-record** (de oude wordt hard verwijderd), dus geen hash nodig: een record
-  met al `extracted_text` wordt overgeslagen, tenzij `force` (de 'Opnieuw
-  lezen'-knop). Voor bestaande media één keer een **backfill-commando**. Geen
-  cron/periodiek.
-- **Hoe (PDF vs afbeelding):**
-  - PDF **mét tekstlaag** → tekst **rechtstreeks** extraheren (`pypdf`): exact en
-    gratis, geen AI. Eerst dit proberen.
-  - Scan / afbeelding (jpg/png) → **Mistral OCR** (`/v1/ocr`, EU, zelfde key als de
-    chat, achter het swapbare laagje), éénmalig.
-- **Bronwaarheid:** datum/prijs/locatie uit de DB-kolommen **winnen** altijd; de
-  geëxtraheerde tekst vult enkel de zachte info aan (wat meebrengen, randprogramma,
-  doelgroep, contact) als proza.
-- **Controle:** `extracted_text` wordt **bewerkbaar** in de admin (op het
-  media-record) — vision kan hallucineren. (UI = aparte 1.9.x-issue.)
-- **Levering aan de bot:** via `get_activity_detail`, zodat de tekst enkel bij de
-  juiste activiteit meegaat (niet alle posters tegelijk). Bijvangst: bruikbaar als
-  alt-tekst/SEO, los van de chatbot.
+Het admin-scherm om dit alles te beheren (extracted_text reviewen + 'Opnieuw
+lezen' + eigen notities + CMS opt-out) is **issue #235** (1.9.x); dit is de CRUD
+op `chatbot_info`.
 
 ## De reisweg van één vraag
 

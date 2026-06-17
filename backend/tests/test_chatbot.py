@@ -17,23 +17,64 @@ from app.domains.chatbot.tools import execute_tool, ALLOWED_TOOLS
 
 # ── Security-grens van de tools ──────────────────────────────────────────────
 
+def _page(db, **kw):
+    from app.models.cms import CmsPage
+    defaults = {"title": "Pagina", "slug": "p", "content": "inhoud", "is_published": True}
+    page = CmsPage(**{**defaults, **kw})
+    db.add(page)
+    db.flush()
+    return page
+
+
 def test_cms_context_renders_placeholders(db_session):
     """De bot moet de echte waarde zien, niet de ruwe {{code}} (#205)."""
-    from app.models.cms import CmsPage
     from app.domains.chatbot.context import build_system_prompt
 
-    db_session.add(
-        CmsPage(
-            title="Lidmaatschap",
-            slug="lid",
-            content="Het lidgeld bedraagt {{membership_price_full}} euro.",
-            is_published=True,
-        )
-    )
-    db_session.flush()
+    _page(db_session, slug="lid", content="Het lidgeld bedraagt {{membership_price_full}} euro.")
     prompt = build_system_prompt(db_session)
     assert "{{membership_price_full}}" not in prompt
-    assert "35,00" in prompt  # standaard membership_price_full
+    assert "bedraagt 35,00 euro" in prompt  # gerenderd ín de paginatekst
+
+
+def test_membership_block_always_present(db_session):
+    """Het membership-blok injecteert prijzen/tarieven, los van CMS (#205)."""
+    from app.domains.chatbot.context import build_system_prompt
+
+    prompt = build_system_prompt(db_session)
+    assert "Lidmaatschap" in prompt
+    assert "35,00" in prompt and "17,50" in prompt
+
+
+def test_cms_page_can_be_excluded(db_session):
+    """chatbot_info-rij met is_active=false → pagina niet naar de bot (opt-out)."""
+    from app.models.chatbot_info import ChatbotInfo
+    from app.domains.chatbot.context import build_system_prompt
+
+    page = _page(db_session, slug="geheim", content="GEHEIME PAGINATEKST")
+    db_session.add(ChatbotInfo(cms_page_id=page.id, is_active=False))
+    db_session.flush()
+    assert "GEHEIME PAGINATEKST" not in build_system_prompt(db_session)
+
+
+def test_cms_override_replaces_content(db_session):
+    from app.models.chatbot_info import ChatbotInfo
+    from app.domains.chatbot.context import build_system_prompt
+
+    page = _page(db_session, slug="over", content="ORIGINELE INHOUD")
+    db_session.add(ChatbotInfo(cms_page_id=page.id, text_override="BOT-SPECIFIEKE TEKST"))
+    db_session.flush()
+    prompt = build_system_prompt(db_session)
+    assert "BOT-SPECIFIEKE TEKST" in prompt
+    assert "ORIGINELE INHOUD" not in prompt
+
+
+def test_free_note_added_to_context(db_session):
+    from app.models.chatbot_info import ChatbotInfo
+    from app.domains.chatbot.context import build_system_prompt
+
+    db_session.add(ChatbotInfo(title="Praktisch", text_addition="We zijn een KWB-vereniging."))
+    db_session.flush()
+    assert "We zijn een KWB-vereniging." in build_system_prompt(db_session)
 
 
 def test_only_three_public_tools_are_allowed():

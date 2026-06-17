@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.models.activity import Activity, ActivityDate
 from app.models.asset import MediaAsset
+from app.models.chatbot_info import ChatbotInfo
 from app.models.idea import Idea
 from app.services.email import send_idea_acknowledgement
 
@@ -118,17 +119,25 @@ def _price_from(activity: Activity) -> Optional[str]:
 def _extracted_text(
     db: Session, kind: str, *, activity_id: int = None, component_id: int = None
 ) -> Optional[str]:
-    """De uit een poster/reglement gelezen tekst (#206), of None.
+    """De effectieve poster/reglement-tekst voor de bot (#206), of None.
 
-    De tekst staat op het media-record (``media_assets.extracted_text``), niet op
-    de activiteit — daar hoort ze thuis en het generaliseert naar reglementen."""
+    De tekst staat in ``chatbot_info`` (gekoppeld aan het media-asset), niet op de
+    activiteit — alle chatbot-tekst staat los van de domeintabellen. We nemen de
+    effectieve tekst (override/extracted + addition) van een actieve rij."""
     q = db.query(MediaAsset).filter(MediaAsset.kind == kind)
     if activity_id is not None:
         q = q.filter(MediaAsset.activity_id == activity_id)
     if component_id is not None:
         q = q.filter(MediaAsset.component_id == component_id)
     asset = q.first()
-    return asset.extracted_text if asset else None
+    if not asset:
+        return None
+    ci = (
+        db.query(ChatbotInfo)
+        .filter(ChatbotInfo.media_asset_id == asset.id, ChatbotInfo.is_active == True)  # noqa: E712
+        .first()
+    )
+    return (ci.effective_text or None) if ci else None
 
 
 def _serialise_dates(activity: Activity) -> list[dict[str, Any]]:
