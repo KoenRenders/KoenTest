@@ -42,6 +42,8 @@ export default function ChatWidget() {
   const recRef = useRef<SpeechRecognitionLike | null>(null);
   const ctorRef = useRef<SpeechRecognitionCtor | null>(null);
   const [sttSupported, setSttSupported] = useState(false);
+  const [ttsSupported, setTtsSupported] = useState(false);
+  const [readAloud, setReadAloud] = useState(false);
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -58,8 +60,33 @@ export default function ChatWidget() {
       ctorRef.current = Ctor;
       setSttSupported(true);
     }
-    return () => recRef.current?.stop();
+    if ("speechSynthesis" in window) setTtsSupported(true);
+    return () => {
+      recRef.current?.stop();
+      if ("speechSynthesis" in window) window.speechSynthesis.cancel();
+    };
   }, []);
+
+  // Tekst-naar-spraak (voorlezen) via de Web Speech API — on-device, gratis,
+  // los van de LLM. nl-stem indien beschikbaar.
+  function speak(text: string) {
+    if (!("speechSynthesis" in window) || !text.trim()) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = "nl-BE";
+    const voice = window.speechSynthesis
+      .getVoices()
+      .find((v) => v.lang?.toLowerCase().startsWith("nl"));
+    if (voice) u.voice = voice;
+    window.speechSynthesis.speak(u);
+  }
+
+  function toggleReadAloud() {
+    setReadAloud((on) => {
+      if (on && "speechSynthesis" in window) window.speechSynthesis.cancel();
+      return !on;
+    });
+  }
 
   function toggleMic() {
     if (busy) return;
@@ -116,6 +143,8 @@ export default function ChatWidget() {
           ...history,
           { role: "assistant", content: "Sorry, ik kreeg geen antwoord. Probeer het opnieuw." },
         ]);
+      } else if (readAloud) {
+        speak(answer);
       }
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Er ging iets mis.";
@@ -140,7 +169,12 @@ export default function ChatWidget() {
       {/* Zwevende knop */}
       <button
         aria-label={open ? "Sluit chat" : "Open chat met Raakje"}
-        onClick={() => setOpen((o) => !o)}
+        onClick={() =>
+          setOpen((o) => {
+            if (o && "speechSynthesis" in window) window.speechSynthesis.cancel();
+            return !o;
+          })
+        }
         className="fixed bottom-5 right-5 z-50 h-14 w-14 rounded-full bg-blue-700 hover:bg-blue-800 text-white shadow-lg flex items-center justify-center text-2xl transition-colors"
       >
         {open ? "✕" : "💬"}
@@ -151,12 +185,28 @@ export default function ChatWidget() {
         <div className="fixed bottom-24 right-5 z-50 w-[92vw] max-w-sm h-[70vh] max-h-[32rem] bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden">
           <div className="bg-blue-700 text-white px-4 py-3 font-semibold flex items-center gap-2">
             <span className="text-xl">💬</span> Raakje — chat met de vereniging
+            {ttsSupported && (
+              <button
+                onClick={toggleReadAloud}
+                aria-label={readAloud ? "Voorlezen uit" : "Antwoorden voorlezen"}
+                title={readAloud ? "Voorlezen staat aan" : "Lees antwoorden voor"}
+                className="ml-auto text-lg leading-none opacity-90 hover:opacity-100"
+              >
+                {readAloud ? "🔊" : "🔇"}
+              </button>
+            )}
           </div>
 
           <div ref={scrollRef} className="flex-1 overflow-y-auto p-3 space-y-3 bg-gray-50">
-            <Bubble role="assistant" content={WELCOME} />
+            <Bubble role="assistant" content={WELCOME} onSpeak={ttsSupported ? speak : undefined} />
             {messages.map((m, i) => (
-              <Bubble key={i} role={m.role} content={m.content} typing={busy && m.role === "assistant" && i === messages.length - 1 && !m.content} />
+              <Bubble
+                key={i}
+                role={m.role}
+                content={m.content}
+                typing={busy && m.role === "assistant" && i === messages.length - 1 && !m.content}
+                onSpeak={ttsSupported ? speak : undefined}
+              />
             ))}
           </div>
 
@@ -204,10 +254,12 @@ function Bubble({
   role,
   content,
   typing,
+  onSpeak,
 }: {
   role: ChatMsg["role"];
   content: string;
   typing?: boolean;
+  onSpeak?: (text: string) => void;
 }) {
   const isUser = role === "user";
   return (
@@ -221,6 +273,16 @@ function Bubble({
         }
       >
         {typing ? <span className="text-gray-400">Raakje typt…</span> : content}
+        {!isUser && !typing && content && onSpeak && (
+          <button
+            onClick={() => onSpeak(content)}
+            aria-label="Lees dit bericht voor"
+            title="Lees voor"
+            className="ml-2 align-middle text-gray-400 hover:text-blue-700"
+          >
+            🔈
+          </button>
+        )}
       </div>
     </div>
   );

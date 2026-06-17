@@ -185,7 +185,7 @@ ONZE BACKEND streamt het eindantwoord als SSE terug → Browser toont het live
 | `backend/app/domains/chatbot/service.py` | De tool-loop tussen provider en tools. |
 | `backend/app/routers/chat.py` | `POST /api/v1/chat` (SSE), key serverside, limieten. |
 | `backend/app/schemas/chat.py` | Vorm-validatie (per-bericht cap, geschiedenis). |
-| `frontend/src/components/ChatWidget.tsx` | Zwevend widget, SSE-streaming, STT-mic. |
+| `frontend/src/components/ChatWidget.tsx` | Zwevend widget, SSE-streaming, STT-mic (inspreken) + TTS-voorlezen (Web Speech API, on-device). |
 
 ## Swapbare provider-laag
 
