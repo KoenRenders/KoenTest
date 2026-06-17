@@ -29,6 +29,29 @@ class Settings(BaseSettings):
 
     mollie_api_key: Optional[str] = None
 
+    # Chatbot 'Raakje' (#205). LLM-provider zit achter een swapbaar laagje.
+    # chat_llm_provider: 'auto' (Mistral zodra er een key staat, anders mock),
+    # 'mistral' (forceer), of 'mock' (afhankelijkheidsvrij, CI/lokaal).
+    # chat_enabled: hoofdschakelaar. Standaard UIT → de code mag mee naar PROD
+    # zonder dat de bot live is; aanzetten zodra key + HDEV-validatie klaar zijn.
+    chat_enabled: bool = False
+    mistral_api_key: Optional[str] = None
+    chat_llm_provider: str = "auto"
+    chat_model: str = "mistral-small-latest"  # = Mistral Small 4
+    # Vangrails (kosten/misbruik): cap per bericht, geschiedenis en dag.
+    chat_max_input_chars: int = 2000
+    chat_max_history_messages: int = 20
+    chat_daily_char_budget: int = 20000
+    chat_max_tool_rounds: int = 4
+
+    # Documenttekst-extractie (#206). PDF met tekstlaag → gratis via pypdf; scan/
+    # afbeelding → Mistral OCR (zelfde MISTRAL_API_KEY). ocr_enabled uit → enkel
+    # de gratis tekstlaag, geen OCR-call. pdf_text_min_chars = drempel waaronder
+    # een PDF-tekstlaag als 'onbruikbaar' geldt en we naar OCR vallen.
+    ocr_model: str = "mistral-ocr-latest"
+    ocr_enabled: bool = True
+    pdf_text_min_chars: int = 80
+
     # Overschrijvings-instructies (#157): rekeningnummer + begunstigde + termijn (dagen).
     payment_iban: Optional[str] = None
     payment_beneficiary: Optional[str] = None

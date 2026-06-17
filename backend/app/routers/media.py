@@ -8,7 +8,9 @@ import hashlib
 import re
 from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, Query, Request
+from fastapi import (
+    APIRouter, BackgroundTasks, Depends, HTTPException, UploadFile, File, Form, Query, Request,
+)
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
@@ -18,6 +20,7 @@ from app.models.asset import MediaAsset
 from app.models.activity import Activity
 from app.models.activity_sub_registration import ActivitySubRegistration
 from app.models.user import User
+from app.services.media_extraction import EXTRACTABLE_KINDS, update_media_extracted_text
 from app.services.images import (
     process_image, ImageError, ALLOWED_CONTENT_TYPES, MAX_UPLOAD_BYTES,
 )
@@ -314,6 +317,7 @@ async def upload_media(
 @router.post("/admin/activities/{activity_id}/poster")
 async def upload_activity_poster(
     activity_id: int,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
@@ -325,6 +329,10 @@ async def upload_activity_poster(
         db, file, kind="activity_poster", activity_id=activity_id,
         title_base=f"{activity.name} - poster",
     )
+    # Tekstextractie op de achtergrond (#206): de upload slaagt direct, de
+    # (eventueel betalende) OCR loopt erachteraan en raakt de respons niet. De
+    # tekst komt op het media-record (extracted_text), niet op de activiteit.
+    background_tasks.add_task(update_media_extracted_text, asset.id)
     return _meta(asset)
 
 
@@ -334,6 +342,7 @@ def delete_activity_poster(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
+    # Hard delete van het asset-record neemt extracted_text vanzelf mee (#206).
     for a in db.query(MediaAsset).filter(
         MediaAsset.kind == "activity_poster", MediaAsset.activity_id == activity_id
     ).all():
@@ -344,6 +353,7 @@ def delete_activity_poster(
 @router.post("/admin/components/{component_id}/info")
 async def upload_component_info(
     component_id: int,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
@@ -358,6 +368,8 @@ async def upload_component_info(
         db, file, kind="component_info", component_id=component_id,
         title_base=f"{activity_name} - {component.name} - info",
     )
+    # Ook reglement/info-PDF's leveren context voor de chatbot (#206).
+    background_tasks.add_task(update_media_extracted_text, asset.id)
     return _meta(asset)
 
 
@@ -372,6 +384,24 @@ def delete_component_info(
     ).all():
         db.delete(a)
     db.commit()
+
+
+@router.post("/admin/media/{asset_id}/extract", status_code=202)
+def reextract_media_text(
+    asset_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    """De 'Opnieuw lezen'-knop (#235): her-extraheer de tekst van dit document.
+
+    Draait op de achtergrond (force=True) en raakt enkel ``extracted_text`` aan —
+    handmatige override/aanvulling in chatbot_info blijven staan."""
+    asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
+    if not asset or asset.kind not in EXTRACTABLE_KINDS:
+        raise HTTPException(status_code=404, detail="Document niet gevonden")
+    background_tasks.add_task(update_media_extracted_text, asset_id, None, True)
+    return {"status": "bezig", "asset_id": asset_id}
 
 
 @router.patch("/admin/media/{asset_id}")

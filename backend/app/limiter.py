@@ -7,6 +7,7 @@ Een gedeelde teller zou Redis o.i.d. vereisen — bewust niet gedaan.
 """
 import time
 from collections import defaultdict
+from datetime import date
 from fastapi import Request, HTTPException, status
 
 
@@ -45,9 +46,44 @@ class RateLimiter:
         self._calls[key] = recent
 
 
+class DailyCharBudget:
+    """Dagelijks tekenbudget per IP — misbruik-/kostenrem voor de chatbot (#205).
+
+    Telt het aantal door de bezoeker getypte tekens per dag op. Bij overschrijding
+    een vriendelijke 429 i.p.v. een harde fout. In-memory en per proces (zelfde
+    voorbehoud als RateLimiter); reset vanzelf bij dagwissel.
+    """
+
+    def __init__(self, max_chars_per_day: int):
+        self.max_chars = max_chars_per_day
+        self._usage: dict = defaultdict(int)
+        self._day: date = date.today()
+
+    def _roll_day(self):
+        today = date.today()
+        if today != self._day:
+            self._usage.clear()
+            self._day = today
+
+    def charge(self, request: Request, chars: int):
+        self._roll_day()
+        key = _client_ip(request)
+        if self._usage[key] + chars > self.max_chars:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(
+                    "Je hebt vandaag veel met Raakje gechat. Probeer het morgen "
+                    "opnieuw, of laat je vraag achter via het ideeënformulier."
+                ),
+            )
+        self._usage[key] += chars
+
+
 # Per endpoint een eigen limiter met een passende limiet.
 # Login verstuurt e-mails → streng. Registratie/inschrijving raakt Mollie
 # maar moet een legitieme piek toelaten → matig.
 login_limiter = RateLimiter(max_calls=5, window_seconds=60)
 registration_limiter = RateLimiter(max_calls=10, window_seconds=60)
 idea_limiter = RateLimiter(max_calls=5, window_seconds=60)
+# Chatbot: matige burst-limiet + dagelijks tekenbudget tegen 'pagina-droppen'.
+chat_limiter = RateLimiter(max_calls=20, window_seconds=60)

@@ -33,6 +33,9 @@ services:
       GMAIL_APP_PASSWORD: ${GMAIL_APP_PASSWORD:-}
       GMAIL_FROM: ${GMAIL_FROM:-}
       MOLLIE_API_KEY: ${MOLLIE_API_KEY:-}
+      MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      CHAT_LLM_PROVIDER: ${CHAT_LLM_PROVIDER:-auto}
+      CHAT_ENABLED: ${CHAT_ENABLED:-false}
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL ontbreekt in .env.prod}
       PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL ontbreekt in .env.prod}
       APP_ENV: prod
@@ -56,6 +59,7 @@ services:
       args:
         # PROD heeft bewust geen omgevingsindicator (lege kleur → geen balk/prefix).
         NEXT_PUBLIC_APP_ENV: prod
+        NEXT_PUBLIC_CHATBOT_ENABLED: ${CHAT_ENABLED:-false}
         NEXT_PUBLIC_ENV_COLOR: ${ENV_COLOR:-}
         # Umami web-analytics (#152/#176, laag 1). Leeg = tracker laadt niet (no-op).
         NEXT_PUBLIC_UMAMI_SRC: ${NEXT_PUBLIC_UMAMI_SRC:-}

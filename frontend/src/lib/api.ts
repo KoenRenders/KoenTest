@@ -143,6 +143,44 @@ export const updateMedia = (id: number, data: Partial<MediaAsset>) =>
   api.patch<MediaAsset>(`/api/v1/admin/media/${id}`, data);
 export const deleteMedia = (id: number) => api.delete(`/api/v1/admin/media/${id}`);
 
+// Chatbot AI-context (#235) — alles wat naar Raakje gaat, beheerd in chatbot_info.
+export interface ChatbotInfoRow {
+  id: number;
+  title: string | null;
+  extracted_text: string | null;
+  text_override: string | null;
+  text_addition: string | null;
+  is_active: boolean;
+  sort_order: number;
+  extracted_at: string | null;
+  effective_text: string;
+}
+export interface ChatbotInfoEdit {
+  title?: string | null;
+  text_override?: string | null;
+  text_addition?: string | null;
+  is_active: boolean;
+  sort_order?: number | null;
+}
+export interface ChatbotInfoData {
+  documents: { asset_id: number; kind: string; is_pdf: boolean; label: string; info: ChatbotInfoRow | null }[];
+  cms: { page_id: number; title: string; slug: string; info: ChatbotInfoRow | null }[];
+  notes: ChatbotInfoRow[];
+}
+export const getChatbotInfo = () => api.get<ChatbotInfoData>("/api/v1/admin/chatbot-info");
+export const upsertMediaChatbotInfo = (assetId: number, data: ChatbotInfoEdit) =>
+  api.put<ChatbotInfoRow>(`/api/v1/admin/chatbot-info/media/${assetId}`, data);
+export const upsertCmsChatbotInfo = (pageId: number, data: ChatbotInfoEdit) =>
+  api.put<ChatbotInfoRow>(`/api/v1/admin/chatbot-info/cms/${pageId}`, data);
+export const createChatbotNote = (data: { title?: string | null; text_addition: string; is_active: boolean }) =>
+  api.post<ChatbotInfoRow>("/api/v1/admin/chatbot-info/notes", data);
+export const updateChatbotRow = (id: number, data: ChatbotInfoEdit) =>
+  api.patch<ChatbotInfoRow>(`/api/v1/admin/chatbot-info/${id}`, data);
+export const deleteChatbotRow = (id: number) =>
+  api.delete(`/api/v1/admin/chatbot-info/${id}`);
+export const reextractMedia = (assetId: number) =>
+  api.post(`/api/v1/admin/media/${assetId}/extract`);
+
 // Ledenrapport-import (#170): upload .xls/.ods → dry-run preview → bevestigen.
 export interface MemberImportReport {
   new_families: number;
@@ -279,6 +317,63 @@ export interface BusinessEventStats {
 export const getBusinessEventStats = () =>
   api.get<BusinessEventStats>("/api/v1/admin/business-events");
 export const getAllPages = () => api.get("/api/v1/admin/pages");
+
+
+// Chatbot 'Raakje' (#205) — SSE-stream. fetch i.p.v. axios omdat we de
+// response incrementeel lezen; bewust binnen api.ts gehouden (geen losse
+// fetch-aanroepen elders in de app).
+export type ChatRole = "user" | "assistant";
+export interface ChatMsg {
+  role: ChatRole;
+  content: string;
+}
+
+export async function* streamChat(
+  messages: ChatMsg[],
+  signal?: AbortSignal
+): AsyncGenerator<string> {
+  const res = await fetch(`${BASE}/api/v1/chat`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ messages }),
+    signal,
+  });
+
+  if (!res.ok || !res.body) {
+    let detail = "Er ging iets mis. Probeer het later opnieuw.";
+    try {
+      const data = await res.json();
+      if (typeof data?.detail === "string") detail = data.detail;
+    } catch {
+      /* geen JSON-body */
+    }
+    throw new Error(detail);
+  }
+
+  const reader = res.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  while (true) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
+
+    const events = buffer.split("\n\n");
+    buffer = events.pop() || "";
+    for (const evt of events) {
+      const line = evt.trim();
+      if (!line.startsWith("data:")) continue;
+      try {
+        const payload = JSON.parse(line.slice(5).trim());
+        if (payload.delta) yield payload.delta as string;
+        if (payload.done) return;
+      } catch {
+        /* onvolledig event, sla over */
+      }
+    }
+  }
+}
 
 
 // Gebruikers- en rollenbeheer (ADMIN-gated)
