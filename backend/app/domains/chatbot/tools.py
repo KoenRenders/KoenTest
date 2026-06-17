@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 from datetime import date
 from decimal import Decimal
 from typing import Any, Optional
@@ -71,23 +72,25 @@ TOOL_SPECS: list[dict[str, Any]] = [
                 "Geeft de vraag, opmerking of het idee van de bezoeker door aan "
                 "het bestuur via de IdeaBox. Gebruik dit wanneer je een vraag "
                 "niet met zekerheid kan beantwoorden, of wanneer de bezoeker "
-                "iets wil achterlaten. Vraag eerst naam (en optioneel e-mail "
-                "voor een bevestiging)."
+                "iets wil achterlaten. Vraag ALTIJD eerst zowel de naam ALS het "
+                "e-mailadres — beide zijn verplicht, want zonder e-mailadres kan "
+                "het bestuur niet antwoorden. Roep deze tool pas aan wanneer je "
+                "naam én e-mailadres hebt."
             ),
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "name": {"type": "string", "description": "Naam van de bezoeker."},
+                    "name": {"type": "string", "description": "Naam van de bezoeker (verplicht)."},
                     "content": {
                         "type": "string",
                         "description": "De vraag, opmerking of het idee.",
                     },
                     "email": {
                         "type": "string",
-                        "description": "Optioneel e-mailadres voor een bevestiging.",
+                        "description": "E-mailadres van de bezoeker (verplicht, voor het antwoord).",
                     },
                 },
-                "required": ["name", "content"],
+                "required": ["name", "content", "email"],
             },
         },
     },
@@ -228,27 +231,60 @@ def get_activity_detail(db: Session, activity_id: int) -> dict[str, Any]:
     }
 
 
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
 def submit_idea(
     db: Session, name: str, content: str, email: Optional[str] = None
 ) -> dict[str, Any]:
-    """Hergebruikt exact het IdeaBox-schrijfpad (geen tweede schrijfweg)."""
-    idea = Idea(submitter_name=name, submitter_email=email or None, content=content)
+    """Hergebruikt exact het IdeaBox-schrijfpad (geen tweede schrijfweg).
+
+    Naam én e-mailadres zijn **verplicht**: zonder e-mail kan het bestuur niet
+    antwoorden. We dwingen dat server-side af (niet enkel via de prompt), want het
+    LLM kan de tool toch zonder e-mail aanroepen. Bij ontbrekende/ongeldige invoer
+    geven we een nette fout terug zodat de bot het ontbrekende gegeven opvraagt —
+    er wordt dan géén idee weggeschreven.
+    """
+    name = (name or "").strip()
+    content = (content or "").strip()
+    email = (email or "").strip()
+
+    if not name or not email:
+        return {
+            "ok": False,
+            "error": (
+                "Zowel naam als e-mailadres zijn verplicht. Vraag de bezoeker "
+                "vriendelijk om het ontbrekende gegeven en roep de tool daarna "
+                "opnieuw aan."
+            ),
+        }
+    if not _EMAIL_RE.match(email):
+        return {
+            "ok": False,
+            "error": (
+                "Dit e-mailadres lijkt ongeldig. Vraag de bezoeker om een geldig "
+                "e-mailadres en roep de tool daarna opnieuw aan."
+            ),
+        }
+    if not content:
+        return {
+            "ok": False,
+            "error": "Er is geen vraag of idee opgegeven. Vraag de bezoeker wat hij wil doorgeven.",
+        }
+
+    idea = Idea(submitter_name=name, submitter_email=email, content=content)
     db.add(idea)
     db.commit()
     db.refresh(idea)
 
-    if email:
-        try:
-            send_idea_acknowledgement(to_email=email, name=name, message=content)
-        except Exception as exc:  # mail mag de flow nooit breken
-            logger.warning("Bevestigingsmail voor idee (chatbot) mislukt: %s", exc)
+    try:
+        send_idea_acknowledgement(to_email=email, name=name, message=content)
+    except Exception as exc:  # mail mag de flow nooit breken
+        logger.warning("Bevestigingsmail voor idee (chatbot) mislukt: %s", exc)
 
     return {
         "ok": True,
-        "message": (
-            "Je bericht is doorgegeven aan het bestuur."
-            + (" Je krijgt een bevestiging per e-mail." if email else "")
-        ),
+        "message": "Je bericht is doorgegeven aan het bestuur. Je krijgt een bevestiging per e-mail.",
     }
 
 
@@ -272,9 +308,9 @@ def execute_tool(name: str, arguments: dict[str, Any], db: Session) -> str:
         elif name == "submit_idea":
             result = submit_idea(
                 db,
-                name=str(args.get("name", "")).strip() or "Anoniem",
-                content=str(args.get("content", "")).strip(),
-                email=(args.get("email") or None),
+                name=str(args.get("name", "")),
+                content=str(args.get("content", "")),
+                email=str(args.get("email", "")),
             )
         else:  # pragma: no cover - door allowlist afgedekt
             result = {"error": "niet-geïmplementeerde tool"}

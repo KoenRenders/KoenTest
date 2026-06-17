@@ -94,12 +94,15 @@ def test_execute_tool_rejects_unknown_tool(db_session):
 
 # ── submit_idea hergebruikt het IdeaBox-schrijfpad ───────────────────────────
 
-def test_submit_idea_creates_idea_row(db_session):
+def test_submit_idea_creates_idea_row(db_session, monkeypatch):
+    import app.domains.chatbot.tools as tools
+
+    monkeypatch.setattr(tools, "send_idea_acknowledgement", lambda **kw: None)
     before = db_session.query(Idea).count()
     out = json.loads(
         execute_tool(
             "submit_idea",
-            {"name": "Jan", "content": "Mooie speeltuin idee", "email": None},
+            {"name": "Jan", "content": "Mooie speeltuin idee", "email": "jan@example.com"},
             db_session,
         )
     )
@@ -108,7 +111,35 @@ def test_submit_idea_creates_idea_row(db_session):
     assert after == before + 1
     idea = db_session.query(Idea).order_by(Idea.id.desc()).first()
     assert idea.submitter_name == "Jan"
+    assert idea.submitter_email == "jan@example.com"
     assert idea.content == "Mooie speeltuin idee"
+
+
+def test_submit_idea_requires_email(db_session):
+    """Zonder e-mailadres: geweigerd, géén idee weggeschreven (verplicht voor antwoord)."""
+    before = db_session.query(Idea).count()
+    for args in (
+        {"name": "Jan", "content": "Idee zonder mail"},
+        {"name": "Jan", "content": "Idee", "email": ""},
+        {"name": "", "content": "Idee", "email": "jan@example.com"},
+    ):
+        out = json.loads(execute_tool("submit_idea", args, db_session))
+        assert out["ok"] is False
+        assert "error" in out
+    assert db_session.query(Idea).count() == before
+
+
+def test_submit_idea_rejects_invalid_email(db_session):
+    before = db_session.query(Idea).count()
+    out = json.loads(
+        execute_tool(
+            "submit_idea",
+            {"name": "Jan", "content": "Idee", "email": "geen-mailadres"},
+            db_session,
+        )
+    )
+    assert out["ok"] is False
+    assert db_session.query(Idea).count() == before
 
 
 # ── get_upcoming_activities: enkel komend + niet-geannuleerd ─────────────────
