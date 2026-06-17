@@ -69,6 +69,22 @@ def test_all_scope_activity_with_future_and_past_sorts_as_upcoming(client, db_se
     assert names.index("VerToekomst") < names.index("Verleden")
 
 
+def test_activity_response_exposes_is_cancelled(client, db_session):
+    """Regressie (#257): de respons bevatte is_cancelled niet, dus de bewerk-vorm
+    toonde het vinkje altijd 'uit' (leek niet opgeslagen). Nu wel teruggegeven."""
+    from app.models.activity import Activity, ActivityDate
+    a = Activity(name="Geannuleerd feest", is_cancelled=True)
+    db_session.add(a)
+    db_session.flush()
+    db_session.add(ActivityDate(activity_id=a.id, start_date=date.today() + timedelta(days=10)))
+    db_session.flush()
+
+    data = client.get("/api/v1/activities?scope=all").json()
+    match = next((x for x in data if x["name"] == "Geannuleerd feest"), None)
+    assert match is not None
+    assert match["is_cancelled"] is True
+
+
 def test_old_archived_endpoint_is_gone(client):
     """De aparte GET /activities/archived is weg (harde cut). Het pad matcht nu de
     /activities/{activity_id}-route zonder GET-handler → 405 (of 404); in elk geval

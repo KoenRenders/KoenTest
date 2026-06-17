@@ -143,6 +143,7 @@ class ActivityResponse(BaseModel):
     poster_asset_url: Optional[str] = None
     poster_asset_is_pdf: bool = False
     members_only: bool = False
+    is_cancelled: bool = False
     created_at: datetime
     status: Optional[str] = None
     registration_count: Optional[int] = None
