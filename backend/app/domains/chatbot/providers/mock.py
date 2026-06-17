@@ -87,6 +87,7 @@ class MockProvider(LLMProvider):
         self,
         messages: list[dict[str, Any]],
         tools: Optional[list[dict[str, Any]]] = None,
+        tool_choice: Optional[str] = None,
     ) -> AssistantMessage:
         # Zijn er tool-resultaten? Formatteer de echte opgehaalde gegevens.
         tool_msgs = [m for m in messages if m.get("role") == "tool"]

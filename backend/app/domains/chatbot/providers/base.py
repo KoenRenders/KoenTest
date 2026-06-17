@@ -44,10 +44,13 @@ class LLMProvider(ABC):
         self,
         messages: list[dict[str, Any]],
         tools: Optional[list[dict[str, Any]]] = None,
+        tool_choice: Optional[str] = None,
     ) -> AssistantMessage:
         """Vraag het model om één antwoord op de gespreksgeschiedenis.
 
         ``messages`` zijn OpenAI-/Mistral-compatibele dicts (system/user/
         assistant/tool). ``tools`` is de lijst function-tool-specs of None.
+        ``tool_choice`` forceert het tool-gedrag ('any' = verplicht een tool
+        kiezen, 'auto' = model beslist); None → 'auto' wanneer er tools zijn.
         """
         raise NotImplementedError

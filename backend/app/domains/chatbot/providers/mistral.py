@@ -34,6 +34,7 @@ class MistralProvider(LLMProvider):
         self,
         messages: list[dict[str, Any]],
         tools: Optional[list[dict[str, Any]]] = None,
+        tool_choice: Optional[str] = None,
     ) -> AssistantMessage:
         payload: dict[str, Any] = {
             "model": self._model,
@@ -42,7 +43,9 @@ class MistralProvider(LLMProvider):
         }
         if tools:
             payload["tools"] = tools
-            payload["tool_choice"] = "auto"
+            # 'any' = forceer een tool-aanroep (grounding, #anti-hallucinatie);
+            # standaard 'auto' = het model beslist.
+            payload["tool_choice"] = tool_choice or "auto"
 
         try:
             response = httpx.post(

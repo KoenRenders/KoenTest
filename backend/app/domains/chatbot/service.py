@@ -23,6 +23,27 @@ _FALLBACK = (
     "vraag doorgeven?"
 )
 
+# Trefwoorden die wijzen op een vraag waarvoor de bot data móét ophalen
+# (anti-hallucinatie, laag 3): dan forceren we een tool-aanroep i.p.v. het aan
+# het model over te laten. Brede match; vals-positief = hooguit een extra (gratis)
+# tool-aanroep, vals-negatief valt terug op de strikte system-prompt.
+_ACTIVITY_HINTS = (
+    "activiteit", "agenda", "evenement", "programma", "wanneer", "datum",
+    "kinder", "gezin", "deelnem", "inschrijv", "te doen", "uitstap", "feest",
+    "voorbije", "volgende", "eerstvolgende",
+)
+
+
+def _wants_activity_data(messages: list[dict[str, Any]]) -> bool:
+    """Lijkt de laatste bezoekersvraag om activiteiten-/agendagegevens te vragen?"""
+    last_user = next(
+        (m for m in reversed(messages) if m.get("role") == "user"), None
+    )
+    if not last_user:
+        return False
+    text = (last_user.get("content") or "").lower()
+    return any(hint in text for hint in _ACTIVITY_HINTS)
+
 
 def _assistant_dict(reply) -> dict[str, Any]:
     """Zet een AssistantMessage met tool-calls om naar het wire-formaat dat de
@@ -51,8 +72,12 @@ def run_chat(
 
     ``messages`` bevat al de system-prompt + de geschiedenis (laatste = user).
     """
-    for _ in range(max_rounds):
-        reply = provider.complete(messages, tools=TOOL_SPECS)
+    force_first = _wants_activity_data(messages)
+    for i in range(max_rounds):
+        # Eerste ronde van een activiteiten-/agendavraag: dwing een tool-aanroep af,
+        # zodat de bot grondt op echte data i.p.v. te verzinnen (laag 3).
+        tool_choice = "any" if (i == 0 and force_first) else None
+        reply = provider.complete(messages, tools=TOOL_SPECS, tool_choice=tool_choice)
         if not reply.tool_calls:
             return (reply.content or "").strip() or _FALLBACK
 

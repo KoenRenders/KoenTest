@@ -212,6 +212,16 @@ def get_activities(db: Session, when: str = "upcoming", limit: int = 20) -> dict
     return {"when": "past" if is_past else "upcoming", "activities": items[:limit]}
 
 
+_UNSPECIFIED = "niet vermeld"
+
+
+def _text_or_unspecified(value: Optional[str]) -> str:
+    """Maak afwezigheid expliciet voor het model (anti-hallucinatie, laag 2):
+    een leeg veld wordt 'niet vermeld' i.p.v. weggelaten/None, zodat de bot het
+    als feit ziet en niets verzint."""
+    return value if (value and value.strip()) else _UNSPECIFIED
+
+
 def get_activity_detail(db: Session, activity_id: int) -> dict[str, Any]:
     a = db.query(Activity).filter(Activity.id == activity_id).first()
     if not a:
@@ -222,11 +232,13 @@ def get_activity_detail(db: Session, activity_id: int) -> dict[str, Any]:
         components.append(
             {
                 "name": sub.name,
-                "description": sub.description,
+                "description": _text_or_unspecified(sub.description),
                 "price": None if sub.is_free else _fmt_price(sub.price),
                 "member_price": _fmt_price(sub.member_price),
                 # Zachte info uit het reglement/info-document van dit onderdeel (#206).
-                "info_text": _extracted_text(db, "component_info", component_id=sub.id),
+                "info_text": _text_or_unspecified(
+                    _extracted_text(db, "component_info", component_id=sub.id)
+                ),
                 "products": [
                     {
                         "name": p.name,
@@ -243,9 +255,11 @@ def get_activity_detail(db: Session, activity_id: int) -> dict[str, Any]:
         "name": a.name,
         "location": a.location,
         "members_only": a.members_only,
-        "notes": a.notes,
+        "notes": _text_or_unspecified(a.notes),
         # Zachte info uit de poster (#206); structuurvelden hierboven winnen altijd.
-        "flyer_text": _extracted_text(db, "activity_poster", activity_id=a.id),
+        "flyer_text": _text_or_unspecified(
+            _extracted_text(db, "activity_poster", activity_id=a.id)
+        ),
         "price_from": _price_from(a),
         "dates": _serialise_dates(a),
         "components": components,

@@ -230,6 +230,50 @@ def test_long_user_message_is_rejected():
         ChatRequest(messages=[{"role": "user", "content": "a" * 5000}])
 
 
+# ── Anti-hallucinatie (lagen 1–4) ────────────────────────────────────────────
+
+def test_activity_detail_marks_empty_fields_as_unspecified(db_session):
+    """Laag 2: lege velden komen expliciet als 'niet vermeld' terug, zodat de bot
+    de afwezigheid als feit ziet i.p.v. te verzinnen."""
+    a = _activity(db_session, "Kale activiteit", date.today() + timedelta(days=5))
+    out = json.loads(execute_tool("get_activity_detail", {"activity_id": a.id}, db_session))
+    assert out["notes"] == "niet vermeld"
+    assert out["flyer_text"] == "niet vermeld"
+
+
+def test_system_prompt_has_strict_grounding_rules(db_session):
+    """Lagen 1 & 4: de prompt verplicht tool-gebruik en verbiedt verzinnen."""
+    prompt = build_system_prompt(db_session)
+    assert "STRIKTE REGELS" in prompt
+    assert "Verzin geen activiteiten" in prompt
+    assert "winnen altijd" in prompt  # tool-data wint van vrije tekst
+
+
+def test_activity_question_forces_a_tool_call():
+    """Laag 3: bij een activiteiten-/agendavraag wordt in ronde 1 een tool-aanroep
+    geforceerd (tool_choice='any'); een begroeting niet."""
+    from app.domains.chatbot.providers.base import AssistantMessage
+    from app.domains.chatbot.service import _wants_activity_data, run_chat
+
+    assert _wants_activity_data([{"role": "user", "content": "Wat staat er op de agenda?"}])
+    assert not _wants_activity_data([{"role": "user", "content": "hallo"}])
+
+    seen: dict = {}
+
+    class FakeProvider:
+        def __init__(self, key):
+            self.key = key
+
+        def complete(self, messages, tools=None, tool_choice=None):
+            seen[self.key] = tool_choice
+            return AssistantMessage(content="ok")
+
+    run_chat(None, [{"role": "user", "content": "Wat staat er op de agenda?"}], FakeProvider("activiteit"))
+    run_chat(None, [{"role": "user", "content": "hallo"}], FakeProvider("begroeting"))
+    assert seen["activiteit"] == "any"
+    assert seen["begroeting"] is None
+
+
 # ── HTTP-vangrails op /api/v1/chat ───────────────────────────────────────────
 
 def test_message_over_cap_is_rejected_422(client):
