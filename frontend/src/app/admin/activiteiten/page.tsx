@@ -359,6 +359,113 @@ export default function AdminActiviteiten() {
     load();
   }
 
+  // Het activiteit-formulier (aanmaken én bewerken) als helper, zodat het zowel
+  // bovenaan kan staan (nieuwe activiteit) als inline in de kaart (bewerken) —
+  // consistent met hoe onderdelen en producten inline bewerkt worden (#256).
+  const renderActivityForm = () => (
+    <>
+      <h2 className="font-bold text-lg mb-4">{editingActivity !== null ? "Activiteit bewerken" : "Nieuwe activiteit"}</h2>
+      <form onSubmit={handleActivitySubmit} className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="sm:col-span-2">
+            <label className="label">Naam *</label>
+            <input className="input" required value={activityForm.name} onChange={(e) => setActivityForm((f) => ({ ...f, name: e.target.value }))} />
+          </div>
+          <div>
+            <label className="label">Locatie</label>
+            <input className="input" value={activityForm.location} onChange={(e) => setActivityForm((f) => ({ ...f, location: e.target.value }))} />
+          </div>
+          <div>
+            <label className="label">Poster URL</label>
+            <input className="input" value={activityForm.poster_url} onChange={(e) => setActivityForm((f) => ({ ...f, poster_url: e.target.value }))} />
+            {editingActivity !== null && (() => {
+              const a = [...activities, ...archived].find((x) => x.id === editingActivity);
+              return (
+                <div className="mt-1 text-xs text-gray-600 flex items-center gap-2 flex-wrap">
+                  <span>of opladen (afbeelding/PDF):</span>
+                  <input type="file" accept="image/*,application/pdf" disabled={uploadBusy} onChange={handlePosterUpload} className="text-xs" />
+                  {a?.poster_asset_url && (
+                    <>
+                      <a href={a.poster_asset_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
+                        {a.poster_asset_is_pdf ? "PDF" : "afbeelding"} opgeladen (primeert)
+                      </a>
+                      <button type="button" className="text-red-600 hover:underline"
+                        onClick={() => uploadFor(() => deleteActivityPoster(editingActivity!))}>
+                        verwijderen
+                      </button>
+                    </>
+                  )}
+                </div>
+              );
+            })()}
+          </div>
+          {editingActivity !== null && (
+            <div className="flex items-center gap-2 pt-5">
+              <input type="checkbox" id="is_cancelled" checked={activityForm.is_cancelled} onChange={(e) => setActivityForm((f) => ({ ...f, is_cancelled: e.target.checked }))} />
+              <label htmlFor="is_cancelled">Geannuleerd</label>
+            </div>
+          )}
+          <div className="flex items-center gap-2 pt-5">
+            <input type="checkbox" id="members_only" checked={activityForm.members_only} onChange={(e) => setActivityForm((f) => ({ ...f, members_only: e.target.checked }))} />
+            <label htmlFor="members_only">Enkel leden</label>
+          </div>
+
+          {/* Datums — enkel bij aanmaken */}
+          {editingActivity === null && (
+            <div className="sm:col-span-2">
+              <label className="label">Datums *</label>
+              <div className="space-y-2">
+                {createDates.map((d, i) => (
+                  <div key={i} className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
+                    <div>
+                      <label className="label text-xs">Startdatum *</label>
+                      <input type="date" className="input" required value={d.start_date}
+                        onChange={(e) => setCreateDates((ds) => ds.map((x, j) => j === i ? { ...x, start_date: e.target.value } : x))} />
+                    </div>
+                    <div>
+                      <label className="label text-xs">Starttijd</label>
+                      <input type="time" className="input" value={d.start_time}
+                        onChange={(e) => setCreateDates((ds) => ds.map((x, j) => j === i ? { ...x, start_time: e.target.value } : x))} />
+                    </div>
+                    <div>
+                      <label className="label text-xs">Einddatum</label>
+                      <input type="date" className="input" value={d.end_date}
+                        onChange={(e) => setCreateDates((ds) => ds.map((x, j) => j === i ? { ...x, end_date: e.target.value } : x))} />
+                    </div>
+                    <div className="flex gap-2 items-end">
+                      <div className="flex-1">
+                        <label className="label text-xs">Eindtijd</label>
+                        <input type="time" className="input" value={d.end_time}
+                          onChange={(e) => setCreateDates((ds) => ds.map((x, j) => j === i ? { ...x, end_time: e.target.value } : x))} />
+                      </div>
+                      {createDates.length > 1 && (
+                        <button type="button" className="btn-danger btn-sm text-xs mb-0.5"
+                          onClick={() => setCreateDates((ds) => ds.filter((_, j) => j !== i))}>🗑️</button>
+                      )}
+                    </div>
+                  </div>
+                ))}
+                <button type="button" className="btn-secondary btn-sm text-xs"
+                  onClick={() => setCreateDates((ds) => [...ds, emptyDateEntry()])}>
+                  + Datum toevoegen
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+        {activityError && (
+          <p className="text-red-600 text-sm" role="alert">{activityError}</p>
+        )}
+        <div className="flex gap-3">
+          <button type="submit" className="btn-primary" disabled={savingActivity}>
+            {savingActivity ? "Opslaan…" : "Opslaan"}
+          </button>
+          <button type="button" className="btn-secondary" onClick={() => { setShowActivityForm(false); setEditingActivity(null); setActivityError(null); }}>Annuleren</button>
+        </div>
+      </form>
+    </>
+  );
+
   const list = tab === "upcoming" ? activities : archived;
 
   return (
@@ -370,108 +477,8 @@ export default function AdminActiviteiten() {
         </button>
       </div>
 
-      {showActivityForm && (
-        <div className="card mb-6">
-          <h2 className="font-bold text-lg mb-4">{editingActivity !== null ? "Activiteit bewerken" : "Nieuwe activiteit"}</h2>
-          <form onSubmit={handleActivitySubmit} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="sm:col-span-2">
-                <label className="label">Naam *</label>
-                <input className="input" required value={activityForm.name} onChange={(e) => setActivityForm((f) => ({ ...f, name: e.target.value }))} />
-              </div>
-              <div>
-                <label className="label">Locatie</label>
-                <input className="input" value={activityForm.location} onChange={(e) => setActivityForm((f) => ({ ...f, location: e.target.value }))} />
-              </div>
-              <div>
-                <label className="label">Poster URL</label>
-                <input className="input" value={activityForm.poster_url} onChange={(e) => setActivityForm((f) => ({ ...f, poster_url: e.target.value }))} />
-                {editingActivity !== null && (() => {
-                  const a = [...activities, ...archived].find((x) => x.id === editingActivity);
-                  return (
-                    <div className="mt-1 text-xs text-gray-600 flex items-center gap-2 flex-wrap">
-                      <span>of opladen (afbeelding/PDF):</span>
-                      <input type="file" accept="image/*,application/pdf" disabled={uploadBusy} onChange={handlePosterUpload} className="text-xs" />
-                      {a?.poster_asset_url && (
-                        <>
-                          <a href={a.poster_asset_url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline">
-                            {a.poster_asset_is_pdf ? "PDF" : "afbeelding"} opgeladen (primeert)
-                          </a>
-                          <button type="button" className="text-red-600 hover:underline"
-                            onClick={() => uploadFor(() => deleteActivityPoster(editingActivity!))}>
-                            verwijderen
-                          </button>
-                        </>
-                      )}
-                    </div>
-                  );
-                })()}
-              </div>
-              {editingActivity !== null && (
-                <div className="flex items-center gap-2 pt-5">
-                  <input type="checkbox" id="is_cancelled" checked={activityForm.is_cancelled} onChange={(e) => setActivityForm((f) => ({ ...f, is_cancelled: e.target.checked }))} />
-                  <label htmlFor="is_cancelled">Geannuleerd</label>
-                </div>
-              )}
-              <div className="flex items-center gap-2 pt-5">
-                <input type="checkbox" id="members_only" checked={activityForm.members_only} onChange={(e) => setActivityForm((f) => ({ ...f, members_only: e.target.checked }))} />
-                <label htmlFor="members_only">Enkel leden</label>
-              </div>
-
-              {/* Datums — enkel bij aanmaken */}
-              {editingActivity === null && (
-                <div className="sm:col-span-2">
-                  <label className="label">Datums *</label>
-                  <div className="space-y-2">
-                    {createDates.map((d, i) => (
-                      <div key={i} className="grid grid-cols-2 sm:grid-cols-4 gap-2 items-end">
-                        <div>
-                          <label className="label text-xs">Startdatum *</label>
-                          <input type="date" className="input" required value={d.start_date}
-                            onChange={(e) => setCreateDates((ds) => ds.map((x, j) => j === i ? { ...x, start_date: e.target.value } : x))} />
-                        </div>
-                        <div>
-                          <label className="label text-xs">Starttijd</label>
-                          <input type="time" className="input" value={d.start_time}
-                            onChange={(e) => setCreateDates((ds) => ds.map((x, j) => j === i ? { ...x, start_time: e.target.value } : x))} />
-                        </div>
-                        <div>
-                          <label className="label text-xs">Einddatum</label>
-                          <input type="date" className="input" value={d.end_date}
-                            onChange={(e) => setCreateDates((ds) => ds.map((x, j) => j === i ? { ...x, end_date: e.target.value } : x))} />
-                        </div>
-                        <div className="flex gap-2 items-end">
-                          <div className="flex-1">
-                            <label className="label text-xs">Eindtijd</label>
-                            <input type="time" className="input" value={d.end_time}
-                              onChange={(e) => setCreateDates((ds) => ds.map((x, j) => j === i ? { ...x, end_time: e.target.value } : x))} />
-                          </div>
-                          {createDates.length > 1 && (
-                            <button type="button" className="btn-danger btn-sm text-xs mb-0.5"
-                              onClick={() => setCreateDates((ds) => ds.filter((_, j) => j !== i))}>🗑️</button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                    <button type="button" className="btn-secondary btn-sm text-xs"
-                      onClick={() => setCreateDates((ds) => [...ds, emptyDateEntry()])}>
-                      + Datum toevoegen
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-            {activityError && (
-              <p className="text-red-600 text-sm" role="alert">{activityError}</p>
-            )}
-            <div className="flex gap-3">
-              <button type="submit" className="btn-primary" disabled={savingActivity}>
-                {savingActivity ? "Opslaan…" : "Opslaan"}
-              </button>
-              <button type="button" className="btn-secondary" onClick={() => { setShowActivityForm(false); setEditingActivity(null); setActivityError(null); }}>Annuleren</button>
-            </div>
-          </form>
-        </div>
+      {showActivityForm && editingActivity === null && (
+        <div className="card mb-6">{renderActivityForm()}</div>
       )}
 
       {viewRegs !== null && (() => {
@@ -562,19 +569,23 @@ export default function AdminActiviteiten() {
       <div className="space-y-4">
         {list.map((a) => (
           <div key={a.id} className="card">
-            <div className="flex items-start justify-between gap-3 flex-wrap">
-              <div>
-                <span className="font-semibold text-gray-900">{a.name}</span>
-                {a.location && <span className="ml-2 text-sm text-gray-400">📍 {a.location}</span>}
+            {showActivityForm && editingActivity === a.id ? (
+              renderActivityForm()
+            ) : (
+              <div className="flex items-start justify-between gap-3 flex-wrap">
+                <div>
+                  <span className="font-semibold text-gray-900">{a.name}</span>
+                  {a.location && <span className="ml-2 text-sm text-gray-400">📍 {a.location}</span>}
+                </div>
+                <div className="flex gap-2 flex-wrap">
+                  {(a.sub_registrations?.length ?? 0) === 0 && (
+                    <button className="btn-secondary btn-sm" onClick={() => { setReturnTo(null); loadRegistrations(a.id, null); }}>Inschrijvingen</button>
+                  )}
+                  <button className="btn-secondary btn-sm" onClick={() => startEditActivity(a)}>Bewerken</button>
+                  <button className="btn-danger btn-sm" onClick={() => handleDeleteActivity(a.id)}>Verwijderen</button>
+                </div>
               </div>
-              <div className="flex gap-2 flex-wrap">
-                {(a.sub_registrations?.length ?? 0) === 0 && (
-                  <button className="btn-secondary btn-sm" onClick={() => { setReturnTo(null); loadRegistrations(a.id, null); }}>Inschrijvingen</button>
-                )}
-                <button className="btn-secondary btn-sm" onClick={() => startEditActivity(a)}>Bewerken</button>
-                <button className="btn-danger btn-sm" onClick={() => handleDeleteActivity(a.id)}>Verwijderen</button>
-              </div>
-            </div>
+            )}
 
             {/* Datums */}
             <div className="mt-4 border-t pt-4 space-y-2">
