@@ -20,7 +20,7 @@ from app.models.asset import MediaAsset
 from app.models.activity import Activity
 from app.models.activity_sub_registration import ActivitySubRegistration
 from app.models.user import User
-from app.services.media_extraction import update_media_extracted_text
+from app.services.media_extraction import EXTRACTABLE_KINDS, update_media_extracted_text
 from app.services.images import (
     process_image, ImageError, ALLOWED_CONTENT_TYPES, MAX_UPLOAD_BYTES,
 )
@@ -384,6 +384,24 @@ def delete_component_info(
     ).all():
         db.delete(a)
     db.commit()
+
+
+@router.post("/admin/media/{asset_id}/extract", status_code=202)
+def reextract_media_text(
+    asset_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    """De 'Opnieuw lezen'-knop (#235): her-extraheer de tekst van dit document.
+
+    Draait op de achtergrond (force=True) en raakt enkel ``extracted_text`` aan —
+    handmatige override/aanvulling in chatbot_info blijven staan."""
+    asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
+    if not asset or asset.kind not in EXTRACTABLE_KINDS:
+        raise HTTPException(status_code=404, detail="Document niet gevonden")
+    background_tasks.add_task(update_media_extracted_text, asset_id, None, True)
+    return {"status": "bezig", "asset_id": asset_id}
 
 
 @router.patch("/admin/media/{asset_id}")

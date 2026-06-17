@@ -10,6 +10,7 @@ const navItems = [
   { href: "/admin/leden-import", label: "Ledenimport" },
   { href: "/admin/paginas", label: "CMS Pagina's" },
   { href: "/admin/media", label: "Media" },
+  { href: "/admin/ai-context", label: "Raakje (AI)" },
   { href: "/admin/ideeen", label: "Berichten" },
   { href: "/admin/betalingen", label: "Betalingen" },
   { href: "/admin/gebruikers", label: "Gebruikers" },
