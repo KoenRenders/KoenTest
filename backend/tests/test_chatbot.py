@@ -17,6 +17,25 @@ from app.domains.chatbot.tools import execute_tool, ALLOWED_TOOLS
 
 # ── Security-grens van de tools ──────────────────────────────────────────────
 
+def test_cms_context_renders_placeholders(db_session):
+    """De bot moet de echte waarde zien, niet de ruwe {{code}} (#205)."""
+    from app.models.cms import CmsPage
+    from app.domains.chatbot.context import build_system_prompt
+
+    db_session.add(
+        CmsPage(
+            title="Lidmaatschap",
+            slug="lid",
+            content="Het lidgeld bedraagt {{membership_price_full}} euro.",
+            is_published=True,
+        )
+    )
+    db_session.flush()
+    prompt = build_system_prompt(db_session)
+    assert "{{membership_price_full}}" not in prompt
+    assert "35,00" in prompt  # standaard membership_price_full
+
+
 def test_only_three_public_tools_are_allowed():
     assert ALLOWED_TOOLS == {
         "get_upcoming_activities",

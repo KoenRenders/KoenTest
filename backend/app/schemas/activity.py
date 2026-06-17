@@ -131,8 +131,6 @@ class ActivityUpdate(BaseModel):
     poster_url: Optional[str] = None
     is_cancelled: Optional[bool] = None
     members_only: Optional[bool] = None
-    # Admin mag de uit de poster gelezen flyertekst corrigeren (#206).
-    flyer_text: Optional[str] = None
 
 
 class ActivityResponse(BaseModel):
@@ -144,7 +142,6 @@ class ActivityResponse(BaseModel):
     poster_url: Optional[str] = None
     poster_asset_url: Optional[str] = None
     poster_asset_is_pdf: bool = False
-    flyer_text: Optional[str] = None
     members_only: bool = False
     created_at: datetime
     status: Optional[str] = None

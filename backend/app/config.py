@@ -41,13 +41,13 @@ class Settings(BaseSettings):
     chat_daily_char_budget: int = 20000
     chat_max_tool_rounds: int = 4
 
-    # Flyertekst-extractie (#206). PDF met tekstlaag → gratis via pypdf; scan/
-    # afbeelding → Mistral OCR (zelfde MISTRAL_API_KEY). flyer_ocr_enabled uit →
-    # enkel de gratis tekstlaag, geen OCR-call. min_chars = drempel waaronder een
-    # PDF-tekstlaag als 'onbruikbaar' geldt en we naar OCR vallen.
+    # Documenttekst-extractie (#206). PDF met tekstlaag → gratis via pypdf; scan/
+    # afbeelding → Mistral OCR (zelfde MISTRAL_API_KEY). ocr_enabled uit → enkel
+    # de gratis tekstlaag, geen OCR-call. pdf_text_min_chars = drempel waaronder
+    # een PDF-tekstlaag als 'onbruikbaar' geldt en we naar OCR vallen.
     ocr_model: str = "mistral-ocr-latest"
-    flyer_ocr_enabled: bool = True
-    flyer_pdf_text_min_chars: int = 80
+    ocr_enabled: bool = True
+    pdf_text_min_chars: int = 80
 
     # Overschrijvings-instructies (#157): rekeningnummer + begunstigde + termijn (dagen).
     payment_iban: Optional[str] = None

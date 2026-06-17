@@ -19,6 +19,7 @@ from typing import Any, Optional
 from sqlalchemy.orm import Session
 
 from app.models.activity import Activity, ActivityDate
+from app.models.asset import MediaAsset
 from app.models.idea import Idea
 from app.services.email import send_idea_acknowledgement
 
@@ -114,6 +115,22 @@ def _price_from(activity: Activity) -> Optional[str]:
     return _fmt_price(min(prices)) if prices else None
 
 
+def _extracted_text(
+    db: Session, kind: str, *, activity_id: int = None, component_id: int = None
+) -> Optional[str]:
+    """De uit een poster/reglement gelezen tekst (#206), of None.
+
+    De tekst staat op het media-record (``media_assets.extracted_text``), niet op
+    de activiteit — daar hoort ze thuis en het generaliseert naar reglementen."""
+    q = db.query(MediaAsset).filter(MediaAsset.kind == kind)
+    if activity_id is not None:
+        q = q.filter(MediaAsset.activity_id == activity_id)
+    if component_id is not None:
+        q = q.filter(MediaAsset.component_id == component_id)
+    asset = q.first()
+    return asset.extracted_text if asset else None
+
+
 def _serialise_dates(activity: Activity) -> list[dict[str, Any]]:
     out: list[dict[str, Any]] = []
     for d in sorted(activity.dates, key=lambda x: (x.start_date, x.start_time or x.start_date)):
@@ -175,6 +192,8 @@ def get_activity_detail(db: Session, activity_id: int) -> dict[str, Any]:
                 "description": sub.description,
                 "price": None if sub.is_free else _fmt_price(sub.price),
                 "member_price": _fmt_price(sub.member_price),
+                # Zachte info uit het reglement/info-document van dit onderdeel (#206).
+                "info_text": _extracted_text(db, "component_info", component_id=sub.id),
                 "products": [
                     {
                         "name": p.name,
@@ -193,7 +212,7 @@ def get_activity_detail(db: Session, activity_id: int) -> dict[str, Any]:
         "members_only": a.members_only,
         "notes": a.notes,
         # Zachte info uit de poster (#206); structuurvelden hierboven winnen altijd.
-        "flyer_text": a.flyer_text,
+        "flyer_text": _extracted_text(db, "activity_poster", activity_id=a.id),
         "price_from": _price_from(a),
         "dates": _serialise_dates(a),
         "components": components,

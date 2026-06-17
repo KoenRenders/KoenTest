@@ -10,6 +10,7 @@ from __future__ import annotations
 from sqlalchemy.orm import Session
 
 from app.models.cms import CmsPage
+from app.services.cms_render import render_cms_content
 
 # Bovengrens op de ingestopte CMS-tekst, zodat de prompt niet ontspoort als er
 # ooit veel pagina's bijkomen. Ruim voldoende voor een verenigingssite.
@@ -48,7 +49,9 @@ def _published_pages_block(db: Session) -> str:
     chunks: list[str] = []
     used = 0
     for page in pages:
-        body = (page.content or "").strip()
+        # Render placeholders ({{membership_price_full}} → "35,00") zoals de
+        # publieke site, anders ziet de bot de ruwe codes i.p.v. de waarden (#205).
+        body = (render_cms_content(page.content) or "").strip()
         if not body:
             continue
         block = f"## {page.title}\n{body}"

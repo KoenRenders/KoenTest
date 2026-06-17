@@ -1,34 +1,40 @@
-"""Flyertekst-extractie (#206): poster (afbeelding/PDF) → tekst.
+"""Documenttekst-extractie (#206): media-asset (afbeelding/PDF) → tekst.
+
+De tekst hoort bij het **media-record** (de poster of het reglement), niet bij de
+activiteit — daar staat ze ook in de DB (``media_assets.extracted_text``).
 
 Strategie, in volgorde van kost:
 1. **PDF mét tekstlaag** → rechtstreeks uitlezen met ``pypdf`` (gratis, exact).
 2. **Scan-PDF zonder bruikbare tekstlaag, of een afbeelding** → **Mistral OCR**
    (zelfde ``MISTRAL_API_KEY`` als de chatbot, EU-verwerker).
 
-Eénmalig per poster: ``update_activity_flyer_text`` draait als achtergrond-taak
-na een upload, slaat de tekst op en bewaart een hash van de posterbytes zodat een
-ongewijzigde poster niet opnieuw (en niet tegen kost) wordt geëxtraheerd.
+Eénmalig per asset: ``update_media_extracted_text`` draait als achtergrond-taak
+na een upload. Een nieuwe upload is een nieuw record (de oude wordt hard
+verwijderd), dus geen hash-logica nodig: een record met al een ``extracted_text``
+wordt overgeslagen, tenzij ``force=True`` (de 'Opnieuw lezen'-knop).
 
 Bronwaarheid blijft de DB: datum/prijs/locatie komen uit de structuurvelden en
-winnen altijd; ``flyer_text`` vult enkel de zachte info aan.
+winnen altijd; de geëxtraheerde tekst vult enkel de zachte info aan.
 """
 from __future__ import annotations
 
 import base64
-import hashlib
 import io
 import logging
+from datetime import datetime, timezone
 
 import httpx
 
 from app.config import settings
 from app.database import SessionLocal
-from app.models.activity import Activity
 from app.models.asset import MediaAsset
 
 logger = logging.getLogger(__name__)
 
 MISTRAL_OCR_URL = "https://api.mistral.ai/v1/ocr"
+
+# Soorten media waarvan we tekst extraheren (documenten, geen sponsor/foto).
+EXTRACTABLE_KINDS = {"activity_poster", "component_info"}
 
 
 def _extract_pdf_text_layer(raw: bytes) -> str:
@@ -69,7 +75,7 @@ def _ocr_via_mistral(raw: bytes, content_type: str) -> str:
     return "\n\n".join((p.get("markdown") or "").strip() for p in pages).strip()
 
 
-def extract_flyer_text(raw: bytes, content_type: str) -> str:
+def extract_document_text(raw: bytes, content_type: str) -> str:
     """Kies het goedkoopste pad dat tekst oplevert.
 
     PDF met bruikbare tekstlaag → die tekst. Anders (scan/afbeelding) → OCR, mits
@@ -79,10 +85,10 @@ def extract_flyer_text(raw: bytes, content_type: str) -> str:
     pdf_text = ""
     if content_type == "application/pdf":
         pdf_text = _extract_pdf_text_layer(raw)
-        if len(pdf_text) >= settings.flyer_pdf_text_min_chars:
+        if len(pdf_text) >= settings.pdf_text_min_chars:
             return pdf_text  # tekstlaag volstaat → gratis, geen OCR
 
-    can_ocr = settings.flyer_ocr_enabled and bool(settings.mistral_api_key)
+    can_ocr = settings.ocr_enabled and bool(settings.mistral_api_key)
     if not can_ocr:
         return pdf_text  # niets meer te doen zonder key (leeg voor afbeeldingen)
 
@@ -93,46 +99,35 @@ def extract_flyer_text(raw: bytes, content_type: str) -> str:
         return pdf_text  # val terug op wat we al hadden
 
 
-def update_activity_flyer_text(activity_id: int, db=None) -> None:
-    """Achtergrond-taak: (her)extraheer de poster van één activiteit naar tekst.
+def update_media_extracted_text(asset_id: int, db=None, force: bool = False) -> None:
+    """Achtergrond-taak: extraheer de tekst van één media-asset.
 
-    Als achtergrond-taak zonder ``db`` aangeroepen → eigen sessie (de request-
-    sessie is dan al gesloten). Tests geven een sessie mee. Slaat over als de
-    poster sinds de vorige extractie niet wijzigde (hash-vergelijking).
+    Zonder ``db`` (als achtergrond-taak) → eigen sessie. Slaat over als het asset
+    al ``extracted_text`` heeft, tenzij ``force`` (de 'Opnieuw lezen'-knop).
     """
     own_session = db is None
     if own_session:
         db = SessionLocal()
     try:
-        activity = db.query(Activity).filter(Activity.id == activity_id).first()
-        if not activity:
-            return
-        asset = (
-            db.query(MediaAsset)
-            .filter(
-                MediaAsset.kind == "activity_poster",
-                MediaAsset.activity_id == activity_id,
-            )
-            .first()
-        )
+        asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
         if not asset or not asset.data:
             return
+        if asset.kind not in EXTRACTABLE_KINDS:
+            return
+        if asset.extracted_text and not force:
+            return  # al uitgelezen → niets te doen
 
-        new_hash = hashlib.sha256(asset.data).hexdigest()
-        if activity.flyer_text_hash == new_hash and activity.flyer_text:
-            return  # poster ongewijzigd → niets te doen
-
-        text = extract_flyer_text(asset.data, asset.content_type)
-        activity.flyer_text = text or None
-        activity.flyer_text_hash = new_hash
+        text = extract_document_text(asset.data, asset.content_type)
+        asset.extracted_text = text or None
+        asset.extracted_at = datetime.now(timezone.utc)
         db.commit()
         logger.info(
-            "flyer_text bijgewerkt voor activiteit %s (%d tekens)",
-            activity_id,
+            "extracted_text bijgewerkt voor media-asset %s (%d tekens)",
+            asset_id,
             len(text or ""),
         )
     except Exception as exc:  # nooit de upload-flow breken
-        logger.warning("Flyertekst-extractie voor activiteit %s mislukte: %s", activity_id, exc)
+        logger.warning("Tekstextractie voor media-asset %s mislukte: %s", asset_id, exc)
         db.rollback()
     finally:
         if own_session:

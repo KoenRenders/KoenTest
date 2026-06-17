@@ -20,7 +20,7 @@ from app.models.asset import MediaAsset
 from app.models.activity import Activity
 from app.models.activity_sub_registration import ActivitySubRegistration
 from app.models.user import User
-from app.services.flyer_extraction import update_activity_flyer_text
+from app.services.media_extraction import update_media_extracted_text
 from app.services.images import (
     process_image, ImageError, ALLOWED_CONTENT_TYPES, MAX_UPLOAD_BYTES,
 )
@@ -329,9 +329,10 @@ async def upload_activity_poster(
         db, file, kind="activity_poster", activity_id=activity_id,
         title_base=f"{activity.name} - poster",
     )
-    # Flyertekst-extractie op de achtergrond (#206): de upload slaagt direct, de
-    # (eventueel betalende) OCR loopt erachteraan en raakt de respons niet.
-    background_tasks.add_task(update_activity_flyer_text, activity_id)
+    # Tekstextractie op de achtergrond (#206): de upload slaagt direct, de
+    # (eventueel betalende) OCR loopt erachteraan en raakt de respons niet. De
+    # tekst komt op het media-record (extracted_text), niet op de activiteit.
+    background_tasks.add_task(update_media_extracted_text, asset.id)
     return _meta(asset)
 
 
@@ -341,21 +342,18 @@ def delete_activity_poster(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
+    # Hard delete van het asset-record neemt extracted_text vanzelf mee (#206).
     for a in db.query(MediaAsset).filter(
         MediaAsset.kind == "activity_poster", MediaAsset.activity_id == activity_id
     ).all():
         db.delete(a)
-    # Poster weg → de afgeleide flyertekst is stale; mee opruimen (#206).
-    activity = db.query(Activity).filter(Activity.id == activity_id).first()
-    if activity:
-        activity.flyer_text = None
-        activity.flyer_text_hash = None
     db.commit()
 
 
 @router.post("/admin/components/{component_id}/info")
 async def upload_component_info(
     component_id: int,
+    background_tasks: BackgroundTasks,
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
@@ -370,6 +368,8 @@ async def upload_component_info(
         db, file, kind="component_info", component_id=component_id,
         title_base=f"{activity_name} - {component.name} - info",
     )
+    # Ook reglement/info-PDF's leveren context voor de chatbot (#206).
+    background_tasks.add_task(update_media_extracted_text, asset.id)
     return _meta(asset)
 
 

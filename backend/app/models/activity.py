@@ -46,10 +46,6 @@ class Activity(SoftDeleteMixin, Base):
     is_cancelled = Column(Boolean, default=False, nullable=False)
     members_only = Column(Boolean, default=False, nullable=False)
     notes = Column(Text, nullable=True)
-    # Flyertekst-extractie (#206): éénmalig uit de poster gelezen 'zachte' info;
-    # hash = sha256 van de posterbytes bij extractie (skip bij ongewijzigde poster).
-    flyer_text = Column(Text, nullable=True)
-    flyer_text_hash = Column(String(64), nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 

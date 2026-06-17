@@ -80,7 +80,10 @@ Twee mechanismen, allebei strak begrensd:
 
 - **Context-stuffing** (`context.py`): enkel de tekst van **gepubliceerde
   CMS-pagina's**, afgetopt op `MAX_CMS_CHARS` (12.000 tekens). Geen ledentabel,
-  geen activiteitentabel — alleen publieke paginatekst.
+  geen activiteitentabel — alleen publieke paginatekst. Placeholders zoals
+  `{{membership_price_full}}` worden eerst **gerenderd** (via `render_cms_content`,
+  zoals de publieke site), zodat de bot de echte waarde ("35,00") ziet en niet de
+  ruwe code.
 - **Tool use** (`tools.py`): activiteiten/prijzen gaan **niet** vooraf mee. Het
   model krijgt een lijst functies die het mág aanroepen; pas op aanvraag voert
   **onze** backend de query uit en stuurt enkel het **gevraagde stukje** als JSON
@@ -103,35 +106,42 @@ relevante stukjes ophalen). Voor één vereniging is dat niet nodig.
   opslaan i.p.v. een rauwe dump, (3) enkel het relevante stukje meesturen
   (tool/RAG i.p.v. alles).
 
-## Flyer-/poster-extractie (#206)
+## Document-/poster-extractie (#206)
 
 > Status: **geïmplementeerd.** PDF met tekstlaag → `pypdf` (gratis); scan/
-> afbeelding → Mistral OCR. Extractie loopt als achtergrond-taak bij poster-
-> upload; `Activity.flyer_text` voedt de bot via `get_activity_detail`.
-> Code: `backend/app/services/flyer_extraction.py`, migratie 058. Backfill voor
-> bestaande posters: `backend/backfill_flyer_text.py`.
+> afbeelding → Mistral OCR. Extractie loopt als achtergrond-taak bij upload van
+> een **poster** (`activity_poster`) óf een **reglement/info-PDF**
+> (`component_info`). De tekst staat op het **media-record**
+> (`media_assets.extracted_text`), niet op de activiteit — daar hoort ze thuis en
+> het generaliseert naar beide soorten. De bot leest ze via `get_activity_detail`
+> (poster → `flyer_text`, onderdeel → `info_text`).
+> Code: `backend/app/services/media_extraction.py`, migratie 059. Backfill:
+> `backend/backfill_extracted_text.py`. Admin-UI om de tekst te reviewen/
+> corrigeren + 'eigen AI-context': aparte issue (1.9.x).
 
-Een flyer is een **afbeelding/PDF**; die sturen we niet per vraag mee. We slaan
-hem éénmalig plat tot tekst (`Activity.flyer_text`) en voeden daarna die goedkope
-tekst — zoals CMS-tekst.
+Een poster/reglement is een **afbeelding/PDF**; die sturen we niet per vraag mee.
+We slaan ze éénmalig plat tot tekst (`media_assets.extracted_text`) en voeden
+daarna die goedkope tekst — zoals CMS-tekst.
 
-- **Wanneer:** bij **upload/wijziging** van een poster, één keer, op de
+- **Wanneer:** bij **upload** van een poster/reglement, één keer, op de
   **achtergrond** (FastAPI `BackgroundTasks` — geen queue/Redis nodig). De upload
-  slaagt direct; de extractie loopt erachteraan. Een **hash** van het bestand
-  staat naast `flyer_text`: ongewijzigde hash → niet opnieuw extraheren. Voor
-  bestaande posters één keer een **backfill-commando**. Geen cron/periodiek.
+  slaagt direct; de extractie loopt erachteraan. Een upload is een **nieuw
+  asset-record** (de oude wordt hard verwijderd), dus geen hash nodig: een record
+  met al `extracted_text` wordt overgeslagen, tenzij `force` (de 'Opnieuw
+  lezen'-knop). Voor bestaande media één keer een **backfill-commando**. Geen
+  cron/periodiek.
 - **Hoe (PDF vs afbeelding):**
-  - PDF **mét tekstlaag** → tekst **rechtstreeks** extraheren (pypdf/pdfminer):
-    exact en gratis, geen AI. Eerst dit proberen.
-  - Scan / afbeelding (jpg/png) → **vision/OCR** (Mistral OCR of Small-4-vision,
-    EU, achter het swapbare laagje), éénmalig.
-- **Bronwaarheid:** datum/prijs/locatie uit de DB-kolommen **winnen** altijd;
-  `flyer_text` vult enkel de zachte info aan (wat meebrengen, randprogramma,
+  - PDF **mét tekstlaag** → tekst **rechtstreeks** extraheren (`pypdf`): exact en
+    gratis, geen AI. Eerst dit proberen.
+  - Scan / afbeelding (jpg/png) → **Mistral OCR** (`/v1/ocr`, EU, zelfde key als de
+    chat, achter het swapbare laagje), éénmalig.
+- **Bronwaarheid:** datum/prijs/locatie uit de DB-kolommen **winnen** altijd; de
+  geëxtraheerde tekst vult enkel de zachte info aan (wat meebrengen, randprogramma,
   doelgroep, contact) als proza.
-- **Controle:** `flyer_text` **bewerkbaar** in de admin vóór gebruik — vision kan
-  hallucineren.
+- **Controle:** `extracted_text` wordt **bewerkbaar** in de admin (op het
+  media-record) — vision kan hallucineren. (UI = aparte 1.9.x-issue.)
 - **Levering aan de bot:** via `get_activity_detail`, zodat de tekst enkel bij de
-  juiste activiteit meegaat (niet alle flyers tegelijk). Bijvangst: bruikbaar als
+  juiste activiteit meegaat (niet alle posters tegelijk). Bijvangst: bruikbaar als
   alt-tekst/SEO, los van de chatbot.
 
 ## De reisweg van één vraag

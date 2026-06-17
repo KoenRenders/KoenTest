@@ -4,6 +4,7 @@ from sqlalchemy import (
     Column,
     Integer,
     String,
+    Text,
     DateTime,
     Boolean,
     ForeignKey,
@@ -64,6 +65,11 @@ class MediaAsset(Base):
     is_active = Column(Boolean, nullable=False, default=True)
 
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+    # Documenttekst-extractie (#206): de uit een poster/reglement gelezen 'zachte'
+    # info (PDF-tekstlaag of OCR). Bewerkbaar door de admin; voedt de chatbot.
+    extracted_text = Column(Text, nullable=True)
+    extracted_at = Column(DateTime(timezone=True), nullable=True)
 
     activity = relationship("Activity", foreign_keys=[activity_id])
     component = relationship("ActivitySubRegistration", foreign_keys=[component_id])
