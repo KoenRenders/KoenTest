@@ -45,12 +45,17 @@ In short: **decide by which working copy you are in.** Master worktree → commi
 passes. The only branch exception on the master side is a hotfix on a released tag
 — see "Releases and hotfixes" below.
 
-**Every change goes through an issue.** Before implementing anything, there must
-be a GitHub issue covering it — either create a new one, or add the work as a
-checklist item / comment on an existing open issue. No "drive-by" commits without
-an issue. After implementing, reference the issue in the commit/PR and tick it off
-in the release tracking issue. This keeps the issue tracker the single source of
-truth for *why* every change was made.
+**Every deployable code change goes through an issue.** Before implementing
+anything that ships in the deployable stack (backend, frontend, migrations,
+deploy/infra config), there must be a GitHub issue covering it — either create a
+new one, or add the work as a checklist item / comment on an existing open issue.
+No "drive-by" commits without an issue. After implementing, reference the issue in
+the commit/PR and tick it off in the release tracking issue. This keeps the issue
+tracker the single source of truth for *why* every change was made.
+
+This rule is about **deployable code only**. Meta/process edits that don't ship —
+e.g. workflow tweaks to this `CLAUDE.md`, memory notes, local tooling config — do
+not require an issue and may be committed directly when Koen asks for them.
 
 After completing a task:
 1. In the master worktree: commit and push directly to `master`. In a feature
