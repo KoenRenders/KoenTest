@@ -33,14 +33,25 @@ TOOL_SPECS: list[dict[str, Any]] = [
     {
         "type": "function",
         "function": {
-            "name": "get_upcoming_activities",
+            "name": "get_activities",
             "description": (
-                "Geeft de komende, niet-geannuleerde activiteiten van Raak "
-                "Millegem met datum, locatie, prijs-vanaf en of ze enkel voor "
-                "leden zijn. Gebruik dit voor elke vraag over de agenda of "
-                "wat er te doen is."
+                "Geeft activiteiten van Raak Millegem met datum, locatie, "
+                "prijs-vanaf en of ze enkel voor leden zijn. Standaard de komende, "
+                "niet-geannuleerde activiteiten (when='upcoming'); zet when='past' "
+                "voor voorbije activiteiten (meest recent eerst). Gebruik dit voor "
+                "elke vraag over de agenda, wat er te doen is, of wat er geweest is."
             ),
-            "parameters": {"type": "object", "properties": {}, "required": []},
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "when": {
+                        "type": "string",
+                        "enum": ["upcoming", "past"],
+                        "description": "'upcoming' (default) voor komende, 'past' voor voorbije activiteiten.",
+                    }
+                },
+                "required": [],
+            },
         },
     },
     {
@@ -50,7 +61,7 @@ TOOL_SPECS: list[dict[str, Any]] = [
             "description": (
                 "Geeft de details van één activiteit (datums, locatie, "
                 "onderdelen en prijzen, opmerkingen). Geef het id terug dat je "
-                "uit get_upcoming_activities kreeg."
+                "uit get_activities kreeg."
             ),
             "parameters": {
                 "type": "object",
@@ -159,15 +170,21 @@ def _serialise_dates(activity: Activity) -> list[dict[str, Any]]:
 
 # --- Tool-implementaties -----------------------------------------------------
 
-def get_upcoming_activities(db: Session, limit: int = 20) -> dict[str, Any]:
+def get_activities(db: Session, when: str = "upcoming", limit: int = 20) -> dict[str, Any]:
+    """Komende of voorbije, niet-geannuleerde activiteiten.
+
+    ``when="upcoming"`` (default): vanaf vandaag, eerstvolgende eerst.
+    ``when="past"``: vóór vandaag, meest recent eerst. In beide gevallen max
+    ``limit`` (default 20), zodat de prompt niet volloopt en de kost beperkt blijft.
+    """
     today = date.today()
-    activity_ids = [
-        row[0]
-        for row in db.query(ActivityDate.activity_id)
-        .filter(ActivityDate.start_date >= today)
-        .distinct()
-        .all()
-    ]
+    is_past = when == "past"
+
+    date_q = db.query(ActivityDate.activity_id).distinct()
+    date_q = date_q.filter(
+        ActivityDate.start_date < today if is_past else ActivityDate.start_date >= today
+    )
+    activity_ids = [row[0] for row in date_q.all()]
     activities = (
         db.query(Activity)
         .filter(Activity.id.in_(activity_ids), Activity.is_cancelled == False)  # noqa: E712
@@ -186,9 +203,13 @@ def get_upcoming_activities(db: Session, limit: int = 20) -> dict[str, Any]:
                 "dates": _serialise_dates(a),
             }
         )
-    # Sorteer op eerstvolgende datum.
-    items.sort(key=lambda x: (x["dates"][0]["start_date"] if x["dates"] else "9999"))
-    return {"activities": items[:limit]}
+    # Komend: eerstvolgende eerst. Verleden: meest recent eerst.
+    fallback = "0000" if is_past else "9999"
+    items.sort(
+        key=lambda x: (x["dates"][0]["start_date"] if x["dates"] else fallback),
+        reverse=is_past,
+    )
+    return {"when": "past" if is_past else "upcoming", "activities": items[:limit]}
 
 
 def get_activity_detail(db: Session, activity_id: int) -> dict[str, Any]:
@@ -301,8 +322,8 @@ def execute_tool(name: str, arguments: dict[str, Any], db: Session) -> str:
 
     args = arguments or {}
     try:
-        if name == "get_upcoming_activities":
-            result = get_upcoming_activities(db)
+        if name == "get_activities":
+            result = get_activities(db, when=str(args.get("when") or "upcoming"))
         elif name == "get_activity_detail":
             result = get_activity_detail(db, activity_id=int(args.get("activity_id")))
         elif name == "submit_idea":

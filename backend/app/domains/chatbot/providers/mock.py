@@ -4,7 +4,7 @@ Geen netwerk, geen API-sleutel, geen taalbegrip. Deterministisch zodat tests
 het volledige tool-loop-pad kunnen aflopen zonder een echte LLM.
 
 Data-bewust: vraagt de bezoeker naar activiteiten, dan vraagt de mock één keer
-de ``get_upcoming_activities``-tool aan; zodra er een tool-resultaat binnen is,
+de ``get_activities``-tool aan; zodra er een tool-resultaat binnen is,
 formatteert hij de **echte** opgehaalde gegevens via een vast sjabloon. Zo toont
 optie A (zonder key) je werkelijke data, alleen zonder vrije conversatie.
 """
@@ -71,7 +71,7 @@ def _format_tool_result(name: str, content: str) -> Optional[str]:
         data = json.loads(content)
     except (json.JSONDecodeError, TypeError):
         return None
-    if name == "get_upcoming_activities":
+    if name == "get_activities":
         return _format_activities(data)
     if name == "get_activity_detail":
         return _format_detail(data)
@@ -106,12 +106,12 @@ class MockProvider(LLMProvider):
         text = (last_user or "").lower()
 
         tool_names = {t.get("function", {}).get("name") for t in (tools or [])}
-        if "get_upcoming_activities" in tool_names and any(
+        if "get_activities" in tool_names and any(
             trigger in text for trigger in _ACTIVITY_TRIGGERS
         ):
             return AssistantMessage(
                 tool_calls=[
-                    ToolCall(id="mock-call-1", name="get_upcoming_activities", arguments={})
+                    ToolCall(id="mock-call-1", name="get_activities", arguments={})
                 ]
             )
 

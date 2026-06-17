@@ -79,7 +79,7 @@ def test_free_note_added_to_context(db_session):
 
 def test_only_three_public_tools_are_allowed():
     assert ALLOWED_TOOLS == {
-        "get_upcoming_activities",
+        "get_activities",
         "get_activity_detail",
         "submit_idea",
     }
@@ -142,7 +142,7 @@ def test_submit_idea_rejects_invalid_email(db_session):
     assert db_session.query(Idea).count() == before
 
 
-# ── get_upcoming_activities: enkel komend + niet-geannuleerd ─────────────────
+# ── get_activities: komend (default) én verleden (when='past') ───────────────
 
 def _activity(db, name, when, *, cancelled=False):
     a = Activity(name=name, is_cancelled=cancelled)
@@ -160,11 +160,36 @@ def test_upcoming_excludes_past_and_cancelled(db_session):
     _activity(db_session, "Oud feest", past)
     _activity(db_session, "Afgelast feest", future, cancelled=True)
 
-    out = json.loads(execute_tool("get_upcoming_activities", {}, db_session))
+    # Default (geen when) = komend.
+    out = json.loads(execute_tool("get_activities", {}, db_session))
     names = {a["name"] for a in out["activities"]}
+    assert out["when"] == "upcoming"
     assert "Toekomstfeest" in names
     assert "Oud feest" not in names
     assert "Afgelast feest" not in names
+
+
+def test_past_returns_only_past_most_recent_first(db_session):
+    today = date.today()
+    _activity(db_session, "Toekomstfeest", today + timedelta(days=10))
+    _activity(db_session, "Lang geleden", today - timedelta(days=300))
+    _activity(db_session, "Recent voorbij", today - timedelta(days=5))
+    _activity(db_session, "Afgelast verleden", today - timedelta(days=20), cancelled=True)
+
+    out = json.loads(execute_tool("get_activities", {"when": "past"}, db_session))
+    names = [a["name"] for a in out["activities"]]
+    assert out["when"] == "past"
+    assert "Toekomstfeest" not in names          # geen toekomst
+    assert "Afgelast verleden" not in names       # geannuleerd telt niet
+    assert names == ["Recent voorbij", "Lang geleden"]  # meest recent eerst
+
+
+def test_past_respects_limit(db_session):
+    today = date.today()
+    for i in range(25):
+        _activity(db_session, f"Verleden {i}", today - timedelta(days=i + 1))
+    out = json.loads(execute_tool("get_activities", {"when": "past"}, db_session))
+    assert len(out["activities"]) == 20
 
 
 # ── HTTP-vangrails op /api/v1/chat ───────────────────────────────────────────

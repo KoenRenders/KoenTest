@@ -19,7 +19,7 @@ flowchart LR
     S -->|prompt: persona + CMS + tools| P[Provider-naad<br/>providers/]
     P -->|Mistral Small 4| M[(Mistral API<br/>EU)]
     P -. swapbaar .-> ALT[Mock / Ionos /<br/>Infomaniak / self-hosted]
-    S -->|tool-call| T[Tools = security-grens<br/>get_upcoming_activities<br/>get_activity_detail<br/>submit_idea]
+    S -->|tool-call| T[Tools = security-grens<br/>get_activities<br/>get_activity_detail<br/>submit_idea]
     T --> DB[(Onze DB<br/>publieke data + idee)]
     M -->|antwoord/tool-keuze| S
     S -->|SSE-stream| W
@@ -38,7 +38,7 @@ sequenceDiagram
     loop tot eindantwoord (max 4 rondes)
         R->>L: messages + lijst van 3 tools
         alt model wil data
-            L-->>R: tool-call (bv. get_upcoming_activities)
+            L-->>R: tool-call (bv. get_activities)
             R->>T: voer tool uit (allowlist)
             T-->>R: klein JSON-resultaat
         else model kan antwoorden
@@ -164,7 +164,7 @@ ONZE BACKEND  (routers/chat.py — API-key staat hier, serverside)
 MISTRAL API  (providers/mistral.py → api.mistral.ai — het gedeelde model)
    │  leest de briefing en kiest:
    ├─(a) "ik kan antwoorden"            → stuurt tekst terug
-   └─(b) "roep get_upcoming_activities" → vraagt een tool aan
+   └─(b) "roep get_activities"          → vraagt een tool aan
    ▼                                          ▲
 ONZE BACKEND voert de tool uit ───────────────┘   (SQL op onze DB → JSON terug)
    │  de lus (service.py: run_chat) herhaalt tot een eindantwoord, max 4 rondes
