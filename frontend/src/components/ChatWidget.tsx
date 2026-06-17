@@ -10,7 +10,7 @@ import { streamChat, type ChatMsg } from "@/lib/api";
 // (Google/Apple) — vermeld dit in de privacyverklaring.
 
 const WELCOME =
-  "Hallo, ik ben Raakje! 👋 Stel me gerust een vraag over Raak Millegem, onze activiteiten of het lidmaatschap. Ik kan ook je vraag of idee doorgeven aan het bestuur.";
+  "Hallo, ik ben Raakje! 👋 Stel me gerust een vraag over Raak Millegem, onze activiteiten of het lidmaatschap. Ik kan ook je vraag of idee doorgeven.";
 
 // Minimale shim voor de niet-gestandaardiseerde Web Speech API-types.
 type SpeechRecognitionLike = {
