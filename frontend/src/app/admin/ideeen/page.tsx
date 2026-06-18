@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getIdeas, markIdeaReviewed } from "@/lib/api";
+import { getIdeas, markIdeaReviewed, deleteIdea } from "@/lib/api";
 import type { Idea } from "@/lib/types";
 
 export default function AdminIdeeen() {
@@ -15,6 +15,12 @@ export default function AdminIdeeen() {
 
   async function handleReview(id: number) {
     await markIdeaReviewed(id);
+    load();
+  }
+
+  async function handleDelete(id: number) {
+    if (!confirm("Dit bericht definitief verwijderen?")) return;
+    await deleteIdea(id);
     load();
   }
 
@@ -45,14 +51,19 @@ export default function AdminIdeeen() {
                 <p className="mt-2 text-gray-700 whitespace-pre-wrap">{idea.content}</p>
                 <p className="mt-1 text-xs text-gray-400">{new Date(idea.submitted_at).toLocaleDateString("nl-BE", { day: "2-digit", month: "long", year: "numeric" })}</p>
               </div>
-              {!idea.is_reviewed && (
-                <button className="btn-primary btn-sm whitespace-nowrap" onClick={() => handleReview(idea.id)}>
-                  Markeer behandeld
+              <div className="flex flex-col items-end gap-2 whitespace-nowrap">
+                {!idea.is_reviewed && (
+                  <button className="btn-primary btn-sm" onClick={() => handleReview(idea.id)}>
+                    Markeer behandeld
+                  </button>
+                )}
+                {idea.is_reviewed && (
+                  <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full">✓ Behandeld</span>
+                )}
+                <button className="btn-danger btn-sm" onClick={() => handleDelete(idea.id)}>
+                  Verwijderen
                 </button>
-              )}
-              {idea.is_reviewed && (
-                <span className="text-xs bg-green-100 text-green-700 px-2 py-1 rounded-full whitespace-nowrap">✓ Behandeld</span>
-              )}
+              </div>
             </div>
           </div>
         ))}
