@@ -40,6 +40,15 @@ def _docs_kwargs(app_env: str) -> dict:
     return {}
 
 
+def cors_origins(app_env: str, frontend_url: str) -> list[str]:
+    """Toegelaten CORS-origins (#271). De dev-uitzondering localhost:3000 hoort
+    niet in prod-achtige omgevingen; daar enkel de echte frontend-URL."""
+    origins = [frontend_url]
+    if app_env not in ("uat", "prod"):
+        origins.append("http://localhost:3000")
+    return origins
+
+
 app = FastAPI(
     title="Raak Millegem API",
     description="API for the Raak Millegem community association",
@@ -49,7 +58,7 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://localhost:3000"],
+    allow_origins=cors_origins(settings.app_env, settings.frontend_url),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
