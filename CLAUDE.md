@@ -285,6 +285,7 @@ per commit on GitHub.
 
 **Payment domains** (`backend/app/domains/`):
 - `payment_gateway/` — Mollie integration. `MollieProvider.create_payment()` creates a Mollie payment. Webhook URL is skipped when running on localhost (Mollie can't reach it). Uses `payment_metadata` column (not `metadata` — reserved by SQLAlchemy).
+  - **SECURITY INVARIANT — never trust the webhook body.** The Mollie webhook (`POST /webhooks/mollie`) accepts only a payment `id` and must **always re-fetch the authoritative status/amount from the Mollie API** (`refresh_payment_status` → `provider.get_payment_details()`) before changing anything. Mollie does not sign webhooks, so the POST body is unauthenticated and forgeable. NEVER let a future change set a payment to "paid" (or read the amount/status) directly from the webhook request body — that would let anyone mark registrations as paid by POSTing a forged payload. The re-fetch is the entire security model of the webhook; treat it as non-negotiable.
 - `payment_status/` — Internal `PaymentRecord` tracking. `create_payment_record()` is called from routers after a registration is saved.
 
 **Key models:**
