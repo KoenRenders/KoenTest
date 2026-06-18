@@ -2,6 +2,8 @@
 import { useEffect, useRef, useState } from "react";
 import ReactMarkdown from "react-markdown";
 import { streamChat, type ChatMsg } from "@/lib/api";
+import { STT_PROVIDER_ENABLED, STT_PROVIDER_ONLY } from "@/lib/sttConfig";
+import { VoxtralStt } from "@/lib/voxtralStt";
 
 // Zwevende chatbot 'Raakje' (#205). Tekst-first met spraakinvoer (STT) als
 // progressive enhancement: de microfoonknop verschijnt enkel als de browser de
@@ -18,7 +20,7 @@ type SpeechRecognitionLike = {
   interimResults: boolean;
   continuous: boolean;
   onresult: (e: SpeechResultEvent) => void;
-  onerror: () => void;
+  onerror: (e: SpeechErrorEvent) => void;
   onend: () => void;
   start: () => void;
   stop: () => void;
@@ -27,6 +29,7 @@ type SpeechResultEvent = {
   resultIndex: number;
   results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }>;
 };
+type SpeechErrorEvent = { error?: string };
 type SpeechRecognitionCtor = new () => SpeechRecognitionLike;
 
 // Hoofdschakelaar via .env (CHAT_ENABLED → build-arg NEXT_PUBLIC_CHATBOT_ENABLED).
@@ -64,6 +67,17 @@ export default function ChatWidget() {
   const [sttSupported, setSttSupported] = useState(false);
   const [ttsSupported, setTtsSupported] = useState(false);
   const [readAloud, setReadAloud] = useState(false);
+  const voxtralRef = useRef<VoxtralStt | null>(null);
+  const [voxtralActive, setVoxtralActive] = useState(false);
+  const [micError, setMicError] = useState<string | null>(null);
+  const [consentNeeded, setConsentNeeded] = useState(false);
+
+  // Welk STT-pad? STT_MODE (build-time) bepaalt de strategie; default browser_only
+  // → de Voxtral-fallback is dark. native_first: native waar mogelijk, anders
+  // Voxtral. provider_only: altijd Voxtral.
+  const useVoxtral = STT_PROVIDER_ONLY || (STT_PROVIDER_ENABLED && !sttSupported);
+  const showMic = (sttSupported && !STT_PROVIDER_ONLY) || useVoxtral;
+  const recording = listening || voxtralActive;
 
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
@@ -92,6 +106,7 @@ export default function ChatWidget() {
     if ("speechSynthesis" in window) setTtsSupported(true);
     return () => {
       recRef.current?.stop();
+      voxtralRef.current?.stop();
       if ("speechSynthesis" in window) window.speechSynthesis.cancel();
     };
   }, []);
@@ -118,15 +133,44 @@ export default function ChatWidget() {
     });
   }
 
-  function toggleMic() {
-    if (busy) return;
-    if (listening) {
-      recRef.current?.stop();
-      return;
+  function hasVoxtralConsent() {
+    try {
+      return localStorage.getItem("stt_voxtral_consent") === "1";
+    } catch {
+      return false;
     }
+  }
+
+  function startVoxtral() {
+    setMicError(null);
+    setInput("");
+    const stt = new VoxtralStt({
+      onPartial: (t) => setInput(t),
+      onFinal: (t) => setInput(t),
+      onError: (_code, msg) => {
+        setMicError(msg);
+        setVoxtralActive(false);
+      },
+      onStateChange: (s) => setVoxtralActive(s !== "stopped"),
+    });
+    voxtralRef.current = stt;
+    setVoxtralActive(true);
+    stt.start();
+  }
+
+  function grantConsentAndStart() {
+    try {
+      localStorage.setItem("stt_voxtral_consent", "1");
+    } catch {
+      /* localStorage geblokkeerd — ga toch door, gebruiker gaf net akkoord */
+    }
+    setConsentNeeded(false);
+    startVoxtral();
+  }
+
+  function startNative() {
     const Ctor = ctorRef.current;
     if (!Ctor) return;
-
     const rec = new Ctor();
     rec.lang = "nl-BE";
     rec.interimResults = true;
@@ -143,19 +187,50 @@ export default function ChatWidget() {
       }
       setInput((finalText + interim).trim());
     };
-    rec.onerror = () => setListening(false);
+    rec.onerror = (e) => {
+      setListening(false);
+      // Runtime-fallback (#282): native onbruikbaar → val terug op Voxtral (enkel
+      // bij native_first; provider_only gebruikt sowieso al Voxtral).
+      const code = e?.error || "";
+      const nativeUnusable =
+        code === "not-allowed" || code === "audio-capture" || code === "service-not-allowed";
+      if (nativeUnusable && STT_PROVIDER_ENABLED && !STT_PROVIDER_ONLY) {
+        if (hasVoxtralConsent()) startVoxtral();
+        else setConsentNeeded(true);
+      }
+    };
     rec.onend = () => setListening(false);
 
     recRef.current = rec;
+    setMicError(null);
     setInput("");
     setListening(true);
     rec.start();
+  }
+
+  function toggleMic() {
+    if (busy) return;
+    if (listening) {
+      recRef.current?.stop();
+      return;
+    }
+    if (voxtralActive) {
+      voxtralRef.current?.stop();
+      return;
+    }
+    if (useVoxtral) {
+      if (hasVoxtralConsent()) startVoxtral();
+      else setConsentNeeded(true);
+      return;
+    }
+    startNative();
   }
 
   async function send() {
     const text = input.trim();
     if (!text || busy) return;
     recRef.current?.stop();
+    voxtralRef.current?.stop();
 
     const history: ChatMsg[] = [...messages, { role: "user", content: text }];
     // Sliding window (#251): stuur enkel de recentste berichten mee (server-cap 20),
@@ -243,40 +318,65 @@ export default function ChatWidget() {
             ))}
           </div>
 
-          <div className="border-t border-gray-200 p-2 flex items-end gap-2">
-            {sttSupported && (
-              <button
-                onClick={toggleMic}
-                disabled={busy}
-                aria-label={listening ? "Stop met opnemen" : "Spreek je vraag in"}
-                title="Spreek je vraag in (spraakherkenning via de browser)"
-                className={
-                  "shrink-0 h-10 w-10 rounded-lg flex items-center justify-center text-lg transition-colors disabled:opacity-40 " +
-                  (listening
-                    ? "bg-red-600 text-white animate-pulse"
-                    : "bg-gray-100 hover:bg-gray-200 text-gray-700")
-                }
-              >
-                🎤
-              </button>
+          <div className="border-t border-gray-200">
+            {consentNeeded && (
+              <div className="p-2 text-xs text-gray-700 bg-amber-50 border-b border-amber-200">
+                <p className="mb-2">
+                  Je browser heeft geen ingebouwde spraakherkenning. We zetten je spraak om via een
+                  Europese verwerker (Mistral AI, Frankrijk); we bewaren geen opnames. Doorgaan?
+                </p>
+                <div className="flex gap-2">
+                  <button
+                    onClick={grantConsentAndStart}
+                    className="bg-blue-700 hover:bg-blue-800 text-white rounded px-3 py-1"
+                  >
+                    Akkoord, spreek in
+                  </button>
+                  <button
+                    onClick={() => setConsentNeeded(false)}
+                    className="border border-gray-300 rounded px-3 py-1 hover:bg-gray-100"
+                  >
+                    Annuleer
+                  </button>
+                </div>
+              </div>
             )}
-            <textarea
-              ref={inputRef}
-              className="flex-1 resize-none overflow-y-auto border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              rows={1}
-              placeholder={listening ? "Aan het luisteren…" : "Typ je vraag…"}
-              value={input}
-              onChange={(e) => setInput(e.target.value)}
-              onKeyDown={onKeyDown}
-              disabled={busy}
-            />
-            <button
-              onClick={send}
-              disabled={busy || !input.trim()}
-              className="bg-blue-700 hover:bg-blue-800 disabled:opacity-40 text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors"
-            >
-              Stuur
-            </button>
+            {micError && <p className="px-3 pt-2 text-xs text-red-600">{micError}</p>}
+            <div className="p-2 flex items-end gap-2">
+              {showMic && (
+                <button
+                  onClick={toggleMic}
+                  disabled={busy}
+                  aria-label={recording ? "Stop met opnemen" : "Spreek je vraag in"}
+                  title="Spreek je vraag in"
+                  className={
+                    "shrink-0 h-10 w-10 rounded-lg flex items-center justify-center text-lg transition-colors disabled:opacity-40 " +
+                    (recording
+                      ? "bg-red-600 text-white animate-pulse"
+                      : "bg-gray-100 hover:bg-gray-200 text-gray-700")
+                  }
+                >
+                  🎤
+                </button>
+              )}
+              <textarea
+                ref={inputRef}
+                className="flex-1 resize-none overflow-y-auto border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                rows={1}
+                placeholder={recording ? "Aan het luisteren…" : "Typ je vraag…"}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={onKeyDown}
+                disabled={busy}
+              />
+              <button
+                onClick={send}
+                disabled={busy || !input.trim()}
+                className="bg-blue-700 hover:bg-blue-800 disabled:opacity-40 text-white font-semibold rounded-lg px-4 py-2 text-sm transition-colors"
+              >
+                Stuur
+              </button>
+            </div>
           </div>
         </div>
       )}

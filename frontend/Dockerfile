@@ -18,6 +18,9 @@ ENV NEXT_PUBLIC_UMAMI_WEBSITE_ID=$NEXT_PUBLIC_UMAMI_WEBSITE_ID
 # deze ARG dropt Docker de compose-build-arg stil en blijft de widget verborgen.
 ARG NEXT_PUBLIC_CHATBOT_ENABLED=false
 ENV NEXT_PUBLIC_CHATBOT_ENABLED=$NEXT_PUBLIC_CHATBOT_ENABLED
+# STT-strategie (#282/#290) — build-time ingebakken; default browser_only (Voxtral dark).
+ARG NEXT_PUBLIC_STT_MODE=browser_only
+ENV NEXT_PUBLIC_STT_MODE=$NEXT_PUBLIC_STT_MODE
 RUN npm run build
 
 FROM node:20-alpine AS runner
