@@ -32,7 +32,8 @@ def get_stt_provider() -> SttProvider:
         return VoxtralRealtimeProvider(
             api_key=settings.mistral_api_key,
             model=settings.stt_model,
-            url=settings.stt_realtime_url,
+            base_url=settings.stt_base_url,
+            sample_rate=settings.stt_sample_rate,
         )
 
     return MockSttProvider()

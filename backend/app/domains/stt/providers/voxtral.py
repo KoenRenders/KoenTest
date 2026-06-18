@@ -1,32 +1,23 @@
 """Voxtral Realtime-adapter (Mistral AI, EU) — #282.
 
-Praat met de Mistral Voxtral-Realtime-WebSocket (model
-``voxtral-mini-transcribe-realtime-2602``) via een rauwe ``websockets``-client
-(beschikbaar via ``uvicorn[standard]``). De ``MISTRAL_API_KEY`` gaat in de
-Authorization-header en blijft dus serverside; de browser praat enkel met onze
-eigen proxy, nooit rechtstreeks met Mistral.
+Gebruikt de **officiële** ``mistralai[realtime]``-SDK
+(``client.audio.realtime.transcribe_stream``) — model
+``voxtral-mini-transcribe-realtime-2602``, audio ``pcm_s16le`` @ 16 kHz mono.
+De ``MISTRAL_API_KEY`` gaat naar de SDK en blijft serverside; de browser praat
+enkel met onze eigen proxy.
 
-Protocol (gecorroboreerd via secundaire bronnen — vLLM-implementatie + de Voxtral
-Realtime-paper — maar ⚠️ TE BEVESTIGEN OP HDEV tegen de live Mistral-endpoint,
-want de officiële docs zijn tijdens de bouw afgeschermd):
+Bewust **lazy geïmporteerd** (net zoals de chat-provider geen SDK-dep hardcodeert):
+``check_imports``/CI blijven groen zonder de SDK, en dit pad wordt enkel actief met
+``STT_PROVIDER=voxtral`` (of ``auto`` + key). Om het live te zetten op een host:
+``pip install mistralai[realtime]`` + ``STT_VOXTRAL_ENABLED=true``, plus een
+HDEV-smoke tegen de live endpoint.
 
-- **client → server:** ``input_audio_buffer.append`` (audio als base64),
-  ``input_audio_buffer.commit`` (einde opname), sessieconfig via
-  ``transcription_session.update`` (vLLM: ``session.update``).
-- **server → client:** ``transcription.delta`` (partial; tekst in ``delta``),
-  een ``...done``/``...completed``-event (final) en ``session.created`` bij start.
-- **audio:** base64 **PCM16, 16 kHz mono** — de frontend moet de mic-audio dus
-  naar 16 kHz mono PCM16 herbemonsteren vóór ze hierheen te streamen.
-
-De mock-provider draait in CI/lokaal; dit pad wordt enkel actief met
-``STT_PROVIDER=voxtral`` (of ``auto`` + key) en moet gesmoke-test worden vóór de
-toggle live gaat — pas dan staat het schema definitief vast.
+Contract naar de route: elke ``TranscriptionStreamTextDelta`` → een ``partial``
+``TranscriptEvent`` met de incrementele tekst; ``TranscriptionStreamDone`` → een
+``final`` met de volledige (samengevoegde) transcriptie.
 """
 from __future__ import annotations
 
-import asyncio
-import base64
-import json
 import logging
 from typing import AsyncIterator
 
@@ -38,51 +29,44 @@ logger = logging.getLogger(__name__)
 class VoxtralRealtimeProvider(SttProvider):
     name = "voxtral"
 
-    def __init__(self, api_key: str, model: str, url: str):
+    def __init__(self, api_key: str, model: str, base_url: str, sample_rate: int):
         self._api_key = api_key
         self._model = model
-        self._url = url
+        self._base_url = base_url
+        self._sample_rate = sample_rate
 
     async def stream(self, audio: AsyncIterator[bytes]) -> AsyncIterator[TranscriptEvent]:
         try:
-            import websockets  # via uvicorn[standard]
+            from mistralai.client import Mistral
+            from mistralai.client.models import (
+                AudioFormat,
+                RealtimeTranscriptionError,
+                TranscriptionStreamDone,
+                TranscriptionStreamTextDelta,
+            )
         except ImportError as exc:  # pragma: no cover - enkel zonder de extra
             raise RuntimeError(
-                "De Voxtral-adapter vereist de 'websockets'-library."
+                "De Voxtral-adapter vereist de mistralai[realtime]-SDK "
+                "(pip install mistralai[realtime])."
             ) from exc
 
-        headers = {"Authorization": f"Bearer {self._api_key}"}
-        async with websockets.connect(self._url, additional_headers=headers) as ws:
-            # Sessie configureren (model + audioformaat). Schema te bevestigen op HDEV.
-            await ws.send(json.dumps({
-                "type": "transcription_session.update",
-                "session": {"model": self._model, "input_audio_format": "pcm16"},
-            }))
+        client = Mistral(api_key=self._api_key, server_url=self._base_url)
+        audio_format = AudioFormat(encoding="pcm_s16le", sample_rate=self._sample_rate)
 
-            async def _send_audio() -> None:
-                async for chunk in audio:
-                    await ws.send(json.dumps({
-                        "type": "input_audio_buffer.append",
-                        "audio": base64.b64encode(chunk).decode("ascii"),
-                    }))
-                # Einde opname → commit zodat de server kan afronden.
-                await ws.send(json.dumps({"type": "input_audio_buffer.commit"}))
-
-            sender = asyncio.create_task(_send_audio())
-            try:
-                async for raw in ws:
-                    try:
-                        event = json.loads(raw)
-                    except (ValueError, TypeError):
-                        continue
-                    etype = str(event.get("type", ""))
-                    if etype.endswith("delta"):
-                        text = event.get("delta") or event.get("text") or ""
-                        if text:
-                            yield TranscriptEvent(text=text, is_final=False)
-                    elif etype.endswith("completed") or etype.endswith("done"):
-                        text = event.get("transcript") or event.get("text") or ""
-                        yield TranscriptEvent(text=text, is_final=True)
-                        break
-            finally:
-                sender.cancel()
+        full: list[str] = []
+        async for event in client.audio.realtime.transcribe_stream(
+            audio_stream=audio,
+            model=self._model,
+            audio_format=audio_format,
+        ):
+            if isinstance(event, TranscriptionStreamTextDelta):
+                full.append(event.text)
+                yield TranscriptEvent(text=event.text, is_final=False)
+            elif isinstance(event, TranscriptionStreamDone):
+                yield TranscriptEvent(text="".join(full), is_final=True)
+                break
+            elif isinstance(event, RealtimeTranscriptionError):
+                raise RuntimeError(
+                    f"Voxtral realtime fout: {getattr(event, 'error', event)}"
+                )
+            # RealtimeTranscriptionSessionCreated / UnknownRealtimeEvent → negeren

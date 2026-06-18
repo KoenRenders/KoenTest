@@ -57,7 +57,8 @@ class Settings(BaseSettings):
     # alles op de afhankelijkheidsvrije mock.
     stt_provider: str = "auto"
     stt_model: str = "voxtral-mini-transcribe-realtime-2602"
-    stt_realtime_url: str = "wss://api.mistral.ai/v1/audio/transcriptions/realtime"
+    stt_base_url: str = "wss://api.mistral.ai"   # server_url voor de mistralai[realtime]-SDK
+    stt_sample_rate: int = 16000                 # Voxtral: pcm_s16le @ 16 kHz mono
     # Vangrails (kosten/misbruik), defense-in-depth zoals de chat-limiters (#282):
     stt_ws_max_handshakes_per_min: int = 10       # handshake-rate-limit per IP
     stt_idle_timeout_seconds: int = 15            # geen audioframe binnen X s → sluit
