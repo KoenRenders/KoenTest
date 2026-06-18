@@ -6,9 +6,9 @@ from app.soft_delete import soft_delete
 from tests.conftest import seed_activity_with_product
 
 
-def _register(client, activity_id, comp, product, remarks=None):
+def _register(client, activity_id, comp, product, remarks=None, email="an@example.com"):
     payload = {
-        "contact_name": "An Janssens", "contact_email": "an@example.com",
+        "contact_name": "An Janssens", "contact_email": email,
         "component_id": comp.id, "payment_method": "TRANSFER",
         "items": [{"product_id": product.id, "quantity": 2}],
     }
@@ -67,6 +67,36 @@ def test_remarks_update_leaves_order_lines_untouched(client, db_session, admin_h
     # Bestelregel blijft ongemoeid: nog steeds één regel met aantal 2.
     assert len(body["items"]) == 1
     assert body["items"][0]["quantity"] == 2
+
+
+def test_registration_list_order_stable_after_remark_edit(client, db_session, admin_headers):
+    """#285: de lijst is stabiel gesorteerd (oud → nieuw); een bewerkte opmerking
+    laat de inschrijving NIET naar onderen springen."""
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    activity_id = comp.activity_id
+    ids = [
+        _register(client, activity_id, comp, product, email=f"reg{i}@example.com")
+        for i in range(3)
+    ]
+
+    def _order():
+        resp = client.get(
+            f"/api/v1/activities/{activity_id}/registrations", headers=admin_headers
+        )
+        assert resp.status_code == 200, resp.text
+        return [r["id"] for r in resp.json()]
+
+    before = _order()
+    assert before == ids  # oud → nieuw (aanmaakvolgorde)
+
+    # Bewerk de opmerking van de EERSTE inschrijving.
+    r = client.patch(
+        f"/api/v1/activities/{activity_id}/registrations/{ids[0]}",
+        json={"remarks": "gewijzigd"}, headers=admin_headers,
+    )
+    assert r.status_code == 200, r.text
+
+    assert _order() == before  # volgorde ongewijzigd — niet naar onderen gesprongen
 
 
 def test_remarks_update_on_soft_deleted_returns_404(client, db_session, admin_headers):

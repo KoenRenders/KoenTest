@@ -592,7 +592,16 @@ def get_registrations(
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
         raise HTTPException(status_code=404, detail="Activity not found")
-    return [_enrich_registration(r, activity) for r in activity.registrations]
+    # Expliciete, stabiele sortering (#285): zonder ORDER BY geeft Postgres de
+    # rijen in heap-volgorde terug, waardoor een bewerkte inschrijving (UPDATE,
+    # bv. opmerking #283) naar onderen springt. Oud → nieuw, id als tiebreaker.
+    regs = (
+        db.query(Registration)
+        .filter(Registration.activity_id == activity.id)
+        .order_by(Registration.registered_at.asc(), Registration.id.asc())
+        .all()
+    )
+    return [_enrich_registration(r, activity) for r in regs]
 
 
 # ── OpenDocument-export per onderdeel (#85/#200) ──────────────────────────────
