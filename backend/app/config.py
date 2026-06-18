@@ -44,18 +44,21 @@ class Settings(BaseSettings):
     chat_daily_char_budget: int = 20000
     chat_max_tool_rounds: int = 4
 
-    # Spraak-naar-tekst (STT) fallback via Voxtral Realtime (Mistral, EU) — #282.
-    # Native browser-STT (Web Speech API) blijft eerste keuze; deze proxy vult
-    # enkel het gat voor browsers zonder (werkende) native STT (o.a. Firefox).
-    # stt_voxtral_enabled: hoofdschakelaar, standaard UIT → de WS-route weigert de
-    # handshake, zodat de code mee naar PROD mag zonder dat de feature live is
-    # (zelfde dark-launch-principe als chat_enabled). Hergebruikt dezelfde
-    # MISTRAL_API_KEY; die blijft serverside (de browser praat enkel met de proxy).
-    stt_voxtral_enabled: bool = False
-    # STT-provider-keuze (zoals chat_llm_provider): auto (Voxtral zodra er een
-    # MISTRAL_API_KEY staat, anders mock) | voxtral | mock. In CI/zonder key draait
-    # alles op de afhankelijkheidsvrije mock.
-    stt_provider: str = "auto"
+    # Spraak-naar-tekst (STT) van chatbot Raakje — #282. Twee orthogonale knoppen:
+    # de STRATEGIE (STT_MODE) en de server-side PROVIDER (STT_PROVIDER).
+    #
+    # STT_MODE — wie verwerkt de spraak per browser:
+    #   browser_only  : enkel native browser-STT (Web Speech API); browsers zonder
+    #                   native krijgen geen mic. = gedrag van vandaag, géén provider.
+    #                   Default → dark-launch: de WS-route weigert de handshake en de
+    #                   code mag mee naar PROD zonder dat de provider live is.
+    #   native_first  : native waar de browser het ondersteunt, anders via de provider.
+    #   provider_only : altijd via de provider (bv. EU/GDPR), ook met native beschikbaar.
+    stt_mode: str = "browser_only"
+    # STT_PROVIDER — de server-side spraak-naar-tekst-bron wanneer de provider wordt
+    # gebruikt (native_first/provider_only): 'voxtral' (Mistral, EU). 'mock' is enkel
+    # voor CI/dev (afhankelijkheidsvrij, geen netwerk). Hergebruikt MISTRAL_API_KEY.
+    stt_provider: str = "voxtral"
     stt_model: str = "voxtral-mini-transcribe-realtime-2602"
     stt_base_url: str = "wss://api.mistral.ai"   # server_url voor de mistralai[realtime]-SDK
     stt_sample_rate: int = 16000                 # Voxtral: pcm_s16le @ 16 kHz mono

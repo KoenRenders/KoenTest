@@ -8,9 +8,10 @@ enkel met onze eigen proxy.
 
 Bewust **lazy geïmporteerd** (net zoals de chat-provider geen SDK-dep hardcodeert):
 ``check_imports``/CI blijven groen zonder de SDK, en dit pad wordt enkel actief met
-``STT_PROVIDER=voxtral`` (of ``auto`` + key). Om het live te zetten op een host:
-``pip install mistralai[realtime]`` + ``STT_VOXTRAL_ENABLED=true``, plus een
-HDEV-smoke tegen de live endpoint.
+``STT_PROVIDER=voxtral`` + een provider-modus (``STT_MODE=native_first``/
+``provider_only``). Om het live te zetten op een host: ``pip install
+mistralai[realtime]`` + de juiste ``STT_MODE``, plus een HDEV-smoke tegen de live
+endpoint.
 
 Contract naar de route: elke ``TranscriptionStreamTextDelta`` → een ``partial``
 ``TranscriptEvent`` met de incrementele tekst; ``TranscriptionStreamDone`` → een

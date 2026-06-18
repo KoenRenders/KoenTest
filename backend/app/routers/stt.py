@@ -6,9 +6,10 @@ swapbare provider-laag naar **Voxtral Realtime** (Mistral, EU) doorzet en de
 transcript-events terugstuurt als JSON (``{"type": "partial"|"final", "text": …}``).
 De API-sleutel (gedeelde ``MISTRAL_API_KEY``) blijft serverside.
 
-Hoofdschakelaar ``STT_VOXTRAL_ENABLED`` staat standaard UIT → de handshake wordt
-geweigerd (zoals ``CHAT_ENABLED`` de chat-route 'onzichtbaar' houdt), zodat deze
-code dark mee naar PROD mag. In CI/zonder key draait de provider-laag op de mock.
+De strategie ``STT_MODE`` bepaalt of de provider wordt aangesproken: bij
+``browser_only`` (default) weigert de route de handshake (provider dark, code mag
+mee naar PROD), bij ``native_first``/``provider_only`` accepteert ze. In CI/zonder
+key draait de provider-laag op de mock (``STT_PROVIDER=mock``).
 
 Vangrails (defense-in-depth, #282): handshake-rate-limit per IP, idle-timeout,
 harde audio-cap per sessie én per IP/dag — een vastgelopen of misbruikte socket
@@ -44,12 +45,16 @@ _WS_SESSION_CAP = 4413    # ~ HTTP 413 Payload Too Large
 handshake_limiter = HandshakeRateLimiter(settings.stt_ws_max_handshakes_per_min)
 audio_budget = DailyAudioBudget(settings.stt_daily_audio_budget_bytes)
 
+# STT_MODE-waarden waarin de provider (Voxtral) effectief wordt aangesproken; in
+# 'browser_only' (default) blijft de provider dark en weigert de route.
+_PROVIDER_MODES = ("native_first", "provider_only")
+
 
 @router.websocket("/stt/voxtral")
 async def stt_voxtral(websocket: WebSocket) -> None:
-    # 1) Hoofdschakelaar + pre-accept-vangrails (geen kost als we hier weigeren).
-    if not settings.stt_voxtral_enabled:
-        await websocket.close(code=_WS_POLICY, reason="STT uitgeschakeld")
+    # 1) Strategie + pre-accept-vangrails (geen kost als we hier weigeren).
+    if settings.stt_mode not in _PROVIDER_MODES:
+        await websocket.close(code=_WS_POLICY, reason="STT via provider niet actief")
         return
     ip = ws_client_ip(websocket)
     if not handshake_limiter.allow(ip):

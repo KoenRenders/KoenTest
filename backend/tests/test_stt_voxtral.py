@@ -1,9 +1,9 @@
-"""STT-WebSocket-proxy (#282), achter STT_VOXTRAL_ENABLED.
+"""STT-WebSocket-proxy (#282): STT_MODE-gating + STT_PROVIDER.
 
-Dekt het kill-switch-gedrag (uit → handshake geweigerd), de streaming-pijplijn met
-de mock-provider (partials → final) en de vangrails: handshake-rate-limit,
-idle-timeout, harde audio-cap per sessie en per IP/dag. CI draait volledig op de
-mock-provider (geen Voxtral/MISTRAL_API_KEY nodig).
+Dekt het gedrag per strategie (browser_only → handshake geweigerd; native_first →
+provider actief), de streaming-pijplijn met de mock-provider (partials → final) en
+de vangrails: handshake-rate-limit, idle-timeout, harde audio-cap per sessie en per
+IP/dag. CI draait volledig op de mock-provider (geen Voxtral/MISTRAL_API_KEY nodig).
 """
 import json
 
@@ -16,9 +16,10 @@ from app.routers import stt as stt_mod
 
 @pytest.fixture(autouse=True)
 def _enable_and_reset(monkeypatch):
-    """Zet de STT-feature aan op de mock-provider en reset de globale vangrails,
-    zodat tests elkaar niet beïnvloeden (de per-IP-tellers zijn module-globaal)."""
-    monkeypatch.setattr(settings, "stt_voxtral_enabled", True)
+    """Zet een provider-modus (native_first) op de mock-provider en reset de globale
+    vangrails, zodat tests elkaar niet beïnvloeden (de per-IP-tellers zijn
+    module-globaal)."""
+    monkeypatch.setattr(settings, "stt_mode", "native_first")
     monkeypatch.setattr(settings, "stt_provider", "mock")
     stt_mod.handshake_limiter.reset()
     stt_mod.audio_budget.reset()
@@ -38,8 +39,8 @@ def _drain_until_disconnect(ws, limit=10):
     return events, None
 
 
-def test_stt_ws_rejected_when_disabled(client, monkeypatch):
-    monkeypatch.setattr(settings, "stt_voxtral_enabled", False)
+def test_stt_ws_rejected_in_browser_only_mode(client, monkeypatch):
+    monkeypatch.setattr(settings, "stt_mode", "browser_only")
     with pytest.raises(WebSocketDisconnect) as exc:
         with client.websocket_connect("/api/v1/stt/voxtral"):
             pass
