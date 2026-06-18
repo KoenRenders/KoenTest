@@ -55,7 +55,7 @@ def build_component_export_ods(db, activity, component) -> bytes:
         ["Naam"]
         + [p.name for p in products]
         + ["Verschuldigd", "Betaald online", "Betaald overschr./cash",
-           "Terugbetaald", "Saldo", "Betaalwijze", "Status"]
+           "Terugbetaald", "Saldo", "Betaalwijze", "Status", "Opmerkingen"]
     )
 
     product_totals = [0] * len(products)
@@ -77,10 +77,11 @@ def build_component_export_ods(db, activity, component) -> bytes:
             row.append(float(v))
         row.append(_METHOD_LABELS.get(reg.payment_method or "", reg.payment_method or "—"))
         row.append(_status_label(due, saldo))
+        row.append(reg.remarks or "")
         rows.append(row)
 
-    rows.append(["Totaal"] + product_totals + [float(v) for v in money_totals] + ["", ""])
+    rows.append(["Totaal"] + product_totals + [float(v) for v in money_totals] + ["", "", ""])
 
-    col_widths = [4.5] + [3.0] * len(products) + [3.5, 3.5, 4.0, 3.5, 3.0, 3.5, 3.0]
+    col_widths = [4.5] + [3.0] * len(products) + [3.5, 3.5, 4.0, 3.5, 3.0, 3.5, 3.0, 6.0]
     return build_ods(component.name or "Onderdeel", headers, rows,
                      col_widths=col_widths, bold_last_row=True)

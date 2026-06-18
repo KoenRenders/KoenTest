@@ -199,3 +199,32 @@ def test_export_online_payment_in_online_column(client, db_session, admin_header
     i_offline = headers.index("Betaald overschr./cash")
     assert rows[1][i_online] == 18.0
     assert rows[1][i_offline] == 0.0
+
+
+def test_export_includes_remarks_column(client, db_session, admin_headers):
+    """#284: de opmerking van de inschrijver komt mee in de .ods (laatste kolom);
+    een lege opmerking geeft een lege cel."""
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    activity_id = comp.activity_id
+    client.post(f"/api/v1/activities/{activity_id}/register", json={
+        "contact_name": "An", "contact_email": "an@example.com", "component_id": comp.id,
+        "payment_method": "TRANSFER", "remarks": "Komt iets later",
+        "items": [{"product_id": product.id, "quantity": 1}],
+    })
+    client.post(f"/api/v1/activities/{activity_id}/register", json={
+        "contact_name": "Bo", "contact_email": "bo@example.com", "component_id": comp.id,
+        "payment_method": "TRANSFER",
+        "items": [{"product_id": product.id, "quantity": 1}],
+    })
+
+    rows = _load(client.get(f"/api/v1/activities/{activity_id}/components/{comp.id}/export",
+                            headers=admin_headers))
+    headers = list(rows[0])
+    assert "Opmerkingen" in headers
+    i_rem = headers.index("Opmerkingen")
+
+    by_name = {r[0]: r for r in rows[1:] if r[0] not in (None, "", "Totaal")}
+    assert by_name["An"][i_rem] == "Komt iets later"
+    # Lege opmerking → lege cel (of, bij compressie, geen cel meer op die index).
+    bo = by_name["Bo"]
+    assert len(bo) <= i_rem or bo[i_rem] in ("", None)
