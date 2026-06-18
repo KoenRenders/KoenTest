@@ -5,8 +5,8 @@ alembic==1.14.0
 psycopg2-binary==2.9.10
 pydantic[email]==2.10.0
 pydantic-settings==2.6.0
-python-jose[cryptography]==3.3.0
-python-multipart==0.0.12
+PyJWT==2.10.1
+python-multipart==0.0.18
 httpx==0.28.0
 xlrd==2.0.2
 odfpy==1.4.1
