@@ -64,8 +64,9 @@ function ComponentRow({
 
   return (
     <div>
-      <div className="flex items-center gap-2 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
         {!hideName && <span className="text-sm font-semibold text-gray-800">{component.name}</span>}
+        <div className="flex flex-wrap gap-2">
         {component.external_register_url ? (
           <a href={component.external_register_url} target="_blank" rel="noopener noreferrer"
             className="text-xs text-blue-600 border border-blue-200 rounded px-2 py-0.5 hover:bg-blue-50">
@@ -97,6 +98,7 @@ function ComponentRow({
             Info ↗
           </a>
         )}
+        </div>
       </div>
 
 
