@@ -13,7 +13,7 @@ const ENV_PREFIX = APP_ENV && APP_ENV !== "prod" ? `[${APP_ENV.toUpperCase()}] `
 
 export const metadata: Metadata = {
   title: `${ENV_PREFIX}Raak Millegem`,
-  description: "De website van vereniging Raak Millegem",
+  description: "De website van Raak Millegem",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
