@@ -84,6 +84,40 @@ def test_renew_refused_when_already_valid(client, db_session, mock_mollie):
     assert resp.status_code == 409, resp.text
 
 
+def test_membership_payment_description_uses_raak_not_kwb(client, db_session, monkeypatch):
+    """De Mollie-omschrijving van een lidmaatschap-betaling vermeldt 'Raak
+    Millegem', niet 'KWB' (#286)."""
+    from app.config import settings
+    from app.domains.payment_gateway.providers import mollie
+    from app.domains.payment_gateway.providers.base import PaymentResult
+
+    captured = {}
+
+    def capture_create_payment(self, amount, description, redirect_url, webhook_url, metadata):
+        captured["description"] = description
+        return PaymentResult(
+            provider_payment_id="tr_test_123",
+            checkout_url="https://mollie.test/checkout/tr_test_123",
+            status="pending",
+        )
+
+    monkeypatch.setattr(mollie.MollieProvider, "create_payment", capture_create_payment)
+
+    email = "raakdesc@example.com"
+    seed_household(db_session, email)  # actief, geldig dit jaar
+    old = settings.membership_renewal_start_md
+    settings.membership_renewal_start_md = "01-01"  # open het hernieuwingsvenster
+    try:
+        resp = client.post("/api/v1/member/household/renew-membership", headers=_headers(email))
+    finally:
+        settings.membership_renewal_start_md = old
+    assert resp.status_code == 200, resp.text
+
+    desc = captured.get("description", "")
+    assert desc.startswith("Raak Millegem lidmaatschap"), desc
+    assert "KWB" not in desc
+
+
 def test_double_renew_is_refused(client, db_session, mock_mollie):
     """Invariant: een tweede hernieuwing voor hetzelfde doeljaar wordt geweigerd
     (409) zodat er nooit een dubbel lidmaatschap of dubbele betaling ontstaat.
