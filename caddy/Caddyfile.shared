@@ -12,6 +12,11 @@
 		X-Content-Type-Options "nosniff"
 		# Beperk referrer-lekkage
 		Referrer-Policy "strict-origin-when-cross-origin"
+		# Content-Security-Policy in Report-Only (#267): rapporteert overtredingen
+		# zonder te blokkeren, zodat we op HDEV/UAT kunnen finetunen (o.a. de
+		# Umami-analytics-bron) vóór we 'm afdwingen. React-escaping + DOMPurify
+		# zijn de primaire XSS-verdediging; dit is de extra laag.
+		Content-Security-Policy-Report-Only "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
 		# Verberg server-header
 		-Server
 	}
