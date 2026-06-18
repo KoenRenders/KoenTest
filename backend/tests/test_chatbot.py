@@ -46,6 +46,42 @@ def test_membership_block_always_present(db_session):
     assert "35,00" in prompt and "17,50" in prompt
 
 
+def _fixed_date(y, m, d):
+    import datetime as _dt
+
+    class _D(_dt.date):
+        @classmethod
+        def today(cls):
+            return cls(y, m, d)
+
+    return _D
+
+
+def test_membership_duration_until_dec31_in_halfprice_window(monkeypatch):
+    """Regressie (#273): wie in de halfprijs-periode lid wordt, krijgt de DUUR
+    t/m 31 december gecommuniceerd — niet de halfprijs-einddatum (16 sep)."""
+    from app.domains.chatbot import context
+
+    monkeypatch.setattr(context, "date", _fixed_date(2026, 7, 1))
+    block = context._membership_block()
+    assert "lid t/m 31 december 2026" in block
+    assert "bepaalt ALLEEN de prijs" in block
+    # 16 september mag nergens als lidmaatschap-einddatum staan (wel als prijsgrens).
+    assert "lid t/m 16 september" not in block
+
+
+def test_membership_duration_next_year_after_cutoff(monkeypatch):
+    """Wie betaalt vanaf membership_next_year_from_md is gedekt t/m 31 december
+    van het volgende jaar (#273)."""
+    from app.config import settings
+    from app.domains.chatbot import context
+
+    m, d = (int(x) for x in settings.membership_next_year_from_md.split("-"))
+    monkeypatch.setattr(context, "date", _fixed_date(2026, m, d))
+    block = context._membership_block()
+    assert "lid t/m 31 december 2027" in block
+
+
 def test_cms_page_can_be_excluded(db_session):
     """chatbot_info-rij met is_active=false → pagina niet naar de bot (opt-out)."""
     from app.models.chatbot_info import ChatbotInfo
