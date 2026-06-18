@@ -44,6 +44,15 @@ class Settings(BaseSettings):
     chat_daily_char_budget: int = 20000
     chat_max_tool_rounds: int = 4
 
+    # Spraak-naar-tekst (STT) fallback via Voxtral Realtime (Mistral, EU) — #282.
+    # Native browser-STT (Web Speech API) blijft eerste keuze; deze proxy vult
+    # enkel het gat voor browsers zonder (werkende) native STT (o.a. Firefox).
+    # stt_voxtral_enabled: hoofdschakelaar, standaard UIT → de WS-route weigert de
+    # handshake, zodat de code mee naar PROD mag zonder dat de feature live is
+    # (zelfde dark-launch-principe als chat_enabled). Hergebruikt dezelfde
+    # MISTRAL_API_KEY; die blijft serverside (de browser praat enkel met de proxy).
+    stt_voxtral_enabled: bool = False
+
     # Documenttekst-extractie (#206). PDF met tekstlaag → gratis via pypdf; scan/
     # afbeelding → Mistral OCR (zelfde MISTRAL_API_KEY). ocr_enabled uit → enkel
     # de gratis tekstlaag, geen OCR-call. pdf_text_min_chars = drempel waaronder
