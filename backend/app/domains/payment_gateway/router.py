@@ -6,6 +6,7 @@ from app.models.user import User
 from .models import GatewayPayment
 from .service import refresh_payment_status
 from app.domains.payment_status.service import handle_gateway_update
+from app.limiter import mollie_webhook_limiter
 
 router = APIRouter(prefix="/payment-gateway", tags=["payment-gateway"])
 
@@ -24,7 +25,7 @@ def get_payment(
     return {"id": gp.id, "status": gp.status}
 
 
-@router.post("/webhooks/mollie", status_code=200)
+@router.post("/webhooks/mollie", status_code=200, dependencies=[Depends(mollie_webhook_limiter)])
 def mollie_webhook(id: str = Form(...), db: Session = Depends(get_db)):
     """Mollie calls this when a payment status changes (form-encoded body with 'id')."""
     gp = db.query(GatewayPayment).filter(

@@ -197,6 +197,23 @@ def test_negative_product_price_rejected(client, db_session, admin_headers):
     assert resp.status_code in (422, 400, 500)
 
 
+def test_mollie_webhook_is_rate_limited(client):
+    """De Mollie-webhook is rate-limited tegen een ruwe flood vanaf één IP (#182).
+
+    Een onbekend id geeft 200 "ignored"; boven de drempel volgt 429. De limiet is
+    ruim gekozen zodat legitieme Mollie-bursts nooit geraakt worden."""
+    from app.limiter import mollie_webhook_limiter
+    mollie_webhook_limiter._calls.clear()  # deterministisch starten
+
+    limit = mollie_webhook_limiter.max_calls
+    for _ in range(limit):
+        ok = client.post("/api/v1/payment-gateway/webhooks/mollie", data={"id": "tr_onbekend"})
+        assert ok.status_code == 200
+
+    blocked = client.post("/api/v1/payment-gateway/webhooks/mollie", data={"id": "tr_onbekend"})
+    assert blocked.status_code == 429
+
+
 def test_login_rate_limited(client):
     """De login-limiter geeft 429 na te veel pogingen per minuut."""
     saw_429 = False
