@@ -51,7 +51,7 @@ class VoxtralRealtimeProvider(SttProvider):
                 "(pip install mistralai[realtime])."
             ) from exc
 
-        client = Mistral(api_key=self._api_key, server_url=self._base_url)
+        client = Mistral(api_key=self._api_key)
         audio_format = AudioFormat(encoding="pcm_s16le", sample_rate=self._sample_rate)
 
         full: list[str] = []
@@ -59,6 +59,7 @@ class VoxtralRealtimeProvider(SttProvider):
             audio_stream=audio,
             model=self._model,
             audio_format=audio_format,
+            server_url=self._base_url,
         ):
             if isinstance(event, TranscriptionStreamTextDelta):
                 full.append(event.text)
