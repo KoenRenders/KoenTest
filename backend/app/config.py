@@ -52,6 +52,17 @@ class Settings(BaseSettings):
     # (zelfde dark-launch-principe als chat_enabled). Hergebruikt dezelfde
     # MISTRAL_API_KEY; die blijft serverside (de browser praat enkel met de proxy).
     stt_voxtral_enabled: bool = False
+    # STT-provider-keuze (zoals chat_llm_provider): auto (Voxtral zodra er een
+    # MISTRAL_API_KEY staat, anders mock) | voxtral | mock. In CI/zonder key draait
+    # alles op de afhankelijkheidsvrije mock.
+    stt_provider: str = "auto"
+    stt_model: str = "voxtral-mini-transcribe-realtime-2602"
+    stt_realtime_url: str = "wss://api.mistral.ai/v1/audio/transcriptions/realtime"
+    # Vangrails (kosten/misbruik), defense-in-depth zoals de chat-limiters (#282):
+    stt_ws_max_handshakes_per_min: int = 10       # handshake-rate-limit per IP
+    stt_idle_timeout_seconds: int = 15            # geen audioframe binnen X s → sluit
+    stt_max_session_bytes: int = 8_000_000        # harde audio-cap per sessie (~PCM16)
+    stt_daily_audio_budget_bytes: int = 80_000_000  # harde audio-cap per IP per dag
 
     # Documenttekst-extractie (#206). PDF met tekstlaag → gratis via pypdf; scan/
     # afbeelding → Mistral OCR (zelfde MISTRAL_API_KEY). ocr_enabled uit → enkel
