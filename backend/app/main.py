@@ -30,10 +30,21 @@ logger.info(
     settings.app_env,
 )
 
+def _docs_kwargs(app_env: str) -> dict:
+    """Verberg de interactieve docs + het OpenAPI-schema in prod-achtige
+    omgevingen (#269). Ze lekken geen data, maar publiceren wél de volledige
+    API-kaart (alle admin-/finance-/member-endpoints + schema's) — onnodige
+    verkenning voor een aanvaller. In dev/hdev/build blijven ze handig aanstaan."""
+    if app_env in ("uat", "prod"):
+        return {"docs_url": None, "redoc_url": None, "openapi_url": None}
+    return {}
+
+
 app = FastAPI(
     title="Raak Millegem API",
     description="API for the Raak Millegem community association",
     version="1.0.0",
+    **_docs_kwargs(settings.app_env),
 )
 
 app.add_middleware(
