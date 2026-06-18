@@ -23,7 +23,7 @@ from app.config import settings
 from app.models.chatbot_info import ChatbotInfo
 from app.models.cms import CmsPage
 from app.services.cms_render import _format_md, _format_price, render_cms_content
-from app.domains.payment_status.service import membership_price_for_date
+from app.domains.payment_status.service import membership_price_for_date, membership_valid_period
 
 # Bovengrens op de ingestopte CMS-tekst, zodat de prompt niet ontspoort als er
 # ooit veel pagina's bijkomen. Ruim voldoende voor een verenigingssite.
@@ -83,11 +83,20 @@ def _membership_block() -> str:
     end = _format_md(settings.membership_half_price_end_md)
     nxt = _format_md(settings.membership_next_year_from_md)
     now_price = _format_price(membership_price_for_date(date.today()))
+    # Duur server-side voorgekauwd (#273): de halfprijs-grens bepaalt enkel de
+    # PRIJS, niet de geldigheidsduur. Zo kan de bot 16 sep niet als einddatum
+    # verzinnen — een lidmaatschap loopt altijd t/m 31 december van het gedekte jaar.
+    _, valid_to = membership_valid_period(date.today())
+    valid_to_str = f"{_format_md(f'{valid_to.month:02d}-{valid_to.day:02d}')} {valid_to.year}"
     return (
         "## Lidmaatschap\n"
         f"- Volledig lidgeld: €{full}. Halftarief: €{half} "
         f"(van {start} t/m {end}).\n"
-        f"- Vanaf {nxt} dekt de betaling ook heel volgend jaar.\n"
+        f"- **Duur:** een lidmaatschap loopt ALTIJD t/m 31 december van het jaar "
+        f"waarvoor je betaalt. De periode {start}–{end} bepaalt ALLEEN de prijs "
+        f"(halftarief), niet hoe lang je lid bent.\n"
+        f"- Wie betaalt vanaf {nxt} is gedekt t/m 31 december van het volgende jaar.\n"
+        f"- Wie vandaag lid wordt, is lid t/m {valid_to_str}.\n"
         f"- Op dit moment geldt het tarief van €{now_price}."
     )
 
