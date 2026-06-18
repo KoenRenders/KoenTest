@@ -30,6 +30,7 @@ from app.schemas.activity import (
     RegistrationResponse,
     RegistrationItemCreate,
     RegistrationItemUpdate,
+    RegistrationRemarksUpdate,
 )
 from app.services.email import send_activity_registration_confirmation
 from app.services.registration_totals import compute_registration_total
@@ -774,6 +775,26 @@ def delete_order_line(
     soft_delete(item)
     db.commit()
     return _order_edit_result(db, activity, reg, actor=admin.email)
+
+
+@router.patch("/activities/{activity_id}/registrations/{registration_id}")
+def update_registration_remarks(
+    activity_id: int,
+    registration_id: int,
+    data: RegistrationRemarksUpdate,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Admin bewerkt enkel de opmerking van de inschrijver (#283); raakt
+    bestelregels/saldo niet aan. Leeg/witruimte → NULL. Soft-deleted
+    inschrijvingen zijn via de globale filter onzichtbaar → 404 (niet bewerkbaar)."""
+    activity = _load_activity_or_404(db, activity_id)
+    reg = _load_registration_or_404(db, activity, registration_id)
+    cleaned = (data.remarks or "").strip()
+    reg.remarks = cleaned or None
+    db.commit()
+    db.refresh(reg)
+    return _enrich_registration(reg, activity)
 
 
 @router.get("/activities/{activity_id}/public-registrations")

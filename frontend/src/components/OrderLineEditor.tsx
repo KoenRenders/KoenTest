@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { addOrderLine, updateOrderLine, deleteOrderLine } from "@/lib/api";
+import { addOrderLine, updateOrderLine, deleteOrderLine, updateRegistrationRemarks } from "@/lib/api";
 import { parseApiError } from "@/lib/errors";
 
 export interface EditableItem {
@@ -33,6 +33,8 @@ interface Props {
   registrationId: number;
   items: EditableItem[];
   products: ProductOption[];
+  /** Huidige opmerking van de inschrijver (#283), bewerkbaar door de admin. */
+  remarks?: string | null;
   /** Parent herlaadt de inschrijvingen na een wijziging. */
   onChanged: () => void;
 }
@@ -44,13 +46,14 @@ interface Props {
  * het herberekende saldo en, bij een negatief saldo, een verwijzing naar de
  * terugbetaal-flow in Betalingen.
  */
-export default function OrderLineEditor({ activityId, registrationId, items, products, onChanged }: Props) {
+export default function OrderLineEditor({ activityId, registrationId, items, products, remarks, onChanged }: Props) {
   const [qtyDraft, setQtyDraft] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<ApiResult | null>(null);
   const [addProductId, setAddProductId] = useState<string>("");
   const [addQty, setAddQty] = useState<string>("1");
+  const [remarksDraft, setRemarksDraft] = useState<string>(remarks ?? "");
 
   async function run(action: () => Promise<{ data: ApiResult }>) {
     setBusy(true);
@@ -67,7 +70,8 @@ export default function OrderLineEditor({ activityId, registrationId, items, pro
   }
 
   // Eén bewaarknop voor de hele inschrijving: sla in één klik elk gewijzigd
-  // aantal op. De penningmeester hoeft niet per regel te bewaren.
+  // aantal én een gewijzigde opmerking (#283) op. De penningmeester hoeft niet
+  // per regel of veld apart te bewaren.
   async function saveAll() {
     const changed: { id: number; q: number }[] = [];
     for (const it of items) {
@@ -81,7 +85,7 @@ export default function OrderLineEditor({ activityId, registrationId, items, pro
       }
       if (q !== it.quantity) changed.push({ id: it.id, q });
     }
-    if (changed.length === 0) return;
+    if (changed.length === 0 && !remarksChanged) return;
     setBusy(true);
     setError(null);
     try {
@@ -90,11 +94,14 @@ export default function OrderLineEditor({ activityId, registrationId, items, pro
         const resp = await updateOrderLine(activityId, registrationId, c.id, { quantity: c.q });
         last = resp.data;
       }
+      if (remarksChanged) {
+        await updateRegistrationRemarks(activityId, registrationId, { remarks: remarksDraft.trim() || null });
+      }
       if (last) setResult(last);
       setQtyDraft({});
       onChanged();
     } catch (e) {
-      setError(parseApiError(e, "Bewerken van de bestelregels mislukt."));
+      setError(parseApiError(e, "Bewerken van de inschrijving mislukt."));
     } finally {
       setBusy(false);
     }
@@ -119,6 +126,9 @@ export default function OrderLineEditor({ activityId, registrationId, items, pro
     (it) => it.id != null && qtyDraft[it.id] !== undefined
       && parseInt(qtyDraft[it.id] ?? "", 10) !== it.quantity,
   );
+  // Is de opmerking gewijzigd t.o.v. de opgeslagen waarde (#283)? Genormaliseerd
+  // op trim zodat louter spaties geen "wijziging" zijn.
+  const remarksChanged = remarksDraft.trim() !== (remarks ?? "").trim();
 
   return (
     <div className="mt-2 border-t border-gray-100 pt-2">
@@ -149,18 +159,6 @@ export default function OrderLineEditor({ activityId, registrationId, items, pro
         ))}
       </ul>
 
-      {items.length > 0 && (
-        <div className="flex justify-end mt-1">
-          <button
-            onClick={saveAll}
-            disabled={busy || !hasChanges}
-            className="text-xs text-blue-600 border border-blue-200 rounded px-3 py-0.5 hover:bg-blue-50 disabled:opacity-40"
-          >
-            Bewaar
-          </button>
-        </div>
-      )}
-
       <div className="flex items-center gap-2 mt-2">
         <select
           className="input flex-1 text-sm py-0.5"
@@ -187,6 +185,28 @@ export default function OrderLineEditor({ activityId, registrationId, items, pro
           className="text-xs text-green-700 border border-green-200 rounded px-2 py-0.5 hover:bg-green-50 disabled:opacity-40"
         >
           Toevoegen
+        </button>
+      </div>
+
+      <div className="mt-2">
+        <label className="block text-xs text-gray-500 mb-0.5">Opmerkingen</label>
+        <textarea
+          className="input w-full text-sm py-1"
+          rows={2}
+          value={remarksDraft}
+          onChange={(e) => setRemarksDraft(e.target.value)}
+          disabled={busy}
+          placeholder="Opmerking van de inschrijver…"
+        />
+      </div>
+
+      <div className="flex justify-end mt-2">
+        <button
+          onClick={saveAll}
+          disabled={busy || (!hasChanges && !remarksChanged)}
+          className="text-xs text-blue-600 border border-blue-200 rounded px-3 py-0.5 hover:bg-blue-50 disabled:opacity-40"
+        >
+          Bewaar
         </button>
       </div>
 

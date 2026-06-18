@@ -37,6 +37,9 @@ export const updateOrderLine = (activityId: number, registrationId: number, item
   api.patch(`/api/v1/activities/${activityId}/registrations/${registrationId}/items/${itemId}`, data);
 export const deleteOrderLine = (activityId: number, registrationId: number, itemId: number) =>
   api.delete(`/api/v1/activities/${activityId}/registrations/${registrationId}/items/${itemId}`);
+// Opmerking van de inschrijver bewerken (admin) (#283) — leeg/witruimte → NULL server-side
+export const updateRegistrationRemarks = (activityId: number, registrationId: number, data: { remarks: string | null }) =>
+  api.patch(`/api/v1/activities/${activityId}/registrations/${registrationId}`, data);
 
 // Excel-export per onderdeel (#85) — blob, met Bearer-token via de axios-instance
 export const exportComponentXlsx = (activityId: number, componentId: number) =>

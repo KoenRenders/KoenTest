@@ -531,12 +531,12 @@ export default function AdminActiviteiten() {
                             <span className="text-xs text-gray-500 whitespace-nowrap">{r.payment_method}</span>
                           )}
                         </div>
-                        {r.remarks && <p className="text-xs text-gray-400 italic mt-0.5">{r.remarks}</p>}
                         <OrderLineEditor
                           activityId={activityId}
                           registrationId={r.id}
                           items={r.items}
                           products={products}
+                          remarks={r.remarks}
                           onChanged={() => loadRegistrations(activityId, componentId)}
                         />
                       </div>

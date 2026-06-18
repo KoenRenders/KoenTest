@@ -166,6 +166,12 @@ class RegistrationItemUpdate(BaseModel):
     quantity: Optional[int] = None
 
 
+class RegistrationRemarksUpdate(BaseModel):
+    """Admin bewerkt enkel de opmerking van de inschrijver (#283). Leeg of enkel
+    witruimte wordt server-side genormaliseerd naar NULL."""
+    remarks: Optional[str] = None
+
+
 class RegistrationCreate(BaseModel):
     contact_name: str
     contact_email: EmailStr
