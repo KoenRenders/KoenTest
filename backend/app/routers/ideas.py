@@ -73,3 +73,18 @@ def update_idea(
     db.commit()
     db.refresh(idea)
     return idea
+
+
+@router.delete("/ideas/{idea_id}", status_code=204)
+def delete_idea(
+    idea_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    # Harde delete (#279): ideeën/berichten kennen geen soft-delete — het record
+    # verdwijnt definitief uit de DB. Admin-only, consistent met list/update.
+    idea = db.query(Idea).filter(Idea.id == idea_id).first()
+    if not idea:
+        raise HTTPException(status_code=404, detail="Idea not found")
+    db.delete(idea)
+    db.commit()
