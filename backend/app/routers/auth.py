@@ -36,6 +36,9 @@ logger = logging.getLogger(__name__)
 router = APIRouter(tags=["auth"])
 
 MAGIC_LINK_EXPIRE_MINUTES = 15
+# Brute-force-rem op de 6-cijferige OTP (#268): na zoveel foute codes op één
+# token wordt het token geïnvalideerd en moet er een nieuwe code aangevraagd.
+MAX_OTP_ATTEMPTS = 5
 
 
 def _generate_otp() -> str:
@@ -69,6 +72,14 @@ def request_login(body: MagicLinkRequest, db: Session = Depends(get_db)):
         token = secrets.token_urlsafe(64)
         otp_code = _generate_otp()
         expires_at = datetime.now(timezone.utc) + timedelta(minutes=MAGIC_LINK_EXPIRE_MINUTES)
+        # Eén levende OTP per e-mail (#268): invalideer bestaande ongebruikte,
+        # niet-verlopen tokens vóór we een nieuwe maken, zodat er hoogstens één
+        # geldige code tegelijk leeft (verkleint de gok-kans).
+        db.query(LoginToken).filter(
+            func.lower(LoginToken.email) == email.lower(),
+            LoginToken.used == False,
+            LoginToken.expires_at > datetime.now(timezone.utc),
+        ).update({LoginToken.used: True}, synchronize_session=False)
         db.add(LoginToken(email=email, token=token, otp_code=otp_code, expires_at=expires_at))
         db.commit()
         magic_link = f"{settings.frontend_url}/login/verify?token={token}"
@@ -103,18 +114,34 @@ def verify_login(token: str, db: Session = Depends(get_db)):
 @router.post("/auth/verify-otp", response_model=TokenResponse, dependencies=[Depends(login_limiter)])
 def verify_otp(body: OtpVerifyRequest, db: Session = Depends(get_db)):
     now = datetime.now(timezone.utc)
+    # Haal het levende token voor dit e-mailadres (ongebruikt), ONAFHANKELIJK van
+    # de ingevoerde code — zo kunnen we ook een foute poging tellen (#268). Door
+    # 'één levende OTP per e-mail' is dit het enige relevante token.
     login_token = (
         db.query(LoginToken)
         .filter(
             func.lower(LoginToken.email) == body.email.strip().lower(),
-            LoginToken.otp_code == body.code,
             LoginToken.used == False,
         )
         .order_by(LoginToken.id.desc())
         .first()
     )
+    # Generieke melding: lek geen onderscheid tussen "geen token", "code fout" en
+    # "te veel pogingen" — geen bruikbare feedback voor een brute-force (#268).
+    invalid = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED, detail="Ongeldige of verlopen code."
+    )
     if not login_token or login_token.expires_at.replace(tzinfo=timezone.utc) < now:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ongeldige of verlopen code.")
+        raise invalid
+
+    if login_token.otp_code != body.code:
+        # Foute code: tel de poging en maak het token dood na MAX_OTP_ATTEMPTS,
+        # zodat de 10^6-ruimte niet uitputbaar is zodra de IP-limiet omzeild wordt.
+        login_token.attempts += 1
+        if login_token.attempts >= MAX_OTP_ATTEMPTS:
+            login_token.used = True
+        db.commit()
+        raise invalid
 
     login_token.used = True
     db.commit()
