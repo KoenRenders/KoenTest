@@ -20,13 +20,27 @@ def _is_number(v) -> bool:
     return isinstance(v, (int, float)) and not isinstance(v, bool)
 
 
+_FORMULA_TRIGGERS = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _neutralize(text: str) -> str:
+    """Voorkom formule-/CSV-injectie in spreadsheets (#270). Publiek/anoniem
+    ingevoerde waarden (deelnemers-, team-, lid-namen…) mogen in Calc/Excel niet
+    als formule uitgevoerd worden wanneer een admin de export opent. OWASP-fix:
+    één leading single quote forceert "tekst" zodra de waarde met een
+    formule-trigger begint. Enkel voor string-cellen (getallen/datums niet)."""
+    if text and text[0] in _FORMULA_TRIGGERS:
+        return "'" + text
+    return text
+
+
 def _cell(value, stylename=None):
     if _is_number(value):
         cell = TableCell(valuetype="float", value=str(value), stylename=stylename) \
             if stylename else TableCell(valuetype="float", value=str(value))
         cell.addElement(P(text=str(value)))
     else:
-        text = "" if value is None else str(value)
+        text = _neutralize("" if value is None else str(value))
         cell = TableCell(valuetype="string", stylename=stylename) \
             if stylename else TableCell(valuetype="string")
         cell.addElement(P(text=text))
