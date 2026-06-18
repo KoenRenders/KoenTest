@@ -72,6 +72,34 @@ jobs:
       - name: Typecheck (tsc --noEmit)
         run: npx tsc --noEmit
 
+  audit:
+    runs-on: ubuntu-latest
+    # Niet-blokkerend (stijl van de e2e-job, #128): rapporteert kwetsbare
+    # dependencies zonder de pijplijn te breken. Een fix-met-redeploy beslist de
+    # maintainer, niet een transitieve CVE zonder beschikbare patch.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: pip-audit (backend)
+        continue-on-error: true
+        working-directory: backend
+        run: |
+          pip install pip-audit
+          pip-audit -r requirements.txt
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: npm audit (frontend)
+        continue-on-error: true
+        working-directory: frontend
+        run: npm audit --omit=dev
+
   e2e:
     runs-on: ubuntu-latest
     # Non-blocking (#128): mag de pijplijn niet breken terwijl de e2e-suite
