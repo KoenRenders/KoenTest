@@ -30,15 +30,35 @@ logger.info(
     settings.app_env,
 )
 
+def _docs_kwargs(app_env: str) -> dict:
+    """Verberg de interactieve docs + het OpenAPI-schema in prod-achtige
+    omgevingen (#269). Ze lekken geen data, maar publiceren wél de volledige
+    API-kaart (alle admin-/finance-/member-endpoints + schema's) — onnodige
+    verkenning voor een aanvaller. In dev/hdev/build blijven ze handig aanstaan."""
+    if app_env in ("uat", "prod"):
+        return {"docs_url": None, "redoc_url": None, "openapi_url": None}
+    return {}
+
+
+def cors_origins(app_env: str, frontend_url: str) -> list[str]:
+    """Toegelaten CORS-origins (#271). De dev-uitzondering localhost:3000 hoort
+    niet in prod-achtige omgevingen; daar enkel de echte frontend-URL."""
+    origins = [frontend_url]
+    if app_env not in ("uat", "prod"):
+        origins.append("http://localhost:3000")
+    return origins
+
+
 app = FastAPI(
     title="Raak Millegem API",
     description="API for the Raak Millegem community association",
     version="1.0.0",
+    **_docs_kwargs(settings.app_env),
 )
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[settings.frontend_url, "http://localhost:3000"],
+    allow_origins=cors_origins(settings.app_env, settings.frontend_url),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
