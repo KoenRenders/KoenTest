@@ -52,7 +52,7 @@ def build_component_export_ods(db, activity, component) -> bytes:
     registrations = [r for r in activity.registrations if r.component_id == component.id]
 
     headers = (
-        ["Naam"]
+        ["Naam", "E-mail", "Mobiel"]
         + [p.name for p in products]
         + ["Verschuldigd", "Betaald online", "Betaald overschr./cash",
            "Terugbetaald", "Saldo", "Betaalwijze", "Status", "Opmerkingen"]
@@ -67,7 +67,7 @@ def build_component_export_ods(db, activity, component) -> bytes:
             qty_by_product[item.product_id] = qty_by_product.get(item.product_id, 0) + item.quantity
         due, online, offline, refunded, saldo = _registration_financials(db, reg)
 
-        row = [reg.contact_name or "—"]
+        row = [reg.contact_name or "—", reg.contact_email or "", reg.phone or ""]
         for idx, p in enumerate(products):
             q = qty_by_product.get(p.id, 0)
             product_totals[idx] += q
@@ -80,8 +80,8 @@ def build_component_export_ods(db, activity, component) -> bytes:
         row.append(reg.remarks or "")
         rows.append(row)
 
-    rows.append(["Totaal"] + product_totals + [float(v) for v in money_totals] + ["", "", ""])
+    rows.append(["Totaal", "", ""] + product_totals + [float(v) for v in money_totals] + ["", "", ""])
 
-    col_widths = [4.5] + [3.0] * len(products) + [3.5, 3.5, 4.0, 3.5, 3.0, 3.5, 3.0, 6.0]
+    col_widths = [4.5, 5.0, 3.5] + [3.0] * len(products) + [3.5, 3.5, 4.0, 3.5, 3.0, 3.5, 3.0, 6.0]
     return build_ods(component.name or "Onderdeel", headers, rows,
                      col_widths=col_widths, bold_last_row=True)

@@ -93,7 +93,7 @@ def test_export_quantities_and_financials(client, db_session, admin_headers):
 
     data = rows[1]
     assert data[0] == "An Janssens"
-    assert data[1] == 2  # aantal van het product (eerste productkolom)
+    assert data[3] == 2  # eerste productkolom (na Naam/E-mail/Mobiel)
     assert data[i_due] == 36.0
     assert data[i_offline] == 36.0
     assert data[i_refunded] == 6.0
@@ -101,7 +101,7 @@ def test_export_quantities_and_financials(client, db_session, admin_headers):
 
     total = rows[-1]
     assert total[0] == "Totaal"
-    assert total[1] == 2
+    assert total[3] == 2
     assert total[i_due] == 36.0
     assert total[i_refunded] == 6.0
     assert total[i_saldo] == 6.0
@@ -126,7 +126,7 @@ def test_export_aggregates_duplicate_product_lines(client, db_session, admin_hea
 
     rows = _load(client.get(f"/api/v1/activities/{activity_id}/components/{comp.id}/export",
                             headers=admin_headers))
-    col = 1  # de enige productkolom (na "Naam")
+    col = 3  # de enige productkolom (na Naam/E-mail/Mobiel)
     data_rows = [r for r in rows[1:] if r[0] not in (None, "", "Totaal")]
     assert any(r[col] == 3 for r in data_rows)
     total_row = next(r for r in rows if r[0] == "Totaal")
@@ -166,10 +166,10 @@ def test_export_multiple_products_and_registrations(client, db_session, admin_he
     rows = _load(resp)
     headers = list(rows[0])
     i_due = headers.index("Verschuldigd")
-    # Productkolommen staan op index 1 (p1) en 2 (p2).
+    # Productkolommen staan op index 3 (p1) en 4 (p2) — na Naam/E-mail/Mobiel.
     total = rows[-1]
-    assert total[1] == 2          # totaal p1
-    assert total[2] == 4          # totaal p2 (1 + 3)
+    assert total[3] == 2          # totaal p1
+    assert total[4] == 4          # totaal p2 (1 + 3)
     assert total[i_due] == 40.0   # 25 + 15
 
 
@@ -228,3 +228,26 @@ def test_export_includes_remarks_column(client, db_session, admin_headers):
     # Lege opmerking → lege cel (of, bij compressie, geen cel meer op die index).
     bo = by_name["Bo"]
     assert len(bo) <= i_rem or bo[i_rem] in ("", None)
+
+
+def test_export_includes_email_and_mobile(client, db_session, admin_headers):
+    """#289: e-mail + mobiel nummer komen mee in de export (na "Naam"); het
+    mobiele nummer (+32…) verschijnt letterlijk, zonder apostrof-prefix (#288)."""
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    activity_id = comp.activity_id
+    client.post(f"/api/v1/activities/{activity_id}/register", json={
+        "contact_name": "An Janssens", "contact_email": "an@example.com",
+        "phone": "+32470123456", "component_id": comp.id, "payment_method": "TRANSFER",
+        "items": [{"product_id": product.id, "quantity": 1}],
+    })
+
+    rows = _load(client.get(f"/api/v1/activities/{activity_id}/components/{comp.id}/export",
+                            headers=admin_headers))
+    headers = list(rows[0])
+    assert "E-mail" in headers and "Mobiel" in headers
+    i_mail = headers.index("E-mail")
+    i_mob = headers.index("Mobiel")
+
+    data = rows[1]
+    assert data[i_mail] == "an@example.com"
+    assert data[i_mob] == "+32470123456"  # verbatim, géén leidende '
