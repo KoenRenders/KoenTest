@@ -87,3 +87,9 @@ registration_limiter = RateLimiter(max_calls=10, window_seconds=60)
 idea_limiter = RateLimiter(max_calls=5, window_seconds=60)
 # Chatbot: matige burst-limiet + dagelijks tekenbudget tegen 'pagina-droppen'.
 chat_limiter = RateLimiter(max_calls=20, window_seconds=60)
+# Mollie-webhook: ruime limiet (#182). Mollie deelt enkele IP's en kan bursts/
+# herhalingen sturen, dus de drempel ligt hoog genoeg om legitieme calls nooit
+# te droppen; een zeldzame drop self-heal't bovendien (Mollie hertest, en de
+# status wordt bij de volgende re-fetch alsnog opgehaald). Doel is enkel een rem
+# tegen een ruwe flood vanaf één IP (DB-/Mollie-quota-bescherming).
+mollie_webhook_limiter = RateLimiter(max_calls=60, window_seconds=60)
