@@ -91,7 +91,11 @@ def list_members(
 
 
 @router.post("/members", response_model=MemberResponse)
-def create_member(data: MemberCreate, db: Session = Depends(get_db)):
+def create_member(
+    data: MemberCreate,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
     member = Member()
     db.add(member)
     db.flush()

@@ -71,3 +71,15 @@ def test_member_cannot_edit_other_household(client, db_session):
         json={"first_name": "Hacker"},
     )
     assert resp.status_code == 403
+
+
+# ── autorisatie op beheer-endpoints ──────────────────────────────────────────
+
+def test_create_member_requires_admin(client, admin_headers):
+    """POST /members is een beheerendpoint (#262): zonder admin-token mag niemand
+    ongeauthenticeerd gezin-/persoonsrecords aanmaken; met admin-token werkt het."""
+    resp = client.post("/api/v1/members", json={"persons": []})
+    assert resp.status_code in (401, 403)
+
+    ok = client.post("/api/v1/members", headers=admin_headers, json={"persons": []})
+    assert ok.status_code == 200
