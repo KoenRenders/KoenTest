@@ -12,15 +12,20 @@ from fastapi import Request, HTTPException, status
 
 
 def _client_ip(request: Request) -> str:
-    """Bepaal het echte client-IP.
+    """Bepaal het echte client-IP voor de rate-limiter.
 
-    Al het verkeer komt via Caddy binnen, dus request.client.host is het IP
-    van de proxy. Caddy geeft het echte bezoekers-IP door in X-Forwarded-For;
-    het eerste adres in die lijst is de oorspronkelijke client.
+    Aanname: precies één bekende proxy-hop (Caddy), en de backend is NIET direct
+    van buiten bereikbaar (poort 8000 staat in prod/uat enkel op het interne
+    Docker-netwerk — geen ``ports:`` in docker-compose.{prod,uat}.yml). Caddy
+    APPENDT het werkelijke client-IP achteraan ``X-Forwarded-For``, dus het MEEST
+    RECHTSE adres is door Caddy gezet en betrouwbaar. Het meest linkse adres is
+    client-gestuurd en dus spoofbaar — wie dát vertrouwt, krijgt per request een
+    vers 'IP' en omzeilt álle per-IP-limieten (OTP-gok, login-mails, idea-spam,
+    chat-budget) (#268).
     """
     xff = request.headers.get("x-forwarded-for")
     if xff:
-        return xff.split(",")[0].strip()
+        return xff.split(",")[-1].strip()
     return request.client.host if request.client else "unknown"
 
 

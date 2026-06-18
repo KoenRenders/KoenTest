@@ -16,4 +16,8 @@ class LoginToken(Base):
     otp_code = Column(String(6), nullable=True, index=True)
     expires_at = Column(DateTime(timezone=True), nullable=False)
     used = Column(Boolean, nullable=False, default=False)
+    # Pogingteller voor OTP-brute-force-lockout (#268): na MAX_OTP_ATTEMPTS foute
+    # codes wordt het token geïnvalideerd (used=True) en moet de gebruiker een
+    # nieuwe code aanvragen.
+    attempts = Column(Integer, nullable=False, default=0, server_default="0")
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
