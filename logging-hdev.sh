@@ -17,6 +17,8 @@ TAIL="${LOG_TAIL:-100}"
 
 dc() { docker compose -f "$COMPOSE" --env-file "$ENVFILE" "$@"; }
 
+# Output toont op je scherm ÉN gaat naar het bestand (tee), zodat je meteen ziet
+# of er iets misloopt en zelf beslist of je het bestand naar Claude doorstuurt.
 {
   echo "=== Raak Millegem — ${ENV} diagnostiek ==="
   echo "Datum:   $(date -Is)"
@@ -30,8 +32,9 @@ dc() { docker compose -f "$COMPOSE" --env-file "$ENVFILE" "$@"; }
   echo
   echo "--- backend logs (laatste ${TAIL}) ---"
   dc logs backend --tail="${TAIL}" 2>&1 || echo "(backend logs faalden)"
-} > "$OUT" 2>&1
+} 2>&1 | tee "$OUT"
 
+echo
 echo "Diagnostiek weggeschreven naar: $OUT"
 echo "Kopieer naar je laptop met (pas sleutel/host/pad aan):"
 echo "  scp -i ~/.ssh/<jouw-sleutel> <user>@<server>:$OUT ~/Nextcloud/Temp/${ENV}-backend.log"
