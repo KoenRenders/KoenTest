@@ -70,6 +70,9 @@ export default function ChatWidget() {
   const voxtralRef = useRef<VoxtralStt | null>(null);
   const [voxtralActive, setVoxtralActive] = useState(false);
   const [micError, setMicError] = useState<string | null>(null);
+  // Poort voor STT → invoerveld (#298): bij 'versturen' zetten we dit op false zodat
+  // een laat binnenkomend finaal transcript het zojuist geleegde veld niet hervult.
+  const acceptSttRef = useRef(true);
 
   // Welk STT-pad? STT_MODE (build-time) bepaalt de strategie; default browser_only
   // → de Voxtral-fallback is dark. native_first: native waar mogelijk, anders
@@ -135,9 +138,10 @@ export default function ChatWidget() {
   function startVoxtral() {
     setMicError(null);
     setInput("");
+    acceptSttRef.current = true;
     const stt = new VoxtralStt({
-      onPartial: (t) => setInput(t),
-      onFinal: (t) => setInput(t),
+      onPartial: (t) => { if (acceptSttRef.current) setInput(t); },
+      onFinal: (t) => { if (acceptSttRef.current) setInput(t); },
       onError: (_code, msg) => {
         setMicError(msg);
         setVoxtralActive(false);
@@ -159,6 +163,7 @@ export default function ChatWidget() {
 
     let finalText = "";
     rec.onresult = (e) => {
+      if (!acceptSttRef.current) return;
       let interim = "";
       for (let i = e.resultIndex; i < e.results.length; i++) {
         const res = e.results[i];
@@ -184,6 +189,7 @@ export default function ChatWidget() {
     recRef.current = rec;
     setMicError(null);
     setInput("");
+    acceptSttRef.current = true;
     setListening(true);
     rec.start();
   }
@@ -208,6 +214,8 @@ export default function ChatWidget() {
   async function send() {
     const text = input.trim();
     if (!text || busy) return;
+    // Negeer late STT-finals (#298): die zouden het zo geleegde veld anders hervullen.
+    acceptSttRef.current = false;
     recRef.current?.stop();
     voxtralRef.current?.stop();
 
