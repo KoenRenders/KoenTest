@@ -50,6 +50,17 @@ export class VoxtralStt {
     this.cb.onStateChange?.("connecting");
 
     // 1) Toegangsgating: pas verder zodra getUserMedia een live track teruggeeft.
+    // In een niet-beveiligde context (geen https) is mediaDevices undefined — vooral
+    // Firefox is hier strikt. Dat expliciet benoemen i.p.v. een generieke fout.
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+      this.cleanup();
+      this.cb.onError?.(
+        "insecure-context",
+        "Spraakinvoer vereist een beveiligde verbinding (https).",
+      );
+      this.cb.onStateChange?.("stopped");
+      return;
+    }
     let stream: MediaStream;
     try {
       stream = await navigator.mediaDevices.getUserMedia({ audio: true });
@@ -62,7 +73,7 @@ export class VoxtralStt {
             ? "Geen microfoon gevonden."
             : name === "NotReadableError"
               ? "Microfoon is in gebruik door een andere app."
-              : "Microfoon kon niet gestart worden.";
+              : `Microfoon kon niet gestart worden (${name}).`;
       this.cleanup();
       this.cb.onError?.(name, message);
       this.cb.onStateChange?.("stopped");

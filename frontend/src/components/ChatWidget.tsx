@@ -70,7 +70,6 @@ export default function ChatWidget() {
   const voxtralRef = useRef<VoxtralStt | null>(null);
   const [voxtralActive, setVoxtralActive] = useState(false);
   const [micError, setMicError] = useState<string | null>(null);
-  const [consentNeeded, setConsentNeeded] = useState(false);
 
   // Welk STT-pad? STT_MODE (build-time) bepaalt de strategie; default browser_only
   // → de Voxtral-fallback is dark. native_first: native waar mogelijk, anders
@@ -133,14 +132,6 @@ export default function ChatWidget() {
     });
   }
 
-  function hasVoxtralConsent() {
-    try {
-      return localStorage.getItem("stt_voxtral_consent") === "1";
-    } catch {
-      return false;
-    }
-  }
-
   function startVoxtral() {
     setMicError(null);
     setInput("");
@@ -156,16 +147,6 @@ export default function ChatWidget() {
     voxtralRef.current = stt;
     setVoxtralActive(true);
     stt.start();
-  }
-
-  function grantConsentAndStart() {
-    try {
-      localStorage.setItem("stt_voxtral_consent", "1");
-    } catch {
-      /* localStorage geblokkeerd — ga toch door, gebruiker gaf net akkoord */
-    }
-    setConsentNeeded(false);
-    startVoxtral();
   }
 
   function startNative() {
@@ -195,8 +176,7 @@ export default function ChatWidget() {
       const nativeUnusable =
         code === "not-allowed" || code === "audio-capture" || code === "service-not-allowed";
       if (nativeUnusable && STT_PROVIDER_ENABLED && !STT_PROVIDER_ONLY) {
-        if (hasVoxtralConsent()) startVoxtral();
-        else setConsentNeeded(true);
+        startVoxtral();
       }
     };
     rec.onend = () => setListening(false);
@@ -219,8 +199,7 @@ export default function ChatWidget() {
       return;
     }
     if (useVoxtral) {
-      if (hasVoxtralConsent()) startVoxtral();
-      else setConsentNeeded(true);
+      startVoxtral();
       return;
     }
     startNative();
@@ -319,28 +298,6 @@ export default function ChatWidget() {
           </div>
 
           <div className="border-t border-gray-200">
-            {consentNeeded && (
-              <div className="p-2 text-xs text-gray-700 bg-amber-50 border-b border-amber-200">
-                <p className="mb-2">
-                  Je browser heeft geen ingebouwde spraakherkenning. We zetten je spraak om via een
-                  Europese verwerker (Mistral AI, Frankrijk); we bewaren geen opnames. Doorgaan?
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    onClick={grantConsentAndStart}
-                    className="bg-blue-700 hover:bg-blue-800 text-white rounded px-3 py-1"
-                  >
-                    Akkoord, spreek in
-                  </button>
-                  <button
-                    onClick={() => setConsentNeeded(false)}
-                    className="border border-gray-300 rounded px-3 py-1 hover:bg-gray-100"
-                  >
-                    Annuleer
-                  </button>
-                </div>
-              </div>
-            )}
             {micError && <p className="px-3 pt-2 text-xs text-red-600">{micError}</p>}
             <div className="p-2 flex items-end gap-2">
               {showMic && (
