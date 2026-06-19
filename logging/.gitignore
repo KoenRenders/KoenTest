@@ -1,0 +1,4 @@
+# Diagnostiek-dumps van deploy-<env>.sh / logging-<env>.sh — hier verzamel je
+# lokaal de opgehaalde <timestamp>-<env>.log-bestanden. Ze blijven LOKAAL: ze
+# kunnen interne IP's en logregels bevatten en dit repo is publiek.
+*.log
