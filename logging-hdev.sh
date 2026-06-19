@@ -18,7 +18,9 @@ TAIL="${LOG_TAIL:-100}"
 
 dc() { docker compose -f "$COMPOSE" --env-file "$ENVFILE" "$@"; }
 
-# Output toont op je scherm ÉN gaat naar het bestand (tee).
+# Output toont op je scherm ÉN gaat naar het bestand (tee). We APPENDEN (-a): de
+# deploy (deploy-hdev.sh) reset de logfile bij start; dit voegt de post-deploy-
+# diagnostiek toe, zodat één bestand de volledige deploy + diagnostiek bevat (#291).
 {
   echo "=== Raak Millegem — ${ENV} diagnostiek ==="
   echo "Datum:   $(date -Is)"
@@ -59,9 +61,9 @@ dc() { docker compose -f "$COMPOSE" --env-file "$ENVFILE" "$@"; }
 
   echo "--- caddy logs (laatste ${TAIL}) ---"
   dc logs caddy --tail="${TAIL}" 2>&1 || echo "(caddy logs faalden)"
-} 2>&1 | tee "$OUT"
+} 2>&1 | tee -a "$OUT"
 
 echo
-echo "Diagnostiek weggeschreven naar: $OUT"
+echo "Diagnostiek toegevoegd aan: $OUT"
 echo "Kopieer naar je laptop met (pas sleutel/host/pad aan):"
 echo "  scp -i ~/.ssh/<jouw-sleutel> <user>@<server>:$OUT ~/Nextcloud/Temp/${ENV}-backend.log"
