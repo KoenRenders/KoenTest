@@ -34,6 +34,13 @@ services:
       GMAIL_FROM: ${GMAIL_FROM:-}
       MOLLIE_API_KEY: ${MOLLIE_API_KEY:-}
       MISTRAL_API_KEY: ${MISTRAL_API_KEY:-}
+      # STT/Voxtral (#282) — backend leest dit als runtime-env; default browser_only
+      # houdt de WS-route dark. Zet STT_MODE=native_first in .env.hdev om Voxtral te activeren.
+      STT_MODE: ${STT_MODE:-browser_only}
+      STT_PROVIDER: ${STT_PROVIDER:-voxtral}
+      STT_MODEL: ${STT_MODEL:-voxtral-mini-transcribe-realtime-2602}
+      STT_BASE_URL: ${STT_BASE_URL:-wss://api.mistral.ai}
+      STT_SAMPLE_RATE: ${STT_SAMPLE_RATE:-16000}
       CHAT_LLM_PROVIDER: ${CHAT_LLM_PROVIDER:-auto}
       CHAT_ENABLED: ${CHAT_ENABLED:-false}
       CHAT_MAX_INPUT_CHARS: ${CHAT_MAX_INPUT_CHARS:-2000}
