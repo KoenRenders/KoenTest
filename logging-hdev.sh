@@ -8,12 +8,12 @@ set -euo pipefail
 # doe je met een losse scp (zie de slotregels).
 #
 # Gebruik:  ./logging-hdev.sh
-# Output:   /tmp/hdev-backend.log  (override met LOG_OUT=..., aantal regels met LOG_TAIL=...)
+# Output:   /tmp/hdev-diagnostics.log  (override met LOG_OUT=..., aantal regels met LOG_TAIL=...)
 
 ENV=hdev
 COMPOSE="docker-compose.hdev.yml"
 ENVFILE=".env.hdev"
-OUT="${LOG_OUT:-/tmp/${ENV}-backend.log}"
+OUT="${LOG_OUT:-/tmp/${ENV}-diagnostics.log}"
 TAIL="${LOG_TAIL:-100}"
 
 dc() { docker compose -f "$COMPOSE" --env-file "$ENVFILE" "$@"; }
@@ -66,4 +66,4 @@ dc() { docker compose -f "$COMPOSE" --env-file "$ENVFILE" "$@"; }
 echo
 echo "Diagnostiek toegevoegd aan: $OUT"
 echo "Kopieer naar je laptop met (pas sleutel/host/pad aan):"
-echo "  scp -i ~/.ssh/<jouw-sleutel> <user>@<server>:$OUT ~/Nextcloud/Temp/${ENV}-backend.log"
+echo "  scp -i ~/.ssh/<jouw-sleutel> <user>@<server>:$OUT ~/Nextcloud/Temp/${ENV}-diagnostics.log"

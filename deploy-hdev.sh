@@ -17,7 +17,7 @@ fi
 # Vang vanaf hier alle output (build + smoke) op in het diagnostiek-bestand én
 # toon ze op je scherm (#291). Dit is meteen de RESET van de logfile: elke deploy
 # begint met een schoon bestand; logging-hdev.sh voegt er daarna aan toe (append).
-LOG_OUT="${LOG_OUT:-/tmp/hdev-backend.log}"
+LOG_OUT="${LOG_OUT:-/tmp/hdev-diagnostics.log}"
 exec > >(tee "$LOG_OUT") 2>&1
 
 # Versie + commit voor de startup-log (#151); als build-args naar de backend-image.
