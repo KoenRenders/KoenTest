@@ -30,11 +30,13 @@ logger = logging.getLogger(__name__)
 class VoxtralRealtimeProvider(SttProvider):
     name = "voxtral"
 
-    def __init__(self, api_key: str, model: str, base_url: str, sample_rate: int):
+    def __init__(self, api_key: str, model: str, base_url: str, sample_rate: int,
+                 language: str = ""):
         self._api_key = api_key
         self._model = model
         self._base_url = base_url
         self._sample_rate = sample_rate
+        self._language = (language or "").strip()
 
     async def stream(self, audio: AsyncIterator[bytes]) -> AsyncIterator[TranscriptEvent]:
         try:
@@ -54,13 +56,27 @@ class VoxtralRealtimeProvider(SttProvider):
         client = Mistral(api_key=self._api_key)
         audio_format = AudioFormat(encoding="pcm_s16le", sample_rate=self._sample_rate)
 
+        # Taal forceren (#295). De realtime-SDK toont in haar voorbeelden geen
+        # language-parameter; we geven hem DEFENSIEF mee: accepteert transcribe_stream
+        # hem (named of via **kwargs), dan blijft de transcriptie Nederlands; gooit hij
+        # een TypeError ("unexpected keyword argument"), dan vallen we terug op
+        # autodetectie zonder te crashen. Zo beslist de live endpoint, niet een gok.
+        def _open_stream():
+            kwargs = dict(
+                audio_stream=audio,
+                model=self._model,
+                audio_format=audio_format,
+                server_url=self._base_url,
+            )
+            if self._language:
+                try:
+                    return client.audio.realtime.transcribe_stream(language=self._language, **kwargs)
+                except TypeError:
+                    logger.info("Voxtral: language-parameter niet ondersteund door de SDK; autodetectie.")
+            return client.audio.realtime.transcribe_stream(**kwargs)
+
         full: list[str] = []
-        async for event in client.audio.realtime.transcribe_stream(
-            audio_stream=audio,
-            model=self._model,
-            audio_format=audio_format,
-            server_url=self._base_url,
-        ):
+        async for event in _open_stream():
             if isinstance(event, TranscriptionStreamTextDelta):
                 full.append(event.text)
                 yield TranscriptEvent(text=event.text, is_final=False)

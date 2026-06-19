@@ -42,6 +42,7 @@ services:
       STT_MODEL: ${STT_MODEL:-voxtral-mini-transcribe-realtime-2602}
       STT_BASE_URL: ${STT_BASE_URL:-wss://api.mistral.ai}
       STT_SAMPLE_RATE: ${STT_SAMPLE_RATE:-16000}
+      STT_LANGUAGE: ${STT_LANGUAGE:-nl}
       CHAT_LLM_PROVIDER: ${CHAT_LLM_PROVIDER:-auto}
       CHAT_ENABLED: ${CHAT_ENABLED:-false}
       CHAT_MAX_INPUT_CHARS: ${CHAT_MAX_INPUT_CHARS:-2000}

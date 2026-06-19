@@ -35,4 +35,5 @@ def get_stt_provider() -> SttProvider:
         model=settings.stt_model,
         base_url=settings.stt_base_url,
         sample_rate=settings.stt_sample_rate,
+        language=settings.stt_language,
     )
