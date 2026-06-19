@@ -14,6 +14,7 @@ from app.models.member import Member, Membership
 from app.models.idea import Idea
 from app.models.user import User
 from app.domains.payment_status.models import PaymentRecord
+from app.domains.payment_status.service import current_membership_counts
 
 router = APIRouter(tags=["admin"])
 
@@ -24,11 +25,16 @@ def get_stats(
     _admin: User = Depends(get_current_admin),
 ):
     today = date.today()
+    # Vandaag-geldige lidmaatschappen → gezinnen + personen (#297), zelfde telling
+    # als de chatbot (#294), zodat dashboard en Raakje nooit tegenspreken.
+    active_member_households, active_member_persons = current_membership_counts(db, today)
     return {
         "members": db.query(func.count(Member.id)).scalar(),
         "active_members": db.query(func.count(Membership.id))
             .filter(Membership.year == today.year, Membership.is_active == True)
             .scalar(),
+        "active_member_households": active_member_households,
+        "active_member_persons": active_member_persons,
         "upcoming_activities": db.query(func.count(func.distinct(ActivityDate.activity_id)))
             .filter(func.coalesce(ActivityDate.end_date, ActivityDate.start_date) >= today)
             .scalar(),

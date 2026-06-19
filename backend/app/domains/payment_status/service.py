@@ -1,8 +1,10 @@
 from datetime import date, datetime, timezone
 from decimal import Decimal
 from typing import Optional, Tuple
+from sqlalchemy import distinct, func
 from sqlalchemy.orm import Session
 from .models import PaymentRecord
+from app.models.member import Membership, MemberPerson, Person
 from app.domains.audit.service import snapshot_payment_record
 
 # Semantische history-actie per (interne) gateway-status, zodat de tijdlijn
@@ -61,6 +63,38 @@ def membership_valid_period(paid_at: Optional[date] = None) -> Tuple[date, date]
     else:
         valid_to = date(paid_at.year, 12, 31)
     return valid_from, valid_to
+
+
+def current_membership_counts(db: Session, today: Optional[date] = None) -> Tuple[int, int]:
+    """Aantal vandaag-geldige lidmaatschappen en de eraan gekoppelde personen (#294).
+
+    'Geldig vandaag' = ``is_active`` én ``valid_from <= today <= valid_to`` (beide
+    gezet). Een lidmaatschap dat vandaag verlopen of nog niet ingegaan is, telt niet
+    mee. Soft-deleted leden/personen/lidmaatschappen vallen automatisch weg via de
+    globale ORM-filter. Retourneert ``(gezinnen, personen)``.
+    """
+    if today is None:
+        today = date.today()
+    valid = (
+        Membership.is_active.is_(True),
+        Membership.valid_from.isnot(None),
+        Membership.valid_to.isnot(None),
+        Membership.valid_from <= today,
+        Membership.valid_to >= today,
+    )
+    households = (
+        db.query(func.count(distinct(Membership.member_id))).filter(*valid).scalar()
+    ) or 0
+    persons = (
+        db.query(func.count(distinct(MemberPerson.person_id)))
+        .join(Membership, Membership.member_id == MemberPerson.member_id)
+        # Join Person zodat de globale soft-delete-filter verwijderde personen
+        # uitsluit (een MemberPerson-rij blijft anders verwijzen naar een dood lid).
+        .join(Person, Person.id == MemberPerson.person_id)
+        .filter(*valid)
+        .scalar()
+    ) or 0
+    return households, persons
 
 
 def create_payment_record(

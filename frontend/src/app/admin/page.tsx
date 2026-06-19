@@ -6,6 +6,8 @@ import { getStats } from "@/lib/api";
 interface Stats {
   members: number;
   active_members: number;
+  active_member_households: number;
+  active_member_persons: number;
   upcoming_activities: number;
   open_ideas: number;
   outstanding_balance: number;
@@ -21,6 +23,7 @@ export default function AdminDashboard() {
   const tiles = stats ? [
     { label: "Leden", value: stats.members, color: "bg-blue-50 text-blue-800", href: "/admin/leden" },
     { label: "Actieve leden", value: stats.active_members, color: "bg-green-50 text-green-800", href: "/admin/leden" },
+    { label: "Leden (personen)", value: stats.active_member_persons, color: "bg-teal-50 text-teal-800", href: "/admin/leden" },
     { label: "Komende activiteiten", value: stats.upcoming_activities, color: "bg-purple-50 text-purple-800", href: "/admin/activiteiten" },
     { label: "Ongelezen ideeën", value: stats.open_ideas, color: "bg-yellow-50 text-yellow-800", href: "/admin/ideeen" },
     { label: "Openstaand saldo", value: `€${stats.outstanding_balance.toFixed(2)}`, color: "bg-orange-50 text-orange-800", href: "/admin/betalingen" },

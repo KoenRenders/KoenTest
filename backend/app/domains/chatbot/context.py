@@ -23,7 +23,11 @@ from app.config import settings
 from app.models.chatbot_info import ChatbotInfo
 from app.models.cms import CmsPage
 from app.services.cms_render import _format_md, _format_price, render_cms_content
-from app.domains.payment_status.service import membership_price_for_date, membership_valid_period
+from app.domains.payment_status.service import (
+    current_membership_counts,
+    membership_price_for_date,
+    membership_valid_period,
+)
 
 # Bovengrens op de ingestopte CMS-tekst, zodat de prompt niet ontspoort als er
 # ooit veel pagina's bijkomen. Ruim voldoende voor een verenigingssite.
@@ -98,6 +102,23 @@ def _membership_block() -> str:
         f"- Wie betaalt vanaf {nxt} is gedekt t/m 31 december van het volgende jaar.\n"
         f"- Wie vandaag lid wordt, is lid t/m {valid_to_str}.\n"
         f"- Op dit moment geldt het tarief van €{now_price}."
+    )
+
+
+def _membership_counts_block(db: Session) -> str:
+    """Actueel ledenaantal (#294): vandaag-geldige lidmaatschappen + de eraan
+    gekoppelde personen. Bewust enkel **geaggregeerde** aantallen — geen namen of
+    persoonsgegevens (de persona heeft geen toegang tot dossiers)."""
+    households, persons = current_membership_counts(db)
+    gezin = "gezin" if households == 1 else "gezinnen"
+    pers = "persoon" if persons == 1 else "personen"
+    return (
+        "## Ledenaantal\n"
+        f"Raak Millegem telt op dit moment {households} aangesloten {gezin} "
+        f"(huishoudens) met in totaal {persons} {pers}. Dit zijn de leden met een "
+        "vandaag geldig lidmaatschap. Gebruik deze cijfers als iemand vraagt hoeveel "
+        "leden, gezinnen of personen de vereniging heeft; verzin geen andere getallen. "
+        "Geef nooit namen of persoonlijke gegevens van leden."
     )
 
 
@@ -183,7 +204,7 @@ def _today_block() -> str:
 
 def build_system_prompt(db: Session) -> str:
     """Stel de volledige system-prompt samen: persona + vandaag + membership + CMS + notities."""
-    sections = [SYSTEM_PERSONA, _today_block(), _membership_block()]
+    sections = [SYSTEM_PERSONA, _today_block(), _membership_block(), _membership_counts_block(db)]
     cms = _published_pages_block(db)
     if cms:
         sections.append(
