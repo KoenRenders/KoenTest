@@ -46,6 +46,19 @@ def test_membership_block_always_present(db_session):
     assert "35,00" in prompt and "17,50" in prompt
 
 
+def test_person_role_guardrail_present(db_session):
+    """De persona moet de personen-/rolvangrail bevatten (#309): rollen alleen als
+    ze expliciet vermeld staan, nooit afleiden of gegevens van verschillende
+    personen (zelfde achternaam) combineren. Voorkomt dat de Wim/Steven Paepen-
+    verwarring stilletjes terugkeert door een prompt-edit."""
+    from app.domains.chatbot.context import build_system_prompt
+
+    prompt = build_system_prompt(db_session)
+    assert "PERSONEN EN HUN ROL" in prompt
+    assert "Combineer NOOIT gegevens van verschillende personen" in prompt
+    assert "Leid een rol nooit af" in prompt
+
+
 def _fixed_date(y, m, d):
     import datetime as _dt
 
