@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import List, Optional
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
 from app.auth import get_finance_or_admin, get_current_finance
 from app.database import get_db
@@ -134,6 +134,22 @@ def list_all_payment_records(
             contact_name=contact_name,
         ))
     return result
+
+
+@router.get("/records/export")
+def export_all_payment_records(
+    db: Session = Depends(get_db),
+    _viewer: User = Depends(get_finance_or_admin),
+):
+    """Download álle betalingen & vorderingen als .ods (#307): één blad met de
+    zichtbare details + een totaalrij te betalen / betaald / saldo."""
+    from app.services.payments_export import build_payments_export_ods
+    content = build_payments_export_ods(db)
+    return Response(
+        content=content,
+        media_type="application/vnd.oasis.opendocument.spreadsheet",
+        headers={"Content-Disposition": 'attachment; filename="betalingen-en-vorderingen.ods"'},
+    )
 
 
 @router.get("/records/{payable_type}/{payable_id}", response_model=List[PaymentRecordResponse])

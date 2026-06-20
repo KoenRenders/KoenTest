@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { listPaymentRecords, updatePaymentRecord, refreshPaymentRecord, refundPaymentRecord, deletePaymentRecord, getRegistrations, getAuthMe } from "@/lib/api";
+import { listPaymentRecords, updatePaymentRecord, refreshPaymentRecord, refundPaymentRecord, deletePaymentRecord, getRegistrations, getAuthMe, exportPaymentsOds } from "@/lib/api";
 import { parseApiError } from "@/lib/errors";
 import RegistrationList, { type RegistrationEntry } from "@/components/RegistrationList";
 
@@ -228,6 +228,22 @@ export default function BetalingenPage() {
     }
   }
 
+  async function downloadPaymentsExport() {
+    try {
+      const resp = await exportPaymentsOds();
+      const url = URL.createObjectURL(resp.data as Blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "betalingen-en-vorderingen.ods";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+    } catch (e) {
+      setError(parseApiError(e, "Export mislukt."));
+    }
+  }
+
   async function refreshStatus(id: string) {
     setRefreshing(id);
     setError(null);
@@ -353,6 +369,13 @@ export default function BetalingenPage() {
             {f === "all" ? "Alle" : f === "openstaand" ? "Openstaand saldo" : f === "pending" ? "In afwachting" : "Betaald"}
           </button>
         ))}
+        <button
+          onClick={downloadPaymentsExport}
+          className="ml-auto px-4 py-1.5 rounded-full text-sm font-medium border bg-white text-gray-700 border-gray-300 hover:bg-gray-50 transition"
+          title="Export (.ods): alle betalingen & vorderingen + totalen (te betalen / betaald / saldo)"
+        >
+          Export .ods
+        </button>
       </div>
 
       {/* Context-filter (#90): lidmaatschap-vernieuwing of een activiteit-onderdeel */}
