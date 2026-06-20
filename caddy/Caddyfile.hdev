@@ -1,5 +1,7 @@
 # Hetzner DEV — geen SSL, bereikbaar via IP op poort 8081
 :8081 {
+	# Compressie (#303): scheelt bandbreedte/laadtijd op HTML/CSS/JS.
+	encode zstd gzip
 	handle /api/* {
 		reverse_proxy backend:8000
 	}

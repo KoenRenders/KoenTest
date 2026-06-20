@@ -20,6 +20,9 @@
 		# Verberg server-header
 		-Server
 	}
+	# Compressie (#303): scheelt bandbreedte/laadtijd op HTML/CSS/JS. In de gedeelde
+	# basis zodat alle sites (uat/prod + stats) ze krijgen via `import security_headers`.
+	encode zstd gzip
 }
 
 # Domeinen komen uit .env.caddy (niet in git). Zie .env.caddy.example.
