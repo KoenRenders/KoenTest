@@ -40,6 +40,9 @@ export const deleteOrderLine = (activityId: number, registrationId: number, item
 // Opmerking van de inschrijver bewerken (admin) (#283) — leeg/witruimte → NULL server-side
 export const updateRegistrationRemarks = (activityId: number, registrationId: number, data: { remarks: string | null }) =>
   api.patch(`/api/v1/activities/${activityId}/registrations/${registrationId}`, data);
+// Hele inschrijving verwijderen (admin, soft-delete) (#313) — betaling blijft bewaard
+export const deleteRegistration = (activityId: number, registrationId: number) =>
+  api.delete(`/api/v1/activities/${activityId}/registrations/${registrationId}`);
 
 // Excel-export per onderdeel (#85) — blob, met Bearer-token via de axios-instance
 export const exportComponentXlsx = (activityId: number, componentId: number) =>

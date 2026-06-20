@@ -806,6 +806,34 @@ def update_registration_remarks(
     return _enrich_registration(reg, activity)
 
 
+@router.delete("/activities/{activity_id}/registrations/{registration_id}")
+def delete_registration(
+    activity_id: int,
+    registration_id: int,
+    db: Session = Depends(get_db),
+    admin: User = Depends(get_current_admin),
+):
+    """Verwijder (soft-delete) een hele inschrijving incl. haar bestelregels (#313).
+
+    Raakt de betaling NIET aan: een ``PaymentRecord`` is een financieel feit en
+    blijft bestaan én zichtbaar in het betaaloverzicht (de enrichment haalt ook
+    soft-deleted inschrijvingen op via ``include_deleted``, #190). De bestelregels
+    worden mee soft-deleted (met audit-snapshot) zodat ze niet in aantal-/
+    saldoberekeningen lekken (#194)."""
+    activity = _load_activity_or_404(db, activity_id)
+    reg = _load_registration_or_404(db, activity, registration_id)
+    for item in list(reg.items):
+        if getattr(item, "deleted_at", None) is None:
+            snapshot_registration_item(
+                db, item, operation="delete", action="order_changed",
+                source="admin_manual", actor=admin.email,
+            )
+            soft_delete(item)
+    soft_delete(reg)
+    db.commit()
+    return {"status": "deleted", "registration_id": registration_id}
+
+
 @router.get("/activities/{activity_id}/public-registrations")
 def get_public_registrations(
     activity_id: int,

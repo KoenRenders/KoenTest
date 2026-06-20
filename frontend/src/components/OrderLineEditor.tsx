@@ -1,7 +1,7 @@
 "use client";
 import { useState } from "react";
 import Link from "next/link";
-import { addOrderLine, updateOrderLine, deleteOrderLine, updateRegistrationRemarks } from "@/lib/api";
+import { addOrderLine, updateOrderLine, deleteOrderLine, updateRegistrationRemarks, deleteRegistration } from "@/lib/api";
 import { parseApiError } from "@/lib/errors";
 
 export interface EditableItem {
@@ -112,6 +112,22 @@ export default function OrderLineEditor({ activityId, registrationId, items, pro
     run(() => deleteOrderLine(activityId, registrationId, item.id!));
   }
 
+  // Hele inschrijving verwijderen (#313). Soft-delete; een eventuele betaling
+  // blijft bewaard in het betaaloverzicht — dat melden we in de bevestiging.
+  async function removeRegistration() {
+    if (!confirm("Deze inschrijving volledig verwijderen? Een eventuele betaling blijft bewaard in het betaaloverzicht.")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await deleteRegistration(activityId, registrationId);
+      onChanged();
+    } catch (e) {
+      setError(parseApiError(e, "Verwijderen van de inschrijving mislukt."));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function addLine() {
     const pid = parseInt(addProductId, 10);
     const q = parseInt(addQty, 10);
@@ -200,7 +216,14 @@ export default function OrderLineEditor({ activityId, registrationId, items, pro
         />
       </div>
 
-      <div className="flex justify-end mt-2">
+      <div className="flex justify-between items-center mt-2">
+        <button
+          onClick={removeRegistration}
+          disabled={busy}
+          className="text-xs text-red-600 border border-red-200 rounded px-3 py-0.5 hover:bg-red-50 disabled:opacity-40"
+        >
+          Inschrijving verwijderen
+        </button>
         <button
           onClick={saveAll}
           disabled={busy || (!hasChanges && !remarksChanged)}
