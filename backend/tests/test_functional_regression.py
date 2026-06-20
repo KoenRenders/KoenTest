@@ -52,6 +52,8 @@ def test_payment_overview_membership_shows_family_and_year(client, db_session, a
     rec = next(r for r in resp.json() if r["payable_type"] == "membership")
     assert rec["description"] == f"Lidmaatschap {ms.year}"
     assert rec["contact_name"] == "Jan Peeters"  # hoofdlid uit _family_payload
+    # Gestructureerd lidgeld-jaar voedt de jaarfilter op de betalingenpagina (#308).
+    assert rec["membership_year"] == ms.year
 
 
 def test_family_registration_requires_hoofdlid_contact(client, db_session):

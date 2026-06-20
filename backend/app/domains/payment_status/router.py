@@ -67,6 +67,7 @@ def list_all_payment_records(
         activity_id: Optional[int] = None
         component_id: Optional[int] = None
         component_name: Optional[str] = None
+        membership_year: Optional[int] = None
         reg_items: list = []
 
         if r.payable_type == "registration":
@@ -99,6 +100,7 @@ def list_all_payment_records(
             from app.models.member import Membership
             ms = _q(Membership).filter(Membership.id == r.payable_id).first()
             description = f"Lidmaatschap {ms.year}" if ms else "Lidmaatschap"
+            membership_year = ms.year if ms else None
             if ms:
                 member = _q(Member).filter(Member.id == ms.member_id).first()
                 if member:
@@ -118,6 +120,7 @@ def list_all_payment_records(
             activity_id=activity_id,
             component_id=component_id,
             component_name=component_name,
+            membership_year=membership_year,
             items=reg_items,
             amount=r.amount,
             amount_paid=r.amount_paid,

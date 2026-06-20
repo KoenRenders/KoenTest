@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { listPaymentRecords, updatePaymentRecord, refreshPaymentRecord, refundPaymentRecord, deletePaymentRecord, getRegistrations, getAuthMe, exportPaymentsOds } from "@/lib/api";
 import { parseApiError } from "@/lib/errors";
+import { matchesPaymentFilter } from "@/lib/paymentFilters";
 import RegistrationList, { type RegistrationEntry } from "@/components/RegistrationList";
 
 interface RegItem {
@@ -32,6 +33,7 @@ interface PaymentRecord {
   created_at: string;
   description: string | null;
   contact_name: string | null;
+  membership_year: number | null;  // lidgeld-jaar voor de jaarfilter (#308)
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -77,6 +79,8 @@ export default function BetalingenPage() {
   const [filter, setFilter] = useState<"all" | "openstaand" | "pending" | "paid">("all");
   // Context-filter (#90): "all" | "membership" | "comp-<id>"
   const [context, setContext] = useState<string>("all");
+  // Lidgeld-jaar-filter (#308): null = alle jaren.
+  const [year, setYear] = useState<number | null>(null);
 
   // Terugbetaling registreren (#83): record id -> formulier
   const [refunding, setRefunding] = useState<string | null>(null);
@@ -284,19 +288,13 @@ export default function BetalingenPage() {
     return { label: "Terug te betalen", cls: "bg-orange-100 text-orange-700" };
   }
 
-  const filtered = records.filter((r) => {
-    // Context-filter (#90): lidmaatschap-vernieuwing of één activiteit-onderdeel.
-    if (context === "membership" && r.payable_type !== "membership") return false;
-    if (context.startsWith("comp-")) {
-      const cid = parseInt(context.slice(5), 10);
-      if (r.payable_type !== "registration" || r.component_id !== cid) return false;
-    }
-    // Status-filter (#83).
-    if (filter === "pending") return r.status === "pending";
-    if (filter === "paid") return r.status === "paid";
-    if (filter === "openstaand") return saldo(r) > 0.001;
-    return true;
-  });
+  // Filter-logica zit als puur predicaat in @/lib/paymentFilters (Vitest-gedekt, #308).
+  const filtered = records.filter((r) => matchesPaymentFilter(r, { status: filter, context, year }));
+
+  // Lidgeld-jaren aanwezig in de records, aflopend — voedt de jaar-dropdown (#308).
+  const membershipYears = Array.from(
+    new Set(records.map((r) => r.membership_year).filter((y): y is number => y != null)),
+  ).sort((a, b) => b - a);
 
   // Opties voor het context-filter, afgeleid uit de records: één optgroup per
   // activiteit met haar onderdelen (zoals de Media-bibliotheek), plus lidmaatschap.
@@ -378,8 +376,21 @@ export default function BetalingenPage() {
         </button>
       </div>
 
-      {/* Context-filter (#90): lidmaatschap-vernieuwing of een activiteit-onderdeel */}
-      <div className="mb-6">
+      {/* Context- (#90) en lidgeld-jaar-filter (#308) */}
+      <div className="mb-6 flex gap-2 flex-wrap">
+        {membershipYears.length > 0 && (
+          <select
+            className="input text-sm max-w-[10rem]"
+            value={year ?? "all"}
+            onChange={(e) => setYear(e.target.value === "all" ? null : parseInt(e.target.value, 10))}
+            title="Filter op lidgeld-jaar"
+          >
+            <option value="all">Alle lidgeld-jaren</option>
+            {membershipYears.map((y) => (
+              <option key={y} value={y}>Lidgeld {y}</option>
+            ))}
+          </select>
+        )}
         <select
           className="input text-sm max-w-md"
           value={context}

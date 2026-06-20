@@ -53,6 +53,7 @@ class EnrichedPaymentRecord(PaymentRecordResponse):
     activity_id: Optional[int] = None
     component_id: Optional[int] = None      # voor de penningmeester-filter (#90)
     component_name: Optional[str] = None
+    membership_year: Optional[int] = None   # lidgeld-jaar voor de jaarfilter (#308)
     items: list = []
 
 
