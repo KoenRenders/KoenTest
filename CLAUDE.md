@@ -156,6 +156,15 @@ post-deploy smoke test (`tests/run-all.sh`) that creates no data. The backend ru
 `alembic upgrade head` on startup, so DB migrations (e.g. 031) apply automatically
 during the rebuild.
 
+> **Shared Caddy: a release that changes `caddy/Caddyfile.shared` needs an extra
+> step (#312).** `deploy-uat.sh`/`deploy-prod.sh` run in the `uat/`/`prod/`
+> checkout and do **not** touch the shared Caddy (a separate stack, `name: caddy`,
+> serving all domains). A bind-mounted `Caddyfile.shared` change (e.g. the #303
+> `encode`) only takes effect after a reload. Run, in the `caddy/` checkout:
+> `./deploy-caddy.sh` (it does `git pull` + `up -d` + `caddy reload`). The
+> compression smoke test (`tests/smoke/compression.sh`) is the safety net if you
+> forget. One reload covers UAT **and** PROD (same shared Caddy).
+
 > First-time note: the tag must contain these tag-aware deploy scripts. For a
 > release predating them, run the equivalent by hand once:
 > `git fetch --tags origin && git checkout --detach v1.x.x && docker compose -f
