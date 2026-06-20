@@ -1,0 +1,11 @@
+[tool.mypy]
+python_version = "3.12"
+files = ["app"]
+# Bibliotheken zonder type-stubs (SQLAlchemy oude stijl, externe SDK's) mogen de
+# check niet blokkeren — we typen onze eigen code, niet die van derden.
+ignore_missing_imports = true
+# Zinvolle, niet-overdreven strikte set. Geen volledige --strict: dat zou een
+# berg ruis geven op de bestaande ORM-stijl zonder evenredige winst.
+warn_unused_ignores = true
+warn_redundant_casts = true
+no_implicit_optional = true

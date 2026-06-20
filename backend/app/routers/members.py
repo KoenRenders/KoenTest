@@ -571,33 +571,35 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
     # betaalrecord (bv. door een beheerder aangemaakt). Een eerdere inschrijving
     # waarvan de betaling mislukte/geannuleerd werd, blokkeert niet.
     hoofdlid_email = data.members[0].email
-    existing_memberships = (
-        db.query(Membership)
-        .join(MemberPerson, and_(
-            MemberPerson.member_id == Membership.member_id,
-            MemberPerson.relation_type == "HOOFDLID",
-        ))
-        .join(ContactDetail, and_(
-            ContactDetail.person_id == MemberPerson.person_id,
-            ContactDetail.contact_type_code == "EMAIL",
-            func.lower(ContactDetail.value) == hoofdlid_email.lower(),
-        ))
-        .filter(Membership.year == today.year)
-        .all()
-    )
-    if existing_memberships:
-        from app.domains.payment_status.models import PaymentRecord
-        for ms in existing_memberships:
-            recs = db.query(PaymentRecord).filter(
-                PaymentRecord.payable_type == "membership",
-                PaymentRecord.payable_id == ms.id,
-            ).all()
-            if not recs or any(r.status in ("paid", "pending") for r in recs):
-                raise HTTPException(
-                    status_code=409,
-                    detail=f"Er bestaat al een inschrijving voor {today.year} met dit e-mailadres. "
-                           "Neem contact op met het bestuur als dit niet klopt.",
-                )
+    # Zonder hoofdlid-e-mail valt er niet op e-mail te dedupliceren; sla de check over.
+    if hoofdlid_email:
+        existing_memberships = (
+            db.query(Membership)
+            .join(MemberPerson, and_(
+                MemberPerson.member_id == Membership.member_id,
+                MemberPerson.relation_type == "HOOFDLID",
+            ))
+            .join(ContactDetail, and_(
+                ContactDetail.person_id == MemberPerson.person_id,
+                ContactDetail.contact_type_code == "EMAIL",
+                func.lower(ContactDetail.value) == hoofdlid_email.lower(),
+            ))
+            .filter(Membership.year == today.year)
+            .all()
+        )
+        if existing_memberships:
+            from app.domains.payment_status.models import PaymentRecord
+            for ms in existing_memberships:
+                recs = db.query(PaymentRecord).filter(
+                    PaymentRecord.payable_type == "membership",
+                    PaymentRecord.payable_id == ms.id,
+                ).all()
+                if not recs or any(r.status in ("paid", "pending") for r in recs):
+                    raise HTTPException(
+                        status_code=409,
+                        detail=f"Er bestaat al een inschrijving voor {today.year} met dit e-mailadres. "
+                               "Neem contact op met het bestuur als dit niet klopt.",
+                    )
 
     member = Member()
     db.add(member)

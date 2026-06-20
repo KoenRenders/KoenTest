@@ -82,6 +82,7 @@ class MistralProvider(LLMProvider):
 def build_mistral_provider() -> MistralProvider:
     """Construeer de provider uit de config. Roept alleen aan wie zeker is dat
     er een sleutel is (zie ``factory.get_provider``)."""
+    assert settings.mistral_api_key is not None, "mistral_api_key ontbreekt"
     return MistralProvider(
         api_key=settings.mistral_api_key,
         model=settings.chat_model,
