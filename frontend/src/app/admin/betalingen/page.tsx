@@ -233,7 +233,8 @@ export default function BetalingenPage() {
 
   async function downloadPaymentsExport() {
     try {
-      const resp = await exportPaymentsOds();
+      // Export volgt het actieve filter (context #90/#308 + status #83).
+      const resp = await exportPaymentsOds({ context, status: filter });
       const url = URL.createObjectURL(resp.data as Blob);
       const link = document.createElement("a");
       link.href = url;

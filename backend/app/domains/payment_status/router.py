@@ -141,13 +141,16 @@ def list_all_payment_records(
 
 @router.get("/records/export")
 def export_all_payment_records(
+    context: str = "all",
+    status: str = "all",
     db: Session = Depends(get_db),
     _viewer: User = Depends(get_finance_or_admin),
 ):
-    """Download álle betalingen & vorderingen als .ods (#307): één blad met de
-    zichtbare details + een totaalrij te betalen / betaald / saldo."""
+    """Download de betalingen & vorderingen als .ods (#307): één blad met de
+    zichtbare details + een totaalrij te betalen / betaald / saldo. Volgt het
+    actieve filter van de pagina (context #90/#308 + status #83)."""
     from app.services.payments_export import build_payments_export_ods
-    content = build_payments_export_ods(db)
+    content = build_payments_export_ods(db, context=context, status=status)
     return Response(
         content=content,
         media_type="application/vnd.oasis.opendocument.spreadsheet",

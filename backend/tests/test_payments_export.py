@@ -76,3 +76,30 @@ def test_payments_export_records_and_totals(client, db_session, admin_headers):
     assert total[i_due] == 36.0
     assert total[i_paid] == 36.0
     assert total[i_saldo] == 0.0
+
+
+def test_payments_export_respects_context_filter(client, db_session, admin_headers):
+    """De export volgt het paginafilter (#90/#308): context=membership weert de
+    activiteit-inschrijving; context=comp-<id> houdt ze."""
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    client.post(f"/api/v1/activities/{comp.activity_id}/register", json={
+        "contact_name": "An Janssens", "contact_email": "an@example.com",
+        "component_id": comp.id, "payment_method": "TRANSFER",
+        "items": [{"product_id": product.id, "quantity": 2}],
+    })
+
+    # context=membership → de (enige) activiteit-inschrijving valt weg, totaal 0.
+    resp = client.get(_EXPORT, headers=admin_headers, params={"context": "membership"})
+    assert resp.status_code == 200, resp.text
+    rows = _rows(resp)
+    headers = list(rows[0])
+    i_what = headers.index("Waarvoor")
+    i_due = headers.index("Te betalen")
+    assert not any("An Janssens" in str(r[i_what]) for r in rows[1:-1])
+    assert rows[-1][i_due] == 0
+
+    # context=comp-<id> → de inschrijving staat er wél in.
+    resp2 = client.get(_EXPORT, headers=admin_headers, params={"context": f"comp-{comp.id}"})
+    rows2 = _rows(resp2)
+    assert any("An Janssens" in str(r[i_what]) for r in rows2[1:-1])
+    assert rows2[-1][i_due] == 36.0

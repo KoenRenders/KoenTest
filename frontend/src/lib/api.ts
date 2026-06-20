@@ -45,9 +45,9 @@ export const updateRegistrationRemarks = (activityId: number, registrationId: nu
 export const exportComponentXlsx = (activityId: number, componentId: number) =>
   api.get(`/api/v1/activities/${activityId}/components/${componentId}/export`, { responseType: "blob" });
 
-// ODS-export van alle betalingen & vorderingen (#307) — blob.
-export const exportPaymentsOds = () =>
-  api.get("/api/v1/payment-status/records/export", { responseType: "blob" });
+// ODS-export van betalingen & vorderingen (#307) — blob, volgt het actieve filter.
+export const exportPaymentsOds = (params: { context: string; status: string }) =>
+  api.get("/api/v1/payment-status/records/export", { params, responseType: "blob" });
 
 // Ledendata-wijzigingen sinds datum (#82)
 export const getMemberChanges = (since: string) =>
