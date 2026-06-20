@@ -46,7 +46,9 @@ class AuthMeResponse(BaseModel):
 
 class MemberMeResponse(BaseModel):
     person_id: int
-    member_id: int
+    # Afgeleid met next(..., None): een persoon zonder gekoppeld huishouden geeft
+    # None — het schema moet dat toelaten i.p.v. een 500 bij het opbouwen.
+    member_id: Optional[int] = None
     name: str
     email: str
     phone: Optional[str] = None

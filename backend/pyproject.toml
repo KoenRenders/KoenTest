@@ -1,11 +1,25 @@
 [tool.mypy]
 python_version = "3.12"
 files = ["app"]
-# Bibliotheken zonder type-stubs (SQLAlchemy oude stijl, externe SDK's) mogen de
-# check niet blokkeren — we typen onze eigen code, niet die van derden.
+# Pydantic-plugin: laat mypy de modellen/settings begrijpen (o.a. dat
+# `Settings()` zijn velden uit de omgeving leest) i.p.v. een ontbrekend-argument
+# te melden.
+plugins = ["pydantic.mypy"]
+# Bibliotheken zonder type-stubs (externe SDK's) mogen de check niet blokkeren —
+# we typen onze eigen code, niet die van derden.
 ignore_missing_imports = true
 # Zinvolle, niet-overdreven strikte set. Geen volledige --strict: dat zou een
 # berg ruis geven op de bestaande ORM-stijl zonder evenredige winst.
 warn_unused_ignores = true
 warn_redundant_casts = true
 no_implicit_optional = true
+
+# De ORM-modellen gebruiken nog de oude `Column(...)`-stijl (niet `Mapped[...]`).
+# Daardoor ziet mypy attributen als `Column[str]` i.p.v. `str` → een berg valse
+# positieven. Tot een eventuele migratie naar `Mapped[...]` (apart issue)
+# behandelen we de SQLAlchemy-laag als untyped; mypy checkt zo wél onze eigen
+# logica (None-dereferences, verkeerde argument-types) zonder ORM-ruis.
+[[tool.mypy.overrides]]
+module = "sqlalchemy.*"
+follow_imports = "skip"
+follow_imports_for_stubs = true
