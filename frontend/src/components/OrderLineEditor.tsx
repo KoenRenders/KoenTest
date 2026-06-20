@@ -112,10 +112,10 @@ export default function OrderLineEditor({ activityId, registrationId, items, pro
     run(() => deleteOrderLine(activityId, registrationId, item.id!));
   }
 
-  // Hele inschrijving verwijderen (#313). Soft-delete; een eventuele betaling
-  // blijft bewaard in het betaaloverzicht — dat melden we in de bevestiging.
+  // Hele inschrijving verwijderen (#313). Soft-delete + reconcile: een reeds betaald
+  // bedrag wordt een terugbetaling-verplichting (zoals bij producten apart weghalen).
   async function removeRegistration() {
-    if (!confirm("Deze inschrijving volledig verwijderen? Een eventuele betaling blijft bewaard in het betaaloverzicht.")) return;
+    if (!confirm("Deze inschrijving volledig verwijderen? Een reeds betaald bedrag wordt als terugbetaling in het betaaloverzicht gezet.")) return;
     setBusy(true);
     setError(null);
     try {

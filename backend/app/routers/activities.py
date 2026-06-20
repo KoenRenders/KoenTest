@@ -829,6 +829,13 @@ def delete_registration(
                 source="admin_manual", actor=admin.email,
             )
             soft_delete(item)
+    db.commit()
+    db.refresh(reg)
+    # Het besteltotaal is nu 0: reconcilieer de charges identiek aan het apart
+    # weghalen van álle producten (#185/#313). Zo wordt een reeds betaald bedrag een
+    # terugbetaling-verplichting en verdwijnt een nog-onbetaalde charge (niets
+    # verschuldigd). Pas daarna de inschrijving zelf soft-deleten.
+    reconcile_registration_charges(db, reg, audit_actor=admin.email)
     soft_delete(reg)
     db.commit()
     return {"status": "deleted", "registration_id": registration_id}
