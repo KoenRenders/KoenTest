@@ -157,13 +157,16 @@ post-deploy smoke test (`tests/run-all.sh`) that creates no data. The backend ru
 during the rebuild.
 
 > **Shared Caddy: a release that changes `caddy/Caddyfile.shared` needs an extra
-> step (#312).** `deploy-uat.sh`/`deploy-prod.sh` run in the `uat/`/`prod/`
+> step (#312/#314).** `deploy-uat.sh`/`deploy-prod.sh` run in the `uat/`/`prod/`
 > checkout and do **not** touch the shared Caddy (a separate stack, `name: caddy`,
-> serving all domains). A bind-mounted `Caddyfile.shared` change (e.g. the #303
-> `encode`) only takes effect after a reload. Run, in the `caddy/` checkout:
-> `./deploy-caddy.sh` (it does `git pull` + `up -d` + `caddy reload`). The
-> compression smoke test (`tests/smoke/compression.sh`) is the safety net if you
-> forget. One reload covers UAT **and** PROD (same shared Caddy).
+> serving all domains). Run, in the `caddy/` checkout: `./deploy-caddy.sh` — it
+> forces the checkout onto `master` (also from a detached HEAD), checks that
+> `encode` is present, and does `up -d --force-recreate caddy` (loads the config
+> fresh from disk). It deliberately avoids `caddy reload`: that admin-API reload is
+> in-memory only and does **not** survive a restart, which is what kept silently
+> reverting the #303 compression. The compression smoke test
+> (`tests/smoke/compression.sh`) is the safety net. One recreate covers UAT **and**
+> PROD (same shared Caddy).
 
 > First-time note: the tag must contain these tag-aware deploy scripts. For a
 > release predating them, run the equivalent by hand once:
