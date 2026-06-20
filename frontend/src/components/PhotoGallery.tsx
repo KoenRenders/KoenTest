@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
+import Image from "next/image";
 import { getActivityPhotos } from "@/lib/api";
 import type { MediaAsset } from "@/lib/types";
 
@@ -23,9 +24,18 @@ export default function PhotoGallery({ activityId }: { activityId: number }) {
             key={p.id}
             type="button"
             onClick={() => setActive(p.id)}
-            className="aspect-square overflow-hidden rounded-lg bg-gray-100 hover:opacity-90 transition-opacity"
+            className="relative aspect-square overflow-hidden rounded-lg bg-gray-100 hover:opacity-90 transition-opacity"
           >
-            <img src={p.thumb_url} alt={p.title || "Foto"} className="w-full h-full object-cover" loading="lazy" />
+            {/* next/image met fill (#304): lazy-loading + geen layout-shift. unoptimized
+                omdat thumb_url een dynamische backend-route is (geen vaste afmetingen). */}
+            <Image
+              src={p.thumb_url}
+              alt={p.title || "Foto"}
+              fill
+              sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, 16vw"
+              className="object-cover"
+              unoptimized
+            />
           </button>
         ))}
       </div>

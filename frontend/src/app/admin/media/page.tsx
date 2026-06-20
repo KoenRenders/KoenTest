@@ -1,5 +1,6 @@
 "use client";
 import { useEffect, useRef, useState } from "react";
+import Image from "next/image";
 import {
   adminListMedia,
   uploadMedia,
@@ -187,8 +188,16 @@ export default function AdminMedia() {
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
         {assets.map((a, idx) => (
           <div key={a.id} className={`card !p-3 ${a.is_active ? "" : "opacity-50"}`}>
-            <div className="aspect-square bg-gray-50 rounded mb-2 flex items-center justify-center overflow-hidden">
-              <img src={a.thumb_url} alt={a.title || ""} className="max-w-full max-h-full object-contain" />
+            <div className="relative aspect-square bg-gray-50 rounded mb-2 overflow-hidden">
+              {/* next/image met fill (#304); unoptimized: dynamische backend-thumb. */}
+              <Image
+                src={a.thumb_url}
+                alt={a.title || ""}
+                fill
+                sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, 25vw"
+                className="object-contain"
+                unoptimized
+              />
             </div>
             <input
               className="input !py-1 !text-sm mb-2"
