@@ -19,7 +19,8 @@ tests/
 ├── lib.sh        Gedeelde helpers — stil bij succes, gericht bij falen.
 ├── run-all.sh    Draait alles en toont één beknopt overzicht.
 └── smoke/        Alleen-lezen checks tegen een live stack.
-    └── live.sh   Health + publieke GET's = 200; admin zonder token = 401/403.
+    ├── live.sh        Health + publieke GET's = 200; admin zonder token = 401/403.
+    └── compression.sh Caddy comprimeert responses (content-encoding gzip/zstd, #303).
 ```
 
 ## Draaien
