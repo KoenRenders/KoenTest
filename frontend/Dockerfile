@@ -21,6 +21,9 @@ ENV NEXT_PUBLIC_CHATBOT_ENABLED=$NEXT_PUBLIC_CHATBOT_ENABLED
 # STT-strategie (#282/#290) — build-time ingebakken; default browser_only (Voxtral dark).
 ARG NEXT_PUBLIC_STT_MODE=browser_only
 ENV NEXT_PUBLIC_STT_MODE=$NEXT_PUBLIC_STT_MODE
+# Canonieke publieke origin voor OG/canonical/sitemap (#301).
+ARG NEXT_PUBLIC_SITE_URL=
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 RUN npm run build
 
 FROM node:20-alpine AS runner

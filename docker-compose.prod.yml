@@ -70,6 +70,8 @@ services:
         NEXT_PUBLIC_APP_ENV: prod
         NEXT_PUBLIC_CHATBOT_ENABLED: ${CHAT_ENABLED:-false}
         NEXT_PUBLIC_STT_MODE: ${STT_MODE:-browser_only}
+        # Canonieke publieke origin voor OG/canonical/sitemap (#301), afgeleid van FRONTEND_URL.
+        NEXT_PUBLIC_SITE_URL: ${FRONTEND_URL:-}
         NEXT_PUBLIC_ENV_COLOR: ${ENV_COLOR:-}
         # Umami web-analytics (#152/#176, laag 1). Leeg = tracker laadt niet (no-op).
         NEXT_PUBLIC_UMAMI_SRC: ${NEXT_PUBLIC_UMAMI_SRC:-}
