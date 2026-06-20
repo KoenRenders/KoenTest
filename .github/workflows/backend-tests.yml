@@ -72,6 +72,11 @@ jobs:
       - name: Typecheck (tsc --noEmit)
         run: npx tsc --noEmit
 
+      # Unit-tests voor pure frontend-logica (filter-predicaten, URL-bouw, …).
+      # Vitest is snel en blokkerend; e2e-flows blijven in de aparte e2e-job.
+      - name: Unit tests (vitest)
+        run: npx vitest run --passWithNoTests
+
   audit:
     runs-on: ubuntu-latest
     # Niet-blokkerend (stijl van de e2e-job, #128): rapporteert kwetsbare
