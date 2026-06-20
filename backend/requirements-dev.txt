@@ -3,3 +3,6 @@
 # Test-only dependencies (niet nodig in productie-image).
 pytest==8.3.4
 pytest-cov==6.0.0
+
+# Static type checking (mypy in CI; symmetrie met `tsc --noEmit` op de frontend).
+mypy==2.1.0

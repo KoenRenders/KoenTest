@@ -75,6 +75,7 @@ async def _replace_single_asset(db, file: UploadFile, *, kind: str,
     for old in q.all():
         db.delete(old)  # hard delete, geen ballast
 
+    title: Optional[str]
     if title_base:
         title = f"{title_base}{_EXT_BY_TYPE.get(processed['content_type'], '')}"
     else:

@@ -131,7 +131,7 @@ def _price_from(activity: Activity) -> Optional[str]:
 
 
 def _extracted_text(
-    db: Session, kind: str, *, activity_id: int = None, component_id: int = None
+    db: Session, kind: str, *, activity_id: Optional[int] = None, component_id: Optional[int] = None
 ) -> Optional[str]:
     """De effectieve poster/reglement-tekst voor de bot (#206), of None.
 
@@ -345,7 +345,7 @@ def execute_tool(name: str, arguments: dict[str, Any], db: Session) -> str:
         if name == "get_activities":
             result = get_activities(db, when=str(args.get("when") or "upcoming"))
         elif name == "get_activity_detail":
-            result = get_activity_detail(db, activity_id=int(args.get("activity_id")))
+            result = get_activity_detail(db, activity_id=int(args.get("activity_id") or 0))
         elif name == "submit_idea":
             result = submit_idea(
                 db,

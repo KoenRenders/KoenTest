@@ -44,7 +44,7 @@ def _encode(img: Image.Image, *, keep_alpha: bool) -> tuple[bytes, str]:
 
 def _resized(img: Image.Image, max_side: int) -> Image.Image:
     clone = img.copy()
-    clone.thumbnail((max_side, max_side), Image.LANCZOS)
+    clone.thumbnail((max_side, max_side), Image.Resampling.LANCZOS)
     return clone
 
 
@@ -61,7 +61,7 @@ def process_image(raw: bytes) -> dict:
         raise ImageError("Bestand te groot")
 
     try:
-        img = Image.open(BytesIO(raw))
+        img: Image.Image = Image.open(BytesIO(raw))
         img.load()
     except Exception as exc:  # noqa: BLE001
         raise ImageError("Geen geldige afbeelding") from exc

@@ -104,7 +104,7 @@ def build_component_export_ods(db, activity, component) -> bytes:
     money_totals = [Decimal("0")] * 5
     rows = []
     for reg in registrations:
-        qty_by_product = {}
+        qty_by_product: dict[int, int] = {}
         for item in reg.items:
             qty_by_product[item.product_id] = qty_by_product.get(item.product_id, 0) + item.quantity
         due, online, offline, refunded, saldo = _registration_financials(db, reg)

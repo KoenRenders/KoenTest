@@ -665,6 +665,7 @@ def upsert_families(db: Session, families: list[list[dict]], bl_index: dict,
             else:
                 member = Member()   # transient: enkel voor het dry-run-rapport
 
+        assert member is not None  # is_new=False → bestaand lid; is_new=True → hierboven gezet
         _sync_family(db, member, fam, pc, ext_map, identity_map, is_new=is_new,
                      apply=apply, report=report, actor=actor)
 
