@@ -37,25 +37,15 @@ def _cell(value, stylename=None):
     return cell
 
 
-def build_ods(sheet_name: str, headers, rows, *, col_widths=None, bold_last_row=False) -> bytes:
-    """Bouw een .ods met één blad: vette kopregel + datarijen. ``col_widths`` in cm,
-    ``bold_last_row`` voor een totaalrij. Geeft de bytes terug."""
-    doc = OpenDocumentSpreadsheet()
-
-    header_style = Style(name="hdr", family="table-cell")
-    header_style.addElement(TextProperties(fontweight="bold"))
-    header_style.addElement(TableCellProperties(backgroundcolor="#E5E7EB"))
-    doc.automaticstyles.addElement(header_style)
-
-    bold_style = Style(name="bold", family="table-cell")
-    bold_style.addElement(TextProperties(fontweight="bold"))
-    doc.automaticstyles.addElement(bold_style)
-
-    table = Table(name=(sheet_name or "Blad1")[:31])
+def _add_sheet(doc, header_style, bold_style, sheet_idx, name, headers, rows,
+               col_widths=None, bold_last_row=False):
+    """Voeg één blad toe aan het document. Kolomstijlen krijgen een blad-prefix
+    (``s{idx}col{i}``) zodat ze niet botsen tussen bladen."""
+    table = Table(name=(name or f"Blad{sheet_idx + 1}")[:31])
 
     if col_widths:
         for i, w in enumerate(col_widths):
-            cs = Style(name=f"col{i}", family="table-column")
+            cs = Style(name=f"s{sheet_idx}col{i}", family="table-column")
             cs.addElement(TableColumnProperties(columnwidth=f"{w}cm"))
             doc.automaticstyles.addElement(cs)
             table.addElement(TableColumn(stylename=cs))
@@ -76,6 +66,39 @@ def build_ods(sheet_name: str, headers, rows, *, col_widths=None, bold_last_row=
         table.addElement(tr)
 
     doc.spreadsheet.addElement(table)
+
+
+def build_ods_multi(sheets) -> bytes:
+    """Bouw een .ods met meerdere bladen. ``sheets`` = lijst van dicts met keys
+    ``name``, ``headers``, ``rows`` en optioneel ``col_widths``, ``bold_last_row``.
+    Geeft de bytes terug."""
+    doc = OpenDocumentSpreadsheet()
+
+    header_style = Style(name="hdr", family="table-cell")
+    header_style.addElement(TextProperties(fontweight="bold"))
+    header_style.addElement(TableCellProperties(backgroundcolor="#E5E7EB"))
+    doc.automaticstyles.addElement(header_style)
+
+    bold_style = Style(name="bold", family="table-cell")
+    bold_style.addElement(TextProperties(fontweight="bold"))
+    doc.automaticstyles.addElement(bold_style)
+
+    for i, s in enumerate(sheets):
+        _add_sheet(
+            doc, header_style, bold_style, i,
+            s.get("name"), s["headers"], s["rows"],
+            col_widths=s.get("col_widths"), bold_last_row=s.get("bold_last_row", False),
+        )
+
     buf = BytesIO()
     doc.write(buf)
     return buf.getvalue()
+
+
+def build_ods(sheet_name: str, headers, rows, *, col_widths=None, bold_last_row=False) -> bytes:
+    """Bouw een .ods met één blad: vette kopregel + datarijen. ``col_widths`` in cm,
+    ``bold_last_row`` voor een totaalrij. Dunne wrapper rond ``build_ods_multi``."""
+    return build_ods_multi([{
+        "name": sheet_name, "headers": headers, "rows": rows,
+        "col_widths": col_widths, "bold_last_row": bold_last_row,
+    }])

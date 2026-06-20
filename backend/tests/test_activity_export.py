@@ -36,6 +36,22 @@ def _load(resp):
     return rows
 
 
+def _load_all(resp):
+    """Alle bladen: lijst van {name, rows} (#307)."""
+    doc = load(BytesIO(resp.content))
+    sheets = []
+    for table in doc.getElementsByType(Table):
+        rows = []
+        for tr in table.getElementsByType(TableRow):
+            cells = []
+            for tc in tr.getElementsByType(TableCell):
+                repeat = int(tc.getAttribute("numbercolumnsrepeated") or 1)
+                cells.extend([_cell_value(tc)] * repeat)
+            rows.append(cells)
+        sheets.append({"name": table.getAttribute("name"), "rows": rows})
+    return sheets
+
+
 def test_export_requires_admin(client, db_session):
     _, comp, _ = seed_activity_with_product(db_session)
     resp = client.get(f"/api/v1/activities/{comp.activity_id}/components/{comp.id}/export")
@@ -105,6 +121,67 @@ def test_export_quantities_and_financials(client, db_session, admin_headers):
     assert total[i_due] == 36.0
     assert total[i_refunded] == 6.0
     assert total[i_saldo] == 6.0
+
+
+def test_export_second_sheet_payments_and_totals(client, db_session, admin_headers):
+    """#307: een tweede blad 'Betalingen en vorderingen' met de losse betaalrecords
+    (vordering + terugbetaling) en een totaalrij (te betalen / betaald / saldo),
+    netto zoals op de admin-betalingenpagina."""
+    _, comp, product = seed_activity_with_product(db_session, price="18.00")
+    activity_id = comp.activity_id
+    client.post(f"/api/v1/activities/{activity_id}/register", json={
+        "contact_name": "An Janssens", "contact_email": "an@example.com",
+        "component_id": comp.id, "payment_method": "TRANSFER",
+        "items": [{"product_id": product.id, "quantity": 2}],
+    })
+    charge = db_session.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "registration", PaymentRecord.type == "charge",
+    ).order_by(PaymentRecord.created_at.desc()).first()
+    client.patch(f"/api/v1/payment-status/records/{charge.id}",
+                 json={"status": "paid", "amount_paid": "36.00"}, headers=admin_headers)
+    client.post(f"/api/v1/payment-status/records/{charge.id}/refund",
+                json={"amount": "6.00"}, headers=admin_headers)
+
+    sheets = _load_all(client.get(
+        f"/api/v1/activities/{activity_id}/components/{comp.id}/export", headers=admin_headers))
+    assert len(sheets) == 2, "verwacht 2 bladen (onderdeel + betalingen)"
+    pay = sheets[1]
+    assert pay["name"] == "Betalingen en vorderingen"
+
+    rows = pay["rows"]
+    headers = list(rows[0])
+    for h in ("Inschrijver", "Type", "Te betalen", "Betaald", "Saldo"):
+        assert h in headers, h
+    i_due = headers.index("Te betalen")
+    i_paid = headers.index("Betaald")
+    i_saldo = headers.index("Saldo")
+    i_type = headers.index("Type")
+
+    data = [r for r in rows[1:-1]]  # tussen kop en totaalrij
+    types = [r[i_type] for r in data]
+    assert "Vordering" in types and "Terugbetaling" in types
+    # Vordering: +36 ; terugbetaling: -6 (negatief record).
+    charge_row = next(r for r in data if r[i_type] == "Vordering")
+    refund_row = next(r for r in data if r[i_type] == "Terugbetaling")
+    assert charge_row[i_due] == 36.0 and charge_row[i_paid] == 36.0
+    assert refund_row[i_due] == -6.0 and refund_row[i_paid] == -6.0
+
+    total = rows[-1]
+    assert total[0] == "Totaal"
+    assert total[i_due] == 30.0    # 36 - 6 netto te betalen
+    assert total[i_paid] == 30.0   # 36 - 6 netto betaald
+    assert total[i_saldo] == 0.0
+
+
+def test_export_second_sheet_exists_without_registrations(client, db_session, admin_headers):
+    """Sheet 2 bestaat ook zonder inschrijvingen: kop + totaalrij op nul."""
+    _, comp, _ = seed_activity_with_product(db_session, price="18.00")
+    sheets = _load_all(client.get(
+        f"/api/v1/activities/{comp.activity_id}/components/{comp.id}/export", headers=admin_headers))
+    assert len(sheets) == 2
+    pay = sheets[1]["rows"]
+    assert pay[0][0] == "Inschrijver"
+    assert pay[-1][0] == "Totaal"
 
 
 def test_export_aggregates_duplicate_product_lines(client, db_session, admin_headers):
