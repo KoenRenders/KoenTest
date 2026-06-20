@@ -14,8 +14,9 @@ export interface FilterablePayment {
 
 export interface PaymentFilter {
   status: "all" | "openstaand" | "pending" | "paid";
-  context: string;     // "all" | "membership" | "comp-<id>"
-  year: number | null; // lidgeld-jaar, null = alle jaren (#308)
+  // Eén gecombineerd context-filter (#90/#308):
+  //   "all" | "membership" (alle lidgeld) | "year-<jaar>" (lidgeld van dat jaar) | "comp-<id>"
+  context: string;
 }
 
 /** Saldo = te betalen − betaald. Positief = openstaand. */
@@ -25,16 +26,16 @@ export function saldoOf(r: FilterablePayment): number {
 
 /** Hoort dit record in de huidige weergave, gegeven het actieve filter? */
 export function matchesPaymentFilter(r: FilterablePayment, f: PaymentFilter): boolean {
-  // Context-filter (#90): lidmaatschap-vernieuwing of één activiteit-onderdeel.
+  // Context-filter: lidmaatschap (alle jaren of één jaar) of één activiteit-onderdeel.
   if (f.context === "membership" && r.payable_type !== "membership") return false;
+  if (f.context.startsWith("year-")) {
+    const y = parseInt(f.context.slice(5), 10);
+    if (r.payable_type !== "membership" || r.membership_year !== y) return false;
+  }
   if (f.context.startsWith("comp-")) {
     const cid = parseInt(f.context.slice(5), 10);
     if (r.payable_type !== "registration" || r.component_id !== cid) return false;
   }
-
-  // Lidgeld-jaar (#308): enkel lidmaatschapsrecords van dat jaar. Niet-lidgeld
-  // (membership_year === null) valt weg zodra een jaar gekozen is.
-  if (f.year !== null && r.membership_year !== f.year) return false;
 
   // Status-filter (#83): betaald/openstaand uit het saldo (betaald = waarheid, #198).
   if (f.status === "pending") return r.status === "pending";

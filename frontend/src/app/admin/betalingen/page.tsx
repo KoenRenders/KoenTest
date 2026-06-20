@@ -77,10 +77,9 @@ export default function BetalingenPage() {
   const [editError, setEditError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<string | null>(null);
   const [filter, setFilter] = useState<"all" | "openstaand" | "pending" | "paid">("all");
-  // Context-filter (#90): "all" | "membership" | "comp-<id>"
+  // Gecombineerd context-filter (#90/#308):
+  //   "all" | "membership" | "year-<jaar>" | "comp-<id>"
   const [context, setContext] = useState<string>("all");
-  // Lidgeld-jaar-filter (#308): null = alle jaren.
-  const [year, setYear] = useState<number | null>(null);
 
   // Terugbetaling registreren (#83): record id -> formulier
   const [refunding, setRefunding] = useState<string | null>(null);
@@ -289,7 +288,7 @@ export default function BetalingenPage() {
   }
 
   // Filter-logica zit als puur predicaat in @/lib/paymentFilters (Vitest-gedekt, #308).
-  const filtered = records.filter((r) => matchesPaymentFilter(r, { status: filter, context, year }));
+  const filtered = records.filter((r) => matchesPaymentFilter(r, { status: filter, context }));
 
   // Lidgeld-jaren aanwezig in de records, aflopend — voedt de jaar-dropdown (#308).
   const membershipYears = Array.from(
@@ -376,28 +375,22 @@ export default function BetalingenPage() {
         </button>
       </div>
 
-      {/* Context- (#90) en lidgeld-jaar-filter (#308) */}
-      <div className="mb-6 flex gap-2 flex-wrap">
-        {membershipYears.length > 0 && (
-          <select
-            className="input text-sm max-w-[10rem]"
-            value={year ?? "all"}
-            onChange={(e) => setYear(e.target.value === "all" ? null : parseInt(e.target.value, 10))}
-            title="Filter op lidgeld-jaar"
-          >
-            <option value="all">Alle lidgeld-jaren</option>
-            {membershipYears.map((y) => (
-              <option key={y} value={y}>Lidgeld {y}</option>
-            ))}
-          </select>
-        )}
+      {/* Eén gecombineerd context-filter (#90/#308): lidgeld (alle of per jaar) of een activiteit-onderdeel */}
+      <div className="mb-6">
         <select
           className="input text-sm max-w-md"
           value={context}
           onChange={(e) => setContext(e.target.value)}
         >
           <option value="all">Alle contexten</option>
-          {hasMembership && <option value="membership">Lidmaatschap-vernieuwing</option>}
+          {hasMembership && (
+            <optgroup label="Lidgeld">
+              <option value="membership">Lidgeld (alle jaren)</option>
+              {membershipYears.map((y) => (
+                <option key={y} value={`year-${y}`}>Lidgeld {y}</option>
+              ))}
+            </optgroup>
+          )}
           {activityGroups.map((g) => (
             <optgroup key={g.activityId} label={g.activityName}>
               {g.components.map((c) => (
