@@ -22,16 +22,17 @@ export const metadata: Metadata = {
   title: { default: `${ENV_PREFIX}${SITE_NAME}`, template: `${ENV_PREFIX}%s — ${SITE_NAME}` },
   description: DESCRIPTION,
   applicationName: SITE_NAME,
-  icons: { icon: "/logo.svg" },
+  icons: { icon: "/logo.png" },
   openGraph: {
     type: "website",
     siteName: SITE_NAME,
     locale: "nl_BE",
     title: SITE_NAME,
     description: DESCRIPTION,
+    images: ["/logo.png"],
     ...(SITE_URL ? { url: SITE_URL } : {}),
   },
-  twitter: { card: "summary", title: SITE_NAME, description: DESCRIPTION },
+  twitter: { card: "summary", title: SITE_NAME, description: DESCRIPTION, images: ["/logo.png"] },
 };
 
 // Organization-structured-data (#302): helpt Google/Bing de vereniging herkennen.
@@ -41,7 +42,7 @@ const orgJsonLd = {
   "@type": "Organization",
   name: SITE_NAME,
   description: DESCRIPTION,
-  ...(SITE_URL ? { url: SITE_URL, logo: `${SITE_URL}/logo.svg` } : {}),
+  ...(SITE_URL ? { url: SITE_URL, logo: `${SITE_URL}/logo.png` } : {}),
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
