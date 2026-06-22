@@ -29,10 +29,10 @@ export const metadata: Metadata = {
     locale: "nl_BE",
     title: SITE_NAME,
     description: DESCRIPTION,
-    images: ["/logo.png"],
+    images: [{ url: "/og-image.png", width: 1200, height: 630, alt: SITE_NAME }],
     ...(SITE_URL ? { url: SITE_URL } : {}),
   },
-  twitter: { card: "summary", title: SITE_NAME, description: DESCRIPTION, images: ["/logo.png"] },
+  twitter: { card: "summary_large_image", title: SITE_NAME, description: DESCRIPTION, images: ["/og-image.png"] },
 };
 
 // Organization-structured-data (#302): helpt Google/Bing de vereniging herkennen.
