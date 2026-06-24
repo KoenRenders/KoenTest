@@ -31,6 +31,25 @@ def _events(db, event_type=None):
     return q.all()
 
 
+def _seed_payment(db, *, amount, amount_paid, type="charge", method="transfer",
+                  status="paid", paid_at=None, payable_type="registration", payable_id=1):
+    """Maak een PaymentRecord aan voor de omzet-/event-tests."""
+    from decimal import Decimal
+    from datetime import datetime, timezone
+    from app.domains.payment_status.models import PaymentRecord
+    rec = PaymentRecord(
+        payable_type=payable_type, payable_id=payable_id,
+        amount=Decimal(amount),
+        amount_paid=(Decimal(amount_paid) if amount_paid is not None else None),
+        method=method, status=status, type=type,
+        paid_at=(paid_at if paid_at is not None
+                 else (datetime.now(timezone.utc) if amount_paid is not None else None)),
+    )
+    db.add(rec)
+    db.flush()
+    return rec
+
+
 # ── PII-bewaking (de harde GDPR-invariant) ───────────────────────────────────
 
 def test_log_business_event_rejects_email_in_value(db_session):
@@ -137,12 +156,11 @@ def test_renewal_and_payment_success_log_events(client, db_session, mock_mollie)
 
 # ── Admin-rapport over de business-events ─────────────────────────────────────
 
-def test_business_event_stats_aggregates(client, db_session, admin_headers):
-    """Het admin-rapport telt per type en sommeert de omzet uit bevestigde
-    betalingen (payload->>'amount') — de kern van het conversie-/omzetinzicht."""
-    log_business_event(db_session, "betaling_succes", payload={"amount": "35.00", "payable_type": "membership"})
-    log_business_event(db_session, "betaling_succes", payload={"amount": "10.00", "payable_type": "registration"})
-    log_business_event(db_session, "betaling_geannuleerd", payload={"amount": "5.00", "payable_type": "membership"})
+def test_business_event_stats_counts_per_type(client, db_session, admin_headers):
+    """Het admin-rapport telt de events per type (conversie-/funnelinzicht)."""
+    log_business_event(db_session, "betaling_succes", payload={"amount": "35.00"})
+    log_business_event(db_session, "betaling_succes", payload={"amount": "10.00"})
+    log_business_event(db_session, "betaling_geannuleerd", payload={"amount": "5.00"})
     log_business_event(db_session, "inschrijving_voltooid", payload={"amount": "10.00", "paid": True})
     db_session.flush()
 
@@ -152,8 +170,70 @@ def test_business_event_stats_aggregates(client, db_session, admin_headers):
     assert body["totals"]["betaling_succes"] == 2
     assert body["totals"]["betaling_geannuleerd"] == 1
     assert body["totals"]["inschrijving_voltooid"] == 1
-    assert body["revenue_paid_eur"] == 45.0          # 35 + 10, niet de geannuleerde 5
-    assert body["revenue_paid_eur_30d"] == 45.0
+
+
+def test_business_event_stats_revenue_from_payment_records(client, db_session, admin_headers):
+    """Omzet komt uit de PaymentRecords zelf (#324), niet uit de event-stream:
+    alle betaalwijzen tellen mee, refunds worden afgetrokken, en betalingen van
+    vóór de events-meting tellen gewoon mee. Een onbetaalde charge telt als 0."""
+    from datetime import datetime, timezone, timedelta
+    # Drie geslaagde charges via verschillende betaalwijzen = 40 bruto ontvangen.
+    _seed_payment(db_session, amount="20.00", amount_paid="20.00", method="online", payable_id=1)
+    _seed_payment(db_session, amount="10.00", amount_paid="10.00", method="transfer", payable_id=2)
+    _seed_payment(db_session, amount="10.00", amount_paid="10.00", method="cash", payable_id=3)
+    # Eén terugbetaling van 10 -> netto 30.
+    _seed_payment(db_session, amount="-10.00", amount_paid="-10.00", type="refund", payable_id=2)
+    # Een nog niet betaalde charge mag niet meetellen.
+    _seed_payment(db_session, amount="15.00", amount_paid=None, status="pending", payable_id=4)
+    # Een oude betaling (>30 dagen) telt wel in het totaal, niet in 30d.
+    old = datetime.now(timezone.utc) - timedelta(days=45)
+    _seed_payment(db_session, amount="100.00", amount_paid="100.00", method="online",
+                  payable_id=5, paid_at=old)
+    db_session.flush()
+
+    body = client.get("/api/v1/admin/business-events", headers=admin_headers).json()
+    assert body["revenue_paid_eur"] == 130.0       # 40 - 10 refund + 100 oud
+    assert body["revenue_paid_eur_30d"] == 30.0     # 40 - 10, zonder de oude 100
+
+
+# ── Events bij handmatige bevestiging en terugbetaling (#324) ─────────────────
+
+def test_confirm_manual_payment_logs_success_event(db_session):
+    """Overschrijving/cash bevestigd via de admin moet óók een betaling_succes
+    event loggen — anders mist het rapport alle niet-online betalingen."""
+    from app.domains.payment_status.service import confirm_manual_payment
+    charge = _seed_payment(db_session, amount="20.00", amount_paid=None, status="pending",
+                           method="transfer")
+    confirm_manual_payment(db_session, charge.id, actor="admin@test")
+    evs = _events(db_session, "betaling_succes")
+    assert len(evs) == 1
+    assert evs[0].payment_record_id == charge.id
+    assert evs[0].payload["method"] == "transfer"
+    # Idempotent: nogmaals bevestigen telt niet dubbel.
+    confirm_manual_payment(db_session, charge.id, actor="admin@test")
+    assert len(_events(db_session, "betaling_succes")) == 1
+
+
+def test_settled_refund_logs_refund_event(db_session):
+    from app.domains.payment_status.service import create_refund
+    from decimal import Decimal
+    charge = _seed_payment(db_session, amount="20.00", amount_paid="20.00", payable_id=7)
+    create_refund(db_session, charge.id, Decimal("20.00"), actor="admin@test")
+    evs = _events(db_session, "betaling_terugbetaling")
+    assert len(evs) == 1
+    assert evs[0].payload["payable_type"] == "registration"
+
+
+def test_pending_refund_logs_event_only_when_confirmed(db_session):
+    """Een nog niet uitbetaalde terugbetaling (verplichting) logt nog niets; het
+    event volgt pas wanneer de penningmeester de terugstorting bevestigt."""
+    from app.domains.payment_status.service import create_refund, confirm_manual_payment
+    from decimal import Decimal
+    charge = _seed_payment(db_session, amount="20.00", amount_paid="20.00", payable_id=8)
+    refund = create_refund(db_session, charge.id, Decimal("20.00"), settled=False)
+    assert _events(db_session, "betaling_terugbetaling") == []
+    confirm_manual_payment(db_session, refund.id, actor="admin@test")
+    assert len(_events(db_session, "betaling_terugbetaling")) == 1
 
 
 def test_business_event_stats_requires_admin(client, db_session):
