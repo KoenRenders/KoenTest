@@ -330,6 +330,8 @@ export default function BetalingenPage() {
     (s, r) => s + (r.amount_paid ? -parseFloat(r.amount_paid) : 0),
     0,
   );
+  // Netto effectief behouden = ontvangen min wat al teruggestort is.
+  const totalNet = totalPaid - totalRefunded;
 
   // Bundel alle betalingen/refunds van dezelfde inschrijving (payable) in één groep,
   // gesorteerd op de datum van de laatst aangemaakte betaling (#204).
@@ -423,6 +425,9 @@ export default function BetalingenPage() {
         )}
         {totalRefunded > 0.001 && (
           <span className="text-orange-600">Terugbetaald: <strong>€{totalRefunded.toFixed(2)}</strong></span>
+        )}
+        {totalRefunded > 0.001 && (
+          <span>Netto: <strong>€{totalNet.toFixed(2)}</strong></span>
         )}
         <span className={totalSaldo > 0.001 ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>
           Saldo: €{totalSaldo.toFixed(2)}
