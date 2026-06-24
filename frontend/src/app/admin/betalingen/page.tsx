@@ -314,14 +314,24 @@ export default function BetalingenPage() {
     }));
   })();
 
-  const totalExpected = filtered.reduce((s, r) => s + parseFloat(r.amount), 0);
-  const totalPaid = filtered.reduce((s, r) => s + (r.amount_paid ? parseFloat(r.amount_paid) : 0), 0);
-  const totalSaldo = totalExpected - totalPaid;
-  // Terugbetalingen zijn negatieve records; toon het teruggestorte bedrag positief (#83).
-  const totalRefunded = filtered.reduce(
-    (s, r) => s + (r.type === "refund" && r.amount_paid ? -parseFloat(r.amount_paid) : 0),
+  // Header-totalen op de CHARGES alleen, zodat refunds niet stilletjes in
+  // "Verwacht"/"Ontvangen" verrekend worden (#325). De terugbetalingen krijgen
+  // hun eigen, expliciete cijfers ernaast.
+  const charges = filtered.filter((r) => r.type !== "refund");
+  const refunds = filtered.filter((r) => r.type === "refund");
+  const totalExpected = charges.reduce((s, r) => s + parseFloat(r.amount), 0);
+  const totalPaid = charges.reduce((s, r) => s + (r.amount_paid ? parseFloat(r.amount_paid) : 0), 0);
+  const totalSaldo = totalExpected - totalPaid; // nog te ontvangen op de charges
+  // Refunds zijn negatieve records; toon de bedragen positief (#83).
+  // "Terug te betalen" = de verplichting (amount); "Terugbetaald" = effectief
+  // gestort (amount_paid). Verschil = nog uit te betalen terugstortingen.
+  const totalToRefund = refunds.reduce((s, r) => s + -parseFloat(r.amount), 0);
+  const totalRefunded = refunds.reduce(
+    (s, r) => s + (r.amount_paid ? -parseFloat(r.amount_paid) : 0),
     0,
   );
+  // Netto effectief behouden = ontvangen min wat al teruggestort is.
+  const totalNet = totalPaid - totalRefunded;
 
   // Bundel alle betalingen/refunds van dezelfde inschrijving (payable) in één groep,
   // gesorteerd op de datum van de laatst aangemaakte betaling (#204).
@@ -410,8 +420,14 @@ export default function BetalingenPage() {
         <span>{filtered.length} betaling{filtered.length !== 1 ? "en" : ""}</span>
         <span>Verwacht: <strong>€{totalExpected.toFixed(2)}</strong></span>
         <span>Ontvangen: <strong>€{totalPaid.toFixed(2)}</strong></span>
+        {totalToRefund > 0.001 && (
+          <span className="text-orange-600">Terug te betalen: <strong>€{totalToRefund.toFixed(2)}</strong></span>
+        )}
         {totalRefunded > 0.001 && (
           <span className="text-orange-600">Terugbetaald: <strong>€{totalRefunded.toFixed(2)}</strong></span>
+        )}
+        {totalRefunded > 0.001 && (
+          <span>Netto ontvangen: <strong>€{totalNet.toFixed(2)}</strong></span>
         )}
         <span className={totalSaldo > 0.001 ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>
           Saldo: €{totalSaldo.toFixed(2)}

@@ -6,10 +6,11 @@ import { parseApiError } from "@/lib/errors";
 // Vriendelijke labels per event-type. Onbekende types vallen terug op hun code.
 const LABELS: Record<string, string> = {
   lid_worden_voltooid: "Lid worden – aangevraagd",
-  inschrijving_voltooid: "Activiteit – inschrijving",
+  inschrijving_voltooid: "Inschrijvingen (activiteiten)",
   hernieuwing_gestart: "Hernieuwing – gestart",
   betaling_succes: "Betaling – geslaagd",
   betaling_geannuleerd: "Betaling – geannuleerd",
+  betaling_terugbetaling: "Terugbetaling",
 };
 
 function eur(n: number) {
@@ -44,12 +45,12 @@ export default function AdminAnalysePage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="rounded-xl p-5 bg-green-50 text-green-800">
           <div className="text-3xl font-extrabold">{eur(stats.revenue_paid_eur)}</div>
-          <div className="text-sm font-medium mt-1">Omzet uit geslaagde betalingen (totaal)</div>
+          <div className="text-sm font-medium mt-1">Netto-omzet — alle betaalwijzen, na terugbetalingen (totaal)</div>
         </div>
         <div className="rounded-xl p-5 bg-emerald-50 text-emerald-800">
           <div className="text-3xl font-extrabold">{eur(stats.revenue_paid_eur_30d)}</div>
           <div className="text-sm font-medium mt-1">
-            Omzet laatste {stats.period_days} dagen
+            Netto-omzet laatste {stats.period_days} dagen
           </div>
         </div>
       </div>

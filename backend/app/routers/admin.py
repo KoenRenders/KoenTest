@@ -2,7 +2,7 @@ from datetime import date, datetime, timedelta, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, Query, Response
-from sqlalchemy import Numeric, cast, func
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_admin
@@ -69,20 +69,22 @@ def get_business_event_stats(
         .filter(BusinessEvent.occurred_at >= since_30d)
     )
 
-    # Omzet = som van payload->>'amount' over bevestigde betalingen. De cast naar
-    # Numeric gebeurt in SQL; ontbrekende/lege bedragen tellen als NULL (genegeerd).
+    # Omzet = NETTO ontvangen bedrag uit de betalingen zelf (bron van waarheid),
+    # niet uit de event-stream (#324). Som van amount_paid over alle PaymentRecords:
+    # charges tellen positief, refunds negatief, en een nog-niet-betaalde charge
+    # (amount_paid NULL) telt als 0 (SUM negeert NULL). Zo kloppen ook
+    # overschrijving/cash en historische betalingen van vóór de events-meting, en
+    # worden terugbetalingen afgetrokken. Het 30d-venster filtert op paid_at (NULL
+    # paid_at valt vanzelf buiten het venster).
     def _revenue(query):
         return float(query.scalar() or 0)
 
-    amount_expr = func.sum(cast(BusinessEvent.payload["amount"].astext, Numeric))
     revenue = _revenue(
-        db.query(func.coalesce(amount_expr, 0))
-        .filter(BusinessEvent.event_type == "betaling_succes")
+        db.query(func.coalesce(func.sum(PaymentRecord.amount_paid), 0))
     )
     revenue_30d = _revenue(
-        db.query(func.coalesce(amount_expr, 0))
-        .filter(BusinessEvent.event_type == "betaling_succes",
-                BusinessEvent.occurred_at >= since_30d)
+        db.query(func.coalesce(func.sum(PaymentRecord.amount_paid), 0))
+        .filter(PaymentRecord.paid_at >= since_30d)
     )
 
     return {
