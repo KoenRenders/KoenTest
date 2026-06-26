@@ -12,6 +12,8 @@ const navItems = [
   { href: "/admin/media", label: "Media" },
   { href: "/admin/ai-context", label: "Raakje (AI)" },
   { href: "/admin/ideeen", label: "Berichten" },
+  { href: "/admin/formulieren", label: "Formulieren" },
+  { href: "/admin/emails", label: "E-mails" },
   { href: "/admin/betalingen", label: "Betalingen" },
   { href: "/admin/gebruikers", label: "Gebruikers" },
   { href: "/admin/ledenwijzigingen", label: "Wijzigingen" },
