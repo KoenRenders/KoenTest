@@ -156,3 +156,96 @@ export interface Registration {
   contact_name?: string;
   contact_email?: string;
 }
+
+// ── Form engine (#327) ──────────────────────────────────────────────────────
+export interface FormFieldOption {
+  id: number;
+  label: string;
+  value?: string | null;
+  position: number;
+}
+
+export interface FormFieldDef {
+  id: number;
+  field_type: string;
+  label: string;
+  help_text?: string | null;
+  required: boolean;
+  position: number;
+  min_value?: number | null;
+  max_value?: number | null;
+  min_length?: number | null;
+  max_length?: number | null;
+  regex_pattern?: string | null;
+  options: FormFieldOption[];
+}
+
+export interface FormAdmin {
+  id: number;
+  title: string;
+  slug?: string | null;
+  description?: string | null;
+  share_token: string;
+  status: string;
+  requires_login: boolean;
+  max_submissions?: number | null;
+  send_confirmation: boolean;
+  confirmation_message?: string | null;
+  allow_edit: boolean;
+  created_at: string;
+  updated_at: string;
+  fields: FormFieldDef[];
+  submission_count: number;
+}
+
+export interface FormSummary {
+  id: number;
+  title: string;
+  status: string;
+  share_token: string;
+  submission_count: number;
+  created_at: string;
+}
+
+export interface PublicFormField {
+  id: number;
+  field_type: string;
+  label: string;
+  help_text?: string | null;
+  required: boolean;
+  position: number;
+  min_value?: number | null;
+  max_value?: number | null;
+  min_length?: number | null;
+  max_length?: number | null;
+  options: { id: number; label: string; value?: string | null }[];
+}
+
+export interface PublicForm {
+  id: number;
+  title: string;
+  description?: string | null;
+  status: string;
+  allow_edit: boolean;
+  fields: PublicFormField[];
+}
+
+export interface AnswerPayload {
+  field_id: number;
+  text?: string | null;
+  number?: number | null;
+  option_ids?: number[];
+  rating?: number | null;
+}
+
+// ── E-maillog (#328) ────────────────────────────────────────────────────────
+export interface EmailLogItem {
+  id: number;
+  recipient: string;
+  subject: string;
+  email_type: string;
+  body?: string | null;
+  status: string;
+  error_message?: string | null;
+  created_at: string;
+}

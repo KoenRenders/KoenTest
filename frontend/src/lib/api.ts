@@ -398,3 +398,26 @@ export const getUsers = () => api.get("/api/v1/users");
 export const createUser = (data: unknown) => api.post("/api/v1/users", data);
 export const updateUser = (id: number, data: unknown) => api.put(`/api/v1/users/${id}`, data);
 export const deleteUser = (id: number) => api.delete(`/api/v1/users/${id}`);
+
+// ── Form engine (#327) ──────────────────────────────────────────────────────
+// Admin
+export const getForms = () => api.get("/api/v1/forms");
+export const getForm = (id: number) => api.get(`/api/v1/forms/${id}`);
+export const createForm = (data: unknown) => api.post("/api/v1/forms", data);
+export const updateForm = (id: number, data: unknown) => api.put(`/api/v1/forms/${id}`, data);
+export const deleteForm = (id: number) => api.delete(`/api/v1/forms/${id}`);
+export const getFormResults = (id: number) => api.get(`/api/v1/forms/${id}/results`);
+export const exportForm = (id: number, format: "csv" | "ods") =>
+  api.get(`/api/v1/forms/${id}/export`, { params: { format }, responseType: "blob" });
+// Publiek (geen login)
+export const getPublicForm = (token: string) => api.get(`/api/v1/forms/by-token/${token}`);
+export const submitPublicForm = (token: string, data: unknown) =>
+  api.post(`/api/v1/forms/by-token/${token}/submit`, data);
+export const getEditableSubmission = (editToken: string) =>
+  api.get(`/api/v1/forms/edit/${editToken}`);
+export const updateSubmission = (editToken: string, data: unknown) =>
+  api.put(`/api/v1/forms/edit/${editToken}`, data);
+
+// ── E-maillog (#328) ────────────────────────────────────────────────────────
+export const getEmailLog = (params: { email_type?: string; status?: string; recipient?: string; page?: number; per_page?: number }) =>
+  api.get("/api/v1/admin/email-log", { params });

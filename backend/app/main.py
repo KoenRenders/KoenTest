@@ -16,6 +16,8 @@ from app.routers import auth, members, activities, ideas, cms, admin, media, cha
 from app.routers.member_household import router as member_household_router
 from app.routers.member_import import router as member_import_router
 from app.routers.users import router as users_router
+from app.routers.forms import router as forms_router
+from app.routers.email_log import router as email_log_router
 from app.domains.payment_gateway.router import router as payment_gateway_router
 from app.domains.payment_status.router import router as payment_status_router
 
@@ -77,6 +79,8 @@ app.include_router(admin.router, prefix="/api/v1/admin")
 app.include_router(users_router, prefix="/api/v1")
 app.include_router(member_household_router, prefix="/api/v1")
 app.include_router(member_import_router, prefix="/api/v1")
+app.include_router(forms_router, prefix="/api/v1")
+app.include_router(email_log_router, prefix="/api/v1/admin")
 app.include_router(payment_gateway_router, prefix="/api/v1")
 app.include_router(payment_status_router, prefix="/api/v1")
 
@@ -125,6 +129,25 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
         "Onverwerkte uitzondering: %s %s", request.method, request.url.path
     )
     return JSONResponse(status_code=500, content={"detail": "Interne serverfout"})
+
+
+@app.on_event("startup")
+def _purge_old_email_logs() -> None:
+    """Ruim bij opstart e-mailloggen op die ouder zijn dan de bewaartermijn
+    (#328). Mag het opstarten nooit breken — fouten worden enkel gelogd."""
+    try:
+        from app.database import SessionLocal
+        from app.services.email import purge_old_email_logs
+
+        db = SessionLocal()
+        try:
+            deleted = purge_old_email_logs(db)
+            if deleted:
+                logger.info("E-maillog opgeschoond: %s oude rijen verwijderd.", deleted)
+        finally:
+            db.close()
+    except Exception as exc:
+        logger.warning("E-maillog opschonen bij opstart mislukt: %s", exc)
 
 
 @app.get("/api/health")

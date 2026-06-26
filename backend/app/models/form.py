@@ -1,0 +1,183 @@
+from datetime import datetime, timezone
+
+from sqlalchemy import (
+    Column,
+    Integer,
+    SmallInteger,
+    String,
+    Text,
+    Boolean,
+    DateTime,
+    Numeric,
+    ForeignKey,
+)
+from sqlalchemy.orm import relationship
+
+from app.database import Base
+
+
+# Toegestane veldtypes — houd in sync met de CHECK in migratie 062 en met de
+# rendering op de frontend. Bewust geen 'date' (nog niet nodig).
+FIELD_TYPES = (
+    "text",
+    "textarea",
+    "number",
+    "email",
+    "select",
+    "radio",
+    "checkbox",
+    "rating",
+)
+
+# Een formulier doorloopt: draft (in opbouw) -> open (publiek invulbaar) ->
+# closed (geen nieuwe/gewijzigde inzendingen meer).
+FORM_STATUSES = ("draft", "open", "closed")
+
+# Rating is een vast 5-punts Likert: 1 = zeer slecht ... 5 = zeer goed.
+RATING_MIN = 1
+RATING_MAX = 5
+RATING_LABELS = {
+    1: "Zeer slecht",
+    2: "Slecht",
+    3: "Neutraal",
+    4: "Goed",
+    5: "Zeer goed",
+}
+
+
+class Form(Base):
+    __tablename__ = "forms"
+
+    id = Column(Integer, primary_key=True, index=True)
+    title = Column(String(200), nullable=False)
+    slug = Column(String(200), nullable=True)
+    description = Column(Text, nullable=True)
+    # Niet-raadbare deellink-sleutel; de publieke URL is /formulier/<share_token>.
+    share_token = Column(String(64), nullable=False, unique=True, index=True)
+    status = Column(String(20), nullable=False, default="draft")
+    requires_login = Column(Boolean, nullable=False, default=False)
+    max_submissions = Column(Integer, nullable=True)
+    # Bevestigingsmail na inzending (enkel als er een e-mailadres is).
+    send_confirmation = Column(Boolean, nullable=False, default=False)
+    confirmation_message = Column(Text, nullable=True)
+    # Sta wijzigen-na-indienen toe via een edit_token-link.
+    allow_edit = Column(Boolean, nullable=False, default=False)
+    created_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+        nullable=False,
+    )
+
+    fields = relationship(
+        "FormField",
+        back_populates="form",
+        cascade="all, delete-orphan",
+        order_by="FormField.position",
+    )
+    submissions = relationship(
+        "FormSubmission", back_populates="form", cascade="all, delete-orphan"
+    )
+
+
+class FormField(Base):
+    __tablename__ = "form_fields"
+
+    id = Column(Integer, primary_key=True, index=True)
+    form_id = Column(
+        Integer, ForeignKey("forms.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    field_type = Column(String(20), nullable=False)
+    label = Column(String(300), nullable=False)
+    help_text = Column(Text, nullable=True)
+    required = Column(Boolean, nullable=False, default=False)
+    position = Column(Integer, nullable=False, default=0)
+    # Validatie als kolommen (geen JSON).
+    min_value = Column(Numeric(12, 2), nullable=True)
+    max_value = Column(Numeric(12, 2), nullable=True)
+    min_length = Column(Integer, nullable=True)
+    max_length = Column(Integer, nullable=True)
+    regex_pattern = Column(Text, nullable=True)
+
+    form = relationship("Form", back_populates="fields")
+    options = relationship(
+        "FormFieldOption",
+        back_populates="field",
+        cascade="all, delete-orphan",
+        order_by="FormFieldOption.position",
+    )
+
+
+class FormFieldOption(Base):
+    __tablename__ = "form_field_options"
+
+    id = Column(Integer, primary_key=True, index=True)
+    field_id = Column(
+        Integer,
+        ForeignKey("form_fields.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    label = Column(String(300), nullable=False)
+    value = Column(String(300), nullable=True)
+    position = Column(Integer, nullable=False, default=0)
+
+    field = relationship("FormField", back_populates="options")
+
+
+class FormSubmission(Base):
+    __tablename__ = "form_submissions"
+
+    id = Column(Integer, primary_key=True, index=True)
+    form_id = Column(
+        Integer, ForeignKey("forms.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    submitted_at = Column(
+        DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
+    )
+    updated_at = Column(DateTime(timezone=True), nullable=True)
+    # Bewust vrije tekst, geen FK naar Person/Member (loose coupling).
+    submitter_name = Column(String(200), nullable=True)
+    submitter_email = Column(String(255), nullable=True)
+    # Niet-raadbare sleutel voor de "wijzig je antwoord"-link (enkel bij allow_edit).
+    edit_token = Column(String(64), nullable=True, unique=True, index=True)
+
+    form = relationship("Form", back_populates="submissions")
+    answers = relationship(
+        "FormSubmissionAnswer",
+        back_populates="submission",
+        cascade="all, delete-orphan",
+    )
+
+
+class FormSubmissionAnswer(Base):
+    __tablename__ = "form_submission_answers"
+
+    id = Column(Integer, primary_key=True, index=True)
+    submission_id = Column(
+        Integer,
+        ForeignKey("form_submissions.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    field_id = Column(
+        Integer,
+        ForeignKey("form_fields.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+    # Getypeerde kolommen i.p.v. JSON. Per antwoord is precies één waardekolom
+    # gevuld, afhankelijk van het veldtype. Meervoudige checkbox = meerdere rijen.
+    value_text = Column(Text, nullable=True)
+    value_number = Column(Numeric(12, 2), nullable=True)
+    value_option_id = Column(
+        Integer, ForeignKey("form_field_options.id", ondelete="SET NULL"), nullable=True
+    )
+    value_rating = Column(SmallInteger, nullable=True)
+
+    submission = relationship("FormSubmission", back_populates="answers")
+    field = relationship("FormField")
+    option = relationship("FormFieldOption")
