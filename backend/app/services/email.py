@@ -18,19 +18,52 @@ def _env_prefix() -> str:
     return ""
 
 
-def _dispatch(background_tasks, to_email: str, subject: str, body_html: str, cc: Optional[str] = None) -> None:
+def _dispatch(
+    background_tasks,
+    to_email: str,
+    subject: str,
+    body_html: str,
+    cc: Optional[str] = None,
+    email_type: str = "other",
+) -> None:
     """Verstuur de mail. Met een FastAPI BackgroundTasks wordt de trage SMTP-call
     ná de response uitgevoerd (#78); zonder, synchroon (bv. in scripts/tests).
     De mailtekst is op dit punt al opgebouwd, dus er is geen DB-sessie meer nodig."""
     if background_tasks is not None:
-        background_tasks.add_task(_send, to_email, subject, body_html, cc)
+        background_tasks.add_task(_send, to_email, subject, body_html, cc, email_type)
     else:
-        _send(to_email, subject, body_html, cc)
+        _send(to_email, subject, body_html, cc, email_type)
 
 
-def _send(to_email: str, subject: str, body_html: str, cc: Optional[str] = None) -> None:
+def _log_email(to_email: str, subject: str, body_html: str, email_type: str, status: str, error: Optional[str]) -> None:
+    """Schrijf één rij naar de centrale email_log (#328). Loggen mag het versturen
+    nooit breken: alle fouten worden hier opgevangen. Gebruikt een eigen
+    SessionLocal omdat _send vaak in een BackgroundTask draait (geen request-sessie)."""
+    try:
+        from app.database import SessionLocal
+        from app.models.email_log import EmailLog
+
+        db = SessionLocal()
+        try:
+            db.add(EmailLog(
+                recipient=to_email,
+                subject=subject,
+                body=body_html,
+                email_type=email_type,
+                status=status,
+                error_message=error,
+            ))
+            db.commit()
+        finally:
+            db.close()
+    except Exception as exc:  # pragma: no cover - logging mag nooit de mail breken
+        logger.error("E-maillog wegschrijven mislukt (%s): %s", subject, exc)
+
+
+def _send(to_email: str, subject: str, body_html: str, cc: Optional[str] = None, email_type: str = "other") -> None:
     if not settings.gmail_user or not settings.gmail_app_password:
         logger.warning("E-mail niet verstuurd (GMAIL_USER of GMAIL_APP_PASSWORD niet ingesteld): %s", subject)
+        _log_email(to_email, subject, body_html, email_type, "skipped", "GMAIL_USER/GMAIL_APP_PASSWORD niet ingesteld")
         return
 
     msg = MIMEMultipart("alternative")
@@ -49,6 +82,9 @@ def _send(to_email: str, subject: str, body_html: str, cc: Optional[str] = None)
             server.sendmail(settings.gmail_user, recipients, msg.as_string())
     except Exception as exc:
         logger.error("E-mail versturen mislukt naar %s: %s", to_email, exc)
+        _log_email(to_email, subject, body_html, email_type, "failed", str(exc))
+        return
+    _log_email(to_email, subject, body_html, email_type, "sent", None)
 
 
 def _transfer_instructions_html(payment_record) -> str:
@@ -86,6 +122,7 @@ def send_magic_link(to_email: str, magic_link: str, otp_code: Optional[str] = No
         """
     _send(
         to_email=to_email,
+        email_type="magic_link",
         subject="Inloglink Raak Millegem",
         body_html=f"""
         <p>Klik op onderstaande link om in te loggen. De link is 15 minuten geldig.</p>
@@ -103,6 +140,7 @@ def send_member_contact_board_notice(to_email: str) -> None:
     vragen contact op te nemen met het bestuur."""
     _send(
         to_email=to_email,
+        email_type="member_contact_notice",
         subject="Inloggen Raak Millegem",
         body_html="""
         <p>Je probeerde in te loggen als lid, maar dit e-mailadres is bij meerdere
@@ -152,6 +190,7 @@ def send_registration_confirmation(to_email: str, name: str, family, data=None, 
     _dispatch(
         background_tasks,
         to_email=to_email,
+        email_type="membership_confirmation",
         subject="Welkom bij Raak Millegem!",
         cc=settings.gmail_from or settings.gmail_user or None,
         body_html=f"""
@@ -224,14 +263,49 @@ def send_activity_registration_confirmation(
     _dispatch(
         background_tasks,
         to_email=to_email,
+        email_type="activity_confirmation",
         subject=subject,
         body_html=f"<p>Beste {escape(name)},</p>{message}<p>Met vriendelijke groeten,<br>Raak Millegem</p>",
+    )
+
+
+def send_form_confirmation(
+    to_email: str,
+    form_title: str,
+    name: Optional[str] = None,
+    confirmation_message: Optional[str] = None,
+    edit_link: Optional[str] = None,
+    background_tasks=None,
+) -> None:
+    """Bevestiging na het indienen van een formulier (#327). Optioneel een
+    wijzig-link als het formulier dat toelaat."""
+    greeting = f"<p>Beste {escape(name)},</p>" if name else "<p>Beste,</p>"
+    custom = f"<p>{escape(confirmation_message)}</p>" if confirmation_message else ""
+    edit_block = ""
+    if edit_link:
+        edit_block = (
+            "<p>Je kan je antwoord later nog aanpassen via deze link "
+            "(zolang het formulier open staat):</p>"
+            f'<p><a href="{edit_link}">{edit_link}</a></p>'
+        )
+    _dispatch(
+        background_tasks,
+        to_email=to_email,
+        email_type="form_confirmation",
+        subject=f"Bevestiging: {escape(form_title)}",
+        body_html=(
+            f"{greeting}"
+            f"<p>We hebben je antwoord op <strong>{escape(form_title)}</strong> goed ontvangen.</p>"
+            f"{custom}{edit_block}"
+            "<p>Met vriendelijke groeten,<br>Raak Millegem</p>"
+        ),
     )
 
 
 def send_idea_acknowledgement(to_email: str, name: str, message: str) -> None:
     _send(
         to_email=to_email,
+        email_type="idea_ack",
         subject="Idee ontvangen – Raak Millegem",
         body_html=f"""
         <p>Beste {escape(name)},</p>
@@ -251,6 +325,7 @@ def send_idea_board_notification(name: str, email: Optional[str], message: str) 
         return
     _send(
         to_email=board,
+        email_type="idea_board",
         subject="Nieuw bericht via het contactformulier – Raak Millegem",
         body_html=f"""
         <p>Er kwam een nieuw bericht binnen via het contactformulier:</p>
@@ -259,3 +334,24 @@ def send_idea_board_notification(name: str, email: Optional[str], message: str) 
         <blockquote style="border-left:4px solid #ccc;padding-left:12px;color:#555;">{escape(message)}</blockquote>
         """,
     )
+
+
+def purge_old_email_logs(db, retention_days: Optional[int] = None) -> int:
+    """Verwijder email_log-rijen ouder dan de bewaartermijn (#328). Geeft het
+    aantal verwijderde rijen terug. retention_days <= 0 (of None met default <= 0)
+    = niets verwijderen (oneindig bewaren)."""
+    from datetime import datetime, timezone, timedelta
+
+    from app.models.email_log import EmailLog
+
+    days = settings.email_log_retention_days if retention_days is None else retention_days
+    if not days or days <= 0:
+        return 0
+    cutoff = datetime.now(timezone.utc) - timedelta(days=days)
+    deleted = (
+        db.query(EmailLog)
+        .filter(EmailLog.created_at < cutoff)
+        .delete(synchronize_session=False)
+    )
+    db.commit()
+    return deleted

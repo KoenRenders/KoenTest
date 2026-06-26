@@ -27,6 +27,11 @@ class Settings(BaseSettings):
     gmail_app_password: Optional[str] = None
     gmail_from: Optional[str] = None
 
+    # E-maillog (#328): bewaartermijn in dagen voor de centrale email_log-tabel.
+    # Standaard 365 (1 jaar). 0 (of negatief) = niet opschonen, oneindig bewaren.
+    # Niet auto-toegevoegd aan de echte .env-bestanden; per host instellen.
+    email_log_retention_days: int = 365
+
     mollie_api_key: Optional[str] = None
 
     # Chatbot 'Raakje' (#205). LLM-provider zit achter een swapbaar laagje.
