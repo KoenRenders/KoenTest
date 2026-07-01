@@ -176,6 +176,7 @@ def create_form(
         send_confirmation=data.send_confirmation,
         confirmation_message=data.confirmation_message,
         allow_edit=data.allow_edit,
+        is_anonymous=data.is_anonymous,
     )
     _apply_fields(form, data)
     db.add(form)
@@ -230,6 +231,7 @@ def update_form(
     form.send_confirmation = data.send_confirmation
     form.confirmation_message = data.confirmation_message
     form.allow_edit = data.allow_edit
+    form.is_anonymous = data.is_anonymous
     _apply_fields(form, data)
     db.commit()
     db.refresh(form)
@@ -313,10 +315,14 @@ def submit_form(
     assert_open_for_submission(db, form)
     answers = build_answers(form, data.answers)
 
+    # Anoniem (#343): geen submitter bewaren. Anders het contactblok-adres.
+    sub_name = None if form.is_anonymous else data.submitter_name
+    sub_email = None if form.is_anonymous else data.submitter_email
+
     submission = FormSubmission(
         form_id=form.id,
-        submitter_name=data.submitter_name,
-        submitter_email=data.submitter_email,
+        submitter_name=sub_name,
+        submitter_email=sub_email,
         edit_token=_new_token() if form.allow_edit else None,
     )
     for row in answers:
@@ -325,15 +331,15 @@ def submit_form(
     db.commit()
     db.refresh(submission)
 
-    if form.send_confirmation and data.submitter_email:
+    if form.send_confirmation and not form.is_anonymous and sub_email:
         edit_link = None
         if form.allow_edit and submission.edit_token:
             edit_link = f"{settings.frontend_url}/formulier/{form.share_token}/edit/{submission.edit_token}"
         try:
             send_form_confirmation(
-                to_email=data.submitter_email,
+                to_email=sub_email,
                 form_title=form.title,
-                name=data.submitter_name,
+                name=sub_name,
                 confirmation_message=form.confirmation_message,
                 edit_link=edit_link,
                 background_tasks=background_tasks,

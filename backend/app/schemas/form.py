@@ -54,6 +54,7 @@ class FormCreate(BaseModel):
     send_confirmation: bool = False
     confirmation_message: Optional[str] = None
     allow_edit: bool = False
+    is_anonymous: bool = False
     sections: List[FormSectionIn] = []
     fields: List[FormFieldIn] = []
 
@@ -117,6 +118,7 @@ class FormAdminOut(BaseModel):
     send_confirmation: bool
     confirmation_message: Optional[str] = None
     allow_edit: bool
+    is_anonymous: bool = False
     created_at: datetime
     updated_at: datetime
     sections: List[FormSectionOut] = []
@@ -184,6 +186,8 @@ class PublicForm(BaseModel):
     description: Optional[str] = None
     status: str
     allow_edit: bool
+    send_confirmation: bool = False
+    is_anonymous: bool = False
     sections: List[PublicSection] = []
     fields: List[PublicField] = []
 
