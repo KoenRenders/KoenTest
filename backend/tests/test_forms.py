@@ -477,3 +477,22 @@ def test_backward_section_jump_rejected(client, admin_headers):
 def test_empty_label_rejected(client, admin_headers):
     bad = _form_payload(fields=[{"field_type": "text", "label": "   ", "position": 0}])
     assert client.post("/api/v1/forms", json=bad, headers=admin_headers).status_code == 422
+
+
+def test_branch_config_persisted_on_form_and_sections(client, admin_headers):
+    """De branch-config (sectie-sprong + keuze-sprong) wordt bewaard en correct
+    teruggegeven met de juiste sectie-ids."""
+    form = _mk(client, admin_headers, _branching_payload())
+    fetched = client.get(f"/api/v1/forms/{form['id']}", headers=admin_headers).json()
+    secs = sorted(fetched["sections"], key=lambda s: s["position"])
+    slot_id = secs[3]["id"]
+    wel_id = secs[1]["id"]
+    niet_id = secs[2]["id"]
+    # Sectie-sprong: "Wel aanwezig" (index 1) springt naar "Slot" (index 3).
+    assert secs[1]["next_section_id"] == slot_id
+    assert secs[1]["next_is_end"] is False
+    # Keuze-sprong: Ja → Wel, Nee → Niet.
+    radio = next(f for f in fetched["fields"] if f["label"] == "Aanwezig?")
+    by_label = {o["label"]: o for o in radio["options"]}
+    assert by_label["Ja"]["skip_to_section_id"] == wel_id
+    assert by_label["Nee"]["skip_to_section_id"] == niet_id

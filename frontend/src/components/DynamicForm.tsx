@@ -75,6 +75,59 @@ export default function DynamicForm({
     });
   }
 
+  // ── Secties + branching (#336) ──────────────────────────────────────────────
+  const orderedSections = [...(sections ?? [])].sort((s1, s2) => s1.position - s2.position);
+  const ungrouped = fields.filter((f) => f.section_id == null);
+  const hasBranching =
+    fields.some((f) => f.options?.some((o) => o.skip_to_section_id != null || o.skip_to_end)) ||
+    orderedSections.some((s) => s.next_section_id != null || s.next_is_end);
+
+  const [path, setPath] = useState<number[]>(() => (orderedSections.length ? [orderedSections[0].id] : []));
+  const [wizardError, setWizardError] = useState("");
+
+  function fieldsOf(sectionId: number) {
+    return fields.filter((f) => f.section_id === sectionId);
+  }
+  function missingRequired(fs: PublicFormField[]): boolean {
+    return fs.some((f) => {
+      if (f.field_type === "info" || !f.required) return false;
+      const a = answers[f.id] || {};
+      const has = (!!a.text && a.text.trim() !== "") || !!a.number || (a.optionIds?.length ?? 0) > 0 || a.rating != null;
+      return !has;
+    });
+  }
+  function nextFrom(sectionId: number): number | "end" | null {
+    for (const f of fieldsOf(sectionId)) {
+      if (f.field_type === "radio" || f.field_type === "select") {
+        const chosen = (answers[f.id]?.optionIds ?? [])[0];
+        const opt = f.options.find((o) => o.id === chosen);
+        if (opt) {
+          if (opt.skip_to_end) return "end";
+          if (opt.skip_to_section_id != null) return opt.skip_to_section_id;
+        }
+      }
+    }
+    const sec = orderedSections.find((s) => s.id === sectionId);
+    if (sec?.next_is_end) return "end";
+    if (sec?.next_section_id != null) return sec.next_section_id;
+    const idx = orderedSections.findIndex((s) => s.id === sectionId);
+    if (idx >= 0 && idx + 1 < orderedSections.length) return orderedSections[idx + 1].id;
+    return null;
+  }
+  const currentId: number | undefined = path[path.length - 1];
+  const currentFields = currentId != null ? fieldsOf(currentId) : [];
+  const stepFields = path.length === 1 ? [...ungrouped, ...currentFields] : currentFields;
+  const isLastStep = currentId == null || nextFrom(currentId) === "end" || nextFrom(currentId) === null;
+
+  function goNext() {
+    if (missingRequired(stepFields)) { setWizardError("Vul de verplichte velden in voor je verdergaat."); return; }
+    setWizardError("");
+    const nxt = currentId != null ? nextFrom(currentId) : null;
+    if (nxt === "end" || nxt == null) return;
+    setPath((p) => [...p, nxt]);
+  }
+  function goPrev() { setWizardError(""); setPath((p) => (p.length > 1 ? p.slice(0, -1) : p)); }
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const payload: AnswerPayload[] = fields
@@ -224,8 +277,40 @@ export default function DynamicForm({
     );
   }
 
-  const orderedSections = [...(sections ?? [])].sort((s1, s2) => s1.position - s2.position);
-  const ungrouped = fields.filter((f) => f.section_id == null);
+  // Wizard: sectie-voor-sectie zodra er branching is (skip-logica navigeert).
+  if (hasBranching && orderedSections.length > 0) {
+    const currentSec = orderedSections.find((s) => s.id === currentId);
+    const onWizardSubmit = (e: React.FormEvent) => {
+      e.preventDefault();
+      if (missingRequired(stepFields)) { setWizardError("Vul de verplichte velden in."); return; }
+      handleSubmit(e);
+    };
+    return (
+      <form onSubmit={onWizardSubmit} className="space-y-6">
+        {path.length === 1 && ungrouped.length > 0 && <div className="space-y-5">{ungrouped.map(renderField)}</div>}
+        {currentSec && (
+          <div className="space-y-4">
+            {currentSec.title && <h2 className="text-lg font-bold text-blue-800">{currentSec.title}</h2>}
+            {currentSec.description && <p className="text-gray-600 whitespace-pre-wrap">{currentSec.description}</p>}
+            <div className="space-y-5">{currentFields.map(renderField)}</div>
+          </div>
+        )}
+        {wizardError && <div className="bg-red-50 text-red-700 rounded-lg p-2 text-sm">{wizardError}</div>}
+        <div className="flex gap-2 border-t pt-4">
+          {path.length > 1 && (
+            <button type="button" className="btn-secondary" onClick={goPrev}>Vorige</button>
+          )}
+          {isLastStep ? (
+            <button type="submit" className="btn-primary" disabled={submitting}>
+              {submitting ? "Bezig…" : submitLabel}
+            </button>
+          ) : (
+            <button type="button" className="btn-primary" onClick={goNext}>Volgende</button>
+          )}
+        </div>
+      </form>
+    );
+  }
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">

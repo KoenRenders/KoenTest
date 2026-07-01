@@ -19,8 +19,8 @@ const FIELD_TYPES: { value: string; label: string }[] = [
 ];
 const CHOICE_TYPES = ["select", "radio", "checkbox"];
 
-type EditOption = { label: string; value: string; position: number; is_other: boolean };
-type EditSection = { title: string; description: string };
+type EditOption = { label: string; value: string; position: number; is_other: boolean; skip_to_section_index: number | null; skip_to_end: boolean };
+type EditSection = { title: string; description: string; next_section_index: number | null; next_is_end: boolean };
 type EditField = {
   field_type: string;
   label: string;
@@ -78,7 +78,12 @@ function toEditForm(f: FormAdmin): EditForm {
     confirmation_message: f.confirmation_message ?? "",
     allow_edit: f.allow_edit,
     share_token: f.share_token,
-    sections: sorted.map((s) => ({ title: s.title ?? "", description: s.description ?? "" })),
+    sections: sorted.map((s) => ({
+      title: s.title ?? "",
+      description: s.description ?? "",
+      next_section_index: s.next_section_id != null && s.next_section_id in sectionIndex ? sectionIndex[s.next_section_id] : null,
+      next_is_end: !!s.next_is_end,
+    })),
     fields: f.fields.map((fd: FormFieldDef) => ({
       field_type: fd.field_type,
       label: fd.label,
@@ -91,7 +96,11 @@ function toEditForm(f: FormAdmin): EditForm {
       min_length: fd.min_length != null ? String(fd.min_length) : "",
       max_length: fd.max_length != null ? String(fd.max_length) : "",
       regex_pattern: fd.regex_pattern ?? "",
-      options: fd.options.map((o) => ({ label: o.label, value: o.value ?? "", position: o.position, is_other: !!o.is_other })),
+      options: fd.options.map((o) => ({
+        label: o.label, value: o.value ?? "", position: o.position, is_other: !!o.is_other,
+        skip_to_section_index: o.skip_to_section_id != null && o.skip_to_section_id in sectionIndex ? sectionIndex[o.skip_to_section_id] : null,
+        skip_to_end: !!o.skip_to_end,
+      })),
     })),
   };
 }
@@ -106,7 +115,13 @@ function toPayload(f: EditForm) {
     send_confirmation: f.send_confirmation,
     confirmation_message: f.confirmation_message || null,
     allow_edit: f.allow_edit,
-    sections: f.sections.map((s, i) => ({ title: s.title || null, description: s.description || null, position: i })),
+    sections: f.sections.map((s, i) => ({
+      title: s.title || null,
+      description: s.description || null,
+      position: i,
+      next_section_index: s.next_section_index != null && s.next_section_index < f.sections.length ? s.next_section_index : null,
+      next_is_end: s.next_is_end,
+    })),
     fields: f.fields.map((fd, i) => ({
       field_type: fd.field_type,
       label: fd.label,
@@ -120,7 +135,12 @@ function toPayload(f: EditForm) {
       max_length: ["text", "textarea", "email"].includes(fd.field_type) ? num(fd.max_length) : null,
       regex_pattern: ["text", "textarea", "email"].includes(fd.field_type) ? (fd.regex_pattern || null) : null,
       options: CHOICE_TYPES.includes(fd.field_type)
-        ? fd.options.map((o, j) => ({ label: o.label, value: o.value || null, position: j, is_other: o.is_other }))
+        ? fd.options.map((o, j) => ({
+            label: o.label, value: o.value || null, position: j, is_other: o.is_other,
+            // Branching enkel voor radio/select (#336).
+            skip_to_section_index: ["radio", "select"].includes(fd.field_type) && o.skip_to_section_index != null && o.skip_to_section_index < f.sections.length ? o.skip_to_section_index : null,
+            skip_to_end: ["radio", "select"].includes(fd.field_type) ? o.skip_to_end : false,
+          }))
         : [],
     })),
   };
@@ -153,6 +173,11 @@ export default function AdminFormulieren() {
   async function save() {
     if (!editing) return;
     setError("");
+    // Vraag/label verplicht (#340).
+    if (editing.fields.some((f) => !f.label.trim())) {
+      setError("Elk veld heeft een vraag/label nodig.");
+      return;
+    }
     try {
       const payload = toPayload(editing);
       if (editing.id) await updateForm(editing.id, payload);
@@ -319,7 +344,7 @@ function FormEditor({
   }
   function addOption(fi: number) {
     const f = form.fields[fi];
-    patchField(fi, { options: [...f.options, { label: "", value: "", position: f.options.length, is_other: false }] });
+    patchField(fi, { options: [...f.options, { label: "", value: "", position: f.options.length, is_other: false, skip_to_section_index: null, skip_to_end: false }] });
   }
   function patchOption(fi: number, oi: number, p: Partial<EditOption>) {
     const f = form.fields[fi];
@@ -330,19 +355,23 @@ function FormEditor({
     patchField(fi, { options: f.options.filter((_, idx) => idx !== oi) });
   }
   // Secties (#335)
-  function addSection() { setForm({ ...form, sections: [...form.sections, { title: "", description: "" }] }); }
+  function addSection() { setForm({ ...form, sections: [...form.sections, { title: "", description: "", next_section_index: null, next_is_end: false }] }); }
   function patchSection(i: number, p: Partial<EditSection>) {
     setForm({ ...form, sections: form.sections.map((s, idx) => (idx === i ? { ...s, ...p } : s)) });
   }
   function removeSection(i: number) {
-    // Verwijder de sectie en ontkoppel de velden die eraan hingen (en verschuif hogere indexen).
-    const fields = form.fields.map((f) => {
-      if (f.section_index == null) return f;
-      if (f.section_index === i) return { ...f, section_index: null };
-      if (f.section_index > i) return { ...f, section_index: f.section_index - 1 };
-      return f;
-    });
-    setForm({ ...form, sections: form.sections.filter((_, idx) => idx !== i), fields });
+    // Verschuif/ontkoppel elke index die naar deze sectie (of een latere) verwees.
+    const shift = (idx: number | null): number | null =>
+      idx == null ? null : idx === i ? null : idx > i ? idx - 1 : idx;
+    const fields = form.fields.map((f) => ({
+      ...f,
+      section_index: shift(f.section_index),
+      options: f.options.map((o) => ({ ...o, skip_to_section_index: shift(o.skip_to_section_index) })),
+    }));
+    const sections = form.sections
+      .filter((_, idx) => idx !== i)
+      .map((s) => ({ ...s, next_section_index: shift(s.next_section_index) }));
+    setForm({ ...form, sections, fields });
   }
 
   return (
@@ -406,6 +435,23 @@ function FormEditor({
             <div key={i} className="flex flex-wrap gap-2 items-start border-l-2 border-gray-200 pl-3">
               <input className="input flex-1 min-w-[160px]" value={s.title} onChange={(e) => patchSection(i, { title: e.target.value })} placeholder={`Sectietitel ${i + 1}`} />
               <input className="input flex-1 min-w-[200px]" value={s.description} onChange={(e) => patchSection(i, { description: e.target.value })} placeholder="Beschrijving / uitleg (optioneel)" />
+              <div className="flex items-center gap-1">
+                <span className="text-xs text-gray-500 whitespace-nowrap">na deze sectie →</span>
+                <select
+                  className="input"
+                  value={s.next_is_end ? "end" : s.next_section_index != null ? String(s.next_section_index) : ""}
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    if (v === "") patchSection(i, { next_section_index: null, next_is_end: false });
+                    else if (v === "end") patchSection(i, { next_section_index: null, next_is_end: true });
+                    else patchSection(i, { next_section_index: Number(v), next_is_end: false });
+                  }}
+                >
+                  <option value="">volgende sectie</option>
+                  {form.sections.map((s2, si) => (si > i ? <option key={si} value={si}>→ {s2.title || `Sectie ${si + 1}`}</option> : null))}
+                  <option value="end">→ einde</option>
+                </select>
+              </div>
               <button className="btn-danger btn-sm" onClick={() => removeSection(i)}>✕</button>
             </div>
           ))}
@@ -437,8 +483,8 @@ function FormEditor({
                 </div>
               )}
               <div className="flex-1 min-w-[200px]">
-                <label className="block text-sm font-medium mb-1">Vraag / label</label>
-                <input className="input w-full" value={f.label} onChange={(e) => patchField(i, { label: e.target.value })} />
+                <label className="block text-sm font-medium mb-1">Vraag / label <span className="text-red-600">*</span></label>
+                <input className={`input w-full ${f.label.trim() ? "" : "border-red-400"}`} value={f.label} onChange={(e) => patchField(i, { label: e.target.value })} placeholder="verplicht" />
               </div>
               <label className="flex items-center gap-2 pb-2">
                 <input type="checkbox" checked={f.required} onChange={(e) => patchField(i, { required: e.target.checked })} />
@@ -463,6 +509,25 @@ function FormEditor({
                       <input type="checkbox" checked={o.is_other} onChange={(e) => patchOption(i, oi, { is_other: e.target.checked })} />
                       "Andere…" (vrij tekstveld)
                     </label>
+                    {["radio", "select"].includes(f.field_type) && form.sections.length > 0 && (
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-gray-500 whitespace-nowrap">ga naar →</span>
+                        <select
+                          className="input"
+                          value={o.skip_to_end ? "end" : o.skip_to_section_index != null ? String(o.skip_to_section_index) : ""}
+                          onChange={(e) => {
+                            const v = e.target.value;
+                            if (v === "") patchOption(i, oi, { skip_to_section_index: null, skip_to_end: false });
+                            else if (v === "end") patchOption(i, oi, { skip_to_section_index: null, skip_to_end: true });
+                            else patchOption(i, oi, { skip_to_section_index: Number(v), skip_to_end: false });
+                          }}
+                        >
+                          <option value="">— (gewone volgorde)</option>
+                          {form.sections.map((s2, si) => (si > (f.section_index ?? -1) ? <option key={si} value={si}>{s2.title || `Sectie ${si + 1}`}</option> : null))}
+                          <option value="end">einde</option>
+                        </select>
+                      </div>
+                    )}
                     <button className="btn-danger btn-sm" onClick={() => removeOption(i, oi)}>✕</button>
                   </div>
                 ))}
