@@ -80,7 +80,9 @@ export default function FormPrintPage() {
       {/* Print-CSS: verberg de admin-sidebar en alle knoppen bij het afdrukken. */}
       <style>{`
         @media print {
-          aside, .no-print { display: none !important; }
+          /* Verberg admin-chrome én de site-footer (sociale media, sponsorlogo,
+             onze gegevens) en het raakje-chatbubbeltje (fixed) op de afdruk. */
+          aside, .no-print, footer, .fixed { display: none !important; }
           .print-sheet { box-shadow: none !important; border: none !important; padding: 0 !important; }
           body { background: white !important; }
         }
