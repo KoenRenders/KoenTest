@@ -99,20 +99,38 @@ zijn read-only en veranderen niets). Sluit af met een duidelijke regel:
 - HDEV: `ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" 'cd "${DEPLOY_HDEV_DIR:-$DEPLOY_REPO_DIR}" && ./deploy-hdev.sh'`
 - UAT (na bevestiging + tag): `ssh … 'cd "$DEPLOY_UAT_DIR" && ./deploy-uat.sh vX.Y.Z'`
 - PROD (na bevestiging + tag): `ssh … 'cd "$DEPLOY_PROD_DIR" && ./deploy-prod.sh vX.Y.Z'`
-- Caddyfile-wijziging (#312/#314): `ssh … 'cd "$DEPLOY_CADDY_DIR" && ./deploy-caddy.sh'`
+
+**Caddy — twee verschillende gevallen (belangrijk):**
+- **HDEV heeft zijn EIGEN Caddy** binnen de hdev-stack (`caddy/Caddyfile.hdev`,
+  bind-mount). `deploy-hdev.sh` herlaadt die **zelf** (`… exec -T caddy caddy
+  reload`) → bij een HDEV-deploy is er **geen** aparte Caddy-stap.
+- **UAT en PROD delen één externe Caddy** (`caddy/Caddyfile.shared`, netwerk
+  `raak_proxy`). Enkel wanneer **`Caddyfile.shared`** wijzigt (#312/#314) is een
+  aparte stap nodig: `ssh … 'cd "$DEPLOY_CADDY_DIR" && ./deploy-caddy.sh'`. **Eén**
+  recreate dekt UAT én PROD. Draai dit **niet** voor HDEV.
 
 (Bij `DEPLOY_DRY_RUN` → enkel printen, niets uitvoeren.)
 
-**Logs binnentrekken + analyseren.** Haal de backend-logs op en analyseer ze
-volgens `CLAUDE.md`:
-`ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" 'cd <checkout-map van het milieu> && sudo docker compose -f docker-compose.<env>.yml --env-file .env.<env> logs backend --tail=120'`
-(checkout-map = `${DEPLOY_HDEV_DIR:-$DEPLOY_REPO_DIR}` / `$DEPLOY_UAT_DIR` / `$DEPLOY_PROD_DIR`).
-Rapporteer:
-- ✅ `Running upgrade NNN -> NNN+1` per verwachte migratie (of meld dat er geen
-  nieuwe migratie was — dan zijn er terecht geen upgrade-regels).
-- ✅ `Uvicorn running on http://0.0.0.0:8000` (app gestart).
-- ❌ Elke `ERROR`/`Traceback` **tussen** die twee → deploy verdacht; benoem de
-  regel(s) en stop de promotie naar het volgende milieu.
+**Logs binnentrekken + analyseren — gebruik de dedicated `logging-<env>.sh`.**
+Er zijn kant-en-klare diagnosescripts (`logging-hdev.sh`, `logging-uat.sh`,
+`logging-prod.sh`) die alles bundelen in `/tmp/<env>-diagnostics.log`:
+containerstatus, `alembic heads`/`current`, schijfruimte, een ERROR/Traceback-
+foutfilter, en de backend-/frontend-/caddy-logs (voor UAT/PROD komen de caddy-logs
+uit het gedeelde `docker-compose.caddy.yml`-project). **Gebruik deze i.p.v. een
+hand-geschreven `docker compose logs`.** Draai het script en trek het bestand op:
+- `ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" 'cd <checkout-map van het milieu> && ./logging-<env>.sh'`
+  (checkout-map = `${DEPLOY_HDEV_DIR:-$DEPLOY_REPO_DIR}` / `$DEPLOY_UAT_DIR` /
+  `$DEPLOY_PROD_DIR`; het script tee't de output ook naar je scherm).
+- Haal het volledige bestand op: `scp -i "$DEPLOY_SSH_KEY" -P "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST:/tmp/<env>-diagnostics.log" ./`
+
+Analyseer het rapport en meld:
+- ✅ Containers allemaal `running`/`healthy` — geen `restarting`/`exited`.
+- ✅ **Precies één** `alembic head`, en `alembic current` == die head. Bij een
+  nieuwe migratie: de verwachte `Running upgrade NNN -> NNN+1` in de backend-logs
+  (geen nieuwe migratie → geen upgrade-regels, dat is normaal).
+- ✅ `Uvicorn running on http://0.0.0.0:8000`.
+- ❌ Elke `ERROR`/`Traceback`/`Exception` in de foutfilter of backend-logs → deploy
+  verdacht; benoem de regel(s) en **stop de promotie** naar het volgende milieu.
 Draai ook de read-only smoke test als die er is (`tests/run-all.sh`) en meld het
 resultaat.
 
