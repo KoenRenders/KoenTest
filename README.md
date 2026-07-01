@@ -110,9 +110,14 @@ connection is provided via env vars (never committed):
 
 | Env var | Purpose |
 |---|---|
-| `DEPLOY_SSH_HOST` / `DEPLOY_SSH_USER` / `DEPLOY_SSH_KEY` | SSH target + private-key path |
+| `DEPLOY_SSH_HOST` / `DEPLOY_SSH_USER` / `DEPLOY_SSH_KEY` | SSH target + private-key path (shared — one server) |
 | `DEPLOY_SSH_PORT` | optional, default 22 |
-| `DEPLOY_REPO_DIR` / `DEPLOY_CADDY_DIR` | checkout paths on the server |
+| `DEPLOY_HDEV_DIR` / `DEPLOY_UAT_DIR` / `DEPLOY_PROD_DIR` / `DEPLOY_CADDY_DIR` | per-environment checkout paths on the server |
+| `DEPLOY_DRY_RUN` | optional; `1`/`true` prints the deploy commands instead of running them (connection test + log fetch still run) |
+
+Copy `.deploy.env.example` to `.deploy.env` (gitignored) — or to a path outside the
+repo — fill it in and `source` it before launching the CLI. It holds host/user/paths
+and the *path* to your key only; the private key itself never leaves `~/.ssh`.
 
 Guardrail: **HDEV runs automatically; UAT/PROD only after explicit confirmation**
 and with a validated release tag. In an environment without SSH (e.g. Claude Code

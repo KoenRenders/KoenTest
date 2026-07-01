@@ -14,6 +14,9 @@ __pycache__/
 .env.prod
 .env.caddy
 .env.local
+# Connectie-info voor de /release-skill (SSH-deploy) — nooit committen.
+.deploy.env
+*.deploy.env
 *.egg-info/
 dist/
 .DS_Store
