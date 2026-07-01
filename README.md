@@ -90,6 +90,42 @@ docker compose exec backend alembic upgrade head
 
 See `caddy/Caddyfile` for domain configuration.
 
+## Claude Code tooling
+
+Project-specific helpers for [Claude Code](https://claude.com/claude-code) live in
+`.claude/` and are versioned with the repo (so every session and contributor gets
+them). They contain **no secrets** — connection details come from environment
+variables only.
+
+### Skill: `/release`
+`.claude/skills/release/SKILL.md` — guides a release end to end, following the
+rules in `CLAUDE.md`: create/maintain the release-tracking issue, verify every
+issue is merged and CI-green, collect CI evidence, guide the GitHub Release
+(HDEV → tag → UAT → PROD) and close the issues. Invoke it in a session with
+`/release` (e.g. "start release v1.x.0" or "wrap up v1.x.0").
+
+Optionally it can run the deploy **over SSH** on the server and pull + analyse the
+backend logs — but only when it runs in an SSH-capable environment and the
+connection is provided via env vars (never committed):
+
+| Env var | Purpose |
+|---|---|
+| `DEPLOY_SSH_HOST` / `DEPLOY_SSH_USER` / `DEPLOY_SSH_KEY` | SSH target + private-key path |
+| `DEPLOY_SSH_PORT` | optional, default 22 |
+| `DEPLOY_REPO_DIR` / `DEPLOY_CADDY_DIR` | checkout paths on the server |
+
+Guardrail: **HDEV runs automatically; UAT/PROD only after explicit confirmation**
+and with a validated release tag. In an environment without SSH (e.g. Claude Code
+on the web) it falls back to printing the exact commands and analysing pasted logs.
+
+### Agent: `publieke-repo-bewaker`
+`.claude/agents/publieke-repo-bewaker.md` — a read-only subagent that reviews a
+diff **before committing** and flags anything that must not land in this **public**
+repo: secrets/credentials, real server IPs/hostnames, real domain names, Storage
+Box users/hosts, `.env` files with real values, personal ops/backup tooling, and
+personal data (real names/e-mails/addresses). Returns a block/clear verdict with
+findings per `file:line`. Use it before every commit/push.
+
 ## Documentation
 
 - [Project Specification](docs/spec.md)

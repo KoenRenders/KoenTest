@@ -220,6 +220,7 @@ export default function AdminFormulieren() {
                   <button className="text-blue-700 hover:underline" onClick={() => copyLink(f.share_token)}>Deellink</button>
                   <button className="text-blue-700 hover:underline" onClick={() => openEditor(f.id)}>Bewerken</button>
                   <button className="text-blue-700 hover:underline" onClick={() => openResults(f)}>Resultaten</button>
+                  <button className="text-blue-700 hover:underline" onClick={() => window.open(`/admin/formulieren/${f.id}/afdruk`, "_blank")}>Afdrukken</button>
                   <button className="text-blue-700 hover:underline" onClick={() => download(f.id, "csv")}>CSV</button>
                   <button className="text-blue-700 hover:underline" onClick={() => download(f.id, "ods")}>ODS</button>
                   <button className="text-red-600 hover:underline" onClick={() => remove(f.id)}>Verwijderen</button>
