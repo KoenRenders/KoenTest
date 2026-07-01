@@ -55,9 +55,41 @@ def _unique_share_token(db: Session) -> str:
 def _validate_form_payload(data) -> None:
     if data.status not in FORM_STATUSES:
         raise HTTPException(status_code=422, detail=f"Ongeldige status: {data.status}")
+    sections = getattr(data, "sections", []) or []
+    n_sections = len(sections)
+    # Sectie-navigatie moet vooruit springen (geen lus).
+    for i, s in enumerate(sections):
+        if s.next_section_index is not None:
+            if not (0 <= s.next_section_index < n_sections):
+                raise HTTPException(status_code=422, detail="Ongeldige doelsectie.")
+            if s.next_section_index <= i:
+                raise HTTPException(
+                    status_code=422,
+                    detail="Een sectie-sprong moet naar een latere sectie gaan.",
+                )
     for f in data.fields:
         if f.field_type not in FIELD_TYPES:
             raise HTTPException(status_code=422, detail=f"Ongeldig veldtype: {f.field_type}")
+        # Vraag/label is verplicht (#340).
+        if not (f.label or "").strip():
+            raise HTTPException(status_code=422, detail="Elk veld heeft een vraag/label nodig.")
+        for o in f.options:
+            has_skip = o.skip_to_section_index is not None or o.skip_to_end
+            if has_skip and f.field_type not in ("radio", "select"):
+                raise HTTPException(
+                    status_code=422,
+                    detail="Vertakking kan enkel bij 'één keuze' of 'keuzelijst'.",
+                )
+            # Vooruit-sprong afdwingen (geen lus): doelsectie moet ná de sectie van
+            # het veld komen. Secties zijn geordend volgens hun index in de payload.
+            if o.skip_to_section_index is not None:
+                if not (0 <= o.skip_to_section_index < n_sections):
+                    raise HTTPException(status_code=422, detail="Ongeldige doelsectie voor vertakking.")
+                if f.section_index is not None and o.skip_to_section_index <= f.section_index:
+                    raise HTTPException(
+                        status_code=422,
+                        detail="Een vertakking moet naar een latere sectie springen.",
+                    )
 
 
 def _apply_fields(form: Form, data) -> None:
@@ -67,10 +99,19 @@ def _apply_fields(form: Form, data) -> None:
     form.fields.clear()
 
     created_sections = []
-    for si in getattr(data, "sections", []) or []:
-        section = FormSection(title=si.title, description=si.description, position=si.position)
+    payload_sections = getattr(data, "sections", []) or []
+    for si in payload_sections:
+        section = FormSection(
+            title=si.title, description=si.description, position=si.position,
+            next_is_end=si.next_is_end,
+        )
         form.sections.append(section)
         created_sections.append(section)
+    # Tweede pass: sectie-navigatie koppelen (index → sectie-object).
+    for si, section in zip(payload_sections, created_sections):
+        nidx = si.next_section_index
+        if nidx is not None and 0 <= nidx < len(created_sections):
+            section.next_section = created_sections[nidx]
 
     for fi in data.fields:
         field = FormField(
@@ -89,12 +130,14 @@ def _apply_fields(form: Form, data) -> None:
         if idx is not None and 0 <= idx < len(created_sections):
             field.section = created_sections[idx]
         for oi in fi.options:
-            field.options.append(
-                FormFieldOption(
-                    label=oi.label, value=oi.value, position=oi.position,
-                    is_other=oi.is_other,
-                )
+            option = FormFieldOption(
+                label=oi.label, value=oi.value, position=oi.position,
+                is_other=oi.is_other, skip_to_end=oi.skip_to_end,
             )
+            sidx = oi.skip_to_section_index
+            if sidx is not None and 0 <= sidx < len(created_sections):
+                option.skip_to_section = created_sections[sidx]
+            field.options.append(option)
         form.fields.append(field)
 
 
