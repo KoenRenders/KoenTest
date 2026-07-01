@@ -164,6 +164,8 @@ export interface FormFieldOption {
   value?: string | null;
   position: number;
   is_other?: boolean;
+  skip_to_section_id?: number | null;
+  skip_to_end?: boolean;
 }
 
 export interface FormSection {
@@ -171,6 +173,8 @@ export interface FormSection {
   title?: string | null;
   description?: string | null;
   position: number;
+  next_section_id?: number | null;
+  next_is_end?: boolean;
 }
 
 export interface FormFieldDef {
@@ -229,7 +233,7 @@ export interface PublicFormField {
   max_value?: number | null;
   min_length?: number | null;
   max_length?: number | null;
-  options: { id: number; label: string; value?: string | null; is_other?: boolean }[];
+  options: { id: number; label: string; value?: string | null; is_other?: boolean; skip_to_section_id?: number | null; skip_to_end?: boolean }[];
 }
 
 export interface PublicForm {

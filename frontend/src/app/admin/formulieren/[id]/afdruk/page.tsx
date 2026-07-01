@@ -20,8 +20,13 @@ function Box() {
   return <span className="inline-block w-4 h-4 border border-gray-500 mr-2 align-middle" />;
 }
 
-function PrintField({ field }: { field: FormFieldDef }) {
+function PrintField({ field, sectionLabel }: { field: FormFieldDef; sectionLabel: (id: number) => string }) {
   const { field_type: t } = field;
+  const routeText = (o: { skip_to_section_id?: number | null; skip_to_end?: boolean }): string => {
+    if (o.skip_to_end) return "→ einde";
+    if (o.skip_to_section_id != null) return `→ ga naar ${sectionLabel(o.skip_to_section_id)}`;
+    return "";
+  };
 
   if (t === "info") {
     return (
@@ -48,7 +53,10 @@ function PrintField({ field }: { field: FormFieldDef }) {
             <div key={o.id} className="flex items-center">
               <Box />
               <span>{o.label}</span>
-              {o.is_other && <span className="flex-1 border-b border-gray-400 ml-2 self-end" />}
+              {o.is_other && <span className="flex-1 border-b border-gray-400 mx-2 self-end" />}
+              {(t === "radio" || t === "select") && routeText(o) && (
+                <span className="text-gray-500 italic ml-2 whitespace-nowrap">{routeText(o)}</span>
+              )}
             </div>
           ))}
           {field.options.length === 0 && <Lines n={1} />}
@@ -86,6 +94,16 @@ export default function FormPrintPage() {
   if (loading) return <div>Laden…</div>;
   if (!form) return <div className="card">Formulier niet gevonden.</div>;
 
+  const orderedSecs = [...form.sections].sort((a, b) => a.position - b.position);
+  const secLabelById: Record<number, string> = {};
+  orderedSecs.forEach((s, i) => { secLabelById[s.id] = s.title || `Sectie ${i + 1}`; });
+  const sectionLabel = (id: number) => secLabelById[id] ?? "een sectie";
+  const nextText = (sec: FormAdmin["sections"][number]): string => {
+    if (sec.next_is_end) return "→ Ga daarna naar het einde.";
+    if (sec.next_section_id != null) return `→ Ga daarna naar ${sectionLabel(sec.next_section_id)}.`;
+    return "";
+  };
+
   return (
     <div>
       {/* Print-CSS: verberg de admin-sidebar en alle knoppen bij het afdrukken. */}
@@ -111,16 +129,17 @@ export default function FormPrintPage() {
         <h2 className="text-2xl font-bold mb-2">{form.title}</h2>
         {form.description && <p className="text-gray-700 whitespace-pre-wrap mb-5">{form.description}</p>}
 
-        {form.fields.filter((f) => f.section_id == null).map((f) => <PrintField key={f.id} field={f} />)}
+        {form.fields.filter((f) => f.section_id == null).map((f) => <PrintField key={f.id} field={f} sectionLabel={sectionLabel} />)}
 
-        {[...form.sections].sort((a, b) => a.position - b.position).map((sec) => {
+        {orderedSecs.map((sec) => {
           const secFields = form.fields.filter((f) => f.section_id === sec.id);
           if (secFields.length === 0 && !sec.title && !sec.description) return null;
           return (
             <div key={sec.id} className="mt-6 pt-4 border-t border-gray-300 break-inside-avoid">
               {sec.title && <h3 className="text-lg font-bold text-gray-900 mb-1">{sec.title}</h3>}
               {sec.description && <p className="text-gray-700 whitespace-pre-wrap mb-3">{sec.description}</p>}
-              {secFields.map((f) => <PrintField key={f.id} field={f} />)}
+              {secFields.map((f) => <PrintField key={f.id} field={f} sectionLabel={sectionLabel} />)}
+              {nextText(sec) && <p className="text-gray-500 italic mt-2">{nextText(sec)}</p>}
             </div>
           );
         })}

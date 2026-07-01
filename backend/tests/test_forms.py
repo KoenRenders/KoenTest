@@ -364,3 +364,135 @@ def test_loose_coupling_no_person_fk():
     # Inzending bewaart enkel vrije naam/e-mail — geen koppeling naar het ledendomein.
     cols = {c.name for c in FormSubmission.__table__.columns}
     assert "person_id" not in cols and "member_id" not in cols
+
+
+# ── Branching / secties + skip-logica (#336) ─────────────────────────────────────
+
+def _branching_payload():
+    """Enquête met sectie-sprongen: Start → (Ja) Wel / (Nee) Niet → Slot.
+    Wel springt over Niet naar Slot; Niet valt lineair door naar Slot."""
+    return {
+        "title": "Ledenfeest-enquête",
+        "status": "open",
+        "sections": [
+            {"title": "Start", "position": 0},
+            {"title": "Wel aanwezig", "position": 1, "next_section_index": 3},
+            {"title": "Niet aanwezig", "position": 2},
+            {"title": "Slot", "position": 3},
+        ],
+        "fields": [
+            {"field_type": "radio", "label": "Aanwezig?", "required": True, "position": 0,
+             "section_index": 0, "options": [
+                 {"label": "Ja", "position": 0, "skip_to_section_index": 1},
+                 {"label": "Nee", "position": 1, "skip_to_section_index": 2},
+             ]},
+            {"field_type": "text", "label": "Wat was leuk?", "required": True, "position": 1, "section_index": 1},
+            {"field_type": "text", "label": "Waarom niet?", "required": True, "position": 2, "section_index": 2},
+            {"field_type": "text", "label": "Slotopmerking", "required": True, "position": 3, "section_index": 3},
+        ],
+    }
+
+
+def _mk(client, admin_headers, payload):
+    r = client.post("/api/v1/forms", json=payload, headers=admin_headers)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_branching_skips_other_branch(client, admin_headers):
+    form = _mk(client, admin_headers, _branching_payload())
+    token = form["share_token"]
+    ja = _option_id(form, "Aanwezig?", "Ja")
+    # Ja-tak: Wel + Slot ingevuld, "Waarom niet?" (Niet-tak) overgeslagen → OK.
+    body = {"answers": [
+        {"field_id": _field_id(form, "Aanwezig?"), "option_ids": [ja]},
+        {"field_id": _field_id(form, "Wat was leuk?"), "text": "De sfeer"},
+        {"field_id": _field_id(form, "Slotopmerking"), "text": "Top"},
+    ]}
+    assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 200
+
+
+def test_branching_required_in_taken_branch_enforced(client, admin_headers):
+    form = _mk(client, admin_headers, _branching_payload())
+    token = form["share_token"]
+    ja = _option_id(form, "Aanwezig?", "Ja")
+    # Ja-tak maar "Wat was leuk?" (verplicht, in doorlopen sectie) ontbreekt → 422.
+    body = {"answers": [
+        {"field_id": _field_id(form, "Aanwezig?"), "option_ids": [ja]},
+        {"field_id": _field_id(form, "Slotopmerking"), "text": "Top"},
+    ]}
+    assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 422
+
+
+def test_branching_nee_branch(client, admin_headers):
+    form = _mk(client, admin_headers, _branching_payload())
+    token = form["share_token"]
+    nee = _option_id(form, "Aanwezig?", "Nee")
+    body = {"answers": [
+        {"field_id": _field_id(form, "Aanwezig?"), "option_ids": [nee]},
+        {"field_id": _field_id(form, "Waarom niet?"), "text": "Op reis"},
+        {"field_id": _field_id(form, "Slotopmerking"), "text": "Volgend jaar wel"},
+    ]}
+    assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 200
+
+
+def test_skip_to_end_ignores_later_sections(client, admin_headers):
+    payload = {
+        "title": "Skip-to-end",
+        "status": "open",
+        "sections": [
+            {"title": "Start", "position": 0},
+            {"title": "Vervolg", "position": 1},
+        ],
+        "fields": [
+            {"field_type": "radio", "label": "Stoppen?", "required": True, "position": 0,
+             "section_index": 0, "options": [
+                 {"label": "Stop nu", "position": 0, "skip_to_end": True},
+                 {"label": "Ga door", "position": 1, "skip_to_section_index": 1},
+             ]},
+            {"field_type": "text", "label": "Vervolgvraag", "required": True, "position": 1, "section_index": 1},
+        ],
+    }
+    form = _mk(client, admin_headers, payload)
+    token = form["share_token"]
+    stop = _option_id(form, "Stoppen?", "Stop nu")
+    # "Stop nu" → einde; de verplichte "Vervolgvraag" wordt niet afgedwongen.
+    body = {"answers": [{"field_id": _field_id(form, "Stoppen?"), "option_ids": [stop]}]}
+    assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 200
+
+
+def test_branching_only_on_choice_fields(client, admin_headers):
+    payload = _branching_payload()
+    # Zet een skip op een checkbox-optie → moet geweigerd worden.
+    payload["fields"][0]["field_type"] = "checkbox"
+    assert client.post("/api/v1/forms", json=payload, headers=admin_headers).status_code == 422
+
+
+def test_backward_section_jump_rejected(client, admin_headers):
+    payload = _branching_payload()
+    payload["sections"][3]["next_section_index"] = 1  # Slot terug naar Wel = lus
+    assert client.post("/api/v1/forms", json=payload, headers=admin_headers).status_code == 422
+
+
+def test_empty_label_rejected(client, admin_headers):
+    bad = _form_payload(fields=[{"field_type": "text", "label": "   ", "position": 0}])
+    assert client.post("/api/v1/forms", json=bad, headers=admin_headers).status_code == 422
+
+
+def test_branch_config_persisted_on_form_and_sections(client, admin_headers):
+    """De branch-config (sectie-sprong + keuze-sprong) wordt bewaard en correct
+    teruggegeven met de juiste sectie-ids."""
+    form = _mk(client, admin_headers, _branching_payload())
+    fetched = client.get(f"/api/v1/forms/{form['id']}", headers=admin_headers).json()
+    secs = sorted(fetched["sections"], key=lambda s: s["position"])
+    slot_id = secs[3]["id"]
+    wel_id = secs[1]["id"]
+    niet_id = secs[2]["id"]
+    # Sectie-sprong: "Wel aanwezig" (index 1) springt naar "Slot" (index 3).
+    assert secs[1]["next_section_id"] == slot_id
+    assert secs[1]["next_is_end"] is False
+    # Keuze-sprong: Ja → Wel, Nee → Niet.
+    radio = next(f for f in fetched["fields"] if f["label"] == "Aanwezig?")
+    by_label = {o["label"]: o for o in radio["options"]}
+    assert by_label["Ja"]["skip_to_section_id"] == wel_id
+    assert by_label["Nee"]["skip_to_section_id"] == niet_id

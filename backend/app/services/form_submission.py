@@ -28,15 +28,80 @@ def _answers_by_field(payload_answers: List[AnswerIn]) -> Dict[int, AnswerIn]:
     return by_field
 
 
+def _traversed_field_ids(form: Form, by_field: Dict[int, AnswerIn]) -> set:
+    """Bepaal server-side welke velden effectief doorlopen zijn, rekening houdend
+    met branching (#336). Overgeslagen secties leveren geen verplichting en geen
+    antwoord op. Zonder secties → alle velden (ongewijzigd gedrag)."""
+    if not form.sections:
+        return {f.id for f in form.fields}
+
+    sections_sorted = sorted(form.sections, key=lambda s: (s.position, s.id))
+    order = [s.id for s in sections_sorted]
+    pos_index = {sid: i for i, sid in enumerate(order)}
+    section_by_id = {s.id: s for s in sections_sorted}
+
+    fields_by_section: Dict[int, list] = {}
+    ungrouped_ids = set()
+    for f in sorted(form.fields, key=lambda x: (x.position, x.id)):
+        if f.section_id is None:
+            ungrouped_ids.add(f.id)
+        else:
+            fields_by_section.setdefault(f.section_id, []).append(f)
+
+    opt = {o.id: o for f in form.fields for o in f.options}
+
+    traversed = set(ungrouped_ids)
+    i = 0
+    guard = 0
+    while i < len(order) and guard <= len(order):
+        guard += 1
+        sid = order[i]
+        jump = None  # "end" of een sectie-id
+        for f in fields_by_section.get(sid, []):
+            traversed.add(f.id)
+            if f.field_type not in ("radio", "select"):
+                continue
+            ans = by_field.get(f.id)
+            if not ans or not ans.option_ids:
+                continue
+            chosen = opt.get(ans.option_ids[0])
+            if not chosen:
+                continue
+            if chosen.skip_to_end:
+                jump = "end"
+                break
+            if chosen.skip_to_section_id is not None:
+                jump = chosen.skip_to_section_id
+                break
+        # Geen keuze-sprong? Val terug op de sectie-navigatie (#336).
+        if jump is None:
+            sec = section_by_id.get(sid)
+            if sec is not None and sec.next_is_end:
+                jump = "end"
+            elif sec is not None and sec.next_section_id is not None:
+                jump = sec.next_section_id
+        if jump == "end":
+            break
+        if isinstance(jump, int) and pos_index.get(jump, -1) > i:
+            i = pos_index[jump]
+        else:
+            i += 1
+    return traversed
+
+
 def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmissionAnswer]:
     """Valideer de antwoorden tegen het veldschema en bouw (losse, niet-gepersisteerde)
     FormSubmissionAnswer-rijen. Gooit HTTPException(422) bij een schending."""
     by_field = _answers_by_field(payload_answers)
+    traversed = _traversed_field_ids(form, by_field)
     rows: List[FormSubmissionAnswer] = []
 
     for field in form.fields:
         # 'info'-velden zijn louter tekst: nooit verplicht, nooit een antwoord.
         if field.field_type == "info":
+            continue
+        # Overgeslagen (niet-doorlopen) secties: geen verplichting, geen antwoord.
+        if field.id not in traversed:
             continue
 
         ans = by_field.get(field.id)

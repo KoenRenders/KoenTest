@@ -13,12 +13,19 @@ class FormFieldOptionIn(BaseModel):
     value: Optional[str] = None
     position: int = 0
     is_other: bool = False
+    # Branching (#336): verwijst naar de index in de `sections`-lijst van de payload.
+    skip_to_section_index: Optional[int] = None
+    skip_to_end: bool = False
 
 
 class FormSectionIn(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     position: int = 0
+    # Sectie-navigatie (#336): index in de `sections`-lijst waar na deze sectie
+    # naartoe gesprongen wordt (None + next_is_end=false = lineair).
+    next_section_index: Optional[int] = None
+    next_is_end: bool = False
 
 
 class FormFieldIn(BaseModel):
@@ -63,6 +70,8 @@ class FormFieldOptionOut(BaseModel):
     value: Optional[str] = None
     position: int
     is_other: bool = False
+    skip_to_section_id: Optional[int] = None
+    skip_to_end: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -72,6 +81,8 @@ class FormSectionOut(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     position: int
+    next_section_id: Optional[int] = None
+    next_is_end: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -133,6 +144,8 @@ class PublicFieldOption(BaseModel):
     label: str
     value: Optional[str] = None
     is_other: bool = False
+    skip_to_section_id: Optional[int] = None
+    skip_to_end: bool = False
 
     model_config = {"from_attributes": True}
 
@@ -142,6 +155,8 @@ class PublicSection(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     position: int
+    next_section_id: Optional[int] = None
+    next_is_end: bool = False
 
     model_config = {"from_attributes": True}
 

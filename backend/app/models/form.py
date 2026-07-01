@@ -100,8 +100,15 @@ class FormSection(Base):
     title = Column(String(300), nullable=True)
     description = Column(Text, nullable=True)
     position = Column(Integer, nullable=False, default=0)
+    # Sectie-navigatie (#336): waar na deze sectie naartoe als geen keuze-optie
+    # een sprong forceert. NULL + next_is_end=false = lineair (volgende sectie).
+    next_section_id = Column(
+        Integer, ForeignKey("form_sections.id", ondelete="SET NULL"), nullable=True
+    )
+    next_is_end = Column(Boolean, nullable=False, default=False, server_default="false")
 
     form = relationship("Form", back_populates="sections")
+    next_section = relationship("FormSection", remote_side=[id])
 
 
 class FormField(Base):
@@ -153,8 +160,15 @@ class FormFieldOption(Base):
     # "Andere…"-optie: bij selectie kan de respondent vrije tekst invullen (#337).
     # Die tekst wordt bewaard als value_text op de antwoordrij naast value_option_id.
     is_other = Column(Boolean, nullable=False, default=False, server_default="false")
+    # Branching (#336): bij een radio/select-veld kan een optie de invuller naar een
+    # andere sectie sturen, of naar het einde. Enkel voor 'één keuze'/'keuzelijst'.
+    skip_to_section_id = Column(
+        Integer, ForeignKey("form_sections.id", ondelete="SET NULL"), nullable=True
+    )
+    skip_to_end = Column(Boolean, nullable=False, default=False, server_default="false")
 
     field = relationship("FormField", back_populates="options")
+    skip_to_section = relationship("FormSection")
 
 
 class FormSubmission(Base):
