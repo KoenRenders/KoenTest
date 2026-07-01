@@ -62,7 +62,7 @@ export default function PublicFormPage() {
         ) : (
           <>
             {error && <div className="bg-red-50 text-red-700 rounded-lg p-3 mb-3 text-sm">{error}</div>}
-            <DynamicForm fields={form.fields} submitting={submitting} onSubmit={handleSubmit} />
+            <DynamicForm fields={form.fields} sections={form.sections} submitting={submitting} onSubmit={handleSubmit} />
           </>
         )}
       </div>

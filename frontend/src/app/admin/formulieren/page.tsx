@@ -15,16 +15,19 @@ const FIELD_TYPES: { value: string; label: string }[] = [
   { value: "radio", label: "Eén keuze" },
   { value: "checkbox", label: "Meerkeuze" },
   { value: "rating", label: "Beoordeling (1–5)" },
+  { value: "info", label: "Tekstblok (info)" },
 ];
 const CHOICE_TYPES = ["select", "radio", "checkbox"];
 
-type EditOption = { label: string; value: string; position: number };
+type EditOption = { label: string; value: string; position: number; is_other: boolean };
+type EditSection = { title: string; description: string };
 type EditField = {
   field_type: string;
   label: string;
   help_text: string;
   required: boolean;
   position: number;
+  section_index: number | null;
   min_value: string;
   max_value: string;
   min_length: string;
@@ -42,12 +45,14 @@ type EditForm = {
   confirmation_message: string;
   allow_edit: boolean;
   share_token?: string;
+  sections: EditSection[];
   fields: EditField[];
 };
 
 function emptyField(): EditField {
   return {
     field_type: "text", label: "", help_text: "", required: false, position: 0,
+    section_index: null,
     min_value: "", max_value: "", min_length: "", max_length: "", regex_pattern: "", options: [],
   };
 }
@@ -55,11 +60,14 @@ function emptyField(): EditField {
 function emptyForm(): EditForm {
   return {
     title: "", description: "", status: "draft", max_submissions: "",
-    send_confirmation: false, confirmation_message: "", allow_edit: false, fields: [],
+    send_confirmation: false, confirmation_message: "", allow_edit: false, sections: [], fields: [],
   };
 }
 
 function toEditForm(f: FormAdmin): EditForm {
+  const sorted = [...(f.sections ?? [])].sort((a, b) => a.position - b.position);
+  const sectionIndex: Record<number, number> = {};
+  sorted.forEach((s, i) => { sectionIndex[s.id] = i; });
   return {
     id: f.id,
     title: f.title,
@@ -70,18 +78,20 @@ function toEditForm(f: FormAdmin): EditForm {
     confirmation_message: f.confirmation_message ?? "",
     allow_edit: f.allow_edit,
     share_token: f.share_token,
+    sections: sorted.map((s) => ({ title: s.title ?? "", description: s.description ?? "" })),
     fields: f.fields.map((fd: FormFieldDef) => ({
       field_type: fd.field_type,
       label: fd.label,
       help_text: fd.help_text ?? "",
       required: fd.required,
       position: fd.position,
+      section_index: fd.section_id != null && fd.section_id in sectionIndex ? sectionIndex[fd.section_id] : null,
       min_value: fd.min_value != null ? String(fd.min_value) : "",
       max_value: fd.max_value != null ? String(fd.max_value) : "",
       min_length: fd.min_length != null ? String(fd.min_length) : "",
       max_length: fd.max_length != null ? String(fd.max_length) : "",
       regex_pattern: fd.regex_pattern ?? "",
-      options: fd.options.map((o) => ({ label: o.label, value: o.value ?? "", position: o.position })),
+      options: fd.options.map((o) => ({ label: o.label, value: o.value ?? "", position: o.position, is_other: !!o.is_other })),
     })),
   };
 }
@@ -96,19 +106,21 @@ function toPayload(f: EditForm) {
     send_confirmation: f.send_confirmation,
     confirmation_message: f.confirmation_message || null,
     allow_edit: f.allow_edit,
+    sections: f.sections.map((s, i) => ({ title: s.title || null, description: s.description || null, position: i })),
     fields: f.fields.map((fd, i) => ({
       field_type: fd.field_type,
       label: fd.label,
       help_text: fd.help_text || null,
       required: fd.required,
       position: i,
+      section_index: fd.section_index != null && fd.section_index < f.sections.length ? fd.section_index : null,
       min_value: fd.field_type === "number" ? num(fd.min_value) : null,
       max_value: fd.field_type === "number" ? num(fd.max_value) : null,
       min_length: ["text", "textarea", "email"].includes(fd.field_type) ? num(fd.min_length) : null,
       max_length: ["text", "textarea", "email"].includes(fd.field_type) ? num(fd.max_length) : null,
       regex_pattern: ["text", "textarea", "email"].includes(fd.field_type) ? (fd.regex_pattern || null) : null,
       options: CHOICE_TYPES.includes(fd.field_type)
-        ? fd.options.map((o, j) => ({ label: o.label, value: o.value || null, position: j }))
+        ? fd.options.map((o, j) => ({ label: o.label, value: o.value || null, position: j, is_other: o.is_other }))
         : [],
     })),
   };
@@ -167,10 +179,45 @@ export default function AdminFormulieren() {
     setView("results");
   }
 
-  function copyLink(token: string) {
-    const url = `${window.location.origin}/formulier/${token}`;
-    navigator.clipboard?.writeText(url);
-    alert("Deellink gekopieerd:\n" + url);
+  async function copyToClipboard(text: string): Promise<boolean> {
+    // navigator.clipboard werkt enkel in een secure context (HTTPS/localhost);
+    // op HDEV (HTTP) valt dit terug op een tijdelijk textarea + execCommand (#338).
+    try {
+      if (window.isSecureContext && navigator.clipboard) {
+        await navigator.clipboard.writeText(text);
+        return true;
+      }
+    } catch {
+      /* val terug op de legacy-methode */
+    }
+    try {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.focus();
+      ta.select();
+      const ok = document.execCommand("copy");
+      ta.remove();
+      return ok;
+    } catch {
+      return false;
+    }
+  }
+
+  async function copyLink(f: FormSummary) {
+    const url = `${window.location.origin}/formulier/${f.share_token}`;
+    const ok = await copyToClipboard(url);
+    const draftWarn = f.status === "draft"
+      ? "\n\nLet op: dit formulier staat op Concept — de link werkt pas publiek zodra de status op Open staat."
+      : "";
+    if (ok) {
+      alert("Deellink gekopieerd:\n" + url + draftWarn);
+    } else {
+      // Kopiëren lukte niet — toon de link zodat de gebruiker hem zelf kan kopiëren.
+      window.prompt("Kopieer de deellink (Ctrl+C):", url);
+    }
   }
 
   async function download(id: number, format: "csv" | "ods") {
@@ -217,7 +264,7 @@ export default function AdminFormulieren() {
                 <td className="py-2 pr-3"><StatusBadge status={f.status} /></td>
                 <td className="py-2 pr-3">{f.submission_count}</td>
                 <td className="py-2 flex flex-wrap gap-2 justify-end">
-                  <button className="text-blue-700 hover:underline" onClick={() => copyLink(f.share_token)}>Deellink</button>
+                  <button className="text-blue-700 hover:underline" onClick={() => copyLink(f)}>Deellink</button>
                   <button className="text-blue-700 hover:underline" onClick={() => openEditor(f.id)}>Bewerken</button>
                   <button className="text-blue-700 hover:underline" onClick={() => openResults(f)}>Resultaten</button>
                   <button className="text-blue-700 hover:underline" onClick={() => window.open(`/admin/formulieren/${f.id}/afdruk`, "_blank")}>Afdrukken</button>
@@ -272,15 +319,30 @@ function FormEditor({
   }
   function addOption(fi: number) {
     const f = form.fields[fi];
-    patchField(fi, { options: [...f.options, { label: "", value: "", position: f.options.length }] });
+    patchField(fi, { options: [...f.options, { label: "", value: "", position: f.options.length, is_other: false }] });
   }
-  function patchOption(fi: number, oi: number, label: string) {
+  function patchOption(fi: number, oi: number, p: Partial<EditOption>) {
     const f = form.fields[fi];
-    patchField(fi, { options: f.options.map((o, idx) => (idx === oi ? { ...o, label } : o)) });
+    patchField(fi, { options: f.options.map((o, idx) => (idx === oi ? { ...o, ...p } : o)) });
   }
   function removeOption(fi: number, oi: number) {
     const f = form.fields[fi];
     patchField(fi, { options: f.options.filter((_, idx) => idx !== oi) });
+  }
+  // Secties (#335)
+  function addSection() { setForm({ ...form, sections: [...form.sections, { title: "", description: "" }] }); }
+  function patchSection(i: number, p: Partial<EditSection>) {
+    setForm({ ...form, sections: form.sections.map((s, idx) => (idx === i ? { ...s, ...p } : s)) });
+  }
+  function removeSection(i: number) {
+    // Verwijder de sectie en ontkoppel de velden die eraan hingen (en verschuif hogere indexen).
+    const fields = form.fields.map((f) => {
+      if (f.section_index == null) return f;
+      if (f.section_index === i) return { ...f, section_index: null };
+      if (f.section_index > i) return { ...f, section_index: f.section_index - 1 };
+      return f;
+    });
+    setForm({ ...form, sections: form.sections.filter((_, idx) => idx !== i), fields });
   }
 
   return (
@@ -333,6 +395,24 @@ function FormEditor({
         </label>
       </div>
 
+      <div className="card mb-4">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="font-semibold text-gray-700">Secties</h2>
+          <button className="btn-secondary btn-sm" onClick={addSection}>+ Sectie</button>
+        </div>
+        <p className="text-sm text-gray-500 mb-2">Groepeer je vragen onder een titel + uitleg. Velden koppel je hieronder aan een sectie.</p>
+        <div className="space-y-2">
+          {form.sections.map((s, i) => (
+            <div key={i} className="flex flex-wrap gap-2 items-start border-l-2 border-gray-200 pl-3">
+              <input className="input flex-1 min-w-[160px]" value={s.title} onChange={(e) => patchSection(i, { title: e.target.value })} placeholder={`Sectietitel ${i + 1}`} />
+              <input className="input flex-1 min-w-[200px]" value={s.description} onChange={(e) => patchSection(i, { description: e.target.value })} placeholder="Beschrijving / uitleg (optioneel)" />
+              <button className="btn-danger btn-sm" onClick={() => removeSection(i)}>✕</button>
+            </div>
+          ))}
+          {form.sections.length === 0 && <p className="text-sm text-gray-400">Nog geen secties — velden verschijnen dan gewoon na elkaar.</p>}
+        </div>
+      </div>
+
       <div className="space-y-3">
         {form.fields.map((f, i) => (
           <div key={i} className="card">
@@ -343,6 +423,19 @@ function FormEditor({
                   {FIELD_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
                 </select>
               </div>
+              {form.sections.length > 0 && (
+                <div>
+                  <label className="block text-sm font-medium mb-1">Sectie</label>
+                  <select
+                    className="input"
+                    value={f.section_index ?? ""}
+                    onChange={(e) => patchField(i, { section_index: e.target.value === "" ? null : Number(e.target.value) })}
+                  >
+                    <option value="">— Geen —</option>
+                    {form.sections.map((s, si) => <option key={si} value={si}>{s.title || `Sectie ${si + 1}`}</option>)}
+                  </select>
+                </div>
+              )}
               <div className="flex-1 min-w-[200px]">
                 <label className="block text-sm font-medium mb-1">Vraag / label</label>
                 <input className="input w-full" value={f.label} onChange={(e) => patchField(i, { label: e.target.value })} />
@@ -364,8 +457,12 @@ function FormEditor({
               <div className="mt-3 pl-3 border-l-2 border-gray-200 space-y-2">
                 <p className="text-sm font-medium text-gray-600">Opties</p>
                 {f.options.map((o, oi) => (
-                  <div key={oi} className="flex gap-2">
-                    <input className="input flex-1" value={o.label} onChange={(e) => patchOption(i, oi, e.target.value)} placeholder={`Optie ${oi + 1}`} />
+                  <div key={oi} className="flex flex-wrap gap-2 items-center">
+                    <input className="input flex-1 min-w-[160px]" value={o.label} onChange={(e) => patchOption(i, oi, { label: e.target.value })} placeholder={`Optie ${oi + 1}`} />
+                    <label className="flex items-center gap-1 text-xs text-gray-600 whitespace-nowrap">
+                      <input type="checkbox" checked={o.is_other} onChange={(e) => patchOption(i, oi, { is_other: e.target.checked })} />
+                      "Andere…" (vrij tekstveld)
+                    </label>
                     <button className="btn-danger btn-sm" onClick={() => removeOption(i, oi)}>✕</button>
                   </div>
                 ))}

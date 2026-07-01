@@ -27,6 +27,7 @@ FIELD_TYPES = (
     "radio",
     "checkbox",
     "rating",
+    "info",  # louter informatief tekstblok, geen antwoord (#335)
 )
 
 # Een formulier doorloopt: draft (in opbouw) -> open (publiek invulbaar) ->
@@ -78,9 +79,29 @@ class Form(Base):
         cascade="all, delete-orphan",
         order_by="FormField.position",
     )
+    sections = relationship(
+        "FormSection",
+        back_populates="form",
+        cascade="all, delete-orphan",
+        order_by="FormSection.position",
+    )
     submissions = relationship(
         "FormSubmission", back_populates="form", cascade="all, delete-orphan"
     )
+
+
+class FormSection(Base):
+    __tablename__ = "form_sections"
+
+    id = Column(Integer, primary_key=True, index=True)
+    form_id = Column(
+        Integer, ForeignKey("forms.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    title = Column(String(300), nullable=True)
+    description = Column(Text, nullable=True)
+    position = Column(Integer, nullable=False, default=0)
+
+    form = relationship("Form", back_populates="sections")
 
 
 class FormField(Base):
@@ -89,6 +110,10 @@ class FormField(Base):
     id = Column(Integer, primary_key=True, index=True)
     form_id = Column(
         Integer, ForeignKey("forms.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    # Optionele koppeling aan een sectie (#335). NULL = ongegroepeerd.
+    section_id = Column(
+        Integer, ForeignKey("form_sections.id", ondelete="CASCADE"), nullable=True, index=True
     )
     field_type = Column(String(20), nullable=False)
     label = Column(String(300), nullable=False)
@@ -103,6 +128,7 @@ class FormField(Base):
     regex_pattern = Column(Text, nullable=True)
 
     form = relationship("Form", back_populates="fields")
+    section = relationship("FormSection")
     options = relationship(
         "FormFieldOption",
         back_populates="field",
@@ -124,6 +150,9 @@ class FormFieldOption(Base):
     label = Column(String(300), nullable=False)
     value = Column(String(300), nullable=True)
     position = Column(Integer, nullable=False, default=0)
+    # "Andere…"-optie: bij selectie kan de respondent vrije tekst invullen (#337).
+    # Die tekst wordt bewaard als value_text op de antwoordrij naast value_option_id.
+    is_other = Column(Boolean, nullable=False, default=False, server_default="false")
 
     field = relationship("FormField", back_populates="options")
 

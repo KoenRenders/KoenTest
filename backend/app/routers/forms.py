@@ -12,6 +12,7 @@ from app.config import settings
 from app.database import get_db
 from app.models.form import (
     Form,
+    FormSection,
     FormField,
     FormFieldOption,
     FormSubmission,
@@ -60,8 +61,17 @@ def _validate_form_payload(data) -> None:
 
 
 def _apply_fields(form: Form, data) -> None:
-    """Vervang de velden/opties van het formulier door wat in de payload staat."""
+    """Vervang de secties/velden/opties van het formulier door wat in de payload
+    staat. Velden verwijzen via `section_index` naar de aangemaakte secties."""
+    form.sections.clear()
     form.fields.clear()
+
+    created_sections = []
+    for si in getattr(data, "sections", []) or []:
+        section = FormSection(title=si.title, description=si.description, position=si.position)
+        form.sections.append(section)
+        created_sections.append(section)
+
     for fi in data.fields:
         field = FormField(
             field_type=fi.field_type,
@@ -75,9 +85,15 @@ def _apply_fields(form: Form, data) -> None:
             max_length=fi.max_length,
             regex_pattern=fi.regex_pattern,
         )
+        idx = fi.section_index
+        if idx is not None and 0 <= idx < len(created_sections):
+            field.section = created_sections[idx]
         for oi in fi.options:
             field.options.append(
-                FormFieldOption(label=oi.label, value=oi.value, position=oi.position)
+                FormFieldOption(
+                    label=oi.label, value=oi.value, position=oi.position,
+                    is_other=oi.is_other,
+                )
             )
         form.fields.append(field)
 
@@ -292,14 +308,18 @@ def _answers_payload(submission: FormSubmission) -> list:
     for ans in submission.answers:
         entry = by_field.setdefault(
             ans.field_id,
-            {"field_id": ans.field_id, "text": None, "number": None, "option_ids": [], "rating": None},
+            {"field_id": ans.field_id, "text": None, "number": None,
+             "option_ids": [], "rating": None, "other_text": None},
         )
-        if ans.value_text is not None:
+        if ans.value_option_id is not None:
+            entry["option_ids"].append(ans.value_option_id)
+            # value_text op een optie-rij = de vrije "Andere…"-tekst (#337).
+            if ans.value_text is not None:
+                entry["other_text"] = ans.value_text
+        elif ans.value_text is not None:
             entry["text"] = ans.value_text
         if ans.value_number is not None:
             entry["number"] = ans.value_number
-        if ans.value_option_id is not None:
-            entry["option_ids"].append(ans.value_option_id)
         if ans.value_rating is not None:
             entry["rating"] = ans.value_rating
     return list(by_field.values())

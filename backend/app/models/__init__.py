@@ -24,6 +24,7 @@ from app.models.business_event import BusinessEvent
 from app.models.email_log import EmailLog
 from app.models.form import (
     Form,
+    FormSection,
     FormField,
     FormFieldOption,
     FormSubmission,
