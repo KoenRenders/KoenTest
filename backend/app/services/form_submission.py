@@ -124,13 +124,17 @@ def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmi
 
         ftype = field.field_type
 
-        if ftype in ("text", "textarea", "email"):
+        if ftype in ("text", "textarea", "email", "phone"):
             if field.min_length is not None and len(text) < field.min_length:
                 raise _fail(field, f"minstens {field.min_length} tekens.")
             if field.max_length is not None and len(text) > field.max_length:
                 raise _fail(field, f"hoogstens {field.max_length} tekens.")
             if ftype == "email" and not _EMAIL_RE.match(text):
                 raise _fail(field, "geen geldig e-mailadres.")
+            if ftype == "phone":
+                digits = re.sub(r"\D", "", text)
+                if not (8 <= len(digits) <= 15):
+                    raise _fail(field, "geen geldig telefoonnummer.")
             if field.regex_pattern:
                 try:
                     if not re.match(field.regex_pattern, text):

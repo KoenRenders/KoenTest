@@ -44,7 +44,7 @@ function PrintField({ field, sectionLabel }: { field: FormFieldDef; sectionLabel
       </div>
       {field.help_text && <div className="text-sm text-gray-500">{field.help_text}</div>}
 
-      {(t === "text" || t === "email" || t === "number") && <Lines n={1} />}
+      {(t === "text" || t === "email" || t === "number" || t === "phone") && <Lines n={1} />}
       {t === "textarea" && <Lines n={3} />}
 
       {(t === "select" || t === "radio" || t === "checkbox") && (
@@ -147,6 +147,7 @@ export default function FormPrintPage() {
         <div className="mt-8 pt-4 border-t border-gray-300 grid grid-cols-2 gap-6 text-sm text-gray-600">
           <div>Naam: <span className="inline-block border-b border-gray-400 w-40 align-bottom" /></div>
           <div>Datum: <span className="inline-block border-b border-gray-400 w-32 align-bottom" /></div>
+          {!form.is_anonymous && <div className="col-span-2">E-mail: <span className="inline-block border-b border-gray-400 w-64 align-bottom" /></div>}
         </div>
       </div>
     </div>

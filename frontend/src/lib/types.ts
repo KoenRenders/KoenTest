@@ -205,6 +205,7 @@ export interface FormAdmin {
   send_confirmation: boolean;
   confirmation_message?: string | null;
   allow_edit: boolean;
+  is_anonymous?: boolean;
   created_at: string;
   updated_at: string;
   sections: FormSection[];
@@ -242,6 +243,8 @@ export interface PublicForm {
   description?: string | null;
   status: string;
   allow_edit: boolean;
+  send_confirmation?: boolean;
+  is_anonymous?: boolean;
   sections: FormSection[];
   fields: PublicFormField[];
 }

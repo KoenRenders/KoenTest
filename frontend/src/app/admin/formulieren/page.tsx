@@ -15,6 +15,7 @@ const FIELD_TYPES: { value: string; label: string }[] = [
   { value: "radio", label: "Eén keuze" },
   { value: "checkbox", label: "Meerkeuze" },
   { value: "rating", label: "Beoordeling (1–5)" },
+  { value: "phone", label: "Telefoon / gsm" },
   { value: "info", label: "Tekstblok (info)" },
 ];
 const CHOICE_TYPES = ["select", "radio", "checkbox"];
@@ -44,6 +45,7 @@ type EditForm = {
   send_confirmation: boolean;
   confirmation_message: string;
   allow_edit: boolean;
+  is_anonymous: boolean;
   share_token?: string;
   sections: EditSection[];
   fields: EditField[];
@@ -60,7 +62,7 @@ function emptyField(): EditField {
 function emptyForm(): EditForm {
   return {
     title: "", description: "", status: "draft", max_submissions: "",
-    send_confirmation: false, confirmation_message: "", allow_edit: false, sections: [], fields: [],
+    send_confirmation: false, confirmation_message: "", allow_edit: false, is_anonymous: false, sections: [], fields: [],
   };
 }
 
@@ -77,6 +79,7 @@ function toEditForm(f: FormAdmin): EditForm {
     send_confirmation: f.send_confirmation,
     confirmation_message: f.confirmation_message ?? "",
     allow_edit: f.allow_edit,
+    is_anonymous: !!f.is_anonymous,
     share_token: f.share_token,
     sections: sorted.map((s) => ({
       title: s.title ?? "",
@@ -115,6 +118,7 @@ function toPayload(f: EditForm) {
     send_confirmation: f.send_confirmation,
     confirmation_message: f.confirmation_message || null,
     allow_edit: f.allow_edit,
+    is_anonymous: f.is_anonymous,
     sections: f.sections.map((s, i) => ({
       title: s.title || null,
       description: s.description || null,
@@ -409,19 +413,28 @@ function FormEditor({
           </div>
         </div>
         <label className="flex items-center gap-2">
-          <input type="checkbox" checked={form.send_confirmation} onChange={(e) => patch({ send_confirmation: e.target.checked })} />
-          Bevestigingsmail sturen (als de invuller een e-mailadres opgeeft)
+          <input type="checkbox" checked={form.is_anonymous} onChange={(e) => patch({ is_anonymous: e.target.checked })} />
+          Anoniem — geen naam/e-mail vragen, geen bevestigingsmail, geen invuller bewaard
         </label>
-        {form.send_confirmation && (
-          <div>
-            <label className="block font-medium mb-1">Tekst bevestigingsmail (optioneel)</label>
-            <textarea className="input w-full" rows={2} value={form.confirmation_message} onChange={(e) => patch({ confirmation_message: e.target.value })} />
-          </div>
+        {!form.is_anonymous && (
+          <>
+            <p className="text-sm text-gray-500">Bij een niet-anoniem formulier vragen we onderaan naam + e-mail van de invuller (los van de vragen in het formulier).</p>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={form.send_confirmation} onChange={(e) => patch({ send_confirmation: e.target.checked })} />
+              Bevestigingsmail sturen (naar het opgegeven contact-e-mailadres)
+            </label>
+            {form.send_confirmation && (
+              <div>
+                <label className="block font-medium mb-1">Tekst bevestigingsmail (optioneel)</label>
+                <textarea className="input w-full" rows={2} value={form.confirmation_message} onChange={(e) => patch({ confirmation_message: e.target.value })} />
+              </div>
+            )}
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={form.allow_edit} onChange={(e) => patch({ allow_edit: e.target.checked })} />
+              Invuller mag antwoord nadien wijzigen via een link
+            </label>
+          </>
         )}
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={form.allow_edit} onChange={(e) => patch({ allow_edit: e.target.checked })} />
-          Invuller mag antwoord nadien wijzigen via een link
-        </label>
       </div>
 
       <div className="card mb-4">

@@ -28,6 +28,7 @@ FIELD_TYPES = (
     "checkbox",
     "rating",
     "info",  # louter informatief tekstblok, geen antwoord (#335)
+    "phone",  # gsm/telefoon met lichte validatie (#344)
 )
 
 # Een formulier doorloopt: draft (in opbouw) -> open (publiek invulbaar) ->
@@ -63,6 +64,8 @@ class Form(Base):
     confirmation_message = Column(Text, nullable=True)
     # Sta wijzigen-na-indienen toe via een edit_token-link.
     allow_edit = Column(Boolean, nullable=False, default=False)
+    # Anoniem (#343): geen contactblok, geen bevestigingsmail, geen submitter bewaard.
+    is_anonymous = Column(Boolean, nullable=False, default=False, server_default="false")
     created_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
     )

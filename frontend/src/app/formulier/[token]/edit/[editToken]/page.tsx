@@ -6,13 +6,6 @@ import { parseApiError } from "@/lib/errors";
 import type { PublicForm, AnswerPayload } from "@/lib/types";
 import DynamicForm, { type DynamicFormInitial } from "@/components/DynamicForm";
 
-function deriveEmail(form: PublicForm, answers: AnswerPayload[]): string | undefined {
-  const emailField = form.fields.find((f) => f.field_type === "email");
-  if (!emailField) return undefined;
-  const ans = answers.find((a) => a.field_id === emailField.id);
-  return ans?.text || undefined;
-}
-
 export default function EditSubmissionPage() {
   const params = useParams();
   const editToken = String(params.editToken);
@@ -37,13 +30,14 @@ export default function EditSubmissionPage() {
       .finally(() => setLoading(false));
   }, [editToken]);
 
-  async function handleSubmit(payload: { answers: AnswerPayload[] }) {
+  async function handleSubmit(payload: { answers: AnswerPayload[]; submitter_name?: string; submitter_email?: string }) {
     if (!form) return;
     setSubmitting(true);
     setError("");
     try {
       await updateSubmission(editToken, {
-        submitter_email: deriveEmail(form, payload.answers),
+        submitter_name: payload.submitter_name,
+        submitter_email: payload.submitter_email,
         answers: payload.answers,
       });
       setDone(true);
@@ -69,7 +63,16 @@ export default function EditSubmissionPage() {
         ) : (
           <>
             {error && <div className="bg-red-50 text-red-700 rounded-lg p-3 mb-3 text-sm">{error}</div>}
-            <DynamicForm fields={form.fields} sections={form.sections} initial={initial} submitting={submitting} submitLabel="Aanpassing opslaan" onSubmit={handleSubmit} />
+            <DynamicForm
+              fields={form.fields}
+              sections={form.sections}
+              initial={initial}
+              submitting={submitting}
+              submitLabel="Aanpassing opslaan"
+              collectContact={!form.is_anonymous}
+              requireEmail={!!form.send_confirmation || form.allow_edit}
+              onSubmit={handleSubmit}
+            />
           </>
         )}
       </div>

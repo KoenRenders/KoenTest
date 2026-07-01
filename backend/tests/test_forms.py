@@ -496,3 +496,63 @@ def test_branch_config_persisted_on_form_and_sections(client, admin_headers):
     by_label = {o["label"]: o for o in radio["options"]}
     assert by_label["Ja"]["skip_to_section_id"] == wel_id
     assert by_label["Nee"]["skip_to_section_id"] == niet_id
+
+
+# ── Contactblok/anoniem (#343) + phone (#344) ────────────────────────────────────
+
+def test_phone_field_validation(client, admin_headers):
+    form = _create_form(client, admin_headers, fields=[
+        {"field_type": "phone", "label": "GSM", "required": True, "position": 0},
+    ])
+    token = form["share_token"]
+    fid = _field_id(form, "GSM")
+    # Geldig nummer → 200.
+    ok = client.post(f"/api/v1/forms/by-token/{token}/submit", json={"answers": [{"field_id": fid, "text": "+32 470 12 34 56"}]})
+    assert ok.status_code == 200, ok.text
+    # Te kort → 422.
+    bad = client.post(f"/api/v1/forms/by-token/{token}/submit", json={"answers": [{"field_id": fid, "text": "123"}]})
+    assert bad.status_code == 422
+
+
+def test_anonymous_form_stores_no_submitter(client, admin_headers, db_session):
+    form = _create_form(client, admin_headers, is_anonymous=True, send_confirmation=True, fields=[
+        {"field_type": "text", "label": "Mening", "required": True, "position": 0},
+    ])
+    token = form["share_token"]
+    recipient = "anon-should-not-mail@example.com"
+    resp = client.post(f"/api/v1/forms/by-token/{token}/submit", json={
+        "submitter_name": "Jan", "submitter_email": recipient,
+        "answers": [{"field_id": _field_id(form, "Mening"), "text": "Prima"}],
+    })
+    assert resp.status_code == 200
+    sub = db_session.query(FormSubmission).filter(FormSubmission.id == resp.json()["id"]).one()
+    # Geen submitter bewaard bij een anoniem formulier.
+    assert sub.submitter_name is None and sub.submitter_email is None
+    # En geen bevestigingsmail (ook al stond send_confirmation aan).
+    s = SessionLocal()
+    try:
+        assert s.query(EmailLog).filter(EmailLog.recipient == recipient).count() == 0
+    finally:
+        s.close()
+
+
+def test_contact_email_decoupled_from_form_email_field(client, admin_headers):
+    """De bevestiging gaat naar het contactblok-adres, niet naar een e-mailveld
+    in het formulier (bv. partner)."""
+    form = _create_form(client, admin_headers, send_confirmation=True, fields=[
+        {"field_type": "email", "label": "E-mail partner", "position": 0},
+    ])
+    token = form["share_token"]
+    contact = "invuller-contact@example.com"
+    partner = "partner-data@example.com"
+    client.post(f"/api/v1/forms/by-token/{token}/submit", json={
+        "submitter_name": "Jan", "submitter_email": contact,
+        "answers": [{"field_id": _field_id(form, "E-mail partner"), "text": partner}],
+    })
+    s = SessionLocal()
+    try:
+        assert s.query(EmailLog).filter(EmailLog.recipient == contact, EmailLog.email_type == "form_confirmation").count() == 1
+        # Nooit naar het partner-datacveld.
+        assert s.query(EmailLog).filter(EmailLog.recipient == partner).count() == 0
+    finally:
+        s.close()

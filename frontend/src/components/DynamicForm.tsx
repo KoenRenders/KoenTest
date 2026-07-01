@@ -47,6 +47,8 @@ export default function DynamicForm({
   initial,
   submitting,
   submitLabel = "Versturen",
+  collectContact = false,
+  requireEmail = false,
   onSubmit,
 }: {
   fields: PublicFormField[];
@@ -54,9 +56,13 @@ export default function DynamicForm({
   initial?: DynamicFormInitial;
   submitting?: boolean;
   submitLabel?: string;
-  onSubmit: (payload: { answers: AnswerPayload[] }) => void;
+  collectContact?: boolean;
+  requireEmail?: boolean;
+  onSubmit: (payload: { answers: AnswerPayload[]; submitter_name?: string; submitter_email?: string }) => void;
 }) {
   const [answers, setAnswers] = useState<Record<number, AnswerState>>(() => buildInitial(fields, initial));
+  const [contactName, setContactName] = useState(initial?.submitter_name ?? "");
+  const [contactEmail, setContactEmail] = useState(initial?.submitter_email ?? "");
 
   function set(fieldId: number, patch: Partial<AnswerState>) {
     setAnswers((prev) => ({ ...prev, [fieldId]: { ...prev[fieldId], ...patch } }));
@@ -128,8 +134,15 @@ export default function DynamicForm({
   }
   function goPrev() { setWizardError(""); setPath((p) => (p.length > 1 ? p.slice(0, -1) : p)); }
 
+  const [submitError, setSubmitError] = useState("");
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (collectContact && requireEmail && !contactEmail.trim()) {
+      setSubmitError("Vul je e-mailadres in.");
+      return;
+    }
+    setSubmitError("");
     const payload: AnswerPayload[] = fields
       .filter((f) => f.field_type !== "info")
       .map((f) => {
@@ -143,7 +156,31 @@ export default function DynamicForm({
           other_text: a.otherText ?? null,
         };
       });
-    onSubmit({ answers: payload });
+    onSubmit({
+      answers: payload,
+      submitter_name: collectContact ? (contactName || undefined) : undefined,
+      submitter_email: collectContact ? (contactEmail || undefined) : undefined,
+    });
+  }
+
+  function renderContact() {
+    if (!collectContact) return null;
+    return (
+      <div className="border-t pt-4 space-y-3">
+        <p className="font-semibold text-gray-800">Jouw gegevens</p>
+        <div>
+          <label className="block font-medium text-gray-800 mb-1">Naam</label>
+          <input className="input w-full" value={contactName} onChange={(e) => setContactName(e.target.value)} />
+        </div>
+        <div>
+          <label className="block font-medium text-gray-800 mb-1">
+            E-mail {requireEmail && <span className="text-red-600">*</span>}
+          </label>
+          <input type="email" className="input w-full" value={contactEmail} required={requireEmail} onChange={(e) => setContactEmail(e.target.value)} />
+        </div>
+        {submitError && <div className="bg-red-50 text-red-700 rounded-lg p-2 text-sm">{submitError}</div>}
+      </div>
+    );
   }
 
   // Toont het vrije tekstvak wanneer een aangevinkte optie een "Andere…" is.
@@ -171,9 +208,9 @@ export default function DynamicForm({
         </label>
         {f.help_text && <p className="text-sm text-gray-500 mb-1">{f.help_text}</p>}
 
-        {(f.field_type === "text" || f.field_type === "email") && (
+        {(f.field_type === "text" || f.field_type === "email" || f.field_type === "phone") && (
           <input
-            type={f.field_type === "email" ? "email" : "text"}
+            type={f.field_type === "email" ? "email" : f.field_type === "phone" ? "tel" : "text"}
             className="input w-full"
             value={a.text ?? ""}
             required={f.required}
@@ -295,6 +332,7 @@ export default function DynamicForm({
             <div className="space-y-5">{currentFields.map(renderField)}</div>
           </div>
         )}
+        {isLastStep && renderContact()}
         {wizardError && <div className="bg-red-50 text-red-700 rounded-lg p-2 text-sm">{wizardError}</div>}
         <div className="flex gap-2 border-t pt-4">
           {path.length > 1 && (
@@ -327,6 +365,8 @@ export default function DynamicForm({
           </div>
         );
       })}
+
+      {renderContact()}
 
       <button type="submit" className="btn-primary" disabled={submitting}>
         {submitting ? "Bezig…" : submitLabel}
