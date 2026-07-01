@@ -1,6 +1,6 @@
 ---
 name: release
-description: Begeleidt een Raak Millegem-release volgens CLAUDE.md — maakt/onderhoudt het release-tracking-issue, verifieert dat alle issues gemerged + CI-groen zijn, haalt CI-evidence op, begeleidt de GitHub Release (HDEV → tag → UAT → PROD) en sluit de issues. Gebruik dit bij het starten of afronden van een release (bv. "start release v1.x.0" of "rond v1.x.0 af").
+description: Begeleidt een Raak Millegem-release volgens CLAUDE.md — maakt/onderhoudt het release-tracking-issue, verifieert dat alle issues gemerged + CI-groen zijn, haalt CI-evidence op, begeleidt de GitHub Release (HDEV → tag → UAT → PROD) en sluit de issues. Kan de deploy optioneel over SSH op de server draaien (env-gated: DEPLOY_SSH_HOST/USER/KEY; HDEV automatisch, UAT/PROD enkel na bevestiging) en de backend-logs binnentrekken + analyseren. Gebruik dit bij het starten of afronden van een release (bv. "start release v1.x.0" of "rond v1.x.0 af").
 ---
 
 # Release-begeleiding Raak Millegem
@@ -55,6 +55,55 @@ Zet deze als checkboxes in het tracker-issue en begeleid Koen erdoorheen:
    Commando: `sudo docker compose -f docker-compose.<env>.yml --env-file
    .env.<env> logs backend --tail=80`.
 8. [ ] Functionele smoke per issue (schrijf per issue wat Koen concreet checkt).
+
+## Stap 4b — SSH-deploy + loganalyse (optioneel, env-gated)
+Deze stap draait de deploy **rechtstreeks op de server** en analyseert de logs —
+maar **alleen** als de omgeving het toelaat. Anders val je terug op "print de
+commando's, Koen voert ze uit, plak de logs, ik analyseer".
+
+**Voorwaarden (alle vier), anders overslaan en commando's printen:**
+1. `ssh` (en `scp`) zijn beschikbaar in de omgeving.
+2. Connectiegegevens staan in **env-variabelen** (NOOIT in de repo — public):
+   `DEPLOY_SSH_HOST`, `DEPLOY_SSH_USER`, `DEPLOY_SSH_KEY` (pad naar de private
+   key), optioneel `DEPLOY_SSH_PORT` (default 22) en `DEPLOY_REPO_DIR` (pad naar de
+   checkout op de server; en `DEPLOY_CADDY_DIR` voor de caddy-checkout).
+3. Het doelmilieu is bevestigd (zie guardrail hieronder).
+4. Test eerst de verbinding niet-destructief:
+   `ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" 'echo ok && hostname'`
+
+**Guardrail per milieu:**
+- **HDEV** — mag automatisch (integratielijn, geen tag).
+- **UAT / PROD** — **enkel na expliciete bevestiging van Koen in dit gesprek**, en
+  enkel met een reeds op HDEV geteste **release-tag**. Nooit PROD "en passant".
+
+**Files verplaatsen (scp).** De code komt via `git` op de server (de deploy-scripts
+doen `git fetch`/`checkout`), dus scp is enkel voor bestanden die **bewust niet in
+git** zitten — bv. een bijgewerkt `.env.<env>` met echte waarden. Verplaats zulke
+bestanden vanaf een lokale, niet-gecommitte bron; **print of commit hun inhoud
+nooit**:
+`scp -i "$DEPLOY_SSH_KEY" -P "${DEPLOY_SSH_PORT:-22}" ./local/.env.hdev "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST:$DEPLOY_REPO_DIR/.env.hdev"`
+
+**Deploy draaien (voorbeeld HDEV):**
+`ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" 'cd "$DEPLOY_REPO_DIR" && ./deploy-hdev.sh'`
+Voor UAT/PROD (na bevestiging + tag): `... './deploy-uat.sh vX.Y.Z'` resp.
+`./deploy-prod.sh vX.Y.Z`. Bij een Caddyfile-wijziging (#312/#314) daarna in
+`$DEPLOY_CADDY_DIR`: `./deploy-caddy.sh`.
+
+**Logs binnentrekken + analyseren.** Haal de backend-logs op en analyseer ze
+volgens `CLAUDE.md`:
+`ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" 'cd "$DEPLOY_REPO_DIR" && sudo docker compose -f docker-compose.<env>.yml --env-file .env.<env> logs backend --tail=120'`
+Rapporteer:
+- ✅ `Running upgrade NNN -> NNN+1` per verwachte migratie (of meld dat er geen
+  nieuwe migratie was — dan zijn er terecht geen upgrade-regels).
+- ✅ `Uvicorn running on http://0.0.0.0:8000` (app gestart).
+- ❌ Elke `ERROR`/`Traceback` **tussen** die twee → deploy verdacht; benoem de
+  regel(s) en stop de promotie naar het volgende milieu.
+Draai ook de read-only smoke test als die er is (`tests/run-all.sh`) en meld het
+resultaat.
+
+**Nooit** een secret, key-inhoud of `.env`-waarde naar de chat, een commit of een
+issue schrijven. Faalt de SSH-verbinding? Meld het en val terug op het
+print-de-commando's-pad.
 
 ## Stap 5 — issues sluiten
 Zodra CI groen is, **sluit Claude elk geïmplementeerd issue zelf** met een
