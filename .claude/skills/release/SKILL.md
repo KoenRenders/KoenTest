@@ -63,10 +63,14 @@ commando's, Koen voert ze uit, plak de logs, ik analyseer".
 
 **Voorwaarden (alle vier), anders overslaan en commando's printen:**
 1. `ssh` (en `scp`) zijn beschikbaar in de omgeving.
-2. Connectiegegevens staan in **env-variabelen** (NOOIT in de repo — public):
-   `DEPLOY_SSH_HOST`, `DEPLOY_SSH_USER`, `DEPLOY_SSH_KEY` (pad naar de private
-   key), optioneel `DEPLOY_SSH_PORT` (default 22) en `DEPLOY_REPO_DIR` (pad naar de
-   checkout op de server; en `DEPLOY_CADDY_DIR` voor de caddy-checkout).
+2. Connectiegegevens staan in **env-variabelen** (NOOIT in de repo — public; zie
+   `.deploy.env.example`). Eén Hetzner-server → gedeelde SSH-gegevens, per-milieu
+   checkout-mappen:
+   - Gedeeld: `DEPLOY_SSH_HOST`, `DEPLOY_SSH_USER`, `DEPLOY_SSH_KEY` (pad naar de
+     private key), optioneel `DEPLOY_SSH_PORT` (default 22).
+   - Per milieu: `DEPLOY_HDEV_DIR`, `DEPLOY_UAT_DIR`, `DEPLOY_PROD_DIR` en
+     `DEPLOY_CADDY_DIR`. Kies de map die bij het doelmilieu hoort. (Legacy:
+     `DEPLOY_REPO_DIR` geldt als fallback voor `DEPLOY_HDEV_DIR`.)
 3. Het doelmilieu is bevestigd (zie guardrail hieronder).
 4. Test eerst de verbinding niet-destructief:
    `ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" 'echo ok && hostname'`
@@ -90,15 +94,19 @@ zou gebeuren. De **verbindingstest en de log-fetch blijven wél echt draaien** (
 zijn read-only en veranderen niets). Sluit af met een duidelijke regel:
 "DRY-RUN — niets uitgevoerd. Zet `DEPLOY_DRY_RUN` uit om echt te deployen."
 
-**Deploy draaien (voorbeeld HDEV):**
-`ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" 'cd "$DEPLOY_REPO_DIR" && ./deploy-hdev.sh'`
-Voor UAT/PROD (na bevestiging + tag): `... './deploy-uat.sh vX.Y.Z'` resp.
-`./deploy-prod.sh vX.Y.Z`. Bij een Caddyfile-wijziging (#312/#314) daarna in
-`$DEPLOY_CADDY_DIR`: `./deploy-caddy.sh`. (Bij `DEPLOY_DRY_RUN` → enkel printen.)
+**Deploy draaien** — kies de checkout-map die bij het milieu hoort
+(`${DEPLOY_HDEV_DIR:-$DEPLOY_REPO_DIR}` / `$DEPLOY_UAT_DIR` / `$DEPLOY_PROD_DIR`):
+- HDEV: `ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" 'cd "${DEPLOY_HDEV_DIR:-$DEPLOY_REPO_DIR}" && ./deploy-hdev.sh'`
+- UAT (na bevestiging + tag): `ssh … 'cd "$DEPLOY_UAT_DIR" && ./deploy-uat.sh vX.Y.Z'`
+- PROD (na bevestiging + tag): `ssh … 'cd "$DEPLOY_PROD_DIR" && ./deploy-prod.sh vX.Y.Z'`
+- Caddyfile-wijziging (#312/#314): `ssh … 'cd "$DEPLOY_CADDY_DIR" && ./deploy-caddy.sh'`
+
+(Bij `DEPLOY_DRY_RUN` → enkel printen, niets uitvoeren.)
 
 **Logs binnentrekken + analyseren.** Haal de backend-logs op en analyseer ze
 volgens `CLAUDE.md`:
-`ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" 'cd "$DEPLOY_REPO_DIR" && sudo docker compose -f docker-compose.<env>.yml --env-file .env.<env> logs backend --tail=120'`
+`ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" 'cd <checkout-map van het milieu> && sudo docker compose -f docker-compose.<env>.yml --env-file .env.<env> logs backend --tail=120'`
+(checkout-map = `${DEPLOY_HDEV_DIR:-$DEPLOY_REPO_DIR}` / `$DEPLOY_UAT_DIR` / `$DEPLOY_PROD_DIR`).
 Rapporteer:
 - ✅ `Running upgrade NNN -> NNN+1` per verwachte migratie (of meld dat er geen
   nieuwe migratie was — dan zijn er terecht geen upgrade-regels).
