@@ -285,6 +285,81 @@ def test_edit_unknown_token_404(client):
     assert client.get("/api/v1/forms/edit/onbestaand").status_code == 404
 
 
+# ── Secties + info + "Andere…" (#335, #337) ─────────────────────────────────────
+
+def _sectioned_payload():
+    return {
+        "title": "Enquête met secties",
+        "status": "open",
+        "sections": [
+            {"title": "Intro", "description": "Welkom", "position": 0},
+            {"title": "Vragen", "description": None, "position": 1},
+        ],
+        "fields": [
+            {"field_type": "info", "label": "Beste families", "help_text": "Korte uitleg",
+             "required": True, "position": 0, "section_index": 0},
+            {"field_type": "text", "label": "Naam", "required": True, "position": 1, "section_index": 1},
+            {"field_type": "checkbox", "label": "Waarom niet?", "position": 2, "section_index": 1,
+             "options": [
+                 {"label": "Geen tijd", "position": 0},
+                 {"label": "Andere", "position": 1, "is_other": True},
+             ]},
+        ],
+    }
+
+
+def test_sections_returned_and_fields_linked(client, admin_headers):
+    form = client.post("/api/v1/forms", json=_sectioned_payload(), headers=admin_headers).json()
+    assert len(form["sections"]) == 2
+    naam = next(f for f in form["fields"] if f["label"] == "Naam")
+    intro_section = next(s for s in form["sections"] if s["title"] == "Intro")
+    vragen_section = next(s for s in form["sections"] if s["title"] == "Vragen")
+    assert naam["section_id"] == vragen_section["id"]
+    info = next(f for f in form["fields"] if f["field_type"] == "info")
+    assert info["section_id"] == intro_section["id"]
+    # Publiek formulier geeft secties + is_other mee.
+    pub = client.get(f"/api/v1/forms/by-token/{form['share_token']}").json()
+    assert len(pub["sections"]) == 2
+    checkbox = next(f for f in pub["fields"] if f["label"] == "Waarom niet?")
+    assert any(o["is_other"] for o in checkbox["options"])
+
+
+def test_info_field_never_required(client, admin_headers):
+    # Een 'info'-veld met required=true mag een inzending nooit blokkeren.
+    form = client.post("/api/v1/forms", json=_sectioned_payload(), headers=admin_headers).json()
+    token = form["share_token"]
+    naam_id = next(f["id"] for f in form["fields"] if f["label"] == "Naam")
+    resp = client.post(f"/api/v1/forms/by-token/{token}/submit", json={
+        "answers": [{"field_id": naam_id, "text": "Jan"}],
+    })
+    assert resp.status_code == 200, resp.text
+
+
+def test_other_option_stores_free_text(client, admin_headers, db_session):
+    form = client.post("/api/v1/forms", json=_sectioned_payload(), headers=admin_headers).json()
+    token = form["share_token"]
+    naam_id = next(f["id"] for f in form["fields"] if f["label"] == "Naam")
+    checkbox = next(f for f in form["fields"] if f["label"] == "Waarom niet?")
+    other_opt = next(o for o in checkbox["options"] if o["is_other"])
+    resp = client.post(f"/api/v1/forms/by-token/{token}/submit", json={
+        "answers": [
+            {"field_id": naam_id, "text": "Jan"},
+            {"field_id": checkbox["id"], "option_ids": [other_opt["id"]], "other_text": "Op reis"},
+        ],
+    })
+    assert resp.status_code == 200, resp.text
+    row = (
+        db_session.query(FormSubmissionAnswer)
+        .filter(FormSubmissionAnswer.submission_id == resp.json()["id"])
+        .filter(FormSubmissionAnswer.value_option_id == other_opt["id"])
+        .one()
+    )
+    assert row.value_text == "Op reis"
+    # Export toont "Andere: Op reis".
+    csv = client.get(f"/api/v1/forms/{form['id']}/export?format=csv", headers=admin_headers)
+    assert "Op reis".encode() in csv.content
+
+
 def test_loose_coupling_no_person_fk():
     # Inzending bewaart enkel vrije naam/e-mail — geen koppeling naar het ledendomein.
     cols = {c.name for c in FormSubmission.__table__.columns}

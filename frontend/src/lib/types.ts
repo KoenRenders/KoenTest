@@ -163,6 +163,14 @@ export interface FormFieldOption {
   label: string;
   value?: string | null;
   position: number;
+  is_other?: boolean;
+}
+
+export interface FormSection {
+  id: number;
+  title?: string | null;
+  description?: string | null;
+  position: number;
 }
 
 export interface FormFieldDef {
@@ -172,6 +180,7 @@ export interface FormFieldDef {
   help_text?: string | null;
   required: boolean;
   position: number;
+  section_id?: number | null;
   min_value?: number | null;
   max_value?: number | null;
   min_length?: number | null;
@@ -194,6 +203,7 @@ export interface FormAdmin {
   allow_edit: boolean;
   created_at: string;
   updated_at: string;
+  sections: FormSection[];
   fields: FormFieldDef[];
   submission_count: number;
 }
@@ -214,11 +224,12 @@ export interface PublicFormField {
   help_text?: string | null;
   required: boolean;
   position: number;
+  section_id?: number | null;
   min_value?: number | null;
   max_value?: number | null;
   min_length?: number | null;
   max_length?: number | null;
-  options: { id: number; label: string; value?: string | null }[];
+  options: { id: number; label: string; value?: string | null; is_other?: boolean }[];
 }
 
 export interface PublicForm {
@@ -227,6 +238,7 @@ export interface PublicForm {
   description?: string | null;
   status: string;
   allow_edit: boolean;
+  sections: FormSection[];
   fields: PublicFormField[];
 }
 
@@ -236,6 +248,7 @@ export interface AnswerPayload {
   number?: number | null;
   option_ids?: number[];
   rating?: number | null;
+  other_text?: string | null;
 }
 
 // ── E-maillog (#328) ────────────────────────────────────────────────────────

@@ -69,7 +69,7 @@ export default function EditSubmissionPage() {
         ) : (
           <>
             {error && <div className="bg-red-50 text-red-700 rounded-lg p-3 mb-3 text-sm">{error}</div>}
-            <DynamicForm fields={form.fields} initial={initial} submitting={submitting} submitLabel="Aanpassing opslaan" onSubmit={handleSubmit} />
+            <DynamicForm fields={form.fields} sections={form.sections} initial={initial} submitting={submitting} submitLabel="Aanpassing opslaan" onSubmit={handleSubmit} />
           </>
         )}
       </div>

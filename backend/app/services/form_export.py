@@ -35,12 +35,16 @@ def _build_table(db, form: Form):
         for ans in sub.answers:
             if ans.field_id not in per_field:
                 continue
-            if ans.value_text is not None:
+            if ans.value_option_id is not None:
+                label = option_label.get(ans.value_option_id, "")
+                # "Andere…"-optie: toon "label: vrije tekst".
+                if ans.value_text:
+                    label = f"{label}: {ans.value_text}" if label else ans.value_text
+                per_field[ans.field_id].append(label)
+            elif ans.value_text is not None:
                 per_field[ans.field_id].append(ans.value_text)
             elif ans.value_number is not None:
                 per_field[ans.field_id].append(f"{ans.value_number}")
-            elif ans.value_option_id is not None:
-                per_field[ans.field_id].append(option_label.get(ans.value_option_id, ""))
             elif ans.value_rating is not None:
                 per_field[ans.field_id].append(str(ans.value_rating))
 

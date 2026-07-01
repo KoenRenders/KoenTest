@@ -22,6 +22,16 @@ function Box() {
 
 function PrintField({ field }: { field: FormFieldDef }) {
   const { field_type: t } = field;
+
+  if (t === "info") {
+    return (
+      <div className="mb-4 break-inside-avoid">
+        {field.label && <p className="font-semibold text-gray-900">{field.label}</p>}
+        {field.help_text && <p className="text-gray-700 whitespace-pre-wrap">{field.help_text}</p>}
+      </div>
+    );
+  }
+
   return (
     <div className="mb-5 break-inside-avoid">
       <div className="font-medium text-gray-900">
@@ -38,6 +48,7 @@ function PrintField({ field }: { field: FormFieldDef }) {
             <div key={o.id} className="flex items-center">
               <Box />
               <span>{o.label}</span>
+              {o.is_other && <span className="flex-1 border-b border-gray-400 ml-2 self-end" />}
             </div>
           ))}
           {field.options.length === 0 && <Lines n={1} />}
@@ -100,7 +111,19 @@ export default function FormPrintPage() {
         <h2 className="text-2xl font-bold mb-2">{form.title}</h2>
         {form.description && <p className="text-gray-700 whitespace-pre-wrap mb-5">{form.description}</p>}
 
-        {form.fields.map((f) => <PrintField key={f.id} field={f} />)}
+        {form.fields.filter((f) => f.section_id == null).map((f) => <PrintField key={f.id} field={f} />)}
+
+        {[...form.sections].sort((a, b) => a.position - b.position).map((sec) => {
+          const secFields = form.fields.filter((f) => f.section_id === sec.id);
+          if (secFields.length === 0 && !sec.title && !sec.description) return null;
+          return (
+            <div key={sec.id} className="mt-6 pt-4 border-t border-gray-300 break-inside-avoid">
+              {sec.title && <h3 className="text-lg font-bold text-gray-900 mb-1">{sec.title}</h3>}
+              {sec.description && <p className="text-gray-700 whitespace-pre-wrap mb-3">{sec.description}</p>}
+              {secFields.map((f) => <PrintField key={f.id} field={f} />)}
+            </div>
+          );
+        })}
 
         <div className="mt-8 pt-4 border-t border-gray-300 grid grid-cols-2 gap-6 text-sm text-gray-600">
           <div>Naam: <span className="inline-block border-b border-gray-400 w-40 align-bottom" /></div>

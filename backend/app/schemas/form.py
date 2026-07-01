@@ -12,6 +12,13 @@ class FormFieldOptionIn(BaseModel):
     label: str
     value: Optional[str] = None
     position: int = 0
+    is_other: bool = False
+
+
+class FormSectionIn(BaseModel):
+    title: Optional[str] = None
+    description: Optional[str] = None
+    position: int = 0
 
 
 class FormFieldIn(BaseModel):
@@ -20,6 +27,8 @@ class FormFieldIn(BaseModel):
     help_text: Optional[str] = None
     required: bool = False
     position: int = 0
+    # Verwijst naar de index in de `sections`-lijst van de payload (None = ongegroepeerd).
+    section_index: Optional[int] = None
     min_value: Optional[Decimal] = None
     max_value: Optional[Decimal] = None
     min_length: Optional[int] = None
@@ -38,6 +47,7 @@ class FormCreate(BaseModel):
     send_confirmation: bool = False
     confirmation_message: Optional[str] = None
     allow_edit: bool = False
+    sections: List[FormSectionIn] = []
     fields: List[FormFieldIn] = []
 
 
@@ -52,6 +62,16 @@ class FormFieldOptionOut(BaseModel):
     label: str
     value: Optional[str] = None
     position: int
+    is_other: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+class FormSectionOut(BaseModel):
+    id: int
+    title: Optional[str] = None
+    description: Optional[str] = None
+    position: int
 
     model_config = {"from_attributes": True}
 
@@ -63,6 +83,7 @@ class FormFieldOut(BaseModel):
     help_text: Optional[str] = None
     required: bool
     position: int
+    section_id: Optional[int] = None
     min_value: Optional[Decimal] = None
     max_value: Optional[Decimal] = None
     min_length: Optional[int] = None
@@ -87,6 +108,7 @@ class FormAdminOut(BaseModel):
     allow_edit: bool
     created_at: datetime
     updated_at: datetime
+    sections: List[FormSectionOut] = []
     fields: List[FormFieldOut] = []
     submission_count: int = 0
 
@@ -110,6 +132,16 @@ class PublicFieldOption(BaseModel):
     id: int
     label: str
     value: Optional[str] = None
+    is_other: bool = False
+
+    model_config = {"from_attributes": True}
+
+
+class PublicSection(BaseModel):
+    id: int
+    title: Optional[str] = None
+    description: Optional[str] = None
+    position: int
 
     model_config = {"from_attributes": True}
 
@@ -121,6 +153,7 @@ class PublicField(BaseModel):
     help_text: Optional[str] = None
     required: bool
     position: int
+    section_id: Optional[int] = None
     min_value: Optional[Decimal] = None
     max_value: Optional[Decimal] = None
     min_length: Optional[int] = None
@@ -136,6 +169,7 @@ class PublicForm(BaseModel):
     description: Optional[str] = None
     status: str
     allow_edit: bool
+    sections: List[PublicSection] = []
     fields: List[PublicField] = []
 
     model_config = {"from_attributes": True}
@@ -148,6 +182,8 @@ class AnswerIn(BaseModel):
     # Eén optie (radio/select) of meerdere (checkbox).
     option_ids: List[int] = []
     rating: Optional[int] = None
+    # Vrije tekst bij een aangevinkte "Andere…"-optie (#337).
+    other_text: Optional[str] = None
 
 
 class SubmissionIn(BaseModel):
@@ -170,6 +206,7 @@ class SubmissionAnswerOut(BaseModel):
     number: Optional[Decimal] = None
     option_ids: List[int] = []
     rating: Optional[int] = None
+    other_text: Optional[str] = None
 
 
 class EditSubmissionOut(BaseModel):

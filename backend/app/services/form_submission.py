@@ -35,8 +35,14 @@ def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmi
     rows: List[FormSubmissionAnswer] = []
 
     for field in form.fields:
+        # 'info'-velden zijn louter tekst: nooit verplicht, nooit een antwoord.
+        if field.field_type == "info":
+            continue
+
         ans = by_field.get(field.id)
         option_ids_valid = {o.id for o in field.options}
+        other_option_ids = {o.id for o in field.options if o.is_other}
+        other_text = (ans.other_text or "").strip() if (ans and ans.other_text) else ""
 
         text = (ans.text or "").strip() if (ans and ans.text is not None) else ""
         number = ans.number if ans else None
@@ -85,15 +91,17 @@ def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmi
             oid = option_ids[0]
             if oid not in option_ids_valid:
                 raise _fail(field, "ongeldige keuze.")
-            rows.append(FormSubmissionAnswer(field_id=field.id, value_option_id=oid))
+            txt = other_text if oid in other_option_ids and other_text else None
+            rows.append(FormSubmissionAnswer(field_id=field.id, value_option_id=oid, value_text=txt))
 
         elif ftype == "checkbox":
             for oid in option_ids:
                 if oid not in option_ids_valid:
                     raise _fail(field, "ongeldige keuze.")
-            # Eén rij per aangevinkte optie.
+            # Eén rij per aangevinkte optie; "Andere…"-optie krijgt de vrije tekst.
             for oid in option_ids:
-                rows.append(FormSubmissionAnswer(field_id=field.id, value_option_id=oid))
+                txt = other_text if oid in other_option_ids and other_text else None
+                rows.append(FormSubmissionAnswer(field_id=field.id, value_option_id=oid, value_text=txt))
 
         elif ftype == "rating":
             if rating is None:
