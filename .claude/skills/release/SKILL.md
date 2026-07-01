@@ -1,6 +1,6 @@
 ---
 name: release
-description: Begeleidt een Raak Millegem-release volgens CLAUDE.md — maakt/onderhoudt het release-tracking-issue, verifieert dat alle issues gemerged + CI-groen zijn, haalt CI-evidence op, begeleidt de GitHub Release (HDEV → tag → UAT → PROD) en sluit de issues. Kan de deploy optioneel over SSH op de server draaien (env-gated: DEPLOY_SSH_HOST/USER/KEY; HDEV automatisch, UAT/PROD enkel na bevestiging) en de backend-logs binnentrekken + analyseren. Gebruik dit bij het starten of afronden van een release (bv. "start release v1.x.0" of "rond v1.x.0 af").
+description: Begeleidt een Raak Millegem-release volgens CLAUDE.md — maakt/onderhoudt het release-tracking-issue, verifieert dat alle issues gemerged + CI-groen zijn, haalt CI-evidence op, begeleidt de GitHub Release (HDEV → tag → UAT → PROD) en sluit de issues. Kan de deploy optioneel over SSH op de server draaien (env-gated: DEPLOY_SSH_HOST/USER/KEY; HDEV automatisch, UAT/PROD enkel na bevestiging; DEPLOY_DRY_RUN=1 print de commando's i.p.v. ze uit te voeren) en de backend-logs binnentrekken + analyseren. Gebruik dit bij het starten of afronden van een release (bv. "start release v1.x.0" of "rond v1.x.0 af").
 ---
 
 # Release-begeleiding Raak Millegem
@@ -83,11 +83,18 @@ bestanden vanaf een lokale, niet-gecommitte bron; **print of commit hun inhoud
 nooit**:
 `scp -i "$DEPLOY_SSH_KEY" -P "${DEPLOY_SSH_PORT:-22}" ./local/.env.hdev "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST:$DEPLOY_REPO_DIR/.env.hdev"`
 
+**Dry-run (droog doorlopen).** Als `DEPLOY_DRY_RUN` gezet is op `1`/`true`/`yes`,
+voer je de deploy-, scp- en Caddy-commando's **NIET** uit — je **print** ze exact
+(met de ingevulde host/user/paden, maar zonder key-inhoud) zodat Koen ziet wat er
+zou gebeuren. De **verbindingstest en de log-fetch blijven wél echt draaien** (die
+zijn read-only en veranderen niets). Sluit af met een duidelijke regel:
+"DRY-RUN — niets uitgevoerd. Zet `DEPLOY_DRY_RUN` uit om echt te deployen."
+
 **Deploy draaien (voorbeeld HDEV):**
 `ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" 'cd "$DEPLOY_REPO_DIR" && ./deploy-hdev.sh'`
 Voor UAT/PROD (na bevestiging + tag): `... './deploy-uat.sh vX.Y.Z'` resp.
 `./deploy-prod.sh vX.Y.Z`. Bij een Caddyfile-wijziging (#312/#314) daarna in
-`$DEPLOY_CADDY_DIR`: `./deploy-caddy.sh`.
+`$DEPLOY_CADDY_DIR`: `./deploy-caddy.sh`. (Bij `DEPLOY_DRY_RUN` → enkel printen.)
 
 **Logs binnentrekken + analyseren.** Haal de backend-logs op en analyseer ze
 volgens `CLAUDE.md`:

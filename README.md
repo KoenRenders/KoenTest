@@ -113,6 +113,7 @@ connection is provided via env vars (never committed):
 | `DEPLOY_SSH_HOST` / `DEPLOY_SSH_USER` / `DEPLOY_SSH_KEY` | SSH target + private-key path |
 | `DEPLOY_SSH_PORT` | optional, default 22 |
 | `DEPLOY_REPO_DIR` / `DEPLOY_CADDY_DIR` | checkout paths on the server |
+| `DEPLOY_DRY_RUN` | optional; `1`/`true` prints the deploy commands instead of running them (connection test + log fetch still run) |
 
 Guardrail: **HDEV runs automatically; UAT/PROD only after explicit confirmation**
 and with a validated release tag. In an environment without SSH (e.g. Claude Code
