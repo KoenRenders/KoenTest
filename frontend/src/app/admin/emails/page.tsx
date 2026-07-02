@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { getEmailLog } from "@/lib/api";
+import { getEmailLog, deleteEmailLog } from "@/lib/api";
 import { parseApiError } from "@/lib/errors";
 import { sanitizeCmsHtml } from "@/lib/sanitize";
 import type { EmailLogItem } from "@/lib/types";
@@ -49,6 +49,17 @@ export default function AdminEmails() {
   }
 
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [page, statusFilter, typeFilter]);
+
+  async function handleDelete(it: EmailLogItem) {
+    if (!confirm(`Deze gelogde mail aan ${it.recipient} definitief verwijderen?`)) return;
+    try {
+      await deleteEmailLog(it.id);
+      setOpen(null);
+      load();
+    } catch (e) {
+      setError(parseApiError(e, "Verwijderen mislukt."));
+    }
+  }
 
   const pages = Math.max(1, Math.ceil(total / perPage));
 
@@ -137,6 +148,9 @@ export default function AdminEmails() {
               .email-body blockquote { border-left: 4px solid #ccc; padding-left: 12px; color: #555; margin: 0.5rem 0; }
             `}</style>
             <div className="email-body border rounded-lg p-3 text-sm" dangerouslySetInnerHTML={{ __html: sanitizeCmsHtml(open.body ?? "") }} />
+            <div className="mt-4 flex justify-end">
+              <button className="btn-danger btn-sm" onClick={() => handleDelete(open)}>Verwijderen</button>
+            </div>
           </div>
         </div>
       )}

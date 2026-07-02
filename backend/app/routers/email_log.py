@@ -1,6 +1,6 @@
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -41,3 +41,19 @@ def list_email_log(
         .all()
     )
     return {"items": items, "total": total, "page": page, "per_page": per_page}
+
+
+@router.delete("/email-log/{log_id}", status_code=204)
+def delete_email_log(
+    log_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    """Verwijder één gelogde mail (#328). Harde delete: de email_log is een log
+    (geen soft-delete), en de bewaartermijn-opschoning verwijdert sowieso hard.
+    Admin-only — handig om test-mails op te ruimen of gevoelige inhoud te wissen."""
+    row = db.query(EmailLog).filter(EmailLog.id == log_id).first()
+    if not row:
+        raise HTTPException(status_code=404, detail="E-maillog niet gevonden")
+    db.delete(row)
+    db.commit()
