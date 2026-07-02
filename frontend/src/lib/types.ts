@@ -190,6 +190,9 @@ export interface FormFieldDef {
   min_length?: number | null;
   max_length?: number | null;
   regex_pattern?: string | null;
+  rating_max?: number | null;
+  rating_low_label?: string | null;
+  rating_high_label?: string | null;
   options: FormFieldOption[];
 }
 
@@ -234,6 +237,9 @@ export interface PublicFormField {
   max_value?: number | null;
   min_length?: number | null;
   max_length?: number | null;
+  rating_max?: number | null;
+  rating_low_label?: string | null;
+  rating_high_label?: string | null;
   options: { id: number; label: string; value?: string | null; is_other?: boolean; skip_to_section_id?: number | null; skip_to_end?: boolean }[];
 }
 

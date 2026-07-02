@@ -294,22 +294,35 @@ export default function DynamicForm({
             />
           )}
 
-        {f.field_type === "rating" && (
-          <div className="flex flex-wrap gap-2">
-            {[1, 2, 3, 4, 5].map((n) => (
-              <button
-                type="button"
-                key={n}
-                onClick={() => set(f.id, { rating: n })}
-                className={`px-3 py-1 rounded-lg border text-sm ${
-                  a.rating === n ? "bg-blue-700 text-white border-blue-700" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                }`}
-              >
-                {RATING_LABELS[n]}
-              </button>
-            ))}
-          </div>
-        )}
+        {f.field_type === "rating" && (() => {
+          const top = f.rating_max || 5;
+          const custom = top !== 5 || !!f.rating_low_label || !!f.rating_high_label;
+          const points = Array.from({ length: top }, (_, i) => i + 1);
+          return (
+            <div>
+              {custom && (f.rating_low_label || f.rating_high_label) && (
+                <div className="flex justify-between text-xs text-gray-500 mb-1">
+                  <span>{f.rating_low_label}</span>
+                  <span>{f.rating_high_label}</span>
+                </div>
+              )}
+              <div className="flex flex-wrap gap-2">
+                {points.map((n) => (
+                  <button
+                    type="button"
+                    key={n}
+                    onClick={() => set(f.id, { rating: n })}
+                    className={`px-3 py-1 rounded-lg border text-sm ${
+                      a.rating === n ? "bg-blue-700 text-white border-blue-700" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                    }`}
+                  >
+                    {custom ? n : RATING_LABELS[n]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     );
   }

@@ -63,16 +63,28 @@ function PrintField({ field, sectionLabel }: { field: FormFieldDef; sectionLabel
         </div>
       )}
 
-      {t === "rating" && (
-        <div className="mt-2 flex flex-wrap gap-4">
-          {RATING_LABELS.map((label, i) => (
-            <span key={i} className="flex items-center">
-              <Box />
-              <span>{label}</span>
-            </span>
-          ))}
-        </div>
-      )}
+      {t === "rating" && (() => {
+        const top = field.rating_max || 5;
+        const custom = top !== 5 || !!field.rating_low_label || !!field.rating_high_label;
+        const labels = custom
+          ? Array.from({ length: top }, (_, i) => String(i + 1))
+          : RATING_LABELS;
+        return (
+          <div className="mt-2">
+            {custom && (field.rating_low_label || field.rating_high_label) && (
+              <div className="text-xs text-gray-500 mb-1">{field.rating_low_label} … {field.rating_high_label}</div>
+            )}
+            <div className="flex flex-wrap gap-4">
+              {labels.map((label, i) => (
+                <span key={i} className="flex items-center">
+                  <Box />
+                  <span>{label}</span>
+                </span>
+              ))}
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

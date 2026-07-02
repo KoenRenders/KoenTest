@@ -179,8 +179,9 @@ def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmi
                 r = int(rating)
             except (TypeError, ValueError):
                 raise _fail(field, "ongeldige beoordeling.")
-            if r < 1 or r > 5:
-                raise _fail(field, "beoordeling moet tussen 1 en 5 liggen.")
+            top = field.rating_max or 5
+            if r < 1 or r > top:
+                raise _fail(field, f"beoordeling moet tussen 1 en {top} liggen.")
             rows.append(FormSubmissionAnswer(field_id=field.id, value_rating=r))
 
     return rows

@@ -556,3 +556,26 @@ def test_contact_email_decoupled_from_form_email_field(client, admin_headers):
         assert s.query(EmailLog).filter(EmailLog.recipient == partner).count() == 0
     finally:
         s.close()
+
+
+# ── Configureerbare rating-schaal (#341) ─────────────────────────────────────────
+
+def test_configurable_rating_scale(client, admin_headers):
+    form = _create_form(client, admin_headers, fields=[
+        {"field_type": "rating", "label": "Belangrijkheid prijs", "position": 0,
+         "rating_max": 3, "rating_low_label": "Onbelangrijk", "rating_high_label": "Zeer belangrijk"},
+    ])
+    token = form["share_token"]
+    fid = _field_id(form, "Belangrijkheid prijs")
+    # Binnen bereik (3 op een 3-punts schaal) → 200.
+    ok = client.post(f"/api/v1/forms/by-token/{token}/submit", json={"answers": [{"field_id": fid, "rating": 3}]})
+    assert ok.status_code == 200, ok.text
+    # Buiten bereik (4 > rating_max 3) → 422.
+    bad = client.post(f"/api/v1/forms/by-token/{token}/submit", json={"answers": [{"field_id": fid, "rating": 4}]})
+    assert bad.status_code == 422
+    # Resultaten: verdeling met exact 3 niveaus + eindpunt-labels.
+    res = client.get(f"/api/v1/forms/{form['id']}/results", headers=admin_headers).json()
+    rating = next(f for f in res["fields"] if f["label"] == "Belangrijkheid prijs")
+    assert len(rating["distribution"]) == 3
+    assert "Onbelangrijk" in rating["distribution"][0]["label"]
+    assert "Zeer belangrijk" in rating["distribution"][2]["label"]
