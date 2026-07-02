@@ -321,7 +321,6 @@ export default function BetalingenPage() {
   const refunds = filtered.filter((r) => r.type === "refund");
   const totalExpected = charges.reduce((s, r) => s + parseFloat(r.amount), 0);
   const totalPaid = charges.reduce((s, r) => s + (r.amount_paid ? parseFloat(r.amount_paid) : 0), 0);
-  const totalSaldo = totalExpected - totalPaid; // nog te ontvangen op de charges
   // Refunds zijn negatieve records; toon de bedragen positief (#83).
   // "Terug te betalen" = de verplichting (amount); "Terugbetaald" = effectief
   // gestort (amount_paid). Verschil = nog uit te betalen terugstortingen.
@@ -330,8 +329,15 @@ export default function BetalingenPage() {
     (s, r) => s + (r.amount_paid ? -parseFloat(r.amount_paid) : 0),
     0,
   );
-  // Netto effectief behouden = ontvangen min wat al teruggestort is.
-  const totalNet = totalPaid - totalRefunded;
+  // Overzichtsmatrix (#325): rijen Betalingen / Terugbetalingen / Netto,
+  // kolommen Te betalen / Betaald / Saldo. Saldo per rij = te betalen − betaald;
+  // de Netto-rij is de charges min de refunds per kolom, zodat het nettosaldo
+  // (nog te ontvangen − nog terug te storten) klopt.
+  const chargeSaldo = totalExpected - totalPaid;
+  const refundSaldo = totalToRefund - totalRefunded;
+  const nettoTeBetalen = totalExpected - totalToRefund;
+  const nettoBetaald = totalPaid - totalRefunded;
+  const nettoSaldo = chargeSaldo - refundSaldo;
 
   // Bundel alle betalingen/refunds van dezelfde inschrijving (payable) in één groep,
   // gesorteerd op de datum van de laatst aangemaakte betaling (#204).
@@ -416,22 +422,38 @@ export default function BetalingenPage() {
         <p className="mb-4 text-red-600 text-sm bg-red-50 border border-red-200 rounded-lg p-3">{error}</p>
       )}
 
-      <div className="flex gap-6 mb-6 text-sm text-gray-600 flex-wrap">
-        <span>{filtered.length} betaling{filtered.length !== 1 ? "en" : ""}</span>
-        <span>Verwacht: <strong>€{totalExpected.toFixed(2)}</strong></span>
-        <span>Ontvangen: <strong>€{totalPaid.toFixed(2)}</strong></span>
-        {totalToRefund > 0.001 && (
-          <span className="text-orange-600">Terug te betalen: <strong>€{totalToRefund.toFixed(2)}</strong></span>
-        )}
-        {totalRefunded > 0.001 && (
-          <span className="text-orange-600">Terugbetaald: <strong>€{totalRefunded.toFixed(2)}</strong></span>
-        )}
-        {totalRefunded > 0.001 && (
-          <span>Netto: <strong>€{totalNet.toFixed(2)}</strong></span>
-        )}
-        <span className={totalSaldo > 0.001 ? "text-red-600 font-semibold" : "text-green-600 font-semibold"}>
-          Saldo: €{totalSaldo.toFixed(2)}
-        </span>
+      <div className="mb-6">
+        <p className="text-sm text-gray-500 mb-2">{filtered.length} betaling{filtered.length !== 1 ? "en" : ""}</p>
+        <table className="text-sm text-gray-700 border-separate border-spacing-x-6">
+          <thead>
+            <tr className="text-gray-500 text-left">
+              <th className="font-medium"></th>
+              <th className="font-medium text-right">Te betalen</th>
+              <th className="font-medium text-right">Betaald</th>
+              <th className="font-medium text-right">Saldo</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td className="pr-2">Betalingen</td>
+              <td className="text-right">€{totalExpected.toFixed(2)}</td>
+              <td className="text-right">€{totalPaid.toFixed(2)}</td>
+              <td className={`text-right ${chargeSaldo > 0.001 ? "text-red-600" : "text-green-600"}`}>€{chargeSaldo.toFixed(2)}</td>
+            </tr>
+            <tr className="text-orange-700">
+              <td className="pr-2">Terugbetalingen</td>
+              <td className="text-right">€{totalToRefund.toFixed(2)}</td>
+              <td className="text-right">€{totalRefunded.toFixed(2)}</td>
+              <td className={`text-right ${refundSaldo > 0.001 ? "text-red-600" : "text-green-600"}`}>€{refundSaldo.toFixed(2)}</td>
+            </tr>
+            <tr className="font-semibold border-t">
+              <td className="pr-2">Netto</td>
+              <td className="text-right">€{nettoTeBetalen.toFixed(2)}</td>
+              <td className="text-right">€{nettoBetaald.toFixed(2)}</td>
+              <td className={`text-right ${nettoSaldo > 0.001 ? "text-red-600" : "text-green-600"}`}>€{nettoSaldo.toFixed(2)}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
 
       {filtered.length === 0 ? (

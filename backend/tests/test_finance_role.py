@@ -75,3 +75,15 @@ def test_finance_may_mutate(client, db_session):
                        json={"amount": "18.00"}, headers=_headers(FINANCE_EMAIL))
     assert resp.status_code == 200, resp.text
     assert resp.json()["type"] == "refund"
+
+
+def test_editing_amount_paid_stamps_paid_at(client, db_session):
+    """#346: een ontvangen bedrag invullen via het bewerk-endpoint zet meteen
+    paid_at, zodat er geen 'betaald zonder datum'-record ontstaat."""
+    charge = _seed_charge(db_session, amount="18.00", amount_paid=None, status="pending")
+    assert charge.paid_at is None
+    resp = client.patch(f"/api/v1/payment-status/records/{charge.id}",
+                        json={"amount_paid": "18.00"}, headers=_headers(FINANCE_EMAIL))
+    assert resp.status_code == 200, resp.text
+    db_session.refresh(charge)
+    assert charge.paid_at is not None
