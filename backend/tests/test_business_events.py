@@ -240,3 +240,21 @@ def test_business_event_stats_requires_admin(client, db_session):
     """Het rapport is admin-only — geen token mag geen cijfers prijsgeven."""
     resp = client.get("/api/v1/admin/business-events")
     assert resp.status_code in (401, 403)
+
+
+def test_revenue_30d_includes_amount_paid_without_paid_at(client, db_session, admin_headers):
+    """#346: een bewerkt record met amount_paid maar zónder paid_at telt in het
+    totaal; het 30d-venster (COALESCE paid_at, created_at) rekent het via het
+    recente created_at mee, zodat totaal == 30d op een jonge app."""
+    from decimal import Decimal
+    from app.domains.payment_status.models import PaymentRecord
+    rec = PaymentRecord(
+        payable_type="registration", payable_id=99,
+        amount=Decimal("65.00"), amount_paid=Decimal("65.00"),
+        method="transfer", status="pending", type="charge", paid_at=None,
+    )
+    db_session.add(rec)
+    db_session.flush()
+    body = client.get("/api/v1/admin/business-events", headers=admin_headers).json()
+    assert body["revenue_paid_eur"] == 65.0
+    assert body["revenue_paid_eur_30d"] == 65.0
