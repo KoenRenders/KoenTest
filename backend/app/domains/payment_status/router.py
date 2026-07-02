@@ -272,6 +272,11 @@ def update_payment_record(
             record.note = data.note
         if data.amount_paid is not None:
             record.amount_paid = data.amount_paid
+            # Consistentie (#346): een ontvangen/terugbetaald bedrag (≠ 0) krijgt
+            # meteen een paid_at, zodat er nooit een "betaald zonder datum"-record
+            # ontstaat dat wél in totalen maar niet in datum-vensters meetelt.
+            if data.amount_paid != 0 and record.paid_at is None:
+                record.paid_at = datetime.now(timezone.utc)
         snapshot_payment_record(
             db, record,
             operation="update", action="payment_updated",
