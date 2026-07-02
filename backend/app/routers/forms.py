@@ -32,7 +32,7 @@ from app.schemas.form import (
 )
 from app.services.form_submission import build_answers, assert_open_for_submission
 from app.services.form_results import compute_results
-from app.services.form_export import export_csv, export_ods
+from app.services.form_export import export_csv, export_ods, build_submissions_view
 from app.services.email import send_form_confirmation
 
 logger = logging.getLogger(__name__)
@@ -93,55 +93,98 @@ def _validate_form_payload(data) -> None:
 
 
 def _apply_fields(form: Form, data) -> None:
-    """Vervang de secties/velden/opties van het formulier door wat in de payload
-    staat. Velden verwijzen via `section_index` naar de aangemaakte secties."""
-    form.sections.clear()
-    form.fields.clear()
+    """Verzoen de secties/velden/opties van het formulier met de payload.
 
-    created_sections = []
+    Bestaande rijen worden **hergebruikt op basis van hun id** (indien meegestuurd)
+    i.p.v. gewist-en-heraangemaakt. Zo behouden velden hun id en blijven de
+    eraan gekoppelde inzendings-antwoorden intact wanneer de admin het formulier
+    bewerkt (bv. een vraag toevoegt). Velden/opties/secties die niet meer in de
+    payload staan, worden verwijderd. Velden verwijzen via `section_index` naar
+    de secties in payload-volgorde (branching #336).
+    """
+    existing_sections = {s.id: s for s in form.sections}
+    existing_fields = {f.id: f for f in form.fields}
+
+    # ── Secties: hergebruik-op-id, in payload-volgorde ──────────────────────────
     payload_sections = getattr(data, "sections", []) or []
+    result_sections = []
     for si in payload_sections:
-        section = FormSection(
-            title=si.title, description=si.description, position=si.position,
-            next_is_end=si.next_is_end,
-        )
-        form.sections.append(section)
-        created_sections.append(section)
-    # Tweede pass: sectie-navigatie koppelen (index → sectie-object).
-    for si, section in zip(payload_sections, created_sections):
+        section = existing_sections.get(si.id) if si.id is not None else None
+        if section is None:
+            section = FormSection()
+            form.sections.append(section)
+        section.title = si.title
+        section.description = si.description
+        section.position = si.position
+        section.next_is_end = si.next_is_end
+        section.next_section = None  # onder resolven
+        result_sections.append(section)
+    # Verwijder secties die niet meer voorkomen.
+    keep_sections = set(result_sections)
+    for section in list(form.sections):
+        if section not in keep_sections:
+            form.sections.remove(section)
+    # Sectie-navigatie koppelen (index → sectie-object in payload-volgorde).
+    for si, section in zip(payload_sections, result_sections):
         nidx = si.next_section_index
-        if nidx is not None and 0 <= nidx < len(created_sections):
-            section.next_section = created_sections[nidx]
+        if nidx is not None and 0 <= nidx < len(result_sections):
+            section.next_section = result_sections[nidx]
 
+    # ── Velden: hergebruik-op-id ────────────────────────────────────────────────
+    result_fields = []
     for fi in data.fields:
-        field = FormField(
-            field_type=fi.field_type,
-            label=fi.label,
-            help_text=fi.help_text,
-            required=fi.required,
-            position=fi.position,
-            min_value=fi.min_value,
-            max_value=fi.max_value,
-            min_length=fi.min_length,
-            max_length=fi.max_length,
-            regex_pattern=fi.regex_pattern,
-            rating_max=fi.rating_max,
-            rating_low_label=fi.rating_low_label,
-            rating_high_label=fi.rating_high_label,
-        )
+        field = existing_fields.get(fi.id) if fi.id is not None else None
+        if field is None:
+            field = FormField()
+            form.fields.append(field)
+        field.field_type = fi.field_type
+        field.label = fi.label
+        field.help_text = fi.help_text
+        field.required = fi.required
+        field.position = fi.position
+        field.min_value = fi.min_value
+        field.max_value = fi.max_value
+        field.min_length = fi.min_length
+        field.max_length = fi.max_length
+        field.regex_pattern = fi.regex_pattern
+        field.rating_max = fi.rating_max
+        field.rating_low_label = fi.rating_low_label
+        field.rating_high_label = fi.rating_high_label
         idx = fi.section_index
-        if idx is not None and 0 <= idx < len(created_sections):
-            field.section = created_sections[idx]
+        field.section = (
+            result_sections[idx] if idx is not None and 0 <= idx < len(result_sections) else None
+        )
+
+        # Opties: hergebruik-op-id binnen dit veld.
+        existing_options = {o.id: o for o in field.options}
+        result_options = []
         for oi in fi.options:
-            option = FormFieldOption(
-                label=oi.label, value=oi.value, position=oi.position,
-                is_other=oi.is_other, skip_to_end=oi.skip_to_end,
-            )
+            option = existing_options.get(oi.id) if oi.id is not None else None
+            if option is None:
+                option = FormFieldOption()
+                field.options.append(option)
+            option.label = oi.label
+            option.value = oi.value
+            option.position = oi.position
+            option.is_other = oi.is_other
+            option.skip_to_end = oi.skip_to_end
             sidx = oi.skip_to_section_index
-            if sidx is not None and 0 <= sidx < len(created_sections):
-                option.skip_to_section = created_sections[sidx]
-            field.options.append(option)
-        form.fields.append(field)
+            option.skip_to_section = (
+                result_sections[sidx] if sidx is not None and 0 <= sidx < len(result_sections) else None
+            )
+            result_options.append(option)
+        keep_options = set(result_options)
+        for option in list(field.options):
+            if option not in keep_options:
+                field.options.remove(option)
+
+        result_fields.append(field)
+
+    # Verwijder velden die niet meer voorkomen (hun antwoorden vallen mee weg).
+    keep_fields = set(result_fields)
+    for field in list(form.fields):
+        if field not in keep_fields:
+            form.fields.remove(field)
 
 
 def _submission_count(db: Session, form_id: int) -> int:
@@ -264,6 +307,38 @@ def form_results(
     if not form:
         raise HTTPException(status_code=404, detail="Formulier niet gevonden")
     return compute_results(db, form)
+
+
+@router.get("/forms/{form_id}/submissions")
+def list_submissions(
+    form_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    """Individuele inzendingen (admin-only, #356) — bevat de antwoorden per veld."""
+    form = db.query(Form).filter(Form.id == form_id).first()
+    if not form:
+        raise HTTPException(status_code=404, detail="Formulier niet gevonden")
+    return build_submissions_view(db, form)
+
+
+@router.delete("/forms/{form_id}/submissions/{submission_id}", status_code=204)
+def delete_submission(
+    form_id: int,
+    submission_id: int,
+    db: Session = Depends(get_db),
+    _admin: User = Depends(get_current_admin),
+):
+    """Verwijder één inzending (admin-only, #356). Cascade verwijdert de antwoorden."""
+    sub = (
+        db.query(FormSubmission)
+        .filter(FormSubmission.id == submission_id, FormSubmission.form_id == form_id)
+        .first()
+    )
+    if not sub:
+        raise HTTPException(status_code=404, detail="Inzending niet gevonden")
+    db.delete(sub)
+    db.commit()
 
 
 @router.get("/forms/{form_id}/export")

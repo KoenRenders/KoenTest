@@ -57,6 +57,45 @@ def _build_table(db, form: Form):
     return headers, rows
 
 
+def build_submissions_view(db, form: Form) -> dict:
+    """Per-inzending overzicht voor de admin (#356): veldlabels + per inzending
+    de antwoorden (leesbaar) met het inzending-id (voor verwijderen)."""
+    option_label = {}
+    for field in form.fields:
+        for o in field.options:
+            option_label[o.id] = o.label
+    view_fields = [f for f in form.fields if f.field_type != "info"]
+
+    submissions = (
+        db.query(FormSubmission)
+        .filter(FormSubmission.form_id == form.id)
+        .order_by(FormSubmission.submitted_at.desc())
+        .all()
+    )
+    out = []
+    for sub in submissions:
+        per_field: dict = {f.id: [] for f in view_fields}
+        for ans in sub.answers:
+            if ans.field_id not in per_field:
+                continue
+            if ans.value_text is not None:
+                per_field[ans.field_id].append(ans.value_text)
+            elif ans.value_number is not None:
+                per_field[ans.field_id].append(f"{ans.value_number}")
+            elif ans.value_option_id is not None:
+                per_field[ans.field_id].append(option_label.get(ans.value_option_id, ""))
+            elif ans.value_rating is not None:
+                per_field[ans.field_id].append(str(ans.value_rating))
+        out.append({
+            "id": sub.id,
+            "submitted_at": sub.submitted_at,
+            "submitter_name": sub.submitter_name,
+            "submitter_email": sub.submitter_email,
+            "values": [_MULTI_SEP.join(per_field[f.id]) for f in view_fields],
+        })
+    return {"fields": [f.label for f in view_fields], "submissions": out}
+
+
 def export_csv(db, form: Form) -> bytes:
     headers, rows = _build_table(db, form)
     buf = io.StringIO()

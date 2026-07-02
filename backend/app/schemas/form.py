@@ -3,12 +3,15 @@ from datetime import datetime
 from decimal import Decimal
 from typing import List, Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
 
 
 # ── Admin: schrijven ────────────────────────────────────────────────────────────
 
 class FormFieldOptionIn(BaseModel):
+    # id van een bestaande optie (bij bewerken); leeg = nieuwe optie. Zo blijven
+    # bestaande rijen behouden i.p.v. gewist-en-heraangemaakt (#356 data-verlies).
+    id: Optional[int] = None
     label: str
     value: Optional[str] = None
     position: int = 0
@@ -19,6 +22,8 @@ class FormFieldOptionIn(BaseModel):
 
 
 class FormSectionIn(BaseModel):
+    # id van een bestaande sectie (bij bewerken); leeg = nieuwe sectie.
+    id: Optional[int] = None
     title: Optional[str] = None
     description: Optional[str] = None
     position: int = 0
@@ -29,6 +34,9 @@ class FormSectionIn(BaseModel):
 
 
 class FormFieldIn(BaseModel):
+    # id van een bestaand veld (bij bewerken); leeg = nieuw veld. Behoudt de rij
+    # (en de eraan gekoppelde antwoorden) i.p.v. gewist-en-heraangemaakt.
+    id: Optional[int] = None
     field_type: str
     label: str
     help_text: Optional[str] = None
@@ -45,6 +53,14 @@ class FormFieldIn(BaseModel):
     rating_low_label: Optional[str] = None
     rating_high_label: Optional[str] = None
     options: List[FormFieldOptionIn] = []
+
+    @field_validator("rating_max")
+    @classmethod
+    def _cap_rating_max(cls, v: Optional[int]) -> Optional[int]:
+        # De rating-schaal wordt begrensd tot 1..10; de DB-CHECK laat max 10 toe.
+        if v is None:
+            return None
+        return max(1, min(10, v))
 
 
 class FormCreate(BaseModel):
