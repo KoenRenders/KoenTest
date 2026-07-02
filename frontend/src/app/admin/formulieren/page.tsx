@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import {
   getForms, getForm, createForm, updateForm, deleteForm, getFormResults, exportForm,
+  getFormSubmissions, deleteFormSubmission,
 } from "@/lib/api";
 import { parseApiError } from "@/lib/errors";
 import type { FormSummary, FormAdmin, FormFieldDef } from "@/lib/types";
@@ -20,9 +21,10 @@ const FIELD_TYPES: { value: string; label: string }[] = [
 ];
 const CHOICE_TYPES = ["select", "radio", "checkbox"];
 
-type EditOption = { label: string; value: string; position: number; is_other: boolean; skip_to_section_index: number | null; skip_to_end: boolean };
-type EditSection = { title: string; description: string; next_section_index: number | null; next_is_end: boolean };
+type EditOption = { id?: number; label: string; value: string; position: number; is_other: boolean; skip_to_section_index: number | null; skip_to_end: boolean };
+type EditSection = { id?: number; title: string; description: string; next_section_index: number | null; next_is_end: boolean };
 type EditField = {
+  id?: number;
   field_type: string;
   label: string;
   help_text: string;
@@ -86,12 +88,14 @@ function toEditForm(f: FormAdmin): EditForm {
     is_anonymous: !!f.is_anonymous,
     share_token: f.share_token,
     sections: sorted.map((s) => ({
+      id: s.id,
       title: s.title ?? "",
       description: s.description ?? "",
       next_section_index: s.next_section_id != null && s.next_section_id in sectionIndex ? sectionIndex[s.next_section_id] : null,
       next_is_end: !!s.next_is_end,
     })),
     fields: f.fields.map((fd: FormFieldDef) => ({
+      id: fd.id,
       field_type: fd.field_type,
       label: fd.label,
       help_text: fd.help_text ?? "",
@@ -107,7 +111,7 @@ function toEditForm(f: FormAdmin): EditForm {
       rating_low_label: fd.rating_low_label ?? "",
       rating_high_label: fd.rating_high_label ?? "",
       options: fd.options.map((o) => ({
-        label: o.label, value: o.value ?? "", position: o.position, is_other: !!o.is_other,
+        id: o.id, label: o.label, value: o.value ?? "", position: o.position, is_other: !!o.is_other,
         skip_to_section_index: o.skip_to_section_id != null && o.skip_to_section_id in sectionIndex ? sectionIndex[o.skip_to_section_id] : null,
         skip_to_end: !!o.skip_to_end,
       })),
@@ -127,6 +131,7 @@ function toPayload(f: EditForm) {
     allow_edit: f.allow_edit,
     is_anonymous: f.is_anonymous,
     sections: f.sections.map((s, i) => ({
+      id: s.id ?? null,
       title: s.title || null,
       description: s.description || null,
       position: i,
@@ -134,6 +139,7 @@ function toPayload(f: EditForm) {
       next_is_end: s.next_is_end,
     })),
     fields: f.fields.map((fd, i) => ({
+      id: fd.id ?? null,
       field_type: fd.field_type,
       label: fd.label,
       help_text: fd.help_text || null,
@@ -150,7 +156,7 @@ function toPayload(f: EditForm) {
       rating_high_label: fd.field_type === "rating" ? (fd.rating_high_label || null) : null,
       options: CHOICE_TYPES.includes(fd.field_type)
         ? fd.options.map((o, j) => ({
-            label: o.label, value: o.value || null, position: j, is_other: o.is_other,
+            id: o.id ?? null, label: o.label, value: o.value || null, position: j, is_other: o.is_other,
             // Branching enkel voor radio/select (#336).
             skip_to_section_index: ["radio", "select"].includes(fd.field_type) && o.skip_to_section_index != null && o.skip_to_section_index < f.sections.length ? o.skip_to_section_index : null,
             skip_to_end: ["radio", "select"].includes(fd.field_type) ? o.skip_to_end : false,
@@ -162,10 +168,12 @@ function toPayload(f: EditForm) {
 
 export default function AdminFormulieren() {
   const [forms, setForms] = useState<FormSummary[]>([]);
-  const [view, setView] = useState<"list" | "edit" | "results">("list");
+  const [view, setView] = useState<"list" | "edit" | "results" | "submissions">("list");
   const [editing, setEditing] = useState<EditForm | null>(null);
   const [resultsForm, setResultsForm] = useState<FormSummary | null>(null);
   const [resultsData, setResultsData] = useState<ResultsShape | null>(null);
+  const [subsForm, setSubsForm] = useState<FormSummary | null>(null);
+  const [subsData, setSubsData] = useState<SubmissionsShape | null>(null);
   const [error, setError] = useState("");
 
   function load() {
@@ -216,6 +224,23 @@ export default function AdminFormulieren() {
     setResultsForm(f);
     setResultsData(r.data);
     setView("results");
+  }
+
+  async function openSubmissions(f: FormSummary) {
+    setError("");
+    const r = await getFormSubmissions(f.id);
+    setSubsForm(f);
+    setSubsData(r.data);
+    setView("submissions");
+  }
+
+  async function removeSubmission(submissionId: number) {
+    if (!subsForm) return;
+    if (!confirm("Deze inzending definitief verwijderen?")) return;
+    await deleteFormSubmission(subsForm.id, submissionId);
+    const r = await getFormSubmissions(subsForm.id);
+    setSubsData(r.data);
+    load();
   }
 
   async function copyToClipboard(text: string): Promise<boolean> {
@@ -279,6 +304,10 @@ export default function AdminFormulieren() {
     return <ResultsView form={resultsForm} data={resultsData} onBack={() => setView("list")} />;
   }
 
+  if (view === "submissions" && subsForm && subsData) {
+    return <SubmissionsView form={subsForm} data={subsData} onBack={() => setView("list")} onDelete={removeSubmission} />;
+  }
+
   return (
     <div>
       <div className="flex items-center justify-between mb-4">
@@ -306,6 +335,7 @@ export default function AdminFormulieren() {
                   <button className="text-blue-700 hover:underline" onClick={() => copyLink(f)}>Deellink</button>
                   <button className="text-blue-700 hover:underline" onClick={() => openEditor(f.id)}>Bewerken</button>
                   <button className="text-blue-700 hover:underline" onClick={() => openResults(f)}>Resultaten</button>
+                  <button className="text-blue-700 hover:underline" onClick={() => openSubmissions(f)}>Inzendingen</button>
                   <button className="text-blue-700 hover:underline" onClick={() => window.open(`/admin/formulieren/${f.id}/afdruk`, "_blank")}>Afdrukken</button>
                   <button className="text-blue-700 hover:underline" onClick={() => download(f.id, "csv")}>CSV</button>
                   <button className="text-blue-700 hover:underline" onClick={() => download(f.id, "ods")}>ODS</button>
@@ -347,10 +377,15 @@ function FormEditor({
     const fields = form.fields.map((f, idx) => (idx === i ? { ...f, ...p } : f));
     setForm({ ...form, fields });
   }
-  function addField() { setForm({ ...form, fields: [...form.fields, emptyField()] }); }
+  function addField(sectionIndex: number | null = null) {
+    setForm({ ...form, fields: [...form.fields, { ...emptyField(), section_index: sectionIndex }] });
+  }
   function removeField(i: number) { setForm({ ...form, fields: form.fields.filter((_, idx) => idx !== i) }); }
   function moveField(i: number, dir: -1 | 1) {
-    const j = i + dir;
+    // Verplaats binnen dezelfde sectie: zoek de dichtstbijzijnde buur met hetzelfde section_index.
+    const sec = form.fields[i].section_index;
+    let j = i + dir;
+    while (j >= 0 && j < form.fields.length && form.fields[j].section_index !== sec) j += dir;
     if (j < 0 || j >= form.fields.length) return;
     const fields = [...form.fields];
     [fields[i], fields[j]] = [fields[j], fields[i]];
@@ -387,6 +422,140 @@ function FormEditor({
       .map((s) => ({ ...s, next_section_index: shift(s.next_section_index) }));
     setForm({ ...form, sections, fields });
   }
+  function moveSection(i: number, dir: -1 | 1) {
+    const j = i + dir;
+    if (j < 0 || j >= form.sections.length) return;
+    // Verwissel sectie i en j en herindexeer élke verwijzing (veld-sectie, sectie-
+    // navigatie, keuze-sprong) zodat ze naar dezelfde logische sectie blijven wijzen.
+    const map = (idx: number | null): number | null =>
+      idx == null ? null : idx === i ? j : idx === j ? i : idx;
+    const sections = [...form.sections];
+    [sections[i], sections[j]] = [sections[j], sections[i]];
+    const remapped = sections.map((s) => ({ ...s, next_section_index: map(s.next_section_index) }));
+    const fields = form.fields.map((f) => ({
+      ...f,
+      section_index: map(f.section_index),
+      options: f.options.map((o) => ({ ...o, skip_to_section_index: map(o.skip_to_section_index) })),
+    }));
+    setForm({ ...form, sections: remapped, fields });
+  }
+
+  // Eén veldkaart renderen op globale index i (los van in welke sectie-groep het staat).
+  function renderFieldCard(i: number) {
+    const f = form.fields[i];
+    return (
+      <div key={i} className="card">
+        <div className="flex flex-wrap gap-3 items-end">
+          <div>
+            <label className="block text-sm font-medium mb-1">Type</label>
+            <select className="input" value={f.field_type} onChange={(e) => patchField(i, { field_type: e.target.value })}>
+              {FIELD_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+            </select>
+          </div>
+          <div className="flex-1 min-w-[200px]">
+            <label className="block text-sm font-medium mb-1">Vraag / label <span className="text-red-600">*</span></label>
+            <input className={`input w-full ${f.label.trim() ? "" : "border-red-400"}`} value={f.label} onChange={(e) => patchField(i, { label: e.target.value })} placeholder="verplicht" />
+          </div>
+          <label className="flex items-center gap-2 pb-2">
+            <input type="checkbox" checked={f.required} onChange={(e) => patchField(i, { required: e.target.checked })} />
+            Verplicht
+          </label>
+          <div className="flex gap-1 pb-1">
+            <button className="btn-secondary btn-sm" onClick={() => moveField(i, -1)}>↑</button>
+            <button className="btn-secondary btn-sm" onClick={() => moveField(i, 1)}>↓</button>
+            <button className="btn-danger btn-sm" onClick={() => removeField(i)}>✕</button>
+          </div>
+        </div>
+
+        <input className="input w-full mt-2" placeholder="Hulptekst (optioneel)" value={f.help_text} onChange={(e) => patchField(i, { help_text: e.target.value })} />
+
+        {CHOICE_TYPES.includes(f.field_type) && (
+          <div className="mt-3 pl-3 border-l-2 border-gray-200 space-y-2">
+            <p className="text-sm font-medium text-gray-600">Opties</p>
+            {f.options.map((o, oi) => (
+              <div key={oi} className="flex flex-wrap gap-2 items-center">
+                <input className="input flex-1 min-w-[160px]" value={o.label} onChange={(e) => patchOption(i, oi, { label: e.target.value })} placeholder={`Optie ${oi + 1}`} />
+                <label className="flex items-center gap-1 text-xs text-gray-600 whitespace-nowrap">
+                  <input type="checkbox" checked={o.is_other} onChange={(e) => patchOption(i, oi, { is_other: e.target.checked })} />
+                  "Andere…" (vrij tekstveld)
+                </label>
+                {["radio", "select"].includes(f.field_type) && form.sections.length > 0 && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-gray-500 whitespace-nowrap">ga naar →</span>
+                    <select
+                      className="input"
+                      value={o.skip_to_end ? "end" : o.skip_to_section_index != null ? String(o.skip_to_section_index) : ""}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        if (v === "") patchOption(i, oi, { skip_to_section_index: null, skip_to_end: false });
+                        else if (v === "end") patchOption(i, oi, { skip_to_section_index: null, skip_to_end: true });
+                        else patchOption(i, oi, { skip_to_section_index: Number(v), skip_to_end: false });
+                      }}
+                    >
+                      <option value="">— (gewone volgorde)</option>
+                      {form.sections.map((s2, si) => (si > (f.section_index ?? -1) ? <option key={si} value={si}>{s2.title || `Sectie ${si + 1}`}</option> : null))}
+                      <option value="end">einde</option>
+                    </select>
+                  </div>
+                )}
+                <button className="btn-danger btn-sm" onClick={() => removeOption(i, oi)}>✕</button>
+              </div>
+            ))}
+            <button className="btn-secondary btn-sm" onClick={() => addOption(i)}>+ Optie</button>
+          </div>
+        )}
+
+        {f.field_type === "number" && (
+          <div className="mt-3 flex gap-3">
+            <input className="input w-32" placeholder="min" value={f.min_value} onChange={(e) => patchField(i, { min_value: e.target.value })} />
+            <input className="input w-32" placeholder="max" value={f.max_value} onChange={(e) => patchField(i, { max_value: e.target.value })} />
+          </div>
+        )}
+
+        {f.field_type === "rating" && (
+          <div className="mt-3 flex flex-wrap gap-3 items-end">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Aantal punten</label>
+              <input
+                className="input w-28"
+                type="number"
+                min={1}
+                max={10}
+                placeholder="5"
+                value={f.rating_max}
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  if (raw === "") { patchField(i, { rating_max: "" }); return; }
+                  const capped = Math.max(1, Math.min(10, Math.round(Number(raw))));
+                  patchField(i, { rating_max: String(capped) });
+                }}
+              />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Label links (laag)</label>
+              <input className="input w-44" placeholder="bv. Onbelangrijk" value={f.rating_low_label} onChange={(e) => patchField(i, { rating_low_label: e.target.value })} />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Label rechts (hoog)</label>
+              <input className="input w-44" placeholder="bv. Zeer belangrijk" value={f.rating_high_label} onChange={(e) => patchField(i, { rating_high_label: e.target.value })} />
+            </div>
+            <p className="text-xs text-gray-400 w-full">Leeg laten = standaard 5 punten ("zeer slecht → zeer goed"). Maximum 10.</p>
+          </div>
+        )}
+
+        {["text", "textarea", "email"].includes(f.field_type) && (
+          <div className="mt-3 flex flex-wrap gap-3">
+            <input className="input w-36" placeholder="min. lengte" value={f.min_length} onChange={(e) => patchField(i, { min_length: e.target.value })} />
+            <input className="input w-36" placeholder="max. lengte" value={f.max_length} onChange={(e) => patchField(i, { max_length: e.target.value })} />
+          </div>
+        )}
+      </div>
+    );
+  }
+
+  const globalIdx = form.fields.map((_, i) => i);
+  const ungroupedIdx = globalIdx.filter((i) => form.fields[i].section_index == null);
+  const idxOfSection = (si: number) => globalIdx.filter((i) => form.fields[i].section_index === si);
 
   return (
     <div>
@@ -447,151 +616,53 @@ function FormEditor({
         </div>
       </div>
 
-      <div className="card mb-4">
-        <div className="flex items-center justify-between mb-2">
-          <h2 className="font-semibold text-gray-700">Secties</h2>
-          <button className="btn-secondary btn-sm" onClick={addSection}>+ Sectie</button>
-        </div>
-        <p className="text-sm text-gray-500 mb-2">Groepeer je vragen onder een titel + uitleg. Velden koppel je hieronder aan een sectie.</p>
-        <div className="space-y-2">
-          {form.sections.map((s, i) => (
-            <div key={i} className="flex flex-wrap gap-2 items-start border-l-2 border-gray-200 pl-3">
-              <input className="input flex-1 min-w-[160px]" value={s.title} onChange={(e) => patchSection(i, { title: e.target.value })} placeholder={`Sectietitel ${i + 1}`} />
-              <input className="input flex-1 min-w-[200px]" value={s.description} onChange={(e) => patchSection(i, { description: e.target.value })} placeholder="Beschrijving / uitleg (optioneel)" />
-              <div className="flex items-center gap-1">
-                <span className="text-xs text-gray-500 whitespace-nowrap">na deze sectie →</span>
-                <select
-                  className="input"
-                  value={s.next_is_end ? "end" : s.next_section_index != null ? String(s.next_section_index) : ""}
-                  onChange={(e) => {
-                    const v = e.target.value;
-                    if (v === "") patchSection(i, { next_section_index: null, next_is_end: false });
-                    else if (v === "end") patchSection(i, { next_section_index: null, next_is_end: true });
-                    else patchSection(i, { next_section_index: Number(v), next_is_end: false });
-                  }}
-                >
-                  <option value="">volgende sectie</option>
-                  {form.sections.map((s2, si) => (si > i ? <option key={si} value={si}>→ {s2.title || `Sectie ${si + 1}`}</option> : null))}
-                  <option value="end">→ einde</option>
-                </select>
-              </div>
-              <button className="btn-danger btn-sm" onClick={() => removeSection(i)}>✕</button>
+      {/* Ongegroepeerde vragen (bovenaan, zoals in Google Forms vóór de eerste sectie). */}
+      {ungroupedIdx.length > 0 && (
+        <div className="space-y-3 mb-4">{ungroupedIdx.map(renderFieldCard)}</div>
+      )}
+
+      {/* Secties met hun vragen eronder (Google-stijl). */}
+      {form.sections.map((s, si) => (
+        <div key={si} className="mb-6">
+          <div className="bg-blue-700 text-white rounded-t-xl px-4 py-2 flex items-center justify-between">
+            <span className="font-semibold">Sectie {si + 1} van {form.sections.length}</span>
+            <div className="flex gap-1">
+              <button className="px-2 py-0.5 rounded bg-blue-600 hover:bg-blue-500" onClick={() => moveSection(si, -1)} title="Sectie omhoog">↑</button>
+              <button className="px-2 py-0.5 rounded bg-blue-600 hover:bg-blue-500" onClick={() => moveSection(si, 1)} title="Sectie omlaag">↓</button>
+              <button className="px-2 py-0.5 rounded bg-red-600 hover:bg-red-500" onClick={() => removeSection(si)} title="Sectie verwijderen">✕</button>
             </div>
-          ))}
-          {form.sections.length === 0 && <p className="text-sm text-gray-400">Nog geen secties — velden verschijnen dan gewoon na elkaar.</p>}
-        </div>
-      </div>
-
-      <div className="space-y-3">
-        {form.fields.map((f, i) => (
-          <div key={i} className="card">
-            <div className="flex flex-wrap gap-3 items-end">
-              <div>
-                <label className="block text-sm font-medium mb-1">Type</label>
-                <select className="input" value={f.field_type} onChange={(e) => patchField(i, { field_type: e.target.value })}>
-                  {FIELD_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
-              </div>
-              {form.sections.length > 0 && (
-                <div>
-                  <label className="block text-sm font-medium mb-1">Sectie</label>
-                  <select
-                    className="input"
-                    value={f.section_index ?? ""}
-                    onChange={(e) => patchField(i, { section_index: e.target.value === "" ? null : Number(e.target.value) })}
-                  >
-                    <option value="">— Geen —</option>
-                    {form.sections.map((s, si) => <option key={si} value={si}>{s.title || `Sectie ${si + 1}`}</option>)}
-                  </select>
-                </div>
-              )}
-              <div className="flex-1 min-w-[200px]">
-                <label className="block text-sm font-medium mb-1">Vraag / label <span className="text-red-600">*</span></label>
-                <input className={`input w-full ${f.label.trim() ? "" : "border-red-400"}`} value={f.label} onChange={(e) => patchField(i, { label: e.target.value })} placeholder="verplicht" />
-              </div>
-              <label className="flex items-center gap-2 pb-2">
-                <input type="checkbox" checked={f.required} onChange={(e) => patchField(i, { required: e.target.checked })} />
-                Verplicht
-              </label>
-              <div className="flex gap-1 pb-1">
-                <button className="btn-secondary btn-sm" onClick={() => moveField(i, -1)}>↑</button>
-                <button className="btn-secondary btn-sm" onClick={() => moveField(i, 1)}>↓</button>
-                <button className="btn-danger btn-sm" onClick={() => removeField(i)}>✕</button>
-              </div>
-            </div>
-
-            <input className="input w-full mt-2" placeholder="Hulptekst (optioneel)" value={f.help_text} onChange={(e) => patchField(i, { help_text: e.target.value })} />
-
-            {CHOICE_TYPES.includes(f.field_type) && (
-              <div className="mt-3 pl-3 border-l-2 border-gray-200 space-y-2">
-                <p className="text-sm font-medium text-gray-600">Opties</p>
-                {f.options.map((o, oi) => (
-                  <div key={oi} className="flex flex-wrap gap-2 items-center">
-                    <input className="input flex-1 min-w-[160px]" value={o.label} onChange={(e) => patchOption(i, oi, { label: e.target.value })} placeholder={`Optie ${oi + 1}`} />
-                    <label className="flex items-center gap-1 text-xs text-gray-600 whitespace-nowrap">
-                      <input type="checkbox" checked={o.is_other} onChange={(e) => patchOption(i, oi, { is_other: e.target.checked })} />
-                      "Andere…" (vrij tekstveld)
-                    </label>
-                    {["radio", "select"].includes(f.field_type) && form.sections.length > 0 && (
-                      <div className="flex items-center gap-1">
-                        <span className="text-xs text-gray-500 whitespace-nowrap">ga naar →</span>
-                        <select
-                          className="input"
-                          value={o.skip_to_end ? "end" : o.skip_to_section_index != null ? String(o.skip_to_section_index) : ""}
-                          onChange={(e) => {
-                            const v = e.target.value;
-                            if (v === "") patchOption(i, oi, { skip_to_section_index: null, skip_to_end: false });
-                            else if (v === "end") patchOption(i, oi, { skip_to_section_index: null, skip_to_end: true });
-                            else patchOption(i, oi, { skip_to_section_index: Number(v), skip_to_end: false });
-                          }}
-                        >
-                          <option value="">— (gewone volgorde)</option>
-                          {form.sections.map((s2, si) => (si > (f.section_index ?? -1) ? <option key={si} value={si}>{s2.title || `Sectie ${si + 1}`}</option> : null))}
-                          <option value="end">einde</option>
-                        </select>
-                      </div>
-                    )}
-                    <button className="btn-danger btn-sm" onClick={() => removeOption(i, oi)}>✕</button>
-                  </div>
-                ))}
-                <button className="btn-secondary btn-sm" onClick={() => addOption(i)}>+ Optie</button>
-              </div>
-            )}
-
-            {f.field_type === "number" && (
-              <div className="mt-3 flex gap-3">
-                <input className="input w-32" placeholder="min" value={f.min_value} onChange={(e) => patchField(i, { min_value: e.target.value })} />
-                <input className="input w-32" placeholder="max" value={f.max_value} onChange={(e) => patchField(i, { max_value: e.target.value })} />
-              </div>
-            )}
-
-            {f.field_type === "rating" && (
-              <div className="mt-3 flex flex-wrap gap-3 items-end">
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Aantal punten</label>
-                  <input className="input w-28" type="number" placeholder="5" value={f.rating_max} onChange={(e) => patchField(i, { rating_max: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Label links (laag)</label>
-                  <input className="input w-44" placeholder="bv. Onbelangrijk" value={f.rating_low_label} onChange={(e) => patchField(i, { rating_low_label: e.target.value })} />
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">Label rechts (hoog)</label>
-                  <input className="input w-44" placeholder="bv. Zeer belangrijk" value={f.rating_high_label} onChange={(e) => patchField(i, { rating_high_label: e.target.value })} />
-                </div>
-                <p className="text-xs text-gray-400 w-full">Leeg laten + 5 punten = standaard "zeer slecht → zeer goed".</p>
-              </div>
-            )}
-
-            {["text", "textarea", "email"].includes(f.field_type) && (
-              <div className="mt-3 flex flex-wrap gap-3">
-                <input className="input w-36" placeholder="min. lengte" value={f.min_length} onChange={(e) => patchField(i, { min_length: e.target.value })} />
-                <input className="input w-36" placeholder="max. lengte" value={f.max_length} onChange={(e) => patchField(i, { max_length: e.target.value })} />
-              </div>
-            )}
           </div>
-        ))}
-        <button className="btn-secondary" onClick={addField}>+ Veld toevoegen</button>
+          <div className="card rounded-t-none border-t-0 space-y-2">
+            <input className="input w-full font-medium" value={s.title} onChange={(e) => patchSection(si, { title: e.target.value })} placeholder={`Sectietitel ${si + 1}`} />
+            <input className="input w-full" value={s.description} onChange={(e) => patchSection(si, { description: e.target.value })} placeholder="Beschrijving / uitleg (optioneel)" />
+            <div className="flex items-center gap-1 text-sm">
+              <span className="text-gray-500 whitespace-nowrap">na deze sectie →</span>
+              <select
+                className="input"
+                value={s.next_is_end ? "end" : s.next_section_index != null ? String(s.next_section_index) : ""}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  if (v === "") patchSection(si, { next_section_index: null, next_is_end: false });
+                  else if (v === "end") patchSection(si, { next_section_index: null, next_is_end: true });
+                  else patchSection(si, { next_section_index: Number(v), next_is_end: false });
+                }}
+              >
+                <option value="">volgende sectie</option>
+                {form.sections.map((s2, k) => (k > si ? <option key={k} value={k}>→ {s2.title || `Sectie ${k + 1}`}</option> : null))}
+                <option value="end">→ einde</option>
+              </select>
+            </div>
+          </div>
+          <div className="space-y-3 mt-3 pl-3 border-l-4 border-blue-100">
+            {idxOfSection(si).map(renderFieldCard)}
+            <button className="btn-secondary btn-sm" onClick={() => addField(si)}>+ Vraag in deze sectie</button>
+          </div>
+        </div>
+      ))}
+
+      <div className="flex flex-wrap gap-2">
+        <button className="btn-secondary" onClick={() => addField(null)}>+ Vraag {form.sections.length > 0 ? "(zonder sectie)" : ""}</button>
+        <button className="btn-secondary" onClick={addSection}>+ Sectie toevoegen</button>
       </div>
     </div>
   );
@@ -616,6 +687,65 @@ type ResultsShape = {
   last_submission: string | null;
   fields: ResultsField[];
 };
+
+type SubmissionRow = {
+  id: number;
+  submitted_at: string | null;
+  submitter_name: string | null;
+  submitter_email: string | null;
+  values: string[];
+};
+type SubmissionsShape = {
+  fields: string[];
+  submissions: SubmissionRow[];
+};
+
+function SubmissionsView({ form, data, onBack, onDelete }: {
+  form: FormSummary;
+  data: SubmissionsShape;
+  onBack: () => void;
+  onDelete: (submissionId: number) => void;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-4">
+        <h1 className="text-2xl font-bold text-blue-800">Inzendingen — {form.title}</h1>
+        <button className="btn-secondary btn-sm" onClick={onBack}>Terug</button>
+      </div>
+      <div className="card overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-gray-500 border-b">
+              <th className="py-2 pr-3 whitespace-nowrap">Ingediend op</th>
+              <th className="py-2 pr-3">Naam</th>
+              <th className="py-2 pr-3">E-mail</th>
+              {data.fields.map((label, i) => <th key={i} className="py-2 pr-3">{label}</th>)}
+              <th className="py-2"></th>
+            </tr>
+          </thead>
+          <tbody>
+            {data.submissions.map((s) => (
+              <tr key={s.id} className="border-b last:border-0 align-top">
+                <td className="py-2 pr-3 whitespace-nowrap text-gray-600">
+                  {s.submitted_at ? new Date(s.submitted_at).toLocaleString("nl-BE") : "—"}
+                </td>
+                <td className="py-2 pr-3">{s.submitter_name || "—"}</td>
+                <td className="py-2 pr-3">{s.submitter_email || "—"}</td>
+                {s.values.map((v, i) => <td key={i} className="py-2 pr-3 whitespace-pre-wrap">{v || "—"}</td>)}
+                <td className="py-2 text-right">
+                  <button className="text-red-600 hover:underline" onClick={() => onDelete(s.id)}>Verwijderen</button>
+                </td>
+              </tr>
+            ))}
+            {data.submissions.length === 0 && (
+              <tr><td colSpan={data.fields.length + 4} className="py-4 text-gray-500">Nog geen inzendingen.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  );
+}
 
 function Bar({ count, max }: { count: number; max: number }) {
   const pct = max > 0 ? Math.round((count / max) * 100) : 0;

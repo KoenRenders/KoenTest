@@ -407,6 +407,9 @@ export const createForm = (data: unknown) => api.post("/api/v1/forms", data);
 export const updateForm = (id: number, data: unknown) => api.put(`/api/v1/forms/${id}`, data);
 export const deleteForm = (id: number) => api.delete(`/api/v1/forms/${id}`);
 export const getFormResults = (id: number) => api.get(`/api/v1/forms/${id}/results`);
+export const getFormSubmissions = (id: number) => api.get(`/api/v1/forms/${id}/submissions`);
+export const deleteFormSubmission = (id: number, submissionId: number) =>
+  api.delete(`/api/v1/forms/${id}/submissions/${submissionId}`);
 export const exportForm = (id: number, format: "csv" | "ods") =>
   api.get(`/api/v1/forms/${id}/export`, { params: { format }, responseType: "blob" });
 // Publiek (geen login)

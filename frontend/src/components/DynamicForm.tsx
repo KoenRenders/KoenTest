@@ -140,6 +140,10 @@ export default function DynamicForm({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (collectContact && !contactName.trim()) {
+      setSubmitError("Vul je naam in.");
+      return;
+    }
     if (collectContact && requireEmail && !contactEmail.trim()) {
       setSubmitError("Vul je e-mailadres in.");
       return;
@@ -171,8 +175,10 @@ export default function DynamicForm({
       <div className="border-t pt-4 space-y-3">
         <p className="font-semibold text-gray-800">Jouw gegevens</p>
         <div>
-          <label className="block font-medium text-gray-800 mb-1">Naam</label>
-          <input className="input w-full" value={contactName} onChange={(e) => setContactName(e.target.value)} />
+          <label className="block font-medium text-gray-800 mb-1">
+            Naam <span className="text-red-600">*</span>
+          </label>
+          <input className="input w-full" value={contactName} required onChange={(e) => setContactName(e.target.value)} />
         </div>
         <div>
           <label className="block font-medium text-gray-800 mb-1">
@@ -301,27 +307,21 @@ export default function DynamicForm({
           const custom = top !== 5 || !!f.rating_low_label || !!f.rating_high_label;
           const points = Array.from({ length: top }, (_, i) => i + 1);
           return (
-            <div>
-              {custom && (f.rating_low_label || f.rating_high_label) && (
-                <div className="flex justify-between text-xs text-gray-500 mb-1">
-                  <span>{f.rating_low_label}</span>
-                  <span>{f.rating_high_label}</span>
-                </div>
-              )}
-              <div className="flex flex-wrap gap-2">
-                {points.map((n) => (
-                  <button
-                    type="button"
-                    key={n}
-                    onClick={() => set(f.id, { rating: n })}
-                    className={`px-3 py-1 rounded-lg border text-sm ${
-                      a.rating === n ? "bg-blue-700 text-white border-blue-700" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
-                    }`}
-                  >
-                    {custom ? n : RATING_LABELS[n]}
-                  </button>
-                ))}
-              </div>
+            <div className="flex flex-wrap items-center gap-2">
+              {custom && f.rating_low_label && <span className="text-xs text-gray-500 mr-1">{f.rating_low_label}</span>}
+              {points.map((n) => (
+                <button
+                  type="button"
+                  key={n}
+                  onClick={() => set(f.id, { rating: n })}
+                  className={`px-3 py-1 rounded-lg border text-sm ${
+                    a.rating === n ? "bg-blue-700 text-white border-blue-700" : "bg-white text-gray-700 border-gray-300 hover:bg-gray-50"
+                  }`}
+                >
+                  {custom ? n : RATING_LABELS[n]}
+                </button>
+              ))}
+              {custom && f.rating_high_label && <span className="text-xs text-gray-500 ml-1">{f.rating_high_label}</span>}
             </div>
           );
         })()}
