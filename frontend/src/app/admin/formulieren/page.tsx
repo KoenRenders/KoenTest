@@ -433,18 +433,18 @@ function FormEditor({
               <input type="checkbox" checked={form.send_confirmation} onChange={(e) => patch({ send_confirmation: e.target.checked })} />
               Bevestigingsmail sturen (naar het opgegeven contact-e-mailadres)
             </label>
-            {form.send_confirmation && (
-              <div>
-                <label className="block font-medium mb-1">Tekst bevestigingsmail (optioneel)</label>
-                <textarea className="input w-full" rows={2} value={form.confirmation_message} onChange={(e) => patch({ confirmation_message: e.target.value })} />
-              </div>
-            )}
             <label className="flex items-center gap-2">
               <input type="checkbox" checked={form.allow_edit} onChange={(e) => patch({ allow_edit: e.target.checked })} />
               Invuller mag antwoord nadien wijzigen via een link
             </label>
           </>
         )}
+        <div>
+          <label className="block font-medium mb-1">Bedanktekst na indienen (optioneel)</label>
+          <textarea className="input w-full" rows={2} value={form.confirmation_message} onChange={(e) => patch({ confirmation_message: e.target.value })}
+            placeholder="Bv. Hartelijk bedankt voor het invullen!" />
+          <p className="text-xs text-gray-400 mt-1">Verschijnt op het bedankt-scherm na indienen (en in de bevestigingsmail als die aanstaat).</p>
+        </div>
       </div>
 
       <div className="card mb-4">

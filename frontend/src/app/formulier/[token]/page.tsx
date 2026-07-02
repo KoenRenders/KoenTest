@@ -47,10 +47,11 @@ export default function PublicFormPage() {
     <div className="max-w-2xl mx-auto p-4">
       <div className="card">
         <h1 className="text-2xl font-bold text-blue-800 mb-2">{form.title}</h1>
-        {form.description && <p className="text-gray-700 whitespace-pre-wrap mb-4">{form.description}</p>}
 
         {done ? (
-          <div className="bg-green-50 text-green-800 rounded-lg p-4">Bedankt! Je antwoord is goed ontvangen.</div>
+          <div className="bg-green-50 text-green-800 rounded-lg p-4 whitespace-pre-wrap">
+            {form.confirmation_message?.trim() || "Bedankt! Je antwoord is goed ontvangen."}
+          </div>
         ) : form.status !== "open" ? (
           <div className="bg-amber-50 text-amber-800 rounded-lg p-4">Dit formulier is gesloten en neemt geen inzendingen meer aan.</div>
         ) : (
@@ -59,6 +60,7 @@ export default function PublicFormPage() {
             <DynamicForm
               fields={form.fields}
               sections={form.sections}
+              intro={form.description}
               submitting={submitting}
               collectContact={!form.is_anonymous}
               requireEmail={!!form.send_confirmation || form.allow_edit}

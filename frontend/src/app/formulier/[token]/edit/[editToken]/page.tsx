@@ -57,7 +57,9 @@ export default function EditSubmissionPage() {
         <h1 className="text-2xl font-bold text-blue-800 mb-2">{form.title}</h1>
         <p className="text-gray-600 text-sm mb-4">Je past hier je eerdere antwoord aan.</p>
         {done ? (
-          <div className="bg-green-50 text-green-800 rounded-lg p-4">Je aanpassing is opgeslagen.</div>
+          <div className="bg-green-50 text-green-800 rounded-lg p-4 whitespace-pre-wrap">
+            {form.confirmation_message?.trim() || "Je aanpassing is opgeslagen."}
+          </div>
         ) : form.status !== "open" ? (
           <div className="bg-amber-50 text-amber-800 rounded-lg p-4">Dit formulier is gesloten; aanpassen kan niet meer.</div>
         ) : (

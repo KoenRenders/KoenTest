@@ -250,6 +250,7 @@ export interface PublicForm {
   status: string;
   allow_edit: boolean;
   send_confirmation?: boolean;
+  confirmation_message?: string | null;
   is_anonymous?: boolean;
   sections: FormSection[];
   fields: PublicFormField[];
