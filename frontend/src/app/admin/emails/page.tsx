@@ -122,7 +122,21 @@ export default function AdminEmails() {
             </div>
             <p className="text-sm text-gray-600 mb-1">Aan: {open.recipient}</p>
             <p className="text-sm text-gray-600 mb-3">Status: {open.status}{open.error_message ? ` — ${open.error_message}` : ""}</p>
-            <div className="border rounded-lg p-3 text-sm" dangerouslySetInnerHTML={{ __html: sanitizeCmsHtml(open.body ?? "") }} />
+            {/* Herstel de mail-typografie die Tailwind's reset wegneemt: bullets/
+                indent bij lijsten, blauwe onderstreepte links, koppen, blockquote
+                en afbreken van lange URL's — zodat de preview toont zoals de
+                ontvanger de mail ziet. */}
+            <style>{`
+              .email-body { overflow-wrap: anywhere; word-break: break-word; line-height: 1.5; }
+              .email-body p { margin: 0.5rem 0; }
+              .email-body h1,.email-body h2,.email-body h3,.email-body h4 { font-weight: 600; margin: 0.7rem 0 0.25rem; }
+              .email-body ul { list-style: disc; padding-left: 1.5rem; margin: 0.4rem 0; }
+              .email-body ol { list-style: decimal; padding-left: 1.5rem; margin: 0.4rem 0; }
+              .email-body li { margin: 0.15rem 0; }
+              .email-body a { color: #1d4ed8; text-decoration: underline; overflow-wrap: anywhere; }
+              .email-body blockquote { border-left: 4px solid #ccc; padding-left: 12px; color: #555; margin: 0.5rem 0; }
+            `}</style>
+            <div className="email-body border rounded-lg p-3 text-sm" dangerouslySetInnerHTML={{ __html: sanitizeCmsHtml(open.body ?? "") }} />
           </div>
         </div>
       )}
