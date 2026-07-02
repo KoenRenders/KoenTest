@@ -579,3 +579,10 @@ def test_configurable_rating_scale(client, admin_headers):
     assert len(rating["distribution"]) == 3
     assert "Onbelangrijk" in rating["distribution"][0]["label"]
     assert "Zeer belangrijk" in rating["distribution"][2]["label"]
+
+
+def test_public_form_exposes_confirmation_message(client, admin_headers):
+    """#353: de bedanktekst is publiek beschikbaar zodat het bedankt-scherm ze toont."""
+    form = _create_form(client, admin_headers, confirmation_message="Hartelijk bedankt!")
+    pub = client.get(f"/api/v1/forms/by-token/{form['share_token']}").json()
+    assert pub["confirmation_message"] == "Hartelijk bedankt!"

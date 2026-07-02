@@ -196,6 +196,7 @@ class PublicForm(BaseModel):
     status: str
     allow_edit: bool
     send_confirmation: bool = False
+    confirmation_message: Optional[str] = None
     is_anonymous: bool = False
     sections: List[PublicSection] = []
     fields: List[PublicField] = []

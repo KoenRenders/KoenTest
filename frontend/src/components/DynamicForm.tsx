@@ -49,9 +49,11 @@ export default function DynamicForm({
   submitLabel = "Versturen",
   collectContact = false,
   requireEmail = false,
+  intro,
   onSubmit,
 }: {
   fields: PublicFormField[];
+  intro?: string | null;
   sections?: FormSection[];
   initial?: DynamicFormInitial;
   submitting?: boolean;
@@ -337,6 +339,7 @@ export default function DynamicForm({
     };
     return (
       <form onSubmit={onWizardSubmit} className="space-y-6">
+        {path.length === 1 && intro && <p className="text-gray-700 whitespace-pre-wrap">{intro}</p>}
         {path.length === 1 && ungrouped.length > 0 && <div className="space-y-5">{ungrouped.map(renderField)}</div>}
         {currentSec && (
           <div className="space-y-4">
@@ -365,6 +368,7 @@ export default function DynamicForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {intro && <p className="text-gray-700 whitespace-pre-wrap">{intro}</p>}
       {ungrouped.length > 0 && <div className="space-y-5">{ungrouped.map(renderField)}</div>}
 
       {orderedSections.map((sec) => {
