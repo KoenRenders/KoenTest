@@ -421,3 +421,4 @@ export const updateSubmission = (editToken: string, data: unknown) =>
 // ── E-maillog (#328) ────────────────────────────────────────────────────────
 export const getEmailLog = (params: { email_type?: string; status?: string; recipient?: string; page?: number; per_page?: number }) =>
   api.get("/api/v1/admin/email-log", { params });
+export const deleteEmailLog = (id: number) => api.delete(`/api/v1/admin/email-log/${id}`);

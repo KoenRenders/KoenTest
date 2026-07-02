@@ -110,3 +110,17 @@ def test_purge_zero_retention_keeps_all(db_session):
     ))
     db_session.flush()
     assert purge_old_email_logs(db_session, retention_days=0) == 0
+
+
+def test_admin_can_delete_email_log(client, admin_headers, db_session):
+    row = EmailLog(recipient="to-delete@example.com", subject="x", email_type="other", status="sent")
+    db_session.add(row)
+    db_session.flush()
+    log_id = row.id
+    # Geen token → geweigerd.
+    assert client.delete(f"/api/v1/admin/email-log/{log_id}").status_code == 401
+    # Admin → verwijderd.
+    assert client.delete(f"/api/v1/admin/email-log/{log_id}", headers=admin_headers).status_code == 204
+    assert db_session.query(EmailLog).filter(EmailLog.id == log_id).first() is None
+    # Onbekende id → 404.
+    assert client.delete("/api/v1/admin/email-log/99999999", headers=admin_headers).status_code == 404
