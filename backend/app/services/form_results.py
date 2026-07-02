@@ -62,9 +62,22 @@ def compute_results(db, form: Form) -> dict:
             dist = {int(r): int(c) for r, c in rows}
             total = sum(dist.values())
             weighted = sum(r * c for r, c in dist.items())
+            top = field.rating_max or 5
+            low, high = field.rating_low_label, field.rating_high_label
+
+            def _label(n: int) -> str:
+                # Standaard 5-punts zonder eigen labels → de vaste woord-labels.
+                if top == 5 and not low and not high:
+                    return RATING_LABELS[n]
+                if n == 1 and low:
+                    return f"{n} ({low})"
+                if n == top and high:
+                    return f"{n} ({high})"
+                return str(n)
+
             entry["distribution"] = [
-                {"rating": n, "label": RATING_LABELS[n], "count": dist.get(n, 0)}
-                for n in range(1, 6)
+                {"rating": n, "label": _label(n), "count": dist.get(n, 0)}
+                for n in range(1, top + 1)
             ]
             entry["response_count"] = total
             entry["average"] = round(weighted / total, 2) if total else None

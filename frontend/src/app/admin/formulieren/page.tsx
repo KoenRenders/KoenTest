@@ -34,6 +34,9 @@ type EditField = {
   min_length: string;
   max_length: string;
   regex_pattern: string;
+  rating_max: string;
+  rating_low_label: string;
+  rating_high_label: string;
   options: EditOption[];
 };
 type EditForm = {
@@ -55,7 +58,8 @@ function emptyField(): EditField {
   return {
     field_type: "text", label: "", help_text: "", required: false, position: 0,
     section_index: null,
-    min_value: "", max_value: "", min_length: "", max_length: "", regex_pattern: "", options: [],
+    min_value: "", max_value: "", min_length: "", max_length: "", regex_pattern: "",
+    rating_max: "", rating_low_label: "", rating_high_label: "", options: [],
   };
 }
 
@@ -99,6 +103,9 @@ function toEditForm(f: FormAdmin): EditForm {
       min_length: fd.min_length != null ? String(fd.min_length) : "",
       max_length: fd.max_length != null ? String(fd.max_length) : "",
       regex_pattern: fd.regex_pattern ?? "",
+      rating_max: fd.rating_max != null ? String(fd.rating_max) : "",
+      rating_low_label: fd.rating_low_label ?? "",
+      rating_high_label: fd.rating_high_label ?? "",
       options: fd.options.map((o) => ({
         label: o.label, value: o.value ?? "", position: o.position, is_other: !!o.is_other,
         skip_to_section_index: o.skip_to_section_id != null && o.skip_to_section_id in sectionIndex ? sectionIndex[o.skip_to_section_id] : null,
@@ -138,6 +145,9 @@ function toPayload(f: EditForm) {
       min_length: ["text", "textarea", "email"].includes(fd.field_type) ? num(fd.min_length) : null,
       max_length: ["text", "textarea", "email"].includes(fd.field_type) ? num(fd.max_length) : null,
       regex_pattern: ["text", "textarea", "email"].includes(fd.field_type) ? (fd.regex_pattern || null) : null,
+      rating_max: fd.field_type === "rating" ? num(fd.rating_max) : null,
+      rating_low_label: fd.field_type === "rating" ? (fd.rating_low_label || null) : null,
+      rating_high_label: fd.field_type === "rating" ? (fd.rating_high_label || null) : null,
       options: CHOICE_TYPES.includes(fd.field_type)
         ? fd.options.map((o, j) => ({
             label: o.label, value: o.value || null, position: j, is_other: o.is_other,
@@ -552,6 +562,24 @@ function FormEditor({
               <div className="mt-3 flex gap-3">
                 <input className="input w-32" placeholder="min" value={f.min_value} onChange={(e) => patchField(i, { min_value: e.target.value })} />
                 <input className="input w-32" placeholder="max" value={f.max_value} onChange={(e) => patchField(i, { max_value: e.target.value })} />
+              </div>
+            )}
+
+            {f.field_type === "rating" && (
+              <div className="mt-3 flex flex-wrap gap-3 items-end">
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Aantal punten</label>
+                  <input className="input w-28" type="number" placeholder="5" value={f.rating_max} onChange={(e) => patchField(i, { rating_max: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Label links (laag)</label>
+                  <input className="input w-44" placeholder="bv. Onbelangrijk" value={f.rating_low_label} onChange={(e) => patchField(i, { rating_low_label: e.target.value })} />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">Label rechts (hoog)</label>
+                  <input className="input w-44" placeholder="bv. Zeer belangrijk" value={f.rating_high_label} onChange={(e) => patchField(i, { rating_high_label: e.target.value })} />
+                </div>
+                <p className="text-xs text-gray-400 w-full">Leeg laten + 5 punten = standaard "zeer slecht → zeer goed".</p>
               </div>
             )}
 

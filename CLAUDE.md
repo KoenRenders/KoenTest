@@ -62,6 +62,24 @@ After completing a task:
    worktree: commit and push to the feature branch, let CI run, and merge to
    `master` once it is green (and Koen has asked for the merge).
 
+**Autonoom een release afwerken (geen "mag ik doorgaan?").** Zodra Koen werk aan
+een release toewijst — of dat nu de lopende of de volgende release is (bv. "dit is
+voor v1.x.0", "zet dit in de volgende release") — werkt Claude **alle** issues van
+die release **autonoom** af: implementeren → tests → CI groen → mergen naar `master`
+zodra CI groen is → issues sluiten → de release-tracker bijwerken. **Niet** telkens
+vragen of je mag doorgaan of mergen; de release-toewijzing ís de toestemming.
+Onderbreek enkel voor (a) een echte inhoudelijke ontwerpkeuze die Koens input nodig
+heeft, of (b) een onomkeerbare/risicovolle stap — met name een **UAT- of
+PROD-deploy**, die altijd expliciete bevestiging vereist. HDEV mag autonoom.
+
+**NOOIT vinkjes uitvinken die Koen heeft aangevinkt.** De checkboxes in een
+release-tracker/issue (m.n. de HDEV-validatie) vinkt **Koen zelf** af. Bij het
+bijwerken van een tracker: **haal eerst de huidige body op** en **behoud** de
+bestaande checkbox-status — reset NOOIT `- [x]` terug naar `- [ ]`. Werk bij
+voorkeur **incrementeel** (voeg regels toe of wijzig alleen de nodige regels) i.p.v.
+de hele body te herschrijven; als je toch de body vervangt, neem dan de reeds
+aangevinkte vakjes exact over.
+
 **Always create a release tracking issue** when starting a new batch of work
 (e.g. "Release v1.x.0 — <short description>"). List all planned issues with
 checkboxes, and add the full deploy checklist (HDEV test → GitHub Release →

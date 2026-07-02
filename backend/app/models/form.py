@@ -136,6 +136,11 @@ class FormField(Base):
     min_length = Column(Integer, nullable=True)
     max_length = Column(Integer, nullable=True)
     regex_pattern = Column(Text, nullable=True)
+    # Configureerbare rating-schaal (#341). Aantal punten (default 5) + optionele
+    # eindpunt-labels. Leeg + 5 punten → de standaard "zeer slecht → zeer goed".
+    rating_max = Column(Integer, nullable=True)
+    rating_low_label = Column(String(100), nullable=True)
+    rating_high_label = Column(String(100), nullable=True)
 
     form = relationship("Form", back_populates="fields")
     section = relationship("FormSection")

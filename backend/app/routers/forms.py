@@ -125,6 +125,9 @@ def _apply_fields(form: Form, data) -> None:
             min_length=fi.min_length,
             max_length=fi.max_length,
             regex_pattern=fi.regex_pattern,
+            rating_max=fi.rating_max,
+            rating_low_label=fi.rating_low_label,
+            rating_high_label=fi.rating_high_label,
         )
         idx = fi.section_index
         if idx is not None and 0 <= idx < len(created_sections):

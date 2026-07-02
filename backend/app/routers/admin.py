@@ -74,8 +74,11 @@ def get_business_event_stats(
     # charges tellen positief, refunds negatief, en een nog-niet-betaalde charge
     # (amount_paid NULL) telt als 0 (SUM negeert NULL). Zo kloppen ook
     # overschrijving/cash en historische betalingen van vóór de events-meting, en
-    # worden terugbetalingen afgetrokken. Het 30d-venster filtert op paid_at (NULL
-    # paid_at valt vanzelf buiten het venster).
+    # worden terugbetalingen afgetrokken. Het 30d-venster filtert op
+    # COALESCE(paid_at, created_at) (#346): een meegeteld bedrag zonder paid_at
+    # (bv. handmatig bewerkt) valt anders uit het venster maar wél in het totaal —
+    # zo klopt totaal == 30d op een jonge app, terwijl écht oude betalingen (oude
+    # paid_at) terecht buiten het venster blijven.
     def _revenue(query):
         return float(query.scalar() or 0)
 
@@ -84,7 +87,7 @@ def get_business_event_stats(
     )
     revenue_30d = _revenue(
         db.query(func.coalesce(func.sum(PaymentRecord.amount_paid), 0))
-        .filter(PaymentRecord.paid_at >= since_30d)
+        .filter(func.coalesce(PaymentRecord.paid_at, PaymentRecord.created_at) >= since_30d)
     )
 
     return {

@@ -41,6 +41,9 @@ class FormFieldIn(BaseModel):
     min_length: Optional[int] = None
     max_length: Optional[int] = None
     regex_pattern: Optional[str] = None
+    rating_max: Optional[int] = None
+    rating_low_label: Optional[str] = None
+    rating_high_label: Optional[str] = None
     options: List[FormFieldOptionIn] = []
 
 
@@ -101,6 +104,9 @@ class FormFieldOut(BaseModel):
     min_length: Optional[int] = None
     max_length: Optional[int] = None
     regex_pattern: Optional[str] = None
+    rating_max: Optional[int] = None
+    rating_low_label: Optional[str] = None
+    rating_high_label: Optional[str] = None
     options: List[FormFieldOptionOut] = []
 
     model_config = {"from_attributes": True}
@@ -175,6 +181,9 @@ class PublicField(BaseModel):
     max_value: Optional[Decimal] = None
     min_length: Optional[int] = None
     max_length: Optional[int] = None
+    rating_max: Optional[int] = None
+    rating_low_label: Optional[str] = None
+    rating_high_label: Optional[str] = None
     options: List[PublicFieldOption] = []
 
     model_config = {"from_attributes": True}
