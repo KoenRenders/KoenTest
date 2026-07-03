@@ -1,11 +1,10 @@
-"""Export van formulier-inzendingen naar CSV of ODS (#327).
+"""Export van formulier-inzendingen naar ODS (#327).
 
 Eén rij per inzending, kolommen = velden. Meervoudige checkbox-antwoorden worden
-in één cel samengevoegd. ODS hergebruikt de gedeelde build_ods-helper (#200).
+in één cel samengevoegd. ODS hergebruikt de gedeelde build_ods-helper (#200); elke
+cel is daar `valuetype="string"`, wat meteen de bescherming is tegen formule-injectie
+(#288). Er is bewust geen CSV-export (nooit gevraagd + injectie-gevoelig, #371).
 """
-import csv
-import io
-
 from app.models.form import Form, FormSubmission
 from app.services.ods_export import build_ods
 
@@ -94,16 +93,6 @@ def build_submissions_view(db, form: Form) -> dict:
             "values": [_MULTI_SEP.join(per_field[f.id]) for f in view_fields],
         })
     return {"fields": [f.label for f in view_fields], "submissions": out}
-
-
-def export_csv(db, form: Form) -> bytes:
-    headers, rows = _build_table(db, form)
-    buf = io.StringIO()
-    writer = csv.writer(buf, delimiter=";")
-    writer.writerow(headers)
-    for row in rows:
-        writer.writerow(row)
-    return buf.getvalue().encode("utf-8-sig")
 
 
 def export_ods(db, form: Form) -> bytes:

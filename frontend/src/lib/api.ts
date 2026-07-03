@@ -410,7 +410,7 @@ export const getFormResults = (id: number) => api.get(`/api/v1/forms/${id}/resul
 export const getFormSubmissions = (id: number) => api.get(`/api/v1/forms/${id}/submissions`);
 export const deleteFormSubmission = (id: number, submissionId: number) =>
   api.delete(`/api/v1/forms/${id}/submissions/${submissionId}`);
-export const exportForm = (id: number, format: "csv" | "ods") =>
+export const exportForm = (id: number, format: "ods") =>
   api.get(`/api/v1/forms/${id}/export`, { params: { format }, responseType: "blob" });
 // Publiek (geen login)
 export const getPublicForm = (token: string) => api.get(`/api/v1/forms/by-token/${token}`);

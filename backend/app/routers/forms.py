@@ -8,6 +8,7 @@ from sqlalchemy import func
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_admin
+from app.limiter import form_submit_limiter
 from app.config import settings
 from app.database import get_db
 from app.models.form import (
@@ -32,7 +33,7 @@ from app.schemas.form import (
 )
 from app.services.form_submission import build_answers, assert_open_for_submission
 from app.services.form_results import compute_results
-from app.services.form_export import export_csv, export_ods, build_submissions_view
+from app.services.form_export import export_ods, build_submissions_view
 from app.services.email import send_form_confirmation
 
 logger = logging.getLogger(__name__)
@@ -344,7 +345,7 @@ def delete_submission(
 @router.get("/forms/{form_id}/export")
 def export_form(
     form_id: int,
-    format: str = Query("csv"),
+    format: str = Query("ods"),
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
@@ -352,19 +353,13 @@ def export_form(
     if not form:
         raise HTTPException(status_code=404, detail="Formulier niet gevonden")
     safe = re.sub(r"[^A-Za-z0-9_-]+", "_", form.title or "formulier").strip("_") or "formulier"
-    if format == "ods":
-        return Response(
-            content=export_ods(db, form),
-            media_type="application/vnd.oasis.opendocument.spreadsheet",
-            headers={"Content-Disposition": f'attachment; filename="{safe}.ods"'},
-        )
-    if format == "csv":
-        return Response(
-            content=export_csv(db, form),
-            media_type="text/csv",
-            headers={"Content-Disposition": f'attachment; filename="{safe}.csv"'},
-        )
-    raise HTTPException(status_code=422, detail="Ongeldig formaat (csv of ods).")
+    if format != "ods":
+        raise HTTPException(status_code=422, detail="Ongeldig formaat (enkel ods).")
+    return Response(
+        content=export_ods(db, form),
+        media_type="application/vnd.oasis.opendocument.spreadsheet",
+        headers={"Content-Disposition": f'attachment; filename="{safe}.ods"'},
+    )
 
 
 # ── Publiek: invullen ───────────────────────────────────────────────────────────
@@ -382,7 +377,8 @@ def get_public_form(share_token: str, db: Session = Depends(get_db)):
     return _load_public_form(db, share_token)
 
 
-@router.post("/forms/by-token/{share_token}/submit", response_model=SubmissionResult)
+@router.post("/forms/by-token/{share_token}/submit", response_model=SubmissionResult,
+             dependencies=[Depends(form_submit_limiter)])
 def submit_form(
     share_token: str,
     data: SubmissionIn,
@@ -466,7 +462,8 @@ def get_editable_submission(edit_token: str, db: Session = Depends(get_db)):
     }
 
 
-@router.put("/forms/edit/{edit_token}", response_model=SubmissionResult)
+@router.put("/forms/edit/{edit_token}", response_model=SubmissionResult,
+            dependencies=[Depends(form_submit_limiter)])
 def update_submission(
     edit_token: str,
     data: SubmissionIn,
