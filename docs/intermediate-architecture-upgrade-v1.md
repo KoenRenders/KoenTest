@@ -374,19 +374,29 @@ flowchart TB
     KTEN[tenant-context]
     KCFG[config]
   end
-  AUTH["domains/auth<br/>(laag 1: verify + rollen)"] --> K
-  MEMBER -. auth.api .-> AUTH
-  FORM -. auth.api .-> AUTH
-  PAY -. auth.api .-> AUTH
-  MASTER[domains/master] --> K
-  FORM[domains/form] --> K
-  PAY[domains/payment] --> K
-  MAIL[domains/mail] --> K
-  MEMBER[domains/member] --> K
-  MEMBER -. facade .-> MASTER
-  PAY -. event .-> MAIL
-  FORM -. event .-> MAIL
-  X1["❌ verboden: FORM → MASTER.models"]:::bad -.-> MASTER
+
+  AUTH["domains/auth<br/>(laag 1: verify + rollen)"]
+  MASTER[domains/master]
+  FORM[domains/form]
+  PAY[domains/payment]
+  MAIL[domains/mail]
+  MEMBER[domains/member]
+
+  AUTH --> K
+  MASTER --> K
+  FORM --> K
+  PAY --> K
+  MAIL --> K
+  MEMBER --> K
+
+  MEMBER -.->|auth-facade| AUTH
+  FORM -.->|auth-facade| AUTH
+  PAY -.->|auth-facade| AUTH
+  MEMBER -.->|facade| MASTER
+  PAY -.->|event| MAIL
+  FORM -.->|event| MAIL
+
+  X1["verboden: FORM naar MASTER.models"]:::bad -.-> MASTER
   classDef bad fill:#fee,stroke:#c33,stroke-dasharray:4;
 ```
 
