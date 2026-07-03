@@ -1123,3 +1123,65 @@ veilig te handelen*. Kleine, afgebakende componenten verkleinen dat leesoppervla
 > en dáár zit de creditwinst. Dezelfde eigenschappen (begrensde context, expliciete
 > contracten) maken toekomstige **agentische/parallelle** ontwikkeling per component
 > haalbaar.
+
+---
+
+## 20. Waarom doen we dit? — korte & lange termijn
+
+### Korte termijn (nu al waarde)
+- **Stop de fragiliteit.** Versnipperde koppeling veroorzaakt bugs en data-verlies (bv.
+  #357: een formulier bewerken wiste inzendingen). Harde grenzen + contract-tests vangen
+  dat af.
+- **Sneller & goedkoper ontwikkelen** (§19): kleiner leesoppervlak per taak, minder
+  regressies, minder gis-en-mis.
+- **Makkelijker redeneren**: "waar hoort dit?" is beantwoord door de mapstructuur;
+  wijzigingen blijven lokaal.
+- **Overdraagbaar**: facade + `CONTRACT.md` maken een component begrijpbaar zonder de
+  hele repo te lezen (mens én AI).
+- **Concreet nu nodig**: de form engine netjes afbakenen, betalingen/terugvordering
+  (FINANCE), en de fundering (kernel-patronen) voor alles wat volgt.
+
+### Lange termijn (waar we naartoe groeien)
+- **Modulair ERP/portaal/CRM**: componenten evolueren onafhankelijk en kunnen — bij een
+  concrete driver — als aparte app/service afsplitsen (de naden liggen er al).
+- **Multi-tenant SaaS**: meerdere accounts (koepels/bedrijvengroepen), elk met eigen
+  brand en **aparte site**; een nieuwe klant/unit = **config, geen code**.
+- **Herbruikbaarheid**: forms, workflow, payments, MDM zijn generiek inzetbaar voor
+  andere organisaties en domeinen.
+- **Toekomstbestendig voor AI/agentisch werk**: begrensde context + expliciete
+  contracten maken parallelle ontwikkeling per component haalbaar.
+- **Beheersbare compliance/isolatie**: per-tenant, per-schema, later RLS — opschaalbaar
+  zonder herbouw.
+- **Vermijd de "big ball of mud"** die elke wijziging duur en riskant maakt.
+
+> De strangler-aanpak zorgt dat KT-waarde en LT-fundering **samenvallen**: elke stap
+> lost nu iets op én legt een steen voor later. We investeren waar het eerst rendeert
+> (forms-sjabloon → cross-cutting mail/auth → MDM → tenancy).
+
+---
+
+## 21. Out-of-scope — bewust (nog) niet
+
+Zaken waar we aan denken (KT of LT) maar **nu niet** doen, met de reden/trigger:
+
+| Idee | KT/LT | Waarom nu niet / trigger |
+|---|---|---|
+| **Microservices / aparte databases / message broker (Kafka…)** | LT | In-process modulaire monoliet volstaat; splits enkel bij een concrete driver (runtime/schaal/team). Naden liggen al klaar. |
+| **DB-per-tenant of schema-per-tenant** | LT | Rij-niveau `tenant_id` gekozen (koepel moet dwars kijken). Enkel bij harde isolatie-eis. |
+| **Postgres RLS** | LT | Eerst facade-filtering; RLS als hardening ná Fase 5 (al beslist). |
+| **Externe IdP / SSO** (Google/Microsoft-login) | LT | Eigen `auth` volstaat nu; toevoegen als klanten het vragen. |
+| **Volledige BPM-engine** (Camunda…) | LT | Start met een lichte eigen `workflow`-component; upgrade enkel bij complexe processen. |
+| **Event-sourcing / volledige CQRS** | LT | Enkel read-models waar nuttig (analytics); niet als architectuurstijl. |
+| **Extra betaalproviders naast Mollie** | LT | Mollie (EU) volstaat; provider-adapter maakt uitbreiding later triviaal. Europe-First. |
+| **Volledige meertaligheid (i18n)** | LT | nl-BE nu; i18n als een tenant/markt het vraagt. |
+| **Mobiele/native app, real-time (websockets)** | LT | Web-first; pas bij concrete behoefte. |
+| **BI / datawarehouse** | LT | Simpele `analytics`-read-models nu; DWH later. |
+| **`business_events` uitbouwen tot audit-platform** | — | Geschrapt (geen meerwaarde, §5.7). |
+| **GDPR-self-service** (export/vergeten door lid zelf) | LT | Na tenancy + MDM; nu enkel admin-verwijderen. Let op: MDM = nooit hard verwijderen (tombstone). |
+| **Feature-flag-platform** | LT | Lichte config-vlaggen volstaan; geen apart systeem. |
+| **Kubernetes / auto-scaling infra** | LT | Huidige Docker-compose-stack volstaat; pas bij schaalnood. |
+| **"Dark" tenant_id vervroegd invoeren** | — | Bewust niet (per app introduceren + testen, al beslist). |
+
+> Deze lijst is een **levend register**: staat iets hier als "LT", dan is de bedoeling
+> het te heroverwegen zodra de bijhorende trigger opduikt — niet het definitief te
+> begraven.
