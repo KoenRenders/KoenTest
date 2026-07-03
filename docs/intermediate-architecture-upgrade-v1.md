@@ -46,7 +46,7 @@ Verwar **modularisatie** en **multi-tenancy** niet: het zijn twee loodrechte ass
 | As | Vraag | Mechanisme |
 |---|---|---|
 | **Module** (verticaal) | *Wélk soort data/gedrag?* (forms, betalingen, MDM …) | Eigen package + eigen **Postgres-schema** (`form`, `payment`, `mdm` …) |
-| **Tenant** (horizontaal) | *Van wélke vereniging?* (Millegem, Achterbos, Mol-Centrum …) | **`tenant_id`** (rij-niveau) binnen elke moduletabel |
+| **Tenant** (horizontaal) | *Van wélke vereniging?* (Millegem, X, Y …) | **`tenant_id`** (rij-niveau) binnen elke moduletabel |
 
 ```mermaid
 flowchart LR
@@ -59,8 +59,8 @@ flowchart LR
   end
   subgraph Tenants["Tenant-as → tenant_id per rij"]
     T1[Raak Millegem]:::t
-    T2[Raak Achterbos]:::t
-    T3[Raak Mol-Centrum]:::t
+    T2[Raak X]:::t
+    T3[Raak Y]:::t
   end
   Modules -. elke moduletabel draagt tenant_id .-> Tenants
   classDef m fill:#e8f0ff,stroke:#3b6;
@@ -371,7 +371,7 @@ erDiagram
   - **ACCOUNT** = de koepel/klant (billing-entiteit). Bij Raak: "Raak vzw".
     Wortel (`parent_id = null`).
   - **UNIT** = een operationele eenheid onder een account. Bij Raak: de feitelijke
-    verenigingen (Millegem, Achterbos, Mol-Centrum, Mol-Rauw …).
+    verenigingen (Millegem, X, Y, Z …).
 - **`legal_form`** is een vrij label (VZW, feitelijke vereniging, bedrijf, …) → de
   juridische invulling is **data**, geen schema-aanname. Zo werkt de app net zo goed
   voor niet-vzw-klanten.
@@ -459,9 +459,9 @@ alles**.
 flowchart TB
   VZW["ACCOUNT<br/>(bv. Raak vzw — ziet ALLES)"]:::vzw
   VZW --> M1["UNIT: Raak Millegem"]:::sub
-  VZW --> M2["UNIT: Raak Achterbos"]:::sub
-  VZW --> M3["UNIT: Raak Mol-Centrum"]:::sub
-  VZW --> M4["UNIT: Raak Mol-Rauw"]:::sub
+  VZW --> M2["UNIT: Raak X"]:::sub
+  VZW --> M3["UNIT: Raak Y"]:::sub
+  VZW --> M4["UNIT: Raak Z"]:::sub
   M1 --> L1["leden • gezinnen • activiteiten • formulieren • betalingen"]
   M2 --> L2["leden • gezinnen • …"]
   classDef vzw fill:#ffd,stroke:#aa0,stroke-width:2px;
@@ -531,7 +531,7 @@ flowchart TB
   OP --> A1["ACCOUNT: Raak vzw"]:::acc
   OP --> A2["ACCOUNT: Bedrijvengroep X"]:::acc
   A1 --> U1["UNIT: Raak Millegem<br/>(brand + domein)"]:::u
-  A1 --> U2["UNIT: Raak Achterbos"]:::u
+  A1 --> U2["UNIT: Raak X"]:::u
   A2 --> U3["UNIT: Bedrijf A<br/>(eigen brand + domein)"]:::u
   A2 --> U4["UNIT: Bedrijf B"]:::u
   classDef op fill:#ffd,stroke:#aa0,stroke-width:2px;
@@ -545,9 +545,11 @@ flowchart TB
 - **Cross-account isolatie is hard**: de facade filtert altijd op de **account-scope**
   van de gebruiker; een `ACCOUNT_ADMIN` ziet enkel zijn eigen boom. Nooit lek tussen
   accounts (RLS later als DB-vangnet).
-- **Eigen brand naar buiten**: per-unit (of -account) **branding + eigen (sub)domein**
-  via de per-tenant DB-config (§7.1). De publieke site doet **tenant-resolutie op
-  hostname** → laadt logo/thema/data van die unit.
+- **Eigen brand naar buiten**: per-unit (of -account) **branding** via de per-tenant
+  DB-config (§7.1). De publieke site doet **tenant-resolutie** volgens een
+  configureerbare strategie — **pad-prefix** (`raakvzw.be/millegem`), **subdomein** of
+  **eigen domein** — en laadt logo/thema/data van die unit. Zie §17 (SEO) voor de
+  afweging en het migratiepad pad → domein.
 - **Zichtbaarheidsbeleid per account, configureerbaar**:
   - *Gedeeld* (Raak): de koepel (`ACCOUNT_ADMIN`) ziet alle units; MDM-entiteiten mogen
     binnen het account gedeeld worden.
@@ -901,3 +903,108 @@ oppervlak declareert:
 > Vuistregel: **een contract wijzig je niet zonder (a) `CONTRACT.md` bijgewerkt én
 > (b) groene contract-tests bij álle consumenten.** Zo weet elke app met wie ze rekening
 > moet houden — automatisch, niet uit een verouderde wiki.
+
+---
+
+## 16. Codebase-(her)structurering
+
+Van **package-by-layer** (`routers/`, `models/`, `services/`, `schemas/` — de form
+engine ligt nu versnipperd over die vier) naar **package-by-domain**: één verticale
+slice per component. Je bent hier al mee begonnen (de `domains/`-map met payments/stt/
+chatbot) — we maken het patroon af en laten de by-layer-mappen leeglopen.
+
+**Principe:** *één map = één component = één (Postgres-)schema = één toekomstige app.*
+De boom "schreeuwt" wat de app doet, niet welke frameworklaag iets is.
+
+### Backend — doelstructuur
+```
+app/
+  kernel/                     # laag 0 — plumbing, hangt van niets af
+    database.py  config.py  soft_delete.py  limiter.py
+    security.py               # verify-dependency (mechanisme; policy in domains/auth)
+    events.py                 # in-process event-dispatcher
+    contracts.py              # gedeelde DTO's / event-types (canonieke vormen)
+    tenancy.py                # tenant-context + tenant_id-mixin
+    history.py                # history-mixin (per-component *_history)
+  domains/
+    auth/                     # laag 1 (fundamenteel)
+      api.py                  # ← facade: enige publieke oppervlak
+      router.py schemas.py service.py models.py
+      migrations/             # eigen Alembic-keten (afsplitsbaar)
+      CONTRACT.md             # publiceert / consumeert / bezit (§15)
+    mdm/          mail/        # laag 1
+    membership/  activities/  form/  workflow/  payment/  cms/  chatbot/   # laag 2
+    media/       stt/          # capaciteiten
+    analytics/                 # read-model
+  main.py                     # mount enkel domains/*/router.py
+  (routers/ models/ services/ schemas/  →  lopen leeg en verdwijnen)
+```
+Elke `domains/<c>/` heeft dezelfde vaste vorm: `api.py · router.py · schemas.py ·
+service.py · models.py · (migrations/) · CONTRACT.md`. Interne modules (cms, activities,
+analytics) krijgen wél een eigen schema maar géén eigen keten (§12).
+
+### Frontend — spiegel de backend
+```
+src/
+  features/
+    forms/        # bouwer + publieke render + api-slice + types
+    payments/  membership/  mdm/  activities/  workflow/  cms/
+    _shared/      # UI-kit: AdminConsole, capture-template, inputs, tabellen
+  lib/            # enkel gedeelde primitives: money, errors, axios-client
+```
+Eén feature-map = één component (publiek én back-office samen). `lib/api.ts` splitst in
+per-feature `api`-slices; `lib/` houdt enkel gedeelde primitives.
+
+### Migratiepad — strangler, geen big-bang
+1. **Forms eerst** (best geïsoleerd) als sjabloon: `git mv` naar `domains/forms/` +
+   `api.py` (history behouden), imports bijwerken, CI groen — **geen gedragswijziging**.
+2. Per component één PR: verplaats → facade → import-linter-contract aan → (schema/keten)
+   → contract-/integratietests → frontend-feature.
+3. **Kernel lichtjes optrekken**: verplaats `auth`/`database`/`config`/`soft_delete` naar
+   `kernel/` en voeg `events.py`/`contracts.py`/`tenancy.py`/`history.py` toe.
+4. By-layer-mappen lopen zo vanzelf leeg.
+
+> **Valkuil (vooraf regelen):** model-discovery. Alembic/`Base.metadata` ontdekt models
+> nu via `models/__init__.py`. Verplaats je models, dan moet die discovery mee (een
+> `domains/__init__.py` dat elk `domains/*/models.py` importeert, of expliciete imports
+> in `env.py`) — anders ziet autogenerate de tabellen niet. Dit is de enige
+> niet-triviale stap; de rest is mechanisch.
+
+---
+
+## 17. SEO per unit
+
+Elke UNIT gaat met een **eigen brand + eigen (sub)domein** naar buiten (§7.2). SEO is
+daardoor **per-tenant**, en volgt automatisch uit hostname-resolutie + per-tenant config.
+
+- **URL-strategie (abstraheren, niet nu vastleggen)** — drie opties, allemaal
+  ondersteund door dezelfde tenant-resolutie:
+  - **Pad-prefix** `raakvzw.be/millegem`, `/X` — één domein, goedkoopste ops (één
+    cert), SEO = één site met secties. **Aanrader om te starten.**
+  - **Subdomein** `millegem.raakvzw.be` — sterke scheiding, wildcard-cert.
+  - **Eigen domein** `raakmillegem.be`, `raakx.be` — sterkste brand-autonomie, meer
+    ops (cert/DNS per domein).
+- **Resolutie achter een strategie** (`pad-prefix` óf `hostname`) in de Next.js
+  middleware; per unit een **canonical base-URL in de per-tenant config** (§7.1).
+  Metadata/JSON-LD/sitemap gebruiken altijd díe canonical → een latere overstap
+  **pad → (sub)domein** = **config + DNS/Caddy + 301-redirects**, géén code.
+- **Per-unit metadata** via Next.js `generateMetadata` (server-side, leest de tenant):
+  `title`, `description`, `og:image`, favicon — gevoed door de **per-tenant DB-config**
+  (§7.1: naam, logo, kleuren). De bestaande issues #320 (Organization JSON-LD) en #322
+  (og:image) worden zo **per unit** i.p.v. globaal.
+- **Structured data (JSON-LD)** `Organization`/`LocalBusiness` met de **unit**-naam,
+  -logo en -adres (uit MDM/config).
+- **Per-unit `sitemap.xml` + `robots.txt`**: gegenereerd per hostname, met enkel de
+  publieke pagina's van díe unit (tenant-scoped CMS-pagina's + activiteiten). De
+  bestaande `sitemap`-util wordt tenant-parametrisch.
+- **Canonical URLs** onder het eigen unit-domein → geen duplicate content tussen units
+  (elke unit z'n eigen canonieke host).
+- **Content is al tenant-scoped**: CMS-pagina's en activiteiten hangen aan `tenant_id`,
+  dus de publieke pagina's én hun SEO zijn vanzelf per unit.
+- **Eigenaarschap**: SEO is een cross-cutting concern van de **publieke frontend-shell +
+  per-tenant config**, gevoed door MDM/config (branding), CMS (pagina's) en activities
+  (events). Geen aparte "SEO-component" nodig.
+
+> Kortom: zet je de tenant-resolutie op hostname + de per-tenant config goed, dan is
+> per-unit SEO grotendeels een **afgeleide** — `generateMetadata`, JSON-LD, sitemap en
+> robots lezen simpelweg de actieve tenant.
