@@ -1084,3 +1084,42 @@ contract-/integratietests → frontend-feature → CONTRACT.md`.
 > De rest (payments, membership/activities, workflow, media, cms/chatbot) kan
 > grotendeels **parallel** zodra het sjabloon en de fundering staan. F5 (UI-kit) loopt
 > best mee vanaf de eerste frontend-feature.
+
+---
+
+## 19. Kostenefficiëntie voor AI-assisted development
+
+Modulariteit verlaagt de **ontwikkelkost (credits) per taak** — niet als automatische
+korting, wel als **investering** die zich terugverdient over veel latere taken.
+
+**Waarom het daalt.** De grootste kostendrijver is *hoeveel er gelezen moet worden om
+veilig te handelen*. Kleine, afgebakende componenten verkleinen dat leesoppervlak:
+- **Begrensde context**: een wijziging aan één component = laad `domains/<c>/` (+ zijn
+  `CONTRACT.md`) i.p.v. te grasduinen over `routers/ + models/ + services/ + schemas/`.
+- **Contract i.p.v. implementatie**: een afhankelijkheid begrijp je uit haar
+  **`CONTRACT.md`/facade** (klein), niet uit haar broncode. Grootste besparing.
+- **Scherpe feedback**: import-linter + contract-tests wijzen een breuk **met naam** aan
+  → minder verspilde iteraties en heruitvoeringen.
+- **Kleinere test-/CI-scope**: enkel de tests van het geraakte component.
+- **Minder blast-radius-redeneren**: harde grenzen sluiten verrassende koppeling uit.
+
+**Waar het níet helpt (of eerst kost).**
+- **Upfront-kost** van de herstructurering zelf (investering, geen directe korting).
+- **Cross-cutting wijzigingen** (bv. `tenant_id` uitrollen) spannen nog steeds over veel
+  componenten.
+- **Discipline vereist**: de winst is er enkel als grenzen *echt* zijn (linter
+  afgedwongen, `CONTRACT.md` actueel) — anders lees je alsnog alles.
+- **Iets meer boilerplate** per triviale wijziging (facade + contract + test); netto
+  winst pas bij niet-triviale taken.
+
+**De knoppen die de kost het hardst drukken.**
+- **`CONTRACT.md` per component** (§15) — handelen zonder de buren te lezen.
+- **`CLAUDE.md`-conventies + scaffold** (§14) — minder uitzoekwerk, "one obvious way".
+- **Kleine componenten + facade** — kleiner leesoppervlak per taak.
+- **Contract-/integratietests** (§10) — minder gis-en-mis-iteraties.
+
+> Vuistregel: naarmate meer componenten dit patroon volgen, verschuift een typische taak
+> van *"lees een groot deel van de repo"* naar *"lees één map + een paar contracten"* —
+> en dáár zit de creditwinst. Dezelfde eigenschappen (begrensde context, expliciete
+> contracten) maken toekomstige **agentische/parallelle** ontwikkeling per component
+> haalbaar.
