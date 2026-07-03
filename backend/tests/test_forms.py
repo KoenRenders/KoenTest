@@ -205,19 +205,34 @@ def test_results_aggregation(client, admin_headers):
 
 # ── Export ──────────────────────────────────────────────────────────────────────
 
-def test_export_csv_and_ods(client, admin_headers):
+def test_export_ods_only(client, admin_headers):
+    """#371: export is ODS (cellen zijn string-getypeerd → geen formule-injectie);
+    CSV bestaat niet meer."""
     form = _create_form(client, admin_headers)
     token = form["share_token"]
     client.post(f"/api/v1/forms/by-token/{token}/submit", json={"answers": [
         {"field_id": _field_id(form, "Email"), "text": "a@b.be"},
         {"field_id": _field_id(form, "Naam"), "text": "Jan"},
     ]})
-    csv_resp = client.get(f"/api/v1/forms/{form['id']}/export?format=csv", headers=admin_headers)
-    assert csv_resp.status_code == 200
-    assert b"Naam" in csv_resp.content and b"Jan" in csv_resp.content
     ods_resp = client.get(f"/api/v1/forms/{form['id']}/export?format=ods", headers=admin_headers)
     assert ods_resp.status_code == 200
     assert ods_resp.headers["content-type"] == "application/vnd.oasis.opendocument.spreadsheet"
+    # CSV is verwijderd → 422.
+    assert client.get(f"/api/v1/forms/{form['id']}/export?format=csv", headers=admin_headers).status_code == 422
+
+
+def test_public_submit_is_rate_limited(client, admin_headers):
+    """#371: het publieke inzend-endpoint heeft een rem tegen spam/DoS."""
+    form = _create_form(client, admin_headers)
+    token = form["share_token"]
+    body = {"answers": [
+        {"field_id": _field_id(form, "Email"), "text": "a@b.be"},
+        {"field_id": _field_id(form, "Naam"), "text": "Jan"},
+    ]}
+    for _ in range(10):
+        assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 200
+    # 11e binnen het venster → 429.
+    assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 429
 
 
 # ── Bevestigingsmail + wijzig-flow ──────────────────────────────────────────────
@@ -413,9 +428,14 @@ def test_other_option_stores_free_text(client, admin_headers, db_session):
         .one()
     )
     assert row.value_text == "Op reis"
-    # Export toont "Andere: Op reis".
-    csv = client.get(f"/api/v1/forms/{form['id']}/export?format=csv", headers=admin_headers)
-    assert "Op reis".encode() in csv.content
+    # ODS-export toont de vrije "Andere"-tekst (content.xml in de .ods-zip).
+    import io
+    import zipfile
+    ods = client.get(f"/api/v1/forms/{form['id']}/export?format=ods", headers=admin_headers)
+    assert ods.status_code == 200
+    with zipfile.ZipFile(io.BytesIO(ods.content)) as z:
+        content = z.read("content.xml").decode("utf-8")
+    assert "Op reis" in content
 
 
 def test_loose_coupling_no_person_fk():

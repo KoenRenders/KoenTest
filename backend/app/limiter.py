@@ -90,6 +90,9 @@ class DailyCharBudget:
 login_limiter = RateLimiter(max_calls=5, window_seconds=60)
 registration_limiter = RateLimiter(max_calls=10, window_seconds=60)
 idea_limiter = RateLimiter(max_calls=5, window_seconds=60)
+# Publieke formulier-inzending/-wijziging: schrijft rijen + kan een bevestigingsmail
+# triggeren → rem tegen spam/DoS. Ruim genoeg voor een legitieme piek per IP (#371).
+form_submit_limiter = RateLimiter(max_calls=10, window_seconds=60)
 # Chatbot: matige burst-limiet + dagelijks tekenbudget tegen 'pagina-droppen'.
 chat_limiter = RateLimiter(max_calls=20, window_seconds=60)
 # Mollie-webhook: ruime limiet (#182). Mollie deelt enkele IP's en kan bursts/

@@ -54,8 +54,12 @@ def _migrate_schema():
 def _reset_rate_limiters():
     """De rate-limiters houden in-memory state per IP; in tests komt alles van
     hetzelfde IP. Reset ze per test zodat ze elkaars tellingen niet erven."""
-    from app.limiter import registration_limiter, login_limiter, idea_limiter, chat_limiter
-    for lim in (registration_limiter, login_limiter, idea_limiter, chat_limiter):
+    from app.limiter import (
+        registration_limiter, login_limiter, idea_limiter, chat_limiter,
+        form_submit_limiter,
+    )
+    for lim in (registration_limiter, login_limiter, idea_limiter, chat_limiter,
+                form_submit_limiter):
         lim._calls.clear()
     # Chatbot-dagbudget houdt eigen state per IP; reset zodat tests niet erven.
     from app.routers.chat import chat_char_budget
