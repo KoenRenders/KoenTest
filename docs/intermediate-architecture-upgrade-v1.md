@@ -238,7 +238,8 @@ lenen zich goed voor vroege afzondering:
   te zijn. De **gezinssamenstelling** (wie zit in welk gezin) is MDM; **"dit
   gezin is betalend lid in 2026"** is géén MDM → dat is `membership`.
 - Facade: `get_person()`, `find_family()`, `resolve_postal_code()`,
-  `list_organizations()`.
+  `list_organizations()`, plus merge/redirect: `resolve(id)`, `merge(loser, winner)`
+  (§6.1).
 
 ### 5.3b Membership (`membership`) — eigen component, géén MDM
 - **Aparte component** (niet samenvoegen met `activities`, niet in `mdm`): de
@@ -377,6 +378,72 @@ erDiagram
 - Elke tenant-scoped rij (persoon, gezin, later activiteit/formulier/betaling) draagt
   een **`tenant_id`** = de **UNIT**. De **ACCOUNT**-scope leid je af door de boom op
   te lopen (`unit.parent_id`).
+
+---
+
+## 6.1 MDM: merge & survivorship — nooit verwijderen
+
+Principe: MDM-entiteiten (persoon, gezin, organisatie) worden **nooit hard verwijderd**.
+Dubbels worden **gemergd** tot één *golden record*; het verliezende record blijft
+bestaan als **tombstone** die naar de survivor wijst. Zo blijft elke verwijzing naar
+MDM altijd bij de **actuele** entiteit uitkomen.
+
+- **ID-redirectie**: elke MDM-entiteit heeft `superseded_by_id` (self-FK; `null` =
+  actief). Resolutie volgt de keten tot `null` = de huidige survivor. Bij een merge
+  **plat** je bestaande aliassen om naar de finale survivor (O(1) lookups, geen diepe
+  ketens).
+- **Altijd up-to-date link**: andere componenten bewaren `person_id` als **waarde**
+  (geen harde cross-schema FK) en lezen via de facade. `mdm.api.get(id)`/`resolve(id)`
+  **redirect automatisch** naar de survivor. Een oude inschrijving die naar "oude Koen
+  (#12)" wees, komt zo bij de huidige Koen (#34) uit.
+- **Niets verloren → omkeerbaar**: het verliezende record behoudt al zijn data
+  (tombstone), dus **unmerge** is mogelijk. De merge zelf wordt gelogd via het
+  history-patroon (wie, wanneer, welke velden wonnen).
+- **Event `EntityMerged(old_id, new_id)`**: consumenten mogen hun opgeslagen id's lui/
+  gretig herschrijven (housekeeping), maar dat is **niet nodig voor correctheid** — de
+  facade redirect al.
+- **Survivorship-regels** (golden record): welke veldwaarden winnen — start simpel
+  (survivor wint, verliezer bewaard in history), later verfijnbaar (meest recent/
+  volledig).
+- Geldt voor **alle MDM-aggregaten**: persoon, gezin/household, organisatie.
+
+```mermaid
+flowchart LR
+  REG["inschrijving<br/>person_id = 12"] -->|resolve via facade| NEW
+  OLD["persoon #12 (Koen)<br/>superseded_by_id = 34"]:::dead -->|superseded_by| NEW["persoon #34 (Koen)<br/>survivor, actief"]:::alive
+  classDef dead fill:#eee,stroke:#999,stroke-dasharray:3;
+  classDef alive fill:#e8f7e8,stroke:#3a3;
+```
+
+> **Contract/test-consequentie**: een golden-flow-test (§10) bewijst dat een verwijzing
+> naar een gemergede persoon via de facade de **survivor** oplevert; `merge()` is
+> idempotent en `resolve()` volgt de keten.
+
+---
+
+## 6.2 Verwijzen naar MDM vanuit andere componenten — soft reference
+
+Zo verwijst bv. de **form engine** (of membership/activities/payment) naar een persoon:
+
+- **Soft reference, geen harde cross-schema FK**: een kolom `mdm_person_id`
+  (of `mdm_org_id`) als **waarde**. Een echte FK zou de schema's/ketens koppelen,
+  onafhankelijk deployen breken, én de merge-redirect onmogelijk maken.
+- **Optioneel/nullable**: veel form-inzendingen zijn anoniem of van niet-leden → de
+  link is optioneel. De form engine blijft volledig bruikbaar **zonder** MDM-link
+  (losse koppeling behouden). De link wordt gezet wanneer bekend (ingelogd lid dient
+  in, of een admin koppelt achteraf).
+- **Altijd via de facade lezen**: `mdm.api.get(resolve(id))` → de **merge-redirect is
+  transparant**. Een inzending die naar "oude Koen (#12)" wees, levert de survivor.
+- **Integriteit zonder FK**: het MDM-nooit-verwijderen + tombstone garandeert dat een
+  id **nooit dangelt** en altijd resolvet — voor dit doel *sterker* dan een harde FK
+  (die zou verwijderen blokkeren of cascaderen).
+- **Housekeeping** (optioneel): luister op `EntityMerged` om opgeslagen id's te
+  herschrijven; niet nodig voor correctheid.
+
+> **In de form engine concreet**: `form_submissions.mdm_person_id` (nullable *waarde*).
+> Dit is de enige "koppeling" van forms naar MDM — geen FK, geen import van MDM-models,
+> enkel `mdm.api` + het id-als-waarde. Zelfde patroon voor `membership`, `activities`,
+> `payment`.
 
 ---
 
@@ -698,3 +765,99 @@ Alembic-keten + integratietests → frontend-feature-map`.
 - **Multi-tenant = rij-niveau** (shared schema + `tenant_id`, optioneel RLS), want de
   vzw-koepel moet dwars over alle tenants kijken.
 - Alles gefaseerd, elk met hetzelfde sjabloon; issues hangen aan epic **#366**.
+
+---
+
+## 14. Conventies: GUI, code & API-standaardisatie
+
+Modularisatie werkt enkel als elk component er **hetzelfde uitziet en aanvoelt** —
+anders krijg je N eilandjes. Drie sets afspraken, deels al in `CLAUDE.md`; het nieuwe
+is ze **component-uniform** maken + gedeelde sjablonen.
+
+**GUI-conventies**
+- **Gedeelde UI-kit** (`features/_shared` / `ui/`): knoppen, tabellen, modals,
+  detail-drawers, form-inputs, status-badges — één bron, zodat elke console identiek
+  oogt/werkt. Design-tokens (kleur, spacing) centraal.
+- **Twee sjablonen** (herbruikbaar over componenten):
+  - **AdminConsole**: *lijst + filters → detail → rol-gated actieknoppen + bevestiging*.
+    Vervangt de nu apart-gebouwde `leden`/`betalingen`/`formulieren`-schermen.
+  - **Public-capture**: *token/anoniem → gevalideerde submit → bevestiging (+ evt.
+    capability-link)*.
+- **Rol-bewuste UI**: verberg acties die de rol niet mag (backend dwingt af, UI = comfort).
+- **A11y-baseline** (labels, aria, keyboard, focus) — m.n. publieke formulieren.
+- **i18n & formatting**: nl-BE; datum/getal/geld via gedeelde utils (`money.ts`);
+  gestandaardiseerde loading/error/empty-states (`parseApiError`).
+
+**Code-conventies**
+- **Identieke component-structuur** (scaffold): `router.py · schemas.py · service.py ·
+  models.py · api.py` per `domains/<component>/`. Facade = altijd `api.py`.
+- **Validatielagen** (router = vorm/Pydantic, service = regels, DB = integriteit) —
+  reeds in `CLAUDE.md`, nu per component afgedwongen.
+- **Boundary** via **import-linter**-contracten (mapgrens = moduulgrens).
+- **Lint/format/type** in CI: ruff + mypy (py), eslint + prettier + `tsc` (ts).
+- **Kernel-patronen** hergebruiken: `tenant_id`-mixin, history-mixin, soft-delete,
+  `superseded_by`-redirect, event-dispatcher. Niet per component heruitvinden.
+- Bestaande regels blijven (geen `datetime.utcnow`, `payment_metadata`, migraties
+  idempotent + één head per keten, …).
+
+**API-standaardisatie**
+- **REST-conventie**: `/api/v1/<component>/<resource>` (meervoud), standaard
+  verbs/statuscodes; consistente **paginatie-** en **filtervorm**.
+- **Standaard-envelopes**: één **error-shape** (die `parseApiError` verwacht), één
+  lijst/paginatie-shape.
+- **DTO's & events als contract** (`kernel/contracts`): events genoemd
+  `<Aggregate><VoltooidWerkwoord>` (bv. `PaymentSettled`, `EntityMerged`); facade-
+  signaturen getypeerd met consistente werkwoorden (`get/list/create/update/merge/
+  resolve`).
+- **Versionering & evolutie** volgens §9: additief vrij, breaking via deprecatie-cyclus;
+  events versioneerbaar.
+- **OpenAPI** (FastAPI) als één waarheidsbron; `api.ts` (frontend) spiegelt dat.
+- **Auth/tenant uniform**: Bearer-JWT via `auth.api`-dependencies; tenant-claim
+  gestandaardiseerd in de context.
+- **Idempotentie** waar het telt: `merge()`, Mollie-webhook, betalings-mutaties.
+- **Standaard-velden**: `created_at/updated_at` (tz-aware), soft-delete +
+  `superseded_by` in MDM.
+
+> Concreet eerste-stappen-issues: een **UI-kit + AdminConsole-template**, een
+> **component-scaffold** (cookiecutter-achtig), en een **contract-/lint-harness** in CI
+> (import-linter + envelope-schema's + OpenAPI-diff).
+
+---
+
+## 15. Component-documentatie & change-impact — "wie moet met mij rekening houden?"
+
+Prosa-docs verouderen. Daarom: **contract-als-code + een dun manifest, afgedwongen door
+tests** — zodat elke app automatisch weet met wie ze rekening moet houden.
+
+**Per component een `CONTRACT.md`** (deels gegenereerd) dat het *gepubliceerde*
+oppervlak declareert:
+- **Publiceert**: facade-functies (signatuur + DTO's), events (naam + schema + wanneer).
+- **Consumeert**: welke andere facades/events het gebruikt (afhankelijkheden).
+- **Bezit**: eigen schema/tabellen (privé), config/env die het nodig heeft.
+- **Versionering/deprecaties**: lopende deprecatie-cycli (§9).
+- **Owner**: `CODEOWNERS`-verwijzing (wie verwittigen).
+
+**Niet-driftende bron van waarheid** (het manifest verwíjst ernaar, dupliceert niet):
+- **OpenAPI** (FastAPI) voor de HTTP-laag — auto-gegenereerd.
+- **DTO-/event-schema's** in `kernel/contracts` (getypeerd) — de canonieke vormen.
+- **Contract-tests** (§10) verwijzen naar diezelfde schema's → de test *is* de handhaving.
+
+**Change-impact / "wie hangt van mij af":**
+- Elke component declareert zijn **consumeert-lijst** → daaruit bouw je automatisch een
+  **reverse-index** ("wie consumeert X") én de **dependency-graph** (§8-diagram
+  gegenereerd, altijd actueel).
+- Een PR die een facade/DTO/event **wijzigt**, moet `CONTRACT.md` bijwerken; **contract-
+  tests bij de consumenten falen** als het breekt → je ziet meteen de blast radius, met
+  naam.
+- **`CODEOWNERS`** tagt automatisch de juiste reviewers; **changelog per component**
+  (of commit-scope) + de deprecatie-cyclus uit §9.
+
+**Drie linies, geen gat:**
+1. **Machine-contract** (OpenAPI + DTO/event-schema's) = *wat* er is.
+2. **`CONTRACT.md` + reverse-index** = *wie* het gebruikt en *wat te doen* bij wijziging.
+3. **Contract-tests + import-linter + `CODEOWNERS`** = de handhaving die de docs *waar*
+   houdt.
+
+> Vuistregel: **een contract wijzig je niet zonder (a) `CONTRACT.md` bijgewerkt én
+> (b) groene contract-tests bij álle consumenten.** Zo weet elke app met wie ze rekening
+> moet houden — automatisch, niet uit een verouderde wiki.
