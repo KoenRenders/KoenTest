@@ -296,6 +296,56 @@ export default function AdminFormulieren() {
     URL.revokeObjectURL(url);
   }
 
+  function downloadBlob(content: string, filename: string, type: string) {
+    const url = URL.createObjectURL(new Blob([content], { type }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  }
+
+  // Exporteert de formulier-definitie als JSON (zonder id's) — een sjabloon dat je
+  // opnieuw kan importeren of aan een AI kan geven (#367).
+  async function exportJson(id: number) {
+    setError("");
+    try {
+      const r = await getForm(id);
+      const payload = toPayload(toEditForm(r.data));
+      const clean = JSON.stringify(payload, (k, v) => (k === "id" ? undefined : v), 2);
+      downloadBlob(clean, `formulier-${id}.json`, "application/json");
+    } catch (e) {
+      setError(parseApiError(e, "Exporteren mislukt."));
+    }
+  }
+
+  // Importeert een formulier uit een JSON-bestand → aangemaakt als concept (#367).
+  async function importJsonFile(file: File | null | undefined, input: HTMLInputElement) {
+    input.value = ""; // reset zodat hetzelfde bestand opnieuw gekozen kan worden
+    if (!file) return;
+    setError("");
+    let payload: unknown;
+    try {
+      payload = JSON.parse(await file.text());
+    } catch {
+      setError("Ongeldig JSON-bestand: kon de inhoud niet lezen.");
+      return;
+    }
+    if (!payload || typeof payload !== "object" || !(payload as { title?: unknown }).title) {
+      setError("Ongeldig formulier-JSON: veld 'title' ontbreekt.");
+      return;
+    }
+    try {
+      await createForm(payload);
+      load();
+      alert("Formulier geïmporteerd als concept. Controleer het en zet de status op 'Open' wanneer klaar.");
+    } catch (e) {
+      setError(parseApiError(e, "Importeren mislukt — is dit een geldig formulier-JSON?"));
+    }
+  }
+
   if (view === "edit" && editing) {
     return <FormEditor form={editing} setForm={setEditing} onSave={save} onCancel={() => { setView("list"); setEditing(null); }} error={error} />;
   }
@@ -312,7 +362,14 @@ export default function AdminFormulieren() {
     <div>
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-2xl font-bold text-blue-800">Formulieren</h1>
-        <button className="btn-primary btn-sm" onClick={() => openEditor()}>Nieuw formulier</button>
+        <div className="flex flex-wrap items-center gap-2">
+          <a className="text-blue-700 hover:underline text-sm" href="/form-json-formaat.md" target="_blank" rel="noopener noreferrer">Formaat (voor AI)</a>
+          <label className="btn-secondary btn-sm cursor-pointer">
+            Importeer JSON
+            <input type="file" accept="application/json,.json" className="hidden" onChange={(e) => importJsonFile(e.target.files?.[0], e.currentTarget)} />
+          </label>
+          <button className="btn-primary btn-sm" onClick={() => openEditor()}>Nieuw formulier</button>
+        </div>
       </div>
       {error && <div className="bg-red-50 text-red-700 rounded-lg p-3 mb-3 text-sm">{error}</div>}
       <div className="card overflow-x-auto">
@@ -339,6 +396,7 @@ export default function AdminFormulieren() {
                   <button className="text-blue-700 hover:underline" onClick={() => window.open(`/admin/formulieren/${f.id}/afdruk`, "_blank")}>Afdrukken</button>
                   <button className="text-blue-700 hover:underline" onClick={() => download(f.id, "csv")}>CSV</button>
                   <button className="text-blue-700 hover:underline" onClick={() => download(f.id, "ods")}>ODS</button>
+                  <button className="text-blue-700 hover:underline" onClick={() => exportJson(f.id)}>JSON</button>
                   <button className="text-red-600 hover:underline" onClick={() => remove(f.id)}>Verwijderen</button>
                 </td>
               </tr>
