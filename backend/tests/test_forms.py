@@ -1,4 +1,6 @@
 """Tests voor de form engine (#327)."""
+import os
+
 from app.database import SessionLocal
 from app.models.email_log import EmailLog
 from app.models.form import FormSubmission, FormSubmissionAnswer
@@ -657,42 +659,35 @@ def test_rating_scale_capped_at_ten(client, admin_headers):
     assert bad.status_code == 422
 
 
-def test_import_documented_example_payload(client, admin_headers):
-    """#367: de payload uit de formaatgids (form-json-formaat.md) moet geldig zijn —
-    anonieme wizard met secties, branching, rating en een 'Andere…'-optie. Dit dekt
-    tegelijk de import-route (POST /forms) die de builder gebruikt."""
-    payload = {
-        "title": "Voorbeeld-enquête",
-        "description": "Een korte intro.",
-        "status": "open",
-        "is_anonymous": True,
-        "send_confirmation": False,
-        "allow_edit": False,
-        "confirmation_message": "Hartelijk bedankt voor je antwoord!",
-        "sections": [
-            {"title": "Start", "position": 0},
-            {"title": "Als je deelnam", "position": 1, "next_section_index": 2},
-            {"title": "Voor iedereen", "position": 2},
-        ],
-        "fields": [
-            {"field_type": "radio", "label": "Nam je deel?", "required": True, "section_index": 0,
-             "options": [
-                 {"label": "Ja", "skip_to_section_index": 1},
-                 {"label": "Nee", "skip_to_section_index": 2},
-             ]},
-            {"field_type": "rating", "label": "Hoe tevreden was je?", "section_index": 1,
-             "rating_max": 5, "rating_low_label": "Niet tevreden", "rating_high_label": "Zeer tevreden"},
-            {"field_type": "checkbox", "label": "Wat sprak aan?", "section_index": 1,
-             "options": [{"label": "Sfeer"}, {"label": "Eten"}, {"label": "Anders", "is_other": True}]},
-            {"field_type": "textarea", "label": "Suggesties? (optioneel)", "section_index": 2},
-        ],
-    }
-    form = _mk(client, admin_headers, payload)
-    token = form["share_token"]
-    # De "Nee"-tak springt naar de laatste sectie → de Ja-sectievelden zijn niet vereist.
-    nee = _option_id(form, "Nam je deel?", "Nee")
-    body = {"answers": [{"field_id": _field_id(form, "Nam je deel?"), "option_ids": [nee]}]}
-    assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 200
+def _load_formaatgids_example() -> dict:
+    """Leest het JSON-voorbeeld rechtstreeks uit de formaatgids
+    (frontend/public/form-json-formaat.md), zodat de documentatie niet kan wegdriften
+    van de engine (#367)."""
+    import json
+    import re
+
+    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
+    guide = os.path.join(repo_root, "frontend", "public", "form-json-formaat.md")
+    with open(guide, encoding="utf-8") as fh:
+        text = fh.read()
+    m = re.search(r"```json\n(.*?)```", text, re.DOTALL)
+    assert m, "geen JSON-voorbeeld gevonden in form-json-formaat.md"
+    return json.loads(m.group(1))
+
+
+def test_formaatgids_example_imports_and_covers_all_field_types(client, admin_headers):
+    """#367: het voorbeeld uit de formaatgids importeert (POST /forms → 200) én gebruikt
+    ELK veldtype. Faalt zodra de doc-payload niet meer geldig is of een veldtype mist —
+    zo blijft de descriptor bij elke build gevalideerd tegen de engine."""
+    from app.models.form import FIELD_TYPES
+
+    payload = _load_formaatgids_example()
+    resp = client.post("/api/v1/forms", json=payload, headers=admin_headers)
+    assert resp.status_code == 200, resp.text
+    form = resp.json()
+    present = {f["field_type"] for f in form["fields"]}
+    missing = set(FIELD_TYPES) - present
+    assert not missing, f"formaatgids-voorbeeld dekt niet alle veldtypes; mist: {sorted(missing)}"
 
 
 def test_public_form_exposes_confirmation_message(client, admin_headers):

@@ -107,61 +107,74 @@ Gemeenschappelijke velden:
 
 ---
 
-## Volledig voorbeeld
+## Volledig voorbeeld — gebruikt élk veldtype en elke mogelijkheid
+
+Dit voorbeeld is bewust **compleet**: het toont elk `field_type`, opties met
+`is_other`, branching (`skip_to_section_index` en `skip_to_end`), sectie-navigatie
+(`next_section_index`, `next_is_end`) en alle topniveau-vlaggen. (Een CI-test importeert
+dit voorbeeld bij elke build, dus het blijft gegarandeerd geldig.)
 
 ```json
 {
-  "title": "Voorbeeld-enquête",
-  "description": "Een korte intro die bovenaan het formulier verschijnt.",
+  "title": "Volledig voorbeeldformulier",
+  "description": "Deze intro verschijnt bovenaan de eerste stap.",
   "status": "draft",
-  "is_anonymous": true,
-  "send_confirmation": false,
-  "allow_edit": false,
-  "confirmation_message": "Hartelijk bedankt voor je antwoord!",
+  "is_anonymous": false,
+  "send_confirmation": true,
+  "confirmation_message": "Bedankt! Je antwoord is goed ontvangen.",
+  "allow_edit": true,
+  "requires_login": false,
+  "max_submissions": 500,
   "sections": [
-    { "title": "Start", "position": 0 },
-    { "title": "Als je deelnam", "position": 1, "next_section_index": 2 },
-    { "title": "Voor iedereen", "position": 2 }
+    { "title": "Jouw gegevens", "description": "We stellen ons even voor.", "position": 0 },
+    { "title": "Alleen bij Ja", "position": 1, "next_section_index": 2 },
+    { "title": "Voor iedereen", "position": 2 },
+    { "title": "Afsluiting", "position": 3, "next_is_end": true }
   ],
   "fields": [
-    {
-      "field_type": "radio",
-      "label": "Nam je deel aan de activiteit?",
-      "required": true,
-      "section_index": 0,
+    { "field_type": "info", "label": "Welkom — dit formulier toont elk veldtype.", "section_index": 0 },
+    { "field_type": "text", "label": "Voornaam", "required": true, "section_index": 0,
+      "help_text": "Zoals op je identiteitskaart.", "min_length": 2, "max_length": 40 },
+    { "field_type": "email", "label": "E-mail", "required": true, "section_index": 0 },
+    { "field_type": "phone", "label": "Gsm (optioneel)", "section_index": 0 },
+    { "field_type": "number", "label": "Gezinsgrootte", "section_index": 0, "min_value": 1, "max_value": 15 },
+    { "field_type": "select", "label": "Hoe hoorde je van ons?", "section_index": 0,
+      "options": [
+        { "label": "Website" },
+        { "label": "Vrienden" },
+        { "label": "Anders", "is_other": true }
+      ] },
+    { "field_type": "radio", "label": "Wil je de detailvragen invullen?", "required": true, "section_index": 0,
       "options": [
         { "label": "Ja", "skip_to_section_index": 1 },
-        { "label": "Nee", "skip_to_section_index": 2 }
-      ]
-    },
-    {
-      "field_type": "rating",
-      "label": "Hoe tevreden was je?",
-      "section_index": 1,
-      "rating_max": 5,
-      "rating_low_label": "Niet tevreden",
-      "rating_high_label": "Zeer tevreden"
-    },
-    {
-      "field_type": "checkbox",
-      "label": "Wat sprak je het meest aan? (meerdere mogelijk)",
-      "section_index": 1,
+        { "label": "Nee, sla over", "skip_to_section_index": 2 }
+      ] },
+    { "field_type": "rating", "label": "Hoe tevreden ben je?", "section_index": 1,
+      "rating_max": 5, "rating_low_label": "Zeer ontevreden", "rating_high_label": "Zeer tevreden" },
+    { "field_type": "checkbox", "label": "Wat vond je goed? (meerdere mogelijk)", "section_index": 1,
       "options": [
         { "label": "De sfeer" },
         { "label": "Het eten" },
+        { "label": "De locatie" },
         { "label": "Anders", "is_other": true }
-      ]
-    },
-    {
-      "field_type": "textarea",
-      "label": "Heb je nog suggesties? (optioneel)",
-      "section_index": 2
-    }
+      ] },
+    { "field_type": "textarea", "label": "Toelichting (optioneel)", "section_index": 1, "max_length": 500 },
+    { "field_type": "radio", "label": "Mogen we je contacteren?", "section_index": 2,
+      "options": [
+        { "label": "Ja" },
+        { "label": "Nee, en stop hier", "skip_to_end": true }
+      ] },
+    { "field_type": "text", "label": "Postcode", "section_index": 2,
+      "help_text": "4 cijfers.", "regex_pattern": "^[0-9]{4}$" },
+    { "field_type": "info", "label": "Bedankt! Klik op versturen om af te ronden.", "section_index": 3 }
   ]
 }
 ```
 
-In dit voorbeeld: een anonieme wizard met drie secties, waarbij de eerste vraag
-vertakt (Ja → "Als je deelnam", Nee → rechtstreeks "Voor iedereen"); beide takken komen
-samen in de laatste sectie. Het bevat een configureerbare rating, een meerkeuze met een
-"Andere…"-optie en een bedanktekst na het indienen.
+Wat dit voorbeeld demonstreert: een niet-anonieme wizard met vier secties; de eerste
+`radio` **vertakt** (Ja → "Alleen bij Ja", Nee → rechtstreeks "Voor iedereen") en die
+takken **komen samen** (via `next_section_index`); een `radio`-optie met `skip_to_end`
+(formulier vroegtijdig beëindigen); een `select`/`checkbox` met een "Andere…"-optie
+(`is_other`); een configureerbare `rating`; validatie op tekst (`min_length`/`max_length`/
+`regex_pattern`) en getal (`min_value`/`max_value`); `info`-tekstblokken; en de vlaggen
+`send_confirmation`, `confirmation_message`, `allow_edit` en `max_submissions`.
