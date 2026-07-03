@@ -487,9 +487,10 @@ per-schema `GRANT`.
   JWT / de sessie en wordt door de **kernel** in een request-context gezet.
 - Elke module-facade filtert standaard op de actieve tenant; een **VZW-rol** kan de
   filter verruimen tot "alle tenants".
-- Rol-model breidt uit: `ADMIN`/`FINANCE` **per UNIT**, plus een generieke koepel-rol
+- Rol-model breidt uit: `ADMIN`/`FINANCE` **per UNIT**, een generieke koepel-rol
   **`ACCOUNT_ADMIN`** die over alle units van zijn account heen kijkt (org-type-neutraal
-  — bewust niet `VZW_ADMIN`, want de app moet voor elk soort organisatie werken).
+  — bewust niet `VZW_ADMIN`), en een **`OPERATOR`**-rol op platformniveau die over alle
+  accounts kijkt (§7.2).
 
 > **Uitrol per app, niet dark en niet big-bang.** Tenancy raakt elke module (as-2 uit
 > §2), maar we voeren `tenant_id` **niet** vervroegd "dark" in. De kernel levert het
@@ -517,6 +518,45 @@ Multi-tenant dwingt een scherpe scheiding af tussen *wat per vereniging verschil
   git).
 - **`.env` blijft** voor alles wat technologie-/deployment-gebonden is en niet per
   vereniging verschilt.
+
+### 7.2 Meerdere accounts & merk-autonomie
+
+Meerdere accounts naast elkaar is **native**: elke ACCOUNT is een aparte
+`organizations`-wortel. Een klant/koepel die een set quasi-autonome, eigen-brand
+bedrijven beheert = **één account met een unit per bedrijf**.
+
+```mermaid
+flowchart TB
+  OP["platform / operator<br/>(ziet alles)"]:::op
+  OP --> A1["ACCOUNT: Raak vzw"]:::acc
+  OP --> A2["ACCOUNT: Bedrijvengroep X"]:::acc
+  A1 --> U1["UNIT: Raak Millegem<br/>(brand + domein)"]:::u
+  A1 --> U2["UNIT: Raak Achterbos"]:::u
+  A2 --> U3["UNIT: Bedrijf A<br/>(eigen brand + domein)"]:::u
+  A2 --> U4["UNIT: Bedrijf B"]:::u
+  classDef op fill:#ffd,stroke:#aa0,stroke-width:2px;
+  classDef acc fill:#e8f0ff,stroke:#36b;
+  classDef u fill:#eef7ee,stroke:#3a3;
+```
+
+- **Drie niveaus**: **operator** (platform, ziet alles) → **account** (klant/billing) →
+  **unit** (eigen brand). Rol-model breidt uit met een **`OPERATOR`**-rol boven
+  `ACCOUNT_ADMIN`.
+- **Cross-account isolatie is hard**: de facade filtert altijd op de **account-scope**
+  van de gebruiker; een `ACCOUNT_ADMIN` ziet enkel zijn eigen boom. Nooit lek tussen
+  accounts (RLS later als DB-vangnet).
+- **Eigen brand naar buiten**: per-unit (of -account) **branding + eigen (sub)domein**
+  via de per-tenant DB-config (§7.1). De publieke site doet **tenant-resolutie op
+  hostname** → laadt logo/thema/data van die unit.
+- **Zichtbaarheidsbeleid per account, configureerbaar**:
+  - *Gedeeld* (Raak): de koepel (`ACCOUNT_ADMIN`) ziet alle units; MDM-entiteiten mogen
+    binnen het account gedeeld worden.
+  - *Geïsoleerd* (autonome bedrijven): units delen geen data; het account heeft enkel
+    **oversight**. MDM-entiteiten zijn dan per-unit.
+  - Beide passen omdat `tenant_id` per rij zit en zichtbaarheid een **facade-policy** is
+    (geen schemawijziging).
+- **MDM-scope**: entiteiten zijn **account-scoped** (een persoon in account A staat los
+  van account B); binnen een account bepaalt het beleid of units delen.
 
 ---
 
