@@ -545,11 +545,10 @@ flowchart TB
 - **Cross-account isolatie is hard**: de facade filtert altijd op de **account-scope**
   van de gebruiker; een `ACCOUNT_ADMIN` ziet enkel zijn eigen boom. Nooit lek tussen
   accounts (RLS later als DB-vangnet).
-- **Eigen brand naar buiten**: per-unit (of -account) **branding** via de per-tenant
-  DB-config (§7.1). De publieke site doet **tenant-resolutie** volgens een
-  configureerbare strategie — **pad-prefix** (`raakvzw.be/millegem`), **subdomein** of
-  **eigen domein** — en laadt logo/thema/data van die unit. Zie §17 (SEO) voor de
-  afweging en het migratiepad pad → domein.
+- **Eigen brand naar buiten = aparte site per unit**: per-unit branding via de
+  per-tenant DB-config (§7.1), en een **eigen host** (eigen domein of subdomein) zodat
+  elke unit **zelfstandig indexeert** in zoekmachines. Tenant-resolutie op **hostname**;
+  géén pad-prefix. Zie §17 (SEO) voor de afweging en het migratiepad.
 - **Zichtbaarheidsbeleid per account, configureerbaar**:
   - *Gedeeld* (Raak): de koepel (`ACCOUNT_ADMIN`) ziet alle units; MDM-entiteiten mogen
     binnen het account gedeeld worden.
@@ -977,17 +976,20 @@ per-feature `api`-slices; `lib/` houdt enkel gedeelde primitives.
 Elke UNIT gaat met een **eigen brand + eigen (sub)domein** naar buiten (§7.2). SEO is
 daardoor **per-tenant**, en volgt automatisch uit hostname-resolutie + per-tenant config.
 
-- **URL-strategie (abstraheren, niet nu vastleggen)** — drie opties, allemaal
-  ondersteund door dezelfde tenant-resolutie:
-  - **Pad-prefix** `raakvzw.be/millegem`, `/X` — één domein, goedkoopste ops (één
-    cert), SEO = één site met secties. **Aanrader om te starten.**
-  - **Subdomein** `millegem.raakvzw.be` — sterke scheiding, wildcard-cert.
-  - **Eigen domein** `raakmillegem.be`, `raakx.be` — sterkste brand-autonomie, meer
-    ops (cert/DNS per domein).
-- **Resolutie achter een strategie** (`pad-prefix` óf `hostname`) in de Next.js
-  middleware; per unit een **canonical base-URL in de per-tenant config** (§7.1).
-  Metadata/JSON-LD/sitemap gebruiken altijd díe canonical → een latere overstap
-  **pad → (sub)domein** = **config + DNS/Caddy + 301-redirects**, géén code.
+- **Harde eis: elke unit is een aparte site** die zelfstandig indexeert in Google/Bing/
+  Qwant. Dat vereist een **eigen host per unit** (geen pad-prefix):
+  - **Eigen domein** `raakmillegem.be`, `raakx.be` — sterkste scheiding + brand-
+    autonomie, eigen domain authority. **Aanrader.**
+  - **Subdomein** `millegem.raakvzw.be` — ook een aparte site voor zoekmachines
+    (wildcard-cert); iets zwakker dan een eigen domein.
+  - **Pad-prefix valt af**: `raakvzw.be/millegem` is voor zoekmachines **één** site met
+    secties — niet wat we willen.
+- **Resolutie op hostname** (Next.js middleware); per unit een **canonical base-URL
+  (eigen host) in de per-tenant config** (§7.1). Cert per domein (of wildcard voor
+  subdomeinen) via **Caddy**; DNS per host. Overstap subdomein → eigen domein = config +
+  DNS/Caddy + **301-redirects**, géén code.
+- **Per host een volwaardig aparte site**: eigen `sitemap.xml`, `robots.txt`, canonical
+  en `Organization`-JSON-LD → aparte indexatie per unit.
 - **Per-unit metadata** via Next.js `generateMetadata` (server-side, leest de tenant):
   `title`, `description`, `og:image`, favicon — gevoed door de **per-tenant DB-config**
   (§7.1: naam, logo, kleuren). De bestaande issues #320 (Organization JSON-LD) en #322
@@ -1008,3 +1010,77 @@ daardoor **per-tenant**, en volgt automatisch uit hostname-resolutie + per-tenan
 > Kortom: zet je de tenant-resolutie op hostname + de per-tenant config goed, dan is
 > per-unit SEO grotendeels een **afgeleide** — `generateMetadata`, JSON-LD, sitemap en
 > robots lezen simpelweg de actieve tenant.
+
+---
+
+## 18. Concreet planningsvoorstel (backlog)
+
+Vertaling van de roadmap (§11) naar werkpakketten met afhankelijkheden. **Nog geen
+issues aangemaakt** — dit is het voorstel dat later, op go, sub-issues onder epic **#366**
+wordt. Bestaande issues zijn aangeduid; de rest is nieuw.
+
+**Vast sjabloon per component-PR** (zo klein mogelijk, één component per PR):
+`facade (api.py) → import-linter-contract → eigen schema (+ keten waar afsplitsbaar) →
+contract-/integratietests → frontend-feature → CONTRACT.md`.
+
+### Fundering (vroeg, onderbouwt alles)
+| # | Werkpakket | Hangt af van |
+|---|---|---|
+| F1 | **Kernel optrekken**: `kernel/` met `events`, `contracts`, `tenancy`-mixin, `history`-mixin, `security`(verify) | — |
+| F2 | **Import-linter-harness** in CI (mapgrens = moduulgrens) | — |
+| F3 | **Component-scaffold** (cookiecutter) + `CONTRACT.md`-template | F1 |
+| F4 | **Test-harness**: contract-tests + integratie-flow-runner (golden flows) | F1 |
+| F5 | **UI-kit + AdminConsole- & capture-template** (frontend `_shared`) | — |
+
+### Fase 0 — form engine als sjabloon
+| # | Werkpakket | Status | Hangt af van |
+|---|---|---|---|
+| P0a | forms → `domains/forms/` + facade | **#360** | F1–F3 |
+| P0b | import-linter-contract forms | **#361** | F2, P0a |
+| P0c | eigen schema `form` + handoff-migratie | **#362** | P0a |
+| P0d | 2e Alembic-keten + 5 integratietests | **#363** | P0c, F4 |
+
+### Fase 1 — cross-cutting fundamenteel (laag 1)
+| # | Werkpakket | Hangt af van |
+|---|---|---|
+| P1a | **mail**-component (schema + keten + facade + `MailRequested`) | Fase 0-sjabloon |
+| P1b | **auth**-component (laag 1: verify in kernel, policy in `domains/auth`; schema + keten) | Fase 0-sjabloon |
+
+### Fase 2 — MDM
+| # | Werkpakket | Hangt af van |
+|---|---|---|
+| P2a | **MDM**-component: personen/gezinnen/adressen/postcodes/`external_numbers` + schema + keten + facade | P1 |
+| P2b | **Merge/survivorship**: `superseded_by`, `resolve()`, `merge()`, `EntityMerged` (§6.1) | P2a |
+| P2c | **Soft-ref-patroon** (`mdm_person_id` als waarde) + resolver-gebruik in consumenten (§6.2) | P2b |
+
+### Fase 3 — payments
+| # | Werkpakket | Status | Hangt af van |
+|---|---|---|---|
+| P3 | `domains/payments` (merge gateway+status) + schema + **FINANCE-refund** | **#365** | P1 |
+
+### Fase 4 — resterende domeinen (laag 2 + capaciteiten)
+| # | Werkpakket | Hangt af van |
+|---|---|---|
+| P4a | **membership**-component (+ `is_member`-facade) | P2 |
+| P4b | **activities**-component (vraagt membership: ledenkorting) | P4a |
+| P4c | **workflow**-component + **IdeaBox = form + workflow** | Fase 0, F1 |
+| P4d | **media**-capaciteit (schema + storage-adapter) | Fase 0-sjabloon |
+| P4e | **cms**- en **chatbot**-component afzonderen | Fase 0-sjabloon |
+
+### Fase 5 — organisaties & multi-tenant
+| # | Werkpakket | Hangt af van |
+|---|---|---|
+| P5a | **organizations** in MDM (ACCOUNT/UNIT, generiek) | P2 |
+| P5b | **Per-tenant config/secrets-store** (config uit `.env` → DB, versleuteld) | P5a |
+| P5c | **Tenant_id per app** uitrollen + tenant-context + rollen `ACCOUNT_ADMIN`/`OPERATOR` | P5a, alle domeinen |
+| P5d | **Meerdere accounts** + hostname-tenant-resolutie (eigen domein/subdomein per unit) + **per-unit SEO** (aparte site, eigen sitemap/robots/JSON-LD) | P5c |
+
+### Fase 6 — extractie
+| # | Werkpakket | Status | Hangt af van |
+|---|---|---|---|
+| P6 | **STT** naar externe service (facade-swap, bij driver) | **#364** | Fase 4 |
+
+> **Kritieke pad**: F1 → Fase 0 (sjabloon) → P1 (mail/auth) → P2 (MDM) → P5 (tenancy).
+> De rest (payments, membership/activities, workflow, media, cms/chatbot) kan
+> grotendeels **parallel** zodra het sjabloon en de fundering staan. F5 (UI-kit) loopt
+> best mee vanaf de eerste frontend-feature.
