@@ -1,1187 +1,476 @@
 # Intermediate Architecture Upgrade — v1
 
-> Werkdocument / bespreekstuk. Beschrijft de tussenstap-architectuur richting een
-> **modulair ERP/portaal/CRM**, met domeinmodules, moduulafzondering (facade +
-> eigen Postgres-schema + eventueel eigen migratieketen), de toekomstige aparte
-> apps (login & security, mail-logging, MDM) en een **multi-tenant**
-> opzet (Raak vzw met sub-verenigingen). Nog **geen** release toegewezen; dit is
-> het denkkader waaruit we issues afleiden en inplannen.
->
-> Gerelateerd: epic **#366** + sub-issues **#360–#365**.
+> Werkdocument. Denkkader voor de tussenstap naar een **modulair, multi-tenant
+> ERP/portaal/CRM**: domeinmodules met een facade + eigen Postgres-schema (en, waar
+> afsplitsbaar, een eigen migratieketen), afgedwongen grenzen, en per-tenant merk-
+> autonomie. Nog **geen** release toegewezen. Gerelateerd: epic **#366** (#360–#365).
 
 ---
 
-## 1. Doel & leidraad
+## 1. Doel & principes
 
-We groeien van een goed-gestructureerde **modulaire monoliet** naar een architectuur
-waarin elk domein een echte module is met een **afdwingbare buitengrens**, zodat we
-later — en enkel wanneer een concrete driver dat vraagt — een module als aparte app
-kunnen afsplitsen. Het is bewust een **leertraject**: elke stap leert ons het
-sjabloon dat we op het volgende domein toepassen.
+Van **modulaire monoliet** naar componenten met een **afdwingbare buitengrens**, zodat
+we er later — enkel bij een concrete driver — een aparte app van kunnen maken. Bewust
+een **leertraject**: forms is het sjabloon dat we op elk volgend domein herhalen.
 
-Kernprincipes (de rode draad door alles hieronder):
-
-- **Capture → Record → Act.** Elk domein heeft een publieke *capture*-kant
-  (bezoeker), een *record*-kern (eigen data + regels) en een back-office *act*-kant
-  (rol-gated console).
-- **Eén verticale slice per module** in `app/domains/<domein>/`, met een **facade**
-  (`api.py`) als enige publieke oppervlak. Geen reach-in in models/services.
-- **Owned data**: elke module bezit zijn tabellen in een **eigen Postgres-schema**;
-  cross-module verkeer via **events/DTO's**, nooit via live ORM-objecten of
-  gedeelde FK's.
-- **Kernel** apart: auth, database, config, events/contracts — alles hangt van de
-  kernel af, de kernel van geen enkel domein.
-- **Rol-as** als enige divergentie in de back-office: `ADMIN` vs `FINANCE`
-  (penningmeester), later per sub-vereniging.
-- **Modulariteit = OO op macroschaal**: een module is een object; facade =
-  encapsulation, events = message passing, import-linter = het `private`-keyword dat
-  Python over packages mist.
+- **Capture → Record → Act** — publieke capture (bezoeker), record-kern (eigen data +
+  regels), rol-gated back-office (act).
+- **Eén verticale slice per component** in `app/domains/<c>/`, met een **facade
+  (`api.py`)** als enige publieke oppervlak — geen reach-in in models/services.
+- **Owned data** — eigen Postgres-schema; cross-component enkel via **facade/events**,
+  nooit live ORM-objecten of cross-schema FK's.
+- **Kernel** = plumbing (db, config, events, tenant-context); hangt van geen domein af.
+- **Modulariteit = OO op macroschaal** — module = object; facade = encapsulation,
+  events = message passing, import-linter = het ontbrekende `private`-keyword.
 
 ---
 
-## 2. Twee onafhankelijke assen (belangrijkste inzicht)
+## 2. Twee onafhankelijke assen
 
-Verwar **modularisatie** en **multi-tenancy** niet: het zijn twee loodrechte assen.
+Verwar **modularisatie** en **multi-tenancy** niet — ze staan loodrecht op elkaar:
 
-| As | Vraag | Mechanisme |
-|---|---|---|
-| **Module** (verticaal) | *Wélk soort data/gedrag?* (forms, betalingen, MDM …) | Eigen package + eigen **Postgres-schema** (`form`, `payment`, `mdm` …) |
-| **Tenant** (horizontaal) | *Van wélke vereniging?* (Millegem, X, Y …) | **`tenant_id`** (rij-niveau) binnen elke moduletabel |
+- **Module** (verticaal): *wélk soort data?* → eigen package + **Postgres-schema**
+  (`form`, `payment`, `mdm` …).
+- **Tenant** (horizontaal): *van wélke vereniging?* → **`tenant_id`** (rij-niveau) in
+  elke moduletabel.
 
-```mermaid
-flowchart LR
-  subgraph Modules["Module-as → Postgres-schema's"]
-    M1[MDM]:::m
-    M2[form]:::m
-    M3[payment]:::m
-    M4[mail]:::m
-    M5[auth]:::m
-  end
-  subgraph Tenants["Tenant-as → tenant_id per rij"]
-    T1[Raak Millegem]:::t
-    T2[Raak X]:::t
-    T3[Raak Y]:::t
-  end
-  Modules -. elke moduletabel draagt tenant_id .-> Tenants
-  classDef m fill:#e8f0ff,stroke:#3b6;
-  classDef t fill:#fff3e0,stroke:#e90;
-```
-
-De VZW-koepel snijdt dwars door beide: **Raak vzw ziet alle tenants** in alle
-modules. Daarom is rij-niveau (`tenant_id`) het juiste model — een schema-per-tenant
-zou de koepelblik pijnlijk maken (union over N schema's). Zie §7.
+De koepel snijdt dwars door beide (ziet alle tenants in alle modules) → rij-niveau
+`tenant_id` is het juiste model (§7).
 
 ---
 
-## 3. Componentenkaart (doelbeeld)
+## 3. Componentenkaart
 
 ```mermaid
 flowchart TB
-  subgraph Public["Publieke site (bezoeker)"]
-    PUB_FORM[Formulier invullen]
-    PUB_PAY[Betalen Mollie]
-    PUB_REG[Lid/gezin inschrijven]
-    PUB_ACT[Activiteiten bekijken/inschrijven]
+  Public["Publieke site (bezoeker)"] --> D2
+  BO["Back-office (ADMIN / FINANCE)"] --> D2
+  BO --> D1
+  subgraph D1["Fundamenteel (laag 1) — eigen schema + keten"]
+    AUTH[auth & security]:::c
+    MDM["MDM (personen, gezinnen,<br/>adressen, postcodes, organisaties)"]:::c
+    MAIL[mail-logging]:::c
   end
-
-  subgraph BO["Back-office console (ADMIN / FINANCE)"]
-    BO_FORMBUILD[Formulier-bouwer]
-    BO_PAY[Betalingen & terugvordering]
-    BO_MEMBERS[Leden & gezinnen]
-    BO_ACT[Activiteiten-beheer]
-    BO_MAIL[E-maillog]
-    BO_USERS[Gebruikers & rollen]
+  subgraph D2["Domeinen (laag 2)"]
+    MEMBER[membership]:::c
+    ACT[activities]:::c
+    FORM[form engine]:::c
+    WF[workflow]:::c
+    PAY["payments (Mollie)"]:::c
+    CMS[cms]:::c
+    CHAT[chatbot / AI]:::c
   end
-
-  subgraph Kernel["Kernel (gedeeld, hangt van geen domein af)"]
-    K_DB[(database)]
-    K_EVENTS[event-bus / contracts]
-    K_CFG[config]
+  subgraph CAP["Capaciteiten & cross-cutting"]
+    MEDIA[media]:::x
+    STT["STT (stateless → extractie-kandidaat)"]:::x
+    ANA[analytics read-model]:::x
   end
-
-  subgraph Foundational["Fundamenteel (laag 1) — eigen schema + keten"]
-    D_AUTH["auth & security<br/>schema: auth"]
-    D_MASTER["MDM<br/>schema: mdm<br/>(personen, gezinnen, adressen,<br/>postcodes, organisaties ACCOUNT/UNIT)"]
-    D_MAIL["mail-logging<br/>schema: mail"]
-  end
-
-  subgraph Domains["Domeinen (laag 2)"]
-    D_MEMBER["membership<br/>schema: membership"]
-    D_ACT["activities<br/>schema: activity"]
-    D_FORM["form engine<br/>schema: form"]
-    D_WF["workflow<br/>schema: workflow"]
-    D_PAY["payments (Mollie)<br/>schema: payment"]
-    D_CMS["cms<br/>schema: cms"]
-    D_CHAT["chatbot / AI<br/>schema: ai"]
-  end
-
-  subgraph Cap["Capaciteiten & cross-cutting"]
-    D_MEDIA["media (capaciteit,<br/>schema: media + storage)"]
-    D_STT["STT (stateless capaciteit,<br/>géén schema → extractie-kandidaat)"]
-    D_AUDIT["audit / history<br/>schema: audit (*_history, business_events)"]
-    D_ANALYTICS["analytics (read-model)"]
-  end
-
-  Public --> Domains
-  BO --> Domains
-  BO --> Foundational
-  Domains --> Foundational
-  Domains --> Cap
-  Domains --> Kernel
-  Foundational --> Kernel
-  Cap --> Kernel
-
-  %% cross-module enkel via facade/events
-  D_MEMBER -. facade .-> D_MASTER
-  D_ACT -. "is lid? (facade)" .-> D_MEMBER
-  D_PAY -. event PaymentSettled .-> D_MEMBER
-  D_FORM -. event SubmissionCreated .-> D_WF
-  D_WF -. event WorkflowCompleted .-> D_MAIL
-  D_CHAT -. facade .-> D_STT
-  D_CMS -. asset_id .-> D_MEDIA
-  Domains -. events .-> D_AUDIT
+  D2 --> D1
+  D2 --> CAP
+  D1 --> Kernel[(kernel)]
+  D2 --> Kernel
+  CAP --> Kernel
+  MEMBER -.->|facade| MDM
+  ACT -.->|"is lid?"| MEMBER
+  PAY -.->|PaymentSettled| MEMBER
+  FORM -.->|SubmissionCreated| WF
+  WF -.->|WorkflowCompleted| MAIL
+  CHAT -.->|facade| STT
+  classDef c fill:#e8f0ff,stroke:#36b;
+  classDef x fill:#eef7ee,stroke:#3a3;
 ```
 
-> **IdeaBox = form + workflow**: de vroegere losse `ideas`-component vervalt; een
-> geseed formulier "Idee indienen" met een simpele workflow (`nieuw → in behandeling →
-> in orde`) vervangt het (§5.6).
-
-**Legenda / regels op de pijlen:**
-- Publieke en back-office schermen praten enkel met een **module-facade**, nooit
-  rechtstreeks met andermans models.
-- Domeinen praten onderling **enkel via facade-calls of events** (gestippeld).
-- Alles mag op de **kernel** steunen; de kernel steunt op niets domein-specifiek.
+Regels: schermen praten enkel met een **facade**; domeinen onderling enkel via
+**facade/events**; **history** is een gedeeld kernel-patroon (geen aparte component).
 
 ---
 
 ## 4. Schermen ↔ componenten
 
-Je intuïtie klopt: het **formulier-bouwscherm hoort bij de form-component**, en de
-publieke rendering óók. Algemene regel: **een scherm hoort bij de module wiens data
-het toont/bewerkt**, ongeacht of het publiek of back-office is. Publiek vs
-back-office is een *rol/authenticatie*-onderscheid, geen *component*-grens.
+Regel: **een scherm hoort bij de component wiens data het toont** — publiek én
+back-office. Publiek vs back-office = rol/auth, geen componentgrens. Dus de
+formulier-bouwer én de publieke render horen bij **form**.
 
-| Scherm | Kant | Component (eigenaar) | Rol |
-|---|---|---|---|
-| Formulier invullen (`/formulier/[token]`) | publiek | **form** | — (capability-token) |
-| Formulier-bouwer (`/admin/formulieren`) | back-office | **form** | ADMIN |
-| Inzendingen bekijken/verwijderen | back-office | **form** | ADMIN |
-| Betaalflow / redirect Mollie (`/betaling/*`) | publiek | **payment** | — |
-| Betalingen-overzicht + **terugvordering** | back-office | **payment** | **FINANCE** |
-| Lid/gezin inschrijven (publiek) | publiek | **MDM** (+ membership) | — |
-| Leden & gezinnen beheren (`/admin/leden`) | back-office | **MDM** | ADMIN |
-| Activiteiten bekijken/inschrijven | publiek | **activities** | — |
-| Activiteiten-beheer | back-office | **activities** | ADMIN |
-| E-maillog (`/admin/emails`) | back-office | **mail-logging** | ADMIN |
-| Gebruikers & rollen (`/admin/gebruikers`) | back-office | **auth & security** | ADMIN |
-| Login (`/login`, `/admin/login`) | beide | **auth & security** | — |
-| CMS-pagina's (`/[slug]`, `/admin/paginas`) | beide | **cms** | ADMIN |
+| Scherm | Component | Rol |
+|---|---|---|
+| Formulier invullen / bouwer / inzendingen | **form** | — / ADMIN |
+| Betaalflow / overzicht + **terugvordering** | **payment** | — / **FINANCE** |
+| Lid/gezin inschrijven / ledenbeheer | **MDM** (+ membership) | — / ADMIN |
+| Activiteiten publiek / beheer | **activities** | — / ADMIN |
+| E-maillog | **mail** | ADMIN |
+| Login / gebruikers & rollen | **auth** | — / ADMIN |
+| CMS-pagina's | **cms** | — / ADMIN |
 
-> **Frontend-consequentie:** spiegel de backend. Vandaag zit UI verspreid over
-> `components/` + `lib/api.ts` + `lib/types.ts`. Doel: `features/<component>/` met
-> eigen componenten, `api`-slice en types. `lib/` houdt enkel gedeelde primitives
-> (money, errors, axios-client). Eén feature-map = één component, publiek én
-> back-office samen.
-
-```mermaid
-flowchart LR
-  subgraph FE["Frontend features/"]
-    F_FORM["features/forms<br/>bouwer + publieke render"]
-    F_PAY["features/payments<br/>betaalflow + console"]
-    F_MASTER["features/mdm<br/>inschrijving + ledenbeheer"]
-  end
-  subgraph API["Facades (backend api.py)"]
-    A_FORM[form.api]
-    A_PAY[payment.api]
-    A_MASTER[mdm.api]
-  end
-  F_FORM --> A_FORM
-  F_PAY --> A_PAY
-  F_MASTER --> A_MASTER
-```
+**Frontend spiegelt de backend**: `features/<component>/` (eigen componenten, api-slice,
+types); `lib/` houdt enkel gedeelde primitives (money, errors, axios).
 
 ---
 
-## 5. Toekomstige aparte apps (jouw wensen)
+## 5. Componenten in detail
 
-Drie domeinen die je expliciet als aparte app ziet — ze zijn **cross-cutting** en
-lenen zich goed voor vroege afzondering:
+**5.1 auth & security** (laag 1). `users`, rollen, tokens, JWT-uitgifte/-verificatie.
+Eén aparte, apart-deploybare component; **iedereen gebruikt `auth.api`**; auth hangt
+enkel van de kernel af (de kernel roept auth niet aan → geen cyclus). Rol-toewijzingen
+dragen `tenant_id` als waarde.
 
-### 5.1 Login & Security (`auth`) — één fundamentele component
-- Bevat: `users`, `user_roles`, `role_codes`, login-tokens, JWT-uitgifte/-verificatie,
-  `require_roles`.
-- **Eén aparte component/app** `domains/auth/` met eigen schema `auth` + eigen keten +
-  facade: `authenticate()`, `issue_token()`, `verify_token()`, `require_roles()`,
-  gebruikersbeheer. **Elke** andere component gebruikt die via `auth.api`.
-- **Positie = laag 1 (fundamenteel)**, zie §8: auth hangt **enkel van de kernel af**
-  (db, config), van geen enkel domein. De kernel roept auth niet aan — de
-  `require_roles`/`verify`-check is een *route-dependency* die elke domein-router uit
-  `auth.api` haalt. Zo is er geen cyclus (kernel ← auth ← domeinen) en blijft de
-  kernel dunne plumbing.
-- Multi-tenant: rol-toewijzingen dragen een `tenant_id` (UNIT) als **waarde**, geen
-  harde FK naar `mdm` — auth blijft los van mdm.
+**5.2 mail** (laag 1). `email_log` + het centrale `_send`-chokepoint + retentie. Facade
+`send/list/delete`; anderen sturen via facade of `MailRequested`-event. `email_log`
+blijft in `mail`/`public`, niet in `form` (correctie op migratie 062).
 
-### 5.2 Mail-logging (`mail`)
-- Bevat: `email_log` + het centrale `_send`-chokepoint + retentie
-  (`EMAIL_LOG_RETENTION_DAYS`).
-- Vandaag al een chokepoint — ideale kandidaat. Facade: `send(email)` +
-  `list_logs()` + `delete_log()`. Elke module publiceert "stuur mail" via deze
-  facade (of via een `MailRequested`-event), zodat de logging één plek blijft.
-- **Belangrijk:** bij de form-schema-migratie **blijft `email_log` in `public`/`mail`**,
-  niet in `form` (correctie op het mengen uit migratie 062).
+**5.3 MDM** (laag 1) — identiteit, **géén lidmaatschap**. Personen, gezinnen, adressen,
+postcodes, organisaties (§6) + `external_numbers` + de codes `relation/contact/gender`.
+Gezinssamenstelling = MDM; "is betalend lid" = membership. Facade `get_person/
+find_family/resolve_postal_code/list_organizations` + `resolve/merge` (§6).
 
-### 5.3 MDM (`mdm`) — identiteit, géén lidmaatschap
-- Bevat: **personen, gezinnen (households), adressen, postcodes** en (§6–7) de
-  **organisaties** (ACCOUNT/UNIT). Plus de bijhorende referentiecodes
-  (`relation_type_codes`, `contact_type_codes`, `gender_codes`).
-- **Bestaat onafhankelijk van lidmaatschap**: een persoon/gezin bestaat óók zonder lid
-  te zijn. De **gezinssamenstelling** (wie zit in welk gezin) is MDM; **"dit
-  gezin is betalend lid in 2026"** is géén MDM → dat is `membership`.
-- Facade: `get_person()`, `find_family()`, `resolve_postal_code()`,
-  `list_organizations()`, plus merge/redirect: `resolve(id)`, `merge(loser, winner)`
-  (§6.1).
+**5.4 membership** — eigen component, **zuster van activities** (niet samenvoegen, niet
+in MDM). Lidmaatschaps-relatie (persoon/gezin ↔ UNIT), jaren, lidgeld, bestuurslid.
+Beide steunen op MDM en voeden `payment`. `activities` vraagt membership "is lid?" via
+facade (ledenkorting) → daarom apart en testbaar.
 
-### 5.3b Membership (`membership`) — eigen component, géén MDM
-- **Aparte component** (niet samenvoegen met `activities`, niet in `mdm`): de
-  **lidmaatschaps-relatie** (persoon/gezin ↔ UNIT), lidmaatschapsjaren/-periodes,
-  lidgeld, bestuurslid-rol.
-- **Zuster van `activities`**, niet erboven/onder: beide steunen op `mdm` (identiteit)
-  en voeden **`payment`** (lidgeld resp. inschrijving). Daarom geen `activities_membership`.
-- **Cross-module regel**: `activities` vraagt `membership` "is deze persoon lid dit jaar?"
-  via facade (bv. ledenkorting). Aparte componenten maken die regel expliciet/testbaar.
+**5.5 AI & STT** — ondersteunend, aan de rand.
+- **STT** = stateless capaciteit (audio→tekst), géén schema → **eerste
+  extractie-kandidaat** (zware libs/GPU): in-process nu, externe service later, zelfde
+  facade (#364).
+- **chatbot/AI** = laag-2 domein (schema `ai`) dat STT + LLM-providers consumeert.
+- Providers achter adapters, **Europe-First**; keys = per-tenant secret.
 
-```mermaid
-flowchart TB
-  subgraph mdm["MDM (schema) — identiteit"]
-    P[persons]
-    F[families/households]
-    A[addresses]
-    PC[postal_codes]
-    ORG[organizations ACCOUNT/UNIT]
-  end
-  subgraph membership["membership (schema)"]
-    MEMB["memberships<br/>person/family_id, tenant_id, jaar, lidgeld"]
-  end
-  subgraph activities["activities (schema)"]
-    ACT[registrations]
-  end
-  MEMB -. verwijst via id .-> P
-  MEMB -. verwijst via id .-> ORG
-  ACT -. "is lid? (facade)" .-> MEMB
-  ACT -. verwijst via id .-> P
-```
+**5.6 media** — gedeelde **capaciteit** (zoals mail), geen blad-domein. Meerdere
+domeinen verwijzen via een `asset_id` (waarde). Schema `media` (metadata) + storage-
+adapter (schijf/Storage Box, Europe-First). Facade `store/get_url/delete/resize`.
+Tenant-scoped.
 
-### 5.4 AI & STT — ondersteunende capaciteiten (aan de rand)
-Twee verschillende dingen, bewust niet samengevoegd met een kern-domein:
-- **STT** = **stateless capaciteit** (audio → tekst), **géén schema**. Andere
-  componenten roepen `stt.api.transcribe()` aan. Gedraagt zich als een gedeelde
-  capaciteit maar houdt geen domeindata bij → **eerste extractie-kandidaat** (zware
-  libs/GPU): in-process nu, externe service later, **zelfde facade** (issue #364).
-- **Chatbot/AI** = **laag-2 domein** met klein schema `ai` (`chatbot_info` + context),
-  dat **STT en LLM-providers consumeert** en op `cms`/`mdm` leunt via facades.
-- **Providers** (LLM/STT-leveranciers) zitten achter **provider-adapters** →
-  verwisselbaar, **Europe-First** (waar draait het model / waar blijft de audio).
-- Config: provider-keys zijn **per-tenant secrets** → DB versleuteld of infra-`.env`.
+**5.7 workflow** — pluggbaar **vervolgproces + menselijke taken**. Form blijft dom
+(publiceert `SubmissionCreated`); workflow luistert, start een instantie en beheert
+states + taken (bewaart `submission_id` als waarde). Bouwer koppelt enkel een
+`workflow_definition`-id; de procesdefinitie + takeninbox horen bij workflow. Facade
+`start/advance/list_tasks/complete_task`; publiceert `WorkflowCompleted`.
+**IdeaBox = een geseed formulier + workflow `nieuw → in behandeling → in orde`** (de
+losse `ideas`-component vervalt).
 
-### 5.5 Media (`media`) — gedeelde capaciteit
-- **Aparte component, maar als capaciteit** (zoals mail), niet een blad-domein: door
-  meerdere domeinen gebruikt (cms, activiteiten, later form-uploads, chatbot-context)
-  die er via een `asset_id` (waarde) naar verwijzen — geen cross-schema FK.
-- Eigen schema `media` (metadata `media_assets`) **+ storage-adapter** voor de bytes
-  (schijf/Storage Box, **Europe-First**), zoals STT provider-adapters heeft.
-- Facade: `store(file) → asset_id`, `get_url(asset_id)`, `delete()`, resize/afbeelding.
-- Tenant-scoped (`tenant_id` per asset; per-tenant opslag mogelijk).
-
-### 5.6 Workflow (`workflow`) — pluggbaar vervolgproces + menselijke taken
-Sommige inzendingen vragen een **vervolgproces** (bv. IdeaBox: iemand van Raak vinkt
-"in orde" af). Dat is een **aparte proces-/taak-component**, geen form-logica.
-
-- **Form blijft dom**: capture + record + publiceert `SubmissionCreated`. De
-  **`workflow`-component luistert** (event), start een proces-instantie voor formulieren
-  die workflow-enabled zijn, en beheert states + menselijke taken. Geen harde koppeling:
-  workflow bewaart `submission_id` als waarde.
-- **Configureerbaar per form**: in de form-bouwer koppel je een `workflow_definition`
-  (de form-component bewaart enkel een *referentie/id*); de **procesdefinitie zelf** en
-  de **takeninbox** horen bij de workflow-component (mooie toepassing van de
-  "scherm hoort bij zijn component"-regel, §4).
-- **Act-plane**: de taak "afvinken" is een rol-gated taak in de **workflow-console**
-  (back-office). Capture (form) → record (submission) → **act (workflow-taak)**.
-- Data (schema `workflow`): `workflow_definitions`, `workflow_instances`,
-  `workflow_tasks` (toewijzing/status), `workflow_transitions` (historiek).
-- Facade: `start(trigger, ref)`, `advance(instance, action)`, `list_tasks(tenant, rol)`,
-  `complete_task()`. Publiceert `WorkflowCompleted` → mail (notificatie) + audit.
-- **IdeaBox = form + workflow**: vervang de losse `ideas`-tabel door een geseed
-  formulier "Idee indienen" met een simpele workflow `nieuw → in behandeling → in orde`.
-  Zo generaliseert het naar elk formulier met een complexer vervolg.
-- Tenant-scoped (`tenant_id` per instantie/taak).
-
-### 5.7 Cross-cutting & nog te plaatsen tabellen
-Niet elke tabel mapt op één domein-component:
-- **History = gedeeld patroon, géén centrale component.** Elke component houdt zijn
-  eigen `*_history`-tabellen in **zijn eigen schema**, maar via **één herbruikbaar
-  kernel-mechanisme** (een `Historized`-mixin / SQLAlchemy-listener) zodat het overal
-  **identiek** werkt. *Mechanisme gedeeld (kernel), data per domein* — net als de
-  `tenant_id`-mixin. `models/history.py` wordt zo een kernel-patroon i.p.v. een
-  vergaarbak. (Geen apart `audit`-schema/-component.)
-- **`business_events`**: momenteel **geen meerwaarde** → centraal parkeren of
-  **verwijderen**. Niet uitbouwen tot een audit-component.
-- **`ideas`** → **niet** langer een eigen component: wordt **form + workflow** (§5.6).
-- **`external_numbers`** (externe-ID-mapping) → **MDM** (beslist): het is externe
-  identiteit van personen/organisaties, dus Master Data Management.
-- **Referentiecodes** → **in het schema van hun eigen component** (beslist):
-  `role_codes`→auth, `payment_status_codes`→payment, `registration_type_codes`→
-  activities, `relation/contact/gender_codes`→mdm. **Geen** gedeelde
-  `reference`-namespace (die zou de koppeling herintroduceren). Heeft een ander
-  component een code nodig, dan bewaart het de **waarde** en valideert het desnoods via
-  de facade van de eigenaar.
+**5.8 Cross-cutting & plaatsing van resttabellen**
+- **History = gedeeld kernel-patroon** (`Historized`-mixin), per-component `*_history`
+  in het eigen schema — géén centrale audit-component.
+- **`business_events`**: geen meerwaarde → parkeren/verwijderen.
+- **`external_numbers`** → MDM (externe identiteit).
+- **Referentiecodes** → in het schema van hun eigen component (geen gedeelde
+  `reference`-namespace); anderen bewaren de **waarde**.
 
 ---
 
-## 6. Data: MDM met organisaties
+## 6. MDM: organisaties, merge & soft-refs
 
-`organizations` wordt de spil van zowel de **koepelstructuur** als de **tenancy**.
-Het model is bewust **generiek** (niet vzw-specifiek): de app moet voor elk type
-organisatie werken. Twee structurele niveaus, en het juridische type is **data**.
-
+### Organisaties (generiek, niet vzw-specifiek)
 ```mermaid
 erDiagram
   ORGANIZATION ||--o{ ORGANIZATION : "parent (account → unit)"
+  ORGANIZATION ||--o{ PERSON : "tenant_id (= unit)"
   ORGANIZATION {
     int id
-    string kind "ACCOUNT | UNIT (structurele rol)"
-    string legal_form "vrij label: VZW / feit. vereniging / bedrijf / …"
-    string name "Raak vzw / Raak Millegem"
-    int parent_id "null voor de account-wortel"
-  }
-  ORGANIZATION ||--o{ PERSON : "tenant_id (= unit)"
-  ORGANIZATION ||--o{ FAMILY : "tenant_id (= unit)"
-  PERSON ||--o{ FAMILY_MEMBER : ""
-  FAMILY ||--o{ FAMILY_MEMBER : ""
-  PERSON {
-    int id
-    int tenant_id "= UNIT"
-  }
-  FAMILY {
-    int id
-    int tenant_id
+    string kind "ACCOUNT | UNIT"
+    string legal_form "data: VZW / bedrijf / …"
+    int parent_id
   }
 ```
+`organizations` is zelf-refererend: **ACCOUNT** = koepel/klant (wortel), **UNIT** =
+operationele eenheid (bij Raak: Millegem, X, Y, Z). `legal_form` is **data** → org-type-
+neutraal. Elke tenant-rij draagt `tenant_id` = UNIT; de account-scope volgt uit de boom.
 
-- **`organizations`** is zelf-refererend met een structurele `kind`:
-  - **ACCOUNT** = de koepel/klant (billing-entiteit). Bij Raak: "Raak vzw".
-    Wortel (`parent_id = null`).
-  - **UNIT** = een operationele eenheid onder een account. Bij Raak: de feitelijke
-    verenigingen (Millegem, X, Y, Z …).
-- **`legal_form`** is een vrij label (VZW, feitelijke vereniging, bedrijf, …) → de
-  juridische invulling is **data**, geen schema-aanname. Zo werkt de app net zo goed
-  voor niet-vzw-klanten.
-- Elke tenant-scoped rij (persoon, gezin, later activiteit/formulier/betaling) draagt
-  een **`tenant_id`** = de **UNIT**. De **ACCOUNT**-scope leid je af door de boom op
-  te lopen (`unit.parent_id`).
-
----
-
-## 6.1 MDM: merge & survivorship — nooit verwijderen
-
-Principe: MDM-entiteiten (persoon, gezin, organisatie) worden **nooit hard verwijderd**.
-Dubbels worden **gemergd** tot één *golden record*; het verliezende record blijft
-bestaan als **tombstone** die naar de survivor wijst. Zo blijft elke verwijzing naar
-MDM altijd bij de **actuele** entiteit uitkomen.
-
-- **ID-redirectie**: elke MDM-entiteit heeft `superseded_by_id` (self-FK; `null` =
-  actief). Resolutie volgt de keten tot `null` = de huidige survivor. Bij een merge
-  **plat** je bestaande aliassen om naar de finale survivor (O(1) lookups, geen diepe
-  ketens).
-- **Altijd up-to-date link**: andere componenten bewaren `person_id` als **waarde**
-  (geen harde cross-schema FK) en lezen via de facade. `mdm.api.get(id)`/`resolve(id)`
-  **redirect automatisch** naar de survivor. Een oude inschrijving die naar "oude Koen
-  (#12)" wees, komt zo bij de huidige Koen (#34) uit.
-- **Niets verloren → omkeerbaar**: het verliezende record behoudt al zijn data
-  (tombstone), dus **unmerge** is mogelijk. De merge zelf wordt gelogd via het
-  history-patroon (wie, wanneer, welke velden wonnen).
-- **Event `EntityMerged(old_id, new_id)`**: consumenten mogen hun opgeslagen id's lui/
-  gretig herschrijven (housekeeping), maar dat is **niet nodig voor correctheid** — de
-  facade redirect al.
-- **Survivorship-regels** (golden record): welke veldwaarden winnen — start simpel
-  (survivor wint, verliezer bewaard in history), later verfijnbaar (meest recent/
-  volledig).
-- Geldt voor **alle MDM-aggregaten**: persoon, gezin/household, organisatie.
+### Merge & survivorship — nooit verwijderen
+MDM-entiteiten worden **nooit hard verwijderd**; dubbels worden gemergd tot één *golden
+record*, de verliezer blijft als **tombstone** die naar de survivor wijst.
 
 ```mermaid
 flowchart LR
   REG["inschrijving<br/>person_id = 12"] -->|resolve via facade| NEW
-  OLD["persoon #12 (Koen)<br/>superseded_by_id = 34"]:::dead -->|superseded_by| NEW["persoon #34 (Koen)<br/>survivor, actief"]:::alive
-  classDef dead fill:#eee,stroke:#999,stroke-dasharray:3;
-  classDef alive fill:#e8f7e8,stroke:#3a3;
+  OLD["#12 (Koen) superseded_by 34"]:::d -->|superseded_by| NEW["#34 (Koen) survivor"]:::a
+  classDef d fill:#eee,stroke:#999,stroke-dasharray:3;
+  classDef a fill:#e8f7e8,stroke:#3a3;
 ```
+- **ID-redirect**: `superseded_by_id` (self-FK, `null`=actief); `resolve()` volgt de
+  keten (bij merge platgeslagen → O(1)). `merge()` idempotent.
+- **Altijd actueel**: consumenten lezen via `mdm.api.get/resolve` → een oude
+  inschrijving komt vanzelf bij de survivor uit.
+- **Niets verloren → unmerge mogelijk**; de merge wordt gelogd (history-patroon).
+- Event **`EntityMerged`** voor optionele housekeeping (niet nodig voor correctheid).
 
-> **Contract/test-consequentie**: een golden-flow-test (§10) bewijst dat een verwijzing
-> naar een gemergede persoon via de facade de **survivor** oplevert; `merge()` is
-> idempotent en `resolve()` volgt de keten.
+### Soft reference (zo verwijst bv. de form engine naar een persoon)
+- **Waarde-kolom** `mdm_person_id` (nullable), **geen cross-schema FK** — een echte FK
+  zou de schema's koppelen, onafhankelijk deployen breken én de merge-redirect
+  onmogelijk maken. Concreet: `form_submissions.mdm_person_id`.
+- **Optioneel** (forms mogen anoniem blijven → losse koppeling behouden); **altijd via
+  de facade lezen** (redirect transparant). Het nooit-verwijderen + tombstone garandeert
+  dat een id **nooit dangelt** — sterker dan een harde FK. Zelfde patroon voor
+  membership/activities/payment.
 
 ---
 
-## 6.2 Verwijzen naar MDM vanuit andere componenten — soft reference
+## 7. Multi-tenant
 
-Zo verwijst bv. de **form engine** (of membership/activities/payment) naar een persoon:
-
-- **Soft reference, geen harde cross-schema FK**: een kolom `mdm_person_id`
-  (of `mdm_org_id`) als **waarde**. Een echte FK zou de schema's/ketens koppelen,
-  onafhankelijk deployen breken, én de merge-redirect onmogelijk maken.
-- **Optioneel/nullable**: veel form-inzendingen zijn anoniem of van niet-leden → de
-  link is optioneel. De form engine blijft volledig bruikbaar **zonder** MDM-link
-  (losse koppeling behouden). De link wordt gezet wanneer bekend (ingelogd lid dient
-  in, of een admin koppelt achteraf).
-- **Altijd via de facade lezen**: `mdm.api.get(resolve(id))` → de **merge-redirect is
-  transparant**. Een inzending die naar "oude Koen (#12)" wees, levert de survivor.
-- **Integriteit zonder FK**: het MDM-nooit-verwijderen + tombstone garandeert dat een
-  id **nooit dangelt** en altijd resolvet — voor dit doel *sterker* dan een harde FK
-  (die zou verwijderen blokkeren of cascaderen).
-- **Housekeeping** (optioneel): luister op `EntityMerged` om opgeslagen id's te
-  herschrijven; niet nodig voor correctheid.
-
-> **In de form engine concreet**: `form_submissions.mdm_person_id` (nullable *waarde*).
-> Dit is de enige "koppeling" van forms naar MDM — geen FK, geen import van MDM-models,
-> enkel `mdm.api` + het id-als-waarde. Zelfde patroon voor `membership`, `activities`,
-> `payment`.
-
----
-
-## 7. Multi-tenant opzet
-
-**Klant = Raak vzw**; **tenants = de sub-verenigingen**; de vzw heeft **zicht op
-alles**.
-
-**Klant = een ACCOUNT** (bij Raak: Raak vzw, maar generiek elk type organisatie);
-**tenants = de UNITs** (sub-verenigingen); de account heeft **zicht op alles**.
+**Klant = ACCOUNT** (generiek elk type org), **tenants = UNITs**. Drie niveaus:
+**operator** (platform, ziet alles) → **account** (klant/billing) → **unit** (eigen
+brand). Een klant die quasi-autonome, eigen-brand bedrijven beheert = **één account,
+één unit per bedrijf**. Meerdere accounts naast elkaar is **native** (aparte
+`organizations`-wortels).
 
 ```mermaid
 flowchart TB
-  VZW["ACCOUNT<br/>(bv. Raak vzw — ziet ALLES)"]:::vzw
-  VZW --> M1["UNIT: Raak Millegem"]:::sub
-  VZW --> M2["UNIT: Raak X"]:::sub
-  VZW --> M3["UNIT: Raak Y"]:::sub
-  VZW --> M4["UNIT: Raak Z"]:::sub
-  M1 --> L1["leden • gezinnen • activiteiten • formulieren • betalingen"]
-  M2 --> L2["leden • gezinnen • …"]
-  classDef vzw fill:#ffd,stroke:#aa0,stroke-width:2px;
-  classDef sub fill:#e8f0ff,stroke:#36b;
+  OP["operator (ziet alles)"]:::o --> A1["ACCOUNT: Raak vzw"]:::a & A2["ACCOUNT: Bedrijvengroep"]:::a
+  A1 --> U1["UNIT: Millegem"]:::u & U2["UNIT: Raak X"]:::u
+  A2 --> U3["UNIT: Bedrijf A"]:::u & U4["UNIT: Bedrijf B"]:::u
+  classDef o fill:#ffd,stroke:#aa0; classDef a fill:#e8f0ff,stroke:#36b; classDef u fill:#eef7ee,stroke:#3a3;
 ```
 
-### Gekozen model: **rij-niveau tenancy (shared schema + `tenant_id`)**
+- **Model = rij-niveau `tenant_id`** (shared schema). Schema-/DB-per-tenant vallen af:
+  de koepel moet dwars over tenants rapporteren (`WHERE tenant_id IN …` i.p.v. een
+  cross-schema-union). **RLS** later als DB-vangnet.
+- **Tenant-context in de kernel** (uit JWT/hostname); facades filteren standaard op de
+  actieve tenant. **Rollen**: `ADMIN`/`FINANCE` per UNIT, `ACCOUNT_ADMIN` per account,
+  `OPERATOR` op platformniveau.
+- **Cross-account isolatie is hard**; **zichtbaarheid binnen een account is
+  configureerbaar** (gedeeld: koepel ziet/deelt alles — vs geïsoleerd: units delen niet,
+  account enkel oversight) — een facade-policy, geen schemawijziging.
+- **Uitrol per app, niet dark/big-bang**: kernel levert de `tenant_id`-mixin + context;
+  elke app adopteert dat op zijn moment, grondig getest.
 
-| Optie | Isolatie | VZW-koepelblik | Ops-last | Verdict |
-|---|---|---|---|---|
-| **Rij-niveau `tenant_id`** | via app + (optioneel) Postgres **RLS** | **triviaal** (query over tenants) | laag | ✅ **aanbevolen** |
-| Schema-per-tenant | sterk | pijnlijk (union over N schema's) | hoog (N×M schema's) | ❌ |
-| DB-per-tenant | maximaal | zeer pijnlijk | zeer hoog | ❌ |
+### Config & secrets (multi-tenant-scheiding)
+- **Per-tenant config** → **DB-beheerd** (afzendermail, Mollie-profiel, logo, branding,
+  domein). Vandaag in `.env`; verhuist naar een per-tenant settings-store met `.env`-
+  default tijdens de single-tenant-fase.
+- **Per-tenant secrets** (Mollie-key) → **DB, versleuteld**.
+- **Infra/technologie** (DB-wachtwoord, IP, SSH, `SECRET_KEY`, proxy/CA) → **`.env`**.
 
-Waarom rij-niveau past: de koepel **moet** dwars over tenants rapporteren; dat is een
-`WHERE tenant_id IN (…)` i.p.v. een cross-schema-union. Isolatie versterk je later
-optioneel met **Postgres Row-Level Security** (policy op `tenant_id`), zodat de DB
-zélf lekken tussen tenants blokkeert — dezelfde "DB als vangnet"-filosofie als de
-per-schema `GRANT`.
-
-### Tenant-context als kernel-concern
-- De **actieve tenant** (en of de gebruiker koepel-breed mag kijken) komt uit het
-  JWT / de sessie en wordt door de **kernel** in een request-context gezet.
-- Elke module-facade filtert standaard op de actieve tenant; een **VZW-rol** kan de
-  filter verruimen tot "alle tenants".
-- Rol-model breidt uit: `ADMIN`/`FINANCE` **per UNIT**, een generieke koepel-rol
-  **`ACCOUNT_ADMIN`** die over alle units van zijn account heen kijkt (org-type-neutraal
-  — bewust niet `VZW_ADMIN`), en een **`OPERATOR`**-rol op platformniveau die over alle
-  accounts kijkt (§7.2).
-
-> **Uitrol per app, niet dark en niet big-bang.** Tenancy raakt elke module (as-2 uit
-> §2), maar we voeren `tenant_id` **niet** vervroegd "dark" in. De kernel levert het
-> *gereedschap* (een `tenant_id`-mixin + tenant-context), en **elke app adopteert dat
-> op zijn eigen moment van rijpheid, met een grondige testronde** per app. Zo blijft
-> elke introductie beheersbaar en getest i.p.v. een grote gelijktijdige omschakeling.
-
-### 7.1 Configuratie & secrets: DB-beheerd per tenant vs. `.env`-infra
-
-Multi-tenant dwingt een scherpe scheiding af tussen *wat per vereniging verschilt* en
-*wat bij de deployment/technologie hoort*:
-
-| Soort | Waar | Voorbeelden |
-|---|---|---|
-| **Per-tenant config** | **DB-beheerd** (per ACCOUNT/UNIT) | afzender-mailadres, Mollie-account/profiel, logo, branding, organisatienaam, domein, retentie-voorkeuren |
-| **Per-tenant secret** | **DB, versleuteld at rest** (of secrets-store per tenant) | Mollie API-key, evt. per-tenant SMTP-credentials |
-| **Infra / technologie** | **`.env`** (per deployment) | DB-wachtwoord, server-IP, SSH-sleutel, `SECRET_KEY`, proxy/CA-bundle |
-
-- Vandaag zit config als `mailadres`, `mollie-code`, `logo` in `.env`; die verhuizen
-  naar een **per-tenant settings-store** (tabel in `mdm` of een eigen `config`-
-  component), gelezen via de tenant-context met een `.env`-**default** tijdens de
-  single-tenant-fase.
-- **Per-tenant secrets** (Mollie-key) horen in de DB **versleuteld**, nooit in klare
-  tekst — consistent met de publieke-repo-regel (`.env` = enkel infra; geen secrets in
-  git).
-- **`.env` blijft** voor alles wat technologie-/deployment-gebonden is en niet per
-  vereniging verschilt.
-
-### 7.2 Meerdere accounts & merk-autonomie
-
-Meerdere accounts naast elkaar is **native**: elke ACCOUNT is een aparte
-`organizations`-wortel. Een klant/koepel die een set quasi-autonome, eigen-brand
-bedrijven beheert = **één account met een unit per bedrijf**.
-
-```mermaid
-flowchart TB
-  OP["platform / operator<br/>(ziet alles)"]:::op
-  OP --> A1["ACCOUNT: Raak vzw"]:::acc
-  OP --> A2["ACCOUNT: Bedrijvengroep X"]:::acc
-  A1 --> U1["UNIT: Raak Millegem<br/>(brand + domein)"]:::u
-  A1 --> U2["UNIT: Raak X"]:::u
-  A2 --> U3["UNIT: Bedrijf A<br/>(eigen brand + domein)"]:::u
-  A2 --> U4["UNIT: Bedrijf B"]:::u
-  classDef op fill:#ffd,stroke:#aa0,stroke-width:2px;
-  classDef acc fill:#e8f0ff,stroke:#36b;
-  classDef u fill:#eef7ee,stroke:#3a3;
-```
-
-- **Drie niveaus**: **operator** (platform, ziet alles) → **account** (klant/billing) →
-  **unit** (eigen brand). Rol-model breidt uit met een **`OPERATOR`**-rol boven
-  `ACCOUNT_ADMIN`.
-- **Cross-account isolatie is hard**: de facade filtert altijd op de **account-scope**
-  van de gebruiker; een `ACCOUNT_ADMIN` ziet enkel zijn eigen boom. Nooit lek tussen
-  accounts (RLS later als DB-vangnet).
-- **Eigen brand naar buiten = aparte site per unit**: per-unit branding via de
-  per-tenant DB-config (§7.1), en een **eigen host** (eigen domein of subdomein) zodat
-  elke unit **zelfstandig indexeert** in zoekmachines. Tenant-resolutie op **hostname**;
-  géén pad-prefix. Zie §17 (SEO) voor de afweging en het migratiepad.
-- **Zichtbaarheidsbeleid per account, configureerbaar**:
-  - *Gedeeld* (Raak): de koepel (`ACCOUNT_ADMIN`) ziet alle units; MDM-entiteiten mogen
-    binnen het account gedeeld worden.
-  - *Geïsoleerd* (autonome bedrijven): units delen geen data; het account heeft enkel
-    **oversight**. MDM-entiteiten zijn dan per-unit.
-  - Beide passen omdat `tenant_id` per rij zit en zichtbaarheid een **facade-policy** is
-    (geen schemawijziging).
-- **MDM-scope**: entiteiten zijn **account-scoped** (een persoon in account A staat los
-  van account B); binnen een account bepaalt het beleid of units delen.
+### Merk-autonomie & SEO — aparte site per unit
+Harde eis: **elke unit is een zelfstandig indexerende site** (Google/Bing/Qwant) → een
+**eigen host per unit** (geen pad-prefix):
+- **Eigen domein** (`raakmillegem.be`, `raakx.be`) — aanrader, sterkste scheiding +
+  domain authority. **Subdomein** kan ook. **Pad-prefix valt af** (dat is één site).
+- **Hostname-resolutie** (Next.js middleware) → tenant; per unit een **canonical
+  base-URL** in de per-tenant config. Cert/DNS per host via Caddy. Overstap subdomein →
+  domein = config + DNS + **301-redirects**, geen code.
+- **SEO is een afgeleide**: `generateMetadata`, `Organization`-JSON-LD, `sitemap.xml` en
+  `robots.txt` lezen de actieve tenant. Content is al tenant-scoped (CMS + activiteiten).
+  De issues #320 (JSON-LD) en #322 (og:image) worden zo **per unit**.
 
 ---
 
 ## 8. Afhankelijkheden & grens-handhaving
 
-**3-lagen-afhankelijkheidsmodel** (afhankelijkheden wijzen enkel naar beneden):
+3-lagen-model — afhankelijkheden wijzen **enkel naar beneden**:
 
 | Laag | Bevat | Mag afhangen van |
 |---|---|---|
-| **0 · Kernel** | db, config, events, tenant-context (plumbing) | niets |
-| **1 · Fundamenteel** | **auth/security** (en later evt. mail, mdm) | enkel kernel |
-| **2 · Domeinen** | form, payment, activities, cms, membership | kernel + laag-1-facades + elkaars facades/events |
+| **0 · Kernel** | db, config, events, tenant-context, history-mixin | niets |
+| **1 · Fundamenteel** | auth, mail, MDM | enkel kernel |
+| **2 · Domeinen** | form, payment, activities, membership, workflow, cms, chatbot | kernel + laag-1-facades + elkaars facades/events |
 
-Auth/security is een **fundamentele component** (laag 1): één aparte, apart-deploybare
-app die iedereen via `auth.api` gebruikt, en die zelf enkel op de kernel steunt. De
-kernel roept auth niet aan → geen cyclus.
-
-
-```mermaid
-flowchart TB
-  subgraph K["kernel (plumbing)"]
-    KDB[(db)]
-    KEV[events]
-    KTEN["tenant-context + tenant_id-mixin"]
-    KHIST["history-mixin (per-component *_history)"]
-    KCFG[config]
-  end
-
-  AUTH["domains/auth<br/>(laag 1: verify + rollen)"]
-  MASTER[domains/mdm]
-  FORM[domains/form]
-  PAY[domains/payment]
-  MAIL[domains/mail]
-  MEMBER[domains/member]
-
-  AUTH --> K
-  MASTER --> K
-  FORM --> K
-  PAY --> K
-  MAIL --> K
-  MEMBER --> K
-
-  MEMBER -.->|auth-facade| AUTH
-  FORM -.->|auth-facade| AUTH
-  PAY -.->|auth-facade| AUTH
-  MEMBER -.->|facade| MASTER
-  PAY -.->|event| MAIL
-  FORM -.->|event| MAIL
-
-  X1["verboden: FORM naar MDM.models"]:::bad -.-> MASTER
-  classDef bad fill:#fee,stroke:#c33,stroke-dasharray:4;
-```
-
-Gehandhaafd door:
-1. **import-linter** in CI (mapgrenzen = moduulgrenzen).
-2. **Geen cross-schema FK's** — geverifieerd door een integratietest
-   (`information_schema`).
-3. **Aparte Alembic-keten per module** (waar we dat kiezen) — twee ketens kunnen
-   fysiek geen tabel delen; drift/één-head-tests falen bij een fout.
-4. Later: **per-schema `GRANT`** en **RLS per tenant** als DB-afgedwongen vangnet.
+Gehandhaafd door: **(1)** import-linter in CI (mapgrens = moduulgrens); **(2)** geen
+cross-schema FK's (integratietest op `information_schema`); **(3)** aparte Alembic-keten
+per afsplitsbaar component (drift/één-head-tests); **(4)** later per-schema `GRANT` + RLS.
 
 ---
 
 ## 9. Ontwikkelen binnen een component — contract-stabiliteit
 
-De belofte van de facade: **binnen** een component ontwikkel je vrij, **zonder** de
-consumenten te breken. Het contract — en enkel het contract — is wat anderen zien.
+Het **contract** = facade-signaturen (`api.py`) + DTO's + event-schema's
+(`kernel/contracts`). Alles daaronder (models, service, schema) is intern en mag vrij
+wijzigen.
 
-**Wat is het contract?**
-- De **facade-signaturen** (`api.py`), de **DTO's** (in/uit) en de **event-schema's**
-  (in `kernel/contracts`). Dat is het volledige, publieke oppervlak.
-- **Alles daaronder** (models, services, tabellen, zelfs het schema) is *intern* en
-  mag vrij wijzigen — refactor, hernoem, splits — zolang het contract gelijk blijft.
+- **Additief = vrij** (nieuwe functie/optioneel veld/event).
+- **Breaking = deprecatie-cyclus**: nieuwe variant → oude `@deprecated` → consumenten
+  migreren → verwijderen; events versioneerbaar (`…V2` naast `…V1`).
 
-**Regels voor evolutie (semver-achtig op het contract):**
-- **Additief = vrij**: nieuwe facade-functie, nieuw optioneel DTO-veld, nieuw event —
-  breekt niemand, mag zonder coördinatie.
-- **Breaking = deprecatie-cyclus**: nooit een signatuur/DTO/event-vorm stil wijzigen.
-  In plaats daarvan: (1) nieuwe variant toevoegen, (2) oude als `@deprecated` markeren,
-  (3) consumenten migreren, (4) oude verwijderen. Elke stap met groene contract-tests.
-- **Events zijn versioneerbaar**: voeg velden additief toe; een echte breuk =
-  `SubmissionCreatedV2` naast V1 tot iedereen mee is.
-
-**Praktische werkregel**
-> *Onder de facade: refactor vrij. Aan de facade (signatuur/DTO/event): niets wijzigen
-> zonder deprecatie-cyclus én groene contract-tests.* De **import-linter** garandeert
-> dat niemand stiekem onder je facade grijpt, zodat het contract écht de enige
-> koppeling is.
+> Werkregel: *onder de facade refactor je vrij; aan de facade wijzig je niets zonder
+> deprecatie-cyclus én groene contract-tests.* De import-linter garandeert dat het
+> contract de enige koppeling is.
 
 ---
 
-## 10. Teststrategie & integratie-flow
+## 10. Teststrategie
 
-Vier lagen, elk met één taak — samen bewaken ze zowel de **componentgrens** als de
-**end-to-end flow**:
+Vier lagen, van snel/lokaal naar breed:
+1. **Unit** — in-component, tegen het eigen schema (validatielagen apart).
+2. **Contract** (de naad) — provider bewijst dat facade/events het schema naleven; elke
+   consument test tegen een **stub die aan datzelfde schema wordt gevalideerd** → een
+   contract-breuk laat de consument in CI falen. Zo ontwikkel je **in isolatie**.
+3. **Integratie-flow** — "golden flows" tegen de echt gewired app + alle schema's, bv.:
+   *inschrijving → membership-check → betaling → mail + history*; *formulier → submission
+   → confirmatiemail*; *terugvordering (FINANCE) → payment-status + mail*.
+4. **Migratie/grens** — per keten: één head, autogenerate-drift, geen cross-schema FK.
 
-```mermaid
-flowchart TB
-  U["1 · Unit-tests<br/>in-component, snel<br/>(logica, validatielagen)"]
-  C["2 · Contract-tests<br/>de naad: facade + events + DTO's"]
-  I["3 · Integratie-flow-tests<br/>echte bedrading, alle schema's<br/>(golden flows)"]
-  M["4 · Migratie-/grens-tests<br/>per keten: één head, drift,<br/>geen cross-schema FK"]
-  U --> C --> I --> M
-```
-
-**1 · Unit** — binnen de component, snel, tegen het eigen schema. De validatielagen
-(router/service/DB) elk apart getest.
-
-**2 · Contract-tests (de naad)** — bewaken dat provider en consument het over het
-contract eens blijven, in-process (geen netwerk, simpeler dan Pact, zelfde idee):
-- **Provider-kant**: de component test dat zijn facade/events het gepubliceerde
-  **contract-schema** naleeft (vorm van DTO's/events).
-- **Consument-kant**: elke consument test tegen een **stub/fake van de facade** die
-  aan datzelfde contract-schema wordt gevalideerd. Wijzigt de provider het contract
-  breekend, dan **faalt de stub-validatie bij de consument** in CI — vóór integratie.
-- Zo ontwikkel je een component **in isolatie** tegen de *contracten* van zijn
-  dependencies, met de garantie dat de echte ze nog naleven.
-
-**3 · Integratie-flow-tests (echte bedrading)** — draaien cross-component
-gebruikersflows tegen de **echt gewired app + alle schema's/ketens gemigreerd**. Hou
-een lijst **"golden flows"** altijd groen, bv.:
-
-```mermaid
-flowchart LR
-  A[activiteit-inschrijving] -->|"is lid? (facade)"| B[membership]
-  A -->|prijs| C[payment/Mollie]
-  C -->|event PaymentSettled| A
-  C -->|via facade| D[mail]
-  A -. event .-> E[audit]
-```
-
-Voorbeelden van golden flows: *publieke lid/gezin-inschrijving → mdm + membership*;
-*activiteit met ledenkorting → membership-check → betaling → bevestigingsmail + audit*;
-*formulier indienen → submission → confirmatiemail*; *betaling terugvorderen (FINANCE)
-→ payment-status + mail*.
-
-**4 · Migratie-/grens-tests** (uit §8/PR4) — per keten: één head, autogenerate-drift,
-schema-plaatsing, **geen cross-schema FK**. Deze falen luidruchtig bij een fout in de
-moduulafzondering zelf.
-
-**CI-gelaagdheid**
-- **Elke push**: unit + contract-tests (snel) + import-linter.
-- **Op PR/merge**: integratie-flow-tests + migratie-/grens-tests (volledige bedrading,
-  echte Postgres 16, alle ketens).
-- Elke component test tegen **zijn eigen schema**; de integratie-suite bouwt **alle**
-  schema's/ketens samen.
-
-**Waarom dit de flow bewaakt**: de import-linter sluit *verborgen* koppeling uit, de
-contract-tests vangen *contract-breuk* aan de naad, en de golden-flow-tests bewijzen
-dat de **samengestelde** flow blijft werken. Drie niveaus, geen gat ertussen.
+CI: unit + contract + linter op elke push; integratie + migratie op PR/merge (echte
+Postgres 16, alle ketens). Import-linter sluit *verborgen* koppeling uit, contract-tests
+vangen *contract-breuk*, golden flows bewijzen de *samengestelde* werking.
 
 ---
 
-## 11. Roadmap (fasering — nog geen releasenummers)
+## 11. Conventies (GUI · code · API)
 
-```mermaid
-flowchart LR
-  P0["Fase 0<br/>form engine als sjabloon<br/>#360–#363"] --> P1
-  P1["Fase 1<br/>mail-logging + auth afzonderen<br/>(cross-cutting eerst)"] --> P2
-  P2["Fase 2<br/>MDM als module<br/>(personen/gezinnen/postcodes)"] --> P3
-  P3["Fase 3<br/>payments/Mollie + refund<br/>#365"] --> P4
-  P4["Fase 4<br/>organizations in mdm<br/>(ACCOUNT + UNIT, generiek)<br/>+ per-tenant config/secrets uit .env"] --> P5
-  P5["Fase 5<br/>multi-tenant per app introduceren<br/>(tenant_id + context, grondig getest)<br/>+ ACCOUNT_ADMIN-rol (RLS later)"] --> P6
-  P6["Fase 6<br/>AI/STT extractie<br/>#364 (bij driver)"]
-```
+Componenten moeten er **hetzelfde uitzien en aanvoelen** — anders krijg je N eilandjes.
 
-**Waarom deze volgorde**
-- **Fase 0** eerst: forms is best geïsoleerd → leert ons het volledige sjabloon
-  (facade → linter → schema → 2e keten + integratietests).
-- **Fase 1** cross-cutting (mail, auth) vroeg, want elke andere module leunt erop;
-  hoe langer verweven, hoe duurder later.
-- **Fase 2–4** MDM vóór tenancy: je hebt eerst `organizations` nodig als
-  ophangpunt van `tenant_id`.
-- **Fase 5** multi-tenant als kernel-brede stap (mixin + context + rol), pas nadat de
-  modules hun eigen schema hebben.
-- **Fase 6** echte extractie (STT stateless → HTTP/queue-service) enkel bij een
-  concrete driver (zware runtime/dependencies).
-
-**Per fase, vaste stappen (het sjabloon):**
-`facade → import-linter-contract → eigen schema + handoff-migratie → (optioneel) 2e
-Alembic-keten + integratietests → frontend-feature-map`.
+- **GUI**: gedeelde **UI-kit** + twee sjablonen — **AdminConsole** (lijst+filters →
+  detail → rol-gated acties + bevestiging) en **Public-capture** (token/anoniem →
+  gevalideerde submit → bevestiging). Rol-bewuste UI, a11y-baseline, nl-BE + gedeelde
+  formatting.
+- **Code**: identieke component-structuur (`api/router/schemas/service/models`);
+  validatielagen (vorm→router, regels→service, integriteit→DB); import-linter; ruff +
+  mypy / eslint + prettier + tsc; **kernel-patronen hergebruiken** (tenant-mixin,
+  history-mixin, soft-delete, `superseded_by`, event-dispatcher).
+- **API**: `/api/v1/<component>/<resource>`; standaard error-/paginatie-envelope; DTO's
+  & events als contract (`kernel/contracts`, events `<Aggregate><Verb>`); **OpenAPI** als
+  waarheidsbron (`api.ts` spiegelt); idempotentie waar het telt (`merge`, Mollie-webhook);
+  `created_at/updated_at` tz-aware.
 
 ---
 
-## 12. Ontwerpkeuzes
+## 12. Component-documentatie & change-impact
 
-**Beslist:**
-- ✅ **Generieke org-naamgeving**: geen `VZW_ADMIN` maar **`ACCOUNT_ADMIN`**; org-type
-  (`legal_form`) is data, niet schema. De app is org-type-neutraal (§6–7).
-- ✅ **RLS later**: eerst tenant-filtering in de facade-laag; Postgres Row-Level
-  Security pas als hardening ná Fase 5 (stabiele tenant-logica = vangnet, geen
-  struikelblok).
-- ✅ **Eigen Alembic-keten = kandidaat-standalone-apps**: **auth, mail, mdm, form,
-  payment** krijgen elk een eigen schema **én** een eigen migratieketen (apart
-  deploybaar). Puur **interne** modules (cms, activities, analytics) krijgen enkel een
-  eigen **schema** op de kern-keten (geen aparte keten → geen extra ops-last waar het
-  niet loont).
+Prosa veroudert → **contract-als-code + een dun manifest, afgedwongen door tests.**
 
-- ✅ **Auth/security = één fundamentele component** (laag 1), niet gesplitst: eigen
-  schema `auth` + eigen keten + facade; iedereen gebruikt `auth.api`; auth hangt enkel
-  van de kernel af. (Geen `kernel/security`-split — de kernel roept auth niet aan, dus
-  geen cyclus.)
+- **`CONTRACT.md` per component**: publiceert (facade + events), consumeert
+  (afhankelijkheden), bezit (schema/config), deprecaties, `CODEOWNERS`.
+- **Bron van waarheid** (manifest verwíjst ernaar): OpenAPI + DTO/event-schema's;
+  contract-tests toetsen diezelfde schema's → de test *is* de handhaving.
+- **Change-impact**: uit de "consumeert"-declaraties bouw je een **reverse-index**
+  ("wie hangt van mij af") + de dependency-graph. Een contract-wijziging → **contract-
+  tests bij de consumenten falen** → blast radius met naam; `CODEOWNERS` tagt reviewers.
 
-- ✅ **Geen "dark" tenant_id**: tenancy wordt **per app** ingevoerd op het juiste
-  moment, telkens grondig doorgetest (de kernel levert enkel het gereedschap:
-  mixin + context). Zie §7 en §7.1.
-- ✅ **Config-scheiding**: per-tenant config **DB-beheerd** (mailadres, Mollie, logo,
-  branding), per-tenant secrets **DB versleuteld**, technologie/infra in **`.env`**
-  (DB-wachtwoord, IP, SSH-sleutel, `SECRET_KEY`). Zie §7.1.
-- ✅ **Frontend per fase/component**: `features/<component>/` wordt samen met de
-  backend van dat component afgerond (geen aparte opkuis-slag later), zodat de grens
-  in één keer volledig dicht is.
-
-**Component-afbakening (beslist):**
-- ✅ **`master` → `MDM` (Master Data Management)**: naam overal vervangen; bevat
-  personen, gezinnen, adressen, postcodes, organisaties (ACCOUNT/UNIT) én
-  `external_numbers` (externe identiteit).
-- ✅ **Membership = eigen component**, géén MDM en géén `activities_membership`; zuster
-  van `activities`, beide voeden `payment`; `activities` vraagt membership "is lid?"
-  via facade (§5.3b).
-- ✅ **AI/STT gesplitst**: STT = stateless capaciteit (géén schema, extractie-kandidaat);
-  chatbot/AI = laag-2 domein (schema `ai`) dat STT + providers consumeert (§5.4).
-- ✅ **Media = gedeelde capaciteit** (schema `media` + storage-adapter), door anderen
-  via `asset_id` gebruikt — geen blad-domein (§5.5).
-- ✅ **Workflow = eigen component**: pluggbaar vervolgproces + menselijke taken, gekoppeld
-  aan forms via events. **IdeaBox = form + workflow** (de losse `ideas` vervalt) (§5.6).
-- ✅ **History = gedeeld kernel-patroon** (mixin), per-component `*_history` in het eigen
-  schema — géén centrale audit-component. **`business_events`**: geen meerwaarde →
-  parkeren/verwijderen (§5.7).
-- ✅ **Referentiecodes in het schema van hun eigen component** (geen gedeelde
-  `reference`-namespace) (§5.7).
-
-*Alle ontwerpkeuzes beslist — klaar om de fasen in issues om te zetten.*
+> Regel: een contract wijzig je niet zonder `CONTRACT.md` bijgewerkt én groene
+> contract-tests bij álle consumenten.
 
 ---
 
-## 13. Samenvatting
+## 13. Codebase-(her)structurering
 
-- **Twee assen**: module (verticaal, eigen schema) × tenant (horizontaal, `tenant_id`).
-  Niet verwarren.
-- **Schermen horen bij hun component**, publiek én back-office; rol bepaalt toegang,
-  niet de componentgrens.
-- **MDM** wordt de spil: personen, gezinnen, postcodes én `organizations`
-  (vzw + feitelijke verenigingen) — de ophanging voor multi-tenancy.
-- **Cross-cutting eerst** afzonderen (mail, auth), dan MDM, dan de rest.
-- **Multi-tenant = rij-niveau** (shared schema + `tenant_id`, optioneel RLS), want de
-  vzw-koepel moet dwars over alle tenants kijken.
-- Alles gefaseerd, elk met hetzelfde sjabloon; issues hangen aan epic **#366**.
+Van **package-by-layer** (form ligt versnipperd over `routers/models/services/schemas`)
+naar **package-by-domain**. Je bent al begonnen (`domains/`); we maken het af.
+*Eén map = één component = één schema = één toekomstige app.*
 
----
-
-## 14. Conventies: GUI, code & API-standaardisatie
-
-Modularisatie werkt enkel als elk component er **hetzelfde uitziet en aanvoelt** —
-anders krijg je N eilandjes. Drie sets afspraken, deels al in `CLAUDE.md`; het nieuwe
-is ze **component-uniform** maken + gedeelde sjablonen.
-
-**GUI-conventies**
-- **Gedeelde UI-kit** (`features/_shared` / `ui/`): knoppen, tabellen, modals,
-  detail-drawers, form-inputs, status-badges — één bron, zodat elke console identiek
-  oogt/werkt. Design-tokens (kleur, spacing) centraal.
-- **Twee sjablonen** (herbruikbaar over componenten):
-  - **AdminConsole**: *lijst + filters → detail → rol-gated actieknoppen + bevestiging*.
-    Vervangt de nu apart-gebouwde `leden`/`betalingen`/`formulieren`-schermen.
-  - **Public-capture**: *token/anoniem → gevalideerde submit → bevestiging (+ evt.
-    capability-link)*.
-- **Rol-bewuste UI**: verberg acties die de rol niet mag (backend dwingt af, UI = comfort).
-- **A11y-baseline** (labels, aria, keyboard, focus) — m.n. publieke formulieren.
-- **i18n & formatting**: nl-BE; datum/getal/geld via gedeelde utils (`money.ts`);
-  gestandaardiseerde loading/error/empty-states (`parseApiError`).
-
-**Code-conventies**
-- **Identieke component-structuur** (scaffold): `router.py · schemas.py · service.py ·
-  models.py · api.py` per `domains/<component>/`. Facade = altijd `api.py`.
-- **Validatielagen** (router = vorm/Pydantic, service = regels, DB = integriteit) —
-  reeds in `CLAUDE.md`, nu per component afgedwongen.
-- **Boundary** via **import-linter**-contracten (mapgrens = moduulgrens).
-- **Lint/format/type** in CI: ruff + mypy (py), eslint + prettier + `tsc` (ts).
-- **Kernel-patronen** hergebruiken: `tenant_id`-mixin, history-mixin, soft-delete,
-  `superseded_by`-redirect, event-dispatcher. Niet per component heruitvinden.
-- Bestaande regels blijven (geen `datetime.utcnow`, `payment_metadata`, migraties
-  idempotent + één head per keten, …).
-
-**API-standaardisatie**
-- **REST-conventie**: `/api/v1/<component>/<resource>` (meervoud), standaard
-  verbs/statuscodes; consistente **paginatie-** en **filtervorm**.
-- **Standaard-envelopes**: één **error-shape** (die `parseApiError` verwacht), één
-  lijst/paginatie-shape.
-- **DTO's & events als contract** (`kernel/contracts`): events genoemd
-  `<Aggregate><VoltooidWerkwoord>` (bv. `PaymentSettled`, `EntityMerged`); facade-
-  signaturen getypeerd met consistente werkwoorden (`get/list/create/update/merge/
-  resolve`).
-- **Versionering & evolutie** volgens §9: additief vrij, breaking via deprecatie-cyclus;
-  events versioneerbaar.
-- **OpenAPI** (FastAPI) als één waarheidsbron; `api.ts` (frontend) spiegelt dat.
-- **Auth/tenant uniform**: Bearer-JWT via `auth.api`-dependencies; tenant-claim
-  gestandaardiseerd in de context.
-- **Idempotentie** waar het telt: `merge()`, Mollie-webhook, betalings-mutaties.
-- **Standaard-velden**: `created_at/updated_at` (tz-aware), soft-delete +
-  `superseded_by` in MDM.
-
-> Concreet eerste-stappen-issues: een **UI-kit + AdminConsole-template**, een
-> **component-scaffold** (cookiecutter-achtig), en een **contract-/lint-harness** in CI
-> (import-linter + envelope-schema's + OpenAPI-diff).
-
----
-
-## 15. Component-documentatie & change-impact — "wie moet met mij rekening houden?"
-
-Prosa-docs verouderen. Daarom: **contract-als-code + een dun manifest, afgedwongen door
-tests** — zodat elke app automatisch weet met wie ze rekening moet houden.
-
-**Per component een `CONTRACT.md`** (deels gegenereerd) dat het *gepubliceerde*
-oppervlak declareert:
-- **Publiceert**: facade-functies (signatuur + DTO's), events (naam + schema + wanneer).
-- **Consumeert**: welke andere facades/events het gebruikt (afhankelijkheden).
-- **Bezit**: eigen schema/tabellen (privé), config/env die het nodig heeft.
-- **Versionering/deprecaties**: lopende deprecatie-cycli (§9).
-- **Owner**: `CODEOWNERS`-verwijzing (wie verwittigen).
-
-**Niet-driftende bron van waarheid** (het manifest verwíjst ernaar, dupliceert niet):
-- **OpenAPI** (FastAPI) voor de HTTP-laag — auto-gegenereerd.
-- **DTO-/event-schema's** in `kernel/contracts` (getypeerd) — de canonieke vormen.
-- **Contract-tests** (§10) verwijzen naar diezelfde schema's → de test *is* de handhaving.
-
-**Change-impact / "wie hangt van mij af":**
-- Elke component declareert zijn **consumeert-lijst** → daaruit bouw je automatisch een
-  **reverse-index** ("wie consumeert X") én de **dependency-graph** (§8-diagram
-  gegenereerd, altijd actueel).
-- Een PR die een facade/DTO/event **wijzigt**, moet `CONTRACT.md` bijwerken; **contract-
-  tests bij de consumenten falen** als het breekt → je ziet meteen de blast radius, met
-  naam.
-- **`CODEOWNERS`** tagt automatisch de juiste reviewers; **changelog per component**
-  (of commit-scope) + de deprecatie-cyclus uit §9.
-
-**Drie linies, geen gat:**
-1. **Machine-contract** (OpenAPI + DTO/event-schema's) = *wat* er is.
-2. **`CONTRACT.md` + reverse-index** = *wie* het gebruikt en *wat te doen* bij wijziging.
-3. **Contract-tests + import-linter + `CODEOWNERS`** = de handhaving die de docs *waar*
-   houdt.
-
-> Vuistregel: **een contract wijzig je niet zonder (a) `CONTRACT.md` bijgewerkt én
-> (b) groene contract-tests bij álle consumenten.** Zo weet elke app met wie ze rekening
-> moet houden — automatisch, niet uit een verouderde wiki.
-
----
-
-## 16. Codebase-(her)structurering
-
-Van **package-by-layer** (`routers/`, `models/`, `services/`, `schemas/` — de form
-engine ligt nu versnipperd over die vier) naar **package-by-domain**: één verticale
-slice per component. Je bent hier al mee begonnen (de `domains/`-map met payments/stt/
-chatbot) — we maken het patroon af en laten de by-layer-mappen leeglopen.
-
-**Principe:** *één map = één component = één (Postgres-)schema = één toekomstige app.*
-De boom "schreeuwt" wat de app doet, niet welke frameworklaag iets is.
-
-### Backend — doelstructuur
+**Backend**
 ```
 app/
-  kernel/                     # laag 0 — plumbing, hangt van niets af
-    database.py  config.py  soft_delete.py  limiter.py
-    security.py               # verify-dependency (mechanisme; policy in domains/auth)
-    events.py                 # in-process event-dispatcher
-    contracts.py              # gedeelde DTO's / event-types (canonieke vormen)
-    tenancy.py                # tenant-context + tenant_id-mixin
-    history.py                # history-mixin (per-component *_history)
+  kernel/     database, config, soft_delete, security(verify),
+              events, contracts, tenancy(mixin+context), history(mixin)
   domains/
-    auth/                     # laag 1 (fundamenteel)
-      api.py                  # ← facade: enige publieke oppervlak
-      router.py schemas.py service.py models.py
-      migrations/             # eigen Alembic-keten (afsplitsbaar)
-      CONTRACT.md             # publiceert / consumeert / bezit (§15)
-    mdm/          mail/        # laag 1
-    membership/  activities/  form/  workflow/  payment/  cms/  chatbot/   # laag 2
-    media/       stt/          # capaciteiten
-    analytics/                 # read-model
-  main.py                     # mount enkel domains/*/router.py
-  (routers/ models/ services/ schemas/  →  lopen leeg en verdwijnen)
+    auth/  mdm/  mail/                      # laag 1
+      api.py router.py schemas.py service.py models.py migrations/ CONTRACT.md
+    membership/ activities/ form/ workflow/ payment/ cms/ chatbot/   # laag 2
+    media/ stt/ analytics/                  # capaciteiten / read-model
+  main.py     # mount enkel domains/*/router.py
+  # routers/ models/ services/ schemas/ → lopen leeg en verdwijnen
 ```
-Elke `domains/<c>/` heeft dezelfde vaste vorm: `api.py · router.py · schemas.py ·
-service.py · models.py · (migrations/) · CONTRACT.md`. Interne modules (cms, activities,
-analytics) krijgen wél een eigen schema maar géén eigen keten (§12).
+Interne modules (cms, activities, analytics) krijgen wél een eigen schema, géén eigen
+keten (§14).
 
-### Frontend — spiegel de backend
-```
-src/
-  features/
-    forms/        # bouwer + publieke render + api-slice + types
-    payments/  membership/  mdm/  activities/  workflow/  cms/
-    _shared/      # UI-kit: AdminConsole, capture-template, inputs, tabellen
-  lib/            # enkel gedeelde primitives: money, errors, axios-client
-```
-Eén feature-map = één component (publiek én back-office samen). `lib/api.ts` splitst in
-per-feature `api`-slices; `lib/` houdt enkel gedeelde primitives.
+**Frontend** — spiegel: `src/features/<component>/` (+ `_shared/` UI-kit); `lib/` enkel
+gedeelde primitives.
 
-### Migratiepad — strangler, geen big-bang
-1. **Forms eerst** (best geïsoleerd) als sjabloon: `git mv` naar `domains/forms/` +
-   `api.py` (history behouden), imports bijwerken, CI groen — **geen gedragswijziging**.
-2. Per component één PR: verplaats → facade → import-linter-contract aan → (schema/keten)
-   → contract-/integratietests → frontend-feature.
-3. **Kernel lichtjes optrekken**: verplaats `auth`/`database`/`config`/`soft_delete` naar
-   `kernel/` en voeg `events.py`/`contracts.py`/`tenancy.py`/`history.py` toe.
-4. By-layer-mappen lopen zo vanzelf leeg.
-
-> **Valkuil (vooraf regelen):** model-discovery. Alembic/`Base.metadata` ontdekt models
-> nu via `models/__init__.py`. Verplaats je models, dan moet die discovery mee (een
-> `domains/__init__.py` dat elk `domains/*/models.py` importeert, of expliciete imports
-> in `env.py`) — anders ziet autogenerate de tabellen niet. Dit is de enige
-> niet-triviale stap; de rest is mechanisch.
+**Migratiepad (strangler, geen big-bang)**: forms eerst als sjabloon (`git mv` +
+facade, geen gedragswijziging) → per component één PR → kernel optrekken. **Valkuil**:
+model-discovery — verplaats je models, laat `Base.metadata`/Alembic ze nog vinden
+(import in `domains/__init__.py` of `env.py`).
 
 ---
 
-## 17. SEO per unit
+## 14. Roadmap & backlog
 
-Elke UNIT gaat met een **eigen brand + eigen (sub)domein** naar buiten (§7.2). SEO is
-daardoor **per-tenant**, en volgt automatisch uit hostname-resolutie + per-tenant config.
-
-- **Harde eis: elke unit is een aparte site** die zelfstandig indexeert in Google/Bing/
-  Qwant. Dat vereist een **eigen host per unit** (geen pad-prefix):
-  - **Eigen domein** `raakmillegem.be`, `raakx.be` — sterkste scheiding + brand-
-    autonomie, eigen domain authority. **Aanrader.**
-  - **Subdomein** `millegem.raakvzw.be` — ook een aparte site voor zoekmachines
-    (wildcard-cert); iets zwakker dan een eigen domein.
-  - **Pad-prefix valt af**: `raakvzw.be/millegem` is voor zoekmachines **één** site met
-    secties — niet wat we willen.
-- **Resolutie op hostname** (Next.js middleware); per unit een **canonical base-URL
-  (eigen host) in de per-tenant config** (§7.1). Cert per domein (of wildcard voor
-  subdomeinen) via **Caddy**; DNS per host. Overstap subdomein → eigen domein = config +
-  DNS/Caddy + **301-redirects**, géén code.
-- **Per host een volwaardig aparte site**: eigen `sitemap.xml`, `robots.txt`, canonical
-  en `Organization`-JSON-LD → aparte indexatie per unit.
-- **Per-unit metadata** via Next.js `generateMetadata` (server-side, leest de tenant):
-  `title`, `description`, `og:image`, favicon — gevoed door de **per-tenant DB-config**
-  (§7.1: naam, logo, kleuren). De bestaande issues #320 (Organization JSON-LD) en #322
-  (og:image) worden zo **per unit** i.p.v. globaal.
-- **Structured data (JSON-LD)** `Organization`/`LocalBusiness` met de **unit**-naam,
-  -logo en -adres (uit MDM/config).
-- **Per-unit `sitemap.xml` + `robots.txt`**: gegenereerd per hostname, met enkel de
-  publieke pagina's van díe unit (tenant-scoped CMS-pagina's + activiteiten). De
-  bestaande `sitemap`-util wordt tenant-parametrisch.
-- **Canonical URLs** onder het eigen unit-domein → geen duplicate content tussen units
-  (elke unit z'n eigen canonieke host).
-- **Content is al tenant-scoped**: CMS-pagina's en activiteiten hangen aan `tenant_id`,
-  dus de publieke pagina's én hun SEO zijn vanzelf per unit.
-- **Eigenaarschap**: SEO is een cross-cutting concern van de **publieke frontend-shell +
-  per-tenant config**, gevoed door MDM/config (branding), CMS (pagina's) en activities
-  (events). Geen aparte "SEO-component" nodig.
-
-> Kortom: zet je de tenant-resolutie op hostname + de per-tenant config goed, dan is
-> per-unit SEO grotendeels een **afgeleide** — `generateMetadata`, JSON-LD, sitemap en
-> robots lezen simpelweg de actieve tenant.
-
----
-
-## 18. Concreet planningsvoorstel (backlog)
-
-Vertaling van de roadmap (§11) naar werkpakketten met afhankelijkheden. **Nog geen
-issues aangemaakt** — dit is het voorstel dat later, op go, sub-issues onder epic **#366**
-wordt. Bestaande issues zijn aangeduid; de rest is nieuw.
-
-**Vast sjabloon per component-PR** (zo klein mogelijk, één component per PR):
-`facade (api.py) → import-linter-contract → eigen schema (+ keten waar afsplitsbaar) →
+**Nog geen issues aangemaakt** — dit wordt op go sub-issues onder #366. Vast sjabloon
+per component-PR: `facade → import-linter → eigen schema (+ keten waar afsplitsbaar) →
 contract-/integratietests → frontend-feature → CONTRACT.md`.
 
-### Fundering (vroeg, onderbouwt alles)
-| # | Werkpakket | Hangt af van |
+**Kritiek pad**: F (fundering) → Fase 0 (forms-sjabloon) → mail/auth → MDM → tenancy.
+De rest kan grotendeels **parallel** zodra fundering + sjabloon staan.
+
+| Blok | Werkpakketten | Status |
 |---|---|---|
-| F1 | **Kernel optrekken**: `kernel/` met `events`, `contracts`, `tenancy`-mixin, `history`-mixin, `security`(verify) | — |
-| F2 | **Import-linter-harness** in CI (mapgrens = moduulgrens) | — |
-| F3 | **Component-scaffold** (cookiecutter) + `CONTRACT.md`-template | F1 |
-| F4 | **Test-harness**: contract-tests + integratie-flow-runner (golden flows) | F1 |
-| F5 | **UI-kit + AdminConsole- & capture-template** (frontend `_shared`) | — |
-
-### Fase 0 — form engine als sjabloon
-| # | Werkpakket | Status | Hangt af van |
-|---|---|---|---|
-| P0a | forms → `domains/forms/` + facade | **#360** | F1–F3 |
-| P0b | import-linter-contract forms | **#361** | F2, P0a |
-| P0c | eigen schema `form` + handoff-migratie | **#362** | P0a |
-| P0d | 2e Alembic-keten + 5 integratietests | **#363** | P0c, F4 |
-
-### Fase 1 — cross-cutting fundamenteel (laag 1)
-| # | Werkpakket | Hangt af van |
-|---|---|---|
-| P1a | **mail**-component (schema + keten + facade + `MailRequested`) | Fase 0-sjabloon |
-| P1b | **auth**-component (laag 1: verify in kernel, policy in `domains/auth`; schema + keten) | Fase 0-sjabloon |
-
-### Fase 2 — MDM
-| # | Werkpakket | Hangt af van |
-|---|---|---|
-| P2a | **MDM**-component: personen/gezinnen/adressen/postcodes/`external_numbers` + schema + keten + facade | P1 |
-| P2b | **Merge/survivorship**: `superseded_by`, `resolve()`, `merge()`, `EntityMerged` (§6.1) | P2a |
-| P2c | **Soft-ref-patroon** (`mdm_person_id` als waarde) + resolver-gebruik in consumenten (§6.2) | P2b |
-
-### Fase 3 — payments
-| # | Werkpakket | Status | Hangt af van |
-|---|---|---|---|
-| P3 | `domains/payments` (merge gateway+status) + schema + **FINANCE-refund** | **#365** | P1 |
-
-### Fase 4 — resterende domeinen (laag 2 + capaciteiten)
-| # | Werkpakket | Hangt af van |
-|---|---|---|
-| P4a | **membership**-component (+ `is_member`-facade) | P2 |
-| P4b | **activities**-component (vraagt membership: ledenkorting) | P4a |
-| P4c | **workflow**-component + **IdeaBox = form + workflow** | Fase 0, F1 |
-| P4d | **media**-capaciteit (schema + storage-adapter) | Fase 0-sjabloon |
-| P4e | **cms**- en **chatbot**-component afzonderen | Fase 0-sjabloon |
-
-### Fase 5 — organisaties & multi-tenant
-| # | Werkpakket | Hangt af van |
-|---|---|---|
-| P5a | **organizations** in MDM (ACCOUNT/UNIT, generiek) | P2 |
-| P5b | **Per-tenant config/secrets-store** (config uit `.env` → DB, versleuteld) | P5a |
-| P5c | **Tenant_id per app** uitrollen + tenant-context + rollen `ACCOUNT_ADMIN`/`OPERATOR` | P5a, alle domeinen |
-| P5d | **Meerdere accounts** + hostname-tenant-resolutie (eigen domein/subdomein per unit) + **per-unit SEO** (aparte site, eigen sitemap/robots/JSON-LD) | P5c |
-
-### Fase 6 — extractie
-| # | Werkpakket | Status | Hangt af van |
-|---|---|---|---|
-| P6 | **STT** naar externe service (facade-swap, bij driver) | **#364** | Fase 4 |
-
-> **Kritieke pad**: F1 → Fase 0 (sjabloon) → P1 (mail/auth) → P2 (MDM) → P5 (tenancy).
-> De rest (payments, membership/activities, workflow, media, cms/chatbot) kan
-> grotendeels **parallel** zodra het sjabloon en de fundering staan. F5 (UI-kit) loopt
-> best mee vanaf de eerste frontend-feature.
+| **F · Fundering** | kernel optrekken (events/contracts/tenancy/history/security); import-linter-harness; component-scaffold + `CONTRACT.md`-template; test-harness (contract + golden-flow); UI-kit + templates | nieuw |
+| **0 · Form-sjabloon** | forms→`domains/forms` + facade; import-linter; schema `form` + handoff; 2e keten + integratietests | **#360–#363** |
+| **1 · Cross-cutting** | mail-component; auth-component (laag 1) | nieuw |
+| **2 · MDM** | MDM (+ `external_numbers`) + schema/keten; merge/survivorship; soft-ref-patroon | nieuw |
+| **3 · Payments** | `domains/payments` (gateway+status) + FINANCE-refund | **#365** |
+| **4 · Domeinen** | membership (+`is_member`); activities; workflow + IdeaBox; media; cms; chatbot | nieuw |
+| **5 · Multi-tenant** | organizations (ACCOUNT/UNIT); per-tenant config/secrets-store; `tenant_id` per app + context + rollen; meerdere accounts + hostname-resolutie + per-unit SEO | nieuw |
+| **6 · Extractie** | STT → externe service (bij driver) | **#364** |
 
 ---
 
-## 19. Kostenefficiëntie voor AI-assisted development
+## 15. Ontwerpkeuzes (register)
 
-Modulariteit verlaagt de **ontwikkelkost (credits) per taak** — niet als automatische
-korting, wel als **investering** die zich terugverdient over veel latere taken.
-
-**Waarom het daalt.** De grootste kostendrijver is *hoeveel er gelezen moet worden om
-veilig te handelen*. Kleine, afgebakende componenten verkleinen dat leesoppervlak:
-- **Begrensde context**: een wijziging aan één component = laad `domains/<c>/` (+ zijn
-  `CONTRACT.md`) i.p.v. te grasduinen over `routers/ + models/ + services/ + schemas/`.
-- **Contract i.p.v. implementatie**: een afhankelijkheid begrijp je uit haar
-  **`CONTRACT.md`/facade** (klein), niet uit haar broncode. Grootste besparing.
-- **Scherpe feedback**: import-linter + contract-tests wijzen een breuk **met naam** aan
-  → minder verspilde iteraties en heruitvoeringen.
-- **Kleinere test-/CI-scope**: enkel de tests van het geraakte component.
-- **Minder blast-radius-redeneren**: harde grenzen sluiten verrassende koppeling uit.
-
-**Waar het níet helpt (of eerst kost).**
-- **Upfront-kost** van de herstructurering zelf (investering, geen directe korting).
-- **Cross-cutting wijzigingen** (bv. `tenant_id` uitrollen) spannen nog steeds over veel
-  componenten.
-- **Discipline vereist**: de winst is er enkel als grenzen *echt* zijn (linter
-  afgedwongen, `CONTRACT.md` actueel) — anders lees je alsnog alles.
-- **Iets meer boilerplate** per triviale wijziging (facade + contract + test); netto
-  winst pas bij niet-triviale taken.
-
-**De knoppen die de kost het hardst drukken.**
-- **`CONTRACT.md` per component** (§15) — handelen zonder de buren te lezen.
-- **`CLAUDE.md`-conventies + scaffold** (§14) — minder uitzoekwerk, "one obvious way".
-- **Kleine componenten + facade** — kleiner leesoppervlak per taak.
-- **Contract-/integratietests** (§10) — minder gis-en-mis-iteraties.
-
-> Vuistregel: naarmate meer componenten dit patroon volgen, verschuift een typische taak
-> van *"lees een groot deel van de repo"* naar *"lees één map + een paar contracten"* —
-> en dáár zit de creditwinst. Dezelfde eigenschappen (begrensde context, expliciete
-> contracten) maken toekomstige **agentische/parallelle** ontwikkeling per component
-> haalbaar.
+- ✅ **Package-by-domain**; facade `api.py`; grens via **import-linter**.
+- ✅ **Eigen Alembic-keten** voor afsplitsbare apps (auth, mail, MDM, form, payment);
+  interne modules enkel een eigen schema.
+- ✅ **auth = één fundamentele component** (niet gesplitst; verify-mechanisme in kernel).
+- ✅ **MDM**: `master`→MDM; bevat `external_numbers`; **nooit verwijderen +
+  merge/survivorship**; anderen verwijzen via **soft-ref** (waarde-id).
+- ✅ **membership = eigen component** (zuster van activities), **niet**
+  `activities_membership`.
+- ✅ **AI/STT gesplitst** (STT capaciteit/extractie-kandidaat; chatbot domein).
+- ✅ **media = gedeelde capaciteit**; **workflow = eigen component**; **IdeaBox = form +
+  workflow** (`ideas` vervalt).
+- ✅ **history = kernel-patroon** per component; **`business_events` schrappen**.
+- ✅ **Referentiecodes in eigen component-schema** (geen gedeelde namespace).
+- ✅ **Multi-tenant = rij-niveau `tenant_id`**; **geen dark tenant_id** (per app,
+  getest); **RLS later**. **Meerdere accounts native**; rollen `ACCOUNT_ADMIN`/`OPERATOR`.
+- ✅ **Org-model generiek** (`ACCOUNT_ADMIN`, `legal_form` als data).
+- ✅ **Config-scheiding**: per-tenant config/secrets in DB (secrets versleuteld); infra
+  in `.env`.
+- ✅ **Aparte site per unit** (eigen host, hostname-resolutie; geen pad-prefix).
+- ✅ **Frontend per fase/component** (`features/<c>/` samen met de backend).
 
 ---
 
-## 20. Waarom doen we dit? — korte & lange termijn
+## 16. Kostenefficiëntie voor AI-assisted development
 
-### Korte termijn (nu al waarde)
-- **Stop de fragiliteit.** Versnipperde koppeling veroorzaakt bugs en data-verlies (bv.
-  #357: een formulier bewerken wiste inzendingen). Harde grenzen + contract-tests vangen
-  dat af.
-- **Sneller & goedkoper ontwikkelen** (§19): kleiner leesoppervlak per taak, minder
-  regressies, minder gis-en-mis.
-- **Makkelijker redeneren**: "waar hoort dit?" is beantwoord door de mapstructuur;
-  wijzigingen blijven lokaal.
-- **Overdraagbaar**: facade + `CONTRACT.md` maken een component begrijpbaar zonder de
-  hele repo te lezen (mens én AI).
-- **Concreet nu nodig**: de form engine netjes afbakenen, betalingen/terugvordering
-  (FINANCE), en de fundering (kernel-patronen) voor alles wat volgt.
+De grootste kostendrijver is *hoeveel er gelezen moet worden om veilig te handelen*.
+Kleine componenten verkleinen dat leesoppervlak → **lagere kost per taak** (een
+investering, geen automatische korting).
 
-### Lange termijn (waar we naartoe groeien)
-- **Modulair ERP/portaal/CRM**: componenten evolueren onafhankelijk en kunnen — bij een
-  concrete driver — als aparte app/service afsplitsen (de naden liggen er al).
-- **Multi-tenant SaaS**: meerdere accounts (koepels/bedrijvengroepen), elk met eigen
-  brand en **aparte site**; een nieuwe klant/unit = **config, geen code**.
-- **Herbruikbaarheid**: forms, workflow, payments, MDM zijn generiek inzetbaar voor
-  andere organisaties en domeinen.
-- **Toekomstbestendig voor AI/agentisch werk**: begrensde context + expliciete
-  contracten maken parallelle ontwikkeling per component haalbaar.
-- **Beheersbare compliance/isolatie**: per-tenant, per-schema, later RLS — opschaalbaar
-  zonder herbouw.
-- **Vermijd de "big ball of mud"** die elke wijziging duur en riskant maakt.
+- **Daalt door**: begrensde context (`domains/<c>/` i.p.v. de hele repo); **contract
+  i.p.v. implementatie** lezen (`CONTRACT.md`/facade); scherpe feedback (linter +
+  contract-tests wijzen breuk met naam aan); kleinere test-/CI-scope.
+- **Kost of helpt niet**: upfront-herstructurering; cross-cutting wijzigingen; vereist
+  discipline (grenzen echt afgedwongen); iets meer boilerplate per triviale change.
 
-> De strangler-aanpak zorgt dat KT-waarde en LT-fundering **samenvallen**: elke stap
-> lost nu iets op én legt een steen voor later. We investeren waar het eerst rendeert
-> (forms-sjabloon → cross-cutting mail/auth → MDM → tenancy).
+> Een typische taak verschuift van *"lees een groot deel van de repo"* naar *"lees één
+> map + een paar contracten"* — dáár zit de winst, en dat maakt latere agentische/
+> parallelle ontwikkeling per component haalbaar.
 
 ---
 
-## 21. Out-of-scope — bewust (nog) niet
+## 17. Waarom — korte & lange termijn
 
-Zaken waar we aan denken (KT of LT) maar **nu niet** doen, met de reden/trigger:
+**Korte termijn**: stop de fragiliteit/data-verlies (bv. #357: bewerken wiste
+inzendingen); sneller & goedkoper ontwikkelen; makkelijker redeneren en overdragen
+(facade + `CONTRACT.md`); en de concrete noden nu (form engine, betalingen/refund,
+kernel-fundering).
 
-| Idee | KT/LT | Waarom nu niet / trigger |
-|---|---|---|
-| **Microservices / aparte databases / message broker (Kafka…)** | LT | In-process modulaire monoliet volstaat; splits enkel bij een concrete driver (runtime/schaal/team). Naden liggen al klaar. |
-| **DB-per-tenant of schema-per-tenant** | LT | Rij-niveau `tenant_id` gekozen (koepel moet dwars kijken). Enkel bij harde isolatie-eis. |
-| **Postgres RLS** | LT | Eerst facade-filtering; RLS als hardening ná Fase 5 (al beslist). |
-| **Externe IdP / SSO** (Google/Microsoft-login) | LT | Eigen `auth` volstaat nu; toevoegen als klanten het vragen. |
-| **Volledige BPM-engine** (Camunda…) | LT | Start met een lichte eigen `workflow`-component; upgrade enkel bij complexe processen. |
-| **Event-sourcing / volledige CQRS** | LT | Enkel read-models waar nuttig (analytics); niet als architectuurstijl. |
-| **Extra betaalproviders naast Mollie** | LT | Mollie (EU) volstaat; provider-adapter maakt uitbreiding later triviaal. Europe-First. |
-| **Volledige meertaligheid (i18n)** | LT | nl-BE nu; i18n als een tenant/markt het vraagt. |
-| **Mobiele/native app, real-time (websockets)** | LT | Web-first; pas bij concrete behoefte. |
-| **BI / datawarehouse** | LT | Simpele `analytics`-read-models nu; DWH later. |
-| **`business_events` uitbouwen tot audit-platform** | — | Geschrapt (geen meerwaarde, §5.7). |
-| **GDPR-self-service** (export/vergeten door lid zelf) | LT | Na tenancy + MDM; nu enkel admin-verwijderen. Let op: MDM = nooit hard verwijderen (tombstone). |
-| **Feature-flag-platform** | LT | Lichte config-vlaggen volstaan; geen apart systeem. |
-| **Kubernetes / auto-scaling infra** | LT | Huidige Docker-compose-stack volstaat; pas bij schaalnood. |
-| **"Dark" tenant_id vervroegd invoeren** | — | Bewust niet (per app introduceren + testen, al beslist). |
+**Lange termijn**: modulair ERP/portaal/CRM met onafhankelijk evoluerende, afsplitsbare
+componenten; multi-tenant SaaS (meerdere accounts, aparte site per unit — **nieuwe
+klant = config, geen code**); herbruikbare componenten; toekomstbestendig voor
+AI/agentisch werk; beheersbare compliance/isolatie; en géén "big ball of mud".
 
-> Deze lijst is een **levend register**: staat iets hier als "LT", dan is de bedoeling
-> het te heroverwegen zodra de bijhorende trigger opduikt — niet het definitief te
-> begraven.
+> De strangler-aanpak laat KT-waarde en LT-fundering **samenvallen**: elke stap lost nu
+> iets op én legt een steen voor later.
+
+---
+
+## 18. Out-of-scope — bewust (nog) niet
+
+Levend register: "LT" = heroverwegen zodra de trigger opduikt.
+
+| Idee | Waarom nu niet / trigger |
+|---|---|
+| Microservices / aparte DB's / message broker | Modulaire monoliet volstaat; splits enkel bij een concrete driver. Naden liggen klaar. |
+| DB-/schema-per-tenant | Rij-niveau gekozen; enkel bij harde isolatie-eis. |
+| Postgres RLS | Eerst facade-filtering; als hardening ná Fase 5. |
+| Externe IdP / SSO | Eigen `auth` volstaat; bij klantvraag. |
+| Volledige BPM-engine (Camunda…) | Start met lichte eigen `workflow`. |
+| Event-sourcing / CQRS | Enkel read-models waar nuttig. |
+| Extra betaalproviders | Mollie (EU) volstaat; adapter maakt uitbreiding triviaal. |
+| Volledige i18n | nl-BE nu; bij markt-/tenantvraag. |
+| Mobiel/native, real-time (websockets) | Web-first; bij behoefte. |
+| BI / datawarehouse | Simpele `analytics` nu. |
+| `business_events` → audit-platform | Geschrapt (§5.8). |
+| GDPR-self-service | Na tenancy + MDM; nu admin-verwijderen (MDM = tombstone, nooit hard). |
+| Feature-flag-platform | Lichte config-vlaggen volstaan. |
+| Kubernetes / auto-scaling | Docker-compose volstaat; bij schaalnood. |
+| "Dark" `tenant_id` vervroegd | Bewust niet (per app, getest). |
