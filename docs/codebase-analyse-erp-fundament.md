@@ -129,8 +129,9 @@ duplicatie én het a11y-gat in één beweging op.
   `--passWithNoTests`; geen component-tests; e2e (2 specs) non-blocking.
 - **Geen rollback-mechaniek**: smoke is `|| true` (breekt de deploy niet), geen
   pre-migratie-backup-hook in deploy-prod, geen gegarandeerd down-pad.
-- **Geen architectuur-handhaving in CI** (import-linter ontbreekt) en **geen
-  migratie-drift-check** (`alembic check`).
+- **Geen architectuur-handhaving in CI** (import-linter) en **geen
+  migratie-drift-check** — beide zijn al *voorzien* in het architectuurdoc
+  (§8-handhaving, §10 laag 4, F-blok), maar nog niet geïmplementeerd.
 - Dun: cms/users/ideas-routers; `mock_mollie` slaat bedragverificatie standaard
   over (één mismatch-test dekt die tak).
 
@@ -150,31 +151,43 @@ architectuurplan; de investering hoort in grenzen en herbruik, niet in technolog
 
 ## 7. Prioriteiten (aanbeveling)
 
-Gesorteerd op rendement, gemapt op het bestaande plan (epic #366):
+Het architectuurdocument dekt al veel méér dan de aangemaakte issues #360–#365:
+ook drift-checks, import-linter, lint-gates, contract-tests, OpenAPI-als-waarheids-
+bron, UI-kit en de volledige component-/tenancy-roadmap zijn er al *ontworpen* —
+alleen nog niet geïmplementeerd. Deze analyse **valideert dat plan met bewijs uit de
+code** (de lazy-import-cykels bewijzen de payments-facade, de frontend-duplicatie
+bewijst F5/§11, de CI-gaten bewijzen §8/§10). Gesorteerd op rendement:
 
-1. **Forms-modularisatie afronden als sjabloon** (#360–#363) — lost meteen het
-   by-layer/by-domain-schisma en het facade-gebrek op; de import-linter (PR2) is
-   de goedkoopste blijvende bewaking. *(gepland)*
+1. **Forms-modularisatie als sjabloon** (#360–#363) — lost het by-layer/by-domain-
+   schisma en het facade-gebrek op; PR2 (import-linter) is meteen de goedkoopste
+   blijvende bewaking. *(gepland, Fase 0)*
 2. **Payments als tweede domein** (#365) — daar zit de circulaire koppeling en de
-   polymorfe-lookup-duplicatie; een facade + `PaymentSettled`-event ruimt beide op.
-   Voeg een **wees-record-integriteitscheck** toe (payable_id → bestaande bron).
-   *(gepland; check is nieuw)*
-3. **Frontend UI-kit + AdminConsole-template** (F5) — grootste zichtbare
+   polymorfe-lookup-duplicatie; facade + `PaymentSettled`-event ruimt beide op.
+   Aanvulling op §6/§10: een **wees-record-integriteitscheck** voor `payable_id`
+   (de soft-ref-garantie "nooit dangelt" geldt daar vandaag nog niet). *(gepland;
+   check = kleine aanvulling)*
+3. **Frontend UI-kit + AdminConsole-template** (F-blok, §11) — grootste zichtbare
    duplicatie + a11y-gat in één slag; daarna de drie monoliet-pagina's ontbinden.
    *(gepland)*
-4. **CI-verharding** (F2/F4 +): import-linter, `alembic check` (drift), vitest
-   zonder `--passWithNoTests`, e2e op de geldflow blokkerend maken. *(deels gepland;
-   drift-check en gates zijn nieuw)*
-5. **Deploy-vangnet**: pre-migratie-backup-hook in `deploy-prod.sh` + smoke als
-   gate (nu `|| true`) + rollback-runbook. Klein werk, groot verschil voor een
-   systeem met financiële data. *(nieuw)*
-6. **Security-hardening batch** (klein, gebundeld): non-root containers, OTP
-   hashen, kortere JWT-TTL of HttpOnly-cookie-pad, audit-job blokkerend voor
-   high-severity. *(nieuw; sluit aan op de eerdere audit-bespreking)*
-7. **OpenAPI → frontend-typegeneratie** — elimineert de py↔ts-drift structureel.
-   *(nieuw)*
+4. **CI-verharding vervroegen** — import-linter, drift-check en lint-gates staan in
+   §8/§10/§11 gepland *als onderdeel van de modularisatie*; advies: trek de
+   goedkope gates (vitest zonder `--passWithNoTests`, e2e-geldflow blokkerend,
+   `alembic check`) naar voren, ze vereisen de herstructurering niet. *(gepland;
+   advies = eerder doen)*
+5. **Deploy-vangnet** — pre-migratie-backup-hook in `deploy-prod.sh`, smoke als
+   gate (nu `|| true`), rollback-runbook. **Ontbreekt in het architectuurdoc**
+   (ook niet in §18 out-of-scope); klein werk, groot verschil met financiële data.
+   *(echt nieuw → kandidaat-aanvulling op het doc)*
+6. **Security-hardening batch** — non-root containers, OTP hashen, kortere JWT-TTL
+   of HttpOnly-cookie, audit-job blokkerend voor high-severity. **Ontbreekt in het
+   architectuurdoc.** *(echt nieuw → kandidaat-aanvulling)*
+7. **OpenAPI → frontend-typegeneratie** — concretisering van §11/§12 ("OpenAPI als
+   waarheidsbron, `api.ts` spiegelt"): genereer de spiegel i.p.v. hem met de hand te
+   onderhouden. *(gepland als principe; codegen = invulling)*
 
-Punten 1–3 zijn al gepland; 4–7 zijn de concrete aanvullingen uit deze analyse.
+Netto: het plan staat; de enige échte witte vlekken zijn **deploy-vangnet (5)** en
+**security-hardening (6)** — die verdienen een plek in het architectuurdoc of de
+backlog (§14).
 
 ---
 
