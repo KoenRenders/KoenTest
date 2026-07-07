@@ -8,15 +8,26 @@ DESC="Responses worden gecomprimeerd (Caddy encode zstd/gzip, #303)"
 set -uo pipefail
 source "$(dirname "$0")/../lib.sh"
 
+# Post-deploy draait deze test meteen na een `caddy reload` + frontend-herstart.
+# Die allereerste GET kan de reload/cold-start net missen en ongecomprimeerd
+# terugkomen — een valse negatief (#381). Daarom herproberen we de homepage-GET
+# een paar keer met een korte pauze en falen we pas als het ná alle pogingen nog
+# steeds niet lukt. Een blijvend niet-gecomprimeerde respons faalt dus nog steeds.
 # -D - dumpt de response-headers naar stdout; -o /dev/null gooit de body weg.
-hdrs=$(curl -s -D - -o /dev/null -H "Accept-Encoding: gzip" "${BASE}/" 2>/dev/null) \
-  || fatal "kon ${BASE}/ niet ophalen"
-
-enc=$(printf '%s' "$hdrs" | grep -i '^content-encoding:' | tr -d '\r' | awk '{print tolower($2)}')
+enc=""
+for attempt in 1 2 3 4 5; do
+  hdrs=$(curl -s -D - -o /dev/null -H "Accept-Encoding: gzip" "${BASE}/" 2>/dev/null) \
+    || fatal "kon ${BASE}/ niet ophalen"
+  enc=$(printf '%s' "$hdrs" | grep -i '^content-encoding:' | tr -d '\r' | awk '{print tolower($2)}')
+  case "$enc" in
+    gzip|zstd) break ;;
+  esac
+  sleep 1
+done
 
 case "$enc" in
   gzip|zstd) expect_true 1 "homepage gecomprimeerd (content-encoding: $enc)" ;;
-  *)         expect_true 0 "homepage niet gecomprimeerd — verwacht content-encoding gzip/zstd, kreeg '${enc:-geen}'" ;;
+  *)         expect_true 0 "homepage niet gecomprimeerd — verwacht content-encoding gzip/zstd, kreeg '${enc:-geen}' (na 5 pogingen)" ;;
 esac
 
 t_summary
