@@ -666,17 +666,22 @@ related-grid-afleiding uit de relatie-declaraties + broodkruimelpad; statusbalk 
 takeninbox mee met de workflow-component (Fase 4); command-palette later (nice to
 have).
 
-### 20.4 Inline bewerken vs. formulier vs. actie (beslisregel)
-*Feit → inline, samenhang → formulier, gevolg → actie.*
-- **Inline** (klik-op-veld): één zelfstandig, risico-arm veld zonder cross-veld-
-  invarianten of neveneffecten (notitie, label, volgorde).
-- **Formulier** ("Bewerken", review-vóór-opslaan): samenhangende wijzigingen
-  (adres als geheel), cross-veld-invarianten, alles met **geld**.
-- **Actie-knop** (nooit inline): alles met een gevolg — mail, betaling,
-  procesovergang, verwijderen. Expliciet + bevestiging.
-- Harde randen: **procesvelden nooit inline** (status enkel via de statusbalk-
-  overgangen) en inline gaat door **dezelfde facade/validatie** (comfort, geen
-  achterdeur).
+### 20.4 Bewerken: formulier of actie — inline bewust niet
+Twee modaliteiten, geen drie:
+- **Formulier** ("Bewerken", review-vóór-opslaan): álle veldwijzigingen — ook
+  losse velden. Samenhang (adres als geheel), cross-veld-invarianten en geld
+  sowieso.
+- **Actie-knop**: alles met een gevolg — mail, betaling, procesovergang,
+  verwijderen. Expliciet + bevestiging. (Directe knopjes als ↑/↓-volgorde zijn
+  acties, geen inline-edit.)
+- **Inline click-to-edit: bewust NIET voorzien** (YAGNI). De inline-geschikte
+  velden zijn hier schaars (geen samenhang/geld/proces), het kost een dure
+  UI-kit-feature (per-veld save/fout-states), en een laagfrequent gebruikte
+  back-office is meer gebaat bij één voorspelbaar patroon. **Heropener**: toont
+  de werkbank later een frequente één-veld-edit, dan is dát de gemeten reden om
+  inline voor precies dat geval toe te voegen.
+- Harde randen blijven: **procesvelden enkel via de statusbalk-overgangen**, en
+  elke wijziging door **dezelfde facade/validatie**.
 
 ### 20.5 De werkbank — zero-touch & management by exception
 **Ideaal ERP-scenario = zero-touch**: de happy path loopt volledig automatisch
