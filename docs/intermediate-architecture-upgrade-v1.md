@@ -144,8 +144,10 @@ Tenant-scoped.
 states + taken (bewaart `submission_id` als waarde). Bouwer koppelt enkel een
 `workflow_definition`-id; de procesdefinitie + takeninbox horen bij workflow. Facade
 `start/advance/list_tasks/complete_task`; publiceert `WorkflowCompleted`.
-**IdeaBox = een geseed formulier + workflow `nieuw → in behandeling → in orde`** (de
-losse `ideas`-component vervalt).
+**IdeaBox (beter: "berichten") = een geseed formulier + een minimale workflow met
+één menselijke taak: *behartigen*** (`nieuw → behartigen → afgehandeld`; een
+afwijzing is ook een afhandeling). De losse `ideas`-component vervalt. Dit is
+meteen de eenvoudigste referentie-workflow: één taak, sluit door toestand.
 
 **5.8 Cross-cutting & plaatsing van resttabellen**
 - **History = gedeeld kernel-patroon** (`Historized`-mixin), per-component `*_history`
@@ -391,7 +393,7 @@ De rest kan grotendeels **parallel** zodra fundering + sjabloon staan.
 | **5 · Multi-tenant** | organizations (ACCOUNT/UNIT); per-tenant config/secrets-store; `tenant_id` per app + context + rollen; meerdere accounts + hostname-resolutie + per-unit SEO | nieuw |
 | **6 · Extractie** | STT → externe service (bij driver) | **#364** |
 | **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`) | nieuw |
-| **O · Opruiming** (§19, kan vóór alles) | `business_events` verwijderen; `ideas` → geseed formulier; `domains/common/` + stale docs weg; dead-endpoint-sweep | nieuw |
+| **O · Opruiming** (§19, kan vóór alles) | `business_events` verwijderen; `domains/common/` + stale docs weg; dead-endpoint-sweep. (`ideas` → formulier + minimale workflow verhuist naar fase 4: vereist de workflow-component) | nieuw |
 
 ---
 
@@ -406,8 +408,9 @@ De rest kan grotendeels **parallel** zodra fundering + sjabloon staan.
 - ✅ **membership = eigen component** (zuster van activities), **niet**
   `activities_membership`.
 - ✅ **AI/STT gesplitst** (STT capaciteit/extractie-kandidaat; chatbot domein).
-- ✅ **media = gedeelde capaciteit**; **workflow = eigen component**; **IdeaBox = form +
-  workflow** (`ideas` vervalt).
+- ✅ **media = gedeelde capaciteit**; **workflow = eigen component**; **IdeaBox
+  ("berichten") = form + minimale workflow met één menselijke taak *behartigen***
+  (`ideas` vervalt; mét workflow, niet zonder).
 - ✅ **history = kernel-patroon** per component; **`business_events` schrappen**.
 - ✅ **Referentiecodes in eigen component-schema** (geen gedeelde namespace).
 - ✅ **Multi-tenant = rij-niveau `tenant_id`**; **geen dark tenant_id** (per app,
@@ -509,7 +512,7 @@ Snoeien is ook architectuur. Levend register, zelfde geest als §18:
 | Actie | Winst |
 |---|---|
 | **`business_events` verwijderen** (beslist, §5.8 — nu uitvoeren) | −1 tabel, −PII-guard-service, −6 emit-sites in 5 flows, −admin-stats-endpoint, −13 tests |
-| **`ideas` → geseed formulier** (beslist; kan al zónder workflow — Inzendingen-tab bestaat) | −router, −model+tabel, −admin-pagina, −IdeaBox-component, −idea_limiter |
+| **`ideas` ("berichten") → geseed formulier + minimale workflow** (beslist; mét workflow — één menselijke taak *behartigen*, zie §5.7) | −router, −model+tabel, −admin-pagina, −IdeaBox-component, −idea_limiter |
 | **`domains/common/` (leeg) + `docs/change_request_0X.md`** opruimen | minder dode structuur |
 | **Dead-endpoint-sweep**: backend-routes vs. werkelijk `api.ts`-gebruik | kleiner API-oppervlak (kandidaat: 32 routes in `activities.py`) |
 | **Consolidaties die code verwijderen** (vallen onder F/§11): UI-kit (6 badges→1, 4 modals→1, 13 `confirm()`→1), OpenAPI-codegen (handgeschreven `api.ts` + dubbele types weg), één PaymentRecord-lookup-helper, design-tokens één bron | netto mínder regels, zelfde gedrag |
