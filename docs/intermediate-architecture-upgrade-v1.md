@@ -665,3 +665,39 @@ flowchart LR
 related-grid-afleiding uit de relatie-declaraties + broodkruimelpad; statusbalk +
 takeninbox mee met de workflow-component (Fase 4); command-palette later (nice to
 have).
+
+### 20.4 Inline bewerken vs. formulier vs. actie (beslisregel)
+*Feit → inline, samenhang → formulier, gevolg → actie.*
+- **Inline** (klik-op-veld): één zelfstandig, risico-arm veld zonder cross-veld-
+  invarianten of neveneffecten (notitie, label, volgorde).
+- **Formulier** ("Bewerken", review-vóór-opslaan): samenhangende wijzigingen
+  (adres als geheel), cross-veld-invarianten, alles met **geld**.
+- **Actie-knop** (nooit inline): alles met een gevolg — mail, betaling,
+  procesovergang, verwijderen. Expliciet + bevestiging.
+- Harde randen: **procesvelden nooit inline** (status enkel via de statusbalk-
+  overgangen) en inline gaat door **dezelfde facade/validatie** (comfort, geen
+  achterdeur).
+
+### 20.5 De werkbank — zero-touch & management by exception
+**Ideaal ERP-scenario = zero-touch**: de happy path loopt volledig automatisch
+(inschrijving → betaling → bevestiging: nul menselijke stappen). Menselijk werk is
+per definitie een **exceptie of een expliciete beslissing** — en dat landt op
+precies één plek: de **werkbank**.
+
+- **Eén takeninbox over álle workflows/componenten heen**: workflow-taken (§5.7)
+  én systeem-excepties — betaal-mismatches, te bevestigen refunds (bestaat al als
+  pending-refund-wachtrij), ledenwijzigingen-review, import-conflicten, gefaalde
+  mails, MDM-merge-kandidaten, wees-records (§19.2). Vandaag verspreide
+  proto-wachtrijen → geconsolideerd.
+- **Per taak**: wat + waarom (context), prioriteit/deadline, deep-link naar de
+  fiche, en waar mogelijk de beslissing inline (goedkeuren/afwijzen vanaf de
+  werkbank).
+- **Mail is een notificatiekanaal-optie** (per gebruiker: per taak of digest),
+  nooit de bron van waarheid — de werkbank is dat.
+- **Ontwerpdoel: leeg.** Elke flow wordt ontworpen als "geen taak tenzij
+  exceptie". Een lege werkbank = gezond systeem; terugkerende exceptie-types zijn
+  de volgende automatiseringskandidaten (de werkbank meet zijn eigen overbodig-
+  wording).
+- Bouwt op de workflow-component (Fase 4): taken krijgen een uniforme vorm
+  (bron-component, record-ref, type, status, toegewezen rol) zodat elke component
+  excepties kan publiceren zonder eigen inbox-scherm.
