@@ -741,3 +741,20 @@ precies één plek: de **werkbank**.
   respijt) — de bestaande ledenrapport-import upsert op `(source, external_id)`
   en sluit de taak **zonder menselijke handeling**; draait de import regelmatig,
   dan wordt hij meestal niet eens zichtbaar.
+
+### 20.6 Proces- & regelnotatie: BPMN/DMN als taal, niet als motor
+- **DMN**: geen rule-engine — taak-regels zijn queries in het eigenaar-component
+  (code, getest). Wél het **beslistabel-formaat** als visueel/doc-formaat per
+  taak-type (condities → taak/rol/prioriteit), met de regel-*catalogus* als data
+  voor werkbank/docs; later exporteerbaar als DMN-XML.
+- **BPMN**: de lichte workflow-state-machine (§5.7) blijft, maar de begrippen
+  worden **uitgelijnd op BPMN-vocabulaire** (user task, service task, gateway,
+  event) zodat een latere engine-overstap een mapping is, geen herbouw.
+- **Visueel = genereren, niet tekenen**: uit de workflow-definitie wordt
+  automatisch een procesdiagram gerenderd (Mermaid in de admin); de bouwer is een
+  eenvoudige stappen/overgangen-editor (zoals de form-builder), geen BPMN-canvas.
+- **Export**: BPMN-XML (definities) en DMN (beslistabellen) als uitwisselings-/
+  documentatieformaat — goedkoop, houdt het model eerlijk. Import pas mét engine.
+- **Heropener → echte engine** (past bij §18): parallelle takken,
+  timers/escalaties, compensatie, langdurige multi-rol-processen. Europe-First-
+  kandidaten: Camunda (DE), Flowable (CH), of Python-native SpiffWorkflow (OSS).
