@@ -724,3 +724,20 @@ precies één plek: de **werkbank**.
   nog-relevante taken vanzelf (geen replay/reconciliatie). In de monoliet is dit
   theoretisch (één proces); het contract wordt nu al zo vastgelegd voor latere
   extractie.
+- **Taakcontract: één DTO, veel providers.** In `kernel/contracts`:
+  `{bron, taak-type, titel, record-ref+deeplink, vereiste_rol, prioriteit,
+  ontstaan_op, acties[]}`; elk component implementeert dezelfde facade
+  (`list_tasks`). De variatie zit ín de componenten (hun afleidings-query), nooit
+  in het contract — de werkbank kent nul taak-types en filtert op **rol** (en
+  later tenant) via het `vereiste_rol`-veld. Nieuw component met taken = één
+  facade-functie, nul werkbank-code.
+- **Een afwijzing is ook een beslissing**: oordeelt een mens "geen probleem"
+  (bv. "geen dubbel"), dan wordt dat oordeel zélf toestand (bewaarde markering),
+  anders herrijst de afgeleide taak eeuwig.
+- **Voorbeeld inschrijving → nationaal Raak-programma**: (a) *beslistaak*
+  "mogelijke dubbel" (gelijkenis zonder merge óf geen-dubbel-markering; sluit
+  door merge of bewaard besluit); (b) *toestandstaak* "persoon nog niet in het
+  nationale programma" (geen `external_number` voor die bron, na N dagen
+  respijt) — de bestaande ledenrapport-import upsert op `(source, external_id)`
+  en sluit de taak **zonder menselijke handeling**; draait de import regelmatig,
+  dan wordt hij meestal niet eens zichtbaar.
