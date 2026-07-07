@@ -827,6 +827,18 @@ precies één plek: de **werkbank**.
 - **Een afwijzing is ook een beslissing**: oordeelt een mens "geen probleem"
   (bv. "geen dubbel"), dan wordt dat oordeel zélf toestand (bewaarde markering),
   anders herrijst de afgeleide taak eeuwig.
+- **Technische fouten: wél als er een businessactie is, anders niet.** De toets:
+  *kan iemand met een rol er iets aan doen, en heeft het businessgevolgen als
+  niemand het doet?* Gefaalde bevestigingsmail → taak "opnieuw versturen / lid
+  verwittigen"; gemiste Mollie-webhook → "betaling verifiëren"; halverwege
+  gefaalde import → "hervatten of terugdraaien". Zulke taken sluiten zichzelf
+  door toestand (retry gelukt → taak weg). Puur technische defecten
+  (stacktraces, logging-pipeline, container-herstart) horen **niet** in de
+  werkbank maar in het observability-kanaal (§19.1) richting de beheerder —
+  anders vervuilt onbegrijpelijke ruis het ontwerpdoel "leeg". De brug werkt in
+  twee richtingen: een defect mét business-impact steekt over als taak, en een
+  *terugkerend* exceptie-type in de werkbank is het signaal van een defect
+  eronder (de werkbank meet zijn eigen overbodigwording).
 - **Voorbeeld inschrijving → nationaal Raak-programma**: (a) *beslistaak*
   "mogelijke dubbel" (gelijkenis zonder merge óf geen-dubbel-markering; sluit
   door merge of bewaard besluit); (b) *toestandstaak* "persoon nog niet in het
@@ -955,6 +967,14 @@ Conclusie: er is geen verborgen betere derde weg; het speelveld is
    en de UI-kit-inspanning (§11) technologie-neutraal formuleren (patronen en
    tokens, niet React-componenten alléén) — dan is niets van dat werk weggegooid,
    welke kant dit ook opvalt.
+5. **Eilanden-toets: elk JS-eiland moet zijn bestaansrecht bewijzen.** Standaard
+   = géén eiland; wie er een wil, motiveert waarom htmx/Alpine/server-side niet
+   volstaat, en het eiland komt in een kort register (wat, waarom, omvang).
+   Al beslist: **file-upload = geen eiland** (gewoon multipart-formulier,
+   voortgang via htmx-events volstaat) en **dashboard = geen eiland**
+   (server-gerenderde SVG volstaat voor tellers/staafjes). Verwachte échte
+   eilanden blijven beperkt tot: form-builder (drag&drop), eventueel een
+   interactieve grafiek, en ooit het offline scanscherm (21.7).
 
 ### 21.5 Beslissing & waarom (ADR)
 
@@ -1013,6 +1033,18 @@ lijkt: de tegenbeweging is mainstream (Next zelf terug naar de server met Server
 Components; Rails Hotwire, Phoenix LiveView, Laravel Livewire; GitHub/Basecamp
 grotendeels server-gerenderd). We volgen geen exoot maar de server-side-
 renaissance, met htmx als kleinste, stabielste vertegenwoordiger.
+
+**"AI kent beide talen — ondergraaft dat het één-taal-argument niet?"**
+Het neemt één argument weg (geen frontend-specialist nodig) en verzwakt de
+*urgentie* (daarom: pilotpad, geen urgente migratie). De kern blijft: de taks
+zit niet in het *schrijven* maar in het *bestaan* van twee synchroon te houden
+artefacten — per feature 2× oppervlak (schema's, logica, tests, builds), de
+verificatielast valt op de ene mens (kleinere één-talige diffs reviewen sneller),
+drift is een synchronisatie- geen kennisprobleem (ook een AI vergeet een
+handgeschreven kopie, zeker over sessies heen), churn-migraties blijven werk
+zonder productwaarde, en het kost letterlijk meer credits (§16: twee stacks =
+meer context/tokens per wijziging). AI versterkt het kostenargument dus eerder
+dan het te ondermijnen.
 
 ### 21.7 Getoetst aan de lange-termijnhorizon: ERP / WMS / logistiek
 
