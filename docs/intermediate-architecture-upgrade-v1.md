@@ -386,10 +386,12 @@ De rest kan grotendeels **parallel** zodra fundering + sjabloon staan.
 | **0 · Form-sjabloon** | forms→`domains/forms` + facade; import-linter; schema `form` + handoff; 2e keten + integratietests | **#360–#363** |
 | **1 · Cross-cutting** | mail-component; auth-component (laag 1) | nieuw |
 | **2 · MDM** | MDM (+ `external_numbers`) + schema/keten; merge/survivorship; soft-ref-patroon | nieuw |
-| **3 · Payments** | `domains/payments` (gateway+status) + FINANCE-refund | **#365** |
+| **3 · Payments** | `domains/payments` (gateway+status) + FINANCE-refund; **wees-record-check** op `payable_id` (§19) | **#365** |
 | **4 · Domeinen** | membership (+`is_member`); activities; workflow + IdeaBox; media; cms; chatbot | nieuw |
 | **5 · Multi-tenant** | organizations (ACCOUNT/UNIT); per-tenant config/secrets-store; `tenant_id` per app + context + rollen; meerdere accounts + hostname-resolutie + per-unit SEO | nieuw |
 | **6 · Extractie** | STT → externe service (bij driver) | **#364** |
+| **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`) | nieuw |
+| **O · Opruiming** (§19, kan vóór alles) | `business_events` verwijderen; `ideas` → geseed formulier; `domains/common/` + stale docs weg; dead-endpoint-sweep | nieuw |
 
 ---
 
@@ -474,3 +476,45 @@ Levend register: "LT" = heroverwegen zodra de trigger opduikt.
 | Feature-flag-platform | Lichte config-vlaggen volstaan. |
 | Kubernetes / auto-scaling | Docker-compose volstaat; bij schaalnood. |
 | "Dark" `tenant_id` vervroegd | Bewust niet (per app, getest). |
+
+---
+
+## 19. Aanvullingen uit de codebase-analyse (juli 2026)
+
+De analyse (`codebase-analyse-erp-fundament.md`, vier deep-dives met
+file:line-bewijs) **valideert dit plan**: de lazy-import-cykels bewijzen de
+payments-facade, de frontend-duplicatie bewijst de UI-kit (§11), de CI-gaten
+bewijzen §8/§10. Drie concrete aanvullingen + een vereenvoudigingsregister:
+
+### 19.1 Operationele hardening (backlog-blok H)
+- **Deploy-vangnet** — pre-migratie-backup-hook in `deploy-prod.sh`, post-deploy
+  smoke als **gate** (nu `|| true`), rollback-runbook. Klein werk, essentieel met
+  financiële data; vereist de modularisatie niet.
+- **Security-batch** — non-root containers (`USER` in Dockerfiles), OTP-codes
+  gehasht opslaan, kortere JWT-TTL of HttpOnly-cookie-pad, dependency-audit
+  blokkerend voor high-severity. (Geen kritieke bevindingen; dit is hardening.)
+- **CI-gates vervroegen** — de goedkope gates uit §10/§11 nu al aanzetten:
+  vitest zonder `--passWithNoTests`, e2e-geldflow blokkerend, `alembic check`
+  (drift). De import-linter volgt met Fase 0.
+
+### 19.2 Integriteit polymorfe refs
+`payment_records.payable_type/payable_id` is een soft-ref zónder de
+MDM-tombstone-garantie (§6): een wees-record is vandaag mogelijk. Toevoegen aan de
+grens-/integratietests (§10 laag 4): **check dat elke payable_id naar een bestaande
+bron wijst** (reconciliatie-query, faalt luid).
+
+### 19.3 Vereenvoudiging & afscheid (register, backlog-blok O)
+Snoeien is ook architectuur. Levend register, zelfde geest als §18:
+
+| Actie | Winst |
+|---|---|
+| **`business_events` verwijderen** (beslist, §5.8 — nu uitvoeren) | −1 tabel, −PII-guard-service, −6 emit-sites in 5 flows, −admin-stats-endpoint, −13 tests |
+| **`ideas` → geseed formulier** (beslist; kan al zónder workflow — Inzendingen-tab bestaat) | −router, −model+tabel, −admin-pagina, −IdeaBox-component, −idea_limiter |
+| **`domains/common/` (leeg) + `docs/change_request_0X.md`** opruimen | minder dode structuur |
+| **Dead-endpoint-sweep**: backend-routes vs. werkelijk `api.ts`-gebruik | kleiner API-oppervlak (kandidaat: 32 routes in `activities.py`) |
+| **Consolidaties die code verwijderen** (vallen onder F/§11): UI-kit (6 badges→1, 4 modals→1, 13 `confirm()`→1), OpenAPI-codegen (handgeschreven `api.ts` + dubbele types weg), één PaymentRecord-lookup-helper, design-tokens één bron | netto mínder regels, zelfde gedrag |
+
+**Niet snoeien** (lijkt vereenvoudiging, is het niet): migraties squashen (CI test
+nu de hele keten — dat is waarde), history-tabellen/e-maillog-body (audit-waarde,
+bewuste keuzes met retentie), tests, `member_import` (eerst bevestigen dat het
+eenmalig was — oogt terugkerend).
