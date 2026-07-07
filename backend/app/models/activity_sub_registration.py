@@ -63,6 +63,10 @@ class ActivityProduct(SoftDeleteMixin, Base):
     price = Column(Numeric(10, 2), nullable=False, default=0)
     member_price = Column(Numeric(10, 2), nullable=True)
     is_free = Column(Boolean, default=True, nullable=False)
+    # Ter plaatse / op eigen budget te betalen (#373): inschrijven verplicht, maar
+    # NIET via het portaal afrekenen. Telt — net als is_free — niet mee in het
+    # Mollie-totaal. Sluit is_free uit (een product is betalend, gratis óf ter plaatse).
+    pay_on_site = Column(Boolean, default=False, nullable=False, server_default="false")
     max_participants = Column(Integer, nullable=True)
     sort_order = Column(Integer, default=0, nullable=False)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)

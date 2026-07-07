@@ -26,7 +26,7 @@ const emptyComponent = () => ({
 });
 
 const emptyProduct = () => ({
-  name: "", is_free: true, price: "0", member_price: "", max_participants: "", sort_order: 0,
+  name: "", is_free: true, pay_on_site: false, price: "0", member_price: "", max_participants: "", sort_order: 0,
 });
 
 interface DateEntry { start_date: string; end_date: string; start_time: string; end_time: string; }
@@ -295,11 +295,13 @@ export default function AdminActiviteiten() {
 
   async function handleProductSubmit(e: React.FormEvent, activityId: number, componentId: number) {
     e.preventDefault();
+    const paid = !productForm.is_free && !productForm.pay_on_site;
     const payload = {
       name: productForm.name,
       is_free: productForm.is_free,
-      price: productForm.is_free ? "0" : productForm.price,
-      member_price: productForm.member_price || null,
+      pay_on_site: productForm.pay_on_site,
+      price: paid ? productForm.price : "0",
+      member_price: paid ? (productForm.member_price || null) : null,
       max_participants: productForm.max_participants ? parseInt(productForm.max_participants) : null,
       sort_order: productForm.sort_order,
     };
@@ -319,7 +321,7 @@ export default function AdminActiviteiten() {
 
   function startEditProduct(activityId: number, componentId: number, p: ActivityProduct) {
     setProductForm({
-      name: p.name, is_free: p.is_free, price: p.price.toString(),
+      name: p.name, is_free: p.is_free, pay_on_site: p.pay_on_site, price: p.price.toString(),
       member_price: p.member_price?.toString() || "",
       max_participants: p.max_participants?.toString() || "",
       sort_order: p.sort_order,
@@ -772,12 +774,20 @@ export default function AdminActiviteiten() {
                               <input className="input" required value={productForm.name}
                                 onChange={(e) => setProductForm((f) => ({ ...f, name: e.target.value }))} />
                             </div>
-                            <div className="flex items-center gap-2 col-span-2">
-                              <input type="checkbox" id={`free-${comp.id}`} checked={productForm.is_free}
-                                onChange={(e) => setProductForm((f) => ({ ...f, is_free: e.target.checked }))} />
-                              <label htmlFor={`free-${comp.id}`}>Gratis</label>
+                            <div className="col-span-2">
+                              <label className="label">Afrekening</label>
+                              <select className="input"
+                                value={productForm.is_free ? "free" : productForm.pay_on_site ? "on_site" : "paid"}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  setProductForm((f) => ({ ...f, is_free: v === "free", pay_on_site: v === "on_site" }));
+                                }}>
+                                <option value="paid">Betalend (bedrag wordt afgerekend)</option>
+                                <option value="free">Gratis</option>
+                                <option value="on_site">Ter plaatse te betalen (eigen budget)</option>
+                              </select>
                             </div>
-                            {!productForm.is_free && (
+                            {(!productForm.is_free && !productForm.pay_on_site) && (
                               <>
                                 <div>
                                   <label className="label">Prijs niet-leden (€) *</label>
@@ -818,6 +828,8 @@ export default function AdminActiviteiten() {
                               <span className="font-medium">{p.name}</span>
                               {p.is_free ? (
                                 <span className="ml-2 text-xs text-green-600">gratis</span>
+                              ) : p.pay_on_site ? (
+                                <span className="ml-2 text-xs text-amber-600">ter plaatse (eigen budget)</span>
                               ) : (
                                 <span className="ml-2 text-xs text-gray-500">
                                   €{parseFloat(p.price).toFixed(2)}

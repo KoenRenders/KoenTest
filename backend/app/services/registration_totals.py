@@ -18,14 +18,17 @@ class RegistrationLine(TypedDict):
     quantity: int
     unit_price: Decimal
     subtotal: Decimal
+    is_free: bool
+    pay_on_site: bool
 
 
 def compute_registration_total(registration) -> Tuple[Decimal, List[RegistrationLine]]:
     """Bereken (totaal, regels) van een inschrijving op basis van haar items.
 
-    Elke regel bevat naam, aantal, stukprijs en subtotaal. Gratis producten
-    (is_free=True) worden wel als regel getoond (prijs €0,00) maar niet in het
-    totaal meegerekend. Items zonder gekoppeld product worden overgeslagen.
+    Elke regel bevat naam, aantal, stukprijs, subtotaal en de vlaggen is_free /
+    pay_on_site. Gratis producten (is_free=True) én 'ter plaatse te betalen'
+    (pay_on_site=True, #373) worden wel als regel getoond maar niet in het totaal
+    meegerekend. Items zonder gekoppeld product worden overgeslagen.
 
     Ledenprijs (#93, #111): is de inschrijving gekoppeld aan een persoon
     (``registration.person``) die op de inschrijfdatum een **geldig**
@@ -54,12 +57,17 @@ def compute_registration_total(registration) -> Tuple[Decimal, List[Registration
         else:
             unit_price = Decimal(str(product.price))
         subtotal = unit_price * item.quantity
+        pay_on_site = bool(getattr(product, "pay_on_site", False))
         regels.append({
             "name": product.name,
             "quantity": item.quantity,
             "unit_price": unit_price,
             "subtotal": subtotal,
+            "is_free": bool(product.is_free),
+            "pay_on_site": pay_on_site,
         })
-        if not product.is_free:
+        # Gratis én 'ter plaatse te betalen' (eigen budget) tellen niet mee in het
+        # (Mollie-)totaal; enkel betalende producten worden afgerekend (#373).
+        if not product.is_free and not pay_on_site:
             totaal += subtotal
     return totaal, regels

@@ -236,14 +236,21 @@ def send_activity_registration_confirmation(
 
         totaal, regels = compute_registration_total(registration)
         if regels:
-            regels_html = "".join(
-                f"<li>{escape(r['name'])} × {r['quantity']} "
-                f"— €{r['unit_price']:.2f} / stuk "
-                f"= <strong>€{r['subtotal']:.2f}</strong></li>"
-                for r in regels
-            )
+            def _regel_html(r):
+                naam = f"{escape(r['name'])} × {r['quantity']}"
+                if r.get("pay_on_site"):
+                    # Eigen budget: geen bedrag, wel duidelijk dat het ter plaatse is (#373).
+                    return f"<li>{naam} — ter plaatse te betalen (eigen budget)</li>"
+                if r.get("is_free"):
+                    return f"<li>{naam} — gratis</li>"
+                return (
+                    f"<li>{naam} — €{r['unit_price']:.2f} / stuk "
+                    f"= <strong>€{r['subtotal']:.2f}</strong></li>"
+                )
+            regels_html = "".join(_regel_html(r) for r in regels)
             details.append(f"<li><strong>Producten:</strong><ul>{regels_html}</ul></li>")
-            details.append(f"<li><strong>Totaal:</strong> <strong>€{totaal:.2f}</strong></li>")
+            if totaal > 0:
+                details.append(f"<li><strong>Totaal:</strong> <strong>€{totaal:.2f}</strong></li>")
 
         if registration.payment_method and registration.payment_method != "FREE":
             method_labels = {"ONLINE": "Online (Mollie)", "CASH": "Cash", "TRANSFER": "Overschrijving"}

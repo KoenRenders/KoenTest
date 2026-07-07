@@ -5,6 +5,7 @@ export interface ActivityProduct {
   price: string;
   member_price?: string;
   is_free: boolean;
+  pay_on_site: boolean;
   max_participants?: number;
   sort_order: number;
 }

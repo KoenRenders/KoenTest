@@ -197,6 +197,38 @@ def test_negative_product_price_rejected(client, db_session, admin_headers):
     assert resp.status_code in (422, 400, 500)
 
 
+def test_pay_on_site_not_counted_in_total():
+    """#373: een 'ter plaatse te betalen' (eigen budget) product telt — net als
+    gratis — niet mee in het (Mollie-)totaal, maar staat wél als regel."""
+    from types import SimpleNamespace as NS
+    from app.services.registration_totals import compute_registration_total
+
+    betalend = NS(name="Diner", price=Decimal("30"), member_price=None, is_free=False, pay_on_site=False)
+    eigen = NS(name="Eten (eigen budget)", price=Decimal("15"), member_price=None, is_free=False, pay_on_site=True)
+    gratis = NS(name="Welkomstdrankje", price=Decimal("0"), member_price=None, is_free=True, pay_on_site=False)
+    reg = NS(person=None, registered_at=None, items=[
+        NS(product=betalend, quantity=1),
+        NS(product=eigen, quantity=2),
+        NS(product=gratis, quantity=1),
+    ])
+    total, lines = compute_registration_total(reg)
+    assert total == Decimal("30")  # enkel het betalende product
+    by_name = {line["name"]: line for line in lines}
+    assert by_name["Eten (eigen budget)"]["pay_on_site"] is True
+    assert len(lines) == 3
+
+
+def test_product_cannot_be_free_and_pay_on_site(client, db_session, admin_headers):
+    """#373: gratis én ter plaatse te betalen sluiten elkaar uit."""
+    activity, comp, _p = seed_activity_with_product(db_session)
+    resp = client.post(
+        f"/api/v1/activities/{activity.id}/components/{comp.id}/products",
+        json={"name": "Fout", "is_free": True, "pay_on_site": True},
+        headers=admin_headers,
+    )
+    assert resp.status_code == 422
+
+
 def test_mollie_webhook_is_rate_limited(client):
     """De Mollie-webhook is rate-limited tegen een ruwe flood vanaf één IP (#182).
 

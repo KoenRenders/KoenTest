@@ -63,7 +63,8 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
 
   const totalAmount = component.products.reduce((sum, p) => {
     const qty = quantities[p.id] ?? 0;
-    if (qty === 0 || p.is_free) return sum;
+    // Gratis én 'ter plaatse te betalen' (eigen budget) tellen niet mee (#373).
+    if (qty === 0 || p.is_free || p.pay_on_site) return sum;
     return sum + unitPrice(p) * qty;
   }, 0);
 
@@ -147,7 +148,9 @@ export default function RegistrationForm({ activity, component, onClose, onSucce
                   <div key={p.id} className="flex items-center justify-between gap-3">
                     <div className="flex-1 text-sm">
                       <span className="font-medium">{p.name}</span>
-                      <span className="ml-2 text-gray-500">{formatPrice(p.price, p.member_price, isMember)}</span>
+                      <span className="ml-2 text-gray-500">
+                        {p.pay_on_site ? "ter plaatse te betalen (eigen budget)" : formatPrice(p.price, p.member_price, isMember)}
+                      </span>
                     </div>
                     <input
                       type="number"
