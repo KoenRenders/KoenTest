@@ -465,7 +465,7 @@ De rest kan grotendeels **parallel** zodra fundering + sjabloon staan.
 | **4 · Domeinen** | membership (+`is_member`); activities; workflow + IdeaBox; media; cms; chatbot | nieuw |
 | **5 · Multi-tenant** | organizations (ACCOUNT/UNIT); per-tenant config/secrets-store; `tenant_id` per app + context + rollen; meerdere accounts + hostname-resolutie + per-unit SEO | nieuw |
 | **6 · Extractie** | STT → externe service (bij driver) | **#364** |
-| **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, CSP zonder unsafe-inline/eval, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`); observability (error-tracking/logs/uptime/alerts); restore-oefening per release; rate-limiter-1-worker-aanname borgen; PII-retentie per component | nieuw |
+| **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, CSP zonder unsafe-inline/eval, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`); observability (error-tracking/logs/uptime/alerts); restore-oefening per release; rate-limiter-1-worker-aanname borgen | nieuw |
 | **O · Opruiming** (§19, kan vóór alles) | `business_events` verwijderen; `domains/common/` + stale docs weg; dead-endpoint-sweep. (`ideas` → formulier + minimale workflow verhuist naar fase 4: vereist de workflow-component) | nieuw |
 | **T · Taalbeleid** (§22, kan vóór alles) | Babel + `nl_BE`-catalogus; backend-teksten (e-mails, validatie, ODS-koppen) door `_()`; extract/lint-gate in CI; nieuwe code/DB/tests Engels | nieuw |
 
@@ -561,6 +561,7 @@ Levend register: "LT" = heroverwegen zodra de trigger opduikt.
 | BI / datawarehouse | Simpele `analytics` nu. |
 | `business_events` → audit-platform | Geschrapt (§5.8). |
 | GDPR-self-service | Na tenancy + MDM; nu admin-verwijderen (MDM = tombstone, nooit hard). |
+| PII-retentie per component (submissions/registraties/history) | Geparkeerd (2026-07-07): bewust niets doen; `email_log`-retentie volstaat. Trigger: externe eis of tenant-vraag. |
 | Feature-flag-platform | Lichte config-vlaggen volstaan. |
 | Kubernetes / auto-scaling | Docker-compose volstaat; bij schaalnood. |
 | "Dark" `tenant_id` vervroegd | Bewust niet (per app, getest). |
@@ -587,11 +588,9 @@ bewijzen §8/§10. Drie concrete aanvullingen + een vereenvoudigingsregister:
   bij de éérste tweede Uvicorn-worker of replica breekt die aanname stil.
   Vangnet: assert/documenteer de aanname bij de worker-config; structurele fix
   (gedeelde store, bv. Postgres/Redis) pas bij de echte schaal-driver.
-- **PII-retentie verbreden** — `email_log` heeft retentie; submissions,
-  registraties en `*_history` nog niet. Per component een bewaartermijn
-  vastleggen (retentie-veegjob volgens hetzelfde patroon als de mail-log);
-  GDPR-*self-service* blijft §18-uitgesteld, dit is het geautomatiseerde
-  minimum eronder.
+- **PII-retentie verbreden — geparkeerd (beslist 2026-07-07)**: `email_log`
+  heeft retentie; submissions/registraties/history niet. Bewust niets doen;
+  zie §18.
 - **CI-gates vervroegen** — de goedkope gates uit §10/§11 nu al aanzetten:
   vitest zonder `--passWithNoTests`, e2e-geldflow blokkerend, `alembic check`
   (drift). De import-linter volgt met Fase 0.
