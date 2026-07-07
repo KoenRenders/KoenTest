@@ -13,14 +13,17 @@ import {
 } from "@/lib/api";
 import { parseApiError } from "@/lib/errors";
 
-// 'Raakje — AI-context' (#235): beheer van alles wat naar de chatbot gaat
-// (chatbot_info). Drie groepen: documenten (poster/reglement), CMS-pagina's
-// (opt-out/override), en vrije notities.
+// 'Raakje — AI-context' (#235, #375): beheer van alles wat naar de chatbot gaat
+// (chatbot_info). Drie gegroepeerde en gerangschikte lijsten (① documenten,
+// ② CMS-pagina's, ③ vrije notities), telkens met een "Bewerken"-knop per rij —
+// zoals de CMS-pagina's.
 
 export default function AiContextPage() {
   const [data, setData] = useState<ChatbotInfoData | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  // Welk item wordt bewerkt: "doc:<asset_id>" | "cms:<page_id>" | "note:<id>" | "note:new".
+  const [editing, setEditing] = useState<string | null>(null);
 
   async function load() {
     try {
@@ -33,6 +36,12 @@ export default function AiContextPage() {
   useEffect(() => {
     load();
   }, []);
+
+  const close = () => setEditing(null);
+  async function reloadAndClose() {
+    await load();
+    close();
+  }
 
   if (error) return <div className="text-red-600">{error}</div>;
   if (!data) return <div>Laden…</div>;
@@ -54,40 +63,98 @@ export default function AiContextPage() {
         {data.documents.length === 0 && (
           <p className="text-gray-500 text-sm">Nog geen posters of reglementen opgeladen.</p>
         )}
-        <div className="space-y-4">
-          {data.documents.map((d) => (
-            <DocumentCard
-              key={d.asset_id}
-              doc={d}
-              onReload={load}
-              onNotice={setNotice}
-            />
-          ))}
+        <div className="space-y-2">
+          {data.documents.map((d) => {
+            const key = `doc:${d.asset_id}`;
+            return editing === key ? (
+              <DocumentCard key={key} doc={d} onDone={reloadAndClose} onClose={close} onNotice={setNotice} onReload={load} />
+            ) : (
+              <ListRow
+                key={key}
+                title={d.label}
+                status={statusOf(d.info)}
+                onEdit={() => setEditing(key)}
+              />
+            );
+          })}
         </div>
       </section>
 
       <section>
         <h2 className="text-lg font-semibold mb-3">② Website-pagina&apos;s (gaan standaard mee)</h2>
-        <div className="space-y-4">
-          {data.cms.map((p) => (
-            <CmsCard key={p.page_id} page={p} onReload={load} />
-          ))}
+        <div className="space-y-2">
+          {data.cms.map((p) => {
+            const key = `cms:${p.page_id}`;
+            return editing === key ? (
+              <CmsCard key={key} page={p} onDone={reloadAndClose} onClose={close} />
+            ) : (
+              <ListRow
+                key={key}
+                title={p.title}
+                status={statusOf(p.info)}
+                onEdit={() => setEditing(key)}
+              />
+            );
+          })}
         </div>
       </section>
 
       <section>
-        <h2 className="text-lg font-semibold mb-3">③ Eigen AI-context (vrije notities)</h2>
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-lg font-semibold">③ Eigen AI-context (vrije notities)</h2>
+          <button className="btn-primary btn-sm" onClick={() => setEditing("note:new")}>+ Nieuwe notitie</button>
+        </div>
         <p className="text-gray-500 text-xs mb-3">
           Korte, stabiele info die nergens op de site staat (wie we zijn, vaste FAQ…).
           Geen prijzen/datums — die verouderen en komen uit de structuurvelden.
         </p>
-        <div className="space-y-4">
-          {data.notes.map((n) => (
-            <NoteCard key={n.id} note={n} onReload={load} />
-          ))}
-          <NewNoteForm onReload={load} />
+        <div className="space-y-2">
+          {editing === "note:new" && <NewNoteForm onDone={reloadAndClose} onClose={close} />}
+          {data.notes.map((n) => {
+            const key = `note:${n.id}`;
+            return editing === key ? (
+              <NoteCard key={key} note={n} onDone={reloadAndClose} onClose={close} />
+            ) : (
+              <ListRow
+                key={key}
+                title={n.title || "(zonder titel)"}
+                status={n.is_active ? "mee naar Raakje" : "uit"}
+                onEdit={() => setEditing(key)}
+              />
+            );
+          })}
+          {data.notes.length === 0 && editing !== "note:new" && (
+            <p className="text-gray-500 text-sm">Nog geen notities.</p>
+          )}
         </div>
       </section>
+    </div>
+  );
+}
+
+function statusOf(info: ChatbotInfoRow | null | undefined): string {
+  if (!info) return "standaard";
+  if (info.is_active === false) return "uit";
+  return info.text_override ? "aangepast" : "mee naar Raakje";
+}
+
+function ListRow({ title, status, onEdit }: { title: string; status: string; onEdit: () => void }) {
+  return (
+    <div className="card flex items-center justify-between gap-4 py-3">
+      <div className="min-w-0">
+        <span className="font-medium truncate">{title}</span>
+        <span className="ml-2 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{status}</span>
+      </div>
+      <button className="btn-secondary btn-sm" onClick={onEdit}>Bewerken</button>
+    </div>
+  );
+}
+
+function EditorHeader({ title, onClose }: { title: string; onClose: () => void }) {
+  return (
+    <div className="flex items-center justify-between mb-3">
+      <span className="font-semibold">{title}</span>
+      <button className="text-gray-500 hover:text-gray-800 text-sm" onClick={onClose}>Sluiten ✕</button>
     </div>
   );
 }
@@ -104,10 +171,14 @@ function ActiveToggle({ checked, onChange, label }: { checked: boolean; onChange
 function DocumentCard({
   doc,
   onReload,
+  onDone,
+  onClose,
   onNotice,
 }: {
   doc: ChatbotInfoData["documents"][number];
   onReload: () => void;
+  onDone: () => void;
+  onClose: () => void;
   onNotice: (s: string) => void;
 }) {
   const info = doc.info;
@@ -124,7 +195,7 @@ function DocumentCard({
         text_addition: addition || null,
         is_active: active,
       });
-      onReload();
+      onDone();
     } finally {
       setBusy(false);
     }
@@ -142,11 +213,9 @@ function DocumentCard({
 
   return (
     <div className="card">
-      <div className="flex items-center justify-between mb-2">
-        <span className="font-medium">{doc.label}</span>
-        <button className="btn-secondary btn-sm" onClick={reread} disabled={busy}>
-          Opnieuw lezen
-        </button>
+      <EditorHeader title={doc.label} onClose={onClose} />
+      <div className="flex justify-end mb-2">
+        <button className="btn-secondary btn-sm" onClick={reread} disabled={busy}>Opnieuw lezen</button>
       </div>
       <label className="label text-xs">Automatisch gelezen (machine)</label>
       <pre className="text-xs bg-gray-50 border border-gray-200 rounded p-2 whitespace-pre-wrap max-h-40 overflow-auto mb-3">
@@ -166,10 +235,12 @@ function DocumentCard({
 
 function CmsCard({
   page,
-  onReload,
+  onDone,
+  onClose,
 }: {
   page: ChatbotInfoData["cms"][number];
-  onReload: () => void;
+  onDone: () => void;
+  onClose: () => void;
 }) {
   const info = page.info;
   const [override, setOverride] = useState(info?.text_override ?? "");
@@ -185,7 +256,7 @@ function CmsCard({
         text_addition: addition || null,
         is_active: active,
       });
-      onReload();
+      onDone();
     } finally {
       setBusy(false);
     }
@@ -195,7 +266,7 @@ function CmsCard({
     setBusy(true);
     try {
       await deleteChatbotRow(info.id);
-      onReload();
+      onDone();
     } finally {
       setBusy(false);
     }
@@ -203,9 +274,7 @@ function CmsCard({
 
   return (
     <div className="card">
-      <div className="mb-2">
-        <span className="font-medium">{page.title}</span>
-      </div>
+      <EditorHeader title={page.title} onClose={onClose} />
       <label className="label text-xs">Override (vervangt de pagina-inhoud voor de bot)</label>
       <textarea className="input mb-2" rows={2} value={override} onChange={(e) => setOverride(e.target.value)} placeholder="Leeg = de bot gebruikt de gewone pagina-inhoud" />
       <label className="label text-xs">Aanvulling (extra info voor de bot)</label>
@@ -223,7 +292,7 @@ function CmsCard({
   );
 }
 
-function NoteCard({ note, onReload }: { note: ChatbotInfoRow; onReload: () => void }) {
+function NoteCard({ note, onDone, onClose }: { note: ChatbotInfoRow; onDone: () => void; onClose: () => void }) {
   const [title, setTitle] = useState(note.title ?? "");
   const [text, setText] = useState(note.text_addition ?? "");
   const [active, setActive] = useState(note.is_active);
@@ -238,16 +307,17 @@ function NoteCard({ note, onReload }: { note: ChatbotInfoRow; onReload: () => vo
         text_override: null,
         is_active: active,
       });
-      onReload();
+      onDone();
     } finally {
       setBusy(false);
     }
   }
   async function remove() {
+    if (!confirm("Deze notitie verwijderen?")) return;
     setBusy(true);
     try {
       await deleteChatbotRow(note.id);
-      onReload();
+      onDone();
     } finally {
       setBusy(false);
     }
@@ -255,6 +325,7 @@ function NoteCard({ note, onReload }: { note: ChatbotInfoRow; onReload: () => vo
 
   return (
     <div className="card">
+      <EditorHeader title={note.title || "(zonder titel)"} onClose={onClose} />
       <input className="input mb-2" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Titel" />
       <textarea className="input mb-2" rows={3} value={text} onChange={(e) => setText(e.target.value)} />
       <div className="flex items-center justify-between">
@@ -268,7 +339,7 @@ function NoteCard({ note, onReload }: { note: ChatbotInfoRow; onReload: () => vo
   );
 }
 
-function NewNoteForm({ onReload }: { onReload: () => void }) {
+function NewNoteForm({ onDone, onClose }: { onDone: () => void; onClose: () => void }) {
   const [title, setTitle] = useState("");
   const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
@@ -278,9 +349,7 @@ function NewNoteForm({ onReload }: { onReload: () => void }) {
     setBusy(true);
     try {
       await createChatbotNote({ title: title || null, text_addition: text, is_active: true });
-      setTitle("");
-      setText("");
-      onReload();
+      onDone();
     } finally {
       setBusy(false);
     }
@@ -288,7 +357,7 @@ function NewNoteForm({ onReload }: { onReload: () => void }) {
 
   return (
     <div className="card border-dashed">
-      <div className="font-medium mb-2 text-gray-700">Nieuwe notitie</div>
+      <EditorHeader title="Nieuwe notitie" onClose={onClose} />
       <input className="input mb-2" value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Titel (optioneel)" />
       <textarea className="input mb-2" rows={3} value={text} onChange={(e) => setText(e.target.value)} placeholder="Wat moet Raakje weten?" />
       <div className="flex justify-end">
