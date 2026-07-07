@@ -465,7 +465,7 @@ De rest kan grotendeels **parallel** zodra fundering + sjabloon staan.
 | **4 · Domeinen** | membership (+`is_member`); activities; workflow + IdeaBox; media; cms; chatbot | nieuw |
 | **5 · Multi-tenant** | organizations (ACCOUNT/UNIT); per-tenant config/secrets-store; `tenant_id` per app + context + rollen; meerdere accounts + hostname-resolutie + per-unit SEO | nieuw |
 | **6 · Extractie** | STT → externe service (bij driver) | **#364** |
-| **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`); observability (error-tracking/logs/uptime/alerts); restore-oefening per release | nieuw |
+| **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, CSP zonder unsafe-inline/eval, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`); observability (error-tracking/logs/uptime/alerts); restore-oefening per release; rate-limiter-1-worker-aanname borgen | nieuw |
 | **O · Opruiming** (§19, kan vóór alles) | `business_events` verwijderen; `domains/common/` + stale docs weg; dead-endpoint-sweep. (`ideas` → formulier + minimale workflow verhuist naar fase 4: vereist de workflow-component) | nieuw |
 | **T · Taalbeleid** (§22, kan vóór alles) | Babel + `nl_BE`-catalogus; backend-teksten (e-mails, validatie, ODS-koppen) door `_()`; extract/lint-gate in CI; nieuwe code/DB/tests Engels | nieuw |
 
@@ -561,6 +561,7 @@ Levend register: "LT" = heroverwegen zodra de trigger opduikt.
 | BI / datawarehouse | Simpele `analytics` nu. |
 | `business_events` → audit-platform | Geschrapt (§5.8). |
 | GDPR-self-service | Na tenancy + MDM; nu admin-verwijderen (MDM = tombstone, nooit hard). |
+| PII-retentie per component (submissions/registraties/history) | Geparkeerd (2026-07-07): bewust niets doen; `email_log`-retentie volstaat. Trigger: externe eis of tenant-vraag. |
 | Feature-flag-platform | Lichte config-vlaggen volstaan. |
 | Kubernetes / auto-scaling | Docker-compose volstaat; bij schaalnood. |
 | "Dark" `tenant_id` vervroegd | Bewust niet (per app, getest). |
@@ -580,7 +581,16 @@ bewijzen §8/§10. Drie concrete aanvullingen + een vereenvoudigingsregister:
   financiële data; vereist de modularisatie niet.
 - **Security-batch** — non-root containers (`USER` in Dockerfiles), OTP-codes
   gehasht opslaan, kortere JWT-TTL of HttpOnly-cookie-pad, dependency-audit
-  blokkerend voor high-severity. (Geen kritieke bevindingen; dit is hardening.)
+  blokkerend voor high-severity, **CSP aanscherpen** (`unsafe-inline`/
+  `unsafe-eval` eruit; wordt makkelijker naarmate schermen server-rendered
+  worden, §21). (Geen kritieke bevindingen; dit is hardening.)
+- **Rate-limiter-grens** — de in-memory limiter veronderstelt 1 worker/1 proces;
+  bij de éérste tweede Uvicorn-worker of replica breekt die aanname stil.
+  Vangnet: assert/documenteer de aanname bij de worker-config; structurele fix
+  (gedeelde store, bv. Postgres/Redis) pas bij de echte schaal-driver.
+- **PII-retentie verbreden — geparkeerd (beslist 2026-07-07)**: `email_log`
+  heeft retentie; submissions/registraties/history niet. Bewust niets doen;
+  zie §18.
 - **CI-gates vervroegen** — de goedkope gates uit §10/§11 nu al aanzetten:
   vitest zonder `--passWithNoTests`, e2e-geldflow blokkerend, `alembic check`
   (drift). De import-linter volgt met Fase 0.
@@ -654,6 +664,12 @@ met `features/<c>/`.
       verslaat elke pagina testen).
 4. **`mock_mollie`-gat**: happy-path-test mét bedragverificatie (nu enkel een
    mismatch-test; de mock slaat de controle standaard over).
+5. **Dunne routers bijtesten**: cms en users hebben nauwelijks dekking — per
+   router de kern-invarianten (autorisatie, publiek-vs-admin-zichtbaarheid)
+   toevoegen; kleine klus, hoort bij dezelfde beweging als 3b.
+6. **Restpuntje uit de analyse**: `on_event("startup")` is deprecated →
+   FastAPI-lifespan; mee te nemen met blok O (opruiming), geen eigen issue
+   waard.
 
 ### 19.6 Usability & vormgeving (advies, convergeert op de UI-kit)
 Oordeel: functioneel degelijk, visueel utilitair, organisch gegroeid — consistentie
@@ -992,7 +1008,10 @@ Conclusie: er is geen verborgen betere derde weg; het speelveld is
 - **Gekozen**: **één taal, server-rendered — htmx + Jinja + Alpine** voor beide
   shells als eindbeeld; verworpen: status quo (Next/React, dual-stack-taks
   blijft), Astro/SvelteKit (lossen de tweede taal niet op), big-bang-herbouw
-  (risico zonder noodzaak).
+  (risico zonder noodzaak). Ook verworpen: het codebase-analyse-advies
+  "server-state-laag/react-query toevoegen" — die hele probleemklasse (client-
+  caching, per-pagina herhaalde auth-state, `useEffect+load()`-patroon) vervalt
+  met server-rendered schermen in plaats van ze te repareren.
 - **Doorslaggevend**: het sterkste pro-React-argument (API-grens dwingt
   discipline fysiek af) lost een probleem op dat we al opgelost hebben —
   facades + import-linter gelden sowieso backend-intern. Het sterkste
