@@ -558,3 +558,25 @@ met `features/<c>/`.
       verslaat elke pagina testen).
 4. **`mock_mollie`-gat**: happy-path-test mét bedragverificatie (nu enkel een
    mismatch-test; de mock slaat de controle standaard over).
+
+### 19.6 Usability & vormgeving (advies, convergeert op de UI-kit)
+Oordeel: functioneel degelijk, visueel utilitair, organisch gegroeid — consistentie
+zit in conventie, niet in componenten. Sterk: nl-BE + `parseApiError`-vertalingen,
+vast paginaritme, wizard/builder/matrix-patronen. Adviezen:
+1. **Actie-overdaad in lijstrijen** (formulieren: 8 tekstlinks/rij) → 1–2 zichtbaar
+   + "⋯"-menu; Verwijderen altijd apart (rood, met object-naam in de bevestiging).
+2. **Feedback normaliseren**: 11× native `alert()/prompt()` + 13× `confirm()` →
+   één Toast- + ConfirmDialog-patroon.
+3. **Nav groeperen**: 15 platte admin-items → 3–4 clusters die de componentenkaart
+   spiegelen (Leden / Activiteiten & Formulieren / Financieel / Site & systeem);
+   bereidt rol-gebaseerde menu's voor.
+4. **Mobiel**: 3/6 admin-tabellen zonder `overflow-x-auto`; publieke formulieren
+   worden op telefoons ingevuld → expliciete mobiele check van het capture-pad.
+5. **Laad-/empty-states**: 13× kale "Laden…" → gedeelde `<Loading>`/`<Empty>`.
+6. **A11y**: modals missen `role="dialog"`/focus-trap/Escape — lift mee met dé ene
+   `<Modal>`.
+7. **Semantische design-tokens** op één plek (nu dubbel gedefinieerd; `blue-700`
+   32× hardcoded) — tevens voorwaarde voor per-tenant branding (§7.2).
+8. **Dark mode: niet doen** (kost veel, levert hier niets).
+Alles behalve 1 en 3 lost de geplande **UI-kit + AdminConsole-template** (F/§11)
+in één beweging op; 1 en 3 zijn de enige nieuwe ontwerpkeuzes.
