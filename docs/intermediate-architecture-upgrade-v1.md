@@ -979,7 +979,10 @@ Conclusie: er is geen verborgen betere derde weg; het speelveld is
   eerste htmx-scherm (nul herbouwkost); daarna admin per component op natuurlijke
   momenten; publieke site als laatste; form-builder het langst als React-eiland;
   JSON/OpenAPI-facade blijft onvoorwaardelijk. De hybride periode is begrensd
-  doordat het omklappen meelift met de modularisatie-fases.
+  doordat het omklappen meelift met de modularisatie-fases. **Eindstreep,
+  meetbaar**: de frontend-container (Next/Node) vervalt — de stack gaat per
+  omgeving van 4 naar 3 services (db, backend serveert HTML+JSON, caddy);
+  tijdens de hybride periode blijft hij gewoon draaien.
 - **Heropener**: de pilot zelf — valt de werkbank-pilot tegen op
   ontwikkelsnelheid, discipline (logica lekt naar templates ondanks linter) of
   UX, dan terug naar status quo/hybride zonder verlies (er is dan niets
