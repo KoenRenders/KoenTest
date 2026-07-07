@@ -484,12 +484,18 @@ def add_product(
     ).first()
     if not component:
         raise HTTPException(status_code=404, detail="Component not found")
+    if data.is_free and data.pay_on_site:
+        raise HTTPException(
+            status_code=422,
+            detail="Een product kan niet tegelijk gratis én ter plaatse te betalen zijn.",
+        )
     product = ActivityProduct(
         component_id=component_id,
         name=data.name,
         price=data.price,
         member_price=data.member_price,
         is_free=data.is_free,
+        pay_on_site=data.pay_on_site,
         max_participants=data.max_participants,
         sort_order=data.sort_order,
     )
@@ -519,6 +525,11 @@ def update_product(
         raise HTTPException(status_code=404, detail="Product not found")
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(product, field, value)
+    if product.is_free and product.pay_on_site:
+        raise HTTPException(
+            status_code=422,
+            detail="Een product kan niet tegelijk gratis én ter plaatse te betalen zijn.",
+        )
     snapshot_product(db, product, operation="update", action="product_updated",
                      source="admin_manual", actor=admin.email)
     db.commit()

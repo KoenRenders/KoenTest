@@ -20,6 +20,7 @@ class ProductCreate(BaseModel):
     price: Decimal = Decimal("0.00")
     member_price: Optional[Decimal] = None
     is_free: bool = True
+    pay_on_site: bool = False
     max_participants: Optional[int] = None
     sort_order: int = 0
 
@@ -31,6 +32,7 @@ class ProductUpdate(BaseModel):
     price: Optional[Decimal] = None
     member_price: Optional[Decimal] = None
     is_free: Optional[bool] = None
+    pay_on_site: Optional[bool] = None
     max_participants: Optional[int] = None
     sort_order: Optional[int] = None
 
@@ -44,6 +46,7 @@ class ProductResponse(BaseModel):
     price: Decimal
     member_price: Optional[Decimal] = None
     is_free: bool
+    pay_on_site: bool = False
     max_participants: Optional[int] = None
     sort_order: int
 
