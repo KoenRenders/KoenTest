@@ -371,6 +371,59 @@ facade, geen gedragswijziging) → per component één PR → kernel optrekken. 
 model-discovery — verplaats je models, laat `Base.metadata`/Alembic ze nog vinden
 (import in `domains/__init__.py` of `env.py`).
 
+### 13.1 Eén map per component — wat zit erin (en wat bewust niet)
+
+Ja: **één map = álles van die module** — backend, frontend-feature, migraties,
+tests, contract:
+
+```
+domains/payment/
+  api.py router.py schemas.py service.py models.py   # backend
+  migrations/            # eigen Alembic-keten (afsplitsbare apps)
+  frontend/              # de feature-UI van dit component (schermen, hooks)
+  tests/                 # unit + contract van dit component
+  CONTRACT.md            # publiceert / consumeert / bezit / deprecaties
+  seeds.py               # referentiedata van dit component
+```
+
+Maar in de **intermediate** fase is dat een *package*, geen *deployable*: er blijft
+**één backend-proces** (FastAPI mount alle routers), **één Postgres-instance** (per
+component een eigen **schema** + eigen keten) en **twee frontend-builds**. "Eigen
+frontend/backend/database per app" is de **eindtoestand-optie** die deze structuur
+mogelijk maakt — een component eruit tillen is dan `git mv` + eigen deploy, geen
+herschrijving. We betalen de operationele kost van N processen/DB's pas als een
+component er echt uit moet (§18).
+
+**De GUI-orchestrator**: twee dunne **shells** die zelf géén domeincode bevatten —
+**AdminShell** (navigatie, login, layout, UI-kit, rol-gating) en **PublicShell**
+(publieke site per unit). Een shell *componeert* de `frontend/`-features van de
+componenten (elke component registreert zijn nav-items + routes; de shell mount ze).
+Nieuw component = map toevoegen + registreren, de shell wijzigt niet.
+
+**Tests op twee niveaus**: per component `domains/<c>/tests/` (unit + contract,
+draaien tegen enkel het eigen schema + gestubde facades); overkoepelend
+`tests/integration/` op repo-niveau (de **golden flows** van §10, tegen de echt
+gewirede app met álle schema's). Een component-map is groen te krijgen zonder de
+rest te draaien; de golden flows bewijzen de samenstelling.
+
+### 13.2 Eén bouwcommando — build · migrate · test · gate
+
+Eén ingang (`make ci` / `./build.sh`) die lokaal en in CI **identiek** is:
+
+1. **Build** — backend-image (alle componenten, incl. `check_imports`),
+   AdminShell + PublicShell (`tsc` + `next build`).
+2. **Migrate** — alle Alembic-ketens in laagvolgorde (kernel → laag 1 → laag 2),
+   per keten: precies één head + autogenerate-drift-check.
+3. **Test** — per component zijn eigen suite (parallelliseerbaar, CI-matrix per
+   map: alleen gewijzigde componenten + hun consumenten hoeven te draaien) → daarna
+   de golden flows.
+4. **Gates** — import-linter (mapgrens), geen-cross-schema-FK-check, OpenAPI-drift
+   (§19.4), publieke-repo-guard.
+
+Groen = mergebaar; de stappen zijn de definitie van "af". Gedocumenteerd op één
+plaats (`BUILDING.md` op repo-root) — de component-mappen documenteren enkel hun
+eigen contract (`CONTRACT.md`, §12).
+
 ---
 
 ## 14. Roadmap & backlog
