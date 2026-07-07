@@ -27,12 +27,6 @@ from datetime import date, datetime
 
 import xlrd
 
-# Testadressen voor niet-PROD omgevingen (straat lowercase, huisnummer exact).
-TEST_ADDRESSES = [
-    ("kerkebossenstraat", "21"),
-    ("milostraat", "40"),
-]
-
 # Relatie-mapping rapport → DB-code.
 RELATIE_MAP = {
     "lid": "HOOFDLID",
@@ -323,17 +317,6 @@ def group_families(rows: list[dict]) -> list[list[dict]]:
     return result
 
 
-def filter_test(families: list[list[dict]]) -> list[list[dict]]:
-    """Houd enkel testadressen over (veiligheidsnet buiten PROD)."""
-    out = []
-    for fam in families:
-        straat = fam[0]["straat"].lower()
-        huisnr = fam[0]["huisnummer"].lower()
-        if any(straat == t[0] and huisnr == t[1] for t in TEST_ADDRESSES):
-            out.append(fam)
-    return out
-
-
 def build_bestuurslid_index(rows: list[dict]) -> dict[str, list[dict]]:
     """Index van "NAAM Voornaam" (genormaliseerd) → lijst van rijen.
 
@@ -353,15 +336,12 @@ def all_board_member_names(rows: list[dict]) -> list[str]:
     ))
 
 
-def parse_families(content: bytes, *, load_all: bool):
+def parse_families(content: bytes):
     """High-level: bytes → (families, bl_index, all_bl_names, rows).
 
-    Past het testadres-filter toe wanneer ``load_all`` False is. Wordt door het
-    upload-endpoint gebruikt; het CLI roept de losse functies aan voor zijn
-    eigen tussenrapportage.
+    Verwerkt altijd het volledige rapport (#377); de droogloop→commit-wizard is
+    het veiligheidsmechanisme.
     """
     rows = read_ledenrapport_bytes(content)
     families = group_families(rows)
-    if not load_all:
-        families = filter_test(families)
     return families, build_bestuurslid_index(rows), all_board_member_names(rows), rows

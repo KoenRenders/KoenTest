@@ -213,12 +213,10 @@ export interface MemberImportResult {
 }
 export interface MemberImportPreview extends MemberImportResult {
   token: string;
-  load_all: boolean;
 }
-export const memberImportPreview = (file: File, allMembers = false) => {
+export const memberImportPreview = (file: File) => {
   const fd = new FormData();
   fd.append("file", file);
-  fd.append("all_members", String(allMembers));
   return api.post<MemberImportPreview>("/api/v1/admin/member-import/preview", fd, {
     headers: { "Content-Type": "multipart/form-data" },
   });
