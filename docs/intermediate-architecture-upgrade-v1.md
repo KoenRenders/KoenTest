@@ -476,6 +476,9 @@ De rest kan grotendeels **parallel** zodra fundering + sjabloon staan.
 > hieronder blijven zoals ze zijn.
 
 - ✅ **Package-by-domain**; facade `api.py`; grens via **import-linter**.
+- ✅ **Frontend-eindbeeld = één taal, server-rendered (htmx + Jinja + Alpine)** via
+  het pilotpad; form-builder het langst als React-eiland; JSON/OpenAPI-facade
+  blijft — volledig ADR in **§21.5**.
 - ✅ **Eigen Alembic-keten** voor afsplitsbare apps (auth, mail, MDM, form, payment);
   interne modules enkel een eigen schema.
 - ✅ **auth = één fundamentele component** (niet gesplitst; verify-mechanisme in kernel).
@@ -895,10 +898,10 @@ sterker dan op persoonsniveau).
 
 ## 21. Frontend-technologie: React/Next vs. htmx — afwegingskader
 
-Status: **geparkeerd** (§18); dit is de analyse voor wanneer het beslispunt komt
-(natuurlijk moment: de AdminShell, fase 4 — vóór daar nieuwe React-schermen
-gebouwd worden). De vraag is wezenlijk niet "React of htmx" maar **"twee talen
-(SPA + API) of één taal (server-rendered)"** — al de rest zijn varianten.
+Status: **BESLIST** (2026-07-07, zie 21.5): richting **één taal, server-rendered
+(htmx + Jinja + Alpine)**, uitgevoerd via het pilotpad van 21.4. De vraag is
+wezenlijk niet "React of htmx" maar **"twee talen (SPA + API) of één taal
+(server-rendered)"** — al de rest zijn varianten.
 
 ### 21.1 De afweging per dimensie
 
@@ -940,7 +943,7 @@ niet in de plaats van het contract.
 Conclusie: er is geen verborgen betere derde weg; het speelveld is
 **één-taal-server-side (htmx+Alpine) ↔ hybride ↔ status quo (Next)**.
 
-### 21.4 Hoe beslissen (voorstel voor wanneer dit heropent)
+### 21.4 Uitvoeringspad (zo voeren we de beslissing uit)
 1. **Pilot, geen geloofskwestie**: bouw bij de start van de AdminShell (fase 4)
    één echt component-adminscherm als htmx-pilot (kandidaat: de **werkbank** —
    nieuw scherm, dus geen herbouwkost) naast de bestaande React-schermen.
@@ -952,3 +955,32 @@ Conclusie: er is geen verborgen betere derde weg; het speelveld is
    en de UI-kit-inspanning (§11) technologie-neutraal formuleren (patronen en
    tokens, niet React-componenten alléén) — dan is niets van dat werk weggegooid,
    welke kant dit ook opvalt.
+
+### 21.5 Beslissing & waarom (ADR)
+
+- **Datum**: 2026-07-07.
+- **Context**: één ontwikkelaar + AI; laagfrequente back-office + klassieke
+  publieke site; horizon 10+ jaar; de dual-stack-taks (drift-gate, codegen,
+  dubbele types/berekeningen/toolchains/testrunners) is structureel en bewezen
+  (§19.4 bestaat er alleen om).
+- **Gekozen**: **één taal, server-rendered — htmx + Jinja + Alpine** voor beide
+  shells als eindbeeld; verworpen: status quo (Next/React, dual-stack-taks
+  blijft), Astro/SvelteKit (lossen de tweede taal niet op), big-bang-herbouw
+  (risico zonder noodzaak).
+- **Doorslaggevend**: het sterkste pro-React-argument (API-grens dwingt
+  discipline fysiek af) lost een probleem op dat we al opgelost hebben —
+  facades + import-linter gelden sowieso backend-intern. Het sterkste
+  pro-htmx-argument laat een hele probleemklasse *verdwijnen* in plaats van ze
+  te managen. Een opgelost probleem weegt niet op tegen een verdwenen probleem.
+  Daarbij: security licht beter (HttpOnly-sessie i.p.v. JWT-in-localStorage),
+  i18n rijper, minder churn ("boring tech" op een 10-jaarshorizon), SEO minstens
+  gelijkwaardig, Mollie/mobiel/responsive neutraal (21.1–21.2).
+- **Uitvoering**: pilotpad 21.4 — nú niets herbouwen; werkbank (fase 4) als
+  eerste htmx-scherm (nul herbouwkost); daarna admin per component op natuurlijke
+  momenten; publieke site als laatste; form-builder het langst als React-eiland;
+  JSON/OpenAPI-facade blijft onvoorwaardelijk. De hybride periode is begrensd
+  doordat het omklappen meelift met de modularisatie-fases.
+- **Heropener**: de pilot zelf — valt de werkbank-pilot tegen op
+  ontwikkelsnelheid, discipline (logica lekt naar templates ondanks linter) of
+  UX, dan terug naar status quo/hybride zonder verlies (er is dan niets
+  herbouwd).
