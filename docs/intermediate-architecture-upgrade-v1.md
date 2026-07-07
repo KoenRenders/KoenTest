@@ -960,9 +960,9 @@ Conclusie: er is geen verborgen betere derde weg; het speelveld is
 
 - **Datum**: 2026-07-07.
 - **Context**: één ontwikkelaar + AI; laagfrequente back-office + klassieke
-  publieke site; horizon 10+ jaar; de dual-stack-taks (drift-gate, codegen,
-  dubbele types/berekeningen/toolchains/testrunners) is structureel en bewezen
-  (§19.4 bestaat er alleen om).
+  publieke site; horizon 10+ jaar richting **ERP/WMS/logistiek** (21.7); de
+  dual-stack-taks (drift-gate, codegen, dubbele types/berekeningen/toolchains/
+  testrunners) is structureel en bewezen (§19.4 bestaat er alleen om).
 - **Gekozen**: **één taal, server-rendered — htmx + Jinja + Alpine** voor beide
   shells als eindbeeld; verworpen: status quo (Next/React, dual-stack-taks
   blijft), Astro/SvelteKit (lossen de tweede taal niet op), big-bang-herbouw
@@ -1010,3 +1010,27 @@ lijkt: de tegenbeweging is mainstream (Next zelf terug naar de server met Server
 Components; Rails Hotwire, Phoenix LiveView, Laravel Livewire; GitHub/Basecamp
 grotendeels server-gerenderd). We volgen geen exoot maar de server-side-
 renaissance, met htmx als kleinste, stabielste vertegenwoordiger.
+
+### 21.7 Getoetst aan de lange-termijnhorizon: ERP / WMS / logistiek
+
+De doelklasse op termijn is **bedrijfssoftware** (ERP, WMS, logistiek) — dat
+*versterkt* de keuze eerder dan ze te ondermijnen:
+
+- **ERP-schermen zíjn dit profiel**: fiches, grids, formulieren, taken,
+  statusovergangen (§20) — precies waar server-rendered excelleert. Niet
+  toevallig is de referentie-inspiratie (Odoo-achtige smart buttons, SAP-achtige
+  werklijsten) functioneel, niet frontend-technologisch.
+- **WMS-specifiek** past goed: scanner-handhelds zijn goedkope toestellen waar
+  mínder JavaScript een feature is; barcodescanners werken als toetsenbord-input
+  (keyboard wedge) op een gewoon server-rendered formulier; snelheid per
+  transactie (scan → bevestig → volgende) is een latentiekwestie, geen
+  framework-kwestie. Live-borden (orders, dockplanning) kunnen met **SSE**
+  (htmx heeft daar een standaard-extensie voor) — geen SPA nodig.
+- **De echte WMS-waakvlam is offline**: haperende magazijn-wifi + door-blijven-
+  scannen = het offline-first-scenario dat al als heropener in 21.5 staat. Dat
+  wordt dan een bewust eiland (lokale wachtrij op het scanscherm), niet een
+  reden om het hele platform SPA te maken.
+- De rest van dit document is al op die horizon ontworpen: componenten met
+  facades (§5), MDM (§6), multi-tenant (§7), workflow/werkbank/taakcontract
+  (§20.5), BPMN/DMN als taal (§20.6) — de frontend-keuze sluit daar nu op aan:
+  één taal van magazijnvloer tot back-office.
