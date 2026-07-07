@@ -7,6 +7,40 @@
 
 ---
 
+## 0. Leeswijzer & kernbeslissingen (lees dit eerst)
+
+De **kernbeslissingen** in één zin elk (details/ADR's staan in de genoemde secties):
+
+1. **Package-by-domain** met facade `api.py` als enige deur; grens afgedwongen door
+   import-linter (§1, §8, §13).
+2. **Eigen Postgres-schema per component** (eigen Alembic-keten waar afsplitsbaar);
+   één database → backup blijft één `pg_dump` (§13.1).
+3. **auth, mail, MDM = laag 1**; domeinen praten enkel via facades/events (§5, §8).
+4. **MDM**: nooit hard verwijderen — merge/survivorship + tombstone; anderen
+   verwijzen via soft-refs (§6).
+5. **membership = eigen component**, zuster van activities (§5.4).
+6. **Multi-tenant = rij-niveau `tenant_id`**, aparte site per unit; **uitrol pas bij
+   een concrete tweede tenant** (§7, §14).
+7. **workflow + werkbank**: taken sluiten door toestand, zero-touch als norm,
+   BPMN/DMN als taal, niet als motor (§20).
+8. **Frontend = htmx + Jinja + Alpine (BESLIST)**; React-schermen klappen per
+   component om, JS-eilanden enkel na de eilanden-toets; JSON/OpenAPI-facade blijft
+   als machinecontract (§21). **Geen nieuwe React-investeringen meer.**
+9. **Taalbeleid: Engels binnenin, weergave via Babel** (nl-BE eerst) (§22).
+10. **Ideas → "berichten"**: geseed formulier + minimale workflow met één taak
+    *behartigen* (§5.7).
+
+**Kritiek pad** (§14): **H** (deploy-vangnet — beschermt geld, eerst) → **F**
+(fundering) → **0** (forms-sjabloon) → **micro-pilot htmx** (berichten-scherm) →
+1–4; **5** (tenancy) trigger-gated. O en T liften mee waar goedkoop.
+
+**Waar staat wat**: componenten §3–§6 · tenancy §7 · grenzen/tests/conventies
+§8–§12 · codestructuur & build §13 · plan §14 · beslissingen §15 · waarom §16–§17 ·
+bewust-niet + risico's §18 · analyse-aanvullingen §19 · navigatie & werkbank §20 ·
+frontend-ADR §21 · taal §22.
+
+---
+
 ## 1. Doel & principes
 
 Van **modulaire monoliet** naar componenten met een **afdwingbare buitengrens**, zodat
@@ -105,8 +139,9 @@ formulier-bouwer én de publieke render horen bij **form**.
 | **Werkbank / takeninbox** (alle taken + excepties, §20.5) | **workflow** | ADMIN / FINANCE |
 | Berichten (IdeaBox: indienen / *behartigen*) | **form + workflow** | — / ADMIN |
 
-**Frontend spiegelt de backend**: `features/<component>/` (eigen componenten, api-slice,
-types); `lib/` houdt enkel gedeelde primitives (money, errors, axios).
+**Frontend spiegelt de backend**: de schermen van een component leven in zijn eigen
+map (`domains/<c>/templates/` + `ui.py`, §13.1/§21); gedeelde presentatie-primitives
+(geld-/datumformattering, UI-kit-macro's) in de kernel/shell.
 
 ---
 
@@ -369,8 +404,10 @@ app/
 Interne modules (cms, activities, analytics) krijgen wél een eigen schema, géén eigen
 keten (§14).
 
-**Frontend** — spiegel: `src/features/<component>/` (+ `_shared/` UI-kit); `lib/` enkel
-gedeelde primitives.
+**Frontend** — geen aparte spiegelboom: schermen wonen ín de component-map
+(`templates/` + `ui.py`, §13.1); de UI-kit is een gedeelde Jinja-macro-bibliotheek
+in de shell. De bestaande Next-`src/` blijft ongewijzigd tot elk scherm omklapt
+(§21.4) en verdwijnt daarna.
 
 **Migratiepad (strangler, geen big-bang)**: forms eerst als sjabloon (`git mv` +
 facade, geen gedragswijziging) → per component één PR → kernel optrekken. **Valkuil**:
@@ -391,20 +428,22 @@ tests, contract:
 ```
 domains/payment/
   api.py router.py schemas.py service.py models.py   # backend
+  ui.py                  # UI-routes: view-model bouwen, template kiezen (§21)
+  templates/             # Jinja-templates + htmx-fragmenten van dit component
   migrations/            # eigen Alembic-keten (afsplitsbare apps)
-  frontend/              # de feature-UI van dit component (schermen, hooks)
   tests/                 # unit + contract van dit component
   CONTRACT.md            # publiceert / consumeert / bezit / deprecaties
   seeds.py               # referentiedata van dit component
 ```
 
 Maar in de **intermediate** fase is dat een *package*, geen *deployable*: er blijft
-**één backend-proces** (FastAPI mount alle routers), **één Postgres-instance** (per
-component een eigen **schema** + eigen keten) en **twee frontend-builds**. "Eigen
-frontend/backend/database per app" is de **eindtoestand-optie** die deze structuur
-mogelijk maakt — een component eruit tillen is dan `git mv` + eigen deploy, geen
-herschrijving. We betalen de operationele kost van N processen/DB's pas als een
-component er echt uit moet (§18).
+**één backend-proces** (FastAPI mount routers én UI-routes; serveert JSON én HTML,
+§21) en **één Postgres-instance** (per component een eigen **schema** + eigen
+keten). Tijdens de hybride periode draait de bestaande Next-build ernaast tot het
+laatste scherm is omgeklapt. "Eigen frontend/backend/database per app" is de
+**eindtoestand-optie** die deze structuur mogelijk maakt — een component eruit
+tillen is dan `git mv` + eigen deploy, geen herschrijving. We betalen de
+operationele kost van N processen/DB's pas als een component er echt uit moet (§18).
 
 **Backup blijft één commando.** Schema's zijn namespaces *binnen* één database:
 één `pg_dump` van die database neemt álle schema's mee (tabellen, sequences,
@@ -415,10 +454,11 @@ door; niets hoeft per schema gescript te worden. Pas als een component ooit een
 en dan bewust, met het component, niet als verborgen bijwerking.
 
 **De GUI-orchestrator**: twee dunne **shells** die zelf géén domeincode bevatten —
-**AdminShell** (navigatie, login, layout, UI-kit, rol-gating) en **PublicShell**
-(publieke site per unit). Een shell *componeert* de `frontend/`-features van de
-componenten (elke component registreert zijn nav-items + routes; de shell mount ze).
-Nieuw component = map toevoegen + registreren, de shell wijzigt niet.
+**AdminShell** (navigatie, login, base-layout, UI-kit-macro's, rol-gating) en
+**PublicShell** (publieke site per unit). Een shell *componeert* de
+`templates/`+`ui.py` van de componenten (elke component registreert zijn nav-items
++ routes; de shell mount ze). Nieuw component = map toevoegen + registreren, de
+shell wijzigt niet.
 
 **Tests op twee niveaus**: per component `domains/<c>/tests/` (unit + contract,
 draaien tegen enkel het eigen schema + gestubde facades); overkoepelend
@@ -452,22 +492,35 @@ eigen contract (`CONTRACT.md`, §12).
 per component-PR: `facade → import-linter → eigen schema (+ keten waar afsplitsbaar) →
 contract-/integratietests → frontend-feature → CONTRACT.md`.
 
-**Kritiek pad**: F (fundering) → Fase 0 (forms-sjabloon) → mail/auth → MDM → tenancy.
-De rest kan grotendeels **parallel** zodra fundering + sjabloon staan.
+**Kritiek pad**: **H eerst** (deploy-vangnet beschermt geld vóór er migraties
+verhuizen) → F (fundering) → Fase 0 (forms-sjabloon) → **P (micro-pilot htmx)** →
+mail/auth → MDM. De rest kan grotendeels **parallel** zodra fundering + sjabloon
+staan. **Fase 5 (tenancy) is trigger-gated**: voorbereiding (kernel-mixin) hoort
+bij F, de uitrol start pas bij een concrete tweede tenant.
 
 | Blok | Werkpakketten | Status |
 |---|---|---|
-| **F · Fundering** | kernel optrekken (events/contracts/tenancy/history/security); import-linter-harness; component-scaffold + `CONTRACT.md`-template; test-harness (contract + golden-flow); UI-kit + templates | nieuw |
+| **F · Fundering** | kernel optrekken (events/contracts/tenancy-mixin/history/security); import-linter-harness; component-scaffold + `CONTRACT.md`-template; test-harness (contract + golden-flow); UI-kit als **design-tokens + Jinja-macro's** (§21; basis-set, groeit per omklap) | nieuw |
 | **0 · Form-sjabloon** | forms→`domains/forms` + facade; import-linter; schema `form` + handoff; 2e keten + integratietests | **#360–#363** |
+| **P · Micro-pilot htmx** (direct na 0) | het **berichten/behartigen-scherm** (§5.7) als eerste htmx/Jinja/Alpine-scherm: base-layout, sessie-auth-pad, CSRF-conventie, eerste macro's; meetlat van §21.4 toegepast — dít valideert de frontend-keuze vóór de dure blokken | nieuw |
 | **1 · Cross-cutting** | mail-component; auth-component (laag 1) | nieuw |
 | **2 · MDM** | MDM (+ `external_numbers`) + schema/keten; merge/survivorship; soft-ref-patroon | nieuw |
 | **3 · Payments** | `domains/payments` (gateway+status) + FINANCE-refund; **wees-record-check** op `payable_id` (§19) | **#365** |
 | **4 · Domeinen** | membership (+`is_member`); activities; workflow + IdeaBox; media; cms; chatbot | nieuw |
-| **5 · Multi-tenant** | organizations (ACCOUNT/UNIT); per-tenant config/secrets-store; `tenant_id` per app + context + rollen; meerdere accounts + hostname-resolutie + per-unit SEO | nieuw |
+| **5 · Multi-tenant** (**trigger: concrete tweede tenant**) | organizations (ACCOUNT/UNIT); per-tenant config/secrets-store; `tenant_id` per app + context + rollen; meerdere accounts + hostname-resolutie + per-unit SEO | nieuw |
 | **6 · Extractie** | STT → externe service (bij driver) | **#364** |
 | **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, CSP zonder unsafe-inline/eval, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`); observability (error-tracking/logs/uptime/alerts); restore-oefening per release; rate-limiter-1-worker-aanname borgen | nieuw |
 | **O · Opruiming** (§19, kan vóór alles) | `business_events` verwijderen; `domains/common/` + stale docs weg; dead-endpoint-sweep. (`ideas` → formulier + minimale workflow verhuist naar fase 4: vereist de workflow-component) | nieuw |
 | **T · Taalbeleid** (§22, kan vóór alles) | Babel + `nl_BE`-catalogus; backend-teksten (e-mails, validatie, ODS-koppen) door `_()`; extract/lint-gate in CI; nieuwe code/DB/tests Engels | nieuw |
+
+**Klaar wanneer** (per blok, de stuurbaarheid als de tijd op is):
+- **H**: pre-migratie-backup + smoke-gate + één geslaagde restore-oefening draaien op PROD-deployflow.
+- **F**: scaffold + linter + test-harness bestaan én zijn door Fase 0 als eerste klant bewezen.
+- **0**: forms leeft in `domains/forms` met eigen schema/keten, linter groen, golden flow groen.
+- **P**: berichten-scherm live op HDEV in htmx; §21.4-meetlat ingevuld → go/no-go voor de bredere omklap.
+- **1–4**: per component zelfde definitie als 0 (map + schema + contract + tests groen); werkbank-v1 = taken tonen/sluiten voor de berichten-workflow.
+- **5**: een tweede tenant draait productief op een eigen hostname zonder codewijziging.
+- **O/T**: register-items afgevinkt; T = geen ongemarkeerde gebruikersstrings meer in nieuwe code (lint-gate aan).
 
 ---
 
@@ -504,7 +557,7 @@ De rest kan grotendeels **parallel** zodra fundering + sjabloon staan.
 - ✅ **Config-scheiding**: per-tenant config/secrets in DB (secrets versleuteld); infra
   in `.env`.
 - ✅ **Aparte site per unit** (eigen host, hostname-resolutie; geen pad-prefix).
-- ✅ **Frontend per fase/component** (`features/<c>/` samen met de backend).
+- ✅ **Frontend per fase/component** (templates + `ui.py` in de component-map, §13.1).
 
 ---
 
@@ -566,6 +619,14 @@ Levend register: "LT" = heroverwegen zodra de trigger opduikt.
 | Kubernetes / auto-scaling | Docker-compose volstaat; bij schaalnood. |
 | "Dark" `tenant_id` vervroegd | Bewust niet (per app, getest). |
 
+### 18.1 Risicoregister (proces, niet techniek)
+
+| Risico | Vangnet |
+|---|---|
+| **Bus-factor 1** (alle context bij Koen + AI-sessies) | dit document + ADR's + `CONTRACT.md`'s zíjn de overdracht; elke beslissing met heropener vastleggen (§15-vorm); release-trackers als logboek |
+| **Migratie-moeheid halverwege de strangler** | elke fase levert op zichzelf waarde (klaar-criteria §14); stoppen na eender welke fase laat een consistent systeem achter — er is geen "half verbouwd"-toestand die af móét |
+| **Hybride periode (React+htmx) blijft hangen** | omklap lift mee met de modularisatie-fases (begrensd); meetbare eindstreep = frontend-container weg (§21.5); P-blok geeft vroeg een go/no-go zodat we niet láát ontdekken dat het niet werkt |
+
 ---
 
 ## 19. Aanvullingen uit de codebase-analyse (juli 2026)
@@ -618,31 +679,31 @@ Snoeien is ook architectuur. Levend register, zelfde geest als §18:
 | **`ideas` ("berichten") → geseed formulier + minimale workflow** (beslist; mét workflow — één menselijke taak *behartigen*, zie §5.7) | −router, −model+tabel, −admin-pagina, −IdeaBox-component, −idea_limiter |
 | **`domains/common/` (leeg) + `docs/change_request_0X.md`** opruimen | minder dode structuur |
 | **Dead-endpoint-sweep**: backend-routes vs. werkelijk `api.ts`-gebruik | kleiner API-oppervlak (kandidaat: 32 routes in `activities.py`) |
-| **Consolidaties die code verwijderen** (vallen onder F/§11): UI-kit (6 badges→1, 4 modals→1, 13 `confirm()`→1), OpenAPI-codegen (handgeschreven `api.ts` + dubbele types weg), één PaymentRecord-lookup-helper, design-tokens één bron | netto mínder regels, zelfde gedrag |
+| **Consolidaties die code verwijderen** (vallen onder F/§11, **uitvoeren als Jinja-macro's bij de omklap per scherm — niet meer in React**): UI-kit (6 badges→1, 4 modals→1, 13 `confirm()`→1), één PaymentRecord-lookup-helper, design-tokens één bron. Handgeschreven `api.ts` + dubbele types verdwijnen per omklap vanzelf | netto mínder regels, zelfde gedrag |
 
 **Niet snoeien** (lijkt vereenvoudiging, is het niet): migraties squashen (CI test
 nu de hele keten — dat is waarde), history-tabellen/e-maillog-body (audit-waarde,
 bewuste keuzes met retentie), tests, `member_import` (bevestigd terugkerend, #377 —
 blijft; alleen het testadres-vangnet is verwijderd).
 
-### 19.4 py↔ts-drift structureel voorkomen (OpenAPI-codegen + gate)
-1. **Stap 0 — conventie**: elk endpoint een `response_model` (kale dicts genereren
-   leeg schema; bv. form-results/inzendingen-view).
-2. **Export**: script dumpt `app.openapi()` deterministisch naar `openapi.json`
-   (gecommit; geen draaiende server nodig).
-3. **Genereren, gefaseerd**: eerst `openapi-typescript` → één `api-types.gen.ts`
-   (types only, nul runtime) en de handgeschreven/dubbele types verwijderen;
-   later per component volledige client-gen (nette `operation_id`s) die de
-   `api.ts`-wrappers vervangt.
-4. **CI-drift-gate — de eigenlijke preventie**: export + codegen + `git diff
-   --exit-code` op de gegenereerde bestanden → schema gewijzigd zonder
-   regeneratie = build rood. Zelfde filosofie als import-linter/`alembic check`.
+### 19.4 Het machinecontract bewaken (OpenAPI-export + gate)
 
-Codegen bewaakt de **vorm**; de contract-tests (§10) bewaken de **betekenis**.
-Geen runtime-validatie (zod) in de frontend — de server valideert al; een tweede
-schema zou een tweede waarheid zijn. Stappen 0/2/3a/4 = klein zelfstandig pakket
-(past in blok H, vóór de modularisatie); volledige client-gen per component mee
-met `features/<c>/`.
+> Ingekrompen na de §21-beslissing: de py↔ts-drift verdwijnt per scherm-omklap
+> vanzelf (Jinja leest het Python-object). Wat blijft, is het **machinecontract**
+> (JSON-API voor chatbot/integraties/ooit een app, §21.2):
+
+1. **Conventie**: elk JSON-endpoint een `response_model` (kale dicts genereren een
+   leeg schema).
+2. **Export**: script dumpt `app.openapi()` deterministisch naar `openapi.json`
+   (gecommit).
+3. **CI-drift-gate**: export + `git diff --exit-code` → contract gewijzigd zonder
+   bewuste regeneratie = build rood. Zelfde filosofie als import-linter/`alembic
+   check`.
+
+De export bewaakt de **vorm**; contract-tests (§10) bewaken de **betekenis**.
+**Geschrapt** (was: TypeScript-typegeneratie + client-gen per component): alleen
+nog relevant zolang een React-scherm in de hybride periode actief onderhouden
+wordt — geen investering meer waard; de omklap ís de fix.
 
 ### 19.5 Test/CI-recept (concreet, volgorde = rendement)
 1. **Deploy-vangnet** (½ dag): `scripts/db-backup.sh` hooken vóór de rebuild in
@@ -696,9 +757,22 @@ De volledige IST-inventaris + normatieve conventies (knoppen, kleuren, labeling,
 zoeken, paging, verwijderen, feedback) staan in **`ui-conventies.md`** (Deel A admin, Deel B publiek/ledenportaal) —
 dat document is de specificatie van de UI-kit.
 
+> **Uitvoering ná de §21-beslissing**: de UI-kit wordt gebouwd als **design-tokens
+> + Jinja-macro-bibliotheek** en toegepast bij de omklap per scherm. Aan de
+> bestaande React-schermen worden deze klussen **niet** meer uitgevoerd (geen
+> nieuwe React-componenten); enkel triviaal onderhoud tot hun omklap. De
+> conventies zelf (ui-conventies.md) zijn technologie-neutraal en blijven de norm.
+
 ---
 
 ## 20. Navigatiepatroon: fichebak × proces ("record-centric, process-overlay")
+
+> **Scope-waarschuwing**: dit hoofdstuk is het *eindbeeld*, geen bouwopdracht voor
+> fase 4. **Werkbank-v1** = taak tonen (wat/waarom/deep-link) + rol-filter +
+> sluiten-door-toestand, bewezen op de éne berichten-workflow (*behartigen*).
+> Taakcontract-varianten, DMN-catalogus, federatie-degradatie en de
+> e-mail-suggestielaag komen pas bij de tweede/derde workflow — telkens getrokken
+> door een concreet geval, nooit vooruit gebouwd.
 
 Twee historische benaderingen, elk met een gat:
 - **Data-gedreven navigatie** (van elk scherm via een grid naar elk gerelateerd
@@ -978,9 +1052,11 @@ Conclusie: er is geen verborgen betere derde weg; het speelveld is
 **één-taal-server-side (htmx+Alpine) ↔ hybride ↔ status quo (Next)**.
 
 ### 21.4 Uitvoeringspad (zo voeren we de beslissing uit)
-1. **Pilot, geen geloofskwestie**: bouw bij de start van de AdminShell (fase 4)
-   één echt component-adminscherm als htmx-pilot (kandidaat: de **werkbank** —
-   nieuw scherm, dus geen herbouwkost) naast de bestaande React-schermen.
+1. **Pilot, geen geloofskwestie — en vroeg**: de micro-pilot is het
+   **berichten/behartigen-scherm**, direct na Fase 0 (blok P in §14) — nieuw
+   scherm, dus geen herbouwkost, en het valideert de keuze vóór de dure blokken.
+   De **werkbank** (fase 4) is de tweede, zwaardere toets (incl. één
+   realtime-element via SSE, bv. de live takenteller).
 2. **Meet**: ontwikkelsnelheid (AI-assisted), regels code, gedrag op mobiel,
    en of de facade-discipline standhoudt (import-linter op UI-routes).
 3. **Beslis per shell** (21.3-hybride is een geldig eindstation); de
@@ -1020,8 +1096,9 @@ Conclusie: er is geen verborgen betere derde weg; het speelveld is
   Daarbij: security licht beter (HttpOnly-sessie i.p.v. JWT-in-localStorage),
   i18n rijper, minder churn ("boring tech" op een 10-jaarshorizon), SEO minstens
   gelijkwaardig, Mollie/mobiel/responsive neutraal (21.1–21.2).
-- **Uitvoering**: pilotpad 21.4 — nú niets herbouwen; werkbank (fase 4) als
-  eerste htmx-scherm (nul herbouwkost); daarna admin per component op natuurlijke
+- **Uitvoering**: pilotpad 21.4 — nú niets herbouwen; **berichten-scherm als
+  micro-pilot direct na Fase 0** (blok P), werkbank (fase 4) als tweede toets;
+  daarna admin per component op natuurlijke
   momenten; publieke site als laatste; form-builder het langst als React-eiland;
   JSON/OpenAPI-facade blijft onvoorwaardelijk. De hybride periode is begrensd
   doordat het omklappen meelift met de modularisatie-fases. **Eindstreep,
