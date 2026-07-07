@@ -518,3 +518,22 @@ Snoeien is ook architectuur. Levend register, zelfde geest als §18:
 nu de hele keten — dat is waarde), history-tabellen/e-maillog-body (audit-waarde,
 bewuste keuzes met retentie), tests, `member_import` (eerst bevestigen dat het
 eenmalig was — oogt terugkerend).
+
+### 19.4 py↔ts-drift structureel voorkomen (OpenAPI-codegen + gate)
+1. **Stap 0 — conventie**: elk endpoint een `response_model` (kale dicts genereren
+   leeg schema; bv. form-results/inzendingen-view).
+2. **Export**: script dumpt `app.openapi()` deterministisch naar `openapi.json`
+   (gecommit; geen draaiende server nodig).
+3. **Genereren, gefaseerd**: eerst `openapi-typescript` → één `api-types.gen.ts`
+   (types only, nul runtime) en de handgeschreven/dubbele types verwijderen;
+   later per component volledige client-gen (nette `operation_id`s) die de
+   `api.ts`-wrappers vervangt.
+4. **CI-drift-gate — de eigenlijke preventie**: export + codegen + `git diff
+   --exit-code` op de gegenereerde bestanden → schema gewijzigd zonder
+   regeneratie = build rood. Zelfde filosofie als import-linter/`alembic check`.
+
+Codegen bewaakt de **vorm**; de contract-tests (§10) bewaken de **betekenis**.
+Geen runtime-validatie (zod) in de frontend — de server valideert al; een tweede
+schema zou een tweede waarheid zijn. Stappen 0/2/3a/4 = klein zelfstandig pakket
+(past in blok H, vóór de modularisatie); volledige client-gen per component mee
+met `features/<c>/`.
