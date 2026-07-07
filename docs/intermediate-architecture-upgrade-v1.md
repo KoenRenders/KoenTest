@@ -537,3 +537,24 @@ Geen runtime-validatie (zod) in de frontend — de server valideert al; een twee
 schema zou een tweede waarheid zijn. Stappen 0/2/3a/4 = klein zelfstandig pakket
 (past in blok H, vóór de modularisatie); volledige client-gen per component mee
 met `features/<c>/`.
+
+### 19.5 Test/CI-recept (concreet, volgorde = rendement)
+1. **Deploy-vangnet** (½ dag): `scripts/db-backup.sh` hooken vóór de rebuild in
+   `deploy-uat/prod.sh`; smoke-`|| true` weg + auto-rollback naar de vorige tag
+   (loop-guard). **Voorwaarde**: expand/contract-regel — binnen een release enkel
+   additieve migraties (drop/rename pas een release later), anders is rollback
+   schijnveiligheid en is de backup het enige pad.
+2. **CI-gates** (uur): `alembic check` na de migratie-stap; vitest zonder
+   `--passWithNoTests`; `npm audit --audit-level=high` blokkerend + pip-audit met
+   ignore-lijst daarna blokkerend. Import-linter wacht op Fase 0 (zou nu falen op
+   de bestaande lazy-import-cykels — dat is het bewijs, niet het obstakel).
+3. **Frontend gericht testen** — géén component-tests voor monoliet-pagina's die
+   met de UI-kit herbouwd worden:
+   a. pure logica onder vitest: `parseApiError`, `money.ts`, en
+      `toEditForm`/`toPayload` uit de form-builder extraheren + round-trip-testen;
+   b. golden-flow-e2e: inschrijving mét betalend product, formulier mét branching,
+      admin-login → daarna e2e blokkerend;
+   c. component-tests enkel voor de UI-kit-primitieven (één keer de kit testen
+      verslaat elke pagina testen).
+4. **`mock_mollie`-gat**: happy-path-test mét bedragverificatie (nu enkel een
+   mismatch-test; de mock slaat de controle standaard over).
