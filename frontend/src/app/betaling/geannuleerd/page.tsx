@@ -11,7 +11,7 @@ export default function BetalingGeannuleerd() {
         <p className="text-gray-600 mb-6">
           Je betaling werd geannuleerd. Je registratie is bewaard — je kan de betaling later voltooien via een bestuurslid.
         </p>
-        <Link href="/word-lid" className="btn-primary">
+        <Link href="/#word-lid" className="btn-primary">
           Opnieuw proberen
         </Link>
       </div>

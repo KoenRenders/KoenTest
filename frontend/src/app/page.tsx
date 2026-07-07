@@ -19,6 +19,10 @@ export default function HomePage() {
   const [isMember, setIsMember] = useState(false);
 
   useEffect(() => {
+    if (typeof window !== "undefined" && window.location.hash === "#word-lid") {
+      setShowRegForm(true);
+      setTimeout(() => document.getElementById("word-lid")?.scrollIntoView({ behavior: "smooth" }), 100);
+    }
     if (typeof window !== "undefined" && localStorage.getItem("auth_token")) {
       getAuthMe().then((r) => { if (r.data.is_member) setIsMember(true); }).catch(() => {});
     }
@@ -61,7 +65,7 @@ export default function HomePage() {
 
       {/* Lid worden */}
       {showRegForm && (
-        <section className="card">
+        <section className="card" id="word-lid">
           <h2 className="text-2xl font-bold mb-6 text-blue-800">Lid worden</h2>
           <FamilyRegistrationForm />
         </section>
