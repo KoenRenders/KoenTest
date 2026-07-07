@@ -458,7 +458,7 @@ De rest kan grotendeels **parallel** zodra fundering + sjabloon staan.
 | **5 · Multi-tenant** | organizations (ACCOUNT/UNIT); per-tenant config/secrets-store; `tenant_id` per app + context + rollen; meerdere accounts + hostname-resolutie + per-unit SEO | nieuw |
 | **6 · Extractie** | STT → externe service (bij driver) | **#364** |
 | **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`) | nieuw |
-| **O · Opruiming** (§19, kan vóór alles) | `business_events` verwijderen; `domains/common/` + stale docs weg; dead-endpoint-sweep. (`ideas` → formulier + minimale workflow verhuist naar fase 4: vereist de workflow-component) | nieuw |
+| **O · Opruiming** (§19, kan vóór alles) | `business_events` verwijderen; `domains/common/` + stale docs weg; dead-endpoint-sweep; axios→`fetch`; `seed-admin`→CLI. (`ideas` → formulier + minimale workflow, incl. −`idea_limiter`, verhuist naar fase 4: vereist de workflow-component) | nieuw |
 
 ---
 
@@ -580,6 +580,15 @@ Snoeien is ook architectuur. Levend register, zelfde geest als §18:
 | **`ideas` ("berichten") → geseed formulier + minimale workflow** (beslist; mét workflow — één menselijke taak *behartigen*, zie §5.7) | −router, −model+tabel, −admin-pagina, −IdeaBox-component, −idea_limiter |
 | **`domains/common/` (leeg) + `docs/change_request_0X.md`** opruimen | minder dode structuur |
 | **Dead-endpoint-sweep**: backend-routes vs. werkelijk `api.ts`-gebruik | kleiner API-oppervlak (kandidaat: 32 routes in `activities.py`) |
+| **axios → native `fetch`** (dun wrappertje met JWT-interceptor in `api.ts`; de laag zelf blijft) | −1 dependency + bundelgewicht, zelfde API-laag |
+| **`idea_limiter` weg** (zelfde mechanisme als `form_submit_limiter`; verdwijnt vanzelf mee met ideas→berichten) | −1 duplicaat-limiter |
+| **`seed-admin`-endpoint → eenmalig CLI/startup-commando** (permanent open bootstrap-luik = dubbele toegangsweg naast auth) | minder aanvalsoppervlak, minder code |
+
+Bewuste uitzondering (genoteerd, niet snoeien): **Tiptap** is zwaar voor een handvol
+CMS-pagina's (een markdown-textarea zou compacter zijn), maar werkt en bevalt →
+laten staan; heroverwegen enkel als de CMS-editor toch op de schop moet. En wat
+*dubbel lijkt maar het niet is*: Pydantic-validatie + DB-constraints en
+droogloop-wizard + repo-guard zijn bewuste defence-in-depth — niet snoeien.
 | **Consolidaties die code verwijderen** (vallen onder F/§11): UI-kit (6 badges→1, 4 modals→1, 13 `confirm()`→1), OpenAPI-codegen (handgeschreven `api.ts` + dubbele types weg), één PaymentRecord-lookup-helper, design-tokens één bron | netto mínder regels, zelfde gedrag |
 
 **Niet snoeien** (lijkt vereenvoudiging, is het niet): migraties squashen (CI test
