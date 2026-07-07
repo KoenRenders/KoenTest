@@ -43,9 +43,11 @@ De koepel snijdt dwars door beide (ziet alle tenants in alle modules) → rij-ni
 
 ```mermaid
 flowchart TB
-  Public["Publieke site (bezoeker)"] --> D2
-  BO["Back-office (ADMIN / FINANCE)"] --> D2
+  Public["PublicShell (bezoeker, per unit)"] --> D2
+  BO["AdminShell (ADMIN / FINANCE)"] --> D2
   BO --> D1
+  BO --> WB["werkbank (takeninbox,<br/>alle taken + excepties)"]
+  WB --> WF
   subgraph D1["Fundamenteel (laag 1) — eigen schema + keten"]
     AUTH[auth & security]:::c
     MDM["MDM (personen, gezinnen,<br/>adressen, postcodes, organisaties)"]:::c
@@ -54,7 +56,7 @@ flowchart TB
   subgraph D2["Domeinen (laag 2)"]
     MEMBER[membership]:::c
     ACT[activities]:::c
-    FORM[form engine]:::c
+    FORM["form engine<br/>(incl. berichten/IdeaBox)"]:::c
     WF[workflow]:::c
     PAY["payments (Mollie)"]:::c
     CMS[cms]:::c
@@ -100,6 +102,8 @@ formulier-bouwer én de publieke render horen bij **form**.
 | E-maillog | **mail** | ADMIN |
 | Login / gebruikers & rollen | **auth** | — / ADMIN |
 | CMS-pagina's | **cms** | — / ADMIN |
+| **Werkbank / takeninbox** (alle taken + excepties, §20.5) | **workflow** | ADMIN / FINANCE |
+| Berichten (IdeaBox: indienen / *behartigen*) | **form + workflow** | — / ADMIN |
 
 **Frontend spiegelt de backend**: `features/<component>/` (eigen componenten, api-slice,
 types); `lib/` houdt enkel gedeelde primitives (money, errors, axios).
