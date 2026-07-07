@@ -151,6 +151,11 @@ map (`domains/<c>/templates/` + `ui.py`, §13.1/§21); gedeelde presentatie-prim
 Eén aparte, apart-deploybare component; **iedereen gebruikt `auth.api`**; auth hangt
 enkel van de kernel af (de kernel roept auth niet aan → geen cyclus). Rol-toewijzingen
 dragen `tenant_id` als waarde.
+**Ontwerpregel autorisatie**: checks op de **facade**, uitgedrukt in **permissies
+als data** (rol → permissie-mapping; per component gedeclareerd in `CONTRACT.md`,
+bv. `payment.refund` → FINANCE) — nooit verspreide `if role == "ADMIN"`-checks in
+services/templates. Nu volstaan de vier rollen; de permissie-laag zelf is een
+heropener (§18) zodra een rol fijnmaziger moet.
 
 **5.2 mail** (laag 1). `email_log` + het centrale `_send`-chokepoint + retentie. Facade
 `send/list/delete`; anderen sturen via facade of `MailRequested`-event. `email_log`
@@ -191,6 +196,22 @@ meteen de eenvoudigste referentie-workflow: één taak, sluit door toestand.
 **5.8 Cross-cutting & plaatsing van resttabellen**
 - **History = gedeeld kernel-patroon** (`Historized`-mixin), per-component `*_history`
   in het eigen schema — géén centrale audit-component.
+- **Event-semantiek (ontwerpregel)**: events zijn **synchroon en in-transactie** —
+  een handler-fout rolt de bron mee terug; feitelijk nette functie-aanroepen met
+  ontkoppelde naamgeving. Dat is bewust: geen verborgen "misschien ooit"-semantiek.
+  Bij extractie van een component verandert dit per definitie → dán het
+  **transactional-outbox-patroon** (event in dezelfde DB-transactie wegschrijven,
+  aparte bezorger) — heropener in §18, niet vooraf bouwen.
+- **Achtergrondwerk = kernel-primitief**: één **Postgres-gebaseerde job-tabel +
+  scheduler-loop** in de kernel (geen Redis/Celery op deze schaal). Retentie-vegen,
+  mail-retries, taak-respijttermijnen ("na N dagen"), reconciliaties — allemaal
+  déclareert een component zijn jobs daar. Jobs zijn transactioneel met de data en
+  falen zichtbaar (werkbank-taak bij herhaald falen, §20.5). Geen losse cronjobs.
+- **Rapportage over componenten heen**: facades doen geen joins — dwarsdoorsnedes
+  (dashboard, ERP-rapporten) lopen via een **read-only rapportageschema** met views
+  die wél over schema's heen mogen lezen (lezen breekt geen eigenaarschap;
+  schrijven wel). Expliciet tweederangs: wordt een component ooit geëxtraheerd,
+  dan verhuizen zijn views mee naar API-aggregatie.
 - **`business_events`**: geen meerwaarde → parkeren/verwijderen.
 - **`external_numbers`** → MDM (externe identiteit).
 - **Referentiecodes** → in het schema van hun eigen component (geen gedeelde
@@ -500,7 +521,7 @@ bij F, de uitrol start pas bij een concrete tweede tenant.
 
 | Blok | Werkpakketten | Status |
 |---|---|---|
-| **F · Fundering** | kernel optrekken (events/contracts/tenancy-mixin/history/security); import-linter-harness; component-scaffold + `CONTRACT.md`-template; test-harness (contract + golden-flow); UI-kit als **design-tokens + Jinja-macro's** (§21; basis-set, groeit per omklap) | nieuw |
+| **F · Fundering** | kernel optrekken (events/contracts/tenancy-mixin/history/security/**job-primitief §5.8**); import-linter-harness; component-scaffold + `CONTRACT.md`-template; test-harness (contract + golden-flow); UI-kit als **design-tokens + Jinja-macro's** (§21; basis-set, groeit per omklap) | nieuw |
 | **0 · Form-sjabloon** | forms→`domains/forms` + facade; import-linter; schema `form` + handoff; 2e keten + integratietests | **#360–#363** |
 | **P · Micro-pilot htmx** (direct na 0) | het **berichten/behartigen-scherm** (§5.7) als eerste htmx/Jinja/Alpine-scherm: base-layout, sessie-auth-pad, CSRF-conventie, eerste macro's; meetlat van §21.4 toegepast — dít valideert de frontend-keuze vóór de dure blokken | nieuw |
 | **1 · Cross-cutting** | mail-component; auth-component (laag 1) | nieuw |
@@ -618,6 +639,8 @@ Levend register: "LT" = heroverwegen zodra de trigger opduikt.
 | Feature-flag-platform | Lichte config-vlaggen volstaan. |
 | Kubernetes / auto-scaling | Docker-compose volstaat; bij schaalnood. |
 | "Dark" `tenant_id` vervroegd | Bewust niet (per app, getest). |
+| Transactional outbox voor events | Events zijn nu synchroon/in-transactie (§5.8); outbox pas bij extractie van een component. |
+| Permissie-laag (permissies als data) | Vier rollen volstaan; bouwen zodra een rol fijnmaziger moet (bv. aparte merge- of refund-bevoegdheid). Ontwerpregel ligt vast in §5.1. |
 
 ### 18.1 Risicoregister (proces, niet techniek)
 
@@ -818,6 +841,11 @@ relatienavigatie (blader), **globale zoek/command-palette** (Ctrl+K: naam, id,
 e-mail → fiche), en de **takeninbox** (proces). De **tijdlijn** op elke fiche
 (gratis uit de history-mixin, §5.8: wie/wat/wanneer, incl. procesovergangen)
 beantwoordt "wat is hier gebeurd?" zonder zoeken.
+*Motor van de globale zoek*: **federatie, zoals de werkbank** — elk component
+biedt een `search(term)` op zijn facade (Postgres full-text search op het eigen
+schema); een dun kernel-endpoint roept ze aan en voegt samen, met dezelfde
+eerlijke degradatie (component uit de lucht → "niet doorzoekbaar", geen stille
+leegte). Geen Elasticsearch — geen aparte index die drift.
 
 ```mermaid
 flowchart LR
@@ -888,6 +916,11 @@ precies één plek: de **werkbank**.
   werkbank).
 - **Mail is een notificatiekanaal-optie** (per gebruiker: per taak of digest),
   nooit de bron van waarheid — de werkbank is dat.
+- **Live-verversen: technische nota.** SSE op de huidige sync-stack (SQLAlchemy +
+  Uvicorn-workers) bezet per open verbinding een worker — naïef gebouwd is dat
+  een stille DoS op onszelf. Ofwel de SSE-stream als geïsoleerd **async**
+  endpoint, ofwel gewoon **htmx-polling** (bv. elke 30s de takenteller) — op onze
+  schaal ruim voldoende en de standaardkeuze tot polling aantoonbaar knelt.
 - **Ontwerpdoel: leeg.** Elke flow wordt ontworpen als "geen taak tenzij
   exceptie". Een lege werkbank = gezond systeem; terugkerende exceptie-types zijn
   de volgende automatiseringskandidaten (de werkbank meet zijn eigen overbodig-
