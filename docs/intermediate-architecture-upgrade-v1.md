@@ -983,4 +983,30 @@ Conclusie: er is geen verborgen betere derde weg; het speelveld is
 - **Heropener**: de pilot zelf — valt de werkbank-pilot tegen op
   ontwikkelsnelheid, discipline (logica lekt naar templates ondanks linter) of
   UX, dan terug naar status quo/hybride zonder verlies (er is dan niets
-  herbouwd).
+  herbouwd). Plus de scenario's uit 21.6: offline-first, zware realtime-
+  samenwerking, app-store-app als kernproduct, of een apart frontend-team —
+  elk daarvan is een signaal om de SPA-piste te herwegen.
+
+### 21.6 Twee tegenwerpingen, expliciet gewogen
+
+**"Codegen (§19.4) lost de drift toch al op — waarom dan nog ombouwen?"**
+Codegen lost *type*-drift op (hernoemd veld → CI faalt), maar niet de rest van de
+taks: **logica-duplicatie** blijft (totaalberekening 2×: types genereren ≠ gedrag
+genereren), de **tweede toolchain** blijft integraal (Node-build, vitest/eslint
+naast pytest/ruff, React/Next-churn), en de gate zelf is blijvend onderhoud.
+Kortom: **codegen verlaagt de taks van "gevaarlijk" naar "duur"; één taal schaft
+ze af.** §19.4 stap 1–2 (response_models + OpenAPI-export) blijft óók in het
+eindbeeld waardevol — dat is het machinecontract (21.2); enkel de
+TypeScript-generatiestappen vervallen op termijn.
+
+**"Waarom gebruikt de hele wereld dan React/Angular?"**
+Omdat de meeste React-adopters een ander probleem hebben dan wij: (1) **aparte
+frontend/backend-teams** — de API-grens is daar een *organisatorische* grens
+(Conway); wij zijn één ontwikkelaar + AI en betalen die grens zonder de baten;
+(2) **app-achtige producten** (Figma/Gmail-klasse client-state) — een
+formulieren-en-lijsten-portaal is dat niet; (3) **arbeidsmarkt/momentum** —
+netwerkeffect, geen technisch argument. En de wereld is minder eensgezind dan ze
+lijkt: de tegenbeweging is mainstream (Next zelf terug naar de server met Server
+Components; Rails Hotwire, Phoenix LiveView, Laravel Livewire; GitHub/Basecamp
+grotendeels server-gerenderd). We volgen geen exoot maar de server-side-
+renaissance, met htmx als kleinste, stabielste vertegenwoordiger.
