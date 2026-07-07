@@ -84,7 +84,7 @@ def test_ods_detected_and_parsed_to_families():
 
     assert _detect_format(content) == "ods"
 
-    families, bl_index, names, rows = parse_families(content, load_all=True)
+    families, bl_index, names, rows = parse_families(content)
     assert len(rows) == 2
     assert len(families) == 1                 # zelfde adres → één gezin
 
@@ -107,7 +107,7 @@ def test_ods_blank_rows_skipped():
         _person("100", "Jan", "Janssens", date(1980, 5, 1), "M", "lid"),
         {},                                            # lege rij → genegeerd
     ])
-    _, _, _, rows = parse_families(content, load_all=True)
+    _, _, _, rows = parse_families(content)
     assert len(rows) == 1
 
 
@@ -126,7 +126,7 @@ def test_ods_extra_and_reordered_columns_map_by_header():
         _person("100", "Jan", "Janssens", date(1980, 5, 1), "M", "lid"),                  # hoofdlid
     ])
 
-    families, _bl, _names, _rows = parse_families(content, load_all=True)
+    families, _bl, _names, _rows = parse_families(content)
     assert len(families) == 1
     fam = families[0]
     assert fam[0]["_relatie"] == "HOOFDLID"               # correct gesorteerd ondanks volgorde

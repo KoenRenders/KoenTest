@@ -43,9 +43,11 @@ De koepel snijdt dwars door beide (ziet alle tenants in alle modules) → rij-ni
 
 ```mermaid
 flowchart TB
-  Public["Publieke site (bezoeker)"] --> D2
-  BO["Back-office (ADMIN / FINANCE)"] --> D2
+  Public["PublicShell (bezoeker, per unit)"] --> D2
+  BO["AdminShell (ADMIN / FINANCE)"] --> D2
   BO --> D1
+  BO --> WB["werkbank (takeninbox,<br/>alle taken + excepties)"]
+  WB --> WF
   subgraph D1["Fundamenteel (laag 1) — eigen schema + keten"]
     AUTH[auth & security]:::c
     MDM["MDM (personen, gezinnen,<br/>adressen, postcodes, organisaties)"]:::c
@@ -54,7 +56,7 @@ flowchart TB
   subgraph D2["Domeinen (laag 2)"]
     MEMBER[membership]:::c
     ACT[activities]:::c
-    FORM[form engine]:::c
+    FORM["form engine<br/>(incl. berichten/IdeaBox)"]:::c
     WF[workflow]:::c
     PAY["payments (Mollie)"]:::c
     CMS[cms]:::c
@@ -100,6 +102,8 @@ formulier-bouwer én de publieke render horen bij **form**.
 | E-maillog | **mail** | ADMIN |
 | Login / gebruikers & rollen | **auth** | — / ADMIN |
 | CMS-pagina's | **cms** | — / ADMIN |
+| **Werkbank / takeninbox** (alle taken + excepties, §20.5) | **workflow** | ADMIN / FINANCE |
+| Berichten (IdeaBox: indienen / *behartigen*) | **form + workflow** | — / ADMIN |
 
 **Frontend spiegelt de backend**: `features/<component>/` (eigen componenten, api-slice,
 types); `lib/` houdt enkel gedeelde primitives (money, errors, axios).
@@ -144,8 +148,10 @@ Tenant-scoped.
 states + taken (bewaart `submission_id` als waarde). Bouwer koppelt enkel een
 `workflow_definition`-id; de procesdefinitie + takeninbox horen bij workflow. Facade
 `start/advance/list_tasks/complete_task`; publiceert `WorkflowCompleted`.
-**IdeaBox = een geseed formulier + workflow `nieuw → in behandeling → in orde`** (de
-losse `ideas`-component vervalt).
+**IdeaBox (beter: "berichten") = een geseed formulier + een minimale workflow met
+één menselijke taak: *behartigen*** (`nieuw → behartigen → afgehandeld`; een
+afwijzing is ook een afhandeling). De losse `ideas`-component vervalt. Dit is
+meteen de eenvoudigste referentie-workflow: één taak, sluit door toestand.
 
 **5.8 Cross-cutting & plaatsing van resttabellen**
 - **History = gedeeld kernel-patroon** (`Historized`-mixin), per-component `*_history`
@@ -369,6 +375,73 @@ facade, geen gedragswijziging) → per component één PR → kernel optrekken. 
 model-discovery — verplaats je models, laat `Base.metadata`/Alembic ze nog vinden
 (import in `domains/__init__.py` of `env.py`).
 
+**Data-verhuis hoort bij het pad**: bestaande tabellen verhuizen naar hun
+component-schema via `ALTER TABLE … SET SCHEMA` in een migratie van de éigen keten
+(expand/contract: eerst verhuizen + oude naam als view/synoniem indien nodig, dan
+verwijzingen omzetten, dan opruimen). Te doen vóór/bij Fase 1 per component —
+`pg_dump` blijft één commando (§13.1), de verhuis is puur namespacing.
+
+### 13.1 Eén map per component — wat zit erin (en wat bewust niet)
+
+Ja: **één map = álles van die module** — backend, frontend-feature, migraties,
+tests, contract:
+
+```
+domains/payment/
+  api.py router.py schemas.py service.py models.py   # backend
+  migrations/            # eigen Alembic-keten (afsplitsbare apps)
+  frontend/              # de feature-UI van dit component (schermen, hooks)
+  tests/                 # unit + contract van dit component
+  CONTRACT.md            # publiceert / consumeert / bezit / deprecaties
+  seeds.py               # referentiedata van dit component
+```
+
+Maar in de **intermediate** fase is dat een *package*, geen *deployable*: er blijft
+**één backend-proces** (FastAPI mount alle routers), **één Postgres-instance** (per
+component een eigen **schema** + eigen keten) en **twee frontend-builds**. "Eigen
+frontend/backend/database per app" is de **eindtoestand-optie** die deze structuur
+mogelijk maakt — een component eruit tillen is dan `git mv` + eigen deploy, geen
+herschrijving. We betalen de operationele kost van N processen/DB's pas als een
+component er echt uit moet (§18).
+
+**Backup blijft één commando.** Schema's zijn namespaces *binnen* één database:
+één `pg_dump` van die database neemt álle schema's mee (tabellen, sequences,
+indexes, grants) — één backup, één restore, één consistent point-in-time-beeld
+over alle componenten heen. De bestaande `db-backup`-service werkt dus ongewijzigd
+door; niets hoeft per schema gescript te worden. Pas als een component ooit een
+éigen database/instance krijgt (eindtoestand-optie), splitst zijn backup mee af —
+en dan bewust, met het component, niet als verborgen bijwerking.
+
+**De GUI-orchestrator**: twee dunne **shells** die zelf géén domeincode bevatten —
+**AdminShell** (navigatie, login, layout, UI-kit, rol-gating) en **PublicShell**
+(publieke site per unit). Een shell *componeert* de `frontend/`-features van de
+componenten (elke component registreert zijn nav-items + routes; de shell mount ze).
+Nieuw component = map toevoegen + registreren, de shell wijzigt niet.
+
+**Tests op twee niveaus**: per component `domains/<c>/tests/` (unit + contract,
+draaien tegen enkel het eigen schema + gestubde facades); overkoepelend
+`tests/integration/` op repo-niveau (de **golden flows** van §10, tegen de echt
+gewirede app met álle schema's). Een component-map is groen te krijgen zonder de
+rest te draaien; de golden flows bewijzen de samenstelling.
+
+### 13.2 Eén bouwcommando — build · migrate · test · gate
+
+Eén ingang (`make ci` / `./build.sh`) die lokaal en in CI **identiek** is:
+
+1. **Build** — backend-image (alle componenten, incl. `check_imports`),
+   AdminShell + PublicShell (`tsc` + `next build`).
+2. **Migrate** — alle Alembic-ketens in laagvolgorde (kernel → laag 1 → laag 2),
+   per keten: precies één head + autogenerate-drift-check.
+3. **Test** — per component zijn eigen suite (parallelliseerbaar, CI-matrix per
+   map: alleen gewijzigde componenten + hun consumenten hoeven te draaien) → daarna
+   de golden flows.
+4. **Gates** — import-linter (mapgrens), geen-cross-schema-FK-check, OpenAPI-drift
+   (§19.4), publieke-repo-guard.
+
+Groen = mergebaar; de stappen zijn de definitie van "af". Gedocumenteerd op één
+plaats (`BUILDING.md` op repo-root) — de component-mappen documenteren enkel hun
+eigen contract (`CONTRACT.md`, §12).
+
 ---
 
 ## 14. Roadmap & backlog
@@ -390,14 +463,22 @@ De rest kan grotendeels **parallel** zodra fundering + sjabloon staan.
 | **4 · Domeinen** | membership (+`is_member`); activities; workflow + IdeaBox; media; cms; chatbot | nieuw |
 | **5 · Multi-tenant** | organizations (ACCOUNT/UNIT); per-tenant config/secrets-store; `tenant_id` per app + context + rollen; meerdere accounts + hostname-resolutie + per-unit SEO | nieuw |
 | **6 · Extractie** | STT → externe service (bij driver) | **#364** |
-| **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`) | nieuw |
-| **O · Opruiming** (§19, kan vóór alles) | `business_events` verwijderen; `ideas` → geseed formulier; `domains/common/` + stale docs weg; dead-endpoint-sweep | nieuw |
+| **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`); observability (error-tracking/logs/uptime/alerts); restore-oefening per release | nieuw |
+| **O · Opruiming** (§19, kan vóór alles) | `business_events` verwijderen; `domains/common/` + stale docs weg; dead-endpoint-sweep. (`ideas` → formulier + minimale workflow verhuist naar fase 4: vereist de workflow-component) | nieuw |
 
 ---
 
 ## 15. Ontwerpkeuzes (register)
 
+> **Vorm (ADR-light)**: elke nieuwe beslissing krijgt vier regels — *datum ·
+> context · gekozen (met verworpen alternatief) · heropener* (wat zou ons van
+> gedachten doen veranderen). §18 en §20.4 tonen het patroon; bestaande regels
+> hieronder blijven zoals ze zijn.
+
 - ✅ **Package-by-domain**; facade `api.py`; grens via **import-linter**.
+- ✅ **Frontend-eindbeeld = één taal, server-rendered (htmx + Jinja + Alpine)** via
+  het pilotpad; form-builder het langst als React-eiland; JSON/OpenAPI-facade
+  blijft — volledig ADR in **§21.5**.
 - ✅ **Eigen Alembic-keten** voor afsplitsbare apps (auth, mail, MDM, form, payment);
   interne modules enkel een eigen schema.
 - ✅ **auth = één fundamentele component** (niet gesplitst; verify-mechanisme in kernel).
@@ -406,8 +487,9 @@ De rest kan grotendeels **parallel** zodra fundering + sjabloon staan.
 - ✅ **membership = eigen component** (zuster van activities), **niet**
   `activities_membership`.
 - ✅ **AI/STT gesplitst** (STT capaciteit/extractie-kandidaat; chatbot domein).
-- ✅ **media = gedeelde capaciteit**; **workflow = eigen component**; **IdeaBox = form +
-  workflow** (`ideas` vervalt).
+- ✅ **media = gedeelde capaciteit**; **workflow = eigen component**; **IdeaBox
+  ("berichten") = form + minimale workflow met één menselijke taak *behartigen***
+  (`ideas` vervalt; mét workflow, niet zonder).
 - ✅ **history = kernel-patroon** per component; **`business_events` schrappen**.
 - ✅ **Referentiecodes in eigen component-schema** (geen gedeelde namespace).
 - ✅ **Multi-tenant = rij-niveau `tenant_id`**; **geen dark tenant_id** (per app,
@@ -496,6 +578,14 @@ bewijzen §8/§10. Drie concrete aanvullingen + een vereenvoudigingsregister:
 - **CI-gates vervroegen** — de goedkope gates uit §10/§11 nu al aanzetten:
   vitest zonder `--passWithNoTests`, e2e-geldflow blokkerend, `alembic check`
   (drift). De import-linter volgt met Fase 0.
+- **Observability** — de werkbank vangt *business*-excepties, maar technische
+  signalen hebben een eigen kanaal nodig: error-tracking (Europe-First:
+  **GlitchTip** of self-hosted Sentry), gestructureerde logs, uptime-check per
+  site, alert bij gefaalde Mollie-webhooks/mails. Zonder dit hangt "iets is stuk"
+  af van wie het toevallig meldt.
+- **Restore-oefening** — een backup die nooit is teruggezet, is een hoop. Per
+  release (of periodiek): restore naar een wegwerp-DB + read-only smoke test.
+  Sluit de keten backup → bewezen herstelbaar.
 
 ### 19.2 Integriteit polymorfe refs
 `payment_records.payable_type/payable_id` is een soft-ref zónder de
@@ -509,15 +599,15 @@ Snoeien is ook architectuur. Levend register, zelfde geest als §18:
 | Actie | Winst |
 |---|---|
 | **`business_events` verwijderen** (beslist, §5.8 — nu uitvoeren) | −1 tabel, −PII-guard-service, −6 emit-sites in 5 flows, −admin-stats-endpoint, −13 tests |
-| **`ideas` → geseed formulier** (beslist; kan al zónder workflow — Inzendingen-tab bestaat) | −router, −model+tabel, −admin-pagina, −IdeaBox-component, −idea_limiter |
+| **`ideas` ("berichten") → geseed formulier + minimale workflow** (beslist; mét workflow — één menselijke taak *behartigen*, zie §5.7) | −router, −model+tabel, −admin-pagina, −IdeaBox-component, −idea_limiter |
 | **`domains/common/` (leeg) + `docs/change_request_0X.md`** opruimen | minder dode structuur |
 | **Dead-endpoint-sweep**: backend-routes vs. werkelijk `api.ts`-gebruik | kleiner API-oppervlak (kandidaat: 32 routes in `activities.py`) |
 | **Consolidaties die code verwijderen** (vallen onder F/§11): UI-kit (6 badges→1, 4 modals→1, 13 `confirm()`→1), OpenAPI-codegen (handgeschreven `api.ts` + dubbele types weg), één PaymentRecord-lookup-helper, design-tokens één bron | netto mínder regels, zelfde gedrag |
 
 **Niet snoeien** (lijkt vereenvoudiging, is het niet): migraties squashen (CI test
 nu de hele keten — dat is waarde), history-tabellen/e-maillog-body (audit-waarde,
-bewuste keuzes met retentie), tests, `member_import` (eerst bevestigen dat het
-eenmalig was — oogt terugkerend).
+bewuste keuzes met retentie), tests, `member_import` (bevestigd terugkerend, #377 —
+blijft; alleen het testadres-vangnet is verwijderd).
 
 ### 19.4 py↔ts-drift structureel voorkomen (OpenAPI-codegen + gate)
 1. **Stap 0 — conventie**: elk endpoint een `response_model` (kale dicts genereren
@@ -803,3 +893,147 @@ sterker dan op persoonsniveau).
 - **Ledenportaal-uitzondering**: na magic-link/OTP-login is het mailbezit
   bewezen → daar mag een match auto-claimen ("deze inschrijving is van jou?") of
   stil koppelen.
+
+---
+
+## 21. Frontend-technologie: React/Next vs. htmx — afwegingskader
+
+Status: **BESLIST** (2026-07-07, zie 21.5): richting **één taal, server-rendered
+(htmx + Jinja + Alpine)**, uitgevoerd via het pilotpad van 21.4. De vraag is
+wezenlijk niet "React of htmx" maar **"twee talen (SPA + API) of één taal
+(server-rendered)"** — al de rest zijn varianten.
+
+### 21.1 De afweging per dimensie
+
+| Dimensie | React/Next (huidig) | htmx + Jinja (+ Alpine) | Weging |
+|---|---|---|---|
+| **Browser-compat** | Build/transpile regelt het | Gewone HTML over de draad; htmx ondersteunt alle moderne browsers | Non-issue, beide kanten |
+| **Rijke UX** | Alles kan | 95% van CRUD/formulieren prima (autocomplete, totalen, modals, wizards); **echt rijke client-state** (drag&drop-formulierbouwer!) is de uitzondering | htmx dekt bijna alles; de **form-builder** is óns moeilijkste scherm → als React-eiland behouden kan |
+| **i18n** | react-i18next e.d. | Server-side i18n (gettext/Babel) is het oudste, rijpste model dat bestaat | Non-issue; server-side eerder een vóórdeel |
+| **Security** | JWT in localStorage (zwakte, §19.1); XSS-oppervlak via `dangerouslySetInnerHTML` (gesaneerd) | HttpOnly-sessiecookie (beter), Jinja auto-escape; **vereist wel klassieke CSRF-tokens** | Licht voordeel htmx, mits CSRF correct |
+| **Performance** | Meer JS naar de client | Minder JS → sneller op goedkope toestellen; server rendert meer (verwaarloosbaar op onze schaal) | Licht voordeel htmx |
+| **Drift/dubbel werk** | py↔ts-drift is structureel (heel §19.4 + codegen bestaat hierom); totaalberekening 2× (frontend-weergave + backend-waarheid) | Eén taal, één berekening (server rendert het totaal met dezélfde functie die de betaling maakt) — de drift-probleemklasse **vervalt** | **Sterkste argument pro htmx** |
+| **Discipline-risico** | API-grens dwingt scheiding af *per constructie* — frontend kán niet in de backend grabbelen | Eén codebase → reëel risico: businesslogica lekt naar templates/routes, "backend-dev mixt stiekem door de lagen". Mitigatie = dezelfde als overal in dit document: schermen praten **enkel met facades** (import-linter dekt ook UI-routes), view-model in Python, templates dom (macro's als componenten, lint op logica-in-templates) | **Sterkste argument pro React** — bij htmx is de grens afspraak+linter i.p.v. fysiek |
+| **Template-kluwen** | JSX kan óók verkluwen | Reëel bij naïef gebruik; beheersbaar met Jinja-macro's als component-bibliotheek + fragments-patroon (de UI-kit van §11, maar dan server-side) | Gelijkspel: beide vragen dezelfde UI-kit-discipline |
+| **Ecosysteem & churn** | Enorm ecosysteem; maar hoge churn (App Router/Server Components elke paar jaar een migratie) | Klein maar stabiel; htmx is bewust "boring tech", piepkleine API | Future-proof-punt voor htmx; ecosysteem-punt voor React |
+| **AI-assisted dev** | Meeste trainingsdata | Ruim voldoende gekend; minder totaal-volume | Licht voordeel React, krimpend |
+| **Mobiel** | Responsive nu; native zou JSON-API hergebruiken | Responsive idem; **PWA** (installeerbaar, push, offline-lite) werkt op server-rendered net zo goed | Zie 21.2 — geen beslisser, mits de JSON-facade blijft |
+
+### 21.2 Mobiel — expliciet meegewogen
+Voor een vereniging is een **PWA** (installeerbaar icoon, pushnotificaties,
+basis-offline) vrijwel zeker het eindstation — geen app-store-app. Een PWA staat
+volledig los van React-vs-htmx: beide serveren HTML + een manifest + service
+worker. Zou er óóit een native app komen, dan heeft die een **JSON-API** nodig —
+en dat is de belangrijkste hedge van deze hele keuze: **de OpenAPI/JSON-facade
+blijft bestaan ongeacht de frontend-keuze** (integraties, chatbot, toekomstige
+apps). htmx-routes komen er dan *naast* (zelfde service-laag, andere presentatie),
+niet in de plaats van het contract.
+
+### 21.3 Is er een derde piste?
+- **Astro (islands)** — server-first met React/Alpine-eilandjes enkel waar nodig.
+  Elegant, maar houdt de tweede taal + toolchain → lost het kernprobleem niet op.
+- **SvelteKit/Vue** — lichter dan React, zelfde dual-stack-taks → zijwaartse stap.
+- **htmx + Alpine.js** — dit is geen derde piste maar de *volwassen invulling* van
+  de htmx-piste: Alpine (~8 kB, declaratief in HTML) dekt lokale client-state
+  (dropdown open/dicht, tab-wissel) waar htmx server-rondjes overkill zijn.
+- **Hybride per shell** — de reële derde piste: **AdminShell server-side (htmx),
+  PublicShell blijft Next** zolang herbouw daar niet loont; §13.1 maakt shells
+  onafhankelijk, dus dit kan per shell én per component beslist worden.
+
+Conclusie: er is geen verborgen betere derde weg; het speelveld is
+**één-taal-server-side (htmx+Alpine) ↔ hybride ↔ status quo (Next)**.
+
+### 21.4 Uitvoeringspad (zo voeren we de beslissing uit)
+1. **Pilot, geen geloofskwestie**: bouw bij de start van de AdminShell (fase 4)
+   één echt component-adminscherm als htmx-pilot (kandidaat: de **werkbank** —
+   nieuw scherm, dus geen herbouwkost) naast de bestaande React-schermen.
+2. **Meet**: ontwikkelsnelheid (AI-assisted), regels code, gedrag op mobiel,
+   en of de facade-discipline standhoudt (import-linter op UI-routes).
+3. **Beslis per shell** (21.3-hybride is een geldig eindstation); de
+   form-builder blijft in elk scenario het langst een React-eiland.
+4. **Onvoorwaardelijk, nu al**: JSON-facade/OpenAPI als contract behouden (21.2)
+   en de UI-kit-inspanning (§11) technologie-neutraal formuleren (patronen en
+   tokens, niet React-componenten alléén) — dan is niets van dat werk weggegooid,
+   welke kant dit ook opvalt.
+
+### 21.5 Beslissing & waarom (ADR)
+
+- **Datum**: 2026-07-07.
+- **Context**: één ontwikkelaar + AI; laagfrequente back-office + klassieke
+  publieke site; horizon 10+ jaar richting **ERP/WMS/logistiek** (21.7); de
+  dual-stack-taks (drift-gate, codegen, dubbele types/berekeningen/toolchains/
+  testrunners) is structureel en bewezen (§19.4 bestaat er alleen om).
+- **Gekozen**: **één taal, server-rendered — htmx + Jinja + Alpine** voor beide
+  shells als eindbeeld; verworpen: status quo (Next/React, dual-stack-taks
+  blijft), Astro/SvelteKit (lossen de tweede taal niet op), big-bang-herbouw
+  (risico zonder noodzaak).
+- **Doorslaggevend**: het sterkste pro-React-argument (API-grens dwingt
+  discipline fysiek af) lost een probleem op dat we al opgelost hebben —
+  facades + import-linter gelden sowieso backend-intern. Het sterkste
+  pro-htmx-argument laat een hele probleemklasse *verdwijnen* in plaats van ze
+  te managen. Een opgelost probleem weegt niet op tegen een verdwenen probleem.
+  Daarbij: security licht beter (HttpOnly-sessie i.p.v. JWT-in-localStorage),
+  i18n rijper, minder churn ("boring tech" op een 10-jaarshorizon), SEO minstens
+  gelijkwaardig, Mollie/mobiel/responsive neutraal (21.1–21.2).
+- **Uitvoering**: pilotpad 21.4 — nú niets herbouwen; werkbank (fase 4) als
+  eerste htmx-scherm (nul herbouwkost); daarna admin per component op natuurlijke
+  momenten; publieke site als laatste; form-builder het langst als React-eiland;
+  JSON/OpenAPI-facade blijft onvoorwaardelijk. De hybride periode is begrensd
+  doordat het omklappen meelift met de modularisatie-fases. **Eindstreep,
+  meetbaar**: de frontend-container (Next/Node) vervalt — de stack gaat per
+  omgeving van 4 naar 3 services (db, backend serveert HTML+JSON, caddy);
+  tijdens de hybride periode blijft hij gewoon draaien.
+- **Heropener**: de pilot zelf — valt de werkbank-pilot tegen op
+  ontwikkelsnelheid, discipline (logica lekt naar templates ondanks linter) of
+  UX, dan terug naar status quo/hybride zonder verlies (er is dan niets
+  herbouwd). Plus de scenario's uit 21.6: offline-first, zware realtime-
+  samenwerking, app-store-app als kernproduct, of een apart frontend-team —
+  elk daarvan is een signaal om de SPA-piste te herwegen.
+
+### 21.6 Twee tegenwerpingen, expliciet gewogen
+
+**"Codegen (§19.4) lost de drift toch al op — waarom dan nog ombouwen?"**
+Codegen lost *type*-drift op (hernoemd veld → CI faalt), maar niet de rest van de
+taks: **logica-duplicatie** blijft (totaalberekening 2×: types genereren ≠ gedrag
+genereren), de **tweede toolchain** blijft integraal (Node-build, vitest/eslint
+naast pytest/ruff, React/Next-churn), en de gate zelf is blijvend onderhoud.
+Kortom: **codegen verlaagt de taks van "gevaarlijk" naar "duur"; één taal schaft
+ze af.** §19.4 stap 1–2 (response_models + OpenAPI-export) blijft óók in het
+eindbeeld waardevol — dat is het machinecontract (21.2); enkel de
+TypeScript-generatiestappen vervallen op termijn.
+
+**"Waarom gebruikt de hele wereld dan React/Angular?"**
+Omdat de meeste React-adopters een ander probleem hebben dan wij: (1) **aparte
+frontend/backend-teams** — de API-grens is daar een *organisatorische* grens
+(Conway); wij zijn één ontwikkelaar + AI en betalen die grens zonder de baten;
+(2) **app-achtige producten** (Figma/Gmail-klasse client-state) — een
+formulieren-en-lijsten-portaal is dat niet; (3) **arbeidsmarkt/momentum** —
+netwerkeffect, geen technisch argument. En de wereld is minder eensgezind dan ze
+lijkt: de tegenbeweging is mainstream (Next zelf terug naar de server met Server
+Components; Rails Hotwire, Phoenix LiveView, Laravel Livewire; GitHub/Basecamp
+grotendeels server-gerenderd). We volgen geen exoot maar de server-side-
+renaissance, met htmx als kleinste, stabielste vertegenwoordiger.
+
+### 21.7 Getoetst aan de lange-termijnhorizon: ERP / WMS / logistiek
+
+De doelklasse op termijn is **bedrijfssoftware** (ERP, WMS, logistiek) — dat
+*versterkt* de keuze eerder dan ze te ondermijnen:
+
+- **ERP-schermen zíjn dit profiel**: fiches, grids, formulieren, taken,
+  statusovergangen (§20) — precies waar server-rendered excelleert. Niet
+  toevallig is de referentie-inspiratie (Odoo-achtige smart buttons, SAP-achtige
+  werklijsten) functioneel, niet frontend-technologisch.
+- **WMS-specifiek** past goed: scanner-handhelds zijn goedkope toestellen waar
+  mínder JavaScript een feature is; barcodescanners werken als toetsenbord-input
+  (keyboard wedge) op een gewoon server-rendered formulier; snelheid per
+  transactie (scan → bevestig → volgende) is een latentiekwestie, geen
+  framework-kwestie. Live-borden (orders, dockplanning) kunnen met **SSE**
+  (htmx heeft daar een standaard-extensie voor) — geen SPA nodig.
+- **De echte WMS-waakvlam is offline**: haperende magazijn-wifi + door-blijven-
+  scannen = het offline-first-scenario dat al als heropener in 21.5 staat. Dat
+  wordt dan een bewust eiland (lokale wachtrij op het scanscherm), niet een
+  reden om het hele platform SPA te maken.
+- De rest van dit document is al op die horizon ontworpen: componenten met
+  facades (§5), MDM (§6), multi-tenant (§7), workflow/werkbank/taakcontract
+  (§20.5), BPMN/DMN als taal (§20.6) — de frontend-keuze sluit daar nu op aan:
+  één taal van magazijnvloer tot back-office.

@@ -33,7 +33,7 @@ def _row(lidnr, voornaam, naam, relatie="HOOFDLID", email=None):
 
 
 def _fake_parse(families):
-    def _inner(content, *, load_all):
+    def _inner(content):
         return families, {}, [], []
     return _inner
 

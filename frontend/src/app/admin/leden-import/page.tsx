@@ -35,7 +35,6 @@ function ReportSummary({ r }: { r: MemberImportReport }) {
 
 export default function LedenImport() {
   const [file, setFile] = useState<File | null>(null);
-  const [allMembers, setAllMembers] = useState(false);
   const [preview, setPreview] = useState<MemberImportPreview | null>(null);
   const [result, setResult] = useState<MemberImportResult | null>(null);
   const [busy, setBusy] = useState(false);
@@ -62,7 +61,7 @@ export default function LedenImport() {
     setError("");
     setResult(null);
     try {
-      const r = await memberImportPreview(file, allMembers);
+      const r = await memberImportPreview(file);
       setPreview(r.data);
     } catch (err) {
       setError(parseApiError(err, "Kon het bestand niet controleren."));
@@ -115,14 +114,6 @@ export default function LedenImport() {
           onChange={(e) => onPick(e.target.files?.[0] ?? null)}
           className="block text-sm"
         />
-        <label className="flex items-center gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            checked={allMembers}
-            onChange={(e) => { setAllMembers(e.target.checked); reset(); }}
-          />
-          Ook buiten productie alle leden laden (anders enkel de testadressen)
-        </label>
         <button
           type="submit"
           disabled={!file || busy}
@@ -154,7 +145,6 @@ export default function LedenImport() {
         <div className="space-y-3 rounded border border-gray-200 p-4">
           <h2 className="font-semibold">
             Droogloop — {preview.selected_families} gezinnen, {preview.total_persons} personen
-            {!preview.load_all && " (testadressen)"}
           </h2>
           <ReportSummary r={preview.report} />
 

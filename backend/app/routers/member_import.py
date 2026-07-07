@@ -13,12 +13,11 @@ De upsert-logica en de rapport-parsing zijn gedeeld met het CLI-script.
 import secrets
 import time
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_admin
-from app.config import settings
 from app.database import get_db
 from app.models.user import User
 from app.services.ledenrapport import parse_families
@@ -40,12 +39,12 @@ def _purge_expired() -> None:
         _PENDING.pop(tok, None)
 
 
-def _store(content: bytes, load_all: bool) -> str:
+def _store(content: bytes) -> str:
     _purge_expired()
     if len(_PENDING) >= _MAX_PENDING:
         raise HTTPException(status_code=429, detail="Te veel openstaande imports. Probeer later opnieuw.")
     token = secrets.token_urlsafe(24)
-    _PENDING[token] = {"content": content, "load_all": load_all, "created_at": time.monotonic()}
+    _PENDING[token] = {"content": content, "created_at": time.monotonic()}
     return token
 
 
@@ -64,12 +63,12 @@ def _take(token: str) -> dict:
     return _PENDING.pop(token)
 
 
-def _parse_or_400(content: bytes, load_all: bool, filename: str | None):
+def _parse_or_400(content: bytes, filename: str | None):
     if filename and filename.lower().endswith(".xlsx"):
         raise HTTPException(status_code=400,
                             detail="Het .xlsx-formaat wordt niet ondersteund. Gebruik .xls (export uit Raak Nationaal) of .ods (LibreOffice Calc).")
     try:
-        return parse_families(content, load_all=load_all)
+        return parse_families(content)
     except Exception:
         raise HTTPException(status_code=400, detail="Kon het ledenrapport niet lezen. Is het een geldig .xls- of .ods-bestand?")
 
@@ -81,7 +80,6 @@ class CommitRequest(BaseModel):
 @router.post("/admin/member-import/preview")
 async def preview(
     file: UploadFile = File(...),
-    all_members: bool = Form(False),
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
@@ -91,20 +89,15 @@ async def preview(
     if len(content) > _MAX_FILE_BYTES:
         raise HTTPException(status_code=413, detail="Bestand te groot (max 5 MB).")
 
-    # Env-gating zoals het CLI: PROD laadt alle leden; buiten PROD enkel de
-    # testadressen, tenzij expliciet 'alle leden' aangevinkt is.
-    load_all = settings.app_env == "prod" or all_members
-
-    families, bl_index, all_bl_names, _ = _parse_or_400(content, load_all, file.filename)
+    families, bl_index, all_bl_names, _ = _parse_or_400(content, file.filename)
     # apply=False muteert de sessie niet: het rapport beschrijft enkel wat zou
     # veranderen. Pas bij commit wordt er weggeschreven.
     report = upsert_families(db, families, bl_index, all_bl_names, apply=False,
                              actor=admin.email)
 
-    token = _store(content, load_all)
+    token = _store(content)
     return {
         "token": token,
-        "load_all": load_all,
         "selected_families": len(families),
         "total_persons": sum(len(f) for f in families),
         "report": report.to_dict(),
@@ -118,8 +111,7 @@ def commit(
     admin: User = Depends(get_current_admin),
 ):
     entry = _take(req.token)
-    families, bl_index, all_bl_names, _ = _parse_or_400(
-        entry["content"], entry["load_all"], None)
+    families, bl_index, all_bl_names, _ = _parse_or_400(entry["content"], None)
     report = upsert_families(db, families, bl_index, all_bl_names, apply=True,
                              actor=admin.email)
     db.commit()
