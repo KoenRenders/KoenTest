@@ -39,6 +39,11 @@ De **kernbeslissingen** in één zin elk (details/ADR's staan in de genoemde sec
 bewust-niet + risico's §18 · analyse-aanvullingen §19 · navigatie & werkbank §20 ·
 frontend-ADR §21 · taal §22.
 
+**Terminologie**: dit document gebruikt **component** als dé eenheid (map + schema
++ facade). "Module" is er een synoniem van (vermijden); "domein" = een component
+in laag 2 (business), tegenover fundamentele componenten (laag 1) en
+capaciteiten (media/STT).
+
 ---
 
 ## 1. Doel & principes
@@ -286,7 +291,9 @@ flowchart TB
 
 - **Model = rij-niveau `tenant_id`** (shared schema). Schema-/DB-per-tenant vallen af:
   de koepel moet dwars over tenants rapporteren (`WHERE tenant_id IN …` i.p.v. een
-  cross-schema-union). **RLS** later als DB-vangnet.
+  cross-schema-union). **RLS** later als DB-vangnet — maar **RLS-klaar vanaf dag
+  één**: `tenant_id` altijd `NOT NULL` + geïndexeerd (in de kernel-mixin), zodat
+  RLS aanzetten een migratieregel is, geen verbouwing.
 - **Tenant-context in de kernel** (uit JWT/hostname); facades filteren standaard op de
   actieve tenant. **Rollen**: `ADMIN`/`FINANCE` per UNIT, `ACCOUNT_ADMIN` per account,
   `OPERATOR` op platformniveau.
@@ -516,7 +523,8 @@ contract-/integratietests → frontend-feature → CONTRACT.md`.
 **Kritiek pad**: **H eerst** (deploy-vangnet beschermt geld vóór er migraties
 verhuizen) → F (fundering) → Fase 0 (forms-sjabloon) → **P (micro-pilot htmx)** →
 mail/auth → MDM. De rest kan grotendeels **parallel** zodra fundering + sjabloon
-staan. **Fase 5 (tenancy) is trigger-gated**: voorbereiding (kernel-mixin) hoort
+staan — met een harde grens: **maximaal 2–3 componenten tegelijk in uitvoering**
+(focus verslaat doorloop; half-verhuisde componenten zijn de duurste toestand). **Fase 5 (tenancy) is trigger-gated**: voorbereiding (kernel-mixin) hoort
 bij F, de uitrol start pas bij een concrete tweede tenant.
 
 | Blok | Werkpakketten | Status |
