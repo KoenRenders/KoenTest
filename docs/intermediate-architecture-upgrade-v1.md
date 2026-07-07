@@ -1026,6 +1026,18 @@ Components; Rails Hotwire, Phoenix LiveView, Laravel Livewire; GitHub/Basecamp
 grotendeels server-gerenderd). We volgen geen exoot maar de server-side-
 renaissance, met htmx als kleinste, stabielste vertegenwoordiger.
 
+**"AI kent beide talen — ondergraaft dat het één-taal-argument niet?"**
+Het neemt één argument weg (geen frontend-specialist nodig) en verzwakt de
+*urgentie* (daarom: pilotpad, geen urgente migratie). De kern blijft: de taks
+zit niet in het *schrijven* maar in het *bestaan* van twee synchroon te houden
+artefacten — per feature 2× oppervlak (schema's, logica, tests, builds), de
+verificatielast valt op de ene mens (kleinere één-talige diffs reviewen sneller),
+drift is een synchronisatie- geen kennisprobleem (ook een AI vergeet een
+handgeschreven kopie, zeker over sessies heen), churn-migraties blijven werk
+zonder productwaarde, en het kost letterlijk meer credits (§16: twee stacks =
+meer context/tokens per wijziging). AI versterkt het kostenargument dus eerder
+dan het te ondermijnen.
+
 ### 21.7 Getoetst aan de lange-termijnhorizon: ERP / WMS / logistiek
 
 De doelklasse op termijn is **bedrijfssoftware** (ERP, WMS, logistiek) — dat
