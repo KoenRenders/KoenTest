@@ -706,3 +706,11 @@ precies één plek: de **werkbank**.
 - Bouwt op de workflow-component (Fase 4): taken krijgen een uniforme vorm
   (bron-component, record-ref, type, status, toegewezen rol) zodat elke component
   excepties kan publiceren zonder eigen inbox-scherm.
+- **Taken sluiten door toestand, niet door afvinken** (vertrouwensvoorwaarde):
+  *toestandstaken* (excepties, bv. een niet-afgeboekte refund) zijn een afgeleide
+  query op de data — lost de toestand op (via werkbank, fiche óf automatisch,
+  bv. Mollie-webhook), dan verdwijnt de taak per definitie; *beslistaken*
+  (workflow) hebben een eigen record maar abonneren zich op het onderliggende
+  record en sluiten/annuleren automatisch als de beslissing elders valt of de
+  grond vervalt. De taak volgt het record, nooit omgekeerd — één stale taak en
+  niemand vertrouwt "werkbank leeg = niets te doen" nog.
