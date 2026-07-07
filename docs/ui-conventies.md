@@ -1,10 +1,15 @@
-# Admin-UI-conventies (stijlgids & interactiepatronen)
+# UI-conventies (stijlgids & interactiepatronen)
 
-> Normatief document voor de admin-GUI. Gebaseerd op een volledige inventaris van
-> alle 15 admin-pagina's (juli 2026, file:line-bewijs beschikbaar). Structuur:
-> **IST** (wat er nu is, waar het schuurt) → **SOLL** (de conventie) →
-> **uitzonderingen** → **kluslijst per pagina**. Uitvoering loopt mee met de
-> UI-kit (architectuurdoc §11/§19.6); dit document is de specificatie ervan.
+> Normatief document voor de volledige GUI: **Deel A = admin**, **Deel B =
+> publieke site + ledenportaal**. Gebaseerd op volledige inventarissen (juli
+> 2026, file:line-bewijs beschikbaar). Structuur per deel: **IST** (waar het
+> schuurt) → **SOLL** (de conventie) → **uitzonderingen** → **kluslijst**.
+> Uitvoering loopt mee met de UI-kit (architectuurdoc §11/§19.6); dit document
+> is de specificatie ervan.
+
+---
+
+# Deel A — Admin
 
 ---
 
@@ -168,3 +173,104 @@ De conventies hierboven zíjn de specificatie van de kit:
 `Empty` · `FormActions` (Opslaan/Annuleren). Elke component één keer gebouwd =
 elke pagina die hem adopteert automatisch conform. De kluslijst (§4) is dan per
 pagina grotendeels "vervang lokaal patroon door kit-component".
+
+---
+
+# Deel B — Publieke site & ledenportaal
+
+## B1. IST — de tien grootste inconsistenties (op bezoeker-impact)
+
+1. **De kernactie "Inschrijven" oogt het zwakst**: in de activiteitenlijst is het
+   een klein `text-xs`-bordje, terwijl "Word lid"/"Contacteer ons" volle
+   `btn-primary`-knoppen zijn.
+2. **Verplicht-markering twee stijlen**: rode `*` (DynamicForm) vs kleurloze `*`
+   in de labeltekst (inschrijven/gezin/idee).
+3. **Foutweergave drie vormen**: kale rode tekst / rode banner / `alert()`
+   (ledenportaal-gezin).
+4. **Modal-sluitgebaren inconsistent**: RegistrationForm alleen via "Annuleren"
+   (geen X/Esc/backdrop); PhotoGallery wél backdrop + X.
+5. **`/betaling/geannuleerd` linkt naar `/word-lid` — die route bestaat niet
+   (404)**; bovendien verkeerd voor wie via een activiteit kwam. *(bug, geen
+   stijl)*
+6. **Betaalmethode-codes verschillen per flow** (`ONLINE`/`OVERSCHRIJVING` vs
+   `online`/`transfer`) — backend vertaalt correct, maar één vocabulaire is het
+   niet.
+7. **Prijsweergave gefragmenteerd**: `money.ts` wordt publiek niet gebruikt;
+   RegistrationForm heeft een eigen `formatPrice`, elders rauwe `€…toFixed(2)`.
+8. **Geen actieve-link-markering in de navigatie.**
+9. **Succesfeedback wisselt**: verdwijnende banner (5 s, homepage) vs blijvend
+   bedankscherm (gezin/idee/formulier).
+10. **Wizard vs one-page** voor vergelijkbare meerstaps-invoer (DynamicForm-wizard
+    vs FamilyRegistrationForm-scrollpagina).
+
+Kleiner: "Bezig…" grotendeels uniform maar gezin zegt "Bewaren…" en
+OrderLineEditor wisselt niet; laden-teksten wisselen ("Activiteiten laden…" vs
+"Laden…"); leeg-teksten deels italic.
+
+## B2. SOLL — de conventies
+
+1. **CTA-hiërarchie**: de kernactie van een pagina is altijd `btn-primary`
+   (`btn-sm` in lijstcontext) — de Inschrijven-knop in de activiteitenlijst wordt
+   dus een echte knop. Secundair = `btn-secondary`; ternair (Info ↗, Wie doet er
+   mee?) mag tekstlink blijven.
+2. **Verplicht = rode `*`** (`<span class="text-red-600">*</span>`) overal —
+   DynamicForm-stijl wint.
+3. **Fouten**: rode banner (`bg-red-50 text-red-700 rounded-lg p-3`) boven het
+   formulier, via `parseApiError`. `alert()`/`confirm()` ook publiek verboden;
+   het ledenportaal gebruikt dezelfde ConfirmDialog als de admin.
+4. **Succes**: one-shot captures (lid worden, formulier, idee) → **blijvend
+   bedankscherm** dat het formulier vervangt, patroon: «✅ <wat> ontvangen!» +
+   wat volgt («Je ontvangt een bevestiging per e-mail…»). Kleine acties → toast.
+   De homepage-inschrijfflow volgt dus het bedankscherm, niet de 5s-banner.
+5. **Bezig-states**: submitknop disabled + label **"Bezig…"** — overal, ook
+   ledenportaal en OrderLineEditor.
+6. **Modals**: dezelfde `<Modal>` als de admin (X + Esc + backdrop, `role=dialog`).
+7. **Betaalflow**: geannuleerd → **terug naar de bron** (of `/` als die onbekend
+   is) — nooit naar een niet-bestaande route; succes → `/` blijft. Widget-teksten
+   uniform: online = redirect-uitleg, overschrijving = «rekeninggegevens per
+   e-mail».
+8. **Betaalmethode-vocabulaire**: één set codes over alle flows (voorstel:
+   backend-canoniek `online`/`transfer`, frontend-labels "Online betalen"/
+   "Overschrijving") — opruimen samen met de OpenAPI-codegen (§19.4).
+9. **Prijs**: álle prijsweergave via `money.ts` (`formatPrice` daarheen
+   verhuizen/uitbreiden met "gratis" + ledenprijs-variant); nergens rauwe
+   `toFixed(2)`.
+10. **Navigatie**: actieve link gemarkeerd (onderstreping of vaste achtergrond);
+    hamburger-gedrag blijft.
+11. **Wizard-regel**: wizard enkel bij secties/branching (DynamicForm — is al zo);
+    korte captures = one-page met secties. FamilyRegistrationForm blijft one-page
+    (gesanctioneerd), maar met de veld-/fout-/succes-patronen hierboven.
+12. **Toon & microcopy**: je/jij (bevestigd, is al consistent); sentence case;
+    één fouttekst-fallback: «Er is iets misgelopen. Probeer opnieuw.»; laden =
+    "Laden…", leeg = "(Nog) geen <items>…" — zelfde regels als Deel A §2.11/2.12.
+
+## B3. Gesanctioneerde uitzonderingen
+- **FamilyRegistrationForm** one-page (geen wizard) — bewust.
+- **ChatWidget**: eigen compacte stijl (zwevend paneel), maar kit-kleuren en
+  dezelfde fouttekst-fallback.
+- **PhotoGallery-lightbox**: donkere overlay (`bg-black/80`) mag afwijken; krijgt
+  wel Esc.
+- **Login**: gedeeld leden/admin-scherm met privacy-neutrale copy — blijft.
+
+## B4. Kluslijst publiek
+
+| Waar | Aanpassen |
+|---|---|
+| **betaling/geannuleerd** | ⚠ link `/word-lid` (404!) → bron of `/`; tekst uniformeren — *kandidaat v1.14* |
+| **ActivityList** | Inschrijven → `btn-primary btn-sm`; leeg-teksten de-italiceren |
+| **RegistrationForm** | modal → `<Modal>` (X/Esc/backdrop); rode `*`; banner i.p.v. kale tekst; eigen `formatPrice` → `money.ts` |
+| **FamilyRegistrationForm** | rode `*`; succes-tekstpatroon; codes → canoniek |
+| **homepage** | 5s-banner → bedankscherm-patroon |
+| **leden/gezin** | `alert()`/`confirm()` → banner/ConfirmDialog; "Bewaren…" → "Bezig…" |
+| **OrderLineEditor** | knoppen → kit-stijl; "Bezig…"-state; prijs via `money.ts` |
+| **IdeaBox / PersonFields / AddressFields** | rode `*` |
+| **Navigation** | actieve-link-markering |
+| **ChatWidget / login** | fouttekst-fallback uniform |
+
+## B5. Relatie met Deel A
+Dezelfde UI-kit bedient beide werelden: `Modal`, `ConfirmDialog`, `Toast`,
+`Badge`, `Loading`/`Empty`, `FormActions` en de token-set zijn gedeeld; publiek
+komt daar het **Public-capture-sjabloon** bij (architectuurdoc §11): veldenset →
+gevalideerde submit → bedankscherm (+ evt. capability-link). Consistentie tussen
+publiek en admin is geen luxe: de vrijwilliger die beide kanten gebruikt, leert
+één interactietaal.

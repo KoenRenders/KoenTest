@@ -581,7 +581,7 @@ vast paginaritme, wizard/builder/matrix-patronen. Adviezen:
 Alles behalve 1 en 3 lost de geplande **UI-kit + AdminConsole-template** (F/§11)
 in één beweging op; 1 en 3 zijn de enige nieuwe ontwerpkeuzes.
 De volledige IST-inventaris + normatieve conventies (knoppen, kleuren, labeling,
-zoeken, paging, verwijderen, feedback) staan in **`admin-ui-conventies.md`** —
+zoeken, paging, verwijderen, feedback) staan in **`ui-conventies.md`** (Deel A admin, Deel B publiek/ledenportaal) —
 dat document is de specificatie van de UI-kit.
 
 ---
