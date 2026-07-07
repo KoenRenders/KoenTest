@@ -375,6 +375,12 @@ facade, geen gedragswijziging) → per component één PR → kernel optrekken. 
 model-discovery — verplaats je models, laat `Base.metadata`/Alembic ze nog vinden
 (import in `domains/__init__.py` of `env.py`).
 
+**Data-verhuis hoort bij het pad**: bestaande tabellen verhuizen naar hun
+component-schema via `ALTER TABLE … SET SCHEMA` in een migratie van de éigen keten
+(expand/contract: eerst verhuizen + oude naam als view/synoniem indien nodig, dan
+verwijzingen omzetten, dan opruimen). Te doen vóór/bij Fase 1 per component —
+`pg_dump` blijft één commando (§13.1), de verhuis is puur namespacing.
+
 ### 13.1 Eén map per component — wat zit erin (en wat bewust niet)
 
 Ja: **één map = álles van die module** — backend, frontend-feature, migraties,
@@ -457,12 +463,17 @@ De rest kan grotendeels **parallel** zodra fundering + sjabloon staan.
 | **4 · Domeinen** | membership (+`is_member`); activities; workflow + IdeaBox; media; cms; chatbot | nieuw |
 | **5 · Multi-tenant** | organizations (ACCOUNT/UNIT); per-tenant config/secrets-store; `tenant_id` per app + context + rollen; meerdere accounts + hostname-resolutie + per-unit SEO | nieuw |
 | **6 · Extractie** | STT → externe service (bij driver) | **#364** |
-| **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`) | nieuw |
+| **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`); observability (error-tracking/logs/uptime/alerts); restore-oefening per release | nieuw |
 | **O · Opruiming** (§19, kan vóór alles) | `business_events` verwijderen; `domains/common/` + stale docs weg; dead-endpoint-sweep. (`ideas` → formulier + minimale workflow verhuist naar fase 4: vereist de workflow-component) | nieuw |
 
 ---
 
 ## 15. Ontwerpkeuzes (register)
+
+> **Vorm (ADR-light)**: elke nieuwe beslissing krijgt vier regels — *datum ·
+> context · gekozen (met verworpen alternatief) · heropener* (wat zou ons van
+> gedachten doen veranderen). §18 en §20.4 tonen het patroon; bestaande regels
+> hieronder blijven zoals ze zijn.
 
 - ✅ **Package-by-domain**; facade `api.py`; grens via **import-linter**.
 - ✅ **Eigen Alembic-keten** voor afsplitsbare apps (auth, mail, MDM, form, payment);
@@ -564,6 +575,14 @@ bewijzen §8/§10. Drie concrete aanvullingen + een vereenvoudigingsregister:
 - **CI-gates vervroegen** — de goedkope gates uit §10/§11 nu al aanzetten:
   vitest zonder `--passWithNoTests`, e2e-geldflow blokkerend, `alembic check`
   (drift). De import-linter volgt met Fase 0.
+- **Observability** — de werkbank vangt *business*-excepties, maar technische
+  signalen hebben een eigen kanaal nodig: error-tracking (Europe-First:
+  **GlitchTip** of self-hosted Sentry), gestructureerde logs, uptime-check per
+  site, alert bij gefaalde Mollie-webhooks/mails. Zonder dit hangt "iets is stuk"
+  af van wie het toevallig meldt.
+- **Restore-oefening** — een backup die nooit is teruggezet, is een hoop. Per
+  release (of periodiek): restore naar een wegwerp-DB + read-only smoke test.
+  Sluit de keten backup → bewezen herstelbaar.
 
 ### 19.2 Integriteit polymorfe refs
 `payment_records.payable_type/payable_id` is een soft-ref zónder de
@@ -584,8 +603,8 @@ Snoeien is ook architectuur. Levend register, zelfde geest als §18:
 
 **Niet snoeien** (lijkt vereenvoudiging, is het niet): migraties squashen (CI test
 nu de hele keten — dat is waarde), history-tabellen/e-maillog-body (audit-waarde,
-bewuste keuzes met retentie), tests, `member_import` (eerst bevestigen dat het
-eenmalig was — oogt terugkerend).
+bewuste keuzes met retentie), tests, `member_import` (bevestigd terugkerend, #377 —
+blijft; alleen het testadres-vangnet is verwijderd).
 
 ### 19.4 py↔ts-drift structureel voorkomen (OpenAPI-codegen + gate)
 1. **Stap 0 — conventie**: elk endpoint een `response_model` (kale dicts genereren
