@@ -4,6 +4,10 @@
 > publieke site + ledenportaal**. Gebaseerd op volledige inventarissen (juli
 > 2026, file:line-bewijs beschikbaar). Structuur per deel: **IST** (waar het
 > schuurt) → **SOLL** (de conventie) → **uitzonderingen** → **kluslijst**.
+>
+> *IST/SOLL* is analistenjargon (uit het Duits): **IST** = de huidige,
+> feitelijke toestand ("zo ís het nu"); **SOLL** = de gewenste doeltoestand
+> ("zo móét het worden"). De kluslijst is telkens het pad van IST naar SOLL.
 > Uitvoering loopt mee met de UI-kit (architectuurdoc §11/§19.6); dit document
 > is de specificatie ervan.
 
