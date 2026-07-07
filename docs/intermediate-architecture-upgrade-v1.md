@@ -827,6 +827,18 @@ precies één plek: de **werkbank**.
 - **Een afwijzing is ook een beslissing**: oordeelt een mens "geen probleem"
   (bv. "geen dubbel"), dan wordt dat oordeel zélf toestand (bewaarde markering),
   anders herrijst de afgeleide taak eeuwig.
+- **Technische fouten: wél als er een businessactie is, anders niet.** De toets:
+  *kan iemand met een rol er iets aan doen, en heeft het businessgevolgen als
+  niemand het doet?* Gefaalde bevestigingsmail → taak "opnieuw versturen / lid
+  verwittigen"; gemiste Mollie-webhook → "betaling verifiëren"; halverwege
+  gefaalde import → "hervatten of terugdraaien". Zulke taken sluiten zichzelf
+  door toestand (retry gelukt → taak weg). Puur technische defecten
+  (stacktraces, logging-pipeline, container-herstart) horen **niet** in de
+  werkbank maar in het observability-kanaal (§19.1) richting de beheerder —
+  anders vervuilt onbegrijpelijke ruis het ontwerpdoel "leeg". De brug werkt in
+  twee richtingen: een defect mét business-impact steekt over als taak, en een
+  *terugkerend* exceptie-type in de werkbank is het signaal van een defect
+  eronder (de werkbank meet zijn eigen overbodigwording).
 - **Voorbeeld inschrijving → nationaal Raak-programma**: (a) *beslistaak*
   "mogelijke dubbel" (gelijkenis zonder merge óf geen-dubbel-markering; sluit
   door merge of bewaard besluit); (b) *toestandstaak* "persoon nog niet in het
