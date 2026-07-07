@@ -967,6 +967,14 @@ Conclusie: er is geen verborgen betere derde weg; het speelveld is
    en de UI-kit-inspanning (§11) technologie-neutraal formuleren (patronen en
    tokens, niet React-componenten alléén) — dan is niets van dat werk weggegooid,
    welke kant dit ook opvalt.
+5. **Eilanden-toets: elk JS-eiland moet zijn bestaansrecht bewijzen.** Standaard
+   = géén eiland; wie er een wil, motiveert waarom htmx/Alpine/server-side niet
+   volstaat, en het eiland komt in een kort register (wat, waarom, omvang).
+   Al beslist: **file-upload = geen eiland** (gewoon multipart-formulier,
+   voortgang via htmx-events volstaat) en **dashboard = geen eiland**
+   (server-gerenderde SVG volstaat voor tellers/staafjes). Verwachte échte
+   eilanden blijven beperkt tot: form-builder (drag&drop), eventueel een
+   interactieve grafiek, en ooit het offline scanscherm (21.7).
 
 ### 21.5 Beslissing & waarom (ADR)
 
