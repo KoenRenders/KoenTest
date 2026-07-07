@@ -223,7 +223,9 @@ flowchart TB
   OP["operator (ziet alles)"]:::o --> A1["ACCOUNT: Raak vzw"]:::a & A2["ACCOUNT: Bedrijvengroep"]:::a
   A1 --> U1["UNIT: Millegem"]:::u & U2["UNIT: Raak X"]:::u
   A2 --> U3["UNIT: Bedrijf A"]:::u & U4["UNIT: Bedrijf B"]:::u
-  classDef o fill:#ffd,stroke:#aa0; classDef a fill:#e8f0ff,stroke:#36b; classDef u fill:#eef7ee,stroke:#3a3;
+  classDef o fill:#ffd,stroke:#aa0
+  classDef a fill:#e8f0ff,stroke:#36b
+  classDef u fill:#eef7ee,stroke:#3a3
 ```
 
 - **Model = rij-niveau `tenant_id`** (shared schema). Schema-/DB-per-tenant vallen af:
@@ -465,6 +467,7 @@ De rest kan grotendeels **parallel** zodra fundering + sjabloon staan.
 | **6 · Extractie** | STT → externe service (bij driver) | **#364** |
 | **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`); observability (error-tracking/logs/uptime/alerts); restore-oefening per release | nieuw |
 | **O · Opruiming** (§19, kan vóór alles) | `business_events` verwijderen; `domains/common/` + stale docs weg; dead-endpoint-sweep. (`ideas` → formulier + minimale workflow verhuist naar fase 4: vereist de workflow-component) | nieuw |
+| **T · Taalbeleid** (§22, kan vóór alles) | Babel + `nl_BE`-catalogus; backend-teksten (e-mails, validatie, ODS-koppen) door `_()`; extract/lint-gate in CI; nieuwe code/DB/tests Engels | nieuw |
 
 ---
 
@@ -479,6 +482,9 @@ De rest kan grotendeels **parallel** zodra fundering + sjabloon staan.
 - ✅ **Frontend-eindbeeld = één taal, server-rendered (htmx + Jinja + Alpine)** via
   het pilotpad; form-builder het langst als React-eiland; JSON/OpenAPI-facade
   blijft — volledig ADR in **§21.5**.
+- ✅ **Taalbeleid: Engels binnenin, weergave via Babel** (nl-BE eerst) — code/DB/
+  tests/technische docs Engels; alle gebruikerstekst door de catalogus; Babel
+  start al backend-side vóór de htmx-migratie — **§22**.
 - ✅ **Eigen Alembic-keten** voor afsplitsbare apps (auth, mail, MDM, form, payment);
   interne modules enkel een eigen schema.
 - ✅ **auth = één fundamentele component** (niet gesplitst; verify-mechanisme in kernel).
@@ -1069,3 +1075,48 @@ De doelklasse op termijn is **bedrijfssoftware** (ERP, WMS, logistiek) — dat
   facades (§5), MDM (§6), multi-tenant (§7), workflow/werkbank/taakcontract
   (§20.5), BPMN/DMN als taal (§20.6) — de frontend-keuze sluit daar nu op aan:
   één taal van magazijnvloer tot back-office.
+
+---
+
+## 22. Taalbeleid: Engels binnenin, elke taal buiten (via Babel)
+
+**Beslissing (2026-07-07).** De **IT-kant is Engels**; alles wat een *gebruiker*
+ziet is een **weergave** die uit een vertaalcatalogus komt — nu nl-BE, ooit méér.
+Geen hardgecodeerd Nederlands meer in code.
+
+### 22.1 Wat Engels is (de techniek)
+
+| Artefact | Regel |
+|---|---|
+| **Code**: identifiers, functies, klassen, variabelen | Engels (is grotendeels al zo) |
+| **Database**: tabel-/kolomnamen, schema's, migratie-omschrijvingen | Engels voor al het níéuwe; bestaande namen hernoemen we niet los, enkel expand/contract wanneer een tabel toch verbouwd wordt |
+| **API**: paden, veldnamen, event-namen, foutcódes | Engels (`/api/v1/...`, `PaymentSettled`) |
+| **Tests**: namen + beschrijvingen | Engels |
+| **Technische documentatie**: `CONTRACT.md`, `BUILDING.md`, code-commentaar, OpenAPI-descriptions | Engels |
+| **Werk-/beslisdocumenten** (zoals dit) en issues/PR's | Nederlands mag — dit is communicatie met Koen, geen artefact dat een toekomstige (anderstalige) ontwikkelaar of tenant raakt. Kantelt de doelgroep, dan kantelt de taal. |
+
+### 22.2 Wat vertaald is (de weergave)
+Alle gebruikerstekst gaat door **Babel/gettext** met nl-BE als eerste catalogus:
+schermen (Jinja: `{{ _("Word lid") }}`), **validatie-/foutmeldingen**,
+**e-mails**, exports (ODS-kolomkoppen), en data-formattering (datums, bedragen)
+via Babel-locale. Réferentiedata die de gebruiker ziet (relatietypes,
+statuslabels) volgt het bestaande patroon: **code Engels in de DB**
+(`"hoofdlid"` → `code: "primary"`), **label uit de catalogus**. Taalkeuze per
+request: gebruikersprofiel → cookie → unit-config (§7; een unit-site kan zijn
+taal pinnen) → `Accept-Language`.
+
+### 22.3 Babel nú al starten (vóór de htmx-migratie)
+Babel is backend-tooling en kan vandaag al aan, los van de frontend-keuze:
+1. **Nu**: Babel + `nl_BE`-catalogus opzetten; alle **backend-teksten** erdoor —
+   e-mails (grootste klant), validatiemeldingen, ODS-koppen. De React-frontend
+   blijft ongewijzigd (die heeft zijn eigen strings tot elk scherm omklapt).
+2. **Bij elke htmx-conversie** (§21.4): de schermteksten van dat scherm gaan de
+   catalogus in — de vertaalmigratie lift mee met de frontend-migratie, geen
+   apart project.
+3. **CI-gate**: `pybabel extract` + diff-check (geen ongemarkeerde
+   gebruikersstrings in nieuwe code — lint), catalogus compileert.
+
+**Overgangsregels**: nieuwe code volgt 22.1 vanaf nu; bestaand Nederlands in
+code/DB wordt niet in bulk hernoemd maar telkens wanneer het artefact toch
+wordt aangeraakt (zelfde strangler-geest als §13). In §14 opgenomen als
+backlog-blok **T** (kan starten met blok H/O, vóór de modularisatie).
