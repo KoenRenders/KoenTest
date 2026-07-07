@@ -890,3 +890,65 @@ sterker dan op persoonsniveau).
 - **Ledenportaal-uitzondering**: na magic-link/OTP-login is het mailbezit
   bewezen → daar mag een match auto-claimen ("deze inschrijving is van jou?") of
   stil koppelen.
+
+---
+
+## 21. Frontend-technologie: React/Next vs. htmx — afwegingskader
+
+Status: **geparkeerd** (§18); dit is de analyse voor wanneer het beslispunt komt
+(natuurlijk moment: de AdminShell, fase 4 — vóór daar nieuwe React-schermen
+gebouwd worden). De vraag is wezenlijk niet "React of htmx" maar **"twee talen
+(SPA + API) of één taal (server-rendered)"** — al de rest zijn varianten.
+
+### 21.1 De afweging per dimensie
+
+| Dimensie | React/Next (huidig) | htmx + Jinja (+ Alpine) | Weging |
+|---|---|---|---|
+| **Browser-compat** | Build/transpile regelt het | Gewone HTML over de draad; htmx ondersteunt alle moderne browsers | Non-issue, beide kanten |
+| **Rijke UX** | Alles kan | 95% van CRUD/formulieren prima (autocomplete, totalen, modals, wizards); **echt rijke client-state** (drag&drop-formulierbouwer!) is de uitzondering | htmx dekt bijna alles; de **form-builder** is óns moeilijkste scherm → als React-eiland behouden kan |
+| **i18n** | react-i18next e.d. | Server-side i18n (gettext/Babel) is het oudste, rijpste model dat bestaat | Non-issue; server-side eerder een vóórdeel |
+| **Security** | JWT in localStorage (zwakte, §19.1); XSS-oppervlak via `dangerouslySetInnerHTML` (gesaneerd) | HttpOnly-sessiecookie (beter), Jinja auto-escape; **vereist wel klassieke CSRF-tokens** | Licht voordeel htmx, mits CSRF correct |
+| **Performance** | Meer JS naar de client | Minder JS → sneller op goedkope toestellen; server rendert meer (verwaarloosbaar op onze schaal) | Licht voordeel htmx |
+| **Drift/dubbel werk** | py↔ts-drift is structureel (heel §19.4 + codegen bestaat hierom); totaalberekening 2× (frontend-weergave + backend-waarheid) | Eén taal, één berekening (server rendert het totaal met dezélfde functie die de betaling maakt) — de drift-probleemklasse **vervalt** | **Sterkste argument pro htmx** |
+| **Discipline-risico** | API-grens dwingt scheiding af *per constructie* — frontend kán niet in de backend grabbelen | Eén codebase → reëel risico: businesslogica lekt naar templates/routes, "backend-dev mixt stiekem door de lagen". Mitigatie = dezelfde als overal in dit document: schermen praten **enkel met facades** (import-linter dekt ook UI-routes), view-model in Python, templates dom (macro's als componenten, lint op logica-in-templates) | **Sterkste argument pro React** — bij htmx is de grens afspraak+linter i.p.v. fysiek |
+| **Template-kluwen** | JSX kan óók verkluwen | Reëel bij naïef gebruik; beheersbaar met Jinja-macro's als component-bibliotheek + fragments-patroon (de UI-kit van §11, maar dan server-side) | Gelijkspel: beide vragen dezelfde UI-kit-discipline |
+| **Ecosysteem & churn** | Enorm ecosysteem; maar hoge churn (App Router/Server Components elke paar jaar een migratie) | Klein maar stabiel; htmx is bewust "boring tech", piepkleine API | Future-proof-punt voor htmx; ecosysteem-punt voor React |
+| **AI-assisted dev** | Meeste trainingsdata | Ruim voldoende gekend; minder totaal-volume | Licht voordeel React, krimpend |
+| **Mobiel** | Responsive nu; native zou JSON-API hergebruiken | Responsive idem; **PWA** (installeerbaar, push, offline-lite) werkt op server-rendered net zo goed | Zie 21.2 — geen beslisser, mits de JSON-facade blijft |
+
+### 21.2 Mobiel — expliciet meegewogen
+Voor een vereniging is een **PWA** (installeerbaar icoon, pushnotificaties,
+basis-offline) vrijwel zeker het eindstation — geen app-store-app. Een PWA staat
+volledig los van React-vs-htmx: beide serveren HTML + een manifest + service
+worker. Zou er óóit een native app komen, dan heeft die een **JSON-API** nodig —
+en dat is de belangrijkste hedge van deze hele keuze: **de OpenAPI/JSON-facade
+blijft bestaan ongeacht de frontend-keuze** (integraties, chatbot, toekomstige
+apps). htmx-routes komen er dan *naast* (zelfde service-laag, andere presentatie),
+niet in de plaats van het contract.
+
+### 21.3 Is er een derde piste?
+- **Astro (islands)** — server-first met React/Alpine-eilandjes enkel waar nodig.
+  Elegant, maar houdt de tweede taal + toolchain → lost het kernprobleem niet op.
+- **SvelteKit/Vue** — lichter dan React, zelfde dual-stack-taks → zijwaartse stap.
+- **htmx + Alpine.js** — dit is geen derde piste maar de *volwassen invulling* van
+  de htmx-piste: Alpine (~8 kB, declaratief in HTML) dekt lokale client-state
+  (dropdown open/dicht, tab-wissel) waar htmx server-rondjes overkill zijn.
+- **Hybride per shell** — de reële derde piste: **AdminShell server-side (htmx),
+  PublicShell blijft Next** zolang herbouw daar niet loont; §13.1 maakt shells
+  onafhankelijk, dus dit kan per shell én per component beslist worden.
+
+Conclusie: er is geen verborgen betere derde weg; het speelveld is
+**één-taal-server-side (htmx+Alpine) ↔ hybride ↔ status quo (Next)**.
+
+### 21.4 Hoe beslissen (voorstel voor wanneer dit heropent)
+1. **Pilot, geen geloofskwestie**: bouw bij de start van de AdminShell (fase 4)
+   één echt component-adminscherm als htmx-pilot (kandidaat: de **werkbank** —
+   nieuw scherm, dus geen herbouwkost) naast de bestaande React-schermen.
+2. **Meet**: ontwikkelsnelheid (AI-assisted), regels code, gedrag op mobiel,
+   en of de facade-discipline standhoudt (import-linter op UI-routes).
+3. **Beslis per shell** (21.3-hybride is een geldig eindstation); de
+   form-builder blijft in elk scenario het langst een React-eiland.
+4. **Onvoorwaardelijk, nu al**: JSON-facade/OpenAPI als contract behouden (21.2)
+   en de UI-kit-inspanning (§11) technologie-neutraal formuleren (patronen en
+   tokens, niet React-componenten alléén) — dan is niets van dat werk weggegooid,
+   welke kant dit ook opvalt.
