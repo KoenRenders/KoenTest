@@ -758,3 +758,28 @@ precies één plek: de **werkbank**.
 - **Heropener → echte engine** (past bij §18): parallelle takken,
   timers/escalaties, compensatie, langdurige multi-rol-processen. Europe-First-
   kandidaten: Camunda (DE), Flowable (CH), of Python-native SpiffWorkflow (OSS).
+
+### 20.7 Gegenereerde relatienavigatie (conventies + register)
+Eén declaratie per relatie (de soft-refs uit de CONTRACT-manifesten vormen het
+**relatieregister**) genereert navigatie in **beide richtingen**:
+- **Uitgaand**: een soft-ref is nooit platte tekst — overal `<RecordLink>` (chip
+  met component-icoontje + naam → fiche).
+- **Inkomend**: de doel-fiche toont automatisch een **smart button**
+  "Inschrijvingen (n)" → gefilterd grid, afgeleid uit andermans declaratie.
+- **Indirect**: directe refs automatisch; meer-hop-paden (gezin ⇒ personen ⇒
+  inschrijvingen, "Inschrijvingen gezinsleden") enkel op **expliciete
+  pad-declaratie** — geen transitieve sluiting (explosie/betekenisloos).
+
+Conventies die het generiek en grens-veilig houden:
+1. **Het doel-component bezit zijn eigen rijweergave** (kolommen/badge één keer
+   gedefinieerd; gast-fiches embedden die — nul kennis van andermans data).
+2. **Grid via de facade van de eigenaar** (list + ref-filter) en **erft diens
+   autorisatie** (FINANCE-only relatie → teller zonder doorklik of verborgen).
+3. **Route- & icoonconventie**: `/admin/<component>/<id>` + vast icoon per
+   component; `<RecordLink>` resolvet puur op `(component, id)`.
+
+Mechaniek: register = data (kernel-endpoint, afgeleid uit CONTRACT-declaraties);
+ObjectPage-template rendert smart buttons + embedded grids generiek. **Nieuwe
+relatie declareren = link + knop + grid, nul schermcode.** Proces prikt erdoor:
+statusbalk op de fiche, statusbadges in grids, werkbank-taken deep-linken naar
+dezelfde fiches.
