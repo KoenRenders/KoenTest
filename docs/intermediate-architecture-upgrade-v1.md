@@ -714,3 +714,13 @@ precies één plek: de **werkbank**.
   record en sluiten/annuleren automatisch als de beslissing elders valt of de
   grond vervalt. De taak volgt het record, nooit omgekeerd — één stale taak en
   niemand vertrouwt "werkbank leeg = niets te doen" nog.
+- **Losse koppeling & uitval**: de werkbank bezit niets — hij *federeert* per
+  component via de facade (uniforme taakvorm). Valt een component uit, dan
+  blijven de taken van de overige componenten verschijnen en toont het
+  uitgevallen component expliciet "niet bereikbaar — taken onbekend" (optioneel
+  laatst-gekende snapshot + tijdstempel); **"leeg" en "onbekend" nooit vermengen**.
+  Openstaan is toestand ín het component, dus uitval kost enkel tijdelijk
+  zichtbaarheid, nooit correctheid — komt het component terug, dan verschijnen de
+  nog-relevante taken vanzelf (geen replay/reconciliatie). In de monoliet is dit
+  theoretisch (één proces); het contract wordt nu al zo vastgelegd voor latere
+  extractie.
