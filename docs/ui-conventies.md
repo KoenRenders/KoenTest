@@ -9,7 +9,11 @@
 > feitelijke toestand ("zo ís het nu"); **SOLL** = de gewenste doeltoestand
 > ("zo móét het worden"). De kluslijst is telkens het pad van IST naar SOLL.
 > Uitvoering loopt mee met de UI-kit (architectuurdoc §11/§19.6); dit document
-> is de specificatie ervan.
+> is de specificatie ervan. De conventies zijn **technologie-neutraal**; sinds de
+> frontend-beslissing (architectuurdoc §21: htmx + Jinja + Alpine) wordt de UI-kit
+> gebouwd als **design-tokens + Jinja-macro's**, en worden de kluslijsten per
+> pagina uitgevoerd **bij de omklap van dat scherm** — niet meer als
+> React-verbouwing vooraf.
 
 ---
 
