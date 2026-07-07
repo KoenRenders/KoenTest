@@ -394,6 +394,14 @@ mogelijk maakt — een component eruit tillen is dan `git mv` + eigen deploy, ge
 herschrijving. We betalen de operationele kost van N processen/DB's pas als een
 component er echt uit moet (§18).
 
+**Backup blijft één commando.** Schema's zijn namespaces *binnen* één database:
+één `pg_dump` van die database neemt álle schema's mee (tabellen, sequences,
+indexes, grants) — één backup, één restore, één consistent point-in-time-beeld
+over alle componenten heen. De bestaande `db-backup`-service werkt dus ongewijzigd
+door; niets hoeft per schema gescript te worden. Pas als een component ooit een
+éigen database/instance krijgt (eindtoestand-optie), splitst zijn backup mee af —
+en dan bewust, met het component, niet als verborgen bijwerking.
+
 **De GUI-orchestrator**: twee dunne **shells** die zelf géén domeincode bevatten —
 **AdminShell** (navigatie, login, layout, UI-kit, rol-gating) en **PublicShell**
 (publieke site per unit). Een shell *componeert* de `frontend/`-features van de
