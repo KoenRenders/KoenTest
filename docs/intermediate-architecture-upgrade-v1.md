@@ -580,3 +580,88 @@ vast paginaritme, wizard/builder/matrix-patronen. Adviezen:
 8. **Dark mode: niet doen** (kost veel, levert hier niets).
 Alles behalve 1 en 3 lost de geplande **UI-kit + AdminConsole-template** (F/§11)
 in één beweging op; 1 en 3 zijn de enige nieuwe ontwerpkeuzes.
+
+---
+
+## 20. Navigatiepatroon: fichebak × proces ("record-centric, process-overlay")
+
+Twee historische benaderingen, elk met een gat:
+- **Data-gedreven navigatie** (van elk scherm via een grid naar elk gerelateerd
+  record): perfect vindbaar, maar kent geen *proces* — het systeem weet niet wat
+  de volgende stap is.
+- **Wizard-gedreven proces**: perfecte begeleiding, maar nadien is niets terug te
+  vinden of te wijzigen — de wizard is een silo.
+
+De synthese bestaat en is het kernpatroon van moderne ERP's (Odoo, Salesforce
+"Path", Dynamics BPF): **records zijn de waarheid, processen zijn overlays.**
+
+### 20.1 De vier bouwstenen
+
+**1 · Objectpagina (de fiche).** Elk kernrecord (persoon, gezin, activiteit,
+inschrijving, betaling, formulier-inzending) heeft één canoniek adres
+(`/admin/<component>/<id>`, deep-linkbaar) met een vaste opbouw:
+kop (identiteit + statusbadge + acties) → detailvelden → **gerelateerde grids**
+→ **tijdlijn**. De AdminConsole-template (§11) krijgt er zo een zuster bij:
+de **ObjectPage-template**.
+
+**2 · Relatienavigatie (de fichebak).** Elke gedeclareerde relatie — de
+soft-refs en de "consumeert"-lijsten uit `CONTRACT.md` (§12) zijn samen al een
+**machine-leesbare relatiegraaf** — verschijnt op de fiche als *smart button*
+(label + aantal: "Betalingen (3)") die een **gefilterd grid** opent; elke
+grid-rij klikt door naar díe fiche. Zo is elk record vanaf elk record bereikbaar
+via zijn echte datarelaties, zonder per scherm navigatie te programmeren: de
+grids worden **afgeleid uit de declaraties**, niet handgebouwd. Een
+**broodkruimelpad** onthoudt de afgelegde route (gezin → lid → inschrijving →
+betaling) zodat teruglopen triviaal is.
+
+**3 · Proces als overlay (de wizard, getemd).** Een proces bezit géén data; het
+is een **statusveld + taken op bestaande records** (workflow-component, §5.7):
+- Op de fiche: een **statusbalk** (nieuw → in behandeling → in orde) met de
+  toegestane overgangen als knoppen — het proces is *zichtbaar op het record*.
+- Cross-record: de **takeninbox** ("wat wacht op mij?") verwijst naar fiches.
+- De **wizard bestaat alleen als capture-modus** (publieke inschrijving,
+  formulier): een begeleide walk die gewone records aanmaakt. Na afloop bestaat
+  de wizard niet meer — er zíjn alleen records, dus wijzigen/terugvinden loopt
+  altijd via de fiche. Hervatten = de fiche openen, niet de wizard herstarten.
+
+**4 · Vindbaarheid.** Drie ingangen, alle drie eindigend op een fiche:
+relatienavigatie (blader), **globale zoek/command-palette** (Ctrl+K: naam, id,
+e-mail → fiche), en de **takeninbox** (proces). De **tijdlijn** op elke fiche
+(gratis uit de history-mixin, §5.8: wie/wat/wanneer, incl. procesovergangen)
+beantwoordt "wat is hier gebeurd?" zonder zoeken.
+
+```mermaid
+flowchart LR
+  T["takeninbox<br/>(proces)"] --> F
+  Z["zoek / Ctrl+K"] --> F
+  F["FICHE<br/>kop + status(balk) + acties<br/>tijdlijn"] -->|"smart button (n)"| G["gefilterd grid<br/>gerelateerde records"]
+  G -->|rij| F2["andere FICHE"]
+  F2 -. broodkruimel terug .-> F
+  W["wizard (enkel capture)"] -->|maakt records| F
+```
+
+### 20.2 Waarom dit hier bijna gratis is
+- **Relatiegraaf**: soft-refs (waarde-id's) + `CONTRACT.md`-declaraties bestaan al
+  in het ontwerp — de related-grids zijn er een *afleiding* van. Nieuwe relatie
+  gedeclareerd = nieuwe smart button, nul schermcode.
+- **Tijdlijn**: de history-mixin levert de feed per record.
+- **Proces**: de workflow-component levert status + taken; de statusbalk is er de
+  fiche-weergave van.
+- **Grens blijft intact**: een related-grid toont data van een ánder component
+  via diens facade/list-API (gefilterd op de soft-ref) — geen reach-in; de
+  navigatie respecteert de moduulgrenzen.
+
+### 20.3 Regels (samenvatting)
+1. Elk kernrecord heeft één canonieke, deep-linkbare fiche.
+2. Navigatie wordt **afgeleid uit gedeclareerde relaties**, nooit per scherm
+   gebouwd.
+3. Een proces bezit geen data: status op het record, taken in de inbox, wizard
+   enkel als capture-modus.
+4. Alles wat een wizard aanmaakt, is nadien via de fiche vindbaar én wijzigbaar
+   (binnen de businessregels).
+5. Elke fiche toont zijn tijdlijn.
+
+**To-do's (backlog, sluit aan op F/§11)**: ObjectPage-template + smart-button/
+related-grid-afleiding uit de relatie-declaraties + broodkruimelpad; statusbalk +
+takeninbox mee met de workflow-component (Fase 4); command-palette later (nice to
+have).
