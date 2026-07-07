@@ -783,3 +783,20 @@ ObjectPage-template rendert smart buttons + embedded grids generiek. **Nieuwe
 relatie declareren = link + knop + grid, nul schermcode.** Proces prikt erdoor:
 statusbalk op de fiche, statusbadges in grids, werkbank-taken deep-linken naar
 dezelfde fiches.
+
+### 20.8 Afgeleide relaties op e-mail — suggestie, geen identiteit
+Anonieme captures (inschrijving/formulier) met een e-mailadres dat in MDM
+voorkomt: **tonen, maar als aparte suggestie-laag** — een e-mail-match is een
+claim, geen geverifieerde identiteit (en vaak gezinsbezit → op gezinsniveau
+sterker dan op persoonsniveau).
+- **Drie zekerheidsniveaus**: bevestigd (soft-ref gezet: ingelogd/geverifieerd of
+  admin-bevestigd) → gewone smart button; **gesuggereerd** (e-mail-match) →
+  visueel apart "Mogelijk gerelateerd (op e-mail): n", nooit vermengd;
+  afgewezen → bewaard besluit (suggestie blijft weg).
+- **Acties**: "Koppel" (zet de soft-ref; beslistaak/één klik) of "Negeer"
+  (bewaarde markering — §20.5: een afwijzing is ook een beslissing).
+- **Matching blijft afgeleid** (query op weergavemoment): e-mail-wijzigingen en
+  MDM-merges bewegen automatisch mee; pas bevestigen materialiseert.
+- **Ledenportaal-uitzondering**: na magic-link/OTP-login is het mailbezit
+  bewezen → daar mag een match auto-claimen ("deze inschrijving is van jou?") of
+  stil koppelen.
