@@ -541,7 +541,7 @@ bij F, de uitrol start pas bij een concrete tweede tenant.
 | **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, CSP zonder unsafe-inline/eval, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`); observability (error-tracking/logs/uptime/alerts); restore-oefening per release; rate-limiter-1-worker-aanname borgen | nieuw |
 | **O · Opruiming** (§19, kan vóór alles) | `business_events` verwijderen; `domains/common/` + stale docs weg; dead-endpoint-sweep. (`ideas` → formulier + minimale workflow verhuist naar fase 4: vereist de workflow-component) | nieuw |
 | **T · Taalbeleid** (§22, kan vóór alles) | Babel + `nl_BE`-catalogus; backend-teksten (e-mails, validatie, ODS-koppen) door `_()`; extract/lint-gate in CI; nieuwe code/DB/tests Engels | nieuw |
-| **W · Werving & communicatie** (§23, ná MDM + workflow; consent-capture kan eerder mee) | opt-in/consent in MDM + suppressielijst; segment-queries; gepersonaliseerde AI-nieuwsbrief met werkbank-review; levenscyclus-flows (na deelname, eerste-deelname→word-lid, verlenging, win-back); enquête (form + selectieve AI-chat); feedback-scheiding intern/extern; vergaderassistent; SVG-affichegenerator | nieuw |
+| **W · Werving & communicatie** (§23, ná MDM + workflow; consent-capture kan eerder mee) | opt-in/consent in MDM + suppressielijst; segment-queries; AI-nieuwsbrief (personalisatie enkel aanhef) met werkbank-review; levenscyclus-flows (na deelname, eerste-deelname→word-lid, verlenging, win-back); enquête (form + selectieve AI-chat); feedback-scheiding intern/extern; vergaderassistent; SVG-affichegenerator | nieuw |
 
 **Klaar wanneer** (per blok, de stuurbaarheid als de tijd op is):
 - **H**: pre-migratie-backup + smoke-gate + één geslaagde restore-oefening draaien op PROD-deployflow.
@@ -1311,12 +1311,13 @@ merge-proof via soft-refs):
   voorbije activiteiten, foto's, inschrijvingscijfers en de goedgekeurde
   feedback (23.5) — het knip-en-plakwerk van vandaag (website afstruinen, tekst
   schrijven, foto's zoeken, leden selecteren) vervalt.
-- **Gepersonaliseerd op gezinsniveau, relevant zonder opdringerig**: persoonlijke
-  aanhef ("Dag Femke," i.p.v. "Beste leden,") en **interesse-blokken** per gezin
-  uit de deelnamegeschiedenis — wie naar de kookavond kwam, krijgt de nieuwe
-  kookactiviteit uitgelicht; een gezin met kinderactiviteiten-historiek de
-  speelnamiddag. Zelfde brief, andere accenten; samengesteld uit
-  segment-bouwstenen (23.2), geen N losse brieven.
+- **Personalisatie beperkt tot de aanhef** ("Dag Femke," i.p.v. "Beste leden,");
+  de **inhoud is voor iedereen dezelfde** — leden en niet-leden krijgen dezelfde
+  nieuwsbrief (beslist 2026-07-09). Interesse-blokken per gezin uit de
+  deelnamegeschiedenis zijn een bewuste **niet-nu** (heropener: pas als de
+  gewone nieuwsbrief draait en er een concrete reden is); de gerichte
+  per-segment-communicatie loopt via de levenscyclus-flows hieronder, niet via
+  de nieuwsbrief.
 - **AI stelt het concept op** in de tone-of-voice van de vereniging
   (voorbeeldteksten als context — het bestaande Raakje/ai-context-mechanisme).
 - **Mens als eindredacteur, via de werkbank**: het concept verschijnt als
