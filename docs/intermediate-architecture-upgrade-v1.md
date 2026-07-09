@@ -13,7 +13,8 @@ De **kernbeslissingen** in één zin elk (details/ADR's staan in de genoemde sec
 
 1. **Package-by-domain** met facade `api.py` als enige deur; grens afgedwongen door
    import-linter (§1, §8, §13).
-2. **Eigen Postgres-schema per component** (eigen Alembic-keten waar afsplitsbaar);
+2. **Eigen Postgres-schema per component**, maar **één Alembic-keten tot
+   extractie** (beslist 2026-07-09);
    één database → backup blijft één `pg_dump` (§13.1).
 3. **auth, mail, MDM = laag 1**; domeinen praten enkel via facades/events (§5, §8).
 4. **MDM**: nooit hard verwijderen — merge/survivorship + tombstone; anderen
@@ -351,8 +352,10 @@ Harde eis: **elke unit is een zelfstandig indexerende site** (Google/Bing/Qwant)
 | **2 · Domeinen** | form, payment, activities, membership, workflow, cms, chatbot | kernel + laag-1-facades + elkaars facades/events |
 
 Gehandhaafd door: **(1)** import-linter in CI (mapgrens = moduulgrens); **(2)** geen
-cross-schema FK's (integratietest op `information_schema`); **(3)** aparte Alembic-keten
-per afsplitsbaar component (drift/één-head-tests); **(4)** later per-schema `GRANT` + RLS.
+cross-schema FK's (integratietest op `information_schema`); **(3)** één Alembic-keten
+met één-head- + drift-test — een éigen keten per component pas bij extractie (de
+grens wordt bewaakt door (1)+(2), niet door ketensplitsing); **(4)** later
+per-schema `GRANT` + RLS.
 
 ---
 
@@ -382,7 +385,7 @@ Vier lagen, van snel/lokaal naar breed:
 3. **Integratie-flow** — "golden flows" tegen de echt gewired app + alle schema's, bv.:
    *inschrijving → membership-check → betaling → mail + history*; *formulier → submission
    → confirmatiemail*; *terugvordering (FINANCE) → payment-status + mail*.
-4. **Migratie/grens** — per keten: één head, autogenerate-drift, geen cross-schema FK.
+4. **Migratie/grens** — één head, autogenerate-drift, geen cross-schema FK.
 
 CI: unit + contract + linter op elke push; integratie + migratie op PR/merge (echte
 Postgres 16, alle ketens). Import-linter sluit *verborgen* koppeling uit, contract-tests
@@ -445,8 +448,9 @@ app/
   main.py     # mount enkel domains/*/router.py
   # routers/ models/ services/ schemas/ → lopen leeg en verdwijnen
 ```
-Interne modules (cms, activities, analytics) krijgen wél een eigen schema, géén eigen
-keten (§14).
+Alle componenten — ook de afsplitsbare — delen dus de ene keten; het
+onderscheid intern/afsplitsbaar zit in het schema-eigenaarschap en de facade,
+niet in de migratieketen (§15).
 
 **Frontend** — geen aparte spiegelboom: schermen wonen ín de component-map
 (`templates/` + `ui.py`, §13.1); de UI-kit is een gedeelde Jinja-macro-bibliotheek
@@ -474,11 +478,12 @@ domains/payment/
   api.py router.py schemas.py service.py models.py   # backend
   ui.py                  # UI-routes: view-model bouwen, template kiezen (§21)
   templates/             # Jinja-templates + htmx-fragmenten van dit component
-  migrations/            # eigen Alembic-keten (afsplitsbare apps)
   tests/                 # unit + contract van dit component
   CONTRACT.md            # publiceert / consumeert / bezit / deprecaties
   seeds.py               # referentiedata van dit component
 ```
+(Migraties blijven in de éne centrale keten; een eigen `migrations/`-map komt er
+pas op de dag van extractie — §15.)
 
 Maar in de **intermediate** fase is dat een *package*, geen *deployable*: er blijft
 **één backend-proces** (FastAPI mount routers én UI-routes; serveert JSON én HTML,
@@ -516,8 +521,9 @@ Eén ingang (`make ci` / `./build.sh`) die lokaal en in CI **identiek** is:
 
 1. **Build** — backend-image (alle componenten, incl. `check_imports`),
    AdminShell + PublicShell (`tsc` + `next build`).
-2. **Migrate** — alle Alembic-ketens in laagvolgorde (kernel → laag 1 → laag 2),
-   per keten: precies één head + autogenerate-drift-check.
+2. **Migrate** — de (ene) Alembic-keten: precies één head +
+   autogenerate-drift-check. (Meerdere ketens, in laagvolgorde, pas na een
+   eerste extractie.)
 3. **Test** — per component zijn eigen suite (parallelliseerbaar, CI-matrix per
    map: alleen gewijzigde componenten + hun consumenten hoeven te draaien) → daarna
    de golden flows.
@@ -545,8 +551,8 @@ bij F, de uitrol start pas bij een concrete tweede tenant.
 
 | Blok | Werkpakketten | Status |
 |---|---|---|
-| **F · Fundering** | kernel optrekken (events/contracts/tenancy-mixin/history/security/**job-primitief §5.8**); import-linter-harness; component-scaffold + `CONTRACT.md`-template; test-harness (contract + golden-flow); UI-kit als **design-tokens + Jinja-macro's** (§21; basis-set, groeit per omklap) | nieuw |
-| **0 · Form-sjabloon** | forms→`domains/forms` + facade; import-linter; schema `form` + handoff; 2e keten + integratietests | **#360–#363** |
+| **F · Fundering** | kernel optrekken (events/contracts/tenancy-mixin/history/security/**job-primitief §5.8**); import-linter-harness (mág ook één pytest van ~20 regels zijn die de import-graph tegen de laagregels toetst — geen nieuwe tool waar een test volstaat); component-scaffold + `CONTRACT.md`-template; test-harness (contract + golden-flow); UI-kit als **design-tokens + Jinja-macro's** (§21; basis-set, groeit per omklap) | nieuw |
+| **0 · Form-sjabloon** | forms→`domains/forms` + facade; import-linter; schema `form` + handoff; integratietests (géén 2e keten — §15) | **#360–#363** |
 | **P · Micro-pilot htmx** (direct na 0) | het **berichten/behartigen-scherm** (§5.7) als eerste htmx/Jinja/Alpine-scherm: base-layout, sessie-auth-pad, CSRF-conventie, eerste macro's; **inclusief de minimale workflow-kern** (één taak, sluit door toestand) als embryo van de latere workflow-component — P wacht dus níét op Fase 4; meetlat van §21.4 toegepast — dít valideert de frontend-keuze vóór de dure blokken | nieuw |
 | **1 · Cross-cutting** | mail-component; auth-component (laag 1) | nieuw |
 | **2 · MDM** | MDM (+ `external_numbers`) + schema/keten; merge/survivorship; soft-ref-patroon | nieuw |
@@ -562,7 +568,7 @@ bij F, de uitrol start pas bij een concrete tweede tenant.
 **Klaar wanneer** (per blok, de stuurbaarheid als de tijd op is):
 - **H**: pre-migratie-backup + smoke-gate + één geslaagde restore-oefening draaien op PROD-deployflow.
 - **F**: scaffold + linter + test-harness bestaan én zijn door Fase 0 als eerste klant bewezen.
-- **0**: forms leeft in `domains/forms` met eigen schema/keten, linter groen, golden flow groen.
+- **0**: forms leeft in `domains/forms` met eigen schema, linter groen, golden flow groen.
 - **P**: berichten-scherm live op HDEV in htmx; §21.4-meetlat ingevuld → go/no-go voor de bredere omklap.
 - **1–4**: per component zelfde definitie als 0 (map + schema + contract + tests groen); werkbank-v1 = taken tonen/sluiten voor de berichten-workflow.
 - **5**: een tweede tenant draait productief op een eigen hostname zonder codewijziging.
@@ -585,8 +591,11 @@ bij F, de uitrol start pas bij een concrete tweede tenant.
 - ✅ **Taalbeleid: Engels binnenin, weergave via Babel** (nl-BE eerst) — code/DB/
   tests/technische docs Engels; alle gebruikerstekst door de catalogus; Babel
   start al backend-side vóór de htmx-migratie — **§22**.
-- ✅ **Eigen Alembic-keten** voor afsplitsbare apps (auth, mail, MDM, form, payment);
-  interne modules enkel een eigen schema.
+- ✅ **Eén Alembic-keten tot extractie** (beslist 2026-07-09; verving "eigen keten
+  per afsplitsbaar component"): elk component een eigen **schema**; een eigen
+  keten pas op de dag van een eigen deploy. De grens wordt bewaakt door
+  import-linter + geen-cross-schema-FK-test — ketensplitsing bewijst niets
+  extra en kost N head-/drift-checks en volgorde-afspraken in de build.
 - ✅ **auth = één fundamentele component** (niet gesplitst; verify-mechanisme in kernel).
 - ✅ **MDM**: `master`→MDM; bevat `external_numbers`; **nooit verwijderen +
   merge/survivorship**; anderen verwijzen via **soft-ref** (waarde-id).
@@ -735,6 +744,8 @@ Snoeien is ook architectuur. Levend register, zelfde geest als §18:
 | **Dode-code-batch backend (sweep 2026-07-09, geverifieerd)**: `import_leden.py`-CLI is kapot sinds #377 (importeert het verwijderde `filter_test`) + `read_ledenrapport`-helper; 9 dode schemaklassen (5 duplicaten in `schemas/family.py`, 4 in `schemas/member.py`, `PaymentRecordCreate`); dood endpoint `GET /payment-gateway/payments/{id}`; batch ongebruikte module-imports | −~270 regels, minder valkuil-duplicaten (dubbele klassennamen wijken subtiel af) |
 | **Duplicaat-helpers-batch (sweep 2026-07-09, geverifieerd)**: contact-upsert-closure 2× (admin- + zelfbedieningsrouter); `_load_activity_or_404` bestaat maar 5× inline herhaald (component-lookup 4×); formulier-antwoorden 2× geflattened in `form_export.py` — **mét bestaande drift, dus bug-risico**; hernieuwingsvenster-regel 2×; `net_paid`-sommatie 2× inline naast de helper | elk 1 implementatie; de form_export-drift is meteen een correctness-fix |
 | **`isomorphic-dompurify` → kale `dompurify`** (we saniteren enkel client-side) | −jsdom en ~60 transitieve packages |
+| **`mistralai`-SDK → kale `httpx`-calls in de adapter** (§5.5; de SDK sleept o.a. opentelemetry mee, wij gebruiken een fractie) | −hele dependency-tak; "provider wisselen = config" wordt letterlijker |
+| **Auth: browser = HttpOnly-sessie, machine = statische API-key per consument** (bij de htmx-omklap) | −JWT-machinerie (uitgifte/TTL/refresh) voor een handvol machine-consumenten; JWT terug op tafel pas bij echte federatie (§18-geest) |
 | **Consolidaties die code verwijderen** (vallen onder F/§11, **uitvoeren als Jinja-macro's bij de omklap per scherm — niet meer in React**): UI-kit (6 badges→1, 4 modals→1, 13 `confirm()`→1), één PaymentRecord-lookup-helper, design-tokens één bron. Handgeschreven `api.ts` + dubbele types verdwijnen per omklap vanzelf | netto mínder regels, zelfde gedrag |
 
 **Te verifiëren (sweep 2026-07-09, verificatie gestrand — eerst toetsen, dan pas
@@ -1188,7 +1199,11 @@ Conclusie: er is geen verborgen betere derde weg; het speelveld is
   doordat het omklappen meelift met de modularisatie-fases. **Eindstreep,
   meetbaar**: de frontend-container (Next/Node) vervalt — de stack gaat per
   omgeving van 4 naar 3 services (db, backend serveert HTML+JSON, caddy);
-  tijdens de hybride periode blijft hij gewoon draaien.
+  tijdens de hybride periode blijft hij gewoon draaien. En **nul Node in de
+  toolchain** (beslist 2026-07-09): Tailwind via de **standalone-CLI** (één
+  binary, geen npm), e2e via **playwright-python** ín pytest — vitest, eslint
+  en tsc sterven mee met het laatste React-eiland. Eindbeeld-testframeworks:
+  **alleen pytest** (met playwright erin).
 - **Heropener**: de pilot zelf — valt de werkbank-pilot tegen op
   ontwikkelsnelheid, discipline (logica lekt naar templates ondanks linter) of
   UX, dan terug naar status quo/hybride zonder verlies (er is dan niets
