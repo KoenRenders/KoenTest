@@ -239,7 +239,9 @@ OrderLineEditor wisselt niet; laden-teksten wisselen ("Activiteiten laden…" vs
    e-mail».
 8. **Betaalmethode-vocabulaire**: één set codes over alle flows (voorstel:
    backend-canoniek `online`/`transfer`, frontend-labels "Online betalen"/
-   "Overschrijving") — opruimen samen met de OpenAPI-codegen (§19.4).
+   "Overschrijving") — opruimen bij de htmx-omklap van de betrokken schermen
+   (de TS-codegen uit §19.4 is geschrapt; het machinecontract-schema borgt de
+   canonieke codes).
 9. **Prijs**: álle prijsweergave via `money.ts` (`formatPrice` daarheen
    verhuizen/uitbreiden met "gratis" + ledenprijs-variant); nergens rauwe
    `toFixed(2)`.
