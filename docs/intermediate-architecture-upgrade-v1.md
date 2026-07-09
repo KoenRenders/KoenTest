@@ -737,6 +737,22 @@ Snoeien is ook architectuur. Levend register, zelfde geest als §18:
 | **`isomorphic-dompurify` → kale `dompurify`** (we saniteren enkel client-side) | −jsdom en ~60 transitieve packages |
 | **Consolidaties die code verwijderen** (vallen onder F/§11, **uitvoeren als Jinja-macro's bij de omklap per scherm — niet meer in React**): UI-kit (6 badges→1, 4 modals→1, 13 `confirm()`→1), één PaymentRecord-lookup-helper, design-tokens één bron. Handgeschreven `api.ts` + dubbele types verdwijnen per omklap vanzelf | netto mínder regels, zelfde gedrag |
 
+**Te verifiëren (sweep 2026-07-09, verificatie gestrand — eerst toetsen, dan pas
+in het register)**: wees-tabel `payment_status_codes` (enige FK verdween met de
+webshop, migratie 006); write-only kolommen (`forms.slug`,
+`contact_details.is_primary` altijd hardcoded True); `registration_type_codes` +
+kolommen overal hardcoded 'INDIVIDUAL'; `language`/`description` op de zes
+code-tabellen; 13 redundante `ix_<table>_id`-indexes bovenop primary keys;
+compose-env-blok 4× gedupliceerd; `deploy-uat.sh`/`deploy-prod.sh` en de
+`logging-*.sh`-drieling → één geparametriseerd script; `check_imports.py`
+(handmatige lijst vs. transitief `app.main`-import); seed-blokken in
+`startup.sh`; `caddy reload`-advies in compose-header vs. het verbod in
+`deploy-caddy.sh`; `lib/money.ts` mogelijk volledig dood; 5 dode
+`api.ts`-exports (2 naar onbestaande endpoints); dode types in `types.ts`;
+redirect-stub-routes → `next.config`; dubbele saldo-berekening
+betalingen-pagina; `parseApiError` omzeild in de twee publieke formulieren;
+afgeleide 'archived'-state; drie date-format-helpers + 13 inline formatteringen.
+
 **Niet snoeien** (lijkt vereenvoudiging, is het niet): migraties squashen (CI test
 nu de hele keten — dat is waarde), history-tabellen/e-maillog-body (audit-waarde,
 bewuste keuzes met retentie), tests, `member_import` (bevestigd terugkerend, #377 —
