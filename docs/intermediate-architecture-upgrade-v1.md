@@ -207,6 +207,22 @@ meteen de eenvoudigste referentie-workflow: één taak, sluit door toestand.
   Bij extractie van een component verandert dit per definitie → dán het
   **transactional-outbox-patroon** (event in dezelfde DB-transactie wegschrijven,
   aparte bezorger) — heropener in §18, niet vooraf bouwen.
+- **De event-ladder (beslist 2026-07-09)** — zo blijft "business event driven"
+  op LT géén hybride knoeiboel:
+  1. **In-transactie** (nu): alle events synchroon, zie hierboven.
+  2. **Outbox met Postgres als queue** — pas bij de éérste extractie, en enkel
+     voor de naden van dát component.
+  3. **Echte broker** — pas als meerdere geëxtraheerde componenten onderling
+     praten. Treden overslaan is verboden; elke trede heeft zijn trigger.
+  Twee harde regels: **(a) per event-type is de bezorging óf synchroon óf
+  asynchroon — nooit allebei, nooit "soms"** (de `CONTRACT.md` van de publisher
+  vermeldt welke, dus elke consument kent zijn semantiek); **(b) nooit een
+  message broker tussen componenten in hetzelfde proces** — dat betaalt alle
+  kosten van gedistribueerd (volgorde, retries, dubbele bezorging, idempotentie)
+  zonder één baat. Het vangnet bij async is er al: afgeleide toestandstaken in
+  de werkbank (§20.5) + reconciliatie (§19.2) maken een stille queue-storing
+  zichtbaar. Het programmeermodel verandert bij geen enkele trede — componenten
+  reageren op feiten en kennen elkaar niet; enkel de bezorging verhuist.
 - **Achtergrondwerk = kernel-primitief**: één **Postgres-gebaseerde job-tabel +
   scheduler-loop** in de kernel (geen Redis/Celery op deze schaal). Retentie-vegen,
   mail-retries, taak-respijttermijnen ("na N dagen"), reconciliaties — allemaal
@@ -531,7 +547,7 @@ bij F, de uitrol start pas bij een concrete tweede tenant.
 |---|---|---|
 | **F · Fundering** | kernel optrekken (events/contracts/tenancy-mixin/history/security/**job-primitief §5.8**); import-linter-harness; component-scaffold + `CONTRACT.md`-template; test-harness (contract + golden-flow); UI-kit als **design-tokens + Jinja-macro's** (§21; basis-set, groeit per omklap) | nieuw |
 | **0 · Form-sjabloon** | forms→`domains/forms` + facade; import-linter; schema `form` + handoff; 2e keten + integratietests | **#360–#363** |
-| **P · Micro-pilot htmx** (direct na 0) | het **berichten/behartigen-scherm** (§5.7) als eerste htmx/Jinja/Alpine-scherm: base-layout, sessie-auth-pad, CSRF-conventie, eerste macro's; meetlat van §21.4 toegepast — dít valideert de frontend-keuze vóór de dure blokken | nieuw |
+| **P · Micro-pilot htmx** (direct na 0) | het **berichten/behartigen-scherm** (§5.7) als eerste htmx/Jinja/Alpine-scherm: base-layout, sessie-auth-pad, CSRF-conventie, eerste macro's; **inclusief de minimale workflow-kern** (één taak, sluit door toestand) als embryo van de latere workflow-component — P wacht dus níét op Fase 4; meetlat van §21.4 toegepast — dít valideert de frontend-keuze vóór de dure blokken | nieuw |
 | **1 · Cross-cutting** | mail-component; auth-component (laag 1) | nieuw |
 | **2 · MDM** | MDM (+ `external_numbers`) + schema/keten; merge/survivorship; soft-ref-patroon | nieuw |
 | **3 · Payments** | `domains/payments` (gateway+status) + FINANCE-refund; **wees-record-check** op `payable_id` (§19) | **#365** |
@@ -649,7 +665,8 @@ Levend register: "LT" = heroverwegen zodra de trigger opduikt.
 | Feature-flag-platform | Lichte config-vlaggen volstaan. |
 | Kubernetes / auto-scaling | Docker-compose volstaat; bij schaalnood. |
 | "Dark" `tenant_id` vervroegd | Bewust niet (per app, getest). |
-| Transactional outbox voor events | Events zijn nu synchroon/in-transactie (§5.8); outbox pas bij extractie van een component. |
+| Transactional outbox voor events | Events zijn nu synchroon/in-transactie (§5.8); outbox pas bij extractie van een component — trede 2 van de event-ladder (§5.8). |
+| Message broker (Kafka/RabbitMQ) | Trede 3 van de event-ladder (§5.8): pas als meerdere geëxtraheerde componenten onderling praten; nooit tussen componenten in hetzelfde proces. |
 | Video-generatie (TikTok/Instagram) | Bewust niet bouwen (§23.7): platform levert script/tekst/beeldsuggesties; montage in bestaande tools (Canva/CapCut). |
 | Permissie-laag (permissies als data) | Vier rollen volstaan; bouwen zodra een rol fijnmaziger moet (bv. aparte merge- of refund-bevoegdheid). Ontwerpregel ligt vast in §5.1. |
 
@@ -671,6 +688,8 @@ payments-facade, de frontend-duplicatie bewijst de UI-kit (§11), de CI-gaten
 bewijzen §8/§10. Drie concrete aanvullingen + een vereenvoudigingsregister:
 
 ### 19.1 Operationele hardening (backlog-blok H)
+> Deze sectie is de **bron** van blok H; de §14-regel is de samenvatting en
+> §19.5 het uitvoeringsrecept — wijzig hier, vat daar samen.
 - **Deploy-vangnet** — pre-migratie-backup-hook in `deploy-prod.sh`, post-deploy
   smoke als **gate** (nu `|| true`), rollback-runbook. Klein werk, essentieel met
   financiële data; vereist de modularisatie niet.
@@ -713,7 +732,26 @@ Snoeien is ook architectuur. Levend register, zelfde geest als §18:
 | **`ideas` ("berichten") → geseed formulier + minimale workflow** (beslist; mét workflow — één menselijke taak *behartigen*, zie §5.7) | −router, −model+tabel, −admin-pagina, −IdeaBox-component, −idea_limiter |
 | **`domains/common/` (leeg) + `docs/change_request_0X.md`** opruimen | minder dode structuur |
 | **Dead-endpoint-sweep**: backend-routes vs. werkelijk `api.ts`-gebruik | kleiner API-oppervlak (kandidaat: 32 routes in `activities.py`) |
+| **Dode-code-batch backend (sweep 2026-07-09, geverifieerd)**: `import_leden.py`-CLI is kapot sinds #377 (importeert het verwijderde `filter_test`) + `read_ledenrapport`-helper; 9 dode schemaklassen (5 duplicaten in `schemas/family.py`, 4 in `schemas/member.py`, `PaymentRecordCreate`); dood endpoint `GET /payment-gateway/payments/{id}`; batch ongebruikte module-imports | −~270 regels, minder valkuil-duplicaten (dubbele klassennamen wijken subtiel af) |
+| **Duplicaat-helpers-batch (sweep 2026-07-09, geverifieerd)**: contact-upsert-closure 2× (admin- + zelfbedieningsrouter); `_load_activity_or_404` bestaat maar 5× inline herhaald (component-lookup 4×); formulier-antwoorden 2× geflattened in `form_export.py` — **mét bestaande drift, dus bug-risico**; hernieuwingsvenster-regel 2×; `net_paid`-sommatie 2× inline naast de helper | elk 1 implementatie; de form_export-drift is meteen een correctness-fix |
+| **`isomorphic-dompurify` → kale `dompurify`** (we saniteren enkel client-side) | −jsdom en ~60 transitieve packages |
 | **Consolidaties die code verwijderen** (vallen onder F/§11, **uitvoeren als Jinja-macro's bij de omklap per scherm — niet meer in React**): UI-kit (6 badges→1, 4 modals→1, 13 `confirm()`→1), één PaymentRecord-lookup-helper, design-tokens één bron. Handgeschreven `api.ts` + dubbele types verdwijnen per omklap vanzelf | netto mínder regels, zelfde gedrag |
+
+**Te verifiëren (sweep 2026-07-09, verificatie gestrand — eerst toetsen, dan pas
+in het register)**: wees-tabel `payment_status_codes` (enige FK verdween met de
+webshop, migratie 006); write-only kolommen (`forms.slug`,
+`contact_details.is_primary` altijd hardcoded True); `registration_type_codes` +
+kolommen overal hardcoded 'INDIVIDUAL'; `language`/`description` op de zes
+code-tabellen; 13 redundante `ix_<table>_id`-indexes bovenop primary keys;
+compose-env-blok 4× gedupliceerd; `deploy-uat.sh`/`deploy-prod.sh` en de
+`logging-*.sh`-drieling → één geparametriseerd script; `check_imports.py`
+(handmatige lijst vs. transitief `app.main`-import); seed-blokken in
+`startup.sh`; `caddy reload`-advies in compose-header vs. het verbod in
+`deploy-caddy.sh`; `lib/money.ts` mogelijk volledig dood; 5 dode
+`api.ts`-exports (2 naar onbestaande endpoints); dode types in `types.ts`;
+redirect-stub-routes → `next.config`; dubbele saldo-berekening
+betalingen-pagina; `parseApiError` omzeild in de twee publieke formulieren;
+afgeleide 'archived'-state; drie date-format-helpers + 13 inline formatteringen.
 
 **Niet snoeien** (lijkt vereenvoudiging, is het niet): migraties squashen (CI test
 nu de hele keten — dat is waarde), history-tabellen/e-maillog-body (audit-waarde,
@@ -755,8 +793,9 @@ wordt — geen investering meer waard; de omklap ís de fix.
       `toEditForm`/`toPayload` uit de form-builder extraheren + round-trip-testen;
    b. golden-flow-e2e: inschrijving mét betalend product, formulier mét branching,
       admin-login → daarna e2e blokkerend;
-   c. component-tests enkel voor de UI-kit-primitieven (één keer de kit testen
-      verslaat elke pagina testen).
+   c. de UI-kit-primitieven één keer testen verslaat elke pagina testen — ná
+      §21 zijn dat **Jinja-macro-rendertests in pytest** (server-side), geen
+      React/vitest-componenttests; vitest blijft enkel voor JS-eilanden.
 4. **`mock_mollie`-gat**: happy-path-test mét bedragverificatie (nu enkel een
    mismatch-test; de mock slaat de controle standaard over).
 5. **Dunne routers bijtesten**: cms en users hebben nauwelijks dekking — per
@@ -1100,7 +1139,8 @@ Conclusie: er is geen verborgen betere derde weg; het speelveld is
    **berichten/behartigen-scherm**, direct na Fase 0 (blok P in §14) — nieuw
    scherm, dus geen herbouwkost, en het valideert de keuze vóór de dure blokken.
    De **werkbank** (fase 4) is de tweede, zwaardere toets (incl. één
-   realtime-element via SSE, bv. de live takenteller).
+   live-verversen-element — htmx-polling conform §20.5; SSE pas als polling
+   aantoonbaar knelt).
 2. **Meet**: ontwikkelsnelheid (AI-assisted), regels code, gedrag op mobiel,
    en of de facade-discipline standhoudt (import-linter op UI-routes).
 3. **Beslis per shell** (21.3-hybride is een geldig eindstation); de
