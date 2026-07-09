@@ -1363,16 +1363,18 @@ de scheiding is een hard veld op de data ("intern"-vlag), geen prompt-instructie
 ### 23.6 Vergaderassistent voor het bestuur
 
 De maandelijkse vergadering heeft een vaste structuur — en elk agendapunt is een
-query op data die er al is (rapportageschema §5.8 + werkbank):
-1. **Vorige activiteiten**: deelnemersaantallen, inkomsten, foto's, feedback
+query op data die er al is (rapportageschema §5.8):
+1. **Vorige activiteiten**: deelnemersaantallen, inkomsten, feedback
    (23.5-intern), verbeterpunten — automatisch gevuld.
 2. **Komende activiteiten**: checklist per activiteit (communicatie klaar?
-   affiche? inschrijvingen? helpers? materiaal?) — dit zíjn werkbank-taken.
+   affiche? inschrijvingen? helpers? materiaal?).
 3. **Leden**: nieuwe leden, vertrokken leden, openstaande lidgelden.
 4. **Lange termijn** en **varia**: vrije punten.
 Na afloop: AI maakt het **verslag + actiepunten** (verantwoordelijke +
-deadline-voorstel) — en die actiepunten wórden werkbank-taken, geen apart
-lijstje dat niemand nog opent. Spraak→verslag kan via de bestaande STT (§5.5).
+deadline-voorstel) — als onderdeel van het verslag; bewust **geen**
+werkbank-koppeling (de werkbank blijft voor systeem-excepties en
+workflow-taken, §20.5 — geen vergaderactielijst). Spraak→verslag kan via de
+bestaande STT (§5.5).
 
 ### 23.7 Affiches & beeldmateriaal: template + AI, geen platte prenten
 
