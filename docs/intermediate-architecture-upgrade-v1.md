@@ -541,7 +541,7 @@ bij F, de uitrol start pas bij een concrete tweede tenant.
 | **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, CSP zonder unsafe-inline/eval, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`); observability (error-tracking/logs/uptime/alerts); restore-oefening per release; rate-limiter-1-worker-aanname borgen | nieuw |
 | **O · Opruiming** (§19, kan vóór alles) | `business_events` verwijderen; `domains/common/` + stale docs weg; dead-endpoint-sweep. (`ideas` → formulier + minimale workflow verhuist naar fase 4: vereist de workflow-component) | nieuw |
 | **T · Taalbeleid** (§22, kan vóór alles) | Babel + `nl_BE`-catalogus; backend-teksten (e-mails, validatie, ODS-koppen) door `_()`; extract/lint-gate in CI; nieuwe code/DB/tests Engels | nieuw |
-| **W · Werving & communicatie** (§23, ná MDM + workflow; consent-capture kan eerder mee) | opt-in/consent in MDM + suppressielijst; segment-queries; AI-nieuwsbrief met werkbank-review; levenscyclus-flows (eerste deelname → word lid, verlenging, win-back) | nieuw |
+| **W · Werving & communicatie** (§23, ná MDM + workflow; consent-capture kan eerder mee) | opt-in/consent in MDM + suppressielijst; segment-queries; gepersonaliseerde AI-nieuwsbrief met werkbank-review; levenscyclus-flows (na deelname, eerste-deelname→word-lid, verlenging, win-back); enquête (form + selectieve AI-chat); feedback-scheiding intern/extern; vergaderassistent; SVG-affichegenerator | nieuw |
 
 **Klaar wanneer** (per blok, de stuurbaarheid als de tijd op is):
 - **H**: pre-migratie-backup + smoke-gate + één geslaagde restore-oefening draaien op PROD-deployflow.
@@ -650,6 +650,7 @@ Levend register: "LT" = heroverwegen zodra de trigger opduikt.
 | Kubernetes / auto-scaling | Docker-compose volstaat; bij schaalnood. |
 | "Dark" `tenant_id` vervroegd | Bewust niet (per app, getest). |
 | Transactional outbox voor events | Events zijn nu synchroon/in-transactie (§5.8); outbox pas bij extractie van een component. |
+| Video-generatie (TikTok/Instagram) | Bewust niet bouwen (§23.7): platform levert script/tekst/beeldsuggesties; montage in bestaande tools (Canva/CapCut). |
 | Permissie-laag (permissies als data) | Vier rollen volstaan; bouwen zodra een rol fijnmaziger moet (bv. aparte merge- of refund-bevoegdheid). Ontwerpregel ligt vast in §5.1. |
 
 ### 18.1 Risicoregister (proces, niet techniek)
@@ -1270,6 +1271,15 @@ werving) **professioneel en grotendeels automatisch** te laten gebeuren — AI a
 extra vrijwilliger, de mens als eindredacteur. Europe-First: de LLM-adapter
 bestaat al (§5.5, Mistral); alles hieronder hergebruikt bestaande componenten.
 
+> **De ster is niet de technologie.** Het doel is *"mensen kennen elkaar opnieuw
+> in hun dorp"*: meer gezinnen bereiken, leden actiever maken, verbinding.
+> Vrijwilligers hebben een gezin, een job en andere engagementen — elke feature
+> hieronder wordt afgerekend op één vraag: **geeft dit tijd terug**, zodat
+> vrijwilligers minder achter de computer zitten en meer tussen de mensen staan?
+> De data ervoor is er al: leden- en gezinsregister, activiteiten,
+> deelnemersgeschiedenis en de fotobibliotheek — dit hoofdstuk activeert wat we
+> hebben.
+
 ### 23.1 Fundament eerst: toestemming (AVG) — de poort voor alles
 
 Niet-leden mailen mág alleen met **uitdrukkelijke opt-in**. Dit is geen rem maar
@@ -1297,22 +1307,105 @@ merge-proof via soft-refs):
 
 ### 23.3 AI-ondersteunde nieuwsbrief & opvolgmails
 
-- **AI stelt het concept op**: uit de activiteitenkalender, CMS-inhoud en vorige
-  edities genereert de LLM een nieuwsbrief-concept per segment (leden krijgen
-  ander accent dan niet-leden), in de tone-of-voice van de vereniging
+- **"Maak nieuwsbrief september"** is de hele opdracht: de AI kent de komende én
+  voorbije activiteiten, foto's, inschrijvingscijfers en de goedgekeurde
+  feedback (23.5) — het knip-en-plakwerk van vandaag (website afstruinen, tekst
+  schrijven, foto's zoeken, leden selecteren) vervalt.
+- **Gepersonaliseerd op gezinsniveau, relevant zonder opdringerig**: persoonlijke
+  aanhef ("Dag Femke," i.p.v. "Beste leden,") en **interesse-blokken** per gezin
+  uit de deelnamegeschiedenis — wie naar de kookavond kwam, krijgt de nieuwe
+  kookactiviteit uitgelicht; een gezin met kinderactiviteiten-historiek de
+  speelnamiddag. Zelfde brief, andere accenten; samengesteld uit
+  segment-bouwstenen (23.2), geen N losse brieven.
+- **AI stelt het concept op** in de tone-of-voice van de vereniging
   (voorbeeldteksten als context — het bestaande Raakje/ai-context-mechanisme).
 - **Mens als eindredacteur, via de werkbank**: het concept verschijnt als
   beslistaak (§20.5) — bewerken → goedkeuren → verzenden via de mail-component
   (logging/retentie gratis). **Nooit** ongelezen AI-tekst naar buiten.
 - **Levenscyclus-flows** (workflow-component, zero-touch met kill-switch per flow):
-  - *Na eerste deelname*: "Fijn dat je erbij was op <activiteit>! Wist je dat
-    leden …" + word-lid-link (de §379-flow eindigt hier).
+  - *Na deelname* (N dagen, bv. 3): bedankmail met vooruitblik — "Bedankt voor de
+    kookavond; in november is er opnieuw één."
+  - *Na eerste deelname van een niet-lid*: "Fijn dat je erbij was! Wist je dat je
+    voor €X per jaar lid wordt en toegang krijgt tot al onze activiteiten?" —
+    vermoedelijk de grootste wervingskans.
   - *Verlenging*: herinnering vóór het vervallen van het lidmaatschap.
   - *Win-back*: oud-leden één keer per seizoen een gerichte uitnodiging.
   - Elke flow = een workflow-definitie (§5.7), meetbaar (open/klik/conversie in
     eigen beheer — geen externe tracking-SaaS), en per unit configureerbaar.
+  - **Gezins-aanspreking**: opvolging en enquêtes gaan naar de **inschrijver**,
+    op gezinsniveau ("Hoe hebben júllie het ervaren?") — niet elk gezinslid
+    apart lastigvallen; per-persoon kan later als daar reden voor is.
 
-### 23.4 Verdere AI-kandidaten (shortlist, elk pas mét concrete trekker)
+### 23.4 Enquêtes: formulier standaard, AI-chat selectief
+
+- **Standaard = de bestaande form engine**: score 1–10, wat vond je het leukst,
+  wat kan beter, welke activiteiten wil je zien — eenvoudig, betrouwbaar,
+  meteen analyseerbaar (resultaten-tab/ODS bestaan al).
+- **AI-chat-enquête als opt-variant** voor grote of nieuwe activiteiten
+  (ledenfeest, gezinsweekend, nieuw jongerenaanbod): een gesprekje ("Mag ik kort
+  vragen hoe je het vond?") dat **wegschrijft naar dezelfde gestructureerde
+  velden** als het formulier — menselijke ervaring, gestructureerde data, één
+  analysepad. Níét na elke activiteit (enquête-moeheid).
+
+### 23.5 Twee soorten feedback — strikt gescheiden
+
+Evaluatie ná een activiteit levert twee stromen die **nooit** vermengd mogen
+worden:
+- **Interne operationele feedback** (bestuur): "2 bakken plat water extra",
+  materiaal vergeten, timing — landt bij de activiteit als verbeterpunten voor
+  de volgende editie (en in de vergaderagenda, 23.6).
+- **Externe communicatie** (leden): sfeer, opkomst, verbinding — de enige stroom
+  waar de nieuwsbrief-AI uit mag putten.
+De AI maakt van elke evaluatie **twee samenvattingen** (bestuur + nieuwsbrief);
+de scheiding is een hard veld op de data ("intern"-vlag), geen prompt-instructie
+— de nieuwsbrief-generator kríjgt interne feedback simpelweg nooit te zien.
+
+### 23.6 Vergaderassistent voor het bestuur
+
+De maandelijkse vergadering heeft een vaste structuur — en elk agendapunt is een
+query op data die er al is (rapportageschema §5.8 + werkbank):
+1. **Vorige activiteiten**: deelnemersaantallen, inkomsten, foto's, feedback
+   (23.5-intern), verbeterpunten — automatisch gevuld.
+2. **Komende activiteiten**: checklist per activiteit (communicatie klaar?
+   affiche? inschrijvingen? helpers? materiaal?) — dit zíjn werkbank-taken.
+3. **Leden**: nieuwe leden, vertrokken leden, openstaande lidgelden.
+4. **Lange termijn** en **varia**: vrije punten.
+Na afloop: AI maakt het **verslag + actiepunten** (verantwoordelijke +
+deadline-voorstel) — en die actiepunten wórden werkbank-taken, geen apart
+lijstje dat niemand nog opent. Spraak→verslag kan via de bestaande STT (§5.5).
+
+### 23.7 Affiches & beeldmateriaal: template + AI, geen platte prenten
+
+Een AI-gegenereerde afbeelding (PNG) is een dood eindpunt: elke wijziging na de
+vergadering (logo groter, datum aangepast) = opnieuw beginnen. Daarom het
+**hybride model**:
+- **SVG-template met vaste huisstijl-elementen** (logo, kleuren, lettertypes,
+  tagline — de design-tokens van §11 werken hier door) en **variabele velden**
+  (titel, datum, locatie, prijs, foto/illustratie).
+- **AI vult de variabelen**: tekstvoorstel + eventueel een gegenereerde
+  illustratie als *element ín* de template — nooit de hele affiche als beeld.
+- **Mens finetunet** (Inkscape of een simpele web-editor) en **exporteert uit
+  één bron**: A3-druk-PDF, Facebook-post, Instagram-vierkant, websitebanner —
+  vectorieel, dus zonder kwaliteitsverlies of herwerk per formaat.
+- Beeldgeneratie Europe-First afwegen (bv. Flux/Black Forest Labs (DE) of
+  self-hosted Stable Diffusion vóór niet-EU-diensten); consistentie en eenvoud
+  wegen zwaarder dan kunstkwaliteit.
+- **Video (TikTok/Instagram): bewust níét zelf bouwen** — het platform levert
+  script, tekst en beeldsuggesties; montage gebeurt in bestaande tools (Canva,
+  CapCut). (→ §18.)
+
+### 23.8 De strategische horizon: Raak als platform
+
+De grootste kans overstijgt Millegem: **"Raak Digital Platform"** — elke lokale
+afdeling een eigen site, activiteiten-/ledenbeheer, betalingen,
+nieuwsbriefgenerator, AI-assistent en affichegenerator, met nationaal als
+leverancier van de bouwstenen. Dit vergt architecturaal **niets nieuws**: het is
+exact het multi-tenant-model van §7 (nationaal = ACCOUNT/operator, elke afdeling
+= UNIT met eigen hostname en branding) plus dit hoofdstuk. Millegem is de
+proeftuin; de trigger voor fase 5 (§14: "concrete tweede tenant") is realistisch
+gezien een tweede Raak-afdeling.
+
+### 23.9 Verdere AI-kandidaten (shortlist, elk pas mét concrete trekker)
 
 | Idee | Hergebruikt |
 |---|---|
@@ -1322,7 +1415,7 @@ merge-proof via soft-refs):
 | **Raakje uitbreiden** naar ledenvragen ("wanneer is de wijnproeverij?") | bestaande chatbot + facades |
 | **Vrijwilligers-matching**: wie hielp waar, wie past bij welke taak | MDM + activities |
 
-### 23.5 Plaats in het plan
+### 23.10 Plaats in het plan
 
 Nieuw backlog-blok **W · Werving & communicatie** — ná MDM (Fase 2: segmentatie
 vereist golden records + consent-model) en de workflow-component (Fase 4: flows +
