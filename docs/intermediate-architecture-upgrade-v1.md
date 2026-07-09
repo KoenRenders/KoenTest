@@ -207,6 +207,22 @@ meteen de eenvoudigste referentie-workflow: één taak, sluit door toestand.
   Bij extractie van een component verandert dit per definitie → dán het
   **transactional-outbox-patroon** (event in dezelfde DB-transactie wegschrijven,
   aparte bezorger) — heropener in §18, niet vooraf bouwen.
+- **De event-ladder (beslist 2026-07-09)** — zo blijft "business event driven"
+  op LT géén hybride knoeiboel:
+  1. **In-transactie** (nu): alle events synchroon, zie hierboven.
+  2. **Outbox met Postgres als queue** — pas bij de éérste extractie, en enkel
+     voor de naden van dát component.
+  3. **Echte broker** — pas als meerdere geëxtraheerde componenten onderling
+     praten. Treden overslaan is verboden; elke trede heeft zijn trigger.
+  Twee harde regels: **(a) per event-type is de bezorging óf synchroon óf
+  asynchroon — nooit allebei, nooit "soms"** (de `CONTRACT.md` van de publisher
+  vermeldt welke, dus elke consument kent zijn semantiek); **(b) nooit een
+  message broker tussen componenten in hetzelfde proces** — dat betaalt alle
+  kosten van gedistribueerd (volgorde, retries, dubbele bezorging, idempotentie)
+  zonder één baat. Het vangnet bij async is er al: afgeleide toestandstaken in
+  de werkbank (§20.5) + reconciliatie (§19.2) maken een stille queue-storing
+  zichtbaar. Het programmeermodel verandert bij geen enkele trede — componenten
+  reageren op feiten en kennen elkaar niet; enkel de bezorging verhuist.
 - **Achtergrondwerk = kernel-primitief**: één **Postgres-gebaseerde job-tabel +
   scheduler-loop** in de kernel (geen Redis/Celery op deze schaal). Retentie-vegen,
   mail-retries, taak-respijttermijnen ("na N dagen"), reconciliaties — allemaal
@@ -649,7 +665,8 @@ Levend register: "LT" = heroverwegen zodra de trigger opduikt.
 | Feature-flag-platform | Lichte config-vlaggen volstaan. |
 | Kubernetes / auto-scaling | Docker-compose volstaat; bij schaalnood. |
 | "Dark" `tenant_id` vervroegd | Bewust niet (per app, getest). |
-| Transactional outbox voor events | Events zijn nu synchroon/in-transactie (§5.8); outbox pas bij extractie van een component. |
+| Transactional outbox voor events | Events zijn nu synchroon/in-transactie (§5.8); outbox pas bij extractie van een component — trede 2 van de event-ladder (§5.8). |
+| Message broker (Kafka/RabbitMQ) | Trede 3 van de event-ladder (§5.8): pas als meerdere geëxtraheerde componenten onderling praten; nooit tussen componenten in hetzelfde proces. |
 | Video-generatie (TikTok/Instagram) | Bewust niet bouwen (§23.7): platform levert script/tekst/beeldsuggesties; montage in bestaande tools (Canva/CapCut). |
 | Permissie-laag (permissies als data) | Vier rollen volstaan; bouwen zodra een rol fijnmaziger moet (bv. aparte merge- of refund-bevoegdheid). Ontwerpregel ligt vast in §5.1. |
 
