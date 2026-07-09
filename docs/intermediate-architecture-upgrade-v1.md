@@ -541,6 +541,7 @@ bij F, de uitrol start pas bij een concrete tweede tenant.
 | **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, CSP zonder unsafe-inline/eval, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`); observability (error-tracking/logs/uptime/alerts); restore-oefening per release; rate-limiter-1-worker-aanname borgen | nieuw |
 | **O · Opruiming** (§19, kan vóór alles) | `business_events` verwijderen; `domains/common/` + stale docs weg; dead-endpoint-sweep. (`ideas` → formulier + minimale workflow verhuist naar fase 4: vereist de workflow-component) | nieuw |
 | **T · Taalbeleid** (§22, kan vóór alles) | Babel + `nl_BE`-catalogus; backend-teksten (e-mails, validatie, ODS-koppen) door `_()`; extract/lint-gate in CI; nieuwe code/DB/tests Engels | nieuw |
+| **W · Werving & communicatie** (§23, ná MDM + workflow; consent-capture kan eerder mee) | opt-in/consent in MDM + suppressielijst; segment-queries; AI-nieuwsbrief met werkbank-review; levenscyclus-flows (eerste deelname → word lid, verlenging, win-back) | nieuw |
 
 **Klaar wanneer** (per blok, de stuurbaarheid als de tijd op is):
 - **H**: pre-migratie-backup + smoke-gate + één geslaagde restore-oefening draaien op PROD-deployflow.
@@ -550,6 +551,7 @@ bij F, de uitrol start pas bij een concrete tweede tenant.
 - **1–4**: per component zelfde definitie als 0 (map + schema + contract + tests groen); werkbank-v1 = taken tonen/sluiten voor de berichten-workflow.
 - **5**: een tweede tenant draait productief op een eigen hostname zonder codewijziging.
 - **O/T**: register-items afgevinkt; T = geen ongemarkeerde gebruikersstrings meer in nieuwe code (lint-gate aan).
+- **W**: eerste levenscyclus-flow (na-eerste-deelname) draait zero-touch met werkbank-review; conversie en bespaarde uren worden gemeten (§23.5).
 
 ---
 
@@ -1257,3 +1259,75 @@ Babel is backend-tooling en kan vandaag al aan, los van de frontend-keuze:
 code/DB wordt niet in bulk hernoemd maar telkens wanneer het artefact toch
 wordt aangeraakt (zelfde strangler-geest als §13). In §14 opgenomen als
 backlog-blok **T** (kan starten met blok H/O, vóór de modularisatie).
+
+---
+
+## 23. Functionele verrijking: AI-ondersteunde ledenwerving & communicatie
+
+**Doel**: Raak een **competitief voordeel** geven tegenover andere verenigingen
+door werk dat vandaag veel vrijwilligersuren vergt (communicatie, opvolging,
+werving) **professioneel en grotendeels automatisch** te laten gebeuren — AI als
+extra vrijwilliger, de mens als eindredacteur. Europe-First: de LLM-adapter
+bestaat al (§5.5, Mistral); alles hieronder hergebruikt bestaande componenten.
+
+### 23.1 Fundament eerst: toestemming (AVG) — de poort voor alles
+
+Niet-leden mailen mág alleen met **uitdrukkelijke opt-in**. Dit is geen rem maar
+de bouwsteen die alles anders mogelijk maakt:
+- **Opt-in-vinkje bij elke publieke capture** (activiteitsinschrijving, formulier):
+  "Hou me op de hoogte van activiteiten van Raak X" — uit staat uit.
+- **Consent = data in MDM** (per e-mailadres: bron, datum, scope), niet een
+  mailinglijst ergens. Afmeldlink in élke mail; afmelding = bewaard besluit
+  (zelfde patroon als §20.8: een afwijzing is ook een beslissing) →
+  **suppressielijst** die elke verzending passeert.
+- Leden mailen over hun lidmaatschap/activiteiten kan op gerechtvaardigd belang;
+  het onderscheid per segment wordt vastgelegd, niet geïmproviseerd.
+
+### 23.2 Slimme segmentatie — queries, geen lijsten
+
+De doelgroepen bestaan al ín de data (MDM + membership + registraties); een
+segment is een **opgeslagen query**, nooit een gekopieerde lijst (altijd actueel,
+merge-proof via soft-refs):
+- **Leden** (per unit, per gezinssamenstelling).
+- **Niet-leden-deelnemers**: schreven zich in op een open activiteit (mét opt-in).
+- **Eerste-keer-deelnemers**: eerste registratie ooit ← het werving-goud.
+- **Oud-leden** (lidmaatschap niet verlengd) — win-back.
+- **Interesse-profiel**: deelgenomen aan activiteitstype X → gelijkaardige
+  activiteiten.
+
+### 23.3 AI-ondersteunde nieuwsbrief & opvolgmails
+
+- **AI stelt het concept op**: uit de activiteitenkalender, CMS-inhoud en vorige
+  edities genereert de LLM een nieuwsbrief-concept per segment (leden krijgen
+  ander accent dan niet-leden), in de tone-of-voice van de vereniging
+  (voorbeeldteksten als context — het bestaande Raakje/ai-context-mechanisme).
+- **Mens als eindredacteur, via de werkbank**: het concept verschijnt als
+  beslistaak (§20.5) — bewerken → goedkeuren → verzenden via de mail-component
+  (logging/retentie gratis). **Nooit** ongelezen AI-tekst naar buiten.
+- **Levenscyclus-flows** (workflow-component, zero-touch met kill-switch per flow):
+  - *Na eerste deelname*: "Fijn dat je erbij was op <activiteit>! Wist je dat
+    leden …" + word-lid-link (de §379-flow eindigt hier).
+  - *Verlenging*: herinnering vóór het vervallen van het lidmaatschap.
+  - *Win-back*: oud-leden één keer per seizoen een gerichte uitnodiging.
+  - Elke flow = een workflow-definitie (§5.7), meetbaar (open/klik/conversie in
+    eigen beheer — geen externe tracking-SaaS), en per unit configureerbaar.
+
+### 23.4 Verdere AI-kandidaten (shortlist, elk pas mét concrete trekker)
+
+| Idee | Hergebruikt |
+|---|---|
+| **Activiteitsverslag + social-post-concept** uit foto's/omschrijving na afloop | media + LLM + werkbank-review |
+| **Berichten-triage**: AI vat binnengekomen berichten (§5.7) samen + suggereert antwoord; *behartigen*-taak toont beide | form + workflow + LLM |
+| **Subsidie-/verslaghulp**: jaarverslag-aanzet uit activiteiten, deelnames en financiën (subsidiedossiers vergen exact deze data) | rapportageschema (§5.8) + LLM |
+| **Raakje uitbreiden** naar ledenvragen ("wanneer is de wijnproeverij?") | bestaande chatbot + facades |
+| **Vrijwilligers-matching**: wie hielp waar, wie past bij welke taak | MDM + activities |
+
+### 23.5 Plaats in het plan
+
+Nieuw backlog-blok **W · Werving & communicatie** — ná MDM (Fase 2: segmentatie
+vereist golden records + consent-model) en de workflow-component (Fase 4: flows +
+werkbank-review). Volgorde binnen W: consent-capture (kan eerder mee met een
+gewone release) → segmenten → nieuwsbrief-met-review → levenscyclus-flows →
+shortlist-items elk op eigen merites. Succesmaat: **ledenaangroei uit
+eerste-keer-deelnemers** en **uren bespaard per nieuwsbrief** — meten vanaf de
+eerste flow.
