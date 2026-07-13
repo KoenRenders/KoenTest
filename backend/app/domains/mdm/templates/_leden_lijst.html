@@ -1,0 +1,24 @@
+{% import "_macros.html" as ui %}
+<div class="space-y-2">
+  {% for f in families %}
+  {% set primary = (f.members | selectattr("relation_type", "equalto", "HOOFDLID") | list | first) or (f.members | first) %}
+  <button class="w-full text-left px-3 py-2 rounded-lg text-sm border bg-white border-gray-200 hover:bg-gray-50"
+          hx-get="/admin/leden/gezin/{{ f.id }}" hx-target="#leden-detail" hx-swap="innerHTML">
+    <div class="font-medium">{{ primary.last_name if primary else "—" }} {{ primary.first_name if primary else "" }}</div>
+    <div class="text-xs text-gray-500">{{ f.street }} {{ f.house_number }}, {{ f.municipality }}</div>
+  </button>
+  {% else %}
+  {{ ui.empty_state("Geen gezinnen gevonden.") }}
+  {% endfor %}
+</div>
+{% if total_pages > 1 %}
+<div class="flex items-center justify-between mt-3 text-sm">
+  {% if page > 1 %}
+  {{ ui.btn_secondary("← Vorige", attrs='hx-get="/admin/leden/lijst?q=' ~ (q|urlencode) ~ '&page=' ~ (page - 1) ~ '" hx-target="#leden-lijst" hx-swap="innerHTML"') }}
+  {% else %}<span></span>{% endif %}
+  <span class="text-gray-500">pagina {{ page }} van {{ total_pages }}</span>
+  {% if page < total_pages %}
+  {{ ui.btn_secondary("Volgende →", attrs='hx-get="/admin/leden/lijst?q=' ~ (q|urlencode) ~ '&page=' ~ (page + 1) ~ '" hx-target="#leden-lijst" hx-swap="innerHTML"') }}
+  {% else %}<span></span>{% endif %}
+</div>
+{% endif %}
