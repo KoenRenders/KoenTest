@@ -12,6 +12,14 @@ Bewijst de kerngaranties van de auth-unificatie:
 """
 from tests.conftest import seed_postal_code, SEEDED_ADMIN_EMAIL
 from app.models.login_token import LoginToken
+from app.routers import auth as auth_router
+
+FIXED_OTP = "424242"
+
+
+def _fix_otp(monkeypatch):
+    """De code staat sinds #395 gehasht in de DB - tests pinnen de plaintext."""
+    monkeypatch.setattr(auth_router, "_generate_otp", lambda: FIXED_OTP)
 
 
 def _family_payload(email):
@@ -49,11 +57,13 @@ def test_request_login_unknown_email_creates_no_token(client, db_session):
     assert _latest_token(db_session, "niemand@example.com") is None
 
 
-def test_request_login_admin_creates_token(client, db_session):
+def test_request_login_admin_creates_token(client, db_session, monkeypatch):
+    _fix_otp(monkeypatch)
     resp = client.post("/api/v1/auth/request-login", json={"email": SEEDED_ADMIN_EMAIL})
     assert resp.status_code == 200
     tok = _latest_token(db_session, SEEDED_ADMIN_EMAIL)
-    assert tok is not None and tok.otp_code is not None and len(tok.otp_code) == 6
+    assert tok is not None and tok.otp_code is not None
+    assert len(tok.otp_code) == 64 and tok.otp_code != FIXED_OTP  # gehasht (#395)
 
 
 def test_request_login_member_creates_token(client, db_session):
@@ -65,9 +75,10 @@ def test_request_login_member_creates_token(client, db_session):
 
 # ── verify + /auth/me ────────────────────────────────────────────────────────
 
-def test_admin_login_via_otp_and_capabilities(client, db_session):
+def test_admin_login_via_otp_and_capabilities(client, db_session, monkeypatch):
+    _fix_otp(monkeypatch)
     client.post("/api/v1/auth/request-login", json={"email": SEEDED_ADMIN_EMAIL})
-    code = _latest_token(db_session, SEEDED_ADMIN_EMAIL).otp_code
+    code = FIXED_OTP
 
     resp = client.post("/api/v1/auth/verify-otp", json={"email": SEEDED_ADMIN_EMAIL, "code": code})
     assert resp.status_code == 200, resp.text
@@ -97,11 +108,12 @@ def test_member_login_via_magic_link_and_capabilities(client, db_session):
     assert me["roles"] == []
 
 
-def test_admin_who_is_also_member(client, db_session):
+def test_admin_who_is_also_member(client, db_session, monkeypatch):
     """Eén persoon, één e-mailadres: tegelijk admin (users) én lid (ContactDetail)."""
+    _fix_otp(monkeypatch)
     _seed_member(client, db_session, SEEDED_ADMIN_EMAIL)
     client.post("/api/v1/auth/request-login", json={"email": SEEDED_ADMIN_EMAIL})
-    code = _latest_token(db_session, SEEDED_ADMIN_EMAIL).otp_code
+    code = FIXED_OTP
     token = client.post(
         "/api/v1/auth/verify-otp", json={"email": SEEDED_ADMIN_EMAIL, "code": code}
     ).json()["access_token"]
@@ -135,9 +147,10 @@ def test_member_token_can_access_household(client, db_session):
 
 # ── OTP eenmalig ────────────────────────────────────────────────────────────────
 
-def test_otp_is_single_use(client, db_session):
+def test_otp_is_single_use(client, db_session, monkeypatch):
+    _fix_otp(monkeypatch)
     client.post("/api/v1/auth/request-login", json={"email": SEEDED_ADMIN_EMAIL})
-    code = _latest_token(db_session, SEEDED_ADMIN_EMAIL).otp_code
+    code = FIXED_OTP
 
     first = client.post("/api/v1/auth/verify-otp", json={"email": SEEDED_ADMIN_EMAIL, "code": code})
     assert first.status_code == 200

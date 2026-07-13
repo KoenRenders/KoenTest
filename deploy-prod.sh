@@ -8,6 +8,10 @@ set -euxo pipefail
 
 REF="${1:?Geef de te deployen release-tag op, bv: ./deploy-prod.sh v1.2.1}"
 
+# Rollback-doel (#395): onthoud wat er NU draait, vóór de checkout. Eén keer
+# gezet; overleeft de re-exec en de eventuele rollback-exec via export.
+export DEPLOY_PREV_REF="${DEPLOY_PREV_REF:-$(git describe --tags --always 2>/dev/null || echo '')}"
+
 # Haal de tags op en check de exacte commit uit (detached HEAD is hier gewenst).
 git fetch --tags --prune origin
 git checkout --detach "$REF"
@@ -30,13 +34,40 @@ exec > >(tee "$LOG_OUT") 2>&1
 export APP_VERSION="$(git describe --tags --always 2>/dev/null || echo onbekend)"
 export GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo onbekend)"
 
+# Pre-migratie-backup (#395): dump de databank vóór de rebuild (alembic draait
+# bij containerstart). Credentials komen uit de db-container zelf. Expand/
+# contract-regel (architectuurdoc §19.5): binnen een release enkel additieve
+# migraties — anders is de rollback hieronder schijnveiligheid en is deze
+# backup het enige pad terug.
+BACKUP_DIR="${BACKUP_DIR:-./backups}"; mkdir -p "$BACKUP_DIR"
+if [ -n "$(docker compose -f docker-compose.prod.yml --env-file .env.prod ps -q db 2>/dev/null)" ]; then
+  TS=$(date +%Y%m%d-%H%M%S)
+  docker compose -f docker-compose.prod.yml --env-file .env.prod exec -T db \
+    sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "$BACKUP_DIR/pre-deploy-prod-$TS.sql.gz"
+  echo "Pre-migratie-backup: $BACKUP_DIR/pre-deploy-prod-$TS.sql.gz"
+else
+  echo "db-container niet actief — pre-migratie-backup overgeslagen (eerste deploy?)"
+fi
+
 docker compose -f docker-compose.prod.yml --env-file .env.prod up --build -d
 
 # Post-deploy rooktest — STRIKT ALLEEN-LEZEN, maakt geen data aan (veilig op PROD).
 # Doel-URL = de publieke origin uit .env.prod (Caddy proxiet /api/* naar de backend).
 SMOKE_BASE="${SMOKE_BASE:-$(sed -nE "s/^FRONTEND_URL=[\"']?([^\"']*)[\"']?.*/\1/p" .env.prod | head -1)}"
 if [ -n "$SMOKE_BASE" ]; then
-  BASE="$SMOKE_BASE" ./tests/run-all.sh || true
+  # Smoke is een GATE (#395): faalt hij, dan rollen we één keer automatisch
+  # terug naar wat er vóór deze deploy draaide (loop-guard via DEPLOY_ROLLBACK).
+  if ! BASE="$SMOKE_BASE" ./tests/run-all.sh; then
+    echo "!! SMOKE FAALDE op $REF."
+    CUR="$(git describe --tags --always 2>/dev/null || echo '')"
+    if [ -z "${DEPLOY_ROLLBACK:-}" ] && [ -n "$DEPLOY_PREV_REF" ] && [ "$DEPLOY_PREV_REF" != "$CUR" ]; then
+      echo ">>> Automatische rollback naar $DEPLOY_PREV_REF (eenmalig)."
+      DEPLOY_ROLLBACK=1 DEPLOY_REEXEC= exec "$0" "$DEPLOY_PREV_REF"
+    fi
+    echo "!! Geen (verdere) automatische rollback mogelijk — handmatig ingrijpen (runbook: architectuurdoc §19.5; backup in $BACKUP_DIR)."
+    exit 1
+  fi
+  echo "Smoke OK op $REF."
 else
   echo "FRONTEND_URL onbekend in .env.prod — rooktest overgeslagen"
 fi

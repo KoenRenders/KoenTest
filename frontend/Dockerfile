@@ -34,4 +34,6 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/public ./public
 EXPOSE 3000
+# Non-root (#395): node-image levert de 'node'-gebruiker; alleen leestoegang nodig.
+USER node
 CMD ["node", "server.js"]

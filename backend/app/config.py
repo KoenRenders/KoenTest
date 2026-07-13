@@ -102,6 +102,8 @@ class Settings(BaseSettings):
 
     # Logniveau: DEBUG | INFO | WARNING | ERROR (default INFO)
     log_level: str = "INFO"
+    # "text" (leesbaar, default) of "json" (gestructureerd, #395)
+    log_format: str = "text"
 
     # SQL-echo: logt ALLE queries mét bind-parameters (= mogelijk
     # persoonsgegevens). Staat los van LOG_LEVEL en standaard uit. Enkel voor

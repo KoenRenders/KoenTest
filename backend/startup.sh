@@ -1,6 +1,14 @@
 #!/bin/sh
 set -e
 
+# Rate-limiter-aanname (#395): de in-memory limiter telt per proces. Draai dus
+# ALTIJD met precies één Uvicorn-worker. Opschalen kan pas nadat de limiter een
+# gedeelde store (Postgres/Redis) heeft — zie architectuurdoc §19.1.
+if [ "${UVICORN_WORKERS:-1}" != "1" ]; then
+  echo "FOUT: UVICORN_WORKERS=${UVICORN_WORKERS} maar de in-memory rate-limiter vereist exact 1 worker (#395)." >&2
+  exit 1
+fi
+
 echo "==> Running database migrations..."
 alembic upgrade head
 

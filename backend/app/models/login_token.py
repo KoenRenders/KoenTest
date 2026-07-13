@@ -13,7 +13,7 @@ class LoginToken(Base):
     email = Column(String(255), nullable=True)
     token = Column(String(128), nullable=False, unique=True, index=True)
     # 6-cijferige code als alternatief voor de magic-link (cross-device login).
-    otp_code = Column(String(6), nullable=True, index=True)
+    otp_code = Column(String(64), nullable=True, index=True)  # SHA-256-hash (#395), nooit de code zelf
     expires_at = Column(DateTime(timezone=True), nullable=False)
     used = Column(Boolean, nullable=False, default=False)
     # Pogingteller voor OTP-brute-force-lockout (#268): na MAX_OTP_ATTEMPTS foute
