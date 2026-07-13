@@ -20,6 +20,8 @@ TEST_DATABASE_URL = os.environ.get(
 os.environ["DATABASE_URL"] = TEST_DATABASE_URL
 os.environ.setdefault("APP_ENV", "dev")
 os.environ.setdefault("SECRET_KEY", "test-secret-key-which-is-long-enough-32+")
+# Kernel-jobs scheduler niet in tests (#396): run_due_jobs wordt expliciet getest.
+os.environ.setdefault("JOBS_ENABLED", "false")
 
 import pytest
 from alembic import command

@@ -104,6 +104,8 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     # "text" (leesbaar, default) of "json" (gestructureerd, #395)
     log_format: str = "text"
+    # Kernel-jobs scheduler-loop (#396); tests zetten dit uit.
+    jobs_enabled: bool = True
 
     # SQL-echo: logt ALLE queries mét bind-parameters (= mogelijk
     # persoonsgegevens). Staat los van LOG_LEVEL en standaard uit. Enkel voor
