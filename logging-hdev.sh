@@ -55,8 +55,6 @@ dc() { docker compose -f "$COMPOSE" --env-file "$ENVFILE" "$@"; }
   dc logs backend --tail="${TAIL}" 2>&1 || echo "(backend logs faalden)"
   echo
 
-  echo "--- frontend logs (laatste ${TAIL}) ---"
-  dc logs frontend --tail="${TAIL}" 2>&1 || echo "(frontend logs faalden)"
   echo
 
   echo "--- caddy logs (laatste ${TAIL}) ---"

@@ -60,8 +60,6 @@ caddy_dc() { docker compose -f docker-compose.caddy.yml "$@"; }
   dc logs backend --tail="${TAIL}" 2>&1 || echo "(backend logs faalden)"
   echo
 
-  echo "--- frontend logs (laatste ${TAIL}) ---"
-  dc logs frontend --tail="${TAIL}" 2>&1 || echo "(frontend logs faalden)"
   echo
 
   echo "--- caddy logs (GEDEELDE Caddy — alle omgevingen, laatste ${TAIL}) ---"

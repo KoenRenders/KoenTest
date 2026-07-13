@@ -180,7 +180,7 @@
     {{ ui.btn_secondary("JSON-import (vluchtluik)", attrs='@click="open = !open"') }}
     <form x-show="open" x-cloak class="space-y-2 mt-3"
           hx-post="/admin/formulieren/{{ form.id }}/json-import" hx-target="#fb-detail" hx-swap="innerHTML">
-      <p class="text-xs text-gray-600">Zelfde payload als de admin-API (titel, status, sections[], fields[] met section_index/opties/branching-indexen). De AI-formaatgids blijft bruikbaar: plak hier de gegenereerde JSON.</p>
+      <p class="text-xs text-gray-600">Zelfde payload als de admin-API (titel, status, sections[], fields[] met section_index/opties/branching-indexen). De <a href="/static/form-json-formaat.md" class="underline" target="_blank">AI-formaatgids</a> blijft bruikbaar: plak hier de gegenereerde JSON.</p>
       <textarea name="payload" rows="8" required class="w-full border border-gray-300 rounded-lg px-2 py-1 font-mono text-xs"></textarea>
       {{ ui.btn_primary("Importeren (vervangt de opbouw)") }}
     </form>

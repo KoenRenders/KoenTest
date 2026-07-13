@@ -18,7 +18,7 @@ herbouwt het schema — **nooit** naar een echte DB wijzen), `pip install -r
 backend/requirements-dev.txt`.
 
 De CI (`.github/workflows/backend-tests.yml`) draait dezelfde stappen plus de
-frontend-jobs (zolang de hybride periode duurt) en de blokkerende e2e/audit-gates.
+de blokkerende e2e- en audit-gates (nul Node sinds de React-exit #405).
 Groen = mergebaar; dit bestand is de definitie van "af" (§13.2).
 
 Deploys: `deploy-hdev.sh` (master), `deploy-uat.sh`/`deploy-prod.sh <tag>` met

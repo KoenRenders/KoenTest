@@ -681,13 +681,13 @@ def test_rating_scale_capped_at_ten(client, admin_headers):
 
 def _load_formaatgids_example() -> dict:
     """Leest het JSON-voorbeeld rechtstreeks uit de formaatgids
-    (frontend/public/form-json-formaat.md), zodat de documentatie niet kan wegdriften
+    (backend/app/static/form-json-formaat.md), zodat de documentatie niet kan wegdriften
     van de engine (#367)."""
     import json
     import re
 
-    repo_root = os.path.dirname(os.path.dirname(os.path.dirname(__file__)))
-    guide = os.path.join(repo_root, "frontend", "public", "form-json-formaat.md")
+    backend_root = os.path.dirname(os.path.dirname(__file__))
+    guide = os.path.join(backend_root, "app", "static", "form-json-formaat.md")
     with open(guide, encoding="utf-8") as fh:
         text = fh.read()
     m = re.search(r"```json\n(.*?)```", text, re.DOTALL)

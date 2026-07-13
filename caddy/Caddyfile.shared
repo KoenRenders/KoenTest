@@ -131,7 +131,7 @@
 		reverse_proxy uat-backend:8000
 	}
 	handle {
-		reverse_proxy uat-frontend:3000
+		reverse_proxy uat-backend:8000
 	}
 }
 
@@ -248,7 +248,7 @@
 		reverse_proxy prod-backend:8000
 	}
 	handle {
-		reverse_proxy prod-frontend:3000
+		reverse_proxy prod-backend:8000
 	}
 }
 
