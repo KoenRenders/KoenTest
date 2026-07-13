@@ -61,6 +61,21 @@
 	handle /admin/info* {
 		reverse_proxy backend:8000
 	}
+	handle /fotos* {
+		reverse_proxy backend:8000
+	}
+	handle /archief* {
+		reverse_proxy backend:8000
+	}
+	handle /admin/login* {
+		reverse_proxy backend:8000
+	}
+	handle /admin/emails* {
+		reverse_proxy backend:8000
+	}
+	handle /admin {
+		reverse_proxy backend:8000
+	}
 	handle /admin/werkbank* {
 		reverse_proxy backend:8000
 	}

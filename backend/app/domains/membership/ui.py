@@ -301,3 +301,11 @@ def login_verify(request: Request, token: str = "", db: Session = Depends(get_db
     response = RedirectResponse(doel, status_code=302)
     set_session_cookie(response, login_token.email)
     return response
+
+
+@router.get("/leden/login/verify", response_class=HTMLResponse)
+def leden_login_verify_redirect(request: Request, token: str = ""):
+    """URL-pariteit (React-exit 405-e): oud React-pad → het magic-link-doel."""
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(f"/login/verify?token={token}", status_code=302)

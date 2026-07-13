@@ -48,6 +48,14 @@ def activiteiten_page(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "activiteiten.html", _lijst_ctx(db, "upcoming"))
 
 
+@router.get("/archief", response_class=HTMLResponse)
+def archief_redirect(request: Request):
+    """URL-pariteit (React-exit 405-e): oud React-pad -> /activiteiten/archief."""
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse("/activiteiten/archief", status_code=302)
+
+
 @router.get("/activiteiten/archief", response_class=HTMLResponse)
 def archief_page(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "activiteiten.html", _lijst_ctx(db, "archived"))

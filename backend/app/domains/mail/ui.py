@@ -61,3 +61,11 @@ def email_log_verwijderen(log_id: int, request: Request, db: Session = Depends(g
         db.delete(row)
         db.commit()
     return templates.TemplateResponse(request, "_email_log_lijst.html", _ctx(request, db))
+
+
+@router.get("/admin/emails", response_class=HTMLResponse)
+def emails_redirect(request: Request):
+    """URL-pariteit (React-exit 405-e): het oude React-pad → /admin/e-maillog."""
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse("/admin/e-maillog", status_code=302)

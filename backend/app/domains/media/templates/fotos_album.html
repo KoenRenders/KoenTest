@@ -1,0 +1,19 @@
+{% extends "site_base.html" %}
+{% block title %}Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %} — Raak Millegem{% endblock %}
+{% block content %}
+<a href="/fotos" class="text-blue-700 hover:underline text-sm">← Terug naar alle albums</a>
+<h1 class="text-3xl font-bold text-blue-800 mt-2 mb-6">Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %}</h1>
+{% if fotos %}
+<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+  {% for f in fotos %}
+  <a href="{{ f.url }}" target="_blank" rel="noopener noreferrer"
+     class="block aspect-square bg-gray-100 rounded-xl overflow-hidden hover:opacity-90">
+    <img src="{{ f.thumb_url }}" alt="{{ f.title or activiteit.name if activiteit else '' }}"
+         class="w-full h-full object-cover" loading="lazy">
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-gray-500 italic">Geen foto's gevonden voor deze activiteit.</p>
+{% endif %}
+{% endblock %}
