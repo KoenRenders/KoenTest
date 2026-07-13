@@ -1,0 +1,29 @@
+{# AdminShell (#396, §13.1): base-layout voor server-rendered admin-schermen.
+   Navigatie groeit per omgeklapt component (registratie via nav_items). #}
+<!DOCTYPE html>
+<html lang="nl-BE">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Admin — Raak{% endblock %}</title>
+  <meta name="robots" content="noindex">
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/vendor/htmx.min.js" defer></script>
+  <script src="/static/vendor/alpine.min.js" defer></script>
+</head>
+<body class="bg-gray-50 min-h-screen text-gray-900" hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
+  <header class="bg-blue-800 text-white">
+    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-6">
+      <span class="font-bold">Raak · beheer</span>
+      <nav class="flex gap-4 text-sm">
+        {% for item in nav_items|default([]) %}
+        <a href="{{ item.href }}" class="hover:underline {% if item.active %}underline font-semibold{% endif %}">{{ item.label }}</a>
+        {% endfor %}
+      </nav>
+    </div>
+  </header>
+  <main class="max-w-5xl mx-auto px-4 py-8">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>

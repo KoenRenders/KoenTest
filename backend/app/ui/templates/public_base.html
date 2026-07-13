@@ -1,0 +1,19 @@
+{# PublicShell (#396, §13.1): base-layout voor publieke server-rendered pagina's.
+   Componenten leveren enkel blokken; deze shell bevat géén domeincode. #}
+<!DOCTYPE html>
+<html lang="nl-BE">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{% block title %}Raak{% endblock %}</title>
+  {% block meta %}{% endblock %}
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/vendor/htmx.min.js" defer></script>
+  <script src="/static/vendor/alpine.min.js" defer></script>
+</head>
+<body class="bg-gray-50 min-h-screen text-gray-900" hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
+  <main class="max-w-3xl mx-auto px-4 py-8">
+    {% block content %}{% endblock %}
+  </main>
+</body>
+</html>
