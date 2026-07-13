@@ -309,38 +309,6 @@ def send_form_confirmation(
     )
 
 
-def send_idea_acknowledgement(to_email: str, name: str, message: str) -> None:
-    _send(
-        to_email=to_email,
-        email_type="idea_ack",
-        subject="Idee ontvangen – Raak Millegem",
-        body_html=f"""
-        <p>Beste {escape(name)},</p>
-        <p>Bedankt voor je idee! We bekijken het zo snel mogelijk.</p>
-        <blockquote style="border-left:4px solid #ccc;padding-left:12px;color:#555;">{escape(message)}</blockquote>
-        <p>Met vriendelijke groeten,<br>Raak Millegem</p>
-        """,
-    )
-
-
-def send_idea_board_notification(name: str, email: Optional[str], message: str) -> None:
-    """Verwittig het bestuur (GMAIL_FROM) bij een nieuw bericht via het
-    contactformulier/de chatbot (#260), zodat het niet onopgemerkt in de IdeaBox
-    blijft staan. Stuurt enkel als er een bestuursadres geconfigureerd is."""
-    board = settings.gmail_from or settings.gmail_user
-    if not board:
-        return
-    _send(
-        to_email=board,
-        email_type="idea_board",
-        subject="Nieuw bericht via het contactformulier – Raak Millegem",
-        body_html=f"""
-        <p>Er kwam een nieuw bericht binnen via het contactformulier:</p>
-        <p><strong>Naam:</strong> {escape(name or "—")}<br>
-        <strong>E-mail:</strong> {escape(email or "niet opgegeven")}</p>
-        <blockquote style="border-left:4px solid #ccc;padding-left:12px;color:#555;">{escape(message)}</blockquote>
-        """,
-    )
 
 
 def purge_old_email_logs(db, retention_days: Optional[int] = None) -> int:

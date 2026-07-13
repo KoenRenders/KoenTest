@@ -7,16 +7,12 @@ de React-exit (#405).
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Form, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.forms.models import Form as FormModel, FormSubmission
-from app.domains.forms.service import build_answers
-from app.domains.forms.schemas import AnswerIn
-from app.kernel.contracts.forms import SubmissionCreated
-from app.kernel.events import publish
+from app.domains.forms.models import Form as FormModel
 from app.limiter import form_submit_limiter
 from app.ui import templates
 
@@ -39,6 +35,7 @@ def berichten_page(request: Request, db: Session = Depends(get_db)):
              dependencies=[Depends(form_submit_limiter)])
 def berichten_submit(
     request: Request,
+    background_tasks: BackgroundTasks,
     db: Session = Depends(get_db),
     naam: str = Form(""),
     email: str = Form(""),
@@ -57,17 +54,8 @@ def berichten_submit(
             {"form": form, "error": "Vul je naam en je bericht in.",
              "naam": naam, "email": email, "bericht": bericht})
 
-    # Eén tekstveld op het geseede formulier; hergebruik de echte validatiepijp.
-    field = form.fields[0]
-    answers = build_answers(form, [AnswerIn(field_id=field.id, text=bericht)])
-    submission = FormSubmission(form_id=form.id, submitter_name=naam,
-                                submitter_email=email or None)
-    for row in answers:
-        submission.answers.append(row)
-    db.add(submission)
-    db.flush()
-    publish(SubmissionCreated(
-        form_id=form.id, form_slug=form.slug, submission_id=submission.id,
-        submitter_name=naam, submitter_email=email or None), db)
-    db.commit()
+    from app.domains.forms.api import submit_bericht
+
+    submit_bericht(db, naam=naam, email=email or None, bericht=bericht,
+                   background_tasks=background_tasks)
     return templates.TemplateResponse(request, "_berichten_bedankt.html", {"naam": naam})

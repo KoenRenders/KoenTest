@@ -6,7 +6,6 @@ from app.models.contact import ContactDetail
 from app.models.external_number import ExternalNumber
 from app.models.user import User, UserRole
 from app.models.activity import ActivityDate, Activity, Registration, RegistrationItem
-from app.models.idea import Idea
 from app.models.cms import CmsPage
 from app.models.activity_sub_registration import ActivitySubRegistration, ActivityProduct
 from app.models.asset import MediaAsset

@@ -2,7 +2,7 @@
 
 Bewaakt de invarianten die ertoe doen:
 - de tool-laag is de security-grens (enkel 3 publieke tools, niets anders);
-- idee-indienen hergebruikt exact het IdeaBox-schrijfpad;
+- idee-indienen hergebruikt exact het berichten-schrijfpad (#398);
 - de activiteiten-tool toont enkel komende, niet-geannuleerde activiteiten;
 - de HTTP-vangrails (per-bericht cap, geschiedenis, laatste = user) werken;
 - de provider is aantoonbaar swapbaar (Mock loopt de volledige tool-loop af).
@@ -11,7 +11,7 @@ import json
 from datetime import date, timedelta
 
 from app.models.activity import Activity, ActivityDate
-from app.models.idea import Idea
+from app.domains.forms.models import FormSubmission
 from app.domains.chatbot.tools import execute_tool, ALLOWED_TOOLS
 from app.domains.chatbot.context import build_system_prompt
 
@@ -142,13 +142,12 @@ def test_execute_tool_rejects_unknown_tool(db_session):
     assert "niet-toegelaten" in out["error"].lower()
 
 
-# ── submit_idea hergebruikt het IdeaBox-schrijfpad ───────────────────────────
+# ── submit_idea hergebruikt het berichten-schrijfpad (#398) ─────────────────
 
-def test_submit_idea_creates_idea_row(db_session, monkeypatch):
-    import app.domains.chatbot.tools as tools
+def test_submit_idea_creates_bericht_submission(db_session):
+    from app.domains.workflow.models import WorkflowTask
 
-    monkeypatch.setattr(tools, "send_idea_acknowledgement", lambda **kw: None)
-    before = db_session.query(Idea).count()
+    before = db_session.query(FormSubmission).count()
     out = json.loads(
         execute_tool(
             "submit_idea",
@@ -157,17 +156,19 @@ def test_submit_idea_creates_idea_row(db_session, monkeypatch):
         )
     )
     assert out["ok"] is True
-    after = db_session.query(Idea).count()
-    assert after == before + 1
-    idea = db_session.query(Idea).order_by(Idea.id.desc()).first()
-    assert idea.submitter_name == "Jan"
-    assert idea.submitter_email == "jan@example.com"
-    assert idea.content == "Mooie speeltuin idee"
+    assert db_session.query(FormSubmission).count() == before + 1
+    sub = db_session.query(FormSubmission).order_by(FormSubmission.id.desc()).first()
+    assert sub.submitter_name == "Jan"
+    assert sub.submitter_email == "jan@example.com"
+    assert sub.answers[0].value_text == "Mooie speeltuin idee"
+    # En de behartigen-taak staat open (werkbank, #398).
+    task = db_session.query(WorkflowTask).order_by(WorkflowTask.id.desc()).first()
+    assert task.kind == "bericht.behartigen" and task.subject_id == sub.id
 
 
 def test_submit_idea_requires_email(db_session):
-    """Zonder e-mailadres: geweigerd, géén idee weggeschreven (verplicht voor antwoord)."""
-    before = db_session.query(Idea).count()
+    """Zonder e-mailadres: geweigerd, géén bericht weggeschreven (verplicht voor antwoord)."""
+    before = db_session.query(FormSubmission).count()
     for args in (
         {"name": "Jan", "content": "Idee zonder mail"},
         {"name": "Jan", "content": "Idee", "email": ""},
@@ -176,11 +177,11 @@ def test_submit_idea_requires_email(db_session):
         out = json.loads(execute_tool("submit_idea", args, db_session))
         assert out["ok"] is False
         assert "error" in out
-    assert db_session.query(Idea).count() == before
+    assert db_session.query(FormSubmission).count() == before
 
 
 def test_submit_idea_rejects_invalid_email(db_session):
-    before = db_session.query(Idea).count()
+    before = db_session.query(FormSubmission).count()
     out = json.loads(
         execute_tool(
             "submit_idea",
@@ -189,7 +190,7 @@ def test_submit_idea_rejects_invalid_email(db_session):
         )
     )
     assert out["ok"] is False
-    assert db_session.query(Idea).count() == before
+    assert db_session.query(FormSubmission).count() == before
 
 
 # ── get_activities: komend (default) én verleden (when='past') ───────────────
@@ -279,14 +280,12 @@ def test_long_user_message_is_rejected():
         ChatRequest(messages=[{"role": "user", "content": "a" * 5000}])
 
 
-def test_submit_idea_notifies_board(db_session, monkeypatch):
-    """#260: een ingediend idee verwittigt het bestuur per e-mail."""
-    import app.domains.chatbot.tools as tools
+def test_submit_idea_lands_in_werkbank(db_session):
+    """#398 (verving #260): de bestuursmail is vervangen door een open
+    behartigen-taak in de werkbank — dáár blijft niets onopgemerkt."""
+    from app.domains.workflow.models import WorkflowTask
 
-    monkeypatch.setattr(tools, "send_idea_acknowledgement", lambda **kw: None)
-    seen: dict = {}
-    monkeypatch.setattr(tools, "send_idea_board_notification", lambda **kw: seen.update(kw))
-
+    before = db_session.query(WorkflowTask).filter(WorkflowTask.status == "open").count()
     out = json.loads(
         execute_tool(
             "submit_idea",
@@ -295,8 +294,8 @@ def test_submit_idea_notifies_board(db_session, monkeypatch):
         )
     )
     assert out["ok"] is True
-    assert seen.get("email") == "jan@example.com"
-    assert seen.get("message") == "Test idee"
+    open_after = db_session.query(WorkflowTask).filter(WorkflowTask.status == "open").count()
+    assert open_after == before + 1
 
 
 # ── Anti-hallucinatie (lagen 1–4) ────────────────────────────────────────────

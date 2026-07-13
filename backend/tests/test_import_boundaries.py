@@ -43,7 +43,6 @@ LEGACY_ALLOWLIST = {
     ("app.routers.chatbot_info", "app.domains.chatbot.context"),
     ("app.routers.stt", "app.domains.stt.guards"),
     ("app.routers.stt", "app.domains.stt.providers"),
-    ("app.routers.ideas", "app.domains.analytics.service"),
     ("app.routers.cms", "app.domains.analytics.service"),
     ("app.routers.activities", "app.domains.audit.service"),
     ("app.routers.admin", "app.domains.payment_status.service"),

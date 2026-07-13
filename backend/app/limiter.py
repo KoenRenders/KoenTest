@@ -20,7 +20,7 @@ def _client_ip(request: Request) -> str:
     APPENDT het werkelijke client-IP achteraan ``X-Forwarded-For``, dus het MEEST
     RECHTSE adres is door Caddy gezet en betrouwbaar. Het meest linkse adres is
     client-gestuurd en dus spoofbaar — wie dát vertrouwt, krijgt per request een
-    vers 'IP' en omzeilt álle per-IP-limieten (OTP-gok, login-mails, idea-spam,
+    vers 'IP' en omzeilt álle per-IP-limieten (OTP-gok, login-mails, bericht-spam,
     chat-budget) (#268).
     """
     xff = request.headers.get("x-forwarded-for")
@@ -89,7 +89,6 @@ class DailyCharBudget:
 # maar moet een legitieme piek toelaten → matig.
 login_limiter = RateLimiter(max_calls=5, window_seconds=60)
 registration_limiter = RateLimiter(max_calls=10, window_seconds=60)
-idea_limiter = RateLimiter(max_calls=5, window_seconds=60)
 # Publieke formulier-inzending/-wijziging: schrijft rijen + kan een bevestigingsmail
 # triggeren → rem tegen spam/DoS. Ruim genoeg voor een legitieme piek per IP (#371).
 form_submit_limiter = RateLimiter(max_calls=10, window_seconds=60)

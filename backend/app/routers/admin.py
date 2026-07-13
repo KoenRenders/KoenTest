@@ -8,10 +8,16 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_admin
 from app.config import settings
 from app.database import get_db
+
+
+def _open_tasks(db):
+    """Open werkbank-taken (#398) — vervangt de oude 'ongelezen ideeën'-teller."""
+    from app.domains.workflow.api import open_count
+
+    return open_count(db, ["ADMIN", "FINANCE"])
 from app.models.activity import Activity, ActivityDate
 from app.models.business_event import BusinessEvent
 from app.models.member import Member, Membership
-from app.models.idea import Idea
 from app.models.user import User
 from app.domains.payment_status.models import PaymentRecord
 from app.domains.payment_status.service import current_membership_counts
@@ -38,9 +44,7 @@ def get_stats(
         "upcoming_activities": db.query(func.count(func.distinct(ActivityDate.activity_id)))
             .filter(func.coalesce(ActivityDate.end_date, ActivityDate.start_date) >= today)
             .scalar(),
-        "open_ideas": db.query(func.count(Idea.id))
-            .filter(Idea.is_reviewed == False)
-            .scalar(),
+        "open_tasks": _open_tasks(db),
         "outstanding_balance": float(
             db.query(func.coalesce(func.sum(PaymentRecord.amount), 0))
             .filter(PaymentRecord.status.notin_(["paid", "cancelled", "failed"]))

@@ -43,10 +43,13 @@ SEEDED_ADMIN_EMAIL = "koen.renders@gmail.com"
 @pytest.fixture(scope="session", autouse=True)
 def _migrate_schema():
     """Bouw de schema's één keer via de echte migratieketen."""
-    Base.metadata.drop_all(bind=engine)
-    # Verwijder ook alembic_version zodat upgrade vanaf nul draait.
+    # Schemas hard resetten (v2.0, #398): drop_all kent alleen tabellen die nog
+    # in de metadata leven — na verwijderde modellen (ideas) blijven wezen
+    # achter en botst de keten. CASCADE veegt álles, ook alembic_version.
     with engine.begin() as conn:
-        conn.exec_driver_sql("DROP TABLE IF EXISTS alembic_version")
+        for schema in ("form", "workflow", "public"):
+            conn.exec_driver_sql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
+        conn.exec_driver_sql("CREATE SCHEMA public")
     cfg = Config(os.path.join(os.path.dirname(os.path.dirname(__file__)), "alembic.ini"))
     command.upgrade(cfg, "head")
     yield
@@ -57,10 +60,10 @@ def _reset_rate_limiters():
     """De rate-limiters houden in-memory state per IP; in tests komt alles van
     hetzelfde IP. Reset ze per test zodat ze elkaars tellingen niet erven."""
     from app.limiter import (
-        registration_limiter, login_limiter, idea_limiter, chat_limiter,
+        registration_limiter, login_limiter, chat_limiter,
         form_submit_limiter,
     )
-    for lim in (registration_limiter, login_limiter, idea_limiter, chat_limiter,
+    for lim in (registration_limiter, login_limiter, chat_limiter,
                 form_submit_limiter):
         lim._calls.clear()
     # Chatbot-dagbudget houdt eigen state per IP; reset zodat tests niet erven.
