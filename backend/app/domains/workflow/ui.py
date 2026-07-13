@@ -23,7 +23,10 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
         "csrf_token": csrf_token_for(raw),
         "roles": roles,
         "tasks": api.open_tasks(db, roles),
-        "nav_items": [{"href": "/admin/werkbank", "label": "Werkbank", "active": True}],
+        "nav_items": [
+            {"href": "/admin/werkbank", "label": "Werkbank", "active": True},
+            {"href": "/admin/e-maillog", "label": "E-maillog", "active": False},
+        ],
     }
 
 

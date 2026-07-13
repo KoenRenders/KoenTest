@@ -14,8 +14,10 @@ MODULES = [
     "app.domains.workflow.ui",
     "app.domains.auth.api",
     "app.domains.auth.router",
+    "app.domains.auth.ui",
     "app.domains.mail.api",
     "app.domains.mail.router",
+    "app.domains.mail.ui",
     # Schemas
     "app.schemas.member",
     "app.schemas.family",
