@@ -5,6 +5,7 @@ MODULES = [
     # Domain modules
     "app.domains.payment.api",
     "app.domains.payment.router",
+    "app.domains.payment.ui",
     "app.domains.forms.router",
     "app.domains.forms.ui",
     "app.domains.workflow.ui",
