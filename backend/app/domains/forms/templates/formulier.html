@@ -1,0 +1,107 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ form.title }} — Raak{% endblock %}
+{% block meta %}<meta name="robots" content="noindex">{% endblock %}
+
+{% macro veld(f) %}
+{% set key = "f" ~ f.id %}
+{% set val = values.get(key, "") %}
+<div>
+  {% if f.field_type == "info" %}
+  <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-gray-700">
+    {% if f.label %}<p class="font-medium mb-1">{{ f.label }}</p>{% endif %}
+    {% if f.help_text %}<p>{{ f.help_text }}</p>{% endif %}
+  </div>
+  {% else %}
+  {{ ui.label(f.label, key, required=f.required) }}
+  {% if f.help_text %}<p class="text-xs text-gray-500 mb-1">{{ f.help_text }}</p>{% endif %}
+  {% if f.field_type in ("text", "email", "phone") %}
+  <input name="{{ key }}" id="{{ key }}" {% if f.field_type == "email" %}type="email"{% elif f.field_type == "phone" %}type="tel"{% endif %}
+         {% if f.required %}required{% endif %} value="{{ val if val is string else '' }}"
+         class="w-full border border-gray-300 rounded-lg px-3 py-2">
+  {% elif f.field_type == "textarea" %}
+  <textarea name="{{ key }}" id="{{ key }}" rows="4" {% if f.required %}required{% endif %}
+            class="w-full border border-gray-300 rounded-lg px-3 py-2">{{ val if val is string else '' }}</textarea>
+  {% elif f.field_type == "number" %}
+  <input name="{{ key }}" id="{{ key }}" inputmode="decimal" {% if f.required %}required{% endif %}
+         value="{{ val if val is string else '' }}" class="w-40 border border-gray-300 rounded-lg px-3 py-2">
+  {% elif f.field_type == "select" %}
+  <select name="{{ key }}" id="{{ key }}" {% if f.required %}required{% endif %} class="w-full border border-gray-300 rounded-lg px-3 py-2">
+    <option value="">—</option>
+    {% for o in f.options %}
+    <option value="{{ o.id }}" {% if (val is string and val == o.id|string) or (val is not string and o.id|string in val) %}selected{% endif %}>{{ o.label }}</option>
+    {% endfor %}
+  </select>
+  {% elif f.field_type == "radio" %}
+  <div class="space-y-1">
+    {% for o in f.options %}
+    <label class="flex items-center gap-2 text-sm">
+      <input type="radio" name="{{ key }}" value="{{ o.id }}"
+             {% if (val is string and val == o.id|string) or (val is not string and o.id|string in val) %}checked{% endif %}>
+      {{ o.label }}{% if o.is_other %} <input name="{{ key }}_other" placeholder="…" value="{{ values.get(key ~ '_other', '') }}" class="border border-gray-300 rounded px-2 py-0.5 text-sm">{% endif %}
+    </label>
+    {% endfor %}
+  </div>
+  {% elif f.field_type == "checkbox" %}
+  <div class="space-y-1">
+    {% for o in f.options %}
+    <label class="flex items-center gap-2 text-sm">
+      <input type="checkbox" name="{{ key }}" value="{{ o.id }}"
+             {% if (val is string and val == o.id|string) or (val is not string and o.id|string in val) %}checked{% endif %}>
+      {{ o.label }}{% if o.is_other %} <input name="{{ key }}_other" placeholder="…" value="{{ values.get(key ~ '_other', '') }}" class="border border-gray-300 rounded px-2 py-0.5 text-sm">{% endif %}
+    </label>
+    {% endfor %}
+  </div>
+  {% elif f.field_type == "rating" %}
+  <div class="flex gap-3 items-center text-sm">
+    {% if f.rating_low_label %}<span class="text-gray-500">{{ f.rating_low_label }}</span>{% endif %}
+    {% for n in range(1, (f.rating_max or 5) + 1) %}
+    <label class="flex flex-col items-center gap-1">
+      <input type="radio" name="{{ key }}" value="{{ n }}" {% if val is string and val == n|string %}checked{% endif %}>
+      <span class="text-xs text-gray-500">{{ n }}</span>
+    </label>
+    {% endfor %}
+    {% if f.rating_high_label %}<span class="text-gray-500">{{ f.rating_high_label }}</span>{% endif %}
+  </div>
+  {% endif %}
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto">
+  <h1 class="text-2xl font-bold text-blue-800 mb-2">{{ form.title }}</h1>
+  {% if form.description %}<p class="text-gray-600 mb-6 whitespace-pre-wrap">{{ form.description }}</p>{% endif %}
+  {{ ui.error_banner(error|default(None)) }}
+  <form method="post" action="/formulier/{{ form.share_token }}{% if edit_token|default(None) %}/edit/{{ edit_token }}{% endif %}"
+        class="space-y-6">
+    {% if not form.is_anonymous %}
+    {% call ui.card() %}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>{{ ui.label("Naam", "submitter_name", required=True) }}
+          <input name="submitter_name" id="submitter_name" required value="{{ submitter_name }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        <div>{{ ui.label("E-mailadres", "submitter_email", required=True) }}
+          <input type="email" name="submitter_email" id="submitter_email" required value="{{ submitter_email }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+      </div>
+    {% endcall %}
+    {% endif %}
+    {% for g in grouped %}
+    {% call ui.card() %}
+      {% if g.section.title %}<h2 class="font-bold mb-1">{{ g.section.title }}</h2>{% endif %}
+      {% if g.section.description %}<p class="text-sm text-gray-600 mb-3 whitespace-pre-wrap">{{ g.section.description }}</p>{% endif %}
+      <div class="space-y-4">
+        {% for f in g.fields %}{{ veld(f) }}{% endfor %}
+      </div>
+    {% endcall %}
+    {% endfor %}
+    {% if loose_fields %}
+    {% call ui.card() %}
+      <div class="space-y-4">
+        {% for f in loose_fields %}{{ veld(f) }}{% endfor %}
+      </div>
+    {% endcall %}
+    {% endif %}
+    {{ ui.btn_primary("Wijzigingen opslaan" if edit_token|default(None) else "Verzenden") }}
+  </form>
+</div>
+{% endblock %}
