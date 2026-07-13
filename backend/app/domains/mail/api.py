@@ -4,6 +4,7 @@ Andere componenten importeren mail-functionaliteit uitsluitend via deze module
 (grens-test: cross-domain enkel via ``.api``). De implementatie leeft in
 ``service.py`` en blijft intern; het EmailLog-model in ``models.py``.
 """
+from app.domains.mail.models import EmailLog  # noqa: F401
 from app.domains.mail.service import (  # noqa: F401
     purge_old_email_logs,
     send_activity_registration_confirmation,
@@ -14,6 +15,7 @@ from app.domains.mail.service import (  # noqa: F401
 )
 
 __all__ = [
+    "EmailLog",
     "purge_old_email_logs",
     "send_activity_registration_confirmation",
     "send_form_confirmation",

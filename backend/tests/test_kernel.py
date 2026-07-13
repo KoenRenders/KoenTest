@@ -17,9 +17,15 @@ class PingEvent(KernelEvent):
 
 @pytest.fixture(autouse=True)
 def _clean_registries():
+    """Herstel de registries i.p.v. ze leeg te maken: de applicatie-abonnementen
+    (behartigen-taak, mail.retry, sweeps) moeten latere testbestanden overleven."""
+    subscribers_before = {k: list(v) for k, v in events._subscribers.items()}
+    handlers_before = dict(_handlers)
     yield
-    events.reset_subscribers()
+    events._subscribers.clear()
+    events._subscribers.update({k: list(v) for k, v in subscribers_before.items()})
     _handlers.clear()
+    _handlers.update(handlers_before)
 
 
 # ── events ─────────────────────────────────────────────────────────────────────

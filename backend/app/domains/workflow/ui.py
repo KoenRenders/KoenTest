@@ -36,7 +36,11 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
 @router.get("/admin/werkbank", response_class=HTMLResponse)
 def werkbank(request: Request, db: Session = Depends(get_db),
              email: str = Depends(require_admin_ui)):
-    return templates.TemplateResponse(request, "werkbank.html", _ctx(request, db, email))
+    from app.config import settings
+
+    ctx = _ctx(request, db, email)
+    ctx["workbench_enabled"] = settings.workbench_enabled
+    return templates.TemplateResponse(request, "werkbank.html", ctx)
 
 
 @router.get("/admin/werkbank/lijst", response_class=HTMLResponse)
@@ -49,6 +53,7 @@ def werkbank_lijst(request: Request, db: Session = Depends(get_db),
 @router.get("/admin/werkbank/taken/{task_id}", response_class=HTMLResponse)
 def taak_detail(task_id: int, request: Request, db: Session = Depends(get_db),
                 email: str = Depends(require_admin_ui)):
+    """Fragment (htmx) én deep-link (volle pagina zonder HX-Request, §20.5)."""
     task = api.get_task(db, task_id)
     detail_rows: list[tuple[str, str]] = []
     if task and task.subject_type == "form_submission":
@@ -56,15 +61,19 @@ def taak_detail(task_id: int, request: Request, db: Session = Depends(get_db),
 
         detail_rows = submission_view(db, task.subject_id)
     raw = request.cookies.get(SESSION_COOKIE) or ""
-    return templates.TemplateResponse(request, "_werkbank_detail.html", {
-        "task": task, "detail_rows": detail_rows, "csrf_token": csrf_token_for(raw),
-    })
+    template = ("_werkbank_detail.html" if request.headers.get("hx-request")
+                else "werkbank_taak.html")
+    ctx = {"task": task, "detail_rows": detail_rows,
+           "csrf_token": csrf_token_for(raw)}
+    if template == "werkbank_taak.html":
+        ctx["nav_items"] = _ctx(request, db, email)["nav_items"]
+    return templates.TemplateResponse(request, template, ctx)
 
 
 @router.post("/admin/werkbank/taken/{task_id}/afgehandeld", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
 def taak_afhandelen(task_id: int, request: Request, db: Session = Depends(get_db),
                     email: str = Depends(require_admin_ui), besluit: str = Form("")):
-    api.close_task(db, task_id, done_by=email, decision=besluit.strip() or None)
+    api.complete_task(db, task_id, done_by=email, decision=besluit.strip() or None)
     db.commit()
     return templates.TemplateResponse(request, "_werkbank_lijst.html", _ctx(request, db, email))

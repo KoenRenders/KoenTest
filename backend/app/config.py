@@ -136,6 +136,9 @@ class Settings(BaseSettings):
     # vernieuwen" ook voor leden met een nog-geldig lidmaatschap, zodat ze vroeg-
     # tijdig het volgende jaar kunnen afdekken. Als leeg: knop enkel bij verlopen lid.
     membership_renewal_start_md: Optional[str] = None
+    # Werkbank-kill-switch (§20.5, fase 4b #403): False = geen sweep en een
+    # uitgeschakeld-scherm; taken blijven onaangeroerd staan.
+    workbench_enabled: bool = True
 
     class Config:
         env_file = ".env"
