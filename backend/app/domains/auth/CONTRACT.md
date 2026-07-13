@@ -15,8 +15,12 @@ de HttpOnly-sessie + CSRF voor server-rendered schermen, en gebruikersbeheer.
   `require_admin_ui`, `require_csrf`.
 - **Lid-identiteit** (`member_identity.py`): `find_persons_by_email`,
   `resolve_household`, `login_person_for_email`.
-- **Modellen als type**: `User`, `UserRole`, `LoginToken` (voor
+- **Modellen als type**: `User`, `UserRole`, `LoginToken`, `ApiKey` (voor
   Depends-annotaties; queries erop horen binnen dit component).
+- **Machine-consumenten** (§19.3): `require_api_key` (X-API-Key-header),
+  `hash_api_key`, `API_KEY_HEADER`. Beheer via `/auth/api-keys` (admin); de
+  key is exact één keer zichtbaar bij aanmaak en wordt enkel gehasht bewaard
+  (tabel `auth.api_keys`, migratie 077).
 
 ## Router
 

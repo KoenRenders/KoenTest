@@ -19,6 +19,12 @@ SMTP-call ná de response uitgevoerd, zónder synchroon.
 
 `router.py` — admin-inzage in het e-maillog, gemount onder `/api/v1/admin`.
 
+## Events (kernel, §5.8 — trede 1)
+
+- Abonnee van `MailRequested` (`app.kernel.contracts.mail`): componenten
+  zonder directe mail-afhankelijkheid publiceren dit event; het mail-component
+  verstuurt en logt via het `_send`-chokepoint.
+
 ## Jobs (kernel, §5.8)
 
 - `mail.retry` (`handlers.py`): geplande herverzending wanneer SMTP faalt;

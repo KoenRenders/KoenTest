@@ -18,7 +18,9 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.domains.mail.models import EmailLog
-from app.domains.mail.service import _env_prefix
+from app.domains.mail.service import _dispatch, _env_prefix
+from app.kernel.contracts.mail import MailRequested
+from app.kernel.events import subscribe
 from app.kernel.jobs import job
 
 logger = logging.getLogger(__name__)
@@ -46,3 +48,14 @@ def retry_mail(db: Session, payload: dict) -> None:
     log.status = "sent"
     log.error_message = None
     logger.info("mail.retry: e-mail aan %s alsnog verstuurd (log #%s)", log.recipient, log.id)
+
+
+@subscribe(MailRequested)
+def on_mail_requested(event: MailRequested, db: Session) -> None:
+    """Event-ingang van het mail-component (§5.8, trede 1): componenten zonder
+    directe mail-afhankelijkheid publiceren MailRequested; wij versturen + loggen.
+    De verzending zelf loopt via het bestaande _send-chokepoint (incl. skipped/
+    failed-logging en de mail.retry-job) en gebeurt synchroon in de handler —
+    de publicerende transactie is dan al geslaagd of rolt óók terug."""
+    _dispatch(None, event.to_email, event.subject, event.body_html,
+              cc=event.cc, email_type=event.email_type)

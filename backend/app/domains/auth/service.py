@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta, timezone
 from typing import Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import OAuth2PasswordBearer
 import jwt
 from sqlalchemy import func
@@ -160,3 +160,40 @@ def require_member(member=Depends(get_current_member)):
             headers={"WWW-Authenticate": "Bearer"},
         )
     return member
+
+
+# ── Machine-consumenten: statische API-key (§19.3) ──────────────────────────────
+#
+# Browser-verkeer gebruikt de HttpOnly-sessie of het JWT; machines (integraties,
+# scripts) sturen een statische key in de X-API-Key-header. De key wordt nooit
+# opgeslagen — enkel gehasht (SHA-256 + SECRET_KEY-pepper, zelfde recept als de
+# OTP's, #395).
+
+API_KEY_HEADER = "x-api-key"
+
+
+def hash_api_key(key: str) -> str:
+    import hashlib
+
+    return hashlib.sha256(f"{settings.secret_key}:{key}".encode()).hexdigest()
+
+
+def require_api_key(request: Request, db: Session = Depends(get_db)):
+    """Dependency voor machine-endpoints: geldige actieve API-key of 401.
+    Geeft de ApiKey-rij terug (o.a. ``name`` identificeert de consument)."""
+    from app.domains.auth.models import ApiKey
+
+    raw = request.headers.get(API_KEY_HEADER)
+    if not raw:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="API-key ontbreekt")
+    entry = (
+        db.query(ApiKey)
+        .filter(ApiKey.key_hash == hash_api_key(raw), ApiKey.is_active == True)
+        .first()
+    )
+    if entry is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail="Ongeldige API-key")
+    entry.last_used_at = datetime.now(timezone.utc)
+    return entry
