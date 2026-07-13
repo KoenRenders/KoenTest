@@ -59,21 +59,6 @@ services:
     networks:
       - internal
 
-  frontend:
-    build:
-      context: ./frontend
-      args:
-        NEXT_PUBLIC_APP_ENV: dev
-        NEXT_PUBLIC_CHATBOT_ENABLED: ${CHAT_ENABLED:-false}
-        NEXT_PUBLIC_STT_MODE: ${STT_MODE:-browser_only}
-        # Canonieke publieke origin voor OG/canonical/sitemap (#301), afgeleid van FRONTEND_URL.
-        NEXT_PUBLIC_SITE_URL: ${FRONTEND_URL:-}
-        NEXT_PUBLIC_ENV_COLOR: ${ENV_COLOR:-#7C3AED}
-    restart: unless-stopped
-    depends_on:
-      - backend
-    networks:
-      - internal
 
   caddy:
     image: caddy:2
@@ -85,7 +70,6 @@ services:
       - caddy_dev_data:/data
       - caddy_dev_config:/config
     depends_on:
-      - frontend
       - backend
     networks:
       - internal

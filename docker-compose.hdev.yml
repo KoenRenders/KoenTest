@@ -59,26 +59,6 @@ services:
     networks:
       - internal
 
-  frontend:
-    build:
-      context: ./frontend
-      args:
-        NEXT_PUBLIC_APP_ENV: hdev
-        NEXT_PUBLIC_CHATBOT_ENABLED: ${CHAT_ENABLED:-false}
-        NEXT_PUBLIC_STT_MODE: ${STT_MODE:-browser_only}
-        # Canonieke publieke origin voor OG/canonical/sitemap (#301), afgeleid van FRONTEND_URL.
-        NEXT_PUBLIC_SITE_URL: ${FRONTEND_URL:-}
-        NEXT_PUBLIC_ENV_COLOR: ${ENV_COLOR:-#15803D}
-        # Umami web-analytics (#152, laag 1). Leeg = tracker laadt niet (no-op).
-        # Vul NEXT_PUBLIC_UMAMI_WEBSITE_ID pas in nadat je in Umami een website hebt
-        # aangemaakt; src wijst via de hdev-Caddy naar /umami/script.js.
-        NEXT_PUBLIC_UMAMI_SRC: ${NEXT_PUBLIC_UMAMI_SRC:-}
-        NEXT_PUBLIC_UMAMI_WEBSITE_ID: ${NEXT_PUBLIC_UMAMI_WEBSITE_ID:-}
-    restart: unless-stopped
-    depends_on:
-      - backend
-    networks:
-      - internal
 
   # Zelf-gehoste, cookieloze web-analytics (#152, laag 1). Hergebruikt de
   # bestaande Postgres via een EIGEN database (umami_hdev) — geen tweede DB-engine,
@@ -113,7 +93,6 @@ services:
       - caddy_hdev_data:/data
       - caddy_hdev_config:/config
     depends_on:
-      - frontend
       - backend
     networks:
       - internal

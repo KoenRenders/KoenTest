@@ -214,16 +214,16 @@ What to look for:
 | Service | Port | Notes |
 |---|---|---|
 | db | 5432 | PostgreSQL 16, volume-backed |
-| backend | 8000 | FastAPI + Uvicorn |
-| frontend | 3000 | Next.js standalone build |
+| backend | 8000 | FastAPI + Uvicorn — serveert óók alle HTML (server-rendered, #405) |
 | caddy | 80/443 | Reverse proxy; all browser traffic goes through Caddy |
 
-All API calls from the browser go through Caddy (not directly to :8000). Frontend uses `/api/v1/…` paths, Caddy proxies them to `backend:8000`.
+Sinds de React-exit (#405) is er **geen frontend-container meer**: alle
+pagina's zijn server-rendered (Jinja + htmx/Alpine) vanuit de backend, en de
+Caddy-catch-all wijst naar `backend:8000`. API-paden blijven `/api/v1/…`.
 
 Check logs after changes:
 ```bash
 sudo docker-compose logs backend --tail=50
-sudo docker-compose logs frontend --tail=50
 ```
 
 The backend runs `startup.sh` on container start, which runs `alembic upgrade head` then `uvicorn`. Build-time import check runs via `check_imports.py` in the Dockerfile — if any import fails, the Docker build fails.
@@ -326,7 +326,7 @@ per commit on GitHub.
 - `Registration` → `RegistrationItem` (for PAID_PRODUCTS form type)
 - `GatewayPayment.payment_metadata` (JSON column — NOT `metadata`)
 
-**Auth:** JWT Bearer tokens. `get_current_admin` dependency used on all admin endpoints. Token stored in localStorage on the frontend.
+**Auth:** JWT Bearer tokens voor de JSON-API (`get_current_admin` op alle admin-endpoints); de server-rendered schermen gebruiken de HttpOnly-sessiecookie + CSRF via `app.domains.auth.api` (`require_admin_ui`, `require_csrf`).
 
 **Pydantic v2:** use `model_validate()`, `model_dump(exclude_none=True)`.
 
@@ -357,33 +357,25 @@ There must be exactly one head.
 
 For `PAID_PRODUCTS`: `paidProducts` on the frontend are sub-registrations where `is_free=false` AND `reg_form_type` is null. Sub-registrations that have their own `reg_form_type` are separate registration paths, not product line items.
 
-## Frontend architecture (Next.js 15 App Router)
+## UI-architectuur (server-rendered, React-exit #405)
 
-**API layer:** `frontend/src/lib/api.ts` — Axios instance with JWT Bearer interceptor. All backend calls go through named exports here. Never call `fetch()` directly; always add new functions to `api.ts`.
-
-**Key utilities:**
-- `src/lib/money.ts` — `formatPrice(str)`, `isPositivePrice(str | undefined)`
-- `src/lib/errors.ts` — `parseApiError(err, fallback)` for user-facing error messages
-- `src/lib/types.ts` — Shared TypeScript interfaces (`Activity`, `SubRegistration`, `CmsPage`, etc.)
-
-**Pages:**
-- `/` (homepage) — activity list, "Word lid" membership form, IdeaBox
-- `/archief` — archived activities
-- `/[slug]` — dynamic CMS pages
-- `/admin/` — protected dashboard (login required); subpages: leden, activiteiten, ideeen, paginas
-- `/betaling/succes` and `/betaling/geannuleerd` — Mollie payment result pages
-
-**Components of note:**
-- `RegistrationForm.tsx` — Modal for activity registration; handles all form types, computes and displays total amount, redirects to Mollie `checkout_url` on success
-- `FamilyRegistrationForm.tsx` — Multi-person household registration with postal code autocomplete dropdown
-- `ActivityList.tsx` — Displays activities with status badges; shows sub-registration buttons
+Er is geen Next.js/Node meer. Elke component levert zijn schermen als
+`ui.py`/`admin_ui.py` (routes bouwen een view-model en kiezen een template) +
+`templates/` (Jinja; htmx voor interactie, Alpine voor kleine client-state).
+Conventies: `docs/ui-conventies.md` (#396) en de UI-kit-macro's in
+`backend/app/ui/templates/_macros.html`. De publieke schil is
+`site_base.html` (+ `app.ui.site_context(db)`), de beheer-schil
+`admin_base.html` (+ `app.ui.admin_nav(active)`). CSS wordt gegenereerd met
+`scripts/build-css.sh` (Tailwind standalone-CLI, nul Node) → commit
+`backend/app/static/app.css` mee na template-wijzigingen. E2e-golden-flows:
+playwright-python in `backend/tests_e2e/` (aparte CI-job).
 
 ## Fixed UI decisions — do not change these
 
 - **Address grid layout:** 4-column grid. Row 1: Straat (col-span-2) + Huisnummer (col-1) + Bus (col-1). Row 2: Postcode (col-span-4, full width). Bus number is always on the same row as house number, to the right of it.
 - **Postal code field:** Always an autocomplete dropdown — never a free-text input. Fetches from `/api/v1/postal-codes`. The `form.postal_code` is only set when the user selects a valid option from the dropdown. Submit is blocked if no valid postal code is selected.
-- **Payment default:** Default payment method in `RegistrationForm` is `"MOLLIE"` (online). On success with `checkout_url`, do `window.location.href = checkout_url` — never use `router.push()` for Mollie redirect.
-- **`isPaid` check:** Must include `isPositivePrice(subRegistration?.price)` — sub-registrations can have their own price independent of the parent activity price.
+- **Payment default:** Default payment method is online (Mollie). On success with a `checkout_url`, do a **hard redirect** — server-rendered schermen zetten de `HX-Redirect`-header (nooit een soft/client-side navigatie) zodat de browser echt naar Mollie gaat.
+- **`isPaid` check:** sub-registrations can have their own price independent of the parent activity price — a positive sub-registration price makes the flow paid.
 
 ## Choosing new tools / dependencies — Europe First
 

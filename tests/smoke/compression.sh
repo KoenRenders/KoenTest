@@ -8,7 +8,7 @@ DESC="Responses worden gecomprimeerd (Caddy encode zstd/gzip, #303)"
 set -uo pipefail
 source "$(dirname "$0")/../lib.sh"
 
-# Post-deploy draait deze test meteen na een `caddy reload` + frontend-herstart.
+# Post-deploy draait deze test meteen na een `caddy reload`-equivalent (recreate).
 # Die allereerste GET kan de reload/cold-start net missen en ongecomprimeerd
 # terugkomen — een valse negatief (#381). Daarom herproberen we de homepage-GET
 # een paar keer met een korte pauze en falen we pas als het ná alle pogingen nog

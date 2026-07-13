@@ -62,27 +62,6 @@ services:
         aliases:
           - uat-backend
 
-  frontend:
-    build:
-      context: ./frontend
-      args:
-        NEXT_PUBLIC_APP_ENV: uat
-        NEXT_PUBLIC_CHATBOT_ENABLED: ${CHAT_ENABLED:-false}
-        NEXT_PUBLIC_STT_MODE: ${STT_MODE:-browser_only}
-        # Canonieke publieke origin voor OG/canonical/sitemap (#301), afgeleid van FRONTEND_URL.
-        NEXT_PUBLIC_SITE_URL: ${FRONTEND_URL:-}
-        NEXT_PUBLIC_ENV_COLOR: ${ENV_COLOR:-#B45309}
-        # Umami web-analytics (#152/#176, laag 1). Leeg = tracker laadt niet (no-op).
-        NEXT_PUBLIC_UMAMI_SRC: ${NEXT_PUBLIC_UMAMI_SRC:-}
-        NEXT_PUBLIC_UMAMI_WEBSITE_ID: ${NEXT_PUBLIC_UMAMI_WEBSITE_ID:-}
-    restart: unless-stopped
-    depends_on:
-      - backend
-    networks:
-      internal:
-      proxy:
-        aliases:
-          - uat-frontend
 
   # Umami (#176) — via subdomein door de gedeelde Caddy (alias uat-umami), eigen DB.
   umami:

@@ -1,8 +1,6 @@
 node_modules/
 .next/
 # Door Next.js/tsc gegenereerd.
-frontend/next-env.d.ts
-frontend/tsconfig.tsbuildinfo
 # package-lock.json wordt nu WEL gecommit (deterministische installs, npm ci) — #173.
 .venv/
 __pycache__/
@@ -29,3 +27,6 @@ backend/tests/__pycache__/
 
 # Claude Code: getrackte settings.json wordt gedeeld; lokale (persoonlijke paden) niet
 .claude/settings.local.json
+
+# Tailwind standalone-CLI (scripts/build-css.sh)
+.cache/
