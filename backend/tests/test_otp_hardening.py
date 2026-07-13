@@ -4,6 +4,9 @@ from tests.conftest import SEEDED_ADMIN_EMAIL
 from app.models.login_token import LoginToken
 from app.routers.auth import MAX_OTP_ATTEMPTS
 from app.limiter import login_limiter
+from app.routers import auth as auth_router
+
+FIXED_OTP = "424242"
 
 
 def _latest_token(db_session, email):
@@ -15,10 +18,11 @@ def _latest_token(db_session, email):
     )
 
 
-def test_otp_locks_out_after_max_attempts(client, db_session):
+def test_otp_locks_out_after_max_attempts(client, db_session, monkeypatch):
+    monkeypatch.setattr(auth_router, "_generate_otp", lambda: FIXED_OTP)
     client.post("/api/v1/auth/request-login", json={"email": SEEDED_ADMIN_EMAIL})
-    code = _latest_token(db_session, SEEDED_ADMIN_EMAIL).otp_code
-    wrong = "000000" if code != "000000" else "000001"
+    code = FIXED_OTP
+    wrong = "000000"
 
     # MAX_OTP_ATTEMPTS foute pogingen; de per-IP-limiet neutraliseren zodat we de
     # per-account-lockout zuiver testen (niet de 429 van login_limiter raken).

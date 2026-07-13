@@ -80,14 +80,15 @@ jobs:
 
       # Unit-tests voor pure frontend-logica (filter-predicaten, URL-bouw, …).
       # Vitest is snel en blokkerend; e2e-flows blijven in de aparte e2e-job.
+      # Zonder --passWithNoTests (#395): nul tests = rood, geen stille leegloop.
       - name: Unit tests (vitest)
-        run: npx vitest run --passWithNoTests
+        run: npx vitest run
 
   audit:
     runs-on: ubuntu-latest
-    # Niet-blokkerend (stijl van de e2e-job, #128): rapporteert kwetsbare
-    # dependencies zonder de pijplijn te breken. Een fix-met-redeploy beslist de
-    # maintainer, niet een transitieve CVE zonder beschikbare patch.
+    # npm audit is sinds #395 BLOKKEREND voor high/critical op productie-deps.
+    # pip-audit blijft rapporterend tot er een ignore-lijst-mechanisme staat
+    # (architectuurdoc §19.1) — dan ook blokkerend.
     steps:
       - uses: actions/checkout@v4
 
@@ -106,16 +107,14 @@ jobs:
         with:
           node-version: "20"
 
-      - name: npm audit (frontend)
-        continue-on-error: true
+      - name: npm audit (frontend, blokkerend op high)
         working-directory: frontend
-        run: npm audit --omit=dev
+        run: npm audit --omit=dev --audit-level=high
 
   e2e:
     runs-on: ubuntu-latest
-    # Non-blocking (#128): mag de pijplijn niet breken terwijl de e2e-suite
-    # wordt uitgebreid. continue-on-error rapporteert falen zonder te blokkeren.
-    continue-on-error: true
+    # BLOKKEREND sinds #395: de e2e-geldflow is de laatste verdediging vóór een
+    # deploy; een rode e2e = geen merge.
 
     services:
       postgres:

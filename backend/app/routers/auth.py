@@ -1,3 +1,4 @@
+import hashlib
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
@@ -45,6 +46,15 @@ def _generate_otp() -> str:
     """6-cijferige numerieke code (met voorloopnullen)."""
     return str(secrets.randbelow(1_000_000)).zfill(6)
 
+def _hash_otp(code: str) -> str:
+    """OTP nooit leesbaar opslaan (#395): SHA-256 met SECRET_KEY als pepper.
+
+    Een gelekte DB-dump geeft zo geen bruikbare codes; zonder pepper zou de
+    10^6-ruimte offline triviaal te bruteforcen zijn.
+    """
+    return hashlib.sha256(f"{settings.secret_key}:{code}".encode()).hexdigest()
+
+
 
 # ── Eén login-flow voor iedereen ───────────────────────────────────────────────
 #
@@ -80,7 +90,7 @@ def request_login(body: MagicLinkRequest, db: Session = Depends(get_db)):
             LoginToken.used == False,
             LoginToken.expires_at > datetime.now(timezone.utc),
         ).update({LoginToken.used: True}, synchronize_session=False)
-        db.add(LoginToken(email=email, token=token, otp_code=otp_code, expires_at=expires_at))
+        db.add(LoginToken(email=email, token=token, otp_code=_hash_otp(otp_code), expires_at=expires_at))
         db.commit()
         magic_link = f"{settings.frontend_url}/login/verify?token={token}"
         if settings.debug:
@@ -134,7 +144,7 @@ def verify_otp(body: OtpVerifyRequest, db: Session = Depends(get_db)):
     if not login_token or login_token.expires_at.replace(tzinfo=timezone.utc) < now:
         raise invalid
 
-    if login_token.otp_code != body.code:
+    if login_token.otp_code != _hash_otp(body.code):
         # Foute code: tel de poging en maak het token dood na MAX_OTP_ATTEMPTS,
         # zodat de 10^6-ruimte niet uitputbaar is zodra de IP-limiet omzeild wordt.
         login_token.attempts += 1
