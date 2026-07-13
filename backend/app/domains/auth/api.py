@@ -11,8 +11,9 @@ from app.domains.auth.member_identity import (  # noqa: F401
     login_person_for_email,
     resolve_household,
 )
-from app.domains.auth.models import LoginToken, User, UserRole  # noqa: F401
+from app.domains.auth.models import ApiKey, LoginToken, User, UserRole  # noqa: F401
 from app.domains.auth.service import (  # noqa: F401
+    API_KEY_HEADER,
     create_access_token,
     decode_token,
     get_current_admin,
@@ -21,6 +22,8 @@ from app.domains.auth.service import (  # noqa: F401
     get_current_member,
     get_finance_or_admin,
     get_user_roles,
+    hash_api_key,
+    require_api_key,
     require_member,
     require_roles,
 )
@@ -36,7 +39,8 @@ from app.domains.auth.session import (  # noqa: F401
 
 __all__ = [
     "find_persons_by_email", "login_person_for_email", "resolve_household",
-    "LoginToken", "User", "UserRole",
+    "ApiKey", "LoginToken", "User", "UserRole",
+    "API_KEY_HEADER", "hash_api_key", "require_api_key",
     "create_access_token", "decode_token", "get_current_admin",
     "get_current_finance", "get_current_identity", "get_current_member",
     "get_finance_or_admin", "get_user_roles", "require_member", "require_roles",

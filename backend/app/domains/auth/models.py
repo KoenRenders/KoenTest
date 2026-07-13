@@ -36,6 +36,25 @@ class UserRole(Base):
     user = relationship("User", back_populates="roles")
 
 
+class ApiKey(Base):
+    """Statische API-key per machine-consument (§19.3, fase 1b #399).
+
+    Browser = HttpOnly-sessie; machine = API-key in de X-API-Key-header. De key
+    zelf wordt nooit opgeslagen — enkel een SHA-256-hash met SECRET_KEY-pepper
+    (zelfde recept als de OTP-hashing, #395). Intrekken = is_active op False."""
+
+    __tablename__ = "api_keys"
+    __table_args__ = {"schema": "auth"}
+
+    id = Column(Integer, primary_key=True)
+    # Wie/wat is de consument — puur beschrijvend (bv. "n8n-automations").
+    name = Column(String(100), nullable=False, unique=True)
+    key_hash = Column(String(64), nullable=False, unique=True, index=True)
+    is_active = Column(Boolean, nullable=False, default=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    last_used_at = Column(DateTime(timezone=True), nullable=True)
+
+
 class LoginToken(Base):
     __tablename__ = "login_tokens"
     __table_args__ = {"schema": "auth"}

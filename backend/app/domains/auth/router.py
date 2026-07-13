@@ -223,3 +223,58 @@ def member_me(person=Depends(require_member), db: Session = Depends(get_db)):
         membership_valid_until=valid_until,
         renewal_available=renewal_available,
     )
+
+
+# ── API-keys voor machine-consumenten (§19.3) ──────────────────────────────────
+#
+# Beheer door een admin; de key zelf wordt exact één keer teruggegeven bij het
+# aanmaken en daarna alleen gehasht bewaard.
+
+from pydantic import BaseModel  # noqa: E402
+
+from app.domains.auth.models import ApiKey  # noqa: E402
+from app.domains.auth.service import get_current_admin, hash_api_key  # noqa: E402
+
+
+class ApiKeyCreate(BaseModel):
+    name: str
+
+
+class ApiKeyOut(BaseModel):
+    id: int
+    name: str
+    is_active: bool
+    last_used_at: datetime | None = None
+    model_config = {"from_attributes": True}
+
+
+@router.get("/auth/api-keys", response_model=list[ApiKeyOut])
+def list_api_keys(db: Session = Depends(get_db), _=Depends(get_current_admin)):
+    return db.query(ApiKey).order_by(ApiKey.name).all()
+
+
+@router.post("/auth/api-keys", status_code=201)
+def create_api_key(body: ApiKeyCreate, db: Session = Depends(get_db),
+                   _=Depends(get_current_admin)):
+    name = body.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Naam is verplicht.")
+    if db.query(ApiKey).filter(ApiKey.name == name).first():
+        raise HTTPException(status_code=400, detail="Naam is al in gebruik.")
+    plaintext = secrets.token_urlsafe(32)
+    entry = ApiKey(name=name, key_hash=hash_api_key(plaintext))
+    db.add(entry)
+    db.commit()
+    db.refresh(entry)
+    # De key zelf is alléén nu zichtbaar — hij wordt enkel gehasht bewaard.
+    return {"id": entry.id, "name": entry.name, "api_key": plaintext}
+
+
+@router.delete("/auth/api-keys/{key_id}", status_code=204)
+def revoke_api_key(key_id: int, db: Session = Depends(get_db),
+                   _=Depends(get_current_admin)):
+    entry = db.query(ApiKey).filter(ApiKey.id == key_id).first()
+    if entry is None:
+        raise HTTPException(status_code=404, detail="API-key niet gevonden.")
+    entry.is_active = False
+    db.commit()

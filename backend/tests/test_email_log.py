@@ -181,3 +181,18 @@ def test_admin_can_delete_email_log(client, admin_headers, db_session):
     assert db_session.query(EmailLog).filter(EmailLog.id == log_id).first() is None
     # Onbekende id → 404.
     assert client.delete("/api/v1/admin/email-log/99999999", headers=admin_headers).status_code == 404
+
+
+def test_mail_requested_event_sends_and_logs(db_session):
+    """MailRequested (kernel-contract, #399): publiceren volstaat — het
+    mail-component verstuurt en logt via het _send-chokepoint (hier zonder
+    credentials → status 'skipped', maar wél gelogd met het juiste type)."""
+    from app.kernel.contracts.mail import MailRequested
+    from app.kernel.events import publish
+
+    recipient = "event-mail@example.com"
+    publish(MailRequested(to_email=recipient, subject="Event-test",
+                          body_html="<p>hallo</p>", email_type="other"), db_session)
+    rows = _logs_for(recipient)
+    assert len(rows) == 1
+    assert rows[0].subject == "Event-test" and rows[0].status == "skipped"
