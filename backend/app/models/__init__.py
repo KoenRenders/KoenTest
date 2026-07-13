@@ -8,7 +8,6 @@ from app.models.asset import MediaAsset
 from app.models.chatbot_info import ChatbotInfo
 from app.models.history import (
     MembershipHistory,
-    PaymentRecordHistory,
 )
 from app.domains.mdm.models import (
     Address,
@@ -29,6 +28,7 @@ from app.domains.mdm.models import (
     RelationTypeCode,
 )
 from app.models.business_event import BusinessEvent
+from app.domains.payment.models import GatewayPayment, PaymentRecord, PaymentRecordHistory
 from app.domains.mail.models import EmailLog
 from app.domains.forms.models import (
     Form,

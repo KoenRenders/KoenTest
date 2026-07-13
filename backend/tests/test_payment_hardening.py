@@ -10,11 +10,11 @@
 import pytest
 from decimal import Decimal
 
-from app.domains.payment_gateway.providers.base import PaymentStatusResult
+from app.domains.payment.providers.base import PaymentStatusResult
 
 
 def _seed_gateway_payment(db, amount="35.00", status="pending"):
-    from app.domains.payment_gateway.models import GatewayPayment
+    from app.domains.payment.api import GatewayPayment
     gp = GatewayPayment(
         provider="mollie",
         provider_payment_id="tr_test_123",
@@ -32,8 +32,8 @@ def _seed_gateway_payment(db, amount="35.00", status="pending"):
 def test_amount_mismatch_blocks_paid(db_session, monkeypatch):
     """Provider meldt 'paid' maar met een te laag bedrag → status wordt
     'needs_review', niet 'paid'."""
-    from app.domains.payment_gateway.providers import mollie
-    from app.domains.payment_gateway.service import refresh_payment_status
+    from app.domains.payment.providers import mollie
+    from app.domains.payment.api import refresh_payment_status
 
     gp = _seed_gateway_payment(db_session, amount="35.00")
     monkeypatch.setattr(
@@ -46,8 +46,8 @@ def test_amount_mismatch_blocks_paid(db_session, monkeypatch):
 
 
 def test_wrong_currency_blocks_paid(db_session, monkeypatch):
-    from app.domains.payment_gateway.providers import mollie
-    from app.domains.payment_gateway.service import refresh_payment_status
+    from app.domains.payment.providers import mollie
+    from app.domains.payment.api import refresh_payment_status
 
     gp = _seed_gateway_payment(db_session, amount="35.00")
     monkeypatch.setattr(
@@ -60,8 +60,8 @@ def test_wrong_currency_blocks_paid(db_session, monkeypatch):
 
 
 def test_matching_amount_marks_paid(db_session, monkeypatch):
-    from app.domains.payment_gateway.providers import mollie
-    from app.domains.payment_gateway.service import refresh_payment_status
+    from app.domains.payment.providers import mollie
+    from app.domains.payment.api import refresh_payment_status
 
     gp = _seed_gateway_payment(db_session, amount="35.00")
     monkeypatch.setattr(
@@ -78,7 +78,7 @@ def test_gateway_payment_id_is_unique_on_payment_records(db_session):
     DB-unieke index geweigerd."""
     import pytest
     from sqlalchemy.exc import IntegrityError
-    from app.domains.payment_status.models import PaymentRecord
+    from app.domains.payment.api import PaymentRecord
 
     gp = _seed_gateway_payment(db_session)
     db_session.add(PaymentRecord(
@@ -97,8 +97,8 @@ def test_gateway_payment_id_is_unique_on_payment_records(db_session):
 def test_confirm_manual_payment_rejects_overpayment(db_session):
     """#146: amount_paid > verschuldigd bedrag wordt door de service geweigerd
     (defense-in-depth, naast de router-validatie)."""
-    from app.domains.payment_status.service import confirm_manual_payment
-    from app.domains.payment_status.models import PaymentRecord
+    from app.domains.payment.api import confirm_manual_payment
+    from app.domains.payment.api import PaymentRecord
 
     rec = PaymentRecord(
         payable_type="membership", payable_id=1, amount=Decimal("35.00"),

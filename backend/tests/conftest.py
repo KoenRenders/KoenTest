@@ -47,7 +47,7 @@ def _migrate_schema():
     # in de metadata leven — na verwijderde modellen (ideas) blijven wezen
     # achter en botst de keten. CASCADE veegt álles, ook alembic_version.
     with engine.begin() as conn:
-        for schema in ("form", "workflow", "mail", "auth", "mdm", "public"):
+        for schema in ("form", "workflow", "mail", "auth", "mdm", "payment", "public"):
             conn.exec_driver_sql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
         conn.exec_driver_sql("CREATE SCHEMA public")
     cfg = Config(os.path.join(os.path.dirname(os.path.dirname(__file__)), "alembic.ini"))
@@ -116,8 +116,8 @@ def admin_headers():
 @pytest.fixture
 def mock_mollie(monkeypatch):
     """Vervang de Mollie-provider zodat online betalingen geen netwerk raken."""
-    from app.domains.payment_gateway.providers import mollie
-    from app.domains.payment_gateway.providers.base import PaymentResult, PaymentStatusResult
+    from app.domains.payment.providers import mollie
+    from app.domains.payment.providers.base import PaymentResult, PaymentStatusResult
 
     def fake_create_payment(self, amount, description, redirect_url, webhook_url, metadata):
         return PaymentResult(

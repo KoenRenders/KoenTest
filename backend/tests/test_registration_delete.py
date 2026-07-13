@@ -6,7 +6,7 @@ charge op (niets verschuldigd); een **betaalde** inschrijving verwijderen maakt 
 terugbetaling-verplichting aan (geld = financieel feit, verdwijnt niet zomaar).
 """
 from app.models.activity import Registration
-from app.domains.payment_status.models import PaymentRecord
+from app.domains.payment.api import PaymentRecord
 from tests.conftest import seed_activity_with_product
 
 _REG = {"contact_name": "An Janssens", "contact_email": "an@example.com", "payment_method": "TRANSFER"}

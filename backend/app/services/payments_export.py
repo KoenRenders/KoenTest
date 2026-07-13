@@ -13,7 +13,7 @@ Bevat persoons- en financiële data: enkel admin/penningmeester, nooit in de rep
 from decimal import Decimal
 from typing import Optional
 
-from app.domains.payment_status.models import PaymentRecord
+from app.domains.payment.api import PaymentRecord
 from app.services.ods_export import build_ods
 
 _METHOD = {"online": "Online", "transfer": "Overschrijving", "cash": "Cash"}

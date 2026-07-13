@@ -54,7 +54,7 @@ def _register(client, activity_id, comp_id, items, email, payment_method="ONLINE
 
 def _payment_amount(db):
     """Het bedrag van het (enige) betaalrecord in deze geïsoleerde test, of None."""
-    from app.domains.payment_status.models import PaymentRecord
+    from app.domains.payment.api import PaymentRecord
     rec = db.query(PaymentRecord).filter(PaymentRecord.payable_type == "registration").first()
     return rec.amount if rec else None
 

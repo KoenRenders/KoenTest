@@ -20,8 +20,8 @@ from app.models.business_event import BusinessEvent
 from app.models.member import Membership
 from app.domains.mdm.api import Member
 from app.domains.auth.api import User
-from app.domains.payment_status.models import PaymentRecord
-from app.domains.payment_status.service import current_membership_counts
+from app.domains.payment.api import PaymentRecord
+from app.domains.payment.api import current_membership_counts
 
 router = APIRouter(tags=["admin"])
 

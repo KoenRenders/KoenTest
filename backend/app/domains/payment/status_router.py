@@ -190,7 +190,7 @@ def refresh_payment_record(
             detail="Alleen online betalingen kunnen bij Mollie ververst worden.",
         )
 
-    from app.domains.payment_gateway.service import refresh_payment_status
+    from app.domains.payment.gateway_service import refresh_payment_status
 
     gp = refresh_payment_status(db, record.gateway_payment_id)
     handle_gateway_update(

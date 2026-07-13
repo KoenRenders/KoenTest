@@ -7,7 +7,7 @@ admin-dashboard, dus die mogen elkaar niet tegenspreken.
 """
 from datetime import date, timedelta
 
-from app.domains.payment_status.service import current_membership_counts
+from app.domains.payment.api import current_membership_counts
 
 
 def _household(db, n_persons=1, *, is_active=True, valid_from=None, valid_to=None):

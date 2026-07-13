@@ -3,7 +3,7 @@ reads gefilterd maar blijven in de DB; partiële uniciteit laat heraanmaak toe;
 de history (en dus de #82-export) toont de verwijdering nog steeds."""
 from datetime import date
 
-from app.domains.payment_status.models import PaymentRecord
+from app.domains.payment.api import PaymentRecord
 from app.models.activity import Activity, Registration
 from app.models.member import Membership
 from app.domains.mdm.api import Member, Person

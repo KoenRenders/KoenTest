@@ -8,7 +8,7 @@ kris.vandenbosch@raakvzw.be heeft enkel ADMIN en is dus de admin-only testcase.
 from decimal import Decimal
 
 from app.domains.auth.api import create_access_token, get_user_roles
-from app.domains.payment_status.models import PaymentRecord
+from app.domains.payment.api import PaymentRecord
 
 FINANCE_EMAIL = "koen.renders@gmail.com"      # ADMIN + FINANCE (014 + 056)
 ADMIN_ONLY_EMAIL = "kris.vandenbosch@raakvzw.be"  # enkel ADMIN (014)

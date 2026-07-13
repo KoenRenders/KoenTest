@@ -38,7 +38,7 @@ from app.schemas.member import (
     BoardMemberAssign,
 )
 from app.schemas.family import FamilyCreate
-from app.domains.payment_status.service import create_payment_record, membership_price_for_date, membership_valid_period
+from app.domains.payment.api import create_payment_record, membership_price_for_date, membership_valid_period
 from app.domains.analytics.service import log_business_event
 from app.domains.audit.service import (
     snapshot_person,
@@ -589,7 +589,7 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
             .all()
         )
         if existing_memberships:
-            from app.domains.payment_status.models import PaymentRecord
+            from app.domains.payment.api import PaymentRecord
             for ms in existing_memberships:
                 recs = db.query(PaymentRecord).filter(
                     PaymentRecord.payable_type == "membership",
@@ -700,7 +700,7 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
 
     checkout_url = None
     if data.payment_method == "online" and payment_record.gateway_payment_id:
-        from app.domains.payment_gateway.models import GatewayPayment
+        from app.domains.payment.api import GatewayPayment
         gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
         if gp:
             checkout_url = gp.checkout_url

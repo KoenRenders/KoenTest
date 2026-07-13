@@ -24,8 +24,8 @@ def test_family_registration_happy_path_writes_data_and_audit(client, db_session
 
     from app.models.member import Membership
     from app.domains.mdm.api import Member, Person
-    from app.domains.payment_status.models import PaymentRecord
-    from app.models.history import PaymentRecordHistory
+    from app.domains.payment.api import PaymentRecord
+    from app.domains.payment.api import PaymentRecordHistory
     from app.domains.mdm.api import MemberHistory
 
     assert db_session.query(Member).count() == 1
@@ -69,7 +69,7 @@ def test_family_registration_requires_hoofdlid_contact(client, db_session):
 def test_manual_confirm_writes_audit_with_actor(client, db_session, admin_headers):
     seed_postal_code(db_session)
     client.post("/api/v1/families", json=_family_payload(email="confirm@example.com"))
-    from app.domains.payment_status.models import PaymentRecord
+    from app.domains.payment.api import PaymentRecord
     rec = db_session.query(PaymentRecord).first()
 
     resp = client.patch(
@@ -79,7 +79,7 @@ def test_manual_confirm_writes_audit_with_actor(client, db_session, admin_header
     )
     assert resp.status_code == 200, resp.text
 
-    from app.models.history import PaymentRecordHistory
+    from app.domains.payment.api import PaymentRecordHistory
     h = db_session.query(PaymentRecordHistory).filter(
         PaymentRecordHistory.action == "payment_manually_confirmed"
     ).first()
@@ -92,10 +92,10 @@ def test_manual_confirm_writes_audit_with_actor(client, db_session, admin_header
 def test_webhook_update_idempotent_no_double_credit(client, db_session):
     """Twee keer dezelfde 'paid'-update mag het betaalde bedrag niet verdubbelen
     en logt maar één status-transitie."""
-    from app.domains.payment_gateway.models import GatewayPayment
-    from app.domains.payment_status.models import PaymentRecord
-    from app.domains.payment_status.service import handle_gateway_update
-    from app.models.history import PaymentRecordHistory
+    from app.domains.payment.api import GatewayPayment
+    from app.domains.payment.api import PaymentRecord
+    from app.domains.payment.api import handle_gateway_update
+    from app.domains.payment.api import PaymentRecordHistory
 
     gp = GatewayPayment(provider="mollie", provider_payment_id="tr_idem",
                         amount=Decimal("35.00"), status="pending", payment_metadata={})
@@ -165,7 +165,7 @@ def test_admin_creates_paid_activity_and_public_registration(client, db_session,
     })
     assert reg.status_code == 200, reg.text
 
-    from app.domains.payment_status.models import PaymentRecord
+    from app.domains.payment.api import PaymentRecord
     rec = db_session.query(PaymentRecord).filter(
         PaymentRecord.payable_type == "registration"
     ).first()
@@ -186,7 +186,7 @@ def test_registration_total_matches_payment_amount(client, db_session, mock_moll
     })
     assert resp.status_code == 200, resp.text
 
-    from app.domains.payment_status.models import PaymentRecord
+    from app.domains.payment.api import PaymentRecord
     from app.services.registration_totals import compute_registration_total
     from app.models.activity import Registration
 

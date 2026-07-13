@@ -3,8 +3,8 @@ betalingen (en registraties) aan hangen mag de financiële overzichten en de
 ledenwijzigingen-export niet breken, en mag geen weesbetalingen achterlaten (#82-context)."""
 from datetime import date
 
-from app.domains.payment_status.models import PaymentRecord
-from app.models.history import PaymentRecordHistory
+from app.domains.payment.api import PaymentRecord
+from app.domains.payment.api import PaymentRecordHistory
 from app.models.member import Membership
 from app.domains.mdm.api import Member
 from app.domains.mdm.api import ExternalNumber
