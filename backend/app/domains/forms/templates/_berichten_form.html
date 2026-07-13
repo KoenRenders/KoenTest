@@ -1,0 +1,20 @@
+{% import "_macros.html" as ui %}
+{{ ui.error_banner(error) }}
+<form hx-post="/berichten" hx-target="#berichten-form" hx-swap="innerHTML" class="space-y-4">
+  <div>
+    {{ ui.label("Je naam", "b_naam", required=True) }}
+    <input id="b_naam" name="naam" value="{{ naam|default('') }}" required
+           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+  </div>
+  <div>
+    {{ ui.label("Je e-mailadres (optioneel — voor een antwoord)", "b_email") }}
+    <input id="b_email" name="email" type="email" value="{{ email|default('') }}"
+           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+  </div>
+  <div>
+    {{ ui.label("Je bericht", "b_bericht", required=True) }}
+    <textarea id="b_bericht" name="bericht" rows="5" required
+              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">{{ bericht|default('') }}</textarea>
+  </div>
+  {{ ui.btn_primary("Verstuur bericht") }}
+</form>

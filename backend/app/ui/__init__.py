@@ -12,6 +12,9 @@ from fastapi.templating import Jinja2Templates
 _UI_DIR = Path(__file__).parent
 
 # Component-template-mappen haken hier in (fase 0+ voegen paden toe).
-template_dirs: list[str] = [str(_UI_DIR / "templates")]
+_DOMAINS = _UI_DIR.parent / "domains"
+template_dirs: list[str] = [str(_UI_DIR / "templates")] + sorted(
+    str(p) for p in _DOMAINS.glob("*/templates") if p.is_dir()
+)
 
 templates = Jinja2Templates(directory=template_dirs)

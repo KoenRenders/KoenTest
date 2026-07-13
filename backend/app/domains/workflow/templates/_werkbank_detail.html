@@ -1,0 +1,20 @@
+{% import "_macros.html" as ui %}
+{% if task %}
+<div class="border-t border-gray-200 pt-4">
+  <dl class="space-y-1 mb-4">
+    {% for label, value in detail_rows %}
+    <div class="flex gap-2 text-sm"><dt class="font-medium text-gray-600 w-32 shrink-0">{{ label }}</dt><dd class="whitespace-pre-wrap">{{ value }}</dd></div>
+    {% endfor %}
+  </dl>
+  <form hx-post="/admin/werkbank/taken/{{ task.id }}/afgehandeld" hx-target="#werkbank-lijst" hx-swap="innerHTML" class="flex gap-3 items-end">
+    <div class="grow">
+      {{ ui.label("Besluit (optioneel — een afwijzing is ook een beslissing)", "besluit_" ~ task.id) }}
+      <input id="besluit_{{ task.id }}" name="besluit"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+    </div>
+    {{ ui.btn_primary("Afgehandeld") }}
+  </form>
+</div>
+{% else %}
+{{ ui.empty_state("Taak niet gevonden (mogelijk al afgehandeld).") }}
+{% endif %}

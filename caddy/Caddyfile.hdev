@@ -5,6 +5,17 @@
 	handle /api/* {
 		reverse_proxy backend:8000
 	}
+	# Server-rendered pagina's (v2.0, #398): expliciete paden naar de backend;
+	# de lijst groeit per omgeklapt scherm en vervalt bij de React-exit (#405).
+	handle /static/* {
+		reverse_proxy backend:8000
+	}
+	handle /berichten* {
+		reverse_proxy backend:8000
+	}
+	handle /admin/werkbank* {
+		reverse_proxy backend:8000
+	}
 	# Umami (laag 1) draait op een eigen poort (8082, root), niet via Caddy: het
 	# prebuilt image past runtime-BASE_PATH niet toe → geen subpad. Zie docs/umami.md.
 	handle {

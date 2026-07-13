@@ -35,6 +35,17 @@
 	handle /api/* {
 		reverse_proxy uat-backend:8000
 	}
+	# Server-rendered pagina's (v2.0, #398): expliciete paden naar de backend;
+	# de lijst groeit per omgeklapt scherm en vervalt bij de React-exit (#405).
+	handle /static/* {
+		reverse_proxy uat-backend:8000
+	}
+	handle /berichten* {
+		reverse_proxy uat-backend:8000
+	}
+	handle /admin/werkbank* {
+		reverse_proxy uat-backend:8000
+	}
 	handle {
 		reverse_proxy uat-frontend:3000
 	}
@@ -55,6 +66,17 @@
 {$PROD_DOMAIN} {
 	import security_headers
 	handle /api/* {
+		reverse_proxy prod-backend:8000
+	}
+	# Server-rendered pagina's (v2.0, #398): expliciete paden naar de backend;
+	# de lijst groeit per omgeklapt scherm en vervalt bij de React-exit (#405).
+	handle /static/* {
+		reverse_proxy prod-backend:8000
+	}
+	handle /berichten* {
+		reverse_proxy prod-backend:8000
+	}
+	handle /admin/werkbank* {
 		reverse_proxy prod-backend:8000
 	}
 	handle {

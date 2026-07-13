@@ -3,7 +3,7 @@ import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -31,6 +31,13 @@ from app.services.member_auth import (
 )
 from app.config import settings
 from app.limiter import login_limiter
+from app.ui_session import set_session_cookie as _set_ui_session_cookie
+
+
+def _set_ui_session(response: Response, email: str) -> None:
+    """Naast het JWT ook een HttpOnly-sessiecookie (#398): de server-rendered
+    schermen (werkbank e.v.) lezen díe — nooit localStorage."""
+    _set_ui_session_cookie(response, email)
 
 logger = logging.getLogger(__name__)
 
@@ -106,7 +113,7 @@ def request_login(body: MagicLinkRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/auth/verify-login", response_model=TokenResponse)
-def verify_login(token: str, db: Session = Depends(get_db)):
+def verify_login(token: str, response: Response, db: Session = Depends(get_db)):
     now = datetime.now(timezone.utc)
     login_token = (
         db.query(LoginToken)
@@ -118,11 +125,12 @@ def verify_login(token: str, db: Session = Depends(get_db)):
 
     login_token.used = True
     db.commit()
+    _set_ui_session(response, login_token.email)
     return TokenResponse(access_token=create_access_token(data={"sub": login_token.email}))
 
 
 @router.post("/auth/verify-otp", response_model=TokenResponse, dependencies=[Depends(login_limiter)])
-def verify_otp(body: OtpVerifyRequest, db: Session = Depends(get_db)):
+def verify_otp(body: OtpVerifyRequest, response: Response, db: Session = Depends(get_db)):
     now = datetime.now(timezone.utc)
     # Haal het levende token voor dit e-mailadres (ongebruikt), ONAFHANKELIJK van
     # de ingevoerde code — zo kunnen we ook een foute poging tellen (#268). Door
@@ -155,6 +163,7 @@ def verify_otp(body: OtpVerifyRequest, db: Session = Depends(get_db)):
 
     login_token.used = True
     db.commit()
+    _set_ui_session(response, login_token.email)
     return TokenResponse(access_token=create_access_token(data={"sub": login_token.email}))
 
 
