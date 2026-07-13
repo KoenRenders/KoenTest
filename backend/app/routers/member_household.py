@@ -183,7 +183,9 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
                             source="member_self", actor=actor)
 
     description = f"Raak Millegem lidmaatschap {valid_to.year} – {person.last_name} {person.first_name}"
-    redirect_url = f"{settings.frontend_url}/betaling/succes?member={member.id}"
+    from app.kernel.tenant_config import tenant_base_url
+
+    redirect_url = f"{tenant_base_url(db)}/betaling/succes?member={member.id}"
     try:
         payment_record = create_payment_record(
             db=db,

@@ -4,7 +4,7 @@ from app.database import Base
 
 class RoleCode(Base):
     __tablename__ = "role_codes"
-    code = Column(String(10), primary_key=True)
+    code = Column(String(20), primary_key=True)
     language = Column(String(5), primary_key=True)
     value = Column(String(100), nullable=False)
     description = Column(String(255), nullable=True)

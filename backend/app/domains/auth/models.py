@@ -30,7 +30,7 @@ class UserRole(Base):
     user_id = Column(Integer, ForeignKey("auth.users.id"), primary_key=True)
     # Bewust GEEN FK naar public.role_codes (§8: geen cross-schema FK's);
     # geldigheid van rolcodes wordt in de servicelaag afgedwongen.
-    role_code = Column(String(10), primary_key=True)
+    role_code = Column(String(20), primary_key=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     user = relationship("User", back_populates="roles")

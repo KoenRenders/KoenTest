@@ -408,7 +408,9 @@ def submit_form(
     if form.send_confirmation and not form.is_anonymous and sub_email:
         edit_link = None
         if form.allow_edit and submission.edit_token:
-            edit_link = f"{settings.frontend_url}/formulier/{form.share_token}/edit/{submission.edit_token}"
+            from app.kernel.tenant_config import tenant_base_url
+
+            edit_link = f"{tenant_base_url(db)}/formulier/{form.share_token}/edit/{submission.edit_token}"
         try:
             send_form_confirmation(
                 to_email=sub_email,

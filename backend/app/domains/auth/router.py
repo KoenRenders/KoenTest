@@ -105,7 +105,9 @@ def start_login(db: Session, email: str) -> None:
         ).update({LoginToken.used: True}, synchronize_session=False)
         db.add(LoginToken(email=email, token=token, otp_code=_hash_otp(otp_code), expires_at=expires_at))
         db.commit()
-        magic_link = f"{settings.frontend_url}/login/verify?token={token}"
+        from app.kernel.tenant_config import tenant_base_url
+
+        magic_link = f"{tenant_base_url(db)}/login/verify?token={token}"
         if settings.debug:
             logger.warning("[DEBUG] Inloglink voor %s: %s", email, magic_link)
         send_magic_link(to_email=email, magic_link=magic_link, otp_code=otp_code)

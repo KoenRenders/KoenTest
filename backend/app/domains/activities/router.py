@@ -982,7 +982,9 @@ def register_for_activity(
     payment_record = None
     if data.payment_method and total_amount > 0:
         method = "online" if data.payment_method == "ONLINE" else "transfer"
-        redirect_url = f"{settings.frontend_url}/betaling/succes?registration={registration.id}"
+        from app.kernel.tenant_config import tenant_base_url
+
+        redirect_url = f"{tenant_base_url(db)}/betaling/succes?registration={registration.id}"
         description = f"Inschrijving {activity.name} – {data.contact_name}"
         try:
             payment_record = create_payment_record(

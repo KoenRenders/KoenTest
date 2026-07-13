@@ -84,7 +84,27 @@ def _enqueue_retry(email_log_id: Optional[int]) -> None:
         logger.error("mail.retry-job plannen mislukt (log #%s): %s", email_log_id, exc)
 
 
+def _mail_mode() -> str:
+    """Per-tenant mail-modus (fase 5b, #406): de demo-tenant logt mails enkel
+    ("log_only") en verstuurt nooit echt. Fouten mogen versturen nooit breken."""
+    try:
+        from app.database import SessionLocal
+        from app.kernel.tenant_config import tenant_mail_mode
+
+        db = SessionLocal()
+        try:
+            return tenant_mail_mode(db)
+        finally:
+            db.close()
+    except Exception:
+        return "send"
+
+
 def _send(to_email: str, subject: str, body_html: str, cc: Optional[str] = None, email_type: str = "other") -> None:
+    if _mail_mode() == "log_only":
+        _log_email(to_email, subject, body_html, email_type, "logged",
+                   "demo-tenant: alleen gelogd, niet verstuurd")
+        return
     if not settings.gmail_user or not settings.gmail_app_password:
         logger.warning("E-mail niet verstuurd (GMAIL_USER of GMAIL_APP_PASSWORD niet ingesteld): %s", subject)
         _log_email(to_email, subject, body_html, email_type, "skipped", "GMAIL_USER/GMAIL_APP_PASSWORD niet ingesteld")

@@ -1,0 +1,116 @@
+"""Per-tenant config + secrets in de DB (§7, fase 5b #406).
+
+Config die per tenant verschilt (afzendnaam, canonieke base-URL, taal,
+Mollie-key, mail-modus) leeft DB-beheerd in ``kernel_tenant_settings``;
+de ``.env``-settings blijven de default zolang een sleutel niet gezet is.
+Secrets (Mollie-key) worden **versleuteld** opgeslagen (Fernet, sleutel
+afgeleid van ``SECRET_KEY``). Infra-secrets (DB-wachtwoord, SECRET_KEY zelf)
+blijven in ``.env`` — die zijn niet tenant-gebonden.
+
+Bekende sleutels:
+- ``display_name``   — afzend-/merknaam (default "Raak Millegem")
+- ``base_url``       — canonieke publieke origin voor links in mails/redirects
+- ``mollie_api_key`` — (secret) per-tenant Mollie-key; default env-key
+- ``mail_mode``      — "send" (default) of "log_only" (demo-tenant: mails
+                       worden enkel gelogd, nooit echt verstuurd)
+- ``noindex``        — "1" = robots-noindex voor deze tenant (demo)
+"""
+from __future__ import annotations
+
+import base64
+import hashlib
+from datetime import datetime, timezone
+
+from cryptography.fernet import Fernet
+from sqlalchemy import Column, DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy.orm import Session
+
+from app.database import Base
+from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
+
+
+class TenantSetting(Base):
+    """Eén config-sleutel voor één tenant. Secrets staan in ``value_encrypted``
+    (Fernet); gewone config in ``value``. Bewust géén TenantMixin: deze tabel
+    is platform-plumbing en wordt altijd expliciet op tenant_id bevraagd."""
+
+    __tablename__ = "kernel_tenant_settings"
+    __table_args__ = (UniqueConstraint("tenant_id", "key", name="uq_tenant_setting"),)
+
+    id = Column(Integer, primary_key=True)
+    tenant_id = Column(Integer, nullable=False, index=True)
+    key = Column(String(100), nullable=False)
+    value = Column(Text, nullable=True)
+    value_encrypted = Column(Text, nullable=True)
+    updated_at = Column(DateTime(timezone=True),
+                        default=lambda: datetime.now(timezone.utc),
+                        onupdate=lambda: datetime.now(timezone.utc), nullable=False)
+
+
+def _fernet() -> Fernet:
+    from app.config import settings
+
+    # Deterministische afleiding uit SECRET_KEY: geen extra key-management,
+    # zelfde sleutel op alle replica's van dezelfde omgeving.
+    digest = hashlib.sha256(f"tenant-config:{settings.secret_key}".encode()).digest()
+    return Fernet(base64.urlsafe_b64encode(digest))
+
+
+def _actieve_tenant(tenant_id: int | None) -> int:
+    return tenant_id or current_tenant_id.get() or DEFAULT_TENANT_ID
+
+
+def get_setting(db: Session, key: str, default: str | None = None,
+                tenant_id: int | None = None) -> str | None:
+    row = (db.query(TenantSetting)
+           .filter(TenantSetting.tenant_id == _actieve_tenant(tenant_id),
+                   TenantSetting.key == key).first())
+    if row is None:
+        return default
+    if row.value_encrypted is not None:
+        return _fernet().decrypt(row.value_encrypted.encode()).decode()
+    return row.value if row.value is not None else default
+
+
+def set_setting(db: Session, key: str, value: str | None, *, secret: bool = False,
+                tenant_id: int | None = None) -> None:
+    tenant = _actieve_tenant(tenant_id)
+    row = (db.query(TenantSetting)
+           .filter(TenantSetting.tenant_id == tenant, TenantSetting.key == key).first())
+    if row is None:
+        row = TenantSetting(tenant_id=tenant, key=key)
+        db.add(row)
+    if value is None:
+        row.value = None
+        row.value_encrypted = None
+    elif secret:
+        row.value = None
+        row.value_encrypted = _fernet().encrypt(value.encode()).decode()
+    else:
+        row.value = value
+        row.value_encrypted = None
+
+
+# ── Afgeleide helpers (met .env als default) ───────────────────────────────────
+
+def tenant_base_url(db: Session, tenant_id: int | None = None) -> str:
+    """Canonieke publieke origin van de actieve tenant, voor absolute URL's in
+    mails, Mollie-redirects en SEO. Default: de globale FRONTEND_URL."""
+    from app.config import settings
+
+    return (get_setting(db, "base_url", tenant_id=tenant_id)
+            or settings.frontend_url).rstrip("/")
+
+
+def tenant_display_name(db: Session, tenant_id: int | None = None) -> str:
+    return get_setting(db, "display_name", tenant_id=tenant_id) or "Raak Millegem"
+
+
+def tenant_mollie_key(db: Session, tenant_id: int | None = None) -> str | None:
+    from app.config import settings
+
+    return get_setting(db, "mollie_api_key", tenant_id=tenant_id) or settings.mollie_api_key
+
+
+def tenant_mail_mode(db: Session, tenant_id: int | None = None) -> str:
+    return get_setting(db, "mail_mode", tenant_id=tenant_id) or "send"

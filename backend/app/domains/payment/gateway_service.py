@@ -8,9 +8,9 @@ from .providers.mollie import MollieProvider
 logger = logging.getLogger(__name__)
 
 
-def _get_provider(name: str = "mollie"):
+def _get_provider(name: str = "mollie", api_key: str | None = None):
     if name == "mollie":
-        return MollieProvider()
+        return MollieProvider(api_key=api_key)
     raise ValueError(f"Unknown payment provider: {name}")
 
 
@@ -22,8 +22,12 @@ def create_payment(
     metadata: dict,
     provider_name: str = "mollie",
 ) -> GatewayPayment:
-    provider = _get_provider(provider_name)
-    webhook_url = f"{settings.public_url}/api/v1/payment-gateway/webhooks/{provider_name}"
+    from app.kernel.tenant_config import get_setting, tenant_mollie_key
+
+    # Per-tenant Mollie-key en webhook-origin (fase 5b, #406); .env als default.
+    provider = _get_provider(provider_name, api_key=tenant_mollie_key(db))
+    webhook_base = (get_setting(db, "base_url") or settings.public_url).rstrip("/")
+    webhook_url = f"{webhook_base}/api/v1/payment-gateway/webhooks/{provider_name}"
 
     result = provider.create_payment(
         amount=amount,
@@ -52,7 +56,10 @@ def refresh_payment_status(db: Session, gateway_payment_id: str) -> GatewayPayme
     if not gp:
         raise ValueError(f"GatewayPayment {gateway_payment_id} not found")
 
-    provider = _get_provider(gp.provider)
+    from app.kernel.tenant_config import tenant_mollie_key
+
+    provider = _get_provider(gp.provider,
+                             api_key=tenant_mollie_key(db, tenant_id=gp.tenant_id))
     details = provider.get_payment_details(gp.provider_payment_id)
     new_status = details.status
 
