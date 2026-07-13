@@ -1,0 +1,123 @@
+{% import "_macros.html" as ui %}
+<div class="space-y-4">
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
+    <div class="flex items-center justify-between">
+      <h2 class="font-bold text-lg">{{ a.name }}
+        {% if a.is_cancelled %}{{ ui.badge("geannuleerd", "red") }}{% endif %}
+        {% if a.members_only %}{{ ui.badge("enkel leden", "blue") }}{% endif %}
+      </h2>
+      <div class="flex gap-2">
+        {{ ui.btn_secondary("Bewerken", attrs='@click="edit = !edit"') }}
+        {{ ui.btn_danger("Verwijderen", attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/verwijderen" hx-target="#aa-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs("Activiteit", a.name)) }}
+      </div>
+    </div>
+    {% if a.location %}<p class="text-sm text-gray-500 mt-1">📍 {{ a.location }}</p>{% endif %}
+    <form x-show="edit" x-cloak class="space-y-3 mt-3"
+          hx-post="/admin/activiteiten/{{ a.id }}" hx-target="#aa-detail" hx-swap="innerHTML">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>{{ ui.label("Naam", "name", required=True) }}
+          <input name="name" id="name" required value="{{ a.name }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        <div>{{ ui.label("Locatie", "location") }}
+          <input name="location" id="location" value="{{ a.location or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+      </div>
+      <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1" {% if a.members_only %}checked{% endif %}> Enkel voor leden</label>
+      <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_cancelled" value="1" {% if a.is_cancelled %}checked{% endif %}> Geannuleerd</label>
+      {{ ui.btn_primary("Opslaan") }}
+    </form>
+  </div>
+
+  {# Datums #}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+    <h3 class="font-semibold mb-2">Datums</h3>
+    {% for d in a.dates %}
+    <div class="flex items-center justify-between text-sm py-1">
+      <span>{{ d.start_date.strftime("%d-%m-%Y") }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date.strftime("%d-%m-%Y") }}{% endif %}</span>
+      {{ ui.btn_danger("Verwijder", attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/datums/' ~ d.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" hx-confirm="Datum verwijderen?"') }}
+    </div>
+    {% endfor %}
+    <form class="flex gap-2 items-end mt-3" hx-post="/admin/activiteiten/{{ a.id }}/datums"
+          hx-target="#aa-detail" hx-swap="innerHTML">
+      <div>{{ ui.label("Start", "start_date", required=True) }}
+        <input type="date" name="start_date" required class="border border-gray-300 rounded-lg px-3 py-2"></div>
+      <div>{{ ui.label("Einde", "end_date") }}
+        <input type="date" name="end_date" class="border border-gray-300 rounded-lg px-3 py-2"></div>
+      {{ ui.btn_primary("Toevoegen") }}
+    </form>
+  </div>
+
+  {# Onderdelen + producten #}
+  {% for c in a.sub_registrations %}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
+    <div class="flex items-center justify-between">
+      <h3 class="font-semibold">{{ c.name }}
+        {% if c.team_name_required %}{{ ui.badge("ploegnaam", "blue") }}{% endif %}
+        {% if c.max_participants %}{{ ui.badge("max " ~ c.max_participants) }}{% endif %}
+      </h3>
+      <div class="flex gap-2">
+        <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg text-sm"
+           href="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}/export">⬇ Export</a>
+        {{ ui.btn_secondary("Bewerken", attrs='@click="edit = !edit"') }}
+        {{ ui.btn_danger("Verwijderen", attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ ui.confirm_attrs("Onderdeel", c.name)) }}
+      </div>
+    </div>
+    <form x-show="edit" x-cloak class="flex flex-wrap gap-2 items-end mt-3"
+          hx-post="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}"
+          hx-target="#aa-detail" hx-swap="innerHTML">
+      <div>{{ ui.label("Naam", "cname-" ~ c.id, required=True) }}
+        <input name="name" id="cname-{{ c.id }}" required value="{{ c.name }}" class="border border-gray-300 rounded-lg px-3 py-2"></div>
+      <div>{{ ui.label("Max", "cmax-" ~ c.id) }}
+        <input name="max_participants" id="cmax-{{ c.id }}" value="{{ c.max_participants or '' }}" class="w-24 border border-gray-300 rounded-lg px-3 py-2"></div>
+      <label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="team_name_required" value="1" {% if c.team_name_required %}checked{% endif %}> Ploegnaam vereist</label>
+      {{ ui.btn_primary("Opslaan") }}
+    </form>
+    <div class="mt-3 space-y-1">
+      {% for p in c.products %}
+      <div class="flex items-center justify-between text-sm py-1 border-t border-gray-100">
+        <span>{{ p.name }} ·
+          {% if p.pay_on_site %}ter plaatse{% elif p.is_free or p.price == 0 %}gratis{% else %}€{{ "%.2f"|format(p.price) }}{% if p.member_price is not none %} / leden €{{ "%.2f"|format(p.member_price) }}{% endif %}{% endif %}
+          {% if p.max_participants %} · max {{ p.max_participants }}{% endif %}
+        </span>
+        {{ ui.btn_danger("Verwijder", attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ ui.confirm_attrs("Product", p.name)) }}
+      </div>
+      {% endfor %}
+      <form class="flex flex-wrap gap-2 items-end mt-2"
+            hx-post="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}/producten"
+            hx-target="#aa-detail" hx-swap="innerHTML">
+        <div>{{ ui.label("Product", "pname-" ~ c.id, required=True) }}
+          <input name="name" id="pname-{{ c.id }}" required class="border border-gray-300 rounded-lg px-3 py-2"></div>
+        <div>{{ ui.label("Prijs", "pprice-" ~ c.id) }}
+          <input name="price" id="pprice-{{ c.id }}" value="0" inputmode="decimal" class="w-24 border border-gray-300 rounded-lg px-3 py-2"></div>
+        <div>{{ ui.label("Ledenprijs", "pmprice-" ~ c.id) }}
+          <input name="member_price" id="pmprice-{{ c.id }}" inputmode="decimal" class="w-24 border border-gray-300 rounded-lg px-3 py-2"></div>
+        <div>{{ ui.label("Max", "pmax-" ~ c.id) }}
+          <input name="max_participants" id="pmax-{{ c.id }}" class="w-20 border border-gray-300 rounded-lg px-3 py-2"></div>
+        <label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="pay_on_site" value="1"> Ter plaatse</label>
+        {{ ui.btn_primary("Toevoegen") }}
+      </form>
+    </div>
+  </div>
+  {% endfor %}
+
+  {# Onderdeel toevoegen #}
+  <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+    <form class="flex flex-wrap gap-2 items-end"
+          hx-post="/admin/activiteiten/{{ a.id }}/onderdelen"
+          hx-target="#aa-detail" hx-swap="innerHTML">
+      <div>{{ ui.label("Nieuw onderdeel", "nc-name", required=True) }}
+        <input name="name" id="nc-name" required class="border border-gray-300 rounded-lg px-3 py-2"></div>
+      <div>{{ ui.label("Max", "nc-max") }}
+        <input name="max_participants" id="nc-max" class="w-24 border border-gray-300 rounded-lg px-3 py-2"></div>
+      <label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="team_name_required" value="1"> Ploegnaam vereist</label>
+      {{ ui.btn_primary("Toevoegen") }}
+    </form>
+  </div>
+
+  {# Inschrijvingen #}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+    <div class="flex items-center justify-between mb-2">
+      <h3 class="font-semibold">Inschrijvingen</h3>
+      {{ ui.btn_secondary("Toon inschrijvingen", attrs='hx-get="/admin/activiteiten/' ~ a.id ~ '/inschrijvingen" hx-target="#aa-inschrijvingen" hx-swap="innerHTML"') }}
+    </div>
+    <div id="aa-inschrijvingen"></div>
+  </div>
+</div>
