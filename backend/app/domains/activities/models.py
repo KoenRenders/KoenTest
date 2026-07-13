@@ -14,7 +14,7 @@ def _single_asset(obj, kind, fk_attr):
     sess = object_session(obj)
     if sess is None or obj.id is None:
         return None
-    from app.models.asset import MediaAsset
+    from app.domains.media.api import MediaAsset
     return (
         sess.query(MediaAsset)
         .filter(MediaAsset.kind == kind, getattr(MediaAsset, fk_attr) == obj.id)
@@ -132,7 +132,7 @@ class ActivitySubRegistration(SoftDeleteMixin, Base):
         sess = object_session(self)
         if sess is None or self.id is None:
             return None
-        from app.models.asset import MediaAsset
+        from app.domains.media.api import MediaAsset
         return (
             sess.query(MediaAsset)
             .filter(MediaAsset.kind == "component_info", MediaAsset.component_id == self.id)

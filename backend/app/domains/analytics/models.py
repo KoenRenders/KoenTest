@@ -27,6 +27,7 @@ def _now_utc() -> datetime:
 
 class BusinessEvent(Base):
     __tablename__ = "business_events"
+    __table_args__ = {"schema": "analytics"}
 
     id = Column(Integer, primary_key=True, index=True)
     # Semantisch type, bv. "inschrijving_voltooid", "betaling_succes".

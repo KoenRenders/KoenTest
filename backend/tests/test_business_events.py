@@ -10,7 +10,7 @@ Waardecreërende invarianten (geen pro-forma tests):
 """
 import pytest
 
-from app.models.business_event import BusinessEvent
+from app.domains.analytics.api import BusinessEvent
 from app.domains.analytics.service import (
     log_business_event,
     PiiInEventError,

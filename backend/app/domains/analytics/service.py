@@ -14,7 +14,7 @@ import re
 from typing import Optional
 from sqlalchemy.orm import Session
 
-from app.models.business_event import BusinessEvent
+from app.domains.analytics.models import BusinessEvent
 
 # Sleutels die nooit in een event-payload thuishoren (PII). Vergelijking is
 # case-insensitive en op substring, zodat bv. "contact_email" of "kind_naam"

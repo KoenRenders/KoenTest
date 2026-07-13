@@ -20,7 +20,7 @@ from typing import Any, Optional
 from sqlalchemy.orm import Session
 
 from app.domains.activities.api import Activity, ActivityDate
-from app.models.asset import MediaAsset
+from app.domains.media.api import MediaAsset
 from app.domains.chatbot.models import ChatbotInfo
 
 logger = logging.getLogger(__name__)

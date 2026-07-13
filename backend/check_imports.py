@@ -7,6 +7,10 @@ MODULES = [
     "app.domains.payment.api",
     "app.domains.payment.router",
     "app.domains.payment.ui",
+    "app.domains.media.api",
+    "app.domains.media.router",
+    "app.domains.analytics.api",
+    "app.domains.analytics.ui",
     "app.domains.chatbot.router",
     "app.domains.chatbot.ui",
     "app.domains.chatbot.info_router",
@@ -36,7 +40,6 @@ MODULES = [
     # Routers
     "app.routers.members",
     "app.routers.admin",
-    "app.routers.media",
     # Main app
     "app.main",
 ]

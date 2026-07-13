@@ -7,8 +7,8 @@ wordt het stilletjes overgeslagen. Veilig om bij elke opstart te draaien.
 import os
 
 from app.database import SessionLocal
-from app.models.asset import MediaAsset
-from app.services.images import process_image
+from app.domains.media.api import MediaAsset
+from app.domains.media.images import process_image
 
 _SEED_DIR = os.path.join(os.path.dirname(__file__), "assets", "seed")
 

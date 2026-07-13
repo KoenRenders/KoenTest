@@ -11,8 +11,8 @@ Gebruik (in de backend-container):
 import logging
 
 from app.database import SessionLocal
-from app.models.asset import MediaAsset
-from app.services.media_extraction import EXTRACTABLE_KINDS, update_media_extracted_text
+from app.domains.media.api import MediaAsset
+from app.domains.media.api import EXTRACTABLE_KINDS, update_media_extracted_text
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger("backfill_extracted_text")

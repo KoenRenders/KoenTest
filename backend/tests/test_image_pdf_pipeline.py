@@ -11,7 +11,7 @@ from io import BytesIO
 
 from PIL import Image
 
-from app.services.images import process_image
+from app.domains.media.images import process_image
 
 
 def test_process_image_jpeg():
@@ -53,7 +53,7 @@ def test_pypdf_reader_api_still_works():
 
 
 def test_extract_pdf_text_layer_on_image_pdf_returns_empty():
-    from app.services.media_extraction import _extract_pdf_text_layer
+    from app.domains.media.api import _extract_pdf_text_layer
 
     buf = BytesIO()
     Image.new("RGB", (120, 120), "white").save(buf, "PDF")
