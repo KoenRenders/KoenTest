@@ -141,18 +141,45 @@ app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")
 
 @app.middleware("http")
 async def _tenant_context(request: Request, call_next):
-    """Tenant-resolutie per request (§7, fase 5 #406): hostname → pad-prefix →
-    default (Millegem). De contextvar stuurt zowel de globale ORM-filter als de
-    default-tenant van nieuwe rijen."""
-    from app.kernel.tenancy import current_tenant_id, parse_hostname_map, resolve_tenant
+    """Tenant-resolutie per request (§7, fase 5 #406): pad-prefix → hostname →
+    tenant-cookie (platform-hosts) → default (Millegem). De contextvar stuurt
+    zowel de globale ORM-filter als de default-tenant van nieuwe rijen. Een
+    pad-prefix wordt gestript en verankerd in een cookie, zodat absolute
+    vervolgnavigatie op dezelfde tenant blijft; noindex-tenants (demo) krijgen
+    een X-Robots-Tag-header."""
+    from app.kernel.tenancy import (
+        DEFAULT_TENANT_ID, TENANT_CODES, current_tenant_id, parse_hostname_map,
+        resolve_request,
+    )
 
-    tenant = resolve_tenant(request.headers.get("host"), request.url.path,
-                            parse_hostname_map(settings.tenant_hostnames))
+    tenant, nieuw_pad, platform_landing = resolve_request(
+        request.headers.get("host"), request.url.path,
+        request.cookies.get("raak_tenant"),
+        parse_hostname_map(settings.tenant_hostnames),
+        {h.strip().lower() for h in settings.platform_hosts.split(",") if h.strip()},
+    )
+    if nieuw_pad is not None:
+        request.scope["path"] = nieuw_pad
+    request.scope["state"]["platform_landing"] = platform_landing
     token = current_tenant_id.set(tenant)
     try:
-        return await call_next(request)
+        response = await call_next(request)
     finally:
         current_tenant_id.reset(token)
+    if nieuw_pad is not None:
+        code = next(c for c, t in TENANT_CODES.items() if t == tenant)
+        response.set_cookie("raak_tenant", code, httponly=True, samesite="lax")
+    if tenant != DEFAULT_TENANT_ID:
+        from app.database import SessionLocal
+        from app.kernel.tenant_config import get_setting
+
+        db = SessionLocal()
+        try:
+            if get_setting(db, "noindex", tenant_id=tenant) == "1":
+                response.headers["X-Robots-Tag"] = "noindex, nofollow"
+        finally:
+            db.close()
+    return response
 
 
 @app.middleware("http")

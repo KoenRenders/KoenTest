@@ -257,3 +257,15 @@
 	import security_headers
 	reverse_proxy prod-umami:3000
 }
+
+# Raak Digital Platform (#406, 5c): renko.be — wortel = platform-landing,
+# pad-prefixen (/raakmillegem, /raakvoorbeeldafdeling) = units zonder eigen
+# domein. Alles gaat naar de prod-backend; de tenant-middleware doet de rest.
+{$PLATFORM_WWW_DOMAIN} {
+	redir https://{$PLATFORM_DOMAIN}{uri} permanent
+}
+{$PLATFORM_DOMAIN} {
+	import security_headers
+	encode zstd gzip
+	reverse_proxy prod-backend:8000
+}
