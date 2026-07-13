@@ -1,0 +1,130 @@
+{% import "_macros.html" as ui %}
+{% macro persoon_card(m, hoofd) %}
+<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
+  <div x-show="!edit">
+    <div class="flex items-start justify-between">
+      <div>
+        <span class="font-semibold">{{ m.first_name }} {{ m.last_name }}</span>
+        <span class="text-xs text-gray-500 ml-1">({{ m.relation_type or "—" }})</span>
+        {% if m.date_of_birth %}<p class="text-sm text-gray-500 mt-0.5">° {{ m.date_of_birth.strftime("%d-%m-%Y") }}</p>{% endif %}
+        <div class="text-sm text-gray-500 mt-0.5 flex gap-3 flex-wrap">
+          {% if m.email %}<span>✉ {{ m.email }}</span>{% endif %}
+          {% if m.mobile %}<span>📱 {{ m.mobile }}</span>{% endif %}
+          {% if m.phone %}<span>☎ {{ m.phone }}</span>{% endif %}
+        </div>
+      </div>
+      <div class="flex gap-2 shrink-0 ml-4">
+        {{ ui.btn_secondary("Bewerken", attrs='@click="edit = true"') }}
+        {% if not hoofd %}
+        {{ ui.btn_danger("Verwijderen", attrs='hx-post="/admin/leden/gezin/' ~ family.id ~ '/persoon/' ~ m.id ~ '/verwijderen" hx-target="#leden-detail" hx-swap="innerHTML" ' ~ ui.confirm_attrs("Persoon", m.first_name ~ " " ~ m.last_name)) }}
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  <form x-show="edit" x-cloak class="space-y-3"
+        hx-post="/admin/leden/gezin/{{ family.id }}/persoon/{{ m.id }}"
+        hx-target="#leden-detail" hx-swap="innerHTML">
+    {% with p = m %}{% include "_leden_persoon_velden.html" %}{% endwith %}
+    <div class="flex gap-2">
+      {{ ui.btn_primary("Opslaan") }}
+      {{ ui.btn_secondary("Annuleren", attrs='@click="edit = false"') }}
+    </div>
+  </form>
+</div>
+{% endmacro %}
+
+<div class="space-y-4">
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 flex items-center justify-between">
+    <h2 class="font-bold text-lg">Gezin #{{ family.id }}</h2>
+    {{ ui.btn_danger("Verwijderen", attrs='hx-post="/admin/leden/gezin/' ~ family.id ~ '/verwijderen" hx-target="#leden-detail" hx-swap="innerHTML" ' ~ ui.confirm_attrs("Gezin", "#" ~ family.id)) }}
+  </div>
+
+  <div class="flex items-center justify-between" x-data>
+    <h3 class="font-semibold text-gray-700">Gezinsleden</h3>
+  </div>
+
+  {% if hoofdlid %}{{ persoon_card(hoofdlid, True) }}{% endif %}
+
+  {# Adres — bij het hoofdlid, getoond ná het hoofdlid (#133); vaste 4-koloms grid #}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
+    <div x-show="!edit" class="flex items-center justify-between gap-2">
+      <span class="text-sm text-gray-700">📍 {{ family.street }} {{ family.house_number }}{% if family.bus_number %} bus {{ family.bus_number }}{% endif %}, {{ family.postal_code }} {{ family.municipality }}</span>
+      {{ ui.btn_secondary("Adres bewerken", attrs='@click="edit = true"') }}
+    </div>
+    <form x-show="edit" x-cloak class="space-y-3"
+          hx-post="/admin/leden/gezin/{{ family.id }}/adres"
+          hx-target="#leden-detail" hx-swap="innerHTML">
+      <div class="grid grid-cols-4 gap-3">
+        <div class="col-span-2">{{ ui.label("Straat", "street", required=True) }}
+          <input name="street" id="street" required value="{{ family.street }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        <div>{{ ui.label("Huisnummer", "house_number", required=True) }}
+          <input name="house_number" id="house_number" required value="{{ family.house_number }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        <div>{{ ui.label("Bus", "bus_number") }}
+          <input name="bus_number" id="bus_number" value="{{ family.bus_number or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        <div class="col-span-4">{{ ui.label("Postcode", "postal_code", required=True) }}
+          <select name="postal_code" id="postal_code" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
+            {% for pc in postal_codes %}
+            <option value="{{ pc.postal_code }}" {% if pc.postal_code == family.postal_code %}selected{% endif %}>{{ pc.postal_code }} {{ pc.municipality }}</option>
+            {% endfor %}
+          </select></div>
+      </div>
+      <div class="flex gap-2">
+        {{ ui.btn_primary("Opslaan") }}
+        {{ ui.btn_secondary("Annuleren", attrs='@click="edit = false"') }}
+      </div>
+    </form>
+  </div>
+
+  {% for m in overige %}{{ persoon_card(m, False) }}{% endfor %}
+
+  {# Persoon toevoegen #}
+  <div class="bg-blue-50 rounded-2xl border border-blue-100 p-4" x-data="{ open: false }">
+    {{ ui.btn_secondary("+ Persoon toevoegen", attrs='@click="open = !open"') }}
+    <form x-show="open" x-cloak class="space-y-3 mt-3"
+          hx-post="/admin/leden/gezin/{{ family.id }}/personen"
+          hx-target="#leden-detail" hx-swap="innerHTML">
+      {% with p = None %}{% include "_leden_persoon_velden.html" %}{% endwith %}
+      <div>{{ ui.label("Relatie", "relation_type") }}
+        <select name="relation_type" id="relation_type" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+          {% for r in relation_types if r.code != "HOOFDLID" %}
+          <option value="{{ r.code }}">{{ r.value }}</option>
+          {% endfor %}
+        </select></div>
+      {{ ui.btn_primary("Toevoegen") }}
+    </form>
+  </div>
+
+  {# Bestuurslid #}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+    <h3 class="font-semibold mb-2">Verantwoordelijk bestuurslid</h3>
+    <form hx-post="/admin/leden/gezin/{{ family.id }}/bestuurslid"
+          hx-target="#leden-detail" hx-swap="innerHTML" hx-trigger="change">
+      <select name="person_id" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+        <option value="">— Geen —</option>
+        {% for p in all_persons %}
+        <option value="{{ p.id }}" {% if family.board_member and family.board_member.id == p.id %}selected{% endif %}>{{ p.last_name }} {{ p.first_name }}</option>
+        {% endfor %}
+      </select>
+    </form>
+  </div>
+
+  {# Lidmaatschappen #}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+    <h3 class="font-semibold mb-3">Lidmaatschappen</h3>
+    {% for ms in family.memberships %}
+    <div class="flex items-center justify-between text-sm py-1">
+      <span>{{ ms.year }}
+        {% if ms.is_active %}{{ ui.badge("Actief", "green") }}{% else %}{{ ui.badge("Inactief") }}{% endif %}
+      </span>
+      {{ ui.btn_danger("Verwijderen", attrs='hx-post="/admin/leden/gezin/' ~ family.id ~ '/lidmaatschappen/' ~ ms.id ~ '/verwijderen" hx-target="#leden-detail" hx-swap="innerHTML" ' ~ ui.confirm_attrs("Lidmaatschap", ms.year)) }}
+    </div>
+    {% endfor %}
+    <form class="flex gap-3 items-end mt-4"
+          hx-post="/admin/leden/gezin/{{ family.id }}/lidmaatschappen"
+          hx-target="#leden-detail" hx-swap="innerHTML">
+      <div>{{ ui.label("Jaar toevoegen", "year") }}
+        <input type="number" name="year" id="year" value="{{ family.memberships[0].year + 1 if family.memberships else current_year }}" class="w-28 border border-gray-300 rounded-lg px-3 py-2"></div>
+      {{ ui.btn_primary("Lid maken") }}
+    </form>
+  </div>
+</div>

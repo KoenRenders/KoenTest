@@ -22,6 +22,16 @@
 	handle /aanmelden* {
 		reverse_proxy backend:8000
 	}
+	# NIET /admin/leden*: dat zou ook /admin/ledenwijzigingen (React) kapen.
+	handle /admin/leden {
+		reverse_proxy backend:8000
+	}
+	handle /admin/leden/* {
+		reverse_proxy backend:8000
+	}
+	handle /admin/leden-import* {
+		reverse_proxy backend:8000
+	}
 	# Umami (laag 1) draait op een eigen poort (8082, root), niet via Caddy: het
 	# prebuilt image past runtime-BASE_PATH niet toe → geen subpad. Zie docs/umami.md.
 	handle {

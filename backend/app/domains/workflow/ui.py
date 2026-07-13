@@ -25,6 +25,7 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
         "tasks": api.open_tasks(db, roles),
         "nav_items": [
             {"href": "/admin/werkbank", "label": "Werkbank", "active": True},
+            {"href": "/admin/leden", "label": "Leden", "active": False},
             {"href": "/admin/e-maillog", "label": "E-maillog", "active": False},
         ],
     }
