@@ -29,6 +29,7 @@ from app.domains.media.admin_ui import router as media_admin_ui_router
 from app.ui.changes_ui import router as changes_ui_router
 from app.ui.system_ui import router as system_ui_router
 from app.domains.media.router import router as media_router
+from app.domains.media.ui import router as media_ui_router
 from app.domains.chatbot.router import router as chat_router
 from app.domains.chatbot.info_router import router as chatbot_info_router
 from app.domains.chatbot.ui import router as chatbot_ui_router
@@ -120,6 +121,7 @@ app.include_router(auth_ui_router)
 app.include_router(auth_admin_ui_router)
 app.include_router(cms_admin_ui_router)
 app.include_router(media_admin_ui_router)
+app.include_router(media_ui_router)
 app.include_router(changes_ui_router)
 app.include_router(system_ui_router)
 app.include_router(email_log_ui_router)

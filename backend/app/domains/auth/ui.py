@@ -56,3 +56,20 @@ def aanmelden_code(request: Request, db: Session = Depends(get_db),
     set_session_cookie(response, email)
     response.headers["HX-Redirect"] = "/admin/werkbank"
     return response
+
+
+# URL-pariteit (React-exit 405-e, #405): de oude React-loginpaden blijven
+# werken en sturen door naar de htmx-aanmeldflow resp. het magic-link-doel.
+
+@router.get("/admin/login", response_class=HTMLResponse)
+def admin_login_redirect(request: Request):
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse("/aanmelden", status_code=302)
+
+
+@router.get("/admin/login/verify", response_class=HTMLResponse)
+def admin_login_verify_redirect(request: Request, token: str = ""):
+    from fastapi.responses import RedirectResponse
+
+    return RedirectResponse(f"/login/verify?token={token}", status_code=302)

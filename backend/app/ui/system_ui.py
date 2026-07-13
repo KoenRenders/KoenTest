@@ -19,6 +19,25 @@ router = APIRouter(include_in_schema=False)
 NAV = admin_nav("/admin/info")
 
 
+@router.get("/admin", response_class=HTMLResponse)
+def admin_dashboard(request: Request, db: Session = Depends(get_db),
+                    email: str = Depends(require_admin_ui)):
+    """Dashboard-startpagina met de kerncijfers (URL-pariteit met React /admin)."""
+    from app.routers.admin import get_stats
+
+    stats = get_stats(db=db, _admin=None)  # type: ignore[arg-type]
+    tegels = [
+        ("Leden", stats["members"], "bg-blue-50 text-blue-800", "/admin/leden"),
+        ("Actieve leden", stats["active_members"], "bg-green-50 text-green-800", "/admin/leden"),
+        ("Leden (personen)", stats["active_member_persons"], "bg-teal-50 text-teal-800", "/admin/leden"),
+        ("Komende activiteiten", stats["upcoming_activities"], "bg-purple-50 text-purple-800", "/admin/activiteiten"),
+        ("Open taken (werkbank)", stats["open_tasks"], "bg-yellow-50 text-yellow-800", "/admin/werkbank"),
+        ("Openstaand saldo", "€%.2f" % stats["outstanding_balance"], "bg-orange-50 text-orange-800", "/admin/betalingen"),
+    ]
+    return templates.TemplateResponse(request, "admin_dashboard.html", {
+        "nav_items": admin_nav("/admin"), "tegels": tegels})
+
+
 @router.get("/admin/info", response_class=HTMLResponse)
 def admin_info(request: Request, db: Session = Depends(get_db),
                email: str = Depends(require_admin_ui)):

@@ -9,6 +9,7 @@ MODULES = [
     "app.domains.payment.ui",
     "app.domains.media.api",
     "app.domains.media.router",
+    "app.domains.media.ui",
     "app.domains.analytics.api",
     "app.domains.analytics.ui",
     "app.domains.chatbot.router",

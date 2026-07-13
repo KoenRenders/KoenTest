@@ -1,0 +1,32 @@
+{% extends "site_base.html" %}
+{% block title %}Foto's — Raak Millegem{% endblock %}
+{% block content %}
+<h1 class="text-3xl font-bold text-blue-800 mb-2">Foto's</h1>
+<p class="text-gray-600 mb-8">Alle fotoalbums van onze activiteiten.</p>
+{% if jaren %}
+<div class="space-y-10">
+  {% for jaar in jaren %}
+  <div>
+    <h3 class="text-lg font-bold text-blue-800 mb-4 border-b border-blue-200 pb-2">{{ jaar if jaar else "Overig" }}</h3>
+    <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4">
+      {% for a in per_jaar[jaar] %}
+      <a href="/activiteiten/{{ a.id }}/fotos"
+         class="block bg-white border border-gray-200 rounded-2xl overflow-hidden hover:shadow-md transition-shadow">
+        <div class="aspect-video bg-gray-100 overflow-hidden">
+          <img src="{{ covers[a.id] }}" alt="{{ a.name }}" class="w-full h-full object-cover" loading="lazy">
+        </div>
+        <div class="p-4">
+          <div class="font-semibold text-blue-700">{{ a.name }}</div>
+          {% set primair = a.sort_date or (a.dates[0].start_date if a.dates else None) %}
+          {% if primair %}<div class="text-sm text-gray-500 mt-1">{{ primair.strftime("%d-%m-%Y") }}</div>{% endif %}
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+<p class="text-gray-500 italic">Nog geen fotoalbums beschikbaar.</p>
+{% endif %}
+{% endblock %}
