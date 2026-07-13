@@ -13,6 +13,9 @@
 	handle /berichten* {
 		reverse_proxy backend:8000
 	}
+	handle /activiteiten* {
+		reverse_proxy backend:8000
+	}
 	handle /admin/werkbank* {
 		reverse_proxy backend:8000
 	}

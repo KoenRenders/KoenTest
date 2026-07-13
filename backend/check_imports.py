@@ -12,6 +12,7 @@ MODULES = [
     "app.domains.workflow.ui",
     "app.domains.activities.api",
     "app.domains.activities.router",
+    "app.domains.activities.ui",
     "app.domains.auth.api",
     "app.domains.auth.router",
     "app.domains.auth.ui",
