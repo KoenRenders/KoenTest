@@ -16,6 +16,12 @@
 	handle /activiteiten* {
 		reverse_proxy backend:8000
 	}
+	handle /raakje* {
+		reverse_proxy backend:8000
+	}
+	handle /admin/ai-context* {
+		reverse_proxy backend:8000
+	}
 	handle /admin/werkbank* {
 		reverse_proxy backend:8000
 	}

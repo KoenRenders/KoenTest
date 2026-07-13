@@ -5,7 +5,7 @@ from app.domains.activities.models import ActivityDate, Activity, Registration, 
 from app.domains.cms.api import CmsPage
 from app.domains.activities.models import ActivitySubRegistration, ActivityProduct
 from app.models.asset import MediaAsset
-from app.models.chatbot_info import ChatbotInfo
+from app.domains.chatbot.models import ChatbotInfo
 from app.domains.mdm.models import (
     Address,
     AddressHistory,

@@ -21,7 +21,7 @@ from sqlalchemy.orm import Session
 
 from app.domains.activities.api import Activity, ActivityDate
 from app.models.asset import MediaAsset
-from app.models.chatbot_info import ChatbotInfo
+from app.domains.chatbot.models import ChatbotInfo
 
 logger = logging.getLogger(__name__)
 

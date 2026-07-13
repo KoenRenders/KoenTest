@@ -20,7 +20,7 @@ from datetime import date
 from sqlalchemy.orm import Session
 
 from app.config import settings
-from app.models.chatbot_info import ChatbotInfo
+from app.domains.chatbot.models import ChatbotInfo
 from app.domains.cms.api import CmsPage
 from app.domains.cms.api import _format_md, _format_price, render_cms_content
 from app.domains.payment.api import (

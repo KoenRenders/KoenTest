@@ -14,7 +14,7 @@ from app.config import settings
 from app.domains.activities.api import Activity
 from app.domains.activities.api import ActivitySubRegistration
 from app.models.asset import MediaAsset
-from app.models.chatbot_info import ChatbotInfo
+from app.domains.chatbot.models import ChatbotInfo
 from app.domains.chatbot.tools import execute_tool
 import app.services.media_extraction as mx
 

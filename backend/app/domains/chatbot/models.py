@@ -27,12 +27,11 @@ def _now_utc():
 
 class ChatbotInfo(Base):
     __tablename__ = "chatbot_info"
+    __table_args__ = {"schema": "ai"}
 
     id = Column(Integer, primary_key=True, index=True)
-    media_asset_id = Column(
-        Integer, ForeignKey("media_assets.id", ondelete="CASCADE"),
-        nullable=True, index=True,
-    )
+    # Soft-ref naar public.media_assets (§8, migr. 084) — geen DB-FK meer.
+    media_asset_id = Column(Integer, nullable=True, index=True)
     # Soft-ref naar cms.cms_pages (§8, migr. 083) — geen DB-FK meer.
     cms_page_id = Column(Integer, nullable=True, index=True)
     title = Column(String(255), nullable=True)
@@ -47,7 +46,11 @@ class ChatbotInfo(Base):
         DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False
     )
 
-    media_asset = relationship("MediaAsset", foreign_keys=[media_asset_id])
+    media_asset = relationship(
+        "MediaAsset",
+        primaryjoin="foreign(ChatbotInfo.media_asset_id) == MediaAsset.id",
+        viewonly=True,
+    )
     cms_page = relationship(
         "CmsPage",
         primaryjoin="foreign(ChatbotInfo.cms_page_id) == CmsPage.id",

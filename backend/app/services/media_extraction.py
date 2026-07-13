@@ -29,7 +29,7 @@ import httpx
 from app.config import settings
 from app.database import SessionLocal
 from app.models.asset import MediaAsset
-from app.models.chatbot_info import ChatbotInfo
+from app.domains.chatbot.api import ChatbotInfo
 
 logger = logging.getLogger(__name__)
 
