@@ -97,7 +97,7 @@ def test_membership_duration_next_year_after_cutoff(monkeypatch):
 
 def test_cms_page_can_be_excluded(db_session):
     """chatbot_info-rij met is_active=false → pagina niet naar de bot (opt-out)."""
-    from app.models.chatbot_info import ChatbotInfo
+    from app.domains.chatbot.models import ChatbotInfo
     from app.domains.chatbot.context import build_system_prompt
 
     page = _page(db_session, slug="geheim", content="GEHEIME PAGINATEKST")
@@ -107,7 +107,7 @@ def test_cms_page_can_be_excluded(db_session):
 
 
 def test_cms_override_replaces_content(db_session):
-    from app.models.chatbot_info import ChatbotInfo
+    from app.domains.chatbot.models import ChatbotInfo
     from app.domains.chatbot.context import build_system_prompt
 
     page = _page(db_session, slug="over", content="ORIGINELE INHOUD")
@@ -119,7 +119,7 @@ def test_cms_override_replaces_content(db_session):
 
 
 def test_free_note_added_to_context(db_session):
-    from app.models.chatbot_info import ChatbotInfo
+    from app.domains.chatbot.models import ChatbotInfo
     from app.domains.chatbot.context import build_system_prompt
 
     db_session.add(ChatbotInfo(title="Praktisch", text_addition="We zijn een KWB-vereniging."))

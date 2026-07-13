@@ -47,7 +47,7 @@ def _migrate_schema():
     # in de metadata leven — na verwijderde modellen (ideas) blijven wezen
     # achter en botst de keten. CASCADE veegt álles, ook alembic_version.
     with engine.begin() as conn:
-        for schema in ("form", "workflow", "mail", "auth", "mdm", "payment", "membership", "activities", "cms", "public"):
+        for schema in ("form", "workflow", "mail", "auth", "mdm", "payment", "membership", "activities", "cms", "ai", "public"):
             conn.exec_driver_sql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
         conn.exec_driver_sql("CREATE SCHEMA public")
     cfg = Config(os.path.join(os.path.dirname(os.path.dirname(__file__)), "alembic.ini"))
@@ -67,7 +67,7 @@ def _reset_rate_limiters():
                 form_submit_limiter):
         lim._calls.clear()
     # Chatbot-dagbudget houdt eigen state per IP; reset zodat tests niet erven.
-    from app.routers.chat import chat_char_budget
+    from app.domains.chatbot.router import chat_char_budget
     chat_char_budget._usage.clear()
     yield
 

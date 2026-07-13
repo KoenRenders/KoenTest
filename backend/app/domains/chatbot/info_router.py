@@ -20,7 +20,7 @@ from app.database import get_db
 from app.domains.activities.api import Activity
 from app.domains.activities.api import ActivitySubRegistration
 from app.models.asset import MediaAsset
-from app.models.chatbot_info import ChatbotInfo
+from app.domains.chatbot.models import ChatbotInfo
 from app.domains.cms.api import CmsPage
 from app.domains.auth.api import User
 from app.schemas.chatbot_info import ChatbotInfoEdit, NoteCreate

@@ -11,7 +11,7 @@ import pytest
 from starlette.websockets import WebSocketDisconnect
 
 from app.config import settings
-from app.routers import stt as stt_mod
+from app.domains.stt import router as stt_mod
 
 
 @pytest.fixture(autouse=True)
