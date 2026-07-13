@@ -14,6 +14,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.kernel.tenancy import TenantMixin
 
 
 # Toegestane veldtypes — houd in sync met de CHECK in migratie 062 en met de
@@ -47,7 +48,7 @@ RATING_LABELS = {
 }
 
 
-class Form(Base):
+class Form(TenantMixin, Base):
     __tablename__ = "forms"
     __table_args__ = {"schema": "form"}
 
@@ -94,7 +95,7 @@ class Form(Base):
     )
 
 
-class FormSection(Base):
+class FormSection(TenantMixin, Base):
     __tablename__ = "form_sections"
     __table_args__ = {"schema": "form"}
 
@@ -116,7 +117,7 @@ class FormSection(Base):
     next_section = relationship("FormSection", remote_side=[id])
 
 
-class FormField(Base):
+class FormField(TenantMixin, Base):
     __tablename__ = "form_fields"
     __table_args__ = {"schema": "form"}
 
@@ -155,7 +156,7 @@ class FormField(Base):
     )
 
 
-class FormFieldOption(Base):
+class FormFieldOption(TenantMixin, Base):
     __tablename__ = "form_field_options"
     __table_args__ = {"schema": "form"}
 
@@ -183,7 +184,7 @@ class FormFieldOption(Base):
     skip_to_section = relationship("FormSection")
 
 
-class FormSubmission(Base):
+class FormSubmission(TenantMixin, Base):
     __tablename__ = "form_submissions"
     __table_args__ = {"schema": "form"}
 
@@ -209,7 +210,7 @@ class FormSubmission(Base):
     )
 
 
-class FormSubmissionAnswer(Base):
+class FormSubmissionAnswer(TenantMixin, Base):
     __tablename__ = "form_submission_answers"
     __table_args__ = {"schema": "form"}
 

@@ -6,9 +6,10 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, DateTime, ForeignKey, Integer, JSON, String, Text
 
 from app.database import Base
+from app.kernel.tenancy import TenantMixin
 
 
-class WorkflowTask(Base):
+class WorkflowTask(TenantMixin, Base):
     __tablename__ = "workflow_tasks"
     __table_args__ = {"schema": "workflow"}
 
@@ -32,7 +33,7 @@ class WorkflowTask(Base):
     instance_id = Column(Integer, ForeignKey("workflow.workflow_instances.id"), nullable=True, index=True)
 
 
-class WorkflowDefinition(Base):
+class WorkflowDefinition(TenantMixin, Base):
     """Workflow-definitie (fase 4b, #403): een codeerbare reeks stappen.
     ``steps`` = JSON-lijst van {"kind", "title", "role"} — bewust plat en
     data-gedreven (permissies-als-data, §5.7)."""
@@ -47,7 +48,7 @@ class WorkflowDefinition(Base):
                         default=lambda: datetime.now(timezone.utc))
 
 
-class WorkflowInstance(Base):
+class WorkflowInstance(TenantMixin, Base):
     """Eén lopend exemplaar van een definitie, gekoppeld aan een onderwerp
     (soft-ref). ``current_step`` is de index in de definitie-stappen."""
 

@@ -12,6 +12,7 @@ from sqlalchemy import Column, Integer, String, DateTime, Date, Boolean, Foreign
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
 
@@ -19,7 +20,7 @@ def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class Member(SoftDeleteMixin, Base):
+class Member(TenantMixin, SoftDeleteMixin, Base):
     """Household grouping — dynamic, can change over time."""
     __tablename__ = "members"
     __table_args__ = {"schema": "mdm"}
@@ -36,7 +37,7 @@ class Member(SoftDeleteMixin, Base):
     board_member = relationship("Person", foreign_keys=[board_member_id])
 
 
-class Person(SoftDeleteMixin, Base):
+class Person(TenantMixin, SoftDeleteMixin, Base):
     """Stable, permanent individual entity."""
     __tablename__ = "persons"
     __table_args__ = {"schema": "mdm"}
@@ -60,7 +61,7 @@ class Person(SoftDeleteMixin, Base):
     # Registration definieert de koppeling via een backref (zelfde regel).
 
 
-class MemberPerson(SoftDeleteMixin, Base):
+class MemberPerson(TenantMixin, SoftDeleteMixin, Base):
     """Junction table linking persons to member households."""
     __tablename__ = "member_persons"
     __table_args__ = {"schema": "mdm"}
@@ -78,7 +79,7 @@ class MemberPerson(SoftDeleteMixin, Base):
     person = relationship("Person", back_populates="member_persons")
 
 
-class Address(SoftDeleteMixin, Base):
+class Address(TenantMixin, SoftDeleteMixin, Base):
     __tablename__ = "addresses"
     __table_args__ = {"schema": "mdm"}
 
@@ -96,7 +97,7 @@ class Address(SoftDeleteMixin, Base):
     postal_code = relationship("PostalCode")
 
 
-class ContactDetail(SoftDeleteMixin, Base):
+class ContactDetail(TenantMixin, SoftDeleteMixin, Base):
     __tablename__ = "contact_details"
     __table_args__ = {"schema": "mdm"}
 
@@ -122,7 +123,7 @@ class PostalCode(Base):
     updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
 
 
-class ExternalNumber(SoftDeleteMixin, Base):
+class ExternalNumber(TenantMixin, SoftDeleteMixin, Base):
     """External identifier for a person from another system.
 
     Bijvoorbeeld het oude lidnummer uit de vorige ledenadministratie.
@@ -214,7 +215,7 @@ class HistoryMixin:
     recorded_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False, index=True)
 
 
-class PersonHistory(HistoryMixin, Base):
+class PersonHistory(TenantMixin, HistoryMixin, Base):
     __tablename__ = "person_history"
     __table_args__ = {"schema": "mdm"}
 
@@ -225,7 +226,7 @@ class PersonHistory(HistoryMixin, Base):
     gender_code = Column(String(10), nullable=True)
 
 
-class MemberHistory(HistoryMixin, Base):
+class MemberHistory(TenantMixin, HistoryMixin, Base):
     __tablename__ = "member_history"
     __table_args__ = {"schema": "mdm"}
 
@@ -233,7 +234,7 @@ class MemberHistory(HistoryMixin, Base):
     board_member_id = Column(Integer, nullable=True)
 
 
-class MemberPersonHistory(HistoryMixin, Base):
+class MemberPersonHistory(TenantMixin, HistoryMixin, Base):
     __tablename__ = "member_person_history"
     __table_args__ = {"schema": "mdm"}
 
@@ -243,7 +244,7 @@ class MemberPersonHistory(HistoryMixin, Base):
     relation_type = Column(String(10), nullable=True)
 
 
-class AddressHistory(HistoryMixin, Base):
+class AddressHistory(TenantMixin, HistoryMixin, Base):
     __tablename__ = "address_history"
     __table_args__ = {"schema": "mdm"}
 
@@ -255,7 +256,7 @@ class AddressHistory(HistoryMixin, Base):
     postal_code_id = Column(Integer, nullable=True)
 
 
-class ContactDetailHistory(HistoryMixin, Base):
+class ContactDetailHistory(TenantMixin, HistoryMixin, Base):
     __tablename__ = "contact_detail_history"
     __table_args__ = {"schema": "mdm"}
 

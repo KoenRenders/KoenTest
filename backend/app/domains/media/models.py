@@ -12,13 +12,14 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.kernel.tenancy import TenantMixin
 
 
 def _now_utc():
     return datetime.now(timezone.utc)
 
 
-class MediaAsset(Base):
+class MediaAsset(TenantMixin, Base):
     """Binaire assetbibliotheek, opgeslagen in Postgres (BYTEA).
 
     Eén tabel voor meerdere soorten media:

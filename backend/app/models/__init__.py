@@ -35,3 +35,6 @@ from app.domains.forms.models import (
     FormSubmission,
     FormSubmissionAnswer,
 )
+from app.domains.workflow.models import (  # noqa: F401 - model-discovery (#406)
+    WorkflowDefinition, WorkflowInstance, WorkflowTask,
+)

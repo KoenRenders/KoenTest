@@ -1,9 +1,10 @@
 from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Text
 from app.database import Base
+from app.kernel.tenancy import TenantMixin
 
 
-class CmsPage(Base):
+class CmsPage(TenantMixin, Base):
     __tablename__ = "cms_pages"
     __table_args__ = {"schema": "cms"}
 

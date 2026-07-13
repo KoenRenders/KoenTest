@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, Text
 
 from app.database import Base
+from app.kernel.tenancy import TenantMixin
 
 
 # Toegestane types — houd in sync met de CHECK in migratie 062 en met de
@@ -23,7 +24,7 @@ EMAIL_TYPES = (
 EMAIL_STATUSES = ("sent", "failed", "skipped")
 
 
-class EmailLog(Base):
+class EmailLog(TenantMixin, Base):
     """Centrale log van élke uitgaande e-mail (#328).
 
     Geschreven vanuit het ene choke point ``_send`` in app/domains/mail/service.py, zodat

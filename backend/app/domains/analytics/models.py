@@ -19,13 +19,14 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime
 from sqlalchemy.dialects.postgresql import JSONB
 from app.database import Base
+from app.kernel.tenancy import TenantMixin
 
 
 def _now_utc() -> datetime:
     return datetime.now(timezone.utc)
 
 
-class BusinessEvent(Base):
+class BusinessEvent(TenantMixin, Base):
     __tablename__ = "business_events"
     __table_args__ = {"schema": "analytics"}
 
