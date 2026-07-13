@@ -16,6 +16,8 @@ MODULES = [
     "app.domains.chatbot.info_router",
     "app.domains.stt.router",
     "app.domains.cms.api",
+    "app.domains.cms.ui",
+    "app.domains.membership.ui",
     "app.domains.cms.router",
     "app.domains.mdm.router",
     "app.domains.forms.router",

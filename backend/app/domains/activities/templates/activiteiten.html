@@ -10,43 +10,5 @@
   <a class="text-sm text-blue-700 hover:underline" href="/activiteiten/archief">Archief →</a>
   {% endif %}
 </div>
-<div class="space-y-6">
-  {% for a in activities %}
-  {% call ui.card() %}
-    <div class="flex items-start justify-between gap-4">
-      <div>
-        <h2 class="text-lg font-bold">{{ a.name }}</h2>
-        <p class="text-sm text-gray-500">
-          {% for d in a.dates %}{{ d.start_date.strftime("%d-%m-%Y") }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date.strftime("%d-%m-%Y") }}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
-          {% if a.location %} · {{ a.location }}{% endif %}
-        </p>
-      </div>
-      <div>
-        {% if a.is_cancelled %}{{ ui.badge("Geannuleerd", "red") }}
-        {% elif a.status %}{{ ui.badge(a.status, "blue") }}{% endif %}
-      </div>
-    </div>
-    {% if a.poster_asset_url and not a.poster_asset_is_pdf %}
-    <img src="{{ a.poster_asset_url }}" alt="Affiche {{ a.name }}" class="mt-3 rounded-lg max-h-72 w-auto">
-    {% endif %}
-    {% if scope != "archived" and not a.is_cancelled %}
-    <div class="mt-4 space-y-2">
-      {% for c in a.sub_registrations %}
-      <div class="flex items-center justify-between gap-3 border-t border-gray-100 pt-2">
-        <span class="text-sm font-medium">{{ c.name }}</span>
-        {% if c.external_register_url %}
-        <a class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg text-sm" href="{{ c.external_register_url }}" target="_blank" rel="noopener">Inschrijven</a>
-        {% else %}
-        {{ ui.btn_primary("Inschrijven", type="button", attrs='hx-get="/activiteiten/' ~ a.id ~ '/inschrijven/' ~ c.id ~ '" hx-target="#inschrijf-' ~ a.id ~ '-' ~ c.id ~ '" hx-swap="innerHTML"') }}
-        {% endif %}
-      </div>
-      <div id="inschrijf-{{ a.id }}-{{ c.id }}"></div>
-      {% endfor %}
-    </div>
-    {% endif %}
-  {% endcall %}
-  {% else %}
-  {{ ui.empty_state("Geen activiteiten gevonden.") }}
-  {% endfor %}
-</div>
+{% include "_activiteiten_cards.html" %}
 {% endblock %}

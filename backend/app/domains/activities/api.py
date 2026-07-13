@@ -21,6 +21,14 @@ from app.domains.activities.models import (  # noqa: F401
     RegistrationItemHistory,
 )
 from app.domains.activities.totals import compute_registration_total  # noqa: F401
+
+
+def list_activities(db, scope: str = "upcoming"):
+    """Publieke activiteitenlijst (upcoming/archived/all) — facade-doorgang
+    voor andere componenten (o.a. de homepage, #405)."""
+    from app.domains.activities.router import list_activities as _impl
+
+    return _impl(scope=scope, db=db)
 from app.domains.activities.export import build_component_export_ods  # noqa: F401
 
 __all__ = [
@@ -28,4 +36,5 @@ __all__ = [
     "ActivityProduct", "ActivitySubRegistration", "ComponentHistory",
     "ProductHistory", "Registration", "RegistrationItem",
     "RegistrationItemHistory", "build_component_export_ods", "compute_registration_total",
+    "list_activities",
 ]

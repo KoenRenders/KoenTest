@@ -28,6 +28,8 @@ from app.domains.chatbot.router import router as chat_router
 from app.domains.chatbot.info_router import router as chatbot_info_router
 from app.domains.chatbot.ui import router as chatbot_ui_router
 from app.domains.analytics.ui import router as analytics_ui_router
+from app.domains.membership.ui import router as membership_ui_router
+from app.domains.cms.ui import router as cms_public_ui_router
 from app.domains.stt.router import router as stt_router
 from app.domains.cms.router import router as cms_router
 from app.domains.mdm.router import router as mdm_router
@@ -106,6 +108,7 @@ app.include_router(activities_ui_router)
 app.include_router(activities_admin_ui_router)
 app.include_router(chatbot_ui_router)
 app.include_router(analytics_ui_router)
+app.include_router(membership_ui_router)
 app.include_router(auth_ui_router)
 app.include_router(email_log_ui_router)
 app.include_router(mdm_ui_router)
@@ -113,6 +116,8 @@ app.include_router(payment_ui_router)
 app.include_router(workflow_ui_router)
 app.include_router(email_log_router, prefix="/api/v1/admin")
 app.include_router(payment_router, prefix="/api/v1")
+# LAATSTE: publieke site-kern — bevat de /{slug}-catch-all (#405)
+app.include_router(cms_public_ui_router)
 
 
 # Server-rendered UI (#396, §21): statics (CSS + gevendorde htmx/Alpine) komen
