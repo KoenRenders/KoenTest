@@ -18,6 +18,10 @@ APP = Path(__file__).resolve().parents[1] / "app"
 LEGACY_ALLOWLIST = {
     ("app.main", "app.domains.payment_gateway.router"),
     ("app.main", "app.domains.payment_status.router"),
+    # Composer-imports: main mount routers, models/__init__ doet model-discovery
+    # voor Alembic — beide zijn de bedoelde compositiepunten, geen reach-in.
+    ("app.main", "app.domains.forms.router"),
+    ("app.models.__init__", "app.domains.forms.models"),
     ("app.services.activity_export", "app.domains.payment_status.service"),
     ("app.services.member_import", "app.domains.audit.service"),
     ("app.services.payments_export", "app.domains.payment_status.models"),
@@ -46,7 +50,6 @@ LEGACY_ALLOWLIST = {
     ("app.routers.stt", "app.domains.stt.guards"),
     ("app.routers.stt", "app.domains.stt.providers"),
     ("app.routers.ideas", "app.domains.analytics.service"),
-    ("app.routers.forms", "app.domains.analytics.service"),
     ("app.routers.cms", "app.domains.analytics.service"),
     ("app.routers.activities", "app.domains.audit.service"),
     ("app.routers.admin", "app.domains.payment_status.service"),
@@ -58,6 +61,7 @@ LEGACY_ALLOWLIST = {
 # Cross-domain-reach-ins van vóór de modularisatie (zelfde krimp-regel): de
 # payments-fase (#401) en chatbot-fase (#404) vervangen deze door facades.
 LEGACY_CROSS_DOMAIN = {
+    ("app.domains.forms.router", "app.domains.analytics.service"),
     ("app.domains.chatbot.context", "app.domains.payment_status.service"),
     ("app.domains.payment_gateway.router", "app.domains.payment_status.service"),
     ("app.domains.payment_status.router", "app.domains.audit.service"),

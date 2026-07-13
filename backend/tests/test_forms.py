@@ -3,7 +3,7 @@ import os
 
 from app.database import SessionLocal
 from app.models.email_log import EmailLog
-from app.models.form import FormSubmission, FormSubmissionAnswer
+from app.domains.forms.models import FormSubmission, FormSubmissionAnswer
 
 
 def _form_payload(**overrides):
@@ -699,7 +699,7 @@ def test_formaatgids_example_imports_and_covers_all_field_types(client, admin_he
     """#367: het voorbeeld uit de formaatgids importeert (POST /forms → 200) én gebruikt
     ELK veldtype. Faalt zodra de doc-payload niet meer geldig is of een veldtype mist —
     zo blijft de descriptor bij elke build gevalideerd tegen de engine."""
-    from app.models.form import FIELD_TYPES
+    from app.domains.forms.models import FIELD_TYPES
 
     payload = _load_formaatgids_example()
     resp = client.post("/api/v1/forms", json=payload, headers=admin_headers)

@@ -9,6 +9,7 @@ MODULES = [
     "app.domains.payment_status.models",
     "app.domains.payment_status.service",
     "app.domains.payment_status.router",
+    "app.domains.forms.router",
     # Schemas
     "app.schemas.member",
     "app.schemas.family",

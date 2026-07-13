@@ -10,8 +10,8 @@ from typing import Dict, List
 
 from fastapi import HTTPException
 
-from app.models.form import Form, FormField, FormSubmissionAnswer
-from app.schemas.form import AnswerIn
+from app.domains.forms.models import Form, FormField, FormSubmissionAnswer
+from app.domains.forms.schemas import AnswerIn
 
 # Eenvoudige e-mailcheck (vorm, niet bestaan). Bewust soepel.
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -190,7 +190,7 @@ def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmi
 def assert_open_for_submission(db, form: Form) -> None:
     """Bewaak dat het formulier nog open staat én de inzendingslimiet niet bereikt
     is. Gooit HTTPException als indienen niet (meer) mag."""
-    from app.models.form import FormSubmission
+    from app.domains.forms.models import FormSubmission
 
     if form.status != "open":
         raise HTTPException(status_code=403, detail="Dit formulier staat niet open voor inzendingen.")

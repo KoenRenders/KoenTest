@@ -11,7 +11,7 @@ from app.auth import get_current_admin
 from app.limiter import form_submit_limiter
 from app.config import settings
 from app.database import get_db
-from app.models.form import (
+from app.domains.forms.models import (
     Form,
     FormSection,
     FormField,
@@ -21,7 +21,7 @@ from app.models.form import (
     FIELD_TYPES,
 )
 from app.models.user import User
-from app.schemas.form import (
+from app.domains.forms.schemas import (
     FormCreate,
     FormUpdate,
     FormAdminOut,
@@ -31,9 +31,9 @@ from app.schemas.form import (
     SubmissionResult,
     EditSubmissionOut,
 )
-from app.services.form_submission import build_answers, assert_open_for_submission
-from app.services.form_results import compute_results
-from app.services.form_export import export_ods, build_submissions_view
+from app.domains.forms.service import build_answers, assert_open_for_submission
+from app.domains.forms.results import compute_results
+from app.domains.forms.export import export_ods, build_submissions_view
 from app.services.email import send_form_confirmation
 
 logger = logging.getLogger(__name__)

@@ -5,7 +5,7 @@ ruwe inzendingen naar de browser hoeven (schaalt beter, minder PII in de client)
 """
 from sqlalchemy import func
 
-from app.models.form import (
+from app.domains.forms.models import (
     Form,
     FormSubmission,
     FormSubmissionAnswer,
