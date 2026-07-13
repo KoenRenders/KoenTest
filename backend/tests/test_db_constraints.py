@@ -104,7 +104,7 @@ def test_person_delete_blocked_while_member_link_exists(db_session):
     De app hard-delete nooit een persoon (soft-delete #166); deze test bewijst
     dat een direct ``DELETE`` op de DB toch geweigerd wordt."""
     from sqlalchemy import text
-    from app.models.member import MemberPerson
+    from app.domains.mdm.api import MemberPerson
     from tests.conftest import create_test_member, create_test_person
 
     member = create_test_member(db_session)
@@ -117,7 +117,7 @@ def test_person_delete_blocked_while_member_link_exists(db_session):
     # Raw DELETE: omzeilt ORM-cascades en raakt rechtstreeks de FK-constraint.
     with pytest.raises(IntegrityError):
         with db_session.begin_nested():
-            db_session.execute(text("DELETE FROM persons WHERE id = :id"), {"id": person.id})
+            db_session.execute(text("DELETE FROM mdm.persons WHERE id = :id"), {"id": person.id})
 
 
 # ── #98: optionele hardening ────────────────────────────────────────────────

@@ -14,18 +14,20 @@ from sqlalchemy.orm import Session
 from app.services.ods_export import build_ods
 
 from app.models.history import (
-    PersonHistory,
-    MemberHistory,
-    MemberPersonHistory,
     MembershipHistory,
-    AddressHistory,
-    ContactDetailHistory,
     PaymentRecordHistory,
     RegistrationItemHistory,
     ActivityHistory,
     ActivityDateHistory,
     ComponentHistory,
     ProductHistory,
+)
+from app.domains.mdm.api import (
+    PersonHistory,
+    MemberHistory,
+    MemberPersonHistory,
+    AddressHistory,
+    ContactDetailHistory,
 )
 
 _OPERATION_LABELS = {"insert": "Toegevoegd", "update": "Gewijzigd", "delete": "Verwijderd"}
@@ -68,7 +70,7 @@ class _SubjectResolver:
         if postal_code_id is None:
             return ""
         if postal_code_id not in self._pc:
-            from app.models.postal_codes import PostalCode
+            from app.domains.mdm.api import PostalCode
             pc = self._q(PostalCode).filter(PostalCode.id == postal_code_id).first()
             self._pc[postal_code_id] = f"{_fmt(pc.postal_code)} {_fmt(pc.municipality)}".strip() if pc else ""
         return self._pc[postal_code_id]
@@ -77,7 +79,7 @@ class _SubjectResolver:
         if person_id is None:
             return ""
         if person_id not in self._name:
-            from app.models.member import Person
+            from app.domains.mdm.api import Person
             p = self._q(Person).filter(Person.id == person_id).first()
             self._name[person_id] = f"{_fmt(p.first_name)} {_fmt(p.last_name)}".strip() if p else ""
         return self._name[person_id]
@@ -86,7 +88,7 @@ class _SubjectResolver:
         if person_id is None:
             return ""
         if person_id not in self._ext:
-            from app.models.external_number import ExternalNumber
+            from app.domains.mdm.api import ExternalNumber
             en = (self._q(ExternalNumber)
                   .filter(ExternalNumber.person_id == person_id)
                   .order_by(ExternalNumber.id).first())
@@ -97,8 +99,8 @@ class _SubjectResolver:
         if person_id is None:
             return ""
         if person_id not in self._addr:
-            from app.models.address import Address
-            from app.models.postal_codes import PostalCode
+            from app.domains.mdm.api import Address
+            from app.domains.mdm.api import PostalCode
             a = self._q(Address).filter(Address.person_id == person_id).first()
             if a is None:
                 self._addr[person_id] = ""
@@ -116,7 +118,7 @@ class _SubjectResolver:
         if person_id is None:
             return None
         if person_id not in self._member_of_person:
-            from app.models.member import MemberPerson
+            from app.domains.mdm.api import MemberPerson
             mp = self._q(MemberPerson).filter(MemberPerson.person_id == person_id).first()
             self._member_of_person[person_id] = mp.member_id if mp else None
         return self._member_of_person[person_id]
@@ -125,7 +127,7 @@ class _SubjectResolver:
         if member_id is None:
             return None
         if member_id not in self._head_of_member:
-            from app.models.member import MemberPerson
+            from app.domains.mdm.api import MemberPerson
             mp = (self._q(MemberPerson)
                   .filter(MemberPerson.member_id == member_id,
                           MemberPerson.relation_type == "HOOFDLID").first())
@@ -137,7 +139,7 @@ class _SubjectResolver:
         if not email:
             return None
         from sqlalchemy import func
-        from app.models.contact import ContactDetail
+        from app.domains.mdm.api import ContactDetail
         cd = (self._q(ContactDetail)
               .filter(func.lower(ContactDetail.value) == email.strip().lower(),
                       ContactDetail.contact_type_code == "EMAIL").first())

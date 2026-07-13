@@ -8,7 +8,8 @@ from decimal import Decimal
 from app.domains.payment_status.models import PaymentRecord
 from app.models.activity import Registration, RegistrationItem
 from app.models.activity_sub_registration import ActivityProduct
-from app.models.member import Member, Membership
+from app.models.member import Membership
+from app.domains.mdm.api import Member
 from tests.conftest import seed_activity_with_product, seed_postal_code
 
 

@@ -1,9 +1,5 @@
-from app.models.codes import GenderCode, ContactTypeCode, RoleCode, RegistrationTypeCode, PaymentStatusCode, RelationTypeCode
-from app.models.postal_codes import PostalCode
-from app.models.member import Member, Person, MemberPerson, Membership
-from app.models.address import Address
-from app.models.contact import ContactDetail
-from app.models.external_number import ExternalNumber
+from app.models.codes import RoleCode, RegistrationTypeCode, PaymentStatusCode
+from app.models.member import Membership
 from app.domains.auth.models import User, UserRole, LoginToken
 from app.models.activity import ActivityDate, Activity, Registration, RegistrationItem
 from app.models.cms import CmsPage
@@ -11,13 +7,26 @@ from app.models.activity_sub_registration import ActivitySubRegistration, Activi
 from app.models.asset import MediaAsset
 from app.models.chatbot_info import ChatbotInfo
 from app.models.history import (
-    PersonHistory,
-    MemberHistory,
-    MemberPersonHistory,
     MembershipHistory,
-    AddressHistory,
-    ContactDetailHistory,
     PaymentRecordHistory,
+)
+from app.domains.mdm.models import (
+    Address,
+    AddressHistory,
+    ContactDetail,
+    ContactDetailHistory,
+    ContactTypeCode,
+    ExternalNumber,
+    GenderCode,
+    Member,
+    MemberHistory,
+    MemberPerson,
+    MemberPersonHistory,
+    Organization,
+    Person,
+    PersonHistory,
+    PostalCode,
+    RelationTypeCode,
 )
 from app.models.business_event import BusinessEvent
 from app.domains.mail.models import EmailLog

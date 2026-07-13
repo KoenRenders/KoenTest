@@ -4,8 +4,8 @@ Een formulier stuurt alle velden mee; onveranderde velden/contacten mogen geen
 history-rij maken (anders 3 rijen voor één mobiel-wijziging)."""
 from datetime import date
 
-from app.models.history import PersonHistory, ContactDetailHistory
-from app.models.member import Person
+from app.domains.mdm.api import PersonHistory, ContactDetailHistory
+from app.domains.mdm.api import Person
 from tests.conftest import seed_postal_code
 
 

@@ -4,7 +4,8 @@ from typing import Optional, Tuple
 from sqlalchemy import distinct, func
 from sqlalchemy.orm import Session
 from .models import PaymentRecord
-from app.models.member import Membership, MemberPerson, Person
+from app.models.member import Membership
+from app.domains.mdm.api import MemberPerson, Person
 from app.domains.audit.service import snapshot_payment_record
 
 # Semantische history-actie per (interne) gateway-status, zodat de tijdlijn

@@ -54,7 +54,7 @@ def list_all_payment_records(
     is een financieel feit en moet de (bewaarde) naam blijven tonen, niet "—"."""
     from app.models.activity import Registration, Activity
     from app.models.activity_sub_registration import ActivitySubRegistration
-    from app.models.member import Member, MemberPerson, Person
+    from app.domains.mdm.api import Member, MemberPerson, Person
 
     def _q(model):
         return db.query(model).execution_options(include_deleted=True)

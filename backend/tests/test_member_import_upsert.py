@@ -13,14 +13,17 @@ De service muteert de sessie maar commit niet; we asserten binnen dezelfde sessi
 from datetime import date
 
 from app.services.member_import import upsert_families, LEGACY_SOURCE, IMPORT_YEAR
-from app.models.member import Member, Person, MemberPerson, Membership
-from app.models.contact import ContactDetail
-from app.models.external_number import ExternalNumber
+from app.models.member import Membership
+from app.domains.mdm.api import Member, Person, MemberPerson
+from app.domains.mdm.api import ContactDetail
+from app.domains.mdm.api import ExternalNumber
 from app.models.history import (
+    MembershipHistory,
+)
+from app.domains.mdm.api import (
     PersonHistory,
     MemberHistory,
     MemberPersonHistory,
-    MembershipHistory,
 )
 from tests.conftest import seed_postal_code
 

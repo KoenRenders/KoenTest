@@ -22,9 +22,11 @@ def test_family_registration_happy_path_writes_data_and_audit(client, db_session
     resp = client.post("/api/v1/families", json=_family_payload())
     assert resp.status_code == 201, resp.text
 
-    from app.models.member import Member, Person, Membership
+    from app.models.member import Membership
+    from app.domains.mdm.api import Member, Person
     from app.domains.payment_status.models import PaymentRecord
-    from app.models.history import MemberHistory, PaymentRecordHistory
+    from app.models.history import PaymentRecordHistory
+    from app.domains.mdm.api import MemberHistory
 
     assert db_session.query(Member).count() == 1
     assert db_session.query(Person).count() == 2

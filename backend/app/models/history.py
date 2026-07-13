@@ -32,32 +32,6 @@ class HistoryMixin:
     recorded_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False, index=True)
 
 
-class PersonHistory(HistoryMixin, Base):
-    __tablename__ = "person_history"
-
-    person_id = Column(Integer, nullable=False, index=True)
-    last_name = Column(String(100), nullable=True)
-    first_name = Column(String(100), nullable=True)
-    date_of_birth = Column(Date, nullable=True)
-    gender_code = Column(String(10), nullable=True)
-
-
-class MemberHistory(HistoryMixin, Base):
-    __tablename__ = "member_history"
-
-    member_id = Column(Integer, nullable=False, index=True)
-    board_member_id = Column(Integer, nullable=True)
-
-
-class MemberPersonHistory(HistoryMixin, Base):
-    __tablename__ = "member_person_history"
-
-    member_person_id = Column(Integer, nullable=False, index=True)
-    member_id = Column(Integer, nullable=True, index=True)
-    person_id = Column(Integer, nullable=True, index=True)
-    relation_type = Column(String(10), nullable=True)
-
-
 class MembershipHistory(HistoryMixin, Base):
     __tablename__ = "membership_history"
 
@@ -67,27 +41,6 @@ class MembershipHistory(HistoryMixin, Base):
     is_active = Column(Boolean, nullable=True)
     valid_from = Column(Date, nullable=True)
     valid_to = Column(Date, nullable=True)
-
-
-class AddressHistory(HistoryMixin, Base):
-    __tablename__ = "address_history"
-
-    address_id = Column(Integer, nullable=False, index=True)
-    person_id = Column(Integer, nullable=True, index=True)
-    street = Column(String(255), nullable=True)
-    house_number = Column(String(20), nullable=True)
-    bus_number = Column(String(10), nullable=True)
-    postal_code_id = Column(Integer, nullable=True)
-
-
-class ContactDetailHistory(HistoryMixin, Base):
-    __tablename__ = "contact_detail_history"
-
-    contact_detail_id = Column(Integer, nullable=False, index=True)
-    person_id = Column(Integer, nullable=True, index=True)
-    contact_type_code = Column(String(10), nullable=True)
-    value = Column(String(255), nullable=True)
-    is_primary = Column(Boolean, nullable=True)
 
 
 class RegistrationItemHistory(HistoryMixin, Base):

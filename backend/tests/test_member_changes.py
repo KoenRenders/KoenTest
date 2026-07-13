@@ -89,8 +89,8 @@ def test_member_changes_enriched_with_person_and_head(client, db_session, admin_
     (in de feed/export) de externe ID's van persoon en hoofdlid."""
     _create_family(client, db_session)
     # Geef het hoofdlid een extern lidnummer (Raak Nationaal).
-    from app.models.member import Person
-    from app.models.external_number import ExternalNumber
+    from app.domains.mdm.api import Person
+    from app.domains.mdm.api import ExternalNumber
     person = db_session.query(Person).filter(Person.first_name == "An").first()
     db_session.add(ExternalNumber(person_id=person.id, source="ledenadministratie",
                                   external_id="RN-12345"))
@@ -115,8 +115,8 @@ def test_changes_feed_enriches_payment_with_registration_person(client, db_sessi
     """Een betaling/bestelregel hangt aan een inschrijving → de feed toont de
     persoon + hoofdlid-adres van die inschrijving (niet langer '—')."""
     from tests.conftest import seed_activity_with_product
-    from app.models.member import Person
-    from app.models.external_number import ExternalNumber
+    from app.domains.mdm.api import Person
+    from app.domains.mdm.api import ExternalNumber
     from app.models.activity import Registration
 
     _create_family(client, db_session)  # An Janssens, hoofdlid, Milostraat 40 2400 Mol
@@ -148,8 +148,8 @@ def test_changes_feed_matches_guest_payment_by_email(client, db_session, admin_h
     """Een gast-inschrijving (geen person_id) waarvan het contact-e-mailadres een lid
     is, toont tóch de persoon + hoofdlid-adres via de e-mailmatch (#221)."""
     from tests.conftest import seed_activity_with_product
-    from app.models.member import Person
-    from app.models.external_number import ExternalNumber
+    from app.domains.mdm.api import Person
+    from app.domains.mdm.api import ExternalNumber
 
     _create_family(client, db_session)  # An Janssens, e-mail lid@example.com, Milostraat 40 2400 Mol
     person = db_session.query(Person).filter(Person.first_name == "An").first()
@@ -180,9 +180,9 @@ def test_changes_feed_person_and_head_columns_differ(client, db_session, admin_h
     toont naam + extern nummer van het kind als persoon, maar adres + extern nummer van
     het hoofdlid."""
     from tests.conftest import seed_activity_with_product
-    from app.models.member import Person, MemberPerson
-    from app.models.external_number import ExternalNumber
-    from app.models.contact import ContactDetail
+    from app.domains.mdm.api import Person, MemberPerson
+    from app.domains.mdm.api import ExternalNumber
+    from app.domains.mdm.api import ContactDetail
 
     _create_family(client, db_session)  # hoofdlid An Janssens, Milostraat 40 2400 Mol
     an = db_session.query(Person).filter(Person.first_name == "An").first()

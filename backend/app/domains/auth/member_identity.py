@@ -14,8 +14,8 @@ from typing import List, Optional, Tuple
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.models.member import Person, MemberPerson
-from app.models.contact import ContactDetail
+from app.domains.mdm.api import Person, MemberPerson
+from app.domains.mdm.api import ContactDetail
 
 
 def find_persons_by_email(db: Session, email: str) -> List[Person]:

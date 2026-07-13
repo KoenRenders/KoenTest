@@ -11,7 +11,8 @@ from app.domains.payment_status.service import current_membership_counts
 
 
 def _household(db, n_persons=1, *, is_active=True, valid_from=None, valid_to=None):
-    from app.models.member import Member, Person, MemberPerson, Membership
+    from app.models.member import Membership
+    from app.domains.mdm.api import Member, Person, MemberPerson
 
     today = date.today()
     member = Member()

@@ -11,10 +11,11 @@ from sqlalchemy.orm import Session
 
 from app.domains.auth.api import get_current_admin
 from app.database import get_db
-from app.models.member import Member, Person, MemberPerson, Membership
-from app.models.postal_codes import PostalCode
-from app.models.address import Address
-from app.models.contact import ContactDetail
+from app.models.member import Membership
+from app.domains.mdm.api import Member, Person, MemberPerson
+from app.domains.mdm.api import PostalCode
+from app.domains.mdm.api import Address
+from app.domains.mdm.api import ContactDetail
 from app.domains.auth.api import User
 from app.schemas.member import (
     MemberCreate,

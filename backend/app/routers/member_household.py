@@ -22,9 +22,9 @@ from sqlalchemy.orm import Session
 
 from app.domains.auth.api import require_member
 from app.database import get_db
-from app.models.member import Member, Person, MemberPerson
-from app.models.contact import ContactDetail
-from app.models.postal_codes import PostalCode
+from app.domains.mdm.api import Member, Person, MemberPerson
+from app.domains.mdm.api import ContactDetail
+from app.domains.mdm.api import PostalCode
 from app.domains.audit.service import (
     snapshot_person,
     snapshot_member_person,
