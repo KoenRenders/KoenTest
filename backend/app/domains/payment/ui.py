@@ -19,17 +19,11 @@ from app.database import get_db
 from app.domains.auth.api import (
     SESSION_COOKIE, csrf_token_for, get_user_roles, require_admin_ui, require_csrf,
 )
-from app.ui import templates
+from app.ui import admin_nav, templates
 
 router = APIRouter(include_in_schema=False)
 
-NAV = [
-    {"href": "/admin/werkbank", "label": "Werkbank", "active": False},
-    {"href": "/admin/activiteiten", "label": "Activiteiten", "active": False},
-    {"href": "/admin/leden", "label": "Leden", "active": False},
-    {"href": "/admin/betalingen", "label": "Betalingen", "active": True},
-    {"href": "/admin/e-maillog", "label": "E-maillog", "active": False},
-]
+NAV = admin_nav("/admin/betalingen")
 
 
 def _require_finance(db: Session, email: str) -> None:

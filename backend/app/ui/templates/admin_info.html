@@ -1,0 +1,67 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}Systeeminfo — Raak beheer{% endblock %}
+{% macro sectie(titel, rijen) %}
+<div class="bg-white border border-gray-200 rounded-xl p-4">
+  <h2 class="font-bold text-blue-800 mb-3">{{ titel }}</h2>
+  <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+    {% for k, v in rijen %}
+    <div class="flex justify-between gap-4 border-b border-gray-100 py-1">
+      <dt class="text-gray-600">{{ k }}</dt>
+      <dd class="font-medium text-gray-900 text-right break-all">{{ v }}</dd>
+    </div>
+    {% endfor %}
+  </dl>
+</div>
+{% endmacro %}
+{% block content %}
+<h1 class="text-2xl font-bold text-blue-800 mb-4">Systeeminfo</h1>
+<div class="space-y-6">
+  {{ sectie("Versie & omgeving", [
+      ("Versie", info.version), ("Commit", info.commit),
+      ("Omgeving", info.environment), ("Servertijd", info.server_time),
+      ("Tijdzone", info.timezone)]) }}
+  {{ sectie("Diagnostische vlaggen", [
+      ("Logniveau", info.flags.log_level),
+      ("Debug", "aan" if info.flags.debug else "uit"),
+      ("SQL-echo", "aan" if info.flags.sql_echo else "uit")]) }}
+  {{ sectie("Limieten", [
+      ("Max. aantal per item", info.limits.max_item_quantity),
+      ("Max. inschrijvingen per e-mail", info.limits.max_registrations_per_email)]) }}
+  {{ sectie("Lidmaatschap", [
+      ("Prijs volledig", "€ " ~ info.membership.price_full),
+      ("Prijs half", "€ " ~ info.membership.price_half),
+      ("Halfprijs van", info.membership.half_price_start_md),
+      ("Halfprijs tot", info.membership.half_price_end_md),
+      ("Volgend jaar vanaf", info.membership.next_year_from_md),
+      ("Hernieuwen vanaf", info.membership.renewal_start_md or "—")]) }}
+  {{ sectie("URLs", [
+      ("Frontend", info.urls.frontend_url), ("Public", info.urls.public_url)]) }}
+  {{ sectie("Betalingen", [("Mollie-modus", info.mollie_mode)]) }}
+  <div class="bg-white border border-gray-200 rounded-xl p-4">
+    <h2 class="font-bold text-blue-800 mb-3">Analytics</h2>
+    <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
+      <div class="flex justify-between gap-4 border-b border-gray-100 py-1">
+        <dt class="text-gray-600">Webstatistieken (Umami)</dt>
+        <dd class="font-medium text-right">{{ "geconfigureerd" if umami_configured else "niet geconfigureerd" }}</dd>
+      </div>
+      {% if umami_dashboard %}
+      <div class="flex justify-between gap-4 border-b border-gray-100 py-1">
+        <dt class="text-gray-600">Umami-dashboard</dt>
+        <dd class="text-right break-all"><a href="{{ umami_dashboard }}" target="_blank" rel="noopener noreferrer" class="font-medium text-blue-700 underline">{{ umami_dashboard }}</a></dd>
+      </div>
+      {% endif %}
+      {% if umami_website_id %}
+      <div class="flex justify-between gap-4 border-b border-gray-100 py-1">
+        <dt class="text-gray-600">Website ID</dt>
+        <dd class="font-medium text-right break-all">{{ umami_website_id }}</dd>
+      </div>
+      {% endif %}
+      <div class="flex justify-between gap-4 border-b border-gray-100 py-1">
+        <dt class="text-gray-600">Business-events</dt>
+        <dd class="text-right"><a href="/admin/analyse" class="font-medium text-blue-700 underline">admin → Analyse</a></dd>
+      </div>
+    </dl>
+  </div>
+</div>
+{% endblock %}

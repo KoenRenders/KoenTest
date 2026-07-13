@@ -1,0 +1,10 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}Gebruikers — Raak beheer{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold text-blue-800 mb-4">Gebruikers</h1>
+<p class="text-sm text-gray-600 mb-4">Backoffice-accounts en hun rollen. Aanmelden gebeurt met een e-mailcode — er zijn geen wachtwoorden.</p>
+<div id="gu-lijst">
+  {% include "_gu_lijst.html" %}
+</div>
+{% endblock %}

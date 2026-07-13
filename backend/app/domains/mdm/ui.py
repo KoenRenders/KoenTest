@@ -18,17 +18,11 @@ from app.domains.auth.api import (
     SESSION_COOKIE, User, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.domains.mdm.models import GenderCode, Person, RelationTypeCode, PostalCode
-from app.ui import templates
+from app.ui import admin_nav, templates
 
 router = APIRouter(include_in_schema=False)
 
-NAV = [
-    {"href": "/admin/werkbank", "label": "Werkbank", "active": False},
-    {"href": "/admin/activiteiten", "label": "Activiteiten", "active": False},
-    {"href": "/admin/leden", "label": "Leden", "active": True},
-    {"href": "/admin/betalingen", "label": "Betalingen", "active": False},
-    {"href": "/admin/e-maillog", "label": "E-maillog", "active": False},
-]
+NAV = admin_nav("/admin/leden")
 
 
 def _csrf(request: Request) -> str:

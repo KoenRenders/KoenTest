@@ -1,0 +1,37 @@
+{% import "_macros.html" as ui %}
+{{ ui.error_banner(error) }}
+<div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-6" x-data="{ open: false }">
+  {{ ui.btn_secondary("+ Nieuwe gebruiker", attrs='@click="open = !open"') }}
+  <form x-show="open" x-cloak class="space-y-3 mt-3"
+        hx-post="/admin/gebruikers" hx-target="#gu-lijst" hx-swap="innerHTML">
+    <div class="max-w-md">{{ ui.label("E-mailadres", "gu-email", required=True) }}
+      <input type="email" name="email" id="gu-email" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+    <div class="flex flex-wrap gap-4 text-sm">
+      {% for rc in role_codes %}
+      <label class="flex items-center gap-2"><input type="checkbox" name="role_codes" value="{{ rc.code }}"> {{ rc.code }}</label>
+      {% endfor %}
+    </div>
+    {{ ui.btn_primary("Aanmaken") }}
+  </form>
+</div>
+{% if users %}
+<div class="space-y-3">
+  {% for u in users %}
+  <form class="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap items-center gap-4"
+        hx-post="/admin/gebruikers/{{ u.id }}" hx-target="#gu-lijst" hx-swap="innerHTML">
+    <span class="font-medium min-w-56">{{ u.email }}</span>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_active" value="1" {% if u.is_active %}checked{% endif %}> Actief</label>
+    {% set user_roles = u.roles | map(attribute="role_code") | list %}
+    {% for rc in role_codes %}
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="role_codes" value="{{ rc.code }}" {% if rc.code in user_roles %}checked{% endif %}> {{ rc.code }}</label>
+    {% endfor %}
+    <span class="ml-auto flex gap-2">
+      {{ ui.btn_primary("Opslaan") }}
+      {{ ui.btn_danger("Verwijder", attrs='hx-post="/admin/gebruikers/' ~ u.id ~ '/verwijderen" hx-target="#gu-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs("Gebruiker", u.email)) }}
+    </span>
+  </form>
+  {% endfor %}
+</div>
+{% else %}
+{{ ui.empty_state("Nog geen gebruikers.") }}
+{% endif %}

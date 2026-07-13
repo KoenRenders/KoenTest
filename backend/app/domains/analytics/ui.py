@@ -14,7 +14,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.domains.auth.api import require_admin_ui
 from app.domains.analytics.models import BusinessEvent
-from app.ui import templates
+from app.ui import admin_nav, templates
 
 router = APIRouter(include_in_schema=False)
 
@@ -71,14 +71,7 @@ def analyse_page(request: Request, db: Session = Depends(get_db),
 
     stats = get_business_event_stats(db=db, _admin=None)  # type: ignore[arg-type]
     weekly = _weekly_counts(db)
-    nav = [
-        {"href": "/admin/werkbank", "label": "Werkbank", "active": False},
-        {"href": "/admin/activiteiten", "label": "Activiteiten", "active": False},
-        {"href": "/admin/leden", "label": "Leden", "active": False},
-        {"href": "/admin/betalingen", "label": "Betalingen", "active": False},
-        {"href": "/admin/analyse", "label": "Analyse", "active": True},
-        {"href": "/admin/e-maillog", "label": "E-maillog", "active": False},
-    ]
+    nav = admin_nav("/admin/analyse")
     return templates.TemplateResponse(request, "analyse.html", {
         "nav_items": nav, "stats": stats, "chart_svg": _bars_svg(weekly),
     })

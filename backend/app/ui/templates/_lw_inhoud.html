@@ -1,0 +1,63 @@
+{% import "_macros.html" as ui %}
+<section class="mb-10">
+  <div class="flex items-center justify-between mb-3">
+    <h2 class="text-lg font-bold text-blue-800">Ledendata-wijzigingen (voor Raak Nationaal)</h2>
+    <a href="/admin/ledenwijzigingen/export?since={{ since }}"
+       class="text-sm text-blue-700 underline">Download .ods</a>
+  </div>
+  {% if member_rows %}
+  <div class="overflow-x-auto bg-white border border-gray-200 rounded-xl">
+    <table class="min-w-full text-sm">
+      <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
+        <tr><th class="px-3 py-2">Wanneer</th><th class="px-3 py-2">Persoon</th>
+            <th class="px-3 py-2">Lidnr</th><th class="px-3 py-2">Adres hoofdlid</th>
+            <th class="px-3 py-2">Wijziging</th><th class="px-3 py-2">Details</th></tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for r in member_rows %}
+        <tr>
+          <td class="px-3 py-2 whitespace-nowrap">{{ r.recorded_at.strftime("%d-%m-%Y %H:%M") }}</td>
+          <td class="px-3 py-2">{{ r.person_name }}</td>
+          <td class="px-3 py-2">{{ r.person_external_id }}</td>
+          <td class="px-3 py-2">{{ r.head_address }}</td>
+          <td class="px-3 py-2">{{ r.operation_label }}</td>
+          <td class="px-3 py-2 text-gray-600">{{ r.summary }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  {{ ui.empty_state("Geen ledendata-wijzigingen sinds " ~ since ~ ".") }}
+  {% endif %}
+</section>
+<section>
+  <h2 class="text-lg font-bold text-blue-800 mb-3">Alle wijzigingen (audit-feed)</h2>
+  {% if feed_rows %}
+  <div class="overflow-x-auto bg-white border border-gray-200 rounded-xl">
+    <table class="min-w-full text-sm">
+      <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
+        <tr><th class="px-3 py-2">Wanneer</th><th class="px-3 py-2">Groep</th>
+            <th class="px-3 py-2">Object</th><th class="px-3 py-2">Wijziging</th>
+            <th class="px-3 py-2">Persoon</th><th class="px-3 py-2">Actor</th>
+            <th class="px-3 py-2">Details</th></tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for r in feed_rows %}
+        <tr>
+          <td class="px-3 py-2 whitespace-nowrap">{{ r.recorded_at.strftime("%d-%m-%Y %H:%M") }}</td>
+          <td class="px-3 py-2">{{ ui.badge(r.group, "blue") }}</td>
+          <td class="px-3 py-2">{{ r.entity }}{% if r.entity_id %} #{{ r.entity_id }}{% endif %}</td>
+          <td class="px-3 py-2">{{ r.operation_label }}</td>
+          <td class="px-3 py-2">{{ r.person_name }}</td>
+          <td class="px-3 py-2 text-gray-600">{{ r.actor or "" }}</td>
+          <td class="px-3 py-2 text-gray-600">{{ r.summary }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% else %}
+  {{ ui.empty_state("Geen wijzigingen sinds " ~ since ~ ".") }}
+  {% endif %}
+</section>

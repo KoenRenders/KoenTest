@@ -139,6 +139,11 @@ class Settings(BaseSettings):
     # Werkbank-kill-switch (§20.5, fase 4b #403): False = geen sweep en een
     # uitgeschakeld-scherm; taken blijven onaangeroerd staan.
     workbench_enabled: bool = True
+    # Umami-webstatistieken (React-exit 405-d, #405): verhuisd van de
+    # NEXT_PUBLIC_*-variabelen (frontend-container) naar backend-settings.
+    # Leeg = niet geconfigureerd; het Website-ID is geen secret.
+    umami_src: str = ""
+    umami_website_id: str = ""
 
     class Config:
         env_file = ".env"
