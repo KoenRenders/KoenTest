@@ -30,11 +30,12 @@ from datetime import date
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.member import Member, Person, MemberPerson, Membership
-from app.models.address import Address
-from app.models.contact import ContactDetail
-from app.models.external_number import ExternalNumber
-from app.models.postal_codes import PostalCode
+from app.models.member import Membership
+from app.domains.mdm.api import Member, Person, MemberPerson
+from app.domains.mdm.api import Address
+from app.domains.mdm.api import ContactDetail
+from app.domains.mdm.api import ExternalNumber
+from app.domains.mdm.api import PostalCode
 from app.domains.auth.api import User, UserRole
 from app.domains.audit.service import (
     snapshot_person,

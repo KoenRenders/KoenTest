@@ -10,18 +10,20 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.models.history import (
-    PersonHistory,
-    MemberHistory,
-    MemberPersonHistory,
     MembershipHistory,
-    AddressHistory,
-    ContactDetailHistory,
     PaymentRecordHistory,
     RegistrationItemHistory,
     ActivityHistory,
     ActivityDateHistory,
     ComponentHistory,
     ProductHistory,
+)
+from app.domains.mdm.api import (
+    PersonHistory,
+    MemberHistory,
+    MemberPersonHistory,
+    AddressHistory,
+    ContactDetailHistory,
 )
 
 

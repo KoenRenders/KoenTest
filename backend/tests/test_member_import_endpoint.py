@@ -6,7 +6,7 @@ is uitvoerig getest in test_member_import_upsert.py.
 """
 import pytest
 
-from app.models.member import Member
+from app.domains.mdm.api import Member
 import app.routers.member_import as mi
 from tests.conftest import seed_postal_code
 

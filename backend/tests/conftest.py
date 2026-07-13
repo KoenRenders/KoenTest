@@ -47,7 +47,7 @@ def _migrate_schema():
     # in de metadata leven — na verwijderde modellen (ideas) blijven wezen
     # achter en botst de keten. CASCADE veegt álles, ook alembic_version.
     with engine.begin() as conn:
-        for schema in ("form", "workflow", "mail", "auth", "public"):
+        for schema in ("form", "workflow", "mail", "auth", "mdm", "public"):
             conn.exec_driver_sql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
         conn.exec_driver_sql("CREATE SCHEMA public")
     cfg = Config(os.path.join(os.path.dirname(os.path.dirname(__file__)), "alembic.ini"))
@@ -140,7 +140,7 @@ def mock_mollie(monkeypatch):
 
 def create_test_person(db, **kwargs):
     from datetime import date
-    from app.models.member import Person
+    from app.domains.mdm.api import Person
     defaults = {"first_name": "Test", "last_name": "Persoon", "date_of_birth": date(1990, 1, 1)}
     person = Person(**{**defaults, **kwargs})
     db.add(person)
@@ -149,7 +149,7 @@ def create_test_person(db, **kwargs):
 
 
 def create_test_member(db, **kwargs):
-    from app.models.member import Member
+    from app.domains.mdm.api import Member
     member = Member(**kwargs)
     db.add(member)
     db.flush()
@@ -158,8 +158,8 @@ def create_test_member(db, **kwargs):
 
 def create_test_family(db, *, email="hoofdlid@example.com", relation_type="HOOFDLID"):
     """Eén gezin met één persoon (als hoofdlid) en een EMAIL-contact."""
-    from app.models.member import MemberPerson
-    from app.models.contact import ContactDetail
+    from app.domains.mdm.api import MemberPerson
+    from app.domains.mdm.api import ContactDetail
     member = create_test_member(db)
     person = create_test_person(db)
     db.add(MemberPerson(member_id=member.id, person_id=person.id, relation_type=relation_type))
@@ -171,7 +171,7 @@ def create_test_family(db, *, email="hoofdlid@example.com", relation_type="HOOFD
 # ── Seed-helpers ──────────────────────────────────────────────────────────────
 
 def seed_postal_code(db, code="2400", municipality="Mol"):
-    from app.models.postal_codes import PostalCode
+    from app.domains.mdm.api import PostalCode
     pc = PostalCode(postal_code=code, municipality=municipality)
     db.add(pc)
     db.flush()

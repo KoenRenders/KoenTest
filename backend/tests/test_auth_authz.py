@@ -56,7 +56,7 @@ def test_member_cannot_edit_other_household(client, db_session):
     assert client.post("/api/v1/families", json=_family_payload("lid1@example.com")).status_code == 201
     assert client.post("/api/v1/families", json=_family_payload("lid2@example.com")).status_code == 201
 
-    from app.models.contact import ContactDetail
+    from app.domains.mdm.api import ContactDetail
     other_pid = (
         db_session.query(ContactDetail.person_id)
         .filter(ContactDetail.value == "lid2@example.com")

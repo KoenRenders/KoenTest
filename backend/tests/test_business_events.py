@@ -91,7 +91,7 @@ def test_family_registration_logs_event_linked_to_member(client, db_session):
     resp = client.post("/api/v1/families", json=_family_payload(email="event-lid@example.com"))
     assert resp.status_code == 201, resp.text
 
-    from app.models.member import Member
+    from app.domains.mdm.api import Member
     from app.domains.payment_status.models import PaymentRecord
     member = db_session.query(Member).first()
     rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "membership").first()

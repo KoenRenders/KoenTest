@@ -22,8 +22,9 @@ def seed_household(db, email, *, is_active=True, valid_from=None, valid_to=None,
                    with_membership=True):
     """Eén gezin met één hoofdlid-persoon (e-mail als EMAIL-contact) en optioneel
     een lidmaatschap met opgegeven geldigheid."""
-    from app.models.member import Member, Person, MemberPerson, Membership
-    from app.models.contact import ContactDetail
+    from app.models.member import Membership
+    from app.domains.mdm.api import Member, Person, MemberPerson
+    from app.domains.mdm.api import ContactDetail
 
     member = Member()
     db.add(member)

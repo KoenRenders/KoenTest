@@ -5,62 +5,12 @@ from app.database import Base
 from app.soft_delete import SoftDeleteMixin
 
 
-class Member(SoftDeleteMixin, Base):
-    """Household grouping — dynamic, can change over time."""
-    __tablename__ = "members"
-
-    id = Column(Integer, primary_key=True, index=True)
-    board_member_id = Column(Integer, ForeignKey("persons.id"), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
-
-    member_persons = relationship("MemberPerson", back_populates="member", cascade="all, delete-orphan")
-    memberships = relationship("Membership", back_populates="member", cascade="all, delete-orphan")
-    board_member = relationship("Person", foreign_keys=[board_member_id])
-
-
-class Person(SoftDeleteMixin, Base):
-    """Stable, permanent individual entity."""
-    __tablename__ = "persons"
-
-    id = Column(Integer, primary_key=True, index=True)
-    last_name = Column(String(100), nullable=False)
-    first_name = Column(String(100), nullable=False)
-    date_of_birth = Column(Date, nullable=True)
-    gender_code = Column(String(10), ForeignKey("gender_codes.code"), nullable=True)
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
-
-    member_persons = relationship("MemberPerson", back_populates="person")
-    address = relationship("Address", back_populates="person", uselist=False)
-    contact_details = relationship("ContactDetail", back_populates="person", cascade="all, delete-orphan")
-    external_numbers = relationship("ExternalNumber", back_populates="person", cascade="all, delete-orphan")
-    registrations = relationship("Registration", back_populates="person")
-
-
-class MemberPerson(SoftDeleteMixin, Base):
-    """Junction table linking persons to member households."""
-    __tablename__ = "member_persons"
-
-    id = Column(Integer, primary_key=True, index=True)
-    member_id = Column(Integer, ForeignKey("members.id"), nullable=False)
-    # ondelete RESTRICT: een persoon kan niet hard verdwijnen zolang er
-    # gezinskoppelingen aan hangen (DB als laatste vangnet, #97 / migr. 058).
-    person_id = Column(Integer, ForeignKey("persons.id", ondelete="RESTRICT"), nullable=False)
-    relation_type = Column(String(10), ForeignKey("relation_type_codes.code"), nullable=False, default="HOOFDLID")
-    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
-    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
-
-    member = relationship("Member", back_populates="member_persons")
-    person = relationship("Person", back_populates="member_persons")
-
-
 class Membership(SoftDeleteMixin, Base):
     """Annual membership record per member household."""
     __tablename__ = "memberships"
 
     id = Column(Integer, primary_key=True, index=True)
-    member_id = Column(Integer, ForeignKey("members.id"), nullable=False)
+    member_id = Column(Integer, ForeignKey("mdm.members.id"), nullable=False)
     year = Column(Integer, nullable=False)
     is_active = Column(Boolean, default=True, nullable=False)
     # Geldigheidsperiode: gezet zodra de betaling bevestigd is.

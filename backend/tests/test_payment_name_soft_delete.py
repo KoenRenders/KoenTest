@@ -2,7 +2,7 @@
 
 Soft-delete = bewaren, niet wissen: het betalingen-scherm (financiële view) verrijkt
 met `include_deleted=True`, dus de naam blijft zichtbaar i.p.v. '—'."""
-from app.models.member import Member, MemberPerson, Person
+from app.domains.mdm.api import Member, MemberPerson, Person
 from app.soft_delete import soft_delete
 from tests.conftest import seed_postal_code
 

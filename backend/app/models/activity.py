@@ -70,7 +70,7 @@ class Registration(SoftDeleteMixin, Base):
 
     id = Column(Integer, primary_key=True, index=True)
     activity_id = Column(Integer, ForeignKey("activities.id"), nullable=False)
-    person_id = Column(Integer, ForeignKey("persons.id"), nullable=True)
+    person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=True)
     registered_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     registration_type = Column(String(10), ForeignKey("registration_type_codes.code"), nullable=False)
 

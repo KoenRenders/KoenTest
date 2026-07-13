@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.domains.auth.api import get_current_admin
 from app.database import get_db
 from app.models.cms import CmsPage
-from app.models.codes import GenderCode, RelationTypeCode
+from app.domains.mdm.api import GenderCode, RelationTypeCode
 from app.domains.auth.api import User
 from app.schemas.cms import CmsPageCreate, CmsPageUpdate, CmsPageResponse
 from app.services.cms_render import render_cms_content
