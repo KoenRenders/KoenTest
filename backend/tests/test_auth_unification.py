@@ -11,8 +11,8 @@ Bewijst de kerngaranties van de auth-unificatie:
   - een OTP is eenmalig bruikbaar.
 """
 from tests.conftest import seed_postal_code, SEEDED_ADMIN_EMAIL
-from app.models.login_token import LoginToken
-from app.routers import auth as auth_router
+from app.domains.auth.api import LoginToken
+from app.domains.auth import router as auth_router
 
 FIXED_OTP = "424242"
 

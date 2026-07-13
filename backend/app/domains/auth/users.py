@@ -3,9 +3,9 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
 
-from app.auth import get_current_admin
+from app.domains.auth.service import get_current_admin
 from app.database import get_db
-from app.models.user import User, UserRole
+from app.domains.auth.models import User, UserRole
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -43,6 +43,20 @@ class UserUpdate(BaseModel):
 # dat wordt afgeleid uit het leden-domein (e-mail -> Person) en heeft geen
 # user-record nodig.
 
+def _validate_role_codes(db: Session, codes: List[str]) -> None:
+    """Rolcodes valideren tegen de codetabel. Sinds migratie 076 is er bewust
+    geen FK meer naar public.role_codes (§8: geen cross-schema FK's) — deze
+    check is de servicelaag-vervanger."""
+    if not codes:
+        return
+    from app.models.codes import RoleCode
+
+    known = {r.code for r in db.query(RoleCode.code).all()}
+    unknown = [c for c in codes if c not in known]
+    if unknown:
+        raise HTTPException(status_code=400, detail=f"Onbekende rolcode(s): {', '.join(unknown)}")
+
+
 @router.get("", response_model=List[UserOut])
 def list_users(db: Session = Depends(get_db), _=Depends(get_current_admin)):
     return db.query(User).order_by(User.email).all()
@@ -52,6 +66,7 @@ def list_users(db: Session = Depends(get_db), _=Depends(get_current_admin)):
 def create_user(body: UserCreate, db: Session = Depends(get_db), _=Depends(get_current_admin)):
     if db.query(User).filter(User.email == body.email).first():
         raise HTTPException(status_code=400, detail="E-mailadres is al in gebruik.")
+    _validate_role_codes(db, body.role_codes)
     user = User(email=body.email, is_active=body.is_active)
     db.add(user)
     db.flush()
@@ -75,6 +90,7 @@ def update_user(user_id: int, body: UserUpdate, db: Session = Depends(get_db), _
     if body.is_active is not None:
         user.is_active = body.is_active
     if body.role_codes is not None:
+        _validate_role_codes(db, body.role_codes)
         db.query(UserRole).filter(UserRole.user_id == user_id).delete()
         for code in body.role_codes:
             db.add(UserRole(user_id=user_id, role_code=code))

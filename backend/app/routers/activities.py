@@ -8,10 +8,10 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
 logger = logging.getLogger(__name__)
 from sqlalchemy.orm import Session, selectinload
 
-from app.auth import get_current_admin, get_current_member
+from app.domains.auth.api import get_current_admin, get_current_member
 from app.database import get_db
 from app.models.activity import ActivityDate, Activity, Registration, RegistrationItem
-from app.models.user import User
+from app.domains.auth.api import User
 from app.models.activity_sub_registration import ActivitySubRegistration, ActivityProduct
 from app.schemas.activity import (
     ActivityCreate,

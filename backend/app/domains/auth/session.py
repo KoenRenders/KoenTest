@@ -1,6 +1,5 @@
-"""Interim sessie-/CSRF-laag voor server-rendered schermen (#398, §21).
-
-Verhuist in fase 1 (#399) naar het auth-component; het mechanisme blijft:
+"""Sessie-/CSRF-laag voor server-rendered schermen (#398, §21) — sinds fase 1b
+(#399) onderdeel van het auth-component. Het mechanisme:
 - HttpOnly-sessiecookie met een HMAC-getekende waarde (email|exp) — geen JWT in
   localStorage voor server-pagina's.
 - CSRF: dubbel-submit met een HMAC-token afgeleid van de sessiewaarde; htmx
@@ -73,7 +72,7 @@ def require_admin_ui(request: Request, db: Session = Depends(get_db)) -> str:
     """Identiteit + ADMIN/FINANCE-rol voor server-rendered admin-schermen.
     Zonder geldige sessie: redirect naar de bestaande login (303 via HTTPException
     zou de flow breken; we sturen een 401-pagina-redirect)."""
-    from app.auth import get_user_roles  # lazy: vermijdt cykel
+    from app.domains.auth.service import get_user_roles  # lazy: vermijdt cykel
 
     email = read_session_value(_session_raw(request))
     if email is None:

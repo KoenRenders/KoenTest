@@ -17,9 +17,9 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_admin
+from app.domains.auth.api import get_current_admin
 from app.database import get_db
-from app.models.user import User
+from app.domains.auth.api import User
 from app.services.ledenrapport import parse_families
 from app.services.member_import import upsert_families
 

@@ -14,12 +14,12 @@ from fastapi import (
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_admin
+from app.domains.auth.api import get_current_admin
 from app.database import get_db
 from app.models.asset import MediaAsset
 from app.models.activity import Activity
 from app.models.activity_sub_registration import ActivitySubRegistration
-from app.models.user import User
+from app.domains.auth.api import User
 from app.services.media_extraction import EXTRACTABLE_KINDS, update_media_extracted_text
 from app.services.images import (
     process_image, ImageError, ALLOWED_CONTENT_TYPES, MAX_UPLOAD_BYTES,

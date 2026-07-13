@@ -1,8 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Form
 from sqlalchemy.orm import Session
 from app.database import get_db
-from app.auth import get_current_admin
-from app.models.user import User
+from app.domains.auth.api import get_current_admin
+from app.domains.auth.api import User
 from .models import GatewayPayment
 from .service import refresh_payment_status
 from app.domains.payment_status.service import handle_gateway_update
