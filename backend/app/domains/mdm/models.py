@@ -30,7 +30,9 @@ class Member(SoftDeleteMixin, Base):
     updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
 
     member_persons = relationship("MemberPerson", back_populates="member", cascade="all, delete-orphan")
-    memberships = relationship("Membership", back_populates="member", cascade="all, delete-orphan")
+    # Bewust GEEN memberships-relatie hier: lidmaatschap is een ander domein
+    # (fase 4a). Membership definieert de koppeling via een backref, zodat de
+    # masterdata standalone geladen kan worden (§6, soft-ref-richting).
     board_member = relationship("Person", foreign_keys=[board_member_id])
 
 
@@ -54,7 +56,8 @@ class Person(SoftDeleteMixin, Base):
     address = relationship("Address", back_populates="person", uselist=False)
     contact_details = relationship("ContactDetail", back_populates="person", cascade="all, delete-orphan")
     external_numbers = relationship("ExternalNumber", back_populates="person", cascade="all, delete-orphan")
-    registrations = relationship("Registration", back_populates="person")
+    # Bewust GEEN registrations-relatie: activiteiten zijn een ander domein;
+    # Registration definieert de koppeling via een backref (zelfde regel).
 
 
 class MemberPerson(SoftDeleteMixin, Base):

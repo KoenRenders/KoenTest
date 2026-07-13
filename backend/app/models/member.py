@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, Date, Boolean, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import backref, relationship
 from app.database import Base
 from app.soft_delete import SoftDeleteMixin
 
@@ -20,4 +20,4 @@ class Membership(SoftDeleteMixin, Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
-    member = relationship("Member", back_populates="memberships")
+    member = relationship("Member", backref=backref("memberships", cascade="all, delete-orphan"))

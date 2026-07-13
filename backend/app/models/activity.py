@@ -83,7 +83,7 @@ class Registration(SoftDeleteMixin, Base):
     remarks = Column(Text, nullable=True)
 
     activity = relationship("Activity", back_populates="registrations")
-    person = relationship("Person", back_populates="registrations")
+    person = relationship("Person", backref="registrations")
     items = relationship("RegistrationItem", back_populates="registration", cascade="all, delete-orphan")
 
 
