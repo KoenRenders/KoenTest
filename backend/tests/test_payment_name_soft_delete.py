@@ -29,7 +29,7 @@ def test_registration_description_survives_activity_soft_delete(client, db_sessi
     """#190: na soft-delete van de activiteit blijft de betalingsrij de activiteitnaam
     tonen (de verrijking haalt de activiteit op met include_deleted)."""
     from tests.conftest import seed_activity_with_product
-    from app.models.activity import Activity, Registration
+    from app.domains.activities.api import Activity, Registration
 
     _, comp, product = seed_activity_with_product(db_session, price="12.00")
     resp = client.post(f"/api/v1/activities/{comp.activity_id}/register", json={

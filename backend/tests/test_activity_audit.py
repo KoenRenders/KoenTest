@@ -2,7 +2,7 @@
 activiteit/onderdeel/product schrijft een history-rij (incl. soft-delete)."""
 from datetime import date
 
-from app.models.history import ActivityHistory, ComponentHistory, ProductHistory
+from app.domains.activities.api import ActivityHistory, ComponentHistory, ProductHistory
 
 
 def test_unified_changes_feed(client, db_session, admin_headers):

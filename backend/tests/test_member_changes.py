@@ -117,7 +117,7 @@ def test_changes_feed_enriches_payment_with_registration_person(client, db_sessi
     from tests.conftest import seed_activity_with_product
     from app.domains.mdm.api import Person
     from app.domains.mdm.api import ExternalNumber
-    from app.models.activity import Registration
+    from app.domains.activities.api import Registration
 
     _create_family(client, db_session)  # An Janssens, hoofdlid, Milostraat 40 2400 Mol
     person = db_session.query(Person).filter(Person.first_name == "An").first()

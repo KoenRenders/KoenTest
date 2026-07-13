@@ -6,8 +6,8 @@ en een refund op een lidmaatschap-betaling (niet enkel registratie)."""
 from decimal import Decimal
 
 from app.domains.payment.api import PaymentRecord
-from app.models.activity import Registration, RegistrationItem
-from app.models.activity_sub_registration import ActivityProduct
+from app.domains.activities.api import Registration, RegistrationItem
+from app.domains.activities.api import ActivityProduct
 from app.domains.membership.api import Membership
 from app.domains.mdm.api import Member
 from tests.conftest import seed_activity_with_product, seed_postal_code

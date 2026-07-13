@@ -17,8 +17,8 @@ from sqlalchemy.orm import Session
 from app.domains.auth.api import get_current_admin
 from app.database import get_db
 from app.models.asset import MediaAsset
-from app.models.activity import Activity
-from app.models.activity_sub_registration import ActivitySubRegistration
+from app.domains.activities.api import Activity
+from app.domains.activities.api import ActivitySubRegistration
 from app.domains.auth.api import User
 from app.services.media_extraction import EXTRACTABLE_KINDS, update_media_extracted_text
 from app.services.images import (

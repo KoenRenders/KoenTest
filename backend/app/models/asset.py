@@ -41,10 +41,10 @@ class MediaAsset(Base):
     id = Column(Integer, primary_key=True, index=True)
     kind = Column(String(20), nullable=False, index=True)  # sponsor | activity_photo | activity_poster | component_info
     activity_id = Column(
-        Integer, ForeignKey("activities.id", ondelete="CASCADE"), nullable=True, index=True
+        Integer, nullable=True, index=True  # soft-ref naar activities.activities (§8, migr. 081)
     )
     component_id = Column(
-        Integer, ForeignKey("activity_sub_registrations.id", ondelete="CASCADE"),
+        Integer,  # soft-ref naar activities.activity_sub_registrations (§8, migr. 081)
         nullable=True, index=True,
     )
 
@@ -65,5 +65,15 @@ class MediaAsset(Base):
 
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
 
-    activity = relationship("Activity", foreign_keys=[activity_id])
-    component = relationship("ActivitySubRegistration", foreign_keys=[component_id])
+    # Soft-refs (§8): geen DB-FK meer; expliciete primaryjoin + foreign() zodat
+    # de ORM-relaties blijven werken zonder constraint.
+    activity = relationship(
+        "Activity",
+        primaryjoin="foreign(MediaAsset.activity_id) == Activity.id",
+        viewonly=True,
+    )
+    component = relationship(
+        "ActivitySubRegistration",
+        primaryjoin="foreign(MediaAsset.component_id) == ActivitySubRegistration.id",
+        viewonly=True,
+    )

@@ -6,7 +6,7 @@ from html import escape
 from typing import Optional
 
 from app.config import settings
-from app.services.registration_totals import compute_registration_total
+from app.domains.activities.api import compute_registration_total
 
 logger = logging.getLogger(__name__)
 

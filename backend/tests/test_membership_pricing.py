@@ -47,10 +47,10 @@ def seed_household(db, email, *, is_active=True, valid_from=None, valid_to=None,
 
 
 def seed_activity_with_member_product(db, price="20.00", member_price="12.00"):
-    from app.models.activity import Activity
-    from app.models.activity_sub_registration import ActivitySubRegistration, ActivityProduct
+    from app.domains.activities.api import Activity
+    from app.domains.activities.api import ActivitySubRegistration, ActivityProduct
 
-    from app.models.activity import ActivityDate
+    from app.domains.activities.api import ActivityDate
     activity = Activity(name="Ledenprijs-activiteit")
     db.add(activity)
     db.flush()
@@ -112,7 +112,7 @@ def test_member_without_valid_membership_pays_regular_price(client, db_session):
     assert resp.status_code == 200, resp.text
 
     from app.domains.payment.api import PaymentRecord
-    from app.models.activity import Registration
+    from app.domains.activities.api import Registration
     rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "registration").first()
     assert rec.amount == Decimal("40.00")  # 2 × gewone prijs 20.00
     reg = db_session.query(Registration).first()
@@ -140,7 +140,7 @@ def test_anonymous_registration_regular_price_and_no_person(client, db_session):
     assert resp.status_code == 200, resp.text
 
     from app.domains.payment.api import PaymentRecord
-    from app.models.activity import Registration
+    from app.domains.activities.api import Registration
     rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "registration").first()
     assert rec.amount == Decimal("20.00")
     reg = db_session.query(Registration).first()
@@ -158,7 +158,7 @@ def test_logged_in_registration_links_person(client, db_session):
                      qty=1, headers=_member_headers(email))
     assert resp.status_code == 200, resp.text
 
-    from app.models.activity import Registration
+    from app.domains.activities.api import Registration
     reg = db_session.query(Registration).first()
     assert reg.person_id == person.id
 

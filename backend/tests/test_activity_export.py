@@ -8,8 +8,8 @@ from odf.table import Table, TableRow, TableCell
 from odf.teletype import extractText
 
 from app.domains.payment.api import PaymentRecord
-from app.models.activity import Registration, RegistrationItem
-from app.models.activity_sub_registration import ActivityProduct
+from app.domains.activities.api import Registration, RegistrationItem
+from app.domains.activities.api import ActivityProduct
 from tests.conftest import seed_activity_with_product
 
 _ODS_MIME = "opendocument.spreadsheet"

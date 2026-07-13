@@ -17,7 +17,7 @@ from .service import (
 )
 from app.domains.audit.service import snapshot_payment_record
 from app.soft_delete import soft_delete
-from app.services.registration_totals import compute_registration_total
+from app.domains.activities.api import compute_registration_total
 
 router = APIRouter(prefix="/payment-status", tags=["payment-status"])
 
@@ -52,8 +52,8 @@ def list_all_payment_records(
     betalingen tonen niet), maar de **verrijking** (naam/activiteit/onderdeel) haalt
     bewust ook soft-deleted entiteiten op (`include_deleted=True`, #190): een betaling
     is een financieel feit en moet de (bewaarde) naam blijven tonen, niet "—"."""
-    from app.models.activity import Registration, Activity
-    from app.models.activity_sub_registration import ActivitySubRegistration
+    from app.domains.activities.api import Registration, Activity
+    from app.domains.activities.api import ActivitySubRegistration
     from app.domains.mdm.api import Member, MemberPerson, Person
 
     def _q(model):
@@ -234,7 +234,7 @@ def get_registration_balance(
 ):
     """Financiële stand van een inschrijving: verschuldigd, betaald, terugbetaald,
     saldo (#83). De live DB is de bron van waarheid."""
-    from app.models.activity import Registration
+    from app.domains.activities.api import Registration
 
     reg = db.query(Registration).filter(Registration.id == registration_id).first()
     if not reg:

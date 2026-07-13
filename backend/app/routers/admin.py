@@ -15,7 +15,7 @@ def _open_tasks(db):
     from app.domains.workflow.api import open_count
 
     return open_count(db, ["ADMIN", "FINANCE"])
-from app.models.activity import Activity, ActivityDate
+from app.domains.activities.api import Activity, ActivityDate
 from app.models.business_event import BusinessEvent
 from app.domains.membership.api import Membership
 from app.domains.mdm.api import Member

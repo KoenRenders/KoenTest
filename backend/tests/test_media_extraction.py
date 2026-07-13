@@ -11,8 +11,8 @@ Bewaakt de invarianten die ertoe doen:
 import json
 
 from app.config import settings
-from app.models.activity import Activity
-from app.models.activity_sub_registration import ActivitySubRegistration
+from app.domains.activities.api import Activity
+from app.domains.activities.api import ActivitySubRegistration
 from app.models.asset import MediaAsset
 from app.models.chatbot_info import ChatbotInfo
 from app.domains.chatbot.tools import execute_tool

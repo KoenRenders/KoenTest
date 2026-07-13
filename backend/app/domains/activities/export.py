@@ -11,8 +11,7 @@ Bevat persoons- en financiële data: enkel admin, nooit in de repo.
 from decimal import Decimal
 from typing import Tuple
 
-from app.domains.payment.api import get_records_for
-from app.services.registration_totals import compute_registration_total
+from app.domains.activities.totals import compute_registration_total
 from app.services.ods_export import build_ods_multi
 
 _METHOD_LABELS = {"ONLINE": "Online", "TRANSFER": "Overschrijving", "CASH": "Cash"}
@@ -25,6 +24,8 @@ _RECORD_TYPE_LABELS = {"charge": "Vordering", "refund": "Terugbetaling"}
 
 
 def _registration_financials(db, reg) -> Tuple[Decimal, Decimal, Decimal, Decimal, Decimal]:
+    # Lazy import: doorbreekt de kringloop payment.api -> ... -> activities.api -> export.
+    from app.domains.payment.api import get_records_for
     """(verschuldigd, betaald_online, betaald_offline, terugbetaald, saldo)."""
     due, _ = compute_registration_total(reg)
     records = get_records_for(db, "registration", reg.id)
@@ -64,6 +65,7 @@ def _payments_sheet(db, registrations) -> dict:
     tot_due = Decimal("0")
     tot_paid = Decimal("0")
     for reg in registrations:
+        from app.domains.payment.api import get_records_for
         for r in get_records_for(db, "registration", reg.id):
             amount = Decimal(str(r.amount or 0))
             paid = Decimal(str(r.amount_paid)) if r.amount_paid is not None else Decimal("0")

@@ -37,6 +37,10 @@ LEGACY_ALLOWLIST = {
 # Cross-domain-reach-ins van vóór de modularisatie (zelfde krimp-regel): de
 # payments-fase (#401) en chatbot-fase (#404) vervangen deze door facades.
 LEGACY_CROSS_DOMAIN = {
+    # verhuisd uit de oude wereld met de router mee (4a #402); analytics/audit
+    # krijgen hun facade in fase 4c (#404)
+    ("app.domains.activities.router", "app.domains.analytics.service"),
+    ("app.domains.activities.router", "app.domains.audit.service"),
     ("app.domains.forms.router", "app.domains.analytics.service"),
     ("app.domains.chatbot.context", "app.domains.payment.api"),
     ("app.domains.payment.status_router", "app.domains.audit.service"),

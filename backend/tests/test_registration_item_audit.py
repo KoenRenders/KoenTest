@@ -9,9 +9,9 @@ from decimal import Decimal
 
 import pytest
 
-from app.models.activity import Registration, RegistrationItem
-from app.models.activity_sub_registration import ActivityProduct
-from app.models.history import RegistrationItemHistory
+from app.domains.activities.api import Registration, RegistrationItem
+from app.domains.activities.api import ActivityProduct
+from app.domains.activities.api import RegistrationItemHistory
 from app.domains.payment.api import PaymentRecord
 from tests.conftest import seed_activity_with_product
 

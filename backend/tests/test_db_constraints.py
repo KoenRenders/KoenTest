@@ -11,8 +11,8 @@ from decimal import Decimal
 import pytest
 from sqlalchemy.exc import IntegrityError
 
-from app.models.activity import Activity, Registration, RegistrationItem
-from app.models.activity_sub_registration import ActivitySubRegistration, ActivityProduct
+from app.domains.activities.api import Activity, Registration, RegistrationItem
+from app.domains.activities.api import ActivitySubRegistration, ActivityProduct
 from tests.conftest import seed_activity_with_product
 
 
@@ -27,7 +27,7 @@ def _expect_violation(db, obj):
 # ── #96: prijs- en aantal-checks ────────────────────────────────────────────
 
 def test_sub_registration_price_non_negative(db_session):
-    from app.models.activity import ActivityDate
+    from app.domains.activities.api import ActivityDate
     activity = Activity(name="A")
     db_session.add(activity)
     db_session.flush()
@@ -40,7 +40,7 @@ def test_sub_registration_price_non_negative(db_session):
 
 
 def test_sub_registration_member_price_non_negative(db_session):
-    from app.models.activity import ActivityDate
+    from app.domains.activities.api import ActivityDate
     activity = Activity(name="A")
     db_session.add(activity)
     db_session.flush()
@@ -123,7 +123,7 @@ def test_person_delete_blocked_while_member_link_exists(db_session):
 # ── #98: optionele hardening ────────────────────────────────────────────────
 
 def test_sub_registration_max_participants_positive(db_session):
-    from app.models.activity import ActivityDate
+    from app.domains.activities.api import ActivityDate
     activity = Activity(name="A")
     db_session.add(activity)
     db_session.flush()
