@@ -43,6 +43,9 @@
 	handle /berichten* {
 		reverse_proxy uat-backend:8000
 	}
+	handle /formulier/* {
+		reverse_proxy uat-backend:8000
+	}
 	handle /activiteiten* {
 		reverse_proxy uat-backend:8000
 	}
@@ -122,6 +125,9 @@
 		reverse_proxy prod-backend:8000
 	}
 	handle /berichten* {
+		reverse_proxy prod-backend:8000
+	}
+	handle /formulier/* {
 		reverse_proxy prod-backend:8000
 	}
 	handle /activiteiten* {
