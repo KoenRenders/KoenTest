@@ -1,0 +1,24 @@
+{% import "_macros.html" as ui %}
+{% if tasks %}
+<div class="space-y-3">
+  {% for task in tasks %}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ open: false }">
+    <div class="flex items-center justify-between gap-4">
+      <div>
+        <span class="font-semibold">{{ task.title }}</span>
+        <span class="ml-2">{{ ui.badge(task.kind, "blue") }}</span>
+        <span class="ml-2 text-sm text-gray-500">{{ task.created_at.strftime("%d-%m-%Y %H:%M") }}</span>
+      </div>
+      <button class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg text-sm"
+              @click="open = !open"
+              hx-get="/admin/werkbank/taken/{{ task.id }}" hx-target="#taak-{{ task.id }}" hx-swap="innerHTML">
+        Behartigen
+      </button>
+    </div>
+    <div id="taak-{{ task.id }}" x-show="open" class="mt-4"></div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+{{ ui.empty_state("Geen open taken — alles is behartigd. 🎉") }}
+{% endif %}

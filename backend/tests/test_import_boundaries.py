@@ -16,12 +16,6 @@ APP = Path(__file__).resolve().parents[1] / "app"
 # Reach-ins van vóór de modularisatie. Elke fase van epic #393 verwijdert regels;
 # regels TOEVOEGEN mag alleen met een fase-verwijzing.
 LEGACY_ALLOWLIST = {
-    ("app.main", "app.domains.payment_gateway.router"),
-    ("app.main", "app.domains.payment_status.router"),
-    # Composer-imports: main mount routers, models/__init__ doet model-discovery
-    # voor Alembic — beide zijn de bedoelde compositiepunten, geen reach-in.
-    ("app.main", "app.domains.forms.router"),
-    ("app.models.__init__", "app.domains.forms.models"),
     ("app.services.activity_export", "app.domains.payment_status.service"),
     ("app.services.member_import", "app.domains.audit.service"),
     ("app.services.payments_export", "app.domains.payment_status.models"),
@@ -116,8 +110,16 @@ def test_import_boundaries():
                     and (module, imp) not in LEGACY_CROSS_DOMAIN):
                 violations.append(f"CROSS-DOMAIN: {module} -> {imp}")
 
+            # Composer-uitzonderingen: main mount routers/ui/handlers,
+            # models/__init__ doet model-discovery voor Alembic. Dat zijn de
+            # bedoelde compositiepunten, geen reach-in.
+            composer = (
+                (module == "app.main" and imp.split(".")[-1] in ("router", "ui", "handlers", "workflow"))
+                or (module == "app.models.__init__" and imp.endswith(".models"))
+            )
+
             # Regel 3: oude wereld -> domein-internals enkel via de allowlist.
-            if not module.startswith("app.domains") and not module.startswith("app.kernel"):
+            if not module.startswith("app.domains") and not module.startswith("app.kernel") and not composer:
                 if dst and not imp.endswith(".api") and (module, imp) not in LEGACY_ALLOWLIST:
                     violations.append(f"REACH-IN (niet op allowlist): {module} -> {imp}")
 

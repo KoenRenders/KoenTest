@@ -10,6 +10,8 @@ MODULES = [
     "app.domains.payment_status.service",
     "app.domains.payment_status.router",
     "app.domains.forms.router",
+    "app.domains.forms.ui",
+    "app.domains.workflow.ui",
     # Schemas
     "app.schemas.member",
     "app.schemas.family",
