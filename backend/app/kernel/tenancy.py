@@ -70,6 +70,36 @@ def resolve_tenant(host: str | None, path: str,
     return DEFAULT_TENANT_ID
 
 
+def resolve_request(host: str | None, path: str, cookie_code: str | None,
+                    hostname_map: dict[str, str],
+                    platform_hosts: set[str]) -> tuple[int, str | None, bool]:
+    """Volledige request-resolutie (§7, 5c): geeft (tenant_id, herschreven pad
+    of None, platform-landing?).
+
+    - Pad-prefix (``/raakvoorbeeldafdeling/...``) wint van alles: de prefix
+      wordt van het pad gestript (de app kent maar één routetabel) en de
+      middleware zet een tenant-cookie zodat vervolgnavigatie (absolute
+      paden zonder prefix) op dezelfde tenant blijft.
+    - Daarna hostname, dan de tenant-cookie (enkel op platform-hosts), dan
+      de default (Millegem).
+    - De wortel van een platform-host (renko.be, "/") is de landingspagina.
+    """
+    genormaliseerd = (host or "").split(":")[0].lower().removeprefix("www.")
+    eerste = path.lstrip("/").split("/", 1)[0].lower()
+    if eerste in TENANT_CODES:
+        rest = path.lstrip("/")[len(eerste):] or "/"
+        return TENANT_CODES[eerste], rest, False
+    code = hostname_map.get(genormaliseerd)
+    if code in TENANT_CODES:
+        return TENANT_CODES[code], None, False
+    if genormaliseerd in platform_hosts:
+        if path == "/":
+            return DEFAULT_TENANT_ID, None, True
+        if cookie_code in TENANT_CODES:
+            return TENANT_CODES[cookie_code], None, False
+    return DEFAULT_TENANT_ID, None, False
+
+
 def parse_hostname_map(raw: str) -> dict[str, str]:
     """Parseer ``TENANT_HOSTNAMES`` ("host=code,host=code") naar een dict."""
     mapping: dict[str, str] = {}

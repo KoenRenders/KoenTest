@@ -148,6 +148,9 @@ class Settings(BaseSettings):
     # "host=code,host=code" (bv. "raakmillegem.be=raakmillegem"). Hosts die
     # niet matchen vallen terug op pad-prefix en dan de default (Millegem).
     tenant_hostnames: str = ""
+    # Platform-hosts (5c, #406): hosts waar de wortel de "Raak Digital
+    # Platform"-landing toont en units via pad-prefix draaien (bv. "renko.be").
+    platform_hosts: str = ""
 
     class Config:
         env_file = ".env"
