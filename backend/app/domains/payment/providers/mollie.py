@@ -18,8 +18,12 @@ MOLLIE_STATUS_MAP = {
 
 
 class MollieProvider(BaseProvider):
+    def __init__(self, api_key: str | None = None):
+        # Per-tenant Mollie-key (fase 5b, #406); default de globale env-key.
+        self._api_key = api_key or settings.mollie_api_key
+
     def _headers(self) -> dict:
-        return {"Authorization": f"Bearer {settings.mollie_api_key}"}
+        return {"Authorization": f"Bearer {self._api_key}"}
 
     def create_payment(
         self,
@@ -29,7 +33,7 @@ class MollieProvider(BaseProvider):
         webhook_url: str,
         metadata: dict,
     ) -> PaymentResult:
-        if not settings.mollie_api_key:
+        if not self._api_key:
             raise ValueError("MOLLIE_API_KEY is niet geconfigureerd.")
 
         # Mollie can't reach localhost/private URLs — omit webhook in that case

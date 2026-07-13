@@ -93,7 +93,9 @@ def require_roles(*codes: str):
     def _dep(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
         email = _email_from_token(token)
         roles = get_user_roles(db, email)
-        if not roles.intersection(codes):
+        # OPERATOR (fase 5b, #406) is de platformrol: ziet en mag alles,
+        # over alle tenants heen — telt dus mee voor elke rolcheck.
+        if not roles.intersection((*codes, "OPERATOR")):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient permissions",

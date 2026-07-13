@@ -655,7 +655,9 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
     amount = membership_price_for_date(today)
     hoofdlid = data.members[0]
     description = f"Raak Millegem lidmaatschap {today.year} – {hoofdlid.last_name} {hoofdlid.first_name}"
-    redirect_url = f"{settings.frontend_url}/betaling/succes?member={member.id}"
+    from app.kernel.tenant_config import tenant_base_url
+
+    redirect_url = f"{tenant_base_url(db)}/betaling/succes?member={member.id}"
 
     try:
         payment_record = create_payment_record(

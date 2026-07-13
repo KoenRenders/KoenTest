@@ -82,7 +82,7 @@ def require_admin_ui(request: Request, db: Session = Depends(get_db)) -> str:
             headers={"HX-Redirect": "/aanmelden", "Location": "/aanmelden"},
         )
     roles = get_user_roles(db, email)
-    if not ({"ADMIN", "FINANCE"} & set(roles)):
+    if not ({"ADMIN", "FINANCE", "ACCOUNT_ADMIN", "OPERATOR"} & set(roles)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Geen toegang")
     return email
 
