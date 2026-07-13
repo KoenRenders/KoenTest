@@ -19,13 +19,14 @@ from sqlalchemy import (
 from sqlalchemy.orm import relationship
 
 from app.database import Base
+from app.kernel.tenancy import TenantMixin
 
 
 def _now_utc():
     return datetime.now(timezone.utc)
 
 
-class ChatbotInfo(Base):
+class ChatbotInfo(TenantMixin, Base):
     __tablename__ = "chatbot_info"
     __table_args__ = {"schema": "ai"}
 

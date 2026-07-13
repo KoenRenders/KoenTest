@@ -2,6 +2,7 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, Integer, String, DateTime, Boolean, Date, Time, ForeignKey, Numeric, Text
 from sqlalchemy.orm import relationship, object_session
 from app.database import Base
+from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
 
@@ -23,7 +24,7 @@ def _single_asset(obj, kind, fk_attr):
     )
 
 
-class ActivityDate(SoftDeleteMixin, Base):
+class ActivityDate(TenantMixin, SoftDeleteMixin, Base):
     __tablename__ = "activity_dates"
     __table_args__ = {"schema": "activities"}
 
@@ -37,7 +38,7 @@ class ActivityDate(SoftDeleteMixin, Base):
     activity = relationship("Activity", back_populates="dates")
 
 
-class Activity(SoftDeleteMixin, Base):
+class Activity(TenantMixin, SoftDeleteMixin, Base):
     __tablename__ = "activities"
     __table_args__ = {"schema": "activities"}
 
@@ -67,7 +68,7 @@ class Activity(SoftDeleteMixin, Base):
         return bool(a and a.content_type == "application/pdf")
 
 
-class Registration(SoftDeleteMixin, Base):
+class Registration(TenantMixin, SoftDeleteMixin, Base):
     __tablename__ = "registrations"
     __table_args__ = {"schema": "activities"}
 
@@ -90,7 +91,7 @@ class Registration(SoftDeleteMixin, Base):
     items = relationship("RegistrationItem", back_populates="registration", cascade="all, delete-orphan")
 
 
-class RegistrationItem(SoftDeleteMixin, Base):
+class RegistrationItem(TenantMixin, SoftDeleteMixin, Base):
     __tablename__ = "registration_items"
     __table_args__ = {"schema": "activities"}
 
@@ -103,7 +104,7 @@ class RegistrationItem(SoftDeleteMixin, Base):
     product = relationship("ActivityProduct")
 
 
-class ActivitySubRegistration(SoftDeleteMixin, Base):
+class ActivitySubRegistration(TenantMixin, SoftDeleteMixin, Base):
     """A component (onderdeel) of an activity. Each component can have products."""
     __tablename__ = "activity_sub_registrations"
     __table_args__ = {"schema": "activities"}
@@ -152,7 +153,7 @@ class ActivitySubRegistration(SoftDeleteMixin, Base):
         return bool(a and a.content_type == "application/pdf")
 
 
-class ActivityProduct(SoftDeleteMixin, Base):
+class ActivityProduct(TenantMixin, SoftDeleteMixin, Base):
     """A product (inschrijvingsoptie) within an activity component."""
     __tablename__ = "activity_products"
     __table_args__ = {"schema": "activities"}
@@ -185,7 +186,7 @@ class HistoryMixin:
     recorded_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
 
 
-class RegistrationItemHistory(HistoryMixin, Base):
+class RegistrationItemHistory(TenantMixin, HistoryMixin, Base):
     """Append-only audit van bestelregels (#84): elke insert/update/delete van een
     RegistrationItem, zodat wijzigingen aan een bestelling ná betaling traceerbaar
     zijn (bv. product wisselen naar een helper-variant, of een regel verwijderen)."""
@@ -198,7 +199,7 @@ class RegistrationItemHistory(HistoryMixin, Base):
     quantity = Column(Integer, nullable=True)
 
 
-class ActivityHistory(HistoryMixin, Base):
+class ActivityHistory(TenantMixin, HistoryMixin, Base):
     """Append-only audit van activiteiten (#189), incl. soft-delete."""
     __tablename__ = "activity_history"
     __table_args__ = {"schema": "activities"}
@@ -207,7 +208,7 @@ class ActivityHistory(HistoryMixin, Base):
     name = Column(String(255), nullable=True)
 
 
-class ActivityDateHistory(HistoryMixin, Base):
+class ActivityDateHistory(TenantMixin, HistoryMixin, Base):
     """Append-only audit van activiteitdatums (#189)."""
     __tablename__ = "activity_date_history"
     __table_args__ = {"schema": "activities"}
@@ -218,7 +219,7 @@ class ActivityDateHistory(HistoryMixin, Base):
     end_date = Column(Date, nullable=True)
 
 
-class ComponentHistory(HistoryMixin, Base):
+class ComponentHistory(TenantMixin, HistoryMixin, Base):
     """Append-only audit van onderdelen (activity_sub_registration) (#189)."""
     __tablename__ = "component_history"
     __table_args__ = {"schema": "activities"}
@@ -230,7 +231,7 @@ class ComponentHistory(HistoryMixin, Base):
     member_price = Column(Numeric(10, 2), nullable=True)
 
 
-class ProductHistory(HistoryMixin, Base):
+class ProductHistory(TenantMixin, HistoryMixin, Base):
     """Append-only audit van producten (activity_product) (#189)."""
     __tablename__ = "product_history"
     __table_args__ = {"schema": "activities"}

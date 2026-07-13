@@ -144,6 +144,10 @@ class Settings(BaseSettings):
     # Leeg = niet geconfigureerd; het Website-ID is geen secret.
     umami_src: str = ""
     umami_website_id: str = ""
+    # Tenant-resolutie (fase 5, #406): hostname → tenant-code, als
+    # "host=code,host=code" (bv. "raakmillegem.be=raakmillegem"). Hosts die
+    # niet matchen vallen terug op pad-prefix en dan de default (Millegem).
+    tenant_hostnames: str = ""
 
     class Config:
         env_file = ".env"

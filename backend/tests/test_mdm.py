@@ -97,10 +97,10 @@ def test_resolve_plain_person_returns_itself(db_session):
 
 
 def test_organizations_account_unit_hierarchy(db_session):
-    account = Organization(code="raakmillegem", name="Raak Millegem", org_type="ACCOUNT")
+    account = Organization(code="testaccount", name="Testaccount", org_type="ACCOUNT")
     db_session.add(account)
     db_session.flush()
-    unit = Organization(code="raakmillegem-jeugd", name="Jeugdwerking",
+    unit = Organization(code="testaccount-jeugd", name="Jeugdwerking",
                         org_type="UNIT", parent_id=account.id)
     db_session.add(unit)
     db_session.flush()

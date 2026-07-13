@@ -10,10 +10,11 @@ from sqlalchemy import Column, Integer, String, DateTime, Date, Boolean, Foreign
 from sqlalchemy.orm import backref, relationship
 
 from app.database import Base
+from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
 
-class Membership(SoftDeleteMixin, Base):
+class Membership(TenantMixin, SoftDeleteMixin, Base):
     """Annual membership record per member household."""
     __tablename__ = "memberships"
     __table_args__ = {"schema": "membership"}
@@ -41,7 +42,7 @@ class HistoryMixin:
     recorded_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False, index=True)
 
 
-class MembershipHistory(HistoryMixin, Base):
+class MembershipHistory(TenantMixin, HistoryMixin, Base):
     __tablename__ = "membership_history"
     __table_args__ = {"schema": "membership"}
 

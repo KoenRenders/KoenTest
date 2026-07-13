@@ -140,6 +140,22 @@ app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")
 
 
 @app.middleware("http")
+async def _tenant_context(request: Request, call_next):
+    """Tenant-resolutie per request (§7, fase 5 #406): hostname → pad-prefix →
+    default (Millegem). De contextvar stuurt zowel de globale ORM-filter als de
+    default-tenant van nieuwe rijen."""
+    from app.kernel.tenancy import current_tenant_id, parse_hostname_map, resolve_tenant
+
+    tenant = resolve_tenant(request.headers.get("host"), request.url.path,
+                            parse_hostname_map(settings.tenant_hostnames))
+    token = current_tenant_id.set(tenant)
+    try:
+        return await call_next(request)
+    finally:
+        current_tenant_id.reset(token)
+
+
+@app.middleware("http")
 async def _access_log(request: Request, call_next):
     # Toegangslog op INFO: methode, pad, status en duur. Health-checks
     # overslaan om ruis te beperken. Geen query-strings of bodies — die

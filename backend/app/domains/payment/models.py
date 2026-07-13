@@ -3,10 +3,11 @@ from datetime import datetime, timezone
 from sqlalchemy import Column, String, Numeric, DateTime, Integer, ForeignKey, JSON
 from sqlalchemy.orm import relationship
 from app.database import Base
+from app.kernel.tenancy import TenantMixin
 from app.soft_delete import SoftDeleteMixin
 
 
-class PaymentRecord(SoftDeleteMixin, Base):
+class PaymentRecord(TenantMixin, SoftDeleteMixin, Base):
     __tablename__ = "payment_records"
     __table_args__ = {"schema": "payment"}
 
@@ -32,7 +33,7 @@ class PaymentRecord(SoftDeleteMixin, Base):
     refund_of = relationship("PaymentRecord", remote_side=[id])
 
 
-class GatewayPayment(SoftDeleteMixin, Base):
+class GatewayPayment(TenantMixin, SoftDeleteMixin, Base):
     __tablename__ = "gateway_payments"
     __table_args__ = {"schema": "payment"}
 
@@ -49,7 +50,7 @@ class GatewayPayment(SoftDeleteMixin, Base):
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
 
-class PaymentRecordHistory(Base):
+class PaymentRecordHistory(TenantMixin, Base):
     """Append-only audit van PaymentRecords (#84-patroon; geen FK's — history
     overleeft de bron)."""
 
