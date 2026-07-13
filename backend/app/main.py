@@ -176,6 +176,13 @@ def _start_kernel_jobs() -> None:
             if not pending:
                 enqueue(db, "payment.reconcile", {})
                 db.commit()
+            sweep_pending = (db.query(KernelJob)
+                             .filter(KernelJob.name == "workflow.sweep",
+                                     KernelJob.status.in_(["pending", "running"]))
+                             .count())
+            if not sweep_pending:
+                enqueue(db, "workflow.sweep", {})
+                db.commit()
         finally:
             db.close()
 

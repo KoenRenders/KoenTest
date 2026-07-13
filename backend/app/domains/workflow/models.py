@@ -3,7 +3,7 @@ toestand. De volwaardige workflow-component (definities/instanties, fase 4b
 #403) groeit hieruit; het taakcontract (één vorm, veel bronnen) ligt hier vast."""
 from datetime import datetime, timezone
 
-from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy import Column, DateTime, ForeignKey, Integer, JSON, String, Text
 
 from app.database import Base
 
@@ -28,3 +28,39 @@ class WorkflowTask(Base):
                         default=lambda: datetime.now(timezone.utc))
     done_at = Column(DateTime(timezone=True), nullable=True)
     done_by = Column(String(255), nullable=True)
+    # Gezet wanneer de taak een stap van een workflow-instantie is (fase 4b).
+    instance_id = Column(Integer, ForeignKey("workflow.workflow_instances.id"), nullable=True, index=True)
+
+
+class WorkflowDefinition(Base):
+    """Workflow-definitie (fase 4b, #403): een codeerbare reeks stappen.
+    ``steps`` = JSON-lijst van {"kind", "title", "role"} — bewust plat en
+    data-gedreven (permissies-als-data, §5.7)."""
+
+    __tablename__ = "workflow_definitions"
+    __table_args__ = {"schema": "workflow"}
+
+    code = Column(String(50), primary_key=True)
+    name = Column(String(200), nullable=False)
+    steps = Column(JSON, nullable=False, default=list)
+    created_at = Column(DateTime(timezone=True), nullable=False,
+                        default=lambda: datetime.now(timezone.utc))
+
+
+class WorkflowInstance(Base):
+    """Eén lopend exemplaar van een definitie, gekoppeld aan een onderwerp
+    (soft-ref). ``current_step`` is de index in de definitie-stappen."""
+
+    __tablename__ = "workflow_instances"
+    __table_args__ = {"schema": "workflow"}
+
+    id = Column(Integer, primary_key=True)
+    definition_code = Column(String(50), nullable=False, index=True)
+    subject_type = Column(String(50), nullable=False)
+    subject_id = Column(Integer, nullable=False)
+    current_step = Column(Integer, nullable=False, default=0)
+    # running | done
+    status = Column(String(10), nullable=False, default="running", index=True)
+    created_at = Column(DateTime(timezone=True), nullable=False,
+                        default=lambda: datetime.now(timezone.utc))
+    done_at = Column(DateTime(timezone=True), nullable=True)
