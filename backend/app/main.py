@@ -1,7 +1,10 @@
 import logging
 import time
 
+from pathlib import Path
+
 from fastapi import FastAPI, Request
+from fastapi.staticfiles import StaticFiles
 from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
@@ -83,6 +86,11 @@ app.include_router(forms_router, prefix="/api/v1")
 app.include_router(email_log_router, prefix="/api/v1/admin")
 app.include_router(payment_gateway_router, prefix="/api/v1")
 app.include_router(payment_status_router, prefix="/api/v1")
+
+
+# Server-rendered UI (#396, §21): statics (CSS + gevendorde htmx/Alpine) komen
+# rechtstreeks uit de backend; Caddy routeert /static/* hierheen.
+app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
 
 @app.middleware("http")

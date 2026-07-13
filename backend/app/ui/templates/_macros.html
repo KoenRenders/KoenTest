@@ -1,0 +1,55 @@
+{# UI-kit-macro's (#396) — de SOLL-conventies uit docs/ui-conventies.md.
+   Eén implementatie per patroon; schermen gebruiken UITSLUITEND deze macro's
+   voor knoppen, badges, feedback en lege/laadtoestanden. #}
+
+{% macro btn_primary(label, type="submit", attrs="") -%}
+<button type="{{ type }}" class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg transition-colors" {{ attrs|safe }}>{{ label }}</button>
+{%- endmacro %}
+
+{% macro btn_secondary(label, type="button", attrs="") -%}
+<button type="{{ type }}" class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-4 py-2 rounded-lg transition-colors" {{ attrs|safe }}>{{ label }}</button>
+{%- endmacro %}
+
+{% macro btn_danger(label, type="button", attrs="") -%}
+<button type="{{ type }}" class="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg transition-colors" {{ attrs|safe }}>{{ label }}</button>
+{%- endmacro %}
+
+{% macro badge(label, tone="gray") -%}
+{%- set tones = {"gray": "bg-gray-100 text-gray-600", "green": "bg-green-100 text-green-800",
+                 "yellow": "bg-yellow-100 text-yellow-800", "red": "bg-red-100 text-red-800",
+                 "blue": "bg-blue-100 text-blue-800"} -%}
+<span class="text-xs px-2 py-0.5 rounded-full {{ tones.get(tone, tones['gray']) }}">{{ label }}</span>
+{%- endmacro %}
+
+{% macro card() -%}
+<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">{{ caller() }}</div>
+{%- endmacro %}
+
+{% macro empty_state(message) -%}
+<p class="text-gray-500 text-sm py-6 text-center">{{ message }}</p>
+{%- endmacro %}
+
+{% macro loading(message="Laden…") -%}
+<p class="text-gray-500 text-sm py-6 text-center htmx-indicator">{{ message }}</p>
+{%- endmacro %}
+
+{# Bevestigingsdialoog (ConfirmDialog-conventie): «<Type> "<naam>" definitief
+   verwijderen?» — via hx-confirm zodat elke destructieve actie hetzelfde pad
+   volgt. Gebruik: {{ confirm_attrs('Bericht', item.title) }} op de knop. #}
+{% macro confirm_attrs(type_label, name) -%}
+hx-confirm='{{ type_label }} "{{ name }}" definitief verwijderen?'
+{%- endmacro %}
+
+{# Foutbanner (B2-conventie: banner boven het formulier, geen alert()). #}
+{% macro error_banner(message) -%}
+{% if message %}<div class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 text-red-800" role="alert">{{ message }}</div>{% endif %}
+{%- endmacro %}
+
+{% macro success_banner(message) -%}
+{% if message %}<div class="mb-4 bg-green-50 border border-green-200 rounded-lg p-4 text-green-800" role="status">{{ message }}</div>{% endif %}
+{%- endmacro %}
+
+{# Verplicht veld: rode asterisk (B2-conventie). #}
+{% macro label(text, for_id, required=False) -%}
+<label for="{{ for_id }}" class="block text-sm font-medium text-gray-700 mb-1">{{ text }}{% if required %} <span class="text-red-600">*</span>{% endif %}</label>
+{%- endmacro %}
