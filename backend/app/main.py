@@ -35,6 +35,7 @@ from app.domains.cms.router import router as cms_router
 from app.domains.mdm.router import router as mdm_router
 from app.domains.forms.router import router as forms_router
 from app.domains.forms.ui import router as forms_ui_router
+from app.domains.forms.admin_ui import router as forms_admin_ui_router
 from app.domains.workflow.ui import router as workflow_ui_router
 from app.domains.workflow import handlers as workflow_handlers  # noqa: F401 - event-abonnementen (#398)
 from app.domains.mail.router import router as email_log_router
@@ -104,6 +105,7 @@ app.include_router(member_household_router, prefix="/api/v1")
 app.include_router(member_import_router, prefix="/api/v1")
 app.include_router(forms_router, prefix="/api/v1")
 app.include_router(forms_ui_router)
+app.include_router(forms_admin_ui_router)
 app.include_router(activities_ui_router)
 app.include_router(activities_admin_ui_router)
 app.include_router(chatbot_ui_router)

@@ -1,0 +1,52 @@
+{# Afdrukweergave: kaal, zwart-wit, geen shell — bedoeld voor papier. #}
+<!DOCTYPE html>
+<html lang="nl-BE">
+<head>
+  <meta charset="utf-8">
+  <title>{{ form.title }} — afdruk</title>
+  <style>
+    body { font-family: sans-serif; max-width: 720px; margin: 2rem auto; color: #111; }
+    h1 { font-size: 1.4rem; } h2 { font-size: 1.1rem; margin-top: 1.5rem; border-bottom: 1px solid #999; }
+    .veld { margin: 0.9rem 0; page-break-inside: avoid; }
+    .label { font-weight: 600; } .hulp { color: #555; font-size: 0.85rem; }
+    .lijn { border-bottom: 1px solid #888; height: 1.4rem; margin-top: 0.3rem; }
+    .optie { margin: 0.15rem 0; } .info { background: #f2f2f2; padding: 0.5rem; }
+    @media print { .noprint { display: none; } }
+  </style>
+</head>
+<body>
+  <p class="noprint"><button onclick="window.print()">🖨 Afdrukken</button></p>
+  <h1>{{ form.title }}</h1>
+  {% if form.description %}<p>{{ form.description }}</p>{% endif %}
+  {% if not form.is_anonymous %}
+  <div class="veld"><span class="label">Naam:</span><div class="lijn"></div></div>
+  <div class="veld"><span class="label">E-mailadres:</span><div class="lijn"></div></div>
+  {% endif %}
+  {% macro afdruk_veld(f) %}
+  <div class="veld">
+    {% if f.field_type == "info" %}
+    <div class="info">{{ f.label }}{% if f.help_text %} — {{ f.help_text }}{% endif %}</div>
+    {% else %}
+    <span class="label">{{ f.label }}{% if f.required %} *{% endif %}</span>
+    {% if f.help_text %}<div class="hulp">{{ f.help_text }}</div>{% endif %}
+    {% if f.field_type in ("select", "radio", "checkbox") %}
+    {% for o in f.options %}<div class="optie">☐ {{ o.label }}{% if o.is_other %} — ____________{% endif %}</div>{% endfor %}
+    {% elif f.field_type == "rating" %}
+    <div class="optie">{% for n in range(1, (f.rating_max or 5) + 1) %}☐ {{ n }}  {% endfor %}
+      {% if f.rating_low_label or f.rating_high_label %}<span class="hulp">({{ f.rating_low_label or "" }} … {{ f.rating_high_label or "" }})</span>{% endif %}</div>
+    {% elif f.field_type == "textarea" %}
+    <div class="lijn"></div><div class="lijn"></div><div class="lijn"></div>
+    {% else %}
+    <div class="lijn"></div>
+    {% endif %}
+    {% endif %}
+  </div>
+  {% endmacro %}
+  {% for g in grouped %}
+  <h2>{{ g.section.title or "Sectie " ~ loop.index }}</h2>
+  {% if g.section.description %}<p class="hulp">{{ g.section.description }}</p>{% endif %}
+  {% for f in g.fields %}{{ afdruk_veld(f) }}{% endfor %}
+  {% endfor %}
+  {% for f in loose_fields %}{{ afdruk_veld(f) }}{% endfor %}
+</body>
+</html>

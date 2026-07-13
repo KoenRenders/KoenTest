@@ -22,6 +22,7 @@ MODULES = [
     "app.domains.mdm.router",
     "app.domains.forms.router",
     "app.domains.forms.ui",
+    "app.domains.forms.admin_ui",
     "app.domains.workflow.ui",
     "app.domains.activities.api",
     "app.domains.activities.router",

@@ -43,6 +43,9 @@
 	handle /admin/analyse* {
 		reverse_proxy backend:8000
 	}
+	handle /admin/formulieren* {
+		reverse_proxy backend:8000
+	}
 	handle /admin/werkbank* {
 		reverse_proxy backend:8000
 	}
