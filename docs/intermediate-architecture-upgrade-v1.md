@@ -22,8 +22,9 @@ De **kernbeslissingen** in één zin elk (details/ADR's staan in de genoemde sec
 4. **MDM**: nooit hard verwijderen — merge/survivorship + tombstone; anderen
    verwijzen via soft-refs (§6).
 5. **membership = eigen component**, zuster van activities (§5.4).
-6. **Multi-tenant = rij-niveau `tenant_id`**, aparte site per unit; **uitrol pas bij
-   een concrete tweede tenant** (§7, §14).
+6. **Multi-tenant = rij-niveau `tenant_id`**, aparte site per unit (hostname
+   canoniek; pad-prefix onder `renko.be` voor units zonder domein); **in scope
+   van v2.0** — trigger vervuld door de voorbeeldafdeling (§7, §14).
 7. **workflow + werkbank**: taken sluiten door toestand, zero-touch als norm,
    BPMN/DMN als taal, niet als motor (§20).
 8. **Frontend = htmx + Jinja + Alpine (BESLIST)**; React-schermen klappen per
@@ -35,7 +36,8 @@ De **kernbeslissingen** in één zin elk (details/ADR's staan in de genoemde sec
 
 **Kritiek pad** (§14): **H** (deploy-vangnet — beschermt geld, eerst) → **F**
 (fundering) → **0** (forms-sjabloon) → **micro-pilot htmx** (berichten-scherm) →
-1–4; **5** (tenancy) trigger-gated. O en T liften mee waar goedkoop.
+1–4; **5** (tenancy, trigger vervuld: voorbeeldafdeling — in v2.0). O en T
+liften mee waar goedkoop.
 
 **Waar staat wat**: componenten §3–§6 · tenancy §7 · grenzen/tests/conventies
 §8–§12 · codestructuur & build §13 · plan §14 · beslissingen §15 · waarom §16–§17 ·
@@ -556,8 +558,10 @@ contract-/integratietests → frontend-feature → CONTRACT.md`.
 verhuizen) → F (fundering) → Fase 0 (forms-sjabloon) → **P (micro-pilot htmx)** →
 mail/auth → MDM. De rest kan grotendeels **parallel** zodra fundering + sjabloon
 staan — met een harde grens: **maximaal 2–3 componenten tegelijk in uitvoering**
-(focus verslaat doorloop; half-verhuisde componenten zijn de duurste toestand). **Fase 5 (tenancy) is trigger-gated**: voorbereiding (kernel-mixin) hoort
-bij F, de uitrol start pas bij een concrete tweede tenant.
+(focus verslaat doorloop; half-verhuisde componenten zijn de duurste toestand). **Fase 5 (tenancy): trigger vervuld (2026-07-13)** — v2.0 bevat integrale
+multi-tenancy met twee tenants: **Raak Millegem** (`raakmillegem.be` +
+`renko.be/raakmillegem`) en **Raak voorbeeldafdeling**
+(`renko.be/raakvoorbeeldafdeling`, noindex).
 
 | Blok | Werkpakketten | Status |
 |---|---|---|
@@ -568,7 +572,7 @@ bij F, de uitrol start pas bij een concrete tweede tenant.
 | **2 · MDM** | MDM (+ `external_numbers`) + schema/keten; merge/survivorship; soft-ref-patroon | nieuw |
 | **3 · Payments** | `domains/payments` (gateway+status) + FINANCE-refund; **wees-record-check** op `payable_id` (§19) | nieuw |
 | **4 · Domeinen** | membership (+`is_member`); activities; workflow + IdeaBox; media; cms; chatbot | nieuw |
-| **5 · Multi-tenant** (**trigger: concrete tweede tenant**) | organizations (ACCOUNT/UNIT); per-tenant config/secrets-store; `tenant_id` per app + context + rollen; meerdere accounts + hostname-resolutie + per-unit SEO | nieuw |
+| **5 · Multi-tenant** (trigger vervuld 2026-07-13: voorbeeldafdeling) | organizations (ACCOUNT/UNIT); per-tenant config/secrets-store; `tenant_id` per app + context + rollen; meerdere accounts + hostname-resolutie + per-unit SEO | nieuw |
 | **6 · Extractie** | STT → externe service (bij driver) | nieuw |
 | **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, CSP zonder unsafe-inline/eval, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`); observability (error-tracking/logs/uptime/alerts); restore-oefening per release; rate-limiter-1-worker-aanname borgen | nieuw |
 | **O · Opruiming** (§19, kan vóór alles) | `business_events` verwijderen; `domains/common/` + stale docs weg; dead-endpoint-sweep. (`ideas` → formulier + minimale workflow verhuist naar fase 4: vereist de workflow-component) | nieuw |
@@ -581,7 +585,7 @@ bij F, de uitrol start pas bij een concrete tweede tenant.
 - **0**: forms leeft in `domains/forms` met eigen schema, linter groen, golden flow groen.
 - **P**: berichten-scherm live op HDEV in htmx; §21.4-meetlat ingevuld → go/no-go voor de bredere omklap.
 - **1–4**: per component zelfde definitie als 0 (map + schema + contract + tests groen); werkbank-v1 = taken tonen/sluiten voor de berichten-workflow.
-- **5**: een tweede tenant draait productief op een eigen hostname zonder codewijziging.
+- **5**: Millegem én de voorbeeldafdeling draaien op hun eigen adres (hostname- + pad-resolutie) zonder codewijziging per tenant.
 - **O/T**: register-items afgevinkt; T = geen ongemarkeerde gebruikersstrings meer in nieuwe code (lint-gate aan).
 - **W**: eerste levenscyclus-flow (na-eerste-deelname) draait zero-touch met werkbank-review; conversie en bespaarde uren worden gemeten (§23.5).
 
