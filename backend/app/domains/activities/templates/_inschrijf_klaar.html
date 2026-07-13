@@ -1,0 +1,8 @@
+{% import "_macros.html" as ui %}
+<div class="mt-3">
+{% if checkout %}
+{{ ui.success_banner("Bedankt, " ~ naam ~ "! Je wordt doorgestuurd naar de beveiligde betaalpagina…") }}
+{% else %}
+{{ ui.success_banner("✅ Bedankt, " ~ naam ~ "! Je inschrijving is ontvangen. Je krijgt een bevestiging per e-mail.") }}
+{% endif %}
+</div>

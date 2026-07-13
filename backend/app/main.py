@@ -19,6 +19,7 @@ from app.routers import members, cms, admin, media, chat, chatbot_info, stt
 from app.routers.member_household import router as member_household_router
 from app.routers.member_import import router as member_import_router
 from app.domains.activities.router import router as activities_router
+from app.domains.activities.ui import router as activities_ui_router
 from app.domains.auth.router import router as auth_router
 from app.domains.auth.ui import router as auth_ui_router
 from app.domains.forms.router import router as forms_router
@@ -91,6 +92,7 @@ app.include_router(member_household_router, prefix="/api/v1")
 app.include_router(member_import_router, prefix="/api/v1")
 app.include_router(forms_router, prefix="/api/v1")
 app.include_router(forms_ui_router)
+app.include_router(activities_ui_router)
 app.include_router(auth_ui_router)
 app.include_router(email_log_ui_router)
 app.include_router(mdm_ui_router)
