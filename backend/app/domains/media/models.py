@@ -37,6 +37,7 @@ class MediaAsset(Base):
     """
 
     __tablename__ = "media_assets"
+    __table_args__ = {"schema": "media"}
 
     id = Column(Integer, primary_key=True, index=True)
     kind = Column(String(20), nullable=False, index=True)  # sponsor | activity_photo | activity_poster | component_info

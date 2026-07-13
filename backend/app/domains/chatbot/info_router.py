@@ -19,12 +19,12 @@ from app.domains.auth.api import get_current_admin
 from app.database import get_db
 from app.domains.activities.api import Activity
 from app.domains.activities.api import ActivitySubRegistration
-from app.models.asset import MediaAsset
+from app.domains.media.api import MediaAsset
 from app.domains.chatbot.models import ChatbotInfo
 from app.domains.cms.api import CmsPage
 from app.domains.auth.api import User
 from app.schemas.chatbot_info import ChatbotInfoEdit, NoteCreate
-from app.services.media_extraction import EXTRACTABLE_KINDS
+from app.domains.media.api import EXTRACTABLE_KINDS
 
 router = APIRouter(tags=["chatbot-info"], dependencies=[Depends(get_current_admin)])
 

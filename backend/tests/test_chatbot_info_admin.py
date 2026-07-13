@@ -1,6 +1,6 @@
 """Tests voor het admin-beheer van chatbot_info (#235)."""
 from app.domains.activities.api import Activity
-from app.models.asset import MediaAsset
+from app.domains.media.api import MediaAsset
 from app.domains.chatbot.models import ChatbotInfo
 from app.domains.cms.api import CmsPage
 

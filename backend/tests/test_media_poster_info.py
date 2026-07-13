@@ -6,7 +6,7 @@ from PIL import Image
 
 from app.domains.activities.api import Activity
 from app.domains.activities.api import ActivitySubRegistration
-from app.models.asset import MediaAsset
+from app.domains.media.api import MediaAsset
 from tests.conftest import seed_activity_with_product
 
 

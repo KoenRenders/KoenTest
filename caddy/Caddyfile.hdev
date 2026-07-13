@@ -22,6 +22,9 @@
 	handle /admin/ai-context* {
 		reverse_proxy backend:8000
 	}
+	handle /admin/analyse* {
+		reverse_proxy backend:8000
+	}
 	handle /admin/werkbank* {
 		reverse_proxy backend:8000
 	}

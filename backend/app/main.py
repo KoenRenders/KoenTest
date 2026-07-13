@@ -15,7 +15,7 @@ from app.database import engine
 from app.logging_config import configure_logging
 from app import soft_delete  # noqa: F401 - registreert de globale soft-delete-filter
 from app.models import *  # noqa: F401, F403 - ensures all models are registered
-from app.routers import members, admin, media
+from app.routers import members, admin
 from app.routers.member_household import router as member_household_router
 from app.routers.member_import import router as member_import_router
 from app.domains.activities.router import router as activities_router
@@ -23,9 +23,11 @@ from app.domains.activities.ui import router as activities_ui_router
 from app.domains.activities.admin_ui import router as activities_admin_ui_router
 from app.domains.auth.router import router as auth_router
 from app.domains.auth.ui import router as auth_ui_router
+from app.domains.media.router import router as media_router
 from app.domains.chatbot.router import router as chat_router
 from app.domains.chatbot.info_router import router as chatbot_info_router
 from app.domains.chatbot.ui import router as chatbot_ui_router
+from app.domains.analytics.ui import router as analytics_ui_router
 from app.domains.stt.router import router as stt_router
 from app.domains.cms.router import router as cms_router
 from app.domains.mdm.router import router as mdm_router
@@ -93,7 +95,7 @@ app.include_router(chat_router, prefix="/api/v1")
 app.include_router(stt_router, prefix="/api/v1")
 app.include_router(cms_router, prefix="/api/v1")
 app.include_router(mdm_router, prefix="/api/v1")
-app.include_router(media.router, prefix="/api/v1")
+app.include_router(media_router, prefix="/api/v1")
 app.include_router(chatbot_info_router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1/admin")
 app.include_router(member_household_router, prefix="/api/v1")
@@ -103,6 +105,7 @@ app.include_router(forms_ui_router)
 app.include_router(activities_ui_router)
 app.include_router(activities_admin_ui_router)
 app.include_router(chatbot_ui_router)
+app.include_router(analytics_ui_router)
 app.include_router(auth_ui_router)
 app.include_router(email_log_ui_router)
 app.include_router(mdm_ui_router)

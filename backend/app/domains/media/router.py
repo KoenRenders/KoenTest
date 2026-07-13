@@ -2,7 +2,7 @@
 
 Afbeeldingen worden in Postgres (BYTEA) bewaard, dus ze zitten automatisch mee
 in de DB-backup. Bij upload worden ze verkleind en van een thumbnail voorzien
-(zie :mod:`app.services.images`).
+(zie :mod:`app.domains.media.images`).
 """
 import hashlib
 import re
@@ -16,12 +16,12 @@ from sqlalchemy.orm import Session
 
 from app.domains.auth.api import get_current_admin
 from app.database import get_db
-from app.models.asset import MediaAsset
+from app.domains.media.models import MediaAsset
 from app.domains.activities.api import Activity
 from app.domains.activities.api import ActivitySubRegistration
 from app.domains.auth.api import User
-from app.services.media_extraction import EXTRACTABLE_KINDS, update_media_extracted_text
-from app.services.images import (
+from app.domains.media.extraction import EXTRACTABLE_KINDS, update_media_extracted_text
+from app.domains.media.images import (
     process_image, ImageError, ALLOWED_CONTENT_TYPES, MAX_UPLOAD_BYTES,
 )
 
