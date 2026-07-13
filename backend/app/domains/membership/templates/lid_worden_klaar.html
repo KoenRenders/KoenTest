@@ -1,0 +1,13 @@
+{% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}Bedankt — Raak{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto">
+{% if checkout %}
+{{ ui.success_banner("Bedankt! Je wordt doorgestuurd naar de beveiligde betaalpagina…") }}
+{% else %}
+{{ ui.success_banner("✅ Bedankt! Je inschrijving is ontvangen. Je krijgt de betaalinstructies per e-mail.") }}
+<a class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg inline-block mt-4" href="/">Terug naar de startpagina</a>
+{% endif %}
+</div>
+{% endblock %}

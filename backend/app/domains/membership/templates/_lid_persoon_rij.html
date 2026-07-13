@@ -1,0 +1,33 @@
+{% import "_macros.html" as ui %}
+<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 space-y-3" id="persoon-rij-{{ i }}">
+  <h3 class="font-semibold text-sm text-gray-700">{{ "Hoofdlid" if i == 0 else "Gezinslid " ~ (i + 1) }}</h3>
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+    <div>{{ ui.label("Voornaam", "m" ~ i ~ "_first_name", required=True) }}
+      <input name="m{{ i }}_first_name" id="m{{ i }}_first_name" required value="{{ values.get('m' ~ i ~ '_first_name', '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+    <div>{{ ui.label("Achternaam", "m" ~ i ~ "_last_name", required=True) }}
+      <input name="m{{ i }}_last_name" id="m{{ i }}_last_name" required value="{{ values.get('m' ~ i ~ '_last_name', '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+    <div>{{ ui.label("Geboortedatum", "m" ~ i ~ "_date_of_birth") }}
+      <input type="date" name="m{{ i }}_date_of_birth" id="m{{ i }}_date_of_birth" value="{{ values.get('m' ~ i ~ '_date_of_birth', '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+    <div>{{ ui.label("Geslacht", "m" ~ i ~ "_gender_code") }}
+      <select name="m{{ i }}_gender_code" id="m{{ i }}_gender_code" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+        <option value="">—</option>
+        {% for g in gender_codes %}<option value="{{ g.code }}" {% if values.get('m' ~ i ~ '_gender_code') == g.code %}selected{% endif %}>{{ g.value }}</option>{% endfor %}
+      </select></div>
+    <div>{{ ui.label("E-mail" ~ (" *" if i == 0 else ""), "m" ~ i ~ "_email") }}
+      <input type="email" name="m{{ i }}_email" id="m{{ i }}_email" {% if i == 0 %}required{% endif %} value="{{ values.get('m' ~ i ~ '_email', '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+    <div>{{ ui.label("GSM" ~ (" *" if i == 0 else ""), "m" ~ i ~ "_mobile") }}
+      <input type="tel" name="m{{ i }}_mobile" id="m{{ i }}_mobile" {% if i == 0 %}required{% endif %} value="{{ values.get('m' ~ i ~ '_mobile', '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+    <div>{{ ui.label("Telefoon", "m" ~ i ~ "_phone") }}
+      <input name="m{{ i }}_phone" id="m{{ i }}_phone" value="{{ values.get('m' ~ i ~ '_phone', '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+    {% if i > 0 %}
+    <div>{{ ui.label("Relatie", "m" ~ i ~ "_relation_type") }}
+      <select name="m{{ i }}_relation_type" id="m{{ i }}_relation_type" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+        {% for r in relation_types if r.code != "HOOFDLID" %}
+        <option value="{{ r.code }}" {% if values.get('m' ~ i ~ '_relation_type') == r.code %}selected{% endif %}>{{ r.value }}</option>
+        {% endfor %}
+      </select></div>
+    {% else %}
+    <input type="hidden" name="m0_relation_type" value="HOOFDLID">
+    {% endif %}
+  </div>
+</div>

@@ -18,3 +18,25 @@ template_dirs: list[str] = [str(_UI_DIR / "templates")] + sorted(
 )
 
 templates = Jinja2Templates(directory=template_dirs)
+
+
+def site_context(db) -> dict:
+    """Gedeelde context van de SiteShell (site_base.html): navigatie-pagina's,
+    footer-blok en sponsors. Eén plek, elke publieke route neemt hem mee."""
+    from datetime import date
+
+    from app.domains.cms.api import CmsPage, render_cms_content
+    from app.domains.media.api import MediaAsset
+
+    pages = (db.query(CmsPage)
+             .filter(CmsPage.is_published == True)  # noqa: E712
+             .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc()).all())
+    footer = db.query(CmsPage).filter(CmsPage.slug == "site-footer").first()
+    footer_block = None
+    if footer is not None:
+        footer_block = {"content": render_cms_content(footer.content or "")}
+    sponsors = (db.query(MediaAsset)
+                .filter(MediaAsset.kind == "sponsor", MediaAsset.is_active == True)  # noqa: E712
+                .order_by(MediaAsset.sort_order, MediaAsset.id).all())
+    return {"nav_pages": pages, "footer_block": footer_block,
+            "sponsors": sponsors, "current_year": date.today().year}

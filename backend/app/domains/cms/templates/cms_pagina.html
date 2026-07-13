@@ -1,0 +1,6 @@
+{% extends "site_base.html" %}
+{% block title %}{{ page.title }} — Raak{% endblock %}
+{% block content %}
+<h1 class="text-3xl font-bold text-blue-800 mb-8">{{ page.title }}</h1>
+<div class="cms-content">{{ content_html | safe }}</div>
+{% endblock %}
