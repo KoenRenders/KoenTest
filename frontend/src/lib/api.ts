@@ -107,11 +107,6 @@ export const updatePersonAddress = (id: number, data: unknown) => api.put(`/api/
 export const updatePersonContacts = (id: number, data: unknown) => api.put(`/api/v1/persons/${id}/contacts`, data);
 export const deletePerson = (id: number) => api.delete(`/api/v1/persons/${id}`);
 
-// Ideas
-export const getIdeas = () => api.get("/api/v1/ideas");
-export const submitIdea = (data: unknown) => api.post("/api/v1/ideas", data);
-export const markIdeaReviewed = (id: number) => api.put(`/api/v1/ideas/${id}`);
-export const deleteIdea = (id: number) => api.delete(`/api/v1/ideas/${id}`);
 
 // CMS
 export const getGenderCodes = () => api.get<{ code: string; value: string }[]>("/api/v1/gender-codes");

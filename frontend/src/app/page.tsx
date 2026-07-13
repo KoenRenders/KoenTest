@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { getActivities, getBlock, getAuthMe } from "@/lib/api";
 import ActivityList from "@/components/ActivityList";
 import RegistrationForm from "@/components/RegistrationForm";
-import IdeaBox from "@/components/IdeaBox";
 import FamilyRegistrationForm from "@/components/FamilyRegistrationForm";
 import { sanitizeCmsHtml } from "@/lib/sanitize";
 import type { Activity, ActivityComponent, CmsPage } from "@/lib/types";
@@ -14,7 +13,6 @@ export default function HomePage() {
   const [selected, setSelected] = useState<{ activity: Activity; component: ActivityComponent } | null>(null);
   const [registered, setRegistered] = useState(false);
   const [showRegForm, setShowRegForm] = useState(false);
-  const [showContact, setShowContact] = useState(false);
   const [introPage, setIntroPage] = useState<CmsPage | null>(null);
   const [isMember, setIsMember] = useState(false);
 
@@ -53,13 +51,11 @@ export default function HomePage() {
         <div className="flex flex-wrap gap-3">
           <button className="btn-primary" onClick={() => {
             if (isMember) { window.location.href = "/leden/gezin"; return; }
-            setShowRegForm((s) => !s); setShowContact(false);
+            setShowRegForm((s) => !s);
           }}>
             {showRegForm ? "Sluit registratie" : "Word lid"}
           </button>
-          <button className="btn-primary" onClick={() => { setShowContact((s) => !s); setShowRegForm(false); }}>
-            {showContact ? "Sluit" : "Contacteer ons"}
-          </button>
+          <a className="btn-primary" href="/berichten">Contacteer ons</a>
         </div>
       </section>
 
@@ -71,12 +67,6 @@ export default function HomePage() {
         </section>
       )}
 
-      {/* Contacteer ons */}
-      {showContact && (
-        <section>
-          <IdeaBox />
-        </section>
-      )}
 
       {/* Activiteiten */}
       <section>

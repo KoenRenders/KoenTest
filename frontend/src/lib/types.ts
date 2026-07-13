@@ -92,15 +92,6 @@ export interface CmsPage {
   sort_order: number;
 }
 
-export interface Idea {
-  id: number;
-  submitter_name: string;
-  submitter_email?: string;
-  content: string;
-  submitted_at: string;
-  is_reviewed: boolean;
-}
-
 export interface Product {
   id: number;
   name: string;

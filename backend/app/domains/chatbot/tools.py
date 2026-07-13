@@ -22,8 +22,6 @@ from sqlalchemy.orm import Session
 from app.models.activity import Activity, ActivityDate
 from app.models.asset import MediaAsset
 from app.models.chatbot_info import ChatbotInfo
-from app.models.idea import Idea
-from app.services.email import send_idea_acknowledgement, send_idea_board_notification
 
 logger = logging.getLogger(__name__)
 
@@ -272,7 +270,7 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 def submit_idea(
     db: Session, name: str, content: str, email: Optional[str] = None
 ) -> dict[str, Any]:
-    """Hergebruikt exact het IdeaBox-schrijfpad (geen tweede schrijfweg).
+    """Hergebruikt exact het berichten-schrijfpad (geen tweede schrijfweg).
 
     Naam én e-mailadres zijn **verplicht**: zonder e-mail kan het bestuur niet
     antwoorden. We dwingen dat server-side af (niet enkel via de prompt), want het
@@ -307,21 +305,13 @@ def submit_idea(
             "error": "Er is geen vraag of idee opgegeven. Vraag de bezoeker wat hij wil doorgeven.",
         }
 
-    idea = Idea(submitter_name=name, submitter_email=email, content=content)
-    db.add(idea)
-    db.commit()
-    db.refresh(idea)
+    # Eén schrijfpad (#398): bericht-inzending + behartigen-taak (werkbank) +
+    # bevestigingsmail — de aparte bestuursmail is vervangen door de taak.
+    from app.domains.forms.api import submit_bericht
 
-    try:
-        send_idea_acknowledgement(to_email=email, name=name, message=content)
-    except Exception as exc:  # mail mag de flow nooit breken
-        logger.warning("Bevestigingsmail voor idee (chatbot) mislukt: %s", exc)
-
-    # Verwittig het bestuur (#260), zodat het bericht niet onopgemerkt blijft.
-    try:
-        send_idea_board_notification(name=name, email=email, message=content)
-    except Exception as exc:  # mail mag de flow nooit breken
-        logger.warning("Bestuursnotificatie voor idee (chatbot) mislukt: %s", exc)
+    submission_id = submit_bericht(db, naam=name, email=email, bericht=content)
+    if submission_id is None:
+        return {"ok": False, "error": "Berichten zijn tijdelijk niet beschikbaar."}
 
     return {
         "ok": True,

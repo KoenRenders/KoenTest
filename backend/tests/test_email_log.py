@@ -5,7 +5,7 @@ import pytest
 
 from app.database import SessionLocal
 from app.models.email_log import EmailLog
-from app.services.email import send_idea_acknowledgement, purge_old_email_logs
+from app.services.email import send_form_confirmation, purge_old_email_logs
 
 
 def _logs_for(recipient: str):
@@ -20,10 +20,10 @@ def test_send_without_credentials_logs_skipped():
     # In de testomgeving zijn er geen Gmail-credentials → status 'skipped',
     # maar de mail wordt wél gelogd met het juiste type.
     recipient = "skip-test@example.com"
-    send_idea_acknowledgement(to_email=recipient, name="Test", message="hallo")
+    send_form_confirmation(to_email=recipient, form_title="Contacteer ons", name="Test")
     rows = _logs_for(recipient)
     assert len(rows) == 1
-    assert rows[0].email_type == "idea_ack"
+    assert rows[0].email_type == "form_confirmation"
     assert rows[0].status == "skipped"
     assert rows[0].body  # volledige inhoud bewaard
 
@@ -43,7 +43,7 @@ def test_send_logs_sent(monkeypatch):
     monkeypatch.setattr(email_mod.smtplib, "SMTP_SSL", lambda *a, **k: _FakeSMTP())
 
     recipient = "sent-test@example.com"
-    send_idea_acknowledgement(to_email=recipient, name="Test", message="hallo")
+    send_form_confirmation(to_email=recipient, form_title="Contacteer ons", name="Test")
     rows = _logs_for(recipient)
     assert len(rows) == 1
     assert rows[0].status == "sent"
@@ -62,7 +62,7 @@ def test_send_logs_failed(monkeypatch):
     monkeypatch.setattr(email_mod.smtplib, "SMTP_SSL", _boom)
 
     recipient = "failed-test@example.com"
-    send_idea_acknowledgement(to_email=recipient, name="Test", message="hallo")
+    send_form_confirmation(to_email=recipient, form_title="Contacteer ons", name="Test")
     rows = _logs_for(recipient)
     assert len(rows) == 1
     assert rows[0].status == "failed"
@@ -74,14 +74,14 @@ def test_admin_endpoint_requires_admin(client):
 
 
 def test_admin_endpoint_lists_and_filters(client, admin_headers):
-    send_idea_acknowledgement(to_email="listed@example.com", name="T", message="x")
+    send_form_confirmation(to_email="listed@example.com", form_title="Contacteer ons", name="T")
     resp = client.get("/api/v1/admin/email-log", headers=admin_headers)
     assert resp.status_code == 200
     body = resp.json()
     assert "items" in body and "total" in body
-    # Filter op type levert enkel idea_ack op.
-    resp2 = client.get("/api/v1/admin/email-log?email_type=idea_ack", headers=admin_headers)
-    assert all(i["email_type"] == "idea_ack" for i in resp2.json()["items"])
+    # Filter op type levert enkel form_confirmation op.
+    resp2 = client.get("/api/v1/admin/email-log?email_type=form_confirmation", headers=admin_headers)
+    assert all(i["email_type"] == "form_confirmation" for i in resp2.json()["items"])
 
 
 def test_purge_respects_retention(db_session):
