@@ -132,6 +132,16 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
 
 
 @app.on_event("startup")
+def _start_kernel_jobs() -> None:
+    """Start de kernel-jobs scheduler (#396) — het achtergrondwerk-primitief
+    (§5.8). In tests uitgeschakeld via JOBS_ENABLED=false."""
+    if settings.jobs_enabled:
+        from app.kernel.jobs import start_scheduler
+
+        start_scheduler()
+
+
+@app.on_event("startup")
 def _purge_old_email_logs() -> None:
     """Ruim bij opstart e-mailloggen op die ouder zijn dan de bewaartermijn
     (#328). Mag het opstarten nooit breken — fouten worden enkel gelogd."""
