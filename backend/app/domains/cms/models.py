@@ -5,6 +5,7 @@ from app.database import Base
 
 class CmsPage(Base):
     __tablename__ = "cms_pages"
+    __table_args__ = {"schema": "cms"}
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(255), nullable=False)

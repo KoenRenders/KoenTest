@@ -19,7 +19,7 @@ from app.domains.chatbot.context import build_system_prompt
 # ── Security-grens van de tools ──────────────────────────────────────────────
 
 def _page(db, **kw):
-    from app.models.cms import CmsPage
+    from app.domains.cms.api import CmsPage
     defaults = {"title": "Pagina", "slug": "p", "content": "inhoud", "is_published": True}
     page = CmsPage(**{**defaults, **kw})
     db.add(page)

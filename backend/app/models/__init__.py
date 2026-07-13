@@ -2,7 +2,7 @@ from app.models.codes import RoleCode, RegistrationTypeCode, PaymentStatusCode
 from app.domains.membership.models import Membership, MembershipHistory
 from app.domains.auth.models import User, UserRole, LoginToken
 from app.domains.activities.models import ActivityDate, Activity, Registration, RegistrationItem, RegistrationItemHistory, ActivityHistory, ActivityDateHistory, ComponentHistory, ProductHistory
-from app.models.cms import CmsPage
+from app.domains.cms.api import CmsPage
 from app.domains.activities.models import ActivitySubRegistration, ActivityProduct
 from app.models.asset import MediaAsset
 from app.models.chatbot_info import ChatbotInfo

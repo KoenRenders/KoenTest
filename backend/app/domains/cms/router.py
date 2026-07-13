@@ -5,11 +5,11 @@ from sqlalchemy.orm import Session
 
 from app.domains.auth.api import get_current_admin
 from app.database import get_db
-from app.models.cms import CmsPage
+from app.domains.cms.models import CmsPage
 from app.domains.mdm.api import GenderCode, RelationTypeCode
 from app.domains.auth.api import User
 from app.schemas.cms import CmsPageCreate, CmsPageUpdate, CmsPageResponse
-from app.services.cms_render import render_cms_content
+from app.domains.cms.render import render_cms_content
 
 router = APIRouter(tags=["cms"])
 
@@ -74,7 +74,7 @@ def get_block(slug: str, db: Session = Depends(get_db)):
 @router.get("/cms/placeholders")
 def list_cms_placeholders():
     """Beschikbare codes voor de CMS-editor (code → omschrijving)."""
-    from app.services.cms_render import PLACEHOLDER_LABELS, render_cms_content
+    from app.domains.cms.render import PLACEHOLDER_LABELS, render_cms_content
     return [
         {
             "code": f"{{{{{code}}}}}",

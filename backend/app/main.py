@@ -15,7 +15,7 @@ from app.database import engine
 from app.logging_config import configure_logging
 from app import soft_delete  # noqa: F401 - registreert de globale soft-delete-filter
 from app.models import *  # noqa: F401, F403 - ensures all models are registered
-from app.routers import members, cms, admin, media, chat, chatbot_info, stt
+from app.routers import members, admin, media, chat, chatbot_info, stt
 from app.routers.member_household import router as member_household_router
 from app.routers.member_import import router as member_import_router
 from app.domains.activities.router import router as activities_router
@@ -23,6 +23,8 @@ from app.domains.activities.ui import router as activities_ui_router
 from app.domains.activities.admin_ui import router as activities_admin_ui_router
 from app.domains.auth.router import router as auth_router
 from app.domains.auth.ui import router as auth_ui_router
+from app.domains.cms.router import router as cms_router
+from app.domains.mdm.router import router as mdm_router
 from app.domains.forms.router import router as forms_router
 from app.domains.forms.ui import router as forms_ui_router
 from app.domains.workflow.ui import router as workflow_ui_router
@@ -85,7 +87,8 @@ app.include_router(members.router, prefix="/api/v1")
 app.include_router(activities_router, prefix="/api/v1")
 app.include_router(chat.router, prefix="/api/v1")
 app.include_router(stt.router, prefix="/api/v1")
-app.include_router(cms.router, prefix="/api/v1")
+app.include_router(cms_router, prefix="/api/v1")
+app.include_router(mdm_router, prefix="/api/v1")
 app.include_router(media.router, prefix="/api/v1")
 app.include_router(chatbot_info.router, prefix="/api/v1")
 app.include_router(admin.router, prefix="/api/v1/admin")

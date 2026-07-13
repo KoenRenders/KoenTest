@@ -7,6 +7,9 @@ MODULES = [
     "app.domains.payment.api",
     "app.domains.payment.router",
     "app.domains.payment.ui",
+    "app.domains.cms.api",
+    "app.domains.cms.router",
+    "app.domains.mdm.router",
     "app.domains.forms.router",
     "app.domains.forms.ui",
     "app.domains.workflow.ui",
@@ -28,7 +31,6 @@ MODULES = [
     "app.schemas.activity",
     # Routers
     "app.routers.members",
-    "app.routers.cms",
     "app.routers.admin",
     "app.routers.media",
     # Main app
