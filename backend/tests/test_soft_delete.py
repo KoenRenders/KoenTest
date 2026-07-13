@@ -4,7 +4,7 @@ de history (en dus de #82-export) toont de verwijdering nog steeds."""
 from datetime import date
 
 from app.domains.payment.api import PaymentRecord
-from app.models.activity import Activity, Registration
+from app.domains.activities.api import Activity, Registration
 from app.domains.membership.api import Membership
 from app.domains.mdm.api import Member, Person
 from app.domains.auth.api import User

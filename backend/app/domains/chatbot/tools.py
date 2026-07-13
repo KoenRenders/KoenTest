@@ -19,7 +19,7 @@ from typing import Any, Optional
 
 from sqlalchemy.orm import Session
 
-from app.models.activity import Activity, ActivityDate
+from app.domains.activities.api import Activity, ActivityDate
 from app.models.asset import MediaAsset
 from app.models.chatbot_info import ChatbotInfo
 

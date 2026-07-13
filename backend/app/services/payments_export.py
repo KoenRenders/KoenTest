@@ -30,7 +30,7 @@ def _enrich(db, r) -> tuple[str, Optional[int], Optional[int]]:
         return db.query(model).execution_options(include_deleted=True)
 
     if r.payable_type == "registration":
-        from app.models.activity import Registration, Activity
+        from app.domains.activities.api import Registration, Activity
         reg = q(Registration).filter(Registration.id == r.payable_id).first()
         if reg:
             act = q(Activity).filter(Activity.id == reg.activity_id).first()

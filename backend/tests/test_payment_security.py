@@ -113,7 +113,7 @@ def test_registration_limit_is_per_component_not_per_activity(client, db_session
     onderdeel A mag inschrijven op onderdeel B van dezelfde activiteit niet blokkeren."""
     from decimal import Decimal
     from app.config import settings
-    from app.models.activity_sub_registration import ActivitySubRegistration, ActivityProduct
+    from app.domains.activities.api import ActivitySubRegistration, ActivityProduct
 
     activity, comp_a, product_a = seed_activity_with_product(db_session, is_free=True)
     comp_b = ActivitySubRegistration(
@@ -201,7 +201,7 @@ def test_pay_on_site_not_counted_in_total():
     """#373: een 'ter plaatse te betalen' (eigen budget) product telt — net als
     gratis — niet mee in het (Mollie-)totaal, maar staat wél als regel."""
     from types import SimpleNamespace as NS
-    from app.services.registration_totals import compute_registration_total
+    from app.domains.activities.api import compute_registration_total
 
     betalend = NS(name="Diner", price=Decimal("30"), member_price=None, is_free=False, pay_on_site=False)
     eigen = NS(name="Eten (eigen budget)", price=Decimal("15"), member_price=None, is_free=False, pay_on_site=True)

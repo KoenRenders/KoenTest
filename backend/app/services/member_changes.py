@@ -15,7 +15,7 @@ from app.services.ods_export import build_ods
 
 from app.domains.payment.api import PaymentRecordHistory
 from app.domains.membership.api import MembershipHistory
-from app.models.history import (
+from app.domains.activities.api import (
     RegistrationItemHistory,
     ActivityHistory,
     ActivityDateHistory,
@@ -168,7 +168,7 @@ class _SubjectResolver:
         zonder persoon toont enkel de contactnaam."""
         if registration_id is None:
             return None
-        from app.models.activity import Registration
+        from app.domains.activities.api import Registration
         reg = self._q(Registration).filter(Registration.id == registration_id).first()
         if reg is None:
             return None

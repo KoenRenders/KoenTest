@@ -401,7 +401,7 @@ def registration_balance(db: Session, registration) -> dict:
     ``balance > 0`` → nog te ontvangen, ``< 0`` → te veel ontvangen (refund due),
     ``= 0`` → vereffend. De live DB is de enige bron van waarheid.
     """
-    from app.services.registration_totals import compute_registration_total
+    from app.domains.activities.api import compute_registration_total
 
     total_due, _ = compute_registration_total(registration)
     records = get_records_for(db, "registration", registration.id)
@@ -436,7 +436,7 @@ def reconcile_registration_charges(
 
     Invariant na afloop: som van alle (niet-verwijderde) records == besteltotaal.
     """
-    from app.services.registration_totals import compute_registration_total
+    from app.domains.activities.api import compute_registration_total
     from app.soft_delete import soft_delete
 
     total_due = Decimal(str(compute_registration_total(registration)[0]))

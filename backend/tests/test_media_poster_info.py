@@ -4,8 +4,8 @@ from io import BytesIO
 
 from PIL import Image
 
-from app.models.activity import Activity
-from app.models.activity_sub_registration import ActivitySubRegistration
+from app.domains.activities.api import Activity
+from app.domains.activities.api import ActivitySubRegistration
 from app.models.asset import MediaAsset
 from tests.conftest import seed_activity_with_product
 

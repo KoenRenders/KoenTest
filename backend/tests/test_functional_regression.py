@@ -187,8 +187,8 @@ def test_registration_total_matches_payment_amount(client, db_session, mock_moll
     assert resp.status_code == 200, resp.text
 
     from app.domains.payment.api import PaymentRecord
-    from app.services.registration_totals import compute_registration_total
-    from app.models.activity import Registration
+    from app.domains.activities.api import compute_registration_total
+    from app.domains.activities.api import Registration
 
     rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "registration").first()
     reg = db_session.query(Registration).first()

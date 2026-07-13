@@ -16,8 +16,8 @@ from decimal import Decimal
 def _seed(db, products):
     """Activiteit + één onderdeel + de opgegeven producten. Elk product-dict:
     {name, [price], [is_free], [pay_on_site]}."""
-    from app.models.activity import Activity, ActivityDate
-    from app.models.activity_sub_registration import ActivitySubRegistration, ActivityProduct
+    from app.domains.activities.api import Activity, ActivityDate
+    from app.domains.activities.api import ActivitySubRegistration, ActivityProduct
 
     act = Activity(name="Wijnbezoek")
     db.add(act)

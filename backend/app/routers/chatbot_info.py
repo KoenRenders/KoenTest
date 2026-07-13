@@ -17,8 +17,8 @@ from sqlalchemy.orm import Session
 
 from app.domains.auth.api import get_current_admin
 from app.database import get_db
-from app.models.activity import Activity
-from app.models.activity_sub_registration import ActivitySubRegistration
+from app.domains.activities.api import Activity
+from app.domains.activities.api import ActivitySubRegistration
 from app.models.asset import MediaAsset
 from app.models.chatbot_info import ChatbotInfo
 from app.models.cms import CmsPage

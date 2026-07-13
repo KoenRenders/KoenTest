@@ -47,7 +47,7 @@ def _migrate_schema():
     # in de metadata leven — na verwijderde modellen (ideas) blijven wezen
     # achter en botst de keten. CASCADE veegt álles, ook alembic_version.
     with engine.begin() as conn:
-        for schema in ("form", "workflow", "mail", "auth", "mdm", "payment", "membership", "public"):
+        for schema in ("form", "workflow", "mail", "auth", "mdm", "payment", "membership", "activities", "public"):
             conn.exec_driver_sql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
         conn.exec_driver_sql("CREATE SCHEMA public")
     cfg = Config(os.path.join(os.path.dirname(os.path.dirname(__file__)), "alembic.ini"))
@@ -182,10 +182,10 @@ def seed_activity_with_product(db, price="10.00", is_free=False, max_participant
     """Maak een activiteit met één onderdeel en één (betalend) product."""
     from datetime import date, timedelta
     from decimal import Decimal
-    from app.models.activity import Activity
-    from app.models.activity_sub_registration import ActivitySubRegistration, ActivityProduct
+    from app.domains.activities.api import Activity
+    from app.domains.activities.api import ActivitySubRegistration, ActivityProduct
 
-    from app.models.activity import ActivityDate
+    from app.domains.activities.api import ActivityDate
     activity = Activity(name="Testactiviteit")
     db.add(activity)
     db.flush()

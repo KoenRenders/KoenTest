@@ -10,7 +10,7 @@ Bewaakt de invarianten die ertoe doen:
 import json
 from datetime import date, timedelta
 
-from app.models.activity import Activity, ActivityDate
+from app.domains.activities.api import Activity, ActivityDate
 from app.domains.forms.models import FormSubmission
 from app.domains.chatbot.tools import execute_tool, ALLOWED_TOOLS
 from app.domains.chatbot.context import build_system_prompt

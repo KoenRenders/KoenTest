@@ -7,7 +7,7 @@ from datetime import date, timedelta
 
 
 def _make_activity(db, name, day_offset):
-    from app.models.activity import Activity, ActivityDate
+    from app.domains.activities.api import Activity, ActivityDate
     a = Activity(name=name)
     db.add(a)
     db.flush()
@@ -53,7 +53,7 @@ def test_all_scope_orders_upcoming_first_soonest_top(client, db_session):
 def test_all_scope_activity_with_future_and_past_sorts_as_upcoming(client, db_session):
     """#186: een activiteit met zowel een voorbije als een toekomstige datum sorteert
     op haar eerstvolgende toekomstige datum (in de 'toekomstig eerst'-groep)."""
-    from app.models.activity import Activity, ActivityDate
+    from app.domains.activities.api import Activity, ActivityDate
     a = Activity(name="Reeks")
     db_session.add(a)
     db_session.flush()
@@ -72,7 +72,7 @@ def test_all_scope_activity_with_future_and_past_sorts_as_upcoming(client, db_se
 def test_activity_response_exposes_is_cancelled(client, db_session):
     """Regressie (#257): de respons bevatte is_cancelled niet, dus de bewerk-vorm
     toonde het vinkje altijd 'uit' (leek niet opgeslagen). Nu wel teruggegeven."""
-    from app.models.activity import Activity, ActivityDate
+    from app.domains.activities.api import Activity, ActivityDate
     a = Activity(name="Geannuleerd feest", is_cancelled=True)
     db_session.add(a)
     db_session.flush()

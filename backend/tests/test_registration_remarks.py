@@ -1,7 +1,7 @@
 """Admin bewerkt de opmerking van de inschrijver (#283): autorisatie, zetten/
 wijzigen/wissen (→ NULL), soft-deleted niet bewerkbaar, en bestelregels/saldo
 blijven ongemoeid."""
-from app.models.activity import Registration
+from app.domains.activities.api import Registration
 from app.soft_delete import soft_delete
 from tests.conftest import seed_activity_with_product
 

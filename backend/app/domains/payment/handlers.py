@@ -24,7 +24,7 @@ RECONCILE_INTERVAL = timedelta(hours=24)
 def find_orphan_records(db: Session) -> list[PaymentRecord]:
     """PaymentRecords waarvan de payable niet (meer) bestaat. Soft-deleted
     payables gelden als bestaand — het financiële feit blijft verklaarbaar."""
-    from app.models.activity import Registration
+    from app.domains.activities.api import Registration
     from app.domains.membership.api import Membership
 
     orphans: list[PaymentRecord] = []

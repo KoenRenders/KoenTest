@@ -10,9 +10,9 @@ from sqlalchemy.orm import Session, selectinload
 
 from app.domains.auth.api import get_current_admin, get_current_member
 from app.database import get_db
-from app.models.activity import ActivityDate, Activity, Registration, RegistrationItem
+from app.domains.activities.models import ActivityDate, Activity, Registration, RegistrationItem
 from app.domains.auth.api import User
-from app.models.activity_sub_registration import ActivitySubRegistration, ActivityProduct
+from app.domains.activities.models import ActivitySubRegistration, ActivityProduct
 from app.schemas.activity import (
     ActivityCreate,
     ActivityUpdate,
@@ -33,7 +33,7 @@ from app.schemas.activity import (
     RegistrationRemarksUpdate,
 )
 from app.domains.mail.api import send_activity_registration_confirmation
-from app.services.registration_totals import compute_registration_total
+from app.domains.activities.totals import compute_registration_total
 from app.config import settings
 from app.domains.payment.api import (
     create_payment_record, registration_balance, reconcile_registration_charges,
@@ -46,7 +46,7 @@ from app.domains.audit.service import (
     snapshot_component,
     snapshot_product,
 )
-from app.services.activity_export import build_component_export_ods
+from app.domains.activities.export import build_component_export_ods
 from app.soft_delete import soft_delete
 from app.limiter import registration_limiter
 
