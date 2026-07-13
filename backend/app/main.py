@@ -19,7 +19,7 @@ from app.routers import auth, members, activities, ideas, cms, admin, media, cha
 from app.routers.member_household import router as member_household_router
 from app.routers.member_import import router as member_import_router
 from app.routers.users import router as users_router
-from app.routers.forms import router as forms_router
+from app.domains.forms.router import router as forms_router
 from app.routers.email_log import router as email_log_router
 from app.domains.payment_gateway.router import router as payment_gateway_router
 from app.domains.payment_status.router import router as payment_status_router

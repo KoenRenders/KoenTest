@@ -49,6 +49,7 @@ RATING_LABELS = {
 
 class Form(Base):
     __tablename__ = "forms"
+    __table_args__ = {"schema": "form"}
 
     id = Column(Integer, primary_key=True, index=True)
     title = Column(String(200), nullable=False)
@@ -95,10 +96,11 @@ class Form(Base):
 
 class FormSection(Base):
     __tablename__ = "form_sections"
+    __table_args__ = {"schema": "form"}
 
     id = Column(Integer, primary_key=True, index=True)
     form_id = Column(
-        Integer, ForeignKey("forms.id", ondelete="CASCADE"), nullable=False, index=True
+        Integer, ForeignKey("form.forms.id", ondelete="CASCADE"), nullable=False, index=True
     )
     title = Column(String(300), nullable=True)
     description = Column(Text, nullable=True)
@@ -106,7 +108,7 @@ class FormSection(Base):
     # Sectie-navigatie (#336): waar na deze sectie naartoe als geen keuze-optie
     # een sprong forceert. NULL + next_is_end=false = lineair (volgende sectie).
     next_section_id = Column(
-        Integer, ForeignKey("form_sections.id", ondelete="SET NULL"), nullable=True
+        Integer, ForeignKey("form.form_sections.id", ondelete="SET NULL"), nullable=True
     )
     next_is_end = Column(Boolean, nullable=False, default=False, server_default="false")
 
@@ -116,14 +118,15 @@ class FormSection(Base):
 
 class FormField(Base):
     __tablename__ = "form_fields"
+    __table_args__ = {"schema": "form"}
 
     id = Column(Integer, primary_key=True, index=True)
     form_id = Column(
-        Integer, ForeignKey("forms.id", ondelete="CASCADE"), nullable=False, index=True
+        Integer, ForeignKey("form.forms.id", ondelete="CASCADE"), nullable=False, index=True
     )
     # Optionele koppeling aan een sectie (#335). NULL = ongegroepeerd.
     section_id = Column(
-        Integer, ForeignKey("form_sections.id", ondelete="CASCADE"), nullable=True, index=True
+        Integer, ForeignKey("form.form_sections.id", ondelete="CASCADE"), nullable=True, index=True
     )
     field_type = Column(String(20), nullable=False)
     label = Column(String(300), nullable=False)
@@ -154,11 +157,12 @@ class FormField(Base):
 
 class FormFieldOption(Base):
     __tablename__ = "form_field_options"
+    __table_args__ = {"schema": "form"}
 
     id = Column(Integer, primary_key=True, index=True)
     field_id = Column(
         Integer,
-        ForeignKey("form_fields.id", ondelete="CASCADE"),
+        ForeignKey("form.form_fields.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -171,7 +175,7 @@ class FormFieldOption(Base):
     # Branching (#336): bij een radio/select-veld kan een optie de invuller naar een
     # andere sectie sturen, of naar het einde. Enkel voor 'één keuze'/'keuzelijst'.
     skip_to_section_id = Column(
-        Integer, ForeignKey("form_sections.id", ondelete="SET NULL"), nullable=True
+        Integer, ForeignKey("form.form_sections.id", ondelete="SET NULL"), nullable=True
     )
     skip_to_end = Column(Boolean, nullable=False, default=False, server_default="false")
 
@@ -181,10 +185,11 @@ class FormFieldOption(Base):
 
 class FormSubmission(Base):
     __tablename__ = "form_submissions"
+    __table_args__ = {"schema": "form"}
 
     id = Column(Integer, primary_key=True, index=True)
     form_id = Column(
-        Integer, ForeignKey("forms.id", ondelete="CASCADE"), nullable=False, index=True
+        Integer, ForeignKey("form.forms.id", ondelete="CASCADE"), nullable=False, index=True
     )
     submitted_at = Column(
         DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False
@@ -206,17 +211,18 @@ class FormSubmission(Base):
 
 class FormSubmissionAnswer(Base):
     __tablename__ = "form_submission_answers"
+    __table_args__ = {"schema": "form"}
 
     id = Column(Integer, primary_key=True, index=True)
     submission_id = Column(
         Integer,
-        ForeignKey("form_submissions.id", ondelete="CASCADE"),
+        ForeignKey("form.form_submissions.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
     field_id = Column(
         Integer,
-        ForeignKey("form_fields.id", ondelete="CASCADE"),
+        ForeignKey("form.form_fields.id", ondelete="CASCADE"),
         nullable=False,
         index=True,
     )
@@ -225,7 +231,7 @@ class FormSubmissionAnswer(Base):
     value_text = Column(Text, nullable=True)
     value_number = Column(Numeric(12, 2), nullable=True)
     value_option_id = Column(
-        Integer, ForeignKey("form_field_options.id", ondelete="SET NULL"), nullable=True
+        Integer, ForeignKey("form.form_field_options.id", ondelete="SET NULL"), nullable=True
     )
     value_rating = Column(SmallInteger, nullable=True)
 

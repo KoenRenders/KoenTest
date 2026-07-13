@@ -5,7 +5,7 @@ in één cel samengevoegd. ODS hergebruikt de gedeelde build_ods-helper (#200); 
 cel is daar `valuetype="string"`, wat meteen de bescherming is tegen formule-injectie
 (#288). Er is bewust geen CSV-export (nooit gevraagd + injectie-gevoelig, #371).
 """
-from app.models.form import Form, FormSubmission
+from app.domains.forms.models import Form, FormSubmission
 from app.services.ods_export import build_ods
 
 _MULTI_SEP = "; "
