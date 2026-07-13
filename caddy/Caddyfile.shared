@@ -52,6 +52,12 @@
 	handle /lid-worden* {
 		reverse_proxy uat-backend:8000
 	}
+	handle /leden/* {
+		reverse_proxy uat-backend:8000
+	}
+	handle /login* {
+		reverse_proxy uat-backend:8000
+	}
 	handle /betaling/* {
 		reverse_proxy uat-backend:8000
 	}
@@ -125,6 +131,12 @@
 		reverse_proxy prod-backend:8000
 	}
 	handle /lid-worden* {
+		reverse_proxy prod-backend:8000
+	}
+	handle /leden/* {
+		reverse_proxy prod-backend:8000
+	}
+	handle /login* {
 		reverse_proxy prod-backend:8000
 	}
 	handle /betaling/* {

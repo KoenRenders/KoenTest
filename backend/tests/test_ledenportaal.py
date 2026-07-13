@@ -1,0 +1,71 @@
+"""React-exit 405-b: ledenportaal (/leden/gezin) + login-pariteit (htmx)."""
+from datetime import date, timedelta
+
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.domains.mdm.api import Person
+from tests.conftest import create_test_family, seed_postal_code
+
+
+def _login_as(client, email):
+    value = make_session_value(email)
+    client.cookies.set(SESSION_COOKIE, value)
+    return csrf_token_for(value)
+
+
+def test_gezin_redirect_zonder_sessie(client):
+    resp = client.get("/leden/gezin", follow_redirects=False)
+    assert resp.status_code == 302 and resp.headers["location"] == "/aanmelden"
+
+
+def test_gezin_portaal_toont_leden_en_muteert(client, db_session):
+    member, person = create_test_family(db_session, email="portaal@example.com")
+    csrf = _login_as(client, "portaal@example.com")
+
+    page = client.get("/leden/gezin")
+    assert page.status_code == 200 and "Mijn gezin" in page.text and person.first_name in page.text
+
+    resp = client.post(f"/leden/gezin/personen/{person.id}",
+                       data={"first_name": "Aangepast", "last_name": person.last_name,
+                             "contact_email": "portaal@example.com"},
+                       headers={"X-CSRF-Token": csrf})
+    assert resp.status_code == 200 and "Aangepast" in resp.text
+    db_session.expire_all()
+    assert db_session.get(Person, person.id).first_name == "Aangepast"
+
+    nieuw = client.post("/leden/gezin/personen",
+                        data={"first_name": "Kindje", "last_name": "Persoon"},
+                        headers={"X-CSRF-Token": csrf})
+    assert nieuw.status_code == 200 and "Kindje" in nieuw.text
+
+
+def test_gezin_mutatie_zonder_csrf(client, db_session):
+    member, person = create_test_family(db_session, email="csrfloos@example.com")
+    _login_as(client, "csrfloos@example.com")
+    resp = client.post(f"/leden/gezin/personen/{person.id}",
+                       data={"first_name": "X", "last_name": "Y"})
+    assert resp.status_code == 403
+
+
+def test_login_redirects_naar_aanmelden(client):
+    for pad in ("/login", "/leden/login"):
+        resp = client.get(pad, follow_redirects=False)
+        assert resp.status_code == 302 and resp.headers["location"] == "/aanmelden"
+
+
+def test_login_verify_zet_sessie_en_stuurt_door(client, db_session):
+    from app.domains.auth.models import LoginToken
+    from datetime import datetime, timezone
+
+    create_test_family(db_session, email="magiclink@example.com")
+    token = "testtoken-magic-123"
+    db_session.add(LoginToken(email="magiclink@example.com", token=token,
+                              expires_at=datetime.now(timezone.utc) + timedelta(minutes=10)))
+    db_session.flush()
+
+    resp = client.get(f"/login/verify?token={token}", follow_redirects=False)
+    assert resp.status_code == 302
+    assert resp.headers["location"] == "/leden/gezin"
+    assert SESSION_COOKIE in resp.cookies
+
+    verlopen = client.get("/login/verify?token=bestaat-niet", follow_redirects=False)
+    assert verlopen.status_code == 401

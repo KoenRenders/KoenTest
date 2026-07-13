@@ -22,6 +22,12 @@
 	handle /lid-worden* {
 		reverse_proxy backend:8000
 	}
+	handle /leden/* {
+		reverse_proxy backend:8000
+	}
+	handle /login* {
+		reverse_proxy backend:8000
+	}
 	handle /betaling/* {
 		reverse_proxy backend:8000
 	}
