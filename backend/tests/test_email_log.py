@@ -4,8 +4,8 @@ from datetime import datetime, timezone, timedelta
 import pytest
 
 from app.database import SessionLocal
-from app.models.email_log import EmailLog
-from app.services.email import send_form_confirmation, purge_old_email_logs
+from app.domains.mail.models import EmailLog
+from app.domains.mail.api import send_form_confirmation, purge_old_email_logs
 
 
 def _logs_for(recipient: str):
@@ -29,7 +29,7 @@ def test_send_without_credentials_logs_skipped():
 
 
 def test_send_logs_sent(monkeypatch):
-    from app.services import email as email_mod
+    from app.domains.mail import service as email_mod
 
     monkeypatch.setattr(email_mod.settings, "gmail_user", "x@raak.be")
     monkeypatch.setattr(email_mod.settings, "gmail_app_password", "pw")
@@ -51,7 +51,7 @@ def test_send_logs_sent(monkeypatch):
 
 
 def test_send_logs_failed(monkeypatch):
-    from app.services import email as email_mod
+    from app.domains.mail import service as email_mod
 
     monkeypatch.setattr(email_mod.settings, "gmail_user", "x@raak.be")
     monkeypatch.setattr(email_mod.settings, "gmail_app_password", "pw")
@@ -67,6 +67,63 @@ def test_send_logs_failed(monkeypatch):
     assert len(rows) == 1
     assert rows[0].status == "failed"
     assert "SMTP down" in (rows[0].error_message or "")
+
+
+def test_failed_send_enqueues_retry_job(monkeypatch):
+    from app.domains.mail import service as email_mod
+    from app.kernel.jobs import KernelJob
+
+    monkeypatch.setattr(email_mod.settings, "gmail_user", "x@raak.be")
+    monkeypatch.setattr(email_mod.settings, "gmail_app_password", "pw")
+    monkeypatch.setattr(email_mod.smtplib, "SMTP_SSL",
+                        lambda *a, **k: (_ for _ in ()).throw(OSError("SMTP down")))
+
+    recipient = "retry-enqueue@example.com"
+    send_form_confirmation(to_email=recipient, form_title="Contacteer ons", name="T")
+    log_id = _logs_for(recipient)[0].id
+
+    s = SessionLocal()
+    try:
+        jobs = (s.query(KernelJob).filter(KernelJob.name == "mail.retry").all())
+        assert any(j.payload.get("email_log_id") == log_id and j.status == "pending"
+                   for j in jobs)
+    finally:
+        s.close()
+
+
+def test_retry_job_resends_and_marks_sent(monkeypatch):
+    from app.domains.mail import handlers as mail_handlers
+    from app.domains.mail import service as email_mod
+    from app.kernel.jobs import KernelJob, run_due_jobs
+
+    # 1. Verzending faalt → log 'failed' + retry-job gepland.
+    monkeypatch.setattr(email_mod.settings, "gmail_user", "x@raak.be")
+    monkeypatch.setattr(email_mod.settings, "gmail_app_password", "pw")
+    monkeypatch.setattr(email_mod.smtplib, "SMTP_SSL",
+                        lambda *a, **k: (_ for _ in ()).throw(OSError("SMTP down")))
+    recipient = "retry-resend@example.com"
+    send_form_confirmation(to_email=recipient, form_title="Contacteer ons", name="T")
+    log_id = _logs_for(recipient)[0].id
+
+    # 2. Bij de retry doet SMTP het weer → job draait, log wordt 'sent'.
+    class _FakeSMTP:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def login(self, *a): pass
+        def sendmail(self, *a): pass
+
+    monkeypatch.setattr(mail_handlers.smtplib, "SMTP_SSL", lambda *a, **k: _FakeSMTP())
+
+    s = SessionLocal()
+    try:
+        run_due_jobs(s)
+        row = s.get(EmailLog, log_id)
+        assert row.status == "sent" and row.error_message is None
+        job_row = (s.query(KernelJob).filter(KernelJob.name == "mail.retry")
+                   .order_by(KernelJob.id.desc()).first())
+        assert job_row.status == "done"
+    finally:
+        s.close()
 
 
 def test_admin_endpoint_requires_admin(client):

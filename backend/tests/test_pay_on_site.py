@@ -63,7 +63,7 @@ def _mail_body(recipient):
     """Body van de laatste bevestigingsmail (via een eigen sessie: de mail wordt in
     een background-task met een aparte SessionLocal gelogd)."""
     from app.database import SessionLocal
-    from app.models.email_log import EmailLog
+    from app.domains.mail.models import EmailLog
     s = SessionLocal()
     try:
         row = (

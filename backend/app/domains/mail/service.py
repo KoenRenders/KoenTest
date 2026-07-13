@@ -35,29 +35,53 @@ def _dispatch(
         _send(to_email, subject, body_html, cc, email_type)
 
 
-def _log_email(to_email: str, subject: str, body_html: str, email_type: str, status: str, error: Optional[str]) -> None:
+def _log_email(to_email: str, subject: str, body_html: str, email_type: str, status: str, error: Optional[str]) -> Optional[int]:
     """Schrijf één rij naar de centrale email_log (#328). Loggen mag het versturen
     nooit breken: alle fouten worden hier opgevangen. Gebruikt een eigen
-    SessionLocal omdat _send vaak in een BackgroundTask draait (geen request-sessie)."""
+    SessionLocal omdat _send vaak in een BackgroundTask draait (geen request-sessie).
+    Geeft het log-id terug (voor de retry-job), of None als het loggen faalde."""
     try:
         from app.database import SessionLocal
-        from app.models.email_log import EmailLog
+        from app.domains.mail.models import EmailLog
 
         db = SessionLocal()
         try:
-            db.add(EmailLog(
+            entry = EmailLog(
                 recipient=to_email,
                 subject=subject,
                 body=body_html,
                 email_type=email_type,
                 status=status,
                 error_message=error,
-            ))
+            )
+            db.add(entry)
             db.commit()
+            return entry.id
         finally:
             db.close()
     except Exception as exc:  # pragma: no cover - logging mag nooit de mail breken
         logger.error("E-maillog wegschrijven mislukt (%s): %s", subject, exc)
+        return None
+
+
+def _enqueue_retry(email_log_id: Optional[int]) -> None:
+    """Plan een mail.retry-job (kernel-jobs, §5.8) voor een gefaalde verzending.
+    Eigen sessie: _send draait meestal in een BackgroundTask zonder request-
+    transactie. Falen mag de flow nooit breken — de log-rij blijft 'failed'."""
+    if email_log_id is None:
+        return
+    try:
+        from app.database import SessionLocal
+        from app.kernel.jobs import enqueue
+
+        db = SessionLocal()
+        try:
+            enqueue(db, "mail.retry", {"email_log_id": email_log_id})
+            db.commit()
+        finally:
+            db.close()
+    except Exception as exc:  # pragma: no cover - vangnet
+        logger.error("mail.retry-job plannen mislukt (log #%s): %s", email_log_id, exc)
 
 
 def _send(to_email: str, subject: str, body_html: str, cc: Optional[str] = None, email_type: str = "other") -> None:
@@ -82,7 +106,8 @@ def _send(to_email: str, subject: str, body_html: str, cc: Optional[str] = None,
             server.sendmail(settings.gmail_user, recipients, msg.as_string())
     except Exception as exc:
         logger.error("E-mail versturen mislukt naar %s: %s", to_email, exc)
-        _log_email(to_email, subject, body_html, email_type, "failed", str(exc))
+        log_id = _log_email(to_email, subject, body_html, email_type, "failed", str(exc))
+        _enqueue_retry(log_id)
         return
     _log_email(to_email, subject, body_html, email_type, "sent", None)
 
@@ -317,7 +342,7 @@ def purge_old_email_logs(db, retention_days: Optional[int] = None) -> int:
     = niets verwijderen (oneindig bewaren)."""
     from datetime import datetime, timezone, timedelta
 
-    from app.models.email_log import EmailLog
+    from app.domains.mail.models import EmailLog
 
     days = settings.email_log_retention_days if retention_days is None else retention_days
     if not days or days <= 0:

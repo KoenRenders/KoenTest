@@ -20,7 +20,7 @@ from app.models.history import (
     PaymentRecordHistory,
 )
 from app.models.business_event import BusinessEvent
-from app.models.email_log import EmailLog
+from app.domains.mail.models import EmailLog
 from app.domains.forms.models import (
     Form,
     FormSection,

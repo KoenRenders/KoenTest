@@ -23,7 +23,8 @@ from app.domains.forms.router import router as forms_router
 from app.domains.forms.ui import router as forms_ui_router
 from app.domains.workflow.ui import router as workflow_ui_router
 from app.domains.workflow import handlers as workflow_handlers  # noqa: F401 - event-abonnementen (#398)
-from app.routers.email_log import router as email_log_router
+from app.domains.mail.router import router as email_log_router
+from app.domains.mail.handlers import retry_mail  # noqa: F401 - registreert de mail.retry-job (#399)
 from app.domains.payment_gateway.router import router as payment_gateway_router
 from app.domains.payment_status.router import router as payment_status_router
 
@@ -159,7 +160,7 @@ def _purge_old_email_logs() -> None:
     (#328). Mag het opstarten nooit breken — fouten worden enkel gelogd."""
     try:
         from app.database import SessionLocal
-        from app.services.email import purge_old_email_logs
+        from app.domains.mail.api import purge_old_email_logs
 
         db = SessionLocal()
         try:

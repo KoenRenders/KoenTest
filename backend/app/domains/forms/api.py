@@ -34,7 +34,7 @@ def submit_bericht(db: Session, *, naam: str, email: str | None, bericht: str,
     from app.domains.forms.service import build_answers
     from app.kernel.contracts.forms import SubmissionCreated
     from app.kernel.events import publish
-    from app.services.email import send_form_confirmation
+    from app.domains.mail.api import send_form_confirmation
 
     form = db.query(Form).filter(Form.slug == "berichten").first()
     if form is None or not form.fields:
