@@ -16,6 +16,12 @@
 	handle /admin/werkbank* {
 		reverse_proxy backend:8000
 	}
+	handle /admin/e-maillog* {
+		reverse_proxy backend:8000
+	}
+	handle /aanmelden* {
+		reverse_proxy backend:8000
+	}
 	# Umami (laag 1) draait op een eigen poort (8082, root), niet via Caddy: het
 	# prebuilt image past runtime-BASE_PATH niet toe → geen subpad. Zie docs/umami.md.
 	handle {

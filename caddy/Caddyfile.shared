@@ -46,6 +46,12 @@
 	handle /admin/werkbank* {
 		reverse_proxy uat-backend:8000
 	}
+	handle /admin/e-maillog* {
+		reverse_proxy uat-backend:8000
+	}
+	handle /aanmelden* {
+		reverse_proxy uat-backend:8000
+	}
 	handle {
 		reverse_proxy uat-frontend:3000
 	}
@@ -77,6 +83,12 @@
 		reverse_proxy prod-backend:8000
 	}
 	handle /admin/werkbank* {
+		reverse_proxy prod-backend:8000
+	}
+	handle /admin/e-maillog* {
+		reverse_proxy prod-backend:8000
+	}
+	handle /aanmelden* {
 		reverse_proxy prod-backend:8000
 	}
 	handle {

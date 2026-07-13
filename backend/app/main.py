@@ -19,11 +19,13 @@ from app.routers import members, activities, cms, admin, media, chat, chatbot_in
 from app.routers.member_household import router as member_household_router
 from app.routers.member_import import router as member_import_router
 from app.domains.auth.router import router as auth_router
+from app.domains.auth.ui import router as auth_ui_router
 from app.domains.forms.router import router as forms_router
 from app.domains.forms.ui import router as forms_ui_router
 from app.domains.workflow.ui import router as workflow_ui_router
 from app.domains.workflow import handlers as workflow_handlers  # noqa: F401 - event-abonnementen (#398)
 from app.domains.mail.router import router as email_log_router
+from app.domains.mail.ui import router as email_log_ui_router
 from app.domains.mail.handlers import retry_mail  # noqa: F401 - registreert de mail.retry-job (#399)
 from app.domains.payment_gateway.router import router as payment_gateway_router
 from app.domains.payment_status.router import router as payment_status_router
@@ -86,6 +88,8 @@ app.include_router(member_household_router, prefix="/api/v1")
 app.include_router(member_import_router, prefix="/api/v1")
 app.include_router(forms_router, prefix="/api/v1")
 app.include_router(forms_ui_router)
+app.include_router(auth_ui_router)
+app.include_router(email_log_ui_router)
 app.include_router(workflow_ui_router)
 app.include_router(email_log_router, prefix="/api/v1/admin")
 app.include_router(payment_gateway_router, prefix="/api/v1")

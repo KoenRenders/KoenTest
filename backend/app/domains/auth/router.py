@@ -77,10 +77,10 @@ def _hash_otp(code: str) -> str:
 # per request, afgeleid — hier sturen we enkel een link/code naar wie gekend is.
 
 
-@router.post("/auth/request-login", status_code=200, dependencies=[Depends(login_limiter)])
-def request_login(body: MagicLinkRequest, db: Session = Depends(get_db)):
-    email = body.email.strip()
-
+def start_login(db: Session, email: str) -> None:
+    """De volledige request-login-stap (ook gebruikt door het aanmeldscherm,
+    fase 1 #399): gekend adres → magic-link + OTP; meerdere gezinnen → uitleg-
+    mail; onbekend → stil. De aanroeper toont ALTIJD dezelfde generieke respons."""
     # Twee onafhankelijke checks: heeft dit adres een account, en/of hangt het
     # aan een persoon (en is dat gezin eenduidig)?
     user = (
@@ -114,6 +114,10 @@ def request_login(body: MagicLinkRequest, db: Session = Depends(get_db)):
         # wel uitleg per mail (we mogen niet gokken welk gezin bedoeld is).
         send_member_contact_board_notice(to_email=email)
 
+
+@router.post("/auth/request-login", status_code=200, dependencies=[Depends(login_limiter)])
+def request_login(body: MagicLinkRequest, db: Session = Depends(get_db)):
+    start_login(db, body.email.strip())
     # Altijd dezelfde generieke respons — verklap niet of het adres gekend is.
     return {"detail": "Als dit e-mailadres gekend is, ontvang je een inloglink."}
 
@@ -135,8 +139,10 @@ def verify_login(token: str, response: Response, db: Session = Depends(get_db)):
     return TokenResponse(access_token=create_access_token(data={"sub": login_token.email}))
 
 
-@router.post("/auth/verify-otp", response_model=TokenResponse, dependencies=[Depends(login_limiter)])
-def verify_otp(body: OtpVerifyRequest, response: Response, db: Session = Depends(get_db)):
+def check_otp(db: Session, email: str, code: str) -> bool:
+    """De volledige OTP-controle (ook gebruikt door het aanmeldscherm, fase 1
+    #399), inclusief pogingteller en lockout (#268). True = code klopt en het
+    token is verbruikt; False = generiek ongeldig (geen detail-onderscheid)."""
     now = datetime.now(timezone.utc)
     # Haal het levende token voor dit e-mailadres (ongebruikt), ONAFHANKELIJK van
     # de ingevoerde code — zo kunnen we ook een foute poging tellen (#268). Door
@@ -144,33 +150,40 @@ def verify_otp(body: OtpVerifyRequest, response: Response, db: Session = Depends
     login_token = (
         db.query(LoginToken)
         .filter(
-            func.lower(LoginToken.email) == body.email.strip().lower(),
+            func.lower(LoginToken.email) == email.strip().lower(),
             LoginToken.used == False,
         )
         .order_by(LoginToken.id.desc())
         .first()
     )
-    # Generieke melding: lek geen onderscheid tussen "geen token", "code fout" en
-    # "te veel pogingen" — geen bruikbare feedback voor een brute-force (#268).
-    invalid = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED, detail="Ongeldige of verlopen code."
-    )
     if not login_token or login_token.expires_at.replace(tzinfo=timezone.utc) < now:
-        raise invalid
+        return False
 
-    if login_token.otp_code != _hash_otp(body.code):
+    if login_token.otp_code != _hash_otp(code):
         # Foute code: tel de poging en maak het token dood na MAX_OTP_ATTEMPTS,
         # zodat de 10^6-ruimte niet uitputbaar is zodra de IP-limiet omzeild wordt.
         login_token.attempts += 1
         if login_token.attempts >= MAX_OTP_ATTEMPTS:
             login_token.used = True
         db.commit()
-        raise invalid
+        return False
 
     login_token.used = True
     db.commit()
-    _set_ui_session(response, login_token.email)
-    return TokenResponse(access_token=create_access_token(data={"sub": login_token.email}))
+    return True
+
+
+@router.post("/auth/verify-otp", response_model=TokenResponse, dependencies=[Depends(login_limiter)])
+def verify_otp(body: OtpVerifyRequest, response: Response, db: Session = Depends(get_db)):
+    email = body.email.strip()
+    if not check_otp(db, email, body.code):
+        # Generieke melding: lek geen onderscheid tussen "geen token", "code fout"
+        # en "te veel pogingen" — geen bruikbare feedback voor brute-force (#268).
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Ongeldige of verlopen code."
+        )
+    _set_ui_session(response, email)
+    return TokenResponse(access_token=create_access_token(data={"sub": email}))
 
 
 @router.get("/auth/me", response_model=AuthMeResponse)

@@ -1,0 +1,19 @@
+{% extends "admin_base.html" %}
+{% block title %}E-maillog — Raak{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold text-blue-800 mb-2">E-maillog</h1>
+<p class="text-gray-600 mb-6">Elke uitgaande e-mail, met status. Persoonsgegevens — enkel voor beheer.</p>
+<form class="flex flex-wrap gap-3 mb-4" hx-get="/admin/e-maillog/lijst" hx-target="#email-log-lijst" hx-swap="innerHTML" hx-trigger="change">
+  <select name="email_type" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+    <option value="">Alle types</option>
+    {% for t in email_types %}<option value="{{ t }}" {% if t == email_type %}selected{% endif %}>{{ t }}</option>{% endfor %}
+  </select>
+  <select name="status" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+    <option value="">Alle statussen</option>
+    {% for s in email_statuses %}<option value="{{ s }}" {% if s == status %}selected{% endif %}>{{ s }}</option>{% endfor %}
+  </select>
+</form>
+<div id="email-log-lijst">
+  {% include "_email_log_lijst.html" %}
+</div>
+{% endblock %}

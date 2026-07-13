@@ -79,7 +79,7 @@ def require_admin_ui(request: Request, db: Session = Depends(get_db)) -> str:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Niet aangemeld",
-            headers={"HX-Redirect": "/login", "Location": "/login"},
+            headers={"HX-Redirect": "/aanmelden", "Location": "/aanmelden"},
         )
     roles = get_user_roles(db, email)
     if not ({"ADMIN", "FINANCE"} & set(roles)):
