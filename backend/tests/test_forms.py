@@ -742,3 +742,36 @@ def test_admin_list_and_delete_submission(client, admin_headers, db_session):
     # Antwoorden mee weg (cascade).
     assert db_session.query(FormSubmissionAnswer).filter(FormSubmissionAnswer.submission_id == sub_id).count() == 0
     assert client.delete(f"/api/v1/forms/{form['id']}/submissions/99999999", headers=admin_headers).status_code == 404
+
+
+def test_submission_view_dekt_optie_en_rating(db_session):
+    """#407-O flatten-drift: de werkbank-/inzendingenweergave toont ook optie-
+    (met label, meerdere samengevoegd) en rating-antwoorden."""
+    from app.domains.forms.api import submission_view
+    from app.domains.forms.models import (
+        Form, FormField, FormFieldOption, FormSubmission, FormSubmissionAnswer,
+    )
+
+    form = Form(title="Drift", share_token="tok-drift", status="open")
+    db_session.add(form)
+    db_session.flush()
+    keuze = FormField(form_id=form.id, field_type="checkbox", label="Keuze", position=0)
+    score = FormField(form_id=form.id, field_type="rating", label="Score", position=1)
+    db_session.add_all([keuze, score])
+    db_session.flush()
+    a = FormFieldOption(field_id=keuze.id, label="Appel", position=0)
+    b = FormFieldOption(field_id=keuze.id, label="Banaan", position=1)
+    db_session.add_all([a, b])
+    sub = FormSubmission(form_id=form.id, submitter_name="Test")
+    db_session.add(sub)
+    db_session.flush()
+    db_session.add_all([
+        FormSubmissionAnswer(submission_id=sub.id, field_id=keuze.id, value_option_id=a.id),
+        FormSubmissionAnswer(submission_id=sub.id, field_id=keuze.id, value_option_id=b.id),
+        FormSubmissionAnswer(submission_id=sub.id, field_id=score.id, value_rating=4),
+    ])
+    db_session.flush()
+
+    rows = dict(submission_view(db_session, sub.id))
+    assert rows["Keuze"] == "Appel; Banaan"
+    assert rows["Score"] == "4"

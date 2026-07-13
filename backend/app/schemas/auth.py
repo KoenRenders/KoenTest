@@ -18,17 +18,6 @@ class TokenResponse(BaseModel):
     token_type: str = "bearer"
 
 
-class UserResponse(BaseModel):
-    id: int
-    email: str
-    is_active: bool
-
-    model_config = {"from_attributes": True}
-
-
-AdminUserResponse = UserResponse
-
-
 class AuthMeResponse(BaseModel):
     """Wie ben ik en wat mag ik — capabilities per request afgeleid.
 

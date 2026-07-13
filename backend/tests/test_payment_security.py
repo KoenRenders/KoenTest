@@ -284,12 +284,6 @@ def test_payment_endpoint_admin_only_and_hides_checkout_url(client, db_session, 
     db_session.add(gp)
     db_session.flush()
 
-    # Zonder admin: geweigerd.
-    assert client.get(f"/api/v1/payment-gateway/payments/{gp.id}").status_code == 401
-
-    # Met admin: 200, maar zonder checkout_url.
-    resp = client.get(f"/api/v1/payment-gateway/payments/{gp.id}", headers=admin_headers)
-    assert resp.status_code == 200
-    body = resp.json()
-    assert "checkout_url" not in body
-    assert body["status"] == "pending"
+    # Het React-only lees-endpoint is verwijderd (#407-O): elke variant is 404.
+    assert client.get(f"/api/v1/payment-gateway/payments/{gp.id}").status_code == 404
+    assert client.get(f"/api/v1/payment-gateway/payments/{gp.id}", headers=admin_headers).status_code == 404

@@ -111,7 +111,3 @@ def test_confirm_manual_payment_rejects_overpayment(db_session):
         confirm_manual_payment(db_session, rec.id, amount_paid=Decimal("100.00"))
 
 
-def test_get_payment_endpoint_is_admin_only(client):
-    """#146: GET /payment-gateway/payments/{id} mag niet publiek toegankelijk zijn."""
-    resp = client.get("/api/v1/payment-gateway/payments/whatever-id")
-    assert resp.status_code == 401

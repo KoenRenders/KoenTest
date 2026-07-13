@@ -82,7 +82,20 @@ def cors_origins(app_env: str, frontend_url: str) -> list[str]:
     return origins
 
 
+from contextlib import asynccontextmanager
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    """Startup-werk via de moderne lifespan-API (#407-O): kernel-jobs starten
+    en de e-maillog opschonen. De oude on_event("startup")-hooks zijn weg."""
+    _start_kernel_jobs()
+    _purge_old_email_logs()
+    yield
+
+
 app = FastAPI(
+    lifespan=_lifespan,
     title="Raak Millegem API",
     description="API for the Raak Millegem community association",
     version="1.0.0",
@@ -228,7 +241,6 @@ async def _unhandled_exception_handler(request: Request, exc: Exception):
     return JSONResponse(status_code=500, content={"detail": "Interne serverfout"})
 
 
-@app.on_event("startup")
 def _start_kernel_jobs() -> None:
     """Start de kernel-jobs scheduler (#396) — het achtergrondwerk-primitief
     (§5.8). In tests uitgeschakeld via JOBS_ENABLED=false."""
@@ -260,7 +272,6 @@ def _start_kernel_jobs() -> None:
             db.close()
 
 
-@app.on_event("startup")
 def _purge_old_email_logs() -> None:
     """Ruim bij opstart e-mailloggen op die ouder zijn dan de bewaartermijn
     (#328). Mag het opstarten nooit breken — fouten worden enkel gelogd."""

@@ -21,16 +21,6 @@ class FamilyMemberCreate(BaseModel):
         return self.gender_code or self.gender
 
 
-class FamilyMemberUpdate(BaseModel):
-    last_name: Optional[str] = None
-    first_name: Optional[str] = None
-    date_of_birth: Optional[date] = None
-    gender: Optional[str] = None
-    email: Optional[str] = None
-    phone: Optional[str] = None
-    relation_type: Optional[str] = None
-
-
 class FamilyMemberResponse(BaseModel):
     id: int
     last_name: str

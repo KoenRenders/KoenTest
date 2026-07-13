@@ -34,44 +34,6 @@ class PersonResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class AddressCreate(BaseModel):
-    street: str
-    house_number: str
-    bus_number: Optional[str] = None
-    postal_code_id: int
-
-
-class AddressResponse(BaseModel):
-    id: int
-    person_id: int
-    street: str
-    house_number: str
-    bus_number: Optional[str] = None
-    postal_code_id: int
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
-class ContactDetailCreate(BaseModel):
-    contact_type_code: str
-    value: str
-    is_primary: bool = False
-
-
-class ContactDetailResponse(BaseModel):
-    id: int
-    person_id: int
-    contact_type_code: str
-    value: str
-    is_primary: bool
-    created_at: datetime
-    updated_at: datetime
-
-    model_config = {"from_attributes": True}
-
-
 class MemberCreate(BaseModel):
     persons: List[PersonCreate] = []
 
@@ -100,7 +62,6 @@ class MembershipResponse(BaseModel):
     updated_at: datetime
 
     model_config = {"from_attributes": True}
-
 
 
 class FamilyMemberResponse(BaseModel):
