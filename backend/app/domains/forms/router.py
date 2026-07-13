@@ -34,7 +34,7 @@ from app.domains.forms.schemas import (
 from app.domains.forms.service import build_answers, assert_open_for_submission
 from app.domains.forms.results import compute_results
 from app.domains.forms.export import export_ods, build_submissions_view
-from app.services.email import send_form_confirmation
+from app.domains.mail.api import send_form_confirmation
 
 logger = logging.getLogger(__name__)
 

@@ -32,7 +32,7 @@ from app.schemas.activity import (
     RegistrationItemUpdate,
     RegistrationRemarksUpdate,
 )
-from app.services.email import send_activity_registration_confirmation
+from app.domains.mail.api import send_activity_registration_confirmation
 from app.services.registration_totals import compute_registration_total
 from app.config import settings
 from app.domains.payment_status.service import (

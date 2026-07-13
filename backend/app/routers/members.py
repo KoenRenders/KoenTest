@@ -48,7 +48,7 @@ from app.domains.audit.service import (
     snapshot_contact_detail,
 )
 from app.soft_delete import soft_delete
-from app.services.email import send_registration_confirmation
+from app.domains.mail.api import send_registration_confirmation
 from app.config import settings
 from app.limiter import registration_limiter
 

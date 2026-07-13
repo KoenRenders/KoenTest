@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_admin
 from app.database import get_db
-from app.models.email_log import EmailLog
+from app.domains.mail.models import EmailLog
 from app.models.user import User
 from app.schemas.email_log import EmailLogPage
 

@@ -23,7 +23,7 @@ from app.schemas.auth import (
     AuthMeResponse,
     MemberMeResponse,
 )
-from app.services.email import send_magic_link, send_member_contact_board_notice
+from app.domains.mail.api import send_magic_link, send_member_contact_board_notice
 from app.services.member_auth import (
     find_persons_by_email,
     resolve_household,

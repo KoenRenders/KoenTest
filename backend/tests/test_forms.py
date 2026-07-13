@@ -2,7 +2,7 @@
 import os
 
 from app.database import SessionLocal
-from app.models.email_log import EmailLog
+from app.domains.mail.models import EmailLog
 from app.domains.forms.models import FormSubmission, FormSubmissionAnswer
 
 

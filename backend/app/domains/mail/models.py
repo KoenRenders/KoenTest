@@ -6,7 +6,7 @@ from app.database import Base
 
 
 # Toegestane types — houd in sync met de CHECK in migratie 062 en met de
-# `email_type`-waarden die de mailfuncties in app/services/email.py meegeven.
+# `email_type`-waarden die de mailfuncties in app/domains/mail/service.py meegeven.
 EMAIL_TYPES = (
     "membership_confirmation",
     "activity_confirmation",
@@ -26,12 +26,13 @@ EMAIL_STATUSES = ("sent", "failed", "skipped")
 class EmailLog(Base):
     """Centrale log van élke uitgaande e-mail (#328).
 
-    Geschreven vanuit het ene choke point ``_send`` in app/services/email.py, zodat
+    Geschreven vanuit het ene choke point ``_send`` in app/domains/mail/service.py, zodat
     alle mailstromen (lidmaatschap, activiteit, idee, login, formulier) automatisch
     gelogd worden zonder de routers aan te raken. Bewust **geen** FK naar Person/
     Member — losgekoppeld; ``recipient`` is gewoon het adres."""
 
     __tablename__ = "email_log"
+    __table_args__ = {"schema": "mail"}
 
     id = Column(Integer, primary_key=True, index=True)
     recipient = Column(String(255), nullable=False)

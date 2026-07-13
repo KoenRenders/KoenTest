@@ -12,6 +12,8 @@ MODULES = [
     "app.domains.forms.router",
     "app.domains.forms.ui",
     "app.domains.workflow.ui",
+    "app.domains.mail.api",
+    "app.domains.mail.router",
     # Schemas
     "app.schemas.member",
     "app.schemas.family",
@@ -20,7 +22,6 @@ MODULES = [
     "app.routers.auth",
     "app.routers.members",
     "app.routers.activities",
-    "app.routers.ideas",
     "app.routers.cms",
     "app.routers.admin",
     "app.routers.media",
