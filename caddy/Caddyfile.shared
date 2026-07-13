@@ -61,6 +61,9 @@
 	handle /admin/leden-import* {
 		reverse_proxy uat-backend:8000
 	}
+	handle /admin/betalingen* {
+		reverse_proxy uat-backend:8000
+	}
 	handle {
 		reverse_proxy uat-frontend:3000
 	}
@@ -107,6 +110,9 @@
 		reverse_proxy prod-backend:8000
 	}
 	handle /admin/leden-import* {
+		reverse_proxy prod-backend:8000
+	}
+	handle /admin/betalingen* {
 		reverse_proxy prod-backend:8000
 	}
 	handle {

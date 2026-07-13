@@ -38,6 +38,7 @@ def _ctx(request: Request, db: Session) -> dict:
         "nav_items": [
             {"href": "/admin/werkbank", "label": "Werkbank", "active": False},
             {"href": "/admin/leden", "label": "Leden", "active": False},
+            {"href": "/admin/betalingen", "label": "Betalingen", "active": False},
             {"href": "/admin/e-maillog", "label": "E-maillog", "active": True},
         ],
     }
