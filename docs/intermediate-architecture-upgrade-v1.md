@@ -22,8 +22,9 @@ De **kernbeslissingen** in één zin elk (details/ADR's staan in de genoemde sec
 4. **MDM**: nooit hard verwijderen — merge/survivorship + tombstone; anderen
    verwijzen via soft-refs (§6).
 5. **membership = eigen component**, zuster van activities (§5.4).
-6. **Multi-tenant = rij-niveau `tenant_id`**, aparte site per unit; **uitrol pas bij
-   een concrete tweede tenant** (§7, §14).
+6. **Multi-tenant = rij-niveau `tenant_id`**, aparte site per unit (hostname
+   canoniek; pad-prefix onder `renko.be` voor units zonder domein); **in scope
+   van v2.0** — trigger vervuld door de voorbeeldafdeling (§7, §14).
 7. **workflow + werkbank**: taken sluiten door toestand, zero-touch als norm,
    BPMN/DMN als taal, niet als motor (§20).
 8. **Frontend = htmx + Jinja + Alpine (BESLIST)**; React-schermen klappen per
@@ -35,7 +36,8 @@ De **kernbeslissingen** in één zin elk (details/ADR's staan in de genoemde sec
 
 **Kritiek pad** (§14): **H** (deploy-vangnet — beschermt geld, eerst) → **F**
 (fundering) → **0** (forms-sjabloon) → **micro-pilot htmx** (berichten-scherm) →
-1–4; **5** (tenancy) trigger-gated. O en T liften mee waar goedkoop.
+1–4; **5** (tenancy, trigger vervuld: voorbeeldafdeling — in v2.0). O en T
+liften mee waar goedkoop.
 
 **Waar staat wat**: componenten §3–§6 · tenancy §7 · grenzen/tests/conventies
 §8–§12 · codestructuur & build §13 · plan §14 · beslissingen §15 · waarom §16–§17 ·
@@ -330,16 +332,28 @@ flowchart TB
 - **Infra/technologie** (DB-wachtwoord, IP, SSH, `SECRET_KEY`, proxy/CA) → **`.env`**.
 
 ### Merk-autonomie & SEO — aparte site per unit
-Harde eis: **elke unit is een zelfstandig indexerende site** (Google/Bing/Qwant) → een
-**eigen host per unit** (geen pad-prefix):
-- **Eigen domein** (`raakmillegem.be`, `raakx.be`) — aanrader, sterkste scheiding +
-  domain authority. **Subdomein** kan ook. **Pad-prefix valt af** (dat is één site).
-- **Hostname-resolutie** (Next.js middleware) → tenant; per unit een **canonical
-  base-URL** in de per-tenant config. Cert/DNS per host via Caddy. Overstap subdomein →
-  domein = config + DNS + **301-redirects**, geen code.
-- **SEO is een afgeleide**: `generateMetadata`, `Organization`-JSON-LD, `sitemap.xml` en
-  `robots.txt` lezen de actieve tenant. Content is al tenant-scoped (CMS + activiteiten).
-  De issues #320 (JSON-LD) en #322 (og:image) worden zo **per unit**.
+Harde eis: **elke unit die wil scoren, is een zelfstandig indexerende site**
+(Google/Bing/Qwant) → een **eigen host per unit** als canoniek adres.
+**Herzien 2026-07-13** (v2.0-beslissing): naast hostname-resolutie komt er een
+**pad-prefix-resolutie onder het platformdomein `renko.be`** voor units zónder
+eigen domein:
+- **Eigen domein** (`raakmillegem.be`) — aanrader, sterkste scheiding + domain
+  authority; **canonical base-URL** per unit in de tenant-config.
+- **Platform-pad** (`renko.be/raakmillegem`, `renko.be/raakvoorbeeldafdeling`) —
+  tweede resolutiemechanisme; heeft een unit óók een eigen domein, dan is dát
+  canoniek (canonical-tag/301 vanaf het pad — geen dubbele indexering); een
+  demo-/voorbeeldunit staat op `noindex`.
+- **`renko.be` zelf (root)** = platform-landingspagina ("Raak Digital
+  Platform"): de afdelingen + word-ook-afdeling; de voorbeeldafdeling is er de
+  showcase (demo-seed: voorbeeldactiviteiten + demo-formulier; Mollie
+  **test-mode**-key per tenant-config).
+- **Resolutievolgorde**: hostname → pad-prefix; per unit één canonieke URL.
+  Cert/DNS per host via Caddy; overstap pad → eigen domein = config + DNS +
+  301's, geen code.
+- **SEO is een afgeleide**: metadata, `Organization`-JSON-LD, `sitemap.xml` en
+  `robots.txt` lezen de actieve tenant. Content is al tenant-scoped (CMS +
+  activiteiten). De issues #320 (JSON-LD) en #322 (og:image) worden zo **per
+  unit**.
 
 ---
 
@@ -548,8 +562,10 @@ contract-/integratietests → frontend-feature → CONTRACT.md`.
 verhuizen) → F (fundering) → Fase 0 (forms-sjabloon) → **P (micro-pilot htmx)** →
 mail/auth → MDM. De rest kan grotendeels **parallel** zodra fundering + sjabloon
 staan — met een harde grens: **maximaal 2–3 componenten tegelijk in uitvoering**
-(focus verslaat doorloop; half-verhuisde componenten zijn de duurste toestand). **Fase 5 (tenancy) is trigger-gated**: voorbereiding (kernel-mixin) hoort
-bij F, de uitrol start pas bij een concrete tweede tenant.
+(focus verslaat doorloop; half-verhuisde componenten zijn de duurste toestand). **Fase 5 (tenancy): trigger vervuld (2026-07-13)** — v2.0 bevat integrale
+multi-tenancy met twee tenants: **Raak Millegem** (`raakmillegem.be` +
+`renko.be/raakmillegem`) en **Raak voorbeeldafdeling**
+(`renko.be/raakvoorbeeldafdeling`, noindex).
 
 | Blok | Werkpakketten | Status |
 |---|---|---|
@@ -560,7 +576,7 @@ bij F, de uitrol start pas bij een concrete tweede tenant.
 | **2 · MDM** | MDM (+ `external_numbers`) + schema/keten; merge/survivorship; soft-ref-patroon | nieuw |
 | **3 · Payments** | `domains/payments` (gateway+status) + FINANCE-refund; **wees-record-check** op `payable_id` (§19) | nieuw |
 | **4 · Domeinen** | membership (+`is_member`); activities; workflow + IdeaBox; media; cms; chatbot | nieuw |
-| **5 · Multi-tenant** (**trigger: concrete tweede tenant**) | organizations (ACCOUNT/UNIT); per-tenant config/secrets-store; `tenant_id` per app + context + rollen; meerdere accounts + hostname-resolutie + per-unit SEO | nieuw |
+| **5 · Multi-tenant** (trigger vervuld 2026-07-13: voorbeeldafdeling) | organizations (ACCOUNT/UNIT); per-tenant config/secrets-store; `tenant_id` per app + context + rollen; meerdere accounts + hostname-resolutie + per-unit SEO | nieuw |
 | **6 · Extractie** | STT → externe service (bij driver) | nieuw |
 | **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, CSP zonder unsafe-inline/eval, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`); observability (error-tracking/logs/uptime/alerts); restore-oefening per release; rate-limiter-1-worker-aanname borgen | nieuw |
 | **O · Opruiming** (§19, kan vóór alles) | `business_events` verwijderen; `domains/common/` + stale docs weg; dead-endpoint-sweep. (`ideas` → formulier + minimale workflow verhuist naar fase 4: vereist de workflow-component) | nieuw |
@@ -573,7 +589,7 @@ bij F, de uitrol start pas bij een concrete tweede tenant.
 - **0**: forms leeft in `domains/forms` met eigen schema, linter groen, golden flow groen.
 - **P**: berichten-scherm live op HDEV in htmx; §21.4-meetlat ingevuld → go/no-go voor de bredere omklap.
 - **1–4**: per component zelfde definitie als 0 (map + schema + contract + tests groen); werkbank-v1 = taken tonen/sluiten voor de berichten-workflow.
-- **5**: een tweede tenant draait productief op een eigen hostname zonder codewijziging.
+- **5**: Millegem én de voorbeeldafdeling draaien op hun eigen adres (hostname- + pad-resolutie) zonder codewijziging per tenant.
 - **O/T**: register-items afgevinkt; T = geen ongemarkeerde gebruikersstrings meer in nieuwe code (lint-gate aan).
 - **W**: eerste levenscyclus-flow (na-eerste-deelname) draait zero-touch met werkbank-review; conversie en bespaarde uren worden gemeten (§23.5).
 
@@ -588,7 +604,8 @@ bij F, de uitrol start pas bij een concrete tweede tenant.
 
 - ✅ **Package-by-domain**; facade `api.py`; grens via **import-linter**.
 - ✅ **Frontend-eindbeeld = één taal, server-rendered (htmx + Jinja + Alpine)** via
-  het pilotpad; form-builder het langst als React-eiland; JSON/OpenAPI-facade
+  het pilotpad; form-builder server-side herbouwd (lijstgebaseerd, 2026-07-13);
+  JSON/OpenAPI-facade
   blijft — volledig ADR in **§21.5**.
 - ✅ **Taalbeleid: Engels binnenin, weergave via Babel** (nl-BE eerst) — code/DB/
   tests/technische docs Engels; alle gebruikerstekst door de catalogus; Babel
@@ -614,7 +631,10 @@ bij F, de uitrol start pas bij een concrete tweede tenant.
 - ✅ **Org-model generiek** (`ACCOUNT_ADMIN`, `legal_form` als data).
 - ✅ **Config-scheiding**: per-tenant config/secrets in DB (secrets versleuteld); infra
   in `.env`.
-- ✅ **Aparte site per unit** (eigen host, hostname-resolutie; geen pad-prefix).
+- ✅ **Aparte site per unit** — herzien 2026-07-13: eigen host = canoniek;
+  **pad-prefix onder `renko.be`** als tweede resolutiemechanisme voor units
+  zonder eigen domein (canonical/301 voorkomt dubbele indexering; demo-unit
+  op noindex).
 - ✅ **Frontend per fase/component** (templates + `ui.py` in de component-map, §13.1).
 
 ---
@@ -1112,7 +1132,7 @@ wezenlijk niet "React of htmx" maar **"twee talen (SPA + API) of één taal
 | Dimensie | React/Next (huidig) | htmx + Jinja (+ Alpine) | Weging |
 |---|---|---|---|
 | **Browser-compat** | Build/transpile regelt het | Gewone HTML over de draad; htmx ondersteunt alle moderne browsers | Non-issue, beide kanten |
-| **Rijke UX** | Alles kan | 95% van CRUD/formulieren prima (autocomplete, totalen, modals, wizards); **echt rijke client-state** (drag&drop-formulierbouwer!) is de uitzondering | htmx dekt bijna alles; de **form-builder** is óns moeilijkste scherm → als React-eiland behouden kan |
+| **Rijke UX** | Alles kan | 95% van CRUD/formulieren prima (autocomplete, totalen, modals, wizards); **echt rijke client-state** (drag&drop) is de uitzondering | htmx dekt bijna alles; de **form-builder** wordt server-side herbouwd als lijstgebaseerde builder (beslist 2026-07-13) |
 | **i18n** | react-i18next e.d. | Server-side i18n (gettext/Babel) is het oudste, rijpste model dat bestaat | Non-issue; server-side eerder een vóórdeel |
 | **Security** | JWT in localStorage (zwakte, §19.1); XSS-oppervlak via `dangerouslySetInnerHTML` (gesaneerd) | HttpOnly-sessiecookie (beter), Jinja auto-escape; **vereist wel klassieke CSRF-tokens** | Licht voordeel htmx, mits CSRF correct |
 | **Performance** | Meer JS naar de client | Minder JS → sneller op goedkope toestellen; server rendert meer (verwaarloosbaar op onze schaal) | Licht voordeel htmx |
@@ -1157,7 +1177,8 @@ Conclusie: er is geen verborgen betere derde weg; het speelveld is
 2. **Meet**: ontwikkelsnelheid (AI-assisted), regels code, gedrag op mobiel,
    en of de facade-discipline standhoudt (import-linter op UI-routes).
 3. **Beslis per shell** (21.3-hybride is een geldig eindstation); de
-   form-builder blijft in elk scenario het langst een React-eiland.
+   form-builder: herbouwd als server-side, lijstgebaseerde builder (beslist
+   2026-07-13 — optie a); JSON-import + AI-formaatgids is het vluchtluik.
 4. **Onvoorwaardelijk, nu al**: JSON-facade/OpenAPI als contract behouden (21.2)
    en de UI-kit-inspanning (§11) technologie-neutraal formuleren (patronen en
    tokens, niet React-componenten alléén) — dan is niets van dat werk weggegooid,
@@ -1168,8 +1189,9 @@ Conclusie: er is geen verborgen betere derde weg; het speelveld is
    Al beslist: **file-upload = geen eiland** (gewoon multipart-formulier,
    voortgang via htmx-events volstaat) en **dashboard = geen eiland**
    (server-gerenderde SVG volstaat voor tellers/staafjes). Verwachte échte
-   eilanden blijven beperkt tot: form-builder (drag&drop), eventueel een
-   interactieve grafiek, en ooit het offline scanscherm (21.7).
+   eilanden blijven beperkt tot: eventueel een interactieve grafiek en ooit
+   het offline scanscherm (21.7) — de form-builder is er sinds 2026-07-13 géén
+   meer (server-side herbouwd, optie a).
 
 ### 21.5 Beslissing & waarom (ADR)
 
@@ -1196,7 +1218,10 @@ Conclusie: er is geen verborgen betere derde weg; het speelveld is
 - **Uitvoering**: pilotpad 21.4 — nú niets herbouwen; **berichten-scherm als
   micro-pilot direct na Fase 0** (blok P), werkbank (fase 4) als tweede toets;
   daarna admin per component op natuurlijke
-  momenten; publieke site als laatste; form-builder het langst als React-eiland;
+  momenten; publieke site als laatste; form-builder: **herbouwd als
+  server-side, lijstgebaseerde builder** (beslist 2026-07-13, v2.0 — optie a;
+  drag&drop vervalt, op-/aflopen met knoppen; JSON-import + AI-formaatgids als
+  vluchtluik);
   JSON/OpenAPI-facade blijft onvoorwaardelijk. De hybride periode is begrensd
   doordat het omklappen meelift met de modularisatie-fases. **Eindstreep,
   meetbaar**: de frontend-container (Next/Node) vervalt — de stack gaat per
