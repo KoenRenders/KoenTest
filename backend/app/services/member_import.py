@@ -30,7 +30,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session, joinedload
 
-from app.models.member import Membership
+from app.domains.membership.api import Membership
 from app.domains.mdm.api import Member, Person, MemberPerson
 from app.domains.mdm.api import Address
 from app.domains.mdm.api import ContactDetail

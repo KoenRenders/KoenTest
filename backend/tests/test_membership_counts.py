@@ -11,7 +11,7 @@ from app.domains.payment.api import current_membership_counts
 
 
 def _household(db, n_persons=1, *, is_active=True, valid_from=None, valid_to=None):
-    from app.models.member import Membership
+    from app.domains.membership.api import Membership
     from app.domains.mdm.api import Member, Person, MemberPerson
 
     today = date.today()
@@ -64,7 +64,7 @@ def test_counts_exclude_soft_deleted_person(db_session):
 
 def test_counts_exclude_soft_deleted_membership(db_session):
     from app.soft_delete import soft_delete
-    from app.models.member import Membership
+    from app.domains.membership.api import Membership
 
     db = db_session
     today = date.today()

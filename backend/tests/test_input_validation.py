@@ -30,7 +30,7 @@ def test_family_registration_rejects_invalid_input(client, db_session, payload, 
 
 def test_factory_create_test_family(db_session):
     """De gedeelde factory levert een bruikbaar gezin + hoofdlid op."""
-    from app.services.membership import has_valid_membership
+    from app.domains.membership.api import has_valid_membership
     member, person = create_test_family(db_session, email="factory@example.com")
     assert member.id is not None and person.id is not None
     # Vers gezin zonder lidmaatschap → geen geldig lidmaatschap.

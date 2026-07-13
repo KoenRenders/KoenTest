@@ -5,7 +5,7 @@ from datetime import date
 
 from app.domains.payment.api import PaymentRecord
 from app.models.activity import Activity, Registration
-from app.models.member import Membership
+from app.domains.membership.api import Membership
 from app.domains.mdm.api import Member, Person
 from app.domains.auth.api import User
 from tests.conftest import seed_activity_with_product, seed_postal_code

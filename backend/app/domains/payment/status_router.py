@@ -97,7 +97,7 @@ def list_all_payment_records(
         elif r.payable_type == "membership":
             # payable_id is de Membership.id (niet de Member.id) — eerst het
             # lidmaatschap ophalen voor het jaar, dan het gezin + hoofdlid (#141).
-            from app.models.member import Membership
+            from app.domains.membership.api import Membership
             ms = _q(Membership).filter(Membership.id == r.payable_id).first()
             description = f"Lidmaatschap {ms.year}" if ms else "Lidmaatschap"
             membership_year = ms.year if ms else None

@@ -32,17 +32,6 @@ class HistoryMixin:
     recorded_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False, index=True)
 
 
-class MembershipHistory(HistoryMixin, Base):
-    __tablename__ = "membership_history"
-
-    membership_id = Column(Integer, nullable=False, index=True)
-    member_id = Column(Integer, nullable=True, index=True)
-    year = Column(Integer, nullable=True)
-    is_active = Column(Boolean, nullable=True)
-    valid_from = Column(Date, nullable=True)
-    valid_to = Column(Date, nullable=True)
-
-
 class RegistrationItemHistory(HistoryMixin, Base):
     """Append-only audit van bestelregels (#84): elke insert/update/delete van een
     RegistrationItem, zodat wijzigingen aan een bestelling ná betaling traceerbaar

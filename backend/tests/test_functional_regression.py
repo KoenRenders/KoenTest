@@ -22,7 +22,7 @@ def test_family_registration_happy_path_writes_data_and_audit(client, db_session
     resp = client.post("/api/v1/families", json=_family_payload())
     assert resp.status_code == 201, resp.text
 
-    from app.models.member import Membership
+    from app.domains.membership.api import Membership
     from app.domains.mdm.api import Member, Person
     from app.domains.payment.api import PaymentRecord
     from app.domains.payment.api import PaymentRecordHistory
@@ -46,7 +46,7 @@ def test_payment_overview_membership_shows_family_and_year(client, db_session, a
     seed_postal_code(db_session)
     assert client.post("/api/v1/families", json=_family_payload(email="overview@example.com")).status_code == 201
 
-    from app.models.member import Membership
+    from app.domains.membership.api import Membership
     ms = db_session.query(Membership).first()
 
     resp = client.get("/api/v1/payment-status/records", headers=admin_headers)

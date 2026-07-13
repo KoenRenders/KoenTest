@@ -3,6 +3,7 @@ import sys
 
 MODULES = [
     # Domain modules
+    "app.domains.membership.api",
     "app.domains.payment.api",
     "app.domains.payment.router",
     "app.domains.payment.ui",

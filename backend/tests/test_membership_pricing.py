@@ -22,7 +22,7 @@ def seed_household(db, email, *, is_active=True, valid_from=None, valid_to=None,
                    with_membership=True):
     """Eén gezin met één hoofdlid-persoon (e-mail als EMAIL-contact) en optioneel
     een lidmaatschap met opgegeven geldigheid."""
-    from app.models.member import Membership
+    from app.domains.membership.api import Membership
     from app.domains.mdm.api import Member, Person, MemberPerson
     from app.domains.mdm.api import ContactDetail
 
@@ -166,7 +166,7 @@ def test_logged_in_registration_links_person(client, db_session):
 # ── service-laag ───────────────────────────────────────────────────────────────
 
 def test_has_valid_membership_service(db_session):
-    from app.services.membership import has_valid_membership
+    from app.domains.membership.api import has_valid_membership
 
     assert has_valid_membership(None) is False
 
