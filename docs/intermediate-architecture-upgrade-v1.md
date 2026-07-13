@@ -3,7 +3,9 @@
 > Werkdocument. Denkkader voor de tussenstap naar een **modulair, multi-tenant
 > ERP/portaal/CRM**: domeinmodules met een facade + eigen Postgres-schema (en, waar
 > afsplitsbaar, een eigen migratieketen), afgedwongen grenzen, en per-tenant merk-
-> autonomie. Nog **geen** release toegewezen. Gerelateerd: epic **#366** (#360–#365).
+> autonomie. Nog **geen** release toegewezen. (De oorspronkelijke epic #366 met
+> #360–#365 is 2026-07-10 gesloten als achterhaald — dít document is de bron;
+> issues worden bij de start vers uit §14 aangemaakt.)
 
 ---
 
@@ -538,7 +540,7 @@ eigen contract (`CONTRACT.md`, §12).
 
 ## 14. Roadmap & backlog
 
-**Nog geen issues aangemaakt** — dit wordt op go sub-issues onder #366. Vast sjabloon
+**Nog geen issues aangemaakt** — dit wordt op go een verse epic + sub-issues, rechtstreeks uit deze tabel (de oude epic #366/#360–#365 is gesloten als achterhaald). Vast sjabloon
 per component-PR: `facade → import-linter → eigen schema (+ keten waar afsplitsbaar) →
 contract-/integratietests → frontend-feature → CONTRACT.md`.
 
@@ -552,14 +554,14 @@ bij F, de uitrol start pas bij een concrete tweede tenant.
 | Blok | Werkpakketten | Status |
 |---|---|---|
 | **F · Fundering** | kernel optrekken (events/contracts/tenancy-mixin/history/security/**job-primitief §5.8**); import-linter-harness (mág ook één pytest van ~20 regels zijn die de import-graph tegen de laagregels toetst — geen nieuwe tool waar een test volstaat); component-scaffold + `CONTRACT.md`-template; test-harness (contract + golden-flow); UI-kit als **design-tokens + Jinja-macro's** (§21; basis-set, groeit per omklap) | nieuw |
-| **0 · Form-sjabloon** | forms→`domains/forms` + facade; import-linter; schema `form` + handoff; integratietests (géén 2e keten — §15) | **#360–#363** |
+| **0 · Form-sjabloon** | forms→`domains/forms` + facade; import-linter; schema `form` + handoff; integratietests (géén 2e keten — §15) | nieuw |
 | **P · Micro-pilot htmx** (direct na 0) | het **berichten/behartigen-scherm** (§5.7) als eerste htmx/Jinja/Alpine-scherm: base-layout, sessie-auth-pad, CSRF-conventie, eerste macro's; **inclusief de minimale workflow-kern** (één taak, sluit door toestand) als embryo van de latere workflow-component — P wacht dus níét op Fase 4; meetlat van §21.4 toegepast — dít valideert de frontend-keuze vóór de dure blokken | nieuw |
 | **1 · Cross-cutting** | mail-component; auth-component (laag 1) | nieuw |
 | **2 · MDM** | MDM (+ `external_numbers`) + schema/keten; merge/survivorship; soft-ref-patroon | nieuw |
-| **3 · Payments** | `domains/payments` (gateway+status) + FINANCE-refund; **wees-record-check** op `payable_id` (§19) | **#365** |
+| **3 · Payments** | `domains/payments` (gateway+status) + FINANCE-refund; **wees-record-check** op `payable_id` (§19) | nieuw |
 | **4 · Domeinen** | membership (+`is_member`); activities; workflow + IdeaBox; media; cms; chatbot | nieuw |
 | **5 · Multi-tenant** (**trigger: concrete tweede tenant**) | organizations (ACCOUNT/UNIT); per-tenant config/secrets-store; `tenant_id` per app + context + rollen; meerdere accounts + hostname-resolutie + per-unit SEO | nieuw |
-| **6 · Extractie** | STT → externe service (bij driver) | **#364** |
+| **6 · Extractie** | STT → externe service (bij driver) | nieuw |
 | **H · Operationele hardening** (§19, kan vóór alles) | deploy-vangnet (pre-migratie-backup, smoke als gate, rollback-runbook); security-batch (non-root containers, OTP-hash, JWT-TTL/HttpOnly, CSP zonder unsafe-inline/eval, blokkerende audit); CI-gates vervroegen (vitest-gate, e2e-geldflow blokkerend, `alembic check`); observability (error-tracking/logs/uptime/alerts); restore-oefening per release; rate-limiter-1-worker-aanname borgen | nieuw |
 | **O · Opruiming** (§19, kan vóór alles) | `business_events` verwijderen; `domains/common/` + stale docs weg; dead-endpoint-sweep. (`ideas` → formulier + minimale workflow verhuist naar fase 4: vereist de workflow-component) | nieuw |
 | **T · Taalbeleid** (§22, kan vóór alles) | Babel + `nl_BE`-catalogus; backend-teksten (e-mails, validatie, ODS-koppen) door `_()`; extract/lint-gate in CI; nieuwe code/DB/tests Engels | nieuw |
