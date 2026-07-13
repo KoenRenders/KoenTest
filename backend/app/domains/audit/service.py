@@ -9,9 +9,9 @@ verwijdering vóór de ``db.delete(...)`` zodat de bron nog uitleesbaar is.
 from typing import Optional
 from sqlalchemy.orm import Session
 
+from app.domains.payment.api import PaymentRecordHistory
 from app.models.history import (
     MembershipHistory,
-    PaymentRecordHistory,
     RegistrationItemHistory,
     ActivityHistory,
     ActivityDateHistory,

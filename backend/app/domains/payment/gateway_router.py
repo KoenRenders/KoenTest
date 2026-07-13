@@ -4,8 +4,8 @@ from app.database import get_db
 from app.domains.auth.api import get_current_admin
 from app.domains.auth.api import User
 from .models import GatewayPayment
-from .service import refresh_payment_status
-from app.domains.payment_status.service import handle_gateway_update
+from .gateway_service import refresh_payment_status
+from .service import handle_gateway_update
 from app.limiter import mollie_webhook_limiter
 
 router = APIRouter(prefix="/payment-gateway", tags=["payment-gateway"])

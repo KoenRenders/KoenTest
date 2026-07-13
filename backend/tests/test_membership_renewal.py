@@ -42,7 +42,7 @@ def test_manual_payment_confirmation_activates_membership(client, db_session, ad
     seed_postal_code(db_session)
     assert client.post("/api/v1/families", json=_family_payload(email="manualpay@example.com")).status_code == 201
 
-    from app.domains.payment_status.models import PaymentRecord
+    from app.domains.payment.api import PaymentRecord
     from app.models.member import Membership
 
     rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "membership").first()
@@ -70,7 +70,7 @@ def test_renew_creates_inactive_membership_and_checkout(client, db_session, mock
     assert resp.json()["checkout_url"].startswith("https://mollie.test")
 
     from app.models.member import Membership
-    from app.domains.payment_status.models import PaymentRecord
+    from app.domains.payment.api import PaymentRecord
     ms = db_session.query(Membership).filter(Membership.member_id == member.id).first()
     assert ms is not None and ms.is_active is False  # pas actief na betaling
     rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "membership").first()
@@ -88,8 +88,8 @@ def test_membership_payment_description_uses_raak_not_kwb(client, db_session, mo
     """De Mollie-omschrijving van een lidmaatschap-betaling vermeldt 'Raak
     Millegem', niet 'KWB' (#286)."""
     from app.config import settings
-    from app.domains.payment_gateway.providers import mollie
-    from app.domains.payment_gateway.providers.base import PaymentResult
+    from app.domains.payment.providers import mollie
+    from app.domains.payment.providers.base import PaymentResult
 
     captured = {}
 
@@ -124,7 +124,7 @@ def test_double_renew_is_refused(client, db_session, mock_mollie):
     Het venster staat open en het lid is nog geldig (vroeg hernieuwen)."""
     from app.config import settings
     from app.models.member import Membership
-    from app.domains.payment_status.models import PaymentRecord
+    from app.domains.payment.api import PaymentRecord
 
     email = "double@example.com"
     member, _person = seed_household(db_session, email)  # actief, geldig dit jaar
@@ -175,7 +175,7 @@ def test_early_renew_while_valid_targets_next_year(client, db_session, mock_moll
     assert this_year + 1 in years
 
     # Een hernieuwing dekt een vol jaar → altijd volle prijs (geen halve-prijs-venster).
-    from app.domains.payment_status.models import PaymentRecord
+    from app.domains.payment.api import PaymentRecord
     rec = (
         db_session.query(PaymentRecord)
         .filter(PaymentRecord.payable_type == "membership")

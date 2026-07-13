@@ -23,7 +23,7 @@ from app.config import settings
 from app.models.chatbot_info import ChatbotInfo
 from app.models.cms import CmsPage
 from app.services.cms_render import _format_md, _format_price, render_cms_content
-from app.domains.payment_status.service import (
+from app.domains.payment.api import (
     current_membership_counts,
     membership_price_for_date,
     membership_valid_period,

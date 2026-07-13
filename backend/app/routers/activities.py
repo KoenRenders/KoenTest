@@ -35,7 +35,7 @@ from app.schemas.activity import (
 from app.domains.mail.api import send_activity_registration_confirmation
 from app.services.registration_totals import compute_registration_total
 from app.config import settings
-from app.domains.payment_status.service import (
+from app.domains.payment.api import (
     create_payment_record, registration_balance, reconcile_registration_charges,
 )
 from app.domains.analytics.service import log_business_event
@@ -996,7 +996,7 @@ def register_for_activity(
                 audit_source="registration",
             )
             if method == "online" and payment_record.gateway_payment_id:
-                from app.domains.payment_gateway.models import GatewayPayment
+                from app.domains.payment.api import GatewayPayment
                 gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
                 if gp:
                     checkout_url = gp.checkout_url

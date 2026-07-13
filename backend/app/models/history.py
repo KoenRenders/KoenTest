@@ -55,23 +55,6 @@ class RegistrationItemHistory(HistoryMixin, Base):
     quantity = Column(Integer, nullable=True)
 
 
-class PaymentRecordHistory(HistoryMixin, Base):
-    __tablename__ = "payment_record_history"
-
-    payment_record_id = Column(String(36), nullable=False, index=True)
-    payable_type = Column(String(50), nullable=True)
-    payable_id = Column(Integer, nullable=True)
-    amount = Column(Numeric(10, 2), nullable=True)
-    amount_paid = Column(Numeric(10, 2), nullable=True)
-    method = Column(String(20), nullable=True)
-    status = Column(String(20), nullable=True)
-    type = Column(String(10), nullable=True)          # charge / refund (#83)
-    refund_of_id = Column(String(36), nullable=True)  # charge die deze refund terugdraait (#83)
-    gateway_payment_id = Column(String(36), nullable=True)
-    note = Column(String(200), nullable=True)
-    paid_at = Column(DateTime(timezone=True), nullable=True)
-
-
 class ActivityHistory(HistoryMixin, Base):
     """Append-only audit van activiteiten (#189), incl. soft-delete."""
     __tablename__ = "activity_history"

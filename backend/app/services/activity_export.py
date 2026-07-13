@@ -11,7 +11,7 @@ Bevat persoons- en financiële data: enkel admin, nooit in de repo.
 from decimal import Decimal
 from typing import Tuple
 
-from app.domains.payment_status.service import get_records_for
+from app.domains.payment.api import get_records_for
 from app.services.registration_totals import compute_registration_total
 from app.services.ods_export import build_ods_multi
 

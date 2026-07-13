@@ -94,7 +94,7 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     from datetime import date
 
     from app.models.member import Membership
-    from app.domains.payment_status.service import (
+    from app.domains.payment.api import (
         membership_price_for_date,
         membership_valid_period,
         create_payment_record,
@@ -140,7 +140,7 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
 
     # Blokkeer een dubbele vernieuwingsprocedure als er al een niet-betaalde/
     # niet-geannuleerde PaymentRecord voor dit lid bestaat.
-    from app.domains.payment_status.models import PaymentRecord as PR
+    from app.domains.payment.api import PaymentRecord as PR
     existing_pending = (
         db.query(PR)
         .filter(PR.payable_type == "membership", PR.status.notin_(["paid", "cancelled", "failed"]))
@@ -206,7 +206,7 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
 
     checkout_url = None
     if payment_record.gateway_payment_id:
-        from app.domains.payment_gateway.models import GatewayPayment
+        from app.domains.payment.api import GatewayPayment
         gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
         if gp:
             checkout_url = gp.checkout_url

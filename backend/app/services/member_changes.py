@@ -13,9 +13,9 @@ from sqlalchemy.orm import Session
 
 from app.services.ods_export import build_ods
 
+from app.domains.payment.api import PaymentRecordHistory
 from app.models.history import (
     MembershipHistory,
-    PaymentRecordHistory,
     RegistrationItemHistory,
     ActivityHistory,
     ActivityDateHistory,

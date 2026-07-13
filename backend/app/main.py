@@ -28,8 +28,8 @@ from app.domains.mail.router import router as email_log_router
 from app.domains.mail.ui import router as email_log_ui_router
 from app.domains.mdm.ui import router as mdm_ui_router
 from app.domains.mail.handlers import retry_mail  # noqa: F401 - registreert de mail.retry-job (#399)
-from app.domains.payment_gateway.router import router as payment_gateway_router
-from app.domains.payment_status.router import router as payment_status_router
+from app.domains.payment.handlers import reconcile_orphans  # noqa: F401 - registreert payment.reconcile (#401)
+from app.domains.payment.router import router as payment_router
 
 configure_logging()
 
@@ -94,8 +94,7 @@ app.include_router(email_log_ui_router)
 app.include_router(mdm_ui_router)
 app.include_router(workflow_ui_router)
 app.include_router(email_log_router, prefix="/api/v1/admin")
-app.include_router(payment_gateway_router, prefix="/api/v1")
-app.include_router(payment_status_router, prefix="/api/v1")
+app.include_router(payment_router, prefix="/api/v1")
 
 
 # Server-rendered UI (#396, §21): statics (CSS + gevendorde htmx/Alpine) komen
@@ -154,9 +153,24 @@ def _start_kernel_jobs() -> None:
     """Start de kernel-jobs scheduler (#396) — het achtergrondwerk-primitief
     (§5.8). In tests uitgeschakeld via JOBS_ENABLED=false."""
     if settings.jobs_enabled:
-        from app.kernel.jobs import start_scheduler
+        from app.kernel.jobs import KernelJob, enqueue, start_scheduler
 
         start_scheduler()
+        # Wees-record-reconciliatie (#401): zorg dat er altijd precies één
+        # geplande payment.reconcile-job leeft (her-enqueuet zichzelf daarna).
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+        try:
+            pending = (db.query(KernelJob)
+                       .filter(KernelJob.name == "payment.reconcile",
+                               KernelJob.status.in_(["pending", "running"]))
+                       .count())
+            if not pending:
+                enqueue(db, "payment.reconcile", {})
+                db.commit()
+        finally:
+            db.close()
 
 
 @app.on_event("startup")

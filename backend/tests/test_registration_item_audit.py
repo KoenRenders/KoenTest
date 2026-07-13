@@ -12,7 +12,7 @@ import pytest
 from app.models.activity import Registration, RegistrationItem
 from app.models.activity_sub_registration import ActivityProduct
 from app.models.history import RegistrationItemHistory
-from app.domains.payment_status.models import PaymentRecord
+from app.domains.payment.api import PaymentRecord
 from tests.conftest import seed_activity_with_product
 
 

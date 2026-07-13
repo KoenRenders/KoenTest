@@ -5,7 +5,7 @@ betaling → terugbetaling → saldo settelt; verhogen → saldo blijft openstaa
 en een refund op een lidmaatschap-betaling (niet enkel registratie)."""
 from decimal import Decimal
 
-from app.domains.payment_status.models import PaymentRecord
+from app.domains.payment.api import PaymentRecord
 from app.models.activity import Registration, RegistrationItem
 from app.models.activity_sub_registration import ActivityProduct
 from app.models.member import Membership

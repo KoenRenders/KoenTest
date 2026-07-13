@@ -36,7 +36,7 @@ def _seed_payment(db, *, amount, amount_paid, type="charge", method="transfer",
     """Maak een PaymentRecord aan voor de omzet-/event-tests."""
     from decimal import Decimal
     from datetime import datetime, timezone
-    from app.domains.payment_status.models import PaymentRecord
+    from app.domains.payment.api import PaymentRecord
     rec = PaymentRecord(
         payable_type=payable_type, payable_id=payable_id,
         amount=Decimal(amount),
@@ -92,7 +92,7 @@ def test_family_registration_logs_event_linked_to_member(client, db_session):
     assert resp.status_code == 201, resp.text
 
     from app.domains.mdm.api import Member
-    from app.domains.payment_status.models import PaymentRecord
+    from app.domains.payment.api import PaymentRecord
     member = db_session.query(Member).first()
     rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "membership").first()
 
@@ -201,7 +201,7 @@ def test_business_event_stats_revenue_from_payment_records(client, db_session, a
 def test_confirm_manual_payment_logs_success_event(db_session):
     """Overschrijving/cash bevestigd via de admin moet óók een betaling_succes
     event loggen — anders mist het rapport alle niet-online betalingen."""
-    from app.domains.payment_status.service import confirm_manual_payment
+    from app.domains.payment.api import confirm_manual_payment
     charge = _seed_payment(db_session, amount="20.00", amount_paid=None, status="pending",
                            method="transfer")
     confirm_manual_payment(db_session, charge.id, actor="admin@test")
@@ -215,7 +215,7 @@ def test_confirm_manual_payment_logs_success_event(db_session):
 
 
 def test_settled_refund_logs_refund_event(db_session):
-    from app.domains.payment_status.service import create_refund
+    from app.domains.payment.api import create_refund
     from decimal import Decimal
     charge = _seed_payment(db_session, amount="20.00", amount_paid="20.00", payable_id=7)
     create_refund(db_session, charge.id, Decimal("20.00"), actor="admin@test")
@@ -227,7 +227,7 @@ def test_settled_refund_logs_refund_event(db_session):
 def test_pending_refund_logs_event_only_when_confirmed(db_session):
     """Een nog niet uitbetaalde terugbetaling (verplichting) logt nog niets; het
     event volgt pas wanneer de penningmeester de terugstorting bevestigt."""
-    from app.domains.payment_status.service import create_refund, confirm_manual_payment
+    from app.domains.payment.api import create_refund, confirm_manual_payment
     from decimal import Decimal
     charge = _seed_payment(db_session, amount="20.00", amount_paid="20.00", payable_id=8)
     refund = create_refund(db_session, charge.id, Decimal("20.00"), settled=False)
@@ -247,7 +247,7 @@ def test_revenue_30d_includes_amount_paid_without_paid_at(client, db_session, ad
     totaal; het 30d-venster (COALESCE paid_at, created_at) rekent het via het
     recente created_at mee, zodat totaal == 30d op een jonge app."""
     from decimal import Decimal
-    from app.domains.payment_status.models import PaymentRecord
+    from app.domains.payment.api import PaymentRecord
     rec = PaymentRecord(
         payable_type="registration", payable_id=99,
         amount=Decimal("65.00"), amount_paid=Decimal("65.00"),

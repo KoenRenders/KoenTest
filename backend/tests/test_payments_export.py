@@ -9,7 +9,7 @@ from odf.opendocument import load
 from odf.table import Table, TableRow, TableCell
 from odf.teletype import extractText
 
-from app.domains.payment_status.models import PaymentRecord
+from app.domains.payment.api import PaymentRecord
 from tests.conftest import seed_activity_with_product
 
 _EXPORT = "/api/v1/payment-status/records/export"

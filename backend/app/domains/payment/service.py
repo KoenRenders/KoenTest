@@ -132,7 +132,7 @@ def create_payment_record(
     audit_actor: Optional[str] = None,
 ) -> PaymentRecord:
     if method == "online":
-        from app.domains.payment_gateway.service import create_payment as gw_create
+        from app.domains.payment.gateway_service import create_payment as gw_create
         gp = gw_create(
             db=db,
             amount=amount,
@@ -223,6 +223,18 @@ def handle_gateway_update(
         # payable_type="membership", payable_id=membership.id.
         if new_status == "paid" and record.payable_type == "membership":
             _activate_membership(db, record.payable_id, source=source, actor=actor)
+        # Kernel-event (§5.8, trede 1): consumenten reageren op de bevestiging
+        # zonder dit component te importeren. Binnen dezelfde transactie; de
+        # idempotente no-op hierboven voorkomt dubbele publicatie.
+        if new_status == "paid":
+            from app.kernel.contracts.payment import PaymentSettled
+            from app.kernel.events import publish
+
+            publish(PaymentSettled(
+                payment_record_id=record.id, payable_type=record.payable_type,
+                payable_id=record.payable_id, amount=str(record.amount),
+                method=record.method,
+            ), db)
 
 
 def _activate_membership(db: Session, membership_id: int, source: str, actor: Optional[str]) -> None:

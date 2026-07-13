@@ -80,7 +80,7 @@ def test_membership_dedup_allows_after_failed_payment(client, db_session):
     assert first.status_code == 201
 
     # Zet het betaalrecord van die inschrijving op 'failed'.
-    from app.domains.payment_status.models import PaymentRecord
+    from app.domains.payment.api import PaymentRecord
     rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "membership").first()
     rec.status = "failed"
     db_session.flush()
@@ -147,7 +147,7 @@ def test_amount_paid_cannot_exceed_due(client, db_session, admin_headers):
     """Admin kan geen hoger betaald bedrag registreren dan verschuldigd."""
     seed_postal_code(db_session)
     client.post("/api/v1/families", json=_family_payload(email="pay@example.com"))
-    from app.domains.payment_status.models import PaymentRecord
+    from app.domains.payment.api import PaymentRecord
     rec = db_session.query(PaymentRecord).first()
 
     resp = client.patch(
@@ -162,7 +162,7 @@ def test_amount_paid_cannot_be_negative(client, db_session, admin_headers):
     """Admin kan geen negatief betaald bedrag registreren."""
     seed_postal_code(db_session)
     client.post("/api/v1/families", json=_family_payload(email="neg@example.com"))
-    from app.domains.payment_status.models import PaymentRecord
+    from app.domains.payment.api import PaymentRecord
     rec = db_session.query(PaymentRecord).first()
 
     resp = client.patch(
@@ -275,7 +275,7 @@ def test_admin_endpoints_require_auth(client):
 def test_payment_endpoint_admin_only_and_hides_checkout_url(client, db_session, admin_headers):
     """Het gateway-endpoint is admin-only (#146) en geeft nooit de betaallink terug."""
     from decimal import Decimal
-    from app.domains.payment_gateway.models import GatewayPayment
+    from app.domains.payment.api import GatewayPayment
     gp = GatewayPayment(
         provider="mollie", provider_payment_id="tr_x", amount=Decimal("10.00"),
         status="pending", checkout_url="https://mollie.test/checkout/tr_x",

@@ -7,7 +7,7 @@ onbetaalde/pending records zonder bedrag blijven verwijderbaar (#167).
 """
 from decimal import Decimal
 
-from app.domains.payment_status.models import PaymentRecord
+from app.domains.payment.api import PaymentRecord
 
 
 def _seed(db, *, method, status, amount="18.00", amount_paid="18.00", type="charge"):

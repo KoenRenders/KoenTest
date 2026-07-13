@@ -8,11 +8,11 @@ from decimal import Decimal
 
 import pytest
 
-from app.domains.payment_status.models import PaymentRecord
-from app.domains.payment_status.service import (
+from app.domains.payment.api import PaymentRecord
+from app.domains.payment.api import (
     create_refund, net_paid, registration_balance,
 )
-from app.models.history import PaymentRecordHistory
+from app.domains.payment.api import PaymentRecordHistory
 from tests.conftest import seed_activity_with_product
 
 

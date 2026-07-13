@@ -3,12 +3,8 @@ import sys
 
 MODULES = [
     # Domain modules
-    "app.domains.payment_gateway.models",
-    "app.domains.payment_gateway.service",
-    "app.domains.payment_gateway.router",
-    "app.domains.payment_status.models",
-    "app.domains.payment_status.service",
-    "app.domains.payment_status.router",
+    "app.domains.payment.api",
+    "app.domains.payment.router",
     "app.domains.forms.router",
     "app.domains.forms.ui",
     "app.domains.workflow.ui",
