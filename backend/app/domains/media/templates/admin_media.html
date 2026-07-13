@@ -1,0 +1,9 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}Media — Raak beheer{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold text-blue-800 mb-4">Media</h1>
+<div id="me-lijst">
+  {% include "_me_lijst.html" %}
+</div>
+{% endblock %}

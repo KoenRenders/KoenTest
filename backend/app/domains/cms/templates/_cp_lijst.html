@@ -1,0 +1,20 @@
+{% import "_macros.html" as ui %}
+{% if pages %}
+<ul class="space-y-2">
+  {% for p in pages %}
+  <li>
+    <button class="w-full text-left bg-white border border-gray-200 rounded-xl px-4 py-3 hover:border-blue-300"
+            hx-get="/admin/paginas/{{ p.id }}" hx-target="#cp-detail" hx-swap="innerHTML">
+      <span class="font-medium">{{ p.title }}</span>
+      <span class="block text-xs text-gray-500">/{{ p.slug }}</span>
+      <span class="mt-1 inline-flex gap-2">
+        {% if p.is_published %}{{ ui.badge("gepubliceerd", "green") }}{% else %}{{ ui.badge("concept", "gray") }}{% endif %}
+        {% if p.show_in_nav %}{{ ui.badge("in navigatie", "blue") }}{% endif %}
+      </span>
+    </button>
+  </li>
+  {% endfor %}
+</ul>
+{% else %}
+{{ ui.empty_state("Nog geen pagina's.") }}
+{% endif %}

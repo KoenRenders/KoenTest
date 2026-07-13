@@ -46,6 +46,21 @@
 	handle /admin/formulieren* {
 		reverse_proxy backend:8000
 	}
+	handle /admin/paginas* {
+		reverse_proxy backend:8000
+	}
+	handle /admin/media* {
+		reverse_proxy backend:8000
+	}
+	handle /admin/gebruikers* {
+		reverse_proxy backend:8000
+	}
+	handle /admin/ledenwijzigingen* {
+		reverse_proxy backend:8000
+	}
+	handle /admin/info* {
+		reverse_proxy backend:8000
+	}
 	handle /admin/werkbank* {
 		reverse_proxy backend:8000
 	}

@@ -19,6 +19,30 @@ template_dirs: list[str] = [str(_UI_DIR / "templates")] + sorted(
 
 templates = Jinja2Templates(directory=template_dirs)
 
+# Canonieke admin-navigatie (React-exit 405-d, #405): één bron voor alle
+# server-rendered beheer-schermen i.p.v. een kopie per module.
+_ADMIN_NAV: list[tuple[str, str]] = [
+    ("/admin/werkbank", "Werkbank"),
+    ("/admin/activiteiten", "Activiteiten"),
+    ("/admin/leden", "Leden"),
+    ("/admin/betalingen", "Betalingen"),
+    ("/admin/formulieren", "Formulieren"),
+    ("/admin/paginas", "Pagina's"),
+    ("/admin/media", "Media"),
+    ("/admin/gebruikers", "Gebruikers"),
+    ("/admin/ledenwijzigingen", "Wijzigingen"),
+    ("/admin/ai-context", "Raakje"),
+    ("/admin/analyse", "Analyse"),
+    ("/admin/e-maillog", "E-maillog"),
+    ("/admin/info", "Info"),
+]
+
+
+def admin_nav(active: str) -> list[dict]:
+    """Navigatie-items voor de AdminShell; `active` is de href van het scherm."""
+    return [{"href": href, "label": label, "active": href == active}
+            for href, label in _ADMIN_NAV]
+
 
 def site_context(db) -> dict:
     """Gedeelde context van de SiteShell (site_base.html): navigatie-pagina's,

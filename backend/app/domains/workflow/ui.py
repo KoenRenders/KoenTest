@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.workflow import api
-from app.ui import templates
+from app.ui import admin_nav, templates
 from app.domains.auth.api import csrf_token_for, require_admin_ui, require_csrf, SESSION_COOKIE
 
 router = APIRouter(include_in_schema=False)
@@ -23,13 +23,7 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
         "csrf_token": csrf_token_for(raw),
         "roles": roles,
         "tasks": api.open_tasks(db, roles),
-        "nav_items": [
-            {"href": "/admin/werkbank", "label": "Werkbank", "active": True},
-            {"href": "/admin/activiteiten", "label": "Activiteiten", "active": False},
-            {"href": "/admin/leden", "label": "Leden", "active": False},
-            {"href": "/admin/betalingen", "label": "Betalingen", "active": False},
-            {"href": "/admin/e-maillog", "label": "E-maillog", "active": False},
-        ],
+        "nav_items": admin_nav("/admin/werkbank"),
     }
 
 

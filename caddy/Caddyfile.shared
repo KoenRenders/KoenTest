@@ -76,6 +76,21 @@
 	handle /admin/formulieren* {
 		reverse_proxy uat-backend:8000
 	}
+	handle /admin/paginas* {
+		reverse_proxy uat-backend:8000
+	}
+	handle /admin/media* {
+		reverse_proxy uat-backend:8000
+	}
+	handle /admin/gebruikers* {
+		reverse_proxy uat-backend:8000
+	}
+	handle /admin/ledenwijzigingen* {
+		reverse_proxy uat-backend:8000
+	}
+	handle /admin/info* {
+		reverse_proxy uat-backend:8000
+	}
 	handle /admin/werkbank* {
 		reverse_proxy uat-backend:8000
 	}
@@ -161,6 +176,21 @@
 		reverse_proxy prod-backend:8000
 	}
 	handle /admin/formulieren* {
+		reverse_proxy prod-backend:8000
+	}
+	handle /admin/paginas* {
+		reverse_proxy prod-backend:8000
+	}
+	handle /admin/media* {
+		reverse_proxy prod-backend:8000
+	}
+	handle /admin/gebruikers* {
+		reverse_proxy prod-backend:8000
+	}
+	handle /admin/ledenwijzigingen* {
+		reverse_proxy prod-backend:8000
+	}
+	handle /admin/info* {
 		reverse_proxy prod-backend:8000
 	}
 	handle /admin/werkbank* {

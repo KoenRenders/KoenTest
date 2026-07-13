@@ -18,11 +18,9 @@ from app.domains.auth.api import (
     SESSION_COOKIE, User, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.limiter import chat_limiter
-from app.ui import templates
+from app.ui import admin_nav, templates
 
 router = APIRouter(include_in_schema=False)
-
-NAV_ITEM = {"href": "/admin/ai-context", "label": "Raakje", "active": True}
 
 
 def _admin_user(db: Session, email: str) -> User:
@@ -88,16 +86,8 @@ def _context_ctx(request: Request, db: Session, email: str) -> dict:
 @router.get("/admin/ai-context", response_class=HTMLResponse)
 def ai_context_page(request: Request, db: Session = Depends(get_db),
                     email: str = Depends(require_admin_ui)):
-    nav = [
-        {"href": "/admin/werkbank", "label": "Werkbank", "active": False},
-        {"href": "/admin/activiteiten", "label": "Activiteiten", "active": False},
-        {"href": "/admin/leden", "label": "Leden", "active": False},
-        {"href": "/admin/betalingen", "label": "Betalingen", "active": False},
-        {"href": "/admin/e-maillog", "label": "E-maillog", "active": False},
-        NAV_ITEM,
-    ]
     return templates.TemplateResponse(request, "ai_context.html", {
-        "nav_items": nav, **_context_ctx(request, db, email)})
+        "nav_items": admin_nav("/admin/ai-context"), **_context_ctx(request, db, email)})
 
 
 @router.get("/admin/ai-context/lijst", response_class=HTMLResponse)

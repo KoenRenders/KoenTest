@@ -1,0 +1,57 @@
+{% import "_macros.html" as ui %}
+{{ ui.error_banner(error) }}
+<div class="flex items-center gap-3 mb-4">
+  {% for k in kinds %}
+  <button class="px-3 py-1.5 rounded-lg text-sm border {% if k == kind %}bg-blue-700 text-white border-blue-700{% else %}bg-white border-gray-300 hover:bg-gray-100{% endif %}"
+          hx-get="/admin/media/lijst?kind={{ k }}" hx-target="#me-lijst" hx-swap="innerHTML">
+    {% if k == "sponsor" %}Sponsors{% else %}Activiteitenfoto's{% endif %}
+  </button>
+  {% endfor %}
+</div>
+<div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-6" x-data="{ open: false }">
+  {{ ui.btn_secondary("+ Uploaden", attrs='@click="open = !open"') }}
+  <form x-show="open" x-cloak class="space-y-3 mt-3" enctype="multipart/form-data"
+        hx-post="/admin/media" hx-encoding="multipart/form-data"
+        hx-target="#me-lijst" hx-swap="innerHTML">
+    <input type="hidden" name="kind" value="{{ kind }}">
+    <div>{{ ui.label("Bestanden (afbeeldingen)", "me-files", required=True) }}
+      <input type="file" name="files" id="me-files" accept="image/*" multiple required class="block text-sm"></div>
+    {% if kind == "activity_photo" %}
+    <div class="max-w-xs">{{ ui.label("Activiteit-ID", "me-activity", required=True) }}
+      <input type="number" name="activity_id" id="me-activity" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+    {% endif %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>{{ ui.label("Titel", "me-title") }}
+        <input name="title" id="me-title" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+      <div>{{ ui.label("Link (optioneel)", "me-link") }}
+        <input name="link_url" id="me-link" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+    </div>
+    {{ ui.btn_primary("Uploaden") }}
+  </form>
+</div>
+{% if assets %}
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  {% for a in assets %}
+  <form class="bg-white border border-gray-200 rounded-xl p-4 flex gap-4"
+        hx-post="/admin/media/{{ a.id }}" hx-target="#me-lijst" hx-swap="innerHTML">
+    <input type="hidden" name="kind" value="{{ kind }}">
+    <img src="{{ a.thumb_url }}" alt="{{ a.title or '' }}" class="w-24 h-24 object-contain bg-gray-50 rounded-lg shrink-0">
+    <div class="flex-1 space-y-2 text-sm">
+      <input name="title" value="{{ a.title or '' }}" placeholder="Titel" class="w-full border border-gray-300 rounded-lg px-2 py-1">
+      <input name="link_url" value="{{ a.link_url or '' }}" placeholder="Link" class="w-full border border-gray-300 rounded-lg px-2 py-1">
+      <div class="flex items-center gap-4">
+        <label class="flex items-center gap-1">Volgorde <input type="number" name="sort_order" value="{{ a.sort_order }}" class="w-16 border border-gray-300 rounded-lg px-1 py-0.5"></label>
+        <label class="flex items-center gap-1"><input type="checkbox" name="is_active" value="1" {% if a.is_active %}checked{% endif %}> Actief</label>
+        <span class="text-xs text-gray-400">{{ a.width }}×{{ a.height }}</span>
+      </div>
+      <div class="flex gap-2">
+        {{ ui.btn_primary("Opslaan") }}
+        {{ ui.btn_danger("Verwijder", attrs='hx-post="/admin/media/' ~ a.id ~ '/verwijderen" hx-vals=\'{"kind": "' ~ kind ~ '"}\' hx-target="#me-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs("Media", a.title or ("item " ~ a.id))) }}
+      </div>
+    </div>
+  </form>
+  {% endfor %}
+</div>
+{% else %}
+{{ ui.empty_state("Nog geen media in deze categorie.") }}
+{% endif %}
