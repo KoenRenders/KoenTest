@@ -6,7 +6,7 @@ from datetime import date
 from app.domains.payment_status.models import PaymentRecord
 from app.models.activity import Activity, Registration
 from app.models.member import Member, Membership, Person
-from app.models.user import User
+from app.domains.auth.api import User
 from tests.conftest import seed_activity_with_product, seed_postal_code
 
 

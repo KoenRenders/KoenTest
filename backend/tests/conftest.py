@@ -33,7 +33,7 @@ from fastapi.testclient import TestClient
 from app.database import engine, Base
 from app.main import app
 from app.database import get_db
-from app.auth import create_access_token
+from app.domains.auth.api import create_access_token
 
 
 # Bestaat in de seed-migratie 014; gebruiken we als ingelogde admin.
@@ -47,7 +47,7 @@ def _migrate_schema():
     # in de metadata leven — na verwijderde modellen (ideas) blijven wezen
     # achter en botst de keten. CASCADE veegt álles, ook alembic_version.
     with engine.begin() as conn:
-        for schema in ("form", "workflow", "mail", "public"):
+        for schema in ("form", "workflow", "mail", "auth", "public"):
             conn.exec_driver_sql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
         conn.exec_driver_sql("CREATE SCHEMA public")
     cfg = Config(os.path.join(os.path.dirname(os.path.dirname(__file__)), "alembic.ini"))

@@ -9,13 +9,13 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.domains.workflow import api
 from app.ui import templates
-from app.ui_session import csrf_token_for, require_admin_ui, require_csrf, SESSION_COOKIE
+from app.domains.auth.api import csrf_token_for, require_admin_ui, require_csrf, SESSION_COOKIE
 
 router = APIRouter(include_in_schema=False)
 
 
 def _ctx(request: Request, db: Session, email: str) -> dict:
-    from app.auth import get_user_roles
+    from app.domains.auth.api import get_user_roles
 
     roles = sorted(get_user_roles(db, email))
     raw = request.cookies.get(SESSION_COOKIE) or ""

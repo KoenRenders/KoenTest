@@ -3,9 +3,9 @@ from decimal import Decimal
 from typing import List, Optional
 from fastapi import APIRouter, Depends, HTTPException, Response
 from sqlalchemy.orm import Session
-from app.auth import get_finance_or_admin, get_current_finance
+from app.domains.auth.api import get_finance_or_admin, get_current_finance
 from app.database import get_db
-from app.models.user import User
+from app.domains.auth.api import User
 from .models import PaymentRecord
 from .schemas import (
     PaymentRecordResponse, PaymentRecordUpdate, EnrichedPaymentRecord,

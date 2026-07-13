@@ -15,14 +15,14 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_admin
+from app.domains.auth.api import get_current_admin
 from app.database import get_db
 from app.models.activity import Activity
 from app.models.activity_sub_registration import ActivitySubRegistration
 from app.models.asset import MediaAsset
 from app.models.chatbot_info import ChatbotInfo
 from app.models.cms import CmsPage
-from app.models.user import User
+from app.domains.auth.api import User
 from app.schemas.chatbot_info import ChatbotInfoEdit, NoteCreate
 from app.services.media_extraction import EXTRACTABLE_KINDS
 

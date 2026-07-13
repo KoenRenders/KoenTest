@@ -7,15 +7,15 @@ from fastapi import APIRouter, Depends, HTTPException, Response, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.auth import (
+from app.domains.auth.service import (
     create_access_token,
     get_current_identity,
     get_user_roles,
     require_member,
 )
 from app.database import get_db
-from app.models.user import User
-from app.models.login_token import LoginToken
+from app.domains.auth.models import User
+from app.domains.auth.models import LoginToken
 from app.schemas.auth import (
     MagicLinkRequest,
     OtpVerifyRequest,
@@ -24,14 +24,14 @@ from app.schemas.auth import (
     MemberMeResponse,
 )
 from app.domains.mail.api import send_magic_link, send_member_contact_board_notice
-from app.services.member_auth import (
+from app.domains.auth.member_identity import (
     find_persons_by_email,
     resolve_household,
     login_person_for_email,
 )
 from app.config import settings
 from app.limiter import login_limiter
-from app.ui_session import set_session_cookie as _set_ui_session_cookie
+from app.domains.auth.session import set_session_cookie as _set_ui_session_cookie
 
 
 def _set_ui_session(response: Response, email: str) -> None:
@@ -42,6 +42,12 @@ def _set_ui_session(response: Response, email: str) -> None:
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["auth"])
+
+# Gebruikersbeheer (backoffice-accounts + rollen) hoort bij het auth-component;
+# de composer mount enkel deze router.
+from app.domains.auth.users import router as _users_router  # noqa: E402
+
+router.include_router(_users_router)
 
 MAGIC_LINK_EXPIRE_MINUTES = 15
 # Brute-force-rem op de 6-cijferige OTP (#268): na zoveel foute codes op één

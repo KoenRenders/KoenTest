@@ -3,7 +3,7 @@ werkbank (sessie-auth, CSRF, sluiten-door-beslissing)."""
 from tests.conftest import SEEDED_ADMIN_EMAIL
 from app.domains.forms.models import Form, FormSubmission
 from app.domains.workflow.models import WorkflowTask
-from app.ui_session import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 
 
 def _login(client):
@@ -76,7 +76,7 @@ def test_afhandelen_without_csrf_fails(client, db_session):
 
 
 def test_verify_otp_sets_session_cookie(client, db_session, monkeypatch):
-    from app.routers import auth as auth_router
+    from app.domains.auth import router as auth_router
     monkeypatch.setattr(auth_router, "_generate_otp", lambda: "424242")
     client.post("/api/v1/auth/request-login", json={"email": SEEDED_ADMIN_EMAIL})
     resp = client.post("/api/v1/auth/verify-otp",

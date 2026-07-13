@@ -20,7 +20,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.auth import require_member
+from app.domains.auth.api import require_member
 from app.database import get_db
 from app.models.member import Member, Person, MemberPerson
 from app.models.contact import ContactDetail

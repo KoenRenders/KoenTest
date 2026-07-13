@@ -11,7 +11,7 @@ De invarianten die ertoe doen (geld + datakoppeling):
 from datetime import date, timedelta
 from decimal import Decimal
 
-from app.auth import create_access_token
+from app.domains.auth.api import create_access_token
 
 
 def _member_headers(email):

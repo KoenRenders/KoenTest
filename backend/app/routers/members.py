@@ -9,13 +9,13 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_admin
+from app.domains.auth.api import get_current_admin
 from app.database import get_db
 from app.models.member import Member, Person, MemberPerson, Membership
 from app.models.postal_codes import PostalCode
 from app.models.address import Address
 from app.models.contact import ContactDetail
-from app.models.user import User
+from app.domains.auth.api import User
 from app.schemas.member import (
     MemberCreate,
     MemberResponse,

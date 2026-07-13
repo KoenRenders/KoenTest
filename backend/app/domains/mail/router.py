@@ -4,10 +4,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_admin
+from app.domains.auth.api import get_current_admin
 from app.database import get_db
 from app.domains.mail.models import EmailLog
-from app.models.user import User
+from app.domains.auth.api import User
 from app.schemas.email_log import EmailLogPage
 
 router = APIRouter(tags=["email-log"])

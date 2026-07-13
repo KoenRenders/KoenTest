@@ -4,7 +4,7 @@ token, en eigenaarschap (een lid mag enkel het eigen gezin bewerken).
 Vult test_auth_unification.py aan (dat de happy path + rolcontrole dekt)."""
 from datetime import timedelta
 
-from app.auth import create_access_token
+from app.domains.auth.api import create_access_token
 from tests.conftest import seed_postal_code
 
 
@@ -83,3 +83,15 @@ def test_create_member_requires_admin(client, admin_headers):
 
     ok = client.post("/api/v1/members", headers=admin_headers, json={"persons": []})
     assert ok.status_code == 200
+
+
+def test_create_user_rejects_unknown_role_code(client, admin_headers, db_session):
+    """Sinds migratie 076 is er geen FK meer naar public.role_codes (§8);
+    de servicelaag moet onbekende rolcodes met een nette 400 weigeren."""
+    resp = client.post("/api/v1/users", headers=admin_headers,
+                       json={"email": "nieuwe@example.com", "role_codes": ["NEPROL"]})
+    assert resp.status_code == 400
+    assert "NEPROL" in resp.json()["detail"]
+
+    from app.domains.auth.api import User
+    assert db_session.query(User).filter(User.email == "nieuwe@example.com").first() is None

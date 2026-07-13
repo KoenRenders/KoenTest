@@ -7,7 +7,7 @@ Invarianten:
   - De Mollie-webhook activeert het lidmaatschap bij bevestigde betaling.
   - /auth/member/me rapporteert de geldigheidsdatum voor het scherm.
 """
-from app.auth import create_access_token
+from app.domains.auth.api import create_access_token
 from tests.test_membership_pricing import seed_household
 from tests.test_functional_regression import _family_payload
 from tests.conftest import seed_postal_code

@@ -1,10 +1,10 @@
 """OTP-login hardening (#268): per-account pogingteller + lockout, en hoogstens
 één levende OTP per e-mailadres."""
 from tests.conftest import SEEDED_ADMIN_EMAIL
-from app.models.login_token import LoginToken
-from app.routers.auth import MAX_OTP_ATTEMPTS
+from app.domains.auth.api import LoginToken
+from app.domains.auth.router import MAX_OTP_ATTEMPTS
 from app.limiter import login_limiter
-from app.routers import auth as auth_router
+from app.domains.auth import router as auth_router
 
 FIXED_OTP = "424242"
 

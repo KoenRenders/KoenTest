@@ -3,11 +3,11 @@ from typing import List
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_admin
+from app.domains.auth.api import get_current_admin
 from app.database import get_db
 from app.models.cms import CmsPage
 from app.models.codes import GenderCode, RelationTypeCode
-from app.models.user import User
+from app.domains.auth.api import User
 from app.schemas.cms import CmsPageCreate, CmsPageUpdate, CmsPageResponse
 from app.services.cms_render import render_cms_content
 

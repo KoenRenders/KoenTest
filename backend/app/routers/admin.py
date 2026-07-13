@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, Query, Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_admin
+from app.domains.auth.api import get_current_admin
 from app.config import settings
 from app.database import get_db
 
@@ -18,7 +18,7 @@ def _open_tasks(db):
 from app.models.activity import Activity, ActivityDate
 from app.models.business_event import BusinessEvent
 from app.models.member import Member, Membership
-from app.models.user import User
+from app.domains.auth.api import User
 from app.domains.payment_status.models import PaymentRecord
 from app.domains.payment_status.service import current_membership_counts
 

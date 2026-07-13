@@ -7,7 +7,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, R
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.auth import get_current_admin
+from app.domains.auth.api import get_current_admin
 from app.limiter import form_submit_limiter
 from app.config import settings
 from app.database import get_db
@@ -20,7 +20,7 @@ from app.domains.forms.models import (
     FORM_STATUSES,
     FIELD_TYPES,
 )
-from app.models.user import User
+from app.domains.auth.api import User
 from app.domains.forms.schemas import (
     FormCreate,
     FormUpdate,

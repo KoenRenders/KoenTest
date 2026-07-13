@@ -65,7 +65,7 @@ def _email_from_token(token: str) -> str:
 
 def get_user_roles(db: Session, email: str) -> set:
     """Backoffice-rollen voor dit e-mailadres. Leeg als er geen actief account is."""
-    from app.models.user import User, UserRole
+    from app.domains.auth.models import User, UserRole
 
     rows = (
         db.query(UserRole.role_code)
@@ -88,7 +88,7 @@ def require_roles(*codes: str):
     `Depends(require_roles("ADMIN", "FINANCE"))` — zonder wijziging aan de
     auth-laag zelf. Geeft de bijbehorende User terug.
     """
-    from app.models.user import User
+    from app.domains.auth.models import User
 
     def _dep(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
         email = _email_from_token(token)
@@ -137,7 +137,7 @@ def get_current_member(
     hetzelfde e-mailadres als zijn Person inlogt, is daardoor automatisch óók
     lid — zonder opgeslagen koppeling.
     """
-    from app.services.member_auth import login_person_for_email
+    from app.domains.auth.member_identity import login_person_for_email
 
     if not token:
         return None

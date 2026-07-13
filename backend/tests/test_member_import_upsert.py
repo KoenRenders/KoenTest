@@ -354,7 +354,7 @@ def test_admin_user_created_for_board_member(db_session):
     person_id-kolom (User↔Person koppelt via e-mail); het apply-pad mag dus niet
     crashen op een person_id-kwarg (#226 — droogloop OK maar 'Definitief importeren' 500)."""
     from app.services.member_import import _create_admin_users, ImportReport
-    from app.models.user import User, UserRole
+    from app.domains.auth.api import User, UserRole
     from tests.conftest import create_test_person
 
     person = create_test_person(db_session, first_name="Mon", last_name="Essers")
@@ -375,7 +375,7 @@ def test_commit_creates_admin_login_for_board_member_end_to_end(db_session):
     gevulde bestuurslid-index maakt de admin-login aan — inclusief het propageren van
     `_person_id` naar de bestuurslid-rij en de gezin-koppeling — zonder crash."""
     from app.services.member_import import _norm
-    from app.models.user import User, UserRole
+    from app.domains.auth.api import User, UserRole
     seed_postal_code(db_session)
 
     head = _row("100", "Mon", "Essers", "HOOFDLID", email="mon@example.com",

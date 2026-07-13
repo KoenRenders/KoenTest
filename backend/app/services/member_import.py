@@ -35,7 +35,7 @@ from app.models.address import Address
 from app.models.contact import ContactDetail
 from app.models.external_number import ExternalNumber
 from app.models.postal_codes import PostalCode
-from app.models.user import User, UserRole
+from app.domains.auth.api import User, UserRole
 from app.domains.audit.service import (
     snapshot_person,
     snapshot_member,
