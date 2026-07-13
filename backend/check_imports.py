@@ -13,6 +13,7 @@ MODULES = [
     "app.domains.activities.api",
     "app.domains.activities.router",
     "app.domains.activities.ui",
+    "app.domains.activities.admin_ui",
     "app.domains.auth.api",
     "app.domains.auth.router",
     "app.domains.auth.ui",
