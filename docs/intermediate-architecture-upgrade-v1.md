@@ -343,6 +343,10 @@ eigen domein:
   tweede resolutiemechanisme; heeft een unit óók een eigen domein, dan is dát
   canoniek (canonical-tag/301 vanaf het pad — geen dubbele indexering); een
   demo-/voorbeeldunit staat op `noindex`.
+- **`renko.be` zelf (root)** = platform-landingspagina ("Raak Digital
+  Platform"): de afdelingen + word-ook-afdeling; de voorbeeldafdeling is er de
+  showcase (demo-seed: voorbeeldactiviteiten + demo-formulier; Mollie
+  **test-mode**-key per tenant-config).
 - **Resolutievolgorde**: hostname → pad-prefix; per unit één canonieke URL.
   Cert/DNS per host via Caddy; overstap pad → eigen domein = config + DNS +
   301's, geen code.
