@@ -1,5 +1,5 @@
 """De privacy-pagina bevat de spraakinvoer-sectie na de seed-migraties (#282, migr. 061)."""
-from app.models.cms import CmsPage
+from app.domains.cms.api import CmsPage
 
 
 def test_privacy_page_has_stt_section(db_session):

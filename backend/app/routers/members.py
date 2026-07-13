@@ -53,24 +53,8 @@ from app.domains.mail.api import send_registration_confirmation
 from app.config import settings
 from app.limiter import registration_limiter
 
-_postal_cache: Optional[list] = None
-_postal_cache_ts: float = 0
-POSTAL_CACHE_TTL = 3600  # 1 hour
 
 router = APIRouter(tags=["members"])
-
-
-@router.get("/postal-codes", response_model=List[PostalCodeResponse])
-def list_postal_codes(db: Session = Depends(get_db)):
-    """Return all postal codes with their municipality names."""
-    global _postal_cache, _postal_cache_ts
-    now = time.time()
-    if _postal_cache is not None and (now - _postal_cache_ts) < POSTAL_CACHE_TTL:
-        return _postal_cache
-    rows = db.query(PostalCode).order_by(PostalCode.postal_code).all()
-    _postal_cache = [PostalCodeResponse(postal_code=r.postal_code, municipality=r.municipality) for r in rows]
-    _postal_cache_ts = now
-    return _postal_cache
 
 
 @router.get("/members", response_model=PaginatedMembersResponse)

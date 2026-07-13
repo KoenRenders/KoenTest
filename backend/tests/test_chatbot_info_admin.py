@@ -2,7 +2,7 @@
 from app.domains.activities.api import Activity
 from app.models.asset import MediaAsset
 from app.models.chatbot_info import ChatbotInfo
-from app.models.cms import CmsPage
+from app.domains.cms.api import CmsPage
 
 
 def _poster(db):

@@ -33,10 +33,8 @@ class ChatbotInfo(Base):
         Integer, ForeignKey("media_assets.id", ondelete="CASCADE"),
         nullable=True, index=True,
     )
-    cms_page_id = Column(
-        Integer, ForeignKey("cms_pages.id", ondelete="CASCADE"),
-        nullable=True, index=True,
-    )
+    # Soft-ref naar cms.cms_pages (§8, migr. 083) — geen DB-FK meer.
+    cms_page_id = Column(Integer, nullable=True, index=True)
     title = Column(String(255), nullable=True)
     extracted_text = Column(Text, nullable=True)
     text_override = Column(Text, nullable=True)
@@ -50,7 +48,11 @@ class ChatbotInfo(Base):
     )
 
     media_asset = relationship("MediaAsset", foreign_keys=[media_asset_id])
-    cms_page = relationship("CmsPage", foreign_keys=[cms_page_id])
+    cms_page = relationship(
+        "CmsPage",
+        primaryjoin="foreign(ChatbotInfo.cms_page_id) == CmsPage.id",
+        viewonly=True,
+    )
 
     @property
     def effective_text(self) -> str:

@@ -21,7 +21,7 @@ from app.domains.activities.api import Activity
 from app.domains.activities.api import ActivitySubRegistration
 from app.models.asset import MediaAsset
 from app.models.chatbot_info import ChatbotInfo
-from app.models.cms import CmsPage
+from app.domains.cms.api import CmsPage
 from app.domains.auth.api import User
 from app.schemas.chatbot_info import ChatbotInfoEdit, NoteCreate
 from app.services.media_extraction import EXTRACTABLE_KINDS
