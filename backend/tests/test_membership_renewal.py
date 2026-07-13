@@ -21,7 +21,7 @@ def test_admin_created_membership_is_valid(client, db_session, admin_headers):
     """Admin 'Lid maken' moet een geldig lidmaatschap opleveren (met
     valid_from/valid_to), anders telt het nergens als geldig (#143)."""
     from datetime import date
-    from app.services.membership import has_valid_membership
+    from app.domains.membership.api import has_valid_membership
 
     member, person = seed_household(db_session, "adminmade@example.com", with_membership=False)
     year = date.today().year
@@ -43,7 +43,7 @@ def test_manual_payment_confirmation_activates_membership(client, db_session, ad
     assert client.post("/api/v1/families", json=_family_payload(email="manualpay@example.com")).status_code == 201
 
     from app.domains.payment.api import PaymentRecord
-    from app.models.member import Membership
+    from app.domains.membership.api import Membership
 
     rec = db_session.query(PaymentRecord).filter(PaymentRecord.payable_type == "membership").first()
     assert rec is not None
@@ -69,7 +69,7 @@ def test_renew_creates_inactive_membership_and_checkout(client, db_session, mock
     assert resp.status_code == 200, resp.text
     assert resp.json()["checkout_url"].startswith("https://mollie.test")
 
-    from app.models.member import Membership
+    from app.domains.membership.api import Membership
     from app.domains.payment.api import PaymentRecord
     ms = db_session.query(Membership).filter(Membership.member_id == member.id).first()
     assert ms is not None and ms.is_active is False  # pas actief na betaling
@@ -123,7 +123,7 @@ def test_double_renew_is_refused(client, db_session, mock_mollie):
     (409) zodat er nooit een dubbel lidmaatschap of dubbele betaling ontstaat.
     Het venster staat open en het lid is nog geldig (vroeg hernieuwen)."""
     from app.config import settings
-    from app.models.member import Membership
+    from app.domains.membership.api import Membership
     from app.domains.payment.api import PaymentRecord
 
     email = "double@example.com"
@@ -153,7 +153,7 @@ def test_early_renew_while_valid_targets_next_year(client, db_session, mock_moll
     niet het lopende jaar (anders botst uq_memberships_member_year). Regressie #134-flow."""
     from datetime import date
     from app.config import settings
-    from app.models.member import Membership
+    from app.domains.membership.api import Membership
 
     email = "early@example.com"
     member, _person = seed_household(db_session, email)  # actief, geldig dit jaar
@@ -194,8 +194,8 @@ def test_webhook_activates_membership_on_paid(client, db_session, mock_mollie):
     hook = client.post("/api/v1/payment-gateway/webhooks/mollie", data={"id": "tr_test_123"})
     assert hook.status_code == 200, hook.text
 
-    from app.models.member import Membership
-    from app.services.membership import has_valid_membership
+    from app.domains.membership.api import Membership
+    from app.domains.membership.api import has_valid_membership
     ms = db_session.query(Membership).first()
     db_session.refresh(ms)
     assert ms.is_active is True

@@ -93,7 +93,7 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     """
     from datetime import date
 
-    from app.models.member import Membership
+    from app.domains.membership.api import Membership
     from app.domains.payment.api import (
         membership_price_for_date,
         membership_valid_period,
@@ -102,7 +102,7 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     from app.domains.audit.service import snapshot_membership
     from app.domains.analytics.service import log_business_event
     from app.config import settings
-    from app.services.membership import has_valid_membership, valid_membership_until
+    from app.domains.membership.api import has_valid_membership, valid_membership_until
 
     member = _member_for(person, db)
     actor = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
@@ -110,13 +110,9 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     today = date.today()
 
     # Controleer of de hernieuwingscampagne open is.
-    renewal_window_open = False
-    if settings.membership_renewal_start_md:
-        try:
-            month, day = (int(x) for x in settings.membership_renewal_start_md.split("-"))
-            renewal_window_open = today >= date(today.year, month, day)
-        except (ValueError, TypeError):
-            pass
+    # Hernieuwingsvenster-regel op één plek (§19.3): membership-facade.
+    from app.domains.membership.api import renewal_open as _renewal_open
+    renewal_window_open = _renewal_open(today)
 
     # Doeljaar van de hernieuwing. Heeft het lid al een geldig lidmaatschap, dan
     # dekt de hernieuwing het jaar ná de huidige geldigheid — anders zouden we het

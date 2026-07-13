@@ -212,19 +212,12 @@ def member_me(person=Depends(require_member), db: Session = Depends(get_db)):
          if c.contact_type_code in ("MOBILE", "PHONE")),
         None,
     )
-    from app.services.membership import valid_membership_until
-    from datetime import date
+    from app.domains.membership.api import renewal_available as _renewal_available
+    from app.domains.membership.api import valid_membership_until
 
     valid_until = valid_membership_until(person)
-    today = date.today()
-    renewal_open = False
-    if settings.membership_renewal_start_md:
-        try:
-            month, day = (int(x) for x in settings.membership_renewal_start_md.split("-"))
-            renewal_open = today >= date(today.year, month, day)
-        except (ValueError, TypeError):
-            pass
-    renewal_available = (valid_until is None) or renewal_open
+    # Hernieuwingsvenster-regel op één plek (§19.3): membership-facade.
+    renewal_available = _renewal_available(valid_until)
 
     return MemberMeResponse(
         person_id=person.id,

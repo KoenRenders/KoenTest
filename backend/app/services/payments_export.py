@@ -38,7 +38,7 @@ def _enrich(db, r) -> tuple[str, Optional[int], Optional[int]]:
             label = " — ".join(p for p in parts if p) or f"Inschrijving #{r.payable_id}"
             return label, None, reg.component_id
     elif r.payable_type == "membership":
-        from app.models.member import Membership
+        from app.domains.membership.api import Membership
         from app.domains.mdm.api import MemberPerson, Person
         ms = q(Membership).filter(Membership.id == r.payable_id).first()
         name = None

@@ -1,14 +1,11 @@
 from app.models.codes import RoleCode, RegistrationTypeCode, PaymentStatusCode
-from app.models.member import Membership
+from app.domains.membership.models import Membership, MembershipHistory
 from app.domains.auth.models import User, UserRole, LoginToken
 from app.models.activity import ActivityDate, Activity, Registration, RegistrationItem
 from app.models.cms import CmsPage
 from app.models.activity_sub_registration import ActivitySubRegistration, ActivityProduct
 from app.models.asset import MediaAsset
 from app.models.chatbot_info import ChatbotInfo
-from app.models.history import (
-    MembershipHistory,
-)
 from app.domains.mdm.models import (
     Address,
     AddressHistory,

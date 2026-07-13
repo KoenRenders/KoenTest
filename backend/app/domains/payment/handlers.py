@@ -25,7 +25,7 @@ def find_orphan_records(db: Session) -> list[PaymentRecord]:
     """PaymentRecords waarvan de payable niet (meer) bestaat. Soft-deleted
     payables gelden als bestaand — het financiële feit blijft verklaarbaar."""
     from app.models.activity import Registration
-    from app.models.member import Membership
+    from app.domains.membership.api import Membership
 
     orphans: list[PaymentRecord] = []
     records = db.query(PaymentRecord).all()

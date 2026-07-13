@@ -75,7 +75,7 @@ def test_lidmaatschap_toevoegen_en_verwijderen(client, db_session):
                        data={"year": "2031"}, headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 200 and "2031" in resp.text
 
-    from app.models.member import Membership
+    from app.domains.membership.api import Membership
     ms = (db_session.query(Membership)
           .filter(Membership.member_id == member.id, Membership.year == 2031).one())
     weg = client.post(f"/admin/leden/gezin/{member.id}/lidmaatschappen/{ms.id}/verwijderen",

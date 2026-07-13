@@ -14,8 +14,8 @@ from sqlalchemy.orm import Session
 from app.services.ods_export import build_ods
 
 from app.domains.payment.api import PaymentRecordHistory
+from app.domains.membership.api import MembershipHistory
 from app.models.history import (
-    MembershipHistory,
     RegistrationItemHistory,
     ActivityHistory,
     ActivityDateHistory,
@@ -188,7 +188,7 @@ class _SubjectResolver:
         if payable_type == "registration":
             return self.from_registration(payable_id)
         if payable_type == "membership":
-            from app.models.member import Membership
+            from app.domains.membership.api import Membership
             ms = self._q(Membership).filter(Membership.id == payable_id).first()
             if ms is not None:
                 return self.fields(member_id=ms.member_id)

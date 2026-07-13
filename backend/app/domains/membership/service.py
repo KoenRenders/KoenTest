@@ -56,3 +56,37 @@ def valid_membership_until(person, ref_date: Optional[date] = None):
                 if best is None or ms.valid_to > best:
                     best = ms.valid_to
     return best
+
+
+# ── Hernieuwingsvenster (§19.3: één plek) ──────────────────────────────────────
+
+def renewal_open(today: Optional[date] = None) -> bool:
+    """True zodra de jaarlijkse vernieuwingscampagne open is
+    (MEMBERSHIP_RENEWAL_START_MD, "MM-DD"). Zonder instelling: dicht."""
+    from app.config import settings
+
+    if today is None:
+        today = date.today()
+    if not settings.membership_renewal_start_md:
+        return False
+    try:
+        month, day = (int(x) for x in settings.membership_renewal_start_md.split("-"))
+        return today >= date(today.year, month, day)
+    except (ValueError, TypeError):
+        return False
+
+
+def renewal_available(valid_until: Optional[date], today: Optional[date] = None) -> bool:
+    """Mag de vernieuwknop getoond worden? Geen geldig lidmaatschap → altijd;
+    anders pas zodra het venster open is."""
+    return valid_until is None or renewal_open(today)
+
+
+def is_member(db, email: str, ref_date: Optional[date] = None) -> bool:
+    """Facade-vraag voor andere componenten (activities, §5.4): heeft dit
+    e-mailadres vandaag een geldig lidmaatschap? Lost de persoon op via het
+    auth-component (e-mail → Person) en past de geldigheidsregel toe."""
+    from app.domains.auth.api import login_person_for_email
+
+    person = login_person_for_email(db, email)
+    return has_valid_membership(person, ref_date)

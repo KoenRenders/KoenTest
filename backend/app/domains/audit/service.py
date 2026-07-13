@@ -10,8 +10,8 @@ from typing import Optional
 from sqlalchemy.orm import Session
 
 from app.domains.payment.api import PaymentRecordHistory
+from app.domains.membership.api import MembershipHistory
 from app.models.history import (
-    MembershipHistory,
     RegistrationItemHistory,
     ActivityHistory,
     ActivityDateHistory,

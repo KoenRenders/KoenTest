@@ -39,7 +39,7 @@ def compute_registration_total(registration) -> Tuple[Decimal, List[Registration
     inschrijfdatum (``registered_at``), zodat de prijs deterministisch blijft en
     scherm, mail, Mollie-bedrag en betaalrecord nooit uit elkaar lopen.
     """
-    from app.services.membership import has_valid_membership
+    from app.domains.membership.api import has_valid_membership
 
     person = getattr(registration, "person", None)
     registered_at = getattr(registration, "registered_at", None)

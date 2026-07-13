@@ -17,7 +17,7 @@ def _open_tasks(db):
     return open_count(db, ["ADMIN", "FINANCE"])
 from app.models.activity import Activity, ActivityDate
 from app.models.business_event import BusinessEvent
-from app.models.member import Membership
+from app.domains.membership.api import Membership
 from app.domains.mdm.api import Member
 from app.domains.auth.api import User
 from app.domains.payment.api import PaymentRecord

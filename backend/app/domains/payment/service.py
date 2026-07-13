@@ -4,7 +4,7 @@ from typing import Optional, Tuple
 from sqlalchemy import distinct, func
 from sqlalchemy.orm import Session
 from .models import PaymentRecord
-from app.models.member import Membership
+from app.domains.membership.api import Membership
 from app.domains.mdm.api import MemberPerson, Person
 from app.domains.audit.service import snapshot_payment_record
 
@@ -240,7 +240,7 @@ def handle_gateway_update(
 def _activate_membership(db: Session, membership_id: int, source: str, actor: Optional[str]) -> None:
     """Zet een lidmaatschap actief na bevestigde betaling. Idempotent: een reeds
     actief lidmaatschap wordt niet opnieuw aangeraakt (geen dubbele history-rij)."""
-    from app.models.member import Membership
+    from app.domains.membership.api import Membership
     from app.domains.audit.service import snapshot_membership
 
     ms = db.query(Membership).filter(Membership.id == membership_id).first()

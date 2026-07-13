@@ -5,7 +5,7 @@ from datetime import date
 
 from app.domains.payment.api import PaymentRecord
 from app.domains.payment.api import PaymentRecordHistory
-from app.models.member import Membership
+from app.domains.membership.api import Membership
 from app.domains.mdm.api import Member
 from app.domains.mdm.api import ExternalNumber
 from tests.conftest import seed_postal_code
