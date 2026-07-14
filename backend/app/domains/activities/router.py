@@ -902,28 +902,32 @@ def register_for_activity(
             Registration.component_id == data.component_id,
             func.lower(Registration.contact_email) == data.contact_email.lower(),
         ).count()
-        if existing_count >= settings.max_registrations_per_email:
+        from app.kernel.tenant_config import tenant_max_registrations_per_email
+        max_regs = tenant_max_registrations_per_email(db)
+        if existing_count >= max_regs:
             raise HTTPException(
                 status_code=409,
                 detail=_("Er zijn al %(max)s inschrijvingen met dit "
                          "e-mailadres voor dit onderdeel. Neem contact op met het bestuur als je er meer nodig hebt.")
-                % {"max": settings.max_registrations_per_email},
+                % {"max": max_regs},
             )
 
     valid_product_ids = {
         p.id for comp in activity.sub_registrations for p in comp.products
     }
 
+    from app.kernel.tenant_config import tenant_max_item_quantity
+    max_qty = tenant_max_item_quantity(db)
     for item_data in data.items:
         if item_data.product_id not in valid_product_ids:
             raise HTTPException(
                 status_code=400,
                 detail=_("Ongeldig product in de inschrijving."),
             )
-        if item_data.quantity < 0 or item_data.quantity > settings.max_item_quantity:
+        if item_data.quantity < 0 or item_data.quantity > max_qty:
             raise HTTPException(
                 status_code=400,
-                detail=_("Ongeldig aantal: kies een waarde tussen 0 en %(max)s.") % {"max": settings.max_item_quantity},
+                detail=_("Ongeldig aantal: kies een waarde tussen 0 en %(max)s.") % {"max": max_qty},
             )
 
     new_qty = sum(i.quantity for i in data.items) if data.items else 1

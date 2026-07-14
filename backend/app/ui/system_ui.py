@@ -41,14 +41,16 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db),
 @router.get("/admin/info", response_class=HTMLResponse)
 def admin_info(request: Request, db: Session = Depends(get_db),
                email: str = Depends(require_admin_ui)):
-    from app.config import settings
+    from app.kernel.tenant_config import tenant_umami_src, tenant_umami_website_id
     from app.ui.admin_api import get_system_info
 
     info = get_system_info(_admin=None)  # type: ignore[arg-type]
-    umami_dashboard = settings.umami_src.removesuffix("script.js") if settings.umami_src else ""
+    umami_src = tenant_umami_src(db)
+    umami_website_id = tenant_umami_website_id(db)
+    umami_dashboard = umami_src.removesuffix("script.js") if umami_src else ""
     return templates.TemplateResponse(request, "admin_info.html", {
         "nav_items": NAV, "info": info,
-        "umami_configured": bool(settings.umami_src and settings.umami_website_id),
+        "umami_configured": bool(umami_src and umami_website_id),
         "umami_dashboard": umami_dashboard,
-        "umami_website_id": settings.umami_website_id,
+        "umami_website_id": umami_website_id,
     })

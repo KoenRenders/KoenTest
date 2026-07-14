@@ -121,6 +121,72 @@ def tenant_language(db: Session, tenant_id: int | None = None) -> str:
     return get_setting(db, "language", tenant_id=tenant_id) or "nl_BE"
 
 
+def _int_setting(db: Session, key: str, fallback: int,
+                 tenant_id: int | None = None) -> int:
+    value = get_setting(db, key, tenant_id=tenant_id)
+    try:
+        return int(value) if value not in (None, "") else fallback
+    except (TypeError, ValueError):
+        return fallback
+
+
+# ── Per-tenant e-mail-, betaal-, limiet- en analytics-config (#451). DB-sleutel
+#    wint, de .env-setting blijft de fallback (net als tenant_mollie_key). ──────
+
+def tenant_gmail_user(db: Session, tenant_id: int | None = None) -> str | None:
+    from app.config import settings
+    return get_setting(db, "gmail_user", tenant_id=tenant_id) or settings.gmail_user
+
+
+def tenant_gmail_app_password(db: Session, tenant_id: int | None = None) -> str | None:
+    from app.config import settings
+    return (get_setting(db, "gmail_app_password", tenant_id=tenant_id)
+            or settings.gmail_app_password)
+
+
+def tenant_gmail_from(db: Session, tenant_id: int | None = None) -> str | None:
+    from app.config import settings
+    return get_setting(db, "gmail_from", tenant_id=tenant_id) or settings.gmail_from
+
+
+def tenant_payment_iban(db: Session, tenant_id: int | None = None) -> str | None:
+    from app.config import settings
+    return get_setting(db, "payment_iban", tenant_id=tenant_id) or settings.payment_iban
+
+
+def tenant_payment_beneficiary(db: Session, tenant_id: int | None = None) -> str | None:
+    from app.config import settings
+    return (get_setting(db, "payment_beneficiary", tenant_id=tenant_id)
+            or settings.payment_beneficiary)
+
+
+def tenant_payment_term_days(db: Session, tenant_id: int | None = None) -> int:
+    from app.config import settings
+    return _int_setting(db, "payment_term_days", settings.payment_term_days, tenant_id)
+
+
+def tenant_max_item_quantity(db: Session, tenant_id: int | None = None) -> int:
+    from app.config import settings
+    return _int_setting(db, "max_item_quantity", settings.max_item_quantity, tenant_id)
+
+
+def tenant_max_registrations_per_email(db: Session, tenant_id: int | None = None) -> int:
+    from app.config import settings
+    return _int_setting(db, "max_registrations_per_email",
+                        settings.max_registrations_per_email, tenant_id)
+
+
+def tenant_umami_src(db: Session, tenant_id: int | None = None) -> str:
+    from app.config import settings
+    return get_setting(db, "umami_src", tenant_id=tenant_id) or settings.umami_src
+
+
+def tenant_umami_website_id(db: Session, tenant_id: int | None = None) -> str:
+    from app.config import settings
+    return (get_setting(db, "umami_website_id", tenant_id=tenant_id)
+            or settings.umami_website_id)
+
+
 def tenant_membership_config(db: Session | None = None,
                              tenant_id: int | None = None) -> dict:
     """Lidmaatschapsprijzen en -datumgrenzen van de actieve tenant (branding-

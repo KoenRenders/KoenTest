@@ -33,10 +33,20 @@ BEKENDE_SLEUTELS = [
     ("membership_half_price_end_md", "Halfprijs tot", "MM-DD, bv. 09-16."),
     ("membership_next_year_from_md", "Volgend jaar vanaf", "MM-DD, bv. 09-17."),
     ("membership_renewal_start_md", "Hernieuwen vanaf", "MM-DD; leeg = enkel bij verlopen lidmaatschap."),
+    ("payment_iban", "Rekeningnummer (IBAN)", "Voor de overschrijvingsinstructies in de bevestigingsmail. Leeg = .env-default."),
+    ("payment_beneficiary", "Begunstigde", "Naam op de overschrijving. Leeg = .env-default."),
+    ("payment_term_days", "Betaaltermijn (dagen)", "Aantal dagen voor een overschrijving. Default 7."),
+    ("gmail_user", "Gmail-gebruiker", "Afzender-account voor uitgaande mail (SMTP). Leeg = .env-default."),
+    ("gmail_from", "Afzender (From)", "Getoonde afzender; leeg = de Gmail-gebruiker."),
+    ("umami_src", "Umami script-URL", "bv. https://stats.example/script.js. Leeg = geen webstatistieken."),
+    ("umami_website_id", "Umami Website-ID", "Het Umami-site-ID (geen secret)."),
+    ("max_item_quantity", "Max. aantal per item", "Inschrijvingslimiet per item. Default 50."),
+    ("max_registrations_per_email", "Max. inschrijvingen per e-mail", "Per activiteit. Default 3."),
 ]
 
 GEHEIME_SLEUTELS = [
     ("mollie_api_key", "Mollie API-key", "Versleuteld opgeslagen; wordt nooit teruggetoond."),
+    ("gmail_app_password", "Gmail app-wachtwoord", "Versleuteld opgeslagen; wordt nooit teruggetoond."),
 ]
 
 

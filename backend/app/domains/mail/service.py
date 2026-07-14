@@ -117,19 +117,56 @@ def _mail_mode() -> str:
         return "send"
 
 
+def _gmail_config() -> tuple:
+    """(gebruiker, app-wachtwoord, from) van de actieve tenant; .env als fallback.
+    Mag het versturen nooit breken."""
+    try:
+        from app.database import SessionLocal
+        from app.kernel.tenant_config import (
+            tenant_gmail_app_password, tenant_gmail_from, tenant_gmail_user)
+
+        db = SessionLocal()
+        try:
+            return (tenant_gmail_user(db), tenant_gmail_app_password(db),
+                    tenant_gmail_from(db))
+        finally:
+            db.close()
+    except Exception:
+        return (settings.gmail_user, settings.gmail_app_password, settings.gmail_from)
+
+
+def _payment_config() -> tuple:
+    """(betaaltermijn-dagen, IBAN, begunstigde) van de actieve tenant; .env-fallback."""
+    try:
+        from app.database import SessionLocal
+        from app.kernel.tenant_config import (
+            tenant_payment_beneficiary, tenant_payment_iban, tenant_payment_term_days)
+
+        db = SessionLocal()
+        try:
+            return (tenant_payment_term_days(db), tenant_payment_iban(db),
+                    tenant_payment_beneficiary(db))
+        finally:
+            db.close()
+    except Exception:
+        return (settings.payment_term_days, settings.payment_iban,
+                settings.payment_beneficiary)
+
+
 def _send(to_email: str, subject: str, body_html: str, cc: Optional[str] = None, email_type: str = "other") -> None:
     if _mail_mode() == "log_only":
         _log_email(to_email, subject, body_html, email_type, "logged",
                    "demo-tenant: alleen gelogd, niet verstuurd")
         return
-    if not settings.gmail_user or not settings.gmail_app_password:
+    gmail_user, gmail_password, gmail_from = _gmail_config()
+    if not gmail_user or not gmail_password:
         logger.warning("E-mail niet verstuurd (GMAIL_USER of GMAIL_APP_PASSWORD niet ingesteld): %s", subject)
         _log_email(to_email, subject, body_html, email_type, "skipped", "GMAIL_USER/GMAIL_APP_PASSWORD niet ingesteld")
         return
 
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"{_env_prefix()}{subject}"
-    from_address = settings.gmail_from or settings.gmail_user
+    from_address = gmail_from or gmail_user
     msg["From"] = f"{_display_name()} <{from_address}>"
     msg["To"] = to_email
     if cc:
@@ -139,8 +176,8 @@ def _send(to_email: str, subject: str, body_html: str, cc: Optional[str] = None,
     recipients = [to_email] + ([cc] if cc else [])
     try:
         with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=10) as server:
-            server.login(settings.gmail_user, settings.gmail_app_password)
-            server.sendmail(settings.gmail_user, recipients, msg.as_string())
+            server.login(gmail_user, gmail_password)
+            server.sendmail(gmail_user, recipients, msg.as_string())
     except Exception as exc:
         logger.error("E-mail versturen mislukt naar %s: %s", to_email, exc)
         log_id = _log_email(to_email, subject, body_html, email_type, "failed", str(exc))
@@ -159,12 +196,13 @@ def _transfer_instructions_html(payment_record) -> str:
     if not ogm:
         return ""
     from datetime import date, timedelta
-    due = date.today() + timedelta(days=settings.payment_term_days)
+    term_days, iban, beneficiary = _payment_config()
+    due = date.today() + timedelta(days=term_days)
     rows = [f"<li><strong>Bedrag:</strong> €{payment_record.amount:.2f}</li>"]
-    if settings.payment_iban:
-        rows.append(f"<li><strong>Rekeningnummer:</strong> {escape(settings.payment_iban)}</li>")
-    if settings.payment_beneficiary:
-        rows.append(f"<li><strong>Begunstigde:</strong> {escape(settings.payment_beneficiary)}</li>")
+    if iban:
+        rows.append(f"<li><strong>Rekeningnummer:</strong> {escape(iban)}</li>")
+    if beneficiary:
+        rows.append(f"<li><strong>Begunstigde:</strong> {escape(beneficiary)}</li>")
     rows.append(f"<li><strong>Gestructureerde mededeling:</strong> {escape(ogm)}</li>")
     rows.append(f"<li><strong>Te betalen vóór:</strong> {due.strftime('%d/%m/%Y')}</li>")
     return (
