@@ -24,7 +24,8 @@
         <button class="md:hidden p-2 rounded hover:opacity-80" @click="open = !open" aria-label="{{ _("Menu") }}">☰</button>
         <div class="hidden md:flex gap-5 items-center text-sm">
           <a href="/" class="hover:underline">{{ _("Home") }}</a>
-          <a href="/activiteiten" class="hover:underline">{{ _("Activiteiten") }}</a>
+          <a href="/fotos" class="hover:underline">{{ _("Foto's") }}</a>
+          <a href="/archief" class="hover:underline">{{ _("Archief") }}</a>
           {% for p in nav_pages|default([]) %}
           <a href="/{{ p.slug }}" class="hover:underline">{{ p.title }}</a>
           {% endfor %}
@@ -35,7 +36,8 @@
       </div>
       <div x-show="open" x-cloak class="md:hidden px-4 pb-4 flex flex-col gap-2 text-sm">
         <a href="/" class="hover:underline">{{ _("Home") }}</a>
-        <a href="/activiteiten" class="hover:underline">{{ _("Activiteiten") }}</a>
+        <a href="/fotos" class="hover:underline">{{ _("Foto's") }}</a>
+        <a href="/archief" class="hover:underline">{{ _("Archief") }}</a>
         {% for p in nav_pages|default([]) %}
         <a href="/{{ p.slug }}" class="hover:underline">{{ p.title }}</a>
         {% endfor %}
