@@ -37,7 +37,7 @@ from app.domains.mdm.api import ContactDetail
 from app.domains.mdm.api import ExternalNumber
 from app.domains.mdm.api import PostalCode
 from app.domains.auth.api import User, UserRole
-from app.domains.audit.service import (
+from app.domains.audit.api import (
     snapshot_person,
     snapshot_member,
     snapshot_member_person,

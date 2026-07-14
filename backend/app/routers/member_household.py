@@ -25,7 +25,7 @@ from app.database import get_db
 from app.domains.mdm.api import Member, Person, MemberPerson
 from app.domains.mdm.api import ContactDetail
 from app.domains.mdm.api import PostalCode
-from app.domains.audit.service import (
+from app.domains.audit.api import (
     snapshot_person,
     snapshot_member_person,
     snapshot_address,
@@ -100,7 +100,7 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
         membership_valid_period,
         create_payment_record,
     )
-    from app.domains.audit.service import snapshot_membership
+    from app.domains.audit.api import snapshot_membership
     from app.config import settings
     from app.domains.membership.api import has_valid_membership, valid_membership_until
 

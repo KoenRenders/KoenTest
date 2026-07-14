@@ -50,7 +50,7 @@ def _validate_role_codes(db: Session, codes: List[str]) -> None:
     check is de servicelaag-vervanger."""
     if not codes:
         return
-    from app.models.codes import RoleCode
+    from app.domains.auth.models import RoleCode
 
     known = {r.code for r in db.query(RoleCode.code).all()}
     unknown = [c for c in codes if c not in known]

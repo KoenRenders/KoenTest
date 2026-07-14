@@ -76,3 +76,15 @@ class PaymentRecordHistory(TenantMixin, Base):
     gateway_payment_id = Column(String(36), nullable=True)
     note = Column(String(200), nullable=True)
     paid_at = Column(DateTime(timezone=True), nullable=True)
+
+
+class PaymentStatusCode(Base):
+    """Codetabel (verhuisd uit app/models/codes.py, #444). Public schema."""
+
+    __tablename__ = "payment_status_codes"
+    code = Column(String(10), primary_key=True)
+    language = Column(String(5), primary_key=True)
+    value = Column(String(100), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)

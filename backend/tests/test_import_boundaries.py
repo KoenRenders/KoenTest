@@ -16,15 +16,10 @@ APP = Path(__file__).resolve().parents[1] / "app"
 # Reach-ins van vóór de modularisatie. Elke fase van epic #393 verwijdert regels;
 # regels TOEVOEGEN mag alleen met een fase-verwijzing.
 LEGACY_ALLOWLIST = {
-    ("app.services.member_import", "app.domains.audit.service"),
-    ("app.routers.members", "app.domains.audit.service"),
-    ("app.routers.member_household", "app.domains.audit.service"),
-    ("app.routers.member_import", "app.domains.audit.service"),
     ("app.routers.chat", "app.domains.chatbot.service"),
     ("app.routers.chatbot_info", "app.domains.chatbot.context"),
     ("app.routers.stt", "app.domains.stt.guards"),
     ("app.routers.stt", "app.domains.stt.providers"),
-    ("app.routers.activities", "app.domains.audit.service"),
     ("app.routers.chat", "app.domains.chatbot.context"),
     ("app.routers.chat", "app.domains.chatbot.providers"),
 }
@@ -34,10 +29,7 @@ LEGACY_ALLOWLIST = {
 LEGACY_CROSS_DOMAIN = {
     # verhuisd uit de oude wereld met de router mee (4a #402); analytics/audit
     # krijgen hun facade in fase 4c (#404)
-    ("app.domains.activities.router", "app.domains.audit.service"),
     ("app.domains.chatbot.context", "app.domains.payment.api"),
-    ("app.domains.payment.status_router", "app.domains.audit.service"),
-    ("app.domains.payment.service", "app.domains.audit.service"),
 }
 
 KERNEL_FORBIDDEN_PREFIXES = (

@@ -38,7 +38,7 @@ from app.config import settings
 from app.domains.payment.api import (
     create_payment_record, registration_balance, reconcile_registration_charges,
 )
-from app.domains.audit.service import (
+from app.domains.audit.api import (
     snapshot_registration_item,
     snapshot_activity,
     snapshot_activity_date,

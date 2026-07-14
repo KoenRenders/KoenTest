@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from .models import PaymentRecord
 from app.domains.membership.api import Membership
 from app.domains.mdm.api import MemberPerson, Person
-from app.domains.audit.service import snapshot_payment_record
+from app.domains.audit.api import snapshot_payment_record
 
 # Semantische history-actie per (interne) gateway-status, zodat de tijdlijn
 # meteen toont wat de gateway/admin-refresh meldde i.p.v. een generiek label.
@@ -200,7 +200,7 @@ def _activate_membership(db: Session, membership_id: int, source: str, actor: Op
     """Zet een lidmaatschap actief na bevestigde betaling. Idempotent: een reeds
     actief lidmaatschap wordt niet opnieuw aangeraakt (geen dubbele history-rij)."""
     from app.domains.membership.api import Membership
-    from app.domains.audit.service import snapshot_membership
+    from app.domains.audit.api import snapshot_membership
 
     ms = db.query(Membership).filter(Membership.id == membership_id).first()
     if ms is None or ms.is_active:

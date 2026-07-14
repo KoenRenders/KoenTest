@@ -13,7 +13,10 @@ from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf
+from app.domains.auth.api import (
+    SESSION_COOKIE, admin_user_by_email, csrf_from_request, csrf_token_for,
+    require_admin_ui, require_csrf,
+)
 from app.domains.forms.models import FIELD_TYPES, FORM_STATUSES, Form as FormModel
 from app.domains.forms.models import FormField, FormFieldOption, FormSection, FormSubmission
 from app.ui import admin_nav, templates
@@ -22,10 +25,6 @@ from app.i18n import _
 router = APIRouter(include_in_schema=False)
 
 NAV = admin_nav("/admin/formulieren")
-
-
-def _csrf(request: Request) -> str:
-    return csrf_token_for(request.cookies.get(SESSION_COOKIE) or "")
 
 
 def _form_or_404(db: Session, form_id: int) -> FormModel:
@@ -48,7 +47,7 @@ def _builder_ctx(request: Request, db: Session, form: FormModel, **extra) -> dic
         "sections": sections, "field_types": FIELD_TYPES, "statuses": FORM_STATUSES,
         "submission_count": db.query(FormSubmission)
                               .filter(FormSubmission.form_id == form.id).count(),
-        "csrf_token": _csrf(request), "error": None,
+        "csrf_token": csrf_from_request(request), "error": None,
     }
     ctx.update(extra)
     return ctx
@@ -66,7 +65,7 @@ def formulieren_page(request: Request, db: Session = Depends(get_db),
                      email: str = Depends(require_admin_ui)):
     forms = db.query(FormModel).order_by(FormModel.created_at.desc()).all()
     return templates.TemplateResponse(request, "admin_formulieren.html", {
-        "nav_items": NAV, "forms": forms, "csrf_token": _csrf(request)})
+        "nav_items": NAV, "forms": forms, "csrf_token": csrf_from_request(request)})
 
 
 @router.post("/admin/formulieren", response_class=HTMLResponse,
@@ -102,7 +101,7 @@ def formulier_verwijderen(form_id: int, request: Request, db: Session = Depends(
     db.commit()
     forms = db.query(FormModel).order_by(FormModel.created_at.desc()).all()
     return templates.TemplateResponse(request, "_fb_lijst.html", {
-        "forms": forms, "csrf_token": _csrf(request)})
+        "forms": forms, "csrf_token": csrf_from_request(request)})
 
 
 # ── Instellingen ───────────────────────────────────────────────────────────────
@@ -386,7 +385,7 @@ def inzendingen_tab(form_id: int, request: Request, db: Session = Depends(get_db
             .order_by(FormSubmission.id.desc()).all())
     rows = [{"submission": s, "answers": submission_view(db, s.id)} for s in subs]
     return templates.TemplateResponse(request, "_fb_inzendingen.html", {
-        "form": form, "rows": rows, "csrf_token": _csrf(request)})
+        "form": form, "rows": rows, "csrf_token": csrf_from_request(request)})
 
 
 @router.post("/admin/formulieren/{form_id}/inzendingen/{submission_id}/verwijderen",

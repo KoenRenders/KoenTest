@@ -29,6 +29,8 @@ from app.domains.auth.service import (  # noqa: F401
 )
 from app.domains.auth.session import (  # noqa: F401
     SESSION_COOKIE,
+    admin_user_by_email,
+    csrf_from_request,
     csrf_token_for,
     make_session_value,
     read_session_value,
@@ -44,7 +46,8 @@ __all__ = [
     "create_access_token", "decode_token", "get_current_admin",
     "get_current_finance", "get_current_identity", "get_current_member",
     "get_finance_or_admin", "get_user_roles", "require_member", "require_roles",
-    "SESSION_COOKIE", "csrf_token_for", "make_session_value",
+    "SESSION_COOKIE", "admin_user_by_email", "csrf_from_request",
+    "csrf_token_for", "make_session_value",
     "read_session_value", "require_admin_ui", "require_csrf",
     "set_session_cookie",
 ]

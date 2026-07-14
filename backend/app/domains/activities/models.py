@@ -241,3 +241,15 @@ class ProductHistory(TenantMixin, HistoryMixin, Base):
     name = Column(String(255), nullable=True)
     price = Column(Numeric(10, 2), nullable=True)
     member_price = Column(Numeric(10, 2), nullable=True)
+
+
+class RegistrationTypeCode(Base):
+    """Codetabel (verhuisd uit app/models/codes.py, #444). Public schema."""
+
+    __tablename__ = "registration_type_codes"
+    code = Column(String(10), primary_key=True)
+    language = Column(String(5), primary_key=True)
+    value = Column(String(100), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)

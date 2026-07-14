@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
+    admin_user_by_email, csrf_from_request,
     SESSION_COOKIE, User, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.ui import admin_nav, templates
@@ -24,19 +25,6 @@ from app.i18n import _
 router = APIRouter(include_in_schema=False)
 
 NAV = admin_nav("/admin/activiteiten")
-
-
-def _csrf(request: Request) -> str:
-    return csrf_token_for(request.cookies.get(SESSION_COOKIE) or "")
-
-
-def _admin_user(db: Session, email: str) -> User:
-    user = (db.query(User)
-            .filter(func.lower(User.email) == email.lower(), User.is_active == True)
-            .first())
-    if user is None:
-        raise HTTPException(status_code=401, detail=_("Niet aangemeld"))
-    return user
 
 
 def _decimal(value: str, default: str = "0") -> Decimal:
@@ -65,14 +53,14 @@ def _detail_response(request: Request, db: Session, activity_id: int):
     if activiteit is None:
         return HTMLResponse('<div id="aa-detail" hx-swap-oob="true"></div>')
     return templates.TemplateResponse(request, "_aa_detail.html", {
-        "a": activiteit, "csrf_token": _csrf(request)})
+        "a": activiteit, "csrf_token": csrf_from_request(request)})
 
 
 @router.get("/admin/activiteiten", response_class=HTMLResponse)
 def admin_activiteiten(request: Request, db: Session = Depends(get_db),
                        email: str = Depends(require_admin_ui)):
     return templates.TemplateResponse(request, "admin_activiteiten.html", {
-        "nav_items": NAV, "csrf_token": _csrf(request), **_lijst_ctx(db)})
+        "nav_items": NAV, "csrf_token": csrf_from_request(request), **_lijst_ctx(db)})
 
 
 @router.get("/admin/activiteiten/lijst", response_class=HTMLResponse)
@@ -103,7 +91,7 @@ def activiteit_aanmaken(request: Request, db: Session = Depends(get_db),
         name=name.strip(), location=location.strip() or None,
         members_only=bool(members_only),
         dates=[ActivityDateCreate(start_date=start_date)],
-    ), db=db, admin=_admin_user(db, email))
+    ), db=db, admin=admin_user_by_email(db, email))
     return templates.TemplateResponse(request, "_aa_lijst.html", _lijst_ctx(db))
 
 
@@ -120,7 +108,7 @@ def activiteit_bijwerken(activity_id: int, request: Request,
     update_activity(activity_id, ActivityUpdate(
         name=name.strip() or None, location=location.strip() or None,
         members_only=bool(members_only), is_cancelled=bool(is_cancelled),
-    ), db=db, admin=_admin_user(db, email))
+    ), db=db, admin=admin_user_by_email(db, email))
     return _detail_response(request, db, activity_id)
 
 
@@ -131,7 +119,7 @@ def activiteit_verwijderen(activity_id: int, request: Request,
                            email: str = Depends(require_admin_ui)):
     from app.domains.activities.router import delete_activity
 
-    delete_activity(activity_id, db=db, admin=_admin_user(db, email))
+    delete_activity(activity_id, db=db, admin=admin_user_by_email(db, email))
     return templates.TemplateResponse(request, "_aa_lijst.html", _lijst_ctx(db))
 
 
@@ -147,7 +135,7 @@ def datum_toevoegen(activity_id: int, request: Request, db: Session = Depends(ge
 
     add_activity_date(activity_id, ActivityDateCreate(
         start_date=start_date, end_date=end_date or None,
-    ), db=db, admin=_admin_user(db, email))
+    ), db=db, admin=admin_user_by_email(db, email))
     return _detail_response(request, db, activity_id)
 
 
@@ -158,7 +146,7 @@ def datum_verwijderen(activity_id: int, date_id: int, request: Request,
                       email: str = Depends(require_admin_ui)):
     from app.domains.activities.router import delete_activity_date
 
-    delete_activity_date(activity_id, date_id, db=db, admin=_admin_user(db, email))
+    delete_activity_date(activity_id, date_id, db=db, admin=admin_user_by_email(db, email))
     return _detail_response(request, db, activity_id)
 
 
@@ -177,7 +165,7 @@ def onderdeel_toevoegen(activity_id: int, request: Request,
     add_component(activity_id, ComponentCreate(
         name=name.strip(), team_name_required=bool(team_name_required),
         max_participants=_opt_int(max_participants),
-    ), db=db, admin=_admin_user(db, email))
+    ), db=db, admin=admin_user_by_email(db, email))
     return _detail_response(request, db, activity_id)
 
 
@@ -194,7 +182,7 @@ def onderdeel_bijwerken(activity_id: int, component_id: int, request: Request,
     update_component(activity_id, component_id, ComponentUpdate(
         name=name.strip(), team_name_required=bool(team_name_required),
         max_participants=_opt_int(max_participants),
-    ), db=db, admin=_admin_user(db, email))
+    ), db=db, admin=admin_user_by_email(db, email))
     return _detail_response(request, db, activity_id)
 
 
@@ -205,7 +193,7 @@ def onderdeel_verwijderen(activity_id: int, component_id: int, request: Request,
                           email: str = Depends(require_admin_ui)):
     from app.domains.activities.router import delete_component
 
-    delete_component(activity_id, component_id, db=db, admin=_admin_user(db, email))
+    delete_component(activity_id, component_id, db=db, admin=admin_user_by_email(db, email))
     return _detail_response(request, db, activity_id)
 
 
@@ -229,7 +217,7 @@ def product_toevoegen(activity_id: int, component_id: int, request: Request,
         is_free=(bedrag == 0 and not bool(pay_on_site)),
         pay_on_site=bool(pay_on_site),
         max_participants=_opt_int(max_participants),
-    ), db=db, admin=_admin_user(db, email))
+    ), db=db, admin=admin_user_by_email(db, email))
     return _detail_response(request, db, activity_id)
 
 
@@ -241,7 +229,7 @@ def product_verwijderen(activity_id: int, component_id: int, product_id: int,
     from app.domains.activities.router import delete_product
 
     delete_product(activity_id, component_id, product_id,
-                   db=db, admin=_admin_user(db, email))
+                   db=db, admin=admin_user_by_email(db, email))
     return _detail_response(request, db, activity_id)
 
 
@@ -253,10 +241,10 @@ def inschrijvingen_lijst(activity_id: int, request: Request,
                          email: str = Depends(require_admin_ui)):
     from app.domains.activities.router import get_registrations
 
-    regs = get_registrations(activity_id, db=db, admin=_admin_user(db, email))
+    regs = get_registrations(activity_id, db=db, admin=admin_user_by_email(db, email))
     return templates.TemplateResponse(request, "_aa_inschrijvingen.html", {
         "registrations": regs, "activity_id": activity_id,
-        "csrf_token": _csrf(request)})
+        "csrf_token": csrf_from_request(request)})
 
 
 @router.post("/admin/activiteiten/{activity_id}/inschrijvingen/{registration_id}/verwijderen",
@@ -267,11 +255,11 @@ def inschrijving_verwijderen(activity_id: int, registration_id: int, request: Re
     from app.domains.activities.router import delete_registration, get_registrations
 
     delete_registration(activity_id, registration_id, db=db,
-                        admin=_admin_user(db, email))
-    regs = get_registrations(activity_id, db=db, admin=_admin_user(db, email))
+                        admin=admin_user_by_email(db, email))
+    regs = get_registrations(activity_id, db=db, admin=admin_user_by_email(db, email))
     return templates.TemplateResponse(request, "_aa_inschrijvingen.html", {
         "registrations": regs, "activity_id": activity_id,
-        "csrf_token": _csrf(request)})
+        "csrf_token": csrf_from_request(request)})
 
 
 @router.get("/admin/activiteiten/{activity_id}/onderdelen/{component_id}/export")
@@ -281,4 +269,4 @@ def onderdeel_export(activity_id: int, component_id: int, request: Request,
     from app.domains.activities.router import export_component_ods
 
     return export_component_ods(activity_id, component_id, db=db,
-                                admin=_admin_user(db, email))
+                                admin=admin_user_by_email(db, email))

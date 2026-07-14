@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
+    admin_user_by_email, csrf_from_request,
     SESSION_COOKIE, User, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.domains.mdm.models import GenderCode, Person, RelationTypeCode, PostalCode
@@ -24,19 +25,6 @@ from app.i18n import _
 router = APIRouter(include_in_schema=False)
 
 NAV = admin_nav("/admin/leden")
-
-
-def _csrf(request: Request) -> str:
-    return csrf_token_for(request.cookies.get(SESSION_COOKIE) or "")
-
-
-def _admin_user(db: Session, email: str) -> User:
-    user = (db.query(User)
-            .filter(func.lower(User.email) == email.lower(), User.is_active == True)
-            .first())
-    if user is None:
-        raise HTTPException(status_code=401, detail=_("Niet aangemeld"))
-    return user
 
 
 def _codes(db: Session) -> dict:
@@ -83,7 +71,7 @@ def _detail_ctx(request: Request, db: Session, family_id: int) -> dict:
     return {"family": family, "hoofdlid": hoofdlid, "overige": overige,
             "current_year": date.today().year,
             "all_persons": persons, "postal_codes": postal_codes,
-            "csrf_token": _csrf(request), **_codes(db)}
+            "csrf_token": csrf_from_request(request), **_codes(db)}
 
 
 def _detail_response(request: Request, db: Session, family_id: int):
@@ -96,7 +84,7 @@ def _detail_response(request: Request, db: Session, family_id: int):
 @router.get("/admin/leden", response_class=HTMLResponse)
 def leden_page(request: Request, db: Session = Depends(get_db),
                email: str = Depends(require_admin_ui)):
-    ctx = {"csrf_token": _csrf(request), "nav_items": NAV, **_lijst_ctx(request, db)}
+    ctx = {"csrf_token": csrf_from_request(request), "nav_items": NAV, **_lijst_ctx(request, db)}
     return templates.TemplateResponse(request, "leden.html", ctx)
 
 
@@ -131,11 +119,11 @@ def persoon_opslaan(family_id: int, person_id: int, request: Request,
     update_person(person_id, PersonUpdate(
         first_name=first_name.strip(), last_name=last_name.strip(),
         date_of_birth=date_of_birth or None, gender_code=gender_code or None,
-    ), db=db, admin=_admin_user(db, email))
+    ), db=db, admin=admin_user_by_email(db, email))
     update_person_contacts(person_id, ContactsUpdate(
         email=contact_email.strip() or None, phone=phone.strip() or None,
         mobile=mobile.strip() or None,
-    ), db=db, admin=_admin_user(db, email))
+    ), db=db, admin=admin_user_by_email(db, email))
     db.commit()
     return _detail_response(request, db, family_id)
 
@@ -158,7 +146,7 @@ def adres_opslaan(family_id: int, request: Request, db: Session = Depends(get_db
     update_person_address(hoofdlid.id, AddressUpdate(
         street=street.strip(), house_number=house_number.strip(),
         bus_number=bus_number.strip() or None, postal_code=postal_code.strip(),
-    ), db=db, admin=_admin_user(db, email))
+    ), db=db, admin=admin_user_by_email(db, email))
     db.commit()
     return _detail_response(request, db, family_id)
 
@@ -179,7 +167,7 @@ def persoon_toevoegen(family_id: int, request: Request, db: Session = Depends(ge
         date_of_birth=date_of_birth or None, gender_code=gender_code or None,
         email=contact_email.strip() or None, phone=phone.strip() or None,
         mobile=mobile.strip() or None, relation_type=relation_type,
-    ), db=db, admin=_admin_user(db, email))
+    ), db=db, admin=admin_user_by_email(db, email))
     db.commit()
     return _detail_response(request, db, family_id)
 
@@ -191,7 +179,7 @@ def persoon_verwijderen(family_id: int, person_id: int, request: Request,
                         email: str = Depends(require_admin_ui)):
     from app.routers.members import delete_person
 
-    delete_person(person_id, db=db, admin=_admin_user(db, email))
+    delete_person(person_id, db=db, admin=admin_user_by_email(db, email))
     db.commit()
     return _detail_response(request, db, family_id)
 
@@ -206,7 +194,7 @@ def bestuurslid_zetten(family_id: int, request: Request, db: Session = Depends(g
 
     assign_board_member(family_id, BoardMemberAssign(
         person_id=int(person_id) if person_id else None,
-    ), db=db, admin=_admin_user(db, email))
+    ), db=db, admin=admin_user_by_email(db, email))
     db.commit()
     return _detail_response(request, db, family_id)
 
@@ -221,7 +209,7 @@ def lidmaatschap_toevoegen(family_id: int, request: Request,
     from app.schemas.member import MembershipCreate
 
     create_membership_for_family(family_id, MembershipCreate(year=year, is_active=True),
-                                 db=db, admin=_admin_user(db, email))
+                                 db=db, admin=admin_user_by_email(db, email))
     db.commit()
     return _detail_response(request, db, family_id)
 
@@ -233,7 +221,7 @@ def lidmaatschap_verwijderen(family_id: int, membership_id: int, request: Reques
                              email: str = Depends(require_admin_ui)):
     from app.routers.members import delete_membership
 
-    delete_membership(membership_id, db=db, admin=_admin_user(db, email))
+    delete_membership(membership_id, db=db, admin=admin_user_by_email(db, email))
     db.commit()
     return _detail_response(request, db, family_id)
 
@@ -244,7 +232,7 @@ def gezin_verwijderen(family_id: int, request: Request, db: Session = Depends(ge
                       email: str = Depends(require_admin_ui)):
     from app.routers.members import delete_family
 
-    delete_family(family_id, db=db, admin=_admin_user(db, email))
+    delete_family(family_id, db=db, admin=admin_user_by_email(db, email))
     db.commit()
     # Detailpaneel leegmaken; de lijst ververst zichzelf via hx-trigger.
     return HTMLResponse('<div id="leden-detail" hx-swap-oob="true"></div>')
@@ -257,7 +245,7 @@ def import_page(request: Request, db: Session = Depends(get_db),
                 email: str = Depends(require_admin_ui)):
     nav = [dict(item, active=False) for item in NAV]
     return templates.TemplateResponse(request, "leden_import.html", {
-        "csrf_token": _csrf(request), "nav_items": nav,
+        "csrf_token": csrf_from_request(request), "nav_items": nav,
     })
 
 
@@ -269,7 +257,7 @@ async def import_preview(request: Request, db: Session = Depends(get_db),
     from app.routers.member_import import preview
 
     try:
-        data = await preview(file=file, db=db, admin=_admin_user(db, email))
+        data = await preview(file=file, db=db, admin=admin_user_by_email(db, email))
     except HTTPException as exc:
         return templates.TemplateResponse(request, "_leden_import_resultaat.html", {
             "error": exc.detail, "stap": "preview"})
@@ -284,7 +272,7 @@ def import_commit(request: Request, db: Session = Depends(get_db),
     from app.routers.member_import import commit, CommitRequest
 
     try:
-        data = commit(CommitRequest(token=token), db=db, admin=_admin_user(db, email))
+        data = commit(CommitRequest(token=token), db=db, admin=admin_user_by_email(db, email))
     except HTTPException as exc:
         return templates.TemplateResponse(request, "_leden_import_resultaat.html", {
             "error": exc.detail, "stap": "commit"})
