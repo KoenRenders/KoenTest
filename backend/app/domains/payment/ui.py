@@ -83,8 +83,20 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
     m_bet, m_ref = _rij(charges), _rij(refunds)
     m_net = {k: m_bet[k] - m_ref[k] for k in ("due", "paid", "saldo")}
 
+    # Kaarten: elke charge met haar bijhorende refunds (refund_of_id) samen (#455).
+    refunds_by_parent: dict = {}
+    for r in refunds:
+        if r.refund_of_id:
+            refunds_by_parent.setdefault(r.refund_of_id, []).append(r)
+    charge_ids = {r.id for r in charges}
+    kaarten = [(r, refunds_by_parent.get(r.id, [])) for r in charges]
+    # Wees-refunds (charge niet zichtbaar door de filter) apart tonen.
+    kaarten += [(r, []) for r in refunds
+                if not r.refund_of_id or r.refund_of_id not in charge_ids]
+    kaarten.sort(key=lambda p: p[0].created_at, reverse=True)
+
     return {
-        "records": zichtbaar, "context": context, "status": status,
+        "records": zichtbaar, "kaarten": kaarten, "context": context, "status": status,
         "componenten": sorted(componenten.items(), key=lambda kv: kv[1]),
         "jaren": sorted(jaren, reverse=True),
         "matrix": {"betalingen": m_bet, "terugbetalingen": m_ref, "netto": m_net},
@@ -154,6 +166,31 @@ def betaling_refund(record_id: str, request: Request, db: Session = Depends(get_
         raise HTTPException(status_code=400, detail=_("Ongeldig bedrag."))
     try:
         create_refund(db, record_id, bedrag, note=note.strip() or None, actor=email)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    db.commit()
+    return templates.TemplateResponse(request, "_betalingen_lijst.html",
+                                      _ctx(request, db, email))
+
+
+@router.post("/admin/betalingen/{record_id}/bijwerken", response_class=HTMLResponse,
+             dependencies=[Depends(require_csrf)])
+def betaling_bijwerken(record_id: str, request: Request, db: Session = Depends(get_db),
+                       email: str = Depends(require_admin_ui),
+                       amount_paid: str = Form(""), note: str = Form("")):
+    """Betaald bedrag invullen + als betaald bevestigen (#455)."""
+    from app.domains.payment.api import confirm_manual_payment
+
+    _require_finance(db, email)
+    bedrag = None
+    if amount_paid.strip():
+        try:
+            bedrag = Decimal(amount_paid.replace(",", "."))
+        except (InvalidOperation, AttributeError):
+            raise HTTPException(status_code=400, detail=_("Ongeldig bedrag."))
+    try:
+        confirm_manual_payment(db, record_id, note.strip() or None,
+                               actor=email, amount_paid=bedrag)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     db.commit()

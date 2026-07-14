@@ -27,58 +27,59 @@
     </tbody>
   </table>
 </div>
-{% if records %}
-<div class="overflow-x-auto bg-white rounded-2xl shadow-sm border border-gray-200">
-  <table class="min-w-full text-sm">
-    <thead>
-      <tr class="text-left text-gray-500 border-b border-gray-200">
-        <th class="px-4 py-3">{{ _("Datum") }}</th>
-        <th class="px-4 py-3">{{ _("Naam") }}</th>
-        <th class="px-4 py-3">{{ _("Omschrijving") }}</th>
-        <th class="px-4 py-3">{{ _("Methode") }}</th>
-        <th class="px-4 py-3 text-right">{{ _("Bedrag") }}</th>
-        <th class="px-4 py-3 text-right">{{ _("Betaald") }}</th>
-        <th class="px-4 py-3">{{ _("Status") }}</th>
-        {% if is_finance %}<th class="px-4 py-3"></th>{% endif %}
-      </tr>
-    </thead>
-    <tbody>
-      {% for r in records %}
-      <tr class="border-b border-gray-100 align-top" {% if is_finance %}x-data="{ refund: false }"{% endif %}>
-        <td class="px-4 py-2 whitespace-nowrap">{{ r.created_at.strftime("%d-%m-%Y") }}</td>
-        <td class="px-4 py-2">{{ r.contact_name or "—" }}</td>
-        <td class="px-4 py-2">{{ r.description or "—" }}{% if r.component_name %} · {{ r.component_name }}{% endif %}
-          {% if r.type == "refund" %}<span class="ml-1">{{ ui.badge(_("refund"), "yellow") }}</span>{% endif %}</td>
-        <td class="px-4 py-2">{{ r.method }}</td>
-        <td class="px-4 py-2 text-right whitespace-nowrap">€ {{ "%.2f"|format(r.amount) }}</td>
-        <td class="px-4 py-2 text-right whitespace-nowrap">{% if r.amount_paid is not none %}€ {{ "%.2f"|format(r.amount_paid) }}{% else %}—{% endif %}</td>
-        <td class="px-4 py-2">
+{% if kaarten %}
+<div class="space-y-3">
+  {% for r, refunds in kaarten %}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4"{% if is_finance %} x-data="{ invul: false, terug: false }"{% endif %}>
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <div class="font-semibold">{{ r.contact_name or "—" }}
+          {% if r.type == "refund" %}{{ ui.badge(_("terugbetaling"), "yellow") }}{% endif %}</div>
+        <div class="text-sm text-gray-500">{{ r.description or "—" }}{% if r.component_name %} · {{ r.component_name }}{% endif %}</div>
+        <div class="text-xs text-gray-400">{{ r.created_at.strftime("%d-%m-%Y") }} · {{ r.method }}{% if r.structured_communication %} · OGM {{ r.structured_communication }}{% endif %}</div>
+      </div>
+      <div class="text-right text-sm whitespace-nowrap">
+        {% set saldo = r.amount - (r.amount_paid or 0) %}
+        <div>{{ _("Te betalen") }}: <strong>€ {{ "%.2f"|format(r.amount) }}</strong></div>
+        <div class="text-green-700">{{ _("Betaald") }}: € {{ "%.2f"|format(r.amount_paid or 0) }}</div>
+        <div class="{% if saldo > 0 %}text-orange-700{% endif %}">{{ _("Saldo") }}: € {{ "%.2f"|format(saldo) }}</div>
+        <div class="mt-1">
           {% if r.status == "paid" %}{{ ui.badge(_("paid"), "green") }}
           {% elif r.status == "pending" %}{{ ui.badge(_("pending"), "yellow") }}
-          {% else %}{{ ui.badge(r.status, "red") }}{% endif %}
-        </td>
-        {% if is_finance %}
-        <td class="px-4 py-2 text-right whitespace-nowrap">
-          {% if r.status != "paid" %}
-          {{ ui.btn_secondary(_("Bevestig betaald"), attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-confirm="' ~ _("Deze betaling als betaald bevestigen?") ~ '"') }}
-          {% endif %}
-          {% if r.type == "charge" and r.status == "paid" %}
-          {{ ui.btn_secondary(_("Refund…"), attrs='@click="refund = !refund"') }}
-          <form x-show="refund" x-cloak class="mt-2 flex gap-2 justify-end"
-                hx-post="/admin/betalingen/{{ r.id }}/refund"
-                hx-target="#betalingen-lijst" hx-swap="innerHTML">
-            <input name="amount" required placeholder="{{ _('Bedrag') }}" inputmode="decimal"
-                   class="w-24 border border-gray-300 rounded-lg px-2 py-1 text-sm">
-            <input name="note" placeholder="{{ _('Reden') }}" class="w-40 border border-gray-300 rounded-lg px-2 py-1 text-sm">
-            {{ ui.btn_danger(_("Terugbetalen"), type="submit") }}
-          </form>
-          {% endif %}
-        </td>
-        {% endif %}
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+          {% else %}{{ ui.badge(r.status, "red") }}{% endif %}</div>
+      </div>
+    </div>
+    {% for rf in refunds %}
+    <div class="mt-2 pl-3 border-l-2 border-yellow-200 text-sm text-gray-600">
+      ↩ {{ _("Terugbetaling") }} € {{ "%.2f"|format(rf.amount|abs) }} · {{ rf.created_at.strftime("%d-%m-%Y") }}{% if rf.note %} · {{ rf.note }}{% endif %}</div>
+    {% endfor %}
+    {% if is_finance and r.type != "refund" %}
+    <div class="mt-3 flex flex-wrap gap-2">
+      {% if r.status != "paid" %}
+      {{ ui.btn_secondary(_("Bevestig betaald"), attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-confirm="' ~ _("Als volledig betaald bevestigen?") ~ '"') }}
+      {{ ui.btn_secondary(_("Bedrag invullen"), attrs='@click="invul = !invul"') }}
+      {% endif %}
+      {% if r.status == "paid" %}
+      {{ ui.btn_secondary(_("Terugbetalen…"), attrs='@click="terug = !terug"') }}
+      {% endif %}
+    </div>
+    <form x-show="invul" x-cloak class="mt-2 flex flex-wrap gap-2 items-end"
+          hx-post="/admin/betalingen/{{ r.id }}/bijwerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
+      <div><label class="block text-xs text-gray-500">{{ _("Betaald bedrag") }}</label>
+        <input name="amount_paid" value="{{ '%.2f'|format(r.amount) }}" inputmode="decimal" class="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm"></div>
+      <input name="note" placeholder="{{ _('Notitie') }}" class="w-40 border border-gray-300 rounded-lg px-2 py-1 text-sm">
+      {{ ui.btn_primary(_("Opslaan"), type="submit") }}
+    </form>
+    <form x-show="terug" x-cloak class="mt-2 flex flex-wrap gap-2 items-end"
+          hx-post="/admin/betalingen/{{ r.id }}/refund" hx-target="#betalingen-lijst" hx-swap="innerHTML">
+      <div><label class="block text-xs text-gray-500">{{ _("Terug te betalen") }}</label>
+        <input name="amount" required inputmode="decimal" placeholder="{{ _('Bedrag') }}" class="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm"></div>
+      <input name="note" placeholder="{{ _('Reden') }}" class="w-40 border border-gray-300 rounded-lg px-2 py-1 text-sm">
+      {{ ui.btn_danger(_("Terugbetalen"), type="submit") }}
+    </form>
+    {% endif %}
+  </div>
+  {% endfor %}
 </div>
 {% else %}
 {{ ui.empty_state(_("Geen betalingen voor deze filter.")) }}
