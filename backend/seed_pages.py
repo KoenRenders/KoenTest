@@ -1,6 +1,6 @@
 """Seed CMS pages: Werking and Kerstradio."""
 from app.database import SessionLocal
-from app.models.cms import CmsPage
+from app.domains.cms.api import CmsPage
 
 db = SessionLocal()
 

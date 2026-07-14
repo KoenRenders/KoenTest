@@ -2,8 +2,8 @@
 import sys
 from datetime import date, datetime
 from app.database import SessionLocal
-from app.models.activity import Activity, ActivityDate, Registration
-from app.models.activity_sub_registration import ActivitySubRegistration
+from app.domains.activities.api import Activity, ActivityDate, Registration
+from app.domains.activities.api import ActivitySubRegistration
 
 db = SessionLocal()
 
