@@ -19,6 +19,12 @@ template_dirs: list[str] = [str(_UI_DIR / "templates")] + sorted(
 
 templates = Jinja2Templates(directory=template_dirs)
 
+# Taalbeleid (#407-T): {{ _("...") }} beschikbaar in alle templates, volgend
+# op de actieve tenant-taal.
+from app.i18n import install_jinja_i18n  # noqa: E402
+
+install_jinja_i18n(templates.env)
+
 # Canonieke admin-navigatie (React-exit 405-d, #405): één bron voor alle
 # server-rendered beheer-schermen i.p.v. een kopie per module.
 _ADMIN_NAV: list[tuple[str, str]] = [

@@ -174,10 +174,24 @@ async def _tenant_context(request: Request, call_next):
     if nieuw_pad is not None:
         request.scope["path"] = nieuw_pad
     request.scope["state"]["platform_landing"] = platform_landing
+    from app.i18n import DEFAULT_LOCALE, current_locale
+
+    taal = DEFAULT_LOCALE
+    if tenant != DEFAULT_TENANT_ID:
+        from app.database import SessionLocal
+        from app.kernel.tenant_config import tenant_language
+
+        _db = SessionLocal()
+        try:
+            taal = tenant_language(_db, tenant_id=tenant)
+        finally:
+            _db.close()
     token = current_tenant_id.set(tenant)
+    taal_token = current_locale.set(taal)
     try:
         response = await call_next(request)
     finally:
+        current_locale.reset(taal_token)
         current_tenant_id.reset(token)
     if nieuw_pad is not None:
         code = next(c for c, t in TENANT_CODES.items() if t == tenant)
@@ -193,6 +207,7 @@ async def _tenant_context(request: Request, call_next):
         finally:
             db.close()
     return response
+
 
 
 @app.middleware("http")

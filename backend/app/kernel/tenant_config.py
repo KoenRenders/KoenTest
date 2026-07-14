@@ -114,3 +114,8 @@ def tenant_mollie_key(db: Session, tenant_id: int | None = None) -> str | None:
 
 def tenant_mail_mode(db: Session, tenant_id: int | None = None) -> str:
     return get_setting(db, "mail_mode", tenant_id=tenant_id) or "send"
+
+
+def tenant_language(db: Session, tenant_id: int | None = None) -> str:
+    """Taal van de tenant (#407-T) — default nl_BE; voorbereiding meertaligheid."""
+    return get_setting(db, "language", tenant_id=tenant_id) or "nl_BE"
