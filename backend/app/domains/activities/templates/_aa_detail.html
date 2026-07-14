@@ -41,17 +41,38 @@
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
     <h3 class="font-semibold mb-2">{{ _("Datums") }}</h3>
     {% for d in a.dates %}
-    <div class="flex items-center justify-between text-sm py-1">
-      <span>{{ d.start_date.strftime("%d-%m-%Y") }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date.strftime("%d-%m-%Y") }}{% endif %}</span>
-      {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/datums/' ~ d.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" hx-confirm="' ~ _("Datum verwijderen?") ~ '"') }}
+    <div class="text-sm py-1 border-b border-gray-100" x-data="{ edit: false }">
+      <div class="flex items-center justify-between">
+        <span>{{ d.start_date.strftime("%d-%m-%Y") }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date.strftime("%d-%m-%Y") }}{% endif %}{% if d.start_time %} · {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %}–{{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}</span>
+        <div class="flex gap-2">
+          {{ ui.btn_secondary(_("Bewerk"), attrs='@click="edit = !edit"') }}
+          {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/datums/' ~ d.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" hx-confirm="' ~ _("Datum verwijderen?") ~ '"') }}
+        </div>
+      </div>
+      <form x-show="edit" x-cloak class="flex flex-wrap gap-2 items-end mt-2 bg-gray-50 rounded-lg p-2"
+            hx-post="/admin/activiteiten/{{ a.id }}/datums/{{ d.id }}" hx-target="#aa-detail" hx-swap="innerHTML">
+        <div>{{ ui.label(_("Start"), "sd-" ~ d.id, required=True) }}
+          <input type="date" name="start_date" id="sd-{{ d.id }}" required value="{{ d.start_date.strftime('%Y-%m-%d') }}" class="border border-gray-300 rounded-lg px-2 py-1"></div>
+        <div>{{ ui.label(_("Einde"), "ed-" ~ d.id) }}
+          <input type="date" name="end_date" id="ed-{{ d.id }}" value="{{ d.end_date.strftime('%Y-%m-%d') if d.end_date else '' }}" class="border border-gray-300 rounded-lg px-2 py-1"></div>
+        <div>{{ ui.label(_("Beginuur"), "st-" ~ d.id) }}
+          <input type="time" name="start_time" id="st-{{ d.id }}" value="{{ d.start_time.strftime('%H:%M') if d.start_time else '' }}" class="border border-gray-300 rounded-lg px-2 py-1"></div>
+        <div>{{ ui.label(_("Einduur"), "et-" ~ d.id) }}
+          <input type="time" name="end_time" id="et-{{ d.id }}" value="{{ d.end_time.strftime('%H:%M') if d.end_time else '' }}" class="border border-gray-300 rounded-lg px-2 py-1"></div>
+        {{ ui.btn_primary(_("Opslaan")) }}
+      </form>
     </div>
     {% endfor %}
-    <form class="flex gap-2 items-end mt-3" hx-post="/admin/activiteiten/{{ a.id }}/datums"
+    <form class="flex flex-wrap gap-2 items-end mt-3" hx-post="/admin/activiteiten/{{ a.id }}/datums"
           hx-target="#aa-detail" hx-swap="innerHTML">
       <div>{{ ui.label(_("Start"), "start_date", required=True) }}
         <input type="date" name="start_date" required class="border border-gray-300 rounded-lg px-3 py-2"></div>
       <div>{{ ui.label(_("Einde"), "end_date") }}
         <input type="date" name="end_date" class="border border-gray-300 rounded-lg px-3 py-2"></div>
+      <div>{{ ui.label(_("Beginuur"), "start_time") }}
+        <input type="time" name="start_time" class="border border-gray-300 rounded-lg px-3 py-2"></div>
+      <div>{{ ui.label(_("Einduur"), "end_time") }}
+        <input type="time" name="end_time" class="border border-gray-300 rounded-lg px-3 py-2"></div>
       {{ ui.btn_primary(_("Toevoegen")) }}
     </form>
   </div>

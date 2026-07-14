@@ -137,12 +137,32 @@ def activiteit_verwijderen(activity_id: int, request: Request,
              dependencies=[Depends(require_csrf)])
 def datum_toevoegen(activity_id: int, request: Request, db: Session = Depends(get_db),
                     email: str = Depends(require_admin_ui),
-                    start_date: str = Form(...), end_date: str = Form("")):
+                    start_date: str = Form(...), end_date: str = Form(""),
+                    start_time: str = Form(""), end_time: str = Form("")):
     from app.domains.activities.router import add_activity_date
     from app.schemas.activity import ActivityDateCreate
 
     add_activity_date(activity_id, ActivityDateCreate(
         start_date=start_date, end_date=end_date or None,
+        start_time=start_time or None, end_time=end_time or None,
+    ), db=db, admin=admin_user_by_email(db, email))
+    return _detail_response(request, db, activity_id)
+
+
+@router.post("/admin/activiteiten/{activity_id}/datums/{date_id}",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def datum_bijwerken(activity_id: int, date_id: int, request: Request,
+                    db: Session = Depends(get_db),
+                    email: str = Depends(require_admin_ui),
+                    start_date: str = Form(...), end_date: str = Form(""),
+                    start_time: str = Form(""), end_time: str = Form("")):
+    """Bestaande datum (incl. begin-/einduur) bewerken — v1.14-pariteit."""
+    from app.domains.activities.router import update_activity_date
+    from app.schemas.activity import ActivityDateUpdate
+
+    update_activity_date(activity_id, date_id, ActivityDateUpdate(
+        start_date=start_date, end_date=end_date or None,
+        start_time=start_time or None, end_time=end_time or None,
     ), db=db, admin=admin_user_by_email(db, email))
     return _detail_response(request, db, activity_id)
 
