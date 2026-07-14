@@ -9,7 +9,7 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -247,6 +247,46 @@ def product_verwijderen(activity_id: int, component_id: int, product_id: int,
 
     delete_product(activity_id, component_id, product_id,
                    db=db, admin=admin_user_by_email(db, email))
+    return _detail_response(request, db, activity_id)
+
+
+@router.post("/admin/activiteiten/{activity_id}/onderdelen/{component_id}/producten/{product_id}",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def product_bijwerken(activity_id: int, component_id: int, product_id: int,
+                      request: Request, db: Session = Depends(get_db),
+                      email: str = Depends(require_admin_ui),
+                      name: str = Form(...), price: str = Form("0"),
+                      member_price: str = Form(""), pay_on_site: str = Form(""),
+                      max_participants: str = Form("")):
+    """Product bijwerken incl. prijs/ledenprijs (#451)."""
+    from app.domains.activities.router import update_product
+    from app.schemas.activity import ProductUpdate
+
+    bedrag = _decimal(price)
+    update_product(activity_id, component_id, product_id, ProductUpdate(
+        name=name.strip(), price=bedrag,
+        member_price=_decimal(member_price) if member_price.strip() else None,
+        is_free=(bedrag == 0 and not bool(pay_on_site)),
+        pay_on_site=bool(pay_on_site),
+        max_participants=_opt_int(max_participants),
+    ), db=db, admin=admin_user_by_email(db, email))
+    return _detail_response(request, db, activity_id)
+
+
+@router.post("/admin/activiteiten/{activity_id}/affiche", response_class=HTMLResponse,
+             dependencies=[Depends(require_csrf)])
+async def affiche_uploaden(activity_id: int, request: Request,
+                           background_tasks: BackgroundTasks,
+                           db: Session = Depends(get_db),
+                           email: str = Depends(require_admin_ui)):
+    """Affiche (poster) uploaden vanuit de activiteiten-admin (#451)."""
+    from app.domains.media.router import upload_activity_poster
+
+    form = await request.form()
+    bestand = form.get("file")
+    if bestand is not None and getattr(bestand, "filename", ""):
+        await upload_activity_poster(activity_id, background_tasks, file=bestand,
+                                     db=db, _admin=admin_user_by_email(db, email))
     return _detail_response(request, db, activity_id)
 
 

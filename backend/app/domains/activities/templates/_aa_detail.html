@@ -24,6 +24,17 @@
       <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_cancelled" value="1" {% if a.is_cancelled %}checked{% endif %}> {{ _("Geannuleerd") }}</label>
       {{ ui.btn_primary(_("Opslaan")) }}
     </form>
+    {# Affiche uploaden (#451) #}
+    <div class="mt-3 border-t border-gray-100 pt-3">
+      {% if a.poster_asset_url %}<a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-sm text-blue-700 underline">{{ _("Huidige affiche bekijken") }}</a>{% endif %}
+      <form class="flex flex-wrap items-end gap-2 mt-2" enctype="multipart/form-data"
+            hx-post="/admin/activiteiten/{{ a.id }}/affiche" hx-encoding="multipart/form-data"
+            hx-target="#aa-detail" hx-swap="innerHTML">
+        <div><label class="block text-xs text-gray-500">{{ _("Affiche (afbeelding of PDF)") }}</label>
+          <input type="file" name="file" accept="image/*,application/pdf" required class="block text-sm"></div>
+        {{ ui.btn_secondary(_("Uploaden")) }}
+      </form>
+    </div>
   </div>
 
   {# Datums #}
@@ -78,12 +89,31 @@
     </form>
     <div class="mt-3 space-y-1">
       {% for p in c.products %}
-      <div class="flex items-center justify-between text-sm py-1 border-t border-gray-100">
-        <span>{{ p.name }} ·
-          {% if p.pay_on_site %}{{ _("ter plaatse") }}{% elif p.is_free or p.price == 0 %}{{ _("gratis") }}{% else %}€{{ "%.2f"|format(p.price) }}{% if p.member_price is not none %} / leden €{{ "%.2f"|format(p.member_price) }}{% endif %}{% endif %}
-          {% if p.max_participants %} · max {{ p.max_participants }}{% endif %}
-        </span>
-        {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Product"), p.name)) }}
+      <div class="border-t border-gray-100 py-1" x-data="{ ed: false }">
+        <div class="flex items-center justify-between text-sm">
+          <span>{{ p.name }} ·
+            {% if p.pay_on_site %}{{ _("ter plaatse") }}{% elif p.is_free or p.price == 0 %}{{ _("gratis") }}{% else %}€{{ "%.2f"|format(p.price) }}{% if p.member_price is not none %} / leden €{{ "%.2f"|format(p.member_price) }}{% endif %}{% endif %}
+            {% if p.max_participants %} · max {{ p.max_participants }}{% endif %}
+          </span>
+          <div class="flex gap-2">
+            {{ ui.btn_secondary(_("Bewerk"), attrs='@click="ed = !ed"') }}
+            {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Product"), p.name)) }}
+          </div>
+        </div>
+        <form x-show="ed" x-cloak class="flex flex-wrap gap-2 items-end mt-2"
+              hx-post="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}/producten/{{ p.id }}"
+              hx-target="#aa-detail" hx-swap="innerHTML">
+          <div><label class="block text-xs text-gray-500">{{ _("Naam") }}</label>
+            <input name="name" required value="{{ p.name }}" class="border border-gray-300 rounded-lg px-3 py-2"></div>
+          <div><label class="block text-xs text-gray-500">{{ _("Prijs") }}</label>
+            <input name="price" value="{{ '%.2f'|format(p.price) }}" inputmode="decimal" class="w-24 border border-gray-300 rounded-lg px-3 py-2"></div>
+          <div><label class="block text-xs text-gray-500">{{ _("Ledenprijs") }}</label>
+            <input name="member_price" value="{% if p.member_price is not none %}{{ '%.2f'|format(p.member_price) }}{% endif %}" inputmode="decimal" class="w-24 border border-gray-300 rounded-lg px-3 py-2"></div>
+          <div><label class="block text-xs text-gray-500">{{ _("Max") }}</label>
+            <input name="max_participants" value="{{ p.max_participants or '' }}" class="w-20 border border-gray-300 rounded-lg px-3 py-2"></div>
+          <label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="pay_on_site" value="1" {% if p.pay_on_site %}checked{% endif %}> {{ _("Ter plaatse") }}</label>
+          {{ ui.btn_primary(_("Opslaan")) }}
+        </form>
       </div>
       {% endfor %}
       <form class="flex flex-wrap gap-2 items-end mt-2"
