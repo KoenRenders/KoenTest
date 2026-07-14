@@ -1,6 +1,7 @@
 {% extends "site_base.html" %}
 {% import "_macros.html" as ui %}
 {% block content %}
+{% if bericht_verzonden %}{{ ui.success_banner(_("Bedankt! We hebben je bericht goed ontvangen en behartigen het zo snel mogelijk.")) }}{% endif %}
 <section class="py-4">
   {% if intro_html %}
   <div class="cms-content mb-6 text-gray-700">{{ intro_html | safe }}</div>

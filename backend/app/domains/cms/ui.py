@@ -43,6 +43,7 @@ def homepage(request: Request, db: Session = Depends(get_db)):
         "intro_html": render_cms_content(intro.content or "") if intro else None,
         "activities": list_activities(db, scope="upcoming"),
         "scope": "upcoming",
+        "bericht_verzonden": request.query_params.get("bericht") == "verzonden",
     })
 
 

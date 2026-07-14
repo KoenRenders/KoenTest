@@ -59,7 +59,9 @@ def berichten_submit(
 
     submit_bericht(db, naam=naam, email=email or None, bericht=bericht,
                    background_tasks=background_tasks)
-    return templates.TemplateResponse(request, "_berichten_bedankt.html", {"naam": naam})
+    # Terug naar de homepage met een bedankt-flash (#451) i.p.v. op /berichten
+    # blijven hangen; htmx doet een volledige navigatie op de HX-Redirect-header.
+    return HTMLResponse("", headers={"HX-Redirect": "/?bericht=verzonden"})
 
 
 # ── Publieke formulier-render (React-exit 405-c, #405) ─────────────────────────
