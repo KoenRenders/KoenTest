@@ -24,7 +24,9 @@ def test_berichten_form_is_seeded(db_session):
 
 def test_bericht_creates_submission_and_task(client, db_session):
     resp = _post_bericht(client)
-    assert resp.status_code == 200 and "Bedankt, Fee" in resp.text
+    # Na indienen: HX-Redirect terug naar de homepage met bedankt-flash (#451).
+    assert resp.status_code == 200
+    assert resp.headers.get("HX-Redirect") == "/?bericht=verzonden"
 
     sub = db_session.query(FormSubmission).order_by(FormSubmission.id.desc()).first()
     assert sub.submitter_name == "Fee" and sub.answers[0].value_text == "Meer wandelingen!"
