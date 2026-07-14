@@ -4,10 +4,10 @@
   <button class="w-full text-left px-3 py-2 rounded-lg text-sm border bg-white border-gray-200 hover:bg-gray-50"
           hx-get="/admin/activiteiten/{{ a.id }}" hx-target="#aa-detail" hx-swap="innerHTML">
     <div class="font-medium">{{ a.name }}
-      {% if a.is_cancelled %}{{ ui.badge("geannuleerd", "red") }}{% endif %}</div>
+      {% if a.is_cancelled %}{{ ui.badge(_("geannuleerd"), "red") }}{% endif %}</div>
     <div class="text-xs text-gray-500">{{ a.sort_date.strftime("%d-%m-%Y") if a.sort_date else "—" }}{% if a.registration_count is not none %} · {{ a.registration_count }} inschrijvingen{% endif %}</div>
   </button>
   {% else %}
-  {{ ui.empty_state("Nog geen activiteiten.") }}
+  {{ ui.empty_state(_("Nog geen activiteiten.")) }}
   {% endfor %}
 </div>

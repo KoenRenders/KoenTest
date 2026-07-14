@@ -22,6 +22,7 @@ from app.database import get_db
 from app.domains.auth.api import User
 from app.services.ledenrapport import parse_families
 from app.services.member_import import upsert_families
+from app.i18n import _
 
 router = APIRouter(tags=["member-import"])
 
@@ -42,7 +43,7 @@ def _purge_expired() -> None:
 def _store(content: bytes) -> str:
     _purge_expired()
     if len(_PENDING) >= _MAX_PENDING:
-        raise HTTPException(status_code=429, detail="Te veel openstaande imports. Probeer later opnieuw.")
+        raise HTTPException(status_code=429, detail=_("Te veel openstaande imports. Probeer later opnieuw."))
     token = secrets.token_urlsafe(24)
     _PENDING[token] = {"content": content, "created_at": time.monotonic()}
     return token
@@ -55,10 +56,10 @@ def _take(token: str) -> dict:
     zodat een net-verlopen token een duidelijke 410 geeft i.p.v. 404."""
     entry = _PENDING.get(token)
     if entry is None:
-        raise HTTPException(status_code=404, detail="Onbekende of reeds gebruikte import. Laad het bestand opnieuw op.")
+        raise HTTPException(status_code=404, detail=_("Onbekende of reeds gebruikte import. Laad het bestand opnieuw op."))
     if time.monotonic() - entry["created_at"] > _TTL_SECONDS:
         _PENDING.pop(token, None)
-        raise HTTPException(status_code=410, detail="De import is verlopen. Laad het bestand opnieuw op.")
+        raise HTTPException(status_code=410, detail=_("De import is verlopen. Laad het bestand opnieuw op."))
     _purge_expired()
     return _PENDING.pop(token)
 
@@ -66,11 +67,11 @@ def _take(token: str) -> dict:
 def _parse_or_400(content: bytes, filename: str | None):
     if filename and filename.lower().endswith(".xlsx"):
         raise HTTPException(status_code=400,
-                            detail="Het .xlsx-formaat wordt niet ondersteund. Gebruik .xls (export uit Raak Nationaal) of .ods (LibreOffice Calc).")
+                            detail=_("Het .xlsx-formaat wordt niet ondersteund. Gebruik .xls (export uit Raak Nationaal) of .ods (LibreOffice Calc)."))
     try:
         return parse_families(content)
     except Exception:
-        raise HTTPException(status_code=400, detail="Kon het ledenrapport niet lezen. Is het een geldig .xls- of .ods-bestand?")
+        raise HTTPException(status_code=400, detail=_("Kon het ledenrapport niet lezen. Is het een geldig .xls- of .ods-bestand?"))
 
 
 class CommitRequest(BaseModel):
@@ -85,11 +86,11 @@ async def preview(
 ):
     content = await file.read()
     if not content:
-        raise HTTPException(status_code=400, detail="Leeg bestand.")
+        raise HTTPException(status_code=400, detail=_("Leeg bestand."))
     if len(content) > _MAX_FILE_BYTES:
-        raise HTTPException(status_code=413, detail="Bestand te groot (max 5 MB).")
+        raise HTTPException(status_code=413, detail=_("Bestand te groot (max 5 MB)."))
 
-    families, bl_index, all_bl_names, _ = _parse_or_400(content, file.filename)
+    families, bl_index, all_bl_names, _rest = _parse_or_400(content, file.filename)
     # apply=False muteert de sessie niet: het rapport beschrijft enkel wat zou
     # veranderen. Pas bij commit wordt er weggeschreven.
     report = upsert_families(db, families, bl_index, all_bl_names, apply=False,
@@ -111,7 +112,7 @@ def commit(
     admin: User = Depends(get_current_admin),
 ):
     entry = _take(req.token)
-    families, bl_index, all_bl_names, _ = _parse_or_400(entry["content"], None)
+    families, bl_index, all_bl_names, _rest = _parse_or_400(entry["content"], None)
     report = upsert_families(db, families, bl_index, all_bl_names, apply=True,
                              actor=admin.email)
     db.commit()

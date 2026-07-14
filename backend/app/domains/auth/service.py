@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
+from app.i18n import _
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/api/v1/auth/login")
 # Voor lid-endpoints: een ontbrekend token mag geen 401 geven (publieke
@@ -34,7 +35,7 @@ def decode_token(token: str) -> dict:
     except jwt.PyJWTError:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
+            detail=_("Could not validate credentials"),
             headers={"WWW-Authenticate": "Bearer"},
         )
 
@@ -46,7 +47,7 @@ def _email_from_token(token: str) -> str:
     if not email:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Could not validate credentials",
+            detail=_("Could not validate credentials"),
         )
     return email
 
@@ -98,7 +99,7 @@ def require_roles(*codes: str):
         if not roles.intersection((*codes, "OPERATOR")):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail="Insufficient permissions",
+                detail=_("Insufficient permissions"),
             )
         user = (
             db.query(User)
@@ -108,7 +109,7 @@ def require_roles(*codes: str):
         if user is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="User not found",
+                detail=_("User not found"),
             )
         return user
 
@@ -158,7 +159,7 @@ def require_member(member=Depends(get_current_member)):
     if member is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Niet ingelogd als lid.",
+            detail=_("Niet ingelogd als lid."),
             headers={"WWW-Authenticate": "Bearer"},
         )
     return member
@@ -188,7 +189,7 @@ def require_api_key(request: Request, db: Session = Depends(get_db)):
     raw = request.headers.get(API_KEY_HEADER)
     if not raw:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="API-key ontbreekt")
+                            detail=_("API-key ontbreekt"))
     entry = (
         db.query(ApiKey)
         .filter(ApiKey.key_hash == hash_api_key(raw), ApiKey.is_active == True)
@@ -196,6 +197,6 @@ def require_api_key(request: Request, db: Session = Depends(get_db)):
     )
     if entry is None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail="Ongeldige API-key")
+                            detail=_("Ongeldige API-key"))
     entry.last_used_at = datetime.now(timezone.utc)
     return entry

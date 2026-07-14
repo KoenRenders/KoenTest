@@ -1,15 +1,15 @@
 {% extends "site_base.html" %}
-{% block title %}{{ "Betaling ontvangen" if gelukt else "Betaling geannuleerd" }} — Raak{% endblock %}
+{% block title %}{{ _("Betaling ontvangen") if gelukt else _("Betaling geannuleerd") }} — Raak{% endblock %}
 {% block content %}
 <div class="max-w-md mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
   <div class="text-5xl mb-4">{{ "✅" if gelukt else "❌" }}</div>
   {% if gelukt %}
-  <h1 class="text-2xl font-bold mb-2">Betaling ontvangen!</h1>
-  <p class="text-gray-600 mb-6">Bedankt! Je inschrijving bij Raak Millegem is bevestigd. Je ontvangt een bevestiging per e-mail.</p>
+  <h1 class="text-2xl font-bold mb-2">{{ _("Betaling ontvangen!") }}</h1>
+  <p class="text-gray-600 mb-6">{{ _("Bedankt! Je inschrijving bij Raak Millegem is bevestigd. Je ontvangt een bevestiging per e-mail.") }}</p>
   {% else %}
-  <h1 class="text-2xl font-bold mb-2">Betaling geannuleerd</h1>
-  <p class="text-gray-600 mb-6">Je betaling is niet doorgegaan. Je kunt het opnieuw proberen of contact opnemen met het bestuur.</p>
+  <h1 class="text-2xl font-bold mb-2">{{ _("Betaling geannuleerd") }}</h1>
+  <p class="text-gray-600 mb-6">{{ _("Je betaling is niet doorgegaan. Je kunt het opnieuw proberen of contact opnemen met het bestuur.") }}</p>
   {% endif %}
-  <a class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg" href="/">Terug naar de startpagina</a>
+  <a class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg" href="/">{{ _("Terug naar de startpagina") }}</a>
 </div>
 {% endblock %}

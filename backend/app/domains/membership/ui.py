@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.limiter import registration_limiter
 from app.ui import site_context, templates
+from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
 
@@ -168,7 +169,7 @@ def _require_member_csrf(request: Request, db: Session):
 
     person = _session_member(request, db)
     if person is None:
-        raise HTTPException(status_code=401, detail="Niet aangemeld")
+        raise HTTPException(status_code=401, detail=_("Niet aangemeld"))
     require_csrf(request)
     return person
 

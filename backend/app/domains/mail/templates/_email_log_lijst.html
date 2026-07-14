@@ -4,11 +4,11 @@
   <table class="min-w-full text-sm">
     <thead>
       <tr class="text-left text-gray-500 border-b border-gray-200">
-        <th class="px-4 py-3">Datum</th>
-        <th class="px-4 py-3">Ontvanger</th>
-        <th class="px-4 py-3">Onderwerp</th>
-        <th class="px-4 py-3">Type</th>
-        <th class="px-4 py-3">Status</th>
+        <th class="px-4 py-3">{{ _("Datum") }}</th>
+        <th class="px-4 py-3">{{ _("Ontvanger") }}</th>
+        <th class="px-4 py-3">{{ _("Onderwerp") }}</th>
+        <th class="px-4 py-3">{{ _("Type") }}</th>
+        <th class="px-4 py-3">{{ _("Status") }}</th>
         <th class="px-4 py-3"></th>
       </tr>
     </thead>
@@ -20,13 +20,13 @@
         <td class="px-4 py-2">{{ row.subject }}</td>
         <td class="px-4 py-2">{{ ui.badge(row.email_type, "blue") }}</td>
         <td class="px-4 py-2">
-          {% if row.status == "sent" %}{{ ui.badge("sent", "green") }}
-          {% elif row.status == "failed" %}{{ ui.badge("failed", "red") }}
+          {% if row.status == "sent" %}{{ ui.badge(_("sent"), "green") }}
+          {% elif row.status == "failed" %}{{ ui.badge(_("failed"), "red") }}
           {% else %}{{ ui.badge(row.status, "yellow") }}{% endif %}
           {% if row.error_message %}<span class="block text-xs text-gray-500 mt-1">{{ row.error_message }}</span>{% endif %}
         </td>
         <td class="px-4 py-2 text-right">
-          {{ ui.btn_danger("Verwijder", attrs='hx-post="/admin/e-maillog/' ~ row.id ~ '/verwijderen" hx-target="#email-log-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs("E-mail", row.subject)) }}
+          {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/e-maillog/' ~ row.id ~ '/verwijderen" hx-target="#email-log-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("E-mail"), row.subject)) }}
         </td>
       </tr>
       {% endfor %}
@@ -34,5 +34,5 @@
   </table>
 </div>
 {% else %}
-{{ ui.empty_state("Geen e-mails gevonden voor deze filter.") }}
+{{ ui.empty_state(_("Geen e-mails gevonden voor deze filter.")) }}
 {% endif %}

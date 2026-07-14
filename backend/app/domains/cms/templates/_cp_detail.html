@@ -4,31 +4,31 @@
     <h2 class="text-lg font-bold text-blue-800">{{ p.title }}</h2>
     <div class="flex gap-2">
       <a href="/{{ p.slug }}" target="_blank" rel="noopener noreferrer"
-         class="text-sm text-blue-700 underline self-center">Bekijk</a>
-      {{ ui.btn_danger("Verwijder", attrs='hx-post="/admin/paginas/' ~ p.id ~ '/verwijderen" hx-target="#cp-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs("Pagina", p.title) ~ ' hx-on::after-request="document.getElementById(\'cp-detail\').innerHTML=\'\'"') }}
+         class="text-sm text-blue-700 underline self-center">{{ _("Bekijk") }}</a>
+      {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/paginas/' ~ p.id ~ '/verwijderen" hx-target="#cp-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Pagina"), p.title) ~ ' hx-on::after-request="document.getElementById(\'cp-detail\').innerHTML=\'\'"') }}
     </div>
   </div>
   {{ ui.error_banner(error) }}
   <form class="space-y-3" hx-post="/admin/paginas/{{ p.id }}" hx-target="#cp-detail" hx-swap="innerHTML">
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div>{{ ui.label("Titel", "cp-title", required=True) }}
+      <div>{{ ui.label(_("Titel"), "cp-title", required=True) }}
         <input name="title" id="cp-title" value="{{ p.title }}" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div>{{ ui.label("Slug", "cp-slug", required=True) }}
+      <div>{{ ui.label(_("Slug"), "cp-slug", required=True) }}
         <input name="slug" id="cp-slug" value="{{ p.slug }}" required pattern="[a-z0-9-]+" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
     </div>
-    <div>{{ ui.label("Inhoud", "cp-content") }}
+    <div>{{ ui.label(_("Inhoud"), "cp-content") }}
       <textarea name="content" id="cp-content" rows="14" class="w-full border border-gray-300 rounded-lg px-3 py-2 font-mono text-sm">{{ p.content or "" }}</textarea></div>
     <div class="flex flex-wrap items-center gap-5 text-sm">
-      <label class="flex items-center gap-2"><input type="checkbox" name="is_published" value="1" {% if p.is_published %}checked{% endif %}> Gepubliceerd</label>
-      <label class="flex items-center gap-2"><input type="checkbox" name="show_in_nav" value="1" {% if p.show_in_nav %}checked{% endif %}> In navigatie</label>
-      <label class="flex items-center gap-2">Volgorde
+      <label class="flex items-center gap-2"><input type="checkbox" name="is_published" value="1" {% if p.is_published %}checked{% endif %}> {{ _("Gepubliceerd") }}</label>
+      <label class="flex items-center gap-2"><input type="checkbox" name="show_in_nav" value="1" {% if p.show_in_nav %}checked{% endif %}> {{ _("In navigatie") }}</label>
+      <label class="flex items-center gap-2">{{ _("Volgorde") }}
         <input type="number" name="sort_order" value="{{ p.sort_order }}" class="w-20 border border-gray-300 rounded-lg px-2 py-1"></label>
     </div>
-    {{ ui.btn_primary("Opslaan") }}
+    {{ ui.btn_primary(_("Opslaan")) }}
   </form>
   {% if placeholders %}
   <details class="mt-5 text-sm">
-    <summary class="cursor-pointer text-gray-600">Beschikbare placeholders</summary>
+    <summary class="cursor-pointer text-gray-600">{{ _("Beschikbare placeholders") }}</summary>
     <dl class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
       {% for ph in placeholders %}
       <div><dt class="font-mono text-xs text-blue-800">{{ ph.code }}</dt>

@@ -15,6 +15,7 @@ from app.domains.auth.api import (
     SESSION_COOKIE, User, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.ui import admin_nav, templates
+from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
 
@@ -30,7 +31,7 @@ def _admin_user(db: Session, email: str) -> User:
             .filter(func.lower(User.email) == email.lower(), User.is_active == True)  # noqa: E712
             .first())
     if user is None:
-        raise HTTPException(status_code=401, detail="Niet aangemeld")
+        raise HTTPException(status_code=401, detail=_("Niet aangemeld"))
     return user
 
 
@@ -38,7 +39,7 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
     from app.domains.auth.users import list_users
     from app.models.codes import RoleCode
 
-    return {"users": list_users(db=db, _=None),
+    return {"users": list_users(db=db, _admin=None),
             "role_codes": db.query(RoleCode).order_by(RoleCode.code).all(),
             "csrf_token": _csrf(request)}
 
@@ -69,7 +70,7 @@ async def gebruiker_aanmaken(request: Request, db: Session = Depends(get_db),
     try:
         create_user(UserCreate(email=nieuw_email,
                                role_codes=[str(c) for c in form.getlist("role_codes")]),
-                    db=db, _=None)
+                    db=db, _admin=None)
     except HTTPException as exc:
         return _lijst_response(request, db, str(exc.detail))
     return _lijst_response(request, db)
@@ -87,7 +88,7 @@ async def gebruiker_bijwerken(user_id: int, request: Request,
         update_user(user_id, UserUpdate(
             is_active=bool(form.get("is_active")),
             role_codes=[str(c) for c in form.getlist("role_codes")],
-        ), db=db, _=None)
+        ), db=db, _admin=None)
     except HTTPException as exc:
         return _lijst_response(request, db, str(exc.detail))
     return _lijst_response(request, db)

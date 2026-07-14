@@ -4,40 +4,40 @@
   <div class="flex items-center justify-between gap-2">
     <div class="text-sm"><span class="font-medium">{{ f.label }}</span>
       <span class="ml-1">{{ ui.badge(f.field_type, "blue") }}</span>
-      {% if f.required %}{{ ui.badge("verplicht", "yellow") }}{% endif %}</div>
+      {% if f.required %}{{ ui.badge(_("verplicht"), "yellow") }}{% endif %}</div>
     <div class="flex gap-1">
       {{ ui.btn_secondary("↑", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
       {{ ui.btn_secondary("↓", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
-      {{ ui.btn_secondary("Bewerken", attrs='@click="edit = !edit"') }}
-      {{ ui.btn_danger("×", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ ui.confirm_attrs("Veld", f.label)) }}
+      {{ ui.btn_secondary(_("Bewerken"), attrs='@click="edit = !edit"') }}
+      {{ ui.btn_danger("×", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Veld"), f.label)) }}
     </div>
   </div>
   <form x-show="edit" x-cloak class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 text-sm"
         hx-post="/admin/formulieren/{{ form.id }}/velden/{{ f.id }}" hx-target="#fb-detail" hx-swap="innerHTML">
-    <div class="col-span-2">{{ ui.label("Vraag", "fl-" ~ f.id, required=True) }}
+    <div class="col-span-2">{{ ui.label(_("Vraag"), "fl-" ~ f.id, required=True) }}
       <input name="label" id="fl-{{ f.id }}" required value="{{ f.label }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
-    <div><label class="flex items-center gap-2 text-sm pt-6"><input type="checkbox" name="required" value="1" {% if f.required %}checked{% endif %}> Verplicht</label></div>
-    <div class="col-span-3">{{ ui.label("Hulptekst", "fh-" ~ f.id) }}
+    <div><label class="flex items-center gap-2 text-sm pt-6"><input type="checkbox" name="required" value="1" {% if f.required %}checked{% endif %}> {{ _("Verplicht") }}</label></div>
+    <div class="col-span-3">{{ ui.label(_("Hulptekst"), "fh-" ~ f.id) }}
       <input name="help_text" id="fh-{{ f.id }}" value="{{ f.help_text or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
     {% if f.field_type in ("text", "textarea", "email", "phone") %}
-    <div>{{ ui.label("Min. tekens", "fminl-" ~ f.id) }}<input name="min_length" id="fminl-{{ f.id }}" value="{{ f.min_length or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
-    <div>{{ ui.label("Max. tekens", "fmaxl-" ~ f.id) }}<input name="max_length" id="fmaxl-{{ f.id }}" value="{{ f.max_length or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
+    <div>{{ ui.label(_("Min. tekens"), "fminl-" ~ f.id) }}<input name="min_length" id="fminl-{{ f.id }}" value="{{ f.min_length or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
+    <div>{{ ui.label(_("Max. tekens"), "fmaxl-" ~ f.id) }}<input name="max_length" id="fmaxl-{{ f.id }}" value="{{ f.max_length or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
     {% elif f.field_type == "number" %}
-    <div>{{ ui.label("Minimum", "fminv-" ~ f.id) }}<input name="min_value" id="fminv-{{ f.id }}" value="{{ f.min_value or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
-    <div>{{ ui.label("Maximum", "fmaxv-" ~ f.id) }}<input name="max_value" id="fmaxv-{{ f.id }}" value="{{ f.max_value or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
+    <div>{{ ui.label(_("Minimum"), "fminv-" ~ f.id) }}<input name="min_value" id="fminv-{{ f.id }}" value="{{ f.min_value or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
+    <div>{{ ui.label(_("Maximum"), "fmaxv-" ~ f.id) }}<input name="max_value" id="fmaxv-{{ f.id }}" value="{{ f.max_value or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
     {% elif f.field_type == "rating" %}
-    <div>{{ ui.label("Puntenschaal", "frm-" ~ f.id) }}<input name="rating_max" id="frm-{{ f.id }}" value="{{ f.rating_max or 5 }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
-    <div>{{ ui.label("Label laag", "frl-" ~ f.id) }}<input name="rating_low_label" id="frl-{{ f.id }}" value="{{ f.rating_low_label or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
-    <div>{{ ui.label("Label hoog", "frh-" ~ f.id) }}<input name="rating_high_label" id="frh-{{ f.id }}" value="{{ f.rating_high_label or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
+    <div>{{ ui.label(_("Puntenschaal"), "frm-" ~ f.id) }}<input name="rating_max" id="frm-{{ f.id }}" value="{{ f.rating_max or 5 }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
+    <div>{{ ui.label(_("Label laag"), "frl-" ~ f.id) }}<input name="rating_low_label" id="frl-{{ f.id }}" value="{{ f.rating_low_label or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
+    <div>{{ ui.label(_("Label hoog"), "frh-" ~ f.id) }}<input name="rating_high_label" id="frh-{{ f.id }}" value="{{ f.rating_high_label or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
     {% endif %}
-    <div class="col-span-3">{{ ui.btn_primary("Veld opslaan") }}</div>
+    <div class="col-span-3">{{ ui.btn_primary(_("Veld opslaan")) }}</div>
   </form>
   {% if f.field_type in ("select", "radio", "checkbox") %}
   <div class="mt-2 space-y-1">
     {% for o in f.options %}
     <div class="flex items-center justify-between text-xs bg-gray-50 rounded px-2 py-1" x-data="{ oedit: false }">
-      <span>{{ o.label }}{% if o.is_other %} {{ ui.badge("andere…") }}{% endif %}
-        {% if o.skip_to_end %}{{ ui.badge("→ einde", "yellow") }}{% elif o.skip_to_section_id %}{{ ui.badge("→ sectie", "yellow") }}{% endif %}</span>
+      <span>{{ o.label }}{% if o.is_other %} {{ ui.badge(_("andere…")) }}{% endif %}
+        {% if o.skip_to_end %}{{ ui.badge(_("→ einde"), "yellow") }}{% elif o.skip_to_section_id %}{{ ui.badge(_("→ sectie"), "yellow") }}{% endif %}</span>
       <span class="flex gap-1">
         {{ ui.btn_secondary("⚙", attrs='@click="oedit = !oedit"') }}
         {{ ui.btn_danger("×", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML"') }}
@@ -45,23 +45,23 @@
       <form x-show="oedit" x-cloak class="w-full flex flex-wrap gap-2 mt-1"
             hx-post="/admin/formulieren/{{ form.id }}/opties/{{ o.id }}" hx-target="#fb-detail" hx-swap="innerHTML">
         <input name="label" required value="{{ o.label }}" class="border border-gray-300 rounded px-2 py-1">
-        <label class="flex items-center gap-1"><input type="checkbox" name="is_other" value="1" {% if o.is_other %}checked{% endif %}> Andere…</label>
+        <label class="flex items-center gap-1"><input type="checkbox" name="is_other" value="1" {% if o.is_other %}checked{% endif %}> {{ _("Andere…") }}</label>
         {% if f.field_type in ("radio", "select") %}
         <select name="skip_to_section_id" class="border border-gray-300 rounded px-2 py-1">
-          <option value="">geen sprong</option>
-          {% for s in sections %}<option value="{{ s.id }}" {% if o.skip_to_section_id == s.id %}selected{% endif %}>→ {{ s.title or ("Sectie " ~ (loop.index)) }}</option>{% endfor %}
+          <option value="">{{ _("geen sprong") }}</option>
+          {% for s in sections %}<option value="{{ s.id }}" {% if o.skip_to_section_id == s.id %}selected{% endif %}>→ {{ s.title or (_("Sectie ") ~ (loop.index)) }}</option>{% endfor %}
         </select>
-        <label class="flex items-center gap-1"><input type="checkbox" name="skip_to_end" value="1" {% if o.skip_to_end %}checked{% endif %}> → einde</label>
+        <label class="flex items-center gap-1"><input type="checkbox" name="skip_to_end" value="1" {% if o.skip_to_end %}checked{% endif %}> {{ _("→ einde") }}</label>
         {% endif %}
-        {{ ui.btn_primary("OK") }}
+        {{ ui.btn_primary(_("OK")) }}
       </form>
     </div>
     {% endfor %}
     <form class="flex gap-2 mt-1" hx-post="/admin/formulieren/{{ form.id }}/velden/{{ f.id }}/opties"
           hx-target="#fb-detail" hx-swap="innerHTML">
-      <input name="label" required placeholder="Nieuwe optie" class="border border-gray-300 rounded px-2 py-1 text-xs">
-      <label class="flex items-center gap-1 text-xs"><input type="checkbox" name="is_other" value="1"> Andere…</label>
-      {{ ui.btn_secondary("+ optie", type="submit") }}
+      <input name="label" required placeholder="{{ _('Nieuwe optie') }}" class="border border-gray-300 rounded px-2 py-1 text-xs">
+      <label class="flex items-center gap-1 text-xs"><input type="checkbox" name="is_other" value="1"> {{ _("Andere…") }}</label>
+      {{ ui.btn_secondary(_("+ optie"), type="submit") }}
     </form>
   </div>
   {% endif %}
@@ -72,11 +72,11 @@
 <form class="flex flex-wrap gap-2 mt-3" hx-post="/admin/formulieren/{{ form.id }}/velden"
       hx-target="#fb-detail" hx-swap="innerHTML">
   <input type="hidden" name="section_id" value="{{ sid or '' }}">
-  <input name="label" required placeholder="Nieuwe vraag" class="border border-gray-300 rounded-lg px-2 py-1 text-sm">
+  <input name="label" required placeholder="{{ _('Nieuwe vraag') }}" class="border border-gray-300 rounded-lg px-2 py-1 text-sm">
   <select name="field_type" class="border border-gray-300 rounded-lg px-2 py-1 text-sm">
     {% for t in field_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
   </select>
-  {{ ui.btn_secondary("+ veld", type="submit") }}
+  {{ ui.btn_secondary(_("+ veld"), type="submit") }}
 </form>
 {% endmacro %}
 
@@ -86,33 +86,33 @@
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ open: false }">
     <div class="flex items-center justify-between">
       <h2 class="font-bold text-lg">{{ form.title }}
-        {% if form.status == "open" %}{{ ui.badge("open", "green") }}{% elif form.status == "closed" %}{{ ui.badge("gesloten", "red") }}{% else %}{{ ui.badge("concept", "yellow") }}{% endif %}
+        {% if form.status == "open" %}{{ ui.badge(_("open"), "green") }}{% elif form.status == "closed" %}{{ ui.badge(_("gesloten"), "red") }}{% else %}{{ ui.badge(_("concept"), "yellow") }}{% endif %}
       </h2>
       <div class="flex gap-2">
-        <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg text-sm" href="/formulier/{{ form.share_token }}" target="_blank">Bekijk</a>
-        <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg text-sm" href="/admin/formulieren/{{ form.id }}/afdruk" target="_blank">Afdruk</a>
-        <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg text-sm" href="/admin/formulieren/{{ form.id }}/export">⬇ Export</a>
-        {{ ui.btn_secondary("Instellingen", attrs='@click="open = !open"') }}
-        {{ ui.btn_danger("Verwijderen", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" hx-target="#fb-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs("Formulier", form.title)) }}
+        <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg text-sm" href="/formulier/{{ form.share_token }}" target="_blank">{{ _("Bekijk") }}</a>
+        <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg text-sm" href="/admin/formulieren/{{ form.id }}/afdruk" target="_blank">{{ _("Afdruk") }}</a>
+        <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg text-sm" href="/admin/formulieren/{{ form.id }}/export">{{ _("⬇ Export") }}</a>
+        {{ ui.btn_secondary(_("Instellingen"), attrs='@click="open = !open"') }}
+        {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" hx-target="#fb-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Formulier"), form.title)) }}
       </div>
     </div>
     <p class="text-xs text-gray-500 mt-1">Deellink: /formulier/{{ form.share_token }} · {{ submission_count }} inzendingen</p>
     <form x-show="open" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 text-sm"
           hx-post="/admin/formulieren/{{ form.id }}/instellingen" hx-target="#fb-detail" hx-swap="innerHTML">
-      <div>{{ ui.label("Titel", "fbt", required=True) }}<input name="title" id="fbt" required value="{{ form.title }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
-      <div>{{ ui.label("Status", "fbs") }}
+      <div>{{ ui.label(_("Titel"), "fbt", required=True) }}<input name="title" id="fbt" required value="{{ form.title }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
+      <div>{{ ui.label(_("Status"), "fbs") }}
         <select name="status" id="fbs" class="w-full border border-gray-300 rounded-lg px-2 py-1">
           {% for s in statuses %}<option value="{{ s }}" {% if form.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
         </select></div>
-      <div class="sm:col-span-2">{{ ui.label("Omschrijving", "fbd") }}<textarea name="description" id="fbd" rows="2" class="w-full border border-gray-300 rounded-lg px-2 py-1">{{ form.description or '' }}</textarea></div>
-      <div>{{ ui.label("Max. inzendingen", "fbm") }}<input name="max_submissions" id="fbm" value="{{ form.max_submissions or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
+      <div class="sm:col-span-2">{{ ui.label(_("Omschrijving"), "fbd") }}<textarea name="description" id="fbd" rows="2" class="w-full border border-gray-300 rounded-lg px-2 py-1">{{ form.description or '' }}</textarea></div>
+      <div>{{ ui.label(_("Max. inzendingen"), "fbm") }}<input name="max_submissions" id="fbm" value="{{ form.max_submissions or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
       <div class="space-y-1 pt-5">
-        <label class="flex items-center gap-2"><input type="checkbox" name="send_confirmation" value="1" {% if form.send_confirmation %}checked{% endif %}> Bevestigingsmail</label>
-        <label class="flex items-center gap-2"><input type="checkbox" name="allow_edit" value="1" {% if form.allow_edit %}checked{% endif %}> Wijzigen na indienen</label>
-        <label class="flex items-center gap-2"><input type="checkbox" name="is_anonymous" value="1" {% if form.is_anonymous %}checked{% endif %}> Anoniem</label>
+        <label class="flex items-center gap-2"><input type="checkbox" name="send_confirmation" value="1" {% if form.send_confirmation %}checked{% endif %}> {{ _("Bevestigingsmail") }}</label>
+        <label class="flex items-center gap-2"><input type="checkbox" name="allow_edit" value="1" {% if form.allow_edit %}checked{% endif %}> {{ _("Wijzigen na indienen") }}</label>
+        <label class="flex items-center gap-2"><input type="checkbox" name="is_anonymous" value="1" {% if form.is_anonymous %}checked{% endif %}> {{ _("Anoniem") }}</label>
       </div>
-      <div class="sm:col-span-2">{{ ui.label("Bevestigingsboodschap", "fbc") }}<textarea name="confirmation_message" id="fbc" rows="2" class="w-full border border-gray-300 rounded-lg px-2 py-1">{{ form.confirmation_message or '' }}</textarea></div>
-      <div>{{ ui.btn_primary("Instellingen opslaan") }}</div>
+      <div class="sm:col-span-2">{{ ui.label(_("Bevestigingsboodschap"), "fbc") }}<textarea name="confirmation_message" id="fbc" rows="2" class="w-full border border-gray-300 rounded-lg px-2 py-1">{{ form.confirmation_message or '' }}</textarea></div>
+      <div>{{ ui.btn_primary(_("Instellingen opslaan")) }}</div>
     </form>
   </div>
 
@@ -120,26 +120,26 @@
   {% for g in grouped %}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ sedit: false }">
     <div class="flex items-center justify-between">
-      <h3 class="font-semibold">{{ g.section.title or "Sectie " ~ loop.index }}
-        {% if g.section.next_is_end %}{{ ui.badge("daarna: einde", "yellow") }}{% elif g.section.next_section_id %}{{ ui.badge("daarna: sprong", "yellow") }}{% endif %}</h3>
+      <h3 class="font-semibold">{{ g.section.title or _("Sectie ") ~ loop.index }}
+        {% if g.section.next_is_end %}{{ ui.badge(_("daarna: einde"), "yellow") }}{% elif g.section.next_section_id %}{{ ui.badge(_("daarna: sprong"), "yellow") }}{% endif %}</h3>
       <div class="flex gap-1">
         {{ ui.btn_secondary("↑", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
         {{ ui.btn_secondary("↓", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
-        {{ ui.btn_secondary("Bewerken", attrs='@click="sedit = !sedit"') }}
-        {{ ui.btn_danger("×", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ ui.confirm_attrs("Sectie", g.section.title or "Sectie")) }}
+        {{ ui.btn_secondary(_("Bewerken"), attrs='@click="sedit = !sedit"') }}
+        {{ ui.btn_danger("×", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Sectie"), g.section.title or _("Sectie"))) }}
       </div>
     </div>
     <form x-show="sedit" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-sm"
           hx-post="/admin/formulieren/{{ form.id }}/secties/{{ g.section.id }}" hx-target="#fb-detail" hx-swap="innerHTML">
-      <div>{{ ui.label("Titel", "st-" ~ g.section.id) }}<input name="title" id="st-{{ g.section.id }}" value="{{ g.section.title or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
-      <div>{{ ui.label("Daarna naar", "sn-" ~ g.section.id) }}
+      <div>{{ ui.label(_("Titel"), "st-" ~ g.section.id) }}<input name="title" id="st-{{ g.section.id }}" value="{{ g.section.title or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
+      <div>{{ ui.label(_("Daarna naar"), "sn-" ~ g.section.id) }}
         <select name="next_section_id" id="sn-{{ g.section.id }}" class="w-full border border-gray-300 rounded-lg px-2 py-1">
-          <option value="">volgende sectie (lineair)</option>
-          {% for s in sections %}{% if s.position > g.section.position %}<option value="{{ s.id }}" {% if g.section.next_section_id == s.id %}selected{% endif %}>{{ s.title or ("Sectie " ~ (s.position + 1)) }}</option>{% endif %}{% endfor %}
+          <option value="">{{ _("volgende sectie (lineair)") }}</option>
+          {% for s in sections %}{% if s.position > g.section.position %}<option value="{{ s.id }}" {% if g.section.next_section_id == s.id %}selected{% endif %}>{{ s.title or (_("Sectie ") ~ (s.position + 1)) }}</option>{% endif %}{% endfor %}
         </select>
-        <label class="flex items-center gap-2 mt-1"><input type="checkbox" name="next_is_end" value="1" {% if g.section.next_is_end %}checked{% endif %}> Daarna: einde</label></div>
-      <div class="sm:col-span-2">{{ ui.label("Omschrijving", "sd-" ~ g.section.id) }}<textarea name="description" id="sd-{{ g.section.id }}" rows="2" class="w-full border border-gray-300 rounded-lg px-2 py-1">{{ g.section.description or '' }}</textarea></div>
-      <div>{{ ui.btn_primary("Sectie opslaan") }}</div>
+        <label class="flex items-center gap-2 mt-1"><input type="checkbox" name="next_is_end" value="1" {% if g.section.next_is_end %}checked{% endif %}> {{ _("Daarna: einde") }}</label></div>
+      <div class="sm:col-span-2">{{ ui.label(_("Omschrijving"), "sd-" ~ g.section.id) }}<textarea name="description" id="sd-{{ g.section.id }}" rows="2" class="w-full border border-gray-300 rounded-lg px-2 py-1">{{ g.section.description or '' }}</textarea></div>
+      <div>{{ ui.btn_primary(_("Sectie opslaan")) }}</div>
     </form>
     <div class="mt-3 space-y-2">
       {% for f in g.fields %}{{ veld_kaart(f) }}{% endfor %}
@@ -150,39 +150,39 @@
 
   {% if loose_fields %}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-    <h3 class="font-semibold mb-2">Ongegroepeerde velden</h3>
+    <h3 class="font-semibold mb-2">{{ _("Ongegroepeerde velden") }}</h3>
     <div class="space-y-2">{% for f in loose_fields %}{{ veld_kaart(f) }}{% endfor %}</div>
     {{ veld_toevoegen_form(None) }}
   </div>
   {% else %}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-    <h3 class="font-semibold mb-2">Velden zonder sectie</h3>
+    <h3 class="font-semibold mb-2">{{ _("Velden zonder sectie") }}</h3>
     {{ veld_toevoegen_form(None) }}
   </div>
   {% endif %}
 
   <form class="flex gap-2" hx-post="/admin/formulieren/{{ form.id }}/secties" hx-target="#fb-detail" hx-swap="innerHTML">
-    <input name="title" placeholder="Nieuwe sectie" class="border border-gray-300 rounded-lg px-2 py-1 text-sm">
-    {{ ui.btn_secondary("+ sectie", type="submit") }}
+    <input name="title" placeholder="{{ _('Nieuwe sectie') }}" class="border border-gray-300 rounded-lg px-2 py-1 text-sm">
+    {{ ui.btn_secondary(_("+ sectie"), type="submit") }}
   </form>
 
   {# Inzendingen-tab #}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
     <div class="flex items-center justify-between mb-2">
-      <h3 class="font-semibold">Inzendingen ({{ submission_count }})</h3>
-      {{ ui.btn_secondary("Toon inzendingen", attrs='hx-get="/admin/formulieren/' ~ form.id ~ '/inzendingen" hx-target="#fb-inzendingen" hx-swap="innerHTML"') }}
+      <h3 class="font-semibold">{{ _("Inzendingen") }} ({{ submission_count }})</h3>
+      {{ ui.btn_secondary(_("Toon inzendingen"), attrs='hx-get="/admin/formulieren/' ~ form.id ~ '/inzendingen" hx-target="#fb-inzendingen" hx-swap="innerHTML"') }}
     </div>
     <div id="fb-inzendingen"></div>
   </div>
 
   {# JSON-import (vluchtluik) #}
   <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4" x-data="{ open: false }">
-    {{ ui.btn_secondary("JSON-import (vluchtluik)", attrs='@click="open = !open"') }}
+    {{ ui.btn_secondary(_("JSON-import (vluchtluik)"), attrs='@click="open = !open"') }}
     <form x-show="open" x-cloak class="space-y-2 mt-3"
           hx-post="/admin/formulieren/{{ form.id }}/json-import" hx-target="#fb-detail" hx-swap="innerHTML">
       <p class="text-xs text-gray-600">Zelfde payload als de admin-API (titel, status, sections[], fields[] met section_index/opties/branching-indexen). De <a href="/static/form-json-formaat.md" class="underline" target="_blank">AI-formaatgids</a> blijft bruikbaar: plak hier de gegenereerde JSON.</p>
       <textarea name="payload" rows="8" required class="w-full border border-gray-300 rounded-lg px-2 py-1 font-mono text-xs"></textarea>
-      {{ ui.btn_primary("Importeren (vervangt de opbouw)") }}
+      {{ ui.btn_primary(_("Importeren (vervangt de opbouw)")) }}
     </form>
   </div>
 </div>

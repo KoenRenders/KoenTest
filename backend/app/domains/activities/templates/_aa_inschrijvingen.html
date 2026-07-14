@@ -4,10 +4,10 @@
   <table class="min-w-full text-sm">
     <thead>
       <tr class="text-left text-gray-500 border-b border-gray-200">
-        <th class="px-3 py-2">Datum</th>
-        <th class="px-3 py-2">Naam</th>
-        <th class="px-3 py-2">Contact</th>
-        <th class="px-3 py-2">Onderdeel / producten</th>
+        <th class="px-3 py-2">{{ _("Datum") }}</th>
+        <th class="px-3 py-2">{{ _("Naam") }}</th>
+        <th class="px-3 py-2">{{ _("Contact") }}</th>
+        <th class="px-3 py-2">{{ _("Onderdeel / producten") }}</th>
         <th class="px-3 py-2"></th>
       </tr>
     </thead>
@@ -22,7 +22,7 @@
           {% if r.remarks %}<div class="text-xs text-gray-500 mt-1">💬 {{ r.remarks }}</div>{% endif %}
         </td>
         <td class="px-3 py-2 text-right">
-          {{ ui.btn_danger("Verwijder", attrs='hx-post="/admin/activiteiten/' ~ activity_id ~ '/inschrijvingen/' ~ r.id ~ '/verwijderen" hx-target="#aa-inschrijvingen" hx-swap="innerHTML" ' ~ ui.confirm_attrs("Inschrijving", r.contact_name)) }}
+          {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/activiteiten/' ~ activity_id ~ '/inschrijvingen/' ~ r.id ~ '/verwijderen" hx-target="#aa-inschrijvingen" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Inschrijving"), r.contact_name)) }}
         </td>
       </tr>
       {% endfor %}
@@ -30,5 +30,5 @@
   </table>
 </div>
 {% else %}
-{{ ui.empty_state("Nog geen inschrijvingen.") }}
+{{ ui.empty_state(_("Nog geen inschrijvingen.")) }}
 {% endif %}

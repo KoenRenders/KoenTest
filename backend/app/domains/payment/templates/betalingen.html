@@ -1,22 +1,22 @@
 {% extends "admin_base.html" %}
-{% block title %}Betalingen — Raak{% endblock %}
+{% block title %}{{ _("Betalingen — Raak") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-2">Betalingen &amp; vorderingen</h1>
-<p class="text-gray-600 mb-6">Financiële feiten — enkel FINANCE kan bevestigen of terugbetalen.</p>
+<h1 class="text-2xl font-bold text-blue-800 mb-2">{{ _("Betalingen & vorderingen") }}</h1>
+<p class="text-gray-600 mb-6">{{ _("Financiële feiten — enkel FINANCE kan bevestigen of terugbetalen.") }}</p>
 <form class="flex flex-wrap gap-3 mb-4 items-center"
       hx-get="/admin/betalingen/lijst" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-trigger="change">
   <select name="context" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-    <option value="all" {% if context == "all" %}selected{% endif %}>Alles</option>
-    <option value="activiteiten" {% if context == "activiteiten" %}selected{% endif %}>Activiteiten</option>
-    <option value="lidmaatschappen" {% if context == "lidmaatschappen" %}selected{% endif %}>Lidmaatschappen</option>
+    <option value="all" {% if context == "all" %}selected{% endif %}>{{ _("Alles") }}</option>
+    <option value="activiteiten" {% if context == "activiteiten" %}selected{% endif %}>{{ _("Activiteiten") }}</option>
+    <option value="lidmaatschappen" {% if context == "lidmaatschappen" %}selected{% endif %}>{{ _("Lidmaatschappen") }}</option>
   </select>
   <select name="status" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
     {% for s in ["all", "pending", "paid", "failed", "cancelled"] %}
-    <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ "Alle statussen" if s == "all" else s }}</option>
+    <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ _("Alle statussen") if s == "all" else s }}</option>
     {% endfor %}
   </select>
   <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-4 py-2 rounded-lg text-sm"
-     href="/admin/betalingen/export?context={{ context }}&status={{ status }}">⬇ Export (.ods)</a>
+     href="/admin/betalingen/export?context={{ context }}&status={{ status }}">⬇ {{ _("Export (.ods)") }}</a>
 </form>
 <div id="betalingen-lijst">
   {% include "_betalingen_lijst.html" %}

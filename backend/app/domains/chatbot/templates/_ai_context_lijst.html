@@ -4,37 +4,37 @@
   <div>
     <span class="font-medium">{{ label }}</span>
     {% if info %}
-      {% if info.is_active %}{{ ui.badge("actief", "green") }}{% else %}{{ ui.badge("uit") }}{% endif %}
-    {% else %}{{ ui.badge("standaard", "blue") }}{% endif %}
+      {% if info.is_active %}{{ ui.badge(_("actief"), "green") }}{% else %}{{ ui.badge(_("uit")) }}{% endif %}
+    {% else %}{{ ui.badge(_("standaard"), "blue") }}{% endif %}
   </div>
   {% if info %}
   <div class="flex gap-2">
-    {{ ui.btn_secondary("Aan/uit", attrs='hx-post="/admin/ai-context/' ~ info.id ~ '/toggle" hx-target="#ai-context-lijst" hx-swap="innerHTML"') }}
-    {{ ui.btn_danger("Verwijder", attrs='hx-post="/admin/ai-context/' ~ info.id ~ '/verwijderen" hx-target="#ai-context-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs("Contextrij", label)) }}
+    {{ ui.btn_secondary(_("Aan/uit"), attrs='hx-post="/admin/ai-context/' ~ info.id ~ '/toggle" hx-target="#ai-context-lijst" hx-swap="innerHTML"') }}
+    {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/ai-context/' ~ info.id ~ '/verwijderen" hx-target="#ai-context-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Contextrij"), label)) }}
   </div>
   {% endif %}
 </div>
 {% endmacro %}
 
 {% call ui.card() %}
-  <h2 class="font-semibold mb-2">Documenten</h2>
-  {% for d in documents %}{{ rij(d.label, d.info) }}{% else %}{{ ui.empty_state("Geen documenten.") }}{% endfor %}
+  <h2 class="font-semibold mb-2">{{ _("Documenten") }}</h2>
+  {% for d in documents %}{{ rij(d.label, d.info) }}{% else %}{{ ui.empty_state(_("Geen documenten.")) }}{% endfor %}
 {% endcall %}
 <div class="mt-4"></div>
 {% call ui.card() %}
-  <h2 class="font-semibold mb-2">CMS-pagina's</h2>
-  {% for c in cms %}{{ rij(c.title, c.info) }}{% else %}{{ ui.empty_state("Geen pagina's.") }}{% endfor %}
+  <h2 class="font-semibold mb-2">{{ _("CMS-pagina's") }}</h2>
+  {% for c in cms %}{{ rij(c.title, c.info) }}{% else %}{{ ui.empty_state(_("Geen pagina's.")) }}{% endfor %}
 {% endcall %}
 <div class="mt-4"></div>
 {% call ui.card() %}
-  <h2 class="font-semibold mb-2">Notities</h2>
-  {% for n in notes %}{{ rij(n.title or ("Notitie #" ~ n.id), n) }}{% else %}{{ ui.empty_state("Nog geen notities.") }}{% endfor %}
+  <h2 class="font-semibold mb-2">{{ _("Notities") }}</h2>
+  {% for n in notes %}{{ rij(n.title or ("Notitie #" ~ n.id), n) }}{% else %}{{ ui.empty_state(_("Nog geen notities.")) }}{% endfor %}
   <form class="space-y-2 mt-4" hx-post="/admin/ai-context/notities"
         hx-target="#ai-context-lijst" hx-swap="innerHTML">
-    <div>{{ ui.label("Titel", "note-title", required=True) }}
+    <div>{{ ui.label(_("Titel"), "note-title", required=True) }}
       <input name="title" id="note-title" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-    <div>{{ ui.label("Tekst", "note-text", required=True) }}
+    <div>{{ ui.label(_("Tekst"), "note-text", required=True) }}
       <textarea name="text_addition" id="note-text" rows="3" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></textarea></div>
-    {{ ui.btn_primary("Notitie toevoegen") }}
+    {{ ui.btn_primary(_("Notitie toevoegen")) }}
   </form>
 {% endcall %}

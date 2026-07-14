@@ -20,6 +20,7 @@ from app.domains.auth.api import (
     SESSION_COOKIE, csrf_token_for, get_user_roles, require_admin_ui, require_csrf,
 )
 from app.ui import admin_nav, templates
+from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
 
@@ -29,7 +30,7 @@ NAV = admin_nav("/admin/betalingen")
 def _require_finance(db: Session, email: str) -> None:
     if "FINANCE" not in get_user_roles(db, email):
         raise HTTPException(status_code=403,
-                            detail="Alleen FINANCE mag betalingen wijzigen.")
+                            detail=_("Alleen FINANCE mag betalingen wijzigen."))
 
 
 def _ctx(request: Request, db: Session, email: str) -> dict:
@@ -113,7 +114,7 @@ def betaling_refund(record_id: str, request: Request, db: Session = Depends(get_
     try:
         bedrag = Decimal(amount.replace(",", "."))
     except (InvalidOperation, AttributeError):
-        raise HTTPException(status_code=400, detail="Ongeldig bedrag.")
+        raise HTTPException(status_code=400, detail=_("Ongeldig bedrag."))
     try:
         create_refund(db, record_id, bedrag, note=note.strip() or None, actor=email)
     except ValueError as exc:

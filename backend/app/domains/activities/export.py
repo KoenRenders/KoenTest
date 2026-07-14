@@ -13,6 +13,7 @@ from typing import Tuple
 
 from app.domains.activities.totals import compute_registration_total
 from app.services.ods_export import build_ods_multi
+from app.i18n import _
 
 _METHOD_LABELS = {"ONLINE": "Online", "TRANSFER": "Overschrijving", "CASH": "Cash"}
 # Betaalrecords gebruiken kleine letters (PaymentRecord.method/status/type).
@@ -27,7 +28,7 @@ def _registration_financials(db, reg) -> Tuple[Decimal, Decimal, Decimal, Decima
     # Lazy import: doorbreekt de kringloop payment.api -> ... -> activities.api -> export.
     from app.domains.payment.api import get_records_for
     """(verschuldigd, betaald_online, betaald_offline, terugbetaald, saldo)."""
-    due, _ = compute_registration_total(reg)
+    due, _extra = compute_registration_total(reg)
     records = get_records_for(db, "registration", reg.id)
     paid_online = Decimal("0")
     paid_offline = Decimal("0")
@@ -48,10 +49,10 @@ def _registration_financials(db, reg) -> Tuple[Decimal, Decimal, Decimal, Decima
 
 def _status_label(due: Decimal, saldo: Decimal) -> str:
     if saldo > Decimal("0.005"):
-        return "Open"
+        return _("Open")
     if saldo < Decimal("-0.005"):
-        return "Te veel betaald"
-    return "Vereffend" if due > 0 else "Gratis"
+        return _("Te veel betaald")
+    return _("Vereffend") if due > 0 else _("Gratis")
 
 
 def _payments_sheet(db, registrations) -> dict:
@@ -59,8 +60,8 @@ def _payments_sheet(db, registrations) -> dict:
     inschrijvingen, gegroepeerd per inschrijver, met een totaalrij (te betalen /
     betaald / saldo). Dit zijn dezelfde 'zichtbare' details als op de admin-
     betalingenpagina, maar gefilterd op dit onderdeel."""
-    headers = ["Inschrijver", "Type", "Betaalwijze", "Status", "Mededeling (OGM)",
-               "Te betalen", "Betaald", "Saldo", "Betaald op", "Notitie"]
+    headers = [_("Inschrijver"), _("Type"), _("Betaalwijze"), _("Status"), _("Mededeling (OGM)"),
+               _("Te betalen"), _("Betaald"), _("Saldo"), _("Betaald op"), _("Notitie")]
     rows = []
     tot_due = Decimal("0")
     tot_paid = Decimal("0")
@@ -73,9 +74,9 @@ def _payments_sheet(db, registrations) -> dict:
             tot_paid += paid
             rows.append([
                 reg.contact_name or "—",
-                _RECORD_TYPE_LABELS.get(r.type, r.type or ""),
-                _RECORD_METHOD_LABELS.get(r.method, r.method or ""),
-                _RECORD_STATUS_LABELS.get(r.status, r.status or ""),
+                _(_RECORD_TYPE_LABELS.get(r.type, r.type or "")),
+                _(_RECORD_METHOD_LABELS.get(r.method, r.method or "")),
+                _(_RECORD_STATUS_LABELS.get(r.status, r.status or "")),
                 r.structured_communication or "",
                 float(amount),
                 float(paid),
@@ -83,10 +84,10 @@ def _payments_sheet(db, registrations) -> dict:
                 r.paid_at.date().isoformat() if r.paid_at else "",
                 r.note or "",
             ])
-    rows.append(["Totaal", "", "", "", "",
+    rows.append([_("Totaal"), "", "", "", "",
                  float(tot_due), float(tot_paid), float(tot_due - tot_paid), "", ""])
     col_widths = [4.5, 3.0, 3.5, 3.5, 4.5, 3.0, 3.0, 3.0, 3.0, 6.0]
-    return {"name": "Betalingen en vorderingen", "headers": headers, "rows": rows,
+    return {"name": _("Betalingen en vorderingen"), "headers": headers, "rows": rows,
             "col_widths": col_widths, "bold_last_row": True}
 
 
@@ -96,10 +97,10 @@ def build_component_export_ods(db, activity, component) -> bytes:
     registrations = [r for r in activity.registrations if r.component_id == component.id]
 
     headers = (
-        ["Naam", "E-mail", "Mobiel"]
+        [_("Naam"), _("E-mail"), _("Mobiel")]
         + [p.name for p in products]
-        + ["Verschuldigd", "Betaald online", "Betaald overschr./cash",
-           "Terugbetaald", "Saldo", "Betaalwijze", "Status", "Opmerkingen"]
+        + [_("Verschuldigd"), _("Betaald online"), _("Betaald overschr./cash"),
+           _("Terugbetaald"), _("Saldo"), _("Betaalwijze"), _("Status"), _("Opmerkingen")]
     )
 
     product_totals = [0] * len(products)
@@ -119,12 +120,12 @@ def build_component_export_ods(db, activity, component) -> bytes:
         for i, v in enumerate([due, online, offline, refunded, saldo]):
             money_totals[i] += v
             row.append(float(v))
-        row.append(_METHOD_LABELS.get(reg.payment_method or "", reg.payment_method or "—"))
+        row.append(_(_METHOD_LABELS.get(reg.payment_method or "", reg.payment_method or "—")))
         row.append(_status_label(due, saldo))
         row.append(reg.remarks or "")
         rows.append(row)
 
-    rows.append(["Totaal", "", ""] + product_totals + [float(v) for v in money_totals] + ["", "", ""])
+    rows.append([_("Totaal"), "", ""] + product_totals + [float(v) for v in money_totals] + ["", "", ""])
 
     col_widths = [4.5, 5.0, 3.5] + [3.0] * len(products) + [3.5, 3.5, 4.0, 3.5, 3.0, 3.5, 3.0, 6.0]
     sheet1 = {"name": component.name or "Onderdeel", "headers": headers, "rows": rows,

@@ -24,6 +24,7 @@ from app.domains.media.extraction import EXTRACTABLE_KINDS, update_media_extract
 from app.domains.media.images import (
     process_image, ImageError, ALLOWED_CONTENT_TYPES, MAX_UPLOAD_BYTES,
 )
+from app.i18n import _
 
 router = APIRouter(tags=["media"])
 
@@ -62,7 +63,7 @@ async def _replace_single_asset(db, file: UploadFile, *, kind: str,
     (zonder extensie); de extensie volgt uit het type. Geeft het nieuwe asset terug."""
     if file.content_type not in DOC_CONTENT_TYPES:
         raise HTTPException(status_code=400,
-                            detail=f"Niet-ondersteund bestandstype: {file.filename}")
+                            detail=_("Niet-ondersteund bestandstype: %(filename)s") % {"filename": file.filename})
     raw = await file.read()
     try:
         processed = _process_document(raw, file.content_type)
@@ -123,7 +124,7 @@ def _safe_filename(name: Optional[str], fallback: str) -> str:
 def _serve(blob: Optional[bytes], content_type: Optional[str], request: Request,
            etag_seed: str, *, filename: Optional[str] = None):
     if not blob:
-        raise HTTPException(status_code=404, detail="Niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
     etag = '"' + hashlib.md5(etag_seed.encode()).hexdigest() + '"'  # noqa: S324 - alleen cache-validatie
     if request.headers.get("if-none-match") == etag:
         return Response(status_code=304)
@@ -147,7 +148,7 @@ def _serve(blob: Optional[bytes], content_type: Optional[str], request: Request,
 def serve_media(asset_id: int, request: Request, db: Session = Depends(get_db)):
     a = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if not a:
-        raise HTTPException(status_code=404, detail="Niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
     return _serve(a.data, a.content_type, request, f"full-{a.id}",
                   filename=_safe_filename(a.title, f"bestand-{a.id}"))
 
@@ -156,7 +157,7 @@ def serve_media(asset_id: int, request: Request, db: Session = Depends(get_db)):
 def serve_thumb(asset_id: int, request: Request, db: Session = Depends(get_db)):
     a = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if not a:
-        raise HTTPException(status_code=404, detail="Niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
     blob = a.thumbnail or a.data
     ctype = a.thumb_content_type or a.content_type
     return _serve(blob, ctype, request, f"thumb-{a.id}")
@@ -263,19 +264,19 @@ async def upload_media(
     _admin: User = Depends(get_current_admin),
 ):
     if kind not in VALID_KINDS:
-        raise HTTPException(status_code=400, detail="Ongeldige 'kind'")
+        raise HTTPException(status_code=400, detail=_("Ongeldige 'kind'"))
     if kind == "activity_photo":
         if activity_id is None:
-            raise HTTPException(status_code=400, detail="activity_id vereist voor activiteitenfoto's")
+            raise HTTPException(status_code=400, detail=_("activity_id vereist voor activiteitenfoto's"))
         if not db.query(Activity).filter(Activity.id == activity_id).first():
-            raise HTTPException(status_code=404, detail="Activiteit niet gevonden")
+            raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     else:
         activity_id = None  # sponsors hangen niet aan een activiteit
 
     if not files:
-        raise HTTPException(status_code=400, detail="Geen bestanden")
+        raise HTTPException(status_code=400, detail=_("Geen bestanden"))
     if len(files) > MAX_BATCH:
-        raise HTTPException(status_code=400, detail=f"Maximaal {MAX_BATCH} bestanden per keer")
+        raise HTTPException(status_code=400, detail=_("Maximaal %(max)s bestanden per keer") % {"max": MAX_BATCH})
 
     # Volgende sort_order na de bestaande items in deze groep.
     base_q = db.query(MediaAsset).filter(MediaAsset.kind == kind)
@@ -286,7 +287,7 @@ async def upload_media(
     created = []
     for idx, up in enumerate(files):
         if up.content_type not in ALLOWED_CONTENT_TYPES:
-            raise HTTPException(status_code=400, detail=f"Niet-ondersteund bestandstype: {up.filename}")
+            raise HTTPException(status_code=400, detail=_("Niet-ondersteund bestandstype: %(filename)s") % {"filename": up.filename})
         raw = await up.read()
         try:
             processed = process_image(raw)
@@ -325,7 +326,7 @@ async def upload_activity_poster(
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
-        raise HTTPException(status_code=404, detail="Activiteit niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     asset = await _replace_single_asset(
         db, file, kind="activity_poster", activity_id=activity_id,
         title_base=f"{activity.name} - poster",
@@ -363,7 +364,7 @@ async def upload_component_info(
         ActivitySubRegistration.id == component_id
     ).first()
     if not component:
-        raise HTTPException(status_code=404, detail="Onderdeel niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Onderdeel niet gevonden"))
     activity_name = component.activity.name if component.activity else "activiteit"
     asset = await _replace_single_asset(
         db, file, kind="component_info", component_id=component_id,
@@ -400,7 +401,7 @@ def reextract_media_text(
     handmatige override/aanvulling in chatbot_info blijven staan."""
     asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if not asset or asset.kind not in EXTRACTABLE_KINDS:
-        raise HTTPException(status_code=404, detail="Document niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Document niet gevonden"))
     background_tasks.add_task(update_media_extracted_text, asset_id, None, True)
     return {"status": "bezig", "asset_id": asset_id}
 
@@ -414,7 +415,7 @@ def update_media(
 ):
     a = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if not a:
-        raise HTTPException(status_code=404, detail="Niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
     for field in ("title", "link_url", "sort_order", "is_active"):
         if field in payload:
             setattr(a, field, payload[field])
@@ -431,7 +432,7 @@ def delete_media(
 ):
     a = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if not a:
-        raise HTTPException(status_code=404, detail="Niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
     db.delete(a)
     db.commit()
     return {"detail": "Verwijderd"}

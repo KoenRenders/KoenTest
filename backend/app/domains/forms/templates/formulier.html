@@ -78,9 +78,9 @@
     {% if not form.is_anonymous %}
     {% call ui.card() %}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>{{ ui.label("Naam", "submitter_name", required=True) }}
+        <div>{{ ui.label(_("Naam"), "submitter_name", required=True) }}
           <input name="submitter_name" id="submitter_name" required value="{{ submitter_name }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label("E-mailadres", "submitter_email", required=True) }}
+        <div>{{ ui.label(_("E-mailadres"), "submitter_email", required=True) }}
           <input type="email" name="submitter_email" id="submitter_email" required value="{{ submitter_email }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
       </div>
     {% endcall %}
@@ -101,7 +101,7 @@
       </div>
     {% endcall %}
     {% endif %}
-    {{ ui.btn_primary("Wijzigingen opslaan" if edit_token|default(None) else "Verzenden") }}
+    {{ ui.btn_primary(_("Wijzigingen opslaan") if edit_token|default(None) else _("Verzenden")) }}
   </form>
 </div>
 {% endblock %}

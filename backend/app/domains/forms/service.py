@@ -12,6 +12,7 @@ from fastapi import HTTPException
 
 from app.domains.forms.models import Form, FormField, FormSubmissionAnswer
 from app.domains.forms.schemas import AnswerIn
+from app.i18n import _
 
 # Eenvoudige e-mailcheck (vorm, niet bestaan). Bewust soepel.
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -193,7 +194,7 @@ def assert_open_for_submission(db, form: Form) -> None:
     from app.domains.forms.models import FormSubmission
 
     if form.status != "open":
-        raise HTTPException(status_code=403, detail="Dit formulier staat niet open voor inzendingen.")
+        raise HTTPException(status_code=403, detail=_("Dit formulier staat niet open voor inzendingen."))
     if form.max_submissions is not None:
         count = (
             db.query(FormSubmission)
@@ -201,4 +202,4 @@ def assert_open_for_submission(db, form: Form) -> None:
             .count()
         )
         if count >= form.max_submissions:
-            raise HTTPException(status_code=403, detail="Dit formulier heeft het maximum aantal inzendingen bereikt.")
+            raise HTTPException(status_code=403, detail=_("Dit formulier heeft het maximum aantal inzendingen bereikt."))

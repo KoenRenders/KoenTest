@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.database import get_db
+from app.i18n import _
 
 SESSION_COOKIE = "raak_session"
 SESSION_MAX_AGE = 60 * 60 * 12  # 12 uur — zelfde horizon als een werkdag
@@ -78,12 +79,12 @@ def require_admin_ui(request: Request, db: Session = Depends(get_db)) -> str:
     if email is None:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Niet aangemeld",
+            detail=_("Niet aangemeld"),
             headers={"HX-Redirect": "/aanmelden", "Location": "/aanmelden"},
         )
     roles = get_user_roles(db, email)
     if not ({"ADMIN", "FINANCE", "ACCOUNT_ADMIN", "OPERATOR"} & set(roles)):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Geen toegang")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_("Geen toegang"))
     return email
 
 
@@ -93,4 +94,4 @@ def require_csrf(request: Request) -> None:
     raw = _session_raw(request)
     token = request.headers.get("x-csrf-token")
     if raw is None or token is None or not hmac.compare_digest(csrf_token_for(raw), token):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="CSRF-token ongeldig")
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_("CSRF-token ongeldig"))

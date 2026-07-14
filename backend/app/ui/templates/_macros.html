@@ -29,15 +29,15 @@
 <p class="text-gray-500 text-sm py-6 text-center">{{ message }}</p>
 {%- endmacro %}
 
-{% macro loading(message="Laden…") -%}
-<p class="text-gray-500 text-sm py-6 text-center htmx-indicator">{{ message }}</p>
+{% macro loading(message=None) -%}
+<p class="text-gray-500 text-sm py-6 text-center htmx-indicator">{{ message if message is not none else _("Laden…") }}</p>
 {%- endmacro %}
 
 {# Bevestigingsdialoog (ConfirmDialog-conventie): «<Type> "<naam>" definitief
    verwijderen?» — via hx-confirm zodat elke destructieve actie hetzelfde pad
    volgt. Gebruik: {{ confirm_attrs('Bericht', item.title) }} op de knop. #}
 {% macro confirm_attrs(type_label, name) -%}
-hx-confirm='{{ type_label }} "{{ name }}" definitief verwijderen?'
+hx-confirm='{{ type_label }} "{{ name }}" {{ _("definitief verwijderen?") }}'
 {%- endmacro %}
 
 {# Foutbanner (B2-conventie: banner boven het formulier, geen alert()). #}

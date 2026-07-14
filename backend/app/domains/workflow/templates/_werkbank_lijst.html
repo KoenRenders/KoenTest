@@ -12,7 +12,7 @@
       <button class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg text-sm"
               @click="open = !open"
               hx-get="/admin/werkbank/taken/{{ task.id }}" hx-target="#taak-{{ task.id }}" hx-swap="innerHTML">
-        Behartigen
+        {{ _("Behartigen") }}
       </button>
     </div>
     <div id="taak-{{ task.id }}" x-show="open" class="mt-4"></div>
@@ -20,5 +20,5 @@
   {% endfor %}
 </div>
 {% else %}
-{{ ui.empty_state("Geen open taken — alles is behartigd. 🎉") }}
+{{ ui.empty_state(_("Geen open taken — alles is behartigd. 🎉")) }}
 {% endif %}

@@ -1,17 +1,17 @@
 {% import "_macros.html" as ui %}
 <section class="mb-10">
   <div class="flex items-center justify-between mb-3">
-    <h2 class="text-lg font-bold text-blue-800">Ledendata-wijzigingen (voor Raak Nationaal)</h2>
+    <h2 class="text-lg font-bold text-blue-800">{{ _("Ledendata-wijzigingen (voor Raak Nationaal)") }}</h2>
     <a href="/admin/ledenwijzigingen/export?since={{ since }}"
-       class="text-sm text-blue-700 underline">Download .ods</a>
+       class="text-sm text-blue-700 underline">{{ _("Download .ods") }}</a>
   </div>
   {% if member_rows %}
   <div class="overflow-x-auto bg-white border border-gray-200 rounded-xl">
     <table class="min-w-full text-sm">
       <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
-        <tr><th class="px-3 py-2">Wanneer</th><th class="px-3 py-2">Persoon</th>
-            <th class="px-3 py-2">Lidnr</th><th class="px-3 py-2">Adres hoofdlid</th>
-            <th class="px-3 py-2">Wijziging</th><th class="px-3 py-2">Details</th></tr>
+        <tr><th class="px-3 py-2">{{ _("Wanneer") }}</th><th class="px-3 py-2">{{ _("Persoon") }}</th>
+            <th class="px-3 py-2">{{ _("Lidnr") }}</th><th class="px-3 py-2">{{ _("Adres hoofdlid") }}</th>
+            <th class="px-3 py-2">{{ _("Wijziging") }}</th><th class="px-3 py-2">{{ _("Details") }}</th></tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for r in member_rows %}
@@ -28,19 +28,19 @@
     </table>
   </div>
   {% else %}
-  {{ ui.empty_state("Geen ledendata-wijzigingen sinds " ~ since ~ ".") }}
+  {{ ui.empty_state(_("Geen ledendata-wijzigingen sinds") ~ " " ~ since ~ ".") }}
   {% endif %}
 </section>
 <section>
-  <h2 class="text-lg font-bold text-blue-800 mb-3">Alle wijzigingen (audit-feed)</h2>
+  <h2 class="text-lg font-bold text-blue-800 mb-3">{{ _("Alle wijzigingen (audit-feed)") }}</h2>
   {% if feed_rows %}
   <div class="overflow-x-auto bg-white border border-gray-200 rounded-xl">
     <table class="min-w-full text-sm">
       <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
-        <tr><th class="px-3 py-2">Wanneer</th><th class="px-3 py-2">Groep</th>
-            <th class="px-3 py-2">Object</th><th class="px-3 py-2">Wijziging</th>
-            <th class="px-3 py-2">Persoon</th><th class="px-3 py-2">Actor</th>
-            <th class="px-3 py-2">Details</th></tr>
+        <tr><th class="px-3 py-2">{{ _("Wanneer") }}</th><th class="px-3 py-2">{{ _("Groep") }}</th>
+            <th class="px-3 py-2">{{ _("Object") }}</th><th class="px-3 py-2">{{ _("Wijziging") }}</th>
+            <th class="px-3 py-2">{{ _("Persoon") }}</th><th class="px-3 py-2">{{ _("Actor") }}</th>
+            <th class="px-3 py-2">{{ _("Details") }}</th></tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for r in feed_rows %}
@@ -58,6 +58,6 @@
     </table>
   </div>
   {% else %}
-  {{ ui.empty_state("Geen wijzigingen sinds " ~ since ~ ".") }}
+  {{ ui.empty_state(_("Geen wijzigingen sinds") ~ " " ~ since ~ ".") }}
   {% endif %}
 </section>

@@ -1,8 +1,8 @@
 {% extends "site_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}Word lid — Raak{% endblock %}
+{% block title %}{{ _("Word lid — Raak") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-6">Lid worden</h1>
+<h1 class="text-2xl font-bold text-blue-800 mb-6">{{ _("Lid worden") }}</h1>
 {{ ui.error_banner(error) }}
 <form hx-post="/lid-worden" hx-target="body" hx-swap="innerHTML" class="space-y-4">
   <div id="personen" class="space-y-4">
@@ -11,21 +11,21 @@
   <button type="button" class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-4 py-2 rounded-lg"
           hx-get="/lid-worden/persoon-rij" hx-target="#personen" hx-swap="beforeend"
           hx-vals='js:{index: document.querySelectorAll("#personen > div").length}'>
-    + Gezinslid toevoegen
+    {{ _("+ Gezinslid toevoegen") }}
   </button>
 
   {# Adres — vaste 4-koloms grid; postcode altijd dropdown (vaste UI-beslissing) #}
   {% call ui.card() %}
     <div class="grid grid-cols-4 gap-3">
-      <div class="col-span-2">{{ ui.label("Straat", "street", required=True) }}
+      <div class="col-span-2">{{ ui.label(_("Straat"), "street", required=True) }}
         <input name="street" id="street" required value="{{ values.get('street', '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div>{{ ui.label("Huisnummer", "house_number", required=True) }}
+      <div>{{ ui.label(_("Huisnummer"), "house_number", required=True) }}
         <input name="house_number" id="house_number" required value="{{ values.get('house_number', '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div>{{ ui.label("Bus", "bus_number") }}
+      <div>{{ ui.label(_("Bus"), "bus_number") }}
         <input name="bus_number" id="bus_number" value="{{ values.get('bus_number', '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div class="col-span-4">{{ ui.label("Postcode", "postal_code", required=True) }}
+      <div class="col-span-4">{{ ui.label(_("Postcode"), "postal_code", required=True) }}
         <select name="postal_code" id="postal_code" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
-          <option value="">— Kies je postcode —</option>
+          <option value="">{{ _("— Kies je postcode —") }}</option>
           {% for pc in postal_codes %}
           <option value="{{ pc.postal_code }}" {% if values.get('postal_code') == pc.postal_code %}selected{% endif %}>{{ pc.postal_code }} {{ pc.municipality }}</option>
           {% endfor %}
@@ -34,11 +34,11 @@
   {% endcall %}
 
   {% call ui.card() %}
-    {{ ui.label("Betaalwijze", "payment_method", required=True) }}
-    <label class="flex items-center gap-2 text-sm"><input type="radio" name="payment_method" value="online" {% if values.get('payment_method', 'online') == 'online' %}checked{% endif %}> Online betalen</label>
-    <label class="flex items-center gap-2 text-sm"><input type="radio" name="payment_method" value="transfer" {% if values.get('payment_method') == 'transfer' %}checked{% endif %}> Overschrijving</label>
+    {{ ui.label(_("Betaalwijze"), "payment_method", required=True) }}
+    <label class="flex items-center gap-2 text-sm"><input type="radio" name="payment_method" value="online" {% if values.get('payment_method', 'online') == 'online' %}checked{% endif %}> {{ _("Online betalen") }}</label>
+    <label class="flex items-center gap-2 text-sm"><input type="radio" name="payment_method" value="transfer" {% if values.get('payment_method') == 'transfer' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
   {% endcall %}
 
-  {{ ui.btn_primary("Word lid") }}
+  {{ ui.btn_primary(_("Word lid")) }}
 </form>
 {% endblock %}

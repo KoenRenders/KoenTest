@@ -15,6 +15,7 @@ from app.database import get_db
 from app.domains.auth.session import set_session_cookie
 from app.limiter import login_limiter
 from app.ui import templates
+from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
 
@@ -32,7 +33,7 @@ def aanmelden_submit(request: Request, db: Session = Depends(get_db),
     if not email or "@" not in email:
         return templates.TemplateResponse(
             request, "_aanmelden_email.html",
-            {"error": "Vul een geldig e-mailadres in.", "email": email})
+            {"error": _("Vul een geldig e-mailadres in."), "email": email})
     from app.domains.auth.router import start_login
 
     start_login(db, email)
@@ -51,7 +52,7 @@ def aanmelden_code(request: Request, db: Session = Depends(get_db),
     if not check_otp(db, email, code):
         return templates.TemplateResponse(
             request, "_aanmelden_code.html",
-            {"email": email, "error": "Ongeldige of verlopen code."})
+            {"email": email, "error": _("Ongeldige of verlopen code.")})
     response = templates.TemplateResponse(request, "_aanmelden_klaar.html", {})
     set_session_cookie(response, email)
     response.headers["HX-Redirect"] = "/admin/werkbank"

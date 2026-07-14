@@ -11,7 +11,7 @@
         </p>
       </div>
       <div>
-        {% if a.is_cancelled %}{{ ui.badge("Geannuleerd", "red") }}
+        {% if a.is_cancelled %}{{ ui.badge(_("Geannuleerd"), "red") }}
         {% elif a.status %}{{ ui.badge(a.status, "blue") }}{% endif %}
       </div>
     </div>
@@ -24,9 +24,9 @@
       <div class="flex items-center justify-between gap-3 border-t border-gray-100 pt-2">
         <span class="text-sm font-medium">{{ c.name }}</span>
         {% if c.external_register_url %}
-        <a class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg text-sm" href="{{ c.external_register_url }}" target="_blank" rel="noopener">Inschrijven</a>
+        <a class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg text-sm" href="{{ c.external_register_url }}" target="_blank" rel="noopener">{{ _("Inschrijven") }}</a>
         {% else %}
-        {{ ui.btn_primary("Inschrijven", type="button", attrs='hx-get="/activiteiten/' ~ a.id ~ '/inschrijven/' ~ c.id ~ '" hx-target="#inschrijf-' ~ a.id ~ '-' ~ c.id ~ '" hx-swap="innerHTML"') }}
+        {{ ui.btn_primary(_("Inschrijven"), type="button", attrs='hx-get="/activiteiten/' ~ a.id ~ '/inschrijven/' ~ c.id ~ '" hx-target="#inschrijf-' ~ a.id ~ '-' ~ c.id ~ '" hx-swap="innerHTML"') }}
         {% endif %}
       </div>
       <div id="inschrijf-{{ a.id }}-{{ c.id }}"></div>
@@ -35,6 +35,6 @@
     {% endif %}
   {% endcall %}
   {% else %}
-  {{ ui.empty_state("Geen activiteiten gevonden.") }}
+  {{ ui.empty_state(_("Geen activiteiten gevonden.")) }}
   {% endfor %}
 </div>

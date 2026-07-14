@@ -7,7 +7,11 @@ TEMPLATES = Path(__file__).resolve().parents[1] / "app" / "ui" / "templates"
 
 
 def _env():
-    return Environment(loader=FileSystemLoader(str(TEMPLATES)), autoescape=True)
+    env = Environment(loader=FileSystemLoader(str(TEMPLATES)), autoescape=True)
+    # zelfde i18n-machinerie als de echte app-omgeving (#407-T)
+    from app.i18n import install_jinja_i18n
+    install_jinja_i18n(env)
+    return env
 
 
 def test_shells_render():

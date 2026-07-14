@@ -7,6 +7,7 @@ cel is daar `valuetype="string"`, wat meteen de bescherming is tegen formule-inj
 """
 from app.domains.forms.models import Form, FormSubmission
 from app.services.ods_export import build_ods
+from app.i18n import _
 
 _MULTI_SEP = "; "
 
@@ -18,7 +19,7 @@ def _build_table(db, form: Form):
         for o in field.options:
             option_label[o.id] = o.label
 
-    headers = ["Ingediend op", "Naam", "E-mail"] + [f.label for f in form.fields]
+    headers = [_("Ingediend op"), _("Naam"), _("E-mail")] + [f.label for f in form.fields]
 
     submissions = (
         db.query(FormSubmission)

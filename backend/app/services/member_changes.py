@@ -11,6 +11,7 @@ from typing import List, Optional
 
 from sqlalchemy.orm import Session
 
+from app.i18n import _
 from app.services.ods_export import build_ods
 
 from app.domains.payment.api import PaymentRecordHistory
@@ -208,7 +209,7 @@ def _row(h, *, entity: str, entity_id: Optional[int], summary: str, group: str =
         "entity": entity,
         "entity_id": entity_id,
         "operation": h.operation,
-        "operation_label": _OPERATION_LABELS.get(h.operation, h.operation),
+        "operation_label": _(_OPERATION_LABELS.get(h.operation, h.operation)),
         "action": h.action,
         "actor": h.actor,
         "summary": summary,
@@ -379,8 +380,8 @@ def all_changes_since(
 
 def build_member_changes_ods(rows: List[dict]) -> bytes:
     headers = [
-        "Tijdstip", "Wat", "Type", "ID", "Naam persoon", "Adres hoofdlid",
-        "Externe ID persoon", "Externe ID hoofdlid", "Actie", "Door", "Details",
+        _("Tijdstip"), _("Wat"), _("Type"), _("ID"), _("Naam persoon"), _("Adres hoofdlid"),
+        _("Externe ID persoon"), _("Externe ID hoofdlid"), _("Actie"), _("Door"), _("Details"),
     ]
     data = []
     for r in rows:

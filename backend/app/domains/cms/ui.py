@@ -12,6 +12,7 @@ from app.database import get_db
 from app.domains.cms.models import CmsPage
 from app.domains.cms.render import render_cms_content
 from app.ui import site_context, templates
+from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
 
@@ -77,7 +78,7 @@ def sitemap(request: Request, db: Session = Depends(get_db)):
     from app.kernel.tenant_config import get_setting, tenant_base_url
 
     if get_setting(db, "noindex") == "1":
-        raise HTTPException(status_code=404, detail="Geen sitemap voor deze tenant")
+        raise HTTPException(status_code=404, detail=_("Geen sitemap voor deze tenant"))
     base = tenant_base_url(db)
     paden = ["/", "/activiteiten", "/activiteiten/archief", "/fotos",
              "/lid-worden", "/berichten"]
@@ -100,7 +101,7 @@ def cms_pagina(slug: str, request: Request, db: Session = Depends(get_db)):
             .filter(CmsPage.slug == slug, CmsPage.is_published == True)  # noqa: E712
             .first())
     if page is None:
-        raise HTTPException(status_code=404, detail="Pagina niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
     return templates.TemplateResponse(request, "cms_pagina.html", {
         **site_context(db), "page": page,
         "content_html": render_cms_content(page.content or "")})

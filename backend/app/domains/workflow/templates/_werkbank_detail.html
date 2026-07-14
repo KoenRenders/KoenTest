@@ -8,13 +8,13 @@
   </dl>
   <form hx-post="/admin/werkbank/taken/{{ task.id }}/afgehandeld" hx-target="#werkbank-lijst" hx-swap="innerHTML" class="flex gap-3 items-end">
     <div class="grow">
-      {{ ui.label("Besluit (optioneel — een afwijzing is ook een beslissing)", "besluit_" ~ task.id) }}
+      {{ ui.label(_("Besluit (optioneel — een afwijzing is ook een beslissing)"), "besluit_" ~ task.id) }}
       <input id="besluit_{{ task.id }}" name="besluit"
              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
     </div>
-    {{ ui.btn_primary("Afgehandeld") }}
+    {{ ui.btn_primary(_("Afgehandeld")) }}
   </form>
 </div>
 {% else %}
-{{ ui.empty_state("Taak niet gevonden (mogelijk al afgehandeld).") }}
+{{ ui.empty_state(_("Taak niet gevonden (mogelijk al afgehandeld).")) }}
 {% endif %}

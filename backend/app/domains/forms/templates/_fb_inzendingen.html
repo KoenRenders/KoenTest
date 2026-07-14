@@ -4,9 +4,9 @@
   {% for r in rows %}
   <div class="border border-gray-200 rounded-lg p-3 text-sm">
     <div class="flex items-center justify-between">
-      <span class="font-medium">{{ r.submission.submitter_name or "Anoniem" }}
+      <span class="font-medium">{{ r.submission.submitter_name or _("Anoniem") }}
         <span class="text-gray-500 font-normal">{{ r.submission.submitter_email or "" }} · {{ r.submission.submitted_at.strftime("%d-%m-%Y %H:%M") }}</span></span>
-      {{ ui.btn_danger("Verwijder", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/inzendingen/' ~ r.submission.id ~ '/verwijderen" hx-target="#fb-inzendingen" hx-swap="innerHTML" hx-confirm="Inzending definitief verwijderen?"') }}
+      {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/inzendingen/' ~ r.submission.id ~ '/verwijderen" hx-target="#fb-inzendingen" hx-swap="innerHTML" hx-confirm="' ~ _("Inzending definitief verwijderen?") ~ '"') }}
     </div>
     <dl class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
       {% for label, waarde in r.answers %}
@@ -17,5 +17,5 @@
   {% endfor %}
 </div>
 {% else %}
-{{ ui.empty_state("Nog geen inzendingen.") }}
+{{ ui.empty_state(_("Nog geen inzendingen.")) }}
 {% endif %}

@@ -7,7 +7,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}Raak — Beleef meer in Millegem{% endblock %}</title>
+  <title>{% block title %}{{ _("Raak — Beleef meer in Millegem") }}{% endblock %}</title>
   {% block meta %}{% endblock %}
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/vendor/htmx.min.js" defer></script>
@@ -18,30 +18,30 @@
     <nav class="bg-blue-800 text-white shadow-md" x-data="{ open: false }">
       <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
         <a href="/" class="hover:opacity-80">
-          <span class="block font-bold tracking-tight leading-none text-3xl">Raak</span>
-          <span class="block text-sm font-medium text-yellow-300">Beleef meer in Millegem</span>
+          <span class="block font-bold tracking-tight leading-none text-3xl">{{ _("Raak") }}</span>
+          <span class="block text-sm font-medium text-yellow-300">{{ _("Beleef meer in Millegem") }}</span>
         </a>
-        <button class="md:hidden p-2 rounded hover:opacity-80" @click="open = !open" aria-label="Menu">☰</button>
+        <button class="md:hidden p-2 rounded hover:opacity-80" @click="open = !open" aria-label="{{ _("Menu") }}">☰</button>
         <div class="hidden md:flex gap-5 items-center text-sm">
-          <a href="/" class="hover:underline">Home</a>
-          <a href="/activiteiten" class="hover:underline">Activiteiten</a>
+          <a href="/" class="hover:underline">{{ _("Home") }}</a>
+          <a href="/activiteiten" class="hover:underline">{{ _("Activiteiten") }}</a>
           {% for p in nav_pages|default([]) %}
           <a href="/{{ p.slug }}" class="hover:underline">{{ p.title }}</a>
           {% endfor %}
-          <a href="/lid-worden" class="hover:underline">Word lid</a>
-          <a href="/berichten" class="hover:underline">Contact</a>
-          <a href="/aanmelden" class="hover:underline opacity-80">Aanmelden</a>
+          <a href="/lid-worden" class="hover:underline">{{ _("Word lid") }}</a>
+          <a href="/berichten" class="hover:underline">{{ _("Contact") }}</a>
+          <a href="/aanmelden" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>
         </div>
       </div>
       <div x-show="open" x-cloak class="md:hidden px-4 pb-4 flex flex-col gap-2 text-sm">
-        <a href="/" class="hover:underline">Home</a>
-        <a href="/activiteiten" class="hover:underline">Activiteiten</a>
+        <a href="/" class="hover:underline">{{ _("Home") }}</a>
+        <a href="/activiteiten" class="hover:underline">{{ _("Activiteiten") }}</a>
         {% for p in nav_pages|default([]) %}
         <a href="/{{ p.slug }}" class="hover:underline">{{ p.title }}</a>
         {% endfor %}
-        <a href="/lid-worden" class="hover:underline">Word lid</a>
-        <a href="/berichten" class="hover:underline">Contact</a>
-        <a href="/aanmelden" class="hover:underline opacity-80">Aanmelden</a>
+        <a href="/lid-worden" class="hover:underline">{{ _("Word lid") }}</a>
+        <a href="/berichten" class="hover:underline">{{ _("Contact") }}</a>
+        <a href="/aanmelden" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>
       </div>
     </nav>
   </header>

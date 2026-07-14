@@ -8,17 +8,17 @@
     <div class="text-xs text-gray-500">{{ f.street }} {{ f.house_number }}, {{ f.municipality }}</div>
   </button>
   {% else %}
-  {{ ui.empty_state("Geen gezinnen gevonden.") }}
+  {{ ui.empty_state(_("Geen gezinnen gevonden.")) }}
   {% endfor %}
 </div>
 {% if total_pages > 1 %}
 <div class="flex items-center justify-between mt-3 text-sm">
   {% if page > 1 %}
-  {{ ui.btn_secondary("← Vorige", attrs='hx-get="/admin/leden/lijst?q=' ~ (q|urlencode) ~ '&page=' ~ (page - 1) ~ '" hx-target="#leden-lijst" hx-swap="innerHTML"') }}
+  {{ ui.btn_secondary(_("← Vorige"), attrs='hx-get="/admin/leden/lijst?q=' ~ (q|urlencode) ~ '&page=' ~ (page - 1) ~ '" hx-target="#leden-lijst" hx-swap="innerHTML"') }}
   {% else %}<span></span>{% endif %}
   <span class="text-gray-500">pagina {{ page }} van {{ total_pages }}</span>
   {% if page < total_pages %}
-  {{ ui.btn_secondary("Volgende →", attrs='hx-get="/admin/leden/lijst?q=' ~ (q|urlencode) ~ '&page=' ~ (page + 1) ~ '" hx-target="#leden-lijst" hx-swap="innerHTML"') }}
+  {{ ui.btn_secondary(_("Volgende →"), attrs='hx-get="/admin/leden/lijst?q=' ~ (q|urlencode) ~ '&page=' ~ (page + 1) ~ '" hx-target="#leden-lijst" hx-swap="innerHTML"') }}
   {% else %}<span></span>{% endif %}
 </div>
 {% endif %}

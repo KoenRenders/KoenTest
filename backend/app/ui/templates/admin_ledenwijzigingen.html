@@ -1,20 +1,20 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}Wijzigingen — Raak beheer{% endblock %}
+{% block title %}{{ _("Wijzigingen — Raak beheer") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-4">Wijzigingen</h1>
+<h1 class="text-2xl font-bold text-blue-800 mb-4">{{ _("Wijzigingen") }}</h1>
 <form class="flex flex-wrap items-end gap-3 mb-6"
       hx-get="/admin/ledenwijzigingen" hx-target="#lw-inhoud" hx-swap="innerHTML">
-  <div>{{ ui.label("Vanaf", "lw-since") }}
+  <div>{{ ui.label(_("Vanaf"), "lw-since") }}
     <input type="date" name="since" id="lw-since" value="{{ since }}" class="border border-gray-300 rounded-lg px-3 py-2"></div>
-  <div>{{ ui.label("Groep", "lw-group") }}
+  <div>{{ ui.label(_("Groep"), "lw-group") }}
     <select name="group" id="lw-group" class="border border-gray-300 rounded-lg px-3 py-2">
-      <option value="">Alle</option>
+      <option value="">{{ _("Alle") }}</option>
       {% for g in groups %}<option value="{{ g }}" {% if g == group %}selected{% endif %}>{{ g }}</option>{% endfor %}
     </select></div>
-  <div>{{ ui.label("Actor (e-mail)", "lw-actor") }}
+  <div>{{ ui.label(_("Actor (e-mail)"), "lw-actor") }}
     <input name="actor" id="lw-actor" value="{{ actor }}" class="border border-gray-300 rounded-lg px-3 py-2"></div>
-  {{ ui.btn_primary("Toon") }}
+  {{ ui.btn_primary(_("Toon")) }}
 </form>
 <div id="lw-inhoud">
   {% include "_lw_inhoud.html" %}

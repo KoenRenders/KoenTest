@@ -9,6 +9,7 @@ from app.database import get_db
 from app.domains.mail.models import EmailLog
 from app.domains.auth.api import User
 from app.schemas.email_log import EmailLogPage
+from app.i18n import _
 
 router = APIRouter(tags=["email-log"])
 
@@ -54,6 +55,6 @@ def delete_email_log(
     Admin-only — handig om test-mails op te ruimen of gevoelige inhoud te wissen."""
     row = db.query(EmailLog).filter(EmailLog.id == log_id).first()
     if not row:
-        raise HTTPException(status_code=404, detail="E-maillog niet gevonden")
+        raise HTTPException(status_code=404, detail=_("E-maillog niet gevonden"))
     db.delete(row)
     db.commit()
