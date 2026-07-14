@@ -32,104 +32,10 @@
 # Domeinen komen uit .env.caddy (niet in git). Zie .env.caddy.example.
 {$UAT_DOMAIN} {
 	import security_headers
-	handle /api/* {
-		reverse_proxy uat-backend:8000
-	}
-	# Server-rendered pagina's (v2.0, #398): expliciete paden naar de backend;
-	# de lijst groeit per omgeklapt scherm en vervalt bij de React-exit (#405).
-	handle /static/* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /berichten* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /formulier/* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /activiteiten* {
-		reverse_proxy uat-backend:8000
-	}
-	handle / {
-		reverse_proxy uat-backend:8000
-	}
-	handle /lid-worden* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /leden/* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /login* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /betaling/* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /raakje* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /admin/ai-context* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /admin/formulieren* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /admin/paginas* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /admin/media* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /admin/gebruikers* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /admin/ledenwijzigingen* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /admin/info* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /fotos* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /archief* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /admin/login* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /admin/emails* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /admin {
-		reverse_proxy uat-backend:8000
-	}
-	handle /admin/werkbank* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /admin/e-maillog* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /aanmelden* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /admin/leden {
-		reverse_proxy uat-backend:8000
-	}
-	handle /admin/leden/* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /admin/leden-import* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /admin/betalingen* {
-		reverse_proxy uat-backend:8000
-	}
-	handle /admin/activiteiten* {
-		reverse_proxy uat-backend:8000
-	}
-	handle {
-		reverse_proxy uat-backend:8000
-	}
+	# Nul Node (React-exit #405): API, statics en alle server-rendered
+	# pagina's komen uit de backend; de per-pad-blokken uit de hybride
+	# omklap-periode zijn opgeruimd.
+	reverse_proxy uat-backend:8000
 }
 
 # Umami-analytics op een eigen subdomein, root-served (#176).
@@ -146,104 +52,10 @@
 
 {$PROD_DOMAIN} {
 	import security_headers
-	handle /api/* {
-		reverse_proxy prod-backend:8000
-	}
-	# Server-rendered pagina's (v2.0, #398): expliciete paden naar de backend;
-	# de lijst groeit per omgeklapt scherm en vervalt bij de React-exit (#405).
-	handle /static/* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /berichten* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /formulier/* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /activiteiten* {
-		reverse_proxy prod-backend:8000
-	}
-	handle / {
-		reverse_proxy prod-backend:8000
-	}
-	handle /lid-worden* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /leden/* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /login* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /betaling/* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /raakje* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /admin/ai-context* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /admin/formulieren* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /admin/paginas* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /admin/media* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /admin/gebruikers* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /admin/ledenwijzigingen* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /admin/info* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /fotos* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /archief* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /admin/login* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /admin/emails* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /admin {
-		reverse_proxy prod-backend:8000
-	}
-	handle /admin/werkbank* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /admin/e-maillog* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /aanmelden* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /admin/leden {
-		reverse_proxy prod-backend:8000
-	}
-	handle /admin/leden/* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /admin/leden-import* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /admin/betalingen* {
-		reverse_proxy prod-backend:8000
-	}
-	handle /admin/activiteiten* {
-		reverse_proxy prod-backend:8000
-	}
-	handle {
-		reverse_proxy prod-backend:8000
-	}
+	# Nul Node (React-exit #405): API, statics en alle server-rendered
+	# pagina's komen uit de backend; de per-pad-blokken uit de hybride
+	# omklap-periode zijn opgeruimd.
+	reverse_proxy prod-backend:8000
 }
 
 # Umami-analytics op een eigen subdomein, root-served (#176).
@@ -260,6 +72,5 @@
 }
 {$PLATFORM_DOMAIN} {
 	import security_headers
-	encode zstd gzip
 	reverse_proxy prod-backend:8000
 }
