@@ -69,5 +69,13 @@ def site_context(db) -> dict:
     sponsors = (db.query(MediaAsset)
                 .filter(MediaAsset.kind == "sponsor", MediaAsset.is_active == True)  # noqa: E712
                 .order_by(MediaAsset.sort_order, MediaAsset.id).all())
+    from app.kernel.tenant_config import get_setting, tenant_display_name
+
     return {"nav_pages": pages, "footer_block": footer_block,
-            "sponsors": sponsors, "current_year": date.today().year}
+            "sponsors": sponsors, "current_year": date.today().year,
+            # Branding per tenant (#407): naam/tagline/Facebook uit de
+            # tenant-config, met de Millegem-waarden als default.
+            "site_name": tenant_display_name(db),
+            "site_tagline": get_setting(db, "tagline") or "Beleef meer in Millegem",
+            "facebook_url": get_setting(db, "facebook_url")
+                or "https://www.facebook.com/raakmillegem"}

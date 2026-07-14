@@ -129,7 +129,10 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     # altijd de volle prijs. De halve prijs geldt enkel voor een (her)instap mid-jaar
     # voor de rest van het lopende jaar — dus enkel in de verlopen-fallback hierboven.
     is_full_year = (valid_from.month, valid_from.day) == (1, 1)
-    amount = settings.membership_price_full if is_full_year else membership_price_for_date(today)
+    from app.kernel.tenant_config import tenant_membership_config
+
+    amount = (tenant_membership_config(db)["price_full"] if is_full_year
+              else membership_price_for_date(today))
 
     if has_valid_membership(person) and not renewal_window_open:
         raise HTTPException(status_code=409, detail=_("Je hebt al een geldig lidmaatschap."))

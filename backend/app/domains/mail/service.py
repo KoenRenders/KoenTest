@@ -85,6 +85,22 @@ def _enqueue_retry(email_log_id: Optional[int]) -> None:
         logger.error("mail.retry-job plannen mislukt (log #%s): %s", email_log_id, exc)
 
 
+def _display_name() -> str:
+    """Merk-/afzendnaam van de actieve tenant (branding-slice #407) — default
+    Raak Millegem. Mag het versturen nooit breken."""
+    try:
+        from app.database import SessionLocal
+        from app.kernel.tenant_config import tenant_display_name
+
+        db = SessionLocal()
+        try:
+            return tenant_display_name(db)
+        finally:
+            db.close()
+    except Exception:
+        return "Raak Millegem"
+
+
 def _mail_mode() -> str:
     """Per-tenant mail-modus (fase 5b, #406): de demo-tenant logt mails enkel
     ("log_only") en verstuurt nooit echt. Fouten mogen versturen nooit breken."""
@@ -114,7 +130,7 @@ def _send(to_email: str, subject: str, body_html: str, cc: Optional[str] = None,
     msg = MIMEMultipart("alternative")
     msg["Subject"] = f"{_env_prefix()}{subject}"
     from_address = settings.gmail_from or settings.gmail_user
-    msg["From"] = f"Raak Millegem <{from_address}>"
+    msg["From"] = f"{_display_name()} <{from_address}>"
     msg["To"] = to_email
     if cc:
         msg["Cc"] = cc
@@ -169,13 +185,13 @@ def send_magic_link(to_email: str, magic_link: str, otp_code: Optional[str] = No
     _send(
         to_email=to_email,
         email_type="magic_link",
-        subject=_("Inloglink Raak Millegem"),
+        subject=_("Inloglink %(naam)s") % {"naam": _display_name()},
         body_html=f"""
         <p>Klik op onderstaande link om in te loggen. De link is 15 minuten geldig.</p>
         <p><a href="{magic_link}">{magic_link}</a></p>
         {otp_block}
         <p>Als je deze mail niet verwachtte, kun je hem negeren.</p>
-        <p>Met vriendelijke groeten,<br>Raak Millegem</p>
+        <p>Met vriendelijke groeten,<br>{_display_name()}</p>
         """,
     )
 
@@ -187,14 +203,14 @@ def send_member_contact_board_notice(to_email: str) -> None:
     _send(
         to_email=to_email,
         email_type="member_contact_notice",
-        subject=_("Inloggen Raak Millegem"),
+        subject=_("Inloggen %(naam)s") % {"naam": _display_name()},
         body_html=_("""
         <p>Je probeerde in te loggen als lid, maar dit e-mailadres is bij meerdere
         gezinnen gekend. Daardoor kunnen we niet automatisch bepalen welk gezin
         je wil beheren.</p>
         <p>Neem contact op met het bestuur, dan zetten we dit recht.</p>
-        <p>Met vriendelijke groeten,<br>Raak Millegem</p>
-        """),
+        <p>Met vriendelijke groeten,<br>%(naam)s</p>
+        """) % {"naam": _display_name()},
     )
 
 
@@ -237,14 +253,14 @@ def send_registration_confirmation(to_email: str, name: str, family, data=None, 
         background_tasks,
         to_email=to_email,
         email_type="membership_confirmation",
-        subject=_("Welkom bij Raak Millegem!"),
+        subject=_("Welkom bij %(naam)s!") % {"naam": _display_name()},
         cc=settings.gmail_from or settings.gmail_user or None,
         body_html=f"""
         <p>Beste {escape(name)},</p>
-        <p>Je registratie bij Raak Millegem is ontvangen. Welkom!</p>
+        <p>Je registratie bij {_display_name()} is ontvangen. Welkom!</p>
         {details}
         {_transfer_instructions_html(payment_record)}
-        <p>Met vriendelijke groeten,<br>Raak Millegem</p>
+        <p>Met vriendelijke groeten,<br>{_display_name()}</p>
         """,
     )
 
@@ -318,7 +334,7 @@ def send_activity_registration_confirmation(
         to_email=to_email,
         email_type="activity_confirmation",
         subject=subject,
-        body_html=f"<p>Beste {escape(name)},</p>{message}<p>Met vriendelijke groeten,<br>Raak Millegem</p>",
+        body_html=f"<p>Beste {escape(name)},</p>{message}<p>Met vriendelijke groeten,<br>{_display_name()}</p>",
     )
 
 
@@ -350,7 +366,7 @@ def send_form_confirmation(
             f"{greeting}"
             f"<p>We hebben je antwoord op <strong>{escape(form_title)}</strong> goed ontvangen.</p>"
             f"{custom}{edit_block}"
-            "<p>Met vriendelijke groeten,<br>Raak Millegem</p>"
+            f"<p>Met vriendelijke groeten,<br>{_display_name()}</p>"
         ),
     )
 

@@ -67,10 +67,13 @@ def renewal_open(today: Optional[date] = None) -> bool:
 
     if today is None:
         today = date.today()
-    if not settings.membership_renewal_start_md:
+    from app.kernel.tenant_config import tenant_membership_config
+
+    renewal_start_md = tenant_membership_config()["renewal_start_md"]
+    if not renewal_start_md:
         return False
     try:
-        month, day = (int(x) for x in settings.membership_renewal_start_md.split("-"))
+        month, day = (int(x) for x in renewal_start_md.split("-"))
         return today >= date(today.year, month, day)
     except (ValueError, TypeError):
         return False
