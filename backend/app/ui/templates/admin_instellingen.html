@@ -1,0 +1,45 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Instellingen — Raak beheer") }}{% endblock %}
+{% block content %}
+<h1 class="text-2xl font-bold text-blue-800 mb-2">{{ _("Tenant-instellingen") }}</h1>
+<p class="text-sm text-gray-600 mb-6">{{ _("Per afdeling; een leeg veld = de standaardwaarde (Millegem/.env). Alleen zichtbaar voor de platformbeheerder.") }}</p>
+{{ ui.error_banner(error) }}
+{% if opgeslagen %}{{ ui.success_banner(_("Instellingen opgeslagen.")) }}{% endif %}
+<form method="get" action="/admin/instellingen" class="mb-6 max-w-xs">
+  {{ ui.label(_("Afdeling"), "tenant") }}
+  <select name="tenant" id="tenant" onchange="this.form.submit()"
+          class="w-full border border-gray-300 rounded-lg px-3 py-2">
+    {% for u in units %}
+    <option value="{{ u.id }}" {% if u.id == tenant_id %}selected{% endif %}>{{ u.name }} ({{ u.code }})</option>
+    {% endfor %}
+  </select>
+</form>
+<form hx-post="/admin/instellingen/{{ tenant_id }}" hx-target="body" hx-swap="innerHTML"
+      class="space-y-4 max-w-2xl">
+  {% for key, label, hulp in sleutels %}
+  <div>
+    {{ ui.label(label, key) }}
+    <input name="{{ key }}" id="{{ key }}" value="{{ waarden[key] }}"
+           class="w-full border border-gray-300 rounded-lg px-3 py-2">
+    <p class="text-xs text-gray-500 mt-1">{{ hulp }}</p>
+  </div>
+  {% endfor %}
+  <div class="border-t border-gray-200 pt-4">
+    <h2 class="font-bold text-blue-800 mb-3">{{ _("Secrets") }}</h2>
+    {% for key, label, hulp in geheime_sleutels %}
+    <div>
+      {{ ui.label(label, key) }}
+      <input type="password" name="{{ key }}" id="{{ key }}" autocomplete="off"
+             placeholder="{{ _('•••• (gezet — leeg laten = ongewijzigd)') if secrets_gezet[key] else _('niet gezet — .env-default geldt') }}"
+             class="w-full border border-gray-300 rounded-lg px-3 py-2">
+      <label class="flex items-center gap-2 text-sm mt-1">
+        <input type="checkbox" name="{{ key }}_wissen" value="1"> {{ _("Wissen (terug naar de .env-default)") }}
+      </label>
+      <p class="text-xs text-gray-500 mt-1">{{ hulp }}</p>
+    </div>
+    {% endfor %}
+  </div>
+  {{ ui.btn_primary(_("Opslaan")) }}
+</form>
+{% endblock %}

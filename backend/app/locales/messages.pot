@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Raak VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-07-14 06:30+0000\n"
+"POT-Creation-Date: 2026-07-14 08:26+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -27,17 +27,11 @@ msgid ""
 "laat je vraag achter via het ideeënformulier."
 msgstr ""
 
-#: app/domains/activities/admin_ui.py:38 app/domains/auth/admin_ui.py:34
-#: app/domains/auth/session.py:82 app/domains/chatbot/ui.py:32
-#: app/domains/mdm/ui.py:38 app/domains/membership/ui.py:172
-msgid "Niet aangemeld"
-msgstr ""
-
-#: app/domains/activities/admin_ui.py:46 app/domains/payment/ui.py:117
+#: app/domains/activities/admin_ui.py:34 app/domains/payment/ui.py:117
 msgid "Ongeldig bedrag."
 msgstr ""
 
-#: app/domains/activities/admin_ui.py:101
+#: app/domains/activities/admin_ui.py:89
 msgid "Naam en eerste datum zijn verplicht."
 msgstr ""
 
@@ -61,9 +55,8 @@ msgstr ""
 msgid "Inschrijver"
 msgstr ""
 
-#: app/domains/activities/export.py:63
+#: app/domains/activities/export.py:63 app/domains/audit/changes.py:384
 #: app/domains/mail/templates/_email_log_lijst.html:10
-#: app/services/member_changes.py:383
 msgid "Type"
 msgstr ""
 
@@ -297,6 +290,7 @@ msgstr ""
 #: app/domains/mdm/templates/_leden_detail.html:72
 #: app/domains/media/templates/_me_lijst.html:48
 #: app/domains/membership/templates/gezin_portaal.html:88
+#: app/ui/templates/admin_instellingen.html:43
 msgid "Opslaan"
 msgstr ""
 
@@ -519,6 +513,47 @@ msgstr ""
 msgid "Aanmaken"
 msgstr ""
 
+#: app/domains/audit/changes.py:384
+msgid "Tijdstip"
+msgstr ""
+
+#: app/domains/audit/changes.py:384
+msgid "Wat"
+msgstr ""
+
+#: app/domains/audit/changes.py:384
+msgid "ID"
+msgstr ""
+
+#: app/domains/audit/changes.py:384
+msgid "Naam persoon"
+msgstr ""
+
+#: app/domains/audit/changes.py:384 app/ui/templates/_lw_inhoud.html:13
+msgid "Adres hoofdlid"
+msgstr ""
+
+#: app/domains/audit/changes.py:385
+msgid "Externe ID persoon"
+msgstr ""
+
+#: app/domains/audit/changes.py:385
+msgid "Externe ID hoofdlid"
+msgstr ""
+
+#: app/domains/audit/changes.py:385
+msgid "Actie"
+msgstr ""
+
+#: app/domains/audit/changes.py:385
+msgid "Door"
+msgstr ""
+
+#: app/domains/audit/changes.py:385 app/ui/templates/_lw_inhoud.html:14
+#: app/ui/templates/_lw_inhoud.html:43
+msgid "Details"
+msgstr ""
+
 #: app/domains/auth/router.py:137
 msgid "Ongeldige of verlopen inloglink."
 msgstr ""
@@ -561,6 +596,11 @@ msgstr ""
 
 #: app/domains/auth/service.py:200
 msgid "Ongeldige API-key"
+msgstr ""
+
+#: app/domains/auth/session.py:82 app/domains/auth/session.py:121
+#: app/domains/membership/ui.py:172
+msgid "Niet aangemeld"
 msgstr ""
 
 #: app/domains/auth/session.py:87
@@ -662,26 +702,26 @@ msgstr ""
 msgid "Pagina niet gevonden"
 msgstr ""
 
-#: app/domains/chatbot/info_router.py:185 app/domains/chatbot/ui.py:137
+#: app/domains/chatbot/info_router.py:185 app/domains/chatbot/ui.py:130
 msgid "Rij niet gevonden"
 msgstr ""
 
-#: app/domains/chatbot/router.py:48 app/domains/chatbot/ui.py:55
+#: app/domains/chatbot/router.py:48 app/domains/chatbot/ui.py:48
 #: app/domains/media/router.py:127 app/domains/media/router.py:151
 #: app/domains/media/router.py:160 app/domains/media/router.py:418
 #: app/domains/media/router.py:435
 msgid "Niet gevonden"
 msgstr ""
 
-#: app/domains/chatbot/ui.py:59
+#: app/domains/chatbot/ui.py:52
 msgid "Typ eerst een vraag."
 msgstr ""
 
-#: app/domains/chatbot/ui.py:69
+#: app/domains/chatbot/ui.py:62
 msgid "Sorry, er ging iets mis. Probeer later opnieuw."
 msgstr ""
 
-#: app/domains/chatbot/ui.py:110
+#: app/domains/chatbot/ui.py:103
 msgid "Titel en tekst zijn verplicht."
 msgstr ""
 
@@ -777,20 +817,24 @@ msgstr ""
 msgid "Typ je vraag…"
 msgstr ""
 
-#: app/domains/chatbot/templates/raakje.html:16
+#: app/domains/chatbot/templates/raakje.html:18
+msgid "Spreek je vraag in"
+msgstr ""
+
+#: app/domains/chatbot/templates/raakje.html:19
 #: app/domains/forms/templates/_fb_builder.html:17
 msgid "Vraag"
 msgstr ""
 
-#: app/domains/chatbot/templates/raakje.html:18
+#: app/domains/chatbot/templates/raakje.html:22
 msgid "Raakje denkt na…"
 msgstr ""
 
-#: app/domains/cms/admin_ui.py:75
+#: app/domains/cms/admin_ui.py:72
 msgid "Titel en slug zijn verplicht."
 msgstr ""
 
-#: app/domains/cms/admin_ui.py:94
+#: app/domains/cms/admin_ui.py:91
 msgid "Ongeldige volgorde."
 msgstr ""
 
@@ -917,7 +961,7 @@ msgstr ""
 msgid "Contacteer ons"
 msgstr ""
 
-#: app/domains/forms/admin_ui.py:34 app/domains/forms/router.py:258
+#: app/domains/forms/admin_ui.py:33 app/domains/forms/router.py:258
 #: app/domains/forms/router.py:272 app/domains/forms/router.py:297
 #: app/domains/forms/router.py:310 app/domains/forms/router.py:323
 #: app/domains/forms/router.py:355 app/domains/forms/router.py:372
@@ -925,50 +969,50 @@ msgstr ""
 msgid "Formulier niet gevonden"
 msgstr ""
 
-#: app/domains/forms/admin_ui.py:121 app/domains/forms/router.py:59
+#: app/domains/forms/admin_ui.py:120 app/domains/forms/router.py:59
 #, python-format
 msgid "Ongeldige status: %(status)s"
 msgstr ""
 
-#: app/domains/forms/admin_ui.py:162 app/domains/forms/admin_ui.py:186
+#: app/domains/forms/admin_ui.py:161 app/domains/forms/admin_ui.py:185
 msgid "Sectie niet gevonden"
 msgstr ""
 
-#: app/domains/forms/admin_ui.py:170 app/domains/forms/router.py:70
+#: app/domains/forms/admin_ui.py:169 app/domains/forms/router.py:70
 msgid "Een sectie-sprong moet naar een latere sectie gaan."
 msgstr ""
 
-#: app/domains/forms/admin_ui.py:218 app/domains/forms/router.py:74
+#: app/domains/forms/admin_ui.py:217 app/domains/forms/router.py:74
 #, python-format
 msgid "Ongeldig veldtype: %(field_type)s"
 msgstr ""
 
-#: app/domains/forms/admin_ui.py:220 app/domains/forms/admin_ui.py:243
+#: app/domains/forms/admin_ui.py:219 app/domains/forms/admin_ui.py:242
 #: app/domains/forms/router.py:77
 msgid "Elk veld heeft een vraag/label nodig."
 msgstr ""
 
-#: app/domains/forms/admin_ui.py:241 app/domains/forms/admin_ui.py:266
+#: app/domains/forms/admin_ui.py:240 app/domains/forms/admin_ui.py:265
 msgid "Veld niet gevonden"
 msgstr ""
 
-#: app/domains/forms/admin_ui.py:300
+#: app/domains/forms/admin_ui.py:299
 msgid "Opties kunnen enkel bij keuzevelden."
 msgstr ""
 
-#: app/domains/forms/admin_ui.py:316
+#: app/domains/forms/admin_ui.py:315
 msgid "Optie niet gevonden"
 msgstr ""
 
-#: app/domains/forms/admin_ui.py:321 app/domains/forms/router.py:83
+#: app/domains/forms/admin_ui.py:320 app/domains/forms/router.py:83
 msgid "Vertakking kan enkel bij 'één keuze' of 'keuzelijst'."
 msgstr ""
 
-#: app/domains/forms/admin_ui.py:328 app/domains/forms/router.py:93
+#: app/domains/forms/admin_ui.py:327 app/domains/forms/router.py:93
 msgid "Een vertakking moet naar een latere sectie springen."
 msgstr ""
 
-#: app/domains/forms/admin_ui.py:363
+#: app/domains/forms/admin_ui.py:362
 #, python-format
 msgid "Ongeldige JSON: %(exc)s"
 msgstr ""
@@ -1455,7 +1499,37 @@ msgstr ""
 msgid "Alle statussen"
 msgstr ""
 
-#: app/domains/mdm/ui.py:157
+#: app/domains/mdm/import_router.py:47
+msgid "Te veel openstaande imports. Probeer later opnieuw."
+msgstr ""
+
+#: app/domains/mdm/import_router.py:60
+msgid "Onbekende of reeds gebruikte import. Laad het bestand opnieuw op."
+msgstr ""
+
+#: app/domains/mdm/import_router.py:63
+msgid "De import is verlopen. Laad het bestand opnieuw op."
+msgstr ""
+
+#: app/domains/mdm/import_router.py:71
+msgid ""
+"Het .xlsx-formaat wordt niet ondersteund. Gebruik .xls (export uit Raak "
+"Nationaal) of .ods (LibreOffice Calc)."
+msgstr ""
+
+#: app/domains/mdm/import_router.py:75
+msgid "Kon het ledenrapport niet lezen. Is het een geldig .xls- of .ods-bestand?"
+msgstr ""
+
+#: app/domains/mdm/import_router.py:90
+msgid "Leeg bestand."
+msgstr ""
+
+#: app/domains/mdm/import_router.py:92
+msgid "Bestand te groot (max 5 MB)."
+msgstr ""
+
+#: app/domains/mdm/ui.py:145
 msgid "Gezin zonder personen."
 msgstr ""
 
@@ -1783,6 +1857,87 @@ msgstr ""
 msgid "Geen foto's gevonden voor deze activiteit."
 msgstr ""
 
+#: app/domains/membership/household_router.py:48
+msgid "Geen gezin gevonden."
+msgstr ""
+
+#: app/domains/membership/household_router.py:55
+msgid "Geen toegang tot dit gezin."
+msgstr ""
+
+#: app/domains/membership/household_router.py:140
+msgid "Je hebt al een geldig lidmaatschap."
+msgstr ""
+
+#: app/domains/membership/household_router.py:155
+msgid "Je vernieuwing loopt nog — rond eerst de openstaande betaling af."
+msgstr ""
+
+#: app/domains/membership/household_router.py:169
+#, python-format
+msgid "Je hebt je lidmaatschap voor %(year)s al vernieuwd."
+msgstr ""
+
+#: app/domains/membership/household_router.py:222
+msgid "De online betaling kon niet gestart worden. Probeer het later opnieuw."
+msgstr ""
+
+#: app/domains/membership/household_router.py:258
+#: app/domains/membership/household_router.py:393
+msgid "Persoon niet gevonden."
+msgstr ""
+
+#: app/domains/membership/household_router.py:295
+#: app/domains/membership/register_router.py:395
+#: app/domains/membership/register_router.py:552
+#, python-format
+msgid "Onbekende postcode: %(postal_code)s"
+msgstr ""
+
+#: app/domains/membership/household_router.py:348
+msgid "Voornaam en achternaam zijn verplicht."
+msgstr ""
+
+#: app/domains/membership/household_router.py:398
+msgid "Je kan jezelf niet uit het gezin verwijderen."
+msgstr ""
+
+#: app/domains/membership/register_router.py:125
+#: app/domains/membership/register_router.py:150
+msgid "Member not found"
+msgstr ""
+
+#: app/domains/membership/register_router.py:232
+#: app/domains/membership/register_router.py:283
+#: app/domains/membership/register_router.py:319
+#: app/domains/membership/register_router.py:481
+#: app/domains/membership/register_router.py:535
+msgid "Family not found"
+msgstr ""
+
+#: app/domains/membership/register_router.py:363
+#: app/domains/membership/register_router.py:388
+#: app/domains/membership/register_router.py:419
+#: app/domains/membership/register_router.py:455
+#: app/domains/membership/register_router.py:539
+msgid "Person not found"
+msgstr ""
+
+#: app/domains/membership/register_router.py:391
+msgid "Address not found"
+msgstr ""
+
+#: app/domains/membership/register_router.py:520
+msgid "Membership not found"
+msgstr ""
+
+#: app/domains/membership/register_router.py:588
+#, python-format
+msgid ""
+"Er bestaat al een inschrijving voor %(year)s met dit e-mailadres. Neem "
+"contact op met het bestuur als dit niet klopt."
+msgstr ""
+
 #: app/domains/membership/templates/_lid_persoon_rij.html:3
 msgid "Hoofdlid"
 msgstr ""
@@ -2010,149 +2165,12 @@ msgstr ""
 msgid "Taak — Werkbank"
 msgstr ""
 
-#: app/routers/member_household.py:46
-msgid "Geen gezin gevonden."
+#: app/ui/settings_ui.py:48
+msgid "Alleen de platformbeheerder (OPERATOR) mag tenant-instellingen wijzigen."
 msgstr ""
 
-#: app/routers/member_household.py:53
-msgid "Geen toegang tot dit gezin."
-msgstr ""
-
-#: app/routers/member_household.py:138
-msgid "Je hebt al een geldig lidmaatschap."
-msgstr ""
-
-#: app/routers/member_household.py:153
-msgid "Je vernieuwing loopt nog — rond eerst de openstaande betaling af."
-msgstr ""
-
-#: app/routers/member_household.py:167
-#, python-format
-msgid "Je hebt je lidmaatschap voor %(year)s al vernieuwd."
-msgstr ""
-
-#: app/routers/member_household.py:220
-msgid "De online betaling kon niet gestart worden. Probeer het later opnieuw."
-msgstr ""
-
-#: app/routers/member_household.py:256 app/routers/member_household.py:391
-msgid "Persoon niet gevonden."
-msgstr ""
-
-#: app/routers/member_household.py:293 app/routers/members.py:392
-#: app/routers/members.py:549
-#, python-format
-msgid "Onbekende postcode: %(postal_code)s"
-msgstr ""
-
-#: app/routers/member_household.py:346
-msgid "Voornaam en achternaam zijn verplicht."
-msgstr ""
-
-#: app/routers/member_household.py:396
-msgid "Je kan jezelf niet uit het gezin verwijderen."
-msgstr ""
-
-#: app/routers/member_import.py:46
-msgid "Te veel openstaande imports. Probeer later opnieuw."
-msgstr ""
-
-#: app/routers/member_import.py:59
-msgid "Onbekende of reeds gebruikte import. Laad het bestand opnieuw op."
-msgstr ""
-
-#: app/routers/member_import.py:62
-msgid "De import is verlopen. Laad het bestand opnieuw op."
-msgstr ""
-
-#: app/routers/member_import.py:70
-msgid ""
-"Het .xlsx-formaat wordt niet ondersteund. Gebruik .xls (export uit Raak "
-"Nationaal) of .ods (LibreOffice Calc)."
-msgstr ""
-
-#: app/routers/member_import.py:74
-msgid "Kon het ledenrapport niet lezen. Is het een geldig .xls- of .ods-bestand?"
-msgstr ""
-
-#: app/routers/member_import.py:89
-msgid "Leeg bestand."
-msgstr ""
-
-#: app/routers/member_import.py:91
-msgid "Bestand te groot (max 5 MB)."
-msgstr ""
-
-#: app/routers/members.py:122 app/routers/members.py:147
-msgid "Member not found"
-msgstr ""
-
-#: app/routers/members.py:229 app/routers/members.py:280
-#: app/routers/members.py:316 app/routers/members.py:478
-#: app/routers/members.py:532
-msgid "Family not found"
-msgstr ""
-
-#: app/routers/members.py:360 app/routers/members.py:385
-#: app/routers/members.py:416 app/routers/members.py:452
-#: app/routers/members.py:536
-msgid "Person not found"
-msgstr ""
-
-#: app/routers/members.py:388
-msgid "Address not found"
-msgstr ""
-
-#: app/routers/members.py:517
-msgid "Membership not found"
-msgstr ""
-
-#: app/routers/members.py:585
-#, python-format
-msgid ""
-"Er bestaat al een inschrijving voor %(year)s met dit e-mailadres. Neem "
-"contact op met het bestuur als dit niet klopt."
-msgstr ""
-
-#: app/services/member_changes.py:383
-msgid "Tijdstip"
-msgstr ""
-
-#: app/services/member_changes.py:383
-msgid "Wat"
-msgstr ""
-
-#: app/services/member_changes.py:383
-msgid "ID"
-msgstr ""
-
-#: app/services/member_changes.py:383
-msgid "Naam persoon"
-msgstr ""
-
-#: app/services/member_changes.py:383 app/ui/templates/_lw_inhoud.html:13
-msgid "Adres hoofdlid"
-msgstr ""
-
-#: app/services/member_changes.py:384
-msgid "Externe ID persoon"
-msgstr ""
-
-#: app/services/member_changes.py:384
-msgid "Externe ID hoofdlid"
-msgstr ""
-
-#: app/services/member_changes.py:384
-msgid "Actie"
-msgstr ""
-
-#: app/services/member_changes.py:384
-msgid "Door"
-msgstr ""
-
-#: app/services/member_changes.py:384 app/ui/templates/_lw_inhoud.html:14
-#: app/ui/templates/_lw_inhoud.html:43
-msgid "Details"
+#: app/ui/settings_ui.py:97
+msgid "Onbekende tenant"
 msgstr ""
 
 #: app/ui/templates/_lw_inhoud.html:4
@@ -2354,6 +2372,44 @@ msgstr ""
 
 #: app/ui/templates/admin_info.html:56
 msgid "Website ID"
+msgstr ""
+
+#: app/ui/templates/admin_instellingen.html:3
+msgid "Instellingen — Raak beheer"
+msgstr ""
+
+#: app/ui/templates/admin_instellingen.html:5
+msgid "Tenant-instellingen"
+msgstr ""
+
+#: app/ui/templates/admin_instellingen.html:6
+msgid ""
+"Per afdeling; een leeg veld = de standaardwaarde (Millegem/.env). Alleen "
+"zichtbaar voor de platformbeheerder."
+msgstr ""
+
+#: app/ui/templates/admin_instellingen.html:8
+msgid "Instellingen opgeslagen."
+msgstr ""
+
+#: app/ui/templates/admin_instellingen.html:10
+msgid "Afdeling"
+msgstr ""
+
+#: app/ui/templates/admin_instellingen.html:29
+msgid "Secrets"
+msgstr ""
+
+#: app/ui/templates/admin_instellingen.html:34
+msgid "•••• (gezet — leeg laten = ongewijzigd)"
+msgstr ""
+
+#: app/ui/templates/admin_instellingen.html:34
+msgid "niet gezet — .env-default geldt"
+msgstr ""
+
+#: app/ui/templates/admin_instellingen.html:37
+msgid "Wissen (terug naar de .env-default)"
 msgstr ""
 
 #: app/ui/templates/admin_ledenwijzigingen.html:3
