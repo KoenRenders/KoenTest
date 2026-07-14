@@ -1,12 +1,69 @@
 {% import "_macros.html" as ui %}
-{# Gedeelde inschrijving-detailweergave (#455/#451): contact + producten + opmerking. #}
-<div class="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-2 text-sm">
-  <div class="font-medium">{{ reg.contact_name }}{% if reg.team_name %} ({{ reg.team_name }}){% endif %}</div>
-  {% if reg.contact_email or reg.phone %}
-  <div class="text-gray-500">{{ reg.contact_email or "" }}{% if reg.phone %} · {{ reg.phone }}{% endif %}</div>
+{# Gedeelde inschrijving-detail + editor (#455/#451): contact + producten +
+   opmerking. Bewerken (aantallen, regel toevoegen/verwijderen, opmerking) via
+   de bestaande router-facades; soft-deleted inschrijvingen zijn read-only. #}
+<div class="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-2 text-sm"
+     {% if editable %}x-data="{ edit: false }"{% endif %}>
+  <div class="flex items-start justify-between gap-2">
+    <div>
+      <div class="font-medium">{{ reg.contact_name }}{% if reg.team_name %} ({{ reg.team_name }}){% endif %}</div>
+      {% if reg.contact_email or reg.phone %}
+      <div class="text-gray-500">{{ reg.contact_email or "" }}{% if reg.phone %} · {{ reg.phone }}{% endif %}</div>
+      {% endif %}
+    </div>
+    {% if editable %}
+    {{ ui.btn_secondary(_("Bewerk"), attrs='@click="edit = !edit"') }}
+    {% endif %}
+  </div>
+
+  {# Read-only weergave #}
+  <div {% if editable %}x-show="!edit"{% endif %}>
+    <ul class="mt-2 text-gray-700">
+      {% for item in reg["items"] %}<li>{{ item.quantity }}× {{ item.product_name or "—" }}</li>{% else %}<li class="text-gray-400">{{ _("Geen producten") }}</li>{% endfor %}
+    </ul>
+    {% if reg.remarks %}<div class="mt-2 text-gray-500">💬 {{ reg.remarks }}</div>{% endif %}
+  </div>
+
+  {% if editable %}
+  {# Editor #}
+  <div x-show="edit" x-cloak class="mt-3 space-y-3">
+    {% set _base = "/admin/inschrijvingen/" ~ reg.id %}
+    {# De X-CSRF-Token-header wordt geërfd van de body (hx-headers). #}
+    {% set _tgt = 'hx-target="closest .bg-gray-50" hx-swap="outerHTML"' %}
+
+    {# Bestelregels: aantal wijzigen / verwijderen #}
+    <div class="space-y-2">
+      {% for item in reg["items"] %}
+      <div class="flex items-center gap-2">
+        <span class="flex-1">{{ item.product_name or "—" }}</span>
+        <input type="number" min="1" value="{{ item.quantity }}" name="quantity"
+               class="w-20 border border-gray-300 rounded-lg px-2 py-1"
+               hx-post="{{ _base }}/regels/{{ item.id }}" hx-trigger="change" {{ _tgt }}>
+        {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="' ~ _base ~ '/regels/' ~ item.id ~ '/verwijderen" ' ~ _tgt) }}
+      </div>
+      {% else %}
+      <div class="text-gray-400">{{ _("Geen producten") }}</div>
+      {% endfor %}
+    </div>
+
+    {# Regel toevoegen #}
+    {% if products %}
+    <form class="flex items-center gap-2" hx-post="{{ _base }}/regels" {{ _tgt }}>
+      <select name="product_id" required class="flex-1 border border-gray-300 rounded-lg px-2 py-1">
+        <option value="">{{ _("— Product toevoegen —") }}</option>
+        {% for p in products %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+      </select>
+      <input type="number" name="quantity" min="1" value="1" class="w-20 border border-gray-300 rounded-lg px-2 py-1">
+      {{ ui.btn_secondary(_("Toevoegen"), type="submit") }}
+    </form>
+    {% endif %}
+
+    {# Opmerking #}
+    <form class="space-y-2" hx-post="{{ _base }}/opmerking" {{ _tgt }}>
+      {{ ui.label(_("Opmerking"), "reg-remarks-" ~ reg.id) }}
+      <textarea name="remarks" id="reg-remarks-{{ reg.id }}" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2">{{ reg.remarks or "" }}</textarea>
+      {{ ui.btn_primary(_("Opmerking opslaan")) }}
+    </form>
+  </div>
   {% endif %}
-  <ul class="mt-2 text-gray-700">
-    {% for item in reg["items"] %}<li>{{ item.quantity }}× {{ item.product_name or "—" }}</li>{% else %}<li class="text-gray-400">{{ _("Geen producten") }}</li>{% endfor %}
-  </ul>
-  {% if reg.remarks %}<div class="mt-2 text-gray-500">💬 {{ reg.remarks }}</div>{% endif %}
 </div>

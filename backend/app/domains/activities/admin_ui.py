@@ -292,24 +292,120 @@ async def affiche_uploaden(activity_id: int, request: Request,
 
 # ── Gedeelde inschrijving-detail (betalingen + activiteiten-admin, #455/#451) ──
 
-@router.get("/admin/inschrijvingen/{registration_id}", response_class=HTMLResponse)
-def inschrijving_detail(registration_id: int, request: Request,
-                        db: Session = Depends(get_db),
-                        email: str = Depends(require_admin_ui)):
-    """Detail van één inschrijving (contact + producten + opmerking) als htmx-
-    fragment. Herbruikbaar vanuit betalingen ('Toon inschrijvingsdetails') en de
-    activiteiten-admin. Verrijking neemt soft-deleted mee (financieel feit)."""
+def _detail_ctx(request: Request, db: Session, registration_id: int) -> dict | None:
+    """Gedeelde context voor de inschrijving-detail/editor: de verrijkte
+    inschrijving + de beschikbare producten van haar onderdeel (voor de
+    'regel toevoegen'-keuze). Geeft None als de inschrijving niet bestaat."""
     from app.domains.activities.api import Activity, Registration
     from app.domains.activities.router import _enrich_registration
 
     reg = (db.query(Registration).execution_options(include_deleted=True)
            .filter(Registration.id == registration_id).first())
     if reg is None:
-        return HTMLResponse("")
+        return None
     activity = (db.query(Activity).execution_options(include_deleted=True)
                 .filter(Activity.id == reg.activity_id).first())
-    return templates.TemplateResponse(request, "_inschrijving_detail.html",
-                                      {"reg": _enrich_registration(reg, activity)})
+    products = []
+    if activity is not None and reg.component_id:
+        component = next((c for c in activity.sub_registrations
+                          if c.id == reg.component_id), None)
+        if component is not None:
+            products = [{"id": p.id, "name": p.name} for p in component.products]
+    return {
+        "reg": _enrich_registration(reg, activity),
+        "products": products,
+        "editable": reg.deleted_at is None,
+        "csrf_token": csrf_from_request(request),
+    }
+
+
+def _render_detail(request: Request, db: Session, registration_id: int) -> HTMLResponse:
+    ctx = _detail_ctx(request, db, registration_id)
+    if ctx is None:
+        return HTMLResponse("")
+    return templates.TemplateResponse(request, "_inschrijving_detail.html", ctx)
+
+
+@router.get("/admin/inschrijvingen/{registration_id}", response_class=HTMLResponse)
+def inschrijving_detail(registration_id: int, request: Request,
+                        db: Session = Depends(get_db),
+                        email: str = Depends(require_admin_ui)):
+    """Detail/editor van één inschrijving (contact + producten + opmerking) als
+    htmx-fragment. Herbruikbaar vanuit betalingen ('Toon inschrijvingsdetails')
+    en de activiteiten-admin. Verrijking neemt soft-deleted mee (financieel feit);
+    een soft-deleted inschrijving is niet bewerkbaar."""
+    return _render_detail(request, db, registration_id)
+
+
+def _reg_or_404(db: Session, registration_id: int):
+    from app.domains.activities.api import Registration
+
+    reg = db.query(Registration).filter(Registration.id == registration_id).first()
+    if reg is None:
+        raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
+    return reg
+
+
+@router.post("/admin/inschrijvingen/{registration_id}/opmerking",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def inschrijving_opmerking(registration_id: int, request: Request,
+                           db: Session = Depends(get_db),
+                           email: str = Depends(require_admin_ui),
+                           remarks: str = Form("")):
+    from app.domains.activities.router import update_registration_remarks
+    from app.schemas.activity import RegistrationRemarksUpdate
+
+    reg = _reg_or_404(db, registration_id)
+    update_registration_remarks(reg.activity_id, registration_id,
+                                RegistrationRemarksUpdate(remarks=remarks),
+                                db=db, admin=admin_user_by_email(db, email))
+    return _render_detail(request, db, registration_id)
+
+
+@router.post("/admin/inschrijvingen/{registration_id}/regels",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def inschrijving_regel_toevoegen(registration_id: int, request: Request,
+                                 db: Session = Depends(get_db),
+                                 email: str = Depends(require_admin_ui),
+                                 product_id: int = Form(...),
+                                 quantity: int = Form(1)):
+    from app.domains.activities.router import add_order_line
+    from app.schemas.activity import RegistrationItemCreate
+
+    reg = _reg_or_404(db, registration_id)
+    add_order_line(reg.activity_id, registration_id,
+                   RegistrationItemCreate(product_id=product_id, quantity=quantity),
+                   db=db, admin=admin_user_by_email(db, email))
+    return _render_detail(request, db, registration_id)
+
+
+@router.post("/admin/inschrijvingen/{registration_id}/regels/{item_id}",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def inschrijving_regel_bijwerken(registration_id: int, item_id: int, request: Request,
+                                 db: Session = Depends(get_db),
+                                 email: str = Depends(require_admin_ui),
+                                 quantity: int = Form(...)):
+    from app.domains.activities.router import update_order_line
+    from app.schemas.activity import RegistrationItemUpdate
+
+    reg = _reg_or_404(db, registration_id)
+    update_order_line(reg.activity_id, registration_id, item_id,
+                      RegistrationItemUpdate(quantity=quantity),
+                      db=db, admin=admin_user_by_email(db, email))
+    return _render_detail(request, db, registration_id)
+
+
+@router.post("/admin/inschrijvingen/{registration_id}/regels/{item_id}/verwijderen",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def inschrijving_regel_verwijderen(registration_id: int, item_id: int, request: Request,
+                                   db: Session = Depends(get_db),
+                                   email: str = Depends(require_admin_ui)):
+    from app.domains.activities.router import delete_order_line
+
+    reg = _reg_or_404(db, registration_id)
+    delete_order_line(reg.activity_id, registration_id, item_id,
+                      db=db, admin=admin_user_by_email(db, email))
+    return _render_detail(request, db, registration_id)
 
 
 # ── Inschrijvingen + export ────────────────────────────────────────────────────
