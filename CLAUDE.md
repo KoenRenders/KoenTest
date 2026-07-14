@@ -322,8 +322,8 @@ per commit on GitHub.
 - `Person` = individual; linked to Member via `MemberPerson` junction (with `relation_type`: "hoofdlid", "partner", "(meerderjarig) kind")
 - `Person` does NOT have a `mobile` column — mobile is stored as a `ContactDetail` with `contact_type_code = "mobile"`
 - `Address` → normalized via `PostalCode` table; always use postal code from the lookup table
-- `Activity` → `ActivitySubRegistration` (2-level); sub-registrations can have their own `reg_form_type`, `price`, `max_participants`
-- `Registration` → `RegistrationItem` (for PAID_PRODUCTS form type)
+- `Activity` → `ActivitySubRegistration` (2-level); sub-registrations can have their own `price`, `max_participants`, `products` (`reg_form_type` is legacy/ongebruikt sinds de v2.0-unificatie — zie "Activity registration form")
+- `Registration` → `RegistrationItem` (één regel per gekozen product/aantal)
 - `GatewayPayment.payment_metadata` (JSON column — NOT `metadata`)
 
 **Auth:** JWT Bearer tokens voor de JSON-API (`get_current_admin` op alle admin-endpoints); de server-rendered schermen gebruiken de HttpOnly-sessiecookie + CSRF via `app.domains.auth.api` (`require_admin_ui`, `require_csrf`).
@@ -342,20 +342,33 @@ sudo docker-compose exec backend alembic heads
 ```
 There must be exactly one head.
 
-## Activity registration form types
+## Activity registration form (unified in v2.0)
 
-`reg_form_type` on `Activity` or `ActivitySubRegistration` controls the registration form:
+**Sinds de React-exit (v2.0, #405) is er één geünificeerd inschrijfformulier**
+(`_inschrijf_form.html`) — géén vertakking meer op `reg_form_type`. Het React-tijdperk
+kende zes vormtypes (`INDIVIDUAL`, `TEAM`, `GROUP`, `PAID_PER_PERSON`,
+`PAID_PRODUCTS`, `AGE_CATEGORY`); die zijn **bewust vereenvoudigd** weg. Het ene
+formulier dekt alle gevallen via twee onderdeel-eigenschappen:
 
-| Code | Behaviour |
-|---|---|
-| `INDIVIDUAL` | Single name/contact only |
-| `TEAM` | Adds team name field |
-| `GROUP` | Adds group size (no price) |
-| `PAID_PER_PERSON` | Group size × unit price; uses `active_sub.price` if set, else `activity.price` |
-| `PAID_PRODUCTS` | Sub-registrations as line items; total computed inline while creating `RegistrationItem` records (NOT from `registration.items` relationship — it's not populated before commit) |
-| `AGE_CATEGORY` | Per-category counters (JSON); config in `activity.age_category_config` |
+- **Contact** (naam, e-mail, mobiel) — altijd.
+- **Ploegnaam** — enkel als `component.team_name_required` (vervangt het oude `TEAM`).
+- **Producten als regelitems** — `component.products`, elk met aantal-invoer; totaal
+  wordt **server-side** herberekend bij elke wijziging (`/…/totaal`, §19.3 — geen
+  drift) en inline vastgelegd als `RegistrationItem` bij commit (NIET via
+  `registration.items` — die is niet gevuld vóór commit). Dit dekt de betaalgevallen
+  die het oude `PAID_PRODUCTS`/`PAID_PER_PERSON` verzorgden; gratis producten
+  (`is_free`/`price == 0`) of `pay_on_site` maken het regelitem gratis resp. ter
+  plaatse te betalen.
 
-For `PAID_PRODUCTS`: `paidProducts` on the frontend are sub-registrations where `is_free=false` AND `reg_form_type` is null. Sub-registrations that have their own `reg_form_type` are separate registration paths, not product line items.
+De oude group-size- en leeftijdscategorie-tellers (`GROUP`, `AGE_CATEGORY`,
+`age_category_config`) zijn er in v2.0 niet meer. Wil je zoiets terug, dan is dat
+**nieuwe scope** (nieuw issue), geen bestaand gedrag dat hersteld moet worden.
+
+> **Volzet-status** komt van `max_participants` per onderdeel (#451): de bezetting
+> (som van de item-hoeveelheden) wordt batched berekend in `list_activities` en zet
+> `is_full`, waarna de kaart een 'Volzet'-badge toont i.p.v. de inschrijfknop. De
+> `isPaid`-regel (positieve onderdeel-/productprijs → betalend) staat onder "Fixed
+> UI decisions".
 
 ## UI-architectuur (server-rendered, React-exit #405)
 
