@@ -28,7 +28,8 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
     from app.domains.auth.models import RoleCode
 
     return {"users": list_users(db=db, _admin=None),
-            "role_codes": db.query(RoleCode).order_by(RoleCode.code).all(),
+            "role_codes": db.query(RoleCode).filter(RoleCode.code != "USER")
+                            .order_by(RoleCode.code).all(),
             "csrf_token": csrf_from_request(request)}
 
 
