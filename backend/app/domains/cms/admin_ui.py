@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
+    admin_user_by_email, csrf_from_request,
     SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.ui import admin_nav, templates
@@ -20,10 +21,6 @@ from app.i18n import _
 router = APIRouter(include_in_schema=False)
 
 NAV = admin_nav("/admin/paginas")
-
-
-def _csrf(request: Request) -> str:
-    return csrf_token_for(request.cookies.get(SESSION_COOKIE) or "")
 
 
 def _lijst_ctx(db: Session) -> dict:
@@ -41,14 +38,14 @@ def _detail_response(request: Request, db: Session, page_id: int):
         return HTMLResponse('<div id="cp-detail" hx-swap-oob="true"></div>')
     return templates.TemplateResponse(request, "_cp_detail.html", {
         "p": page, "placeholders": list_cms_placeholders(),
-        "csrf_token": _csrf(request), "error": None})
+        "csrf_token": csrf_from_request(request), "error": None})
 
 
 @router.get("/admin/paginas", response_class=HTMLResponse)
 def admin_paginas(request: Request, db: Session = Depends(get_db),
                   email: str = Depends(require_admin_ui)):
     return templates.TemplateResponse(request, "admin_paginas.html", {
-        "nav_items": NAV, "csrf_token": _csrf(request), **_lijst_ctx(db)})
+        "nav_items": NAV, "csrf_token": csrf_from_request(request), **_lijst_ctx(db)})
 
 
 @router.get("/admin/paginas/lijst", response_class=HTMLResponse)

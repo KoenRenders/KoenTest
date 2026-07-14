@@ -15,7 +15,7 @@ from .service import (
     confirm_manual_payment, get_records_for, handle_gateway_update,
     create_refund, registration_balance,
 )
-from app.domains.audit.service import snapshot_payment_record
+from app.domains.audit.api import snapshot_payment_record
 from app.soft_delete import soft_delete
 from app.domains.activities.api import compute_registration_total
 from app.i18n import _

@@ -95,3 +95,28 @@ def require_csrf(request: Request) -> None:
     token = request.headers.get("x-csrf-token")
     if raw is None or token is None or not hmac.compare_digest(csrf_token_for(raw), token):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_("CSRF-token ongeldig"))
+
+
+def csrf_from_request(request: Request) -> str:
+    """CSRF-token voor de sessie van dit request (#444) — de gedeelde vervanger
+    van de per-scherm gedupliceerde _csrf()-helpers."""
+    return csrf_token_for(request.cookies.get(SESSION_COOKIE) or "")
+
+
+def admin_user_by_email(db: Session, email: str):
+    """De actieve backoffice-User voor dit e-mailadres, of 401 (#444) — de
+    gedeelde vervanger van de per-scherm gedupliceerde _admin_user()-helpers.
+    Gebruikt als history-actor bij hergebruik van routerfuncties in de UI."""
+    from sqlalchemy import func
+
+    from app.domains.auth.models import User
+    from app.i18n import _
+
+    user = (db.query(User)
+            .filter(func.lower(User.email) == email.strip().lower(),
+                    User.is_active == True)  # noqa: E712
+            .first())
+    if user is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail=_("Niet aangemeld"))
+    return user

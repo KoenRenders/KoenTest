@@ -39,7 +39,7 @@ from app.schemas.member import (
 )
 from app.schemas.family import FamilyCreate
 from app.domains.payment.api import create_payment_record, membership_price_for_date, membership_valid_period
-from app.domains.audit.service import (
+from app.domains.audit.api import (
     snapshot_person,
     snapshot_member,
     snapshot_member_person,

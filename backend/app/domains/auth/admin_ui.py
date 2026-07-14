@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
+    admin_user_by_email, csrf_from_request,
     SESSION_COOKIE, User, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.ui import admin_nav, templates
@@ -22,26 +23,13 @@ router = APIRouter(include_in_schema=False)
 NAV = admin_nav("/admin/gebruikers")
 
 
-def _csrf(request: Request) -> str:
-    return csrf_token_for(request.cookies.get(SESSION_COOKIE) or "")
-
-
-def _admin_user(db: Session, email: str) -> User:
-    user = (db.query(User)
-            .filter(func.lower(User.email) == email.lower(), User.is_active == True)  # noqa: E712
-            .first())
-    if user is None:
-        raise HTTPException(status_code=401, detail=_("Niet aangemeld"))
-    return user
-
-
 def _lijst_ctx(request: Request, db: Session) -> dict:
     from app.domains.auth.users import list_users
-    from app.models.codes import RoleCode
+    from app.domains.auth.models import RoleCode
 
     return {"users": list_users(db=db, _admin=None),
             "role_codes": db.query(RoleCode).order_by(RoleCode.code).all(),
-            "csrf_token": _csrf(request)}
+            "csrf_token": csrf_from_request(request)}
 
 
 def _lijst_response(request: Request, db: Session, error: str | None = None):
@@ -102,7 +90,7 @@ def gebruiker_verwijderen(user_id: int, request: Request,
     from app.domains.auth.users import delete_user
 
     try:
-        delete_user(user_id, db=db, current_admin=_admin_user(db, email))
+        delete_user(user_id, db=db, current_admin=admin_user_by_email(db, email))
     except HTTPException as exc:
         return _lijst_response(request, db, str(exc.detail))
     return _lijst_response(request, db)

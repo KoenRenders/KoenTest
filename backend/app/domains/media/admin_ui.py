@@ -14,6 +14,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
+    admin_user_by_email, csrf_from_request,
     SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.ui import admin_nav, templates
@@ -23,10 +24,6 @@ router = APIRouter(include_in_schema=False)
 NAV = admin_nav("/admin/media")
 
 
-def _csrf(request: Request) -> str:
-    return csrf_token_for(request.cookies.get(SESSION_COOKIE) or "")
-
-
 def _lijst_ctx(request: Request, db: Session, kind: str) -> dict:
     from app.domains.media.router import VALID_KINDS, admin_list_media
 
@@ -34,7 +31,7 @@ def _lijst_ctx(request: Request, db: Session, kind: str) -> dict:
     return {"assets": admin_list_media(kind=actief_kind, activity_id=None,
                                        db=db, _admin=None),  # type: ignore[arg-type]
             "kind": actief_kind, "kinds": sorted(VALID_KINDS),
-            "csrf_token": _csrf(request)}
+            "csrf_token": csrf_from_request(request)}
 
 
 def _lijst_response(request: Request, db: Session, kind: str,

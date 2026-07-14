@@ -15,6 +15,7 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.database import get_db
 from app.domains.auth.api import (
+    admin_user_by_email, csrf_from_request,
     SESSION_COOKIE, User, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.limiter import chat_limiter
@@ -22,15 +23,6 @@ from app.ui import admin_nav, templates
 from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
-
-
-def _admin_user(db: Session, email: str) -> User:
-    user = (db.query(User)
-            .filter(func.lower(User.email) == email.lower(), User.is_active == True)
-            .first())
-    if user is None:
-        raise HTTPException(status_code=401, detail=_("Niet aangemeld"))
-    return user
 
 
 # ── Publiek: Raakje ────────────────────────────────────────────────────────────
@@ -77,7 +69,7 @@ def raakje_vraag(request: Request, db: Session = Depends(get_db),
 def _context_ctx(request: Request, db: Session, email: str) -> dict:
     from app.domains.chatbot.info_router import list_chatbot_info
 
-    data = list_chatbot_info(db=db, _admin=_admin_user(db, email))
+    data = list_chatbot_info(db=db, _admin=admin_user_by_email(db, email))
     return {
         "csrf_token": csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
         **data,
@@ -110,7 +102,7 @@ def notitie_toevoegen(request: Request, db: Session = Depends(get_db),
         raise HTTPException(status_code=400, detail=_("Titel en tekst zijn verplicht."))
     create_note(NoteCreate(title=title.strip(), text_addition=text_addition.strip(),
                            is_active=True),
-                db=db, _admin=_admin_user(db, email))
+                db=db, _admin=admin_user_by_email(db, email))
     return templates.TemplateResponse(request, "_ai_context_lijst.html",
                                       _context_ctx(request, db, email))
 
@@ -121,7 +113,7 @@ def rij_verwijderen(row_id: int, request: Request, db: Session = Depends(get_db)
                     email: str = Depends(require_admin_ui)):
     from app.domains.chatbot.info_router import delete_row
 
-    delete_row(row_id, db=db, _admin=_admin_user(db, email))
+    delete_row(row_id, db=db, _admin=admin_user_by_email(db, email))
     return templates.TemplateResponse(request, "_ai_context_lijst.html",
                                       _context_ctx(request, db, email))
 
