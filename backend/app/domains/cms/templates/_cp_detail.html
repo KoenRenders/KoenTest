@@ -17,7 +17,28 @@
         <input name="slug" id="cp-slug" value="{{ p.slug }}" required pattern="[a-z0-9-]+" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
     </div>
     <div>{{ ui.label(_("Inhoud"), "cp-content") }}
-      <textarea name="content" id="cp-content" rows="14" class="w-full border border-gray-300 rounded-lg px-3 py-2 font-mono text-sm">{{ p.content or "" }}</textarea></div>
+      <div class="border border-gray-300 rounded-lg overflow-hidden"
+           x-data="{
+             sync(){ this.$refs.ta.value = this.$refs.ed.innerHTML },
+             cmd(c){ document.execCommand(c, false, null); this.sync() },
+             blok(t){ document.execCommand('formatBlock', false, t); this.sync() },
+             link(){ const u = prompt('URL:'); if (u) document.execCommand('createLink', false, u); this.sync() }
+           }">
+        <div class="flex flex-wrap gap-1 bg-gray-50 border-b border-gray-200 p-1 text-sm">
+          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200 font-bold" @click="cmd('bold')" title="{{ _('Vet') }}">B</button>
+          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200 italic" @click="cmd('italic')" title="{{ _('Cursief') }}">I</button>
+          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200 font-semibold" @click="blok('h2')" title="{{ _('Kop') }}">H2</button>
+          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200 font-semibold" @click="blok('h3')" title="{{ _('Subkop') }}">H3</button>
+          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="blok('p')" title="{{ _('Gewone tekst') }}">¶</button>
+          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="cmd('insertUnorderedList')" title="{{ _('Opsomming') }}">•—</button>
+          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="cmd('insertOrderedList')" title="{{ _('Genummerd') }}">1.</button>
+          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="link()" title="{{ _('Link') }}">🔗</button>
+        </div>
+        <div contenteditable="true" x-ref="ed" @input="sync()"
+             class="cms-content min-h-[16rem] p-3 focus:outline-none text-sm bg-white">{{ p.content or "" | safe }}</div>
+        <textarea name="content" x-ref="ta" class="hidden">{{ p.content or "" }}</textarea>
+      </div>
+      <p class="text-xs text-gray-400 mt-1">{{ _("Opmaak via de knoppen; de onderliggende HTML wordt bewaard.") }}</p></div>
     <div class="flex flex-wrap items-center gap-5 text-sm">
       <label class="flex items-center gap-2"><input type="checkbox" name="is_published" value="1" {% if p.is_published %}checked{% endif %}> {{ _("Gepubliceerd") }}</label>
       <label class="flex items-center gap-2"><input type="checkbox" name="show_in_nav" value="1" {% if p.show_in_nav %}checked{% endif %}> {{ _("In navigatie") }}</label>
