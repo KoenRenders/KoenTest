@@ -7,8 +7,11 @@ wordt het stilletjes overgeslagen. Veilig om bij elke opstart te draaien.
 import os
 
 from app.database import SessionLocal
+from app.domains.registry import load_all_models
 from app.domains.media.api import MediaAsset
 from app.domains.media.images import process_image
+
+load_all_models()
 
 _SEED_DIR = os.path.join(os.path.dirname(__file__), "assets", "seed")
 

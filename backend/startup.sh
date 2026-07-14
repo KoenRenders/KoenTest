@@ -15,7 +15,9 @@ alembic upgrade head
 echo "==> Seeding postal codes (if empty)..."
 python -c "
 from app.database import SessionLocal
+from app.domains.registry import load_all_models
 from app.domains.mdm.api import PostalCode
+load_all_models()
 db = SessionLocal()
 count = db.query(PostalCode).count()
 db.close()
@@ -32,7 +34,9 @@ else:
 echo "==> Seeding activities (if empty)..."
 python -c "
 from app.database import SessionLocal
+from app.domains.registry import load_all_models
 from app.domains.activities.api import Activity
+load_all_models()
 db = SessionLocal()
 count = db.query(Activity).count()
 db.close()
@@ -49,7 +53,9 @@ else:
 echo "==> Seeding CMS pages (if empty)..."
 python -c "
 from app.database import SessionLocal
+from app.domains.registry import load_all_models
 from app.domains.cms.api import CmsPage
+load_all_models()
 db = SessionLocal()
 count = db.query(CmsPage).count()
 db.close()

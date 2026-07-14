@@ -2,9 +2,11 @@
 import sys
 from datetime import date, datetime
 from app.database import SessionLocal
+from app.domains.registry import load_all_models
 from app.domains.activities.api import Activity, ActivityDate, Registration
 from app.domains.activities.api import ActivitySubRegistration
 
+load_all_models()
 db = SessionLocal()
 
 if "--reset" in sys.argv:

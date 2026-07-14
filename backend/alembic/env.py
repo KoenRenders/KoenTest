@@ -6,7 +6,12 @@ import os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 
 from app.database import Base
-from app.models import *  # noqa
+from app.domains.registry import load_all_models
+
+# Laad alle domein-/kernel-modellen zodat Base.metadata compleet is voor
+# autogenerate (#449). De oude `from app.models import *` was leeg na de
+# v2.0-refactor en gaf een lege target_metadata.
+load_all_models()
 
 config = context.config
 

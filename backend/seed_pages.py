@@ -1,7 +1,9 @@
 """Seed CMS pages: Werking and Kerstradio."""
 from app.database import SessionLocal
+from app.domains.registry import load_all_models
 from app.domains.cms.api import CmsPage
 
+load_all_models()
 db = SessionLocal()
 
 PAGES = [

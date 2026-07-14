@@ -8,7 +8,10 @@ from datetime import datetime, timezone
 sys.path.insert(0, os.path.dirname(__file__))
 
 from app.database import SessionLocal
+from app.domains.registry import load_all_models
 from app.domains.mdm.api import PostalCode
+
+load_all_models()
 
 CSV_PATH = os.path.join(os.path.dirname(__file__), "docs", "postal_codes_seed.csv")
 
