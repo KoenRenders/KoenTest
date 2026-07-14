@@ -27,10 +27,12 @@ export GIT_SHA="$(git rev-parse --short HEAD 2>/dev/null || echo onbekend)"
 # Bouw en start HDEV.
 docker compose -f docker-compose.hdev.yml --env-file .env.hdev up --build -d
 
-# Herlaad de eigen hdev-Caddy zodat wijzigingen in Caddyfile.hdev (bind-mount)
-# meteen actief zijn — `up -d` herstart de caddy-container niet bij een loutere
-# bestandswijziging. (#169)
-docker compose -f docker-compose.hdev.yml --env-file .env.hdev exec -T caddy caddy reload --config /etc/caddy/Caddyfile
+# Herstart de eigen hdev-Caddy zodat wijzigingen in Caddyfile.hdev (bind-mount)
+# betrouwbaar actief zijn. `caddy reload` (admin-API) bleek de config niet altijd
+# over te nemen — stale routing (naar de verwijderde frontend-host) én verdwenen
+# encode/compressie waren het gevolg. Een force-recreate laadt de config vers van
+# schijf. (#169, opgevolgd n.a.v. de React-exit-deploys.)
+docker compose -f docker-compose.hdev.yml --env-file .env.hdev up -d --force-recreate caddy
 
 # Post-deploy rooktest (alleen-lezen; maakt geen data aan).
 BASE="${SMOKE_BASE:-http://localhost:8081}" ./tests/run-all.sh
