@@ -85,9 +85,11 @@ def site_context(db) -> dict:
                 .filter(MediaAsset.kind == "sponsor", MediaAsset.is_active == True)  # noqa: E712
                 .order_by(MediaAsset.sort_order, MediaAsset.id).all())
     from app.kernel.tenant_config import get_setting, tenant_display_name
+    from app.config import settings
 
     return {"nav_pages": pages, "footer_block": footer_block,
             "sponsors": sponsors, "current_year": date.today().year,
+            "chat_enabled": settings.chat_enabled,
             # Branding per tenant (#407): naam/tagline/Facebook uit de
             # tenant-config, met de Millegem-waarden als default.
             "site_name": tenant_display_name(db),

@@ -1,0 +1,25 @@
+{# Raakje-chatbot-widget (#469): zwevend knopje + paneel, hergebruikt /raakje/vraag. #}
+<div x-data="{ open: false }" class="fixed bottom-4 right-4 z-40 print:hidden">
+  <button @click="open = !open"
+          class="bg-blue-700 hover:bg-blue-800 text-white rounded-full w-14 h-14 shadow-lg flex items-center justify-center text-2xl"
+          aria-label="{{ _('Raakje — vraag het aan onze AI-assistent') }}">💬</button>
+  <div x-show="open" x-cloak
+       class="absolute bottom-16 right-0 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-gray-200 flex flex-col overflow-hidden"
+       style="height: 26rem">
+    <div class="px-4 py-3 bg-blue-700 text-white flex items-center justify-between">
+      <span class="font-semibold">{{ _("Raakje") }}</span>
+      <button @click="open = false" class="hover:opacity-80" aria-label="{{ _('Sluiten') }}">✕</button>
+    </div>
+    <div id="raakje-widget-gesprek" class="flex-1 overflow-auto p-3 space-y-2 text-sm">
+      <div class="text-gray-500">{{ _("Stel je vraag over Raak Millegem — activiteiten, lid worden, praktisch.") }}</div>
+    </div>
+    <form hx-post="/raakje/vraag" hx-target="#raakje-widget-gesprek" hx-swap="beforeend"
+          class="border-t border-gray-200 p-2 flex gap-2"
+          x-on:htmx:after-request="if ($event.detail.successful) $refs.v.value = ''">
+      <input name="vraag" x-ref="v" required autocomplete="off"
+             placeholder="{{ _('Typ je vraag…') }}"
+             class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+      <button type="submit" class="bg-blue-700 hover:bg-blue-800 text-white px-3 rounded-lg">➤</button>
+    </form>
+  </div>
+</div>
