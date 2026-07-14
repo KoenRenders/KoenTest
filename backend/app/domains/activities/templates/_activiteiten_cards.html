@@ -11,7 +11,7 @@
           {% if a.poster_asset_url %}<a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-blue-800 hover:underline">{{ a.name }}</a>{% else %}{{ a.name }}{% endif %}
         </h2>
         <p class="text-sm text-gray-500">
-          {% for d in a.dates %}{{ d.start_date.strftime("%d-%m-%Y") }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date.strftime("%d-%m-%Y") }}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
+          {% for d in a.dates %}{{ d.start_date.strftime("%d-%m-%Y") }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date.strftime("%d-%m-%Y") }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
           {% if a.location %} · {{ a.location }}{% endif %}
         </p>
       </div>
@@ -19,11 +19,6 @@
         {% if a.status %}{{ ui.badge(a.status, _status_tone.get(a.status, "blue")) }}{% endif %}
       </div>
     </div>
-    {% if a.poster_asset_url and not a.poster_asset_is_pdf %}
-    <a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener">
-      <img src="{{ a.poster_asset_url }}" alt="Affiche {{ a.name }}" class="mt-3 rounded-lg max-h-72 w-auto">
-    </a>
-    {% endif %}
     {% if scope != "archived" and not a.is_cancelled %}
     <div class="mt-4 space-y-3">
       {% for c in a.sub_registrations %}

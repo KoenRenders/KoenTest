@@ -6,7 +6,7 @@
   <p class="font-medium text-gray-700 mb-1">{{ total }} {{ _("ingeschreven") }}</p>
   <ul class="text-gray-600 space-y-0.5">
     {% for d in deelnemers %}
-    <li>{{ d.team_name or d.contact_name or _("Anoniem") }}{% if d.quantity and d.quantity > 1 %} · {{ d.quantity }}{% endif %}</li>
+    <li>{{ d.team_name or d.contact_name or _("Anoniem") }}{% if d.quantity %} · {{ d.quantity }}{% endif %}</li>
     {% endfor %}
   </ul>
 </div>
