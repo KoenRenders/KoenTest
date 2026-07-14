@@ -11,10 +11,14 @@
   <div id="raakje-gesprek" class="space-y-4 mb-4"></div>
   <form hx-post="/raakje/vraag" hx-target="#raakje-gesprek" hx-swap="beforeend"
         hx-on::after-request="this.reset()" class="flex gap-2">
-    <input name="vraag" required placeholder="{{ _('Typ je vraag…') }}"
+    <input name="vraag" id="raakje-vraag" required placeholder="{{ _('Typ je vraag…') }}"
            class="flex-1 border border-gray-300 rounded-lg px-3 py-2">
+    <button type="button" data-stt-target="#raakje-vraag" data-stt-mode="{{ stt_mode }}"
+            class="bg-white border border-gray-300 hover:bg-gray-100 px-3 py-2 rounded-lg"
+            title="{{ _('Spreek je vraag in') }}" aria-label="{{ _('Spreek je vraag in') }}">🎙</button>
     {{ ui.btn_primary(_("Vraag")) }}
   </form>
+  <script src="/static/stt.js" defer></script>
   {{ ui.loading(_("Raakje denkt na…")) }}
   {% endif %}
 {% endcall %}
