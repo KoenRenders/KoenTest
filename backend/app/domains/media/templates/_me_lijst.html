@@ -8,6 +8,16 @@
   </button>
   {% endfor %}
 </div>
+{% if kind == "activity_photo" and activiteiten %}
+<div class="mb-4">
+  <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm" name="activity_id"
+          hx-get="/admin/media/lijst" hx-target="#me-lijst" hx-swap="innerHTML"
+          hx-trigger="change" hx-vals='{"kind": "activity_photo"}'>
+    <option value="">{{ _("Alle activiteiten") }}</option>
+    {% for a in activiteiten %}<option value="{{ a.id }}" {% if activity_id == a.id %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
+  </select>
+</div>
+{% endif %}
 <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-6" x-data="{ open: false }">
   {{ ui.btn_secondary(_("+ Uploaden"), attrs='@click="open = !open"') }}
   <form x-show="open" x-cloak class="space-y-3 mt-3" enctype="multipart/form-data"

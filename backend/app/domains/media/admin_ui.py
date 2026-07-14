@@ -26,11 +26,24 @@ NAV = admin_nav("/admin/media")
 
 def _lijst_ctx(request: Request, db: Session, kind: str) -> dict:
     from app.domains.media.router import VALID_KINDS, admin_list_media
+    from app.domains.media.api import MediaAsset
+    from app.domains.activities.api import Activity
 
     actief_kind = kind if kind in VALID_KINDS else "sponsor"
-    return {"assets": admin_list_media(kind=actief_kind, activity_id=None,
+    raw = request.query_params.get("activity_id")
+    activity_id = int(raw) if raw and raw.isdigit() else None
+
+    # Activiteiten die media hebben — voor de filter-dropdown (#459).
+    aids = [a for (a,) in db.query(MediaAsset.activity_id)
+            .filter(MediaAsset.activity_id.isnot(None)).distinct()]
+    activiteiten = (db.query(Activity).execution_options(include_deleted=True)
+                    .filter(Activity.id.in_(aids)).order_by(Activity.name).all()
+                    if aids else [])
+
+    return {"assets": admin_list_media(kind=actief_kind, activity_id=activity_id,
                                        db=db, _admin=None),  # type: ignore[arg-type]
             "kind": actief_kind, "kinds": sorted(VALID_KINDS),
+            "activity_id": activity_id, "activiteiten": activiteiten,
             "csrf_token": csrf_from_request(request)}
 
 
