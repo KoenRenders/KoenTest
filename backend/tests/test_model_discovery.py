@@ -19,7 +19,7 @@ def test_alle_domain_models_in_discovery():
     for models_py in sorted(APP.glob("domains/*/models.py")):
         domein = models_py.parent.name
         module = f"app.domains.{domein}.models"
-        # cms/media/analytics lopen via hun facade (…api) — ook goed.
+        # cms/media lopen via hun facade (…api) — ook goed.
         facade = f"app.domains.{domein}.api"
         if module not in geimporteerd and facade not in geimporteerd:
             ontbrekend.append(module)

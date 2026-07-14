@@ -10,8 +10,6 @@ MODULES = [
     "app.domains.media.api",
     "app.domains.media.router",
     "app.domains.media.ui",
-    "app.domains.analytics.api",
-    "app.domains.analytics.ui",
     "app.domains.chatbot.router",
     "app.domains.chatbot.ui",
     "app.domains.chatbot.info_router",

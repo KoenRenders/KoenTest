@@ -40,9 +40,6 @@
 	handle /admin/ai-context* {
 		reverse_proxy backend:8000
 	}
-	handle /admin/analyse* {
-		reverse_proxy backend:8000
-	}
 	handle /admin/formulieren* {
 		reverse_proxy backend:8000
 	}

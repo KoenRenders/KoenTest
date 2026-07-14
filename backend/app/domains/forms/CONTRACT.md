@@ -9,8 +9,6 @@
 
 ## Consumeert
 - Facades: geen.
-- Legacy (krimpt): `analytics.service.log_business_event` — vervalt met de
-  business_events-opruiming (blok O).
 
 ## Bezit
 - **Schema**: `form` (forms, form_sections, form_fields, form_field_options,

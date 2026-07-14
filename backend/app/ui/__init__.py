@@ -38,7 +38,6 @@ _ADMIN_NAV: list[tuple[str, str]] = [
     ("/admin/gebruikers", "Gebruikers"),
     ("/admin/ledenwijzigingen", "Wijzigingen"),
     ("/admin/ai-context", "Raakje"),
-    ("/admin/analyse", "Analyse"),
     ("/admin/e-maillog", "E-maillog"),
     ("/admin/info", "Info"),
 ]

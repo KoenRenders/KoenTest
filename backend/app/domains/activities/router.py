@@ -38,7 +38,6 @@ from app.config import settings
 from app.domains.payment.api import (
     create_payment_record, registration_balance, reconcile_registration_charges,
 )
-from app.domains.analytics.service import log_business_event
 from app.domains.audit.service import (
     snapshot_registration_item,
     snapshot_activity,
@@ -1020,17 +1019,6 @@ def register_for_activity(
 
     # Business-event (#152): inschrijving voltooid. Geen PII — enkel niet-
     # identificerende context. Commit mee in dezelfde transactie.
-    log_business_event(
-        db, "inschrijving_voltooid",
-        activity_id=activity_id,
-        payment_record_id=payment_record.id if payment_record else None,
-        payload={
-            "form_type": getattr(activity, "reg_form_type", None),
-            "paid": total_amount > 0,
-            "amount": str(total_amount),
-            "payment_method": data.payment_method,
-        },
-    )
 
     db.commit()
     db.refresh(registration)

@@ -24,7 +24,6 @@ from app.domains.mdm.models import (
     PostalCode,
     RelationTypeCode,
 )
-from app.domains.analytics.api import BusinessEvent
 from app.domains.payment.models import GatewayPayment, PaymentRecord, PaymentRecordHistory
 from app.domains.mail.models import EmailLog
 from app.domains.forms.models import (
