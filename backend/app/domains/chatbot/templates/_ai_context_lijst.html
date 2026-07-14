@@ -1,17 +1,41 @@
 {% import "_macros.html" as ui %}
-{% macro rij(label, info) %}
-<div class="flex items-center justify-between text-sm py-2 border-b border-gray-100">
-  <div>
-    <span class="font-medium">{{ label }}</span>
+{% macro rij(label, info, soort="bron") %}
+<div class="py-2 border-b border-gray-100"{% if info %} x-data="{ edit: false }"{% endif %}>
+  <div class="flex items-center justify-between text-sm">
+    <div>
+      <span class="font-medium">{{ label }}</span>
+      {% if info %}
+        {% if info.is_active %}{{ ui.badge(_("actief"), "green") }}{% else %}{{ ui.badge(_("uit")) }}{% endif %}
+      {% else %}{{ ui.badge(_("standaard"), "blue") }}{% endif %}
+    </div>
     {% if info %}
-      {% if info.is_active %}{{ ui.badge(_("actief"), "green") }}{% else %}{{ ui.badge(_("uit")) }}{% endif %}
-    {% else %}{{ ui.badge(_("standaard"), "blue") }}{% endif %}
+    <div class="flex gap-2">
+      {{ ui.btn_secondary(_("Bewerk"), attrs='@click="edit = !edit"') }}
+      {{ ui.btn_secondary(_("Aan/uit"), attrs='hx-post="/admin/ai-context/' ~ info.id ~ '/toggle" hx-target="#ai-context-lijst" hx-swap="innerHTML"') }}
+      {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/ai-context/' ~ info.id ~ '/verwijderen" hx-target="#ai-context-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Contextrij"), label)) }}
+    </div>
+    {% endif %}
   </div>
   {% if info %}
-  <div class="flex gap-2">
-    {{ ui.btn_secondary(_("Aan/uit"), attrs='hx-post="/admin/ai-context/' ~ info.id ~ '/toggle" hx-target="#ai-context-lijst" hx-swap="innerHTML"') }}
-    {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/ai-context/' ~ info.id ~ '/verwijderen" hx-target="#ai-context-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Contextrij"), label)) }}
-  </div>
+  <form x-show="edit" x-cloak class="space-y-2 mt-3 bg-gray-50 rounded-lg p-3"
+        hx-post="/admin/ai-context/{{ info.id }}/bewerken"
+        hx-target="#ai-context-lijst" hx-swap="innerHTML">
+    {% if soort == "notitie" %}
+    <div>{{ ui.label(_("Titel"), "edit-title-" ~ info.id) }}
+      <input name="title" id="edit-title-{{ info.id }}" value="{{ info.title or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+    <div>{{ ui.label(_("Tekst"), "edit-add-" ~ info.id, required=True) }}
+      <textarea name="text_addition" id="edit-add-{{ info.id }}" rows="3" required class="w-full border border-gray-300 rounded-lg px-3 py-2">{{ info.text_addition or "" }}</textarea></div>
+    {% else %}
+    <div>{{ ui.label(_("Vervangende tekst (leeg = automatisch gelezen tekst gebruiken)"), "edit-over-" ~ info.id) }}
+      <textarea name="text_override" id="edit-over-{{ info.id }}" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2">{{ info.text_override or "" }}</textarea></div>
+    <div>{{ ui.label(_("Extra tekst (toegevoegd aan de bron)"), "edit-add-" ~ info.id) }}
+      <textarea name="text_addition" id="edit-add-{{ info.id }}" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2">{{ info.text_addition or "" }}</textarea></div>
+    {% endif %}
+    <div class="flex gap-2">
+      {{ ui.btn_primary(_("Opslaan")) }}
+      {{ ui.btn_secondary(_("Annuleer"), attrs='type="button" @click="edit = false"') }}
+    </div>
+  </form>
   {% endif %}
 </div>
 {% endmacro %}
@@ -28,7 +52,7 @@
 <div class="mt-4"></div>
 {% call ui.card() %}
   <h2 class="font-semibold mb-2">{{ _("Notities") }}</h2>
-  {% for n in notes %}{{ rij(n.title or ("Notitie #" ~ n.id), n) }}{% else %}{{ ui.empty_state(_("Nog geen notities.")) }}{% endfor %}
+  {% for n in notes %}{{ rij(n.title or ("Notitie #" ~ n.id), n, "notitie") }}{% else %}{{ ui.empty_state(_("Nog geen notities.")) }}{% endfor %}
   <form class="space-y-2 mt-4" hx-post="/admin/ai-context/notities"
         hx-target="#ai-context-lijst" hx-swap="innerHTML">
     <div>{{ ui.label(_("Titel"), "note-title", required=True) }}

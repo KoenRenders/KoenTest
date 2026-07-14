@@ -108,6 +108,29 @@ def notitie_toevoegen(request: Request, db: Session = Depends(get_db),
                                       _context_ctx(request, db, email))
 
 
+@router.post("/admin/ai-context/{row_id}/bewerken", response_class=HTMLResponse,
+             dependencies=[Depends(require_csrf)])
+def rij_bewerken(row_id: int, request: Request, db: Session = Depends(get_db),
+                 email: str = Depends(require_admin_ui),
+                 title: str = Form(""), text_override: str = Form(""),
+                 text_addition: str = Form("")):
+    from app.domains.chatbot.info_router import update_row
+    from app.domains.chatbot.models import ChatbotInfo
+    from app.schemas.chatbot_info import ChatbotInfoEdit
+
+    ci = db.query(ChatbotInfo).filter(ChatbotInfo.id == row_id).first()
+    if ci is None:
+        raise HTTPException(status_code=404, detail=_("Rij niet gevonden"))
+    update_row(row_id, ChatbotInfoEdit(
+        title=title.strip() or None,
+        text_override=text_override.strip() or None,
+        text_addition=text_addition.strip() or None,
+        is_active=ci.is_active, sort_order=ci.sort_order,
+    ), db=db, _admin=admin_user_by_email(db, email))
+    return templates.TemplateResponse(request, "_ai_context_lijst.html",
+                                      _context_ctx(request, db, email))
+
+
 @router.post("/admin/ai-context/{row_id}/verwijderen", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
 def rij_verwijderen(row_id: int, request: Request, db: Session = Depends(get_db),
