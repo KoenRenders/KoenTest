@@ -73,9 +73,29 @@ def submission_view(db: Session, submission_id: int) -> list[tuple[str, str]]:
         ("E-mail", sub.submitter_email or "—"),
         ("Ontvangen", sub.submitted_at.strftime("%d-%m-%Y %H:%M")),
     ]
+    # Zelfde typedekking als de export (#407-O flatten-drift): ook optie- en
+    # rating-antwoorden tonen, met het optielabel i.p.v. een leeg veld.
+    per_label: dict[str, list[str]] = {}
+    volgorde: list[str] = []
     for ans in sub.answers:
         label = ans.field.label if ans.field else "Antwoord"
-        value = ans.value_text or (str(ans.value_number) if ans.value_number is not None else "")
-        if value:
-            rows.append((label, value))
+        if ans.value_text is not None:
+            waarde = ans.value_text
+        elif ans.value_number is not None:
+            waarde = f"{ans.value_number}"
+        elif ans.value_option_id is not None:
+            optie = next((o for o in (ans.field.options if ans.field else [])
+                          if o.id == ans.value_option_id), None)
+            waarde = optie.label if optie else ""
+        elif ans.value_rating is not None:
+            waarde = str(ans.value_rating)
+        else:
+            waarde = ""
+        if not waarde:
+            continue
+        if label not in per_label:
+            per_label[label] = []
+            volgorde.append(label)
+        per_label[label].append(waarde)
+    rows.extend((label, "; ".join(per_label[label])) for label in volgorde)
     return rows

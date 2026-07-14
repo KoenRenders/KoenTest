@@ -21,28 +21,6 @@ def _public_page(page: CmsPage) -> CmsPageResponse:
     return resp
 
 
-@router.get("/gender-codes")
-def list_gender_codes(db: Session = Depends(get_db)):
-    rows = (
-        db.query(GenderCode)
-        .filter(GenderCode.language == "nl")
-        .order_by(GenderCode.code)
-        .all()
-    )
-    return [{"code": r.code, "value": r.value} for r in rows]
-
-
-@router.get("/relation-types")
-def list_relation_types(db: Session = Depends(get_db)):
-    rows = (
-        db.query(RelationTypeCode)
-        .filter(RelationTypeCode.language == "nl")
-        .order_by(RelationTypeCode.code)
-        .all()
-    )
-    return [{"code": r.code, "value": r.value} for r in rows]
-
-
 @router.get("/pages", response_model=List[CmsPageResponse])
 def list_pages(db: Session = Depends(get_db)):
     pages = (
