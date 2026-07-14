@@ -8,7 +8,7 @@ Invarianten:
 """
 from decimal import Decimal
 
-from app.services.structured_communication import generate_structured_communication
+from app.domains.payment.structured_communication import generate_structured_communication
 from app.domains.payment.api import create_payment_record
 from app.domains.mail import service as email_mod
 

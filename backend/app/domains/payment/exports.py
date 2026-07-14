@@ -9,12 +9,13 @@ De export **volgt het actieve filter** van de pagina (context + status), zodat d
 het pure predicaat in de frontend (@/lib/paymentFilters).
 
 Bevat persoons- en financiële data: enkel admin/penningmeester, nooit in de repo.
+(verhuisd uit app/services/payments_export.py, #444)
 """
 from decimal import Decimal
 from typing import Optional
 
 from app.domains.payment.api import PaymentRecord
-from app.services.ods_export import build_ods
+from app.kernel.ods import build_ods
 
 _METHOD = {"online": "Online", "transfer": "Overschrijving", "cash": "Cash"}
 _STATUS = {"pending": "In afwachting", "paid": "Betaald", "failed": "Mislukt", "cancelled": "Geannuleerd"}

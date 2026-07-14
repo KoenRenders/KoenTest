@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.mdm.models import PostalCode
-from app.schemas.member import PostalCodeResponse
+from app.domains.membership.api import PostalCodeResponse
 
 router = APIRouter(tags=["mdm"])
 

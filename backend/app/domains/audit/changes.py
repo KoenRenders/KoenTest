@@ -4,6 +4,7 @@ Raak Nationaal heeft geen API; wijzigingen in dit portaal moeten manueel
 overgetypt worden. Dit leest de append-only history-tabellen (recorded_at >=
 since) en levert per wijziging een leesbare regel, zodat de admin ze één voor één
 kan overnemen. Bevat persoonsdata: admin-only, nooit in de repo.
+(verhuisd uit app/services/member_changes.py, #444)
 """
 from datetime import date, datetime, time, timezone
 from io import BytesIO
@@ -12,7 +13,7 @@ from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from app.i18n import _
-from app.services.ods_export import build_ods
+from app.kernel.ods import build_ods
 
 from app.domains.payment.api import PaymentRecordHistory
 from app.domains.membership.api import MembershipHistory

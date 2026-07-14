@@ -3,7 +3,7 @@
 Twee weergaven over de append-only history: de ledendata-wijzigingen sinds een
 datum (voor manuele overname in Raak Nationaal, incl. .ods-export) en de
 uniforme audit-feed met groep-/actorfilter. Composer-module: leest via de
-bestaande admin-routerfuncties (oude wereld), geen domein-internals.
+audit-facade (`app.domains.audit.api`, #444), geen domein-internals.
 """
 from __future__ import annotations
 
@@ -30,16 +30,15 @@ def _since(value: str) -> date:
 
 
 def _ctx(request: Request, db: Session, since: str, group: str, actor: str) -> dict:
-    from app.routers.admin import list_all_changes, list_member_changes
+    from app.domains.audit.api import GROUPS, all_changes_since, member_changes_since
 
     vanaf = _since(since)
-    feed = list_all_changes(since=vanaf, group=group or None, actor=actor or None,
-                            db=db, _admin=None)  # type: ignore[arg-type]
+    feed_rows = all_changes_since(db, vanaf, group=group or None, actor=actor or None)
     return {
         "since": vanaf.isoformat(),
         "group": group, "actor": actor,
-        "member_rows": list_member_changes(since=vanaf, db=db, _admin=None),  # type: ignore[arg-type]
-        "groups": feed["groups"], "feed_rows": feed["rows"],
+        "member_rows": member_changes_since(db, vanaf),
+        "groups": GROUPS, "feed_rows": feed_rows,
         "csrf_token": csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
     }
 
@@ -60,6 +59,12 @@ def admin_ledenwijzigingen(request: Request, since: str = "", group: str = "",
 def ledenwijzigingen_export(request: Request, since: str = "",
                             db: Session = Depends(get_db),
                             email: str = Depends(require_admin_ui)) -> Response:
-    from app.routers.admin import export_member_changes
+    from app.domains.audit.api import build_member_changes_ods, member_changes_since
 
-    return export_member_changes(since=_since(since), db=db, _admin=None)  # type: ignore[arg-type]
+    vanaf = _since(since)
+    content = build_member_changes_ods(member_changes_since(db, vanaf))
+    return Response(
+        content=content,
+        media_type="application/vnd.oasis.opendocument.spreadsheet",
+        headers={"Content-Disposition": f'attachment; filename="ledenwijzigingen-vanaf-{vanaf}.ods"'},
+    )

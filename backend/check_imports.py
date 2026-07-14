@@ -35,18 +35,22 @@ MODULES = [
     "app.domains.media.admin_ui",
     "app.ui.changes_ui",
     "app.ui.system_ui",
+    "app.ui.admin_api",
+    "app.domains.audit.api",
+    "app.domains.audit.router",
+    "app.domains.mdm.import_router",
     "app.domains.mdm.api",
     "app.domains.mdm.ui",
     "app.domains.mail.api",
     "app.domains.mail.router",
     "app.domains.mail.ui",
     # Schemas
-    "app.schemas.member",
-    "app.schemas.family",
+    "app.domains.membership.schemas_member",
+    "app.domains.membership.schemas_family",
     "app.schemas.activity",
     # Routers
-    "app.routers.members",
-    "app.routers.admin",
+    "app.domains.membership.register_router",
+    "app.domains.membership.household_router",
     # Main app
     "app.main",
 ]

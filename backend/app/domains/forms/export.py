@@ -6,7 +6,7 @@ cel is daar `valuetype="string"`, wat meteen de bescherming is tegen formule-inj
 (#288). Er is bewust geen CSV-export (nooit gevraagd + injectie-gevoelig, #371).
 """
 from app.domains.forms.models import Form, FormSubmission
-from app.services.ods_export import build_ods
+from app.kernel.ods import build_ods
 from app.i18n import _
 
 _MULTI_SEP = "; "

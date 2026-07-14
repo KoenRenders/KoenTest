@@ -150,7 +150,7 @@ def export_all_payment_records(
     """Download de betalingen & vorderingen als .ods (#307): één blad met de
     zichtbare details + een totaalrij te betalen / betaald / saldo. Volgt het
     actieve filter van de pagina (context #90/#308 + status #83)."""
-    from app.services.payments_export import build_payments_export_ods
+    from app.domains.payment.exports import build_payments_export_ods
     content = build_payments_export_ods(db, context=context, status=status)
     return Response(
         content=content,

@@ -73,7 +73,7 @@ def betalingen_lijst(request: Request, db: Session = Depends(get_db),
 @router.get("/admin/betalingen/export")
 def betalingen_export(request: Request, db: Session = Depends(get_db),
                       email: str = Depends(require_admin_ui)):
-    from app.services.payments_export import build_payments_export_ods
+    from app.domains.payment.exports import build_payments_export_ods
 
     context = (request.query_params.get("context") or "all").strip()
     status = (request.query_params.get("status") or "all").strip()

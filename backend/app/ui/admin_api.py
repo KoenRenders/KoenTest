@@ -1,13 +1,18 @@
-from datetime import date, datetime, timedelta, timezone
-from typing import Optional
+"""Admin-API-composer: dashboard-stats + systeeminfo (#444, §21).
 
-from fastapi import APIRouter, Depends, Query, Response
+Composer-module naast changes_ui/system_ui: leest cross-domain via de facades
+(dashboard-tellers) en de gecureerde settings-whitelist (systeeminfo — nooit
+secrets). (verhuisd uit app/routers/admin.py, #444)
+"""
+from datetime import date, datetime, timezone
+
+from fastapi import APIRouter, Depends
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.domains.auth.api import get_current_admin
 from app.config import settings
 from app.database import get_db
+from app.domains.auth.api import User, get_current_admin
 
 
 def _open_tasks(db):
@@ -15,10 +20,11 @@ def _open_tasks(db):
     from app.domains.workflow.api import open_count
 
     return open_count(db, ["ADMIN", "FINANCE"])
-from app.domains.activities.api import Activity, ActivityDate
+
+
+from app.domains.activities.api import ActivityDate
 from app.domains.membership.api import Membership
 from app.domains.mdm.api import Member
-from app.domains.auth.api import User
 from app.domains.payment.api import PaymentRecord
 from app.domains.payment.api import current_membership_counts
 
@@ -98,50 +104,3 @@ def get_system_info(_admin: User = Depends(get_current_admin)):
         },
         "mollie_mode": _mollie_mode(settings.mollie_api_key),
     }
-
-
-# ── Ledendata-wijzigingen sinds datum (#82) ───────────────────────────────────
-
-@router.get("/member-changes")
-def list_member_changes(
-    since: date = Query(..., description="Toon wijzigingen vanaf deze datum (YYYY-MM-DD)"),
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    """Alle ledendata-wijzigingen sinds `since`, voor manuele overname in Raak
-    Nationaal. Admin-only; bevat persoonsdata."""
-    from app.services.member_changes import member_changes_since
-    return member_changes_since(db, since)
-
-
-@router.get("/member-changes/export")
-def export_member_changes(
-    since: date = Query(..., description="Toon wijzigingen vanaf deze datum (YYYY-MM-DD)"),
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    """Dezelfde wijzigingen als .ods-download (OpenDocument)."""
-    from app.services.member_changes import member_changes_since, build_member_changes_ods
-    content = build_member_changes_ods(member_changes_since(db, since))
-    return Response(
-        content=content,
-        media_type="application/vnd.oasis.opendocument.spreadsheet",
-        headers={"Content-Disposition": f'attachment; filename="ledenwijzigingen-vanaf-{since}.ods"'},
-    )
-
-
-# ── Uniforme Wijzigingen/audit-feed (#189) ────────────────────────────────────
-
-@router.get("/changes")
-def list_all_changes(
-    since: date = Query(..., description="Toon wijzigingen vanaf deze datum (YYYY-MM-DD)"),
-    group: Optional[str] = Query(None, description="Filter op objectgroep"),
-    actor: Optional[str] = Query(None, description="Filter op actor (e-mail)"),
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    """Uniforme audit-feed: alle wijzigingen (leden, activiteiten, inschrijvingen,
-    betalingen) sinds `since`, optioneel gefilterd op objectgroep en/of actor.
-    Admin-only; bevat persoonsdata."""
-    from app.services.member_changes import all_changes_since, GROUPS
-    return {"groups": GROUPS, "rows": all_changes_since(db, since, group=group, actor=actor)}

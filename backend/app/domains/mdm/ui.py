@@ -3,7 +3,7 @@ en paginering, gezinsdetail (personen, adres, bestuurslid, lidmaatschappen) en
 de leden-import-wizard (preview → commit).
 
 De schermen hergebruiken de bestaande admin-API-functies (routers/members.py,
-routers/member_import.py) als servicelaag — geen dubbele businesslogica; deze
+domains/mdm/import_router.py — #444) als servicelaag — geen dubbele businesslogica; deze
 module bouwt alleen view-models en kiest templates.
 """
 from __future__ import annotations
@@ -44,22 +44,22 @@ def _codes(db: Session) -> dict:
 
 
 def _lijst_ctx(request: Request, db: Session) -> dict:
-    from app.routers.members import list_families
+    from app.domains.membership.api import list_families
 
     q = (request.query_params.get("q") or "").strip()
     try:
         page = max(1, int(request.query_params.get("page", "1")))
     except ValueError:
         page = 1
-    data = list_families(page=page, page_size=25, q=q or None, db=db, _admin=None)  # type: ignore[arg-type]
+    data = list_families(page=page, page_size=25, q=q or None, db=db, _admin=None)
     return {"families": data.items, "page": data.page,
             "total_pages": data.total_pages, "q": q}
 
 
 def _detail_ctx(request: Request, db: Session, family_id: int) -> dict:
-    from app.routers.members import get_family
+    from app.domains.membership.api import get_family
 
-    family = get_family(family_id, db=db, _admin=None)  # type: ignore[arg-type]
+    family = get_family(family_id, db=db, _admin=None)
     persons = (db.query(Person)
                .order_by(Person.last_name, Person.first_name).all())
     postal_codes = db.query(PostalCode).order_by(PostalCode.postal_code).all()
@@ -112,9 +112,9 @@ def persoon_opslaan(family_id: int, person_id: int, request: Request,
                     date_of_birth: str = Form(""), gender_code: str = Form(""),
                     contact_email: str = Form(""), phone: str = Form(""),
                     mobile: str = Form("")):
-    from app.routers.members import update_person, update_person_contacts
-    from app.schemas.member import PersonUpdate
-    from app.schemas.member import ContactsUpdate
+    from app.domains.membership.api import update_person, update_person_contacts
+    from app.domains.membership.api import PersonUpdate
+    from app.domains.membership.api import ContactsUpdate
 
     update_person(person_id, PersonUpdate(
         first_name=first_name.strip(), last_name=last_name.strip(),
@@ -134,10 +134,10 @@ def adres_opslaan(family_id: int, request: Request, db: Session = Depends(get_db
                   email: str = Depends(require_admin_ui),
                   street: str = Form(""), house_number: str = Form(""),
                   bus_number: str = Form(""), postal_code: str = Form("")):
-    from app.routers.members import get_family, update_person_address
-    from app.schemas.member import AddressUpdate
+    from app.domains.membership.api import get_family, update_person_address
+    from app.domains.membership.api import AddressUpdate
 
-    family = get_family(family_id, db=db, _admin=None)  # type: ignore[arg-type]
+    family = get_family(family_id, db=db, _admin=None)
     hoofdlid = next((m for m in family.members
                      if (m.relation_type or "").upper() == "HOOFDLID"),
                     family.members[0] if family.members else None)
@@ -159,8 +159,8 @@ def persoon_toevoegen(family_id: int, request: Request, db: Session = Depends(ge
                       date_of_birth: str = Form(""), gender_code: str = Form(""),
                       contact_email: str = Form(""), phone: str = Form(""),
                       mobile: str = Form(""), relation_type: str = Form("PARTNER")):
-    from app.routers.members import add_person_to_family
-    from app.schemas.member import PersonAddToFamily
+    from app.domains.membership.api import add_person_to_family
+    from app.domains.membership.api import PersonAddToFamily
 
     add_person_to_family(family_id, PersonAddToFamily(
         first_name=first_name.strip(), last_name=last_name.strip(),
@@ -177,7 +177,7 @@ def persoon_toevoegen(family_id: int, request: Request, db: Session = Depends(ge
 def persoon_verwijderen(family_id: int, person_id: int, request: Request,
                         db: Session = Depends(get_db),
                         email: str = Depends(require_admin_ui)):
-    from app.routers.members import delete_person
+    from app.domains.membership.api import delete_person
 
     delete_person(person_id, db=db, admin=admin_user_by_email(db, email))
     db.commit()
@@ -189,8 +189,8 @@ def persoon_verwijderen(family_id: int, person_id: int, request: Request,
 def bestuurslid_zetten(family_id: int, request: Request, db: Session = Depends(get_db),
                        email: str = Depends(require_admin_ui),
                        person_id: str = Form("")):
-    from app.routers.members import assign_board_member
-    from app.schemas.member import BoardMemberAssign
+    from app.domains.membership.api import assign_board_member
+    from app.domains.membership.api import BoardMemberAssign
 
     assign_board_member(family_id, BoardMemberAssign(
         person_id=int(person_id) if person_id else None,
@@ -205,8 +205,8 @@ def lidmaatschap_toevoegen(family_id: int, request: Request,
                            db: Session = Depends(get_db),
                            email: str = Depends(require_admin_ui),
                            year: int = Form(...)):
-    from app.routers.members import create_membership_for_family
-    from app.schemas.member import MembershipCreate
+    from app.domains.membership.api import create_membership_for_family
+    from app.domains.membership.api import MembershipCreate
 
     create_membership_for_family(family_id, MembershipCreate(year=year, is_active=True),
                                  db=db, admin=admin_user_by_email(db, email))
@@ -219,7 +219,7 @@ def lidmaatschap_toevoegen(family_id: int, request: Request,
 def lidmaatschap_verwijderen(family_id: int, membership_id: int, request: Request,
                              db: Session = Depends(get_db),
                              email: str = Depends(require_admin_ui)):
-    from app.routers.members import delete_membership
+    from app.domains.membership.api import delete_membership
 
     delete_membership(membership_id, db=db, admin=admin_user_by_email(db, email))
     db.commit()
@@ -230,7 +230,7 @@ def lidmaatschap_verwijderen(family_id: int, membership_id: int, request: Reques
              dependencies=[Depends(require_csrf)])
 def gezin_verwijderen(family_id: int, request: Request, db: Session = Depends(get_db),
                       email: str = Depends(require_admin_ui)):
-    from app.routers.members import delete_family
+    from app.domains.membership.api import delete_family
 
     delete_family(family_id, db=db, admin=admin_user_by_email(db, email))
     db.commit()
@@ -254,7 +254,7 @@ def import_page(request: Request, db: Session = Depends(get_db),
 async def import_preview(request: Request, db: Session = Depends(get_db),
                          email: str = Depends(require_admin_ui),
                          file: UploadFile = File(...)):
-    from app.routers.member_import import preview
+    from app.domains.mdm.import_router import preview
 
     try:
         data = await preview(file=file, db=db, admin=admin_user_by_email(db, email))
@@ -269,7 +269,7 @@ async def import_preview(request: Request, db: Session = Depends(get_db),
              dependencies=[Depends(require_csrf)])
 def import_commit(request: Request, db: Session = Depends(get_db),
                   email: str = Depends(require_admin_ui), token: str = Form(...)):
-    from app.routers.member_import import commit, CommitRequest
+    from app.domains.mdm.import_router import commit, CommitRequest
 
     try:
         data = commit(CommitRequest(token=token), db=db, admin=admin_user_by_email(db, email))

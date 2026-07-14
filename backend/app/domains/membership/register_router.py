@@ -1,3 +1,6 @@
+"""Gezinnen, personen en lidmaatschappen: publieke gezinsregistratie +
+admin-CRUD (verhuisd uit app/routers/members.py, #444).
+"""
 import logging
 import time
 from datetime import date
@@ -11,13 +14,13 @@ from sqlalchemy.orm import Session
 
 from app.domains.auth.api import get_current_admin
 from app.database import get_db
-from app.domains.membership.api import Membership
+from app.domains.membership.models import Membership
 from app.domains.mdm.api import Member, Person, MemberPerson
 from app.domains.mdm.api import PostalCode
 from app.domains.mdm.api import Address
 from app.domains.mdm.api import ContactDetail
 from app.domains.auth.api import User
-from app.schemas.member import (
+from app.domains.membership.schemas_member import (
     MemberCreate,
     MemberResponse,
     PersonCreate,
@@ -37,7 +40,7 @@ from app.schemas.member import (
     ContactsUpdate,
     BoardMemberAssign,
 )
-from app.schemas.family import FamilyCreate
+from app.domains.membership.schemas_family import FamilyCreate
 from app.domains.payment.api import create_payment_record, membership_price_for_date, membership_valid_period
 from app.domains.audit.api import (
     snapshot_person,

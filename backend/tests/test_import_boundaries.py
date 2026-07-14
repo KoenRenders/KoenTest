@@ -15,14 +15,7 @@ APP = Path(__file__).resolve().parents[1] / "app"
 
 # Reach-ins van vóór de modularisatie. Elke fase van epic #393 verwijdert regels;
 # regels TOEVOEGEN mag alleen met een fase-verwijzing.
-LEGACY_ALLOWLIST = {
-    ("app.routers.chat", "app.domains.chatbot.service"),
-    ("app.routers.chatbot_info", "app.domains.chatbot.context"),
-    ("app.routers.stt", "app.domains.stt.guards"),
-    ("app.routers.stt", "app.domains.stt.providers"),
-    ("app.routers.chat", "app.domains.chatbot.context"),
-    ("app.routers.chat", "app.domains.chatbot.providers"),
-}
+LEGACY_ALLOWLIST: set[tuple[str, str]] = set()  # leeg sinds #444 — app/routers/ bestaat niet meer
 
 # Cross-domain-reach-ins van vóór de modularisatie (zelfde krimp-regel): de
 # payments-fase (#401) en chatbot-fase (#404) vervangen deze door facades.
@@ -81,7 +74,7 @@ def test_import_boundaries():
             # models/__init__ doet model-discovery voor Alembic. Dat zijn de
             # bedoelde compositiepunten, geen reach-in.
             composer = (
-                (module == "app.main" and imp.split(".")[-1] in ("router", "ui", "admin_ui", "info_router", "handlers", "workflow", "changes_ui", "system_ui"))
+                (module == "app.main" and imp.split(".")[-1] in ("router", "ui", "admin_ui", "info_router", "handlers", "workflow", "changes_ui", "system_ui", "import_router", "admin_api", "register_router", "household_router"))
                 or (module == "app.models.__init__" and imp.endswith(".models"))
             )
 

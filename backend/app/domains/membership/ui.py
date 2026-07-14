@@ -72,8 +72,8 @@ async def lid_worden_submit(request: Request, background_tasks: BackgroundTasks,
                             db: Session = Depends(get_db)):
     from pydantic import ValidationError
 
-    from app.routers.members import register_family
-    from app.schemas.family import FamilyCreate, FamilyMemberCreate
+    from app.domains.membership.register_router import register_family
+    from app.domains.membership.schemas_family import FamilyCreate, FamilyMemberCreate
 
     form = await request.form()
     values = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
@@ -140,7 +140,7 @@ def _portal_ctx(request: Request, db: Session, person) -> dict:
 
     from app.domains.auth.api import SESSION_COOKIE, csrf_token_for
     from app.domains.membership.api import renewal_available, valid_membership_until
-    from app.routers.member_household import get_household
+    from app.domains.membership.household_router import get_household
 
     household = get_household(person=person, db=db)
     valid_until = valid_membership_until(person)
@@ -177,7 +177,7 @@ def _require_member_csrf(request: Request, db: Session):
 @router.post("/leden/gezin/personen/{person_id}", response_class=HTMLResponse)
 async def gezin_persoon_opslaan(person_id: int, request: Request,
                                 db: Session = Depends(get_db)):
-    from app.routers.member_household import update_person
+    from app.domains.membership.household_router import update_person
 
     person = _require_member_csrf(request, db)
     form = await request.form()
@@ -211,7 +211,7 @@ async def gezin_persoon_opslaan(person_id: int, request: Request,
 
 @router.post("/leden/gezin/personen", response_class=HTMLResponse)
 async def gezin_persoon_toevoegen(request: Request, db: Session = Depends(get_db)):
-    from app.routers.member_household import add_person
+    from app.domains.membership.household_router import add_person
 
     person = _require_member_csrf(request, db)
     form = await request.form()
@@ -236,7 +236,7 @@ async def gezin_persoon_toevoegen(request: Request, db: Session = Depends(get_db
 @router.post("/leden/gezin/personen/{person_id}/verwijderen", response_class=HTMLResponse)
 def gezin_persoon_verwijderen(person_id: int, request: Request,
                               db: Session = Depends(get_db)):
-    from app.routers.member_household import remove_person
+    from app.domains.membership.household_router import remove_person
 
     person = _require_member_csrf(request, db)
     remove_person(person_id, person=person, db=db)
@@ -246,7 +246,7 @@ def gezin_persoon_verwijderen(person_id: int, request: Request,
 
 @router.post("/leden/gezin/vernieuwen", response_class=HTMLResponse)
 def gezin_vernieuwen(request: Request, db: Session = Depends(get_db)):
-    from app.routers.member_household import renew_membership
+    from app.domains.membership.household_router import renew_membership
 
     person = _require_member_csrf(request, db)
     try:

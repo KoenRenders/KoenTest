@@ -12,6 +12,8 @@ NIET bewerkbaar via deze endpoints (server-side genegeerd of geblokkeerd):
 
 Elke schrijfactie logt een audit-rij (source="member_self", actor=e-mail).
 De member_id wordt server-side afgeleid uit het JWT, nooit uit de request.
+
+(verhuisd uit app/routers/member_household.py, #444)
 """
 import logging
 from datetime import date
