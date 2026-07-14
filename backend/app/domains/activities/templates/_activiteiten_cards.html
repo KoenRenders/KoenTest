@@ -22,33 +22,31 @@
     {% if scope != "archived" and not a.is_cancelled %}
     <div class="mt-4 space-y-3">
       {% for c in a.sub_registrations %}
-      <div class="border-t border-gray-100 pt-2">
-        <div class="flex items-center justify-between gap-3">
-          <span class="text-sm font-medium">{{ c.name }}</span>
-          {% if c.external_register_url %}
-          <a class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg text-sm" href="{{ c.external_register_url }}" target="_blank" rel="noopener">{{ _("Inschrijven") }}</a>
-          {% else %}
-          {{ ui.btn_primary(_("Inschrijven"), type="button", attrs='hx-get="/activiteiten/' ~ a.id ~ '/inschrijven/' ~ c.id ~ '" hx-target="#inschrijf-' ~ a.id ~ '-' ~ c.id ~ '" hx-swap="innerHTML"') }}
-          {% endif %}
-        </div>
+      <div class="border-t border-gray-100 pt-2"{% if not c.external_register_url and not c.external_registrations_url %} x-data="{ open: false }"{% endif %}>
+        {% set _btn = "inline-flex items-center border border-blue-600 text-blue-700 hover:bg-blue-50 rounded-lg px-3 py-1 text-sm font-medium" %}
         {% set _info = c.info_asset_url or c.info_url %}
-        {% if _info or c.external_registrations_url %}
-        <div class="mt-1 flex flex-wrap gap-4 text-sm">
-          {% if _info %}<a href="{{ _info }}" target="_blank" rel="noopener" class="text-blue-700 hover:underline">{{ _("Meer info") }}</a>{% endif %}
-          {% if c.external_registrations_url %}<a href="{{ c.external_registrations_url }}" target="_blank" rel="noopener" class="text-blue-700 hover:underline">{{ _("Wie is ingeschreven?") }}</a>{% endif %}
-        </div>
-        {% endif %}
-        {# Portal-beheerde inschrijving → interne deelnemerslijst (v1.14-pariteit, #451). #}
-        {% if not c.external_register_url and not c.external_registrations_url %}
-        <div class="mt-1 text-sm" x-data="{ open: false }">
-          <button type="button" class="text-blue-700 hover:underline" @click="open = !open"
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-sm font-medium mr-1">{{ c.name }}</span>
+          {% if c.external_register_url %}
+          <a class="{{ _btn }}" href="{{ c.external_register_url }}" target="_blank" rel="noopener">{{ _("Inschrijven") }} ↗</a>
+          {% else %}
+          <button type="button" class="{{ _btn }}"
+                  hx-get="/activiteiten/{{ a.id }}/inschrijven/{{ c.id }}"
+                  hx-target="#inschrijf-{{ a.id }}-{{ c.id }}" hx-swap="innerHTML">{{ _("Inschrijven") }}</button>
+          {% endif %}
+          {% if c.external_registrations_url %}
+          <a class="{{ _btn }}" href="{{ c.external_registrations_url }}" target="_blank" rel="noopener">{{ _("Wie doet er mee?") }} ↗</a>
+          {% elif not c.external_register_url %}
+          <button type="button" class="{{ _btn }}" @click="open = !open"
                   hx-get="/activiteiten/{{ a.id }}/deelnemers/{{ c.id }}"
                   hx-target="#deelnemers-{{ a.id }}-{{ c.id }}" hx-trigger="click once">
-            <span x-show="!open">{{ _("Wie doet er mee?") }}</span>
-            <span x-show="open" x-cloak>{{ _("Verberg") }}</span>
+            <span x-show="!open">{{ _("Wie doet er mee?") }}</span><span x-show="open" x-cloak>{{ _("Verberg") }}</span>
           </button>
-          <div id="deelnemers-{{ a.id }}-{{ c.id }}" x-show="open" x-cloak></div>
+          {% endif %}
+          {% if _info %}<a class="{{ _btn }}" href="{{ _info }}" target="_blank" rel="noopener">{{ _("Info") }} ↗</a>{% endif %}
         </div>
+        {% if not c.external_register_url and not c.external_registrations_url %}
+        <div id="deelnemers-{{ a.id }}-{{ c.id }}" x-show="open" x-cloak></div>
         {% endif %}
         <div id="inschrijf-{{ a.id }}-{{ c.id }}"></div>
       </div>

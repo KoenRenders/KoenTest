@@ -38,6 +38,12 @@ def _langedatum(d) -> str:
 
 templates.env.filters["langedatum"] = _langedatum
 
+# Omgevings-indicator (#464): [HDEV]/[UAT] in titel + gekleurde band. Als globale
+# beschikbaar in álle templates (publiek + admin); PROD blijft schoon.
+from app.config import settings as _settings  # noqa: E402
+
+templates.env.globals["omgeving"] = _settings.app_env
+
 # Canonieke admin-navigatie (React-exit 405-d, #405): één bron voor alle
 # server-rendered beheer-schermen i.p.v. een kopie per module.
 _ADMIN_NAV: list[tuple[str, str]] = [

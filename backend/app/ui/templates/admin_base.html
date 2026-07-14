@@ -5,13 +5,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}{{ _("Admin — Raak") }}{% endblock %}</title>
+  <title>{% if omgeving and omgeving != 'prod' %}[{{ omgeving|upper }}] {% endif %}{% block title %}{{ _("Admin — Raak") }}{% endblock %}</title>
   <meta name="robots" content="noindex">
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/vendor/htmx.min.js" defer></script>
   <script src="/static/vendor/alpine.min.js" defer></script>
 </head>
 <body class="bg-gray-50 min-h-screen text-gray-900" hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
+  {% if omgeving and omgeving != 'prod' %}<div class="bg-orange-500 text-white text-center text-xs font-semibold py-1">{{ omgeving|upper }} — testomgeving (geen productie)</div>{% endif %}
   <header class="bg-blue-800 text-white">
     <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-6">
       <span class="font-bold">{{ _("Raak · beheer") }}</span>

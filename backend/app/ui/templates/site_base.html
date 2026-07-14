@@ -7,13 +7,14 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>{% block title %}{{ site_name }} — {{ site_tagline }}{% endblock %}</title>
+  <title>{% if omgeving and omgeving != 'prod' %}[{{ omgeving|upper }}] {% endif %}{% block title %}{{ site_name }} — {{ site_tagline }}{% endblock %}</title>
   {% block meta %}{% endblock %}
   <link rel="stylesheet" href="/static/app.css">
   <script src="/static/vendor/htmx.min.js" defer></script>
   <script src="/static/vendor/alpine.min.js" defer></script>
 </head>
 <body class="bg-gray-50 min-h-screen text-gray-900" hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
+  {% if omgeving and omgeving != 'prod' %}<div class="bg-orange-500 text-white text-center text-xs font-semibold py-1">{{ omgeving|upper }} — testomgeving (geen productie)</div>{% endif %}
   <header class="sticky top-0 z-50">
     <nav class="bg-blue-800 text-white shadow-md" x-data="{ open: false }">
       <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
