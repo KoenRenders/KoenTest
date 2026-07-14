@@ -9,7 +9,10 @@ from __future__ import annotations
 from decimal import Decimal, InvalidOperation
 from typing import Optional
 
-from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
+from fastapi import (
+    APIRouter, BackgroundTasks, Depends, File, Form, HTTPException, Request,
+    UploadFile,
+)
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -277,15 +280,14 @@ def product_bijwerken(activity_id: int, component_id: int, product_id: int,
              dependencies=[Depends(require_csrf)])
 async def affiche_uploaden(activity_id: int, request: Request,
                            background_tasks: BackgroundTasks,
+                           file: Optional[UploadFile] = File(None),
                            db: Session = Depends(get_db),
                            email: str = Depends(require_admin_ui)):
     """Affiche (poster) uploaden vanuit de activiteiten-admin (#451)."""
     from app.domains.media.router import upload_activity_poster
 
-    form = await request.form()
-    bestand = form.get("file")
-    if bestand is not None and getattr(bestand, "filename", ""):
-        await upload_activity_poster(activity_id, background_tasks, file=bestand,
+    if file is not None and file.filename:
+        await upload_activity_poster(activity_id, background_tasks, file=file,
                                      db=db, _admin=admin_user_by_email(db, email))
     return _detail_response(request, db, activity_id)
 
