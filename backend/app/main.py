@@ -15,8 +15,8 @@ from app.database import engine
 from app.logging_config import configure_logging
 from app import soft_delete  # noqa: F401 - registreert de globale soft-delete-filter
 from app.models import *  # noqa: F401, F403 - ensures all models are registered
-from app.routers import members
-from app.routers.member_household import router as member_household_router
+from app.domains.membership.register_router import router as members_router
+from app.domains.membership.household_router import router as member_household_router
 from app.domains.mdm.import_router import router as member_import_router
 from app.domains.audit.router import router as audit_router
 from app.ui.admin_api import router as admin_api_router
@@ -112,7 +112,7 @@ app.add_middleware(
 )
 
 app.include_router(auth_router, prefix="/api/v1")
-app.include_router(members.router, prefix="/api/v1")
+app.include_router(members_router, prefix="/api/v1")
 app.include_router(activities_router, prefix="/api/v1")
 app.include_router(chat_router, prefix="/api/v1")
 app.include_router(stt_router, prefix="/api/v1")

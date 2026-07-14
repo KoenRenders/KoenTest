@@ -45,11 +45,12 @@ MODULES = [
     "app.domains.mail.router",
     "app.domains.mail.ui",
     # Schemas
-    "app.schemas.member",
-    "app.schemas.family",
+    "app.domains.membership.schemas_member",
+    "app.domains.membership.schemas_family",
     "app.schemas.activity",
     # Routers
-    "app.routers.members",
+    "app.domains.membership.register_router",
+    "app.domains.membership.household_router",
     # Main app
     "app.main",
 ]

@@ -1,3 +1,4 @@
+"""Pydantic-schemas voor leden/gezinnen (verhuisd uit app/schemas/member.py, #444)."""
 from __future__ import annotations
 from datetime import date, datetime
 from decimal import Decimal
