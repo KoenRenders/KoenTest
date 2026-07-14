@@ -29,6 +29,8 @@
           <span class="text-sm font-medium mr-1">{{ c.name }}</span>
           {% if c.external_register_url %}
           <a class="{{ _btn }}" href="{{ c.external_register_url }}" target="_blank" rel="noopener">{{ _("Inschrijven") }} ↗</a>
+          {% elif c.is_full %}
+          {{ ui.badge(_("Volzet"), "red") }}
           {% else %}
           <button type="button" class="{{ _btn }}"
                   hx-get="/activiteiten/{{ a.id }}/inschrijven/{{ c.id }}"

@@ -86,6 +86,7 @@ class ComponentResponse(BaseModel):
     info_asset_url: Optional[str] = None
     info_asset_is_pdf: bool = False
     max_participants: Optional[int] = None
+    is_full: bool = False
     products: List[ProductResponse] = []
 
     model_config = {"from_attributes": True}

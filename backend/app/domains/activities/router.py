@@ -100,6 +100,48 @@ def _registration_counts(db: Session, activity_ids: List[int]) -> dict:
     return counts
 
 
+def _component_occupancy(db: Session, activity_ids: List[int]) -> dict:
+    """Bezette plaatsen per onderdeel: som van item-hoeveelheden, of 1 per
+    inschrijving zonder items (zelfde telling als de volzet-check bij inschrijven).
+    Eén batched query; de globale soft-delete- en tenant-filters gelden ook hier,
+    dus verwijderde inschrijvingen tellen niet mee."""
+    occ: dict = {}
+    if not activity_ids:
+        return occ
+    item_sum = (
+        db.query(
+            RegistrationItem.registration_id.label("rid"),
+            func.sum(RegistrationItem.quantity).label("q"),
+        )
+        .group_by(RegistrationItem.registration_id)
+        .subquery()
+    )
+    rows = (
+        db.query(
+            Registration.component_id,
+            func.sum(func.coalesce(item_sum.c.q, 1)),
+        )
+        .outerjoin(item_sum, item_sum.c.rid == Registration.id)
+        .filter(
+            Registration.activity_id.in_(activity_ids),
+            Registration.component_id.isnot(None),
+        )
+        .group_by(Registration.component_id)
+        .all()
+    )
+    for component_id, qty in rows:
+        occ[component_id] = int(qty or 0)
+    return occ
+
+
+def _mark_full(responses: List[ActivityResponse], occ: dict) -> None:
+    """Zet ``is_full`` op elk onderdeel met een max dat (over)bereikt is."""
+    for resp in responses:
+        for comp in resp.sub_registrations:
+            if comp.max_participants is not None:
+                comp.is_full = occ.get(comp.id, 0) >= comp.max_participants
+
+
 def _build_response(
     activity: Activity,
     today: date,
@@ -202,6 +244,8 @@ def list_activities(scope: str = "upcoming", db: Session = Depends(get_db)):
         else:
             info = compute_activity_status(a, reg_count)
             result.append(_build_response(a, today, all_dates=(scope == "all"), reg_count=reg_count, status=info["status"]))
+    if scope != "archived":
+        _mark_full(result, _component_occupancy(db, [a.id for a in activities]))
     return result
 
 
