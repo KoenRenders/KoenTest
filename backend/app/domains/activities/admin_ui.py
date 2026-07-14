@@ -284,7 +284,7 @@ async def affiche_uploaden(activity_id: int, request: Request,
                            db: Session = Depends(get_db),
                            email: str = Depends(require_admin_ui)):
     """Affiche (poster) uploaden vanuit de activiteiten-admin (#451)."""
-    from app.domains.media.router import upload_activity_poster
+    from app.domains.media.api import upload_activity_poster
 
     if file is not None and file.filename:
         await upload_activity_poster(activity_id, background_tasks, file=file,
