@@ -39,6 +39,11 @@ def _opt_int(value: str) -> Optional[int]:
     return int(value) if value else None
 
 
+def _opt_str(value: str) -> Optional[str]:
+    value = (value or "").strip()
+    return value or None
+
+
 def _lijst_ctx(db: Session) -> dict:
     from app.domains.activities.router import list_activities
 
@@ -158,13 +163,19 @@ def onderdeel_toevoegen(activity_id: int, request: Request,
                         db: Session = Depends(get_db),
                         email: str = Depends(require_admin_ui),
                         name: str = Form(...), team_name_required: str = Form(""),
-                        max_participants: str = Form("")):
+                        max_participants: str = Form(""),
+                        external_register_url: str = Form(""),
+                        external_registrations_url: str = Form(""),
+                        info_url: str = Form("")):
     from app.domains.activities.router import add_component
     from app.schemas.activity import ComponentCreate
 
     add_component(activity_id, ComponentCreate(
         name=name.strip(), team_name_required=bool(team_name_required),
         max_participants=_opt_int(max_participants),
+        external_register_url=_opt_str(external_register_url),
+        external_registrations_url=_opt_str(external_registrations_url),
+        info_url=_opt_str(info_url),
     ), db=db, admin=admin_user_by_email(db, email))
     return _detail_response(request, db, activity_id)
 
@@ -175,13 +186,19 @@ def onderdeel_bijwerken(activity_id: int, component_id: int, request: Request,
                         db: Session = Depends(get_db),
                         email: str = Depends(require_admin_ui),
                         name: str = Form(...), team_name_required: str = Form(""),
-                        max_participants: str = Form("")):
+                        max_participants: str = Form(""),
+                        external_register_url: str = Form(""),
+                        external_registrations_url: str = Form(""),
+                        info_url: str = Form("")):
     from app.domains.activities.router import update_component
     from app.schemas.activity import ComponentUpdate
 
     update_component(activity_id, component_id, ComponentUpdate(
         name=name.strip(), team_name_required=bool(team_name_required),
         max_participants=_opt_int(max_participants),
+        external_register_url=_opt_str(external_register_url),
+        external_registrations_url=_opt_str(external_registrations_url),
+        info_url=_opt_str(info_url),
     ), db=db, admin=admin_user_by_email(db, email))
     return _detail_response(request, db, activity_id)
 
