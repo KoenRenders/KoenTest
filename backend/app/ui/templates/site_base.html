@@ -29,8 +29,6 @@
           {% for p in nav_pages|default([]) %}
           <a href="/{{ p.slug }}" class="hover:underline">{{ p.title }}</a>
           {% endfor %}
-          <a href="/lid-worden" class="hover:underline">{{ _("Word lid") }}</a>
-          <a href="/berichten" class="hover:underline">{{ _("Contact") }}</a>
           <a href="/aanmelden" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>
         </div>
       </div>
@@ -41,8 +39,6 @@
         {% for p in nav_pages|default([]) %}
         <a href="/{{ p.slug }}" class="hover:underline">{{ p.title }}</a>
         {% endfor %}
-        <a href="/lid-worden" class="hover:underline">{{ _("Word lid") }}</a>
-        <a href="/berichten" class="hover:underline">{{ _("Contact") }}</a>
         <a href="/aanmelden" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>
       </div>
     </nav>

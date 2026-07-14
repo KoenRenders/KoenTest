@@ -53,6 +53,13 @@
     <div class="mt-2 pl-3 border-l-2 border-yellow-200 text-sm text-gray-600">
       ↩ {{ _("Terugbetaling") }} € {{ "%.2f"|format(rf.amount|abs) }} · {{ rf.created_at.strftime("%d-%m-%Y") }}{% if rf.note %} · {{ rf.note }}{% endif %}</div>
     {% endfor %}
+    {% if r.payable_type == "registration" %}
+    <div class="mt-2" x-data="{ det: false }">
+      <button type="button" class="text-sm text-blue-700 hover:underline" @click="det = !det"
+              hx-get="/admin/inschrijvingen/{{ r.payable_id }}" hx-target="#det-{{ r.id }}" hx-trigger="click once">{{ _("Toon inschrijvingsdetails") }}</button>
+      <div id="det-{{ r.id }}" x-show="det" x-cloak></div>
+    </div>
+    {% endif %}
     {% if is_finance and r.type != "refund" %}
     <div class="mt-3 flex flex-wrap gap-2">
       {% if r.status != "paid" %}

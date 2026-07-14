@@ -1,0 +1,12 @@
+{% import "_macros.html" as ui %}
+{# Gedeelde inschrijving-detailweergave (#455/#451): contact + producten + opmerking. #}
+<div class="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-2 text-sm">
+  <div class="font-medium">{{ reg.contact_name }}{% if reg.team_name %} ({{ reg.team_name }}){% endif %}</div>
+  {% if reg.contact_email or reg.phone %}
+  <div class="text-gray-500">{{ reg.contact_email or "" }}{% if reg.phone %} · {{ reg.phone }}{% endif %}</div>
+  {% endif %}
+  <ul class="mt-2 text-gray-700">
+    {% for item in reg["items"] %}<li>{{ item.quantity }}× {{ item.product_name or "—" }}</li>{% else %}<li class="text-gray-400">{{ _("Geen producten") }}</li>{% endfor %}
+  </ul>
+  {% if reg.remarks %}<div class="mt-2 text-gray-500">💬 {{ reg.remarks }}</div>{% endif %}
+</div>

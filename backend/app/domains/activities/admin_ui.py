@@ -250,6 +250,28 @@ def product_verwijderen(activity_id: int, component_id: int, product_id: int,
     return _detail_response(request, db, activity_id)
 
 
+# ── Gedeelde inschrijving-detail (betalingen + activiteiten-admin, #455/#451) ──
+
+@router.get("/admin/inschrijvingen/{registration_id}", response_class=HTMLResponse)
+def inschrijving_detail(registration_id: int, request: Request,
+                        db: Session = Depends(get_db),
+                        email: str = Depends(require_admin_ui)):
+    """Detail van één inschrijving (contact + producten + opmerking) als htmx-
+    fragment. Herbruikbaar vanuit betalingen ('Toon inschrijvingsdetails') en de
+    activiteiten-admin. Verrijking neemt soft-deleted mee (financieel feit)."""
+    from app.domains.activities.api import Activity, Registration
+    from app.domains.activities.router import _enrich_registration
+
+    reg = (db.query(Registration).execution_options(include_deleted=True)
+           .filter(Registration.id == registration_id).first())
+    if reg is None:
+        return HTMLResponse("")
+    activity = (db.query(Activity).execution_options(include_deleted=True)
+                .filter(Activity.id == reg.activity_id).first())
+    return templates.TemplateResponse(request, "_inschrijving_detail.html",
+                                      {"reg": _enrich_registration(reg, activity)})
+
+
 # ── Inschrijvingen + export ────────────────────────────────────────────────────
 
 @router.get("/admin/activiteiten/{activity_id}/inschrijvingen", response_class=HTMLResponse)

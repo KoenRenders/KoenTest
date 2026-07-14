@@ -74,7 +74,8 @@ def site_context(db) -> dict:
     from app.domains.media.api import MediaAsset
 
     pages = (db.query(CmsPage)
-             .filter(CmsPage.is_published == True)  # noqa: E712
+             .filter(CmsPage.is_published == True,        # noqa: E712
+                     CmsPage.show_in_nav == True)         # noqa: E712  (#465)
              .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc()).all())
     footer = db.query(CmsPage).filter(CmsPage.slug == "site-footer").first()
     footer_block = None
