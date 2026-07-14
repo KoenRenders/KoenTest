@@ -22,7 +22,7 @@
     {% if scope != "archived" and not a.is_cancelled %}
     <div class="mt-4 space-y-3">
       {% for c in a.sub_registrations %}
-      <div class="border-t border-gray-100 pt-2"{% if not c.external_register_url and not c.external_registrations_url %} x-data="{ open: false }"{% endif %}>
+      <div class="pt-2"{% if not c.external_register_url and not c.external_registrations_url %} x-data="{ open: false }"{% endif %}>
         {% set _btn = "inline-flex items-center border border-blue-600 text-blue-700 hover:bg-blue-50 rounded-lg px-3 py-1 text-sm font-medium" %}
         {% set _info = c.info_asset_url or c.info_url %}
         <div class="flex flex-wrap items-center gap-2">
