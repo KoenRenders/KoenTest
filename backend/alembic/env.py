@@ -8,9 +8,9 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(__file__)))
 from app.database import Base
 from app.domains.registry import load_all_models
 
-# Laad alle domein-/kernel-modellen zodat Base.metadata compleet is voor
-# autogenerate (#449). De oude `from app.models import *` was leeg na de
-# v2.0-refactor en gaf een lege target_metadata.
+# Laad alle domein-/kernel-modellen via de canonieke loader zodat Base.metadata
+# compleet is voor autogenerate (#449). Dezelfde bron als app.main (dat via
+# app.models naar deze loader shimt), zodat de metadata niet uit elkaar drijft.
 load_all_models()
 
 config = context.config

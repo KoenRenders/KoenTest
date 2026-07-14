@@ -67,10 +67,20 @@ def test_registry_configures_all_mappers_in_isolation():
         "load_all_models()\n"
         "configure_mappers()\n"
     )
+    # Minimale env zodat de test niet van een echte DB/Settings afhangt: de app-
+    # config valideert SECRET_KEY e.d. bij import, en app.database maakt (lui) een
+    # engine — configure_mappers() connecteert niet. Zo faalt de test op een echte
+    # mapper-fout i.p.v. een Settings-validatiefout (mirror van check_imports.py).
+    env = {
+        **os.environ,
+        "APP_ENV": "build",
+        "SECRET_KEY": "build-time-check",
+        "DATABASE_URL": "postgresql://x:x@localhost/x",
+    }
     result = subprocess.run(
         [sys.executable, "-c", code],
         cwd=BACKEND,
-        env=os.environ.copy(),
+        env=env,
         capture_output=True,
         text=True,
     )

@@ -75,7 +75,7 @@ def test_import_boundaries():
             # bedoelde compositiepunten, geen reach-in.
             composer = (
                 (module == "app.main" and imp.split(".")[-1] in ("router", "ui", "admin_ui", "info_router", "handlers", "workflow", "changes_ui", "system_ui", "settings_ui", "import_router", "admin_api", "register_router", "household_router"))
-                or (module == "app.models.__init__" and imp.endswith(".models"))
+                or (module == "app.models.__init__" and (imp == "app.domains.registry" or imp.endswith(".models")))
             )
 
             # Regel 3: oude wereld -> domein-internals enkel via de allowlist.
