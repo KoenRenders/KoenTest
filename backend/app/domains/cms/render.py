@@ -37,13 +37,15 @@ def _format_md(md: str) -> str:
 
 
 def _values() -> Dict[str, str]:
-    from app.config import settings
+    from app.kernel.tenant_config import tenant_membership_config
+
+    conf = tenant_membership_config()
     return {
-        "membership_price_full": _format_price(settings.membership_price_full),
-        "membership_price_half": _format_price(settings.membership_price_half),
-        "half_price_start": _format_md(settings.membership_half_price_start_md),
-        "half_price_end": _format_md(settings.membership_half_price_end_md),
-        "next_year_from": _format_md(settings.membership_next_year_from_md),
+        "membership_price_full": _format_price(conf["price_full"]),
+        "membership_price_half": _format_price(conf["price_half"]),
+        "half_price_start": _format_md(conf["half_start_md"]),
+        "half_price_end": _format_md(conf["half_end_md"]),
+        "next_year_from": _format_md(conf["next_year_from_md"]),
     }
 
 

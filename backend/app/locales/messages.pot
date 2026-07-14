@@ -8,7 +8,7 @@ msgid ""
 msgstr ""
 "Project-Id-Version: Raak VERSION\n"
 "Report-Msgid-Bugs-To: EMAIL@ADDRESS\n"
-"POT-Creation-Date: 2026-07-14 06:15+0000\n"
+"POT-Creation-Date: 2026-07-14 06:30+0000\n"
 "PO-Revision-Date: YEAR-MO-DA HO:MI+ZONE\n"
 "Last-Translator: FULL NAME <EMAIL@ADDRESS>\n"
 "Language-Team: LANGUAGE <LL@li.org>\n"
@@ -468,7 +468,7 @@ msgid "Online betalen"
 msgstr ""
 
 #: app/domains/activities/templates/_inschrijf_form.html:50
-#: app/domains/mail/service.py:224 app/domains/mail/service.py:302
+#: app/domains/mail/service.py:240 app/domains/mail/service.py:318
 #: app/domains/membership/templates/lid_worden.html:39
 msgid "Overschrijving"
 msgstr ""
@@ -1345,22 +1345,25 @@ msgstr ""
 msgid "E-maillog niet gevonden"
 msgstr ""
 
-#: app/domains/mail/service.py:155
+#: app/domains/mail/service.py:171
 msgid ""
 "<h4 style='margin-top:12px;margin-bottom:4px'>Betaalinstructies "
 "(overschrijving)</h4><p>Schrijf het bedrag over met de gestructureerde "
 "mededeling hieronder, zodat we je betaling correct kunnen verwerken:</p>"
 msgstr ""
 
-#: app/domains/mail/service.py:172
-msgid "Inloglink Raak Millegem"
+#: app/domains/mail/service.py:188
+#, python-format
+msgid "Inloglink %(naam)s"
 msgstr ""
 
-#: app/domains/mail/service.py:190
-msgid "Inloggen Raak Millegem"
+#: app/domains/mail/service.py:206
+#, python-format
+msgid "Inloggen %(naam)s"
 msgstr ""
 
-#: app/domains/mail/service.py:191
+#: app/domains/mail/service.py:207
+#, python-format
 msgid ""
 "\n"
 "        <p>Je probeerde in te loggen als lid, maar dit e-mailadres is bij"
@@ -1369,43 +1372,44 @@ msgid ""
 " gezin\n"
 "        je wil beheren.</p>\n"
 "        <p>Neem contact op met het bestuur, dan zetten we dit recht.</p>\n"
-"        <p>Met vriendelijke groeten,<br>Raak Millegem</p>\n"
+"        <p>Met vriendelijke groeten,<br>%(naam)s</p>\n"
 "        "
 msgstr ""
 
-#: app/domains/mail/service.py:224 app/domains/mail/service.py:302
+#: app/domains/mail/service.py:240 app/domains/mail/service.py:318
 msgid "Online (Mollie)"
 msgstr ""
 
-#: app/domains/mail/service.py:224 app/domains/mail/service.py:302
+#: app/domains/mail/service.py:240 app/domains/mail/service.py:318
 msgid "Cash"
-msgstr ""
-
-#: app/domains/mail/service.py:240
-msgid "Welkom bij Raak Millegem!"
 msgstr ""
 
 #: app/domains/mail/service.py:256
 #, python-format
+msgid "Welkom bij %(naam)s!"
+msgstr ""
+
+#: app/domains/mail/service.py:272
+#, python-format
 msgid "Inschrijving bevestigd: %(name)s"
 msgstr ""
 
-#: app/domains/mail/service.py:335
+#: app/domains/mail/service.py:351
 #, python-format
 msgid "<p>Beste %(name)s,</p>"
 msgstr ""
 
-#: app/domains/mail/service.py:335
+#: app/domains/mail/service.py:351
 msgid "<p>Beste,</p>"
 msgstr ""
 
-#: app/domains/mail/service.py:340
+#: app/domains/mail/service.py:356
 msgid ""
 "<p>Je kan je antwoord later nog aanpassen via deze link (zolang het "
 "formulier open staat):</p>"
 msgstr ""
 
-#: app/domains/mail/service.py:348
+#: app/domains/mail/service.py:364
 #, python-format
 msgid "Bevestiging: %(title)s"
 msgstr ""
@@ -2014,38 +2018,38 @@ msgstr ""
 msgid "Geen toegang tot dit gezin."
 msgstr ""
 
-#: app/routers/member_household.py:135
+#: app/routers/member_household.py:138
 msgid "Je hebt al een geldig lidmaatschap."
 msgstr ""
 
-#: app/routers/member_household.py:150
+#: app/routers/member_household.py:153
 msgid "Je vernieuwing loopt nog — rond eerst de openstaande betaling af."
 msgstr ""
 
-#: app/routers/member_household.py:164
+#: app/routers/member_household.py:167
 #, python-format
 msgid "Je hebt je lidmaatschap voor %(year)s al vernieuwd."
 msgstr ""
 
-#: app/routers/member_household.py:217
+#: app/routers/member_household.py:220
 msgid "De online betaling kon niet gestart worden. Probeer het later opnieuw."
 msgstr ""
 
-#: app/routers/member_household.py:253 app/routers/member_household.py:388
+#: app/routers/member_household.py:256 app/routers/member_household.py:391
 msgid "Persoon niet gevonden."
 msgstr ""
 
-#: app/routers/member_household.py:290 app/routers/members.py:392
+#: app/routers/member_household.py:293 app/routers/members.py:392
 #: app/routers/members.py:549
 #, python-format
 msgid "Onbekende postcode: %(postal_code)s"
 msgstr ""
 
-#: app/routers/member_household.py:343
+#: app/routers/member_household.py:346
 msgid "Voornaam en achternaam zijn verplicht."
 msgstr ""
 
-#: app/routers/member_household.py:393
+#: app/routers/member_household.py:396
 msgid "Je kan jezelf niet uit het gezin verwijderen."
 msgstr ""
 
@@ -2405,14 +2409,6 @@ msgstr ""
 
 #: app/ui/templates/public_base.html:8 app/ui/templates/site_base.html:21
 msgid "Raak"
-msgstr ""
-
-#: app/ui/templates/site_base.html:10
-msgid "Raak — Beleef meer in Millegem"
-msgstr ""
-
-#: app/ui/templates/site_base.html:22
-msgid "Beleef meer in Millegem"
 msgstr ""
 
 #: app/ui/templates/site_base.html:24

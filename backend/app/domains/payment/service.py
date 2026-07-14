@@ -26,17 +26,19 @@ def _parse_md(md_str: str, year: int) -> date:
 def membership_price_for_date(today: Optional[date] = None) -> Decimal:
     """Geeft de lidmaatschapsprijs op basis van de datum (vol of half).
 
-    De datumgrenzen en bedragen komen uit de app-configuratie:
-      MEMBERSHIP_HALF_PRICE_START_MD / END_MD en MEMBERSHIP_PRICE_FULL / HALF.
+    De datumgrenzen en bedragen komen per tenant uit de tenant-config
+    (branding-slice #407), met de .env-settings als default.
     """
-    from app.config import settings
+    from app.kernel.tenant_config import tenant_membership_config
+
+    conf = tenant_membership_config()
     if today is None:
         today = date.today()
-    half_start = _parse_md(settings.membership_half_price_start_md, today.year)
-    half_end = _parse_md(settings.membership_half_price_end_md, today.year)
+    half_start = _parse_md(conf["half_start_md"], today.year)
+    half_end = _parse_md(conf["half_end_md"], today.year)
     if half_start <= today <= half_end:
-        return settings.membership_price_half
-    return settings.membership_price_full
+        return conf["price_half"]
+    return conf["price_full"]
 
 
 def membership_valid_period(paid_at: Optional[date] = None) -> Tuple[date, date]:
@@ -46,10 +48,11 @@ def membership_valid_period(paid_at: Optional[date] = None) -> Tuple[date, date]
     kalenderjaar (valid_to = 31 dec volgend jaar), betaling daarvoor enkel
     het huidige jaar (valid_to = 31 dec dit jaar).
     """
-    from app.config import settings
+    from app.kernel.tenant_config import tenant_membership_config
+
     if paid_at is None:
         paid_at = date.today()
-    next_year_cutoff = _parse_md(settings.membership_next_year_from_md, paid_at.year)
+    next_year_cutoff = _parse_md(tenant_membership_config()["next_year_from_md"], paid_at.year)
     valid_from = paid_at
     if paid_at >= next_year_cutoff:
         valid_to = date(paid_at.year + 1, 12, 31)

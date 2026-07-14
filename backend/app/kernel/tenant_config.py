@@ -119,3 +119,36 @@ def tenant_mail_mode(db: Session, tenant_id: int | None = None) -> str:
 def tenant_language(db: Session, tenant_id: int | None = None) -> str:
     """Taal van de tenant (#407-T) — default nl_BE; voorbereiding meertaligheid."""
     return get_setting(db, "language", tenant_id=tenant_id) or "nl_BE"
+
+
+def tenant_membership_config(db: Session | None = None,
+                             tenant_id: int | None = None) -> dict:
+    """Lidmaatschapsprijzen en -datumgrenzen van de actieve tenant (branding-
+    slice #407): DB-sleutels winnen, de .env-settings blijven de default.
+    Zonder meegegeven sessie wordt een eigen SessionLocal geopend, zodat ook
+    servicefuncties zonder db-parameter tenant-bewust zijn."""
+    from decimal import Decimal
+
+    from app.config import settings
+
+    eigen_sessie = db is None
+    if eigen_sessie:
+        from app.database import SessionLocal
+
+        db = SessionLocal()
+    try:
+        def _s(key: str, default):
+            waarde = get_setting(db, key, tenant_id=tenant_id)
+            return waarde if waarde is not None else default
+
+        return {
+            "price_full": Decimal(str(_s("membership_price_full", settings.membership_price_full))),
+            "price_half": Decimal(str(_s("membership_price_half", settings.membership_price_half))),
+            "half_start_md": _s("membership_half_price_start_md", settings.membership_half_price_start_md),
+            "half_end_md": _s("membership_half_price_end_md", settings.membership_half_price_end_md),
+            "next_year_from_md": _s("membership_next_year_from_md", settings.membership_next_year_from_md),
+            "renewal_start_md": _s("membership_renewal_start_md", settings.membership_renewal_start_md),
+        }
+    finally:
+        if eigen_sessie and db is not None:
+            db.close()
