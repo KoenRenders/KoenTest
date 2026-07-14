@@ -43,6 +43,18 @@
           {% if c.external_registrations_url %}<a href="{{ c.external_registrations_url }}" target="_blank" rel="noopener" class="text-blue-700 hover:underline">{{ _("Wie is ingeschreven?") }}</a>{% endif %}
         </div>
         {% endif %}
+        {# Portal-beheerde inschrijving → interne deelnemerslijst (v1.14-pariteit, #451). #}
+        {% if not c.external_register_url and not c.external_registrations_url %}
+        <div class="mt-1 text-sm" x-data="{ open: false }">
+          <button type="button" class="text-blue-700 hover:underline" @click="open = !open"
+                  hx-get="/activiteiten/{{ a.id }}/deelnemers/{{ c.id }}"
+                  hx-target="#deelnemers-{{ a.id }}-{{ c.id }}" hx-trigger="click once">
+            <span x-show="!open">{{ _("Wie doet er mee?") }}</span>
+            <span x-show="open" x-cloak>{{ _("Verberg") }}</span>
+          </button>
+          <div id="deelnemers-{{ a.id }}-{{ c.id }}" x-show="open" x-cloak></div>
+        </div>
+        {% endif %}
         <div id="inschrijf-{{ a.id }}-{{ c.id }}"></div>
       </div>
       {% endfor %}

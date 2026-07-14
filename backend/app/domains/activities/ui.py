@@ -62,6 +62,20 @@ def archief_page(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "activiteiten.html", _lijst_ctx(db, "archived"))
 
 
+@router.get("/activiteiten/{activity_id}/deelnemers/{component_id}",
+            response_class=HTMLResponse)
+def deelnemers_fragment(activity_id: int, component_id: int, request: Request,
+                        db: Session = Depends(get_db)):
+    """Publieke deelnemerslijst per onderdeel ('Wie doet er mee?') als htmx-
+    fragment — herstelt de v1.14-functie voor portal-beheerde inschrijvingen
+    (#451). Hergebruikt het bestaande publieke registraties-endpoint."""
+    from app.domains.activities.router import get_public_registrations
+
+    deelnemers = get_public_registrations(activity_id, component_id=component_id, db=db)
+    return templates.TemplateResponse(request, "_deelnemers.html",
+                                      {"deelnemers": deelnemers})
+
+
 def _component_or_404(db: Session, activity_id: int, component_id: int):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     component = (db.query(ActivitySubRegistration)
