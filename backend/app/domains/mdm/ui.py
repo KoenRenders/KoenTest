@@ -19,6 +19,7 @@ from app.domains.auth.api import (
 )
 from app.domains.mdm.models import GenderCode, Person, RelationTypeCode, PostalCode
 from app.ui import admin_nav, templates
+from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
 
@@ -34,7 +35,7 @@ def _admin_user(db: Session, email: str) -> User:
             .filter(func.lower(User.email) == email.lower(), User.is_active == True)
             .first())
     if user is None:
-        raise HTTPException(status_code=401, detail="Niet aangemeld")
+        raise HTTPException(status_code=401, detail=_("Niet aangemeld"))
     return user
 
 
@@ -153,7 +154,7 @@ def adres_opslaan(family_id: int, request: Request, db: Session = Depends(get_db
                      if (m.relation_type or "").upper() == "HOOFDLID"),
                     family.members[0] if family.members else None)
     if hoofdlid is None:
-        raise HTTPException(status_code=400, detail="Gezin zonder personen.")
+        raise HTTPException(status_code=400, detail=_("Gezin zonder personen."))
     update_person_address(hoofdlid.id, AddressUpdate(
         street=street.strip(), house_number=house_number.strip(),
         bus_number=bus_number.strip() or None, postal_code=postal_code.strip(),

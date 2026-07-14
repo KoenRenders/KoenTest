@@ -1,19 +1,19 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}Leden importeren — Raak{% endblock %}
+{% block title %}{{ _("Leden importeren — Raak") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-2">Leden importeren</h1>
-<p class="text-gray-600 mb-6">Ledenrapport (.xls of .ods) uit Raak Nationaal. Eerst controleren (wijzigt niets), dan definitief importeren.</p>
+<h1 class="text-2xl font-bold text-blue-800 mb-2">{{ _("Leden importeren") }}</h1>
+<p class="text-gray-600 mb-6">{{ _("Ledenrapport (.xls of .ods) uit Raak Nationaal. Eerst controleren (wijzigt niets), dan definitief importeren.") }}</p>
 {% call ui.card() %}
 <form hx-post="/admin/leden-import/preview" hx-target="#import-resultaat" hx-swap="innerHTML"
       hx-encoding="multipart/form-data" class="flex flex-wrap items-end gap-3">
   <div>
-    {{ ui.label("Ledenrapport", "file", required=True) }}
+    {{ ui.label(_("Ledenrapport"), "file", required=True) }}
     <input type="file" name="file" id="file" required accept=".xls,.ods"
            class="border border-gray-300 rounded-lg px-3 py-2 bg-white">
   </div>
-  {{ ui.btn_primary("Controleer bestand") }}
-  {{ ui.loading("Bestand controleren…") }}
+  {{ ui.btn_primary(_("Controleer bestand")) }}
+  {{ ui.loading(_("Bestand controleren…")) }}
 </form>
 {% endcall %}
 <div id="import-resultaat" class="mt-6"></div>

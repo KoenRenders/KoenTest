@@ -32,6 +32,7 @@ from app.domains.audit.service import (
     snapshot_contact_detail,
 )
 from app.soft_delete import soft_delete
+from app.i18n import _
 
 logger = logging.getLogger(__name__)
 
@@ -42,14 +43,14 @@ def _member_for(person, db: Session) -> Member:
     """Haal het gezin op voor de ingelogde persoon. 404 als er geen is."""
     mp = next((m for m in person.member_persons), None)
     if not mp:
-        raise HTTPException(status_code=404, detail="Geen gezin gevonden.")
+        raise HTTPException(status_code=404, detail=_("Geen gezin gevonden."))
     return db.query(Member).filter(Member.id == mp.member_id).first()
 
 
 def _assert_in_household(person, member):
     """403 als de persoon niet tot dit gezin behoort."""
     if not any(mp.member_id == member.id for mp in person.member_persons):
-        raise HTTPException(status_code=403, detail="Geen toegang tot dit gezin.")
+        raise HTTPException(status_code=403, detail=_("Geen toegang tot dit gezin."))
 
 
 def _person_payload(p: Person):
@@ -131,7 +132,7 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     amount = settings.membership_price_full if is_full_year else membership_price_for_date(today)
 
     if has_valid_membership(person) and not renewal_window_open:
-        raise HTTPException(status_code=409, detail="Je hebt al een geldig lidmaatschap.")
+        raise HTTPException(status_code=409, detail=_("Je hebt al een geldig lidmaatschap."))
 
     # Blokkeer een dubbele vernieuwingsprocedure als er al een niet-betaalde/
     # niet-geannuleerde PaymentRecord voor dit lid bestaat.
@@ -146,7 +147,7 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     if existing_pending:
         raise HTTPException(
             status_code=409,
-            detail="Je vernieuwing loopt nog — rond eerst de openstaande betaling af.",
+            detail=_("Je vernieuwing loopt nog — rond eerst de openstaande betaling af."),
         )
 
     # Hergebruik een bestaand (niet-actief) lidmaatschap voor het doeljaar i.p.v.
@@ -160,7 +161,7 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     if membership and membership.is_active:
         raise HTTPException(
             status_code=409,
-            detail=f"Je hebt je lidmaatschap voor {valid_to.year} al vernieuwd.",
+            detail=_("Je hebt je lidmaatschap voor %(year)s al vernieuwd.") % {"year": valid_to.year},
         )
     if membership:
         membership.valid_from = valid_from
@@ -213,7 +214,7 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
         db.rollback()
         raise HTTPException(
             status_code=502,
-            detail="De online betaling kon niet gestart worden. Probeer het later opnieuw.",
+            detail=_("De online betaling kon niet gestart worden. Probeer het later opnieuw."),
         )
 
     # Business-event (#152): hernieuwing gestart (betaling nog in afwachting). Geen PII.
@@ -249,7 +250,7 @@ def update_person(
     member = _member_for(person, db)
     target = db.query(Person).filter(Person.id == person_id).first()
     if not target:
-        raise HTTPException(status_code=404, detail="Persoon niet gevonden.")
+        raise HTTPException(status_code=404, detail=_("Persoon niet gevonden."))
     _assert_in_household(target, member)
 
     # Enkel toegestane velden; relation_type, board_member_id, ExternalNumber
@@ -286,7 +287,7 @@ def update_person(
         if "postal_code" in adat and adat["postal_code"]:
             pc = db.query(PostalCode).filter(PostalCode.postal_code == adat["postal_code"]).first()
             if not pc:
-                raise HTTPException(status_code=422, detail=f"Onbekende postcode: {adat['postal_code']}")
+                raise HTTPException(status_code=422, detail=_("Onbekende postcode: %(postal_code)s") % {"postal_code": adat['postal_code']})
             a.postal_code_id = pc.id
             addr_changed = True
         if addr_changed:
@@ -339,7 +340,7 @@ def add_person(
     first_name = (data.get("first_name") or "").strip()
     last_name = (data.get("last_name") or "").strip()
     if not first_name or not last_name:
-        raise HTTPException(status_code=422, detail="Voornaam en achternaam zijn verplicht.")
+        raise HTTPException(status_code=422, detail=_("Voornaam en achternaam zijn verplicht."))
 
     new_person = Person(
         first_name=first_name,
@@ -384,12 +385,12 @@ def remove_person(
     member = _member_for(person, db)
     target = db.query(Person).filter(Person.id == person_id).first()
     if not target:
-        raise HTTPException(status_code=404, detail="Persoon niet gevonden.")
+        raise HTTPException(status_code=404, detail=_("Persoon niet gevonden."))
     _assert_in_household(target, member)
 
     # Een lid mag zichzelf niet uit het gezin verwijderen.
     if target.id == person.id:
-        raise HTTPException(status_code=400, detail="Je kan jezelf niet uit het gezin verwijderen.")
+        raise HTTPException(status_code=400, detail=_("Je kan jezelf niet uit het gezin verwijderen."))
 
     actor = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
 

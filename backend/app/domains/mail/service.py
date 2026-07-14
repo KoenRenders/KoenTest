@@ -7,6 +7,7 @@ from typing import Optional
 
 from app.config import settings
 from app.domains.activities.api import compute_registration_total
+from app.i18n import _
 
 logger = logging.getLogger(__name__)
 
@@ -151,10 +152,10 @@ def _transfer_instructions_html(payment_record) -> str:
     rows.append(f"<li><strong>Gestructureerde mededeling:</strong> {escape(ogm)}</li>")
     rows.append(f"<li><strong>Te betalen vóór:</strong> {due.strftime('%d/%m/%Y')}</li>")
     return (
-        "<h4 style='margin-top:12px;margin-bottom:4px'>Betaalinstructies (overschrijving)</h4>"
-        "<p>Schrijf het bedrag over met de gestructureerde mededeling hieronder, "
-        "zodat we je betaling correct kunnen verwerken:</p>"
-        f"<ul>{''.join(rows)}</ul>"
+        _("<h4 style='margin-top:12px;margin-bottom:4px'>Betaalinstructies (overschrijving)</h4>"
+          "<p>Schrijf het bedrag over met de gestructureerde mededeling hieronder, "
+          "zodat we je betaling correct kunnen verwerken:</p>")
+        + f"<ul>{''.join(rows)}</ul>"
     )
 
 
@@ -168,7 +169,7 @@ def send_magic_link(to_email: str, magic_link: str, otp_code: Optional[str] = No
     _send(
         to_email=to_email,
         email_type="magic_link",
-        subject="Inloglink Raak Millegem",
+        subject=_("Inloglink Raak Millegem"),
         body_html=f"""
         <p>Klik op onderstaande link om in te loggen. De link is 15 minuten geldig.</p>
         <p><a href="{magic_link}">{magic_link}</a></p>
@@ -186,14 +187,14 @@ def send_member_contact_board_notice(to_email: str) -> None:
     _send(
         to_email=to_email,
         email_type="member_contact_notice",
-        subject="Inloggen Raak Millegem",
-        body_html="""
+        subject=_("Inloggen Raak Millegem"),
+        body_html=_("""
         <p>Je probeerde in te loggen als lid, maar dit e-mailadres is bij meerdere
         gezinnen gekend. Daardoor kunnen we niet automatisch bepalen welk gezin
         je wil beheren.</p>
         <p>Neem contact op met het bestuur, dan zetten we dit recht.</p>
         <p>Met vriendelijke groeten,<br>Raak Millegem</p>
-        """,
+        """),
     )
 
 
@@ -220,7 +221,7 @@ def send_registration_confirmation(to_email: str, name: str, family, data=None, 
                 parts.append(escape(m.mobile))
             members_html += f"<li>{' — '.join(parts)}</li>"
 
-        method_labels = {"online": "Online (Mollie)", "cash": "Cash", "transfer": "Overschrijving"}
+        method_labels = {"online": _("Online (Mollie)"), "cash": _("Cash"), "transfer": _("Overschrijving")}
         payment_label = method_labels.get(data.payment_method, data.payment_method)
 
         details = f"""
@@ -236,7 +237,7 @@ def send_registration_confirmation(to_email: str, name: str, family, data=None, 
         background_tasks,
         to_email=to_email,
         email_type="membership_confirmation",
-        subject="Welkom bij Raak Millegem!",
+        subject=_("Welkom bij Raak Millegem!"),
         cc=settings.gmail_from or settings.gmail_user or None,
         body_html=f"""
         <p>Beste {escape(name)},</p>
@@ -252,7 +253,7 @@ def send_activity_registration_confirmation(
     to_email: str, name: str, activity, registration=None, background_tasks=None, payment_record=None
 ) -> None:
     activity_name = escape(activity.name)
-    subject = f"Inschrijving bevestigd: {activity_name}"
+    subject = _("Inschrijving bevestigd: %(name)s") % {"name": activity_name}
     from datetime import date as _date
     today = _date.today()
     all_dates = sorted(activity.dates, key=lambda d: d.start_date) if activity.dates else []
@@ -298,7 +299,7 @@ def send_activity_registration_confirmation(
                 details.append(f"<li><strong>Totaal:</strong> <strong>€{totaal:.2f}</strong></li>")
 
         if registration.payment_method and registration.payment_method != "FREE":
-            method_labels = {"ONLINE": "Online (Mollie)", "CASH": "Cash", "TRANSFER": "Overschrijving"}
+            method_labels = {"ONLINE": _("Online (Mollie)"), "CASH": _("Cash"), "TRANSFER": _("Overschrijving")}
             details.append(
                 f"<li><strong>Betaalmethode:</strong> "
                 f"{method_labels.get(registration.payment_method, registration.payment_method)}</li>"
@@ -331,20 +332,20 @@ def send_form_confirmation(
 ) -> None:
     """Bevestiging na het indienen van een formulier (#327). Optioneel een
     wijzig-link als het formulier dat toelaat."""
-    greeting = f"<p>Beste {escape(name)},</p>" if name else "<p>Beste,</p>"
+    greeting = _("<p>Beste %(name)s,</p>") % {"name": escape(name)} if name else _("<p>Beste,</p>")
     custom = f"<p>{escape(confirmation_message)}</p>" if confirmation_message else ""
     edit_block = ""
     if edit_link:
         edit_block = (
-            "<p>Je kan je antwoord later nog aanpassen via deze link "
-            "(zolang het formulier open staat):</p>"
-            f'<p><a href="{edit_link}">{edit_link}</a></p>'
+            _("<p>Je kan je antwoord later nog aanpassen via deze link "
+              "(zolang het formulier open staat):</p>")
+            + f'<p><a href="{edit_link}">{edit_link}</a></p>'
         )
     _dispatch(
         background_tasks,
         to_email=to_email,
         email_type="form_confirmation",
-        subject=f"Bevestiging: {escape(form_title)}",
+        subject=_("Bevestiging: %(title)s") % {"title": escape(form_title)},
         body_html=(
             f"{greeting}"
             f"<p>We hebben je antwoord op <strong>{escape(form_title)}</strong> goed ontvangen.</p>"

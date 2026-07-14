@@ -1,6 +1,6 @@
 {% extends "admin_base.html" %}
-{% block title %}Taak — Werkbank{% endblock %}
+{% block title %}{{ _("Taak — Werkbank") }}{% endblock %}
 {% block content %}
-<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/werkbank">← Werkbank</a></p>
+<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/werkbank">← {{ _("Werkbank") }}</a></p>
 {% include "_werkbank_detail.html" %}
 {% endblock %}

@@ -25,6 +25,7 @@ from app.domains.cms.api import CmsPage
 from app.domains.auth.api import User
 from app.schemas.chatbot_info import ChatbotInfoEdit, NoteCreate
 from app.domains.media.api import EXTRACTABLE_KINDS
+from app.i18n import _
 
 router = APIRouter(tags=["chatbot-info"], dependencies=[Depends(get_current_admin)])
 
@@ -131,7 +132,7 @@ def upsert_media_info(
 ):
     asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if not asset or asset.kind not in EXTRACTABLE_KINDS:
-        raise HTTPException(status_code=404, detail="Media-asset niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Media-asset niet gevonden"))
     ci = db.query(ChatbotInfo).filter(ChatbotInfo.media_asset_id == asset_id).first()
     if ci is None:
         ci = ChatbotInfo(media_asset_id=asset_id)
@@ -149,7 +150,7 @@ def upsert_cms_info(
 ):
     page = db.query(CmsPage).filter(CmsPage.id == page_id).first()
     if not page:
-        raise HTTPException(status_code=404, detail="Pagina niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
     ci = db.query(ChatbotInfo).filter(ChatbotInfo.cms_page_id == page_id).first()
     if ci is None:
         ci = ChatbotInfo(cms_page_id=page_id)
@@ -181,7 +182,7 @@ def update_row(
 ):
     ci = db.query(ChatbotInfo).filter(ChatbotInfo.id == row_id).first()
     if not ci:
-        raise HTTPException(status_code=404, detail="Rij niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Rij niet gevonden"))
     _apply_edit(ci, data)
     db.commit()
     db.refresh(ci)

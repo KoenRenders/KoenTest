@@ -17,6 +17,7 @@ from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_u
 from app.domains.forms.models import FIELD_TYPES, FORM_STATUSES, Form as FormModel
 from app.domains.forms.models import FormField, FormFieldOption, FormSection, FormSubmission
 from app.ui import admin_nav, templates
+from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
 
@@ -30,7 +31,7 @@ def _csrf(request: Request) -> str:
 def _form_or_404(db: Session, form_id: int) -> FormModel:
     form = db.query(FormModel).filter(FormModel.id == form_id).first()
     if form is None:
-        raise HTTPException(status_code=404, detail="Formulier niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
     return form
 
 
@@ -117,7 +118,7 @@ def instellingen_opslaan(form_id: int, request: Request, db: Session = Depends(g
                          requires_login: str = Form("")):
     form = _form_or_404(db, form_id)
     if status not in FORM_STATUSES:
-        raise HTTPException(status_code=422, detail=f"Ongeldige status: {status}")
+        raise HTTPException(status_code=422, detail=_("Ongeldige status: %(status)s") % {"status": status})
     form.title = title.strip() or form.title
     form.description = description.strip() or None
     form.status = status
@@ -158,7 +159,7 @@ def sectie_bewerken(form_id: int, section_id: int, request: Request,
     form = _form_or_404(db, form_id)
     section = next((s for s in form.sections if s.id == section_id), None)
     if section is None:
-        raise HTTPException(status_code=404, detail="Sectie niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Sectie niet gevonden"))
     section.title = title.strip() or None
     section.description = description.strip() or None
     target: Optional[int] = int(next_section_id) if next_section_id.strip().isdigit() else None
@@ -166,7 +167,7 @@ def sectie_bewerken(form_id: int, section_id: int, request: Request,
         doel = next((s for s in form.sections if s.id == target), None)
         if doel is None or doel.position <= section.position:
             raise HTTPException(status_code=422,
-                                detail="Een sectie-sprong moet naar een latere sectie gaan.")
+                                detail=_("Een sectie-sprong moet naar een latere sectie gaan."))
     section.next_section_id = target
     section.next_is_end = bool(next_is_end)
     db.commit()
@@ -182,7 +183,7 @@ def sectie_verplaatsen(form_id: int, section_id: int, request: Request,
     ordered = sorted(form.sections, key=lambda s: s.position)
     index = next((i for i, s in enumerate(ordered) if s.id == section_id), None)
     if index is None:
-        raise HTTPException(status_code=404, detail="Sectie niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Sectie niet gevonden"))
     buur = index - 1 if richting == "op" else index + 1
     if 0 <= buur < len(ordered):
         ordered[index].position, ordered[buur].position = (
@@ -214,9 +215,9 @@ def veld_toevoegen(form_id: int, request: Request, db: Session = Depends(get_db)
                    section_id: str = Form("")):
     form = _form_or_404(db, form_id)
     if field_type not in FIELD_TYPES:
-        raise HTTPException(status_code=422, detail=f"Ongeldig veldtype: {field_type}")
+        raise HTTPException(status_code=422, detail=_("Ongeldig veldtype: %(field_type)s") % {"field_type": field_type})
     if not label.strip():
-        raise HTTPException(status_code=422, detail="Elk veld heeft een vraag/label nodig.")
+        raise HTTPException(status_code=422, detail=_("Elk veld heeft een vraag/label nodig."))
     sid = int(section_id) if section_id.strip().isdigit() else None
     broers = [f for f in form.fields if f.section_id == sid]
     form.fields.append(FormField(label=label.strip(), field_type=field_type,
@@ -237,9 +238,9 @@ def veld_bewerken(form_id: int, field_id: int, request: Request,
     form = _form_or_404(db, form_id)
     veld = next((f for f in form.fields if f.id == field_id), None)
     if veld is None:
-        raise HTTPException(status_code=404, detail="Veld niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Veld niet gevonden"))
     if not label.strip():
-        raise HTTPException(status_code=422, detail="Elk veld heeft een vraag/label nodig.")
+        raise HTTPException(status_code=422, detail=_("Elk veld heeft een vraag/label nodig."))
     veld.label = label.strip()
     veld.help_text = help_text.strip() or None
     veld.required = bool(required)
@@ -262,7 +263,7 @@ def veld_verplaatsen(form_id: int, field_id: int, request: Request,
     form = _form_or_404(db, form_id)
     veld = next((f for f in form.fields if f.id == field_id), None)
     if veld is None:
-        raise HTTPException(status_code=404, detail="Veld niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Veld niet gevonden"))
     broers = sorted((f for f in form.fields if f.section_id == veld.section_id),
                     key=lambda f: f.position)
     index = broers.index(veld)
@@ -296,7 +297,7 @@ def optie_toevoegen(form_id: int, field_id: int, request: Request,
     form = _form_or_404(db, form_id)
     veld = next((f for f in form.fields if f.id == field_id), None)
     if veld is None or veld.field_type not in ("select", "radio", "checkbox"):
-        raise HTTPException(status_code=422, detail="Opties kunnen enkel bij keuzevelden.")
+        raise HTTPException(status_code=422, detail=_("Opties kunnen enkel bij keuzevelden."))
     veld.options.append(FormFieldOption(label=label.strip(), position=len(veld.options),
                                         is_other=bool(is_other)))
     db.commit()
@@ -312,19 +313,19 @@ def optie_bewerken(form_id: int, option_id: int, request: Request,
     form = _form_or_404(db, form_id)
     optie = next((o for f in form.fields for o in f.options if o.id == option_id), None)
     if optie is None:
-        raise HTTPException(status_code=404, detail="Optie niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Optie niet gevonden"))
     veld = optie.field
     heeft_sprong = bool(skip_to_end) or skip_to_section_id.strip().isdigit()
     if heeft_sprong and veld.field_type not in ("radio", "select"):
         raise HTTPException(status_code=422,
-                            detail="Vertakking kan enkel bij 'één keuze' of 'keuzelijst'.")
+                            detail=_("Vertakking kan enkel bij 'één keuze' of 'keuzelijst'."))
     target = int(skip_to_section_id) if skip_to_section_id.strip().isdigit() else None
     if target is not None:
         doel = next((s for s in form.sections if s.id == target), None)
         eigen = next((s for s in form.sections if s.id == veld.section_id), None)
         if doel is None or (eigen is not None and doel.position <= eigen.position):
             raise HTTPException(status_code=422,
-                                detail="Een vertakking moet naar een latere sectie springen.")
+                                detail=_("Een vertakking moet naar een latere sectie springen."))
     optie.label = label.strip() or optie.label
     optie.is_other = bool(is_other)
     optie.skip_to_section_id = target
@@ -359,7 +360,7 @@ def json_import(form_id: int, request: Request, db: Session = Depends(get_db),
         data = FormUpdate(**json.loads(payload))
     except (json.JSONDecodeError, ValueError) as exc:
         return _builder_response(request, db, form,
-                                 error=f"Ongeldige JSON: {exc}")
+                                 error=_("Ongeldige JSON: %(exc)s") % {"exc": exc})
     try:
         _validate_form_payload(data)
         form.title = data.title

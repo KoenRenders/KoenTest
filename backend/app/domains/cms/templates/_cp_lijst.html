@@ -8,13 +8,13 @@
       <span class="font-medium">{{ p.title }}</span>
       <span class="block text-xs text-gray-500">/{{ p.slug }}</span>
       <span class="mt-1 inline-flex gap-2">
-        {% if p.is_published %}{{ ui.badge("gepubliceerd", "green") }}{% else %}{{ ui.badge("concept", "gray") }}{% endif %}
-        {% if p.show_in_nav %}{{ ui.badge("in navigatie", "blue") }}{% endif %}
+        {% if p.is_published %}{{ ui.badge(_("gepubliceerd"), "green") }}{% else %}{{ ui.badge(_("concept"), "gray") }}{% endif %}
+        {% if p.show_in_nav %}{{ ui.badge(_("in navigatie"), "blue") }}{% endif %}
       </span>
     </button>
   </li>
   {% endfor %}
 </ul>
 {% else %}
-{{ ui.empty_state("Nog geen pagina's.") }}
+{{ ui.empty_state(_("Nog geen pagina's.")) }}
 {% endif %}

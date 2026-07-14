@@ -18,6 +18,7 @@ from .service import (
 from app.domains.audit.service import snapshot_payment_record
 from app.soft_delete import soft_delete
 from app.domains.activities.api import compute_registration_total
+from app.i18n import _
 
 router = APIRouter(prefix="/payment-status", tags=["payment-status"])
 
@@ -183,11 +184,11 @@ def refresh_payment_record(
     """
     record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
     if not record:
-        raise HTTPException(status_code=404, detail="Payment record not found")
+        raise HTTPException(status_code=404, detail=_("Payment record not found"))
     if record.method != "online" or not record.gateway_payment_id:
         raise HTTPException(
             status_code=400,
-            detail="Alleen online betalingen kunnen bij Mollie ververst worden.",
+            detail=_("Alleen online betalingen kunnen bij Mollie ververst worden."),
         )
 
     from app.domains.payment.gateway_service import refresh_payment_status
@@ -238,7 +239,7 @@ def get_registration_balance(
 
     reg = db.query(Registration).filter(Registration.id == registration_id).first()
     if not reg:
-        raise HTTPException(status_code=404, detail="Registration not found")
+        raise HTTPException(status_code=404, detail=_("Registration not found"))
     return RegistrationBalance(**registration_balance(db, reg))
 
 
@@ -251,7 +252,7 @@ def update_payment_record(
 ):
     record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
     if not record:
-        raise HTTPException(status_code=404, detail="Payment record not found")
+        raise HTTPException(status_code=404, detail=_("Payment record not found"))
 
     if data.amount_paid is not None:
         # Tekengevoelige grens (#219): een charge heeft een positief bedrag → betaald
@@ -260,7 +261,7 @@ def update_payment_record(
         if not (lo <= data.amount_paid <= hi):
             raise HTTPException(
                 status_code=400,
-                detail=f"Betaald bedrag ({data.amount_paid}) moet tussen {lo} en {hi} liggen.",
+                detail=_("Betaald bedrag (%(amount)s) moet tussen %(lo)s en %(hi)s liggen.") % {"amount": data.amount_paid, "lo": lo, "hi": hi},
             )
 
     if data.status == "paid":
@@ -300,7 +301,7 @@ def delete_payment_record(
     met audit-snapshot zodat het financiële feit in de history bewaard blijft."""
     record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
     if not record:
-        raise HTTPException(status_code=404, detail="Payment record not found")
+        raise HTTPException(status_code=404, detail=_("Payment record not found"))
     # Een betaling waar effectief geld bewoog, mag niet verdwijnen (#218):
     #   1) een online betaling die Mollie als 'paid' bevestigde;
     #   2) elk record met een betaald/ontvangen bedrag (cash/overschrijving bevestigd,
@@ -309,12 +310,12 @@ def delete_payment_record(
     if record.method == "online" and record.status == "paid":
         raise HTTPException(
             status_code=400,
-            detail="Een door Mollie betaalde online betaling kan niet verwijderd worden.",
+            detail=_("Een door Mollie betaalde online betaling kan niet verwijderd worden."),
         )
     if record.amount_paid is not None and record.amount_paid != 0:
         raise HTTPException(
             status_code=400,
-            detail="Een betaling met een ontvangen/betaald bedrag kan niet verwijderd worden.",
+            detail=_("Een betaling met een ontvangen/betaald bedrag kan niet verwijderd worden."),
         )
     snapshot_payment_record(
         db, record,

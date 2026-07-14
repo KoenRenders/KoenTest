@@ -16,6 +16,7 @@ from app.database import get_db
 from app.domains.activities.models import Activity, ActivityProduct, ActivitySubRegistration
 from app.limiter import registration_limiter
 from app.ui import templates
+from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
 
@@ -67,7 +68,7 @@ def _component_or_404(db: Session, activity_id: int, component_id: int):
                  .filter(ActivitySubRegistration.id == component_id,
                          ActivitySubRegistration.activity_id == activity_id).first())
     if activity is None or component is None:
-        raise HTTPException(status_code=404, detail="Activiteit niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     return activity, component
 
 

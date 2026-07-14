@@ -10,6 +10,7 @@ from app.domains.mdm.api import GenderCode, RelationTypeCode
 from app.domains.auth.api import User
 from app.schemas.cms import CmsPageCreate, CmsPageUpdate, CmsPageResponse
 from app.domains.cms.render import render_cms_content
+from app.i18n import _
 
 router = APIRouter(tags=["cms"])
 
@@ -36,7 +37,7 @@ def list_pages(db: Session = Depends(get_db)):
 def get_page(slug: str, db: Session = Depends(get_db)):
     page = db.query(CmsPage).filter(CmsPage.slug == slug, CmsPage.is_published == True).first()
     if not page:
-        raise HTTPException(status_code=404, detail="Page not found")
+        raise HTTPException(status_code=404, detail=_("Page not found"))
     return _public_page(page)
 
 
@@ -45,7 +46,7 @@ def get_block(slug: str, db: Session = Depends(get_db)):
     """Fetch a CMS page as an embedded content block, regardless of published status."""
     page = db.query(CmsPage).filter(CmsPage.slug == slug).first()
     if not page:
-        raise HTTPException(status_code=404, detail="Block not found")
+        raise HTTPException(status_code=404, detail=_("Block not found"))
     return _public_page(page)
 
 
@@ -83,7 +84,7 @@ def create_page(
 ):
     existing = db.query(CmsPage).filter(CmsPage.slug == data.slug).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Slug already exists")
+        raise HTTPException(status_code=400, detail=_("Slug already exists"))
 
     page = CmsPage(
         title=data.title,
@@ -108,12 +109,12 @@ def update_page(
 ):
     page = db.query(CmsPage).filter(CmsPage.id == page_id).first()
     if not page:
-        raise HTTPException(status_code=404, detail="Page not found")
+        raise HTTPException(status_code=404, detail=_("Page not found"))
 
     if data.slug and data.slug != page.slug:
         existing = db.query(CmsPage).filter(CmsPage.slug == data.slug).first()
         if existing:
-            raise HTTPException(status_code=400, detail="Slug already exists")
+            raise HTTPException(status_code=400, detail=_("Slug already exists"))
 
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(page, field, value)
@@ -131,7 +132,7 @@ def delete_page(
 ):
     page = db.query(CmsPage).filter(CmsPage.id == page_id).first()
     if not page:
-        raise HTTPException(status_code=404, detail="Page not found")
+        raise HTTPException(status_code=404, detail=_("Page not found"))
     db.delete(page)
     db.commit()
     return {"detail": "Page deleted"}

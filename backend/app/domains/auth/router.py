@@ -46,6 +46,7 @@ router = APIRouter(tags=["auth"])
 # Gebruikersbeheer (backoffice-accounts + rollen) hoort bij het auth-component;
 # de composer mount enkel deze router.
 from app.domains.auth.users import router as _users_router  # noqa: E402
+from app.i18n import _
 
 router.include_router(_users_router)
 
@@ -133,7 +134,7 @@ def verify_login(token: str, response: Response, db: Session = Depends(get_db)):
         .first()
     )
     if not login_token or login_token.expires_at.replace(tzinfo=timezone.utc) < now:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Ongeldige of verlopen inloglink.")
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=_("Ongeldige of verlopen inloglink."))
 
     login_token.used = True
     db.commit()
@@ -182,7 +183,7 @@ def verify_otp(body: OtpVerifyRequest, response: Response, db: Session = Depends
         # Generieke melding: lek geen onderscheid tussen "geen token", "code fout"
         # en "te veel pogingen" — geen bruikbare feedback voor brute-force (#268).
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED, detail="Ongeldige of verlopen code."
+            status_code=status.HTTP_401_UNAUTHORIZED, detail=_("Ongeldige of verlopen code.")
         )
     _set_ui_session(response, email)
     return TokenResponse(access_token=create_access_token(data={"sub": email}))
@@ -266,9 +267,9 @@ def create_api_key(body: ApiKeyCreate, db: Session = Depends(get_db),
                    _=Depends(get_current_admin)):
     name = body.name.strip()
     if not name:
-        raise HTTPException(status_code=400, detail="Naam is verplicht.")
+        raise HTTPException(status_code=400, detail=_("Naam is verplicht."))
     if db.query(ApiKey).filter(ApiKey.name == name).first():
-        raise HTTPException(status_code=400, detail="Naam is al in gebruik.")
+        raise HTTPException(status_code=400, detail=_("Naam is al in gebruik."))
     plaintext = secrets.token_urlsafe(32)
     entry = ApiKey(name=name, key_hash=hash_api_key(plaintext))
     db.add(entry)
@@ -283,6 +284,6 @@ def revoke_api_key(key_id: int, db: Session = Depends(get_db),
                    _=Depends(get_current_admin)):
     entry = db.query(ApiKey).filter(ApiKey.id == key_id).first()
     if entry is None:
-        raise HTTPException(status_code=404, detail="API-key niet gevonden.")
+        raise HTTPException(status_code=404, detail=_("API-key niet gevonden."))
     entry.is_active = False
     db.commit()

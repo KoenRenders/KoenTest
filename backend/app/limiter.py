@@ -9,6 +9,7 @@ import time
 from collections import defaultdict
 from datetime import date
 from fastapi import Request, HTTPException, status
+from app.i18n import _
 
 
 def _client_ip(request: Request) -> str:
@@ -45,7 +46,7 @@ class RateLimiter:
             self._calls[key] = recent
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Te veel pogingen. Probeer later opnieuw.",
+                detail=_("Te veel pogingen. Probeer later opnieuw."),
             )
         recent.append(now)
         self._calls[key] = recent
@@ -76,7 +77,7 @@ class DailyCharBudget:
         if self._usage[key] + chars > self.max_chars:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=(
+                detail=_(
                     "Je hebt vandaag veel met Raakje gechat. Probeer het morgen "
                     "opnieuw, of laat je vraag achter via het ideeënformulier."
                 ),

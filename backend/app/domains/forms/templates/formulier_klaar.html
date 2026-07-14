@@ -1,19 +1,19 @@
 {% extends "site_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}Bedankt — Raak{% endblock %}
+{% block title %}{{ _("Bedankt — Raak") }}{% endblock %}
 {% block content %}
 <div class="max-w-md mx-auto">
 {% if updated %}
-{{ ui.success_banner("✅ Je wijzigingen zijn opgeslagen.") }}
+{{ ui.success_banner(_("✅ Je wijzigingen zijn opgeslagen.")) }}
 {% else %}
-{{ ui.success_banner("✅ Bedankt! Je inzending is ontvangen." ~ (" Je krijgt een bevestiging per e-mail." if form.send_confirmation and not form.is_anonymous else "")) }}
+{{ ui.success_banner(_("✅ Bedankt! Je inzending is ontvangen.") ~ (_(" Je krijgt een bevestiging per e-mail.") if form.send_confirmation and not form.is_anonymous else "")) }}
 {% endif %}
 {% if form.confirmation_message %}
 <p class="text-gray-700 mt-4 whitespace-pre-wrap">{{ form.confirmation_message }}</p>
 {% endif %}
 {% if edit_link %}
-<p class="text-sm text-gray-500 mt-4">Je kunt je inzending later nog aanpassen via de link in je bevestigingsmail.</p>
+<p class="text-sm text-gray-500 mt-4">{{ _("Je kunt je inzending later nog aanpassen via de link in je bevestigingsmail.") }}</p>
 {% endif %}
-<a class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg inline-block mt-6" href="/">Naar de startpagina</a>
+<a class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg inline-block mt-6" href="/">{{ _("Naar de startpagina") }}</a>
 </div>
 {% endblock %}

@@ -22,6 +22,7 @@ from app.domains.chatbot.providers import get_provider
 from app.domains.chatbot.service import run_chat
 from app.limiter import DailyCharBudget, chat_limiter
 from app.schemas.chat import ChatRequest
+from app.i18n import _
 
 logger = logging.getLogger(__name__)
 
@@ -44,7 +45,7 @@ def chat(
 ):
     # Hoofdschakelaar (CHAT_ENABLED in .env). Uit → endpoint bestaat 'niet'.
     if not settings.chat_enabled:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Niet gevonden")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_("Niet gevonden"))
 
     # Dagbudget: tel enkel wat de bezoeker zelf typte (user-berichten).
     typed = sum(len(m.content) for m in data.messages if m.role == "user")

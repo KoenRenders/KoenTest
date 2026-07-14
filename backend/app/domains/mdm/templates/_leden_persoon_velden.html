@@ -1,21 +1,21 @@
 {# Herbruikbare persoonsvelden; verwacht prefix-loze namen. Waarden via `p` (of leeg). #}
 {% import "_macros.html" as ui %}
 <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-  <div>{{ ui.label("Voornaam", "first_name", required=True) }}
+  <div>{{ ui.label(_("Voornaam"), "first_name", required=True) }}
     <input name="first_name" id="first_name" required value="{{ p.first_name if p else '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-  <div>{{ ui.label("Achternaam", "last_name", required=True) }}
+  <div>{{ ui.label(_("Achternaam"), "last_name", required=True) }}
     <input name="last_name" id="last_name" required value="{{ p.last_name if p else '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-  <div>{{ ui.label("Geboortedatum", "date_of_birth") }}
+  <div>{{ ui.label(_("Geboortedatum"), "date_of_birth") }}
     <input type="date" name="date_of_birth" id="date_of_birth" value="{{ p.date_of_birth if p and p.date_of_birth else '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-  <div>{{ ui.label("Geslacht", "gender_code") }}
+  <div>{{ ui.label(_("Geslacht"), "gender_code") }}
     <select name="gender_code" id="gender_code" class="w-full border border-gray-300 rounded-lg px-3 py-2">
       <option value="">—</option>
       {% for g in gender_codes %}<option value="{{ g.code }}" {% if p and p.gender == g.code %}selected{% endif %}>{{ g.value }}</option>{% endfor %}
     </select></div>
-  <div>{{ ui.label("E-mail", "contact_email") }}
+  <div>{{ ui.label(_("E-mail"), "contact_email") }}
     <input type="email" name="contact_email" id="contact_email" value="{{ p.email if p and p.email else '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-  <div>{{ ui.label("GSM", "mobile") }}
+  <div>{{ ui.label(_("GSM"), "mobile") }}
     <input name="mobile" id="mobile" value="{{ p.mobile if p and p.mobile else '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-  <div>{{ ui.label("Telefoon", "phone") }}
+  <div>{{ ui.label(_("Telefoon"), "phone") }}
     <input name="phone" id="phone" value="{{ p.phone if p and p.phone else '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
 </div>

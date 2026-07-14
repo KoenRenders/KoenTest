@@ -1,21 +1,21 @@
 {% extends "public_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}Raakje — Raak{% endblock %}
+{% block title %}{{ _("Raakje — Raak") }}{% endblock %}
 {% block content %}
 {% call ui.card() %}
   <h1 class="text-2xl font-bold text-blue-800 mb-2">Raakje 🤖</h1>
   {% if not enabled %}
-  <p class="text-gray-600">Raakje is momenteel niet beschikbaar.</p>
+  <p class="text-gray-600">{{ _("Raakje is momenteel niet beschikbaar.") }}</p>
   {% else %}
-  <p class="text-gray-600 mb-6">Stel je vraag over Raak Millegem — activiteiten, lid worden, praktisch.</p>
+  <p class="text-gray-600 mb-6">{{ _("Stel je vraag over Raak Millegem — activiteiten, lid worden, praktisch.") }}</p>
   <div id="raakje-gesprek" class="space-y-4 mb-4"></div>
   <form hx-post="/raakje/vraag" hx-target="#raakje-gesprek" hx-swap="beforeend"
         hx-on::after-request="this.reset()" class="flex gap-2">
-    <input name="vraag" required placeholder="Typ je vraag…"
+    <input name="vraag" required placeholder="{{ _('Typ je vraag…') }}"
            class="flex-1 border border-gray-300 rounded-lg px-3 py-2">
-    {{ ui.btn_primary("Vraag") }}
+    {{ ui.btn_primary(_("Vraag")) }}
   </form>
-  {{ ui.loading("Raakje denkt na…") }}
+  {{ ui.loading(_("Raakje denkt na…")) }}
   {% endif %}
 {% endcall %}
 {% endblock %}

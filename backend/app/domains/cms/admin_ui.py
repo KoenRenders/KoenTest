@@ -15,6 +15,7 @@ from app.domains.auth.api import (
     SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.ui import admin_nav, templates
+from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
 
@@ -71,7 +72,7 @@ def pagina_aanmaken(request: Request, db: Session = Depends(get_db),
     from app.schemas.cms import CmsPageCreate
 
     if not title.strip() or not slug.strip():
-        raise HTTPException(status_code=400, detail="Titel en slug zijn verplicht.")
+        raise HTTPException(status_code=400, detail=_("Titel en slug zijn verplicht."))
     create_page(CmsPageCreate(title=title.strip(), slug=slug.strip().lower()),
                 db=db, _admin=None)  # type: ignore[arg-type]
     return templates.TemplateResponse(request, "_cp_lijst.html", _lijst_ctx(db))
@@ -90,7 +91,7 @@ def pagina_bijwerken(page_id: int, request: Request, db: Session = Depends(get_d
     try:
         volgorde = int(sort_order or "0")
     except ValueError:
-        raise HTTPException(status_code=400, detail="Ongeldige volgorde.")
+        raise HTTPException(status_code=400, detail=_("Ongeldige volgorde."))
     # CmsPageUpdate slaat None-velden over (exclude_none) — booleans en content
     # moeten dus altijd een waarde meekrijgen, anders kun je nooit uitvinken.
     data = CmsPageUpdate(

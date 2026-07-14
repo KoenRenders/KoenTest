@@ -4,10 +4,10 @@
   <button class="w-full text-left px-3 py-2 rounded-lg text-sm border bg-white border-gray-200 hover:bg-gray-50"
           hx-get="/admin/formulieren/{{ f.id }}" hx-target="#fb-detail" hx-swap="innerHTML">
     <div class="font-medium">{{ f.title }}
-      {% if f.status == "open" %}{{ ui.badge("open", "green") }}{% elif f.status == "closed" %}{{ ui.badge("gesloten", "red") }}{% else %}{{ ui.badge("concept", "yellow") }}{% endif %}</div>
+      {% if f.status == "open" %}{{ ui.badge(_("open"), "green") }}{% elif f.status == "closed" %}{{ ui.badge(_("gesloten"), "red") }}{% else %}{{ ui.badge(_("concept"), "yellow") }}{% endif %}</div>
     <div class="text-xs text-gray-500">/formulier/{{ f.share_token }}</div>
   </button>
   {% else %}
-  {{ ui.empty_state("Nog geen formulieren.") }}
+  {{ ui.empty_state(_("Nog geen formulieren.")) }}
   {% endfor %}
 </div>

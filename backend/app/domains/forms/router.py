@@ -35,6 +35,7 @@ from app.domains.forms.service import build_answers, assert_open_for_submission
 from app.domains.forms.results import compute_results
 from app.domains.forms.export import export_ods, build_submissions_view
 from app.domains.mail.api import send_form_confirmation
+from app.i18n import _
 
 logger = logging.getLogger(__name__)
 
@@ -46,50 +47,50 @@ def _new_token() -> str:
 
 
 def _unique_share_token(db: Session) -> str:
-    for _ in range(10):
+    for _poging in range(10):
         tok = _new_token()
         if not db.query(Form.id).filter(Form.share_token == tok).first():
             return tok
-    raise HTTPException(status_code=500, detail="Kon geen unieke deellink genereren.")
+    raise HTTPException(status_code=500, detail=_("Kon geen unieke deellink genereren."))
 
 
 def _validate_form_payload(data) -> None:
     if data.status not in FORM_STATUSES:
-        raise HTTPException(status_code=422, detail=f"Ongeldige status: {data.status}")
+        raise HTTPException(status_code=422, detail=_("Ongeldige status: %(status)s") % {"status": data.status})
     sections = getattr(data, "sections", []) or []
     n_sections = len(sections)
     # Sectie-navigatie moet vooruit springen (geen lus).
     for i, s in enumerate(sections):
         if s.next_section_index is not None:
             if not (0 <= s.next_section_index < n_sections):
-                raise HTTPException(status_code=422, detail="Ongeldige doelsectie.")
+                raise HTTPException(status_code=422, detail=_("Ongeldige doelsectie."))
             if s.next_section_index <= i:
                 raise HTTPException(
                     status_code=422,
-                    detail="Een sectie-sprong moet naar een latere sectie gaan.",
+                    detail=_("Een sectie-sprong moet naar een latere sectie gaan."),
                 )
     for f in data.fields:
         if f.field_type not in FIELD_TYPES:
-            raise HTTPException(status_code=422, detail=f"Ongeldig veldtype: {f.field_type}")
+            raise HTTPException(status_code=422, detail=_("Ongeldig veldtype: %(field_type)s") % {"field_type": f.field_type})
         # Vraag/label is verplicht (#340).
         if not (f.label or "").strip():
-            raise HTTPException(status_code=422, detail="Elk veld heeft een vraag/label nodig.")
+            raise HTTPException(status_code=422, detail=_("Elk veld heeft een vraag/label nodig."))
         for o in f.options:
             has_skip = o.skip_to_section_index is not None or o.skip_to_end
             if has_skip and f.field_type not in ("radio", "select"):
                 raise HTTPException(
                     status_code=422,
-                    detail="Vertakking kan enkel bij 'één keuze' of 'keuzelijst'.",
+                    detail=_("Vertakking kan enkel bij 'één keuze' of 'keuzelijst'."),
                 )
             # Vooruit-sprong afdwingen (geen lus): doelsectie moet ná de sectie van
             # het veld komen. Secties zijn geordend volgens hun index in de payload.
             if o.skip_to_section_index is not None:
                 if not (0 <= o.skip_to_section_index < n_sections):
-                    raise HTTPException(status_code=422, detail="Ongeldige doelsectie voor vertakking.")
+                    raise HTTPException(status_code=422, detail=_("Ongeldige doelsectie voor vertakking."))
                 if f.section_index is not None and o.skip_to_section_index <= f.section_index:
                     raise HTTPException(
                         status_code=422,
-                        detail="Een vertakking moet naar een latere sectie springen.",
+                        detail=_("Een vertakking moet naar een latere sectie springen."),
                     )
 
 
@@ -254,7 +255,7 @@ def get_form(
 ):
     form = db.query(Form).filter(Form.id == form_id).first()
     if not form:
-        raise HTTPException(status_code=404, detail="Formulier niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
     return _admin_out(db, form)
 
 
@@ -268,7 +269,7 @@ def update_form(
     _validate_form_payload(data)
     form = db.query(Form).filter(Form.id == form_id).first()
     if not form:
-        raise HTTPException(status_code=404, detail="Formulier niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
     form.title = data.title
     form.slug = data.slug
     form.description = data.description
@@ -293,7 +294,7 @@ def delete_form(
 ):
     form = db.query(Form).filter(Form.id == form_id).first()
     if not form:
-        raise HTTPException(status_code=404, detail="Formulier niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
     db.delete(form)
     db.commit()
 
@@ -306,7 +307,7 @@ def form_results(
 ):
     form = db.query(Form).filter(Form.id == form_id).first()
     if not form:
-        raise HTTPException(status_code=404, detail="Formulier niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
     return compute_results(db, form)
 
 
@@ -319,7 +320,7 @@ def list_submissions(
     """Individuele inzendingen (admin-only, #356) — bevat de antwoorden per veld."""
     form = db.query(Form).filter(Form.id == form_id).first()
     if not form:
-        raise HTTPException(status_code=404, detail="Formulier niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
     return build_submissions_view(db, form)
 
 
@@ -337,7 +338,7 @@ def delete_submission(
         .first()
     )
     if not sub:
-        raise HTTPException(status_code=404, detail="Inzending niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Inzending niet gevonden"))
     db.delete(sub)
     db.commit()
 
@@ -351,10 +352,10 @@ def export_form(
 ):
     form = db.query(Form).filter(Form.id == form_id).first()
     if not form:
-        raise HTTPException(status_code=404, detail="Formulier niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
     safe = re.sub(r"[^A-Za-z0-9_-]+", "_", form.title or "formulier").strip("_") or "formulier"
     if format != "ods":
-        raise HTTPException(status_code=422, detail="Ongeldig formaat (enkel ods).")
+        raise HTTPException(status_code=422, detail=_("Ongeldig formaat (enkel ods)."))
     return Response(
         content=export_ods(db, form),
         media_type="application/vnd.oasis.opendocument.spreadsheet",
@@ -368,7 +369,7 @@ def _load_public_form(db: Session, share_token: str) -> Form:
     form = db.query(Form).filter(Form.share_token == share_token).first()
     # Concept-formulieren zijn niet publiek zichtbaar.
     if not form or form.status == "draft":
-        raise HTTPException(status_code=404, detail="Formulier niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
     return form
 
 
@@ -454,7 +455,7 @@ def _answers_payload(submission: FormSubmission) -> list:
 def get_editable_submission(edit_token: str, db: Session = Depends(get_db)):
     submission = db.query(FormSubmission).filter(FormSubmission.edit_token == edit_token).first()
     if not submission:
-        raise HTTPException(status_code=404, detail="Inzending niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Inzending niet gevonden"))
     form = db.query(Form).filter(Form.id == submission.form_id).first()
     return {
         "form": form,
@@ -475,12 +476,12 @@ def update_submission(
 
     submission = db.query(FormSubmission).filter(FormSubmission.edit_token == edit_token).first()
     if not submission:
-        raise HTTPException(status_code=404, detail="Inzending niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Inzending niet gevonden"))
     form = db.query(Form).filter(Form.id == submission.form_id).first()
     if not form or not form.allow_edit:
-        raise HTTPException(status_code=403, detail="Wijzigen is niet toegestaan.")
+        raise HTTPException(status_code=403, detail=_("Wijzigen is niet toegestaan."))
     if form.status != "open":
-        raise HTTPException(status_code=403, detail="Dit formulier staat niet (meer) open.")
+        raise HTTPException(status_code=403, detail=_("Dit formulier staat niet (meer) open."))
 
     answers = build_answers(form, data.answers)
     submission.answers.clear()

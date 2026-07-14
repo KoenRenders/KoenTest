@@ -1,25 +1,25 @@
 {% extends "site_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}Mijn gezin — Raak{% endblock %}
+{% block title %}{{ _("Mijn gezin — Raak") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-2">Mijn gezin</h1>
+<h1 class="text-2xl font-bold text-blue-800 mb-2">{{ _("Mijn gezin") }}</h1>
 {{ ui.error_banner(error|default(None)) }}
 
 {# Lidmaatschapsstatus + vernieuwen #}
 {% call ui.card() %}
   {% if valid_until %}
-  <p class="text-sm text-gray-700">✅ Lidmaatschap geldig tot <strong>{{ valid_until.strftime("%d-%m-%Y") }}</strong>.</p>
+  <p class="text-sm text-gray-700">✅ {{ _("Lidmaatschap geldig tot") }} <strong>{{ valid_until.strftime("%d-%m-%Y") }}</strong>.</p>
   {% else %}
-  <p class="text-sm text-gray-700">Je gezin heeft momenteel geen geldig lidmaatschap.</p>
+  <p class="text-sm text-gray-700">{{ _("Je gezin heeft momenteel geen geldig lidmaatschap.") }}</p>
   {% endif %}
   {% if renewal_available %}
   <form class="mt-3" hx-post="/leden/gezin/vernieuwen" hx-target="body" hx-swap="innerHTML"
-        hx-confirm="Lidmaatschap vernieuwen en online betalen?">
-    {{ ui.btn_primary("Lidmaatschap vernieuwen (online betalen)") }}
+        hx-confirm="{{ _('Lidmaatschap vernieuwen en online betalen?') }}">
+    {{ ui.btn_primary(_("Lidmaatschap vernieuwen (online betalen)")) }}
   </form>
   {% endif %}
   {% if household.board_member_name %}
-  <p class="text-xs text-gray-500 mt-3">Verantwoordelijk bestuurslid: {{ household.board_member_name }}</p>
+  <p class="text-xs text-gray-500 mt-3">{{ _("Verantwoordelijk bestuurslid:") }} {{ household.board_member_name }}</p>
   {% endif %}
 {% endcall %}
 
@@ -41,42 +41,42 @@
         {% endif %}
       </div>
       <div class="flex gap-2 shrink-0 ml-4">
-        {{ ui.btn_secondary("Bewerken", attrs='@click="edit = true"') }}
+        {{ ui.btn_secondary(_("Bewerken"), attrs='@click="edit = true"') }}
         {% if p.id != person_id %}
-        {{ ui.btn_danger("Verwijderen", attrs='hx-post="/leden/gezin/personen/' ~ p.id ~ '/verwijderen" hx-target="body" hx-swap="innerHTML" ' ~ ui.confirm_attrs("Gezinslid", p.first_name ~ " " ~ p.last_name)) }}
+        {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/leden/gezin/personen/' ~ p.id ~ '/verwijderen" hx-target="body" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Gezinslid"), p.first_name ~ " " ~ p.last_name)) }}
         {% endif %}
       </div>
     </div>
     <form x-show="edit" x-cloak class="space-y-3"
           hx-post="/leden/gezin/personen/{{ p.id }}" hx-target="body" hx-swap="innerHTML">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>{{ ui.label("Voornaam", "pf-" ~ p.id, required=True) }}
+        <div>{{ ui.label(_("Voornaam"), "pf-" ~ p.id, required=True) }}
           <input name="first_name" id="pf-{{ p.id }}" required value="{{ p.first_name }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label("Achternaam", "pl-" ~ p.id, required=True) }}
+        <div>{{ ui.label(_("Achternaam"), "pl-" ~ p.id, required=True) }}
           <input name="last_name" id="pl-{{ p.id }}" required value="{{ p.last_name }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label("Geboortedatum", "pd-" ~ p.id) }}
+        <div>{{ ui.label(_("Geboortedatum"), "pd-" ~ p.id) }}
           <input type="date" name="date_of_birth" id="pd-{{ p.id }}" value="{{ p.date_of_birth or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label("Geslacht", "pg-" ~ p.id) }}
+        <div>{{ ui.label(_("Geslacht"), "pg-" ~ p.id) }}
           <select name="gender_code" id="pg-{{ p.id }}" class="w-full border border-gray-300 rounded-lg px-3 py-2">
             <option value="">—</option>
             {% for g in gender_codes %}<option value="{{ g.code }}" {% if p.gender_code == g.code %}selected{% endif %}>{{ g.value }}</option>{% endfor %}
           </select></div>
-        <div>{{ ui.label("E-mail", "pe-" ~ p.id) }}
+        <div>{{ ui.label(_("E-mail"), "pe-" ~ p.id) }}
           <input type="email" name="contact_email" id="pe-{{ p.id }}" value="{{ p.email or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label("GSM", "pm-" ~ p.id) }}
+        <div>{{ ui.label(_("GSM"), "pm-" ~ p.id) }}
           <input name="mobile" id="pm-{{ p.id }}" value="{{ p.mobile or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label("Telefoon", "pp-" ~ p.id) }}
+        <div>{{ ui.label(_("Telefoon"), "pp-" ~ p.id) }}
           <input name="phone" id="pp-{{ p.id }}" value="{{ p.phone or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
       </div>
       {% if p.address %}
       <div class="grid grid-cols-4 gap-3">
-        <div class="col-span-2">{{ ui.label("Straat", "ps-" ~ p.id) }}
+        <div class="col-span-2">{{ ui.label(_("Straat"), "ps-" ~ p.id) }}
           <input name="street" id="ps-{{ p.id }}" value="{{ p.address.street }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label("Huisnummer", "ph-" ~ p.id) }}
+        <div>{{ ui.label(_("Huisnummer"), "ph-" ~ p.id) }}
           <input name="house_number" id="ph-{{ p.id }}" value="{{ p.address.house_number }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label("Bus", "pb-" ~ p.id) }}
+        <div>{{ ui.label(_("Bus"), "pb-" ~ p.id) }}
           <input name="bus_number" id="pb-{{ p.id }}" value="{{ p.address.bus_number or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div class="col-span-4">{{ ui.label("Postcode", "pc-" ~ p.id) }}
+        <div class="col-span-4">{{ ui.label(_("Postcode"), "pc-" ~ p.id) }}
           <select name="postal_code" id="pc-{{ p.id }}" class="w-full border border-gray-300 rounded-lg px-3 py-2">
             {% for pc in postal_codes %}
             <option value="{{ pc.postal_code }}" {% if p.address.postal_code == pc.postal_code %}selected{% endif %}>{{ pc.postal_code }} {{ pc.municipality }}</option>
@@ -85,26 +85,26 @@
       </div>
       {% endif %}
       <div class="flex gap-2">
-        {{ ui.btn_primary("Opslaan") }}
-        {{ ui.btn_secondary("Annuleren", attrs='@click="edit = false"') }}
+        {{ ui.btn_primary(_("Opslaan")) }}
+        {{ ui.btn_secondary(_("Annuleren"), attrs='@click="edit = false"') }}
       </div>
     </form>
   </div>
   {% endfor %}
 
   <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4" x-data="{ open: false }">
-    {{ ui.btn_secondary("+ Gezinslid toevoegen", attrs='@click="open = !open"') }}
+    {{ ui.btn_secondary(_("+ Gezinslid toevoegen"), attrs='@click="open = !open"') }}
     <form x-show="open" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3"
           hx-post="/leden/gezin/personen" hx-target="body" hx-swap="innerHTML">
-      <div>{{ ui.label("Voornaam", "np-first", required=True) }}
+      <div>{{ ui.label(_("Voornaam"), "np-first", required=True) }}
         <input name="first_name" id="np-first" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div>{{ ui.label("Achternaam", "np-last", required=True) }}
+      <div>{{ ui.label(_("Achternaam"), "np-last", required=True) }}
         <input name="last_name" id="np-last" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div>{{ ui.label("Geboortedatum", "np-dob") }}
+      <div>{{ ui.label(_("Geboortedatum"), "np-dob") }}
         <input type="date" name="date_of_birth" id="np-dob" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div>{{ ui.label("E-mail", "np-mail") }}
+      <div>{{ ui.label(_("E-mail"), "np-mail") }}
         <input type="email" name="contact_email" id="np-mail" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div class="sm:col-span-2">{{ ui.btn_primary("Toevoegen") }}</div>
+      <div class="sm:col-span-2">{{ ui.btn_primary(_("Toevoegen")) }}</div>
     </form>
   </div>
 </div>

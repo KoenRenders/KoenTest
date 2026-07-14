@@ -1,12 +1,12 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}Formulieren — Raak beheer{% endblock %}
+{% block title %}{{ _("Formulieren — Raak beheer") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-4">Formulieren</h1>
+<h1 class="text-2xl font-bold text-blue-800 mb-4">{{ _("Formulieren") }}</h1>
 <form class="flex gap-2 items-end mb-4" hx-post="/admin/formulieren" hx-target="#fb-detail" hx-swap="innerHTML">
-  <div>{{ ui.label("Nieuw formulier", "title", required=True) }}
+  <div>{{ ui.label(_("Nieuw formulier"), "title", required=True) }}
     <input name="title" id="title" required class="border border-gray-300 rounded-lg px-3 py-2"></div>
-  {{ ui.btn_primary("Aanmaken") }}
+  {{ ui.btn_primary(_("Aanmaken")) }}
 </form>
 <div class="flex flex-col lg:flex-row gap-6">
   <div class="lg:w-80 shrink-0" id="fb-lijst">

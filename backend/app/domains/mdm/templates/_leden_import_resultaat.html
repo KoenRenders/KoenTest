@@ -3,17 +3,17 @@
 {% if not error %}
 {% call ui.card() %}
   {% if stap == "preview" %}
-  <h2 class="font-bold text-lg mb-1">Controle geslaagd — nog niets gewijzigd</h2>
+  <h2 class="font-bold text-lg mb-1">{{ _("Controle geslaagd — nog niets gewijzigd") }}</h2>
   {% else %}
-  <h2 class="font-bold text-lg mb-1">Import uitgevoerd ✅</h2>
+  <h2 class="font-bold text-lg mb-1">{{ _("Import uitgevoerd") }} ✅</h2>
   {% endif %}
   <p class="text-sm text-gray-600 mb-4">{{ data.selected_families }} gezinnen, {{ data.total_persons }} personen in het rapport.</p>
   <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-4">
     {% for label, n in [
-      ("Nieuwe gezinnen", report.new_families), ("Bijgewerkte gezinnen", report.updated_families),
-      ("Personen toegevoegd", report.persons_added), ("Personen bijgewerkt", report.persons_updated),
-      ("Personen hersteld", report.persons_revived), ("Personen verwijderd", report.persons_removed),
-      ("Lidmaatschappen", report.memberships_created), ("Overgeslagen", report.skipped)] %}
+      (_("Nieuwe gezinnen"), report.new_families), (_("Bijgewerkte gezinnen"), report.updated_families),
+      (_("Personen toegevoegd"), report.persons_added), (_("Personen bijgewerkt"), report.persons_updated),
+      (_("Personen hersteld"), report.persons_revived), (_("Personen verwijderd"), report.persons_removed),
+      (_("Lidmaatschappen"), report.memberships_created), (_("Overgeslagen"), report.skipped)] %}
     <div class="rounded-lg border border-gray-200 p-3 text-center">
       <div class="text-2xl font-semibold">{{ n }}</div>
       <div class="text-xs text-gray-500">{{ label }}</div>
@@ -22,9 +22,9 @@
   </div>
   {% if stap == "preview" %}
   <form hx-post="/admin/leden-import/commit" hx-target="#import-resultaat" hx-swap="innerHTML"
-        hx-confirm="Definitief importeren? Dit overschrijft de ledendata met dit rapport.">
+        hx-confirm="{{ _('Definitief importeren? Dit overschrijft de ledendata met dit rapport.') }}">
     <input type="hidden" name="token" value="{{ data.token }}">
-    {{ ui.btn_primary("Definitief importeren") }}
+    {{ ui.btn_primary(_("Definitief importeren")) }}
   </form>
   {% endif %}
 {% endcall %}

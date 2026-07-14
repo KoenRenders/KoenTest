@@ -1,13 +1,13 @@
 {% extends "public_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}{{ "Archief" if scope == "archived" else "Activiteiten" }} — Raak{% endblock %}
+{% block title %}{{ _("Archief") if scope == "archived" else _("Activiteiten") }} — Raak{% endblock %}
 {% block content %}
 <div class="flex items-center justify-between mb-6">
-  <h1 class="text-2xl font-bold text-blue-800">{{ "Archief" if scope == "archived" else "Activiteiten" }}</h1>
+  <h1 class="text-2xl font-bold text-blue-800">{{ _("Archief") if scope == "archived" else _("Activiteiten") }}</h1>
   {% if scope == "archived" %}
-  <a class="text-sm text-blue-700 hover:underline" href="/activiteiten">← Naar de activiteiten</a>
+  <a class="text-sm text-blue-700 hover:underline" href="/activiteiten">← {{ _("Naar de activiteiten") }}</a>
   {% else %}
-  <a class="text-sm text-blue-700 hover:underline" href="/activiteiten/archief">Archief →</a>
+  <a class="text-sm text-blue-700 hover:underline" href="/activiteiten/archief">{{ _("Archief") }} →</a>
   {% endif %}
 </div>
 {% include "_activiteiten_cards.html" %}

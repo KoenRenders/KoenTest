@@ -48,6 +48,7 @@ from app.domains.audit.service import (
 from app.domains.activities.export import build_component_export_ods
 from app.soft_delete import soft_delete
 from app.limiter import registration_limiter
+from app.i18n import _
 
 router = APIRouter(tags=["activities"])
 
@@ -268,7 +269,7 @@ def update_activity(
         .first()
     )
     if not activity:
-        raise HTTPException(status_code=404, detail="Activity not found")
+        raise HTTPException(status_code=404, detail=_("Activity not found"))
     for field, value in data.model_dump(exclude_none=True).items():
         setattr(activity, field, value)
     snapshot_activity(db, activity, operation="update", action="activity_updated",
@@ -289,7 +290,7 @@ def delete_activity(
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
-        raise HTTPException(status_code=404, detail="Activity not found")
+        raise HTTPException(status_code=404, detail=_("Activity not found"))
     # Soft delete (#166): de hele boom mee markeren (datums, onderdelen, producten,
     # inschrijvingen, bestelregels). Betalingen blijven bestaan (financieel feit).
     for d in activity.dates:
@@ -326,7 +327,7 @@ def add_activity_date(
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
-        raise HTTPException(status_code=404, detail="Activity not found")
+        raise HTTPException(status_code=404, detail=_("Activity not found"))
     ad = ActivityDate(
         activity_id=activity_id,
         start_date=data.start_date,
@@ -356,7 +357,7 @@ def update_activity_date(
         ActivityDate.activity_id == activity_id,
     ).first()
     if not ad:
-        raise HTTPException(status_code=404, detail="Date not found")
+        raise HTTPException(status_code=404, detail=_("Date not found"))
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(ad, field, value)
     snapshot_activity_date(db, ad, operation="update", action="date_updated",
@@ -378,7 +379,7 @@ def delete_activity_date(
         ActivityDate.activity_id == activity_id,
     ).first()
     if not ad:
-        raise HTTPException(status_code=404, detail="Date not found")
+        raise HTTPException(status_code=404, detail=_("Date not found"))
     snapshot_activity_date(db, ad, operation="delete", action="date_deleted",
                            source="admin_manual", actor=admin.email)
     soft_delete(ad)
@@ -397,7 +398,7 @@ def add_component(
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
-        raise HTTPException(status_code=404, detail="Activity not found")
+        raise HTTPException(status_code=404, detail=_("Activity not found"))
     component = ActivitySubRegistration(
         activity_id=activity_id,
         name=data.name,
@@ -433,7 +434,7 @@ def update_component(
         ActivitySubRegistration.activity_id == activity_id,
     ).first()
     if not component:
-        raise HTTPException(status_code=404, detail="Component not found")
+        raise HTTPException(status_code=404, detail=_("Component not found"))
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(component, field, value)
     snapshot_component(db, component, operation="update", action="component_updated",
@@ -455,7 +456,7 @@ def delete_component(
         ActivitySubRegistration.activity_id == activity_id,
     ).first()
     if not component:
-        raise HTTPException(status_code=404, detail="Component not found")
+        raise HTTPException(status_code=404, detail=_("Component not found"))
     for p in component.products:
         snapshot_product(db, p, operation="delete", action="component_deleted",
                          source="admin_manual", actor=admin.email)
@@ -482,11 +483,11 @@ def add_product(
         ActivitySubRegistration.activity_id == activity_id,
     ).first()
     if not component:
-        raise HTTPException(status_code=404, detail="Component not found")
+        raise HTTPException(status_code=404, detail=_("Component not found"))
     if data.is_free and data.pay_on_site:
         raise HTTPException(
             status_code=422,
-            detail="Een product kan niet tegelijk gratis én ter plaatse te betalen zijn.",
+            detail=_("Een product kan niet tegelijk gratis én ter plaatse te betalen zijn."),
         )
     product = ActivityProduct(
         component_id=component_id,
@@ -521,13 +522,13 @@ def update_product(
         ActivityProduct.component_id == component_id,
     ).first()
     if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail=_("Product not found"))
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(product, field, value)
     if product.is_free and product.pay_on_site:
         raise HTTPException(
             status_code=422,
-            detail="Een product kan niet tegelijk gratis én ter plaatse te betalen zijn.",
+            detail=_("Een product kan niet tegelijk gratis én ter plaatse te betalen zijn."),
         )
     snapshot_product(db, product, operation="update", action="product_updated",
                      source="admin_manual", actor=admin.email)
@@ -549,7 +550,7 @@ def delete_product(
         ActivityProduct.component_id == component_id,
     ).first()
     if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail=_("Product not found"))
     snapshot_product(db, product, operation="delete", action="product_deleted",
                      source="admin_manual", actor=admin.email)
     soft_delete(product)
@@ -601,7 +602,7 @@ def get_registrations(
 ):
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
-        raise HTTPException(status_code=404, detail="Activity not found")
+        raise HTTPException(status_code=404, detail=_("Activity not found"))
     # Expliciete, stabiele sortering (#285): zonder ORDER BY geeft Postgres de
     # rijen in heap-volgorde terug, waardoor een bewerkte inschrijving (UPDATE,
     # bv. opmerking #283) naar onderen springt. Oud → nieuw, id als tiebreaker.
@@ -634,7 +635,7 @@ def export_component_ods(
         ActivitySubRegistration.activity_id == activity.id,
     ).first()
     if not component:
-        raise HTTPException(status_code=404, detail="Component not found")
+        raise HTTPException(status_code=404, detail=_("Component not found"))
 
     content = build_component_export_ods(db, activity, component)
     raw_name = f"{activity.name}-{component.name}"
@@ -651,7 +652,7 @@ def export_component_ods(
 def _load_activity_or_404(db: Session, activity_id: int) -> Activity:
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
-        raise HTTPException(status_code=404, detail="Activity not found")
+        raise HTTPException(status_code=404, detail=_("Activity not found"))
     return activity
 
 
@@ -661,7 +662,7 @@ def _load_registration_or_404(db: Session, activity: Activity, registration_id: 
         Registration.activity_id == activity.id,
     ).first()
     if not reg:
-        raise HTTPException(status_code=404, detail="Registration not found")
+        raise HTTPException(status_code=404, detail=_("Registration not found"))
     return reg
 
 
@@ -669,14 +670,14 @@ def _validate_order_product(db: Session, activity: Activity, reg: Registration, 
     """Een bestelregel mag enkel een product van dit onderdeel/deze activiteit bevatten."""
     product = db.query(ActivityProduct).filter(ActivityProduct.id == product_id).first()
     if not product:
-        raise HTTPException(status_code=404, detail="Product not found")
+        raise HTTPException(status_code=404, detail=_("Product not found"))
     comp = db.query(ActivitySubRegistration).filter(
         ActivitySubRegistration.id == product.component_id
     ).first()
     if not comp or comp.activity_id != activity.id:
-        raise HTTPException(status_code=400, detail="Product hoort niet bij deze activiteit.")
+        raise HTTPException(status_code=400, detail=_("Product hoort niet bij deze activiteit."))
     if reg.component_id is not None and product.component_id != reg.component_id:
-        raise HTTPException(status_code=400, detail="Product hoort niet bij het onderdeel van deze inschrijving.")
+        raise HTTPException(status_code=400, detail=_("Product hoort niet bij het onderdeel van deze inschrijving."))
     return product
 
 
@@ -709,7 +710,7 @@ def add_order_line(
     activity = _load_activity_or_404(db, activity_id)
     reg = _load_registration_or_404(db, activity, registration_id)
     if data.quantity < 1:
-        raise HTTPException(status_code=400, detail="Aantal moet minstens 1 zijn.")
+        raise HTTPException(status_code=400, detail=_("Aantal moet minstens 1 zijn."))
     _validate_order_product(db, activity, reg, data.product_id)
     # #197: bestaat er al een (niet-verwijderde) regel voor dit product, hoog dan het
     # aantal op i.p.v. een dubbele regel aan te maken.
@@ -752,13 +753,13 @@ def update_order_line(
         RegistrationItem.registration_id == reg.id,
     ).first()
     if not item:
-        raise HTTPException(status_code=404, detail="Order line not found")
+        raise HTTPException(status_code=404, detail=_("Order line not found"))
     if data.product_id is not None:
         _validate_order_product(db, activity, reg, data.product_id)
         item.product_id = data.product_id
     if data.quantity is not None:
         if data.quantity < 1:
-            raise HTTPException(status_code=400, detail="Aantal moet minstens 1 zijn; verwijder de regel om ze te schrappen.")
+            raise HTTPException(status_code=400, detail=_("Aantal moet minstens 1 zijn; verwijder de regel om ze te schrappen."))
         item.quantity = data.quantity
     db.flush()
     snapshot_registration_item(
@@ -784,7 +785,7 @@ def delete_order_line(
         RegistrationItem.registration_id == reg.id,
     ).first()
     if not item:
-        raise HTTPException(status_code=404, detail="Order line not found")
+        raise HTTPException(status_code=404, detail=_("Order line not found"))
     # Snapshot vóór de (soft) delete (#84/#166): de bronrij blijft bestaan maar
     # wordt gemarkeerd; de globale filter sluit ze uit bij de saldo-herberekening.
     snapshot_registration_item(
@@ -860,7 +861,7 @@ def get_public_registrations(
     """Return public participant list for a given component."""
     activity = db.query(Activity).filter(Activity.id == activity_id).first()
     if not activity:
-        raise HTTPException(status_code=404, detail="Activity not found")
+        raise HTTPException(status_code=404, detail=_("Activity not found"))
 
     result = []
     for reg in activity.registrations:
@@ -889,11 +890,11 @@ def register_for_activity(
         .first()
     )
     if not activity:
-        raise HTTPException(status_code=404, detail="Activity not found")
+        raise HTTPException(status_code=404, detail=_("Activity not found"))
 
     today = date.today()
     if not any(_is_future(d, today) for d in activity.dates):
-        raise HTTPException(status_code=400, detail="Activity is no longer open for registration")
+        raise HTTPException(status_code=400, detail=_("Activity is no longer open for registration"))
 
     if data.contact_email:
         existing_count = db.query(Registration).filter(
@@ -904,8 +905,9 @@ def register_for_activity(
         if existing_count >= settings.max_registrations_per_email:
             raise HTTPException(
                 status_code=409,
-                detail=f"Er zijn al {settings.max_registrations_per_email} inschrijvingen met dit "
-                       "e-mailadres voor dit onderdeel. Neem contact op met het bestuur als je er meer nodig hebt.",
+                detail=_("Er zijn al %(max)s inschrijvingen met dit "
+                         "e-mailadres voor dit onderdeel. Neem contact op met het bestuur als je er meer nodig hebt.")
+                % {"max": settings.max_registrations_per_email},
             )
 
     valid_product_ids = {
@@ -916,12 +918,12 @@ def register_for_activity(
         if item_data.product_id not in valid_product_ids:
             raise HTTPException(
                 status_code=400,
-                detail="Ongeldig product in de inschrijving.",
+                detail=_("Ongeldig product in de inschrijving."),
             )
         if item_data.quantity < 0 or item_data.quantity > settings.max_item_quantity:
             raise HTTPException(
                 status_code=400,
-                detail=f"Ongeldig aantal: kies een waarde tussen 0 en {settings.max_item_quantity}.",
+                detail=_("Ongeldig aantal: kies een waarde tussen 0 en %(max)s.") % {"max": settings.max_item_quantity},
             )
 
     new_qty = sum(i.quantity for i in data.items) if data.items else 1
@@ -939,7 +941,7 @@ def register_for_activity(
             if current_qty + new_qty > component.max_participants:
                 raise HTTPException(
                     status_code=400,
-                    detail="Dit onderdeel is volzet. Inschrijven is niet meer mogelijk.",
+                    detail=_("Dit onderdeel is volzet. Inschrijven is niet meer mogelijk."),
                 )
 
     registration = Registration(
@@ -975,7 +977,7 @@ def register_for_activity(
 
     db.flush()
     db.refresh(registration)
-    total_amount, _ = compute_registration_total(registration)
+    total_amount, _extra = compute_registration_total(registration)
 
     checkout_url = None
     payment_record = None
@@ -1007,14 +1009,14 @@ def register_for_activity(
                 db.rollback()
                 raise HTTPException(
                     status_code=502,
-                    detail="De online betaling kon niet gestart worden. Je inschrijving is niet bewaard — probeer ze later opnieuw.",
+                    detail=_("De online betaling kon niet gestart worden. Je inschrijving is niet bewaard — probeer ze later opnieuw."),
                 )
 
         if method == "online" and not checkout_url:
             db.rollback()
             raise HTTPException(
                 status_code=502,
-                detail="De online betaling kon niet gestart worden. Je inschrijving is niet bewaard — probeer ze later opnieuw.",
+                detail=_("De online betaling kon niet gestart worden. Je inschrijving is niet bewaard — probeer ze later opnieuw."),
             )
 
     # Business-event (#152): inschrijving voltooid. Geen PII — enkel niet-

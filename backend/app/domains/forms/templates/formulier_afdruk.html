@@ -15,12 +15,12 @@
   </style>
 </head>
 <body>
-  <p class="noprint"><button onclick="window.print()">🖨 Afdrukken</button></p>
+  <p class="noprint"><button onclick="window.print()">{{ _("🖨 Afdrukken") }}</button></p>
   <h1>{{ form.title }}</h1>
   {% if form.description %}<p>{{ form.description }}</p>{% endif %}
   {% if not form.is_anonymous %}
-  <div class="veld"><span class="label">Naam:</span><div class="lijn"></div></div>
-  <div class="veld"><span class="label">E-mailadres:</span><div class="lijn"></div></div>
+  <div class="veld"><span class="label">{{ _("Naam:") }}</span><div class="lijn"></div></div>
+  <div class="veld"><span class="label">{{ _("E-mailadres:") }}</span><div class="lijn"></div></div>
   {% endif %}
   {% macro afdruk_veld(f) %}
   <div class="veld">
@@ -43,7 +43,7 @@
   </div>
   {% endmacro %}
   {% for g in grouped %}
-  <h2>{{ g.section.title or "Sectie " ~ loop.index }}</h2>
+  <h2>{{ g.section.title or _("Sectie ") ~ loop.index }}</h2>
   {% if g.section.description %}<p class="hulp">{{ g.section.description }}</p>{% endif %}
   {% for f in g.fields %}{{ afdruk_veld(f) }}{% endfor %}
   {% endfor %}

@@ -19,6 +19,7 @@ from app.domains.auth.api import (
     SESSION_COOKIE, User, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.ui import admin_nav, templates
+from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
 
@@ -34,7 +35,7 @@ def _admin_user(db: Session, email: str) -> User:
             .filter(func.lower(User.email) == email.lower(), User.is_active == True)
             .first())
     if user is None:
-        raise HTTPException(status_code=401, detail="Niet aangemeld")
+        raise HTTPException(status_code=401, detail=_("Niet aangemeld"))
     return user
 
 
@@ -42,7 +43,7 @@ def _decimal(value: str, default: str = "0") -> Decimal:
     try:
         return Decimal((value or default).replace(",", "."))
     except InvalidOperation:
-        raise HTTPException(status_code=400, detail="Ongeldig bedrag.")
+        raise HTTPException(status_code=400, detail=_("Ongeldig bedrag."))
 
 
 def _opt_int(value: str) -> Optional[int]:
@@ -97,7 +98,7 @@ def activiteit_aanmaken(request: Request, db: Session = Depends(get_db),
     from app.schemas.activity import ActivityCreate, ActivityDateCreate
 
     if not name.strip() or not start_date:
-        raise HTTPException(status_code=400, detail="Naam en eerste datum zijn verplicht.")
+        raise HTTPException(status_code=400, detail=_("Naam en eerste datum zijn verplicht."))
     create_activity(ActivityCreate(
         name=name.strip(), location=location.strip() or None,
         members_only=bool(members_only),

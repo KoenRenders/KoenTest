@@ -51,6 +51,7 @@ from app.soft_delete import soft_delete
 from app.domains.mail.api import send_registration_confirmation
 from app.config import settings
 from app.limiter import registration_limiter
+from app.i18n import _
 
 
 router = APIRouter(tags=["members"])
@@ -118,7 +119,7 @@ def get_member(
 ):
     member = db.query(Member).filter(Member.id == member_id).first()
     if not member:
-        raise HTTPException(status_code=404, detail="Member not found")
+        raise HTTPException(status_code=404, detail=_("Member not found"))
     return member
 
 
@@ -143,7 +144,7 @@ def create_membership(
 ):
     member = db.query(Member).filter(Member.id == member_id).first()
     if not member:
-        raise HTTPException(status_code=404, detail="Member not found")
+        raise HTTPException(status_code=404, detail=_("Member not found"))
 
     existing = (
         db.query(Membership)
@@ -225,7 +226,7 @@ def get_family(
 ):
     m = db.query(Member).filter(Member.id == family_id).first()
     if not m:
-        raise HTTPException(status_code=404, detail="Family not found")
+        raise HTTPException(status_code=404, detail=_("Family not found"))
     return _build_family_response(m)
 
 
@@ -276,7 +277,7 @@ def create_membership_for_family(
 ):
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
-        raise HTTPException(status_code=404, detail="Family not found")
+        raise HTTPException(status_code=404, detail=_("Family not found"))
     existing = (
         db.query(Membership)
         .filter(Membership.member_id == family_id, Membership.year == data.year)
@@ -312,7 +313,7 @@ def delete_family(
 ):
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
-        raise HTTPException(status_code=404, detail="Family not found")
+        raise HTTPException(status_code=404, detail=_("Family not found"))
 
     # Soft delete (#166): snapshot vastleggen en deleted_at zetten — niets hard
     # verwijderen. Lidmaatschap-betalingen blijven bestaan (financieel feit); de
@@ -356,7 +357,7 @@ def update_person(
 ):
     person = db.query(Person).filter(Person.id == person_id).first()
     if not person:
-        raise HTTPException(status_code=404, detail="Person not found")
+        raise HTTPException(status_code=404, detail=_("Person not found"))
     # Enkel snapshotten wat écht wijzigt (#188): een formulier stuurt alle velden mee,
     # maar een onveranderd veld hoort geen history-rij te maken.
     changed = False
@@ -381,14 +382,14 @@ def update_person_address(
 ):
     person = db.query(Person).filter(Person.id == person_id).first()
     if not person:
-        raise HTTPException(status_code=404, detail="Person not found")
+        raise HTTPException(status_code=404, detail=_("Person not found"))
     address = person.address
     if not address:
-        raise HTTPException(status_code=404, detail="Address not found")
+        raise HTTPException(status_code=404, detail=_("Address not found"))
     if data.postal_code is not None:
         pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
         if not pc:
-            raise HTTPException(status_code=422, detail=f"Onbekende postcode: {data.postal_code}")
+            raise HTTPException(status_code=422, detail=_("Onbekende postcode: %(postal_code)s") % {"postal_code": data.postal_code})
         address.postal_code_id = pc.id
     for field in ("street", "house_number"):
         value = getattr(data, field)
@@ -412,7 +413,7 @@ def update_person_contacts(
 ):
     person = db.query(Person).filter(Person.id == person_id).first()
     if not person:
-        raise HTTPException(status_code=404, detail="Person not found")
+        raise HTTPException(status_code=404, detail=_("Person not found"))
 
     def _upsert_contact(type_code: str, value: Optional[str]):
         existing = next((c for c in person.contact_details if c.contact_type_code == type_code), None)
@@ -448,7 +449,7 @@ def delete_person(
 ):
     person = db.query(Person).filter(Person.id == person_id).first()
     if not person:
-        raise HTTPException(status_code=404, detail="Person not found")
+        raise HTTPException(status_code=404, detail=_("Person not found"))
     for contact in person.contact_details:
         snapshot_contact_detail(db, contact, operation="delete", action="person_deleted", source="admin_manual", actor=admin.email)
         soft_delete(contact)
@@ -474,7 +475,7 @@ def add_person_to_family(
 ):
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
-        raise HTTPException(status_code=404, detail="Family not found")
+        raise HTTPException(status_code=404, detail=_("Family not found"))
 
     person = Person(
         last_name=data.last_name,
@@ -513,7 +514,7 @@ def delete_membership(
 ):
     membership = db.query(Membership).filter(Membership.id == membership_id).first()
     if not membership:
-        raise HTTPException(status_code=404, detail="Membership not found")
+        raise HTTPException(status_code=404, detail=_("Membership not found"))
     snapshot_membership(db, membership, operation="delete", action="membership_deleted", source="admin_manual", actor=admin.email)
     soft_delete(membership)
     db.commit()
@@ -528,11 +529,11 @@ def assign_board_member(
 ):
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
-        raise HTTPException(status_code=404, detail="Family not found")
+        raise HTTPException(status_code=404, detail=_("Family not found"))
     if data.person_id is not None:
         person = db.query(Person).filter(Person.id == data.person_id).first()
         if not person:
-            raise HTTPException(status_code=404, detail="Person not found")
+            raise HTTPException(status_code=404, detail=_("Person not found"))
     member.board_member_id = data.person_id
     snapshot_member(db, member, operation="update", action="board_member_assigned", source="admin_update", actor=admin.email)
     db.commit()
@@ -545,7 +546,7 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
     """Public endpoint: register a new family (member household)."""
     pc = db.query(PostalCode).filter(PostalCode.postal_code == data.postal_code).first()
     if not pc:
-        raise HTTPException(status_code=422, detail=f"Onbekende postcode: {data.postal_code}")
+        raise HTTPException(status_code=422, detail=_("Onbekende postcode: %(postal_code)s") % {"postal_code": data.postal_code})
 
     today = date.today()
 
@@ -581,8 +582,8 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
                 if not recs or any(r.status in ("paid", "pending") for r in recs):
                     raise HTTPException(
                         status_code=409,
-                        detail=f"Er bestaat al een inschrijving voor {today.year} met dit e-mailadres. "
-                               "Neem contact op met het bestuur als dit niet klopt.",
+                        detail=_("Er bestaat al een inschrijving voor %(year)s met dit e-mailadres. "
+                                 "Neem contact op met het bestuur als dit niet klopt.") % {"year": today.year},
                     )
 
     member = Member()

@@ -1,22 +1,22 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}Activiteiten — Raak beheer{% endblock %}
+{% block title %}{{ _("Activiteiten — Raak beheer") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-4">Activiteiten</h1>
+<h1 class="text-2xl font-bold text-blue-800 mb-4">{{ _("Activiteiten") }}</h1>
 <div class="flex flex-col lg:flex-row gap-6">
   <div class="lg:w-80 shrink-0">
     <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-4" x-data="{ open: false }">
-      {{ ui.btn_secondary("+ Nieuwe activiteit", attrs='@click="open = !open"') }}
+      {{ ui.btn_secondary(_("+ Nieuwe activiteit"), attrs='@click="open = !open"') }}
       <form x-show="open" x-cloak class="space-y-3 mt-3"
             hx-post="/admin/activiteiten" hx-target="#aa-lijst" hx-swap="innerHTML">
-        <div>{{ ui.label("Naam", "name", required=True) }}
+        <div>{{ ui.label(_("Naam"), "name", required=True) }}
           <input name="name" id="name" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label("Eerste datum", "start_date", required=True) }}
+        <div>{{ ui.label(_("Eerste datum"), "start_date", required=True) }}
           <input type="date" name="start_date" id="start_date" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label("Locatie", "location") }}
+        <div>{{ ui.label(_("Locatie"), "location") }}
           <input name="location" id="location" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1"> Enkel voor leden</label>
-        {{ ui.btn_primary("Aanmaken") }}
+        <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1"> {{ _("Enkel voor leden") }}</label>
+        {{ ui.btn_primary(_("Aanmaken")) }}
       </form>
     </div>
     <div id="aa-lijst">

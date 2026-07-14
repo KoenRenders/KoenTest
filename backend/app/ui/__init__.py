@@ -45,7 +45,9 @@ _ADMIN_NAV: list[tuple[str, str]] = [
 
 def admin_nav(active: str) -> list[dict]:
     """Navigatie-items voor de AdminShell; `active` is de href van het scherm."""
-    return [{"href": href, "label": label, "active": href == active}
+    from app.i18n import _
+
+    return [{"href": href, "label": _(label), "active": href == active}
             for href, label in _ADMIN_NAV]
 
 

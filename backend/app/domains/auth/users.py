@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from app.domains.auth.service import get_current_admin
 from app.database import get_db
 from app.domains.auth.models import User, UserRole
+from app.i18n import _
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -54,18 +55,18 @@ def _validate_role_codes(db: Session, codes: List[str]) -> None:
     known = {r.code for r in db.query(RoleCode.code).all()}
     unknown = [c for c in codes if c not in known]
     if unknown:
-        raise HTTPException(status_code=400, detail=f"Onbekende rolcode(s): {', '.join(unknown)}")
+        raise HTTPException(status_code=400, detail=_("Onbekende rolcode(s): %(codes)s") % {"codes": ', '.join(unknown)})
 
 
 @router.get("", response_model=List[UserOut])
-def list_users(db: Session = Depends(get_db), _=Depends(get_current_admin)):
+def list_users(db: Session = Depends(get_db), _admin=Depends(get_current_admin)):
     return db.query(User).order_by(User.email).all()
 
 
 @router.post("", response_model=UserOut, status_code=201)
-def create_user(body: UserCreate, db: Session = Depends(get_db), _=Depends(get_current_admin)):
+def create_user(body: UserCreate, db: Session = Depends(get_db), _admin=Depends(get_current_admin)):
     if db.query(User).filter(User.email == body.email).first():
-        raise HTTPException(status_code=400, detail="E-mailadres is al in gebruik.")
+        raise HTTPException(status_code=400, detail=_("E-mailadres is al in gebruik."))
     _validate_role_codes(db, body.role_codes)
     user = User(email=body.email, is_active=body.is_active)
     db.add(user)
@@ -78,14 +79,14 @@ def create_user(body: UserCreate, db: Session = Depends(get_db), _=Depends(get_c
 
 
 @router.put("/{user_id}", response_model=UserOut)
-def update_user(user_id: int, body: UserUpdate, db: Session = Depends(get_db), _=Depends(get_current_admin)):
+def update_user(user_id: int, body: UserUpdate, db: Session = Depends(get_db), _admin=Depends(get_current_admin)):
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden.")
+        raise HTTPException(status_code=404, detail=_("Gebruiker niet gevonden."))
     if body.email is not None:
         existing = db.query(User).filter(User.email == body.email, User.id != user_id).first()
         if existing:
-            raise HTTPException(status_code=400, detail="E-mailadres is al in gebruik.")
+            raise HTTPException(status_code=400, detail=_("E-mailadres is al in gebruik."))
         user.email = body.email
     if body.is_active is not None:
         user.is_active = body.is_active
@@ -102,10 +103,10 @@ def update_user(user_id: int, body: UserUpdate, db: Session = Depends(get_db), _
 @router.delete("/{user_id}", status_code=204)
 def delete_user(user_id: int, db: Session = Depends(get_db), current_admin: User = Depends(get_current_admin)):
     if current_admin.id == user_id:
-        raise HTTPException(status_code=400, detail="Je kan jezelf niet verwijderen.")
+        raise HTTPException(status_code=400, detail=_("Je kan jezelf niet verwijderen."))
     user = db.query(User).filter(User.id == user_id).first()
     if not user:
-        raise HTTPException(status_code=404, detail="Gebruiker niet gevonden.")
+        raise HTTPException(status_code=404, detail=_("Gebruiker niet gevonden."))
     from app.soft_delete import soft_delete
     soft_delete(user)
     db.commit()

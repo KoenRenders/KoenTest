@@ -1,19 +1,19 @@
 {% import "_macros.html" as ui %}
 <div class="mt-3 bg-blue-50 border border-blue-100 rounded-2xl p-4">
-  <h3 class="font-bold mb-3">Inschrijven — {{ component.name }}</h3>
+  <h3 class="font-bold mb-3">{{ _("Inschrijven") }} — {{ component.name }}</h3>
   {{ ui.error_banner(error) }}
   <form hx-post="/activiteiten/{{ activity.id }}/inschrijven/{{ component.id }}"
         hx-target="closest div.bg-blue-50" hx-swap="outerHTML" class="space-y-3">
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-      <div>{{ ui.label("Naam", "contact_name", required=True) }}
+      <div>{{ ui.label(_("Naam"), "contact_name", required=True) }}
         <input name="contact_name" id="contact_name" required value="{{ values.get('contact_name', person.first_name ~ ' ' ~ person.last_name if person else '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div>{{ ui.label("E-mailadres", "contact_email", required=True) }}
+      <div>{{ ui.label(_("E-mailadres"), "contact_email", required=True) }}
         <input type="email" name="contact_email" id="contact_email" required value="{{ values.get('contact_email', '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div>{{ ui.label("Mobiel nummer", "phone", required=True) }}
+      <div>{{ ui.label(_("Mobiel nummer"), "phone", required=True) }}
         <input type="tel" name="phone" id="phone" required value="{{ values.get('phone', '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
     </div>
     {% if component.team_name_required %}
-    <div>{{ ui.label("Ploegnaam", "team_name", required=True) }}
+    <div>{{ ui.label(_("Ploegnaam"), "team_name", required=True) }}
       <input name="team_name" id="team_name" required value="{{ values.get('team_name', '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
     {% endif %}
     {% if component.products %}
@@ -23,8 +23,8 @@
         <div class="text-sm">
           <span class="font-medium">{{ p.name }}</span>
           <span class="ml-2 text-gray-500">
-            {% if p.pay_on_site %}ter plaatse te betalen (eigen budget)
-            {% elif p.is_free or p.price == 0 %}gratis
+            {% if p.pay_on_site %}{{ _("ter plaatse te betalen (eigen budget)") }}
+            {% elif p.is_free or p.price == 0 %}{{ _("gratis") }}
             {% else %}€{{ "%.2f"|format(p.price) }}{% if is_member and p.member_price is not none %} / leden €{{ "%.2f"|format(p.member_price) }}{% endif %}
             {% endif %}
           </span>
@@ -42,13 +42,13 @@
     <div id="totaal-{{ component.id }}">
       {% include "_inschrijf_totaal.html" %}
     </div>
-    <div>{{ ui.label("Opmerkingen", "remarks") }}
-      <textarea name="remarks" id="remarks" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="Eventuele boodschap voor de organisatie…">{{ values.get('remarks', '') }}</textarea></div>
+    <div>{{ ui.label(_("Opmerkingen"), "remarks") }}
+      <textarea name="remarks" id="remarks" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="{{ _('Eventuele boodschap voor de organisatie…') }}">{{ values.get('remarks', '') }}</textarea></div>
     <div>
-      {{ ui.label("Betaalwijze (bij betalend deel)", "payment_method") }}
-      <label class="flex items-center gap-2 text-sm"><input type="radio" name="payment_method" value="ONLINE" {% if values.get('payment_method', 'ONLINE') == 'ONLINE' %}checked{% endif %}> Online betalen</label>
-      <label class="flex items-center gap-2 text-sm"><input type="radio" name="payment_method" value="OVERSCHRIJVING" {% if values.get('payment_method') == 'OVERSCHRIJVING' %}checked{% endif %}> Overschrijving</label>
+      {{ ui.label(_("Betaalwijze (bij betalend deel)"), "payment_method") }}
+      <label class="flex items-center gap-2 text-sm"><input type="radio" name="payment_method" value="ONLINE" {% if values.get('payment_method', 'ONLINE') == 'ONLINE' %}checked{% endif %}> {{ _("Online betalen") }}</label>
+      <label class="flex items-center gap-2 text-sm"><input type="radio" name="payment_method" value="OVERSCHRIJVING" {% if values.get('payment_method') == 'OVERSCHRIJVING' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
     </div>
-    {{ ui.btn_primary("Inschrijven") }}
+    {{ ui.btn_primary(_("Inschrijven")) }}
   </form>
 </div>

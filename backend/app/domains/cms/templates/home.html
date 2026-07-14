@@ -6,12 +6,12 @@
   <div class="cms-content mb-6 text-gray-700">{{ intro_html | safe }}</div>
   {% endif %}
   <div class="flex flex-wrap gap-3">
-    <a class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg" href="/lid-worden">Word lid</a>
-    <a class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg" href="/berichten">Contacteer ons</a>
+    <a class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg" href="/lid-worden">{{ _("Word lid") }}</a>
+    <a class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg" href="/berichten">{{ _("Contacteer ons") }}</a>
   </div>
 </section>
 <section class="mt-8">
-  <h2 class="text-2xl font-bold mb-6 text-blue-800">Activiteiten</h2>
+  <h2 class="text-2xl font-bold mb-6 text-blue-800">{{ _("Activiteiten") }}</h2>
   {% include "_activiteiten_cards.html" %}
 </section>
 {% endblock %}

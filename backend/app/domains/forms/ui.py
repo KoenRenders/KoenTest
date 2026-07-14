@@ -15,6 +15,7 @@ from app.database import get_db
 from app.domains.forms.models import Form as FormModel
 from app.limiter import form_submit_limiter
 from app.ui import templates
+from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
 
@@ -46,12 +47,12 @@ def berichten_submit(
     if form is None:
         return templates.TemplateResponse(
             request, "_berichten_form.html",
-            {"form": None, "error": "Berichten zijn tijdelijk niet beschikbaar.",
+            {"form": None, "error": _("Berichten zijn tijdelijk niet beschikbaar."),
              "naam": naam, "email": email, "bericht": bericht})
     if not naam or not bericht:
         return templates.TemplateResponse(
             request, "_berichten_form.html",
-            {"form": form, "error": "Vul je naam en je bericht in.",
+            {"form": form, "error": _("Vul je naam en je bericht in."),
              "naam": naam, "email": email, "bericht": bericht})
 
     from app.domains.forms.api import submit_bericht
@@ -136,7 +137,7 @@ def _load_open_form(db, share_token: str):
     form_model = (db.query(FormModel)
                   .filter(FormModel.share_token == share_token).first())
     if form_model is None:
-        raise HTTPException(status_code=404, detail="Formulier niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
     assert_open_for_submission(db, form_model)
     return form_model
 
@@ -167,7 +168,7 @@ async def formulier_submit(share_token: str, request: Request,
 
     if not form_model.is_anonymous and (not naam or "@" not in email):
         ctx = _form_render_ctx(db, form_model, values=values,
-                               error="Vul je naam en een geldig e-mailadres in.",
+                               error=_("Vul je naam en een geldig e-mailadres in."),
                                submitter_name=naam, submitter_email=email)
         return templates.TemplateResponse(request, "formulier.html", ctx)
 
@@ -196,7 +197,7 @@ def formulier_edit_page(share_token: str, edit_token: str, request: Request,
                   .filter(FormSubmission.edit_token == edit_token).first())
     form_model = _load_open_form(db, share_token)
     if submission is None or submission.form_id != form_model.id or not form_model.allow_edit:
-        raise HTTPException(status_code=404, detail="Inzending niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Inzending niet gevonden"))
 
     # Voorvullen: antwoorden terug naar f{field_id}-waarden.
     values: dict = {}

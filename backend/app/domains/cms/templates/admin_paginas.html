@@ -1,20 +1,20 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}Pagina's — Raak beheer{% endblock %}
+{% block title %}{{ _("Pagina's — Raak beheer") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-4">CMS-pagina's</h1>
+<h1 class="text-2xl font-bold text-blue-800 mb-4">{{ _("CMS-pagina's") }}</h1>
 <div class="flex flex-col lg:flex-row gap-6">
   <div class="lg:w-80 shrink-0">
     <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-4" x-data="{ open: false }">
-      {{ ui.btn_secondary("+ Nieuwe pagina", attrs='@click="open = !open"') }}
+      {{ ui.btn_secondary(_("+ Nieuwe pagina"), attrs='@click="open = !open"') }}
       <form x-show="open" x-cloak class="space-y-3 mt-3"
             hx-post="/admin/paginas" hx-target="#cp-lijst" hx-swap="innerHTML">
-        <div>{{ ui.label("Titel", "title", required=True) }}
+        <div>{{ ui.label(_("Titel"), "title", required=True) }}
           <input name="title" id="title" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label("Slug", "slug", required=True) }}
+        <div>{{ ui.label(_("Slug"), "slug", required=True) }}
           <input name="slug" id="slug" required pattern="[a-z0-9-]+" class="w-full border border-gray-300 rounded-lg px-3 py-2">
-          <p class="text-xs text-gray-500 mt-1">Alleen kleine letters, cijfers en streepjes — wordt de URL (/slug).</p></div>
-        {{ ui.btn_primary("Aanmaken") }}
+          <p class="text-xs text-gray-500 mt-1">{{ _("Alleen kleine letters, cijfers en streepjes — wordt de URL (/slug).") }}</p></div>
+        {{ ui.btn_primary(_("Aanmaken")) }}
       </form>
     </div>
     <div id="cp-lijst" hx-get="/admin/paginas/lijst" hx-trigger="cp-lijst-ververst from:body" hx-swap="innerHTML">
