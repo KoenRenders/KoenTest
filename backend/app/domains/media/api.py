@@ -11,9 +11,13 @@ from app.domains.media.extraction import (  # noqa: F401
     update_media_extracted_text,
 )
 from app.domains.media.models import MediaAsset  # noqa: F401
-from app.domains.media.router import upload_activity_poster  # noqa: F401
+from app.domains.media.router import (  # noqa: F401
+    upload_activity_poster,
+    upload_component_info,
+)
 
 __all__ = [
     "MediaAsset", "EXTRACTABLE_KINDS", "extract_document_text",
     "update_media_extracted_text", "upload_activity_poster",
+    "upload_component_info",
 ]

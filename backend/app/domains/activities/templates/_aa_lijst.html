@@ -1,4 +1,10 @@
 {% import "_macros.html" as ui %}
+<div class="flex gap-1 mb-3 text-sm">
+  {% for code, label in [("upcoming", _("Komende")), ("archived", _("Archief")), ("all", _("Alles"))] %}
+  <button class="px-3 py-1 rounded-lg border {% if scope == code %}bg-blue-600 text-white border-blue-600{% else %}bg-white border-gray-200 hover:bg-gray-50{% endif %}"
+          hx-get="/admin/activiteiten/lijst?scope={{ code }}" hx-target="#aa-lijst" hx-swap="innerHTML">{{ label }}</button>
+  {% endfor %}
+</div>
 <div class="space-y-2">
   {% for a in activities %}
   <button class="w-full text-left px-3 py-2 rounded-lg text-sm border bg-white border-gray-200 hover:bg-gray-50"

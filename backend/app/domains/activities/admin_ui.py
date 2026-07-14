@@ -47,10 +47,28 @@ def _opt_str(value: str) -> Optional[str]:
     return value or None
 
 
-def _lijst_ctx(db: Session) -> dict:
+def _verplaats(db: Session, siblings, item_id: int, richting: str) -> None:
+    """Herorden broers/zussen via ``sort_order``: normaliseer eerst naar 0..n (zo
+    zijn er altijd distincte waarden, ook als alles nog op de default 0 staat) en
+    wissel dan met de buur in de gevraagde richting. Buiten bereik = no-op."""
+    ordered = sorted(siblings, key=lambda s: (s.sort_order or 0, s.id))
+    for idx, s in enumerate(ordered):
+        s.sort_order = idx
+    positie = next((i for i, s in enumerate(ordered) if s.id == item_id), None)
+    if positie is not None:
+        buur = positie - 1 if richting == "omhoog" else positie + 1
+        if 0 <= buur < len(ordered):
+            ordered[positie].sort_order, ordered[buur].sort_order = (
+                ordered[buur].sort_order, ordered[positie].sort_order)
+    db.commit()
+
+
+def _lijst_ctx(db: Session, scope: str = "all") -> dict:
     from app.domains.activities.router import list_activities
 
-    return {"activities": list_activities(scope="all", db=db)}
+    if scope not in ("upcoming", "archived", "all"):
+        scope = "all"
+    return {"activities": list_activities(scope=scope, db=db), "scope": scope}
 
 
 def _detail_response(request: Request, db: Session, activity_id: int):
@@ -68,13 +86,15 @@ def _detail_response(request: Request, db: Session, activity_id: int):
 def admin_activiteiten(request: Request, db: Session = Depends(get_db),
                        email: str = Depends(require_admin_ui)):
     return templates.TemplateResponse(request, "admin_activiteiten.html", {
-        "nav_items": NAV, "csrf_token": csrf_from_request(request), **_lijst_ctx(db)})
+        "nav_items": NAV, "csrf_token": csrf_from_request(request),
+        **_lijst_ctx(db, "upcoming")})
 
 
 @router.get("/admin/activiteiten/lijst", response_class=HTMLResponse)
-def admin_activiteiten_lijst(request: Request, db: Session = Depends(get_db),
+def admin_activiteiten_lijst(request: Request, scope: str = "all",
+                             db: Session = Depends(get_db),
                              email: str = Depends(require_admin_ui)):
-    return templates.TemplateResponse(request, "_aa_lijst.html", _lijst_ctx(db))
+    return templates.TemplateResponse(request, "_aa_lijst.html", _lijst_ctx(db, scope))
 
 
 @router.get("/admin/activiteiten/{activity_id}", response_class=HTMLResponse)
@@ -237,6 +257,22 @@ def onderdeel_verwijderen(activity_id: int, component_id: int, request: Request,
     return _detail_response(request, db, activity_id)
 
 
+@router.post("/admin/activiteiten/{activity_id}/onderdelen/{component_id}/verplaats",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def onderdeel_verplaatsen(activity_id: int, component_id: int, request: Request,
+                          db: Session = Depends(get_db),
+                          email: str = Depends(require_admin_ui),
+                          richting: str = Form("omhoog")):
+    """Onderdeel omhoog/omlaag herordenen (sort_order-wissel) — #451."""
+    from app.domains.activities.api import Activity
+
+    activity = db.query(Activity).filter(Activity.id == activity_id).first()
+    if activity is None:
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    _verplaats(db, list(activity.sub_registrations), component_id, richting)
+    return _detail_response(request, db, activity_id)
+
+
 # ── Producten ──────────────────────────────────────────────────────────────────
 
 @router.post("/admin/activiteiten/{activity_id}/onderdelen/{component_id}/producten",
@@ -270,6 +306,24 @@ def product_verwijderen(activity_id: int, component_id: int, product_id: int,
 
     delete_product(activity_id, component_id, product_id,
                    db=db, admin=admin_user_by_email(db, email))
+    return _detail_response(request, db, activity_id)
+
+
+@router.post("/admin/activiteiten/{activity_id}/onderdelen/{component_id}/producten/{product_id}/verplaats",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def product_verplaatsen(activity_id: int, component_id: int, product_id: int,
+                        request: Request, db: Session = Depends(get_db),
+                        email: str = Depends(require_admin_ui),
+                        richting: str = Form("omhoog")):
+    """Product omhoog/omlaag herordenen binnen zijn onderdeel (sort_order) — #451."""
+    from app.domains.activities.api import ActivitySubRegistration
+
+    component = db.query(ActivitySubRegistration).filter(
+        ActivitySubRegistration.id == component_id,
+        ActivitySubRegistration.activity_id == activity_id).first()
+    if component is None:
+        raise HTTPException(status_code=404, detail=_("Onderdeel niet gevonden"))
+    _verplaats(db, list(component.products), product_id, richting)
     return _detail_response(request, db, activity_id)
 
 
@@ -309,6 +363,22 @@ async def affiche_uploaden(activity_id: int, request: Request,
     if file is not None and file.filename:
         await upload_activity_poster(activity_id, background_tasks, file=file,
                                      db=db, _admin=admin_user_by_email(db, email))
+    return _detail_response(request, db, activity_id)
+
+
+@router.post("/admin/activiteiten/{activity_id}/onderdelen/{component_id}/reglement",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+async def reglement_uploaden(activity_id: int, component_id: int, request: Request,
+                             background_tasks: BackgroundTasks,
+                             file: Optional[UploadFile] = File(None),
+                             db: Session = Depends(get_db),
+                             email: str = Depends(require_admin_ui)):
+    """Info/reglement (afbeelding of PDF) per onderdeel uploaden (#451)."""
+    from app.domains.media.api import upload_component_info
+
+    if file is not None and file.filename:
+        await upload_component_info(component_id, background_tasks, file=file,
+                                    db=db, _admin=admin_user_by_email(db, email))
     return _detail_response(request, db, activity_id)
 
 
