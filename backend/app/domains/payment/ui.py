@@ -39,18 +39,55 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
     context = (request.query_params.get("context") or "all").strip()
     status = (request.query_params.get("status") or "all").strip()
     records = list_all_payment_records(db=db, _viewer=None)  # type: ignore[arg-type]
-    if context == "activiteiten":
-        records = [r for r in records if r.payable_type == "registration"]
-    elif context == "lidmaatschappen":
-        records = [r for r in records if r.payable_type == "membership"]
-    if status != "all":
-        records = [r for r in records if r.status == status]
 
-    totaal = sum((r.amount for r in records), Decimal("0"))
-    betaald = sum((r.amount_paid or Decimal("0") for r in records), Decimal("0"))
+    # Filter-opties opbouwen: onderdelen (per activiteit) + lidmaatschapjaren.
+    componenten: dict = {}
+    jaren: set = set()
+    for r in records:
+        if r.component_id is not None:
+            label = r.description or _("Activiteit")
+            if r.component_name:
+                label = f"{label} — {r.component_name}"
+            componenten.setdefault(r.component_id, label)
+        if r.membership_year is not None:
+            jaren.add(r.membership_year)
+
+    def _zichtbaar(r) -> bool:
+        # Context (zelfde conventie als de export-filter): membership / year-<n> /
+        # comp-<id>. Zo werkt de export-link met dezelfde parameters.
+        if context == "membership" and r.payable_type != "membership":
+            return False
+        if context.startswith("year-"):
+            if r.payable_type != "membership" or r.membership_year != int(context[5:]):
+                return False
+        if context.startswith("comp-") and r.component_id != int(context[5:]):
+            return False
+        # Status: openstaand uit het saldo (betaald = waarheid, #198).
+        amount = Decimal(str(r.amount or 0))
+        paid = Decimal(str(r.amount_paid or 0))
+        if status == "openstaand":
+            return (amount - paid) > Decimal("0.001")
+        if status in ("pending", "paid", "failed", "cancelled"):
+            return r.status == status
+        return True
+
+    zichtbaar = [r for r in records if _zichtbaar(r)]
+
+    def _rij(recs) -> dict:
+        due = sum((Decimal(str(x.amount or 0)) for x in recs), Decimal("0"))
+        paid = sum((Decimal(str(x.amount_paid or 0)) for x in recs), Decimal("0"))
+        return {"due": due, "paid": paid, "saldo": due - paid}
+
+    charges = [r for r in zichtbaar if r.type != "refund"]
+    refunds = [r for r in zichtbaar if r.type == "refund"]
+    m_bet, m_ref = _rij(charges), _rij(refunds)
+    m_net = {k: m_bet[k] - m_ref[k] for k in ("due", "paid", "saldo")}
+
     return {
-        "records": records, "context": context, "status": status,
-        "totaal": totaal, "betaald": betaald, "saldo": totaal - betaald,
+        "records": zichtbaar, "context": context, "status": status,
+        "componenten": sorted(componenten.items(), key=lambda kv: kv[1]),
+        "jaren": sorted(jaren, reverse=True),
+        "matrix": {"betalingen": m_bet, "terugbetalingen": m_ref, "netto": m_net},
         "is_finance": "FINANCE" in get_user_roles(db, email),
         "csrf_token": csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
     }

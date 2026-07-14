@@ -1,8 +1,31 @@
 {% import "_macros.html" as ui %}
-<div class="flex gap-4 mb-3 text-sm text-gray-700">
-  <span>{{ _("Te betalen:") }} <strong>€ {{ "%.2f"|format(totaal) }}</strong></span>
-  <span>{{ _("Betaald:") }} <strong>€ {{ "%.2f"|format(betaald) }}</strong></span>
-  <span>{{ _("Saldo:") }} <strong>€ {{ "%.2f"|format(saldo) }}</strong></span>
+<div class="mb-4 overflow-x-auto">
+  <table class="text-sm border border-gray-200 rounded-xl overflow-hidden">
+    <thead>
+      <tr class="bg-gray-50 text-gray-500">
+        <th class="px-4 py-2 text-left font-medium"></th>
+        <th class="px-4 py-2 text-right font-medium">{{ _("Te betalen") }}</th>
+        <th class="px-4 py-2 text-right font-medium">{{ _("Betaald") }}</th>
+        <th class="px-4 py-2 text-right font-medium">{{ _("Saldo") }}</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for naam, rij in [(_("Betalingen"), matrix.betalingen), (_("Terugbetalingen"), matrix.terugbetalingen)] %}
+      <tr class="border-t border-gray-100">
+        <td class="px-4 py-2 text-gray-700">{{ naam }}</td>
+        <td class="px-4 py-2 text-right whitespace-nowrap">€ {{ "%.2f"|format(rij.due) }}</td>
+        <td class="px-4 py-2 text-right whitespace-nowrap text-green-700">€ {{ "%.2f"|format(rij.paid) }}</td>
+        <td class="px-4 py-2 text-right whitespace-nowrap">€ {{ "%.2f"|format(rij.saldo) }}</td>
+      </tr>
+      {% endfor %}
+      <tr class="border-t-2 border-gray-300 bg-gray-50 font-semibold">
+        <td class="px-4 py-2">{{ _("Netto") }}</td>
+        <td class="px-4 py-2 text-right whitespace-nowrap">€ {{ "%.2f"|format(matrix.netto.due) }}</td>
+        <td class="px-4 py-2 text-right whitespace-nowrap text-green-700">€ {{ "%.2f"|format(matrix.netto.paid) }}</td>
+        <td class="px-4 py-2 text-right whitespace-nowrap {% if matrix.netto.saldo > 0 %}text-orange-700{% else %}text-green-700{% endif %}">€ {{ "%.2f"|format(matrix.netto.saldo) }}</td>
+      </tr>
+    </tbody>
+  </table>
 </div>
 {% if records %}
 <div class="overflow-x-auto bg-white rounded-2xl shadow-sm border border-gray-200">
