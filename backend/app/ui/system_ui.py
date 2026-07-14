@@ -1,7 +1,7 @@
 """Server-rendered Systeeminfo-scherm (React-exit 405-d, #405 — §21).
 
 Read-only weergave van de gecureerde runtime/config-whitelist uit de
-admin-router (nooit secrets). Umami-analytics komt hier server-side uit de
+admin-api-composer (`app.ui.admin_api`, #444 — nooit secrets). Umami-analytics komt hier server-side uit de
 settings i.p.v. NEXT_PUBLIC_*-variabelen.
 """
 from __future__ import annotations
@@ -23,7 +23,7 @@ NAV = admin_nav("/admin/info")
 def admin_dashboard(request: Request, db: Session = Depends(get_db),
                     email: str = Depends(require_admin_ui)):
     """Dashboard-startpagina met de kerncijfers (URL-pariteit met React /admin)."""
-    from app.routers.admin import get_stats
+    from app.ui.admin_api import get_stats
 
     stats = get_stats(db=db, _admin=None)  # type: ignore[arg-type]
     tegels = [
@@ -42,7 +42,7 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db),
 def admin_info(request: Request, db: Session = Depends(get_db),
                email: str = Depends(require_admin_ui)):
     from app.config import settings
-    from app.routers.admin import get_system_info
+    from app.ui.admin_api import get_system_info
 
     info = get_system_info(_admin=None)  # type: ignore[arg-type]
     umami_dashboard = settings.umami_src.removesuffix("script.js") if settings.umami_src else ""

@@ -2,6 +2,7 @@
 
 Vendor-neutrale open standaard (ISO/IEC 26300), bewerkbaar in LibreOffice Calc, met
 basis-layout (vette kop met vulling, kolombreedtes). Vervangt de eerdere .xlsx-export.
+(verhuisd uit app/services/ods_export.py, #444)
 """
 from io import BytesIO
 

@@ -11,13 +11,14 @@ bestandsnaam, zodat ook stappen zonder filename (bv. de commit-stap van de
 upload) werken.
 
 Gedeeld tussen het CLI-script (``import_leden.py``) en het admin-upload-endpoint
-(``app/routers/member_import.py``), zodat er maar één plek is die de rapportvorm
-kent. De upsert zelf zit in :mod:`app.services.member_import`.
+(``app/domains/mdm/import_router.py``), zodat er maar één plek is die de rapportvorm
+kent. De upsert zelf zit in :mod:`app.domains.mdm.import_service`.
 
 Kolommen worden op hun **header (koptekst)** gemapt, niet op een vaste positie —
 zo breken extra of herschikte kolommen in de export de import niet (#231). Alleen
 het uitlezen van de cellen en de datums verschilt per formaat (Excel bewaart een
 serienummer, ODS een ISO-datum).
+(verhuisd uit app/services/ledenrapport.py, #444)
 """
 import io
 import re

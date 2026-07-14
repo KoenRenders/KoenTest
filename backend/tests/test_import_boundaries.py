@@ -81,7 +81,7 @@ def test_import_boundaries():
             # models/__init__ doet model-discovery voor Alembic. Dat zijn de
             # bedoelde compositiepunten, geen reach-in.
             composer = (
-                (module == "app.main" and imp.split(".")[-1] in ("router", "ui", "admin_ui", "info_router", "handlers", "workflow", "changes_ui", "system_ui"))
+                (module == "app.main" and imp.split(".")[-1] in ("router", "ui", "admin_ui", "info_router", "handlers", "workflow", "changes_ui", "system_ui", "import_router", "admin_api"))
                 or (module == "app.models.__init__" and imp.endswith(".models"))
             )
 

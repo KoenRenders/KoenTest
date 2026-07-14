@@ -12,7 +12,7 @@ from odf.opendocument import load
 from odf.table import Table, TableRow, TableCell
 from odf.teletype import extractText
 
-from app.services.ods_export import build_ods
+from app.kernel.ods import build_ods
 
 
 def _data_cell(raw: bytes):

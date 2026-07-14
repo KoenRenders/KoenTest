@@ -3,7 +3,7 @@ en paginering, gezinsdetail (personen, adres, bestuurslid, lidmaatschappen) en
 de leden-import-wizard (preview → commit).
 
 De schermen hergebruiken de bestaande admin-API-functies (routers/members.py,
-routers/member_import.py) als servicelaag — geen dubbele businesslogica; deze
+domains/mdm/import_router.py — #444) als servicelaag — geen dubbele businesslogica; deze
 module bouwt alleen view-models en kiest templates.
 """
 from __future__ import annotations
@@ -254,7 +254,7 @@ def import_page(request: Request, db: Session = Depends(get_db),
 async def import_preview(request: Request, db: Session = Depends(get_db),
                          email: str = Depends(require_admin_ui),
                          file: UploadFile = File(...)):
-    from app.routers.member_import import preview
+    from app.domains.mdm.import_router import preview
 
     try:
         data = await preview(file=file, db=db, admin=admin_user_by_email(db, email))
@@ -269,7 +269,7 @@ async def import_preview(request: Request, db: Session = Depends(get_db),
              dependencies=[Depends(require_csrf)])
 def import_commit(request: Request, db: Session = Depends(get_db),
                   email: str = Depends(require_admin_ui), token: str = Form(...)):
-    from app.routers.member_import import commit, CommitRequest
+    from app.domains.mdm.import_router import commit, CommitRequest
 
     try:
         data = commit(CommitRequest(token=token), db=db, admin=admin_user_by_email(db, email))

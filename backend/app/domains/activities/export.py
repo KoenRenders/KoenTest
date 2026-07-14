@@ -12,7 +12,7 @@ from decimal import Decimal
 from typing import Tuple
 
 from app.domains.activities.totals import compute_registration_total
-from app.services.ods_export import build_ods_multi
+from app.kernel.ods import build_ods_multi
 from app.i18n import _
 
 _METHOD_LABELS = {"ONLINE": "Online", "TRANSFER": "Overschrijving", "CASH": "Cash"}

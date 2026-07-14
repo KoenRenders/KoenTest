@@ -9,6 +9,7 @@ Twee stappen, met het bestand server-side gecachet tussen beide:
    bestand opnieuw geparsed en **echt** toegepast (``apply=True``) + commit.
 
 De upsert-logica en de rapport-parsing zijn gedeeld met het CLI-script.
+(verhuisd uit app/routers/member_import.py, #444)
 """
 import secrets
 import time
@@ -20,8 +21,8 @@ from sqlalchemy.orm import Session
 from app.domains.auth.api import get_current_admin
 from app.database import get_db
 from app.domains.auth.api import User
-from app.services.ledenrapport import parse_families
-from app.services.member_import import upsert_families
+from app.domains.mdm.ledenrapport import parse_families
+from app.domains.mdm.import_service import upsert_families
 from app.i18n import _
 
 router = APIRouter(tags=["member-import"])

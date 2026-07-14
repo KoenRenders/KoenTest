@@ -13,7 +13,7 @@ from datetime import date
 
 import pytest
 
-from app.services.ledenrapport import (
+from app.domains.mdm.ledenrapport import (
     parse_families,
     read_ledenrapport_bytes,
     _detect_format,

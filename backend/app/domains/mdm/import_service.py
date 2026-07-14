@@ -23,6 +23,7 @@ in elke history-rij belandt (#214).
 De service muteert de sessie maar **commit niet**: de aanroeper (CLI of test)
 beslist over commit/rollback. Met ``apply=False`` worden geen DB-wijzigingen
 gedaan — enkel het rapport van wat *zou* veranderen wordt opgebouwd (dry-run).
+(verhuisd uit app/services/member_import.py, #444)
 """
 from collections import defaultdict
 from dataclasses import dataclass, field

@@ -2,6 +2,7 @@
 
 12 cijfers: 10 cijfers + 2 controlecijfers (= het 10-cijferige getal mod 97,
 waarbij 0 → 97), weergegeven als +++DDD/DDDD/DDDDD+++.
+(verhuisd uit app/services/structured_communication.py, #444)
 """
 
 
