@@ -124,8 +124,10 @@ def tenant_language(db: Session, tenant_id: int | None = None) -> str:
 def _int_setting(db: Session, key: str, fallback: int,
                  tenant_id: int | None = None) -> int:
     value = get_setting(db, key, tenant_id=tenant_id)
+    if not value:
+        return fallback
     try:
-        return int(value) if value not in (None, "") else fallback
+        return int(value)
     except (TypeError, ValueError):
         return fallback
 
