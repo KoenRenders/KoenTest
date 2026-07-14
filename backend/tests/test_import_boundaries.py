@@ -17,21 +17,16 @@ APP = Path(__file__).resolve().parents[1] / "app"
 # regels TOEVOEGEN mag alleen met een fase-verwijzing.
 LEGACY_ALLOWLIST = {
     ("app.services.member_import", "app.domains.audit.service"),
-    ("app.routers.members", "app.domains.analytics.service"),
     ("app.routers.members", "app.domains.audit.service"),
     ("app.routers.member_household", "app.domains.audit.service"),
     ("app.routers.member_import", "app.domains.audit.service"),
-    ("app.routers.activities", "app.domains.analytics.service"),
-    ("app.routers.admin", "app.domains.analytics.service"),
     ("app.routers.chat", "app.domains.chatbot.service"),
     ("app.routers.chatbot_info", "app.domains.chatbot.context"),
     ("app.routers.stt", "app.domains.stt.guards"),
     ("app.routers.stt", "app.domains.stt.providers"),
-    ("app.routers.cms", "app.domains.analytics.service"),
     ("app.routers.activities", "app.domains.audit.service"),
     ("app.routers.chat", "app.domains.chatbot.context"),
     ("app.routers.chat", "app.domains.chatbot.providers"),
-    ("app.routers.member_household", "app.domains.analytics.service"),
 }
 
 # Cross-domain-reach-ins van vóór de modularisatie (zelfde krimp-regel): de
@@ -39,12 +34,9 @@ LEGACY_ALLOWLIST = {
 LEGACY_CROSS_DOMAIN = {
     # verhuisd uit de oude wereld met de router mee (4a #402); analytics/audit
     # krijgen hun facade in fase 4c (#404)
-    ("app.domains.activities.router", "app.domains.analytics.service"),
     ("app.domains.activities.router", "app.domains.audit.service"),
-    ("app.domains.forms.router", "app.domains.analytics.service"),
     ("app.domains.chatbot.context", "app.domains.payment.api"),
     ("app.domains.payment.status_router", "app.domains.audit.service"),
-    ("app.domains.payment.service", "app.domains.analytics.service"),
     ("app.domains.payment.service", "app.domains.audit.service"),
 }
 

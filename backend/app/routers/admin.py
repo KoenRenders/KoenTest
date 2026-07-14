@@ -16,7 +16,6 @@ def _open_tasks(db):
 
     return open_count(db, ["ADMIN", "FINANCE"])
 from app.domains.activities.api import Activity, ActivityDate
-from app.domains.analytics.api import BusinessEvent
 from app.domains.membership.api import Membership
 from app.domains.mdm.api import Member
 from app.domains.auth.api import User
@@ -51,56 +50,6 @@ def get_stats(
             .filter(PaymentRecord.status.notin_(["paid", "cancelled", "failed"]))
             .scalar() or 0
         ),
-    }
-
-
-@router.get("/business-events")
-def get_business_event_stats(
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    """Geaggregeerd rapport over de first-party business-events (#152, laag 2):
-    tellingen per event-type (alle tijd + laatste 30 dagen) en de omzet uit
-    bevestigde betalingen. Bevat GEEN PII — enkel geaggregeerde, niet-
-    identificerende cijfers afgeleid uit de event-payloads."""
-    since_30d = datetime.now(timezone.utc) - timedelta(days=30)
-
-    def _counts(query):
-        return {et: c for et, c in query.group_by(BusinessEvent.event_type).all()}
-
-    totals = _counts(db.query(BusinessEvent.event_type, func.count(BusinessEvent.id)))
-    totals_30d = _counts(
-        db.query(BusinessEvent.event_type, func.count(BusinessEvent.id))
-        .filter(BusinessEvent.occurred_at >= since_30d)
-    )
-
-    # Omzet = NETTO ontvangen bedrag uit de betalingen zelf (bron van waarheid),
-    # niet uit de event-stream (#324). Som van amount_paid over alle PaymentRecords:
-    # charges tellen positief, refunds negatief, en een nog-niet-betaalde charge
-    # (amount_paid NULL) telt als 0 (SUM negeert NULL). Zo kloppen ook
-    # overschrijving/cash en historische betalingen van vóór de events-meting, en
-    # worden terugbetalingen afgetrokken. Het 30d-venster filtert op
-    # COALESCE(paid_at, created_at) (#346): een meegeteld bedrag zonder paid_at
-    # (bv. handmatig bewerkt) valt anders uit het venster maar wél in het totaal —
-    # zo klopt totaal == 30d op een jonge app, terwijl écht oude betalingen (oude
-    # paid_at) terecht buiten het venster blijven.
-    def _revenue(query):
-        return float(query.scalar() or 0)
-
-    revenue = _revenue(
-        db.query(func.coalesce(func.sum(PaymentRecord.amount_paid), 0))
-    )
-    revenue_30d = _revenue(
-        db.query(func.coalesce(func.sum(PaymentRecord.amount_paid), 0))
-        .filter(func.coalesce(PaymentRecord.paid_at, PaymentRecord.created_at) >= since_30d)
-    )
-
-    return {
-        "period_days": 30,
-        "totals": totals,
-        "totals_30d": totals_30d,
-        "revenue_paid_eur": revenue,
-        "revenue_paid_eur_30d": revenue_30d,
     }
 
 

@@ -17,36 +17,6 @@ _GATEWAY_ACTION = {
     "pending": "payment_pending",
 }
 
-# Business-event-type per (interne) gateway-status (#152). Enkel de uitkomsten die
-# we voor conversie-/omzetrapporten willen tellen — geen pending/failed-ruis.
-_GATEWAY_EVENT_TYPE = {
-    "paid": "betaling_succes",
-    "cancelled": "betaling_geannuleerd",
-}
-
-
-def _log_payment_event(db: Session, record: PaymentRecord) -> None:
-    """Log een business-event voor een bevestigde betaling/terugbetaling (#324).
-
-    Eén plek voor alle niet-webhook-betaalwijzen (overschrijving/cash) en voor
-    terugbetalingen, zodat de conversie-/betaaltellingen alle betaalwijzen dekken
-    en niet enkel de online Mollie-betalingen. Een refund (type="refund", negatief
-    bedrag) krijgt het type "betaling_terugbetaling"; een charge "betaling_succes".
-    Geen PII in de payload."""
-    from app.domains.analytics.service import log_business_event
-    event_type = "betaling_terugbetaling" if record.type == "refund" else "betaling_succes"
-    log_business_event(
-        db, event_type,
-        payment_record_id=record.id,
-        payload={
-            "payable_type": record.payable_type,
-            "payable_id": record.payable_id,
-            "amount": str(record.amount),
-            "method": record.method,
-        },
-    )
-
-
 def _parse_md(md_str: str, year: int) -> date:
     """Zet "MM-DD" om naar een datum in het opgegeven jaar."""
     month, day = md_str.split("-")
@@ -203,20 +173,6 @@ def handle_gateway_update(
             operation="update", action=_GATEWAY_ACTION.get(new_status, "payment_status_changed"),
             source=source, actor=actor,
         )
-        # Business-event (#152): betaaluitkomst voor conversie-/omzetrapporten. Geen PII.
-        event_type = _GATEWAY_EVENT_TYPE.get(new_status)
-        if event_type:
-            from app.domains.analytics.service import log_business_event
-            log_business_event(
-                db, event_type,
-                payment_record_id=record.id,
-                payload={
-                    "payable_type": record.payable_type,
-                    "payable_id": record.payable_id,
-                    "amount": str(record.amount),
-                    "method": record.method,
-                },
-            )
         # Lidmaatschap-betaling bevestigd -> lidmaatschap activeren (#113). Geldt
         # zowel voor een nieuwe gezinsregistratie als voor een vernieuwing vanuit
         # het gezinscherm: beide maken een Membership (is_active=False) met
@@ -274,10 +230,6 @@ def confirm_manual_payment(
             raise ValueError(
                 f"Betaald bedrag ({amount_paid}) moet tussen {lo} en {hi} liggen."
             )
-    # Was dit record al bevestigd? Zo ja, dan geen tweede business-event loggen
-    # (anders zou een herhaalde "betaald"-klik de conversie-/betaaltellingen
-    # dubbel tellen). De financiële velden hieronder blijven idempotent.
-    was_already_paid = record.status == "paid"
     record.status = "paid"
     record.paid_at = datetime.now(timezone.utc)
     if note:
@@ -292,12 +244,6 @@ def confirm_manual_payment(
         operation="update", action="payment_manually_confirmed",
         source="admin_manual", actor=actor,
     )
-    # Business-event (#324): ook handmatig bevestigde betalingen (overschrijving/cash)
-    # en bevestigde terugbetalingen moeten meetellen in de conversie-/betaaltellingen,
-    # net als de Mollie-webhook. Een refund-record (negatief bedrag) is een
-    # terugbetaling; een charge is een geslaagde betaling.
-    if not was_already_paid:
-        _log_payment_event(db, record)
     # Handmatige bevestiging van een lidmaatschap-betaling (cash/overschrijving of
     # een vastgelopen online betaling) moet het lidmaatschap ook activeren — net
     # als de Mollie-webhook doet. Idempotent. #143
@@ -387,11 +333,6 @@ def create_refund(
         operation="insert", action="payment_refunded",
         source=source, actor=actor,
     )
-    # Business-event (#324): een meteen-vereffende terugbetaling telt nu mee. Een
-    # nog niet uitbetaalde verplichting (settled=False, pending) krijgt pas een
-    # event wanneer de penningmeester ze bevestigt (confirm_manual_payment).
-    if settled:
-        _log_payment_event(db, record)
     return record
 
 
