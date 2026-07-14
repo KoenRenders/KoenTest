@@ -1,4 +1,7 @@
 {% import "_macros.html" as ui %}
+{# Kleur per wijzigingstype (#460): toegevoegd groen, gewijzigd bruin/geel, verwijderd rood. #}
+{% set _op_tint = {"insert": "bg-green-50", "update": "bg-amber-50", "delete": "bg-red-50"} %}
+{% set _op_text = {"insert": "text-green-700", "update": "text-amber-800", "delete": "text-red-700"} %}
 <section class="mb-10">
   <div class="flex items-center justify-between mb-3">
     <h2 class="text-lg font-bold text-blue-800">{{ _("Ledendata-wijzigingen (voor Raak Nationaal)") }}</h2>
@@ -15,12 +18,12 @@
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for r in member_rows %}
-        <tr>
+        <tr class="{{ _op_tint.get(r.operation, '') }}">
           <td class="px-3 py-2 whitespace-nowrap">{{ r.recorded_at.strftime("%d-%m-%Y %H:%M") }}</td>
           <td class="px-3 py-2">{{ r.person_name }}</td>
           <td class="px-3 py-2">{{ r.person_external_id }}</td>
           <td class="px-3 py-2">{{ r.head_address }}</td>
-          <td class="px-3 py-2">{{ r.operation_label }}</td>
+          <td class="px-3 py-2 font-medium {{ _op_text.get(r.operation, '') }}">{{ r.operation_label }}</td>
           <td class="px-3 py-2 text-gray-600">{{ r.summary }}</td>
         </tr>
         {% endfor %}
@@ -44,11 +47,11 @@
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for r in feed_rows %}
-        <tr>
+        <tr class="{{ _op_tint.get(r.operation, '') }}">
           <td class="px-3 py-2 whitespace-nowrap">{{ r.recorded_at.strftime("%d-%m-%Y %H:%M") }}</td>
           <td class="px-3 py-2">{{ ui.badge(r.group, "blue") }}</td>
           <td class="px-3 py-2">{{ r.entity }}{% if r.entity_id %} #{{ r.entity_id }}{% endif %}</td>
-          <td class="px-3 py-2">{{ r.operation_label }}</td>
+          <td class="px-3 py-2 font-medium {{ _op_text.get(r.operation, '') }}">{{ r.operation_label }}</td>
           <td class="px-3 py-2">{{ r.person_name }}</td>
           <td class="px-3 py-2 text-gray-600">{{ r.actor or "" }}</td>
           <td class="px-3 py-2 text-gray-600">{{ r.summary }}</td>
