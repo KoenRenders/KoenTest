@@ -114,7 +114,7 @@ def _answers_from_form(form_model, form_data) -> list:
     return answers
 
 
-def _form_render_ctx(db, form_model, *, values=None, error=None,
+def _form_render_ctx(db, form_model, request, *, values=None, error=None,
                      submitter_name="", submitter_email="") -> dict:
     from app.ui import site_context
 
@@ -127,7 +127,7 @@ def _form_render_ctx(db, form_model, *, values=None, error=None,
                         "fields": [f for f in form_model.fields if f.section_id == section.id]})
     loose = [f for f in form_model.fields if f.section_id is None]
     return {
-        **site_context(db), "form": form_model, "grouped": grouped,
+        **site_context(db, request), "form": form_model, "grouped": grouped,
         "loose_fields": loose, "values": values or {}, "error": error,
         "submitter_name": submitter_name, "submitter_email": submitter_email,
     }
@@ -148,7 +148,7 @@ def _load_open_form(db, share_token: str):
 def formulier_page(share_token: str, request: Request, db: Session = Depends(get_db)):
     form_model = _load_open_form(db, share_token)
     return templates.TemplateResponse(request, "formulier.html",
-                                      _form_render_ctx(db, form_model))
+                                      _form_render_ctx(db, form_model, request))
 
 
 @router.post("/formulier/{share_token}", response_class=HTMLResponse,
@@ -169,7 +169,7 @@ async def formulier_submit(share_token: str, request: Request,
     email = email.strip() if isinstance(email, str) else ""
 
     if not form_model.is_anonymous and (not naam or "@" not in email):
-        ctx = _form_render_ctx(db, form_model, values=values,
+        ctx = _form_render_ctx(db, form_model, request, values=values,
                                error=_("Vul je naam en een geldig e-mailadres in."),
                                submitter_name=naam, submitter_email=email)
         return templates.TemplateResponse(request, "formulier.html", ctx)
@@ -179,13 +179,13 @@ async def formulier_submit(share_token: str, request: Request,
     try:
         result = submit_form(share_token, payload, background_tasks, db=db)
     except HTTPException as exc:
-        ctx = _form_render_ctx(db, form_model, values=values, error=str(exc.detail),
+        ctx = _form_render_ctx(db, form_model, request, values=values, error=str(exc.detail),
                                submitter_name=naam, submitter_email=email)
         return templates.TemplateResponse(request, "formulier.html", ctx)
 
     from app.ui import site_context
     return templates.TemplateResponse(request, "formulier_klaar.html", {
-        **site_context(db), "form": form_model, "updated": False,
+        **site_context(db, request), "form": form_model, "updated": False,
         "edit_link": (f"/formulier/{share_token}/edit/{result.edit_token}"
                       if result.edit_token else None)})
 
@@ -217,7 +217,7 @@ def formulier_edit_page(share_token: str, edit_token: str, request: Request,
             values[key] = str(answer.value_number)
         elif answer.value_text is not None:
             values[key] = answer.value_text
-    ctx = _form_render_ctx(db, form_model, values=values,
+    ctx = _form_render_ctx(db, form_model, request, values=values,
                            submitter_name=submission.submitter_name or "",
                            submitter_email=submission.submitter_email or "")
     ctx["edit_token"] = edit_token
@@ -242,11 +242,11 @@ async def formulier_edit_submit(share_token: str, edit_token: str, request: Requ
     try:
         update_submission(edit_token, payload, db=db)
     except HTTPException as exc:
-        ctx = _form_render_ctx(db, form_model, error=str(exc.detail),
+        ctx = _form_render_ctx(db, form_model, request, error=str(exc.detail),
                                submitter_name=naam, submitter_email=email)
         ctx["edit_token"] = edit_token
         return templates.TemplateResponse(request, "formulier.html", ctx)
 
     from app.ui import site_context
     return templates.TemplateResponse(request, "formulier_klaar.html", {
-        **site_context(db), "form": form_model, "updated": True, "edit_link": None})
+        **site_context(db, request), "form": form_model, "updated": True, "edit_link": None})

@@ -40,7 +40,7 @@ def _codes(db: Session) -> dict:
 @router.get("/lid-worden", response_class=HTMLResponse)
 def lid_worden(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "lid_worden.html", {
-        **site_context(db), **_codes(db), "error": None, "values": {}})
+        **site_context(db, request), **_codes(db), "error": None, "values": {}})
 
 
 @router.get("/lid-worden/persoon-rij", response_class=HTMLResponse)
@@ -77,7 +77,7 @@ async def lid_worden_submit(request: Request, background_tasks: BackgroundTasks,
 
     form = await request.form()
     values = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
-    ctx = {**site_context(db), **_codes(db), "values": values}
+    ctx = {**site_context(db, request), **_codes(db), "values": values}
 
     members = _parse_members(form)
     if not members:
@@ -116,7 +116,7 @@ async def lid_worden_submit(request: Request, background_tasks: BackgroundTasks,
 
     checkout_url = getattr(result, "checkout_url", None)
     response = templates.TemplateResponse(request, "lid_worden_klaar.html", {
-        **site_context(db), "checkout": bool(checkout_url),
+        **site_context(db, request), "checkout": bool(checkout_url),
         "amount": getattr(result, "amount", None)})
     if checkout_url:
         response.headers["HX-Redirect"] = checkout_url
@@ -145,7 +145,7 @@ def _portal_ctx(request: Request, db: Session, person) -> dict:
     household = get_household(person=person, db=db)
     valid_until = valid_membership_until(person)
     return {
-        **site_context(db), **_codes(db),
+        **site_context(db, request), **_codes(db),
         "household": household,
         "person_id": person.id,
         "valid_until": valid_until,
@@ -293,7 +293,7 @@ def login_verify(request: Request, token: str = "", db: Session = Depends(get_db
                            LoginToken.email.isnot(None)).first())
     if not login_token or login_token.expires_at.replace(tzinfo=timezone.utc) < now:
         return templates.TemplateResponse(request, "login_verlopen.html",
-                                          site_context(db), status_code=401)
+                                          site_context(db, request), status_code=401)
     login_token.used = True
     db.commit()
     doel = ("/admin/werkbank"

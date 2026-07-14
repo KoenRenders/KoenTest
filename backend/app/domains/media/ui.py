@@ -33,7 +33,7 @@ def fotos_overzicht(request: Request, db: Session = Depends(get_db)):
     jaren = sorted(per_jaar, reverse=True)
 
     return templates.TemplateResponse(request, "fotos.html", {
-        **site_context(db), "jaren": jaren, "per_jaar": per_jaar,
+        **site_context(db, request), "jaren": jaren, "per_jaar": per_jaar,
         "covers": covers})
 
 
@@ -46,4 +46,4 @@ def activiteit_fotos(activity_id: int, request: Request,
     activiteit = db.query(Activity).filter(Activity.id == activity_id).first()
     fotos = list_activity_photos(activity_id, db=db)
     return templates.TemplateResponse(request, "fotos_album.html", {
-        **site_context(db), "activiteit": activiteit, "fotos": fotos})
+        **site_context(db, request), "activiteit": activiteit, "fotos": fotos})

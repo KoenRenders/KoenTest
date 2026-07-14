@@ -65,7 +65,29 @@ def admin_nav(active: str) -> list[dict]:
             for href, label in _ADMIN_NAV]
 
 
-def site_context(db) -> dict:
+def _huidige_gebruiker(db, request) -> dict | None:
+    """Ingelogde gebruiker uit de sessie-cookie (#467): naam + is_admin, of None.
+    Mag het renderen nooit breken."""
+    if request is None:
+        return None
+    try:
+        from app.domains.auth.api import (
+            SESSION_COOKIE, get_user_roles, login_person_for_email, read_session_value)
+
+        email = read_session_value(request.cookies.get(SESSION_COOKIE))
+        if not email:
+            return None
+        naam = email
+        person = login_person_for_email(db, email)
+        if person is not None:
+            naam = f"{person.first_name} {person.last_name}".strip() or email
+        return {"email": email, "naam": naam,
+                "is_admin": "ADMIN" in get_user_roles(db, email)}
+    except Exception:
+        return None
+
+
+def site_context(db, request=None) -> dict:
     """Gedeelde context van de SiteShell (site_base.html): navigatie-pagina's,
     footer-blok en sponsors. Eén plek, elke publieke route neemt hem mee."""
     from datetime import date
@@ -90,6 +112,7 @@ def site_context(db) -> dict:
     return {"nav_pages": pages, "footer_block": footer_block,
             "sponsors": sponsors, "current_year": date.today().year,
             "chat_enabled": settings.chat_enabled,
+            "gebruiker": _huidige_gebruiker(db, request),
             # Branding per tenant (#407): naam/tagline/Facebook uit de
             # tenant-config, met de Millegem-waarden als default.
             "site_name": tenant_display_name(db),

@@ -62,6 +62,18 @@ def aanmelden_code(request: Request, db: Session = Depends(get_db),
 # URL-pariteit (React-exit 405-e, #405): de oude React-loginpaden blijven
 # werken en sturen door naar de htmx-aanmeldflow resp. het magic-link-doel.
 
+@router.get("/afmelden")
+def afmelden(request: Request):
+    """Uitloggen (#467): wis de sessie-cookie en ga naar de homepage."""
+    from fastapi.responses import RedirectResponse
+
+    from app.domains.auth.session import clear_session_cookie
+
+    resp = RedirectResponse("/", status_code=302)
+    clear_session_cookie(resp)
+    return resp
+
+
 @router.get("/admin/login", response_class=HTMLResponse)
 def admin_login_redirect(request: Request):
     from fastapi.responses import RedirectResponse

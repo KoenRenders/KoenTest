@@ -35,11 +35,11 @@ def homepage(request: Request, db: Session = Depends(get_db)):
                        "url": tenant_base_url(db, tenant_id=u.id)}
                       for u in units]
         return templates.TemplateResponse(request, "platform_landing.html", {
-            "afdelingen": afdelingen, "current_year": site_context(db)["current_year"]})
+            "afdelingen": afdelingen, "current_year": site_context(db, request)["current_year"]})
 
     intro = db.query(CmsPage).filter(CmsPage.slug == "home-intro").first()
     return templates.TemplateResponse(request, "home.html", {
-        **site_context(db),
+        **site_context(db, request),
         "intro_html": render_cms_content(intro.content or "") if intro else None,
         "activities": list_activities(db, scope="upcoming"),
         "scope": "upcoming",
@@ -50,13 +50,13 @@ def homepage(request: Request, db: Session = Depends(get_db)):
 @router.get("/betaling/succes", response_class=HTMLResponse)
 def betaling_succes(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "betaling_resultaat.html", {
-        **site_context(db), "gelukt": True})
+        **site_context(db, request), "gelukt": True})
 
 
 @router.get("/betaling/geannuleerd", response_class=HTMLResponse)
 def betaling_geannuleerd(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "betaling_resultaat.html", {
-        **site_context(db), "gelukt": False})
+        **site_context(db, request), "gelukt": False})
 
 
 # ── Per-tenant SEO (5c, #406): robots + sitemap — verdwenen met de React-exit,
@@ -104,5 +104,5 @@ def cms_pagina(slug: str, request: Request, db: Session = Depends(get_db)):
     if page is None:
         raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
     return templates.TemplateResponse(request, "cms_pagina.html", {
-        **site_context(db), "page": page,
+        **site_context(db, request), "page": page,
         "content_html": render_cms_content(page.content or "")})

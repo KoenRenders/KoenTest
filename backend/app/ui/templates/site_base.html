@@ -29,7 +29,12 @@
           {% for p in nav_pages|default([]) %}
           <a href="/{{ p.slug }}" class="hover:underline">{{ p.title }}</a>
           {% endfor %}
+          {% if gebruiker %}
+          {% if gebruiker.is_admin %}<a href="/admin" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
+          <a href="/afmelden" class="hover:underline opacity-80">{{ _("Uitloggen") }} ({{ gebruiker.naam }})</a>
+          {% else %}
           <a href="/aanmelden" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>
+          {% endif %}
         </div>
       </div>
       <div x-show="open" x-cloak class="md:hidden px-4 pb-4 flex flex-col gap-2 text-sm">
@@ -39,7 +44,12 @@
         {% for p in nav_pages|default([]) %}
         <a href="/{{ p.slug }}" class="hover:underline">{{ p.title }}</a>
         {% endfor %}
+        {% if gebruiker %}
+        {% if gebruiker.is_admin %}<a href="/admin" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
+        <a href="/afmelden" class="hover:underline opacity-80">{{ _("Uitloggen") }} ({{ gebruiker.naam }})</a>
+        {% else %}
         <a href="/aanmelden" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>
+        {% endif %}
       </div>
     </nav>
   </header>

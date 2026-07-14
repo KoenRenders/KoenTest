@@ -61,6 +61,11 @@ def set_session_cookie(response: Response, email: str) -> None:
     )
 
 
+def clear_session_cookie(response: Response) -> None:
+    """Wis de sessie-cookie (uitloggen, #467) — zelfde path als bij het zetten."""
+    response.delete_cookie(SESSION_COOKIE, path="/")
+
+
 def csrf_token_for(session_value: str) -> str:
     return _sign(f"csrf|{session_value}")
 
