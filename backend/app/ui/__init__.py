@@ -25,6 +25,19 @@ from app.i18n import install_jinja_i18n  # noqa: E402
 
 install_jinja_i18n(templates.env)
 
+
+def _langedatum(d) -> str:
+    """Lange Nederlandse datum, bv. 'zaterdag 29 augustus 2026' (#451)."""
+    if d is None:
+        return ""
+    from babel.dates import format_date
+    from app.i18n import current_locale
+
+    return format_date(d, format="full", locale=current_locale.get())
+
+
+templates.env.filters["langedatum"] = _langedatum
+
 # Canonieke admin-navigatie (React-exit 405-d, #405): één bron voor alle
 # server-rendered beheer-schermen i.p.v. een kopie per module.
 _ADMIN_NAV: list[tuple[str, str]] = [

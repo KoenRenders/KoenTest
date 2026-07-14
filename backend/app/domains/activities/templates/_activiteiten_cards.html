@@ -11,9 +11,9 @@
           {% if a.poster_asset_url %}<a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-blue-800 hover:underline">{{ a.name }}</a>{% else %}{{ a.name }}{% endif %}
         </h2>
         <p class="text-sm text-gray-500">
-          {% for d in a.dates %}{{ d.start_date.strftime("%d-%m-%Y") }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date.strftime("%d-%m-%Y") }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
-          {% if a.location %} · {{ a.location }}{% endif %}
+          🗓 {% for d in a.dates %}{{ d.start_date | langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date | langedatum }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
         </p>
+        {% if a.location %}<p class="text-sm text-gray-500">📍 {{ a.location }}</p>{% endif %}
       </div>
       <div>
         {% if a.status %}{{ ui.badge(a.status, _status_tone.get(a.status, "blue")) }}{% endif %}
