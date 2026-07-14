@@ -78,6 +78,14 @@
     <div class="flex justify-center gap-5 mb-6">
       <a href="{{ facebook_url }}" target="_blank" rel="noopener noreferrer"
          aria-label="Facebook" class="text-gray-500 hover:text-blue-700">Facebook</a>
+      {% if instagram_url %}
+      <a href="{{ instagram_url }}" target="_blank" rel="noopener noreferrer"
+         aria-label="Instagram" class="text-gray-500 hover:text-blue-700">Instagram</a>
+      {% endif %}
+      {% if tiktok_url %}
+      <a href="{{ tiktok_url }}" target="_blank" rel="noopener noreferrer"
+         aria-label="TikTok" class="text-gray-500 hover:text-blue-700">TikTok</a>
+      {% endif %}
     </div>
     {% if footer_block and footer_block.content %}
     <div class="cms-content text-center text-sm text-gray-600 mb-6">{{ footer_block.content | safe }}</div>

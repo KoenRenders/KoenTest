@@ -24,6 +24,8 @@ BEKENDE_SLEUTELS = [
     ("tagline", "Tagline", "Ondertitel in de header. Default: Beleef meer in Millegem."),
     ("base_url", "Canonieke URL", "Publieke origin voor links in mails/Mollie/SEO, bv. https://raakmillegem.be."),
     ("facebook_url", "Facebook-link", "Footer-link. Default: de Millegem-pagina."),
+    ("instagram_url", "Instagram-link", "Footer-link. Leeg = niet tonen."),
+    ("tiktok_url", "TikTok-link", "Footer-link. Leeg = niet tonen."),
     ("mail_mode", "Mail-modus", "'send' (default) of 'log_only' (mails enkel loggen — demo)."),
     ("noindex", "Noindex", "'1' = niet indexeren door zoekmachines (demo)."),
     ("language", "Taal", "Catalogustaal, bv. nl_BE (default)."),

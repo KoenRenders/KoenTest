@@ -124,4 +124,7 @@ def site_context(db, request=None) -> dict:
             "site_name": tenant_display_name(db),
             "site_tagline": get_setting(db, "tagline") or "Beleef meer in Millegem",
             "facebook_url": get_setting(db, "facebook_url")
-                or "https://www.facebook.com/raakmillegem"}
+                or "https://www.facebook.com/raakmillegem",
+            # Instagram/TikTok hebben geen zinvolle default → enkel tonen als gezet.
+            "instagram_url": get_setting(db, "instagram_url") or None,
+            "tiktok_url": get_setting(db, "tiktok_url") or None}
