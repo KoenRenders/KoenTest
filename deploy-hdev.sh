@@ -34,5 +34,12 @@ docker compose -f docker-compose.hdev.yml --env-file .env.hdev up --build -d
 # schijf. (#169, opgevolgd n.a.v. de React-exit-deploys.)
 docker compose -f docker-compose.hdev.yml --env-file .env.hdev up -d --force-recreate caddy
 
+# De zonet herstarte Caddy heeft een paar seconden nodig; wacht tot ze weer
+# serveert vóór de rooktest, anders geeft de compressie-check een valse fail.
+for _ in $(seq 1 15); do
+  curl -fsS -o /dev/null "http://localhost:8081/" && break
+  sleep 1
+done
+
 # Post-deploy rooktest (alleen-lezen; maakt geen data aan).
 BASE="${SMOKE_BASE:-http://localhost:8081}" ./tests/run-all.sh
