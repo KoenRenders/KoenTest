@@ -22,7 +22,8 @@
              sync(){ this.$refs.ta.value = this.$refs.ed.innerHTML },
              cmd(c){ document.execCommand(c, false, null); this.sync() },
              blok(t){ document.execCommand('formatBlock', false, t); this.sync() },
-             link(){ const u = prompt('URL:'); if (u) document.execCommand('createLink', false, u); this.sync() }
+             link(){ const u = prompt('URL:'); if (u) document.execCommand('createLink', false, u); this.sync() },
+             ins(txt){ document.execCommand('insertText', false, txt); this.sync() }
            }">
         <div class="flex flex-wrap gap-1 bg-gray-50 border-b border-gray-200 p-1 text-sm">
           <button type="button" class="px-2 py-1 rounded hover:bg-gray-200 font-bold" @click="cmd('bold')" title="{{ _('Vet') }}">B</button>
@@ -30,10 +31,25 @@
           <button type="button" class="px-2 py-1 rounded hover:bg-gray-200 font-semibold" @click="blok('h2')" title="{{ _('Kop') }}">H2</button>
           <button type="button" class="px-2 py-1 rounded hover:bg-gray-200 font-semibold" @click="blok('h3')" title="{{ _('Subkop') }}">H3</button>
           <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="blok('p')" title="{{ _('Gewone tekst') }}">¶</button>
+          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="blok('blockquote')" title="{{ _('Citaat') }}">❝</button>
           <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="cmd('insertUnorderedList')" title="{{ _('Opsomming') }}">•—</button>
           <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="cmd('insertOrderedList')" title="{{ _('Genummerd') }}">1.</button>
+          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="cmd('insertHorizontalRule')" title="{{ _('Horizontale lijn') }}">—</button>
           <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="link()" title="{{ _('Link') }}">🔗</button>
+          <span class="mx-1 border-l border-gray-300"></span>
+          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="cmd('undo')" title="{{ _('Ongedaan maken') }}">↩</button>
+          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="cmd('redo')" title="{{ _('Opnieuw') }}">↪</button>
         </div>
+        {% if placeholders %}
+        {# Klik-invoegbare placeholder-chips (#476): voegen de code op de cursor in. #}
+        <div class="flex flex-wrap gap-1 bg-gray-50 border-b border-gray-200 p-1 text-xs">
+          <span class="px-1 py-1 text-gray-400">{{ _("Invoegen:") }}</span>
+          {% for ph in placeholders %}
+          <button type="button" class="px-2 py-1 rounded bg-blue-100 text-blue-800 hover:bg-blue-200 font-mono"
+                  @mousedown.prevent @click="ins('{{ ph.code }}')" title="{{ ph.label }}">{{ ph.code }}</button>
+          {% endfor %}
+        </div>
+        {% endif %}
         <div contenteditable="true" x-ref="ed" @input="sync()"
              class="cms-content min-h-[16rem] p-3 focus:outline-none text-sm bg-white">{{ p.content or "" | safe }}</div>
         <textarea name="content" x-ref="ta" class="hidden">{{ p.content or "" }}</textarea>
