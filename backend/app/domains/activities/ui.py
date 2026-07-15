@@ -38,15 +38,19 @@ def _is_member(db, person) -> bool:
     return has_valid_membership(person)
 
 
-def _lijst_ctx(db: Session, scope: str) -> dict:
+def _lijst_ctx(db: Session, scope: str, request: Request | None = None) -> dict:
     from app.domains.activities.router import list_activities
 
-    return {"activities": list_activities(scope=scope, db=db), "scope": scope}
+    ctx = {"activities": list_activities(scope=scope, db=db), "scope": scope}
+    if request is not None:
+        # De volledige SiteShell (header/nav/footer) heeft site_context nodig (#475).
+        ctx = {**site_context(db, request), **ctx}
+    return ctx
 
 
 @router.get("/activiteiten", response_class=HTMLResponse)
 def activiteiten_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request, "activiteiten.html", _lijst_ctx(db, "upcoming"))
+    return templates.TemplateResponse(request, "activiteiten.html", _lijst_ctx(db, "upcoming", request))
 
 
 @router.get("/archief", response_class=HTMLResponse)
@@ -59,7 +63,7 @@ def archief_redirect(request: Request):
 
 @router.get("/activiteiten/archief", response_class=HTMLResponse)
 def archief_page(request: Request, db: Session = Depends(get_db)):
-    return templates.TemplateResponse(request, "activiteiten.html", _lijst_ctx(db, "archived"))
+    return templates.TemplateResponse(request, "activiteiten.html", _lijst_ctx(db, "archived", request))
 
 
 @router.get("/activiteiten/{activity_id}/deelnemers/{component_id}",

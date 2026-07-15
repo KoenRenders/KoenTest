@@ -21,8 +21,10 @@ router = APIRouter(include_in_schema=False)
 
 
 @router.get("/aanmelden", response_class=HTMLResponse)
-def aanmelden_page(request: Request):
-    return templates.TemplateResponse(request, "aanmelden.html", {})
+def aanmelden_page(request: Request, db: Session = Depends(get_db)):
+    from app.ui import site_context
+
+    return templates.TemplateResponse(request, "aanmelden.html", site_context(db, request))
 
 
 @router.post("/aanmelden", response_class=HTMLResponse,

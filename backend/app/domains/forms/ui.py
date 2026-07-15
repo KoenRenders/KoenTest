@@ -28,8 +28,11 @@ def _berichten_form(db: Session) -> FormModel | None:
 
 @router.get("/berichten", response_class=HTMLResponse)
 def berichten_page(request: Request, db: Session = Depends(get_db)):
+    from app.ui import site_context
+
     form = _berichten_form(db)
-    return templates.TemplateResponse(request, "berichten.html", {"form": form, "error": None})
+    return templates.TemplateResponse(request, "berichten.html", {
+        **site_context(db, request), "form": form, "error": None})
 
 
 @router.post("/berichten", response_class=HTMLResponse,
