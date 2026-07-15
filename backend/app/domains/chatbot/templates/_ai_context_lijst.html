@@ -1,5 +1,5 @@
 {% import "_macros.html" as ui %}
-{% macro rij(label, info, soort="bron") %}
+{% macro rij(label, info, soort="bron", asset_id=None) %}
 <div class="py-2 border-b border-gray-100"{% if info %} x-data="{ edit: false }"{% endif %}>
   <div class="flex items-center justify-between text-sm">
     <div>
@@ -8,11 +8,16 @@
         {% if info.is_active %}{{ ui.badge(_("actief"), "green") }}{% else %}{{ ui.badge(_("uit")) }}{% endif %}
       {% else %}{{ ui.badge(_("standaard"), "blue") }}{% endif %}
     </div>
-    {% if info %}
+    {% if info or asset_id %}
     <div class="flex gap-2">
+      {% if asset_id %}
+      {{ ui.btn_secondary(_("Opnieuw lezen"), attrs='hx-post="/admin/ai-context/documenten/' ~ asset_id ~ '/opnieuw-lezen" hx-target="#ai-context-lijst" hx-swap="innerHTML" hx-confirm="' ~ _("De tekst van dit document opnieuw inlezen?") ~ '"') }}
+      {% endif %}
+      {% if info %}
       {{ ui.btn_secondary(_("Bewerk"), attrs='@click="edit = !edit"') }}
       {{ ui.btn_secondary(_("Aan/uit"), attrs='hx-post="/admin/ai-context/' ~ info.id ~ '/toggle" hx-target="#ai-context-lijst" hx-swap="innerHTML"') }}
       {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/ai-context/' ~ info.id ~ '/verwijderen" hx-target="#ai-context-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Contextrij"), label)) }}
+      {% endif %}
     </div>
     {% endif %}
   </div>
@@ -42,7 +47,7 @@
 
 {% call ui.card() %}
   <h2 class="font-semibold mb-2">{{ _("Documenten") }}</h2>
-  {% for d in documents %}{{ rij(d.label, d.info) }}{% else %}{{ ui.empty_state(_("Geen documenten.")) }}{% endfor %}
+  {% for d in documents %}{{ rij(d.label, d.info, "bron", d.asset_id) }}{% else %}{{ ui.empty_state(_("Geen documenten.")) }}{% endfor %}
 {% endcall %}
 <div class="mt-4"></div>
 {% call ui.card() %}

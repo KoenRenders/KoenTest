@@ -7,7 +7,7 @@
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -127,6 +127,22 @@ def rij_bewerken(row_id: int, request: Request, db: Session = Depends(get_db),
         text_addition=text_addition.strip() or None,
         is_active=ci.is_active, sort_order=ci.sort_order,
     ), db=db, _admin=admin_user_by_email(db, email))
+    return templates.TemplateResponse(request, "_ai_context_lijst.html",
+                                      _context_ctx(request, db, email))
+
+
+@router.post("/admin/ai-context/documenten/{asset_id}/opnieuw-lezen",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def document_opnieuw_lezen(asset_id: int, request: Request,
+                           background_tasks: BackgroundTasks,
+                           db: Session = Depends(get_db),
+                           email: str = Depends(require_admin_ui)):
+    """'Opnieuw lezen' (#235): her-extraheer de tekst van een document-asset. Draait
+    op de achtergrond; override/aanvulling blijven staan."""
+    from app.domains.media.api import reextract_media_text
+
+    reextract_media_text(asset_id, background_tasks, db=db,
+                         _admin=admin_user_by_email(db, email))
     return templates.TemplateResponse(request, "_ai_context_lijst.html",
                                       _context_ctx(request, db, email))
 
