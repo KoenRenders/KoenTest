@@ -27,12 +27,24 @@ def _ctx(request: Request, db: Session) -> dict:
         q = q.filter(EmailLog.email_type == email_type)
     if status:
         q = q.filter(EmailLog.status == status)
+    try:
+        page = max(1, int(request.query_params.get("page", "1")))
+    except ValueError:
+        page = 1
+    # Eén rij extra ophalen dan de paginagrootte om te weten of er nog een pagina is.
+    rows = (q.order_by(EmailLog.created_at.desc())
+            .offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE + 1).all())
+    has_next = len(rows) > PAGE_SIZE
+    rows = rows[:PAGE_SIZE]
     raw = request.cookies.get(SESSION_COOKIE) or ""
     return {
         "csrf_token": csrf_token_for(raw),
-        "rows": q.order_by(EmailLog.created_at.desc()).limit(PAGE_SIZE).all(),
+        "rows": rows,
         "email_type": email_type,
         "status": status,
+        "page": page,
+        "has_prev": page > 1,
+        "has_next": has_next,
         "email_types": EMAIL_TYPES,
         "email_statuses": EMAIL_STATUSES,
         "nav_items": admin_nav("/admin/e-maillog"),

@@ -9,6 +9,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% if omgeving and omgeving != 'prod' %}[{{ omgeving|upper }}] {% endif %}{% block title %}{{ site_name }} — {{ site_tagline }}{% endblock %}</title>
   {% block meta %}{% endblock %}
+  {# SEO (#454): canonical + Open Graph + JSON-LD. noindex-pagina's (bv. formulieren)
+     zetten zelf een robots-meta in hun {% block meta %}. #}
+  {% set _seo_title = self.title() %}
+  {% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}">{% endif %}
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="{{ site_name }}">
+  <meta property="og:title" content="{{ _seo_title }}">
+  <meta property="og:description" content="{{ site_tagline }}">
+  {% if canonical_url %}<meta property="og:url" content="{{ canonical_url }}">{% endif %}
+  <meta name="description" content="{{ site_tagline }}">
+  {% if omgeving and omgeving != 'prod' %}<meta name="robots" content="noindex">{% endif %}
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"{{ site_name }}"{% if base_url %},"url":"{{ base_url }}"{% endif %}{% if facebook_url %},"sameAs":["{{ facebook_url }}"{% if instagram_url %},"{{ instagram_url }}"{% endif %}{% if tiktok_url %},"{{ tiktok_url }}"{% endif %}]{% endif %}}</script>
   <link rel="stylesheet" href="/static/app.css">
   <style>
     /* Alpine: verberg x-cloak-elementen tot Alpine geïnitialiseerd is (geen flits). */
@@ -50,7 +62,7 @@
           <a href="/{{ p.slug }}" class="hover:underline">{{ p.title }}</a>
           {% endfor %}
           {% if gebruiker %}
-          {% if gebruiker.is_admin %}<a href="/admin" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
+          {% if gebruiker.is_member %}<a href="/leden/gezin" class="hover:underline">{{ _("Mijn gezin") }}</a>{% endif %}{% if gebruiker.is_admin %}<a href="/admin" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
           <a href="/afmelden" class="hover:underline opacity-80">{{ _("Uitloggen") }} ({{ gebruiker.naam }})</a>
           {% else %}
           <a href="/aanmelden" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>
@@ -65,7 +77,7 @@
         <a href="/{{ p.slug }}" class="hover:underline">{{ p.title }}</a>
         {% endfor %}
         {% if gebruiker %}
-        {% if gebruiker.is_admin %}<a href="/admin" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
+        {% if gebruiker.is_member %}<a href="/leden/gezin" class="hover:underline">{{ _("Mijn gezin") }}</a>{% endif %}{% if gebruiker.is_admin %}<a href="/admin" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
         <a href="/afmelden" class="hover:underline opacity-80">{{ _("Uitloggen") }} ({{ gebruiker.naam }})</a>
         {% else %}
         <a href="/aanmelden" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>

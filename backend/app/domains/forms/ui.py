@@ -114,9 +114,33 @@ def _answers_from_form(form_model, form_data) -> list:
     return answers
 
 
+def _prefill_from_session(db, request, submitter_name, submitter_email):
+    """Voorinvullen van naam/e-mail voor een ingelogd lid (#454), zonder een
+    reeds ingevulde waarde te overschrijven. Mag het renderen nooit breken."""
+    if submitter_name or submitter_email or request is None:
+        return submitter_name, submitter_email
+    try:
+        from app.domains.auth.api import (
+            SESSION_COOKIE, login_person_for_email, read_session_value)
+
+        email = read_session_value(request.cookies.get(SESSION_COOKIE))
+        if not email:
+            return submitter_name, submitter_email
+        person = login_person_for_email(db, email)
+        if person is not None:
+            naam = f"{person.first_name} {person.last_name}".strip()
+            return naam or submitter_name, email
+        return submitter_name, email
+    except Exception:
+        return submitter_name, submitter_email
+
+
 def _form_render_ctx(db, form_model, request, *, values=None, error=None,
                      submitter_name="", submitter_email="") -> dict:
     from app.ui import site_context
+
+    submitter_name, submitter_email = _prefill_from_session(
+        db, request, submitter_name, submitter_email)
 
     # Veldenlijst in weergavevolgorde: secties (op positie) met hun velden,
     # daarna de ongegroepeerde velden.

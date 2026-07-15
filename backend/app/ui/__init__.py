@@ -88,7 +88,8 @@ def _huidige_gebruiker(db, request) -> dict | None:
         if person is not None:
             naam = f"{person.first_name} {person.last_name}".strip() or email
         return {"email": email, "naam": naam,
-                "is_admin": "ADMIN" in get_user_roles(db, email)}
+                "is_admin": "ADMIN" in get_user_roles(db, email),
+                "is_member": person is not None}
     except Exception:
         return None
 
@@ -115,6 +116,8 @@ def site_context(db, request=None) -> dict:
     from app.kernel.tenant_config import get_setting, tenant_display_name
     from app.config import settings
 
+    base_url = (get_setting(db, "base_url") or "").rstrip("/")
+
     return {"nav_pages": pages, "footer_block": footer_block,
             "sponsors": sponsors, "current_year": date.today().year,
             "chat_enabled": settings.chat_enabled,
@@ -127,4 +130,7 @@ def site_context(db, request=None) -> dict:
                 or "https://www.facebook.com/raakmillegem",
             # Instagram/TikTok hebben geen zinvolle default → enkel tonen als gezet.
             "instagram_url": get_setting(db, "instagram_url") or None,
-            "tiktok_url": get_setting(db, "tiktok_url") or None}
+            "tiktok_url": get_setting(db, "tiktok_url") or None,
+            # SEO (#454): canonieke origin + huidige canonical-URL voor OG/canonical.
+            "base_url": base_url,
+            "canonical_url": (base_url + request.url.path) if (base_url and request) else None}

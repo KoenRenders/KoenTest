@@ -44,6 +44,16 @@
     </tbody>
   </table>
 </div>
+{% if has_prev or has_next %}
+{% set _base = "/admin/e-maillog/lijst?email_type=" ~ (email_type or "") ~ "&status=" ~ (status or "") %}
+<div class="flex justify-between items-center mt-3 text-sm">
+  <button type="button" {% if has_prev %}hx-get="{{ _base }}&page={{ page - 1 }}" hx-target="#email-log-lijst" hx-swap="innerHTML"{% else %}disabled{% endif %}
+          class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg {% if not has_prev %}opacity-40 pointer-events-none{% endif %}">‹ {{ _("Vorige") }}</button>
+  <span class="text-gray-500">{{ _("Pagina") }} {{ page }}</span>
+  <button type="button" {% if has_next %}hx-get="{{ _base }}&page={{ page + 1 }}" hx-target="#email-log-lijst" hx-swap="innerHTML"{% else %}disabled{% endif %}
+          class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg {% if not has_next %}opacity-40 pointer-events-none{% endif %}">{{ _("Volgende") }} ›</button>
+</div>
+{% endif %}
 {% else %}
 {{ ui.empty_state(_("Geen e-mails gevonden voor deze filter.")) }}
 {% endif %}
