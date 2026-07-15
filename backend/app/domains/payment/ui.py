@@ -196,3 +196,58 @@ def betaling_bijwerken(record_id: str, request: Request, db: Session = Depends(g
     db.commit()
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
                                       _ctx(request, db, email))
+
+
+@router.post("/admin/betalingen/{record_id}/verversen", response_class=HTMLResponse,
+             dependencies=[Depends(require_csrf)])
+def betaling_verversen(record_id: str, request: Request, db: Session = Depends(get_db),
+                       email: str = Depends(require_admin_ui)):
+    """Mollie-status ophalen en toepassen (handmatige tegenhanger van de webhook, #455)."""
+    from app.domains.payment.api import refresh_record_status
+
+    _require_finance(db, email)
+    try:
+        refresh_record_status(db, record_id, actor=email)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    db.commit()
+    return templates.TemplateResponse(request, "_betalingen_lijst.html",
+                                      _ctx(request, db, email))
+
+
+@router.post("/admin/betalingen/{record_id}/status", response_class=HTMLResponse,
+             dependencies=[Depends(require_csrf)])
+def betaling_status(record_id: str, request: Request, db: Session = Depends(get_db),
+                    email: str = Depends(require_admin_ui),
+                    status: str = Form(...), note: str = Form("")):
+    """Vrije status-correctie door de penningmeester (#455)."""
+    from app.domains.payment.api import set_payment_status
+
+    _require_finance(db, email)
+    try:
+        set_payment_status(db, record_id, status.strip(), actor=email,
+                           note=note.strip() or None)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    db.commit()
+    return templates.TemplateResponse(request, "_betalingen_lijst.html",
+                                      _ctx(request, db, email))
+
+
+@router.post("/admin/betalingen/{record_id}/verwijderen", response_class=HTMLResponse,
+             dependencies=[Depends(require_csrf)])
+def betaling_verwijderen(record_id: str, request: Request, db: Session = Depends(get_db),
+                         email: str = Depends(require_admin_ui),
+                         note: str = Form("")):
+    """Betaal-/terugbetaalrecord verwijderen (soft-delete, uit het saldo, #455).
+    Corrigeert ook een foute refund."""
+    from app.domains.payment.api import void_payment_record
+
+    _require_finance(db, email)
+    try:
+        void_payment_record(db, record_id, actor=email, note=note.strip() or None)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    db.commit()
+    return templates.TemplateResponse(request, "_betalingen_lijst.html",
+                                      _ctx(request, db, email))

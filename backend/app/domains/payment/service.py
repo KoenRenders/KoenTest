@@ -339,6 +339,84 @@ def create_refund(
     return record
 
 
+_EDITABLE_STATUSES = {"pending", "paid", "failed", "cancelled"}
+
+
+def refresh_record_status(db: Session, record_id: str, actor: Optional[str] = None) -> PaymentRecord:
+    """Ververs de status van een online betaling bij de provider (Mollie) en pas
+    ze toe op de PaymentRecord(s) — de handmatige tegenhanger van de webhook
+    (#455). Enkel zinvol voor een record met een gekoppelde gateway-betaling."""
+    from app.domains.payment.gateway_service import refresh_payment_status
+
+    record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
+    if not record:
+        raise ValueError(f"PaymentRecord {record_id} not found")
+    if not record.gateway_payment_id:
+        raise ValueError("Deze betaling heeft geen online (Mollie) betaling om te verversen.")
+    gp = refresh_payment_status(db, record.gateway_payment_id)
+    # 'needs_review' (bedrag-mismatch, #92) niet automatisch als betaald boeken.
+    if gp.status in _GATEWAY_ACTION:
+        handle_gateway_update(db, gp.id, gp.status, source="admin_refresh", actor=actor)
+    db.refresh(record)
+    return record
+
+
+def set_payment_status(db: Session, record_id: str, status: str,
+                       actor: Optional[str] = None, note: Optional[str] = None) -> PaymentRecord:
+    """Vrije status-correctie door de penningmeester (#455). Enkel binnen de
+    gekende set; bij 'paid' wordt (als nog niet betaald) paid_at/amount_paid gezet,
+    bij elke andere status worden die gewist zodat het bedrag niet meer meetelt in
+    het saldo. Alles met een history-snapshot voor de audittrail."""
+    if status not in _EDITABLE_STATUSES:
+        raise ValueError(f"Ongeldige status '{status}'.")
+    record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
+    if not record:
+        raise ValueError(f"PaymentRecord {record_id} not found")
+    record.status = status
+    if status == "paid":
+        if record.paid_at is None:
+            record.paid_at = datetime.now(timezone.utc)
+        if record.amount_paid is None:
+            record.amount_paid = record.amount
+    else:
+        record.paid_at = None
+        record.amount_paid = None
+    if note:
+        record.note = note
+    db.flush()
+    snapshot_payment_record(
+        db, record, operation="update", action="payment_status_edited",
+        source="admin_manual", actor=actor,
+    )
+    if status == "paid" and record.payable_type == "membership":
+        _activate_membership(db, record.payable_id, source="admin_manual", actor=actor)
+    return record
+
+
+def void_payment_record(db: Session, record_id: str,
+                        actor: Optional[str] = None, note: Optional[str] = None) -> PaymentRecord:
+    """Verwijder (soft-delete) een betaal-/terugbetaalrecord (#455). De globale
+    soft-delete-filter sluit het daarna uit van elke saldoberekening, dus het
+    bedrag telt niet meer mee — omkeerbaar en met een history-snapshot. Zo
+    corrigeer je ook een foute refund: verwijder ze en registreer eventueel een
+    nieuwe."""
+    from app.soft_delete import soft_delete
+
+    record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
+    if not record:
+        raise ValueError(f"PaymentRecord {record_id} not found")
+    if note:
+        record.note = note
+    # Snapshot vóór de soft-delete (de bronrij blijft bestaan maar wordt gefilterd).
+    snapshot_payment_record(
+        db, record, operation="delete", action="payment_voided",
+        source="admin_manual", actor=actor,
+    )
+    soft_delete(record)
+    db.flush()
+    return record
+
+
 def registration_balance(db: Session, registration) -> dict:
     """Financiële stand van één inschrijving (#83): verschuldigd vs. netto betaald.
 
