@@ -45,6 +45,24 @@ def test_registration_form_prefills_email_and_mobile_for_member(client, db_sessi
     assert 'value="0470112233"' in html
 
 
+def test_archived_card_shows_participants_not_registration(client, db_session):
+    a = Activity(name="Voorbije reis")
+    db_session.add(a)
+    db_session.flush()
+    db_session.add(ActivityDate(activity_id=a.id, start_date=date.today() - timedelta(days=30)))
+    db_session.add(ActivitySubRegistration(
+        activity_id=a.id, name="Deelname", registration_type_code="INDIVIDUAL",
+        price=Decimal("0"), is_free=True))
+    db_session.flush()
+    db_session.commit()
+
+    html = client.get("/activiteiten/archief").text
+    assert "Voorbije reis" in html
+    # 'Wie doet er mee?' blijft; de inschrijf-toggle (hx-get .../inschrijven/) niet.
+    assert "Wie doet er mee?" in html
+    assert f"/activiteiten/{a.id}/inschrijven/" not in html
+
+
 def test_registration_form_empty_for_anonymous(client, db_session):
     activity = _members_only_activity(db_session)
     comp = activity.sub_registrations[0]

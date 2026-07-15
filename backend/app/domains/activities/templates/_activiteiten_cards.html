@@ -20,7 +20,9 @@
         {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
       </div>
     </div>
-    {% if scope != "archived" and not a.is_cancelled %}
+    {% if not a.is_cancelled %}
+    {# Onderdelen ook in het archief (#476): 'Wie doet er mee?' + info blijven,
+       maar de inschrijfknop/-form vervallen (voorbij → niet meer inschrijven). #}
     <div class="mt-4 space-y-3">
       {% for c in a.sub_registrations %}
       <div class="pt-2"{% if not c.external_register_url and not c.external_registrations_url %} x-data="{ open: false }"{% endif %}>
@@ -28,6 +30,7 @@
         {% set _info = c.info_asset_url or c.info_url %}
         <div class="flex flex-wrap items-center gap-2">
           <span class="text-sm font-medium mr-1">{{ c.name }}</span>
+          {% if scope != "archived" %}
           {% if c.external_register_url %}
           <a class="{{ _btn }}" href="{{ c.external_register_url }}" target="_blank" rel="noopener">{{ _("Inschrijven") }} ↗</a>
           {% elif c.is_full %}
@@ -36,6 +39,7 @@
           <button type="button" class="{{ _btn }}"
                   hx-get="/activiteiten/{{ a.id }}/inschrijven/{{ c.id }}"
                   hx-target="#inschrijf-{{ a.id }}-{{ c.id }}" hx-swap="innerHTML">{{ _("Inschrijven") }}</button>
+          {% endif %}
           {% endif %}
           {% if c.external_registrations_url %}
           <a class="{{ _btn }}" href="{{ c.external_registrations_url }}" target="_blank" rel="noopener">{{ _("Wie doet er mee?") }} ↗</a>
@@ -51,7 +55,7 @@
         {% if not c.external_register_url and not c.external_registrations_url %}
         <div id="deelnemers-{{ a.id }}-{{ c.id }}" x-show="open" x-cloak></div>
         {% endif %}
-        <div id="inschrijf-{{ a.id }}-{{ c.id }}"></div>
+        {% if scope != "archived" %}<div id="inschrijf-{{ a.id }}-{{ c.id }}"></div>{% endif %}
       </div>
       {% endfor %}
     </div>
