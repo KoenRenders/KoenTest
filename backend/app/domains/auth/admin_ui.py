@@ -74,7 +74,8 @@ async def gebruiker_bijwerken(user_id: int, request: Request,
 
     form = await request.form()
     try:
-        _email = (form.get("email") or "").strip()
+        _email_raw = form.get("email")
+        _email = _email_raw.strip() if isinstance(_email_raw, str) else ""
         update_user(user_id, UserUpdate(
             email=_email or None,
             is_active=bool(form.get("is_active")),
