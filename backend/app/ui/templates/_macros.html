@@ -2,17 +2,32 @@
    Eén implementatie per patroon; schermen gebruiken UITSLUITEND deze macro's
    voor knoppen, badges, feedback en lege/laadtoestanden. #}
 
-{% macro btn_primary(label, type="submit", attrs="") -%}
-<button type="{{ type }}" class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg transition-colors" {{ attrs|safe }}>{{ label }}</button>
+{# Eén knop-implementatie voor de héle app (#482, totale consistentie): rendert
+   een <button> óf — met `href` — een identiek gestylede <a>. `variant` kiest de
+   kleur, `size` de maat. Alle knoppen/links lopen via deze macro of haar
+   wrappers (btn_primary/secondary/danger/outline). #}
+{# Knop-klassen als één bron van waarheid: zo kunnen ook bespoke interactieve
+   knoppen (hx-*/Alpine, met HTML-inhoud) exact dezelfde stijl dragen via
+   class="{{ ui.btn_class('outline','sm') }}". #}
+{% macro btn_class(variant="primary", size="md") -%}
+{%- set variants = {
+  "primary": "bg-blue-700 hover:bg-blue-800 text-white border border-transparent",
+  "secondary": "bg-white border border-gray-300 hover:bg-gray-100 text-gray-800",
+  "danger": "bg-red-600 hover:bg-red-700 text-white border border-transparent",
+  "outline": "bg-white border border-blue-600 text-blue-700 hover:bg-blue-50"} -%}
+{%- set sizes = {"xs": "px-2.5 py-1 text-xs", "sm": "px-3 py-1.5 text-sm", "md": "px-4 py-2"} -%}
+{{- "inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors " ~ variants.get(variant, variants["primary"]) ~ " " ~ sizes.get(size, sizes["md"]) -}}
 {%- endmacro %}
 
-{% macro btn_secondary(label, type="button", attrs="") -%}
-<button type="{{ type }}" class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-4 py-2 rounded-lg transition-colors" {{ attrs|safe }}>{{ label }}</button>
+{% macro button(label, variant="primary", type="submit", href=None, size="md", attrs="", cls="") -%}
+{%- set _c = btn_class(variant, size) ~ (" " ~ cls if cls else "") -%}
+{% if href %}<a href="{{ href }}" class="{{ _c }}" {{ attrs|safe }}>{{ label }}</a>{% else %}<button type="{{ type }}" class="{{ _c }}" {{ attrs|safe }}>{{ label }}</button>{% endif %}
 {%- endmacro %}
 
-{% macro btn_danger(label, type="button", attrs="") -%}
-<button type="{{ type }}" class="bg-red-600 hover:bg-red-700 text-white font-semibold px-4 py-2 rounded-lg transition-colors" {{ attrs|safe }}>{{ label }}</button>
-{%- endmacro %}
+{% macro btn_primary(label, type="submit", href=None, size="md", attrs="", cls="") -%}{{ button(label, "primary", type, href, size, attrs, cls) }}{%- endmacro %}
+{% macro btn_secondary(label, type="button", href=None, size="md", attrs="", cls="") -%}{{ button(label, "secondary", type, href, size, attrs, cls) }}{%- endmacro %}
+{% macro btn_danger(label, type="button", href=None, size="md", attrs="", cls="") -%}{{ button(label, "danger", type, href, size, attrs, cls) }}{%- endmacro %}
+{% macro btn_outline(label, type="button", href=None, size="sm", attrs="", cls="") -%}{{ button(label, "outline", type, href, size, attrs, cls) }}{%- endmacro %}
 
 {% macro badge(label, tone="gray") -%}
 {%- set tones = {"gray": "bg-gray-100 text-gray-600", "green": "bg-green-100 text-green-800",

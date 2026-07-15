@@ -34,7 +34,7 @@
     <div class="mt-4 space-y-3">
       {% for c in a.sub_registrations %}
       <div class="pt-2"{% if not c.external_register_url and not c.external_registrations_url %} x-data="{ open: false }"{% endif %}>
-        {% set _btn = "inline-flex items-center border border-blue-600 text-blue-700 hover:bg-blue-50 rounded-lg px-3 py-1 text-sm font-medium" %}
+        {% set _btn = ui.btn_class("outline", "sm") %}
         {% set _info = c.info_asset_url or c.info_url %}
         {# ↗ = link buiten de portaal (v1.14): enkel bij een externe info_url, niet
            bij een intern geüpload document (info_asset_url, door de portaal geserveerd). #}
