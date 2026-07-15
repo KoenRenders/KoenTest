@@ -11,6 +11,8 @@
   {% block meta %}{% endblock %}
   <link rel="stylesheet" href="/static/app.css">
   <style>
+    /* Alpine: verberg x-cloak-elementen tot Alpine geïnitialiseerd is (geen flits). */
+    [x-cloak]{display:none!important}
     /* CMS-content-opmaak (#457): Tailwind-reset laat koppen/lijsten kaal → stijl geven. */
     .cms-content h1{font-size:1.5rem;font-weight:700;color:#1e40af;margin:1rem 0 .5rem}
     .cms-content h2{font-size:1.25rem;font-weight:700;color:#1e40af;margin:1rem 0 .5rem}

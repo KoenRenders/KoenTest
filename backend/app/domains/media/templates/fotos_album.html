@@ -4,14 +4,36 @@
 <a href="/fotos" class="text-blue-700 hover:underline text-sm">← {{ _("Terug naar alle albums") }}</a>
 <h1 class="text-3xl font-bold text-blue-800 mt-2 mb-6">Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %}</h1>
 {% if fotos %}
-<div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-  {% for f in fotos %}
-  <a href="{{ f.url }}" target="_blank" rel="noopener noreferrer"
-     class="block aspect-square bg-gray-100 rounded-xl overflow-hidden hover:opacity-90">
-    <img src="{{ f.thumb_url }}" alt="{{ f.title or activiteit.name if activiteit else '' }}"
-         class="w-full h-full object-cover" loading="lazy">
-  </a>
-  {% endfor %}
+{# Lightbox met vorige/volgende-navigatie (#473): thumbnails openen een overlay;
+   ‹/› verschijnen enkel waar er een buur is; Esc/✕/achtergrond/pijltjes sluiten/
+   bladeren. De volledige-foto-URLs staan in een Alpine-eiland. #}
+<div x-data="{ open: null, urls: {{ fotos | map(attribute='url') | list | tojson }} }"
+     @keydown.escape.window="open = null"
+     @keydown.arrow-left.window="if (open !== null &amp;&amp; open > 0) open--"
+     @keydown.arrow-right.window="if (open !== null &amp;&amp; open < urls.length - 1) open++">
+  <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+    {% for f in fotos %}
+    <button type="button" @click="open = {{ loop.index0 }}"
+            class="block aspect-square bg-gray-100 rounded-xl overflow-hidden hover:opacity-90">
+      <img src="{{ f.thumb_url }}" alt="{{ f.title or activiteit.name if activiteit else '' }}"
+           class="w-full h-full object-cover" loading="lazy">
+    </button>
+    {% endfor %}
+  </div>
+
+  {# Overlay #}
+  <div x-show="open !== null" x-cloak @click.self="open = null"
+       class="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4">
+    <button type="button" @click="open = null" aria-label="{{ _('Sluiten') }}"
+            class="absolute top-3 right-4 text-white/90 hover:text-white text-3xl leading-none">✕</button>
+    <button type="button" x-show="open > 0" @click.stop="open--" aria-label="{{ _('Vorige') }}"
+            class="absolute left-2 sm:left-6 text-white/90 hover:text-white text-5xl leading-none px-3 py-6">‹</button>
+    <img :src="open !== null ? urls[open] : ''" @click.stop alt=""
+         class="max-h-[90vh] max-w-[92vw] object-contain rounded">
+    <button type="button" x-show="open !== null &amp;&amp; open < urls.length - 1" @click.stop="open++"
+            aria-label="{{ _('Volgende') }}"
+            class="absolute right-2 sm:right-6 text-white/90 hover:text-white text-5xl leading-none px-3 py-6">›</button>
+  </div>
 </div>
 {% else %}
 <p class="text-gray-500 italic">{{ _("Geen foto's gevonden voor deze activiteit.") }}</p>
