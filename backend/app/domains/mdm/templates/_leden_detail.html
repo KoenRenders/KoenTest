@@ -5,7 +5,7 @@
     <div class="flex items-start justify-between">
       <div>
         <span class="font-semibold">{{ m.first_name }} {{ m.last_name }}</span>
-        <span class="text-xs text-gray-500 ml-1">({{ m.relation_type or "—" }})</span>
+        <span class="text-xs text-gray-500 ml-1">({{ m.relation_type | relatielabel }})</span>
         {% if m.date_of_birth %}<p class="text-sm text-gray-500 mt-0.5">° {{ m.date_of_birth.strftime("%d-%m-%Y") }}</p>{% endif %}
         <div class="text-sm text-gray-500 mt-0.5 flex gap-3 flex-wrap">
           {% if m.email %}<span>✉ {{ m.email }}</span>{% endif %}

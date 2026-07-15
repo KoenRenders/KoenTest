@@ -38,6 +38,18 @@ def _langedatum(d) -> str:
 
 templates.env.filters["langedatum"] = _langedatum
 
+
+# Relatietype leesbaar tonen (#476): ruwe code → label i.p.v. "HOOFDLID".
+_RELATIE_LABELS = {"HOOFDLID": "Hoofdlid", "PARTNER": "Partner",
+                   "KIND": "(meerderjarig) kind"}
+
+
+def _relatielabel(code) -> str:
+    return _RELATIE_LABELS.get(code or "", code or "—")
+
+
+templates.env.filters["relatielabel"] = _relatielabel
+
 # Omgevings-indicator (#464): [HDEV]/[UAT] in titel + gekleurde band. Als globale
 # beschikbaar in álle templates (publiek + admin); PROD blijft schoon.
 from app.config import settings as _settings  # noqa: E402

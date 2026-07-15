@@ -29,7 +29,7 @@
     <div x-show="!edit" class="flex items-start justify-between">
       <div>
         <span class="font-semibold">{{ p.first_name }} {{ p.last_name }}</span>
-        <span class="text-xs text-gray-500 ml-1">({{ p.relation_type or "—" }})</span>
+        <span class="text-xs text-gray-500 ml-1">({{ p.relation_type | relatielabel }})</span>
         {% if p.date_of_birth %}<p class="text-sm text-gray-500 mt-0.5">° {{ p.date_of_birth }}</p>{% endif %}
         <div class="text-sm text-gray-500 mt-0.5 flex gap-3 flex-wrap">
           {% if p.email %}<span>✉ {{ p.email }}</span>{% endif %}

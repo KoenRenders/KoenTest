@@ -8,8 +8,16 @@
   <p class="text-gray-600 mb-6">{{ _("Bedankt! Je inschrijving bij Raak Millegem is bevestigd. Je ontvangt een bevestiging per e-mail.") }}</p>
   {% else %}
   <h1 class="text-2xl font-bold mb-2">{{ _("Betaling geannuleerd") }}</h1>
-  <p class="text-gray-600 mb-6">{{ _("Je betaling is niet doorgegaan. Je kunt het opnieuw proberen of contact opnemen met het bestuur.") }}</p>
+  <p class="text-gray-600 mb-2">{{ _("Je betaling is niet doorgegaan. Je kunt het opnieuw proberen of contact opnemen met het bestuur.") }}</p>
+  <p class="text-gray-500 text-sm mb-6">{{ _("Je registratie is bewaard — je kan de betaling later ook voltooien via een bestuurslid.") }}</p>
   {% endif %}
+  {% if gelukt %}
   <a class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg" href="/">{{ _("Terug naar de startpagina") }}</a>
+  {% else %}
+  <div class="flex flex-wrap gap-2 justify-center">
+    <a class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg" href="/">{{ _("Opnieuw proberen") }}</a>
+    <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-4 py-2 rounded-lg" href="/">{{ _("Terug naar de startpagina") }}</a>
+  </div>
+  {% endif %}
 </div>
 {% endblock %}
