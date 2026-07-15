@@ -407,7 +407,10 @@ def inzendingen_export(form_id: int, request: Request, db: Session = Depends(get
                        email: str = Depends(require_admin_ui)) -> Response:
     from app.domains.forms.router import export_form
 
-    return export_form(form_id, db=db, _admin=None)  # type: ignore[arg-type]
+    # format expliciet meegeven: export_form heeft `format=Query("ods")`, en bij een
+    # directe functie-aanroep is die default een FastAPI Query-object (niet de string
+    # "ods") → anders faalt de format-check met 422 "Ongeldig formaat".
+    return export_form(form_id, format="ods", db=db, _admin=None)  # type: ignore[arg-type]
 
 
 # ── Resultaten (statistiek) + JSON-export ──────────────────────────────────────
