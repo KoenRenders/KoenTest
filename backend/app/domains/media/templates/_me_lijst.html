@@ -2,7 +2,7 @@
 {{ ui.error_banner(error) }}
 <div class="flex items-center gap-3 mb-4">
   {% for k in kinds %}
-  <button class="px-3 py-1.5 rounded-lg text-sm border {% if k == kind %}bg-blue-700 text-white border-blue-700{% else %}bg-white border-gray-300 hover:bg-gray-100{% endif %}"
+  <button class="{{ ui.btn_class('primary' if k == kind else 'secondary', 'sm') }}"
           hx-get="/admin/media/lijst?kind={{ k }}" hx-target="#me-lijst" hx-swap="innerHTML">
     {% if k == "sponsor" %}{{ _("Sponsors") }}{% else %}{{ _("Activiteitenfoto's") }}{% endif %}
   </button>

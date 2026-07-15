@@ -2,7 +2,7 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Wijzigingen — Raak beheer") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-4">{{ _("Wijzigingen") }}</h1>
+{{ ui.page_header(_("Wijzigingen")) }}
 <form class="flex flex-wrap items-end gap-3 mb-6"
       hx-get="/admin/ledenwijzigingen" hx-target="#lw-inhoud" hx-swap="innerHTML">
   <div>{{ ui.label(_("Vanaf"), "lw-since") }}

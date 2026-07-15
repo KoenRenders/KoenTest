@@ -1,8 +1,8 @@
 {% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
 {% block title %}{{ _("Betalingen — Raak") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-2">{{ _("Betalingen & vorderingen") }}</h1>
-<p class="text-gray-600 mb-6">{{ _("Financiële feiten — enkel FINANCE kan bevestigen of terugbetalen.") }}</p>
+{{ ui.page_header(_("Betalingen & vorderingen"), _("Financiële feiten — enkel FINANCE kan bevestigen of terugbetalen.")) }}
 {% set _status_labels = {"all": _("Alle statussen"), "openstaand": _("Openstaand saldo"), "pending": _("In afwachting"), "paid": _("Betaald"), "failed": _("Mislukt"), "cancelled": _("Geannuleerd")} %}
 <form class="flex flex-wrap gap-3 mb-4 items-center"
       hx-get="/admin/betalingen/lijst" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-trigger="change">
@@ -25,8 +25,7 @@
           class="border px-4 py-2 rounded-lg text-sm font-semibold {% if status == 'openstaand' %}bg-orange-100 text-orange-800 border-orange-300{% else %}bg-white border-gray-300 hover:bg-gray-100 text-gray-800{% endif %}"
           hx-get="/admin/betalingen/lijst?context={{ context }}&status={% if status == 'openstaand' %}all{% else %}openstaand{% endif %}"
           hx-target="#betalingen-lijst" hx-swap="innerHTML">{{ _("Openstaand") }}</button>
-  <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-4 py-2 rounded-lg text-sm"
-     href="/admin/betalingen/export?context={{ context }}&status={{ status }}">⬇ {{ _("Export (.ods)") }}</a>
+  {{ ui.btn_secondary("⬇ " ~ _("Export (.ods)"), href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status) }}
 </form>
 <div id="betalingen-lijst">
   {% include "_betalingen_lijst.html" %}

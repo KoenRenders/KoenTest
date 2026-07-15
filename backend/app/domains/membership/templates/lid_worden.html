@@ -2,7 +2,7 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Word lid — Raak") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-6">{{ _("Lid worden") }}</h1>
+{{ ui.page_header(_("Lid worden")) }}
 {{ ui.error_banner(error) }}
 <form hx-post="/lid-worden" hx-target="body" hx-swap="innerHTML" class="space-y-4">
   {# Hoofdlid #}
@@ -31,7 +31,7 @@
 
   {# Extra gezinsleden — onder het adres, met verwijder-knop per lid (#456) #}
   <div id="extra-personen" class="space-y-4"></div>
-  <button type="button" class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-4 py-2 rounded-lg"
+  <button type="button" class="{{ ui.btn_class('secondary') }}"
           hx-get="/lid-worden/persoon-rij" hx-target="#extra-personen" hx-swap="beforeend"
           hx-vals='js:{index: 1 + document.querySelectorAll("#extra-personen > div").length}'>
     {{ _("+ Gezinslid toevoegen") }}

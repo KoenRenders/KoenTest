@@ -5,7 +5,7 @@
     <div class="text-sm"><span class="font-medium">{{ f.label }}</span>
       <span class="ml-1">{{ ui.badge(f.field_type, "blue") }}</span>
       {% if f.required %}{{ ui.badge(_("verplicht"), "yellow") }}{% endif %}</div>
-    <div class="flex gap-1">
+    <div class="flex flex-wrap gap-1">
       {{ ui.btn_secondary("↑", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
       {{ ui.btn_secondary("↓", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
       {{ ui.btn_secondary(_("Bewerken"), attrs='@click="edit = !edit"') }}
@@ -84,17 +84,17 @@
 <div class="space-y-4">
   {# Instellingen #}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ open: false }">
-    <div class="flex items-center justify-between">
+    <div class="flex flex-wrap items-center justify-between gap-2">
       <h2 class="font-bold text-lg">{{ form.title }}
         {% if form.status == "open" %}{{ ui.badge(_("open"), "green") }}{% elif form.status == "closed" %}{{ ui.badge(_("gesloten"), "red") }}{% else %}{{ ui.badge(_("concept"), "yellow") }}{% endif %}
       </h2>
-      <div class="flex gap-2">
-        <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg text-sm" href="/formulier/{{ form.share_token }}" target="_blank">{{ _("Bekijk") }}</a>
-        <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg text-sm" href="/admin/formulieren/{{ form.id }}/afdruk" target="_blank">{{ _("Afdruk") }}</a>
-        <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg text-sm" href="/admin/formulieren/{{ form.id }}/export">{{ _("⬇ Export") }}</a>
-        <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg text-sm" href="/admin/formulieren/{{ form.id }}/json">{{ _("⬇ JSON") }}</a>
-        {{ ui.btn_secondary(_("Instellingen"), attrs='@click="open = !open"') }}
-        {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" hx-target="#fb-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Formulier"), form.title)) }}
+      <div class="flex flex-wrap gap-2">
+        {{ ui.btn_secondary(_("Bekijk"), href="/formulier/" ~ form.share_token, size="sm", attrs='target="_blank"') }}
+        {{ ui.btn_secondary(_("Afdruk"), href="/admin/formulieren/" ~ form.id ~ "/afdruk", size="sm", attrs='target="_blank"') }}
+        {{ ui.btn_secondary("⬇ " ~ _("Export"), href="/admin/formulieren/" ~ form.id ~ "/export", size="sm") }}
+        {{ ui.btn_secondary("⬇ " ~ _("JSON"), href="/admin/formulieren/" ~ form.id ~ "/json", size="sm") }}
+        {{ ui.btn_secondary(_("Instellingen"), size="sm", attrs='@click="open = !open"') }}
+        {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" hx-target="#fb-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Formulier"), form.title)) }}
       </div>
     </div>
     <p class="text-xs text-gray-500 mt-1">Deellink: /formulier/{{ form.share_token }} · {{ submission_count }} inzendingen</p>

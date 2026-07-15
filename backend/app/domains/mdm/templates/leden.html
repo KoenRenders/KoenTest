@@ -1,7 +1,8 @@
 {% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
 {% block title %}{{ _("Leden — Raak") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-4">{{ _("Leden") }}</h1>
+{{ ui.page_header(_("Leden")) }}
 <div class="flex flex-col md:flex-row gap-6">
   <div class="md:w-72 shrink-0">
     <input type="search" name="q" value="{{ q }}" placeholder="{{ _('Zoek op naam of e-mail…') }}"

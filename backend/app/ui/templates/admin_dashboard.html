@@ -1,7 +1,8 @@
 {% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
 {% block title %}{{ _("Dashboard — Raak beheer") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-6">{{ _("Dashboard") }}</h1>
+{{ ui.page_header(_("Dashboard")) }}
 <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
   {% for label, waarde, kleur, href in tegels %}
   <a href="{{ href }}" class="block rounded-xl p-5 transition hover:shadow-md hover:brightness-95 {{ kleur }}">

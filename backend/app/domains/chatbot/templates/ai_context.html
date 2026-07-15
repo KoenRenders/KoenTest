@@ -2,8 +2,7 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Raakje — ai-context") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-2">{{ _("Wat Raakje weet") }}</h1>
-<p class="text-gray-600 mb-6">{{ _("Documenten, pagina's en notities die de chatbot als context gebruikt.") }}</p>
+{{ ui.page_header(_("Wat Raakje weet"), _("Documenten, pagina's en notities die de chatbot als context gebruikt.")) }}
 <div id="ai-context-lijst">
   {% include "_ai_context_lijst.html" %}
 </div>

@@ -2,11 +2,10 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Formulieren — Raak beheer") }}{% endblock %}
 {% block content %}
-<div class="flex items-center justify-between gap-3 mb-4">
-  <h1 class="text-2xl font-bold text-blue-800">{{ _("Formulieren") }}</h1>
+{% call ui.page_header(_("Formulieren")) %}
   <a href="/static/form-json-formaat.md" target="_blank" rel="noopener" download
      class="text-sm text-blue-700 hover:underline whitespace-nowrap">📄 {{ _("Formaat (voor AI)") }}</a>
-</div>
+{% endcall %}
 <form class="flex gap-2 items-end mb-4" hx-post="/admin/formulieren" hx-target="#fb-detail" hx-swap="innerHTML">
   <div>{{ ui.label(_("Nieuw formulier"), "title", required=True) }}
     <input name="title" id="title" required class="border border-gray-300 rounded-lg px-3 py-2"></div>
