@@ -27,6 +27,17 @@ def test_reglement_bad_type_shows_error_not_silent(client, db_session):
     assert "HEIC" in resp.text or "PDF" in resp.text
 
 
+def test_upload_button_is_submit(client, db_session):
+    """De 'Uploaden'-knop moet type=submit zijn — anders verstuurt htmx het
+    multipart-formulier niet en doet klikken in de browser niets (de echte
+    oorzaak van 'upload lukt niet')."""
+    _a, comp, _p = seed_activity_with_product(db_session)
+    _login(client)
+    html = client.get(f"/admin/activiteiten/{comp.activity_id}").text
+    idx = html.index("Uploaden")
+    assert 'type="submit"' in html[idx - 200:idx]
+
+
 def test_reglement_valid_pdf_succeeds(client, db_session):
     _a, comp, _p = seed_activity_with_product(db_session)
     csrf = _login(client)
