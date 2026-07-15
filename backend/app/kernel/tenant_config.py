@@ -95,9 +95,18 @@ def set_setting(db: Session, key: str, value: str | None, *, secret: bool = Fals
 
 def tenant_base_url(db: Session, tenant_id: int | None = None) -> str:
     """Canonieke publieke origin van de actieve tenant, voor absolute URL's in
-    mails, Mollie-redirects en SEO. Default: de globale FRONTEND_URL."""
+    mails, Mollie-redirects en SEO. Default: de globale FRONTEND_URL.
+
+    OMGEVINGSVEILIGHEID (#477): in een **niet-prod** omgeving (APP_ENV != "prod")
+    wint de env ``FRONTEND_URL`` ALTIJD van een DB-``base_url``. Anders zou een
+    prod-URL die per ongeluk in de HDEV/UAT-database staat (seed/restore) in een
+    test-inloglink of -betaalredirect naar productie lekken. Op HDEV/UAT draait
+    alles op één origin, dus een per-tenant prod-domein is daar sowieso
+    betekenisloos. In prod blijft de per-tenant DB-``base_url`` leidend."""
     from app.config import settings
 
+    if settings.app_env != "prod":
+        return settings.frontend_url.rstrip("/")
     return (get_setting(db, "base_url", tenant_id=tenant_id)
             or settings.frontend_url).rstrip("/")
 
