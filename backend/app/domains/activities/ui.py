@@ -117,12 +117,33 @@ def _totaal(db: Session, component, quantities: dict[int, int], is_member: bool)
     return total
 
 
+def _person_contacts(person) -> tuple[str, str]:
+    """(e-mail, mobiel) van een person uit zijn ContactDetails, of lege strings."""
+    email = mobile = ""
+    if person is not None:
+        for c in getattr(person, "contact_details", []) or []:
+            if c.contact_type_code == "EMAIL" and not email:
+                email = c.value or ""
+            elif c.contact_type_code == "MOBILE" and not mobile:
+                mobile = c.value or ""
+    return email, mobile
+
+
 def _form_ctx(request: Request, db: Session, activity, component, **extra) -> dict:
     person = _session_person(request, db)
     is_member = _is_member(db, person)
+    # Voorinvullen voor een ingelogd lid (#476): naam vult de template al vanuit
+    # person; e-mail + mobiel komen uit de ContactDetails. Op submit overschrijft
+    # extra["values"] deze defaults.
+    email, mobile = _person_contacts(person)
+    prefill: dict = {}
+    if email:
+        prefill["contact_email"] = email
+    if mobile:
+        prefill["phone"] = mobile
     ctx = {
         "activity": activity, "component": component, "is_member": is_member,
-        "person": person, "error": None, "totaal": Decimal("0"), "values": {},
+        "person": person, "error": None, "totaal": Decimal("0"), "values": prefill,
     }
     ctx.update(extra)
     return ctx

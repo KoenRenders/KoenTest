@@ -102,8 +102,17 @@
         <input name="last_name" id="np-last" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
       <div>{{ ui.label(_("Geboortedatum"), "np-dob") }}
         <input type="date" name="date_of_birth" id="np-dob" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+      <div>{{ ui.label(_("Geslacht"), "np-gender") }}
+        <select name="gender_code" id="np-gender" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+          <option value="">—</option>
+          {% for g in gender_codes %}<option value="{{ g.code }}">{{ g.value }}</option>{% endfor %}
+        </select></div>
       <div>{{ ui.label(_("E-mail"), "np-mail") }}
         <input type="email" name="contact_email" id="np-mail" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+      <div>{{ ui.label(_("GSM"), "np-mobile") }}
+        <input type="tel" name="mobile" id="np-mobile" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+      <div>{{ ui.label(_("Telefoon"), "np-phone") }}
+        <input name="phone" id="np-phone" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
       <div class="sm:col-span-2">{{ ui.btn_primary(_("Toevoegen")) }}</div>
     </form>
   </div>

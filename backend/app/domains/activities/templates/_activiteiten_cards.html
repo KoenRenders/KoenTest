@@ -15,8 +15,9 @@
         </p>
         {% if a.location %}<p class="text-sm text-gray-500">📍 {{ a.location }}</p>{% endif %}
       </div>
-      <div>
+      <div class="flex flex-col items-end gap-1">
         {% if a.status %}{{ ui.badge(a.status, _status_tone.get(a.status, "blue")) }}{% endif %}
+        {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
       </div>
     </div>
     {% if scope != "archived" and not a.is_cancelled %}
