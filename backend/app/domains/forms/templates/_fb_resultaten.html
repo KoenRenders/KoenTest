@@ -1,0 +1,66 @@
+{% import "_macros.html" as ui %}
+{# Geaggregeerde resultaten per veld (#454): staafjes per optie/rating,
+   rating-gemiddelde, number-stats, tekstantwoorden. Data uit compute_results. #}
+{% macro balk(label, count, total) %}
+  {% set pct = (100 * count / total) if total else 0 %}
+  <div class="flex items-center gap-2 text-sm py-0.5">
+    <div class="w-40 shrink-0 truncate text-gray-700" title="{{ label }}">{{ label }}</div>
+    <div class="flex-1 bg-gray-100 rounded h-4 overflow-hidden">
+      <div class="bg-blue-500 h-4" style="width: {{ '%.0f'|format(pct) }}%"></div>
+    </div>
+    <div class="w-10 shrink-0 text-right text-gray-600">{{ count }}</div>
+  </div>
+{% endmacro %}
+
+<div class="mt-2">
+  <p class="text-sm text-gray-600 mb-3">
+    <strong>{{ results.submission_count }}</strong> {{ _("inzendingen") }}
+    {% if results.last_submission %} · {{ _("laatste") }}: {{ results.last_submission.strftime("%d-%m-%Y %H:%M") }}{% endif %}
+  </p>
+
+  {% if results.submission_count == 0 %}
+    {{ ui.empty_state(_("Nog geen inzendingen.")) }}
+  {% else %}
+  <div class="space-y-5">
+    {% for f in results.fields %}
+    <div class="border-t border-gray-100 pt-3">
+      <div class="flex items-baseline justify-between">
+        <h4 class="font-medium">{{ f.label }}</h4>
+        <span class="text-xs text-gray-400">{{ f.response_count }} {{ _("antwoorden") }}</span>
+      </div>
+
+      {% if f.field_type in ("select", "radio", "checkbox") %}
+        {% set maxc = (f.options | map(attribute='count') | max) if f.options else 0 %}
+        <div class="mt-1">
+          {% for o in f.options %}{{ balk(o.label, o.count, maxc) }}{% endfor %}
+        </div>
+
+      {% elif f.field_type == "rating" %}
+        <p class="text-sm text-gray-700 mt-1">{{ _("Gemiddelde") }}:
+          <strong>{{ f.average if f.average is not none else "—" }}</strong></p>
+        {% set maxc = (f.distribution | map(attribute='count') | max) if f.distribution else 0 %}
+        <div class="mt-1">
+          {% for d in f.distribution %}{{ balk(d.label, d.count, maxc) }}{% endfor %}
+        </div>
+
+      {% elif f.field_type == "number" %}
+        <p class="text-sm text-gray-700 mt-1">
+          {{ _("Gemiddelde") }}: <strong>{{ f.average if f.average is not none else "—" }}</strong>
+          · {{ _("min") }}: {{ f.min if f.min is not none else "—" }}
+          · {{ _("max") }}: {{ f.max if f.max is not none else "—" }}
+        </p>
+
+      {% else %}
+        {% if f.answers %}
+        <ul class="mt-1 text-sm text-gray-700 space-y-1 max-h-64 overflow-y-auto">
+          {% for a in f.answers %}<li class="border-l-2 border-gray-200 pl-2">{{ a }}</li>{% endfor %}
+        </ul>
+        {% else %}
+        <p class="text-sm text-gray-400 mt-1">{{ _("Geen antwoorden.") }}</p>
+        {% endif %}
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>

@@ -410,6 +410,36 @@ def inzendingen_export(form_id: int, request: Request, db: Session = Depends(get
     return export_form(form_id, db=db, _admin=None)  # type: ignore[arg-type]
 
 
+# ── Resultaten (statistiek) + JSON-export ──────────────────────────────────────
+
+@router.get("/admin/formulieren/{form_id}/resultaten", response_class=HTMLResponse)
+def resultaten_tab(form_id: int, request: Request, db: Session = Depends(get_db),
+                   email: str = Depends(require_admin_ui)):
+    """Server-side geaggregeerde resultaten per veld (#455/#454): staafjes per
+    optie, rating-gemiddelde + verdeling, number-stats, tekstantwoorden."""
+    from app.domains.forms.results import compute_results
+
+    form = _form_or_404(db, form_id)
+    return templates.TemplateResponse(request, "_fb_resultaten.html", {
+        "form": form, "results": compute_results(db, form)})
+
+
+@router.get("/admin/formulieren/{form_id}/json")
+def json_export(form_id: int, request: Request, db: Session = Depends(get_db),
+                email: str = Depends(require_admin_ui)) -> Response:
+    """Volledige formulierdefinitie als downloadbare JSON (backup/inspectie/AI)."""
+    from app.domains.forms.router import _admin_out
+
+    form = _form_or_404(db, form_id)
+    payload = json.dumps(_admin_out(db, form), ensure_ascii=False,
+                         indent=2, default=str)
+    slug = form.slug or f"formulier-{form.id}"
+    return Response(
+        content=payload, media_type="application/json",
+        headers={"Content-Disposition": f'attachment; filename="{slug}.json"'},
+    )
+
+
 @router.get("/admin/formulieren/{form_id}/afdruk", response_class=HTMLResponse)
 def formulier_afdruk(form_id: int, request: Request, db: Session = Depends(get_db),
                      email: str = Depends(require_admin_ui)):

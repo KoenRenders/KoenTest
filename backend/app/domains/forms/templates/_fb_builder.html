@@ -92,6 +92,7 @@
         <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg text-sm" href="/formulier/{{ form.share_token }}" target="_blank">{{ _("Bekijk") }}</a>
         <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg text-sm" href="/admin/formulieren/{{ form.id }}/afdruk" target="_blank">{{ _("Afdruk") }}</a>
         <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg text-sm" href="/admin/formulieren/{{ form.id }}/export">{{ _("⬇ Export") }}</a>
+        <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg text-sm" href="/admin/formulieren/{{ form.id }}/json">{{ _("⬇ JSON") }}</a>
         {{ ui.btn_secondary(_("Instellingen"), attrs='@click="open = !open"') }}
         {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" hx-target="#fb-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Formulier"), form.title)) }}
       </div>
@@ -165,6 +166,15 @@
     <input name="title" placeholder="{{ _('Nieuwe sectie') }}" class="border border-gray-300 rounded-lg px-2 py-1 text-sm">
     {{ ui.btn_secondary(_("+ sectie"), type="submit") }}
   </form>
+
+  {# Resultaten-tab (statistiek, #454) #}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+    <div class="flex items-center justify-between mb-2">
+      <h3 class="font-semibold">{{ _("Resultaten") }}</h3>
+      {{ ui.btn_secondary(_("Toon resultaten"), attrs='hx-get="/admin/formulieren/' ~ form.id ~ '/resultaten" hx-target="#fb-resultaten" hx-swap="innerHTML"') }}
+    </div>
+    <div id="fb-resultaten"></div>
+  </div>
 
   {# Inzendingen-tab #}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
