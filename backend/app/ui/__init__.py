@@ -56,6 +56,23 @@ from app.config import settings as _settings  # noqa: E402
 
 templates.env.globals["omgeving"] = _settings.app_env
 
+
+# Cache-busting voor app.css (#481): browsers serveren anders na een deploy een
+# oude stylesheet (stale layout). De <link>-URL krijgt ?v=<inhoud-hash>, zodat een
+# CSS-wijziging een nieuwe URL geeft en de browser gegarandeerd vers ophaalt.
+def _css_version() -> str:
+    import hashlib
+    from pathlib import Path
+
+    try:
+        data = (Path(__file__).resolve().parent.parent / "static" / "app.css").read_bytes()
+        return hashlib.md5(data).hexdigest()[:8]
+    except OSError:
+        return "0"
+
+
+templates.env.globals["css_version"] = _css_version()
+
 # Canonieke admin-navigatie (React-exit 405-d, #405): één bron voor alle
 # server-rendered beheer-schermen i.p.v. een kopie per module.
 _ADMIN_NAV: list[tuple[str, str]] = [

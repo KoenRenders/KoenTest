@@ -21,7 +21,7 @@
   <meta name="description" content="{{ site_tagline }}">
   {% if omgeving and omgeving != 'prod' %}<meta name="robots" content="noindex">{% endif %}
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"{{ site_name }}"{% if base_url %},"url":"{{ base_url }}"{% endif %}{% if facebook_url %},"sameAs":["{{ facebook_url }}"{% if instagram_url %},"{{ instagram_url }}"{% endif %}{% if tiktok_url %},"{{ tiktok_url }}"{% endif %}]{% endif %}}</script>
-  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/app.css?v={{ css_version }}">
   <style>
     /* Alpine: verberg x-cloak-elementen tot Alpine geïnitialiseerd is (geen flits). */
     [x-cloak]{display:none!important}

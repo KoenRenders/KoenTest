@@ -7,7 +7,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% if omgeving and omgeving != 'prod' %}[{{ omgeving|upper }}] {% endif %}{% block title %}{{ _("Admin — Raak") }}{% endblock %}</title>
   <meta name="robots" content="noindex">
-  <link rel="stylesheet" href="/static/app.css">
+  <link rel="stylesheet" href="/static/app.css?v={{ css_version }}">
   <style>
     /* CMS-content-opmaak (#457): ook in de admin voor de WYSIWYG-preview. */
     .cms-content h1{font-size:1.5rem;font-weight:700;color:#1e40af;margin:1rem 0 .5rem}
