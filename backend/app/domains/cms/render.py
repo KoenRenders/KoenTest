@@ -26,8 +26,11 @@ _ALLOWED_TAGS = {
     "blockquote", "pre", "code",
     "img", "table", "thead", "tbody", "tr", "th", "td",
 }
+# NB: 'rel' NIET vermelden op <a> — nh3 beheert dat zelf via link_rel en voegt
+# standaard rel="noopener noreferrer" toe (het expliciet toelaten geeft een
+# ValueError).
 _ALLOWED_ATTRS = {
-    "a": {"href", "title", "target", "rel"},
+    "a": {"href", "title", "target"},
     "img": {"src", "alt", "title", "width", "height"},
     "*": {"class"},
 }
