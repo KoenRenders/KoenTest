@@ -7,7 +7,7 @@
 {# Lightbox met vorige/volgende-navigatie (#473): thumbnails openen een overlay;
    ‹/› verschijnen enkel waar er een buur is; Esc/✕/achtergrond/pijltjes sluiten/
    bladeren. De volledige-foto-URLs staan in een Alpine-eiland. #}
-<div x-data="{ open: null, urls: {{ fotos | map(attribute='url') | list | tojson }} }"
+<div x-data='{ open: null, urls: {{ fotos | map(attribute="url") | list | tojson }} }'
      @keydown.escape.window="open = null"
      @keydown.arrow-left.window="if (open !== null &amp;&amp; open > 0) open--"
      @keydown.arrow-right.window="if (open !== null &amp;&amp; open < urls.length - 1) open++">
