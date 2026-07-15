@@ -14,7 +14,7 @@
           hx-get="/admin/media/lijst" hx-target="#me-lijst" hx-swap="innerHTML"
           hx-trigger="change" hx-vals='{"kind": "activity_photo"}'>
     <option value="">{{ _("Alle activiteiten") }}</option>
-    {% for a in activiteiten %}<option value="{{ a.id }}" {% if activity_id == a.id %}selected{% endif %}>{{ a.name }}</option>{% endfor %}
+    {% for a in activiteiten %}<option value="{{ a.id }}" {% if activity_id == a.id %}selected{% endif %}>{{ a.naam }}{% if a.jaar %} ({{ a.jaar }}){% endif %}</option>{% endfor %}
   </select>
 </div>
 {% endif %}
@@ -27,8 +27,11 @@
     <div>{{ ui.label(_("Bestanden (afbeeldingen)"), "me-files", required=True) }}
       <input type="file" name="files" id="me-files" accept="image/*" multiple required class="block text-sm"></div>
     {% if kind == "activity_photo" %}
-    <div class="max-w-xs">{{ ui.label(_("Activiteit-ID"), "me-activity", required=True) }}
-      <input type="number" name="activity_id" id="me-activity" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+    <div class="max-w-xs">{{ ui.label(_("Activiteit"), "me-activity", required=True) }}
+      <select name="activity_id" id="me-activity" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
+        <option value="">{{ _("— Kies een activiteit —") }}</option>
+        {% for a in alle_activiteiten %}<option value="{{ a.id }}">{{ a.naam }}{% if a.jaar %} ({{ a.jaar }}){% endif %}</option>{% endfor %}
+      </select></div>
     {% endif %}
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div>{{ ui.label(_("Titel"), "me-title") }}

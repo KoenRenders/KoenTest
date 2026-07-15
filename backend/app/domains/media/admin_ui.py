@@ -29,21 +29,28 @@ def _lijst_ctx(request: Request, db: Session, kind: str) -> dict:
     from app.domains.media.api import MediaAsset
     from app.domains.activities.api import Activity
 
+    from app.domains.activities.api import list_activities
+
     actief_kind = kind if kind in VALID_KINDS else "sponsor"
     raw = request.query_params.get("activity_id")
     activity_id = int(raw) if raw and raw.isdigit() else None
 
-    # Activiteiten die media hebben — voor de filter-dropdown (#459).
-    aids = [a for (a,) in db.query(MediaAsset.activity_id)
-            .filter(MediaAsset.activity_id.isnot(None)).distinct()]
-    activiteiten = (db.query(Activity).execution_options(include_deleted=True)
-                    .filter(Activity.id.in_(aids)).order_by(Activity.name).all()
-                    if aids else [])
+    # Álle activiteiten (naam + jaar) voor de upload-dropdown (#476): je moet
+    # foto's aan om het even welke activiteit kunnen koppelen, ook zonder foto's.
+    alle = list_activities(scope="all", db=db)
+    alle_activiteiten = [{"id": a.id, "naam": a.name,
+                          "jaar": a.sort_date.year if a.sort_date else None}
+                         for a in alle]
+    # Filter-dropdown: enkel activiteiten die al media hebben (#459), mét jaar.
+    aids = {a for (a,) in db.query(MediaAsset.activity_id)
+            .filter(MediaAsset.activity_id.isnot(None)).distinct()}
+    activiteiten = [a for a in alle_activiteiten if a["id"] in aids]
 
     return {"assets": admin_list_media(kind=actief_kind, activity_id=activity_id,
                                        db=db, _admin=None),  # type: ignore[arg-type]
             "kind": actief_kind, "kinds": sorted(VALID_KINDS),
             "activity_id": activity_id, "activiteiten": activiteiten,
+            "alle_activiteiten": alle_activiteiten,
             "csrf_token": csrf_from_request(request)}
 
 

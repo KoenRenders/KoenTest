@@ -18,11 +18,11 @@
         <td class="px-4 py-2 whitespace-nowrap">{{ row.created_at.strftime("%d-%m-%Y %H:%M") }}</td>
         <td class="px-4 py-2">{{ row.recipient }}</td>
         <td class="px-4 py-2">{{ row.subject }}</td>
-        <td class="px-4 py-2">{{ ui.badge(row.email_type, "blue") }}</td>
+        <td class="px-4 py-2">{{ ui.badge(type_labels.get(row.email_type, row.email_type), "blue") }}</td>
         <td class="px-4 py-2">
-          {% if row.status == "sent" %}{{ ui.badge(_("sent"), "green") }}
-          {% elif row.status == "failed" %}{{ ui.badge(_("failed"), "red") }}
-          {% else %}{{ ui.badge(row.status, "yellow") }}{% endif %}
+          {% if row.status == "sent" %}{{ ui.badge(status_labels.get("sent", "sent"), "green") }}
+          {% elif row.status == "failed" %}{{ ui.badge(status_labels.get("failed", "failed"), "red") }}
+          {% else %}{{ ui.badge(status_labels.get(row.status, row.status), "yellow") }}{% endif %}
           {% if row.error_message %}<span class="block text-xs text-gray-500 mt-1">{{ row.error_message }}</span>{% endif %}
         </td>
         <td class="px-4 py-2 text-right whitespace-nowrap" x-data="{ open: false }">
@@ -45,7 +45,7 @@
   </table>
 </div>
 {% if has_prev or has_next %}
-{% set _base = "/admin/e-maillog/lijst?email_type=" ~ (email_type or "") ~ "&status=" ~ (status or "") %}
+{% set _base = "/admin/e-maillog/lijst?email_type=" ~ (email_type or "") ~ "&status=" ~ (status or "") ~ "&recipient=" ~ (recipient or "") %}
 <div class="flex justify-between items-center mt-3 text-sm">
   <button type="button" {% if has_prev %}hx-get="{{ _base }}&page={{ page - 1 }}" hx-target="#email-log-lijst" hx-swap="innerHTML"{% else %}disabled{% endif %}
           class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg {% if not has_prev %}opacity-40 pointer-events-none{% endif %}">‹ {{ _("Vorige") }}</button>
