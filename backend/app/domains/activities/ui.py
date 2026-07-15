@@ -15,7 +15,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.domains.activities.models import Activity, ActivityProduct, ActivitySubRegistration
 from app.limiter import registration_limiter
-from app.ui import templates
+from app.ui import site_context, templates
 from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
