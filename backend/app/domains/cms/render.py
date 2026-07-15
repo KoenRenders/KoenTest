@@ -11,6 +11,34 @@ editor-endpoints geven de ruwe codes terug, zodat ze bewerkbaar blijven.
 """
 from typing import Dict, Optional
 
+import nh3
+
+# Sanitisatie-allowlist voor CMS-inhoud (#476): dezelfde soort bescherming als de
+# oude DOMPurify (React), maar server-side. Enkel de tags/attributen die de
+# WYSIWYG-editor produceert; nh3 verwijdert al de rest (<script>, on*-handlers) en
+# staat enkel veilige URL-schema's toe (blokkeert javascript:). Toegepast op élk
+# publiek renderpunt via render_cms_content.
+_ALLOWED_TAGS = {
+    "p", "br", "hr", "span", "div",
+    "h1", "h2", "h3", "h4", "h5", "h6",
+    "ul", "ol", "li",
+    "a", "strong", "b", "em", "i", "u", "s",
+    "blockquote", "pre", "code",
+    "img", "table", "thead", "tbody", "tr", "th", "td",
+}
+_ALLOWED_ATTRS = {
+    "a": {"href", "title", "target", "rel"},
+    "img": {"src", "alt", "title", "width", "height"},
+    "*": {"class"},
+}
+
+
+def sanitize_cms_html(html: Optional[str]) -> Optional[str]:
+    """Ontsmet admin-geschreven CMS-HTML vóór weergave (stored-XSS-guard, #476)."""
+    if not html:
+        return html
+    return nh3.clean(html, tags=_ALLOWED_TAGS, attributes=_ALLOWED_ATTRS)
+
 
 # Lijst met beschikbare codes — ook gebruikt om een legende in de editor te tonen.
 PLACEHOLDER_LABELS = {
@@ -50,9 +78,10 @@ def _values() -> Dict[str, str]:
 
 
 def render_cms_content(content: Optional[str]) -> Optional[str]:
-    """Vervang elke ``{{code}}`` door de bijbehorende configuratiewaarde."""
+    """Vervang elke ``{{code}}`` door de bijbehorende configuratiewaarde en
+    sanitize het resultaat (#476) — dé functie op elk publiek CMS-renderpunt."""
     if not content:
         return content
     for code, value in _values().items():
         content = content.replace(f"{{{{{code}}}}}", value)
-    return content
+    return sanitize_cms_html(content)

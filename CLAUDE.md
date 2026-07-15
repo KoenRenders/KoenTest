@@ -386,7 +386,12 @@ playwright-python in `backend/tests_e2e/` (aparte CI-job).
 ## Fixed UI decisions — do not change these
 
 - **Address grid layout:** 4-column grid. Row 1: Straat (col-span-2) + Huisnummer (col-1) + Bus (col-1). Row 2: Postcode (col-span-4, full width). Bus number is always on the same row as house number, to the right of it.
-- **Postal code field:** Always an autocomplete dropdown — never a free-text input. Fetches from `/api/v1/postal-codes`. The `form.postal_code` is only set when the user selects a valid option from the dropdown. Submit is blocked if no valid postal code is selected.
+- **Postal code field:** Always a **`<select>`-dropdown** gevuld uit de
+  postcodetabel (`PostalCode`) — nooit een vrij tekstveld. Consistent in héél v2.0
+  (word-lid én gezinsportaal). `form.postal_code` is enkel gezet als de gebruiker
+  een geldige optie kiest; submit is geblokkeerd zonder geldige postcode. (In v1.14
+  was dit een autocomplete-invoer; v2.0 vereenvoudigde het bewust tot een dropdown —
+  bevestigd door Koen, juli 2026.)
 - **Payment default:** Default payment method is online (Mollie). On success with a `checkout_url`, do a **hard redirect** — server-rendered schermen zetten de `HX-Redirect`-header (nooit een soft/client-side navigatie) zodat de browser echt naar Mollie gaat.
 - **`isPaid` check:** sub-registrations can have their own price independent of the parent activity price — a positive sub-registration price makes the flow paid.
 
