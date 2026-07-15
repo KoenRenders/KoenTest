@@ -26,10 +26,28 @@ cat > "$TMP/tailwind.config.js" << 'CFG'
 module.exports = {
   content: ["backend/app/ui/templates/**/*.html",
             "backend/app/domains/**/templates/**/*.html"],
-  theme: { extend: {} }, plugins: [],
+  theme: { extend: {
+    colors: {
+      // Ocean Blue (#0051a4) als DE merkblauw: het hele blue-palet herschaald,
+      // zodat bestaande blue-*-klassen automatisch de merkkleur krijgen (700 = merk).
+      blue: {50:'#edf4fc',100:'#d2e3f6',200:'#a6c7ed',300:'#79a9e2',400:'#4a86d2',
+             500:'#2367bd',600:'#0f57ac',700:'#0051a4',800:'#02407c',900:'#062f59',950:'#041d38'},
+      // Raak-merkpalet (stijlgids): expliciete tokens voor accenten buiten het blauw.
+      brand: {DEFAULT:'#0051a4',ocean:'#0051a4',accent:'#ffce00',indigo:'#460359',
+              green:'#005d29',teal:'#3aba9b',danger:'#ee3a37',warning:'#f16532',pink:'#f17fb2'},
+    },
+    fontFamily: { brand: ['"Radio Canada Big"','system-ui','sans-serif'] },
+  } }, plugins: [],
 }
 CFG
-echo '@tailwind base; @tailwind components; @tailwind utilities;' > "$TMP/in.css"
+# Input-CSS: merkfont zelf-gehost (@font-face) + koppen in het merkfont (@layer base).
+cat > "$TMP/in.css" << 'CSS'
+@font-face{font-family:"Radio Canada Big";src:url("/static/fonts/RadioCanadaBig-VariableFont_wght.ttf") format("truetype");font-weight:400 700;font-style:normal;font-display:swap}
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+@layer base{h1,h2,h3{font-family:"Radio Canada Big",system-ui,sans-serif}}
+CSS
 "$BIN" -c "$TMP/tailwind.config.js" -i "$TMP/in.css" \
   -o backend/app/static/app.css --minify
 rm -rf "$TMP"

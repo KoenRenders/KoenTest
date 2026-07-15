@@ -1,5 +1,6 @@
-{# AdminShell (#396, §13.1): base-layout voor server-rendered admin-schermen.
-   Navigatie groeit per omgeklapt component (registratie via nav_items). #}
+{# AdminShell (#396, §13.1; UI-sweep #482): base-layout voor de beheer-schermen.
+   Navigatie is een linker Indigo-zijbalk (stijlgids §09) — één schil voor álle
+   admin-layouts. Items komen uit app.ui.admin_nav() via `nav_items`. #}
 <!DOCTYPE html>
 <html lang="nl-BE">
 <head>
@@ -9,35 +10,59 @@
   <meta name="robots" content="noindex">
   <link rel="stylesheet" href="/static/app.css?v={{ css_version }}">
   <style>
+    [x-cloak]{display:none!important}
     /* CMS-content-opmaak (#457): ook in de admin voor de WYSIWYG-preview. */
-    .cms-content h1{font-size:1.5rem;font-weight:700;color:#1e40af;margin:1rem 0 .5rem}
-    .cms-content h2{font-size:1.25rem;font-weight:700;color:#1e40af;margin:1rem 0 .5rem}
+    .cms-content h1{font-size:1.5rem;font-weight:700;color:#02407c;margin:1rem 0 .5rem}
+    .cms-content h2{font-size:1.25rem;font-weight:700;color:#02407c;margin:1rem 0 .5rem}
     .cms-content h3{font-size:1.1rem;font-weight:600;margin:.75rem 0 .25rem}
     .cms-content p{margin:.5rem 0;line-height:1.6}
     .cms-content ul{list-style:disc;padding-left:1.5rem;margin:.5rem 0}
     .cms-content ol{list-style:decimal;padding-left:1.5rem;margin:.5rem 0}
-    .cms-content a{color:#1d4ed8;text-decoration:underline}
+    .cms-content a{color:#0051a4;text-decoration:underline}
     .cms-content strong,.cms-content b{font-weight:700}
     .cms-content em,.cms-content i{font-style:italic}
   </style>
   <script src="/static/vendor/htmx.min.js" defer></script>
   <script src="/static/vendor/alpine.min.js" defer></script>
 </head>
-<body class="bg-gray-50 min-h-screen text-gray-900" hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
+<body class="bg-gray-50 min-h-screen text-gray-900" x-data="{ open: false }"
+      hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
   {% if omgeving and omgeving != 'prod' %}<div class="bg-orange-500 text-white text-center text-xs font-semibold py-1">{{ omgeving|upper }} — testomgeving (geen productie)</div>{% endif %}
-  <header class="bg-blue-800 text-white">
-    <div class="max-w-5xl mx-auto px-4 py-3 flex items-center gap-6">
-      <span class="font-bold">{{ _("Raak · beheer") }}</span>
-      <nav class="flex gap-4 text-sm">
+
+  <div class="md:flex min-h-screen">
+    {# Desktop-zijbalk (Indigo) — stijlgids §09 #}
+    <aside class="hidden md:flex md:flex-col md:w-60 md:shrink-0 bg-brand-indigo text-purple-100">
+      <a href="/admin" class="block px-5 py-4 hover:opacity-90">
+        <span class="font-brand uppercase tracking-tight text-white text-2xl leading-none">{{ _("Raak") }}</span>
+        <span class="block text-xs text-purple-300 mt-0.5">{{ _("beheer") }}</span>
+      </a>
+      <nav class="flex-1 px-3 space-y-0.5 overflow-y-auto">
         {% for item in nav_items|default([]) %}
-        <a href="{{ item.href }}" class="hover:underline {% if item.active %}underline font-semibold{% endif %}">{{ item.label }}</a>
+        <a href="{{ item.href }}"
+           class="block px-3 py-2 rounded-lg text-sm transition-colors {% if item.active %}bg-white/20 text-white font-semibold{% else %}text-purple-200 hover:bg-white/10 hover:text-white{% endif %}">{{ item.label }}</a>
         {% endfor %}
       </nav>
-      <a href="/" class="ml-auto text-sm hover:underline text-yellow-300 whitespace-nowrap">↗ {{ _("Naar de site") }}</a>
+      <a href="/" class="block px-5 py-4 text-sm text-purple-200 hover:text-white border-t border-white/10">↗ {{ _("Naar de site") }}</a>
+    </aside>
+
+    <div class="flex-1 flex flex-col min-w-0">
+      {# Mobiele topbalk met hamburger #}
+      <header class="md:hidden bg-brand-indigo text-white flex items-center justify-between px-4 py-3">
+        <a href="/admin" class="font-brand uppercase tracking-tight text-xl leading-none">{{ _("Raak") }}</a>
+        <button class="p-2 rounded hover:bg-white/10" @click="open = !open" aria-label="{{ _("Menu") }}">☰</button>
+      </header>
+      <nav x-show="open" x-cloak class="md:hidden bg-brand-indigo text-purple-100 px-3 pb-3 pt-1 space-y-0.5">
+        {% for item in nav_items|default([]) %}
+        <a href="{{ item.href }}" @click="open = false"
+           class="block px-3 py-2 rounded-lg text-sm {% if item.active %}bg-white/20 text-white font-semibold{% else %}text-purple-200 hover:bg-white/10 hover:text-white{% endif %}">{{ item.label }}</a>
+        {% endfor %}
+        <a href="/" class="block px-3 py-2 rounded-lg text-sm text-purple-200 hover:bg-white/10 hover:text-white">↗ {{ _("Naar de site") }}</a>
+      </nav>
+
+      <main class="flex-1 px-4 py-8">
+        <div class="max-w-5xl mx-auto">{% block content %}{% endblock %}</div>
+      </main>
     </div>
-  </header>
-  <main class="max-w-5xl mx-auto px-4 py-8">
-    {% block content %}{% endblock %}
-  </main>
+  </div>
 </body>
 </html>

@@ -17,7 +17,9 @@
 {% macro badge(label, tone="gray") -%}
 {%- set tones = {"gray": "bg-gray-100 text-gray-600", "green": "bg-green-100 text-green-800",
                  "yellow": "bg-yellow-100 text-yellow-800", "red": "bg-red-100 text-red-800",
-                 "blue": "bg-blue-100 text-blue-800"} -%}
+                 "blue": "bg-blue-100 text-blue-800",
+                 "teal": "bg-teal-100 text-teal-800", "orange": "bg-orange-100 text-orange-800",
+                 "indigo": "bg-purple-100 text-purple-800"} -%}
 <span class="text-xs px-2 py-0.5 rounded-full {{ tones.get(tone, tones['gray']) }}">{{ label }}</span>
 {%- endmacro %}
 
@@ -52,4 +54,93 @@ hx-confirm='{{ type_label }} "{{ name }}" {{ _("definitief verwijderen?") }}'
 {# Verplicht veld: rode asterisk (B2-conventie). #}
 {% macro label(text, for_id, required=False) -%}
 <label for="{{ for_id }}" class="block text-sm font-medium text-gray-700 mb-1">{{ text }}{% if required %} <span class="text-red-600">*</span>{% endif %}</label>
+{%- endmacro %}
+
+{# ─────────────────────────────────────────────────────────────────────────────
+   UI-sweep (#482): uitbreiding van de kit — paginakop, formuliervelden, modal,
+   tabs, reorder- en export-controls. Conventies uit docs/stijlgids.html.
+   ───────────────────────────────────────────────────────────────────────────── #}
+
+{# Paginakop: H1 (auto in merkfont via base-layer) + optionele subtitel. Een
+   {% call %}-body plaatst rechts uitgelijnde acties (knoppen). #}
+{% macro page_header(title, subtitle=None) -%}
+<div class="flex flex-wrap items-end justify-between gap-3 mb-6">
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900">{{ title }}</h1>
+    {% if subtitle %}<p class="text-sm text-gray-500 mt-1">{{ subtitle }}</p>{% endif %}
+  </div>
+  {% if caller %}<div class="flex flex-wrap items-center gap-2">{{ caller() }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{# Gedeelde veld-basis: label + control in één blok. `input_html` is de reeds
+   opgebouwde control (input/select/textarea), zodat de opmaak één plek heeft. #}
+{% macro _field(text, for_id, input_html, required=False, hint=None, error=None) -%}
+<div class="mb-4">
+  {{ label(text, for_id, required) }}
+  {{ input_html|safe }}
+  {% if hint %}<p class="text-xs text-gray-500 mt-1">{{ hint }}</p>{% endif %}
+  {% if error %}<p class="text-xs text-red-600 mt-1">{{ error }}</p>{% endif %}
+</div>
+{%- endmacro %}
+
+{% set _control = "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none" %}
+
+{% macro field_input(text, name, value="", type="text", required=False, placeholder="", hint=None, error=None, attrs="") -%}
+{{ _field(text, name, '<input id="' ~ name ~ '" name="' ~ name ~ '" type="' ~ type ~ '" value="' ~ value ~ '" placeholder="' ~ placeholder ~ '"' ~ (' required' if required else '') ~ ' class="' ~ _control ~ '" ' ~ attrs ~ '>', required, hint, error) }}
+{%- endmacro %}
+
+{% macro field_textarea(text, name, value="", rows=4, required=False, placeholder="", hint=None, error=None, attrs="") -%}
+{{ _field(text, name, '<textarea id="' ~ name ~ '" name="' ~ name ~ '" rows="' ~ rows ~ '" placeholder="' ~ placeholder ~ '"' ~ (' required' if required else '') ~ ' class="' ~ _control ~ '" ' ~ attrs ~ '>' ~ value ~ '</textarea>', required, hint, error) }}
+{%- endmacro %}
+
+{# Select: `options` = lijst van (waarde, label); `selected` = huidige waarde. #}
+{% macro field_select(text, name, options, selected=None, required=False, hint=None, error=None, attrs="") -%}
+{% set opts = [] %}
+{% for val, lab in options %}{% set _ = opts.append('<option value="' ~ val ~ '"' ~ (' selected' if (val|string == selected|string) else '') ~ '>' ~ lab ~ '</option>') %}{% endfor %}
+{{ _field(text, name, '<select id="' ~ name ~ '" name="' ~ name ~ '"' ~ (' required' if required else '') ~ ' class="' ~ _control ~ '" ' ~ attrs ~ '>' ~ (opts|join('')) ~ '</select>', required, hint, error) }}
+{%- endmacro %}
+
+{# Modal (stijlgids §08): Alpine stuurt een boolean in de parent-scope aan.
+   Gebruik: <div x-data="{ open:false }"> … {% call ui.modal('open', 'Titel') %}…{% endcall %}. #}
+{% macro modal(state, title, max_w="max-w-lg") -%}
+<div x-show="{{ state }}" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4"
+     style="background:rgba(17,17,17,.5)" @keydown.escape.window="{{ state }} = false">
+  <div class="bg-white rounded-2xl shadow-xl w-full {{ max_w }} max-h-[90vh] overflow-auto" @click.outside="{{ state }} = false">
+    <div class="flex items-center justify-between border-b border-gray-200 px-5 py-3">
+      <h3 class="text-lg font-bold text-gray-900">{{ title }}</h3>
+      <button type="button" class="text-gray-400 hover:text-gray-700 text-2xl leading-none" @click="{{ state }} = false" aria-label="{{ _("Sluiten") }}">&times;</button>
+    </div>
+    <div class="px-5 py-4">{{ caller() }}</div>
+  </div>
+</div>
+{%- endmacro %}
+
+{# Tab-balk: `items` = lijst van (href, label, is_active). #}
+{% macro tabs(items) -%}
+<div class="border-b border-gray-200 mb-6">
+  <nav class="-mb-px flex flex-wrap gap-6 text-sm">
+    {% for href, lab, active in items %}
+    <a href="{{ href }}" class="py-2 border-b-2 {% if active %}border-blue-700 text-blue-700 font-semibold{% else %}border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300{% endif %}">{{ lab }}</a>
+    {% endfor %}
+  </nav>
+</div>
+{%- endmacro %}
+
+{# Reorder-knoppen (▲▼): naar boven/onder verplaatsen. `up_attrs`/`down_attrs`
+   dragen de hx-* of href; `first`/`last` dimmen de eindstanden. #}
+{% macro reorder(up_attrs="", down_attrs="", first=False, last=False) -%}
+<span class="inline-flex flex-col leading-none">
+  <button type="button" class="text-gray-400 hover:text-blue-700 disabled:opacity-30 text-xs" {% if first %}disabled{% endif %} {{ up_attrs|safe }} aria-label="{{ _("Naar boven") }}">▲</button>
+  <button type="button" class="text-gray-400 hover:text-blue-700 disabled:opacity-30 text-xs" {% if last %}disabled{% endif %} {{ down_attrs|safe }} aria-label="{{ _("Naar onder") }}">▼</button>
+</span>
+{%- endmacro %}
+
+{# Export-knoppen: dezelfde data als ODS én JSON (stijlgids §12). #}
+{% macro export_links(ods_url=None, json_url=None, csv_url=None) -%}
+<div class="inline-flex items-center gap-2">
+  {% if ods_url %}<a href="{{ ods_url }}" class="inline-flex items-center gap-1 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg px-3 py-1.5 text-sm font-medium">⬇ ODS</a>{% endif %}
+  {% if csv_url %}<a href="{{ csv_url }}" class="inline-flex items-center gap-1 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg px-3 py-1.5 text-sm font-medium">⬇ CSV</a>{% endif %}
+  {% if json_url %}<a href="{{ json_url }}" class="inline-flex items-center gap-1 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg px-3 py-1.5 text-sm font-medium">⬇ JSON</a>{% endif %}
+</div>
 {%- endmacro %}
