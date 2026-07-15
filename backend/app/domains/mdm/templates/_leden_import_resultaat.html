@@ -13,13 +13,35 @@
       (_("Nieuwe gezinnen"), report.new_families), (_("Bijgewerkte gezinnen"), report.updated_families),
       (_("Personen toegevoegd"), report.persons_added), (_("Personen bijgewerkt"), report.persons_updated),
       (_("Personen hersteld"), report.persons_revived), (_("Personen verwijderd"), report.persons_removed),
-      (_("Lidmaatschappen"), report.memberships_created), (_("Overgeslagen"), report.skipped)] %}
+      (_("Lidmaatschappen"), report.memberships_created), (_("Overgeslagen"), report.skipped),
+      (_("Admin-gebruikers"), report.admins_created)] %}
     <div class="rounded-lg border border-gray-200 p-3 text-center">
       <div class="text-2xl font-semibold">{{ n }}</div>
       <div class="text-xs text-gray-500">{{ label }}</div>
     </div>
     {% endfor %}
   </div>
+
+  {% if report.warnings %}
+  <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 mb-4">
+    <p class="font-medium text-amber-800 text-sm mb-1">⚠ {{ _("Waarschuwingen") }} ({{ report.warnings | length }})</p>
+    <ul class="text-sm text-amber-800 list-disc pl-5 space-y-0.5">
+      {% for w in report.warnings %}<li>{{ w }}</li>{% endfor %}
+    </ul>
+  </div>
+  {% endif %}
+
+  {% if report.lines %}
+  <div x-data="{ det: false }" class="mb-4">
+    {{ ui.btn_secondary(_("Toon details per gezin"), attrs='@click="det = !det"') }}
+    <div x-show="det" x-cloak class="mt-2 max-h-80 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-3">
+      <ul class="text-xs text-gray-700 font-mono space-y-0.5">
+        {% for line in report.lines %}<li>{{ line }}</li>{% endfor %}
+      </ul>
+    </div>
+  </div>
+  {% endif %}
+
   {% if stap == "preview" %}
   <form hx-post="/admin/leden-import/commit" hx-target="#import-resultaat" hx-swap="innerHTML"
         hx-confirm="{{ _('Definitief importeren? Dit overschrijft de ledendata met dit rapport.') }}">

@@ -61,19 +61,20 @@
             <option value="">—</option>
             {% for g in gender_codes %}<option value="{{ g.code }}" {% if p.gender_code == g.code %}selected{% endif %}>{{ g.value }}</option>{% endfor %}
           </select></div>
-        <div>{{ ui.label(_("E-mail"), "pe-" ~ p.id) }}
-          <input type="email" name="contact_email" id="pe-{{ p.id }}" value="{{ p.email or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label(_("GSM"), "pm-" ~ p.id) }}
-          <input name="mobile" id="pm-{{ p.id }}" value="{{ p.mobile or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        {% set _hoofd = p.relation_type == "HOOFDLID" %}
+        <div>{{ ui.label(_("E-mail"), "pe-" ~ p.id, required=_hoofd) }}
+          <input type="email" name="contact_email" id="pe-{{ p.id }}" value="{{ p.email or '' }}" {% if _hoofd %}required{% endif %} class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        <div>{{ ui.label(_("GSM"), "pm-" ~ p.id, required=_hoofd) }}
+          <input name="mobile" id="pm-{{ p.id }}" value="{{ p.mobile or '' }}" {% if _hoofd %}required{% endif %} class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
         <div>{{ ui.label(_("Telefoon"), "pp-" ~ p.id) }}
           <input name="phone" id="pp-{{ p.id }}" value="{{ p.phone or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
       </div>
       {% if p.address %}
       <div class="grid grid-cols-4 gap-3">
-        <div class="col-span-2">{{ ui.label(_("Straat"), "ps-" ~ p.id) }}
-          <input name="street" id="ps-{{ p.id }}" value="{{ p.address.street }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label(_("Huisnummer"), "ph-" ~ p.id) }}
-          <input name="house_number" id="ph-{{ p.id }}" value="{{ p.address.house_number }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        <div class="col-span-2">{{ ui.label(_("Straat"), "ps-" ~ p.id, required=_hoofd) }}
+          <input name="street" id="ps-{{ p.id }}" value="{{ p.address.street }}" {% if _hoofd %}required{% endif %} class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        <div>{{ ui.label(_("Huisnummer"), "ph-" ~ p.id, required=_hoofd) }}
+          <input name="house_number" id="ph-{{ p.id }}" value="{{ p.address.house_number }}" {% if _hoofd %}required{% endif %} class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
         <div>{{ ui.label(_("Bus"), "pb-" ~ p.id) }}
           <input name="bus_number" id="pb-{{ p.id }}" value="{{ p.address.bus_number or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
         <div class="col-span-4">{{ ui.label(_("Postcode"), "pc-" ~ p.id) }}

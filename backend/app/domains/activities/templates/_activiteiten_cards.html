@@ -2,7 +2,15 @@
 {# Statuskleuren zoals v1.14 (#451): Open=groen, Voorbij=grijs, Geannuleerd=rood. #}
 {% set _status_tone = {"Open": "green", "Voorbij": "gray", "Geannuleerd": "red", "Vol": "red"} %}
 <div class="space-y-6">
+  {# Jaargroepering (#476): activiteiten zijn al op datum gesorteerd; toon een
+     jaarkop telkens het jaar wisselt. #}
+  {% set _ns = namespace(jaar=None) %}
   {% for a in activities %}
+  {% set _jaar = a.sort_date.year if a.sort_date else None %}
+  {% if _jaar and _jaar != _ns.jaar %}
+  <h3 class="text-lg font-bold text-gray-500{% if not loop.first %} pt-2{% endif %}">{{ _jaar }}</h3>
+  {% set _ns.jaar = _jaar %}
+  {% endif %}
   {% call ui.card() %}
     <div class="flex items-start justify-between gap-4">
       <div>

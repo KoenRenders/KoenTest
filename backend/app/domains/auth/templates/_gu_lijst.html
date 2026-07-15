@@ -19,7 +19,9 @@
   {% for u in users %}
   <form class="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap items-center gap-4"
         hx-post="/admin/gebruikers/{{ u.id }}" hx-target="#gu-lijst" hx-swap="innerHTML">
-    <span class="font-medium min-w-56">{{ u.email }}</span>
+    <input type="email" name="email" value="{{ u.email }}" required
+           class="font-medium min-w-56 border border-gray-300 rounded-lg px-2 py-1 text-sm"
+           aria-label="{{ _('E-mailadres') }}">
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_active" value="1" {% if u.is_active %}checked{% endif %}> {{ _("Actief") }}</label>
     {% set user_roles = u.roles | map(attribute="role_code") | list %}
     {% for rc in role_codes %}
