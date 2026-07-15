@@ -1,5 +1,6 @@
 {% import "_macros.html" as ui %}
 <div class="space-y-4">
+  {{ ui.error_banner(error|default(None)) }}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
     <div class="flex items-center justify-between">
       <h2 class="font-bold text-lg">{{ a.name }}

@@ -47,6 +47,17 @@ def _opt_str(value: str) -> Optional[str]:
     return value or None
 
 
+def _upload_error(exc: HTTPException) -> str:
+    """Toon de upload-fout aan de beheerder i.p.v. ze stil te laten mislukken (htmx
+    swapt niet op een 4xx). Bij een niet-ondersteund type een concrete hint —
+    o.a. iPhone-HEIC-foto's worden niet aanvaard."""
+    detail = str(exc.detail)
+    if "bestandstype" in detail.lower():
+        return detail + " — " + _("gebruik een PNG, JPG, WEBP, GIF of PDF "
+                                  "(een iPhone-HEIC-foto werkt niet).")
+    return detail
+
+
 def _verplaats(db: Session, siblings, item_id: int, richting: str) -> None:
     """Herorden broers/zussen via ``sort_order``: normaliseer eerst naar 0..n (zo
     zijn er altijd distincte waarden, ook als alles nog op de default 0 staat) en
@@ -71,7 +82,8 @@ def _lijst_ctx(db: Session, scope: str = "all") -> dict:
     return {"activities": list_activities(scope=scope, db=db), "scope": scope}
 
 
-def _detail_response(request: Request, db: Session, activity_id: int):
+def _detail_response(request: Request, db: Session, activity_id: int,
+                     error: str | None = None):
     from app.domains.activities.router import list_activities
 
     activiteit = next((a for a in list_activities(scope="all", db=db)
@@ -79,7 +91,7 @@ def _detail_response(request: Request, db: Session, activity_id: int):
     if activiteit is None:
         return HTMLResponse('<div id="aa-detail" hx-swap-oob="true"></div>')
     return templates.TemplateResponse(request, "_aa_detail.html", {
-        "a": activiteit, "csrf_token": csrf_from_request(request)})
+        "a": activiteit, "csrf_token": csrf_from_request(request), "error": error})
 
 
 @router.get("/admin/activiteiten", response_class=HTMLResponse)
@@ -361,8 +373,12 @@ async def affiche_uploaden(activity_id: int, request: Request,
     from app.domains.media.api import upload_activity_poster
 
     if file is not None and file.filename:
-        await upload_activity_poster(activity_id, background_tasks, file=file,
-                                     db=db, _admin=admin_user_by_email(db, email))
+        try:
+            await upload_activity_poster(activity_id, background_tasks, file=file,
+                                         db=db, _admin=admin_user_by_email(db, email))
+        except HTTPException as exc:
+            return _detail_response(request, db, activity_id,
+                                    error=_upload_error(exc))
     return _detail_response(request, db, activity_id)
 
 
@@ -377,8 +393,12 @@ async def reglement_uploaden(activity_id: int, component_id: int, request: Reque
     from app.domains.media.api import upload_component_info
 
     if file is not None and file.filename:
-        await upload_component_info(component_id, background_tasks, file=file,
-                                    db=db, _admin=admin_user_by_email(db, email))
+        try:
+            await upload_component_info(component_id, background_tasks, file=file,
+                                        db=db, _admin=admin_user_by_email(db, email))
+        except HTTPException as exc:
+            return _detail_response(request, db, activity_id,
+                                    error=_upload_error(exc))
     return _detail_response(request, db, activity_id)
 
 
