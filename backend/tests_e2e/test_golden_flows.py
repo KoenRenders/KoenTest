@@ -136,6 +136,58 @@ def test_activiteit_inschrijving_met_producten_en_betaling(page, seeded_activiti
     expect(page.get_by_text("Je inschrijving is ontvangen")).to_be_visible()
 
 
+@pytest.fixture(scope="module")
+def wizard_form_token():
+    """Een open meersectie-formulier (3 secties, geen losse velden) → de wizard
+    is actief. Voor de stap-per-stap-navigatietest (#480)."""
+    import secrets
+
+    import app.models  # noqa: F401  load_all_models()
+    from app.database import SessionLocal
+    from app.domains.forms.models import Form, FormField, FormSection
+
+    db = SessionLocal()
+    token = "e2e-" + secrets.token_urlsafe(8)
+    form = Form(title="E2E Enquête", status="open", is_anonymous=True, share_token=token)
+    db.add(form)
+    db.flush()
+    for i in range(3):
+        sec = FormSection(form_id=form.id, title=f"Sectie {i + 1}", position=i)
+        db.add(sec)
+        db.flush()
+        db.add(FormField(form_id=form.id, section_id=sec.id, field_type="text",
+                         label=f"Vraag {i + 1}", position=0))
+    db.commit()
+    db.close()
+    return token
+
+
+def test_formulier_wizard_navigatie(page, wizard_form_token):
+    """Golden flow (#480): stap-per-stap door een meersectie-formulier. Op de
+    eerste sectie is er GEEN 'Vorige' (regressie: die bleef zichtbaar door een
+    door Tailwind ge-purgede opacity-class); onderweg wel; laatste sectie
+    'Verzenden'."""
+    page.goto(f"/formulier/{wizard_form_token}")
+    prev = page.get_by_role("button", name="Vorige")
+    nxt = page.get_by_role("button", name="Volgende")
+    submit = page.get_by_role("button", name="Verzenden")
+
+    # Sectie 1: geen Vorige, wel Volgende.
+    expect(prev).to_be_hidden()
+    expect(nxt).to_be_visible()
+    nxt.click()
+    # Sectie 2: Vorige verschijnt.
+    expect(prev).to_be_visible()
+    expect(nxt).to_be_visible()
+    nxt.click()
+    # Sectie 3 (laatste): Verzenden i.p.v. Volgende.
+    expect(submit).to_be_visible()
+    expect(nxt).to_be_hidden()
+    # Terug kan ook.
+    prev.click()
+    expect(nxt).to_be_visible()
+
+
 def test_publieke_kern_bereikbaar(page):
     """Smoke: de publieke kernpagina's renderen server-side."""
     for pad, tekst in (("/", "Raak"), ("/activiteiten", "Activiteiten"),
