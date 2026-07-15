@@ -120,16 +120,44 @@ def _form_render_ctx(db, form_model, request, *, values=None, error=None,
 
     # Veldenlijst in weergavevolgorde: secties (op positie) met hun velden,
     # daarna de ongegroepeerde velden.
-    sections = list(form_model.sections)
+    sections = sorted(form_model.sections, key=lambda s: (s.position, s.id))
     grouped = []
     for section in sections:
         grouped.append({"section": section,
                         "fields": [f for f in form_model.fields if f.section_id == section.id]})
     loose = [f for f in form_model.fields if f.section_id is None]
+
+    # Stap-per-stap-wizard (#454): enkel bij ≥2 secties en geen losse velden —
+    # de branching (sectie- en optie-niveau) wordt vertaald naar stap-indices zodat
+    # de Alpine-wizard client-side dezelfde route volgt als de server (#336). Bij
+    # afwijking blijft de server de waarheid (die valideert de bereikte route).
+    idx_by_id = {s.id: i for i, s in enumerate(sections)}
+    wizard = len(sections) >= 2 and not loose
+    wizard_steps = []
+    if wizard:
+        for section in sections:
+            skips = []
+            for f in (fld for fld in form_model.fields if fld.section_id == section.id):
+                for o in f.options:
+                    if o.skip_to_section_id is not None or o.skip_to_end:
+                        skips.append({
+                            "opt": o.id,
+                            "section": idx_by_id.get(o.skip_to_section_id),
+                            "end": bool(o.skip_to_end),
+                        })
+            wizard_steps.append({
+                "id": section.id,
+                "end": bool(section.next_is_end),
+                "next": idx_by_id.get(section.next_section_id)
+                        if section.next_section_id is not None else None,
+                "skips": skips,
+            })
+
     return {
         **site_context(db, request), "form": form_model, "grouped": grouped,
         "loose_fields": loose, "values": values or {}, "error": error,
         "submitter_name": submitter_name, "submitter_email": submitter_email,
+        "wizard": wizard, "wizard_steps": wizard_steps,
     }
 
 

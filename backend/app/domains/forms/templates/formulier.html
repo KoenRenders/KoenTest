@@ -3,7 +3,7 @@
 {% block title %}{{ form.title }} — Raak{% endblock %}
 {% block meta %}<meta name="robots" content="noindex">{% endblock %}
 
-{% macro veld(f) %}
+{% macro veld(f, wiz=False) %}
 {% set key = "f" ~ f.id %}
 {% set val = values.get(key, "") %}
 <div>
@@ -17,16 +17,16 @@
   {% if f.help_text %}<p class="text-xs text-gray-500 mb-1">{{ f.help_text }}</p>{% endif %}
   {% if f.field_type in ("text", "email", "phone") %}
   <input name="{{ key }}" id="{{ key }}" {% if f.field_type == "email" %}type="email"{% elif f.field_type == "phone" %}type="tel"{% endif %}
-         {% if f.required %}required{% endif %} value="{{ val if val is string else '' }}"
+         {% if f.required and not wiz %}required{% endif %} value="{{ val if val is string else '' }}"
          class="w-full border border-gray-300 rounded-lg px-3 py-2">
   {% elif f.field_type == "textarea" %}
-  <textarea name="{{ key }}" id="{{ key }}" rows="4" {% if f.required %}required{% endif %}
+  <textarea name="{{ key }}" id="{{ key }}" rows="4" {% if f.required and not wiz %}required{% endif %}
             class="w-full border border-gray-300 rounded-lg px-3 py-2">{{ val if val is string else '' }}</textarea>
   {% elif f.field_type == "number" %}
-  <input name="{{ key }}" id="{{ key }}" inputmode="decimal" {% if f.required %}required{% endif %}
+  <input name="{{ key }}" id="{{ key }}" inputmode="decimal" {% if f.required and not wiz %}required{% endif %}
          value="{{ val if val is string else '' }}" class="w-40 border border-gray-300 rounded-lg px-3 py-2">
   {% elif f.field_type == "select" %}
-  <select name="{{ key }}" id="{{ key }}" {% if f.required %}required{% endif %} class="w-full border border-gray-300 rounded-lg px-3 py-2">
+  <select name="{{ key }}" id="{{ key }}" {% if f.required and not wiz %}required{% endif %} class="w-full border border-gray-300 rounded-lg px-3 py-2">
     <option value="">—</option>
     {% for o in f.options %}
     <option value="{{ o.id }}" {% if (val is string and val == o.id|string) or (val is not string and o.id|string in val) %}selected{% endif %}>{{ o.label }}</option>
@@ -85,14 +85,17 @@
       </div>
     {% endcall %}
     {% endif %}
+    {% if wizard %}<div x-data='formWizard({{ wizard_steps|tojson }})' x-cloak @change="recompute()">{% endif %}
     {% for g in grouped %}
+    {% if wizard %}<div data-step="{{ loop.index0 }}" x-show="step === {{ loop.index0 }}">{% endif %}
     {% call ui.card() %}
       {% if g.section.title %}<h2 class="font-bold mb-1">{{ g.section.title }}</h2>{% endif %}
       {% if g.section.description %}<p class="text-sm text-gray-600 mb-3 whitespace-pre-wrap">{{ g.section.description }}</p>{% endif %}
       <div class="space-y-4">
-        {% for f in g.fields %}{{ veld(f) }}{% endfor %}
+        {% for f in g.fields %}{{ veld(f, wizard) }}{% endfor %}
       </div>
     {% endcall %}
+    {% if wizard %}</div>{% endif %}
     {% endfor %}
     {% if loose_fields %}
     {% call ui.card() %}
@@ -101,7 +104,70 @@
       </div>
     {% endcall %}
     {% endif %}
+    {% if wizard %}
+    {% set submit_label = _("Wijzigingen opslaan") if edit_token|default(None) else _("Verzenden") %}
+    <div class="text-xs text-gray-400 mt-4 mb-1" x-text="'{{ _('Stap') }} ' + (stack.length + 1)"></div>
+    <div class="flex justify-between items-center">
+      <button type="button" @click="prev()" :class="stack.length === 0 ? 'opacity-0 pointer-events-none' : ''"
+              class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-4 py-2 rounded-lg">‹ {{ _("Vorige") }}</button>
+      <div>
+        <button type="button" @click="next()" x-show="!atLast"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg">{{ _("Volgende") }} ›</button>
+        <button type="submit" x-show="atLast"
+                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg">{{ submit_label }}</button>
+      </div>
+    </div>
+    </div>
+    {% else %}
     {{ ui.btn_primary(_("Wijzigingen opslaan") if edit_token|default(None) else _("Verzenden")) }}
+    {% endif %}
   </form>
 </div>
+
+{% if wizard %}
+<script>
+document.addEventListener('alpine:init', () => {
+  Alpine.data('formWizard', (steps) => ({
+    steps: steps, step: 0, stack: [], atLast: false,
+    init() { this.recompute(); },
+    _selected() {
+      const c = this.$root.querySelector('[data-step="' + this.step + '"]');
+      const ids = new Set();
+      if (c) {
+        c.querySelectorAll('input[type=radio]:checked, input[type=checkbox]:checked')
+          .forEach(i => ids.add(parseInt(i.value)));
+        c.querySelectorAll('select').forEach(s => { if (s.value) ids.add(parseInt(s.value)); });
+      }
+      return ids;
+    },
+    _target() {
+      const s = this.steps[this.step];
+      const sel = this._selected();
+      for (const sk of s.skips) {
+        if (sel.has(sk.opt)) {
+          if (sk.end) return 'end';
+          if (sk.section !== null && sk.section !== undefined) return sk.section;
+        }
+      }
+      if (s.end) return 'end';
+      if (s.next !== null && s.next !== undefined) return s.next;
+      if (this.step + 1 < this.steps.length) return this.step + 1;
+      return 'end';
+    },
+    recompute() { this.atLast = (this._target() === 'end'); },
+    next() {
+      const t = this._target();
+      if (t === 'end') return;
+      this.stack.push(this.step);
+      this.step = t;
+      this.recompute();
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    },
+    prev() {
+      if (this.stack.length) { this.step = this.stack.pop(); this.recompute(); }
+    },
+  }));
+});
+</script>
+{% endif %}
 {% endblock %}
