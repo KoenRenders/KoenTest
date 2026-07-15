@@ -47,8 +47,11 @@ def test_demo_tenant_seed(db_session):
     # migratie 087 seedt de voorbeeldafdeling: mails enkel loggen + noindex
     assert tenant_mail_mode(db_session, tenant_id=TENANT_VOORBEELD_ID) == "log_only"
     assert get_setting(db_session, "noindex", tenant_id=TENANT_VOORBEELD_ID) == "1"
-    assert "renko.be/raakvoorbeeldafdeling" in tenant_base_url(
-        db_session, tenant_id=TENANT_VOORBEELD_ID)
+    # De seed slaat de base_url-setting op (per-tenant, voor prod-gebruik). We
+    # checken de setting zélf — niet via tenant_base_url, want die negeert in
+    # niet-prod bewust elke DB-base_url (#477, omgevingsisolatie).
+    seeded = get_setting(db_session, "base_url", tenant_id=TENANT_VOORBEELD_ID)
+    assert seeded and "renko.be/raakvoorbeeldafdeling" in seeded
 
 
 def test_demo_mails_worden_enkel_gelogd(db_session):
