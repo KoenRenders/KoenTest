@@ -36,6 +36,9 @@
       <div class="pt-2"{% if not c.external_register_url and not c.external_registrations_url %} x-data="{ open: false }"{% endif %}>
         {% set _btn = "inline-flex items-center border border-blue-600 text-blue-700 hover:bg-blue-50 rounded-lg px-3 py-1 text-sm font-medium" %}
         {% set _info = c.info_asset_url or c.info_url %}
+        {# ↗ = link buiten de portaal (v1.14): enkel bij een externe info_url, niet
+           bij een intern geüpload document (info_asset_url, door de portaal geserveerd). #}
+        {% set _info_extern = c.info_url and not c.info_asset_url %}
         <div class="flex flex-wrap items-center gap-2">
           <span class="text-sm font-medium mr-1">{{ c.name }}</span>
           {% if scope != "archived" %}
@@ -58,7 +61,7 @@
             <span x-show="!open">{{ _("Wie doet er mee?") }}</span><span x-show="open" x-cloak>{{ _("Verberg") }}</span>
           </button>
           {% endif %}
-          {% if _info %}<a class="{{ _btn }}" href="{{ _info }}" target="_blank" rel="noopener">{{ _("Info") }} ↗</a>{% endif %}
+          {% if _info %}<a class="{{ _btn }}" href="{{ _info }}" target="_blank" rel="noopener">{{ _("Info") }}{% if _info_extern %} ↗{% endif %}</a>{% endif %}
         </div>
         {% if not c.external_register_url and not c.external_registrations_url %}
         <div id="deelnemers-{{ a.id }}-{{ c.id }}" x-show="open" x-cloak></div>

@@ -15,14 +15,31 @@ def test_uploaded_component_info_shows_as_info_link_on_card(client, db_session, 
     assert resp.status_code == 200, resp.text
     media_url = resp.json()["url"]  # /api/v1/media/<id>
 
-    # Publieke kaart toont nu de 'Info'-link naar dat document.
+    # Publieke kaart toont nu de 'Info'-link naar dat document — ZONDER ↗, want
+    # een geüpload document wordt door de portaal zelf geserveerd (intern).
     html = client.get("/activiteiten").text
     assert media_url in html
     assert "Info" in html
+    assert "Info ↗" not in html
+
+
+def test_external_info_url_shows_arrow(client, db_session):
+    """Een externe info_url (buiten de portaal) krijgt wél het ↗-pijltje."""
+    from app.domains.activities.api import ActivitySubRegistration
+
+    _activity, comp, _p = seed_activity_with_product(db_session)
+    db_session.query(ActivitySubRegistration).filter(
+        ActivitySubRegistration.id == comp.id).update(
+        {"info_url": "https://voorbeeld.be/reglement"})
+    db_session.commit()
+
+    html = client.get("/activiteiten").text
+    assert "Info ↗" in html
+    assert "https://voorbeeld.be/reglement" in html
 
 
 def test_no_info_link_without_document(client, db_session):
     seed_activity_with_product(db_session)
     html = client.get("/activiteiten").text
-    # Zonder info-document en zonder info_url geen 'Info ↗'-link.
+    # Zonder info-document en zonder info_url geen 'Info'-link.
     assert "Info ↗" not in html
