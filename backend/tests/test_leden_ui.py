@@ -83,6 +83,16 @@ def test_lidmaatschap_toevoegen_en_verwijderen(client, db_session):
     assert weg.status_code == 200 and "2031" not in weg.text
 
 
+def test_leden_page_links_to_import(client):
+    """Regressie: de importwizard (/admin/leden-import) bestond wél maar was
+    onbereikbaar — geen enkele link of nav-item wees ernaar, dus de facto 'weg'.
+    De Leden-pagina moet er nu naartoe linken (ingang voor de import)."""
+    _login(client)
+    page = client.get("/admin/leden")
+    assert page.status_code == 200
+    assert "/admin/leden-import" in page.text
+
+
 def test_import_wizard_page_and_bad_file(client):
     _login(client)
     page = client.get("/admin/leden-import")

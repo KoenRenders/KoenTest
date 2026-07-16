@@ -2,7 +2,9 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Leden — Raak") }}{% endblock %}
 {% block content %}
-{{ ui.page_header(_("Leden")) }}
+{% call ui.page_header(_("Leden")) %}
+  {{ ui.btn_secondary(_("Leden importeren"), href="/admin/leden-import", size="sm") }}
+{% endcall %}
 <div class="flex flex-col md:flex-row gap-6">
   <div class="md:w-72 shrink-0">
     <input type="search" name="q" value="{{ q }}" placeholder="{{ _('Zoek op naam of e-mail…') }}"
