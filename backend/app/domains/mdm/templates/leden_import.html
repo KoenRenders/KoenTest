@@ -2,6 +2,7 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Leden importeren — Raak") }}{% endblock %}
 {% block content %}
+<p class="mb-2"><a href="/admin/leden" class="text-sm text-blue-700 hover:underline">← {{ _("Leden") }}</a></p>
 {{ ui.page_header(_("Leden importeren"), _("Ledenrapport (.xls of .ods) uit Raak Nationaal. Eerst controleren (wijzigt niets), dan definitief importeren.")) }}
 {% call ui.card() %}
 <form hx-post="/admin/leden-import/preview" hx-target="#import-resultaat" hx-swap="innerHTML"
