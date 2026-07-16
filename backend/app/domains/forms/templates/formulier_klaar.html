@@ -14,6 +14,6 @@
 {% if edit_link %}
 <p class="text-sm text-gray-500 mt-4">{{ _("Je kunt je inzending later nog aanpassen via de link in je bevestigingsmail.") }}</p>
 {% endif %}
-<a class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg inline-block mt-6" href="/">{{ _("Naar de startpagina") }}</a>
+{{ ui.btn_primary(_("Naar de startpagina"), href="/", cls="mt-6") }}
 </div>
 {% endblock %}

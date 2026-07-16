@@ -2,7 +2,7 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Mijn gezin — Raak") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-2">{{ _("Mijn gezin") }}</h1>
+{{ ui.page_header(_("Mijn gezin")) }}
 {{ ui.error_banner(error|default(None)) }}
 
 {# Lidmaatschapsstatus + vernieuwen #}

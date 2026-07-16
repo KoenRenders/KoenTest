@@ -2,7 +2,7 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Media — Raak beheer") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-4">{{ _("Media") }}</h1>
+{{ ui.page_header(_("Media")) }}
 <div id="me-lijst">
   {% include "_me_lijst.html" %}
 </div>

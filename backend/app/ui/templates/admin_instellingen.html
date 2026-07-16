@@ -2,8 +2,7 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Instellingen — Raak beheer") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-2">{{ _("Tenant-instellingen") }}</h1>
-<p class="text-sm text-gray-600 mb-6">{{ _("Per afdeling; een leeg veld = de standaardwaarde (Millegem/.env). Alleen zichtbaar voor de platformbeheerder.") }}</p>
+{{ ui.page_header(_("Tenant-instellingen"), _("Per afdeling; een leeg veld = de standaardwaarde (Millegem/.env). Alleen zichtbaar voor de platformbeheerder.")) }}
 {{ ui.error_banner(error) }}
 {% if opgeslagen %}{{ ui.success_banner(_("Instellingen opgeslagen.")) }}{% endif %}
 <form method="get" action="/admin/instellingen" class="mb-6 max-w-xs">

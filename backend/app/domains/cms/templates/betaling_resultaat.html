@@ -1,4 +1,5 @@
 {% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
 {% block title %}{{ _("Betaling ontvangen") if gelukt else _("Betaling geannuleerd") }} — Raak{% endblock %}
 {% block content %}
 <div class="max-w-md mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 p-8 text-center">
@@ -12,11 +13,11 @@
   <p class="text-gray-500 text-sm mb-6">{{ _("Je registratie is bewaard — je kan de betaling later ook voltooien via een bestuurslid.") }}</p>
   {% endif %}
   {% if gelukt %}
-  <a class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg" href="/">{{ _("Terug naar de startpagina") }}</a>
+  {{ ui.btn_primary(_("Terug naar de startpagina"), href="/") }}
   {% else %}
   <div class="flex flex-wrap gap-2 justify-center">
-    <a class="bg-blue-700 hover:bg-blue-800 text-white font-semibold px-4 py-2 rounded-lg" href="/">{{ _("Opnieuw proberen") }}</a>
-    <a class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-4 py-2 rounded-lg" href="/">{{ _("Terug naar de startpagina") }}</a>
+    {{ ui.btn_primary(_("Opnieuw proberen"), href="/") }}
+    {{ ui.btn_secondary(_("Terug naar de startpagina"), href="/") }}
   </div>
   {% endif %}
 </div>

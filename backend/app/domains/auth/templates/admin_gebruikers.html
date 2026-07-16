@@ -2,8 +2,7 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Gebruikers — Raak beheer") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-4">{{ _("Gebruikers") }}</h1>
-<p class="text-sm text-gray-600 mb-4">{{ _("Backoffice-accounts en hun rollen. Aanmelden gebeurt met een e-mailcode — er zijn geen wachtwoorden.") }}</p>
+{{ ui.page_header(_("Gebruikers"), _("Backoffice-accounts en hun rollen. Aanmelden gebeurt met een e-mailcode — er zijn geen wachtwoorden.")) }}
 <div id="gu-lijst">
   {% include "_gu_lijst.html" %}
 </div>

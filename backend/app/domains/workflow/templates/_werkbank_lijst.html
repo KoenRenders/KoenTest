@@ -9,7 +9,7 @@
         <span class="ml-2">{{ ui.badge(task.kind, "blue") }}</span>
         <span class="ml-2 text-sm text-gray-500">{{ task.created_at.strftime("%d-%m-%Y %H:%M") }}</span>
       </div>
-      <button class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg text-sm"
+      <button class="{{ ui.btn_class('secondary', 'sm') }}"
               @click="open = !open"
               hx-get="/admin/werkbank/taken/{{ task.id }}" hx-target="#taak-{{ task.id }}" hx-swap="innerHTML">
         {{ _("Behartigen") }}
