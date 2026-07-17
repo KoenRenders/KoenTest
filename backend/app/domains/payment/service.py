@@ -250,7 +250,10 @@ def confirm_manual_payment(
         if total_refunded > 0:
             current = (Decimal(str(record.amount_paid))
                        if record.amount_paid is not None else Decimal("0"))
-            if amount_paid < current or amount_paid < total_refunded:
+            # Enkel een VERLAGING van het reeds-ontvangen bedrag van deze charge is
+            # incoherent na een refund; een nieuwe/hogere betaling (bv. een partieel
+            # betaalde open charge na een eerdere bestelverlaging) blijft toegestaan.
+            if amount_paid < current:
                 raise ValueError(
                     "Deze betaling is al (deels) terugbetaald — je kunt het ontvangen "
                     "bedrag niet verlagen zonder de terugbetaling te verrekenen. "
