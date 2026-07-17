@@ -284,3 +284,24 @@ komt daar het **Public-capture-sjabloon** bij (architectuurdoc §11): veldenset 
 gevalideerde submit → bedankscherm (+ evt. capability-link). Consistentie tussen
 publiek en admin is geen luxe: de vrijwilliger die beide kanten gebruikt, leert
 één interactietaal.
+
+---
+
+## Conventie: tenant-branding vs. vaste content-slugs (#493/#519)
+
+Twee soorten "waar komt deze content vandaan", bewust verschillend behandeld:
+
+- **Tenant-branding = config, GEEN hardgecodeerde default.** `site_tagline`,
+  `facebook_url` (en `instagram_url`/`tiktok_url`/`privacy_url`) komen uit de
+  tenant-settings (`get_setting`). Er is **geen** afdelingsspecifieke fallback:
+  leeg = niet tonen. Millegem-waarden als default lieten die branding naar andere
+  tenants lekken (multi-tenancy-fout, #519). Elke tenant zet zijn eigen waarden
+  via de instellingen-UI (#453); de footer/hero tonen een element enkel als het
+  gezet is (`{% if facebook_url %}`, `{% if site_tagline %}`).
+- **Vaste inline-content = slug-conventie, geen pointer.** De site-footer en de
+  home-intro zijn *inline CMS-content op exact één vaste plek*. Die worden
+  geadresseerd via een **vaste slug** (`site-footer`, `home-intro`) — de content
+  is per-tenant bewerkbaar via de CMS-editor (#457), enkel de slug-*naam* ligt
+  vast. Dit is bewust **geen** configureerbare pointer (in tegenstelling tot de
+  privacy-**link** van #493, die logisch naar een te kiezen pagina wijst): voor
+  content met één natuurlijke plek is een conventie eenvoudiger dan config.

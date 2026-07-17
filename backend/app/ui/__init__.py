@@ -167,12 +167,13 @@ def site_context(db, request=None) -> dict:
             "sponsors": sponsors, "current_year": date.today().year,
             "chat_enabled": settings.chat_enabled,
             "gebruiker": _huidige_gebruiker(db, request),
-            # Branding per tenant (#407): naam/tagline/Facebook uit de
-            # tenant-config, met de Millegem-waarden als default.
+            # Branding per tenant (#407/#519): naam/tagline/Facebook uit de
+            # tenant-config. GEEN Millegem-specifieke defaults meer — die lekten
+            # naar andere tenants (multi-tenancy-fout). Leeg = niet tonen, net als
+            # Instagram/TikTok/privacy (#493): elke tenant zet zijn eigen waarden.
             "site_name": tenant_display_name(db),
-            "site_tagline": get_setting(db, "tagline") or "Beleef meer in Millegem",
-            "facebook_url": get_setting(db, "facebook_url")
-                or "https://www.facebook.com/raakmillegem",
+            "site_tagline": get_setting(db, "tagline") or "",
+            "facebook_url": get_setting(db, "facebook_url") or None,
             # Instagram/TikTok hebben geen zinvolle default → enkel tonen als gezet.
             "instagram_url": get_setting(db, "instagram_url") or None,
             "tiktok_url": get_setting(db, "tiktok_url") or None,
