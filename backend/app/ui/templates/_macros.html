@@ -51,11 +51,10 @@
 {%- endmacro %}
 
 {# Bevestigingsdialoog (ConfirmDialog-conventie): «<Type> "<naam>" definitief
-   verwijderen?» — via hx-confirm zodat elke destructieve actie hetzelfde pad
-   volgt. Gebruik: {{ confirm_attrs('Bericht', item.title) }} op de knop. #}
-{% macro confirm_attrs(type_label, name) -%}
-hx-confirm='{{ type_label }} "{{ name }}" {{ _("definitief verwijderen?") }}'
-{%- endmacro %}
+   verwijderen?». Sinds #514 een PLAIN-string global `confirm_attrs(type, naam)`
+   (in app/ui/__init__.py) i.p.v. een macro — een macro (Markup) escapte anders de
+   hx-post-quotes bij `attrs='…' ~ confirm_attrs(…)`. Gebruik: op de knop:
+   attrs='hx-post="…" hx-target="…" hx-swap="…" ' ~ confirm_attrs('Type', naam). #}
 
 {# Foutbanner (B2-conventie: banner boven het formulier, geen alert()). #}
 {% macro error_banner(message) -%}

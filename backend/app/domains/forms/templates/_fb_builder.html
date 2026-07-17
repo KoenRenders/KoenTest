@@ -9,7 +9,7 @@
       {{ ui.btn_secondary("↑", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
       {{ ui.btn_secondary("↓", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
       {{ ui.btn_secondary(_("Bewerken"), attrs='@click="edit = !edit"') }}
-      {{ ui.btn_danger("×", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Veld"), f.label)) }}
+      {{ ui.btn_danger("×", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Veld"), f.label)) }}
     </div>
   </div>
   <form x-show="edit" x-cloak class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 text-sm"
@@ -94,7 +94,7 @@
         {{ ui.btn_secondary("⬇ " ~ _("Export"), href="/admin/formulieren/" ~ form.id ~ "/export", size="sm") }}
         {{ ui.btn_secondary("⬇ " ~ _("JSON"), href="/admin/formulieren/" ~ form.id ~ "/json", size="sm") }}
         {{ ui.btn_secondary(_("Instellingen"), size="sm", attrs='@click="open = !open"') }}
-        {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" hx-target="#fb-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Formulier"), form.title)) }}
+        {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" hx-target="#fb-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Formulier"), form.title)) }}
       </div>
     </div>
     <p class="text-xs text-gray-500 mt-1">Deellink: /formulier/{{ form.share_token }} · {{ submission_count }} inzendingen</p>
@@ -127,7 +127,7 @@
         {{ ui.btn_secondary("↑", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
         {{ ui.btn_secondary("↓", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
         {{ ui.btn_secondary(_("Bewerken"), attrs='@click="sedit = !sedit"') }}
-        {{ ui.btn_danger("×", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Sectie"), g.section.title or _("Sectie"))) }}
+        {{ ui.btn_danger("×", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Sectie"), g.section.title or _("Sectie"))) }}
       </div>
     </div>
     <form x-show="sedit" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-sm"

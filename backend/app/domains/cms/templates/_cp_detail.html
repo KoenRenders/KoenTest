@@ -5,7 +5,7 @@
     <div class="flex gap-2">
       <a href="/{{ p.slug }}" target="_blank" rel="noopener noreferrer"
          class="text-sm text-blue-700 underline self-center">{{ _("Bekijk") }}</a>
-      {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/paginas/' ~ p.id ~ '/verwijderen" hx-target="#cp-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Pagina"), p.title) ~ ' hx-on::after-request="document.getElementById(\'cp-detail\').innerHTML=\'\'"') }}
+      {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/paginas/' ~ p.id ~ '/verwijderen" hx-target="#cp-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Pagina"), p.title) ~ ' hx-on::after-request="document.getElementById(\'cp-detail\').innerHTML=\'\'"') }}
     </div>
   </div>
   {{ ui.error_banner(error) }}

@@ -135,3 +135,22 @@ def test_relatietype_bewerken(client, db_session):
     assert db_session.query(MemberPerson).filter(
         MemberPerson.member_id == member.id,
         MemberPerson.person_id == hoofd.id).one().relation_type == "HOOFDLID"
+
+
+def test_delete_knoppen_hx_post_niet_geescaped(client, db_session):
+    """#514: de bevestig-delete-knoppen (persoon/gezin/lidmaatschap) mogen hun
+    hx-post/target/swap NIET ge-escaped krijgen. De macro→Markup-concatenatie
+    `attrs='hx-post=\"…\" ' ~ confirm_attrs(…)` escapete de quotes (→ `&#34;`),
+    waardoor htmx die attributen niet las en de delete niets deed."""
+    from datetime import date
+    from app.domains.membership.api import Membership
+
+    member, _person = _family_with_address(db_session)
+    db_session.add(Membership(member_id=member.id, year=date.today().year, is_active=True))
+    db_session.commit()
+    _login(client)
+
+    html = client.get(f"/admin/leden/gezin/{member.id}").text
+    assert 'hx-post="/admin/leden/gezin/' in html   # correcte, niet-geëscapete quotes
+    assert "hx-post=&#34;" not in html               # geen escaping meer
+    assert "hx-confirm='" in html                    # de bevestiging blijft werken
