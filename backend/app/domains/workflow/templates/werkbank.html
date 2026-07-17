@@ -8,7 +8,8 @@
   {{ _("De werkbank is uitgeschakeld (WORKBENCH_ENABLED=false). Bestaande taken blijven staan; er komen geen nieuwe sweep-taken bij.") }}
 </div>
 {% endif %}
-<div id="werkbank-lijst" hx-get="/admin/werkbank/lijst" hx-trigger="every 30s" hx-swap="innerHTML">
+<div id="werkbank-lijst" hx-get="/admin/werkbank/lijst" hx-trigger="every 30s" hx-swap="innerHTML"
+     hx-include="[name='category'],[name='subtype']">
   {% include "_werkbank_lijst.html" %}
 </div>
 {% endblock %}

@@ -14,34 +14,59 @@ from app.domains.auth.api import csrf_token_for, require_admin_ui, require_csrf,
 router = APIRouter(include_in_schema=False)
 
 
-def _ctx(request: Request, db: Session, email: str) -> dict:
+def _ctx(request: Request, db: Session, email: str,
+         category: str = "", subtype: str = "") -> dict:
     from app.domains.auth.api import get_user_roles
 
     roles = sorted(get_user_roles(db, email))
     raw = request.cookies.get(SESSION_COOKIE) or ""
+    all_tasks = api.open_tasks(db, roles)
+
+    # Twee-niveau-filter (#502), data-gedreven uit de dotted `kind`
+    # (bv. "membership.reminder" → categorie "membership", subtype "reminder").
+    def _cat(k: str) -> str:
+        return (k or "").split(".", 1)[0]
+
+    def _sub(k: str) -> str:
+        return (k or "").split(".", 1)[1] if "." in (k or "") else ""
+
+    categories = sorted({_cat(t.kind) for t in all_tasks if t.kind})
+    subtypes = sorted({_sub(t.kind) for t in all_tasks
+                       if (not category or _cat(t.kind) == category) and _sub(t.kind)})
+    tasks = [t for t in all_tasks
+             if (not category or _cat(t.kind) == category)
+             and (not subtype or _sub(t.kind) == subtype)]
     return {
         "csrf_token": csrf_token_for(raw),
         "roles": roles,
-        "tasks": api.open_tasks(db, roles),
+        "tasks": tasks,
         "nav_items": admin_nav("/admin/werkbank"),
+        "filter_categories": categories,
+        "filter_subtypes": subtypes,
+        "filter_category": category,
+        "filter_subtype": subtype,
     }
 
 
 @router.get("/admin/werkbank", response_class=HTMLResponse)
 def werkbank(request: Request, db: Session = Depends(get_db),
-             email: str = Depends(require_admin_ui)):
+             email: str = Depends(require_admin_ui),
+             category: str = "", subtype: str = ""):
     from app.config import settings
 
-    ctx = _ctx(request, db, email)
+    ctx = _ctx(request, db, email, category, subtype)
     ctx["workbench_enabled"] = settings.workbench_enabled
     return templates.TemplateResponse(request, "werkbank.html", ctx)
 
 
 @router.get("/admin/werkbank/lijst", response_class=HTMLResponse)
 def werkbank_lijst(request: Request, db: Session = Depends(get_db),
-                   email: str = Depends(require_admin_ui)):
-    """Polling-fragment: enkel de takenlijst (elke 30s ververst, §20.5)."""
-    return templates.TemplateResponse(request, "_werkbank_lijst.html", _ctx(request, db, email))
+                   email: str = Depends(require_admin_ui),
+                   category: str = "", subtype: str = ""):
+    """Polling-fragment: de filter-controls + gefilterde takenlijst (elke 30s
+    ververst, §20.5; het filter overleeft de polling via hx-include)."""
+    return templates.TemplateResponse(request, "_werkbank_lijst.html",
+                                      _ctx(request, db, email, category, subtype))
 
 
 @router.get("/admin/werkbank/taken/{task_id}", response_class=HTMLResponse)
