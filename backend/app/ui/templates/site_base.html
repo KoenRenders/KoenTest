@@ -26,15 +26,15 @@
     /* Alpine: verberg x-cloak-elementen tot Alpine geïnitialiseerd is (geen flits). */
     [x-cloak]{display:none!important}
     /* CMS-content-opmaak (#457): Tailwind-reset laat koppen/lijsten kaal → stijl geven. */
-    .cms-content h1{font-size:1.5rem;font-weight:700;color:#1e40af;margin:1rem 0 .5rem}
-    .cms-content h2{font-size:1.25rem;font-weight:700;color:#1e40af;margin:1rem 0 .5rem}
+    .cms-content h1{font-size:1.5rem;font-weight:700;color:#0051a4;margin:1rem 0 .5rem}
+    .cms-content h2{font-size:1.25rem;font-weight:700;color:#0051a4;margin:1rem 0 .5rem}
     .cms-content h3{font-size:1.1rem;font-weight:600;margin:.75rem 0 .25rem}
     .cms-content h4{font-weight:600;margin:.5rem 0 .25rem}
     .cms-content p{margin:.5rem 0;line-height:1.6}
     .cms-content ul{list-style:disc;padding-left:1.5rem;margin:.5rem 0}
     .cms-content ol{list-style:decimal;padding-left:1.5rem;margin:.5rem 0}
     .cms-content li{margin:.25rem 0}
-    .cms-content a{color:#1d4ed8;text-decoration:underline}
+    .cms-content a{color:#0051a4;text-decoration:underline}
     .cms-content strong,.cms-content b{font-weight:700}
     .cms-content em,.cms-content i{font-style:italic}
     .cms-content blockquote{border-left:3px solid #cbd5e1;padding-left:1rem;color:#475569;margin:.5rem 0}
@@ -47,7 +47,7 @@
 <body class="bg-gray-50 min-h-screen text-gray-900" hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
   {% if omgeving and omgeving != 'prod' %}<div class="bg-orange-500 text-white text-center text-xs font-semibold py-1">{{ omgeving|upper }} — testomgeving (geen productie)</div>{% endif %}
   <header class="sticky top-0 z-50">
-    <nav class="bg-blue-800 text-white shadow-md" x-data="{ open: false }">
+    <nav class="bg-blue-700 text-white shadow-md" x-data="{ open: false }">
       <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
         <a href="/" class="hover:opacity-80">
           <span class="block font-brand font-bold uppercase tracking-tight leading-none text-3xl">{{ _("Raak") }}</span>

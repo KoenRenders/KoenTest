@@ -1,7 +1,7 @@
 {% import "_macros.html" as ui %}
 <div class="bg-white border border-gray-200 rounded-2xl p-5">
   <div class="flex items-start justify-between mb-4">
-    <h2 class="text-lg font-bold text-blue-800">{{ p.title }}</h2>
+    <h2 class="text-lg font-bold text-blue-700">{{ p.title }}</h2>
     <div class="flex gap-2">
       <a href="/{{ p.slug }}" target="_blank" rel="noopener noreferrer"
          class="text-sm text-blue-700 underline self-center">{{ _("Bekijk") }}</a>
@@ -45,7 +45,7 @@
         <div class="flex flex-wrap gap-1 bg-gray-50 border-b border-gray-200 p-1 text-xs">
           <span class="px-1 py-1 text-gray-400">{{ _("Invoegen:") }}</span>
           {% for ph in placeholders %}
-          <button type="button" class="px-2 py-1 rounded bg-blue-100 text-blue-800 hover:bg-blue-200 font-mono"
+          <button type="button" class="px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 font-mono"
                   @mousedown.prevent @click="ins('{{ ph.code }}')" title="{{ ph.label }}">{{ ph.code }}</button>
           {% endfor %}
         </div>
@@ -68,7 +68,7 @@
     <summary class="cursor-pointer text-gray-600">{{ _("Beschikbare placeholders") }}</summary>
     <dl class="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
       {% for ph in placeholders %}
-      <div><dt class="font-mono text-xs text-blue-800">{{ ph.code }}</dt>
+      <div><dt class="font-mono text-xs text-blue-700">{{ ph.code }}</dt>
         <dd class="text-gray-600">{{ ph.label }} — {{ ph.preview }}</dd></div>
       {% endfor %}
     </dl>

@@ -10,9 +10,9 @@
 </head>
 <body class="bg-gray-50 min-h-screen text-gray-900">
   <main class="max-w-3xl mx-auto px-4 py-16">
-    <h1 class="text-4xl font-bold text-blue-800 mb-3">{{ _("Raak Digital Platform") }}</h1>
+    <h1 class="text-4xl font-bold text-blue-700 mb-3">{{ _("Raak Digital Platform") }}</h1>
     <p class="text-gray-600 mb-10">{{ _("Eén platform voor Raak-afdelingen: activiteiten, inschrijvingen, ledenbeheer en online betalen — per afdeling een eigen site.") }}</p>
-    <h2 class="text-lg font-bold text-blue-800 mb-4">{{ _("Afdelingen") }}</h2>
+    <h2 class="text-lg font-bold text-blue-700 mb-4">{{ _("Afdelingen") }}</h2>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-12">
       {% for a in afdelingen %}
       <a href="{{ a.url }}" class="block bg-white border border-gray-200 rounded-2xl p-5 hover:shadow-md transition-shadow">
@@ -22,7 +22,7 @@
       {% endfor %}
     </div>
     <div class="bg-blue-50 border border-blue-100 rounded-2xl p-6">
-      <h2 class="text-lg font-bold text-blue-800 mb-2">{{ _("Ook een afdeling op het platform?") }}</h2>
+      <h2 class="text-lg font-bold text-blue-700 mb-2">{{ _("Ook een afdeling op het platform?") }}</h2>
       <p class="text-sm text-gray-700">{{ _("Wil je met jouw Raak-afdeling ook online: activiteiten publiceren, inschrijvingen en betalingen ontvangen en je leden beheren? Neem contact op via de afdeling Millegem — we zetten je graag op weg.") }}</p>
     </div>
     <p class="text-center text-xs text-gray-400 mt-12">© {{ current_year }} {{ _("Raak Digital Platform") }}</p>

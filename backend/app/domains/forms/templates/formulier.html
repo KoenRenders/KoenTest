@@ -70,7 +70,7 @@
 
 {% block content %}
 <div class="max-w-2xl mx-auto">
-  <h1 class="text-2xl font-bold text-blue-800 mb-2">{{ form.title }}</h1>
+  <h1 class="text-2xl font-bold text-blue-700 mb-2">{{ form.title }}</h1>
   {% if form.description %}<p class="text-gray-600 mb-6 whitespace-pre-wrap">{{ form.description }}</p>{% endif %}
   {{ ui.error_banner(error|default(None)) }}
   <form method="post" action="/formulier/{{ form.share_token }}{% if edit_token|default(None) %}/edit/{{ edit_token }}{% endif %}"
