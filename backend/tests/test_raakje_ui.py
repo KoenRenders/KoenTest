@@ -54,3 +54,22 @@ def test_ai_context_scherm_en_notitieflow(client, db_session):
 
 def test_ai_context_requires_session(client):
     assert client.get("/admin/ai-context").status_code == 401
+
+
+def test_document_toont_gelezen_ocr_tekst(client, db_session):
+    """#522: de OCR-/extractie-tekst van een document is read-only zichtbaar in
+    admin-raakje, zodat de beheerder ziet wat Raakje uit de affiche/PDF las."""
+    from app.domains.media.models import MediaAsset
+
+    asset = MediaAsset(kind="activity_poster", data=b"x", content_type="image/png")
+    db_session.add(asset)
+    db_session.flush()
+    db_session.add(ChatbotInfo(media_asset_id=asset.id, is_active=True,
+                              extracted_text="AFFICHE: Zomerbar op 1 juli om 19u"))
+    db_session.commit()
+
+    _login(client)
+    resp = client.get("/admin/ai-context")
+    assert resp.status_code == 200
+    assert "Toon gelezen tekst (OCR)" in resp.text
+    assert "AFFICHE: Zomerbar op 1 juli om 19u" in resp.text

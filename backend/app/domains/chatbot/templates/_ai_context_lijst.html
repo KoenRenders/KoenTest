@@ -21,6 +21,28 @@
     </div>
     {% endif %}
   </div>
+  {% if soort == "bron" %}
+  {# #522: toon read-only wat de OCR/extractie uit de affiche/PDF las, inklapbaar
+     (kan lang zijn). Zo ziet de beheerder de bron i.p.v. blind te overschrijven. #}
+  <div class="mt-1 text-sm" x-data="{ show: false }">
+    <button type="button" class="text-blue-700 hover:underline text-xs" @click="show = !show">
+      <span x-show="!show">▸ {{ _("Toon gelezen tekst (OCR)") }}</span>
+      <span x-show="show" x-cloak>▾ {{ _("Verberg gelezen tekst") }}</span>
+    </button>
+    <div x-show="show" x-cloak class="mt-1">
+      {% if info and info.extracted_text %}
+      <pre class="whitespace-pre-wrap break-words bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs text-gray-700 max-h-64 overflow-y-auto">{{ info.extracted_text }}</pre>
+      {% if info.text_override %}
+      <p class="text-xs text-amber-700 mt-1">{{ _("Er is een vervangende tekst ingesteld — die (niet deze gelezen tekst) gaat naar Raakje.") }}</p>
+      {% else %}
+      <p class="text-xs text-gray-500 mt-1">{{ _("Deze gelezen tekst gaat naar Raakje (plus eventuele extra tekst).") }}</p>
+      {% endif %}
+      {% else %}
+      <p class="text-xs text-gray-400">— {{ _("nog niets gelezen") }} —</p>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
   {% if info %}
   <form x-show="edit" x-cloak class="space-y-2 mt-3 bg-gray-50 rounded-lg p-3"
         hx-post="/admin/ai-context/{{ info.id }}/bewerken"
