@@ -775,3 +775,27 @@ def test_submission_view_dekt_optie_en_rating(db_session):
     rows = dict(submission_view(db_session, sub.id))
     assert rows["Keuze"] == "Appel; Banaan"
     assert rows["Score"] == "4"
+
+
+def test_niet_anoniem_vereist_naam_en_email(db_session):
+    """#501: de servicelaag weigert een niet-anoniem formulier zonder naam of geldig
+    e-mailadres — zo zijn JSON-API en edit consistent met het publieke scherm. De
+    check vuurt vóór de veld-validatie, dus er zijn geen velden nodig."""
+    import pytest
+    from fastapi import HTTPException
+    from starlette.background import BackgroundTasks
+    from app.domains.forms.models import Form
+    from app.domains.forms.router import submit_form
+    from app.domains.forms.schemas import SubmissionIn
+
+    form = Form(title="Contact", share_token="tok-501", status="open", is_anonymous=False)
+    db_session.add(form)
+    db_session.commit()
+
+    bt = BackgroundTasks()
+    for naam, email in [("Jan", None), ("Jan", "geen-apestaart"), ("", "jan@x.be")]:
+        with pytest.raises(HTTPException) as exc:
+            submit_form("tok-501",
+                        SubmissionIn(submitter_name=naam, submitter_email=email, answers=[]),
+                        bt, db=db_session)
+        assert exc.value.status_code == 422
