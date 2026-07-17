@@ -293,7 +293,7 @@ def product_toevoegen(activity_id: int, component_id: int, request: Request,
                       db: Session = Depends(get_db),
                       email: str = Depends(require_admin_ui),
                       name: str = Form(...), price: str = Form("0"),
-                      member_price: str = Form(""), pay_on_site: str = Form(""),
+                      member_price: str = Form(""), afrekening: str = Form("betalend"),
                       max_participants: str = Form("")):
     from app.domains.activities.router import add_product
     from app.schemas.activity import ProductCreate
@@ -302,8 +302,8 @@ def product_toevoegen(activity_id: int, component_id: int, request: Request,
     add_product(activity_id, component_id, ProductCreate(
         name=name.strip(), price=bedrag,
         member_price=_decimal(member_price) if member_price.strip() else None,
-        is_free=(bedrag == 0 and not bool(pay_on_site)),
-        pay_on_site=bool(pay_on_site),
+        is_free=(afrekening == "gratis"),
+        pay_on_site=(afrekening == "ter_plaatse"),
         max_participants=_opt_int(max_participants),
     ), db=db, admin=admin_user_by_email(db, email))
     return _detail_response(request, db, activity_id)
@@ -345,7 +345,7 @@ def product_bijwerken(activity_id: int, component_id: int, product_id: int,
                       request: Request, db: Session = Depends(get_db),
                       email: str = Depends(require_admin_ui),
                       name: str = Form(...), price: str = Form("0"),
-                      member_price: str = Form(""), pay_on_site: str = Form(""),
+                      member_price: str = Form(""), afrekening: str = Form("betalend"),
                       max_participants: str = Form("")):
     """Product bijwerken incl. prijs/ledenprijs (#451)."""
     from app.domains.activities.router import update_product
@@ -355,8 +355,8 @@ def product_bijwerken(activity_id: int, component_id: int, product_id: int,
     update_product(activity_id, component_id, product_id, ProductUpdate(
         name=name.strip(), price=bedrag,
         member_price=_decimal(member_price) if member_price.strip() else None,
-        is_free=(bedrag == 0 and not bool(pay_on_site)),
-        pay_on_site=bool(pay_on_site),
+        is_free=(afrekening == "gratis"),
+        pay_on_site=(afrekening == "ter_plaatse"),
         max_participants=_opt_int(max_participants),
     ), db=db, admin=admin_user_by_email(db, email))
     return _detail_response(request, db, activity_id)
