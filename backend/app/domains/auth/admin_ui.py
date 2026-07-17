@@ -28,7 +28,11 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
     from app.domains.auth.models import RoleCode
 
     return {"users": list_users(db=db, _admin=None),
-            "role_codes": db.query(RoleCode).filter(RoleCode.code != "USER")
+            # USER én MEMBER zijn dode rollen in gebruikersbeheer (#458/#521): geen
+            # enkele autorisatie hangt eraan (backoffice draait op ADMIN/FINANCE/
+            # OPERATOR; lidmaatschap is data-gedreven via Membership). Uit de
+            # keuzelijst filteren voorkomt zinloze, verwarrende vinkjes.
+            "role_codes": db.query(RoleCode).filter(RoleCode.code.notin_(["USER", "MEMBER"]))
                             .order_by(RoleCode.code).all(),
             "csrf_token": csrf_from_request(request)}
 
