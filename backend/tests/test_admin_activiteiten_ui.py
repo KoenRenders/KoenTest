@@ -48,6 +48,31 @@ def test_admin_onderdeel_en_product_flow(client, db_session):
     assert prod.status_code == 200 and "Pannenkoeken" in prod.text and "5.00" in prod.text
 
 
+def test_product_afrekening_keuze(client, db_session):
+    """#507: de expliciete 'Afrekening'-keuze (Betalend/Gratis/Ter plaatse) zet
+    is_free/pay_on_site; de prijs blijft los invulbaar."""
+    from app.domains.activities.api import ActivityProduct
+
+    activity, component, _p = seed_activity_with_product(db_session, price="10.00")
+    csrf = _login(client)
+    base = f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}/producten"
+
+    client.post(base, data={"name": "Gratis drankje", "price": "3,00", "afrekening": "gratis"},
+                headers={"X-CSRF-Token": csrf})
+    client.post(base, data={"name": "Frietjes", "price": "4,00", "afrekening": "ter_plaatse"},
+                headers={"X-CSRF-Token": csrf})
+    client.post(base, data={"name": "Pintje", "price": "2,50", "afrekening": "betalend"},
+                headers={"X-CSRF-Token": csrf})
+    db_session.expire_all()
+
+    def _prod(naam):
+        return db_session.query(ActivityProduct).filter(ActivityProduct.name == naam).one()
+
+    assert _prod("Gratis drankje").is_free is True and _prod("Gratis drankje").pay_on_site is False
+    assert _prod("Frietjes").pay_on_site is True and _prod("Frietjes").is_free is False
+    assert _prod("Pintje").is_free is False and _prod("Pintje").pay_on_site is False
+
+
 def test_admin_inschrijvingen_en_export(client, db_session):
     activity, component, product = seed_activity_with_product(db_session, price="10.00", is_free=False)
     csrf = _login(client)

@@ -147,7 +147,13 @@
             <input name="member_price" value="{% if p.member_price is not none %}{{ '%.2f'|format(p.member_price) }}{% endif %}" inputmode="decimal" class="w-24 border border-gray-300 rounded-lg px-3 py-2"></div>
           <div><label class="block text-xs text-gray-500">{{ _("Max") }}</label>
             <input name="max_participants" value="{{ p.max_participants or '' }}" class="w-20 border border-gray-300 rounded-lg px-3 py-2"></div>
-          <label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="pay_on_site" value="1" {% if p.pay_on_site %}checked{% endif %}> {{ _("Ter plaatse") }}</label>
+          {# #507: expliciete Afrekening-keuze (prijs blijft los invulbaar). #}
+          <div>{% set _afr = "ter_plaatse" if p.pay_on_site else ("gratis" if p.is_free else "betalend") %}<label class="block text-xs text-gray-500">{{ _("Afrekening") }}</label>
+            <select name="afrekening" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+              <option value="betalend" {% if _afr == "betalend" %}selected{% endif %}>{{ _("Betalend") }}</option>
+              <option value="gratis" {% if _afr == "gratis" %}selected{% endif %}>{{ _("Gratis") }}</option>
+              <option value="ter_plaatse" {% if _afr == "ter_plaatse" %}selected{% endif %}>{{ _("Ter plaatse") }}</option>
+            </select></div>
           {{ ui.btn_primary(_("Opslaan")) }}
         </form>
       </div>
@@ -163,7 +169,12 @@
           <input name="member_price" id="pmprice-{{ c.id }}" inputmode="decimal" class="w-24 border border-gray-300 rounded-lg px-3 py-2"></div>
         <div>{{ ui.label(_("Max"), "pmax-" ~ c.id) }}
           <input name="max_participants" id="pmax-{{ c.id }}" class="w-20 border border-gray-300 rounded-lg px-3 py-2"></div>
-        <label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="pay_on_site" value="1"> {{ _("Ter plaatse") }}</label>
+        <div><label class="block text-xs text-gray-500">{{ _("Afrekening") }}</label>
+          <select name="afrekening" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+            <option value="betalend">{{ _("Betalend") }}</option>
+            <option value="gratis">{{ _("Gratis") }}</option>
+            <option value="ter_plaatse">{{ _("Ter plaatse") }}</option>
+          </select></div>
         {{ ui.btn_primary(_("Toevoegen")) }}
       </form>
     </div>
