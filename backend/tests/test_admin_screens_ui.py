@@ -126,3 +126,14 @@ def test_ledenwijzigingen_en_info(client):
     info = client.get("/admin/info")
     assert info.status_code == 200 and "Systeeminfo" in info.text
     assert "Mollie-modus" in info.text
+
+
+def test_gebruikers_geen_dode_rolvinken(client):
+    """#521 (zoals #458 voor USER): het gebruikersformulier biedt geen MEMBER-
+    (of USER-)checkbox meer aan; betekenisvolle backoffice-rollen blijven wél."""
+    _login(client)
+    resp = client.get("/admin/gebruikers")
+    assert resp.status_code == 200
+    assert 'value="MEMBER"' not in resp.text
+    assert 'value="USER"' not in resp.text
+    assert 'value="FINANCE"' in resp.text  # sanity: betekenisvolle rol blijft
