@@ -36,13 +36,15 @@
         <span class="font-brand uppercase tracking-tight text-white text-2xl leading-none">{{ _("Raak") }}</span>
         <span class="block text-xs text-purple-300 mt-0.5">{{ _("beheer") }}</span>
       </a>
-      <nav class="flex-1 px-3 space-y-0.5 overflow-y-auto">
+      {# #505: geen flex-1 — "Naar de site" staat met een scheidingslijn direct
+         onder de items i.p.v. onderaan de zijbalk weggedrukt. #}
+      <nav class="px-3 space-y-0.5">
         {% for item in nav_items|default([]) %}
         <a href="{{ item.href }}"
            class="block px-3 py-2 rounded-lg text-sm transition-colors {% if item.active %}bg-white/20 text-white font-semibold{% else %}text-purple-200 hover:bg-white/10 hover:text-white{% endif %}">{{ item.label }}</a>
         {% endfor %}
       </nav>
-      <a href="/" class="block px-5 py-4 text-sm text-purple-200 hover:text-white border-t border-white/10">↗ {{ _("Naar de site") }}</a>
+      <a href="/" class="block mx-3 mt-2 pt-3 px-3 pb-2 text-sm text-purple-200 hover:text-white border-t border-white/10">↗ {{ _("Naar de site") }}</a>
     </aside>
 
     <div class="flex-1 flex flex-col min-w-0">

@@ -34,6 +34,14 @@ def test_macros_render_and_escape():
     assert 'text-red-600">*' in html          # verplicht-veld-conventie
 
 
+def test_admin_nav_info_onder_instellingen():
+    """#505: 'Info' staat onder 'Instellingen' in de admin-navigatie."""
+    from app.ui import admin_nav
+
+    hrefs = [i["href"] for i in admin_nav("/admin/werkbank")]
+    assert hrefs.index("/admin/instellingen") < hrefs.index("/admin/info")
+
+
 def test_static_assets_served(client):
     for path in ("/static/app.css", "/static/vendor/htmx.min.js", "/static/vendor/alpine.min.js"):
         resp = client.get(path)
