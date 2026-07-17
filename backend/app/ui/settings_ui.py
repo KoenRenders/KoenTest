@@ -26,6 +26,7 @@ BEKENDE_SLEUTELS = [
     ("facebook_url", "Facebook-link", "Footer-link. Default: de Millegem-pagina."),
     ("instagram_url", "Instagram-link", "Footer-link. Leeg = niet tonen."),
     ("tiktok_url", "TikTok-link", "Footer-link. Leeg = niet tonen."),
+    ("privacy_url", "Privacyverklaring-link", "Footer-link naar je privacyverklaring. Leeg = niet tonen."),
     ("mail_mode", "Mail-modus", "'send' (default) of 'log_only' (mails enkel loggen — demo)."),
     ("noindex", "Noindex", "'1' = niet indexeren door zoekmachines (demo)."),
     ("language", "Taal", "Catalogustaal, bv. nl_BE (default)."),

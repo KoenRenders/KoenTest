@@ -160,6 +160,8 @@ def site_context(db, request=None) -> dict:
             # Instagram/TikTok hebben geen zinvolle default → enkel tonen als gezet.
             "instagram_url": get_setting(db, "instagram_url") or None,
             "tiktok_url": get_setting(db, "tiktok_url") or None,
+            # Privacyverklaring-link per tenant (#493, raakt #453): leeg = niet tonen.
+            "privacy_url": get_setting(db, "privacy_url") or None,
             # SEO (#454): canonieke origin + huidige canonical-URL voor OG/canonical.
             "base_url": base_url,
             "canonical_url": (base_url + request.url.path) if (base_url and request) else None}
