@@ -233,6 +233,32 @@ def confirm_manual_payment(
             raise ValueError(
                 f"Betaald bedrag ({amount_paid}) moet tussen {lo} en {hi} liggen."
             )
+    # Refund-bewuste invariant (#517): een charge die al (deels) terugbetaald is,
+    # mag zijn ontvangen bedrag NIET stil verlaagd krijgen — dat maakt de netto-
+    # positie incoherent met de reeds uitbetaalde terugbetaling (bv. €30 ontvangen,
+    # €10 terug, dan "€20 betaald" → net €10 i.p.v. €20). `create_refund` bewaakt de
+    # andere kant al; dit is de omgekeerde weg. Blokkeren i.p.v. stil overschrijven;
+    # de penningmeester corrigeert dan via de terugbetaling.
+    if amount_paid is not None and record.type == "charge":
+        refund_rows = db.query(PaymentRecord.amount_paid).filter(
+            PaymentRecord.payable_type == record.payable_type,
+            PaymentRecord.payable_id == record.payable_id,
+            PaymentRecord.type == "refund",
+        ).all()
+        total_refunded = -sum(
+            (Decimal(str(r[0])) for r in refund_rows if r[0] is not None), Decimal("0"))
+        if total_refunded > 0:
+            current = (Decimal(str(record.amount_paid))
+                       if record.amount_paid is not None else Decimal("0"))
+            # Enkel een VERLAGING van het reeds-ontvangen bedrag van deze charge is
+            # incoherent na een refund; een nieuwe/hogere betaling (bv. een partieel
+            # betaalde open charge na een eerdere bestelverlaging) blijft toegestaan.
+            if amount_paid < current:
+                raise ValueError(
+                    "Deze betaling is al (deels) terugbetaald — je kunt het ontvangen "
+                    "bedrag niet verlagen zonder de terugbetaling te verrekenen. "
+                    "Corrigeer eerst de terugbetaling."
+                )
     record.status = "paid"
     record.paid_at = datetime.now(timezone.utc)
     if note:

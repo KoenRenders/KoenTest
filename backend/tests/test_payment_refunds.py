@@ -44,6 +44,44 @@ def test_refund_creates_negative_record_linked_to_charge(db_session):
     assert net_paid(db_session, "registration", charge.payable_id) == Decimal("0.00")
 
 
+def test_herbevestigen_na_refund_bewaart_saldo_en_context(db_session):
+    """#517 (geld-invariant, mogelijke datacorruptie): charge €30 paid → refund €10
+    paid → dan €20 'betaald' herbevestigen mag het saldo NIET stil verstoren en de
+    payable-referentie (persoon + waarvoor) NIET verliezen. De operatie wordt
+    geweigerd; alle records houden hun context; het netto saldo blijft coherent."""
+    from app.domains.payment.api import confirm_manual_payment
+
+    charge = _seed_charge(db_session, payable_id=42, amount="30.00", amount_paid="30.00")
+    create_refund(db_session, charge.id, Decimal("10.00"), actor="admin@test")
+    assert net_paid(db_session, "registration", 42) == Decimal("20.00")
+
+    # Herbevestigen op €20 (< het reeds ontvangen €30) → geweigerd: geen stille
+    # overschrijving die het saldo incoherent maakt met de al uitbetaalde refund.
+    with pytest.raises(ValueError):
+        confirm_manual_payment(db_session, charge.id,
+                               amount_paid=Decimal("20.00"), actor="admin@test")
+    # Randgeval: onder het reeds terugbetaalde (€10) duwen → óók geweigerd.
+    with pytest.raises(ValueError):
+        confirm_manual_payment(db_session, charge.id,
+                               amount_paid=Decimal("5.00"), actor="admin@test")
+
+    # Invarianten intact: saldo coherent (30 ontvangen, 10 terug = 20), en géén
+    # record verliest payable_type/payable_id.
+    db_session.expire_all()
+    charge = db_session.query(PaymentRecord).filter(PaymentRecord.type == "charge").one()
+    refund = db_session.query(PaymentRecord).filter(PaymentRecord.type == "refund").one()
+    assert charge.amount_paid == Decimal("30.00")
+    assert net_paid(db_session, "registration", 42) == Decimal("20.00")
+    for rec in (charge, refund):
+        assert rec.payable_type == "registration" and rec.payable_id == 42
+
+    # Een legitieme herbevestiging op het volledige bedrag (€30) blijft toegestaan
+    # en houdt het saldo coherent.
+    confirm_manual_payment(db_session, charge.id,
+                           amount_paid=Decimal("30.00"), actor="admin@test")
+    assert net_paid(db_session, "registration", 42) == Decimal("20.00")
+
+
 def test_partial_refund_leaves_remaining_balance(db_session):
     charge = _seed_charge(db_session, amount="18.00", amount_paid="18.00")
     create_refund(db_session, charge.id, Decimal("5.00"), actor="admin@test")
