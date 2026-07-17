@@ -40,7 +40,7 @@
   {% elif r.status in ["failed", "cancelled"] %}{% set _stripe = "border-l-red-400" %}
   {% elif _paid > 0 %}{% set _stripe = "border-l-orange-400" %}
   {% else %}{% set _stripe = "border-l-yellow-400" %}{% endif %}
-  <div class="bg-white rounded-2xl shadow-sm border-t border-b border-r border-gray-200 border-l-4 {{ _stripe }} p-4"{% if is_finance %} x-data="{ invul: false, terug: false, statusEdit: false }"{% endif %}>
+  <div class="bg-white rounded-2xl shadow-sm border-t border-b border-r border-gray-200 border-l-4 {{ _stripe }} p-4"{% if is_finance %} x-data="{ bewerk: false, terug: false }"{% endif %}>
     <div class="flex items-start justify-between gap-3">
       <div>
         <div class="font-semibold">{{ r.contact_name or "—" }}
@@ -79,23 +79,47 @@
     </div>
     {% endif %}
     {% if is_finance %}
-    {% if r.type != "refund" %}
-    <div class="mt-3 flex flex-wrap gap-2">
-      {% if r.status != "paid" %}
+    {# Beheeracties (charge én refund, #455/#515). De unified "Bewerken"-editor is de
+       hoofdweg (status + bedrag + opmerking in één form); "Bevestig betaald" blijft
+       als snelkoppeling voor een volledige betaling. #}
+    <div class="mt-3 flex flex-wrap gap-2 border-t border-gray-100 pt-2">
+      {% if r.status != "paid" and r.type != "refund" %}
       {{ ui.btn_secondary(_("Bevestig betaald"), attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-confirm="' ~ _("Als volledig betaald bevestigen?") ~ '"') }}
-      {{ ui.btn_secondary(_("Bedrag invullen"), attrs='@click="invul = !invul"') }}
       {% endif %}
-      {% if r.status == "paid" %}
+      {{ ui.btn_secondary(_("Bewerken"), attrs='@click="bewerk = !bewerk"') }}
+      {% if r.status == "paid" and r.type != "refund" %}
       {{ ui.btn_secondary(_("Terugbetalen…"), attrs='@click="terug = !terug"') }}
       {% endif %}
+      {% if r.method == "online" %}
+      {{ ui.btn_secondary(_("Ververs bij Mollie"), attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/verversen" hx-target="#betalingen-lijst" hx-swap="innerHTML"') }}
+      {% endif %}
+      {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-confirm="' ~ _("Deze betaling verwijderen (uit het saldo)?") ~ '"') }}
     </div>
-    <form x-show="invul" x-cloak class="mt-2 flex flex-wrap gap-2 items-end"
-          hx-post="/admin/betalingen/{{ r.id }}/bijwerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
+    {# Geünificeerde editor (#515): Status + Betaald bedrag + Opmerking in één form —
+       óók voor een refund, waar je zo de effectief uitbetaalde som registreert.
+       v1.4-gedrag: status → "paid" met leeg bedrag ⇒ Alpine vult het volle te
+       (terug)betalen bedrag in; edit_payment_record blijft server-side valideren. #}
+    <form x-show="bewerk" x-cloak class="mt-2 flex flex-wrap gap-2 items-end"
+          x-data="{ status: '{{ r.status }}', bedrag: '{{ '%.2f'|format(r.amount_paid) if r.amount_paid is not none else '' }}' }"
+          hx-post="/admin/betalingen/{{ r.id }}/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
+      <div><label class="block text-xs text-gray-500">{{ _("Status") }}</label>
+        <select name="status" x-model="status"
+                @change="if (status === 'paid' && !bedrag) bedrag = '{{ '%.2f'|format(r.amount) }}'"
+                class="border border-gray-300 rounded-lg px-2 py-1 text-sm">
+          {% for s in ["pending", "paid", "failed", "cancelled"] %}
+          <option value="{{ s }}" {% if r.status == s %}selected{% endif %}>{{ s }}</option>
+          {% endfor %}
+        </select></div>
       <div><label class="block text-xs text-gray-500">{{ _("Betaald bedrag") }}</label>
-        <input name="amount_paid" value="{{ '%.2f'|format(r.amount) }}" inputmode="decimal" class="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm"></div>
-      <input name="note" placeholder="{{ _('Notitie') }}" class="w-40 border border-gray-300 rounded-lg px-2 py-1 text-sm">
+        <input name="amount_paid" x-model="bedrag" inputmode="decimal" placeholder="0,00"
+               class="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm"></div>
+      <input name="note" placeholder="{{ _('Opmerking') }}" class="w-40 border border-gray-300 rounded-lg px-2 py-1 text-sm">
       {{ ui.btn_primary(_("Opslaan"), type="submit") }}
+      {{ ui.btn_secondary(_("Annuleren"), attrs='@click="bewerk = false"') }}
     </form>
+    {# Terugbetalen = een nieuwe refund aanmaken (los van 'effectieve uitbetaling
+       registreren' op een bestaande refund). Enkel voor een betaalde charge. #}
+    {% if r.status == "paid" and r.type != "refund" %}
     <form x-show="terug" x-cloak class="mt-2 flex flex-wrap gap-2 items-end"
           hx-post="/admin/betalingen/{{ r.id }}/refund" hx-target="#betalingen-lijst" hx-swap="innerHTML">
       <div><label class="block text-xs text-gray-500">{{ _("Terug te betalen") }}</label>
@@ -104,26 +128,6 @@
       {{ ui.btn_danger(_("Terugbetalen"), type="submit") }}
     </form>
     {% endif %}
-    {# Gedeelde beheeracties (charge én refund, #455): Mollie verversen, vrije
-       status-correctie, verwijderen (soft-delete → uit het saldo). #}
-    <div class="mt-3 flex flex-wrap gap-2 border-t border-gray-100 pt-2">
-      {% if r.method == "online" %}
-      {{ ui.btn_secondary(_("Ververs bij Mollie"), attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/verversen" hx-target="#betalingen-lijst" hx-swap="innerHTML"') }}
-      {% endif %}
-      {{ ui.btn_secondary(_("Status wijzigen…"), attrs='@click="statusEdit = !statusEdit"') }}
-      {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-confirm="' ~ _("Deze betaling verwijderen (uit het saldo)?") ~ '"') }}
-    </div>
-    <form x-show="statusEdit" x-cloak class="mt-2 flex flex-wrap gap-2 items-end"
-          hx-post="/admin/betalingen/{{ r.id }}/status" hx-target="#betalingen-lijst" hx-swap="innerHTML">
-      <div><label class="block text-xs text-gray-500">{{ _("Status") }}</label>
-        <select name="status" class="border border-gray-300 rounded-lg px-2 py-1 text-sm">
-          {% for s in ["pending", "paid", "failed", "cancelled"] %}
-          <option value="{{ s }}" {% if r.status == s %}selected{% endif %}>{{ s }}</option>
-          {% endfor %}
-        </select></div>
-      <input name="note" placeholder="{{ _('Reden') }}" class="w-40 border border-gray-300 rounded-lg px-2 py-1 text-sm">
-      {{ ui.btn_primary(_("Opslaan"), type="submit") }}
-    </form>
     {% endif %}
   </div>
   {% endfor %}

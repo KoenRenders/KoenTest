@@ -419,6 +419,62 @@ def set_payment_status(db: Session, record_id: str, status: str,
     return record
 
 
+def edit_payment_record(
+    db: Session,
+    record_id: str,
+    *,
+    status: Optional[str] = None,
+    amount_paid: Optional[Decimal] = None,
+    note: Optional[str] = None,
+    actor: Optional[str] = None,
+) -> PaymentRecord:
+    """Geünificeerde 'Bewerken' van één betaal-/terugbetaalrecord (#515): status +
+    betaald bedrag + opmerking in één bewerking, voor **charges én refunds**. Eén
+    plek voor de regels — gebruikt door de admin-UI én de JSON-API, zodat de
+    validatie niet uiteenloopt.
+
+    - ``amount_paid`` wordt tekengevoelig gevalideerd binnen ``[0, amount]`` (charge)
+      resp. ``[amount, 0]`` (refund, negatief) — zo registreer je op een refund de
+      effectief uitbetaalde som.
+    - ``status == "paid"`` loopt via :func:`confirm_manual_payment` (incl.
+      lidmaatschap-activatie en de #517 refund-bewuste invariant); een leeg bedrag
+      boekt dan de volledige (terug)betaling.
+    - een andere status schrijft status/bedrag/opmerking direct weg met snapshot.
+    """
+    record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
+    if not record:
+        raise ValueError(f"PaymentRecord {record_id} not found")
+    # Tekengevoelige grens (#219), zelfde regel als de JSON-API: charge → [0, amount];
+    # refund (negatief) → [amount, 0]. Hier al zodat een niet-'paid'-bewerking het ook
+    # afdwingt (confirm_manual_payment valideert het zelf nogmaals voor de 'paid'-tak).
+    if amount_paid is not None:
+        lo, hi = sorted((Decimal("0"), Decimal(str(record.amount))))
+        if not (lo <= amount_paid <= hi):
+            raise ValueError(
+                f"Betaald bedrag ({amount_paid}) moet tussen {lo} en {hi} liggen."
+            )
+    if status == "paid":
+        return confirm_manual_payment(db, record_id, note, actor=actor, amount_paid=amount_paid)
+    if status is not None:
+        if status not in _EDITABLE_STATUSES:
+            raise ValueError(f"Ongeldige status '{status}'.")
+        record.status = status
+    if note is not None:
+        record.note = note
+    if amount_paid is not None:
+        record.amount_paid = amount_paid
+        # Consistentie (#346): een ontvangen/terugbetaald bedrag (≠ 0) krijgt meteen
+        # een paid_at, zodat er nooit een "betaald zonder datum"-record ontstaat.
+        if amount_paid != 0 and record.paid_at is None:
+            record.paid_at = datetime.now(timezone.utc)
+    db.flush()
+    snapshot_payment_record(
+        db, record, operation="update", action="payment_updated",
+        source="admin_update", actor=actor,
+    )
+    return record
+
+
 def void_payment_record(db: Session, record_id: str,
                         actor: Optional[str] = None, note: Optional[str] = None) -> PaymentRecord:
     """Verwijder (soft-delete) een betaal-/terugbetaalrecord (#455). De globale
