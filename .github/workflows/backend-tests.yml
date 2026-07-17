@@ -185,7 +185,9 @@ jobs:
       - name: Echte boot via startup.sh (migraties + alle seeds + uvicorn) + health-probe
         working-directory: backend
         run: |
-          ./startup.sh > /tmp/boot.log 2>&1 &
+          # Via `sh` i.p.v. `./startup.sh`: de checkout draagt het exec-bit niet
+          # (in Docker zet de image dat); functioneel identiek voor dit sh-script.
+          sh startup.sh > /tmp/boot.log 2>&1 &
           BOOT_PID=$!
           ok=0
           for i in $(seq 1 45); do
