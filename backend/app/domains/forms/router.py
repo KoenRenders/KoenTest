@@ -380,6 +380,17 @@ def get_public_form(share_token: str, db: Session = Depends(get_db)):
 
 @router.post("/forms/by-token/{share_token}/submit", response_model=SubmissionResult,
              dependencies=[Depends(form_submit_limiter)])
+def _assert_submitter(form, name, email):
+    """Niet-anoniem formulier → naam én een geldig e-mailadres verplicht (#501).
+    Servicelaag-invariant, zodat élke ingang (publieke UI, edit, JSON-API) 'm
+    afdwingt i.p.v. enkel het publieke scherm."""
+    if getattr(form, "is_anonymous", False):
+        return
+    if not (name or "").strip() or "@" not in (email or ""):
+        raise HTTPException(
+            status_code=422, detail=_("Vul je naam en een geldig e-mailadres in."))
+
+
 def submit_form(
     share_token: str,
     data: SubmissionIn,
@@ -388,6 +399,7 @@ def submit_form(
 ):
     form = _load_public_form(db, share_token)
     assert_open_for_submission(db, form)
+    _assert_submitter(form, data.submitter_name, data.submitter_email)
     answers = build_answers(form, data.answers)
 
     # Anoniem (#343): geen submitter bewaren. Anders het contactblok-adres.
@@ -482,6 +494,7 @@ def update_submission(
         raise HTTPException(status_code=403, detail=_("Wijzigen is niet toegestaan."))
     if form.status != "open":
         raise HTTPException(status_code=403, detail=_("Dit formulier staat niet (meer) open."))
+    _assert_submitter(form, data.submitter_name, data.submitter_email)
 
     answers = build_answers(form, data.answers)
     submission.answers.clear()
