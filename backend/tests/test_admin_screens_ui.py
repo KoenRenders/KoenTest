@@ -110,7 +110,13 @@ def test_media_upload_en_beheer(client, db_session):
 def test_ledenwijzigingen_en_info(client):
     _login(client)
     resp = client.get("/admin/ledenwijzigingen")
-    assert resp.status_code == 200 and "audit-feed" in resp.text
+    # #512 (v1.4-pariteit): het algemene audit-logboek is de primaire tabel; de
+    # aparte, altijd-zichtbare "Ledendata-wijzigingen"-tabel is weg — de ledendata
+    # voor Raak Nationaal zit nog enkel achter de .ods-exportknop.
+    assert resp.status_code == 200
+    assert "Audit-logboek" in resp.text
+    assert "/admin/ledenwijzigingen/export" in resp.text
+    assert "Ledendata-wijzigingen" not in resp.text
 
     export = client.get("/admin/ledenwijzigingen/export?since=2026-01-01")
     assert export.status_code == 200

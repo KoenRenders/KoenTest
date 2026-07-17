@@ -1,41 +1,17 @@
 {% import "_macros.html" as ui %}
-{# Kleur per wijzigingstype (#460): toegevoegd groen, gewijzigd bruin/geel, verwijderd rood. #}
+{# Kleur per wijzigingstype (#460): toegevoegd groen, gewijzigd amber, verwijderd rood. #}
 {% set _op_tint = {"insert": "bg-green-50", "update": "bg-amber-50", "delete": "bg-red-50"} %}
 {% set _op_text = {"insert": "text-green-700", "update": "text-amber-800", "delete": "text-red-700"} %}
-<section class="mb-10">
-  <div class="flex items-center justify-between mb-3">
-    <h2 class="text-lg font-bold text-blue-700">{{ _("Ledendata-wijzigingen (voor Raak Nationaal)") }}</h2>
-    <a href="/admin/ledenwijzigingen/export?since={{ since }}"
-       class="text-sm text-blue-700 underline">{{ _("Download .ods") }}</a>
-  </div>
-  {% if member_rows %}
-  <div class="overflow-x-auto bg-white border border-gray-200 rounded-xl">
-    <table class="min-w-full text-sm">
-      <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
-        <tr><th class="px-3 py-2">{{ _("Wanneer") }}</th><th class="px-3 py-2">{{ _("Persoon") }}</th>
-            <th class="px-3 py-2">{{ _("Lidnr") }}</th><th class="px-3 py-2">{{ _("Adres hoofdlid") }}</th>
-            <th class="px-3 py-2">{{ _("Wijziging") }}</th><th class="px-3 py-2">{{ _("Details") }}</th></tr>
-      </thead>
-      <tbody class="divide-y divide-gray-100">
-        {% for r in member_rows %}
-        <tr class="{{ _op_tint.get(r.operation, '') }}">
-          <td class="px-3 py-2 whitespace-nowrap">{{ r.recorded_at.strftime("%d-%m-%Y %H:%M") }}</td>
-          <td class="px-3 py-2">{{ r.person_name }}</td>
-          <td class="px-3 py-2">{{ r.person_external_id }}</td>
-          <td class="px-3 py-2">{{ r.head_address }}</td>
-          <td class="px-3 py-2 font-medium {{ _op_text.get(r.operation, '') }}">{{ r.operation_label }}</td>
-          <td class="px-3 py-2 text-gray-600">{{ r.summary }}</td>
-        </tr>
-        {% endfor %}
-      </tbody>
-    </table>
-  </div>
-  {% else %}
-  {{ ui.empty_state(_("Geen ledendata-wijzigingen sinds") ~ " " ~ since ~ ".") }}
-  {% endif %}
-</section>
+{# #512 (v1.4-pariteit): één algemeen audit-logboek als primaire tabel, met de
+   werkende Objectgroep-filter. De ledendata-mutaties voor Raak Nationaal zijn nu
+   enkel nog een .ods-export (knop) i.p.v. een aparte, altijd-zichtbare tabel —
+   zo verdwijnt de leden-centrische indruk én de schijnbaar-kapotte filter. #}
 <section>
-  <h2 class="text-lg font-bold text-blue-700 mb-3">{{ _("Alle wijzigingen (audit-feed)") }}</h2>
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+    <h2 class="text-lg font-bold text-blue-700">{{ _("Audit-logboek — alle wijzigingen") }}</h2>
+    <a href="/admin/ledenwijzigingen/export?since={{ since }}"
+       class="{{ ui.btn_class('secondary', 'sm') }}">⬇ {{ _("Ledenexport (.ods) voor Raak Nationaal") }}</a>
+  </div>
   {% if feed_rows %}
   <div class="overflow-x-auto bg-white border border-gray-200 rounded-xl">
     <table class="min-w-full text-sm">

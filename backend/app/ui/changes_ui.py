@@ -1,8 +1,9 @@
 """Server-rendered Wijzigingen-scherm (React-exit 405-d, #405 — §21).
 
-Twee weergaven over de append-only history: de ledendata-wijzigingen sinds een
-datum (voor manuele overname in Raak Nationaal, incl. .ods-export) en de
-uniforme audit-feed met groep-/actorfilter. Composer-module: leest via de
+Eén primaire weergave over de append-only history (#512, v1.4-pariteit): het
+uniforme audit-logboek met groep-/actorfilter. De ledendata-wijzigingen voor
+manuele overname in Raak Nationaal blijven beschikbaar als .ods-export (aparte
+route), niet meer als altijd-zichtbare tabel. Composer-module: leest via de
 audit-facade (`app.domains.audit.api`, #444), geen domein-internals.
 """
 from __future__ import annotations
@@ -30,14 +31,16 @@ def _since(value: str) -> date:
 
 
 def _ctx(request: Request, db: Session, since: str, group: str, actor: str) -> dict:
-    from app.domains.audit.api import GROUPS, all_changes_since, member_changes_since
+    from app.domains.audit.api import GROUPS, all_changes_since
 
     vanaf = _since(since)
+    # #512 (v1.4-pariteit): één algemeen audit-logboek als primaire, gefilterde
+    # tabel. De ledendata-mutaties voor Raak Nationaal blijven als .ods-export
+    # (aparte route), niet meer als altijd-zichtbare tabel bovenaan.
     feed_rows = all_changes_since(db, vanaf, group=group or None, actor=actor or None)
     return {
         "since": vanaf.isoformat(),
         "group": group, "actor": actor,
-        "member_rows": member_changes_since(db, vanaf),
         "groups": GROUPS, "feed_rows": feed_rows,
         "csrf_token": csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
     }
