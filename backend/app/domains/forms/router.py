@@ -378,8 +378,6 @@ def get_public_form(share_token: str, db: Session = Depends(get_db)):
     return _load_public_form(db, share_token)
 
 
-@router.post("/forms/by-token/{share_token}/submit", response_model=SubmissionResult,
-             dependencies=[Depends(form_submit_limiter)])
 def _assert_submitter(form, name, email):
     """Niet-anoniem formulier → naam én een geldig e-mailadres verplicht (#501).
     Servicelaag-invariant, zodat élke ingang (publieke UI, edit, JSON-API) 'm
@@ -391,6 +389,8 @@ def _assert_submitter(form, name, email):
             status_code=422, detail=_("Vul je naam en een geldig e-mailadres in."))
 
 
+@router.post("/forms/by-token/{share_token}/submit", response_model=SubmissionResult,
+             dependencies=[Depends(form_submit_limiter)])
 def submit_form(
     share_token: str,
     data: SubmissionIn,
