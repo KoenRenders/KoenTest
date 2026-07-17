@@ -27,3 +27,30 @@ def test_archief_redirect_lands_on_page_with_header(client):
     resp = client.get("/archief", follow_redirects=True)
     assert resp.status_code == 200
     assert NAV_MARKER in resp.text
+
+
+# ── Footer + aanmelden (HDEV-testbevindingen 17 juli) ──────────────────────────
+
+def test_footer_sociale_links_zijn_iconen(client):
+    """#491: de sociale links in de footer zijn iconen (inline SVG), geen platte
+    tekst meer."""
+    html = client.get("/aanmelden").text
+    assert 'aria-label="Facebook"' in html
+    assert "<svg" in html  # het icoon is een inline SVG i.p.v. het woord 'Facebook'
+
+
+def test_aanmelden_introtekst(client):
+    """#494: aangepaste introtekst op de aanmeldpagina."""
+    assert "Je ontvangt een inloglink en een code." in client.get("/aanmelden").text
+
+
+def test_footer_privacylink_is_config_driven(client, db_session):
+    """#493: de privacyverklaring-link staat enkel in de footer als de tenant-
+    setting `privacy_url` gezet is — niet hardcoded."""
+    from app.kernel.tenant_config import set_setting
+
+    assert "Privacyverklaring" not in client.get("/aanmelden").text
+    set_setting(db_session, "privacy_url", "https://voorbeeld.be/privacy")
+    db_session.commit()
+    html = client.get("/aanmelden").text
+    assert "Privacyverklaring" in html and "https://voorbeeld.be/privacy" in html
