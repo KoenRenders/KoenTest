@@ -42,6 +42,17 @@ def test_admin_nav_info_onder_instellingen():
     assert hrefs.index("/admin/instellingen") < hrefs.index("/admin/info")
 
 
+def test_admin_shell_heeft_uitloggen_en_sticky_sidebar():
+    """#526: de admin-schil biedt een Uitloggen-link (→ /afmelden) en een sticky,
+    volledige-hoogte zijbalk die bij het scrollen in beeld blijft."""
+    env = _env()
+    html = env.get_template("admin_base.html").render(
+        nav_items=[{"href": "/x", "label": "X", "active": True}])
+    assert "/afmelden" in html            # logout-link aanwezig
+    assert "Uitloggen" in html
+    assert "md:sticky" in html and "md:h-screen" in html  # sticky full-height aside
+
+
 def test_static_assets_served(client):
     for path in ("/static/app.css", "/static/vendor/htmx.min.js", "/static/vendor/alpine.min.js"):
         resp = client.get(path)
