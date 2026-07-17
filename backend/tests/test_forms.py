@@ -88,7 +88,7 @@ def test_public_form_hides_internals(client, admin_headers):
 def test_submit_missing_required_422(client, admin_headers):
     form = _create_form(client, admin_headers)
     token = form["share_token"]
-    body = {"answers": [{"field_id": _field_id(form, "Naam"), "text": "Jan"}]}
+    body = {"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [{"field_id": _field_id(form, "Naam"), "text": "Jan"}]}
     assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 422
 
 
@@ -131,7 +131,7 @@ def test_submit_valid_and_checkbox_creates_multiple_answers(client, admin_header
 def test_invalid_email_rejected(client, admin_headers):
     form = _create_form(client, admin_headers)
     token = form["share_token"]
-    body = {"answers": [
+    body = {"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [
         {"field_id": _field_id(form, "Email"), "text": "geen-email"},
         {"field_id": _field_id(form, "Naam"), "text": "Jan"},
     ]}
@@ -141,7 +141,7 @@ def test_invalid_email_rejected(client, admin_headers):
 def test_rating_out_of_range_rejected(client, admin_headers):
     form = _create_form(client, admin_headers)
     token = form["share_token"]
-    body = {"answers": [
+    body = {"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [
         {"field_id": _field_id(form, "Email"), "text": "a@b.be"},
         {"field_id": _field_id(form, "Naam"), "text": "Jan"},
         {"field_id": _field_id(form, "Tevredenheid"), "rating": 9},
@@ -152,7 +152,7 @@ def test_rating_out_of_range_rejected(client, admin_headers):
 def test_submit_on_closed_form_rejected(client, admin_headers):
     form = _create_form(client, admin_headers, status="closed")
     token = form["share_token"]
-    body = {"answers": [
+    body = {"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [
         {"field_id": _field_id(form, "Email"), "text": "a@b.be"},
         {"field_id": _field_id(form, "Naam"), "text": "Jan"},
     ]}
@@ -164,7 +164,7 @@ def test_submit_on_closed_form_rejected(client, admin_headers):
 def test_max_submissions_enforced(client, admin_headers):
     form = _create_form(client, admin_headers, max_submissions=1)
     token = form["share_token"]
-    body = {"answers": [
+    body = {"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [
         {"field_id": _field_id(form, "Email"), "text": "a@b.be"},
         {"field_id": _field_id(form, "Naam"), "text": "Jan"},
     ]}
@@ -179,7 +179,7 @@ def test_results_aggregation(client, admin_headers):
     token = form["share_token"]
 
     def submit(rating, opt_labels):
-        body = {"answers": [
+        body = {"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [
             {"field_id": _field_id(form, "Email"), "text": "a@b.be"},
             {"field_id": _field_id(form, "Naam"), "text": "Jan"},
             {"field_id": _field_id(form, "Tevredenheid"), "rating": rating},
@@ -210,7 +210,7 @@ def test_export_ods_only(client, admin_headers):
     CSV bestaat niet meer."""
     form = _create_form(client, admin_headers)
     token = form["share_token"]
-    client.post(f"/api/v1/forms/by-token/{token}/submit", json={"answers": [
+    client.post(f"/api/v1/forms/by-token/{token}/submit", json={"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [
         {"field_id": _field_id(form, "Email"), "text": "a@b.be"},
         {"field_id": _field_id(form, "Naam"), "text": "Jan"},
     ]})
@@ -225,7 +225,7 @@ def test_public_submit_is_rate_limited(client, admin_headers):
     """#371: het publieke inzend-endpoint heeft een rem tegen spam/DoS."""
     form = _create_form(client, admin_headers)
     token = form["share_token"]
-    body = {"answers": [
+    body = {"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [
         {"field_id": _field_id(form, "Email"), "text": "a@b.be"},
         {"field_id": _field_id(form, "Naam"), "text": "Jan"},
     ]}
@@ -242,7 +242,7 @@ def test_confirmation_email_logged_when_enabled(client, admin_headers):
     token = form["share_token"]
     recipient = "confirm-flow@example.com"
     client.post(f"/api/v1/forms/by-token/{token}/submit", json={
-        "submitter_email": recipient,
+        "submitter_name": "Jan", "submitter_email": recipient,
         "answers": [
             {"field_id": _field_id(form, "Email"), "text": recipient},
             {"field_id": _field_id(form, "Naam"), "text": "Jan"},
@@ -282,6 +282,7 @@ def test_edit_preserves_answers_when_field_added(client, admin_headers):
     form = _create_form(client, admin_headers, allow_edit=True)
     token = form["share_token"]
     resp = client.post(f"/api/v1/forms/by-token/{token}/submit", json={
+        "submitter_name": "Jan", "submitter_email": "jan@example.com",
         "answers": [
             {"field_id": _field_id(form, "Email"), "text": "a@b.be"},
             {"field_id": _field_id(form, "Naam"), "text": "Jan"},
@@ -315,7 +316,7 @@ def test_edit_preserves_answers_when_field_added(client, admin_headers):
 def test_no_edit_token_without_allow_edit(client, admin_headers):
     form = _create_form(client, admin_headers)
     token = form["share_token"]
-    resp = client.post(f"/api/v1/forms/by-token/{token}/submit", json={"answers": [
+    resp = client.post(f"/api/v1/forms/by-token/{token}/submit", json={"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [
         {"field_id": _field_id(form, "Email"), "text": "a@b.be"},
         {"field_id": _field_id(form, "Naam"), "text": "Jan"},
     ]})
@@ -326,7 +327,7 @@ def test_edit_flow(client, admin_headers):
     form = _create_form(client, admin_headers, allow_edit=True)
     token = form["share_token"]
     resp = client.post(f"/api/v1/forms/by-token/{token}/submit", json={
-        "submitter_name": "Jan",
+        "submitter_name": "Jan", "submitter_email": "jan@example.com",
         "answers": [
             {"field_id": _field_id(form, "Email"), "text": "a@b.be"},
             {"field_id": _field_id(form, "Naam"), "text": "Jan"},
@@ -341,7 +342,7 @@ def test_edit_flow(client, admin_headers):
     assert got.json()["submitter_name"] == "Jan"
 
     upd = client.put(f"/api/v1/forms/edit/{edit_token}", json={
-        "submitter_name": "Jan Aangepast",
+        "submitter_name": "Jan Aangepast", "submitter_email": "jan@example.com",
         "answers": [
             {"field_id": _field_id(form, "Email"), "text": "a@b.be"},
             {"field_id": _field_id(form, "Naam"), "text": "Jan"},
@@ -403,6 +404,7 @@ def test_info_field_never_required(client, admin_headers):
     token = form["share_token"]
     naam_id = next(f["id"] for f in form["fields"] if f["label"] == "Naam")
     resp = client.post(f"/api/v1/forms/by-token/{token}/submit", json={
+        "submitter_name": "Jan", "submitter_email": "jan@example.com",
         "answers": [{"field_id": naam_id, "text": "Jan"}],
     })
     assert resp.status_code == 200, resp.text
@@ -415,6 +417,7 @@ def test_other_option_stores_free_text(client, admin_headers, db_session):
     checkbox = next(f for f in form["fields"] if f["label"] == "Waarom niet?")
     other_opt = next(o for o in checkbox["options"] if o["is_other"])
     resp = client.post(f"/api/v1/forms/by-token/{token}/submit", json={
+        "submitter_name": "Jan", "submitter_email": "jan@example.com",
         "answers": [
             {"field_id": naam_id, "text": "Jan"},
             {"field_id": checkbox["id"], "option_ids": [other_opt["id"]], "other_text": "Op reis"},
@@ -482,7 +485,7 @@ def test_branching_skips_other_branch(client, admin_headers):
     token = form["share_token"]
     ja = _option_id(form, "Aanwezig?", "Ja")
     # Ja-tak: Wel + Slot ingevuld, "Waarom niet?" (Niet-tak) overgeslagen → OK.
-    body = {"answers": [
+    body = {"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [
         {"field_id": _field_id(form, "Aanwezig?"), "option_ids": [ja]},
         {"field_id": _field_id(form, "Wat was leuk?"), "text": "De sfeer"},
         {"field_id": _field_id(form, "Slotopmerking"), "text": "Top"},
@@ -495,7 +498,7 @@ def test_branching_required_in_taken_branch_enforced(client, admin_headers):
     token = form["share_token"]
     ja = _option_id(form, "Aanwezig?", "Ja")
     # Ja-tak maar "Wat was leuk?" (verplicht, in doorlopen sectie) ontbreekt → 422.
-    body = {"answers": [
+    body = {"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [
         {"field_id": _field_id(form, "Aanwezig?"), "option_ids": [ja]},
         {"field_id": _field_id(form, "Slotopmerking"), "text": "Top"},
     ]}
@@ -506,7 +509,7 @@ def test_branching_nee_branch(client, admin_headers):
     form = _mk(client, admin_headers, _branching_payload())
     token = form["share_token"]
     nee = _option_id(form, "Aanwezig?", "Nee")
-    body = {"answers": [
+    body = {"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [
         {"field_id": _field_id(form, "Aanwezig?"), "option_ids": [nee]},
         {"field_id": _field_id(form, "Waarom niet?"), "text": "Op reis"},
         {"field_id": _field_id(form, "Slotopmerking"), "text": "Volgend jaar wel"},
@@ -535,7 +538,7 @@ def test_skip_to_end_ignores_later_sections(client, admin_headers):
     token = form["share_token"]
     stop = _option_id(form, "Stoppen?", "Stop nu")
     # "Stop nu" → einde; de verplichte "Vervolgvraag" wordt niet afgedwongen.
-    body = {"answers": [{"field_id": _field_id(form, "Stoppen?"), "option_ids": [stop]}]}
+    body = {"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [{"field_id": _field_id(form, "Stoppen?"), "option_ids": [stop]}]}
     assert client.post(f"/api/v1/forms/by-token/{token}/submit", json=body).status_code == 200
 
 
@@ -585,10 +588,10 @@ def test_phone_field_validation(client, admin_headers):
     token = form["share_token"]
     fid = _field_id(form, "GSM")
     # Geldig nummer → 200.
-    ok = client.post(f"/api/v1/forms/by-token/{token}/submit", json={"answers": [{"field_id": fid, "text": "+32 470 12 34 56"}]})
+    ok = client.post(f"/api/v1/forms/by-token/{token}/submit", json={"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [{"field_id": fid, "text": "+32 470 12 34 56"}]})
     assert ok.status_code == 200, ok.text
     # Te kort → 422.
-    bad = client.post(f"/api/v1/forms/by-token/{token}/submit", json={"answers": [{"field_id": fid, "text": "123"}]})
+    bad = client.post(f"/api/v1/forms/by-token/{token}/submit", json={"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [{"field_id": fid, "text": "123"}]})
     assert bad.status_code == 422
 
 
@@ -646,10 +649,10 @@ def test_configurable_rating_scale(client, admin_headers):
     token = form["share_token"]
     fid = _field_id(form, "Belangrijkheid prijs")
     # Binnen bereik (3 op een 3-punts schaal) → 200.
-    ok = client.post(f"/api/v1/forms/by-token/{token}/submit", json={"answers": [{"field_id": fid, "rating": 3}]})
+    ok = client.post(f"/api/v1/forms/by-token/{token}/submit", json={"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [{"field_id": fid, "rating": 3}]})
     assert ok.status_code == 200, ok.text
     # Buiten bereik (4 > rating_max 3) → 422.
-    bad = client.post(f"/api/v1/forms/by-token/{token}/submit", json={"answers": [{"field_id": fid, "rating": 4}]})
+    bad = client.post(f"/api/v1/forms/by-token/{token}/submit", json={"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [{"field_id": fid, "rating": 4}]})
     assert bad.status_code == 422
     # Resultaten: verdeling met exact 3 niveaus + eindpunt-labels.
     res = client.get(f"/api/v1/forms/{form['id']}/results", headers=admin_headers).json()
@@ -672,10 +675,10 @@ def test_rating_scale_capped_at_ten(client, admin_headers):
     token = form["share_token"]
     fid = _field_id(form, "Score")
     # 10 op een 10-punts schaal → 200 (geen IntegrityError/500).
-    ok = client.post(f"/api/v1/forms/by-token/{token}/submit", json={"answers": [{"field_id": fid, "rating": 10}]})
+    ok = client.post(f"/api/v1/forms/by-token/{token}/submit", json={"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [{"field_id": fid, "rating": 10}]})
     assert ok.status_code == 200, ok.text
     # 11 blijft buiten bereik → 422.
-    bad = client.post(f"/api/v1/forms/by-token/{token}/submit", json={"answers": [{"field_id": fid, "rating": 11}]})
+    bad = client.post(f"/api/v1/forms/by-token/{token}/submit", json={"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [{"field_id": fid, "rating": 11}]})
     assert bad.status_code == 422
 
 
@@ -721,7 +724,7 @@ def test_admin_list_and_delete_submission(client, admin_headers, db_session):
     """#356: admin ziet individuele inzendingen en kan er één verwijderen."""
     form = _create_form(client, admin_headers)
     token = form["share_token"]
-    body = {"answers": [
+    body = {"submitter_name": "Jan", "submitter_email": "jan@example.com", "answers": [
         {"field_id": _field_id(form, "Email"), "text": "a@b.be"},
         {"field_id": _field_id(form, "Naam"), "text": "Jan"},
         {"field_id": _field_id(form, "Tevredenheid"), "rating": 4},
@@ -775,3 +778,27 @@ def test_submission_view_dekt_optie_en_rating(db_session):
     rows = dict(submission_view(db_session, sub.id))
     assert rows["Keuze"] == "Appel; Banaan"
     assert rows["Score"] == "4"
+
+
+def test_niet_anoniem_vereist_naam_en_email(db_session):
+    """#501: de servicelaag weigert een niet-anoniem formulier zonder naam of geldig
+    e-mailadres — zo zijn JSON-API en edit consistent met het publieke scherm. De
+    check vuurt vóór de veld-validatie, dus er zijn geen velden nodig."""
+    import pytest
+    from fastapi import HTTPException
+    from starlette.background import BackgroundTasks
+    from app.domains.forms.models import Form
+    from app.domains.forms.router import submit_form
+    from app.domains.forms.schemas import SubmissionIn
+
+    form = Form(title="Contact", share_token="tok-501", status="open", is_anonymous=False)
+    db_session.add(form)
+    db_session.commit()
+
+    bt = BackgroundTasks()
+    for naam, email in [("Jan", None), ("Jan", "geen-apestaart"), ("", "jan@x.be")]:
+        with pytest.raises(HTTPException) as exc:
+            submit_form("tok-501",
+                        SubmissionIn(submitter_name=naam, submitter_email=email, answers=[]),
+                        bt, db=db_session)
+        assert exc.value.status_code == 422

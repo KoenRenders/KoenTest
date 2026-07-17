@@ -52,10 +52,11 @@ def berichten_submit(
             request, "_berichten_form.html",
             {"form": None, "error": _("Berichten zijn tijdelijk niet beschikbaar."),
              "naam": naam, "email": email, "bericht": bericht})
-    if not naam or not bericht:
+    # Niet-anoniem contactformulier: naam én een geldig e-mailadres verplicht (#501).
+    if not naam or "@" not in email or not bericht:
         return templates.TemplateResponse(
             request, "_berichten_form.html",
-            {"form": form, "error": _("Vul je naam en je bericht in."),
+            {"form": form, "error": _("Vul je naam, een geldig e-mailadres en je bericht in."),
              "naam": naam, "email": email, "bericht": bericht})
 
     from app.domains.forms.api import submit_bericht

@@ -39,7 +39,10 @@ def test_bericht_creates_submission_and_task(client, db_session):
 def test_bericht_requires_name_and_message(client, db_session):
     before = db_session.query(FormSubmission).count()
     resp = _post_bericht(client, naam="", bericht="")
-    assert resp.status_code == 200 and "Vul je naam en je bericht in" in resp.text
+    assert resp.status_code == 200 and "Vul je naam, een geldig e-mailadres en je bericht in" in resp.text
+    # #501: ook een ontbrekend/ongeldig e-mailadres wordt geweigerd.
+    resp2 = _post_bericht(client, naam="Jan", email="geen-apestaart", bericht="Hoi")
+    assert resp2.status_code == 200 and "geldig e-mailadres" in resp2.text
     assert db_session.query(FormSubmission).count() == before
 
 
