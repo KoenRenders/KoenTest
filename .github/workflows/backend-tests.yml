@@ -141,3 +141,67 @@ jobs:
       - name: Backend-log bij falen
         if: failure()
         run: tail -100 /tmp/backend.log
+
+  boot:
+    runs-on: ubuntu-latest
+    # BLOKKEREND (#450): draai de ECHTE startup.sh tegen een lege Postgres 16.
+    # De backend crash-loopte ooit op HDEV terwijl CI groen was, omdat geen enkele
+    # job de echte boot-sequence draaide. Dit dekt migraties + de seed-subprocessen
+    # (postcodes, activiteiten, CMS-pagina's, sponsors) op een LEGE DB — die op een
+    # bestaande DB niet lopen en dus door pytest/e2e ongetest bleven — plus uvicorn
+    # + een health-probe. "Boot kapot terwijl CI groen" is zo structureel dicht.
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: raakboot
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/raakboot
+      SECRET_KEY: ci-boot-secret-key-long-enough-for-hs256
+      APP_ENV: dev
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Backend-deps
+        working-directory: backend
+        run: pip install -r requirements.txt
+
+      - name: Echte boot via startup.sh (migraties + alle seeds + uvicorn) + health-probe
+        working-directory: backend
+        run: |
+          ./startup.sh > /tmp/boot.log 2>&1 &
+          BOOT_PID=$!
+          ok=0
+          for i in $(seq 1 45); do
+            if curl -sf http://localhost:8000/api/health > /dev/null; then
+              echo "Boot OK — /api/health antwoordt (na poging $i)"; ok=1; break
+            fi
+            if ! kill -0 "$BOOT_PID" 2>/dev/null; then
+              echo "!! startup.sh is gestopt vóór health-OK"; break
+            fi
+            sleep 2
+          done
+          kill "$BOOT_PID" 2>/dev/null || true
+          if [ "$ok" != "1" ]; then
+            echo "=== boot.log ==="; cat /tmp/boot.log; exit 1
+          fi
+
+      - name: Boot-log tonen bij falen
+        if: failure()
+        run: cat /tmp/boot.log || true
