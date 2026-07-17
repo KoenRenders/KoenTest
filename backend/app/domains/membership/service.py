@@ -58,6 +58,28 @@ def valid_membership_until(person, ref_date: Optional[date] = None):
     return best
 
 
+def membership_coverage_until(person, ref_date: Optional[date] = None):
+    """Verst reikende ``valid_to`` van een actief lidmaatschap dat vandaag OF in de
+    toekomst geldig is (``valid_to >= ref_date``) — dus **inclusief een al betaald
+    volgend jaar** (#496). Voor de status + vernieuwknop in het gezinscherm.
+    NIET voor 'is nu lid' (dat blijft ``valid_membership_until`` — ledenprijzen
+    op activiteiten ongemoeid)."""
+    if person is None:
+        return None
+    if ref_date is None:
+        ref_date = date.today()
+    best = None
+    for mp in getattr(person, "member_persons", None) or []:
+        member = getattr(mp, "member", None)
+        if member is None:
+            continue
+        for ms in getattr(member, "memberships", None) or []:
+            if ms.is_active and ms.valid_to is not None and ms.valid_to >= ref_date:
+                if best is None or ms.valid_to > best:
+                    best = ms.valid_to
+    return best
+
+
 # ── Hernieuwingsvenster (§19.3: één plek) ──────────────────────────────────────
 
 def renewal_open(today: Optional[date] = None) -> bool:
@@ -79,10 +101,16 @@ def renewal_open(today: Optional[date] = None) -> bool:
         return False
 
 
-def renewal_available(valid_until: Optional[date], today: Optional[date] = None) -> bool:
-    """Mag de vernieuwknop getoond worden? Geen geldig lidmaatschap → altijd;
-    anders pas zodra het venster open is."""
-    return valid_until is None or renewal_open(today)
+def renewal_available(coverage_until: Optional[date], today: Optional[date] = None) -> bool:
+    """Mag de vernieuwknop getoond worden? Geen dekking → altijd (kan (her)inschrijven);
+    anders enkel als het venster open is **én** het lid nog niet voor volgend jaar
+    gedekt is. Zo verbergt een al betaald volgend jaar de knop i.p.v. dat die op een
+    409 'al vernieuwd' botst (#496). Voed dit met ``membership_coverage_until``."""
+    if coverage_until is None:
+        return True
+    if today is None:
+        today = date.today()
+    return renewal_open(today) and coverage_until.year <= today.year
 
 
 def is_member(db, email: str, ref_date: Optional[date] = None) -> bool:

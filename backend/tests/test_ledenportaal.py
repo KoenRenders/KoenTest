@@ -59,6 +59,34 @@ def test_home_word_lid_wordt_mijn_gezin_voor_ingelogd_lid(client, db_session):
     assert 'href="/lid-worden"' not in html
 
 
+def test_coverage_telt_al_betaald_volgend_jaar(db_session):
+    """#496: een al betaald volgend jaar telt mee voor de dekking ('geldig tot'), en
+    de vernieuwknop verbergt zich dan i.p.v. op een 409 'al vernieuwd' te botsen."""
+    from app.domains.membership.api import Membership
+    from app.domains.membership.service import (
+        membership_coverage_until, renewal_available, valid_membership_until)
+
+    member, person = create_test_family(db_session, email="cov@example.com")
+    y = date.today().year
+    db_session.add(Membership(member_id=member.id, year=y,
+                              valid_from=date(y, 1, 1), valid_to=date(y, 12, 31), is_active=True))
+    db_session.add(Membership(member_id=member.id, year=y + 1,
+                              valid_from=date(y + 1, 1, 1), valid_to=date(y + 1, 12, 31), is_active=True))
+    db_session.commit()
+    db_session.expire_all()
+    person = db_session.get(Person, person.id)
+
+    ref = date(y, 6, 1)
+    # 'Geldig vandaag' blijft dit jaar (ledenprijzen ongemoeid); de dekking incl.
+    # toekomst reikt tot volgend jaar.
+    assert valid_membership_until(person, ref) == date(y, 12, 31)
+    assert membership_coverage_until(person, ref) == date(y + 1, 12, 31)
+    # Al gedekt voor volgend jaar → geen vernieuwknop (dus geen 409-val).
+    assert renewal_available(date(y + 1, 12, 31), ref) is False
+    # Geen dekking → knop wél.
+    assert renewal_available(None, ref) is True
+
+
 def test_login_redirects_naar_aanmelden(client):
     for pad in ("/login", "/leden/login"):
         resp = client.get(pad, follow_redirects=False)

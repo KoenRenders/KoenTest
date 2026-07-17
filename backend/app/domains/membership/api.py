@@ -17,6 +17,7 @@ from app.domains.membership.schemas_member import (  # noqa: F401
 from app.domains.membership.service import (  # noqa: F401
     has_valid_membership,
     is_member,
+    membership_coverage_until,
     renewal_available,
     renewal_open,
     valid_membership_until,
@@ -41,8 +42,8 @@ def __getattr__(name: str):
 
 __all__ = [
     "Membership", "MembershipHistory",
-    "has_valid_membership", "is_member", "renewal_available", "renewal_open",
-    "valid_membership_until",
+    "has_valid_membership", "is_member", "membership_coverage_until",
+    "renewal_available", "renewal_open", "valid_membership_until",
     # Router-functies hergebruikt als servicelaag door mdm-schermen (#444)
     "add_person_to_family", "assign_board_member", "create_membership_for_family",
     "delete_family", "delete_membership", "delete_person", "get_family",
