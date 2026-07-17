@@ -31,10 +31,13 @@ def test_site_schil_volgt_tenant(client, monkeypatch):
     resp = client.get("/raakvoorbeeldafdeling/", headers={"host": "renko.be"})
     assert resp.status_code == 200
     assert "© " in resp.text and "Raak Voorbeeldafdeling" in resp.text
-    # Millegem (default) behoudt zijn eigen branding
+    # De default-tenant (Millegem) toont zijn eigen naam, niet die van de andere
+    # tenant (#519: geen hardgecodeerde Millegem-tagline meer om op te asserten;
+    # de branding-isolatie blijft wél de kern van de test).
     client.cookies.clear()
     resp = client.get("/")
-    assert "Beleef meer in Millegem" in resp.text
+    assert "Raak Millegem" in resp.text
+    assert "Raak Voorbeeldafdeling" not in resp.text
 
 
 def test_lidgeld_per_tenant(db_session, monkeypatch):

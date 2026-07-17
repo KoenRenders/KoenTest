@@ -31,9 +31,15 @@ def test_archief_redirect_lands_on_page_with_header(client):
 
 # ── Footer + aanmelden (HDEV-testbevindingen 17 juli) ──────────────────────────
 
-def test_footer_sociale_links_zijn_iconen(client):
-    """#491: de sociale links in de footer zijn iconen (inline SVG), geen platte
-    tekst meer."""
+def test_footer_sociale_links_zijn_iconen(client, db_session):
+    """#491/#519: mét een tenant-Facebook-URL is de sociale link in de footer een
+    icoon (inline SVG), geen platte tekst. Zonder waarde geen (kapotte lege) link —
+    er is geen hardgecodeerde Millegem-default meer."""
+    from app.kernel.tenant_config import set_setting
+
+    assert 'aria-label="Facebook"' not in client.get("/aanmelden").text
+    set_setting(db_session, "facebook_url", "https://www.facebook.com/raakvoorbeeld")
+    db_session.commit()
     html = client.get("/aanmelden").text
     assert 'aria-label="Facebook"' in html
     assert "<svg" in html  # het icoon is een inline SVG i.p.v. het woord 'Facebook'
