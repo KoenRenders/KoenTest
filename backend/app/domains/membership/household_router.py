@@ -86,7 +86,8 @@ def _person_payload(p: Person):
 
 
 @router.post("/member/household/renew-membership")
-def renew_membership(person=Depends(require_member), db: Session = Depends(get_db)):
+def renew_membership(person=Depends(require_member), db: Session = Depends(get_db),
+                     payment_method: str = "online"):
     """Activeer/vernieuw het lidmaatschap van het eigen gezin via een online
     betaling (#113). Maakt géén nieuw gezin: het bestaande Member-record wordt
     hergebruikt. Een nieuw (nog niet-actief) Membership wordt aangemaakt; de
@@ -199,7 +200,7 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
             payable_type="membership",
             payable_id=membership.id,
             amount=amount,
-            method="online",
+            method=payment_method,
             redirect_url=redirect_url,
             description=description,
             audit_source="member_self",
@@ -210,24 +211,29 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
         raise HTTPException(status_code=422, detail=str(e))
 
     checkout_url = None
-    if payment_record.gateway_payment_id:
-        from app.domains.payment.api import GatewayPayment
-        gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
-        if gp:
-            checkout_url = gp.checkout_url
+    if payment_method == "online":
+        if payment_record.gateway_payment_id:
+            from app.domains.payment.api import GatewayPayment
+            gp = db.query(GatewayPayment).filter(GatewayPayment.id == payment_record.gateway_payment_id).first()
+            if gp:
+                checkout_url = gp.checkout_url
+        # Online betaling zonder checkout-URL is onbruikbaar — niet bewaren.
+        if not checkout_url:
+            db.rollback()
+            raise HTTPException(
+                status_code=502,
+                detail=_("De online betaling kon niet gestart worden. Probeer het later opnieuw."),
+            )
 
-    # Online betaling zonder checkout-URL is onbruikbaar — niet bewaren.
-    if not checkout_url:
-        db.rollback()
-        raise HTTPException(
-            status_code=502,
-            detail=_("De online betaling kon niet gestart worden. Probeer het later opnieuw."),
-        )
-
-    # Business-event (#152): hernieuwing gestart (betaling nog in afwachting). Geen PII.
-
+    # Bij overschrijving (#497): geen checkout; de OGM staat op het record en de
+    # instructies worden op het gezinsportaal getoond.
     db.commit()
-    return {"checkout_url": checkout_url, "amount": str(amount)}
+    return {
+        "checkout_url": checkout_url,
+        "amount": str(amount),
+        "payment_method": payment_method,
+        "structured_communication": payment_record.structured_communication,
+    }
 
 
 @router.get("/member/household")

@@ -7,7 +7,7 @@ Mollie-redirect via HX-Redirect. Hergebruikt register_family integraal
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
@@ -251,22 +251,34 @@ def gezin_persoon_verwijderen(person_id: int, request: Request,
 
 
 @router.post("/leden/gezin/vernieuwen", response_class=HTMLResponse)
-def gezin_vernieuwen(request: Request, db: Session = Depends(get_db)):
+def gezin_vernieuwen(request: Request, db: Session = Depends(get_db),
+                     payment_method: str = Form("online")):
     from app.domains.membership.household_router import renew_membership
 
     person = _require_member_csrf(request, db)
+    method = payment_method if payment_method in ("online", "transfer") else "online"
     try:
-        result = renew_membership(person=person, db=db)
+        result = renew_membership(person=person, db=db, payment_method=method)
     except HTTPException as exc:
         ctx = _portal_ctx(request, db, person)
         ctx["error"] = str(exc.detail)
         return templates.TemplateResponse(request, "gezin_portaal.html", ctx)
-    response = templates.TemplateResponse(request, "gezin_portaal.html",
-                                          _portal_ctx(request, db, person))
+    ctx = _portal_ctx(request, db, person)
     checkout_url = result.get("checkout_url") if isinstance(result, dict) else None
     if checkout_url:
+        response = templates.TemplateResponse(request, "gezin_portaal.html", ctx)
         response.headers["HX-Redirect"] = checkout_url
-    return response
+        return response
+    # Overschrijving (#497): toon de betaalinstructies (bedrag + OGM + IBAN) op het scherm.
+    from app.kernel.tenant_config import tenant_payment_iban, tenant_payment_beneficiary
+
+    ctx["renew_transfer"] = {
+        "amount": result.get("amount"),
+        "ogm": result.get("structured_communication"),
+        "iban": tenant_payment_iban(db),
+        "beneficiary": tenant_payment_beneficiary(db),
+    }
+    return templates.TemplateResponse(request, "gezin_portaal.html", ctx)
 
 
 # Login-pariteit (#405): /login = de htmx-aanmeldflow; /login/verify blijft het
