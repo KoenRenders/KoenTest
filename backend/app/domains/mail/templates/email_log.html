@@ -1,7 +1,7 @@
 {% extends "admin_base.html" %}
 {% block title %}{{ _("E-maillog — Raak") }}{% endblock %}
 {% block content %}
-<h1 class="text-2xl font-bold text-blue-800 mb-2">{{ _("E-maillog") }}</h1>
+<h1 class="text-2xl font-bold text-blue-700 mb-2">{{ _("E-maillog") }}</h1>
 <p class="text-gray-600 mb-6">{{ _("Elke uitgaande e-mail, met status. Persoonsgegevens — enkel voor beheer.") }}</p>
 <form class="flex flex-wrap gap-3 mb-4" hx-get="/admin/e-maillog/lijst" hx-target="#email-log-lijst" hx-swap="innerHTML" hx-trigger="change, keyup delay:400ms from:input[name=recipient]">
   <input type="search" name="recipient" value="{{ recipient or '' }}" placeholder="{{ _('Zoek op ontvanger…') }}"

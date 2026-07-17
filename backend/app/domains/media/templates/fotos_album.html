@@ -2,7 +2,7 @@
 {% block title %}Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %} — Raak Millegem{% endblock %}
 {% block content %}
 <a href="/fotos" class="text-blue-700 hover:underline text-sm">← {{ _("Terug naar alle albums") }}</a>
-<h1 class="text-3xl font-bold text-blue-800 mt-2 mb-6">Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %}</h1>
+<h1 class="text-3xl font-bold text-blue-700 mt-2 mb-6">Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %}</h1>
 {% if fotos %}
 {# Lightbox met vorige/volgende-navigatie (#473): thumbnails openen een overlay;
    ‹/› verschijnen enkel waar er een buur is; Esc/✕/achtergrond/pijltjes sluiten/

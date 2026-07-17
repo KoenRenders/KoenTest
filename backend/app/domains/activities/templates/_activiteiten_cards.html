@@ -12,29 +12,28 @@
   {% set _ns.jaar = _jaar %}
   {% endif %}
   {% call ui.card() %}
-    <div class="flex items-start justify-between gap-4">
-      <div>
-        {# Titel linkt naar de affiche (afbeelding óf PDF) — pariteit v1.14. #}
-        <h2 class="text-lg font-bold">
-          {% if a.poster_asset_url %}<a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-blue-800 hover:underline">{{ a.name }}</a>{% else %}{{ a.name }}{% endif %}
-        </h2>
-        <p class="text-sm text-gray-500">
-          🗓 {% for d in a.dates %}{{ d.start_date | langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date | langedatum }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
-        </p>
-        {% if a.location %}<p class="text-sm text-gray-500">📍 {{ a.location }}</p>{% endif %}
-      </div>
-      <div class="flex flex-col items-end gap-1">
+    {# Titel + status-badge inline (#488); titel linkt naar de affiche (v1.14). #}
+    <div>
+      <h2 class="text-lg font-bold flex flex-wrap items-center gap-2">
+        {% if a.poster_asset_url %}<a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-blue-700 hover:underline">{{ a.name }}</a>{% else %}<span>{{ a.name }}</span>{% endif %}
         {% if a.status %}{{ ui.badge(a.status, _status_tone.get(a.status, "blue")) }}{% endif %}
         {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
-      </div>
+      </h2>
+      <p class="text-sm text-gray-500">
+        🗓 {% for d in a.dates %}{{ d.start_date | langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date | langedatum }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
+      </p>
+      {% if a.location %}<p class="text-sm text-gray-500">📍 {{ a.location }}</p>{% endif %}
     </div>
     {% if not a.is_cancelled %}
     {# Onderdelen ook in het archief (#476): 'Wie doet er mee?' + info blijven,
        maar de inschrijfknop/-form vervallen (voorbij → niet meer inschrijven). #}
+    {# #489: bij één onderdeel de componentnaam verbergen (React-pariteit) — de
+       naam is dan redundant; enkel de knoppen tonen. #}
+    {% set _multi = (a.sub_registrations | length) > 1 %}
     <div class="mt-4 space-y-3">
       {% for c in a.sub_registrations %}
       <div class="pt-2"{% if not c.external_register_url and not c.external_registrations_url %} x-data="{ open: false }"{% endif %}>
-        {% set _btn = ui.btn_class("outline", "sm") %}
+        {% set _btn = ui.btn_class("outline", "xs") %}
         {% set _info = c.info_asset_url or c.info_url %}
         {# ↗ = link buiten de portaal (v1.14): enkel bij een externe info_url, niet
            bij een intern geüpload document (info_asset_url, door de portaal geserveerd). #}
@@ -42,7 +41,7 @@
         {# Responsive (v1.14-pariteit): op mobiel de naam boven en de knoppen
            eronder; vanaf sm inline naast elkaar. #}
         <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-          <span class="text-sm font-semibold text-gray-900 sm:mr-1">{{ c.name }}</span>
+          {% if _multi %}<span class="text-sm font-semibold text-gray-900 sm:mr-1">{{ c.name }}</span>{% endif %}
           <div class="flex flex-wrap gap-2">
           {% if scope != "archived" %}
           {% if c.external_register_url %}

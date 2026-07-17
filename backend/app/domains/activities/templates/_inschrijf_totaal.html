@@ -1,5 +1,5 @@
 {% if totaal and totaal > 0 %}
-<div class="bg-white border border-blue-200 rounded-lg p-3 text-sm font-medium text-blue-800">
+<div class="bg-white border border-blue-200 rounded-lg p-3 text-sm font-medium text-blue-700">
   {{ _("Totaal:") }} €{{ "%.2f"|format(totaal) }}{% if is_member %} <span class="font-normal text-blue-600">{{ _("(ledenprijs)") }}</span>{% endif %}
 </div>
 {% endif %}
