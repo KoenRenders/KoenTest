@@ -1,4 +1,28 @@
 {% import "_macros.html" as ui %}
+{# Twee-niveau-filter (#502): categorie (change → reset subtype) + subtype. #}
+{% if filter_categories or filter_category %}
+<div class="flex flex-wrap items-end gap-3 mb-4">
+  <div>
+    <label class="block text-xs text-gray-500 mb-1">{{ _("Categorie") }}</label>
+    <select name="category" class="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            hx-get="/admin/werkbank/lijst" hx-target="#werkbank-lijst" hx-swap="innerHTML" hx-trigger="change">
+      <option value="">{{ _("Alle categorieën") }}</option>
+      {% for c in filter_categories %}<option value="{{ c }}" {% if c == filter_category %}selected{% endif %}>{{ c }}</option>{% endfor %}
+    </select>
+  </div>
+  {% if filter_subtypes %}
+  <div>
+    <label class="block text-xs text-gray-500 mb-1">{{ _("Subtype") }}</label>
+    <select name="subtype" class="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+            hx-get="/admin/werkbank/lijst" hx-target="#werkbank-lijst" hx-swap="innerHTML" hx-trigger="change"
+            hx-include="[name='category']">
+      <option value="">{{ _("Alle subtypes") }}</option>
+      {% for s in filter_subtypes %}<option value="{{ s }}" {% if s == filter_subtype %}selected{% endif %}>{{ s }}</option>{% endfor %}
+    </select>
+  </div>
+  {% endif %}
+</div>
+{% endif %}
 {% if tasks %}
 <div class="space-y-3">
   {% for task in tasks %}

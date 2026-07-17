@@ -116,3 +116,32 @@ def test_werkbank_deep_link_full_page(client, db_session):
     # Met HX-Request → fragment.
     frag = client.get(f"/admin/werkbank/taken/{task.id}", headers={"HX-Request": "true"})
     assert "<html" not in frag.text
+
+
+def test_werkbank_twee_niveau_filter(client, db_session):
+    """#502: de werkbank filtert op categorie + subtype, data-gedreven uit de
+    dotted `kind` (bv. 'membership.reminder')."""
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+    from app.domains.auth.api import SESSION_COOKIE, make_session_value
+
+    api.create_task(db_session, kind="membership.reminder", title="Herinnering An",
+                    subject_type="membership", subject_id=1)
+    api.create_task(db_session, kind="membership.renewal", title="Vernieuwing Bob",
+                    subject_type="membership", subject_id=2)
+    api.create_task(db_session, kind="bericht.behartigen", title="Bericht Cara",
+                    subject_type="form_submission", subject_id=3)
+    db_session.commit()
+    client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
+
+    html = client.get("/admin/werkbank/lijst").text
+    assert all(n in html for n in ("Herinnering An", "Vernieuwing Bob", "Bericht Cara"))
+    # De categorie-opties zijn data-gedreven aanwezig.
+    assert 'value="membership"' in html and 'value="bericht"' in html
+
+    # Categorie membership → enkel de twee membership-taken.
+    html = client.get("/admin/werkbank/lijst?category=membership").text
+    assert "Herinnering An" in html and "Vernieuwing Bob" in html and "Bericht Cara" not in html
+
+    # + subtype reminder → enkel die ene.
+    html = client.get("/admin/werkbank/lijst?category=membership&subtype=reminder").text
+    assert "Herinnering An" in html and "Vernieuwing Bob" not in html
