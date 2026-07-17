@@ -311,7 +311,7 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
 
 <section>
   <div class="sec-head"><span class="n">05</span><h2>Activiteitenkaart</h2></div>
-  <p class="prose muted">Compact, componentnaam vet-zwart, fijne knopjes <b>direct naast de naam</b> (niet rechts uitgelijnd). Responsive: op mobiel onder de naam.</p>
+  <p class="prose muted">Compact, componentnaam vet-zwart, fijne knopjes <b>direct naast de naam</b> (niet rechts uitgelijnd). Responsive: op mobiel onder de naam. Heeft een activiteit <b>maar één onderdeel</b>, dan valt de componentnaam weg (redundant) — enkel de knopjes. Merkblauw voor de titel = Ocean Blue <code>#0051a4</code> (<code>blue-700</code>), niet het donkerdere blue-800.</p>
   <div class="grid2" style="margin-top:16px">
     <div>
       <div class="demo-label">Desktop — knopjes naast de naam</div>
@@ -332,6 +332,12 @@ td.num{text-align:right;font-variant-numeric:tabular-nums}
         <div class="comp mob"><span class="cn">BBQ</span><span class="acts"><button class="btn-fine">Inschrijven</button><button class="btn-fine">Wie doet er mee?</button></span></div>
       </div>
     </div>
+  </div>
+  <div class="demo-label" style="margin-top:18px">Eén onderdeel — componentnaam valt weg (#489)</div>
+  <div class="acard" style="max-width:340px;margin-top:8px">
+    <h3 style="color:var(--primary)">Kaas- en wijnavond <span class="badge b-green" style="vertical-align:middle">Open</span></h3>
+    <div class="meta">🗓 vrijdag 14 november · 📍 Millegem</div>
+    <div class="comp"><span class="acts"><button class="btn-fine">Inschrijven</button><button class="btn-fine">Wie doet er mee?</button></span></div>
   </div>
   <div class="note"><b>Uit de PROD-screenshot (v1.14):</b> "Open"-badge náást de titel (niet zwevend rechts), componentnaam vet-zwart, fijne omlijnde knopjes. <b>Responsive:</b> op desktop staan de knopjes naast de naam, op mobiel eronder — dat is nu ook in de app zo gezet.</div>
 </section>
