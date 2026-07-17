@@ -12,7 +12,7 @@ from .schemas import (
     RefundCreate, RegistrationBalance,
 )
 from .service import (
-    confirm_manual_payment, get_records_for, handle_gateway_update,
+    edit_payment_record, get_records_for, handle_gateway_update,
     create_refund, registration_balance,
 )
 from app.domains.audit.api import snapshot_payment_record
@@ -254,35 +254,16 @@ def update_payment_record(
     if not record:
         raise HTTPException(status_code=404, detail=_("Payment record not found"))
 
-    if data.amount_paid is not None:
-        # Tekengevoelige grens (#219): een charge heeft een positief bedrag → betaald
-        # bedrag in [0, amount]; een refund is negatief → betaald bedrag in [amount, 0].
-        lo, hi = sorted((Decimal("0"), Decimal(str(record.amount))))
-        if not (lo <= data.amount_paid <= hi):
-            raise HTTPException(
-                status_code=400,
-                detail=_("Betaald bedrag (%(amount)s) moet tussen %(lo)s en %(hi)s liggen.") % {"amount": data.amount_paid, "lo": lo, "hi": hi},
-            )
-
-    if data.status == "paid":
-        confirm_manual_payment(db, record_id, data.note, actor=admin.email, amount_paid=data.amount_paid)
-    else:
-        if data.status is not None:
-            record.status = data.status
-        if data.note is not None:
-            record.note = data.note
-        if data.amount_paid is not None:
-            record.amount_paid = data.amount_paid
-            # Consistentie (#346): een ontvangen/terugbetaald bedrag (≠ 0) krijgt
-            # meteen een paid_at, zodat er nooit een "betaald zonder datum"-record
-            # ontstaat dat wél in totalen maar niet in datum-vensters meetelt.
-            if data.amount_paid != 0 and record.paid_at is None:
-                record.paid_at = datetime.now(timezone.utc)
-        snapshot_payment_record(
-            db, record,
-            operation="update", action="payment_updated",
-            source="admin_update", actor=admin.email,
+    # Eén gedeelde service-regel voor status + bedrag + opmerking (#515), zodat de
+    # JSON-API en de admin-UI ("Bewerken") niet uiteenlopen. De tekengevoelige
+    # bedrag-grens (#219) en de #517 refund-invariant zitten in de service.
+    try:
+        edit_payment_record(
+            db, record_id, status=data.status, amount_paid=data.amount_paid,
+            note=data.note, actor=admin.email,
         )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
     db.commit()
     db.refresh(record)

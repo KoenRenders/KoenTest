@@ -198,6 +198,35 @@ def betaling_bijwerken(record_id: str, request: Request, db: Session = Depends(g
                                       _ctx(request, db, email))
 
 
+@router.post("/admin/betalingen/{record_id}/bewerken", response_class=HTMLResponse,
+             dependencies=[Depends(require_csrf)])
+def betaling_bewerken(record_id: str, request: Request, db: Session = Depends(get_db),
+                      email: str = Depends(require_admin_ui),
+                      status: str = Form(""), amount_paid: str = Form(""),
+                      note: str = Form("")):
+    """Geünificeerde 'Bewerken' (#515): status + betaald bedrag + opmerking in één
+    form, voor charges én refunds (zo registreer je op een refund de effectief
+    uitbetaalde som). Hergebruikt de gedeelde service-regel `edit_payment_record`,
+    zodat de admin-UI en de JSON-API dezelfde validatie delen."""
+    from app.domains.payment.api import edit_payment_record
+
+    _require_finance(db, email)
+    bedrag = None
+    if amount_paid.strip():
+        try:
+            bedrag = Decimal(amount_paid.replace(",", "."))
+        except (InvalidOperation, AttributeError):
+            raise HTTPException(status_code=400, detail=_("Ongeldig bedrag."))
+    try:
+        edit_payment_record(db, record_id, status=status.strip() or None,
+                            amount_paid=bedrag, note=note.strip() or None, actor=email)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+    db.commit()
+    return templates.TemplateResponse(request, "_betalingen_lijst.html",
+                                      _ctx(request, db, email))
+
+
 @router.post("/admin/betalingen/{record_id}/verversen", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
 def betaling_verversen(record_id: str, request: Request, db: Session = Depends(get_db),
