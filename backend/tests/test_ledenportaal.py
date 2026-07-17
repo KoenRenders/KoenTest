@@ -46,6 +46,19 @@ def test_gezin_mutatie_zonder_csrf(client, db_session):
     assert resp.status_code == 403
 
 
+def test_home_word_lid_wordt_mijn_gezin_voor_ingelogd_lid(client, db_session):
+    """#499: op de homepage ziet een ingelogd lid 'Mijn gezin' (→ /leden/gezin)
+    i.p.v. de 'Word lid'-knop naar het lege registratieformulier."""
+    # Anoniem → 'Word lid' naar /lid-worden (die link staat enkel in de home-CTA).
+    assert 'href="/lid-worden"' in client.get("/").text
+    # Ingelogd lid → CTA wijst naar /leden/gezin, geen /lid-worden meer.
+    create_test_family(db_session, email="home-lid@example.com")
+    _login_as(client, "home-lid@example.com")
+    html = client.get("/").text
+    assert 'href="/leden/gezin"' in html
+    assert 'href="/lid-worden"' not in html
+
+
 def test_login_redirects_naar_aanmelden(client):
     for pad in ("/login", "/leden/login"):
         resp = client.get(pad, follow_redirects=False)

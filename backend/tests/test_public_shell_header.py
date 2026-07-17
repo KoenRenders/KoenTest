@@ -39,9 +39,11 @@ def test_footer_sociale_links_zijn_iconen(client):
     assert "<svg" in html  # het icoon is een inline SVG i.p.v. het woord 'Facebook'
 
 
-def test_aanmelden_introtekst(client):
-    """#494: aangepaste introtekst op de aanmeldpagina."""
-    assert "Je ontvangt een inloglink en een code." in client.get("/aanmelden").text
+def test_aanmelden_introtekst_en_knop(client):
+    """#494: aangepaste introtekst én knoptekst op de aanmeldpagina."""
+    html = client.get("/aanmelden").text
+    assert "Je ontvangt een inloglink en een code." in html
+    assert "Stuur inloginfo" in html
 
 
 def test_footer_privacylink_is_config_driven(client, db_session):

@@ -7,7 +7,12 @@
   <div class="cms-content mb-6 text-gray-700">{{ intro_html | safe }}</div>
   {% endif %}
   <div class="flex flex-wrap gap-3">
+    {# #499: een ingelogd lid ziet 'Mijn gezin' i.p.v. een leeg registratieformulier. #}
+    {% if gebruiker and gebruiker.is_member %}
+    {{ ui.btn_primary(_("Mijn gezin"), href="/leden/gezin") }}
+    {% else %}
     {{ ui.btn_primary(_("Word lid"), href="/lid-worden") }}
+    {% endif %}
     {{ ui.btn_secondary(_("Contacteer ons"), href="/berichten") }}
   </div>
 </section>
