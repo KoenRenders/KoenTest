@@ -144,11 +144,12 @@ def _portal_ctx(request: Request, db: Session, person) -> dict:
     from datetime import date
 
     from app.domains.auth.api import SESSION_COOKIE, csrf_token_for
-    from app.domains.membership.api import renewal_available, valid_membership_until
+    from app.domains.membership.api import renewal_available, membership_coverage_until
     from app.domains.membership.household_router import get_household
 
     household = get_household(person=person, db=db)
-    valid_until = valid_membership_until(person)
+    # Dekking t/m (incl. een al betaald volgend jaar) i.p.v. enkel 'geldig vandaag' (#496).
+    valid_until = membership_coverage_until(person)
     return {
         **site_context(db, request), **_codes(db),
         "household": household,

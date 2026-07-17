@@ -104,7 +104,7 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     )
     from app.domains.audit.api import snapshot_membership
     from app.config import settings
-    from app.domains.membership.api import has_valid_membership, valid_membership_until
+    from app.domains.membership.api import has_valid_membership, membership_coverage_until
 
     member = _member_for(person, db)
     actor = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
@@ -120,7 +120,9 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
     # dekt de hernieuwing het jaar ná de huidige geldigheid — anders zouden we het
     # lopende jaar dupliceren (uq_memberships_member_year). Geen geldig lidmaatschap
     # (verlopen): val terug op de normale periode-regel (huidig of volgend jaar).
-    current_until = valid_membership_until(person, today)
+    # Dekking t/m incl. een al betaald volgend jaar (#496): mik op het jaar ná de
+    # verste dekking, zodat een al vernieuwd jaar niet op een 409 botst.
+    current_until = membership_coverage_until(person, today)
     if current_until is not None:
         ny = current_until.year + 1
         valid_from, valid_to = date(ny, 1, 1), date(ny, 12, 31)
