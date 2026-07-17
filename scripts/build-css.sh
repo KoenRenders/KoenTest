@@ -47,6 +47,10 @@ cat > "$TMP/in.css" << 'CSS'
 @tailwind components;
 @tailwind utilities;
 @layer base{
+  /* Merkkleuren als CSS-variabelen (#486): ÉÉN bron voor plekken met rauwe CSS
+     (bv. de CMS-content-opmaak) i.p.v. hardgecodeerde hexes — zo blijft de
+     merkkleur automatisch consistent en verandert een tint op één plek. */
+  :root{--brand-ocean:#0051a4;--brand-accent:#ffce00;--brand-indigo:#460359;--brand-green:#005d29;--brand-teal:#3aba9b;--brand-danger:#ee3a37;--brand-warning:#f16532;--brand-pink:#f17fb2}
   h1,h2,h3{font-family:"Radio Canada Big",system-ui,sans-serif}
   /* Automatische consistentie (#482): elk tekst-input/select/textarea krijgt
      standaard dezelfde stijl — geen macro of losse klassen nodig. `:where()`
@@ -54,7 +58,7 @@ cat > "$TMP/in.css" << 'CSS'
      waar een scherm bewust afwijkt (bv. w-28, px-2, font-mono). Checkboxes,
      radios, files en knoppen blijven ongemoeid. */
   :where(input[type="text"],input[type="email"],input[type="tel"],input[type="number"],input[type="password"],input[type="search"],input[type="url"],input[type="date"],input[type="time"],input[type="datetime-local"],input:not([type]),select,textarea){border:1px solid #d1d5db;border-radius:.5rem;padding:.5rem .75rem;font-size:.875rem;line-height:1.25rem;background-color:#fff;color:#111827}
-  :where(input[type="text"],input[type="email"],input[type="tel"],input[type="number"],input[type="password"],input[type="search"],input[type="url"],input[type="date"],input[type="time"],input[type="datetime-local"],input:not([type]),select,textarea):focus{border-color:#0051a4;box-shadow:0 0 0 3px rgba(0,81,164,.15);outline:none}
+  :where(input[type="text"],input[type="email"],input[type="tel"],input[type="number"],input[type="password"],input[type="search"],input[type="url"],input[type="date"],input[type="time"],input[type="datetime-local"],input:not([type]),select,textarea):focus{border-color:var(--brand-ocean);box-shadow:0 0 0 3px rgba(0,81,164,.15);outline:none}
 }
 CSS
 "$BIN" -c "$TMP/tailwind.config.js" -i "$TMP/in.css" \
