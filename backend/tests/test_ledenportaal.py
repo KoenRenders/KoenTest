@@ -87,6 +87,22 @@ def test_coverage_telt_al_betaald_volgend_jaar(db_session):
     assert renewal_available(None, ref) is True
 
 
+def test_vernieuwen_via_overschrijving(db_session):
+    """#497: vernieuwen met overschrijving maakt een transfer-charge (met OGM) en
+    vereist géén online checkout (i.p.v. geforceerd online)."""
+    from app.domains.membership.household_router import renew_membership
+    from app.domains.payment.api import PaymentRecord
+
+    _member, person = create_test_family(db_session, email="renew-transfer@example.com")
+    result = renew_membership(person=person, db=db_session, payment_method="transfer")
+    assert result["checkout_url"] is None and result["payment_method"] == "transfer"
+    charge = (db_session.query(PaymentRecord)
+              .filter(PaymentRecord.payable_type == "membership")
+              .order_by(PaymentRecord.id.desc()).first())
+    assert charge is not None and charge.method == "transfer"
+    assert charge.structured_communication  # OGM gezet voor de overschrijving
+
+
 def test_login_redirects_naar_aanmelden(client):
     for pad in ("/login", "/leden/login"):
         resp = client.get(pad, follow_redirects=False)
