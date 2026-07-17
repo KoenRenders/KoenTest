@@ -31,20 +31,29 @@
 
   <div class="md:flex min-h-screen">
     {# Desktop-zijbalk (Indigo) — stijlgids §09 #}
-    <aside class="hidden md:flex md:flex-col md:w-60 md:shrink-0 bg-brand-indigo text-purple-100">
+    {# #526: sticky, volledige-viewporthoogte zijbalk (md:sticky md:top-0 md:h-screen)
+       zodat de menu in beeld blijft bij het scrollen van een lange pagina i.p.v. in
+       een lege paarse balk te veranderen; overflow-y-auto laat een lange nav intern
+       scrollen. #}
+    <aside class="hidden md:flex md:flex-col md:w-60 md:shrink-0 md:sticky md:top-0 md:h-screen overflow-y-auto bg-brand-indigo text-purple-100">
       <a href="/admin" class="block px-5 py-4 hover:opacity-90">
         <span class="font-brand uppercase tracking-tight text-white text-2xl leading-none">{{ _("Raak") }}</span>
         <span class="block text-xs text-purple-300 mt-0.5">{{ _("beheer") }}</span>
       </a>
-      {# #505: geen flex-1 — "Naar de site" staat met een scheidingslijn direct
-         onder de items i.p.v. onderaan de zijbalk weggedrukt. #}
+      {# #505: geen flex-1 — de voet staat met een scheidingslijn direct onder de
+         items i.p.v. onderaan de zijbalk weggedrukt. #}
       <nav class="px-3 space-y-0.5">
         {% for item in nav_items|default([]) %}
         <a href="{{ item.href }}"
            class="block px-3 py-2 rounded-lg text-sm transition-colors {% if item.active %}bg-white/20 text-white font-semibold{% else %}text-purple-200 hover:bg-white/10 hover:text-white{% endif %}">{{ item.label }}</a>
         {% endfor %}
       </nav>
-      <a href="/" class="block mx-3 mt-2 pt-3 px-3 pb-2 text-sm text-purple-200 hover:text-white border-t border-white/10">↗ {{ _("Naar de site") }}</a>
+      {# #526: vaste voet — Naar de site + Uitloggen (→ /afmelden, de bestaande
+         logout-route). Uitloggen in accentkleur zodat hij opvalt. #}
+      <div class="mt-2 pt-2 mx-3 border-t border-white/10">
+        <a href="/" class="block px-3 py-2 rounded-lg text-sm text-purple-200 hover:bg-white/10 hover:text-white">↗ {{ _("Naar de site") }}</a>
+        <a href="/afmelden" class="block px-3 py-2 rounded-lg text-sm text-red-200 hover:bg-white/10 hover:text-white">⎋ {{ _("Uitloggen") }}</a>
+      </div>
     </aside>
 
     <div class="flex-1 flex flex-col min-w-0">
@@ -59,6 +68,7 @@
            class="block px-3 py-2 rounded-lg text-sm {% if item.active %}bg-white/20 text-white font-semibold{% else %}text-purple-200 hover:bg-white/10 hover:text-white{% endif %}">{{ item.label }}</a>
         {% endfor %}
         <a href="/" class="block px-3 py-2 rounded-lg text-sm text-purple-200 hover:bg-white/10 hover:text-white">↗ {{ _("Naar de site") }}</a>
+        <a href="/afmelden" @click="open = false" class="block px-3 py-2 rounded-lg text-sm text-red-200 hover:bg-white/10 hover:text-white">⎋ {{ _("Uitloggen") }}</a>
       </nav>
 
       <main class="flex-1 px-4 py-8">
