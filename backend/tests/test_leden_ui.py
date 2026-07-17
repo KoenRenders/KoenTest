@@ -103,3 +103,35 @@ def test_import_wizard_page_and_bad_file(client):
                        files={"file": ("leden.xlsx", b"nep", "application/octet-stream")},
                        headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 200 and ".xlsx" in resp.text  # nette foutbanner
+
+
+def test_relatietype_bewerken(client, db_session):
+    """#498: het relatietype van een niet-hoofdlid is bewerkbaar (partner <-> kind);
+    de hoofdlid-rol blijft onaantastbaar."""
+    from app.domains.mdm.api import MemberPerson, Person
+
+    member, hoofd = _family_with_address(db_session)
+    csrf = _login(client)
+    client.post(f"/admin/leden/gezin/{member.id}/personen",
+                data={"first_name": "Partner", "last_name": "Persoon",
+                      "relation_type": "PARTNER"}, headers={"X-CSRF-Token": csrf})
+    partner = db_session.query(Person).filter(Person.first_name == "Partner").one()
+
+    # Partner -> KIND.
+    resp = client.post(f"/admin/leden/gezin/{member.id}/persoon/{partner.id}",
+                       data={"first_name": "Partner", "last_name": "Persoon",
+                             "relation_type": "KIND"}, headers={"X-CSRF-Token": csrf})
+    assert resp.status_code == 200
+    db_session.expire_all()
+    assert db_session.query(MemberPerson).filter(
+        MemberPerson.member_id == member.id,
+        MemberPerson.person_id == partner.id).one().relation_type == "KIND"
+
+    # Een poging om het hoofdlid te degraderen wordt genegeerd.
+    client.post(f"/admin/leden/gezin/{member.id}/persoon/{hoofd.id}",
+                data={"first_name": hoofd.first_name, "last_name": hoofd.last_name,
+                      "relation_type": "KIND"}, headers={"X-CSRF-Token": csrf})
+    db_session.expire_all()
+    assert db_session.query(MemberPerson).filter(
+        MemberPerson.member_id == member.id,
+        MemberPerson.person_id == hoofd.id).one().relation_type == "HOOFDLID"

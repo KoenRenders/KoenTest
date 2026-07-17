@@ -25,6 +25,15 @@
         hx-post="/admin/leden/gezin/{{ family.id }}/persoon/{{ m.id }}"
         hx-target="#leden-detail" hx-swap="innerHTML">
     {% with p = m %}{% include "_leden_persoon_velden.html" %}{% endwith %}
+    {# #498: relatietype van een niet-hoofdlid bewerken (partner ↔ kind). #}
+    {% if not hoofd %}
+    <div>{{ ui.label(_("Relatie"), "rel-" ~ m.id) }}
+      <select name="relation_type" id="rel-{{ m.id }}" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+        {% for r in relation_types if r.code != "HOOFDLID" %}
+        <option value="{{ r.code }}" {% if m.relation_type == r.code %}selected{% endif %}>{{ r.value }}</option>
+        {% endfor %}
+      </select></div>
+    {% endif %}
     <div class="flex gap-2">
       {{ ui.btn_primary(_("Opslaan")) }}
       {{ ui.btn_secondary(_("Annuleren"), attrs='@click="edit = false"') }}

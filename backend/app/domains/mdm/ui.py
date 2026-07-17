@@ -111,7 +111,7 @@ def persoon_opslaan(family_id: int, person_id: int, request: Request,
                     first_name: str = Form(""), last_name: str = Form(""),
                     date_of_birth: str = Form(""), gender_code: str = Form(""),
                     contact_email: str = Form(""), phone: str = Form(""),
-                    mobile: str = Form("")):
+                    mobile: str = Form(""), relation_type: str = Form("")):
     from app.domains.membership.api import update_person, update_person_contacts
     from app.domains.membership.api import PersonUpdate
     from app.domains.membership.api import ContactsUpdate
@@ -124,6 +124,16 @@ def persoon_opslaan(family_id: int, person_id: int, request: Request,
         email=contact_email.strip() or None, phone=phone.strip() or None,
         mobile=mobile.strip() or None,
     ), db=db, admin=admin_user_by_email(db, email))
+    # Relatietype op de MemberPerson-junctie (#498) — enkel wijzigen naar een
+    # niet-hoofdrol, en nooit de hoofdlid-rol overschrijven.
+    if relation_type and relation_type.upper() != "HOOFDLID":
+        from app.domains.mdm.api import MemberPerson
+
+        mp = (db.query(MemberPerson)
+              .filter(MemberPerson.member_id == family_id,
+                      MemberPerson.person_id == person_id).first())
+        if mp is not None and (mp.relation_type or "").upper() != "HOOFDLID":
+            mp.relation_type = relation_type
     db.commit()
     return _detail_response(request, db, family_id)
 
