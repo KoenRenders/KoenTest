@@ -16,7 +16,7 @@
       <div class="flex gap-2 shrink-0 ml-4">
         {{ ui.btn_secondary(_("Bewerken"), attrs='@click="edit = true"') }}
         {% if not hoofd %}
-        {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/leden/gezin/' ~ family.id ~ '/persoon/' ~ m.id ~ '/verwijderen" hx-target="#leden-detail" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Persoon"), m.first_name ~ " " ~ m.last_name)) }}
+        {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/leden/gezin/' ~ family.id ~ '/persoon/' ~ m.id ~ '/verwijderen" hx-target="#leden-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Persoon"), m.first_name ~ " " ~ m.last_name)) }}
         {% endif %}
       </div>
     </div>
@@ -45,7 +45,7 @@
 <div class="space-y-4">
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 flex items-center justify-between">
     <h2 class="font-bold text-lg">{{ _("Gezin") }} #{{ family.id }}</h2>
-    {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/leden/gezin/' ~ family.id ~ '/verwijderen" hx-target="#leden-detail" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Gezin"), "#" ~ family.id)) }}
+    {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/leden/gezin/' ~ family.id ~ '/verwijderen" hx-target="#leden-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Gezin"), "#" ~ family.id)) }}
   </div>
 
   <div class="flex items-center justify-between" x-data>
@@ -125,7 +125,7 @@
       <span>{{ ms.year }}
         {% if ms.is_active %}{{ ui.badge(_("Actief"), "green") }}{% else %}{{ ui.badge(_("Inactief")) }}{% endif %}
       </span>
-      {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/leden/gezin/' ~ family.id ~ '/lidmaatschappen/' ~ ms.id ~ '/verwijderen" hx-target="#leden-detail" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Lidmaatschap"), ms.year)) }}
+      {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/leden/gezin/' ~ family.id ~ '/lidmaatschappen/' ~ ms.id ~ '/verwijderen" hx-target="#leden-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Lidmaatschap"), ms.year)) }}
     </div>
     {% endfor %}
     <form class="flex gap-3 items-end mt-4"

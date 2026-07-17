@@ -16,7 +16,7 @@
       {% if info %}
       {{ ui.btn_secondary(_("Bewerk"), attrs='@click="edit = !edit"') }}
       {{ ui.btn_secondary(_("Aan/uit"), attrs='hx-post="/admin/ai-context/' ~ info.id ~ '/toggle" hx-target="#ai-context-lijst" hx-swap="innerHTML"') }}
-      {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/ai-context/' ~ info.id ~ '/verwijderen" hx-target="#ai-context-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Contextrij"), label)) }}
+      {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/ai-context/' ~ info.id ~ '/verwijderen" hx-target="#ai-context-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Contextrij"), label)) }}
       {% endif %}
     </div>
     {% endif %}

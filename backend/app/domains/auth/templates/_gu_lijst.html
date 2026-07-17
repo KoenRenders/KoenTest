@@ -29,7 +29,7 @@
     {% endfor %}
     <span class="ml-auto flex gap-2">
       {{ ui.btn_primary(_("Opslaan")) }}
-      {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/gebruikers/' ~ u.id ~ '/verwijderen" hx-target="#gu-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Gebruiker"), u.email)) }}
+      {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/gebruikers/' ~ u.id ~ '/verwijderen" hx-target="#gu-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Gebruiker"), u.email)) }}
     </span>
   </form>
   {% endfor %}

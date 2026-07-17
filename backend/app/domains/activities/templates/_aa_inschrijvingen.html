@@ -22,7 +22,7 @@
           {% if r.remarks %}<div class="text-xs text-gray-500 mt-1">💬 {{ r.remarks }}</div>{% endif %}
         </td>
         <td class="px-3 py-2 text-right">
-          {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/activiteiten/' ~ activity_id ~ '/inschrijvingen/' ~ r.id ~ '/verwijderen" hx-target="#aa-inschrijvingen" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Inschrijving"), r.contact_name)) }}
+          {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/activiteiten/' ~ activity_id ~ '/inschrijvingen/' ~ r.id ~ '/verwijderen" hx-target="#aa-inschrijvingen" hx-swap="innerHTML" ' ~ confirm_attrs(_("Inschrijving"), r.contact_name)) }}
         </td>
       </tr>
       {% endfor %}

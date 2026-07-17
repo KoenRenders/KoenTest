@@ -43,7 +43,7 @@
       <div class="flex gap-2 shrink-0 ml-4">
         {{ ui.btn_secondary(_("Bewerken"), attrs='@click="edit = true"') }}
         {% if p.id != person_id %}
-        {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/leden/gezin/personen/' ~ p.id ~ '/verwijderen" hx-target="body" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Gezinslid"), p.first_name ~ " " ~ p.last_name)) }}
+        {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/leden/gezin/personen/' ~ p.id ~ '/verwijderen" hx-target="body" hx-swap="innerHTML" ' ~ confirm_attrs(_("Gezinslid"), p.first_name ~ " " ~ p.last_name)) }}
         {% endif %}
       </div>
     </div>

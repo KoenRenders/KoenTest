@@ -9,7 +9,7 @@
       </h2>
       <div class="flex gap-2">
         {{ ui.btn_secondary(_("Bewerken"), attrs='@click="edit = !edit"') }}
-        {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/verwijderen" hx-target="#aa-lijst" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Activiteit"), a.name)) }}
+        {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/verwijderen" hx-target="#aa-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Activiteit"), a.name)) }}
       </div>
     </div>
     {% if a.location %}<p class="text-sm text-gray-500 mt-1">📍 {{ a.location }}</p>{% endif %}
@@ -91,7 +91,7 @@
         {{ ui.btn_secondary("▼", attrs='title="' ~ _("Omlaag") ~ '" hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verplaats" hx-vals=\'{"richting":"omlaag"}\' hx-target="#aa-detail" hx-swap="innerHTML"') }}
         {{ ui.btn_secondary("⬇ " ~ _("Export"), href="/admin/activiteiten/" ~ a.id ~ "/onderdelen/" ~ c.id ~ "/export", size="sm") }}
         {{ ui.btn_secondary(_("Bewerken"), attrs='@click="edit = !edit"') }}
-        {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Onderdeel"), c.name)) }}
+        {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Onderdeel"), c.name)) }}
       </div>
     </div>
     <form x-show="edit" x-cloak class="flex flex-wrap gap-2 items-end mt-3"
@@ -133,7 +133,7 @@
             {{ ui.btn_secondary("▲", attrs='title="' ~ _("Omhoog") ~ '" hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verplaats" hx-vals=\'{"richting":"omhoog"}\' hx-target="#aa-detail" hx-swap="innerHTML"') }}
             {{ ui.btn_secondary("▼", attrs='title="' ~ _("Omlaag") ~ '" hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verplaats" hx-vals=\'{"richting":"omlaag"}\' hx-target="#aa-detail" hx-swap="innerHTML"') }}
             {{ ui.btn_secondary(_("Bewerk"), attrs='@click="ed = !ed"') }}
-            {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ ui.confirm_attrs(_("Product"), p.name)) }}
+            {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Product"), p.name)) }}
           </div>
         </div>
         <form x-show="ed" x-cloak class="flex flex-wrap gap-2 items-end mt-2"

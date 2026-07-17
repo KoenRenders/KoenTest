@@ -27,13 +27,11 @@ def test_macros_render_and_escape():
         '{% import "_macros.html" as ui %}'
         '{{ ui.btn_primary("Opslaan") }}{{ ui.badge("Concept") }}'
         '{{ ui.error_banner(msg) }}{{ ui.label("Naam", "f_naam", required=True) }}'
-        '{{ ui.confirm_attrs("Bericht", naam) }}'
     )
-    html = tpl.render(msg="<script>x</script>", naam="Fee & Fo")
+    html = tpl.render(msg="<script>x</script>")
     assert "Opslaan" in html and "Concept" in html
     assert "&lt;script&gt;" in html          # autoescape actief
     assert 'text-red-600">*' in html          # verplicht-veld-conventie
-    assert "definitief verwijderen?" in html  # ConfirmDialog-conventie
 
 
 def test_static_assets_served(client):
