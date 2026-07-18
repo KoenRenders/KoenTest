@@ -47,6 +47,8 @@ def test_lid_worden_formulier_en_registratie(client, db_session, mock_mollie):
         "m0_relation_type": "HOOFDLID",
         "m1_first_name": "Bart", "m1_last_name": "Peeters",
         "m1_relation_type": "PARTNER",
+        # #551: bijkomend lid vereist geboortedatum + geslacht.
+        "m1_date_of_birth": "2010-05-05", "m1_gender_code": "M",
         "street": "Dorpsstraat", "house_number": "1", "postal_code": "2400",
         "payment_method": "online",
     })
@@ -56,6 +58,22 @@ def test_lid_worden_formulier_en_registratie(client, db_session, mock_mollie):
     from app.domains.mdm.api import Person
     namen = {p.first_name for p in db_session.query(Person).all()}
     assert {"An", "Bart"} <= namen
+
+
+def test_bijkomend_lid_vereist_dob_en_geslacht(client, db_session):
+    """#551: een bijkomend gezinslid (niet-hoofdlid) zonder geboortedatum of
+    geslacht wordt server-side geweigerd, met een foutbanner."""
+    seed_postal_code(db_session, code="2400", municipality="Mol")
+    resp = client.post("/lid-worden", data={
+        "m0_first_name": "An", "m0_last_name": "Peeters",
+        "m0_email": "an@example.com", "m0_mobile": "0470000000",
+        "m0_relation_type": "HOOFDLID",
+        "m1_first_name": "Bart", "m1_last_name": "Peeters", "m1_relation_type": "PARTNER",
+        # bewust géén m1_date_of_birth / m1_gender_code
+        "street": "Dorpsstraat", "house_number": "1", "postal_code": "2400",
+        "payment_method": "online",
+    })
+    assert resp.status_code == 200 and "verplicht" in resp.text.lower()
 
 
 def test_lid_worden_validatiefout_toont_banner(client, db_session):

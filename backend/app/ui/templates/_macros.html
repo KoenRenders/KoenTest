@@ -168,7 +168,7 @@
    Delete/kaart-header blijft per scherm (plaatsing verschilt). #}
 {% macro person_fields(name_prefix="", id_prefix="", pv=None, values=None,
                        gender_codes=[], relation_types=[], include_relation=True,
-                       hoofdlid=False) -%}
+                       hoofdlid=False, require_birth_gender=False) -%}
 {% set _fn = pv.get('first_name') if pv else (values.get(name_prefix ~ 'first_name') if values else '') %}
 {% set _ln = pv.get('last_name') if pv else (values.get(name_prefix ~ 'last_name') if values else '') %}
 {% set _dob = pv.get('date_of_birth') if pv else (values.get(name_prefix ~ 'date_of_birth') if values else '') %}
@@ -182,10 +182,10 @@
     <input name="{{ name_prefix }}first_name" id="{{ id_prefix }}first_name" required value="{{ _fn or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
   <div>{{ label(_("Achternaam"), id_prefix ~ "last_name", required=True) }}
     <input name="{{ name_prefix }}last_name" id="{{ id_prefix }}last_name" required value="{{ _ln or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-  <div>{{ label(_("Geboortedatum"), id_prefix ~ "date_of_birth") }}
-    <input type="date" name="{{ name_prefix }}date_of_birth" id="{{ id_prefix }}date_of_birth" value="{{ _dob or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-  <div>{{ label(_("Geslacht"), id_prefix ~ "gender_code") }}
-    <select name="{{ name_prefix }}gender_code" id="{{ id_prefix }}gender_code" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+  <div>{{ label(_("Geboortedatum") ~ (" *" if require_birth_gender else ""), id_prefix ~ "date_of_birth") }}
+    <input type="date" name="{{ name_prefix }}date_of_birth" id="{{ id_prefix }}date_of_birth" {% if require_birth_gender %}required{% endif %} value="{{ _dob or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+  <div>{{ label(_("Geslacht") ~ (" *" if require_birth_gender else ""), id_prefix ~ "gender_code") }}
+    <select name="{{ name_prefix }}gender_code" id="{{ id_prefix }}gender_code" {% if require_birth_gender %}required{% endif %} class="w-full border border-gray-300 rounded-lg px-3 py-2">
       <option value="">—</option>
       {% for g in gender_codes %}<option value="{{ g.code }}" {% if _gender == g.code %}selected{% endif %}>{{ g.value }}</option>{% endfor %}
     </select></div>
