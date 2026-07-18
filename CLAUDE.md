@@ -328,6 +328,12 @@ per commit on GitHub.
 
 **Auth:** JWT Bearer tokens voor de JSON-API (`get_current_admin` op alle admin-endpoints); de server-rendered schermen gebruiken de HttpOnly-sessiecookie + CSRF via `app.domains.auth.api` (`require_admin_ui`, `require_csrf`).
 
+**Rollen (ADMIN/FINANCE/OPERATOR/ACCOUNT_ADMIN) → wat mag/ziet wie:** zie de
+autoritatieve, met-de-code-geverifieerde matrix in `docs/rollen-en-rechten.md`
+(#544). Kort: algemene admin = ADMIN/OPERATOR (`require_admin_ui`); betalingen
+bekijken = +FINANCE (`require_finance_ui`), muteren = FINANCE/OPERATOR; gebruikers-
+beheer = ADMIN/OPERATOR; tenant-instellingen = OPERATOR-only.
+
 **Pydantic v2:** use `model_validate()`, `model_dump(exclude_none=True)`.
 
 ## Alembic migrations
