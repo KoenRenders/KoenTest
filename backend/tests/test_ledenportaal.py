@@ -126,3 +126,31 @@ def test_login_verify_zet_sessie_en_stuurt_door(client, db_session):
 
     verlopen = client.get("/login/verify?token=bestaat-niet", follow_redirects=False)
     assert verlopen.status_code == 401
+
+
+def test_magic_link_landing_per_rol(client, db_session):
+    """#530: de magic-link-landing volgt de rol — een FINANCE-only account gaat naar
+    /admin/betalingen (werkbank zou 403'en), ADMIN naar /admin/werkbank; voorheen
+    ging iedereen met ADMIN of FINANCE naar werkbank."""
+    from app.domains.auth.models import LoginToken, User, UserRole
+    from datetime import datetime, timezone
+
+    def _token(email, *roles):
+        u = User(email=email, is_active=True)
+        db_session.add(u)
+        db_session.flush()
+        for r in roles:
+            db_session.add(UserRole(user_id=u.id, role_code=r))
+        tok = f"tok-{email}"
+        db_session.add(LoginToken(email=email, token=tok,
+                                  expires_at=datetime.now(timezone.utc) + timedelta(minutes=10)))
+        db_session.flush()
+        return tok
+
+    fin = _token("fin-magic@example.com", "FINANCE")
+    r_fin = client.get(f"/login/verify?token={fin}", follow_redirects=False)
+    assert r_fin.headers["location"] == "/admin/betalingen"
+
+    adm = _token("adm-magic@example.com", "ADMIN")
+    r_adm = client.get(f"/login/verify?token={adm}", follow_redirects=False)
+    assert r_adm.headers["location"] == "/admin/werkbank"
