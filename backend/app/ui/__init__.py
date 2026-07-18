@@ -108,12 +108,19 @@ _ADMIN_NAV: list[tuple[str, str]] = [
 ]
 
 
-def admin_nav(active: str) -> list[dict]:
-    """Navigatie-items voor de AdminShell; `active` is de href van het scherm."""
+def admin_nav(active: str, roles=None) -> list[dict]:
+    """Navigatie-items voor de AdminShell; `active` is de href van het scherm.
+
+    Role-aware (#530): een FINANCE-only gebruiker (geen ADMIN/OPERATOR) mag enkel de
+    betalingen-schermen openen — toon dan enkel Betalingen, zodat de nav niet vol
+    links staat die 403'en. ADMIN/OPERATOR (of geen `roles` meegegeven) zien alles."""
     from app.i18n import _
 
+    items = _ADMIN_NAV
+    if roles is not None and not ({"ADMIN", "OPERATOR"} & set(roles)):
+        items = [(h, l) for h, l in _ADMIN_NAV if h == "/admin/betalingen"]
     return [{"href": href, "label": _(label), "active": href == active}
-            for href, label in _ADMIN_NAV]
+            for href, label in items]
 
 
 def _huidige_gebruiker(db, request) -> dict | None:
