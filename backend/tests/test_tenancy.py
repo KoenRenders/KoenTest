@@ -75,7 +75,8 @@ def test_request_krijgt_default_tenant(client, db_session):
 def test_tenant_codes_dynamisch_uit_organizations(db_session):
     """#546: de code→id-map komt dynamisch uit de actieve UNIT-organizations, zodat
     een nieuw aangemaakte tenant zonder codewijziging resolvet."""
-    from app.kernel.tenancy import tenant_codes, resolve_tenant
+    from app.domains.mdm.api import tenant_codes
+    from app.kernel.tenancy import resolve_tenant
     from app.domains.mdm.models import Organization
 
     org = Organization(org_type="UNIT", code="raaknieuw", name="Raak Nieuw", is_active=True)
@@ -96,13 +97,14 @@ def test_tenant_codes_dynamisch_uit_organizations(db_session):
 def test_tenant_codes_fallback_op_hardcoded(monkeypatch):
     """Vangnet (#546): faalt de DB-lezing, dan valt tenant_codes terug op de
     hardgecodeerde map — resolutie mag nooit breken."""
-    from app.kernel import tenancy
+    from app.domains.mdm import tenant_lookup
+    from app.kernel.tenancy import TENANT_MILLEGEM_ID
 
-    tenancy.invalidate_tenant_codes()
+    tenant_lookup.invalidate_tenant_codes()
 
     def _boom(db):
         raise RuntimeError("db down")
 
-    monkeypatch.setattr(tenancy, "_query_tenant_codes", _boom)
-    assert tenancy.tenant_codes().get("raakmillegem") == tenancy.TENANT_MILLEGEM_ID
-    tenancy.invalidate_tenant_codes()
+    monkeypatch.setattr(tenant_lookup, "_query", _boom)
+    assert tenant_lookup.tenant_codes().get("raakmillegem") == TENANT_MILLEGEM_ID
+    tenant_lookup.invalidate_tenant_codes()

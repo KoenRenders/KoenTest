@@ -165,8 +165,9 @@ async def _tenant_context(request: Request, call_next):
     een X-Robots-Tag-header."""
     from app.kernel.tenancy import (
         DEFAULT_TENANT_ID, current_tenant_id, parse_hostname_map,
-        resolve_request, tenant_codes,
+        resolve_request,
     )
+    from app.domains.mdm.api import tenant_codes
 
     # Dynamische code→id-map uit de DB (#546): een nieuw aangemaakte tenant resolvet
     # zonder codewijziging. Gecachet, dus geen query-per-request na de eerste.

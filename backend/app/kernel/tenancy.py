@@ -54,50 +54,11 @@ TENANT_CODES: dict[str, int] = {
     "raakvoorbeeldafdeling": TENANT_VOORBEELD_ID,
 }
 
-# Gecachete code→id-map uit de DB (#546). None = koud; ingevuld bij eerste gebruik.
-_tenant_codes_cache: dict[str, int] | None = None
-
-
-def _query_tenant_codes(db) -> dict[str, int]:
-    from app.domains.mdm.models import Organization
-
-    rows = (db.query(Organization.code, Organization.id)
-            .filter(Organization.org_type == "UNIT",
-                    Organization.is_active == True).all())  # noqa: E712
-    return {code.lower(): oid for code, oid in rows}
-
-
-def tenant_codes(db=None) -> dict[str, int]:
-    """Live code→id-map van de actieve UNIT-organizations (#546) — de dynamische
-    vervanger van de hardgecodeerde TENANT_CODES, zodat een nieuw aangemaakte tenant
-    meteen resolvet. Met ``db`` (bv. in tests) leest hij rechtstreeks uit die sessie;
-    zonder db gebruikt hij een cache met een eigen sessie (resolutie draait per
-    request). Roep ``invalidate_tenant_codes()`` na het aanmaken/wijzigen van een
-    tenant.
-
-    Vangnet: bij een lege query of DB-probleem valt hij terug op de hardgecodeerde
-    map — resolutie mag nooit breken op een infrastructuurhapering."""
-    global _tenant_codes_cache
-    if db is not None:
-        return _query_tenant_codes(db)
-    if _tenant_codes_cache is None:
-        try:
-            from app.database import SessionLocal
-
-            s = SessionLocal()
-            try:
-                _tenant_codes_cache = _query_tenant_codes(s) or dict(TENANT_CODES)
-            finally:
-                s.close()
-        except Exception:
-            return dict(TENANT_CODES)
-    return _tenant_codes_cache
-
-
-def invalidate_tenant_codes() -> None:
-    """Wis de tenant_codes-cache (na het aanmaken/wijzigen van een tenant)."""
-    global _tenant_codes_cache
-    _tenant_codes_cache = None
+# De LIVE code→id-map komt sinds #546 dynamisch uit `organizations`. Die DB-lezing
+# hoort NIET in de kernel (importgrens: kernel → domains verboden): ze zit in
+# `app.domains.mdm.api.tenant_codes()`. De middleware geeft het resultaat als
+# `codes`-param door aan de resolve-functies hieronder; zonder param blijft de
+# hardgecodeerde TENANT_CODES het vangnet.
 
 
 def resolve_tenant(host: str | None, path: str,
