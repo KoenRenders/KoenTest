@@ -70,3 +70,39 @@ def test_request_krijgt_default_tenant(client, db_session):
     db_session.flush()
     # het request loopt als Millegem (default) → de demo-pagina bestaat daar niet
     assert client.get("/api/v1/pages/alleen-demo").status_code == 404
+
+
+def test_tenant_codes_dynamisch_uit_organizations(db_session):
+    """#546: de code→id-map komt dynamisch uit de actieve UNIT-organizations, zodat
+    een nieuw aangemaakte tenant zonder codewijziging resolvet."""
+    from app.kernel.tenancy import tenant_codes, resolve_tenant
+    from app.domains.mdm.models import Organization
+
+    org = Organization(org_type="UNIT", code="raaknieuw", name="Raak Nieuw", is_active=True)
+    db_session.add(org)
+    db_session.flush()
+
+    codes = tenant_codes(db=db_session)
+    assert codes.get("raaknieuw") == org.id
+    # Pad-prefix /raaknieuw/... resolvet nu naar de nieuwe tenant.
+    assert resolve_tenant("x", "/raaknieuw/activiteiten", {}, codes) == org.id
+
+    # Een inactieve UNIT verdwijnt uit de map (resolvet niet meer).
+    org.is_active = False
+    db_session.flush()
+    assert "raaknieuw" not in tenant_codes(db=db_session)
+
+
+def test_tenant_codes_fallback_op_hardcoded(monkeypatch):
+    """Vangnet (#546): faalt de DB-lezing, dan valt tenant_codes terug op de
+    hardgecodeerde map — resolutie mag nooit breken."""
+    from app.kernel import tenancy
+
+    tenancy.invalidate_tenant_codes()
+
+    def _boom(db):
+        raise RuntimeError("db down")
+
+    monkeypatch.setattr(tenancy, "_query_tenant_codes", _boom)
+    assert tenancy.tenant_codes().get("raakmillegem") == tenancy.TENANT_MILLEGEM_ID
+    tenancy.invalidate_tenant_codes()
