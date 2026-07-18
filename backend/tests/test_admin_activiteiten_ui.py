@@ -83,6 +83,13 @@ def test_admin_inschrijvingen_en_export(client, db_session):
                       "payment_method": "OVERSCHRIJVING"})
     lijst = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen")
     assert lijst.status_code == 200 and "Jef" in lijst.text
+    # #510: elke rij heeft nu een "Bewerken" die de gedeelde editor in-lijn laadt
+    # (detail_disclosure → /admin/inschrijvingen/{id}), naast "Verwijder".
+    from app.domains.activities.api import Registration
+    reg = db_session.query(Registration).filter(Registration.contact_name == "Jef").one()
+    assert ">Bewerken<" in lijst.text
+    assert f'hx-get="/admin/inschrijvingen/{reg.id}"' in lijst.text
+    assert ">Verwijder<" in lijst.text
 
     export = client.get(f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}/export")
     assert export.status_code == 200

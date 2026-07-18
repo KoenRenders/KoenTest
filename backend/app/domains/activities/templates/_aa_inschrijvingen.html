@@ -11,9 +11,13 @@
         <th class="px-3 py-2"></th>
       </tr>
     </thead>
-    <tbody>
-      {% for r in registrations %}
-      <tr class="border-b border-gray-100 align-top">
+    {# #510: per inschrijving een eigen <tbody> met Alpine-state, zodat "Bewerken"
+       de gedeelde editor (`_inschrijving_detail.html`, hergebruikt) in een detail-rij
+       in-lijn openvouwt. Rij-acties via de row_actions-macro: Bewerken + Verwijder
+       (laatst/rood). Geen nieuwe backend. #}
+    {% for r in registrations %}
+    <tbody x-data="{ open: false }" class="align-top">
+      <tr class="border-b border-gray-100">
         <td class="px-3 py-2 whitespace-nowrap">{{ r.registered_at.strftime("%d-%m-%Y") if r.registered_at else "—" }}</td>
         <td class="px-3 py-2">{{ r.contact_name }}{% if r.team_name %} <span class="text-gray-500">({{ r.team_name }})</span>{% endif %}</td>
         <td class="px-3 py-2">{{ r.contact_email }}{% if r.phone %} · {{ r.phone }}{% endif %}</td>
@@ -22,11 +26,17 @@
           {% if r.remarks %}<div class="text-xs text-gray-500 mt-1">💬 {{ r.remarks }}</div>{% endif %}
         </td>
         <td class="px-3 py-2 text-right">
-          {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/activiteiten/' ~ activity_id ~ '/inschrijvingen/' ~ r.id ~ '/verwijderen" hx-target="#aa-inschrijvingen" hx-swap="innerHTML" ' ~ confirm_attrs(_("Inschrijving"), r.contact_name)) }}
+          {{ ui.row_actions(
+               actions=[ui.detail_disclosure("/admin/inschrijvingen/" ~ r.id, "insch-det-" ~ r.id, _("Bewerken"))],
+               delete_attrs='hx-post="/admin/activiteiten/' ~ activity_id ~ '/inschrijvingen/' ~ r.id ~ '/verwijderen" hx-target="#aa-inschrijvingen" hx-swap="innerHTML" ' ~ confirm_attrs(_("Inschrijving"), r.contact_name),
+               delete_label=_("Verwijder")) }}
         </td>
       </tr>
-      {% endfor %}
+      <tr x-show="open" x-cloak>
+        <td colspan="5" class="px-3 pb-3"><div id="insch-det-{{ r.id }}" class="bg-gray-50 rounded-lg"></div></td>
+      </tr>
     </tbody>
+    {% endfor %}
   </table>
 </div>
 {% else %}
