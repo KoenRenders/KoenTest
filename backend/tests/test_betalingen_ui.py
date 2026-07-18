@@ -95,3 +95,24 @@ def test_export_downloads_ods(client, db_session):
     resp = client.get("/admin/betalingen/export")
     assert resp.status_code == 200
     assert resp.headers["content-type"].startswith("application/vnd.oasis")
+
+
+def test_geneste_refund_heeft_bewerken_editor(client, db_session):
+    """#515-vervolg: een terugbetaling die genest onder haar charge staat, krijgt de
+    unified 'Bewerken'-editor (effectieve uitbetaling registreren), niet enkel
+    'Verwijder' — net zoals een gewone betaling."""
+    from app.domains.payment.api import create_refund
+
+    _make_finance(db_session)
+    charge = _record(db_session, amount="30.00", status="paid")
+    charge.amount_paid = Decimal("30.00")
+    db_session.flush()
+    # Nog-niet-uitbetaalde terugbetaling (pending) genest onder de charge.
+    refund = create_refund(db_session, charge.id, Decimal("10.00"),
+                           actor="fin@test", settled=False)
+    db_session.commit()
+
+    _login(client)
+    html = client.get("/admin/betalingen/lijst").text
+    # De geneste refund-regel biedt de bewerk-editor aan (post naar zijn eigen id).
+    assert f"/admin/betalingen/{refund.id}/bewerken" in html

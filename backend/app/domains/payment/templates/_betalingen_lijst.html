@@ -64,11 +64,40 @@
       </div>
     </div>
     {% for rf in refunds %}
-    <div class="mt-2 pl-3 border-l-2 border-teal-300 text-sm text-gray-600 flex items-center justify-between gap-2">
-      <span class="inline-flex flex-wrap items-center gap-1"><span class="text-green-700 font-medium">✓ {{ _("Terugbetaald") }}</span> € {{ "%.2f"|format(rf.amount|abs) }} · {{ rf.created_at.strftime("%d-%m-%Y") }}{% if rf.note %} · {{ rf.note }}{% endif %}</span>
-      {% if is_finance %}<button type="button" class="text-red-600 hover:underline text-xs shrink-0"
-        hx-post="/admin/betalingen/{{ rf.id }}/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML"
-        hx-confirm="{{ _('Deze terugbetaling verwijderen?') }}">{{ _("Verwijder") }}</button>{% endif %}
+    <div class="mt-2 pl-3 border-l-2 border-teal-300 text-sm text-gray-600"{% if is_finance %} x-data="{ rbewerk: false }"{% endif %}>
+      <div class="flex items-center justify-between gap-2">
+        <span class="inline-flex flex-wrap items-center gap-1"><span class="text-green-700 font-medium">✓ {{ _("Terugbetaald") }}</span> € {{ "%.2f"|format(rf.amount|abs) }} · {{ rf.created_at.strftime("%d-%m-%Y") }}{% if rf.note %} · {{ rf.note }}{% endif %}</span>
+        {% if is_finance %}<span class="flex gap-2 shrink-0">
+          <button type="button" class="text-blue-700 hover:underline text-xs" @click="rbewerk = !rbewerk">{{ _("Bewerken") }}</button>
+          <button type="button" class="text-red-600 hover:underline text-xs"
+            hx-post="/admin/betalingen/{{ rf.id }}/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML"
+            hx-confirm="{{ _('Deze terugbetaling verwijderen?') }}">{{ _("Verwijder") }}</button>
+        </span>{% endif %}
+      </div>
+      {% if is_finance %}
+      {# #515-vervolg: de effectief uitbetaalde som van deze (geneste) terugbetaling
+         registreren via dezelfde unified editor — net als bij een charge. Status →
+         "paid" met leeg bedrag ⇒ het volle (negatieve) refundbedrag; server valideert
+         de tekengevoelige grens [amount, 0]. #}
+      <form x-show="rbewerk" x-cloak class="mt-2 flex flex-wrap gap-2 items-end"
+            x-data="{ status: '{{ rf.status }}', bedrag: '{{ '%.2f'|format(rf.amount_paid) if rf.amount_paid is not none else '' }}' }"
+            hx-post="/admin/betalingen/{{ rf.id }}/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
+        <div><label class="block text-xs text-gray-500">{{ _("Status") }}</label>
+          <select name="status" x-model="status"
+                  @change="if (status === 'paid' && !bedrag) bedrag = '{{ '%.2f'|format(rf.amount) }}'"
+                  class="border border-gray-300 rounded-lg px-2 py-1 text-sm">
+            {% for s in ["pending", "paid", "failed", "cancelled"] %}
+            <option value="{{ s }}" {% if rf.status == s %}selected{% endif %}>{{ s }}</option>
+            {% endfor %}
+          </select></div>
+        <div><label class="block text-xs text-gray-500">{{ _("Uitbetaald bedrag") }}</label>
+          <input name="amount_paid" x-model="bedrag" inputmode="decimal" placeholder="0,00"
+                 class="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm"></div>
+        <input name="note" placeholder="{{ _('Opmerking') }}" class="w-40 border border-gray-300 rounded-lg px-2 py-1 text-sm">
+        {{ ui.btn_primary(_("Opslaan"), type="submit") }}
+        {{ ui.btn_secondary(_("Annuleren"), attrs='@click="rbewerk = false"') }}
+      </form>
+      {% endif %}
     </div>
     {% endfor %}
     {% if r.payable_type == "registration" %}
