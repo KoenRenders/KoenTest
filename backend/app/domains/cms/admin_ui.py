@@ -110,3 +110,22 @@ def pagina_verwijderen(page_id: int, request: Request, db: Session = Depends(get
 
     delete_page(page_id, db=db, _admin=None)  # type: ignore[arg-type]
     return templates.TemplateResponse(request, "_cp_lijst.html", _lijst_ctx(db))
+
+
+@router.get("/admin/paginas/{page_id}/voorbeeld", response_class=HTMLResponse)
+def pagina_voorbeeld(page_id: int, request: Request, db: Session = Depends(get_db),
+                     email: str = Depends(require_admin_ui)):
+    """Admin-voorbeeld van een pagina — óók een concept (ongepubliceerd), #554. De
+    publieke /{slug}-route blijft enkel gepubliceerde pagina's tonen (404 op concept),
+    dus 'Bekijk' linkt hierheen zodat je een concept kan bekijken vóór publicatie."""
+    from app.domains.cms.models import CmsPage
+    from app.domains.cms.render import render_cms_content
+    from app.ui import site_context
+
+    page = db.query(CmsPage).filter(CmsPage.id == page_id).first()
+    if page is None:
+        raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
+    return templates.TemplateResponse(request, "cms_pagina.html", {
+        **site_context(db, request), "page": page,
+        "content_html": render_cms_content(page.content or ""),
+        "concept": not page.is_published})
