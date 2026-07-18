@@ -277,3 +277,19 @@
   {{ caller() }}
 </div>
 {%- endmacro %}
+
+{# Sectie-header-balk (#524, stijlgids §10): een gekleurde balk bovenaan een
+   sectie-kaart met de titel/index links en de acties rechts (↑ ↓ blauw-op-balk,
+   Bewerken-toggle, × rood). Eén implementatie zodat elke sectie-editor gelijk is.
+   De kaart heeft `x-data="{ sedit: false }"`; `edit_attrs` togglet die. #}
+{% macro section_bar(label, up_attrs="", down_attrs="", edit_attrs="", delete_attrs="") -%}
+<div class="flex items-center justify-between gap-2 bg-blue-700 text-white px-4 py-2">
+  <span class="font-semibold text-sm">{{ label }}</span>
+  <div class="flex items-center gap-1">
+    {% if up_attrs %}<button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/20" {{ up_attrs|safe }} aria-label="{{ _('Omhoog') }}">↑</button>{% endif %}
+    {% if down_attrs %}<button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/20" {{ down_attrs|safe }} aria-label="{{ _('Omlaag') }}">↓</button>{% endif %}
+    {% if edit_attrs %}<button type="button" class="px-2 py-0.5 rounded hover:bg-white/20 text-sm" {{ edit_attrs|safe }}><span x-show="!sedit">{{ _("Bewerken") }}</span><span x-show="sedit" x-cloak>{{ _("Annuleren") }}</span></button>{% endif %}
+    {% if delete_attrs %}<button type="button" class="px-2 py-0.5 rounded bg-red-500/30 hover:bg-red-500/60" {{ delete_attrs|safe }} aria-label="{{ _('Verwijderen') }}">×</button>{% endif %}
+  </div>
+</div>
+{%- endmacro %}

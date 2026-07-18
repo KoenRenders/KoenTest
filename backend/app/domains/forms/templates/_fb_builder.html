@@ -119,17 +119,15 @@
 
   {# Secties + velden #}
   {% for g in grouped %}
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ sedit: false }">
-    <div class="flex items-center justify-between">
-      <h3 class="font-semibold">{{ g.section.title or _("Sectie ") ~ loop.index }}
-        {% if g.section.next_is_end %}{{ ui.badge(_("daarna: einde"), "yellow") }}{% elif g.section.next_section_id %}{{ ui.badge(_("daarna: sprong"), "yellow") }}{% endif %}</h3>
-      <div class="flex gap-1">
-        {{ ui.btn_secondary("↑", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
-        {{ ui.btn_secondary("↓", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
-        {{ ui.btn_secondary(_("Bewerken"), attrs='@click="sedit = !sedit"') }}
-        {{ ui.btn_danger("×", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Sectie"), g.section.title or _("Sectie"))) }}
-      </div>
-    </div>
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden" x-data="{ sedit: false }">
+    {# #524 (§10): gekleurde sectie-header-balk met "Sectie X van N" + acties. #}
+    {{ ui.section_bar(_("Sectie") ~ " " ~ loop.index ~ " " ~ _("van") ~ " " ~ (grouped|length) ~ (" · " ~ g.section.title if g.section.title else ""),
+         up_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
+         down_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
+         edit_attrs='@click="sedit = !sedit"',
+         delete_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Sectie"), g.section.title or _("Sectie"))) }}
+    <div class="p-4">
+    {% if g.section.next_is_end %}<p class="mb-2">{{ ui.badge(_("daarna: einde"), "yellow") }}</p>{% elif g.section.next_section_id %}<p class="mb-2">{{ ui.badge(_("daarna: sprong"), "yellow") }}</p>{% endif %}
     <form x-show="sedit" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-sm"
           hx-post="/admin/formulieren/{{ form.id }}/secties/{{ g.section.id }}" hx-target="#fb-detail" hx-swap="innerHTML">
       <div>{{ ui.label(_("Titel"), "st-" ~ g.section.id) }}<input name="title" id="st-{{ g.section.id }}" value="{{ g.section.title or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
@@ -146,6 +144,7 @@
       {% for f in g.fields %}{{ veld_kaart(f) }}{% endfor %}
     </div>
     {{ veld_toevoegen_form(g.section.id) }}
+    </div>
   </div>
   {% endfor %}
 
