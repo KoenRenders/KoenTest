@@ -1,21 +1,15 @@
-{# Herbruikbare persoonsvelden; verwacht prefix-loze namen. Waarden via `p` (of leeg). #}
+{# Admin gezinslid-velden via de gedeelde macro (#511). `p` = FamilyMemberResponse
+   (edit) of None (toevoegen). We bouwen er een base-keyed person-VM-dict van; let op:
+   het schema-attribuut heet `gender` maar de macro/DB gebruikt `gender_code`. De
+   relatie zit nu IN de veldenset (levert #498); een hoofdlid houdt HOOFDLID vast. #}
 {% import "_macros.html" as ui %}
-<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-  <div>{{ ui.label(_("Voornaam"), "first_name", required=True) }}
-    <input name="first_name" id="first_name" required value="{{ p.first_name if p else '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-  <div>{{ ui.label(_("Achternaam"), "last_name", required=True) }}
-    <input name="last_name" id="last_name" required value="{{ p.last_name if p else '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-  <div>{{ ui.label(_("Geboortedatum"), "date_of_birth") }}
-    <input type="date" name="date_of_birth" id="date_of_birth" value="{{ p.date_of_birth if p and p.date_of_birth else '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-  <div>{{ ui.label(_("Geslacht"), "gender_code") }}
-    <select name="gender_code" id="gender_code" class="w-full border border-gray-300 rounded-lg px-3 py-2">
-      <option value="">—</option>
-      {% for g in gender_codes %}<option value="{{ g.code }}" {% if p and p.gender == g.code %}selected{% endif %}>{{ g.value }}</option>{% endfor %}
-    </select></div>
-  <div>{{ ui.label(_("E-mail"), "contact_email") }}
-    <input type="email" name="contact_email" id="contact_email" value="{{ p.email if p and p.email else '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-  <div>{{ ui.label(_("GSM"), "mobile") }}
-    <input name="mobile" id="mobile" value="{{ p.mobile if p and p.mobile else '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-  <div>{{ ui.label(_("Telefoon"), "phone") }}
-    <input name="phone" id="phone" value="{{ p.phone if p and p.phone else '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-</div>
+{% set pv = None %}
+{% if p %}{% set pv = {
+     "first_name": p.first_name, "last_name": p.last_name,
+     "date_of_birth": p.date_of_birth.isoformat() if p.date_of_birth else "",
+     "gender_code": p.gender, "email": p.email, "mobile": p.mobile,
+     "phone": p.phone, "relation_type": p.relation_type} %}{% endif %}
+{{ ui.person_fields(name_prefix="", id_prefix=(("lp" ~ p.id ~ "-") if p else "np-"),
+                    pv=pv, gender_codes=gender_codes, relation_types=relation_types,
+                    include_relation=True,
+                    hoofdlid=(p is not none and p.relation_type == "HOOFDLID")) }}

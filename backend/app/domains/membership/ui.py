@@ -199,7 +199,7 @@ async def gezin_persoon_opslaan(person_id: int, request: Request,
         "last_name": _v("last_name"),
         "date_of_birth": _v("date_of_birth") or None,
         "gender_code": _v("gender_code") or None,
-        "email": _v("contact_email") or None,
+        "email": _v("email") or None,
         "phone": _v("phone") or None,
         "mobile": _v("mobile") or None,
     }
@@ -231,7 +231,7 @@ async def gezin_persoon_toevoegen(request: Request, db: Session = Depends(get_db
         "last_name": _v("last_name"),
         "date_of_birth": _v("date_of_birth") or None,
         "gender_code": _v("gender_code") or None,
-        "email": _v("contact_email") or None,
+        "email": _v("email") or None,
         "phone": _v("phone") or None,
         "mobile": _v("mobile") or None,
     }, person=person, db=db)

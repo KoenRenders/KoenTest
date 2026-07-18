@@ -158,3 +158,52 @@
   {% if json_url %}<a href="{{ json_url }}" class="inline-flex items-center gap-1 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg px-3 py-1.5 text-sm font-medium">⬇ JSON</a>{% endif %}
 </div>
 {%- endmacro %}
+
+{# Gedeelde gezinslid-veldenset (#511): één bron voor Word lid + admin-leden + Mijn
+   gezin — einde van de 3-voudige duplicatie. `name_prefix` absorbeert het submit-
+   schema (publiek `m{i}_`, admin/portaal leeg); `id_prefix` houdt de element-ids
+   uniek op de pagina. Databron: `pv` = base-keyed person-VM-dict (admin/portaal) OF
+   `values` = prefixed dict (publiek, voorgevuld na validatiefout). `hoofdlid` maakt
+   e-mail/GSM verplicht en zet de relatie vast op HOOFDLID i.p.v. een keuze.
+   Delete/kaart-header blijft per scherm (plaatsing verschilt). #}
+{% macro person_fields(name_prefix="", id_prefix="", pv=None, values=None,
+                       gender_codes=[], relation_types=[], include_relation=True,
+                       hoofdlid=False) -%}
+{% set _fn = pv.get('first_name') if pv else (values.get(name_prefix ~ 'first_name') if values else '') %}
+{% set _ln = pv.get('last_name') if pv else (values.get(name_prefix ~ 'last_name') if values else '') %}
+{% set _dob = pv.get('date_of_birth') if pv else (values.get(name_prefix ~ 'date_of_birth') if values else '') %}
+{% set _gender = pv.get('gender_code') if pv else (values.get(name_prefix ~ 'gender_code') if values else '') %}
+{% set _email = pv.get('email') if pv else (values.get(name_prefix ~ 'email') if values else '') %}
+{% set _mobile = pv.get('mobile') if pv else (values.get(name_prefix ~ 'mobile') if values else '') %}
+{% set _phone = pv.get('phone') if pv else (values.get(name_prefix ~ 'phone') if values else '') %}
+{% set _rel = pv.get('relation_type') if pv else (values.get(name_prefix ~ 'relation_type') if values else '') %}
+<div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+  <div>{{ label(_("Voornaam"), id_prefix ~ "first_name", required=True) }}
+    <input name="{{ name_prefix }}first_name" id="{{ id_prefix }}first_name" required value="{{ _fn or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+  <div>{{ label(_("Achternaam"), id_prefix ~ "last_name", required=True) }}
+    <input name="{{ name_prefix }}last_name" id="{{ id_prefix }}last_name" required value="{{ _ln or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+  <div>{{ label(_("Geboortedatum"), id_prefix ~ "date_of_birth") }}
+    <input type="date" name="{{ name_prefix }}date_of_birth" id="{{ id_prefix }}date_of_birth" value="{{ _dob or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+  <div>{{ label(_("Geslacht"), id_prefix ~ "gender_code") }}
+    <select name="{{ name_prefix }}gender_code" id="{{ id_prefix }}gender_code" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+      <option value="">—</option>
+      {% for g in gender_codes %}<option value="{{ g.code }}" {% if _gender == g.code %}selected{% endif %}>{{ g.value }}</option>{% endfor %}
+    </select></div>
+  <div>{{ label(_("E-mail") ~ (" *" if hoofdlid else ""), id_prefix ~ "email") }}
+    <input type="email" name="{{ name_prefix }}email" id="{{ id_prefix }}email" {% if hoofdlid %}required{% endif %} value="{{ _email or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+  <div>{{ label(_("GSM") ~ (" *" if hoofdlid else ""), id_prefix ~ "mobile") }}
+    <input type="tel" name="{{ name_prefix }}mobile" id="{{ id_prefix }}mobile" {% if hoofdlid %}required{% endif %} value="{{ _mobile or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+  <div>{{ label(_("Telefoon"), id_prefix ~ "phone") }}
+    <input name="{{ name_prefix }}phone" id="{{ id_prefix }}phone" value="{{ _phone or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+  {% if hoofdlid %}
+  <input type="hidden" name="{{ name_prefix }}relation_type" value="HOOFDLID">
+  {% elif include_relation %}
+  <div>{{ label(_("Relatie"), id_prefix ~ "relation_type") }}
+    <select name="{{ name_prefix }}relation_type" id="{{ id_prefix }}relation_type" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+      {% for r in relation_types if r.code != "HOOFDLID" %}
+      <option value="{{ r.code }}" {% if _rel == r.code %}selected{% endif %}>{{ r.value }}</option>
+      {% endfor %}
+    </select></div>
+  {% endif %}
+</div>
+{%- endmacro %}

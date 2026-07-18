@@ -45,9 +45,10 @@ def test_persoon_bewerken_via_scherm(client, db_session):
     member, person = _family_with_address(db_session)
     csrf = _login(client)
 
+    # #511: de veldnaam is gestandaardiseerd naar `email` (was `contact_email`).
     resp = client.post(f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
                        data={"first_name": "Nieuw", "last_name": "Naam",
-                             "contact_email": "nieuw@example.com",
+                             "email": "nieuw@example.com",
                              "mobile": "0470000000"},
                        headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 200 and "Nieuw Naam" in resp.text
@@ -57,6 +58,25 @@ def test_persoon_bewerken_via_scherm(client, db_session):
              .filter(ContactDetail.person_id == person.id,
                      ContactDetail.contact_type_code == "EMAIL").all()]
     assert "nieuw@example.com" in mails
+
+
+def test_persoon_toevoegen_met_relatietype(client, db_session):
+    """#498/#511: het relatietype zit nu IN de gedeelde veldenset en wordt bij het
+    toevoegen van een gezinslid via het admin-scherm bewaard."""
+    from app.domains.mdm.api import MemberPerson
+
+    member, person = _family_with_address(db_session)
+    csrf = _login(client)
+    resp = client.post(f"/admin/leden/gezin/{member.id}/personen",
+                       data={"first_name": "Partner", "last_name": "Test",
+                             "email": "partner@example.com", "relation_type": "PARTNER"},
+                       headers={"X-CSRF-Token": csrf})
+    assert resp.status_code == 200 and "Partner Test" in resp.text
+    db_session.expire_all()
+    nieuw = db_session.query(Person).filter(Person.first_name == "Partner").one()
+    mp = db_session.query(MemberPerson).filter(
+        MemberPerson.person_id == nieuw.id).one()
+    assert mp.relation_type == "PARTNER"
 
 
 def test_mutatie_zonder_csrf_geweigerd(client, db_session):

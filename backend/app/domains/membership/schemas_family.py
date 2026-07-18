@@ -30,6 +30,10 @@ class FamilyMemberResponse(BaseModel):
     gender: Optional[str] = None
     email: Optional[str] = None
     phone: Optional[str] = None
+    # #511: mobile ontbrak in de response — `_person_to_schema` gaf de waarde al mee,
+    # maar Pydantic negeerde ze zonder veld, waardoor het admin-bewerkformulier GSM
+    # nooit voorgevuld toonde. Nu wél opgenomen (additief, ook voor de JSON-API).
+    mobile: Optional[str] = None
     relation_type: str
 
     model_config = {"from_attributes": True}
