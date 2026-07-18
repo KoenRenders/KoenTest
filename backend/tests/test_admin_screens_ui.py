@@ -128,6 +128,22 @@ def test_ledenwijzigingen_en_info(client):
     assert "Mollie-modus" in info.text
 
 
+def test_cms_concept_voorbeeld(client, db_session):
+    """#554: het admin-voorbeeld toont een concept-pagina (200) terwijl de publieke
+    /{slug} 404 blijft tot publicatie."""
+    _login(client)
+    page = CmsPage(title="Geheim", slug="geheim-concept",
+                   content="<p>nog niet live</p>", is_published=False,
+                   show_in_nav=False, sort_order=0)
+    db_session.add(page)
+    db_session.commit()
+
+    assert client.get("/geheim-concept").status_code == 404  # publiek: concept = 404
+    prev = client.get(f"/admin/paginas/{page.id}/voorbeeld")
+    assert prev.status_code == 200
+    assert "nog niet live" in prev.text and "Concept-voorbeeld" in prev.text
+
+
 def test_gebruikers_geen_dode_rolvinken(client):
     """#521 (zoals #458 voor USER): het gebruikersformulier biedt geen MEMBER-
     (of USER-)checkbox meer aan; betekenisvolle backoffice-rollen blijven wél."""

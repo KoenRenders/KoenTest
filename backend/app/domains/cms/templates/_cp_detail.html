@@ -3,7 +3,9 @@
   <div class="flex items-start justify-between mb-4">
     <h2 class="text-lg font-bold text-blue-700">{{ p.title }}</h2>
     <div class="flex gap-2">
-      <a href="/{{ p.slug }}" target="_blank" rel="noopener noreferrer"
+      {# #554: linkt naar de admin-voorbeeld-route zodat ook een concept (nog niet
+         gepubliceerd) bekeken kan worden; de publieke /{slug} geeft 404 op concept. #}
+      <a href="/admin/paginas/{{ p.id }}/voorbeeld" target="_blank" rel="noopener noreferrer"
          class="text-sm text-blue-700 underline self-center">{{ _("Bekijk") }}</a>
       {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/paginas/' ~ p.id ~ '/verwijderen" hx-target="#cp-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Pagina"), p.title) ~ ' hx-on::after-request="document.getElementById(\'cp-detail\').innerHTML=\'\'"') }}
     </div>
