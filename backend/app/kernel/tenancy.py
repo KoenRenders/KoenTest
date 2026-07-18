@@ -45,34 +45,48 @@ class TenantMixin:
         return Column(Integer, nullable=False, index=True, default=_tenant_default)
 
 
-# Tenant-codes (organizations.code) → id, voor pad-prefix- en hostnaamresolutie.
+# Tenant-codes (organizations.code) → id. Deze hardgecodeerde map blijft het
+# vangnet/de default voor de gekende tenants; de LIVE map komt sinds #546 dynamisch
+# uit `organizations` (zie tenant_codes()), zodat een nieuwe tenant zonder
+# codewijziging resolvet.
 TENANT_CODES: dict[str, int] = {
     "raakmillegem": TENANT_MILLEGEM_ID,
     "raakvoorbeeldafdeling": TENANT_VOORBEELD_ID,
 }
 
+# De LIVE code→id-map komt sinds #546 dynamisch uit `organizations`. Die DB-lezing
+# hoort NIET in de kernel (importgrens: kernel → domains verboden): ze zit in
+# `app.domains.mdm.api.tenant_codes()`. De middleware geeft het resultaat als
+# `codes`-param door aan de resolve-functies hieronder; zonder param blijft de
+# hardgecodeerde TENANT_CODES het vangnet.
+
 
 def resolve_tenant(host: str | None, path: str,
-                   hostname_map: dict[str, str]) -> int:
+                   hostname_map: dict[str, str],
+                   codes: dict[str, int] | None = None) -> int:
     """Resolutievolgorde §7: hostname → pad-prefix → default (Millegem).
 
     ``hostname_map`` komt uit de settings (``TENANT_HOSTNAMES``), bv.
     ``{"raakmillegem.be": "raakmillegem"}``. Een pad-prefix als
     ``/raakvoorbeeldafdeling/...`` wint enkel als de hostname niets oplevert.
+    ``codes`` = de code→id-map (default: de hardgecodeerde TENANT_CODES; de
+    middleware geeft de dynamische tenant_codes() door — #546).
     """
+    codes = codes if codes is not None else TENANT_CODES
     host = (host or "").split(":")[0].lower().removeprefix("www.")
     code = hostname_map.get(host)
-    if code in TENANT_CODES:
-        return TENANT_CODES[code]
+    if code in codes:
+        return codes[code]
     eerste = path.lstrip("/").split("/", 1)[0].lower()
-    if eerste in TENANT_CODES:
-        return TENANT_CODES[eerste]
+    if eerste in codes:
+        return codes[eerste]
     return DEFAULT_TENANT_ID
 
 
 def resolve_request(host: str | None, path: str, cookie_code: str | None,
                     hostname_map: dict[str, str],
-                    platform_hosts: set[str]) -> tuple[int, str | None, bool]:
+                    platform_hosts: set[str],
+                    codes: dict[str, int] | None = None) -> tuple[int, str | None, bool]:
     """Volledige request-resolutie (§7, 5c): geeft (tenant_id, herschreven pad
     of None, platform-landing?).
 
@@ -84,19 +98,20 @@ def resolve_request(host: str | None, path: str, cookie_code: str | None,
       de default (Millegem).
     - De wortel van een platform-host (renko.be, "/") is de landingspagina.
     """
+    codes = codes if codes is not None else TENANT_CODES
     genormaliseerd = (host or "").split(":")[0].lower().removeprefix("www.")
     eerste = path.lstrip("/").split("/", 1)[0].lower()
-    if eerste in TENANT_CODES:
+    if eerste in codes:
         rest = path.lstrip("/")[len(eerste):] or "/"
-        return TENANT_CODES[eerste], rest, False
+        return codes[eerste], rest, False
     code = hostname_map.get(genormaliseerd)
-    if code in TENANT_CODES:
-        return TENANT_CODES[code], None, False
+    if code in codes:
+        return codes[code], None, False
     if genormaliseerd in platform_hosts:
         if path == "/":
             return DEFAULT_TENANT_ID, None, True
-        if cookie_code in TENANT_CODES:
-            return TENANT_CODES[cookie_code], None, False
+        if cookie_code in codes:
+            return codes[cookie_code], None, False
     return DEFAULT_TENANT_ID, None, False
 
 

@@ -164,15 +164,20 @@ async def _tenant_context(request: Request, call_next):
     vervolgnavigatie op dezelfde tenant blijft; noindex-tenants (demo) krijgen
     een X-Robots-Tag-header."""
     from app.kernel.tenancy import (
-        DEFAULT_TENANT_ID, TENANT_CODES, current_tenant_id, parse_hostname_map,
+        DEFAULT_TENANT_ID, current_tenant_id, parse_hostname_map,
         resolve_request,
     )
+    from app.domains.mdm.api import tenant_codes
 
+    # Dynamische code→id-map uit de DB (#546): een nieuw aangemaakte tenant resolvet
+    # zonder codewijziging. Gecachet, dus geen query-per-request na de eerste.
+    codes = tenant_codes()
     tenant, nieuw_pad, platform_landing = resolve_request(
         request.headers.get("host"), request.url.path,
         request.cookies.get("raak_tenant"),
         parse_hostname_map(settings.tenant_hostnames),
         {h.strip().lower() for h in settings.platform_hosts.split(",") if h.strip()},
+        codes,
     )
     if nieuw_pad is not None:
         request.scope["path"] = nieuw_pad
@@ -197,7 +202,7 @@ async def _tenant_context(request: Request, call_next):
         current_locale.reset(taal_token)
         current_tenant_id.reset(token)
     if nieuw_pad is not None:
-        code = next(c for c, t in TENANT_CODES.items() if t == tenant)
+        code = next(c for c, t in codes.items() if t == tenant)
         response.set_cookie("raak_tenant", code, httponly=True, samesite="lax")
     if tenant != DEFAULT_TENANT_ID:
         from app.database import SessionLocal

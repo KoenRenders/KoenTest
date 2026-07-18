@@ -29,6 +29,10 @@ from app.domains.mdm.service import (  # noqa: F401
     resolve,
     unmerge_person,
 )
+from app.domains.mdm.tenant_lookup import (  # noqa: F401
+    invalidate_tenant_codes,
+    tenant_codes,
+)
 
 __all__ = [
     "Address", "AddressHistory", "ContactDetail", "ContactDetailHistory",
@@ -36,4 +40,5 @@ __all__ = [
     "MemberHistory", "MemberPerson", "MemberPersonHistory", "Organization",
     "Person", "PersonHistory", "PostalCode", "RelationTypeCode",
     "MergeError", "merge_persons", "resolve", "unmerge_person",
+    "tenant_codes", "invalidate_tenant_codes",
 ]
