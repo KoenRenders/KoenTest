@@ -18,6 +18,16 @@
   // Sluit bestandsbijlagen af (één document-listener dekt elke, ook later
   // ge-swapte, editor). Sluit aan bij de verborgen bijlage-knop hierboven.
   addEventListener("trix-file-accept", function (e) { e.preventDefault(); });
+  // #555: H2 + H3 als kop-niveaus (Trix kent standaard enkel heading1/<h1>).
+  // Vóór elke editor-init het blok-attribuut registreren; de knoppen in
+  // _cp_detail.html activeren ze via de editor-API. h2/h3 staan al in de
+  // sanitisatie-allowlist en hebben al .cms-content-stijlen.
+  addEventListener("trix-before-initialize", function () {
+    if (window.Trix && !Trix.config.blockAttributes.heading2) {
+      Trix.config.blockAttributes.heading2 = { tagName: "h2", terminal: true, breakOnReturn: true, group: false };
+      Trix.config.blockAttributes.heading3 = { tagName: "h3", terminal: true, breakOnReturn: true, group: false };
+    }
+  });
 </script>
 {{ ui.page_header(_("CMS-pagina's")) }}
 <div class="flex flex-col lg:flex-row gap-6">

@@ -48,3 +48,13 @@ def test_trix_output_tags_survive_sanitisation():
 def test_none_and_empty_passthrough():
     assert sanitize_cms_html(None) is None
     assert sanitize_cms_html("") == ""
+
+
+def test_h2_h3_en_bron_sanitisatie():
+    """#555: H2/H3-koppen overleven de sanitisatie; een <script> uit de HTML-bron
+    wordt gestript (de sanitisatie geldt ongeacht editor- of bron-invoer)."""
+    dirty = ("<h2>Kop twee</h2><h3>Kop drie</h3><p>ok</p>"
+             "<script>alert(1)</script>")
+    clean = sanitize_cms_html(dirty)
+    assert "<h2>" in clean and "<h3>" in clean
+    assert "<script>" not in clean and "alert(1)" not in clean

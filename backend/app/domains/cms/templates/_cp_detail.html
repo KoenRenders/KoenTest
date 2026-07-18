@@ -24,22 +24,41 @@
          live in terug; het formulier submit `content`. De opgeslagen HTML wordt
          server-side gesanitiseerd (nh3 via render_cms_content) vóór de |safe-render. #}
       <input type="hidden" id="cp-content-input" name="content" value="{{ p.content or '' }}">
-      {% if placeholders %}
-      {# Klik-invoegbare placeholder-chips (#476): voegen de code op de cursor in via
-         de Trix editor-API. onmousedown houdt de editorfocus vast. #}
-      <div class="flex flex-wrap gap-1 bg-gray-50 border border-gray-200 border-b-0 rounded-t-lg p-1 text-xs">
-        <span class="px-1 py-1 text-gray-400">{{ _("Invoegen:") }}</span>
-        {% for ph in placeholders %}
-        <button type="button" class="px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 font-mono"
-                onmousedown="event.preventDefault()"
-                onclick="document.getElementById('cp-trix').editor.insertString('{{ ph.code }}')"
-                title="{{ ph.label }}">{{ ph.code }}</button>
-        {% endfor %}
+      <div x-data="{ src: false }">
+        {# #555: extra kop-niveaus (H2/H3) + HTML-bron-toggle. De H2/H3-knoppen
+           activeren de blok-attributen (geregistreerd in admin_paginas.html) via de
+           Trix editor-API; onmousedown houdt de editorfocus vast. #}
+        <div class="flex flex-wrap gap-1 bg-gray-50 border border-gray-200 border-b-0 rounded-t-lg p-1 text-xs items-center">
+          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200 font-semibold" x-show="!src"
+                  onmousedown="event.preventDefault()"
+                  onclick="var e=document.getElementById('cp-trix').editor; e.attributeIsActive('heading2') ? e.deactivateAttribute('heading2') : e.activateAttribute('heading2')"
+                  title="{{ _('Kop 2') }}">H2</button>
+          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200 font-semibold" x-show="!src"
+                  onmousedown="event.preventDefault()"
+                  onclick="var e=document.getElementById('cp-trix').editor; e.attributeIsActive('heading3') ? e.deactivateAttribute('heading3') : e.activateAttribute('heading3')"
+                  title="{{ _('Kop 3') }}">H3</button>
+          {% if placeholders %}
+          <span class="px-1 py-1 text-gray-400" x-show="!src">{{ _("Invoegen:") }}</span>
+          {% for ph in placeholders %}
+          <button type="button" class="px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 font-mono" x-show="!src"
+                  onmousedown="event.preventDefault()"
+                  onclick="document.getElementById('cp-trix').editor.insertString('{{ ph.code }}')"
+                  title="{{ ph.label }}">{{ ph.code }}</button>
+          {% endfor %}
+          {% endif %}
+          {# HTML-bron ↔ editor. Bij schakelen synchroniseren via de hidden input. #}
+          <button type="button" class="ml-auto px-2 py-1 rounded hover:bg-gray-200 font-mono"
+                  @click="if (!src) { $refs.htmlsrc.value = document.getElementById('cp-content-input').value; } else { document.getElementById('cp-trix').editor.loadHTML($refs.htmlsrc.value || ''); } src = !src">
+            <span x-show="!src">&lt;/&gt; HTML</span><span x-show="src" x-cloak>✎ {{ _("Editor") }}</span>
+          </button>
+        </div>
+        <trix-editor id="cp-trix" input="cp-content-input" x-show="!src"
+                     class="cms-content bg-white text-sm min-h-[16rem] rounded-t-none"></trix-editor>
+        <textarea x-ref="htmlsrc" x-show="src" x-cloak
+                  @input="document.getElementById('cp-content-input').value = $refs.htmlsrc.value"
+                  class="w-full min-h-[16rem] border border-gray-300 rounded-b-lg px-3 py-2 font-mono text-xs bg-white"></textarea>
       </div>
-      {% endif %}
-      <trix-editor id="cp-trix" input="cp-content-input"
-                   class="cms-content bg-white text-sm min-h-[16rem]{% if placeholders %} rounded-t-none{% endif %}"></trix-editor>
-      <p class="text-xs text-gray-400 mt-1">{{ _("Opmaak via de werkbalk; de onderliggende HTML wordt bewaard en veilig gesanitiseerd.") }}</p></div>
+      <p class="text-xs text-gray-400 mt-1">{{ _("Opmaak via de werkbalk (incl. H2/H3); of bewerk de HTML-bron. De opgeslagen HTML wordt server-side veilig gesanitiseerd.") }}</p></div>
     <div class="flex flex-wrap items-center gap-5 text-sm">
       <label class="flex items-center gap-2"><input type="checkbox" name="is_published" value="1" {% if p.is_published %}checked{% endif %}> {{ _("Gepubliceerd") }}</label>
       <label class="flex items-center gap-2"><input type="checkbox" name="show_in_nav" value="1" {% if p.show_in_nav %}checked{% endif %}> {{ _("In navigatie") }}</label>
