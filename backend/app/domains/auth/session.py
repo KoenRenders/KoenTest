@@ -74,10 +74,17 @@ def _session_raw(request: Request) -> Optional[str]:
     return request.cookies.get(SESSION_COOKIE)
 
 
-def require_admin_ui(request: Request, db: Session = Depends(get_db)) -> str:
-    """Identiteit + ADMIN/FINANCE-rol voor server-rendered admin-schermen.
-    Zonder geldige sessie: redirect naar de bestaande login (303 via HTTPException
-    zou de flow breken; we sturen een 401-pagina-redirect)."""
+# Rollenmodel (#530, beslissing Koen): FINANCE = enkel betalingen/vorderingen;
+# de algemene admin-schermen zijn ADMIN (of OPERATOR-superuser). ACCOUNT_ADMIN is
+# nog niet functioneel ingevuld → geen algemene toegang tot het gedefinieerd is.
+_GENERAL_ADMIN_ROLES = {"ADMIN", "OPERATOR"}
+_PAYMENTS_VIEW_ROLES = {"ADMIN", "FINANCE", "OPERATOR"}
+
+
+def _require_ui_roles(request: Request, db: Session, allowed: set[str]) -> str:
+    """Identiteit + rolcheck voor server-rendered schermen. Zonder geldige sessie:
+    een 401-pagina-redirect naar de login (303 via HTTPException zou de htmx-flow
+    breken)."""
     from app.domains.auth.service import get_user_roles  # lazy: vermijdt cykel
 
     email = read_session_value(_session_raw(request))
@@ -87,10 +94,23 @@ def require_admin_ui(request: Request, db: Session = Depends(get_db)) -> str:
             detail=_("Niet aangemeld"),
             headers={"HX-Redirect": "/aanmelden", "Location": "/aanmelden"},
         )
-    roles = get_user_roles(db, email)
-    if not ({"ADMIN", "FINANCE", "ACCOUNT_ADMIN", "OPERATOR"} & set(roles)):
+    if not (allowed & set(get_user_roles(db, email))):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_("Geen toegang"))
     return email
+
+
+def require_admin_ui(request: Request, db: Session = Depends(get_db)) -> str:
+    """Algemene admin-schermen: enkel ADMIN of OPERATOR (#530). FINANCE-only en het
+    (nog ongedefinieerde) ACCOUNT_ADMIN komen hier NIET in — die scheiding voorkomt
+    dat een penningmeester leden/CMS/activiteiten kan muteren."""
+    return _require_ui_roles(request, db, _GENERAL_ADMIN_ROLES)
+
+
+def require_finance_ui(request: Request, db: Session = Depends(get_db)) -> str:
+    """Betalingen-schermen: ADMIN, FINANCE of OPERATOR mogen kijken/exporteren. De
+    mutaties (bevestigen/terugbetalen/bewerken) zijn nauwer, FINANCE/OPERATOR — die
+    check zit in `payment/ui.py` (`_require_finance`)."""
+    return _require_ui_roles(request, db, _PAYMENTS_VIEW_ROLES)
 
 
 def require_csrf(request: Request) -> None:

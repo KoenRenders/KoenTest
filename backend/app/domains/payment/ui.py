@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
-    SESSION_COOKIE, csrf_token_for, get_user_roles, require_admin_ui, require_csrf,
+    SESSION_COOKIE, csrf_token_for, get_user_roles, require_finance_ui, require_csrf,
 )
 from app.ui import admin_nav, templates
 from app.i18n import _
@@ -28,7 +28,9 @@ NAV = admin_nav("/admin/betalingen")
 
 
 def _require_finance(db: Session, email: str) -> None:
-    if "FINANCE" not in get_user_roles(db, email):
+    """Betaal-MUTATIES (bevestigen/terugbetalen/bewerken) zijn FINANCE-only —
+    financiële scheiding (#83). OPERATOR (platform-superuser) mag alles (#530)."""
+    if not ({"FINANCE", "OPERATOR"} & set(get_user_roles(db, email))):
         raise HTTPException(status_code=403,
                             detail=_("Alleen FINANCE mag betalingen wijzigen."))
 
@@ -107,21 +109,24 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
 
 @router.get("/admin/betalingen", response_class=HTMLResponse)
 def betalingen_page(request: Request, db: Session = Depends(get_db),
-                    email: str = Depends(require_admin_ui)):
+                    email: str = Depends(require_finance_ui)):
+    # Role-aware nav (#530): een FINANCE-only gebruiker (geen ADMIN/OPERATOR) ziet
+    # enkel de schermen die hij mag openen — anders 403't elke andere nav-link.
+    nav = admin_nav("/admin/betalingen", roles=get_user_roles(db, email))
     return templates.TemplateResponse(request, "betalingen.html",
-                                      {"nav_items": NAV, **_ctx(request, db, email)})
+                                      {"nav_items": nav, **_ctx(request, db, email)})
 
 
 @router.get("/admin/betalingen/lijst", response_class=HTMLResponse)
 def betalingen_lijst(request: Request, db: Session = Depends(get_db),
-                     email: str = Depends(require_admin_ui)):
+                     email: str = Depends(require_finance_ui)):
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
                                       _ctx(request, db, email))
 
 
 @router.get("/admin/betalingen/export")
 def betalingen_export(request: Request, db: Session = Depends(get_db),
-                      email: str = Depends(require_admin_ui)):
+                      email: str = Depends(require_finance_ui)):
     from app.domains.payment.exports import build_payments_export_ods
 
     context = (request.query_params.get("context") or "all").strip()
@@ -138,7 +143,7 @@ def betalingen_export(request: Request, db: Session = Depends(get_db),
              dependencies=[Depends(require_csrf)])
 def betaling_bevestigen(record_id: str, request: Request,
                         db: Session = Depends(get_db),
-                        email: str = Depends(require_admin_ui),
+                        email: str = Depends(require_finance_ui),
                         note: str = Form("")):
     from app.domains.payment.api import confirm_manual_payment
 
@@ -155,7 +160,7 @@ def betaling_bevestigen(record_id: str, request: Request,
 @router.post("/admin/betalingen/{record_id}/refund", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
 def betaling_refund(record_id: str, request: Request, db: Session = Depends(get_db),
-                    email: str = Depends(require_admin_ui),
+                    email: str = Depends(require_finance_ui),
                     amount: str = Form(""), note: str = Form("")):
     from app.domains.payment.api import create_refund
 
@@ -176,7 +181,7 @@ def betaling_refund(record_id: str, request: Request, db: Session = Depends(get_
 @router.post("/admin/betalingen/{record_id}/bijwerken", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
 def betaling_bijwerken(record_id: str, request: Request, db: Session = Depends(get_db),
-                       email: str = Depends(require_admin_ui),
+                       email: str = Depends(require_finance_ui),
                        amount_paid: str = Form(""), note: str = Form("")):
     """Betaald bedrag invullen + als betaald bevestigen (#455)."""
     from app.domains.payment.api import confirm_manual_payment
@@ -201,7 +206,7 @@ def betaling_bijwerken(record_id: str, request: Request, db: Session = Depends(g
 @router.post("/admin/betalingen/{record_id}/bewerken", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
 def betaling_bewerken(record_id: str, request: Request, db: Session = Depends(get_db),
-                      email: str = Depends(require_admin_ui),
+                      email: str = Depends(require_finance_ui),
                       status: str = Form(""), amount_paid: str = Form(""),
                       note: str = Form("")):
     """Geünificeerde 'Bewerken' (#515): status + betaald bedrag + opmerking in één
@@ -230,7 +235,7 @@ def betaling_bewerken(record_id: str, request: Request, db: Session = Depends(ge
 @router.post("/admin/betalingen/{record_id}/verversen", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
 def betaling_verversen(record_id: str, request: Request, db: Session = Depends(get_db),
-                       email: str = Depends(require_admin_ui)):
+                       email: str = Depends(require_finance_ui)):
     """Mollie-status ophalen en toepassen (handmatige tegenhanger van de webhook, #455)."""
     from app.domains.payment.api import refresh_record_status
 
@@ -247,7 +252,7 @@ def betaling_verversen(record_id: str, request: Request, db: Session = Depends(g
 @router.post("/admin/betalingen/{record_id}/status", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
 def betaling_status(record_id: str, request: Request, db: Session = Depends(get_db),
-                    email: str = Depends(require_admin_ui),
+                    email: str = Depends(require_finance_ui),
                     status: str = Form(...), note: str = Form("")):
     """Vrije status-correctie door de penningmeester (#455)."""
     from app.domains.payment.api import set_payment_status
@@ -266,7 +271,7 @@ def betaling_status(record_id: str, request: Request, db: Session = Depends(get_
 @router.post("/admin/betalingen/{record_id}/verwijderen", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
 def betaling_verwijderen(record_id: str, request: Request, db: Session = Depends(get_db),
-                         email: str = Depends(require_admin_ui),
+                         email: str = Depends(require_finance_ui),
                          note: str = Form("")):
     """Betaal-/terugbetaalrecord verwijderen (soft-delete, uit het saldo, #455).
     Corrigeert ook een foute refund."""

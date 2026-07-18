@@ -55,9 +55,20 @@ def aanmelden_code(request: Request, db: Session = Depends(get_db),
         return templates.TemplateResponse(
             request, "_aanmelden_code.html",
             {"email": email, "error": _("Ongeldige of verlopen code.")})
+    # Landing naar wat de rol mag openen (#530): ADMIN/OPERATOR → werkbank;
+    # FINANCE-only → betalingen (werkbank zou 403'en); overige (gewoon lid) → gezin.
+    from app.domains.auth.service import get_user_roles
+
+    roles = set(get_user_roles(db, email))
+    if {"ADMIN", "OPERATOR"} & roles:
+        dest = "/admin/werkbank"
+    elif "FINANCE" in roles:
+        dest = "/admin/betalingen"
+    else:
+        dest = "/leden/gezin"
     response = templates.TemplateResponse(request, "_aanmelden_klaar.html", {})
     set_session_cookie(response, email)
-    response.headers["HX-Redirect"] = "/admin/werkbank"
+    response.headers["HX-Redirect"] = dest
     return response
 
 
