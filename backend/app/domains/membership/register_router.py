@@ -551,6 +551,16 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
     if not pc:
         raise HTTPException(status_code=422, detail=_("Onbekende postcode: %(postal_code)s") % {"postal_code": data.postal_code})
 
+    # Betekenis-regel (#551): voor de bijkomende gezinsleden (naast het hoofdlid)
+    # zijn geboortedatum én geslacht verplicht. Server-side afgedwongen zodat de
+    # regel geldt ongeacht de caller; de client-`required` is enkel UX.
+    for m in data.members:
+        if (m.relation_type or "").upper() != "HOOFDLID" and (
+                not m.date_of_birth or not m.resolved_gender_code):
+            raise HTTPException(
+                status_code=422,
+                detail=_("Geboortedatum en geslacht zijn verplicht voor bijkomende gezinsleden."))
+
     today = date.today()
 
     # Dedup: voorkom een dubbel lidmaatschap (en dus dubbele betaling) voor

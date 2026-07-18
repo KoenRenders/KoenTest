@@ -21,9 +21,9 @@ router = APIRouter(include_in_schema=False)
 # Bekende sleutels: (key, label, hulptekst). Secrets staan apart.
 BEKENDE_SLEUTELS = [
     ("display_name", "Naam", "Merk-/afzendnaam (mails, footer, titel). Default: Raak Millegem."),
-    ("tagline", "Tagline", "Ondertitel in de header. Default: Beleef meer in Millegem."),
+    ("tagline", "Tagline", "Ondertitel in de header. Leeg = geen ondertitel (#519)."),
     ("base_url", "Canonieke URL", "Publieke origin voor links in mails/Mollie/SEO, bv. https://raakmillegem.be."),
-    ("facebook_url", "Facebook-link", "Footer-link. Default: de Millegem-pagina."),
+    ("facebook_url", "Facebook-link", "Footer-link naar je Facebook-pagina. Leeg = geen Facebook-icoon (#519)."),
     ("instagram_url", "Instagram-link", "Footer-link. Leeg = niet tonen."),
     ("tiktok_url", "TikTok-link", "Footer-link. Leeg = niet tonen."),
     ("privacy_url", "Privacyverklaring-link", "Footer-link naar je privacyverklaring. Leeg = niet tonen."),
