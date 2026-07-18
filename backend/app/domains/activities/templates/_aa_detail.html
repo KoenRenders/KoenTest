@@ -46,7 +46,7 @@
 
   {# Datums #}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-    <h3 class="font-semibold mb-2">{{ _("Datums") }}</h3>
+    {{ ui.section_header(_("Datums")) }}
     {% for d in a.dates %}
     <div class="text-sm py-1 border-b border-gray-100" x-data="{ edit: false }">
       <div class="flex items-center justify-between">
@@ -84,9 +84,28 @@
     </form>
   </div>
 
-  {# Onderdelen + producten #}
+  {# Onderdelen-sectie (#509): sectiekop met "+ Onderdeel", sterk-afgelijnde
+     onderdeel-kaarten, en de producten genest in een subpaneel per onderdeel. #}
+  <div x-data="{ addcomp: false }">
+    {{ ui.section_header(_("Onderdelen"), _("+ Onderdeel"), '@click="addcomp = !addcomp"') }}
+    <form x-show="addcomp" x-cloak class="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-3 flex flex-wrap gap-2 items-end"
+          hx-post="/admin/activiteiten/{{ a.id }}/onderdelen" hx-target="#aa-detail" hx-swap="innerHTML">
+      <div>{{ ui.label(_("Nieuw onderdeel"), "nc-name", required=True) }}
+        <input name="name" id="nc-name" required class="border border-gray-300 rounded-lg px-3 py-2"></div>
+      <div>{{ ui.label(_("Max"), "nc-max") }}
+        <input name="max_participants" id="nc-max" class="w-24 border border-gray-300 rounded-lg px-3 py-2"></div>
+      <label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="team_name_required" value="1"> {{ _("Ploegnaam vereist") }}</label>
+      <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijf-URL"), "nc-ext") }}
+        <input name="external_register_url" id="nc-ext" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+      <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijvingen-URL"), "nc-exts") }}
+        <input name="external_registrations_url" id="nc-exts" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+      <div class="w-full sm:w-72">{{ ui.label(_("Info/reglement-URL"), "nc-info") }}
+        <input name="info_url" id="nc-info" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+      <div class="w-full flex gap-2">{{ ui.btn_primary(_("Toevoegen")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="addcomp = false"') }}</div>
+    </form>
+    <div class="space-y-3">
   {% for c in a.sub_registrations %}
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
+  <div class="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-4" x-data="{ edit: false }">
     <div class="flex items-center justify-between">
       <h3 class="font-semibold">{{ c.name }}
         {% if c.team_name_required %}{{ ui.badge(_("ploegnaam"), "blue") }}{% endif %}
@@ -132,7 +151,7 @@
         {{ ui.btn_secondary(_("Uploaden"), type="submit") }}
       </form>
     </div>
-    <div class="mt-3 space-y-1">
+    {% call ui.nested_panel(_("Producten")) %}
       {% for p in c.products %}
       <div class="border-t border-gray-100 py-1" x-data="{ ed: false }">
         <div class="flex items-center justify-between text-sm">
@@ -188,28 +207,10 @@
           </select></div>
         {{ ui.btn_primary(_("Toevoegen")) }}
       </form>
-    </div>
+    {% endcall %}
   </div>
   {% endfor %}
-
-  {# Onderdeel toevoegen #}
-  <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4">
-    <form class="flex flex-wrap gap-2 items-end"
-          hx-post="/admin/activiteiten/{{ a.id }}/onderdelen"
-          hx-target="#aa-detail" hx-swap="innerHTML">
-      <div>{{ ui.label(_("Nieuw onderdeel"), "nc-name", required=True) }}
-        <input name="name" id="nc-name" required class="border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div>{{ ui.label(_("Max"), "nc-max") }}
-        <input name="max_participants" id="nc-max" class="w-24 border border-gray-300 rounded-lg px-3 py-2"></div>
-      <label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="team_name_required" value="1"> {{ _("Ploegnaam vereist") }}</label>
-      <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijf-URL"), "nc-ext") }}
-        <input name="external_register_url" id="nc-ext" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijvingen-URL"), "nc-exts") }}
-        <input name="external_registrations_url" id="nc-exts" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div class="w-full sm:w-72">{{ ui.label(_("Info/reglement-URL"), "nc-info") }}
-        <input name="info_url" id="nc-info" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      {{ ui.btn_primary(_("Toevoegen")) }}
-    </form>
+    </div>
   </div>
 
   {# Inschrijvingen #}

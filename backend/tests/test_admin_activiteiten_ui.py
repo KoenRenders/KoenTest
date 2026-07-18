@@ -73,6 +73,18 @@ def test_product_afrekening_keuze(client, db_session):
     assert _prod("Pintje").is_free is False and _prod("Pintje").pay_on_site is False
 
 
+def test_activiteit_geneste_producten_paneel(client, db_session):
+    """#509: producten renderen in een genest subpaneel (inspringing + linkerrand)
+    onder hun onderdeel, met een 'Onderdelen'-sectiekop en 'Producten'-mini-kop."""
+    activity, component, product = seed_activity_with_product(db_session)
+    _login(client)
+    html = client.get(f"/admin/activiteiten/{activity.id}").text
+    assert ">Onderdelen<" in html            # sectiekop
+    assert ">Producten<" in html             # nested_panel-mini-kop
+    assert "border-l-2 border-blue-200" in html  # geneste-paneel-inspringing
+    assert product.name in html
+
+
 def test_activiteit_affiche_upload_in_edit_modus(client, db_session):
     """#503: het affiche-upload-blok zit in de edit-vorm (x-show="edit"), niet in
     read-modus; de activiteitkaart heeft een Annuleren-affordance naast Opslaan."""
