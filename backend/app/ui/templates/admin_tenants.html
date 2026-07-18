@@ -1,0 +1,57 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Tenants — Raak beheer") }}{% endblock %}
+{% block content %}
+{{ ui.page_header(_("Tenants"), _("Platformbeheer — enkel OPERATOR. Een tenant is een afdeling/unit met eigen branding en data.")) }}
+{{ ui.error_banner(error) }}
+{% if opgeslagen %}{{ ui.success_banner(_("Tenant aangemaakt.")) }}{% endif %}
+
+<div class="flex flex-col lg:flex-row gap-6">
+  <div class="flex-1 min-w-0">
+    {% call ui.card() %}
+      {{ ui.section_header(_("Bestaande tenants (units)")) }}
+      {% if units %}
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm">
+          <thead class="text-left text-gray-500 text-xs uppercase">
+            <tr><th class="px-3 py-2">{{ _("Code") }}</th><th class="px-3 py-2">{{ _("Naam") }}</th><th class="px-3 py-2">{{ _("Status") }}</th></tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for u in units %}
+            <tr>
+              <td class="px-3 py-2 font-mono">{{ u.code }}</td>
+              <td class="px-3 py-2">{{ u.name }}</td>
+              <td class="px-3 py-2">{% if u.is_active %}{{ ui.badge(_("actief"), "green") }}{% else %}{{ ui.badge(_("inactief")) }}{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      {% else %}{{ ui.empty_state(_("Nog geen tenants.")) }}{% endif %}
+    {% endcall %}
+  </div>
+
+  <div class="lg:w-96 shrink-0">
+    {% call ui.card() %}
+      {{ ui.section_header(_("Nieuwe tenant")) }}
+      <form class="space-y-3" hx-post="/admin/tenants" hx-target="body" hx-swap="innerHTML">
+        <div>{{ ui.label(_("Naam"), "t-name", required=True) }}
+          <input name="name" id="t-name" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        <div>{{ ui.label(_("Code (slug)"), "t-code", required=True) }}
+          <input name="code" id="t-code" required pattern="[a-z0-9-]+" placeholder="raaknieuw" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+          <p class="text-xs text-gray-500 mt-1">{{ _("Kleine letters, cijfers, streepjes — wordt de pad-prefix (/code/…) en de organizations.code.") }}</p></div>
+        {% if accounts %}
+        <div>{{ ui.label(_("Account"), "t-account") }}
+          <select name="account_id" id="t-account" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+            {% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+          </select></div>
+        {% endif %}
+        <div>{{ ui.label(_("Canonieke URL"), "t-baseurl") }}
+          <input name="base_url" id="t-baseurl" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+          <p class="text-xs text-gray-500 mt-1">{{ _("Optioneel; de rest stel je nadien in via Instellingen (per tenant).") }}</p></div>
+        {{ ui.btn_primary(_("Tenant aanmaken")) }}
+      </form>
+    {% endcall %}
+  </div>
+</div>
+{% endblock %}

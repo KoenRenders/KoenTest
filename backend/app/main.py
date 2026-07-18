@@ -31,6 +31,7 @@ from app.domains.media.admin_ui import router as media_admin_ui_router
 from app.ui.changes_ui import router as changes_ui_router
 from app.ui.system_ui import router as system_ui_router
 from app.ui.settings_ui import router as settings_ui_router
+from app.ui.tenants_ui import router as tenants_ui_router
 from app.domains.media.router import router as media_router
 from app.domains.media.ui import router as media_ui_router
 from app.domains.chatbot.router import router as chat_router
@@ -140,6 +141,7 @@ app.include_router(media_ui_router)
 app.include_router(changes_ui_router)
 app.include_router(system_ui_router)
 app.include_router(settings_ui_router)
+app.include_router(tenants_ui_router)
 app.include_router(email_log_ui_router)
 app.include_router(mdm_ui_router)
 app.include_router(payment_ui_router)
