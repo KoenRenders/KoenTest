@@ -2,6 +2,23 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Pagina's — Raak beheer") }}{% endblock %}
 {% block content %}
+{# Trix WYSIWYG (#520): self-hosted onder /static (geen CDN — CSP default-src 'self';
+   nul-Node, vooraf gebouwd bestand). Eén keer op paginaniveau geladen; de
+   <trix-editor> in de (later ge-swapte) detail-fragmenten wordt door Trix' eigen
+   mutatie-observer geïnitialiseerd. #}
+<link rel="stylesheet" href="/static/vendor/trix.css">
+<script src="/static/vendor/trix.min.js"></script>
+<style>
+  /* CMS-inhoud is tekst-opmaak: verberg de bijlage-knop. Afbeeldingen via de
+     media-component zijn aparte scope (#459); zonder upload-hook zouden ze
+     data-URI's worden die de HTML opblazen en toch door de sanitisatie sneuvelen. */
+  trix-toolbar .trix-button-group--file-tools { display: none; }
+</style>
+<script>
+  // Sluit bestandsbijlagen af (één document-listener dekt elke, ook later
+  // ge-swapte, editor). Sluit aan bij de verborgen bijlage-knop hierboven.
+  addEventListener("trix-file-accept", function (e) { e.preventDefault(); });
+</script>
 {{ ui.page_header(_("CMS-pagina's")) }}
 <div class="flex flex-col lg:flex-row gap-6">
   <div class="lg:w-80 shrink-0">
