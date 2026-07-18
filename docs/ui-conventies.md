@@ -330,3 +330,27 @@ herkomst van de code. Nul-Node: we committen het vooraf-gebouwde bestand, geen
 - De opgeslagen HTML wordt **server-side gesanitiseerd** (nh3-allowlist in
   `cms/render.py`, #476) op élk publiek renderpunt — de XSS-guard staat los van de
   editorkeuze en dekt ook Trix-output (regressietest in `test_cms_sanitize.py`).
+
+---
+
+## Filterbalk-conventie: één gegroepeerde dropdown (#549)
+
+De **canonieke filtervorm voor een hiërarchische as** (categorie → subtype) is
+**één gegroepeerde `<select>`** met een `<optgroup>` per categorie ("Alle <cat>" +
+de subtypes), niet twee losse velden. Geïmplementeerd als de gedeelde macro
+**`grouped_filter(name, top_options, groups, current, hx_get, hx_target)`** in
+`_macros.html`, gebruikt door **Werkbank** (`kind`, categorie→subtype) én
+**Betalingen** (`context`, heterogene groepen jaar/onderdeel). Zo kan de
+visualisatie niet meer per scherm uiteenlopen.
+
+- **Eén waarde encodeert beide niveaus.** Werkbank: `membership` = hele categorie
+  (prefix-match), `membership.reminder` = exact. Betalingen: `membership` /
+  `year-2026` / `comp-5`.
+- **Wanneer wél losse velden?** Enkel voor **onafhankelijke assen** (bv. bij
+  Betalingen staat de `status`-filter náást de gegroepeerde `context` — dat zijn
+  twee orthogonale dimensies). Een hiërarchische categorie→subtype is altijd één
+  gegroepeerde dropdown.
+- **hx-gedrag.** Staat de select los, geef dan `hx_get`/`hx_target` aan de macro;
+  zit hij in een omhullende `<form hx-get … hx-trigger="change">`, laat de hx-*
+  weg (de form vangt de change). De polling draagt de filter mee via
+  `hx-include="[name='<name>']"`.

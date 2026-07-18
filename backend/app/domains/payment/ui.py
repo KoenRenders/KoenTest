@@ -97,10 +97,22 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
                 if not r.refund_of_id or r.refund_of_id not in charge_ids]
     kaarten.sort(key=lambda p: p[0].created_at, reverse=True)
 
+    # Gegroepeerde context-filter (#549): dezelfde grouped_filter-macro als de
+    # Werkbank. Heterogene groepen (jaren/onderdelen) → (value, label)-tuples.
+    _comp = sorted(componenten.items(), key=lambda kv: kv[1])
+    _jaren = sorted(jaren, reverse=True)
+    context_top = [("all", _("Alle betalingen")), ("membership", _("Alle lidmaatschappen"))]
+    context_groups: dict = {}
+    if _jaren:
+        context_groups[_("Lidmaatschap per jaar")] = [
+            (f"year-{j}", f"{_('Lidgeld')} {j}") for j in _jaren]
+    if _comp:
+        context_groups[_("Activiteit / onderdeel")] = [
+            (f"comp-{cid}", label) for cid, label in _comp]
     return {
         "records": zichtbaar, "kaarten": kaarten, "context": context, "status": status,
-        "componenten": sorted(componenten.items(), key=lambda kv: kv[1]),
-        "jaren": sorted(jaren, reverse=True),
+        "componenten": _comp, "jaren": _jaren,
+        "context_top": context_top, "context_groups": context_groups,
         "matrix": {"betalingen": m_bet, "terugbetalingen": m_ref, "netto": m_net},
         "is_finance": "FINANCE" in get_user_roles(db, email),
         "csrf_token": csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),

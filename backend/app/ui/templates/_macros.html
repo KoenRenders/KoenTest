@@ -207,3 +207,19 @@
   {% endif %}
 </div>
 {%- endmacro %}
+
+{# Gegroepeerde filter-dropdown (#549): één <select> met optgroups i.p.v. losse
+   velden — de canonieke filtervorm voor hiërarchische assen (categorie→subtype)
+   en heterogene groepen (betalingen-context). `top_options`/`groups` zijn lijsten
+   van (value, label)-tuples; `groups` is {groep-label: [(value, label), …]}. #}
+{% macro grouped_filter(name, top_options=[], groups={}, current="", hx_get="", hx_target="") -%}
+<select name="{{ name }}" class="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+        {% if hx_get %}hx-get="{{ hx_get }}" hx-target="{{ hx_target }}" hx-swap="innerHTML" hx-trigger="change"{% endif %}>
+  {% for value, display in top_options %}<option value="{{ value }}" {% if current == value %}selected{% endif %}>{{ display }}</option>{% endfor %}
+  {% for glabel, opts in groups.items() %}
+  <optgroup label="{{ glabel }}">
+    {% for value, display in opts %}<option value="{{ value }}" {% if current == value %}selected{% endif %}>{{ display }}</option>{% endfor %}
+  </optgroup>
+  {% endfor %}
+</select>
+{%- endmacro %}
