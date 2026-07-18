@@ -12,7 +12,9 @@ def _family_payload(email="happy@example.com"):
         "members": [
             {"last_name": "Peeters", "first_name": "Jan", "email": email,
              "mobile": "0470000000", "relation_type": "HOOFDLID"},
-            {"last_name": "Peeters", "first_name": "Kind", "relation_type": "KIND"},
+            {"last_name": "Peeters", "first_name": "Kind", "relation_type": "KIND",
+             # #551: bijkomend lid vereist geboortedatum + geslacht.
+             "date_of_birth": "2012-03-04", "gender_code": "M"},
         ],
     }
 
