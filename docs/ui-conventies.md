@@ -354,3 +354,26 @@ visualisatie niet meer per scherm uiteenlopen.
   zit hij in een omhullende `<form hx-get … hx-trigger="change">`, laat de hx-*
   weg (de form vangt de change). De polling draagt de filter mee via
   `hx-include="[name='<name>']"`.
+
+---
+
+## Record-detail/editor-conventie (#510)
+
+Waar een lijst **concrete records** toont (inschrijvingen, betalingen, leden,
+producten) geldt één patroon: **toon → in-lijn bewerken**, met gedeelde macro's zodat
+adopteren = automatisch conform.
+
+- **Rij-acties** via `row_actions(actions=[…], delete_attrs=…, delete_label=…)`
+  (stijlgids §2.6): **max 2 zichtbaar + ⋯-menu** voor de rest; **"Verwijderen" staat
+  altijd laatst en rood**. De primaire actie is meestal **"Bewerken"/"Detail"**.
+- **"Bewerken" opent de editor in-lijn** via `detail_disclosure(load_url, target_id)`:
+  een trigger die het **gedeelde** detailfragment (bv. `_inschrijving_detail.html`)
+  één keer via `hx-get` inlaadt in een doel-element — het scherm **herbouwt de editor
+  niet zelf**. In een tabel: de trigger in de actie-cel, het doel in een detail-`<tr>`
+  binnen dezelfde `<tbody x-data="{ open: false }">`.
+- **Binnen de editor**: `[Opslaan/Bewaar] [Annuleren]` onderaan, **Verwijderen**
+  laatst/rood; de **server herberekent** afgeleide waarden (totaal) — nooit client-side.
+
+**Kluslijst (adopteren van het patroon):** ✅ activiteiten-inschrijvingen (#510);
+betalingen (deels — "Toon inschrijvingsdetails" gebruikt al `detail_disclosure`-gedrag);
+leden-detail (via #503); producten (#507/#509).

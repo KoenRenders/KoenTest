@@ -223,3 +223,33 @@
   {% endfor %}
 </select>
 {%- endmacro %}
+
+{# Rij-acties (#510, stijlgids §2.6): max 2 zichtbaar + ⋯-menu voor de rest;
+   "Verwijderen" staat ALTIJD laatst en rood. `actions` = lijst van reeds-gerenderde
+   knop-HTML (primaire eerst). `delete_attrs` → de hx-*/confirm van de delete-knop. #}
+{% macro row_actions(actions=[], delete_attrs="", delete_label="") -%}
+<div class="inline-flex items-center gap-2 justify-end" x-data="{ menu: false }">
+  {% for a in actions[:2] %}{{ a|safe }}{% endfor %}
+  {% if actions|length > 2 %}
+  <div class="relative">
+    <button type="button" class="{{ btn_class('secondary', 'sm') }}" @click="menu=!menu" aria-label="{{ _('Meer acties') }}">⋯</button>
+    <div x-show="menu" x-cloak @click.outside="menu=false"
+         class="absolute right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1 min-w-40 flex flex-col gap-1 p-1">
+      {% for a in actions[2:] %}{{ a|safe }}{% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  {% if delete_attrs %}{{ btn_danger(delete_label or _("Verwijderen"), attrs=delete_attrs) }}{% endif %}
+</div>
+{%- endmacro %}
+
+{# Detail/editor-toggle (#510, "Record-detail/editor"-conventie): een trigger die het
+   GEDEELDE detailfragment via hx-get inlaadt (één keer) en in-lijn toont. Vereist een
+   voorouder met x-data="{ open: false }" en een doel-element met id=`target_id`
+   (in een tabel: de trigger in de actie-cel, het doel in een detail-<tr> binnen
+   dezelfde <tbody x-data>). Zo herbouwt geen enkel scherm de editor zelf. #}
+{% macro detail_disclosure(load_url, target_id, label="", variant="secondary") -%}
+<button type="button" class="{{ btn_class(variant, 'sm') }}" @click="open = !open"
+        hx-get="{{ load_url }}" hx-target="#{{ target_id }}" hx-trigger="click once"
+        :aria-expanded="open">{{ label or _("Bewerken") }}</button>
+{%- endmacro %}
