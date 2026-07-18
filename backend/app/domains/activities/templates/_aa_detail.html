@@ -8,11 +8,17 @@
         {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
       </h2>
       <div class="flex gap-2">
-        {{ ui.btn_secondary(_("Bewerken"), attrs='@click="edit = !edit"') }}
+        {# #503: Bewerken ↔ Annuleren op dezelfde toggle-knop (§2.8-conventie). #}
+        <button type="button" class="{{ ui.btn_class('secondary') }}" @click="edit = !edit">
+          <span x-show="!edit">{{ _("Bewerken") }}</span><span x-show="edit" x-cloak>{{ _("Annuleren") }}</span>
+        </button>
         {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/verwijderen" hx-target="#aa-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Activiteit"), a.name)) }}
       </div>
     </div>
     {% if a.location %}<p class="text-sm text-gray-500 mt-1">📍 {{ a.location }}</p>{% endif %}
+    {# #503: in read-modus enkel de "Huidige affiche bekijken"-link; het upload-blok
+       zit in de edit-vorm. #}
+    {% if a.poster_asset_url %}<p class="mt-2"><a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-sm text-blue-700 underline">{{ _("Huidige affiche bekijken") }}</a></p>{% endif %}
     <form x-show="edit" x-cloak class="space-y-3 mt-3"
           hx-post="/admin/activiteiten/{{ a.id }}" hx-target="#aa-detail" hx-swap="innerHTML">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -23,19 +29,19 @@
       </div>
       <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1" {% if a.members_only %}checked{% endif %}> {{ _("Enkel voor leden") }}</label>
       <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_cancelled" value="1" {% if a.is_cancelled %}checked{% endif %}> {{ _("Geannuleerd") }}</label>
-      {{ ui.btn_primary(_("Opslaan")) }}
+      <div class="flex gap-2">
+        {{ ui.btn_primary(_("Opslaan")) }}
+        {{ ui.btn_secondary(_("Annuleren"), attrs='@click="edit = false"') }}
+      </div>
     </form>
-    {# Affiche uploaden (#451) #}
-    <div class="mt-3 border-t border-gray-100 pt-3">
-      {% if a.poster_asset_url %}<a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-sm text-blue-700 underline">{{ _("Huidige affiche bekijken") }}</a>{% endif %}
-      <form class="flex flex-wrap items-end gap-2 mt-2" enctype="multipart/form-data"
-            hx-post="/admin/activiteiten/{{ a.id }}/affiche" hx-encoding="multipart/form-data"
-            hx-target="#aa-detail" hx-swap="innerHTML">
-        <div><label class="block text-xs text-gray-500">{{ _("Affiche (afbeelding of PDF)") }}</label>
-          <input type="file" name="file" accept="image/*,application/pdf" required class="block text-sm"></div>
-        {{ ui.btn_secondary(_("Uploaden"), type="submit") }}
-      </form>
-    </div>
+    {# Affiche uploaden (#451) — in de edit-vorm (#503). #}
+    <form x-show="edit" x-cloak class="flex flex-wrap items-end gap-2 mt-3 border-t border-gray-100 pt-3" enctype="multipart/form-data"
+          hx-post="/admin/activiteiten/{{ a.id }}/affiche" hx-encoding="multipart/form-data"
+          hx-target="#aa-detail" hx-swap="innerHTML">
+      <div><label class="block text-xs text-gray-500">{{ _("Affiche (afbeelding of PDF)") }}</label>
+        <input type="file" name="file" accept="image/*,application/pdf" required class="block text-sm"></div>
+      {{ ui.btn_secondary(_("Uploaden"), type="submit") }}
+    </form>
   </div>
 
   {# Datums #}
@@ -90,7 +96,9 @@
         {{ ui.btn_secondary("▲", attrs='title="' ~ _("Omhoog") ~ '" hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verplaats" hx-vals=\'{"richting":"omhoog"}\' hx-target="#aa-detail" hx-swap="innerHTML"') }}
         {{ ui.btn_secondary("▼", attrs='title="' ~ _("Omlaag") ~ '" hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verplaats" hx-vals=\'{"richting":"omlaag"}\' hx-target="#aa-detail" hx-swap="innerHTML"') }}
         {{ ui.btn_secondary("⬇ " ~ _("Export"), href="/admin/activiteiten/" ~ a.id ~ "/onderdelen/" ~ c.id ~ "/export", size="sm") }}
-        {{ ui.btn_secondary(_("Bewerken"), attrs='@click="edit = !edit"') }}
+        <button type="button" class="{{ ui.btn_class('secondary') }}" @click="edit = !edit">
+          <span x-show="!edit">{{ _("Bewerken") }}</span><span x-show="edit" x-cloak>{{ _("Annuleren") }}</span>
+        </button>
         {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Onderdeel"), c.name)) }}
       </div>
     </div>
@@ -108,7 +116,10 @@
         <input name="external_registrations_url" id="cexts-{{ c.id }}" value="{{ c.external_registrations_url or '' }}" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
       <div class="w-full sm:w-72">{{ ui.label(_("Info/reglement-URL"), "cinfo-" ~ c.id) }}
         <input name="info_url" id="cinfo-{{ c.id }}" value="{{ c.info_url or '' }}" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      {{ ui.btn_primary(_("Opslaan")) }}
+      <div class="w-full flex gap-2">
+        {{ ui.btn_primary(_("Opslaan")) }}
+        {{ ui.btn_secondary(_("Annuleren"), attrs='@click="edit = false"') }}
+      </div>
     </form>
     {# Reglement/info uploaden (afbeelding of PDF) — #451 #}
     <div x-show="edit" x-cloak class="mt-2 border-t border-gray-100 pt-2">
