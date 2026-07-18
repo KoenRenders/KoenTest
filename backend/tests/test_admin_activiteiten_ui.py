@@ -73,6 +73,19 @@ def test_product_afrekening_keuze(client, db_session):
     assert _prod("Pintje").is_free is False and _prod("Pintje").pay_on_site is False
 
 
+def test_activiteit_affiche_upload_in_edit_modus(client, db_session):
+    """#503: het affiche-upload-blok zit in de edit-vorm (x-show="edit"), niet in
+    read-modus; de activiteitkaart heeft een Annuleren-affordance naast Opslaan."""
+    import re
+
+    activity, component, _p = seed_activity_with_product(db_session)
+    _login(client)
+    html = client.get(f"/admin/activiteiten/{activity.id}").text
+    assert ">Annuleren<" in html
+    # De affiche-upload-form is gegated op x-show="edit" (staat niet in read-modus).
+    assert re.search(r'x-show="edit"[^<]*?/affiche"', html)
+
+
 def test_admin_inschrijvingen_en_export(client, db_session):
     activity, component, product = seed_activity_with_product(db_session, price="10.00", is_free=False)
     csrf = _login(client)
