@@ -39,6 +39,10 @@ def test_formulier_aanmaken_en_bouwen(client, db_session):
     db_session.expire_all()
     assert veld.options[0].label == "M"
 
+    # #524 (§10): de sectie rendert als een gekleurde header-balk met "Sectie X van N".
+    assert "Sectie 1 van 1" in optie_resp.text
+    assert "bg-blue-700" in optie_resp.text
+
 
 def test_velden_verplaatsen(client, db_session):
     csrf = _login(client)
