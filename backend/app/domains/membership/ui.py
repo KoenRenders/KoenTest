@@ -314,9 +314,16 @@ def login_verify(request: Request, token: str = "", db: Session = Depends(get_db
                                           site_context(db, request), status_code=401)
     login_token.used = True
     db.commit()
-    doel = ("/admin/werkbank"
-            if {"ADMIN", "FINANCE"} & get_user_roles(db, login_token.email)
-            else "/leden/gezin")
+    # Landing naar wat de rol mag openen (#530), gelijk aan de OTP-flow: ADMIN/
+    # OPERATOR → werkbank; FINANCE-only → betalingen (werkbank is nu ADMIN/OPERATOR-
+    # only en zou 403'en); overige (gewoon lid) → gezin.
+    roles = set(get_user_roles(db, login_token.email))
+    if {"ADMIN", "OPERATOR"} & roles:
+        doel = "/admin/werkbank"
+    elif "FINANCE" in roles:
+        doel = "/admin/betalingen"
+    else:
+        doel = "/leden/gezin"
     response = RedirectResponse(doel, status_code=302)
     set_session_cookie(response, login_token.email)
     return response
