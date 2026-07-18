@@ -253,3 +253,27 @@
         hx-get="{{ load_url }}" hx-target="#{{ target_id }}" hx-trigger="click once"
         :aria-expanded="open">{{ label or _("Bewerken") }}</button>
 {%- endmacro %}
+
+{# Sectiekop (#509): titel links + optionele primaire actie rechts ("+ …").
+   Voor "Datums"/"Onderdelen"/"Producten" — één stijl, overal gelijk. #}
+{% macro section_header(title, action_label=None, action_attrs="") -%}
+<div class="flex items-center justify-between mb-3">
+  <h3 class="font-semibold text-gray-800">{{ title }}</h3>
+  {% if action_label %}{{ btn_secondary(action_label, attrs=action_attrs, size="sm") }}{% endif %}
+</div>
+{%- endmacro %}
+
+{# Genest subpaneel (#509): inspringing + linkerrand + zachte achtergrond, met een
+   optionele mini-kop (titel + "+"-actie). Maakt "deze inhoud hoort onder dit item"
+   zichtbaar — bv. producten binnen een onderdeel. Caller-macro. #}
+{% macro nested_panel(title=None, action_label=None, action_attrs="") -%}
+<div class="mt-3 ml-2 border-l-2 border-blue-200 pl-3 bg-gray-50 rounded-r-lg py-2 pr-2">
+  {% if title or action_label %}
+  <div class="flex items-center justify-between mb-2">
+    {% if title %}<span class="text-xs font-semibold text-gray-500 uppercase tracking-wide">{{ title }}</span>{% endif %}
+    {% if action_label %}{{ btn_secondary(action_label, attrs=action_attrs, size="xs") }}{% endif %}
+  </div>
+  {% endif %}
+  {{ caller() }}
+</div>
+{%- endmacro %}
