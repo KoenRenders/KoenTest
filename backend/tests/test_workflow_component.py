@@ -118,9 +118,10 @@ def test_werkbank_deep_link_full_page(client, db_session):
     assert "<html" not in frag.text
 
 
-def test_werkbank_twee_niveau_filter(client, db_session):
-    """#502: de werkbank filtert op categorie + subtype, data-gedreven uit de
-    dotted `kind` (bv. 'membership.reminder')."""
+def test_werkbank_gegroepeerde_filter(client, db_session):
+    """#549: de werkbank filtert via één gegroepeerde `kind`-dropdown (optgroups),
+    data-gedreven uit de dotted kind — `membership` = hele categorie (prefix),
+    `membership.reminder` = exact."""
     from tests.conftest import SEEDED_ADMIN_EMAIL
     from app.domains.auth.api import SESSION_COOKIE, make_session_value
 
@@ -135,13 +136,15 @@ def test_werkbank_twee_niveau_filter(client, db_session):
 
     html = client.get("/admin/werkbank/lijst").text
     assert all(n in html for n in ("Herinnering An", "Vernieuwing Bob", "Bericht Cara"))
-    # De categorie-opties zijn data-gedreven aanwezig.
-    assert 'value="membership"' in html and 'value="bericht"' in html
+    # Eén gegroepeerde select: optgroups per categorie, "Alle <cat>" + exacte subtypes.
+    assert "<optgroup" in html
+    assert 'value="membership"' in html and 'value="membership.reminder"' in html
+    assert 'value="bericht"' in html
 
-    # Categorie membership → enkel de twee membership-taken.
-    html = client.get("/admin/werkbank/lijst?category=membership").text
+    # kind=membership → hele categorie (prefix): beide membership-taken, niet bericht.
+    html = client.get("/admin/werkbank/lijst?kind=membership").text
     assert "Herinnering An" in html and "Vernieuwing Bob" in html and "Bericht Cara" not in html
 
-    # + subtype reminder → enkel die ene.
-    html = client.get("/admin/werkbank/lijst?category=membership&subtype=reminder").text
+    # kind=membership.reminder → exact.
+    html = client.get("/admin/werkbank/lijst?kind=membership.reminder").text
     assert "Herinnering An" in html and "Vernieuwing Bob" not in html

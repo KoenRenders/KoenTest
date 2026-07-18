@@ -6,16 +6,9 @@
 {% set _status_labels = {"all": _("Alle statussen"), "openstaand": _("Openstaand saldo"), "pending": _("In afwachting"), "paid": _("Betaald"), "failed": _("Mislukt"), "cancelled": _("Geannuleerd")} %}
 <form class="flex flex-wrap gap-3 mb-4 items-center"
       hx-get="/admin/betalingen/lijst" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-trigger="change">
-  <select name="context" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-    <option value="all" {% if context == "all" %}selected{% endif %}>{{ _("Alle betalingen") }}</option>
-    <option value="membership" {% if context == "membership" %}selected{% endif %}>{{ _("Alle lidmaatschappen") }}</option>
-    {% if jaren %}<optgroup label="{{ _('Lidmaatschap per jaar') }}">
-      {% for j in jaren %}<option value="year-{{ j }}" {% if context == "year-" ~ j %}selected{% endif %}>{{ _("Lidgeld") }} {{ j }}</option>{% endfor %}
-    </optgroup>{% endif %}
-    {% if componenten %}<optgroup label="{{ _('Activiteit / onderdeel') }}">
-      {% for cid, label in componenten %}<option value="comp-{{ cid }}" {% if context == "comp-" ~ cid %}selected{% endif %}>{{ label }}</option>{% endfor %}
-    </optgroup>{% endif %}
-  </select>
+  {# Gegroepeerde context-filter via de gedeelde macro (#549); geen hx-* op de select
+     zelf — de omhullende form vangt de change al op. #}
+  {{ ui.grouped_filter("context", context_top, context_groups, current=context) }}
   <select name="status" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
     {% for s in ["all", "openstaand", "pending", "paid", "failed", "cancelled"] %}
     <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ _status_labels[s] }}</option>
