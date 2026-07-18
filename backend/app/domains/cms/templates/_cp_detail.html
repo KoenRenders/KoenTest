@@ -17,44 +17,27 @@
         <input name="slug" id="cp-slug" value="{{ p.slug }}" required pattern="[a-z0-9-]+" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
     </div>
     <div>{{ ui.label(_("Inhoud"), "cp-content") }}
-      <div class="border border-gray-300 rounded-lg overflow-hidden"
-           x-data="{
-             sync(){ this.$refs.ta.value = this.$refs.ed.innerHTML },
-             cmd(c){ document.execCommand(c, false, null); this.sync() },
-             blok(t){ document.execCommand('formatBlock', false, t); this.sync() },
-             link(){ const u = prompt('URL:'); if (u) document.execCommand('createLink', false, u); this.sync() },
-             ins(txt){ document.execCommand('insertText', false, txt); this.sync() }
-           }">
-        <div class="flex flex-wrap gap-1 bg-gray-50 border-b border-gray-200 p-1 text-sm">
-          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200 font-bold" @click="cmd('bold')" title="{{ _('Vet') }}">B</button>
-          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200 italic" @click="cmd('italic')" title="{{ _('Cursief') }}">I</button>
-          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200 font-semibold" @click="blok('h2')" title="{{ _('Kop') }}">H2</button>
-          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200 font-semibold" @click="blok('h3')" title="{{ _('Subkop') }}">H3</button>
-          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="blok('p')" title="{{ _('Gewone tekst') }}">¶</button>
-          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="blok('blockquote')" title="{{ _('Citaat') }}">❝</button>
-          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="cmd('insertUnorderedList')" title="{{ _('Opsomming') }}">•—</button>
-          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="cmd('insertOrderedList')" title="{{ _('Genummerd') }}">1.</button>
-          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="cmd('insertHorizontalRule')" title="{{ _('Horizontale lijn') }}">—</button>
-          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="link()" title="{{ _('Link') }}">🔗</button>
-          <span class="mx-1 border-l border-gray-300"></span>
-          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="cmd('undo')" title="{{ _('Ongedaan maken') }}">↩</button>
-          <button type="button" class="px-2 py-1 rounded hover:bg-gray-200" @click="cmd('redo')" title="{{ _('Opnieuw') }}">↪</button>
-        </div>
-        {% if placeholders %}
-        {# Klik-invoegbare placeholder-chips (#476): voegen de code op de cursor in. #}
-        <div class="flex flex-wrap gap-1 bg-gray-50 border-b border-gray-200 p-1 text-xs">
-          <span class="px-1 py-1 text-gray-400">{{ _("Invoegen:") }}</span>
-          {% for ph in placeholders %}
-          <button type="button" class="px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 font-mono"
-                  @mousedown.prevent @click="ins('{{ ph.code }}')" title="{{ ph.label }}">{{ ph.code }}</button>
-          {% endfor %}
-        </div>
-        {% endif %}
-        <div contenteditable="true" x-ref="ed" @input="sync()"
-             class="cms-content min-h-[16rem] p-3 focus:outline-none text-sm bg-white">{{ p.content or "" | safe }}</div>
-        <textarea name="content" x-ref="ta" class="hidden">{{ p.content or "" }}</textarea>
+      {# Trix WYSIWYG (#520): nette HTML i.p.v. deprecated document.execCommand. Trix
+         leest de initiële HTML uit de hidden input en schrijft de bewerkte HTML er
+         live in terug; het formulier submit `content`. De opgeslagen HTML wordt
+         server-side gesanitiseerd (nh3 via render_cms_content) vóór de |safe-render. #}
+      <input type="hidden" id="cp-content-input" name="content" value="{{ p.content or '' }}">
+      {% if placeholders %}
+      {# Klik-invoegbare placeholder-chips (#476): voegen de code op de cursor in via
+         de Trix editor-API. onmousedown houdt de editorfocus vast. #}
+      <div class="flex flex-wrap gap-1 bg-gray-50 border border-gray-200 border-b-0 rounded-t-lg p-1 text-xs">
+        <span class="px-1 py-1 text-gray-400">{{ _("Invoegen:") }}</span>
+        {% for ph in placeholders %}
+        <button type="button" class="px-2 py-1 rounded bg-blue-100 text-blue-700 hover:bg-blue-200 font-mono"
+                onmousedown="event.preventDefault()"
+                onclick="document.getElementById('cp-trix').editor.insertString('{{ ph.code }}')"
+                title="{{ ph.label }}">{{ ph.code }}</button>
+        {% endfor %}
       </div>
-      <p class="text-xs text-gray-400 mt-1">{{ _("Opmaak via de knoppen; de onderliggende HTML wordt bewaard.") }}</p></div>
+      {% endif %}
+      <trix-editor id="cp-trix" input="cp-content-input"
+                   class="cms-content bg-white text-sm min-h-[16rem]{% if placeholders %} rounded-t-none{% endif %}"></trix-editor>
+      <p class="text-xs text-gray-400 mt-1">{{ _("Opmaak via de werkbalk; de onderliggende HTML wordt bewaard en veilig gesanitiseerd.") }}</p></div>
     <div class="flex flex-wrap items-center gap-5 text-sm">
       <label class="flex items-center gap-2"><input type="checkbox" name="is_published" value="1" {% if p.is_published %}checked{% endif %}> {{ _("Gepubliceerd") }}</label>
       <label class="flex items-center gap-2"><input type="checkbox" name="show_in_nav" value="1" {% if p.show_in_nav %}checked{% endif %}> {{ _("In navigatie") }}</label>

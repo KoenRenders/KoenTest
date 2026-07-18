@@ -305,3 +305,28 @@ Twee soorten "waar komt deze content vandaan", bewust verschillend behandeld:
   vast. Dit is bewust **geen** configureerbare pointer (in tegenstelling tot de
   privacy-**link** van #493, die logisch naar een te kiezen pagina wijst): voor
   content met één natuurlijke plek is een conventie eenvoudiger dan config.
+
+---
+
+## CMS-editor: Trix (self-hosted, #520)
+
+De CMS-pagina-editor gebruikt **Trix** (37signals, MIT) i.p.v. het deprecated
+`document.execCommand`. **Europe-First-afweging:** Trix is een *client-side,
+open-source* library die we **self-hosted vendoren** onder
+`backend/app/static/vendor/` (`trix.min.js` + `trix.css`) — geen CDN, geen
+externe dienst, **geen data die de EU verlaat** (alle bewerking gebeurt in de
+browser; opslaan gaat naar onze eigen backend). Daarmee voldoet het aan Europe
+First: een lokaal gevendorde lib zonder data-egress is EU-proof, ongeacht de
+herkomst van de code. Nul-Node: we committen het vooraf-gebouwde bestand, geen
+`npm`-build.
+
+- Geladen op paginaniveau in `admin_paginas.html` (CSP `default-src 'self'` dekt
+  `/static/...`; `script-src` heeft al `'unsafe-inline'`/`'unsafe-eval'` voor
+  Alpine, dus **geen nonce nodig**).
+- Bestandsbijlagen zijn **uitgeschakeld** (`trix-file-accept` → `preventDefault`,
+  attach-knop verborgen): afbeeldingen via de media-component zijn aparte scope
+  (#459). Zonder upload-hook zouden ze data-URI's worden die de sanitisatie toch
+  strippen.
+- De opgeslagen HTML wordt **server-side gesanitiseerd** (nh3-allowlist in
+  `cms/render.py`, #476) op élk publiek renderpunt — de XSS-guard staat los van de
+  editorkeuze en dekt ook Trix-output (regressietest in `test_cms_sanitize.py`).
