@@ -64,26 +64,12 @@
     </div>
     <form x-show="edit" x-cloak class="space-y-3"
           hx-post="/leden/gezin/personen/{{ p.id }}" hx-target="body" hx-swap="innerHTML">
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <div>{{ ui.label(_("Voornaam"), "pf-" ~ p.id, required=True) }}
-          <input name="first_name" id="pf-{{ p.id }}" required value="{{ p.first_name }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label(_("Achternaam"), "pl-" ~ p.id, required=True) }}
-          <input name="last_name" id="pl-{{ p.id }}" required value="{{ p.last_name }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label(_("Geboortedatum"), "pd-" ~ p.id) }}
-          <input type="date" name="date_of_birth" id="pd-{{ p.id }}" value="{{ p.date_of_birth or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label(_("Geslacht"), "pg-" ~ p.id) }}
-          <select name="gender_code" id="pg-{{ p.id }}" class="w-full border border-gray-300 rounded-lg px-3 py-2">
-            <option value="">—</option>
-            {% for g in gender_codes %}<option value="{{ g.code }}" {% if p.gender_code == g.code %}selected{% endif %}>{{ g.value }}</option>{% endfor %}
-          </select></div>
-        {% set _hoofd = p.relation_type == "HOOFDLID" %}
-        <div>{{ ui.label(_("E-mail"), "pe-" ~ p.id, required=_hoofd) }}
-          <input type="email" name="contact_email" id="pe-{{ p.id }}" value="{{ p.email or '' }}" {% if _hoofd %}required{% endif %} class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label(_("GSM"), "pm-" ~ p.id, required=_hoofd) }}
-          <input name="mobile" id="pm-{{ p.id }}" value="{{ p.mobile or '' }}" {% if _hoofd %}required{% endif %} class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label(_("Telefoon"), "pp-" ~ p.id) }}
-          <input name="phone" id="pp-{{ p.id }}" value="{{ p.phone or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      </div>
+      {% set _hoofd = p.relation_type == "HOOFDLID" %}
+      {# Gedeelde veldenset (#511); id_prefix p{id}- houdt de ids uniek per gezinslid.
+         include_relation=False: relatie blijft read-only in de kop (portaal-pariteit). #}
+      {{ ui.person_fields(name_prefix="", id_prefix="p" ~ p.id ~ "-", pv=p,
+                          gender_codes=gender_codes, relation_types=relation_types,
+                          include_relation=False, hoofdlid=_hoofd) }}
       {% if p.address %}
       <div class="grid grid-cols-4 gap-3">
         <div class="col-span-2">{{ ui.label(_("Straat"), "ps-" ~ p.id, required=_hoofd) }}
@@ -110,26 +96,13 @@
 
   <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4" x-data="{ open: false }">
     {{ ui.btn_secondary(_("+ Gezinslid toevoegen"), attrs='@click="open = !open"') }}
-    <form x-show="open" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3"
+    <form x-show="open" x-cloak class="space-y-3 mt-3"
           hx-post="/leden/gezin/personen" hx-target="body" hx-swap="innerHTML">
-      <div>{{ ui.label(_("Voornaam"), "np-first", required=True) }}
-        <input name="first_name" id="np-first" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div>{{ ui.label(_("Achternaam"), "np-last", required=True) }}
-        <input name="last_name" id="np-last" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div>{{ ui.label(_("Geboortedatum"), "np-dob") }}
-        <input type="date" name="date_of_birth" id="np-dob" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div>{{ ui.label(_("Geslacht"), "np-gender") }}
-        <select name="gender_code" id="np-gender" class="w-full border border-gray-300 rounded-lg px-3 py-2">
-          <option value="">—</option>
-          {% for g in gender_codes %}<option value="{{ g.code }}">{{ g.value }}</option>{% endfor %}
-        </select></div>
-      <div>{{ ui.label(_("E-mail"), "np-mail") }}
-        <input type="email" name="contact_email" id="np-mail" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div>{{ ui.label(_("GSM"), "np-mobile") }}
-        <input type="tel" name="mobile" id="np-mobile" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div>{{ ui.label(_("Telefoon"), "np-phone") }}
-        <input name="phone" id="np-phone" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div class="sm:col-span-2">{{ ui.btn_primary(_("Toevoegen")) }}</div>
+      {# Gedeelde veldenset (#511); portaal-pariteit: geen relatie-keuze in de add-flow. #}
+      {{ ui.person_fields(name_prefix="", id_prefix="np-", pv=None,
+                          gender_codes=gender_codes, relation_types=relation_types,
+                          include_relation=False, hoofdlid=False) }}
+      {{ ui.btn_primary(_("Toevoegen")) }}
     </form>
   </div>
 </div>

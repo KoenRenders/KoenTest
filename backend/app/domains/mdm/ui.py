@@ -110,7 +110,7 @@ def persoon_opslaan(family_id: int, person_id: int, request: Request,
                     email: str = Depends(require_admin_ui),
                     first_name: str = Form(""), last_name: str = Form(""),
                     date_of_birth: str = Form(""), gender_code: str = Form(""),
-                    contact_email: str = Form(""), phone: str = Form(""),
+                    contact_email: str = Form("", alias="email"), phone: str = Form(""),
                     mobile: str = Form(""), relation_type: str = Form("")):
     from app.domains.membership.api import update_person, update_person_contacts
     from app.domains.membership.api import PersonUpdate
@@ -167,7 +167,7 @@ def persoon_toevoegen(family_id: int, request: Request, db: Session = Depends(ge
                       email: str = Depends(require_admin_ui),
                       first_name: str = Form(""), last_name: str = Form(""),
                       date_of_birth: str = Form(""), gender_code: str = Form(""),
-                      contact_email: str = Form(""), phone: str = Form(""),
+                      contact_email: str = Form("", alias="email"), phone: str = Form(""),
                       mobile: str = Form(""), relation_type: str = Form("PARTNER")):
     from app.domains.membership.api import add_person_to_family
     from app.domains.membership.api import PersonAddToFamily

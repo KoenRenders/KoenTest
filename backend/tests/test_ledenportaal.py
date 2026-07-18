@@ -26,7 +26,7 @@ def test_gezin_portaal_toont_leden_en_muteert(client, db_session):
 
     resp = client.post(f"/leden/gezin/personen/{person.id}",
                        data={"first_name": "Aangepast", "last_name": person.last_name,
-                             "contact_email": "portaal@example.com"},
+                             "email": "portaal@example.com"},  # #511: veldnaam `email`
                        headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 200 and "Aangepast" in resp.text
     db_session.expire_all()
