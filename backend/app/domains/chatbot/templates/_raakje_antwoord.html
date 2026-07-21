@@ -1,5 +1,5 @@
 {% import "_macros.html" as ui %}
 {% if error %}{{ ui.error_banner(error) }}{% else %}
 <div class="text-right"><span class="inline-block bg-blue-700 text-white rounded-2xl px-4 py-2 text-sm">{{ vraag }}</span></div>
-<div><span class="inline-block bg-gray-100 text-gray-900 rounded-2xl px-4 py-2 text-sm whitespace-pre-wrap">{{ antwoord }}</span></div>
+<div><div data-raakje-answer class="inline-block max-w-full bg-gray-100 text-gray-900 rounded-2xl px-4 py-2 text-sm space-y-2 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-blue-700 [&_a]:underline">{{ antwoord | raakje_md | safe }}</div></div>
 {% endif %}

@@ -1,4 +1,5 @@
-{# Raakje-chatbot-widget (#469): zwevend knopje + paneel, hergebruikt /raakje/vraag. #}
+{# Raakje-chatbot-widget (#469): zwevend knopje + paneel, hergebruikt /raakje/vraag.
+   Spraakinvoer (STT, #567) en voorlezen (TTS, #568) als progressive enhancement. #}
 <div x-data="{ open: false }" class="fixed bottom-4 right-4 z-40 print:hidden">
   <button @click="open = !open"
           class="bg-blue-700 hover:bg-blue-800 text-white rounded-full w-14 h-14 shadow-lg flex items-center justify-center text-2xl"
@@ -6,9 +7,15 @@
   <div x-show="open" x-cloak
        class="absolute bottom-16 right-0 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-gray-200 flex flex-col overflow-hidden"
        style="height: 26rem">
-    <div class="px-4 py-3 bg-blue-700 text-white flex items-center justify-between">
+    <div class="px-4 py-3 bg-blue-700 text-white flex items-center justify-between gap-2">
       <span class="font-semibold">{{ _("Raakje") }}</span>
-      <button @click="open = false" class="hover:opacity-80" aria-label="{{ _('Sluiten') }}">✕</button>
+      <div class="flex items-center gap-1">
+        <button type="button" data-tts-toggle
+                class="hover:opacity-80 text-lg leading-none"
+                title="{{ _('Antwoorden voorlezen') }}"
+                aria-label="{{ _('Antwoorden voorlezen aan/uit') }}">🔇</button>
+        <button @click="open = false" class="hover:opacity-80" aria-label="{{ _('Sluiten') }}">✕</button>
+      </div>
     </div>
     <div id="raakje-widget-gesprek" class="flex-1 overflow-auto p-3 space-y-2 text-sm">
       <div class="text-gray-500">{{ _("Stel je vraag over Raak Millegem — activiteiten, lid worden, praktisch.") }}</div>
@@ -16,10 +23,15 @@
     <form hx-post="/raakje/vraag" hx-target="#raakje-widget-gesprek" hx-swap="beforeend"
           class="border-t border-gray-200 p-2 flex gap-2"
           x-on:htmx:after-request="if ($event.detail.successful) $refs.v.value = ''">
-      <input name="vraag" x-ref="v" required autocomplete="off"
+      <input name="vraag" id="raakje-widget-vraag" x-ref="v" required autocomplete="off"
              placeholder="{{ _('Typ je vraag…') }}"
              class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+      <button type="button" data-stt-target="#raakje-widget-vraag" data-stt-mode="{{ stt_mode }}"
+              class="border border-gray-300 hover:bg-gray-100 px-2 rounded-lg"
+              title="{{ _('Spreek je vraag in') }}" aria-label="{{ _('Spreek je vraag in') }}">🎙</button>
       <button type="submit" class="bg-blue-700 hover:bg-blue-800 text-white px-3 rounded-lg">➤</button>
     </form>
   </div>
 </div>
+<script src="/static/stt.js" defer></script>
+<script src="/static/tts.js" defer></script>

@@ -24,3 +24,4 @@ jinja2==3.1.6
 cryptography==49.0.0  # per-tenant secrets versleuteld (Fernet, #406)
 Babel==2.18.0  # taalcatalogus nl_BE (#407-T)
 nh3==0.3.6  # HTML-sanitisatie van CMS-inhoud bij render (stored-XSS-guard, #476)
+Markdown==3.7  # Raakje-antwoord markdown→HTML, daarna nh3-gesaneerd (#566)
