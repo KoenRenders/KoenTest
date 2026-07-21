@@ -66,13 +66,6 @@ def _confirm_attrs(type_label, name) -> str:
 
 templates.env.globals["confirm_attrs"] = _confirm_attrs
 
-
-# Raakje-antwoord: markdown → gesaneerde HTML (#566). Mistral levert markdown; dit
-# rendert het veilig (nh3), zodat **vet** en opsommingen tonen i.p.v. ruwe tekens.
-from app.domains.chatbot.render import render_answer_markdown  # noqa: E402
-
-templates.env.filters["raakje_md"] = render_answer_markdown
-
 # Omgevings-indicator (#464): [HDEV]/[UAT] in titel + gekleurde band. Als globale
 # beschikbaar in álle templates (publiek + admin); PROD blijft schoon.
 from app.config import settings as _settings  # noqa: E402

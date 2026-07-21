@@ -21,6 +21,13 @@ from app.domains.auth.api import (
 from app.limiter import chat_limiter
 from app.ui import admin_nav, templates
 from app.i18n import _
+from app.domains.chatbot.render import render_answer_markdown
+
+# Raakje-antwoord: markdown → gesaneerde HTML (#566). Het domein registreert zijn
+# eigen Jinja-filter op de gedeelde template-omgeving (de UI-schil mag niet in een
+# domein grijpen — import-grens #396). app.main mount deze module bij startup, dus
+# de filter staat klaar vóór het eerste antwoord rendert.
+templates.env.filters["raakje_md"] = render_answer_markdown
 
 router = APIRouter(include_in_schema=False)
 
