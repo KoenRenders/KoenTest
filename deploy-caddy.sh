@@ -89,6 +89,22 @@ fi
 
 git fetch --tags --prune origin
 
+# ── Gemengde toestand afvangen (#572) ────────────────────────────────────────
+# Draait UAT al een tag MET caddy/parts/ terwijl PROD nog op een tag van vóór de
+# splitsing staat, dan valt de code hieronder terug op de monolithische config van
+# PROD — en die bevat óók het UAT-blok, met de oude routing. UAT zou daardoor plat
+# gaan. Dat raden we niet: stoppen en de ref expliciet laten kiezen.
+if [ -z "$EXPLICIT" ]; then
+  if git cat-file -e "$UAT_REF:caddy/parts/sites-uat.caddy" 2>/dev/null &&
+     ! git cat-file -e "$PROD_REF:caddy/parts/sites-prod.caddy" 2>/dev/null; then
+    echo "FOUT: UAT ($UAT_REF) heeft caddy/parts/, PROD ($PROD_REF) nog niet." >&2
+    echo "Automatisch kiezen zou de oude UAT-routing toepassen en UAT platleggen." >&2
+    echo "Geef tijdens de cutover expliciet de tag mee waarvan het PROD-blok nog" >&2
+    echo "backwards compatible is, bv: ./deploy-caddy.sh $UAT_REF" >&2
+    exit 1
+  fi
+fi
+
 # ── Tooling op master, daarna één re-exec (#162-patroon) ─────────────────────
 git reset --hard origin/master
 git checkout -B master origin/master

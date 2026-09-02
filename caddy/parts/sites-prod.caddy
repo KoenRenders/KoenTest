@@ -1,6 +1,23 @@
-# PROD-sites (inclusief www-redirect, stats en het platform-domein).
+# PROD-sites (www-redirect, apex, stats).
 # Komt bij een deploy uit de tag die PROD draait.
 # Domeinen komen uit .env.caddy (niet in git). Zie .env.caddy.example.
+#
+# ── EXPAND-FASE (#572) — LEES DIT VOOR JE HIER IETS WIJZIGT ──────────────────
+# Dit blok routeert PROD BEWUST nog via de frontend-container, zoals v1.14.0 dat
+# doet. Reden: één gedeelde Caddy bedient UAT en PROD, en tijdens de v2.0.0-uitrol
+# staan die twee tijdelijk op verschillende versies. Zolang PROD v1.14.0 draait,
+# bestaat prod-frontend nog en serveert díe de pagina's; alles naar prod-backend
+# sturen legt de site plat.
+#
+# CONTRACT-STAP, pas nadat PROD op v2.0.0 staat (nieuwe tag, bv. v2.0.1):
+#   - dit blok wordt `reverse_proxy prod-backend:8000` (nul Node, React-exit #405),
+#     net zoals sites-uat.caddy nu al doet;
+#   - de platform-blokken ({$PLATFORM_WWW_DOMAIN}/{$PLATFORM_DOMAIN}, #406) komen
+#     er dan bij — die horen niet live te staan zolang PROD ze niet kan bedienen,
+#     en hun domeinvariabelen moeten dan in .env.caddy staan.
+# De doelversie van dit bestand staat in commit e375866; die kun je bij de
+# contract-stap terughalen.
+# Zie CLAUDE.md → "Shared Caddy: expand/contract".
 
 # www → apex: 301-redirect naar de canonieke URL (best practice, één canonieke host)
 {$PROD_WWW_DOMAIN} {
@@ -10,25 +27,18 @@
 
 {$PROD_DOMAIN} {
 	import security_headers
-	# Nul Node (React-exit #405): API, statics en alle server-rendered
-	# pagina's komen uit de backend; de per-pad-blokken uit de hybride
-	# omklap-periode zijn opgeruimd.
-	reverse_proxy prod-backend:8000
+	# EXPAND: v1.14.0-routing — API naar de backend, pagina's naar de frontend.
+	# Wordt bij de contract-stap één `reverse_proxy prod-backend:8000`.
+	handle /api/* {
+		reverse_proxy prod-backend:8000
+	}
+	handle {
+		reverse_proxy prod-frontend:3000
+	}
 }
 
 # Umami-analytics op een eigen subdomein, root-served (#176).
 {$STATS_PROD_DOMAIN} {
 	import security_headers
 	reverse_proxy prod-umami:3000
-}
-
-# Raak Digital Platform (#406, 5c): platform.example — wortel = platform-landing,
-# pad-prefixen (/raakmillegem, /raakvoorbeeldafdeling) = units zonder eigen
-# domein. Alles gaat naar de prod-backend; de tenant-middleware doet de rest.
-{$PLATFORM_WWW_DOMAIN} {
-	redir https://{$PLATFORM_DOMAIN}{uri} permanent
-}
-{$PLATFORM_DOMAIN} {
-	import security_headers
-	reverse_proxy prod-backend:8000
 }
