@@ -59,6 +59,8 @@
       "Bash(/tmp/*/bin/pip *)",
       "Bash(PYTHONPATH=* python3 *)",
       "Bash(PYTHONPATH=* /tmp/*/bin/python *)",
+      "WebSearch",
+      "WebFetch(domain:mistral.ai)",
       "Skill(update-config)"
     ]
   }

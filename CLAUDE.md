@@ -6,6 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Community association website with public activity registration, family membership, Mollie payment integration, and an admin dashboard. Language: Dutch (nl-BE).
 
+## Documentation language
+
+Chat with Koen is in Dutch (nl-BE), but **all documentation written from now on
+is in English** — code comments, docstrings, README's, `docs/`, ADRs, and this
+file. This holds even when the conversation is in Dutch.
+
+Existing Dutch documentation stays as it is (`docs/ui-conventies.md`,
+`docs/rollen-en-rechten.md`, `docs/stijlgids.html`, the Dutch sections below, …).
+Do not translate it unless Koen asks. User-facing UI copy is Dutch and is not
+documentation — it is unaffected by this rule.
+
 ## This repository is PUBLIC
 
 Never commit secrets, credentials, or operational/infrastructure details to this
