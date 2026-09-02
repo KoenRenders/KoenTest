@@ -348,6 +348,13 @@ per commit on GitHub.
   CI-run op (`backend-tests.yml`) en noteert in het release-issue de **run-id +
   link** en de **pytest-samenvatting** (`N passed`). De CI draait tegen een echte
   Postgres 16 — dat is het bewijs dat de suite groen was, niet een lokale claim.
+- **De `pip-audit`-uitkomst hoort in diezelfde evidence** (#574). De audit-job is
+  bewust **niet-blokkerend** — of een bevinding een release tegenhoudt beslist
+  Koen, niet de scanner — maar ze mag nooit geruisloos passeren: een groen vinkje
+  verborg in #571 maandenlang 33 bekende kwetsbaarheden. Noteer dus altijd óf
+  `No known vulnerabilities found`, óf het aantal bevindingen per pakket, en
+  vraag Koen expliciet wat ermee moet vóór de release doorgaat. De job zet ze ook
+  als `::warning::`-annotatie + job-summary op de runpagina.
 - **Release-tracker format — één checkbox per issue.** Elk issue staat als één
   regel `- [ ] #NN (korte omschrijving)`. **NIET** twee checkboxes per issue, en
   de zin **"getest op HDEV door Koen" hoort NERGENS** in een issue of tracker.

@@ -61,6 +61,13 @@ jobs:
     # pip-audit blijft rapporterend tot er een ignore-lijst-mechanisme staat
     # (architectuurdoc §19.1) — dan blokkerend. npm audit verdween met de
     # frontend-container (React-exit #405): er is geen Node meer in de stack.
+    #
+    # RAPPORTEREND IS NIET STIL (#574). De job blijft groen — Koen beslist per
+    # release of een bevinding moet wachten, een scanner dwingt dat niet af.
+    # Maar hij mag niet geruisloos passeren: in #571 stond deze job groen met
+    # 33 bekende kwetsbaarheden erachter, want een groen vinkje zegt "niets te
+    # zien hier". Elke bevinding komt daarom als ::warning::-annotatie bovenaan
+    # de runpagina én als tabel in de job-summary te staan.
     steps:
       - uses: actions/checkout@v4
 
@@ -68,12 +75,18 @@ jobs:
         with:
           python-version: "3.12"
 
-      - name: pip-audit (backend)
-        continue-on-error: true
+      - name: pip-audit (backend) — rapporterend, nooit stil
         working-directory: backend
         run: |
-          pip install pip-audit
-          pip-audit -r requirements.txt
+          # Actions draait bash met `set -e`, dus elke niet-nul exit stopt de
+          # stap. Beide commando's vangen we daarom expliciet op: pip-audit
+          # sluit af met 1 zodra er bevindingen zijn (dat is de normale gang van
+          # zaken hier), en een mislukte install mag deze niet-blokkerende job
+          # niet rood maken. Verbergen doen we niets — draait de scan niet, dan
+          # ontbreekt audit.json en waarschuwt het rapport-script daarover.
+          python -m pip install --quiet pip-audit || true
+          pip-audit -r requirements.txt --format=json --output=audit.json || true
+          python ../scripts/ci_audit_report.py audit.json
 
   e2e:
     runs-on: ubuntu-latest
