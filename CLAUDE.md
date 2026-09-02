@@ -407,6 +407,16 @@ domain's internals (`tests/test_import_boundaries.py` enforces this).
 `payment_gateway/` and `payment_status/` packages were folded into it:
 - `providers/mollie.py` — `MollieProvider.create_payment()` creates a Mollie payment. Webhook URL is skipped when running on localhost (Mollie can't reach it).
 - `gateway_service.py` / `gateway_router.py` — `GatewayPayment`, which uses the `payment_metadata` column (not `metadata` — reserved by SQLAlchemy).
+  - **SECURITY INVARIANT — never trust the webhook body.** `POST
+    /payment-gateway/webhooks/mollie` accepts only a payment `id` and must
+    **always re-fetch the authoritative status/amount from the Mollie API**
+    (`refresh_payment_status` → `provider.get_payment_details()`) before it
+    changes anything. Mollie does not sign its webhooks, so the POST body is
+    unauthenticated and forgeable. Never let a future change set a payment to
+    "paid" — or read the amount/status — straight from the request body: that
+    would let anyone mark registrations as paid by POSTing a forged payload.
+    The re-fetch *is* the security model of this endpoint; treat it as
+    non-negotiable.
 - `service.py` — `create_payment_record()`, called after a registration is saved.
 
 **Models live with their domain** (`domains/mdm/models.py`,
