@@ -274,11 +274,18 @@ What to look for:
 
 ## Docker stack
 
-| Service | Port | Notes |
+| Service | Waar | Notes |
 |---|---|---|
-| db | 5432 | PostgreSQL 16, volume-backed |
-| backend | 8000 | FastAPI + Uvicorn — serveert óók alle HTML (server-rendered, #405) |
-| caddy | 80/443 | Reverse proxy; all browser traffic goes through Caddy |
+| db | alle | PostgreSQL 16, volume-backed. Poort 5432 is container-intern — nooit gepubliceerd. |
+| backend | alle | FastAPI + Uvicorn op 8000 (intern) — serveert óók alle HTML (server-rendered, #405) |
+| umami | alle | Analytics (#176), eigen subdomein via Caddy. Alleen op HDEV gepubliceerd (8082). |
+| caddy | dev, hdev | Eigen proxy binnen de stack (`caddy/Caddyfile.hdev`). HDEV publiceert 8081. |
+| db-backup, umami-db-backup | prod | Periodieke dumps (`scripts/db-backup.sh`). |
+
+**UAT en PROD publiceren zelf géén poorten.** Beide hangen aan de gedeelde Caddy:
+een apart compose-project (`docker-compose.caddy.yml`, `name: caddy`) op het
+externe netwerk `raak_proxy`, dat als enige 80/443 publiceert en HTTPS termineert
+voor alle domeinen.
 
 Sinds de React-exit (#405) is er **geen frontend-container meer**: alle
 pagina's zijn server-rendered (Jinja + htmx/Alpine) vanuit de backend, en de
@@ -530,7 +537,8 @@ it.** Europe First.
   `NoneType` and Pydantic rejects every value with 422 "Input should be None".
   Alias the type import instead (`from datetime import date as Date`, mirroring
   `time as Time`). This bit us in `ActivityUpdate` (hotfix v1.2.1). The blanket
-  fix `from __future__ import annotations` per schema file is tracked in #100.
+  fix — `from __future__ import annotations` in every schema file — is **done**
+  (#100, closed); keep adding it to new schema files.
 
 ## Validation layers — DB vs. service vs. router
 
