@@ -1,195 +1,76 @@
-# Deployment handleiding — Raak Millegem
+# Installation
 
-## Omgevingen
+How to stand up this stack from scratch. Day-to-day releases and deploys are
+covered in `CLAUDE.md` (*Releases and hotfixes*, *Deploying a release to UAT /
+PROD*); build and validation in `BUILDING.md`.
 
-| Omgeving | `.env` bestand | `docker-compose` bestand | Caddyfile | URL |
-|---|---|---|---|---|
-| DEV (lokaal) | `.env.dev` | `docker-compose.dev.yml` | `caddy/Caddyfile.dev` | http://localhost |
-| HDEV (Hetzner) | `.env.hdev` | `docker-compose.hdev.yml` | `caddy/Caddyfile.hdev` | http://<SERVER_IP>:8081 |
-| UAT (Hetzner) | `.env.uat` | `docker-compose.uat.yml` | `caddy/Caddyfile.uat` | http://<SERVER_IP>:8080 |
-| PROD (Hetzner) | `.env.prod` | `docker-compose.prod.yml` | `caddy/Caddyfile.prod` | http://<SERVER_IP> |
+This file deliberately contains **no host names, IP addresses, server paths or
+account details** — this repository is public. Everything host-specific lives in
+the `.env.<env>` files, which are never committed.
 
----
+## Environments
 
-## Versiestrategie (Git branches)
+| Environment | Env file | Compose file | Reverse proxy |
+|---|---|---|---|
+| dev | `.env.dev` | `docker-compose.dev.yml` | own Caddy (`caddy/Caddyfile.dev`) |
+| hdev | `.env.hdev` | `docker-compose.hdev.yml` | own Caddy (`caddy/Caddyfile.hdev`), published on port 8081 |
+| uat | `.env.uat` | `docker-compose.uat.yml` | shared Caddy |
+| prod | `.env.prod` | `docker-compose.prod.yml` | shared Caddy |
 
-```
-feature/mijn-wijziging   ← Claude ontwikkelt hier
-        ↓ merge
-develop                  ← UAT-omgeving
-        ↓ merge + tag
-main                     ← Productie
-```
+UAT and PROD publish no application ports of their own: both are served by one
+shared Caddy (`docker-compose.caddy.yml`, project `caddy`) that terminates HTTPS
+for every domain. Its config is split per environment under `caddy/parts/`; see
+`CLAUDE.md` → *Shared Caddy: expand/contract*.
 
-### Nieuwe feature deployen naar UAT
-```bash
-git checkout develop
-git merge feature/mijn-wijziging
-git push origin develop
-# Op server: cd /opt/raakmillegem/uat && ./deploy.sh uat
-```
-
-### UAT goedgekeurd → naar PROD
-```bash
-git checkout main
-git merge develop
-git tag v1.2.0
-git push origin main
-git push origin v1.2.0
-# Op server: cd /opt/raakmillegem/prod && ./deploy.sh prod
-```
-
-### Hotfix op productie (zonder UAT-wijzigingen mee te nemen)
-```bash
-git checkout -b hotfix/v1.2.1 v1.2.0
-# fix de bug
-git tag v1.2.1
-git push origin hotfix/v1.2.1
-git push origin v1.2.1
-# Deploy naar PROD, daarna merge terug naar develop:
-git checkout develop
-git merge hotfix/v1.2.1
-```
-
----
-
-## DEV — lokale installatie (pc of laptop)
+## Local development
 
 ```bash
-git clone -b master https://github.com/KoenRenders/KoenTest.git
+git clone https://github.com/KoenRenders/KoenTest.git
 cd KoenTest
-cp .env.dev.example .env.dev
-# Pas .env.dev aan indien nodig
+cp .env.dev.example .env.dev     # fill in the values
 ./deploy-dev.sh
 ```
 
-Bereikbaar op http://localhost en http://localhost/admin/login
+## A fresh server
 
----
+Requirements: a Linux host with Docker Engine and Compose v2, plus `git`. Expose
+only 80 and 443 (and 8081 if you want HDEV reachable). Do **not** expose the
+database (5432) or the backend (8000) — both are reachable through the proxy.
 
-## Eerste installatie op Hetzner
+1. **One directory per environment**, plus one for the shared Caddy. The paths
+   are your choice: the deploy scripts operate on the directory they live in.
+2. **Clone the repository into each** of those directories.
+3. **Create the shared proxy network once**, before the first start:
+   ```bash
+   docker network create raak_proxy
+   ```
+4. **Fill in the environment files**: copy each `.env.<env>.example` to
+   `.env.<env>` and complete it. The compose files use `${VAR:?...}` guards, so a
+   missing variable fails the command instead of starting a half-configured
+   stack. The shared Caddy has its own `.env.caddy` holding the domain names.
+5. **Deploy**, from the matching directory:
+   ```bash
+   ./deploy.sh hdev              # follows master
+   ./deploy.sh uat  vX.Y.Z       # exact release tag
+   ./deploy.sh prod vX.Y.Z
+   ```
+   Extra arguments are passed through to `docker compose up`.
+6. **Bring up the shared Caddy** from its own checkout: `./deploy-caddy.sh`.
 
-### 1. Server aanmaken
-- Cloud server: Ubuntu 24.04, minimaal CX22 (2 vCPU, 4 GB RAM)
-- SSH-sleutel toevoegen bij aanmaken
-- IP: <SERVER_IP>
+Database migrations need no separate step: the backend container runs
+`startup.sh`, which does `alembic upgrade head` before starting Uvicorn.
 
-### 2. Firewall instellen in Hetzner controlepaneel
-Ga naar je server → **Firewalls** → nieuwe firewall:
+Sign-in is by magic link, handled by the auth domain
+(`backend/app/domains/auth/`).
 
-| Richting | Protocol | Poort | Bron |
-|---|---|---|---|
-| Inkomend | TCP | 22 | Any (of beperk tot jouw IP) |
-| Inkomend | TCP | 80 | Any |
-| Inkomend | TCP | 443 | Any |
-| Inkomend | TCP | 8080 | Any (UAT) |
-| Inkomend | TCP | 8081 | Any (HDEV) |
+## Diagnostics
 
-Poort 5432 (PostgreSQL) en 8000 (backend) **niet** openzetten.
+After a deploy, `./logging.sh <env>` bundles container status, `alembic
+heads`/`current`, disk space, an error filter and the recent backend and proxy
+logs into `/tmp/<env>-diagnostics.log`.
 
-### 3. Server voorbereiden
-```bash
-ssh -i ~/.ssh/raak-millegem-hetzner root@<SERVER_IP>
-apt update && apt upgrade -y
-apt install -y docker.io docker-compose-v2 git
-systemctl enable --now docker
-mkdir -p /opt/raakmillegem/prod /opt/raakmillegem/uat /opt/raakmillegem/hdev
-```
+## Backups
 
-### 4. HDEV installeren
-```bash
-cd /opt/raakmillegem/hdev
-git clone -b master https://github.com/KoenRenders/KoenTest.git .
-cp .env.hdev.example .env.hdev
-nano .env.hdev   # vul alle waarden in
-chmod +x deploy.sh
-./deploy.sh hdev
-docker compose -f docker-compose.hdev.yml --env-file .env.hdev exec backend alembic upgrade head
-```
-
-### 5. UAT installeren
-```bash
-cd /opt/raakmillegem/uat
-git clone -b master https://github.com/KoenRenders/KoenTest.git .
-cp .env.uat.example .env.uat
-nano .env.uat    # vul alle waarden in
-chmod +x deploy.sh
-./deploy.sh uat
-docker compose -f docker-compose.uat.yml --env-file .env.uat exec backend alembic upgrade head
-```
-
-### 6. PROD installeren
-```bash
-cd /opt/raakmillegem/prod
-git clone -b master https://github.com/KoenRenders/KoenTest.git .
-cp .env.prod.example .env.prod
-nano .env.prod   # vul alle waarden in
-chmod +x deploy.sh
-./deploy.sh prod
-docker compose -f docker-compose.prod.yml --env-file .env.prod exec backend alembic upgrade head
-```
-
-### 7. Inloggen
-- PROD: http://<SERVER_IP>/admin/login
-- UAT:  http://<SERVER_IP>:8080/admin/login
-- HDEV: http://<SERVER_IP>:8081/admin/login
-
-Log in met `koen.renders@gmail.com` — je ontvangt een magic link via e-mail.
-
----
-
-## Reguliere updates
-
-### HDEV updaten
-```bash
-ssh -i ~/.ssh/raak-millegem-hetzner root@<SERVER_IP>
-cd /opt/raakmillegem/hdev
-./deploy.sh hdev
-```
-
-### UAT updaten
-```bash
-ssh -i ~/.ssh/raak-millegem-hetzner root@<SERVER_IP>
-cd /opt/raakmillegem/uat
-./deploy.sh uat
-```
-
-### PROD updaten
-```bash
-ssh -i ~/.ssh/raak-millegem-hetzner root@<SERVER_IP>
-cd /opt/raakmillegem/prod
-./deploy.sh prod
-```
-
----
-
-## Database backup
-
-Dagelijkse pg_dump ophalen naar je pc (uitvoeren vóór je restic-backup):
-
-```bash
-#!/bin/bash
-ssh -i ~/.ssh/raak-millegem-hetzner root@<SERVER_IP> \
-  "docker exec \$(docker ps -qf name=prod-db-1) pg_dump -U postgres raakmillegem | gzip" \
-  > ~/backups/raakmillegem_$(date +%Y%m%d).sql.gz
-```
-
-Voeg `~/backups/` toe aan je restic-configuratie zodat de dump automatisch meegenomen wordt.
-
----
-
-## Later: domeinnaam + HTTPS
-
-Pas `caddy/Caddyfile.prod` aan:
-```
-<DOMAIN> {
-    handle /api/* {
-        reverse_proxy backend:8000
-    }
-    handle {
-        reverse_proxy backend:8000
-    }
-}
-```
-
-En update `FRONTEND_URL` en `PUBLIC_URL` in `.env.prod` naar `https://<DOMAIN>`.
+The HDEV and PROD compose files ship a `db-backup` service. Off-site backup is
+deliberately **not** described here: it is operational tooling that belongs on
+the server, outside this public repository.
