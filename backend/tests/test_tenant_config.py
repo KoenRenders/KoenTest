@@ -85,3 +85,43 @@ def test_operator_passeert_elke_rolcheck(client, db_session):
     resp = client.get("/api/v1/admin/stats",
                       headers={"Authorization": f"Bearer {token}"})
     assert resp.status_code == 200
+
+
+# ── #571: Fernet wire format survives a cryptography major bump ─────────────
+
+def test_fernet_reads_a_token_from_an_older_release():
+    """A tenant secret encrypted by an earlier ``cryptography`` release must stay
+    readable after an upgrade.
+
+    ``set_setting(secret=True)`` stores a Fernet token in ``value_encrypted``;
+    rows written before the bump are decrypted by the new library at runtime. A
+    round-trip test cannot see that — it encrypts and decrypts with the same
+    version. So decrypt the canonical Fernet vector from the ``cryptography``
+    project instead: a fixed key + token that has been valid since Fernet v1. If
+    a major bump ever changes the on-disk format, every stored Mollie key
+    silently becomes unreadable — this turns that into a red test.
+    """
+    from cryptography.fernet import Fernet
+
+    key = "cw_0x689RpI-jtRR7oE8h_eQsKImvJapLeSbXpwF4e4="
+    token = (
+        "gAAAAAAdwJ6wAAECAwQFBgcICQoLDA0ODy021cpGVWKZ_eEwCGM4BLLF"
+        "_5CV9dOPmrhuVUPgJobwOz7JcbmrR64jVmpU4IwqDA=="
+    )
+    # No ttl: the vector is timestamped 1985, only the HMAC and the version byte
+    # are what we are pinning here.
+    assert Fernet(key).decrypt(token.encode()) == b"hello"
+
+
+def test_stored_secret_is_a_v1_fernet_token(db_session):
+    """The token the app writes is Fernet v1 (version byte 0x80), so it stays
+    interchangeable with what previous releases stored."""
+    import base64 as _b64
+
+    set_setting(db_session, "mollie_api_key", "test_geheim123", secret=True, tenant_id=97)
+    db_session.flush()
+
+    row = (db_session.query(TenantSetting)
+           .filter_by(tenant_id=97, key="mollie_api_key").one())
+    raw = _b64.urlsafe_b64decode(row.value_encrypted.encode())
+    assert raw[0] == 0x80

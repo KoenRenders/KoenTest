@@ -13,15 +13,15 @@ python-multipart==0.0.31
 httpx==0.28.1
 xlrd==2.0.2
 odfpy==1.4.1
-pillow==12.2.0
-pypdf==6.13.3
+pillow==12.3.0
+pypdf==6.16.2
 # STT Voxtral Realtime (#282). De realtime-adapter (app/domains/stt/providers/voxtral.py)
 # lazy-importeert deze SDK; vereist httpx>=0.28.1 + pydantic>=2.11.2 (vandaar de bumps
 # hierboven). check_imports/CI raken hem niet (mock-provider); pas actief bij
 # STT_MODE=native_first/provider_only met STT_PROVIDER=voxtral.
 mistralai[realtime]==2.4.12
 jinja2==3.1.6
-cryptography==49.0.0  # per-tenant secrets versleuteld (Fernet, #406)
+cryptography==50.0.1  # per-tenant secrets versleuteld (Fernet, #406)
 Babel==2.18.0  # taalcatalogus nl_BE (#407-T)
 nh3==0.3.6  # HTML-sanitisatie van CMS-inhoud bij render (stored-XSS-guard, #476)
-Markdown==3.7  # Raakje-antwoord markdown→HTML, daarna nh3-gesaneerd (#566)
+Markdown==3.10.3  # Raakje-antwoord markdown→HTML, daarna nh3-gesaneerd (#566)
