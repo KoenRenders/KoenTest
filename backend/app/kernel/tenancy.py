@@ -96,7 +96,7 @@ def resolve_request(host: str | None, path: str, cookie_code: str | None,
       paden zonder prefix) op dezelfde tenant blijft.
     - Daarna hostname, dan de tenant-cookie (enkel op platform-hosts), dan
       de default (Millegem).
-    - De wortel van een platform-host (renko.be, "/") is de landingspagina.
+    - De wortel van een platform-host (platform.example, "/") is de landingspagina.
     """
     codes = codes if codes is not None else TENANT_CODES
     genormaliseerd = (host or "").split(":")[0].lower().removeprefix("www.")

@@ -22,7 +22,7 @@ def homepage(request: Request, db: Session = Depends(get_db)):
     from app.domains.activities.api import list_activities
 
     if request.state.platform_landing:
-        # renko.be-wortel (§7, 5c): de "Raak Digital Platform"-landing met de
+        # platform.example-wortel (§7, 5c): de "Raak Digital Platform"-landing met de
         # actieve afdelingen; units draaien op hun eigen adres of pad-prefix.
         from app.domains.mdm.api import Organization
         from app.kernel.tenant_config import tenant_base_url, tenant_display_name

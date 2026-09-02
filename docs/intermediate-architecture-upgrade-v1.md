@@ -23,7 +23,7 @@ De **kernbeslissingen** in één zin elk (details/ADR's staan in de genoemde sec
    verwijzen via soft-refs (§6).
 5. **membership = eigen component**, zuster van activities (§5.4).
 6. **Multi-tenant = rij-niveau `tenant_id`**, aparte site per unit (hostname
-   canoniek; pad-prefix onder `renko.be` voor units zonder domein); **in scope
+   canoniek; pad-prefix onder `platform.example` voor units zonder domein); **in scope
    van v2.0** — trigger vervuld door de voorbeeldafdeling (§7, §14).
 7. **workflow + werkbank**: taken sluiten door toestand, zero-touch als norm,
    BPMN/DMN als taal, niet als motor (§20).
@@ -335,15 +335,15 @@ flowchart TB
 Harde eis: **elke unit die wil scoren, is een zelfstandig indexerende site**
 (Google/Bing/Qwant) → een **eigen host per unit** als canoniek adres.
 **Herzien 2026-07-13** (v2.0-beslissing): naast hostname-resolutie komt er een
-**pad-prefix-resolutie onder het platformdomein `renko.be`** voor units zónder
+**pad-prefix-resolutie onder het platformdomein `platform.example`** voor units zónder
 eigen domein:
 - **Eigen domein** (`raakmillegem.be`) — aanrader, sterkste scheiding + domain
   authority; **canonical base-URL** per unit in de tenant-config.
-- **Platform-pad** (`renko.be/raakmillegem`, `renko.be/raakvoorbeeldafdeling`) —
+- **Platform-pad** (`platform.example/raakmillegem`, `platform.example/raakvoorbeeldafdeling`) —
   tweede resolutiemechanisme; heeft een unit óók een eigen domein, dan is dát
   canoniek (canonical-tag/301 vanaf het pad — geen dubbele indexering); een
   demo-/voorbeeldunit staat op `noindex`.
-- **`renko.be` zelf (root)** = platform-landingspagina ("Raak Digital
+- **`platform.example` zelf (root)** = platform-landingspagina ("Raak Digital
   Platform"): de afdelingen + word-ook-afdeling; de voorbeeldafdeling is er de
   showcase (demo-seed: voorbeeldactiviteiten + demo-formulier; Mollie
   **test-mode**-key per tenant-config).
@@ -564,8 +564,8 @@ mail/auth → MDM. De rest kan grotendeels **parallel** zodra fundering + sjablo
 staan — met een harde grens: **maximaal 2–3 componenten tegelijk in uitvoering**
 (focus verslaat doorloop; half-verhuisde componenten zijn de duurste toestand). **Fase 5 (tenancy): trigger vervuld (2026-07-13)** — v2.0 bevat integrale
 multi-tenancy met twee tenants: **Raak Millegem** (`raakmillegem.be` +
-`renko.be/raakmillegem`) en **Raak voorbeeldafdeling**
-(`renko.be/raakvoorbeeldafdeling`, noindex).
+`platform.example/raakmillegem`) en **Raak voorbeeldafdeling**
+(`platform.example/raakvoorbeeldafdeling`, noindex).
 
 | Blok | Werkpakketten | Status |
 |---|---|---|
@@ -632,7 +632,7 @@ multi-tenancy met twee tenants: **Raak Millegem** (`raakmillegem.be` +
 - ✅ **Config-scheiding**: per-tenant config/secrets in DB (secrets versleuteld); infra
   in `.env`.
 - ✅ **Aparte site per unit** — herzien 2026-07-13: eigen host = canoniek;
-  **pad-prefix onder `renko.be`** als tweede resolutiemechanisme voor units
+  **pad-prefix onder `platform.example`** als tweede resolutiemechanisme voor units
   zonder eigen domein (canonical/301 voorkomt dubbele indexering; demo-unit
   op noindex).
 - ✅ **Frontend per fase/component** (templates + `ui.py` in de component-map, §13.1).

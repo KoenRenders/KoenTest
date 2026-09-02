@@ -149,7 +149,7 @@ class Settings(BaseSettings):
     # niet matchen vallen terug op pad-prefix en dan de default (Millegem).
     tenant_hostnames: str = ""
     # Platform-hosts (5c, #406): hosts waar de wortel de "Raak Digital
-    # Platform"-landing toont en units via pad-prefix draaien (bv. "renko.be").
+    # Platform"-landing toont en units via pad-prefix draaien (bv. "platform.example").
     platform_hosts: str = ""
 
     class Config:

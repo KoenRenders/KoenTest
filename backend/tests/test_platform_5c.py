@@ -10,30 +10,30 @@ from app.kernel.tenancy import (
 
 def test_resolve_request_volgorde():
     hosts = {"raakmillegem.be": "raakmillegem"}
-    platform = {"renko.be"}
+    platform = {"platform.example"}
     # pad-prefix wint en herschrijft het pad
-    assert resolve_request("renko.be", "/raakvoorbeeldafdeling/activiteiten",
+    assert resolve_request("platform.example", "/raakvoorbeeldafdeling/activiteiten",
                            None, hosts, platform) == (TENANT_VOORBEELD_ID, "/activiteiten", False)
-    assert resolve_request("renko.be", "/raakmillegem", None, hosts, platform) == (
+    assert resolve_request("platform.example", "/raakmillegem", None, hosts, platform) == (
         TENANT_MILLEGEM_ID, "/", False)
     # hostname
     assert resolve_request("www.raakmillegem.be", "/x", None, hosts, platform) == (
         TENANT_MILLEGEM_ID, None, False)
     # cookie houdt navigatie op de tenant (enkel platform-hosts)
-    assert resolve_request("renko.be", "/activiteiten", "raakvoorbeeldafdeling",
+    assert resolve_request("platform.example", "/activiteiten", "raakvoorbeeldafdeling",
                            hosts, platform) == (TENANT_VOORBEELD_ID, None, False)
     assert resolve_request("raakmillegem.be", "/activiteiten", "raakvoorbeeldafdeling",
                            hosts, platform) == (TENANT_MILLEGEM_ID, None, False)
     # platform-wortel = landing
-    assert resolve_request("renko.be", "/", None, hosts, platform) == (
+    assert resolve_request("platform.example", "/", None, hosts, platform) == (
         DEFAULT_TENANT_ID, None, True)
 
 
 def test_prefix_navigatie_en_cookie(client, monkeypatch):
     from app.config import settings
 
-    monkeypatch.setattr(settings, "platform_hosts", "renko.be")
-    resp = client.get("/raakvoorbeeldafdeling/", headers={"host": "renko.be"})
+    monkeypatch.setattr(settings, "platform_hosts", "platform.example")
+    resp = client.get("/raakvoorbeeldafdeling/", headers={"host": "platform.example"})
     assert resp.status_code == 200
     assert "Voorbeeldafdeling" in resp.text  # demo home-intro uit de seed
     assert resp.headers.get("x-robots-tag") == "noindex, nofollow"
@@ -43,8 +43,8 @@ def test_prefix_navigatie_en_cookie(client, monkeypatch):
 def test_platform_landing(client, monkeypatch):
     from app.config import settings
 
-    monkeypatch.setattr(settings, "platform_hosts", "renko.be")
-    resp = client.get("/", headers={"host": "renko.be"})
+    monkeypatch.setattr(settings, "platform_hosts", "platform.example")
+    resp = client.get("/", headers={"host": "platform.example"})
     assert resp.status_code == 200
     assert "Raak Digital Platform" in resp.text
     assert "Raak Voorbeeldafdeling" in resp.text
@@ -53,7 +53,7 @@ def test_platform_landing(client, monkeypatch):
 def test_robots_en_sitemap_per_tenant(client, monkeypatch):
     from app.config import settings
 
-    monkeypatch.setattr(settings, "platform_hosts", "renko.be")
+    monkeypatch.setattr(settings, "platform_hosts", "platform.example")
     # default-tenant: indexeerbaar + sitemap
     robots = client.get("/robots.txt")
     assert "Sitemap:" in robots.text and "Disallow: /admin" in robots.text
@@ -62,9 +62,9 @@ def test_robots_en_sitemap_per_tenant(client, monkeypatch):
 
     # demo-tenant: alles geblokkeerd, geen sitemap
     client.cookies.clear()
-    robots = client.get("/raakvoorbeeldafdeling/robots.txt", headers={"host": "renko.be"})
+    robots = client.get("/raakvoorbeeldafdeling/robots.txt", headers={"host": "platform.example"})
     assert "Disallow: /\n" in robots.text and "Sitemap:" not in robots.text
-    sitemap = client.get("/raakvoorbeeldafdeling/sitemap.xml", headers={"host": "renko.be"})
+    sitemap = client.get("/raakvoorbeeldafdeling/sitemap.xml", headers={"host": "platform.example"})
     assert sitemap.status_code == 404
 
 

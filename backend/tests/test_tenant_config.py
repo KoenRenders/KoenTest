@@ -51,6 +51,9 @@ def test_demo_tenant_seed(db_session):
     # checken de setting zélf — niet via tenant_base_url, want die negeert in
     # niet-prod bewust elke DB-base_url (#477, omgevingsisolatie).
     seeded = get_setting(db_session, "base_url", tenant_id=TENANT_VOORBEELD_ID)
+    # Bewust het echte domein: dit controleert de waarde die migratie 087 seedt,
+    # en een gemergede migratie wijzigen we niet (zie CLAUDE.md). Wil je die seed
+    # anders, dan hoort daar een NIEUWE migratie bij — en dan pas deze regel.
     assert seeded and "renko.be/raakvoorbeeldafdeling" in seeded
 
 
@@ -59,7 +62,7 @@ def test_demo_mails_worden_enkel_gelogd(db_session):
 
     token = current_tenant_id.set(TENANT_VOORBEELD_ID)
     try:
-        send_magic_link("demo@example.com", "https://renko.be/x")
+        send_magic_link("demo@example.com", "https://platform.example/x")
     finally:
         current_tenant_id.reset(token)
 

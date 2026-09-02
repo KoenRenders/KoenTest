@@ -12,7 +12,7 @@ def test_mail_draagt_tenantnaam(client, db_session):
 
     token = current_tenant_id.set(TENANT_VOORBEELD_ID)
     try:
-        send_magic_link("branding@example.com", "https://renko.be/x")
+        send_magic_link("branding@example.com", "https://platform.example/x")
     finally:
         current_tenant_id.reset(token)
     log = (db_session.query(EmailLog)
@@ -27,8 +27,8 @@ def test_mail_draagt_tenantnaam(client, db_session):
 def test_site_schil_volgt_tenant(client, monkeypatch):
     from app.config import settings
 
-    monkeypatch.setattr(settings, "platform_hosts", "renko.be")
-    resp = client.get("/raakvoorbeeldafdeling/", headers={"host": "renko.be"})
+    monkeypatch.setattr(settings, "platform_hosts", "platform.example")
+    resp = client.get("/raakvoorbeeldafdeling/", headers={"host": "platform.example"})
     assert resp.status_code == 200
     assert "© " in resp.text and "Raak Voorbeeldafdeling" in resp.text
     # De default-tenant (Millegem) toont zijn eigen naam, niet die van de andere

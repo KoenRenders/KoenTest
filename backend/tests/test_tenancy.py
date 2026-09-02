@@ -17,10 +17,10 @@ def test_resolve_tenant_volgorde():
     assert resolve_tenant("www.raakmillegem.be:443", "/", hosts) == TENANT_MILLEGEM_ID
     assert resolve_tenant("demo.example", "/raakmillegem/x", hosts) == TENANT_VOORBEELD_ID
     # pad-prefix als de hostname niets zegt
-    assert resolve_tenant("renko.be", "/raakvoorbeeldafdeling/activiteiten", hosts) == TENANT_VOORBEELD_ID
-    assert resolve_tenant("renko.be", "/raakmillegem", hosts) == TENANT_MILLEGEM_ID
+    assert resolve_tenant("platform.example", "/raakvoorbeeldafdeling/activiteiten", hosts) == TENANT_VOORBEELD_ID
+    assert resolve_tenant("platform.example", "/raakmillegem", hosts) == TENANT_MILLEGEM_ID
     # default: Millegem
-    assert resolve_tenant("renko.be", "/", hosts) == DEFAULT_TENANT_ID
+    assert resolve_tenant("platform.example", "/", hosts) == DEFAULT_TENANT_ID
     assert resolve_tenant(None, "/activiteiten", {}) == DEFAULT_TENANT_ID
 
 

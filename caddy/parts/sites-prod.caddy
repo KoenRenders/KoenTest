@@ -22,7 +22,7 @@
 	reverse_proxy prod-umami:3000
 }
 
-# Raak Digital Platform (#406, 5c): renko.be — wortel = platform-landing,
+# Raak Digital Platform (#406, 5c): platform.example — wortel = platform-landing,
 # pad-prefixen (/raakmillegem, /raakvoorbeeldafdeling) = units zonder eigen
 # domein. Alles gaat naar de prod-backend; de tenant-middleware doet de rest.
 {$PLATFORM_WWW_DOMAIN} {
