@@ -84,7 +84,10 @@ services:
       - internal
 
   caddy:
-    image: caddy:2
+    # Vastgepind (was `caddy:2`, een bewegende tag): een recreate mag nooit
+    # ongemerkt een andere Caddy-versie binnenhalen. Upgraden doe je hier,
+    # bewust, en eerst op HDEV.
+    image: caddy:2.11.4
     restart: unless-stopped
     ports:
       - "8081:8081"

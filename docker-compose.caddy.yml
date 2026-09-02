@@ -7,14 +7,19 @@
 # Starten:
 #   docker compose -f docker-compose.caddy.yml up -d
 #
-# Caddyfile herladen na een wijziging (zonder herstart):
-#   docker compose -f docker-compose.caddy.yml exec caddy caddy reload --config /etc/caddy/Caddyfile
+# Config toepassen na een wijziging: ./deploy-caddy.sh
+# NIET `caddy reload` gebruiken — die admin-API-reload is in-memory en overleeft
+# geen herstart (#312/#314). deploy-caddy.sh doet een force-recreate, valideert
+# de config vooraf en rolt terug als de PROD-rooktest faalt.
 
 name: caddy
 
 services:
   caddy:
-    image: caddy:2
+    # Vastgepind (was `caddy:2`, een bewegende tag): een recreate mag nooit
+    # ongemerkt een andere Caddy-versie binnenhalen. Upgraden doe je hier,
+    # bewust, en eerst op HDEV.
+    image: caddy:2.11.4
     restart: unless-stopped
     env_file:
       - .env.caddy
