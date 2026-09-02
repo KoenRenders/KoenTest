@@ -373,19 +373,38 @@ per commit on GitHub.
 
 ## Backend architecture (FastAPI + SQLAlchemy)
 
-**Entry point:** `backend/app/main.py` — registers all routers under `/api/v1`.
+**Entry point:** `backend/app/main.py` — registers the JSON routers under
+`/api/v1` and the server-rendered UI routers without a prefix.
 
-**Routers** (`backend/app/routers/`):
-- `auth.py` — Login, seed-admin
-- `members.py` — Family/person/membership CRUD; `POST /families` is the public registration endpoint
-- `activities.py` — Activity CRUD, sub-registrations, public registration (`POST /activities/{id}/register`)
-- `ideas.py` — Public idea submission
-- `cms.py` — CMS pages (public read, admin write); also serves `/api/v1/postal-codes`
-- `admin.py` — Dashboard stats
+**There is no `app/routers/` package.** Since the modular refactor (#396 and the
+fase-issues under #393) every domain owns its own routers, models, service and
+templates under `backend/app/domains/`:
 
-**Payment domains** (`backend/app/domains/`):
-- `payment_gateway/` — Mollie integration. `MollieProvider.create_payment()` creates a Mollie payment. Webhook URL is skipped when running on localhost (Mollie can't reach it). Uses `payment_metadata` column (not `metadata` — reserved by SQLAlchemy).
-- `payment_status/` — Internal `PaymentRecord` tracking. `create_payment_record()` is called from routers after a registration is saved.
+| Domain | JSON router(s) | Notable endpoints |
+|---|---|---|
+| `auth/` | `router.py` | login, magic link, API keys |
+| `membership/` | `register_router.py`, `household_router.py` | `POST /families` = public registration |
+| `mdm/` | `router.py`, `import_router.py` | `GET /postal-codes` (moved here from cms) |
+| `activities/` | `router.py` | `POST /activities/{id}/register` |
+| `payment/` | `router.py`, `gateway_router.py`, `status_router.py` | Mollie + payment records |
+| `cms/`, `media/`, `forms/`, `chatbot/`, `stt/`, `mail/`, `workflow/`, `audit/` | `router.py` per domain | — |
+
+Each domain also carries its server-rendered screens (`ui.py` for the public
+side, `admin_ui.py` for the back office). Cross-cutting admin screens that belong
+to no single domain live in `app/ui/` (changes, system info, settings, tenants,
+e-mail log) — see *UI-architectuur* below. A domain's public surface is its
+`api.py` facade; import across domains through that, never straight into another
+domain's internals (`tests/test_import_boundaries.py` enforces this).
+
+**Payment** (`backend/app/domains/payment/`) — one domain; the former
+`payment_gateway/` and `payment_status/` packages were folded into it:
+- `providers/mollie.py` — `MollieProvider.create_payment()` creates a Mollie payment. Webhook URL is skipped when running on localhost (Mollie can't reach it).
+- `gateway_service.py` / `gateway_router.py` — `GatewayPayment`, which uses the `payment_metadata` column (not `metadata` — reserved by SQLAlchemy).
+- `service.py` — `create_payment_record()`, called after a registration is saved.
+
+**Models live with their domain** (`domains/mdm/models.py`,
+`domains/activities/models.py`, `domains/payment/models.py`, …).
+`app/models/__init__.py` only re-exports them so SQLAlchemy registers every table.
 
 **Key models:**
 - `Member` = household (family unit); has `board_member_id` FK
@@ -408,7 +427,10 @@ beheer = ADMIN/OPERATOR; tenant-instellingen = OPERATOR-only.
 
 ## Alembic migrations
 
-Chain: `001 → 002 → 003 → 004 → 005 → 006 → 007 → 008 → 009 → 010 → 011`
+One linear chain, currently 89 revisions ending at `089_drop_business_events`.
+Do not write the chain out here — it goes stale immediately. Read the current
+head from the code instead: `ls backend/alembic/versions/ | sort | tail -1`, or
+`alembic heads` in a running backend container.
 
 Never modify a migration that has already been merged to master. Always create a new migration file for schema changes. Make migrations idempotent (check if table/column exists before creating).
 
