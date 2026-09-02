@@ -17,6 +17,25 @@
 
 ---
 
+## 0. Design-tokens — één bron van waarheid
+
+De merkkleuren en het merkfont hebben **één canonieke bron**: de Tailwind-config
+in `scripts/build-css.sh` (die de `blue-*`-schaal op de merkblauw zet en de
+`brand.*`-tokens definieert). De browser rendert wát daar staat — dat is dus de
+waarheid, niet een hex of klasse die elders wordt herhaald.
+
+- **Merkblauw = Ocean Blue = `#0051a4` = `blue-700`.** Koppen, de header-band, de
+  primary-knop-rust en rol-/info-badges dragen deze tint. `blue-800` (`#02407c`)
+  is bewust **donkerder** en enkel de hover-staat van de primary-knop — nooit de
+  rustkleur van chrome of koppen.
+- **Regel:** conventies en templates **verwijzen naar de token** (de
+  `blue-700`/`brand`-klasse); ze herschrijven nooit een losse hex of een
+  afwijkende `blue-*`-klasse. Zo tónen de merk-stijlgidsen (`docs/spec.md`,
+  `docs/stijlgids.html`) de kleur zonder dat een tweede/derde plek ervan kan
+  afdrijven. Wijkt een klasse hieronder toch af, dan is de token leidend.
+
+---
+
 # Deel A — Admin
 
 ---
@@ -53,7 +72,8 @@ leeg-teksten wisselen tussen "Geen …" en "Nog geen …" en tussen italic en ni
 ## 2. SOLL — de conventies
 
 ### 2.1 Paginakop
-- `<h1>` met `text-blue-800`, gevolgd door een optionele grijze subtitel-regel.
+- `<h1>` met `text-blue-700` (de merkblauw-token, §0), gevolgd door een optionele
+  grijze subtitel-regel.
 - **Primaire actie rechtsboven**: `btn-primary btn-sm`, label **"+ Nieuwe <item>"**
   (mét plus, mét btn-sm — geen uitzonderingen). Read-only pagina's hebben geen
   create-knop; een create in een subcontext (bv. "+ Persoon" per gezin) mag
@@ -123,7 +143,7 @@ Eén `<Badge>`-component; pill `px-2 py-0.5 rounded-full text-xs font-semibold`.
 | in behandeling / wachtend | **geel** (`yellow-100/800`) — amber vervalt | Openstaand, Gewijzigd |
 | fout / verwijderd / vol | rood (`red-100/800`) | Mislukt, Verwijderd |
 | concept / inactief / uit | grijs (`gray-100/600`) | Concept, Overgeslagen |
-| info / rol | blauw (`blue-100/800`) | ADMIN, FINANCE |
+| info / rol | blauw (`blue-100` bg / `blue-700` tekst) | ADMIN, FINANCE |
 
 ### 2.11 Laden & leeg
 - Laden: uniform **"Laden…"** via één `<Loading>`-component (vaste hoogte, geen
@@ -167,9 +187,9 @@ Titels en badges altijd Nederlands; nooit rauwe statuscodes tonen.
 | **ideeen** | Verwijderen als losse laatste actie; succes-feedback |
 | **formulieren** | kop-knop → "+ Nieuw formulier"; rij-acties → 2 + ⋯-menu; `alert()` → toast; Opslaan/Annuleren-volgorde omdraaien (editor-kop); ↑↓ → ReorderButtons |
 | **emails** | statusbadge NL-labels i.p.v. rauwe code; zoekveld zonder aparte knop (debounce) |
-| **betalingen** | zoekveld + paging; titel `text-blue-800`; disabled-verwijderen met reden i.p.v. verbergen; geel i.p.v. amber |
-| **gebruikers** | kop: `h1 text-blue-800` + `btn-sm`; rij-acties normale maat; "Actief" als Badge; succes-toast |
-| **ledenwijzigingen** | titel `text-blue-800`; `alert()` bij download → banner |
+| **betalingen** | zoekveld + paging; titel `text-blue-700` (§0); disabled-verwijderen met reden i.p.v. verbergen; geel i.p.v. amber |
+| **gebruikers** | kop: `h1 text-blue-700` (§0) + `btn-sm`; rij-acties normale maat; "Actief" als Badge; succes-toast |
+| **ledenwijzigingen** | titel `text-blue-700` (§0); `alert()` bij download → banner |
 | **analyse / info** | titelkleur; verder conform (read-only) |
 
 ---
