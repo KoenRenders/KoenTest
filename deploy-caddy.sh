@@ -1,86 +1,121 @@
 #!/usr/bin/env bash
 # Past de GEDEELDE Caddy-config (caddy/Caddyfile.shared) toe en herstart de
 # gedeelde Caddy zodat de wijziging gegarandeerd én blijvend actief is.
-# Draaien uit de caddy/-checkout (bv. /opt/raakmillegem/caddy):  ./deploy-caddy.sh
+# Draaien uit de caddy/-checkout (bv. /opt/raakmillegem/caddy):
+#
+#   ./deploy-caddy.sh              # config van de tag die PROD nu draait
+#   ./deploy-caddy.sh v1.15.0      # config van een expliciete tag
+#   ./deploy-caddy.sh master       # bewust master (alleen als je weet waarom)
 #
 # LET OP: deze Caddy bedient UAT **en** PROD. Een fout hier legt productie plat.
-# Daarom drie vangnetten, in deze volgorde:
+#
+# DE CONFIG VOLGT DE RELEASE-TAG, NIET MASTER. UAT en PROD draaien een vastgepinde
+# tag; volgde de proxy master, dan zou een kleine Caddy-ingreep ongevraagd alle
+# sindsdien gemaakte proxywijzigingen naar productie duwen. Concreet gebeurde dat
+# bijna: master routeert alles naar de backend (React-exit #405), terwijl v1.14.0
+# nog een aparte frontend-container heeft — dat had de site platgelegd.
+#
+# De SPLITSING is bewust:
+#   - de CONFIG (caddy/Caddyfile.shared) komt uit de gekozen tag;
+#   - de TOOLING (dit script, docker-compose.caddy.yml, tests/) komt uit master,
+#     zodat veiligheidsverbeteringen niet hoeven te wachten op een release.
+#
+# Drie vangnetten, in deze volgorde:
 #   1) `caddy validate` op de nieuwe config, VOOR de draaiende proxy geraakt wordt;
 #   2) een rooktest tegen PROD na de recreate;
-#   3) automatische, eenmalige rollback naar de vorige commit als die rooktest faalt.
+#   3) automatisch herstel van de vorige config als die rooktest faalt.
 #
-# Achtergrond (#312/#314) — twee valkuilen die we hier hard dichttimmeren:
-#   1) `caddy reload` (admin-API, in-memory) is onbetrouwbaar en overleeft geen
-#      herstart. We doen `up -d --force-recreate`, dat de config vers van schijf
-#      laadt, zodat compressie (#303) elke herstart overleeft.
-#   2) Een caddy-map op een DETACHED HEAD laat `git pull` stilvallen, waardoor de
-#      config nooit bijwerkt. We forceren de map onvoorwaardelijk op master HEAD.
+# Achtergrond (#312/#314): `caddy reload` (admin-API, in-memory) is onbetrouwbaar
+# en overleeft geen herstart. We doen `up -d --force-recreate`, dat de config vers
+# van schijf laadt, zodat compressie (#303) elke herstart overleeft.
 set -euxo pipefail
 
 cd "$(dirname "$0")"
 
 COMPOSE="docker-compose.caddy.yml"
 
-# Rollback-doel: onthoud wat er NU draait, vóór de reset. Eén keer gezet; overleeft
-# de re-exec en de eventuele rollback-exec via export.
-export CADDY_PREV_REF="${CADDY_PREV_REF:-$(git rev-parse HEAD 2>/dev/null || echo '')}"
-
-# Zet de map onvoorwaardelijk op de laatste master (werkt ook vanaf een detached
-# HEAD of een vervuilde werkmap). Bij een rollback checken we een exacte commit uit.
-if [ -n "${CADDY_ROLLBACK:-}" ]; then
-  git checkout --detach "$CADDY_PREV_REF"
-else
-  git fetch origin
-  git reset --hard origin/master
-  git checkout -B master origin/master
+# Snapshot van de NU draaiende config, vóór welke git-operatie dan ook — dit is
+# het bestand dat in de container gemount is. Overleeft de re-exec via export.
+if [ -z "${CADDY_PREV_CONF:-}" ]; then
+  CADDY_PREV_CONF="$(mktemp /tmp/caddyfile-prev.XXXXXX)"
+  cp caddy/Caddyfile.shared "$CADDY_PREV_CONF"
+  export CADDY_PREV_CONF
 fi
 
-# Robuustheid (#162-patroon, zoals deploy-uat.sh): na de checkout staat er mogelijk
-# een nieuwere versie van dit script op schijf dan degene die nu draait. Re-exec
-# één keer, zodat de validatie en de rollback hieronder uit de juiste scriptinhoud
-# komen. De guard voorkomt een oneindige lus.
+# Welke ref levert de config? Argument > CADDY_REF > de tag die PROD nu draait.
+# Er is BEWUST geen terugval op master: dat is precies de fout die we uitsluiten.
+REF="${1:-${CADDY_REF:-}}"
+if [ -z "$REF" ]; then
+  # Relatief pad, zodat er geen serverpaden in deze publieke repo staan.
+  PROD_DIR="${PROD_CHECKOUT_DIR:-../prod}"
+  if [ -d "$PROD_DIR/.git" ]; then
+    # --exact-match: staat PROD niet op een tag, dan raden we niet.
+    REF="$(git -C "$PROD_DIR" describe --tags --exact-match 2>/dev/null || true)"
+  fi
+fi
+if [ -z "$REF" ]; then
+  echo "FOUT: kon niet bepalen welke tag PROD draait." >&2
+  echo "Geef de tag expliciet mee, bv: ./deploy-caddy.sh v1.14.0" >&2
+  echo "(of zet PROD_CHECKOUT_DIR naar de prod-checkout)" >&2
+  exit 1
+fi
+
+git fetch --tags --prune origin
+
+# TOOLING op master. Hierna kan dit script zelf gewijzigd zijn, dus re-exec één
+# keer (#162-patroon) zodat de rest uit de juiste scriptinhoud komt.
+git reset --hard origin/master
+git checkout -B master origin/master
 if [ -z "${CADDY_REEXEC:-}" ]; then
   export CADDY_REEXEC=1
   exec "$0" "$@"
 fi
 
+# CONFIG uit de gekozen ref. Dit maakt de werkmap bewust "vuil" voor dit ene
+# bestand; de volgende deploy zet hem weer recht.
+git show "$REF:caddy/Caddyfile.shared" > caddy/Caddyfile.shared
+echo "Caddy-config genomen uit: $REF"
+
 # Veiligheidscheck: de compressie (#303) hoort in de gedeelde config te staan.
-# Zo niet, dan klopt de checkout niet — stoppen i.p.v. een kapotte config laden.
 if ! grep -q 'encode' caddy/Caddyfile.shared; then
   echo "FOUT: 'encode' ontbreekt in caddy/Caddyfile.shared — config NIET toegepast." >&2
+  cp "$CADDY_PREV_CONF" caddy/Caddyfile.shared
   exit 1
 fi
 
-# VANGNET 1 — valideer de config in een wegwerpcontainer, VOOR we de draaiende
-# proxy aanraken. `run --rm --no-deps` publiceert geen poorten en start niets
-# anders op; de env_file (.env.caddy) wordt wel geladen, zodat de {$DOMAIN}-
-# placeholders ingevuld worden zoals bij een echte start. Een syntaxfout stopt de
-# deploy hier, met de oude proxy nog gewoon in de lucht.
-docker compose -f "$COMPOSE" run --rm --no-deps --entrypoint caddy caddy \
-  validate --config /etc/caddy/Caddyfile --adapter caddyfile
+# VANGNET 1 — valideer in een wegwerpcontainer, VOOR we de draaiende proxy
+# aanraken. `run --rm --no-deps` publiceert geen poorten en start niets anders op;
+# de env_file (.env.caddy) wordt wel geladen, zodat de {$DOMAIN}-placeholders
+# ingevuld worden zoals bij een echte start. Faalt dit, dan blijft de oude proxy
+# gewoon draaien en zetten we het configbestand terug.
+if ! docker compose -f "$COMPOSE" run --rm --no-deps --entrypoint caddy caddy \
+     validate --config /etc/caddy/Caddyfile --adapter caddyfile; then
+  echo "!! CONFIG UIT $REF IS ONGELDIG — proxy niet aangeraakt." >&2
+  cp "$CADDY_PREV_CONF" caddy/Caddyfile.shared
+  exit 1
+fi
 
-# Verse container = config vers van schijf (overleeft herstarts), i.p.v. de
-# onbetrouwbare in-memory `caddy reload`.
+# Verse container = config vers van schijf (overleeft herstarts).
 docker compose -f "$COMPOSE" up -d --force-recreate caddy
 
-# VANGNET 2 — rooktest tegen PROD. Het domein komt uit .env.caddy (niet in git).
-# PROD is de gate: die mag niet stuk. UAT testen we ook, maar enkel als waarschuwing
-# — ligt de UAT-stack om een andere reden plat, dan is dat geen reden om een
-# geslaagde Caddy-config terug te draaien.
-PROD_DOMAIN="$(sed -nE 's/^PROD_DOMAIN=["'"'"']?([^"'"'"']*)["'"'"']?.*/\1/p' .env.caddy | head -1)"
-UAT_DOMAIN="$(sed -nE 's/^UAT_DOMAIN=["'"'"']?([^"'"'"']*)["'"'"']?.*/\1/p' .env.caddy | head -1)"
+# VANGNET 2 — rooktest tegen PROD. Domeinen komen uit .env.caddy (niet in git).
+# PROD is de gate; UAT testen we ook maar enkel als waarschuwing, want een om
+# andere redenen platliggende UAT-stack mag geen goede config terugdraaien.
+domain_from_env() {
+  sed -nE "s/^$1=[\"']?([^\"']*)[\"']?.*/\1/p" .env.caddy | head -1
+}
+PROD_DOMAIN="$(domain_from_env PROD_DOMAIN)"
+UAT_DOMAIN="$(domain_from_env UAT_DOMAIN)"
 
 if [ -n "$PROD_DOMAIN" ]; then
   if ! BASE="https://$PROD_DOMAIN" ./tests/run-all.sh; then
-    echo "!! ROOKTEST FAALDE op PROD na de Caddy-wijziging."
-    # VANGNET 3 — eenmalige automatische rollback naar de vorige commit.
-    CUR="$(git rev-parse HEAD 2>/dev/null || echo '')"
-    if [ -z "${CADDY_ROLLBACK:-}" ] && [ -n "$CADDY_PREV_REF" ] && [ "$CADDY_PREV_REF" != "$CUR" ]; then
-      echo ">>> Automatische rollback naar $CADDY_PREV_REF (eenmalig)."
-      CADDY_ROLLBACK=1 CADDY_REEXEC= exec "$0" "$@"
-    fi
-    echo "!! Geen (verdere) automatische rollback mogelijk — handmatig ingrijpen." >&2
-    echo "!! Vorige commit was: ${CADDY_PREV_REF:-onbekend}" >&2
+    echo "!! ROOKTEST FAALDE op PROD na de Caddy-wijziging." >&2
+    # VANGNET 3 — zet de vorige config terug en hercreëer.
+    echo ">>> Vorige config terugzetten en opnieuw hercreëren."
+    cp "$CADDY_PREV_CONF" caddy/Caddyfile.shared
+    docker compose -f "$COMPOSE" up -d --force-recreate caddy
+    echo "!! TERUGGEROLD naar de vorige config. De config uit $REF is NIET actief." >&2
+    echo "!! Snapshot van de teruggezette config: $CADDY_PREV_CONF" >&2
     exit 1
   fi
   echo "Rooktest OK op PROD."
@@ -93,9 +128,4 @@ if [ -n "$UAT_DOMAIN" ]; then
     || echo "LET OP: rooktest tegen UAT faalde. Geen rollback (PROD is de gate) — controleer de UAT-stack."
 fi
 
-if [ -n "${CADDY_ROLLBACK:-}" ]; then
-  echo "Caddy TERUGGEROLD naar $CADDY_PREV_REF — de nieuwe config is NIET actief." >&2
-  exit 1
-fi
-
-echo "Gedeelde Caddy hercreëerd op master ($(git rev-parse --short HEAD)) — dekt alle domeinen."
+echo "Gedeelde Caddy hercreëerd met de config uit $REF — dekt alle domeinen."
