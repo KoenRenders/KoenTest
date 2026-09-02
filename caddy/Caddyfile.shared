@@ -1,76 +1,15 @@
 # Gedeelde Caddy — handelt alle omgevingen af op poort 80/443.
 # Automatische HTTPS via Let's Encrypt per domein.
-
-# Veiligheidsheaders voor alle sites
-(security_headers) {
-	header {
-		# Forceer HTTPS bij volgende bezoeken (2 jaar)
-		Strict-Transport-Security "max-age=63072000; includeSubDomains; preload"
-		# Voorkom clickjacking
-		X-Frame-Options "DENY"
-		# Voorkom MIME-sniffing
-		X-Content-Type-Options "nosniff"
-		# Beperk referrer-lekkage
-		Referrer-Policy "strict-origin-when-cross-origin"
-		# Content-Security-Policy (#293 + Umami-fix). De header-NAAM is env-gestuurd
-		# zodat je tussen observeren en afdwingen schakelt zonder code-wijziging:
-		#   CSP_HEADER_NAME=Content-Security-Policy-Report-Only  → alleen rapporteren
-		#   CSP_HEADER_NAME=Content-Security-Policy               → afdwingen
-		# Niet gezet → default afdwingen (gelijk aan het gedrag op master). De
-		# stats-subdomeinen (Umami) staan expliciet toegelaten in script-src/
-		# connect-src; anders blokkeert 'self' het analytics-script en zijn calls.
-		# React-escaping + DOMPurify blijven de primaire XSS-verdediging.
-		{$CSP_HEADER_NAME:Content-Security-Policy} "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://{$STATS_UAT_DOMAIN} https://{$STATS_PROD_DOMAIN}; connect-src 'self' https://{$STATS_UAT_DOMAIN} https://{$STATS_PROD_DOMAIN}; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'"
-		# Verberg server-header
-		-Server
-	}
-	# Compressie (#303): scheelt bandbreedte/laadtijd op HTML/CSS/JS. In de gedeelde
-	# basis zodat alle sites (uat/prod + stats) ze krijgen via `import security_headers`.
-	encode zstd gzip
-}
-
-# Domeinen komen uit .env.caddy (niet in git). Zie .env.caddy.example.
-{$UAT_DOMAIN} {
-	import security_headers
-	# Nul Node (React-exit #405): API, statics en alle server-rendered
-	# pagina's komen uit de backend; de per-pad-blokken uit de hybride
-	# omklap-periode zijn opgeruimd.
-	reverse_proxy uat-backend:8000
-}
-
-# Umami-analytics op een eigen subdomein, root-served (#176).
-{$STATS_UAT_DOMAIN} {
-	import security_headers
-	reverse_proxy uat-umami:3000
-}
-
-# www → apex: 301-redirect naar de canonieke URL (best practice, één canonieke host)
-{$PROD_WWW_DOMAIN} {
-	import security_headers
-	redir https://{$PROD_DOMAIN}{uri} permanent
-}
-
-{$PROD_DOMAIN} {
-	import security_headers
-	# Nul Node (React-exit #405): API, statics en alle server-rendered
-	# pagina's komen uit de backend; de per-pad-blokken uit de hybride
-	# omklap-periode zijn opgeruimd.
-	reverse_proxy prod-backend:8000
-}
-
-# Umami-analytics op een eigen subdomein, root-served (#176).
-{$STATS_PROD_DOMAIN} {
-	import security_headers
-	reverse_proxy prod-umami:3000
-}
-
-# Raak Digital Platform (#406, 5c): renko.be — wortel = platform-landing,
-# pad-prefixen (/raakmillegem, /raakvoorbeeldafdeling) = units zonder eigen
-# domein. Alles gaat naar de prod-backend; de tenant-middleware doet de rest.
-{$PLATFORM_WWW_DOMAIN} {
-	redir https://{$PLATFORM_DOMAIN}{uri} permanent
-}
-{$PLATFORM_DOMAIN} {
-	import security_headers
-	reverse_proxy prod-backend:8000
-}
+#
+# Deze config is BEWUST opgesplitst, zodat UAT en PROD elk hun eigen release-tag
+# kunnen volgen terwijl ze dezelfde Caddy delen (zie deploy-caddy.sh):
+#   parts/snippets.caddy    gedeeld -> uit de tag van PROD
+#   parts/sites-uat.caddy   UAT     -> uit de tag van UAT   (mag vooruitlopen)
+#   parts/sites-prod.caddy  PROD    -> uit de tag van PROD
+#
+# De volgorde is niet vrijblijvend: het snippet moet gedefinieerd zijn vóór de
+# sites die het importeren. De paden zijn die IN de container; caddy/parts wordt
+# gemount door docker-compose.caddy.yml.
+import /etc/caddy/parts/snippets.caddy
+import /etc/caddy/parts/sites-uat.caddy
+import /etc/caddy/parts/sites-prod.caddy

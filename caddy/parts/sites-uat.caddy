@@ -1,0 +1,17 @@
+# UAT-sites. Komt bij een deploy uit de tag die UAT draait — dit deel mag dus
+# vooruitlopen op PROD.
+# Domeinen komen uit .env.caddy (niet in git). Zie .env.caddy.example.
+
+{$UAT_DOMAIN} {
+	import security_headers
+	# Nul Node (React-exit #405): API, statics en alle server-rendered
+	# pagina's komen uit de backend; de per-pad-blokken uit de hybride
+	# omklap-periode zijn opgeruimd.
+	reverse_proxy uat-backend:8000
+}
+
+# Umami-analytics op een eigen subdomein, root-served (#176).
+{$STATS_UAT_DOMAIN} {
+	import security_headers
+	reverse_proxy uat-umami:3000
+}

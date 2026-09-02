@@ -19,7 +19,11 @@ services:
     # Vastgepind (was `caddy:2`, een bewegende tag): een recreate mag nooit
     # ongemerkt een andere Caddy-versie binnenhalen. Upgraden doe je hier,
     # bewust, en eerst op HDEV.
-    image: caddy:2.11.4
+    #
+    # Via CADDY_IMAGE overschrijfbaar, zodat deploy-caddy.sh bij een gefaalde
+    # rooktest kan terugvallen op de image-digest die vóór de deploy draaide
+    # (een config-rollback helpt niet als de Caddy-VERSIE de storing is).
+    image: ${CADDY_IMAGE:-caddy:2.11.4}
     restart: unless-stopped
     env_file:
       - .env.caddy
@@ -29,6 +33,9 @@ services:
       - "443:443/udp"
     volumes:
       - ./caddy/Caddyfile.shared:/etc/caddy/Caddyfile:z
+      # De config is opgesplitst per omgeving (zie Caddyfile.shared); de delen
+      # worden bij een deploy elk uit hun eigen release-tag geschreven.
+      - ./caddy/parts:/etc/caddy/parts:z
       - caddy_shared_data:/data
       - caddy_shared_config:/config
     networks:

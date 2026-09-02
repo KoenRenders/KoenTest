@@ -1,0 +1,34 @@
+# PROD-sites (inclusief www-redirect, stats en het platform-domein).
+# Komt bij een deploy uit de tag die PROD draait.
+# Domeinen komen uit .env.caddy (niet in git). Zie .env.caddy.example.
+
+# www → apex: 301-redirect naar de canonieke URL (best practice, één canonieke host)
+{$PROD_WWW_DOMAIN} {
+	import security_headers
+	redir https://{$PROD_DOMAIN}{uri} permanent
+}
+
+{$PROD_DOMAIN} {
+	import security_headers
+	# Nul Node (React-exit #405): API, statics en alle server-rendered
+	# pagina's komen uit de backend; de per-pad-blokken uit de hybride
+	# omklap-periode zijn opgeruimd.
+	reverse_proxy prod-backend:8000
+}
+
+# Umami-analytics op een eigen subdomein, root-served (#176).
+{$STATS_PROD_DOMAIN} {
+	import security_headers
+	reverse_proxy prod-umami:3000
+}
+
+# Raak Digital Platform (#406, 5c): renko.be — wortel = platform-landing,
+# pad-prefixen (/raakmillegem, /raakvoorbeeldafdeling) = units zonder eigen
+# domein. Alles gaat naar de prod-backend; de tenant-middleware doet de rest.
+{$PLATFORM_WWW_DOMAIN} {
+	redir https://{$PLATFORM_DOMAIN}{uri} permanent
+}
+{$PLATFORM_DOMAIN} {
+	import security_headers
+	reverse_proxy prod-backend:8000
+}

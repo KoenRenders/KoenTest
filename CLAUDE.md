@@ -202,6 +202,54 @@ during the rebuild.
 > `git fetch --tags origin && git checkout --detach v1.x.x && docker compose -f
 > docker-compose.uat.yml --env-file .env.uat up --build -d`.
 
+### Shared Caddy: expand/contract
+
+One Caddy container terminates HTTPS for UAT **and** PROD (one server, one `:443`).
+Its config therefore serves two releases at the same time — exactly like the
+database does during a deploy. The same expand/contract rule from architectuurdoc
+§19.5 applies: within a release, only additive changes to the shared part.
+
+**The config never follows `master`.** `deploy-caddy.sh` takes each part from the
+tag of its own environment, so UAT can run ahead of PROD:
+
+| File | Scope | Comes from |
+|---|---|---|
+| `caddy/parts/sites-uat.caddy` | UAT sites | the tag UAT runs — may run ahead |
+| `caddy/parts/sites-prod.caddy` | PROD sites | the tag PROD runs |
+| `caddy/parts/snippets.caddy` | shared (`security_headers`, CSP, `encode`) | the tag PROD runs — conservative |
+
+`caddy/Caddyfile.shared` only imports these three, in that order (the snippet must
+be defined before the sites that import it). Edit the parts, never the importing
+file. Running `deploy-caddy.sh` without an argument derives both tags from the
+sibling checkouts (`../uat`, `../prod`); if PROD is not on an exact tag it aborts
+rather than guessing.
+
+**What this means per kind of change:**
+
+| Change | Shared? | Can be validated on UAT first |
+|---|---|---|
+| Routing inside a UAT site block | no | yes, directly |
+| New domain / new site block | no | yes, directly |
+| Snippet (`security_headers`, CSP, `encode`) | yes | only via expand/contract |
+| Global options / Caddy version | yes | no — rehearse on HDEV |
+
+A shared change takes **two releases**: first *expand* (add the new snippet next
+to the old one and let only the UAT sites import it), then *contract* (switch the
+PROD sites over and delete the old one) once PROD runs the tag that contains it.
+
+**A Caddy version upgrade is always shared** — one binary serves both. Rehearse on
+HDEV, which has its own Caddy, then let the PROD smoke gate and the rollback in
+`deploy-caddy.sh` cover the rest. Note that rollback is **runtime only**: it
+restores the previous image digest, but `docker-compose.caddy.yml` still points at
+the new version, so revert the pin in git as well or the next deploy pulls it back.
+
+> **A new site block needs its domain variable in `.env.caddy` on the server
+> before the deploy.** An unset `{$SOME_DOMAIN}` expands to an empty site address,
+> which makes the whole config invalid — Caddy then refuses to start, taking PROD
+> down with it. This is not hypothetical: `PLATFORM_DOMAIN` / `PLATFORM_WWW_DOMAIN`
+> (#406) are on master but were missing from the server's `.env.caddy`. Name every
+> new Caddy domain variable in the "Na de merge" handoff block of the release.
+
 ### Verifying a deploy via the backend logs
 
 After every rebuild, check the backend logs to confirm migrations applied and
