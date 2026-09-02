@@ -26,7 +26,7 @@ main                     ← Productie
 git checkout develop
 git merge feature/mijn-wijziging
 git push origin develop
-# Op server: cd /opt/raakmillegem/uat && ./deploy-uat.sh
+# Op server: cd /opt/raakmillegem/uat && ./deploy.sh uat
 ```
 
 ### UAT goedgekeurd → naar PROD
@@ -36,7 +36,7 @@ git merge develop
 git tag v1.2.0
 git push origin main
 git push origin v1.2.0
-# Op server: cd /opt/raakmillegem/prod && ./deploy-prod.sh
+# Op server: cd /opt/raakmillegem/prod && ./deploy.sh prod
 ```
 
 ### Hotfix op productie (zonder UAT-wijzigingen mee te nemen)
@@ -102,8 +102,8 @@ cd /opt/raakmillegem/hdev
 git clone -b master https://github.com/KoenRenders/KoenTest.git .
 cp .env.hdev.example .env.hdev
 nano .env.hdev   # vul alle waarden in
-chmod +x deploy-hdev.sh
-./deploy-hdev.sh
+chmod +x deploy.sh
+./deploy.sh hdev
 docker compose -f docker-compose.hdev.yml --env-file .env.hdev exec backend alembic upgrade head
 ```
 
@@ -113,8 +113,8 @@ cd /opt/raakmillegem/uat
 git clone -b master https://github.com/KoenRenders/KoenTest.git .
 cp .env.uat.example .env.uat
 nano .env.uat    # vul alle waarden in
-chmod +x deploy-uat.sh
-./deploy-uat.sh
+chmod +x deploy.sh
+./deploy.sh uat
 docker compose -f docker-compose.uat.yml --env-file .env.uat exec backend alembic upgrade head
 ```
 
@@ -124,8 +124,8 @@ cd /opt/raakmillegem/prod
 git clone -b master https://github.com/KoenRenders/KoenTest.git .
 cp .env.prod.example .env.prod
 nano .env.prod   # vul alle waarden in
-chmod +x deploy-prod.sh
-./deploy-prod.sh
+chmod +x deploy.sh
+./deploy.sh prod
 docker compose -f docker-compose.prod.yml --env-file .env.prod exec backend alembic upgrade head
 ```
 
@@ -144,21 +144,21 @@ Log in met `koen.renders@gmail.com` — je ontvangt een magic link via e-mail.
 ```bash
 ssh -i ~/.ssh/raak-millegem-hetzner root@<SERVER_IP>
 cd /opt/raakmillegem/hdev
-./deploy-hdev.sh
+./deploy.sh hdev
 ```
 
 ### UAT updaten
 ```bash
 ssh -i ~/.ssh/raak-millegem-hetzner root@<SERVER_IP>
 cd /opt/raakmillegem/uat
-./deploy-uat.sh
+./deploy.sh uat
 ```
 
 ### PROD updaten
 ```bash
 ssh -i ~/.ssh/raak-millegem-hetzner root@<SERVER_IP>
 cd /opt/raakmillegem/prod
-./deploy-prod.sh
+./deploy.sh prod
 ```
 
 ---

@@ -130,16 +130,19 @@ The master CLI taking over reads that block first, then drives HDEV → UAT → 
 From the merge onward the master CLI owns tagging and issue-closing; the feature
 worktree does not tag.
 
-**HDEV deploys `master` HEAD; UAT and PROD deploy a pinned tag.** `deploy-hdev.sh`
-does `git reset --hard origin/master` (integration line). `deploy-uat.sh` and
-`deploy-prod.sh` take a release tag as argument and check it out detached — they
+**HDEV deploys `master` HEAD; UAT and PROD deploy a pinned tag.** One script,
+`deploy.sh <env> [tag]`, drives all three; a config block at the top holds the
+per-environment differences (source, DB backup, rollback, own vs shared Caddy).
+`deploy.sh hdev` does `git reset --hard origin/master` (integration line).
+`deploy.sh uat` and `deploy.sh prod` take a release tag as argument and check it
+out detached — they
 do NOT assume master equals the latest release, because master may already be
 ahead. A release tag is the **single source of truth** for what runs on UAT/PROD.
 
 **Test on HDEV against master BEFORE creating the Release tag.** The release
 tag is the single source of truth for UAT/PROD, so it must point at a commit
 that has already been validated on HDEV — never tag an untested commit. Correct
-order: (1) deploy master to HDEV (`./deploy-hdev.sh`), (2) test on HDEV,
+order: (1) deploy master to HDEV (`./deploy.sh hdev`), (2) test on HDEV,
 (3) only then create the GitHub Release targeting that tested master commit.
 Re-check the exact target commit at tag-time — master may have moved since the
 work started.
@@ -169,13 +172,14 @@ HDEV → UAT → PROD. On the server, in the repo checkout:
 
 ```bash
 # HDEV — always tracks master (integration; no tag)
-./deploy-hdev.sh
+./deploy.sh hdev
 
 # UAT — deploy a specific tag
-./deploy-uat.sh v1.x.x        # fetch --tags && checkout --detach <tag> && compose up --build -d
+./deploy.sh uat v1.x.x        # fetch --tags && checkout --detach <tag> && compose up --build -d
+# Extra argumenten gaan door naar `docker compose up`, bv. --remove-orphans.
 
 # PROD — same tag, after UAT looks good
-./deploy-prod.sh v1.x.x
+./deploy.sh prod v1.x.x
 ```
 
 Each UAT/PROD script does `git fetch --tags --prune` then `git checkout --detach
@@ -186,7 +190,7 @@ post-deploy smoke test (`tests/run-all.sh`) that creates no data. The backend ru
 during the rebuild.
 
 > **Shared Caddy: a release that changes `caddy/Caddyfile.shared` needs an extra
-> step (#312/#314).** `deploy-uat.sh`/`deploy-prod.sh` run in the `uat/`/`prod/`
+> step (#312/#314).** `deploy.sh uat`/`deploy.sh prod` run in the `uat/`/`prod/`
 > checkout and do **not** touch the shared Caddy (a separate stack, `name: caddy`,
 > serving all domains). Run, in the `caddy/` checkout: `./deploy-caddy.sh` — it
 > forces the checkout onto `master` (also from a detached HEAD), checks that

@@ -6,8 +6,8 @@ description: Begeleidt een Raak Millegem-release volgens CLAUDE.md — maakt/ond
 # Release-begeleiding Raak Millegem
 
 Deze skill volgt strikt de regels in `CLAUDE.md` (secties *Releases en hotfixes*,
-*Deploying a release to UAT / PROD*, *Testen en test-evidence*). De deploy-scripts
-(`deploy-hdev.sh`, `deploy-uat.sh`, `deploy-prod.sh`, `deploy-caddy.sh`) draaien op
+*Deploying a release to UAT / PROD*, *Testen en test-evidence*). De scripts
+(`deploy.sh <env> [tag]`, `deploy-caddy.sh`, `logging.sh <env>`) draaien op
 de **server** door Koen — Claude draait ze niet. Claude's rol: het tracker-issue
 beheren, CI-evidence verzamelen, de GitHub Release begeleiden en issues sluiten.
 
@@ -41,15 +41,18 @@ draait tegen echte Postgres 16 — dat is het bewijs, geen lokale claim.
 Zet deze als checkboxes in het tracker-issue en begeleid Koen erdoorheen:
 1. [ ] **Env vars per host** bijwerken indien de release die toevoegt/wijzigt
    (naam expliciet noemen; niet auto-toegevoegd).
-2. [ ] HDEV test tegen master: `./deploy-hdev.sh` — **vóór** het tag-moment.
+2. [ ] HDEV test tegen master: `./deploy.sh hdev` — **vóór** het tag-moment.
 3. [ ] **GitHub Release `vX.Y.Z`** aanmaken (Draft → Choose tag → *Create new tag
    on publish* → Target `master` = de op HDEV geteste commit → Publish). Dit maakt
    de tag server-side; **geen** `git push origin <tag>` (403 in remote env).
    Her-check het exacte doelcommit — master kan intussen bewogen zijn.
-4. [ ] UAT: `./deploy-uat.sh vX.Y.Z`.
-5. [ ] **Gedeelde Caddy** reloaden met `./deploy-caddy.sh` **enkel** als de release
-   `caddy/Caddyfile.shared` raakt (één recreate dekt UAT + PROD).
-6. [ ] PROD: `./deploy-prod.sh vX.Y.Z`.
+4. [ ] UAT: `./deploy.sh uat vX.Y.Z`.
+5. [ ] **Gedeelde Caddy**: `./deploy-caddy.sh` **enkel** als de release
+   `caddy/parts/*.caddy` raakt (één recreate dekt UAT + PROD). Het script neemt
+   elk deel uit de tag van zijn eigen omgeving — het volgt **nooit** master.
+   Wijzig je iets in `snippets.caddy` (gedeeld), dan geldt expand/contract: zie
+   `CLAUDE.md` → *Shared Caddy: expand/contract*.
+6. [ ] PROD: `./deploy.sh prod vX.Y.Z`.
 7. [ ] Backend-logs verifiëren: `Running upgrade NNN -> NNN+1` (bij nieuwe
    migratie) + `Uvicorn running on http://0.0.0.0:8000`, geen ERROR/traceback.
    Commando: `sudo docker compose -f docker-compose.<env>.yml --env-file
@@ -96,29 +99,38 @@ zijn read-only en veranderen niets). Sluit af met een duidelijke regel:
 
 **Deploy draaien** — kies de checkout-map die bij het milieu hoort
 (`${DEPLOY_HDEV_DIR:-$DEPLOY_REPO_DIR}` / `$DEPLOY_UAT_DIR` / `$DEPLOY_PROD_DIR`):
-- HDEV: `ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" 'cd "${DEPLOY_HDEV_DIR:-$DEPLOY_REPO_DIR}" && ./deploy-hdev.sh'`
-- UAT (na bevestiging + tag): `ssh … 'cd "$DEPLOY_UAT_DIR" && ./deploy-uat.sh vX.Y.Z'`
-- PROD (na bevestiging + tag): `ssh … 'cd "$DEPLOY_PROD_DIR" && ./deploy-prod.sh vX.Y.Z'`
+- HDEV: `ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" 'cd "${DEPLOY_HDEV_DIR:-$DEPLOY_REPO_DIR}" && ./deploy.sh hdev'`
+- UAT (na bevestiging + tag): `ssh … 'cd "$DEPLOY_UAT_DIR" && ./deploy.sh uat vX.Y.Z'`
+- PROD (na bevestiging + tag): `ssh … 'cd "$DEPLOY_PROD_DIR" && ./deploy.sh prod vX.Y.Z'`
+
+Extra argumenten na de tag gaan door naar `docker compose up` — bv.
+`./deploy.sh prod vX.Y.Z --remove-orphans` wanneer een release services schrapt.
 
 **Caddy — twee verschillende gevallen (belangrijk):**
 - **HDEV heeft zijn EIGEN Caddy** binnen de hdev-stack (`caddy/Caddyfile.hdev`,
-  bind-mount). `deploy-hdev.sh` herlaadt die **zelf** (`… exec -T caddy caddy
-  reload`) → bij een HDEV-deploy is er **geen** aparte Caddy-stap.
-- **UAT en PROD delen één externe Caddy** (`caddy/Caddyfile.shared`, netwerk
-  `raak_proxy`). Enkel wanneer **`Caddyfile.shared`** wijzigt (#312/#314) is een
-  aparte stap nodig: `ssh … 'cd "$DEPLOY_CADDY_DIR" && ./deploy-caddy.sh'`. **Eén**
-  recreate dekt UAT én PROD. Draai dit **niet** voor HDEV.
+  bind-mount). `deploy.sh hdev` hercreëert die **zelf** (force-recreate, niet
+  `caddy reload` — die admin-API-reload is in-memory en overleeft geen herstart,
+  #312/#314) → bij een HDEV-deploy is er **geen** aparte Caddy-stap.
+- **UAT en PROD delen één externe Caddy** (netwerk `raak_proxy`, project `caddy`).
+  Enkel wanneer **`caddy/parts/*.caddy`** wijzigt is een aparte stap nodig:
+  `ssh … 'cd "$DEPLOY_CADDY_DIR" && ./deploy-caddy.sh'`. **Eén** recreate dekt UAT
+  én PROD. Draai dit **niet** voor HDEV.
+  Het script neemt `sites-uat.caddy` uit de tag die UAT draait en
+  `sites-prod.caddy` + `snippets.caddy` uit die van PROD; het volgt nooit master.
+  Staan UAT en PROD op verschillende tags waarvan de oudste nog geen
+  `caddy/parts/` heeft, dan stopt het en moet je de ref expliciet meegeven
+  (`./deploy-caddy.sh vX.Y.Z`). Het valideert de config vóór de recreate en rolt
+  config én image-digest terug als de PROD-rooktest faalt.
 
 (Bij `DEPLOY_DRY_RUN` → enkel printen, niets uitvoeren.)
 
-**Logs binnentrekken + analyseren — gebruik de dedicated `logging-<env>.sh`.**
-Er zijn kant-en-klare diagnosescripts (`logging-hdev.sh`, `logging-uat.sh`,
-`logging-prod.sh`) die alles bundelen in `/tmp/<env>-diagnostics.log`:
+**Logs binnentrekken + analyseren — gebruik `logging.sh <env>`.**
+Dat diagnosescript bundelt alles in `/tmp/<env>-diagnostics.log`:
 containerstatus, `alembic heads`/`current`, schijfruimte, een ERROR/Traceback-
 foutfilter, en de backend-/frontend-/caddy-logs (voor UAT/PROD komen de caddy-logs
 uit het gedeelde `docker-compose.caddy.yml`-project). **Gebruik deze i.p.v. een
 hand-geschreven `docker compose logs`.** Draai het script en trek het bestand op:
-- `ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" 'cd <checkout-map van het milieu> && ./logging-<env>.sh'`
+- `ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" 'cd <checkout-map van het milieu> && ./logging.sh <env>'`
   (checkout-map = `${DEPLOY_HDEV_DIR:-$DEPLOY_REPO_DIR}` / `$DEPLOY_UAT_DIR` /
   `$DEPLOY_PROD_DIR`; het script tee't de output ook naar je scherm).
 - Haal het volledige bestand op: `scp -i "$DEPLOY_SSH_KEY" -P "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST:/tmp/<env>-diagnostics.log" ./`

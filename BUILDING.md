@@ -21,6 +21,6 @@ De CI (`.github/workflows/backend-tests.yml`) draait dezelfde stappen plus de
 de blokkerende e2e- en audit-gates (nul Node sinds de React-exit #405).
 Groen = mergebaar; dit bestand is de definitie van "af" (§13.2).
 
-Deploys: `deploy-hdev.sh` (master), `deploy-uat.sh`/`deploy-prod.sh <tag>` met
+Deploys: `deploy.sh hdev` (master), `deploy.sh uat|prod <tag>` met
 pre-migratie-backup + smoke-gate + auto-rollback (#395); restore-oefening via
 `scripts/restore-test.sh`.
