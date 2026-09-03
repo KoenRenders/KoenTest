@@ -195,6 +195,19 @@ jobs:
         working-directory: backend
         run: pip install -r requirements.txt
 
+      # The same import check the Docker build runs (#583). While it lived only
+      # there, a removed or renamed module stayed invisible to CI and broke the
+      # deploy build on the server instead — exactly what happened in #581. The
+      # env is deliberately identical to backend/Dockerfile so CI covers the
+      # same path.
+      - name: Import check (identical to the Docker build)
+        working-directory: backend
+        env:
+          APP_ENV: build
+          SECRET_KEY: build-time-check
+          DATABASE_URL: postgresql://x:x@localhost/x
+        run: python check_imports.py
+
       - name: Echte boot via startup.sh (migraties + alle seeds + uvicorn) + health-probe
         working-directory: backend
         run: |

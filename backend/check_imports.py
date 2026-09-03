@@ -1,3 +1,21 @@
+"""Import smoke test: can every mounted module be imported at all?
+
+This runs in two places, deliberately (#583):
+
+* the **Docker build** (`backend/Dockerfile`) — a broken import stops the image
+  from being produced, so nothing undeployable reaches a server;
+* the **CI boot job** (`.github/workflows/backend-tests.yml`) — so the very same
+  failure shows up on push instead of at deploy time.
+
+Without that second place CI runs ahead of reality: in #581 `app.ui.settings_ui`
+was removed (merged into `app.ui.tenants_ui`) while the list below still named
+it. CI was green; only the HDEV deploy failed, in the build. What CI calls green
+must be deployable.
+
+MODULES is maintained by hand. `tests/test_check_imports_gate.py` guards against
+an entry that no longer exists; deriving the list automatically is option B of
+#583.
+"""
 import importlib
 import sys
 
