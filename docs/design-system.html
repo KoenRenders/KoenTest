@@ -753,9 +753,10 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0">Every admin screen with records (Leden, Activiteiten, Betalingen, Formulieren, Media, Gebruikers, Pagina's) has <b>the same</b> layout in the content column, <b>from top to bottom</b>. So search, "new" and the filters are in the same place everywhere.</p>
     <ol style="margin:8px 0 0;padding-left:1.3rem;color:var(--ink);font-size:.92rem;line-height:1.7">
       <li><b>Page title</b></li>
+      <li><b>KPI / management row</b> (optional) — key figures for this screen, e.g. active members, not-yet-renewed, active persons</li>
       <li><b>Primary action</b> — one <b>"+ Nieuwe …"</b> button (no blue bar around it)</li>
       <li><b>Search box</b> ("Zoek op …")</li>
-      <li><b>Filters</b> (e.g. Komende · Archief · Alles, or a status) — <b>always below</b> "Nieuwe" and the search box, never above</li>
+      <li><b>Filters</b> — chips (e.g. Komende · Archief · Alles, or a status) and/or a <b>data-driven dropdown</b> (options from the DB, e.g. membership year), like Betalingen — <b>always below</b> "Nieuwe" and the search box, never above</li>
       <li><b>Record cards</b> — clickable; "Bewerken" opens the full-page editor (Screen 4)</li>
     </ol>
     <div class="note"><b>No blue bar (HDEV correction):</b> on HDEV every "+ Nieuwe …" button sat in a light-blue tinted block (<code>bg-blue-50</code>) together with a collapsible form. From now on the button stands <b>on its own</b>; the create form opens as a <b>modal</b> (or as a full-page editor), not in a tinted block. And the filters consistently come <b>below</b> "Nieuwe" + search (previously above, e.g. on Media).</div>
@@ -1058,13 +1059,27 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
         <div style="padding:18px 20px;background:var(--surface)">
           <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap">
             <h3 style="margin:0;font-family:var(--brand);font-weight:700;font-size:1.4rem;color:var(--primary-ink)">Leden</h3>
-            <button class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg> Nieuw lid</button>
+            <div style="display:flex;gap:8px;flex-wrap:wrap">
+              <button class="btn btn-secondary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg> Leden importeren</button>
+              <button class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg> Nieuw lid</button>
+            </div>
           </div>
-          <span class="search" style="margin-top:14px;display:flex"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m21 21-4.3-4.3"/><circle cx="11" cy="11" r="8"/></svg><input class="input" placeholder="Zoek op naam of e-mail…"></span>
-          <div class="pillrow" style="margin-top:12px;gap:8px">
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px">
+            <div class="kpi"><div class="k">Actieve leden</div><div class="v tnum">128</div></div>
+            <div class="kpi"><div class="k">Nog niet vernieuwd</div><div class="v tnum">14</div></div>
+            <div class="kpi"><div class="k">Actieve personen</div><div class="v tnum">389</div></div>
+          </div>
+          <span class="search" style="margin-top:12px;display:flex"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m21 21-4.3-4.3"/><circle cx="11" cy="11" r="8"/></svg><input class="input" placeholder="Zoek op naam of e-mail…"></span>
+          <div class="pillrow" style="margin-top:12px;gap:8px;align-items:center">
             <button class="btn btn-fine" style="background:var(--primary);color:#fff;border-color:var(--primary)">Alle</button>
             <button class="btn btn-fine">Actief</button>
             <button class="btn btn-fine">Opgezegd</button>
+            <select class="select" style="width:auto;margin-left:auto">
+              <option>Alle lidmaatschappen</option>
+              <option>Lidmaatschap 2025</option>
+              <option selected>Lidmaatschap 2026</option>
+              <option>Lidmaatschap 2027</option>
+            </select>
           </div>
           <div style="margin-top:14px;display:grid;gap:8px">
             <a href="#sa-a1" style="display:block;border:1px solid var(--line);border-radius:var(--r-md);padding:11px 13px;background:var(--surface);text-decoration:none"><div style="font-weight:600;color:var(--ink)">Peeters Joske</div><div style="font-size:.8rem;color:var(--ink-soft)">Voorbeeldstraat 10, Voorbeeldstad</div></a>
@@ -1073,7 +1088,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
           </div>
         </div>
       </div>
-      <p class="hint" style="text-align:center;max-width:620px;margin:12px auto 0">Schematic page layout: <b>left</b> the persistent admin menu, the <b>main area</b> the list index (title → “+ Nieuwe …” loose · search · filters · cards, no blue bar). Clicking a card / “Bewerken” opens the <b>full-page editor</b> (see A1) — no master-detail split (§3).</p>
+      <p class="hint" style="text-align:center;max-width:620px;margin:12px auto 0">Schematic page layout: <b>left</b> the persistent admin menu, the <b>main area</b> the list index (title → optional KPI/management row → “+ Nieuwe …” loose · search · filters · cards, no blue bar). Clicking a card / “Bewerken” opens the <b>full-page editor</b> (see A1) — no master-detail split (§3).</p>
     </div>
 
     <!-- Scherm 2: Admin-dashboard -->
