@@ -150,7 +150,7 @@ def gezin_aanmaken(request: Request, db: Session = Depends(get_db),
                             detail=_("Voornaam en achternaam zijn verplicht."))
     gezin = create_member(MemberCreate(persons=[PersonCreate(
         first_name=first_name.strip(), last_name=last_name.strip(),
-        relation_type="HOOFDLID")]), db=db, _admin=None)  # type: ignore[arg-type]
+        relation_type="HOOFDLID")]), db=db, _admin=None)
     return Response(status_code=204,
                     headers={"HX-Redirect": f"/admin/leden/gezin/{gezin.id}"})
 
