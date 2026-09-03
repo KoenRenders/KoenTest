@@ -31,10 +31,11 @@ def test_cms_context_renders_placeholders(db_session):
     """De bot moet de echte waarde zien, niet de ruwe {{code}} (#205)."""
     from app.domains.chatbot.context import build_system_prompt
 
-    _page(db_session, slug="lid", content="Het lidgeld bedraagt {{membership_price_full}} euro.")
+    _page(db_session, slug="lid", content="Het lidgeld bedraagt {{membership_price_full}}.")
     prompt = build_system_prompt(db_session)
     assert "{{membership_price_full}}" not in prompt
-    assert "bedraagt 35,00 euro" in prompt  # gerenderd ín de paginatekst
+    # De placeholder levert het volledige bedrag mét euroteken (#579).
+    assert "bedraagt €35,00" in prompt  # gerenderd ín de paginatekst
 
 
 def test_membership_block_always_present(db_session):
