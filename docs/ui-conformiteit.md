@@ -51,9 +51,9 @@ matrix documenteert, de gate handhaaft.
 | `werkbank_taak.html` | ✅ | — | ✅ | ✅ |
 | `admin_dashboard.html` | ✅ | ✅ 1 | ✅ | ✅ |
 | `admin_info.html` | ✅ | ✅ 1 | ✅ | ✅ |
-| `admin_instellingen.html` | ✅ | ✅ 5 | ✅ | ✅ |
 | `admin_ledenwijzigingen.html` | ✅ | ✅ 3 | ✅ | ✅ |
-| `admin_tenants.html` | ✅ | ✅ 9 | ✅ | ✅ |
+| `admin_tenant.html` | ✅ | ✅ 7 | ✅ | ✅ |
+| `admin_tenants.html` | ✅ | ✅ 11 | ✅ | ✅ |
 
 33 schermen, 41 fragmenten. Nul afwijkingen.
 

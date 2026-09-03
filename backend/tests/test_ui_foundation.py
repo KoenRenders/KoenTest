@@ -34,12 +34,15 @@ def test_macros_render_and_escape():
     assert 'text-red-600">*' in html          # verplicht-veld-conventie
 
 
-def test_admin_nav_info_onder_instellingen():
-    """#505: 'Info' staat onder 'Instellingen' in de admin-navigatie."""
+def test_admin_nav_info_onderaan_en_een_tenant_item():
+    """#505: 'Info' staat onderaan. #581: één item voor tenants — de aparte
+    'Instellingen' is opgegaan in /admin/tenants, dus twee nav-items voor
+    hetzelfde object bestaan niet meer."""
     from app.ui import admin_nav
 
     hrefs = [i["href"] for i in admin_nav("/admin/werkbank")]
-    assert hrefs.index("/admin/instellingen") < hrefs.index("/admin/info")
+    assert "/admin/instellingen" not in hrefs
+    assert hrefs.index("/admin/tenants") < hrefs.index("/admin/info")
 
 
 def test_admin_shell_heeft_uitloggen_en_sticky_sidebar():

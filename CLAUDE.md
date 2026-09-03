@@ -459,7 +459,9 @@ domain's internals (`tests/test_import_boundaries.py` enforces this).
 autoritatieve, met-de-code-geverifieerde matrix in `docs/rollen-en-rechten.md`
 (#544). Kort: algemene admin = ADMIN/OPERATOR (`require_admin_ui`); betalingen
 bekijken = +FINANCE (`require_finance_ui`), muteren = FINANCE/OPERATOR; gebruikers-
-beheer = ADMIN/OPERATOR; tenant-instellingen = OPERATOR-only.
+beheer = ADMIN/OPERATOR; tenants — lijst, aanmaken én instellingen op
+`/admin/tenants` — OPERATOR-only (#581; de aparte `/admin/instellingen` is daarin
+opgegaan en redirect met 301).
 
 **Pydantic v2:** use `model_validate()`, `model_dump(exclude_none=True)`.
 

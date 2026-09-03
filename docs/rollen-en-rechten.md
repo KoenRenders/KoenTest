@@ -26,8 +26,7 @@
 | Betalingen **bekijken**/exporteren (`/admin/betalingen`) | ❌ | ✅ | ✅ | ✅ |
 | Betalingen **muteren** (bevestigen/terugbetalen/bewerken) | ❌ | ✅ | ❌ | ✅ |
 | **Gebruikers & rollen** beheren (`/admin/gebruikers`) | ❌ | ❌ (403) | ✅ | ✅ |
-| **Tenant-instellingen** (`/admin/instellingen`) | ❌ | ❌ | ❌ (403) | ✅ |
-| **Tenant aanmaken** (toekomstig #546) | ❌ | ❌ | ❌ | ✅ |
+| **Tenants** — lijst, aanmaken én instellingen (`/admin/tenants`) | ❌ | ❌ | ❌ (403) | ✅ |
 
 ## Exclusieve bevoegdheden (wie is de énige)
 
