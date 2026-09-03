@@ -40,6 +40,7 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
 
     context = (request.query_params.get("context") or "all").strip()
     status = (request.query_params.get("status") or "all").strip()
+    q = (request.query_params.get("q") or "").strip()
     records = list_all_payment_records(db=db, _viewer=None)  # type: ignore[arg-type]
 
     # Filter-opties opbouwen: onderdelen (per activiteit) + lidmaatschapjaren.
@@ -54,7 +55,17 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
         if r.membership_year is not None:
             jaren.add(r.membership_year)
 
+    term = q.lower()
+
     def _zichtbaar(r) -> bool:
+        # Vrij zoeken (#591) op de drie dingen waarmee je een betaling in de hand
+        # terugvindt: de naam op het overschrijvingsformulier, de gestructureerde
+        # mededeling en de omschrijving. Het staat vóór de andere filters, zodat
+        # een zoekterm binnen het gekozen filter zoekt en niet erbuiten.
+        if term and not any(term in (waarde or "").lower() for waarde in
+                            (r.contact_name, r.structured_communication,
+                             r.description, r.component_name)):
+            return False
         # Context (zelfde conventie als de export-filter): membership / year-<n> /
         # comp-<id>. Zo werkt de export-link met dezelfde parameters.
         if context == "membership" and r.payable_type != "membership":
@@ -110,7 +121,8 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
         context_groups[_("Activiteit / onderdeel")] = [
             (f"comp-{cid}", label) for cid, label in _comp]
     return {
-        "records": zichtbaar, "kaarten": kaarten, "context": context, "status": status,
+        "records": zichtbaar, "kaarten": kaarten, "context": context,
+        "status": status, "q": q,
         "componenten": _comp, "jaren": _jaren,
         "context_top": context_top, "context_groups": context_groups,
         "matrix": {"betalingen": m_bet, "terugbetalingen": m_ref, "netto": m_net},

@@ -116,3 +116,46 @@ def test_geneste_refund_heeft_bewerken_editor(client, db_session):
     html = client.get("/admin/betalingen/lijst").text
     # De geneste refund-regel biedt de bewerk-editor aan (post naar zijn eigen id).
     assert f"/admin/betalingen/{refund.id}/bewerken" in html
+
+
+def test_betalingen_zoekt_op_naam_ogm_en_omschrijving(client, db_session):
+    """#591: het zoekveld dekt de drie dingen waarmee je een betaling in de hand
+    terugvindt — de naam, de gestructureerde mededeling en de omschrijving."""
+    a = _record(db_session, amount="25.00", payable_id=101)
+    a.contact_name = "An Peeters"
+    a.structured_communication = "+++123/4567/89012+++"
+    b = _record(db_session, amount="40.00", payable_id=102)
+    b.contact_name = "Bram Janssens"
+    b.structured_communication = "+++999/8888/77777+++"
+    db_session.commit()
+    _login(client)
+
+    op_naam = client.get("/admin/betalingen/lijst", params={"q": "peeters"}).text
+    assert "An Peeters" in op_naam and "Bram Janssens" not in op_naam
+
+    op_ogm = client.get("/admin/betalingen/lijst", params={"q": "999/8888"}).text
+    assert "Bram Janssens" in op_ogm and "An Peeters" not in op_ogm
+
+
+def test_betalingen_zoek_werkt_binnen_het_statusfilter(client, db_session):
+    """De zoekterm mag geen records terugtoveren die het filter net uitsloot."""
+    betaald = _record(db_session, amount="25.00", status="paid", payable_id=201)
+    betaald.contact_name = "Cara Claes"
+    open_record = _record(db_session, amount="30.00", status="pending", payable_id=202)
+    open_record.contact_name = "Cara Claes"
+    db_session.commit()
+    _login(client)
+
+    html = client.get("/admin/betalingen/lijst",
+                      params={"q": "cara", "status": "paid"}).text
+    assert "25.00" in html and "30.00" not in html
+
+
+def test_betalingen_zoekveld_staat_op_de_pagina_niet_in_het_fragment(client, db_session):
+    """De filterbalk swapt de kaartenlijst; zat het zoekveld daarin, dan verloor je
+    focus bij elke aanslag (#591)."""
+    _login(client)
+    pagina = client.get("/admin/betalingen").text
+    assert 'type="search"' in pagina and 'name="q"' in pagina
+    fragment = client.get("/admin/betalingen/lijst").text
+    assert 'type="search"' not in fragment

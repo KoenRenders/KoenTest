@@ -136,10 +136,14 @@ def test_werkbank_gegroepeerde_filter(client, db_session):
 
     html = client.get("/admin/werkbank/lijst").text
     assert all(n in html for n in ("Herinnering An", "Vernieuwing Bob", "Bericht Cara"))
-    # Eén gegroepeerde select: optgroups per categorie, "Alle <cat>" + exacte subtypes.
-    assert "<optgroup" in html
-    assert 'value="membership"' in html and 'value="membership.reminder"' in html
-    assert 'value="bericht"' in html
+
+    # Eén gegroepeerde select: optgroups per categorie, "Alle <cat>" + exacte
+    # subtypes. Sinds #592 staat die filter op de pagina en niet meer in het
+    # fragment dat elke 30 s gepolld wordt.
+    pagina = client.get("/admin/werkbank").text
+    assert "<optgroup" in pagina
+    assert 'value="membership"' in pagina and 'value="membership.reminder"' in pagina
+    assert 'value="bericht"' in pagina
 
     # kind=membership → hele categorie (prefix): beide membership-taken, niet bericht.
     html = client.get("/admin/werkbank/lijst?kind=membership").text
@@ -148,3 +152,43 @@ def test_werkbank_gegroepeerde_filter(client, db_session):
     # kind=membership.reminder → exact.
     html = client.get("/admin/werkbank/lijst?kind=membership.reminder").text
     assert "Herinnering An" in html and "Vernieuwing Bob" not in html
+
+
+def test_werkbank_zoekt_op_taak_en_type(client, db_session):
+    """#592: de werkbank is een records-lijst-variant — zoeken werkt op de titel
+    én op het taaktype, zodat een volgelopen bord bruikbaar blijft."""
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+    from app.domains.auth.api import SESSION_COOKIE, make_session_value
+
+    api.create_task(db_session, kind="membership.reminder", title="Herinnering Anouk",
+                    subject_type="membership", subject_id=11)
+    api.create_task(db_session, kind="bericht.behartigen", title="Vraag van Bram",
+                    subject_type="form_submission", subject_id=12)
+    db_session.commit()
+    client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
+
+    op_titel = client.get("/admin/werkbank/lijst", params={"q": "anouk"}).text
+    assert "Herinnering Anouk" in op_titel and "Vraag van Bram" not in op_titel
+
+    op_type = client.get("/admin/werkbank/lijst", params={"q": "bericht"}).text
+    assert "Vraag van Bram" in op_type and "Herinnering Anouk" not in op_type
+
+    # Zoek + filter combineren: de zoekterm zoekt binnen het gekozen taaktype.
+    combi = client.get("/admin/werkbank/lijst",
+                       params={"kind": "membership", "q": "bram"}).text
+    assert "Vraag van Bram" not in combi and "Herinnering Anouk" not in combi
+
+
+def test_werkbank_pollend_fragment_bevat_de_filter_niet(client, db_session):
+    """De lijst ververst elke 30 s. Stond het zoekveld in dat fragment, dan sprong
+    het bij elke poll leeg — daarom staat de filterbalk op de pagina (#592)."""
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+    from app.domains.auth.api import SESSION_COOKIE, make_session_value
+
+    client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
+    fragment = client.get("/admin/werkbank/lijst").text
+    assert 'type="search"' not in fragment
+    pagina = client.get("/admin/werkbank").text
+    assert 'type="search"' in pagina
+    # de polling stuurt zoek + filter mee, anders wist ze het filter alsnog
+    assert "hx-include=\"[name='kind'], [name='q']\"" in pagina

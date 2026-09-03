@@ -8,8 +8,21 @@
   {{ _("De werkbank is uitgeschakeld (WORKBENCH_ENABLED=false). Bestaande taken blijven staan; er komen geen nieuwe sweep-taken bij.") }}
 </div>
 {% endif %}
+{# Records-lijst-variant (C1 §4, #592): een takenbord, dus geen "+ Nieuwe" en geen
+   record-editor — wél dezelfde zoek- en filterconventie, live via htmx. #}
+{% call ui.filter_bar("/admin/werkbank/lijst", "#werkbank-lijst") %}
+  <div>{{ ui.search(value=q, placeholder=_('Zoek op taak of onderwerp…'), standalone=False) }}</div>
+  {% if filter_groups %}
+  <div class="flex flex-wrap items-center gap-3">
+    {{ ui.grouped_filter("kind", filter_top, filter_groups, current=kind) }}
+  </div>
+  {% endif %}
+{% endcall %}
+
+{# De lijst blijft zichzelf elke 30 s verversen (§20.5) en stuurt daarbij de
+   actieve zoek- en filterwaarden mee, zodat de polling het filter niet wist. #}
 <div id="werkbank-lijst" hx-get="/admin/werkbank/lijst" hx-trigger="every 30s" hx-swap="innerHTML"
-     hx-include="[name='kind']">
+     hx-include="[name='kind'], [name='q']">
   {% include "_werkbank_lijst.html" %}
 </div>
 {% endblock %}

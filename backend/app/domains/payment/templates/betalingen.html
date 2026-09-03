@@ -4,22 +4,25 @@
 {% block content %}
 {{ ui.page_header(_("Betalingen & vorderingen"), _("Financiële feiten — enkel FINANCE kan bevestigen of terugbetalen.")) }}
 {% set _status_labels = {"all": _("Alle statussen"), "openstaand": _("Openstaand saldo"), "pending": _("In afwachting"), "paid": _("Betaald"), "failed": _("Mislukt"), "cancelled": _("Geannuleerd")} %}
-<form class="flex flex-wrap gap-3 mb-4 items-center"
-      hx-get="/admin/betalingen/lijst" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-trigger="change">
-  {# Gegroepeerde context-filter via de gedeelde macro (#549); geen hx-* op de select
-     zelf — de omhullende form vangt de change al op. #}
-  {{ ui.grouped_filter("context", context_top, context_groups, current=context) }}
-  <select name="status" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-    {% for s in ["all", "openstaand", "pending", "paid", "failed", "cancelled"] %}
-    <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ _status_labels[s] }}</option>
-    {% endfor %}
-  </select>
-  <button type="button"
-          class="border px-4 py-2 rounded-lg text-sm font-semibold {% if status == 'openstaand' %}bg-orange-100 text-orange-800 border-orange-300{% else %}bg-white border-gray-300 hover:bg-gray-100 text-gray-800{% endif %}"
-          hx-get="/admin/betalingen/lijst?context={{ context }}&status={% if status == 'openstaand' %}all{% else %}openstaand{% endif %}"
-          hx-target="#betalingen-lijst" hx-swap="innerHTML">{{ _("Openstaand") }}</button>
-  {{ ui.btn_secondary("⬇ " ~ _("Export (.ods)"), href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status) }}
-</form>
+{# Records-lijst-gedrag (C1 §4, #591): zoeken bovenaan, filters eronder, alles
+   live via de kit-filterbalk. De balk swapt enkel de kaartenlijst, zodat het
+   zoekveld niet onder je vingers vervangen wordt. #}
+{% call ui.filter_bar("/admin/betalingen/lijst", "#betalingen-lijst") %}
+  <div>{{ ui.search(value=q, placeholder=_('Zoek op naam, OGM of omschrijving…'), standalone=False) }}</div>
+  <div class="flex flex-wrap gap-3 items-center">
+    {# Gegroepeerde context-filter via de gedeelde macro (#549); geen hx-* op de select
+       zelf — de omhullende filterbalk vangt de change al op. #}
+    {{ ui.grouped_filter("context", context_top, context_groups, current=context) }}
+    <select name="status" class="text-sm">
+      {% for s in ["all", "openstaand", "pending", "paid", "failed", "cancelled"] %}
+      <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ _status_labels[s] }}</option>
+      {% endfor %}
+    </select>
+    {{ ui.btn_secondary("⬇ " ~ _("Export (.ods)"),
+                        href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status, size="sm") }}
+  </div>
+{% endcall %}
+
 <div id="betalingen-lijst">
   {% include "_betalingen_lijst.html" %}
 </div>

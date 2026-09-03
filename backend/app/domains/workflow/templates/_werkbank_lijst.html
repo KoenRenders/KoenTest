@@ -1,15 +1,7 @@
 {% import "_macros.html" as ui %}
-{# Eén gegroepeerde filter (#549): mirror van de Betalingen-filter — categorie→subtype
-   in één <select> met optgroups, via de gedeelde grouped_filter-macro. #}
-{% if filter_groups %}
-<div class="flex flex-wrap items-end gap-3 mb-4">
-  <div>
-    <label class="block text-xs text-gray-500 mb-1">{{ _("Filter") }}</label>
-    {{ ui.grouped_filter("kind", filter_top, filter_groups, current=kind,
-                         hx_get="/admin/werkbank/lijst", hx_target="#werkbank-lijst") }}
-  </div>
-</div>
-{% endif %}
+{# Enkel de taken (#592): zoek en filter staan op de pagina, in de
+   kit-filterbalk. Dit fragment wordt elke 30 s gepolld — zou de filter
+   erin zitten, dan sprong je zoekveld om de 30 s leeg. #}
 {% if tasks %}
 <div class="space-y-3">
   {% for task in tasks %}

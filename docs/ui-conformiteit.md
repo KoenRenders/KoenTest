@@ -48,8 +48,8 @@ matrix documenteert, de gate handhaaft.
 | `lid_worden.html` | ✅ | ✅ 6 | ✅ | ✅ |
 | `lid_worden_klaar.html` | ✅ | ✅ 2 | ✅ | ✅ |
 | `login_verlopen.html` | ✅ | ✅ 1 | ✅ | ✅ |
-| `betalingen.html` | ✅ | ✅ 3 | ✅ | ✅ |
-| `werkbank.html` | ✅ | ✅ 1 | ✅ | ✅ |
+| `betalingen.html` | ✅ | ✅ 5 | ✅ | ✅ |
+| `werkbank.html` | ✅ | ✅ 4 | ✅ | ✅ |
 | `werkbank_taak.html` | ✅ | — | ✅ | ✅ |
 | `admin_dashboard.html` | ✅ | ✅ 1 | ✅ | ✅ |
 | `admin_info.html` | ✅ | ✅ 1 | ✅ | ✅ |
@@ -72,6 +72,8 @@ matrix documenteert, de gate handhaaft.
 | `_email_log_lijst.html` | eigen vorige/volgende-knoppen | `ui.pager()` in de modus zonder totaal |
 | `_me_lijst.html` (Media) | filters bóven de actieknop, upload in een `bg-blue-50`-blok | knop los en bovenaan, upload in `ui.modal()` |
 | `admin_activiteiten.html`, `_gu_lijst.html`, `admin_paginas.html` | "+ Nieuwe …" in een `bg-blue-50`-blok met uitklapformulier | knop los, formulier in `ui.modal()` |
+| `betalingen.html` (#591) | filterrij zonder zoek, eigen `<form>` i.p.v. de kit | `ui.search()` boven de filters, alles in `ui.filter_bar()`; de losse "Openstaand"-snelknop viel weg (die stand staat als optie in de statusdropdown) |
+| `werkbank.html` (#592) | filter binnen het pollende fragment, geen zoek | `ui.search()` + de twee-niveau taaktype-filter in `ui.filter_bar()` op de pagina; het fragment bevat enkel nog taken |
 | `leden.html` (#582) | master-detail, geen KPI's, geen filters, secundaire importknop als enige actie | KPI-rij (incl. "nog niet vernieuwd" met doeljaar), primaire "+ Nieuw lid" + importknop, `ui.search()` + statuschips + data-gedreven lidmaatschapsjaar, kaarten → `leden_gezin.html` |
 | `admin_paginas.html` (#587) | secundaire knop, geen zoek/filter, master-detail met Trix op de lijstpagina | primaire knop, `ui.search()` + statuschips, kaarten → `admin_pagina.html` (Trix verhuisde mee) |
 | `_me_lijst.html` (#588) | knop + filters in het kaartfragment, geen zoek | kop/knop/filterbalk op de pagina, `ui.search()` + `ui.chips()`; fragment = enkel kaarten, met filterstand in verborgen velden |

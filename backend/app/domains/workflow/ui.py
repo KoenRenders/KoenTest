@@ -14,7 +14,8 @@ from app.domains.auth.api import csrf_token_for, require_admin_ui, require_csrf,
 router = APIRouter(include_in_schema=False)
 
 
-def _ctx(request: Request, db: Session, email: str, kind: str = "") -> dict:
+def _ctx(request: Request, db: Session, email: str, kind: str = "",
+         q: str = "") -> dict:
     from app.domains.auth.api import get_user_roles
     from app.i18n import _
 
@@ -50,10 +51,17 @@ def _ctx(request: Request, db: Session, email: str, kind: str = "") -> dict:
         tasks = [t for t in all_tasks if _cat(t.kind) == kind]
     else:
         tasks = all_tasks
+    # Vrij zoeken (#592) op de titel en op het taaktype: een werkbank die volloopt
+    # wordt onbruikbaar als je enkel per categorie kunt filteren.
+    term = q.strip().lower()
+    if term:
+        tasks = [t for t in tasks
+                 if term in (t.title or "").lower() or term in (t.kind or "").lower()]
     return {
         "csrf_token": csrf_token_for(raw),
         "roles": roles,
         "tasks": tasks,
+        "q": q,
         "nav_items": admin_nav("/admin/werkbank"),
         "filter_top": filter_top,
         "filter_groups": filter_groups,
@@ -64,10 +72,10 @@ def _ctx(request: Request, db: Session, email: str, kind: str = "") -> dict:
 @router.get("/admin/werkbank", response_class=HTMLResponse)
 def werkbank(request: Request, db: Session = Depends(get_db),
              email: str = Depends(require_admin_ui),
-             kind: str = ""):
+             kind: str = "", q: str = ""):
     from app.config import settings
 
-    ctx = _ctx(request, db, email, kind)
+    ctx = _ctx(request, db, email, kind, q)
     ctx["workbench_enabled"] = settings.workbench_enabled
     return templates.TemplateResponse(request, "werkbank.html", ctx)
 
@@ -75,11 +83,14 @@ def werkbank(request: Request, db: Session = Depends(get_db),
 @router.get("/admin/werkbank/lijst", response_class=HTMLResponse)
 def werkbank_lijst(request: Request, db: Session = Depends(get_db),
                    email: str = Depends(require_admin_ui),
-                   kind: str = ""):
-    """Polling-fragment: de filter-control + gefilterde takenlijst (elke 30s
-    ververst, §20.5; het filter overleeft de polling via hx-include)."""
+                   kind: str = "", q: str = ""):
+    """Polling-fragment: enkel de takenlijst (elke 30s ververst, §20.5).
+
+    Zoek en filter staan sinds #592 op de pagina zelf, in de kit-filterbalk; ze
+    overleven de polling doordat het pollende element ze meestuurt (hx-include).
+    """
     return templates.TemplateResponse(request, "_werkbank_lijst.html",
-                                      _ctx(request, db, email, kind))
+                                      _ctx(request, db, email, kind, q))
 
 
 @router.get("/admin/werkbank/taken/{task_id}", response_class=HTMLResponse)
