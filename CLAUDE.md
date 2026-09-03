@@ -182,6 +182,27 @@ HDEV → UAT → PROD. On the server, in the repo checkout:
 ./deploy.sh prod v1.x.x
 ```
 
+Prefer driving these through **`raakctl`**, the single entry point on the server:
+`raakctl status`, `raakctl logs <env> [service]`, `raakctl diagnose <env>`,
+`raakctl backup <env>`, `raakctl deploy <env> [tag] [--confirm]`, `raakctl caddy`,
+or no arguments for a menu. It resolves the environment to its checkout, so you
+name an environment instead of a directory — every environment is a checkout of
+this same repository, so `<uat-checkout>/deploy.sh prod` exists and would do the
+wrong thing. From a laptop, `raak <verb>` passes the same verbs over SSH and adds
+`raak fetch <env>` to pull a diagnostics report down.
+
+### Script naming: interface vs. step
+
+Files invoked **by path** keep the `.sh` extension — `deploy.sh`, `logging.sh`,
+`build-css.sh`. The extension tells you it is a readable shell script you are
+about to run.
+
+Files that are **typed as a command** do not — `raakctl`, and `raak` on a laptop.
+The implementation language has no business in an interface: rewriting `raakctl`
+in Python should not rename the command. Where a file is both (kept in a
+checkout, but typed), name the file `.sh` and put an extension-less symlink on
+`PATH` — that is how `raak.sh` is reached as `raak`.
+
 Each UAT/PROD script does `git fetch --tags --prune` then `git checkout --detach
 <tag>` (detached HEAD is intended — you run an exact commit, not a moving branch),
 then rebuilds with the matching compose + env file and runs a **read-only**
