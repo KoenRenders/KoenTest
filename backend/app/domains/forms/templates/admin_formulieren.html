@@ -2,19 +2,56 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Formulieren — Raak beheer") }}{% endblock %}
 {% block content %}
-{% call ui.page_header(_("Formulieren")) %}
-  <a href="/static/form-json-formaat.md" target="_blank" rel="noopener" download
-     class="text-sm text-blue-700 hover:underline whitespace-nowrap">📄 {{ _("Formaat (voor AI)") }}</a>
-{% endcall %}
-<form class="flex gap-2 items-end mb-4" hx-post="/admin/formulieren" hx-target="#fb-detail" hx-swap="innerHTML">
-  <div>{{ ui.label(_("Nieuw formulier"), "title", required=True) }}
-    <input name="title" id="title" required class="border border-gray-300 rounded-lg px-3 py-2"></div>
-  {{ ui.btn_primary(_("Aanmaken")) }}
-</form>
-<div class="flex flex-col lg:flex-row gap-6">
-  <div class="lg:w-80 shrink-0" id="fb-lijst">
-    {% include "_fb_lijst.html" %}
-  </div>
-  <div class="flex-1 min-w-0"><div id="fb-detail"></div></div>
+{# Lijst-index (design-system C1, #585): titel → duidingsregel → primaire
+   "+ Nieuw formulier" (naam pas in de modal, geen permanent invoerveld) met
+   "Formaat (voor AI)" ernaast → zoeken → statusfilter → record-kaarten die de
+   paginabrede form-builder openen. Geen master-detail meer. #}
+{{ ui.page_header(_("Formulieren"), _("Een kaart opent de form-builder: secties, velden en vertakkingen.")) }}
+
+<div class="flex flex-wrap items-center gap-2 mb-4" x-data="{ open: false }">
+  {{ ui.btn_primary(_("+ Nieuw formulier"), type="button", attrs='@click="open = true"') }}
+  {# Blijft de #462-gids, nu als kit-knop naast de primaire actie i.p.v. een losse
+     link rechtsboven. #}
+  {{ ui.btn_secondary("📄 " ~ _("Formaat (voor AI)"), href="/static/form-json-formaat.md",
+                      attrs='target="_blank" rel="noopener" download') }}
+  {% call ui.modal('open', _("Nieuw formulier")) %}
+  <form class="space-y-3" hx-post="/admin/formulieren" @htmx:after-request="open = false">
+    <div>{{ ui.label(_("Naam"), "f-title", required=True) }}
+      <input name="title" id="f-title" required class="w-full"
+             placeholder="{{ _('bv. Inschrijving zomerkamp') }}"></div>
+    <p class="text-xs text-ink-soft">{{ _("Na het aanmaken open je meteen de form-builder; de naam kan je daar nog wijzigen.") }}</p>
+    {{ ui.btn_primary(_("Aanmaken")) }}
+  </form>
+  {% endcall %}
 </div>
+
+{% call ui.filter_bar("/admin/formulieren", "body") %}
+  <div>{{ ui.search(value=q, placeholder=_('Zoek op naam…'), standalone=False) }}</div>
+  <div class="flex flex-wrap gap-3">
+    <select name="status" class="text-sm">
+      <option value="">{{ _("Alle statussen") }}</option>
+      {% for s in statuses %}
+      <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ status_labels[s] }}</option>
+      {% endfor %}
+    </select>
+  </div>
+{% endcall %}
+
+{% if forms %}
+<div class="space-y-3">
+  {% for f in forms %}
+  <a href="/admin/formulieren/{{ f.id }}"
+     class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
+    <div class="flex flex-wrap items-center gap-3">
+      <span class="font-semibold text-blue-700">{{ f.title }}</span>
+      {{ ui.badge(status_labels[f.status]|lower, status_tones.get(f.status, "gray")) }}
+      <span class="font-mono text-xs text-ink-soft">/formulier/{{ f.share_token }}</span>
+      <span class="ml-auto text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+{{ ui.empty_state(_("Geen formulieren gevonden.") if gefilterd else _("Nog geen formulieren.")) }}
+{% endif %}
 {% endblock %}

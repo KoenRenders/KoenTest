@@ -32,7 +32,7 @@ matrix documenteert, de gate handhaaft.
 | `cms_pagina.html` | ✅ | — | ✅ | ✅ |
 | `home.html` | ✅ | ✅ 3 | ✅ | ✅ |
 | `admin_formulier_builder.html` | ✅ | — | ✅ | ✅ |
-| `admin_formulieren.html` | ✅ | ✅ 3 | ✅ | ✅ |
+| `admin_formulieren.html` | ✅ | ✅ 9 | ✅ | ✅ |
 | `berichten.html` | ✅ | ✅ 1 | ✅ | ✅ |
 | `formulier.html` | ✅ | ✅ 4 | ✅ | ✅ |
 | `formulier_klaar.html` | ✅ | ✅ 2 | ✅ | ✅ |
@@ -55,7 +55,7 @@ matrix documenteert, de gate handhaaft.
 | `admin_tenant.html` | ✅ | ✅ 7 | ✅ | ✅ |
 | `admin_tenants.html` | ✅ | ✅ 11 | ✅ | ✅ |
 
-33 schermen, 41 fragmenten. Nul afwijkingen.
+33 schermen, 40 fragmenten. Nul afwijkingen.
 
 ## Kluslijst — lokaal patroon → kit-macro
 
@@ -69,6 +69,7 @@ matrix documenteert, de gate handhaaft.
 | `_email_log_lijst.html` | eigen vorige/volgende-knoppen | `ui.pager()` in de modus zonder totaal |
 | `_me_lijst.html` (Media) | filters bóven de actieknop, upload in een `bg-blue-50`-blok | knop los en bovenaan, upload in `ui.modal()` |
 | `admin_activiteiten.html`, `_gu_lijst.html`, `admin_paginas.html` | "+ Nieuwe …" in een `bg-blue-50`-blok met uitklapformulier | knop los, formulier in `ui.modal()` |
+| `admin_formulieren.html` (#585) | permanent "Nieuw formulier"-veld bovenaan, master-detail-lijst, "Formaat (voor AI)" als losse link, geen zoek/filter | primaire "+ Nieuw formulier" met naam in `ui.modal()`, `ui.search()` + statusfilter in `ui.filter_bar()`, kaarten → paginabrede builder; `_fb_lijst.html` verdween |
 
 **Correctie op de vorige versie van deze lijst.** Daar stonden `formulier.html` en
 `fotos_album.html` als "eigen paginering". Dat was fout: die treffers waren een

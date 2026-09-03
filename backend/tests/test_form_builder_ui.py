@@ -17,10 +17,13 @@ def test_builder_requires_session(client):
 
 def test_formulier_aanmaken_en_bouwen(client, db_session):
     csrf = _login(client)
+    # Sinds #585 opent aanmaken meteen de paginabrede builder: geen fragment in een
+    # detailpaneel meer, maar een HX-Redirect naar de editor van het nieuwe formulier.
     resp = client.post("/admin/formulieren", data={"title": "Kamp 2032"},
                        headers={"X-CSRF-Token": csrf})
-    assert resp.status_code == 200 and "Kamp 2032" in resp.text
+    assert resp.status_code == 204
     form = db_session.query(Form).filter(Form.title == "Kamp 2032").one()
+    assert resp.headers["HX-Redirect"] == f"/admin/formulieren/{form.id}"
 
     # sectie + veld + optie
     client.post(f"/admin/formulieren/{form.id}/secties", data={"title": "Deel A"},

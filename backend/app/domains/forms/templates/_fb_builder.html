@@ -94,7 +94,7 @@
         {{ ui.btn_secondary("⬇ " ~ _("Export"), href="/admin/formulieren/" ~ form.id ~ "/export", size="sm") }}
         {{ ui.btn_secondary("⬇ " ~ _("JSON"), href="/admin/formulieren/" ~ form.id ~ "/json", size="sm") }}
         {{ ui.btn_secondary(_("Instellingen"), size="sm", attrs='@click="open = !open"') }}
-        {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" hx-target="#fb-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Formulier"), form.title)) }}
+        {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" ' ~ confirm_attrs(_("Formulier"), form.title)) }}
       </div>
     </div>
     <p class="text-xs text-gray-500 mt-1">Deellink: /formulier/{{ form.share_token }} · {{ submission_count }} inzendingen</p>

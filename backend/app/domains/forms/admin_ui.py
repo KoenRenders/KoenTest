@@ -60,26 +60,57 @@ def _builder_response(request: Request, db: Session, form: FormModel, **extra):
 
 # ── Lijst + aanmaken ───────────────────────────────────────────────────────────
 
+# Badge-tonen per status, conform §2.4: concept grijs, open groen, gesloten rood.
+# De labels staan bewust NIET hier maar in de route: _() vertaalt naar de taal van
+# de actieve tenant, en op moduleniveau zou die keuze bij import bevriezen.
+STATUS_TONES = {"draft": "gray", "open": "green", "closed": "red"}
+
+
+def _status_labels() -> dict[str, str]:
+    """Eén woordkeuze voor de filterdropdown én de kaart-badges."""
+    return {"draft": _("Concept"), "open": _("Open"), "closed": _("Gesloten")}
+
+
 @router.get("/admin/formulieren", response_class=HTMLResponse)
 def formulieren_page(request: Request, db: Session = Depends(get_db),
-                     email: str = Depends(require_admin_ui)):
-    forms = db.query(FormModel).order_by(FormModel.created_at.desc()).all()
+                     email: str = Depends(require_admin_ui),
+                     q: str = "", status: str = ""):
+    """Lijst-index (design-system C1, #585): zoeken op naam + statusfilter.
+
+    Een onbekende status filtert niet — een gemanipuleerde querystring hoort een
+    lege lijst noch een 500 op te leveren, gewoon 'alles'.
+    """
+    query = db.query(FormModel)
+    if q.strip():
+        query = query.filter(FormModel.title.ilike(f"%{q.strip()}%"))
+    if status in FORM_STATUSES:
+        query = query.filter(FormModel.status == status)
+    forms = query.order_by(FormModel.created_at.desc()).all()
     return templates.TemplateResponse(request, "admin_formulieren.html", {
-        "nav_items": NAV, "forms": forms, "csrf_token": csrf_from_request(request)})
+        "nav_items": NAV, "forms": forms, "q": q, "status": status,
+        "statuses": FORM_STATUSES, "status_labels": _status_labels(),
+        "status_tones": STATUS_TONES, "gefilterd": bool(q.strip() or status),
+        "csrf_token": csrf_from_request(request)})
 
 
-@router.post("/admin/formulieren", response_class=HTMLResponse,
-             dependencies=[Depends(require_csrf)])
+@router.post("/admin/formulieren", dependencies=[Depends(require_csrf)])
 def formulier_aanmaken(request: Request, db: Session = Depends(get_db),
                        email: str = Depends(require_admin_ui),
-                       title: str = Form(...)):
+                       title: str = Form(...)) -> Response:
+    """Aanmaken opent meteen de paginabrede form-builder (C1, #585).
+
+    De naam wordt in de modal gevraagd; het antwoord is een HX-Redirect zodat de
+    browser echt navigeert i.p.v. een detailpaneel naast de lijst te vullen — dat
+    master-detail is met #585 verdwenen.
+    """
     from app.domains.forms.router import _unique_share_token
 
     form = FormModel(title=title.strip() or "Naamloos formulier",
                      share_token=_unique_share_token(db))
     db.add(form)
     db.commit()
-    return _builder_response(request, db, form)
+    return Response(status_code=204,
+                    headers={"HX-Redirect": f"/admin/formulieren/{form.id}"})
 
 
 @router.get("/admin/formulieren/{form_id}", response_class=HTMLResponse)
@@ -92,16 +123,20 @@ def formulier_builder(form_id: int, request: Request, db: Session = Depends(get_
         "nav_items": NAV, **_builder_ctx(request, db, form)})
 
 
-@router.post("/admin/formulieren/{form_id}/verwijderen", response_class=HTMLResponse,
+@router.post("/admin/formulieren/{form_id}/verwijderen",
              dependencies=[Depends(require_csrf)])
 def formulier_verwijderen(form_id: int, request: Request, db: Session = Depends(get_db),
-                          email: str = Depends(require_admin_ui)):
+                          email: str = Depends(require_admin_ui)) -> Response:
+    """Verwijderen gebeurt vanuit de builder, dus terug naar de lijst (#585).
+
+    Voorheen kwam hier een lijstfragment terug voor `#fb-lijst`; dat element
+    bestond alleen in de oude master-detail-lijst en dus niet op de pagina waar de
+    knop staat — de gebruiker zag niets gebeuren.
+    """
     form = _form_or_404(db, form_id)
     db.delete(form)
     db.commit()
-    forms = db.query(FormModel).order_by(FormModel.created_at.desc()).all()
-    return templates.TemplateResponse(request, "_fb_lijst.html", {
-        "forms": forms, "csrf_token": csrf_from_request(request)})
+    return Response(status_code=204, headers={"HX-Redirect": "/admin/formulieren"})
 
 
 # ── Instellingen ───────────────────────────────────────────────────────────────
