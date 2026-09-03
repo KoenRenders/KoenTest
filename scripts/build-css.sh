@@ -42,13 +42,22 @@ module.exports = {
       yellow: {50:'#fffbea',100:'#fff3c4',200:'#fce588',300:'#fadb5f',400:'#ffce00',
                500:'#e0b400',600:'#c29200',700:'#9c7500',800:'#7a5c00',900:'#5c4500',950:'#3d2e00'},
     },
-    fontFamily: { brand: ['"Radio Canada Big"','system-ui','sans-serif'] },
+    fontFamily: { brand: ['"Radio Canada Big"','system-ui','sans-serif'],
+                  sans: ['Inter','system-ui','sans-serif'] },
   } }, plugins: [],
 }
 CFG
 # Input-CSS: merkfont zelf-gehost (@font-face) + koppen in het merkfont (@layer base).
 cat > "$TMP/in.css" << 'CSS'
 @font-face{font-family:"Radio Canada Big";src:url("/static/fonts/RadioCanadaBig-VariableFont_wght.ttf") format("truetype");font-weight:400 700;font-style:normal;font-display:swap}
+/* Inter als body-font, zelf-gehost (#528 as B). Bewust GEEN fonts.googleapis.com:
+   een externe font-CDN ziet het IP van elke bezoeker — Europe-First/GDPR. woff2
+   eerst, ttf als terugval voor oude browsers; font-display:swap zodat tekst
+   meteen leesbaar is. */
+@font-face{font-family:"Inter";src:url("/static/fonts/Inter-Regular.woff2") format("woff2"),url("/static/fonts/Inter-Regular.ttf") format("truetype");font-weight:400;font-style:normal;font-display:swap}
+@font-face{font-family:"Inter";src:url("/static/fonts/Inter-Medium.woff2") format("woff2"),url("/static/fonts/Inter-Medium.ttf") format("truetype");font-weight:500;font-style:normal;font-display:swap}
+@font-face{font-family:"Inter";src:url("/static/fonts/Inter-SemiBold.woff2") format("woff2"),url("/static/fonts/Inter-SemiBold.ttf") format("truetype");font-weight:600;font-style:normal;font-display:swap}
+@font-face{font-family:"Inter";src:url("/static/fonts/Inter-Bold.woff2") format("woff2"),url("/static/fonts/Inter-Bold.ttf") format("truetype");font-weight:700;font-style:normal;font-display:swap}
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -61,7 +70,9 @@ cat > "$TMP/in.css" << 'CSS'
            waar rauwe CSS naar verwijst. Hex hoort ALLEEN hier thuis. */
         --primary:#0051a4;--primary-hover:#02407c;--accent:#ffce00;
         --ground:#eef3f9;--surface:#ffffff;--surface-2:#f7fafd;
-        --ink:#14171c;--ink-soft:#52607a;--line:#d7e0ec}
+        --ink:#14171c;--ink-soft:#52607a;--line:#d7e0ec;
+        --brand-font:"Radio Canada Big",system-ui,sans-serif;--sans:Inter,system-ui,sans-serif}
+  html{font-family:Inter,system-ui,sans-serif}
   h1,h2,h3{font-family:"Radio Canada Big",system-ui,sans-serif}
   /* Automatische consistentie (#482): elk tekst-input/select/textarea krijgt
      standaard dezelfde stijl — geen macro of losse klassen nodig. `:where()`
