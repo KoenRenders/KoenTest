@@ -520,7 +520,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
         <span class="badge b-gray">Radio Canada Big + Inter</span>
       </div>
     </div>
-    <div class="note"><b>Status:</b> proposal v0.1 for approval. The direction is anchored in the existing palette; new or changed decisions are stated explicitly in §6 (Migration) so nothing is dropped silently.</div>
+    <div class="note"><b>Status:</b> adopted — the binding UI norm for this code base (v1.0). The direction is anchored in the existing palette; new or changed decisions are stated explicitly in §6 (Migration) so nothing is dropped silently.</div>
   </section>
 
   <!-- 1 -->
@@ -550,7 +550,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <div class="sw"><span class="chip" style="background:#d7e0ec"></span><div><div class="nm">Line</div><div class="hex mono">#d7e0ec</div><div class="role">borders</div></div></div>
     </div>
     <div class="note"><b>WCAG:</b> text meets at least 4.5:1 contrast (3:1 for ≥18px). The "warmth" comes from the soft <code>ground</code>/<code>surface-2</code> and whitespace — not from coloured text on coloured surfaces. Semantic colour (success/attention/error) is separate from the accent.</div>
-    <span class="mac">Tokens: <code>--primary</code> <code>--accent</code> <code>--ground</code> <code>--surface</code> <code>--ink</code> <code>--ink-soft</code> <code>--line</code> · macro <code>ui.badge(label, colour)</code></span>
+    <span class="mac">Tokens: <code>--primary</code> <code>--accent</code> <code>--ground</code> <code>--surface</code> <code>--ink</code> <code>--ink-soft</code> <code>--line</code> · macro <code>ui.badge(label, tone)</code>. Allowed blue tints: <code>blue-700</code> (primary), <code>blue-600</code>/<code>blue-50</code> (outline), <code>blue-50</code> (KPI tiles); <code>blue-800</code>/<code>blue-900</code> forbidden.</span>
 
     <h3 class="block" id="s1-2">1.2 Typography</h3>
     <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0"><b>Radio Canada Big</b> for headings (warm, on-brand) · <b>Inter</b> for body and tables. One scale, line height 1.15 for headings, ~1.55 for text.</p>
@@ -599,7 +599,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
     </div>
-    <span class="mac">New: <code>download</code> (replaces the clunky ⬇ on export buttons, #569) + <code>upload</code> (poster/media/rules upload) + <code>file-text</code> (replaces 📄). Via macro <code>ui.icon("download")</code>.</span>
+    <span class="mac">New: <code>download</code> (replaces the clunky ⬇ on export buttons, #569) + <code>upload</code> (poster/media/rules upload) + <code>file-text</code> (replaces 📄). Currently inline Lucide SVG in the templates; a shared <code>ui.icon()</code> helper is planned so ⬇/📄 glyphs never recur.</span>
   </section>
 
   <!-- 2 -->
@@ -621,7 +621,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
         <button class="btn btn-primary" disabled>Uitgeschakeld</button>
       </div>
     </div>
-    <span class="mac">Macros: <code>ui.btn_primary()</code> <code>ui.btn_secondary()</code> <code>ui.btn_fine()</code> <code>ui.btn_danger()</code> <code>ui.btn_icon()</code> — with <code>loading</code>/<code>disabled</code> state.</span>
+    <span class="mac">Macros: <code>ui.btn_primary()</code> <code>ui.btn_secondary()</code> <code>ui.btn_outline()</code> <code>ui.btn_danger()</code> (+ <code>btn_class()</code>) — with <code>loading</code>/<code>disabled</code> state.</span>
     <div class="dd">
       <div class="do"><b>Do</b> — one filled primary action per screen; the rest calmer.</div>
       <div class="dont"><b>Don't</b> — outlined buttons everywhere, or "Delete" next to the primary action.</div>
@@ -640,7 +640,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
         <span class="checkline"><button class="switch on" aria-label="Aan"></button> Gepubliceerd</span>
       </div>
     </div>
-    <span class="mac">Macros: <code>ui.field()</code> <code>ui.input()</code> <code>ui.select()</code> <code>ui.switch()</code> — labels linked (<code>for</code>/<code>id</code>), error <b>beside</b> the field.</span>
+    <span class="mac">Macros: <code>ui.field_input()</code> <code>ui.field_select()</code> <code>ui.field_textarea()</code> <code>ui.label()</code> — labels linked (<code>for</code>/<code>id</code>), error <b>beside</b> the field.</span>
     <div class="dd">
       <div class="do"><b>Do</b> — all fields the same height, one focus ring, error inline below the field.</div>
       <div class="dont"><b>Don't</b> — postal code as a free text field (always a dropdown), or an <code>alert()</code> on error.</div>
@@ -671,7 +671,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
         <span class="pg"><button>‹</button><button class="on">1</button><button>2</button><button>3</button><button>›</button></span>
       </div>
     </div>
-    <span class="mac">Macros: <code>ui.data_table()</code> <code>ui.search()</code> <code>ui.grouped_filter()</code> <code>ui.row_actions()</code> <code>ui.pager()</code> — row height ~50px, subtle hover, actions under ⋯.</span>
+    <span class="mac">Macros: <code>ui.search()</code> <code>ui.filter_bar()</code> <code>ui.grouped_filter()</code> <code>ui.chips()</code> <code>ui.row_actions()</code> <code>ui.pager()</code> — row height ~50px, subtle hover, actions under ⋯.</span>
     <div class="dd">
       <div class="do"><b>Do</b> — every growable list gets search + paging; status as a chip.</div>
       <div class="dont"><b>Don't</b> — as many rules/lines as possible, or Type as a coloured pill next to the status.</div>
@@ -689,7 +689,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <span class="badge b-amber">Deels betaald</span>
       <span class="badge b-teal">Terugbetaling</span>
     </div>
-    <span class="mac">Macro <code>ui.badge(label, colour)</code> — every status gets <b>everywhere</b> exactly the same colour, shape and name (Dutch UI label, never a raw code). Yellow = pending (amber is dropped).</span>
+    <span class="mac">Macro <code>ui.badge(label, tone)</code> — tones: gray · green · yellow · red · blue · teal · orange · indigo (indigo renders via a purple utility). Every status gets <b>everywhere</b> exactly the same tone, shape and Dutch name (never a raw code). Yellow = pending (amber is dropped). This is the single badge source (mirror in ui-conventies.md/ui-conformiteit.md).</span>
 
     <h3 class="block" id="s2-5">2.5 Notifications · modal · toast · reorder</h3>
     <div class="demo" style="display:grid;gap:14px">
@@ -708,7 +708,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
         <div class="mf"><button class="btn btn-secondary">Annuleren</button><button class="btn btn-danger">Verwijderen</button></div>
       </div>
     </div>
-    <span class="mac">Macros: <code>ui.alert()</code> <code>ui.toast()</code> <code>ui.modal()</code> <code>ui.reorder()</code> — confirm before destructive, in a modal (never <code>confirm()</code>). A toast is a short confirmation that fades away on its own.</span>
+    <span class="mac">Macros: <code>ui.error_banner()</code>/<code>ui.success_banner()</code> <code>ui.toast()</code> (+ <code>ui.toast_host()</code>) <code>ui.modal()</code> <code>ui.reorder()</code> — confirm before destructive, in a modal (never <code>confirm()</code>). A toast is a short confirmation that fades away on its own.</span>
   </section>
 
   <!-- 3 -->
@@ -747,7 +747,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
         </tbody>
       </table>
     </div>
-    <div class="note"><b>Record management (decided — Koen):</b> from a list, <b>"Bewerken"</b> opens a <b>full-page editor</b> (like Screen 4), not a master-detail split. Master-detail (list left, detail/edit right) remains a possible <b>hybrid</b> for later if needed (#510). The HDEV activities (currently master-detail) will be aligned to this.</div>
+    <div class="note"><b>Record management (decided — Koen):</b> from a list, <b>"Bewerken"</b> opens a <b>full-page editor</b> (like Screen 4), not a master-detail split. Master-detail (list left, detail/edit right) remains a possible <b>hybrid</b> for later if needed (#510). <b>Exception:</b> one-line records (e.g. Media, Gebruikers) may be edited <b>inline in the card</b> as a sanctioned variant; complex records (activity, form, member) use the full-page editor.</div>
 
     <h3 class="block" id="s3-2">Records list — the fixed layout of every records screen</h3>
     <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0">Every admin screen with records (Leden, Activiteiten, Betalingen, Formulieren, Media, Gebruikers, Pagina's) has <b>the same</b> layout in the content column, <b>from top to bottom</b>. So search, "new" and the filters are in the same place everywhere.</p>
@@ -837,7 +837,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     <div class="card" style="display:grid;gap:12px;font-size:.92rem">
       <div><b>1 · Tokens (one source).</b> Colour/spacing/type/radii in <code>scripts/build-css.sh</code> (Tailwind standalone, zero Node). Templates refer to them; no loose hex.</div>
       <div><b>2 · Macros.</b> Every component in <code>backend/app/ui/templates/_macros.html</code>. Change a button and it changes everywhere.</div>
-      <div><b>3 · Lint gate.</b> A pytest (à la <code>test_i18n_gate</code>) forbids raw colour utilities and loose button classes outside the macros — the build fails on drift.</div>
+      <div><b>3 · Lint gate.</b> A pytest (à la <code>test_i18n_gate</code>) forbids raw colour utilities and loose button classes outside the macros — the build fails on drift. Known blind spots to extend the gate with: <code>hx-confirm</code> (native browser confirm), raw ⬇/📄 glyph icons, and hand-rolled reorder that bypasses <code>ui.reorder()</code>.</div>
       <div><b>4 · This guide.</b> A living document; changes here and in the macros go together. Playwright golden screenshots guard the reference screens.</div>
     </div>
     <div class="note">End state: it becomes <b>hard to build an ugly or inconsistent screen</b> — the shortest path is the right path.</div>
@@ -1427,6 +1427,6 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
 </div>
 
 <footer class="footer">
-  <b>Raak Millegem Design System</b> · proposal v0.1 · written norm in <code>docs/ui-conventies.md</code> · current state in <code>docs/ui-conformiteit.md</code>. Headings: Radio Canada Big (embedded) · body: Inter (in the app). This document is meant as the merged source of truth (#528).
+  <b>Raak Millegem Design System</b> · adopted v1.0 · written norm in <code>docs/ui-conventies.md</code> · current state in <code>docs/ui-conformiteit.md</code>. Headings: Radio Canada Big (embedded) · body: Inter (in the app). This document is meant as the merged source of truth (#528).
 </footer>
 </body></html>
