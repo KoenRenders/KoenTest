@@ -6,6 +6,7 @@
 #   raakctl logs <env> [service] [-n N]  logs of one service (default: backend;
 #                                        the menu lists what each env offers)
 #   raakctl diagnose <env>               full report -> /tmp/<env>-diagnostics.log
+#   raakctl services <env>               which services this env can log
 #   raakctl backup <env>                 manual pg_dump -> <checkout>/backups
 #   raakctl up <env>                     start a stopped stack (no build, no git)
 #   raakctl stop <env>                   stop a stack, keeping its containers
@@ -90,6 +91,8 @@ cmd_logs() {  # <env> [service] [-n N] — service defaults to backend
   fi
   compose "$env" logs "$svc" --tail="$n"
 }
+
+cmd_services() { services_of "${1:?name an environment: hdev|uat|prod}"; }
 
 cmd_diagnose() {
   local env="${1:?name an environment: hdev|uat|prod}"
@@ -249,6 +252,7 @@ case "$verb" in
   status)   cmd_status "$@" ;;
   logs)     cmd_logs "$@" ;;
   diagnose) cmd_diagnose "$@" ;;
+  services) cmd_services "$@" ;;
   backup)   cmd_backup "$@" ;;
   up)       cmd_up "$@" ;;
   stop)     cmd_stop "$@" ;;
