@@ -471,7 +471,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <li><a href="#s3">3 · Patterns</a>
         <ol>
           <li><a href="#s3-1">3.1 Admin &amp; public</a></li>
-          <li><a href="#s3-2">3.2 List index</a></li>
+          <li><a href="#s3-2">3.2 Records list</a></li>
         </ol>
       </li>
       <li><a href="#s4">4 · Behaviour</a></li>
@@ -493,9 +493,9 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       </li>
       <li><a href="#grp-c">C · Admin</a>
         <ol>
-          <li><a href="#sa-c1">C1 · List index <span class="tocp">Records</span></a></li>
+          <li><a href="#sa-c1">C1 · Records list <span class="tocp">Records</span></a></li>
           <li><a href="#sa-c2">C2 · Dashboard <span class="tocp">Detail</span></a></li>
-          <li><a href="#sa-c3">C3 · Activities <span class="tocp">List index</span></a></li>
+          <li><a href="#sa-c3">C3 · Activities <span class="tocp">Records list</span></a></li>
           <li><a href="#sa-c4">C4 · Payments <span class="tocp">List/table</span></a></li>
           <li><a href="#sa-c5">C5 · Edit activity <span class="tocp">Form</span></a></li>
           <li><a href="#sa-c6">C6 · Edit form <span class="tocp">Form</span></a></li>
@@ -749,7 +749,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
     <div class="note"><b>Record management (decided — Koen):</b> from a list, <b>"Bewerken"</b> opens a <b>full-page editor</b> (like Screen 4), not a master-detail split. Master-detail (list left, detail/edit right) remains a possible <b>hybrid</b> for later if needed (#510). The HDEV activities (currently master-detail) will be aligned to this.</div>
 
-    <h3 class="block" id="s3-2">List index — the fixed layout of every records screen</h3>
+    <h3 class="block" id="s3-2">Records list — the fixed layout of every records screen</h3>
     <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0">Every admin screen with records (Leden, Activiteiten, Betalingen, Formulieren, Media, Gebruikers, Pagina's) has <b>the same</b> layout in the content column, <b>from top to bottom</b>. So search, "new" and the filters are in the same place everywhere.</p>
     <ol style="margin:8px 0 0;padding-left:1.3rem;color:var(--ink);font-size:.92rem;line-height:1.7">
       <li><b>Page title</b></li>
@@ -1042,8 +1042,8 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
 
   <section id="grp-c">
     <div class="sec-h"><span class="num">C</span><h2>Admin</h2></div>
-    <!-- Screen C1: List-index (general admin records pattern) -->
-    <div class="scrlabel" id="sa-c1">Screen C1 <span class="tag tag-admin">Admin</span> · List index — the fixed layout of every records screen <span class="ptn">General records pattern</span></div>
+    <!-- Screen C1: Records list (general admin records pattern) -->
+    <div class="scrlabel" id="sa-c1">Screen C1 <span class="tag tag-admin">Admin</span> · Records list — the fixed layout of every records screen <span class="ptn">General records pattern</span></div>
     <div class="frame" style="padding:0;overflow:hidden">
       <div style="display:grid;grid-template-columns:96px 1fr;min-height:320px">
         <aside style="background:var(--indigo);padding:14px 10px;color:#fff">
@@ -1090,7 +1090,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
           </div>
         </div>
       </div>
-      <p class="hint" style="text-align:center;max-width:620px;margin:12px auto 0">Schematic page layout: <b>left</b> the persistent admin menu, the <b>main area</b> the list index (title → optional KPI/management row → “+ Nieuwe …” loose · search · filters · cards, no blue bar). Clicking a card / “Bewerken” opens the <b>full-page editor</b> (see A1) — no master-detail split (§3).</p>
+      <p class="hint" style="text-align:center;max-width:620px;margin:12px auto 0">Schematic page layout: <b>left</b> the persistent admin menu, the <b>main area</b> the records list (title → optional KPI/management row → “+ Nieuwe …” loose · search · filters · cards, no blue bar). Clicking a card / “Bewerken” opens the <b>full-page editor</b> (see A1) — no master-detail split (§3).</p>
     </div>
 
     <!-- Scherm 2: Admin-dashboard -->
@@ -1123,7 +1123,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 2: Activiteitenoverzicht (admin) -->
-    <div class="scrlabel" id="sa-c3">Screen C3 <span class="tag tag-admin">Admin</span> · Activities overview (app shell + header + KPIs + list) <span class="ptn">Pattern 1 · App shell + 2 · Page header + 3 · List index</span></div>
+    <div class="scrlabel" id="sa-c3">Screen C3 <span class="tag tag-admin">Admin</span> · Activities overview (app shell + header + KPIs + list) <span class="ptn">Pattern 1 · App shell + 2 · Page header + 3 · Records list</span></div>
     <div class="appdemo">
       <aside class="sb">
         <div class="brand">RAAK<small>beheer</small></div>
