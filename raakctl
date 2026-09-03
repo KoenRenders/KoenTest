@@ -5,6 +5,7 @@
 #   raakctl status [env]           containers, versie, alembic
 #   raakctl logs <env> [dienst] [-n N]   logs van één dienst (standaard backend)
 #   raakctl diagnose <env>         volledige diagnostiek -> /tmp/<env>-diagnostics.log
+#   raakctl backup <env>           handmatige pg_dump naar <checkout>/backups
 #   raakctl deploy hdev            master naar HDEV
 #   raakctl deploy uat  <tag>      release-tag naar UAT
 #   raakctl deploy prod <tag> --confirm
@@ -77,6 +78,30 @@ cmd_diagnose() {
   ( cd "$(checkout "$env")" && ./logging.sh "$env" )
 }
 
+cmd_backup() {
+  # Handmatige dump, los van de dagelijkse db-backup-container. Zelfde vorm als de
+  # pre-migratie-backup in deploy.sh: credentials komen uit de db-container zelf,
+  # nooit uit dit script. Het prefix wijkt bewust af van dat van de dagelijkse
+  # dumps, zodat de opruiming van KEEP_DAYS deze niet weggooit.
+  local env="${1:?geef een omgeving: hdev|uat|prod}"
+  case "$env" in hdev|uat|prod) ;; *) die "backup kan van hdev, uat of prod — niet van '$env'" ;; esac
+  local d; d="$(checkout "$env")"
+  [ -n "$(compose "$env" ps -q db 2>/dev/null)" ] || die "de db-container van $env draait niet"
+
+  local dir="$d/backups"; mkdir -p "$dir"
+  local out="$dir/handmatig-$env-$(date +%Y%m%d-%H%M%S).sql.gz"
+  compose "$env" exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "$out.tmp"
+
+  # Een back-up die je niet nakijkt is geen back-up: controleer dat er inhoud in
+  # zit en dat gzip hem kan uitpakken, vóór we hem als geldig bestempelen.
+  if ! gzip -t "$out.tmp" 2>/dev/null || [ ! -s "$out.tmp" ]; then
+    rm -f "$out.tmp"; die "dump mislukt of leeg — niets bewaard"
+  fi
+  mv "$out.tmp" "$out"
+  echo "Back-up: $out ($(du -h "$out" | cut -f1), $(gzip -dc "$out" | wc -l) regels SQL)"
+  echo "Haal hem van de server met:  scp raak:$out ."
+}
+
 cmd_deploy() {
   local env="${1:?geef een omgeving: hdev|uat|prod}"; shift
   # Guardrails eerst: een ontbrekende tag of bevestiging moet falen vóór we ook
@@ -117,7 +142,8 @@ menu() {
     echo "   1) status (alle omgevingen)      5) deploy HDEV (master)"
     echo "   2) logs van één dienst           6) deploy UAT (tag)"
     echo "   3) volledige diagnostiek         7) deploy PROD (tag)"
-    echo "   4) gedeelde Caddy toepassen      q) stoppen"
+    echo "   4) gedeelde Caddy toepassen      8) handmatige back-up"
+    echo "                                    q) stoppen"
     echo "  (het rapport uit 3 haal je vanaf je laptop op met: raak fetch <env>)"
     read -rp "  keuze: " k
     case "$k" in
@@ -134,6 +160,7 @@ menu() {
          echo "  LET OP: dit deployt naar PRODUCTIE."
          read -rp "  typ PROD om te bevestigen: " c
          [ "$c" = "PROD" ] && cmd_deploy prod "$t" --confirm || echo "  afgebroken." ;;
+      8) read -rp "  omgeving: " e; cmd_backup "$e" ;;
       q|Q) return 0 ;;
       *) echo "  onbekende keuze" ;;
     esac
@@ -147,6 +174,7 @@ case "$verb" in
   status)   cmd_status "$@" ;;
   logs)     cmd_logs "$@" ;;
   diagnose) cmd_diagnose "$@" ;;
+  backup)   cmd_backup "$@" ;;
   deploy)   cmd_deploy "$@" ;;
   caddy)    cmd_caddy "$@" ;;
   help|-h|--help) usage ;;
