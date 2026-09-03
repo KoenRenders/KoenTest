@@ -480,14 +480,16 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <li><a href="#s7">7 · Governance</a></li>
       <li><a href="#sa">A · Reference screens</a>
         <ol>
-          <li><a href="#sa-1">1 · Lid worden <span class="tocp">Form</span></a></li>
-          <li><a href="#sa-2">2 · Dashboard <span class="tocp">Detail</span></a></li>
-          <li><a href="#sa-3">3 · Activiteiten <span class="tocp">List index</span></a></li>
-          <li><a href="#sa-4">4 · Betalingen <span class="tocp">List/table</span></a></li>
-          <li><a href="#sa-5">5 · Activiteit bewerken <span class="tocp">Form</span></a></li>
-          <li><a href="#sa-6">6 · Formulier bewerken <span class="tocp">Form</span></a></li>
-          <li><a href="#sa-7">7 · Home <span class="tocp">Hero + cards</span></a></li>
-          <li><a href="#sa-8">8 · Raakje AI <span class="tocp">Dialog</span></a></li>
+          <li><a href="#sa-a1">A1 · Gezin/lid <span class="tocp">Common</span></a></li>
+          <li><a href="#sa-b1">B1 · Lid worden <span class="tocp">Form</span></a></li>
+          <li><a href="#sa-b2">B2 · Home <span class="tocp">Hero + cards</span></a></li>
+          <li><a href="#sa-b3">B3 · Raakje AI <span class="tocp">Dialog</span></a></li>
+          <li><a href="#sa-c1">C1 · List index <span class="tocp">Records</span></a></li>
+          <li><a href="#sa-c2">C2 · Dashboard <span class="tocp">Detail</span></a></li>
+          <li><a href="#sa-c3">C3 · Activities <span class="tocp">List index</span></a></li>
+          <li><a href="#sa-c4">C4 · Payments <span class="tocp">List/table</span></a></li>
+          <li><a href="#sa-c5">C5 · Edit activity <span class="tocp">Form</span></a></li>
+          <li><a href="#sa-c6">C6 · Edit form <span class="tocp">Form</span></a></li>
         </ol>
       </li>
     </ol>
@@ -498,7 +500,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
   <!-- 0 -->
   <section id="s0">
     <div class="sec-h"><span class="num">0</span><h2>Introduction</h2></div>
-    <p class="lede">This document is the <b>single source of truth</b> for the look and behaviour of Raak Millegem. It replaces the separate <code>stijlgids.html</code>, <code>ui-conventies.md</code> and the brand tokens in <code>spec.md</code>: one place where colour, typography, components, patterns, behaviour and accessibility come together.</p>
+    <p class="lede">This document is the <b>single source of truth</b> for the look and behaviour of this code base. It replaces the separate <code>stijlgids.html</code>, <code>ui-conventies.md</code> and the brand tokens in <code>spec.md</code>: one place where colour, typography, components, patterns, behaviour and accessibility come together.</p>
     <div class="card">
       <h4 class="block" style="margin-top:0">How to use</h4>
       <p style="margin:.2em 0 0;color:var(--ink-soft);font-size:.92rem">Every value here exists as a <b>design token</b> (generated via <code>scripts/build-css.sh</code>) and every component as a <b>Jinja macro</b> in <code>_macros.html</code>. When you build a screen you consult the guide and use the macro — never a loose colour or a hand-styled button. A lint gate (§7) blocks deviations at build time.</p>
@@ -832,10 +834,32 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
   <!-- Appendix -->
   <section id="sa">
     <div class="sec-h"><span class="num">A</span><h2>Reference screens</h2></div>
-    <p class="lede">All patterns together, applied to real screens — the visual reference for the roll-out (phase 4). Each screen is labelled <b>Admin</b> or <b>Public</b> so the distinction from §3 becomes tangible.</p>
+    <p class="lede">All patterns together, applied to real screens — the visual reference for the roll-out (phase 4). Grouped in <b>A · Common</b> (shared person/family fields), <b>B · Public</b> and <b>C · Admin</b> so the distinction from §3 becomes tangible.</p>
 
+    <h3 class="block" style="margin-top:32px;border-top:2px solid var(--line);padding-top:20px">A · Common — shared structure</h3>
+    <!-- Screen A1: Person/family fields (shared, #511) -->
+    <div class="scrlabel" id="sa-a1">Screen A1 <span class="badge b-gray">Common</span> · Gezin/lid bewerken — shared person fields <span class="ptn">Reused in Word lid · Mijn gezin · Admin-leden (#511)</span></div>
+    <div class="frame" style="background:var(--ground);padding:20px">
+      <div style="max-width:640px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:18px">
+        <h3 style="margin:0 0 12px;font-family:var(--brand);font-weight:700;font-size:1.35rem;color:var(--primary-ink)">Lid bewerken</h3>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:14px">
+          <div class="field" style="margin:0"><label>Voornaam <span class="req">*</span></label><input class="input" value="Joske"></div>
+          <div class="field" style="margin:0"><label>Achternaam <span class="req">*</span></label><input class="input" value="Peeters"></div>
+          <div class="field" style="margin:0"><label>Geboortedatum</label><input class="input" value="12/03/1990"></div>
+          <div class="field" style="margin:0"><label>Geslacht</label><select class="select"><option>M</option><option>V</option><option>X</option></select></div>
+          <div class="field" style="margin:0"><label>E-mail</label><input class="input" value="joske@voorbeeld.be"></div>
+          <div class="field" style="margin:0"><label>Mobiel</label><input class="input" value="0470/12 34 56"></div>
+          <div class="field" style="margin:0"><label>Telefoon</label><input class="input" placeholder="—"></div>
+          <div class="field" style="margin:0"><label>Relatie</label><select class="select"><option>Hoofdlid</option><option>Partner</option><option>(meerderjarig) kind</option></select></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:16px"><button class="btn btn-primary">Opslaan</button><button class="btn btn-secondary">Annuleren</button></div>
+      </div>
+      <p class="hint" style="text-align:center;max-width:580px;margin:12px auto 0">Shared person/family field set (macro <code>person_fields</code>, #511) — the same block is reused in <b>Word lid</b>, <b>Mijn gezin</b> and <b>Admin-leden</b>, so a person is edited identically everywhere.</p>
+    </div>
+
+    <h3 class="block" style="margin-top:32px;border-top:2px solid var(--line);padding-top:20px">B · Public</h3>
     <!-- Scherm 1: Lid worden (publiek) -->
-    <div class="scrlabel" id="sa-1">Screen 1 <span class="tag tag-pub">Public</span> · "Lid worden" (family registration · address grid · payment method) <span class="ptn">Pattern 4 · Form</span></div>
+    <div class="scrlabel" id="sa-b1">Screen B1 <span class="tag tag-pub">Public</span> · "Lid worden" (family registration · address grid · payment method) <span class="ptn">Pattern 4 · Form</span></div>
     <div class="frame pub">
       <div class="pubnav"><span class="lg">Raak<small>Beleef meer in Millegem</small></span><span class="lk"><a href="#sa">Home</a><a href="#sa">Werking</a><a href="#sa">Foto's</a><a href="#sa">Archief</a><a href="#sa">Inloggen</a></span></div>
       <div class="pubform">
@@ -890,8 +914,140 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       </div>
     </div>
 
+    <!-- Scherm 5: Publiek -->
+    <div class="scrlabel" id="sa-b2">Screen B2 <span class="tag tag-pub">Public</span> · Home (header · Word lid / Contacteer ons · activities · footer) <span class="ptn">Pattern 2 · Hero/page header + 3 · Cards</span></div>
+    <div class="note"><b>Auth-afhankelijk (#499/#467):</b> zowel de nav als de <b>hoofdactieknop</b> (de opvallende knop die de bezoeker tot één duidelijke stap aanzet) hangen af van de login-status. <b>Uitgelogd</b> (hieronder getoond): nav eindigt op "Inloggen", hoofdactieknop = <b>"Word lid"</b>. <b>Ingelogd lid</b>: nav krijgt "Mijn gezin · Admin · Uitloggen (naam)" en de hoofdactieknop wordt <b>"Mijn gezin"</b> (zie de balk hieronder).</div>
+    <div style="background:var(--primary);color:#fff;border-radius:var(--r-md);padding:11px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px">
+      <span style="font-family:var(--brand);font-weight:800;font-size:1.05rem">Raak <span style="font-size:.66rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.08em">· ingelogd-variant</span></span>
+      <span style="display:flex;gap:15px;flex-wrap:wrap;font-size:.84rem"><a href="#sa" style="color:#dbeafe">Home</a><a href="#sa" style="color:#dbeafe">Werking</a><a href="#sa" style="color:#dbeafe">Foto's</a><a href="#sa" style="color:#dbeafe">Archief</a><a href="#sa" style="color:var(--accent)">Mijn gezin</a><a href="#sa" style="color:var(--accent)">Admin</a><a href="#sa" style="color:#dbeafe">Uitloggen (Jan Peeters)</a></span>
+    </div>
+    <div class="frame pub">
+      <div class="pubnav">
+        <span class="lg">Raak<small>Beleef meer in Millegem</small></span>
+        <span class="lk"><a href="#sa">Home</a><a href="#sa">Werking</a><a href="#sa">Foto's</a><a href="#sa">Archief</a><a href="#sa">Inloggen</a></span>
+      </div>
+      <div class="pubhero"><p><span class="badge b-gray">CMS · home-intro</span> Beheerbaar via admin-CMS — hier komt de door het bestuur ingevoerde welkomst-/oproeptekst.</p>
+        <div class="cta" style="margin-top:14px"><button class="btn btn-primary">Word lid</button><button class="btn btn-secondary">Contacteer ons</button></div>
+      </div>
+
+      <div class="pubsec">Activiteiten</div>
+      <div class="yearhead">2026<hr class="rule"></div>
+      <div class="actlist">
+        <div class="actitem">
+          <div class="ttl">Fotozoektocht <span class="badge b-green">Open</span></div>
+          <div class="when"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> maandag 1 juni – woensdag 30 september 2026</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Millegem</span></div>
+          <div class="cardacts"><a class="btn btn-fine">Wie doet er mee?</a><a class="btn btn-fine ext">Info <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a></div>
+        </div>
+        <div class="actitem">
+          <div class="ttl">Speelnamiddag en Zomerbar <span class="badge b-green">Open</span> <span class="badge b-indigo">Enkel leden</span></div>
+          <div class="when"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> vrijdag 24 juli 2026 om 14:00 – 21:00</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Speelpleintje Rijtenhof</span></div>
+          <div class="cardacts"><button class="btn btn-primary">Schrijf je in</button><a class="btn btn-fine">Wie doet er mee?</a></div>
+        </div>
+        <div class="actitem">
+          <div class="ttl">Stappen en klappen – wandelen (maandelijks) <span class="badge b-green">Open</span></div>
+          <div class="when">
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> maandag 10 augustus 2026 om 20:00</span>
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> maandag 14 september 2026 om 20:00</span>
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> maandag 12 oktober 2026 om 20:00</span>
+            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Miloheem</span>
+          </div>
+          <div class="cardacts"><button class="btn btn-primary">Schrijf je in</button><a class="btn btn-fine">Wie doet er mee?</a></div>
+        </div>
+        <div class="actitem">
+          <div class="ttl">Gezinsuitstap Irrland <span class="badge b-green">Open</span></div>
+          <div class="when"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> zondag 16 augustus 2026 om 07:45</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Lindeplein (vertrek)</span></div>
+          <div class="cardacts"><a class="btn btn-fine ext">Inschrijven <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a><a class="btn btn-fine ext">Inschrijvingen <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a><a class="btn btn-fine ext">Info <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a><a class="btn btn-fine">Wie doet er mee?</a></div>
+        </div>
+        <div class="actitem">
+          <div class="ttl">Ledenfeest <span class="badge b-orange">Volzet</span></div>
+          <div class="when"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> zaterdag 27 juni 2026 om 15:00</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Zaal De Kruierie</span></div>
+          <div class="cardacts"><button class="btn btn-secondary" disabled>Volzet</button><a class="btn btn-fine">Wie doet er mee?</a></div>
+        </div>
+      </div>
+
+      <div class="yearhead">2027<hr class="rule"></div>
+      <div class="actlist">
+        <div class="actitem">
+          <div class="ttl">Fietsweekend Grubbenvorst <span class="badge b-green">Open</span></div>
+          <div class="when"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> vrijdag 7 mei – zondag 9 mei 2027</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Witte Dame, Grubbenvorst (Venlo)</span></div>
+          <div class="cardacts"><button class="btn btn-primary">Schrijf je in</button><a class="btn btn-fine">Wie doet er mee?</a></div>
+        </div>
+      </div>
+      <div class="pubfoot">
+        <div class="cols">
+          <div>
+            <h5>Raak Millegem</h5>
+            <p><span class="badge b-gray">CMS</span> Korte omschrijving van de vereniging — beheerbaar via admin-CMS (bv. "Raak Millegem is een gezinsbeweging rond ontmoeting, spel en engagement. Iedereen is welkom.").</p>
+            <div class="socials">
+              <a aria-label="Facebook" href="#sa"><svg viewBox="0 0 24 24" fill="currentColor" width="17" height="17"><path d="M14 9V7c0-1 .3-1.6 1.6-1.6H17V2.6h-2.6C11.4 2.6 10 4.2 10 6.8V9H8v3h2v9h4v-9h2.4l.6-3z"/></svg></a>
+              <a aria-label="Instagram" href="#sa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none"/></svg></a>
+              <a aria-label="TikTok" href="#sa"><svg viewBox="0 0 24 24" fill="currentColor" width="17" height="17"><path d="M16 3c.3 2 1.7 3.7 3.7 4v2.5c-1.3 0-2.6-.4-3.7-1.1v6.2a5.6 5.6 0 1 1-5.6-5.6c.3 0 .6 0 .9.1v2.7a2.9 2.9 0 1 0 2 2.8V3H16z"/></svg></a>
+            </div>
+          </div>
+          <div class="lkcol">
+            <h5>Doe mee</h5>
+            <a href="#sa">Word lid</a><a href="#sa">Contacteer ons</a>
+          </div>
+          <div>
+            <h5>Met steun van</h5>
+            <div class="spons"><span class="logoimg"><span class="w"><span class="c1">M</span><span class="c2">ON</span><span class="c3">A</span></span><small>Samen veilig naar onze toekomst</small></span></div>
+            <p style="margin-top:8px;font-size:.72rem">Logo geüpload via <b>Media</b>.</p>
+          </div>
+        </div>
+        <div class="addr"><span class="badge b-gray" style="margin-right:6px">CMS / tenant-config</span> Raak Millegem (feitelijke vereniging) · Voorbeeldstraat 1, 0000 Voorbeeld · info@voorbeeld.be · IBAN BE00 0000 0000 0000 · BIC XXXXXXXX</div>
+        <div class="bottom"><span>© 2026 Raak Millegem</span><a href="#sa">Privacyverklaring</a></div>
+      </div>
+    </div>
+
+    <!-- Scherm 6: Raakje AI-assistent (publiek) -->
+    <div class="scrlabel" id="sa-b3">Screen B3 <span class="tag tag-pub">Public</span> · Raakje AI (STT microphone · TTS read-aloud · growing input) <span class="ptn">Pattern 6 · Dialog/widget</span></div>
+    <div class="frame pub" style="padding:22px">
+      <div class="raakje">
+        <div class="rk-head"><span class="av">💬 Raakje</span><button aria-label="Sluiten">✕</button></div>
+        <div class="rk-body">
+          <div class="msg bot">Hallo, ik ben Raakje! 👋 Stel me gerust een vraag over Raak Millegem, onze activiteiten of het lidmaatschap. Ik kan ook je vraag of idee doorgeven.
+            <div class="tts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg> Voorlezen</div>
+          </div>
+          <div class="msg user">Wanneer is Brood en Spelen en hoe schrijf ik in?</div>
+          <div class="msg bot">Brood en Spelen is op <b>29 augustus 2026</b> in het Chirolokaal Mol-Millegem. Inschrijven kan via de knop <b>"Schrijf je in"</b> op de activiteitenpagina. Wil je dat ik de link doorstuur?
+            <div class="tts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg> Voorlezen</div>
+          </div>
+          <button class="rk-fwd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></svg> Mijn vraag doorgeven aan het bestuur</button>
+        </div>
+        <div class="rk-input">
+          <button class="rk-btn mic" aria-label="Inspreken (spraak → tekst)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg></button>
+          <textarea rows="3" aria-label="Je vraag">Kan mijn tienerzoon ook meedoen aan het Cornhole Tornooi, en wat kost dat voor leden? En is er iets speciaals voor 12+?</textarea>
+          <button class="rk-btn send" aria-label="Verstuur"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></svg></button>
+        </div>
+      </div>
+      <div class="rk-launch" title="Floating button bottom-right">💬</div>
+      <p class="hint" style="text-align:center;max-width:420px;margin:10px auto 0">Floating button bottom-right on every public page. <b>Microphone</b> = STT (speech → text, Voxtral/EU) · <b>Read aloud</b> = TTS. The input is a <b>growing textarea</b> (multiple lines) — this fixes the HDEV bug where text disappeared after one line (v2.0 currently uses an <code>&lt;input&gt;</code>).</p>
+    </div>    <h3 class="block" style="margin-top:32px;border-top:2px solid var(--line);padding-top:20px">C · Admin</h3>
+    <!-- Screen C1: List-index (general admin records pattern) -->
+    <div class="scrlabel" id="sa-c1">Screen C1 <span class="tag tag-admin">Admin</span> · List index — the fixed layout of every records screen <span class="ptn">General records pattern</span></div>
+    <div class="frame" style="background:var(--ground);padding:20px">
+      <div style="max-width:520px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);box-shadow:var(--shadow);padding:18px">
+        <div style="display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap">
+          <h3 style="margin:0;font-family:var(--brand);font-weight:700;font-size:1.5rem;color:var(--primary-ink)">Leden</h3>
+          <button class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg> Nieuw lid</button>
+        </div>
+        <span class="search" style="margin-top:14px;display:flex"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m21 21-4.3-4.3"/><circle cx="11" cy="11" r="8"/></svg><input class="input" placeholder="Zoek op naam of e-mail…"></span>
+        <div class="pillrow" style="margin-top:12px;gap:8px">
+          <button class="btn btn-fine" style="background:var(--primary);color:#fff;border-color:var(--primary)">Alle</button>
+          <button class="btn btn-fine">Actief</button>
+          <button class="btn btn-fine">Opgezegd</button>
+        </div>
+        <div style="margin-top:14px;display:grid;gap:8px">
+          <a href="#sa" style="display:block;border:1px solid var(--line);border-radius:var(--r-md);padding:11px 13px;background:var(--surface);text-decoration:none"><div style="font-weight:600;color:var(--ink)">Peeters Joske</div><div style="font-size:.8rem;color:var(--ink-soft)">Voorbeeldstraat 10, Voorbeeldstad</div></a>
+          <a href="#sa" style="display:block;border:1px solid var(--line);border-radius:var(--r-md);padding:11px 13px;background:var(--surface);text-decoration:none"><div style="font-weight:600;color:var(--ink)">Janssens An</div><div style="font-size:.8rem;color:var(--ink-soft)">Lindeplein 2, Voorbeeldstad</div></a>
+          <a href="#sa" style="display:block;border:1px solid var(--line);border-radius:var(--r-md);padding:11px 13px;background:var(--surface);text-decoration:none"><div style="font-weight:600;color:var(--ink)">De Vos Rik</div><div style="font-size:.8rem;color:var(--ink-soft)">Kerkstraat 21, Voorbeeldstad</div></a>
+        </div>
+      </div>
+      <p class="hint" style="text-align:center;max-width:560px;margin:12px auto 0">Fixed top-to-bottom order: <b>1</b> page title · <b>2</b> “+ Nieuwe …” (loose, no blue bar) · <b>3</b> search · <b>4</b> filters (always below new + search) · <b>5</b> record cards → “Bewerken” opens the full-page editor. Applies to Leden, Activiteiten, Betalingen, Formulieren, Media, Gebruikers, Pagina’s.</p>
+    </div>
+
     <!-- Scherm 2: Admin-dashboard -->
-    <div class="scrlabel" id="sa-2">Screen 2 <span class="tag tag-admin">Admin</span> · Dashboard (key figures with a jump to the relevant module) <span class="ptn">Pattern 5 · Detail + 1 · App shell</span></div>
+    <div class="scrlabel" id="sa-c2">Screen C2 <span class="tag tag-admin">Admin</span> · Dashboard (key figures with a jump to the relevant module) <span class="ptn">Pattern 5 · Detail + 1 · App shell</span></div>
     <div class="appdemo">
       <aside class="sb">
         <div class="brand">RAAK<small>beheer</small></div>
@@ -920,7 +1076,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 2: Activiteitenoverzicht (admin) -->
-    <div class="scrlabel" id="sa-3">Screen 3 <span class="tag tag-admin">Admin</span> · Activities overview (app shell + header + KPIs + list) <span class="ptn">Pattern 1 · App shell + 2 · Page header + 3 · List index</span></div>
+    <div class="scrlabel" id="sa-c3">Screen C3 <span class="tag tag-admin">Admin</span> · Activities overview (app shell + header + KPIs + list) <span class="ptn">Pattern 1 · App shell + 2 · Page header + 3 · List index</span></div>
     <div class="appdemo">
       <aside class="sb">
         <div class="brand">RAAK<small>beheer</small></div>
@@ -968,7 +1124,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 2: Betalingen (admin) -->
-    <div class="scrlabel" id="sa-4">Screen 4 <span class="tag tag-admin">Admin</span> · Payments (balance matrix + status chips + FINANCE actions) <span class="ptn">Pattern 3 · List/table + 6 · Actions/modal</span></div>
+    <div class="scrlabel" id="sa-c4">Screen C4 <span class="tag tag-admin">Admin</span> · Payments (balance matrix + status chips + FINANCE actions) <span class="ptn">Pattern 3 · List/table + 6 · Actions/modal</span></div>
     <div class="frame" style="padding:20px">
       <div class="phead">
         <div><div class="crumb">Beheer · Betalingen</div><h3>Betalingen</h3><div class="sub">Betalingen &amp; vorderingen — enkel FINANCE kan bevestigen of terugbetalen.</div></div>
@@ -1054,7 +1210,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 4: Activiteit bewerken (admin) — Brood en Spelen -->
-    <div class="scrlabel" id="sa-5">Screen 5 <span class="tag tag-admin">Admin</span> · Edit activity (info · multiple dates · nested components → products) <span class="ptn">Pattern 4 · Form + nested cards</span></div>
+    <div class="scrlabel" id="sa-c5">Screen C5 <span class="tag tag-admin">Admin</span> · Edit activity (info · multiple dates · nested components → products) <span class="ptn">Pattern 4 · Form + nested cards</span></div>
     <div class="frame" style="padding:20px">
       <div class="phead">
         <div>
@@ -1147,7 +1303,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 3: Formulier bewerken (admin) — enquête -->
-    <div class="scrlabel" id="sa-6">Screen 6 <span class="tag tag-admin">Admin</span> · Edit form (sections · field types · branching) <span class="ptn">Pattern 4 · Form + reorder</span></div>
+    <div class="scrlabel" id="sa-c6">Screen C6 <span class="tag tag-admin">Admin</span> · Edit form (sections · field types · branching) <span class="ptn">Pattern 4 · Form + reorder</span></div>
     <div class="frame" style="padding:20px">
       <div class="phead">
         <div>
@@ -1216,115 +1372,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <div class="row" style="justify-content:flex-end"><button class="btn btn-secondary">Annuleren</button><button class="btn btn-primary">Opslaan</button></div>
     </div>
 
-    <!-- Scherm 5: Publiek -->
-    <div class="scrlabel" id="sa-7">Screen 7 <span class="tag tag-pub">Public</span> · Home (header · Word lid / Contacteer ons · activities · footer) <span class="ptn">Pattern 2 · Hero/page header + 3 · Cards</span></div>
-    <div class="note"><b>Auth-afhankelijk (#499/#467):</b> zowel de nav als de <b>hoofdactieknop</b> (de opvallende knop die de bezoeker tot één duidelijke stap aanzet) hangen af van de login-status. <b>Uitgelogd</b> (hieronder getoond): nav eindigt op "Inloggen", hoofdactieknop = <b>"Word lid"</b>. <b>Ingelogd lid</b>: nav krijgt "Mijn gezin · Admin · Uitloggen (naam)" en de hoofdactieknop wordt <b>"Mijn gezin"</b> (zie de balk hieronder).</div>
-    <div style="background:var(--primary);color:#fff;border-radius:var(--r-md);padding:11px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px">
-      <span style="font-family:var(--brand);font-weight:800;font-size:1.05rem">Raak <span style="font-size:.66rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.08em">· ingelogd-variant</span></span>
-      <span style="display:flex;gap:15px;flex-wrap:wrap;font-size:.84rem"><a href="#sa" style="color:#dbeafe">Home</a><a href="#sa" style="color:#dbeafe">Werking</a><a href="#sa" style="color:#dbeafe">Foto's</a><a href="#sa" style="color:#dbeafe">Archief</a><a href="#sa" style="color:var(--accent)">Mijn gezin</a><a href="#sa" style="color:var(--accent)">Admin</a><a href="#sa" style="color:#dbeafe">Uitloggen (Jan Peeters)</a></span>
-    </div>
-    <div class="frame pub">
-      <div class="pubnav">
-        <span class="lg">Raak<small>Beleef meer in Millegem</small></span>
-        <span class="lk"><a href="#sa">Home</a><a href="#sa">Werking</a><a href="#sa">Foto's</a><a href="#sa">Archief</a><a href="#sa">Inloggen</a></span>
-      </div>
-      <div class="pubhero"><p><span class="badge b-gray">CMS · home-intro</span> Beheerbaar via admin-CMS — hier komt de door het bestuur ingevoerde welkomst-/oproeptekst.</p>
-        <div class="cta" style="margin-top:14px"><button class="btn btn-primary">Word lid</button><button class="btn btn-secondary">Contacteer ons</button></div>
-      </div>
 
-      <div class="pubsec">Activiteiten</div>
-      <div class="yearhead">2026<hr class="rule"></div>
-      <div class="actlist">
-        <div class="actitem">
-          <div class="ttl">Fotozoektocht <span class="badge b-green">Open</span></div>
-          <div class="when"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> maandag 1 juni – woensdag 30 september 2026</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Millegem</span></div>
-          <div class="cardacts"><a class="btn btn-fine">Wie doet er mee?</a><a class="btn btn-fine ext">Info <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a></div>
-        </div>
-        <div class="actitem">
-          <div class="ttl">Speelnamiddag en Zomerbar <span class="badge b-green">Open</span> <span class="badge b-indigo">Enkel leden</span></div>
-          <div class="when"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> vrijdag 24 juli 2026 om 14:00 – 21:00</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Speelpleintje Rijtenhof</span></div>
-          <div class="cardacts"><button class="btn btn-primary">Schrijf je in</button><a class="btn btn-fine">Wie doet er mee?</a></div>
-        </div>
-        <div class="actitem">
-          <div class="ttl">Stappen en klappen – wandelen (maandelijks) <span class="badge b-green">Open</span></div>
-          <div class="when">
-            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> maandag 10 augustus 2026 om 20:00</span>
-            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> maandag 14 september 2026 om 20:00</span>
-            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> maandag 12 oktober 2026 om 20:00</span>
-            <span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Miloheem</span>
-          </div>
-          <div class="cardacts"><button class="btn btn-primary">Schrijf je in</button><a class="btn btn-fine">Wie doet er mee?</a></div>
-        </div>
-        <div class="actitem">
-          <div class="ttl">Gezinsuitstap Irrland <span class="badge b-green">Open</span></div>
-          <div class="when"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> zondag 16 augustus 2026 om 07:45</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Lindeplein (vertrek)</span></div>
-          <div class="cardacts"><a class="btn btn-fine ext">Inschrijven <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a><a class="btn btn-fine ext">Inschrijvingen <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a><a class="btn btn-fine ext">Info <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="12" height="12"><path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/></svg></a><a class="btn btn-fine">Wie doet er mee?</a></div>
-        </div>
-        <div class="actitem">
-          <div class="ttl">Ledenfeest <span class="badge b-orange">Volzet</span></div>
-          <div class="when"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> zaterdag 27 juni 2026 om 15:00</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Zaal De Kruierie</span></div>
-          <div class="cardacts"><button class="btn btn-secondary" disabled>Volzet</button><a class="btn btn-fine">Wie doet er mee?</a></div>
-        </div>
-      </div>
-
-      <div class="yearhead">2027<hr class="rule"></div>
-      <div class="actlist">
-        <div class="actitem">
-          <div class="ttl">Fietsweekend Grubbenvorst <span class="badge b-green">Open</span></div>
-          <div class="when"><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg> vrijdag 7 mei – zondag 9 mei 2027</span><span><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="13" height="13"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg> Witte Dame, Grubbenvorst (Venlo)</span></div>
-          <div class="cardacts"><button class="btn btn-primary">Schrijf je in</button><a class="btn btn-fine">Wie doet er mee?</a></div>
-        </div>
-      </div>
-      <div class="pubfoot">
-        <div class="cols">
-          <div>
-            <h5>Raak Millegem</h5>
-            <p><span class="badge b-gray">CMS</span> Korte omschrijving van de vereniging — beheerbaar via admin-CMS (bv. "Raak Millegem is een gezinsbeweging rond ontmoeting, spel en engagement. Iedereen is welkom.").</p>
-            <div class="socials">
-              <a aria-label="Facebook" href="#sa"><svg viewBox="0 0 24 24" fill="currentColor" width="17" height="17"><path d="M14 9V7c0-1 .3-1.6 1.6-1.6H17V2.6h-2.6C11.4 2.6 10 4.2 10 6.8V9H8v3h2v9h4v-9h2.4l.6-3z"/></svg></a>
-              <a aria-label="Instagram" href="#sa"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" width="17" height="17"><rect x="3" y="3" width="18" height="18" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1.1" fill="currentColor" stroke="none"/></svg></a>
-              <a aria-label="TikTok" href="#sa"><svg viewBox="0 0 24 24" fill="currentColor" width="17" height="17"><path d="M16 3c.3 2 1.7 3.7 3.7 4v2.5c-1.3 0-2.6-.4-3.7-1.1v6.2a5.6 5.6 0 1 1-5.6-5.6c.3 0 .6 0 .9.1v2.7a2.9 2.9 0 1 0 2 2.8V3H16z"/></svg></a>
-            </div>
-          </div>
-          <div class="lkcol">
-            <h5>Doe mee</h5>
-            <a href="#sa">Word lid</a><a href="#sa">Contacteer ons</a>
-          </div>
-          <div>
-            <h5>Met steun van</h5>
-            <div class="spons"><span class="logoimg"><span class="w"><span class="c1">M</span><span class="c2">ON</span><span class="c3">A</span></span><small>Samen veilig naar onze toekomst</small></span></div>
-            <p style="margin-top:8px;font-size:.72rem">Logo geüpload via <b>Media</b>.</p>
-          </div>
-        </div>
-        <div class="addr"><span class="badge b-gray" style="margin-right:6px">CMS / tenant-config</span> Raak Millegem (feitelijke vereniging) · Voorbeeldstraat 1, 0000 Voorbeeld · info@voorbeeld.be · IBAN BE00 0000 0000 0000 · BIC XXXXXXXX</div>
-        <div class="bottom"><span>© 2026 Raak Millegem</span><a href="#sa">Privacyverklaring</a></div>
-      </div>
-    </div>
-
-    <!-- Scherm 6: Raakje AI-assistent (publiek) -->
-    <div class="scrlabel" id="sa-8">Screen 8 <span class="tag tag-pub">Public</span> · Raakje AI (STT microphone · TTS read-aloud · growing input) <span class="ptn">Pattern 6 · Dialog/widget</span></div>
-    <div class="frame pub" style="padding:22px">
-      <div class="raakje">
-        <div class="rk-head"><span class="av">💬 Raakje</span><button aria-label="Sluiten">✕</button></div>
-        <div class="rk-body">
-          <div class="msg bot">Hallo, ik ben Raakje! 👋 Stel me gerust een vraag over Raak Millegem, onze activiteiten of het lidmaatschap. Ik kan ook je vraag of idee doorgeven.
-            <div class="tts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg> Voorlezen</div>
-          </div>
-          <div class="msg user">Wanneer is Brood en Spelen en hoe schrijf ik in?</div>
-          <div class="msg bot">Brood en Spelen is op <b>29 augustus 2026</b> in het Chirolokaal Mol-Millegem. Inschrijven kan via de knop <b>"Schrijf je in"</b> op de activiteitenpagina. Wil je dat ik de link doorstuur?
-            <div class="tts"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4V5Z"/><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a9 9 0 0 1 0 14"/></svg> Voorlezen</div>
-          </div>
-          <button class="rk-fwd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="13" height="13"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></svg> Mijn vraag doorgeven aan het bestuur</button>
-        </div>
-        <div class="rk-input">
-          <button class="rk-btn mic" aria-label="Inspreken (spraak → tekst)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1M12 18v4"/></svg></button>
-          <textarea rows="3" aria-label="Je vraag">Kan mijn tienerzoon ook meedoen aan het Cornhole Tornooi, en wat kost dat voor leden? En is er iets speciaals voor 12+?</textarea>
-          <button class="rk-btn send" aria-label="Verstuur"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></svg></button>
-        </div>
-      </div>
-      <div class="rk-launch" title="Floating button bottom-right">💬</div>
-      <p class="hint" style="text-align:center;max-width:420px;margin:10px auto 0">Floating button bottom-right on every public page. <b>Microphone</b> = STT (speech → text, Voxtral/EU) · <b>Read aloud</b> = TTS. The input is a <b>growing textarea</b> (multiple lines) — this fixes the HDEV bug where text disappeared after one line (v2.0 currently uses an <code>&lt;input&gt;</code>).</p>
-    </div>
   </section>
 
   </main>
