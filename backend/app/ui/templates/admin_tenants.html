@@ -11,7 +11,7 @@
 {% if opgeslagen %}{{ ui.success_banner(_("Tenant aangemaakt.")) }}{% endif %}
 
 <div class="mb-4" x-data="{ open: false }">
-  {{ ui.btn_secondary(_("+ Nieuwe tenant"), attrs='@click="open = true"') }}
+  {{ ui.btn_primary(_("+ Nieuwe tenant"), type="button", attrs='@click="open = true"') }}
   {% call ui.modal('open', _("Nieuwe tenant")) %}
   <form class="space-y-3" hx-post="/admin/tenants" hx-target="body" hx-swap="innerHTML"
         @htmx:after-request="open = false">
@@ -34,7 +34,7 @@
   {% endcall %}
 </div>
 
-{% call ui.filter_bar("/admin/tenants", "body") %}
+{% call ui.filter_bar("/admin/tenants", "#tn-lijst") %}
   <div>{{ ui.search(value=q, placeholder=_('Zoek op naam of code…'), standalone=False) }}</div>
   <div class="flex flex-wrap gap-3">
     <select name="status" class="text-sm">
@@ -45,21 +45,7 @@
   </div>
 {% endcall %}
 
-{% if units %}
-<div class="space-y-3">
-  {% for u in units %}
-  <a href="/admin/tenants/{{ u.id }}"
-     class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
-    <div class="flex flex-wrap items-center gap-3">
-      <span class="font-semibold text-blue-700">{{ u.name }}</span>
-      <span class="font-mono text-xs text-ink-soft">/{{ u.code }}</span>
-      {% if u.is_active %}{{ ui.badge(_("actief"), "green") }}{% else %}{{ ui.badge(_("inactief")) }}{% endif %}
-      <span class="ml-auto text-sm text-ink-soft">{{ _("Instellingen bewerken") }} ›</span>
-    </div>
-  </a>
-  {% endfor %}
+<div id="tn-lijst">
+  {% include "_tn_kaarten.html" %}
 </div>
-{% else %}
-{{ ui.empty_state(_("Geen tenants gevonden.")) }}
-{% endif %}
 {% endblock %}

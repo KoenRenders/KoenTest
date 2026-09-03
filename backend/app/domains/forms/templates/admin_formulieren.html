@@ -2,10 +2,10 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Formulieren — Raak beheer") }}{% endblock %}
 {% block content %}
-{# Lijst-index (design-system C1, #585): titel → duidingsregel → primaire
+{# Records-lijst (design-system C1, #585): titel → duidingsregel → primaire
    "+ Nieuw formulier" (naam pas in de modal, geen permanent invoerveld) met
    "Formaat (voor AI)" ernaast → zoeken → statusfilter → record-kaarten die de
-   paginabrede form-builder openen. Geen master-detail meer. #}
+   paginabrede form-builder openen. Geen master-detail. #}
 {{ ui.page_header(_("Formulieren"), _("Een kaart opent de form-builder: secties, velden en vertakkingen.")) }}
 
 <div class="flex flex-wrap items-center gap-2 mb-4" x-data="{ open: false }">
@@ -25,7 +25,7 @@
   {% endcall %}
 </div>
 
-{% call ui.filter_bar("/admin/formulieren", "body") %}
+{% call ui.filter_bar("/admin/formulieren", "#fb-lijst") %}
   <div>{{ ui.search(value=q, placeholder=_('Zoek op naam…'), standalone=False) }}</div>
   <div class="flex flex-wrap gap-3">
     <select name="status" class="text-sm">
@@ -37,21 +37,7 @@
   </div>
 {% endcall %}
 
-{% if forms %}
-<div class="space-y-3">
-  {% for f in forms %}
-  <a href="/admin/formulieren/{{ f.id }}"
-     class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
-    <div class="flex flex-wrap items-center gap-3">
-      <span class="font-semibold text-blue-700">{{ f.title }}</span>
-      {{ ui.badge(status_labels[f.status]|lower, status_tones.get(f.status, "gray")) }}
-      <span class="font-mono text-xs text-ink-soft">/formulier/{{ f.share_token }}</span>
-      <span class="ml-auto text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>
-    </div>
-  </a>
-  {% endfor %}
+<div id="fb-lijst">
+  {% include "_fb_kaarten.html" %}
 </div>
-{% else %}
-{{ ui.empty_state(_("Geen formulieren gevonden.") if gefilterd else _("Nog geen formulieren.")) }}
-{% endif %}
 {% endblock %}

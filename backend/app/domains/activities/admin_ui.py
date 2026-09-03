@@ -137,7 +137,11 @@ def admin_activiteiten(request: Request, db: Session = Depends(get_db),
     # getoonde lijst al de juiste bron en blijft het bij één query.
     kpi_bron = (ctx["activities"] if (scope == "upcoming" and not q.strip())
                 else _lijst_ctx(db, "upcoming")["activities"])
-    return templates.TemplateResponse(request, "admin_activiteiten.html", {
+    # De filterbalk vraagt enkel de kaarten op; zou ze de pagina vervangen, dan
+    # sneuvelt het zoekveld (en de focus) bij elke aanslag.
+    sjabloon = ("_aa_kaarten.html" if request.headers.get("hx-request")
+                else "admin_activiteiten.html")
+    return templates.TemplateResponse(request, sjabloon, {
         "nav_items": NAV, "csrf_token": csrf_from_request(request),
         **_kpi(kpi_bron), **ctx})
 

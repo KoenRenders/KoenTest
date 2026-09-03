@@ -6,12 +6,10 @@
    werkende Objectgroep-filter. De ledendata-mutaties voor Raak Nationaal zijn nu
    enkel nog een .ods-export (knop) i.p.v. een aparte, altijd-zichtbare tabel —
    zo verdwijnt de leden-centrische indruk én de schijnbaar-kapotte filter. #}
+{# De exportknop staat sinds #590 bij de paginatitel, als secundaire actie: dit
+   fragment wordt bij elke filterwijziging opnieuw geswapt en is de lijst zelf. #}
 <section>
-  <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
-    <h2 class="text-lg font-bold text-blue-700">{{ _("Audit-logboek — alle wijzigingen") }}</h2>
-    <a href="/admin/ledenwijzigingen/export?since={{ since }}"
-       class="{{ ui.btn_class('secondary', 'sm') }}">⬇ {{ _("Ledenexport (.ods) voor Raak Nationaal") }}</a>
-  </div>
+  <h2 class="text-lg font-bold text-blue-700 mb-3">{{ _("Audit-logboek — alle wijzigingen") }}</h2>
   {% if feed_rows %}
   <div class="overflow-x-auto bg-white border border-gray-200 rounded-xl">
     <table class="min-w-full text-sm">

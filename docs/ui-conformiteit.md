@@ -22,17 +22,18 @@ matrix documenteert, de gate handhaaft.
 | Scherm | Tokens | Kit-macro's | Feedback | Terminologie |
 |---|---|---|---|---|
 | `activiteiten.html` | ✅ | ✅ 1 | ✅ | ✅ |
-| `admin_activiteiten.html` | ✅ | ✅ 8 | ✅ | ✅ |
+| `admin_activiteiten.html` | ✅ | ✅ 7 | ✅ | ✅ |
 | `aanmelden.html` | ✅ | ✅ 1 | ✅ | ✅ |
-| `admin_gebruikers.html` | ✅ | ✅ 1 | ✅ | ✅ |
+| `admin_gebruikers.html` | ✅ | ✅ 7 | ✅ | ✅ |
 | `ai_context.html` | ✅ | ✅ 1 | ✅ | ✅ |
 | `raakje.html` | ✅ | ✅ 3 | ✅ | ✅ |
-| `admin_paginas.html` | ✅ | ✅ 5 | ✅ | ✅ |
+| `admin_paginas.html` | ✅ | ✅ 7 | ✅ | ✅ |
+| `admin_pagina.html` | ✅ | — | ✅ | ✅ |
 | `betaling_resultaat.html` | ✅ | ✅ 2 | ✅ | ✅ |
 | `cms_pagina.html` | ✅ | — | ✅ | ✅ |
 | `home.html` | ✅ | ✅ 3 | ✅ | ✅ |
 | `admin_formulier_builder.html` | ✅ | — | ✅ | ✅ |
-| `admin_formulieren.html` | ✅ | ✅ 9 | ✅ | ✅ |
+| `admin_formulieren.html` | ✅ | ✅ 7 | ✅ | ✅ |
 | `berichten.html` | ✅ | ✅ 1 | ✅ | ✅ |
 | `formulier.html` | ✅ | ✅ 4 | ✅ | ✅ |
 | `formulier_klaar.html` | ✅ | ✅ 2 | ✅ | ✅ |
@@ -54,9 +55,9 @@ matrix documenteert, de gate handhaaft.
 | `admin_ledenwijzigingen.html` | ✅ | ✅ 3 | ✅ | ✅ |
 | `admin_activiteit.html` | ✅ | — | ✅ | ✅ |
 | `admin_tenant.html` | ✅ | ✅ 7 | ✅ | ✅ |
-| `admin_tenants.html` | ✅ | ✅ 11 | ✅ | ✅ |
+| `admin_tenants.html` | ✅ | ✅ 8 | ✅ | ✅ |
 
-34 schermen, 39 fragmenten. Nul afwijkingen.
+40 schermen, 37 fragmenten. Nul afwijkingen.
 
 ## Kluslijst — lokaal patroon → kit-macro
 
@@ -70,6 +71,11 @@ matrix documenteert, de gate handhaaft.
 | `_email_log_lijst.html` | eigen vorige/volgende-knoppen | `ui.pager()` in de modus zonder totaal |
 | `_me_lijst.html` (Media) | filters bóven de actieknop, upload in een `bg-blue-50`-blok | knop los en bovenaan, upload in `ui.modal()` |
 | `admin_activiteiten.html`, `_gu_lijst.html`, `admin_paginas.html` | "+ Nieuwe …" in een `bg-blue-50`-blok met uitklapformulier | knop los, formulier in `ui.modal()` |
+| `admin_paginas.html` (#587) | secundaire knop, geen zoek/filter, master-detail met Trix op de lijstpagina | primaire knop, `ui.search()` + statuschips, kaarten → `admin_pagina.html` (Trix verhuisde mee) |
+| `_me_lijst.html` (#588) | knop + filters in het kaartfragment, geen zoek | kop/knop/filterbalk op de pagina, `ui.search()` + `ui.chips()`; fragment = enkel kaarten, met filterstand in verborgen velden |
+| `_gu_lijst.html` (#589) | idem, geen zoek of rolfilter | idem, plus filter op rol en actief-status |
+| `admin_ledenwijzigingen.html` (#590) | losse "Toon"-knop, "Actor (e-mail)" als gewoon veld | live filteren via `ui.filter_bar()`, actor als `ui.search()`, export als secundaire kit-knop bij de titel |
+| `admin_tenants.html` (#584) | "+ Nieuwe tenant" secundair (outline) | primaire (blauwe) knop, zoals §3.2 voorschrijft |
 | `admin_activiteiten.html` (#586) | scope-chips binnen de smalle master-detail-lijst, geen zoek, secundaire "+ Nieuwe activiteit" | `ui.btn_primary()`, `ui.search()` op titel/locatie + `ui.chips()` in `ui.filter_bar()`, kaarten → paginabrede editor `admin_activiteit.html`; `_aa_lijst.html` verdween |
 | `admin_formulieren.html` (#585) | permanent "Nieuw formulier"-veld bovenaan, master-detail-lijst, "Formaat (voor AI)" als losse link, geen zoek/filter | primaire "+ Nieuw formulier" met naam in `ui.modal()`, `ui.search()` + statusfilter in `ui.filter_bar()`, kaarten → paginabrede builder; `_fb_lijst.html` verdween |
 

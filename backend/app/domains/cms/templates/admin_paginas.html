@@ -2,58 +2,33 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Pagina's — Raak beheer") }}{% endblock %}
 {% block content %}
-{# Trix WYSIWYG (#520): self-hosted onder /static (geen CDN — CSP default-src 'self';
-   nul-Node, vooraf gebouwd bestand). Eén keer op paginaniveau geladen; de
-   <trix-editor> in de (later ge-swapte) detail-fragmenten wordt door Trix' eigen
-   mutatie-observer geïnitialiseerd. #}
-<link rel="stylesheet" href="/static/vendor/trix.css">
-<script src="/static/vendor/trix.min.js"></script>
-<style>
-  /* CMS-inhoud is tekst-opmaak: verberg de bijlage-knop. Afbeeldingen via de
-     media-component zijn aparte scope (#459); zonder upload-hook zouden ze
-     data-URI's worden die de HTML opblazen en toch door de sanitisatie sneuvelen. */
-  trix-toolbar .trix-button-group--file-tools { display: none; }
-</style>
-<script>
-  // Sluit bestandsbijlagen af (één document-listener dekt elke, ook later
-  // ge-swapte, editor). Sluit aan bij de verborgen bijlage-knop hierboven.
-  addEventListener("trix-file-accept", function (e) { e.preventDefault(); });
-  // #555: H2 + H3 als kop-niveaus (Trix kent standaard enkel heading1/<h1>).
-  // Vóór elke editor-init het blok-attribuut registreren; de knoppen in
-  // _cp_detail.html activeren ze via de editor-API. h2/h3 staan al in de
-  // sanitisatie-allowlist en hebben al .cms-content-stijlen.
-  addEventListener("trix-before-initialize", function () {
-    if (window.Trix && !Trix.config.blockAttributes.heading2) {
-      Trix.config.blockAttributes.heading2 = { tagName: "h2", terminal: true, breakOnReturn: true, group: false };
-      Trix.config.blockAttributes.heading3 = { tagName: "h3", terminal: true, breakOnReturn: true, group: false };
-    }
-  });
-</script>
-{{ ui.page_header(_("CMS-pagina's")) }}
-<div class="flex flex-col lg:flex-row gap-6">
-  <div class="lg:w-80 shrink-0">
-    {# Lijst-index C1: de knop staat los, zonder blauwe balk; het aanmaakformulier
-       opent in een modal (HDEV-correctie in design-system C1). #}
-    <div class="mb-4" x-data="{ open: false }">
-      {{ ui.btn_secondary(_("+ Nieuwe pagina"), attrs='@click="open = true"') }}
-      {% call ui.modal('open', _("Nieuwe pagina")) %}
-      <form class="space-y-3" hx-post="/admin/paginas" hx-target="#cp-lijst" hx-swap="innerHTML"
-            @htmx:after-request="open = false">
-        <div>{{ ui.label(_("Titel"), "title", required=True) }}
-          <input name="title" id="title" required class="w-full"></div>
-        <div>{{ ui.label(_("Slug"), "slug", required=True) }}
-          <input name="slug" id="slug" required pattern="[a-z0-9-]+" class="w-full">
-          <p class="text-xs text-ink-soft mt-1">{{ _("Alleen kleine letters, cijfers en streepjes — wordt de URL (/slug).") }}</p></div>
-        {{ ui.btn_primary(_("Aanmaken")) }}
-      </form>
-      {% endcall %}
-    </div>
-    <div id="cp-lijst" hx-get="/admin/paginas/lijst" hx-trigger="cp-lijst-ververst from:body" hx-swap="innerHTML">
-      {% include "_cp_lijst.html" %}
-    </div>
-  </div>
-  <div class="flex-1 min-w-0">
-    <div id="cp-detail"></div>
-  </div>
+{# Records-lijst (design-system C1, #587): titel → duidingsregel → primaire
+   "+ Nieuwe pagina" (los, aanmaken in een modal) → zoeken → statusfilter →
+   klikbare kaarten die de paginabrede Trix-editor openen. De Trix-scripts staan
+   op die editorpagina, niet hier: deze lijst heeft geen editor. #}
+{{ ui.page_header(_("CMS-pagina's"), _("Een kaart opent de pagina-editor: inhoud, publicatie en navigatie.")) }}
+
+<div class="mb-4" x-data="{ open: false }">
+  {{ ui.btn_primary(_("+ Nieuwe pagina"), type="button", attrs='@click="open = true"') }}
+  {% call ui.modal('open', _("Nieuwe pagina")) %}
+  <form class="space-y-3" hx-post="/admin/paginas" @htmx:after-request="open = false">
+    <div>{{ ui.label(_("Titel"), "title", required=True) }}
+      <input name="title" id="title" required class="w-full"></div>
+    <div>{{ ui.label(_("Slug"), "slug", required=True) }}
+      <input name="slug" id="slug" required pattern="[a-z0-9-]+" class="w-full">
+      <p class="text-xs text-ink-soft mt-1">{{ _("Alleen kleine letters, cijfers en streepjes — wordt de URL (/slug).") }}</p></div>
+    <p class="text-xs text-ink-soft">{{ _("Na het aanmaken open je meteen de editor; de inhoud vul je daar aan.") }}</p>
+    {{ ui.btn_primary(_("Aanmaken")) }}
+  </form>
+  {% endcall %}
+</div>
+
+{% call ui.filter_bar("/admin/paginas", "#cp-lijst") %}
+  <div>{{ ui.search(value=q, placeholder=_('Zoek op titel of slug…'), standalone=False) }}</div>
+  {{ ui.chips("status", [("", _("Alles")), ("published", _("Gepubliceerd")), ("draft", _("Concept")), ("in_nav", _("In navigatie"))], status) }}
+{% endcall %}
+
+<div id="cp-lijst">
+  {% include "_cp_kaarten.html" %}
 </div>
 {% endblock %}

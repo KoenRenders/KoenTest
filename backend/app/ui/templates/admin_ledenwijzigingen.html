@@ -2,20 +2,28 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Wijzigingen — Raak beheer") }}{% endblock %}
 {% block content %}
-{{ ui.page_header(_("Wijzigingen")) }}
-<form class="flex flex-wrap items-end gap-3 mb-6"
-      hx-get="/admin/ledenwijzigingen" hx-target="#lw-inhoud" hx-swap="innerHTML">
-  <div>{{ ui.label(_("Vanaf"), "lw-since") }}
-    <input type="date" name="since" id="lw-since" value="{{ since }}" class="border border-gray-300 rounded-lg px-3 py-2"></div>
-  <div>{{ ui.label(_("Groep"), "lw-group") }}
-    <select name="group" id="lw-group" class="border border-gray-300 rounded-lg px-3 py-2">
-      <option value="">{{ _("Alle") }}</option>
-      {% for g in groups %}<option value="{{ g }}" {% if g == group %}selected{% endif %}>{{ g }}</option>{% endfor %}
-    </select></div>
-  <div>{{ ui.label(_("Actor (e-mail)"), "lw-actor") }}
-    <input name="actor" id="lw-actor" value="{{ actor }}" class="border border-gray-300 rounded-lg px-3 py-2"></div>
-  {{ ui.btn_primary(_("Toon")) }}
-</form>
+{# Read-only records-lijst (design-system C1 + §4 Gedrag, #590): geen "+ Nieuwe",
+   wél dezelfde zoek- en filterconventie. Filters passen live toe via htmx — de
+   aparte "Toon"-knop is weg. De export blijft als secundaire actie naast de
+   titel. Het zoekveld filtert op actor, want dát is de vrije tekst hier. #}
+{% call ui.page_header(_("Wijzigingen"), _("Audit-logboek van alle wijzigingen; filter op periode, objectgroep of wie ze deed.")) %}
+  {{ ui.btn_secondary("⬇ " ~ _("Ledenexport (.ods) voor Raak Nationaal"),
+                      href="/admin/ledenwijzigingen/export?since=" ~ since, size="sm") }}
+{% endcall %}
+
+{% call ui.filter_bar("/admin/ledenwijzigingen", "#lw-inhoud") %}
+  <div>{{ ui.search(value=actor, name="actor", placeholder=_('Zoek op actor…'), standalone=False) }}</div>
+  <div class="flex flex-wrap items-end gap-3">
+    <div>{{ ui.label(_("Vanaf"), "lw-since") }}
+      <input type="date" name="since" id="lw-since" value="{{ since }}" class="text-sm"></div>
+    <div>{{ ui.label(_("Groep"), "lw-group") }}
+      <select name="group" id="lw-group" class="text-sm">
+        <option value="">{{ _("Alle") }}</option>
+        {% for g in groups %}<option value="{{ g }}" {% if g == group %}selected{% endif %}>{{ g }}</option>{% endfor %}
+      </select></div>
+  </div>
+{% endcall %}
+
 <div id="lw-inhoud">
   {% include "_lw_inhoud.html" %}
 </div>

@@ -2,7 +2,54 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Media — Raak beheer") }}{% endblock %}
 {% block content %}
-{{ ui.page_header(_("Media")) }}
+{# Records-lijst (design-system C1, #588): titel → duidingsregel → primaire
+   "+ Uploaden" (los, uploaden in een modal) → zoeken → filterrij (soort +
+   activiteit) → kaarten. De kaarten blijven inline bewerkbaar: media beheer je
+   per stuk (titel, link, volgorde, actief), niet in een aparte editor. #}
+{{ ui.page_header(_("Media"), _("Sponsorlogo's en activiteitenfoto's; elke kaart bewerk je ter plaatse.")) }}
+
+<div class="mb-4" x-data="{ open: false }">
+  {{ ui.btn_primary(_("+ Uploaden"), type="button", attrs='@click="open = true"') }}
+  {% call ui.modal('open', _("Media uploaden")) %}
+  <form class="space-y-3" enctype="multipart/form-data"
+        hx-post="/admin/media" hx-encoding="multipart/form-data"
+        hx-target="#me-lijst" hx-swap="innerHTML" @htmx:after-request="open = false">
+    <input type="hidden" name="kind" value="{{ kind }}">
+    <input type="hidden" name="q" value="{{ q }}">
+    <input type="hidden" name="filter_activity_id" value="{{ activity_id or '' }}">
+    <div>{{ ui.label(_("Bestanden (afbeeldingen)"), "me-files", required=True) }}
+      <input type="file" name="files" id="me-files" accept="image/*" multiple required class="block text-sm"></div>
+    {% if kind == "activity_photo" %}
+    <div class="max-w-xs">{{ ui.label(_("Activiteit"), "me-activity", required=True) }}
+      <select name="activity_id" id="me-activity" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
+        <option value="">{{ _("— Kies een activiteit —") }}</option>
+        {% for a in alle_activiteiten %}<option value="{{ a.id }}">{{ a.naam }}{% if a.jaar %} ({{ a.jaar }}){% endif %}</option>{% endfor %}
+      </select></div>
+    {% endif %}
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>{{ ui.label(_("Titel"), "me-title") }}
+        <input name="title" id="me-title" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+      <div>{{ ui.label(_("Link (optioneel)"), "me-link") }}
+        <input name="link_url" id="me-link" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+    </div>
+    {{ ui.btn_primary(_("Uploaden")) }}
+  </form>
+  {% endcall %}
+</div>
+
+{% call ui.filter_bar("/admin/media", "#me-lijst") %}
+  <div>{{ ui.search(value=q, placeholder=_('Zoek op titel…'), standalone=False) }}</div>
+  <div class="flex flex-wrap items-center gap-3">
+    {{ ui.chips("kind", kind_options, kind) }}
+    {% if kind == "activity_photo" and activiteiten %}
+    <select name="activity_id" class="text-sm">
+      <option value="">{{ _("Alle activiteiten") }}</option>
+      {% for a in activiteiten %}<option value="{{ a.id }}" {% if activity_id == a.id %}selected{% endif %}>{{ a.naam }}{% if a.jaar %} ({{ a.jaar }}){% endif %}</option>{% endfor %}
+    </select>
+    {% endif %}
+  </div>
+{% endcall %}
+
 <div id="me-lijst">
   {% include "_me_lijst.html" %}
 </div>

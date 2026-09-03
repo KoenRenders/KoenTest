@@ -86,7 +86,11 @@ def formulieren_page(request: Request, db: Session = Depends(get_db),
     if status in FORM_STATUSES:
         query = query.filter(FormModel.status == status)
     forms = query.order_by(FormModel.created_at.desc()).all()
-    return templates.TemplateResponse(request, "admin_formulieren.html", {
+    # De filterbalk vraagt enkel de kaarten op: zou ze de pagina vervangen, dan
+    # sneuvelt het zoekveld (en je focus) bij elke aanslag.
+    sjabloon = ("_fb_kaarten.html" if request.headers.get("hx-request")
+                else "admin_formulieren.html")
+    return templates.TemplateResponse(request, sjabloon, {
         "nav_items": NAV, "forms": forms, "q": q, "status": status,
         "statuses": FORM_STATUSES, "status_labels": _status_labels(),
         "status_tones": STATUS_TONES, "gefilterd": bool(q.strip() or status),

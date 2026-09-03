@@ -1,0 +1,20 @@
+{% import "_macros.html" as ui %}
+{# Alleen de kaarten (#587); de filterbalk swapt dít fragment, niet de pagina. #}
+{% if pages %}
+<div class="space-y-3">
+  {% for p in pages %}
+  <a href="/admin/paginas/{{ p.id }}"
+     class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
+    <div class="flex flex-wrap items-center gap-3">
+      <span class="font-semibold text-blue-700">{{ p.title }}</span>
+      <span class="font-mono text-xs text-ink-soft">/{{ p.slug }}</span>
+      {% if p.is_published %}{{ ui.badge(_("gepubliceerd"), "green") }}{% else %}{{ ui.badge(_("concept")) }}{% endif %}
+      {% if p.show_in_nav %}{{ ui.badge(_("in navigatie"), "blue") }}{% endif %}
+      <span class="ml-auto text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+{{ ui.empty_state(_("Geen pagina's gevonden.") if gefilterd else _("Nog geen pagina's.")) }}
+{% endif %}

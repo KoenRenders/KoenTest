@@ -1,28 +1,17 @@
 {% import "_macros.html" as ui %}
+{# Enkel de kaarten (C1, #589): kop, "+ Nieuwe gebruiker" en de filterbalk staan
+   op admin_gebruikers.html. Dit fragment komt terug na elke mutatie en draagt de
+   actieve filters als verborgen velden mee, zodat de lijst niet terugvalt op
+   'alles' zodra je iets opslaat. #}
 {{ ui.error_banner(error) }}
-{# Lijst-index C1: de knop staat los, zonder blauwe balk; het aanmaakformulier
-   opent in een modal (HDEV-correctie in design-system C1). #}
-<div class="mb-6" x-data="{ open: false }">
-  {{ ui.btn_secondary(_("+ Nieuwe gebruiker"), attrs='@click="open = true"') }}
-  {% call ui.modal('open', _("Nieuwe gebruiker")) %}
-  <form class="space-y-3" hx-post="/admin/gebruikers" hx-target="#gu-lijst" hx-swap="innerHTML"
-        @htmx:after-request="open = false">
-    <div>{{ ui.label(_("E-mailadres"), "gu-email", required=True) }}
-      <input type="email" name="email" id="gu-email" required class="w-full"></div>
-    <div class="flex flex-wrap gap-4 text-sm">
-      {% for rc in role_codes %}
-      <label class="flex items-center gap-2"><input type="checkbox" name="role_codes" value="{{ rc.code }}"> {{ rc.code }}</label>
-      {% endfor %}
-    </div>
-    {{ ui.btn_primary(_("Aanmaken")) }}
-  </form>
-  {% endcall %}
-</div>
 {% if users %}
 <div class="space-y-3">
   {% for u in users %}
   <form class="bg-white border border-gray-200 rounded-xl p-4 flex flex-wrap items-center gap-4"
         hx-post="/admin/gebruikers/{{ u.id }}" hx-target="#gu-lijst" hx-swap="innerHTML">
+    <input type="hidden" name="q" value="{{ q }}">
+    <input type="hidden" name="rol" value="{{ rol }}">
+    <input type="hidden" name="actief" value="{{ actief }}">
     <input type="email" name="email" value="{{ u.email }}" required
            class="font-medium min-w-56 border border-gray-300 rounded-lg px-2 py-1 text-sm"
            aria-label="{{ _('E-mailadres') }}">
@@ -33,11 +22,11 @@
     {% endfor %}
     <span class="ml-auto flex gap-2">
       {{ ui.btn_primary(_("Opslaan")) }}
-      {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/gebruikers/' ~ u.id ~ '/verwijderen" hx-target="#gu-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Gebruiker"), u.email)) }}
+      {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/gebruikers/' ~ u.id ~ '/verwijderen" hx-vals=\'{"q": "' ~ q ~ '", "rol": "' ~ rol ~ '", "actief": "' ~ actief ~ '"}\' hx-target="#gu-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Gebruiker"), u.email)) }}
     </span>
   </form>
   {% endfor %}
 </div>
 {% else %}
-{{ ui.empty_state(_("Nog geen gebruikers.")) }}
+{{ ui.empty_state(_("Geen gebruikers gevonden.") if gefilterd else _("Nog geen gebruikers.")) }}
 {% endif %}

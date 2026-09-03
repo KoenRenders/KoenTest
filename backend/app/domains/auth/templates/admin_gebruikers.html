@@ -2,7 +2,40 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Gebruikers — Raak beheer") }}{% endblock %}
 {% block content %}
+{# Records-lijst (design-system C1, #589): titel → duidingsregel → primaire
+   "+ Nieuwe gebruiker" (los, aanmaken in een modal) → zoeken → filters (rol,
+   actief) → kaarten. De kaarten blijven inline bewerkbaar: een account is één
+   regel met rolvinkjes, daar hoort geen aparte editorpagina bij. #}
 {{ ui.page_header(_("Gebruikers"), _("Backoffice-accounts en hun rollen. Aanmelden gebeurt met een e-mailcode — er zijn geen wachtwoorden.")) }}
+
+<div class="mb-4" x-data="{ open: false }">
+  {{ ui.btn_primary(_("+ Nieuwe gebruiker"), type="button", attrs='@click="open = true"') }}
+  {% call ui.modal('open', _("Nieuwe gebruiker")) %}
+  <form class="space-y-3" hx-post="/admin/gebruikers" hx-target="#gu-lijst" hx-swap="innerHTML"
+        @htmx:after-request="open = false">
+    <input type="hidden" name="q" value="{{ q }}">
+    <input type="hidden" name="rol" value="{{ rol }}">
+    <input type="hidden" name="actief" value="{{ actief }}">
+    <div>{{ ui.label(_("E-mailadres"), "gu-email", required=True) }}
+      <input type="email" name="email" id="gu-email" required class="w-full"></div>
+    <div class="flex flex-wrap gap-4 text-sm">
+      {% for rc in role_codes %}
+      <label class="flex items-center gap-2"><input type="checkbox" name="role_codes" value="{{ rc.code }}"> {{ rc.code }}</label>
+      {% endfor %}
+    </div>
+    {{ ui.btn_primary(_("Aanmaken")) }}
+  </form>
+  {% endcall %}
+</div>
+
+{% call ui.filter_bar("/admin/gebruikers", "#gu-lijst") %}
+  <div>{{ ui.search(value=q, placeholder=_('Zoek op e-mail…'), standalone=False) }}</div>
+  <div class="flex flex-wrap items-center gap-3">
+    {{ ui.chips("rol", rol_options, rol) }}
+    {{ ui.chips("actief", actief_options, actief) }}
+  </div>
+{% endcall %}
+
 <div id="gu-lijst">
   {% include "_gu_lijst.html" %}
 </div>

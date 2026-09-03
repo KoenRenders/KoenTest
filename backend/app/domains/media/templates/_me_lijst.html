@@ -1,58 +1,17 @@
 {% import "_macros.html" as ui %}
+{# Enkel de kaarten (C1, #588): kop, "+ Uploaden" en de filterbalk staan op
+   admin_media.html. Dit fragment is wat een upload/opslaan/verwijderen terug-
+   swapt, dus het draagt de actieve filters mee als verborgen velden — anders
+   valt het filter weg zodra je iets bewerkt. #}
 {{ ui.error_banner(error) }}
-{# Lijst-index C1: actieknop bóven de filters en zonder blauwe balk; het
-   uploadformulier opent in een modal. Media was in de mock expliciet het scherm
-   waar de filters nog bovenaan stonden. #}
-<div class="mb-4" x-data="{ open: false }">
-  {{ ui.btn_secondary(_("+ Uploaden"), attrs='@click="open = true"') }}
-  {% call ui.modal('open', _("Media uploaden")) %}
-  <form class="space-y-3" enctype="multipart/form-data"
-        hx-post="/admin/media" hx-encoding="multipart/form-data"
-        hx-target="#me-lijst" hx-swap="innerHTML" @htmx:after-request="open = false">
-    <input type="hidden" name="kind" value="{{ kind }}">
-    <div>{{ ui.label(_("Bestanden (afbeeldingen)"), "me-files", required=True) }}
-      <input type="file" name="files" id="me-files" accept="image/*" multiple required class="block text-sm"></div>
-    {% if kind == "activity_photo" %}
-    <div class="max-w-xs">{{ ui.label(_("Activiteit"), "me-activity", required=True) }}
-      <select name="activity_id" id="me-activity" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
-        <option value="">{{ _("— Kies een activiteit —") }}</option>
-        {% for a in alle_activiteiten %}<option value="{{ a.id }}">{{ a.naam }}{% if a.jaar %} ({{ a.jaar }}){% endif %}</option>{% endfor %}
-      </select></div>
-    {% endif %}
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div>{{ ui.label(_("Titel"), "me-title") }}
-        <input name="title" id="me-title" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div>{{ ui.label(_("Link (optioneel)"), "me-link") }}
-        <input name="link_url" id="me-link" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-    </div>
-    {{ ui.btn_primary(_("Uploaden")) }}
-  </form>
-  {% endcall %}
-</div>
-<div class="flex items-center gap-3 mb-4">
-  {% for k in kinds %}
-  <button class="{{ ui.btn_class('primary' if k == kind else 'secondary', 'sm') }}"
-          hx-get="/admin/media/lijst?kind={{ k }}" hx-target="#me-lijst" hx-swap="innerHTML">
-    {% if k == "sponsor" %}{{ _("Sponsors") }}{% else %}{{ _("Activiteitenfoto's") }}{% endif %}
-  </button>
-  {% endfor %}
-</div>
-{% if kind == "activity_photo" and activiteiten %}
-<div class="mb-4">
-  <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm" name="activity_id"
-          hx-get="/admin/media/lijst" hx-target="#me-lijst" hx-swap="innerHTML"
-          hx-trigger="change" hx-vals='{"kind": "activity_photo"}'>
-    <option value="">{{ _("Alle activiteiten") }}</option>
-    {% for a in activiteiten %}<option value="{{ a.id }}" {% if activity_id == a.id %}selected{% endif %}>{{ a.naam }}{% if a.jaar %} ({{ a.jaar }}){% endif %}</option>{% endfor %}
-  </select>
-</div>
-{% endif %}
 {% if assets %}
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
   {% for a in assets %}
   <form class="bg-white border border-gray-200 rounded-xl p-4 flex gap-4"
         hx-post="/admin/media/{{ a.id }}" hx-target="#me-lijst" hx-swap="innerHTML">
     <input type="hidden" name="kind" value="{{ kind }}">
+    <input type="hidden" name="q" value="{{ q }}">
+    <input type="hidden" name="filter_activity_id" value="{{ activity_id or '' }}">
     <img src="{{ a.thumb_url }}" alt="{{ a.title or '' }}" class="w-24 h-24 object-contain bg-gray-50 rounded-lg shrink-0">
     <div class="flex-1 space-y-2 text-sm">
       <input name="title" value="{{ a.title or '' }}" placeholder="{{ _('Titel') }}" class="w-full border border-gray-300 rounded-lg px-2 py-1">
@@ -64,12 +23,12 @@
       </div>
       <div class="flex gap-2">
         {{ ui.btn_primary(_("Opslaan")) }}
-        {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/media/' ~ a.id ~ '/verwijderen" hx-vals=\'{"kind": "' ~ kind ~ '"}\' hx-target="#me-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Media"), a.title or ("item " ~ a.id))) }}
+        {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/media/' ~ a.id ~ '/verwijderen" hx-vals=\'{"kind": "' ~ kind ~ '", "q": "' ~ q ~ '", "filter_activity_id": "' ~ (activity_id or "") ~ '"}\' hx-target="#me-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Media"), a.title or ("item " ~ a.id))) }}
       </div>
     </div>
   </form>
   {% endfor %}
 </div>
 {% else %}
-{{ ui.empty_state(_("Nog geen media in deze categorie.")) }}
+{{ ui.empty_state(_("Geen media gevonden.") if gefilterd else _("Nog geen media in deze categorie.")) }}
 {% endif %}

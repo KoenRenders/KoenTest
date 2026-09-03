@@ -1,0 +1,35 @@
+{% extends "admin_base.html" %}
+{% block title %}{{ p.title }} — {{ _("Raak beheer") }}{% endblock %}
+{% block content %}
+{# Trix WYSIWYG (#520): self-hosted onder /static (geen CDN — CSP default-src 'self';
+   nul-Node, vooraf gebouwd bestand). Eén keer op paginaniveau geladen; de
+   <trix-editor> in de (later ge-swapte) detail-fragmenten wordt door Trix' eigen
+   mutatie-observer geïnitialiseerd. #}
+<link rel="stylesheet" href="/static/vendor/trix.css">
+<script src="/static/vendor/trix.min.js"></script>
+<style>
+  /* CMS-inhoud is tekst-opmaak: verberg de bijlage-knop. Afbeeldingen via de
+     media-component zijn aparte scope (#459); zonder upload-hook zouden ze
+     data-URI's worden die de HTML opblazen en toch door de sanitisatie sneuvelen. */
+  trix-toolbar .trix-button-group--file-tools { display: none; }
+</style>
+<script>
+  // Sluit bestandsbijlagen af (één document-listener dekt elke, ook later
+  // ge-swapte, editor). Sluit aan bij de verborgen bijlage-knop hierboven.
+  addEventListener("trix-file-accept", function (e) { e.preventDefault(); });
+  // #555: H2 + H3 als kop-niveaus (Trix kent standaard enkel heading1/<h1>).
+  // Vóór elke editor-init het blok-attribuut registreren; de knoppen in
+  // _cp_detail.html activeren ze via de editor-API. h2/h3 staan al in de
+  // sanitisatie-allowlist en hebben al .cms-content-stijlen.
+  addEventListener("trix-before-initialize", function () {
+    if (window.Trix && !Trix.config.blockAttributes.heading2) {
+      Trix.config.blockAttributes.heading2 = { tagName: "h2", terminal: true, breakOnReturn: true, group: false };
+      Trix.config.blockAttributes.heading3 = { tagName: "h3", terminal: true, breakOnReturn: true, group: false };
+    }
+  });
+</script>
+<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/paginas">{{ _("‹ Alle pagina's") }}</a></p>
+<div id="cp-detail">
+  {% include "_cp_detail.html" %}
+</div>
+{% endblock %}

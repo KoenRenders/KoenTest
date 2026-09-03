@@ -135,8 +135,11 @@ def instellingen_verhuisd():
 def tenants(request: Request, db: Session = Depends(get_db),
             email: str = Depends(require_admin_ui)):
     _require_operator(db, email)
-    return templates.TemplateResponse(request, "admin_tenants.html",
-                                      _lijst_ctx(request, db))
+    # De filterbalk haalt enkel de kaarten op; een pagina-swap zou het zoekveld
+    # tijdens het typen vervangen en de focus wegnemen.
+    sjabloon = ("_tn_kaarten.html" if request.headers.get("hx-request")
+                else "admin_tenants.html")
+    return templates.TemplateResponse(request, sjabloon, _lijst_ctx(request, db))
 
 
 @router.get("/admin/tenants/{tenant_id}", response_class=HTMLResponse)

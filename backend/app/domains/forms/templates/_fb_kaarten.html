@@ -1,0 +1,21 @@
+{% import "_macros.html" as ui %}
+{# Alleen de kaarten (#585). De filterbalk swapt dít fragment en niet de hele
+   pagina: anders wordt het zoekveld onder je vingers vervangen en verlies je de
+   focus midden in een zoekterm. #}
+{% if forms %}
+<div class="space-y-3">
+  {% for f in forms %}
+  <a href="/admin/formulieren/{{ f.id }}"
+     class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
+    <div class="flex flex-wrap items-center gap-3">
+      <span class="font-semibold text-blue-700">{{ f.title }}</span>
+      {{ ui.badge(status_labels[f.status]|lower, status_tones.get(f.status, "gray")) }}
+      <span class="font-mono text-xs text-ink-soft">/formulier/{{ f.share_token }}</span>
+      <span class="ml-auto text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+{{ ui.empty_state(_("Geen formulieren gevonden.") if gefilterd else _("Nog geen formulieren.")) }}
+{% endif %}

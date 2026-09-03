@@ -18,13 +18,15 @@ from app.domains.auth.api import (
     SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.ui import admin_nav, templates
+from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
 
 NAV = admin_nav("/admin/media")
 
 
-def _lijst_ctx(request: Request, db: Session, kind: str) -> dict:
+def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
+               activity_id: Optional[int] = None) -> dict:
     from app.domains.media.router import VALID_KINDS, admin_list_media
     from app.domains.media.api import MediaAsset
     from app.domains.activities.api import Activity
@@ -32,8 +34,11 @@ def _lijst_ctx(request: Request, db: Session, kind: str) -> dict:
     from app.domains.activities.api import list_activities
 
     actief_kind = kind if kind in VALID_KINDS else "sponsor"
-    raw = request.query_params.get("activity_id")
-    activity_id = int(raw) if raw and raw.isdigit() else None
+    if activity_id is None:
+        # GET: het filter staat in de querystring. Bij een mutatie (POST) geeft de
+        # kaart hem als verborgen veld mee, zodat het filter niet wegvalt.
+        raw = request.query_params.get("activity_id")
+        activity_id = int(raw) if raw and raw.isdigit() else None
 
     # Álle activiteiten (naam + jaar) voor de upload-dropdown (#476): je moet
     # foto's aan om het even welke activiteit kunnen koppelen, ook zonder foto's.
@@ -46,34 +51,43 @@ def _lijst_ctx(request: Request, db: Session, kind: str) -> dict:
             .filter(MediaAsset.activity_id.isnot(None)).distinct()}
     activiteiten = [a for a in alle_activiteiten if a["id"] in aids]
 
-    return {"assets": admin_list_media(kind=actief_kind, activity_id=activity_id,
-                                       db=db, _admin=None),  # type: ignore[arg-type]
+    assets = admin_list_media(kind=actief_kind, activity_id=activity_id,
+                              db=db, _admin=None)  # type: ignore[arg-type]
+    # Vrij zoeken op titel (C1, #588). Media zonder titel valt weg zodra er
+    # gezocht wordt — dat is de bedoeling van een zoekterm.
+    term = q.strip().lower()
+    if term:
+        assets = [a for a in assets if term in (a.title or "").lower()]
+
+    # Chip-labels horen per request opgebouwd: _() volgt de taal van de tenant.
+    kind_labels = {"sponsor": _("Sponsors"), "activity_photo": _("Activiteitenfoto's")}
+    return {"assets": assets, "q": q, "gefilterd": bool(term or activity_id),
             "kind": actief_kind, "kinds": sorted(VALID_KINDS),
+            "kind_options": [(k, kind_labels.get(k, k)) for k in sorted(VALID_KINDS)],
             "activity_id": activity_id, "activiteiten": activiteiten,
             "alle_activiteiten": alle_activiteiten,
             "csrf_token": csrf_from_request(request)}
 
 
 def _lijst_response(request: Request, db: Session, kind: str,
-                    error: str | None = None):
-    ctx = _lijst_ctx(request, db, kind)
+                    error: str | None = None, q: str = "",
+                    activity_id: Optional[int] = None):
+    """Enkel de kaarten (C1, #588): kop, knop en filterbalk staan op de pagina."""
+    ctx = _lijst_ctx(request, db, kind, q, activity_id)
     ctx["error"] = error
     return templates.TemplateResponse(request, "_me_lijst.html", ctx)
 
 
 @router.get("/admin/media", response_class=HTMLResponse)
-def admin_media(request: Request, kind: str = "sponsor",
+def admin_media(request: Request, kind: str = "sponsor", q: str = "",
                 db: Session = Depends(get_db),
                 email: str = Depends(require_admin_ui)):
+    # htmx (de filterbalk) krijgt enkel de kaarten terug: een pagina-swap zou het
+    # zoekveld tijdens het typen vervangen.
+    if request.headers.get("hx-request"):
+        return _lijst_response(request, db, kind, q=q)
     return templates.TemplateResponse(request, "admin_media.html", {
-        "nav_items": NAV, "error": None, **_lijst_ctx(request, db, kind)})
-
-
-@router.get("/admin/media/lijst", response_class=HTMLResponse)
-def media_lijst(request: Request, kind: str = "sponsor",
-                db: Session = Depends(get_db),
-                email: str = Depends(require_admin_ui)):
-    return _lijst_response(request, db, kind)
+        "nav_items": NAV, "error": None, **_lijst_ctx(request, db, kind, q)})
 
 
 @router.post("/admin/media", response_class=HTMLResponse,
@@ -83,7 +97,8 @@ async def media_uploaden(request: Request, db: Session = Depends(get_db),
                          files: List[UploadFile] = File(...),
                          kind: str = Form("sponsor"),
                          activity_id: Optional[int] = Form(None),
-                         title: str = Form(""), link_url: str = Form("")):
+                         title: str = Form(""), link_url: str = Form(""),
+                         q: str = Form(""), filter_activity_id: Optional[int] = Form(None)):
     from app.domains.media.router import upload_media
 
     try:
@@ -92,8 +107,8 @@ async def media_uploaden(request: Request, db: Session = Depends(get_db),
                            link_url=link_url.strip() or None,
                            db=db, _admin=None)  # type: ignore[arg-type]
     except HTTPException as exc:
-        return _lijst_response(request, db, kind, str(exc.detail))
-    return _lijst_response(request, db, kind)
+        return _lijst_response(request, db, kind, str(exc.detail), q, filter_activity_id)
+    return _lijst_response(request, db, kind, q=q, activity_id=filter_activity_id)
 
 
 @router.post("/admin/media/{asset_id}", response_class=HTMLResponse,
@@ -103,21 +118,22 @@ def media_bijwerken(asset_id: int, request: Request,
                     email: str = Depends(require_admin_ui),
                     kind: str = Form("sponsor"), title: str = Form(""),
                     link_url: str = Form(""), sort_order: str = Form("0"),
-                    is_active: str = Form("")):
+                    is_active: str = Form(""),
+                    q: str = Form(""), filter_activity_id: Optional[int] = Form(None)):
     from app.domains.media.router import update_media
 
     try:
         volgorde = int(sort_order or "0")
     except ValueError:
-        return _lijst_response(request, db, kind, "Ongeldige volgorde.")
+        return _lijst_response(request, db, kind, "Ongeldige volgorde.", q, filter_activity_id)
     try:
         update_media(asset_id, {
             "title": title.strip() or None, "link_url": link_url.strip() or None,
             "sort_order": volgorde, "is_active": bool(is_active),
         }, db=db, _admin=None)  # type: ignore[arg-type]
     except HTTPException as exc:
-        return _lijst_response(request, db, kind, str(exc.detail))
-    return _lijst_response(request, db, kind)
+        return _lijst_response(request, db, kind, str(exc.detail), q, filter_activity_id)
+    return _lijst_response(request, db, kind, q=q, activity_id=filter_activity_id)
 
 
 @router.post("/admin/media/{asset_id}/verwijderen", response_class=HTMLResponse,
@@ -125,11 +141,12 @@ def media_bijwerken(asset_id: int, request: Request,
 def media_verwijderen(asset_id: int, request: Request,
                       db: Session = Depends(get_db),
                       email: str = Depends(require_admin_ui),
-                      kind: str = Form("sponsor")):
+                      kind: str = Form("sponsor"),
+                      q: str = Form(""), filter_activity_id: Optional[int] = Form(None)):
     from app.domains.media.router import delete_media
 
     try:
         delete_media(asset_id, db=db, _admin=None)  # type: ignore[arg-type]
     except HTTPException as exc:
-        return _lijst_response(request, db, kind, str(exc.detail))
-    return _lijst_response(request, db, kind)
+        return _lijst_response(request, db, kind, str(exc.detail), q, filter_activity_id)
+    return _lijst_response(request, db, kind, q=q, activity_id=filter_activity_id)

@@ -25,10 +25,12 @@ def test_schermen_vereisen_sessie(client):
 
 def test_paginas_crud(client, db_session):
     csrf = _login(client)
+    # Sinds #587 opent aanmaken meteen de paginabrede editor (HX-Redirect).
     resp = client.post("/admin/paginas", data={"title": "Over ons", "slug": "over-ons"},
                        headers={"X-CSRF-Token": csrf})
-    assert resp.status_code == 200 and "Over ons" in resp.text
     page = db_session.query(CmsPage).filter(CmsPage.slug == "over-ons").one()
+    assert resp.status_code == 204
+    assert resp.headers["HX-Redirect"] == f"/admin/paginas/{page.id}"
 
     detail = client.get(f"/admin/paginas/{page.id}")
     assert detail.status_code == 200 and "Beschikbare placeholders" in detail.text
@@ -44,7 +46,8 @@ def test_paginas_crud(client, db_session):
 
     resp = client.post(f"/admin/paginas/{page.id}/verwijderen",
                        headers={"X-CSRF-Token": csrf})
-    assert resp.status_code == 200
+    assert resp.status_code == 204
+    assert resp.headers["HX-Redirect"] == "/admin/paginas"
     assert db_session.query(CmsPage).filter(CmsPage.slug == "over-ons").first() is None
 
 
