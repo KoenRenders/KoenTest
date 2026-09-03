@@ -1,4 +1,11 @@
-# UI-conventies (stijlgids & interactiepatronen)
+# UI-conventies (geschreven norm & interactiepatronen)
+
+> **Het uiterlijk staat in [`docs/design-system.html`](design-system.html)** — de
+> enige bron voor kleur, typografie, componenten en referentieschermen. Dit
+> document is de geschreven norm ernaast: de conventies en gedragsregels die je
+> niet uit een mock kunt aflezen. De oude `stijlgids.html` is daarin opgegaan
+> (#528 as E). Handhaving: `backend/tests/test_ui_conventions_gate.py`, stand in
+> [`docs/ui-conformiteit.md`](ui-conformiteit.md).
 
 > Normatief document voor de volledige GUI: **Deel A = admin**, **Deel B =
 > publieke site + ledenportaal**. Gebaseerd op volledige inventarissen (juli
@@ -30,8 +37,8 @@ waarheid, niet een hex of klasse die elders wordt herhaald.
   rustkleur van chrome of koppen.
 - **Regel:** conventies en templates **verwijzen naar de token** (de
   `blue-700`/`brand`-klasse); ze herschrijven nooit een losse hex of een
-  afwijkende `blue-*`-klasse. Zo tónen de merk-stijlgidsen (`docs/spec.md`,
-  `docs/stijlgids.html`) de kleur zonder dat een tweede/derde plek ervan kan
+  afwijkende `blue-*`-klasse. Zo toont het design system
+  (`docs/design-system.html`) de kleur zonder dat een tweede plek ervan kan
   afdrijven. Wijkt een klasse hieronder toch af, dan is de token leidend.
 
 ---
@@ -420,7 +427,7 @@ producten) geldt één patroon: **toon → in-lijn bewerken**, met gedeelde macr
 adopteren = automatisch conform.
 
 - **Rij-acties** via `row_actions(actions=[…], delete_attrs=…, delete_label=…)`
-  (stijlgids §2.6): **max 2 zichtbaar + ⋯-menu** voor de rest; **"Verwijderen" staat
+  (design-system §2.3): **max 2 zichtbaar + ⋯-menu** voor de rest; **"Verwijderen" staat
   altijd laatst en rood**. De primaire actie is meestal **"Bewerken"/"Detail"**.
 - **"Bewerken" opent de editor in-lijn** via `detail_disclosure(load_url, target_id)`:
   een trigger die het **gedeelde** detailfragment (bv. `_inschrijving_detail.html`)

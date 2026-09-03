@@ -13,7 +13,7 @@ is in English** — code comments, docstrings, README's, `docs/`, ADRs, and this
 file. This holds even when the conversation is in Dutch.
 
 Existing Dutch documentation stays as it is (`docs/ui-conventies.md`,
-`docs/rollen-en-rechten.md`, `docs/stijlgids.html`, the Dutch sections below, …).
+`docs/rollen-en-rechten.md`, `docs/design-system.html`, the Dutch sections below, …).
 Do not translate it unless Koen asks. User-facing UI copy is Dutch and is not
 documentation — it is unaffected by this rule.
 

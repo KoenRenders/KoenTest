@@ -30,7 +30,7 @@
         </td>
         <td class="px-4 py-2 text-right whitespace-nowrap" x-data="{ open: false }">
           <button type="button" class="text-blue-700 hover:underline text-sm" @click="open = true">{{ _("Bekijk") }}</button>
-          {# Modal (stijlgids §08): volledige e-mail + verwijderen ín de modal. #}
+          {# Modal (design-system §2.5): volledige e-mail + verwijderen ín de modal. #}
           <div x-show="open" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" @click.self="open = false" @keydown.escape.window="open = false">
             <div class="bg-white rounded-2xl shadow-xl max-w-2xl w-full max-h-[85vh] overflow-auto text-left">
               {# #523: grotere, ruimere header (onderwerp text-lg, meta text-sm/leading). #}

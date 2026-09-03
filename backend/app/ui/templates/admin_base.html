@@ -1,6 +1,6 @@
 {% import "_macros.html" as ui %}
 {# AdminShell (#396, §13.1; UI-sweep #482): base-layout voor de beheer-schermen.
-   Navigatie is een linker Indigo-zijbalk (stijlgids §09) — één schil voor álle
+   Navigatie is een linker Indigo-zijbalk (design-system §3 (patronen)) — één schil voor álle
    admin-layouts. Items komen uit app.ui.admin_nav() via `nav_items`. #}
 <!DOCTYPE html>
 <html lang="nl-BE">
@@ -31,7 +31,7 @@
   {% if omgeving and omgeving != 'prod' %}<div class="bg-orange-500 text-white text-center text-xs font-semibold py-1">{{ omgeving|upper }} — testomgeving (geen productie)</div>{% endif %}
 
   <div class="md:flex min-h-screen">
-    {# Desktop-zijbalk (Indigo) — stijlgids §09 #}
+    {# Desktop-zijbalk (Indigo) — design-system §3 (patronen) #}
     {# #526: sticky, volledige-viewporthoogte zijbalk (md:sticky md:top-0 md:h-screen)
        zodat de menu in beeld blijft bij het scrollen van een lange pagina i.p.v. in
        een lege paarse balk te veranderen; overflow-y-auto laat een lange nav intern

@@ -72,7 +72,7 @@
 
 {# ─────────────────────────────────────────────────────────────────────────────
    UI-sweep (#482): uitbreiding van de kit — paginakop, formuliervelden, modal,
-   tabs, reorder- en export-controls. Conventies uit docs/stijlgids.html.
+   tabs, reorder- en export-controls. Conventies uit docs/design-system.html + docs/ui-conventies.md.
    ───────────────────────────────────────────────────────────────────────────── #}
 
 {# Paginakop: H1 (auto in merkfont via base-layer) + optionele subtitel. Een
@@ -115,7 +115,7 @@
 {{ _field(text, name, '<select id="' ~ name ~ '" name="' ~ name ~ '"' ~ (' required' if required else '') ~ ' class="' ~ _control ~ '" ' ~ attrs ~ '>' ~ (opts|join('')) ~ '</select>', required, hint, error) }}
 {%- endmacro %}
 
-{# Modal (stijlgids §08): Alpine stuurt een boolean in de parent-scope aan.
+{# Modal (design-system §2.5): Alpine stuurt een boolean in de parent-scope aan.
    Gebruik: <div x-data="{ open:false }"> … {% call ui.modal('open', 'Titel') %}…{% endcall %}. #}
 {% macro modal(state, title, max_w="max-w-lg") -%}
 <div x-show="{{ state }}" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4"
@@ -150,7 +150,7 @@
 </span>
 {%- endmacro %}
 
-{# Export-knoppen: dezelfde data als ODS én JSON (stijlgids §12). #}
+{# Export-knoppen: dezelfde data als ODS én JSON (design-system §2.3). #}
 {% macro export_links(ods_url=None, json_url=None, csv_url=None) -%}
 <div class="inline-flex items-center gap-2">
   {% if ods_url %}<a href="{{ ods_url }}" class="inline-flex items-center gap-1 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg px-3 py-1.5 text-sm font-medium">⬇ ODS</a>{% endif %}
@@ -292,7 +292,7 @@
 </select>
 {%- endmacro %}
 
-{# Rij-acties (#510, stijlgids §2.6): max 2 zichtbaar + ⋯-menu voor de rest;
+{# Rij-acties (#510, design-system §2.3): max 2 zichtbaar + ⋯-menu voor de rest;
    "Verwijderen" staat ALTIJD laatst en rood. `actions` = lijst van reeds-gerenderde
    knop-HTML (primaire eerst). `delete_attrs` → de hx-*/confirm van de delete-knop. #}
 {% macro row_actions(actions=[], delete_attrs="", delete_label="") -%}
@@ -346,7 +346,7 @@
 </div>
 {%- endmacro %}
 
-{# Sectie-header-balk (#524, stijlgids §10): een gekleurde balk bovenaan een
+{# Sectie-header-balk (#524, design-system §2.3): een gekleurde balk bovenaan een
    sectie-kaart met de titel/index links en de acties rechts (↑ ↓ blauw-op-balk,
    Bewerken-toggle, × rood). Eén implementatie zodat elke sectie-editor gelijk is.
    De kaart heeft `x-data="{ sedit: false }"`; `edit_attrs` togglet die. #}

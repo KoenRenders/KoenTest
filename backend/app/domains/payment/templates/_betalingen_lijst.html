@@ -30,7 +30,7 @@
 {% if kaarten %}
 <div class="space-y-3">
   {% for r, refunds in kaarten %}
-  {# Statusstreep links (stijlgids §06): kleur vertelt de staat in één oogopslag.
+  {# Statusstreep links (design-system §2.4): kleur vertelt de staat in één oogopslag.
      Aparte per-zijde border-utilities i.p.v. de `border`-shorthand, zodat de
      linker-kleur niet met de grijze rand vecht in de cascade. #}
   {% set _paid = (r.amount_paid or 0) %}
