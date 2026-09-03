@@ -6,6 +6,8 @@
 #   raakctl logs <env> [service] [-n N]  logs of one service (default: backend)
 #   raakctl diagnose <env>               full report -> /tmp/<env>-diagnostics.log
 #   raakctl backup <env>                 manual pg_dump -> <checkout>/backups
+#   raakctl up <env>                     start a stopped stack (no build, no git)
+#   raakctl stop <env>                   stop a stack, keeping its containers
 #   raakctl deploy hdev                  master to HDEV
 #   raakctl deploy uat  <tag>            release tag to UAT
 #   raakctl deploy prod <tag> --confirm
@@ -104,6 +106,31 @@ cmd_backup() {
   echo "Copy it off the server with:  scp raak:$out ."
 }
 
+cmd_up() {
+  # Bring a stopped stack back without touching git or rebuilding images — the
+  # recovery counterpart to `stop`. A reboot does not need this: every container
+  # runs with `restart: unless-stopped`, so Docker starts them itself. But a
+  # container that was explicitly stopped stays stopped across a reboot, and that
+  # is exactly when you want one command instead of an improvised compose line.
+  local env="${1:?name an environment: hdev|uat|prod}"
+  case "$env" in hdev|uat|prod) ;; *) die "up works on hdev, uat or prod — not on '$env'" ;; esac
+  compose "$env" up -d
+}
+
+cmd_stop() {
+  # Stops the containers without removing them, e.g. to free memory during host
+  # maintenance. Remember they will NOT come back on their own after a reboot:
+  # `unless-stopped` deliberately respects a deliberate stop. Use `up` afterwards.
+  local env="${1:?name an environment: hdev|uat|prod}"; shift || true
+  case "$env" in hdev|uat|prod) ;; *) die "stop works on hdev, uat or prod — not on '$env'" ;; esac
+  if [ "$env" = prod ]; then
+    local ok=0; for a in "$@"; do [ "$a" = "--confirm" ] && ok=1; done
+    [ "$ok" = 1 ] || die "stopping PROD takes the site down — repeat with --confirm"
+  fi
+  compose "$env" stop
+  echo "$env stopped — it will NOT restart by itself after a reboot. Bring it back with: raakctl up $env"
+}
+
 cmd_deploy() {
   local env="${1:?name an environment: hdev|uat|prod}"; shift
   # Guardrails first: a missing tag or confirmation must fail before we even look
@@ -194,6 +221,8 @@ case "$verb" in
   logs)     cmd_logs "$@" ;;
   diagnose) cmd_diagnose "$@" ;;
   backup)   cmd_backup "$@" ;;
+  up)       cmd_up "$@" ;;
+  stop)     cmd_stop "$@" ;;
   deploy)   cmd_deploy "$@" ;;
   caddy)    cmd_caddy "$@" ;;
   help|-h|--help) usage ;;
