@@ -1,4 +1,4 @@
-"""Import smoke test: can every mounted module be imported at all?
+"""Import smoke test: can every module under `app/` be imported at all?
 
 This runs in two places, deliberately (#583):
 
@@ -8,83 +8,60 @@ This runs in two places, deliberately (#583):
   failure shows up on push instead of at deploy time.
 
 Without that second place CI runs ahead of reality: in #581 `app.ui.settings_ui`
-was removed (merged into `app.ui.tenants_ui`) while the list below still named
-it. CI was green; only the HDEV deploy failed, in the build. What CI calls green
-must be deployable.
+was removed (merged into `app.ui.tenants_ui`) while the hand-written module list
+still named it. CI was green; only the HDEV deploy failed, in the build. What CI
+calls green must be deployable.
 
-MODULES is maintained by hand. `tests/test_check_imports_gate.py` guards against
-an entry that no longer exists; deriving the list automatically is option B of
-#583.
+The list used to be maintained by hand, which is what made that drift possible
+and also left modules silently unchecked. It is now **derived** from the package
+itself (option B of #583): every module under `app/` is discovered and imported,
+so the check can neither name something that is gone nor miss something new.
+
+`tests/test_check_imports_gate.py` guards the discovery against blind spots.
 """
+from __future__ import annotations
+
 import importlib
+import pkgutil
 import sys
 
-MODULES = [
-    # Domain modules
-    "app.domains.membership.api",
-    "app.domains.payment.api",
-    "app.domains.payment.router",
-    "app.domains.payment.ui",
-    "app.domains.media.api",
-    "app.domains.media.router",
-    "app.domains.media.ui",
-    "app.domains.chatbot.router",
-    "app.domains.chatbot.ui",
-    "app.domains.chatbot.info_router",
-    "app.domains.stt.router",
-    "app.domains.cms.api",
-    "app.domains.cms.ui",
-    "app.domains.membership.ui",
-    "app.domains.cms.router",
-    "app.domains.mdm.router",
-    "app.domains.forms.router",
-    "app.domains.forms.ui",
-    "app.domains.forms.admin_ui",
-    "app.domains.workflow.ui",
-    "app.domains.activities.api",
-    "app.domains.activities.router",
-    "app.domains.activities.ui",
-    "app.domains.activities.admin_ui",
-    "app.domains.auth.api",
-    "app.domains.auth.router",
-    "app.domains.auth.ui",
-    "app.domains.auth.admin_ui",
-    "app.domains.cms.admin_ui",
-    "app.domains.media.admin_ui",
-    "app.ui.changes_ui",
-    "app.ui.system_ui",
-    "app.ui.admin_api",
-    "app.ui.tenants_ui",
-    "app.domains.audit.api",
-    "app.domains.audit.router",
-    "app.domains.mdm.import_router",
-    "app.domains.mdm.api",
-    "app.domains.mdm.ui",
-    "app.domains.mail.api",
-    "app.domains.mail.router",
-    "app.domains.mail.ui",
-    # Schemas
-    "app.domains.membership.schemas_member",
-    "app.domains.membership.schemas_family",
-    "app.schemas.activity",
-    # Routers
-    "app.domains.membership.register_router",
-    "app.domains.membership.household_router",
-    # Main app
-    "app.main",
-]
+import app
 
-errors = []
-for module in MODULES:
-    try:
-        importlib.import_module(module)
-        print(f"OK: {module}")
-    except Exception as e:
-        errors.append(f"ERROR: {module}: {e}")
-        print(f"ERROR: {module}: {e}")
+# Modules that must not be imported by this check. Keep empty if at all possible;
+# every entry is a blind spot. Document the reason and reference an issue.
+SKIP: tuple[str, ...] = ()
 
-if errors:
-    print(f"\n{len(errors)} import error(s)")
-    sys.exit(1)
-else:
+
+def discover() -> list[str]:
+    """Every importable module name under `app/`, the package itself included.
+
+    `walk_packages` imports each package it descends into. A package whose
+    `__init__` raises would otherwise be skipped silently, so failures during the
+    walk are collected and reported as import errors like any other.
+    """
+    failed: list[str] = []
+    names = ["app"]
+    for info in pkgutil.walk_packages(app.__path__, prefix="app.", onerror=failed.append):
+        names.append(info.name)
+    return sorted(set(names + failed) - set(SKIP))
+
+
+def main() -> int:
+    errors: list[str] = []
+    for module in discover():
+        try:
+            importlib.import_module(module)
+            print(f"OK: {module}")
+        except Exception as exc:  # noqa: BLE001 — report every failure, not just ImportError
+            errors.append(f"ERROR: {module}: {exc}")
+            print(f"ERROR: {module}: {exc}")
+
+    if errors:
+        print(f"\n{len(errors)} import error(s)")
+        return 1
     print("\nAll imports OK")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())
