@@ -22,12 +22,12 @@ matrix documenteert, de gate handhaaft.
 | Scherm | Tokens | Kit-macro's | Feedback | Terminologie |
 |---|---|---|---|---|
 | `activiteiten.html` | ✅ | ✅ 1 | ✅ | ✅ |
-| `admin_activiteiten.html` | ✅ | ✅ 4 | ✅ | ✅ |
+| `admin_activiteiten.html` | ✅ | ✅ 5 | ✅ | ✅ |
 | `aanmelden.html` | ✅ | ✅ 1 | ✅ | ✅ |
 | `admin_gebruikers.html` | ✅ | ✅ 1 | ✅ | ✅ |
 | `ai_context.html` | ✅ | ✅ 1 | ✅ | ✅ |
 | `raakje.html` | ✅ | ✅ 3 | ✅ | ✅ |
-| `admin_paginas.html` | ✅ | ✅ 4 | ✅ | ✅ |
+| `admin_paginas.html` | ✅ | ✅ 5 | ✅ | ✅ |
 | `betaling_resultaat.html` | ✅ | ✅ 2 | ✅ | ✅ |
 | `cms_pagina.html` | ✅ | — | ✅ | ✅ |
 | `home.html` | ✅ | ✅ 3 | ✅ | ✅ |
@@ -36,8 +36,8 @@ matrix documenteert, de gate handhaaft.
 | `berichten.html` | ✅ | ✅ 1 | ✅ | ✅ |
 | `formulier.html` | ✅ | ✅ 4 | ✅ | ✅ |
 | `formulier_klaar.html` | ✅ | ✅ 2 | ✅ | ✅ |
-| `email_log.html` | ✅ | — | ✅ | ✅ |
-| `leden.html` | ✅ | ✅ 2 | ✅ | ✅ |
+| `email_log.html` | ✅ | ✅ 3 | ✅ | ✅ |
+| `leden.html` | ✅ | ✅ 3 | ✅ | ✅ |
 | `leden_import.html` | ✅ | ✅ 5 | ✅ | ✅ |
 | `admin_media.html` | ✅ | ✅ 1 | ✅ | ✅ |
 | `fotos.html` | ✅ | — | ✅ | ✅ |
@@ -55,21 +55,27 @@ matrix documenteert, de gate handhaaft.
 | `admin_ledenwijzigingen.html` | ✅ | ✅ 3 | ✅ | ✅ |
 | `admin_tenants.html` | ✅ | ✅ 9 | ✅ | ✅ |
 
+33 schermen, 41 fragmenten. Nul afwijkingen.
 
 ## Kluslijst — lokaal patroon → kit-macro
 
-Wat nog niet is omgezet, met de reden. Niets hiervan is een afwijking van de
-tokens of de feedback-regels (de gate is groen); het gaat om patronen die nog een
-eigen implementatie hebben.
+**Leeg** (#580 afgewerkt). Wat er is omgezet:
 
-| Scherm | Patroon | Waarom nog niet |
+| Scherm | Was | Nu |
 |---|---|---|
-| `email_log.html` | eigen zoekveld | Het veld zit in een **filterformulier** met drie andere velden en één `hx-trigger` op formulierniveau. `ui.search()` brengt zijn eigen `hx-get` mee; dat zou twee verzoeken per aanslag geven. Vraagt eerst een `ui.filter_bar()`-macro die formulier én velden omvat. |
-| `_leden_lijst.html` | eigen paginering | `ui.pager()` verwacht `total` en `per_page`; het scherm geeft `page` en `total_pages` door. Omzetten vraagt een wijziging in het view-model, niet enkel in de template. |
-| `formulier.html`, `fotos_album.html` | eigen paginering | Idem. |
+| `leden.html` | eigen zoekveld | `ui.search()` |
+| `_leden_lijst.html` | eigen vorige/volgende-knoppen | `ui.pager()` met "x–y van n" |
+| `email_log.html` | rauwe `<h1>` + filterformulier met eigen zoekinput | `ui.page_header()` + `ui.filter_bar()` + `ui.search(standalone=False)` |
+| `_email_log_lijst.html` | eigen vorige/volgende-knoppen | `ui.pager()` in de modus zonder totaal |
+| `_me_lijst.html` (Media) | filters bóven de actieknop, upload in een `bg-blue-50`-blok | knop los en bovenaan, upload in `ui.modal()` |
+| `admin_activiteiten.html`, `_gu_lijst.html`, `admin_paginas.html` | "+ Nieuwe …" in een `bg-blue-50`-blok met uitklapformulier | knop los, formulier in `ui.modal()` |
 
-Omgezet in v2.0.0: `leden.html` gebruikt `ui.search()` in plaats van een eigen
-zoekveld — zelfde gedrag, één patroon.
+**Correctie op de vorige versie van deze lijst.** Daar stonden `formulier.html` en
+`fotos_album.html` als "eigen paginering". Dat was fout: die treffers waren een
+"Volgende"-knop in een meerstaps publiek formulier en een lightbox-pijl in het
+fotoalbum — geen paginering. De lijst was gebaseerd op een te losse zoekopdracht;
+bij het uitvoeren van #580 bleken er twee échte pagineringen te zijn (leden en
+e-maillog), en één scherm dat níét in de lijst stond maar wel afweek: Media.
 
 ## Wat dit niet meet
 

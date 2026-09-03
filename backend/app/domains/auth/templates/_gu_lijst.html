@@ -1,11 +1,14 @@
 {% import "_macros.html" as ui %}
 {{ ui.error_banner(error) }}
-<div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-6" x-data="{ open: false }">
-  {{ ui.btn_secondary(_("+ Nieuwe gebruiker"), attrs='@click="open = !open"') }}
-  <form x-show="open" x-cloak class="space-y-3 mt-3"
-        hx-post="/admin/gebruikers" hx-target="#gu-lijst" hx-swap="innerHTML">
-    <div class="max-w-md">{{ ui.label(_("E-mailadres"), "gu-email", required=True) }}
-      <input type="email" name="email" id="gu-email" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+{# Lijst-index C1: de knop staat los, zonder blauwe balk; het aanmaakformulier
+   opent in een modal (HDEV-correctie in design-system C1). #}
+<div class="mb-6" x-data="{ open: false }">
+  {{ ui.btn_secondary(_("+ Nieuwe gebruiker"), attrs='@click="open = true"') }}
+  {% call ui.modal('open', _("Nieuwe gebruiker")) %}
+  <form class="space-y-3" hx-post="/admin/gebruikers" hx-target="#gu-lijst" hx-swap="innerHTML"
+        @htmx:after-request="open = false">
+    <div>{{ ui.label(_("E-mailadres"), "gu-email", required=True) }}
+      <input type="email" name="email" id="gu-email" required class="w-full"></div>
     <div class="flex flex-wrap gap-4 text-sm">
       {% for rc in role_codes %}
       <label class="flex items-center gap-2"><input type="checkbox" name="role_codes" value="{{ rc.code }}"> {{ rc.code }}</label>
@@ -13,6 +16,7 @@
     </div>
     {{ ui.btn_primary(_("Aanmaken")) }}
   </form>
+  {% endcall %}
 </div>
 {% if users %}
 <div class="space-y-3">

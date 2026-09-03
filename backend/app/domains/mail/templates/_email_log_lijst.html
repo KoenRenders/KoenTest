@@ -61,16 +61,12 @@
     </tbody>
   </table>
 </div>
-{% if has_prev or has_next %}
+{# Kit-pager (#580). Zonder totaal: dit scherm haalt bewust één rij extra op i.p.v.
+   een COUNT te doen, dus has_prev/has_next sturen de knoppen. De filters gaan mee
+   in de URL zodat ze bij het bladeren behouden blijven. #}
 {% set _base = "/admin/e-maillog/lijst?email_type=" ~ (email_type or "") ~ "&status=" ~ (status or "") ~ "&recipient=" ~ (recipient or "") %}
-<div class="flex justify-between items-center mt-3 text-sm">
-  <button type="button" {% if has_prev %}hx-get="{{ _base }}&page={{ page - 1 }}" hx-target="#email-log-lijst" hx-swap="innerHTML"{% else %}disabled{% endif %}
-          class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg {% if not has_prev %}opacity-40 pointer-events-none{% endif %}">‹ {{ _("Vorige") }}</button>
-  <span class="text-gray-500">{{ _("Pagina") }} {{ page }}</span>
-  <button type="button" {% if has_next %}hx-get="{{ _base }}&page={{ page + 1 }}" hx-target="#email-log-lijst" hx-swap="innerHTML"{% else %}disabled{% endif %}
-          class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-3 py-1.5 rounded-lg {% if not has_next %}opacity-40 pointer-events-none{% endif %}">{{ _("Volgende") }} ›</button>
-</div>
-{% endif %}
+{{ ui.pager(page, hx_get=_base, hx_target="#email-log-lijst",
+            has_prev=has_prev, has_next=has_next) }}
 {% else %}
 {{ ui.empty_state(_("Geen e-mails gevonden voor deze filter.")) }}
 {% endif %}

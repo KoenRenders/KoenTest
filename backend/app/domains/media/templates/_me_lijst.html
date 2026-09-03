@@ -1,28 +1,14 @@
 {% import "_macros.html" as ui %}
 {{ ui.error_banner(error) }}
-<div class="flex items-center gap-3 mb-4">
-  {% for k in kinds %}
-  <button class="{{ ui.btn_class('primary' if k == kind else 'secondary', 'sm') }}"
-          hx-get="/admin/media/lijst?kind={{ k }}" hx-target="#me-lijst" hx-swap="innerHTML">
-    {% if k == "sponsor" %}{{ _("Sponsors") }}{% else %}{{ _("Activiteitenfoto's") }}{% endif %}
-  </button>
-  {% endfor %}
-</div>
-{% if kind == "activity_photo" and activiteiten %}
-<div class="mb-4">
-  <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm" name="activity_id"
-          hx-get="/admin/media/lijst" hx-target="#me-lijst" hx-swap="innerHTML"
-          hx-trigger="change" hx-vals='{"kind": "activity_photo"}'>
-    <option value="">{{ _("Alle activiteiten") }}</option>
-    {% for a in activiteiten %}<option value="{{ a.id }}" {% if activity_id == a.id %}selected{% endif %}>{{ a.naam }}{% if a.jaar %} ({{ a.jaar }}){% endif %}</option>{% endfor %}
-  </select>
-</div>
-{% endif %}
-<div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-6" x-data="{ open: false }">
-  {{ ui.btn_secondary(_("+ Uploaden"), attrs='@click="open = !open"') }}
-  <form x-show="open" x-cloak class="space-y-3 mt-3" enctype="multipart/form-data"
+{# Lijst-index C1: actieknop bóven de filters en zonder blauwe balk; het
+   uploadformulier opent in een modal. Media was in de mock expliciet het scherm
+   waar de filters nog bovenaan stonden. #}
+<div class="mb-4" x-data="{ open: false }">
+  {{ ui.btn_secondary(_("+ Uploaden"), attrs='@click="open = true"') }}
+  {% call ui.modal('open', _("Media uploaden")) %}
+  <form class="space-y-3" enctype="multipart/form-data"
         hx-post="/admin/media" hx-encoding="multipart/form-data"
-        hx-target="#me-lijst" hx-swap="innerHTML">
+        hx-target="#me-lijst" hx-swap="innerHTML" @htmx:after-request="open = false">
     <input type="hidden" name="kind" value="{{ kind }}">
     <div>{{ ui.label(_("Bestanden (afbeeldingen)"), "me-files", required=True) }}
       <input type="file" name="files" id="me-files" accept="image/*" multiple required class="block text-sm"></div>
@@ -41,7 +27,26 @@
     </div>
     {{ ui.btn_primary(_("Uploaden")) }}
   </form>
+  {% endcall %}
 </div>
+<div class="flex items-center gap-3 mb-4">
+  {% for k in kinds %}
+  <button class="{{ ui.btn_class('primary' if k == kind else 'secondary', 'sm') }}"
+          hx-get="/admin/media/lijst?kind={{ k }}" hx-target="#me-lijst" hx-swap="innerHTML">
+    {% if k == "sponsor" %}{{ _("Sponsors") }}{% else %}{{ _("Activiteitenfoto's") }}{% endif %}
+  </button>
+  {% endfor %}
+</div>
+{% if kind == "activity_photo" and activiteiten %}
+<div class="mb-4">
+  <select class="border border-gray-300 rounded-lg px-3 py-2 text-sm" name="activity_id"
+          hx-get="/admin/media/lijst" hx-target="#me-lijst" hx-swap="innerHTML"
+          hx-trigger="change" hx-vals='{"kind": "activity_photo"}'>
+    <option value="">{{ _("Alle activiteiten") }}</option>
+    {% for a in activiteiten %}<option value="{{ a.id }}" {% if activity_id == a.id %}selected{% endif %}>{{ a.naam }}{% if a.jaar %} ({{ a.jaar }}){% endif %}</option>{% endfor %}
+  </select>
+</div>
+{% endif %}
 {% if assets %}
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
   {% for a in assets %}

@@ -52,8 +52,9 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
     except ValueError:
         page = 1
     data = list_families(page=page, page_size=25, q=q or None, db=db, _admin=None)
-    return {"families": data.items, "page": data.page,
-            "total_pages": data.total_pages, "q": q}
+    # total + page_size erbij zodat ui.pager() "x–y van n" kan tonen (#580).
+    return {"families": data.items, "page": data.page, "total": data.total,
+            "per_page": data.page_size, "total_pages": data.total_pages, "q": q}
 
 
 def _detail_ctx(request: Request, db: Session, family_id: int) -> dict:

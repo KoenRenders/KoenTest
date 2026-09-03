@@ -216,7 +216,7 @@ Importeer met `{% import "_macros.html" as ui %}`. Beschikbaar:
 | Groep | Macro's |
 |---|---|
 | Structuur | `page_header` · `section_header` · `section_bar` · `card` · `nested_panel` · `tabs` · `detail_disclosure` |
-| Lijsten | `search` · `grouped_filter` · `pager` · `row_actions` · `reorder` · `empty_state` · `loading` |
+| Lijsten | `search` · `filter_bar` · `grouped_filter` · `pager` · `row_actions` · `reorder` · `empty_state` · `loading` |
 | Formulieren | `field_input` · `field_select` · `field_textarea` · `label` · `person_fields` · `export_links` |
 | Feedback | `toast` · `toast_host` · `success_banner` · `error_banner` · `modal` · `badge` |
 | Knoppen | `btn_primary` · `btn_secondary` · `btn_outline` · `btn_danger` · `button` · `btn_class` |
@@ -228,10 +228,40 @@ zoekveld voor elke groeibare lijst. Debounce van 300 ms, zodat htmx niet per
 aanslag een verzoek doet. De parameter heet standaard `q`, zodat de serverkant
 overal dezelfde naam leest.
 
-**`ui.pager(page, per_page, total, hx_get, hx_target)`** — toont "x–y van n" met
+**`ui.pager(page, per_page=…, total=…, …)`** — toont "x–y van n" met
 vorige/volgende. Bewust géén paginanummers: bij een groeiende lijst zegt een reeks
 knoppen weinig en breekt ze op mobiel. Verbergt zichzelf als alles op één pagina
 past, zodat een lijst met drie rijen geen navigatie krijgt.
+
+Twee modi. **Mét `total`** leidt hij zelf af of er nog een pagina is. **Zonder
+totaal** geef je `has_prev`/`has_next` mee en toont hij enkel "Pagina n" — voor
+lijsten die bewust geen `COUNT` doen maar één rij extra ophalen, zoals het
+e-maillog. Een `COUNT` afdwingen zou die optimalisatie slopen voor een cijfertje.
+
+**`ui.filter_bar(hx_get, hx_target)`** — call-macro die zoekveld én filters in
+één formulier omhult, zodat htmx alle waarden samen meestuurt en de filter-state
+niet uit de pas loopt met de lijst. Gebruik de velden erbinnen met
+`standalone=False`, anders doet het zoekveld nog een eigen verzoek en gaan er twee
+requests per aanslag uit:
+
+```jinja
+{% call ui.filter_bar("/admin/e-maillog/lijst", "#email-log-lijst") %}
+  <div>{{ ui.search(value=recipient, name="recipient", standalone=False) }}</div>
+  <div class="flex flex-wrap gap-3">…selects…</div>
+{% endcall %}
+```
+
+### 5.2 Lijst-index — vaste volgorde (design-system C1)
+
+Elk beheerscherm met records heeft dezelfde volgorde in de inhoudskolom, van
+boven naar onder: **paginatitel → "+ Nieuwe …" → zoeken → filters → record-kaarten.**
+
+Twee expliciete correcties op wat HDEV toonde:
+
+- De "+ Nieuwe …"-knop staat **los**, niet in een `bg-blue-50`-blok met een
+  uitklapformulier eronder. Het aanmaakformulier opent in een `ui.modal()` (of als
+  paginabrede editor).
+- Filters staan **altijd onder** "Nieuwe" en het zoekveld, nooit erboven.
 
 **`ui.toast(message, kind="success", timeout=4000)`** — hét bevestigingspatroon;
 `alert()` is verboden (§2.9) en de lint-gate keurt het af. Rendert als los

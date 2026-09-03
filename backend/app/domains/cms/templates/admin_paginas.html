@@ -32,17 +32,21 @@
 {{ ui.page_header(_("CMS-pagina's")) }}
 <div class="flex flex-col lg:flex-row gap-6">
   <div class="lg:w-80 shrink-0">
-    <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-4" x-data="{ open: false }">
-      {{ ui.btn_secondary(_("+ Nieuwe pagina"), attrs='@click="open = !open"') }}
-      <form x-show="open" x-cloak class="space-y-3 mt-3"
-            hx-post="/admin/paginas" hx-target="#cp-lijst" hx-swap="innerHTML">
+    {# Lijst-index C1: de knop staat los, zonder blauwe balk; het aanmaakformulier
+       opent in een modal (HDEV-correctie in design-system C1). #}
+    <div class="mb-4" x-data="{ open: false }">
+      {{ ui.btn_secondary(_("+ Nieuwe pagina"), attrs='@click="open = true"') }}
+      {% call ui.modal('open', _("Nieuwe pagina")) %}
+      <form class="space-y-3" hx-post="/admin/paginas" hx-target="#cp-lijst" hx-swap="innerHTML"
+            @htmx:after-request="open = false">
         <div>{{ ui.label(_("Titel"), "title", required=True) }}
-          <input name="title" id="title" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+          <input name="title" id="title" required class="w-full"></div>
         <div>{{ ui.label(_("Slug"), "slug", required=True) }}
-          <input name="slug" id="slug" required pattern="[a-z0-9-]+" class="w-full border border-gray-300 rounded-lg px-3 py-2">
-          <p class="text-xs text-gray-500 mt-1">{{ _("Alleen kleine letters, cijfers en streepjes — wordt de URL (/slug).") }}</p></div>
+          <input name="slug" id="slug" required pattern="[a-z0-9-]+" class="w-full">
+          <p class="text-xs text-ink-soft mt-1">{{ _("Alleen kleine letters, cijfers en streepjes — wordt de URL (/slug).") }}</p></div>
         {{ ui.btn_primary(_("Aanmaken")) }}
       </form>
+      {% endcall %}
     </div>
     <div id="cp-lijst" hx-get="/admin/paginas/lijst" hx-trigger="cp-lijst-ververst from:body" hx-swap="innerHTML">
       {% include "_cp_lijst.html" %}
