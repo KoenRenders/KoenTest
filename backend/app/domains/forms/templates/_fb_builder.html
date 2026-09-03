@@ -6,8 +6,9 @@
       <span class="ml-1">{{ ui.badge(f.field_type, "blue") }}</span>
       {% if f.required %}{{ ui.badge(_("verplicht"), "yellow") }}{% endif %}</div>
     <div class="flex flex-wrap gap-1">
-      {{ ui.btn_secondary("↑", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
-      {{ ui.btn_secondary("↓", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
+      {{ ui.reorder(
+           up_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
+           down_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
       {{ ui.btn_secondary(_("Bewerken"), attrs='@click="edit = !edit"') }}
       {{ ui.btn_danger("×", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Veld"), f.label)) }}
     </div>
@@ -91,8 +92,8 @@
       <div class="flex flex-wrap gap-2">
         {{ ui.btn_secondary(_("Bekijk"), href="/formulier/" ~ form.share_token, size="sm", attrs='target="_blank"') }}
         {{ ui.btn_secondary(_("Afdruk"), href="/admin/formulieren/" ~ form.id ~ "/afdruk", size="sm", attrs='target="_blank"') }}
-        {{ ui.btn_secondary("⬇ " ~ _("Export"), href="/admin/formulieren/" ~ form.id ~ "/export", size="sm") }}
-        {{ ui.btn_secondary("⬇ " ~ _("JSON"), href="/admin/formulieren/" ~ form.id ~ "/json", size="sm") }}
+        {{ ui.btn_secondary(_("Export"), lead_icon="download", href="/admin/formulieren/" ~ form.id ~ "/export", size="sm") }}
+        {{ ui.btn_secondary(_("JSON"), lead_icon="download", href="/admin/formulieren/" ~ form.id ~ "/json", size="sm") }}
         {{ ui.btn_secondary(_("Instellingen"), size="sm", attrs='@click="open = !open"') }}
         {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" ' ~ confirm_attrs(_("Formulier"), form.title)) }}
       </div>

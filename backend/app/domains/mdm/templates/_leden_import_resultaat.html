@@ -44,7 +44,7 @@
 
   {% if stap == "preview" %}
   <form hx-post="/admin/leden-import/commit" hx-target="#import-resultaat" hx-swap="innerHTML"
-        hx-confirm="{{ _('Definitief importeren? Dit overschrijft de ledendata met dit rapport.') }}">
+        data-confirm="{{ _('Definitief importeren? Dit overschrijft de ledendata met dit rapport.') }}">
     <input type="hidden" name="token" value="{{ data.token }}">
     {{ ui.btn_primary(_("Definitief importeren")) }}
   </form>

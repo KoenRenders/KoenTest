@@ -173,4 +173,4 @@ def test_delete_knoppen_hx_post_niet_geescaped(client, db_session):
     html = client.get(f"/admin/leden/gezin/{member.id}").text
     assert 'hx-post="/admin/leden/gezin/' in html   # correcte, niet-geëscapete quotes
     assert "hx-post=&#34;" not in html               # geen escaping meer
-    assert "hx-confirm='" in html                    # de bevestiging blijft werken
+    assert "data-confirm='" in html                  # #595: in-app modal i.p.v. browser-confirm

@@ -51,16 +51,20 @@ def _relatielabel(code) -> str:
 templates.env.filters["relatielabel"] = _relatielabel
 
 
-# ConfirmDialog (#514): moet een PLAIN string teruggeven, geen Markup. Als macro
+# ConfirmDialog (#514/#595): moet een PLAIN string teruggeven, geen Markup. Als macro
 # (Markup) escapte de Jinja-`~`-concatenatie in `attrs='hx-post="…" ' ~
 # confirm_attrs(…)` de dubbele quotes van hx-post/target/swap (→ `&#34;`), waardoor
 # htmx die attributen niet meer las en delete-knoppen niets deden. Een gewone
 # functie (plain str) laat `'plain' ~ 'plain'` = plain zonder escaping. De naam
 # wordt attribuut-veilig ge-escaped (bv. een ' in een naam breekt de attr niet).
+#
+# Sinds #595 levert dit `data-confirm` i.p.v. `hx-confirm`: het native browser-
+# confirm() is verbannen (lint-gate). De globale `htmx:confirm`-handler in
+# ui.confirm_host() ziet `data-confirm` en toont de in-app bevestig-modal.
 def _confirm_attrs(type_label, name) -> str:
     from markupsafe import escape
     from app.i18n import _
-    return (f"hx-confirm='{escape(type_label)} \"{escape(name)}\" "
+    return (f"data-confirm='{escape(type_label)} \"{escape(name)}\" "
             f"{escape(_('definitief verwijderen?'))}'")
 
 

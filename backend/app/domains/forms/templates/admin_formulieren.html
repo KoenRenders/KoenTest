@@ -12,7 +12,7 @@
   {{ ui.btn_primary(_("+ Nieuw formulier"), type="button", attrs='@click="open = true"') }}
   {# Blijft de #462-gids, nu als kit-knop naast de primaire actie i.p.v. een losse
      link rechtsboven. #}
-  {{ ui.btn_secondary("📄 " ~ _("Formaat (voor AI)"), href="/static/form-json-formaat.md",
+  {{ ui.btn_secondary(_("Formaat (voor AI)"), lead_icon="file-text", href="/static/form-json-formaat.md",
                       attrs='target="_blank" rel="noopener" download') }}
   {% call ui.modal('open', _("Nieuw formulier")) %}
   <form class="space-y-3" hx-post="/admin/formulieren" @htmx:after-request="open = false">
@@ -20,7 +20,7 @@
       <input name="title" id="f-title" required class="w-full"
              placeholder="{{ _('bv. Inschrijving zomerkamp') }}"></div>
     <p class="text-xs text-ink-soft">{{ _("Na het aanmaken open je meteen de form-builder; de naam kan je daar nog wijzigen.") }}</p>
-    {{ ui.btn_primary(_("Aanmaken")) }}
+    {{ ui.btn_primary(_("Opslaan")) }}
   </form>
   {% endcall %}
 </div>

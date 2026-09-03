@@ -18,7 +18,7 @@
       <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ _status_labels[s] }}</option>
       {% endfor %}
     </select>
-    {{ ui.btn_secondary("⬇ " ~ _("Export (.ods)"),
+    {{ ui.btn_secondary(_("Export (.ods)"), lead_icon="download",
                         href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status, size="sm") }}
   </div>
 {% endcall %}

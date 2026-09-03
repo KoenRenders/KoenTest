@@ -79,5 +79,7 @@
   </div>
   {# Vaste landingsplek voor toasts (#528 as C); htmx stuurt ze out-of-band mee. #}
   {{ ui.toast_host() }}
+  {# In-app bevestig-modal (#595): vervangt het browser-confirm(). #}
+  {{ ui.confirm_host() }}
 </body>
 </html>

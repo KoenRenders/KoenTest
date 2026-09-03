@@ -28,7 +28,7 @@
 
 <div class="flex flex-wrap items-center gap-2 mb-4" x-data="{ open: false }">
   {{ ui.btn_primary(_("+ Nieuw lid"), type="button", attrs='@click="open = true"') }}
-  {{ ui.btn_secondary("⬆ " ~ _("Leden importeren"), href="/admin/leden-import") }}
+  {{ ui.btn_secondary(_("Leden importeren"), lead_icon="upload", href="/admin/leden-import") }}
   {% call ui.modal('open', _("Nieuw lid")) %}
   <form class="space-y-3" hx-post="/admin/leden" @htmx:after-request="open = false">
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -38,7 +38,7 @@
         <input name="last_name" id="nl-last" required class="w-full"></div>
     </div>
     <p class="text-xs text-ink-soft">{{ _("Dit maakt het gezin met deze persoon als hoofdlid. Adres, contactgegevens en lidmaatschap vul je aan in het gezin zelf.") }}</p>
-    {{ ui.btn_primary(_("Aanmaken")) }}
+    {{ ui.btn_primary(_("Opslaan")) }}
   </form>
   {% endcall %}
 </div>

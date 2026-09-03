@@ -13,6 +13,8 @@ Vier regels, elk met een reden:
 3. **Geen `alert()`/`confirm()`.** Bevestiging gaat via `ui.modal()`, feedback via
    `ui.toast()`.
 4. **Geen `amber-*`.** Geel is "wachtend"; het amber-palet is vervallen.
+5. **Geen `hx-confirm`.** Dat toont het native browser-confirm(); bevestiging gaat
+   sinds #595 via de in-app modal (`data-confirm` + `ui.confirm_host()`).
 
 Uitzonderingen staan expliciet in ALLOWLIST, met reden — zoals de allowlists in
 de andere gates: een regel toevoegen mag, maar niet stilzwijgend.
@@ -34,6 +36,7 @@ HEX = re.compile(r"#[0-9a-fA-F]{6}\b")
 DONKERBLAUW = re.compile(r"\bblue-(800|900)\b")
 AMBER = re.compile(r"\bamber-\d")
 JS_DIALOOG = re.compile(r"\b(alert|confirm)\s*\(")
+HX_CONFIRM = re.compile(r"\bhx-confirm\b")
 
 
 def _overtredingen(patroon: re.Pattern, *, negeer_root: bool = False):
@@ -97,6 +100,16 @@ def test_amber_is_vervallen():
     """Eén gele schaal: yellow-* is de token, amber bestaat niet meer."""
     fouten = _overtredingen(AMBER)
     assert not fouten, "Gebruik yellow-* (= wachtend):\n  " + "\n  ".join(fouten)
+
+
+def test_geen_hx_confirm():
+    """hx-confirm toont het native browser-confirm(); bevestiging gaat via de
+    in-app modal (data-confirm + ui.confirm_host(), #595)."""
+    fouten = _overtredingen(HX_CONFIRM)
+    assert not fouten, (
+        "Gebruik confirm_attrs()/data-confirm i.p.v. hx-confirm:\n  "
+        + "\n  ".join(fouten)
+    )
 
 
 def test_de_kit_levert_de_beloofde_macros():

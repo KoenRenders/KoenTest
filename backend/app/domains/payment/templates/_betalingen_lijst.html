@@ -30,17 +30,11 @@
 {% if kaarten %}
 <div class="space-y-3">
   {% for r, refunds in kaarten %}
-  {# Statusstreep links (design-system §2.4): kleur vertelt de staat in één oogopslag.
-     Aparte per-zijde border-utilities i.p.v. de `border`-shorthand, zodat de
-     linker-kleur niet met de grijze rand vecht in de cascade. #}
+  {# Geen gekleurde statusstreep meer (B6, #596): de staat blijkt al uit de badge
+     rechts. Eén status-signaal i.p.v. twee — de kaart draagt de neutrale kit-rand. #}
   {% set _paid = (r.amount_paid or 0) %}
   {% set _saldo = r.amount - _paid %}
-  {% if r.type == "refund" %}{% set _stripe = "border-l-teal-400" %}
-  {% elif r.status == "paid" %}{% set _stripe = "border-l-green-500" %}
-  {% elif r.status in ["failed", "cancelled"] %}{% set _stripe = "border-l-red-400" %}
-  {% elif _paid > 0 %}{% set _stripe = "border-l-orange-400" %}
-  {% else %}{% set _stripe = "border-l-yellow-400" %}{% endif %}
-  <div class="bg-white rounded-2xl shadow-sm border-t border-b border-r border-gray-200 border-l-4 {{ _stripe }} p-4"{% if is_finance %} x-data="{ bewerk: false, terug: false }"{% endif %}>
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4"{% if is_finance %} x-data="{ bewerk: false, terug: false }"{% endif %}>
     <div class="flex items-start justify-between gap-3">
       <div>
         <div class="font-semibold">{{ r.contact_name or "—" }}
@@ -71,7 +65,7 @@
           <button type="button" class="text-blue-700 hover:underline text-xs" @click="rbewerk = !rbewerk">{{ _("Bewerken") }}</button>
           <button type="button" class="text-red-600 hover:underline text-xs"
             hx-post="/admin/betalingen/{{ rf.id }}/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML"
-            hx-confirm="{{ _('Deze terugbetaling verwijderen?') }}">{{ _("Verwijder") }}</button>
+            data-confirm="{{ _('Deze terugbetaling verwijderen?') }}">{{ _("Verwijder") }}</button>
         </span>{% endif %}
       </div>
       {% if is_finance %}
@@ -108,21 +102,22 @@
     </div>
     {% endif %}
     {% if is_finance %}
-    {# Beheeracties (charge én refund, #455/#515). De unified "Bewerken"-editor is de
-       hoofdweg (status + bedrag + opmerking in één form); "Bevestig betaald" blijft
-       als snelkoppeling voor een volledige betaling. #}
-    <div class="mt-3 flex flex-wrap gap-2 border-t border-gray-100 pt-2">
+    {# Beheeracties (charge én refund, #455/#515/#596): max 2 zichtbaar, de rest onder
+       het ⋯-menu, "Verwijderen" altijd laatst en rood (ui.row_actions, §2.4). De
+       unified "Bewerken"-editor is de hoofdweg; "Bevestig betaald" de snelkoppeling. #}
+    <div class="mt-3 border-t border-gray-100 pt-2">
+      {% set _acts = [] %}
       {% if r.status != "paid" and r.type != "refund" %}
-      {{ ui.btn_secondary(_("Bevestig betaald"), attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-confirm="' ~ _("Als volledig betaald bevestigen?") ~ '"') }}
+      {% set _ignore = _acts.append(ui.btn_secondary(_("Bevestig betaald"), size="sm", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML" data-confirm="' ~ _("Als volledig betaald bevestigen?") ~ '"')) %}
       {% endif %}
-      {{ ui.btn_secondary(_("Bewerken"), attrs='@click="bewerk = !bewerk"') }}
+      {% set _ignore = _acts.append(ui.btn_secondary(_("Bewerken"), size="sm", attrs='@click="bewerk = !bewerk"')) %}
       {% if r.status == "paid" and r.type != "refund" %}
-      {{ ui.btn_secondary(_("Terugbetalen…"), attrs='@click="terug = !terug"') }}
+      {% set _ignore = _acts.append(ui.btn_secondary(_("Terugbetalen…"), size="sm", attrs='@click="terug = !terug"')) %}
       {% endif %}
       {% if r.method == "online" %}
-      {{ ui.btn_secondary(_("Ververs bij Mollie"), attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/verversen" hx-target="#betalingen-lijst" hx-swap="innerHTML"') }}
+      {% set _ignore = _acts.append(ui.btn_secondary(_("Ververs bij Mollie"), size="sm", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/verversen" hx-target="#betalingen-lijst" hx-swap="innerHTML"')) %}
       {% endif %}
-      {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-confirm="' ~ _("Deze betaling verwijderen (uit het saldo)?") ~ '"') }}
+      {{ ui.row_actions(actions=_acts, delete_attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML" data-confirm="' ~ _("Deze betaling verwijderen (uit het saldo)?") ~ '"') }}
     </div>
     {# Geünificeerde editor (#515): Status + Betaald bedrag + Opmerking in één form —
        óók voor een refund, waar je zo de effectief uitbetaalde som registreert.

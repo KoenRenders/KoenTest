@@ -19,15 +19,38 @@
 {{- "inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors " ~ variants.get(variant, variants["primary"]) ~ " " ~ sizes.get(size, sizes["md"]) -}}
 {%- endmacro %}
 
-{% macro button(label, variant="primary", type="submit", href=None, size="md", attrs="", cls="") -%}
+{# `lead_icon` prependt een SVG-icoon (ui.icon) vóór het label — nette knoppen met
+   icoon zonder de SVG via een geëscapet label te moeten sluizen (#593). #}
+{% macro button(label, variant="primary", type="submit", href=None, size="md", attrs="", cls="", lead_icon=None) -%}
 {%- set _c = btn_class(variant, size) ~ (" " ~ cls if cls else "") -%}
-{% if href %}<a href="{{ href }}" class="{{ _c }}" {{ attrs|safe }}>{{ label }}</a>{% else %}<button type="{{ type }}" class="{{ _c }}" {{ attrs|safe }}>{{ label }}</button>{% endif %}
+{%- set _ic = icon(lead_icon) if lead_icon else "" -%}
+{% if href %}<a href="{{ href }}" class="{{ _c }}" {{ attrs|safe }}>{{ _ic }}{{ label }}</a>{% else %}<button type="{{ type }}" class="{{ _c }}" {{ attrs|safe }}>{{ _ic }}{{ label }}</button>{% endif %}
 {%- endmacro %}
 
-{% macro btn_primary(label, type="submit", href=None, size="md", attrs="", cls="") -%}{{ button(label, "primary", type, href, size, attrs, cls) }}{%- endmacro %}
-{% macro btn_secondary(label, type="button", href=None, size="md", attrs="", cls="") -%}{{ button(label, "secondary", type, href, size, attrs, cls) }}{%- endmacro %}
-{% macro btn_danger(label, type="button", href=None, size="md", attrs="", cls="") -%}{{ button(label, "danger", type, href, size, attrs, cls) }}{%- endmacro %}
-{% macro btn_outline(label, type="button", href=None, size="sm", attrs="", cls="") -%}{{ button(label, "outline", type, href, size, attrs, cls) }}{%- endmacro %}
+{% macro btn_primary(label, type="submit", href=None, size="md", attrs="", cls="", lead_icon=None) -%}{{ button(label, "primary", type, href, size, attrs, cls, lead_icon) }}{%- endmacro %}
+{% macro btn_secondary(label, type="button", href=None, size="md", attrs="", cls="", lead_icon=None) -%}{{ button(label, "secondary", type, href, size, attrs, cls, lead_icon) }}{%- endmacro %}
+{% macro btn_danger(label, type="button", href=None, size="md", attrs="", cls="", lead_icon=None) -%}{{ button(label, "danger", type, href, size, attrs, cls, lead_icon) }}{%- endmacro %}
+{% macro btn_outline(label, type="button", href=None, size="sm", attrs="", cls="", lead_icon=None) -%}{{ button(label, "outline", type, href, size, attrs, cls, lead_icon) }}{%- endmacro %}
+
+{# ── Iconen (#593, §1.5) ───────────────────────────────────────────────────────
+   Eén SVG-icoonset (Lucide, ISC-licentie) via `ui.icon('naam')` i.p.v. losse
+   glyphs (⬇/⬆/📄/▲▼/↑↓/⌕) die per lettertype/OS anders renderen. Stroke-based,
+   erft `currentColor`, `aria-hidden` (decoratief; de knoptekst draagt de betekenis).
+   Onbekende naam → lege, onzichtbare SVG (faalt stil, breekt de layout niet). #}
+{% macro icon(name, size=16, cls="") -%}
+{%- set paths = {
+  "download": '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
+  "upload": '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/>',
+  "file-text": '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
+  "printer": '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/>',
+  "search": '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  "chevron-up": '<path d="m18 15-6-6-6 6"/>',
+  "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+  "arrow-up": '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
+  "arrow-down": '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
+  "plus": '<path d="M5 12h14"/><path d="M12 5v14"/>'} -%}
+<svg xmlns="http://www.w3.org/2000/svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 {{ cls }}" aria-hidden="true">{{ paths.get(name, '')|safe }}</svg>
+{%- endmacro %}
 
 {% macro badge(label, tone="gray") -%}
 {%- set tones = {"gray": "bg-gray-100 text-gray-600", "green": "bg-green-100 text-green-800",
@@ -53,7 +76,9 @@
 {# Bevestigingsdialoog (ConfirmDialog-conventie): «<Type> "<naam>" definitief
    verwijderen?». Sinds #514 een PLAIN-string global `confirm_attrs(type, naam)`
    (in app/ui/__init__.py) i.p.v. een macro — een macro (Markup) escapte anders de
-   hx-post-quotes bij `attrs='…' ~ confirm_attrs(…)`. Gebruik: op de knop:
+   hx-post-quotes bij `attrs='…' ~ confirm_attrs(…)`. Sinds #595 levert het een
+   `data-confirm`-attribuut dat de in-app modal (ui.confirm_host) oppikt; het native
+   browser-confirm is verbannen. Gebruik: op de knop:
    attrs='hx-post="…" hx-target="…" hx-swap="…" ' ~ confirm_attrs('Type', naam). #}
 
 {# Foutbanner (B2-conventie: banner boven het formulier, geen alert()). #}
@@ -141,21 +166,23 @@
 </div>
 {%- endmacro %}
 
-{# Reorder-knoppen (▲▼): naar boven/onder verplaatsen. `up_attrs`/`down_attrs`
-   dragen de hx-* of href; `first`/`last` dimmen de eindstanden. #}
+{# Reorder-knoppen (#594, §2.4): naar boven/onder verplaatsen — één glyph-set via
+   ui.icon() i.p.v. handmatige ▲▼/↑↓. `up_attrs`/`down_attrs` dragen de hx-* of href;
+   `first`/`last` dimmen de eindstanden. Dé enige reorder-vorm; schermen bouwen geen
+   eigen pijltjesknoppen meer. #}
 {% macro reorder(up_attrs="", down_attrs="", first=False, last=False) -%}
 <span class="inline-flex flex-col leading-none">
-  <button type="button" class="text-gray-400 hover:text-blue-700 disabled:opacity-30 text-xs" {% if first %}disabled{% endif %} {{ up_attrs|safe }} aria-label="{{ _("Naar boven") }}">▲</button>
-  <button type="button" class="text-gray-400 hover:text-blue-700 disabled:opacity-30 text-xs" {% if last %}disabled{% endif %} {{ down_attrs|safe }} aria-label="{{ _("Naar onder") }}">▼</button>
+  <button type="button" class="text-gray-400 hover:text-blue-700 disabled:opacity-30" {% if first %}disabled{% endif %} {{ up_attrs|safe }} aria-label="{{ _("Naar boven") }}">{{ icon('chevron-up', size=14) }}</button>
+  <button type="button" class="text-gray-400 hover:text-blue-700 disabled:opacity-30" {% if last %}disabled{% endif %} {{ down_attrs|safe }} aria-label="{{ _("Naar onder") }}">{{ icon('chevron-down', size=14) }}</button>
 </span>
 {%- endmacro %}
 
 {# Export-knoppen: dezelfde data als ODS én JSON (design-system §2.3). #}
 {% macro export_links(ods_url=None, json_url=None, csv_url=None) -%}
 <div class="inline-flex items-center gap-2">
-  {% if ods_url %}<a href="{{ ods_url }}" class="inline-flex items-center gap-1 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg px-3 py-1.5 text-sm font-medium">⬇ ODS</a>{% endif %}
-  {% if csv_url %}<a href="{{ csv_url }}" class="inline-flex items-center gap-1 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg px-3 py-1.5 text-sm font-medium">⬇ CSV</a>{% endif %}
-  {% if json_url %}<a href="{{ json_url }}" class="inline-flex items-center gap-1 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg px-3 py-1.5 text-sm font-medium">⬇ JSON</a>{% endif %}
+  {% if ods_url %}<a href="{{ ods_url }}" class="inline-flex items-center gap-1 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg px-3 py-1.5 text-sm font-medium">{{ icon('download') }} ODS</a>{% endif %}
+  {% if csv_url %}<a href="{{ csv_url }}" class="inline-flex items-center gap-1 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg px-3 py-1.5 text-sm font-medium">{{ icon('download') }} CSV</a>{% endif %}
+  {% if json_url %}<a href="{{ json_url }}" class="inline-flex items-center gap-1 border border-gray-300 hover:bg-gray-100 text-gray-700 rounded-lg px-3 py-1.5 text-sm font-medium">{{ icon('download') }} JSON</a>{% endif %}
 </div>
 {%- endmacro %}
 
@@ -228,7 +255,7 @@
          {% if standalone %}hx-get="{{ hx_get }}" hx-target="{{ hx_target }}" hx-swap="innerHTML"
          hx-trigger="input changed delay:300ms, search"
          {% if include %}hx-include="{{ include }}"{% endif %}{% endif %}>
-  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft pointer-events-none" aria-hidden="true">⌕</span>
+  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft pointer-events-none">{{ icon('search') }}</span>
 </div>
 {%- endmacro %}
 
@@ -325,6 +352,60 @@
 <div id="toasts" class="fixed top-4 right-4 z-50 flex flex-col gap-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none"></div>
 {%- endmacro %}
 
+{# ── Bevestig-modal (#595, A1: in-app modal i.p.v. het native browser-dialoog) ──
+   Eén in-app bevestigingsdialoog voor de hele app; het native browser-confirm()
+   (via htmx' `hx-confirm`) is verbannen — zie de lint-gate. Idiomatisch htmx: we
+   luisteren op `htmx:confirm`, dat vóór ELK verzoek vuurt. Draagt het element een
+   `data-confirm`, dan annuleren we het verzoek (`preventDefault`), tonen we de
+   modal, en pas op "Bevestigen" hervatten we het via `issueRequest(true)`. Zonder
+   `data-confirm` doet de handler niets en gaat het verzoek gewoon door.
+   `confirm_attrs(type, naam)` (app/ui/__init__.py) levert het `data-confirm`-attr;
+   een los `data-confirm="…"` kan ook. Optioneel `data-confirm-ok="Label"` zet de
+   OK-knoptekst. Zet dit één keer in de basis-template, naast toast_host(). #}
+{% macro confirm_host() -%}
+<div id="confirm-modal" class="fixed inset-0 z-[60] hidden items-center justify-center p-4"
+     style="background:rgba(17,17,17,.5)" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-msg">
+  <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+    <div class="px-5 py-5">
+      <p id="confirm-modal-msg" class="text-sm text-ink"></p>
+    </div>
+    <div class="flex justify-end gap-2 border-t border-gray-200 px-5 py-3">
+      <button type="button" id="confirm-modal-cancel" class="{{ btn_class('secondary') }}">{{ _("Annuleren") }}</button>
+      <button type="button" id="confirm-modal-ok" data-default="{{ _("Bevestigen") }}" class="{{ btn_class('primary') }}">{{ _("Bevestigen") }}</button>
+    </div>
+  </div>
+</div>
+<script>
+(function () {
+  var modal = document.getElementById('confirm-modal');
+  var msg = document.getElementById('confirm-modal-msg');
+  var okBtn = document.getElementById('confirm-modal-ok');
+  var cancelBtn = document.getElementById('confirm-modal-cancel');
+  var pending = null;
+  function close() { modal.classList.add('hidden'); modal.classList.remove('flex'); pending = null; }
+  function open(text, okLabel) {
+    msg.textContent = text;
+    okBtn.textContent = okLabel || okBtn.dataset.default;
+    modal.classList.remove('hidden'); modal.classList.add('flex');
+    okBtn.focus();
+  }
+  document.body.addEventListener('htmx:confirm', function (evt) {
+    var q = evt.detail.elt.getAttribute('data-confirm');
+    if (!q) return;                 // geen bevestiging gevraagd → verzoek gaat door
+    evt.preventDefault();           // htmx pauzeren tot de gebruiker kiest
+    pending = evt.detail;
+    open(q, evt.detail.elt.getAttribute('data-confirm-ok'));
+  });
+  okBtn.addEventListener('click', function () { var p = pending; close(); if (p) p.issueRequest(true); });
+  cancelBtn.addEventListener('click', close);
+  modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !modal.classList.contains('hidden')) close();
+  });
+})();
+</script>
+{%- endmacro %}
+
 {% macro grouped_filter(name, top_options=[], groups={}, current="", hx_get="", hx_target="") -%}
 <select name="{{ name }}" class="border border-gray-300 rounded-lg px-3 py-2 text-sm"
         {% if hx_get %}hx-get="{{ hx_get }}" hx-target="{{ hx_target }}" hx-swap="innerHTML" hx-trigger="change"{% endif %}>
@@ -399,8 +480,8 @@
 <div class="flex items-center justify-between gap-2 bg-blue-700 text-white px-4 py-2">
   <span class="font-semibold text-sm">{{ label }}</span>
   <div class="flex items-center gap-1">
-    {% if up_attrs %}<button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/20" {{ up_attrs|safe }} aria-label="{{ _('Omhoog') }}">↑</button>{% endif %}
-    {% if down_attrs %}<button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/20" {{ down_attrs|safe }} aria-label="{{ _('Omlaag') }}">↓</button>{% endif %}
+    {% if up_attrs %}<button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/20" {{ up_attrs|safe }} aria-label="{{ _('Omhoog') }}">{{ icon('arrow-up', size=14) }}</button>{% endif %}
+    {% if down_attrs %}<button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/20" {{ down_attrs|safe }} aria-label="{{ _('Omlaag') }}">{{ icon('arrow-down', size=14) }}</button>{% endif %}
     {% if edit_attrs %}<button type="button" class="px-2 py-0.5 rounded hover:bg-white/20 text-sm" {{ edit_attrs|safe }}><span x-show="!sedit">{{ _("Bewerken") }}</span><span x-show="sedit" x-cloak>{{ _("Annuleren") }}</span></button>{% endif %}
     {% if delete_attrs %}<button type="button" class="px-2 py-0.5 rounded bg-red-500/30 hover:bg-red-500/60" {{ delete_attrs|safe }} aria-label="{{ _('Verwijderen') }}">×</button>{% endif %}
   </div>

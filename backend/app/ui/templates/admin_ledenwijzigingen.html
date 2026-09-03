@@ -7,7 +7,7 @@
    aparte "Toon"-knop is weg. De export blijft als secundaire actie naast de
    titel. Het zoekveld filtert op actor, want dát is de vrije tekst hier. #}
 {% call ui.page_header(_("Wijzigingen"), _("Audit-logboek van alle wijzigingen; filter op periode, objectgroep of wie ze deed.")) %}
-  {{ ui.btn_secondary("⬇ " ~ _("Ledenexport (.ods) voor Raak Nationaal"),
+  {{ ui.btn_secondary(_("Ledenexport (.ods) voor Raak Nationaal"), lead_icon="download",
                       href="/admin/ledenwijzigingen/export?since=" ~ since, size="sm") }}
 {% endcall %}
 

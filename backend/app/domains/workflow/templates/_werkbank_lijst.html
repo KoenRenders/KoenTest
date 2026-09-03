@@ -4,22 +4,20 @@
    erin zitten, dan sprong je zoekveld om de 30 s leeg. #}
 {% if tasks %}
 <div class="space-y-3">
+  {# C1 (#597): de kaart klikt door naar de full-page taak-editor (werkbank_taak.html),
+     geen inline master-detail-uitklap meer. #}
   {% for task in tasks %}
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ open: false }">
+  <a href="/admin/werkbank/taken/{{ task.id }}"
+     class="block bg-white rounded-2xl shadow-sm border border-gray-200 p-4 hover:border-blue-300 hover:shadow transition-colors">
     <div class="flex items-center justify-between gap-4">
       <div>
         <span class="font-semibold">{{ task.title }}</span>
         <span class="ml-2">{{ ui.badge(task.kind, "blue") }}</span>
         <span class="ml-2 text-sm text-gray-500">{{ task.created_at.strftime("%d-%m-%Y %H:%M") }}</span>
       </div>
-      <button class="{{ ui.btn_class('secondary', 'sm') }}"
-              @click="open = !open"
-              hx-get="/admin/werkbank/taken/{{ task.id }}" hx-target="#taak-{{ task.id }}" hx-swap="innerHTML">
-        {{ _("Behartigen") }}
-      </button>
+      <span class="{{ ui.btn_class('secondary', 'sm') }}">{{ _("Behartigen") }}</span>
     </div>
-    <div id="taak-{{ task.id }}" x-show="open" class="mt-4"></div>
-  </div>
+  </a>
   {% endfor %}
 </div>
 {% else %}
