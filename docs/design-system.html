@@ -478,6 +478,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <li><a href="#s5">5 · Accessibility</a></li>
       <li><a href="#s6">6 · Migration</a></li>
       <li><a href="#s7">7 · Governance</a></li>
+      <li style="margin-top:6px"><a href="#refscreens" style="font-weight:700;color:var(--ink);text-transform:uppercase;letter-spacing:.05em;font-size:.78rem">Reference screens</a></li>
       <li><a href="#grp-a">A · Common</a>
         <ol>
           <li><a href="#sa-a1">A1 · Gezin/lid <span class="tocp">shared</span></a></li>
@@ -485,8 +486,8 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       </li>
       <li><a href="#grp-b">B · Public</a>
         <ol>
-          <li><a href="#sa-b1">B1 · Lid worden <span class="tocp">Form</span></a></li>
-          <li><a href="#sa-b2">B2 · Home <span class="tocp">Hero + cards</span></a></li>
+          <li><a href="#sa-b1">B1 · Home <span class="tocp">Hero + cards</span></a></li>
+          <li><a href="#sa-b2">B2 · Lid worden <span class="tocp">Form</span></a></li>
           <li><a href="#sa-b3">B3 · Raakje AI <span class="tocp">Dialog</span></a></li>
         </ol>
       </li>
@@ -840,9 +841,11 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
   </section>
 
   <!-- Appendix -->
+  <div id="refscreens" class="sec-h" style="margin-top:var(--s8)"><h2 style="font-size:1.15rem;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-soft)">Reference screens</h2></div>
+  <p class="lede">All patterns together, applied to real screens — the visual reference for the roll-out (phase 4). Split into <b>A · Common</b> (shared structure), <b>B · Public</b> and <b>C · Admin</b>.</p>
+
   <section id="grp-a">
     <div class="sec-h"><span class="num">A</span><h2>Common</h2></div>
-    <p class="lede">All patterns together, applied to real screens — the visual reference for the roll-out (phase 4). Grouped in <b>A · Common</b> (shared person/family fields), <b>B · Public</b> and <b>C · Admin</b> so the distinction from §3 becomes tangible.</p>
 
     <!-- Screen A1: Person/family fields (shared, #511) -->
     <div class="scrlabel" id="sa-a1">Screen A1 <span class="badge b-gray">Common</span> · Gezin/lid bewerken — shared person fields <span class="ptn">Reused in Word lid · Mijn gezin · Admin-leden (#511)</span></div>
@@ -868,64 +871,8 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
 
   <section id="grp-b">
     <div class="sec-h"><span class="num">B</span><h2>Public</h2></div>
-    <!-- Scherm 1: Lid worden (publiek) -->
-    <div class="scrlabel" id="sa-b1">Screen B1 <span class="tag tag-pub">Public</span> · "Lid worden" (family registration · address grid · payment method) <span class="ptn">Pattern 4 · Form</span></div>
-    <div class="frame pub">
-      <div class="pubnav"><span class="lg">Raak<small>Beleef meer in Millegem</small></span><span class="lk"><a href="#sa">Home</a><a href="#sa">Werking</a><a href="#sa">Foto's</a><a href="#sa">Archief</a><a href="#sa">Inloggen</a></span></div>
-      <div class="pubform">
-        <h3 style="font-family:var(--brand);font-size:1.5rem;color:var(--primary-ink);margin:0 0 4px">Word lid van Raak Millegem</h3>
-        <div class="note" style="margin:0 0 16px"><span class="badge b-gray" style="margin-right:6px">CMS · lidmaatschap-info</span> Heb je zin om lid te worden? Het lidmaatschap bedraagt €35,00 voor een gezin. Van 16 april tot 16 september betaal je slechts €17,50. Vanaf 17 september ben je meteen ook lid voor het volgende jaar. <i>— beheerbaar via admin-CMS (verhuisd vanaf de home-header).</i></div>
-
-        <h4 class="block" style="margin-top:0">Hoofdlid</h4>
-        <div class="memberblock">
-          <div class="fgrid2">
-            <div class="field" style="margin:0"><label>Voornaam <span class="req">*</span></label><input class="input" value="Jan"></div>
-            <div class="field" style="margin:0"><label>Achternaam <span class="req">*</span></label><input class="input" value="Peeters"></div>
-            <div class="field" style="margin:0"><label>Geboortedatum</label><input class="input" type="date"></div>
-            <div class="field" style="margin:0"><label>Geslacht</label><select class="select"><option>— kies —</option><option>M</option><option>V</option><option>X</option></select></div>
-            <div class="field" style="margin:0"><label>E-mail <span class="req">*</span></label><input class="input" type="email" value="jan.peeters@voorbeeld.be"></div>
-            <div class="field" style="margin:0"><label>Mobiel</label><input class="input" value="0470/12 34 56"></div>
-            <div class="field" style="margin:0"><label>Telefoon</label><input class="input"></div>
-          </div>
-        </div>
-
-        <h4 class="block">Adres</h4>
-        <div class="addgrid" style="margin-bottom:16px">
-          <div class="field" style="margin:0"><label>Straat <span class="req">*</span></label><input class="input" value="Kerkstraat"></div>
-          <div class="field" style="margin:0"><label>Nr <span class="req">*</span></label><input class="input" value="12"></div>
-          <div class="field" style="margin:0"><label>Bus</label><input class="input"></div>
-          <div class="field full" style="margin:0"><label>Postcode <span class="req">*</span></label><select class="select"><option>2400 · Mol</option><option>2400 · Millegem</option></select></div>
-        </div>
-
-        <h4 class="block">Gezinsleden</h4>
-        <div class="memberblock">
-          <div class="mh"><b>Gezinslid</b><button class="btn btn-icon btn-danger" aria-label="Verwijder gezinslid"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></div>
-          <div class="fgrid2">
-            <div class="field" style="margin:0"><label>Voornaam <span class="req">*</span></label><input class="input"></div>
-            <div class="field" style="margin:0"><label>Achternaam <span class="req">*</span></label><input class="input"></div>
-            <div class="field" style="margin:0"><label>Geboortedatum <span class="req">*</span></label><input class="input" type="date"></div>
-            <div class="field" style="margin:0"><label>Geslacht <span class="req">*</span></label><select class="select"><option>— kies —</option><option>M</option><option>V</option><option>X</option></select></div>
-            <div class="field" style="margin:0"><label>E-mail</label><input class="input" type="email"></div>
-            <div class="field" style="margin:0"><label>Mobiel</label><input class="input"></div>
-            <div class="field" style="margin:0"><label>Telefoon</label><input class="input"></div>
-            <div class="field" style="margin:0"><label>Relatie</label><select class="select"><option>Partner</option><option>(meerderjarig) kind</option></select></div>
-          </div>
-        </div>
-        <button class="btn btn-fine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M5 12h14M12 5v14"/></svg> Gezinslid toevoegen</button>
-        <p class="hint" style="margin-top:4px">Bij bijkomende leden zijn geboortedatum en geslacht verplicht (#551). Contact (e-mail, mobiel, telefoon) mag per gezinslid.</p>
-        <div class="note" style="margin-top:12px">Deze <b>gezinslid-veldenset</b> (naam · geboortedatum · geslacht · e-mail · mobiel · telefoon · relatie) is de gedeelde <code>person_fields</code>-macro (#511) — exact hergebruikt in <b>Admin → Leden</b> en <b>Publiek → Mijn gezin</b>, zodat de drie schermen nooit uiteenlopen.</div>
-
-        <h4 class="block">Betaling</h4>
-        <div class="row" style="gap:20px;margin-bottom:16px">
-          <span class="checkline"><input type="radio" name="paydemo" checked> Online (Mollie)</span>
-          <span class="checkline"><input type="radio" name="paydemo"> Overschrijving</span>
-        </div>
-        <button class="btn btn-primary" style="width:100%;justify-content:center">Word lid — € 35,00</button>
-      </div>
-    </div>
-
     <!-- Scherm 5: Publiek -->
-    <div class="scrlabel" id="sa-b2">Screen B2 <span class="tag tag-pub">Public</span> · Home (header · Word lid / Contacteer ons · activities · footer) <span class="ptn">Pattern 2 · Hero/page header + 3 · Cards</span></div>
+    <div class="scrlabel" id="sa-b1">Screen B1 <span class="tag tag-pub">Public</span> · Home (header · Word lid / Contacteer ons · activities · footer) <span class="ptn">Pattern 2 · Hero/page header + 3 · Cards</span></div>
     <div class="note"><b>Auth-afhankelijk (#499/#467):</b> zowel de nav als de <b>hoofdactieknop</b> (de opvallende knop die de bezoeker tot één duidelijke stap aanzet) hangen af van de login-status. <b>Uitgelogd</b> (hieronder getoond): nav eindigt op "Inloggen", hoofdactieknop = <b>"Word lid"</b>. <b>Ingelogd lid</b>: nav krijgt "Mijn gezin · Admin · Uitloggen (naam)" en de hoofdactieknop wordt <b>"Mijn gezin"</b> (zie de balk hieronder).</div>
     <div style="background:var(--primary);color:#fff;border-radius:var(--r-md);padding:11px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px">
       <span style="font-family:var(--brand);font-weight:800;font-size:1.05rem">Raak <span style="font-size:.66rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.08em">· ingelogd-variant</span></span>
@@ -1006,6 +953,62 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
         </div>
         <div class="addr"><span class="badge b-gray" style="margin-right:6px">CMS / tenant-config</span> Raak Millegem (feitelijke vereniging) · Voorbeeldstraat 1, 0000 Voorbeeld · info@voorbeeld.be · IBAN BE00 0000 0000 0000 · BIC XXXXXXXX</div>
         <div class="bottom"><span>© 2026 Raak Millegem</span><a href="#sa">Privacyverklaring</a></div>
+      </div>
+    </div>
+
+    <!-- Scherm 1: Lid worden (publiek) -->
+    <div class="scrlabel" id="sa-b2">Screen B2 <span class="tag tag-pub">Public</span> · "Lid worden" (family registration · address grid · payment method) <span class="ptn">Pattern 4 · Form</span></div>
+    <div class="frame pub">
+      <div class="pubnav"><span class="lg">Raak<small>Beleef meer in Millegem</small></span><span class="lk"><a href="#sa">Home</a><a href="#sa">Werking</a><a href="#sa">Foto's</a><a href="#sa">Archief</a><a href="#sa">Inloggen</a></span></div>
+      <div class="pubform">
+        <h3 style="font-family:var(--brand);font-size:1.5rem;color:var(--primary-ink);margin:0 0 4px">Word lid van Raak Millegem</h3>
+        <div class="note" style="margin:0 0 16px"><span class="badge b-gray" style="margin-right:6px">CMS · lidmaatschap-info</span> Heb je zin om lid te worden? Het lidmaatschap bedraagt €35,00 voor een gezin. Van 16 april tot 16 september betaal je slechts €17,50. Vanaf 17 september ben je meteen ook lid voor het volgende jaar. <i>— beheerbaar via admin-CMS (verhuisd vanaf de home-header).</i></div>
+
+        <h4 class="block" style="margin-top:0">Hoofdlid</h4>
+        <div class="memberblock">
+          <div class="fgrid2">
+            <div class="field" style="margin:0"><label>Voornaam <span class="req">*</span></label><input class="input" value="Jan"></div>
+            <div class="field" style="margin:0"><label>Achternaam <span class="req">*</span></label><input class="input" value="Peeters"></div>
+            <div class="field" style="margin:0"><label>Geboortedatum</label><input class="input" type="date"></div>
+            <div class="field" style="margin:0"><label>Geslacht</label><select class="select"><option>— kies —</option><option>M</option><option>V</option><option>X</option></select></div>
+            <div class="field" style="margin:0"><label>E-mail <span class="req">*</span></label><input class="input" type="email" value="jan.peeters@voorbeeld.be"></div>
+            <div class="field" style="margin:0"><label>Mobiel</label><input class="input" value="0470/12 34 56"></div>
+            <div class="field" style="margin:0"><label>Telefoon</label><input class="input"></div>
+          </div>
+        </div>
+
+        <h4 class="block">Adres</h4>
+        <div class="addgrid" style="margin-bottom:16px">
+          <div class="field" style="margin:0"><label>Straat <span class="req">*</span></label><input class="input" value="Kerkstraat"></div>
+          <div class="field" style="margin:0"><label>Nr <span class="req">*</span></label><input class="input" value="12"></div>
+          <div class="field" style="margin:0"><label>Bus</label><input class="input"></div>
+          <div class="field full" style="margin:0"><label>Postcode <span class="req">*</span></label><select class="select"><option>2400 · Mol</option><option>2400 · Millegem</option></select></div>
+        </div>
+
+        <h4 class="block">Gezinsleden</h4>
+        <div class="memberblock">
+          <div class="mh"><b>Gezinslid</b><button class="btn btn-icon btn-danger" aria-label="Verwijder gezinslid"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg></button></div>
+          <div class="fgrid2">
+            <div class="field" style="margin:0"><label>Voornaam <span class="req">*</span></label><input class="input"></div>
+            <div class="field" style="margin:0"><label>Achternaam <span class="req">*</span></label><input class="input"></div>
+            <div class="field" style="margin:0"><label>Geboortedatum <span class="req">*</span></label><input class="input" type="date"></div>
+            <div class="field" style="margin:0"><label>Geslacht <span class="req">*</span></label><select class="select"><option>— kies —</option><option>M</option><option>V</option><option>X</option></select></div>
+            <div class="field" style="margin:0"><label>E-mail</label><input class="input" type="email"></div>
+            <div class="field" style="margin:0"><label>Mobiel</label><input class="input"></div>
+            <div class="field" style="margin:0"><label>Telefoon</label><input class="input"></div>
+            <div class="field" style="margin:0"><label>Relatie</label><select class="select"><option>Partner</option><option>(meerderjarig) kind</option></select></div>
+          </div>
+        </div>
+        <button class="btn btn-fine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14"><path d="M5 12h14M12 5v14"/></svg> Gezinslid toevoegen</button>
+        <p class="hint" style="margin-top:4px">Bij bijkomende leden zijn geboortedatum en geslacht verplicht (#551). Contact (e-mail, mobiel, telefoon) mag per gezinslid.</p>
+        <div class="note" style="margin-top:12px">Deze <b>gezinslid-veldenset</b> (naam · geboortedatum · geslacht · e-mail · mobiel · telefoon · relatie) is de gedeelde <code>person_fields</code>-macro (#511) — exact hergebruikt in <b>Admin → Leden</b> en <b>Publiek → Mijn gezin</b>, zodat de drie schermen nooit uiteenlopen.</div>
+
+        <h4 class="block">Betaling</h4>
+        <div class="row" style="gap:20px;margin-bottom:16px">
+          <span class="checkline"><input type="radio" name="paydemo" checked> Online (Mollie)</span>
+          <span class="checkline"><input type="radio" name="paydemo"> Overschrijving</span>
+        </div>
+        <button class="btn btn-primary" style="width:100%;justify-content:center">Word lid — € 35,00</button>
       </div>
     </div>
 
