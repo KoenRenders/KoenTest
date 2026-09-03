@@ -478,12 +478,20 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <li><a href="#s5">5 · Accessibility</a></li>
       <li><a href="#s6">6 · Migration</a></li>
       <li><a href="#s7">7 · Governance</a></li>
-      <li><a href="#sa">A · Reference screens</a>
+      <li><a href="#grp-a">A · Common</a>
         <ol>
-          <li><a href="#sa-a1">A1 · Gezin/lid <span class="tocp">Common</span></a></li>
+          <li><a href="#sa-a1">A1 · Gezin/lid <span class="tocp">shared</span></a></li>
+        </ol>
+      </li>
+      <li><a href="#grp-b">B · Public</a>
+        <ol>
           <li><a href="#sa-b1">B1 · Lid worden <span class="tocp">Form</span></a></li>
           <li><a href="#sa-b2">B2 · Home <span class="tocp">Hero + cards</span></a></li>
           <li><a href="#sa-b3">B3 · Raakje AI <span class="tocp">Dialog</span></a></li>
+        </ol>
+      </li>
+      <li><a href="#grp-c">C · Admin</a>
+        <ol>
           <li><a href="#sa-c1">C1 · List index <span class="tocp">Records</span></a></li>
           <li><a href="#sa-c2">C2 · Dashboard <span class="tocp">Detail</span></a></li>
           <li><a href="#sa-c3">C3 · Activities <span class="tocp">List index</span></a></li>
@@ -832,11 +840,10 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
   </section>
 
   <!-- Appendix -->
-  <section id="sa">
-    <div class="sec-h"><span class="num">A</span><h2>Reference screens</h2></div>
+  <section id="grp-a">
+    <div class="sec-h"><span class="num">A</span><h2>Common</h2></div>
     <p class="lede">All patterns together, applied to real screens — the visual reference for the roll-out (phase 4). Grouped in <b>A · Common</b> (shared person/family fields), <b>B · Public</b> and <b>C · Admin</b> so the distinction from §3 becomes tangible.</p>
 
-    <h3 class="block" style="margin-top:32px;border-top:2px solid var(--line);padding-top:20px">A · Common — shared structure</h3>
     <!-- Screen A1: Person/family fields (shared, #511) -->
     <div class="scrlabel" id="sa-a1">Screen A1 <span class="badge b-gray">Common</span> · Gezin/lid bewerken — shared person fields <span class="ptn">Reused in Word lid · Mijn gezin · Admin-leden (#511)</span></div>
     <div class="frame" style="background:var(--ground);padding:20px">
@@ -857,7 +864,10 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <p class="hint" style="text-align:center;max-width:580px;margin:12px auto 0">Shared person/family field set (macro <code>person_fields</code>, #511) — the same block is reused in <b>Word lid</b>, <b>Mijn gezin</b> and <b>Admin-leden</b>, so a person is edited identically everywhere.</p>
     </div>
 
-    <h3 class="block" style="margin-top:32px;border-top:2px solid var(--line);padding-top:20px">B · Public</h3>
+  </section>
+
+  <section id="grp-b">
+    <div class="sec-h"><span class="num">B</span><h2>Public</h2></div>
     <!-- Scherm 1: Lid worden (publiek) -->
     <div class="scrlabel" id="sa-b1">Screen B1 <span class="tag tag-pub">Public</span> · "Lid worden" (family registration · address grid · payment method) <span class="ptn">Pattern 4 · Form</span></div>
     <div class="frame pub">
@@ -1022,7 +1032,11 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       </div>
       <div class="rk-launch" title="Floating button bottom-right">💬</div>
       <p class="hint" style="text-align:center;max-width:420px;margin:10px auto 0">Floating button bottom-right on every public page. <b>Microphone</b> = STT (speech → text, Voxtral/EU) · <b>Read aloud</b> = TTS. The input is a <b>growing textarea</b> (multiple lines) — this fixes the HDEV bug where text disappeared after one line (v2.0 currently uses an <code>&lt;input&gt;</code>).</p>
-    </div>    <h3 class="block" style="margin-top:32px;border-top:2px solid var(--line);padding-top:20px">C · Admin</h3>
+    </div>
+  </section>
+
+  <section id="grp-c">
+    <div class="sec-h"><span class="num">C</span><h2>Admin</h2></div>
     <!-- Screen C1: List-index (general admin records pattern) -->
     <div class="scrlabel" id="sa-c1">Screen C1 <span class="tag tag-admin">Admin</span> · List index — the fixed layout of every records screen <span class="ptn">General records pattern</span></div>
     <div class="frame" style="background:var(--ground);padding:20px">
