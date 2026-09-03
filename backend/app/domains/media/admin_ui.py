@@ -57,7 +57,8 @@ def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
     # gezocht wordt — dat is de bedoeling van een zoekterm.
     term = q.strip().lower()
     if term:
-        assets = [a for a in assets if term in (a.title or "").lower()]
+        # admin_list_media levert lichte metadata-dicts (_meta), geen ORM-objecten.
+        assets = [a for a in assets if term in (a.get("title") or "").lower()]
 
     # Chip-labels horen per request opgebouwd: _() volgt de taal van de tenant.
     kind_labels = {"sponsor": _("Sponsors"), "activity_photo": _("Activiteitenfoto's")}
