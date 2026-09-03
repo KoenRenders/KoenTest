@@ -1,29 +1,31 @@
 #!/usr/bin/env bash
-# raakctl — één ingang voor het beheer van de omgevingen op de server.
+# raakctl — single entry point for managing the environments on the server.
 #
-#   raakctl                        menu (interactief)
-#   raakctl status [env]           containers, versie, alembic
-#   raakctl logs <env> [dienst] [-n N]   logs van één dienst (standaard backend)
-#   raakctl diagnose <env>         volledige diagnostiek -> /tmp/<env>-diagnostics.log
-#   raakctl backup <env>           handmatige pg_dump naar <checkout>/backups
-#   raakctl deploy hdev            master naar HDEV
-#   raakctl deploy uat  <tag>      release-tag naar UAT
+#   raakctl                              interactive menu
+#   raakctl status [env]                 checkout, version, containers
+#   raakctl logs <env> [service] [-n N]  logs of one service (default: backend)
+#   raakctl diagnose <env>               full report -> /tmp/<env>-diagnostics.log
+#   raakctl backup <env>                 manual pg_dump -> <checkout>/backups
+#   raakctl deploy hdev                  master to HDEV
+#   raakctl deploy uat  <tag>            release tag to UAT
 #   raakctl deploy prod <tag> --confirm
-#   raakctl caddy [ref]            gedeelde proxy toepassen
+#   raakctl caddy [ref]                  apply the shared proxy config
 #
-# Waarom dit bestaat: de scripts (deploy.sh, logging.sh, deploy-caddy.sh) werken
-# op de map waarin ze staan, en elke omgeving is een aparte checkout van dezelfde
-# repo. `/opt/.../uat/deploy.sh prod` bestaat dus gewoon. raakctl neemt die keuze
-# weg: je noemt een OMGEVING, niet een map en niet een script.
+# Why this exists: the scripts (deploy.sh, logging.sh, deploy-caddy.sh) act on the
+# directory they live in, and every environment is a separate checkout of the same
+# repository. So `/opt/.../uat/deploy.sh prod` exists and would do the wrong thing.
+# raakctl removes that choice: you name an ENVIRONMENT, not a directory and not a
+# script.
 #
-# Mapindeling: standaard zijn de omgevingen zustermappen van de checkout waarin
-# dit script staat (../hdev, ../uat, ../prod, ../caddy). Wijkt dat af, zet dan
-# DEPLOY_HDEV_DIR / DEPLOY_UAT_DIR / DEPLOY_PROD_DIR / DEPLOY_CADDY_DIR — dezelfde
-# namen die de /release-skill gebruikt. Er staan bewust geen serverpaden in deze
-# publieke repo.
+# Directory layout: by default the environments are sibling directories of the
+# checkout holding this script (../hdev, ../uat, ../prod, ../caddy). If the server
+# is laid out differently, set DEPLOY_HDEV_DIR / DEPLOY_UAT_DIR / DEPLOY_PROD_DIR /
+# DEPLOY_CADDY_DIR — the same names the /release skill uses. No server paths are
+# hard-coded here: this repository is public.
 set -euo pipefail
 
 RAAKCTL_ROOT="${RAAKCTL_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+ENVIRONMENTS=(hdev uat prod)
 
 die() { echo "raakctl: $*" >&2; exit 1; }
 
@@ -33,40 +35,40 @@ dir_for() {
     uat)   echo "${DEPLOY_UAT_DIR:-$RAAKCTL_ROOT/uat}" ;;
     prod)  echo "${DEPLOY_PROD_DIR:-$RAAKCTL_ROOT/prod}" ;;
     caddy) echo "${DEPLOY_CADDY_DIR:-$RAAKCTL_ROOT/caddy}" ;;
-    *)     die "onbekende omgeving '$1' — kies hdev, uat, prod of caddy" ;;
+    *)     die "unknown environment '$1' — pick hdev, uat, prod or caddy" ;;
   esac
 }
 
-checkout() {  # valideert en echoot de map
+checkout() {  # validates and echoes the directory
   local d; d="$(dir_for "$1")"
-  [ -d "$d/.git" ] || die "geen checkout gevonden in $d (zet DEPLOY_$(echo "$1" | tr a-z A-Z)_DIR)"
+  [ -d "$d/.git" ] || die "no checkout found in $d (set DEPLOY_$(echo "$1" | tr a-z A-Z)_DIR)"
   echo "$d"
 }
 
-compose() {  # $1=env, rest = args
+compose() {  # $1 = env, rest = docker compose arguments
   local env="$1"; shift
   ( cd "$(checkout "$env")" && docker compose -f "docker-compose.$env.yml" --env-file ".env.$env" "$@" )
 }
 
 # ── verbs ────────────────────────────────────────────────────────────────────
 cmd_status() {
-  local envs=("${1:-}"); [ -n "${1:-}" ] || envs=(hdev uat prod)
+  local envs=("${1:-}"); [ -n "${1:-}" ] || envs=("${ENVIRONMENTS[@]}")
   for env in "${envs[@]}"; do
     local d; d="$(checkout "$env")"
     echo "=== $env ==="
     echo "checkout : $d"
-    echo "versie   : $(git -C "$d" describe --tags --always 2>/dev/null || echo onbekend)"
-    compose "$env" ps --format 'table {{.Service}}\t{{.Status}}' 2>/dev/null || echo "(compose ps faalde)"
+    echo "version  : $(git -C "$d" describe --tags --always 2>/dev/null || echo unknown)"
+    compose "$env" ps --format 'table {{.Service}}\t{{.Status}}' 2>/dev/null || echo "(docker compose ps failed)"
     echo
   done
 }
 
-cmd_logs() {  # <env> [dienst] [-n N] — dienst is standaard backend
-  local env="${1:?geef een omgeving: hdev|uat|prod}"; shift || true
+cmd_logs() {  # <env> [service] [-n N] — service defaults to backend
+  local env="${1:?name an environment: hdev|uat|prod}"; shift || true
   local svc="backend" n=100
   while [ $# -gt 0 ]; do
     case "$1" in
-      -n) n="${2:?aantal regels na -n}"; shift 2 ;;
+      -n) n="${2:?number of lines after -n}"; shift 2 ;;
       *)  svc="$1"; shift ;;
     esac
   done
@@ -74,95 +76,112 @@ cmd_logs() {  # <env> [dienst] [-n N] — dienst is standaard backend
 }
 
 cmd_diagnose() {
-  local env="${1:?geef een omgeving: hdev|uat|prod}"
+  local env="${1:?name an environment: hdev|uat|prod}"
   ( cd "$(checkout "$env")" && ./logging.sh "$env" )
 }
 
 cmd_backup() {
-  # Handmatige dump, los van de dagelijkse db-backup-container. Zelfde vorm als de
-  # pre-migratie-backup in deploy.sh: credentials komen uit de db-container zelf,
-  # nooit uit dit script. Het prefix wijkt bewust af van dat van de dagelijkse
-  # dumps, zodat de opruiming van KEEP_DAYS deze niet weggooit.
-  local env="${1:?geef een omgeving: hdev|uat|prod}"
-  case "$env" in hdev|uat|prod) ;; *) die "backup kan van hdev, uat of prod — niet van '$env'" ;; esac
+  # Manual dump, independent of the daily db-backup container. Same shape as the
+  # pre-migration backup in deploy.sh: credentials come from the db container
+  # itself, never from this script. The prefix deliberately differs from the daily
+  # dumps so that db-backup.sh's KEEP_DAYS cleanup does not delete these.
+  local env="${1:?name an environment: hdev|uat|prod}"
+  case "$env" in hdev|uat|prod) ;; *) die "backup works on hdev, uat or prod — not on '$env'" ;; esac
   local d; d="$(checkout "$env")"
-  [ -n "$(compose "$env" ps -q db 2>/dev/null)" ] || die "de db-container van $env draait niet"
+  [ -n "$(compose "$env" ps -q db 2>/dev/null)" ] || die "the db container of $env is not running"
 
   local dir="$d/backups"; mkdir -p "$dir"
   local out="$dir/handmatig-$env-$(date +%Y%m%d-%H%M%S).sql.gz"
   compose "$env" exec -T db sh -c 'pg_dump -U "$POSTGRES_USER" "$POSTGRES_DB"' | gzip > "$out.tmp"
 
-  # Een back-up die je niet nakijkt is geen back-up: controleer dat er inhoud in
-  # zit en dat gzip hem kan uitpakken, vóór we hem als geldig bestempelen.
+  # A backup you do not check is not a backup: verify the archive is readable and
+  # non-empty before calling it valid.
   if ! gzip -t "$out.tmp" 2>/dev/null || [ ! -s "$out.tmp" ]; then
-    rm -f "$out.tmp"; die "dump mislukt of leeg — niets bewaard"
+    rm -f "$out.tmp"; die "dump failed or empty — nothing kept"
   fi
   mv "$out.tmp" "$out"
-  echo "Back-up: $out ($(du -h "$out" | cut -f1), $(gzip -dc "$out" | wc -l) regels SQL)"
-  echo "Haal hem van de server met:  scp raak:$out ."
+  echo "Backup: $out ($(du -h "$out" | cut -f1), $(gzip -dc "$out" | wc -l) lines of SQL)"
+  echo "Copy it off the server with:  scp raak:$out ."
 }
 
 cmd_deploy() {
-  local env="${1:?geef een omgeving: hdev|uat|prod}"; shift
-  # Guardrails eerst: een ontbrekende tag of bevestiging moet falen vóór we ook
-  # maar naar een checkout kijken.
+  local env="${1:?name an environment: hdev|uat|prod}"; shift
+  # Guardrails first: a missing tag or confirmation must fail before we even look
+  # at a checkout.
   local tag="" rest=()
   case "$env" in
     hdev) rest=("$@") ;;
     uat)
-      [ $# -ge 1 ] || die "UAT vereist een release-tag: raakctl deploy uat vX.Y.Z"
+      [ $# -ge 1 ] || die "UAT requires a release tag: raakctl deploy uat vX.Y.Z"
       tag="$1"; shift; rest=("$@") ;;
     prod)
-      [ $# -ge 1 ] || die "PROD vereist een release-tag: raakctl deploy prod vX.Y.Z --confirm"
+      [ $# -ge 1 ] || die "PROD requires a release tag: raakctl deploy prod vX.Y.Z --confirm"
       tag="$1"; shift
       local confirmed=0
       for a in "$@"; do
         if [ "$a" = "--confirm" ]; then confirmed=1; else rest+=("$a"); fi
       done
-      [ "$confirmed" = 1 ] || die "PROD-deploy vereist --confirm (raakctl deploy prod $tag --confirm)" ;;
-    *) die "deploy kan naar hdev, uat of prod — niet naar '$env'" ;;
+      [ "$confirmed" = 1 ] || die "a PROD deploy requires --confirm (raakctl deploy prod $tag --confirm)" ;;
+    *) die "deploy targets hdev, uat or prod — not '$env'" ;;
   esac
   local d; d="$(checkout "$env")"
   ( cd "$d" && ./deploy.sh "$env" ${tag:+"$tag"} ${rest[@]+"${rest[@]}"} )
 }
 
 cmd_caddy() {
-  # De gedeelde proxy bedient UAT én PROD; deploy-caddy.sh bepaalt zelf welke
-  # refs het gebruikt en valideert vóór het de draaiende proxy aanraakt.
+  # The shared proxy serves UAT *and* PROD. deploy-caddy.sh decides which refs to
+  # use and validates the config before touching the running container.
   ( cd "$(checkout caddy)" && ./deploy-caddy.sh "$@" )
 }
 
 usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; }
 
 # ── menu ─────────────────────────────────────────────────────────────────────
+# Pick an environment from a numbered list instead of typing it. Bash's `select`
+# writes the list to stderr, so the chosen value can be captured on stdout.
+pick_env() {
+  local options=("$@") choice
+  PS3="  environment (number): "
+  select choice in "${options[@]}" "cancel"; do
+    case "$choice" in
+      "")       echo "  invalid choice" >&2 ;;
+      cancel)   return 1 ;;
+      *)        echo "$choice"; return 0 ;;
+    esac
+  done
+  return 1
+}
+
 menu() {
   while true; do
     echo
     echo "  raakctl — $(hostname)"
-    echo "   1) status (alle omgevingen)      5) deploy HDEV (master)"
-    echo "   2) logs van één dienst           6) deploy UAT (tag)"
-    echo "   3) volledige diagnostiek         7) deploy PROD (tag)"
-    echo "   4) gedeelde Caddy toepassen      8) handmatige back-up"
-    echo "                                    q) stoppen"
-    echo "  (het rapport uit 3 haal je vanaf je laptop op met: raak fetch <env>)"
-    read -rp "  keuze: " k
+    echo "   1) status (all environments)     5) deploy HDEV (master)"
+    echo "   2) logs of one service           6) deploy UAT (tag)"
+    echo "   3) full diagnostics              7) deploy PROD (tag)"
+    echo "   4) apply shared Caddy            8) manual backup"
+    echo "                                    q) quit"
+    echo "  (fetch the report from step 3 onto your laptop with: raak fetch <env>)"
+    read -rp "  choice: " k
     case "$k" in
       1) cmd_status ;;
-      2) read -rp "  omgeving: " e
-         read -rp "  dienst (leeg = backend): " svc
+      2) e=$(pick_env "${ENVIRONMENTS[@]}") || continue
+         read -rp "  service (empty = backend): " svc
          cmd_logs "$e" ${svc:+"$svc"} ;;
-      3) read -rp "  omgeving: " e; cmd_diagnose "$e"
-         echo "  ophalen naar je laptop:  raak fetch $e" ;;
+      3) e=$(pick_env "${ENVIRONMENTS[@]}") || continue
+         cmd_diagnose "$e"
+         echo "  fetch it onto your laptop:  raak fetch $e" ;;
       4) cmd_caddy ;;
       5) cmd_deploy hdev ;;
       6) read -rp "  tag: " t; cmd_deploy uat "$t" ;;
       7) read -rp "  tag: " t
-         echo "  LET OP: dit deployt naar PRODUCTIE."
-         read -rp "  typ PROD om te bevestigen: " c
-         [ "$c" = "PROD" ] && cmd_deploy prod "$t" --confirm || echo "  afgebroken." ;;
-      8) read -rp "  omgeving: " e; cmd_backup "$e" ;;
+         echo "  WARNING: this deploys to PRODUCTION."
+         read -rp "  type PROD to confirm: " c
+         if [ "$c" = "PROD" ]; then cmd_deploy prod "$t" --confirm; else echo "  aborted."; fi ;;
+      8) e=$(pick_env "${ENVIRONMENTS[@]}") || continue
+         cmd_backup "$e" ;;
       q|Q) return 0 ;;
-      *) echo "  onbekende keuze" ;;
+      *) echo "  unknown choice" ;;
     esac
   done
 }
@@ -178,5 +197,5 @@ case "$verb" in
   deploy)   cmd_deploy "$@" ;;
   caddy)    cmd_caddy "$@" ;;
   help|-h|--help) usage ;;
-  *) die "onbekend commando '$verb' (probeer: raakctl help)" ;;
+  *) die "unknown command '$verb' (try: raakctl help)" ;;
 esac
