@@ -9,13 +9,19 @@ from app.domains.membership.schemas_member import (  # noqa: F401
     AddressUpdate,
     BoardMemberAssign,
     ContactsUpdate,
+    MemberCreate,
     MembershipCreate,
     PersonAddToFamily,
+    PersonCreate,
     PersonUpdate,
     PostalCodeResponse,
 )
 from app.domains.membership.service import (  # noqa: F401
     has_valid_membership,
+    members_valid_on,
+    members_with_membership_for_year,
+    not_renewed_count,
+    renewal_years,
     is_member,
     membership_coverage_until,
     renewal_available,
@@ -24,7 +30,8 @@ from app.domains.membership.service import (  # noqa: F401
 )
 
 _ROUTER_FUNCS = (
-    "add_person_to_family", "assign_board_member", "create_membership_for_family",
+    "add_person_to_family", "assign_board_member", "create_member",
+    "create_membership_for_family",
     "delete_family", "delete_membership", "delete_person", "get_family",
     "list_families", "update_person", "update_person_address",
     "update_person_contacts",
@@ -43,13 +50,16 @@ def __getattr__(name: str):
 __all__ = [
     "Membership", "MembershipHistory",
     "has_valid_membership", "is_member", "membership_coverage_until",
+    "members_valid_on", "members_with_membership_for_year",
+    "not_renewed_count", "renewal_years",
     "renewal_available", "renewal_open", "valid_membership_until",
     # Router-functies hergebruikt als servicelaag door mdm-schermen (#444)
-    "add_person_to_family", "assign_board_member", "create_membership_for_family",
-    "delete_family", "delete_membership", "delete_person", "get_family",
+    "add_person_to_family", "assign_board_member", "create_member",
+    "create_membership_for_family", "delete_family", "delete_membership", "delete_person", "get_family",
     "list_families", "update_person", "update_person_address",
     "update_person_contacts",
     # Schemas (#444)
-    "AddressUpdate", "BoardMemberAssign", "ContactsUpdate", "MembershipCreate",
-    "PersonAddToFamily", "PersonUpdate", "PostalCodeResponse",
+    "AddressUpdate", "BoardMemberAssign", "ContactsUpdate", "MemberCreate",
+    "MembershipCreate", "PersonAddToFamily", "PersonCreate", "PersonUpdate",
+    "PostalCodeResponse",
 ]

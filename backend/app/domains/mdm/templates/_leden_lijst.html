@@ -1,16 +1,26 @@
 {% import "_macros.html" as ui %}
-<div class="space-y-2">
+{# Alleen de kaarten + de pager (#582): de filterbalk swapt dít fragment, zodat
+   het zoekveld niet onder je vingers vervangen wordt. #}
+{% if families %}
+<div class="space-y-3">
   {% for f in families %}
   {% set primary = (f.members | selectattr("relation_type", "equalto", "HOOFDLID") | list | first) or (f.members | first) %}
-  <button class="w-full text-left px-3 py-2 rounded-lg text-sm border bg-white border-gray-200 hover:bg-gray-50"
-          hx-get="/admin/leden/gezin/{{ f.id }}" hx-target="#leden-detail" hx-swap="innerHTML">
-    <div class="font-medium">{{ primary.last_name if primary else "—" }} {{ primary.first_name if primary else "" }}</div>
-    <div class="text-xs text-gray-500">{{ f.street }} {{ f.house_number }}, {{ f.municipality }}</div>
-  </button>
-  {% else %}
-  {{ ui.empty_state(_("Geen gezinnen gevonden.")) }}
+  <a href="/admin/leden/gezin/{{ f.id }}"
+     class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
+    <div class="flex flex-wrap items-center gap-3">
+      <span class="font-semibold text-blue-700">{{ primary.last_name if primary else "—" }} {{ primary.first_name if primary else "" }}</span>
+      <span class="text-sm text-ink-soft">{{ f.street }} {{ f.house_number }}, {{ f.municipality }}</span>
+      <span class="text-sm text-ink-soft">· {{ f.members | length }} {{ _("personen") }}</span>
+      <span class="ml-auto text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>
+    </div>
+  </a>
   {% endfor %}
 </div>
-{# Kit-pager (#580): toont "x–y van n" en houdt de zoekterm vast bij het bladeren. #}
+{% else %}
+{{ ui.empty_state(_("Geen gezinnen gevonden.")) }}
+{% endif %}
+{# Kit-pager (#580): toont "x–y van n" en houdt zoekterm en filters vast bij het
+   bladeren — vandaar hx-include op de filterbalk. #}
 {{ ui.pager(page, per_page=per_page, total=total,
-            hx_get="/admin/leden/lijst?q=" ~ (q|urlencode), hx_target="#leden-lijst") }}
+            hx_get="/admin/leden/lijst?q=" ~ (q|urlencode) ~ "&status=" ~ (status|urlencode) ~ "&jaar=" ~ (jaar or ""),
+            hx_target="#leden-lijst") }}

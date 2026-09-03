@@ -185,6 +185,8 @@ def list_families(
     page: int = Query(1, ge=1),
     page_size: int = Query(50, ge=1, le=100),
     q: Optional[str] = Query(None, description="Zoek op naam of e-mail van een gezinslid"),
+    status: Optional[str] = Query(None, description="actief | opgezegd (lidmaatschap vandaag)"),
+    membership_year: Optional[int] = Query(None, description="Enkel gezinnen met een lidmaatschap dat dit jaar dekt"),
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
@@ -209,6 +211,21 @@ def list_families(
             .distinct()
         )
         query = query.filter(Member.id.in_(match_ids))
+
+    # Filters van het ledenscherm (#582). Ze werken op de query zelf, niet op de
+    # opgehaalde pagina — anders zou paginering betekenisloze pagina's opleveren.
+    if membership_year is not None:
+        from app.domains.membership.service import members_with_membership_for_year
+
+        query = query.filter(Member.id.in_(
+            members_with_membership_for_year(db, membership_year) or {0}))
+    if status in ("actief", "opgezegd"):
+        from app.domains.membership.service import members_valid_on
+
+        # Lege set → in_({0}) zodat "actief" niets teruggeeft i.p.v. alles.
+        geldig = members_valid_on(db) or {0}
+        query = (query.filter(Member.id.in_(geldig)) if status == "actief"
+                 else query.filter(Member.id.notin_(geldig)))
     total = query.count()
     families = query.order_by(Member.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
     result = [_build_family_response(m) for m in families]

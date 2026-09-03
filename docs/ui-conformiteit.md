@@ -38,7 +38,8 @@ matrix documenteert, de gate handhaaft.
 | `formulier.html` | ✅ | ✅ 4 | ✅ | ✅ |
 | `formulier_klaar.html` | ✅ | ✅ 2 | ✅ | ✅ |
 | `email_log.html` | ✅ | ✅ 3 | ✅ | ✅ |
-| `leden.html` | ✅ | ✅ 3 | ✅ | ✅ |
+| `leden.html` | ✅ | ✅ 8 | ✅ | ✅ |
+| `leden_gezin.html` | ✅ | — | ✅ | ✅ |
 | `leden_import.html` | ✅ | ✅ 5 | ✅ | ✅ |
 | `admin_media.html` | ✅ | ✅ 1 | ✅ | ✅ |
 | `fotos.html` | ✅ | — | ✅ | ✅ |
@@ -57,7 +58,7 @@ matrix documenteert, de gate handhaaft.
 | `admin_tenant.html` | ✅ | ✅ 7 | ✅ | ✅ |
 | `admin_tenants.html` | ✅ | ✅ 8 | ✅ | ✅ |
 
-40 schermen, 37 fragmenten. Nul afwijkingen.
+41 schermen, 37 fragmenten. Nul afwijkingen.
 
 ## Kluslijst — lokaal patroon → kit-macro
 
@@ -71,6 +72,7 @@ matrix documenteert, de gate handhaaft.
 | `_email_log_lijst.html` | eigen vorige/volgende-knoppen | `ui.pager()` in de modus zonder totaal |
 | `_me_lijst.html` (Media) | filters bóven de actieknop, upload in een `bg-blue-50`-blok | knop los en bovenaan, upload in `ui.modal()` |
 | `admin_activiteiten.html`, `_gu_lijst.html`, `admin_paginas.html` | "+ Nieuwe …" in een `bg-blue-50`-blok met uitklapformulier | knop los, formulier in `ui.modal()` |
+| `leden.html` (#582) | master-detail, geen KPI's, geen filters, secundaire importknop als enige actie | KPI-rij (incl. "nog niet vernieuwd" met doeljaar), primaire "+ Nieuw lid" + importknop, `ui.search()` + statuschips + data-gedreven lidmaatschapsjaar, kaarten → `leden_gezin.html` |
 | `admin_paginas.html` (#587) | secundaire knop, geen zoek/filter, master-detail met Trix op de lijstpagina | primaire knop, `ui.search()` + statuschips, kaarten → `admin_pagina.html` (Trix verhuisde mee) |
 | `_me_lijst.html` (#588) | knop + filters in het kaartfragment, geen zoek | kop/knop/filterbalk op de pagina, `ui.search()` + `ui.chips()`; fragment = enkel kaarten, met filterstand in verborgen velden |
 | `_gu_lijst.html` (#589) | idem, geen zoek of rolfilter | idem, plus filter op rol en actief-status |

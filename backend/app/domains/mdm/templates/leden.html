@@ -2,22 +2,61 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Leden — Raak") }}{% endblock %}
 {% block content %}
-{% call ui.page_header(_("Leden")) %}
-  {{ ui.btn_secondary(_("Leden importeren"), href="/admin/leden-import", size="sm") }}
+{# Records-lijst (design-system C1, #582): titel → KPI-rij → primaire "+ Nieuw lid"
+   met "Leden importeren" ernaast → zoeken → statuschips + data-gedreven
+   lidmaatschapsjaar → kaarten die de paginabrede gezinseditor openen. #}
+{{ ui.page_header(_("Leden"), _("Gezinnen en hun leden; een kaart opent het gezin met personen, adres en lidmaatschappen.")) }}
+
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+  <div class="rounded-xl bg-blue-50 p-5">
+    <div class="text-3xl font-extrabold text-blue-700">{{ kpi_gezinnen }}</div>
+    <div class="text-sm font-semibold mt-1">{{ _("Actieve leden") }}</div>
+    <div class="text-xs text-ink-soft">{{ _("gezinnen met een geldig lidmaatschap") }}</div>
+  </div>
+  <div class="rounded-xl bg-surface-2 border border-line p-5">
+    <div class="text-3xl font-extrabold">{{ kpi_personen }}</div>
+    <div class="text-sm font-semibold mt-1">{{ _("Actieve personen") }}</div>
+  </div>
+  {# Het jaar staat in het label: het doeljaar kantelt op de tenant-datum
+     'Volgend jaar vanaf', dus zonder jaartal weet je niet waarover het gaat. #}
+  <div class="rounded-xl bg-surface-2 border border-line p-5">
+    <div class="text-3xl font-extrabold">{{ kpi_niet_vernieuwd }}</div>
+    <div class="text-sm font-semibold mt-1">{{ _("Nog niet vernieuwd") }} ({{ kpi_doeljaar }})</div>
+    <div class="text-xs text-ink-soft">{{ _("was lid, maar dekt %(jaar)s nog niet") % {"jaar": kpi_doeljaar} }}</div>
+  </div>
+</div>
+
+<div class="flex flex-wrap items-center gap-2 mb-4" x-data="{ open: false }">
+  {{ ui.btn_primary(_("+ Nieuw lid"), type="button", attrs='@click="open = true"') }}
+  {{ ui.btn_secondary("⬆ " ~ _("Leden importeren"), href="/admin/leden-import") }}
+  {% call ui.modal('open', _("Nieuw lid")) %}
+  <form class="space-y-3" hx-post="/admin/leden" @htmx:after-request="open = false">
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div>{{ ui.label(_("Voornaam"), "nl-first", required=True) }}
+        <input name="first_name" id="nl-first" required class="w-full"></div>
+      <div>{{ ui.label(_("Achternaam"), "nl-last", required=True) }}
+        <input name="last_name" id="nl-last" required class="w-full"></div>
+    </div>
+    <p class="text-xs text-ink-soft">{{ _("Dit maakt het gezin met deze persoon als hoofdlid. Adres, contactgegevens en lidmaatschap vul je aan in het gezin zelf.") }}</p>
+    {{ ui.btn_primary(_("Aanmaken")) }}
+  </form>
+  {% endcall %}
+</div>
+
+{% call ui.filter_bar("/admin/leden/lijst", "#leden-lijst") %}
+  <div>{{ ui.search(value=q, placeholder=_('Zoek op naam of e-mail…'), standalone=False) }}</div>
+  <div class="flex flex-wrap items-center gap-3">
+    {{ ui.chips("status", [("", _("Alle")), ("actief", _("Actief")), ("opgezegd", _("Opgezegd"))], status) }}
+    {% if jaren %}
+    <select name="jaar" class="text-sm">
+      <option value="">{{ _("Alle lidmaatschapsjaren") }}</option>
+      {% for j in jaren %}<option value="{{ j }}" {% if jaar == j %}selected{% endif %}>{{ _("Lidmaatschap %(jaar)s") % {"jaar": j} }}</option>{% endfor %}
+    </select>
+    {% endif %}
+  </div>
 {% endcall %}
-<div class="flex flex-col md:flex-row gap-6">
-  <div class="md:w-72 shrink-0">
-    {# Kit-macro i.p.v. een eigen zoekveld (#528 as C) — zelfde gedrag, één patroon. #}
-    <div class="mb-3">
-      {{ ui.search("/admin/leden/lijst", "#leden-lijst", value=q,
-                   placeholder=_('Zoek op naam of e-mail…'), cls="w-full") }}
-    </div>
-    <div id="leden-lijst">
-      {% include "_leden_lijst.html" %}
-    </div>
-  </div>
-  <div class="flex-1 min-w-0">
-    <div id="leden-detail"></div>
-  </div>
+
+<div id="leden-lijst">
+  {% include "_leden_lijst.html" %}
 </div>
 {% endblock %}

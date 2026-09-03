@@ -9,7 +9,7 @@ module bouwt alleen view-models en kiest templates.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, Request, UploadFile, File, HTTPException
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -43,18 +43,52 @@ def _codes(db: Session) -> dict:
     return {"gender_codes": _uniq(genders), "relation_types": _uniq(relations)}
 
 
+def _lidmaatschapsjaren(db: Session) -> list[int]:
+    """De jaren die écht in de data zitten (#582): de dropdown is data-gedreven,
+    net als op Betalingen — geen hardgecodeerde reeks die na nieuwjaar niet klopt."""
+    from app.domains.membership.api import Membership
+
+    return [j for (j,) in db.query(Membership.year).distinct()
+            .order_by(Membership.year.desc()).all() if j]
+
+
+def _kpi(db: Session) -> dict:
+    """De drie kengetallen boven het ledenbeheer (C1-KPI-rij, #582).
+
+    "Nog niet vernieuwd" draagt het doeljaar in zijn label, want dat jaar kantelt
+    op de tenant-datum ``membership_next_year_from_md``: vóór die dag gaat de
+    campagne over het lopende jaar, erna over het volgende. De logica zelf staat
+    in het membership-domein — dit scherm telt niet zelf.
+    """
+    from app.domains.membership.api import not_renewed_count, renewal_years
+    from app.domains.payment.api import current_membership_counts
+
+    gezinnen, personen = current_membership_counts(db)
+    _, doeljaar = renewal_years()
+    return {"kpi_gezinnen": gezinnen, "kpi_personen": personen,
+            "kpi_niet_vernieuwd": not_renewed_count(db), "kpi_doeljaar": doeljaar}
+
+
 def _lijst_ctx(request: Request, db: Session) -> dict:
     from app.domains.membership.api import list_families
 
     q = (request.query_params.get("q") or "").strip()
+    status = (request.query_params.get("status") or "").strip()
+    jaar_raw = (request.query_params.get("jaar") or "").strip()
+    jaar = int(jaar_raw) if jaar_raw.isdigit() else None
     try:
         page = max(1, int(request.query_params.get("page", "1")))
     except ValueError:
         page = 1
-    data = list_families(page=page, page_size=25, q=q or None, db=db, _admin=None)
+    data = list_families(page=page, page_size=25, q=q or None,
+                         status=status or None, membership_year=jaar,
+                         db=db, _admin=None)
     # total + page_size erbij zodat ui.pager() "x–y van n" kan tonen (#580).
     return {"families": data.items, "page": data.page, "total": data.total,
-            "per_page": data.page_size, "total_pages": data.total_pages, "q": q}
+            "per_page": data.page_size, "total_pages": data.total_pages,
+            "q": q, "status": status, "jaar": jaar,
+            "jaren": _lidmaatschapsjaren(db),
+            "gefilterd": bool(q or status or jaar)}
 
 
 def _detail_ctx(request: Request, db: Session, family_id: int) -> dict:
@@ -85,21 +119,51 @@ def _detail_response(request: Request, db: Session, family_id: int):
 @router.get("/admin/leden", response_class=HTMLResponse)
 def leden_page(request: Request, db: Session = Depends(get_db),
                email: str = Depends(require_admin_ui)):
-    ctx = {"csrf_token": csrf_from_request(request), "nav_items": NAV, **_lijst_ctx(request, db)}
+    ctx = {"csrf_token": csrf_from_request(request), "nav_items": NAV,
+           **_kpi(db), **_lijst_ctx(request, db)}
     return templates.TemplateResponse(request, "leden.html", ctx)
 
 
 @router.get("/admin/leden/lijst", response_class=HTMLResponse)
 def leden_lijst(request: Request, db: Session = Depends(get_db),
                 email: str = Depends(require_admin_ui)):
+    """Enkel de kaarten: de filterbalk swapt dit fragment, zodat het zoekveld niet
+    onder je vingers vervangen wordt."""
     return templates.TemplateResponse(request, "_leden_lijst.html",
                                       _lijst_ctx(request, db))
+
+
+@router.post("/admin/leden", dependencies=[Depends(require_csrf)])
+def gezin_aanmaken(request: Request, db: Session = Depends(get_db),
+                   email: str = Depends(require_admin_ui),
+                   first_name: str = Form(""), last_name: str = Form("")) -> Response:
+    """Nieuw gezin met zijn hoofdlid (#582).
+
+    De modal vraagt enkel de naam; adres, contactgegevens en lidmaatschappen vul
+    je aan in de editor waar je meteen op uitkomt — dezelfde vorm als de andere
+    records-lijsten.
+    """
+    from app.domains.membership.api import MemberCreate, PersonCreate, create_member
+
+    if not first_name.strip() or not last_name.strip():
+        raise HTTPException(status_code=400,
+                            detail=_("Voornaam en achternaam zijn verplicht."))
+    gezin = create_member(MemberCreate(persons=[PersonCreate(
+        first_name=first_name.strip(), last_name=last_name.strip(),
+        relation_type="HOOFDLID")]), db=db, _admin=None)  # type: ignore[arg-type]
+    return Response(status_code=204,
+                    headers={"HX-Redirect": f"/admin/leden/gezin/{gezin.id}"})
 
 
 @router.get("/admin/leden/gezin/{family_id}", response_class=HTMLResponse)
 def gezin_detail(family_id: int, request: Request, db: Session = Depends(get_db),
                  email: str = Depends(require_admin_ui)):
-    return _detail_response(request, db, family_id)
+    """Een kaart opent de paginabrede gezinseditor (C1, #582); de bewerkingen
+    daarbinnen blijven htmx-fragmenten die in #leden-detail landen."""
+    if request.headers.get("hx-request"):
+        return _detail_response(request, db, family_id)
+    return templates.TemplateResponse(request, "leden_gezin.html", {
+        "nav_items": NAV, **_detail_ctx(request, db, family_id)})
 
 
 # ── Mutaties (allemaal: sessie + CSRF; herrenderen het detail) ─────────────────
@@ -245,8 +309,9 @@ def gezin_verwijderen(family_id: int, request: Request, db: Session = Depends(ge
 
     delete_family(family_id, db=db, admin=admin_user_by_email(db, email))
     db.commit()
-    # Detailpaneel leegmaken; de lijst ververst zichzelf via hx-trigger.
-    return HTMLResponse('<div id="leden-detail" hx-swap-oob="true"></div>')
+    # Verwijderen gebeurt vanuit de gezinseditor; die pagina bestaat daarna niet
+    # meer, dus terug naar de lijst (#582).
+    return Response(status_code=204, headers={"HX-Redirect": "/admin/leden"})
 
 
 # ── Leden-import-wizard ────────────────────────────────────────────────────────

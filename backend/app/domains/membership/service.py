@@ -121,3 +121,81 @@ def is_member(db, email: str, ref_date: Optional[date] = None) -> bool:
 
     person = login_person_for_email(db, email)
     return has_valid_membership(person, ref_date)
+
+
+# ── Vernieuwingscampagne: welk jaar telt vandaag? (#582) ──────────────────────
+
+def renewal_years(today: Optional[date] = None) -> tuple[int, int]:
+    """(referentiejaar, doeljaar) van de lopende vernieuwingscampagne.
+
+    Het doeljaar kantelt op de tenant-instelling ``membership_next_year_from_md``
+    — dezelfde datum vanaf wanneer een betaling ook het volgende kalenderjaar
+    dekt (``membership_valid_period``). Vóór die datum gaat de campagne nog over
+    het lopende jaar; vanaf die datum over het volgende.
+
+    Het referentiejaar is het jaar ervóór: daaruit komt de groep die *zou*
+    moeten vernieuwen.
+    """
+    if today is None:
+        today = date.today()
+    from app.kernel.tenant_config import tenant_membership_config
+
+    md = tenant_membership_config()["next_year_from_md"]
+    try:
+        maand, dag = (int(x) for x in str(md).split("-"))
+        kantelt = date(today.year, maand, dag)
+    except (ValueError, TypeError, AttributeError):
+        # Zonder bruikbare instelling gaat de campagne over het lopende jaar.
+        return today.year - 1, today.year
+    if today < kantelt:
+        return today.year - 1, today.year
+    return today.year, today.year + 1
+
+
+def members_with_membership_for_year(db, year: int) -> set[int]:
+    """De member-id's met een actief lidmaatschap dat jaar ``year`` dekt.
+
+    "Dekt" = de geldigheidsperiode overlapt het kalenderjaar. Een lidmaatschap
+    dat na de kanteldatum betaald werd loopt tot 31 december van het jaar erna en
+    dekt dus twee jaren — precies wat "al vernieuwd" betekent.
+    """
+    from app.domains.membership.models import Membership
+
+    begin, eind = date(year, 1, 1), date(year, 12, 31)
+    rijen = (db.query(Membership.member_id)
+             .filter(Membership.is_active.is_(True),
+                     Membership.valid_from.isnot(None),
+                     Membership.valid_to.isnot(None),
+                     Membership.valid_from <= eind,
+                     Membership.valid_to >= begin)
+             .distinct().all())
+    return {r[0] for r in rijen}
+
+
+def members_valid_on(db, day: Optional[date] = None) -> set[int]:
+    """De member-id's met een lidmaatschap dat op ``day`` geldig is (#582).
+
+    Dit is de "actief"-definitie van het ledenscherm en van
+    ``current_membership_counts``: actief én de dag valt binnen [valid_from,
+    valid_to].
+    """
+    from app.domains.membership.models import Membership
+
+    if day is None:
+        day = date.today()
+    rijen = (db.query(Membership.member_id)
+             .filter(Membership.is_active.is_(True),
+                     Membership.valid_from.isnot(None),
+                     Membership.valid_to.isnot(None),
+                     Membership.valid_from <= day,
+                     Membership.valid_to >= day)
+             .distinct().all())
+    return {r[0] for r in rijen}
+
+
+def not_renewed_count(db, today: Optional[date] = None) -> int:
+    """Gezinnen die lid waren in het referentiejaar maar het doeljaar nog niet
+    dekken (#582). Soft-deleted rijen vallen weg via de globale ORM-filter."""
+    referentie, doel = renewal_years(today)
+    return len(members_with_membership_for_year(db, referentie)
+               - members_with_membership_for_year(db, doel))
