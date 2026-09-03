@@ -77,6 +77,10 @@ code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font
 .toc a{display:block;color:var(--ink-soft);padding:5px 0 5px 14px;margin-left:-2px;
   border-left:2px solid transparent;font-weight:500}
 .toc a:hover{color:var(--ink);text-decoration:none;border-left-color:var(--line)}
+.toc ol ol{border-left:1px solid var(--line);margin:0 0 4px 12px}
+.toc ol ol a{font-size:.78rem;padding:3px 0 3px 12px;color:var(--ink-soft)}
+.toc .tocp{color:var(--primary-ink);opacity:.7;font-size:.72rem}
+.ptn{display:inline-block;margin-left:8px;font-size:.68rem;font-weight:600;text-transform:none;letter-spacing:0;color:var(--primary-ink);background:color-mix(in srgb,var(--primary) 10%,transparent);border-radius:6px;padding:2px 8px;vertical-align:middle}
 .toc .lead{font-family:var(--brand);text-transform:uppercase;letter-spacing:.1em;
   font-size:.68rem;color:var(--ink-soft);margin:0 0 8px}
 .main{min-width:0}
@@ -446,14 +450,46 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     <p class="lead">Inhoud</p>
     <ol>
       <li><a href="#s0">0 · Inleiding</a></li>
-      <li><a href="#s1">1 · Fundamenten</a></li>
-      <li><a href="#s2">2 · Componenten</a></li>
-      <li><a href="#s3">3 · Patronen</a></li>
+      <li><a href="#s1">1 · Fundamenten</a>
+        <ol>
+          <li><a href="#s1-1">1.1 Kleur</a></li>
+          <li><a href="#s1-2">1.2 Typografie</a></li>
+          <li><a href="#s1-3">1.3 Spacing &amp; ritme</a></li>
+          <li><a href="#s1-4">1.4 Radii · borders · elevation</a></li>
+          <li><a href="#s1-5">1.5 Iconen</a></li>
+        </ol>
+      </li>
+      <li><a href="#s2">2 · Componenten</a>
+        <ol>
+          <li><a href="#s2-1">2.1 Knoppen</a></li>
+          <li><a href="#s2-2">2.2 Formuliervelden</a></li>
+          <li><a href="#s2-3">2.3 Tabel · zoek/filter · rij-acties</a></li>
+          <li><a href="#s2-4">2.4 Status-chips (badges)</a></li>
+          <li><a href="#s2-5">2.5 Meldingen · modal · toast</a></li>
+        </ol>
+      </li>
+      <li><a href="#s3">3 · Patronen</a>
+        <ol>
+          <li><a href="#s3-1">3.1 Admin &amp; publiek</a></li>
+          <li><a href="#s3-2">3.2 Lijst-index</a></li>
+        </ol>
+      </li>
       <li><a href="#s4">4 · Gedrag</a></li>
       <li><a href="#s5">5 · Toegankelijkheid</a></li>
       <li><a href="#s6">6 · Migratie</a></li>
       <li><a href="#s7">7 · Governance</a></li>
-      <li><a href="#sa">A · Referentieschermen</a></li>
+      <li><a href="#sa">A · Referentieschermen</a>
+        <ol>
+          <li><a href="#sa-1">1 · Lid worden <span class="tocp">Formulier</span></a></li>
+          <li><a href="#sa-2">2 · Dashboard <span class="tocp">Detail</span></a></li>
+          <li><a href="#sa-3">3 · Activiteiten <span class="tocp">Lijst-index</span></a></li>
+          <li><a href="#sa-4">4 · Betalingen <span class="tocp">Lijst/tabel</span></a></li>
+          <li><a href="#sa-5">5 · Activiteit bewerken <span class="tocp">Formulier</span></a></li>
+          <li><a href="#sa-6">6 · Formulier bewerken <span class="tocp">Formulier</span></a></li>
+          <li><a href="#sa-7">7 · Home <span class="tocp">Hero + kaarten</span></a></li>
+          <li><a href="#sa-8">8 · Raakje AI <span class="tocp">Dialoog</span></a></li>
+        </ol>
+      </li>
     </ol>
   </nav>
 
@@ -481,7 +517,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     <div class="sec-h"><span class="num">1</span><h2>Fundamenten (tokens)</h2></div>
     <p class="lede">De atomen van het systeem. Alles verwijst hiernaar; nergens nog losse hex-codes of ad-hoc maten.</p>
 
-    <h3 class="block">1.1 Kleur</h3>
+    <h3 class="block" id="s1-1">1.1 Kleur</h3>
     <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0">Het bestaande Raak-palet — warm en herkenbaar. Ocean Blue draagt de interface; de warme accenten (geel, oranje, groen, roze) zijn <b>semantisch</b> en worden spaarzaam ingezet.</p>
     <div class="swatches">
       <div class="sw"><span class="chip" style="background:#0051a4"></span><div><div class="nm">Ocean Blue</div><div class="hex mono">#0051a4</div><div class="role">primair · koppen · knoppen</div></div></div>
@@ -505,7 +541,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     <div class="note"><b>WCAG:</b> tekst haalt minstens 4.5:1 contrast (3:1 voor ≥18px). De "warmte" komt van de zachte <code>ground</code>/<code>surface-2</code> en witruimte — niet van gekleurde tekst op gekleurde vlakken. Semantische kleur (goed/let-op/fout) staat los van het accent.</div>
     <span class="mac">Tokens: <code>--primary</code> <code>--accent</code> <code>--ground</code> <code>--surface</code> <code>--ink</code> <code>--ink-soft</code> <code>--line</code> · macro <code>ui.badge(label, kleur)</code></span>
 
-    <h3 class="block">1.2 Typografie</h3>
+    <h3 class="block" id="s1-2">1.2 Typografie</h3>
     <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0"><b>Radio Canada Big</b> voor titels (warm, on-brand) · <b>Inter</b> voor body en tabellen. Eén schaal, regelhoogte 1.15 voor titels, ~1.55 voor tekst.</p>
     <div class="demo tscale">
       <div><span class="lab">Paginatitel · 30/700</span><span class="ex" style="font-size:30px;font-weight:800">Activiteiten beheren</span></div>
@@ -518,7 +554,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     <span class="mac">Tokens: <code>--brand</code> (titels) · <code>--sans</code> (body). Radio Canada Big is ingebed; <code>Inter</code> wordt nog gevendord onder <code>/static</code> (§6).</span>
     <div class="note"><b>Gewicht (PROD-pariteit):</b> koppen, sectietitels, kaart-/activiteit-titels en status-chips zijn <b>semibold (600)</b> — luchtig, niet vet. Extra-bold (700-800) is voorbehouden aan de <b>paginatitel</b>, <b>KPI-cijfers</b> en het <b>merkwoord "Raak"</b>. Jaartallen (bv. "2026") staan in <b>merkblauw + hairline</b> eronder.</div>
 
-    <h3 class="block">1.3 Spacing &amp; ritme</h3>
+    <h3 class="block" id="s1-3">1.3 Spacing &amp; ritme</h3>
     <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0">Eén schaal — geen 13px hier en 19px daar. Basis 4px.</p>
     <div class="demo spring">
       <div><span class="bar" style="width:4px"></span> 4 · xs — icoon-marge</div>
@@ -531,7 +567,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <div><span class="bar" style="width:64px"></span> 64 — pagina-marge</div>
     </div>
 
-    <h3 class="block">1.4 Radii · borders · elevation</h3>
+    <h3 class="block" id="s1-4">1.4 Radii · borders · elevation</h3>
     <div class="demo row" style="gap:20px">
       <div style="text-align:center"><div style="width:70px;height:52px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px"></div><small style="color:var(--ink-soft)">8px · velden/knoppen</small></div>
       <div style="text-align:center"><div style="width:70px;height:52px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px"></div><small style="color:var(--ink-soft)">12px · panelen</small></div>
@@ -540,7 +576,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
     <span class="mac">Tokens: <code>--r-sm</code> 8 · <code>--r-md</code> 12 · <code>--r-lg</code> 18 · <code>--r-pill</code> · <code>--shadow</code> · <code>--shadow-lg</code></span>
 
-    <h3 class="block">1.5 Iconen</h3>
+    <h3 class="block" id="s1-5">1.5 Iconen</h3>
     <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0"><b>Lucide</b> — één consistente lijnstijl (1.75px, ronde uiteinden), meelopend met de tekstkleur. Zelf-gehost (SVG-sprite), nooit een CDN.</p>
     <div class="demo row" style="gap:16px;color:var(--ink-soft)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M5 12h14M12 5v14"/></svg>
@@ -549,9 +585,10 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="m7 10 5 5 5-5"/><path d="M12 15V3"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
     </div>
-    <span class="mac">Nieuw: <code>download</code> (vervangt het oubollige ⬇ op export-knoppen, #569) + <code>file-text</code> (vervangt 📄). Via macro <code>ui.icon("download")</code>.</span>
+    <span class="mac">Nieuw: <code>download</code> (vervangt het oubollige ⬇ op export-knoppen, #569) + <code>upload</code> (affiche-/media-/reglement-upload) + <code>file-text</code> (vervangt 📄). Via macro <code>ui.icon("download")</code>.</span>
   </section>
 
   <!-- 2 -->
@@ -559,7 +596,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     <div class="sec-h"><span class="num">2</span><h2>Componenten</h2></div>
     <p class="lede">Elk patroon één keer degelijk gebouwd, met een macro-naam, en overal identiek. Hieronder telkens: live voorbeeld + macro + do/don't.</p>
 
-    <h3 class="block">2.1 Knoppen</h3>
+    <h3 class="block" id="s2-1">2.1 Knoppen</h3>
     <div class="demo">
       <div class="row">
         <button class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg> Nieuwe activiteit</button>
@@ -579,7 +616,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <div class="dont"><b>Niet</b> — overal omlijnde knoppen, of "Verwijderen" naast de primaire actie.</div>
     </div>
 
-    <h3 class="block">2.2 Formuliervelden</h3>
+    <h3 class="block" id="s2-2">2.2 Formuliervelden</h3>
     <div class="demo">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:640px">
         <div class="field" style="margin:0"><label>Naam <span class="req">*</span></label><input class="input" value="Jan Peeters"></div>
@@ -598,7 +635,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <div class="dont"><b>Niet</b> — postcode als vrij tekstveld (altijd dropdown), of een <code>alert()</code> bij een fout.</div>
     </div>
 
-    <h3 class="block">2.3 Tabel · zoek/filter · rij-acties · paginering</h3>
+    <h3 class="block" id="s2-3">2.3 Tabel · zoek/filter · rij-acties · paginering</h3>
     <div class="demo plain" style="padding:0;overflow:hidden">
       <div style="padding:14px 16px" class="filterbar">
         <span class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m21 21-4.3-4.3"/><circle cx="11" cy="11" r="8"/></svg><input class="input" placeholder="Zoek op naam of e-mail…"></span>
@@ -629,7 +666,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <div class="dont"><b>Niet</b> — zoveel mogelijk lijntjes, of Type als gekleurde pill naast de status.</div>
     </div>
 
-    <h3 class="block">2.4 Status-chips (badges)</h3>
+    <h3 class="block" id="s2-4">2.4 Status-chips (badges)</h3>
     <div class="demo pillrow">
       <span class="badge b-gray">Concept</span>
       <span class="badge b-green">Gepubliceerd</span>
@@ -643,7 +680,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
     <span class="mac">Macro <code>ui.badge(label, kleur)</code> — elke status krijgt <b>overal</b> exact dezelfde kleur, vorm en benaming (NL, nooit rauwe code). Geel = wachtend (amber vervalt).</span>
 
-    <h3 class="block">2.5 Meldingen · modal · toast · herorden</h3>
+    <h3 class="block" id="s2-5">2.5 Meldingen · modal · toast · herorden</h3>
     <div class="demo" style="display:grid;gap:14px">
       <div class="alert a-ok"><svg viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><div><b>Opgeslagen.</b> Je wijzigingen aan "Brood en Spelen" zijn bewaard.</div></div>
       <div class="alert a-warn"><svg viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg><div><b>Let op.</b> Er is nog een openstaand saldo van € 20,00.</div></div>
@@ -668,7 +705,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     <div class="sec-h"><span class="num">3</span><h2>Patronen</h2></div>
     <p class="lede">De ~13 schermen bestaan uit maar zes echte patronen. Bouw die zes goed, en elk scherm is een samenstelling ervan.</p>
 
-    <h3 class="block" style="margin-top:0">Admin &amp; publiek — familie, geen tweeling</h3>
+    <h3 class="block" id="s3-1" style="margin-top:0">Admin &amp; publiek — familie, geen tweeling</h3>
     <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0">Beide delen delen <b>dezelfde</b> tokens, fonts, iconen, knoppen, formuliertaal en meldingen — maar de <b>expressie</b> verschilt. Zo voelt alles van één huis, terwijl elk deel zijn taak dient.</p>
     <div class="split">
       <div><h4><span class="badge b-indigo">Admin (backend)</span></h4><ul>
@@ -701,7 +738,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
     <div class="note"><b>Record-beheer (beslist — Koen):</b> een lijst opent bij <b>"Bewerken"</b> een <b>volledige-pagina-editor</b> (zoals Scherm 4), niet een master-detail-splitsing. Master-detail (lijst links, detail/edit rechts) blijft een mogelijke <b>hybride</b> voor later indien nodig (#510). De HDEV-activiteiten (nu master-detail) worden hierop afgestemd.</div>
 
-    <h3 class="block">Lijst-index — vaste opbouw van elk records-scherm</h3>
+    <h3 class="block" id="s3-2">Lijst-index — vaste opbouw van elk records-scherm</h3>
     <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0">Elk beheersscherm met records (Leden, Activiteiten, Betalingen, Formulieren, Media, Gebruikers, Pagina's) heeft <b>dezelfde</b> opbouw in de inhoudskolom, <b>van boven naar onder</b>. Zo staan zoeken, "nieuw" en de filters overal op dezelfde plaats.</p>
     <ol style="margin:8px 0 0;padding-left:1.3rem;color:var(--ink);font-size:.92rem;line-height:1.7">
       <li><b>Paginatitel</b></li>
@@ -798,7 +835,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     <p class="lede">Alle patronen samen, toegepast op echte schermen — de visuele referentie voor de uitrol (fase 4). Elk scherm is gelabeld <b>Admin</b> of <b>Publiek</b> zodat het onderscheid uit §3 tastbaar wordt.</p>
 
     <!-- Scherm 1: Lid worden (publiek) -->
-    <div class="scrlabel">Scherm 1 <span class="tag tag-pub">Publiek</span> · Lid worden (gezinsregistratie · adresrooster · betaalmethode)</div>
+    <div class="scrlabel" id="sa-1">Scherm 1 <span class="tag tag-pub">Publiek</span> · Lid worden (gezinsregistratie · adresrooster · betaalmethode) <span class="ptn">Patroon 4 · Formulier</span></div>
     <div class="frame pub">
       <div class="pubnav"><span class="lg">Raak<small>Beleef meer in Millegem</small></span><span class="lk"><a href="#sa">Home</a><a href="#sa">Werking</a><a href="#sa">Foto's</a><a href="#sa">Archief</a><a href="#sa">Inloggen</a></span></div>
       <div class="pubform">
@@ -854,7 +891,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 2: Admin-dashboard -->
-    <div class="scrlabel">Scherm 2 <span class="tag tag-admin">Admin</span> · Dashboard (kerncijfers met sprong naar de betrokken module)</div>
+    <div class="scrlabel" id="sa-2">Scherm 2 <span class="tag tag-admin">Admin</span> · Dashboard (kerncijfers met sprong naar de betrokken module) <span class="ptn">Patroon 5 · Detail + 1 · App-shell</span></div>
     <div class="appdemo">
       <aside class="sb">
         <div class="brand">RAAK<small>beheer</small></div>
@@ -883,7 +920,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 2: Activiteitenoverzicht (admin) -->
-    <div class="scrlabel">Scherm 3 <span class="tag tag-admin">Admin</span> · Activiteitenoverzicht (app-shell + header + KPI's + lijst)</div>
+    <div class="scrlabel" id="sa-3">Scherm 3 <span class="tag tag-admin">Admin</span> · Activiteitenoverzicht (app-shell + header + KPI's + lijst) <span class="ptn">Patroon 1 · App-shell + 2 · Paginaheader + 3 · Lijst-index</span></div>
     <div class="appdemo">
       <aside class="sb">
         <div class="brand">RAAK<small>beheer</small></div>
@@ -931,7 +968,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 2: Betalingen (admin) -->
-    <div class="scrlabel">Scherm 4 <span class="tag tag-admin">Admin</span> · Betalingen (saldo-matrix + status-chips + FINANCE-acties)</div>
+    <div class="scrlabel" id="sa-4">Scherm 4 <span class="tag tag-admin">Admin</span> · Betalingen (saldo-matrix + status-chips + FINANCE-acties) <span class="ptn">Patroon 3 · Lijst/tabel + 6 · Acties/modal</span></div>
     <div class="frame" style="padding:20px">
       <div class="phead">
         <div><div class="crumb">Beheer · Betalingen</div><h3>Betalingen</h3><div class="sub">Betalingen &amp; vorderingen — enkel FINANCE kan bevestigen of terugbetalen.</div></div>
@@ -1017,7 +1054,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 4: Activiteit bewerken (admin) — Brood en Spelen -->
-    <div class="scrlabel">Scherm 5 <span class="tag tag-admin">Admin</span> · Activiteit bewerken (info · meerdere datums · geneste onderdelen → producten)</div>
+    <div class="scrlabel" id="sa-5">Scherm 5 <span class="tag tag-admin">Admin</span> · Activiteit bewerken (info · meerdere datums · geneste onderdelen → producten) <span class="ptn">Patroon 4 · Formulier + geneste kaarten</span></div>
     <div class="frame" style="padding:20px">
       <div class="phead">
         <div>
@@ -1110,7 +1147,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 3: Formulier bewerken (admin) — enquête -->
-    <div class="scrlabel">Scherm 6 <span class="tag tag-admin">Admin</span> · Formulier bewerken (secties · veldtypes · vertakkingen)</div>
+    <div class="scrlabel" id="sa-6">Scherm 6 <span class="tag tag-admin">Admin</span> · Formulier bewerken (secties · veldtypes · vertakkingen) <span class="ptn">Patroon 4 · Formulier + herorden</span></div>
     <div class="frame" style="padding:20px">
       <div class="phead">
         <div>
@@ -1180,7 +1217,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 5: Publiek -->
-    <div class="scrlabel">Scherm 7 <span class="tag tag-pub">Publiek</span> · Home (header · Word lid / Contacteer ons · activiteiten · footer)</div>
+    <div class="scrlabel" id="sa-7">Scherm 7 <span class="tag tag-pub">Publiek</span> · Home (header · Word lid / Contacteer ons · activiteiten · footer) <span class="ptn">Patroon 2 · Hero/paginaheader + 3 · Kaarten</span></div>
     <div class="note"><b>Auth-afhankelijk (#499/#467):</b> zowel de nav als de <b>hoofdactieknop</b> (de opvallende knop die de bezoeker tot één duidelijke stap aanzet) hangen af van de login-status. <b>Uitgelogd</b> (hieronder getoond): nav eindigt op "Inloggen", hoofdactieknop = <b>"Word lid"</b>. <b>Ingelogd lid</b>: nav krijgt "Mijn gezin · Admin · Uitloggen (naam)" en de hoofdactieknop wordt <b>"Mijn gezin"</b> (zie de balk hieronder).</div>
     <div style="background:var(--primary);color:#fff;border-radius:var(--r-md);padding:11px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px">
       <span style="font-family:var(--brand);font-weight:800;font-size:1.05rem">Raak <span style="font-size:.66rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.08em">· ingelogd-variant</span></span>
@@ -1265,7 +1302,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 6: Raakje AI-assistent (publiek) -->
-    <div class="scrlabel">Scherm 8 <span class="tag tag-pub">Publiek</span> · Raakje AI (STT-microfoon · TTS-voorlezen · groeiende invoer)</div>
+    <div class="scrlabel" id="sa-8">Scherm 8 <span class="tag tag-pub">Publiek</span> · Raakje AI (STT-microfoon · TTS-voorlezen · groeiende invoer) <span class="ptn">Patroon 6 · Dialoog/widget</span></div>
     <div class="frame pub" style="padding:22px">
       <div class="raakje">
         <div class="rk-head"><span class="av">💬 Raakje</span><button aria-label="Sluiten">✕</button></div>
