@@ -57,8 +57,13 @@ _MAANDEN = ["", "januari", "februari", "maart", "april", "mei", "juni",
 
 
 def _format_price(value) -> str:
-    """Belgische notatie: punt → komma, twee decimalen."""
-    return f"{value:.2f}".replace(".", ",")
+    """Belgische notatie: euroteken, punt → komma, twee decimalen.
+
+    Het symbool hoort hier en niet in de CMS-tekst: de placeholder levert een
+    volledig bedrag, zodat een redacteur "€" niet hoeft te typen (en niet kan
+    vergeten). Zie #579 — zonder symbool las de publieke tekst "bedraagt 35,00".
+    """
+    return f"€{value:.2f}".replace(".", ",")
 
 
 def _format_md(md: str) -> str:
