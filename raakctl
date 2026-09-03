@@ -1,0 +1,144 @@
+#!/usr/bin/env bash
+# raakctl — één ingang voor het beheer van de omgevingen op de server.
+#
+#   raakctl                        menu (interactief)
+#   raakctl status [env]           containers, versie, alembic
+#   raakctl logs <env> [-n N]      backend-logs
+#   raakctl diagnose <env>         volledige diagnostiek -> /tmp/<env>-diagnostics.log
+#   raakctl deploy hdev            master naar HDEV
+#   raakctl deploy uat  <tag>      release-tag naar UAT
+#   raakctl deploy prod <tag> --confirm
+#   raakctl caddy [ref]            gedeelde proxy toepassen
+#
+# Waarom dit bestaat: de scripts (deploy.sh, logging.sh, deploy-caddy.sh) werken
+# op de map waarin ze staan, en elke omgeving is een aparte checkout van dezelfde
+# repo. `/opt/.../uat/deploy.sh prod` bestaat dus gewoon. raakctl neemt die keuze
+# weg: je noemt een OMGEVING, niet een map en niet een script.
+#
+# Mapindeling: standaard zijn de omgevingen zustermappen van de checkout waarin
+# dit script staat (../hdev, ../uat, ../prod, ../caddy). Wijkt dat af, zet dan
+# DEPLOY_HDEV_DIR / DEPLOY_UAT_DIR / DEPLOY_PROD_DIR / DEPLOY_CADDY_DIR — dezelfde
+# namen die de /release-skill gebruikt. Er staan bewust geen serverpaden in deze
+# publieke repo.
+set -euo pipefail
+
+RAAKCTL_ROOT="${RAAKCTL_ROOT:-$(cd "$(dirname "$0")/.." && pwd)}"
+
+die() { echo "raakctl: $*" >&2; exit 1; }
+
+dir_for() {
+  case "$1" in
+    hdev)  echo "${DEPLOY_HDEV_DIR:-$RAAKCTL_ROOT/hdev}" ;;
+    uat)   echo "${DEPLOY_UAT_DIR:-$RAAKCTL_ROOT/uat}" ;;
+    prod)  echo "${DEPLOY_PROD_DIR:-$RAAKCTL_ROOT/prod}" ;;
+    caddy) echo "${DEPLOY_CADDY_DIR:-$RAAKCTL_ROOT/caddy}" ;;
+    *)     die "onbekende omgeving '$1' — kies hdev, uat, prod of caddy" ;;
+  esac
+}
+
+checkout() {  # valideert en echoot de map
+  local d; d="$(dir_for "$1")"
+  [ -d "$d/.git" ] || die "geen checkout gevonden in $d (zet DEPLOY_$(echo "$1" | tr a-z A-Z)_DIR)"
+  echo "$d"
+}
+
+compose() {  # $1=env, rest = args
+  local env="$1"; shift
+  ( cd "$(checkout "$env")" && docker compose -f "docker-compose.$env.yml" --env-file ".env.$env" "$@" )
+}
+
+# ── verbs ────────────────────────────────────────────────────────────────────
+cmd_status() {
+  local envs=("${1:-}"); [ -n "${1:-}" ] || envs=(hdev uat prod)
+  for env in "${envs[@]}"; do
+    local d; d="$(checkout "$env")"
+    echo "=== $env ==="
+    echo "checkout : $d"
+    echo "versie   : $(git -C "$d" describe --tags --always 2>/dev/null || echo onbekend)"
+    compose "$env" ps --format 'table {{.Service}}\t{{.Status}}' 2>/dev/null || echo "(compose ps faalde)"
+    echo
+  done
+}
+
+cmd_logs() {
+  local env="${1:?geef een omgeving: hdev|uat|prod}"; shift || true
+  local n=100; [ "${1:-}" = "-n" ] && { n="${2:?aantal regels}"; shift 2; }
+  compose "$env" logs backend --tail="$n"
+}
+
+cmd_diagnose() {
+  local env="${1:?geef een omgeving: hdev|uat|prod}"
+  ( cd "$(checkout "$env")" && ./logging.sh "$env" )
+}
+
+cmd_deploy() {
+  local env="${1:?geef een omgeving: hdev|uat|prod}"; shift
+  # Guardrails eerst: een ontbrekende tag of bevestiging moet falen vóór we ook
+  # maar naar een checkout kijken.
+  local tag="" rest=()
+  case "$env" in
+    hdev) rest=("$@") ;;
+    uat)
+      [ $# -ge 1 ] || die "UAT vereist een release-tag: raakctl deploy uat vX.Y.Z"
+      tag="$1"; shift; rest=("$@") ;;
+    prod)
+      [ $# -ge 1 ] || die "PROD vereist een release-tag: raakctl deploy prod vX.Y.Z --confirm"
+      tag="$1"; shift
+      local confirmed=0
+      for a in "$@"; do
+        if [ "$a" = "--confirm" ]; then confirmed=1; else rest+=("$a"); fi
+      done
+      [ "$confirmed" = 1 ] || die "PROD-deploy vereist --confirm (raakctl deploy prod $tag --confirm)" ;;
+    *) die "deploy kan naar hdev, uat of prod — niet naar '$env'" ;;
+  esac
+  local d; d="$(checkout "$env")"
+  ( cd "$d" && ./deploy.sh "$env" ${tag:+"$tag"} ${rest[@]+"${rest[@]}"} )
+}
+
+cmd_caddy() {
+  # De gedeelde proxy bedient UAT én PROD; deploy-caddy.sh bepaalt zelf welke
+  # refs het gebruikt en valideert vóór het de draaiende proxy aanraakt.
+  ( cd "$(checkout caddy)" && ./deploy-caddy.sh "$@" )
+}
+
+usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; }
+
+# ── menu ─────────────────────────────────────────────────────────────────────
+menu() {
+  while true; do
+    echo
+    echo "  raakctl — $(hostname)"
+    echo "   1) status (alle omgevingen)      5) deploy HDEV (master)"
+    echo "   2) backend-logs                  6) deploy UAT (tag)"
+    echo "   3) volledige diagnostiek         7) deploy PROD (tag)"
+    echo "   4) gedeelde Caddy toepassen      q) stoppen"
+    read -rp "  keuze: " k
+    case "$k" in
+      1) cmd_status ;;
+      2) read -rp "  omgeving: " e; cmd_logs "$e" ;;
+      3) read -rp "  omgeving: " e; cmd_diagnose "$e" ;;
+      4) cmd_caddy ;;
+      5) cmd_deploy hdev ;;
+      6) read -rp "  tag: " t; cmd_deploy uat "$t" ;;
+      7) read -rp "  tag: " t
+         echo "  LET OP: dit deployt naar PRODUCTIE."
+         read -rp "  typ PROD om te bevestigen: " c
+         [ "$c" = "PROD" ] && cmd_deploy prod "$t" --confirm || echo "  afgebroken." ;;
+      q|Q) return 0 ;;
+      *) echo "  onbekende keuze" ;;
+    esac
+  done
+}
+
+# ── dispatch ─────────────────────────────────────────────────────────────────
+[ $# -eq 0 ] && { menu; exit 0; }
+verb="$1"; shift
+case "$verb" in
+  status)   cmd_status "$@" ;;
+  logs)     cmd_logs "$@" ;;
+  diagnose) cmd_diagnose "$@" ;;
+  deploy)   cmd_deploy "$@" ;;
+  caddy)    cmd_caddy "$@" ;;
+  help|-h|--help) usage ;;
+  *) die "onbekend commando '$verb' (probeer: raakctl help)" ;;
+esac
