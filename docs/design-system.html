@@ -753,6 +753,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0">Every admin screen with records (Leden, Activiteiten, Betalingen, Formulieren, Media, Gebruikers, Pagina's) has <b>the same</b> layout in the content column, <b>from top to bottom</b>. So search, "new" and the filters are in the same place everywhere.</p>
     <ol style="margin:8px 0 0;padding-left:1.3rem;color:var(--ink);font-size:.92rem;line-height:1.7">
       <li><b>Page title</b></li>
+      <li><b>One-line description</b> (optional) — a short subtitle under the title explaining the screen or its access (e.g. "Platformbeheer — enkel OPERATOR")</li>
       <li><b>KPI / management row</b> (optional) — key figures for this screen, e.g. active members, not-yet-renewed, active persons</li>
       <li><b>Primary action</b> — one <b>"+ Nieuwe …"</b> button (no blue bar around it)</li>
       <li><b>Search box</b> ("Zoek op …")</li>
@@ -1064,7 +1065,8 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
               <button class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg> Nieuw lid</button>
             </div>
           </div>
-          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:14px">
+          <p style="margin:6px 0 0;color:var(--ink-soft);font-size:.9rem">Gezinnen en hun lidmaatschappen — zoek, filter op jaar en beheer elk gezin.</p>
+          <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px">
             <div class="kpi"><div class="k">Actieve leden</div><div class="v tnum">128</div></div>
             <div class="kpi"><div class="k">Nog niet vernieuwd</div><div class="v tnum">14</div></div>
             <div class="kpi"><div class="k">Actieve personen</div><div class="v tnum">389</div></div>
