@@ -217,11 +217,11 @@
    lijsten een eigen zoekveld, elk net anders. Debounce van 300 ms zodat htmx niet
    per aanslag een verzoek doet. `name` blijft standaard "q" zodat de serverkant
    overal dezelfde parameter leest. #}
-{% macro search(hx_get, hx_target, value="", name="q", placeholder="Zoeken…", include="") -%}
+{% macro search(hx_get, hx_target, value="", name="q", placeholder="Zoeken…", include="", cls="w-full sm:w-64") -%}
 <div class="relative">
   <input type="search" name="{{ name }}" value="{{ value }}" placeholder="{{ placeholder }}"
          aria-label="{{ placeholder }}"
-         class="w-full sm:w-64 pl-9"
+         class="{{ cls }} pl-9"
          hx-get="{{ hx_get }}" hx-target="{{ hx_target }}" hx-swap="innerHTML"
          hx-trigger="input changed delay:300ms, search"
          {% if include %}hx-include="{{ include }}"{% endif %}>

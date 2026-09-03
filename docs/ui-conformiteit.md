@@ -56,6 +56,21 @@ matrix documenteert, de gate handhaaft.
 | `admin_tenants.html` | ✅ | ✅ 9 | ✅ | ✅ |
 
 
+## Kluslijst — lokaal patroon → kit-macro
+
+Wat nog niet is omgezet, met de reden. Niets hiervan is een afwijking van de
+tokens of de feedback-regels (de gate is groen); het gaat om patronen die nog een
+eigen implementatie hebben.
+
+| Scherm | Patroon | Waarom nog niet |
+|---|---|---|
+| `email_log.html` | eigen zoekveld | Het veld zit in een **filterformulier** met drie andere velden en één `hx-trigger` op formulierniveau. `ui.search()` brengt zijn eigen `hx-get` mee; dat zou twee verzoeken per aanslag geven. Vraagt eerst een `ui.filter_bar()`-macro die formulier én velden omvat. |
+| `_leden_lijst.html` | eigen paginering | `ui.pager()` verwacht `total` en `per_page`; het scherm geeft `page` en `total_pages` door. Omzetten vraagt een wijziging in het view-model, niet enkel in de template. |
+| `formulier.html`, `fotos_album.html` | eigen paginering | Idem. |
+
+Omgezet in v2.0.0: `leden.html` gebruikt `ui.search()` in plaats van een eigen
+zoekveld — zelfde gedrag, één patroon.
+
 ## Wat dit niet meet
 
 De gate vangt wat machinaal te zien is. Drie dingen uit het design system blijven
