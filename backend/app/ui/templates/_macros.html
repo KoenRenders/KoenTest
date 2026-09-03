@@ -353,56 +353,53 @@
 {%- endmacro %}
 
 {# ── Bevestig-modal (#595, A1: in-app modal i.p.v. het native browser-dialoog) ──
-   Eén in-app bevestigingsdialoog voor de hele app; het native browser-confirm()
-   (via htmx' `hx-confirm`) is verbannen — zie de lint-gate. Idiomatisch htmx: we
-   luisteren op `htmx:confirm`, dat vóór ELK verzoek vuurt. Draagt het element een
-   `data-confirm`, dan annuleren we het verzoek (`preventDefault`), tonen we de
-   modal, en pas op "Bevestigen" hervatten we het via `issueRequest(true)`. Zonder
-   `data-confirm` doet de handler niets en gaat het verzoek gewoon door.
-   `confirm_attrs(type, naam)` (app/ui/__init__.py) levert het `data-confirm`-attr;
-   een los `data-confirm="…"` kan ook. Optioneel `data-confirm-ok="Label"` zet de
-   OK-knoptekst. Zet dit één keer in de basis-template, naast toast_host(). #}
+   Eén in-app bevestigingsdialoog voor de hele app; het native browser-dialoog
+   (via htmx' hx-confirm) is verbannen — zie de lint-gate. Alpine-idioom, net als de
+   rest van de kit: een singleton `Alpine.store('confirm')` draagt de state (open,
+   tekst, knoplabel) en de modal + knoppen zijn puur declaratief (`x-show`, `x-text`,
+   `@click`). De enige brug die niet declaratief kan, is de htmx-lifecycle-listener:
+   `htmx:confirm` vuurt vóór ELK verzoek; draagt het element een `data-confirm`, dan
+   pauzeren we het verzoek (`preventDefault`) en geven we het door aan de store, die
+   het op "Bevestigen" hervat via `issueRequest(true)`. Zonder `data-confirm` doet de
+   handler niets. `confirm_attrs(type, naam)` (app/ui/__init__.py) levert het attribuut;
+   een los `data-confirm="…"` kan ook, met optioneel `data-confirm-ok="Label"`.
+   Zet dit één keer in de basis-template, naast toast_host(). #}
 {% macro confirm_host() -%}
-<div id="confirm-modal" class="fixed inset-0 z-[60] hidden items-center justify-center p-4"
-     style="background:rgba(17,17,17,.5)" role="dialog" aria-modal="true" aria-labelledby="confirm-modal-msg">
+<div x-data x-show="$store.confirm.open" x-cloak
+     class="fixed inset-0 z-[60] flex items-center justify-center p-4"
+     style="background:rgba(17,17,17,.5)"
+     @click.self="$store.confirm.cancel()" @keydown.escape.window="$store.confirm.cancel()"
+     role="dialog" aria-modal="true">
   <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
     <div class="px-5 py-5">
-      <p id="confirm-modal-msg" class="text-sm text-ink"></p>
+      <p class="text-sm text-ink" x-text="$store.confirm.message"></p>
     </div>
     <div class="flex justify-end gap-2 border-t border-gray-200 px-5 py-3">
-      <button type="button" id="confirm-modal-cancel" class="{{ btn_class('secondary') }}">{{ _("Annuleren") }}</button>
-      <button type="button" id="confirm-modal-ok" data-default="{{ _("Bevestigen") }}" class="{{ btn_class('primary') }}">{{ _("Bevestigen") }}</button>
+      <button type="button" class="{{ btn_class('secondary') }}" @click="$store.confirm.cancel()">{{ _("Annuleren") }}</button>
+      <button type="button" class="{{ btn_class('primary') }}" x-text="$store.confirm.okLabel" @click="$store.confirm.accept()"></button>
     </div>
   </div>
 </div>
 <script>
-(function () {
-  var modal = document.getElementById('confirm-modal');
-  var msg = document.getElementById('confirm-modal-msg');
-  var okBtn = document.getElementById('confirm-modal-ok');
-  var cancelBtn = document.getElementById('confirm-modal-cancel');
-  var pending = null;
-  function close() { modal.classList.add('hidden'); modal.classList.remove('flex'); pending = null; }
-  function open(text, okLabel) {
-    msg.textContent = text;
-    okBtn.textContent = okLabel || okBtn.dataset.default;
-    modal.classList.remove('hidden'); modal.classList.add('flex');
-    okBtn.focus();
-  }
+  document.addEventListener('alpine:init', function () {
+    Alpine.store('confirm', {
+      open: false, message: '', okLabel: '{{ _("Bevestigen") }}', detail: null,
+      ask: function (detail, message, okLabel) {
+        this.detail = detail;
+        this.message = message;
+        this.okLabel = okLabel || '{{ _("Bevestigen") }}';
+        this.open = true;
+      },
+      accept: function () { var d = this.detail; this.open = false; this.detail = null; if (d) d.issueRequest(true); },
+      cancel: function () { this.open = false; this.detail = null; },
+    });
+  });
   document.body.addEventListener('htmx:confirm', function (evt) {
     var q = evt.detail.elt.getAttribute('data-confirm');
     if (!q) return;                 // geen bevestiging gevraagd → verzoek gaat door
     evt.preventDefault();           // htmx pauzeren tot de gebruiker kiest
-    pending = evt.detail;
-    open(q, evt.detail.elt.getAttribute('data-confirm-ok'));
+    Alpine.store('confirm').ask(evt.detail, q, evt.detail.elt.getAttribute('data-confirm-ok'));
   });
-  okBtn.addEventListener('click', function () { var p = pending; close(); if (p) p.issueRequest(true); });
-  cancelBtn.addEventListener('click', close);
-  modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
-  document.addEventListener('keydown', function (e) {
-    if (e.key === 'Escape' && !modal.classList.contains('hidden')) close();
-  });
-})();
 </script>
 {%- endmacro %}
 

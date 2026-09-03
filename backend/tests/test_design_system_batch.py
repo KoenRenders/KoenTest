@@ -67,7 +67,9 @@ def test_confirm_attrs_levert_data_confirm():
 
 def test_confirm_host_hangt_aan_htmx_confirm():
     out = _render("{{ ui.confirm_host() }}")
-    assert "htmx:confirm" in out and "issueRequest" in out and 'id="confirm-modal"' in out
+    # Alpine-store-idioom + de onvermijdelijke htmx-lifecycle-brug.
+    assert "htmx:confirm" in out and "issueRequest" in out
+    assert "Alpine.store('confirm'" in out and "$store.confirm.open" in out
 
 
 def test_beide_shells_hebben_de_confirm_host():
