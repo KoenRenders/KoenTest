@@ -22,7 +22,7 @@
   <div class="rounded-xl bg-surface-2 border border-line p-5">
     <div class="text-3xl font-extrabold">{{ kpi_niet_vernieuwd }}</div>
     <div class="text-sm font-semibold mt-1">{{ _("Nog niet vernieuwd") }} ({{ kpi_doeljaar }})</div>
-    <div class="text-xs text-ink-soft">{{ _("was lid, maar dekt %(jaar)s nog niet") % {"jaar": kpi_doeljaar} }}</div>
+    <div class="text-xs text-ink-soft">{{ _("was lid, maar dekt %(jaar)s nog niet", jaar=kpi_doeljaar) }}</div>
   </div>
 </div>
 
@@ -50,7 +50,7 @@
     {% if jaren %}
     <select name="jaar" class="text-sm">
       <option value="">{{ _("Alle lidmaatschapsjaren") }}</option>
-      {% for j in jaren %}<option value="{{ j }}" {% if jaar == j %}selected{% endif %}>{{ _("Lidmaatschap %(jaar)s") % {"jaar": j} }}</option>{% endfor %}
+      {% for j in jaren %}<option value="{{ j }}" {% if jaar == j %}selected{% endif %}>{{ _("Lidmaatschap %(jaar)s", jaar=j) }}</option>{% endfor %}
     </select>
     {% endif %}
   </div>
