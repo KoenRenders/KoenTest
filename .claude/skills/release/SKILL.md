@@ -99,12 +99,23 @@ zijn read-only en veranderen niets). Sluit af met een duidelijke regel:
 
 **Deploy draaien** — kies de checkout-map die bij het milieu hoort
 (`${DEPLOY_HDEV_DIR:-$DEPLOY_REPO_DIR}` / `$DEPLOY_UAT_DIR` / `$DEPLOY_PROD_DIR`):
-- HDEV: `ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" 'cd "${DEPLOY_HDEV_DIR:-$DEPLOY_REPO_DIR}" && ./deploy.sh hdev'`
-- UAT (na bevestiging + tag): `ssh … 'cd "$DEPLOY_UAT_DIR" && ./deploy.sh uat vX.Y.Z'`
-- PROD (na bevestiging + tag): `ssh … 'cd "$DEPLOY_PROD_DIR" && ./deploy.sh prod vX.Y.Z'`
+**Ga via `raakctl`, niet via losse `cd`-commando's.** Dat script staat in elke
+checkout en kiest zelf de juiste map bij een omgeving; de HDEV-checkout volgt
+master en heeft dus altijd de nieuwste versie. Noem een omgeving, nooit een map:
+
+- HDEV: `ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" '"${DEPLOY_HDEV_DIR:-$DEPLOY_REPO_DIR}"/raakctl deploy hdev'`
+- UAT (na bevestiging + tag): `ssh … '"$DEPLOY_HDEV_DIR"/raakctl deploy uat vX.Y.Z'`
+- PROD (na bevestiging + tag): `ssh … '"$DEPLOY_HDEV_DIR"/raakctl deploy prod vX.Y.Z --confirm'`
+
+`raakctl` weigert een UAT-deploy zonder tag en een PROD-deploy zonder tag én
+`--confirm`; die guardrails vallen vóór er iets gebeurt. Het leidt de
+omgevingsmappen af als zustermappen van zijn eigen checkout — wijkt de
+serverindeling daarvan af, geef dan `DEPLOY_UAT_DIR`/`DEPLOY_PROD_DIR`/
+`DEPLOY_CADDY_DIR` mee over de ssh-regel.
 
 Extra argumenten na de tag gaan door naar `docker compose up` — bv.
-`./deploy.sh prod vX.Y.Z --remove-orphans` wanneer een release services schrapt.
+`raakctl deploy prod vX.Y.Z --confirm --remove-orphans` wanneer een release
+services schrapt.
 
 **Caddy — twee verschillende gevallen (belangrijk):**
 - **HDEV heeft zijn EIGEN Caddy** binnen de hdev-stack (`caddy/Caddyfile.hdev`,
@@ -113,7 +124,7 @@ Extra argumenten na de tag gaan door naar `docker compose up` — bv.
   #312/#314) → bij een HDEV-deploy is er **geen** aparte Caddy-stap.
 - **UAT en PROD delen één externe Caddy** (netwerk `raak_proxy`, project `caddy`).
   Enkel wanneer **`caddy/parts/*.caddy`** wijzigt is een aparte stap nodig:
-  `ssh … 'cd "$DEPLOY_CADDY_DIR" && ./deploy-caddy.sh'`. **Eén** recreate dekt UAT
+  `ssh … '"$DEPLOY_HDEV_DIR"/raakctl caddy'`. **Eén** recreate dekt UAT
   én PROD. Draai dit **niet** voor HDEV.
   Het script neemt `sites-uat.caddy` uit de tag die UAT draait en
   `sites-prod.caddy` + `snippets.caddy` uit die van PROD; het volgt nooit master.
@@ -130,7 +141,9 @@ containerstatus, `alembic heads`/`current`, schijfruimte, een ERROR/Traceback-
 foutfilter, en de backend-/frontend-/caddy-logs (voor UAT/PROD komen de caddy-logs
 uit het gedeelde `docker-compose.caddy.yml`-project). **Gebruik deze i.p.v. een
 hand-geschreven `docker compose logs`.** Draai het script en trek het bestand op:
-- `ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" 'cd <checkout-map van het milieu> && ./logging.sh <env>'`
+- `ssh -i "$DEPLOY_SSH_KEY" -p "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST" '"${DEPLOY_HDEV_DIR:-$DEPLOY_REPO_DIR}"/raakctl diagnose <env>'`
+- Snel kijken zonder het volledige rapport: `raakctl status` (alle omgevingen:
+  checkout, tag, containers) of `raakctl logs <env> -n 100`.
   (checkout-map = `${DEPLOY_HDEV_DIR:-$DEPLOY_REPO_DIR}` / `$DEPLOY_UAT_DIR` /
   `$DEPLOY_PROD_DIR`; het script tee't de output ook naar je scherm).
 - Haal het volledige bestand op: `scp -i "$DEPLOY_SSH_KEY" -P "${DEPLOY_SSH_PORT:-22}" "$DEPLOY_SSH_USER@$DEPLOY_SSH_HOST:/tmp/<env>-diagnostics.log" ./`
