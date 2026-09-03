@@ -3,7 +3,8 @@
 #
 #   raakctl                              interactive menu
 #   raakctl status [env]                 checkout, version, containers
-#   raakctl logs <env> [service] [-n N]  logs of one service (default: backend)
+#   raakctl logs <env> [service] [-n N]  logs of one service (default: backend;
+#                                        the menu lists what each env offers)
 #   raakctl diagnose <env>               full report -> /tmp/<env>-diagnostics.log
 #   raakctl backup <env>                 manual pg_dump -> <checkout>/backups
 #   raakctl up <env>                     start a stopped stack (no build, no git)
@@ -65,6 +66,13 @@ cmd_status() {
   done
 }
 
+services_of() {  # names you can pass to `logs`, for this environment
+  compose "$1" config --services 2>/dev/null | sort
+  # UAT and PROD have no caddy of their own: they hang off the shared proxy, a
+  # separate compose project. Offer it here so `logs <env> caddy` works anyway.
+  case "$1" in uat|prod) echo caddy ;; esac
+}
+
 cmd_logs() {  # <env> [service] [-n N] — service defaults to backend
   local env="${1:?name an environment: hdev|uat|prod}"; shift || true
   local svc="backend" n=100
@@ -74,6 +82,12 @@ cmd_logs() {  # <env> [service] [-n N] — service defaults to backend
       *)  svc="$1"; shift ;;
     esac
   done
+  # The shared Caddy serves UAT *and* PROD, so its logs mix both environments.
+  if [ "$svc" = caddy ] && { [ "$env" = uat ] || [ "$env" = prod ]; }; then
+    echo "(shared Caddy — these logs cover UAT and PROD together)" >&2
+    ( cd "$(checkout caddy)" && docker compose -f docker-compose.caddy.yml logs caddy --tail="$n" )
+    return
+  fi
   compose "$env" logs "$svc" --tail="$n"
 }
 
@@ -179,6 +193,21 @@ pick_env() {
   return 1
 }
 
+pick_service() {  # $1 = env
+  local options; mapfile -t options < <(services_of "$1")
+  [ "${#options[@]}" -gt 0 ] || { echo "  could not list services" >&2; return 1; }
+  local choice
+  PS3="  service (number): "
+  select choice in "${options[@]}" "cancel"; do
+    case "$choice" in
+      "")     echo "  invalid choice" >&2 ;;
+      cancel) return 1 ;;
+      *)      echo "$choice"; return 0 ;;
+    esac
+  done
+  return 1
+}
+
 menu() {
   while true; do
     echo
@@ -193,8 +222,8 @@ menu() {
     case "$k" in
       1) cmd_status ;;
       2) e=$(pick_env "${ENVIRONMENTS[@]}") || continue
-         read -rp "  service (empty = backend): " svc
-         cmd_logs "$e" ${svc:+"$svc"} ;;
+         svc=$(pick_service "$e") || continue
+         cmd_logs "$e" "$svc" ;;
       3) e=$(pick_env "${ENVIRONMENTS[@]}") || continue
          cmd_diagnose "$e"
          echo "  fetch it onto your laptop:  raak fetch $e" ;;
