@@ -435,59 +435,59 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
 .modtile .ds{font-size:.73rem;color:var(--ink-soft);line-height:1.4}
 </style>
 
-<button class="themebtn" onclick="var r=document.documentElement,d=r.getAttribute('data-theme')==='dark';r.setAttribute('data-theme',d?'light':'dark')">◐ Thema</button>
+<button class="themebtn" onclick="var r=document.documentElement,d=r.getAttribute('data-theme')==='dark';r.setAttribute('data-theme',d?'light':'dark')">◐ Theme</button>
 
 <header class="masthead">
   <div class="wrap">
     <div class="eyebrow">Raak Millegem · Design System</div>
-    <h1>Eén taal voor elk scherm</h1>
-    <p>De bron van waarheid voor de volledige GUI — admin én publieke site. Tokens, componenten, patronen, gedrag en toegankelijkheid, verankerd in de bestaande Raak-huisstijl. Wat hier staat, staat ook in de code als design-tokens + Jinja-macro's.</p>
+    <h1>One language for every screen</h1>
+    <p>The source of truth for the entire GUI — admin and public site alike. Tokens, components, patterns, behaviour and accessibility, anchored in the existing Raak house style. Whatever is stated here also lives in the code as design tokens + Jinja macros.</p>
   </div>
 </header>
 
 <div class="shell">
   <nav class="toc" aria-label="Inhoud">
-    <p class="lead">Inhoud</p>
+    <p class="lead">Contents</p>
     <ol>
-      <li><a href="#s0">0 · Inleiding</a></li>
-      <li><a href="#s1">1 · Fundamenten</a>
+      <li><a href="#s0">0 · Introduction</a></li>
+      <li><a href="#s1">1 · Foundations</a>
         <ol>
-          <li><a href="#s1-1">1.1 Kleur</a></li>
-          <li><a href="#s1-2">1.2 Typografie</a></li>
-          <li><a href="#s1-3">1.3 Spacing &amp; ritme</a></li>
+          <li><a href="#s1-1">1.1 Colour</a></li>
+          <li><a href="#s1-2">1.2 Typography</a></li>
+          <li><a href="#s1-3">1.3 Spacing &amp; rhythm</a></li>
           <li><a href="#s1-4">1.4 Radii · borders · elevation</a></li>
-          <li><a href="#s1-5">1.5 Iconen</a></li>
+          <li><a href="#s1-5">1.5 Icons</a></li>
         </ol>
       </li>
-      <li><a href="#s2">2 · Componenten</a>
+      <li><a href="#s2">2 · Components</a>
         <ol>
-          <li><a href="#s2-1">2.1 Knoppen</a></li>
-          <li><a href="#s2-2">2.2 Formuliervelden</a></li>
-          <li><a href="#s2-3">2.3 Tabel · zoek/filter · rij-acties</a></li>
+          <li><a href="#s2-1">2.1 Buttons</a></li>
+          <li><a href="#s2-2">2.2 Form fields</a></li>
+          <li><a href="#s2-3">2.3 Table · search/filter · row actions</a></li>
           <li><a href="#s2-4">2.4 Status-chips (badges)</a></li>
-          <li><a href="#s2-5">2.5 Meldingen · modal · toast</a></li>
+          <li><a href="#s2-5">2.5 Notifications · modal · toast</a></li>
         </ol>
       </li>
-      <li><a href="#s3">3 · Patronen</a>
+      <li><a href="#s3">3 · Patterns</a>
         <ol>
-          <li><a href="#s3-1">3.1 Admin &amp; publiek</a></li>
-          <li><a href="#s3-2">3.2 Lijst-index</a></li>
+          <li><a href="#s3-1">3.1 Admin &amp; public</a></li>
+          <li><a href="#s3-2">3.2 List index</a></li>
         </ol>
       </li>
-      <li><a href="#s4">4 · Gedrag</a></li>
-      <li><a href="#s5">5 · Toegankelijkheid</a></li>
-      <li><a href="#s6">6 · Migratie</a></li>
+      <li><a href="#s4">4 · Behaviour</a></li>
+      <li><a href="#s5">5 · Accessibility</a></li>
+      <li><a href="#s6">6 · Migration</a></li>
       <li><a href="#s7">7 · Governance</a></li>
-      <li><a href="#sa">A · Referentieschermen</a>
+      <li><a href="#sa">A · Reference screens</a>
         <ol>
-          <li><a href="#sa-1">1 · Lid worden <span class="tocp">Formulier</span></a></li>
+          <li><a href="#sa-1">1 · Lid worden <span class="tocp">Form</span></a></li>
           <li><a href="#sa-2">2 · Dashboard <span class="tocp">Detail</span></a></li>
-          <li><a href="#sa-3">3 · Activiteiten <span class="tocp">Lijst-index</span></a></li>
-          <li><a href="#sa-4">4 · Betalingen <span class="tocp">Lijst/tabel</span></a></li>
-          <li><a href="#sa-5">5 · Activiteit bewerken <span class="tocp">Formulier</span></a></li>
-          <li><a href="#sa-6">6 · Formulier bewerken <span class="tocp">Formulier</span></a></li>
-          <li><a href="#sa-7">7 · Home <span class="tocp">Hero + kaarten</span></a></li>
-          <li><a href="#sa-8">8 · Raakje AI <span class="tocp">Dialoog</span></a></li>
+          <li><a href="#sa-3">3 · Activiteiten <span class="tocp">List index</span></a></li>
+          <li><a href="#sa-4">4 · Betalingen <span class="tocp">List/table</span></a></li>
+          <li><a href="#sa-5">5 · Activiteit bewerken <span class="tocp">Form</span></a></li>
+          <li><a href="#sa-6">6 · Formulier bewerken <span class="tocp">Form</span></a></li>
+          <li><a href="#sa-7">7 · Home <span class="tocp">Hero + cards</span></a></li>
+          <li><a href="#sa-8">8 · Raakje AI <span class="tocp">Dialog</span></a></li>
         </ol>
       </li>
     </ol>
@@ -497,87 +497,87 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
 
   <!-- 0 -->
   <section id="s0">
-    <div class="sec-h"><span class="num">0</span><h2>Inleiding</h2></div>
-    <p class="lede">Dit document is de <b>enige bron van waarheid</b> voor het uiterlijk en gedrag van Raak Millegem. Het vervangt de losse <code>stijlgids.html</code>, <code>ui-conventies.md</code> en de brand-tokens in <code>spec.md</code>: één plek waar kleur, typografie, componenten, patronen, gedrag en toegankelijkheid samenkomen.</p>
+    <div class="sec-h"><span class="num">0</span><h2>Introduction</h2></div>
+    <p class="lede">This document is the <b>single source of truth</b> for the look and behaviour of Raak Millegem. It replaces the separate <code>stijlgids.html</code>, <code>ui-conventies.md</code> and the brand tokens in <code>spec.md</code>: one place where colour, typography, components, patterns, behaviour and accessibility come together.</p>
     <div class="card">
-      <h4 class="block" style="margin-top:0">Hoe te gebruiken</h4>
-      <p style="margin:.2em 0 0;color:var(--ink-soft);font-size:.92rem">Elke waarde hier bestaat als <b>design-token</b> (gegenereerd via <code>scripts/build-css.sh</code>) en elke component als <b>Jinja-macro</b> in <code>_macros.html</code>. Bouw je een scherm, dan raadpleeg je de gids en gebruik je de macro — nooit een losse kleur of een met-de-hand-gestylde knop. Een lint-gate (§7) blokkeert afwijkingen bij de build.</p>
+      <h4 class="block" style="margin-top:0">How to use</h4>
+      <p style="margin:.2em 0 0;color:var(--ink-soft);font-size:.92rem">Every value here exists as a <b>design token</b> (generated via <code>scripts/build-css.sh</code>) and every component as a <b>Jinja macro</b> in <code>_macros.html</code>. When you build a screen you consult the guide and use the macro — never a loose colour or a hand-styled button. A lint gate (§7) blocks deviations at build time.</p>
       <div class="pillrow" style="margin-top:14px">
-        <span class="badge b-blue">Ocean Blue #0051a4 = primair</span>
+        <span class="badge b-blue">Ocean Blue #0051a4 = primary</span>
         <span class="badge b-amber">Golden Yellow = accent</span>
-        <span class="badge b-indigo">Indigo = admin-shell</span>
+        <span class="badge b-indigo">Indigo = admin shell</span>
         <span class="badge b-gray">Radio Canada Big + Inter</span>
       </div>
     </div>
-    <div class="note"><b>Status:</b> voorstel v0.1 ter goedkeuring. De richting is verankerd in het bestaande palet; nieuwe/gewijzigde afspraken staan expliciet in §6 (Migratie) zodat niets stilzwijgend wegvalt.</div>
+    <div class="note"><b>Status:</b> proposal v0.1 for approval. The direction is anchored in the existing palette; new or changed decisions are stated explicitly in §6 (Migration) so nothing is dropped silently.</div>
   </section>
 
   <!-- 1 -->
   <section id="s1">
-    <div class="sec-h"><span class="num">1</span><h2>Fundamenten (tokens)</h2></div>
-    <p class="lede">De atomen van het systeem. Alles verwijst hiernaar; nergens nog losse hex-codes of ad-hoc maten.</p>
+    <div class="sec-h"><span class="num">1</span><h2>Foundations (tokens)</h2></div>
+    <p class="lede">The atoms of the system. Everything refers to these; no loose hex codes or ad-hoc sizes anywhere.</p>
 
-    <h3 class="block" id="s1-1">1.1 Kleur</h3>
-    <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0">Het bestaande Raak-palet — warm en herkenbaar. Ocean Blue draagt de interface; de warme accenten (geel, oranje, groen, roze) zijn <b>semantisch</b> en worden spaarzaam ingezet.</p>
+    <h3 class="block" id="s1-1">1.1 Colour</h3>
+    <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0">The existing Raak palette — warm and recognisable. Ocean Blue carries the interface; the warm accents (yellow, orange, green, pink) are <b>semantic</b> and used sparingly.</p>
     <div class="swatches">
-      <div class="sw"><span class="chip" style="background:#0051a4"></span><div><div class="nm">Ocean Blue</div><div class="hex mono">#0051a4</div><div class="role">primair · koppen · knoppen</div></div></div>
-      <div class="sw"><span class="chip" style="background:#ffce00"></span><div><div class="nm">Golden Yellow</div><div class="hex mono">#ffce00</div><div class="role">accent · nadruk</div></div></div>
-      <div class="sw"><span class="chip" style="background:#005d29"></span><div><div class="nm">Dark Green</div><div class="hex mono">#005d29</div><div class="role">betaald · geslaagd</div></div></div>
-      <div class="sw"><span class="chip" style="background:#3aba9b"></span><div><div class="nm">Cool Green</div><div class="hex mono">#3aba9b</div><div class="role">positief accent</div></div></div>
-      <div class="sw"><span class="chip" style="background:#ee3a37"></span><div><div class="nm">Watermelon Red</div><div class="hex mono">#ee3a37</div><div class="role">fout · verwijderen</div></div></div>
-      <div class="sw"><span class="chip" style="background:#f16532"></span><div><div class="nm">Pumpkin Orange</div><div class="hex mono">#f16532</div><div class="role">let op · openstaand</div></div></div>
-      <div class="sw"><span class="chip" style="background:#f17fb2"></span><div><div class="nm">Hot Pink</div><div class="hex mono">#f17fb2</div><div class="role">speels accent</div></div></div>
-      <div class="sw"><span class="chip" style="background:#460359"></span><div><div class="nm">Indigo</div><div class="hex mono">#460359</div><div class="role">admin-shell · categorie</div></div></div>
+      <div class="sw"><span class="chip" style="background:#0051a4"></span><div><div class="nm">Ocean Blue</div><div class="hex mono">#0051a4</div><div class="role">primary · headings · buttons</div></div></div>
+      <div class="sw"><span class="chip" style="background:#ffce00"></span><div><div class="nm">Golden Yellow</div><div class="hex mono">#ffce00</div><div class="role">accent · emphasis</div></div></div>
+      <div class="sw"><span class="chip" style="background:#005d29"></span><div><div class="nm">Dark Green</div><div class="hex mono">#005d29</div><div class="role">paid · success</div></div></div>
+      <div class="sw"><span class="chip" style="background:#3aba9b"></span><div><div class="nm">Cool Green</div><div class="hex mono">#3aba9b</div><div class="role">positive accent</div></div></div>
+      <div class="sw"><span class="chip" style="background:#ee3a37"></span><div><div class="nm">Watermelon Red</div><div class="hex mono">#ee3a37</div><div class="role">error · delete</div></div></div>
+      <div class="sw"><span class="chip" style="background:#f16532"></span><div><div class="nm">Pumpkin Orange</div><div class="hex mono">#f16532</div><div class="role">attention · outstanding</div></div></div>
+      <div class="sw"><span class="chip" style="background:#f17fb2"></span><div><div class="nm">Hot Pink</div><div class="hex mono">#f17fb2</div><div class="role">playful accent</div></div></div>
+      <div class="sw"><span class="chip" style="background:#460359"></span><div><div class="nm">Indigo</div><div class="hex mono">#460359</div><div class="role">admin shell · category</div></div></div>
     </div>
-    <h4 class="block">Neutralen &amp; oppervlakken</h4>
+    <h4 class="block">Neutrals &amp; surfaces</h4>
     <div class="swatches">
-      <div class="sw"><span class="chip" style="background:#eef3f9"></span><div><div class="nm">Ground</div><div class="hex mono">#eef3f9</div><div class="role">pagina-achtergrond</div></div></div>
-      <div class="sw"><span class="chip" style="background:#ffffff;box-shadow:inset 0 0 0 1px #d7e0ec"></span><div><div class="nm">Surface</div><div class="hex mono">#ffffff</div><div class="role">kaarten</div></div></div>
-      <div class="sw"><span class="chip" style="background:#f7fafd;box-shadow:inset 0 0 0 1px #d7e0ec"></span><div><div class="nm">Surface-2</div><div class="hex mono">#f7fafd</div><div class="role">subtiele vlakken</div></div></div>
-      <div class="sw"><span class="chip" style="background:#14171c"></span><div><div class="nm">Ink</div><div class="hex mono">#14171c</div><div class="role">hoofdtekst</div></div></div>
-      <div class="sw"><span class="chip" style="background:#52607a"></span><div><div class="nm">Ink-soft</div><div class="hex mono">#52607a</div><div class="role">subtekst · labels</div></div></div>
-      <div class="sw"><span class="chip" style="background:#d7e0ec"></span><div><div class="nm">Line</div><div class="hex mono">#d7e0ec</div><div class="role">randen</div></div></div>
+      <div class="sw"><span class="chip" style="background:#eef3f9"></span><div><div class="nm">Ground</div><div class="hex mono">#eef3f9</div><div class="role">page background</div></div></div>
+      <div class="sw"><span class="chip" style="background:#ffffff;box-shadow:inset 0 0 0 1px #d7e0ec"></span><div><div class="nm">Surface</div><div class="hex mono">#ffffff</div><div class="role">cards</div></div></div>
+      <div class="sw"><span class="chip" style="background:#f7fafd;box-shadow:inset 0 0 0 1px #d7e0ec"></span><div><div class="nm">Surface-2</div><div class="hex mono">#f7fafd</div><div class="role">subtle surfaces</div></div></div>
+      <div class="sw"><span class="chip" style="background:#14171c"></span><div><div class="nm">Ink</div><div class="hex mono">#14171c</div><div class="role">body text</div></div></div>
+      <div class="sw"><span class="chip" style="background:#52607a"></span><div><div class="nm">Ink-soft</div><div class="hex mono">#52607a</div><div class="role">secondary text · labels</div></div></div>
+      <div class="sw"><span class="chip" style="background:#d7e0ec"></span><div><div class="nm">Line</div><div class="hex mono">#d7e0ec</div><div class="role">borders</div></div></div>
     </div>
-    <div class="note"><b>WCAG:</b> tekst haalt minstens 4.5:1 contrast (3:1 voor ≥18px). De "warmte" komt van de zachte <code>ground</code>/<code>surface-2</code> en witruimte — niet van gekleurde tekst op gekleurde vlakken. Semantische kleur (goed/let-op/fout) staat los van het accent.</div>
-    <span class="mac">Tokens: <code>--primary</code> <code>--accent</code> <code>--ground</code> <code>--surface</code> <code>--ink</code> <code>--ink-soft</code> <code>--line</code> · macro <code>ui.badge(label, kleur)</code></span>
+    <div class="note"><b>WCAG:</b> text meets at least 4.5:1 contrast (3:1 for ≥18px). The "warmth" comes from the soft <code>ground</code>/<code>surface-2</code> and whitespace — not from coloured text on coloured surfaces. Semantic colour (success/attention/error) is separate from the accent.</div>
+    <span class="mac">Tokens: <code>--primary</code> <code>--accent</code> <code>--ground</code> <code>--surface</code> <code>--ink</code> <code>--ink-soft</code> <code>--line</code> · macro <code>ui.badge(label, colour)</code></span>
 
-    <h3 class="block" id="s1-2">1.2 Typografie</h3>
-    <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0"><b>Radio Canada Big</b> voor titels (warm, on-brand) · <b>Inter</b> voor body en tabellen. Eén schaal, regelhoogte 1.15 voor titels, ~1.55 voor tekst.</p>
+    <h3 class="block" id="s1-2">1.2 Typography</h3>
+    <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0"><b>Radio Canada Big</b> for headings (warm, on-brand) · <b>Inter</b> for body and tables. One scale, line height 1.15 for headings, ~1.55 for text.</p>
     <div class="demo tscale">
-      <div><span class="lab">Paginatitel · 30/700</span><span class="ex" style="font-size:30px;font-weight:800">Activiteiten beheren</span></div>
-      <div><span class="lab">Sectietitel · 22/600</span><span class="ex" style="font-size:22px;font-weight:600">Inschrijvingen</span></div>
-      <div><span class="lab">Kaarttitel · 17/600</span><span class="ex" style="font-size:17px;font-weight:600">Brood en Spelen</span></div>
+      <div><span class="lab">Page title · 30/700</span><span class="ex" style="font-size:30px;font-weight:800">Activiteiten beheren</span></div>
+      <div><span class="lab">Section title · 22/600</span><span class="ex" style="font-size:22px;font-weight:600">Inschrijvingen</span></div>
+      <div><span class="lab">Card title · 17/600</span><span class="ex" style="font-size:17px;font-weight:600">Brood en Spelen</span></div>
       <div><span class="lab">Body · 15.5/400</span><span class="ex" style="font-family:var(--sans);font-size:15.5px;font-weight:400">Standaardtekst voor formulieren en uitleg.</span></div>
       <div><span class="lab">Label · 13/600</span><span class="ex" style="font-family:var(--sans);font-size:13px;font-weight:600;text-transform:uppercase;letter-spacing:.04em">Status</span></div>
-      <div><span class="lab">Klein · 12.5/400</span><span class="ex" style="font-family:var(--sans);font-size:12.5px;color:var(--ink-soft)">Ondersteunende tekst en tabelnoten.</span></div>
+      <div><span class="lab">Small · 12.5/400</span><span class="ex" style="font-family:var(--sans);font-size:12.5px;color:var(--ink-soft)">Ondersteunende tekst en tabelnoten.</span></div>
     </div>
-    <span class="mac">Tokens: <code>--brand</code> (titels) · <code>--sans</code> (body). Radio Canada Big is ingebed; <code>Inter</code> wordt nog gevendord onder <code>/static</code> (§6).</span>
-    <div class="note"><b>Gewicht (PROD-pariteit):</b> koppen, sectietitels, kaart-/activiteit-titels en status-chips zijn <b>semibold (600)</b> — luchtig, niet vet. Extra-bold (700-800) is voorbehouden aan de <b>paginatitel</b>, <b>KPI-cijfers</b> en het <b>merkwoord "Raak"</b>. Jaartallen (bv. "2026") staan in <b>merkblauw + hairline</b> eronder.</div>
+    <span class="mac">Tokens: <code>--brand</code> (headings) · <code>--sans</code> (body). Radio Canada Big is embedded; <code>Inter</code> is still to be vendored under <code>/static</code> (§6).</span>
+    <div class="note"><b>Weight (PROD parity):</b> headings, section titles, card/activity titles and status chips are <b>semibold (600)</b> — airy, not heavy. Extra-bold (700-800) is reserved for the <b>page title</b>, <b>KPI figures</b> and the <b>brand word "Raak"</b>. Years (e.g. "2026") are shown in <b>brand blue + a hairline</b> beneath them.</div>
 
-    <h3 class="block" id="s1-3">1.3 Spacing &amp; ritme</h3>
-    <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0">Eén schaal — geen 13px hier en 19px daar. Basis 4px.</p>
+    <h3 class="block" id="s1-3">1.3 Spacing &amp; rhythm</h3>
+    <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0">One scale — no 13px here and 19px there. Base 4px.</p>
     <div class="demo spring">
-      <div><span class="bar" style="width:4px"></span> 4 · xs — icoon-marge</div>
-      <div><span class="bar" style="width:8px"></span> 8 · sm — knop-padding</div>
-      <div><span class="bar" style="width:12px"></span> 12 — veld-gap</div>
-      <div><span class="bar" style="width:16px"></span> 16 · md — kaart-padding</div>
-      <div><span class="bar" style="width:24px"></span> 24 · lg — tussen kaarten</div>
-      <div><span class="bar" style="width:32px"></span> 32 · xl — sectie</div>
-      <div><span class="bar" style="width:48px"></span> 48 — grote sectie</div>
-      <div><span class="bar" style="width:64px"></span> 64 — pagina-marge</div>
+      <div><span class="bar" style="width:4px"></span> 4 · xs — icon margin</div>
+      <div><span class="bar" style="width:8px"></span> 8 · sm — button padding</div>
+      <div><span class="bar" style="width:12px"></span> 12 — field gap</div>
+      <div><span class="bar" style="width:16px"></span> 16 · md — card padding</div>
+      <div><span class="bar" style="width:24px"></span> 24 · lg — between cards</div>
+      <div><span class="bar" style="width:32px"></span> 32 · xl — section</div>
+      <div><span class="bar" style="width:48px"></span> 48 — large section</div>
+      <div><span class="bar" style="width:64px"></span> 64 — page margin</div>
     </div>
 
     <h3 class="block" id="s1-4">1.4 Radii · borders · elevation</h3>
     <div class="demo row" style="gap:20px">
-      <div style="text-align:center"><div style="width:70px;height:52px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px"></div><small style="color:var(--ink-soft)">8px · velden/knoppen</small></div>
-      <div style="text-align:center"><div style="width:70px;height:52px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px"></div><small style="color:var(--ink-soft)">12px · panelen</small></div>
-      <div style="text-align:center"><div style="width:70px;height:52px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)"></div><small style="color:var(--ink-soft)">18px · kaarten</small></div>
+      <div style="text-align:center"><div style="width:70px;height:52px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px"></div><small style="color:var(--ink-soft)">8px · fields/buttons</small></div>
+      <div style="text-align:center"><div style="width:70px;height:52px;background:var(--surface-2);border:1px solid var(--line);border-radius:12px"></div><small style="color:var(--ink-soft)">12px · panels</small></div>
+      <div style="text-align:center"><div style="width:70px;height:52px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)"></div><small style="color:var(--ink-soft)">18px · cards</small></div>
       <div style="text-align:center"><div style="width:70px;height:52px;background:var(--surface);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow-lg)"></div><small style="color:var(--ink-soft)">shadow-lg · modals</small></div>
     </div>
     <span class="mac">Tokens: <code>--r-sm</code> 8 · <code>--r-md</code> 12 · <code>--r-lg</code> 18 · <code>--r-pill</code> · <code>--shadow</code> · <code>--shadow-lg</code></span>
 
-    <h3 class="block" id="s1-5">1.5 Iconen</h3>
-    <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0"><b>Lucide</b> — één consistente lijnstijl (1.75px, ronde uiteinden), meelopend met de tekstkleur. Zelf-gehost (SVG-sprite), nooit een CDN.</p>
+    <h3 class="block" id="s1-5">1.5 Icons</h3>
+    <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0"><b>Lucide</b> — one consistent line style (1.75px, rounded ends), following the text colour. Self-hosted (SVG sprite), never a CDN.</p>
     <div class="demo row" style="gap:16px;color:var(--ink-soft)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M5 12h14M12 5v14"/></svg>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="m21 21-4.3-4.3"/><circle cx="11" cy="11" r="8"/></svg>
@@ -588,15 +588,15 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5"/><path d="M12 3v12"/></svg>
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z"/><path d="M14 2v6h6"/><path d="M16 13H8M16 17H8M10 9H8"/></svg>
     </div>
-    <span class="mac">Nieuw: <code>download</code> (vervangt het oubollige ⬇ op export-knoppen, #569) + <code>upload</code> (affiche-/media-/reglement-upload) + <code>file-text</code> (vervangt 📄). Via macro <code>ui.icon("download")</code>.</span>
+    <span class="mac">New: <code>download</code> (replaces the clunky ⬇ on export buttons, #569) + <code>upload</code> (poster/media/rules upload) + <code>file-text</code> (replaces 📄). Via macro <code>ui.icon("download")</code>.</span>
   </section>
 
   <!-- 2 -->
   <section id="s2">
-    <div class="sec-h"><span class="num">2</span><h2>Componenten</h2></div>
-    <p class="lede">Elk patroon één keer degelijk gebouwd, met een macro-naam, en overal identiek. Hieronder telkens: live voorbeeld + macro + do/don't.</p>
+    <div class="sec-h"><span class="num">2</span><h2>Components</h2></div>
+    <p class="lede">Each pattern built properly once, with a macro name, and identical everywhere. Below, each time: live example + macro + do/don't.</p>
 
-    <h3 class="block" id="s2-1">2.1 Knoppen</h3>
+    <h3 class="block" id="s2-1">2.1 Buttons</h3>
     <div class="demo">
       <div class="row">
         <button class="btn btn-primary"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5v14"/></svg> Nieuwe activiteit</button>
@@ -610,13 +610,13 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
         <button class="btn btn-primary" disabled>Uitgeschakeld</button>
       </div>
     </div>
-    <span class="mac">Macro's: <code>ui.btn_primary()</code> <code>ui.btn_secondary()</code> <code>ui.btn_fine()</code> <code>ui.btn_danger()</code> <code>ui.btn_icon()</code> — met <code>loading</code>/<code>disabled</code>-state.</span>
+    <span class="mac">Macros: <code>ui.btn_primary()</code> <code>ui.btn_secondary()</code> <code>ui.btn_fine()</code> <code>ui.btn_danger()</code> <code>ui.btn_icon()</code> — with <code>loading</code>/<code>disabled</code> state.</span>
     <div class="dd">
-      <div class="do"><b>Wel</b> — één gevulde primaire actie per scherm; de rest rustiger.</div>
-      <div class="dont"><b>Niet</b> — overal omlijnde knoppen, of "Verwijderen" naast de primaire actie.</div>
+      <div class="do"><b>Do</b> — one filled primary action per screen; the rest calmer.</div>
+      <div class="dont"><b>Don't</b> — outlined buttons everywhere, or "Delete" next to the primary action.</div>
     </div>
 
-    <h3 class="block" id="s2-2">2.2 Formuliervelden</h3>
+    <h3 class="block" id="s2-2">2.2 Form fields</h3>
     <div class="demo">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;max-width:640px">
         <div class="field" style="margin:0"><label>Naam <span class="req">*</span></label><input class="input" value="Jan Peeters"></div>
@@ -629,13 +629,13 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
         <span class="checkline"><button class="switch on" aria-label="Aan"></button> Gepubliceerd</span>
       </div>
     </div>
-    <span class="mac">Macro's: <code>ui.field()</code> <code>ui.input()</code> <code>ui.select()</code> <code>ui.switch()</code> — labels gekoppeld (<code>for</code>/<code>id</code>), fout <b>naast</b> het veld.</span>
+    <span class="mac">Macros: <code>ui.field()</code> <code>ui.input()</code> <code>ui.select()</code> <code>ui.switch()</code> — labels linked (<code>for</code>/<code>id</code>), error <b>beside</b> the field.</span>
     <div class="dd">
-      <div class="do"><b>Wel</b> — alle velden even hoog, één focus-ring, fout inline onder het veld.</div>
-      <div class="dont"><b>Niet</b> — postcode als vrij tekstveld (altijd dropdown), of een <code>alert()</code> bij een fout.</div>
+      <div class="do"><b>Do</b> — all fields the same height, one focus ring, error inline below the field.</div>
+      <div class="dont"><b>Don't</b> — postal code as a free text field (always a dropdown), or an <code>alert()</code> on error.</div>
     </div>
 
-    <h3 class="block" id="s2-3">2.3 Tabel · zoek/filter · rij-acties · paginering</h3>
+    <h3 class="block" id="s2-3">2.3 Table · search/filter · row actions · pagination</h3>
     <div class="demo plain" style="padding:0;overflow:hidden">
       <div style="padding:14px 16px" class="filterbar">
         <span class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="m21 21-4.3-4.3"/><circle cx="11" cy="11" r="8"/></svg><input class="input" placeholder="Zoek op naam of e-mail…"></span>
@@ -660,13 +660,13 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
         <span class="pg"><button>‹</button><button class="on">1</button><button>2</button><button>3</button><button>›</button></span>
       </div>
     </div>
-    <span class="mac">Macro's: <code>ui.data_table()</code> <code>ui.search()</code> <code>ui.grouped_filter()</code> <code>ui.row_actions()</code> <code>ui.pager()</code> — rijhoogte ~50px, subtiele hover, acties onder ⋯.</span>
+    <span class="mac">Macros: <code>ui.data_table()</code> <code>ui.search()</code> <code>ui.grouped_filter()</code> <code>ui.row_actions()</code> <code>ui.pager()</code> — row height ~50px, subtle hover, actions under ⋯.</span>
     <div class="dd">
-      <div class="do"><b>Wel</b> — elke groeibare lijst krijgt zoek + paging; status als chip.</div>
-      <div class="dont"><b>Niet</b> — zoveel mogelijk lijntjes, of Type als gekleurde pill naast de status.</div>
+      <div class="do"><b>Do</b> — every growable list gets search + paging; status as a chip.</div>
+      <div class="dont"><b>Don't</b> — as many rules/lines as possible, or Type as a coloured pill next to the status.</div>
     </div>
 
-    <h3 class="block" id="s2-4">2.4 Status-chips (badges)</h3>
+    <h3 class="block" id="s2-4">2.4 Status chips (badges)</h3>
     <div class="demo pillrow">
       <span class="badge b-gray">Concept</span>
       <span class="badge b-green">Gepubliceerd</span>
@@ -678,9 +678,9 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <span class="badge b-amber">Deels betaald</span>
       <span class="badge b-teal">Terugbetaling</span>
     </div>
-    <span class="mac">Macro <code>ui.badge(label, kleur)</code> — elke status krijgt <b>overal</b> exact dezelfde kleur, vorm en benaming (NL, nooit rauwe code). Geel = wachtend (amber vervalt).</span>
+    <span class="mac">Macro <code>ui.badge(label, colour)</code> — every status gets <b>everywhere</b> exactly the same colour, shape and name (Dutch UI label, never a raw code). Yellow = pending (amber is dropped).</span>
 
-    <h3 class="block" id="s2-5">2.5 Meldingen · modal · toast · herorden</h3>
+    <h3 class="block" id="s2-5">2.5 Notifications · modal · toast · reorder</h3>
     <div class="demo" style="display:grid;gap:14px">
       <div class="alert a-ok"><svg viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><div><b>Opgeslagen.</b> Je wijzigingen aan "Brood en Spelen" zijn bewaard.</div></div>
       <div class="alert a-warn"><svg viewBox="0 0 24 24" fill="none" stroke="var(--warning)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg><div><b>Let op.</b> Er is nog een openstaand saldo van € 20,00.</div></div>
@@ -697,120 +697,120 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
         <div class="mf"><button class="btn btn-secondary">Annuleren</button><button class="btn btn-danger">Verwijderen</button></div>
       </div>
     </div>
-    <span class="mac">Macro's: <code>ui.alert()</code> <code>ui.toast()</code> <code>ui.modal()</code> <code>ui.reorder()</code> — bevestiging vóór destructief, in een modal (nooit <code>confirm()</code>).</span>
+    <span class="mac">Macros: <code>ui.alert()</code> <code>ui.toast()</code> <code>ui.modal()</code> <code>ui.reorder()</code> — confirm before destructive, in a modal (never <code>confirm()</code>). A toast is a short confirmation that fades away on its own.</span>
   </section>
 
   <!-- 3 -->
   <section id="s3">
-    <div class="sec-h"><span class="num">3</span><h2>Patronen</h2></div>
-    <p class="lede">De ~13 schermen bestaan uit maar zes echte patronen. Bouw die zes goed, en elk scherm is een samenstelling ervan.</p>
+    <div class="sec-h"><span class="num">3</span><h2>Patterns</h2></div>
+    <p class="lede">The ~13 screens are made of just six real patterns. Build those six well, and every screen is a composition of them.</p>
 
-    <h3 class="block" id="s3-1" style="margin-top:0">Admin &amp; publiek — familie, geen tweeling</h3>
-    <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0">Beide delen delen <b>dezelfde</b> tokens, fonts, iconen, knoppen, formuliertaal en meldingen — maar de <b>expressie</b> verschilt. Zo voelt alles van één huis, terwijl elk deel zijn taak dient.</p>
+    <h3 class="block" id="s3-1" style="margin-top:0">Admin &amp; public — family, not twins</h3>
+    <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0">Both parts share <b>the same</b> tokens, fonts, icons, buttons, form language and notifications — but the <b>expression</b> differs. So everything feels of one house, while each part serves its purpose.</p>
     <div class="split">
       <div><h4><span class="badge b-indigo">Admin (backend)</span></h4><ul>
-        <li>Rustig, efficiënt, hoge informatiedichtheid</li>
-        <li>Neutrale <code>ground</code>, sterke tabellen &amp; formulieren</li>
-        <li>Indigo app-shell, compacte kaarten, weinig decoratie</li>
-        <li>Snelle bediening: zoek, filters, rij-acties, paging</li>
+        <li>Calm, efficient, high information density</li>
+        <li>Neutral <code>ground</code>, strong tables &amp; forms</li>
+        <li>Indigo app shell, compact cards, little decoration</li>
+        <li>Fast operation: search, filters, row actions, paging</li>
       </ul></div>
-      <div><h4><span class="badge b-blue">Publiek (frontend)</span></h4><ul>
-        <li>Expressiever, warmer, meer ademruimte</li>
-        <li>Grotere typografie, foto's/affiches, meer Ocean Blue</li>
-        <li>Activiteitenkaarten, duidelijke oproepen ("Schrijf je in")</li>
-        <li>Minder tabellen, meer visuele hiërarchie</li>
+      <div><h4><span class="badge b-blue">Public (frontend)</span></h4><ul>
+        <li>More expressive, warmer, more breathing room</li>
+        <li>Larger typography, photos/posters, more Ocean Blue</li>
+        <li>Activity cards, clear calls to action ("Schrijf je in")</li>
+        <li>Fewer tables, more visual hierarchy</li>
       </ul></div>
     </div>
-    <p style="color:var(--ink-soft);font-size:.88rem;margin:14px 0 0">De patronen hieronder zijn <b>admin-centrisch</b> (Deel A). Het publieke equivalent staat rechts vermeld; bijlage A toont beide toegepast.</p>
+    <p style="color:var(--ink-soft);font-size:.88rem;margin:14px 0 0">The patterns below are <b>admin-centric</b> (Part A). The public equivalent is listed on the right; appendix A shows both applied.</p>
 
     <div class="tbl-wrap" style="margin-top:14px">
       <table>
-        <thead><tr><th>Patroon</th><th>Waaruit</th><th>Admin (Deel A)</th><th>Publiek (Deel B)</th></tr></thead>
+        <thead><tr><th>Pattern</th><th>Made of</th><th>Admin (Part A)</th><th>Public (Part B)</th></tr></thead>
         <tbody>
-          <tr><td><b>1 · App-shell</b></td><td>Indigo-sidebar (logo, nav, uitloggen onderaan) + bovenbalk</td><td>elke admin-pagina</td><td>publieke topnav + footer (geen sidebar)</td></tr>
-          <tr><td><b>2 · Paginaheader</b></td><td>broodkruimel · titel · toelichting · primaire actie rechts</td><td>Activiteiten, Leden…</td><td>hero met grotere titel + hoofdactieknop</td></tr>
-          <tr><td><b>3 · Lijst/tabel</b></td><td>zoek + filterbalk · status-chips · rij-acties · paging</td><td>Betalingen, Leden (tabel)</td><td>activiteiten als <b>kaarten</b>, geen tabel</td></tr>
-          <tr><td><b>4 · Formulier</b></td><td>secties · velden · opslaan/annuleren · inline fouten</td><td>Activiteit/formulier bewerken</td><td>Word lid, inschrijven (ademender)</td></tr>
-          <tr><td><b>5 · Detail</b></td><td>kop + kaarten/zijpaneel · gerelateerde lijsten</td><td>Gezinsdetail, Dashboard</td><td>activiteit-detailpagina</td></tr>
-          <tr><td><b>6 · Dialoog/melding</b></td><td>modal · zijpaneel · toast · bevestiging</td><td>overal</td><td>bevestiging na inschrijving</td></tr>
+          <tr><td><b>1 · App shell</b></td><td>Indigo sidebar (logo, nav, log out at the bottom) + top bar</td><td>every admin page</td><td>public top nav + footer (no sidebar)</td></tr>
+          <tr><td><b>2 · Page header</b></td><td>breadcrumb · title · description · primary action on the right</td><td>Activiteiten, Leden…</td><td>hero with larger title + main action button</td></tr>
+          <tr><td><b>3 · List/table</b></td><td>search + filter bar · status chips · row actions · paging</td><td>Betalingen, Leden (table)</td><td>activities as <b>cards</b>, no table</td></tr>
+          <tr><td><b>4 · Form</b></td><td>sections · fields · save/cancel · inline errors</td><td>edit activity/form</td><td>Word lid, register (airier)</td></tr>
+          <tr><td><b>5 · Detail</b></td><td>header + cards/side panel · related lists</td><td>family detail, Dashboard</td><td>activity detail page</td></tr>
+          <tr><td><b>6 · Dialog/notification</b></td><td>modal · side panel · toast · confirmation</td><td>everywhere</td><td>confirmation after registration</td></tr>
         </tbody>
       </table>
     </div>
-    <div class="note"><b>Record-beheer (beslist — Koen):</b> een lijst opent bij <b>"Bewerken"</b> een <b>volledige-pagina-editor</b> (zoals Scherm 4), niet een master-detail-splitsing. Master-detail (lijst links, detail/edit rechts) blijft een mogelijke <b>hybride</b> voor later indien nodig (#510). De HDEV-activiteiten (nu master-detail) worden hierop afgestemd.</div>
+    <div class="note"><b>Record management (decided — Koen):</b> from a list, <b>"Bewerken"</b> opens a <b>full-page editor</b> (like Screen 4), not a master-detail split. Master-detail (list left, detail/edit right) remains a possible <b>hybrid</b> for later if needed (#510). The HDEV activities (currently master-detail) will be aligned to this.</div>
 
-    <h3 class="block" id="s3-2">Lijst-index — vaste opbouw van elk records-scherm</h3>
-    <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0">Elk beheersscherm met records (Leden, Activiteiten, Betalingen, Formulieren, Media, Gebruikers, Pagina's) heeft <b>dezelfde</b> opbouw in de inhoudskolom, <b>van boven naar onder</b>. Zo staan zoeken, "nieuw" en de filters overal op dezelfde plaats.</p>
+    <h3 class="block" id="s3-2">List index — the fixed layout of every records screen</h3>
+    <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0">Every admin screen with records (Leden, Activiteiten, Betalingen, Formulieren, Media, Gebruikers, Pagina's) has <b>the same</b> layout in the content column, <b>from top to bottom</b>. So search, "new" and the filters are in the same place everywhere.</p>
     <ol style="margin:8px 0 0;padding-left:1.3rem;color:var(--ink);font-size:.92rem;line-height:1.7">
-      <li><b>Paginatitel</b></li>
-      <li><b>Primaire actie</b> — één knop <b>"+ Nieuwe …"</b> (geen blauwe balk eromheen)</li>
-      <li><b>Zoekvenster</b> ("Zoek op …")</li>
-      <li><b>Filters</b> (bv. Komende · Archief · Alles, of een status) — <b>altijd ónder</b> "Nieuwe" en het zoekvenster, nooit erboven</li>
-      <li><b>Record-kaarten</b> — klikbaar; "Bewerken" opent de volledige-pagina-editor (Scherm 4)</li>
+      <li><b>Page title</b></li>
+      <li><b>Primary action</b> — one <b>"+ Nieuwe …"</b> button (no blue bar around it)</li>
+      <li><b>Search box</b> ("Zoek op …")</li>
+      <li><b>Filters</b> (e.g. Komende · Archief · Alles, or a status) — <b>always below</b> "Nieuwe" and the search box, never above</li>
+      <li><b>Record cards</b> — clickable; "Bewerken" opens the full-page editor (Screen 4)</li>
     </ol>
-    <div class="note"><b>Geen blauwe balk (HDEV-correctie):</b> op HDEV zat elke "+ Nieuwe …"-knop in een lichtblauw getint blok (<code>bg-blue-50</code>) samen met een inklapbaar formulier. Voortaan staat de knop <b>los</b>; het aanmaakformulier opent als <b>modal</b> (of als volledige-pagina-editor), niet in een getint blok. En de filters komen consequent <b>onder</b> "Nieuwe" + zoeken (voorheen bv. bij Media erboven).</div>
+    <div class="note"><b>No blue bar (HDEV correction):</b> on HDEV every "+ Nieuwe …" button sat in a light-blue tinted block (<code>bg-blue-50</code>) together with a collapsible form. From now on the button stands <b>on its own</b>; the create form opens as a <b>modal</b> (or as a full-page editor), not in a tinted block. And the filters consistently come <b>below</b> "Nieuwe" + search (previously above, e.g. on Media).</div>
   </section>
 
   <!-- 4 -->
   <section id="s4">
-    <div class="sec-h"><span class="num">4</span><h2>Gedrag</h2></div>
-    <p class="lede">"Modern" zit evenzeer in gedrag als in kleur. Deze regels gelden overal.</p>
+    <div class="sec-h"><span class="num">4</span><h2>Behaviour</h2></div>
+    <p class="lede">"Modern" lives as much in behaviour as in colour. These rules apply everywhere.</p>
     <div class="card">
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 26px;font-size:.9rem">
-        <div>✓ Opslaan zonder onverwachte paginasprongen (htmx)</div>
-        <div>✓ Zichtbare laadstatus; knop blokkeert na klik</div>
-        <div>✓ Duidelijke melding/toast na bewaren</div>
-        <div>✓ Waarschuwing bij niet-opgeslagen wijzigingen</div>
-        <div>✓ Filters blijven behouden na terugkeren/pollen</div>
-        <div>✓ Modals enkel voor korte, gerichte handelingen</div>
-        <div>✓ Lange details in een zijpaneel i.p.v. modal</div>
-        <div>✓ Fouten naast het betreffende veld</div>
-        <div>✓ Destructieve acties nooit naast de primaire actie</div>
-        <div>✓ Zichtbare toetsenbordfocus + correcte tabvolgorde</div>
-        <div>✓ Slimme standaardwaarden</div>
-        <div>✗ Nooit <code>alert()</code> of <code>confirm()</code></div>
+        <div>✓ Save without unexpected page jumps (htmx)</div>
+        <div>✓ Visible loading state; button locks after click</div>
+        <div>✓ Clear notification/toast after saving</div>
+        <div>✓ Warning on unsaved changes</div>
+        <div>✓ Filters are preserved after returning/polling</div>
+        <div>✓ Modals only for short, focused actions</div>
+        <div>✓ Long details in a side panel instead of a modal</div>
+        <div>✓ Errors beside the relevant field</div>
+        <div>✓ Destructive actions never next to the primary action</div>
+        <div>✓ Visible keyboard focus + correct tab order</div>
+        <div>✓ Smart default values</div>
+        <div>✗ Never <code>alert()</code> or <code>confirm()</code></div>
       </div>
     </div>
   </section>
 
   <!-- 5 -->
   <section id="s5">
-    <div class="sec-h"><span class="num">5</span><h2>Toegankelijkheid (WCAG)</h2></div>
-    <p class="lede">De GUI is voor iedereen bruikbaar. Dit is een harde eis, geen extra.</p>
+    <div class="sec-h"><span class="num">5</span><h2>Accessibility (WCAG)</h2></div>
+    <p class="lede">The GUI is usable by everyone. This is a hard requirement, not an extra.</p>
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>Categorie</th><th>Regel</th></tr></thead>
+        <thead><tr><th>Category</th><th>Rule</th></tr></thead>
         <tbody>
-          <tr><td>Contrast</td><td>≥ 4.5:1 tekst · 3:1 grote tekst — getoetst per token</td></tr>
-          <tr><td>Focus</td><td>Zichtbare focus-ring op alles wat bediend wordt</td></tr>
-          <tr><td>Semantiek</td><td>Echte <code>&lt;button&gt;</code>/<code>&lt;nav&gt;</code>/<code>&lt;main&gt;</code>, geen <code>&lt;div&gt;</code> als knop</td></tr>
-          <tr><td>Toetsenbord</td><td>Alle functionaliteit zonder muis bereikbaar</td></tr>
-          <tr><td>Iconen</td><td><code>aria-label</code> op icoon-only knoppen; decoratief = <code>aria-hidden</code></td></tr>
-          <tr><td>Formulieren</td><td>Label ↔ input gekoppeld; fout via <code>aria-describedby</code></td></tr>
-          <tr><td>Beweging</td><td><code>prefers-reduced-motion</code> gerespecteerd</td></tr>
+          <tr><td>Contrast</td><td>≥ 4.5:1 text · 3:1 large text — verified per token</td></tr>
+          <tr><td>Focus</td><td>Visible focus ring on everything operable</td></tr>
+          <tr><td>Semantics</td><td>Real <code>&lt;button&gt;</code>/<code>&lt;nav&gt;</code>/<code>&lt;main&gt;</code>, no <code>&lt;div&gt;</code> as a button</td></tr>
+          <tr><td>Keyboard</td><td>All functionality reachable without a mouse</td></tr>
+          <tr><td>Icons</td><td><code>aria-label</code> on icon-only buttons; decorative = <code>aria-hidden</code></td></tr>
+          <tr><td>Forms</td><td>Label ↔ input linked; error via <code>aria-describedby</code></td></tr>
+          <tr><td>Motion</td><td><code>prefers-reduced-motion</code> respected</td></tr>
         </tbody>
       </table>
     </div>
-    <span class="mac">CI-controle met axe-core is een kandidaat voor de test-gate (§7 / audit #530-buur).</span>
+    <span class="mac">A CI check with axe-core is a candidate for the test gate (§7 / neighbour of audit #530).</span>
   </section>
 
   <!-- 6 -->
   <section id="s6">
-    <div class="sec-h"><span class="num">6</span><h2>Migratie — IST → SOLL</h2></div>
-    <p class="lede">Wat verandert of vervalt t.o.v. de huidige situatie. Expliciet, zodat niets stilzwijgend verdwijnt (uit <code>ui-conventies.md §1</code>).</p>
+    <div class="sec-h"><span class="num">6</span><h2>Migration — current → target</h2></div>
+    <p class="lede">What changes or is dropped versus the current situation. Explicit, so nothing disappears silently (from <code>ui-conventies.md §1</code>).</p>
     <div class="tbl-wrap">
       <table>
-        <thead><tr><th>IST (nu)</th><th>SOLL (nieuw)</th></tr></thead>
+        <thead><tr><th>Current</th><th>Target</th></tr></thead>
         <tbody>
-          <tr><td>Titelkleur wisselt (blue-800/900/gray-900)</td><td>Altijd <code>--primary</code> (Ocean Blue), Radio Canada Big</td></tr>
-          <tr><td>Body = system-sans</td><td><b>Inter</b> vendoren onder <code>/static</code> + tokens</td></tr>
-          <tr><td>Amber én geel door elkaar (o.a. wijzigingen-tint)</td><td>Eén tokenset; wachtend = geel, amber vervalt</td></tr>
-          <tr><td>Zoeken op 3/15 lijsten</td><td>Elke groeibare lijst: <code>ui.search()</code> + <code>ui.pager()</code></td></tr>
-          <tr><td>Drie herorden-glyphs (▲▼ / ◀▶ / ↑↓)</td><td>Eén <code>ui.reorder()</code>; glyph volgt de layout</td></tr>
-          <tr><td>Rij-acties: boxed / tekst / 🗑️ emoji</td><td>Eén <code>ui.row_actions()</code> onder ⋯; verwijderen laatst-rood</td></tr>
-          <tr><td>Succes: banner / groene tekst / alert() / niets</td><td>Eén toast + optionele banner; nooit <code>alert()</code></td></tr>
-          <tr><td>"Opslaan" heet ook "Bewaar"/"Toevoegen"</td><td>Altijd "Opslaan"; create = "+ Nieuwe &lt;item&gt;"</td></tr>
-          <tr><td>Losse hex-codes in templates</td><td>Enkel tokens; lint-gate blokkeert rauwe kleuren (§7)</td></tr>
-          <tr><td>3 losse stijl-assets (stijlgids/ui-conventies/spec)</td><td><b>Dit document</b> = de enige bron</td></tr>
+          <tr><td>Title colour varies (blue-800/900/gray-900)</td><td>Always <code>--primary</code> (Ocean Blue), Radio Canada Big</td></tr>
+          <tr><td>Body = system-sans</td><td><b>Inter</b> vendored under <code>/static</code> + tokens</td></tr>
+          <tr><td>Amber and yellow mixed (e.g. changes tint)</td><td>One token set; pending = yellow, amber dropped</td></tr>
+          <tr><td>Search on 3/15 lists</td><td>Every growable list: <code>ui.search()</code> + <code>ui.pager()</code></td></tr>
+          <tr><td>Three reorder glyphs (▲▼ / ◀▶ / ↑↓)</td><td>One <code>ui.reorder()</code>; glyph follows the layout</td></tr>
+          <tr><td>Row actions: boxed / text / 🗑️ emoji</td><td>One <code>ui.row_actions()</code> under ⋯; delete last and red</td></tr>
+          <tr><td>Success: banner / green text / alert() / nothing</td><td>One toast + optional banner; never <code>alert()</code></td></tr>
+          <tr><td>"Opslaan" is also called "Bewaar"/"Toevoegen"</td><td>Always "Opslaan"; create = "+ Nieuwe &lt;item&gt;"</td></tr>
+          <tr><td>Loose hex codes in templates</td><td>Tokens only; lint gate blocks raw colours (§7)</td></tr>
+          <tr><td>3 separate style assets (stijlgids/ui-conventies/spec)</td><td><b>This document</b> = the single source</td></tr>
         </tbody>
       </table>
     </div>
@@ -819,23 +819,23 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
   <!-- 7 -->
   <section id="s7">
     <div class="sec-h"><span class="num">7</span><h2>Governance</h2></div>
-    <p class="lede">Consistentie wordt technisch afgedwongen, niet gehoopt. De keten: <b>tokens → macro → lint-gate → deze gids</b>.</p>
+    <p class="lede">Consistency is enforced technically, not hoped for. The chain: <b>tokens → macro → lint gate → this guide</b>.</p>
     <div class="card" style="display:grid;gap:12px;font-size:.92rem">
-      <div><b>1 · Tokens (één bron).</b> Kleur/spacing/type/radii in <code>scripts/build-css.sh</code> (Tailwind-standalone, nul Node). Templates verwijzen; geen losse hex.</div>
-      <div><b>2 · Macro's.</b> Elke component in <code>backend/app/ui/templates/_macros.html</code>. Verandert een knop, dan verandert hij overal.</div>
-      <div><b>3 · Lint-gate.</b> Een pytest (à la <code>test_i18n_gate</code>) verbiedt rauwe kleur-utilities en losse knop-classes buiten de macro's — de build faalt bij drift.</div>
-      <div><b>4 · Deze gids.</b> Levend document; wijzigingen hier + in de macro's gaan samen. Playwright-golden-screenshots bewaken de referentieschermen.</div>
+      <div><b>1 · Tokens (one source).</b> Colour/spacing/type/radii in <code>scripts/build-css.sh</code> (Tailwind standalone, zero Node). Templates refer to them; no loose hex.</div>
+      <div><b>2 · Macros.</b> Every component in <code>backend/app/ui/templates/_macros.html</code>. Change a button and it changes everywhere.</div>
+      <div><b>3 · Lint gate.</b> A pytest (à la <code>test_i18n_gate</code>) forbids raw colour utilities and loose button classes outside the macros — the build fails on drift.</div>
+      <div><b>4 · This guide.</b> A living document; changes here and in the macros go together. Playwright golden screenshots guard the reference screens.</div>
     </div>
-    <div class="note">Eindtoestand: het wordt <b>moeilijk om nog een lelijk of inconsistent scherm te bouwen</b> — de kortste weg is de juiste weg.</div>
+    <div class="note">End state: it becomes <b>hard to build an ugly or inconsistent screen</b> — the shortest path is the right path.</div>
   </section>
 
   <!-- Appendix -->
   <section id="sa">
-    <div class="sec-h"><span class="num">A</span><h2>Referentieschermen</h2></div>
-    <p class="lede">Alle patronen samen, toegepast op echte schermen — de visuele referentie voor de uitrol (fase 4). Elk scherm is gelabeld <b>Admin</b> of <b>Publiek</b> zodat het onderscheid uit §3 tastbaar wordt.</p>
+    <div class="sec-h"><span class="num">A</span><h2>Reference screens</h2></div>
+    <p class="lede">All patterns together, applied to real screens — the visual reference for the roll-out (phase 4). Each screen is labelled <b>Admin</b> or <b>Public</b> so the distinction from §3 becomes tangible.</p>
 
     <!-- Scherm 1: Lid worden (publiek) -->
-    <div class="scrlabel" id="sa-1">Scherm 1 <span class="tag tag-pub">Publiek</span> · Lid worden (gezinsregistratie · adresrooster · betaalmethode) <span class="ptn">Patroon 4 · Formulier</span></div>
+    <div class="scrlabel" id="sa-1">Screen 1 <span class="tag tag-pub">Public</span> · "Lid worden" (family registration · address grid · payment method) <span class="ptn">Pattern 4 · Form</span></div>
     <div class="frame pub">
       <div class="pubnav"><span class="lg">Raak<small>Beleef meer in Millegem</small></span><span class="lk"><a href="#sa">Home</a><a href="#sa">Werking</a><a href="#sa">Foto's</a><a href="#sa">Archief</a><a href="#sa">Inloggen</a></span></div>
       <div class="pubform">
@@ -891,7 +891,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 2: Admin-dashboard -->
-    <div class="scrlabel" id="sa-2">Scherm 2 <span class="tag tag-admin">Admin</span> · Dashboard (kerncijfers met sprong naar de betrokken module) <span class="ptn">Patroon 5 · Detail + 1 · App-shell</span></div>
+    <div class="scrlabel" id="sa-2">Screen 2 <span class="tag tag-admin">Admin</span> · Dashboard (key figures with a jump to the relevant module) <span class="ptn">Pattern 5 · Detail + 1 · App shell</span></div>
     <div class="appdemo">
       <aside class="sb">
         <div class="brand">RAAK<small>beheer</small></div>
@@ -920,7 +920,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 2: Activiteitenoverzicht (admin) -->
-    <div class="scrlabel" id="sa-3">Scherm 3 <span class="tag tag-admin">Admin</span> · Activiteitenoverzicht (app-shell + header + KPI's + lijst) <span class="ptn">Patroon 1 · App-shell + 2 · Paginaheader + 3 · Lijst-index</span></div>
+    <div class="scrlabel" id="sa-3">Screen 3 <span class="tag tag-admin">Admin</span> · Activities overview (app shell + header + KPIs + list) <span class="ptn">Pattern 1 · App shell + 2 · Page header + 3 · List index</span></div>
     <div class="appdemo">
       <aside class="sb">
         <div class="brand">RAAK<small>beheer</small></div>
@@ -968,7 +968,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 2: Betalingen (admin) -->
-    <div class="scrlabel" id="sa-4">Scherm 4 <span class="tag tag-admin">Admin</span> · Betalingen (saldo-matrix + status-chips + FINANCE-acties) <span class="ptn">Patroon 3 · Lijst/tabel + 6 · Acties/modal</span></div>
+    <div class="scrlabel" id="sa-4">Screen 4 <span class="tag tag-admin">Admin</span> · Payments (balance matrix + status chips + FINANCE actions) <span class="ptn">Pattern 3 · List/table + 6 · Actions/modal</span></div>
     <div class="frame" style="padding:20px">
       <div class="phead">
         <div><div class="crumb">Beheer · Betalingen</div><h3>Betalingen</h3><div class="sub">Betalingen &amp; vorderingen — enkel FINANCE kan bevestigen of terugbetalen.</div></div>
@@ -1054,7 +1054,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 4: Activiteit bewerken (admin) — Brood en Spelen -->
-    <div class="scrlabel" id="sa-5">Scherm 5 <span class="tag tag-admin">Admin</span> · Activiteit bewerken (info · meerdere datums · geneste onderdelen → producten) <span class="ptn">Patroon 4 · Formulier + geneste kaarten</span></div>
+    <div class="scrlabel" id="sa-5">Screen 5 <span class="tag tag-admin">Admin</span> · Edit activity (info · multiple dates · nested components → products) <span class="ptn">Pattern 4 · Form + nested cards</span></div>
     <div class="frame" style="padding:20px">
       <div class="phead">
         <div>
@@ -1147,7 +1147,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 3: Formulier bewerken (admin) — enquête -->
-    <div class="scrlabel" id="sa-6">Scherm 6 <span class="tag tag-admin">Admin</span> · Formulier bewerken (secties · veldtypes · vertakkingen) <span class="ptn">Patroon 4 · Formulier + herorden</span></div>
+    <div class="scrlabel" id="sa-6">Screen 6 <span class="tag tag-admin">Admin</span> · Edit form (sections · field types · branching) <span class="ptn">Pattern 4 · Form + reorder</span></div>
     <div class="frame" style="padding:20px">
       <div class="phead">
         <div>
@@ -1217,7 +1217,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 5: Publiek -->
-    <div class="scrlabel" id="sa-7">Scherm 7 <span class="tag tag-pub">Publiek</span> · Home (header · Word lid / Contacteer ons · activiteiten · footer) <span class="ptn">Patroon 2 · Hero/paginaheader + 3 · Kaarten</span></div>
+    <div class="scrlabel" id="sa-7">Screen 7 <span class="tag tag-pub">Public</span> · Home (header · Word lid / Contacteer ons · activities · footer) <span class="ptn">Pattern 2 · Hero/page header + 3 · Cards</span></div>
     <div class="note"><b>Auth-afhankelijk (#499/#467):</b> zowel de nav als de <b>hoofdactieknop</b> (de opvallende knop die de bezoeker tot één duidelijke stap aanzet) hangen af van de login-status. <b>Uitgelogd</b> (hieronder getoond): nav eindigt op "Inloggen", hoofdactieknop = <b>"Word lid"</b>. <b>Ingelogd lid</b>: nav krijgt "Mijn gezin · Admin · Uitloggen (naam)" en de hoofdactieknop wordt <b>"Mijn gezin"</b> (zie de balk hieronder).</div>
     <div style="background:var(--primary);color:#fff;border-radius:var(--r-md);padding:11px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px">
       <span style="font-family:var(--brand);font-weight:800;font-size:1.05rem">Raak <span style="font-size:.66rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.08em">· ingelogd-variant</span></span>
@@ -1302,7 +1302,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
 
     <!-- Scherm 6: Raakje AI-assistent (publiek) -->
-    <div class="scrlabel" id="sa-8">Scherm 8 <span class="tag tag-pub">Publiek</span> · Raakje AI (STT-microfoon · TTS-voorlezen · groeiende invoer) <span class="ptn">Patroon 6 · Dialoog/widget</span></div>
+    <div class="scrlabel" id="sa-8">Screen 8 <span class="tag tag-pub">Public</span> · Raakje AI (STT microphone · TTS read-aloud · growing input) <span class="ptn">Pattern 6 · Dialog/widget</span></div>
     <div class="frame pub" style="padding:22px">
       <div class="raakje">
         <div class="rk-head"><span class="av">💬 Raakje</span><button aria-label="Sluiten">✕</button></div>
@@ -1322,8 +1322,8 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
           <button class="rk-btn send" aria-label="Verstuur"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 2 11 13M22 2l-7 20-4-9-9-4Z"/></svg></button>
         </div>
       </div>
-      <div class="rk-launch" title="Zwevend knopje rechtsonder">💬</div>
-      <p class="hint" style="text-align:center;max-width:420px;margin:10px auto 0">Zwevend knopje rechtsonder op elke publieke pagina. <b>Microfoon</b> = STT (spraak → tekst, Voxtral/EU) · <b>Voorlezen</b> = TTS. De invoer is een <b>groeiende textarea</b> (meerdere regels) — dit lost de HDEV-bug op waar tekst na één regel verdween (v2.0 gebruikt nu een <code>&lt;input&gt;</code>).</p>
+      <div class="rk-launch" title="Floating button bottom-right">💬</div>
+      <p class="hint" style="text-align:center;max-width:420px;margin:10px auto 0">Floating button bottom-right on every public page. <b>Microphone</b> = STT (speech → text, Voxtral/EU) · <b>Read aloud</b> = TTS. The input is a <b>growing textarea</b> (multiple lines) — this fixes the HDEV bug where text disappeared after one line (v2.0 currently uses an <code>&lt;input&gt;</code>).</p>
     </div>
   </section>
 
@@ -1331,6 +1331,6 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
 </div>
 
 <footer class="footer">
-  <b>Raak Millegem Design System</b> · voorstel v0.1 · geschreven norm in <code>docs/ui-conventies.md</code> · stand in <code>docs/ui-conformiteit.md</code>. Titels: Radio Canada Big (ingebed) · body: Inter (in de app). Dit document is bedoeld als de samengesmolten bron van waarheid (#528).
+  <b>Raak Millegem Design System</b> · proposal v0.1 · written norm in <code>docs/ui-conventies.md</code> · current state in <code>docs/ui-conformiteit.md</code>. Headings: Radio Canada Big (embedded) · body: Inter (in the app). This document is meant as the merged source of truth (#528).
 </footer>
 </body></html>
