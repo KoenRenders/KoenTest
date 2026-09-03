@@ -82,6 +82,26 @@ def _lijst_ctx(db: Session, scope: str = "all") -> dict:
     return {"activities": list_activities(scope=scope, db=db), "scope": scope}
 
 
+def _kpi(db: Session) -> dict:
+    """De twee kengetallen boven het activiteitenbeheer (#528, design-system §7).
+
+    Bewust GEEN betalings-KPI's hier: geld hoort op /admin/betalingen, en het
+    dashboard linkt daar al naartoe. Wie activiteiten beheert, wil weten wat er
+    openstaat en wat vol zit.
+
+    Beide worden uit de reeds opgehaalde lijst afgeleid — geen extra query.
+    """
+    from app.domains.activities.router import list_activities
+
+    komend = list_activities(scope="upcoming", db=db)
+    onderdelen = [c for a in komend for c in a.sub_registrations]
+    return {
+        "kpi_open": sum(1 for a in komend if a.status == "Open"),
+        "kpi_vol": sum(1 for c in onderdelen if getattr(c, "is_full", False)),
+        "kpi_onderdelen": len(onderdelen),
+    }
+
+
 def _detail_response(request: Request, db: Session, activity_id: int,
                      error: str | None = None):
     from app.domains.activities.router import list_activities
@@ -99,7 +119,7 @@ def admin_activiteiten(request: Request, db: Session = Depends(get_db),
                        email: str = Depends(require_admin_ui)):
     return templates.TemplateResponse(request, "admin_activiteiten.html", {
         "nav_items": NAV, "csrf_token": csrf_from_request(request),
-        **_lijst_ctx(db, "upcoming")})
+        **_kpi(db), **_lijst_ctx(db, "upcoming")})
 
 
 @router.get("/admin/activiteiten/lijst", response_class=HTMLResponse)

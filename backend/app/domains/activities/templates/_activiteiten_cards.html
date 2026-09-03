@@ -8,13 +8,13 @@
   {% for a in activities %}
   {% set _jaar = a.sort_date.year if a.sort_date else None %}
   {% if _jaar and _jaar != _ns.jaar %}
-  <h3 class="text-lg font-bold text-gray-500{% if not loop.first %} pt-2{% endif %}">{{ _jaar }}</h3>
+  <h3 class="text-lg font-semibold text-blue-700 border-b border-line pb-1{% if not loop.first %} pt-2{% endif %}">{{ _jaar }}</h3>
   {% set _ns.jaar = _jaar %}
   {% endif %}
   {% call ui.card() %}
     {# Titel + status-badge inline (#488); titel linkt naar de affiche (v1.14). #}
     <div>
-      <h2 class="text-lg font-bold flex flex-wrap items-center gap-2">
+      <h2 class="text-lg font-semibold flex flex-wrap items-center gap-2">
         {% if a.poster_asset_url %}<a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-blue-700 hover:underline">{{ a.name }}</a>{% else %}<span>{{ a.name }}</span>{% endif %}
         {% if a.status %}{{ ui.badge(a.status, _status_tone.get(a.status, "blue")) }}{% endif %}
         {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
@@ -41,7 +41,7 @@
         {# Responsive (v1.14-pariteit): op mobiel de naam boven en de knoppen
            eronder; vanaf sm inline naast elkaar. #}
         <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-          {% if _multi %}<span class="text-sm font-semibold text-gray-900 sm:mr-1">{{ c.name }}</span>{% endif %}
+          {% if _multi %}<span class="text-sm font-semibold text-ink sm:mr-1">{{ c.name }}</span>{% endif %}
           <div class="flex flex-wrap gap-2">
           {% if scope != "archived" %}
           {% if c.external_register_url %}

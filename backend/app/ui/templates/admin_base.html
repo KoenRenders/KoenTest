@@ -26,7 +26,7 @@
   <script src="/static/vendor/htmx.min.js" defer></script>
   <script src="/static/vendor/alpine.min.js" defer></script>
 </head>
-<body class="bg-gray-50 min-h-screen text-gray-900" x-data="{ open: false }"
+<body class="bg-gray-50 min-h-screen text-ink" x-data="{ open: false }"
       hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
   {% if omgeving and omgeving != 'prod' %}<div class="bg-orange-500 text-white text-center text-xs font-semibold py-1">{{ omgeving|upper }} — testomgeving (geen productie)</div>{% endif %}
 

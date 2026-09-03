@@ -3,6 +3,20 @@
 {% block title %}{{ _("Activiteiten — Raak beheer") }}{% endblock %}
 {% block content %}
 {{ ui.page_header(_("Activiteiten")) }}
+{# Twee kengetallen, conform de mock (design-system, scherm 3). Bewust geen
+   betalings-KPI's: geld hoort op /admin/betalingen. Cijfer extra-bold, label
+   semibold — de gewicht-conventie uit §1.2. #}
+<div class="grid grid-cols-2 gap-4 mb-6 max-w-md">
+  <div class="rounded-xl bg-blue-50 p-5">
+    <div class="text-3xl font-extrabold text-blue-700">{{ kpi_open }}</div>
+    <div class="text-sm font-semibold mt-1">{{ _("Open inschrijvingen") }}</div>
+  </div>
+  <div class="rounded-xl bg-surface-2 border border-line p-5">
+    <div class="text-3xl font-extrabold">{{ kpi_vol }}</div>
+    <div class="text-sm font-semibold mt-1">{{ _("Volzette onderdelen") }}</div>
+    <div class="text-xs text-ink-soft">{{ _("van") }} {{ kpi_onderdelen }}</div>
+  </div>
+</div>
 <div class="flex flex-col lg:flex-row gap-6">
   <div class="lg:w-80 shrink-0">
     <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-4" x-data="{ open: false }">
