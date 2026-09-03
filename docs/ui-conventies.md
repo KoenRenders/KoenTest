@@ -202,6 +202,42 @@ De conventies hierboven zíjn de specificatie van de kit:
 elke pagina die hem adopteert automatisch conform. De kluslijst (§4) is dan per
 pagina grotendeels "vervang lokaal patroon door kit-component".
 
+### 5.1 De kit in Jinja — `_macros.html` (stand v2.0.0)
+
+Importeer met `{% import "_macros.html" as ui %}`. Beschikbaar:
+
+| Groep | Macro's |
+|---|---|
+| Structuur | `page_header` · `section_header` · `section_bar` · `card` · `nested_panel` · `tabs` · `detail_disclosure` |
+| Lijsten | `search` · `grouped_filter` · `pager` · `row_actions` · `reorder` · `empty_state` · `loading` |
+| Formulieren | `field_input` · `field_select` · `field_textarea` · `label` · `person_fields` · `export_links` |
+| Feedback | `toast` · `toast_host` · `success_banner` · `error_banner` · `modal` · `badge` |
+| Knoppen | `btn_primary` · `btn_secondary` · `btn_outline` · `btn_danger` · `button` · `btn_class` |
+
+Drie daarvan zijn nieuw in v2.0.0 (#528 as C) en verdienen toelichting:
+
+**`ui.search(hx_get, hx_target, value="", name="q", placeholder="Zoeken…")`** —
+zoekveld voor elke groeibare lijst. Debounce van 300 ms, zodat htmx niet per
+aanslag een verzoek doet. De parameter heet standaard `q`, zodat de serverkant
+overal dezelfde naam leest.
+
+**`ui.pager(page, per_page, total, hx_get, hx_target)`** — toont "x–y van n" met
+vorige/volgende. Bewust géén paginanummers: bij een groeiende lijst zegt een reeks
+knoppen weinig en breekt ze op mobiel. Verbergt zichzelf als alles op één pagina
+past, zodat een lijst met drie rijen geen navigatie krijgt.
+
+**`ui.toast(message, kind="success", timeout=4000)`** — hét bevestigingspatroon;
+`alert()` is verboden (§2.9) en de lint-gate keurt het af. Rendert als los
+fragment, dus een htmx-antwoord kan hem out-of-band meesturen:
+
+```html
+<div hx-swap-oob="afterbegin:#toasts">{{ ui.toast(_("Opgeslagen")) }}</div>
+```
+
+`ui.toast_host()` staat al in `site_base.html` en `admin_base.html`; die hoef je
+niet zelf te plaatsen. Een `kind="error"` verdwijnt **niet** vanzelf — een fout
+wil je niet missen — de andere soorten na `timeout` ms.
+
 ---
 
 # Deel B — Publieke site & ledenportaal

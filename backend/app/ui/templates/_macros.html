@@ -212,6 +212,74 @@
    velden — de canonieke filtervorm voor hiërarchische assen (categorie→subtype)
    en heterogene groepen (betalingen-context). `top_options`/`groups` zijn lijsten
    van (value, label)-tuples; `groups` is {groep-label: [(value, label), …]}. #}
+{# ── Zoekveld voor een groeibare lijst (#528 as C) ─────────────────────────────
+   Elke lijst die kan groeien krijgt zoek + paging; tot nu toe had 3 van de 15
+   lijsten een eigen zoekveld, elk net anders. Debounce van 300 ms zodat htmx niet
+   per aanslag een verzoek doet. `name` blijft standaard "q" zodat de serverkant
+   overal dezelfde parameter leest. #}
+{% macro search(hx_get, hx_target, value="", name="q", placeholder="Zoeken…", include="") -%}
+<div class="relative">
+  <input type="search" name="{{ name }}" value="{{ value }}" placeholder="{{ placeholder }}"
+         aria-label="{{ placeholder }}"
+         class="w-full sm:w-64 pl-9"
+         hx-get="{{ hx_get }}" hx-target="{{ hx_target }}" hx-swap="innerHTML"
+         hx-trigger="input changed delay:300ms, search"
+         {% if include %}hx-include="{{ include }}"{% endif %}>
+  <span class="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft pointer-events-none" aria-hidden="true">⌕</span>
+</div>
+{%- endmacro %}
+
+{# ── Paginering (#528 as C) ───────────────────────────────────────────────────
+   Toont "x–y van n" plus vorige/volgende. Bewust geen paginanummers: bij lijsten
+   die groeien zegt een reeks knoppen weinig en breekt ze op mobiel. Verbergt
+   zichzelf als alles op één pagina past, zodat een lijst met drie rijen geen
+   navigatie krijgt. #}
+{% macro pager(page, per_page, total, hx_get, hx_target, include="") -%}
+{% set pages = ((total - 1) // per_page + 1) if total else 1 %}
+{% if pages > 1 %}
+{% set first = (page - 1) * per_page + 1 %}
+{% set last = [page * per_page, total] | min %}
+<nav class="flex items-center justify-between gap-3 mt-3 text-sm" aria-label="Paginering">
+  <span class="text-ink-soft">{{ first }}–{{ last }} van {{ total }}</span>
+  <span class="flex gap-1">
+    {% for label, target, enabled in [("‹ Vorige", page - 1, page > 1), ("Volgende ›", page + 1, page < pages)] %}
+    <button type="button"
+            class="px-3 py-1.5 rounded-lg border {{ 'border-gray-300 hover:bg-gray-50' if enabled else 'border-gray-200 text-gray-400 cursor-not-allowed' }}"
+            {% if enabled %}hx-get="{{ hx_get }}{{ '&' if '?' in hx_get else '?' }}page={{ target }}"
+              hx-target="{{ hx_target }}" hx-swap="innerHTML"
+              {% if include %}hx-include="{{ include }}"{% endif %}
+            {% else %}disabled aria-disabled="true"{% endif %}>{{ label }}</button>
+    {% endfor %}
+  </span>
+</nav>
+{% endif %}
+{%- endmacro %}
+
+{# ── Toast (#528 as C) ────────────────────────────────────────────────────────
+   Eén bevestigingspatroon voor de hele app; alert() is verboden (as A/D). Rendert
+   als los fragment zodat een htmx-antwoord hem out-of-band kan meesturen:
+   hx-swap-oob="afterbegin:#toasts". Verdwijnt na `timeout` ms; een fout blijft
+   staan tot de gebruiker hem wegklikt, want die wil je niet missen. #}
+{% macro toast(message, kind="success", timeout=4000) -%}
+{% set tint = {"success": "bg-green-50 border-green-200 text-green-800",
+               "warning": "bg-yellow-50 border-yellow-200 text-yellow-800",
+               "error":   "bg-red-50 border-red-200 text-red-800"}[kind] %}
+<div class="pointer-events-auto flex items-start gap-3 rounded-lg border px-4 py-3 shadow-sm {{ tint }}"
+     role="{{ 'alert' if kind == 'error' else 'status' }}"
+     aria-live="{{ 'assertive' if kind == 'error' else 'polite' }}"
+     x-data="{ show: true }" x-show="show" x-transition.opacity
+     {% if kind != 'error' %}x-init="setTimeout(() => show = false, {{ timeout }})"{% endif %}>
+  <span class="text-sm">{{ message }}</span>
+  <button type="button" class="ml-auto text-lg leading-none opacity-60 hover:opacity-100"
+          @click="show = false" aria-label="Sluiten">&times;</button>
+</div>
+{%- endmacro %}
+
+{# Vaste plek waar toasts landen. Zet dit één keer in de basis-template. #}
+{% macro toast_host() -%}
+<div id="toasts" class="fixed top-4 right-4 z-50 flex flex-col gap-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none"></div>
+{%- endmacro %}
+
 {% macro grouped_filter(name, top_options=[], groups={}, current="", hx_get="", hx_target="") -%}
 <select name="{{ name }}" class="border border-gray-300 rounded-lg px-3 py-2 text-sm"
         {% if hx_get %}hx-get="{{ hx_get }}" hx-target="{{ hx_target }}" hx-swap="innerHTML" hx-trigger="change"{% endif %}>

@@ -1,3 +1,4 @@
+{% import "_macros.html" as ui %}
 {# AdminShell (#396, §13.1; UI-sweep #482): base-layout voor de beheer-schermen.
    Navigatie is een linker Indigo-zijbalk (stijlgids §09) — één schil voor álle
    admin-layouts. Items komen uit app.ui.admin_nav() via `nav_items`. #}
@@ -76,5 +77,7 @@
       </main>
     </div>
   </div>
+  {# Vaste landingsplek voor toasts (#528 as C); htmx stuurt ze out-of-band mee. #}
+  {{ ui.toast_host() }}
 </body>
 </html>

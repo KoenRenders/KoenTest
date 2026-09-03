@@ -1,3 +1,4 @@
+{% import "_macros.html" as ui %}
 {# SiteShell (React-exit #405, §21): de volwaardige publieke schil — navigatie
    (CMS-pagina's server-side), inhoud en footer (site-footer-blok + sponsors).
    Routes leveren `nav_pages`, `footer_block` en `sponsors` via
@@ -125,5 +126,7 @@
     <p class="text-center text-xs text-gray-400">© {{ current_year }} {{ site_name }}{% if privacy_url %} · <a href="{{ privacy_url }}" target="_blank" rel="noopener noreferrer" class="hover:text-blue-700 hover:underline">{{ _("Privacyverklaring") }}</a>{% endif %}</p>
   </footer>
   {% if chat_enabled %}{% include "_raakje_widget.html" %}{% endif %}
+  {# Vaste landingsplek voor toasts (#528 as C); htmx stuurt ze out-of-band mee. #}
+  {{ ui.toast_host() }}
 </body>
 </html>

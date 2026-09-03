@@ -36,6 +36,11 @@ module.exports = {
       brand: {DEFAULT:'#0051a4',ocean:'#0051a4','ocean-hover':'#02407c',accent:'#ffce00',
               indigo:'#460359',green:'#005d29',teal:'#3aba9b',danger:'#ee3a37',
               warning:'#f16532',pink:'#f17fb2'},
+      // Neutralen & oppervlakken (design-system §1.1) als utility-kleuren, zodat
+      // text-ink-soft / border-line / bg-surface-2 bestaan i.p.v. gray-* te gokken.
+      ink: {DEFAULT:'#14171c',soft:'#52607a'},
+      line: '#d7e0ec', ground: '#eef3f9',
+      surface: {DEFAULT:'#ffffff','2':'#f7fafd'},
       // Geel = "wachtend" (#528 as A). Het amber-palet vervalt: één gele schaal,
       // herschaald rond het merkaccent (400 = #ffce00), zodat yellow-* de token
       // IS — dezelfde truc als bij blue-700 = merkblauw.
