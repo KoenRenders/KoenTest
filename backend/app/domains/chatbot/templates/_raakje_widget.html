@@ -2,7 +2,7 @@
    Spraakinvoer (STT, #567) en voorlezen (TTS, #568) als progressive enhancement. #}
 <div x-data="{ open: false }" class="fixed bottom-4 right-4 z-40 print:hidden">
   <button @click="open = !open"
-          class="bg-blue-700 hover:bg-blue-800 text-white rounded-full w-14 h-14 shadow-lg flex items-center justify-center text-2xl"
+          class="bg-blue-700 hover:bg-brand-ocean-hover text-white rounded-full w-14 h-14 shadow-lg flex items-center justify-center text-2xl"
           aria-label="{{ _('Raakje — vraag het aan onze AI-assistent') }}">💬</button>
   <div x-show="open" x-cloak
        class="absolute bottom-16 right-0 w-80 max-w-[calc(100vw-2rem)] bg-white rounded-2xl shadow-xl border border-gray-200 flex flex-col overflow-hidden"
@@ -29,7 +29,7 @@
       <button type="button" data-stt-target="#raakje-widget-vraag" data-stt-mode="{{ stt_mode }}"
               class="border border-gray-300 hover:bg-gray-100 px-2 rounded-lg"
               title="{{ _('Spreek je vraag in') }}" aria-label="{{ _('Spreek je vraag in') }}">🎙</button>
-      <button type="submit" class="bg-blue-700 hover:bg-blue-800 text-white px-3 rounded-lg">➤</button>
+      <button type="submit" class="bg-blue-700 hover:bg-brand-ocean-hover text-white px-3 rounded-lg">➤</button>
     </form>
   </div>
 </div>

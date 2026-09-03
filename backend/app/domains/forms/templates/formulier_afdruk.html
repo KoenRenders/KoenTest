@@ -10,7 +10,11 @@
     .veld { margin: 0.9rem 0; page-break-inside: avoid; }
     .label { font-weight: 600; } .hulp { color: #555; font-size: 0.85rem; }
     .lijn { border-bottom: 1px solid #888; height: 1.4rem; margin-top: 0.3rem; }
-    .optie { margin: 0.15rem 0; } .info { background: #f2f2f2; padding: 0.5rem; }
+    /* Losstaande afdrukpagina: laadt bewust GEEN app.css (Tailwind-preflight zou
+       de printopmaak wijzigen, #523). De tokens staan daarom lokaal — hex hoort
+       enkel in een tokendefinitie, nooit in de opmaak zelf (#528 as A). */
+    :root { --surface-2: #f7fafd; }
+    .optie { margin: 0.15rem 0; } .info { background: var(--surface-2); padding: 0.5rem; }
     @media print { .noprint { display: none; } }
   </style>
 </head>

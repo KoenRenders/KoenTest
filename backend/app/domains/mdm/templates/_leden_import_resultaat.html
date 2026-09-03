@@ -23,9 +23,9 @@
   </div>
 
   {% if report.warnings %}
-  <div class="rounded-lg border border-amber-200 bg-amber-50 p-3 mb-4">
-    <p class="font-medium text-amber-800 text-sm mb-1">⚠ {{ _("Waarschuwingen") }} ({{ report.warnings | length }})</p>
-    <ul class="text-sm text-amber-800 list-disc pl-5 space-y-0.5">
+  <div class="rounded-lg border border-yellow-200 bg-yellow-50 p-3 mb-4">
+    <p class="font-medium text-yellow-800 text-sm mb-1">⚠ {{ _("Waarschuwingen") }} ({{ report.warnings | length }})</p>
+    <ul class="text-sm text-yellow-800 list-disc pl-5 space-y-0.5">
       {% for w in report.warnings %}<li>{{ w }}</li>{% endfor %}
     </ul>
   </div>

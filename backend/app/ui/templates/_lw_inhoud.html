@@ -1,7 +1,7 @@
 {% import "_macros.html" as ui %}
 {# Kleur per wijzigingstype (#460): toegevoegd groen, gewijzigd amber, verwijderd rood. #}
-{% set _op_tint = {"insert": "bg-green-50", "update": "bg-amber-50", "delete": "bg-red-50"} %}
-{% set _op_text = {"insert": "text-green-700", "update": "text-amber-800", "delete": "text-red-700"} %}
+{% set _op_tint = {"insert": "bg-green-50", "update": "bg-yellow-50", "delete": "bg-red-50"} %}
+{% set _op_text = {"insert": "text-green-700", "update": "text-yellow-800", "delete": "text-red-700"} %}
 {# #512 (v1.4-pariteit): één algemeen audit-logboek als primaire tabel, met de
    werkende Objectgroep-filter. De ledendata-mutaties voor Raak Nationaal zijn nu
    enkel nog een .ods-export (knop) i.p.v. een aparte, altijd-zichtbare tabel —

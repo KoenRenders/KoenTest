@@ -33,7 +33,7 @@
       {% if info and info.extracted_text %}
       <pre class="whitespace-pre-wrap break-words bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs text-gray-700 max-h-64 overflow-y-auto">{{ info.extracted_text }}</pre>
       {% if info.text_override %}
-      <p class="text-xs text-amber-700 mt-1">{{ _("Er is een vervangende tekst ingesteld — die (niet deze gelezen tekst) gaat naar Raakje.") }}</p>
+      <p class="text-xs text-yellow-700 mt-1">{{ _("Er is een vervangende tekst ingesteld — die (niet deze gelezen tekst) gaat naar Raakje.") }}</p>
       {% else %}
       <p class="text-xs text-gray-500 mt-1">{{ _("Deze gelezen tekst gaat naar Raakje (plus eventuele extra tekst).") }}</p>
       {% endif %}
