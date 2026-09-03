@@ -32,7 +32,7 @@
     {% set _multi = (a.sub_registrations | length) > 1 %}
     <div class="mt-4 space-y-3">
       {% for c in a.sub_registrations %}
-      <div class="pt-2"{% if not c.external_register_url and not c.external_registrations_url %} x-data="{ open: false }"{% endif %}>
+      <div class="pt-2" x-data="{ open: false, ins: false }">
         {% set _btn = ui.btn_class("outline", "xs") %}
         {% set _info = c.info_asset_url or c.info_url %}
         {# ↗ = link buiten de portaal (v1.14): enkel bij een externe info_url, niet
@@ -50,6 +50,7 @@
           {{ ui.badge(_("Volzet"), "red") }}
           {% else %}
           <button type="button" class="{{ _btn }}"
+                  @click="ins = true"
                   hx-get="/activiteiten/{{ a.id }}/inschrijven/{{ c.id }}"
                   hx-target="#inschrijf-{{ a.id }}-{{ c.id }}" hx-swap="innerHTML">{{ _("Inschrijven") }}</button>
           {% endif %}
@@ -69,7 +70,20 @@
         {% if not c.external_register_url and not c.external_registrations_url %}
         <div id="deelnemers-{{ a.id }}-{{ c.id }}" x-show="open" x-cloak></div>
         {% endif %}
-        {% if scope != "archived" %}<div id="inschrijf-{{ a.id }}-{{ c.id }}"></div>{% endif %}
+        {# Inschrijven als gecentreerde popup (v1.14-pariteit, #601): de knop zet
+           `ins=true` en laadt het formulier in de modal-body. Sluiten via ×/Escape/
+           klik-buiten. De × + kaart staan statisch hier (buiten het htmx-doel) zodat
+           Alpine ze verwerkt; het htmx-geladen formulier hoeft zelf geen Alpine. #}
+        {% if scope != "archived" %}
+        <div x-show="ins" x-cloak @keydown.escape.window="ins = false" @click.self="ins = false"
+             class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(17,17,17,.5)">
+          <div class="relative w-full max-w-md max-h-[90vh] overflow-auto bg-white rounded-2xl shadow-xl">
+            <button type="button" class="absolute top-3 right-3 z-10 text-gray-400 hover:text-gray-700 text-2xl leading-none"
+                    @click="ins = false" aria-label="{{ _('Sluiten') }}">&times;</button>
+            <div id="inschrijf-{{ a.id }}-{{ c.id }}"></div>
+          </div>
+        </div>
+        {% endif %}
       </div>
       {% endfor %}
     </div>

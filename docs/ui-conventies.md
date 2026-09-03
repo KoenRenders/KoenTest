@@ -360,8 +360,8 @@ OrderLineEditor wisselt niet; laden-teksten wisselen ("Activiteiten laden…" vs
 | Waar | Aanpassen |
 |---|---|
 | **betaling/geannuleerd** | ⚠ link `/word-lid` (404!) → bron of `/`; tekst uniformeren — *kandidaat v1.14* |
-| **ActivityList** | Inschrijven → `btn-primary btn-sm`; leeg-teksten de-italiceren |
-| **RegistrationForm** | modal → `<Modal>` (X/Esc/backdrop); rode `*`; banner i.p.v. kale tekst; eigen `formatPrice` → `money.ts` |
+| **ActivityList** | Inschrijven → `btn-primary btn-sm`; leeg-teksten de-italiceren; **"Wie doet er mee?" = compacte inline regel** *N ingeschreven — naam · naam · …* (geen verticale lijst) — PROD-pariteit (#601) |
+| **RegistrationForm** | **inschrijven opent als smalle popup/modal** (max-w-md, ×/Esc/backdrop) — nooit een inline getint blok dat de kaart verbreedt (#601); rode `*`; banner i.p.v. kale tekst; eigen `formatPrice` → `money.ts` |
 | **FamilyRegistrationForm** | rode `*`; succes-tekstpatroon; codes → canoniek |
 | **homepage** | 5s-banner → bedankscherm-patroon |
 | **leden/gezin** | `alert()`/`confirm()` → banner/ConfirmDialog; "Bewaren…" → "Bezig…" |

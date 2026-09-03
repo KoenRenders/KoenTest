@@ -934,6 +934,10 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
           <div class="cardacts"><button class="btn btn-primary">Schrijf je in</button><a class="btn btn-fine">Wie doet er mee?</a></div>
         </div>
       </div>
+      <div class="note"><b>Public registration = popup, participants = one line (#601, PROD parity).</b>
+        "Schrijf je in" opens the registration form in a <b>centred modal</b> (max-w-md, ×/Esc/backdrop) —
+        never an inline tinted block that widens the card. "Wie doet er mee?" toggles a <b>compact inline
+        line</b> below the card: <i>N ingeschreven — naam · naam · …</i>, not a vertical one-name-per-line list.</div>
       <div class="pubfoot">
         <div class="cols">
           <div>

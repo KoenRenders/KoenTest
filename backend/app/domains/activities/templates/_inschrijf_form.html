@@ -1,10 +1,13 @@
 {% import "_macros.html" as ui %}
-<div class="mt-3 bg-blue-50 border border-blue-100 rounded-2xl p-4">
-  <h3 class="font-bold mb-3">{{ _("Inschrijven") }} — {{ component.name }}</h3>
+{# Modal-body (#601): smalle popup. De witte kaart + × zitten in de overlay in
+   _activiteiten_cards.html; dit fragment is de inhoud. `.inschrijf-card` is het
+   hx-doel voor herrender (totaal/fout) en vervanging (klaar). #}
+<div class="inschrijf-card px-5 py-5">
+  <h3 class="font-bold text-lg mb-3 pr-6">{{ _("Inschrijven") }} — {{ component.name }}</h3>
   {{ ui.error_banner(error) }}
   <form hx-post="/activiteiten/{{ activity.id }}/inschrijven/{{ component.id }}"
-        hx-target="closest div.bg-blue-50" hx-swap="outerHTML" class="space-y-3">
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        hx-target="closest .inschrijf-card" hx-swap="outerHTML" class="space-y-3">
+    <div class="grid grid-cols-1 gap-3">
       <div>{{ ui.label(_("Naam"), "contact_name", required=True) }}
         <input name="contact_name" id="contact_name" required value="{{ values.get('contact_name', person.first_name ~ ' ' ~ person.last_name if person else '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
       <div>{{ ui.label(_("E-mailadres"), "contact_email", required=True) }}
