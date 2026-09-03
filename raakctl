@@ -94,9 +94,27 @@ cmd_logs() {  # <env> [service] [-n N] — service defaults to backend
 
 cmd_services() { services_of "${1:?name an environment: hdev|uat|prod}"; }
 
+# Transitional: raakctl runs from the HDEV checkout (master), but calls scripts
+# INSIDE the target checkout — and UAT/PROD still run v1.14.0, where the unified
+# scripts do not exist yet (there it is logging-<env>.sh / deploy-<env>.sh).
+# Prefer the new name, fall back to the old one. Remove together with #577, once
+# v2.0.0 runs everywhere.
+run_in_checkout() {  # $1 = env, $2 = new script, $3 = legacy script, rest = args
+  local env="$1" new="$2" legacy="$3"; shift 3
+  local d; d="$(checkout "$env")"
+  if [ -x "$d/$new" ]; then
+    ( cd "$d" && "./$new" "$env" "$@" )
+  elif [ -x "$d/$legacy" ]; then
+    echo "($env still runs a release without $new — using $legacy)" >&2
+    ( cd "$d" && "./$legacy" "$@" )
+  else
+    die "neither $new nor $legacy found in $d"
+  fi
+}
+
 cmd_diagnose() {
   local env="${1:?name an environment: hdev|uat|prod}"
-  ( cd "$(checkout "$env")" && ./logging.sh "$env" )
+  run_in_checkout "$env" logging.sh "logging-$env.sh"
 }
 
 cmd_backup() {
@@ -168,8 +186,7 @@ cmd_deploy() {
       [ "$confirmed" = 1 ] || die "a PROD deploy requires --confirm (raakctl deploy prod $tag --confirm)" ;;
     *) die "deploy targets hdev, uat or prod — not '$env'" ;;
   esac
-  local d; d="$(checkout "$env")"
-  ( cd "$d" && ./deploy.sh "$env" ${tag:+"$tag"} ${rest[@]+"${rest[@]}"} )
+  run_in_checkout "$env" deploy.sh "deploy-$env.sh" ${tag:+"$tag"} ${rest[@]+"${rest[@]}"}
 }
 
 cmd_caddy() {
