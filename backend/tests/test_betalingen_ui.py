@@ -118,15 +118,34 @@ def test_geneste_refund_heeft_bewerken_editor(client, db_session):
     assert f"/admin/betalingen/{refund.id}/bewerken" in html
 
 
+def _registratie_record(db, naam: str, amount: str, ogm: str, status="pending"):
+    """Betaling met een échte naam erachter.
+
+    `contact_name` is geen kolom op PaymentRecord: het wordt afgeleid uit de
+    registratie (status_router). Op het record zetten doet dus niets — dan zoek je
+    naar iets wat de lijst nooit rendert.
+    """
+    from tests.conftest import seed_activity_with_product
+    from app.domains.activities.api import Registration
+
+    activity, comp, _product = seed_activity_with_product(db, price=amount)
+    reg = Registration(activity_id=activity.id, component_id=comp.id,
+                       registration_type="INDIVIDUAL", contact_name=naam)
+    db.add(reg)
+    db.flush()
+    rec = PaymentRecord(payable_type="registration", payable_id=reg.id,
+                        amount=Decimal(amount), method="transfer", status=status,
+                        structured_communication=ogm)
+    db.add(rec)
+    db.flush()
+    return rec
+
+
 def test_betalingen_zoekt_op_naam_ogm_en_omschrijving(client, db_session):
     """#591: het zoekveld dekt de drie dingen waarmee je een betaling in de hand
     terugvindt — de naam, de gestructureerde mededeling en de omschrijving."""
-    a = _record(db_session, amount="25.00", payable_id=101)
-    a.contact_name = "An Peeters"
-    a.structured_communication = "+++123/4567/89012+++"
-    b = _record(db_session, amount="40.00", payable_id=102)
-    b.contact_name = "Bram Janssens"
-    b.structured_communication = "+++999/8888/77777+++"
+    _registratie_record(db_session, "An Peeters", "25.00", "+++123/4567/89012+++")
+    _registratie_record(db_session, "Bram Janssens", "40.00", "+++999/8888/77777+++")
     db_session.commit()
     _login(client)
 
@@ -139,10 +158,10 @@ def test_betalingen_zoekt_op_naam_ogm_en_omschrijving(client, db_session):
 
 def test_betalingen_zoek_werkt_binnen_het_statusfilter(client, db_session):
     """De zoekterm mag geen records terugtoveren die het filter net uitsloot."""
-    betaald = _record(db_session, amount="25.00", status="paid", payable_id=201)
-    betaald.contact_name = "Cara Claes"
-    open_record = _record(db_session, amount="30.00", status="pending", payable_id=202)
-    open_record.contact_name = "Cara Claes"
+    _registratie_record(db_session, "Cara Claes", "25.00", "+++111/1111/11111+++",
+                        status="paid")
+    _registratie_record(db_session, "Cara Claes", "30.00", "+++222/2222/22222+++",
+                        status="pending")
     db_session.commit()
     _login(client)
 
