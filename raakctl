@@ -3,7 +3,7 @@
 #
 #   raakctl                        menu (interactief)
 #   raakctl status [env]           containers, versie, alembic
-#   raakctl logs <env> [-n N]      backend-logs
+#   raakctl logs <env> [dienst] [-n N]   logs van één dienst (standaard backend)
 #   raakctl diagnose <env>         volledige diagnostiek -> /tmp/<env>-diagnostics.log
 #   raakctl deploy hdev            master naar HDEV
 #   raakctl deploy uat  <tag>      release-tag naar UAT
@@ -60,10 +60,16 @@ cmd_status() {
   done
 }
 
-cmd_logs() {
+cmd_logs() {  # <env> [dienst] [-n N] — dienst is standaard backend
   local env="${1:?geef een omgeving: hdev|uat|prod}"; shift || true
-  local n=100; [ "${1:-}" = "-n" ] && { n="${2:?aantal regels}"; shift 2; }
-  compose "$env" logs backend --tail="$n"
+  local svc="backend" n=100
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      -n) n="${2:?aantal regels na -n}"; shift 2 ;;
+      *)  svc="$1"; shift ;;
+    esac
+  done
+  compose "$env" logs "$svc" --tail="$n"
 }
 
 cmd_diagnose() {
@@ -109,14 +115,18 @@ menu() {
     echo
     echo "  raakctl — $(hostname)"
     echo "   1) status (alle omgevingen)      5) deploy HDEV (master)"
-    echo "   2) backend-logs                  6) deploy UAT (tag)"
+    echo "   2) logs van één dienst           6) deploy UAT (tag)"
     echo "   3) volledige diagnostiek         7) deploy PROD (tag)"
     echo "   4) gedeelde Caddy toepassen      q) stoppen"
+    echo "  (het rapport uit 3 haal je vanaf je laptop op met: raak fetch <env>)"
     read -rp "  keuze: " k
     case "$k" in
       1) cmd_status ;;
-      2) read -rp "  omgeving: " e; cmd_logs "$e" ;;
-      3) read -rp "  omgeving: " e; cmd_diagnose "$e" ;;
+      2) read -rp "  omgeving: " e
+         read -rp "  dienst (leeg = backend): " svc
+         cmd_logs "$e" ${svc:+"$svc"} ;;
+      3) read -rp "  omgeving: " e; cmd_diagnose "$e"
+         echo "  ophalen naar je laptop:  raak fetch $e" ;;
       4) cmd_caddy ;;
       5) cmd_deploy hdev ;;
       6) read -rp "  tag: " t; cmd_deploy uat "$t" ;;
