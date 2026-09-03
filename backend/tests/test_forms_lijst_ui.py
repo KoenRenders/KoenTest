@@ -30,15 +30,17 @@ def test_lijst_vereist_sessie(client):
 
 def test_zoeken_filtert_op_naam(client, db_session):
     _login(client)
-    _maak(db_session, "Inschrijving zomerkamp", "open", "zomer-1")
+    _maak(db_session, "Kampinschrijving juli", "open", "zomer-1")
     _maak(db_session, "Evaluatie winterfeest", "draft", "winter-1")
 
     alles = client.get("/admin/formulieren")
-    assert "Inschrijving zomerkamp" in alles.text and "Evaluatie winterfeest" in alles.text
+    assert "Kampinschrijving juli" in alles.text and "Evaluatie winterfeest" in alles.text
 
     gezocht = client.get("/admin/formulieren", params={"q": "winter"})
     assert "Evaluatie winterfeest" in gezocht.text
-    assert "Inschrijving zomerkamp" not in gezocht.text
+    # let op: de modal-placeholder noemt een voorbeeldnaam, dus testdata mag daar
+    # niet mee samenvallen — anders test je de placeholder i.p.v. het filter
+    assert "Kampinschrijving juli" not in gezocht.text
 
 
 def test_statusfilter_toont_enkel_die_status(client, db_session):

@@ -282,6 +282,24 @@
 </form>
 {%- endmacro %}
 
+{# ── Filterchips (#586) ───────────────────────────────────────────────────────
+   Één keuze uit een korte, vaste reeks (Komende · Archief · Alles), bedoeld voor
+   IN een filter_bar. Radio's i.p.v. knoppen: een radio draagt de keuze mee in de
+   querystring van het filterformulier en is met toetsenbord én schermlezer te
+   bedienen; de knopvorm is puur opmaak (`sr-only peer` + `peer-checked:`).
+   `options` = lijst van (waarde, label); een lege waarde is "alles". #}
+{% macro chips(name, options, current="") -%}
+<div class="flex flex-wrap gap-2">
+  {% for value, label in options %}
+  <label class="cursor-pointer">
+    <input type="radio" name="{{ name }}" value="{{ value }}" class="sr-only peer"
+           {% if current == value %}checked{% endif %}>
+    <span class="inline-flex items-center rounded-lg border px-3 py-1 text-sm bg-white border-gray-200 hover:bg-gray-50 peer-checked:bg-blue-700 peer-checked:text-white peer-checked:border-blue-700 peer-focus-visible:ring-2 peer-focus-visible:ring-blue-700">{{ label }}</span>
+  </label>
+  {% endfor %}
+</div>
+{%- endmacro %}
+
 {# ── Toast (#528 as C) ────────────────────────────────────────────────────────
    Eén bevestigingspatroon voor de hele app; alert() is verboden (as A/D). Rendert
    als los fragment zodat een htmx-antwoord hem out-of-band kan meesturen:

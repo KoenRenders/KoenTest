@@ -2,7 +2,11 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Activiteiten — Raak beheer") }}{% endblock %}
 {% block content %}
-{{ ui.page_header(_("Activiteiten")) }}
+{# Records-lijst (design-system C1, #586): titel → duidingsregel → KPI-rij →
+   primaire "+ Nieuwe activiteit" (los, aanmaken in een modal) → zoeken →
+   scope-chips → klikbare kaarten die de paginabrede editor openen. #}
+{{ ui.page_header(_("Activiteiten"), _("Een kaart opent de activiteit: datums, onderdelen en producten.")) }}
+
 {# Twee kengetallen, conform de mock (design-system, scherm 3). Bewust geen
    betalings-KPI's: geld hoort op /admin/betalingen. Cijfer extra-bold, label
    semibold — de gewicht-conventie uit §1.2. #}
@@ -17,32 +21,47 @@
     <div class="text-xs text-ink-soft">{{ _("van") }} {{ kpi_onderdelen }}</div>
   </div>
 </div>
-<div class="flex flex-col lg:flex-row gap-6">
-  <div class="lg:w-80 shrink-0">
-    {# Lijst-index C1: de knop staat los, zonder blauwe balk; het aanmaakformulier
-       opent in een modal (HDEV-correctie in design-system C1). #}
-    <div class="mb-4" x-data="{ open: false }">
-      {{ ui.btn_secondary(_("+ Nieuwe activiteit"), attrs='@click="open = true"') }}
-      {% call ui.modal('open', _("Nieuwe activiteit")) %}
-      <form class="space-y-3" hx-post="/admin/activiteiten" hx-target="#aa-lijst" hx-swap="innerHTML"
-            @htmx:after-request="open = false">
-        <div>{{ ui.label(_("Naam"), "name", required=True) }}
-          <input name="name" id="name" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label(_("Eerste datum"), "start_date", required=True) }}
-          <input type="date" name="start_date" id="start_date" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div>{{ ui.label(_("Locatie"), "location") }}
-          <input name="location" id="location" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-        <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1"> {{ _("Enkel voor leden") }}</label>
-        {{ ui.btn_primary(_("Aanmaken")) }}
-      </form>
-      {% endcall %}
-    </div>
-    <div id="aa-lijst">
-      {% include "_aa_lijst.html" %}
-    </div>
-  </div>
-  <div class="flex-1 min-w-0">
-    <div id="aa-detail"></div>
-  </div>
+
+<div class="mb-4" x-data="{ open: false }">
+  {{ ui.btn_primary(_("+ Nieuwe activiteit"), type="button", attrs='@click="open = true"') }}
+  {% call ui.modal('open', _("Nieuwe activiteit")) %}
+  <form class="space-y-3" hx-post="/admin/activiteiten" @htmx:after-request="open = false">
+    <div>{{ ui.label(_("Naam"), "name", required=True) }}
+      <input name="name" id="name" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+    <div>{{ ui.label(_("Eerste datum"), "start_date", required=True) }}
+      <input type="date" name="start_date" id="start_date" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+    <div>{{ ui.label(_("Locatie"), "location") }}
+      <input name="location" id="location" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1"> {{ _("Enkel voor leden") }}</label>
+    <p class="text-xs text-ink-soft">{{ _("Na het aanmaken open je meteen de activiteit; datums en onderdelen vul je daar aan.") }}</p>
+    {{ ui.btn_primary(_("Aanmaken")) }}
+  </form>
+  {% endcall %}
 </div>
+
+{% call ui.filter_bar("/admin/activiteiten", "body") %}
+  <div>{{ ui.search(value=q, placeholder=_('Zoek op titel of locatie…'), standalone=False) }}</div>
+  {{ ui.chips("scope", [("upcoming", _("Komende")), ("archived", _("Archief")), ("all", _("Alles"))], scope) }}
+{% endcall %}
+
+{% if activities %}
+<div class="space-y-3">
+  {% for a in activities %}
+  <a href="/admin/activiteiten/{{ a.id }}"
+     class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
+    <div class="flex flex-wrap items-center gap-3">
+      <span class="font-semibold text-blue-700">{{ a.name }}</span>
+      {% if a.is_cancelled %}{{ ui.badge(_("geannuleerd"), "red") }}{% endif %}
+      {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
+      <span class="text-sm text-ink-soft">{{ a.sort_date.strftime("%d-%m-%Y") if a.sort_date else "—" }}</span>
+      {% if a.location %}<span class="text-sm text-ink-soft">· {{ a.location }}</span>{% endif %}
+      {% if a.registration_count is not none %}<span class="text-sm text-ink-soft">· {{ a.registration_count }} {{ _("inschrijvingen") }}</span>{% endif %}
+      <span class="ml-auto text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+{{ ui.empty_state(_("Geen activiteiten gevonden.") if (q or scope != "upcoming") else _("Nog geen komende activiteiten.")) }}
+{% endif %}
 {% endblock %}

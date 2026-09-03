@@ -15,14 +15,16 @@ def test_admin_activiteiten_requires_session(client):
 
 def test_admin_activiteit_aanmaken_en_detail(client, db_session):
     csrf = _login(client)
+    # Sinds #586 opent aanmaken meteen de paginabrede editor (HX-Redirect), want
+    # een verse activiteit heeft daar nog datums en onderdelen nodig.
     resp = client.post("/admin/activiteiten",
                        data={"name": "Zomerbar", "start_date": "2031-07-01",
                              "location": "Millegem"},
                        headers={"X-CSRF-Token": csrf})
-    assert resp.status_code == 200 and "Zomerbar" in resp.text
-
     from app.domains.activities.api import Activity
     activity = db_session.query(Activity).filter(Activity.name == "Zomerbar").one()
+    assert resp.status_code == 204
+    assert resp.headers["HX-Redirect"] == f"/admin/activiteiten/{activity.id}"
     detail = client.get(f"/admin/activiteiten/{activity.id}")
     assert detail.status_code == 200 and "Millegem" in detail.text and "Datums" in detail.text
 

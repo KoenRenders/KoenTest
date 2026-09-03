@@ -12,7 +12,7 @@
         <button type="button" class="{{ ui.btn_class('secondary') }}" @click="edit = !edit">
           <span x-show="!edit">{{ _("Bewerken") }}</span><span x-show="edit" x-cloak>{{ _("Annuleren") }}</span>
         </button>
-        {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/verwijderen" hx-target="#aa-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Activiteit"), a.name)) }}
+        {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/verwijderen" ' ~ confirm_attrs(_("Activiteit"), a.name)) }}
       </div>
     </div>
     {% if a.location %}<p class="text-sm text-gray-500 mt-1">📍 {{ a.location }}</p>{% endif %}

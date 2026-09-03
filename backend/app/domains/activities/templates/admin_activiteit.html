@@ -1,0 +1,10 @@
+{% extends "admin_base.html" %}
+{% block title %}{{ a.name }} — {{ _("Raak beheer") }}{% endblock %}
+{% block content %}
+{# Paginabrede editor (C1, #586): de kaart-klik landt hier. De bewerkingen binnen
+   het detail blijven htmx-fragmenten die #aa-detail vervangen. #}
+<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/activiteiten">{{ _("‹ Alle activiteiten") }}</a></p>
+<div id="aa-detail">
+  {% include "_aa_detail.html" %}
+</div>
+{% endblock %}

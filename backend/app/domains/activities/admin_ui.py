@@ -74,12 +74,27 @@ def _verplaats(db: Session, siblings, item_id: int, richting: str) -> None:
     db.commit()
 
 
-def _lijst_ctx(db: Session, scope: str = "all") -> dict:
+SCOPES = ("upcoming", "archived", "all")
+
+
+def _lijst_ctx(db: Session, scope: str = "all", q: str = "") -> dict:
+    """Lijst-context voor de records-lijst (C1, #586): scope-chips + vrij zoeken.
+
+    Zoeken gebeurt op de reeds opgehaalde lijst i.p.v. in een tweede query: het
+    zijn tientallen activiteiten, geen duizenden, en list_activities levert al de
+    view-modellen mét telling en volzet-status waar de kaarten op steunen.
+    """
     from app.domains.activities.router import list_activities
 
-    if scope not in ("upcoming", "archived", "all"):
+    if scope not in SCOPES:
         scope = "all"
-    return {"activities": list_activities(scope=scope, db=db), "scope": scope}
+    activiteiten = list_activities(scope=scope, db=db)
+    term = q.strip().lower()
+    if term:
+        activiteiten = [a for a in activiteiten
+                        if term in (a.name or "").lower()
+                        or term in (a.location or "").lower()]
+    return {"activities": activiteiten, "scope": scope, "q": q}
 
 
 def _kpi(activities: list) -> dict:
@@ -114,25 +129,36 @@ def _detail_response(request: Request, db: Session, activity_id: int,
 
 @router.get("/admin/activiteiten", response_class=HTMLResponse)
 def admin_activiteiten(request: Request, db: Session = Depends(get_db),
-                       email: str = Depends(require_admin_ui)):
-    ctx = _lijst_ctx(db, "upcoming")
+                       email: str = Depends(require_admin_ui),
+                       scope: str = "upcoming", q: str = ""):
+    ctx = _lijst_ctx(db, scope, q)
+    # De kengetallen tellen wat er openstaat, niet wat er toevallig gefilterd is:
+    # een zoekterm mag "Open inschrijvingen" niet doen dalen. Zonder filter is de
+    # getoonde lijst al de juiste bron en blijft het bij één query.
+    kpi_bron = (ctx["activities"] if (scope == "upcoming" and not q.strip())
+                else _lijst_ctx(db, "upcoming")["activities"])
     return templates.TemplateResponse(request, "admin_activiteiten.html", {
         "nav_items": NAV, "csrf_token": csrf_from_request(request),
-        **_kpi(ctx["activities"]), **ctx})
-
-
-@router.get("/admin/activiteiten/lijst", response_class=HTMLResponse)
-def admin_activiteiten_lijst(request: Request, scope: str = "all",
-                             db: Session = Depends(get_db),
-                             email: str = Depends(require_admin_ui)):
-    return templates.TemplateResponse(request, "_aa_lijst.html", _lijst_ctx(db, scope))
+        **_kpi(kpi_bron), **ctx})
 
 
 @router.get("/admin/activiteiten/{activity_id}", response_class=HTMLResponse)
 def admin_activiteit_detail(activity_id: int, request: Request,
                             db: Session = Depends(get_db),
                             email: str = Depends(require_admin_ui)):
-    return _detail_response(request, db, activity_id)
+    """Een kaart opent de paginabrede editor (C1, #586); de bewerkingen daarin
+    blijven htmx-fragmenten die in #aa-detail landen."""
+    if request.headers.get("hx-request"):
+        return _detail_response(request, db, activity_id)
+    from app.domains.activities.router import list_activities
+
+    activiteit = next((a for a in list_activities(scope="all", db=db)
+                       if a.id == activity_id), None)
+    if activiteit is None:
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    return templates.TemplateResponse(request, "admin_activiteit.html", {
+        "nav_items": NAV, "a": activiteit,
+        "csrf_token": csrf_from_request(request), "error": None})
 
 
 @router.post("/admin/activiteiten", response_class=HTMLResponse,
@@ -146,12 +172,15 @@ def activiteit_aanmaken(request: Request, db: Session = Depends(get_db),
 
     if not name.strip() or not start_date:
         raise HTTPException(status_code=400, detail=_("Naam en eerste datum zijn verplicht."))
-    create_activity(ActivityCreate(
+    nieuw = create_activity(ActivityCreate(
         name=name.strip(), location=location.strip() or None,
         members_only=bool(members_only),
         dates=[ActivityDateCreate(start_date=start_date)],
     ), db=db, admin=admin_user_by_email(db, email))
-    return templates.TemplateResponse(request, "_aa_lijst.html", _lijst_ctx(db))
+    # Aanmaken opent meteen de editor: een verse activiteit heeft nog datums en
+    # onderdelen nodig, en die staan daar (C1, #586).
+    return Response(status_code=204,
+                    headers={"HX-Redirect": f"/admin/activiteiten/{nieuw.id}"})
 
 
 @router.post("/admin/activiteiten/{activity_id}", response_class=HTMLResponse,
@@ -179,7 +208,8 @@ def activiteit_verwijderen(activity_id: int, request: Request,
     from app.domains.activities.router import delete_activity
 
     delete_activity(activity_id, db=db, admin=admin_user_by_email(db, email))
-    return templates.TemplateResponse(request, "_aa_lijst.html", _lijst_ctx(db))
+    # Verwijderen gebeurt vanuit de editor; die pagina bestaat daarna niet meer.
+    return Response(status_code=204, headers={"HX-Redirect": "/admin/activiteiten"})
 
 
 # ── Datums ─────────────────────────────────────────────────────────────────────
