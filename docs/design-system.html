@@ -691,7 +691,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
         <thead><tr><th>Patroon</th><th>Waaruit</th><th>Admin (Deel A)</th><th>Publiek (Deel B)</th></tr></thead>
         <tbody>
           <tr><td><b>1 · App-shell</b></td><td>Indigo-sidebar (logo, nav, uitloggen onderaan) + bovenbalk</td><td>elke admin-pagina</td><td>publieke topnav + footer (geen sidebar)</td></tr>
-          <tr><td><b>2 · Paginaheader</b></td><td>broodkruimel · titel · toelichting · primaire actie rechts</td><td>Activiteiten, Leden…</td><td>hero met grotere titel + CTA</td></tr>
+          <tr><td><b>2 · Paginaheader</b></td><td>broodkruimel · titel · toelichting · primaire actie rechts</td><td>Activiteiten, Leden…</td><td>hero met grotere titel + hoofdactieknop</td></tr>
           <tr><td><b>3 · Lijst/tabel</b></td><td>zoek + filterbalk · status-chips · rij-acties · paging</td><td>Betalingen, Leden (tabel)</td><td>activiteiten als <b>kaarten</b>, geen tabel</td></tr>
           <tr><td><b>4 · Formulier</b></td><td>secties · velden · opslaan/annuleren · inline fouten</td><td>Activiteit/formulier bewerken</td><td>Word lid, inschrijven (ademender)</td></tr>
           <tr><td><b>5 · Detail</b></td><td>kop + kaarten/zijpaneel · gerelateerde lijsten</td><td>Gezinsdetail, Dashboard</td><td>activiteit-detailpagina</td></tr>
@@ -700,6 +700,17 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       </table>
     </div>
     <div class="note"><b>Record-beheer (beslist — Koen):</b> een lijst opent bij <b>"Bewerken"</b> een <b>volledige-pagina-editor</b> (zoals Scherm 4), niet een master-detail-splitsing. Master-detail (lijst links, detail/edit rechts) blijft een mogelijke <b>hybride</b> voor later indien nodig (#510). De HDEV-activiteiten (nu master-detail) worden hierop afgestemd.</div>
+
+    <h3 class="block">Lijst-index — vaste opbouw van elk records-scherm</h3>
+    <p style="color:var(--ink-soft);font-size:.92rem;margin-top:0">Elk beheersscherm met records (Leden, Activiteiten, Betalingen, Formulieren, Media, Gebruikers, Pagina's) heeft <b>dezelfde</b> opbouw in de inhoudskolom, <b>van boven naar onder</b>. Zo staan zoeken, "nieuw" en de filters overal op dezelfde plaats.</p>
+    <ol style="margin:8px 0 0;padding-left:1.3rem;color:var(--ink);font-size:.92rem;line-height:1.7">
+      <li><b>Paginatitel</b></li>
+      <li><b>Primaire actie</b> — één knop <b>"+ Nieuwe …"</b> (geen blauwe balk eromheen)</li>
+      <li><b>Zoekvenster</b> ("Zoek op …")</li>
+      <li><b>Filters</b> (bv. Komende · Archief · Alles, of een status) — <b>altijd ónder</b> "Nieuwe" en het zoekvenster, nooit erboven</li>
+      <li><b>Record-kaarten</b> — klikbaar; "Bewerken" opent de volledige-pagina-editor (Scherm 4)</li>
+    </ol>
+    <div class="note"><b>Geen blauwe balk (HDEV-correctie):</b> op HDEV zat elke "+ Nieuwe …"-knop in een lichtblauw getint blok (<code>bg-blue-50</code>) samen met een inklapbaar formulier. Voortaan staat de knop <b>los</b>; het aanmaakformulier opent als <b>modal</b> (of als volledige-pagina-editor), niet in een getint blok. En de filters komen consequent <b>onder</b> "Nieuwe" + zoeken (voorheen bv. bij Media erboven).</div>
   </section>
 
   <!-- 4 -->
@@ -1170,7 +1181,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
 
     <!-- Scherm 5: Publiek -->
     <div class="scrlabel">Scherm 7 <span class="tag tag-pub">Publiek</span> · Home (header · Word lid / Contacteer ons · activiteiten · footer)</div>
-    <div class="note"><b>Auth-afhankelijk (#499/#467):</b> zowel de nav als de primaire CTA hangen af van de login-status. <b>Uitgelogd</b> (hieronder getoond): nav eindigt op "Inloggen", CTA = <b>"Word lid"</b>. <b>Ingelogd lid</b>: nav krijgt "Mijn gezin · Admin · Uitloggen (naam)" en de CTA wordt <b>"Mijn gezin"</b> (zie de balk hieronder).</div>
+    <div class="note"><b>Auth-afhankelijk (#499/#467):</b> zowel de nav als de <b>hoofdactieknop</b> (de opvallende knop die de bezoeker tot één duidelijke stap aanzet) hangen af van de login-status. <b>Uitgelogd</b> (hieronder getoond): nav eindigt op "Inloggen", hoofdactieknop = <b>"Word lid"</b>. <b>Ingelogd lid</b>: nav krijgt "Mijn gezin · Admin · Uitloggen (naam)" en de hoofdactieknop wordt <b>"Mijn gezin"</b> (zie de balk hieronder).</div>
     <div style="background:var(--primary);color:#fff;border-radius:var(--r-md);padding:11px 18px;display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:10px;margin-bottom:8px">
       <span style="font-family:var(--brand);font-weight:800;font-size:1.05rem">Raak <span style="font-size:.66rem;font-weight:600;color:var(--accent);text-transform:uppercase;letter-spacing:.08em">· ingelogd-variant</span></span>
       <span style="display:flex;gap:15px;flex-wrap:wrap;font-size:.84rem"><a href="#sa" style="color:#dbeafe">Home</a><a href="#sa" style="color:#dbeafe">Werking</a><a href="#sa" style="color:#dbeafe">Foto's</a><a href="#sa" style="color:#dbeafe">Archief</a><a href="#sa" style="color:var(--accent)">Mijn gezin</a><a href="#sa" style="color:var(--accent)">Admin</a><a href="#sa" style="color:#dbeafe">Uitloggen (Jan Peeters)</a></span>
