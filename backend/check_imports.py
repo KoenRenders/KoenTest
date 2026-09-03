@@ -36,7 +36,7 @@ MODULES = [
     "app.ui.changes_ui",
     "app.ui.system_ui",
     "app.ui.admin_api",
-    "app.ui.settings_ui",
+    "app.ui.tenants_ui",
     "app.domains.audit.api",
     "app.domains.audit.router",
     "app.domains.mdm.import_router",
