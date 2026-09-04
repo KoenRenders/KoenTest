@@ -159,3 +159,45 @@ def test_deels_betaalde_charge_met_refund(client, db_session):
     ontvangen = sum((Decimal(str(r.amount_paid or 0)) for r in records), Decimal("0"))
     assert bedrag == Decimal("20.00")      # 30 − 10
     assert ontvangen == Decimal("10.00")   # nog niets teruggestort
+
+
+# ── §2-0e: één totaalregel per INSCHRIJVING, niet per charge ────────────────
+
+def test_meerdere_charges_geven_een_totaalregel(client, db_session):
+    """De totaalregel heette "Totaal inschrijving" maar telde één charge met haar
+    refunds. Een inschrijving met meerdere charges — precies wat
+    reconcile_registration_charges produceert bij een bestelwijziging — kreeg dus
+    meerdere regels die elk iets anders beweerden.
+
+    Het geval uit het issue: € 20 betaald + € 66 betaald + € −5 refund → één regel
+    met Bedrag € 81,00 · Ontvangen € 86,00 · Saldo € −5,00.
+    """
+    payable_id = 8813
+    _charge(db_session, bedrag="20.00", betaald="20.00", method="transfer",
+            payable_id=payable_id)
+    charge2 = _charge(db_session, bedrag="66.00", betaald="66.00", method="transfer",
+                      payable_id=payable_id)
+    hdr = _login(client, db_session)
+    client.post(f"/admin/betalingen/{charge2.id}/refund", headers=hdr, data={"amount": "5.00"})
+
+    html = client.get("/admin/betalingen/lijst").text
+    assert html.count("Totaal inschrijving") == 1, "één regel per inschrijving"
+    assert "€ 81.00" in html and "€ 86.00" in html and "€ -5.00" in html
+
+
+def test_refund_met_uitbetaald_bedrag_maar_status_pending(client, db_session):
+    """Randgeval uit bestaande data (gevolg van de bug uit §2-0b): de weergave moet
+    Ontvangen tonen zodra `amount_paid` gevuld is, ongeacht de status."""
+    payable_id = 8814
+    charge = _charge(db_session, bedrag="40.00", betaald="40.00", method="transfer",
+                     payable_id=payable_id)
+    hdr = _login(client, db_session)
+    client.post(f"/admin/betalingen/{charge.id}/refund", headers=hdr, data={"amount": "10.00"})
+    refund = [r for r in get_records_for(db_session, "registration", payable_id)
+              if r.type == "refund"][0]
+    refund.amount_paid = Decimal("-5.00")   # pending mét uitbetaald bedrag
+    db_session.commit()
+
+    html = client.get("/admin/betalingen/lijst").text
+    assert "Terug te betalen" in html, "de badge volgt de status"
+    assert "-5.00" in html, "Ontvangen hoort zichtbaar te zijn"

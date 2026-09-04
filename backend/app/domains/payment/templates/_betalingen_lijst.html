@@ -101,9 +101,14 @@
 </form>
 {% endmacro %}
 
-{% if kaarten %}
+{% if groepen %}
 <div class="space-y-3">
-  {% for kaart, refunds, totaal in kaarten %}
+  {# Eén groep = één inschrijving: al haar betalingen en terugbetalingen, met
+     daaronder één totaalregel (#617-2e). Voorheen liep de lus per charge en kreeg
+     een inschrijving met meerdere charges meerdere regels die elk "Totaal
+     inschrijving" heetten. #}
+  {% for groep in groepen %}
+  {% for kaart, refunds in groep.kaarten %}
   {# Geen gekleurde statusstreep meer (B6, #596): de staat blijkt al uit de badge
      rechts. Eén status-signaal i.p.v. twee — de kaart draagt de neutrale kit-rand. #}
   {# De kaarttuple draagt sinds #617 een view-model per kaart (bedrag/ontvangen/
@@ -177,17 +182,21 @@
   </div>
   {% endfor %}
 
-  {# Totaalregel over de groep (charge + haar terugbetalingen), met dezelfde helper
-     als de matrix bovenaan (payment/ui.py `_rij`) — twee aparte berekeningen die
-     uiteenlopen is precies het soort fout dat je in een betalingsscherm niet wil.
-     Zelfde labelset als op de kaarten; het teken doet het werk. #}
-  {% if refunds %}
+  {% endfor %}
+
+  {# Eén totaalregel per INSCHRIJVING, over al haar betalingen en terugbetalingen
+     samen, met dezelfde helper als de matrix bovenaan (payment/ui.py `_rij`) — twee
+     aparte berekeningen die uiteenlopen is precies het soort fout dat je in een
+     betalingsscherm niet wil. Zelfde labelset als op de kaarten; het teken doet het
+     werk. Verschijnt zodra er meer dan één record is: twee charges zonder refund
+     verdienen net zo goed een totaal. #}
+  {% if groep.toon_totaal %}
   <div class="ml-4 flex flex-wrap justify-end gap-4 text-sm border-t border-gray-200 pt-2">
     <span class="text-ink-soft">{{ _("Totaal inschrijving") }}</span>
-    <span>{{ _("Bedrag") }}: <strong>€ {{ "%.2f"|format(totaal.due) }}</strong></span>
-    <span>{{ _("Ontvangen") }}: € {{ "%.2f"|format(totaal.paid) }}</span>
-    <span class="{{ 'text-teal-700 font-medium' if totaal.saldo < 0 else ('text-orange-700 font-medium' if totaal.saldo > 0 else 'text-ink-soft') }}">
-      {{ _("Saldo") }}: € {{ "%.2f"|format(totaal.saldo) }}</span>
+    <span>{{ _("Bedrag") }}: <strong>€ {{ "%.2f"|format(groep.totaal.due) }}</strong></span>
+    <span>{{ _("Ontvangen") }}: € {{ "%.2f"|format(groep.totaal.paid) }}</span>
+    <span class="{{ 'text-teal-700 font-medium' if groep.totaal.saldo < 0 else ('text-orange-700 font-medium' if groep.totaal.saldo > 0 else 'text-ink-soft') }}">
+      {{ _("Saldo") }}: € {{ "%.2f"|format(groep.totaal.saldo) }}</span>
   </div>
   {% endif %}
   {% endfor %}

@@ -108,10 +108,7 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
     kaarten += [(r, []) for r in refunds
                 if not r.refund_of_id or r.refund_of_id not in charge_ids]
     kaarten.sort(key=lambda p: p[0].created_at, reverse=True)
-    # Totaal per kaart (#617-2b): dezelfde aggregatie als de matrix bovenaan, zodat
-    # kop en totaalregel niet op twee definities kunnen uitkomen. Zodra er een refund
-    # onder de charge hangt, beschrijft de kop (die alleen de charge telt) de
-    # inschrijving niet meer: "Betaald € 27,50" terwijl er € 27,50 terug moet.
+
     def _mag_verwijderen(rec) -> bool:
         """Dezelfde regel als de guard in status_router (#218/#617-2c).
 
@@ -126,8 +123,11 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
         """Per kaart de geldregel én of ze verwijderbaar is (#617-2a).
 
         `Ontvangen`/`Saldo` vallen weg zolang er niets uitbetaald is — € 0,00 tonen
-        suggereert dat er al iets gebeurd is. De labels blijven op elke kaart
-        dezelfde drie woorden; het teken doet het werk.
+        suggereert dat er al iets gebeurd is. Wél tonen zodra `amount_paid` gevuld is,
+        **ongeacht de status**: in bestaande data staan refunds met status `pending`
+        én een uitbetaald bedrag (gevolg van de bug uit §2-0b), en die moeten leesbaar
+        blijven. De labels zijn op elke kaart dezelfde drie woorden; het teken doet
+        het werk.
         """
         betaald = None if rec.amount_paid is None else Decimal(str(rec.amount_paid))
         return {
@@ -138,8 +138,28 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
             "mag_verwijderen": _mag_verwijderen(rec),
         }
 
-    kaarten_met_totaal = [(_kaart(r), [_kaart(x) for x in rf], _rij([r] + rf))
-                          for r, rf in kaarten]
+    # Groeperen per PAYABLE, niet per charge (#617-2e). De totaalregel heette
+    # "Totaal inschrijving" maar telde één charge met haar refunds. Een inschrijving
+    # met meerdere charges — precies wat reconcile_registration_charges produceert bij
+    # een bestelwijziging — kreeg dus meerdere regels die elk iets anders beweerden en
+    # geen van alle de inschrijving telden. Op HDEV: 16 payables met een refund, 17
+    # totaalregels, en één ontbrak.
+    groepen: list = []
+    volgorde: dict = {}
+    for charge, eigen_refunds in kaarten:
+        sleutel = (charge.payable_type, charge.payable_id)
+        if sleutel not in volgorde:
+            volgorde[sleutel] = len(groepen)
+            groepen.append({"kaarten": [], "records": []})
+        groep = groepen[volgorde[sleutel]]
+        groep["kaarten"].append((_kaart(charge), [_kaart(x) for x in eigen_refunds]))
+        groep["records"].extend([charge] + eigen_refunds)
+
+    for groep in groepen:
+        groep["totaal"] = _rij(groep["records"])
+        # Eén regel per inschrijving, en alleen als er iets te tellen valt: twee
+        # charges zonder refund verdienen net zo goed een totaal.
+        groep["toon_totaal"] = len(groep["records"]) > 1
 
     # Gegroepeerde context-filter (#549): dezelfde grouped_filter-macro als de
     # Werkbank. Heterogene groepen (jaren/onderdelen) → (value, label)-tuples.
@@ -154,7 +174,7 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
         context_groups[_("Activiteit / onderdeel")] = [
             (f"comp-{cid}", label) for cid, label in _comp]
     return {
-        "records": zichtbaar, "kaarten": kaarten_met_totaal, "context": context,
+        "records": zichtbaar, "groepen": groepen, "context": context,
         # Eén bron voor de statuslabels (#617-2): de filterbalk én de editors in het
         # fragment lezen hieruit, zodat er nergens nog rauwe codes (pending/paid)
         # op het scherm komen. Het fragment wordt ook los gerenderd, dus een
