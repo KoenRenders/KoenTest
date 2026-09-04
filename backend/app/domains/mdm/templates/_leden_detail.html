@@ -49,9 +49,14 @@
 
   {# Adres — bij het hoofdlid, getoond ná het hoofdlid (#133); vaste 4-koloms grid #}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
-    <div x-show="!edit" class="flex items-center justify-between gap-2">
-      <span class="text-sm text-gray-700 inline-flex items-center gap-1">{{ ui.icon("map-pin") }} {{ family.street }} {{ family.house_number }}{% if family.bus_number %} bus {{ family.bus_number }}{% endif %}, {{ family.postal_code }} {{ family.municipality }}</span>
-      {{ ui.btn_secondary(_("Adres bewerken"), attrs='@click="edit = true"') }}
+    {# #639: de knop stond binnen het x-show="!edit"-blok en verdween dus zodra je
+       begon te bewerken — §2.8 noemt precies dat: verbergen geeft layout-shift, en
+       je hebt geen weg terug. Nu ui.edit_toggle(), net als de personenlijst
+       hierboven: de knop blijft staan en heet "Annuleren" tijdens het bewerken. #}
+    <div class="flex items-center justify-between gap-2">
+      <span x-show="!edit" class="text-sm text-gray-700 inline-flex items-center gap-1">{{ ui.icon("map-pin") }} {{ family.street }} {{ family.house_number }}{% if family.bus_number %} bus {{ family.bus_number }}{% endif %}, {{ family.postal_code }} {{ family.municipality }}</span>
+      <span x-show="edit" x-cloak class="text-sm text-gray-500">{{ _("Adres bewerken") }}</span>
+      {{ ui.edit_toggle("edit") }}
     </div>
     <form x-show="edit" x-cloak class="space-y-3"
           hx-post="/admin/leden/gezin/{{ family.id }}/adres"
@@ -121,7 +126,9 @@
           hx-target="#leden-detail" hx-swap="innerHTML">
       <div>{{ ui.label(_("Jaar toevoegen"), "year") }}
         <input type="number" name="year" id="year" value="{{ family.memberships[0].year + 1 if family.memberships else current_year }}" class="w-28 border border-gray-300 rounded-lg px-3 py-2"></div>
-      {{ ui.btn_primary(_("Lid maken")) }}
+      {# §2.12 (#641): een sub-item toevoegen heet "Toevoegen" — het formulier voegt
+         een lidmaatschapsjaar toe, het maakt geen lid. #}
+      {{ ui.btn_primary(_("Toevoegen")) }}
     </form>
   </div>
 </div>

@@ -42,9 +42,21 @@ def _builder_ctx(request: Request, db: Session, form: FormModel, **extra) -> dic
                for s in sections]
     loose = sorted((f for f in form.fields if f.section_id is None),
                    key=lambda f: f.position)
+    # §2.12: nooit een rauwe DB-waarde op het scherm (#641). De veldtypes zijn
+    # Engelse codes (`textarea`, `radio`); de form-builder wordt bediend door een
+    # bestuurslid, niet door een ontwikkelaar. Per request opgebouwd zodat _() de
+    # taal van de tenant volgt (zelfde patroon als de statuslabels bij betalingen).
+    veldtype_labels = {
+        "text": _("Korte tekst"), "textarea": _("Lange tekst"),
+        "number": _("Getal"), "email": _("E-mailadres"),
+        "select": _("Keuzelijst"), "radio": _("Eén keuze"),
+        "checkbox": _("Meerdere keuzes"), "rating": _("Score"),
+        "phone": _("Telefoonnummer"),
+    }
     ctx = {
         "form": form, "grouped": grouped, "loose_fields": loose,
         "sections": sections, "field_types": FIELD_TYPES, "statuses": FORM_STATUSES,
+        "field_type_labels": veldtype_labels,
         "submission_count": db.query(FormSubmission)
                               .filter(FormSubmission.form_id == form.id).count(),
         "csrf_token": csrf_from_request(request), "error": None,

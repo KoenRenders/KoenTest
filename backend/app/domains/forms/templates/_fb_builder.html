@@ -3,7 +3,8 @@
 <div class="border border-gray-200 rounded-lg p-3" x-data="{ edit: false }">
   <div class="flex items-center justify-between gap-2">
     <div class="text-sm"><span class="font-medium">{{ f.label }}</span>
-      <span class="ml-1">{{ ui.badge(f.field_type, "blue") }}</span>
+      {# §2.12 (#641): het veldtype in gewone taal, niet de DB-code. #}
+      <span class="ml-1">{{ ui.badge(field_type_labels.get(f.field_type, f.field_type), "blue") }}</span>
       {% if f.required %}{{ ui.badge(_("verplicht"), "yellow") }}{% endif %}</div>
     <div class="flex flex-wrap gap-1">
       {{ ui.reorder(
@@ -31,7 +32,7 @@
     <div>{{ ui.label(_("Label laag"), "frl-" ~ f.id) }}<input name="rating_low_label" id="frl-{{ f.id }}" value="{{ f.rating_low_label or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
     <div>{{ ui.label(_("Label hoog"), "frh-" ~ f.id) }}<input name="rating_high_label" id="frh-{{ f.id }}" value="{{ f.rating_high_label or '' }}" class="w-full border border-gray-300 rounded-lg px-2 py-1"></div>
     {% endif %}
-    <div class="col-span-3">{{ ui.btn_primary(_("Veld opslaan")) }}</div>
+    <div class="col-span-3">{{ ui.btn_primary(_("Opslaan")) }}</div>
   </form>
   {% if f.field_type in ("select", "radio", "checkbox") %}
   <div class="mt-2 space-y-1">
@@ -75,7 +76,7 @@
   <input type="hidden" name="section_id" value="{{ sid or '' }}">
   <input name="label" required placeholder="{{ _('Nieuwe vraag') }}" class="border border-gray-300 rounded-lg px-2 py-1 text-sm">
   <select name="field_type" class="border border-gray-300 rounded-lg px-2 py-1 text-sm">
-    {% for t in field_types %}<option value="{{ t }}">{{ t }}</option>{% endfor %}
+    {% for t in field_types %}<option value="{{ t }}">{{ field_type_labels.get(t, t) }}</option>{% endfor %}
   </select>
   {{ ui.btn_secondary(_("+ veld"), type="submit") }}
 </form>
@@ -121,7 +122,7 @@
         <label class="flex items-center gap-2"><input type="checkbox" name="requires_login" value="1" {% if form.requires_login %}checked{% endif %}> {{ _("Enkel voor aangemelde leden") }}</label>
       </div>
       <div class="sm:col-span-2">{{ ui.label(_("Bevestigingsboodschap"), "fbc") }}<textarea name="confirmation_message" id="fbc" rows="2" class="w-full border border-gray-300 rounded-lg px-2 py-1">{{ form.confirmation_message or '' }}</textarea></div>
-      <div>{{ ui.btn_primary(_("Instellingen opslaan")) }}</div>
+      <div>{{ ui.btn_primary(_("Opslaan")) }}</div>
     </form>
   </div>
 
@@ -146,7 +147,7 @@
         </select>
         <label class="flex items-center gap-2 mt-1"><input type="checkbox" name="next_is_end" value="1" {% if g.section.next_is_end %}checked{% endif %}> {{ _("Daarna: einde") }}</label></div>
       <div class="sm:col-span-2">{{ ui.label(_("Omschrijving"), "sd-" ~ g.section.id) }}<textarea name="description" id="sd-{{ g.section.id }}" rows="2" class="w-full border border-gray-300 rounded-lg px-2 py-1">{{ g.section.description or '' }}</textarea></div>
-      <div>{{ ui.btn_primary(_("Sectie opslaan")) }}</div>
+      <div>{{ ui.btn_primary(_("Opslaan")) }}</div>
     </form>
     <div class="mt-3 space-y-2">
       {% for f in g.fields %}{{ veld_kaart(f) }}{% endfor %}

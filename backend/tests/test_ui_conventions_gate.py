@@ -67,7 +67,11 @@ Vier regels, elk met een reden:
     is een ad-hoc `Empty` — §2.11 legt één component vast en verbiedt italic. De
     twee publieke fotoschermen deden het zo en importeerden `_macros.html` zelfs
     niet (#637).
-24. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
+24. **Submit heet "Opslaan", niet "<Woord> opslaan"** (§2.12, #641). De
+    form-builder had er drie eigen varianten in één scherm. Een
+    sub-item-toevoegformulier mag wel "Toevoegen" heten — de regel gaat specifiek
+    over de opslaan-variant.
+25. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
    preflight-hoogte en staat hij ~15px lager dan het zoekveld ernaast; dat gaf
    scheve filterbalken op zeven schermen (#611). Gebruik `ui.select_control()`,
    `ui.grouped_filter()` of `ui.field_select()`.
@@ -264,7 +268,16 @@ def _zonder_commentaar(pad) -> str:
 MARKUP_CONCAT = re.compile(r"~\s*_\(|_\((?:[^()]|\([^()]*\))*\)\s*~")
 ATTR_IN_SET = re.compile(r"\{%-?\s*set\s+\w+\s*=\s*['\"]\s*hx-")
 # Een modus-knop die maar één stand toont (#615).
-HANDMATIGE_TOGGLE = re.compile(r"btn_\w+\(\s*_\(\"Bewerk[^\"]*\"\)[^)]*@click")
+# De regex eiste dat het label met "Bewerk" BEGON, waardoor `_("Adres bewerken")`
+# erdoor glipte — de echte bevinding van #639. Nu: het woord mag overal staan.
+#
+# Bewust NIET de strengere variant uit #642-1 ("een @click=\"x = true\" zonder
+# tegenhanger op hetzelfde element"): elke modal-opener is zo'n knop — de
+# inschrijfpopup en de e-mailpreview zetten hun state aan, en de modal zelf zet
+# hem uit. Die regel zou dus vooral correcte popups afkeuren. Wat #639 écht
+# fout deed, is de knop binnen het `x-show="!edit"`-blok zetten waardoor hij
+# verdwijnt; dat vraagt structurele parsing van de template, geen regex.
+HANDMATIGE_TOGGLE = re.compile(r'btn_\w+\(\s*_\("[^"]*[Bb]ewerk[^"]*"\)[^)]*@click')
 
 
 def test_geen_geescapete_attribuutstrings():
@@ -356,6 +369,8 @@ def test_kaarttitels_staan_niet_in_merkblauw():
 
 # ── Huisstijldetails die al eens stil verdwenen (#625/#626) ──────────────────
 SITE_BASE = APP / "ui" / "templates" / "site_base.html"
+# De publieke formulierkant valt buiten de admin-microcopyregel (§2.12 Deel A).
+PUBLIEKE_FORMULIEREN = ("formulier.html",)
 
 
 def test_woordmerk_schaalt_op_de_fontmetriek():
@@ -642,4 +657,33 @@ def test_lege_toestanden_komen_uit_de_kit():
     assert not fouten, (
         "Gebruik ui.empty_state(...) — niet schuin, één component:\n  "
         + "\n  ".join(fouten)
+    )
+
+
+# Een submitknop met een eigen opslaan-label: `_("Veld opslaan")` i.p.v. `_("Opslaan")`.
+EIGEN_OPSLAAN = re.compile(r'btn_(?:primary|secondary)\(\s*_\("([^"]*\s+opslaan)"\)')
+
+
+def test_submit_heet_opslaan():
+    """§2.12 legt "Opslaan" vast als vaste microcopy voor admin-CRUD (#641).
+
+    De form-builder had "Veld opslaan", "Instellingen opslaan" en "Sectie
+    opslaan" — drie varianten voor dezelfde handeling, in één scherm. De knop
+    staat in het formulier dat je bewerkt; wát je opslaat is uit de context al
+    duidelijk.
+
+    Buiten scope, bewust: de publieke kant (`formulier.html`, "Wijzigingen
+    opslaan"). §2.12 Deel A gaat over de beheerkant, en het onderscheid
+    eerste-inzending vs. eigen-inzending-bewerken kan daar bewust zijn.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        if pad.name in PUBLIEKE_FORMULIEREN:
+            continue
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
+            m = EIGEN_OPSLAAN.search(regel)
+            if m:
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: {m.group(1)!r}")
+    assert not fouten, (
+        'Een admin-submit heet "Opslaan" (§2.12):\n  ' + "\n  ".join(fouten)
     )
