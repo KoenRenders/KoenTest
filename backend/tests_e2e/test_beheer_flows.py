@@ -136,17 +136,45 @@ def test_navigeren_bouwt_de_schil_niet_opnieuw_op(admin_page):
     element vervangen en is de markering weg. De titel moet wél mee wisselen —
     anders staat de browsergeschiedenis te liegen over waar je bent.
     """
+    fouten = []
+    admin_page.on("pageerror", lambda e: fouten.append(str(e)))
+
     schil = Adminschil(admin_page)
     admin_page.goto("/admin/leden")
     admin_page.wait_for_selector("aside", timeout=5000)
     schil.merk_de_zijbalk()
+    admin_page.evaluate("window.__raakVenster = 1")
     titel_voor = admin_page.title()
+
+    # Antwoorden meelezen i.p.v. op één te wachten: blijft de boost uit, dan is er
+    # geen XHR en zou expect_response gewoon in een timeout lopen zonder te zeggen
+    # waarom.
+    antwoorden = []
+    admin_page.on("response", lambda r: antwoorden.append(
+        (r.request.resource_type, r.url, {k.lower(): v for k, v in r.headers.items()})))
 
     schil.klik_in_de_zijbalk("/admin/activiteiten")
 
-    assert schil.zijbalk_is_nog_dezelfde(), "de zijbalk is vervangen → volledige herlaad"
+    # Eerst de serverkant: kreeg htmx de swap-instructies mee? Zo niet, dan ligt de
+    # oorzaak in de middleware en niet in de browser — dat scheelt zoeken.
+    nav = [a for a in antwoorden if "/admin/activiteiten" in a[1]]
+    assert nav, f"geen enkel antwoord voor /admin/activiteiten; gezien: {antwoorden[:5]}"
+    soort, _url, kop = nav[-1]
+    assert soort == "xhr", (
+        f"de navigatie was een {soort}-verzoek, geen XHR → hx-boost sloeg niet aan; "
+        f"JS-fouten: {fouten}")
+    assert kop.get("hx-reselect") == "#main", f"geen HX-Reselect op het antwoord: {kop}"
+    assert kop.get("hx-retarget") == "#main", f"geen HX-Retarget op het antwoord: {kop}"
+
+    # Dan de browserkant. Overleefde `window` niet, dan was het een volledige
+    # herlaad (de boost sloeg niet aan); overleefde `window` wél maar de zijbalk
+    # niet, dan swapte htmx te veel.
+    venster_leeft = admin_page.evaluate("!!window.__raakVenster")
+    assert venster_leeft, f"volledige herlaad i.p.v. een gebooste navigatie; JS-fouten: {fouten}"
+    assert schil.zijbalk_is_nog_dezelfde(), "htmx swapte meer dan #main"
     assert admin_page.title() != titel_voor, "de tabtitel volgde de navigatie niet"
     assert "/admin/activiteiten" in admin_page.url
+    assert not fouten, f"JS-fouten tijdens de navigatie: {fouten}"
 
 
 def test_een_lopende_actie_is_zichtbaar(admin_page):
