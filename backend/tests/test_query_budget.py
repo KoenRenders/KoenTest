@@ -93,6 +93,7 @@ def gevulde_databank(client, db_session):
 
     for i in range(AANTAL_INSCHRIJVINGEN):
         registratie = Registration(activity_id=activity.id, component_id=component.id,
+                                   registration_type="INDIVIDUAL",
                                    contact_name=f"Budget {i}",
                                    contact_email=f"reg{i}@example.com")
         db_session.add(registratie)

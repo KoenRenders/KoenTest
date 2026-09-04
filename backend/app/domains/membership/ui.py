@@ -173,22 +173,29 @@ def _lopende_vernieuwing(db: Session, person) -> dict:
     Bedrag en OGM komen **uit de PaymentRecord zelf**, niet opnieuw uit
     membership_price_for_date(): wijzigt de prijs tussen twee bezoeken, dan zou het
     scherm een ander bedrag tonen dan wat er te betalen valt.
+
+    Geeft ALTIJD beide sleutels terug, desnoods als None (#643): de template vraagt
+    `renew_transfer` en `renew_online`, dus hoort het view-model ze te beloven. Een
+    ontbrekende sleutel rendert onder StrictUndefined niet stil leeg maar faalt —
+    en dat is precies de bedoeling, want zo'n gat is niet van een typo te
+    onderscheiden.
     """
+    leeg = {"renew_transfer": None, "renew_online": None}
     from app.domains.membership.api import open_renewal_payment
     from app.domains.membership.household_router import _member_for
 
     try:
         member = _member_for(person, db)
     except Exception:
-        return {}
+        return leeg
     record = open_renewal_payment(db, member) if member is not None else None
     if record is None:
-        return {}
+        return leeg
 
     if record.method == "transfer":
         from app.kernel.tenant_config import tenant_payment_iban, tenant_payment_beneficiary
 
-        return {"renew_transfer": {
+        return {**leeg, "renew_transfer": {
             "amount": record.amount,
             "ogm": record.structured_communication,
             "iban": tenant_payment_iban(db),
@@ -205,7 +212,8 @@ def _lopende_vernieuwing(db: Session, person) -> dict:
         gw = (db.query(GatewayPayment)
               .filter(GatewayPayment.id == record.gateway_payment_id).first())
         checkout_url = getattr(gw, "checkout_url", None)
-    return {"renew_online": {"amount": record.amount, "checkout_url": checkout_url}}
+    return {**leeg, "renew_online": {"amount": record.amount,
+                                     "checkout_url": checkout_url}}
 
 
 @router.get("/leden/gezin", response_class=HTMLResponse)

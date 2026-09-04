@@ -24,7 +24,11 @@ router = APIRouter(include_in_schema=False)
 def aanmelden_page(request: Request, db: Session = Depends(get_db)):
     from app.ui import site_context
 
-    return templates.TemplateResponse(request, "aanmelden.html", site_context(db, request))
+    # De pagina includeert _aanmelden_email.html, dat een foutbanner en het
+    # ingevulde adres toont. Bij een verse GET zijn die leeg — maar wél beloofd
+    # (#643): een template die iets vraagt, krijgt het van de route.
+    return templates.TemplateResponse(request, "aanmelden.html", {
+        **site_context(db, request), "error": None, "email": ""})
 
 
 @router.post("/aanmelden", response_class=HTMLResponse,

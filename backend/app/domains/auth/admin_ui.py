@@ -103,10 +103,19 @@ def admin_gebruikers(request: Request, db: Session = Depends(get_db),
 @router.get("/admin/gebruikers/nieuw", response_class=HTMLResponse)
 def gebruiker_nieuw(request: Request, db: Session = Depends(get_db),
                     email: str = Depends(require_admin_ui)):
-    """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal."""
+    """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal.
+
+    Het scherm draagt de lijstfilters als verborgen velden mee, zodat je na het
+    aanmaken terugkeert in de lijst zoals je hem had staan. Bij een verse GET zijn
+    die leeg — maar wel meegegeven (#643): de route belooft wat de template
+    vraagt. Voorheen leunde dit op Jinja's stille lege string, waardoor ook
+    `role_codes` er onopgemerkt niet was en de rolvinkjes zwijgend ontbraken.
+    """
     return templates.TemplateResponse(request, "admin_gebruiker_nieuw.html", {
         "nav_items": NAV,
         "csrf_token": csrf_from_request(request),
+        "error": None,
+        **_lijst_ctx(request, db),
     })
 
 
