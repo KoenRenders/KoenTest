@@ -109,7 +109,14 @@ def test_bestelregel_wijzigen_werkt_de_bedragen_bij(admin_page):
     detail.zet_aantal(0, 3)
     detail.opslaan()
 
-    # Het paneel blijft open (#613-3) en toont het herrekende totaal (#613-4).
+    # Opslaan zet `HX-Trigger: betalingen-ververst`, dus de kaartenlijst wordt
+    # opnieuw opgebouwd en het detailpaneel gaat mee. De invariant is niet dat het
+    # paneel open blijft staan, maar dat het gewijzigde aantal bewaard is en de
+    # bedragen herrekend zijn (#613-4) — dus openen we opnieuw.
+    kaart = betalingen.kaart_met_knop("Toon inschrijvingsdetails")
+    detail = Inschrijvingsdetail(betalingen.toon_inschrijvingsdetails(kaart))
+    detail.bewerken()
+
     assert detail.aantalvelden().first.input_value() == "3"
     assert "Totaal" in detail.totaal()
 

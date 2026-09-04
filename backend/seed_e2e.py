@@ -120,19 +120,27 @@ def main() -> None:
         from app.domains.activities.router import register_for_activity
         from app.schemas.activity import RegistrationCreate, RegistrationItemCreate
 
-        data = RegistrationCreate(
-            contact_name=SEED_NAAM, contact_email=MARKER_EMAIL, phone="0470000000",
-            component_id=component.id, payment_method="TRANSFER",
-            items=[RegistrationItemCreate(product_id=product.id, quantity=2)],
-        )
-        resultaat = register_for_activity(activity.id, data, BackgroundTasks(),
-                                          db=db, current_member=None)
-        reg_id = getattr(resultaat, "id", None) or (
-            resultaat.get("id") if isinstance(resultaat, dict) else None)
-        if reg_id is None:
-            reg = (db.query(Registration)
-                   .filter(Registration.contact_email == MARKER_EMAIL).first())
-            reg_id = reg.id if reg else None
+        def _schrijf_in(naam: str) -> int | None:
+            data = RegistrationCreate(
+                contact_name=naam, contact_email=MARKER_EMAIL, phone="0470000000",
+                component_id=component.id, payment_method="TRANSFER",
+                items=[RegistrationItemCreate(product_id=product.id, quantity=2)],
+            )
+            resultaat = register_for_activity(activity.id, data, BackgroundTasks(),
+                                              db=db, current_member=None)
+            gevonden = getattr(resultaat, "id", None) or (
+                resultaat.get("id") if isinstance(resultaat, dict) else None)
+            if gevonden is None:
+                reg = (db.query(Registration)
+                       .filter(Registration.contact_name == naam).first())
+                gevonden = reg.id if reg else None
+            return gevonden
+
+        # Twee inschrijvingen, dus twee openstaande vorderingen. Anders vechten de
+        # flows om dezelfde: "bevestig betaald" zet de enige pending charge op
+        # betaald, waarna de volgende flow er geen meer vindt.
+        reg_id = _schrijf_in(SEED_NAAM)
+        tweede_id = _schrijf_in(f"{SEED_NAAM} 2")
 
         # ── Eén volledig betaald record, voor de terugbetaal-/editorknoppen ──
         # Ook dit record krijgt een mededeling: de kaarten staan op datum
@@ -167,7 +175,8 @@ def main() -> None:
         print(f"seed_e2e: gezin={member.id} lidmaatschap={membership.id} "
               f"activiteit={activity.id} "
               f"onderdeel={component.id} product={product.id} "
-              f"inschrijving={reg_id} formulier={formulier.id} pagina={pagina.id}")
+              f"inschrijving={reg_id} tweede-inschrijving={tweede_id} "
+              f"formulier={formulier.id} pagina={pagina.id}")
     finally:
         db.close()
 
