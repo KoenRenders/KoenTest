@@ -223,6 +223,12 @@ Opslaan · Annuleren · Bewerken · Verwijderen · "+ Nieuwe <item>" ·
 "Zoek op <velden>…" · Vorige/Volgende · "Laden…" · "(Nog) geen <items>…".
 Titels en badges altijd Nederlands; nooit rauwe statuscodes tonen.
 
+**Geen leveranciersnamen in knoplabels.** Een knop beschrijft de handeling, niet wie ze
+uitvoert: *"Status verversen"*, niet *"Ververs bij Mollie"*. Wisselt de
+betaalprovider ooit, dan hoeft er niets omgetypt te worden — en voor de gebruiker doet
+het er niet toe waar de status vandaan komt. Idem voor *Vereffend* als richtingsneutraal
+statuswoord op zowel een betaling als een terugbetaling (#617).
+
 ---
 
 ## 3. Gesanctioneerde uitzonderingen
