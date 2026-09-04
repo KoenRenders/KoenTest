@@ -18,16 +18,21 @@
 
    Ná de paginakop (#631): de KPI-rij stond boven de H1, wat zowel de C1-volgorde
    tegensprak als het commentaar dat er drie regels hoger stond. `leden.html` deed
-   het wél goed. #}
+   het wél goed.
+
+   Kaartvorm gelijk aan Leden (#636): witte kaarten met rand, label (.k) bóven het
+   cijfer (.v, brand-font). De eerste kaart had een getinte uitzondering die de mock
+   niet kent — twee zusterschermen die hetzelfde tonen en er anders uitzien is precies
+   wat #611/#621 hebben opgeruimd. #}
 <div class="grid grid-cols-2 gap-4 mb-6 max-w-md">
-  <div class="rounded-xl bg-blue-50 p-5">
-    <div class="text-3xl font-extrabold text-blue-700">{{ kpi_open }}</div>
-    <div class="text-sm font-semibold mt-1">{{ _("Open inschrijvingen") }}</div>
+  <div class="rounded-xl bg-white border border-line p-5">
+    <div class="text-xs font-semibold text-ink-soft">{{ _("Open inschrijvingen") }}</div>
+    <div class="text-3xl font-extrabold font-brand text-blue-700">{{ kpi_open }}</div>
   </div>
-  <div class="rounded-xl bg-surface-2 border border-line p-5">
-    <div class="text-3xl font-extrabold">{{ kpi_vol }}</div>
-    <div class="text-sm font-semibold mt-1">{{ _("Volzette onderdelen") }}</div>
-    <div class="text-xs text-ink-soft">{{ _("van") }} {{ kpi_onderdelen }}</div>
+  <div class="rounded-xl bg-white border border-line p-5">
+    <div class="text-xs font-semibold text-ink-soft">{{ _("Volzette onderdelen") }}</div>
+    <div class="text-3xl font-extrabold font-brand">{{ kpi_vol }}</div>
+    <div class="text-xs font-semibold text-ink-soft">{{ _("van") }} {{ kpi_onderdelen }}</div>
   </div>
 </div>
 

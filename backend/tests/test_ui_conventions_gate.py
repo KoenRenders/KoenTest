@@ -43,7 +43,9 @@ Vier regels, elk met een reden:
     een interne code op het scherm (#630). Map ze eerst naar een label.
 17. **Elke symboolknop heeft een aria-label** — ook publiek, niet enkel in de admin
     (#631). De Raakje-verstuurknop heette voor een schermlezer "➤".
-18. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
+18. **Geen getinte KPI-kaart** — de mock kent witte kaarten met een rand; een
+    `bg-blue-50`-uitzondering liep twee keer uiteen tussen zusterschermen (#636).
+19. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
    preflight-hoogte en staat hij ~15px lager dan het zoekveld ernaast; dat gaf
    scheve filterbalken op zeven schermen (#611). Gebruik `ui.select_control()`,
    `ui.grouped_filter()` of `ui.field_select()`.
@@ -487,4 +489,24 @@ def test_symboolknoppen_hebben_een_aria_label_ook_publiek():
     assert not fouten, (
         "Geef een symboolknop een aria-label — een schermlezer leest anders het "
         "teken voor:\n  " + "\n  ".join(fouten)
+    )
+
+
+def test_kpi_kaarten_zijn_wit():
+    """De mock (`.kpi`) kent één vorm: witte kaart met rand, label bóven het cijfer.
+
+    Op Leden was dat met #611 rechtgezet, op Activiteiten bleef een `bg-blue-50`-kaart
+    staan — zichtbaar inconsistent tussen twee zusterschermen die hetzelfde soort
+    informatie tonen (#636).
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        tekst = _zonder_commentaar(pad)
+        for nr, regel in enumerate(tekst.splitlines(), 1):
+            # Een KPI-kaart herken je aan de kaartvorm mét een getinte achtergrond.
+            if "rounded-xl" in regel and "bg-blue-50" in regel:
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:70]}")
+    assert not fouten, (
+        "KPI-kaarten zijn wit met een rand (bg-white border border-line):\n  "
+        + "\n  ".join(fouten)
     )
