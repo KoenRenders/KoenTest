@@ -7,12 +7,14 @@ Gmail-wachtwoord worden nooit teruggetoond, dus een leeg veld betekent "ik heb
 niets ingetypt" en niet "wis dit". Zonder die regel wist elke opslag van een ander
 veld stilzwijgend de sleutel waarmee de vereniging betaald wordt.
 
-Nu los testbaar, zonder scherm.
+Nu los testbaar, zonder scherm. De service woont in `domains/mdm/` en niet in de
+kernel: `Organization` woont daar, en de kernel mag per laagmodel (§8) niet uit een
+domein importeren — die grens wordt door `test_import_boundaries.py` bewaakt.
 """
 import pytest
 
-from app.kernel.tenant_service import (TenantFout, create_tenant, list_units,
-                                       secrets_gezet, update_tenant_settings)
+from app.domains.mdm.api import (TenantFout, create_tenant, list_units,
+                                 secrets_gezet, update_tenant_settings)
 
 pytestmark = pytest.mark.ui_agnostisch
 

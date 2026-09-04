@@ -118,8 +118,18 @@ meer op de allowlist van de gate.
 
 | UI-module | imports | ORM-gebruik | facade-inhoud | view-model |
 |---|---|---|---|---|
+| `app/ui/tenants_ui.py` | ✅ | ✅ | | ✅ |
+| `app/ui/changes_ui.py` | ✅ | ✅ | | ✅ |
 | `payment/ui.py` | ✅ | | | ✅ |
+| `app/ui/system_ui.py` | ✅ | ✅ | | |
+| `workflow/ui.py` | ✅ | | | ✅ |
 | overige `*_ui.py` | | | | |
 
 Leeg = staat nog op de allowlist van de gate. De kolommen krimpen per batch van
 #635; de gate is pas blokkerend-zonder-allowlist wanneer de tabel vol staat.
+
+Naast de gates loopt de agent `design-conformiteit-bewaker` op aanvraag over
+dezelfde modules met een **laag-as** (#635 J): herhaalde business-logica, een
+view-model dat afleidt wat de service al weet, een template die toestand afleidt
+i.p.v. toont, en een facade die alleen doorgeeft. Dat is oordeelswerk — wat
+regel-vormig blijkt, verhuist naar de gate.

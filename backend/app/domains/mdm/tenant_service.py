@@ -7,9 +7,11 @@ Dat laatste is de gevoeligste regel van het scherm — een lege invoer mag een
 opgeslagen Mollie-key of Gmail-wachtwoord níet wissen — en ze was alleen als
 scherm-code testbaar.
 
-Kernel en niet `domains/mdm/`: een tenant is geen ledendata maar de omgeving
-waarin alle domeinen draaien, en `Organization` komt hier via de mdm-facade
-binnen — dezelfde weg die elk ander domein gebruikt.
+Woont in `domains/mdm/` en niet in de kernel, omdat `Organization` hier woont: de
+kernel mag per laagmodel (§8) niet uit een domein importeren, en die regel is
+terecht — de kernel draagt geen domeinkennis. Een tenant is weliswaar de omgeving
+waarin alle domeinen draaien, maar hij is opgeslagen als een organisatie, en dat
+is mdm-data.
 
 De schrijffuncties committen zélf. Dat is de regel uit #635-2: de transactiegrens
 ligt in de service, niet in het scherm — zo geldt ze voor élke ingang en niet
@@ -36,7 +38,8 @@ def create_tenant(db, *, name: str, code: str, parent_id: int | None = None,
     aanmaken wordt de codecache gewist, anders resolvet de nieuwe tenant pas na
     een herstart (#546).
     """
-    from app.domains.mdm.api import Organization, invalidate_tenant_codes
+    from app.domains.mdm.models import Organization
+    from app.domains.mdm.tenant_lookup import invalidate_tenant_codes
     from app.kernel.tenant_config import set_setting
 
     name = (name or "").strip()
@@ -96,7 +99,7 @@ def update_tenant_settings(db, tenant_id: int, form: Mapping, *,
 
 def list_units(db, *, alleen_actief: bool = False):
     """De tenants (UNIT-organisaties), op id."""
-    from app.domains.mdm.api import Organization
+    from app.domains.mdm.models import Organization
 
     query = db.query(Organization).filter(Organization.org_type == "UNIT")
     if alleen_actief:
@@ -106,7 +109,7 @@ def list_units(db, *, alleen_actief: bool = False):
 
 def list_accounts(db):
     """De accounts waar een tenant onder kan hangen."""
-    from app.domains.mdm.api import Organization
+    from app.domains.mdm.models import Organization
 
     return (db.query(Organization).filter(Organization.org_type == "ACCOUNT")
             .order_by(Organization.id).all())

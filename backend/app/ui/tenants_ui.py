@@ -65,14 +65,14 @@ GEHEIME_SLEUTELS = [
 
 
 def _units(db: Session, *, alleen_actief: bool = False):
-    from app.kernel.tenant_service import list_units
+    from app.domains.mdm.api import list_units
 
     return list_units(db, alleen_actief=alleen_actief)
 
 
 def _lijst_ctx(request: Request, db: Session) -> dict:
     """Lijst-index (C1): zoeken op naam/code, filter op status."""
-    from app.kernel.tenant_service import list_accounts
+    from app.domains.mdm.api import list_accounts
 
     zoek = (request.query_params.get("q") or "").strip()
     status = (request.query_params.get("status") or "").strip()
@@ -94,7 +94,7 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
 
 def _editor_ctx(request: Request, db: Session, tenant_id: int) -> dict:
     from app.kernel.tenant_config import get_setting
-    from app.kernel.tenant_service import secrets_gezet as _secrets_gezet
+    from app.domains.mdm.api import secrets_gezet as _secrets_gezet
 
     unit = next((u for u in _units(db) if u.id == tenant_id), None)
     if unit is None:
@@ -154,7 +154,7 @@ def tenant_aanmaken(request: Request, db: Session = Depends(get_db),
                     email: str = Depends(require_admin_ui),
                     name: str = Form(""), code: str = Form(""),
                     account_id: str = Form(""), base_url: str = Form("")):
-    from app.kernel.tenant_service import TenantFout, create_tenant
+    from app.domains.mdm.api import TenantFout, create_tenant
 
     require_operator_ui(db, email)
     try:
@@ -176,7 +176,7 @@ def tenant_aanmaken(request: Request, db: Session = Depends(get_db),
 async def tenant_opslaan(tenant_id: int, request: Request,
                          db: Session = Depends(get_db),
                          email: str = Depends(require_admin_ui)):
-    from app.kernel.tenant_service import update_tenant_settings
+    from app.domains.mdm.api import update_tenant_settings
 
     require_operator_ui(db, email)
     if tenant_id not in {u.id for u in _units(db)}:
