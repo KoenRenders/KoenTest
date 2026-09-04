@@ -30,8 +30,11 @@ def _render(schil: str, omgeving: str) -> str:
     return env.get_template(schil).render(**BASIS, omgeving=omgeving)
 
 
+# Let op de z-index in de site_base-waarden: de banner draagt zelf `sticky top-0`,
+# dus "staat top-0 in de HTML?" zegt niets. We toetsen op de klasse van het element
+# eronder — de header is z-40, de banner z-50.
 @pytest.mark.parametrize("schil,sticky_aan,sticky_uit", [
-    ("site_base.html", 'sticky top-6', 'sticky top-0'),
+    ("site_base.html", 'sticky top-6 z-40', 'sticky top-0 z-40'),
     ("admin_base.html", 'md:top-6 md:h-[calc(100vh-1.5rem)]', 'md:top-0 md:h-screen'),
 ])
 def test_banner_op_hdev_duwt_het_sticky_element_omlaag(schil, sticky_aan, sticky_uit):
@@ -43,7 +46,7 @@ def test_banner_op_hdev_duwt_het_sticky_element_omlaag(schil, sticky_aan, sticky
 
 
 @pytest.mark.parametrize("schil,sticky_uit", [
-    ("site_base.html", 'sticky top-0'),
+    ("site_base.html", 'sticky top-0 z-40'),
     ("admin_base.html", 'md:top-0 md:h-screen'),
 ])
 def test_op_prod_geen_banner_en_dus_geen_offset(schil, sticky_uit):
