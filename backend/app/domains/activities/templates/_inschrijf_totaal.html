@@ -1,5 +1,14 @@
-{% if totaal and totaal > 0 %}
-<div class="bg-white border border-blue-200 rounded-lg p-3 text-sm font-medium text-blue-700">
-  {{ _("Totaal:") }} €{{ "%.2f"|format(totaal) }}{% if is_member %} <span class="font-normal text-blue-600">{{ _("(ledenprijs)") }}</span>{% endif %}
+{# Totaal (#607). Altijd zichtbaar zodra het onderdeel iets te betalen heeft —
+   ook op €0,00. Voorheen verscheen dit blok pas bij het eerste aantal, waardoor
+   het formulier versprong (design-system §4: "no unexpected page jumps").
+   `heeft_prijs` komt uit _unit_price(), dezelfde functie die het totaal berekent,
+   zodat weergave en berekening niet uiteen kunnen lopen: een onderdeel met enkel
+   gratis of ter-plaatse-producten toont niets, want daar valt niets af te rekenen.
+   Gedempt op €0,00, merkblauw zodra er een bedrag staat — de kleurwissel is de
+   feedback in plaats van het verschijnen. #}
+{% if heeft_prijs %}
+{% set _leeg = not totaal or totaal <= 0 %}
+<div class="bg-white border rounded-lg p-3 text-sm font-medium {% if _leeg %}border-gray-200 text-gray-500{% else %}border-blue-200 text-blue-700{% endif %}">
+  {{ _("Totaal:") }} €{{ "%.2f"|format(totaal or 0) }}{% if is_member and not _leeg %} <span class="font-normal text-blue-600">{{ _("(ledenprijs)") }}</span>{% endif %}
 </div>
 {% endif %}

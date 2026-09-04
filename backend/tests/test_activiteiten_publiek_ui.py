@@ -4,6 +4,7 @@ PROD-pariteit (v1.14): inschrijven opent als smalle gecentreerde modal (niet een
 breed inline blok), en "Wie doet er mee?" is één compacte regel (niet een verticale
 lijst). We toetsen de templates op die vorm zodat de regressie niet terugkeert.
 """
+from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -44,3 +45,58 @@ def test_deelnemers_is_compacte_inline_regel():
 def test_deelnemers_leeg_blijft_nette_tekst():
     out = templates.env.get_template("_deelnemers.html").render(deelnemers=[])
     assert "Nog niemand ingeschreven" in out
+
+
+# ── Totaal altijd zichtbaar bij een betalend onderdeel (#607) ─────────────────
+# Het blok verscheen vroeger pas bij het eerste aantal, waardoor het formulier
+# versprong. De invariant die telt: zichtbaar-vanaf-het-begin dán en enkel dán
+# als er via de portaal iets af te rekenen valt.
+
+def _totaal_html(**ctx):
+    return templates.env.get_template("_inschrijf_totaal.html").render(**ctx)
+
+
+def test_totaal_staat_er_meteen_bij_een_betalend_onderdeel():
+    """Op €0,00 al zichtbaar (gedempt) — anders verspringt het formulier."""
+    out = _totaal_html(heeft_prijs=True, totaal=Decimal("0"), is_member=False)
+    assert "Totaal:" in out and "0.00" in out
+    assert "text-gray-500" in out and "text-blue-700" not in out
+
+
+def test_totaal_wordt_merkblauw_zodra_er_een_bedrag_staat():
+    out = _totaal_html(heeft_prijs=True, totaal=Decimal("27.50"), is_member=False)
+    assert "27.50" in out and "text-blue-700" in out
+    assert "text-gray-500" not in out
+
+
+def test_geen_totaalblok_als_er_niets_af_te_rekenen_valt():
+    """Gratis of ter-plaatse: "Totaal: €0,00" zou misleidende ruis zijn."""
+    assert _totaal_html(heeft_prijs=False, totaal=Decimal("0"), is_member=False).strip() == ""
+
+
+def test_heeft_prijs_volgt_de_prijsberekening():
+    """De weergave leidt af uit _unit_price(), zodat ze niet kan afdrijven."""
+    from app.domains.activities.ui import _heeft_prijs
+
+    def product(**kw):
+        return SimpleNamespace(is_free=False, pay_on_site=False, price=Decimal("10"),
+                               member_price=None, **kw)
+
+    betalend = SimpleNamespace(products=[product()])
+    gratis = SimpleNamespace(products=[product(is_free=True)])
+    ter_plaatse = SimpleNamespace(products=[product(pay_on_site=True)])
+    assert _heeft_prijs(betalend, is_member=False) is True
+    assert _heeft_prijs(gratis, is_member=False) is False
+    assert _heeft_prijs(ter_plaatse, is_member=False) is False
+    assert _heeft_prijs(SimpleNamespace(products=[]), is_member=False) is False
+    # Ledenprijs 0 = voor een lid niets te betalen, voor een niet-lid wél.
+    gratis_voor_leden = SimpleNamespace(products=[product(member_price=Decimal("0"))])
+    assert _heeft_prijs(gratis_voor_leden, is_member=True) is False
+    assert _heeft_prijs(gratis_voor_leden, is_member=False) is True
+
+
+def test_betaalwijze_volgt_dezelfde_voorwaarde_als_het_totaal():
+    """Bijvangst (#607): geen betaalkeuze bij een onderdeel zonder betalend deel."""
+    inhoud = (TPL / "_inschrijf_form.html").read_text()
+    assert "{% if heeft_prijs %}" in inhoud
+    assert "Betaalwijze (bij betalend deel)" not in inhoud

@@ -117,6 +117,16 @@ def _totaal(db: Session, component, quantities: dict[int, int], is_member: bool)
     return total
 
 
+def _heeft_prijs(component, is_member: bool) -> bool:
+    """Valt er op dit onderdeel iets af te rekenen via de portaal? (#607)
+
+    Afgeleid uit _unit_price(), dezelfde functie die het totaal berekent, zodat de
+    weergave van het totaalblok niet kan afdrijven van de berekening: gratis en
+    ter-plaatse-producten tellen niet mee, en een lid met member_price 0 evenmin.
+    """
+    return any(_unit_price(p, is_member) > 0 for p in component.products)
+
+
 def _person_contacts(person) -> tuple[str, str]:
     """(e-mail, mobiel) van een person uit zijn ContactDetails, of lege strings."""
     email = mobile = ""
@@ -144,6 +154,7 @@ def _form_ctx(request: Request, db: Session, activity, component, **extra) -> di
     ctx = {
         "activity": activity, "component": component, "is_member": is_member,
         "person": person, "error": None, "totaal": Decimal("0"), "values": prefill,
+        "heeft_prijs": _heeft_prijs(component, is_member),
     }
     ctx.update(extra)
     return ctx
@@ -169,7 +180,8 @@ async def inschrijf_totaal(activity_id: int, component_id: int, request: Request
     is_member = _is_member(db, person)
     totaal = _totaal(db, component, _quantities(form), is_member)
     return templates.TemplateResponse(request, "_inschrijf_totaal.html", {
-        "totaal": totaal, "is_member": is_member})
+        "totaal": totaal, "is_member": is_member,
+        "heeft_prijs": _heeft_prijs(component, is_member)})
 
 
 @router.post("/activiteiten/{activity_id}/inschrijven/{component_id}",

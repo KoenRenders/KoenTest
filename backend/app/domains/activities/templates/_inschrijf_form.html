@@ -47,11 +47,18 @@
     </div>
     <div>{{ ui.label(_("Opmerkingen"), "remarks") }}
       <textarea name="remarks" id="remarks" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="{{ _('Eventuele boodschap voor de organisatie…') }}">{{ values.get('remarks', '') }}</textarea></div>
+    {# Betaalwijze enkel als er iets af te rekenen valt (#607) — dezelfde
+       `heeft_prijs`-voorwaarde als het totaal hierboven. Bij een volledig gratis of
+       ter-plaatse-onderdeel is de keuze betekenisloos; het zichtbare totaal vertelt
+       nu of er iets te betalen is, dus het label heeft geen "(bij betalend deel)"
+       meer nodig. #}
+    {% if heeft_prijs %}
     <div>
-      {{ ui.label(_("Betaalwijze (bij betalend deel)"), "payment_method") }}
+      {{ ui.label(_("Betaalwijze"), "payment_method") }}
       <label class="flex items-center gap-2 text-sm"><input type="radio" name="payment_method" value="ONLINE" {% if values.get('payment_method', 'ONLINE') == 'ONLINE' %}checked{% endif %}> {{ _("Online betalen") }}</label>
       <label class="flex items-center gap-2 text-sm"><input type="radio" name="payment_method" value="OVERSCHRIJVING" {% if values.get('payment_method') == 'OVERSCHRIJVING' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
     </div>
+    {% endif %}
     {{ ui.btn_primary(_("Inschrijven")) }}
   </form>
 </div>
