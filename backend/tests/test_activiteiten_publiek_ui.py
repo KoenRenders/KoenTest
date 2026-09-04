@@ -79,8 +79,10 @@ def test_heeft_prijs_volgt_de_prijsberekening():
     from app.domains.activities.ui import _heeft_prijs
 
     def product(**kw):
-        return SimpleNamespace(is_free=False, pay_on_site=False, price=Decimal("10"),
-                               member_price=None, **kw)
+        velden = dict(is_free=False, pay_on_site=False, price=Decimal("10"),
+                      member_price=None)
+        velden.update(kw)
+        return SimpleNamespace(**velden)
 
     betalend = SimpleNamespace(products=[product()])
     gratis = SimpleNamespace(products=[product(is_free=True)])
