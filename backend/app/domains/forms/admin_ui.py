@@ -409,8 +409,9 @@ def optie_verwijderen(form_id: int, option_id: int, request: Request,
              dependencies=[Depends(require_csrf)])
 def json_import(form_id: int, request: Request, db: Session = Depends(get_db),
                 email: str = Depends(require_admin_ui), payload: str = Form(...)):
-    from app.domains.forms.router import _apply_fields, _validate_form_payload
     from app.domains.forms.schemas import FormUpdate
+    from app.domains.forms.service import (apply_definition, update_settings,
+                                           validate_definition)
 
     form = _form_or_404(db, form_id)
     try:
@@ -419,11 +420,14 @@ def json_import(form_id: int, request: Request, db: Session = Depends(get_db),
         return _builder_response(request, db, form,
                                  error=_("Ongeldige JSON: %(exc)s") % {"exc": exc})
     try:
-        _validate_form_payload(data)
-        form.title = data.title
-        form.description = data.description
-        form.status = data.status
-        _apply_fields(form, data)
+        validate_definition(data)
+        # Alle instellingen, niet drie (#635-3): deze route schreef enkel titel,
+        # omschrijving en status, waardoor een import stilzwijgend slug,
+        # requires_login, max_submissions, send_confirmation,
+        # confirmation_message, allow_edit en is_anonymous liet vallen. Dezelfde
+        # functie als update_form gebruikt, dus dat kan niet meer uiteenlopen.
+        update_settings(form, data)
+        apply_definition(form, data)
         db.commit()
     except HTTPException as exc:
         db.rollback()

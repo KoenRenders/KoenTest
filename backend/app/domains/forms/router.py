@@ -31,7 +31,10 @@ from app.domains.forms.schemas import (
     SubmissionResult,
     EditSubmissionOut,
 )
-from app.domains.forms.service import build_answers, assert_open_for_submission
+from app.domains.forms.service import (
+    apply_definition, assert_open_for_submission, assert_submitter, build_answers,
+    update_settings, validate_definition,
+)
 from app.domains.forms.results import compute_results
 from app.domains.forms.export import export_ods, build_submissions_view
 from app.domains.mail.api import send_form_confirmation
@@ -54,165 +57,13 @@ def _unique_share_token(db: Session) -> str:
     raise HTTPException(status_code=500, detail=_("Kon geen unieke deellink genereren."))
 
 
-def _validate_form_payload(data) -> None:
-    if data.status not in FORM_STATUSES:
-        raise HTTPException(status_code=422, detail=_("Ongeldige status: %(status)s") % {"status": data.status})
-    sections = getattr(data, "sections", []) or []
-    n_sections = len(sections)
-    # Sectie-navigatie moet vooruit springen (geen lus).
-    for i, s in enumerate(sections):
-        if s.next_section_index is not None:
-            if not (0 <= s.next_section_index < n_sections):
-                raise HTTPException(status_code=422, detail=_("Ongeldige doelsectie."))
-            if s.next_section_index <= i:
-                raise HTTPException(
-                    status_code=422,
-                    detail=_("Een sectie-sprong moet naar een latere sectie gaan."),
-                )
-    for f in data.fields:
-        if f.field_type not in FIELD_TYPES:
-            raise HTTPException(status_code=422, detail=_("Ongeldig veldtype: %(field_type)s") % {"field_type": f.field_type})
-        # Vraag/label is verplicht (#340).
-        if not (f.label or "").strip():
-            raise HTTPException(status_code=422, detail=_("Elk veld heeft een vraag/label nodig."))
-        for o in f.options:
-            has_skip = o.skip_to_section_index is not None or o.skip_to_end
-            if has_skip and f.field_type not in ("radio", "select"):
-                raise HTTPException(
-                    status_code=422,
-                    detail=_("Vertakking kan enkel bij 'één keuze' of 'keuzelijst'."),
-                )
-            # Vooruit-sprong afdwingen (geen lus): doelsectie moet ná de sectie van
-            # het veld komen. Secties zijn geordend volgens hun index in de payload.
-            if o.skip_to_section_index is not None:
-                if not (0 <= o.skip_to_section_index < n_sections):
-                    raise HTTPException(status_code=422, detail=_("Ongeldige doelsectie voor vertakking."))
-                if f.section_index is not None and o.skip_to_section_index <= f.section_index:
-                    raise HTTPException(
-                        status_code=422,
-                        detail=_("Een vertakking moet naar een latere sectie springen."),
-                    )
-
-
-def _apply_fields(form: Form, data) -> None:
-    """Verzoen de secties/velden/opties van het formulier met de payload.
-
-    Bestaande rijen worden **hergebruikt op basis van hun id** (indien meegestuurd)
-    i.p.v. gewist-en-heraangemaakt. Zo behouden velden hun id en blijven de
-    eraan gekoppelde inzendings-antwoorden intact wanneer de admin het formulier
-    bewerkt (bv. een vraag toevoegt). Velden/opties/secties die niet meer in de
-    payload staan, worden verwijderd. Velden verwijzen via `section_index` naar
-    de secties in payload-volgorde (branching #336).
-    """
-    existing_sections = {s.id: s for s in form.sections}
-    existing_fields = {f.id: f for f in form.fields}
-
-    # ── Secties: hergebruik-op-id, in payload-volgorde ──────────────────────────
-    payload_sections = getattr(data, "sections", []) or []
-    result_sections = []
-    for si in payload_sections:
-        section = existing_sections.get(si.id) if si.id is not None else None
-        if section is None:
-            section = FormSection()
-            form.sections.append(section)
-        section.title = si.title
-        section.description = si.description
-        section.position = si.position
-        section.next_is_end = si.next_is_end
-        section.next_section = None  # onder resolven
-        result_sections.append(section)
-    # Verwijder secties die niet meer voorkomen.
-    keep_sections = set(result_sections)
-    for section in list(form.sections):
-        if section not in keep_sections:
-            form.sections.remove(section)
-    # Sectie-navigatie koppelen (index → sectie-object in payload-volgorde).
-    for si, section in zip(payload_sections, result_sections):
-        nidx = si.next_section_index
-        if nidx is not None and 0 <= nidx < len(result_sections):
-            section.next_section = result_sections[nidx]
-
-    # ── Velden: hergebruik-op-id ────────────────────────────────────────────────
-    result_fields = []
-    for fi in data.fields:
-        field = existing_fields.get(fi.id) if fi.id is not None else None
-        if field is None:
-            field = FormField()
-            form.fields.append(field)
-        field.field_type = fi.field_type
-        field.label = fi.label
-        field.help_text = fi.help_text
-        field.required = fi.required
-        field.position = fi.position
-        field.min_value = fi.min_value
-        field.max_value = fi.max_value
-        field.min_length = fi.min_length
-        field.max_length = fi.max_length
-        field.regex_pattern = fi.regex_pattern
-        field.rating_max = fi.rating_max
-        field.rating_low_label = fi.rating_low_label
-        field.rating_high_label = fi.rating_high_label
-        idx = fi.section_index
-        field.section = (
-            result_sections[idx] if idx is not None and 0 <= idx < len(result_sections) else None
-        )
-
-        # Opties: hergebruik-op-id binnen dit veld.
-        existing_options = {o.id: o for o in field.options}
-        result_options = []
-        for oi in fi.options:
-            option = existing_options.get(oi.id) if oi.id is not None else None
-            if option is None:
-                option = FormFieldOption()
-                field.options.append(option)
-            option.label = oi.label
-            option.value = oi.value
-            option.position = oi.position
-            option.is_other = oi.is_other
-            option.skip_to_end = oi.skip_to_end
-            sidx = oi.skip_to_section_index
-            option.skip_to_section = (
-                result_sections[sidx] if sidx is not None and 0 <= sidx < len(result_sections) else None
-            )
-            result_options.append(option)
-        keep_options = set(result_options)
-        for option in list(field.options):
-            if option not in keep_options:
-                field.options.remove(option)
-
-        result_fields.append(field)
-
-    # Verwijder velden die niet meer voorkomen (hun antwoorden vallen mee weg).
-    keep_fields = set(result_fields)
-    for field in list(form.fields):
-        if field not in keep_fields:
-            form.fields.remove(field)
-
-
-def _submission_count(db: Session, form_id: int) -> int:
-    return (
-        db.query(func.count(FormSubmission.id))
-        .filter(FormSubmission.form_id == form_id)
-        .scalar()
-        or 0
-    )
-
-
-def _admin_out(db: Session, form: Form) -> dict:
-    data = FormAdminOut.model_validate(form).model_dump()
-    data["submission_count"] = _submission_count(db, form.id)
-    return data
-
-
-# ── Admin CRUD ──────────────────────────────────────────────────────────────────
-
 @router.post("/forms", response_model=FormAdminOut)
 def create_form(
     data: FormCreate,
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    _validate_form_payload(data)
+    validate_definition(data)
     form = Form(
         title=data.title,
         slug=data.slug,
@@ -226,7 +77,7 @@ def create_form(
         allow_edit=data.allow_edit,
         is_anonymous=data.is_anonymous,
     )
-    _apply_fields(form, data)
+    apply_definition(form, data)
     db.add(form)
     db.commit()
     db.refresh(form)
@@ -266,21 +117,12 @@ def update_form(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    _validate_form_payload(data)
+    validate_definition(data)
     form = db.query(Form).filter(Form.id == form_id).first()
     if not form:
         raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
-    form.title = data.title
-    form.slug = data.slug
-    form.description = data.description
-    form.status = data.status
-    form.requires_login = data.requires_login
-    form.max_submissions = data.max_submissions
-    form.send_confirmation = data.send_confirmation
-    form.confirmation_message = data.confirmation_message
-    form.allow_edit = data.allow_edit
-    form.is_anonymous = data.is_anonymous
-    _apply_fields(form, data)
+    update_settings(form, data)
+    apply_definition(form, data)
     db.commit()
     db.refresh(form)
     return _admin_out(db, form)
@@ -378,17 +220,6 @@ def get_public_form(share_token: str, db: Session = Depends(get_db)):
     return _load_public_form(db, share_token)
 
 
-def _assert_submitter(form, name, email):
-    """Niet-anoniem formulier → naam én een geldig e-mailadres verplicht (#501).
-    Servicelaag-invariant, zodat élke ingang (publieke UI, edit, JSON-API) 'm
-    afdwingt i.p.v. enkel het publieke scherm."""
-    if getattr(form, "is_anonymous", False):
-        return
-    if not (name or "").strip() or "@" not in (email or ""):
-        raise HTTPException(
-            status_code=422, detail=_("Vul je naam en een geldig e-mailadres in."))
-
-
 @router.post("/forms/by-token/{share_token}/submit", response_model=SubmissionResult,
              dependencies=[Depends(form_submit_limiter)])
 def submit_form(
@@ -399,7 +230,7 @@ def submit_form(
 ):
     form = _load_public_form(db, share_token)
     assert_open_for_submission(db, form)
-    _assert_submitter(form, data.submitter_name, data.submitter_email)
+    assert_submitter(form, data.submitter_name, data.submitter_email)
     answers = build_answers(form, data.answers)
 
     # Anoniem (#343): geen submitter bewaren. Anders het contactblok-adres.
@@ -494,7 +325,7 @@ def update_submission(
         raise HTTPException(status_code=403, detail=_("Wijzigen is niet toegestaan."))
     if form.status != "open":
         raise HTTPException(status_code=403, detail=_("Dit formulier staat niet (meer) open."))
-    _assert_submitter(form, data.submitter_name, data.submitter_email)
+    assert_submitter(form, data.submitter_name, data.submitter_email)
 
     answers = build_answers(form, data.answers)
     submission.answers.clear()

@@ -52,8 +52,15 @@ def berichten_submit(
             request, "_berichten_form.html",
             {"form": None, "error": _("Berichten zijn tijdelijk niet beschikbaar."),
              "naam": naam, "email": email, "bericht": bericht})
-    # Niet-anoniem contactformulier: naam én een geldig e-mailadres verplicht (#501).
-    if not naam or "@" not in email or not bericht:
+    # De invariant staat in de service (#635-2), niet hier: hij gold voor élke
+    # ingang, maar stond drie keer geschreven — en de API-ingang riep hem niet aan.
+    # Het scherm vangt de fout op en toont ze in de banner i.p.v. een 422 te laten
+    # doorlopen.
+    from app.domains.forms.service import assert_submitter
+
+    try:
+        assert_submitter(form, naam, email, message=bericht, require_message=True)
+    except HTTPException:
         return templates.TemplateResponse(
             request, "_berichten_form.html",
             {"form": form, "error": _("Vul je naam, een geldig e-mailadres en je bericht in."),
@@ -224,9 +231,14 @@ async def formulier_submit(share_token: str, request: Request,
     email = (form_data.get("submitter_email") or "")
     email = email.strip() if isinstance(email, str) else ""
 
-    if not form_model.is_anonymous and (not naam or "@" not in email):
+    # Zelfde invariant, zelfde functie (#635-2).
+    from app.domains.forms.service import assert_submitter
+
+    try:
+        assert_submitter(form_model, naam, email)
+    except HTTPException as exc:
         ctx = _form_render_ctx(db, form_model, request, values=values,
-                               error=_("Vul je naam en een geldig e-mailadres in."),
+                               error=str(exc.detail),
                                submitter_name=naam, submitter_email=email)
         return templates.TemplateResponse(request, "formulier.html", ctx)
 

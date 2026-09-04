@@ -36,9 +36,15 @@ def submit_bericht(db: Session, *, naam: str, email: str | None, bericht: str,
     from app.kernel.events import publish
     from app.domains.mail.api import send_form_confirmation
 
+    from app.domains.forms.service import assert_submitter
+
     form = db.query(Form).filter(Form.slug == "berichten").first()
     if form is None or not form.fields:
         return None
+    # De invariant gold "voor élke ingang", maar juist deze riep hem niet aan
+    # (#635-2). De chatbot schrijft hier ook naartoe, dus een leeg bericht of een
+    # ontbrekend adres kwam er langs de zijdeur toch in.
+    assert_submitter(form, naam, email, message=bericht, require_message=True)
     answers = build_answers(form, [AnswerIn(field_id=form.fields[0].id, text=bericht)])
     submission = FormSubmission(form_id=form.id, submitter_name=naam,
                                 submitter_email=email or None)
