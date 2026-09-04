@@ -214,6 +214,9 @@ def open_renewal_payment(db, member):
     "Openstaand" = een membership-betaling van dit gezin die niet betaald, geannuleerd
     of mislukt is.
     """
+    # Lokale imports: service.py houdt zijn modulehoofd vrij van model- en
+    # domeinimports (de rest van het bestand doet dat ook zo).
+    from app.domains.membership.models import Membership
     from app.domains.payment.api import PaymentRecord
 
     return (
