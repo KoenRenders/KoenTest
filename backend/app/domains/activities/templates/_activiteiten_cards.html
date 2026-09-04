@@ -22,10 +22,10 @@
         {% if a.status %}{{ ui.badge(a.status, _status_tone.get(a.status, "blue")) }}{% endif %}
         {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
       </h2>
-      <p class="text-sm text-gray-500">
-        🗓 {% for d in a.dates %}{{ d.start_date | langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date | langedatum }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
+      <p class="text-sm text-gray-500 flex items-center gap-1">
+        {{ ui.icon("calendar") }} {% for d in a.dates %}{{ d.start_date | langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date | langedatum }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
       </p>
-      {% if a.location %}<p class="text-sm text-gray-500">📍 {{ a.location }}</p>{% endif %}
+      {% if a.location %}<p class="text-sm text-gray-500 flex items-center gap-1">{{ ui.icon("map-pin") }} {{ a.location }}</p>{% endif %}
     </div>
     {% if not a.is_cancelled %}
     {# Onderdelen ook in het archief (#476): 'Wie doet er mee?' + info blijven,

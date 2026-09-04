@@ -100,10 +100,17 @@ def test_een_gebooste_navigatie_krijgt_de_hele_pagina_geen_fragment(client):
         assert "<html" in geboost.text.lower(), pad
 
 
-def test_een_gewoon_htmx_verzoek_krijgt_nog_steeds_het_fragment(client):
-    """De keerzijde: zoeken/filteren mag geen hele pagina terugsturen, anders
+# De schermen die écht op "is dit een htmx-verzoek?" vertakken — niet elk
+# lijstscherm doet dat (/admin/leden rendert altijd de hele pagina).
+FRAGMENTSCHERMEN = ("/admin/paginas", "/admin/formulieren", "/admin/activiteiten",
+                    "/admin/gebruikers", "/admin/tenants")
+
+
+@pytest.mark.parametrize("pad", FRAGMENTSCHERMEN)
+def test_een_gewoon_htmx_verzoek_krijgt_nog_steeds_het_fragment(client, pad):
+    """De keerzijde: zoeken en filteren mogen geen hele pagina terugsturen, anders
     nestelt de lijst zichzelf in de lijst."""
     _login(client)
-    fragment = client.get("/admin/leden", headers={"HX-Request": "true"})
-    assert fragment.status_code == 200
-    assert "<html" not in fragment.text.lower()
+    fragment = client.get(pad, headers={"HX-Request": "true"})
+    assert fragment.status_code == 200, pad
+    assert "<html" not in fragment.text.lower(), f"{pad} gaf een hele pagina op een fragmentverzoek"

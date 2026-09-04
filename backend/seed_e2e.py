@@ -135,10 +135,28 @@ def main() -> None:
             reg_id = reg.id if reg else None
 
         # ── Eén volledig betaald record, voor de terugbetaal-/editorknoppen ──
+        # Ook dit record krijgt een mededeling: de kaarten staan op datum
+        # gesorteerd, dus zonder OGM zou de bovenste kaart er geen hebben en zoekt
+        # de e2e-flow tevergeefs naar er een.
         db.add(PaymentRecord(
             payable_type="registration", payable_id=reg_id, type="charge",
             amount=Decimal("20.00"), amount_paid=Decimal("20.00"),
-            method="transfer", status="paid"))
+            method="transfer", status="paid",
+            structured_communication="+++000/0000/00098+++"))
+
+        # De beheerder uit migratie 014 heeft ADMIN; de betaalacties staan onder
+        # `is_finance` en vragen FINANCE (mutaties: FINANCE/OPERATOR). Zonder deze
+        # rollen rendert het scherm wel de kaarten maar geen enkele knop, en dan
+        # test de e2e-flow niets. Zelfde reden als in tests/test_render_gate.py.
+        from app.domains.auth.api import User, UserRole
+
+        beheerder = db.query(User).order_by(User.id).first()
+        if beheerder is not None:
+            bestaande = {r.role_code for r in beheerder.roles}
+            for rol in ("FINANCE", "OPERATOR"):
+                if rol not in bestaande:
+                    db.add(UserRole(user_id=beheerder.id, role_code=rol))
+            db.flush()
 
         formulier = Form(title="E2E-formulier", share_token="tok-e2e-seed",
                          status="draft")

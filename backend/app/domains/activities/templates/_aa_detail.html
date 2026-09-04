@@ -15,7 +15,7 @@
         {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/verwijderen" ' ~ confirm_attrs(_("Activiteit"), a.name)) }}
       </div>
     </div>
-    {% if a.location %}<p class="text-sm text-gray-500 mt-1">📍 {{ a.location }}</p>{% endif %}
+    {% if a.location %}<p class="text-sm text-gray-500 mt-1 flex items-center gap-1">{{ ui.icon("map-pin") }} {{ a.location }}</p>{% endif %}
     {# #503: in read-modus enkel de "Huidige affiche bekijken"-link; het upload-blok
        zit in de edit-vorm. #}
     {% if a.poster_asset_url %}<p class="mt-2"><a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-sm text-link underline">{{ _("Huidige affiche bekijken") }}</a></p>{% endif %}

@@ -59,7 +59,15 @@ Vier regels, elk met een reden:
 21. **Geen `<script src=` buiten een schil** (#634). htmx voert `<script>`-tags in
     ingeswapte inhoud uit; een bibliotheek die `customElements.define` doet (Trix)
     faalt bij de tweede uitvoering. Bibliotheken horen in de `<head>` van de schil.
-22. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
+22. **Geen metadata-emoji.** ✉ 📱 ☎ 📍 🗓 buiten `_macros.html`: dezelfde reden
+    als de ⬇⬆📄-regel — emoji renderen per OS en per font anders, met een eigen
+    regelhoogte, waardoor de regel verspringt (#638). De kit heeft `mail`,
+    `phone`, `mobile`, `map-pin` en `calendar`.
+23. **Geen handgeschreven lege toestand.** Een schuine "Geen …"/"Nog geen …"-regel
+    is een ad-hoc `Empty` — §2.11 legt één component vast en verbiedt italic. De
+    twee publieke fotoschermen deden het zo en importeerden `_macros.html` zelfs
+    niet (#637).
+24. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
    preflight-hoogte en staat hij ~15px lager dan het zoekveld ernaast; dat gaf
    scheve filterbalken op zeven schermen (#611). Gebruik `ui.select_control()`,
    `ui.grouped_filter()` of `ui.field_select()`.
@@ -92,6 +100,9 @@ HX_CONFIRM = re.compile(r"\bhx-confirm\b")
 SELECT_OK = ("_control", "border")
 # Een kit-knop met een label dat enkel uit 1–2 symbolen bestaat (×, ⚙, ➤, …).
 GLYPH_KNOP = re.compile(r'btn_(?:danger|secondary|primary|outline)\(\s*"([^"\w\s]{1,2})"')
+# Metadata-emoji (#638). Zelfde klasse als de ⬇⬆📄-glyphs uit #593: ze horen als
+# ui.icon() in de kit, niet als tekstteken in een template.
+METADATA_GLYPH = re.compile("[\u2709\u260e\U0001f4f1\U0001f4cd\U0001f5d3]")
 
 
 def _overtredingen(patroon: re.Pattern, *, negeer_root: bool = False):
@@ -591,4 +602,44 @@ def test_geen_scriptbestand_buiten_een_schil():
     ]
     assert not fouten, (
         "Verhuis het script naar de <head> van de schil:\n  " + "\n  ".join(fouten)
+    )
+
+
+def test_geen_metadata_emoji_in_de_templates():
+    """✉ 📱 ☎ 📍 🗓 horen als ui.icon() in de kit (#638).
+
+    Ze stonden op de meest bekeken publieke pagina's — de activiteitenkaart op de
+    homepage en het gezinsportaal. Op sommige Androids is ☎ een zwart-witte glyph,
+    op andere een gekleurde emoji met een eigen regelhoogte; de regel verspringt
+    dan. De kit heeft mail, phone, mobile, map-pin en calendar.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        if pad.name == "_macros.html":
+            continue        # daar staan de iconen zelf, en de toelichting erbij
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
+            if METADATA_GLYPH.search(regel):
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:70]}")
+    assert not fouten, (
+        'Gebruik ui.icon("mail"/"phone"/"mobile"/"map-pin"/"calendar"):\n  '
+        + "\n  ".join(fouten)
+    )
+
+
+def test_lege_toestanden_komen_uit_de_kit():
+    """Een schuine "Geen …"-regel is een handgeschreven Empty (#637, §2.11).
+
+    De combinatie is het signaal: `italic` mét een lege-toestandzin. Dat vangt de
+    twee fotoschermen zonder aan te slaan op gewone cursieve tekst elders.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        if pad.name == "_macros.html":
+            continue
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
+            if "italic" in regel and ("Geen " in regel or "Nog geen " in regel):
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:80]}")
+    assert not fouten, (
+        "Gebruik ui.empty_state(...) — niet schuin, één component:\n  "
+        + "\n  ".join(fouten)
     )

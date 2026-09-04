@@ -1,4 +1,5 @@
 {% extends "site_base.html" %}
+{% import "_macros.html" as ui %}
 {% block title %}Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %} — Raak Millegem{% endblock %}
 {% block content %}
 <a href="/fotos" class="text-blue-700 hover:underline text-sm">← {{ _("Terug naar alle albums") }}</a>
@@ -36,6 +37,6 @@
   </div>
 </div>
 {% else %}
-<p class="text-gray-500 italic">{{ _("Geen foto's gevonden voor deze activiteit.") }}</p>
+{{ ui.empty_state(_("Geen foto's gevonden voor deze activiteit.")) }}
 {% endif %}
 {% endblock %}
