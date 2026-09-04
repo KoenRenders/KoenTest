@@ -104,6 +104,15 @@ def test_werkbank_lijst_klikt_door_naar_full_page():
 
 # ── #598 microcopy ────────────────────────────────────────────────────────────
 
+def test_header_woordmerk_is_raak():
+    """Header-woordmerk = 'RaaK' (kapitale R/K, aa vergroot), niet 'RAAK' via uppercase (#605)."""
+    site = (APP / "ui" / "templates" / "site_base.html").read_text()
+    assert 'R<span class="text-[1.4em]">aa</span>K' in site
+    for regel in site.splitlines():
+        if '>aa</span>K' in regel:
+            assert "uppercase" not in regel   # geen all-caps meer op het woordmerk
+
+
 def test_link_tint_token_en_cms_link():
     """Links dragen de fellere merk-tint #2367bd via de --link/text-link-token (#603)."""
     build = (Path(__file__).resolve().parents[2] / "scripts" / "build-css.sh").read_text()
