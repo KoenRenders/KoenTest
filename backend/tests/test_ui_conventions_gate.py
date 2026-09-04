@@ -27,7 +27,10 @@ Vier regels, elk met een reden:
    losse rij eronder.
 9. **Geen merkblauwe kaarttitel.** Merkblauw is voor koppen en chrome (§1.1); een
    lijst van twintig blauwe recordnamen leest als twintig links (#621).
-10. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
+10. **Het woordmerk schaalt op 1.3em** — de fontmetriek van Radio Canada Big
+    (capHeight 690 / xHeight 530), niet een schatting (#625).
+11. **De sociale footer-iconen zijn 32px** — ze waren stil 25 % gekrompen (#626).
+12. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
    preflight-hoogte en staat hij ~15px lager dan het zoekveld ernaast; dat gaf
    scheve filterbalken op zeven schermen (#611). Gebruik `ui.select_control()`,
    `ui.grouped_filter()` of `ui.field_select()`.
@@ -309,3 +312,31 @@ def test_kaarttitels_staan_niet_in_merkblauw():
         "Gebruik text-ink voor de recordnaam, ink-soft voor de metadata:\n  "
         + "\n  ".join(fouten)
     )
+
+
+# ── Huisstijldetails die al eens stil verdwenen (#625/#626) ──────────────────
+SITE_BASE = APP / "ui" / "templates" / "site_base.html"
+
+
+def test_woordmerk_schaalt_op_de_fontmetriek():
+    """De "aa" hoort exact op kapitaalhoogte te staan.
+
+    Radio Canada Big: capHeight 690, xHeight 530 op 1000 units per em → 690/530 = 1.30.
+    Met 1.4 stond de "aa" 7,5 % te hoog (#625). Deze regel legt de waarde vast; wijzigt
+    het display-font, dan herbereken je de factor en pas je deze test mee aan — dat is
+    het moment waarop je erover hoort na te denken.
+    """
+    inhoud = SITE_BASE.read_text()
+    assert "text-[1.3em]" in inhoud, "de aa-schaal hoort 1.3em te zijn (capHeight/xHeight)"
+    assert "text-[1.4em]" not in inhoud
+
+
+def test_sociale_footer_iconen_zijn_32px():
+    """v1.14 had w-8; in v2.0 stonden ze op w-6 en werd Instagram onleesbaar — dat
+    glyph heeft de meeste interne detaillering en loopt op 24px dicht (#626)."""
+    inhoud = _zonder_commentaar(SITE_BASE)
+    sociale = [regel for regel in inhoud.splitlines()
+               if "<svg" in regel and "currentColor" in regel and "viewBox=\"0 0 24 24\"" in regel]
+    assert len(sociale) >= 3, "de drie sociale iconen zijn niet gevonden"
+    fouten = [r.strip()[:70] for r in sociale if "w-8 h-8" not in r]
+    assert not fouten, "footer-iconen horen w-8 h-8 te zijn:\n  " + "\n  ".join(fouten)
