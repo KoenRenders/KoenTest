@@ -705,3 +705,10 @@ Rule of thumb: **form → router (Pydantic); meaning → service; integrity-at-r
 DB.** A critical invariant (e.g. no negative price) is often worth enforcing in
 *both* the schema (nice 422 for the user) and the DB (hard guarantee) — that's
 defence in depth, not duplication.
+
+Enforced by `test_layer_gate.py`: a `ui.py`/`admin_ui.py` never touches `db` and
+only imports from a domain's `api.py`; its template context comes from a
+`ViewModel`, not a dict literal. And by `test_template_variables_gate.py`: a
+template asks for nothing its view-model does not promise. Templates render under
+`StrictUndefined` in dev/test/HDEV, so a typo fails instead of rendering blank —
+see *Where logic lives* in `docs/ui-conventies.md`.

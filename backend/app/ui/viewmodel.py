@@ -16,7 +16,7 @@ Conventie:
   - velden getypeerd (`list[PaymentRecord]`, `Decimal`, `dict[str, str]`), geen
     `Any` tenzij toegelicht;
   - de route eindigt op
-    `templates.TemplateResponse(request, "x.html", vm.context())`.
+    `templates.TemplateResponse(request, "x.html", vm.as_context())`.
 
 Ook een fragment krijgt een view-model. Dat voelt zwaar voor twee variabelen, maar
 juist de fragmenten worden vanuit meerdere routes gerenderd — daar loopt het
@@ -35,8 +35,14 @@ class ViewModel:
     argumenten onleesbaar is en bij een veldwijziging stil verschuift.
     """
 
-    def context(self) -> dict[str, Any]:
+    def as_context(self) -> dict[str, Any]:
         """De template-context.
+
+        Heet bewust `as_context` en niet `context`: een view-model mag zelf een
+        veld `context` hebben — het betalingenscherm heeft er een (het actieve
+        filter). Een dataclass-veld overschrijft een gelijknamige methode van de
+        basisklasse, waarna `.context()` een string aanroept en het scherm omvalt.
+        mypy zag dat meteen; de naam voorkomt het.
 
         Bewust **ondiep** en niet `dataclasses.asdict()`: die maakt een diepe kopie
         en zou elk ORM-object in het view-model recursief uitpakken — traag, en het

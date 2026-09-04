@@ -22,6 +22,11 @@ De drie regels, elk met de reden:
    mag ze er niet uit halen: dan is "via de facade" alsnog een rauwe query. Idem
    voor routerfuncties die via een facade doorgelust worden.
 
+4. **De context komt uit een view-model** (#643-F). Een letterlijke dict als
+   context van `TemplateResponse` is geen belofte: een verkeerde of vergeten
+   sleutel merk je pas bij het renderen. `<Scherm>View(ViewModel).as_context()` is
+   dat wél, en de template-variabelen-gate kan er dan tegen toetsen.
+
 Plus een scoperegel (#635-J5): alles in `app/ui/` dat een `APIRouter` bevat, moet
 op `_ui.py` eindigen. Anders ontsnapt een nieuw scherm aan de gate door zijn naam.
 
@@ -50,6 +55,25 @@ JSON_IN_UI_PAKKET = {"admin_api.py"}
 
 # ── Allowlist ────────────────────────────────────────────────────────────────
 # (module, regel) waarbij regel ∈ {"imports", "orm", "facade"}. Leeg = eindtoestand.
+# Schermen die hun context nog als letterlijke dict doorgeven (#643-F). Krimpt met
+# elke batch die op een view-model overgaat; payment staat er al niet meer in.
+VIEWMODEL_ALLOWLIST: set[str] = {
+    "app.domains.activities.admin_ui",
+    "app.domains.activities.ui",
+    "app.domains.auth.admin_ui",
+    "app.domains.auth.ui",
+    "app.domains.chatbot.ui",
+    "app.domains.cms.admin_ui",
+    "app.domains.cms.ui",
+    "app.domains.forms.admin_ui",
+    "app.domains.forms.ui",
+    "app.domains.mdm.ui",
+    "app.domains.media.admin_ui",
+    "app.domains.media.ui",
+    "app.domains.membership.ui",
+    "app.ui.system_ui",
+}
+
 LAYER_ALLOWLIST: set[tuple[str, str]] = {
     # ── regel 1: imports uit models/router, of een private naam ──────────────
     ("app.domains.activities.admin_ui", "imports"),
@@ -249,3 +273,39 @@ def test_een_scherm_ontsnapt_niet_aan_de_gate_via_zijn_naam():
         if "APIRouter" in pad.read_text(encoding="utf-8"):
             fouten.append(f"app/ui/{pad.name} bevat een APIRouter maar heet geen *_ui.py")
     assert not fouten, "\n  ".join(["Hernoem het bestand of zet het bij de JSON-kant:"] + fouten)
+
+
+def _letterlijke_contexten(pad: Path) -> list[str]:
+    """TemplateResponse-aanroepen met een dict-literal als context."""
+    fouten = []
+    for node in ast.walk(ast.parse(pad.read_text(encoding="utf-8"))):
+        if not (isinstance(node, ast.Call)
+                and getattr(node.func, "attr", None) == "TemplateResponse"):
+            continue
+        context = node.args[2] if len(node.args) >= 3 else next(
+            (k.value for k in node.keywords if k.arg == "context"), None)
+        if isinstance(context, ast.Dict):
+            fouten.append(f"regel {node.lineno}: letterlijke dict als context")
+    return fouten
+
+
+def test_de_template_context_komt_uit_een_view_model():
+    """#643 regel 4: geen dict-literal als template-context.
+
+    Een dict is geen belofte. Geef je `{"totaal": ...}` door aan een template die
+    `total` leest, dan rendert Jinja stil leeg (StrictUndefined vangt dat pas bij
+    het renderen) en heeft mypy niets om op te controleren. Een `ViewModel` legt
+    op één plek vast wat het scherm krijgt, en de template-variabelen-gate kan er
+    statisch tegen toetsen.
+    """
+    treffers = {}
+    for pad in _ui_paden():
+        mod = _module(pad)
+        if mod in VIEWMODEL_ALLOWLIST:
+            continue
+        fouten = _letterlijke_contexten(pad)
+        if fouten:
+            treffers[mod] = fouten
+    assert not treffers, _melding(
+        "Bouw een <Scherm>View(ViewModel) en geef .as_context() door (#643-F):",
+        treffers)

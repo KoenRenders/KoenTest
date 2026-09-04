@@ -156,14 +156,14 @@ def betalingen_page(request: Request, db: Session = Depends(get_db),
     nav = admin_nav("/admin/betalingen", roles=get_user_roles(db, email))
     return templates.TemplateResponse(
         request, "betalingen.html",
-        _view(request, db, email, nav_items=nav).context())
+        _view(request, db, email, nav_items=nav).as_context())
 
 
 @router.get("/admin/betalingen/lijst", response_class=HTMLResponse)
 def betalingen_lijst(request: Request, db: Session = Depends(get_db),
                      email: str = Depends(require_finance_ui)):
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _view(request, db, email).context())
+                                      _view(request, db, email).as_context())
 
 
 @router.get("/admin/betalingen/export")
@@ -196,7 +196,7 @@ def betaling_bevestigen(record_id: str, request: Request,
         raise HTTPException(status_code=400, detail=str(exc))
     db.commit()
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _view(request, db, email).context())
+                                      _view(request, db, email).as_context())
 
 
 @router.post("/admin/betalingen/{record_id}/refund", response_class=HTMLResponse,
@@ -223,7 +223,7 @@ def betaling_refund(record_id: str, request: Request, db: Session = Depends(get_
         raise HTTPException(status_code=400, detail=str(exc))
     db.commit()
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _view(request, db, email).context())
+                                      _view(request, db, email).as_context())
 
 
 @router.post("/admin/betalingen/{record_id}/bijwerken", response_class=HTMLResponse,
@@ -248,7 +248,7 @@ def betaling_bijwerken(record_id: str, request: Request, db: Session = Depends(g
         raise HTTPException(status_code=400, detail=str(exc))
     db.commit()
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _view(request, db, email).context())
+                                      _view(request, db, email).as_context())
 
 
 @router.post("/admin/betalingen/{record_id}/bewerken", response_class=HTMLResponse,
@@ -293,7 +293,7 @@ def betaling_bewerken(record_id: str, request: Request, db: Session = Depends(ge
         raise HTTPException(status_code=400, detail=str(exc))
     db.commit()
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _view(request, db, email).context())
+                                      _view(request, db, email).as_context())
 
 
 @router.post("/admin/betalingen/{record_id}/verversen", response_class=HTMLResponse,
@@ -310,7 +310,7 @@ def betaling_verversen(record_id: str, request: Request, db: Session = Depends(g
         raise HTTPException(status_code=400, detail=str(exc))
     db.commit()
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _view(request, db, email).context())
+                                      _view(request, db, email).as_context())
 
 
 @router.post("/admin/betalingen/{record_id}/status", response_class=HTMLResponse,
@@ -329,7 +329,7 @@ def betaling_status(record_id: str, request: Request, db: Session = Depends(get_
         raise HTTPException(status_code=400, detail=str(exc))
     db.commit()
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _view(request, db, email).context())
+                                      _view(request, db, email).as_context())
 
 
 @router.post("/admin/betalingen/{record_id}/verwijderen", response_class=HTMLResponse,
@@ -348,4 +348,4 @@ def betaling_verwijderen(record_id: str, request: Request, db: Session = Depends
         raise HTTPException(status_code=400, detail=str(exc))
     db.commit()
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _view(request, db, email).context())
+                                      _view(request, db, email).as_context())

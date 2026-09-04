@@ -543,3 +543,35 @@ adopteren = automatisch conform.
 **Kluslijst (adopteren van het patroon):** ✅ activiteiten-inschrijvingen (#510);
 betalingen (deels — "Toon inschrijvingsdetails" gebruikt al `detail_disclosure`-gedrag);
 leden-detail (via #503); producten (#507/#509).
+
+## Where logic lives — view-models and strict templates (#643, #635)
+
+Jinja checks nothing up front. A template that reads `total` while the route passes
+`totaal` renders an empty string, and no test fails until someone looks at the
+screen. That is the structural cause behind #613 and #616, and in React TypeScript
+caught it before the browser. Five rules replace that safety net.
+
+1. **An undefined variable is an error, not a blank.** Dev, test and HDEV run
+   Jinja's `StrictUndefined`; UAT and PROD render empty *and* log a WARNING on
+   `app.ui.undefined`, because a typo must never become a 500 for a visitor. The
+   environment is built in `app/ui/__init__.py`, where `autoescape=True` is set
+   explicitly — `Jinja2Templates` sets it for you when you pass `directory=`, but
+   **not** when you pass your own `env=`.
+2. **Every screen route passes a view-model**, a `@dataclass(frozen=True,
+   kw_only=True)` subclassing `app.ui.viewmodel.ViewModel`, living in
+   `<domain>/viewmodels.py`. The route ends with
+   `templates.TemplateResponse(request, "x.html", vm.as_context())`. Fragments get one
+   too: they are rendered from several routes, which is exactly where things drift.
+3. **Optional is explicit.** A variable that may legitimately be absent uses
+   `|default(...)` or `is defined`, with a one-line Jinja comment saying why.
+   Never switch strictness off for a single template — if a route can omit
+   something, the view-model should say so with `None`.
+4. **A UI route builds a view-model and picks a template.** Anything touching
+   money, state or authorisation lives in `<domain>/service.py`, is called by both
+   the JSON router and the UI route, and has a service test. A UI module holds `db`
+   only to pass it on.
+5. **Two gates keep it that way.** `tests/test_layer_gate.py` enforces the import,
+   ORM and view-model rules; `tests/test_template_variables_gate.py` proves, per
+   (template, view-model), that the template asks for nothing the model does not
+   promise. Both carry a shrinking allowlist — adding an entry is a visible diff,
+   with the reason in the commit.

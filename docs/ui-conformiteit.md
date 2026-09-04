@@ -108,3 +108,18 @@ De cijfers komen uit een scan over `backend/app/ui/templates/` en
 `backend/app/domains/*/templates/`, met dezelfde patronen als de gate. Draai de
 gate (`pytest backend/tests/test_ui_conventions_gate.py`) om te bevestigen dat er
 niets is teruggezakt; die is autoritatief.
+
+## Lagen (#635/#643)
+
+Naast de UI-conventies hierboven bewaakt `tests/test_layer_gate.py` drie
+laagregels per UI-module, en `tests/test_template_variables_gate.py` de vierde. De
+matrix documenteert, de gate handhaaft — een ✅ hier betekent: die regel staat niet
+meer op de allowlist van de gate.
+
+| UI-module | imports | ORM-gebruik | facade-inhoud | view-model |
+|---|---|---|---|---|
+| `payment/ui.py` | ✅ | | | ✅ |
+| overige `*_ui.py` | | | | |
+
+Leeg = staat nog op de allowlist van de gate. De kolommen krimpen per batch van
+#635; de gate is pas blokkerend-zonder-allowlist wanneer de tabel vol staat.
