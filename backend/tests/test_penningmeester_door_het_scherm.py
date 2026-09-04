@@ -95,7 +95,9 @@ def test_P3_deelbedrag_laat_het_restant_openstaan(client, db_session):
     rec = db_session.get(PaymentRecord, charge.id)
     assert rec.amount_paid == Decimal("10.00")
     assert rec.amount - rec.amount_paid == Decimal("20.00"), "restant"
-    assert "Openstaand" in html, "de rest hoort zichtbaar te blijven"
+    # Eén vaste labelset sinds #617-2c: geen wisselend woord per teken meer, dus
+    # toetsen we het BEDRAG dat nog openstaat i.p.v. het label "Openstaand".
+    assert "Saldo" in html and "20.00" in html, "het restant hoort zichtbaar te blijven"
     assert_saldo_klopt(db_session, *PAYABLE, "30.00")
 
 
