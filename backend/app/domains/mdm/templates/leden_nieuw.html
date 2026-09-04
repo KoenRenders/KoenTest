@@ -1,0 +1,22 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Nieuw lid — Raak beheer") }}{% endblock %}
+{% block content %}
+{# Aanmaakscherm als volledige pagina (#627, §2.8): geen modal. Dezelfde kaartvorm
+   als het scherm waarin je daarna werkt, dus er is geen tweede lay-out om te
+   onderhouden. #}
+{{ ui.page_header(_("Nieuw lid"), _("Naam volstaat; adres, contactgegevens en lidmaatschap vul je aan in het gezin zelf.")) }}
+
+<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+    <form class="space-y-3" hx-post="/admin/leden">
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>{{ ui.label(_("Voornaam"), "nl-first", required=True) }}
+          <input name="first_name" id="nl-first" required class="w-full"></div>
+        <div>{{ ui.label(_("Achternaam"), "nl-last", required=True) }}
+          <input name="last_name" id="nl-last" required class="w-full"></div>
+      </div>
+      <p class="text-xs text-ink-soft">{{ _("Dit maakt het gezin met deze persoon als hoofdlid. Adres, contactgegevens en lidmaatschap vul je aan in het gezin zelf.") }}</p>
+      <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/leden") }}</div>
+    </form>
+</div>
+{% endblock %}

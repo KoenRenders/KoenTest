@@ -97,6 +97,16 @@ def formulieren_page(request: Request, db: Session = Depends(get_db),
         "csrf_token": csrf_from_request(request)})
 
 
+@router.get("/admin/formulieren/nieuw", response_class=HTMLResponse)
+def formulier_nieuw(request: Request, db: Session = Depends(get_db),
+                    email: str = Depends(require_admin_ui)):
+    """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal."""
+    return templates.TemplateResponse(request, "admin_formulier_nieuw.html", {
+        "nav_items": NAV,
+        "csrf_token": csrf_from_request(request),
+    })
+
+
 @router.post("/admin/formulieren", dependencies=[Depends(require_csrf)])
 def formulier_aanmaken(request: Request, db: Session = Depends(get_db),
                        email: str = Depends(require_admin_ui),

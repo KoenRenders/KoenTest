@@ -1,0 +1,36 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Media uploaden — Raak beheer") }}{% endblock %}
+{% block content %}
+{# Aanmaakscherm als volledige pagina (#627, §2.8): geen modal. Dezelfde kaartvorm
+   als het scherm waarin je daarna werkt, dus er is geen tweede lay-out om te
+   onderhouden. #}
+{{ ui.page_header(_("Media uploaden"), _("Na het uploaden sta je terug in de lijst.")) }}
+
+{{ ui.error_banner(error|default(None)) }}
+<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+    <form class="space-y-3" enctype="multipart/form-data"
+          hx-post="/admin/media" hx-encoding="multipart/form-data"
+          hx-target="#me-lijst" hx-swap="innerHTML">
+      <input type="hidden" name="kind" value="{{ kind }}">
+      <input type="hidden" name="q" value="{{ q }}">
+      <input type="hidden" name="filter_activity_id" value="{{ activity_id or '' }}">
+      <div>{{ ui.label(_("Bestanden (afbeeldingen)"), "me-files", required=True) }}
+        <input type="file" name="files" id="me-files" accept="image/*" multiple required class="block text-sm"></div>
+      {% if kind == "activity_photo" %}
+      <div class="max-w-xs">{{ ui.label(_("Activiteit"), "me-activity", required=True) }}
+        <select name="activity_id" id="me-activity" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
+          <option value="">{{ _("— Kies een activiteit —") }}</option>
+          {% for a in alle_activiteiten %}<option value="{{ a.id }}">{{ a.naam }}{% if a.jaar %} ({{ a.jaar }}){% endif %}</option>{% endfor %}
+        </select></div>
+      {% endif %}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>{{ ui.label(_("Titel"), "me-title") }}
+          <input name="title" id="me-title" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        <div>{{ ui.label(_("Link (optioneel)"), "me-link") }}
+          <input name="link_url" id="me-link" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+      </div>
+      <div class="flex gap-2">{{ ui.btn_primary(_("Uploaden")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/media") }}</div>
+    </form>
+</div>
+{% endblock %}

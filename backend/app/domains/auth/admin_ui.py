@@ -6,7 +6,7 @@ verwijderen. Hergebruikt de users-routerfuncties als servicelaag.
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -100,6 +100,16 @@ def admin_gebruikers(request: Request, db: Session = Depends(get_db),
         "nav_items": NAV, "error": None, **_lijst_ctx(request, db, q, rol, actief)})
 
 
+@router.get("/admin/gebruikers/nieuw", response_class=HTMLResponse)
+def gebruiker_nieuw(request: Request, db: Session = Depends(get_db),
+                    email: str = Depends(require_admin_ui)):
+    """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal."""
+    return templates.TemplateResponse(request, "admin_gebruiker_nieuw.html", {
+        "nav_items": NAV,
+        "csrf_token": csrf_from_request(request),
+    })
+
+
 @router.post("/admin/gebruikers", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
 async def gebruiker_aanmaken(request: Request, db: Session = Depends(get_db),
@@ -117,8 +127,13 @@ async def gebruiker_aanmaken(request: Request, db: Session = Depends(get_db),
                                role_codes=[str(c) for c in form.getlist("role_codes")]),
                     db=db, _admin=None)
     except HTTPException as exc:
-        return _lijst_response(request, db, str(exc.detail), **filters)
-    return _lijst_response(request, db, **filters)
+        # Op het aanmaakscherm blijven mét de fout (#627).
+        ctx = _lijst_ctx(request, db, **filters)
+        ctx["nav_items"] = NAV
+        ctx["error"] = str(exc.detail)
+        return templates.TemplateResponse(request, "admin_gebruiker_nieuw.html", ctx)
+    # Een gebruiker is met één handeling compleet, dus terug naar de lijst (#627).
+    return Response(status_code=204, headers={"HX-Redirect": "/admin/gebruikers"})
 
 
 @router.post("/admin/gebruikers/{user_id}", response_class=HTMLResponse,

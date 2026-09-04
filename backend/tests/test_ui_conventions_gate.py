@@ -32,7 +32,10 @@ Vier regels, elk met een reden:
 11. **De sociale footer-iconen zijn 32px** — ze waren stil 25 % gekrompen (#626).
 12. **Het woord "reglement" komt niet meer voor** — het heet overal "info" (#623).
     Eén woord voor één ding (§2.12).
-13. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
+13. **Geen aanmaak-modal** — aanmaken opent een volledige-pagina-editor (#627,
+    §2.8). Modals blijven voor read-only detail en bevestigingen; de publieke
+    activiteitinschrijving is de beredeneerde uitzondering (#601).
+14. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
    preflight-hoogte en staat hij ~15px lager dan het zoekveld ernaast; dat gaf
    scheve filterbalken op zeven schermen (#611). Gebruik `ui.select_control()`,
    `ui.grouped_filter()` of `ui.field_select()`.
@@ -354,3 +357,32 @@ def test_de_term_reglement_is_vervallen():
             if "reglement" in regel.lower():
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:80]}")
     assert not fouten, "Gebruik \"info\" i.p.v. \"reglement\":\n  " + "\n  ".join(fouten)
+
+
+def test_geen_aanmaak_modal_in_de_admin():
+    """Aanmaken opent een volledige-pagina-editor, geen modal (#627, §2.8).
+
+    Je werkt na het aanmaken toch verder in de editor, en de velden uit een dialoogje
+    maken het object zelden compleet. v1.14 had trouwens geen enkele modal in de
+    admin. De regel eronder: één korte, afgeronde handeling in de context van een
+    lijst → modal; een vorm die je moet overzien of een object waar je in verderwerkt
+    → volledig scherm.
+
+    Mikt op ADMIN-templates: de publieke activiteitinschrijving blijft bewust een
+    modal (#601) en valt dus buiten deze regel.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        naam = pad.name
+        if not (naam.startswith("admin_") or naam in ("leden.html", "betalingen.html",
+                                                      "werkbank.html")):
+            continue
+        tekst = _zonder_commentaar(pad)
+        if "{% call ui.modal(" not in tekst:
+            continue
+        # Een modal is enkel fout als er ook een aanmaak-hx-post in dezelfde template staat.
+        if re.search(r'hx-post="/admin/[a-z-]+"', tekst):
+            fouten.append(f"{pad.relative_to(APP)}: aanmaakformulier in een modal")
+    assert not fouten, (
+        "Aanmaken opent een volledige-pagina-editor (#627):\n  " + "\n  ".join(fouten)
+    )

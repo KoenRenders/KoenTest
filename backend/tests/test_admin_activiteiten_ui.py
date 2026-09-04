@@ -88,16 +88,23 @@ def test_activiteit_geneste_producten_paneel(client, db_session):
 
 
 def test_activiteit_affiche_upload_in_edit_modus(client, db_session):
-    """#503: het affiche-upload-blok zit in de edit-vorm (x-show="edit"), niet in
-    read-modus; de activiteitkaart heeft een Annuleren-affordance naast Opslaan."""
-    import re
+    """#503: het affiche-blok zit in de edit-vorm (x-show="edit"), niet in read-modus;
+    de activiteitkaart heeft een Annuleren-affordance naast Opslaan.
 
+    Sinds #623 is dat GEEN aparte upload-vorm meer: het bestandsveld staat in dezelfde
+    vorm als naam, locatie en poster-URL, zodat één "Opslaan" allebei bewaart. De
+    x-show="edit"-gating blijft, en dat is wat deze test bewaakt.
+    """
     activity, component, _p = seed_activity_with_product(db_session)
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
     assert ">Annuleren<" in html
-    # De affiche-upload-form is gegated op x-show="edit" (staat niet in read-modus).
-    assert re.search(r'x-show="edit"[^<]*?/affiche"', html)
+
+    # De bewerkvorm draagt x-show="edit" én het bestandsveld.
+    bewerkvorm = [stuk.split("</form>")[0] for stuk in html.split("<form")[1:]
+                  if 'x-show="edit"' in stuk.split(">")[0] and 'name="poster_url"' in stuk]
+    assert bewerkvorm, "de bewerkvorm met poster-URL staat niet achter x-show=\"edit\""
+    assert 'type="file"' in bewerkvorm[0], "het bestandsveld hoort in diezelfde vorm"
 
 
 def test_admin_inschrijvingen_en_export(client, db_session):

@@ -6,12 +6,15 @@ uploaden. Zulke stille regressies zijn de reden dat deze tests op het gerenderde
 scherm kijken en niet alleen op de service.
 """
 from datetime import date
+from pathlib import Path
 
 import pytest
 
 from app.domains.activities.api import Activity
 from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for, make_session_value)
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
+
+APP = Path(__file__).resolve().parents[1] / "app"
 
 pytestmark = pytest.mark.ui_serverrendered
 
@@ -28,7 +31,11 @@ def test_aanmaken_opent_een_volledige_pagina_geen_modal(client, db_session):
     _login(client)
     lijst = client.get("/admin/activiteiten").text
     assert 'href="/admin/activiteiten/nieuw"' in lijst
-    assert "ui.modal" not in lijst and 'x-data="{ open: false }"' not in lijst
+    # Geen aanmaakdialoog meer in de lijst. `ui.modal` is templatebroncode, dus die
+    # toets je op het bestand; de Alpine-vlag zie je wél in de output.
+    assert 'x-data="{ open: false }"' not in lijst
+    bron = (APP / "domains" / "activities" / "templates" / "admin_activiteiten.html").read_text()
+    assert "{% call ui.modal(" not in bron
 
     scherm = client.get("/admin/activiteiten/nieuw")
     assert scherm.status_code == 200

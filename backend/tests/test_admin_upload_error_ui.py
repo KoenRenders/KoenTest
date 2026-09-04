@@ -1,4 +1,4 @@
-"""Admin-upload van affiche/reglement: een geweigerd bestand (verkeerd type) mag
+"""Admin-upload van affiche/info-bijlage: een geweigerd bestand (verkeerd type) mag
 niet stil mislukken — htmx swapt niet op een 4xx, dus de route moet de fout
 opvangen en tonen (met een hint over toegelaten types). Reproductie van de bug
 waarbij een upload 'niet lukte' zonder feedback (o.a. iPhone-HEIC)."""
@@ -14,11 +14,11 @@ def _login(client):
     return csrf_token_for(value)
 
 
-def test_reglement_bad_type_shows_error_not_silent(client, db_session):
+def test_info_bad_type_shows_error_not_silent(client, db_session):
     _a, comp, _p = seed_activity_with_product(db_session)
     csrf = _login(client)
     resp = client.post(
-        f"/admin/activiteiten/{comp.activity_id}/onderdelen/{comp.id}/reglement",
+        f"/admin/activiteiten/{comp.activity_id}/onderdelen/{comp.id}/info",
         files={"file": ("foto.heic", b"nonsense", "image/heic")},
         headers={"X-CSRF-Token": csrf})
     # De route vangt de 400 en re-rendert het detail (200) mét foutmelding.
@@ -27,23 +27,33 @@ def test_reglement_bad_type_shows_error_not_silent(client, db_session):
     assert "HEIC" in resp.text or "PDF" in resp.text
 
 
-def test_upload_button_is_submit(client, db_session):
-    """De 'Uploaden'-knop moet type=submit zijn — anders verstuurt htmx het
-    multipart-formulier niet en doet klikken in de browser niets (de echte
-    oorzaak van 'upload lukt niet')."""
+def test_upload_knop_is_submit(client, db_session):
+    """Een upload-submitknop moet type=submit zijn — anders verstuurt htmx het
+    multipart-formulier niet en doet klikken in de browser niets (de echte oorzaak
+    van 'upload lukt niet').
+
+    Sinds #623 heeft de AFFICHE geen eigen uploadknop meer: die zit in dezelfde vorm
+    als de tekstvelden, onder één "Opslaan". De info-bijlage van een onderdeel houdt
+    wel een eigen submit, want dat is een aparte vorm binnen de onderdeel-kaart.
+    """
     _a, comp, _p = seed_activity_with_product(db_session)
     _login(client)
     html = client.get(f"/admin/activiteiten/{comp.activity_id}").text
-    idx = html.index("Uploaden")
-    assert 'type="submit"' in html[idx - 200:idx]
+
+    # Elke vorm met een bestandskiezer heeft een submitknop.
+    assert 'type="file"' in html
+    for stuk in html.split("<form")[1:]:
+        vorm = stuk.split("</form>")[0]
+        if 'type="file"' in vorm:
+            assert 'type="submit"' in vorm, "een uploadvorm zonder submitknop verstuurt niets"
 
 
-def test_reglement_valid_pdf_succeeds(client, db_session):
+def test_info_valid_pdf_succeeds(client, db_session):
     _a, comp, _p = seed_activity_with_product(db_session)
     csrf = _login(client)
     resp = client.post(
-        f"/admin/activiteiten/{comp.activity_id}/onderdelen/{comp.id}/reglement",
-        files={"file": ("reglement.pdf", _PDF, "application/pdf")},
+        f"/admin/activiteiten/{comp.activity_id}/onderdelen/{comp.id}/info",
+        files={"file": ("info.pdf", _PDF, "application/pdf")},
         headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 200
     assert "bestandstype" not in resp.text.lower()

@@ -7,27 +7,14 @@
    actief) → kaarten. De kaarten blijven inline bewerkbaar: een account is één
    regel met rolvinkjes, daar hoort geen aparte editorpagina bij. #}
 
-<div x-data="{ open: false }">
-  {% call ui.page_header(_("Gebruikers"), _("Backoffice-accounts en hun rollen. Aanmelden gebeurt met een e-mailcode — er zijn geen wachtwoorden.")) %}
-    {{ ui.btn_primary(_("+ Nieuwe gebruiker"), type="button", attrs='@click="open = true"') }}
+{# De primaire actie is een LINK naar het aanmaakscherm (#627, §2.8): aanmaken
+   opent een volledige-pagina-editor, geen modal. Je werkt na het aanmaken toch
+   verder in de editor, en de velden uit een dialoogje maken het object zelden
+   compleet. #}
+{% call ui.page_header(_("Gebruikers"), _("Backoffice-accounts en hun rollen. Aanmelden gebeurt met een e-mailcode — er zijn geen wachtwoorden.")) %}
+    {{ ui.btn_primary(_("+ Nieuwe gebruiker"), href="/admin/gebruikers/nieuw") }}
   {% endcall %}
-  {% call ui.modal('open', _("Nieuwe gebruiker")) %}
-  <form class="space-y-3" hx-post="/admin/gebruikers" hx-target="#gu-lijst" hx-swap="innerHTML"
-        @htmx:after-request="open = false">
-    <input type="hidden" name="q" value="{{ q }}">
-    <input type="hidden" name="rol" value="{{ rol }}">
-    <input type="hidden" name="actief" value="{{ actief }}">
-    <div>{{ ui.label(_("E-mailadres"), "gu-email", required=True) }}
-      <input type="email" name="email" id="gu-email" required class="w-full"></div>
-    <div class="flex flex-wrap gap-4 text-sm">
-      {% for rc in role_codes %}
-      <label class="flex items-center gap-2"><input type="checkbox" name="role_codes" value="{{ rc.code }}"> {{ rc.code }}</label>
-      {% endfor %}
-    </div>
-    {{ ui.btn_primary(_("Opslaan")) }}
-  </form>
-  {% endcall %}
-</div>
+
 
 {% call ui.filter_bar("/admin/gebruikers", "#gu-lijst") %}
   <div>{{ ui.search(value=q, placeholder=_('Zoek op e-mail…'), standalone=False) }}</div>

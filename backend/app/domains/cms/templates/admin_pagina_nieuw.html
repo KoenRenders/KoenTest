@@ -1,0 +1,21 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Nieuwe pagina — Raak beheer") }}{% endblock %}
+{% block content %}
+{# Aanmaakscherm als volledige pagina (#627, §2.8): geen modal. Dezelfde kaartvorm
+   als het scherm waarin je daarna werkt, dus er is geen tweede lay-out om te
+   onderhouden. #}
+{{ ui.page_header(_("Nieuwe pagina"), _("Na het aanmaken open je meteen de editor; de inhoud vul je daar aan.")) }}
+
+<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+    <form class="space-y-3" hx-post="/admin/paginas">
+      <div>{{ ui.label(_("Titel"), "title", required=True) }}
+        <input name="title" id="title" required class="w-full"></div>
+      <div>{{ ui.label(_("Slug"), "slug", required=True) }}
+        <input name="slug" id="slug" required pattern="[a-z0-9-]+" class="w-full">
+        <p class="text-xs text-ink-soft mt-1">{{ _("Alleen kleine letters, cijfers en streepjes — wordt de URL (/slug).") }}</p></div>
+      <p class="text-xs text-ink-soft">{{ _("Na het aanmaken open je meteen de editor; de inhoud vul je daar aan.") }}</p>
+      <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/paginas") }}</div>
+    </form>
+</div>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Nieuwe gebruiker — Raak beheer") }}{% endblock %}
+{% block content %}
+{# Aanmaakscherm als volledige pagina (#627, §2.8): geen modal. Dezelfde kaartvorm
+   als het scherm waarin je daarna werkt, dus er is geen tweede lay-out om te
+   onderhouden. #}
+{{ ui.page_header(_("Nieuwe gebruiker"), _("Aanmelden gebeurt met een e-mailcode — er zijn geen wachtwoorden.")) }}
+
+{{ ui.error_banner(error|default(None)) }}
+<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+    <form class="space-y-3" hx-post="/admin/gebruikers" hx-target="#gu-lijst" hx-swap="innerHTML"
+         >
+      <input type="hidden" name="q" value="{{ q }}">
+      <input type="hidden" name="rol" value="{{ rol }}">
+      <input type="hidden" name="actief" value="{{ actief }}">
+      <div>{{ ui.label(_("E-mailadres"), "gu-email", required=True) }}
+        <input type="email" name="email" id="gu-email" required class="w-full"></div>
+      <div class="flex flex-wrap gap-4 text-sm">
+        {% for rc in role_codes %}
+        <label class="flex items-center gap-2"><input type="checkbox" name="role_codes" value="{{ rc.code }}"> {{ rc.code }}</label>
+        {% endfor %}
+      </div>
+      <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/gebruikers") }}</div>
+    </form>
+</div>
+{% endblock %}

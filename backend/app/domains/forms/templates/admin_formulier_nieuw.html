@@ -1,0 +1,19 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Nieuw formulier — Raak beheer") }}{% endblock %}
+{% block content %}
+{# Aanmaakscherm als volledige pagina (#627, §2.8): geen modal. Dezelfde kaartvorm
+   als het scherm waarin je daarna werkt, dus er is geen tweede lay-out om te
+   onderhouden. #}
+{{ ui.page_header(_("Nieuw formulier"), _("Na het aanmaken open je meteen de form-builder.")) }}
+
+<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+    <form class="space-y-3" hx-post="/admin/formulieren">
+      <div>{{ ui.label(_("Naam"), "f-title", required=True) }}
+        <input name="title" id="f-title" required class="w-full"
+               placeholder="{{ _('bv. Inschrijving zomerkamp') }}"></div>
+      <p class="text-xs text-ink-soft">{{ _("Na het aanmaken open je meteen de form-builder; de naam kan je daar nog wijzigen.") }}</p>
+      <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/formulieren") }}</div>
+    </form>
+</div>
+{% endblock %}

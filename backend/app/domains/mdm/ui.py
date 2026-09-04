@@ -137,6 +137,16 @@ def leden_lijst(request: Request, db: Session = Depends(get_db),
                                       _lijst_ctx(request, db))
 
 
+@router.get("/admin/leden/nieuw", response_class=HTMLResponse)
+def lid_nieuw(request: Request, db: Session = Depends(get_db),
+              email: str = Depends(require_admin_ui)):
+    """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal."""
+    return templates.TemplateResponse(request, "leden_nieuw.html", {
+        "nav_items": NAV,
+        "csrf_token": csrf_from_request(request),
+    })
+
+
 @router.post("/admin/leden", dependencies=[Depends(require_csrf)])
 def gezin_aanmaken(request: Request, db: Session = Depends(get_db),
                    email: str = Depends(require_admin_ui),

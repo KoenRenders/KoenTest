@@ -10,24 +10,15 @@
    C1-referentiescherm is leidend boven de prozatekst van §3.2, die ze onder de
    KPI-rij zette (#611). Volgorde als in de mock: secundair links, primair rechts.
    De x-data-scope omvat kop én modal, want de knop erin opent ze. #}
-<div x-data="{ open: false }">
-  {% call ui.page_header(_("Leden"), _("Gezinnen en hun leden; een kaart opent het gezin met personen, adres en lidmaatschappen.")) %}
+{# De primaire actie is een LINK naar het aanmaakscherm (#627, §2.8): aanmaken
+   opent een volledige-pagina-editor, geen modal. Je werkt na het aanmaken toch
+   verder in de editor, en de velden uit een dialoogje maken het object zelden
+   compleet. #}
+{% call ui.page_header(_("Leden"), _("Gezinnen en hun leden; een kaart opent het gezin met personen, adres en lidmaatschappen.")) %}
     {{ ui.btn_secondary(_("Leden importeren"), lead_icon="upload", href="/admin/leden-import") }}
-    {{ ui.btn_primary(_("+ Nieuw lid"), type="button", attrs='@click="open = true"') }}
+    {{ ui.btn_primary(_("+ Nieuw lid"), href="/admin/leden/nieuw") }}
   {% endcall %}
-  {% call ui.modal('open', _("Nieuw lid")) %}
-  <form class="space-y-3" hx-post="/admin/leden" @htmx:after-request="open = false">
-    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-      <div>{{ ui.label(_("Voornaam"), "nl-first", required=True) }}
-        <input name="first_name" id="nl-first" required class="w-full"></div>
-      <div>{{ ui.label(_("Achternaam"), "nl-last", required=True) }}
-        <input name="last_name" id="nl-last" required class="w-full"></div>
-    </div>
-    <p class="text-xs text-ink-soft">{{ _("Dit maakt het gezin met deze persoon als hoofdlid. Adres, contactgegevens en lidmaatschap vul je aan in het gezin zelf.") }}</p>
-    {{ ui.btn_primary(_("Opslaan")) }}
-  </form>
-  {% endcall %}
-</div>
+
 
 {# Mock .kpi: witte kaart met rand, label (.k) bóven het cijfer (.v) — drie
    identieke kaarten, geen getinte uitzondering voor de eerste (#611). #}

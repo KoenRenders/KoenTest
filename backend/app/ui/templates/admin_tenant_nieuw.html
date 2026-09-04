@@ -1,0 +1,30 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Nieuwe tenant — Raak beheer") }}{% endblock %}
+{% block content %}
+{# Aanmaakscherm als volledige pagina (#627, §2.8): geen modal. Dezelfde kaartvorm
+   als het scherm waarin je daarna werkt, dus er is geen tweede lay-out om te
+   onderhouden. #}
+{{ ui.page_header(_("Nieuwe tenant"), _("Platformbeheer — enkel OPERATOR. Na het aanmaken vul je de instellingen aan.")) }}
+
+<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+    <form class="space-y-3" hx-post="/admin/tenants" hx-target="body" hx-swap="innerHTML"
+         >
+      <div>{{ ui.label(_("Naam"), "t-name", required=True) }}
+        <input name="name" id="t-name" required class="w-full"></div>
+      <div>{{ ui.label(_("Code (slug)"), "t-code", required=True) }}
+        <input name="code" id="t-code" required pattern="[a-z0-9-]+" placeholder="raaknieuw" class="w-full">
+        <p class="text-xs text-ink-soft mt-1">{{ _("Kleine letters, cijfers, streepjes — wordt de pad-prefix (/code/…) en de organizations.code.") }}</p></div>
+      {% if accounts %}
+      <div>{{ ui.label(_("Account"), "t-account") }}
+        {% call ui.select_control("account_id", cls="w-full", attrs='id="t-account"') %}
+          {% for a in accounts %}<option value="{{ a.id }}">{{ a.name }}</option>{% endfor %}
+        {% endcall %}</div>
+      {% endif %}
+      <div>{{ ui.label(_("Canonieke URL"), "t-baseurl") }}
+        <input name="base_url" id="t-baseurl" placeholder="https://…" class="w-full">
+        <p class="text-xs text-ink-soft mt-1">{{ _("Optioneel; de overige instellingen zet je nadien in de tenant zelf.") }}</p></div>
+      <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/tenants") }}</div>
+    </form>
+</div>
+{% endblock %}

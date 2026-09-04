@@ -87,6 +87,16 @@ def pagina_detail(page_id: int, request: Request, db: Session = Depends(get_db),
         "csrf_token": csrf_from_request(request), "error": None})
 
 
+@router.get("/admin/paginas/nieuw", response_class=HTMLResponse)
+def pagina_nieuw(request: Request, db: Session = Depends(get_db),
+                 email: str = Depends(require_admin_ui)):
+    """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal."""
+    return templates.TemplateResponse(request, "admin_pagina_nieuw.html", {
+        "nav_items": NAV,
+        "csrf_token": csrf_from_request(request),
+    })
+
+
 @router.post("/admin/paginas", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
 def pagina_aanmaken(request: Request, db: Session = Depends(get_db),

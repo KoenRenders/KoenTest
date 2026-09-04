@@ -139,7 +139,7 @@ def tenants(request: Request, db: Session = Depends(get_db),
     # tijdens het typen vervangen en de focus wegnemen.
     sjabloon = ("_tn_kaarten.html" if request.headers.get("hx-request")
                 else "admin_tenants.html")
-    return templates.TemplateResponse(request, sjabloon, _lijst_ctx(request, db))
+    return templates.TemplateResponse(request, sjabloon, _lijst_lijst_ctx(request, db))
 
 
 @router.get("/admin/tenants/{tenant_id}", response_class=HTMLResponse)
@@ -148,6 +148,16 @@ def tenant_editor(tenant_id: int, request: Request, db: Session = Depends(get_db
     _require_operator(db, email)
     return templates.TemplateResponse(request, "admin_tenant.html",
                                       _editor_ctx(request, db, tenant_id))
+
+
+@router.get("/admin/tenants/nieuw", response_class=HTMLResponse)
+def tenant_nieuw(request: Request, db: Session = Depends(get_db),
+                 email: str = Depends(require_admin_ui)):
+    """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal.
+
+    Hergebruikt de contextbouwer van de lijst voor de accounts-dropdown.
+    """
+    return templates.TemplateResponse(request, "admin_tenant_nieuw.html", _ctx(request, db))
 
 
 @router.post("/admin/tenants", response_class=HTMLResponse,

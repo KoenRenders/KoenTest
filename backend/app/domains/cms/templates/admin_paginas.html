@@ -7,22 +7,14 @@
    klikbare kaarten die de paginabrede Trix-editor openen. De Trix-scripts staan
    op die editorpagina, niet hier: deze lijst heeft geen editor. #}
 
-<div x-data="{ open: false }">
-  {% call ui.page_header(_("Pagina's"), _("Een kaart opent de pagina-editor: inhoud, publicatie en navigatie.")) %}
-    {{ ui.btn_primary(_("+ Nieuwe pagina"), type="button", attrs='@click="open = true"') }}
+{# De primaire actie is een LINK naar het aanmaakscherm (#627, §2.8): aanmaken
+   opent een volledige-pagina-editor, geen modal. Je werkt na het aanmaken toch
+   verder in de editor, en de velden uit een dialoogje maken het object zelden
+   compleet. #}
+{% call ui.page_header(_("Pagina's"), _("Een kaart opent de pagina-editor: inhoud, publicatie en navigatie.")) %}
+    {{ ui.btn_primary(_("+ Nieuwe pagina"), href="/admin/paginas/nieuw") }}
   {% endcall %}
-  {% call ui.modal('open', _("Nieuwe pagina")) %}
-  <form class="space-y-3" hx-post="/admin/paginas" @htmx:after-request="open = false">
-    <div>{{ ui.label(_("Titel"), "title", required=True) }}
-      <input name="title" id="title" required class="w-full"></div>
-    <div>{{ ui.label(_("Slug"), "slug", required=True) }}
-      <input name="slug" id="slug" required pattern="[a-z0-9-]+" class="w-full">
-      <p class="text-xs text-ink-soft mt-1">{{ _("Alleen kleine letters, cijfers en streepjes — wordt de URL (/slug).") }}</p></div>
-    <p class="text-xs text-ink-soft">{{ _("Na het aanmaken open je meteen de editor; de inhoud vul je daar aan.") }}</p>
-    {{ ui.btn_primary(_("Opslaan")) }}
-  </form>
-  {% endcall %}
-</div>
+
 
 {% call ui.filter_bar("/admin/paginas", "#cp-lijst") %}
   <div>{{ ui.search(value=q, placeholder=_('Zoek op titel of slug…'), standalone=False) }}</div>

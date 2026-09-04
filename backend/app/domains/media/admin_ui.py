@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -91,6 +91,20 @@ def admin_media(request: Request, kind: str = "sponsor", q: str = "",
         "nav_items": NAV, "error": None, **_lijst_ctx(request, db, kind, q)})
 
 
+@router.get("/admin/media/nieuw", response_class=HTMLResponse)
+def media_nieuw(request: Request, db: Session = Depends(get_db),
+                email: str = Depends(require_admin_ui)):
+    """Uploaden als volledige pagina (#627, §2.8) i.p.v. een modal.
+
+    Hergebruikt de contextbouwer van de lijst: de dropdown met álle activiteiten en
+    de huidige filterstand komen daaruit, zodat je na het uploaden terugkeert in
+    dezelfde filtering.
+    """
+    ctx = _lijst_ctx(request, db, kind="sponsor")
+    ctx["nav_items"] = NAV
+    return templates.TemplateResponse(request, "admin_media_nieuw.html", ctx)
+
+
 @router.post("/admin/media", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
 async def media_uploaden(request: Request, db: Session = Depends(get_db),
@@ -108,8 +122,14 @@ async def media_uploaden(request: Request, db: Session = Depends(get_db),
                            link_url=link_url.strip() or None,
                            db=db, _admin=None)  # type: ignore[arg-type]
     except HTTPException as exc:
-        return _lijst_response(request, db, kind, str(exc.detail), q, filter_activity_id)
-    return _lijst_response(request, db, kind, q=q, activity_id=filter_activity_id)
+        # Op het aanmaakscherm blijven mét de fout (#627): een fragment terugsturen
+        # naar een pagina die geen lijst toont, laat de gebruiker in het ongewisse.
+        ctx = _lijst_ctx(request, db, kind=kind, q=q, activity_id=filter_activity_id)
+        ctx["nav_items"] = NAV
+        ctx["error"] = str(exc.detail)
+        return templates.TemplateResponse(request, "admin_media_nieuw.html", ctx)
+    # Media is met één handeling compleet, dus terug naar de lijst (#627).
+    return Response(status_code=204, headers={"HX-Redirect": "/admin/media"})
 
 
 @router.post("/admin/media/{asset_id}", response_class=HTMLResponse,
