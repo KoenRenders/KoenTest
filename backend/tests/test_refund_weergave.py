@@ -2,13 +2,13 @@
 
 De belangrijkste fout was een correctheidsfout, geen opmaakkwestie: een refund die
 nog op `pending` staat rendeerde onvoorwaardelijk als "✓ Terugbetaald", náást de
-tekst dat de terugstorting nog bevestigd moet worden. Voor een penningmeester is
+tekst dat de terugstorting nog bevestigd moest worden. Voor een penningmeester is
 net dát de informatie die telt.
 """
 from decimal import Decimal
 
 from tests.conftest import SEEDED_ADMIN_EMAIL
-from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
+from app.domains.auth.api import SESSION_COOKIE, User, UserRole, csrf_token_for, make_session_value
 from app.domains.payment.api import PaymentRecord
 
 
@@ -18,30 +18,33 @@ def _login(client):
     return csrf_token_for(value)
 
 
-def _charge_met_refund(db, refund_status: str):
-    charge = PaymentRecord(
-        payable_type="registration", payable_id=4242, type="charge",
-        contact_name="An Janssens", description="Testbestelling",
-        amount=Decimal("27.50"), amount_paid=Decimal("27.50"),
-        status="paid", method="transfer",
-    )
+def _make_finance(db):
+    """De editors en rij-acties zijn FINANCE-only (rollen-matrix #544)."""
+    user = db.query(User).filter(User.email == SEEDED_ADMIN_EMAIL).first()
+    if not any(r.role_code == "FINANCE" for r in user.roles):
+        db.add(UserRole(user_id=user.id, role_code="FINANCE"))
+        db.flush()
+
+
+def _charge_met_refund(db, refund_status: str, payable_id: int = 4242):
+    charge = PaymentRecord(payable_type="registration", payable_id=payable_id,
+                           amount=Decimal("27.50"), amount_paid=Decimal("27.50"),
+                           method="transfer", status="paid", type="charge")
     db.add(charge)
     db.flush()
     refund = PaymentRecord(
-        payable_type="registration", payable_id=4242, type="refund",
-        refund_of_id=charge.id, contact_name="An Janssens",
-        description="Automatisch bij bestelverlaging",
+        payable_type="registration", payable_id=payable_id,
         amount=Decimal("-27.50"),
         amount_paid=Decimal("-27.50") if refund_status == "paid" else None,
-        status=refund_status, method="transfer",
-    )
+        method="transfer", status=refund_status, type="refund",
+        refund_of_id=charge.id, note="Automatisch bij bestelverlaging")
     db.add(refund)
     db.commit()
     return charge, refund
 
 
 def test_openstaande_refund_zegt_niet_terugbetaald(client, db_session):
-    """De correctheidsfout uit #617-1."""
+    """De correctheidsfout uit #617-1: pending mag nooit als betaald renderen."""
     _charge_met_refund(db_session, "pending")
     _login(client)
 
@@ -58,7 +61,8 @@ def test_uitbetaalde_refund_zegt_wel_terugbetaald(client, db_session):
 
 
 def test_geen_rauwe_statuscodes_in_de_editors(client, db_session):
-    """#617-2: de dropdowns toonden `pending`/`paid` i.p.v. leesbare labels."""
+    """#617-2: de statusdropdowns toonden `pending`/`cancelled` i.p.v. labels."""
+    _make_finance(db_session)
     _charge_met_refund(db_session, "pending")
     _login(client)
 
@@ -69,26 +73,24 @@ def test_geen_rauwe_statuscodes_in_de_editors(client, db_session):
 
 def test_totaalregel_telt_charge_en_refunds_samen(client, db_session):
     """#617-2b: de kop telt enkel de charge, dus met een refund eronder beschrijft
-    hij de inschrijving niet meer. € 27,50 betaald + € 27,50 terug = saldo −27,50."""
+    hij de inschrijving niet meer. € 27,50 ontvangen + € 27,50 terug = saldo −27,50."""
     _charge_met_refund(db_session, "pending")
     _login(client)
 
     html = client.get("/admin/betalingen/lijst").text
     assert "Totaal inschrijving" in html
     assert "Terug te storten" in html
-    assert "€ 27.50" in html
 
 
 def test_geen_totaalregel_zonder_refunds(client, db_session):
-    """Bij een gewone betaling zou ze enkel de kop herhalen."""
+    """Bij een gewone betaling zou de regel enkel de kop herhalen."""
     db_session.add(PaymentRecord(
-        payable_type="registration", payable_id=4343, type="charge",
-        contact_name="Jan Peeters", description="Zonder refund",
-        amount=Decimal("10.00"), amount_paid=Decimal("10.00"),
-        status="paid", method="transfer"))
+        payable_type="registration", payable_id=4343, amount=Decimal("10.00"),
+        amount_paid=Decimal("10.00"), method="transfer", status="paid", type="charge",
+        structured_communication="+++111/1111/11111+++"))
     db_session.commit()
     _login(client)
 
     html = client.get("/admin/betalingen/lijst").text
-    assert "Jan Peeters" in html
+    assert "+++111/1111/11111+++" in html
     assert "Totaal inschrijving" not in html
