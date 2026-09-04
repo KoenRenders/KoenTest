@@ -15,7 +15,7 @@ from app.domains.auth.api import (
     admin_user_by_email, csrf_from_request,
     SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
 )
-from app.ui import admin_nav, templates
+from app.ui import admin_nav, is_fragment_request, templates
 from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
@@ -62,7 +62,7 @@ def _detail_response(request: Request, db: Session, page_id: int):
 def admin_paginas(request: Request, db: Session = Depends(get_db),
                   email: str = Depends(require_admin_ui),
                   q: str = "", status: str = ""):
-    sjabloon = ("_cp_kaarten.html" if request.headers.get("hx-request")
+    sjabloon = ("_cp_kaarten.html" if is_fragment_request(request)
                 else "admin_paginas.html")
     return templates.TemplateResponse(request, sjabloon, {
         "nav_items": NAV, "csrf_token": csrf_from_request(request),
@@ -84,7 +84,7 @@ def pagina_detail(page_id: int, request: Request, db: Session = Depends(get_db),
                   email: str = Depends(require_admin_ui)):
     """Een kaart opent de paginabrede editor (C1, #587); het opslaan daarbinnen
     blijft een htmx-fragment dat in #cp-detail landt."""
-    if request.headers.get("hx-request"):
+    if is_fragment_request(request):
         return _detail_response(request, db, page_id)
     from app.domains.cms.api import CmsPage
     from app.domains.cms.router import list_cms_placeholders

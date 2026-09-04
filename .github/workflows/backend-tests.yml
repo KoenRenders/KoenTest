@@ -113,6 +113,11 @@ jobs:
       SECRET_KEY: ci-e2e-secret-key-long-enough-for-hs256
       APP_ENV: dev
       E2E_BASE_URL: http://localhost:8000
+      # De seed staat er (stap hieronder), dus een flow die "geen betaling/
+      # inschrijving gevonden" meldt is een FOUT, geen skip (#644). Tegen HDEV
+      # staat deze variabele niet en blijft skippen het gedrag — daar bepaalt de
+      # echte data wat er is.
+      E2E_SEEDED: "1"
 
     steps:
       - uses: actions/checkout@v4
@@ -134,6 +139,14 @@ jobs:
         run: |
           alembic upgrade head
           python seed_postal_codes.py
+
+      # Zonder data skipten de drie beheerflows en bewees de e2e-job niets over
+      # de beheerschermen (#644). seed_e2e.py weigert te draaien buiten dev/test.
+      - name: Seed e2e-data (gezin, activiteit, inschrijving, betalingen)
+        working-directory: backend
+        env:
+          E2E_SEED: "1"
+        run: python seed_e2e.py
 
       - name: Start backend
         working-directory: backend

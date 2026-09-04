@@ -96,8 +96,21 @@ class Ledenscherm:
         self.page.get_by_text(naam).first.click()
         self.page.wait_for_selector("#leden-detail, main")
 
+    def lidmaatschapskaart(self):
+        """De kaart met de lidmaatschapsjaren — herkenbaar aan haar eigen kop.
+
+        Niet ".last": op het gezinsdetail staan meerdere Verwijderen-knoppen
+        (personen, lidmaatschappen) en welke de laatste is, hangt af van de data
+        (#644-D).
+        """
+        return self.page.locator("div", has_text="Lidmaatschappen").last
+
+    def lidmaatschap_verwijderknop(self):
+        return self.lidmaatschapskaart().get_by_role("button", name="Verwijderen").first
+
     def verwijder_lidmaatschap(self):
-        self.page.get_by_role("button", name="Verwijderen").last.click()
+        self.lidmaatschap_verwijderknop().click()
+        # In-app bevestigingsmodal (#595), geen browser-confirm.
         self.page.get_by_role("button", name="Bevestigen").click()
         self.page.wait_for_timeout(400)
 

@@ -22,7 +22,7 @@ from app.domains.auth.api import (
     admin_user_by_email, csrf_from_request,
     SESSION_COOKIE, User, csrf_token_for, require_admin_ui, require_csrf,
 )
-from app.ui import admin_nav, templates
+from app.ui import admin_nav, is_fragment_request, templates
 from app.i18n import _
 from pydantic import ValidationError
 
@@ -140,7 +140,7 @@ def admin_activiteiten(request: Request, db: Session = Depends(get_db),
                 else _lijst_ctx(db, "upcoming")["activities"])
     # De filterbalk vraagt enkel de kaarten op; zou ze de pagina vervangen, dan
     # sneuvelt het zoekveld (en de focus) bij elke aanslag.
-    sjabloon = ("_aa_kaarten.html" if request.headers.get("hx-request")
+    sjabloon = ("_aa_kaarten.html" if is_fragment_request(request)
                 else "admin_activiteiten.html")
     return templates.TemplateResponse(request, sjabloon, {
         "nav_items": NAV, "csrf_token": csrf_from_request(request),
@@ -169,7 +169,7 @@ def admin_activiteit_detail(activity_id: int, request: Request,
                             email: str = Depends(require_admin_ui)):
     """Een kaart opent de paginabrede editor (C1, #586); de bewerkingen daarin
     blijven htmx-fragmenten die in #aa-detail landen."""
-    if request.headers.get("hx-request"):
+    if is_fragment_request(request):
         return _detail_response(request, db, activity_id)
     from app.domains.activities.router import list_activities
 

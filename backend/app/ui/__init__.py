@@ -112,6 +112,23 @@ _ADMIN_NAV: list[tuple[str, str]] = [
 ]
 
 
+def is_fragment_request(request) -> bool:
+    """Vraagt htmx hier een fragment, of navigeert de gebruiker naar deze pagina?
+
+    Een lijstscherm geeft bij een htmx-verzoek alleen zijn kaartenfragment terug
+    (zoeken/filteren) en anders de hele pagina. `HX-Request` alleen volstaat sinds
+    #634 niet meer om die twee te onderscheiden: een gebooste navigatie — een klik
+    op een nav-link — is óók een htmx-verzoek en draagt dus dezelfde header. Wie
+    daarop vertakt, stuurt bij het navigeren een fragment terug, en de schil zoekt
+    dan tevergeefs naar #main: het scherm loopt leeg.
+
+    `HX-Boosted` is precies het onderscheid: htmx zet die alleen bij een gebooste
+    link of formulier.
+    """
+    kop = request.headers
+    return bool(kop.get("hx-request")) and kop.get("hx-boosted") != "true"
+
+
 def admin_nav(active: str, roles=None) -> list[dict]:
     """Navigatie-items voor de AdminShell; `active` is de href van het scherm.
 

@@ -19,7 +19,7 @@ from app.domains.auth.api import (
     SESSION_COOKIE, User, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.domains.mdm.models import GenderCode, Person, RelationTypeCode, PostalCode
-from app.ui import admin_nav, templates
+from app.ui import admin_nav, is_fragment_request, templates
 from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
@@ -174,7 +174,7 @@ def gezin_detail(family_id: int, request: Request, db: Session = Depends(get_db)
                  email: str = Depends(require_admin_ui)):
     """Een kaart opent de paginabrede gezinseditor (C1, #582); de bewerkingen
     daarbinnen blijven htmx-fragmenten die in #leden-detail landen."""
-    if request.headers.get("hx-request"):
+    if is_fragment_request(request):
         return _detail_response(request, db, family_id)
     return templates.TemplateResponse(request, "leden_gezin.html", {
         "nav_items": NAV, **_detail_ctx(request, db, family_id)})

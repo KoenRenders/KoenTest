@@ -19,7 +19,7 @@ from app.domains.auth.api import (
 )
 from app.domains.forms.models import FIELD_TYPES, FORM_STATUSES, Form as FormModel
 from app.domains.forms.models import FormField, FormFieldOption, FormSection, FormSubmission
-from app.ui import admin_nav, templates
+from app.ui import admin_nav, is_fragment_request, templates
 from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
@@ -88,7 +88,7 @@ def formulieren_page(request: Request, db: Session = Depends(get_db),
     forms = query.order_by(FormModel.created_at.desc()).all()
     # De filterbalk vraagt enkel de kaarten op: zou ze de pagina vervangen, dan
     # sneuvelt het zoekveld (en je focus) bij elke aanslag.
-    sjabloon = ("_fb_kaarten.html" if request.headers.get("hx-request")
+    sjabloon = ("_fb_kaarten.html" if is_fragment_request(request)
                 else "admin_formulieren.html")
     return templates.TemplateResponse(request, sjabloon, {
         "nav_items": NAV, "forms": forms, "q": q, "status": status,
@@ -131,7 +131,7 @@ def formulier_aanmaken(request: Request, db: Session = Depends(get_db),
 def formulier_builder(form_id: int, request: Request, db: Session = Depends(get_db),
                       email: str = Depends(require_admin_ui)):
     form = _form_or_404(db, form_id)
-    if request.headers.get("hx-request"):
+    if is_fragment_request(request):
         return _builder_response(request, db, form)
     return templates.TemplateResponse(request, "admin_formulier_builder.html", {
         "nav_items": NAV, **_builder_ctx(request, db, form)})

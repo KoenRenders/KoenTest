@@ -8,7 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.workflow import api
-from app.ui import admin_nav, templates
+from app.ui import admin_nav, is_fragment_request, templates
 from app.domains.auth.api import csrf_token_for, require_admin_ui, require_csrf, SESSION_COOKIE
 
 router = APIRouter(include_in_schema=False)
@@ -127,7 +127,7 @@ def taak_detail(task_id: int, request: Request, db: Session = Depends(get_db),
 
         detail_rows = submission_view(db, task.subject_id)
     raw = request.cookies.get(SESSION_COOKIE) or ""
-    template = ("_werkbank_detail.html" if request.headers.get("hx-request")
+    template = ("_werkbank_detail.html" if is_fragment_request(request)
                 else "werkbank_taak.html")
     ctx = {"task": task, "detail_rows": detail_rows,
            "csrf_token": csrf_token_for(raw)}

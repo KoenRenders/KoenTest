@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_ui
-from app.ui import admin_nav, templates
+from app.ui import admin_nav, is_fragment_request, templates
 
 router = APIRouter(include_in_schema=False)
 
@@ -66,7 +66,7 @@ def admin_ledenwijzigingen(request: Request, since: str = "", group: str = "",
                            db: Session = Depends(get_db),
                            email: str = Depends(require_admin_ui)):
     ctx = _ctx(request, db, since, group, actor, page)
-    template = ("_lw_inhoud.html" if request.headers.get("hx-request")
+    template = ("_lw_inhoud.html" if is_fragment_request(request)
                 else "admin_ledenwijzigingen.html")
     if template == "admin_ledenwijzigingen.html":
         ctx["nav_items"] = NAV

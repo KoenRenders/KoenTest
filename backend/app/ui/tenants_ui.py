@@ -24,7 +24,7 @@ from app.domains.auth.api import (
     csrf_from_request, get_user_roles, require_admin_ui, require_csrf,
 )
 from app.i18n import _
-from app.ui import admin_nav, templates
+from app.ui import admin_nav, is_fragment_request, templates
 
 router = APIRouter(include_in_schema=False)
 
@@ -137,7 +137,7 @@ def tenants(request: Request, db: Session = Depends(get_db),
     _require_operator(db, email)
     # De filterbalk haalt enkel de kaarten op; een pagina-swap zou het zoekveld
     # tijdens het typen vervangen en de focus wegnemen.
-    sjabloon = ("_tn_kaarten.html" if request.headers.get("hx-request")
+    sjabloon = ("_tn_kaarten.html" if is_fragment_request(request)
                 else "admin_tenants.html")
     return templates.TemplateResponse(request, sjabloon, _lijst_ctx(request, db))
 

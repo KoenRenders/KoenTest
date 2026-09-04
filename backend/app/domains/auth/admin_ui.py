@@ -15,7 +15,7 @@ from app.domains.auth.api import (
     admin_user_by_email, csrf_from_request, get_user_roles,
     SESSION_COOKIE, User, csrf_token_for, require_admin_ui, require_csrf,
 )
-from app.ui import admin_nav, templates
+from app.ui import admin_nav, is_fragment_request, templates
 from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
@@ -94,7 +94,7 @@ def admin_gebruikers(request: Request, db: Session = Depends(get_db),
                      email: str = Depends(require_admin_ui),
                      q: str = "", rol: str = "", actief: str = ""):
     _require_admin(db, email)
-    if request.headers.get("hx-request"):
+    if is_fragment_request(request):
         return _lijst_response(request, db, q=q, rol=rol, actief=actief)
     return templates.TemplateResponse(request, "admin_gebruikers.html", {
         "nav_items": NAV, "error": None, **_lijst_ctx(request, db, q, rol, actief)})

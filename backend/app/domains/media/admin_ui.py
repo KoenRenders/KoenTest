@@ -17,7 +17,7 @@ from app.domains.auth.api import (
     admin_user_by_email, csrf_from_request,
     SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
 )
-from app.ui import admin_nav, templates
+from app.ui import admin_nav, is_fragment_request, templates
 from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
@@ -85,7 +85,7 @@ def admin_media(request: Request, kind: str = "sponsor", q: str = "",
                 email: str = Depends(require_admin_ui)):
     # htmx (de filterbalk) krijgt enkel de kaarten terug: een pagina-swap zou het
     # zoekveld tijdens het typen vervangen.
-    if request.headers.get("hx-request"):
+    if is_fragment_request(request):
         return _lijst_response(request, db, kind, q=q)
     return templates.TemplateResponse(request, "admin_media.html", {
         "nav_items": NAV, "error": None, **_lijst_ctx(request, db, kind, q)})
