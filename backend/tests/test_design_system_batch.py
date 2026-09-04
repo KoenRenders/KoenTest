@@ -104,6 +104,15 @@ def test_werkbank_lijst_klikt_door_naar_full_page():
 
 # ── #598 microcopy ────────────────────────────────────────────────────────────
 
+def test_link_tint_token_en_cms_link():
+    """Links dragen de fellere merk-tint #2367bd via de --link/text-link-token (#603)."""
+    build = (Path(__file__).resolve().parents[2] / "scripts" / "build-css.sh").read_text()
+    assert "--link:#2367bd" in build           # CSS-var-token
+    assert "link: '#2367bd'" in build          # Tailwind text-link-utility
+    site = (APP / "ui" / "templates" / "site_base.html").read_text()
+    assert ".cms-content a{color:var(--link)" in site and "underline" in site
+
+
 def test_create_schermen_gebruiken_opslaan():
     for pad in [
         ("activities", "admin_activiteiten.html"),

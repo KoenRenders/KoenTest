@@ -36,6 +36,10 @@ module.exports = {
       brand: {DEFAULT:'#0051a4',ocean:'#0051a4','ocean-hover':'#02407c',accent:'#ffce00',
               indigo:'#460359',green:'#005d29',teal:'#3aba9b',danger:'#ee3a37',
               warning:'#f16532',pink:'#f17fb2'},
+      // Tekst-/prose-links: een fellere merk-tint (= blue-500 #2367bd) zodat links
+      // onderscheidend "poppen" naast het diepe merkblauw van koppen/chrome (#0051a4).
+      // On-brand (afgeleid van de ocean-tint), niet het generieke Tailwind-linkblauw.
+      link: '#2367bd',
       // Neutralen & oppervlakken (design-system §1.1) als utility-kleuren, zodat
       // text-ink-soft / border-line / bg-surface-2 bestaan i.p.v. gray-* te gokken.
       ink: {DEFAULT:'#14171c',soft:'#52607a'},
@@ -73,7 +77,7 @@ cat > "$TMP/in.css" << 'CSS'
   :root{--brand-ocean:#0051a4;--brand-accent:#ffce00;--brand-indigo:#460359;--brand-green:#005d29;--brand-teal:#3aba9b;--brand-danger:#ee3a37;--brand-warning:#f16532;--brand-pink:#f17fb2;
         /* Design-system-tokens (docs/design-system.html §1.1): dit zijn de namen
            waar rauwe CSS naar verwijst. Hex hoort ALLEEN hier thuis. */
-        --primary:#0051a4;--primary-hover:#02407c;--accent:#ffce00;
+        --primary:#0051a4;--primary-hover:#02407c;--link:#2367bd;--accent:#ffce00;
         --ground:#eef3f9;--surface:#ffffff;--surface-2:#f7fafd;
         --ink:#14171c;--ink-soft:#52607a;--line:#d7e0ec;
         --brand-font:"Radio Canada Big",system-ui,sans-serif;--sans:Inter,system-ui,sans-serif}

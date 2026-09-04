@@ -35,6 +35,11 @@ waarheid, niet een hex of klasse die elders wordt herhaald.
   primary-knop-rust en rol-/info-badges dragen deze tint. `blue-800` (`#02407c`)
   is bewust **donkerder** en enkel de hover-staat van de primary-knop — nooit de
   rustkleur van chrome of koppen.
+- **Link-tint = `#2367bd` = `blue-500` = token `--link`/`text-link`.** Tekst-/prose-links
+  (o.a. CMS-content) dragen deze **fellere** merk-tint (afgeleid van de ocean-schaal),
+  altijd **onderstreept**, zodat ze onderscheidend "poppen" naast het diepe merkblauw
+  van koppen/chrome. Bewust géén generiek Tailwind-linkblauw (#1e40af/#2563eb) — dat is
+  off-brand. Contrast op wit ≈ 5,5:1 (AA), en de underline draagt het link-signaal.
 - **Regel:** conventies en templates **verwijzen naar de token** (de
   `blue-700`/`brand`-klasse); ze herschrijven nooit een losse hex of een
   afwijkende `blue-*`-klasse. Zo toont het design system
