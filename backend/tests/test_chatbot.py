@@ -50,8 +50,8 @@ def test_membership_block_always_present(db_session):
 def test_person_role_guardrail_present(db_session):
     """De persona moet de personen-/rolvangrail bevatten (#309): rollen alleen als
     ze expliciet vermeld staan, nooit afleiden of gegevens van verschillende
-    personen (zelfde achternaam) combineren. Voorkomt dat de Wim/Steven Paepen-
-    verwarring stilletjes terugkeert door een prompt-edit."""
+    personen (zelfde achternaam) combineren. Voorkomt dat de verwarring tussen twee
+    bestuursleden met dezelfde achternaam stilletjes terugkeert door een prompt-edit."""
     from app.domains.chatbot.context import build_system_prompt
 
     prompt = build_system_prompt(db_session)
