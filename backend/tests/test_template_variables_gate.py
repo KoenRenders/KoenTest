@@ -36,9 +36,31 @@ VIEWMODELS = {
 ALTIJD_BESCHIKBAAR = set(templates.env.globals) | {"request", "ui", "caller"}
 
 
+def _toegewezen_namen(boom) -> set[str]:
+    """Namen die de template zichzelf geeft met `{% set %}`.
+
+    `find_undeclared_variables` telt die mee zodra de toewijzing binnen een `{% if %}`
+    of `{% for %}` staat: Jinja kan dan niet bewijzen dat de naam op elk pad bestaat.
+    Voor deze gate zijn het geen ontbrekende velden — de template maakt ze zelf.
+    """
+    from jinja2 import nodes
+
+    namen: set[str] = set()
+    for soort in (nodes.Assign, nodes.AssignBlock):
+        for knoop in boom.find_all(soort):
+            doel = knoop.target
+            if isinstance(doel, nodes.Name):
+                namen.add(doel.name)
+            elif isinstance(doel, nodes.Tuple):
+                namen.update(item.name for item in doel.items
+                             if isinstance(item, nodes.Name))
+    return namen
+
+
 def _gevraagde_namen(bestandsnaam: str) -> set[str]:
     bron = templates.env.loader.get_source(templates.env, bestandsnaam)[0]
-    return meta.find_undeclared_variables(templates.env.parse(bron))
+    boom = templates.env.parse(bron)
+    return meta.find_undeclared_variables(boom) - _toegewezen_namen(boom)
 
 
 @pytest.mark.parametrize("bestandsnaam,model", sorted(
