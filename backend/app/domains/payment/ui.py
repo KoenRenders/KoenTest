@@ -107,6 +107,11 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
     kaarten += [(r, []) for r in refunds
                 if not r.refund_of_id or r.refund_of_id not in charge_ids]
     kaarten.sort(key=lambda p: p[0].created_at, reverse=True)
+    # Totaal per kaart (#617-2b): dezelfde aggregatie als de matrix bovenaan, zodat
+    # kop en totaalregel niet op twee definities kunnen uitkomen. Zodra er een refund
+    # onder de charge hangt, beschrijft de kop (die alleen de charge telt) de
+    # inschrijving niet meer: "Betaald € 27,50" terwijl er € 27,50 terug moet.
+    kaarten = [(r, rf, _rij([r] + rf)) for r, rf in kaarten]
 
     # Gegroepeerde context-filter (#549): dezelfde grouped_filter-macro als de
     # Werkbank. Heterogene groepen (jaren/onderdelen) → (value, label)-tuples.
@@ -122,6 +127,15 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
             (f"comp-{cid}", label) for cid, label in _comp]
     return {
         "records": zichtbaar, "kaarten": kaarten, "context": context,
+        # Eén bron voor de statuslabels (#617-2): de filterbalk én de editors in het
+        # fragment lezen hieruit, zodat er nergens nog rauwe codes (pending/paid)
+        # op het scherm komen. Het fragment wordt ook los gerenderd, dus een
+        # {% set %} in betalingen.html zou daar niet bestaan.
+        "status_labels": {
+            "all": _("Alle statussen"), "openstaand": _("Openstaand saldo"),
+            "pending": _("In afwachting"), "paid": _("Betaald"),
+            "failed": _("Mislukt"), "cancelled": _("Geannuleerd"),
+        },
         "status": status, "q": q,
         "componenten": _comp, "jaren": _jaren,
         "context_top": context_top, "context_groups": context_groups,

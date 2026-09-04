@@ -52,8 +52,8 @@
       <div class="flex items-center justify-between">
         <span>{{ d.start_date.strftime("%d-%m-%Y") }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date.strftime("%d-%m-%Y") }}{% endif %}{% if d.start_time %} · {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %}–{{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}</span>
         <div class="flex gap-2">
-          {{ ui.btn_secondary(_("Bewerk"), attrs='@click="edit = !edit"') }}
-          {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/datums/' ~ d.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" data-confirm="' ~ _("Datum verwijderen?") ~ '"') }}
+          {{ ui.edit_toggle("edit") }}
+          {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/datums/' ~ d.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" data-confirm="' ~ _("Datum verwijderen?")|string ~ '"') }}
         </div>
       </div>
       <form x-show="edit" x-cloak class="flex flex-wrap gap-2 items-end mt-2 bg-gray-50 rounded-lg p-2"
@@ -164,7 +164,7 @@
             {{ ui.reorder(
                  up_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verplaats" hx-vals=\'{"richting":"omhoog"}\' hx-target="#aa-detail" hx-swap="innerHTML"',
                  down_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verplaats" hx-vals=\'{"richting":"omlaag"}\' hx-target="#aa-detail" hx-swap="innerHTML"') }}
-            {{ ui.btn_secondary(_("Bewerk"), attrs='@click="ed = !ed"') }}
+            {{ ui.edit_toggle("ed") }}
             {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Product"), p.name)) }}
           </div>
         </div>

@@ -29,7 +29,7 @@
 </div>
 {% if kaarten %}
 <div class="space-y-3">
-  {% for r, refunds in kaarten %}
+  {% for r, refunds, totaal in kaarten %}
   {# Geen gekleurde statusstreep meer (B6, #596): de staat blijkt al uit de badge
      rechts. Eén status-signaal i.p.v. twee — de kaart draagt de neutrale kit-rand. #}
   {% set _paid = (r.amount_paid or 0) %}
@@ -60,12 +60,24 @@
     {% for rf in refunds %}
     <div class="mt-2 pl-3 border-l-2 border-teal-300 text-sm text-gray-600"{% if is_finance %} x-data="{ rbewerk: false }"{% endif %}>
       <div class="flex items-center justify-between gap-2">
-        <span class="inline-flex flex-wrap items-center gap-1"><span class="text-green-700 font-medium">✓ {{ _("Terugbetaald") }}</span> € {{ "%.2f"|format(rf.amount|abs) }} · {{ rf.created_at.strftime("%d-%m-%Y") }}{% if rf.note %} · {{ rf.note }}{% endif %}</span>
-        {% if is_finance %}<span class="flex gap-2 shrink-0">
-          <button type="button" class="text-blue-700 hover:underline text-xs" @click="rbewerk = !rbewerk">{{ _("Bewerken") }}</button>
-          <button type="button" class="text-red-600 hover:underline text-xs"
-            hx-post="/admin/betalingen/{{ rf.id }}/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML"
-            data-confirm="{{ _('Deze terugbetaling verwijderen?') }}">{{ _("Verwijder") }}</button>
+        {# #617-1: de badge volgt de STATUS. Voorheen stond hier onvoorwaardelijk
+           "✓ Terugbetaald" — ook bij een refund die nog op `pending` staat, naast de
+           tekst "terugstorting te bevestigen". Voor een penningmeester is net dát het
+           belangrijkste op dit scherm. Tonen ook de betaalwijze, zoals bij een charge. #}
+        <span class="inline-flex flex-wrap items-center gap-1">
+          {% if rf.status == "paid" %}{{ ui.badge(_("Terugbetaald"), "green") }}
+          {% elif rf.status == "pending" %}{{ ui.badge(_("Terug te betalen"), "orange") }}
+          {% elif rf.status == "failed" %}{{ ui.badge(_("Mislukt"), "red") }}
+          {% elif rf.status == "cancelled" %}{{ ui.badge(_("Geannuleerd"), "gray") }}
+          {% else %}{{ ui.badge(rf.status, "gray") }}{% endif %}
+          € {{ "%.2f"|format(rf.amount|abs) }} · {{ rf.created_at.strftime("%d-%m-%Y") }} · {{ rf.method }}{% if rf.note %} · {{ rf.note }}{% endif %}</span>
+        {% if is_finance %}
+        {# Acties als knoppen via de kit (§2.4), niet als tekstlinkjes — dezelfde
+           behandeling als een gewone betaling (#617-2). #}
+        <span class="shrink-0">
+          {{ ui.row_actions(
+               actions=[ui.edit_toggle("rbewerk", size="sm")],
+               delete_attrs='hx-post="/admin/betalingen/' ~ rf.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML" data-confirm="' ~ _("Deze terugbetaling verwijderen?")|string ~ '"') }}
         </span>{% endif %}
       </div>
       {% if is_finance %}
@@ -81,12 +93,13 @@
                   @change="if (status === 'paid' && !bedrag) bedrag = '{{ '%.2f'|format(rf.amount) }}'"
                   class="border border-gray-300 rounded-lg px-2 py-1 text-sm">
             {% for s in ["pending", "paid", "failed", "cancelled"] %}
-            <option value="{{ s }}" {% if rf.status == s %}selected{% endif %}>{{ s }}</option>
+            <option value="{{ s }}" {% if rf.status == s %}selected{% endif %}>{{ status_labels[s] }}</option>
             {% endfor %}
           </select></div>
         <div><label class="block text-xs text-gray-500">{{ _("Uitbetaald bedrag") }}</label>
           <input name="amount_paid" x-model="bedrag" inputmode="decimal" placeholder="0,00"
-                 class="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm"></div>
+                 class="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm">
+          <p class="text-xs text-gray-400 mt-0.5">{{ _("Negatief bedrag; zet op 0 om te corrigeren (dan verwijderbaar).") }}</p></div>
         <input name="note" placeholder="{{ _('Opmerking') }}" class="w-40 border border-gray-300 rounded-lg px-2 py-1 text-sm">
         {{ ui.btn_primary(_("Opslaan"), type="submit") }}
         {{ ui.btn_secondary(_("Annuleren"), attrs='@click="rbewerk = false"') }}
@@ -94,6 +107,24 @@
       {% endif %}
     </div>
     {% endfor %}
+    {# #617-2b: bij een refund beschrijft de kop (die alleen de charge telt) de
+       inschrijving niet meer. Deze regel telt charge + refunds samen, met dezelfde
+       helper als de matrix bovenaan (payment/ui.py `_rij`), zodat de twee niet uit
+       elkaar kunnen lopen. Een negatief saldo betekent: wij moeten terugstorten. #}
+    {% if refunds %}
+    <div class="mt-2 border-t border-gray-100 pt-2 flex flex-wrap justify-end gap-4 text-sm">
+      <span class="text-gray-500">{{ _("Totaal inschrijving") }}</span>
+      <span>{{ _("Bedrag") }}: <strong>€ {{ "%.2f"|format(totaal.due) }}</strong></span>
+      <span class="text-green-700">{{ _("Ontvangen") }}: € {{ "%.2f"|format(totaal.paid) }}</span>
+      {% if totaal.saldo < 0 %}
+      <span class="text-teal-700 font-medium">{{ _("Terug te storten") }}: € {{ "%.2f"|format(-totaal.saldo) }}</span>
+      {% elif totaal.saldo > 0 %}
+      <span class="text-orange-700 font-medium">{{ _("Openstaand") }}: € {{ "%.2f"|format(totaal.saldo) }}</span>
+      {% else %}
+      <span class="text-gray-500">{{ _("Saldo") }}: € 0,00</span>
+      {% endif %}
+    </div>
+    {% endif %}
     {% if r.payable_type == "registration" %}
     <div class="mt-2" x-data="{ det: false }">
       <button type="button" class="text-sm text-blue-700 hover:underline" @click="det = !det"
@@ -108,16 +139,16 @@
     <div class="mt-3 border-t border-gray-100 pt-2">
       {% set _acts = [] %}
       {% if r.status != "paid" and r.type != "refund" %}
-      {% set _ignore = _acts.append(ui.btn_secondary(_("Bevestig betaald"), size="sm", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML" data-confirm="' ~ _("Als volledig betaald bevestigen?") ~ '"')) %}
+      {% set _ignore = _acts.append(ui.btn_secondary(_("Bevestig betaald"), size="sm", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML" data-confirm="' ~ _("Als volledig betaald bevestigen?")|string ~ '"')) %}
       {% endif %}
-      {% set _ignore = _acts.append(ui.btn_secondary(_("Bewerken"), size="sm", attrs='@click="bewerk = !bewerk"')) %}
+      {% set _ignore = _acts.append(ui.edit_toggle("bewerk", size="sm")) %}
       {% if r.status == "paid" and r.type != "refund" %}
       {% set _ignore = _acts.append(ui.btn_secondary(_("Terugbetalen…"), size="sm", attrs='@click="terug = !terug"')) %}
       {% endif %}
       {% if r.method == "online" %}
       {% set _ignore = _acts.append(ui.btn_secondary(_("Ververs bij Mollie"), size="sm", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/verversen" hx-target="#betalingen-lijst" hx-swap="innerHTML"')) %}
       {% endif %}
-      {{ ui.row_actions(actions=_acts, delete_attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML" data-confirm="' ~ _("Deze betaling verwijderen (uit het saldo)?") ~ '"') }}
+      {{ ui.row_actions(actions=_acts, delete_attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML" data-confirm="' ~ _("Deze betaling verwijderen (uit het saldo)?")|string ~ '"') }}
     </div>
     {# Geünificeerde editor (#515): Status + Betaald bedrag + Opmerking in één form —
        óók voor een refund, waar je zo de effectief uitbetaalde som registreert.
@@ -131,7 +162,7 @@
                 @change="if (status === 'paid' && !bedrag) bedrag = '{{ '%.2f'|format(r.amount) }}'"
                 class="border border-gray-300 rounded-lg px-2 py-1 text-sm">
           {% for s in ["pending", "paid", "failed", "cancelled"] %}
-          <option value="{{ s }}" {% if r.status == s %}selected{% endif %}>{{ s }}</option>
+          <option value="{{ s }}" {% if r.status == s %}selected{% endif %}>{{ status_labels[s] }}</option>
           {% endfor %}
         </select></div>
       <div><label class="block text-xs text-gray-500">{{ _("Betaald bedrag") }}</label>

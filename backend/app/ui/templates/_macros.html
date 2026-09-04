@@ -448,19 +448,36 @@
    acties gewoon inline (dan gebruik je deze macro niet, of `max_visible` hoog).
    `actions` = lijst van reeds-gerenderde knop-HTML (belangrijkste eerst);
    `delete_attrs` → de hx-*/confirm van de delete-knop. #}
-{% macro row_actions(actions=[], delete_attrs="", delete_label="", max_visible=2) -%}
+{# `size` geldt voor de ⋯-knop én de delete-knop (#616). Die laatste kwam zonder
+   size binnen en viel dus terug op "md" (px-4 py-2), naast rij-acties die als "sm"
+   worden meegegeven — vandaar een rode knop die groter was dan de rest. #}
+{# Bewerken ↔ Annuleren (#615, ui-conventies §2.8). De knop die de bewerkmodus
+   opent is een toggle en volgt de toestand: een knop die "Bewerken" blijft zeggen
+   terwijl je al bewerkt liegt over de toestand, en hem verbergen geeft layout-shift.
+   Ze vervangt de [Annuleren] onderaan het formulier NIET — die staat waar je aandacht
+   is op het moment dat je opslaat, deze schakelt de modus.
+
+   `state` is de naam van de Alpine-boolean in de omliggende x-data-scope. #}
+{% macro edit_toggle(state="edit", size="md", cls="") -%}
+<button type="button" class="{{ btn_class('secondary', size) }}{% if cls %} {{ cls }}{% endif %}" @click="{{ state }} = !{{ state }}">
+  <span x-show="!{{ state }}">{{ _("Bewerken") }}</span>
+  <span x-show="{{ state }}" x-cloak>{{ _("Annuleren") }}</span>
+</button>
+{%- endmacro %}
+
+{% macro row_actions(actions=[], delete_attrs="", delete_label="", max_visible=2, size="sm") -%}
 <div class="inline-flex items-center gap-2 justify-end" x-data="{ menu: false }">
   {% for a in actions[:max_visible] %}{{ a|safe }}{% endfor %}
   {% if actions|length > max_visible %}
   <div class="relative">
-    <button type="button" class="{{ btn_class('secondary', 'sm') }}" @click="menu=!menu" aria-label="{{ _('Meer acties') }}">⋯</button>
+    <button type="button" class="{{ btn_class('secondary', size) }}" @click="menu=!menu" aria-label="{{ _('Meer acties') }}">⋯</button>
     <div x-show="menu" x-cloak @click.outside="menu=false"
          class="absolute right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1 min-w-40 flex flex-col gap-1 p-1">
       {% for a in actions[max_visible:] %}{{ a|safe }}{% endfor %}
     </div>
   </div>
   {% endif %}
-  {% if delete_attrs %}{{ btn_danger(delete_label or _("Verwijderen"), attrs=delete_attrs) }}{% endif %}
+  {% if delete_attrs %}{{ btn_danger(delete_label or _("Verwijderen"), size=size, attrs=delete_attrs) }}{% endif %}
 </div>
 {%- endmacro %}
 

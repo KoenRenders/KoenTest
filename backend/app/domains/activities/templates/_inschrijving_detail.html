@@ -1,9 +1,20 @@
 {% import "_macros.html" as ui %}
 {# Gedeelde inschrijving-detail + editor (#455/#451): contact + producten +
    opmerking. Bewerken (aantallen, regel toevoegen/verwijderen, opmerking) via
-   de bestaande router-facades; soft-deleted inschrijvingen zijn read-only. #}
+   de bestaande router-facades; soft-deleted inschrijvingen zijn read-only.
+
+   Attributen staan hier LETTERLIJK op elk element (#613). Ze stonden in een
+   `{% set _tgt = 'hx-target="…" hx-swap="…"' %}` en werden bij `{{ _tgt }}` door
+   de autoescape omgezet naar `hx-target=&#34;…&#34;` — htmx zag dan geen doel en
+   het aantal-veld, "Toevoegen" en "Opmerking opslaan" deden niets. Dezelfde klasse
+   fout als #514. Bouw attribuutstrings dus niet in een variabele; via de
+   `attrs=`-parameter van een kit-macro mag wel, die doet zelf `|safe`.
+
+   `edit_open` houdt het paneel open na een bewerking (#613-3): het fragment
+   vervangt zichzelf via outerHTML, dus zonder dit kwam het na elke actie terug in
+   lees-modus en voelde het alsof er niets gebeurd was. #}
 <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-2 text-sm"
-     {% if editable %}x-data="{ edit: false }"{% endif %}>
+     {% if editable %}x-data="{ edit: {{ 'true' if edit_open else 'false' }} }"{% endif %}>
   <div class="flex items-start justify-between gap-2">
     <div>
       <div class="font-medium">{{ reg.contact_name }}{% if reg.team_name %} ({{ reg.team_name }}){% endif %}</div>
@@ -12,15 +23,18 @@
       {% endif %}
     </div>
     {% if editable %}
-    {{ ui.btn_secondary(_("Bewerk"), attrs='@click="edit = !edit"') }}
+    {{ ui.edit_toggle("edit", size="sm") }}
     {% endif %}
   </div>
 
   {# Read-only weergave #}
   <div {% if editable %}x-show="!edit"{% endif %}>
     <ul class="mt-2 text-gray-700">
-      {% for item in reg["items"] %}<li>{{ item.quantity }}× {{ item.product_name or "—" }}</li>{% else %}<li class="text-gray-400">{{ _("Geen producten") }}</li>{% endfor %}
+      {% for item in reg["items"] %}<li>{{ item.quantity }}× {{ item.product_name or "—" }}{% if item.line_total is not none %} · € {{ "%.2f"|format(item.line_total) }}{% endif %}</li>{% else %}<li class="text-gray-400">{{ _("Geen producten") }}</li>{% endfor %}
     </ul>
+    {% if reg["items"] %}
+    <div class="mt-1 font-medium">{{ _("Totaal") }}: € {{ "%.2f"|format(totaal) }}</div>
+    {% endif %}
     {% if reg.remarks %}<div class="mt-2 text-gray-500">💬 {{ reg.remarks }}</div>{% endif %}
   </div>
 
@@ -29,41 +43,61 @@
   <div x-show="edit" x-cloak class="mt-3 space-y-3">
     {% set _base = "/admin/inschrijvingen/" ~ reg.id %}
     {# De X-CSRF-Token-header wordt geërfd van de body (hx-headers). #}
-    {% set _tgt = 'hx-target="closest .bg-gray-50" hx-swap="outerHTML"' %}
 
-    {# Bestelregels: aantal wijzigen / verwijderen #}
-    <div class="space-y-2">
-      {% for item in reg["items"] %}
-      <div class="flex items-center gap-2">
-        <span class="flex-1">{{ item.product_name or "—" }}</span>
-        <input type="number" min="1" value="{{ item.quantity }}" name="quantity"
-               class="w-20 border border-gray-300 rounded-lg px-2 py-1"
-               hx-post="{{ _base }}/regels/{{ item.id }}" hx-trigger="change" {{ _tgt }}>
-        {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="' ~ _base ~ '/regels/' ~ item.id ~ '/verwijderen" ' ~ _tgt) }}
+    {# Eén "Opslaan" voor aantallen én opmerking (#613-2). De autosave op `change`
+       is vervallen: hij sloeg per veld op, waardoor je niet kon zien wat er samen
+       bewaard werd. "Toevoegen" en "Verwijder" blijven aparte acties — die wijzigen
+       wélke regels er zijn, niet hun waarden. #}
+    <form class="space-y-3" hx-post="{{ _base }}/opslaan"
+          hx-target="closest .bg-gray-50" hx-swap="outerHTML">
+      <div class="space-y-2">
+        {% for item in reg["items"] %}
+        <div class="flex items-center gap-2">
+          <span class="flex-1">{{ item.product_name or "—" }}</span>
+          {% if item.unit_price is not none %}<span class="text-gray-500 whitespace-nowrap">€ {{ "%.2f"|format(item.unit_price) }}</span>{% endif %}
+          <input type="number" min="1" value="{{ item.quantity }}" name="quantity_{{ item.id }}"
+                 aria-label="{{ _('Aantal') }} — {{ item.product_name or '' }}"
+                 class="w-20 border border-gray-300 rounded-lg px-2 py-1">
+          {% if item.line_total is not none %}<span class="w-20 text-right whitespace-nowrap">€ {{ "%.2f"|format(item.line_total) }}</span>{% endif %}
+          {{ ui.btn_danger(_("Verwijder"), size="sm", attrs='hx-post="' ~ _base ~ '/regels/' ~ item.id ~ '/verwijderen" hx-target="closest .bg-gray-50" hx-swap="outerHTML"') }}
+        </div>
+        {% else %}
+        <div class="text-gray-400">{{ _("Geen producten") }}</div>
+        {% endfor %}
       </div>
-      {% else %}
-      <div class="text-gray-400">{{ _("Geen producten") }}</div>
-      {% endfor %}
-    </div>
 
-    {# Regel toevoegen #}
+      {# Totaal in het paneel (#613-4): zonder bedragen zie je niet wat je wijzigt. #}
+      {% if reg["items"] %}
+      <div class="flex justify-end border-t border-gray-200 pt-2 font-medium">
+        {{ _("Totaal") }}: € {{ "%.2f"|format(totaal) }}
+      </div>
+      {% endif %}
+
+      <div>
+        {{ ui.label(_("Opmerking"), "reg-remarks-" ~ reg.id) }}
+        <textarea name="remarks" id="reg-remarks-{{ reg.id }}" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2">{{ reg.remarks or "" }}</textarea>
+      </div>
+
+      {# [Opslaan] [Annuleren] onderaan (§2.8) — de toggle bovenaan vervangt dit niet. #}
+      <div class="flex gap-2">
+        {{ ui.btn_primary(_("Opslaan")) }}
+        {{ ui.btn_secondary(_("Annuleren"), attrs='@click="edit = false"') }}
+      </div>
+    </form>
+
+    {# Regel toevoegen — aparte actie, buiten het opslaan-formulier. #}
     {% if products %}
-    <form class="flex items-center gap-2" hx-post="{{ _base }}/regels" {{ _tgt }}>
-      <select name="product_id" required class="flex-1 border border-gray-300 rounded-lg px-2 py-1">
+    <form class="flex items-center gap-2 border-t border-gray-200 pt-3"
+          hx-post="{{ _base }}/regels" hx-target="closest .bg-gray-50" hx-swap="outerHTML">
+      {% call ui.select_control("product_id", cls="flex-1", attrs="required") %}
         <option value="">{{ _("— Product toevoegen —") }}</option>
         {% for p in products %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
-      </select>
-      <input type="number" name="quantity" min="1" value="1" class="w-20 border border-gray-300 rounded-lg px-2 py-1">
+      {% endcall %}
+      <input type="number" name="quantity" min="1" value="1" aria-label="{{ _('Aantal') }}"
+             class="w-20 border border-gray-300 rounded-lg px-2 py-1">
       {{ ui.btn_secondary(_("Toevoegen"), type="submit") }}
     </form>
     {% endif %}
-
-    {# Opmerking #}
-    <form class="space-y-2" hx-post="{{ _base }}/opmerking" {{ _tgt }}>
-      {{ ui.label(_("Opmerking"), "reg-remarks-" ~ reg.id) }}
-      <textarea name="remarks" id="reg-remarks-{{ reg.id }}" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2">{{ reg.remarks or "" }}</textarea>
-      {{ ui.btn_primary(_("Opmerking opslaan")) }}
-    </form>
   </div>
   {% endif %}
 </div>

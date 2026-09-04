@@ -9,8 +9,8 @@
       {{ ui.reorder(
            up_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
            down_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
-      {{ ui.btn_secondary(_("Bewerken"), attrs='@click="edit = !edit"') }}
-      {{ ui.btn_danger("×", attrs='aria-label="' ~ _("Veld verwijderen") ~ '" hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Veld"), f.label)) }}
+      {{ ui.edit_toggle("edit") }}
+      {{ ui.btn_danger("×", attrs='aria-label="' ~ _("Veld verwijderen")|string ~ '" hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Veld"), f.label)) }}
     </div>
   </div>
   <form x-show="edit" x-cloak class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 text-sm"
@@ -40,8 +40,8 @@
       <span>{{ o.label }}{% if o.is_other %} {{ ui.badge(_("andere…")) }}{% endif %}
         {% if o.skip_to_end %}{{ ui.badge(_("→ einde"), "yellow") }}{% elif o.skip_to_section_id %}{{ ui.badge(_("→ sectie"), "yellow") }}{% endif %}</span>
       <span class="flex gap-1">
-        {{ ui.btn_secondary("⚙", attrs='aria-label="' ~ _("Optie bewerken") ~ '" @click="oedit = !oedit"') }}
-        {{ ui.btn_danger("×", attrs='aria-label="' ~ _("Optie verwijderen") ~ '" hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML"') }}
+        {{ ui.btn_secondary("⚙", attrs='aria-label="' ~ _("Optie bewerken")|string ~ '" @click="oedit = !oedit"') }}
+        {{ ui.btn_danger("×", attrs='aria-label="' ~ _("Optie verwijderen")|string ~ '" hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML"') }}
       </span>
       <form x-show="oedit" x-cloak class="w-full flex flex-wrap gap-2 mt-1"
             hx-post="/admin/formulieren/{{ form.id }}/opties/{{ o.id }}" hx-target="#fb-detail" hx-swap="innerHTML">
@@ -122,7 +122,7 @@
   {% for g in grouped %}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden" x-data="{ sedit: false }">
     {# #524 (§10): gekleurde sectie-header-balk met "Sectie X van N" + acties. #}
-    {{ ui.section_bar(_("Sectie") ~ " " ~ loop.index ~ " " ~ _("van") ~ " " ~ (grouped|length) ~ (" · " ~ g.section.title if g.section.title else ""),
+    {{ ui.section_bar(_("Sectie")|string ~ " " ~ loop.index ~ " " ~ _("van")|string ~ " " ~ (grouped|length) ~ (" · " ~ g.section.title if g.section.title else ""),
          up_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
          down_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
          edit_attrs='@click="sedit = !sedit"',

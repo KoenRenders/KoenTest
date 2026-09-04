@@ -3,7 +3,6 @@
 {% block title %}{{ _("Betalingen — Raak") }}{% endblock %}
 {% block content %}
 {{ ui.page_header(_("Betalingen & vorderingen"), _("Financiële feiten — enkel FINANCE kan bevestigen of terugbetalen.")) }}
-{% set _status_labels = {"all": _("Alle statussen"), "openstaand": _("Openstaand saldo"), "pending": _("In afwachting"), "paid": _("Betaald"), "failed": _("Mislukt"), "cancelled": _("Geannuleerd")} %}
 {# Records-lijst-gedrag (C1 §4, #591): zoeken bovenaan, filters eronder, alles
    live via de kit-filterbalk. De balk swapt enkel de kaartenlijst, zodat het
    zoekveld niet onder je vingers vervangen wordt. #}
@@ -15,7 +14,7 @@
     {{ ui.grouped_filter("context", context_top, context_groups, current=context) }}
     {% call ui.select_control("status") %}
       {% for s in ["all", "openstaand", "pending", "paid", "failed", "cancelled"] %}
-      <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ _status_labels[s] }}</option>
+      <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ status_labels[s] }}</option>
       {% endfor %}
     {% endcall %}
     {{ ui.btn_secondary(_("Export (.ods)"), lead_icon="download",
@@ -23,7 +22,14 @@
   </div>
 {% endcall %}
 
-<div id="betalingen-lijst">
+{# Verversen na een bewerking in het inschrijvingsdetail (#613-4/#617-3). Dat
+   fragment swapt enkel zichzelf, dus de kaart erboven bleef op het oude bedrag
+   staan — en een nieuwe terugbetaling verscheen pas na F5 — terwijl de server al
+   gereconcilieerd had. De detailroutes zetten `HX-Trigger: betalingen-ververst`;
+   hier halen we de lijst opnieuw op mét de huidige filterstand. #}
+<div id="betalingen-lijst"
+     hx-get="/admin/betalingen/lijst" hx-trigger="betalingen-ververst from:body"
+     hx-include="[name='q'],[name='status'],[name='context']" hx-swap="innerHTML">
   {% include "_betalingen_lijst.html" %}
 </div>
 {% endblock %}

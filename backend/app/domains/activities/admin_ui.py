@@ -457,7 +457,8 @@ async def reglement_uploaden(activity_id: int, component_id: int, request: Reque
 
 # ── Gedeelde inschrijving-detail (betalingen + activiteiten-admin, #455/#451) ──
 
-def _detail_ctx(request: Request, db: Session, registration_id: int) -> dict | None:
+def _detail_ctx(request: Request, db: Session, registration_id: int,
+                *, edit_open: bool = False) -> dict | None:
     """Gedeelde context voor de inschrijving-detail/editor: de verrijkte
     inschrijving + de beschikbare producten van haar onderdeel (voor de
     'regel toevoegen'-keuze). Geeft None als de inschrijving niet bestaat."""
@@ -476,19 +477,58 @@ def _detail_ctx(request: Request, db: Session, registration_id: int) -> dict | N
                           if c.id == reg.component_id), None)
         if component is not None:
             products = [{"id": p.id, "name": p.name} for p in component.products]
+    # Bedragen per regel + totaal (#613-4): zonder bedragen zie je in het paneel
+    # niet wát je aan het wijzigen bent. Ze komen uit compute_registration_total —
+    # de enige bron voor "wat kost deze inschrijving" (totals.py) — zodat het paneel
+    # nooit een ander bedrag toont dan de betaalrecords. We lopen items en regels
+    # parallel af en slaan items zonder product over, precies zoals die functie doet.
+    from app.domains.activities.api import compute_registration_total
+
+    totaal, regels = compute_registration_total(reg)
+    bedragen, idx = {}, 0
+    for item in (reg.items or []):
+        if getattr(item, "product", None) is None:
+            continue
+        if idx < len(regels):
+            bedragen[item.id] = regels[idx]
+        idx += 1
+
+    verrijkt = _enrich_registration(reg, activity)
+    for regel in verrijkt["items"]:
+        bedrag = bedragen.get(regel["id"])
+        regel["unit_price"] = bedrag["unit_price"] if bedrag else None
+        regel["line_total"] = bedrag["subtotal"] if bedrag else None
+
     return {
-        "reg": _enrich_registration(reg, activity),
+        "reg": verrijkt,
         "products": products,
+        "totaal": totaal,
         "editable": reg.deleted_at is None,
+        "edit_open": edit_open,
         "csrf_token": csrf_from_request(request),
     }
 
 
-def _render_detail(request: Request, db: Session, registration_id: int) -> HTMLResponse:
-    ctx = _detail_ctx(request, db, registration_id)
+def _render_detail(request: Request, db: Session, registration_id: int,
+                   *, edit_open: bool = False, ververs: bool = False) -> HTMLResponse:
+    """Rendert het detailfragment.
+
+    ``edit_open`` houdt het paneel na een bewerking open (#613-3): het fragment
+    vervangt zichzelf via outerHTML, dus zonder dit viel het terug in lees-modus en
+    voelde het alsof er niets gebeurd was.
+
+    ``ververs`` zet een ``HX-Trigger`` (#613-4/#617-3). De kaart erboven op
+    /admin/betalingen staat buiten dit fragment en bleef op het oude bedrag staan —
+    of toonde een nieuwe terugbetaling pas na F5 — terwijl de server al
+    gereconcilieerd had. De betalingenlijst luistert op dat event.
+    """
+    ctx = _detail_ctx(request, db, registration_id, edit_open=edit_open)
     if ctx is None:
         return HTMLResponse("")
-    return templates.TemplateResponse(request, "_inschrijving_detail.html", ctx)
+    resp = templates.TemplateResponse(request, "_inschrijving_detail.html", ctx)
+    if ververs:
+        resp.headers["HX-Trigger"] = "betalingen-ververst"
+    return resp
 
 
 @router.get("/admin/inschrijvingen/{registration_id}", response_class=HTMLResponse)
@@ -524,7 +564,51 @@ def inschrijving_opmerking(registration_id: int, request: Request,
     update_registration_remarks(reg.activity_id, registration_id,
                                 RegistrationRemarksUpdate(remarks=remarks),
                                 db=db, admin=admin_user_by_email(db, email))
-    return _render_detail(request, db, registration_id)
+    return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
+
+
+@router.post("/admin/inschrijvingen/{registration_id}/opslaan",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+async def inschrijving_opslaan(registration_id: int, request: Request,
+                               db: Session = Depends(get_db),
+                               email: str = Depends(require_admin_ui)):
+    """Aantallen én opmerking in één "Opslaan" (#613-2).
+
+    Voorheen sloeg elk onderdeel apart op — het aantal bij `change`, de opmerking met
+    een eigen knop — waardoor je niet kon zien wat er samen bewaard werd. "Toevoegen"
+    en "Verwijder" blijven wél aparte acties: die wijzigen wélke regels er zijn, niet
+    hun waarden.
+
+    We gaan per gewijzigd aantal door ``update_order_line``, zodat validatie en
+    audit-snapshot dezelfde blijven als bij de losse route. Dat reconcilieert per
+    aanroep, maar ``reconcile_registration_charges`` is integraal — het verwijdert de
+    onbetaalde posten en herrekent naar één open post — dus tussenstanden laten geen
+    verdwaalde refund achter.
+    """
+    from app.domains.activities.router import update_order_line, update_registration_remarks
+    from app.schemas.activity import RegistrationItemUpdate, RegistrationRemarksUpdate
+
+    reg = _reg_or_404(db, registration_id)
+    admin = admin_user_by_email(db, email)
+    form = await request.form()
+
+    huidig = {item.id: item.quantity for item in (reg.items or [])}
+    for key, value in form.items():
+        if not key.startswith("quantity_"):
+            continue
+        try:
+            item_id, aantal = int(key.removeprefix("quantity_")), int(value)
+        except (TypeError, ValueError):
+            continue
+        if item_id not in huidig or aantal == huidig[item_id]:
+            continue
+        update_order_line(reg.activity_id, registration_id, item_id,
+                          RegistrationItemUpdate(quantity=aantal), db=db, admin=admin)
+
+    update_registration_remarks(reg.activity_id, registration_id,
+                                RegistrationRemarksUpdate(remarks=str(form.get("remarks") or "")),
+                                db=db, admin=admin)
+    return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
 
 
 @router.post("/admin/inschrijvingen/{registration_id}/regels",
@@ -541,7 +625,7 @@ def inschrijving_regel_toevoegen(registration_id: int, request: Request,
     add_order_line(reg.activity_id, registration_id,
                    RegistrationItemCreate(product_id=product_id, quantity=quantity),
                    db=db, admin=admin_user_by_email(db, email))
-    return _render_detail(request, db, registration_id)
+    return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
 
 
 @router.post("/admin/inschrijvingen/{registration_id}/regels/{item_id}",
@@ -557,7 +641,7 @@ def inschrijving_regel_bijwerken(registration_id: int, item_id: int, request: Re
     update_order_line(reg.activity_id, registration_id, item_id,
                       RegistrationItemUpdate(quantity=quantity),
                       db=db, admin=admin_user_by_email(db, email))
-    return _render_detail(request, db, registration_id)
+    return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
 
 
 @router.post("/admin/inschrijvingen/{registration_id}/regels/{item_id}/verwijderen",
@@ -570,7 +654,7 @@ def inschrijving_regel_verwijderen(registration_id: int, item_id: int, request: 
     reg = _reg_or_404(db, registration_id)
     delete_order_line(reg.activity_id, registration_id, item_id,
                       db=db, admin=admin_user_by_email(db, email))
-    return _render_detail(request, db, registration_id)
+    return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
 
 
 # ── Inschrijvingen + export ────────────────────────────────────────────────────

@@ -15,7 +15,14 @@ Vier regels, elk met een reden:
 4. **Geen `amber-*`.** Geel is "wachtend"; het amber-palet is vervallen.
 5. **Geen `hx-confirm`.** Dat toont het native browser-confirm(); bevestiging gaat
    sinds #595 via de in-app modal (`data-confirm` + `ui.confirm_host()`).
-6. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
+6. **Geen ge-escapete attribuutstrings.** `_()` levert Markup; plak je daar met
+   `~` een gewone string aan, dan escapet Jinja de gewone helft en ziet htmx
+   `hx-post=&#34;…&#34;` — de knop is inert. Idem voor een `{% set %}` met
+   attributen erin, die bij `{{ var }}` alsnog geëscaped wordt. Drie keer
+   opgedoken: #514, #613, #616.
+7. **Een "Bewerken"-knop die een modus omschakelt, toont beide standen.** Anders
+   liegt hij over de toestand (#615). Gebruik `ui.edit_toggle()`.
+8. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
    preflight-hoogte en staat hij ~15px lager dan het zoekveld ernaast; dat gaf
    scheve filterbalken op zeven schermen (#611). Gebruik `ui.select_control()`,
    `ui.grouped_filter()` of `ui.field_select()`.
@@ -173,11 +180,7 @@ def test_geen_kale_select():
     """
     fouten = []
     for pad in TEMPLATES:
-        # Jinja-commentaar leegmaken (regelnummers behouden): het commentaar bij
-        # select_control() toont juist het foute patroon dat deze regel verbiedt.
-        tekst = re.sub(r"\{#.*?#\}",
-                       lambda m: re.sub(r"[^\n]", " ", m.group(0)),
-                       pad.read_text(), flags=re.S)
+        tekst = _zonder_commentaar(pad)
         for treffer in re.finditer(r"<select\b", tekst):
             eind = tekst.find(">", treffer.start())
             tag = tekst[treffer.start():eind + 1] if eind != -1 else tekst[treffer.start():]
@@ -187,5 +190,63 @@ def test_geen_kale_select():
             fouten.append(f"{pad.relative_to(APP)}:{regel}: {tag.strip()[:90]}")
     assert not fouten, (
         "Gebruik ui.select_control() / ui.grouped_filter() / ui.field_select():\n  "
+        + "\n  ".join(fouten)
+    )
+
+
+# ── Ge-escapete attribuutstrings (#514/#613/#616) ─────────────────────────────
+# Twee smaken van dezelfde fout, samen in één regel omdat het één klasse is.
+def _zonder_commentaar(pad) -> str:
+    """Jinja-commentaar leegmaken met behoud van regelnummers.
+
+    Nodig omdat het commentaar bij een fix juist het FOUTE patroon toont — zowel bij
+    select_control() als bij _inschrijving_detail.html, waar staat waarom de
+    attributen niet meer in een {% set %} zitten."""
+    return re.sub(r"\{#.*?#\}", lambda m: re.sub(r"[^\n]", " ", m.group(0)),
+                  pad.read_text(), flags=re.S)
+
+
+VEILIG_STRING = re.compile(r"_\((?:[^()]|\([^()]*\))*\)\|string")
+MARKUP_CONCAT = re.compile(r"~\s*_\(|_\((?:[^()]|\([^()]*\))*\)\s*~")
+ATTR_IN_SET = re.compile(r"\{%-?\s*set\s+\w+\s*=\s*['\"]\s*hx-")
+# Een modus-knop die maar één stand toont (#615).
+HANDMATIGE_TOGGLE = re.compile(r"btn_\w+\(\s*_\(\"Bewerk[^\"]*\"\)[^)]*@click")
+
+
+def test_geen_geescapete_attribuutstrings():
+    """`'…' ~ _(\"…\")` en `{% set x = 'hx-…' %}` maken knoppen stil inert.
+
+    `_()` geeft in een autoescaped template Markup terug. Zodra je daar met `~` een
+    gewone string aan plakt, escapet Jinja de gewone helft: htmx krijgt
+    `hx-post=&#34;/…&#34;` en doet niets. Een `{% set %}` met attributen erin gaat op
+    dezelfde manier stuk bij `{{ var }}`. Fix: `_(\"…\")|string`, of de attributen
+    letterlijk op het element / via de `attrs=`-parameter (die doet zelf `|safe`).
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
+            if "attrs=" in regel and MARKUP_CONCAT.search(VEILIG_STRING.sub("", regel)):
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: ~ _() in een attrs-string "
+                              f"→ gebruik _()|string")
+            if ATTR_IN_SET.search(regel):
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: attributen in een "
+                              f"{{% set %}} → schrijf ze letterlijk of geef ze via attrs=")
+    assert not fouten, (
+        "Ge-escapete attributen maken de knop inert (#514/#613/#616):\n  "
+        + "\n  ".join(fouten)
+    )
+
+
+def test_bewerk_knoppen_tonen_beide_standen():
+    """Een knop die "Bewerken" blijft zeggen terwijl je bewerkt, liegt over de
+    toestand (#615, ui-conventies §2.8). `ui.edit_toggle()` toont beide standen;
+    handmatig mag ook, zolang de knop zelf "Bewerken" én "Annuleren" bevat."""
+    fouten = []
+    for pad in TEMPLATES:
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
+            if HANDMATIGE_TOGGLE.search(regel):
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:80]}")
+    assert not fouten, (
+        "Gebruik ui.edit_toggle(state) i.p.v. een knop met één stand:\n  "
         + "\n  ".join(fouten)
     )

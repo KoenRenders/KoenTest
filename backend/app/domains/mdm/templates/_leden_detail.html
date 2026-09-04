@@ -14,7 +14,7 @@
         </div>
       </div>
       <div class="flex gap-2 shrink-0 ml-4">
-        {{ ui.btn_secondary(_("Bewerken"), attrs='@click="edit = true"') }}
+        {{ ui.edit_toggle("edit") }}
         {% if not hoofd %}
         {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/leden/gezin/' ~ family.id ~ '/persoon/' ~ m.id ~ '/verwijderen" hx-target="#leden-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Persoon"), m.first_name ~ " " ~ m.last_name)) }}
         {% endif %}
