@@ -196,13 +196,25 @@ def test_navigeren_bouwt_de_schil_niet_opnieuw_op(admin_page):
     assert schil.zijbalk_is_nog_dezelfde(), "htmx swapte meer dan #main"
 
     # Is de inhoud echt gewisseld? De zijbalk overleeft ook een swap die niet
-    # doorging, dus die assertie alleen bewijst nog niets.
-    kop = admin_page.locator("#main h1").first.inner_text()
-    assert "ctiviteiten" in kop, f"#main toont nog het oude scherm: {kop!r}"
+    # doorging, dus die assertie alleen bewijst nog niets. Bewust via evaluate en
+    # niet via een locator: staat #main er niet meer, dan moet de test dát zeggen
+    # i.p.v. dertig seconden op een selector te wachten.
+    na = admin_page.evaluate("""(function () {
+      var m = document.getElementById('main');
+      return {
+        mainAanwezig: !!m,
+        mainKinderen: m ? m.children.length : null,
+        h1: m && m.querySelector('h1') ? m.querySelector('h1').innerText : null,
+        bodyLengte: document.body.innerHTML.length,
+        titel: document.title
+      };
+    })()""")
+    assert na["mainAanwezig"], f"#main is na de swap verdwenen: {na}"
+    assert na["h1"] and "ctiviteiten" in na["h1"], f"#main toont het oude scherm: {na}"
     assert "/admin/activiteiten" in admin_page.url, (
         f"de URL is niet meegegaan: {admin_page.url}")
     assert admin_page.title() != titel_voor, (
-        f"de tabtitel volgde de navigatie niet (blijft {titel_voor!r})")
+        f"de tabtitel volgde de navigatie niet (blijft {titel_voor!r}); {na}")
     assert not fouten, f"JS-fouten tijdens de navigatie: {fouten}"
 
 
