@@ -558,11 +558,11 @@ def inschrijving_opmerking(registration_id: int, request: Request,
                            email: str = Depends(require_admin_ui),
                            remarks: str = Form("")):
     from app.domains.activities.router import update_registration_remarks
-    from app.schemas.activity import RegistrationRemarksUpdate
+    from app.schemas.activity import RegistrationContactUpdate
 
     reg = _reg_or_404(db, registration_id)
     update_registration_remarks(reg.activity_id, registration_id,
-                                RegistrationRemarksUpdate(remarks=remarks),
+                                RegistrationContactUpdate(remarks=remarks),
                                 db=db, admin=admin_user_by_email(db, email))
     return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
 

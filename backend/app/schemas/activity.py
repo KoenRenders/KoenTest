@@ -171,8 +171,12 @@ class RegistrationItemUpdate(BaseModel):
 
 
 class RegistrationRemarksUpdate(BaseModel):
-    """Admin bewerkt enkel de opmerking van de inschrijver (#283). Leeg of enkel
-    witruimte wordt server-side genormaliseerd naar NULL."""
+    """Admin bewerkt enkel de opmerking van de inschrijver (#283).
+
+    Sinds #624 aanvaardt de route `RegistrationContactUpdate`, dat dit veld omvat;
+    dit schema blijft staan omdat een externe API-client het nog kan versturen — een
+    JSON-body met enkel `remarks` valideert nog steeds tegen beide vormen.
+    """
     remarks: Optional[str] = None
 
 

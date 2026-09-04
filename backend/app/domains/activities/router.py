@@ -31,7 +31,6 @@ from app.schemas.activity import (
     RegistrationResponse,
     RegistrationItemCreate,
     RegistrationItemUpdate,
-    RegistrationRemarksUpdate,
 )
 from app.domains.mail.api import send_activity_registration_confirmation
 from app.domains.activities.totals import compute_registration_total
