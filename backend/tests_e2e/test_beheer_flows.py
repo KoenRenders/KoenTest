@@ -173,11 +173,18 @@ def test_navigeren_bouwt_de_schil_niet_opnieuw_op(admin_page):
     # Eerst de serverkant: kreeg htmx de swap-instructies mee? Zo niet, dan ligt de
     # oorzaak in de middleware en niet in de browser — dat scheelt zoeken.
     nav = [a for a in antwoorden if "/admin/activiteiten" in a[1]]
+    soorten = [a[0] for a in nav]
     assert nav, f"geen enkel antwoord voor /admin/activiteiten; gezien: {antwoorden[:5]}"
-    soort, _url, kop = nav[-1]
-    assert soort == "xhr", (
-        f"de navigatie was een {soort}-verzoek, geen XHR → hx-boost sloeg niet aan.\n"
-        f"  toestand vóór de klik: {diag}\n  JS-fouten: {fouten}")
+    xhr = [a for a in nav if a[0] == "xhr"]
+    assert xhr, (
+        f"geen XHR voor de navigatie → hx-boost sloeg niet aan.\n"
+        f"  verzoeksoorten: {soorten}\n  toestand vóór de klik: {diag}\n"
+        f"  JS-fouten: {fouten}")
+    assert "document" not in soorten, (
+        f"na de gebooste XHR volgde alsnog een volledige navigatie "
+        f"(verzoeksoorten: {soorten}) — een vangnet in ui.htmx_ux() sloeg ten "
+        f"onrechte aan.\n  JS-fouten: {fouten}")
+    _soort, _url, kop = xhr[-1]
     assert kop.get("hx-reselect") == "#main", f"geen HX-Reselect op het antwoord: {kop}"
     assert kop.get("hx-retarget") == "#main", f"geen HX-Retarget op het antwoord: {kop}"
 

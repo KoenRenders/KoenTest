@@ -614,8 +614,17 @@
     });
     body.addEventListener('htmx:beforeSwap', function (e) {
       if (!e.detail.boosted) return;
-      var m = /<body[^>]*data-shell="([a-z]+)"/.exec(e.detail.xhr.responseText || '');
-      if (m && m[1] === body.getAttribute('data-shell')) return;
+      var tekst = e.detail.xhr && e.detail.xhr.responseText;
+      if (!tekst) return;
+      // Echt parsen i.p.v. een regex over de tekst: het body-attribuut staat achter
+      // andere attributen die zelf aanhalingstekens en accolades bevatten, en een
+      // vangnet dat per ongeluk aanslaat doet precies wat het moest voorkomen —
+      // een volledige herlaad.
+      var doc = new DOMParser().parseFromString(tekst, 'text/html');
+      var schil = doc.body && doc.body.getAttribute('data-shell');
+      // Onbekend? Dan niets doen: bij twijfel liever htmx laten swappen dan hard
+      // navigeren.
+      if (!schil || schil === body.getAttribute('data-shell')) return;
       e.detail.shouldSwap = false;
       window.location.assign(e.detail.pathInfo.finalRequestPath);
     });
