@@ -87,7 +87,7 @@ def test_manual_confirm_writes_audit_with_actor(client, db_session, admin_header
     ).first()
     assert h is not None
     assert h.source == "admin_manual"
-    assert h.actor == "koen.renders@gmail.com"
+    assert h.actor == "beheerder@example.com"
     assert h.status == "paid"
 
 

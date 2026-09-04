@@ -2,12 +2,14 @@
 platformrollen OPERATOR/ACCOUNT_ADMIN, en de demo-tenant-config van de
 voorbeeldafdeling (mails enkel loggen, noindex, eigen naam/base-URL).
 
-Rollen-beslissing (Koen, 2026-07-13): Koen = OPERATOR (platformbreed);
-Raak Millegem FINANCE = Steven én Koen.
+Rollen-beslissing (2026-07-13): de platformbeheerder krijgt OPERATOR
+(platformbreed); binnen Raak Millegem krijgen de twee penningmeesters FINANCE.
 
 Revision ID: 087
 Revises: 086
 """
+import os
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -30,8 +32,15 @@ NIEUWE_ROLLEN = [
     ("ACCOUNT_ADMIN", "Accountbeheerder", "Beheert alle units binnen één account"),
 ]
 
-OPERATOR_EMAILS = ["koen.renders@gmail.com"]
-FINANCE_EMAILS = ["steven.paepen@ik.me", "koen.renders@gmail.com"]
+# Configuration, not source (see 014): real addresses come from the environment.
+def _emails(var: str, default: str) -> list[str]:
+    return [e.strip() for e in os.getenv(var, default).split(",") if e.strip()]
+
+
+OPERATOR_EMAILS = _emails("SEED_OPERATOR_EMAILS", "beheerder@example.com")
+FINANCE_EMAILS = _emails(
+    "SEED_FINANCE_EMAILS", "beheerder@example.com,penningmeester@example.com"
+)
 
 
 def _geef_rol(conn, email: str, role_code: str) -> None:

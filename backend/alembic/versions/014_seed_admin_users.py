@@ -1,9 +1,18 @@
-"""Seed admin users: koen.renders@gmail.com, steven.paepen@ik.me, kris.vandenbosch@raakvzw.be
+"""Seed the bootstrap admin accounts.
 
 Revision ID: 014
 Revises: 013
 Create Date: 2026-06-09
+
+The addresses are configuration, not source. This repository is public, so real
+addresses live in the environment (SEED_ADMIN_EMAILS, comma-separated) and never
+in the code. Unset falls back to the placeholders below: three inert example.com
+accounts mirroring the three seats this seed has always created — one that also
+gets FINANCE and OPERATOR later (056, 087), one that also gets FINANCE, and one
+that stays ADMIN-only.
 """
+import os
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -12,10 +21,14 @@ down_revision = "013"
 branch_labels = None
 depends_on = None
 
+DEFAULT_ADMIN_EMAILS = (
+    "beheerder@example.com,penningmeester@example.com,bestuurslid@example.com"
+)
+
 ADMIN_EMAILS = [
-    "koen.renders@gmail.com",
-    "steven.paepen@ik.me",
-    "kris.vandenbosch@raakvzw.be",
+    email.strip()
+    for email in os.getenv("SEED_ADMIN_EMAILS", DEFAULT_ADMIN_EMAILS).split(",")
+    if email.strip()
 ]
 
 

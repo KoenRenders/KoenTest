@@ -2,16 +2,17 @@
 
 Enkel FINANCE mag betalingen invullen, bewerken, terugbetalen of verwijderen.
 ADMIN mag betalingen wél inkijken (lijst, saldo) maar niet muteren. De rol wordt
-in migratie 056 toegekend aan koen.renders@gmail.com en steven.paepen@ik.me;
-kris.vandenbosch@raakvzw.be heeft enkel ADMIN en is dus de admin-only testcase.
+in migratie 056 toegekend aan de twee penningmeester-zetels; de derde zetel uit
+014 heeft enkel ADMIN en is dus de admin-only testcase. De adressen hieronder zijn
+de placeholder-defaults van SEED_ADMIN_EMAILS/SEED_FINANCE_EMAILS.
 """
 from decimal import Decimal
 
 from app.domains.auth.api import create_access_token, get_user_roles
 from app.domains.payment.api import PaymentRecord
 
-FINANCE_EMAIL = "koen.renders@gmail.com"      # ADMIN + FINANCE (014 + 056)
-ADMIN_ONLY_EMAIL = "kris.vandenbosch@raakvzw.be"  # enkel ADMIN (014)
+FINANCE_EMAIL = "beheerder@example.com"        # ADMIN + FINANCE (014 + 056)
+ADMIN_ONLY_EMAIL = "bestuurslid@example.com"   # enkel ADMIN (014)
 
 
 def _headers(email):
