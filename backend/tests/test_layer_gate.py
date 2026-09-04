@@ -66,7 +66,6 @@ LAYER_ALLOWLIST: set[tuple[str, str]] = {
     ("app.domains.media.admin_ui", "imports"),
     ("app.domains.media.ui", "imports"),
     ("app.domains.membership.ui", "imports"),
-    ("app.domains.payment.ui", "imports"),
     # ── regel 2: rauw ORM-gebruik in de routebody ────────────────────────────
     ("app.domains.activities.admin_ui", "orm"),
     ("app.domains.activities.ui", "orm"),

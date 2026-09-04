@@ -10,7 +10,7 @@ logger = logging.getLogger(__name__)
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy import and_, func, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.domains.auth.api import get_current_admin
 from app.database import get_db
@@ -227,7 +227,26 @@ def list_families(
         query = (query.filter(Member.id.in_(geldig)) if status == "actief"
                  else query.filter(Member.id.notin_(geldig)))
     total = query.count()
-    families = query.order_by(Member.created_at.desc()).offset((page - 1) * page_size).limit(page_size).all()
+    # Eager loading (#645): `_build_family_response` loopt per gezin over de
+    # gezinsleden, hun persoon, adres, postcode, contactgegevens en lidmaatschappen.
+    # Lui geladen waren dat vijf extra queries per gezin — bij 25 gezinnen op een
+    # pagina 125 queries voor één scherm, en met htmx voel je dat rechtstreeks.
+    # `selectinload` haalt elke laag in één extra query op, ongeacht het aantal
+    # gezinnen.
+    families = (query
+                .options(
+                    selectinload(Member.member_persons)
+                    .selectinload(MemberPerson.person)
+                    .selectinload(Person.contact_details),
+                    selectinload(Member.member_persons)
+                    .selectinload(MemberPerson.person)
+                    .selectinload(Person.address)
+                    .selectinload(Address.postal_code),
+                    selectinload(Member.memberships),
+                    joinedload(Member.board_member),
+                )
+                .order_by(Member.created_at.desc())
+                .offset((page - 1) * page_size).limit(page_size).all())
     result = [_build_family_response(m) for m in families]
     return PaginatedFamiliesResponse(
         items=result,

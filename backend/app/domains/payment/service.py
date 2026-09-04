@@ -757,3 +757,127 @@ def group_cards(records) -> list[dict]:
         groep["totaal"] = aggregate(groep["records"])
         groep["toon_totaal"] = len(groep["records"]) > 1
     return groepen
+
+
+# ── Verrijkte betaalrecords voor scherm en export (#645 E, #635) ──────────────
+
+def enriched_records(db: Session) -> list:
+    """Alle betaalrecords met hun context: wie, waarvoor, welke bestelregels.
+
+    Verving een lus die per record vijf losse queries deed (registratie →
+    onderdeel → activiteit → items → producten). Bij veertig records waren dat
+    ruim driehonderd queries voor één scherm; met htmx voel je dat rechtstreeks
+    (#645). Nu wordt per soort entiteit één keer gebatcht geladen en daarna in
+    dicts opgezocht — het aantal queries hangt niet meer van het aantal records af.
+
+    De verrijking haalt bewust óók soft-deleted entiteiten op (`include_deleted`,
+    #190): een betaling is een financieel feit en moet de bewaarde naam blijven
+    tonen, niet "—". De records zelf volgen de gewone soft-delete-filter.
+    """
+    from sqlalchemy.orm import selectinload
+
+    from app.domains.activities.api import (
+        Activity, ActivitySubRegistration, Registration, RegistrationItem,
+        compute_registration_total,
+    )
+    from app.domains.mdm.api import Member, MemberPerson, Person
+    from app.domains.membership.api import Membership
+    from app.domains.payment.schemas import EnrichedPaymentRecord
+
+    def _q(model):
+        return db.query(model).execution_options(include_deleted=True)
+
+    records = (db.query(PaymentRecord)
+               .options(selectinload(PaymentRecord.gateway_payment))
+               .order_by(PaymentRecord.created_at.desc()).all())
+
+    reg_ids = {r.payable_id for r in records if r.payable_type == "registration"}
+    ms_ids = {r.payable_id for r in records if r.payable_type == "membership"}
+
+    # Registraties mét items en producten in één keer: compute_registration_total
+    # loopt over registration.items en elk item over zijn product.
+    registraties = {}
+    if reg_ids:
+        registraties = {r.id: r for r in _q(Registration)
+                        .options(selectinload(Registration.items)
+                                 .selectinload(RegistrationItem.product),
+                                 selectinload(Registration.person))
+                        .filter(Registration.id.in_(reg_ids)).all()}
+    activiteiten = {}
+    onderdelen = {}
+    if registraties:
+        act_ids = {r.activity_id for r in registraties.values() if r.activity_id}
+        comp_ids = {r.component_id for r in registraties.values() if r.component_id}
+        if act_ids:
+            activiteiten = {a.id: a for a in
+                            _q(Activity).filter(Activity.id.in_(act_ids)).all()}
+        if comp_ids:
+            onderdelen = {c.id: c for c in _q(ActivitySubRegistration)
+                          .filter(ActivitySubRegistration.id.in_(comp_ids)).all()}
+
+    lidmaatschappen = {}
+    hoofdlid_naam = {}
+    if ms_ids:
+        lidmaatschappen = {m.id: m for m in
+                           _q(Membership).filter(Membership.id.in_(ms_ids)).all()}
+        member_ids = {m.member_id for m in lidmaatschappen.values()}
+        if member_ids:
+            leden = {m.id for m in _q(Member).filter(Member.id.in_(member_ids)).all()}
+            koppels = _q(MemberPerson).filter(
+                MemberPerson.member_id.in_(leden),
+                MemberPerson.relation_type == "HOOFDLID").all()
+            personen = {}
+            if koppels:
+                personen = {p.id: p for p in _q(Person)
+                            .filter(Person.id.in_({k.person_id for k in koppels})).all()}
+            for koppel in koppels:
+                persoon = personen.get(koppel.person_id)
+                if persoon is not None:
+                    hoofdlid_naam[koppel.member_id] = (
+                        f"{persoon.first_name} {persoon.last_name}")
+
+    resultaat = []
+    for r in records:
+        contact_name = description = None
+        activity_id = component_id = component_name = membership_year = None
+        reg_items: list = []
+
+        if r.payable_type == "registration":
+            reg = registraties.get(r.payable_id)
+            if reg is not None:
+                contact_name = reg.contact_name
+                activity_id = reg.activity_id
+                component_id = reg.component_id
+                onderdeel = onderdelen.get(reg.component_id)
+                component_name = onderdeel.name if onderdeel else None
+                activiteit = activiteiten.get(reg.activity_id)
+                if activiteit is not None:
+                    description = activiteit.name
+                    _totaal, regels = compute_registration_total(reg)
+                    reg_items = [{"product_name": regel["name"],
+                                  "quantity": regel["quantity"],
+                                  "unit_price": float(regel["unit_price"]),
+                                  "subtotal": float(regel["subtotal"])}
+                                 for regel in regels]
+        elif r.payable_type == "membership":
+            # payable_id is de Membership.id (niet de Member.id) — het jaar komt
+            # van het lidmaatschap, de naam van het hoofdlid van dat gezin (#141).
+            ms = lidmaatschappen.get(r.payable_id)
+            description = f"Lidmaatschap {ms.year}" if ms else "Lidmaatschap"
+            membership_year = ms.year if ms else None
+            if ms is not None:
+                contact_name = hoofdlid_naam.get(ms.member_id)
+
+        resultaat.append(EnrichedPaymentRecord(
+            id=r.id, payable_type=r.payable_type, payable_id=r.payable_id,
+            activity_id=activity_id, component_id=component_id,
+            component_name=component_name, membership_year=membership_year,
+            items=reg_items, amount=r.amount, amount_paid=r.amount_paid,
+            method=r.method, status=r.status, type=r.type,
+            refund_of_id=r.refund_of_id, note=r.note, paid_at=r.paid_at,
+            checkout_url=r.gateway_payment.checkout_url if r.gateway_payment else None,
+            structured_communication=r.structured_communication,
+            created_at=r.created_at, description=description,
+            contact_name=contact_name,
+        ))
+    return resultaat

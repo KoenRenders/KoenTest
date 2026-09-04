@@ -49,95 +49,14 @@ def list_all_payment_records(
 ):
     """List all payment records, enriched with contact name and description.
 
-    De betaling-records zelf volgen de gewone soft-delete-filter (verwijderde
-    betalingen tonen niet), maar de **verrijking** (naam/activiteit/onderdeel) haalt
-    bewust ook soft-deleted entiteiten op (`include_deleted=True`, #190): een betaling
-    is een financieel feit en moet de (bewaarde) naam blijven tonen, niet "—"."""
-    from app.domains.activities.api import Registration, Activity
-    from app.domains.activities.api import ActivitySubRegistration
-    from app.domains.mdm.api import Member, MemberPerson, Person
+    De verrijking zelf staat in `payment.service.enriched_records`: ze is
+    gebatcht (#645 — de vorige lus deed vijf queries per record) en wordt ook
+    door het beheerscherm gebruikt, dat anders een routerfunctie zou moeten
+    importeren (#635).
+    """
+    from app.domains.payment.service import enriched_records
 
-    def _q(model):
-        return db.query(model).execution_options(include_deleted=True)
-
-    records = db.query(PaymentRecord).order_by(PaymentRecord.created_at.desc()).all()
-    result = []
-    for r in records:
-        contact_name: Optional[str] = None
-        description: Optional[str] = None
-        activity_id: Optional[int] = None
-        component_id: Optional[int] = None
-        component_name: Optional[str] = None
-        membership_year: Optional[int] = None
-        reg_items: list = []
-
-        if r.payable_type == "registration":
-            reg = _q(Registration).filter(Registration.id == r.payable_id).first()
-            if reg:
-                contact_name = reg.contact_name
-                activity_id = reg.activity_id
-                component_id = reg.component_id
-                if reg.component_id is not None:
-                    comp = _q(ActivitySubRegistration).filter(
-                        ActivitySubRegistration.id == reg.component_id
-                    ).first()
-                    component_name = comp.name if comp else None
-                activity = _q(Activity).filter(Activity.id == reg.activity_id).first()
-                if activity:
-                    description = activity.name
-                    _total, regels = compute_registration_total(reg)
-                    reg_items = [
-                        {
-                            "product_name": line["name"],
-                            "quantity": line["quantity"],
-                            "unit_price": float(line["unit_price"]),
-                            "subtotal": float(line["subtotal"]),
-                        }
-                        for line in regels
-                    ]
-        elif r.payable_type == "membership":
-            # payable_id is de Membership.id (niet de Member.id) — eerst het
-            # lidmaatschap ophalen voor het jaar, dan het gezin + hoofdlid (#141).
-            from app.domains.membership.api import Membership
-            ms = _q(Membership).filter(Membership.id == r.payable_id).first()
-            description = f"Lidmaatschap {ms.year}" if ms else "Lidmaatschap"
-            membership_year = ms.year if ms else None
-            if ms:
-                member = _q(Member).filter(Member.id == ms.member_id).first()
-                if member:
-                    mp = _q(MemberPerson).filter(
-                        MemberPerson.member_id == member.id,
-                        MemberPerson.relation_type == "HOOFDLID",
-                    ).first()
-                    if mp:
-                        person = _q(Person).filter(Person.id == mp.person_id).first()
-                        if person:
-                            contact_name = f"{person.first_name} {person.last_name}"
-
-        result.append(EnrichedPaymentRecord(
-            id=r.id,
-            payable_type=r.payable_type,
-            payable_id=r.payable_id,
-            activity_id=activity_id,
-            component_id=component_id,
-            component_name=component_name,
-            membership_year=membership_year,
-            items=reg_items,
-            amount=r.amount,
-            amount_paid=r.amount_paid,
-            method=r.method,
-            status=r.status,
-            type=r.type,
-            refund_of_id=r.refund_of_id,
-            note=r.note,
-            paid_at=r.paid_at,
-            checkout_url=r.gateway_payment.checkout_url if r.gateway_payment else None,
-            structured_communication=r.structured_communication,
-            created_at=r.created_at,
-            description=description,
-            contact_name=contact_name,
-        ))
-    return result
+    return enriched_records(db)
 
 
 @router.get("/records/export")

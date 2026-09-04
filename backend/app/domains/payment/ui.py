@@ -38,14 +38,14 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
     labels en de filteropties.
     """
     from app.domains.payment.api import (
-        aggregate, derived_status, filter_records, group_cards, may_delete,
+        aggregate, derived_status, enriched_records, filter_records, group_cards,
+        may_delete,
     )
-    from app.domains.payment.status_router import list_all_payment_records
 
     context = (request.query_params.get("context") or "all").strip()
     status = (request.query_params.get("status") or "all").strip()
     q = (request.query_params.get("q") or "").strip()
-    records = list_all_payment_records(db=db, _viewer=None)  # type: ignore[arg-type]
+    records = enriched_records(db)
 
     # Filter-opties opbouwen: onderdelen (per activiteit) + lidmaatschapjaren.
     componenten: dict = {}
