@@ -195,7 +195,24 @@ Eén `<Badge>`-component; pill `px-2 py-0.5 rounded-full text-xs font-semibold`.
 - Leeg: **"Geen <items> gevonden."** na zoeken/filteren; **"Nog geen <items>."**
   als er nooit iets was. Niet italic; via één `<Empty>`-component.
 
-### 2.12 Terminologie (vast)
+### 2.12 Uploadveld (#623)
+Eén vorm voor élke plek waar een bestand bij een record hoort (activiteitaffiche,
+onderdeel-info, media). Die zagen er drie keer anders uit.
+
+Vaste volgorde: **label → bestandskiezer → huidige bijlage (link + verwijderen) →
+hint**. Macro: `ui.upload_field(name, text, current_url, delete_attrs, hint)`.
+
+- **Geen eigen submit-knop.** Het blok hoort in de vorm die het omvat, zodat één
+  "Opslaan" het tekstveld én het bestand bewaart. Een losse "Uploaden"-knop maakt van
+  één wijziging twee handelingen — precies wat de activiteiteneditor deed.
+- De omhullende vorm heeft `enctype="multipart/form-data"` en
+  `hx-encoding="multipart/form-data"` nodig.
+- **De bestaande bijlage staat náást de kiezer**, met een verwijderactie ernaast — niet
+  losjes ergens boven de vorm. Verwijderen ontbrak overal volledig.
+- Staat er ook een URL-veld naast (poster/info), zet dan als hint dat een opgeladen
+  bestand daarop primeert (#223), zodat het gedrag zichtbaar is.
+
+### 2.13 Terminologie (vast)
 Opslaan · Annuleren · Bewerken · Verwijderen · "+ Nieuwe <item>" ·
 "Zoek op <velden>…" · Vorige/Volgende · "Laden…" · "(Nog) geen <items>…".
 Titels en badges altijd Nederlands; nooit rauwe statuscodes tonen.
@@ -382,7 +399,7 @@ OrderLineEditor wisselt niet; laden-teksten wisselen ("Activiteiten laden…" vs
     (gesanctioneerd), maar met de veld-/fout-/succes-patronen hierboven.
 12. **Toon & microcopy**: je/jij (bevestigd, is al consistent); sentence case;
     één fouttekst-fallback: «Er is iets misgelopen. Probeer opnieuw.»; laden =
-    "Laden…", leeg = "(Nog) geen <items>…" — zelfde regels als Deel A §2.11/2.12.
+    "Laden…", leeg = "(Nog) geen <items>…" — zelfde regels als Deel A §2.11/2.13.
 13. **De kernactie van een activiteit heet "Inschrijven"** — op de kaartknop, in de
     modaltitel én op de submit. Niet "Schrijf je in": dat leest rommelig onder een
     titel die al "Inschrijven — <onderdeel>" zegt, het is de PROD-taal uit v1.14, en

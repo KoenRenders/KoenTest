@@ -511,7 +511,7 @@ async def onderdeel_info_uploaden(activity_id: int, component_id: int, request: 
                              email: str = Depends(require_admin_ui)):
     """Info-bijlage (afbeelding of PDF) per onderdeel uploaden (#451).
 
-    Heette "reglement" tot #623; één woord voor één ding (§2.12)."""
+    Heette "reglement" tot #623; één woord voor één ding (§2.13)."""
     from app.domains.media.api import upload_component_info
 
     if file is not None and file.filename:
