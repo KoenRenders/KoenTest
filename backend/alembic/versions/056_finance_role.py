@@ -7,6 +7,8 @@ toegekend aan dezelfde personen als de bestaande admin-seed (migration 014).
 Revision ID: 056
 Revises: 055
 """
+import os
+
 from alembic import op
 import sqlalchemy as sa
 
@@ -15,9 +17,13 @@ down_revision = "055"
 branch_labels = None
 depends_on = None
 
+# Configuration, not source (see 014): real addresses come from the environment.
+DEFAULT_FINANCE_EMAILS = "beheerder@example.com,penningmeester@example.com"
+
 FINANCE_EMAILS = [
-    "koen.renders@gmail.com",
-    "steven.paepen@ik.me",
+    email.strip()
+    for email in os.getenv("SEED_FINANCE_EMAILS", DEFAULT_FINANCE_EMAILS).split(",")
+    if email.strip()
 ]
 
 

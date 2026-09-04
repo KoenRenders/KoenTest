@@ -36,8 +36,10 @@ from app.database import get_db
 from app.domains.auth.api import create_access_token
 
 
-# Bestaat in de seed-migratie 014; gebruiken we als ingelogde admin.
-SEEDED_ADMIN_EMAIL = "koen.renders@gmail.com"
+# Bestaat in de seed-migratie 014; gebruiken we als ingelogde admin. Het is de
+# placeholder-default van SEED_ADMIN_EMAILS — echte adressen staan nooit in deze
+# publieke repo, ook niet in de tests.
+SEEDED_ADMIN_EMAIL = "beheerder@example.com"
 
 
 @pytest.fixture(scope="session", autouse=True)

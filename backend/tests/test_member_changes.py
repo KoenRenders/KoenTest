@@ -231,7 +231,7 @@ def test_changes_feed_payment_guest_shows_contact_name(client, db_session):
     assert reg_resp.status_code in (200, 201), reg_resp.text
 
     from app.domains.auth.api import create_access_token
-    headers = {"Authorization": f"Bearer {create_access_token({'sub': 'koen.renders@gmail.com'})}"}
+    headers = {"Authorization": f"Bearer {create_access_token({'sub': 'beheerder@example.com'})}"}
     resp = client.get("/api/v1/admin/changes",
                       params={"since": date.today().isoformat(), "group": "Betalingen"},
                       headers=headers)
