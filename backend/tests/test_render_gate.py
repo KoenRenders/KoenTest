@@ -74,7 +74,8 @@ def gevulde_admin(client, db_session):
     # Ook een formulier en een CMS-pagina: hun editors dragen de knoppen met
     # aria-labels en bevestigingen, en die vielen buiten de eerste versie van deze
     # gate — precies waar nog ge-escapete attributen bleken te staan.
-    formulier = Form(title="Rendergate-formulier")
+    formulier = Form(title="Rendergate-formulier", share_token="tok-rendergate",
+                     status="draft")
     pagina = CmsPage(title="Rendergate-pagina", slug="rendergate", content="<p>x</p>")
     db_session.add_all([formulier, pagina])
     db_session.commit()
