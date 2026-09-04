@@ -357,6 +357,12 @@ OrderLineEditor wisselt niet; laden-teksten wisselen ("Activiteiten laden…" vs
 12. **Toon & microcopy**: je/jij (bevestigd, is al consistent); sentence case;
     één fouttekst-fallback: «Er is iets misgelopen. Probeer opnieuw.»; laden =
     "Laden…", leeg = "(Nog) geen <items>…" — zelfde regels als Deel A §2.11/2.12.
+13. **De kernactie van een activiteit heet "Inschrijven"** — op de kaartknop, in de
+    modaltitel én op de submit. Niet "Schrijf je in": dat leest rommelig onder een
+    titel die al "Inschrijven — <onderdeel>" zegt, het is de PROD-taal uit v1.14, en
+    de foutteksten in `messages.po` gebruiken hetzelfde woord. Het design-system
+    toonde tot september 2026 "Schrijf je in" in referentiescherm B1; die mock is
+    rechtgezet, de code was al juist.
 
 ## B3. Gesanctioneerde uitzonderingen
 - **FamilyRegistrationForm** one-page (geen wizard) — bewust.
