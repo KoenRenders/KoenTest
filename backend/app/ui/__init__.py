@@ -5,9 +5,14 @@ template kiezen) + ``templates/`` (dom: alleen tonen). Dit pakket levert de
 gedeelde machinerie: de template-omgeving (met de component-template-mappen),
 de UI-kit-macro's en de shells (base-layouts).
 """
+import logging
 from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
+from jinja2 import Environment, FileSystemLoader, StrictUndefined, Undefined
+from jinja2 import make_logging_undefined
+
+from app.config import settings
 
 _UI_DIR = Path(__file__).parent
 
@@ -17,7 +22,32 @@ template_dirs: list[str] = [str(_UI_DIR / "templates")] + sorted(
     str(p) for p in _DOMAINS.glob("*/templates") if p.is_dir()
 )
 
-templates = Jinja2Templates(directory=template_dirs)
+# ── Undefined-beleid (#643) ───────────────────────────────────────────────────
+# In React ving TypeScript een verkeerde propnaam vóór de browser; Jinja rendert
+# een verkeerde variabelenaam standaard als lege string. Zo kon een route `totaal`
+# doorgeven terwijl de template `total` las, met 830 groene tests en een leeg vak
+# op het scherm — de structurele oorzaak achter #613/#616.
+#
+# Dev, test en HDEV draaien daarom StrictUndefined: een onbestaande variabele is
+# een fout, en de render-gate (#622) betrapt hem vóór de deploy. UAT en PROD
+# rendern leeg mét een WARNING in de log: een typo mag daar nooit een 500 worden
+# voor een bezoeker.
+_STRICT_ENVS = {"dev", "test", "hdev"}
+_undefined = (
+    StrictUndefined if settings.app_env in _STRICT_ENVS
+    else make_logging_undefined(logger=logging.getLogger("app.ui.undefined"),
+                                base=Undefined)
+)
+
+# LET OP — `autoescape=True` is hier XSS-kritisch. Starlette zet autoescape zelf
+# wanneer je `directory=` meegeeft, maar NIET wanneer je een eigen `env=`
+# meegeeft: dan is het jouw environment en jouw verantwoordelijkheid. Zonder deze
+# regel gaat élke `{{ }}` ongeëscapet naar de browser. De lint-gate bewaakt dat
+# de regel hier letterlijk blijft staan.
+_env = Environment(loader=FileSystemLoader(template_dirs), undefined=_undefined,
+                   autoescape=True)
+
+templates = Jinja2Templates(env=_env)
 
 # Taalbeleid (#407-T): {{ _("...") }} beschikbaar in alle templates, volgend
 # op de actieve tenant-taal.
