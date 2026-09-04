@@ -28,7 +28,11 @@
 </head>
 <body class="bg-gray-50 min-h-screen text-ink" x-data="{ open: false }"
       hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
-  {% if omgeving and omgeving != 'prod' %}<div class="bg-orange-500 text-white text-center text-xs font-semibold py-1">{{ omgeving|upper }} — testomgeving (geen productie)</div>{% endif %}
+  {# Zie site_base: de banner is sticky (#610) en de zijbalk start eronder. Op PROD
+     geen banner, dus md:top-0 + md:h-screen. Beide varianten letterlijk in de
+     template, anders genereert Tailwind de klassen niet. #}
+  {% set env_bar = omgeving and omgeving != 'prod' %}
+  {% if env_bar %}{{ ui.env_banner(omgeving) }}{% endif %}
 
   <div class="md:flex min-h-screen">
     {# Desktop-zijbalk (Indigo) — design-system §3 (patronen) #}
@@ -36,7 +40,7 @@
        zodat de menu in beeld blijft bij het scrollen van een lange pagina i.p.v. in
        een lege paarse balk te veranderen; overflow-y-auto laat een lange nav intern
        scrollen. #}
-    <aside class="hidden md:flex md:flex-col md:w-60 md:shrink-0 md:sticky md:top-0 md:h-screen overflow-y-auto bg-brand-indigo text-purple-100">
+    <aside class="hidden md:flex md:flex-col md:w-60 md:shrink-0 md:sticky {{ 'md:top-6 md:h-[calc(100vh-1.5rem)]' if env_bar else 'md:top-0 md:h-screen' }} overflow-y-auto bg-brand-indigo text-purple-100">
       <a href="/admin" class="block px-5 py-4 hover:opacity-90">
         <span class="font-brand uppercase tracking-tight text-white text-2xl leading-none">{{ _("Raak") }}</span>
         <span class="block text-xs text-purple-300 mt-0.5">{{ _("beheer") }}</span>

@@ -61,6 +61,14 @@
 <span class="text-xs font-semibold px-2 py-0.5 rounded-full {{ tones.get(tone, tones['gray']) }}">{{ label }}</span>
 {%- endmacro %}
 
+{# Omgevingsbanner (#464/#610). Sticky met een VASTE hoogte (h-6 = 1,5rem): de
+   schillen zetten hun eigen sticky element op `top-6`, dus die hoogte en die offset
+   moeten in de pas blijven. Daarom staat de hoogte hier op één plek i.p.v. twee keer
+   in de repo. Alleen tonen buiten productie — de schil beslist dat. #}
+{% macro env_banner(omgeving) -%}
+<div class="sticky top-0 z-50 h-6 leading-6 bg-orange-500 text-white text-center text-xs font-semibold">{{ omgeving|upper }} — testomgeving (geen productie)</div>
+{%- endmacro %}
+
 {% macro card() -%}
 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">{{ caller() }}</div>
 {%- endmacro %}

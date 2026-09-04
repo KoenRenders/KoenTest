@@ -66,9 +66,16 @@
   <script src="/static/vendor/alpine.min.js" defer></script>
 </head>
 <body class="bg-gray-50 min-h-screen text-ink" hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
-  {% if omgeving and omgeving != 'prod' %}<div class="bg-orange-500 text-white text-center text-xs font-semibold py-1">{{ omgeving|upper }} — testomgeving (geen productie)</div>{% endif %}
-  {% set _pad = request.url.path %}
-  <header class="sticky top-0 z-50">
+  {# Omgevingsbanner (#464) moet blijven staan bij het scrollen (#610): hij is zelf
+     sticky, en het element eronder start op de bannerhoogte. Op PROD is er geen
+     banner, dus daar weer top-0 — anders scrolt de inhoud door een gat van 24px.
+     Beide klassen staan letterlijk in de template, anders genereert Tailwind ze niet. #}
+  {% set env_bar = omgeving and omgeving != 'prod' %}
+  {% if env_bar %}{{ ui.env_banner(omgeving) }}{% endif %}
+  {# `request is defined` omdat site_base ook los gerenderd wordt (zonder
+     FastAPI-context) in test_footer_branding; dan markeert er simpelweg niets. #}
+  {% set _pad = request.url.path if request is defined else "" %}
+  <header class="sticky {{ 'top-6' if env_bar else 'top-0' }} z-40">
     <nav class="bg-blue-700 text-white shadow-md" x-data="{ open: false }">
       <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
         <a href="/" class="hover:opacity-80">
