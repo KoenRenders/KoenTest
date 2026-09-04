@@ -21,10 +21,6 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests_e2e.schermen import (BASE, Adminschil, Betalingenscherm,  # noqa: E402
                                 Inschrijvingsdetail, Ledenscherm, login_als_admin)
 
-# De contactnaam die seed_e2e.py gebruikt; hier herhaald i.p.v. geïmporteerd,
-# want de seed hoort niet in het importpad van de testomgeving te zitten.
-SEED_NAAM = "E2E Seed"
-
 
 def _ontbreekt(reden: str) -> None:
     """Ontbrekende data: skip tegen een echte omgeving, fout onder de e2e-seed.
@@ -80,58 +76,41 @@ def admin_page():
         browser.close()
 
 
-def _eerste_ogm(page) -> str:
-    """De OGM van de te testen kaart — uniek en zichtbaar op het scherm.
-
-    Onder de seed zoeken we expliciet de kaart van `E2E Seed` (#644-D): met
-    ".first" zou een tweede seed-rij de test later stil van onderwerp doen
-    veranderen. Tegen een echte omgeving blijft "de eerste kaart" het criterium,
-    want daar bestaat die naam niet.
-    """
-    bron = page
-    if os.environ.get("E2E_SEEDED") == "1":
-        kaart = page.locator(".bg-white", has_text=SEED_NAAM).first
-        if kaart.count() == 0:
-            _ontbreekt(f"geen betaalkaart voor {SEED_NAAM!r} op het scherm")
-        bron = kaart
-    tekst = bron.locator("text=OGM").first
-    if tekst.count() == 0:
-        _ontbreekt("geen betaling met OGM op deze omgeving")
-    return tekst.inner_text().split("OGM")[-1].strip()
-
-
 def test_betaling_bevestigen(admin_page):
     """De knop die in #616 inert was: doet ze in een echte browser wat ze belooft?"""
     betalingen = Betalingenscherm(admin_page).open()
-    if admin_page.get_by_role("button", name="Bevestig betaald").count() == 0:
+    kaart = betalingen.kaart_met_knop("Bevestig betaald")
+    if kaart.count() == 0:
         _ontbreekt("geen openstaande betaling om te bevestigen")
 
-    ogm = _eerste_ogm(admin_page)
-    betalingen.bevestig_betaald(ogm)
+    ogm = betalingen.ogm_van(kaart)
+    if ogm is None:
+        _ontbreekt("de openstaande betaling heeft geen OGM om haar aan te herkennen")
 
-    assert "Betaald" in " ".join(betalingen.badges(ogm))
+    betalingen.bevestig_betaald(kaart)
+
+    assert "Vereffend" in " ".join(betalingen.badges(ogm))
 
 
 def test_bestelregel_wijzigen_werkt_de_bedragen_bij(admin_page):
     """#613: aantal wijzigen deed niets doordat de attributen ge-escaped waren, en
     de bedragen op de kaart volgden niet."""
     betalingen = Betalingenscherm(admin_page).open()
-    if admin_page.get_by_text("Toon inschrijvingsdetails").count() == 0:
+    kaart = betalingen.kaart_met_knop("Toon inschrijvingsdetails")
+    if kaart.count() == 0:
         _ontbreekt("geen inschrijving met details op deze omgeving")
 
-    ogm = _eerste_ogm(admin_page)
-    betalingen.toon_inschrijvingsdetails(ogm)
-
-    detail = Inschrijvingsdetail(admin_page)
+    paneel = betalingen.toon_inschrijvingsdetails(kaart)
+    detail = Inschrijvingsdetail(paneel)
     detail.bewerken()
-    if admin_page.locator('input[name^="quantity_"]').count() == 0:
+    if detail.aantalvelden().count() == 0:
         _ontbreekt("geen bestelregels om te wijzigen")
 
     detail.zet_aantal(0, 3)
     detail.opslaan()
 
     # Het paneel blijft open (#613-3) en toont het herrekende totaal (#613-4).
-    assert admin_page.locator('input[name^="quantity_"]').first.input_value() == "3"
+    assert detail.aantalvelden().first.input_value() == "3"
     assert "Totaal" in detail.totaal()
 
 
@@ -266,7 +245,8 @@ def test_een_lopende_actie_is_zichtbaar(admin_page):
     onderweg. Een `wait_for_timeout` ná de klik zou een race zijn.
     """
     betalingen = Betalingenscherm(admin_page).open()
-    if admin_page.get_by_role("button", name="Bevestig betaald").count() == 0:
+    kaart = betalingen.kaart_met_knop("Bevestig betaald")
+    if kaart.count() == 0:
         _ontbreekt("geen openstaande betaling om te bevestigen")
 
     gezien = {}
@@ -280,7 +260,7 @@ def test_een_lopende_actie_is_zichtbaar(admin_page):
 
     admin_page.route("**/admin/betalingen/**", onderschep)
     try:
-        betalingen.bevestig_betaald(_eerste_ogm(admin_page))
+        betalingen.bevestig_betaald(kaart)
     finally:
         admin_page.unroute("**/admin/betalingen/**", onderschep)
 

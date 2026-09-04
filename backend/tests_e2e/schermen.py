@@ -43,8 +43,25 @@ class Betalingenscherm:
         """Een kaart aanwijzen via haar OGM — die is uniek en zichtbaar."""
         return self.page.locator(".bg-white", has_text=ogm).first
 
-    def bevestig_betaald(self, ogm: str):
-        kaart = self.kaart(ogm)
+    def kaart_met_knop(self, knoplabel: str):
+        """De eerste kaart die deze actie aanbiedt.
+
+        Betrouwbaarder dan "de eerste kaart" of een kaart op naam (#644-D): op één
+        payable staan meerdere records (een openstaande vordering, een betaalde,
+        een terugbetaling) met dezelfde contactnaam, en welke bovenaan staat hangt
+        van de aanmaakvolgorde af. Een test die "bevestig betaald" wil, hoort de
+        kaart te kiezen die dat kán.
+        """
+        return self.page.locator(
+            ".bg-white", has=self.page.get_by_role("button", name=knoplabel)).first
+
+    def ogm_van(self, kaart) -> str | None:
+        tekst = kaart.locator("text=OGM").first
+        if tekst.count() == 0:
+            return None
+        return tekst.inner_text().split("OGM")[-1].strip()
+
+    def bevestig_betaald(self, kaart):
         kaart.get_by_role("button", name="Bevestig betaald").click()
         # In-app bevestigingsmodal (#595), geen browser-confirm.
         self.page.get_by_role("button", name="Bevestigen").click()
@@ -53,30 +70,42 @@ class Betalingenscherm:
     def badges(self, ogm: str) -> list[str]:
         return self.kaart(ogm).locator("span.rounded-full").all_inner_texts()
 
-    def toon_inschrijvingsdetails(self, ogm: str):
-        self.kaart(ogm).get_by_text("Toon inschrijvingsdetails").click()
-        self.page.wait_for_selector(".bg-gray-50", timeout=5000)
+    def toon_inschrijvingsdetails(self, kaart):
+        """Klap het detail open en geef het paneel terug, zodat de bewerkingen
+        erna binnen díe kaart gebeuren en niet in een andere op de pagina."""
+        kaart.get_by_text("Toon inschrijvingsdetails").click()
+        paneel = kaart.locator('[id^="det-"]')
+        paneel.first.wait_for(state="visible", timeout=5000)
+        return paneel.first
 
 
 class Inschrijvingsdetail:
-    """Het gedeelde detail/editor-fragment onder een betaalkaart."""
+    """Het gedeelde detail/editor-fragment onder een betaalkaart.
 
-    def __init__(self, page):
-        self.page = page
+    Krijgt het paneel mee i.p.v. de hele pagina: op het betalingenscherm staan
+    meerdere kaarten met elk hun eigen "Bewerken" en "Opslaan", en `.first` op de
+    pagina belandde in de verkeerde.
+    """
+
+    def __init__(self, paneel):
+        self.paneel = paneel
+        self.page = paneel.page
 
     def bewerken(self):
-        self.page.get_by_role("button", name="Bewerken").first.click()
+        self.paneel.get_by_role("button", name="Bewerken").first.click()
+
+    def aantalvelden(self):
+        return self.paneel.locator('input[name^="quantity_"]')
 
     def zet_aantal(self, index: int, aantal: int):
-        veld = self.page.locator('input[name^="quantity_"]').nth(index)
-        veld.fill(str(aantal))
+        self.aantalvelden().nth(index).fill(str(aantal))
 
     def opslaan(self):
-        self.page.get_by_role("button", name="Opslaan").first.click()
+        self.paneel.get_by_role("button", name="Opslaan").first.click()
         self.page.wait_for_timeout(400)
 
     def totaal(self) -> str:
-        return self.page.locator("text=Totaal").first.inner_text()
+        return self.paneel.locator("text=Totaal").first.inner_text()
 
 
 class Ledenscherm:

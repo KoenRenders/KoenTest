@@ -26,8 +26,12 @@ def test_adres_bewerken_houdt_zijn_knop_tijdens_het_bewerken():
     adresblok = tekst.split('/adres"')[0].rsplit("{# Adres", 1)[-1]
 
     assert "ui.edit_toggle" in adresblok, "de adressectie gebruikt de kit-toggle niet"
-    assert 'x-show="!edit"' not in adresblok.split("ui.edit_toggle")[0].rsplit("<div", 1)[-1], (
-        "de knop staat weer in een blok dat door de bewerkmodus verborgen wordt")
+    # De oude vorm: een eigen knop die de modus alleen aanzet, binnen het blok dat
+    # door diezelfde modus verborgen wordt.
+    assert '_("Adres bewerken"), attrs=' not in adresblok, (
+        "weer een eigen knop i.p.v. ui.edit_toggle()")
+    assert '@click="edit = true"' not in adresblok, (
+        "een knop die de bewerkmodus alleen aanzet heeft geen weg terug")
 
 
 def test_de_adresknop_toont_beide_standen(client, db_session):
