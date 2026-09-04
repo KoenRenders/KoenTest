@@ -143,6 +143,14 @@ leeg-teksten wisselen tussen "Geen …" en "Nog geen …" en tussen italic en ni
   "Bewaar"; "Toevoegen" mag enkel op een sub-item-form dat direct toevoegt.
   Uitzondering: onomkeerbare wizard-commits benoemen het gevolg ("Definitief
   importeren").
+- **De knop die de bewerkmodus opent, is een toggle en volgt de toestand**:
+  "Bewerken" in lees-modus, **"Annuleren"** in bewerk-modus (zelfde knop, zelfde
+  plaats — zie `_aa_detail.html`, #503). Een knop die "Bewerken" blijft zeggen
+  terwijl je al bewerkt, liegt over de toestand; hem verbergen geeft layout-shift.
+- Die toggle **vervangt de [Annuleren] onderaan niet**. Ze hebben elk hun reden:
+  onderaan staat het actiepaar waar je aandacht is op het moment dat je opslaat,
+  bovenaan de modus-schakelaar. Bij een lang formulier ligt de bovenste bovendien
+  buiten beeld. Beide dus.
 
 ### 2.9 Feedback
 - **Fout**: altijd `parseApiError` → **rode banner** (`bg-red-50 text-red-700
