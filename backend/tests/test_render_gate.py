@@ -50,9 +50,10 @@ def gevulde_admin(client, db_session):
 
     Levert de id's van de detailschermen die alleen met een id bestaan.
     """
-    from app.domains.payment.api import PaymentRecord
     from app.domains.cms.api import CmsPage
     from app.domains.forms.api import Form
+    from app.domains.membership.api import Membership
+    from app.domains.payment.api import PaymentRecord
 
     seed_postal_code(db_session)
     member, person = create_test_family(db_session, email="rendergate@example.com")
@@ -71,6 +72,14 @@ def gevulde_admin(client, db_session):
         payable_type="registration", payable_id=reg_id, type="charge",
         amount=Decimal("20.00"), amount_paid=Decimal("20.00"), method="transfer",
         status="paid"))
+    # Een lidmaatschap, zodat het gezinsdetail zijn lidmaatschapsrijen rendert — daar
+    # zitten de verwijderknoppen met confirm_attrs, het toneel van #514.
+    from datetime import date
+
+    jaar = date.today().year
+    db_session.add(Membership(member_id=member.id, year=jaar, is_active=True,
+                              valid_from=date(jaar, 1, 1), valid_to=date(jaar, 12, 31)))
+
     # Ook een formulier en een CMS-pagina: hun editors dragen de knoppen met
     # aria-labels en bevestigingen, en die vielen buiten de eerste versie van deze
     # gate — precies waar nog ge-escapete attributen bleken te staan.

@@ -12,6 +12,7 @@ from app.domains.payment.api import (
     PaymentRecord, PaymentRecordHistory,
     create_refund, net_paid, set_payment_status, void_payment_record,
 )
+from tests._invarianten import assert_saldo_klopt
 
 
 pytestmark = pytest.mark.ui_agnostisch
@@ -55,6 +56,8 @@ def test_set_status_to_paid_sets_amount_paid(db_session):
     db_session.flush()
     assert charge.status == "paid"
     assert charge.amount_paid == Decimal("20.00") and charge.paid_at is not None
+    # Gedeelde invariant (#622): het bedrag alleen zegt niets over de hele payable.
+    assert_saldo_klopt(db_session, "registration", charge.payable_id, "20.00")
     assert net_paid(db_session, "registration", charge.payable_id) == Decimal("20.00")
 
 

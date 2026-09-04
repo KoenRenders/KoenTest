@@ -15,6 +15,7 @@ from app.domains.payment.api import (
     create_refund, net_paid, registration_balance,
 )
 from app.domains.payment.api import PaymentRecordHistory
+from tests._invarianten import assert_saldo_klopt
 from tests.conftest import seed_activity_with_product
 
 
@@ -91,6 +92,8 @@ def test_partial_refund_leaves_remaining_balance(db_session):
     charge = _seed_charge(db_session, amount="18.00", amount_paid="18.00")
     create_refund(db_session, charge.id, Decimal("5.00"), actor="admin@test")
     assert net_paid(db_session, "registration", charge.payable_id) == Decimal("13.00")
+    # Gedeelde invariant (#622): niet enkel het eindbedrag, ook de som van de records.
+    assert_saldo_klopt(db_session, "registration", charge.payable_id, "13.00")
 
 
 def test_cannot_refund_more_than_received(db_session):
@@ -174,6 +177,7 @@ def test_refund_endpoint_creates_refund(client, db_session, admin_headers):
     assert body["type"] == "refund"
     assert Decimal(str(body["amount"])) == Decimal("-18.00")
     assert body["refund_of_id"] == charge.id
+    assert_saldo_klopt(db_session, "registration", charge.payable_id, "0.00")
 
 
 def test_refund_endpoint_rejects_over_refund(client, db_session, admin_headers):

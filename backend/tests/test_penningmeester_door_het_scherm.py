@@ -8,6 +8,12 @@ de teruggegeven HTML.
 P8 is de kern en loopt door élke test: **wat op het scherm staat en wat in de databank
 staat mogen niet uit elkaar lopen.** Bij #617 klopte de databank en loog het scherm —
 geen enkele bedragtest had dat gevangen.
+
+**Waar we op asserteren** (indelingsafspraak van #622): bedrag en status horen op het
+**view-model**/de records, de **labels en badges** op de HTML. Een bedrag als tekst in
+de HTML zoeken is broos en zou bij een React-port waardeloos worden; de status-controle
+overleeft elke UI-technologie. Zo is bij een eventuele port de helft van dit bestand
+zonder werk nog geldig.
 """
 from decimal import Decimal
 
@@ -57,8 +63,10 @@ def test_P1_bevestig_betaald_toont_de_volle_som(client, db_session):
 
     html = _post(client, hdr, f"/admin/betalingen/{charge.id}/bevestigen")
 
+    # Bedrag/status → op de records; label → op de HTML.
+    db_session.expire_all()
+    assert db_session.get(PaymentRecord, charge.id).amount_paid == Decimal("30.00")
     assert "Openstaand" not in html
-    assert "30.00" in html
     assert_saldo_klopt(db_session, *PAYABLE, "30.00")
     assert_geen_pending_als_betaald(html)
 
@@ -83,8 +91,11 @@ def test_P3_deelbedrag_laat_het_restant_openstaan(client, db_session):
     html = _post(client, hdr, f"/admin/betalingen/{charge.id}/bewerken",
                  status="pending", amount_paid="10.00", note="")
 
+    db_session.expire_all()
+    rec = db_session.get(PaymentRecord, charge.id)
+    assert rec.amount_paid == Decimal("10.00")
+    assert rec.amount - rec.amount_paid == Decimal("20.00"), "restant"
     assert "Openstaand" in html, "de rest hoort zichtbaar te blijven"
-    assert "20.00" in html
     assert_saldo_klopt(db_session, *PAYABLE, "30.00")
 
 
