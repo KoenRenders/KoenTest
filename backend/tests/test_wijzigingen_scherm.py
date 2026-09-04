@@ -88,9 +88,11 @@ def test_elke_rij_heeft_een_samenvatting_zonder_het_object_te_herhalen(client, d
     _wijzigingen(db_session, 3)
     rijen = all_changes_since(db_session, date.today())
     assert rijen, "geen audit-rijen om te toetsen"
+    # all_changes_since levert dicts; Jinja verbergt dat verschil met r.summary,
+    # Python niet.
     for r in rijen:
-        assert (r.summary or "").strip(), f"lege samenvatting voor {r.entity}"
-        assert f"#{r.entity_id}" not in (r.summary or ""), \
+        assert (r["summary"] or "").strip(), f"lege samenvatting voor {r['entity']}"
+        assert f"#{r['entity_id']}" not in (r["summary"] or ""), \
             "de samenvatting herhaalt het object — dat staat in de Object-kolom"
 
 
