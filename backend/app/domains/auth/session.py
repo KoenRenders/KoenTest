@@ -79,6 +79,9 @@ def _session_raw(request: Request) -> Optional[str]:
 # nog niet functioneel ingevuld → geen algemene toegang tot het gedefinieerd is.
 _GENERAL_ADMIN_ROLES = {"ADMIN", "OPERATOR"}
 _PAYMENTS_VIEW_ROLES = {"ADMIN", "FINANCE", "OPERATOR"}
+# Muteren van geld is nauwer dan bekijken: een ADMIN mag de betalingenpagina zien,
+# maar niet bevestigen of terugbetalen (financiële scheiding, #83).
+_PAYMENTS_MUTATE_ROLES = {"FINANCE", "OPERATOR"}
 
 
 def _require_ui_roles(request: Request, db: Session, allowed: set[str]) -> str:
@@ -107,10 +110,24 @@ def require_admin_ui(request: Request, db: Session = Depends(get_db)) -> str:
 
 
 def require_finance_ui(request: Request, db: Session = Depends(get_db)) -> str:
-    """Betalingen-schermen: ADMIN, FINANCE of OPERATOR mogen kijken/exporteren. De
-    mutaties (bevestigen/terugbetalen/bewerken) zijn nauwer, FINANCE/OPERATOR — die
-    check zit in `payment/ui.py` (`_require_finance`)."""
+    """Betalingen-schermen: ADMIN, FINANCE of OPERATOR mogen kijken/exporteren."""
     return _require_ui_roles(request, db, _PAYMENTS_VIEW_ROLES)
+
+
+def require_finance_mutation(db: Session, email: str) -> None:
+    """Betaal-MUTATIES (bevestigen/terugbetalen/bewerken/verwijderen): FINANCE of
+    OPERATOR (#83/#530).
+
+    Geen `Depends`: deze check komt ná `require_finance_ui`, die de identiteit al
+    heeft vastgesteld, en wordt midden in een route aangeroepen. Ze woont hier
+    omdat autorisatie één plek hoort te hebben — `payment/ui.py` had er een eigen
+    kopie van (#635 punt 10).
+    """
+    from app.domains.auth.service import get_user_roles  # lazy: vermijdt cykel
+
+    if not (_PAYMENTS_MUTATE_ROLES & set(get_user_roles(db, email))):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail=_("Alleen FINANCE mag betalingen wijzigen."))
 
 
 def require_csrf(request: Request) -> None:

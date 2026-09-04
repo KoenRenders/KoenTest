@@ -4,9 +4,11 @@ Eén blad met elk betaalrecord (vordering of terugbetaling) + de 'waarvoor'-cont
 (inschrijver + activiteit, of hoofdlid + Lidmaatschap <jaar>), met een totaalrij
 te betalen / betaald / saldo (netto — refunds zijn negatieve records).
 
-De export **volgt het actieve filter** van de pagina (context + status), zodat de
-.ods exact toont wat de penningmeester op het scherm ziet. De filterlogica spiegelt
-het pure predicaat in de frontend (@/lib/paymentFilters).
+De export **volgt het actieve filter** van de pagina (context + status + zoekterm),
+zodat de .ods exact toont wat de penningmeester op het scherm ziet. Sinds #635 is
+dat geen spiegeling meer maar dezelfde functie: `payment.service.matches_filter`.
+De vorige twee kopieën waren al uit elkaar gelopen — het scherm kende `failed`,
+`cancelled` en vrij zoeken, de export niet.
 
 Bevat persoons- en financiële data: enkel admin/penningmeester, nooit in de repo.
 (verhuisd uit app/services/payments_export.py, #444)
@@ -58,34 +60,16 @@ def _enrich(db, r) -> tuple[str, Optional[int], Optional[int]]:
     return f"{r.payable_type} #{r.payable_id}", None, None
 
 
-def _passes_filter(r, membership_year, component_id, context: str, status: str) -> bool:
-    """Spiegelt matchesPaymentFilter (@/lib/paymentFilters): context (#90/#308) + status (#83)."""
-    amount = Decimal(str(r.amount or 0))
-    paid = Decimal(str(r.amount_paid)) if r.amount_paid is not None else Decimal("0")
-    saldo = amount - paid
+def build_payments_export_ods(db, context: str = "all", status: str = "all",
+                              q: str = "") -> bytes:
+    """Bouw de .ods met de (gefilterde) betalingen & vorderingen + totaalrij. Bytes terug.
 
-    # Context: lidmaatschap (alle jaren of één jaar) of één activiteit-onderdeel.
-    if context == "membership" and r.payable_type != "membership":
-        return False
-    if context.startswith("year-"):
-        if r.payable_type != "membership" or membership_year != int(context[5:]):
-            return False
-    if context.startswith("comp-"):
-        if r.payable_type != "registration" or component_id != int(context[5:]):
-            return False
+    De filter is `payment.service.matches_filter` — dezelfde functie die het scherm
+    gebruikt (#635). `membership_year` en `component_id` komen hier uit `_enrich`,
+    want de rauwe records dragen ze niet.
+    """
+    from app.domains.payment.service import matches_filter
 
-    # Status: betaald/openstaand uit het saldo (betaald = waarheid, #198).
-    if status == "pending":
-        return r.status == "pending"
-    if status == "paid":
-        return r.status == "paid"
-    if status == "openstaand":
-        return saldo > Decimal("0.001")
-    return True
-
-
-def build_payments_export_ods(db, context: str = "all", status: str = "all") -> bytes:
-    """Bouw de .ods met de (gefilterde) betalingen & vorderingen + totaalrij. Bytes terug."""
     records = db.query(PaymentRecord).order_by(PaymentRecord.created_at.desc()).all()
 
     headers = ["Waarvoor", "Soort", "Type", "Betaalwijze", "Status", "Mededeling (OGM)",
@@ -95,7 +79,9 @@ def build_payments_export_ods(db, context: str = "all", status: str = "all") -> 
     tot_paid = Decimal("0")
     for r in records:
         label, membership_year, component_id = _enrich(db, r)
-        if not _passes_filter(r, membership_year, component_id, context, status):
+        if not matches_filter(r, context=context, status=status, q=q,
+                              membership_year=membership_year,
+                              component_id=component_id):
             continue
         amount = Decimal(str(r.amount or 0))
         paid = Decimal(str(r.amount_paid)) if r.amount_paid is not None else Decimal("0")

@@ -612,3 +612,148 @@ def reconcile_registration_charges(
     reconcile_charges(db, "registration", registration.id,
                       compute_registration_total(registration)[0],
                       audit_actor=audit_actor)
+
+
+# ── Wat het betalingenscherm en de export samen nodig hebben (#635 punt 4/9) ──
+# Filter, aggregatie, kaartgroepering en afgeleide status stonden in de UI-route
+# (payment/ui.py) en, half, nog eens in exports.py. Ze waren al uit elkaar gelopen:
+# het scherm kende `failed`/`cancelled` en vrije zoektekst, de export niet; de
+# export eiste payable_type == "registration" bij een onderdeelfilter, het scherm
+# niet. Wie op het scherm filterde en dan exporteerde, kreeg iets anders. Eén
+# implementatie, twee ingangen.
+
+_SALDO_DREMPEL = Decimal("0.001")   # afrondingsruis is geen openstaand saldo
+
+
+def _bedrag(waarde) -> Decimal:
+    return Decimal(str(waarde or 0))
+
+
+def matches_filter(record, *, context: str = "all", status: str = "all", q: str = "",
+                   membership_year=None, component_id=None) -> bool:
+    """Hoort dit record bij het gekozen filter?
+
+    `membership_year`/`component_id` mogen expliciet meegegeven worden voor
+    aanroepers die ze zelf afleiden (de export verrijkt de rauwe records); anders
+    komen ze van het record zelf, zoals het scherm ze krijgt.
+
+    Volgorde is betekenisvol: de zoekterm staat vóór de andere filters, zodat je
+    binnen het gekozen filter zoekt en niet erbuiten (#591).
+    """
+    jaar = membership_year if membership_year is not None else getattr(record, "membership_year", None)
+    comp = component_id if component_id is not None else getattr(record, "component_id", None)
+
+    term = (q or "").strip().lower()
+    if term:
+        velden = (getattr(record, "contact_name", None),
+                  getattr(record, "structured_communication", None),
+                  getattr(record, "description", None),
+                  getattr(record, "component_name", None))
+        if not any(term in (waarde or "").lower() for waarde in velden):
+            return False
+
+    if context == "membership" and record.payable_type != "membership":
+        return False
+    if context.startswith("year-"):
+        if record.payable_type != "membership" or jaar != int(context[5:]):
+            return False
+    if context.startswith("comp-"):
+        # payable_type meecontroleren (kwam uit de export-variant): een
+        # component_id hoort per definitie bij een inschrijving.
+        if record.payable_type != "registration" or comp != int(context[5:]):
+            return False
+
+    if status == "openstaand":
+        # Openstaand komt uit het saldo, niet uit de statuskolom: betaald =
+        # waarheid (#198).
+        return (_bedrag(record.amount) - _bedrag(record.amount_paid)) > _SALDO_DREMPEL
+    if status in ("pending", "paid", "failed", "cancelled"):
+        return record.status == status
+    return True
+
+
+def filter_records(records, *, context: str = "all", status: str = "all", q: str = "") -> list:
+    return [r for r in records if matches_filter(r, context=context, status=status, q=q)]
+
+
+def aggregate(records) -> dict:
+    """Te betalen / ontvangen / saldo over een verzameling records."""
+    due = sum((_bedrag(r.amount) for r in records), Decimal("0"))
+    paid = sum((_bedrag(r.amount_paid) for r in records), Decimal("0"))
+    return {"due": due, "paid": paid, "saldo": due - paid}
+
+
+def derived_status(record) -> str:
+    """De status zoals ze op het scherm hoort te staan.
+
+    De kolom `status` kent "Deels betaald" niet: dat is een *afgeleide* toestand
+    (pending met een gedeeltelijke betaling) die de template zelf uitrekende — een
+    regel die zo alleen in Jinja bestond en nergens testbaar was (#635 punt 9).
+    Ook een terugbetaling die nog uitbetaald moet worden krijgt hier haar eigen
+    naam, zodat het scherm niet op `type` én `status` hoeft te puzzelen.
+
+    Waarden: paid · refund_due · partial · pending · failed · cancelled · <rauw>.
+    """
+    if record.status == "paid":
+        return "paid"
+    if getattr(record, "type", None) == "refund" and record.status == "pending":
+        return "refund_due"
+    if record.status == "pending":
+        betaald = record.amount_paid
+        if betaald is not None and _bedrag(betaald) != 0:
+            return "partial"
+        return "pending"
+    return record.status
+
+
+def may_delete(record) -> bool:
+    """Mag dit record verwijderd worden? Dezelfde regel als de guard in
+    status_router (#218/#617-2c), zodat het scherm geen knop toont die de guard
+    daarna weigert."""
+    if record.method == "online" and record.status == "paid":
+        return False
+    return record.amount_paid is None or _bedrag(record.amount_paid) == 0
+
+
+def group_cards(records) -> list[dict]:
+    """Groepeer records tot wat één kaartenlijst per payable toont.
+
+    Per groep (payable_type, payable_id): de charges met hun eigen refunds
+    (`refund_of_id`), de onderliggende records en het totaal. Wees-refunds — hun
+    charge valt buiten het filter — krijgen een eigen kaart, anders verdwijnen ze
+    stil van het scherm.
+
+    `toon_totaal` staat aan zodra een payable meer dan één record heeft: de
+    totaalregel telt de héle inschrijving, niet één charge met haar refunds. Dat
+    laatste was de fout van #617-2e — een inschrijving met twee charges kreeg twee
+    regels die geen van beide de inschrijving telden.
+    """
+    charges = [r for r in records if r.type != "refund"]
+    refunds = [r for r in records if r.type == "refund"]
+
+    per_charge: dict = {}
+    for r in refunds:
+        if r.refund_of_id:
+            per_charge.setdefault(r.refund_of_id, []).append(r)
+    charge_ids = {r.id for r in charges}
+
+    kaarten = [(r, per_charge.get(r.id, [])) for r in charges]
+    kaarten += [(r, []) for r in refunds
+                if not r.refund_of_id or r.refund_of_id not in charge_ids]
+    kaarten.sort(key=lambda p: p[0].created_at, reverse=True)
+
+    groepen: list[dict] = []
+    volgorde: dict = {}
+    for charge, eigen_refunds in kaarten:
+        sleutel = (charge.payable_type, charge.payable_id)
+        if sleutel not in volgorde:
+            volgorde[sleutel] = len(groepen)
+            groepen.append({"kaarten": [], "records": []})
+        groep = groepen[volgorde[sleutel]]
+        groep["kaarten"].append((charge, eigen_refunds))
+        groep["records"].extend([charge] + eigen_refunds)
+
+    for groep in groepen:
+        groep["totaal"] = aggregate(groep["records"])
+        groep["toon_totaal"] = len(groep["records"]) > 1
+    return groepen

@@ -194,8 +194,15 @@ def test_navigeren_bouwt_de_schil_niet_opnieuw_op(admin_page):
     venster_leeft = admin_page.evaluate("!!window.__raakVenster")
     assert venster_leeft, f"volledige herlaad i.p.v. een gebooste navigatie; JS-fouten: {fouten}"
     assert schil.zijbalk_is_nog_dezelfde(), "htmx swapte meer dan #main"
-    assert admin_page.title() != titel_voor, "de tabtitel volgde de navigatie niet"
-    assert "/admin/activiteiten" in admin_page.url
+
+    # Is de inhoud echt gewisseld? De zijbalk overleeft ook een swap die niet
+    # doorging, dus die assertie alleen bewijst nog niets.
+    kop = admin_page.locator("#main h1").first.inner_text()
+    assert "ctiviteiten" in kop, f"#main toont nog het oude scherm: {kop!r}"
+    assert "/admin/activiteiten" in admin_page.url, (
+        f"de URL is niet meegegaan: {admin_page.url}")
+    assert admin_page.title() != titel_voor, (
+        f"de tabtitel volgde de navigatie niet (blijft {titel_voor!r})")
     assert not fouten, f"JS-fouten tijdens de navigatie: {fouten}"
 
 

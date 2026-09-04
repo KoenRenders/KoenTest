@@ -17,7 +17,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
-    SESSION_COOKIE, csrf_token_for, get_user_roles, require_finance_ui, require_csrf,
+    SESSION_COOKIE, csrf_token_for, get_user_roles, require_csrf,
+    require_finance_mutation, require_finance_ui,
 )
 from app.ui import admin_nav, templates
 from app.i18n import _
@@ -28,15 +29,17 @@ router = APIRouter(include_in_schema=False)
 NAV = admin_nav("/admin/betalingen")
 
 
-def _require_finance(db: Session, email: str) -> None:
-    """Betaal-MUTATIES (bevestigen/terugbetalen/bewerken) zijn FINANCE-only —
-    financiële scheiding (#83). OPERATOR (platform-superuser) mag alles (#530)."""
-    if not ({"FINANCE", "OPERATOR"} & set(get_user_roles(db, email))):
-        raise HTTPException(status_code=403,
-                            detail=_("Alleen FINANCE mag betalingen wijzigen."))
-
-
 def _ctx(request: Request, db: Session, email: str) -> dict:
+    """View-model voor het betalingenscherm.
+
+    Filteren, optellen, groeperen en het afleiden van de status gebeuren in
+    `payment.service` (#635 punt 4/9), zodat de export exact dezelfde set toont
+    als het scherm. Hier blijft alleen het vormgeven over: bedragen per kaart,
+    labels en de filteropties.
+    """
+    from app.domains.payment.api import (
+        aggregate, derived_status, filter_records, group_cards, may_delete,
+    )
     from app.domains.payment.status_router import list_all_payment_records
 
     context = (request.query_params.get("context") or "all").strip()
@@ -56,68 +59,12 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
         if r.membership_year is not None:
             jaren.add(r.membership_year)
 
-    term = q.lower()
-
-    def _zichtbaar(r) -> bool:
-        # Vrij zoeken (#591) op de drie dingen waarmee je een betaling in de hand
-        # terugvindt: de naam op het overschrijvingsformulier, de gestructureerde
-        # mededeling en de omschrijving. Het staat vóór de andere filters, zodat
-        # een zoekterm binnen het gekozen filter zoekt en niet erbuiten.
-        if term and not any(term in (waarde or "").lower() for waarde in
-                            (r.contact_name, r.structured_communication,
-                             r.description, r.component_name)):
-            return False
-        # Context (zelfde conventie als de export-filter): membership / year-<n> /
-        # comp-<id>. Zo werkt de export-link met dezelfde parameters.
-        if context == "membership" and r.payable_type != "membership":
-            return False
-        if context.startswith("year-"):
-            if r.payable_type != "membership" or r.membership_year != int(context[5:]):
-                return False
-        if context.startswith("comp-") and r.component_id != int(context[5:]):
-            return False
-        # Status: openstaand uit het saldo (betaald = waarheid, #198).
-        amount = Decimal(str(r.amount or 0))
-        paid = Decimal(str(r.amount_paid or 0))
-        if status == "openstaand":
-            return (amount - paid) > Decimal("0.001")
-        if status in ("pending", "paid", "failed", "cancelled"):
-            return r.status == status
-        return True
-
-    zichtbaar = [r for r in records if _zichtbaar(r)]
-
-    def _rij(recs) -> dict:
-        due = sum((Decimal(str(x.amount or 0)) for x in recs), Decimal("0"))
-        paid = sum((Decimal(str(x.amount_paid or 0)) for x in recs), Decimal("0"))
-        return {"due": due, "paid": paid, "saldo": due - paid}
+    zichtbaar = filter_records(records, context=context, status=status, q=q)
 
     charges = [r for r in zichtbaar if r.type != "refund"]
     refunds = [r for r in zichtbaar if r.type == "refund"]
-    m_bet, m_ref = _rij(charges), _rij(refunds)
+    m_bet, m_ref = aggregate(charges), aggregate(refunds)
     m_net = {k: m_bet[k] - m_ref[k] for k in ("due", "paid", "saldo")}
-
-    # Kaarten: elke charge met haar bijhorende refunds (refund_of_id) samen (#455).
-    refunds_by_parent: dict = {}
-    for r in refunds:
-        if r.refund_of_id:
-            refunds_by_parent.setdefault(r.refund_of_id, []).append(r)
-    charge_ids = {r.id for r in charges}
-    kaarten = [(r, refunds_by_parent.get(r.id, [])) for r in charges]
-    # Wees-refunds (charge niet zichtbaar door de filter) apart tonen.
-    kaarten += [(r, []) for r in refunds
-                if not r.refund_of_id or r.refund_of_id not in charge_ids]
-    kaarten.sort(key=lambda p: p[0].created_at, reverse=True)
-
-    def _mag_verwijderen(rec) -> bool:
-        """Dezelfde regel als de guard in status_router (#218/#617-2c).
-
-        Toon de knop niet wanneer de guard hem toch zou weigeren: nu krijg je een
-        foutmelding op een knop die er niet had mogen staan.
-        """
-        if rec.method == "online" and rec.status == "paid":
-            return False
-        return rec.amount_paid is None or Decimal(str(rec.amount_paid)) == 0
 
     def _kaart(rec) -> dict:
         """Per kaart de geldregel én of ze verwijderbaar is (#617-2a).
@@ -135,31 +82,15 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
             "bedrag": Decimal(str(rec.amount)),
             "ontvangen": betaald,
             "saldo": None if betaald is None else Decimal(str(rec.amount)) - betaald,
-            "mag_verwijderen": _mag_verwijderen(rec),
+            "mag_verwijderen": may_delete(rec),
+            # Afgeleide status uit de service — de template leidt niets meer af.
+            "status": derived_status(rec),
         }
 
-    # Groeperen per PAYABLE, niet per charge (#617-2e). De totaalregel heette
-    # "Totaal inschrijving" maar telde één charge met haar refunds. Een inschrijving
-    # met meerdere charges — precies wat reconcile_registration_charges produceert bij
-    # een bestelwijziging — kreeg dus meerdere regels die elk iets anders beweerden en
-    # geen van alle de inschrijving telden. Op HDEV: 16 payables met een refund, 17
-    # totaalregels, en één ontbrak.
-    groepen: list = []
-    volgorde: dict = {}
-    for charge, eigen_refunds in kaarten:
-        sleutel = (charge.payable_type, charge.payable_id)
-        if sleutel not in volgorde:
-            volgorde[sleutel] = len(groepen)
-            groepen.append({"kaarten": [], "records": []})
-        groep = groepen[volgorde[sleutel]]
-        groep["kaarten"].append((_kaart(charge), [_kaart(x) for x in eigen_refunds]))
-        groep["records"].extend([charge] + eigen_refunds)
-
+    groepen = group_cards(zichtbaar)
     for groep in groepen:
-        groep["totaal"] = _rij(groep["records"])
-        # Eén regel per inschrijving, en alleen als er iets te tellen valt: twee
-        # charges zonder refund verdienen net zo goed een totaal.
-        groep["toon_totaal"] = len(groep["records"]) > 1
+        groep["kaarten"] = [(_kaart(charge), [_kaart(x) for x in eigen_refunds])
+                            for charge, eigen_refunds in groep["kaarten"]]
 
     # Gegroepeerde context-filter (#549): dezelfde grouped_filter-macro als de
     # Werkbank. Heterogene groepen (jaren/onderdelen) → (value, label)-tuples.
@@ -189,6 +120,17 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
             "all": _("Alle statussen"), "openstaand": _("Openstaand saldo"),
             "pending": _("In afwachting"), "paid": _("Betaald"),
             "failed": _("Mislukt"), "cancelled": _("Geannuleerd"),
+        },
+        # Badge per afgeleide status (service.derived_status). Label + kleur horen
+        # bij de weergave en dus hier; wélke status het is, beslist de service —
+        # "Deels betaald" werd vroeger in de template zelf uitgerekend (#635-9).
+        "kaart_status": {
+            "paid": (_("Vereffend"), "green"),
+            "refund_due": (_("Terug te betalen"), "orange"),
+            "partial": (_("Deels betaald"), "orange"),
+            "pending": (_("Openstaand"), "yellow"),
+            "failed": (_("Mislukt"), "red"),
+            "cancelled": (_("Geannuleerd"), "gray"),
         },
         "status": status, "q": q,
         "componenten": _comp, "jaren": _jaren,
@@ -239,7 +181,7 @@ def betaling_bevestigen(record_id: str, request: Request,
                         note: str = Form("")):
     from app.domains.payment.api import confirm_manual_payment
 
-    _require_finance(db, email)
+    require_finance_mutation(db, email)
     try:
         confirm_manual_payment(db, record_id, note.strip() or None, actor=email)
     except ValueError as exc:
@@ -256,7 +198,7 @@ def betaling_refund(record_id: str, request: Request, db: Session = Depends(get_
                     amount: str = Form(""), note: str = Form("")):
     from app.domains.payment.api import create_refund
 
-    _require_finance(db, email)
+    require_finance_mutation(db, email)
     try:
         bedrag = Decimal(amount.replace(",", "."))
     except (InvalidOperation, AttributeError):
@@ -284,7 +226,7 @@ def betaling_bijwerken(record_id: str, request: Request, db: Session = Depends(g
     """Betaald bedrag invullen + als betaald bevestigen (#455)."""
     from app.domains.payment.api import confirm_manual_payment
 
-    _require_finance(db, email)
+    require_finance_mutation(db, email)
     bedrag = None
     if amount_paid.strip():
         try:
@@ -313,7 +255,7 @@ def betaling_bewerken(record_id: str, request: Request, db: Session = Depends(ge
     zodat de admin-UI en de JSON-API dezelfde validatie delen."""
     from app.domains.payment.api import edit_payment_record
 
-    _require_finance(db, email)
+    require_finance_mutation(db, email)
     record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
     if record is None:
         raise HTTPException(status_code=404, detail=_("Betaling niet gevonden."))
@@ -353,7 +295,7 @@ def betaling_verversen(record_id: str, request: Request, db: Session = Depends(g
     """Mollie-status ophalen en toepassen (handmatige tegenhanger van de webhook, #455)."""
     from app.domains.payment.api import refresh_record_status
 
-    _require_finance(db, email)
+    require_finance_mutation(db, email)
     try:
         refresh_record_status(db, record_id, actor=email)
     except ValueError as exc:
@@ -371,7 +313,7 @@ def betaling_status(record_id: str, request: Request, db: Session = Depends(get_
     """Vrije status-correctie door de penningmeester (#455)."""
     from app.domains.payment.api import set_payment_status
 
-    _require_finance(db, email)
+    require_finance_mutation(db, email)
     try:
         set_payment_status(db, record_id, status.strip(), actor=email,
                            note=note.strip() or None)
@@ -391,7 +333,7 @@ def betaling_verwijderen(record_id: str, request: Request, db: Session = Depends
     Corrigeert ook een foute refund."""
     from app.domains.payment.api import void_payment_record
 
-    _require_finance(db, email)
+    require_finance_mutation(db, email)
     try:
         void_payment_record(db, record_id, actor=email, note=note.strip() or None)
     except ValueError as exc:

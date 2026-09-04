@@ -55,15 +55,12 @@
     {% if r.note %}<div class="text-xs text-ink-soft mt-1">{{ r.note }}</div>{% endif %}
   </div>
   <div class="flex flex-wrap items-start justify-end gap-1 shrink-0">
-    {% if r.status == "paid" %}{{ ui.badge(_("Vereffend"), "green") }}
-    {% elif r.type == "refund" and r.status == "pending" %}{{ ui.badge(_("Terug te betalen"), "orange") }}
-    {% elif r.status == "pending" and k.ontvangen %}{{ ui.badge(_("Deels betaald"), "orange") }}
-    {% elif r.status == "pending" %}{{ ui.badge(_("Openstaand"), "yellow") }}
-    {% elif r.status == "failed" %}{{ ui.badge(_("Mislukt"), "red") }}
-    {% elif r.status == "cancelled" %}{{ ui.badge(_("Geannuleerd"), "gray") }}
-    {# §2.12: nooit een rauwe statuscode tonen. Mollie kent ook `open`, `authorized`
-       en `expired`; die vielen door naar de fallback en toonden een Engelse code als
-       badge — op precies het scherm waar die regel het strengst geldt (#630). #}
+    {# De status komt uit service.derived_status() (#635-9): de template leidt niets
+       meer af — "Deels betaald" bestond alleen hier en was dus niet testbaar.
+       §2.12: nooit een rauwe statuscode tonen. Mollie kent ook `open`, `authorized`
+       en `expired`; die vallen door naar het laatste geval. #}
+    {% set _st = kaart_status.get(k.status) %}
+    {% if _st %}{{ ui.badge(_st[0], _st[1]) }}
     {% else %}{{ ui.badge(status_labels.get(r.status, _("Onbekende status")), "gray") }}{% endif %}
     {# Tweede badge op de terugbetaling: de SOORT, naast de status. #}
     {% if r.type == "refund" %}{{ ui.badge(_("Terugbetaling"), "teal") }}{% endif %}
