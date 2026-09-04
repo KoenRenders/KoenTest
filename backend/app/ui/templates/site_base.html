@@ -55,7 +55,7 @@
              ~kapitaalhoogte via een grotere fontsize (#605). Radio Canada Big (font-brand).
              aria-label houdt het leesbaar als "Raak" voor schermlezers. #}
           <span class="flex items-baseline font-brand font-bold tracking-tight leading-none text-3xl" aria-label="{{ _('Raak') }}">R<span class="text-[1.4em]">aa</span>K</span>
-          {% if site_tagline %}<span class="block text-sm font-medium text-yellow-300">{{ site_tagline }}</span>{% endif %}
+          {% if site_tagline %}<span class="block font-brand text-sm font-medium text-yellow-300">{{ site_tagline }}</span>{% endif %}
         </a>
         <button class="md:hidden p-2 rounded hover:opacity-80" @click="open = !open" aria-label="{{ _("Menu") }}">☰</button>
         <div class="hidden md:flex gap-5 items-center text-sm">
