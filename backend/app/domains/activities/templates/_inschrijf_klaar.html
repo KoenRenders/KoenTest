@@ -1,5 +1,14 @@
 {% import "_macros.html" as ui %}
-<div class="inschrijf-card px-5 py-5">
+{# Bedankscherm in de inschrijf-modal (#606). Twee afwijkingen t.o.v. het
+   formulier, hier rechtgezet zonder de kit-macro aan te passen:
+   - `pr-10`: de ×-knop staat absolute top-3/right-3 in de overlay-kaart
+     (_activiteiten_cards.html); zonder extra rechtermarge schuift de
+     volle-breedte-banner eronderdoor. Het formulier doet hetzelfde met pr-6
+     op zijn <h3>, maar dat werkt enkel voor tekst, niet voor een kader.
+   - `[&>div]:mb-0`: ui.success_banner() draagt zelf mb-4; als enig kind zou dat
+     onderaan 16px extra geven bovenop py-5. Neutraliseren houdt boven en onder
+     op dezelfde 20px. #}
+<div class="inschrijf-card pl-5 pr-10 py-5 [&>div]:mb-0">
 {% if checkout %}
 {{ ui.success_banner("Bedankt, " ~ naam ~ "! Je wordt doorgestuurd naar de beveiligde betaalpagina…") }}
 {% else %}
