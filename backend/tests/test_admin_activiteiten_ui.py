@@ -123,7 +123,7 @@ def test_admin_inschrijvingen_en_export(client, db_session):
     reg = db_session.query(Registration).filter(Registration.contact_name == "Jef").one()
     assert ">Bewerken<" in lijst.text
     assert f'hx-get="/admin/inschrijvingen/{reg.id}"' in lijst.text
-    assert ">Verwijder<" in lijst.text
+    assert ">Verwijderen<" in lijst.text
 
     export = client.get(f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}/export")
     assert export.status_code == 200
