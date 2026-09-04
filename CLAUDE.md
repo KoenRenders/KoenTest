@@ -226,6 +226,15 @@ to test it on HDEV; the tracker carries one HDEV-validation checkbox per issue a
 links to those comments. A validation plan kept anywhere else goes stale within a
 release and nobody finds it when it matters.
 
+**A validation bug needs three things before anyone starts searching: the screen,
+what Koen expected, and what he saw.** Most of the time spent "analysing" a report
+is spent working out which screen and which element is meant — not on the fix. When
+one of the three is missing, ask for it instead of guessing your way through the
+templates; one question costs a minute, a wrong guess costs an afternoon. A
+screenshot in the Nextcloud project folder counts as "what he saw". Handy but
+optional: the issue number Koen suspects, and whether it also happens on v1.14.0
+(i.e. is it new in v2.0.0 or pre-existing).
+
 **The three confirmation steps are the only ones that stop.** Everything else runs
 without asking, per *Autonoom een release afwerken*: assigning work to a release is
 the permission. Never tag a commit that has not been tested on HDEV.
