@@ -36,6 +36,7 @@ from app.domains.auth.session import (  # noqa: F401
     read_session_value,
     require_admin_ui,
     require_finance_mutation,
+    require_operator_ui,
     require_finance_ui,
     require_csrf,
     set_session_cookie,
@@ -51,6 +52,6 @@ __all__ = [
     "SESSION_COOKIE", "admin_user_by_email", "csrf_from_request",
     "csrf_token_for", "make_session_value",
     "read_session_value", "require_admin_ui", "require_finance_mutation",
-    "require_finance_ui", "require_csrf",
+    "require_finance_ui", "require_operator_ui", "require_csrf",
     "set_session_cookie",
 ]

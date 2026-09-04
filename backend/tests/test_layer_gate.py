@@ -106,7 +106,6 @@ LAYER_ALLOWLIST: set[tuple[str, str]] = {
     ("app.domains.membership.ui", "orm"),
     ("app.domains.payment.ui", "orm"),
     ("app.domains.workflow.ui", "orm"),
-    ("app.ui.tenants_ui", "orm"),
     # ── regel 3: ORM-klassen en routerfuncties die via een facade binnenkomen ─
     ("app.domains.activities.admin_ui", "facade"),
     ("app.domains.activities.ui", "facade"),

@@ -130,6 +130,20 @@ def require_finance_mutation(db: Session, email: str) -> None:
                             detail=_("Alleen FINANCE mag betalingen wijzigen."))
 
 
+def require_operator_ui(db: Session, email: str) -> None:
+    """Tenantbeheer is OPERATOR-only (#581). Zelfde vorm als
+    `require_finance_mutation`: geen `Depends`, want de identiteit is al
+    vastgesteld en de check komt midden in een route. Woont hier omdat autorisatie
+    één plek hoort te hebben — `app/ui/tenants_ui.py` had er een eigen kopie van
+    (#635 punt 10)."""
+    from app.domains.auth.service import get_user_roles  # lazy: vermijdt cykel
+
+    if "OPERATOR" not in get_user_roles(db, email):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=_("Alleen de platformbeheerder (OPERATOR) mag tenants beheren."))
+
+
 def require_csrf(request: Request) -> None:
     """Dubbel-submit-CSRF voor POST's op server-pagina's: token in header
     (htmx) of formulierveld moet matchen met de sessie-afgeleide waarde."""
