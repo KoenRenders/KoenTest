@@ -219,6 +219,13 @@ server. Its own documentation lives outside this repo, next to the script. An
 environment still running a release from before `raakctl` falls back to the legacy
 `deploy-<env>.sh` automatically — no special handling needed.
 
+**Everything Koen has to tick off or walk through lives in GitHub, reachable from
+the release tracking issue.** Never in a separate document — not in a local file,
+not outside the repo. The closing comment on each issue says what was built and how
+to test it on HDEV; the tracker carries one HDEV-validation checkbox per issue and
+links to those comments. A validation plan kept anywhere else goes stale within a
+release and nobody finds it when it matters.
+
 **The three confirmation steps are the only ones that stop.** Everything else runs
 without asking, per *Autonoom een release afwerken*: assigning work to a release is
 the permission. Never tag a commit that has not been tested on HDEV.
