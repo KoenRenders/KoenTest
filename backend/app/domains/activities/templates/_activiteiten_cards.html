@@ -49,7 +49,9 @@
           {% elif c.is_full %}
           {{ ui.badge(_("Volzet"), "red") }}
           {% else %}
-          <button type="button" class="{{ _btn }}"
+          {# Kernactie: primair-blauw (#601-vervolg). Enkel de interne inschrijfactie;
+             externe redirect-links (external_register_url) blijven fijn/outline. #}
+          <button type="button" class="{{ ui.btn_class('primary', 'xs') }}"
                   @click="ins = true"
                   hx-get="/activiteiten/{{ a.id }}/inschrijven/{{ c.id }}"
                   hx-target="#inschrijf-{{ a.id }}-{{ c.id }}" hx-swap="innerHTML">{{ _("Inschrijven") }}</button>
