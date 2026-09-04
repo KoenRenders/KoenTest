@@ -16,7 +16,7 @@
           <img src="{{ covers[a.id] }}" alt="{{ a.name }}" class="w-full h-full object-cover" loading="lazy">
         </div>
         <div class="p-4">
-          <div class="font-semibold text-blue-700">{{ a.name }}</div>
+          <div class="font-semibold text-ink">{{ a.name }}</div>
           {% set primair = a.sort_date or (a.dates[0].start_date if a.dates else None) %}
           {% if primair %}<div class="text-sm text-gray-500 mt-1">{{ primair.strftime("%d-%m-%Y") }}</div>{% endif %}
         </div>

@@ -1,3 +1,4 @@
+{% import "_macros.html" as ui %}
 {# Raakje-chatbot-widget (#469): zwevend knopje + paneel, hergebruikt /raakje/vraag.
    Spraakinvoer (STT, #567) en voorlezen (TTS, #568) als progressive enhancement. #}
 <div x-data="{ open: false }" class="fixed bottom-4 right-4 z-40 print:hidden">
@@ -29,7 +30,10 @@
       <button type="button" data-stt-target="#raakje-widget-vraag" data-stt-mode="{{ stt_mode }}"
               class="border border-gray-300 hover:bg-gray-100 px-2 rounded-lg"
               title="{{ _('Spreek je vraag in') }}" aria-label="{{ _('Spreek je vraag in') }}">🎙</button>
-      <button type="submit" class="bg-blue-700 hover:bg-brand-ocean-hover text-white px-3 rounded-lg">➤</button>
+      {# #631: enige knop zonder leesbare tekst én zonder aria-label — voor een
+         schermlezer heette ze "➤". Deze widget staat op élke publieke pagina. De
+         knopkleur stond hier handmatig gekopieerd; nu via de kit. #}
+      {{ ui.btn_primary("➤", type="submit", cls="px-3", aria_label=_("Versturen")) }}
     </form>
   </div>
 </div>

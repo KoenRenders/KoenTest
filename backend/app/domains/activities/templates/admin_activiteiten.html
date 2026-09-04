@@ -3,12 +3,22 @@
 {% block title %}{{ _("Activiteiten — Raak beheer") }}{% endblock %}
 {% block content %}
 {# Records-lijst (design-system C1, #586): titel → duidingsregel → KPI-rij →
-   primaire "+ Nieuwe activiteit" (los, aanmaken in een modal) → zoeken →
+   primaire "+ Nieuwe activiteit" (los, eigen aanmaakpagina) → zoeken →
    scope-chips → klikbare kaarten die de paginabrede editor openen. #}
+
+{# De primaire actie is een LINK naar het paginabrede aanmaakscherm (#623); geen
+   modal meer. Zo werk je meteen in dezelfde vorm als de editor. #}
+{% call ui.page_header(_("Activiteiten"), _("Een kaart opent de activiteit: datums, onderdelen en producten.")) %}
+  {{ ui.btn_primary(_("+ Nieuwe activiteit"), href="/admin/activiteiten/nieuw") }}
+{% endcall %}
 
 {# Twee kengetallen, conform de mock (design-system, scherm 3). Bewust geen
    betalings-KPI's: geld hoort op /admin/betalingen. Cijfer extra-bold, label
-   semibold — de gewicht-conventie uit §1.2. #}
+   semibold — de gewicht-conventie uit §1.2.
+
+   Ná de paginakop (#631): de KPI-rij stond boven de H1, wat zowel de C1-volgorde
+   tegensprak als het commentaar dat er drie regels hoger stond. `leden.html` deed
+   het wél goed. #}
 <div class="grid grid-cols-2 gap-4 mb-6 max-w-md">
   <div class="rounded-xl bg-blue-50 p-5">
     <div class="text-3xl font-extrabold text-blue-700">{{ kpi_open }}</div>
@@ -20,12 +30,6 @@
     <div class="text-xs text-ink-soft">{{ _("van") }} {{ kpi_onderdelen }}</div>
   </div>
 </div>
-
-{# De primaire actie is een LINK naar het paginabrede aanmaakscherm (#623); geen
-   modal meer. Zo werk je meteen in dezelfde vorm als de editor. #}
-{% call ui.page_header(_("Activiteiten"), _("Een kaart opent de activiteit: datums, onderdelen en producten.")) %}
-  {{ ui.btn_primary(_("+ Nieuwe activiteit"), href="/admin/activiteiten/nieuw") }}
-{% endcall %}
 
 {% call ui.filter_bar("/admin/activiteiten", "#aa-lijst") %}
   <div>{{ ui.search(value=q, placeholder=_('Zoek op titel of locatie…'), standalone=False) }}</div>

@@ -23,8 +23,11 @@
      (kan lang zijn). Zo ziet de beheerder de bron i.p.v. blind te overschrijven. #}
   <div class="mt-1 text-sm" x-data="{ show: false }">
     <button type="button" class="text-blue-700 hover:underline text-xs" @click="show = !show">
-      <span x-show="!show">▸ {{ _("Toon gelezen tekst (OCR)") }}</span>
-      <span x-show="show" x-cloak>▾ {{ _("Verberg gelezen tekst") }}</span>
+      {# #593/#631: kit-iconen i.p.v. handgezette ▸/▾-glyphs, die per lettertype en
+         OS anders renderen. De kit heeft chevron-down/-up; "dicht" wijst naar
+         beneden ("klik om te openen"), "open" naar boven. #}
+      <span x-show="!show" class="inline-flex items-center gap-1">{{ ui.icon("chevron-down") }}{{ _("Toon gelezen tekst (OCR)") }}</span>
+      <span x-show="show" x-cloak class="inline-flex items-center gap-1">{{ ui.icon("chevron-up") }}{{ _("Verberg gelezen tekst") }}</span>
     </button>
     <div x-show="show" x-cloak class="mt-1">
       {% if info and info.extracted_text %}

@@ -41,7 +41,9 @@ Vier regels, elk met een reden:
     beschrijft de handeling, niet wie ze uitvoert.
 16. **Geen rauwe DB-waarde in een badge** — `ui.badge(x.status|kind|method, …)` toont
     een interne code op het scherm (#630). Map ze eerst naar een label.
-17. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
+17. **Elke symboolknop heeft een aria-label** — ook publiek, niet enkel in de admin
+    (#631). De Raakje-verstuurknop heette voor een schermlezer "➤".
+18. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
    preflight-hoogte en staat hij ~15px lager dan het zoekveld ernaast; dat gaf
    scheve filterbalken op zeven schermen (#611). Gebruik `ui.select_control()`,
    `ui.grouped_filter()` of `ui.field_select()`.
@@ -459,4 +461,30 @@ def test_geen_rauwe_db_waarde_in_een_badge():
     assert not fouten, (
         "Map naar een leesbaar label vóór je het in een badge zet:\n  "
         + "\n  ".join(fouten)
+    )
+
+
+# Een <button> waarvan de zichtbare inhoud enkel uit symbolen/emoji bestaat.
+GLYPH_BUTTON = re.compile(r"<button\b(?P<attrs>[^>]*)>(?P<inhoud>[^<]{1,4})</button>")
+
+
+def test_symboolknoppen_hebben_een_aria_label_ook_publiek():
+    """De bestaande regel keek naar de kit-macro's; deze naar handgeschreven
+    <button>-elementen (#631). De verstuurknop van de Raakje-widget stond op élke
+    publieke pagina en heette voor een schermlezer "➤"."""
+    fouten = []
+    for pad in TEMPLATES:
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
+            for m in GLYPH_BUTTON.finditer(regel):
+                inhoud = m.group("inhoud").strip()
+                if not inhoud or inhoud.isascii() and inhoud.isalnum():
+                    continue          # gewone tekst of leeg (Alpine vult die)
+                if any(c.isalnum() for c in inhoud):
+                    continue          # bevat leesbare tekst
+                if "aria-label" in m.group("attrs"):
+                    continue
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: <button>{inhoud}</button>")
+    assert not fouten, (
+        "Geef een symboolknop een aria-label — een schermlezer leest anders het "
+        "teken voor:\n  " + "\n  ".join(fouten)
     )
