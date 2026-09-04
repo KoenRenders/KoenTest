@@ -143,16 +143,11 @@ def renew_membership(person=Depends(require_member), db: Session = Depends(get_d
         raise HTTPException(status_code=409, detail=_("Je hebt al een geldig lidmaatschap."))
 
     # Blokkeer een dubbele vernieuwingsprocedure als er al een niet-betaalde/
-    # niet-geannuleerde PaymentRecord voor dit lid bestaat.
-    from app.domains.payment.api import PaymentRecord as PR
-    existing_pending = (
-        db.query(PR)
-        .filter(PR.payable_type == "membership", PR.status.notin_(["paid", "cancelled", "failed"]))
-        .join(Membership, Membership.id == PR.payable_id)
-        .filter(Membership.member_id == member.id)
-        .first()
-    )
-    if existing_pending:
+    # niet-geannuleerde PaymentRecord voor dit lid bestaat. Dezelfde functie voedt
+    # het gezinsportaal (#618), zodat scherm en guard het altijd eens zijn.
+    from app.domains.membership.api import open_renewal_payment
+
+    if open_renewal_payment(db, member):
         raise HTTPException(
             status_code=409,
             detail=_("Je vernieuwing loopt nog — rond eerst de openstaande betaling af."),

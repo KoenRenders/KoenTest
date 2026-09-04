@@ -199,3 +199,28 @@ def not_renewed_count(db, today: Optional[date] = None) -> int:
     referentie, doel = renewal_years(today)
     return len(members_with_membership_for_year(db, referentie)
                - members_with_membership_for_year(db, doel))
+
+
+def open_renewal_payment(db, member):
+    """De openstaande vernieuwingsbetaling van dit gezin, of ``None`` (#618).
+
+    Eén bron voor de vraag "loopt er nog een vernieuwing?". Ze werd gesteld door de
+    guard in ``household_router`` (die een tweede procedure blokkeert) en moest ook
+    door het gezinsportaal gesteld worden (dat anders het vernieuwformulier toont
+    voor een handeling die gegarandeerd faalt). Twee eigen varianten die uit elkaar
+    groeien is precies hoe je opnieuw een scherm krijgt dat iets anders beweert dan
+    de knop doet.
+
+    "Openstaand" = een membership-betaling van dit gezin die niet betaald, geannuleerd
+    of mislukt is.
+    """
+    from app.domains.payment.api import PaymentRecord
+
+    return (
+        db.query(PaymentRecord)
+        .filter(PaymentRecord.payable_type == "membership",
+                PaymentRecord.status.notin_(["paid", "cancelled", "failed"]))
+        .join(Membership, Membership.id == PaymentRecord.payable_id)
+        .filter(Membership.member_id == member.id)
+        .first()
+    )

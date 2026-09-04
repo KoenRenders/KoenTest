@@ -150,7 +150,7 @@ def _portal_ctx(request: Request, db: Session, person) -> dict:
     household = get_household(person=person, db=db)
     # Dekking t/m (incl. een al betaald volgend jaar) i.p.v. enkel 'geldig vandaag' (#496).
     valid_until = membership_coverage_until(person)
-    return {
+    ctx = {
         **site_context(db, request), **_codes(db),
         "household": household,
         "person_id": person.id,
@@ -158,6 +158,54 @@ def _portal_ctx(request: Request, db: Session, person) -> dict:
         "renewal_available": renewal_available(valid_until, date.today()),
         "csrf_token": csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
     }
+    ctx.update(_lopende_vernieuwing(db, person))
+    return ctx
+
+
+def _lopende_vernieuwing(db: Session, person) -> dict:
+    """Toont de stand van een openstaande vernieuwing i.p.v. het formulier (#618).
+
+    Zonder dit bouwde alleen het POST-antwoord `renew_transfer` op: na één keer
+    navigeren stond het vernieuwformulier er weer, en de knop liep gegarandeerd op de
+    guard ("Je vernieuwing loopt nog"). Het scherm nodigde dus uit tot een handeling
+    die niet kon slagen.
+
+    Bedrag en OGM komen **uit de PaymentRecord zelf**, niet opnieuw uit
+    membership_price_for_date(): wijzigt de prijs tussen twee bezoeken, dan zou het
+    scherm een ander bedrag tonen dan wat er te betalen valt.
+    """
+    from app.domains.membership.api import open_renewal_payment
+    from app.domains.membership.household_router import _member_for
+
+    try:
+        member = _member_for(person, db)
+    except Exception:
+        return {}
+    record = open_renewal_payment(db, member) if member is not None else None
+    if record is None:
+        return {}
+
+    if record.method == "transfer":
+        from app.kernel.tenant_config import tenant_payment_iban, tenant_payment_beneficiary
+
+        return {"renew_transfer": {
+            "amount": record.amount,
+            "ogm": record.structured_communication,
+            "iban": tenant_payment_iban(db),
+            "beneficiary": tenant_payment_beneficiary(db),
+        }}
+
+    # Online afgebroken bij Mollie (#618-3): even doodlopend als de overschrijving.
+    # Met een checkout-URL kan het lid de betaling hervatten; zonder blijft enkel de
+    # uitleg dat ze nog loopt.
+    checkout_url = None
+    if record.gateway_payment_id:
+        from app.domains.payment.api import GatewayPayment
+
+        gw = (db.query(GatewayPayment)
+              .filter(GatewayPayment.id == record.gateway_payment_id).first())
+        checkout_url = getattr(gw, "checkout_url", None)
+    return {"renew_online": {"amount": record.amount, "checkout_url": checkout_url}}
 
 
 @router.get("/leden/gezin", response_class=HTMLResponse)

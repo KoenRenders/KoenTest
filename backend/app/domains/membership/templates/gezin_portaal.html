@@ -23,6 +23,18 @@
       {% if renew_transfer.ogm %}<li>{{ _("Mededeling (OGM)") }}: <strong>{{ renew_transfer.ogm }}</strong></li>{% endif %}
     </ul>
   </div>
+  {% elif renew_online %}
+  {# #618-3: online betaling afgebroken bij Mollie. Zonder deze tak kreeg het lid
+     opnieuw het vernieuwformulier, en daarna de rode melding van de guard. #}
+  <div class="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-4 text-sm">
+    <p class="font-medium">{{ _("Je vernieuwing loopt nog — de betaling is nog niet afgerond.") }}</p>
+    <p class="mt-1">{{ _("Bedrag") }}: <strong>€ {{ renew_online.amount }}</strong></p>
+    {% if renew_online.checkout_url %}
+    <div class="mt-2">{{ ui.btn_primary(_("Betaling hervatten"), href=renew_online.checkout_url) }}</div>
+    {% else %}
+    <p class="mt-1 text-gray-600">{{ _("Zodra de betaling verwerkt is, zie je dat hier. Neem gerust contact op als het lang duurt.") }}</p>
+    {% endif %}
+  </div>
   {% elif renewal_available %}
   {# #497: keuze online/overschrijving i.p.v. geforceerd online. #}
   <form class="mt-3 space-y-2" hx-post="/leden/gezin/vernieuwen" hx-target="body" hx-swap="innerHTML">
