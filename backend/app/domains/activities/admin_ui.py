@@ -147,6 +147,22 @@ def admin_activiteiten(request: Request, db: Session = Depends(get_db),
         **_kpi(kpi_bron), **ctx})
 
 
+@router.get("/admin/activiteiten/nieuw", response_class=HTMLResponse)
+def activiteit_nieuw(request: Request, db: Session = Depends(get_db),
+                     email: str = Depends(require_admin_ui)):
+    """Paginabreed aanmaakscherm i.p.v. een modal (#623).
+
+    Bewust géén lege activiteit vooraf aanmaken: dan staat er een naamloze activiteit
+    in de databank zodra iemand per ongeluk klikt, en die kan publiek opduiken zodra
+    ze een datum krijgt. Het scherm draagt dezelfde kaart als de editor waarin je
+    daarna werkt, dus er is geen tweede lay-out om te onderhouden.
+    """
+    return templates.TemplateResponse(request, "admin_activiteit_nieuw.html", {
+        "nav_items": NAV,
+        "csrf_token": csrf_from_request(request),
+    })
+
+
 @router.get("/admin/activiteiten/{activity_id}", response_class=HTMLResponse)
 def admin_activiteit_detail(activity_id: int, request: Request,
                             db: Session = Depends(get_db),
@@ -164,22 +180,6 @@ def admin_activiteit_detail(activity_id: int, request: Request,
     return templates.TemplateResponse(request, "admin_activiteit.html", {
         "nav_items": NAV, "a": activiteit,
         "csrf_token": csrf_from_request(request), "error": None})
-
-
-@router.get("/admin/activiteiten/nieuw", response_class=HTMLResponse)
-def activiteit_nieuw(request: Request, db: Session = Depends(get_db),
-                     email: str = Depends(require_admin_ui)):
-    """Paginabreed aanmaakscherm i.p.v. een modal (#623).
-
-    Bewust géén lege activiteit vooraf aanmaken: dan staat er een naamloze activiteit
-    in de databank zodra iemand per ongeluk klikt, en die kan publiek opduiken zodra
-    ze een datum krijgt. Het scherm draagt dezelfde kaart als de editor waarin je
-    daarna werkt, dus er is geen tweede lay-out om te onderhouden.
-    """
-    return templates.TemplateResponse(request, "admin_activiteit_nieuw.html", {
-        "nav_items": NAV,
-        "csrf_token": csrf_from_request(request),
-    })
 
 
 @router.post("/admin/activiteiten", response_class=HTMLResponse,

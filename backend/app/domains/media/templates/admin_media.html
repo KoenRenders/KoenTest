@@ -12,7 +12,7 @@
    verder in de editor, en de velden uit een dialoogje maken het object zelden
    compleet. #}
 {% call ui.page_header(_("Media"), _("Sponsorlogo's en activiteitenfoto's; elke kaart bewerk je ter plaatse.")) %}
-    {{ ui.btn_primary(_("+ Uploaden"), href="/admin/media/nieuw") }}
+    {{ ui.btn_primary(_("+ Uploaden"), href="/admin/media/nieuw?kind=" ~ kind) }}
   {% endcall %}
 
 

@@ -32,8 +32,8 @@ def test_aanmaken_opent_een_volledige_pagina_geen_modal(client, db_session):
     lijst = client.get("/admin/activiteiten").text
     assert 'href="/admin/activiteiten/nieuw"' in lijst
     # Geen aanmaakdialoog meer in de lijst. `ui.modal` is templatebroncode, dus die
-    # toets je op het bestand; de Alpine-vlag zie je wél in de output.
-    assert 'x-data="{ open: false }"' not in lijst
+    # toets je op het bestand — niet op x-data, want de mobiele nav gebruikt dezelfde
+    # Alpine-vlag.
     bron = (APP / "domains" / "activities" / "templates" / "admin_activiteiten.html").read_text()
     assert "{% call ui.modal(" not in bron
 

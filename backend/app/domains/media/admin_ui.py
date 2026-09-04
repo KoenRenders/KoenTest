@@ -100,7 +100,10 @@ def media_nieuw(request: Request, db: Session = Depends(get_db),
     de huidige filterstand komen daaruit, zodat je na het uploaden terugkeert in
     dezelfde filtering.
     """
-    ctx = _lijst_ctx(request, db, kind="sponsor")
+    # `kind` uit de query, zodat "+ Uploaden" vanaf de foto-filter meteen de
+    # activiteit-dropdown toont (die hoort enkel bij activity_photo).
+    kind = (request.query_params.get("kind") or "sponsor").strip()
+    ctx = _lijst_ctx(request, db, kind=kind)
     ctx["nav_items"] = NAV
     return templates.TemplateResponse(request, "admin_media_nieuw.html", ctx)
 

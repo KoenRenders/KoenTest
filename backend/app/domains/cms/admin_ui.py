@@ -69,6 +69,16 @@ def admin_paginas(request: Request, db: Session = Depends(get_db),
         **_lijst_ctx(db, q, status)})
 
 
+@router.get("/admin/paginas/nieuw", response_class=HTMLResponse)
+def pagina_nieuw(request: Request, db: Session = Depends(get_db),
+                 email: str = Depends(require_admin_ui)):
+    """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal."""
+    return templates.TemplateResponse(request, "admin_pagina_nieuw.html", {
+        "nav_items": NAV,
+        "csrf_token": csrf_from_request(request),
+    })
+
+
 @router.get("/admin/paginas/{page_id}", response_class=HTMLResponse)
 def pagina_detail(page_id: int, request: Request, db: Session = Depends(get_db),
                   email: str = Depends(require_admin_ui)):
@@ -85,16 +95,6 @@ def pagina_detail(page_id: int, request: Request, db: Session = Depends(get_db),
     return templates.TemplateResponse(request, "admin_pagina.html", {
         "nav_items": NAV, "p": page, "placeholders": list_cms_placeholders(),
         "csrf_token": csrf_from_request(request), "error": None})
-
-
-@router.get("/admin/paginas/nieuw", response_class=HTMLResponse)
-def pagina_nieuw(request: Request, db: Session = Depends(get_db),
-                 email: str = Depends(require_admin_ui)):
-    """Aanmaken als volledige pagina (#627, §2.8) i.p.v. een modal."""
-    return templates.TemplateResponse(request, "admin_pagina_nieuw.html", {
-        "nav_items": NAV,
-        "csrf_token": csrf_from_request(request),
-    })
 
 
 @router.post("/admin/paginas", response_class=HTMLResponse,

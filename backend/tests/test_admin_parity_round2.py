@@ -51,7 +51,8 @@ def test_media_upload_has_activity_dropdown(client, db_session):
     seed_activity_with_product(db_session)
     db_session.commit()
     _login(client)
-    html = client.get("/admin/media?kind=activity_photo").text
+    # De uploadvorm staat sinds #627 op een eigen pagina i.p.v. in een modal op de lijst.
+    html = client.get("/admin/media/nieuw?kind=activity_photo").text
     # Upload-form gebruikt een select (geen vrij ID-nummerveld meer).
     assert '<select name="activity_id" id="me-activity"' in html
     assert "Kies een activiteit" in html

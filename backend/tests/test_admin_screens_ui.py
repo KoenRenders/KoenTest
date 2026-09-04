@@ -53,9 +53,12 @@ def test_paginas_crud(client, db_session):
 
 def test_gebruikers_beheer(client, db_session):
     csrf = _login(client)
+    # Sinds #627 komt de gebruiker van een eigen aanmaakpagina; na het opslaan
+    # stuurt de route door naar de lijst i.p.v. een fragment terug te geven.
     resp = client.post("/admin/gebruikers", data={"email": "nieuw@example.com"},
                        headers={"X-CSRF-Token": csrf})
-    assert resp.status_code == 200 and "nieuw@example.com" in resp.text
+    assert resp.status_code == 204
+    assert resp.headers.get("HX-Redirect") == "/admin/gebruikers"
     user = db_session.query(User).filter(User.email == "nieuw@example.com").one()
 
     # dubbel aanmaken → foutbanner, geen crash
@@ -94,7 +97,10 @@ def test_media_upload_en_beheer(client, db_session):
                        data={"kind": "sponsor", "title": "Sponsor X",
                              "link_url": "https://example.com"},
                        headers={"X-CSRF-Token": csrf})
-    assert resp.status_code == 200 and "Sponsor X" in resp.text
+    # Sinds #627 stuurt de upload door naar de lijst (media is met één handeling
+    # compleet) i.p.v. het lijstfragment terug te geven.
+    assert resp.status_code == 204
+    assert resp.headers.get("HX-Redirect") == "/admin/media"
     asset = db_session.query(MediaAsset).filter(MediaAsset.title == "Sponsor X").one()
 
     resp = client.post(f"/admin/media/{asset.id}", data={

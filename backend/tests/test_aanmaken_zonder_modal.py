@@ -55,7 +55,8 @@ def test_de_lijst_linkt_ernaartoe_en_bevat_geen_formulier(client, db_session, li
     _login(client, db_session)
     html = client.get(lijst).text
     assert f'href="{nieuw}"' in html, f"{lijst} linkt niet naar {nieuw}"
-    assert 'x-data="{ open: false }"' not in html, "de modal-scope staat er nog"
+    # Niet op x-data toetsen: de mobiele nav in de AdminShell gebruikt dezelfde
+    # Alpine-vlag. Het bewijs is dat het aanmaakveld er niet meer staat.
     assert veld not in html, f"{lijst} bevat nog het aanmaakveld {veld}"
 
 

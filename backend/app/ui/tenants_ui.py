@@ -142,14 +142,6 @@ def tenants(request: Request, db: Session = Depends(get_db),
     return templates.TemplateResponse(request, sjabloon, _lijst_ctx(request, db))
 
 
-@router.get("/admin/tenants/{tenant_id}", response_class=HTMLResponse)
-def tenant_editor(tenant_id: int, request: Request, db: Session = Depends(get_db),
-                  email: str = Depends(require_admin_ui)):
-    _require_operator(db, email)
-    return templates.TemplateResponse(request, "admin_tenant.html",
-                                      _editor_ctx(request, db, tenant_id))
-
-
 @router.get("/admin/tenants/nieuw", response_class=HTMLResponse)
 def tenant_nieuw(request: Request, db: Session = Depends(get_db),
                  email: str = Depends(require_admin_ui)):
@@ -158,6 +150,14 @@ def tenant_nieuw(request: Request, db: Session = Depends(get_db),
     Hergebruikt de contextbouwer van de lijst voor de accounts-dropdown.
     """
     return templates.TemplateResponse(request, "admin_tenant_nieuw.html", _lijst_ctx(request, db))
+
+
+@router.get("/admin/tenants/{tenant_id}", response_class=HTMLResponse)
+def tenant_editor(tenant_id: int, request: Request, db: Session = Depends(get_db),
+                  email: str = Depends(require_admin_ui)):
+    _require_operator(db, email)
+    return templates.TemplateResponse(request, "admin_tenant.html",
+                                      _editor_ctx(request, db, tenant_id))
 
 
 @router.post("/admin/tenants", response_class=HTMLResponse,
