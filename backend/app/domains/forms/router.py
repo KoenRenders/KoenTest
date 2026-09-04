@@ -57,7 +57,6 @@ def _unique_share_token(db: Session) -> str:
     raise HTTPException(status_code=500, detail=_("Kon geen unieke deellink genereren."))
 
 
-
 def _submission_count(db: Session, form_id: int) -> int:
     return (
         db.query(func.count(FormSubmission.id))
@@ -74,177 +73,6 @@ def _admin_out(db: Session, form: Form) -> dict:
 
 
 # ── Admin CRUD ──────────────────────────────────────────────────────────────────
-
-@router.post("/forms", response_model=FormAdminOut)
-def create_form(
-    data: FormCreate,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    _validate_form_payload(data)
-    form = Form(
-        title=data.title,
-        slug=data.slug,
-        description=data.description,
-        share_token=_unique_share_token(db),
-        status=data.status,
-        requires_login=data.requires_login,
-        max_submissions=data.max_submissions,
-        send_confirmation=data.send_confirmation,
-        confirmation_message=data.confirmation_message,
-        allow_edit=data.allow_edit,
-        is_anonymous=data.is_anonymous,
-    )
-    _apply_fields(form, data)
-    db.add(form)
-    db.commit()
-    db.refresh(form)
-    return _admin_out(db, form)
-
-
-@router.get("/forms", response_model=List[FormSummary])
-def list_forms(
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    forms = db.query(Form).order_by(Form.created_at.desc()).all()
-    out = []
-    for f in forms:
-        item = FormSummary.model_validate(f).model_dump()
-        item["submission_count"] = _submission_count(db, f.id)
-        out.append(item)
-    return out
-
-
-@router.get("/forms/{form_id}", response_model=FormAdminOut)
-def get_form(
-    form_id: int,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    form = db.query(Form).filter(Form.id == form_id).first()
-    if not form:
-        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
-    return _admin_out(db, form)
-
-
-@router.put("/forms/{form_id}", response_model=FormAdminOut)
-def update_form(
-    form_id: int,
-    data: FormUpdate,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    _validate_form_payload(data)
-    form = db.query(Form).filter(Form.id == form_id).first()
-    if not form:
-        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
-    form.title = data.title
-    form.slug = data.slug
-    form.description = data.description
-    form.status = data.status
-    form.requires_login = data.requires_login
-    form.max_submissions = data.max_submissions
-    form.send_confirmation = data.send_confirmation
-    form.confirmation_message = data.confirmation_message
-    form.allow_edit = data.allow_edit
-    form.is_anonymous = data.is_anonymous
-    _apply_fields(form, data)
-    db.commit()
-    db.refresh(form)
-    return _admin_out(db, form)
-
-
-@router.delete("/forms/{form_id}", status_code=204)
-def delete_form(
-    form_id: int,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    form = db.query(Form).filter(Form.id == form_id).first()
-    if not form:
-        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
-    db.delete(form)
-    db.commit()
-
-
-@router.get("/forms/{form_id}/results")
-def form_results(
-    form_id: int,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    form = db.query(Form).filter(Form.id == form_id).first()
-    if not form:
-        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
-    return compute_results(db, form)
-
-
-@router.get("/forms/{form_id}/submissions")
-def list_submissions(
-    form_id: int,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    """Individuele inzendingen (admin-only, #356) — bevat de antwoorden per veld."""
-    form = db.query(Form).filter(Form.id == form_id).first()
-    if not form:
-        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
-    return build_submissions_view(db, form)
-
-
-@router.delete("/forms/{form_id}/submissions/{submission_id}", status_code=204)
-def delete_submission(
-    form_id: int,
-    submission_id: int,
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    """Verwijder één inzending (admin-only, #356). Cascade verwijdert de antwoorden."""
-    sub = (
-        db.query(FormSubmission)
-        .filter(FormSubmission.id == submission_id, FormSubmission.form_id == form_id)
-        .first()
-    )
-    if not sub:
-        raise HTTPException(status_code=404, detail=_("Inzending niet gevonden"))
-    db.delete(sub)
-    db.commit()
-
-
-@router.get("/forms/{form_id}/export")
-def export_form(
-    form_id: int,
-    format: str = Query("ods"),
-    db: Session = Depends(get_db),
-    _admin: User = Depends(get_current_admin),
-):
-    form = db.query(Form).filter(Form.id == form_id).first()
-    if not form:
-        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
-    safe = re.sub(r"[^A-Za-z0-9_-]+", "_", form.title or "formulier").strip("_") or "formulier"
-    if format != "ods":
-        raise HTTPException(status_code=422, detail=_("Ongeldig formaat (enkel ods)."))
-    return Response(
-        content=export_ods(db, form),
-        media_type="application/vnd.oasis.opendocument.spreadsheet",
-        headers={"Content-Disposition": f'attachment; filename="{safe}.ods"'},
-    )
-
-
-# ── Publiek: invullen ───────────────────────────────────────────────────────────
-
-def _load_public_form(db: Session, share_token: str) -> Form:
-    form = db.query(Form).filter(Form.share_token == share_token).first()
-    # Concept-formulieren zijn niet publiek zichtbaar.
-    if not form or form.status == "draft":
-        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
-    return form
-
-
-@router.get("/forms/by-token/{share_token}", response_model=PublicForm)
-def get_public_form(share_token: str, db: Session = Depends(get_db)):
-    return _load_public_form(db, share_token)
 
 @router.post("/forms", response_model=FormAdminOut)
 def create_form(
@@ -310,6 +138,8 @@ def update_form(
     form = db.query(Form).filter(Form.id == form_id).first()
     if not form:
         raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
+    # Dezelfde functie als json_import (#635-3), zodat de twee ingangen niet
+    # opnieuw uiteen kunnen lopen.
     update_settings(form, data)
     apply_definition(form, data)
     db.commit()
