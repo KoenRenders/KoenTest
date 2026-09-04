@@ -5,6 +5,9 @@ nog op `pending` staat rendeerde onvoorwaardelijk als "✓ Terugbetaald", náás
 tekst dat de terugstorting nog bevestigd moest worden. Voor een penningmeester is
 net dát de informatie die telt.
 """
+
+import pytest
+pytestmark = pytest.mark.ui_serverrendered
 from decimal import Decimal
 
 from tests.conftest import SEEDED_ADMIN_EMAIL

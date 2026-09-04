@@ -4,6 +4,9 @@ PROD-pariteit (v1.14): inschrijven opent als smalle gecentreerde modal (niet een
 breed inline blok), en "Wie doet er mee?" is één compacte regel (niet een verticale
 lijst). We toetsen de templates op die vorm zodat de regressie niet terugkeert.
 """
+
+import pytest
+pytestmark = pytest.mark.ui_serverrendered
 from decimal import Decimal
 from pathlib import Path
 from types import SimpleNamespace

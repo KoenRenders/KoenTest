@@ -35,6 +35,9 @@ Vier regels, elk met een reden:
 Uitzonderingen staan expliciet in ALLOWLIST, met reden — zoals de allowlists in
 de andere gates: een regel toevoegen mag, maar niet stilzwijgend.
 """
+
+import pytest
+pytestmark = pytest.mark.ui_serverrendered
 import re
 from pathlib import Path
 

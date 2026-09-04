@@ -3,6 +3,9 @@
 kosten als ze fout gaan (tekengevoelige grenzen, effectieve uitbetaling van een
 refund registreren, opmerking bewaard in de audit) worden hier bewaakt.
 """
+
+
+pytestmark = pytest.mark.ui_agnostisch
 from decimal import Decimal
 
 import pytest

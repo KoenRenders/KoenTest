@@ -10,6 +10,9 @@ Deze tests dekken de invarianten die stilletjes kapot kunnen gaan:
 * blijft de filterstand staan na een mutatie op de inline bewerkbare schermen;
 * zijn de zware editor-assets (Trix) verhuisd naar de editorpagina.
 """
+
+import pytest
+pytestmark = pytest.mark.ui_serverrendered
 from tests.conftest import SEEDED_ADMIN_EMAIL
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.cms.api import CmsPage

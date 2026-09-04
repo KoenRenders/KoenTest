@@ -4,6 +4,9 @@ De invarianten die geld kosten als ze fout gaan: een refund draait enkel een
 charge terug, je betaalt nooit meer terug dan ontvangen, en de stand per
 inschrijving (verschuldigd vs. netto betaald) klopt met de live DB.
 """
+
+
+pytestmark = pytest.mark.ui_agnostisch
 from decimal import Decimal
 
 import pytest

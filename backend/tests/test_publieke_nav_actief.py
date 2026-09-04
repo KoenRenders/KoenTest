@@ -8,6 +8,9 @@ We toetsen op het gerenderde antwoord van echte routes, niet op de template-teks
 de invariant die telt is dat er per pagina precies één item oplicht, en dat het
 juiste item oplicht ook wanneer de href niet gelijk is aan het pad (/archief).
 """
+
+
+pytestmark = pytest.mark.ui_serverrendered
 import re
 
 import pytest

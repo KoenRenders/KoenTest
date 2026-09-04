@@ -1,5 +1,8 @@
 """Veiligheids- en geldstroomtests: precies de grenzen waar een fout een lid
 geld kost of data lekt."""
+
+import pytest
+pytestmark = pytest.mark.ui_agnostisch
 from decimal import Decimal
 
 from tests.conftest import seed_postal_code, seed_activity_with_product

@@ -14,31 +14,28 @@ activiteiten die er nog niet was.
 from datetime import date
 from decimal import Decimal
 
+import pytest
+
 from app.domains.membership.api import Membership
 from app.domains.payment.api import (
     PaymentRecord, PaymentRecordHistory, get_records_for, reconcile_charges,
     reconcile_registration_charges,
 )
 from app.domains.payment.handlers import find_orphan_records
+from tests._invarianten import assert_saldo_klopt
 from tests.conftest import (create_test_family, create_test_member,
                             seed_activity_with_product)
 
 
-# ── De invariant die in élk geval geldt ──────────────────────────────────────
+pytestmark = pytest.mark.ui_agnostisch
+
+
+# ── De invariant die in élk geval geldt ─────────────────────────────────────
+# Sinds #622 staat ze gedeeld in tests/_invarianten.py, zodat élke geldmutatie-test
+# dezelfde controle doet i.p.v. per bestand een eigen variant.
 
 def _controleer_invariant(db, payable_type, payable_id, verwacht_totaal):
-    """Som van alle niet-verwijderde records == het nieuwe totaal, en nooit een
-    openstaande post náást een terugbetaling."""
-    records = get_records_for(db, payable_type, payable_id)
-    som = sum((Decimal(str(r.amount)) for r in records), Decimal("0"))
-    assert som == Decimal(str(verwacht_totaal)), \
-        f"som {som} != {verwacht_totaal} voor {payable_type}/{payable_id}"
-
-    open_posten = [r for r in records if r.amount_paid is None and r.type == "charge"]
-    refunds = [r for r in records if r.type == "refund"]
-    assert not (open_posten and refunds), \
-        "openstaande post naast een terugbetaling — dat is nooit een geldige stand"
-    return records
+    return assert_saldo_klopt(db, payable_type, payable_id, verwacht_totaal)
 
 
 def _charge(db, payable_type, payable_id, amount, amount_paid=None, method="transfer"):

@@ -1,6 +1,9 @@
 """Delete-integriteit: een gezin/lidmaatschap/persoon verwijderen terwijl er
 betalingen (en registraties) aan hangen mag de financiële overzichten en de
 ledenwijzigingen-export niet breken, en mag geen weesbetalingen achterlaten (#82-context)."""
+
+import pytest
+pytestmark = pytest.mark.ui_agnostisch
 from datetime import date
 
 from app.domains.payment.api import PaymentRecord

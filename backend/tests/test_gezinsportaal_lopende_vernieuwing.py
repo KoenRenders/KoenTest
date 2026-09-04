@@ -8,6 +8,9 @@ kon slagen.
 De invariant die telt: **guard en scherm zijn het altijd eens**. Beide stellen nu
 dezelfde vraag via `open_renewal_payment()`.
 """
+
+import pytest
+pytestmark = pytest.mark.ui_serverrendered
 from datetime import date
 from decimal import Decimal
 

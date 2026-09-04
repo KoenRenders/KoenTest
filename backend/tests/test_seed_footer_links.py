@@ -9,6 +9,9 @@ De invariant die telt is niet "de waarden staan er", maar dat het scherm daarna 
 baas blijft: de seed draait één keer per omgeving en mag nooit iets terugzetten wat
 iemand bewust heeft aangepast of leeggemaakt.
 """
+
+import pytest
+pytestmark = pytest.mark.ui_agnostisch
 from app.kernel.tenancy import TENANT_MILLEGEM_ID, TENANT_VOORBEELD_ID
 from app.kernel.tenant_config import get_setting, set_setting
 

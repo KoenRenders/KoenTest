@@ -9,6 +9,9 @@ hoogte (#611).
 De opmaak zelf toetsen we niet; wél de twee cascade-eigenschappen die stuk wáren en
 die bij een volgende bewerking van build-css.sh makkelijk opnieuw sneuvelen.
 """
+
+import pytest
+pytestmark = pytest.mark.ui_serverrendered
 import re
 from pathlib import Path
 

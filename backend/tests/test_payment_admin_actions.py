@@ -2,6 +2,9 @@
 uit het saldo) en refund-correctie. Geldkritisch: elke actie moet het netto-
 ontvangen bedrag correct beïnvloeden en een history-snapshot laten.
 """
+
+
+pytestmark = pytest.mark.ui_agnostisch
 from decimal import Decimal
 
 import pytest

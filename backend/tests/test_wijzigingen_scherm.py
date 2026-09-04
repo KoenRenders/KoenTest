@@ -5,6 +5,9 @@ eerste weg — net de kolom waarvoor je het scherm opent. De operatie kleurde de
 rij i.p.v. een badge te dragen, tegen §2.10 en tegen de B6-regel uit #596. En het
 scherm had geen paginering, terwijl §2.5 dat voorschrijft zodra een lijst kan groeien.
 """
+
+import pytest
+pytestmark = pytest.mark.ui_serverrendered
 import re
 
 from tests.conftest import SEEDED_ADMIN_EMAIL

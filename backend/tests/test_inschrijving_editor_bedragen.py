@@ -5,6 +5,9 @@ attributen werden ge-escaped (htmx deed niets), aantal en opmerking sloegen apar
 en het paneel toonde geen bedragen. De regressietest op de escaping is hier de
 belangrijkste — dit is de derde keer dat die klasse fout opduikt (#514, #613, #616).
 """
+
+import pytest
+pytestmark = pytest.mark.ui_serverrendered
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from app.domains.activities.api import Registration, RegistrationItem

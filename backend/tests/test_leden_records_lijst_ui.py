@@ -10,6 +10,9 @@ op het oog goed uitzien terwijl ze fout staan:
 * de **filters op de query**: status en lidmaatschapsjaar moeten in de SQL zitten,
   niet op de opgehaalde pagina, anders klopt de paginering niet meer.
 """
+
+import pytest
+pytestmark = pytest.mark.ui_serverrendered
 from datetime import date
 
 from tests.conftest import (

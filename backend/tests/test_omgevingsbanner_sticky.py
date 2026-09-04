@@ -9,6 +9,9 @@ De val die deze test afdekt: op PROD is er géén banner, dus daar moet de offse
 0 zijn. Anders staat er op productie een gat van 24px waar de inhoud onder de header
 door scrolt. De opmaak zelf toetsen we niet — enkel dat de twee standen kloppen.
 """
+
+
+pytestmark = pytest.mark.ui_serverrendered
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 
