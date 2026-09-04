@@ -97,31 +97,13 @@ Project-specific helpers for [Claude Code](https://claude.com/claude-code) live 
 them). They contain **no secrets** — connection details come from environment
 variables only.
 
-### Skill: `/release`
-`.claude/skills/release/SKILL.md` — guides a release end to end, following the
-rules in `CLAUDE.md`: create/maintain the release-tracking issue, verify every
-issue is merged and CI-green, collect CI evidence, guide the GitHub Release
-(HDEV → tag → UAT → PROD) and close the issues. Invoke it in a session with
-`/release` (e.g. "start release v1.x.0" or "wrap up v1.x.0").
-
-Optionally it can run the deploy **over SSH** on the server and pull + analyse the
-backend logs — but only when it runs in an SSH-capable environment and the
-connection is provided via env vars (never committed):
-
-| Env var | Purpose |
-|---|---|
-| `DEPLOY_SSH_HOST` / `DEPLOY_SSH_USER` / `DEPLOY_SSH_KEY` | SSH target + private-key path (shared — one server) |
-| `DEPLOY_SSH_PORT` | optional, default 22 |
-| `DEPLOY_HDEV_DIR` / `DEPLOY_UAT_DIR` / `DEPLOY_PROD_DIR` / `DEPLOY_CADDY_DIR` | per-environment checkout paths on the server |
-| `DEPLOY_DRY_RUN` | optional; `1`/`true` prints the deploy commands instead of running them (connection test + log fetch still run) |
-
-Copy `.deploy.env.example` to `.deploy.env` (gitignored) — or to a path outside the
-repo — fill it in and `source` it before launching the CLI. It holds host/user/paths
-and the *path* to your key only; the private key itself never leaves `~/.ssh`.
-
-Guardrail: **HDEV runs automatically; UAT/PROD only after explicit confirmation**
-and with a validated release tag. In an environment without SSH (e.g. Claude Code
-on the web) it falls back to printing the exact commands and analysing pasted logs.
+### Releases
+There is no release skill any more. The ordered procedure — tracker issue, merge
+gate, CI evidence, HDEV, GitHub Release, UAT, shared Caddy, PROD, closing the
+issues — lives in `CLAUDE.md` under *Running a release from the CLI — the order*,
+next to the rules it follows. Deploys go through `raakctl` on the server (or
+`raak` from a laptop), which resolves an environment to its checkout; HDEV runs
+autonomously, UAT and PROD only after explicit confirmation.
 
 ### Agent: `publieke-repo-bewaker`
 `.claude/agents/publieke-repo-bewaker.md` — a read-only subagent that reviews a

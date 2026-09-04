@@ -191,6 +191,38 @@ this same repository, so `<uat-checkout>/deploy.sh prod` exists and would do the
 wrong thing. From a laptop, `raak <verb>` passes the same verbs over SSH and adds
 `raak fetch <env>` to pull a diagnostics report down.
 
+### Running a release from the CLI — the order
+
+The CLI drives a release from this file; there is no separate release skill. The
+rules live in the sections around this one — *Releases and hotfixes*, *Autonoom een
+release afwerken*, *Testen en test-evidence* — and this table is only the
+**sequence** plus who may act without asking.
+
+| # | Step | Autonomy | How |
+|---|---|---|---|
+| 1 | Release tracking issue (single source of truth) | CLI | one checkbox per issue; never uncheck Koen's boxes |
+| 2 | Merge gate: every feature branch merged to `master`, CI green | CLI, merges on Koen's request | `gh pr merge` |
+| 3 | CI evidence into the tracker: run id + link + `N passed` + the `pip-audit` outcome | CLI | `gh run view` |
+| 4 | New/changed **env vars** set on each host | **Koen** | name them explicitly; they are never auto-added |
+| 5 | Deploy master to HDEV and verify | CLI, autonomous | `raak deploy hdev` |
+| 6 | GitHub Release `vX.Y.Z` on the **HDEV-tested** master commit | CLI | re-check the target commit; the tag is created server-side |
+| 7 | Deploy that tag to UAT | **confirmation required** | `raak deploy uat vX.Y.Z` |
+| 8 | Shared Caddy — only when the release touches `caddy/parts/*` | **confirmation required** | `raak caddy` (one recreate covers UAT + PROD) |
+| 9 | Same tag to PROD, after UAT is good | **confirmation required** | `raak deploy prod vX.Y.Z --confirm` |
+| 10 | Verify the backend logs per environment | CLI | `raak logs <env>`, or `raak diagnose <env>` + `raak fetch <env>` |
+| 11 | Close every implemented issue with a closing comment (what was built + how to test on HDEV) | CLI | the tracker's HDEV checkbox stays for Koen |
+| 12 | Close the tracker once the release runs on PROD | CLI | — |
+
+`raak` is the laptop-side entry point (see *Deploying a release to UAT / PROD*); it
+needs the `raak` alias in `~/.ssh/config` and hands every verb to `raakctl` on the
+server. Its own documentation lives outside this repo, next to the script. An
+environment still running a release from before `raakctl` falls back to the legacy
+`deploy-<env>.sh` automatically — no special handling needed.
+
+**The three confirmation steps are the only ones that stop.** Everything else runs
+without asking, per *Autonoom een release afwerken*: assigning work to a release is
+the permission. Never tag a commit that has not been tested on HDEV.
+
 ### Script naming: interface vs. step
 
 Files invoked **by path** keep the `.sh` extension — `deploy.sh`, `logging.sh`,
