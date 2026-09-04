@@ -64,9 +64,13 @@ def _kpi(db: Session) -> dict:
     from app.domains.payment.api import current_membership_counts
 
     gezinnen, personen = current_membership_counts(db)
-    _, doeljaar = renewal_years()
+    # Het referentiejaar (#611): de KPI-kaart noemt het jaar waarin iemand lid wás,
+    # zodat duidelijk is dat we naar vorig jaar kijken en niet twee jaar terug. Het
+    # kantelt mee met de tenant-datum, dus het mag niet hardgecodeerd zijn.
+    referentiejaar, doeljaar = renewal_years()
     return {"kpi_gezinnen": gezinnen, "kpi_personen": personen,
-            "kpi_niet_vernieuwd": not_renewed_count(db), "kpi_doeljaar": doeljaar}
+            "kpi_niet_vernieuwd": not_renewed_count(db), "kpi_doeljaar": doeljaar,
+            "kpi_referentiejaar": referentiejaar}
 
 
 def _lijst_ctx(request: Request, db: Session) -> dict:

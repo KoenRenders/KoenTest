@@ -28,12 +28,12 @@
 {% call ui.filter_bar("/admin/formulieren", "#fb-lijst") %}
   <div>{{ ui.search(value=q, placeholder=_('Zoek op naam…'), standalone=False) }}</div>
   <div class="flex flex-wrap gap-3">
-    <select name="status" class="text-sm">
+    {% call ui.select_control("status") %}
       <option value="">{{ _("Alle statussen") }}</option>
       {% for s in statuses %}
       <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ status_labels[s] }}</option>
       {% endfor %}
-    </select>
+    {% endcall %}
   </div>
 {% endcall %}
 

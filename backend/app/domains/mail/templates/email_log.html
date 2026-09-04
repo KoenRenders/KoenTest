@@ -13,14 +13,14 @@
                  placeholder=_('Zoek op ontvanger…'), standalone=False) }}
   </div>
   <div class="flex flex-wrap gap-3">
-    <select name="email_type" class="text-sm">
+    {% call ui.select_control("email_type") %}
       <option value="">{{ _("Alle types") }}</option>
       {% for t in email_types %}<option value="{{ t }}" {% if t == email_type %}selected{% endif %}>{{ type_labels.get(t, t) }}</option>{% endfor %}
-    </select>
-    <select name="status" class="text-sm">
+    {% endcall %}
+    {% call ui.select_control("status") %}
       <option value="">{{ _("Alle statussen") }}</option>
       {% for s in email_statuses %}<option value="{{ s }}" {% if s == status %}selected{% endif %}>{{ status_labels.get(s, s) }}</option>{% endfor %}
-    </select>
+    {% endcall %}
   </div>
 {% endcall %}
 <div id="email-log-lijst">

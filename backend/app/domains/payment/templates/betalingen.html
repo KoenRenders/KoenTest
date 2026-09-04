@@ -13,11 +13,11 @@
     {# Gegroepeerde context-filter via de gedeelde macro (#549); geen hx-* op de select
        zelf — de omhullende filterbalk vangt de change al op. #}
     {{ ui.grouped_filter("context", context_top, context_groups, current=context) }}
-    <select name="status" class="text-sm">
+    {% call ui.select_control("status") %}
       {% for s in ["all", "openstaand", "pending", "paid", "failed", "cancelled"] %}
       <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ _status_labels[s] }}</option>
       {% endfor %}
-    </select>
+    {% endcall %}
     {{ ui.btn_secondary(_("Export (.ods)"), lead_icon="download",
                         href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status, size="sm") }}
   </div>

@@ -131,7 +131,11 @@
 </div>
 {%- endmacro %}
 
-{% set _control = "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none" %}
+{# Eén bron voor de hoogte/rand van een formulier-control (#611). De basis staat
+   los van `w-full` zodat een filterveld dezelfde hoogte krijgt zonder de volle
+   breedte te nemen — zie select_control(). #}
+{% set _control_base = "rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none" %}
+{% set _control = "w-full " ~ _control_base %}
 
 {% macro field_input(text, name, value="", type="text", required=False, placeholder="", hint=None, error=None, attrs="") -%}
 {{ _field(text, name, '<input id="' ~ name ~ '" name="' ~ name ~ '" type="' ~ type ~ '" value="' ~ value ~ '" placeholder="' ~ placeholder ~ '"' ~ (' required' if required else '') ~ ' class="' ~ _control ~ '" ' ~ attrs ~ '>', required, hint, error) }}
@@ -265,6 +269,20 @@
          {% if include %}hx-include="{{ include }}"{% endif %}{% endif %}>
   <span class="absolute left-3 top-1/2 -translate-y-1/2 text-ink-soft pointer-events-none">{{ icon('search') }}</span>
 </div>
+{%- endmacro %}
+
+{# ── Select met kit-hoogte (#611) ─────────────────────────────────────────────
+   Een kale <select class="text-sm"> valt terug op de preflight-hoogte en staat dan
+   ~15px lager dan het zoekveld ernaast — dat gaf scheve filterbalken op zeven
+   schermen. Deze macro draagt dezelfde `_control_base` als de veldmacro's.
+
+   Call-vorm i.p.v. een options-lijst: de zeven schermen bouwen hun opties elk
+   anders (loops, labeldicts, voorwaarden). Zo verandert er per scherm enkel de
+   <select>-regel en blijft de optielogica ongemoeid.
+
+   Gebruik: {% call ui.select_control("status") %}<option …>{% endcall %} #}
+{% macro select_control(name, cls="", attrs="") -%}
+<select name="{{ name }}" class="{{ _control_base }}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>{{ caller() }}</select>
 {%- endmacro %}
 
 {# ── Paginering (#528 as C) ───────────────────────────────────────────────────
@@ -412,7 +430,7 @@
 {%- endmacro %}
 
 {% macro grouped_filter(name, top_options=[], groups={}, current="", hx_get="", hx_target="") -%}
-<select name="{{ name }}" class="border border-gray-300 rounded-lg px-3 py-2 text-sm"
+<select name="{{ name }}" class="{{ _control_base }}"
         {% if hx_get %}hx-get="{{ hx_get }}" hx-target="{{ hx_target }}" hx-swap="innerHTML" hx-trigger="change"{% endif %}>
   {% for value, display in top_options %}<option value="{{ value }}" {% if current == value %}selected{% endif %}>{{ display }}</option>{% endfor %}
   {% for glabel, opts in groups.items() %}

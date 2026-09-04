@@ -165,3 +165,27 @@ def test_kaart_opent_de_paginabrede_editor(client, db_session):
     fragment = client.get(f"/admin/leden/gezin/{member.id}",
                           headers={"HX-Request": "true"})
     assert "<html" not in fragment.text.lower()
+
+
+# ── C1-referentiescherm (#611) ────────────────────────────────────────────────
+
+def test_acties_staan_op_de_titelregel_boven_de_kpi_rij(client, db_session):
+    """Het C1-referentiescherm zet de knoppen in de kop, niet in een losse rij
+    onder de KPI's (waar de prozatekst van §3.2 ze had staan). Structureel te
+    toetsen: ze komen vóór de KPI-rij in de HTML."""
+    _login(client)
+    html = client.get("/admin/leden").text
+    assert html.index("+ Nieuw lid") < html.index("Actieve leden")
+    assert html.index("Leden importeren") < html.index("+ Nieuw lid")  # secundair links
+
+
+def test_kpi_kaart_noemt_het_referentiejaar_niet_nog_eens_het_doeljaar(client, db_session):
+    """De derde regel zegt in welk jaar iemand lid wás — anders herhaalt ze enkel
+    het doeljaar dat al in het label staat. Het jaar kantelt mee met de
+    tenant-datum, dus het komt uit renewal_years() en staat niet hardgecodeerd."""
+    _login(client)
+    referentiejaar, doeljaar = renewal_years()
+    html = client.get("/admin/leden").text
+    assert f"Was lid in {referentiejaar}" in html
+    assert referentiejaar == doeljaar - 1
+    assert "dekt" not in html          # de oude formulering is weg

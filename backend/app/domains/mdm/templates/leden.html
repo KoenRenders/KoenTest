@@ -2,33 +2,19 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Leden — Raak") }}{% endblock %}
 {% block content %}
-{# Records-lijst (design-system C1, #582): titel → KPI-rij → primaire "+ Nieuw lid"
-   met "Leden importeren" ernaast → zoeken → statuschips + data-gedreven
-   lidmaatschapsjaar → kaarten die de paginabrede gezinseditor openen. #}
-{{ ui.page_header(_("Leden"), _("Gezinnen en hun leden; een kaart opent het gezin met personen, adres en lidmaatschappen.")) }}
+{# Records-lijst (design-system C1, #582/#611): titelregel mét de acties → duiding →
+   KPI-rij → zoeken → statuschips + data-gedreven lidmaatschapsjaar → kaarten die de
+   paginabrede gezinseditor openen.
 
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-  <div class="rounded-xl bg-blue-50 p-5">
-    <div class="text-3xl font-extrabold text-blue-700">{{ kpi_gezinnen }}</div>
-    <div class="text-sm font-semibold mt-1">{{ _("Actieve leden") }}</div>
-    <div class="text-xs text-ink-soft">{{ _("gezinnen met een geldig lidmaatschap") }}</div>
-  </div>
-  <div class="rounded-xl bg-surface-2 border border-line p-5">
-    <div class="text-3xl font-extrabold">{{ kpi_personen }}</div>
-    <div class="text-sm font-semibold mt-1">{{ _("Actieve personen") }}</div>
-  </div>
-  {# Het jaar staat in het label: het doeljaar kantelt op de tenant-datum
-     'Volgend jaar vanaf', dus zonder jaartal weet je niet waarover het gaat. #}
-  <div class="rounded-xl bg-surface-2 border border-line p-5">
-    <div class="text-3xl font-extrabold">{{ kpi_niet_vernieuwd }}</div>
-    <div class="text-sm font-semibold mt-1">{{ _("Nog niet vernieuwd") }} ({{ kpi_doeljaar }})</div>
-    <div class="text-xs text-ink-soft">{{ _("was lid, maar dekt %(jaar)s nog niet", jaar=kpi_doeljaar) }}</div>
-  </div>
-</div>
-
-<div class="flex flex-wrap items-center gap-2 mb-4" x-data="{ open: false }">
-  {{ ui.btn_primary(_("+ Nieuw lid"), type="button", attrs='@click="open = true"') }}
-  {{ ui.btn_secondary(_("Leden importeren"), lead_icon="upload", href="/admin/leden-import") }}
+   De knoppen staan op de titelregel, niet in een losse rij eronder: het
+   C1-referentiescherm is leidend boven de prozatekst van §3.2, die ze onder de
+   KPI-rij zette (#611). Volgorde als in de mock: secundair links, primair rechts.
+   De x-data-scope omvat kop én modal, want de knop erin opent ze. #}
+<div x-data="{ open: false }">
+  {% call ui.page_header(_("Leden"), _("Gezinnen en hun leden; een kaart opent het gezin met personen, adres en lidmaatschappen.")) %}
+    {{ ui.btn_secondary(_("Leden importeren"), lead_icon="upload", href="/admin/leden-import") }}
+    {{ ui.btn_primary(_("+ Nieuw lid"), type="button", attrs='@click="open = true"') }}
+  {% endcall %}
   {% call ui.modal('open', _("Nieuw lid")) %}
   <form class="space-y-3" hx-post="/admin/leden" @htmx:after-request="open = false">
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -43,15 +29,36 @@
   {% endcall %}
 </div>
 
+{# Mock .kpi: witte kaart met rand, label (.k) bóven het cijfer (.v) — drie
+   identieke kaarten, geen getinte uitzondering voor de eerste (#611). #}
+<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
+  <div class="rounded-xl bg-white border border-line p-5">
+    <div class="text-xs font-semibold text-ink-soft">{{ _("Actieve leden") }}</div>
+    <div class="text-3xl font-extrabold font-brand text-blue-700">{{ kpi_gezinnen }}</div>
+  </div>
+  <div class="rounded-xl bg-white border border-line p-5">
+    <div class="text-xs font-semibold text-ink-soft">{{ _("Actieve personen") }}</div>
+    <div class="text-3xl font-extrabold font-brand">{{ kpi_personen }}</div>
+  </div>
+  {# Het doeljaar staat in het label (het kantelt op de tenant-datum 'Volgend jaar
+     vanaf'); de derde regel noemt het REFERENTIEjaar, zodat duidelijk is dat we
+     naar vorig jaar kijken en niet twee jaar terug. #}
+  <div class="rounded-xl bg-white border border-line p-5">
+    <div class="text-xs font-semibold text-ink-soft">{{ _("Nog niet vernieuwd") }} ({{ kpi_doeljaar }})</div>
+    <div class="text-3xl font-extrabold font-brand">{{ kpi_niet_vernieuwd }}</div>
+    <div class="text-xs font-semibold text-ink-soft">{{ _("Was lid in %(jaar)s", jaar=kpi_referentiejaar) }}</div>
+  </div>
+</div>
+
 {% call ui.filter_bar("/admin/leden/lijst", "#leden-lijst") %}
-  <div>{{ ui.search(value=q, placeholder=_('Zoek op naam of e-mail…'), standalone=False) }}</div>
-  <div class="flex flex-wrap items-center gap-3">
+  <div>{{ ui.search(value=q, placeholder=_('Zoek op naam of e-mail…'), standalone=False, cls='w-full') }}</div>
+  <div class="flex flex-wrap items-center justify-between gap-3">
     {{ ui.chips("status", [("", _("Alle")), ("actief", _("Actief")), ("opgezegd", _("Opgezegd"))], status) }}
     {% if jaren %}
-    <select name="jaar" class="text-sm">
+    {% call ui.select_control("jaar") %}
       <option value="">{{ _("Alle lidmaatschapsjaren") }}</option>
       {% for j in jaren %}<option value="{{ j }}" {% if jaar == j %}selected{% endif %}>{{ _("Lidmaatschap %(jaar)s", jaar=j) }}</option>{% endfor %}
-    </select>
+    {% endcall %}
     {% endif %}
   </div>
 {% endcall %}

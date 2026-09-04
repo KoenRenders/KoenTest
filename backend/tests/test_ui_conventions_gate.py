@@ -15,6 +15,10 @@ Vier regels, elk met een reden:
 4. **Geen `amber-*`.** Geel is "wachtend"; het amber-palet is vervallen.
 5. **Geen `hx-confirm`.** Dat toont het native browser-confirm(); bevestiging gaat
    sinds #595 via de in-app modal (`data-confirm` + `ui.confirm_host()`).
+6. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
+   preflight-hoogte en staat hij ~15px lager dan het zoekveld ernaast; dat gaf
+   scheve filterbalken op zeven schermen (#611). Gebruik `ui.select_control()`,
+   `ui.grouped_filter()` of `ui.field_select()`.
 
 Uitzonderingen staan expliciet in ALLOWLIST, met reden — zoals de allowlists in
 de andere gates: een regel toevoegen mag, maar niet stilzwijgend.
@@ -37,6 +41,8 @@ DONKERBLAUW = re.compile(r"\bblue-(800|900)\b")
 AMBER = re.compile(r"\bamber-\d")
 JS_DIALOOG = re.compile(r"\b(alert|confirm)\s*\(")
 HX_CONFIRM = re.compile(r"\bhx-confirm\b")
+# Markers die aantonen dat een <select> de kit-stijl draagt.
+SELECT_OK = ("_control", "border")
 # Een kit-knop met een label dat enkel uit 1–2 symbolen bestaat (×, ⚙, ➤, …).
 GLYPH_KNOP = re.compile(r'btn_(?:danger|secondary|primary|outline)\(\s*"([^"\w\s]{1,2})"')
 
@@ -154,3 +160,32 @@ def test_toasts_hebben_een_landingsplek():
     for schil in ("site_base.html", "admin_base.html"):
         inhoud = (APP / "ui" / "templates" / schil).read_text()
         assert "toast_host()" in inhoud, f"{schil} mist ui.toast_host()"
+
+
+def test_geen_kale_select():
+    """Een <select> zonder control-klassen valt terug op de preflight-hoogte (#611).
+
+    De basisregel uit #482 (`:where(… select …)`) zet wél rand en radius, maar de
+    padding wordt overschreven door Tailwinds eigen preflight — `select{padding:0}`
+    heeft specificiteit 0,0,1 tegenover 0,0,0 voor `:where()`. Daardoor is zo'n
+    select ~15px lager dan het zoekveld ernaast. De kitmacro's zetten de padding
+    expliciet; dit is een regel-vormige afwijking, dus ze hoort in de gate.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        # Jinja-commentaar leegmaken (regelnummers behouden): het commentaar bij
+        # select_control() toont juist het foute patroon dat deze regel verbiedt.
+        tekst = re.sub(r"\{#.*?#\}",
+                       lambda m: re.sub(r"[^\n]", " ", m.group(0)),
+                       pad.read_text(), flags=re.S)
+        for treffer in re.finditer(r"<select\b", tekst):
+            eind = tekst.find(">", treffer.start())
+            tag = tekst[treffer.start():eind + 1] if eind != -1 else tekst[treffer.start():]
+            if any(m in tag for m in SELECT_OK):
+                continue
+            regel = tekst[:treffer.start()].count("\n") + 1
+            fouten.append(f"{pad.relative_to(APP)}:{regel}: {tag.strip()[:90]}")
+    assert not fouten, (
+        "Gebruik ui.select_control() / ui.grouped_filter() / ui.field_select():\n  "
+        + "\n  ".join(fouten)
+    )

@@ -15,12 +15,13 @@
   <div>{{ ui.search(value=actor, name="actor", placeholder=_('Zoek op actor…'), standalone=False) }}</div>
   <div class="flex flex-wrap items-end gap-3">
     <div>{{ ui.label(_("Vanaf"), "lw-since") }}
-      <input type="date" name="since" id="lw-since" value="{{ since }}" class="text-sm"></div>
+      <input type="date" name="since" id="lw-since" value="{{ since }}"
+             class="rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink"></div>
     <div>{{ ui.label(_("Groep"), "lw-group") }}
-      <select name="group" id="lw-group" class="text-sm">
+      {% call ui.select_control("group", attrs='id="lw-group"') %}
         <option value="">{{ _("Alle") }}</option>
         {% for g in groups %}<option value="{{ g }}" {% if g == group %}selected{% endif %}>{{ g }}</option>{% endfor %}
-      </select></div>
+      {% endcall %}</div>
   </div>
 {% endcall %}
 
