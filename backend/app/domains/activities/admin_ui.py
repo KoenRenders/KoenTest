@@ -61,18 +61,10 @@ def _upload_error(exc: HTTPException) -> str:
 
 
 def _verplaats(db: Session, siblings, item_id: int, richting: str) -> None:
-    """Herorden broers/zussen via ``sort_order``: normaliseer eerst naar 0..n (zo
-    zijn er altijd distincte waarden, ook als alles nog op de default 0 staat) en
-    wissel dan met de buur in de gevraagde richting. Buiten bereik = no-op."""
-    ordered = sorted(siblings, key=lambda s: (s.sort_order or 0, s.id))
-    for idx, s in enumerate(ordered):
-        s.sort_order = idx
-    positie = next((i for i, s in enumerate(ordered) if s.id == item_id), None)
-    if positie is not None:
-        buur = positie - 1 if richting == "omhoog" else positie + 1
-        if 0 <= buur < len(ordered):
-            ordered[positie].sort_order, ordered[buur].sort_order = (
-                ordered[buur].sort_order, ordered[positie].sort_order)
+    """Herorden broers/zussen via ``sort_order`` (kernel-helper, #635 E)."""
+    from app.kernel.ordering import move_sibling
+
+    move_sibling(siblings, item_id, richting, attr="sort_order")
     db.commit()
 
 

@@ -239,15 +239,15 @@ def sectie_bewerken(form_id: int, section_id: int, request: Request,
 def sectie_verplaatsen(form_id: int, section_id: int, request: Request,
                        db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
                        richting: str = Form("op")):
+    from app.kernel.ordering import move_sibling
+
     form = _form_or_404(db, form_id)
-    ordered = sorted(form.sections, key=lambda s: s.position)
-    index = next((i for i, s in enumerate(ordered) if s.id == section_id), None)
-    if index is None:
+    if not any(s.id == section_id for s in form.sections):
         raise HTTPException(status_code=404, detail=_("Sectie niet gevonden"))
-    buur = index - 1 if richting == "op" else index + 1
-    if 0 <= buur < len(ordered):
-        ordered[index].position, ordered[buur].position = (
-            ordered[buur].position, ordered[index].position)
+    # Dezelfde helper als de activiteiten (#635 E). Die normaliseert eerst naar
+    # 0..n: wisselen alléén werkte niet zolang alle posities nog op hun default
+    # stonden — dan viel er niets te wisselen en gebeurde er stil niets.
+    move_sibling(form.sections, section_id, richting, attr="position")
     db.commit()
     return _builder_response(request, db, form)
 
@@ -320,17 +320,14 @@ def veld_bewerken(form_id: int, field_id: int, request: Request,
 def veld_verplaatsen(form_id: int, field_id: int, request: Request,
                      db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
                      richting: str = Form("op")):
+    from app.kernel.ordering import move_sibling
+
     form = _form_or_404(db, form_id)
     veld = next((f for f in form.fields if f.id == field_id), None)
     if veld is None:
         raise HTTPException(status_code=404, detail=_("Veld niet gevonden"))
-    broers = sorted((f for f in form.fields if f.section_id == veld.section_id),
-                    key=lambda f: f.position)
-    index = broers.index(veld)
-    buur = index - 1 if richting == "op" else index + 1
-    if 0 <= buur < len(broers):
-        broers[index].position, broers[buur].position = (
-            broers[buur].position, broers[index].position)
+    broers = [f for f in form.fields if f.section_id == veld.section_id]
+    move_sibling(broers, field_id, richting, attr="position")
     db.commit()
     return _builder_response(request, db, form)
 
