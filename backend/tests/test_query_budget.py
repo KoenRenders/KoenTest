@@ -33,12 +33,12 @@ pytestmark = pytest.mark.ui_serverrendered
 # Plafond per scherm. Verlaag na een fix; verhogen mag alleen met een reden in de
 # commit — dat is precies het gesprek dat deze gate wil afdwingen.
 BUDGET = {
-    "/admin/leden": 60,
-    "/admin/activiteiten": 60,
-    "/admin/betalingen": 80,
-    "/admin/ledenwijzigingen": 60,
-    "/admin/werkbank": 40,
-    "/activiteiten": 60,
+    "/admin/leden": 30,
+    "/admin/activiteiten": 40,
+    "/admin/betalingen": 40,
+    "/admin/ledenwijzigingen": 40,
+    "/admin/werkbank": 25,
+    "/activiteiten": 40,
 }
 
 AANTAL_GEZINNEN = 40
