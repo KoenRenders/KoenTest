@@ -110,11 +110,17 @@ leeg-teksten wisselen tussen "Geen …" en "Nog geen …" en tussen italic en ni
   e-mails-stijl: `btn-secondary btn-sm` "Vorige" / "Volgende" + "pagina x / y".
 
 ### 2.6 Rij-acties
-- In tabellen: **tekstlinks** `text-blue-700 hover:underline`, normale tekstmaat
-  (geen `text-xs`), max **2 zichtbaar** + rest in een **"⋯"-menu**.
+- **Lijstschermen (herhalende rijen):** houd de rij scanbaar — toon **2–3 acties
+  zichtbaar** en laat de rest overlopen naar een **"⋯"-menu** (`row_actions`, param
+  `max_visible`, default 2). Dit is een **richtlijn, geen harde grens**: bij weinig
+  rijen op een breed scherm mag alles inline.
+- **Detailschermen / toolbars:** **geen cap** — een detail-kop met zijn hoofdacties
+  mag ze gewoon inline tonen (dan gebruik je `row_actions` niet, of `max_visible` hoog).
+  Een ⋯-menu dat maar één actie verbergt is slechter dan alles tonen.
 - **Verwijderen: altijd laatst, altijd rood** (`text-red-600`), in het ⋯-menu
   zodra dat bestaat. Nooit een emoji, nooit verstopt — indien niet toegestaan
   (bv. geld bewoog): tonen maar disabled met tooltip-reden.
+- **Symbool-knoppen** (×, ⚙, …) krijgen altijd een `aria-label` (screenreader).
 
 ### 2.7 Verwijderen (bevestiging)
 - Eén `ConfirmDialog` met vaste template, infinitief + objectnaam:
@@ -456,9 +462,10 @@ Waar een lijst **concrete records** toont (inschrijvingen, betalingen, leden,
 producten) geldt één patroon: **toon → in-lijn bewerken**, met gedeelde macro's zodat
 adopteren = automatisch conform.
 
-- **Rij-acties** via `row_actions(actions=[…], delete_attrs=…, delete_label=…)`
-  (design-system §2.3): **max 2 zichtbaar + ⋯-menu** voor de rest; **"Verwijderen" staat
-  altijd laatst en rood**. De primaire actie is meestal **"Bewerken"/"Detail"**.
+- **Rij-acties** via `row_actions(actions=[…], delete_attrs=…, delete_label=…, max_visible=2)`
+  (design-system §2.4): op lijstrijen **2–3 zichtbaar + ⋯-menu** voor de rest (richtlijn,
+  configureerbaar via `max_visible`); detailschermen mogen alles inline tonen. **"Verwijderen"
+  staat altijd laatst en rood**. De primaire actie is meestal **"Bewerken"/"Detail"**.
 - **"Bewerken" opent de editor in-lijn** via `detail_disclosure(load_url, target_id)`:
   een trigger die het **gedeelde** detailfragment (bv. `_inschrijving_detail.html`)
   één keer via `hx-get` inlaadt in een doel-element — het scherm **herbouwt de editor

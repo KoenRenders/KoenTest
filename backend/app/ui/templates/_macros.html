@@ -415,18 +415,22 @@
 </select>
 {%- endmacro %}
 
-{# Rij-acties (#510, design-system §2.3): max 2 zichtbaar + ⋯-menu voor de rest;
-   "Verwijderen" staat ALTIJD laatst en rood. `actions` = lijst van reeds-gerenderde
-   knop-HTML (primaire eerst). `delete_attrs` → de hx-*/confirm van de delete-knop. #}
-{% macro row_actions(actions=[], delete_attrs="", delete_label="") -%}
+{# Rij-acties (#510, design-system §2.4). Conventie (nulmeting #528): op een
+   HERHALENDE LIJSTRIJ blijft de rij scanbaar — toon `max_visible` acties inline
+   (richtlijn 2–3) en laat de rest overlopen naar een ⋯-menu; "Verwijderen" staat
+   ALTIJD laatst en rood. DETAILSCHERMEN/toolbars hebben géén cap: die tonen hun
+   acties gewoon inline (dan gebruik je deze macro niet, of `max_visible` hoog).
+   `actions` = lijst van reeds-gerenderde knop-HTML (belangrijkste eerst);
+   `delete_attrs` → de hx-*/confirm van de delete-knop. #}
+{% macro row_actions(actions=[], delete_attrs="", delete_label="", max_visible=2) -%}
 <div class="inline-flex items-center gap-2 justify-end" x-data="{ menu: false }">
-  {% for a in actions[:2] %}{{ a|safe }}{% endfor %}
-  {% if actions|length > 2 %}
+  {% for a in actions[:max_visible] %}{{ a|safe }}{% endfor %}
+  {% if actions|length > max_visible %}
   <div class="relative">
     <button type="button" class="{{ btn_class('secondary', 'sm') }}" @click="menu=!menu" aria-label="{{ _('Meer acties') }}">⋯</button>
     <div x-show="menu" x-cloak @click.outside="menu=false"
          class="absolute right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-10 py-1 min-w-40 flex flex-col gap-1 p-1">
-      {% for a in actions[2:] %}{{ a|safe }}{% endfor %}
+      {% for a in actions[max_visible:] %}{{ a|safe }}{% endfor %}
     </div>
   </div>
   {% endif %}

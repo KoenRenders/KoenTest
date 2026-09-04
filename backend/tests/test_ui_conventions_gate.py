@@ -37,6 +37,8 @@ DONKERBLAUW = re.compile(r"\bblue-(800|900)\b")
 AMBER = re.compile(r"\bamber-\d")
 JS_DIALOOG = re.compile(r"\b(alert|confirm)\s*\(")
 HX_CONFIRM = re.compile(r"\bhx-confirm\b")
+# Een kit-knop met een label dat enkel uit 1–2 symbolen bestaat (×, ⚙, ➤, …).
+GLYPH_KNOP = re.compile(r'btn_(?:danger|secondary|primary|outline)\(\s*"([^"\w\s]{1,2})"')
 
 
 def _overtredingen(patroon: re.Pattern, *, negeer_root: bool = False):
@@ -100,6 +102,22 @@ def test_amber_is_vervallen():
     """Eén gele schaal: yellow-* is de token, amber bestaat niet meer."""
     fouten = _overtredingen(AMBER)
     assert not fouten, "Gebruik yellow-* (= wachtend):\n  " + "\n  ".join(fouten)
+
+
+def test_glyph_knoppen_hebben_aria_label():
+    """Een knoplabel dat enkel uit een symbool bestaat (×, ⚙, …) heeft een
+    aria-label nodig — een screenreader hoort anders enkel het teken (#528-nulmeting)."""
+    fouten = []
+    for pad in TEMPLATES:
+        for nr, regel in enumerate(pad.read_text().splitlines(), 1):
+            if "{#" in regel or "#}" in regel:
+                continue
+            if GLYPH_KNOP.search(regel) and "aria-label" not in regel:
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:90]}")
+    assert not fouten, (
+        "Geef symbool-knoppen een aria-label (attrs='aria-label=\"…\" …'):\n  "
+        + "\n  ".join(fouten)
+    )
 
 
 def test_geen_hx_confirm():

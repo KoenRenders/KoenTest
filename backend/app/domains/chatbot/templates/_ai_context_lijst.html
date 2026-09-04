@@ -9,16 +9,13 @@
       {% else %}{{ ui.badge(_("standaard"), "blue") }}{% endif %}
     </div>
     {% if info or asset_id %}
-    <div class="flex gap-2">
-      {% if asset_id %}
-      {{ ui.btn_secondary(_("Opnieuw lezen"), attrs='hx-post="/admin/ai-context/documenten/' ~ asset_id ~ '/opnieuw-lezen" hx-target="#ai-context-lijst" hx-swap="innerHTML" data-confirm="' ~ _("De tekst van dit document opnieuw inlezen?") ~ '"') }}
-      {% endif %}
-      {% if info %}
-      {{ ui.btn_secondary(_("Bewerk"), attrs='@click="edit = !edit"') }}
-      {{ ui.btn_secondary(_("Aan/uit"), attrs='hx-post="/admin/ai-context/' ~ info.id ~ '/toggle" hx-target="#ai-context-lijst" hx-swap="innerHTML"') }}
-      {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/ai-context/' ~ info.id ~ '/verwijderen" hx-target="#ai-context-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Contextrij"), label)) }}
-      {% endif %}
-    </div>
+    {# Rij-acties via de kit (#528-nulmeting #2): max 2 zichtbaar + ⋯-menu,
+       "Verwijder" laatst/rood. #}
+    {% set _acts = [] %}
+    {% if info %}{% set _ignore = _acts.append(ui.btn_secondary(_("Bewerk"), size="sm", attrs='@click="edit = !edit"')) %}{% endif %}
+    {% if asset_id %}{% set _ignore = _acts.append(ui.btn_secondary(_("Opnieuw lezen"), size="sm", attrs='hx-post="/admin/ai-context/documenten/' ~ asset_id ~ '/opnieuw-lezen" hx-target="#ai-context-lijst" hx-swap="innerHTML" data-confirm="' ~ _("De tekst van dit document opnieuw inlezen?") ~ '"')) %}{% endif %}
+    {% if info %}{% set _ignore = _acts.append(ui.btn_secondary(_("Aan/uit"), size="sm", attrs='hx-post="/admin/ai-context/' ~ info.id ~ '/toggle" hx-target="#ai-context-lijst" hx-swap="innerHTML"')) %}{% endif %}
+    {{ ui.row_actions(actions=_acts, max_visible=3, delete_attrs=('hx-post="/admin/ai-context/' ~ info.id ~ '/verwijderen" hx-target="#ai-context-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Contextrij"), label)) if info else '') }}
     {% endif %}
   </div>
   {% if soort == "bron" %}

@@ -111,13 +111,13 @@
       {# x-show i.p.v. een opacity-class: Tailwind purget dynamisch-in-:class
          gebruikte classes (opacity-0), waardoor de knop toch zichtbaar bleef (#480). #}
       <button type="button" @click="prev()" x-show="stack.length > 0" x-cloak
-              class="bg-white border border-gray-300 hover:bg-gray-100 text-gray-800 font-semibold px-4 py-2 rounded-lg">‹ {{ _("Vorige") }}</button>
+              class="{{ ui.btn_class('secondary') }}">‹ {{ _("Vorige") }}</button>
       <span x-show="stack.length === 0"></span>
       <div>
         <button type="button" @click="next()" x-show="!atLast"
-                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg">{{ _("Volgende") }} ›</button>
+                class="{{ ui.btn_class('primary') }}">{{ _("Volgende") }} ›</button>
         <button type="submit" x-show="atLast"
-                class="bg-blue-600 hover:bg-blue-700 text-white font-semibold px-4 py-2 rounded-lg">{{ submit_label }}</button>
+                class="{{ ui.btn_class('primary') }}">{{ submit_label }}</button>
       </div>
     </div>
     </div>
