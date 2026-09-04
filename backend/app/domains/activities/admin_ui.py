@@ -23,6 +23,7 @@ from app.domains.auth.api import (
     SESSION_COOKIE, User, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.ui import admin_nav, is_fragment_request, templates
+from app.domains.activities.viewmodels import AdminActiviteitenView
 from app.i18n import _
 from pydantic import ValidationError
 
@@ -132,19 +133,22 @@ def _detail_response(request: Request, db: Session, activity_id: int,
 def admin_activiteiten(request: Request, db: Session = Depends(get_db),
                        email: str = Depends(require_admin_ui),
                        scope: str = "upcoming", q: str = ""):
-    ctx = _lijst_ctx(db, scope, q)
+    lijst = _lijst_ctx(db, scope, q)
     # De kengetallen tellen wat er openstaat, niet wat er toevallig gefilterd is:
     # een zoekterm mag "Open inschrijvingen" niet doen dalen. Zonder filter is de
     # getoonde lijst al de juiste bron en blijft het bij één query.
-    kpi_bron = (ctx["activities"] if (scope == "upcoming" and not q.strip())
+    kpi_bron = (lijst["activities"] if (scope == "upcoming" and not q.strip())
                 else _lijst_ctx(db, "upcoming")["activities"])
     # De filterbalk vraagt enkel de kaarten op; zou ze de pagina vervangen, dan
     # sneuvelt het zoekveld (en de focus) bij elke aanslag.
-    sjabloon = ("_aa_kaarten.html" if is_fragment_request(request)
-                else "admin_activiteiten.html")
-    return templates.TemplateResponse(request, sjabloon, {
-        "nav_items": NAV, "csrf_token": csrf_from_request(request),
-        **_kpi(kpi_bron), **ctx})
+    fragment = is_fragment_request(request)
+    view = AdminActiviteitenView(
+        **lijst, **_kpi(kpi_bron),
+        csrf_token=csrf_from_request(request),
+        nav_items=[] if fragment else NAV,
+    )
+    sjabloon = "_aa_kaarten.html" if fragment else "admin_activiteiten.html"
+    return templates.TemplateResponse(request, sjabloon, view.as_context())
 
 
 @router.get("/admin/activiteiten/nieuw", response_class=HTMLResponse)

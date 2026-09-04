@@ -20,6 +20,7 @@ from app.domains.auth.api import (
 )
 from app.domains.mdm.models import GenderCode, Person, RelationTypeCode, PostalCode
 from app.ui import admin_nav, is_fragment_request, templates
+from app.domains.mdm.viewmodels import LedenView
 from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
@@ -73,7 +74,14 @@ def _kpi(db: Session) -> dict:
             "kpi_referentiejaar": referentiejaar}
 
 
-def _lijst_ctx(request: Request, db: Session) -> dict:
+def _lijst_view(request: Request, db: Session,
+                nav_items: list | None = None) -> LedenView:
+    """View-model van het ledenoverzicht (#643): pagina én fragment.
+
+    Het fragment wordt los gerenderd bij zoeken, filteren en pagineren, dus het
+    krijgt hetzelfde model — inclusief de KPI-rij, die anders bij een swap zou
+    verdwijnen.
+    """
     from app.domains.membership.api import list_families
 
     q = (request.query_params.get("q") or "").strip()
@@ -88,11 +96,16 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
                          status=status or None, membership_year=jaar,
                          db=db, _admin=None)
     # total + page_size erbij zodat ui.pager() "x–y van n" kan tonen (#580).
-    return {"families": data.items, "page": data.page, "total": data.total,
-            "per_page": data.page_size, "total_pages": data.total_pages,
-            "q": q, "status": status, "jaar": jaar,
-            "jaren": _lidmaatschapsjaren(db),
-            "gefilterd": bool(q or status or jaar)}
+    return LedenView(
+        families=data.items, page=data.page, total=data.total,
+        per_page=data.page_size, total_pages=data.total_pages,
+        q=q, status=status, jaar=jaar,
+        jaren=_lidmaatschapsjaren(db),
+        gefilterd=bool(q or status or jaar),
+        csrf_token=csrf_from_request(request),
+        nav_items=nav_items or [],
+        **_kpi(db),
+    )
 
 
 def _detail_ctx(request: Request, db: Session, family_id: int) -> dict:
@@ -123,9 +136,8 @@ def _detail_response(request: Request, db: Session, family_id: int):
 @router.get("/admin/leden", response_class=HTMLResponse)
 def leden_page(request: Request, db: Session = Depends(get_db),
                email: str = Depends(require_admin_ui)):
-    ctx = {"csrf_token": csrf_from_request(request), "nav_items": NAV,
-           **_kpi(db), **_lijst_ctx(request, db)}
-    return templates.TemplateResponse(request, "leden.html", ctx)
+    return templates.TemplateResponse(
+        request, "leden.html", _lijst_view(request, db, nav_items=NAV).as_context())
 
 
 @router.get("/admin/leden/lijst", response_class=HTMLResponse)
@@ -134,7 +146,7 @@ def leden_lijst(request: Request, db: Session = Depends(get_db),
     """Enkel de kaarten: de filterbalk swapt dit fragment, zodat het zoekveld niet
     onder je vingers vervangen wordt."""
     return templates.TemplateResponse(request, "_leden_lijst.html",
-                                      _lijst_ctx(request, db))
+                                      _lijst_view(request, db).as_context())
 
 
 @router.get("/admin/leden/nieuw", response_class=HTMLResponse)

@@ -17,6 +17,8 @@ dat is zichtbaar aan de lengte van dit register.
 import pytest
 from jinja2 import meta
 
+from app.domains.activities.viewmodels import AdminActiviteitenView
+from app.domains.mdm.viewmodels import LedenView
 from app.domains.payment.viewmodels import BetalingenView
 from app.ui import templates
 
@@ -26,6 +28,10 @@ pytestmark = pytest.mark.ui_serverrendered
 VIEWMODELS = {
     "betalingen.html": BetalingenView,
     "_betalingen_lijst.html": BetalingenView,
+    "leden.html": LedenView,
+    "_leden_lijst.html": LedenView,
+    "admin_activiteiten.html": AdminActiviteitenView,
+    "_aa_kaarten.html": AdminActiviteitenView,
 }
 
 # Namen die niet uit het view-model komen maar altijd bestaan:
