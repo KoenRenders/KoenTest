@@ -141,7 +141,11 @@
     <h1 tabindex="-1" class="text-3xl font-bold text-blue-700">{{ title }}</h1>
     {% if subtitle %}<p class="text-sm text-gray-500 mt-1">{{ subtitle }}</p>{% endif %}
   </div>
-  {% if caller %}<div class="flex flex-wrap items-center gap-2">{{ caller() }}</div>{% endif %}
+  {# `caller is defined` en niet `if caller` (#643): onder StrictUndefined klapt
+     een waarheidstest op een niet-bestaande variabele eruit, en Jinja zet
+     `caller` juist op undefined wanneer de macro zónder {% call %} gebruikt
+     wordt. `is defined` vraagt naar het bestaan i.p.v. naar de waarde. #}
+  {% if caller is defined %}<div class="flex flex-wrap items-center gap-2">{{ caller() }}</div>{% endif %}
 </div>
 {%- endmacro %}
 

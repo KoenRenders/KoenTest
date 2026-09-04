@@ -250,19 +250,44 @@ async def _boosted_swap_headers(request: Request, call_next):
 
 @app.middleware("http")
 async def _access_log(request: Request, call_next):
-    # Toegangslog op INFO: methode, pad, status en duur. Health-checks
-    # overslaan om ruis te beperken. Geen query-strings of bodies — die
-    # kunnen persoonsgegevens bevatten.
+    """Toegangslog: methode, pad, status en duur. Health-checks overslaan om ruis
+    te beperken. Geen query-strings of bodies — die kunnen persoonsgegevens
+    bevatten.
+
+    De duur staat sinds #645 als **veld** in de regel (`duration_ms`), niet enkel
+    in de tekst: met de JSON-formatter kan je dan op trage requests filteren
+    i.p.v. de tekst te moeten parsen. `route` draagt het routepatroon
+    (`/admin/leden/gezin/{family_id}`), zodat duizend detailpagina's als één regel
+    samengevat kunnen worden i.p.v. duizend losse paden.
+
+    Boven `settings.slow_request_ms` gaat dezelfde regel op WARNING met
+    `slow=true`. Met htmx is de snelheid van de UI de snelheid van de server; een
+    trage route hoort op te vallen zonder dat iemand ernaar zoekt.
+    """
     start = time.perf_counter()
     response = await call_next(request)
+    duration_ms = (time.perf_counter() - start) * 1000
+    # X-Process-Time maakt server- en netwerkduur scheidbaar voor het meetscript
+    # (scripts/latency-probe.py) — goedkoop en zonder persoonsgegevens.
+    response.headers["X-Process-Time"] = f"{duration_ms:.1f}"
     if request.url.path != "/api/health":
-        duration_ms = (time.perf_counter() - start) * 1000
-        logger.info(
+        route = request.scope.get("route")
+        traag = duration_ms > settings.slow_request_ms
+        logger.log(
+            logging.WARNING if traag else logging.INFO,
             "%s %s -> %s (%.1f ms)",
             request.method,
             request.url.path,
             response.status_code,
             duration_ms,
+            extra={
+                "duration_ms": round(duration_ms, 1),
+                "method": request.method,
+                "path": request.url.path,
+                "route": getattr(route, "path_format", None) or getattr(route, "path", None),
+                "status": response.status_code,
+                "slow": True if traag else None,
+            },
         )
     return response
 

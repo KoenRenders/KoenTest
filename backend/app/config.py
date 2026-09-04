@@ -104,6 +104,11 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     # "text" (leesbaar, default) of "json" (gestructureerd, #395)
     log_format: str = "text"
+    # Drempel voor "traag" in het toegangslog (#645). Een request die er langer
+    # over doet, wordt op WARNING gelogd met slow=true — met htmx is de snelheid
+    # van de UI gelijk aan de snelheid van de server, dus dit hoort zichtbaar te
+    # zijn zonder dat iemand er speciaal naar gaat zoeken.
+    slow_request_ms: int = 300
     # Kernel-jobs scheduler-loop (#396); tests zetten dit uit.
     jobs_enabled: bool = True
 

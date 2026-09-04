@@ -105,4 +105,8 @@ def cms_pagina(slug: str, request: Request, db: Session = Depends(get_db)):
         raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
     return templates.TemplateResponse(request, "cms_pagina.html", {
         **site_context(db, request), "page": page,
-        "content_html": render_cms_content(page.content or "")})
+        "content_html": render_cms_content(page.content or ""),
+        # De template toont een concept-banner; de publieke route serveert alleen
+        # gepubliceerde pagina's, dus hier altijd False. Expliciet meegeven i.p.v.
+        # de template laten raden — dat is de afspraak sinds #643.
+        "concept": False})
