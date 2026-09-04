@@ -22,9 +22,20 @@ def _login(client):
 
 
 def _wijzigingen(db, aantal):
-    """Elke insert van een Person levert een audit-snapshot op."""
+    """Zaai audit-rijen.
+
+    Snapshots ontstaan niet vanzelf bij een insert — de routers roepen ze expliciet
+    aan. Voor deze schermtest doen we hetzelfde, met dezelfde functie die de
+    productiecode gebruikt.
+    """
+    from app.domains.audit.api import snapshot_person
+
     for i in range(aantal):
-        db.add(Person(first_name=f"Test{i}", last_name="Wijziging"))
+        person = Person(first_name=f"Test{i}", last_name="Wijziging")
+        db.add(person)
+        db.flush()
+        snapshot_person(db, person, operation="insert", action="person_created",
+                        source="test", actor="tester@example.com")
     db.commit()
 
 
