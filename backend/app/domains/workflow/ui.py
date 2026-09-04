@@ -28,6 +28,23 @@ def _ctx(request: Request, db: Session, email: str, kind: str = "",
     def _cat(k: str) -> str:
         return (k or "").split(".", 1)[0]
 
+    # §2.12: nooit rauwe codes tonen (#630). `kind` is een intern dotted veld
+    # (payment.webhook_mismatch, …) dat als badge op élke taak stond. Per request
+    # opgebouwd zodat _() de taal van de tenant volgt; een onbekend type valt terug
+    # op iets leesbaars, niet op de code.
+    KIND_LABELS = {
+        "payment.webhook_mismatch": _("Betaling: webhook wijkt af"),
+        "payment.refund_bevestigen": _("Betaling: terugbetaling bevestigen"),
+        "mail.definitief_gefaald": _("E-mail: definitief mislukt"),
+        "kernel.job_gefaald": _("Achtergrondtaak mislukt"),
+    }
+    CAT_LABELS = {
+        "payment": _("Betalingen"), "mail": _("E-mail"), "kernel": _("Systeem"),
+    }
+
+    def _kind_label(k: str) -> str:
+        return KIND_LABELS.get(k or "", _("Overige taak"))
+
     def _sub(k: str) -> str:
         return (k or "").split(".", 1)[1] if "." in (k or "") else ""
 
@@ -41,7 +58,10 @@ def _ctx(request: Request, db: Session, email: str, kind: str = "",
     # optgroup met "Alle <cat>" (prefix-match) + de exacte subtypes.
     filter_top = [("", _("Alle taken"))]
     filter_groups = {
-        cat: [(cat, f'{_("Alle")} {cat}')] + [(f"{cat}.{s}", s) for s in sorted(subs)]
+        CAT_LABELS.get(cat, cat): (
+            [(cat, f'{_("Alle")} {CAT_LABELS.get(cat, cat).lower()}')]
+            + [(f"{cat}.{s}", _kind_label(f"{cat}.{s}")) for s in sorted(subs)]
+        )
         for cat, subs in sorted(cats.items())
     }
     # Filter: kind met punt → exact; zonder punt → hele categorie (prefix); leeg → alles.
@@ -66,6 +86,9 @@ def _ctx(request: Request, db: Session, email: str, kind: str = "",
         "filter_top": filter_top,
         "filter_groups": filter_groups,
         "kind": kind,
+        # De template mapt `task.kind` hierlangs i.p.v. de code te tonen (#630).
+        "kind_labels": KIND_LABELS,
+        "kind_fallback": _("Overige taak"),
     }
 
 

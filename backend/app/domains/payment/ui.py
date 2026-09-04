@@ -179,6 +179,12 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
         # fragment lezen hieruit, zodat er nergens nog rauwe codes (pending/paid)
         # op het scherm komen. Het fragment wordt ook los gerenderd, dus een
         # {% set %} in betalingen.html zou daar niet bestaan.
+        # §2.12: nooit rauwe DB-waarden op het scherm. Per request opgebouwd, zodat
+        # _() de taal van de tenant volgt (#630).
+        "method_labels": {
+            "online": _("Online"), "transfer": _("Overschrijving"),
+            "cash": _("Contant"),
+        },
         "status_labels": {
             "all": _("Alle statussen"), "openstaand": _("Openstaand saldo"),
             "pending": _("In afwachting"), "paid": _("Betaald"),

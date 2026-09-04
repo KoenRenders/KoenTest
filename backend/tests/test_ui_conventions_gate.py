@@ -35,7 +35,13 @@ Vier regels, elk met een reden:
 13. **Geen aanmaak-modal** — aanmaken opent een volledige-pagina-editor (#627,
     §2.8). Modals blijven voor read-only detail en bevestigingen; de publieke
     activiteitinschrijving is de beredeneerde uitzondering (#601).
-14. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
+14. **Terminologie is infinitief** — "Verwijderen"/"Annuleren", niet "Verwijder"/
+    "Annuleer" (§2.12, #630). Het stond exact fifty-fifty.
+15. **Geen leveranciersnaam in een knoplabel** (§2.12 sinds `edc7241`): een knop
+    beschrijft de handeling, niet wie ze uitvoert.
+16. **Geen rauwe DB-waarde in een badge** — `ui.badge(x.status|kind|method, …)` toont
+    een interne code op het scherm (#630). Map ze eerst naar een label.
+17. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
    preflight-hoogte en staat hij ~15px lager dan het zoekveld ernaast; dat gaf
    scheve filterbalken op zeven schermen (#611). Gebruik `ui.select_control()`,
    `ui.grouped_filter()` of `ui.field_select()`.
@@ -385,4 +391,72 @@ def test_geen_aanmaak_modal_in_de_admin():
             fouten.append(f"{pad.relative_to(APP)}: aanmaakformulier in een modal")
     assert not fouten, (
         "Aanmaken opent een volledige-pagina-editor (#627):\n  " + "\n  ".join(fouten)
+    )
+
+
+# ── Rauwe codes en terminologie (#630) ───────────────────────────────────────
+INFINITIEF = re.compile(r'_\("(Verwijder|Annuleer)"\)')
+# Een badge die rechtstreeks een DB-veld toont i.p.v. een gemapt label.
+RAUWE_BADGE = re.compile(r'badge\(\s*[a-z_]+\.(status|kind|method)\b')
+# Leveranciersnamen die in een knoplabel niets te zoeken hebben.
+LEVERANCIERS = ("Mollie", "Stripe", "Umami", "Mistral", "Voxtral", "Gmail")
+KNOPLABEL = re.compile(r'btn_\w+\(\s*_\("([^"]+)"\)')
+
+
+def test_terminologie_is_infinitief():
+    """§2.12 legt de infinitief vast; het stond exact fifty-fifty (#630)."""
+    fouten = []
+    for pad in TEMPLATES:
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
+            m = INFINITIEF.search(regel)
+            if m:
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: _(\"{m.group(1)}\")")
+    assert not fouten, (
+        "Gebruik de infinitief (Verwijderen/Annuleren):\n  " + "\n  ".join(fouten)
+    )
+
+
+def test_geen_leveranciersnaam_in_een_knoplabel():
+    """Een knop beschrijft de handeling, niet wie ze uitvoert (§2.12, edc7241).
+
+    Wisselt de betaalprovider ooit, dan hoeft er niets omgetypt te worden — en voor de
+    gebruiker doet het er niet toe waar de status vandaan komt.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
+            for m in KNOPLABEL.finditer(regel):
+                if any(naam in m.group(1) for naam in LEVERANCIERS):
+                    fouten.append(f"{pad.relative_to(APP)}:{nr}: {m.group(1)!r}")
+    assert not fouten, (
+        "Beschrijf de handeling, niet de leverancier:\n  " + "\n  ".join(fouten)
+    )
+
+
+def test_geen_rauwe_db_waarde_in_een_badge():
+    """§2.12: nooit rauwe codes tonen (#630).
+
+    Vangt de drie gevallen ineens: het taaktype op de werkbank
+    (`payment.webhook_mismatch` als badge), de betaalmethode (`online`/`transfer`) en
+    de status-fallback — die laatste was een tijdbom, want Mollie kent ook `open`,
+    `authorized` en `expired` en die vielen door naar de code.
+    """
+    # Uitzondering mét reden, zoals de andere allowlists: `Activity.status` is géén
+    # DB-code maar een server-side gezet Nederlands label ("Open" / "Voorbij" /
+    # "Geannuleerd", activities/router.py:76-80). Daar valt niets te mappen.
+    TOEGESTAAN = {("_activiteiten_cards.html", "a.status")}
+
+    fouten = []
+    for pad in TEMPLATES:
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
+            m = RAUWE_BADGE.search(regel)
+            if not m:
+                continue
+            veld = m.group(0).split("badge(")[1].strip()
+            if (pad.name, veld) in TOEGESTAAN:
+                continue
+            fouten.append(f"{pad.relative_to(APP)}:{nr}: badge(….{m.group(1)})")
+    assert not fouten, (
+        "Map naar een leesbaar label vóór je het in een badge zet:\n  "
+        + "\n  ".join(fouten)
     )

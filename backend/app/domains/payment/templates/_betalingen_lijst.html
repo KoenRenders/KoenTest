@@ -42,7 +42,7 @@
   <div>
     <div class="font-semibold">{{ r.contact_name or "—" }}{% if r.description %} · {{ r.description }}{% endif %}{% if r.component_name %} · {{ r.component_name }}{% endif %}</div>
     <div class="text-sm text-ink-soft flex flex-wrap items-center gap-x-3">
-      <span>{{ _("Overschrijving") if r.method == "transfer" else (_("Online") if r.method == "online" else r.method) }}</span>
+      <span>{{ method_labels.get(r.method, _("Onbekende betaalwijze")) }}</span>
       <span>{{ _("Bedrag") }}: <strong>€ {{ "%.2f"|format(k.bedrag) }}</strong></span>
       {% if k.ontvangen is not none %}
       <span>{{ _("Ontvangen") }}: € {{ "%.2f"|format(k.ontvangen) }}</span>
@@ -61,7 +61,10 @@
     {% elif r.status == "pending" %}{{ ui.badge(_("Openstaand"), "yellow") }}
     {% elif r.status == "failed" %}{{ ui.badge(_("Mislukt"), "red") }}
     {% elif r.status == "cancelled" %}{{ ui.badge(_("Geannuleerd"), "gray") }}
-    {% else %}{{ ui.badge(r.status, "gray") }}{% endif %}
+    {# §2.12: nooit een rauwe statuscode tonen. Mollie kent ook `open`, `authorized`
+       en `expired`; die vielen door naar de fallback en toonden een Engelse code als
+       badge — op precies het scherm waar die regel het strengst geldt (#630). #}
+    {% else %}{{ ui.badge(status_labels.get(r.status, _("Onbekende status")), "gray") }}{% endif %}
     {# Tweede badge op de terugbetaling: de SOORT, naast de status. #}
     {% if r.type == "refund" %}{{ ui.badge(_("Terugbetaling"), "teal") }}{% endif %}
   </div>

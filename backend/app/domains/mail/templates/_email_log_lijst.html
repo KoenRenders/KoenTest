@@ -51,7 +51,7 @@
                 {% endif %}
               </div>
               <div class="flex justify-end border-t border-gray-200 px-5 py-3">
-                {{ ui.btn_danger(_("Verwijder"), attrs='hx-post="/admin/e-maillog/' ~ row.id ~ '/verwijderen" hx-target="#email-log-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("E-mail"), row.subject)) }}
+                {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/e-maillog/' ~ row.id ~ '/verwijderen" hx-target="#email-log-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("E-mail"), row.subject)) }}
               </div>
             </div>
           </div>

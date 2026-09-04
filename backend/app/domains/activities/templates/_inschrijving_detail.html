@@ -78,7 +78,7 @@
                  aria-label="{{ _('Aantal') }} — {{ item.product_name or '' }}"
                  class="w-20 border border-gray-300 rounded-lg px-2 py-1">
           {% if item.line_total is not none %}<span class="w-20 text-right whitespace-nowrap">€ {{ "%.2f"|format(item.line_total) }}</span>{% endif %}
-          {{ ui.btn_danger(_("Verwijder"), size="sm", attrs='hx-post="' ~ _base ~ '/regels/' ~ item.id ~ '/verwijderen" hx-target="closest .bg-gray-50" hx-swap="outerHTML"') }}
+          {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="' ~ _base ~ '/regels/' ~ item.id ~ '/verwijderen" hx-target="closest .bg-gray-50" hx-swap="outerHTML"') }}
         </div>
         {% else %}
         <div class="text-gray-400">{{ _("Geen producten") }}</div>

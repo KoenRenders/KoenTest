@@ -29,7 +29,7 @@
           {{ ui.row_actions(
                actions=[ui.detail_disclosure("/admin/inschrijvingen/" ~ r.id, "insch-det-" ~ r.id, _("Bewerken"))],
                delete_attrs='hx-post="/admin/activiteiten/' ~ activity_id ~ '/inschrijvingen/' ~ r.id ~ '/verwijderen" hx-target="#aa-inschrijvingen" hx-swap="innerHTML" ' ~ confirm_attrs(_("Inschrijving"), r.contact_name),
-               delete_label=_("Verwijder")) }}
+               delete_label=_("Verwijderen")) }}
         </td>
       </tr>
       <tr x-show="open" x-cloak>
