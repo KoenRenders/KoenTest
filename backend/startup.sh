@@ -72,5 +72,8 @@ else:
 echo "==> Seeding sponsors from assets/seed (if present)..."
 python seed_sponsors.py || echo "  sponsor seeding skipped/failed (non-fatal)"
 
+echo "==> Seeding tenant settings (footer links)..."
+python seed_tenant_settings.py || echo "  tenant-settings seeding skipped/failed (non-fatal)"
+
 echo "==> Starting API server..."
 exec uvicorn app.main:app --host 0.0.0.0 --port 8000
