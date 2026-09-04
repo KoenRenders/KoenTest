@@ -111,7 +111,7 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
     # kop en totaalregel niet op twee definities kunnen uitkomen. Zodra er een refund
     # onder de charge hangt, beschrijft de kop (die alleen de charge telt) de
     # inschrijving niet meer: "Betaald € 27,50" terwijl er € 27,50 terug moet.
-    kaarten = [(r, rf, _rij([r] + rf)) for r, rf in kaarten]
+    kaarten_met_totaal = [(r, rf, _rij([r] + rf)) for r, rf in kaarten]
 
     # Gegroepeerde context-filter (#549): dezelfde grouped_filter-macro als de
     # Werkbank. Heterogene groepen (jaren/onderdelen) → (value, label)-tuples.
@@ -126,7 +126,7 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
         context_groups[_("Activiteit / onderdeel")] = [
             (f"comp-{cid}", label) for cid, label in _comp]
     return {
-        "records": zichtbaar, "kaarten": kaarten, "context": context,
+        "records": zichtbaar, "kaarten": kaarten_met_totaal, "context": context,
         # Eén bron voor de statuslabels (#617-2): de filterbalk én de editors in het
         # fragment lezen hieruit, zodat er nergens nog rauwe codes (pending/paid)
         # op het scherm komen. Het fragment wordt ook los gerenderd, dus een

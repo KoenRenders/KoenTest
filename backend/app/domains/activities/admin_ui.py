@@ -594,11 +594,12 @@ async def inschrijving_opslaan(registration_id: int, request: Request,
 
     huidig = {item.id: item.quantity for item in (reg.items or [])}
     for key, value in form.items():
-        if not key.startswith("quantity_"):
+        # form.items() kan een UploadFile geven; alleen tekstvelden zijn aantallen.
+        if not key.startswith("quantity_") or not isinstance(value, str):
             continue
         try:
             item_id, aantal = int(key.removeprefix("quantity_")), int(value)
-        except (TypeError, ValueError):
+        except ValueError:
             continue
         if item_id not in huidig or aantal == huidig[item_id]:
             continue
