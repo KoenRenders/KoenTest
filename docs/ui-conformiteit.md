@@ -15,6 +15,7 @@ matrix documenteert, de gate handhaaft.
 | **Tokens** | Geen `blue-800/900`, geen rauwe hex buiten een `:root`-tokendefinitie, geen `amber-*`. Kleur komt uit `scripts/build-css.sh`. |
 | **Kit-macro's** | Aantal verschillende `ui.*()`-macro's dat het scherm gebruikt. Een "—" betekent niet fout: sommige schermen zijn puur inhoud (bv. een CMS-pagina). |
 | **Feedback** | Geen `alert()`/`confirm()`. Bevestiging via `ui.modal()`, melding via `ui.toast()`. |
+| **Aanmaken** | Een volledige-pagina-editor, geen modal (#627, §2.8). Modals blijven voor read-only detail en bevestigingen; de publieke activiteitinschrijving is de beredeneerde uitzondering (#601). |
 | **Terminologie** | "Opslaan" (niet "Bewaar"/"Toevoegen"), create heet "+ Nieuwe …". |
 
 ## Matrix
@@ -70,8 +71,8 @@ matrix documenteert, de gate handhaaft.
 | `_leden_lijst.html` | eigen vorige/volgende-knoppen | `ui.pager()` met "x–y van n" |
 | `email_log.html` | rauwe `<h1>` + filterformulier met eigen zoekinput | `ui.page_header()` + `ui.filter_bar()` + `ui.search(standalone=False)` |
 | `_email_log_lijst.html` | eigen vorige/volgende-knoppen | `ui.pager()` in de modus zonder totaal |
-| `_me_lijst.html` (Media) | filters bóven de actieknop, upload in een `bg-blue-50`-blok | knop los en bovenaan, upload in `ui.modal()` |
-| `admin_activiteiten.html`, `_gu_lijst.html`, `admin_paginas.html` | "+ Nieuwe …" in een `bg-blue-50`-blok met uitklapformulier | knop los, formulier in `ui.modal()` |
+| `_me_lijst.html` (Media) | filters bóven de actieknop, upload in een `bg-blue-50`-blok | knop los en bovenaan, upload op een eigen pagina (#627; was kort een modal) |
+| `admin_activiteiten.html`, `_gu_lijst.html`, `admin_paginas.html` | "+ Nieuwe …" in een `bg-blue-50`-blok met uitklapformulier | knop los, formulier op een eigen `…/nieuw`-pagina (#627; was kort een modal) |
 | `betalingen.html` (#591) | filterrij zonder zoek, eigen `<form>` i.p.v. de kit | `ui.search()` boven de filters, alles in `ui.filter_bar()`; de losse "Openstaand"-snelknop viel weg (die stand staat als optie in de statusdropdown) |
 | `werkbank.html` (#592) | filter binnen het pollende fragment, geen zoek | `ui.search()` + de twee-niveau taaktype-filter in `ui.filter_bar()` op de pagina; het fragment bevat enkel nog taken |
 | `leden.html` (#582) | master-detail, geen KPI's, geen filters, secundaire importknop als enige actie | KPI-rij (incl. "nog niet vernieuwd" met doeljaar), primaire "+ Nieuw lid" + importknop, `ui.search()` + statuschips + data-gedreven lidmaatschapsjaar, kaarten → `leden_gezin.html` |
@@ -81,7 +82,7 @@ matrix documenteert, de gate handhaaft.
 | `admin_ledenwijzigingen.html` (#590) | losse "Toon"-knop, "Actor (e-mail)" als gewoon veld | live filteren via `ui.filter_bar()`, actor als `ui.search()`, export als secundaire kit-knop bij de titel |
 | `admin_tenants.html` (#584) | "+ Nieuwe tenant" secundair (outline) | primaire (blauwe) knop, zoals §3.2 voorschrijft |
 | `admin_activiteiten.html` (#586) | scope-chips binnen de smalle master-detail-lijst, geen zoek, secundaire "+ Nieuwe activiteit" | `ui.btn_primary()`, `ui.search()` op titel/locatie + `ui.chips()` in `ui.filter_bar()`, kaarten → paginabrede editor `admin_activiteit.html`; `_aa_lijst.html` verdween |
-| `admin_formulieren.html` (#585) | permanent "Nieuw formulier"-veld bovenaan, master-detail-lijst, "Formaat (voor AI)" als losse link, geen zoek/filter | primaire "+ Nieuw formulier" met naam in `ui.modal()`, `ui.search()` + statusfilter in `ui.filter_bar()`, kaarten → paginabrede builder; `_fb_lijst.html` verdween |
+| `admin_formulieren.html` (#585) | permanent "Nieuw formulier"-veld bovenaan, master-detail-lijst, "Formaat (voor AI)" als losse link, geen zoek/filter | primaire "+ Nieuw formulier" met de naam op een eigen `…/nieuw`-pagina (#627), `ui.search()` + statusfilter in `ui.filter_bar()`, kaarten → paginabrede builder; `_fb_lijst.html` verdween |
 
 **Correctie op de vorige versie van deze lijst.** Daar stonden `formulier.html` en
 `fotos_album.html` als "eigen paginering". Dat was fout: die treffers waren een

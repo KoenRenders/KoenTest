@@ -692,6 +692,13 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     </div>
     <span class="mac">Macro <code>ui.badge(label, tone)</code> — tones: gray · green · yellow · red · blue · teal · orange · indigo (indigo renders via a purple utility). Every status gets <b>everywhere</b> exactly the same tone, shape and Dutch name (never a raw code). Yellow = pending (amber is dropped). This is the single badge source (mirror in ui-conventies.md/ui-conformiteit.md). <b>Status is conveyed by the badge only</b> — no coloured card stripes or tinted card backgrounds (also on Betalingen).</span>
 
+    <h3 class="block" id="s2-6">2.6 Upload field</h3>
+    <p>One shape for the three places where a file belongs to a record (activity poster, component info, media). Fixed order: <b>label → file picker → current attachment (link + delete) → hint</b>.</p>
+    <p><b>No submit button of its own</b> — the block belongs to the form around it, so a single "Opslaan" saves the text field and the file together. The enclosing form needs <code>enctype="multipart/form-data"</code> and <code>hx-encoding="multipart/form-data"</code>.</p>
+    <p>Macro <code>ui.upload_field(name, text, current_url, delete_attrs, hint)</code>.</p>
+    <p><b>Do</b> — show the existing attachment next to the picker, with a delete action beside it.<br>
+       <b>Don't</b> — a loose "Uploaden" button that makes saving two separate actions, or the current file mentioned somewhere above the form.</p>
+
     <h3 class="block" id="s2-5">2.5 Notifications · modal · toast · reorder</h3>
     <div class="demo" style="display:grid;gap:14px">
       <div class="alert a-ok"><svg viewBox="0 0 24 24" fill="none" stroke="var(--success)" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg><div><b>Opgeslagen.</b> Je wijzigingen aan "Brood en Spelen" zijn bewaard.</div></div>
@@ -756,12 +763,12 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <li><b>Page title</b></li>
       <li><b>One-line description</b> (optional) — a short subtitle under the title explaining the screen or its access (e.g. "Platformbeheer — enkel OPERATOR")</li>
       <li><b>KPI / management row</b> (optional) — key figures for this screen, e.g. active members, not-yet-renewed, active persons</li>
-      <li><b>Primary action</b> — one <b>"+ Nieuwe …"</b> button, styled as the <b>primary (blue)</b> action (not an outline/secondary button); no blue bar around it — the create form opens in a modal or the full-page editor</li>
+      <li><b>Primary action</b> — one <b>"+ Nieuwe …"</b> button, styled as the <b>primary (blue)</b> action (not an outline/secondary button); no blue bar around it — the create form opens as a <b>full-page editor</b> (never a modal, see §4)</li>
       <li><b>Search box</b> ("Zoek op …")</li>
       <li><b>Filters</b> — chips (e.g. Komende · Archief · Alles, or a status) and/or a <b>data-driven dropdown</b> (options from the DB, e.g. membership year), like Betalingen — <b>always below</b> "Nieuwe" and the search box, never above</li>
       <li><b>Record cards</b> — clickable; "Bewerken" opens the full-page editor (Screen 4)</li>
     </ol>
-    <div class="note"><b>No blue bar (HDEV correction):</b> on HDEV every "+ Nieuwe …" button sat in a light-blue tinted block (<code>bg-blue-50</code>) together with a collapsible form. From now on the button stands <b>on its own</b>; the create form opens as a <b>modal</b> (or as a full-page editor), not in a tinted block. And the filters consistently come <b>below</b> "Nieuwe" + search (previously above, e.g. on Media).</div>
+    <div class="note"><b>No blue bar (HDEV correction):</b> on HDEV every "+ Nieuwe …" button sat in a light-blue tinted block (<code>bg-blue-50</code>) together with a collapsible form. From now on the button stands <b>on its own</b>; the create form opens as a <b>full-page editor</b>, not in a tinted block and not in a modal (#627 — see the modal rule in §4). And the filters consistently come <b>below</b> "Nieuwe" + search (previously above, e.g. on Media).</div>
   </section>
 
   <!-- 4 -->
@@ -777,7 +784,7 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
         <div>✓ Filters are preserved after returning/polling</div>
         <div>✓ Filters/search apply live (htmx on change / debounced input) — no separate "Toon"/apply button</div>
         <div>✓ Empty-state copy: after filter/search → "Geen resultaten gevonden." (one sentence, every screen); no data yet → "Nog geen gegevens." — no emoji, no call-to-action push</div>
-        <div>✓ Modals only for short, focused actions</div>
+        <div>✓ <b>One short, self-contained action in the context of a list → modal. A form you need to take in at a glance, or an object you keep working on afterwards → full screen.</b> That covers every case without exceptions: admin create → page (you carry on in the editor), <i>Word lid</i> → page (long form: household members, address, payment choice), activity registration → modal (contact + quantities and done — and the narrow popup keeps the activity card visible underneath). Creating never opens a modal (#627).</div>
         <div>✓ Long details in a side panel instead of a modal</div>
         <div>✓ Errors beside the relevant field</div>
         <div>✓ Destructive actions never next to the primary action</div>

@@ -254,9 +254,9 @@ Importeer met `{% import "_macros.html" as ui %}`. Beschikbaar:
 |---|---|
 | Structuur | `page_header` · `section_header` · `section_bar` · `card` · `nested_panel` · `tabs` · `detail_disclosure` |
 | Lijsten | `search` · `filter_bar` · `grouped_filter` · `pager` · `row_actions` · `reorder` · `empty_state` · `loading` |
-| Formulieren | `field_input` · `field_select` · `field_textarea` · `label` · `person_fields` · `export_links` |
+| Formulieren | `field_input` · `field_select` · `field_textarea` · `label` · `person_fields` · `export_links` · `upload_field` · `select_control` |
 | Feedback | `toast` · `toast_host` · `success_banner` · `error_banner` · `modal` · `badge` |
-| Knoppen | `btn_primary` · `btn_secondary` · `btn_outline` · `btn_danger` · `button` · `btn_class` |
+| Knoppen | `btn_primary` · `btn_secondary` · `btn_outline` · `btn_danger` · `button` · `btn_class` · `edit_toggle` |
 
 Drie daarvan zijn nieuw in v2.0.0 (#528 as C) en verdienen toelichting:
 
