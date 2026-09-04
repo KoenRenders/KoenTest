@@ -226,6 +226,15 @@ to test it on HDEV; the tracker carries one HDEV-validation checkbox per issue a
 links to those comments. A validation plan kept anywhere else goes stale within a
 release and nobody finds it when it matters.
 
+**A validation bug needs three things before anyone starts searching: the screen,
+what Koen expected, and what he saw.** Most of the time spent "analysing" a report
+is spent working out which screen and which element is meant — not on the fix. When
+one of the three is missing, ask for it instead of guessing your way through the
+templates; one question costs a minute, a wrong guess costs an afternoon. A
+screenshot in the Nextcloud project folder counts as "what he saw". Handy but
+optional: the issue number Koen suspects, and whether it also happens on v1.14.0
+(i.e. is it new in v2.0.0 or pre-existing).
+
 **The three confirmation steps are the only ones that stop.** Everything else runs
 without asking, per *Autonoom een release afwerken*: assigning work to a release is
 the permission. Never tag a commit that has not been tested on HDEV.
@@ -583,6 +592,31 @@ Conventies: `docs/ui-conventies.md` (#396) en de UI-kit-macro's in
 `backend/app/static/app.css` mee na template-wijzigingen. E2e-golden-flows:
 playwright-python in `backend/tests_e2e/` (aparte CI-job).
 
+### Two layers of UI conformity — keep them apart
+
+- **Mechanical rules → the lint gate** (`backend/tests/test_ui_conventions_gate.py`,
+  runs on every CI run): no `blue-800/900`, no raw hex outside a token definition,
+  no `alert()`/`confirm()`/`hx-confirm`, no `amber-*`, symbol-only buttons need an
+  `aria-label`, promised macros exist. See a **new rule-shaped** deviation? Add a
+  gate rule, rather than re-checking it by hand every release.
+- **Judgment → the `design-conformiteit-bewaker` agent** (`.claude/agents/`),
+  read-only and on request. It ranks findings with `file:line` and a suggested issue
+  title; it changes nothing and opens no issues. Run it before a UI batch and after.
+
+**Parity with v1.14 — check, don't guess.** The old React frontend is still in the
+history: `git show 149d180:frontend/src/components/ActivityList.tsx` (also
+`Navigation.tsx`, `app/globals.css`, `tailwind.config.ts`) shows exactly how
+something looked — font sizes, colours, spacing.
+
+**Brand.** The eight brand colours in `scripts/build-css.sh` match the official Raak
+huisstijlgids exactly. Brand blue `#0051a4` = `blue-700` (headings, chrome); link
+tint `#2367bd` = `blue-500` (brighter, underlined). The guide asks for Radio Canada
+Big everywhere; we use **Inter as body font — a deliberate readability deviation** —
+with Radio Canada Big as display font (`font-brand`). The header (RaaK + tagline) is
+entirely `font-brand`. The wordmark is **RaaK**. Brand assets cannot be fetched here:
+raakvzw.be and bruisendebuurt.be are blocked by the egress proxy, so ask Koen to
+supply an SVG rather than approximating one.
+
 ## Fixed UI decisions — do not change these
 
 - **Address grid layout:** 4-column grid. Row 1: Straat (col-span-2) + Huisnummer (col-1) + Bus (col-1). Row 2: Postcode (col-span-4, full width). Bus number is always on the same row as house number, to the right of it.
@@ -594,6 +628,16 @@ playwright-python in `backend/tests_e2e/` (aparte CI-job).
   bevestigd door Koen, juli 2026.)
 - **Payment default:** Default payment method is online (Mollie). On success with a `checkout_url`, do a **hard redirect** — server-rendered schermen zetten de `HX-Redirect`-header (nooit een soft/client-side navigatie) zodat de browser echt naar Mollie gaat.
 - **`isPaid` check:** sub-registrations can have their own price independent of the parent activity price — a positive sub-registration price makes the flow paid.
+- **Row actions:** `row_actions` caps at `max_visible` (default 2). List screens
+  show 2–3 inline plus `⋯`; **detail screens and toolbars have no cap** and may
+  show everything inline. Do not force a `⋯` menu onto a detail header.
+- **Confirmation copy:** `confirm_attrs(type, name)` is for real "delete this
+  object" dialogs only. A confirmation that is not a delete ("Bevestig betaald?",
+  "Opnieuw inlezen?", "Importeren?"), or one that spells out a consequence ("… uit
+  het saldo?"), keeps its own `data-confirm` text.
+- **Public registration is a modal** (narrow, `max-w-md`), and "Wie doet er mee?"
+  is a compact inline line (`text-xs`, *N ingeschreven — naam · naam*). Not a wide
+  inline block, not a vertical list.
 
 ## Choosing new tools / dependencies — Europe First
 
