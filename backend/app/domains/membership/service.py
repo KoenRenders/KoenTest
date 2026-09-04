@@ -227,3 +227,33 @@ def open_renewal_payment(db, member):
         .filter(Membership.member_id == member.id)
         .first()
     )
+
+
+def set_relation_type(db, family_id: int, person_id: int, relation_type: str) -> bool:
+    """Wijzig de rol van een persoon binnen zijn gezin (#635 F).
+
+    Twee regels, en ze golden alleen zolang dit scherm ze onthield: je kan iemand
+    niet tot HOOFDLID promoveren via dit pad, en een bestaand HOOFDLID wordt nooit
+    overschreven. Dat laatste is de belangrijke: het hoofdlid is de drager van het
+    adres, het lidmaatschap en de betaalcommunicatie — hem stil degraderen laat een
+    gezin zonder aanspreekpunt achter.
+
+    De regel stond in `mdm/ui.py`, met een rauwe query erbij, en was daardoor niet
+    los testbaar (#498). Commit niet: de aanroeper bepaalt de transactiegrens.
+
+    Geeft terug of er iets gewijzigd is.
+    """
+    from app.domains.mdm.api import MemberPerson
+
+    gevraagd = (relation_type or "").strip()
+    if not gevraagd or gevraagd.upper() == "HOOFDLID":
+        return False
+
+    koppeling = (db.query(MemberPerson)
+                 .filter(MemberPerson.member_id == family_id,
+                         MemberPerson.person_id == person_id).first())
+    if koppeling is None or (koppeling.relation_type or "").upper() == "HOOFDLID":
+        return False
+
+    koppeling.relation_type = gevraagd
+    return True

@@ -27,6 +27,7 @@ from app.domains.membership.service import (  # noqa: F401
     open_renewal_payment,
     renewal_available,
     renewal_open,
+    set_relation_type,
     valid_membership_until,
 )
 

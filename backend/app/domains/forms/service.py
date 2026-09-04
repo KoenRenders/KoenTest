@@ -25,7 +25,7 @@ from typing import Dict, List
 
 from fastapi import HTTPException
 
-from app.domains.forms.models import (FORM_STATUSES, Form, FormField,
+from app.domains.forms.models import (FIELD_TYPES, FORM_STATUSES, Form, FormField,
                                       FormFieldOption, FormSection,
                                       FormSubmissionAnswer)
 from app.domains.forms.schemas import AnswerIn

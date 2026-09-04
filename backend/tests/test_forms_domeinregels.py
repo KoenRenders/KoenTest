@@ -106,3 +106,62 @@ def test_de_router_heeft_geen_eigen_kopie_meer():
     assert router.assert_submitter is service.assert_submitter
     assert router.apply_definition is service.apply_definition
     assert router.validate_definition is service.validate_definition
+
+
+# ── HOOFDLID-regel (#635 F) ──────────────────────────────────────────────────
+# Staat hier omdat het dezelfde soort bevinding is: een regel die alleen bestond
+# zolang één scherm hem onthield.
+
+def test_hoofdlid_wordt_nooit_overschreven(db_session):
+    """Het hoofdlid draagt het adres, het lidmaatschap en de betaalcommunicatie.
+    Hem stil degraderen laat een gezin zonder aanspreekpunt achter (#498)."""
+    from app.domains.membership.api import set_relation_type
+    from app.domains.mdm.api import MemberPerson
+
+    from tests.conftest import create_test_family
+
+    member, person = create_test_family(db_session, email="hoofdlid@example.com")
+    db_session.flush()
+
+    gewijzigd = set_relation_type(db_session, member.id, person.id, "PARTNER")
+
+    koppeling = (db_session.query(MemberPerson)
+                 .filter(MemberPerson.member_id == member.id,
+                         MemberPerson.person_id == person.id).first())
+    assert gewijzigd is False
+    assert koppeling.relation_type == "HOOFDLID"
+
+
+def test_een_gewoon_gezinslid_krijgt_wel_een_andere_rol(db_session):
+    from app.domains.membership.api import set_relation_type
+    from app.domains.mdm.api import MemberPerson
+
+    from tests.conftest import create_test_family, create_test_person
+
+    member, _hoofdlid = create_test_family(db_session, email="hl@example.com")
+    kind = create_test_person(db_session, first_name="Kind")
+    db_session.add(MemberPerson(member_id=member.id, person_id=kind.id,
+                                relation_type="PARTNER"))
+    db_session.flush()
+
+    assert set_relation_type(db_session, member.id, kind.id, "KIND") is True
+
+    koppeling = (db_session.query(MemberPerson)
+                 .filter(MemberPerson.member_id == member.id,
+                         MemberPerson.person_id == kind.id).first())
+    assert koppeling.relation_type == "KIND"
+
+
+def test_promoveren_tot_hoofdlid_kan_niet_via_dit_pad(db_session):
+    from app.domains.membership.api import set_relation_type
+    from app.domains.mdm.api import MemberPerson
+
+    from tests.conftest import create_test_family, create_test_person
+
+    member, _hoofdlid = create_test_family(db_session, email="hl2@example.com")
+    kind = create_test_person(db_session, first_name="Kind2")
+    db_session.add(MemberPerson(member_id=member.id, person_id=kind.id,
+                                relation_type="KIND"))
+    db_session.flush()
+
+    assert set_relation_type(db_session, member.id, kind.id, "HOOFDLID") is False
