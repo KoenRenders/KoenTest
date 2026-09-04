@@ -341,6 +341,9 @@ def delete_family(
     for ms in member.memberships:
         snapshot_membership(db, ms, operation="delete", action="family_deleted", source="admin_manual", actor=admin.email)
         soft_delete(ms)
+        # Stiller én groter dan één lidmaatschap schrappen, maar exact dezelfde
+        # situatie (#619-3): elke betaling volgt haar eigen lidmaatschap.
+        _reconcile_geschrapt_lidmaatschap(db, ms, admin.email)
     for mp in member.member_persons:
         person = mp.person
         for contact in person.contact_details:
@@ -526,6 +529,29 @@ def add_person_to_family(
     return _build_family_response(member)
 
 
+def _reconcile_geschrapt_lidmaatschap(db: Session, membership, actor: str | None) -> None:
+    """Laat de financiële kant een geschrapt lidmaatschap volgen (#619).
+
+    Bij activiteiten deed ``reconcile_registration_charges`` dit al; bij
+    lidmaatschappen gebeurde er niets. Een onbetaalde vordering bleef dan eeuwig op de
+    betalingenlijst staan voor een lidmaatschap dat niet meer bestaat, en bij een
+    betaald lidmaatschap ontstond géén terugbetaling — niets signaleerde dat er geld
+    terug moest. De wees-job merkt dat niet op, want die beschouwt een soft-deleted
+    payable bewust als bestaand.
+
+    ``total_due = 0``: niemand is nog iets verschuldigd, dus onbetaalde posten
+    verdwijnen; een betaald bedrag blijft als financieel feit staan en levert één
+    ``pending`` terugbetaling op, die de penningmeester bevestigt (zoals bij #617).
+    """
+    from app.domains.payment.api import reconcile_charges
+
+    reconcile_charges(
+        db, "membership", membership.id, 0, audit_actor=actor,
+        source="membership-delete",
+        refund_note="Automatisch bij schrappen lidmaatschap — terugstorting te bevestigen",
+    )
+
+
 @router.delete("/memberships/{membership_id}", status_code=204)
 def delete_membership(
     membership_id: int,
@@ -537,6 +563,7 @@ def delete_membership(
         raise HTTPException(status_code=404, detail=_("Membership not found"))
     snapshot_membership(db, membership, operation="delete", action="membership_deleted", source="admin_manual", actor=admin.email)
     soft_delete(membership)
+    _reconcile_geschrapt_lidmaatschap(db, membership, admin.email)
     db.commit()
 
 

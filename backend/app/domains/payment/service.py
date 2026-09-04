@@ -526,25 +526,34 @@ def registration_balance(db: Session, registration) -> dict:
     }
 
 
-def reconcile_registration_charges(
-    db: Session, registration, *, audit_actor: Optional[str] = None
+def reconcile_charges(
+    db: Session, payable_type: str, payable_id: int, total_due, *,
+    audit_actor: Optional[str] = None, source: str = "order-edit",
+    refund_note: str = "Automatisch bij bestelverlaging — terugstorting te bevestigen",
 ) -> None:
-    """Herreken integraal bij elke bestelwijziging (#195): de reeds **betaalde**
-    bedragen zijn de waarheid; het openstaande saldo wordt herleid tot één open post.
+    """Herreken integraal naar ``total_due`` (#195, veralgemeend in #619).
+
+    De reeds **betaalde** bedragen zijn de waarheid; het openstaande saldo wordt
+    herleid tot één open post.
 
     - Onbetaalde (pending) charges/refunds worden verwijderd (ze worden herrekend).
     - Een partieel betaalde charge wordt gesloten op zijn effectief betaalde bedrag.
-    - ``saldo = besteltotaal − netto ontvangen``:
+    - ``saldo = total_due − netto ontvangen``:
         * > 0 → één openstaande ``transfer``-charge (met OGM);
         * < 0 → één terugbetaling van het te veel ontvangene.
 
-    Invariant na afloop: som van alle (niet-verwijderde) records == besteltotaal.
+    Invariant na afloop: som van alle (niet-verwijderde) records == ``total_due``.
+
+    Eén definitie voor beide payables (#619). Bij activiteiten volgde de financiële
+    kant een bestelwijziging al; bij lidmaatschappen gebeurde er niets, waardoor een
+    geschrapt lidmaatschap ofwel een eeuwige vordering achterliet ofwel een betaling
+    zonder terugbetaling. Een tweede, eigen implementatie zou vroeg of laat afwijken —
+    en dit is geld.
     """
-    from app.domains.activities.api import compute_registration_total
     from app.soft_delete import soft_delete
 
-    total_due = Decimal(str(compute_registration_total(registration)[0]))
-    records = get_records_for(db, "registration", registration.id)
+    total_due = Decimal(str(total_due))
+    records = get_records_for(db, payable_type, payable_id)
 
     net_paid = sum(
         (Decimal(str(r.amount_paid)) for r in records if r.amount_paid is not None),
@@ -556,7 +565,7 @@ def reconcile_registration_charges(
             # Open (onbetaalde) post → weg; het openstaande wordt herleid tot één post.
             snapshot_payment_record(
                 db, r, operation="delete", action="order_reconciled",
-                source="order-edit", actor=audit_actor,
+                source=source, actor=audit_actor,
             )
             soft_delete(r)
         else:
@@ -566,7 +575,7 @@ def reconcile_registration_charges(
                 r.amount = r.amount_paid
                 snapshot_payment_record(
                     db, r, operation="update", action="order_reconciled",
-                    source="order-edit", actor=audit_actor,
+                    source=source, actor=audit_actor,
                 )
             if r.type == "charge" and Decimal(str(r.amount_paid)) > 0:
                 paid_charge = r
@@ -575,8 +584,8 @@ def reconcile_registration_charges(
     if outstanding > 0:
         # Eén openstaande charge voor het volledige openstaande bedrag (met OGM).
         create_payment_record(
-            db, "registration", registration.id, amount=outstanding, method="transfer",
-            audit_source="order-edit", audit_actor=audit_actor,
+            db, payable_type, payable_id, amount=outstanding, method="transfer",
+            audit_source=source, audit_actor=audit_actor,
         )
     elif outstanding < 0 and paid_charge is not None:
         # Te veel ontvangen → één terugbetaling, met de methode van de betaalde charge.
@@ -585,7 +594,21 @@ def reconcile_registration_charges(
         # effectieve terugstorting (#216). Daarom pending, niet meteen 'paid'.
         create_refund(
             db, paid_charge.id, -outstanding, method=method,
-            note="Automatisch bij bestelverlaging — terugstorting te bevestigen",
-            actor=audit_actor, source="order-edit", settled=False,
+            note=refund_note, actor=audit_actor, source=source, settled=False,
         )
     db.flush()
+
+
+def reconcile_registration_charges(
+    db: Session, registration, *, audit_actor: Optional[str] = None
+) -> None:
+    """Herreken de charges van een inschrijving naar haar besteltotaal (#185/#195).
+
+    Dunne laag over :func:`reconcile_charges`; het besteltotaal komt uit
+    ``compute_registration_total``, de enige bron voor "wat kost deze inschrijving".
+    """
+    from app.domains.activities.api import compute_registration_total
+
+    reconcile_charges(db, "registration", registration.id,
+                      compute_registration_total(registration)[0],
+                      audit_actor=audit_actor)

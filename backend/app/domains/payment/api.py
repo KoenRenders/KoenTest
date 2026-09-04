@@ -25,6 +25,7 @@ from app.domains.payment.service import (  # noqa: F401
     membership_price_for_date,
     membership_valid_period,
     net_paid,
+    reconcile_charges,
     reconcile_registration_charges,
     refresh_record_status,
     registration_balance,
@@ -39,6 +40,6 @@ __all__ = [
     "current_membership_counts", "edit_payment_record",
     "get_records_for", "handle_gateway_update",
     "membership_price_for_date", "membership_valid_period", "net_paid",
-    "reconcile_registration_charges", "registration_balance",
+    "reconcile_charges", "reconcile_registration_charges", "registration_balance",
     "refresh_record_status", "set_payment_status", "void_payment_record",
 ]
