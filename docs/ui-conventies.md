@@ -182,7 +182,13 @@ Eén `<Badge>`-component; pill `px-2 py-0.5 rounded-full text-xs font-semibold`.
 
 | Betekenis | Kleur | Voorbeelden |
 |---|---|---|
-| ok / actief / betaald / behandeld | groen (`green-100/800`) | Open, Betaald, ✓ Behandeld |
+| ok / actief / betaald / behandeld | groen (`green-100/800`) | Open, Betaald, ✓ Behandeld, **Vereffend** |
+
+> **"Vereffend" op een betaalrecord (#617).** v1.14 gebruikt dat woord op de betaalde
+> charge én op de uitbetaalde terugbetaling. Dat is beter dan "Betaald": dat laatste
+> leest bij een terugbetaling als geld dat binnenkomt, terwijl er net geld vertrok.
+> *Vereffend* is richtingsneutraal en dekt beide.
+
 | in behandeling / wachtend | **geel** (`yellow-100/800`) — amber vervalt | Openstaand, Gewijzigd |
 | fout / verwijderd | rood (`red-100/800`) | Mislukt, Verwijderd, Geannuleerd |
 | vol / aandacht (geen fout) | oranje (`orange-100/800`) | Volzet |

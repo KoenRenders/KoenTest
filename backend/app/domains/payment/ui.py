@@ -21,6 +21,7 @@ from app.domains.auth.api import (
 )
 from app.ui import admin_nav, templates
 from app.i18n import _
+from app.domains.payment.api import PaymentRecord
 
 router = APIRouter(include_in_schema=False)
 
@@ -111,7 +112,34 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
     # kop en totaalregel niet op twee definities kunnen uitkomen. Zodra er een refund
     # onder de charge hangt, beschrijft de kop (die alleen de charge telt) de
     # inschrijving niet meer: "Betaald € 27,50" terwijl er € 27,50 terug moet.
-    kaarten_met_totaal = [(r, rf, _rij([r] + rf)) for r, rf in kaarten]
+    def _mag_verwijderen(rec) -> bool:
+        """Dezelfde regel als de guard in status_router (#218/#617-2c).
+
+        Toon de knop niet wanneer de guard hem toch zou weigeren: nu krijg je een
+        foutmelding op een knop die er niet had mogen staan.
+        """
+        if rec.method == "online" and rec.status == "paid":
+            return False
+        return rec.amount_paid is None or Decimal(str(rec.amount_paid)) == 0
+
+    def _kaart(rec) -> dict:
+        """Per kaart de geldregel én of ze verwijderbaar is (#617-2a).
+
+        `Ontvangen`/`Saldo` vallen weg zolang er niets uitbetaald is — € 0,00 tonen
+        suggereert dat er al iets gebeurd is. De labels blijven op elke kaart
+        dezelfde drie woorden; het teken doet het werk.
+        """
+        betaald = None if rec.amount_paid is None else Decimal(str(rec.amount_paid))
+        return {
+            "rec": rec,
+            "bedrag": Decimal(str(rec.amount)),
+            "ontvangen": betaald,
+            "saldo": None if betaald is None else Decimal(str(rec.amount)) - betaald,
+            "mag_verwijderen": _mag_verwijderen(rec),
+        }
+
+    kaarten_met_totaal = [(_kaart(r), [_kaart(x) for x in rf], _rij([r] + rf))
+                          for r, rf in kaarten]
 
     # Gegroepeerde context-filter (#549): dezelfde grouped_filter-macro als de
     # Werkbank. Heterogene groepen (jaren/onderdelen) → (value, label)-tuples.
@@ -208,7 +236,13 @@ def betaling_refund(record_id: str, request: Request, db: Session = Depends(get_
     except (InvalidOperation, AttributeError):
         raise HTTPException(status_code=400, detail=_("Ongeldig bedrag."))
     try:
-        create_refund(db, record_id, bedrag, note=note.strip() or None, actor=email)
+        # settled=False (#617-2b): de refund ontstaat met een terug te betalen bedrag
+        # en een LEEG uitbetaald bedrag, precies zoals een charge ontstaat met een te
+        # betalen bedrag en niets ontvangen. De service-default is True — die blijft,
+        # want andere aanroepers gebruiken hem — maar de admin-UI geeft nooit meer
+        # True mee: aanmaken en afboeken zijn twee stappen.
+        create_refund(db, record_id, bedrag, note=note.strip() or None, actor=email,
+                      settled=False)
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc))
     db.commit()
@@ -254,12 +288,28 @@ def betaling_bewerken(record_id: str, request: Request, db: Session = Depends(ge
     from app.domains.payment.api import edit_payment_record
 
     _require_finance(db, email)
+    record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
+    if record is None:
+        raise HTTPException(status_code=404, detail=_("Betaling niet gevonden."))
+
     bedrag = None
     if amount_paid.strip():
         try:
             bedrag = Decimal(amount_paid.replace(",", "."))
         except (InvalidOperation, AttributeError):
             raise HTTPException(status_code=400, detail=_("Ongeldig bedrag."))
+        if record.type == "refund":
+            # Tonen mét teken, invoeren zonder (#617-2c). Het negatieve teken is een
+            # boekhoudkundige interne conventie zodat sommen kloppen — dat hoort
+            # niemand in te typen. De penningmeester moest letterlijk "-40.00"
+            # invoeren, want "40.00" werd geweigerd. De servicelaag en haar grenzen
+            # ([amount, 0]) blijven ongewijzigd; de invariant-tests hangen daaraan.
+            grens = abs(Decimal(str(record.amount)))
+            if abs(bedrag) > grens:
+                raise HTTPException(status_code=400, detail=_(
+                    "Meer dan het terug te betalen bedrag (€ %(bedrag)s)."
+                ) % {"bedrag": f"{grens:.2f}"})
+            bedrag = -abs(bedrag)
     try:
         edit_payment_record(db, record_id, status=status.strip() or None,
                             amount_paid=bedrag, note=note.strip() or None, actor=email)
