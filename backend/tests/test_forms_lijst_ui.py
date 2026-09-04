@@ -86,8 +86,12 @@ def test_verwijderen_stuurt_terug_naar_de_lijst(client, db_session):
 
 
 def test_lijst_heeft_geen_permanent_naamveld_meer(client, db_session):
-    """C1: de naam vraag je in de modal bij het aanmaken, niet in een veld dat
-    altijd bovenaan de lijst staat."""
+    """C1: de naam vraag je bij het aanmaken, niet in een veld dat altijd bovenaan
+    de lijst staat.
+
+    Sinds #627 gebeurt dat op een eigen pagina i.p.v. in een modal, dus het veld staat
+    nu hélemaal niet meer op de lijst.
+    """
     _login(client)
     _maak(db_session, "Bestaand formulier", "open", "best-1")
 
@@ -95,7 +99,8 @@ def test_lijst_heeft_geen_permanent_naamveld_meer(client, db_session):
     assert "+ Nieuw formulier" in html
     assert "Formaat (voor AI)" in html
     assert 'name="q"' in html and 'name="status"' in html
-    # het formulier zit in de modal, die pas op klik opent (x-show)
-    assert 'id="f-title"' in html and "x-data" in html
+    # Het naamveld staat op /admin/formulieren/nieuw, niet op de lijst (#627).
+    assert 'id="f-title"' not in html
+    assert 'href="/admin/formulieren/nieuw"' in html
     # de kaarten linken naar de paginabrede editor
     assert 'href="/admin/formulieren/' in html

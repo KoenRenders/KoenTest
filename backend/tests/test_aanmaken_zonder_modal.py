@@ -17,15 +17,18 @@ from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
 
-# (lijstscherm, aanmaakscherm, een veld dat het aanmaakscherm hoort te tonen)
+# (lijstscherm, aanmaakscherm, een veld-id dat ALLEEN op het aanmaakscherm staat)
+#
+# Bewust een `id=` en geen `name=`: een `name="email"` staat ook op de bewerkrij van
+# elke gebruiker, en dan toetst de test niets. De id's zijn uniek per formulier.
 SCHERMEN = [
-    ("/admin/leden", "/admin/leden/nieuw", 'name="first_name"'),
-    ("/admin/activiteiten", "/admin/activiteiten/nieuw", 'name="start_date"'),
-    ("/admin/formulieren", "/admin/formulieren/nieuw", 'name="title"'),
-    ("/admin/paginas", "/admin/paginas/nieuw", 'name="slug"'),
-    ("/admin/media", "/admin/media/nieuw", 'name="files"'),
-    ("/admin/gebruikers", "/admin/gebruikers/nieuw", 'name="email"'),
-    ("/admin/tenants", "/admin/tenants/nieuw", 'name="code"'),
+    ("/admin/leden", "/admin/leden/nieuw", 'id="nl-first"'),
+    ("/admin/activiteiten", "/admin/activiteiten/nieuw", 'id="start_date"'),
+    ("/admin/formulieren", "/admin/formulieren/nieuw", 'id="f-title"'),
+    ("/admin/paginas", "/admin/paginas/nieuw", 'id="slug"'),
+    ("/admin/media", "/admin/media/nieuw", 'id="me-files"'),
+    ("/admin/gebruikers", "/admin/gebruikers/nieuw", 'id="gu-email"'),
+    ("/admin/tenants", "/admin/tenants/nieuw", 'id="t-code"'),
 ]
 
 
@@ -54,7 +57,7 @@ def test_de_lijst_linkt_ernaartoe_en_bevat_geen_formulier(client, db_session, li
     """De knop is een link; het aanmaakformulier staat niet meer in de lijst."""
     _login(client, db_session)
     html = client.get(lijst).text
-    assert f'href="{nieuw}"' in html, f"{lijst} linkt niet naar {nieuw}"
+    assert f'href="{nieuw}' in html, f"{lijst} linkt niet naar {nieuw}"
     # Niet op x-data toetsen: de mobiele nav in de AdminShell gebruikt dezelfde
     # Alpine-vlag. Het bewijs is dat het aanmaakveld er niet meer staat.
     assert veld not in html, f"{lijst} bevat nog het aanmaakveld {veld}"
