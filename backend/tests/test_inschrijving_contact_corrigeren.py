@@ -60,8 +60,12 @@ def test_ongeldig_e_mailadres_wordt_geweigerd(client, db_session):
 
     resp = client.post(f"/admin/inschrijvingen/{reg_id}/opslaan", headers=hdr, data={
         "contact_name": "An", "contact_email": "geen-adres", "phone": "", "remarks": ""})
-    assert resp.status_code == 422, resp.text
 
+    # Bewust 200 met een zichtbare foutbanner i.p.v. 422: htmx swapt een 422 niet,
+    # dus de gebruiker zou niets zien gebeuren. "Leesbare fout" betekent dat ze op
+    # het scherm staat, niet dat de statuscode klopt.
+    assert resp.status_code == 200, resp.text
+    assert "geldig e-mailadres" in resp.text
     db_session.expire_all()
     assert db_session.get(Registration, reg_id).contact_email == "fout@example.com"
 

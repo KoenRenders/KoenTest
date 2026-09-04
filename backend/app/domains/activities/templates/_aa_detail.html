@@ -18,15 +18,29 @@
     {% if a.location %}<p class="text-sm text-gray-500 mt-1">📍 {{ a.location }}</p>{% endif %}
     {# #503: in read-modus enkel de "Huidige affiche bekijken"-link; het upload-blok
        zit in de edit-vorm. #}
-    {% if a.poster_asset_url %}<p class="mt-2"><a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-sm text-blue-700 underline">{{ _("Huidige affiche bekijken") }}</a></p>{% endif %}
-    <form x-show="edit" x-cloak class="space-y-3 mt-3"
-          hx-post="/admin/activiteiten/{{ a.id }}" hx-target="#aa-detail" hx-swap="innerHTML">
+    {% if a.poster_asset_url %}<p class="mt-2"><a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-sm text-link underline">{{ _("Huidige affiche bekijken") }}</a></p>{% endif %}
+    {# Eén vorm voor tekstvelden én affiche (#623). Poster-URL was uit het scherm
+       verdwenen terwijl het veld op het model bleef bestaan — je kon alleen nog
+       uploaden. En het uploadblok had een eigen "Uploaden"-knop, dus twee handelingen
+       voor één wijziging. Nu bewaart één "Opslaan" allebei. #}
+    <form x-show="edit" x-cloak class="space-y-3 mt-3" enctype="multipart/form-data"
+          hx-post="/admin/activiteiten/{{ a.id }}" hx-encoding="multipart/form-data"
+          hx-target="#aa-detail" hx-swap="innerHTML">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>{{ ui.label(_("Naam"), "name", required=True) }}
           <input name="name" id="name" required value="{{ a.name }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
         <div>{{ ui.label(_("Locatie"), "location") }}
           <input name="location" id="location" value="{{ a.location or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
       </div>
+      <div>{{ ui.label(_("Poster-URL"), "poster_url") }}
+        <input name="poster_url" id="poster_url" value="{{ a.poster_url or '' }}" placeholder="https://…"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+      {{ ui.upload_field(name="file", text=_("of opladen (afbeelding of PDF)"),
+                         current_url=a.poster_asset_url,
+                         huidig_label=_("Huidige affiche bekijken"),
+                         delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/affiche/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML"',
+                         delete_confirm=_("De opgeladen affiche verwijderen?"),
+                         hint=_("Een opgeladen affiche primeert op de Poster-URL.")) }}
       <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1" {% if a.members_only %}checked{% endif %}> {{ _("Enkel voor leden") }}</label>
       <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_cancelled" value="1" {% if a.is_cancelled %}checked{% endif %}> {{ _("Geannuleerd") }}</label>
       <div class="flex gap-2">
@@ -34,19 +48,13 @@
         {{ ui.btn_secondary(_("Annuleren"), attrs='@click="edit = false"') }}
       </div>
     </form>
-    {# Affiche uploaden (#451) — in de edit-vorm (#503). #}
-    <form x-show="edit" x-cloak class="flex flex-wrap items-end gap-2 mt-3 border-t border-gray-100 pt-3" enctype="multipart/form-data"
-          hx-post="/admin/activiteiten/{{ a.id }}/affiche" hx-encoding="multipart/form-data"
-          hx-target="#aa-detail" hx-swap="innerHTML">
-      <div><label class="block text-xs text-gray-500">{{ _("Affiche (afbeelding of PDF)") }}</label>
-        <input type="file" name="file" accept="image/*,application/pdf" required class="block text-sm"></div>
-      {{ ui.btn_secondary(_("Uploaden"), type="submit") }}
-    </form>
   </div>
 
-  {# Datums #}
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-    {{ ui.section_header(_("Datums")) }}
+  {# Datums (#623-4): "+ Datum" rechts van de titel; de toevoegvorm stond altijd
+     open. De meeste activiteiten hebben één datum, dus dat was permanent ruis —
+     hetzelfde lijst-index-principe als de vervallen bg-blue-50-balk. #}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ adddate: false }">
+    {{ ui.section_header(_("Datums"), _("+ Datum"), '@click="adddate = !adddate"') }}
     {% for d in a.dates %}
     <div class="text-sm py-1 border-b border-gray-100" x-data="{ edit: false }">
       <div class="flex items-center justify-between">
@@ -70,7 +78,8 @@
       </form>
     </div>
     {% endfor %}
-    <form class="flex flex-wrap gap-2 items-end mt-3" hx-post="/admin/activiteiten/{{ a.id }}/datums"
+    <form x-show="adddate" x-cloak class="flex flex-wrap gap-2 items-end mt-3 bg-gray-50 rounded-lg p-3"
+          hx-post="/admin/activiteiten/{{ a.id }}/datums"
           hx-target="#aa-detail" hx-swap="innerHTML">
       <div>{{ ui.label(_("Start"), "start_date", required=True) }}
         <input type="date" name="start_date" required class="border border-gray-300 rounded-lg px-3 py-2"></div>
@@ -99,13 +108,13 @@
         <input name="external_register_url" id="nc-ext" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
       <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijvingen-URL"), "nc-exts") }}
         <input name="external_registrations_url" id="nc-exts" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div class="w-full sm:w-72">{{ ui.label(_("Info/reglement-URL"), "nc-info") }}
+      <div class="w-full sm:w-72">{{ ui.label(_("Info-URL"), "nc-info") }}
         <input name="info_url" id="nc-info" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
       <div class="w-full flex gap-2">{{ ui.btn_primary(_("Toevoegen")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="addcomp = false"') }}</div>
     </form>
     <div class="space-y-3">
   {% for c in a.sub_registrations %}
-  <div class="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-4" x-data="{ edit: false }">
+  <div class="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-4" x-data="{ edit: false, addprod: false }">
     <div class="flex items-center justify-between">
       <h3 class="font-semibold">{{ c.name }}
         {% if c.team_name_required %}{{ ui.badge(_("ploegnaam"), "blue") }}{% endif %}
@@ -134,25 +143,32 @@
         <input name="external_register_url" id="cext-{{ c.id }}" value="{{ c.external_register_url or '' }}" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
       <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijvingen-URL"), "cexts-" ~ c.id) }}
         <input name="external_registrations_url" id="cexts-{{ c.id }}" value="{{ c.external_registrations_url or '' }}" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div class="w-full sm:w-72">{{ ui.label(_("Info/reglement-URL"), "cinfo-" ~ c.id) }}
+      <div class="w-full sm:w-72">{{ ui.label(_("Info-URL"), "cinfo-" ~ c.id) }}
         <input name="info_url" id="cinfo-{{ c.id }}" value="{{ c.info_url or '' }}" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
       <div class="w-full flex gap-2">
         {{ ui.btn_primary(_("Opslaan")) }}
         {{ ui.btn_secondary(_("Annuleren"), attrs='@click="edit = false"') }}
       </div>
     </form>
-    {# Reglement/info uploaden (afbeelding of PDF) — #451 #}
+    {# Info-bijlage (#451). Heette "reglement" tot #623 — één woord voor één ding
+       (§2.12) — en gebruikt nu het gedeelde uploadveld, met verwijderen erbij. #}
     <div x-show="edit" x-cloak class="mt-2 border-t border-gray-100 pt-2">
-      {% if c.info_asset_url %}<a href="{{ c.info_asset_url }}" target="_blank" rel="noopener" class="text-sm text-blue-700 underline">{{ _("Huidig reglement bekijken") }}</a>{% endif %}
-      <form class="flex flex-wrap items-end gap-2 mt-1" enctype="multipart/form-data"
-            hx-post="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}/reglement"
+      <form enctype="multipart/form-data"
+            hx-post="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}/info"
             hx-encoding="multipart/form-data" hx-target="#aa-detail" hx-swap="innerHTML">
-        <div><label class="block text-xs text-gray-500">{{ _("Reglement (afbeelding of PDF)") }}</label>
-          <input type="file" name="file" accept="image/*,application/pdf" required class="block text-sm"></div>
-        {{ ui.btn_secondary(_("Uploaden"), type="submit") }}
+        {{ ui.upload_field(name="file", text=_("Info-bijlage (afbeelding of PDF)"),
+                           id="cinfo-file-" ~ c.id,
+                           current_url=c.info_asset_url,
+                           huidig_label=_("Huidige info-bijlage bekijken"),
+                           delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/info/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML"',
+                           delete_confirm=_("De opgeladen info-bijlage verwijderen?"),
+                           hint=_("Een opgeladen bijlage primeert op de Info-URL.")) }}
+        <div class="mt-2">{{ ui.btn_secondary(_("Opslaan"), type="submit") }}</div>
       </form>
     </div>
-    {% call ui.nested_panel(_("Producten")) %}
+    {# "+ Product" in de paneelkop (#623-4): de toevoegvorm stond permanent open,
+       terwijl de meeste onderdelen één product hebben. #}
+    {% call ui.nested_panel(_("Producten"), _("+ Product"), '@click="addprod = !addprod"') %}
       {% for p in c.products %}
       <div class="border-t border-gray-100 py-1" x-data="{ ed: false }">
         <div class="flex items-center justify-between text-sm">
@@ -190,7 +206,7 @@
         </form>
       </div>
       {% endfor %}
-      <form class="flex flex-wrap gap-2 items-end mt-2"
+      <form x-show="addprod" x-cloak class="flex flex-wrap gap-2 items-end mt-2"
             hx-post="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}/producten"
             hx-target="#aa-detail" hx-swap="innerHTML">
         <div>{{ ui.label(_("Product"), "pname-" ~ c.id, required=True) }}

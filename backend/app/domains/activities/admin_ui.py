@@ -24,6 +24,7 @@ from app.domains.auth.api import (
 )
 from app.ui import admin_nav, templates
 from app.i18n import _
+from pydantic import ValidationError
 
 router = APIRouter(include_in_schema=False)
 
@@ -165,12 +166,29 @@ def admin_activiteit_detail(activity_id: int, request: Request,
         "csrf_token": csrf_from_request(request), "error": None})
 
 
+@router.get("/admin/activiteiten/nieuw", response_class=HTMLResponse)
+def activiteit_nieuw(request: Request, db: Session = Depends(get_db),
+                     email: str = Depends(require_admin_ui)):
+    """Paginabreed aanmaakscherm i.p.v. een modal (#623).
+
+    Bewust géén lege activiteit vooraf aanmaken: dan staat er een naamloze activiteit
+    in de databank zodra iemand per ongeluk klikt, en die kan publiek opduiken zodra
+    ze een datum krijgt. Het scherm draagt dezelfde kaart als de editor waarin je
+    daarna werkt, dus er is geen tweede lay-out om te onderhouden.
+    """
+    return templates.TemplateResponse(request, "admin_activiteit_nieuw.html", {
+        "nav_items": NAV,
+        "csrf_token": csrf_from_request(request),
+    })
+
+
 @router.post("/admin/activiteiten", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
 def activiteit_aanmaken(request: Request, db: Session = Depends(get_db),
                         email: str = Depends(require_admin_ui),
                         name: str = Form(""), start_date: str = Form(""),
-                        location: str = Form(""), members_only: str = Form("")):
+                        location: str = Form(""), poster_url: str = Form(""),
+                        members_only: str = Form("")):
     from app.domains.activities.router import create_activity
     from app.schemas.activity import ActivityCreate, ActivityDateCreate
 
@@ -178,6 +196,7 @@ def activiteit_aanmaken(request: Request, db: Session = Depends(get_db),
         raise HTTPException(status_code=400, detail=_("Naam en eerste datum zijn verplicht."))
     nieuw = create_activity(ActivityCreate(
         name=name.strip(), location=location.strip() or None,
+        poster_url=poster_url.strip() or None,
         members_only=bool(members_only),
         dates=[ActivityDateCreate(start_date=start_date)],
     ), db=db, admin=admin_user_by_email(db, email))
@@ -189,18 +208,37 @@ def activiteit_aanmaken(request: Request, db: Session = Depends(get_db),
 
 @router.post("/admin/activiteiten/{activity_id}", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
-def activiteit_bijwerken(activity_id: int, request: Request,
-                         db: Session = Depends(get_db),
-                         email: str = Depends(require_admin_ui),
-                         name: str = Form(""), location: str = Form(""),
-                         members_only: str = Form(""), is_cancelled: str = Form("")):
+async def activiteit_bijwerken(activity_id: int, request: Request,
+                               background_tasks: BackgroundTasks,
+                               db: Session = Depends(get_db),
+                               email: str = Depends(require_admin_ui),
+                               name: str = Form(""), location: str = Form(""),
+                               poster_url: str = Form(""),
+                               members_only: str = Form(""), is_cancelled: str = Form(""),
+                               file: Optional[UploadFile] = File(None)):
+    """Bewerkt de activiteit; één "Opslaan" bewaart tekstvelden én de affiche (#623).
+
+    `poster_url` was uit het scherm verdwenen terwijl het veld op het model en in de
+    schemas bleef bestaan — je kon alleen nog uploaden. Beide horen in dezelfde vorm,
+    zoals in v1.14: een geüploade affiche primeert op de URL (#223).
+    """
     from app.domains.activities.router import update_activity
+    from app.domains.media.api import upload_activity_poster
     from app.schemas.activity import ActivityUpdate
 
+    admin = admin_user_by_email(db, email)
     update_activity(activity_id, ActivityUpdate(
         name=name.strip() or None, location=location.strip() or None,
+        poster_url=poster_url.strip() or None,
         members_only=bool(members_only), is_cancelled=bool(is_cancelled),
-    ), db=db, admin=admin_user_by_email(db, email))
+    ), db=db, admin=admin)
+
+    if file is not None and file.filename:
+        try:
+            await upload_activity_poster(activity_id, background_tasks, file=file,
+                                         db=db, _admin=admin)
+        except HTTPException as exc:
+            return _detail_response(request, db, activity_id, error=_upload_error(exc))
     return _detail_response(request, db, activity_id)
 
 
@@ -435,14 +473,45 @@ async def affiche_uploaden(activity_id: int, request: Request,
     return _detail_response(request, db, activity_id)
 
 
-@router.post("/admin/activiteiten/{activity_id}/onderdelen/{component_id}/reglement",
+@router.post("/admin/activiteiten/{activity_id}/affiche/verwijderen",
              response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-async def reglement_uploaden(activity_id: int, component_id: int, request: Request,
+def affiche_verwijderen(activity_id: int, request: Request,
+                        db: Session = Depends(get_db),
+                        email: str = Depends(require_admin_ui)):
+    """Bestaande affiche verwijderen (#623).
+
+    Ontbrak volledig: je kon een verkeerd bestand alleen overschrijven, niet weghalen.
+    Loopt via de bestaande media-facade, zodat het asset-record én zijn
+    extracted_text in één keer weg zijn (#206) — geen tweede verwijderpad.
+    """
+    from app.domains.media.api import delete_activity_poster
+
+    delete_activity_poster(activity_id, db=db, _admin=admin_user_by_email(db, email))
+    return _detail_response(request, db, activity_id)
+
+
+@router.post("/admin/activiteiten/{activity_id}/onderdelen/{component_id}/info/verwijderen",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def onderdeel_info_verwijderen(activity_id: int, component_id: int, request: Request,
+                               db: Session = Depends(get_db),
+                               email: str = Depends(require_admin_ui)):
+    """Info-bijlage van een onderdeel verwijderen (#623), via dezelfde media-facade."""
+    from app.domains.media.api import delete_component_info
+
+    delete_component_info(component_id, db=db, _admin=admin_user_by_email(db, email))
+    return _detail_response(request, db, activity_id)
+
+
+@router.post("/admin/activiteiten/{activity_id}/onderdelen/{component_id}/info",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+async def onderdeel_info_uploaden(activity_id: int, component_id: int, request: Request,
                              background_tasks: BackgroundTasks,
                              file: Optional[UploadFile] = File(None),
                              db: Session = Depends(get_db),
                              email: str = Depends(require_admin_ui)):
-    """Info/reglement (afbeelding of PDF) per onderdeel uploaden (#451)."""
+    """Info-bijlage (afbeelding of PDF) per onderdeel uploaden (#451).
+
+    Heette "reglement" tot #623; één woord voor één ding (§2.12)."""
     from app.domains.media.api import upload_component_info
 
     if file is not None and file.filename:
@@ -510,7 +579,8 @@ def _detail_ctx(request: Request, db: Session, registration_id: int,
 
 
 def _render_detail(request: Request, db: Session, registration_id: int,
-                   *, edit_open: bool = False, ververs: bool = False) -> HTMLResponse:
+                   *, edit_open: bool = False, ververs: bool = False,
+                   error: str | None = None) -> HTMLResponse:
     """Rendert het detailfragment.
 
     ``edit_open`` houdt het paneel na een bewerking open (#613-3): het fragment
@@ -525,6 +595,7 @@ def _render_detail(request: Request, db: Session, registration_id: int,
     ctx = _detail_ctx(request, db, registration_id, edit_open=edit_open)
     if ctx is None:
         return HTMLResponse("")
+    ctx["error"] = error
     resp = templates.TemplateResponse(request, "_inschrijving_detail.html", ctx)
     if ververs:
         resp.headers["HX-Trigger"] = "betalingen-ververst"
@@ -612,8 +683,15 @@ async def inschrijving_opslaan(registration_id: int, request: Request,
     for veld in ("contact_name", "contact_email", "phone"):
         if veld in form:
             contact[veld] = str(form.get(veld) or "")
-    update_registration_remarks(reg.activity_id, registration_id,
-                                RegistrationContactUpdate(**contact),
+    try:
+        gegevens = RegistrationContactUpdate(**contact)
+    except ValidationError:
+        # Het schema wordt hier zelf gebouwd (geen request-body), dus Pydantic werpt
+        # i.p.v. FastAPI een 422 te laten maken. Het paneel opnieuw renderen mét een
+        # foutbanner: htmx swapt een 200, dus de gebruiker ziet de fout écht staan.
+        return _render_detail(request, db, registration_id, edit_open=True,
+                              error=_("Vul een geldig e-mailadres in."))
+    update_registration_remarks(reg.activity_id, registration_id, gegevens,
                                 db=db, admin=admin)
     return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
 

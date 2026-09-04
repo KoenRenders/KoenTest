@@ -21,24 +21,11 @@
   </div>
 </div>
 
-<div x-data="{ open: false }">
-  {% call ui.page_header(_("Activiteiten"), _("Een kaart opent de activiteit: datums, onderdelen en producten.")) %}
-    {{ ui.btn_primary(_("+ Nieuwe activiteit"), type="button", attrs='@click="open = true"') }}
-  {% endcall %}
-  {% call ui.modal('open', _("Nieuwe activiteit")) %}
-  <form class="space-y-3" hx-post="/admin/activiteiten" @htmx:after-request="open = false">
-    <div>{{ ui.label(_("Naam"), "name", required=True) }}
-      <input name="name" id="name" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-    <div>{{ ui.label(_("Eerste datum"), "start_date", required=True) }}
-      <input type="date" name="start_date" id="start_date" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-    <div>{{ ui.label(_("Locatie"), "location") }}
-      <input name="location" id="location" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1"> {{ _("Enkel voor leden") }}</label>
-    <p class="text-xs text-ink-soft">{{ _("Na het aanmaken open je meteen de activiteit; datums en onderdelen vul je daar aan.") }}</p>
-    {{ ui.btn_primary(_("Opslaan")) }}
-  </form>
-  {% endcall %}
-</div>
+{# De primaire actie is een LINK naar het paginabrede aanmaakscherm (#623); geen
+   modal meer. Zo werk je meteen in dezelfde vorm als de editor. #}
+{% call ui.page_header(_("Activiteiten"), _("Een kaart opent de activiteit: datums, onderdelen en producten.")) %}
+  {{ ui.btn_primary(_("+ Nieuwe activiteit"), href="/admin/activiteiten/nieuw") }}
+{% endcall %}
 
 {% call ui.filter_bar("/admin/activiteiten", "#aa-lijst") %}
   <div>{{ ui.search(value=q, placeholder=_('Zoek op titel of locatie…'), standalone=False) }}</div>

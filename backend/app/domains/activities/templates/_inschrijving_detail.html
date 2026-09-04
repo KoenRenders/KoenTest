@@ -15,6 +15,7 @@
    lees-modus en voelde het alsof er niets gebeurd was. #}
 <div class="bg-gray-50 border border-gray-200 rounded-lg p-3 mt-2 text-sm"
      {% if editable %}x-data="{ edit: {{ 'true' if edit_open else 'false' }} }"{% endif %}>
+  {{ ui.error_banner(error|default(None)) }}
   <div class="flex items-start justify-between gap-2">
     <div>
       <div class="font-medium">{{ reg.contact_name }}{% if reg.team_name %} ({{ reg.team_name }}){% endif %}</div>

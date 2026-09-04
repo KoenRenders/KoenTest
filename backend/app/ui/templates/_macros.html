@@ -153,6 +153,34 @@
 {{ _field(text, name, '<select id="' ~ name ~ '" name="' ~ name ~ '"' ~ (' required' if required else '') ~ ' class="' ~ _control ~ '" ' ~ attrs ~ '>' ~ (opts|join('')) ~ '</select>', required, hint, error) }}
 {%- endmacro %}
 
+{# ── Uploadveld (#623) ────────────────────────────────────────────────────────
+   Eén vorm voor de drie plekken waar een bestand bij een record hoort
+   (activiteitaffiche, onderdeel-info, media). Die zagen er alle drie anders uit.
+
+   Vaste volgorde: label → bestandskiezer → huidige bijlage (link + verwijderen) →
+   hint. **Geen eigen submit-knop**: het blok hoort in de vorm die het omvat, zodat
+   één "Opslaan" het tekstveld én het bestand bewaart. De omhullende vorm heeft dan
+   wel `enctype="multipart/form-data"` en `hx-encoding="multipart/form-data"` nodig.
+
+   `current_url` toont de bestaande bijlage naast de kiezer i.p.v. losjes bovenaan;
+   `delete_attrs` geeft er een verwijderactie bij — die ontbrak volledig. #}
+{% macro upload_field(name="file", text="", accept="image/*,application/pdf",
+                      current_url=None, delete_attrs="", delete_confirm=None,
+                      hint=None, id=None, huidig_label=None) -%}
+{%- set _id = id or ("upl-" ~ name) -%}
+<div class="space-y-1">
+  {% if text %}{{ label(text, _id) }}{% endif %}
+  <input type="file" name="{{ name }}" id="{{ _id }}" accept="{{ accept }}" class="block text-sm">
+  {% if current_url %}
+  <div class="flex flex-wrap items-center gap-2">
+    <a href="{{ current_url }}" target="_blank" rel="noopener" class="text-sm text-link underline">{{ huidig_label or _("Huidige bijlage bekijken") }}</a>
+    {% if delete_attrs %}{{ btn_danger(_("Verwijderen"), size="sm", attrs=delete_attrs, confirm=delete_confirm) }}{% endif %}
+  </div>
+  {% endif %}
+  {% if hint %}<p class="text-xs text-ink-soft">{{ hint }}</p>{% endif %}
+</div>
+{%- endmacro %}
+
 {# Modal (design-system §2.5): Alpine stuurt een boolean in de parent-scope aan.
    Gebruik: <div x-data="{ open:false }"> … {% call ui.modal('open', 'Titel') %}…{% endcall %}. #}
 {% macro modal(state, title, max_w="max-w-lg") -%}

@@ -30,7 +30,9 @@ Vier regels, elk met een reden:
 10. **Het woordmerk schaalt op 1.3em** — de fontmetriek van Radio Canada Big
     (capHeight 690 / xHeight 530), niet een schatting (#625).
 11. **De sociale footer-iconen zijn 32px** — ze waren stil 25 % gekrompen (#626).
-12. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
+12. **Het woord "reglement" komt niet meer voor** — het heet overal "info" (#623).
+    Eén woord voor één ding (§2.12).
+13. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
    preflight-hoogte en staat hij ~15px lager dan het zoekveld ernaast; dat gaf
    scheve filterbalken op zeven schermen (#611). Gebruik `ui.select_control()`,
    `ui.grouped_filter()` of `ui.field_select()`.
@@ -340,3 +342,15 @@ def test_sociale_footer_iconen_zijn_32px():
     assert len(sociale) >= 3, "de drie sociale iconen zijn niet gevonden"
     fouten = [r.strip()[:70] for r in sociale if "w-8 h-8" not in r]
     assert not fouten, "footer-iconen horen w-8 h-8 te zijn:\n  " + "\n  ".join(fouten)
+
+
+def test_de_term_reglement_is_vervallen():
+    """Eén woord voor één ding (§2.12): de info-bijlage heette op sommige schermen
+    "reglement" en elders "info" (#623). Jinja-commentaar telt niet mee — daar mag
+    de hernoeming uitgelegd worden."""
+    fouten = []
+    for pad in TEMPLATES:
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
+            if "reglement" in regel.lower():
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:80]}")
+    assert not fouten, "Gebruik \"info\" i.p.v. \"reglement\":\n  " + "\n  ".join(fouten)
