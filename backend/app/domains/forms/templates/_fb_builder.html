@@ -112,6 +112,12 @@
         <label class="flex items-center gap-2"><input type="checkbox" name="send_confirmation" value="1" {% if form.send_confirmation %}checked{% endif %}> {{ _("Bevestigingsmail") }}</label>
         <label class="flex items-center gap-2"><input type="checkbox" name="allow_edit" value="1" {% if form.allow_edit %}checked{% endif %}> {{ _("Wijzigen na indienen") }}</label>
         <label class="flex items-center gap-2"><input type="checkbox" name="is_anonymous" value="1" {% if form.is_anonymous %}checked{% endif %}> {{ _("Anoniem") }}</label>
+        {# #629: deze checkbox ontbrak, terwijl de route requires_login wél accepteert
+           en onvoorwaardelijk wegschrijft. `bool(Form(""))` is False, dus élke keer dat
+           iemand "Instellingen opslaan" klikte — ook voor een andere wijziging — viel
+           deze beveiligingsinstelling om, zonder melding. De checkbox draagt de stand:
+           aangevinkt = "1", niet aangevinkt = niet verstuurd = False. #}
+        <label class="flex items-center gap-2"><input type="checkbox" name="requires_login" value="1" {% if form.requires_login %}checked{% endif %}> {{ _("Enkel voor aangemelde leden") }}</label>
       </div>
       <div class="sm:col-span-2">{{ ui.label(_("Bevestigingsboodschap"), "fbc") }}<textarea name="confirmation_message" id="fbc" rows="2" class="w-full border border-gray-300 rounded-lg px-2 py-1">{{ form.confirmation_message or '' }}</textarea></div>
       <div>{{ ui.btn_primary(_("Instellingen opslaan")) }}</div>
