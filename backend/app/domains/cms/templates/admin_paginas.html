@@ -6,10 +6,11 @@
    "+ Nieuwe pagina" (los, aanmaken in een modal) → zoeken → statusfilter →
    klikbare kaarten die de paginabrede Trix-editor openen. De Trix-scripts staan
    op die editorpagina, niet hier: deze lijst heeft geen editor. #}
-{{ ui.page_header(_("CMS-pagina's"), _("Een kaart opent de pagina-editor: inhoud, publicatie en navigatie.")) }}
 
-<div class="mb-4" x-data="{ open: false }">
-  {{ ui.btn_primary(_("+ Nieuwe pagina"), type="button", attrs='@click="open = true"') }}
+<div x-data="{ open: false }">
+  {% call ui.page_header(_("Pagina's"), _("Een kaart opent de pagina-editor: inhoud, publicatie en navigatie.")) %}
+    {{ ui.btn_primary(_("+ Nieuwe pagina"), type="button", attrs='@click="open = true"') }}
+  {% endcall %}
   {% call ui.modal('open', _("Nieuwe pagina")) %}
   <form class="space-y-3" hx-post="/admin/paginas" @htmx:after-request="open = false">
     <div>{{ ui.label(_("Titel"), "title", required=True) }}

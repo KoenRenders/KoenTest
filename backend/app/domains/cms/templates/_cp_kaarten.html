@@ -5,12 +5,16 @@
   {% for p in pages %}
   <a href="/admin/paginas/{{ p.id }}"
      class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
-    <div class="flex flex-wrap items-center gap-3">
-      <span class="font-semibold text-blue-700">{{ p.title }}</span>
-      <span class="font-mono text-xs text-ink-soft">/{{ p.slug }}</span>
-      {% if p.is_published %}{{ ui.badge(_("gepubliceerd"), "green") }}{% else %}{{ ui.badge(_("concept")) }}{% endif %}
-      {% if p.show_in_nav %}{{ ui.badge(_("in navigatie"), "blue") }}{% endif %}
-      <span class="ml-auto text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <div class="font-semibold text-ink">{{ p.title }}</div>
+        <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
+          <span class="font-mono text-xs text-ink-soft">/{{ p.slug }}</span>
+          {% if p.is_published %}{{ ui.badge(_("gepubliceerd"), "green") }}{% else %}{{ ui.badge(_("concept")) }}{% endif %}
+          {% if p.show_in_nav %}{{ ui.badge(_("in navigatie"), "blue") }}{% endif %}
+        </div>
+      </div>
+      <span class="shrink-0 text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>
     </div>
   </a>
   {% endfor %}

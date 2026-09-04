@@ -6,10 +6,11 @@
    "+ Nieuwe gebruiker" (los, aanmaken in een modal) → zoeken → filters (rol,
    actief) → kaarten. De kaarten blijven inline bewerkbaar: een account is één
    regel met rolvinkjes, daar hoort geen aparte editorpagina bij. #}
-{{ ui.page_header(_("Gebruikers"), _("Backoffice-accounts en hun rollen. Aanmelden gebeurt met een e-mailcode — er zijn geen wachtwoorden.")) }}
 
-<div class="mb-4" x-data="{ open: false }">
-  {{ ui.btn_primary(_("+ Nieuwe gebruiker"), type="button", attrs='@click="open = true"') }}
+<div x-data="{ open: false }">
+  {% call ui.page_header(_("Gebruikers"), _("Backoffice-accounts en hun rollen. Aanmelden gebeurt met een e-mailcode — er zijn geen wachtwoorden.")) %}
+    {{ ui.btn_primary(_("+ Nieuwe gebruiker"), type="button", attrs='@click="open = true"') }}
+  {% endcall %}
   {% call ui.modal('open', _("Nieuwe gebruiker")) %}
   <form class="space-y-3" hx-post="/admin/gebruikers" hx-target="#gu-lijst" hx-swap="innerHTML"
         @htmx:after-request="open = false">

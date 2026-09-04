@@ -22,7 +22,12 @@ Vier regels, elk met een reden:
    opgedoken: #514, #613, #616.
 7. **Een "Bewerken"-knop die een modus omschakelt, toont beide standen.** Anders
    liegt hij over de toestand (#615). Gebruik `ui.edit_toggle()`.
-8. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
+8. **De primaire actie staat in de paginakop.** Een admin-lijstscherm gebruikt de
+   call-vorm van `page_header` (#621) — de knop hoort op de titelregel, niet in een
+   losse rij eronder.
+9. **Geen merkblauwe kaarttitel.** Merkblauw is voor koppen en chrome (§1.1); een
+   lijst van twintig blauwe recordnamen leest als twintig links (#621).
+10. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
    preflight-hoogte en staat hij ~15px lager dan het zoekveld ernaast; dat gaf
    scheve filterbalken op zeven schermen (#611). Gebruik `ui.select_control()`,
    `ui.grouped_filter()` of `ui.field_select()`.
@@ -248,5 +253,48 @@ def test_bewerk_knoppen_tonen_beide_standen():
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:80]}")
     assert not fouten, (
         "Gebruik ui.edit_toggle(state) i.p.v. een knop met één stand:\n  "
+        + "\n  ".join(fouten)
+    )
+
+
+# ── C1-lijstschermen: actie in de kop, kaarttitel in ink (#621) ──────────────
+LIJSTSCHERMEN = ["admin_activiteiten.html", "admin_formulieren.html",
+                 "admin_paginas.html", "admin_media.html",
+                 "admin_gebruikers.html", "admin_tenants.html", "leden.html"]
+KAARTFRAGMENTEN = ("_aa_kaarten.html", "_fb_kaarten.html", "_cp_kaarten.html",
+                   "_tn_kaarten.html", "_leden_lijst.html", "_me_lijst.html",
+                   "_gu_lijst.html")
+
+
+def test_lijstschermen_zetten_de_actie_in_de_kop():
+    """De "+ Nieuwe …"-knop hoort op de titelregel, zoals C1 en het referentiescherm
+    Leden (#611/#621). De call-vorm van page_header is daar het bewijs van: zonder
+    caller-blok staat de knop noodzakelijk ergens anders."""
+    per_naam = {pad.name: pad for pad in TEMPLATES}
+    fouten = []
+    for naam in LIJSTSCHERMEN:
+        pad = per_naam.get(naam)
+        if pad is None:
+            continue
+        if "{% call ui.page_header" not in _zonder_commentaar(pad):
+            fouten.append(f"{pad.relative_to(APP)}: gebruikt ui.page_header() zonder call-blok")
+    assert not fouten, (
+        "Zet de primaire actie in de kop via {% call ui.page_header(…) %}:\n  "
+        + "\n  ".join(fouten)
+    )
+
+
+def test_kaarttitels_staan_niet_in_merkblauw():
+    """Merkblauw draagt koppen en chrome (§1.1). Een recordnaam is geen kop; een
+    lijst van twintig blauwe regels leest als twintig links (#621)."""
+    fouten = []
+    for pad in TEMPLATES:
+        if not pad.name.endswith(KAARTFRAGMENTEN):
+            continue
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
+            if "font-semibold" in regel and "text-blue-700" in regel:
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:80]}")
+    assert not fouten, (
+        "Gebruik text-ink voor de recordnaam, ink-soft voor de metadata:\n  "
         + "\n  ".join(fouten)
     )

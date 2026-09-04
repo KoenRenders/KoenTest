@@ -6,12 +6,13 @@
    blauwe balk) → zoeken → filters → record-kaarten. Een tenant aanklikken opent
    de paginabrede editor met álle settings — geen aparte Instellingen-pagina met
    een tweede afdelingskiezer meer (#581). #}
-{{ ui.page_header(_("Tenants"), _("Platformbeheer — enkel OPERATOR. Een tenant is een afdeling met eigen branding, instellingen en data.")) }}
 {{ ui.error_banner(error) }}
 {% if opgeslagen %}{{ ui.success_banner(_("Tenant aangemaakt.")) }}{% endif %}
 
-<div class="mb-4" x-data="{ open: false }">
-  {{ ui.btn_primary(_("+ Nieuwe tenant"), type="button", attrs='@click="open = true"') }}
+<div x-data="{ open: false }">
+  {% call ui.page_header(_("Tenants"), _("Platformbeheer — enkel OPERATOR. Een tenant is een afdeling met eigen branding, instellingen en data.")) %}
+    {{ ui.btn_primary(_("+ Nieuwe tenant"), type="button", attrs='@click="open = true"') }}
+  {% endcall %}
   {% call ui.modal('open', _("Nieuwe tenant")) %}
   <form class="space-y-3" hx-post="/admin/tenants" hx-target="body" hx-swap="innerHTML"
         @htmx:after-request="open = false">

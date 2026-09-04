@@ -6,10 +6,11 @@
    "+ Uploaden" (los, uploaden in een modal) → zoeken → filterrij (soort +
    activiteit) → kaarten. De kaarten blijven inline bewerkbaar: media beheer je
    per stuk (titel, link, volgorde, actief), niet in een aparte editor. #}
-{{ ui.page_header(_("Media"), _("Sponsorlogo's en activiteitenfoto's; elke kaart bewerk je ter plaatse.")) }}
 
-<div class="mb-4" x-data="{ open: false }">
-  {{ ui.btn_primary(_("+ Uploaden"), type="button", attrs='@click="open = true"') }}
+<div x-data="{ open: false }">
+  {% call ui.page_header(_("Media"), _("Sponsorlogo's en activiteitenfoto's; elke kaart bewerk je ter plaatse.")) %}
+    {{ ui.btn_primary(_("+ Uploaden"), type="button", attrs='@click="open = true"') }}
+  {% endcall %}
   {% call ui.modal('open', _("Media uploaden")) %}
   <form class="space-y-3" enctype="multipart/form-data"
         hx-post="/admin/media" hx-encoding="multipart/form-data"

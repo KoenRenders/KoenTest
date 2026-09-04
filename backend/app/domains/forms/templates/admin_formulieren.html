@@ -6,14 +6,15 @@
    "+ Nieuw formulier" (naam pas in de modal, geen permanent invoerveld) met
    "Formaat (voor AI)" ernaast → zoeken → statusfilter → record-kaarten die de
    paginabrede form-builder openen. Geen master-detail. #}
-{{ ui.page_header(_("Formulieren"), _("Een kaart opent de form-builder: secties, velden en vertakkingen.")) }}
 
-<div class="flex flex-wrap items-center gap-2 mb-4" x-data="{ open: false }">
-  {{ ui.btn_primary(_("+ Nieuw formulier"), type="button", attrs='@click="open = true"') }}
-  {# Blijft de #462-gids, nu als kit-knop naast de primaire actie i.p.v. een losse
-     link rechtsboven. #}
-  {{ ui.btn_secondary(_("Formaat (voor AI)"), lead_icon="file-text", href="/static/form-json-formaat.md",
-                      attrs='target="_blank" rel="noopener" download') }}
+<div x-data="{ open: false }">
+  {% call ui.page_header(_("Formulieren"), _("Een kaart opent de form-builder: secties, velden en vertakkingen.")) %}
+    {# Blijft de #462-gids, nu als secundaire actie links van de primaire knop —
+       dezelfde volgorde als "Leden importeren" + "+ Nieuw lid" op Leden (#621). #}
+    {{ ui.btn_secondary(_("Formaat (voor AI)"), lead_icon="file-text", href="/static/form-json-formaat.md",
+                        attrs='target="_blank" rel="noopener" download') }}
+    {{ ui.btn_primary(_("+ Nieuw formulier"), type="button", attrs='@click="open = true"') }}
+  {% endcall %}
   {% call ui.modal('open', _("Nieuw formulier")) %}
   <form class="space-y-3" hx-post="/admin/formulieren" @htmx:after-request="open = false">
     <div>{{ ui.label(_("Naam"), "f-title", required=True) }}

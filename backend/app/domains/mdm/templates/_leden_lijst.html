@@ -7,11 +7,15 @@
   {% set primary = (f.members | selectattr("relation_type", "equalto", "HOOFDLID") | list | first) or (f.members | first) %}
   <a href="/admin/leden/gezin/{{ f.id }}"
      class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
-    <div class="flex flex-wrap items-center gap-3">
-      <span class="font-semibold text-blue-700">{{ primary.last_name if primary else "—" }} {{ primary.first_name if primary else "" }}</span>
-      <span class="text-sm text-ink-soft">{{ f.street }} {{ f.house_number }}, {{ f.municipality }}</span>
-      <span class="text-sm text-ink-soft">· {{ f.members | length }} {{ _("personen") }}</span>
-      <span class="ml-auto text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <div class="font-semibold text-ink">{{ primary.last_name if primary else "—" }} {{ primary.first_name if primary else "" }}</div>
+        <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
+          <span class="text-sm text-ink-soft">{{ f.street }} {{ f.house_number }}, {{ f.municipality }}</span>
+          <span class="text-sm text-ink-soft">· {{ f.members | length }} {{ _("personen") }}</span>
+        </div>
+      </div>
+      <span class="shrink-0 text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>
     </div>
   </a>
   {% endfor %}

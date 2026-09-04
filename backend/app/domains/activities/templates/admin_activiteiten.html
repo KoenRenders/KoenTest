@@ -5,7 +5,6 @@
 {# Records-lijst (design-system C1, #586): titel → duidingsregel → KPI-rij →
    primaire "+ Nieuwe activiteit" (los, aanmaken in een modal) → zoeken →
    scope-chips → klikbare kaarten die de paginabrede editor openen. #}
-{{ ui.page_header(_("Activiteiten"), _("Een kaart opent de activiteit: datums, onderdelen en producten.")) }}
 
 {# Twee kengetallen, conform de mock (design-system, scherm 3). Bewust geen
    betalings-KPI's: geld hoort op /admin/betalingen. Cijfer extra-bold, label
@@ -22,8 +21,10 @@
   </div>
 </div>
 
-<div class="mb-4" x-data="{ open: false }">
-  {{ ui.btn_primary(_("+ Nieuwe activiteit"), type="button", attrs='@click="open = true"') }}
+<div x-data="{ open: false }">
+  {% call ui.page_header(_("Activiteiten"), _("Een kaart opent de activiteit: datums, onderdelen en producten.")) %}
+    {{ ui.btn_primary(_("+ Nieuwe activiteit"), type="button", attrs='@click="open = true"') }}
+  {% endcall %}
   {% call ui.modal('open', _("Nieuwe activiteit")) %}
   <form class="space-y-3" hx-post="/admin/activiteiten" @htmx:after-request="open = false">
     <div>{{ ui.label(_("Naam"), "name", required=True) }}

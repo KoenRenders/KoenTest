@@ -6,14 +6,18 @@
   {% for a in activities %}
   <a href="/admin/activiteiten/{{ a.id }}"
      class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
-    <div class="flex flex-wrap items-center gap-3">
-      <span class="font-semibold text-blue-700">{{ a.name }}</span>
-      {% if a.is_cancelled %}{{ ui.badge(_("geannuleerd"), "red") }}{% endif %}
-      {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
-      <span class="text-sm text-ink-soft">{{ a.sort_date.strftime("%d-%m-%Y") if a.sort_date else "—" }}</span>
-      {% if a.location %}<span class="text-sm text-ink-soft">· {{ a.location }}</span>{% endif %}
-      {% if a.registration_count is not none %}<span class="text-sm text-ink-soft">· {{ a.registration_count }} {{ _("inschrijvingen") }}</span>{% endif %}
-      <span class="ml-auto text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <div class="font-semibold text-ink">{{ a.name }}</div>
+        <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
+          {% if a.is_cancelled %}{{ ui.badge(_("geannuleerd"), "red") }}{% endif %}
+          {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
+          <span class="text-sm text-ink-soft">{{ a.sort_date.strftime("%d-%m-%Y") if a.sort_date else "—" }}</span>
+          {% if a.location %}<span class="text-sm text-ink-soft">· {{ a.location }}</span>{% endif %}
+          {% if a.registration_count is not none %}<span class="text-sm text-ink-soft">· {{ a.registration_count }} {{ _("inschrijvingen") }}</span>{% endif %}
+        </div>
+      </div>
+      <span class="shrink-0 text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>
     </div>
   </a>
   {% endfor %}

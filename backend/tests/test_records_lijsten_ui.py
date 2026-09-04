@@ -182,3 +182,14 @@ def test_tenants_knop_is_primair_en_htmx_geeft_het_fragment(client):
     fragment = client.get("/admin/tenants", params={"q": "raak"}, headers=HX)
     assert "<html" not in fragment.text.lower()
     assert "+ Nieuwe tenant" not in fragment.text
+
+
+# ── C1-gelijktrekking (#621) ─────────────────────────────────────────────────
+
+def test_paginas_heet_paginas_niet_cms_paginas(client, db_session):
+    """Titel en navigatie horen hetzelfde te zeggen; "CMS" is intern jargon.
+    Het nav-item heette al "Pagina's" (app/ui/__init__.py)."""
+    _login(client)
+    html = client.get("/admin/paginas").text
+    assert "CMS-pagina" not in html
+    assert "Pagina&#39;s" in html or "Pagina's" in html

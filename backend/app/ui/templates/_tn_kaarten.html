@@ -6,11 +6,15 @@
   {% for u in units %}
   <a href="/admin/tenants/{{ u.id }}"
      class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
-    <div class="flex flex-wrap items-center gap-3">
-      <span class="font-semibold text-blue-700">{{ u.name }}</span>
-      <span class="font-mono text-xs text-ink-soft">/{{ u.code }}</span>
-      {% if u.is_active %}{{ ui.badge(_("actief"), "green") }}{% else %}{{ ui.badge(_("inactief")) }}{% endif %}
-      <span class="ml-auto text-sm text-ink-soft">{{ _("Instellingen bewerken") }} ›</span>
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <div class="font-semibold text-ink">{{ u.name }}</div>
+        <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
+          <span class="font-mono text-xs text-ink-soft">/{{ u.code }}</span>
+          {% if u.is_active %}{{ ui.badge(_("actief"), "green") }}{% else %}{{ ui.badge(_("inactief")) }}{% endif %}
+        </div>
+      </div>
+      <span class="shrink-0 text-sm text-ink-soft">{{ _("Instellingen bewerken") }} ›</span>
     </div>
   </a>
   {% endfor %}
