@@ -18,6 +18,7 @@ from app.kernel.ods import build_ods
 from app.domains.payment.api import PaymentRecordHistory
 from app.domains.membership.api import MembershipHistory
 from app.domains.activities.api import (
+    RegistrationHistory,
     RegistrationItemHistory,
     ActivityHistory,
     ActivityDateHistory,
@@ -360,6 +361,28 @@ def all_changes_since(
         rows.append(_row(h, entity="Product", entity_id=h.product_id,
                          summary=f"{_fmt(h.name)} €{_fmt(h.price)} (onderdeel #{_fmt(h.component_id)})",
                          group="Activiteiten"))
+    for h in db.query(RegistrationHistory).filter(RegistrationHistory.recorded_at >= since_dt):
+        # Per gewijzigd veld een "oud → nieuw" (#624), zoals bij een persoon: een
+        # stille correctie op iemands contactgegevens moet verklaarbaar zijn.
+        summary = _fmt(h.contact_name) or "—"
+        if h.operation == "update":
+            prev = (db.query(RegistrationHistory)
+                    .filter(RegistrationHistory.registration_id == h.registration_id,
+                            RegistrationHistory.recorded_at < h.recorded_at)
+                    .order_by(RegistrationHistory.recorded_at.desc()).first())
+            if prev is not None:
+                changes: List[str] = []
+                for label, oud, nieuw in (("naam", prev.contact_name, h.contact_name),
+                                          ("e-mail", prev.contact_email, h.contact_email),
+                                          ("gsm", prev.phone, h.phone),
+                                          ("opmerking", prev.remarks, h.remarks)):
+                    if (oud or "") != (nieuw or ""):
+                        changes.append(f"{label}: {_fmt(oud) or '—'} → {_fmt(nieuw) or '—'}")
+                if changes:
+                    summary = "; ".join(changes)
+        rows.append(_row(h, entity="Inschrijving", entity_id=h.registration_id,
+                         summary=summary, group="Inschrijvingen",
+                         subject=subj.from_registration(h.registration_id)))
     for h in db.query(RegistrationItemHistory).filter(RegistrationItemHistory.recorded_at >= since_dt):
         rows.append(_row(h, entity="Bestelregel", entity_id=h.registration_item_id,
                          summary=f"product #{_fmt(h.product_id)} ×{_fmt(h.quantity)} (inschrijving #{_fmt(h.registration_id)})",

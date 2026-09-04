@@ -14,6 +14,7 @@ from app.domains.activities.models import ActivityDate, Activity, Registration, 
 from app.domains.auth.api import User
 from app.domains.activities.models import ActivitySubRegistration, ActivityProduct
 from app.schemas.activity import (
+    RegistrationContactUpdate,
     ActivityCreate,
     ActivityUpdate,
     ActivityResponse,
@@ -39,6 +40,7 @@ from app.domains.payment.api import (
     create_payment_record, registration_balance, reconcile_registration_charges,
 )
 from app.domains.audit.api import (
+    snapshot_registration,
     snapshot_registration_item,
     snapshot_activity,
     snapshot_activity_date,
@@ -845,17 +847,40 @@ def delete_order_line(
 def update_registration_remarks(
     activity_id: int,
     registration_id: int,
-    data: RegistrationRemarksUpdate,
+    data: RegistrationContactUpdate,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    """Admin bewerkt enkel de opmerking van de inschrijver (#283); raakt
-    bestelregels/saldo niet aan. Leeg/witruimte → NULL. Soft-deleted
-    inschrijvingen zijn via de globale filter onzichtbaar → 404 (niet bewerkbaar)."""
+    """Admin corrigeert de contactgegevens en/of de opmerking (#283, uitgebreid #624).
+
+    Raakt bestelregels, saldo en OGM NIET aan — dit is geen geldwijziging. Leeg of
+    enkel witruimte → NULL. Soft-deleted inschrijvingen zijn via de globale filter
+    onzichtbaar → 404 (niet bewerkbaar).
+
+    Enkel meegestuurde velden veranderen: wie alleen `remarks` post, laat de
+    contactgegevens ongemoeid — zo blijft de oude #283-aanroep werken.
+
+    Elke wijziging krijgt een audit-snapshot; zonder spoor is een stille correctie op
+    iemands contactgegevens niet te verklaren. De gekoppelde `Person` blijft
+    ongemoeid: die corrigeer je op /admin/leden.
+    """
     activity = _load_activity_or_404(db, activity_id)
     reg = _load_registration_or_404(db, activity, registration_id)
-    cleaned = (data.remarks or "").strip()
-    reg.remarks = cleaned or None
+
+    gezet = data.model_dump(exclude_unset=True)
+    gewijzigd = False
+    for veld in ("contact_name", "contact_email", "phone", "remarks"):
+        if veld not in gezet:
+            continue
+        waarde = (str(gezet[veld]) if gezet[veld] is not None else "").strip() or None
+        if getattr(reg, veld) != waarde:
+            setattr(reg, veld, waarde)
+            gewijzigd = True
+
+    if gewijzigd:
+        db.flush()
+        snapshot_registration(db, reg, operation="update", action="registration_contact_updated",
+                              source="admin_manual", actor=admin.email)
     db.commit()
     db.refresh(reg)
     return _enrich_registration(reg, activity)

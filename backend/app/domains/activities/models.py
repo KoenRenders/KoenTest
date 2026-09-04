@@ -199,6 +199,24 @@ class RegistrationItemHistory(TenantMixin, HistoryMixin, Base):
     quantity = Column(Integer, nullable=True)
 
 
+class RegistrationHistory(TenantMixin, HistoryMixin, Base):
+    """Append-only audit van de CONTACTGEGEVENS van een inschrijving (#624).
+
+    Een beheerder mag een tikfout in naam, e-mail of gsm rechtzetten; zonder spoor
+    is zo'n stille correctie op iemands contactgegevens niet te verklaren. De
+    bestelregels hebben hun eigen historie (RegistrationItemHistory) — deze tabel
+    gaat enkel over wie de inschrijver is en wat hij meegaf.
+    """
+    __tablename__ = "registration_history"
+    __table_args__ = {"schema": "activities"}
+
+    registration_id = Column(Integer, nullable=False, index=True)
+    contact_name = Column(String(255), nullable=True)
+    contact_email = Column(String(255), nullable=True)
+    phone = Column(String(50), nullable=True)
+    remarks = Column(Text, nullable=True)
+
+
 class ActivityHistory(TenantMixin, HistoryMixin, Base):
     """Append-only audit van activiteiten (#189), incl. soft-delete."""
     __tablename__ = "activity_history"

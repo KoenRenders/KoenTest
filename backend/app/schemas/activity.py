@@ -176,6 +176,27 @@ class RegistrationRemarksUpdate(BaseModel):
     remarks: Optional[str] = None
 
 
+class RegistrationContactUpdate(BaseModel):
+    """Admin corrigeert de contactgegevens van een inschrijving (#624).
+
+    Een tikfout in het e-mailadres betekent dat de bevestiging en elke verdere
+    communicatie niet aankomen; dat was alleen recht te zetten door de inschrijving
+    te verwijderen en opnieuw in te voeren — met een nieuwe betaling en OGM tot
+    gevolg.
+
+    Vorm hoort in het schema (§ validatielagen): `EmailStr` weigert een ongeldig
+    adres met een leesbare 422 i.p.v. het stil te bewaren. Leeg of enkel witruimte
+    wordt server-side NULL, zoals de opmerking dat al doet.
+
+    Los van de gekoppelde `Person`: deze velden zijn een momentopname van wat de
+    inschrijver invulde. Het ledenbestand corrigeer je op /admin/leden.
+    """
+    contact_name: Optional[str] = None
+    contact_email: Optional[EmailStr] = None
+    phone: Optional[str] = None
+    remarks: Optional[str] = None
+
+
 class RegistrationCreate(BaseModel):
     contact_name: str
     contact_email: EmailStr

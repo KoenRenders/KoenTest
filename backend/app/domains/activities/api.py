@@ -18,6 +18,7 @@ from app.domains.activities.models import (  # noqa: F401
     ProductHistory,
     Registration,
     RegistrationItem,
+    RegistrationHistory,
     RegistrationItemHistory,
 )
 from app.domains.activities.totals import compute_registration_total  # noqa: F401
@@ -35,6 +36,6 @@ __all__ = [
     "Activity", "ActivityDate", "ActivityDateHistory", "ActivityHistory",
     "ActivityProduct", "ActivitySubRegistration", "ComponentHistory",
     "ProductHistory", "Registration", "RegistrationItem",
-    "RegistrationItemHistory", "build_component_export_ods", "compute_registration_total",
+    "RegistrationHistory", "RegistrationItemHistory", "build_component_export_ods", "compute_registration_total",
     "list_activities",
 ]

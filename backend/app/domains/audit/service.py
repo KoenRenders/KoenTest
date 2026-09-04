@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from app.domains.payment.api import PaymentRecordHistory
 from app.domains.membership.api import MembershipHistory
 from app.domains.activities.api import (
+    RegistrationHistory,
     RegistrationItemHistory,
     ActivityHistory,
     ActivityDateHistory,
@@ -93,6 +94,23 @@ def snapshot_contact_detail(db: Session, contact, *, operation: str, action: str
         contact_type_code=contact.contact_type_code,
         value=contact.value,
         is_primary=contact.is_primary,
+        operation=operation, action=action, source=source, actor=actor,
+    ))
+
+
+def snapshot_registration(db: Session, registration, *, operation: str, action: str,
+                          source: str, actor: Optional[str] = None) -> None:
+    """Contactgegevens van een inschrijving vastleggen (#624).
+
+    Append-only, zoals de andere snapshots: de vorige rij is de "oude" waarde, deze
+    de nieuwe. `all_changes_since` maakt daar de "oud → nieuw"-regel van.
+    """
+    db.add(RegistrationHistory(
+        registration_id=registration.id,
+        contact_name=registration.contact_name,
+        contact_email=registration.contact_email,
+        phone=registration.phone,
+        remarks=registration.remarks,
         operation=operation, action=action, source=source, actor=actor,
     ))
 

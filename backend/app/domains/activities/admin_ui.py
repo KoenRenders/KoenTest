@@ -586,7 +586,7 @@ async def inschrijving_opslaan(registration_id: int, request: Request,
     verdwaalde refund achter.
     """
     from app.domains.activities.router import update_order_line, update_registration_remarks
-    from app.schemas.activity import RegistrationItemUpdate, RegistrationRemarksUpdate
+    from app.schemas.activity import RegistrationContactUpdate, RegistrationItemUpdate
 
     reg = _reg_or_404(db, registration_id)
     admin = admin_user_by_email(db, email)
@@ -606,8 +606,14 @@ async def inschrijving_opslaan(registration_id: int, request: Request,
         update_order_line(reg.activity_id, registration_id, item_id,
                           RegistrationItemUpdate(quantity=aantal), db=db, admin=admin)
 
+    # Contactgegevens meenemen in dezelfde "Opslaan" (#624). Enkel wat het formulier
+    # meestuurt wordt gewijzigd; de route laat de rest ongemoeid.
+    contact = {"remarks": str(form.get("remarks") or "")}
+    for veld in ("contact_name", "contact_email", "phone"):
+        if veld in form:
+            contact[veld] = str(form.get(veld) or "")
     update_registration_remarks(reg.activity_id, registration_id,
-                                RegistrationRemarksUpdate(remarks=str(form.get("remarks") or "")),
+                                RegistrationContactUpdate(**contact),
                                 db=db, admin=admin)
     return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
 

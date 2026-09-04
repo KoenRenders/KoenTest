@@ -50,6 +50,24 @@
        wélke regels er zijn, niet hun waarden. #}
     <form class="space-y-3" hx-post="{{ _base }}/opslaan"
           hx-target="closest .bg-gray-50" hx-swap="outerHTML">
+      {# Contactgegevens corrigeerbaar (#624). Een tikfout in het e-mailadres betekende
+         dat de bevestiging niet aankwam, en dat was alleen recht te zetten door de
+         inschrijving te verwijderen en opnieuw in te voeren — met een nieuwe betaling
+         en OGM tot gevolg. Ze staan in dezelfde vorm als de aantallen, dus onder de
+         ene "Opslaan". #}
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div>{{ ui.label(_("Naam"), "reg-naam-" ~ reg.id) }}
+          <input name="contact_name" id="reg-naam-{{ reg.id }}" value="{{ reg.contact_name or '' }}"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        <div>{{ ui.label(_("E-mailadres"), "reg-email-" ~ reg.id) }}
+          <input type="email" name="contact_email" id="reg-email-{{ reg.id }}" value="{{ reg.contact_email or '' }}"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        <div>{{ ui.label(_("Mobiel nummer"), "reg-gsm-" ~ reg.id) }}
+          <input type="tel" name="phone" id="reg-gsm-{{ reg.id }}" value="{{ reg.phone or '' }}"
+                 class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+      </div>
+      <p class="text-xs text-ink-soft">{{ _("Dit corrigeert enkel deze inschrijving. Het ledenbestand pas je aan bij Leden.") }}</p>
+
       <div class="space-y-2">
         {% for item in reg["items"] %}
         <div class="flex items-center gap-2">
