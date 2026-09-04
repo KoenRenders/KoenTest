@@ -11,7 +11,8 @@
    titel. Het zoekveld filtert op actor, want dát is de vrije tekst hier. #}
 {% call ui.page_header(_("Wijzigingen"), _("Audit-logboek van alle wijzigingen; filter op periode, objectgroep of wie ze deed.")) %}
   {{ ui.btn_secondary(_("Ledenexport (.ods) voor Raak Nationaal"), lead_icon="download",
-                      href="/admin/ledenwijzigingen/export?since=" ~ since, size="sm") }}
+                      href="/admin/ledenwijzigingen/export?since=" ~ since, size="sm",
+                        attrs='hx-boost="false"') }}
 {% endcall %}
 
 {% call ui.filter_bar("/admin/ledenwijzigingen", "#lw-inhoud") %}

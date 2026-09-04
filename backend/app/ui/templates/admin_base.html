@@ -23,10 +23,28 @@
     .cms-content strong,.cms-content b{font-weight:700}
     .cms-content em,.cms-content i{font-style:italic}
   </style>
+  {# View Transitions voor gebooste navigatie (#634). Browsers zonder ondersteuning
+     negeren dit; geen terugval nodig. #}
+  <meta name="htmx-config" content='{"globalViewTransitions":true}'>
   <script src="/static/vendor/htmx.min.js" defer></script>
   <script src="/static/vendor/alpine.min.js" defer></script>
+  {# Trix WYSIWYG (#520), verhuisd uit admin_pagina.html naar de schil (#634):
+     htmx voert <script>-tags in ingeswapte inhoud uit, en Trix een tweede keer
+     laden faalt op customElements.define('trix-editor'). In de schil laadt het
+     precies één keer per sessie — met hx-boost zelfs goedkoper dan per pagina. #}
+  <link rel="stylesheet" href="/static/vendor/trix.css">
+  <script src="/static/vendor/trix.min.js" defer></script>
 </head>
+{# hx-boost (#634): navigatie zonder volledige herlaad — htmx haalt de nieuwe
+   pagina op en vervangt alleen #main, zodat de zijbalk blijft staan en het witte
+   flitsmoment weg is. Wélk stuk geswapt wordt zeggen we via de responsheaders
+   HX-Retarget/HX-Reselect/HX-Reswap (main.py: _boosted_swap_headers) en NIET met
+   hx-target/hx-select/hx-swap hier: die drie erven naar élke htmx-actie in de
+   pagina en zouden elke fragment-swap in de app breken.
+   Uitzonderingen zetten de boost zelf uit: downloads, /afmelden en links naar de
+   andere schil (zie ui.htmx_ux() voor het vangnet). #}
 <body class="bg-gray-50 min-h-screen text-ink" x-data="{ open: false }"
+      data-shell="admin" hx-boost="true"
       hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
   {# Zie site_base: de banner is sticky (#610) en de zijbalk start eronder. Op PROD
      geen banner, dus md:top-0 + md:h-screen. Beide varianten letterlijk in de
@@ -56,8 +74,8 @@
       {# #526: vaste voet — Naar de site + Uitloggen (→ /afmelden, de bestaande
          logout-route). Uitloggen in accentkleur zodat hij opvalt. #}
       <div class="mt-2 pt-2 mx-3 border-t border-white/10">
-        <a href="/" class="block px-3 py-2 rounded-lg text-sm text-purple-200 hover:bg-white/10 hover:text-white">↗ {{ _("Naar de site") }}</a>
-        <a href="/afmelden" class="block px-3 py-2 rounded-lg text-sm text-red-200 hover:bg-white/10 hover:text-white">⎋ {{ _("Uitloggen") }}</a>
+        <a href="/" hx-boost="false" class="block px-3 py-2 rounded-lg text-sm text-purple-200 hover:bg-white/10 hover:text-white">↗ {{ _("Naar de site") }}</a>
+        <a href="/afmelden" hx-boost="false" class="block px-3 py-2 rounded-lg text-sm text-red-200 hover:bg-white/10 hover:text-white">⎋ {{ _("Uitloggen") }}</a>
       </div>
     </aside>
 
@@ -67,16 +85,16 @@
         <a href="/admin" class="font-brand uppercase tracking-tight text-xl leading-none">{{ _("Raak") }}</a>
         <button class="p-2 rounded hover:bg-white/10" @click="open = !open" aria-label="{{ _("Menu") }}">☰</button>
       </header>
-      <nav x-show="open" x-cloak class="md:hidden bg-brand-indigo text-purple-100 px-3 pb-3 pt-1 space-y-0.5">
+      <nav x-show="open" x-cloak x-transition.opacity.duration.150ms class="md:hidden bg-brand-indigo text-purple-100 px-3 pb-3 pt-1 space-y-0.5">
         {% for item in nav_items|default([]) %}
         <a href="{{ item.href }}" @click="open = false"
            class="block px-3 py-2 rounded-lg text-sm {% if item.active %}bg-white/20 text-white font-semibold{% else %}text-purple-200 hover:bg-white/10 hover:text-white{% endif %}">{{ item.label }}</a>
         {% endfor %}
-        <a href="/" class="block px-3 py-2 rounded-lg text-sm text-purple-200 hover:bg-white/10 hover:text-white">↗ {{ _("Naar de site") }}</a>
-        <a href="/afmelden" @click="open = false" class="block px-3 py-2 rounded-lg text-sm text-red-200 hover:bg-white/10 hover:text-white">⎋ {{ _("Uitloggen") }}</a>
+        <a href="/" hx-boost="false" class="block px-3 py-2 rounded-lg text-sm text-purple-200 hover:bg-white/10 hover:text-white">↗ {{ _("Naar de site") }}</a>
+        <a href="/afmelden" hx-boost="false" @click="open = false" class="block px-3 py-2 rounded-lg text-sm text-red-200 hover:bg-white/10 hover:text-white">⎋ {{ _("Uitloggen") }}</a>
       </nav>
 
-      <main class="flex-1 px-4 py-8">
+      <main id="main" class="flex-1 px-4 py-8">
         {# max-w-5xl is bedoeld voor leesbare formulieren, niet voor een brede
            audit-tabel (#620). Een scherm dat de ruimte nodig heeft, zet
            {% block content_width %}max-w-7xl{% endblock %} — globaal verbreden zou
@@ -89,5 +107,7 @@
   {{ ui.toast_host() }}
   {# In-app bevestig-modal (#595): vervangt het browser-confirm(). #}
   {{ ui.confirm_host() }}
+  {# Voortgangsbalk, focusverplaatsing en de boost-vangnetten (#634). #}
+  {{ ui.htmx_ux() }}
 </body>
 </html>

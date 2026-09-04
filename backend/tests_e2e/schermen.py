@@ -100,3 +100,28 @@ class Ledenscherm:
         self.page.get_by_role("button", name="Verwijderen").last.click()
         self.page.get_by_role("button", name="Bevestigen").click()
         self.page.wait_for_timeout(400)
+
+
+class Adminschil:
+    """De AdminShell zelf (#634): zijbalk, titel en de wachtfeedback van htmx.
+
+    Deze klasse test geen scherm maar de *navigatie* — de eigenschap die met
+    hx-boost is toegevoegd. Bij een UI-port verdwijnt de zijbalk misschien, maar
+    "navigeren mag de schil niet opnieuw opbouwen" blijft een zinnig scenario.
+    """
+
+    def __init__(self, page):
+        self.page = page
+
+    def merk_de_zijbalk(self) -> None:
+        """Zet een JS-eigenschap op de <aside>; die overleeft geen herlaad."""
+        self.page.evaluate("document.querySelector('aside').__raakMerk = 1")
+
+    def zijbalk_is_nog_dezelfde(self) -> bool:
+        return bool(self.page.evaluate(
+            "!!(document.querySelector('aside') && document.querySelector('aside').__raakMerk)"))
+
+    def klik_in_de_zijbalk(self, href: str) -> None:
+        self.page.locator(f'aside a[href="{href}"]').first.click()
+        self.page.wait_for_selector("#main h1", timeout=5000)
+        self.page.wait_for_timeout(200)

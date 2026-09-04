@@ -73,8 +73,11 @@
   <h1 class="text-2xl font-bold text-blue-700 mb-2">{{ form.title }}</h1>
   {% if form.description %}<p class="text-gray-600 mb-6 whitespace-pre-wrap">{{ form.description }}</p>{% endif %}
   {{ ui.error_banner(error|default(None)) }}
+  {# Het enige publieke formulier dat geen htmx gebruikt: een gewone POST met
+     server-rendered antwoord. Buiten hx-boost (#634) houden zodat de
+     verzend-flow (en de URL in de geschiedenis) exact blijft zoals ze was. #}
   <form method="post" action="/formulier/{{ form.share_token }}{% if edit_token|default(None) %}/edit/{{ edit_token }}{% endif %}"
-        class="space-y-6">
+        hx-boost="false" class="space-y-6">
     {% if not form.is_anonymous %}
     {% call ui.card() %}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">

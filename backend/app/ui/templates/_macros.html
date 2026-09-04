@@ -20,11 +20,18 @@
 {%- endmacro %}
 
 {# `lead_icon` prependt een SVG-icoon (ui.icon) vóór het label — nette knoppen met
-   icoon zonder de SVG via een geëscapet label te moeten sluizen (#593). #}
+   icoon zonder de SVG via een geëscapet label te moeten sluizen (#593).
+
+   `hx-disabled-elt="this"` staat standaard op elke <button> uit de kit (#634):
+   htmx zet de knop uit zolang haar eigen verzoek loopt, zodat een dubbelklik op
+   "Bevestig betaald" of een verwijderknop niet twee keer verstuurt. Op een <a>
+   heeft het geen betekenis en zetten we het dus niet. Draagt `attrs` het attribuut
+   al, dan wint die expliciete waarde. Verzoeken die van een <form hx-post> komen
+   raakt dit niet — daar dekt de `.htmx-request`-regel in de CSS het wachten af. #}
 {% macro button(label, variant="primary", type="submit", href=None, size="md", attrs="", cls="", lead_icon=None, confirm=None, aria_label=None) -%}
 {%- set _c = btn_class(variant, size) ~ (" " ~ cls if cls else "") -%}
 {%- set _ic = icon(lead_icon) if lead_icon else "" -%}
-{%- set _extra %}{% if confirm %} data-confirm="{{ confirm }}"{% endif %}{% if aria_label %} aria-label="{{ aria_label }}"{% endif %}{% endset -%}
+{%- set _extra %}{% if confirm %} data-confirm="{{ confirm }}"{% endif %}{% if aria_label %} aria-label="{{ aria_label }}"{% endif %}{% if not href and "hx-disabled-elt" not in attrs %} hx-disabled-elt="this"{% endif %}{% endset -%}
 {% if href %}<a href="{{ href }}" class="{{ _c }}"{{ _extra }} {{ attrs|safe }}>{{ _ic }}{{ label }}</a>{% else %}<button type="{{ type }}" class="{{ _c }}"{{ _extra }} {{ attrs|safe }}>{{ _ic }}{{ label }}</button>{% endif %}
 {%- endmacro %}
 
@@ -111,10 +118,14 @@
 
 {# Paginakop: H1 (auto in merkfont via base-layer) + optionele subtitel. Een
    {% call %}-body plaatst rechts uitgelijnde acties (knoppen). #}
+{# tabindex="-1" op de <h1> (#634): na een gebooste navigatie verplaatst één
+   htmx:afterSettle-listener (zie htmx_ux()) de focus naar de titel van het nieuwe
+   scherm. Zonder dat blijft de focus op de zijbalk-link staan en weet een
+   toetsenbord- of schermlezergebruiker niet dat de pagina gewisseld is. #}
 {% macro page_header(title, subtitle=None) -%}
 <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
   <div>
-    <h1 class="text-3xl font-bold text-blue-700">{{ title }}</h1>
+    <h1 tabindex="-1" class="text-3xl font-bold text-blue-700">{{ title }}</h1>
     {% if subtitle %}<p class="text-sm text-gray-500 mt-1">{{ subtitle }}</p>{% endif %}
   </div>
   {% if caller %}<div class="flex flex-wrap items-center gap-2">{{ caller() }}</div>{% endif %}
@@ -421,11 +432,12 @@
    Zet dit één keer in de basis-template, naast toast_host(). #}
 {% macro confirm_host() -%}
 <div x-data x-show="$store.confirm.open" x-cloak
+     x-transition.opacity.duration.150ms
      class="fixed inset-0 z-[60] flex items-center justify-center p-4"
      style="background:rgba(17,17,17,.5)"
      @click.self="$store.confirm.cancel()" @keydown.escape.window="$store.confirm.cancel()"
      role="dialog" aria-modal="true">
-  <div class="bg-white rounded-2xl shadow-xl w-full max-w-md">
+  <div x-show="$store.confirm.open" x-transition.opacity.duration.150ms class="bg-white rounded-2xl shadow-xl w-full max-w-md">
     <div class="px-5 py-5">
       <p class="text-sm text-ink" x-text="$store.confirm.message"></p>
     </div>
@@ -559,4 +571,54 @@
     {% if delete_attrs %}<button type="button" class="px-2 py-0.5 rounded bg-red-500/30 hover:bg-red-500/60" {{ delete_attrs|safe }} aria-label="{{ _('Verwijderen') }}">×</button>{% endif %}
   </div>
 </div>
+{%- endmacro %}
+
+{# ── Navigatie- en wachtfeedback voor htmx (#634) ──────────────────────────────
+   Eén blok voor beide gebooste schillen (site + admin), zodat het gedrag niet uit
+   elkaar loopt. Zet dit onderaan de <body>, naast toast_host() en confirm_host().
+
+   Wat het doet:
+   1. Voortgangsbalk. `htmx:beforeRequest` zet `htmx-loading` op de <body>; de
+      CSS laat #nprogress dan naar 80 % lopen. Elk einde (afterRequest,
+      responseError, sendError) haalt de klasse weg. Bewust geen teller over
+      gelijktijdige verzoeken: bij twee overlappende acties eindigt de balk bij de
+      eerste die klaar is — zichtbaar genoeg, en zonder state die kan vastlopen.
+   2. Focus na een gebooste navigatie naar de <h1> van het nieuwe scherm
+      (page_header zet er tabindex="-1" op).
+   3. Fout onder boost. htmx swapt standaard geen 4xx/5xx, dus een gebooste klik
+      naar een 403/404 zou zichtbaar níets doen. We vallen terug op een gewone
+      navigatie, zodat de bestaande foutpagina verschijnt.
+   4. Schilwissel onder boost. De HX-Reselect-header haalt alleen #main uit het
+      antwoord; navigeer je van de site naar /admin (of omgekeerd), dan zou de
+      nieuwe inhoud in de oude schil landen — verkeerde navigatie, verkeerde
+      kleuren. De cross-shell-links dragen daarom `hx-boost="false"`, maar dat is
+      een opsomming die veroudert (een CMS-pagina kan morgen naar /raakje linken).
+      Deze controle is het vangnet: draagt het antwoord een ander `data-shell` dan
+      de huidige body — of helemaal geen — dan navigeren we hard. #}
+{% macro htmx_ux() -%}
+<div id="nprogress" aria-hidden="true"></div>
+<script>
+  (function () {
+    var body = document.body;
+    body.addEventListener('htmx:beforeRequest', function () { body.classList.add('htmx-loading'); });
+    ['htmx:afterRequest', 'htmx:responseError', 'htmx:sendError'].forEach(function (evt) {
+      body.addEventListener(evt, function () { body.classList.remove('htmx-loading'); });
+    });
+    body.addEventListener('htmx:afterSettle', function (e) {
+      if (!e.detail.boosted) return;
+      var h = document.querySelector('#main h1');
+      if (h) h.focus();
+    });
+    body.addEventListener('htmx:responseError', function (e) {
+      if (e.detail.boosted) window.location.assign(e.detail.pathInfo.finalRequestPath);
+    });
+    body.addEventListener('htmx:beforeSwap', function (e) {
+      if (!e.detail.boosted) return;
+      var m = /<body[^>]*data-shell="([a-z]+)"/.exec(e.detail.xhr.responseText || '');
+      if (m && m[1] === body.getAttribute('data-shell')) return;
+      e.detail.shouldSwap = false;
+      window.location.assign(e.detail.pathInfo.finalRequestPath);
+    });
+  })();
+</script>
 {%- endmacro %}

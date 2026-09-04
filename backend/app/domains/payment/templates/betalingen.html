@@ -18,7 +18,8 @@
       {% endfor %}
     {% endcall %}
     {{ ui.btn_secondary(_("Export (.ods)"), lead_icon="download",
-                        href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status, size="sm") }}
+                        href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status, size="sm",
+                        attrs='hx-boost="false"') }}
   </div>
 {% endcall %}
 

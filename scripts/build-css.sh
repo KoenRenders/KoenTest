@@ -101,6 +101,34 @@ cat > "$TMP/in.css" << 'CSS'
   html :where(input[type="text"],input[type="email"],input[type="tel"],input[type="number"],input[type="password"],input[type="search"],input[type="url"],input[type="date"],input[type="time"],input[type="datetime-local"],input:not([type]),select,textarea){border:1px solid #d1d5db;border-radius:.5rem;padding:.5rem .75rem;font-size:.875rem;line-height:1.25rem;background-color:#fff;color:#111827}
   html :where(input[type="text"],input[type="email"],input[type="tel"],input[type="number"],input[type="password"],input[type="search"],input[type="url"],input[type="date"],input[type="time"],input[type="datetime-local"],input:not([type]),select,textarea):focus{border-color:var(--brand-ocean);box-shadow:0 0 0 3px rgba(0,81,164,.15);outline:none}
 }
+/* ── Wacht- en overgangsfeedback voor htmx (#634) ────────────────────────────
+   BEWUST buiten @layer components: Tailwind snoeit de components-laag op wat het
+   in de templates terugvindt, en deze klassen zet htmx pas tijdens de request op
+   het element (`htmx-request`, `htmx-settling`) of wij vanuit JS op de <body>
+   (`htmx-loading`). In een laag zouden ze dus stilzwijgend wegvallen. Gewone CSS
+   ná @tailwind utilities is hier ook inhoudelijk juist: `pointer-events:none`
+   tijdens een verzoek hoort een utility te overrulen. */
+/* Elk element dat zelf een htmx-verzoek stuurt (knop of formulier) dimt en is
+   onklikbaar zolang het loopt — dekt alle bestaande hx-post-acties in één regel. */
+.htmx-request{opacity:.6;cursor:wait}
+.htmx-request,.htmx-request *{pointer-events:none}
+/* Ingeswapte fragmenten faden in i.p.v. te knipperen. */
+.htmx-settling{animation:raak-fade-in 150ms ease-out}
+@keyframes raak-fade-in{from{opacity:0}to{opacity:1}}
+/* Voortgangsbalk bovenaan (ui.htmx_ux()): 2px in de merkkleur, boven de sticky
+   omgevingsbanner. `width` loopt tijdens de request naar 80% en verdwijnt erna. */
+#nprogress{position:fixed;top:0;left:0;height:2px;width:0;background:var(--brand-ocean);z-index:70;opacity:0;transition:width .3s ease-out,opacity .2s ease-out;pointer-events:none}
+body.htmx-loading #nprogress{width:80%;opacity:1}
+/* View Transitions bij gebooste navigatie: kort, anders voelt het traag. */
+@view-transition{navigation:auto}
+::view-transition-old(root),::view-transition-new(root){animation-duration:120ms}
+/* Design-system §5 (Motion): wie bewegingsreductie heeft ingesteld, krijgt de
+   feedback zonder animatie — de balk en de dimming blijven, het bewegen niet. */
+@media (prefers-reduced-motion: reduce){
+  .htmx-settling{animation:none}
+  #nprogress{transition:none}
+  ::view-transition-old(root),::view-transition-new(root){animation:none}
+}
 CSS
 "$BIN" -c "$TMP/tailwind.config.js" -i "$TMP/in.css" \
   -o backend/app/static/app.css --minify

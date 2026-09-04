@@ -69,15 +69,26 @@ def test_paginas_htmx_geeft_enkel_de_kaarten(client, db_session):
     assert 'name="q"' not in fragment.text
 
 
-def test_trix_staat_op_de_editorpagina_en_niet_op_de_lijst(client, db_session):
-    """#520-editor hoort bij de editor: de lijst hoeft geen WYSIWYG te laden."""
+def test_trix_wordt_een_keer_geladen_vanuit_de_schil(client, db_session):
+    """Sinds #634 laadt de editor uit de AdminShell, niet uit de pagina-template.
+
+    Voorheen stond `<script src="trix.min.js">` in admin_pagina.html: dat was
+    zuiniger (alleen op het editorscherm), maar onder hx-boost wordt die pagina in
+    #main geswapt en loopt een tweede uitvoering stuk op
+    `customElements.define('trix-editor')`. Nu staat de bibliotheek in de <head>
+    van de schil — één keer per sessie — en houdt de pagina alleen haar eigen
+    configuratie over. Die omkering is bewust; de gate bewaakt de nieuwe regel.
+    """
     _login(client)
     p = _pagina(db_session, "Met editor", "met-editor", False)
 
     lijst = client.get("/admin/paginas").text
     editor = client.get(f"/admin/paginas/{p.id}").text
-    assert "trix.min.js" not in lijst
-    assert "trix.min.js" in editor
+    # De schil levert de bibliotheek, dus ook de lijst draagt hem — één keer.
+    assert lijst.count("trix.min.js") == 1
+    assert editor.count("trix.min.js") == 1
+    # ...en de editorpagina zelf voegt geen tweede scripttag toe.
+    assert "trix-editor" in editor           # de <trix-editor> uit _cp_detail
     assert "Alle pagina's" in editor          # terugkeerlink
 
 

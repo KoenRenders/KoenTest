@@ -92,8 +92,9 @@
       <div class="flex flex-wrap gap-2">
         {{ ui.btn_secondary(_("Bekijk"), href="/formulier/" ~ form.share_token, size="sm", attrs='target="_blank"') }}
         {{ ui.btn_secondary(_("Afdruk"), href="/admin/formulieren/" ~ form.id ~ "/afdruk", size="sm", attrs='target="_blank"') }}
-        {{ ui.btn_secondary(_("Export"), lead_icon="download", href="/admin/formulieren/" ~ form.id ~ "/export", size="sm") }}
-        {{ ui.btn_secondary(_("JSON"), lead_icon="download", href="/admin/formulieren/" ~ form.id ~ "/json", size="sm") }}
+        {# Downloads staan buiten hx-boost (#634): het antwoord is een bestand, geen HTML. #}
+        {{ ui.btn_secondary(_("Export"), lead_icon="download", href="/admin/formulieren/" ~ form.id ~ "/export", size="sm", attrs='hx-boost="false"') }}
+        {{ ui.btn_secondary(_("JSON"), lead_icon="download", href="/admin/formulieren/" ~ form.id ~ "/json", size="sm", attrs='hx-boost="false"') }}
         {{ ui.btn_secondary(_("Instellingen"), size="sm", attrs='@click="open = !open"') }}
         {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" ' ~ confirm_attrs(_("Formulier"), form.title)) }}
       </div>

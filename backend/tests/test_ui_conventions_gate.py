@@ -45,7 +45,21 @@ Vier regels, elk met een reden:
     (#631). De Raakje-verstuurknop heette voor een schermlezer "➤".
 18. **Geen getinte KPI-kaart** — de mock kent witte kaarten met een rand; een
     `bg-blue-50`-uitzondering liep twee keer uiteen tussen zusterschermen (#636).
-19. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
+19. **Beide gebooste schillen dragen `hx-boost`** (#634) en hebben een `#main` om
+    in te swappen. Navigatie zonder volledige herlaad is een eigenschap van de
+    schil; valt het attribuut weg, dan is de polish stil verdwenen zonder dat iets
+    faalt. `hx-target`/`hx-select`/`hx-swap` horen er juist NIET bij: die erven in
+    htmx naar élke actie in de pagina (closest-lookup) en zouden elke
+    fragment-swap breken — de swap-instructie komt uit de responsheaders
+    (`_boosted_swap_headers` in main.py).
+20. **Downloads en /afmelden staan buiten de boost** (#634). Een gebooste klik op
+    een `.ods`-export of op uitloggen levert geen HTML om te swappen — de knop
+    doet dan zichtbaar niets. Elke href naar een export-/download-route of naar
+    /afmelden draagt `hx-boost="false"`.
+21. **Geen `<script src=` buiten een schil** (#634). htmx voert `<script>`-tags in
+    ingeswapte inhoud uit; een bibliotheek die `customElements.define` doet (Trix)
+    faalt bij de tweede uitvoering. Bibliotheken horen in de `<head>` van de schil.
+22. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
    preflight-hoogte en staat hij ~15px lager dan het zoekveld ernaast; dat gaf
    scheve filterbalken op zeven schermen (#611). Gebruik `ui.select_control()`,
    `ui.grouped_filter()` of `ui.field_select()`.
@@ -509,4 +523,72 @@ def test_kpi_kaarten_zijn_wit():
     assert not fouten, (
         "KPI-kaarten zijn wit met een rand (bg-white border border-line):\n  "
         + "\n  ".join(fouten)
+    )
+
+
+# ── #634: navigatie zonder volledige herlaad ─────────────────────────────────
+# De drie regels hieronder bewaken de schil-eigenschappen van hx-boost. Ze staan
+# los van de patroon-gates hierboven omdat ze niet over één regel gaan maar over
+# de plaats van iets in de template-boom.
+
+# De schillen: alleen dáár horen <script src>-tags en boost-attributen.
+SCHILLEN = {"site_base.html", "admin_base.html", "public_base.html", "platform_landing.html"}
+
+# Routes waarvan het antwoord geen te swappen HTML is.
+GEEN_HTML_ANTWOORD = re.compile(r'href="[^"]*(/export|/json|/afmelden|\.md)\b')
+
+
+def test_de_schillen_dragen_hx_boost():
+    """Zonder hx-boost op de <body> is elke klik weer een volledige herlaad (#634).
+
+    En omgekeerd: hx-target/hx-select/hx-swap mogen daar NIET staan. htmx zoekt die
+    drie op met een closest()-lookup, dus op de <body> erft élke hx-post-knop in de
+    app ze — die zou dan `#main` zoeken in een fragmentantwoord en stil niets doen.
+    De swap-instructie voor een gebooste navigatie komt uit de responsheaders
+    (HX-Retarget/HX-Reselect/HX-Reswap, main.py).
+    """
+    for naam in ("site_base.html", "admin_base.html"):
+        tekst = (APP / "ui" / "templates" / naam).read_text()
+        body = tekst.split("<body", 1)[1].split(">", 1)[0]
+        assert 'hx-boost="true"' in body, f"{naam}: <body> mist hx-boost"
+        for verboden in ("hx-target=", "hx-select=", "hx-swap="):
+            assert verboden not in body, (
+                f"{naam}: {verboden} op de <body> erft naar elke htmx-actie in de app")
+        assert 'id="main"' in tekst, f"{naam}: geen element met id=\"main\" om in te swappen"
+
+
+def test_downloads_en_afmelden_staan_buiten_de_boost():
+    """Een gebooste klik op een download of op uitloggen doet zichtbaar niets (#634)."""
+    fouten = []
+    for pad in TEMPLATES:
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
+            if not GEEN_HTML_ANTWOORD.search(regel):
+                continue
+            # De macro-aanroep kan over twee regels lopen: attrs staat dan onder de href.
+            venster = "\n".join(_zonder_commentaar(pad).splitlines()[nr - 1:nr + 2])
+            # target="_blank" is al genoeg: htmx boost geen link met een target.
+            if 'hx-boost="false"' in venster or 'target="_blank"' in venster:
+                continue
+            fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:100]}")
+    assert not fouten, (
+        'Zet hx-boost="false" op links naar een download of naar /afmelden:\n  '
+        + "\n  ".join(fouten)
+    )
+
+
+def test_geen_scriptbestand_buiten_een_schil():
+    """Bibliotheken horen in de <head> van de schil, niet in ingeswapte inhoud (#634).
+
+    htmx voert <script>-tags in geswapte inhoud uit. Trix een tweede keer laden
+    faalt op customElements.define('trix-editor'); stt.js/tts.js zouden hun
+    document-listeners dubbel ophangen.
+    """
+    fouten = [
+        f"{pad.relative_to(APP)}: {regel.strip()[:90]}"
+        for pad in TEMPLATES if pad.name not in SCHILLEN
+        for regel in _zonder_commentaar(pad).splitlines()
+        if "<script src=" in regel
+    ]
+    assert not fouten, (
+        "Verhuis het script naar de <head> van de schil:\n  " + "\n  ".join(fouten)
     )

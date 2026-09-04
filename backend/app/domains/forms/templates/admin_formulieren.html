@@ -15,7 +15,7 @@
     {# Blijft de #462-gids, nu als secundaire actie links van de primaire knop —
        dezelfde volgorde als "Leden importeren" + "+ Nieuw lid" op Leden (#621). #}
     {{ ui.btn_secondary(_("Formaat (voor AI)"), lead_icon="file-text", href="/static/form-json-formaat.md",
-                        attrs='target="_blank" rel="noopener" download') }}
+                        attrs='target="_blank" rel="noopener" download hx-boost="false"') }}
     {{ ui.btn_primary(_("+ Nieuw formulier"), href="/admin/formulieren/nieuw") }}
   {% endcall %}
 

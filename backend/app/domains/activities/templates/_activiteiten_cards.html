@@ -80,9 +80,11 @@
            klik-buiten. De × + kaart staan statisch hier (buiten het htmx-doel) zodat
            Alpine ze verwerkt; het htmx-geladen formulier hoeft zelf geen Alpine. #}
         {% if scope != "archived" %}
-        <div x-show="ins" x-cloak @keydown.escape.window="ins = false" @click.self="ins = false"
+        {# Overgang op backdrop én kaart (#634), zoals ui.confirm_host(): de popup
+           fadet in i.p.v. hard te verschijnen. #}
+        <div x-show="ins" x-cloak x-transition.opacity.duration.150ms @keydown.escape.window="ins = false" @click.self="ins = false"
              class="fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(17,17,17,.5)">
-          <div class="relative w-full max-w-md max-h-[90vh] overflow-auto bg-white rounded-2xl shadow-xl">
+          <div x-show="ins" x-transition.opacity.duration.150ms class="relative w-full max-w-md max-h-[90vh] overflow-auto bg-white rounded-2xl shadow-xl">
             <button type="button" class="absolute top-3 right-3 z-10 text-gray-400 hover:text-gray-700 text-2xl leading-none"
                     @click="ins = false" aria-label="{{ _('Sluiten') }}">&times;</button>
             <div id="inschrijf-{{ a.id }}-{{ c.id }}"></div>

@@ -779,6 +779,8 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 26px;font-size:.9rem">
         <div>✓ Save without unexpected page jumps (htmx)</div>
         <div>✓ Visible loading state; button locks after click</div>
+        <div>✓ <b>Navigation swaps the content, not the shell</b> (<code>hx-boost</code>): no white flash, the sidebar stays put, the tab title follows. Downloads, logout and links to the other shell opt out with <code>hx-boost="false"</code> (#634).</div>
+        <div>✓ <b>Progress bar:</b> 2&nbsp;px, <code>--brand-ocean</code>, pinned to the top of the viewport while any htmx request is in flight; the requesting element itself dims to 60&nbsp;% and stops accepting clicks (#634).</div>
         <div>✓ Clear notification/toast after saving</div>
         <div>✓ Warning on unsaved changes</div>
         <div>✓ Filters are preserved after returning/polling</div>

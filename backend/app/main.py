@@ -219,6 +219,36 @@ async def _tenant_context(request: Request, call_next):
 
 
 @app.middleware("http")
+async def _boosted_swap_headers(request: Request, call_next):
+    """Vertel htmx hoe het een gebooste navigatie moet inswappen (#634).
+
+    De schillen dragen `hx-boost="true"` op de <body>, zodat een klik op een link
+    de pagina ophaalt i.p.v. de browser te laten herladen. Wat er dan geswapt moet
+    worden — alleen `#main`, als outerHTML, met de scroll naar boven — staat
+    BEWUST niet als `hx-target`/`hx-select`/`hx-swap` op diezelfde <body>.
+
+    Die drie attributen zijn in htmx *inheritable*: htmx zoekt ze op met een
+    closest()-lookup. Op de <body> zou dus élke htmx-actie in de app ze erven —
+    ook de honderd `hx-post`-knoppen die een fragment terugkrijgen. Die zouden dan
+    `#main` proberen te selecteren uit een antwoord dat alleen een lijstfragment
+    bevat: niets om te swappen, dus een dode knop. Precies het soort stille breuk
+    dat #613/#616 opleverde.
+
+    De responsheaders HX-Retarget/HX-Reselect/HX-Reswap doen hetzelfde, maar
+    uitsluitend voor het antwoord op een gebooste navigatie (htmx stuurt daar
+    `HX-Boosted: true` bij). Geen overerving, geen invloed op de rest.
+    """
+    response = await call_next(request)
+    if (request.headers.get("HX-Boosted") == "true"
+            and response.status_code < 400
+            and response.headers.get("content-type", "").startswith("text/html")):
+        response.headers["HX-Retarget"] = "#main"
+        response.headers["HX-Reselect"] = "#main"
+        response.headers["HX-Reswap"] = "outerHTML show:window:top"
+    return response
+
+
+@app.middleware("http")
 async def _access_log(request: Request, call_next):
     # Toegangslog op INFO: methode, pad, status en duur. Health-checks
     # overslaan om ruis te beperken. Geen query-strings of bodies — die

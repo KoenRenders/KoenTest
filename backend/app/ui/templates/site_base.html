@@ -62,10 +62,23 @@
     .cms-content img{max-width:100%;height:auto;border-radius:.5rem;margin:.5rem 0}
     .cms-content hr{border-top:1px solid var(--line);margin:1rem 0}
   </style>
+  {# View Transitions voor gebooste navigatie (#634). Browsers zonder ondersteuning
+     negeren dit; geen terugval nodig. #}
+  <meta name="htmx-config" content='{"globalViewTransitions":true}'>
   <script src="/static/vendor/htmx.min.js" defer></script>
   <script src="/static/vendor/alpine.min.js" defer></script>
+  {# Spraak-in/uit voor de Raakje-widget (#634): verhuisd uit _raakje_widget.html
+     naar de schil, want htmx voert <script>-tags in ingeswapte inhoud uit en die
+     scripts hangen document-listeners op. Alleen laden als de chat aan staat. #}
+  {% if chat_enabled %}
+  <script src="/static/stt.js" defer></script>
+  <script src="/static/tts.js" defer></script>
+  {% endif %}
 </head>
-<body class="bg-gray-50 min-h-screen text-ink" hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
+{# hx-boost (#634): zie admin_base voor de redenering. De publieke schil boost op
+   dezelfde manier; links naar de andere schil (/admin) en /afmelden zetten het uit. #}
+<body class="bg-gray-50 min-h-screen text-ink" data-shell="site" hx-boost="true"
+      hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
   {# Omgevingsbanner (#464) moet blijven staan bij het scrollen (#610): hij is zelf
      sticky, en het element eronder start op de bannerhoogte. Op PROD is er geen
      banner, dus daar weer top-0 — anders scrolt de inhoud door een gat van 24px.
@@ -101,14 +114,14 @@
           {{ navlink(_pad, "/" ~ p.slug, p.title) }}
           {% endfor %}
           {% if gebruiker %}
-          {% if gebruiker.is_member %}{{ navlink(_pad, "/leden/gezin", _("Mijn gezin")) }}{% endif %}{% if gebruiker.is_admin %}<a href="/admin" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
-          <a href="/afmelden" class="hover:underline opacity-80">{{ _("Uitloggen") }} ({{ gebruiker.naam }})</a>
+          {% if gebruiker.is_member %}{{ navlink(_pad, "/leden/gezin", _("Mijn gezin")) }}{% endif %}{% if gebruiker.is_admin %}<a href="/admin" hx-boost="false" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
+          <a href="/afmelden" hx-boost="false" class="hover:underline opacity-80">{{ _("Uitloggen") }} ({{ gebruiker.naam }})</a>
           {% else %}
           <a href="/aanmelden" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>
           {% endif %}
         </div>
       </div>
-      <div x-show="open" x-cloak class="md:hidden px-4 pb-4 flex flex-col gap-2 text-sm">
+      <div x-show="open" x-cloak x-transition.opacity.duration.150ms class="md:hidden px-4 pb-4 flex flex-col gap-2 text-sm">
         {{ navlink(_pad, "/", _("Home"), exact=True) }}
         {{ navlink(_pad, "/fotos", _("Foto's")) }}
         {{ navlink(_pad, "/archief", _("Archief"), match="/activiteiten/archief") }}
@@ -116,15 +129,15 @@
         {{ navlink(_pad, "/" ~ p.slug, p.title) }}
         {% endfor %}
         {% if gebruiker %}
-        {% if gebruiker.is_member %}{{ navlink(_pad, "/leden/gezin", _("Mijn gezin")) }}{% endif %}{% if gebruiker.is_admin %}<a href="/admin" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
-        <a href="/afmelden" class="hover:underline opacity-80">{{ _("Uitloggen") }} ({{ gebruiker.naam }})</a>
+        {% if gebruiker.is_member %}{{ navlink(_pad, "/leden/gezin", _("Mijn gezin")) }}{% endif %}{% if gebruiker.is_admin %}<a href="/admin" hx-boost="false" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
+        <a href="/afmelden" hx-boost="false" class="hover:underline opacity-80">{{ _("Uitloggen") }} ({{ gebruiker.naam }})</a>
         {% else %}
         <a href="/aanmelden" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>
         {% endif %}
       </div>
     </nav>
   </header>
-  <main class="max-w-7xl mx-auto px-4 py-8">
+  <main id="main" class="max-w-7xl mx-auto px-4 py-8">
     {% block content %}{% endblock %}
   </main>
   <footer class="max-w-7xl mx-auto px-4 mt-16 border-t border-gray-200 pt-10 pb-6">
@@ -168,5 +181,7 @@
   {{ ui.toast_host() }}
   {# In-app bevestig-modal (#595): vervangt het browser-confirm(). #}
   {{ ui.confirm_host() }}
+  {# Voortgangsbalk, focusverplaatsing en de boost-vangnetten (#634). #}
+  {{ ui.htmx_ux() }}
 </body>
 </html>
