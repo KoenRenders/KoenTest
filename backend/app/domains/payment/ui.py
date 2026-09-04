@@ -23,19 +23,25 @@ from app.domains.auth.api import (
 from app.ui import admin_nav, templates
 from app.i18n import _
 from app.domains.payment.api import PaymentRecord
+from app.domains.payment.viewmodels import BetalingenView
 
 router = APIRouter(include_in_schema=False)
 
 NAV = admin_nav("/admin/betalingen")
 
 
-def _ctx(request: Request, db: Session, email: str) -> dict:
+def _view(request: Request, db: Session, email: str,
+          nav_items: list | None = None) -> BetalingenView:
     """View-model voor het betalingenscherm.
 
     Filteren, optellen, groeperen en het afleiden van de status gebeuren in
     `payment.service` (#635 punt 4/9), zodat de export exact dezelfde set toont
     als het scherm. Hier blijft alleen het vormgeven over: bedragen per kaart,
     labels en de filteropties.
+
+    Levert sinds #643 een `BetalingenView` i.p.v. een losse dict: wat het scherm
+    krijgt staat daarmee getypeerd op één plek, en de template-variabelen-gate kan
+    bewijzen dat de template niets vraagt wat hier niet staat.
     """
     from app.domains.payment.api import (
         aggregate, derived_status, enriched_records, filter_records, group_cards,
@@ -104,19 +110,19 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
     if _comp:
         context_groups[_("Activiteit / onderdeel")] = [
             (f"comp-{cid}", label) for cid, label in _comp]
-    return {
-        "records": zichtbaar, "groepen": groepen, "context": context,
+    return BetalingenView(
+        records=zichtbaar, groepen=groepen, context=context,
         # Eén bron voor de statuslabels (#617-2): de filterbalk én de editors in het
         # fragment lezen hieruit, zodat er nergens nog rauwe codes (pending/paid)
         # op het scherm komen. Het fragment wordt ook los gerenderd, dus een
         # {% set %} in betalingen.html zou daar niet bestaan.
         # §2.12: nooit rauwe DB-waarden op het scherm. Per request opgebouwd, zodat
         # _() de taal van de tenant volgt (#630).
-        "method_labels": {
+        method_labels={
             "online": _("Online"), "transfer": _("Overschrijving"),
             "cash": _("Contant"),
         },
-        "status_labels": {
+        status_labels={
             "all": _("Alle statussen"), "openstaand": _("Openstaand saldo"),
             "pending": _("In afwachting"), "paid": _("Betaald"),
             "failed": _("Mislukt"), "cancelled": _("Geannuleerd"),
@@ -124,7 +130,7 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
         # Badge per afgeleide status (service.derived_status). Label + kleur horen
         # bij de weergave en dus hier; wélke status het is, beslist de service —
         # "Deels betaald" werd vroeger in de template zelf uitgerekend (#635-9).
-        "kaart_status": {
+        kaart_status={
             "paid": (_("Vereffend"), "green"),
             "refund_due": (_("Terug te betalen"), "orange"),
             "partial": (_("Deels betaald"), "orange"),
@@ -132,13 +138,14 @@ def _ctx(request: Request, db: Session, email: str) -> dict:
             "failed": (_("Mislukt"), "red"),
             "cancelled": (_("Geannuleerd"), "gray"),
         },
-        "status": status, "q": q,
-        "componenten": _comp, "jaren": _jaren,
-        "context_top": context_top, "context_groups": context_groups,
-        "matrix": {"betalingen": m_bet, "terugbetalingen": m_ref, "netto": m_net},
-        "is_finance": "FINANCE" in get_user_roles(db, email),
-        "csrf_token": csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
-    }
+        status=status, q=q,
+        componenten=_comp, jaren=_jaren,
+        context_top=context_top, context_groups=context_groups,
+        matrix={"betalingen": m_bet, "terugbetalingen": m_ref, "netto": m_net},
+        is_finance="FINANCE" in get_user_roles(db, email),
+        csrf_token=csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
+        nav_items=nav_items or [],
+    )
 
 
 @router.get("/admin/betalingen", response_class=HTMLResponse)
@@ -147,15 +154,16 @@ def betalingen_page(request: Request, db: Session = Depends(get_db),
     # Role-aware nav (#530): een FINANCE-only gebruiker (geen ADMIN/OPERATOR) ziet
     # enkel de schermen die hij mag openen — anders 403't elke andere nav-link.
     nav = admin_nav("/admin/betalingen", roles=get_user_roles(db, email))
-    return templates.TemplateResponse(request, "betalingen.html",
-                                      {"nav_items": nav, **_ctx(request, db, email)})
+    return templates.TemplateResponse(
+        request, "betalingen.html",
+        _view(request, db, email, nav_items=nav).context())
 
 
 @router.get("/admin/betalingen/lijst", response_class=HTMLResponse)
 def betalingen_lijst(request: Request, db: Session = Depends(get_db),
                      email: str = Depends(require_finance_ui)):
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _ctx(request, db, email))
+                                      _view(request, db, email).context())
 
 
 @router.get("/admin/betalingen/export")
@@ -188,7 +196,7 @@ def betaling_bevestigen(record_id: str, request: Request,
         raise HTTPException(status_code=400, detail=str(exc))
     db.commit()
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _ctx(request, db, email))
+                                      _view(request, db, email).context())
 
 
 @router.post("/admin/betalingen/{record_id}/refund", response_class=HTMLResponse,
@@ -215,7 +223,7 @@ def betaling_refund(record_id: str, request: Request, db: Session = Depends(get_
         raise HTTPException(status_code=400, detail=str(exc))
     db.commit()
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _ctx(request, db, email))
+                                      _view(request, db, email).context())
 
 
 @router.post("/admin/betalingen/{record_id}/bijwerken", response_class=HTMLResponse,
@@ -240,7 +248,7 @@ def betaling_bijwerken(record_id: str, request: Request, db: Session = Depends(g
         raise HTTPException(status_code=400, detail=str(exc))
     db.commit()
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _ctx(request, db, email))
+                                      _view(request, db, email).context())
 
 
 @router.post("/admin/betalingen/{record_id}/bewerken", response_class=HTMLResponse,
@@ -285,7 +293,7 @@ def betaling_bewerken(record_id: str, request: Request, db: Session = Depends(ge
         raise HTTPException(status_code=400, detail=str(exc))
     db.commit()
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _ctx(request, db, email))
+                                      _view(request, db, email).context())
 
 
 @router.post("/admin/betalingen/{record_id}/verversen", response_class=HTMLResponse,
@@ -302,7 +310,7 @@ def betaling_verversen(record_id: str, request: Request, db: Session = Depends(g
         raise HTTPException(status_code=400, detail=str(exc))
     db.commit()
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _ctx(request, db, email))
+                                      _view(request, db, email).context())
 
 
 @router.post("/admin/betalingen/{record_id}/status", response_class=HTMLResponse,
@@ -321,7 +329,7 @@ def betaling_status(record_id: str, request: Request, db: Session = Depends(get_
         raise HTTPException(status_code=400, detail=str(exc))
     db.commit()
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _ctx(request, db, email))
+                                      _view(request, db, email).context())
 
 
 @router.post("/admin/betalingen/{record_id}/verwijderen", response_class=HTMLResponse,
@@ -340,4 +348,4 @@ def betaling_verwijderen(record_id: str, request: Request, db: Session = Depends
         raise HTTPException(status_code=400, detail=str(exc))
     db.commit()
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _ctx(request, db, email))
+                                      _view(request, db, email).context())
