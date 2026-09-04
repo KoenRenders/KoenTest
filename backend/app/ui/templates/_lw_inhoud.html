@@ -1,41 +1,56 @@
 {% import "_macros.html" as ui %}
-{# Kleur per wijzigingstype (#460): toegevoegd groen, gewijzigd amber, verwijderd rood. #}
-{% set _op_tint = {"insert": "bg-green-50", "update": "bg-yellow-50", "delete": "bg-red-50"} %}
-{% set _op_text = {"insert": "text-green-700", "update": "text-yellow-800", "delete": "text-red-700"} %}
 {# #512 (v1.4-pariteit): één algemeen audit-logboek als primaire tabel, met de
    werkende Objectgroep-filter. De ledendata-mutaties voor Raak Nationaal zijn nu
-   enkel nog een .ods-export (knop) i.p.v. een aparte, altijd-zichtbare tabel —
-   zo verdwijnt de leden-centrische indruk én de schijnbaar-kapotte filter. #}
-{# De exportknop staat sinds #590 bij de paginatitel, als secundaire actie: dit
-   fragment wordt bij elke filterwijziging opnieuw geswapt en is de lijst zelf. #}
+   enkel nog een .ods-export (knop) i.p.v. een aparte, altijd-zichtbare tabel.
+   De exportknop staat sinds #590 bij de paginatitel; dit fragment is de lijst zelf
+   en wordt bij elke filterwijziging opnieuw geswapt.
+
+   Kolomvolgorde en -weergave herzien in #620: wanneer · wat voor soort · over wie ·
+   wat precies · waarop · door wie. "Details" stond achteraan in een tabel met
+   overflow-x-auto en viel dus als eerste weg — net de kolom waarvoor je komt.
+   De rauwe actiecode ("contacts updated") is als kolom vervallen: die herhaalt wat
+   Wijziging + Details al zeggen. Ze hangt nu als `title` aan de badge, voor wie
+   hem toch wil zien. #}
+{% set _op_tone = {"insert": "green", "update": "yellow", "delete": "red"} %}
 <section>
   <h2 class="text-lg font-bold text-blue-700 mb-3">{{ _("Audit-logboek — alle wijzigingen") }}</h2>
   {% if feed_rows %}
   <div class="overflow-x-auto bg-white border border-gray-200 rounded-xl">
     <table class="min-w-full text-sm">
       <thead class="bg-gray-50 text-left text-xs text-gray-500 uppercase">
-        <tr><th class="px-3 py-2">{{ _("Wanneer") }}</th><th class="px-3 py-2">{{ _("Groep") }}</th>
-            <th class="px-3 py-2">{{ _("Object") }}</th><th class="px-3 py-2">{{ _("Wijziging") }}</th>
-            <th class="px-3 py-2">{{ _("Actie") }}</th>
-            <th class="px-3 py-2">{{ _("Persoon") }}</th><th class="px-3 py-2">{{ _("Actor") }}</th>
-            <th class="px-3 py-2">{{ _("Details") }}</th></tr>
+        <tr><th class="px-3 py-2">{{ _("Wanneer") }}</th>
+            <th class="px-3 py-2">{{ _("Wijziging") }}</th>
+            <th class="px-3 py-2">{{ _("Groep") }}</th>
+            <th class="px-3 py-2">{{ _("Persoon") }}</th>
+            <th class="px-3 py-2 w-full">{{ _("Details") }}</th>
+            <th class="px-3 py-2">{{ _("Object") }}</th>
+            <th class="px-3 py-2">{{ _("Actor") }}</th></tr>
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for r in feed_rows %}
-        <tr class="{{ _op_tint.get(r.operation, '') }}">
+        {# Geen rijtint meer (#620): de status draagt één signaal — de badge — net
+           zoals de kaart-stripe in #596 (B6) verdween. §2.10 noemt "Gewijzigd" en
+           "Verwijderd" letterlijk als badge-voorbeelden. Zonder rijtint kan de rij
+           weer een hover dragen zonder met de statuskleur te vechten. #}
+        <tr class="hover:bg-gray-50">
           <td class="px-3 py-2 whitespace-nowrap">{{ r.recorded_at.strftime("%d-%m-%Y %H:%M") }}</td>
-          <td class="px-3 py-2">{{ ui.badge(r.group, "blue") }}</td>
-          <td class="px-3 py-2">{{ r.entity }}{% if r.entity_id %} #{{ r.entity_id }}{% endif %}</td>
-          <td class="px-3 py-2 font-medium {{ _op_text.get(r.operation, '') }}">{{ r.operation_label }}</td>
-          <td class="px-3 py-2 text-gray-600 whitespace-nowrap">{{ (r.action or "").replace("_", " ") }}</td>
-          <td class="px-3 py-2">{{ r.person_name }}</td>
-          <td class="px-3 py-2 text-gray-600">{{ r.actor or "" }}</td>
+          <td class="px-3 py-2 whitespace-nowrap"{% if r.action %} title="{{ (r.action or '').replace('_', ' ') }}"{% endif %}>{{ ui.badge(r.operation_label, _op_tone.get(r.operation, "gray")) }}</td>
+          <td class="px-3 py-2 whitespace-nowrap">{{ ui.badge(r.group, "blue") }}</td>
+          <td class="px-3 py-2 whitespace-nowrap">{{ r.person_name }}</td>
           <td class="px-3 py-2 text-gray-600">{{ r.summary }}</td>
+          <td class="px-3 py-2 whitespace-nowrap">{{ r.entity }}{% if r.entity_id %} #{{ r.entity_id }}{% endif %}</td>
+          <td class="px-3 py-2 text-gray-600 whitespace-nowrap">{{ r.actor or "" }}</td>
         </tr>
         {% endfor %}
       </tbody>
     </table>
   </div>
+  {# Paginering (§2.5: server-side, 50/pagina zodra een lijst kan groeien). Dit
+     scherm had er geen; op HDEV stonden 792 rijen in één DOM, groeiend met ~1200
+     per jaar. De filters gaan mee in de hx-get, zodat bladeren de stand behoudt. #}
+  {{ ui.pager(page, per_page=per_page, total=totaal,
+              hx_get="/admin/ledenwijzigingen?since=" ~ since ~ "&group=" ~ group ~ "&actor=" ~ actor,
+              hx_target="#lw-inhoud") }}
   {% else %}
   {{ ui.empty_state(_("Geen wijzigingen sinds") ~ " " ~ since ~ ".") }}
   {% endif %}

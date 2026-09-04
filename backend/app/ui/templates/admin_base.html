@@ -77,7 +77,11 @@
       </nav>
 
       <main class="flex-1 px-4 py-8">
-        <div class="max-w-5xl mx-auto">{% block content %}{% endblock %}</div>
+        {# max-w-5xl is bedoeld voor leesbare formulieren, niet voor een brede
+           audit-tabel (#620). Een scherm dat de ruimte nodig heeft, zet
+           {% block content_width %}max-w-7xl{% endblock %} — globaal verbreden zou
+           de formulierschermen slechter leesbaar maken. #}
+        <div class="{% block content_width %}max-w-5xl{% endblock %} mx-auto">{% block content %}{% endblock %}</div>
       </main>
     </div>
   </div>

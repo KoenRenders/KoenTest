@@ -30,27 +30,42 @@ def _since(value: str) -> date:
         return date.today() - timedelta(days=30)
 
 
-def _ctx(request: Request, db: Session, since: str, group: str, actor: str) -> dict:
+PER_PAGE = 50  # §2.5: server-side, 50 per pagina zodra een lijst kan groeien.
+
+
+def _ctx(request: Request, db: Session, since: str, group: str, actor: str,
+         page: int = 1) -> dict:
     from app.domains.audit.api import GROUPS, all_changes_since
 
     vanaf = _since(since)
     # #512 (v1.4-pariteit): één algemeen audit-logboek als primaire, gefilterde
     # tabel. De ledendata-mutaties voor Raak Nationaal blijven als .ods-export
     # (aparte route), niet meer als altijd-zichtbare tabel bovenaan.
-    feed_rows = all_changes_since(db, vanaf, group=group or None, actor=actor or None)
+    alle = all_changes_since(db, vanaf, group=group or None, actor=actor or None)
+
+    # Paginering (#620). Bewust ná het sorteren en in Python: all_changes_since()
+    # verenigt ~10 history-tabellen in Python, dus een server-side LIMIT/OFFSET op
+    # één query bestaat niet. De "Vanaf"-datum blijft de echte begrenzing en bij
+    # deze volumes volstaat dit. Groeit het logboek fors, dan is een echte UNION ALL
+    # in SQL de duurzame oplossing — dat is opvolging, niet iets om nu te bouwen.
+    totaal = len(alle)
+    page = max(1, page)
+    feed_rows = alle[(page - 1) * PER_PAGE:page * PER_PAGE]
     return {
         "since": vanaf.isoformat(),
         "group": group, "actor": actor,
         "groups": GROUPS, "feed_rows": feed_rows,
+        "page": page, "per_page": PER_PAGE, "totaal": totaal,
         "csrf_token": csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
     }
 
 
 @router.get("/admin/ledenwijzigingen", response_class=HTMLResponse)
 def admin_ledenwijzigingen(request: Request, since: str = "", group: str = "",
-                           actor: str = "", db: Session = Depends(get_db),
+                           actor: str = "", page: int = 1,
+                           db: Session = Depends(get_db),
                            email: str = Depends(require_admin_ui)):
-    ctx = _ctx(request, db, since, group, actor)
+    ctx = _ctx(request, db, since, group, actor, page)
     template = ("_lw_inhoud.html" if request.headers.get("hx-request")
                 else "admin_ledenwijzigingen.html")
     if template == "admin_ledenwijzigingen.html":

@@ -1,6 +1,9 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Wijzigingen — Raak beheer") }}{% endblock %}
+{# Brede contentkolom (#620): acht kolommen in max-w-5xl schoven de meest
+   informatieve kolom altijd buiten beeld. #}
+{% block content_width %}max-w-7xl{% endblock %}
 {% block content %}
 {# Read-only records-lijst (design-system C1 + §4 Gedrag, #590): geen "+ Nieuwe",
    wél dezelfde zoek- en filterconventie. Filters passen live toe via htmx — de
