@@ -332,6 +332,29 @@ What to look for:
 - **No** tracebacks / `ERROR` lines between those two — a failed migration or
   import error aborts startup.
 
+**Report this back after every deploy, as a list, without being asked.** A deploy
+is not "done" because the script exited 0 — the smoke test only checks that the
+site answers and compresses. Six lines, each with the value you actually measured,
+never a claim you did not check:
+
+| What | Where it comes from | Good |
+|---|---|---|
+| Commit on the environment | `raak status <env>` | matches the intended commit/tag |
+| `alembic heads` | `… exec -T backend alembic heads` | exactly one |
+| `alembic current` | `… exec -T backend alembic current` | equal to that head |
+| Migrations, if the release adds any | backend logs | the expected `Running upgrade NNN -> NNN+1` |
+| Startup | backend logs | `Uvicorn running on http://0.0.0.0:8000`, zero `ERROR`/`Traceback` lines |
+| Smoke + reachability | the deploy's own output, plus a few `curl`s | `N OK · 0 gefaald`; public pages 200, an admin path 401 without a session |
+
+`raak diagnose <env>` collects the first five in one report (`logging.sh`), so use
+it instead of hand-writing `docker compose` commands; `raak fetch <env>` pulls the
+report down. Say plainly when something is missing rather than leaving it out —
+"no `Running upgrade` lines, and that is expected here" is a finding too.
+
+Until #604 lands this is a **manual** step: `deploy.sh` runs the smoke test but
+checks neither the migration chain nor the logs. That is exactly why it has to be
+reported every time.
+
 ## Docker stack
 
 | Service | Waar | Notes |
