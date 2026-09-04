@@ -46,12 +46,21 @@ def test_delete_family_with_membership_payment(client, db_session, admin_headers
     overview = client.get("/api/v1/payment-status/records", headers=admin_headers)
     assert overview.status_code == 200, overview.text
 
-    # De betaling is een financieel feit en BLIJFT bestaan (niet stil gewist bij
-    # gezin-delete). De admin kan ze desgewenst apart verwijderen.
-    leftover = db_session.query(PaymentRecord).filter(
-        PaymentRecord.payable_type == "membership", PaymentRecord.payable_id == membership.id,
+    # GEWIJZIGD DOOR #619. Voorheen bleef ook een ONBETAALDE vordering staan, met
+    # als redenering "een betaling is een financieel feit". Bij een onbetaalde
+    # vordering is er echter geen feit: er bewoog geen geld, en de penningmeester
+    # bleef een schuld zien die niemand nog had. De reconciliatie ruimt die nu op —
+    # dezelfde regel als bij een activiteit waarvan de bestelling naar nul gaat.
+    #
+    # Wat wél overeind blijft, is de oorspronkelijke bedoeling van deze test: een
+    # BETAALD bedrag mag nooit stil verdwijnen. Dat toetst
+    # test_betaald_lidmaatschap_blijft_als_financieel_feit hieronder.
+    openstaand = db_session.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "membership",
+        PaymentRecord.payable_id == membership.id,
+        PaymentRecord.deleted_at.is_(None),
     ).first()
-    assert leftover is not None
+    assert openstaand is None, "een onbetaalde vordering hoort mee op te ruimen (#619)"
 
     # De verwijdering van het gezin staat wél in de ledenwijzigingen-export.
     changes = client.get("/api/v1/admin/member-changes",
@@ -96,3 +105,34 @@ def test_delete_family_with_external_number(client, db_session, admin_headers):
 
     resp = client.delete(f"/api/v1/families/{member.id}", headers=admin_headers)
     assert resp.status_code == 204, resp.text
+
+
+def test_betaald_lidmaatschap_blijft_als_financieel_feit(client, db_session, admin_headers):
+    """De keerzijde van #619: geld dat ontvangen is, verdwijnt nooit stil.
+
+    Bij het schrappen van het gezin blijft de betaalde charge staan en komt er één
+    `pending` terugbetaling bij, die de penningmeester moet bevestigen.
+    """
+    from decimal import Decimal
+
+    member = _create_family(client, db_session)
+    membership = db_session.query(Membership).filter(Membership.member_id == member.id).first()
+    pay = db_session.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "membership", PaymentRecord.payable_id == membership.id,
+    ).first()
+    pay.amount_paid = pay.amount
+    pay.status = "paid"
+    db_session.commit()
+
+    assert client.delete(f"/api/v1/families/{member.id}", headers=admin_headers).status_code == 204
+
+    records = db_session.query(PaymentRecord).filter(
+        PaymentRecord.payable_type == "membership",
+        PaymentRecord.payable_id == membership.id,
+        PaymentRecord.deleted_at.is_(None),
+    ).all()
+    betaald = [r for r in records if r.type == "charge"]
+    refunds = [r for r in records if r.type == "refund"]
+    assert len(betaald) == 1 and betaald[0].amount_paid == pay.amount
+    assert len(refunds) == 1 and refunds[0].status == "pending"
+    assert sum((Decimal(str(r.amount)) for r in records), Decimal("0")) == Decimal("0")
