@@ -102,3 +102,15 @@ def test_betaalwijze_volgt_dezelfde_voorwaarde_als_het_totaal():
     inhoud = (TPL / "_inschrijf_form.html").read_text()
     assert "{% if heeft_prijs %}" in inhoud
     assert "Betaalwijze (bij betalend deel)" not in inhoud
+
+
+def test_volzet_is_oranje_geen_rood():
+    """#609: volzet is 'attention', geen fout — rood blijft voor Mislukt/Geannuleerd.
+
+    design-system §1.1 houdt de tinten uit elkaar (#f16532 attention · outstanding
+    versus #ee3a37 error · delete); ui-conventies §2.10 is daarop rechtgezet.
+    """
+    inhoud = (TPL / "_activiteiten_cards.html").read_text()
+    assert 'ui.badge(_("Volzet"), "orange")' in inhoud
+    assert '"Vol": "orange"' in inhoud
+    assert '"Geannuleerd": "red"' in inhoud      # rood blijft waar het hoort

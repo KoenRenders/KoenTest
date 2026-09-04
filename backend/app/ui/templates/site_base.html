@@ -1,4 +1,24 @@
 {% import "_macros.html" as ui %}
+{# Actieve-link-markering in de publieke nav (#608, §B2.10). Zachtblauw = inactief,
+   wit + onderlijn = de pagina waar je staat, zodat het tintverschil werk doet i.p.v.
+   decoratie te zijn. Kleur alleen volstaat niet (§5), vandaar de onderlijn én
+   `aria-current="page"` voor de schermlezer.
+
+   `blue-100` is de token, niet de hex uit de mock: het blue-palet is in
+   build-css.sh herschaald rond Ocean Blue, dus dit is #d2e3f6 (5,92:1 op merkblauw).
+
+   Eén macro voor de desktop- én de mobiele lijst — die twee liepen anders uit elkaar.
+   `pad` wordt expliciet doorgegeven i.p.v. request uit de context te vissen, zodat de
+   macro los testbaar is.
+
+   `match` bestaat omdat een href niet altijd het pad is waar je belandt: /archief is
+   een 302 naar /activiteiten/archief (URL-pariteit met React, #405-e). Zonder dat
+   argument zou die link nooit oplichten. #}
+{% macro navlink(pad, href, label, exact=False, match=None) -%}
+{%- set _m = match or href -%}
+{%- set _actief = (pad == _m) if exact else (pad == _m or pad.startswith(_m ~ "/")) -%}
+<a href="{{ href }}" class="hover:underline {% if _actief %}text-white font-semibold underline underline-offset-4 decoration-2{% else %}text-blue-100{% endif %}"{% if _actief %} aria-current="page"{% endif %}>{{ label }}</a>
+{%- endmacro %}
 {# SiteShell (React-exit #405, §21): de volwaardige publieke schil — navigatie
    (CMS-pagina's server-side), inhoud en footer (site-footer-blok + sponsors).
    Routes leveren `nav_pages`, `footer_block` en `sponsors` via
@@ -47,6 +67,7 @@
 </head>
 <body class="bg-gray-50 min-h-screen text-ink" hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
   {% if omgeving and omgeving != 'prod' %}<div class="bg-orange-500 text-white text-center text-xs font-semibold py-1">{{ omgeving|upper }} — testomgeving (geen productie)</div>{% endif %}
+  {% set _pad = request.url.path %}
   <header class="sticky top-0 z-50">
     <nav class="bg-blue-700 text-white shadow-md" x-data="{ open: false }">
       <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -59,14 +80,14 @@
         </a>
         <button class="md:hidden p-2 rounded hover:opacity-80" @click="open = !open" aria-label="{{ _("Menu") }}">☰</button>
         <div class="hidden md:flex gap-5 items-center text-sm">
-          <a href="/" class="hover:underline">{{ _("Home") }}</a>
-          <a href="/fotos" class="hover:underline">{{ _("Foto's") }}</a>
-          <a href="/archief" class="hover:underline">{{ _("Archief") }}</a>
+          {{ navlink(_pad, "/", _("Home"), exact=True) }}
+          {{ navlink(_pad, "/fotos", _("Foto's")) }}
+          {{ navlink(_pad, "/archief", _("Archief"), match="/activiteiten/archief") }}
           {% for p in nav_pages|default([]) %}
-          <a href="/{{ p.slug }}" class="hover:underline">{{ p.title }}</a>
+          {{ navlink(_pad, "/" ~ p.slug, p.title) }}
           {% endfor %}
           {% if gebruiker %}
-          {% if gebruiker.is_member %}<a href="/leden/gezin" class="hover:underline">{{ _("Mijn gezin") }}</a>{% endif %}{% if gebruiker.is_admin %}<a href="/admin" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
+          {% if gebruiker.is_member %}{{ navlink(_pad, "/leden/gezin", _("Mijn gezin")) }}{% endif %}{% if gebruiker.is_admin %}<a href="/admin" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
           <a href="/afmelden" class="hover:underline opacity-80">{{ _("Uitloggen") }} ({{ gebruiker.naam }})</a>
           {% else %}
           <a href="/aanmelden" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>
@@ -74,14 +95,14 @@
         </div>
       </div>
       <div x-show="open" x-cloak class="md:hidden px-4 pb-4 flex flex-col gap-2 text-sm">
-        <a href="/" class="hover:underline">{{ _("Home") }}</a>
-        <a href="/fotos" class="hover:underline">{{ _("Foto's") }}</a>
-        <a href="/archief" class="hover:underline">{{ _("Archief") }}</a>
+        {{ navlink(_pad, "/", _("Home"), exact=True) }}
+        {{ navlink(_pad, "/fotos", _("Foto's")) }}
+        {{ navlink(_pad, "/archief", _("Archief"), match="/activiteiten/archief") }}
         {% for p in nav_pages|default([]) %}
-        <a href="/{{ p.slug }}" class="hover:underline">{{ p.title }}</a>
+        {{ navlink(_pad, "/" ~ p.slug, p.title) }}
         {% endfor %}
         {% if gebruiker %}
-        {% if gebruiker.is_member %}<a href="/leden/gezin" class="hover:underline">{{ _("Mijn gezin") }}</a>{% endif %}{% if gebruiker.is_admin %}<a href="/admin" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
+        {% if gebruiker.is_member %}{{ navlink(_pad, "/leden/gezin", _("Mijn gezin")) }}{% endif %}{% if gebruiker.is_admin %}<a href="/admin" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
         <a href="/afmelden" class="hover:underline opacity-80">{{ _("Uitloggen") }} ({{ gebruiker.naam }})</a>
         {% else %}
         <a href="/aanmelden" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>

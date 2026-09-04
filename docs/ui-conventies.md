@@ -159,7 +159,8 @@ Eén `<Badge>`-component; pill `px-2 py-0.5 rounded-full text-xs font-semibold`.
 |---|---|---|
 | ok / actief / betaald / behandeld | groen (`green-100/800`) | Open, Betaald, ✓ Behandeld |
 | in behandeling / wachtend | **geel** (`yellow-100/800`) — amber vervalt | Openstaand, Gewijzigd |
-| fout / verwijderd / vol | rood (`red-100/800`) | Mislukt, Verwijderd |
+| fout / verwijderd | rood (`red-100/800`) | Mislukt, Verwijderd, Geannuleerd |
+| vol / aandacht (geen fout) | oranje (`orange-100/800`) | Volzet |
 | concept / inactief / uit | grijs (`gray-100/600`) | Concept, Overgeslagen |
 | info / rol | blauw (`blue-100` bg / `blue-700` tekst) | ADMIN, FINANCE |
 

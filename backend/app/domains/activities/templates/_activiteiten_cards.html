@@ -1,6 +1,9 @@
 {% import "_macros.html" as ui %}
-{# Statuskleuren zoals v1.14 (#451): Open=groen, Voorbij=grijs, Geannuleerd=rood. #}
-{% set _status_tone = {"Open": "green", "Voorbij": "gray", "Geannuleerd": "red", "Vol": "red"} %}
+{# Statuskleuren (#451): Open=groen, Voorbij=grijs, Geannuleerd=rood, Vol=oranje.
+   Volzet week in #609 af van v1.14 (rood): design-system §1.1 houdt de tinten uit
+   elkaar — oranje = "attention · outstanding", rood = "error · delete". Een volzette
+   activiteit werkt prima, ze is alleen vol; dat hoort niet naast Mislukt. #}
+{% set _status_tone = {"Open": "green", "Voorbij": "gray", "Geannuleerd": "red", "Vol": "orange"} %}
 <div class="space-y-6">
   {# Jaargroepering (#476): activiteiten zijn al op datum gesorteerd; toon een
      jaarkop telkens het jaar wisselt. #}
@@ -47,7 +50,7 @@
           {% if c.external_register_url %}
           <a class="{{ _btn }}" href="{{ c.external_register_url }}" target="_blank" rel="noopener">{{ _("Inschrijven") }} ↗</a>
           {% elif c.is_full %}
-          {{ ui.badge(_("Volzet"), "red") }}
+          {{ ui.badge(_("Volzet"), "orange") }}
           {% else %}
           {# Kernactie: primair-blauw (#601-vervolg). Enkel de interne inschrijfactie;
              externe redirect-links (external_register_url) blijven fijn/outline. #}
