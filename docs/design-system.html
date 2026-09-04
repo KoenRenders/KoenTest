@@ -937,7 +937,9 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
       <div class="note"><b>Public registration = popup, participants = one line (#601, PROD parity).</b>
         "Schrijf je in" opens the registration form in a <b>centred modal</b> (max-w-md, ×/Esc/backdrop) —
         never an inline tinted block that widens the card. "Wie doet er mee?" toggles a <b>compact inline
-        line</b> below the card: <i>N ingeschreven — naam · naam · …</i>, not a vertical one-name-per-line list.</div>
+        line</b> below the card: <i>N ingeschreven — naam · naam · …</i>, not a vertical one-name-per-line list.
+        Keep it <b>small and muted</b> — <code>text-xs text-gray-600</code>, count in <code>font-medium</code>
+        (PROD v1.14 sizing); it is secondary metadata, not body text.</div>
       <div class="pubfoot">
         <div class="cols">
           <div>
