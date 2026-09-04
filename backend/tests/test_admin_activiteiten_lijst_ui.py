@@ -5,6 +5,7 @@ met kaarten die de paginabrede editor openen i.p.v. een detailpaneel te vullen.
 Getest wordt wat stuk kan: de filters (ook gecombineerd), de betekenis van de
 KPI-rij onder een filter, en de navigatie na aanmaken en verwijderen.
 """
+import re
 from datetime import date, timedelta
 
 from tests.conftest import SEEDED_ADMIN_EMAIL
@@ -70,11 +71,20 @@ def test_kpi_telt_alles_wat_openstaat_ook_tijdens_zoeken(client, db_session):
 
     ongefilterd = client.get("/admin/activiteiten").text
     gefilterd = client.get("/admin/activiteiten", params={"q": "quiz"}).text
-    # het kengetal staat in hetzelfde blokje als het label
     kop = "Open inschrijvingen"
     assert kop in ongefilterd and kop in gefilterd
-    assert gefilterd.count('class="text-3xl font-extrabold text-blue-700"') == 1
-    getal = lambda html: html.split('class="text-3xl font-extrabold text-blue-700">')[1].split("<")[0]
+
+    def getal(html: str) -> str:
+        """Het cijfer dat bij het label hoort, los van de opmaak.
+
+        De vorige versie pinde de klassenstring `text-3xl font-extrabold
+        text-blue-700`; die veranderde met #636 (font-brand erbij, label bóven het
+        cijfer). Een kengetal-test hoort over het GETAL te gaan, niet over de
+        klassen — dan overleeft ze de volgende stijlwijziging.
+        """
+        na_label = html.split(kop)[1]
+        return re.search(r">(\d+)<", na_label).group(1)
+
     assert getal(gefilterd) == getal(ongefilterd)
 
 
