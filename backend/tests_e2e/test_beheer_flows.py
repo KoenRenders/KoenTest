@@ -153,6 +153,21 @@ def test_navigeren_bouwt_de_schil_niet_opnieuw_op(admin_page):
     admin_page.on("response", lambda r: antwoorden.append(
         (r.request.resource_type, r.url, {k.lower(): v for k, v in r.headers.items()})))
 
+    # Toestand vlak vóór de klik: is htmx geladen, draagt de body de boost, en
+    # heeft htmx de link daadwerkelijk verwerkt? Dat onderscheidt "htmx ontbreekt"
+    # van "htmx negeert deze link".
+    diag = admin_page.evaluate("""(function () {
+      var a = document.querySelector('aside a[href="/admin/activiteiten"]');
+      return {
+        htmx: typeof window.htmx,
+        bodyBoost: document.body.getAttribute('hx-boost'),
+        linkGevonden: !!a,
+        linkVerwerkt: a ? Object.keys(a['htmx-internal-data'] || {}) : null,
+        scripts: Array.prototype.map.call(
+          document.querySelectorAll('script[src]'), function (s) { return s.getAttribute('src'); })
+      };
+    })()""")
+
     schil.klik_in_de_zijbalk("/admin/activiteiten")
 
     # Eerst de serverkant: kreeg htmx de swap-instructies mee? Zo niet, dan ligt de
@@ -161,8 +176,8 @@ def test_navigeren_bouwt_de_schil_niet_opnieuw_op(admin_page):
     assert nav, f"geen enkel antwoord voor /admin/activiteiten; gezien: {antwoorden[:5]}"
     soort, _url, kop = nav[-1]
     assert soort == "xhr", (
-        f"de navigatie was een {soort}-verzoek, geen XHR → hx-boost sloeg niet aan; "
-        f"JS-fouten: {fouten}")
+        f"de navigatie was een {soort}-verzoek, geen XHR → hx-boost sloeg niet aan.\n"
+        f"  toestand vóór de klik: {diag}\n  JS-fouten: {fouten}")
     assert kop.get("hx-reselect") == "#main", f"geen HX-Reselect op het antwoord: {kop}"
     assert kop.get("hx-retarget") == "#main", f"geen HX-Retarget op het antwoord: {kop}"
 

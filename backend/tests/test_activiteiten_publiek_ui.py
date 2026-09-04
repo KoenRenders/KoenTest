@@ -78,8 +78,13 @@ def test_geen_totaalblok_als_er_niets_af_te_rekenen_valt():
 
 
 def test_heeft_prijs_volgt_de_prijsberekening():
-    """De weergave leidt af uit _unit_price(), zodat ze niet kan afdrijven."""
-    from app.domains.activities.ui import _heeft_prijs
+    """De weergave leidt af uit dezelfde stukprijs als het totaal.
+
+    De helper woont sinds #635 in `activities/totals.py` (als
+    `has_payable_products`) i.p.v. in `ui.py`: het is een domeinregel, en het
+    scherm hoort er geen tweede versie van te hebben.
+    """
+    from app.domains.activities.totals import has_payable_products as _heeft_prijs
 
     def product(**kw):
         velden = dict(is_free=False, pay_on_site=False, price=Decimal("10"),

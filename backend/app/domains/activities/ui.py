@@ -13,7 +13,8 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.activities.models import Activity, ActivityProduct, ActivitySubRegistration
+from app.domains.activities.models import Activity, ActivitySubRegistration
+from app.domains.activities.totals import has_payable_products, quote_lines
 from app.limiter import registration_limiter
 from app.ui import site_context, templates
 from app.i18n import _
@@ -30,12 +31,6 @@ def _session_person(request: Request, db: Session):
     if not email:
         return None
     return login_person_for_email(db, email)
-
-
-def _is_member(db, person) -> bool:
-    from app.domains.membership.api import has_valid_membership
-
-    return has_valid_membership(person)
 
 
 def _lijst_ctx(db: Session, scope: str, request: Request | None = None) -> dict:
@@ -90,12 +85,16 @@ def _component_or_404(db: Session, activity_id: int, component_id: int):
     return activity, component
 
 
-def _unit_price(product: ActivityProduct, is_member: bool) -> Decimal:
-    if product.is_free or product.pay_on_site:
-        return Decimal("0")
-    if is_member and product.member_price is not None and product.member_price >= 0:
-        return Decimal(product.member_price)
-    return Decimal(product.price)
+def _is_member(person) -> bool:
+    """Is deze bezoeker vandaag lid? (bepaalt de ledenprijs op het scherm)
+
+    Peildatum "vandaag" is hier juist: het inschrijfscherm toont wat je nú zou
+    betalen. `compute_registration_total` gebruikt na het opslaan de
+    inschrijfdatum, zodat de prijs vanaf dan vastligt (#635 punt 1).
+    """
+    from app.domains.membership.api import has_valid_membership
+
+    return has_valid_membership(person)
 
 
 def _quantities(form) -> dict[int, int]:
@@ -107,24 +106,6 @@ def _quantities(form) -> dict[int, int]:
             except ValueError:
                 continue
     return out
-
-
-def _totaal(db: Session, component, quantities: dict[int, int], is_member: bool) -> Decimal:
-    total = Decimal("0")
-    for product in component.products:
-        qty = quantities.get(product.id, 0)
-        total += _unit_price(product, is_member) * qty
-    return total
-
-
-def _heeft_prijs(component, is_member: bool) -> bool:
-    """Valt er op dit onderdeel iets af te rekenen via de portaal? (#607)
-
-    Afgeleid uit _unit_price(), dezelfde functie die het totaal berekent, zodat de
-    weergave van het totaalblok niet kan afdrijven van de berekening: gratis en
-    ter-plaatse-producten tellen niet mee, en een lid met member_price 0 evenmin.
-    """
-    return any(_unit_price(p, is_member) > 0 for p in component.products)
 
 
 def _person_contacts(person) -> tuple[str, str]:
@@ -141,7 +122,7 @@ def _person_contacts(person) -> tuple[str, str]:
 
 def _form_ctx(request: Request, db: Session, activity, component, **extra) -> dict:
     person = _session_person(request, db)
-    is_member = _is_member(db, person)
+    is_member = _is_member(person)
     # Voorinvullen voor een ingelogd lid (#476): naam vult de template al vanuit
     # person; e-mail + mobiel komen uit de ContactDetails. Op submit overschrijft
     # extra["values"] deze defaults.
@@ -154,7 +135,7 @@ def _form_ctx(request: Request, db: Session, activity, component, **extra) -> di
     ctx = {
         "activity": activity, "component": component, "is_member": is_member,
         "person": person, "error": None, "totaal": Decimal("0"), "values": prefill,
-        "heeft_prijs": _heeft_prijs(component, is_member),
+        "heeft_prijs": has_payable_products(component, is_member),
     }
     ctx.update(extra)
     return ctx
@@ -177,11 +158,11 @@ async def inschrijf_totaal(activity_id: int, component_id: int, request: Request
     _activity, component = _component_or_404(db, activity_id, component_id)
     form = await request.form()
     person = _session_person(request, db)
-    is_member = _is_member(db, person)
-    totaal = _totaal(db, component, _quantities(form), is_member)
+    is_member = _is_member(person)
+    totaal, _regels = quote_lines(component, _quantities(form), is_member)
     return templates.TemplateResponse(request, "_inschrijf_totaal.html", {
         "totaal": totaal, "is_member": is_member,
-        "heeft_prijs": _heeft_prijs(component, is_member)})
+        "heeft_prijs": has_payable_products(component, is_member)})
 
 
 @router.post("/activiteiten/{activity_id}/inschrijven/{component_id}",
@@ -196,11 +177,11 @@ async def inschrijf_submit(activity_id: int, component_id: int, request: Request
     form = await request.form()
     quantities = _quantities(form)
     person = _session_person(request, db)
-    is_member = _is_member(db, person)
+    is_member = _is_member(person)
 
     values = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
-    ctx = _form_ctx(request, db, activity, component,
-                    values=values, totaal=_totaal(db, component, quantities, is_member))
+    totaal, _regels = quote_lines(component, quantities, is_member)
+    ctx = _form_ctx(request, db, activity, component, values=values, totaal=totaal)
 
     naam = (values.get("contact_name") or "").strip()
     email = (values.get("contact_email") or "").strip()
