@@ -143,6 +143,23 @@ leeg-teksten wisselen tussen "Geen …" en "Nog geen …" en tussen italic en ni
   "Bewaar"; "Toevoegen" mag enkel op een sub-item-form dat direct toevoegt.
   Uitzondering: onomkeerbare wizard-commits benoemen het gevolg ("Definitief
   importeren").
+- **Aanmaken opent een volledige-pagina-editor, geen modal** (#627). Ook geen
+  uitklapbare vorm bovenaan de lijst — die verdween met de C1-correctie samen met de
+  `bg-blue-50`-balk. Reden: je werkt na het aanmaken tóch verder in de editor, en de
+  velden uit een dialoogje maken het object zelden compleet.
+- **Eén uitzondering, met een reden: de publieke activiteitinschrijving blijft een
+  modal** (#601). De regel eronder is niet "publiek = pagina" maar:
+
+  > Eén korte, **afgeronde** handeling in de context van een lijst → modal.
+  > Een vorm die je moet overzien, of een object waar je daarna in verderwerkt →
+  > volledig scherm.
+
+  Dat verklaart alle gevallen zonder uitzonderingen: admin-aanmaken → pagina (je werkt
+  verder), *Word lid* → pagina (lange vorm met gezinsleden, adres, betaalkeuze),
+  activiteitinschrijving → modal (contact + aantallen, en klaar; de smalle popup houdt
+  bovendien de activiteitkaart eronder zichtbaar in plaats van je uit de lijst te
+  halen).
+
 - **De knop die de bewerkmodus opent, is een toggle en volgt de toestand**:
   "Bewerken" in lees-modus, **"Annuleren"** in bewerk-modus (zelfde knop, zelfde
   plaats — zie `_aa_detail.html`, #503). Een knop die "Bewerken" blijft zeggen
