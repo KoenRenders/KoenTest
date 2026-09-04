@@ -10,7 +10,7 @@
            up_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
            down_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
       {{ ui.edit_toggle("edit") }}
-      {{ ui.btn_danger("×", attrs='aria-label="' ~ _("Veld verwijderen")|string ~ '" hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Veld"), f.label)) }}
+      {{ ui.btn_danger("×", aria_label=_("Veld verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Veld"), f.label)) }}
     </div>
   </div>
   <form x-show="edit" x-cloak class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 text-sm"
@@ -40,8 +40,8 @@
       <span>{{ o.label }}{% if o.is_other %} {{ ui.badge(_("andere…")) }}{% endif %}
         {% if o.skip_to_end %}{{ ui.badge(_("→ einde"), "yellow") }}{% elif o.skip_to_section_id %}{{ ui.badge(_("→ sectie"), "yellow") }}{% endif %}</span>
       <span class="flex gap-1">
-        {{ ui.btn_secondary("⚙", attrs='aria-label="' ~ _("Optie bewerken")|string ~ '" @click="oedit = !oedit"') }}
-        {{ ui.btn_danger("×", attrs='aria-label="' ~ _("Optie verwijderen")|string ~ '" hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML"') }}
+        {{ ui.btn_secondary("⚙", aria_label=_("Optie bewerken"), attrs='@click="oedit = !oedit"') }}
+        {{ ui.btn_danger("×", aria_label=_("Optie verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML"') }}
       </span>
       <form x-show="oedit" x-cloak class="w-full flex flex-wrap gap-2 mt-1"
             hx-post="/admin/formulieren/{{ form.id }}/opties/{{ o.id }}" hx-target="#fb-detail" hx-swap="innerHTML">

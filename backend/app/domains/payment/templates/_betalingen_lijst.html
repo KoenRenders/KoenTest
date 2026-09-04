@@ -77,7 +77,8 @@
         <span class="shrink-0">
           {{ ui.row_actions(
                actions=[ui.edit_toggle("rbewerk", size="sm")],
-               delete_attrs='hx-post="/admin/betalingen/' ~ rf.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML" data-confirm="' ~ _("Deze terugbetaling verwijderen?")|string ~ '"') }}
+               delete_attrs='hx-post="/admin/betalingen/' ~ rf.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML"',
+               delete_confirm=_("Deze terugbetaling verwijderen?")) }}
         </span>{% endif %}
       </div>
       {% if is_finance %}
@@ -139,7 +140,7 @@
     <div class="mt-3 border-t border-gray-100 pt-2">
       {% set _acts = [] %}
       {% if r.status != "paid" and r.type != "refund" %}
-      {% set _ignore = _acts.append(ui.btn_secondary(_("Bevestig betaald"), size="sm", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML" data-confirm="' ~ _("Als volledig betaald bevestigen?")|string ~ '"')) %}
+      {% set _ignore = _acts.append(ui.btn_secondary(_("Bevestig betaald"), size="sm", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_("Als volledig betaald bevestigen?"))) %}
       {% endif %}
       {% set _ignore = _acts.append(ui.edit_toggle("bewerk", size="sm")) %}
       {% if r.status == "paid" and r.type != "refund" %}
@@ -148,7 +149,8 @@
       {% if r.method == "online" %}
       {% set _ignore = _acts.append(ui.btn_secondary(_("Ververs bij Mollie"), size="sm", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/verversen" hx-target="#betalingen-lijst" hx-swap="innerHTML"')) %}
       {% endif %}
-      {{ ui.row_actions(actions=_acts, delete_attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML" data-confirm="' ~ _("Deze betaling verwijderen (uit het saldo)?")|string ~ '"') }}
+      {{ ui.row_actions(actions=_acts, delete_attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML"',
+                        delete_confirm=_("Deze betaling verwijderen (uit het saldo)?")) }}
     </div>
     {# Geünificeerde editor (#515): Status + Betaald bedrag + Opmerking in één form —
        óók voor een refund, waar je zo de effectief uitbetaalde som registreert.

@@ -13,7 +13,7 @@
        "Verwijder" laatst/rood. #}
     {% set _acts = [] %}
     {% if info %}{% set _ignore = _acts.append(ui.edit_toggle("edit", size="sm")) %}{% endif %}
-    {% if asset_id %}{% set _ignore = _acts.append(ui.btn_secondary(_("Opnieuw lezen"), size="sm", attrs='hx-post="/admin/ai-context/documenten/' ~ asset_id ~ '/opnieuw-lezen" hx-target="#ai-context-lijst" hx-swap="innerHTML" data-confirm="' ~ _("De tekst van dit document opnieuw inlezen?")|string ~ '"')) %}{% endif %}
+    {% if asset_id %}{% set _ignore = _acts.append(ui.btn_secondary(_("Opnieuw lezen"), size="sm", attrs='hx-post="/admin/ai-context/documenten/' ~ asset_id ~ '/opnieuw-lezen" hx-target="#ai-context-lijst" hx-swap="innerHTML"', confirm=_("De tekst van dit document opnieuw inlezen?"))) %}{% endif %}
     {% if info %}{% set _ignore = _acts.append(ui.btn_secondary(_("Aan/uit"), size="sm", attrs='hx-post="/admin/ai-context/' ~ info.id ~ '/toggle" hx-target="#ai-context-lijst" hx-swap="innerHTML"')) %}{% endif %}
     {{ ui.row_actions(actions=_acts, max_visible=3, delete_attrs=('hx-post="/admin/ai-context/' ~ info.id ~ '/verwijderen" hx-target="#ai-context-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Contextrij"), label)) if info else '') }}
     {% endif %}

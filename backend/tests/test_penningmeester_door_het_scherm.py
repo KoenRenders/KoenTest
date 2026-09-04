@@ -144,8 +144,26 @@ def test_P7_twee_terugbetalingen_tellen_allebei_mee(client, db_session):
 
 
 def test_P8_er_blijven_geen_weesrecords_achter(client, db_session):
-    charge = _charge(db_session, betaald="30.00", status="paid")
+    """Met een ECHTE inschrijving — anders vlagt find_orphan_records de records
+    terecht en toetst de test de wees-job i.p.v. de reconciliatie."""
+    from tests.conftest import seed_activity_with_product
+
+    activity, comp, product = seed_activity_with_product(db_session, is_free=False)
+    resp = client.post(f"/api/v1/activities/{activity.id}/register", json={
+        "contact_name": "An", "contact_email": "an@example.com",
+        "component_id": comp.id, "payment_method": "TRANSFER",
+        "items": [{"product_id": product.id, "quantity": 1}]})
+    assert resp.status_code in (200, 201), resp.text
+    reg_id = resp.json()["id"]
+
     hdr = _login(client, db_session)
+    charge = PaymentRecord(payable_type="registration", payable_id=reg_id,
+                           type="charge", amount=Decimal("30.00"),
+                           amount_paid=Decimal("30.00"), method="transfer",
+                           status="paid")
+    db_session.add(charge)
+    db_session.commit()
+
     _post(client, hdr, f"/admin/betalingen/{charge.id}/refund", amount="30.00")
 
     assert_geen_wezen(db_session)

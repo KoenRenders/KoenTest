@@ -133,10 +133,14 @@ def test_glyph_knoppen_hebben_aria_label():
         for nr, regel in enumerate(pad.read_text().splitlines(), 1):
             if "{#" in regel or "#}" in regel:
                 continue
-            if GLYPH_KNOP.search(regel) and "aria-label" not in regel:
+            # `aria_label=` is sinds #622 de voorkeursvorm: als macro-parameter
+            # schrijft Jinja het attribuut zelf, i.p.v. het in een attrs-string te
+            # concateneren waar `_()` de escaping sloopt.
+            if GLYPH_KNOP.search(regel) and not (
+                    "aria-label" in regel or "aria_label" in regel):
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:90]}")
     assert not fouten, (
-        "Geef symbool-knoppen een aria-label (attrs='aria-label=\"…\" …'):\n  "
+        "Geef symbool-knoppen een aria_label=_(\"…\") op de knopmacro:\n  "
         + "\n  ".join(fouten)
     )
 
@@ -214,7 +218,6 @@ def _zonder_commentaar(pad) -> str:
                   pad.read_text(), flags=re.S)
 
 
-VEILIG_STRING = re.compile(r"_\((?:[^()]|\([^()]*\))*\)\|string")
 MARKUP_CONCAT = re.compile(r"~\s*_\(|_\((?:[^()]|\([^()]*\))*\)\s*~")
 ATTR_IN_SET = re.compile(r"\{%-?\s*set\s+\w+\s*=\s*['\"]\s*hx-")
 # Een modus-knop die maar één stand toont (#615).
@@ -227,15 +230,20 @@ def test_geen_geescapete_attribuutstrings():
     `_()` geeft in een autoescaped template Markup terug. Zodra je daar met `~` een
     gewone string aan plakt, escapet Jinja de gewone helft: htmx krijgt
     `hx-post=&#34;/…&#34;` en doet niets. Een `{% set %}` met attributen erin gaat op
-    dezelfde manier stuk bij `{{ var }}`. Fix: `_(\"…\")|string`, of de attributen
-    letterlijk op het element / via de `attrs=`-parameter (die doet zelf `|safe`).
+    dezelfde manier stuk bij `{{ var }}`.
+
+    **`|string` lost dit NIET op** — dat was de eerste poging in #616 en ze werkte
+    niet: Markup is een str-subklasse, dus `soft_str` geeft ze ongewijzigd terug en de
+    escaping blijft. De render-gate (#622) ving dat. Fix: vertaalde tekst hoort niet in
+    een geconcateneerde attribuutstring maar als macro-parameter (`confirm=`,
+    `aria_label=`), of de attributen letterlijk op het element.
     """
     fouten = []
     for pad in TEMPLATES:
         for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
-            if "attrs=" in regel and MARKUP_CONCAT.search(VEILIG_STRING.sub("", regel)):
+            if "attrs=" in regel and MARKUP_CONCAT.search(regel):
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: ~ _() in een attrs-string "
-                              f"→ gebruik _()|string")
+                              f"→ gebruik confirm=/aria_label= op de knopmacro")
             if ATTR_IN_SET.search(regel):
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: attributen in een "
                               f"{{% set %}} → schrijf ze letterlijk of geef ze via attrs=")

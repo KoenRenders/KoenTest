@@ -51,7 +51,8 @@ def gevulde_admin(client, db_session):
     Levert de id's van de detailschermen die alleen met een id bestaan.
     """
     from app.domains.payment.api import PaymentRecord
-    from app.domains.activities.api import Registration, RegistrationItem
+    from app.domains.cms.api import CmsPage
+    from app.domains.forms.api import Form
 
     seed_postal_code(db_session)
     member, person = create_test_family(db_session, email="rendergate@example.com")
@@ -70,16 +71,25 @@ def gevulde_admin(client, db_session):
         payable_type="registration", payable_id=reg_id, type="charge",
         amount=Decimal("20.00"), amount_paid=Decimal("20.00"), method="transfer",
         status="paid"))
+    # Ook een formulier en een CMS-pagina: hun editors dragen de knoppen met
+    # aria-labels en bevestigingen, en die vielen buiten de eerste versie van deze
+    # gate — precies waar nog ge-escapete attributen bleken te staan.
+    formulier = Form(title="Rendergate-formulier")
+    pagina = CmsPage(title="Rendergate-pagina", slug="rendergate", content="<p>x</p>")
+    db_session.add_all([formulier, pagina])
     db_session.commit()
 
     _login(client, db_session)
-    return {"member": member.id, "activity": activity.id, "registration": reg_id}
+    return {"member": member.id, "activity": activity.id, "registration": reg_id,
+            "formulier": formulier.id, "pagina": pagina.id}
 
 
 def _paginas(ids) -> list[str]:
     detail = [f"/admin/leden/gezin/{ids['member']}",
               f"/admin/activiteiten/{ids['activity']}",
-              f"/admin/inschrijvingen/{ids['registration']}"]
+              f"/admin/inschrijvingen/{ids['registration']}",
+              f"/admin/formulieren/{ids['formulier']}",
+              f"/admin/paginas/{ids['pagina']}"]
     return [href for href, _label in _ADMIN_NAV] + detail
 
 

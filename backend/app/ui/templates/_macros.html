@@ -21,16 +21,17 @@
 
 {# `lead_icon` prependt een SVG-icoon (ui.icon) vóór het label — nette knoppen met
    icoon zonder de SVG via een geëscapet label te moeten sluizen (#593). #}
-{% macro button(label, variant="primary", type="submit", href=None, size="md", attrs="", cls="", lead_icon=None) -%}
+{% macro button(label, variant="primary", type="submit", href=None, size="md", attrs="", cls="", lead_icon=None, confirm=None, aria_label=None) -%}
 {%- set _c = btn_class(variant, size) ~ (" " ~ cls if cls else "") -%}
 {%- set _ic = icon(lead_icon) if lead_icon else "" -%}
-{% if href %}<a href="{{ href }}" class="{{ _c }}" {{ attrs|safe }}>{{ _ic }}{{ label }}</a>{% else %}<button type="{{ type }}" class="{{ _c }}" {{ attrs|safe }}>{{ _ic }}{{ label }}</button>{% endif %}
+{%- set _extra %}{% if confirm %} data-confirm="{{ confirm }}"{% endif %}{% if aria_label %} aria-label="{{ aria_label }}"{% endif %}{% endset -%}
+{% if href %}<a href="{{ href }}" class="{{ _c }}"{{ _extra }} {{ attrs|safe }}>{{ _ic }}{{ label }}</a>{% else %}<button type="{{ type }}" class="{{ _c }}"{{ _extra }} {{ attrs|safe }}>{{ _ic }}{{ label }}</button>{% endif %}
 {%- endmacro %}
 
-{% macro btn_primary(label, type="submit", href=None, size="md", attrs="", cls="", lead_icon=None) -%}{{ button(label, "primary", type, href, size, attrs, cls, lead_icon) }}{%- endmacro %}
-{% macro btn_secondary(label, type="button", href=None, size="md", attrs="", cls="", lead_icon=None) -%}{{ button(label, "secondary", type, href, size, attrs, cls, lead_icon) }}{%- endmacro %}
-{% macro btn_danger(label, type="button", href=None, size="md", attrs="", cls="", lead_icon=None) -%}{{ button(label, "danger", type, href, size, attrs, cls, lead_icon) }}{%- endmacro %}
-{% macro btn_outline(label, type="button", href=None, size="sm", attrs="", cls="", lead_icon=None) -%}{{ button(label, "outline", type, href, size, attrs, cls, lead_icon) }}{%- endmacro %}
+{% macro btn_primary(label, type="submit", href=None, size="md", attrs="", cls="", lead_icon=None, confirm=None, aria_label=None) -%}{{ button(label, "primary", type, href, size, attrs, cls, lead_icon, confirm, aria_label) }}{%- endmacro %}
+{% macro btn_secondary(label, type="button", href=None, size="md", attrs="", cls="", lead_icon=None, confirm=None, aria_label=None) -%}{{ button(label, "secondary", type, href, size, attrs, cls, lead_icon, confirm, aria_label) }}{%- endmacro %}
+{% macro btn_danger(label, type="button", href=None, size="md", attrs="", cls="", lead_icon=None, confirm=None, aria_label=None) -%}{{ button(label, "danger", type, href, size, attrs, cls, lead_icon, confirm, aria_label) }}{%- endmacro %}
+{% macro btn_outline(label, type="button", href=None, size="sm", attrs="", cls="", lead_icon=None, confirm=None, aria_label=None) -%}{{ button(label, "outline", type, href, size, attrs, cls, lead_icon, confirm, aria_label) }}{%- endmacro %}
 
 {# ── Iconen (#593, §1.5) ───────────────────────────────────────────────────────
    Eén SVG-icoonset (Lucide, ISC-licentie) via `ui.icon('naam')` i.p.v. losse
@@ -465,7 +466,7 @@
 </button>
 {%- endmacro %}
 
-{% macro row_actions(actions=[], delete_attrs="", delete_label="", max_visible=2, size="sm") -%}
+{% macro row_actions(actions=[], delete_attrs="", delete_label="", max_visible=2, size="sm", delete_confirm=None) -%}
 <div class="inline-flex items-center gap-2 justify-end" x-data="{ menu: false }">
   {% for a in actions[:max_visible] %}{{ a|safe }}{% endfor %}
   {% if actions|length > max_visible %}
@@ -477,7 +478,7 @@
     </div>
   </div>
   {% endif %}
-  {% if delete_attrs %}{{ btn_danger(delete_label or _("Verwijderen"), size=size, attrs=delete_attrs) }}{% endif %}
+  {% if delete_attrs %}{{ btn_danger(delete_label or _("Verwijderen"), size=size, attrs=delete_attrs, confirm=delete_confirm) }}{% endif %}
 </div>
 {%- endmacro %}
 
