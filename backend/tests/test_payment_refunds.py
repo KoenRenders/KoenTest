@@ -6,7 +6,6 @@ inschrijving (verschuldigd vs. netto betaald) klopt met de live DB.
 """
 
 
-pytestmark = pytest.mark.ui_agnostisch
 from decimal import Decimal
 
 import pytest
@@ -17,6 +16,9 @@ from app.domains.payment.api import (
 )
 from app.domains.payment.api import PaymentRecordHistory
 from tests.conftest import seed_activity_with_product
+
+
+pytestmark = pytest.mark.ui_agnostisch
 
 
 def _seed_charge(db, *, payable_id=1, amount="18.00", amount_paid="18.00", status="paid"):

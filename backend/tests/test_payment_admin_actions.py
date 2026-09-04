@@ -4,7 +4,6 @@ ontvangen bedrag correct beïnvloeden en een history-snapshot laten.
 """
 
 
-pytestmark = pytest.mark.ui_agnostisch
 from decimal import Decimal
 
 import pytest
@@ -13,6 +12,9 @@ from app.domains.payment.api import (
     PaymentRecord, PaymentRecordHistory,
     create_refund, net_paid, set_payment_status, void_payment_record,
 )
+
+
+pytestmark = pytest.mark.ui_agnostisch
 
 
 def _seed_charge(db, *, payable_id=1, amount="18.00", amount_paid="18.00", status="paid"):

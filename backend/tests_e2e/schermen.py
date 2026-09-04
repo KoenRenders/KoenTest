@@ -34,7 +34,9 @@ class Betalingenscherm:
 
     def open(self):
         self.page.goto(self.pad)
-        self.page.wait_for_selector("#betalingen-lijst")
+        # Korte wacht: is de lijst er niet, dan is dat een overslaan-geval voor de
+        # test, geen reden om 30 seconden in een timeout te lopen.
+        self.page.wait_for_selector("#betalingen-lijst", timeout=5000)
         return self
 
     def kaart(self, ogm: str):
@@ -53,7 +55,7 @@ class Betalingenscherm:
 
     def toon_inschrijvingsdetails(self, ogm: str):
         self.kaart(ogm).get_by_text("Toon inschrijvingsdetails").click()
-        self.page.wait_for_selector(".inschrijf-card, .bg-gray-50")
+        self.page.wait_for_selector(".bg-gray-50", timeout=5000)
 
 
 class Inschrijvingsdetail:
@@ -87,7 +89,7 @@ class Ledenscherm:
 
     def open(self):
         self.page.goto(self.pad)
-        self.page.wait_for_selector("#leden-lijst")
+        self.page.wait_for_selector("#leden-lijst", timeout=5000)
         return self
 
     def open_gezin(self, naam: str):

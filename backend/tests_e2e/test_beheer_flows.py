@@ -16,12 +16,24 @@ import time
 import pytest
 from playwright.sync_api import sync_playwright
 
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import (BASE, Betalingenscherm, Inschrijvingsdetail,  # noqa: E402
                                 Ledenscherm, login_als_admin)
 
-ADMIN_EMAIL = os.environ.get("E2E_ADMIN_EMAIL", "admin@raakmillegem.be")
+
+def _admin_email() -> str:
+    """Het adres van de geseede beheerder (migratie 014).
+
+    Uit tests.conftest i.p.v. hier herhaald: de repo is publiek en dit is een echt
+    e-mailadres — het hoort op één plek te staan, niet in elk testbestand.
+    """
+    override = os.environ.get("E2E_ADMIN_EMAIL")
+    if override:
+        return override
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+
+    return SEEDED_ADMIN_EMAIL
 
 
 @pytest.fixture(scope="module")
@@ -29,6 +41,8 @@ def admin_page():
     """Een browser met een adminsessie."""
     try:
         from app.domains.auth.api import make_session_value
+
+        email = _admin_email()
     except Exception as exc:  # pragma: no cover - alleen in een kale omgeving
         pytest.skip(f"backend niet importeerbaar voor de sessiewaarde: {exc}")
 
@@ -36,11 +50,14 @@ def admin_page():
         exe = os.environ.get("E2E_CHROMIUM_PATH")
         browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
         page = browser.new_page(base_url=BASE)
-        login_als_admin(page, ADMIN_EMAIL, make_session_value(ADMIN_EMAIL))
+        login_als_admin(page, email, make_session_value(email))
         page.goto("/admin/betalingen")
-        if "/aanmelden" in page.url:
+        # Niet op de URL controleren: een geweigerde sessie geeft hier een 401-pagina
+        # op hetzelfde adres, geen redirect. De AdminShell zelf is het bewijs.
+        if page.locator("#betalingen-lijst").count() == 0:
+            log = page.content()[:200]
             browser.close()
-            pytest.skip("adminsessie niet aanvaard door deze omgeving")
+            pytest.skip(f"adminsessie niet aanvaard door deze omgeving: {log!r}")
         yield page
         browser.close()
 

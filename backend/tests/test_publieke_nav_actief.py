@@ -10,10 +10,12 @@ juiste item oplicht ook wanneer de href niet gelijk is aan het pad (/archief).
 """
 
 
-pytestmark = pytest.mark.ui_serverrendered
 import re
 
 import pytest
+
+
+pytestmark = pytest.mark.ui_serverrendered
 
 # <a href="…" … aria-current="page">Label</a> — het label van elk gemarkeerd item.
 ACTIEF = re.compile(r'<a href="([^"]+)"[^>]*aria-current="page"[^>]*>([^<]*)</a>')

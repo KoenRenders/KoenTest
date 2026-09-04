@@ -11,11 +11,13 @@ door scrolt. De opmaak zelf toetsen we niet — enkel dat de twee standen kloppe
 """
 
 
-pytestmark = pytest.mark.ui_serverrendered
 from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 
 import pytest
+
+
+pytestmark = pytest.mark.ui_serverrendered
 
 TEMPLATES = Path(__file__).resolve().parents[1] / "app" / "ui" / "templates"
 

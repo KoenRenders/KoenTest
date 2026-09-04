@@ -5,7 +5,6 @@ refund registreren, opmerking bewaard in de audit) worden hier bewaakt.
 """
 
 
-pytestmark = pytest.mark.ui_agnostisch
 from decimal import Decimal
 
 import pytest
@@ -13,6 +12,9 @@ import pytest
 from app.domains.payment.api import (
     PaymentRecord, PaymentRecordHistory, create_refund, edit_payment_record, net_paid,
 )
+
+
+pytestmark = pytest.mark.ui_agnostisch
 
 
 def _seed_charge(db, *, payable_id=1, amount="10.00", amount_paid=None, status="pending"):
