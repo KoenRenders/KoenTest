@@ -91,13 +91,21 @@
     <label class="block text-xs text-gray-500">{{ _("Terugbetaald bedrag") if is_refund else _("Betaald bedrag") }}</label>
     <input name="amount_paid" x-model="bedrag" inputmode="decimal" placeholder="0,00"
            class="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm">
-    {% if is_refund %}
-    <p class="text-xs text-gray-400 mt-0.5">{{ _("Zet op 0 om te corrigeren — dan is de terugbetaling verwijderbaar.") }}</p>
-    {% endif %}
   </div>
   <input name="note" placeholder="{{ _('Opmerking') }}" class="w-40 border border-gray-300 rounded-lg px-2 py-1 text-sm">
   {{ ui.btn_primary(_("Opslaan"), type="submit") }}
   {{ ui.btn_secondary(_("Annuleren"), attrs='@click="' ~ vlag ~ ' = false"') }}
+  {# De hint hoort niet ín een kolom van een `items-end`-vorm: die lijnt op de
+     ONDERKANT uit, dus een extra regel onder het invoerveld duwt dat veld omhoog
+     — zichtbaar scheef, en alleen bij een terugbetaling omdat de hint daarachter
+     staat (#656). `w-full` dwingt in een flex-wrap-container een eigen regel af,
+     `order-last` houdt hem onder de knoppen ook wanneer de vorm op een smal
+     venster al wrapt. Niet `items-start`: dan lijnen de knoppen — die geen label
+     boven zich hebben — uit met de labels in plaats van met de invoervelden, en
+     verhuist de scheefheid gewoon. #}
+  {% if is_refund %}
+  <p class="w-full order-last text-xs text-gray-400">{{ _("Zet op 0 om te corrigeren — dan is de terugbetaling verwijderbaar.") }}</p>
+  {% endif %}
 </form>
 {% endmacro %}
 

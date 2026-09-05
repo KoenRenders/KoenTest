@@ -78,6 +78,11 @@ Vier regels, elk met een reden:
 26. **Het verplicht-sterretje komt uit `label(required=…)`**, niet uit de labeltekst
     (#646). In de tekst erft het `text-gray-700` en staat er grijs naast een rood
     sterretje van een veld dat de parameter wél gebruikt.
+29. **Geen hint-alinea in een kolom van een `items-end`-vorm** (#656). Zo'n vorm
+    lijnt haar kolommen op de ONDERKANT uit, dus een extra regel onder een
+    invoerveld duwt dat veld omhoog. Op de betalingen stond het bedrag daardoor
+    scheef — en alleen bij een terugbetaling, want de hint staat achter een
+    `{% if %}`. Zet de hint als eigen regel in de vorm (`w-full order-last`).
 28. **Een leeslink naar de bijlage staat enkel in leesmodus** (#653, §2.12). Een
     `<a href="…_asset_url">` buiten het uploadblok hoort achter `x-show="!edit"`;
     anders staat "Huidige affiche bekijken" in bewerkmodus twee keer op het scherm.
@@ -130,6 +135,11 @@ STERRETJE_IN_LABEL_CALL = re.compile(r'\blabel\([^\n]*["\']\s*\*')
 BIJLAGE_LINK = re.compile(r'<[^>]*href="\{\{\s*[a-z_.]*_asset_url[^"]*"[^>]*>')
 # Een scherm mét bewerkmodus: een <form> dat aan een Alpine-vlag hangt.
 BEWERKVORM = re.compile(r'<form[^>]*x-show="[a-z_]')
+# Een hint-alinea (§2.4: text-xs + een gedempte tint) binnen een kolom van een
+# flexvorm die op de onderkant uitlijnt — #656.
+HINT_ALINEA = re.compile(r'<p[^>]*class="[^"]*\btext-xs\b[^"]*\btext-(?:gray|ink)-(?:400|500|soft)\b')
+ITEMS_END = re.compile(r'\bitems-end\b')
+FLEX_OPEN = re.compile(r'<(div|form)\b')
 RODE_SPAN = re.compile(r'<span class="text-red-600">.*?</span>')
 # Een KPI-cijfer herken je aan font-extrabold: §Weight reserveert dat gewicht voor
 # de paginatitel, de KPI-cijfers en het woordmerk, en die eerste twee dragen
@@ -823,4 +833,56 @@ def test_een_leeslink_naar_de_bijlage_staat_enkel_in_leesmodus():
     assert not fouten, (
         'Zet een leeslink naar de bijlage achter x-show="!edit" (§2.12, #653):\n  '
         + "\n  ".join(fouten)
+    )
+
+
+def test_geen_hint_in_een_kolom_die_op_de_onderkant_uitlijnt():
+    """Een `items-end`-vorm lijnt haar kolommen op de ONDERKANT uit (#656).
+
+    Staat er dan onder een invoerveld nog een hintregel, dan is die kolom hoger en
+    schuift alles erboven — dus het invoerveld — omhoog. Op /admin/betalingen gaf
+    dat een bedragveld dat te hoog stond, en alleen bij een terugbetaling, want de
+    hint staat achter een `{% if is_refund %}`. Geen marge- of paddingfout dus: de
+    hint hoort niet in een kolom die op haar onderkant uitlijnt.
+
+    `items-start` is niet de oplossing — dan lijnen de knoppen, die geen label
+    boven zich hebben, uit met de labels in plaats van met de invoervelden. Zet de
+    hint als eigen regel in de vorm: `w-full order-last`.
+
+    De regel zoekt binnen het element dat `items-end` draagt naar een hint-alinea
+    zonder `w-full`. Kolomgrenzen zijn met een regex niet te bepalen, dus dit kijkt
+    per vorm en niet per kolom: ruimer dan strikt nodig, maar een hint binnen zo'n
+    vorm hoort sowieso een eigen regel te zijn.
+    """
+    def blok_van(tekst: str, pos: int) -> str:
+        """Het element dat `items-end` draagt, tot zijn eigen sluittag.
+
+        Niet "tot het volgende items-end": `page_header` in de kit is het enige
+        voorkomen in `_macros.html`, dus zo'n venster liep tot het einde van het
+        bestand en sleepte elke hint uit de kit mee als valse treffer.
+        """
+        opens = [m for m in FLEX_OPEN.finditer(tekst) if m.start() < pos]
+        if not opens:
+            return ""
+        start = opens[-1]
+        tag = start.group(1)
+        diepte = 0
+        for t in re.finditer(rf"<{tag}\b|</{tag}>", tekst[start.start():]):
+            diepte += -1 if t.group(0).startswith(f"</{tag}") else 1
+            if diepte == 0:
+                return tekst[start.start():start.start() + t.end()]
+        return tekst[start.start():]
+
+    fouten = []
+    for pad in TEMPLATES:
+        tekst = _zonder_commentaar(pad)
+        for m in ITEMS_END.finditer(tekst):
+            for tag in HINT_ALINEA.findall(blok_van(tekst, m.start())):
+                if "w-full" in tag:
+                    continue
+                nr = tekst[:m.start()].count("\n") + 1
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: {tag[:90]}")
+    assert not fouten, (
+        "Zet de hint als eigen regel in de vorm (w-full order-last), niet in een "
+        "kolom van een items-end-vorm (#656):\n  " + "\n  ".join(fouten)
     )
