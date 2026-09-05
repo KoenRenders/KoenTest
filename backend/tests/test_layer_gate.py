@@ -77,10 +77,8 @@ VIEWMODEL_ALLOWLIST: set[str] = {
 LAYER_ALLOWLIST: set[tuple[str, str]] = {
     # ── regel 1: imports uit models/router, of een private naam ──────────────
     ("app.domains.activities.admin_ui", "imports"),
-    ("app.domains.forms.admin_ui", "imports"),
     # ── regel 2: rauw ORM-gebruik in de routebody ────────────────────────────
     ("app.domains.activities.admin_ui", "orm"),
-    ("app.domains.forms.admin_ui", "orm"),
     # ── regel 3: ORM-klassen en routerfuncties die via een facade binnenkomen ─
     ("app.domains.activities.admin_ui", "facade"),
     ("app.domains.activities.ui", "facade"),

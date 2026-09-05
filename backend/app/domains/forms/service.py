@@ -412,3 +412,280 @@ def get_submission_by_edit_token(db, edit_token: str):
 
     return (db.query(FormSubmission)
             .filter(FormSubmission.edit_token == edit_token).first())
+
+
+# ── Form-builder: secties, velden en opties (#635 D/I) ───────────────────────
+# Deze bewerkingen stonden volledig in `admin_ui.py`, inclusief de regels die
+# bepalen wat een geldig formulier ís: een sprong moet vooruit gaan, opties horen
+# alleen bij keuzevelden, een vertakking alleen bij "één keuze"/"keuzelijst", en
+# elk veld heeft een vraag nodig. Die regels golden alleen zolang dít scherm ze
+# onthield — een tweede ingang (JSON-import, API) kende ze niet.
+
+
+class FormulierFout(ValueError):
+    """Een invoerfout in de builder. Geen HTTPException: de service kent geen
+    HTTP; de route bepaalt de statuscode."""
+
+
+def get_form(db, form_id: int) -> Form:
+    form = db.query(Form).filter(Form.id == form_id).first()
+    if form is None:
+        raise LookupError("Formulier niet gevonden")
+    return form
+
+
+def _hernummer(items) -> None:
+    for index, item in enumerate(sorted(items, key=lambda x: x.position)):
+        item.position = index
+
+
+# ── Secties ──────────────────────────────────────────────────────────────────
+
+def add_section(db, form: Form, *, title: str = "") -> None:
+    form.sections.append(FormSection(title=(title or "").strip() or None,
+                                     position=len(form.sections)))
+    db.commit()
+
+
+def update_section(db, form: Form, section_id: int, *, title: str = "",
+                   description: str = "", next_section_id: str = "",
+                   next_is_end: bool = False) -> None:
+    """Titel, omschrijving en de sprong naar een volgende sectie.
+
+    Een sprong moet vooruit: een sectie die naar zichzelf of naar een eerdere
+    sectie wijst, maakt een lus waar de invuller nooit uit komt.
+    """
+    section = next((s for s in form.sections if s.id == section_id), None)
+    if section is None:
+        raise LookupError("Sectie niet gevonden")
+
+    section.title = (title or "").strip() or None
+    section.description = (description or "").strip() or None
+
+    doel_id = int(next_section_id) if str(next_section_id).strip().isdigit() else None
+    if doel_id is not None:
+        doel = next((s for s in form.sections if s.id == doel_id), None)
+        if doel is None or doel.position <= section.position:
+            raise FormulierFout("Een sectie-sprong moet naar een latere sectie gaan.")
+    section.next_section_id = doel_id
+    section.next_is_end = bool(next_is_end)
+    db.commit()
+
+
+def move_section(db, form: Form, section_id: int, richting: str) -> None:
+    from app.kernel.ordering import move_sibling
+
+    if not any(s.id == section_id for s in form.sections):
+        raise LookupError("Sectie niet gevonden")
+    move_sibling(form.sections, section_id, richting, attr="position")
+    db.commit()
+
+
+def delete_section(db, form: Form, section_id: int) -> None:
+    section = next((s for s in form.sections if s.id == section_id), None)
+    if section is not None:
+        form.sections.remove(section)
+        _hernummer(form.sections)
+    db.commit()
+
+
+# ── Velden ───────────────────────────────────────────────────────────────────
+
+def add_field(db, form: Form, *, label: str, field_type: str = "text",
+              section_id: str = "") -> None:
+    if field_type not in FIELD_TYPES:
+        raise FormulierFout(f"Ongeldig veldtype: {field_type}")
+    if not (label or "").strip():
+        raise FormulierFout("Elk veld heeft een vraag/label nodig.")
+    sid = int(section_id) if str(section_id).strip().isdigit() else None
+    broers = [f for f in form.fields if f.section_id == sid]
+    form.fields.append(FormField(label=label.strip(), field_type=field_type,
+                                 section_id=sid, position=len(broers)))
+    db.commit()
+
+
+def update_field(db, form: Form, field_id: int, **waarden) -> None:
+    """De eigenschappen van één veld. Lege tekstwaarden betekenen "niet ingesteld"."""
+    veld = next((f for f in form.fields if f.id == field_id), None)
+    if veld is None:
+        raise LookupError("Veld niet gevonden")
+    label = (waarden.get("label") or "").strip()
+    if not label:
+        raise FormulierFout("Elk veld heeft een vraag/label nodig.")
+
+    def _getal(naam):
+        rauw = str(waarden.get(naam) or "").strip()
+        return int(rauw) if rauw.isdigit() else None
+
+    veld.label = label
+    veld.help_text = (waarden.get("help_text") or "").strip() or None
+    veld.required = bool(waarden.get("required"))
+    veld.min_length = _getal("min_length")
+    veld.max_length = _getal("max_length")
+    veld.min_value = (waarden.get("min_value") or "").strip() or None
+    veld.max_value = (waarden.get("max_value") or "").strip() or None
+    veld.rating_max = _getal("rating_max")
+    veld.rating_low_label = (waarden.get("rating_low_label") or "").strip() or None
+    veld.rating_high_label = (waarden.get("rating_high_label") or "").strip() or None
+    db.commit()
+
+
+def move_field(db, form: Form, field_id: int, richting: str) -> None:
+    from app.kernel.ordering import move_sibling
+
+    veld = next((f for f in form.fields if f.id == field_id), None)
+    if veld is None:
+        raise LookupError("Veld niet gevonden")
+    broers = [f for f in form.fields if f.section_id == veld.section_id]
+    move_sibling(broers, field_id, richting, attr="position")
+    db.commit()
+
+
+def delete_field(db, form: Form, field_id: int) -> None:
+    veld = next((f for f in form.fields if f.id == field_id), None)
+    if veld is not None:
+        form.fields.remove(veld)
+    db.commit()
+
+
+# ── Opties ───────────────────────────────────────────────────────────────────
+
+KEUZEVELDEN = ("select", "radio", "checkbox")
+VERTAKBARE_VELDEN = ("radio", "select")
+
+
+def add_option(db, form: Form, field_id: int, *, label: str,
+               is_other: bool = False) -> None:
+    veld = next((f for f in form.fields if f.id == field_id), None)
+    if veld is None or veld.field_type not in KEUZEVELDEN:
+        raise FormulierFout("Opties kunnen enkel bij keuzevelden.")
+    veld.options.append(FormFieldOption(label=(label or "").strip(),
+                                        position=len(veld.options),
+                                        is_other=bool(is_other)))
+    db.commit()
+
+
+def update_option(db, form: Form, option_id: int, *, label: str = "",
+                  is_other: bool = False, skip_to_section_id: str = "",
+                  skip_to_end: bool = False) -> None:
+    """Een keuze-optie, eventueel met een vertakking.
+
+    Twee regels: vertakken kan alleen bij "één keuze" en "keuzelijst" (bij
+    aankruisvakjes zijn er meerdere antwoorden tegelijk, dus één bestemming is
+    betekenisloos), en de sprong moet vooruit gaan — anders komt de invuller in
+    een lus.
+    """
+    optie = next((o for f in form.fields for o in f.options if o.id == option_id), None)
+    if optie is None:
+        raise LookupError("Optie niet gevonden")
+
+    veld = optie.field
+    doel_id = (int(skip_to_section_id)
+               if str(skip_to_section_id).strip().isdigit() else None)
+    if (bool(skip_to_end) or doel_id is not None) and veld.field_type not in VERTAKBARE_VELDEN:
+        raise FormulierFout("Vertakking kan enkel bij 'één keuze' of 'keuzelijst'.")
+    if doel_id is not None:
+        doel = next((s for s in form.sections if s.id == doel_id), None)
+        eigen = next((s for s in form.sections if s.id == veld.section_id), None)
+        if doel is None or (eigen is not None and doel.position <= eigen.position):
+            raise FormulierFout("Een vertakking moet naar een latere sectie springen.")
+
+    optie.label = (label or "").strip() or optie.label
+    optie.is_other = bool(is_other)
+    optie.skip_to_section_id = doel_id
+    optie.skip_to_end = bool(skip_to_end)
+    db.commit()
+
+
+def delete_option(db, form: Form, option_id: int) -> None:
+    optie = next((o for f in form.fields for o in f.options if o.id == option_id), None)
+    if optie is not None:
+        optie.field.options.remove(optie)
+    db.commit()
+
+
+# ── Formulier en inzendingen ─────────────────────────────────────────────────
+
+def create_form(db, *, title: str, share_token: str, status: str = "draft") -> Form:
+    form = Form(title=title.strip(), share_token=share_token, status=status)
+    db.add(form)
+    db.commit()
+    db.refresh(form)
+    return form
+
+
+def delete_form(db, form_id: int) -> None:
+    form = db.query(Form).filter(Form.id == form_id).first()
+    if form is None:
+        raise LookupError("Formulier niet gevonden")
+    db.delete(form)
+    db.commit()
+
+
+def delete_submission(db, form_id: int, submission_id: int) -> None:
+    from app.domains.forms.models import FormSubmission
+
+    inzending = (db.query(FormSubmission)
+                 .filter(FormSubmission.id == submission_id,
+                         FormSubmission.form_id == form_id).first())
+    if inzending is not None:
+        db.delete(inzending)
+        db.commit()
+
+
+def import_definition(db, form: Form, data) -> None:
+    """Een volledige definitie inlezen (JSON-import).
+
+    Valideert, schrijft **alle** instellingen (dat deed json_import niet, #635-3)
+    en verzoent daarna secties/velden/opties. Faalt er iets, dan rolt de hele
+    import terug: een half ingelezen formulier is erger dan geen.
+    """
+    try:
+        validate_definition(data)
+        update_settings(form, data)
+        apply_definition(form, data)
+        db.commit()
+    except Exception:
+        db.rollback()
+        raise
+
+
+def submission_count(db, form_id: int) -> int:
+    from app.domains.forms.models import FormSubmission
+
+    return (db.query(FormSubmission)
+            .filter(FormSubmission.form_id == form_id).count())
+
+
+def list_submissions(db, form_id: int):
+    """De inzendingen van één formulier, nieuwste eerst."""
+    from app.domains.forms.models import FormSubmission
+
+    return (db.query(FormSubmission).filter(FormSubmission.form_id == form_id)
+            .order_by(FormSubmission.id.desc()).all())
+
+
+def list_forms(db, *, q: str = "", status: str = ""):
+    """De formulierenlijst met zoekterm en statusfilter.
+
+    Een onbekende status filtert niet: een gemanipuleerde querystring hoort een
+    lege lijst noch een 500 op te leveren, gewoon 'alles'.
+    """
+    query = db.query(Form)
+    if (q or "").strip():
+        query = query.filter(Form.title.ilike(f"%{q.strip()}%"))
+    if status in FORM_STATUSES:
+        query = query.filter(Form.status == status)
+    return query.order_by(Form.id.desc()).all()
+
+
+def update_form_settings(db, form: Form, **waarden) -> None:
+    """De instellingen uit het builder-scherm.
+
+    Ontbrekende checkboxes betekenen "uit" — een niet-aangevinkt vakje wordt door
+    de browser niet meegestuurd. Dat is precies de val van #629: een formulier dat
+    op een ándere tab werd opgeslagen, zette `requires_login` stil uit.
+    """
+    for veld, waarde in waarden.items():
+        setattr(form, veld, waarde)
+    db.commit()

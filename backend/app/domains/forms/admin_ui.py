@@ -17,8 +17,14 @@ from app.domains.auth.api import (
     SESSION_COOKIE, admin_user_by_email, csrf_from_request, csrf_token_for,
     require_admin_ui, require_csrf,
 )
-from app.domains.forms.models import FIELD_TYPES, FORM_STATUSES, Form as FormModel
-from app.domains.forms.models import FormField, FormFieldOption, FormSection, FormSubmission
+from app.domains.forms.api import (
+    FIELD_TYPES,
+    FORM_STATUSES,
+    delete_submission,
+    list_forms,
+    list_submissions,
+    submission_count,
+)
 from app.ui import admin_nav, is_fragment_request, templates
 from app.i18n import _
 
@@ -27,11 +33,30 @@ router = APIRouter(include_in_schema=False)
 NAV = admin_nav("/admin/formulieren")
 
 
-def _form_or_404(db: Session, form_id: int) -> FormModel:
-    form = db.query(FormModel).filter(FormModel.id == form_id).first()
-    if form is None:
+def _form_or_404(db: Session, form_id: int):
+    from app.domains.forms.api import get_form
+
+    try:
+        return get_form(db, form_id)
+    except LookupError:
         raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
-    return form
+
+
+def _bewerk(bewerking, *args, **kwargs):
+    """Voer één builder-bewerking uit en vertaal haar fouten naar HTTP.
+
+    De service kent geen HTTP: ze gooit `FormulierFout` bij een invoerfout en
+    `LookupError` als iets niet bestaat. Dit is de enige plek waar dat een
+    statuscode wordt (#635 regel 1).
+    """
+    from app.domains.forms.api import FormulierFout
+
+    try:
+        return bewerking(*args, **kwargs)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=_(str(exc)))
+    except FormulierFout as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
 
 def _builder_ctx(request: Request, db: Session, form: FormModel, **extra) -> dict:
@@ -57,8 +82,7 @@ def _builder_ctx(request: Request, db: Session, form: FormModel, **extra) -> dic
         "form": form, "grouped": grouped, "loose_fields": loose,
         "sections": sections, "field_types": FIELD_TYPES, "statuses": FORM_STATUSES,
         "field_type_labels": veldtype_labels,
-        "submission_count": db.query(FormSubmission)
-                              .filter(FormSubmission.form_id == form.id).count(),
+        "submission_count": submission_count(db, form.id),
         "csrf_token": csrf_from_request(request), "error": None,
     }
     ctx.update(extra)
@@ -92,12 +116,7 @@ def formulieren_page(request: Request, db: Session = Depends(get_db),
     Een onbekende status filtert niet — een gemanipuleerde querystring hoort een
     lege lijst noch een 500 op te leveren, gewoon 'alles'.
     """
-    query = db.query(FormModel)
-    if q.strip():
-        query = query.filter(FormModel.title.ilike(f"%{q.strip()}%"))
-    if status in FORM_STATUSES:
-        query = query.filter(FormModel.status == status)
-    forms = query.order_by(FormModel.created_at.desc()).all()
+    forms = list_forms(db, q=q, status=status)
     # De filterbalk vraagt enkel de kaarten op: zou ze de pagina vervangen, dan
     # sneuvelt het zoekveld (en je focus) bij elke aanslag.
     sjabloon = ("_fb_kaarten.html" if is_fragment_request(request)
@@ -129,12 +148,10 @@ def formulier_aanmaken(request: Request, db: Session = Depends(get_db),
     browser echt navigeert i.p.v. een detailpaneel naast de lijst te vullen — dat
     master-detail is met #585 verdwenen.
     """
-    from app.domains.forms.router import _unique_share_token
+    from app.domains.forms.api import create_form, unique_share_token
 
-    form = FormModel(title=title.strip() or "Naamloos formulier",
-                     share_token=_unique_share_token(db))
-    db.add(form)
-    db.commit()
+    form = create_form(db, title=title.strip() or "Naamloos formulier",
+                       share_token=unique_share_token(db))
     return Response(status_code=204,
                     headers={"HX-Redirect": f"/admin/formulieren/{form.id}"})
 
@@ -159,9 +176,10 @@ def formulier_verwijderen(form_id: int, request: Request, db: Session = Depends(
     bestond alleen in de oude master-detail-lijst en dus niet op de pagina waar de
     knop staat — de gebruiker zag niets gebeuren.
     """
-    form = _form_or_404(db, form_id)
-    db.delete(form)
-    db.commit()
+    from app.domains.forms.api import delete_form
+
+    _form_or_404(db, form_id)
+    delete_form(db, form_id)
     return Response(status_code=204, headers={"HX-Redirect": "/admin/formulieren"})
 
 
@@ -176,19 +194,24 @@ def instellingen_opslaan(form_id: int, request: Request, db: Session = Depends(g
                          send_confirmation: str = Form(""), confirmation_message: str = Form(""),
                          allow_edit: str = Form(""), is_anonymous: str = Form(""),
                          requires_login: str = Form("")):
+    from app.domains.forms.api import update_form_settings
+
     form = _form_or_404(db, form_id)
     if status not in FORM_STATUSES:
-        raise HTTPException(status_code=422, detail=_("Ongeldige status: %(status)s") % {"status": status})
-    form.title = title.strip() or form.title
-    form.description = description.strip() or None
-    form.status = status
-    form.max_submissions = int(max_submissions) if max_submissions.strip().isdigit() else None
-    form.send_confirmation = bool(send_confirmation)
-    form.confirmation_message = confirmation_message.strip() or None
-    form.allow_edit = bool(allow_edit)
-    form.is_anonymous = bool(is_anonymous)
-    form.requires_login = bool(requires_login)
-    db.commit()
+        raise HTTPException(status_code=422,
+                            detail=_("Ongeldige status: %(status)s") % {"status": status})
+    update_form_settings(
+        db, form,
+        title=title.strip() or form.title,
+        description=description.strip() or None,
+        status=status,
+        max_submissions=int(max_submissions) if max_submissions.strip().isdigit() else None,
+        send_confirmation=bool(send_confirmation),
+        confirmation_message=confirmation_message.strip() or None,
+        allow_edit=bool(allow_edit),
+        is_anonymous=bool(is_anonymous),
+        requires_login=bool(requires_login),
+    )
     return _builder_response(request, db, form)
 
 
@@ -203,10 +226,10 @@ def _renumber(items) -> None:
              dependencies=[Depends(require_csrf)])
 def sectie_toevoegen(form_id: int, request: Request, db: Session = Depends(get_db),
                      email: str = Depends(require_admin_ui), title: str = Form("")):
+    from app.domains.forms.api import add_section
+
     form = _form_or_404(db, form_id)
-    form.sections.append(FormSection(title=title.strip() or None,
-                                     position=len(form.sections)))
-    db.commit()
+    _bewerk(add_section, db, form, title=title)
     return _builder_response(request, db, form)
 
 
@@ -216,21 +239,12 @@ def sectie_bewerken(form_id: int, section_id: int, request: Request,
                     db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
                     title: str = Form(""), description: str = Form(""),
                     next_section_id: str = Form(""), next_is_end: str = Form("")):
+    from app.domains.forms.api import update_section
+
     form = _form_or_404(db, form_id)
-    section = next((s for s in form.sections if s.id == section_id), None)
-    if section is None:
-        raise HTTPException(status_code=404, detail=_("Sectie niet gevonden"))
-    section.title = title.strip() or None
-    section.description = description.strip() or None
-    target: Optional[int] = int(next_section_id) if next_section_id.strip().isdigit() else None
-    if target is not None:
-        doel = next((s for s in form.sections if s.id == target), None)
-        if doel is None or doel.position <= section.position:
-            raise HTTPException(status_code=422,
-                                detail=_("Een sectie-sprong moet naar een latere sectie gaan."))
-    section.next_section_id = target
-    section.next_is_end = bool(next_is_end)
-    db.commit()
+    _bewerk(update_section, db, form, section_id, title=title,
+            description=description, next_section_id=next_section_id,
+            next_is_end=bool(next_is_end))
     return _builder_response(request, db, form)
 
 
@@ -239,16 +253,10 @@ def sectie_bewerken(form_id: int, section_id: int, request: Request,
 def sectie_verplaatsen(form_id: int, section_id: int, request: Request,
                        db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
                        richting: str = Form("op")):
-    from app.kernel.ordering import move_sibling
+    from app.domains.forms.api import move_section
 
     form = _form_or_404(db, form_id)
-    if not any(s.id == section_id for s in form.sections):
-        raise HTTPException(status_code=404, detail=_("Sectie niet gevonden"))
-    # Dezelfde helper als de activiteiten (#635 E). Die normaliseert eerst naar
-    # 0..n: wisselen alléén werkte niet zolang alle posities nog op hun default
-    # stonden — dan viel er niets te wisselen en gebeurde er stil niets.
-    move_sibling(form.sections, section_id, richting, attr="position")
-    db.commit()
+    _bewerk(move_section, db, form, section_id, richting)
     return _builder_response(request, db, form)
 
 
@@ -256,12 +264,10 @@ def sectie_verplaatsen(form_id: int, section_id: int, request: Request,
              response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 def sectie_verwijderen(form_id: int, section_id: int, request: Request,
                        db: Session = Depends(get_db), email: str = Depends(require_admin_ui)):
+    from app.domains.forms.api import delete_section
+
     form = _form_or_404(db, form_id)
-    section = next((s for s in form.sections if s.id == section_id), None)
-    if section is not None:
-        form.sections.remove(section)
-        _renumber(form.sections)
-    db.commit()
+    _bewerk(delete_section, db, form, section_id)
     return _builder_response(request, db, form)
 
 
@@ -273,16 +279,11 @@ def veld_toevoegen(form_id: int, request: Request, db: Session = Depends(get_db)
                    email: str = Depends(require_admin_ui),
                    label: str = Form(...), field_type: str = Form("text"),
                    section_id: str = Form("")):
+    from app.domains.forms.api import add_field
+
     form = _form_or_404(db, form_id)
-    if field_type not in FIELD_TYPES:
-        raise HTTPException(status_code=422, detail=_("Ongeldig veldtype: %(field_type)s") % {"field_type": field_type})
-    if not label.strip():
-        raise HTTPException(status_code=422, detail=_("Elk veld heeft een vraag/label nodig."))
-    sid = int(section_id) if section_id.strip().isdigit() else None
-    broers = [f for f in form.fields if f.section_id == sid]
-    form.fields.append(FormField(label=label.strip(), field_type=field_type,
-                                 section_id=sid, position=len(broers)))
-    db.commit()
+    _bewerk(add_field, db, form, label=label, field_type=field_type,
+            section_id=section_id)
     return _builder_response(request, db, form)
 
 
@@ -295,23 +296,13 @@ def veld_bewerken(form_id: int, field_id: int, request: Request,
                   max_length: str = Form(""), min_value: str = Form(""),
                   max_value: str = Form(""), rating_max: str = Form(""),
                   rating_low_label: str = Form(""), rating_high_label: str = Form("")):
+    from app.domains.forms.api import update_field
+
     form = _form_or_404(db, form_id)
-    veld = next((f for f in form.fields if f.id == field_id), None)
-    if veld is None:
-        raise HTTPException(status_code=404, detail=_("Veld niet gevonden"))
-    if not label.strip():
-        raise HTTPException(status_code=422, detail=_("Elk veld heeft een vraag/label nodig."))
-    veld.label = label.strip()
-    veld.help_text = help_text.strip() or None
-    veld.required = bool(required)
-    veld.min_length = int(min_length) if min_length.strip().isdigit() else None
-    veld.max_length = int(max_length) if max_length.strip().isdigit() else None
-    veld.min_value = min_value.strip() or None
-    veld.max_value = max_value.strip() or None
-    veld.rating_max = int(rating_max) if rating_max.strip().isdigit() else None
-    veld.rating_low_label = rating_low_label.strip() or None
-    veld.rating_high_label = rating_high_label.strip() or None
-    db.commit()
+    _bewerk(update_field, db, form, field_id, label=label, help_text=help_text,
+            required=required, min_length=min_length, max_length=max_length,
+            min_value=min_value, max_value=max_value, rating_max=rating_max,
+            rating_low_label=rating_low_label, rating_high_label=rating_high_label)
     return _builder_response(request, db, form)
 
 
@@ -320,15 +311,10 @@ def veld_bewerken(form_id: int, field_id: int, request: Request,
 def veld_verplaatsen(form_id: int, field_id: int, request: Request,
                      db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
                      richting: str = Form("op")):
-    from app.kernel.ordering import move_sibling
+    from app.domains.forms.api import move_field
 
     form = _form_or_404(db, form_id)
-    veld = next((f for f in form.fields if f.id == field_id), None)
-    if veld is None:
-        raise HTTPException(status_code=404, detail=_("Veld niet gevonden"))
-    broers = [f for f in form.fields if f.section_id == veld.section_id]
-    move_sibling(broers, field_id, richting, attr="position")
-    db.commit()
+    _bewerk(move_field, db, form, field_id, richting)
     return _builder_response(request, db, form)
 
 
@@ -336,11 +322,10 @@ def veld_verplaatsen(form_id: int, field_id: int, request: Request,
              response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 def veld_verwijderen(form_id: int, field_id: int, request: Request,
                      db: Session = Depends(get_db), email: str = Depends(require_admin_ui)):
+    from app.domains.forms.api import delete_field
+
     form = _form_or_404(db, form_id)
-    veld = next((f for f in form.fields if f.id == field_id), None)
-    if veld is not None:
-        form.fields.remove(veld)
-    db.commit()
+    _bewerk(delete_field, db, form, field_id)
     return _builder_response(request, db, form)
 
 
@@ -351,13 +336,10 @@ def veld_verwijderen(form_id: int, field_id: int, request: Request,
 def optie_toevoegen(form_id: int, field_id: int, request: Request,
                     db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
                     label: str = Form(...), is_other: str = Form("")):
+    from app.domains.forms.api import add_option
+
     form = _form_or_404(db, form_id)
-    veld = next((f for f in form.fields if f.id == field_id), None)
-    if veld is None or veld.field_type not in ("select", "radio", "checkbox"):
-        raise HTTPException(status_code=422, detail=_("Opties kunnen enkel bij keuzevelden."))
-    veld.options.append(FormFieldOption(label=label.strip(), position=len(veld.options),
-                                        is_other=bool(is_other)))
-    db.commit()
+    _bewerk(add_option, db, form, field_id, label=label, is_other=bool(is_other))
     return _builder_response(request, db, form)
 
 
@@ -367,27 +349,12 @@ def optie_bewerken(form_id: int, option_id: int, request: Request,
                    db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
                    label: str = Form(...), is_other: str = Form(""),
                    skip_to_section_id: str = Form(""), skip_to_end: str = Form("")):
+    from app.domains.forms.api import update_option
+
     form = _form_or_404(db, form_id)
-    optie = next((o for f in form.fields for o in f.options if o.id == option_id), None)
-    if optie is None:
-        raise HTTPException(status_code=404, detail=_("Optie niet gevonden"))
-    veld = optie.field
-    heeft_sprong = bool(skip_to_end) or skip_to_section_id.strip().isdigit()
-    if heeft_sprong and veld.field_type not in ("radio", "select"):
-        raise HTTPException(status_code=422,
-                            detail=_("Vertakking kan enkel bij 'één keuze' of 'keuzelijst'."))
-    target = int(skip_to_section_id) if skip_to_section_id.strip().isdigit() else None
-    if target is not None:
-        doel = next((s for s in form.sections if s.id == target), None)
-        eigen = next((s for s in form.sections if s.id == veld.section_id), None)
-        if doel is None or (eigen is not None and doel.position <= eigen.position):
-            raise HTTPException(status_code=422,
-                                detail=_("Een vertakking moet naar een latere sectie springen."))
-    optie.label = label.strip() or optie.label
-    optie.is_other = bool(is_other)
-    optie.skip_to_section_id = target
-    optie.skip_to_end = bool(skip_to_end)
-    db.commit()
+    _bewerk(update_option, db, form, option_id, label=label,
+            is_other=bool(is_other), skip_to_section_id=skip_to_section_id,
+            skip_to_end=bool(skip_to_end))
     return _builder_response(request, db, form)
 
 
@@ -395,11 +362,10 @@ def optie_bewerken(form_id: int, option_id: int, request: Request,
              response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 def optie_verwijderen(form_id: int, option_id: int, request: Request,
                       db: Session = Depends(get_db), email: str = Depends(require_admin_ui)):
+    from app.domains.forms.api import delete_option
+
     form = _form_or_404(db, form_id)
-    optie = next((o for f in form.fields for o in f.options if o.id == option_id), None)
-    if optie is not None:
-        optie.field.options.remove(optie)
-    db.commit()
+    _bewerk(delete_option, db, form, option_id)
     return _builder_response(request, db, form)
 
 
@@ -409,9 +375,8 @@ def optie_verwijderen(form_id: int, option_id: int, request: Request,
              dependencies=[Depends(require_csrf)])
 def json_import(form_id: int, request: Request, db: Session = Depends(get_db),
                 email: str = Depends(require_admin_ui), payload: str = Form(...)):
+    from app.domains.forms.api import import_definition
     from app.domains.forms.schemas import FormUpdate
-    from app.domains.forms.service import (apply_definition, update_settings,
-                                           validate_definition)
 
     form = _form_or_404(db, form_id)
     try:
@@ -419,18 +384,15 @@ def json_import(form_id: int, request: Request, db: Session = Depends(get_db),
     except (json.JSONDecodeError, ValueError) as exc:
         return _builder_response(request, db, form,
                                  error=_("Ongeldige JSON: %(exc)s") % {"exc": exc})
+    # Alle instellingen, niet drie (#635-3): deze route schreef enkel titel,
+    # omschrijving en status, waardoor een import stilzwijgend slug,
+    # requires_login, max_submissions, send_confirmation, confirmation_message,
+    # allow_edit en is_anonymous liet vallen. `import_definition` doet valideren,
+    # instellen en verzoenen in één transactie — faalt er iets, dan rolt het
+    # geheel terug, want een half ingelezen formulier is erger dan geen.
     try:
-        validate_definition(data)
-        # Alle instellingen, niet drie (#635-3): deze route schreef enkel titel,
-        # omschrijving en status, waardoor een import stilzwijgend slug,
-        # requires_login, max_submissions, send_confirmation,
-        # confirmation_message, allow_edit en is_anonymous liet vallen. Dezelfde
-        # functie als update_form gebruikt, dus dat kan niet meer uiteenlopen.
-        update_settings(form, data)
-        apply_definition(form, data)
-        db.commit()
+        import_definition(db, form, data)
     except HTTPException as exc:
-        db.rollback()
         return _builder_response(request, db, form, error=str(exc.detail))
     return _builder_response(request, db, form)
 
@@ -443,8 +405,7 @@ def inzendingen_tab(form_id: int, request: Request, db: Session = Depends(get_db
     from app.domains.forms.api import submission_view
 
     form = _form_or_404(db, form_id)
-    subs = (db.query(FormSubmission).filter(FormSubmission.form_id == form.id)
-            .order_by(FormSubmission.id.desc()).all())
+    subs = list_submissions(db, form.id)
     rows = [{"submission": s, "answers": submission_view(db, s.id)} for s in subs]
     return templates.TemplateResponse(request, "_fb_inzendingen.html", {
         "form": form, "rows": rows, "csrf_token": csrf_from_request(request)})
@@ -455,24 +416,16 @@ def inzendingen_tab(form_id: int, request: Request, db: Session = Depends(get_db
 def inzending_verwijderen(form_id: int, submission_id: int, request: Request,
                           db: Session = Depends(get_db),
                           email: str = Depends(require_admin_ui)):
-    sub = (db.query(FormSubmission)
-           .filter(FormSubmission.id == submission_id,
-                   FormSubmission.form_id == form_id).first())
-    if sub is not None:
-        db.delete(sub)
-        db.commit()
+    delete_submission(db, form_id, submission_id)
     return inzendingen_tab(form_id, request, db=db, email=email)
 
 
 @router.get("/admin/formulieren/{form_id}/export")
 def inzendingen_export(form_id: int, request: Request, db: Session = Depends(get_db),
                        email: str = Depends(require_admin_ui)) -> Response:
-    from app.domains.forms.router import export_form
+    from app.domains.forms.api import export_submissions_ods
 
-    # format expliciet meegeven: export_form heeft `format=Query("ods")`, en bij een
-    # directe functie-aanroep is die default een FastAPI Query-object (niet de string
-    # "ods") → anders faalt de format-check met 422 "Ongeldig formaat".
-    return export_form(form_id, format="ods", db=db, _admin=None)  # type: ignore[arg-type]
+    return export_submissions_ods(db, form_id)
 
 
 # ── Resultaten (statistiek) + JSON-export ──────────────────────────────────────
@@ -493,10 +446,10 @@ def resultaten_tab(form_id: int, request: Request, db: Session = Depends(get_db)
 def json_export(form_id: int, request: Request, db: Session = Depends(get_db),
                 email: str = Depends(require_admin_ui)) -> Response:
     """Volledige formulierdefinitie als downloadbare JSON (backup/inspectie/AI)."""
-    from app.domains.forms.router import _admin_out
+    from app.domains.forms.api import form_definition
 
     form = _form_or_404(db, form_id)
-    payload = json.dumps(_admin_out(db, form), ensure_ascii=False,
+    payload = json.dumps(form_definition(db, form), ensure_ascii=False,
                          indent=2, default=str)
     slug = form.slug or f"formulier-{form.id}"
     return Response(
