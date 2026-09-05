@@ -78,6 +78,11 @@ Vier regels, elk met een reden:
 26. **Het verplicht-sterretje komt uit `label(required=…)`**, niet uit de labeltekst
     (#646). In de tekst erft het `text-gray-700` en staat er grijs naast een rood
     sterretje van een veld dat de parameter wél gebruikt.
+28. **Een leeslink naar de bijlage staat enkel in leesmodus** (#653, §2.12). Een
+    `<a href="…_asset_url">` buiten het uploadblok hoort achter `x-show="!edit"`;
+    anders staat "Huidige affiche bekijken" in bewerkmodus twee keer op het scherm.
+    Deze regel dekt bewust alleen de bijlage — zie de docstring voor waarom de
+    bredere structuurregel uit #653 geen betrouwbare gate oplevert.
 27. **Een KPI-cijfer draagt `font-brand` en geen eigen kleurklasse** (#647). Twee
     van de zes stonden in `text-blue-700` en één miste het merkfont; op één scherm
     stond een blauw cijfer naast een zwart. Het design-systeem legt voor KPI's
@@ -120,6 +125,11 @@ METADATA_GLYPH = re.compile("[\u2709\u260e\U0001f4f1\U0001f4cd\U0001f5d3]")
 # `[^)]*` zou hier NIET werken: `label(_("E-mail") ~ …)` bevat zelf al een
 # sluithaakje van `_()`, dus de zoektocht stopt vóór het sterretje.
 STERRETJE_IN_LABEL_CALL = re.compile(r'\blabel\([^\n]*["\']\s*\*')
+# Een leeslink naar de huidige bijlage: <a href="{{ …_asset_url }}"> buiten het
+# uploadblok. Die hoort achter x-show="!<vlag>" (§2.12, #653).
+BIJLAGE_LINK = re.compile(r'<[^>]*href="\{\{\s*[a-z_.]*_asset_url[^"]*"[^>]*>')
+# Een scherm mét bewerkmodus: een <form> dat aan een Alpine-vlag hangt.
+BEWERKVORM = re.compile(r'<form[^>]*x-show="[a-z_]')
 RODE_SPAN = re.compile(r'<span class="text-red-600">.*?</span>')
 # Een KPI-cijfer herken je aan font-extrabold: §Weight reserveert dat gewicht voor
 # de paginatitel, de KPI-cijfers en het woordmerk, en die eerste twee dragen
@@ -772,5 +782,45 @@ def test_kpi_cijfers_zijn_gelijkvormig():
                 fouten.append(f"{plek}: font-brand ontbreekt")
     assert not fouten, (
         "Een KPI-cijfer is `text-3xl font-extrabold font-brand`, zonder eigen kleur:\n  "
+        + "\n  ".join(fouten)
+    )
+
+
+def test_een_leeslink_naar_de_bijlage_staat_enkel_in_leesmodus():
+    """§2.12: de huidige bijlage staat nooit twee keer tegelijk op het scherm (#653).
+
+    In bewerkmodus hoort ze in het uploadblok, naast de kiezer en haar
+    verwijderactie. Een leeslink daarbuiten mag — je wil een bijlage kunnen openen
+    zonder eerst te gaan bewerken — maar dan uitsluitend achter `x-show="!edit"`.
+    Ontbreekt die, dan lekt ze de bewerkmodus in en staat "Huidige affiche
+    bekijken" er twee keer, wat #653 was.
+
+    Bewust alleen de bijlage, en niet de bredere structuurregel die #653
+    voorstelde ("een x-data-blok met een bewerkvorm moet een x-show=\"!vlag\"
+    bevatten"). Die is geprobeerd en werkt niet als gate: de bewerk-toggle draagt
+    zélf een `x-show="!edit"` op zijn "Bewerken"-label, dus het blok lijkt altijd in
+    orde — hij zou #653 niet gevangen hebben. Sluit je die knop uit, dan slaat hij
+    aan op de onderdeelkop, die volgens de afweging in #648 juist mag blijven
+    staan. Op elementniveau lopen kind-elementen van een correct verborgen blok
+    weer binnen als valse treffers. Wat overblijft is deze regel: smal, en zonder
+    enkele valse treffer.
+
+    De regel kijkt naar links met een `…_asset_url` in de href. In het uploadblok
+    komt die uit `ui.upload_field(current_url=…)` en staat er dus geen letterlijke
+    `<a href>` in een template — precies daarom is dit machinaal te scheiden.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
+            if not BEWERKVORM.search(pad.read_text()):
+                # Geen bewerkmodus in dit scherm, dus ook geen dubbele bijlage: op
+                # een publieke kaart is de affichelink gewoon de link.
+                continue
+            for tag in BIJLAGE_LINK.findall(regel):
+                if 'x-show="!' in regel:
+                    continue
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: {tag[:90]}")
+    assert not fouten, (
+        'Zet een leeslink naar de bijlage achter x-show="!edit" (§2.12, #653):\n  '
         + "\n  ".join(fouten)
     )
