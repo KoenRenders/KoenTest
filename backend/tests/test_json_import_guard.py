@@ -51,8 +51,9 @@ def _formulier_met_inzending(db):
     inzending = FormSubmission(form_id=form.id)
     db.add(inzending)
     db.flush()
+    # Getypeerde waardekolommen: per antwoord is er precies één gevuld.
     db.add(FormSubmissionAnswer(submission_id=inzending.id, field_id=veld.id,
-                                value="Jef"))
+                                value_text="Jef"))
     db.commit()
     return form, veld
 
