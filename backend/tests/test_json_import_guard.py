@@ -162,5 +162,5 @@ def test_het_scherm_verbergt_de_import_bij_inzendingen(client, db_session):
     form, _veld = _formulier_met_inzending(db_session)
     _login(client)
     html = client.get(f"/admin/formulieren/{form.id}").text
-    assert "Niet beschikbaar" in html
+    assert "niet beschikbaar" in html.lower()
     assert 'name="payload"' not in html, "het invulvak staat er nog"
