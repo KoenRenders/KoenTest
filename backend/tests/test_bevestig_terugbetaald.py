@@ -88,7 +88,9 @@ def test_de_knop_staat_op_een_openstaande_terugbetaling(client, db_session):
     html = client.get("/admin/betalingen/lijst").text
     regels = [r for r in html.splitlines()
               if f"/admin/betalingen/{refund.id}/bevestigen" in r]
-    assert regels, "de openstaande terugbetaling heeft geen bevestig-knop (#661)"
+    assert regels, (
+        "de openstaande terugbetaling heeft geen bevestig-knop (#661). Let op: een "
+        "refund die uit een charge ontstaat, rendert genest en niet als eigen kaart")
     blok = "\n".join(regels)
     assert "Bevestig terugbetaald" in blok, f"verkeerd label: {blok[:200]}"
     assert "Als volledig terugbetaald bevestigen?" in blok, (

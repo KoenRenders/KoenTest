@@ -189,7 +189,15 @@
     {{ kaartkop(rk) }}
     {% if is_finance %}
     <div class="mt-3 border-t border-gray-100 pt-2">
-      {{ ui.row_actions(actions=[ui.edit_toggle("rbewerk", size="sm")], max_visible=3,
+      {# #661: ook hier "Bevestig terugbetaald". Dit is het pad dat je in de
+         praktijk ziet — een terugbetaling ontstaat via "Terugbetaling registreren"
+         op een betaalde vordering en staat dan genest onder haar charge. Zonder
+         deze knop moest je Bewerken openen en het bedrag intypen dat al bekend is. #}
+      {% set _racts = [ui.edit_toggle("rbewerk", size="sm")] %}
+      {% if rf.status != "paid" %}
+      {% set _ignore = _racts.append(ui.btn_secondary(_("Bevestig terugbetaald"), size="sm", attrs='hx-post="/admin/betalingen/' ~ rf.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_("Als volledig terugbetaald bevestigen?"))) %}
+      {% endif %}
+      {{ ui.row_actions(actions=_racts, max_visible=3,
                         delete_attrs=('hx-post="/admin/betalingen/' ~ rf.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML"') if rk.mag_verwijderen else '',
                         delete_confirm=_("Deze terugbetaling verwijderen?")) }}
     </div>
