@@ -110,8 +110,10 @@ def test_het_scherm_gebruikt_de_lichte_variant(client, db_session):
     from app.domains.media import admin_ui
 
     bron = inspect.getsource(admin_ui._lijst_ctx)
-    assert "activity_options" in bron
-    assert "list_activities" not in bron
+    assert "activity_options(db)" in bron
+    # Op de aanroep toetsen, niet op het woord: de toelichting erboven noemt
+    # `list_activities` om uit te leggen waarom het er niet meer staat.
+    assert "list_activities(" not in bron
 
 
 def test_de_dropdown_toont_alle_activiteiten_op_het_scherm(client, db_session):
@@ -123,6 +125,8 @@ def test_de_dropdown_toont_alle_activiteiten_op_het_scherm(client, db_session):
     db_session.commit()
     client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
 
-    html = client.get("/admin/media/nieuw").text
+    # De activiteit-dropdown hoort bij foto's, niet bij sponsorlogo's; zonder
+    # `kind` toont het scherm het sponsorformulier.
+    html = client.get("/admin/media/nieuw", params={"kind": "activity_photo"}).text
 
     assert "Zichtbaar in de keuzelijst" in html
