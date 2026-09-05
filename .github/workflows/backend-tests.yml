@@ -168,6 +168,33 @@ jobs:
         if: failure()
         run: tail -100 /tmp/backend.log
 
+  css:
+    runs-on: ubuntu-latest
+    # BLOKKEREND (#652): app.css wordt met de hand gegenereerd en meegecommit, en
+    # liep stil uiteen met de templates — -mt-1/-mx-5 ontbraken, waardoor het
+    # e-maillog op HDEV met verkeerde marges rendeerde zonder dat iets faalde.
+    # Zelfde patroon als #450 ("boot kapot terwijl CI groen"): een handmatige stap
+    # wordt vroeg of laat vergeten en de fout is pas zichtbaar als iemand toevallig
+    # het juiste scherm opent. De build is reproduceerbaar (Tailwind gepind op
+    # v3.4.17), dus een diff hier betekent altijd: niet herbouwd.
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: CSS herbouwen uit de templates
+        run: ./scripts/build-css.sh
+
+      - name: app.css moet gelijk lopen met de templates
+        run: |
+          if ! git diff --exit-code --stat backend/app/static/app.css; then
+            echo ""
+            echo "::error::app.css is niet herbouwd na een template-wijziging."
+            echo "Draai lokaal:  ./scripts/build-css.sh"
+            echo "en commit      backend/app/static/app.css  mee."
+            git diff backend/app/static/app.css | head -40
+            exit 1
+          fi
+
   boot:
     runs-on: ubuntu-latest
     # BLOKKEREND (#450): draai de ECHTE startup.sh tegen een lege Postgres 16.
