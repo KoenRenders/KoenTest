@@ -200,6 +200,28 @@ class Adminschil:
         self.page.wait_for_timeout(200)
 
 
+def controlhoogtes(page, container_selector: str) -> dict:
+    """De GERENDERDE hoogte van elk formulierveld in een container (#677).
+
+    Een rendertest op klassen zegt hier niets: beide controls dragen al dezelfde
+    opmaak. De fout zit in wat de BROWSER ervan maakt — een <select> krijgt
+    intrinsieke ruimte voor zijn pijltje, een <input> niet. Alleen een echte
+    browser kan dat meten.
+    """
+    hoogtes: dict = {}
+    velden = page.locator(f"{container_selector} input:not([type=checkbox]):not([type=hidden]), "
+                          f"{container_selector} select")
+    for i in range(velden.count()):
+        veld = velden.nth(i)
+        if not veld.is_visible():
+            continue
+        doos = veld.bounding_box()
+        if doos:
+            naam = veld.get_attribute("name") or veld.get_attribute("id") or f"veld{i}"
+            hoogtes[naam] = round(doos["height"], 1)
+    return hoogtes
+
+
 class Activiteitdetail:
     """/admin/activiteiten/<id> — het scherm waarop #649 gemeld werd.
 

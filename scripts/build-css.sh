@@ -99,6 +99,21 @@ cat > "$TMP/in.css" << 'CSS'
      zónder `:where()` zou dat wél breken: `input[type="text"]` is 0,1,1 en zou
      `.px-2` verslaan. */
   html :where(input[type="text"],input[type="email"],input[type="tel"],input[type="number"],input[type="password"],input[type="search"],input[type="url"],input[type="date"],input[type="time"],input[type="datetime-local"],input:not([type]),select,textarea){border:1px solid #d1d5db;border-radius:.5rem;padding:.5rem .75rem;font-size:.875rem;line-height:1.25rem;background-color:#fff;color:#111827}
+  /* Expliciete hoogte (#677). Gelijke padding en lettergrootte volstaan NIET: een
+     <select> krijgt van de browser intrinsieke ruimte voor zijn pijltje en een
+     eigen minimumhoogte, een <input> niet. Enkele pixels verschil, en omdat de
+     compacte vormen `items-end` gebruiken zakt het LABEL boven de kortere kolom
+     mee — zelfde zichtbare fout als #656, andere oorzaak.
+
+     2.375rem = 1.25rem regelhoogte + 2 × .5rem padding + 2 × 1px rand. Hier en
+     nergens anders: de maatvoering van een control staat in deze base-layer, niet
+     óók in `_control_base`, zodat er geen twee bronnen zijn die elkaar bevechten.
+
+     `date`/`time` staan er expliciet bij: die dragen in elke browser hun eigen
+     intrinsieke maat en staan op het activiteitdetail naast gewone tekstvelden.
+
+     Een <textarea> hoort er NIET bij — die groeit met `rows` en moet dat kunnen. */
+  html :where(input[type="text"],input[type="email"],input[type="tel"],input[type="number"],input[type="password"],input[type="search"],input[type="url"],input[type="date"],input[type="time"],input[type="datetime-local"],input:not([type]),select){height:2.375rem}
   html :where(input[type="text"],input[type="email"],input[type="tel"],input[type="number"],input[type="password"],input[type="search"],input[type="url"],input[type="date"],input[type="time"],input[type="datetime-local"],input:not([type]),select,textarea):focus{border-color:var(--brand-ocean);box-shadow:0 0 0 3px rgba(0,81,164,.15);outline:none}
 }
 /* ── Wacht- en overgangsfeedback voor htmx (#634) ────────────────────────────

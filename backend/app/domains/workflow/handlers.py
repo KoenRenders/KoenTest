@@ -126,12 +126,20 @@ def sweep(db: Session, payload: dict) -> None:
         # reden in `decision`, want anders toont het archief uit #674 taken die door
         # niemand afgehandeld lijken.
         geldig = {k["title"] for k in kandidaten}
+        gesloten = False
         for taak in open_taken:
             if taak.kind in SWEEP_SOORTEN and taak.title not in geldig:
                 logger.warning("werkbank-sweep: aanleiding weg — %s", taak.title)
                 api.close_task(db, taak.id, done_by="systeem",
                                decision=_("Automatisch gesloten: de aanleiding voor "
                                           "deze taak bestaat niet meer."))
+                gesloten = True
+        # close_task zet enkel de velden; het wegschrijven hoort bij de aanroeper.
+        # Zonder deze flush blijft de wijziging in de sessie hangen tot iets anders
+        # ze toevallig meeneemt — en dan is "de taak is gesloten" afhankelijk van
+        # wat er ná deze job gebeurt.
+        if gesloten:
+            db.flush()
     if not payload.get("once"):
         enqueue(db, "workflow.sweep", {},
                 run_at=datetime.now(timezone.utc) + SWEEP_INTERVAL)
