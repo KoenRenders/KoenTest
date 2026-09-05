@@ -190,5 +190,13 @@ def test_werkbank_pollend_fragment_bevat_de_filter_niet(client, db_session):
     assert 'type="search"' not in fragment
     pagina = client.get("/admin/werkbank").text
     assert 'type="search"' in pagina
-    # de polling stuurt zoek + filter mee, anders wist ze het filter alsnog
-    assert "hx-include=\"[name='kind'], [name='q']\"" in pagina
+    # De polling stuurt zoek én filters mee, anders wist ze het filter alsnog.
+    # Op de namen toetsen en niet op de exacte string: sinds #674 hoort `status`
+    # er ook bij (Open/Afgehandeld/Alle), en die zou de polling anders elke 30 s
+    # terugzetten op Open.
+    import re
+    m = re.search(r'hx-include="([^"]+)"', pagina)
+    assert m, "de polling stuurt geen filterwaarden mee"
+    for naam in ("kind", "q", "status"):
+        assert f"[name='{naam}']" in m.group(1), (
+            f"de polling stuurt {naam} niet mee — dat filter wordt om de 30 s gewist")

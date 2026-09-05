@@ -83,8 +83,31 @@ class Betalingenscherm:
         """
         kaart.get_by_text("Toon inschrijvingsdetails").click()
         paneel = kaart.locator('[id^="det-"]').first
-        paneel.locator("> *").first.wait_for(state="visible", timeout=10000)
+        paneel.locator(":scope > *").first.wait_for(state="visible", timeout=10000)
         return paneel
+
+    def bewerkbaar_detailpaneel(self):
+        """Het eerste detailpaneel dat écht te bewerken is.
+
+        "De eerste kaart met een detailknop" is niet genoeg: een geschrapte
+        inschrijving toont haar paneel wel maar zonder bewerk-toggle, en sinds #673
+        kan een andere kaart bovenaan staan (een lege vordering valt weg, een
+        bijkomende springt in). Dezelfde redenering als bij `kaart_met_knop`
+        (#644-D): kies de kaart die de handeling kán, niet de kaart die toevallig
+        eerst staat.
+
+        Geeft None als geen enkele kaart bewerkbaar is — dan is het een
+        overslaan-geval voor de test, geen bevinding.
+        """
+        kaarten = self.page.locator(
+            ".bg-white", has=self.page.get_by_role(
+                "button", name="Toon inschrijvingsdetails"))
+        for i in range(kaarten.count()):
+            kaart = kaarten.nth(i)
+            paneel = self.toon_inschrijvingsdetails(kaart)
+            if paneel.get_by_role("button", name="Bewerken").count():
+                return paneel
+        return None
 
 
 class Inschrijvingsdetail:
