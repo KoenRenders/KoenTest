@@ -38,7 +38,11 @@ BUDGET = {
     "/admin/betalingen": 40,
     "/admin/ledenwijzigingen": 40,
     "/admin/werkbank": 25,
-    "/admin/media": 1,      # TIJDELIJK: meting
+    # Gemeten: 4 (rolcheck, keuzelijst, media-activiteit-ids, medialijst). Bewust
+    # krap: een terugval naar `list_activities` voegt de selectinloads voor datums,
+    # onderdelen en producten toe plus de bezettingsberekening — samen ruim boven
+    # dit plafond, en dát is precies de regressie die deze regel moet vangen (#645).
+    "/admin/media": 6,
     "/activiteiten": 40,
 }
 
