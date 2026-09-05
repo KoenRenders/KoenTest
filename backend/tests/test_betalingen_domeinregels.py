@@ -159,8 +159,10 @@ def test_refunds_hangen_onder_hun_eigen_vordering():
                  amount=Decimal("3"), amount_paid=Decimal("3"))
     groepen = group_cards([charge, refund])
     assert len(groepen) == 1
-    kaart, refunds = groepen[0]["kaarten"][0]
-    assert kaart is charge and refunds == [refund]
+    # Sinds #668 draagt de kaarttuple een derde veld: of ze context is (de charge
+    # van een gefilterde terugbetaling) of een echte treffer.
+    kaart, refunds, is_context = groepen[0]["kaarten"][0]
+    assert kaart is charge and refunds == [refund] and is_context is False
 
 
 def test_een_wees_refund_verdwijnt_niet_van_het_scherm():
@@ -168,7 +170,7 @@ def test_een_wees_refund_verdwijnt_niet_van_het_scherm():
     nog steeds getoond te worden — anders verdwijnt geld stil."""
     wees = rec(id="r9", type="refund", refund_of_id="c-onzichtbaar", created_at=1)
     groepen = group_cards([wees])
-    assert groepen[0]["kaarten"] == [(wees, [])]
+    assert groepen[0]["kaarten"] == [(wees, [], False)]
 
 
 def test_de_totaalregel_telt_de_hele_payable():
