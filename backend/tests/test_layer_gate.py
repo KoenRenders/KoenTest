@@ -83,8 +83,6 @@ LAYER_ALLOWLIST: set[tuple[str, str]] = {
     ("app.domains.forms.admin_ui", "imports"),
     ("app.domains.forms.ui", "imports"),
     ("app.domains.mdm.ui", "imports"),
-    ("app.domains.media.admin_ui", "imports"),
-    ("app.domains.media.ui", "imports"),
     ("app.domains.membership.ui", "imports"),
     # ── regel 2: rauw ORM-gebruik in de routebody ────────────────────────────
     ("app.domains.activities.admin_ui", "orm"),
@@ -93,8 +91,6 @@ LAYER_ALLOWLIST: set[tuple[str, str]] = {
     ("app.domains.forms.admin_ui", "orm"),
     ("app.domains.forms.ui", "orm"),
     ("app.domains.mdm.ui", "orm"),
-    ("app.domains.media.admin_ui", "orm"),
-    ("app.domains.media.ui", "orm"),
     ("app.domains.membership.ui", "orm"),
     # ── regel 3: ORM-klassen en routerfuncties die via een facade binnenkomen ─
     ("app.domains.activities.admin_ui", "facade"),

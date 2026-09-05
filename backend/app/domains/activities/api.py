@@ -32,7 +32,14 @@ def list_activities(db, scope: str = "upcoming"):
     return _impl(scope=scope, db=db)
 from app.domains.activities.export import build_component_export_ods  # noqa: F401
 
+from app.domains.activities.service import (  # noqa: F401
+    get_activity,
+    get_component,
+    get_registration,
+)
+
 __all__ = [
+    "get_activity", "get_component", "get_registration",
     "Activity", "ActivityDate", "ActivityDateHistory", "ActivityHistory",
     "ActivityProduct", "ActivitySubRegistration", "ComponentHistory",
     "ProductHistory", "Registration", "RegistrationItem",

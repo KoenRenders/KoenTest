@@ -16,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.domains.auth.api import get_current_admin
 from app.database import get_db
+from app.domains.media import service as _service
 from app.domains.media.models import MediaAsset
 from app.domains.activities.api import Activity
 from app.domains.activities.api import ActivitySubRegistration
@@ -198,40 +199,13 @@ def activity_photos_availability(db: Session = Depends(get_db)):
 
 @router.get("/media/activity-photos/covers")
 def activity_photo_covers(db: Session = Depends(get_db)):
-    """Per activiteit met foto's één cover-thumbnail — in één query.
-
-    Gebruikt door de fotopagina om albumkaartjes met een echte beeld-preview
-    te tonen i.p.v. een placeholder-icoon. DISTINCT ON (activity_id) pakt per
-    activiteit de eerste foto (laagste sort_order, dan id). Blijft binnen het
-    media-domein; raakt het activiteiten-schema niet aan.
-    """
-    rows = (
-        db.query(MediaAsset)
-        .filter(
-            MediaAsset.kind == "activity_photo",
-            MediaAsset.is_active == True,  # noqa: E712
-            MediaAsset.activity_id.isnot(None),
-        )
-        .order_by(MediaAsset.activity_id, MediaAsset.sort_order.asc(), MediaAsset.id.asc())
-        .distinct(MediaAsset.activity_id)
-        .all()
-    )
-    return [{"activity_id": a.activity_id, "thumb_url": f"/api/v1/media/{a.id}/thumb"} for a in rows]
+    """Per activiteit met foto's één cover-thumbnail (service, #635 I)."""
+    return _service.activity_photo_covers(db)
 
 
 @router.get("/activities/{activity_id}/photos")
 def list_activity_photos(activity_id: int, db: Session = Depends(get_db)):
-    rows = (
-        db.query(MediaAsset)
-        .filter(
-            MediaAsset.kind == "activity_photo",
-            MediaAsset.activity_id == activity_id,
-            MediaAsset.is_active == True,  # noqa: E712
-        )
-        .order_by(MediaAsset.sort_order.asc(), MediaAsset.id.asc())
-        .all()
-    )
-    return [_meta(a) for a in rows]
+    return _service.list_activity_photos(db, activity_id)
 
 
 # ---------------------------------------------------------------------------
@@ -244,13 +218,7 @@ def admin_list_media(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    q = db.query(MediaAsset)
-    if kind:
-        q = q.filter(MediaAsset.kind == kind)
-    if activity_id is not None:
-        q = q.filter(MediaAsset.activity_id == activity_id)
-    rows = q.order_by(MediaAsset.sort_order.asc(), MediaAsset.id.desc()).all()
-    return [_meta(a) for a in rows]
+    return _service.list_media(db, kind=kind, activity_id=activity_id)
 
 
 @router.post("/admin/media")
@@ -263,53 +231,14 @@ async def upload_media(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    if kind not in VALID_KINDS:
-        raise HTTPException(status_code=400, detail=_("Ongeldige 'kind'"))
-    if kind == "activity_photo":
-        if activity_id is None:
-            raise HTTPException(status_code=400, detail=_("activity_id vereist voor activiteitenfoto's"))
-        if not db.query(Activity).filter(Activity.id == activity_id).first():
-            raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
-    else:
-        activity_id = None  # sponsors hangen niet aan een activiteit
-
-    if not files:
-        raise HTTPException(status_code=400, detail=_("Geen bestanden"))
-    if len(files) > MAX_BATCH:
-        raise HTTPException(status_code=400, detail=_("Maximaal %(max)s bestanden per keer") % {"max": MAX_BATCH})
-
-    # Volgende sort_order na de bestaande items in deze groep.
-    base_q = db.query(MediaAsset).filter(MediaAsset.kind == kind)
-    if activity_id is not None:
-        base_q = base_q.filter(MediaAsset.activity_id == activity_id)
-    next_order = base_q.count()
-
-    created = []
-    for idx, up in enumerate(files):
-        if up.content_type not in ALLOWED_CONTENT_TYPES:
-            raise HTTPException(status_code=400, detail=_("Niet-ondersteund bestandstype: %(filename)s") % {"filename": up.filename})
-        raw = await up.read()
-        try:
-            processed = process_image(raw)
-        except ImageError as exc:
-            raise HTTPException(status_code=400, detail=f"{up.filename}: {exc}")
-
-        asset = MediaAsset(
-            kind=kind,
-            activity_id=activity_id,
-            title=title or up.filename,
-            link_url=link_url,
-            sort_order=next_order + idx,
-            is_active=True,
-            **processed,
-        )
-        db.add(asset)
-        created.append(asset)
-
-    db.commit()
-    for a in created:
-        db.refresh(a)
-    return [_meta(a) for a in created]
+    try:
+        return await _service.upload_media(db, files=files, kind=kind,
+                                           activity_id=activity_id, title=title,
+                                           link_url=link_url)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=_(str(exc)))
+    except _service.MediaFout as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 # ---------------------------------------------------------------------------
@@ -413,15 +342,10 @@ def update_media(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    a = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
-    if not a:
+    try:
+        return _service.update_media(db, asset_id, payload)
+    except LookupError:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
-    for field in ("title", "link_url", "sort_order", "is_active"):
-        if field in payload:
-            setattr(a, field, payload[field])
-    db.commit()
-    db.refresh(a)
-    return _meta(a)
 
 
 @router.delete("/admin/media/{asset_id}")
@@ -430,9 +354,8 @@ def delete_media(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    a = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
-    if not a:
+    try:
+        _service.delete_media(db, asset_id)
+    except LookupError:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
-    db.delete(a)
-    db.commit()
     return {"detail": "Verwijderd"}

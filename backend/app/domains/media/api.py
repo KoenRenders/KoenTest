@@ -19,7 +19,24 @@ from app.domains.media.router import (  # noqa: F401
     upload_component_info,
 )
 
+from app.domains.media.service import (  # noqa: F401
+    MediaFout,
+    activity_photo_covers,
+    delete_media,
+    list_activity_photos,
+    list_media,
+    update_media,
+    upload_media,
+)
+from app.domains.media.service import (  # noqa: F401
+    VALID_KINDS,
+    activity_ids_with_media,
+)
+
 __all__ = [
+    "MediaFout", "VALID_KINDS", "activity_ids_with_media",
+    "activity_photo_covers", "delete_media",
+    "list_activity_photos", "list_media", "update_media", "upload_media",
     "MediaAsset", "EXTRACTABLE_KINDS", "extract_document_text",
     "delete_activity_poster", "delete_component_info",
     "update_media_extracted_text", "upload_activity_poster",

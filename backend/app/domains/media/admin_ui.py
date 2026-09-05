@@ -27,11 +27,9 @@ NAV = admin_nav("/admin/media")
 
 def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
                activity_id: Optional[int] = None) -> dict:
-    from app.domains.media.router import VALID_KINDS, admin_list_media
-    from app.domains.media.api import MediaAsset
-    from app.domains.activities.api import Activity
-
     from app.domains.activities.api import list_activities
+    from app.domains.media.api import (VALID_KINDS, activity_ids_with_media,
+                                       list_media)
 
     actief_kind = kind if kind in VALID_KINDS else "sponsor"
     if activity_id is None:
@@ -47,12 +45,10 @@ def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
                           "jaar": a.sort_date.year if a.sort_date else None}
                          for a in alle]
     # Filter-dropdown: enkel activiteiten die al media hebben (#459), mét jaar.
-    aids = {a for (a,) in db.query(MediaAsset.activity_id)
-            .filter(MediaAsset.activity_id.isnot(None)).distinct()}
+    aids = activity_ids_with_media(db)
     activiteiten = [a for a in alle_activiteiten if a["id"] in aids]
 
-    assets = admin_list_media(kind=actief_kind, activity_id=activity_id,
-                              db=db, _admin=None)  # type: ignore[arg-type]
+    assets = list_media(db, kind=actief_kind, activity_id=activity_id)
     # Vrij zoeken op titel (C1, #588). Media zonder titel valt weg zodra er
     # gezocht wordt — dat is de bedoeling van een zoekterm.
     term = q.strip().lower()
@@ -117,10 +113,10 @@ async def media_uploaden(request: Request, db: Session = Depends(get_db),
                          activity_id: Optional[int] = Form(None),
                          title: str = Form(""), link_url: str = Form(""),
                          q: str = Form(""), filter_activity_id: Optional[int] = Form(None)):
-    from app.domains.media.router import upload_media
+    from app.domains.media.api import upload_media
 
     try:
-        await upload_media(files=files, kind=kind, activity_id=activity_id,
+        await upload_media(db, files=files, kind=kind, activity_id=activity_id,
                            title=title.strip() or None,
                            link_url=link_url.strip() or None,
                            db=db, _admin=None)  # type: ignore[arg-type]
@@ -144,19 +140,19 @@ def media_bijwerken(asset_id: int, request: Request,
                     link_url: str = Form(""), sort_order: str = Form("0"),
                     is_active: str = Form(""),
                     q: str = Form(""), filter_activity_id: Optional[int] = Form(None)):
-    from app.domains.media.router import update_media
+    from app.domains.media.api import MediaFout, update_media
 
     try:
         volgorde = int(sort_order or "0")
     except ValueError:
         return _lijst_response(request, db, kind, "Ongeldige volgorde.", q, filter_activity_id)
     try:
-        update_media(asset_id, {
+        update_media(db, asset_id, {
             "title": title.strip() or None, "link_url": link_url.strip() or None,
             "sort_order": volgorde, "is_active": bool(is_active),
-        }, db=db, _admin=None)  # type: ignore[arg-type]
-    except HTTPException as exc:
-        return _lijst_response(request, db, kind, str(exc.detail), q, filter_activity_id)
+        })
+    except (LookupError, MediaFout) as exc:
+        return _lijst_response(request, db, kind, str(exc), q, filter_activity_id)
     return _lijst_response(request, db, kind, q=q, activity_id=filter_activity_id)
 
 
@@ -167,10 +163,10 @@ def media_verwijderen(asset_id: int, request: Request,
                       email: str = Depends(require_admin_ui),
                       kind: str = Form("sponsor"),
                       q: str = Form(""), filter_activity_id: Optional[int] = Form(None)):
-    from app.domains.media.router import delete_media
+    from app.domains.media.api import delete_media
 
     try:
-        delete_media(asset_id, db=db, _admin=None)  # type: ignore[arg-type]
-    except HTTPException as exc:
-        return _lijst_response(request, db, kind, str(exc.detail), q, filter_activity_id)
+        delete_media(db, asset_id)
+    except LookupError as exc:
+        return _lijst_response(request, db, kind, str(exc), q, filter_activity_id)
     return _lijst_response(request, db, kind, q=q, activity_id=filter_activity_id)

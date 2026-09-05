@@ -19,10 +19,10 @@ router = APIRouter(include_in_schema=False)
 @router.get("/fotos", response_class=HTMLResponse)
 def fotos_overzicht(request: Request, db: Session = Depends(get_db)):
     from app.domains.activities.api import list_activities
-    from app.domains.media.router import activity_photo_covers
+    from app.domains.media.api import activity_photo_covers
 
     covers = {row["activity_id"]: row["thumb_url"]
-              for row in activity_photo_covers(db=db)}
+              for row in activity_photo_covers(db)}
     albums = [a for a in list_activities(db, scope="archived") if a.id in covers]
 
     per_jaar: dict[int, list] = {}
@@ -40,10 +40,10 @@ def fotos_overzicht(request: Request, db: Session = Depends(get_db)):
 @router.get("/activiteiten/{activity_id}/fotos", response_class=HTMLResponse)
 def activiteit_fotos(activity_id: int, request: Request,
                      db: Session = Depends(get_db)):
-    from app.domains.activities.api import Activity
-    from app.domains.media.router import list_activity_photos
+    from app.domains.activities.api import get_activity
+    from app.domains.media.api import list_activity_photos
 
-    activiteit = db.query(Activity).filter(Activity.id == activity_id).first()
-    fotos = list_activity_photos(activity_id, db=db)
+    activiteit = get_activity(db, activity_id)
+    fotos = list_activity_photos(db, activity_id)
     return templates.TemplateResponse(request, "fotos_album.html", {
         **site_context(db, request), "activiteit": activiteit, "fotos": fotos})
