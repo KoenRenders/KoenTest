@@ -32,8 +32,24 @@ def test_expired_token_is_rejected(client):
 
 
 def test_tampered_token_is_rejected(client):
+    """Een gewijzigde handtekening wordt geweigerd.
+
+    Niet de LAATSTE tekens vervangen: een HMAC-SHA256-handtekening is 32 bytes en
+    dus 43 base64url-tekens, waarvan het laatste teken maar 2 betekenisvolle bits
+    draagt — de andere vier worden genegeerd. Twee verschillende slotletters
+    kunnen dus dezelfde bytes opleveren, en dan is het "gewijzigde" token nog
+    geldig. Deze test sloeg daardoor af en toe over in groen zonder iets te
+    bewijzen; ze faalde op run 33987137054 met 200 i.p.v. 401.
+
+    Nu wordt een teken in het MIDDEN van de handtekening omgezet: daar telt elk
+    bit mee, dus de bytes verschillen gegarandeerd.
+    """
     token = create_access_token({"sub": "iemand@example.com"})
-    tampered = token[:-2] + ("aa" if not token.endswith("aa") else "bb")
+    kop, payload, handtekening = token.split(".")
+    midden = len(handtekening) // 2
+    anders = "A" if handtekening[midden] != "A" else "B"
+    tampered = f"{kop}.{payload}.{handtekening[:midden]}{anders}{handtekening[midden + 1:]}"
+    assert tampered != token
     resp = client.get("/api/v1/auth/me", headers=_headers(tampered))
     assert resp.status_code == 401
 
