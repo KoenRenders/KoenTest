@@ -68,7 +68,11 @@
       <label class="flex items-center gap-2">{{ _("Volgorde") }}
         {{ ui.input_control("sort_order", id="cp-sort", type="number", value=p.sort_order, cls="w-20") }}</label>
     </div>
-    {{ ui.btn_primary(_("Opslaan")) }}
+    {# §2.8: [Opslaan] [Annuleren] onderaan links. De teruglink bovenaan blijft
+       staan — die is navigatie, niet "verwerp mijn wijzigingen" — maar ligt na de
+       hele editor buiten beeld, en dat is precies de motivering in de conventie
+       (#664). #}
+    <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/paginas") }}</div>
   </form>
   {% if placeholders %}
   <details class="mt-5 text-sm">

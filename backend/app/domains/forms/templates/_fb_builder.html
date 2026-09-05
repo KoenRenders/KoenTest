@@ -88,7 +88,9 @@
 {% endmacro %}
 
 {{ ui.error_banner(error) }}
-<div class="space-y-4">
+{# jsonimport staat hier en niet op de importkaart zelf: de knop staat bovenaan
+   bij de andere acties, het paneel onderaan (#665). #}
+<div class="space-y-4" x-data="{ jsonimport: false }">
   {# Instellingen #}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ open: false }">
     <div class="flex flex-wrap items-center justify-between gap-2">
@@ -102,6 +104,13 @@
         {{ ui.btn_secondary(_("Export"), lead_icon="download", href="/admin/formulieren/" ~ form.id ~ "/export", size="sm", attrs='hx-boost="false"') }}
         {{ ui.btn_secondary(_("JSON"), lead_icon="download", href="/admin/formulieren/" ~ form.id ~ "/json", size="sm", attrs='hx-boost="false"') }}
         {{ ui.btn_secondary(_("Instellingen"), size="sm", attrs='@click="open = !open"') }}
+        {# #665: import staat hier, maar niet als gelijke van Bekijk/Afdruk/Export —
+           die vier zijn onschadelijk, importeren gooit de opbouw weg. Het gewicht
+           zit in de eigen bevestigingstekst op de knop die het écht doet, en de
+           knop verdwijnt zodra er antwoorden zijn die eraan zouden sneuvelen. #}
+        {% if not submission_count %}
+        {{ ui.btn_secondary(_("JSON-import"), size="sm", attrs='@click="jsonimport = !jsonimport"') }}
+        {% endif %}
         {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" ' ~ confirm_attrs(_("Formulier"), form.title)) }}
       </div>
     </div>
@@ -198,14 +207,32 @@
     <div id="fb-inzendingen"></div>
   </div>
 
-  {# JSON-import (vluchtluik) #}
-  <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4" x-data="{ open: false }">
-    {{ ui.btn_secondary(_("JSON-import (vluchtluik)"), attrs='@click="open = !open"') }}
-    <form x-show="open" x-cloak class="space-y-2 mt-3"
-          hx-post="/admin/formulieren/{{ form.id }}/json-import" hx-target="#fb-detail" hx-swap="innerHTML">
-      <p class="text-xs text-gray-600">Zelfde payload als de admin-API (titel, status, sections[], fields[] met section_index/opties/branching-indexen). De <a href="/static/form-json-formaat.md" class="underline" target="_blank">AI-formaatgids</a> blijft bruikbaar: plak hier de gegenereerde JSON.</p>
-      {{ ui.textarea_control("payload", rows=8, required=True, cls="w-full font-mono text-xs") }}
-      {{ ui.btn_primary(_("Importeren (vervangt de opbouw)")) }}
-    </form>
+  {# JSON-import (vluchtluik). Enkel bij een formulier zonder antwoorden: een
+     import vervangt de volledige opbouw, en omdat FormSubmissionAnswer.field_id
+     met ondelete="CASCADE" aan het veld hangt, verdwijnen de antwoorden mee
+     (#665). De server weigert het ook — verbergen alleen is geen guard. #}
+  {% if submission_count %}
+  <div class="bg-white border border-gray-200 rounded-2xl p-4">
+    <h3 class="font-semibold">{{ _("JSON-import") }}</h3>
+    <p class="text-sm text-gray-600 mt-1">{{ _("Niet beschikbaar: dit formulier heeft al %(n)s inzending(en). Een import zou de volledige opbouw vervangen en die antwoorden verwijderen.") % {"n": submission_count} }}</p>
   </div>
+  {% else %}
+  <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4">
+    <form x-show="jsonimport" x-cloak class="space-y-2" enctype="multipart/form-data"
+          hx-post="/admin/formulieren/{{ form.id }}/json-import" hx-encoding="multipart/form-data"
+          hx-target="#fb-detail" hx-swap="innerHTML">
+      <p class="text-xs text-gray-600">Zelfde payload als de admin-API (titel, status, sections[], fields[] met section_index/opties/branching-indexen). De <a href="/static/form-json-formaat.md" class="underline" target="_blank">AI-formaatgids</a> blijft bruikbaar: plak hier de gegenereerde JSON.</p>
+      {{ ui.textarea_control("payload", rows=8, cls="w-full font-mono text-xs") }}
+      {{ ui.upload_field(name="file", text=_("of een .json-bestand kiezen"),
+                         accept="application/json,.json",
+                         hint=_("Een gekozen bestand primeert op de tekst hierboven.")) }}
+      {# Eigen bevestigingstekst, geen confirm_attrs(): dat is voor echte
+         verwijder-dialogen (Fixed UI decisions). Hier zegt de tekst wat er
+         verdwijnt — de opbouw, niet het formulier (#665). #}
+      {{ ui.btn_primary(_("Importeren (vervangt de opbouw)"),
+                        confirm=_("De volledige opbouw van dit formulier vervangen?")) }}
+    </form>
+    <p x-show="!jsonimport" class="text-xs text-gray-600">{{ _("Gebruik de knop \"JSON-import\" bovenaan om een definitie in te lezen.") }}</p>
+  </div>
+  {% endif %}
 </div>

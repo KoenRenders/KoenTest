@@ -354,9 +354,9 @@
    mee. Dit is de input-tegenhanger van `select_control()`: dezelfde
    `_control_base`, en verder bepaal je zelf id, breedte en attributen. #}
 {% macro input_control(name, id=None, type="text", value="", required=False,
-                       placeholder="", cls="", attrs="") -%}
+                       placeholder="", cls="", attrs="", aria_label=None) -%}
 <input type="{{ type }}" name="{{ name }}" id="{{ id or name }}"{% if value != "" %} value="{{ value }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}
-       class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>
+       {% if aria_label %}aria-label="{{ aria_label }}" {% endif %}class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>
 {%- endmacro %}
 
 {% macro textarea_control(name, id=None, value="", rows=4, required=False,

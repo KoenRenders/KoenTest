@@ -8,7 +8,8 @@ from __future__ import annotations
 import json
 from typing import Optional
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import (APIRouter, Depends, File, Form, HTTPException, Request,
+                     UploadFile)
 from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
@@ -373,12 +374,48 @@ def optie_verwijderen(form_id: int, option_id: int, request: Request,
 
 @router.post("/admin/formulieren/{form_id}/json-import", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
-def json_import(form_id: int, request: Request, db: Session = Depends(get_db),
-                email: str = Depends(require_admin_ui), payload: str = Form(...)):
-    from app.domains.forms.api import import_definition
+async def json_import(form_id: int, request: Request, db: Session = Depends(get_db),
+                      email: str = Depends(require_admin_ui),
+                      payload: str = Form(""),
+                      file: Optional[UploadFile] = File(None)):
+    """Vervangt de volledige opbouw van een formulier door een JSON-definitie.
+
+    **Weigert zodra er inzendingen zijn (#665), en dat is geen cosmetiek.**
+    `FormSubmissionAnswer.field_id` verwijst met `ondelete="CASCADE"` naar
+    `form_fields.id`, en `apply_definition` verwijdert elk veld dat niet meer in de
+    payload staat. Een JSON uit de AI-formaatgids bevat geen veld-id's, dus élk
+    bestaand veld geldt als "verdwenen" — en de CASCADE neemt alle antwoorden mee.
+    Stil, want er faalt niets.
+
+    De guard staat hier en niet alleen op het scherm: een knop verbergen laat het
+    pad open voor een herhaalde POST of een oud tabblad, en dit is het enige punt
+    waar beide samenkomen.
+
+    Een opgeladen bestand primeert op het tekstvak, net als een opgeladen affiche
+    op de poster-URL (#223). Plakken blijft de gewone weg.
+    """
+    from app.domains.forms.api import import_definition, submission_count
     from app.domains.forms.schemas import FormUpdate
 
     form = _form_or_404(db, form_id)
+    aantal = submission_count(db, form_id)
+    if aantal:
+        return _builder_response(request, db, form, error=_(
+            "Dit formulier heeft al %(n)s inzending(en). Een import vervangt de "
+            "volledige opbouw en zou die antwoorden verwijderen. Maak een nieuw "
+            "formulier aan, of verwijder eerst de inzendingen."
+        ) % {"n": aantal})
+
+    if file is not None and file.filename:
+        rauw = await file.read()
+        try:
+            payload = rauw.decode("utf-8")
+        except UnicodeDecodeError:
+            return _builder_response(request, db, form, error=_(
+                "Het bestand is geen leesbare UTF-8-tekst."))
+    if not payload.strip():
+        return _builder_response(request, db, form,
+                                 error=_("Plak een JSON-definitie of kies een bestand."))
     try:
         data = FormUpdate(**json.loads(payload))
     except (json.JSONDecodeError, ValueError) as exc:

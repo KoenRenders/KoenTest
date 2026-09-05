@@ -78,6 +78,9 @@ Vier regels, elk met een reden:
 26. **Het verplicht-sterretje komt uit `label(required=…)`**, niet uit de labeltekst
     (#646). In de tekst erft het `text-gray-700` en staat er grijs naast een rood
     sterretje van een veld dat de parameter wél gebruikt.
+32. **Een volledige-pagina-editor heeft [Annuleren] naast [Opslaan]** (§2.8, #664).
+    Zonder is de enige terugweg de link bovenaan, die bij een lang formulier buiten
+    beeld ligt — precies de motivering die de conventie zelf geeft.
 31. **Geen teal badge** (#660). §2.10 kent zes tonen; teal sloop er in #617 bij om
     twee oranje badges naast elkaar te vermijden. #660 lost dat op aan de juiste
     kant — "Terug te betalen" wordt geel, gelijk aan "Openstaand" — zodat de
@@ -129,7 +132,9 @@ AMBER = re.compile(r"\bamber-\d")
 JS_DIALOOG = re.compile(r"\b(alert|confirm)\s*\(")
 HX_CONFIRM = re.compile(r"\bhx-confirm\b")
 # Markers die aantonen dat een <select> de kit-stijl draagt.
-SELECT_OK = ("_control", "border")
+# `_basis(cls)` levert sinds #663 de control-klassen; `_control_base` blijft
+# staan voor de macro's die hem rechtstreeks gebruiken.
+SELECT_OK = ("_control", "_basis", "border")
 # Een kit-knop met een label dat enkel uit 1–2 symbolen bestaat (×, ⚙, ➤, …).
 GLYPH_KNOP = re.compile(r'btn_(?:danger|secondary|primary|outline)\(\s*"([^"\w\s]{1,2})"')
 # Metadata-emoji (#638). Zelfde klasse als de ⬇⬆📄-glyphs uit #593: ze horen als
@@ -160,67 +165,6 @@ TEAL_BADGE = re.compile(r'badge\([^)]*"teal"')
 # de regel is blokkerend en de allowlist leeg. Blijft ze leeg, dan hoort dat zo.
 CONTROL_ALLOWLIST: dict[str, int] = {}
 
-HEX = re.compile(r"#[0-9a-fA-F]{6}\b")
-DONKERBLAUW = re.compile(r"\bblue-(800|900)\b")
-AMBER = re.compile(r"\bamber-\d")
-JS_DIALOOG = re.compile(r"\b(alert|confirm)\s*\(")
-HX_CONFIRM = re.compile(r"\bhx-confirm\b")
-# Markers die aantonen dat een <select> de kit-stijl draagt.
-SELECT_OK = ("_control", "border")
-# Een kit-knop met een label dat enkel uit 1–2 symbolen bestaat (×, ⚙, ➤, …).
-GLYPH_KNOP = re.compile(r'btn_(?:danger|secondary|primary|outline)\(\s*"([^"\w\s]{1,2})"')
-# Metadata-emoji (#638). Zelfde klasse als de ⬇⬆📄-glyphs uit #593: ze horen als
-# ui.icon() in de kit, niet als tekstteken in een template.
-METADATA_GLYPH = re.compile("[\u2709\u260e\U0001f4f1\U0001f4cd\U0001f5d3]")
-# Verplicht-sterretje in de labeltekst i.p.v. via label(required=…) — #646.
-# `[^)]*` zou hier NIET werken: `label(_("E-mail") ~ …)` bevat zelf al een
-# sluithaakje van `_()`, dus de zoektocht stopt vóór het sterretje.
-STERRETJE_IN_LABEL_CALL = re.compile(r'\blabel\([^\n]*["\']\s*\*')
-# Een leeslink naar de huidige bijlage: <a href="{{ …_asset_url }}"> buiten het
-# uploadblok. Die hoort achter x-show="!<vlag>" (§2.12, #653).
-BIJLAGE_LINK = re.compile(r'<[^>]*href="\{\{\s*[a-z_.]*_asset_url[^"]*"[^>]*>')
-# Een scherm mét bewerkmodus: een <form> dat aan een Alpine-vlag hangt.
-BEWERKVORM = re.compile(r'<form[^>]*x-show="[a-z_]')
-# Een hint-alinea (§2.4: text-xs + een gedempte tint) binnen een kolom van een
-# flexvorm die op de onderkant uitlijnt — #656.
-HINT_ALINEA = re.compile(r'<p[^>]*class="[^"]*\btext-xs\b[^"]*\btext-(?:gray|ink)-(?:400|500|soft)\b')
-ITEMS_END = re.compile(r'\bitems-end\b')
-FLEX_OPEN = re.compile(r'<(div|form)\b')
-# Een handgeschreven formulier-control: de kit zet zijn rand via `_control_base`,
-# dus een losse `border-gray-300` op een input/select/textarea betekent dat het
-# scherm de kit omzeilt (#659).
-HANDGESCHREVEN_CONTROL = re.compile(r"<(?:input|select|textarea)\b[^>]*>")
-# Teal is geen semantische toon: de macro kent hem, §2.10 niet (#660).
-TEAL_BADGE = re.compile(r'badge\([^)]*"teal"')
-
-# Het restant van #659, geteld op de dag dat de regel erbij kwam. Deze telling is
-# een plafond dat alleen omláág mag: zet je een bestand om, verlaag dan het getal
-# of haal de regel weg. Zo blijft de gate groen op master terwijl de omzetting
-# gefaseerd loopt, en groeit het probleem intussen niet.
-CONTROL_ALLOWLIST: dict[str, int] = {
-    "domains/activities/templates/_inschrijf_form.html": 6,
-    "domains/activities/templates/_inschrijving_detail.html": 6,
-    "domains/activities/templates/admin_activiteit_nieuw.html": 4,
-    "domains/auth/templates/_aanmelden_code.html": 1,
-    "domains/auth/templates/_aanmelden_email.html": 1,
-    "domains/auth/templates/_gu_lijst.html": 1,
-    "domains/chatbot/templates/_ai_context_lijst.html": 6,
-    "domains/chatbot/templates/_raakje_widget.html": 1,
-    "domains/chatbot/templates/raakje.html": 1,
-    "domains/cms/templates/_cp_detail.html": 4,
-    "domains/forms/templates/_berichten_form.html": 3,
-    "domains/forms/templates/_fb_builder.html": 24,
-    "domains/forms/templates/formulier.html": 8,
-    "domains/mdm/templates/_leden_detail.html": 6,
-    "domains/mdm/templates/leden_import.html": 1,
-    "domains/media/templates/_me_lijst.html": 3,
-    "domains/media/templates/admin_media_nieuw.html": 3,
-    "domains/membership/templates/gezin_portaal.html": 4,
-    "domains/membership/templates/lid_worden.html": 4,
-    "domains/payment/templates/_betalingen_lijst.html": 4,
-    "domains/workflow/templates/_werkbank_detail.html": 1,
-    "ui/templates/admin_ledenwijzigingen.html": 1,
-}
 RODE_SPAN = re.compile(r'<span class="text-red-600">.*?</span>')
 # Een KPI-cijfer herken je aan font-extrabold: §Weight reserveert dat gewicht voor
 # de paginatitel, de KPI-cijfers en het woordmerk, en die eerste twee dragen
@@ -1023,4 +967,33 @@ def test_geen_teal_badge():
     assert not fouten, (
         "Teal is geen semantische toon (§2.10) — kies groen/geel/rood/oranje/"
         "grijs/blauw:\n  " + "\n  ".join(fouten)
+    )
+
+
+def test_een_paginabrede_editor_heeft_annuleren():
+    """§2.8: [Opslaan] [Annuleren] onderaan links (#664).
+
+    Op /admin/paginas en /admin/tenants stond alleen Opslaan; de enige terugweg
+    was de link bovenaan, na de hele editor. De zes aanmaakschermen deden het al
+    goed — dat was het patroon: aanmaken kreeg Annuleren, bewerken een teruglink.
+
+    Annuleren gaat naar de lijst. De teruglink bovenaan blijft staan: die is
+    navigatie, niet "verwerp mijn wijzigingen".
+
+    Bereik: templates die zelf de beheerschil uitbreiden. Een editor die als
+    fragment leeft — `_cp_detail.html` wordt door zo'n pagina ingesloten — valt er
+    niet onder; die is met #664 met de hand rechtgezet. De regel breder maken kan
+    niet zonder de rij-formulieren op het activiteitdetail vals te raken: daar
+    levert de bewerk-toggle het annuleren, niet een knop in de vorm.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        tekst = _zonder_commentaar(pad)
+        if 'extends "admin_base.html"' not in tekst:
+            continue
+        if '_("Opslaan")' in tekst and '_("Annuleren")' not in tekst:
+            fouten.append(str(pad.relative_to(APP)))
+    assert not fouten, (
+        "Zet [Annuleren] naast [Opslaan] in een paginabrede editor (§2.8):\n  "
+        + "\n  ".join(fouten)
     )
