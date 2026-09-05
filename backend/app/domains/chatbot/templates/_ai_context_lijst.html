@@ -55,7 +55,10 @@
     {% else %}
     <div>{{ ui.label(_("Vervangende tekst (leeg = automatisch gelezen tekst gebruiken)"), "edit-over-" ~ info.id) }}
       {{ ui.textarea_control("text_override", id="edit-over-" ~ info.id, rows=3, value=info.text_override or "", cls="w-full") }}</div>
-    <div>{{ ui.label(_("Extra tekst (toegevoegd aan de bron)"), "edit-add-" ~ info.id) }}
+    {# Eigen id (`edit-add2-`) omdat de notitie-tak hierboven `edit-add-` gebruikt.
+       De twee takken sluiten elkaar uit, dus ze botsen nooit — maar het LABEL wees
+       nog naar het id van de andere tak en dus naar iets wat hier niet bestaat. #}
+    <div>{{ ui.label(_("Extra tekst (toegevoegd aan de bron)"), "edit-add2-" ~ info.id) }}
       {{ ui.textarea_control("text_addition", id="edit-add2-" ~ info.id, rows=2, value=info.text_addition or "", cls="w-full") }}</div>
     {% endif %}
     <div class="flex gap-2">
