@@ -148,8 +148,16 @@
       {% if r.method == "online" %}
       {% set _ignore = _acts.append(ui.btn_secondary(_("Status verversen"), size="sm", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/verversen" hx-target="#betalingen-lijst" hx-swap="innerHTML"')) %}
       {% endif %}
-      {% if r.status != "paid" and r.type != "refund" %}
-      {% set _ignore = _acts.append(ui.btn_secondary(_("Bevestig betaald"), size="sm", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_("Als volledig betaald bevestigen?"))) %}
+      {# #661: ook een openstaande terugbetaling krijgt deze knop. Ze moest via
+         Bewerken met het bedrag ingetypt, terwijl dat bedrag al bekend is. De laag
+         eronder kan het al: confirm_manual_payment boekt zonder bedrag "het
+         volledige verschuldigde, resp. de volledige refund" (#199) en is
+         tekengevoelig (#219). Label én bevestigingstekst per type: "Als volledig
+         betaald bevestigen?" op een terugbetaling is misleidend — er vertrekt geld. #}
+      {% if r.status != "paid" %}
+      {% set _bevestig_label = _("Bevestig terugbetaald") if r.type == "refund" else _("Bevestig betaald") %}
+      {% set _bevestig_vraag = _("Als volledig terugbetaald bevestigen?") if r.type == "refund" else _("Als volledig betaald bevestigen?") %}
+      {% set _ignore = _acts.append(ui.btn_secondary(_bevestig_label, size="sm", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_bevestig_vraag)) %}
       {% endif %}
       {# De verwijder-guard respecteren: geen knop tonen die de server toch weigert. #}
       {{ ui.row_actions(actions=_acts, max_visible=3,
