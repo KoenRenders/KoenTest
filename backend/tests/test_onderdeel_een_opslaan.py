@@ -37,7 +37,10 @@ def _bewerkvorm(html: str, activity_id: int, component_id: int) -> str:
     productpaneel mee, en elk product hééft een eigen Opslaan — terecht. De
     invariant gaat over de vorm van het onderdeel zelf.
     """
-    start = html.index(f'hx-post="/admin/activiteiten/{activity_id}/onderdelen/{component_id}"')
+    anker = html.index(
+        f'hx-post="/admin/activiteiten/{activity_id}/onderdelen/{component_id}"')
+    # Terug naar de <form>-tag zelf: enctype en hx-encoding staan vóór hx-post.
+    start = html.rindex("<form", 0, anker)
     return html[start:html.index("</form>", start)]
 
 
