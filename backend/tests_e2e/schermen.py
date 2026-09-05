@@ -72,11 +72,19 @@ class Betalingenscherm:
 
     def toon_inschrijvingsdetails(self, kaart):
         """Klap het detail open en geef het paneel terug, zodat de bewerkingen
-        erna binnen díe kaart gebeuren en niet in een andere op de pagina."""
+        erna binnen díe kaart gebeuren en niet in een andere op de pagina.
+
+        Wacht op de INHOUD, niet op de zichtbaarheid van het paneel zelf. Alpine
+        zet `x-show` meteen om, maar htmx vult het paneel pas met de eerste
+        `hx-get`. Een lege div heeft geen hoogte, en Playwright rekent een element
+        van nul bij nul als verborgen — dus "wacht tot het paneel zichtbaar is"
+        was in werkelijkheid "wacht tot het antwoord binnen is", met een
+        wedloop als het even traag ging. Deze test viel daar geregeld over.
+        """
         kaart.get_by_text("Toon inschrijvingsdetails").click()
-        paneel = kaart.locator('[id^="det-"]')
-        paneel.first.wait_for(state="visible", timeout=5000)
-        return paneel.first
+        paneel = kaart.locator('[id^="det-"]').first
+        paneel.locator("> *").first.wait_for(state="visible", timeout=10000)
+        return paneel
 
 
 class Inschrijvingsdetail:

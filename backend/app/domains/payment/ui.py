@@ -126,9 +126,10 @@ def _view(request: Request, db: Session, email: str,
     # kan meenemen (#668); die telt niet mee in de totalen.
     groepen = group_cards(zichtbaar, records)
     for groep in groepen:
-        groep["kaarten"] = [(_kaart(charge) | {"is_context": is_context},
-                             [_kaart(x) for x in eigen_refunds])
-                            for charge, eigen_refunds, is_context in groep["kaarten"]]
+        groep["kaarten"] = [(_kaart(k["charge"]) | {"is_context": k["is_context"],
+                                                    "is_extra": k["is_extra"]},
+                             [_kaart(x) for x in k["refunds"]])
+                            for k in groep["kaarten"]]
 
     # Gegroepeerde context-filter (#549): dezelfde grouped_filter-macro als de
     # Werkbank. Heterogene groepen (jaren/onderdelen) → (value, label)-tuples.

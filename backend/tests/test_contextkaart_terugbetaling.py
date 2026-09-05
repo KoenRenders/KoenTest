@@ -40,10 +40,10 @@ def test_de_charge_komt_mee_als_context(db_session):
     kaarten = groepen[0]["kaarten"]
     assert len(kaarten) == 1, "de refund hoort onder haar charge te hangen"
 
-    kaart_charge, eigen_refunds, is_context = kaarten[0]
-    assert kaart_charge.id == charge.id
-    assert is_context is True, "de charge is geen treffer maar context"
-    assert [r.id for r in eigen_refunds] == [refund.id]
+    kaart = kaarten[0]
+    assert kaart["charge"].id == charge.id
+    assert kaart["is_context"] is True, "de charge is geen treffer maar context"
+    assert [r.id for r in kaart["refunds"]] == [refund.id]
 
 
 def test_de_contextkaart_telt_niet_mee_in_het_totaal(db_session):
@@ -60,9 +60,9 @@ def test_zonder_alle_records_verandert_er_niets(db_session):
     """De oude aanroepvorm blijft geldig: dan krijg je een wees-kaart, zoals voorheen."""
     _charge, refund = _records(db_session)
     groepen = group_cards([refund])
-    kaart_charge, eigen_refunds, is_context = groepen[0]["kaarten"][0]
-    assert kaart_charge.id == refund.id and is_context is False
-    assert eigen_refunds == []
+    kaart = groepen[0]["kaarten"][0]
+    assert kaart["charge"].id == refund.id and kaart["is_context"] is False
+    assert kaart["refunds"] == []
 
 
 def test_het_scherm_toont_de_context_ingetogen_en_zonder_acties(client, db_session):

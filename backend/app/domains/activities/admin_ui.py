@@ -684,11 +684,13 @@ async def inschrijving_totaal(registration_id: int, request: Request,
     formulier = await request.form()
     aantallen = {}
     for sleutel, waarde in formulier.items():
-        if not sleutel.startswith("quantity_"):
+        # form.items() kan een UploadFile geven; alleen tekstvelden zijn aantallen —
+        # zelfde guard als in inschrijving_opslaan.
+        if not sleutel.startswith("quantity_") or not isinstance(waarde, str):
             continue
         try:
             aantallen[int(sleutel[len("quantity_"):])] = max(0, int(waarde))
-        except (TypeError, ValueError):
+        except ValueError:
             continue  # een leeg of onleesbaar veld laat het item op zijn eigen aantal
     return _render_detail(request, db, registration_id, edit_open=True,
                           quantities=aantallen)
@@ -790,9 +792,9 @@ def inschrijving_regel_toevoegen(registration_id: int, request: Request,
     if not (product_id or "").strip():
         return _render_detail(request, db, registration_id, edit_open=True,
                               error=_("Kies eerst een product om toe te voegen."))
-    product_id = int(product_id)
+    gekozen = int(product_id)
     add_order_line(reg.activity_id, registration_id,
-                   RegistrationItemCreate(product_id=product_id, quantity=quantity),
+                   RegistrationItemCreate(product_id=gekozen, quantity=quantity),
                    db=db, admin=admin_user_by_email(db, email))
     return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
 
