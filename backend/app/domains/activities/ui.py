@@ -13,7 +13,6 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.activities.models import Activity, ActivitySubRegistration
 from app.domains.activities.totals import has_payable_products, quote_lines
 from app.limiter import registration_limiter
 from app.ui import site_context, templates
@@ -34,9 +33,9 @@ def _session_person(request: Request, db: Session):
 
 
 def _lijst_ctx(db: Session, scope: str, request: Request | None = None) -> dict:
-    from app.domains.activities.router import list_activities
+    from app.domains.activities.api import list_activities
 
-    ctx = {"activities": list_activities(scope=scope, db=db), "scope": scope}
+    ctx = {"activities": list_activities(db, scope=scope), "scope": scope}
     if request is not None:
         # De volledige SiteShell (header/nav/footer) heeft site_context nodig (#475).
         ctx = {**site_context(db, request), **ctx}
@@ -68,18 +67,20 @@ def deelnemers_fragment(activity_id: int, component_id: int, request: Request,
     """Publieke deelnemerslijst per onderdeel ('Wie doet er mee?') als htmx-
     fragment — herstelt de v1.14-functie voor portal-beheerde inschrijvingen
     (#451). Hergebruikt het bestaande publieke registraties-endpoint."""
-    from app.domains.activities.router import get_public_registrations
+    from app.domains.activities.api import public_registrations
 
-    deelnemers = get_public_registrations(activity_id, component_id=component_id, db=db)
+    deelnemers = public_registrations(db, activity_id, component_id)
     return templates.TemplateResponse(request, "_deelnemers.html",
                                       {"deelnemers": deelnemers})
 
 
 def _component_or_404(db: Session, activity_id: int, component_id: int):
-    activity = db.query(Activity).filter(Activity.id == activity_id).first()
-    component = (db.query(ActivitySubRegistration)
-                 .filter(ActivitySubRegistration.id == component_id,
-                         ActivitySubRegistration.activity_id == activity_id).first())
+    """Activiteit + onderdeel, of 404. `get_component` controleert meteen dat het
+    onderdeel bij díe activiteit hoort (#635 I)."""
+    from app.domains.activities.api import get_activity, get_component
+
+    activity = get_activity(db, activity_id)
+    component = get_component(db, component_id, activity_id=activity_id)
     if activity is None or component is None:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     return activity, component
@@ -170,7 +171,7 @@ async def inschrijf_totaal(activity_id: int, component_id: int, request: Request
 async def inschrijf_submit(activity_id: int, component_id: int, request: Request,
                            background_tasks: BackgroundTasks,
                            db: Session = Depends(get_db)):
-    from app.domains.activities.router import register_for_activity
+    from app.domains.activities.api import register_for_activity
     from app.schemas.activity import RegistrationCreate, RegistrationItemCreate
 
     activity, component = _component_or_404(db, activity_id, component_id)
@@ -204,8 +205,8 @@ async def inschrijf_submit(activity_id: int, component_id: int, request: Request
         remarks=(values.get("remarks") or "").strip() or None,
     )
     try:
-        result = register_for_activity(activity.id, data, background_tasks,
-                                       db=db, current_member=person)
+        result = register_for_activity(db, activity.id, data, background_tasks,
+                                       current_member=person)
     except HTTPException as exc:
         ctx["error"] = str(exc.detail)
         return templates.TemplateResponse(request, "_inschrijf_form.html", ctx)

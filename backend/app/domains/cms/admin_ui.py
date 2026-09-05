@@ -31,7 +31,7 @@ def _lijst_ctx(db: Session, q: str = "", status: str = "") -> dict:
     """
     from app.domains.cms.api import list_pages as list_all_pages
 
-    pages = list_all_pages(db=db, _admin=None)  # type: ignore[arg-type]
+    pages = list_all_pages(db)
     term = q.strip().lower()
     if term:
         pages = [p for p in pages

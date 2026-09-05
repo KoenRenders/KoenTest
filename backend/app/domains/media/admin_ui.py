@@ -113,19 +113,18 @@ async def media_uploaden(request: Request, db: Session = Depends(get_db),
                          activity_id: Optional[int] = Form(None),
                          title: str = Form(""), link_url: str = Form(""),
                          q: str = Form(""), filter_activity_id: Optional[int] = Form(None)):
-    from app.domains.media.api import upload_media
+    from app.domains.media.api import MediaFout, upload_media
 
     try:
         await upload_media(db, files=files, kind=kind, activity_id=activity_id,
                            title=title.strip() or None,
-                           link_url=link_url.strip() or None,
-                           db=db, _admin=None)  # type: ignore[arg-type]
-    except HTTPException as exc:
+                           link_url=link_url.strip() or None)
+    except (LookupError, MediaFout) as exc:
         # Op het aanmaakscherm blijven mét de fout (#627): een fragment terugsturen
         # naar een pagina die geen lijst toont, laat de gebruiker in het ongewisse.
         ctx = _lijst_ctx(request, db, kind=kind, q=q, activity_id=filter_activity_id)
         ctx["nav_items"] = NAV
-        ctx["error"] = str(exc.detail)
+        ctx["error"] = str(exc)
         return templates.TemplateResponse(request, "admin_media_nieuw.html", ctx)
     # Media is met één handeling compleet, dus terug naar de lijst (#627).
     return Response(status_code=204, headers={"HX-Redirect": "/admin/media"})

@@ -77,7 +77,6 @@ VIEWMODEL_ALLOWLIST: set[str] = {
 LAYER_ALLOWLIST: set[tuple[str, str]] = {
     # ── regel 1: imports uit models/router, of een private naam ──────────────
     ("app.domains.activities.admin_ui", "imports"),
-    ("app.domains.activities.ui", "imports"),
     ("app.domains.auth.ui", "imports"),
     ("app.domains.chatbot.ui", "imports"),
     ("app.domains.forms.admin_ui", "imports"),
@@ -86,7 +85,6 @@ LAYER_ALLOWLIST: set[tuple[str, str]] = {
     ("app.domains.membership.ui", "imports"),
     # ── regel 2: rauw ORM-gebruik in de routebody ────────────────────────────
     ("app.domains.activities.admin_ui", "orm"),
-    ("app.domains.activities.ui", "orm"),
     ("app.domains.chatbot.ui", "orm"),
     ("app.domains.forms.admin_ui", "orm"),
     ("app.domains.forms.ui", "orm"),
