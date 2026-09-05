@@ -237,18 +237,11 @@ async def upload_activity_poster(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    activity = db.query(Activity).filter(Activity.id == activity_id).first()
-    if not activity:
+    try:
+        return await _service.replace_activity_poster(db, activity_id, file,
+                                                      background_tasks)
+    except LookupError:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
-    asset = await _replace_single_asset(
-        db, file, kind="activity_poster", activity_id=activity_id,
-        title_base=f"{activity.name} - poster",
-    )
-    # Tekstextractie op de achtergrond (#206): de upload slaagt direct, de
-    # (eventueel betalende) OCR loopt erachteraan en raakt de respons niet. De
-    # tekst komt op het media-record (extracted_text), niet op de activiteit.
-    background_tasks.add_task(update_media_extracted_text, asset.id)
-    return _meta(asset)
 
 
 @router.delete("/admin/activities/{activity_id}/poster", status_code=204)
@@ -257,12 +250,7 @@ def delete_activity_poster(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    # Hard delete van het asset-record neemt extracted_text vanzelf mee (#206).
-    for a in db.query(MediaAsset).filter(
-        MediaAsset.kind == "activity_poster", MediaAsset.activity_id == activity_id
-    ).all():
-        db.delete(a)
-    db.commit()
+    _service.delete_activity_poster(db, activity_id)
 
 
 @router.post("/admin/components/{component_id}/info")
@@ -273,19 +261,11 @@ async def upload_component_info(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    component = db.query(ActivitySubRegistration).filter(
-        ActivitySubRegistration.id == component_id
-    ).first()
-    if not component:
+    try:
+        return await _service.replace_component_info(db, component_id, file,
+                                                     background_tasks)
+    except LookupError:
         raise HTTPException(status_code=404, detail=_("Onderdeel niet gevonden"))
-    activity_name = component.activity.name if component.activity else "activiteit"
-    asset = await _replace_single_asset(
-        db, file, kind="component_info", component_id=component_id,
-        title_base=f"{activity_name} - {component.name} - info",
-    )
-    # Ook reglement/info-PDF's leveren context voor de chatbot (#206).
-    background_tasks.add_task(update_media_extracted_text, asset.id)
-    return _meta(asset)
 
 
 @router.delete("/admin/components/{component_id}/info", status_code=204)
@@ -294,11 +274,7 @@ def delete_component_info(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    for a in db.query(MediaAsset).filter(
-        MediaAsset.kind == "component_info", MediaAsset.component_id == component_id
-    ).all():
-        db.delete(a)
-    db.commit()
+    _service.delete_component_info(db, component_id)
 
 
 @router.post("/admin/media/{asset_id}/extract", status_code=202)
@@ -308,15 +284,11 @@ def reextract_media_text(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    """De 'Opnieuw lezen'-knop (#235): her-extraheer de tekst van dit document.
-
-    Draait op de achtergrond (force=True) en raakt enkel ``extracted_text`` aan —
-    handmatige override/aanvulling in chatbot_info blijven staan."""
-    asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
-    if not asset or asset.kind not in EXTRACTABLE_KINDS:
+    """De 'Opnieuw lezen'-knop (#235) — implementatie in de service."""
+    try:
+        return _service.reextract_text(db, asset_id, background_tasks)
+    except LookupError:
         raise HTTPException(status_code=404, detail=_("Document niet gevonden"))
-    background_tasks.add_task(update_media_extracted_text, asset_id, None, True)
-    return {"status": "bezig", "asset_id": asset_id}
 
 
 @router.patch("/admin/media/{asset_id}")

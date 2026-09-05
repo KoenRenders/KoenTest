@@ -167,3 +167,84 @@ def activity_ids_with_media(db) -> set[int]:
     """
     return {rij[0] for rij in db.query(MediaAsset.activity_id)
             .filter(MediaAsset.activity_id.isnot(None)).distinct()}
+
+
+# ── Affiches, onderdeel-info en hertekstextractie (#635 I) ───────────────────
+# Deze vijf stonden als routerfuncties in `router.py` en werden door de
+# beheerschermen geïmporteerd. Ze dragen domeinregels: een affiche vervangt de
+# vorige (er is er één per activiteit), verwijderen neemt de geëxtraheerde tekst
+# vanzelf mee, en hertekstextractie mag alleen op een leesbaar documenttype.
+
+async def replace_activity_poster(db, activity_id: int, file, background_tasks):
+    """Vervang de affiche van een activiteit.
+
+    De tekstextractie loopt op de achtergrond (#206): de upload slaagt meteen, de
+    (mogelijk betalende) OCR raakt de respons niet. De tekst komt op het
+    media-record, niet op de activiteit.
+    """
+    from app.domains.activities.api import get_activity
+    from app.domains.media.extraction import update_media_extracted_text
+    from app.domains.media.router import _replace_single_asset
+
+    activity = get_activity(db, activity_id)
+    if activity is None:
+        raise LookupError("Activiteit niet gevonden")
+    asset = await _replace_single_asset(
+        db, file, kind="activity_poster", activity_id=activity_id,
+        title_base=f"{activity.name} - poster")
+    background_tasks.add_task(update_media_extracted_text, asset.id)
+    return meta(asset)
+
+
+def delete_activity_poster(db, activity_id: int) -> None:
+    """Hard delete: dat neemt de geëxtraheerde tekst vanzelf mee (#206)."""
+    for asset in (db.query(MediaAsset)
+                  .filter(MediaAsset.kind == "activity_poster",
+                          MediaAsset.activity_id == activity_id).all()):
+        db.delete(asset)
+    db.commit()
+
+
+def reextract_text(db, asset_id: int, background_tasks) -> dict:
+    """De "Opnieuw lezen"-knop (#235).
+
+    Draait op de achtergrond en raakt enkel `extracted_text` aan — een handmatige
+    override of aanvulling in de AI-context blijft staan.
+    """
+    from app.domains.media.extraction import (EXTRACTABLE_KINDS,
+                                              update_media_extracted_text)
+
+    asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
+    if asset is None or asset.kind not in EXTRACTABLE_KINDS:
+        raise LookupError("Document niet gevonden")
+    background_tasks.add_task(update_media_extracted_text, asset_id, None, True)
+    return {"status": "bezig", "asset_id": asset_id}
+
+
+async def replace_component_info(db, component_id: int, file, background_tasks):
+    """Vervang het info-document van een onderdeel.
+
+    Ook info-PDF's leveren context voor Raakje, dus de tekstextractie loopt hier
+    net zo goed op de achtergrond (#206).
+    """
+    from app.domains.activities.api import get_component
+    from app.domains.media.extraction import update_media_extracted_text
+    from app.domains.media.router import _replace_single_asset
+
+    component = get_component(db, component_id)
+    if component is None:
+        raise LookupError("Onderdeel niet gevonden")
+    activiteit_naam = component.activity.name if component.activity else "activiteit"
+    asset = await _replace_single_asset(
+        db, file, kind="component_info", component_id=component_id,
+        title_base=f"{activiteit_naam} - {component.name} - info")
+    background_tasks.add_task(update_media_extracted_text, asset.id)
+    return meta(asset)
+
+
+def delete_component_info(db, component_id: int) -> None:
+    for asset in (db.query(MediaAsset)
+                  .filter(MediaAsset.kind == "component_info",
+                          MediaAsset.component_id == component_id).all()):
+        db.delete(asset)
+    db.commit()

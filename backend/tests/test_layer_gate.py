@@ -83,25 +83,6 @@ LAYER_ALLOWLIST: set[tuple[str, str]] = {
     # verhuizing i.p.v. een facade-laag die de router alleen verbergt.
     ("app.domains.activities.admin_ui", "imports"),
     # ── regel 2: rauw ORM-gebruik in de routebody ────────────────────────────
-    # ── regel 3: ORM-klassen en routerfuncties die via een facade binnenkomen ─
-    ("app.domains.activities.admin_ui", "facade"),
-    ("app.domains.activities.ui", "facade"),
-    ("app.domains.auth.admin_ui", "facade"),
-    ("app.domains.chatbot.ui", "facade"),
-    ("app.domains.cms.admin_ui", "facade"),
-    ("app.domains.cms.ui", "facade"),
-    ("app.domains.forms.admin_ui", "facade"),
-    ("app.domains.forms.ui", "facade"),
-    ("app.domains.mail.ui", "facade"),
-    ("app.domains.mdm.ui", "facade"),
-    ("app.domains.media.admin_ui", "facade"),
-    ("app.domains.media.ui", "facade"),
-    ("app.domains.membership.ui", "facade"),
-    ("app.domains.payment.ui", "facade"),
-    ("app.domains.workflow.ui", "facade"),
-    ("app.ui.changes_ui", "facade"),
-    ("app.ui.system_ui", "facade"),
-    ("app.ui.tenants_ui", "facade"),
 }
 
 

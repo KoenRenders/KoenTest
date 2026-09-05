@@ -16,7 +16,7 @@ from app.config import settings
 from app.database import get_db
 from app.domains.auth.api import (
     admin_user_by_email, csrf_from_request,
-    SESSION_COOKIE, User, csrf_token_for, require_admin_ui, require_csrf,
+    SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.limiter import chat_limiter
 from app.ui import admin_nav, templates
@@ -146,10 +146,12 @@ def document_opnieuw_lezen(asset_id: int, request: Request,
                            email: str = Depends(require_admin_ui)):
     """'Opnieuw lezen' (#235): her-extraheer de tekst van een document-asset. Draait
     op de achtergrond; override/aanvulling blijven staan."""
-    from app.domains.media.api import reextract_media_text
+    from app.domains.media.api import reextract_text
 
-    reextract_media_text(asset_id, background_tasks, db=db,
-                         _admin=admin_user_by_email(db, email))
+    try:
+        reextract_text(db, asset_id, background_tasks)
+    except LookupError:
+        raise HTTPException(status_code=404, detail=_("Document niet gevonden"))
     return templates.TemplateResponse(request, "_ai_context_lijst.html",
                                       _context_ctx(request, db, email))
 

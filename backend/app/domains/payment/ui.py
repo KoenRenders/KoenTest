@@ -22,7 +22,6 @@ from app.domains.auth.api import (
 )
 from app.ui import admin_nav, templates
 from app.i18n import _
-from app.domains.payment.api import PaymentRecord
 from app.domains.payment.service import (
     BetalingFout, bevestig_betaling, bewerk_betaling, registreer_terugbetaling,
     ververs_betaalstatus, verwijder_betaling, zet_betaalstatus,

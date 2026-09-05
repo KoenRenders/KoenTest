@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.domains.auth.api import (
     admin_user_by_email, csrf_from_request,
-    SESSION_COOKIE, User, csrf_token_for, require_admin_ui, require_csrf,
+    SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.ui import admin_nav, is_fragment_request, templates
 from app.domains.activities.viewmodels import AdminActiviteitenView
@@ -49,11 +49,15 @@ def _opt_str(value: str) -> Optional[str]:
     return value or None
 
 
-def _upload_error(exc: HTTPException) -> str:
+def _upload_error(exc: Exception) -> str:
     """Toon de upload-fout aan de beheerder i.p.v. ze stil te laten mislukken (htmx
     swapt niet op een 4xx). Bij een niet-ondersteund type een concrete hint —
-    o.a. iPhone-HEIC-foto's worden niet aanvaard."""
-    detail = str(exc.detail)
+    o.a. iPhone-HEIC-foto's worden niet aanvaard.
+
+    Neemt zowel een HTTPException (uit de router-laag) als een gewone
+    service-fout: sinds #635 I gooit de mediaservice `MediaFout`/`LookupError`.
+    """
+    detail = str(getattr(exc, "detail", exc))
     if "bestandstype" in detail.lower():
         return detail + " — " + _("gebruik een PNG, JPG, WEBP, GIF of PDF "
                                   "(een iPhone-HEIC-foto werkt niet).")
@@ -218,7 +222,7 @@ async def activiteit_bijwerken(activity_id: int, request: Request,
     zoals in v1.14: een geüploade affiche primeert op de URL (#223).
     """
     from app.domains.activities.router import update_activity
-    from app.domains.media.api import upload_activity_poster
+    from app.domains.media.api import replace_activity_poster
     from app.schemas.activity import ActivityUpdate
 
     admin = admin_user_by_email(db, email)
@@ -230,9 +234,8 @@ async def activiteit_bijwerken(activity_id: int, request: Request,
 
     if file is not None and file.filename:
         try:
-            await upload_activity_poster(activity_id, background_tasks, file=file,
-                                         db=db, _admin=admin)
-        except HTTPException as exc:
+            await replace_activity_poster(db, activity_id, file, background_tasks)
+        except (LookupError, HTTPException) as exc:
             return _detail_response(request, db, activity_id, error=_upload_error(exc))
     return _detail_response(request, db, activity_id)
 
@@ -454,13 +457,12 @@ async def affiche_uploaden(activity_id: int, request: Request,
                            db: Session = Depends(get_db),
                            email: str = Depends(require_admin_ui)):
     """Affiche (poster) uploaden vanuit de activiteiten-admin (#451)."""
-    from app.domains.media.api import upload_activity_poster
+    from app.domains.media.api import replace_activity_poster
 
     if file is not None and file.filename:
         try:
-            await upload_activity_poster(activity_id, background_tasks, file=file,
-                                         db=db, _admin=admin_user_by_email(db, email))
-        except HTTPException as exc:
+            await replace_activity_poster(db, activity_id, file, background_tasks)
+        except (LookupError, HTTPException) as exc:
             return _detail_response(request, db, activity_id,
                                     error=_upload_error(exc))
     return _detail_response(request, db, activity_id)
@@ -479,7 +481,7 @@ def affiche_verwijderen(activity_id: int, request: Request,
     """
     from app.domains.media.api import delete_activity_poster
 
-    delete_activity_poster(activity_id, db=db, _admin=admin_user_by_email(db, email))
+    delete_activity_poster(db, activity_id)
     return _detail_response(request, db, activity_id)
 
 
@@ -491,7 +493,7 @@ def onderdeel_info_verwijderen(activity_id: int, component_id: int, request: Req
     """Info-bijlage van een onderdeel verwijderen (#623), via dezelfde media-facade."""
     from app.domains.media.api import delete_component_info
 
-    delete_component_info(component_id, db=db, _admin=admin_user_by_email(db, email))
+    delete_component_info(db, component_id)
     return _detail_response(request, db, activity_id)
 
 
@@ -505,13 +507,12 @@ async def onderdeel_info_uploaden(activity_id: int, component_id: int, request: 
     """Info-bijlage (afbeelding of PDF) per onderdeel uploaden (#451).
 
     Heette "reglement" tot #623; één woord voor één ding (§2.13)."""
-    from app.domains.media.api import upload_component_info
+    from app.domains.media.api import replace_component_info
 
     if file is not None and file.filename:
         try:
-            await upload_component_info(component_id, background_tasks, file=file,
-                                        db=db, _admin=admin_user_by_email(db, email))
-        except HTTPException as exc:
+            await replace_component_info(db, component_id, file, background_tasks)
+        except (LookupError, HTTPException) as exc:
             return _detail_response(request, db, activity_id,
                                     error=_upload_error(exc))
     return _detail_response(request, db, activity_id)

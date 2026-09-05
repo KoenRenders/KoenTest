@@ -13,7 +13,7 @@ from sqlalchemy.orm import Session
 from app.database import get_db
 from app.domains.auth.api import (
     admin_user_by_email, csrf_from_request, get_user_roles,
-    SESSION_COOKIE, User, csrf_token_for, require_admin_ui, require_csrf,
+    SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.ui import admin_nav, is_fragment_request, templates
 from app.i18n import _
