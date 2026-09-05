@@ -167,3 +167,55 @@ class Adminschil:
         self.page.locator(f'aside a[href="{href}"]').first.click()
         self.page.wait_for_selector("#main h1", timeout=5000)
         self.page.wait_for_timeout(200)
+
+
+class Activiteitdetail:
+    """/admin/activiteiten/<id> — het scherm waarop #649 gemeld werd.
+
+    De datumsectie is er het kleinste bewerkformulier op: één regel, één
+    Bewerken-knop, één Opslaan. Precies de POST die op HDEV elf keer 403 gaf
+    zonder dat er iets op het scherm veranderde.
+    """
+
+    def __init__(self, page):
+        self.page = page
+
+    def open_eerste(self, naam: str | None = None):
+        """Open een activiteitdetail vanuit de lijst; geeft False als er geen is."""
+        self.page.goto("/admin/activiteiten")
+        self.page.wait_for_selector("main", timeout=5000)
+        link = (self.page.get_by_text(naam).first if naam
+                else self.page.locator('a[href^="/admin/activiteiten/"]').first)
+        if link.count() == 0:
+            return False
+        link.click()
+        self.page.wait_for_selector("#aa-detail", timeout=5000)
+        return True
+
+    def datumregel(self):
+        """De eerste datumregel — herkenbaar aan haar eigen bewerkformulier."""
+        return self.page.locator('form[hx-post*="/datums/"]').first
+
+    def bewerk_de_eerste_datum(self):
+        """Klap het bewerkformulier van de eerste datumregel open."""
+        rij = self.datumregel().locator("xpath=..")
+        rij.get_by_role("button", name="Bewerken").first.click()
+
+    def bewaar(self):
+        self.datumregel().get_by_role("button", name="Opslaan").first.click()
+
+    def breek_het_csrf_token(self) -> None:
+        """Vervang het CSRF-token door een ongeldige waarde.
+
+        Dat is exact wat er bij Koen gebeurde, zonder een tweede venster nodig te
+        hebben: het token is afgeleid van de sessiecookie, dus na een herinlog
+        elders draagt dit tabblad een token dat niet meer bij de cookie past.
+        require_csrf antwoordt dan 403.
+        """
+        self.page.evaluate(
+            """document.body.setAttribute('hx-headers',
+                   JSON.stringify({'X-CSRF-Token': 'verlopen-token'}))""")
+
+    def foutmeldingen(self):
+        """De meldingen die htmx_ux() in de toast-host zet (#649)."""
+        return self.page.locator("#toasts [data-fout]")

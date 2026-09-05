@@ -614,6 +614,18 @@
       de huidige body — of helemaal geen — dan navigeren we hard. #}
 {% macro htmx_ux() -%}
 <div id="nprogress" aria-hidden="true"></div>
+{# De foutmelding van #649 als <template>: dezelfde tint als ui.toast(kind="error")
+   en dezelfde landingsplek (#toasts), maar zonder Alpine — dit is het foutpad, dat
+   moet ook overeind blijven als er iets anders stuk is. De opmaak staat hier in
+   Jinja i.p.v. als klassenstring in JS, zodat de lint-gate ze ziet. #}
+<template id="htmx-foutmelding">
+  <div class="pointer-events-auto flex items-start gap-3 rounded-lg border px-4 py-3 shadow-sm bg-red-50 border-red-200 text-red-800"
+       role="alert" aria-live="assertive">
+    <span class="text-sm" data-tekst></span>
+    <button type="button" class="ml-auto text-lg leading-none opacity-60 hover:opacity-100"
+            aria-label="{{ _('Sluiten') }}">&times;</button>
+  </div>
+</template>
 <script>
   (function () {
     var body = document.body;
@@ -626,8 +638,49 @@
       var h = document.querySelector('#main h1');
       if (h) h.focus();
     });
+    // Een mislukte actie moet je ZIEN (#649). Tot hier deed deze handler alleen
+    // iets bij een gebooste navigatie; een gewone hx-post — élk bewerkformulier op
+    // élk beheerscherm — faalde geruisloos: de laadindicator ging weg en verder
+    // niets. Niet te onderscheiden van een kapotte toepassing, en zo ging een
+    // reeks 403's uit require_csrf elf keer onopgemerkt voorbij.
+    //
+    // htmx handelt HX-Redirect/HX-Location/HX-Refresh af vóór het statusonderscheid
+    // en stopt daar (handleAjaxResponse in htmx 2.0.4), dus een 401 met
+    // `HX-Redirect: /aanmelden` — wat _require_ui_roles zet — komt hier niet eens
+    // langs. Wat hier binnenkomt, is dus precies het stille geval.
+    function meldFout(tekst, kind) {
+      var host = document.getElementById('toasts');
+      var sjabloon = document.getElementById('htmx-foutmelding');
+      if (!host || !sjabloon) return;
+      // Elf mislukte pogingen gaven elf identieke meldingen; dat is wat er in het
+      // toegangslog van #649 stond. Eén melding zegt hetzelfde.
+      var bestaand = host.querySelectorAll('[data-fout]');
+      for (var i = 0; i < bestaand.length; i++) {
+        if (bestaand[i].textContent.indexOf(tekst) !== -1) return;
+      }
+      var melding = sjabloon.content.firstElementChild.cloneNode(true);
+      melding.querySelector('[data-tekst]').textContent = tekst;
+      melding.setAttribute('data-fout', kind);
+      melding.querySelector('button').addEventListener('click', function () {
+        melding.remove();
+      });
+      host.appendChild(melding);
+    }
     body.addEventListener('htmx:responseError', function (e) {
-      if (e.detail.boosted) window.location.assign(e.detail.pathInfo.finalRequestPath);
+      if (e.detail.boosted) { window.location.assign(e.detail.pathInfo.finalRequestPath); return; }
+      var status = (e.detail.xhr && e.detail.xhr.status) || 0;
+      if (status === 401) { window.location.assign('/aanmelden'); return; }
+      // 403 is in de praktijk bijna altijd een verlopen CSRF-token: het token is
+      // afgeleid van de exacte sessiecookie, dus een herinlog in een ander venster
+      // maakt elk openstaand tabblad ongeldig. Zeg wat de gebruiker moet doen.
+      meldFout(status === 403
+        ? {{ _("Je sessie is vernieuwd in een ander venster. Herlaad de pagina en probeer opnieuw.")|tojson }}
+        : {{ _("Er ging iets mis; je wijziging is niet bewaard. Probeer opnieuw.")|tojson }},
+        String(status));
+    });
+    // Zelfde stille falen, andere oorzaak: de aanvraag bereikte de server niet.
+    body.addEventListener('htmx:sendError', function () {
+      meldFout({{ _("Geen verbinding met de server; je wijziging is niet bewaard.")|tojson }}, 'netwerk');
     });
     body.addEventListener('htmx:beforeSwap', function (e) {
       if (!e.detail.boosted) return;
