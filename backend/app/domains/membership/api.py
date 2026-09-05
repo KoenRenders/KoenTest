@@ -53,11 +53,11 @@ __all__ = [
 
 
 # ── Onderaan, en dat is opzet ────────────────────────────────────────────────
-# household_service importeert audit.api, en audit/service.py importeert op
-# modulniveau `MembershipHistory` uit déze facade. Staat de import hierboven, dan
-# is die naam nog niet gebonden wanneer de keten terugkomt en klapt het op een
-# "partially initialized module". Onderaan is `MembershipHistory` er wél, en
-# lost de cyclus zichzelf op — zonder de lazy proxy die #635 H juist wegneemt.
+# `audit/service.py` importeert op modulniveau `MembershipHistory` uit déze
+# facade. Staat de import hieronder bovenaan, dan is die naam nog niet gebonden
+# wanneer die keten terugkomt en klapt het op een "partially initialized module".
+# Onderaan is `MembershipHistory` er wél. Zo lost de cyclus zichzelf op, zonder de
+# lazy proxy die #635 H juist wegneemt.
 # Sinds #635 H expliciet, niet meer via een lazy `__getattr__`-proxy naar
 # register_router. Die proxy gaf routerfuncties door als "servicelaag" — HTTP-
 # handlers met `Depends` in hun signatuur — en bestond om een importcyclus te

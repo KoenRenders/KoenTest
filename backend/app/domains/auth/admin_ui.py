@@ -50,8 +50,8 @@ def _lijst_ctx(request: Request, db: Session, q: str = "", rol: str = "",
     Backoffice-accounts zijn er tientallen, geen duizenden — filteren gebeurt op
     de opgehaalde lijst, in dezelfde stijl als de andere lijstschermen.
     """
+    from app.domains.auth.api import list_assignable_roles
     from app.domains.auth.users import list_users
-    from app.domains.auth.models import RoleCode
 
     users = list_users(db=db, _admin=None)
     term = q.strip().lower()
@@ -65,12 +65,9 @@ def _lijst_ctx(request: Request, db: Session, q: str = "", rol: str = "",
     elif actief == "nee":
         users = [u for u in users if not u.is_active]
 
-    # USER én MEMBER zijn dode rollen in gebruikersbeheer (#458/#521): geen enkele
-    # autorisatie hangt eraan (backoffice draait op ADMIN/FINANCE/OPERATOR;
-    # lidmaatschap is data-gedreven via Membership). Uit de keuzelijst filteren
-    # voorkomt zinloze, verwarrende vinkjes — en dus ook zinloze filterchips.
-    rollen = (db.query(RoleCode).filter(RoleCode.code.notin_(["USER", "MEMBER"]))
-              .order_by(RoleCode.code).all())
+    # Welke rollen toekenbaar zijn (en waarom USER/MEMBER niet) staat in de
+    # service — het scherm hoeft die regel niet te kennen (#635 regel 2).
+    rollen = list_assignable_roles(db)
     return {"users": users, "q": q, "rol": rol, "actief": actief,
             "gefilterd": bool(term or rol or actief),
             # Chip-opties per request: _() volgt de taal van de tenant.

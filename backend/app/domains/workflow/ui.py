@@ -141,5 +141,4 @@ def taak_detail(task_id: int, request: Request, db: Session = Depends(get_db),
 def taak_afhandelen(task_id: int, request: Request, db: Session = Depends(get_db),
                     email: str = Depends(require_admin_ui), besluit: str = Form("")):
     api.complete_task(db, task_id, done_by=email, decision=besluit.strip() or None)
-    db.commit()
     return templates.TemplateResponse(request, "_werkbank_lijst.html", _ctx(request, db, email))

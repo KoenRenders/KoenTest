@@ -110,3 +110,17 @@ def delete_user(user_id: int, db: Session = Depends(get_db), current_admin: User
     from app.soft_delete import soft_delete
     soft_delete(user)
     db.commit()
+
+
+def list_assignable_roles(db):
+    """De rollen die je in gebruikersbeheer kan toekennen (#458/#521).
+
+    USER en MEMBER zijn dode rollen: geen enkele autorisatie hangt eraan — de
+    backoffice draait op ADMIN/FINANCE/OPERATOR en lidmaatschap is data-gedreven
+    via Membership. Ze uit de keuzelijst filteren voorkomt zinloze, verwarrende
+    vinkjes, en dus ook zinloze filterchips.
+    """
+    from app.domains.auth.models import RoleCode
+
+    return (db.query(RoleCode).filter(RoleCode.code.notin_(["USER", "MEMBER"]))
+            .order_by(RoleCode.code).all())

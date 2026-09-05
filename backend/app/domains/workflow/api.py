@@ -121,6 +121,10 @@ def complete_task(db: Session, task_id: int, *, done_by: str,
         instance = db.get(WorkflowInstance, task.instance_id)
         if instance is not None:
             advance(db, instance)
+    # Afsluiten én doorzetten horen bij elkaar: een gesloten taak zonder
+    # doorgezette workflow is een halve waarheid. De commit hoort dus hier en niet
+    # in het scherm (#635 regel 2).
+    db.commit()
     return task
 
 

@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf
-from app.domains.mail.models import EMAIL_STATUSES, EMAIL_TYPES, EmailLog
+from app.domains.mail.api import (EMAIL_STATUSES, EMAIL_TYPES,
+                                  delete_email_log, list_email_log)
 from app.ui import admin_nav, templates
 
 router = APIRouter(include_in_schema=False)
@@ -36,22 +37,13 @@ def _ctx(request: Request, db: Session) -> dict:
     email_type = (request.query_params.get("email_type") or "").strip()
     status = (request.query_params.get("status") or "").strip()
     recipient = (request.query_params.get("recipient") or "").strip()
-    q = db.query(EmailLog)
-    if email_type:
-        q = q.filter(EmailLog.email_type == email_type)
-    if status:
-        q = q.filter(EmailLog.status == status)
-    if recipient:
-        q = q.filter(EmailLog.recipient.ilike(f"%{recipient}%"))
     try:
         page = max(1, int(request.query_params.get("page", "1")))
     except ValueError:
         page = 1
-    # Eén rij extra ophalen dan de paginagrootte om te weten of er nog een pagina is.
-    rows = (q.order_by(EmailLog.created_at.desc())
-            .offset((page - 1) * PAGE_SIZE).limit(PAGE_SIZE + 1).all())
-    has_next = len(rows) > PAGE_SIZE
-    rows = rows[:PAGE_SIZE]
+    rows, has_next = list_email_log(db, email_type=email_type, status=status,
+                                    recipient=recipient, page=page,
+                                    page_size=PAGE_SIZE)
     raw = request.cookies.get(SESSION_COOKIE) or ""
     return {
         "csrf_token": csrf_token_for(raw),
@@ -87,10 +79,7 @@ def email_log_lijst(request: Request, db: Session = Depends(get_db),
              dependencies=[Depends(require_csrf)])
 def email_log_verwijderen(log_id: int, request: Request, db: Session = Depends(get_db),
                           email: str = Depends(require_admin_ui)):
-    row = db.query(EmailLog).filter(EmailLog.id == log_id).first()
-    if row is not None:
-        db.delete(row)
-        db.commit()
+    delete_email_log(db, log_id)
     return templates.TemplateResponse(request, "_email_log_lijst.html", _ctx(request, db))
 
 

@@ -430,3 +430,40 @@ def purge_old_email_logs(db, retention_days: Optional[int] = None) -> int:
     )
     db.commit()
     return deleted
+
+
+# ── E-maillogboek (#635 I) ───────────────────────────────────────────────────
+
+def list_email_log(db, *, email_type: str = "", status: str = "",
+                   recipient: str = "", page: int = 1, page_size: int = 25):
+    """Een pagina uit het e-maillogboek, met de actieve filters toegepast.
+
+    Geeft `(rijen, is_er_nog_een_pagina)` terug. De "nog een pagina?"-vraag wordt
+    beantwoord door één rij méér op te halen dan de paginagrootte — goedkoper dan
+    een tweede COUNT-query over een tabel die alleen maar groeit.
+    """
+    from app.domains.mail.models import EmailLog
+
+    query = db.query(EmailLog)
+    if email_type:
+        query = query.filter(EmailLog.email_type == email_type)
+    if status:
+        query = query.filter(EmailLog.status == status)
+    if recipient:
+        query = query.filter(EmailLog.recipient.ilike(f"%{recipient}%"))
+
+    rijen = (query.order_by(EmailLog.created_at.desc())
+             .offset((max(1, page) - 1) * page_size).limit(page_size + 1).all())
+    return rijen[:page_size], len(rijen) > page_size
+
+
+def delete_email_log(db, log_id: int) -> bool:
+    """Verwijder één logregel. Geeft terug of er iets verwijderd is."""
+    from app.domains.mail.models import EmailLog
+
+    rij = db.query(EmailLog).filter(EmailLog.id == log_id).first()
+    if rij is None:
+        return False
+    db.delete(rij)
+    db.commit()
+    return True

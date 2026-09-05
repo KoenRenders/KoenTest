@@ -44,6 +44,12 @@ from app.domains.membership.schemas_member import (
 from app.i18n import _
 from app.soft_delete import soft_delete
 
+# De audit-snapshots worden **per functie** geïmporteerd, niet hier. `audit/api.py`
+# trekt via `audit/service.py` de payment- en membership-facades binnen, en die
+# importeren audit weer terug; een module-level import hier maakt de volgorde
+# waarin dat oplost afhankelijk van wie er toevallig als eerste geïmporteerd wordt.
+# Binnen een functie gebeurt de import pas bij de aanroep, als alles geladen is.
+
 
 def _person_to_schema(person: Person, relation_type: str) -> FamilyMemberResponse:
     email = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
@@ -108,6 +114,8 @@ def _reconcile_geschrapt_lidmaatschap(
     )
 
 def create_member(db: Session, data: MemberCreate, _admin=None):
+    from app.domains.audit.api import snapshot_member, snapshot_member_person, snapshot_person
+
     member = Member()
     db.add(member)
     db.flush()
@@ -224,6 +232,8 @@ def create_membership_for_family(
     data: MembershipCreate,
     admin=None,
 ):
+    from app.domains.audit.api import snapshot_membership
+
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
         raise HTTPException(status_code=404, detail=_("Family not found"))
@@ -254,6 +264,8 @@ def create_membership_for_family(
     return MembershipResponse.model_validate(membership)
 
 def delete_family(db: Session, family_id: int, admin=None):
+    from app.domains.audit.api import snapshot_address, snapshot_contact_detail, snapshot_member, snapshot_member_person, snapshot_membership, snapshot_person
+
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
         raise HTTPException(status_code=404, detail=_("Family not found"))
@@ -286,6 +298,8 @@ def delete_family(db: Session, family_id: int, admin=None):
     db.commit()
 
 def update_person(db: Session, person_id: int, data: PersonUpdate, admin=None):
+    from app.domains.audit.api import snapshot_person
+
     person = db.query(Person).filter(Person.id == person_id).first()
     if not person:
         raise HTTPException(status_code=404, detail=_("Person not found"))
@@ -309,6 +323,8 @@ def update_person_address(
     data: AddressUpdate,
     admin=None,
 ):
+    from app.domains.audit.api import snapshot_address
+
     person = db.query(Person).filter(Person.id == person_id).first()
     if not person:
         raise HTTPException(status_code=404, detail=_("Person not found"))
@@ -338,6 +354,8 @@ def update_person_contacts(
     data: ContactsUpdate,
     admin=None,
 ):
+    from app.domains.audit.api import snapshot_contact_detail
+
     person = db.query(Person).filter(Person.id == person_id).first()
     if not person:
         raise HTTPException(status_code=404, detail=_("Person not found"))
@@ -368,6 +386,8 @@ def update_person_contacts(
     return _person_to_schema(person, mp.relation_type if mp else "HOOFDLID")
 
 def delete_person(db: Session, person_id: int, admin=None):
+    from app.domains.audit.api import snapshot_address, snapshot_contact_detail, snapshot_member_person, snapshot_person
+
     person = db.query(Person).filter(Person.id == person_id).first()
     if not person:
         raise HTTPException(status_code=404, detail=_("Person not found"))
@@ -392,6 +412,8 @@ def add_person_to_family(
     data: PersonAddToFamily,
     admin=None,
 ):
+    from app.domains.audit.api import snapshot_contact_detail, snapshot_member_person, snapshot_person
+
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
         raise HTTPException(status_code=404, detail=_("Family not found"))
@@ -425,6 +447,8 @@ def add_person_to_family(
     return _build_family_response(member)
 
 def delete_membership(db: Session, membership_id: int, admin=None):
+    from app.domains.audit.api import snapshot_membership
+
     membership = db.query(Membership).filter(Membership.id == membership_id).first()
     if not membership:
         raise HTTPException(status_code=404, detail=_("Membership not found"))
@@ -439,6 +463,8 @@ def assign_board_member(
     data: BoardMemberAssign,
     admin=None,
 ):
+    from app.domains.audit.api import snapshot_member
+
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
         raise HTTPException(status_code=404, detail=_("Family not found"))
@@ -451,20 +477,3 @@ def assign_board_member(
     db.commit()
     db.refresh(member)
     return _build_family_response(member)
-
-
-# ── Onderaan, en dat is opzet ────────────────────────────────────────────────
-# `audit/service.py` importeert op modulniveau `MembershipHistory` uit
-# `membership/api.py`, dat op zijn beurt deze module importeert. Staat de
-# audit-import bovenaan, dan begint die keten vóórdat de functies hieronder
-# bestaan en klapt hij op een "partially initialized module". Onderaan zijn ze er
-# wel, en lost de cyclus zichzelf op. De functies zoeken deze namen pas op wanneer
-# ze aangeroepen worden, dus qua gedrag verandert er niets.
-from app.domains.audit.api import (  # noqa: E402
-    snapshot_address,
-    snapshot_contact_detail,
-    snapshot_member,
-    snapshot_member_person,
-    snapshot_membership,
-    snapshot_person,
-)
