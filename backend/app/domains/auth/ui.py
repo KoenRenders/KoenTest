@@ -40,7 +40,7 @@ def aanmelden_submit(request: Request, db: Session = Depends(get_db),
         return templates.TemplateResponse(
             request, "_aanmelden_email.html",
             {"error": _("Vul een geldig e-mailadres in."), "email": email})
-    from app.domains.auth.router import start_login
+    from app.domains.auth.api import start_login
 
     start_login(db, email)
     # Altijd hetzelfde vervolg — verklap niet of het adres gekend is.
@@ -52,7 +52,7 @@ def aanmelden_submit(request: Request, db: Session = Depends(get_db),
              dependencies=[Depends(login_limiter)])
 def aanmelden_code(request: Request, db: Session = Depends(get_db),
                    email: str = Form(""), code: str = Form("")):
-    from app.domains.auth.router import check_otp
+    from app.domains.auth.api import check_otp
 
     email, code = email.strip(), code.strip()
     if not check_otp(db, email, code):

@@ -42,10 +42,11 @@ from app.domains.auth.session import (  # noqa: F401
     set_session_cookie,
 )
 
+from app.domains.auth.login import check_otp, start_login  # noqa: F401
 from app.domains.auth.users import list_assignable_roles  # noqa: F401
 
 __all__ = [
-    "list_assignable_roles",
+    "check_otp", "list_assignable_roles", "start_login",
     "find_persons_by_email", "login_person_for_email", "resolve_household",
     "ApiKey", "LoginToken", "User", "UserRole",
     "API_KEY_HEADER", "hash_api_key", "require_api_key",

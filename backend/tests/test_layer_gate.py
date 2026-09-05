@@ -77,7 +77,6 @@ VIEWMODEL_ALLOWLIST: set[str] = {
 LAYER_ALLOWLIST: set[tuple[str, str]] = {
     # ── regel 1: imports uit models/router, of een private naam ──────────────
     ("app.domains.activities.admin_ui", "imports"),
-    ("app.domains.auth.ui", "imports"),
     ("app.domains.chatbot.ui", "imports"),
     ("app.domains.forms.admin_ui", "imports"),
     ("app.domains.forms.ui", "imports"),
