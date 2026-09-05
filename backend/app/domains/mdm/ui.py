@@ -92,9 +92,8 @@ def _lijst_view(request: Request, db: Session,
         page = max(1, int(request.query_params.get("page", "1")))
     except ValueError:
         page = 1
-    data = list_families(page=page, page_size=25, q=q or None,
-                         status=status or None, membership_year=jaar,
-                         db=db, _admin=None)
+    data = list_families(db, page=page, page_size=25, q=q or None,
+                         status=status or None, membership_year=jaar)
     # total + page_size erbij zodat ui.pager() "x–y van n" kan tonen (#580).
     return LedenView(
         families=data.items, page=data.page, total=data.total,
@@ -111,7 +110,7 @@ def _lijst_view(request: Request, db: Session,
 def _detail_ctx(request: Request, db: Session, family_id: int) -> dict:
     from app.domains.membership.api import get_family
 
-    family = get_family(family_id, db=db, _admin=None)
+    family = get_family(db, family_id)
     persons = (db.query(Person)
                .order_by(Person.last_name, Person.first_name).all())
     postal_codes = db.query(PostalCode).order_by(PostalCode.postal_code).all()
@@ -174,9 +173,9 @@ def gezin_aanmaken(request: Request, db: Session = Depends(get_db),
     if not first_name.strip() or not last_name.strip():
         raise HTTPException(status_code=400,
                             detail=_("Voornaam en achternaam zijn verplicht."))
-    gezin = create_member(MemberCreate(persons=[PersonCreate(
+    gezin = create_member(db, MemberCreate(persons=[PersonCreate(
         first_name=first_name.strip(), last_name=last_name.strip(),
-        relation_type="HOOFDLID")]), db=db, _admin=None)
+        relation_type="HOOFDLID")]))
     return Response(status_code=204,
                     headers={"HX-Redirect": f"/admin/leden/gezin/{gezin.id}"})
 
@@ -207,14 +206,14 @@ def persoon_opslaan(family_id: int, person_id: int, request: Request,
     from app.domains.membership.api import PersonUpdate
     from app.domains.membership.api import ContactsUpdate
 
-    update_person(person_id, PersonUpdate(
+    update_person(db, person_id, PersonUpdate(
         first_name=first_name.strip(), last_name=last_name.strip(),
         date_of_birth=date_of_birth or None, gender_code=gender_code or None,
-    ), db=db, admin=admin_user_by_email(db, email))
-    update_person_contacts(person_id, ContactsUpdate(
+    ), admin=admin_user_by_email(db, email))
+    update_person_contacts(db, person_id, ContactsUpdate(
         email=contact_email.strip() or None, phone=phone.strip() or None,
         mobile=mobile.strip() or None,
-    ), db=db, admin=admin_user_by_email(db, email))
+    ), admin=admin_user_by_email(db, email))
     # Relatietype op de MemberPerson-junctie (#498). De regel — nooit promoveren
     # tot HOOFDLID, nooit een bestaand HOOFDLID overschrijven — staat sinds #635-F
     # in de service, met een rauwe query minder in dit scherm.
@@ -234,16 +233,16 @@ def adres_opslaan(family_id: int, request: Request, db: Session = Depends(get_db
     from app.domains.membership.api import get_family, update_person_address
     from app.domains.membership.api import AddressUpdate
 
-    family = get_family(family_id, db=db, _admin=None)
+    family = get_family(db, family_id)
     hoofdlid = next((m for m in family.members
                      if (m.relation_type or "").upper() == "HOOFDLID"),
                     family.members[0] if family.members else None)
     if hoofdlid is None:
         raise HTTPException(status_code=400, detail=_("Gezin zonder personen."))
-    update_person_address(hoofdlid.id, AddressUpdate(
+    update_person_address(db, hoofdlid.id, AddressUpdate(
         street=street.strip(), house_number=house_number.strip(),
         bus_number=bus_number.strip() or None, postal_code=postal_code.strip(),
-    ), db=db, admin=admin_user_by_email(db, email))
+    ), admin=admin_user_by_email(db, email))
     db.commit()
     return _detail_response(request, db, family_id)
 
@@ -259,12 +258,12 @@ def persoon_toevoegen(family_id: int, request: Request, db: Session = Depends(ge
     from app.domains.membership.api import add_person_to_family
     from app.domains.membership.api import PersonAddToFamily
 
-    add_person_to_family(family_id, PersonAddToFamily(
+    add_person_to_family(db, family_id, PersonAddToFamily(
         first_name=first_name.strip(), last_name=last_name.strip(),
         date_of_birth=date_of_birth or None, gender_code=gender_code or None,
         email=contact_email.strip() or None, phone=phone.strip() or None,
         mobile=mobile.strip() or None, relation_type=relation_type,
-    ), db=db, admin=admin_user_by_email(db, email))
+    ), admin=admin_user_by_email(db, email))
     db.commit()
     return _detail_response(request, db, family_id)
 
@@ -276,7 +275,7 @@ def persoon_verwijderen(family_id: int, person_id: int, request: Request,
                         email: str = Depends(require_admin_ui)):
     from app.domains.membership.api import delete_person
 
-    delete_person(person_id, db=db, admin=admin_user_by_email(db, email))
+    delete_person(db, person_id, admin=admin_user_by_email(db, email))
     db.commit()
     return _detail_response(request, db, family_id)
 
@@ -289,9 +288,9 @@ def bestuurslid_zetten(family_id: int, request: Request, db: Session = Depends(g
     from app.domains.membership.api import assign_board_member
     from app.domains.membership.api import BoardMemberAssign
 
-    assign_board_member(family_id, BoardMemberAssign(
+    assign_board_member(db, family_id, BoardMemberAssign(
         person_id=int(person_id) if person_id else None,
-    ), db=db, admin=admin_user_by_email(db, email))
+    ), admin=admin_user_by_email(db, email))
     db.commit()
     return _detail_response(request, db, family_id)
 
@@ -305,8 +304,8 @@ def lidmaatschap_toevoegen(family_id: int, request: Request,
     from app.domains.membership.api import create_membership_for_family
     from app.domains.membership.api import MembershipCreate
 
-    create_membership_for_family(family_id, MembershipCreate(year=year, is_active=True),
-                                 db=db, admin=admin_user_by_email(db, email))
+    create_membership_for_family(db, family_id, MembershipCreate(year=year, is_active=True),
+                                 admin=admin_user_by_email(db, email))
     db.commit()
     return _detail_response(request, db, family_id)
 
@@ -318,7 +317,7 @@ def lidmaatschap_verwijderen(family_id: int, membership_id: int, request: Reques
                              email: str = Depends(require_admin_ui)):
     from app.domains.membership.api import delete_membership
 
-    delete_membership(membership_id, db=db, admin=admin_user_by_email(db, email))
+    delete_membership(db, membership_id, admin=admin_user_by_email(db, email))
     db.commit()
     return _detail_response(request, db, family_id)
 
@@ -329,7 +328,7 @@ def gezin_verwijderen(family_id: int, request: Request, db: Session = Depends(ge
                       email: str = Depends(require_admin_ui)):
     from app.domains.membership.api import delete_family
 
-    delete_family(family_id, db=db, admin=admin_user_by_email(db, email))
+    delete_family(db, family_id, admin=admin_user_by_email(db, email))
     db.commit()
     # Verwijderen gebeurt vanuit de gezinseditor; die pagina bestaat daarna niet
     # meer, dus terug naar de lijst (#582).

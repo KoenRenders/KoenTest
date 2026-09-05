@@ -31,22 +31,25 @@ from app.domains.membership.service import (  # noqa: F401
     valid_membership_until,
 )
 
-_ROUTER_FUNCS = (
-    "add_person_to_family", "assign_board_member", "create_member",
-    "create_membership_for_family",
-    "delete_family", "delete_membership", "delete_person", "get_family",
-    "list_families", "update_person", "update_person_address",
-    "update_person_contacts",
+# Sinds #635 H expliciet, niet meer via een lazy `__getattr__`-proxy naar
+# register_router. Die proxy gaf routerfuncties door als "servicelaag" — HTTP-
+# handlers met `Depends` in hun signatuur — en bestond om een importcyclus te
+# vermijden. De cyclus is weg nu de implementatie in household_service woont, dat
+# zelf geen router importeert.
+from app.domains.membership.household_service import (  # noqa: F401
+    add_person_to_family,
+    assign_board_member,
+    create_member,
+    create_membership_for_family,
+    delete_family,
+    delete_membership,
+    delete_person,
+    get_family,
+    list_families,
+    update_person,
+    update_person_address,
+    update_person_contacts,
 )
-
-
-def __getattr__(name: str):
-    # Lazy om een importcyclus te vermijden: register_router importeert
-    # payment.api, dat via payment.service weer deze facade importeert (#444).
-    if name in _ROUTER_FUNCS:
-        from app.domains.membership import register_router
-        return getattr(register_router, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 __all__ = [
@@ -56,7 +59,7 @@ __all__ = [
     "members_valid_on", "members_with_membership_for_year",
     "not_renewed_count", "renewal_years",
     "renewal_available", "renewal_open", "valid_membership_until",
-    # Router-functies hergebruikt als servicelaag door mdm-schermen (#444)
+    # Schrijfbewerkingen op gezinnen/personen/lidmaatschappen (#635 H)
     "add_person_to_family", "assign_board_member", "create_member",
     "create_membership_for_family", "delete_family", "delete_membership", "delete_person", "get_family",
     "list_families", "update_person", "update_person_address",
