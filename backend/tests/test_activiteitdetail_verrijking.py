@@ -82,23 +82,31 @@ def test_een_onbestaande_activiteit_geeft_none(db_session):
     assert get_activity_detail(db_session, 999999) is None
 
 
-def test_het_detail_haalt_de_andere_activiteiten_niet_op(client, db_session):
-    """De kern van #651, uitgedrukt zonder klok.
+def test_het_scherm_gebruikt_de_doorgang_en_niet_de_lijstbewerking(client, db_session):
+    """Een bronregel, omdat gedrag hier niets bewijst.
 
-    Een tijdmeting is te wisselvallig voor CI; het aantal opgehaalde activiteiten
-    niet. Dit detail hoort er precies één te raken, hoeveel er ook naast staan.
+    De oude code haalde de volledige lijst op en viste er in Python één uit — het
+    HTML-resultaat was identiek. Een test op wat het scherm toont, zou dus ook
+    vóór deze fix geslaagd zijn. Wat de twee implementaties onderscheidt, is welke
+    bewerking het scherm aanroept; het rijenplafond in test_query_budget.py meet
+    het gevolg.
     """
-    activity, _c, _p = seed_activity_with_product(db_session)
-    for i in range(10):
-        extra = Activity(name=f"Buuractiviteit {i}")
-        db_session.add(extra)
-        db_session.flush()
-        db_session.add(ActivityDate(activity_id=extra.id,
-                                    start_date=date.today() + timedelta(days=i + 1)))
-    db_session.flush()
-    _login(client)
+    bron = open("app/domains/activities/admin_ui.py", encoding="utf-8").read()
 
-    html = client.get(f"/admin/activiteiten/{activity.id}").text
-    assert activity.name in html
-    assert "Buuractiviteit" not in html, (
-        "het detail rendert gegevens van andere activiteiten — dan haalt het ze ook op")
+    def code_van(functie: str) -> str:
+        """De functie tot de eerstvolgende route, zonder commentaarregels.
+
+        Zonder dat laatste slaat deze test aan op de uitleg die zegt wat er wég
+        is — het commentaar in _detail_response noemt list_activities letterlijk.
+        """
+        start = bron.index(functie)
+        einde = bron.index("\n@router", start)
+        return "\n".join(r for r in bron[start:einde].splitlines()
+                         if not r.strip().startswith("#"))
+
+    detail = code_van("def _detail_response(")
+    assert "get_activity_detail(" in detail
+    assert "list_activities(" not in detail, (
+        "het activiteitdetail haalt weer de volledige lijst op (#651)")
+    assert "list_activities(" not in code_van("def admin_activiteit_detail("), (
+        "de paginaroute van het detail haalt weer de volledige lijst op (#651)")

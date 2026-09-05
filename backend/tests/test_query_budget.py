@@ -134,17 +134,57 @@ def gevulde_databank(client, db_session):
 
 
 # Het activiteitdetail staat niet in BUDGET: zijn pad heeft een id nodig, en dat
-# komt pas uit de fixture. Eigen test, zelfde teller.
-BUDGET_ACTIVITEITDETAIL = 1  # TIJDELIJK: meting
+# komt pas uit de fixture. En het heeft een ándere gate nodig — zie hieronder.
+BUDGET_ACTIVITEITDETAIL = 16
+# Rijenplafond. Dit is de gate die #651 écht bewaakt; het aantal query's niet.
+# `selectinload` doet een vást aantal query's, of je nu één activiteit ophaalt of
+# alle 167 — precies zoals bij #645. Wat wél meeschaalt zijn de opgehaalde RIJEN,
+# en dat was hier de fout: de lijstbewerking laadde datums, onderdelen en
+# producten van alles om er daarna één uit te vissen. TIJDELIJK: meting.
+RIJEN_ACTIVITEITDETAIL = 1
 
 
-def test_het_activiteitdetail_blijft_binnen_zijn_querybudget(gevulde_databank, db_session):
+class Rijenteller(Queryteller):
+    """Telt óók de opgehaalde rijen, niet enkel de statements.
+
+    psycopg2 zet `rowcount` bij een SELECT meteen na execute; -1 betekent
+    "niet van toepassing" (DDL, sommige DML) en telt niet mee.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.rijen = 0
+
+    def __enter__(self):
+        super().__enter__()
+
+        @event.listens_for(engine, "after_cursor_execute")
+        def _tel_rijen(conn, cursor, statement, params, context, executemany):
+            aantal = getattr(cursor, "rowcount", -1)
+            if aantal and aantal > 0:
+                self.rijen += aantal
+
+        self._rij_handler = _tel_rijen
+        return self
+
+    def __exit__(self, *exc):
+        event.remove(engine, "after_cursor_execute", self._rij_handler)
+        return super().__exit__(*exc)
+
+
+def test_het_activiteitdetail_haalt_niet_de_hele_lijst_op(gevulde_databank, db_session):
     """#651: het detail van één activiteit hergebruikte de volledige lijst.
 
-    Deze gate telt query's en geen milliseconden — een tijdmeting is te
-    wisselvallig voor CI, maar het aantal query's is precies wat hier ontspoorde:
-    de lijstbewerking laadde datums, onderdelen én producten van álle activiteiten
-    om er daarna één uit te vissen.
+    Op HDEV kostte het detail van ÉÉN activiteit meer dan de lijst van alle 167
+    (483 ms tegen 89 ms), en omdat het de gedeelde render-helper is, betaalde élke
+    mutatie op dat scherm die prijs opnieuw.
+
+    Een tijdmeting is te wisselvallig voor CI. Een querybudget is stabiel maar
+    meet het verkeerde: `selectinload` doet een vást aantal query's, hoeveel
+    activiteiten er ook zijn — een terugval naar `list_activities` zou er ruim
+    onder blijven. Wat wél meeschaalt met de fout zijn de opgehaalde rijen, dus
+    dáár ligt het plafond. Het aantal query's staat er als tweede, ruimere grens
+    bij, tegen een N+1 die er later bij zou sluipen.
     """
     from app.domains.activities.api import Activity
 
@@ -153,13 +193,17 @@ def test_het_activiteitdetail_blijft_binnen_zijn_querybudget(gevulde_databank, d
     assert activiteit is not None, "de fixture levert geen activiteit om te openen"
     pad = f"/admin/activiteiten/{activiteit.id}"
 
-    with Queryteller() as teller:
+    with Rijenteller() as teller:
         antwoord = gevulde_databank.get(pad)
 
     assert antwoord.status_code == 200, pad
+    assert teller.rijen <= RIJEN_ACTIVITEITDETAIL, (
+        f"{pad}: {teller.rijen} rijen opgehaald (plafond {RIJEN_ACTIVITEITDETAIL}) "
+        f"naast {AANTAL_ACTIVITEITEN} andere activiteiten. Haalt dit scherm de "
+        f"volledige lijst op?\n    Meest herhaalde statements:\n    {teller.rapport()}"
+    )
     assert len(teller) <= BUDGET_ACTIVITEITDETAIL, (
-        f"{pad}: {len(teller)} queries (budget {BUDGET_ACTIVITEITDETAIL}) naast "
-        f"{AANTAL_ACTIVITEITEN} andere activiteiten.\n"
+        f"{pad}: {len(teller)} queries (budget {BUDGET_ACTIVITEITDETAIL}).\n"
         f"    Meest herhaalde statements:\n    {teller.rapport()}"
     )
 
