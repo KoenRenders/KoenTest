@@ -43,21 +43,27 @@ def _doelen(html: str) -> list[str]:
         r'<form[^>]*hx-post="[^"]*/afgehandeld"[^>]*hx-target="([^"]+)"', html)]
 
 
-@pytest.mark.parametrize("pad", ["lijst", "detail"])
-def test_het_doel_is_oplosbaar_in_beide_schermen(client, db_session, pad):
-    """De kern. Een id-doel moet in dát document bestaan; `this` altijd."""
+@pytest.mark.parametrize("context", ["fragment", "pagina"])
+def test_het_doel_is_oplosbaar_in_beide_schermen(client, db_session, context):
+    """De kern. Een id-doel moet in dát document bestaan; `this` altijd.
+
+    Het fragment wordt vanaf de lijst met htmx bijgeladen (`HX-Request`) en de
+    detailpagina neemt het met een include op. In dat tweede document bestond
+    `#werkbank-lijst` niet — precies de fout.
+    """
     taak = _taak(db_session)
     _login(client)
-    url = "/admin/werkbank" if pad == "lijst" else f"/admin/werkbank/taken/{taak.id}"
-    html = client.get(url).text
+    url = f"/admin/werkbank/taken/{taak.id}"
+    kop = {"HX-Request": "true"} if context == "fragment" else {}
+    html = client.get(url, headers=kop).text
 
     doelen = _doelen(html)
-    assert doelen, f"geen afhandelvorm gevonden op {url}"
+    assert doelen, f"geen afhandelvorm gevonden ({context})"
     for doel in doelen:
         if doel.startswith("#"):
             assert f'id="{doel[1:]}"' in html, (
-                f"{url} verwijst naar {doel}, en dat id staat niet op deze pagina "
-                "— htmx verstuurt dan niets (#666)")
+                f"{context}: het doel {doel} staat niet in dit document — htmx "
+                "verstuurt dan niets (#666)")
         else:
             assert doel in ("this", "closest form"), f"onbekend doel {doel!r}"
 

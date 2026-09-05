@@ -213,8 +213,8 @@
      (#665). De server weigert het ook — verbergen alleen is geen guard. #}
   {% if submission_count %}
   <div class="bg-white border border-gray-200 rounded-2xl p-4">
-    <h3 class="font-semibold">{{ _("JSON-import") }}</h3>
-    <p class="text-sm text-gray-600 mt-1">{{ _("Niet beschikbaar: dit formulier heeft al %(n)s inzending(en). Een import zou de volledige opbouw vervangen en die antwoorden verwijderen.") % {"n": submission_count} }}</p>
+    <h3 class="font-semibold">{{ _("JSON-import — niet beschikbaar") }}</h3>
+    <p class="text-sm text-gray-600 mt-1">{{ "%s"|format(submission_count) }} {{ _("inzending(en): een import zou de volledige opbouw vervangen en die antwoorden verwijderen, dus hij is hier niet beschikbaar.") }}</p>
   </div>
   {% else %}
   <div class="bg-blue-50 border border-blue-100 rounded-2xl p-4">

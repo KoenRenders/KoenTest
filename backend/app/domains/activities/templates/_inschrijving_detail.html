@@ -71,12 +71,12 @@
         <div class="flex items-center gap-2">
           <span class="flex-1">{{ item.product_name or "—" }}</span>
           {% if item.unit_price is not none %}<span class="text-gray-500 whitespace-nowrap">€ {{ "%.2f"|format(item.unit_price) }}</span>{% endif %}
+          {# Het aria-label via de format-filter op een gewone string: `~` met de
+             Markup uit _() is de escaping-trap van #514, en `Markup % dict` faalt
+             op een named placeholder. #}
           {{ ui.input_control("quantity_" ~ item.id, id="qty-" ~ item.id, type="number",
                               value=item.quantity, cls="w-20",
                               attrs='min="1"',
-                              {# Via de format-filter op een gewone string: `~` met
-                                 de Markup uit _() is de escaping-trap van #514, en
-                                 `Markup % dict` faalt op de named placeholder. #}
                               aria_label="%s — %s"|format(_("Aantal"), item.product_name or "")) }}
           {% if item.line_total is not none %}<span class="w-20 text-right whitespace-nowrap">€ {{ "%.2f"|format(item.line_total) }}</span>{% endif %}
           {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="' ~ _base ~ '/regels/' ~ item.id ~ '/verwijderen" hx-target="closest .bg-gray-50" hx-swap="outerHTML"') }}

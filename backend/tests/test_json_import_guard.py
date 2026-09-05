@@ -95,7 +95,7 @@ def test_de_weigering_noemt_het_aantal(client, db_session):
     csrf = _login(client)
     r = client.post(f"/admin/formulieren/{form.id}/json-import",
                     data={"payload": PAYLOAD}, headers={"X-CSRF-Token": csrf})
-    assert "1 inzending" in r.text
+    assert "1 inzending" in r.text, "de weigering noemt het aantal niet"
 
 
 def test_zonder_inzendingen_werkt_de_import_gewoon(client, db_session):
