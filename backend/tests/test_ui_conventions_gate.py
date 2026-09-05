@@ -116,11 +116,17 @@ pytestmark = pytest.mark.ui_serverrendered
 import re
 from pathlib import Path
 
+from tests._bestanden import bestanden
+
 APP = Path(__file__).resolve().parents[1] / "app"
 
-TEMPLATES = sorted(
-    list((APP / "ui" / "templates").rglob("*.html"))
-    + [p for d in (APP / "domains").glob("*/templates") for p in d.rglob("*.html")]
+# Via de gedeelde helper (#678): een gate die nergens kijkt, staat groen zonder
+# iets te bewaken. Het plafond ligt bewust hoog genoeg om ook een glob te vangen
+# die nog wél iets vindt maar de helft mist.
+TEMPLATES = bestanden(
+    (APP / "ui" / "templates").rglob("*.html"),
+    (p for d in (APP / "domains").glob("*/templates") for p in d.rglob("*.html")),
+    wat="alle Jinja-templates van de kit en de domeinen", minstens=50,
 )
 
 # (bestandsnaam, regel-fragment) → reden. Leeg is het doel.

@@ -9,11 +9,15 @@ structureel gegeven is en niet pas op HDEV opvalt. Dof-blauw als *hover*-tint
 import re
 from pathlib import Path
 
-_TEMPLATES = sorted((Path(__file__).resolve().parent.parent / "app").rglob("templates/**/*.html"))
+from tests._bestanden import bestanden
 
-
-def test_er_zijn_templates_gevonden():
-    assert _TEMPLATES, "geen templates gevonden — is het pad verhuisd?"
+# Deze gate had als enige al een niet-leeg-controle, als losse test. Nu via de
+# gedeelde helper (#678): dan geldt ze ook voor de gates die hem later gebruiken,
+# in plaats van dat elk bestand het opnieuw moet bedenken.
+_TEMPLATES = bestanden(
+    (Path(__file__).resolve().parent.parent / "app").rglob("templates/**/*.html"),
+    wat="alle Jinja-templates onder app/", minstens=50,
+)
 
 
 def test_koppen_gebruiken_geen_text_blue_800():

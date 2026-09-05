@@ -8,6 +8,8 @@ toegestaan — het gaat om onvertaalde vaste teksten.
 import ast
 from pathlib import Path
 
+from tests._bestanden import bestanden
+
 APP = Path(__file__).resolve().parents[1] / "app"
 
 
@@ -19,7 +21,8 @@ def _bare_literal(node) -> bool:
 
 def test_gebruikersteksten_gaan_door_gettext():
     overtredingen = []
-    for path in APP.rglob("*.py"):
+    for path in bestanden(APP.rglob("*.py"), wat="alle Python-modules onder app/",
+                          minstens=100):
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
             if not isinstance(node, ast.Call):

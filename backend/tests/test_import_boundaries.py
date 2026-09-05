@@ -11,6 +11,8 @@ Regels (laagmodel §8):
 import ast
 from pathlib import Path
 
+from tests._bestanden import bestanden
+
 APP = Path(__file__).resolve().parents[1] / "app"
 
 # Reach-ins van vóór de modularisatie. Elke fase van epic #393 verwijdert regels;
@@ -55,7 +57,8 @@ def _domain_of(module: str) -> str | None:
 
 def test_import_boundaries():
     violations = []
-    for path in APP.rglob("*.py"):
+    for path in bestanden(APP.rglob("*.py"), wat="alle Python-modules onder app/",
+                          minstens=100):
         module = _module_name(path)
         imports = _imports(path)
 
