@@ -73,7 +73,8 @@
           {% if item.unit_price is not none %}<span class="text-gray-500 whitespace-nowrap">€ {{ "%.2f"|format(item.unit_price) }}</span>{% endif %}
           {{ ui.input_control("quantity_" ~ item.id, id="qty-" ~ item.id, type="number",
                               value=item.quantity, cls="w-20",
-                              attrs='min="1"', aria_label=_("Aantal") ~ " — " ~ (item.product_name or "")) }}
+                              attrs='min="1"',
+                              aria_label=_("Aantal — %(product)s") % {"product": item.product_name or ""}) }}
           {% if item.line_total is not none %}<span class="w-20 text-right whitespace-nowrap">€ {{ "%.2f"|format(item.line_total) }}</span>{% endif %}
           {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="' ~ _base ~ '/regels/' ~ item.id ~ '/verwijderen" hx-target="closest .bg-gray-50" hx-swap="outerHTML"') }}
         </div>

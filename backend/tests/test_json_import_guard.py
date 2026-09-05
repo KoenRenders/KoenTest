@@ -18,6 +18,15 @@ from tests.conftest import SEEDED_ADMIN_EMAIL
 
 pytestmark = pytest.mark.ui_serverrendered
 
+_TELLER = 0
+
+
+def _uniek(voorvoegsel: str) -> str:
+    """Slug en share_token zijn uniek; elke test maakt haar eigen formulier."""
+    global _TELLER
+    _TELLER += 1
+    return f"{voorvoegsel}-665-{_TELLER}"
+
 
 def _login(client):
     value = make_session_value(SEEDED_ADMIN_EMAIL)
@@ -30,7 +39,10 @@ def _formulier_met_inzending(db):
     from app.domains.forms.models import (Form, FormField, FormSubmission,
                                           FormSubmissionAnswer)
 
-    form = Form(title="Bevraging", slug="bevraging-665", status="open")
+    # share_token is NOT NULL en uniek: de app zet hem bij het aanmaken, dus een
+    # fixture die het model rechtstreeks gebruikt moet dat zelf doen.
+    form = Form(title="Bevraging", slug=_uniek("bevraging"), status="open",
+                share_token=_uniek("tok"))
     db.add(form)
     db.flush()
     veld = FormField(form_id=form.id, label="Je naam", field_type="text", position=0)
@@ -88,7 +100,8 @@ def test_de_weigering_noemt_het_aantal(client, db_session):
 def test_zonder_inzendingen_werkt_de_import_gewoon(client, db_session):
     from app.domains.forms.models import Form, FormField
 
-    form = Form(title="Leeg", slug="leeg-665", status="draft")
+    form = Form(title="Leeg", slug=_uniek("leeg"), status="draft",
+                share_token=_uniek("tok"))
     db_session.add(form)
     db_session.flush()
     db_session.add(FormField(form_id=form.id, label="Oud veld",
@@ -109,7 +122,8 @@ def test_een_bestand_werkt_en_primeert_op_het_tekstvak(client, db_session):
     """Zoals een opgeladen affiche primeert op de poster-URL (#223)."""
     from app.domains.forms.models import Form
 
-    form = Form(title="Leeg2", slug="leeg2-665", status="draft")
+    form = Form(title="Leeg2", slug=_uniek("leeg2"), status="draft",
+                share_token=_uniek("tok"))
     db_session.add(form)
     db_session.commit()
     csrf = _login(client)
@@ -130,7 +144,8 @@ def test_een_bestand_werkt_en_primeert_op_het_tekstvak(client, db_session):
 def test_leeg_verzoek_geeft_een_nette_melding(client, db_session):
     from app.domains.forms.models import Form
 
-    form = Form(title="Leeg3", slug="leeg3-665", status="draft")
+    form = Form(title="Leeg3", slug=_uniek("leeg3"), status="draft",
+                share_token=_uniek("tok"))
     db_session.add(form)
     db_session.commit()
     csrf = _login(client)
