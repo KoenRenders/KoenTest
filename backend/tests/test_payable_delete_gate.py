@@ -34,6 +34,8 @@ ontbrekende oplospad in de werkbank.
 import ast
 from pathlib import Path
 
+from tests._bestanden import bestanden
+
 import pytest
 
 APP = Path(__file__).resolve().parents[1] / "app"
@@ -59,8 +61,11 @@ REDEN = (
 
 
 def _modules():
-    for domein in PAYABLE_DOMEINEN:
-        yield from sorted((APP / "domains" / domein).rglob("*.py"))
+    return bestanden(
+        *[(APP / "domains" / d).rglob("*.py") for d in PAYABLE_DOMEINEN],
+        wat=f"alle modules van de payable-domeinen {', '.join(PAYABLE_DOMEINEN)}",
+        minstens=10,
+    )
 
 
 # `@router.delete("/…")` is een HTTP-werkwoord, geen ORM-verwijdering. Zonder deze
@@ -126,7 +131,8 @@ def test_de_payable_types_in_de_code_zijn_de_twee_die_de_gate_kent():
     import re
 
     gevonden = set()
-    for pad in APP.rglob("*.py"):
+    for pad in bestanden(APP.rglob("*.py"), wat="alle Python-modules onder app/",
+                         minstens=100):
         for m in re.finditer(r'payable_type\s*=\s*"([a-z_]+)"', pad.read_text()):
             gevonden.add(m.group(1))
     assert gevonden <= {"membership", "registration"}, (

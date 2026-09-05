@@ -39,6 +39,8 @@ import importlib
 import inspect
 from pathlib import Path
 
+from tests._bestanden import bestanden
+
 import pytest
 
 APP = Path(__file__).resolve().parents[1] / "app"
@@ -87,10 +89,12 @@ LAYER_ALLOWLIST: set[tuple[str, str]] = {
 
 
 def _ui_paden() -> list[Path]:
-    return sorted(
-        list(APP.glob("domains/*/ui.py"))
-        + list(APP.glob("domains/*/admin_ui.py"))
-        + list(APP.glob("ui/*_ui.py"))
+    return bestanden(
+        APP.glob("domains/*/ui.py"),
+        APP.glob("domains/*/admin_ui.py"),
+        APP.glob("ui/*_ui.py"),
+        wat="alle UI-modules (domains/*/ui.py, admin_ui.py, ui/*_ui.py)",
+        minstens=10,
     )
 
 
@@ -224,7 +228,8 @@ def test_een_scherm_ontsnapt_niet_aan_de_gate_via_zijn_naam():
     te noemen. De JSON-composer staat bij naam in JSON_IN_UI_PAKKET.
     """
     fouten = []
-    for pad in sorted(APP.glob("ui/*.py")):
+    for pad in bestanden(APP.glob("ui/*.py"), wat="de modules in app/ui/",
+                         minstens=3):
         if pad.name.endswith("_ui.py") or pad.name in JSON_IN_UI_PAKKET:
             continue
         if "APIRouter" in pad.read_text(encoding="utf-8"):
