@@ -87,17 +87,17 @@
       {% if p.address %}
       <div class="grid grid-cols-4 gap-3">
         <div class="col-span-2">{{ ui.label(_("Straat"), "ps-" ~ p.id, required=_hoofd) }}
-          <input name="street" id="ps-{{ p.id }}" value="{{ p.address.street }}" {% if _hoofd %}required{% endif %} class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+          {{ ui.input_control("street", id="ps-" ~ p.id, value=p.address.street, required=_hoofd, cls="w-full") }}</div>
         <div>{{ ui.label(_("Huisnummer"), "ph-" ~ p.id, required=_hoofd) }}
-          <input name="house_number" id="ph-{{ p.id }}" value="{{ p.address.house_number }}" {% if _hoofd %}required{% endif %} class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+          {{ ui.input_control("house_number", id="ph-" ~ p.id, value=p.address.house_number, required=_hoofd, cls="w-full") }}</div>
         <div>{{ ui.label(_("Bus"), "pb-" ~ p.id) }}
-          <input name="bus_number" id="pb-{{ p.id }}" value="{{ p.address.bus_number or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+          {{ ui.input_control("bus_number", id="pb-" ~ p.id, value=p.address.bus_number or "", cls="w-full") }}</div>
         <div class="col-span-4">{{ ui.label(_("Postcode"), "pc-" ~ p.id) }}
-          <select name="postal_code" id="pc-{{ p.id }}" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+          {% call ui.select_control("postal_code", cls="w-full", attrs='id="pc-' ~ p.id ~ '"') %}
             {% for pc in postal_codes %}
             <option value="{{ pc.postal_code }}" {% if p.address.postal_code == pc.postal_code %}selected{% endif %}>{{ pc.postal_code }} {{ pc.municipality }}</option>
             {% endfor %}
-          </select></div>
+          {% endcall %}</div>
       </div>
       {% endif %}
       <div class="flex gap-2">

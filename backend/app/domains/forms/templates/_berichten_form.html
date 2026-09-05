@@ -3,18 +3,15 @@
 <form hx-post="/berichten" hx-target="#berichten-form" hx-swap="innerHTML" class="space-y-4">
   <div>
     {{ ui.label(_("Je naam"), "b_naam", required=True) }}
-    <input id="b_naam" name="naam" value="{{ naam|default('') }}" required
-           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+    {{ ui.input_control("naam", id="b_naam", value=naam|default(""), required=True, cls="w-full") }}
   </div>
   <div>
     {{ ui.label(_("Je e-mailadres"), "b_email", required=True) }}
-    <input id="b_email" name="email" type="email" required value="{{ email|default('') }}"
-           class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">
+    {{ ui.input_control("email", id="b_email", type="email", value=email|default(""), required=True, cls="w-full") }}
   </div>
   <div>
     {{ ui.label(_("Je bericht"), "b_bericht", required=True) }}
-    <textarea id="b_bericht" name="bericht" rows="5" required
-              class="w-full border border-gray-300 rounded-lg px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:outline-none">{{ bericht|default('') }}</textarea>
+    {{ ui.textarea_control("bericht", id="b_bericht", rows=5, value=bericht|default(""), required=True, cls="w-full") }}
   </div>
   {{ ui.btn_primary(_("Verstuur bericht")) }}
 </form>

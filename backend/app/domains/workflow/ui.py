@@ -3,7 +3,7 @@ beslissing. Rol-gefilterd; verversen via htmx-polling (§20.5 — geen SSE)."""
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends, Form, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, Response
 from sqlalchemy.orm import Session
 
 from app.database import get_db
@@ -130,7 +130,10 @@ def taak_detail(task_id: int, request: Request, db: Session = Depends(get_db),
     template = ("_werkbank_detail.html" if is_fragment_request(request)
                 else "werkbank_taak.html")
     ctx = {"task": task, "detail_rows": detail_rows,
-           "csrf_token": csrf_token_for(raw)}
+           "csrf_token": csrf_token_for(raw),
+           # #666: het fragment leeft in twee schermen en moet weten in welke.
+           # Zonder dat wees het naar een id dat maar in één van de twee bestaat.
+           "standalone": template == "werkbank_taak.html"}
     if template == "werkbank_taak.html":
         ctx["nav_items"] = _ctx(request, db, email)["nav_items"]
     return templates.TemplateResponse(request, template, ctx)
@@ -139,6 +142,26 @@ def taak_detail(task_id: int, request: Request, db: Session = Depends(get_db),
 @router.post("/admin/werkbank/taken/{task_id}/afgehandeld", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
 def taak_afhandelen(task_id: int, request: Request, db: Session = Depends(get_db),
-                    email: str = Depends(require_admin_ui), besluit: str = Form("")):
+                    email: str = Depends(require_admin_ui), besluit: str = Form(""),
+                    standalone: str = Form("")):
+    """Handelt een taak af; waar het antwoord landt hangt af van het scherm (#666).
+
+    Het afhandelformulier zit in een fragment dat zowel op de werkbanklijst als op
+    de zelfstandige taakpagina staat. Het wees naar `#werkbank-lijst`, een id dat
+    alleen op de lijst bestaat — op de detailpagina gooide htmx een targetError en
+    vertrok het verzoek nooit.
+
+    Het fragment richt zich nu op zichzelf en de server stuurt bij:
+    vanaf de lijst een `HX-Retarget` zodat de ververste lijst op zijn plaats landt,
+    vanaf de detailpagina een `HX-Redirect` terug naar de werkbank — die pagina
+    toont een taak die er niet meer is, dus daar blijven heeft geen zin.
+    """
     api.complete_task(db, task_id, done_by=email, decision=besluit.strip() or None)
-    return templates.TemplateResponse(request, "_werkbank_lijst.html", _ctx(request, db, email))
+    if standalone:
+        return Response(status_code=204,
+                        headers={"HX-Redirect": "/admin/werkbank"})
+    antwoord = templates.TemplateResponse(request, "_werkbank_lijst.html",
+                                          _ctx(request, db, email))
+    antwoord.headers["HX-Retarget"] = "#werkbank-lijst"
+    antwoord.headers["HX-Reswap"] = "innerHTML"
+    return antwoord

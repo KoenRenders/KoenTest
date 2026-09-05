@@ -14,18 +14,18 @@
   {% call ui.card() %}
     <div class="grid grid-cols-4 gap-3">
       <div class="col-span-2">{{ ui.label(_("Straat"), "street", required=True) }}
-        <input name="street" id="street" required value="{{ values.get('street', '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("street", id="street", value=values.get("street", ""), required=True, cls="w-full") }}</div>
       <div>{{ ui.label(_("Huisnummer"), "house_number", required=True) }}
-        <input name="house_number" id="house_number" required value="{{ values.get('house_number', '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("house_number", id="house_number", value=values.get("house_number", ""), required=True, cls="w-full") }}</div>
       <div>{{ ui.label(_("Bus"), "bus_number") }}
-        <input name="bus_number" id="bus_number" value="{{ values.get('bus_number', '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("bus_number", id="bus_number", value=values.get("bus_number", ""), cls="w-full") }}</div>
       <div class="col-span-4">{{ ui.label(_("Postcode"), "postal_code", required=True) }}
-        <select name="postal_code" id="postal_code" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
+        {% call ui.select_control("postal_code", cls="w-full", attrs='id="postal_code" required') %}
           <option value="">{{ _("— Kies je postcode —") }}</option>
           {% for pc in postal_codes %}
           <option value="{{ pc.postal_code }}" {% if values.get('postal_code') == pc.postal_code %}selected{% endif %}>{{ pc.postal_code }} {{ pc.municipality }}</option>
           {% endfor %}
-        </select></div>
+        {% endcall %}</div>
     </div>
   {% endcall %}
 

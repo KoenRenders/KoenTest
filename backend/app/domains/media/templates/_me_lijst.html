@@ -14,10 +14,10 @@
     <input type="hidden" name="filter_activity_id" value="{{ activity_id or '' }}">
     <img src="{{ a.thumb_url }}" alt="{{ a.title or '' }}" class="w-24 h-24 object-contain bg-gray-50 rounded-lg shrink-0">
     <div class="flex-1 space-y-2 text-sm">
-      <input name="title" value="{{ a.title or '' }}" placeholder="{{ _('Titel') }}" class="w-full border border-gray-300 rounded-lg px-2 py-1">
-      <input name="link_url" value="{{ a.link_url or '' }}" placeholder="{{ _('Link') }}" class="w-full border border-gray-300 rounded-lg px-2 py-1">
+      {{ ui.input_control("title", id="me-title-" ~ a.id, value=a.title or "", placeholder=_("Titel"), cls="w-full") }}
+      {{ ui.input_control("link_url", id="me-link-" ~ a.id, value=a.link_url or "", placeholder=_("Link"), cls="w-full") }}
       <div class="flex items-center gap-4">
-        <label class="flex items-center gap-1">{{ _("Volgorde") }} <input type="number" name="sort_order" value="{{ a.sort_order }}" class="w-16 border border-gray-300 rounded-lg px-1 py-0.5"></label>
+        <label class="flex items-center gap-1">{{ _("Volgorde") }} {{ ui.input_control("sort_order", id="me-sort-" ~ a.id, type="number", value=a.sort_order, cls="w-16") }}</label>
         <label class="flex items-center gap-1"><input type="checkbox" name="is_active" value="1" {% if a.is_active %}checked{% endif %}> {{ _("Actief") }}</label>
         <span class="text-xs text-gray-400">{{ a.width }}×{{ a.height }}</span>
       </div>

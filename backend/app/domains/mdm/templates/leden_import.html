@@ -9,8 +9,7 @@
       hx-encoding="multipart/form-data" class="flex flex-wrap items-end gap-3">
   <div>
     {{ ui.label(_("Ledenrapport"), "file", required=True) }}
-    <input type="file" name="file" id="file" required accept=".xls,.ods"
-           class="border border-gray-300 rounded-lg px-3 py-2 bg-white">
+    {{ ui.input_control("file", type="file", required=True, cls="bg-white", attrs='accept=".xls,.ods"') }}
   </div>
   {{ ui.btn_primary(_("Controleer bestand")) }}
   {{ ui.loading(_("Bestand controleren…")) }}

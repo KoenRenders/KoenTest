@@ -19,16 +19,16 @@
         <input type="file" name="files" id="me-files" accept="image/*" multiple required class="block text-sm"></div>
       {% if kind == "activity_photo" %}
       <div class="max-w-xs">{{ ui.label(_("Activiteit"), "me-activity", required=True) }}
-        <select name="activity_id" id="me-activity" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
+        {% call ui.select_control("activity_id", cls="w-full", attrs='id="me-activity" required') %}
           <option value="">{{ _("— Kies een activiteit —") }}</option>
           {% for a in alle_activiteiten %}<option value="{{ a.id }}">{{ a.naam }}{% if a.jaar %} ({{ a.jaar }}){% endif %}</option>{% endfor %}
-        </select></div>
+        {% endcall %}</div>
       {% endif %}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>{{ ui.label(_("Titel"), "me-title") }}
-          <input name="title" id="me-title" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+          {{ ui.input_control("title", id="me-title", cls="w-full") }}</div>
         <div>{{ ui.label(_("Link (optioneel)"), "me-link") }}
-          <input name="link_url" id="me-link" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+          {{ ui.input_control("link_url", id="me-link", cls="w-full") }}</div>
       </div>
       <div class="flex gap-2">{{ ui.btn_primary(_("Uploaden")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/media") }}</div>
     </form>

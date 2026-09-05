@@ -12,14 +12,13 @@
   <form class="space-y-3" hx-post="/admin/activiteiten">
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div>{{ ui.label(_("Naam"), "name", required=True) }}
-        <input name="name" id="name" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("name", id="name", required=True, cls="w-full") }}</div>
       <div>{{ ui.label(_("Locatie"), "location") }}
-        <input name="location" id="location" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("location", id="location", cls="w-full") }}</div>
       <div>{{ ui.label(_("Eerste datum"), "start_date", required=True) }}
-        <input type="date" name="start_date" id="start_date" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("start_date", id="start_date", type="date", required=True, cls="w-full") }}</div>
       <div>{{ ui.label(_("Poster-URL"), "poster_url") }}
-        <input name="poster_url" id="poster_url" class="w-full border border-gray-300 rounded-lg px-3 py-2"
-               placeholder="https://…"></div>
+        {{ ui.input_control("poster_url", id="poster_url", placeholder="https://…", cls="w-full") }}</div>
     </div>
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1"> {{ _("Enkel voor leden") }}</label>
     <p class="text-xs text-ink-soft">{{ _("Een affiche opladen kan zodra de activiteit bestaat — dat doe je in de editor.") }}</p>

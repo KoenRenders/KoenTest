@@ -54,5 +54,7 @@ def test_media_upload_has_activity_dropdown(client, db_session):
     # De uploadvorm staat sinds #627 op een eigen pagina i.p.v. in een modal op de lijst.
     html = client.get("/admin/media/nieuw?kind=activity_photo").text
     # Upload-form gebruikt een select (geen vrij ID-nummerveld meer).
-    assert '<select name="activity_id" id="me-activity"' in html
+    # Attribuutvolgorde is geen gedrag: sinds #663 komt de id via `attrs` en staat
+    # hij ná de klasse. Toets het veld, niet de volgorde.
+    assert 'name="activity_id"' in html and 'id="me-activity"' in html
     assert "Kies een activiteit" in html

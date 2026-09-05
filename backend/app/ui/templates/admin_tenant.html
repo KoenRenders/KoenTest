@@ -39,6 +39,8 @@
     </div>
     {% endfor %}
   </div>
-  {{ ui.btn_primary(_("Opslaan")) }}
+  {# §2.8, #664: bewerken kreeg een teruglink in plaats van Annuleren; de zes
+     aanmaakschermen doen het wel goed. #}
+  <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/tenants") }}</div>
 </form>
 {% endblock %}

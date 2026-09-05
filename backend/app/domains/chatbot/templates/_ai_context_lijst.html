@@ -49,14 +49,14 @@
         hx-target="#ai-context-lijst" hx-swap="innerHTML">
     {% if soort == "notitie" %}
     <div>{{ ui.label(_("Titel"), "edit-title-" ~ info.id) }}
-      <input name="title" id="edit-title-{{ info.id }}" value="{{ info.title or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+      {{ ui.input_control("title", id="edit-title-" ~ info.id, value=info.title or "", cls="w-full") }}</div>
     <div>{{ ui.label(_("Tekst"), "edit-add-" ~ info.id, required=True) }}
-      <textarea name="text_addition" id="edit-add-{{ info.id }}" rows="3" required class="w-full border border-gray-300 rounded-lg px-3 py-2">{{ info.text_addition or "" }}</textarea></div>
+      {{ ui.textarea_control("text_addition", id="edit-add-" ~ info.id, rows=3, value=info.text_addition or "", required=True, cls="w-full") }}</div>
     {% else %}
     <div>{{ ui.label(_("Vervangende tekst (leeg = automatisch gelezen tekst gebruiken)"), "edit-over-" ~ info.id) }}
-      <textarea name="text_override" id="edit-over-{{ info.id }}" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2">{{ info.text_override or "" }}</textarea></div>
+      {{ ui.textarea_control("text_override", id="edit-over-" ~ info.id, rows=3, value=info.text_override or "", cls="w-full") }}</div>
     <div>{{ ui.label(_("Extra tekst (toegevoegd aan de bron)"), "edit-add-" ~ info.id) }}
-      <textarea name="text_addition" id="edit-add-{{ info.id }}" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2">{{ info.text_addition or "" }}</textarea></div>
+      {{ ui.textarea_control("text_addition", id="edit-add2-" ~ info.id, rows=2, value=info.text_addition or "", cls="w-full") }}</div>
     {% endif %}
     <div class="flex gap-2">
       {{ ui.btn_primary(_("Opslaan")) }}
@@ -83,9 +83,9 @@
   <form class="space-y-2 mt-4" hx-post="/admin/ai-context/notities"
         hx-target="#ai-context-lijst" hx-swap="innerHTML">
     <div>{{ ui.label(_("Titel"), "note-title", required=True) }}
-      <input name="title" id="note-title" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+      {{ ui.input_control("title", id="note-title", required=True, cls="w-full") }}</div>
     <div>{{ ui.label(_("Tekst"), "note-text", required=True) }}
-      <textarea name="text_addition" id="note-text" rows="3" required class="w-full border border-gray-300 rounded-lg px-3 py-2"></textarea></div>
+      {{ ui.textarea_control("text_addition", id="note-text", rows=3, required=True, cls="w-full") }}</div>
     {{ ui.btn_primary(_("Notitie toevoegen")) }}
   </form>
 {% endcall %}
