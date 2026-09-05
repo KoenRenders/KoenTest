@@ -217,17 +217,16 @@ hint**. Macro: `ui.upload_field(name, text, current_url, delete_attrs, hint)`.
   losjes ergens boven de vorm. Verwijderen ontbrak overal volledig.
 - Staat er ook een URL-veld naast (poster/info), zet dan als hint dat een opgeladen
   bestand daarop primeert (#223), zodat het gedrag zichtbaar is.
-- **De huidige bijlage staat precies één keer op het scherm: in het uploadblok.**
-  Dus binnen de bewerkvorm, en dus alleen in bewerkmodus. Geen tweede link in de
-  leesweergave "voor het gemak" — die staat er dan dubbel zodra je bewerkt (#653: op
-  het activiteitdetail stond "Huidige affiche bekijken" twee keer, terwijl het
-  onderdeel ernaast het al goed deed).
-  Gevolg, en dat is een **bewuste keuze**: in leesmodus is de bijlage niet te openen.
-  Dat is de prijs van één vorm voor alle bijlagen. Wil je hem daar tóch tonen, dan is
-  dat een wijziging aan de conventie — niet aan één scherm.
-- Zet een leesweergave die naast een bewerkvorm leeft **altijd** achter
-  `x-show="!edit"` (§2.8). Ontbreekt dat, dan lekt ze de bewerkmodus in en staat de
-  informatie dubbel. Dat was de oorzaak van zowel #648 als #653.
+- **De huidige bijlage staat nooit twee keer tegelijk op het scherm.** In
+  bewerkmodus hoort ze in het uploadblok — daar staat ze naast de kiezer, met haar
+  verwijderactie. Een leeslink erbuiten mag, maar dan **uitsluitend in leesmodus**,
+  dus achter `x-show="!edit"`. Dat je de bijlage kan openen zonder eerst te gaan
+  bewerken, is de reden dat die leeslink bestaat.
+  Ontbreekt die `x-show`, dan lekt de leeslink de bewerkmodus in en staat ze dubbel —
+  dat was #653 op het activiteitdetail ("Huidige affiche bekijken" twee keer).
+- Algemener, en de oorzaak van zowel #648 als #653: zet een leesweergave die naast
+  een bewerkvorm leeft **altijd** achter `x-show="!edit"` (§2.8). Zonder die
+  koppeling verdwijnt ze niet wanneer de vorm haar plaats inneemt.
 
 ### 2.13 Terminologie (vast)
 Opslaan · Annuleren · Bewerken · Verwijderen · "+ Nieuwe <item>" ·
