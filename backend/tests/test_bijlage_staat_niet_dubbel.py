@@ -7,18 +7,33 @@ tijdens het bewerken, waar `ui.upload_field()` diezelfde link al rendert.
 §2.12: de leeslink mag blijven — een bijlage kunnen openen zonder eerst te gaan
 bewerken is nuttig — maar dan uitsluitend achter `x-show="!edit"`.
 """
-import re
+import io
 
 import pytest
 
-from app.domains.auth.api import SESSION_COOKIE, make_session_value
+from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_value
 from tests.conftest import SEEDED_ADMIN_EMAIL, seed_activity_with_product
 
 pytestmark = pytest.mark.ui_serverrendered
 
+PNG = (b"\x89PNG\r\n\x1a\n\x00\x00\x00\rIHDR\x00\x00\x00\x01\x00\x00\x00\x01"
+       b"\x08\x06\x00\x00\x00\x1f\x15\xc4\x89\x00\x00\x00\nIDATx\x9cc\x00\x01"
+       b"\x00\x00\x05\x00\x01\r\n-\xb4\x00\x00\x00\x00IEND\xaeB`\x82")
+
 
 def _login(client):
-    client.cookies.set(SESSION_COOKIE, make_session_value(SEEDED_ADMIN_EMAIL))
+    value = make_session_value(SEEDED_ADMIN_EMAIL)
+    client.cookies.set(SESSION_COOKIE, value)
+    return csrf_token_for(value)
+
+
+def _upload_affiche(client, csrf, activity):
+    """Een echte affiche opladen — zonder bijlage bestaat de leeslink niet."""
+    r = client.post(f"/admin/activiteiten/{activity.id}",
+                    data={"name": activity.name},
+                    files={"file": ("affiche.png", io.BytesIO(PNG), "image/png")},
+                    headers={"X-CSRF-Token": csrf})
+    assert r.status_code == 200, r.text[:300]
 
 
 def _regels_met(html: str, tekst: str) -> list[str]:
@@ -28,9 +43,8 @@ def _regels_met(html: str, tekst: str) -> list[str]:
 def test_de_affichelink_staat_er_twee_keer_maar_nooit_tegelijk(client, db_session):
     """Twee voorkomens is juist — één per modus. Ze horen elkaar uit te sluiten."""
     activity, _c, _p = seed_activity_with_product(db_session)
-    activity.poster_url = None
-    db_session.flush()
-    _login(client)
+    csrf = _login(client)
+    _upload_affiche(client, csrf, activity)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
 
     regels = _regels_met(html, "Huidige affiche bekijken")

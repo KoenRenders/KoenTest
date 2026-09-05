@@ -29,12 +29,17 @@ def _login(client):
     return csrf_token_for(value)
 
 
-def _onderdeelblok(html: str, naam: str) -> str:
-    """Het stuk HTML van één onderdeelkaart, tot de volgende kaart."""
-    start = html.index(naam)
-    rest = html[start:]
-    volgende = rest.find('x-data="{ edit: false, addprod: false }"', 1)
-    return rest[:volgende] if volgende != -1 else rest
+def _onderdeelblok(html: str, activity_id: int, component_id: int) -> str:
+    """Het stuk HTML van één onderdeelkaart.
+
+    Op de naam zoeken werkt niet: de toevoegvorm bovenaan heet "Nieuw onderdeel"
+    en `index("Onderdeel")` landde daar. Twee id-gebonden markeringen zijn wél
+    uniek: de bewerkvorm van dit onderdeel, en de doel-div van #650 die de kaart
+    afsluit.
+    """
+    start = html.index(f'hx-post="/admin/activiteiten/{activity_id}/onderdelen/{component_id}"')
+    einde = html.index(f'id="aa-insch-{component_id}"', start)
+    return html[start:einde]
 
 
 def test_een_onderdeel_in_bewerkmodus_toont_precies_een_opslaan(client, db_session):
@@ -42,7 +47,7 @@ def test_een_onderdeel_in_bewerkmodus_toont_precies_een_opslaan(client, db_sessi
     activity, component, _p = seed_activity_with_product(db_session)
     _login(client)
     blok = _onderdeelblok(client.get(f"/admin/activiteiten/{activity.id}").text,
-                          component.name)
+                          activity.id, component.id)
     assert blok.count(">Opslaan<") == 1, (
         f"het onderdeel toont {blok.count('>Opslaan<')} Opslaan-knoppen (#654)")
 
