@@ -5,6 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.domains.auth.api import get_current_admin
 from app.database import get_db
+from app.domains.cms import service as _service
 from app.domains.cms.models import CmsPage
 from app.domains.mdm.api import GenderCode, RelationTypeCode
 from app.domains.auth.api import User
@@ -53,15 +54,7 @@ def get_block(slug: str, db: Session = Depends(get_db)):
 @router.get("/cms/placeholders")
 def list_cms_placeholders():
     """Beschikbare codes voor de CMS-editor (code → omschrijving)."""
-    from app.domains.cms.render import PLACEHOLDER_LABELS, render_cms_content
-    return [
-        {
-            "code": f"{{{{{code}}}}}",
-            "label": label,
-            "preview": render_cms_content(f"{{{{{code}}}}}"),
-        }
-        for code, label in PLACEHOLDER_LABELS.items()
-    ]
+    return _service.placeholders()
 
 
 @router.get("/admin/pages", response_model=List[CmsPageResponse])
@@ -69,11 +62,7 @@ def list_all_pages(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    return (
-        db.query(CmsPage)
-        .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc())
-        .all()
-    )
+    return _service.list_pages(db)
 
 
 @router.post("/pages", response_model=CmsPageResponse)
@@ -82,22 +71,10 @@ def create_page(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    existing = db.query(CmsPage).filter(CmsPage.slug == data.slug).first()
-    if existing:
-        raise HTTPException(status_code=400, detail=_("Slug already exists"))
-
-    page = CmsPage(
-        title=data.title,
-        slug=data.slug,
-        content=data.content,
-        is_published=data.is_published,
-        show_in_nav=data.show_in_nav,
-        sort_order=data.sort_order,
-    )
-    db.add(page)
-    db.commit()
-    db.refresh(page)
-    return page
+    try:
+        return _service.create_page(db, data)
+    except _service.SlugBestaatAl as exc:
+        raise HTTPException(status_code=400, detail=_(str(exc)))
 
 
 @router.put("/pages/{page_id}", response_model=CmsPageResponse)
@@ -107,21 +84,12 @@ def update_page(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    page = db.query(CmsPage).filter(CmsPage.id == page_id).first()
-    if not page:
+    try:
+        return _service.update_page(db, page_id, data)
+    except LookupError:
         raise HTTPException(status_code=404, detail=_("Page not found"))
-
-    if data.slug and data.slug != page.slug:
-        existing = db.query(CmsPage).filter(CmsPage.slug == data.slug).first()
-        if existing:
-            raise HTTPException(status_code=400, detail=_("Slug already exists"))
-
-    for field, value in data.model_dump(exclude_none=True).items():
-        setattr(page, field, value)
-
-    db.commit()
-    db.refresh(page)
-    return page
+    except _service.SlugBestaatAl as exc:
+        raise HTTPException(status_code=400, detail=_(str(exc)))
 
 
 @router.delete("/pages/{page_id}")
@@ -130,9 +98,8 @@ def delete_page(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    page = db.query(CmsPage).filter(CmsPage.id == page_id).first()
-    if not page:
+    try:
+        _service.delete_page(db, page_id)
+    except LookupError:
         raise HTTPException(status_code=404, detail=_("Page not found"))
-    db.delete(page)
-    db.commit()
     return {"detail": "Page deleted"}

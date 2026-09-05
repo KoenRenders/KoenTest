@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.cms.models import CmsPage
+from app.domains.cms.api import get_page, get_published_page, published_slugs
 from app.domains.cms.render import render_cms_content
 from app.ui import site_context, templates
 from app.i18n import _
@@ -24,20 +24,17 @@ def homepage(request: Request, db: Session = Depends(get_db)):
     if request.state.platform_landing:
         # platform.example-wortel (§7, 5c): de "Raak Digital Platform"-landing met de
         # actieve afdelingen; units draaien op hun eigen adres of pad-prefix.
-        from app.domains.mdm.api import Organization
+        from app.domains.mdm.api import list_units
         from app.kernel.tenant_config import tenant_base_url, tenant_display_name
 
-        units = (db.query(Organization)
-                 .filter(Organization.org_type == "UNIT",
-                         Organization.is_active == True)  # noqa: E712
-                 .order_by(Organization.id).all())
+        units = list_units(db, alleen_actief=True)
         afdelingen = [{"naam": tenant_display_name(db, tenant_id=u.id),
                        "url": tenant_base_url(db, tenant_id=u.id)}
                       for u in units]
         return templates.TemplateResponse(request, "platform_landing.html", {
             "afdelingen": afdelingen, "current_year": site_context(db, request)["current_year"]})
 
-    intro = db.query(CmsPage).filter(CmsPage.slug == "home-intro").first()
+    intro = get_page(db, "home-intro")
     return templates.TemplateResponse(request, "home.html", {
         **site_context(db, request),
         "intro_html": render_cms_content(intro.content or "") if intro else None,
@@ -83,9 +80,7 @@ def sitemap(request: Request, db: Session = Depends(get_db)):
     base = tenant_base_url(db)
     paden = ["/", "/activiteiten", "/activiteiten/archief", "/fotos",
              "/lid-worden", "/berichten"]
-    paden += [f"/{p.slug}" for p in (db.query(CmsPage)
-                                     .filter(CmsPage.is_published == True)  # noqa: E712
-                                     .order_by(CmsPage.slug).all())]
+    paden += [f"/{slug}" for slug in published_slugs(db)]
     urls = "".join(f"<url><loc>{base}{pad}</loc></url>" for pad in paden)
     xml = ('<?xml version="1.0" encoding="UTF-8"?>'
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
@@ -98,9 +93,7 @@ def sitemap(request: Request, db: Session = Depends(get_db)):
 def cms_pagina(slug: str, request: Request, db: Session = Depends(get_db)):
     """CMS-slugpagina. Geregistreerd als LAATSTE route (main mount-volgorde):
     alle vaste paden winnen; onbekende slug = nette 404."""
-    page = (db.query(CmsPage)
-            .filter(CmsPage.slug == slug, CmsPage.is_published == True)  # noqa: E712
-            .first())
+    page = get_published_page(db, slug)
     if page is None:
         raise HTTPException(status_code=404, detail=_("Pagina niet gevonden"))
     return templates.TemplateResponse(request, "cms_pagina.html", {
