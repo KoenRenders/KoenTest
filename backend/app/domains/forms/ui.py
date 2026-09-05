@@ -12,7 +12,6 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.forms.models import Form as FormModel
 from app.limiter import form_submit_limiter
 from app.ui import templates
 from app.i18n import _
@@ -22,8 +21,10 @@ router = APIRouter(include_in_schema=False)
 BERICHTEN_SLUG = "berichten"
 
 
-def _berichten_form(db: Session) -> FormModel | None:
-    return db.query(FormModel).filter(FormModel.slug == BERICHTEN_SLUG).first()
+def _berichten_form(db: Session):
+    from app.domains.forms.api import get_form_by_slug
+
+    return get_form_by_slug(db, BERICHTEN_SLUG)
 
 
 @router.get("/berichten", response_class=HTMLResponse)
@@ -197,10 +198,10 @@ def _form_render_ctx(db, form_model, request, *, values=None, error=None,
 
 
 def _load_open_form(db, share_token: str):
+    from app.domains.forms.api import get_form_by_share_token
     from app.domains.forms.service import assert_open_for_submission
 
-    form_model = (db.query(FormModel)
-                  .filter(FormModel.share_token == share_token).first())
+    form_model = get_form_by_share_token(db, share_token)
     if form_model is None:
         raise HTTPException(status_code=404, detail=_("Formulier niet gevonden"))
     assert_open_for_submission(db, form_model)
@@ -219,7 +220,7 @@ def formulier_page(share_token: str, request: Request, db: Session = Depends(get
 async def formulier_submit(share_token: str, request: Request,
                            background_tasks: BackgroundTasks,
                            db: Session = Depends(get_db)):
-    from app.domains.forms.router import submit_form
+    from app.domains.forms.api import submit_public_form
     from app.domains.forms.schemas import SubmissionIn
 
     form_model = _load_open_form(db, share_token)
@@ -245,7 +246,7 @@ async def formulier_submit(share_token: str, request: Request,
     payload = SubmissionIn(submitter_name=naam or None, submitter_email=email or None,
                            answers=_answers_from_form(form_model, form_data))
     try:
-        result = submit_form(share_token, payload, background_tasks, db=db)
+        result = submit_public_form(db, share_token, payload, background_tasks)
     except HTTPException as exc:
         ctx = _form_render_ctx(db, form_model, request, values=values, error=str(exc.detail),
                                submitter_name=naam, submitter_email=email)
@@ -261,10 +262,9 @@ async def formulier_submit(share_token: str, request: Request,
 @router.get("/formulier/{share_token}/edit/{edit_token}", response_class=HTMLResponse)
 def formulier_edit_page(share_token: str, edit_token: str, request: Request,
                         db: Session = Depends(get_db)):
-    from app.domains.forms.models import FormSubmission
+    from app.domains.forms.api import get_submission_by_edit_token
 
-    submission = (db.query(FormSubmission)
-                  .filter(FormSubmission.edit_token == edit_token).first())
+    submission = get_submission_by_edit_token(db, edit_token)
     form_model = _load_open_form(db, share_token)
     if submission is None or submission.form_id != form_model.id or not form_model.allow_edit:
         raise HTTPException(status_code=404, detail=_("Inzending niet gevonden"))
@@ -296,7 +296,7 @@ def formulier_edit_page(share_token: str, edit_token: str, request: Request,
              dependencies=[Depends(form_submit_limiter)])
 async def formulier_edit_submit(share_token: str, edit_token: str, request: Request,
                                 db: Session = Depends(get_db)):
-    from app.domains.forms.router import update_submission
+    from app.domains.forms.api import update_public_submission
     from app.domains.forms.schemas import SubmissionIn
 
     form_model = _load_open_form(db, share_token)
@@ -308,7 +308,7 @@ async def formulier_edit_submit(share_token: str, edit_token: str, request: Requ
     payload = SubmissionIn(submitter_name=naam or None, submitter_email=email or None,
                            answers=_answers_from_form(form_model, form_data))
     try:
-        update_submission(edit_token, payload, db=db)
+        update_public_submission(db, edit_token, payload)
     except HTTPException as exc:
         ctx = _form_render_ctx(db, form_model, request, error=str(exc.detail),
                                submitter_name=naam, submitter_email=email)

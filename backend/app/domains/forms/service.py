@@ -393,3 +393,22 @@ def assert_submitter(form, name, email, *, message=None, require_message=False):
                 detail=_("Vul je naam en een geldig e-mailadres in."))
     if require_message and not (message or "").strip():
         raise HTTPException(status_code=422, detail=_("Schrijf een bericht."))
+
+
+# ── Opzoeken (#635 I) ────────────────────────────────────────────────────────
+# Kleine queries, maar wél met de vraag "welk formulier is dit?" erin. Het scherm
+# hoort die vraag te stellen, niet te beantwoorden.
+
+def get_form_by_slug(db, slug: str):
+    return db.query(Form).filter(Form.slug == slug).first()
+
+
+def get_form_by_share_token(db, share_token: str):
+    return db.query(Form).filter(Form.share_token == share_token).first()
+
+
+def get_submission_by_edit_token(db, edit_token: str):
+    from app.domains.forms.models import FormSubmission
+
+    return (db.query(FormSubmission)
+            .filter(FormSubmission.edit_token == edit_token).first())
