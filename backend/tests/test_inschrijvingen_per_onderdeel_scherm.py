@@ -109,13 +109,19 @@ def test_de_macro_belooft_geen_bewerken_meer():
     assert 'label or _("Details")' in macro
 
 
-def test_het_paneel_toont_naam_en_opmerking_een_keer(client, db_session):
-    """Het paneel is één weergave; de gegevens komen er niet dubbel in."""
+def test_het_paneel_heeft_een_bewerkstand(client, db_session):
+    """Eén bewerk-toggle, van het paneel zelf.
+
+    Niet tellen hoe vaak de naam voorkomt: die staat terecht twee keer — als
+    leesregel én als waarde in het invulveld eronder. Dat is de normale vorm van
+    een paneel met een lees- en een bewerkstand; de dubbeling die #676 wegneemt
+    zat tussen de RIJ en het paneel, niet binnen het paneel.
+    """
     _activity, _comp, reg_id = _met_inschrijving(client, db_session)
     _login(client)
     paneel = client.get(f"/admin/inschrijvingen/{reg_id}").text
 
-    assert paneel.count("An Janssens") == 1
-    assert paneel.count("Komt wat later toe") == 1
-    # Eén bewerk-toggle, van het paneel zelf.
-    assert paneel.count(">Bewerken<") == 1
+    assert paneel.count('x-show="!edit">Bewerken<') == 1
+    # Leesregel én invulveld: precies één van elk.
+    assert paneel.count('value="An Janssens"') == 1
+    assert "An Janssens" in paneel

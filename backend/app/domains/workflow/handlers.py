@@ -86,11 +86,28 @@ def _sweep_sources(db: Session) -> list[dict]:
     return kandidaten
 
 
+# De soorten die de sweep zélf maakt. Alleen déze mag hij ook sluiten (#675):
+# `payment.wees_record` komt uit een andere job en `bericht.behartigen` is
+# event-gedreven, dus van hun bestaan weet `_sweep_sources` niets. Zou de sweep
+# "alles wat niet meer matcht" sluiten, dan sluit hij taken waarvan hij de
+# aanleiding nooit heeft gekend.
+SWEEP_SOORTEN = frozenset({
+    "payment.refund_bevestigen", "mail.definitief_gefaald",
+    "payment.webhook_mismatch", "kernel.job_gefaald",
+})
+
+
 @job("workflow.sweep")
 def sweep(db: Session, payload: dict) -> None:
+    # Lazy, zoals elders in dit domein: _() moet de taal van de actieve tenant
+    # volgen en niet die van het importmoment.
+    from app.i18n import _
+
     if settings.workbench_enabled:
-        bestaande = {t.title for t in api.open_tasks(db, ["ADMIN", "FINANCE"])}
-        for kandidaat in _sweep_sources(db):
+        open_taken = api.open_tasks(db, ["ADMIN", "FINANCE"])
+        bestaande = {t.title for t in open_taken}
+        kandidaten = _sweep_sources(db)
+        for kandidaat in kandidaten:
             if kandidaat["title"] in bestaande:
                 continue
             logger.warning("werkbank-sweep: nieuwe taak — %s", kandidaat["title"])
@@ -98,6 +115,31 @@ def sweep(db: Session, payload: dict) -> None:
                             subject_type=kandidaat["subject_type"],
                             subject_id=kandidaat["subject_id"],
                             required_role=kandidaat["role"])
+
+        # Andersom (#675): een open taak die niet meer in de kandidatenlijst staat,
+        # heeft haar aanleiding verloren — de refund is uitbetaald, de mismatch is
+        # weg. Tot nu sloot geen enkele taak zichzelf: `close_task` werd alleen
+        # vanuit de werkbank aangeroepen, dus zulke taken bleven eeuwig staan.
+        #
+        # Dezelfde titels als sleutel, dus geen nieuw mechanisme — het is de
+        # spiegel van de idempotentiecheck hierboven. En `done_by="systeem"` met een
+        # reden in `decision`, want anders toont het archief uit #674 taken die door
+        # niemand afgehandeld lijken.
+        geldig = {k["title"] for k in kandidaten}
+        gesloten = False
+        for taak in open_taken:
+            if taak.kind in SWEEP_SOORTEN and taak.title not in geldig:
+                logger.warning("werkbank-sweep: aanleiding weg — %s", taak.title)
+                api.close_task(db, taak.id, done_by="systeem",
+                               decision=_("Automatisch gesloten: de aanleiding voor "
+                                          "deze taak bestaat niet meer."))
+                gesloten = True
+        # close_task zet enkel de velden; het wegschrijven hoort bij de aanroeper.
+        # Zonder deze flush blijft de wijziging in de sessie hangen tot iets anders
+        # ze toevallig meeneemt — en dan is "de taak is gesloten" afhankelijk van
+        # wat er ná deze job gebeurt.
+        if gesloten:
+            db.flush()
     if not payload.get("once"):
         enqueue(db, "workflow.sweep", {},
                 run_at=datetime.now(timezone.utc) + SWEEP_INTERVAL)
