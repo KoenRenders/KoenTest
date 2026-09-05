@@ -38,11 +38,20 @@ BUDGET = {
     "/admin/betalingen": 40,
     "/admin/ledenwijzigingen": 40,
     "/admin/werkbank": 25,
+    "/admin/media": 25,
     "/activiteiten": 40,
 }
 
 AANTAL_GEZINNEN = 40
 AANTAL_INSCHRIJVINGEN = 40
+# Genoeg activiteiten dat het verschil tussen een lichte keuzelijst-query en de
+# volledige lijstbewerking zichtbaar wordt (#645). Let op wat deze gate wél en
+# niet vangt: ze telt query's, niet rijen. De bevinding op /admin/media was
+# rij-volume — `list_activities` doet met selectinload een vást aantal query's,
+# hoeveel activiteiten er ook zijn. Wat de gate hier bewaakt, is dat de
+# eager-loading-query's (datums, onderdelen, producten) en de subquery's voor de
+# datumsortering niet terugkeren op dit scherm.
+AANTAL_ACTIVITEITEN = 15
 
 
 class Queryteller:
@@ -81,6 +90,17 @@ def gevulde_databank(client, db_session):
 
     seed_postal_code(db_session)
     activity, component, product = seed_activity_with_product(db_session, is_free=False)
+
+    from datetime import timedelta
+
+    from app.domains.activities.api import Activity, ActivityDate
+
+    for i in range(AANTAL_ACTIVITEITEN):
+        extra = Activity(name=f"Budgetactiviteit {i}")
+        db_session.add(extra)
+        db_session.flush()
+        db_session.add(ActivityDate(activity_id=extra.id,
+                                    start_date=date.today() - timedelta(days=30 * i)))
 
     jaar = date.today().year
     for i in range(AANTAL_GEZINNEN):

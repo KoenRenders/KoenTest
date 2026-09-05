@@ -27,7 +27,7 @@ NAV = admin_nav("/admin/media")
 
 def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
                activity_id: Optional[int] = None) -> dict:
-    from app.domains.activities.api import list_activities
+    from app.domains.activities.api import activity_options
     from app.domains.media.api import (VALID_KINDS, activity_ids_with_media,
                                        list_media)
 
@@ -40,10 +40,14 @@ def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
 
     # Álle activiteiten (naam + jaar) voor de upload-dropdown (#476): je moet
     # foto's aan om het even welke activiteit kunnen koppelen, ook zonder foto's.
-    alle = list_activities(scope="all", db=db)
-    alle_activiteiten = [{"id": a.id, "naam": a.name,
-                          "jaar": a.sort_date.year if a.sort_date else None}
-                         for a in alle]
+    #
+    # `activity_options` en niet `list_activities` (#645): die laatste laadt datums,
+    # onderdelen én producten eager en berekent de bezetting per onderdeel — een
+    # lijstbewerking, hergebruikt om drie velden in een <select> te zetten. Dat
+    # kostte dit scherm p95 578 ms tegen 9–122 ms voor de andere adminroutes.
+    alle_activiteiten = [{"id": optie.id, "naam": optie.name,
+                          "jaar": optie.first_date.year if optie.first_date else None}
+                         for optie in activity_options(db)]
     # Filter-dropdown: enkel activiteiten die al media hebben (#459), mét jaar.
     aids = activity_ids_with_media(db)
     activiteiten = [a for a in alle_activiteiten if a["id"] in aids]
