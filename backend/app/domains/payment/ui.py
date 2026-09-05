@@ -69,6 +69,13 @@ def _view(request: Request, db: Session, email: str,
 
     context = (request.query_params.get("context") or "all").strip()
     status = (request.query_params.get("status") or "all").strip()
+    # #669: eigen schakelaar naast de statuskeuzelijst. De oude waarde
+    # status=openstaand blijft werken (bestaande links, opgeslagen export-URL's) en
+    # zet de schakelaar aan.
+    openstaand = (request.query_params.get("openstaand") == "1"
+                  or status == "openstaand")
+    if status == "openstaand":
+        status = "all"
     q = (request.query_params.get("q") or "").strip()
     records = enriched_records(db)
 
@@ -84,7 +91,8 @@ def _view(request: Request, db: Session, email: str,
         if r.membership_year is not None:
             jaren.add(r.membership_year)
 
-    zichtbaar = filter_records(records, context=context, status=status, q=q)
+    zichtbaar = filter_records(records, context=context, status=status, q=q,
+                               openstaand=openstaand)
 
     charges = [r for r in zichtbaar if r.type != "refund"]
     refunds = [r for r in zichtbaar if r.type == "refund"]
@@ -112,10 +120,13 @@ def _view(request: Request, db: Session, email: str,
             "status": derived_status(rec),
         }
 
-    groepen = group_cards(zichtbaar)
+    # `records` erbij zodat een gefilterde terugbetaling haar charge als context
+    # kan meenemen (#668); die telt niet mee in de totalen.
+    groepen = group_cards(zichtbaar, records)
     for groep in groepen:
-        groep["kaarten"] = [(_kaart(charge), [_kaart(x) for x in eigen_refunds])
-                            for charge, eigen_refunds in groep["kaarten"]]
+        groep["kaarten"] = [(_kaart(charge) | {"is_context": is_context},
+                             [_kaart(x) for x in eigen_refunds])
+                            for charge, eigen_refunds, is_context in groep["kaarten"]]
 
     # Gegroepeerde context-filter (#549): dezelfde grouped_filter-macro als de
     # Werkbank. Heterogene groepen (jaren/onderdelen) → (value, label)-tuples.
@@ -163,7 +174,7 @@ def _view(request: Request, db: Session, email: str,
             "failed": (_("Mislukt"), "red"),
             "cancelled": (_("Geannuleerd"), "gray"),
         },
-        status=status, q=q,
+        status=status, openstaand=openstaand, q=q,
         componenten=_comp, jaren=_jaren,
         context_top=context_top, context_groups=context_groups,
         matrix={"betalingen": m_bet, "terugbetalingen": m_ref, "netto": m_net},
@@ -198,7 +209,15 @@ def betalingen_export(request: Request, db: Session = Depends(get_db),
 
     context = (request.query_params.get("context") or "all").strip()
     status = (request.query_params.get("status") or "all").strip()
-    content = build_payments_export_ods(db, context=context, status=status)
+    # #669: de export moet exact tonen wat het scherm toont. Zonder deze parameter
+    # exporteert hij iets anders dan wat je ziet — een stille afwijking tussen
+    # beeld en bestand.
+    openstaand = (request.query_params.get("openstaand") == "1"
+                  or status == "openstaand")
+    if status == "openstaand":
+        status = "all"
+    content = build_payments_export_ods(db, context=context, status=status,
+                                        openstaand=openstaand)
     return Response(
         content=content,
         media_type="application/vnd.oasis.opendocument.spreadsheet",

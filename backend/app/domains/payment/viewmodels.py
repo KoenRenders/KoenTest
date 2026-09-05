@@ -31,6 +31,9 @@ class BetalingenView(ViewModel):
     # Actieve filterstand — de balk leest ze terug, de export-link geeft ze door.
     context: str
     status: str
+    # #669: staat los van `status` — de statuskolom en de afgeleide "staat er nog
+    # iets open" zijn twee verschillende vragen, en je wil ze kunnen combineren.
+    openstaand: bool
     q: str
 
     # Filteropties, opgebouwd uit de zichtbare records.

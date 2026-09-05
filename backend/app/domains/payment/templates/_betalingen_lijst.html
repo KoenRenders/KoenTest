@@ -121,7 +121,11 @@
   {# De kaarttuple draagt sinds #617 een view-model per kaart (bedrag/ontvangen/
      saldo/mag_verwijderen), zodat de template niet rekent. #}
   {% set r = kaart.rec %}
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4"{% if is_finance %} x-data="{ bewerk: false, terug: false }"{% endif %}>
+  {# #668: een contextkaart is de betaling wáárvoor een gefilterde terugbetaling
+     loopt. Ze is geen treffer — ingetogen, zonder acties, en niet meegeteld in het
+     totaal. Zonder haar staat er "10 terug te betalen" zonder te zeggen waarvoor. #}
+  <div class="rounded-2xl border p-4 {{ 'bg-gray-50 border-dashed border-gray-300' if kaart.is_context else 'bg-white shadow-sm border-gray-200' }}"{% if is_finance and not kaart.is_context %} x-data="{ bewerk: false, terug: false }"{% endif %}>
+    {% if kaart.is_context %}<p class="text-xs text-gray-500 mb-1">{{ _("Ter context — valt buiten het filter") }}</p>{% endif %}
     {{ kaartkop(kaart) }}
     {% if r.payable_type == "registration" %}
     <div class="mt-2" x-data="{ det: false }">
@@ -130,7 +134,9 @@
       <div id="det-{{ r.id }}" x-show="det" x-cloak></div>
     </div>
     {% endif %}
-    {% if is_finance %}
+    {# Een contextkaart krijgt geen acties: ze staat er om te verklaren, niet om
+       bewerkt te worden (#668). #}
+    {% if is_finance and not kaart.is_context %}
     {# Actieset per kaart (#617-2c), met de UAT-namen. "Terugbetalen…" suggereerde dat
        er geld vertrekt — er wordt enkel een verplichting geregistreerd. En "Ververs bij
        Mollie" draagt een leveranciersnaam: die moet omgetypt worden zodra de provider
