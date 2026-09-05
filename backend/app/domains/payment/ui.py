@@ -20,7 +20,7 @@ from app.domains.auth.api import (
     SESSION_COOKIE, csrf_token_for, get_user_roles, require_csrf,
     require_finance_mutation, require_finance_ui,
 )
-from app.ui import admin_nav, templates
+from app.ui import admin_nav, filterparams, templates
 from app.i18n import _
 from app.domains.payment.service import (
     BetalingFout, bevestig_betaling, bewerk_betaling, registreer_terugbetaling,
@@ -67,16 +67,18 @@ def _view(request: Request, db: Session, email: str,
         may_delete,
     )
 
-    context = (request.query_params.get("context") or "all").strip()
-    status = (request.query_params.get("status") or "all").strip()
+    # #671: uit HX-Current-URL als htmx die meestuurt, anders uit de query-string.
+    # Eén gedeelde helper voor de vier modules die hun filter zo lezen.
+    stand = filterparams(request)
+    context = (stand.get("context") or "all").strip()
+    status = (stand.get("status") or "all").strip()
+    q = (stand.get("q") or "").strip()
     # #669: eigen schakelaar naast de statuskeuzelijst. De oude waarde
     # status=openstaand blijft werken (bestaande links, opgeslagen export-URL's) en
     # zet de schakelaar aan.
-    openstaand = (request.query_params.get("openstaand") == "1"
-                  or status == "openstaand")
+    openstaand = stand.get("openstaand") == "1" or status == "openstaand"
     if status == "openstaand":
         status = "all"
-    q = (request.query_params.get("q") or "").strip()
     records = enriched_records(db)
 
     # Filter-opties opbouwen: onderdelen (per activiteit) + lidmaatschapjaren.
@@ -207,13 +209,14 @@ def betalingen_export(request: Request, db: Session = Depends(get_db),
                       email: str = Depends(require_finance_ui)):
     from app.domains.payment.exports import build_payments_export_ods
 
-    context = (request.query_params.get("context") or "all").strip()
-    status = (request.query_params.get("status") or "all").strip()
-    # #669: de export moet exact tonen wat het scherm toont. Zonder deze parameter
+    # Dezelfde bron als het scherm (#669/#671): de exportknop draagt de filterstand
+    # in zijn href, en die wordt hier langs dezelfde helper gelezen. Zonder dat
     # exporteert hij iets anders dan wat je ziet — een stille afwijking tussen
     # beeld en bestand.
-    openstaand = (request.query_params.get("openstaand") == "1"
-                  or status == "openstaand")
+    stand = filterparams(request)
+    context = (stand.get("context") or "all").strip()
+    status = (stand.get("status") or "all").strip()
+    openstaand = stand.get("openstaand") == "1" or status == "openstaand"
     if status == "openstaand":
         status = "all"
     content = build_payments_export_ods(db, context=context, status=status,

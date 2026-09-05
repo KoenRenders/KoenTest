@@ -13,7 +13,7 @@ from app.database import get_db
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf
 from app.domains.mail.api import (EMAIL_STATUSES, EMAIL_TYPES,
                                   delete_email_log, list_email_log)
-from app.ui import admin_nav, templates
+from app.ui import admin_nav, filterparams, templates
 
 router = APIRouter(include_in_schema=False)
 
@@ -34,11 +34,13 @@ _STATUS_LABELS = {"sent": "Verstuurd", "failed": "Mislukt", "skipped": "Overgesl
 
 
 def _ctx(request: Request, db: Session) -> dict:
-    email_type = (request.query_params.get("email_type") or "").strip()
-    status = (request.query_params.get("status") or "").strip()
-    recipient = (request.query_params.get("recipient") or "").strip()
+    # #671: uit HX-Current-URL als htmx die meestuurt, anders uit de query-string.
+    stand = filterparams(request)
+    email_type = (stand.get("email_type") or "").strip()
+    status = (stand.get("status") or "").strip()
+    recipient = (stand.get("recipient") or "").strip()
     try:
-        page = max(1, int(request.query_params.get("page", "1")))
+        page = max(1, int(stand.get("page", "1")))
     except ValueError:
         page = 1
     rows, has_next = list_email_log(db, email_type=email_type, status=status,

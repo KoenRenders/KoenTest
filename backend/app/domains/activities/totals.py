@@ -94,6 +94,44 @@ def has_payable_products(component, is_member: bool) -> bool:
                for p in (component.products or []))
 
 
+def quote_registration(registration,
+                       quantities: dict) -> Tuple[Decimal, List[RegistrationLine]]:
+    """Wat zou deze inschrijving kosten met deze aantallen? (#670)
+
+    De derde ingang, en bewust géén hergebruik van `quote_lines`. Die is gesleuteld
+    op een *component* met zijn producten en op een `is_member` die de aanroeper
+    kiest — goed voor het publieke inschrijfscherm, waar nog niets bestaat. Het
+    beheerscherm bewerkt een BESTAANDE inschrijving, en dan gelden twee dingen die
+    daar niet in passen:
+
+    - **De peildatum ligt vast.** `compute_registration_total` rekent met de
+      inschrijfdatum, want daar is de prijs vastgeklikt. Zou de live-herberekening
+      "vandaag" nemen, dan kan het getoonde bedrag verschillen van wat er na
+      Opslaan uitkomt — precies de drift die §19.3 wil uitsluiten.
+    - **De sleutel is het item, niet het product.** Het beheerformulier stuurt
+      `quantity_<item_id>`, en twee items kunnen naar hetzelfde product wijzen.
+      Via de producten van het component gaan zou die samenvouwen.
+
+    Vandaar deze functie náást de andere twee, met dezelfde `_line`/`_telt_mee`
+    als beide: één rekenregel, drie ingangen voor drie situaties. Een item dat niet
+    in `quantities` staat, houdt zijn eigen aantal — het formulier stuurt enkel wat
+    op het scherm staat.
+    """
+    from app.domains.membership.api import has_valid_membership
+
+    person = getattr(registration, "person", None)
+    registered_at = getattr(registration, "registered_at", None)
+    ref_date = registered_at.date() if registered_at is not None else None
+    is_member = has_valid_membership(person, ref_date)
+    regels: List[RegistrationLine] = [
+        _line(item.product, quantities.get(item.id, item.quantity), is_member)
+        for item in (registration.items or [])
+        if getattr(item, "product", None) is not None
+    ]
+    totaal = sum((r["subtotal"] for r in regels if _telt_mee(r)), Decimal("0"))
+    return totaal, regels
+
+
 def compute_registration_total(registration) -> Tuple[Decimal, List[RegistrationLine]]:
     """Bereken (totaal, regels) van een inschrijving op basis van haar items.
 

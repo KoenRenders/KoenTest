@@ -21,7 +21,8 @@ from app.domains.activities.models import (  # noqa: F401
     RegistrationHistory,
     RegistrationItemHistory,
 )
-from app.domains.activities.totals import compute_registration_total  # noqa: F401
+from app.domains.activities.totals import (  # noqa: F401
+    compute_registration_total, quote_registration)
 
 
 # ── Facade-doorgangen naar de registratieflow ────────────────────────────────
@@ -106,6 +107,7 @@ __all__ = [
     "ActivityProduct", "ActivitySubRegistration", "ComponentHistory",
     "ProductHistory", "Registration", "RegistrationItem",
     "RegistrationHistory", "RegistrationItemHistory", "build_component_export_ods", "compute_registration_total",
+    "quote_registration",
     "enrich_registration", "get_activity_detail", "list_activities", "move_within",
     "public_registrations", "register_for_activity",
 ]

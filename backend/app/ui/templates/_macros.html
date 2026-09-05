@@ -410,10 +410,29 @@
    meestuurt en de filter-state niet uit de pas loopt met de lijst. Volgorde
    volgens design-system C1: zoeken bovenaan, filters eronder — nooit andersom.
    Gebruik de velden met `standalone=False` zodat ze geen eigen verzoek doen. #}
+{# `hx-push-url` (#671): de filterstand hoort in de browser-URL.
+
+   Twee dingen komen daarmee goed. De stand overleeft een F5 en een gedeelde link
+   toont dezelfde lijst — dat kon op geen enkel filterscherm. En htmx stuurt de URL
+   bij élk verzoek mee als `HX-Current-URL`, dus ook een MUTATIE weet nog waarop
+   gefilterd stond. Zonder dat viel de lijst na elke opslag terug op ongefilterd,
+   terwijl de balk de oude keuze bleef tonen (alleen het fragment wordt geswapt).
+   `app.ui.filterparams()` is de ene plek die dat uitleest.
+
+   NIET `hx-push-url="true"` hier: dat duwt de URL van het VERZOEK in de adresbalk,
+   en zeven van de elf balken vragen een aparte fragment-route
+   (`/admin/betalingen/lijst?…`). Een F5 daarop levert het kale fragment zonder
+   schil. De balk merkt zich daarom met een eigen header, en de server zet
+   `HX-Push-Url` op het PAGINApad met dezelfde query — één plek voor alle elf, in
+   `main.py:_filter_push_url`.
+
+   De `delay:400ms` op de zoek-trigger beperkt de geschiedenis tot één ingang per
+   pauze in het typen; elke aanslag apart zou de terugknop onbruikbaar maken. #}
 {% macro filter_bar(hx_get, hx_target,
                     trigger="change, keyup changed delay:400ms from:input[type=search]") -%}
 <form class="mb-4 space-y-3" hx-get="{{ hx_get }}" hx-target="{{ hx_target }}"
       hx-swap="innerHTML" hx-trigger="{{ trigger }}"
+      hx-headers='{"X-Raak-Filter": "1"}'
       onsubmit="return false">
   {{ caller() }}
 </form>

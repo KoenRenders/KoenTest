@@ -18,7 +18,7 @@ from app.domains.auth.api import (
     admin_user_by_email, csrf_from_request,
     SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
 )
-from app.ui import admin_nav, is_fragment_request, templates
+from app.ui import admin_nav, filterparams, is_fragment_request, templates
 from app.domains.mdm.viewmodels import LedenView
 from app.i18n import _
 
@@ -70,12 +70,14 @@ def _lijst_view(request: Request, db: Session,
     """
     from app.domains.membership.api import list_families
 
-    q = (request.query_params.get("q") or "").strip()
-    status = (request.query_params.get("status") or "").strip()
-    jaar_raw = (request.query_params.get("jaar") or "").strip()
+    # #671: uit HX-Current-URL als htmx die meestuurt, anders uit de query-string.
+    stand = filterparams(request)
+    q = (stand.get("q") or "").strip()
+    status = (stand.get("status") or "").strip()
+    jaar_raw = (stand.get("jaar") or "").strip()
     jaar = int(jaar_raw) if jaar_raw.isdigit() else None
     try:
-        page = max(1, int(request.query_params.get("page", "1")))
+        page = max(1, int(stand.get("page", "1")))
     except ValueError:
         page = 1
     data = list_families(db, page=page, page_size=25, q=q or None,
