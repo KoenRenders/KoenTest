@@ -118,15 +118,41 @@ meer op de allowlist van de gate.
 
 | UI-module | imports | ORM-gebruik | facade-inhoud | view-model |
 |---|---|---|---|---|
-| `app/ui/tenants_ui.py` | ✅ | ✅ | | ✅ |
+| `activities/ui.py` | ✅ | ✅ | | |
+| `activities/admin_ui.py` | | ✅ | | |
+| `auth/ui.py` | ✅ | ✅ | | |
+| `auth/admin_ui.py` | ✅ | ✅ | | |
+| `chatbot/ui.py` | ✅ | ✅ | | |
+| `cms/ui.py` | ✅ | ✅ | | |
+| `cms/admin_ui.py` | ✅ | ✅ | | |
+| `forms/ui.py` | ✅ | ✅ | | |
+| `forms/admin_ui.py` | ✅ | ✅ | | |
+| `mail/ui.py` | ✅ | ✅ | | ✅ |
+| `mdm/ui.py` | ✅ | ✅ | | |
+| `media/ui.py` | ✅ | ✅ | | |
+| `media/admin_ui.py` | ✅ | ✅ | | |
+| `membership/ui.py` | ✅ | ✅ | | |
+| `payment/ui.py` | ✅ | ✅ | | ✅ |
+| `workflow/ui.py` | ✅ | ✅ | | ✅ |
 | `app/ui/changes_ui.py` | ✅ | ✅ | | ✅ |
-| `payment/ui.py` | ✅ | | | ✅ |
 | `app/ui/system_ui.py` | ✅ | ✅ | | |
-| `workflow/ui.py` | ✅ | | | ✅ |
-| overige `*_ui.py` | | | | |
+| `app/ui/tenants_ui.py` | ✅ | ✅ | | ✅ |
 
-Leeg = staat nog op de allowlist van de gate. De kolommen krimpen per batch van
-#635; de gate is pas blokkerend-zonder-allowlist wanneer de tabel vol staat.
+Leeg = staat nog op de allowlist van de gate.
+
+**ORM-gebruik is overal ✅**: geen enkele UI-module raakt de sessie nog aan — geen
+query, geen commit. De transactiegrens ligt in de services.
+
+Eén post open bij *imports*: `activities/admin_ui.py` roept 21 CRUD-functies aan
+die nog in `activities/router.py` wonen (onderdelen, producten, datums,
+bestelregels). Die verhuizen in een eigen batch, mét tests bij de verhuizing —
+een facade-doorgang zou de router alleen verbergen.
+
+De kolom *facade-inhoud* (regel 3: geen ORM-klassen of routerfuncties via een
+`api.py`) staat nog overal open. Dat is de volgende stap: de schermen krijgen
+ORM-objecten van de facades, en zolang de view-models die objecten doorgeven aan
+de templates verandert daar niets aan. Ze sluit pas wanneer de services
+teruggeven wát het scherm toont in plaats van de rij zelf.
 
 Naast de gates loopt de agent `design-conformiteit-bewaker` op aanvraag over
 dezelfde modules met een **laag-as** (#635 J): herhaalde business-logica, een

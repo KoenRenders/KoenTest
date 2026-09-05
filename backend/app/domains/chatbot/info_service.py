@@ -9,6 +9,8 @@ er in de context zitten (affiches, onderdeel-info, CMS-pagina's, notities), hoe 
 document zijn label krijgt, en dat een rij zonder ChatbotInfo als "standaard aan"
 telt.
 """
+from __future__ import annotations
+
 from typing import Optional
 
 from sqlalchemy.orm import Session
@@ -16,7 +18,10 @@ from sqlalchemy.orm import Session
 from app.domains.activities.api import Activity, ActivitySubRegistration
 from app.domains.chatbot.models import ChatbotInfo
 from app.domains.cms.api import CmsPage
-from app.domains.media.api import EXTRACTABLE_KINDS, MediaAsset
+# media wordt per functie geïmporteerd: `media/extraction.py` importeert op
+# modulniveau `ChatbotInfo` uit chatbot.api, dat op zijn beurt deze module laadt.
+# Een module-level import hier zou EXTRACTABLE_KINDS opvragen terwijl
+# media/api.py nog aan het initialiseren is.
 from app.schemas.chatbot_info import ChatbotInfoEdit, NoteCreate
 
 
@@ -36,7 +41,7 @@ def _row(ci: Optional[ChatbotInfo]) -> Optional[dict]:
     }
 
 
-def _document_label(db: Session, asset: MediaAsset) -> str:
+def _document_label(db: Session, asset: "MediaAsset") -> str:
     if asset.kind == "activity_poster" and asset.activity_id:
         a = db.query(Activity).filter(Activity.id == asset.activity_id).first()
         return f"{a.name} — poster" if a else "poster"
@@ -54,6 +59,8 @@ def _document_label(db: Session, asset: MediaAsset) -> str:
 
 
 def list_chatbot_info(db: Session, _admin=None):
+    from app.domains.media.api import EXTRACTABLE_KINDS, MediaAsset
+
     rows_by_asset = {
         ci.media_asset_id: ci
         for ci in db.query(ChatbotInfo).filter(ChatbotInfo.media_asset_id.isnot(None)).all()
