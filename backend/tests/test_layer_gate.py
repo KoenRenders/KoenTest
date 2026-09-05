@@ -78,11 +78,16 @@ VIEWMODEL_ALLOWLIST: set[str] = {
 
 LAYER_ALLOWLIST: set[tuple[str, str]] = {
     # ── regel 1: imports uit models/router, of een private naam ──────────────
-    # Laatste post. Het activiteitenbeheer roept 21 CRUD-functies aan die nog in
-    # `activities/router.py` wonen (onderdelen, producten, datums, bestelregels).
-    # Ze verhuizen naar `activities/service.py` in een eigen batch: het zijn
-    # inhoudelijke bewerkingen, geen doorgeefluik, en ze verdienen tests bij de
-    # verhuizing i.p.v. een facade-laag die de router alleen verbergt.
+    # Laatste post (#679), en hij krimpt per batch. Het activiteitenbeheer roept
+    # CRUD-functies aan die nog in `activities/router.py` wonen. Ze verhuizen naar
+    # `activities/service.py`: het zijn inhoudelijke bewerkingen, geen doorgeefluik.
+    # Twintig facades die alleen doorgeven zouden deze gate groen zetten zonder dat
+    # er iets verandert — een eerlijke rode regel is beter dan een groene gate om
+    # de verkeerde reden.
+    #
+    # Voortgang: batch 1 (de activiteit zelf) is verhuisd — create/update/delete.
+    # Resteert: datums, onderdelen + producten, bestelregels + inschrijvingen,
+    # export. Bij de laatste batch kan deze regel weg.
     ("app.domains.activities.admin_ui", "imports"),
     # ── regel 2: rauw ORM-gebruik in de routebody ────────────────────────────
 }

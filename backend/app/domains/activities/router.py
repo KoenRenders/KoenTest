@@ -297,45 +297,16 @@ def create_activity(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    activity = Activity(
-        name=data.name,
-        location=data.location,
-        poster_url=data.poster_url,
-        members_only=bool(data.members_only),
-    )
-    db.add(activity)
-    db.flush()
-    snapshot_activity(db, activity, operation="insert", action="activity_created",
-                      source="admin_manual", actor=admin.email)
+    # #679: het aanmaken zelf (velden, datums, audit-snapshots, commit) staat in
+    # de service. Wat hier overblijft is HTTP: het schema uitpakken en de respons
+    # vormgeven.
+    from app.domains.activities import service
 
-    for date_data in data.dates:
-        ad = ActivityDate(
-            activity_id=activity.id,
-            start_date=date_data.start_date,
-            end_date=date_data.end_date,
-            start_time=date_data.start_time,
-            end_time=date_data.end_time,
-        )
-        db.add(ad)
-        db.flush()
-        snapshot_activity_date(db, ad, operation="insert", action="activity_created",
-                               source="admin_manual", actor=admin.email)
-
-    db.commit()
-
-    activity = (
-        db.query(Activity)
-        .options(
-            selectinload(Activity.dates),
-            selectinload(Activity.sub_registrations).selectinload(ActivitySubRegistration.products),
-        )
-        .filter(Activity.id == activity.id)
-        .first()
-    )
-
-    today = date.today()
-    resp = _build_response(activity, today, status="Open", reg_count=0)
-    return resp
+    nieuw = service.create_activity(
+        db, name=data.name, location=data.location, poster_url=data.poster_url,
+        members_only=data.members_only, dates=data.dates, actor=admin.email)
+    activity = service._activity_met_boom(db, nieuw.id)
+    return _build_response(activity, date.today(), status="Open", reg_count=0)
 
 
 @router.put("/activities/{activity_id}", response_model=ActivityResponse)
@@ -345,27 +316,16 @@ def update_activity(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    activity = (
-        db.query(Activity)
-        .options(
-            selectinload(Activity.dates),
-            selectinload(Activity.sub_registrations).selectinload(ActivitySubRegistration.products),
-        )
-        .filter(Activity.id == activity_id)
-        .first()
-    )
-    if not activity:
-        raise HTTPException(status_code=404, detail=_("Activity not found"))
-    for field, value in data.model_dump(exclude_none=True).items():
-        setattr(activity, field, value)
-    snapshot_activity(db, activity, operation="update", action="activity_updated",
-                      source="admin_manual", actor=admin.email)
-    db.commit()
-    db.refresh(activity)
+    from app.domains.activities import service
 
-    today = date.today()
+    activity = service.update_activity(db, activity_id,
+                                       data.model_dump(exclude_none=True),
+                                       actor=admin.email)
+    if activity is None:
+        raise HTTPException(status_code=404, detail=_("Activity not found"))
     info = compute_activity_status(activity)
-    return _build_response(activity, today, status=info["status"], reg_count=info["registration_count"])
+    return _build_response(activity, date.today(), status=info["status"],
+                           reg_count=info["registration_count"])
 
 
 @router.delete("/activities/{activity_id}")
@@ -374,31 +334,10 @@ def delete_activity(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    activity = db.query(Activity).filter(Activity.id == activity_id).first()
-    if not activity:
+    from app.domains.activities import service
+
+    if not service.delete_activity(db, activity_id, actor=admin.email):
         raise HTTPException(status_code=404, detail=_("Activity not found"))
-    # Soft delete (#166): de hele boom mee markeren (datums, onderdelen, producten,
-    # inschrijvingen, bestelregels). Betalingen blijven bestaan (financieel feit).
-    for d in activity.dates:
-        snapshot_activity_date(db, d, operation="delete", action="activity_deleted",
-                               source="admin_manual", actor=admin.email)
-        soft_delete(d)
-    for comp in activity.sub_registrations:
-        for p in comp.products:
-            snapshot_product(db, p, operation="delete", action="activity_deleted",
-                             source="admin_manual", actor=admin.email)
-            soft_delete(p)
-        snapshot_component(db, comp, operation="delete", action="activity_deleted",
-                           source="admin_manual", actor=admin.email)
-        soft_delete(comp)
-    for reg in activity.registrations:
-        for item in reg.items:
-            soft_delete(item)
-        soft_delete(reg)
-    snapshot_activity(db, activity, operation="delete", action="activity_deleted",
-                      source="admin_manual", actor=admin.email)
-    soft_delete(activity)
-    db.commit()
     return {"detail": "deleted"}
 
 

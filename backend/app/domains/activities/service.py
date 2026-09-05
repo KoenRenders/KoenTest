@@ -1,8 +1,17 @@
-"""Leesbewerkingen op activiteiten (#635 I).
+"""Lees- én schrijfbewerkingen op activiteiten (#635 I, #679).
 
 De schermen haalden activiteiten, onderdelen en inschrijvingen met eigen queries
 op. Kleine queries, maar ze dragen wel de vraag "bestaat dit?" — en die hoort één
 antwoord te hebben, niet vier.
+
+Sinds #679 verhuizen ook de CRUD-bewerkingen hierheen, in batches. Het is een
+SCHEIDING, geen verplaatsing: wat in een routerfunctie zat, is een mengsel van
+HTTP-afhandeling (404's, `Depends`, de responsvorm) en domeinregels (volgorde
+normaliseren, totalen reconciliëren, audit-snapshots). Alleen het tweede hoort
+hier. De router houdt zijn 404 en zijn responsemodel; de service kent geen HTTP.
+
+De transactiegrens ligt hier (§635 regel 2): de service commit, het scherm niet.
+Zo volgt élke ingang — JSON-router, UI-route, script — dezelfde regel.
 """
 from datetime import date
 from typing import NamedTuple, Optional
@@ -19,6 +28,110 @@ class ActivityOption(NamedTuple):
     id: int
     name: str
     first_date: Optional[date]
+
+
+def create_activity(db, *, name: str, location=None, poster_url=None,
+                    members_only: bool = False, dates=(), actor=None) -> Activity:
+    """Maak een activiteit met haar eerste datums (#679, batch 1).
+
+    De audit-snapshots horen bij de mutatie, niet bij de route: een activiteit die
+    buiten de JSON-router om wordt aangemaakt, hoort dezelfde geschiedenis te
+    krijgen. `dates` bevat objecten met start_date/end_date/start_time/end_time —
+    de Pydantic-vorm van de router past daarop, maar de service eist ze niet.
+    """
+    from app.domains.audit.api import snapshot_activity, snapshot_activity_date
+
+    activity = Activity(name=name, location=location, poster_url=poster_url,
+                        members_only=bool(members_only))
+    db.add(activity)
+    db.flush()
+    snapshot_activity(db, activity, operation="insert", action="activity_created",
+                      source="admin_manual", actor=actor)
+
+    for datum in dates:
+        ad = ActivityDate(
+            activity_id=activity.id,
+            start_date=datum.start_date,
+            end_date=getattr(datum, "end_date", None),
+            start_time=getattr(datum, "start_time", None),
+            end_time=getattr(datum, "end_time", None),
+        )
+        db.add(ad)
+        db.flush()
+        snapshot_activity_date(db, ad, operation="insert", action="activity_created",
+                               source="admin_manual", actor=actor)
+    db.commit()
+    return activity
+
+
+def update_activity(db, activity_id: int, velden: dict, *, actor=None) -> Optional[Activity]:
+    """Werk de velden van een activiteit bij. Geeft None als ze niet bestaat.
+
+    De aanroeper beslist wat een ontbrekende activiteit betekent — de JSON-router
+    maakt er een 404 van, een script misschien iets anders. De service kent geen
+    HTTP-statuscodes.
+    """
+    from app.domains.audit.api import snapshot_activity
+
+    activity = _activity_met_boom(db, activity_id)
+    if activity is None:
+        return None
+    for veld, waarde in velden.items():
+        setattr(activity, veld, waarde)
+    snapshot_activity(db, activity, operation="update", action="activity_updated",
+                      source="admin_manual", actor=actor)
+    db.commit()
+    db.refresh(activity)
+    return activity
+
+
+def delete_activity(db, activity_id: int, *, actor=None) -> bool:
+    """Soft delete van de hele boom (#166). Geeft False als ze niet bestaat.
+
+    Datums, onderdelen, producten, inschrijvingen en bestelregels gaan mee.
+    Betalingen NIET: die zijn een financieel feit en blijven bestaan — dat is
+    dezelfde regel die #667 met een gate vastlegde.
+    """
+    from app.domains.audit.api import (snapshot_activity, snapshot_activity_date,
+                                       snapshot_component, snapshot_product)
+    from app.soft_delete import soft_delete
+
+    activity = db.query(Activity).filter(Activity.id == activity_id).first()
+    if activity is None:
+        return False
+    for d in activity.dates:
+        snapshot_activity_date(db, d, operation="delete", action="activity_deleted",
+                               source="admin_manual", actor=actor)
+        soft_delete(d)
+    for comp in activity.sub_registrations:
+        for p in comp.products:
+            snapshot_product(db, p, operation="delete", action="activity_deleted",
+                             source="admin_manual", actor=actor)
+            soft_delete(p)
+        snapshot_component(db, comp, operation="delete", action="activity_deleted",
+                           source="admin_manual", actor=actor)
+        soft_delete(comp)
+    for reg in activity.registrations:
+        for item in reg.items:
+            soft_delete(item)
+        soft_delete(reg)
+    snapshot_activity(db, activity, operation="delete", action="activity_deleted",
+                      source="admin_manual", actor=actor)
+    soft_delete(activity)
+    db.commit()
+    return True
+
+
+def _activity_met_boom(db, activity_id: int) -> Optional[Activity]:
+    """Eén activiteit met haar datums, onderdelen en producten in één keer."""
+    from sqlalchemy.orm import selectinload
+
+    return (db.query(Activity)
+            .options(selectinload(Activity.dates),
+                     selectinload(Activity.sub_registrations)
+                     .selectinload(ActivitySubRegistration.products))
+            .filter(Activity.id == activity_id)
+            .first())
 
 
 def get_activity(db, activity_id: int,
