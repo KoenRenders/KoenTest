@@ -78,6 +78,12 @@ Vier regels, elk met een reden:
 26. **Het verplicht-sterretje komt uit `label(required=…)`**, niet uit de labeltekst
     (#646). In de tekst erft het `text-gray-700` en staat er grijs naast een rood
     sterretje van een veld dat de parameter wél gebruikt.
+27. **Een KPI-cijfer draagt `font-brand` en geen eigen kleurklasse** (#647). Twee
+    van de zes stonden in `text-blue-700` en één miste het merkfont; op één scherm
+    stond een blauw cijfer naast een zwart. Het design-systeem legt voor KPI's
+    alleen het gewicht vast en laat blauw enkel toe als tegelACHTERGROND — een
+    kleur op het cijfer zelf staat nergens. De kleur van een dashboardtegel zit op
+    de tegel, niet op het cijfer, en blijft dus toegestaan.
 
 Uitzonderingen staan expliciet in ALLOWLIST, met reden — zoals de allowlists in
 de andere gates: een regel toevoegen mag, maar niet stilzwijgend.
@@ -115,6 +121,11 @@ METADATA_GLYPH = re.compile("[\u2709\u260e\U0001f4f1\U0001f4cd\U0001f5d3]")
 # sluithaakje van `_()`, dus de zoektocht stopt vóór het sterretje.
 STERRETJE_IN_LABEL_CALL = re.compile(r'\blabel\([^\n]*["\']\s*\*')
 RODE_SPAN = re.compile(r'<span class="text-red-600">.*?</span>')
+# Een KPI-cijfer herken je aan font-extrabold: §Weight reserveert dat gewicht voor
+# de paginatitel, de KPI-cijfers en het woordmerk, en die eerste twee dragen
+# font-bold. In deze codebase is font-extrabold dus exact de KPI-cijfers (#647).
+KPI_CIJFER = re.compile(r"\bfont-extrabold\b")
+KLEURKLASSE = re.compile(r"\btext-(?:[a-z]+-\d{2,3}|white|black)\b")
 
 
 def _overtredingen(patroon: re.Pattern, *, negeer_root: bool = False):
@@ -725,4 +736,41 @@ def test_het_verplicht_sterretje_zit_niet_in_de_labeltekst():
     assert not fouten, (
         "Geef het sterretje mee als ui.label(..., required=<bool>) — de parameter is\n"
         "een boolean, dus een vlag kan er rechtstreeks in:\n  " + "\n  ".join(fouten)
+    )
+
+
+def test_kpi_cijfers_zijn_gelijkvormig():
+    """Zes KPI-cijfers, zes keer dezelfde opmaak: `text-3xl font-extrabold font-brand` (#647).
+
+    Op /admin/activiteiten stond "Open inschrijvingen" in `text-blue-700` naast
+    "Volzette onderdelen" in zwart; /admin/leden deed hetzelfde met Gezinnen. Het
+    design-systeem legt voor KPI's alleen het **gewicht** vast (§Weight: extra-bold
+    voor paginatitel, KPI-cijfers en het woordmerk) en noemt blauw enkel als
+    tegel*achtergrond* (`blue-50 (KPI tiles)`). Een kleur op het cijfer zelf is
+    ongedocumenteerd; de geërfde inktkleur is de bedoeling.
+
+    Twee regels dus: geen kleurklasse op het cijfer, en wél `font-brand` — dat
+    laatste ontbrak op het dashboard, waardoor hetzelfde soort cijfer daar in Inter
+    stond en elders in Radio Canada Big.
+
+    Bewust buiten scope: de dashboardtegels dragen hun kleur op de tegel
+    (`bg-blue-50 text-blue-700` op de <a>), niet op het cijfer. Dat is de
+    gedocumenteerde vorm en blijft staan — deze regel kijkt enkel naar de regel
+    waarop het cijfer zelf staat.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        tekst = _zonder_commentaar(pad)
+        for nr, regel in enumerate(tekst.splitlines(), 1):
+            if not KPI_CIJFER.search(regel):
+                continue
+            plek = f"{pad.relative_to(APP)}:{nr}"
+            kleuren = [k for k in KLEURKLASSE.findall(regel)]
+            if kleuren:
+                fouten.append(f"{plek}: kleurklasse op het cijfer: {kleuren}")
+            if "font-brand" not in regel:
+                fouten.append(f"{plek}: font-brand ontbreekt")
+    assert not fouten, (
+        "Een KPI-cijfer is `text-3xl font-extrabold font-brand`, zonder eigen kleur:\n  "
+        + "\n  ".join(fouten)
     )
