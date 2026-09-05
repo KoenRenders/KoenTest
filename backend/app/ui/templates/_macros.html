@@ -338,6 +338,14 @@
    <select>-regel en blijft de optielogica ongemoeid.
 
    Gebruik: {% call ui.select_control("status") %}<option …>{% endcall %} #}
+{# Tekstgrootte uit de kitbasis halen zodra de aanroeper er zelf een meegeeft.
+   Zonder dit botsen `text-sm` (basis) en bv. `text-xs` (een code-invoerveld) als
+   twee gelijkwaardige utilities, en beslist de volgorde in de gegenereerde CSS
+   wie wint — niet de volgorde in het attribuut. Enkel echte GROOTTES tellen:
+   `text-center` of `text-ink` mogen de basis niet raken (#663). #}
+{% set _tekstmaten = ["text-xs", "text-sm", "text-base", "text-lg", "text-xl"] %}
+{% macro _basis(cls) %}{{ _control_base|replace(" text-sm", "") if (cls.split()|select("in", _tekstmaten)|list) else _control_base }}{% endmacro %}
+
 {# Losse control zonder label-wrapper, voor compacte rijen (#659).
 
    `field_input()` past daar niet: die zet een eigen `mb-4`-blok, leidt de `id` af
@@ -347,13 +355,18 @@
    `_control_base`, en verder bepaal je zelf id, breedte en attributen. #}
 {% macro input_control(name, id=None, type="text", value="", required=False,
                        placeholder="", cls="", attrs="") -%}
-<input type="{{ type }}" name="{{ name }}" id="{{ id or name }}"
-       value="{{ value }}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}
-       class="{{ _control_base }}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>
+<input type="{{ type }}" name="{{ name }}" id="{{ id or name }}"{% if value != "" %} value="{{ value }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}
+       class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>
+{%- endmacro %}
+
+{% macro textarea_control(name, id=None, value="", rows=4, required=False,
+                          placeholder="", cls="", attrs="") -%}
+<textarea{% if name %} name="{{ name }}"{% endif %} id="{{ id or name }}" rows="{{ rows }}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}
+          class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>{{ value }}</textarea>
 {%- endmacro %}
 
 {% macro select_control(name, cls="", attrs="") -%}
-<select name="{{ name }}" class="{{ _control_base }}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>{{ caller() }}</select>
+<select name="{{ name }}" class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>{{ caller() }}</select>
 {%- endmacro %}
 
 {# ── Paginering (#528 as C) ───────────────────────────────────────────────────

@@ -177,6 +177,26 @@ leeg-teksten wisselen tussen "Geen …" en "Nog geen …" en tussen italic en ni
   geen feedback.
 - **Verboden**: `.catch(()=>{})` — elke load/save-fout is zichtbaar.
 
+### 2.4b Welke control-macro (#659/#663)
+De kit heeft twee families en ze zijn niet inwisselbaar.
+
+- **`ui.field_input` / `field_select` / `field_textarea`** — een veld in een gewone
+  verticale vorm. Ze leveren label, `mb-4`-blok, hint en foutregel mee, en leiden
+  de `id` af van de `name`. Dus alleen bruikbaar wanneer die `name` op de pagina
+  **uniek** is.
+- **`ui.input_control` / `select_control` / `textarea_control`** — een losse control
+  in een compacte of herhaalde context: je zet zelf label, id en breedte. Nodig
+  zodra dezelfde `name` meermaals op de pagina staat (elke kaart in een lus heeft
+  een veld `name`), en zodra de breedte de kolom stuurt in een `flex flex-wrap`-rij.
+
+Geef je zelf een tekstgrootte mee (`text-xs` voor een code-invoerveld), dan laat de
+kitbasis haar eigen `text-sm` vallen — anders botsen twee gelijkwaardige utilities
+en beslist de volgorde in de gegenereerde CSS wie wint, niet die in het attribuut.
+
+Een control die zijn rand zélf zet (`border-gray-300`) is per definitie
+handgeschreven: hij mist `text-sm` en heeft een eigen padding. Gate-regel 30 vangt
+dat.
+
 ### 2.10 Badges & kleuren (semantisch, altijd NL-label)
 Eén `<Badge>`-component; pill `px-2 py-0.5 rounded-full text-xs font-semibold`.
 

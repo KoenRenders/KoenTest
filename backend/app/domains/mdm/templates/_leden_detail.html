@@ -63,17 +63,17 @@
           hx-target="#leden-detail" hx-swap="innerHTML">
       <div class="grid grid-cols-4 gap-3">
         <div class="col-span-2">{{ ui.label(_("Straat"), "street", required=True) }}
-          <input name="street" id="street" required value="{{ family.street }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+          {{ ui.input_control("street", id="street", value=family.street, required=True, cls="w-full") }}</div>
         <div>{{ ui.label(_("Huisnummer"), "house_number", required=True) }}
-          <input name="house_number" id="house_number" required value="{{ family.house_number }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+          {{ ui.input_control("house_number", id="house_number", value=family.house_number, required=True, cls="w-full") }}</div>
         <div>{{ ui.label(_("Bus"), "bus_number") }}
-          <input name="bus_number" id="bus_number" value="{{ family.bus_number or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+          {{ ui.input_control("bus_number", id="bus_number", value=family.bus_number or "", cls="w-full") }}</div>
         <div class="col-span-4">{{ ui.label(_("Postcode"), "postal_code", required=True) }}
-          <select name="postal_code" id="postal_code" required class="w-full border border-gray-300 rounded-lg px-3 py-2">
+          {% call ui.select_control("postal_code", cls="w-full", attrs='id="postal_code" required') %}
             {% for pc in postal_codes %}
             <option value="{{ pc.postal_code }}" {% if pc.postal_code == family.postal_code %}selected{% endif %}>{{ pc.postal_code }} {{ pc.municipality }}</option>
             {% endfor %}
-          </select></div>
+          {% endcall %}</div>
       </div>
       <div class="flex gap-2">
         {{ ui.btn_primary(_("Opslaan")) }}
@@ -101,12 +101,12 @@
     <h3 class="font-semibold mb-2">{{ _("Verantwoordelijk bestuurslid") }}</h3>
     <form hx-post="/admin/leden/gezin/{{ family.id }}/bestuurslid"
           hx-target="#leden-detail" hx-swap="innerHTML" hx-trigger="change">
-      <select name="person_id" class="w-full border border-gray-300 rounded-lg px-3 py-2">
+      {% call ui.select_control("person_id", cls="w-full") %}
         <option value="">{{ _("— Geen —") }}</option>
         {% for p in all_persons %}
         <option value="{{ p.id }}" {% if family.board_member and family.board_member.id == p.id %}selected{% endif %}>{{ p.last_name }} {{ p.first_name }}</option>
         {% endfor %}
-      </select>
+      {% endcall %}
     </form>
   </div>
 
@@ -125,7 +125,7 @@
           hx-post="/admin/leden/gezin/{{ family.id }}/lidmaatschappen"
           hx-target="#leden-detail" hx-swap="innerHTML">
       <div>{{ ui.label(_("Jaar toevoegen"), "year") }}
-        <input type="number" name="year" id="year" value="{{ family.memberships[0].year + 1 if family.memberships else current_year }}" class="w-28 border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("year", id="year", type="number", value=(family.memberships[0].year + 1 if family.memberships else current_year), cls="w-28") }}</div>
       {# §2.12 (#641): een sub-item toevoegen heet "Toevoegen" — het formulier voegt
          een lidmaatschapsjaar toe, het maakt geen lid. #}
       {{ ui.btn_primary(_("Toevoegen")) }}

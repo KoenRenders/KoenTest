@@ -9,15 +9,15 @@
         hx-target="closest .inschrijf-card" hx-swap="outerHTML" class="space-y-3">
     <div class="grid grid-cols-1 gap-3">
       <div>{{ ui.label(_("Naam"), "contact_name", required=True) }}
-        <input name="contact_name" id="contact_name" required value="{{ values.get('contact_name', person.first_name ~ ' ' ~ person.last_name if person else '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("contact_name", id="contact_name", value=values.get("contact_name", person.first_name ~ " " ~ person.last_name if person else ""), required=True, cls="w-full") }}</div>
       <div>{{ ui.label(_("E-mailadres"), "contact_email", required=True) }}
-        <input type="email" name="contact_email" id="contact_email" required value="{{ values.get('contact_email', '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("contact_email", id="contact_email", type="email", value=values.get("contact_email", ""), required=True, cls="w-full") }}</div>
       <div>{{ ui.label(_("Mobiel nummer"), "phone", required=True) }}
-        <input type="tel" name="phone" id="phone" required value="{{ values.get('phone', '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("phone", id="phone", type="tel", value=values.get("phone", ""), required=True, cls="w-full") }}</div>
     </div>
     {% if component.team_name_required %}
     <div>{{ ui.label(_("Ploegnaam"), "team_name", required=True) }}
-      <input name="team_name" id="team_name" required value="{{ values.get('team_name', '') }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+      {{ ui.input_control("team_name", id="team_name", value=values.get("team_name", ""), required=True, cls="w-full") }}</div>
     {% endif %}
     {% if component.products %}
     <div class="space-y-2">
@@ -32,12 +32,12 @@
             {% endif %}
           </span>
         </div>
-        <input type="number" name="product_{{ p.id }}" min="0" max="{{ p.max_participants or 99 }}"
-               value="{{ values.get('product_' ~ p.id, 0) }}"
-               class="w-20 border border-gray-300 rounded-lg px-2 py-1 text-center"
-               hx-post="/activiteiten/{{ activity.id }}/inschrijven/{{ component.id }}/totaal"
-               hx-include="closest form" hx-target="#totaal-{{ component.id }}" hx-swap="innerHTML"
-               hx-trigger="change, keyup delay:300ms">
+        {{ ui.input_control("product_" ~ p.id, id="product-" ~ p.id, type="number",
+                            value=values.get("product_" ~ p.id, 0), cls="w-20 text-center",
+                            attrs='min="0" max="' ~ (p.max_participants or 99) ~ '"'
+                                  ' hx-post="/activiteiten/' ~ activity.id ~ '/inschrijven/' ~ component.id ~ '/totaal"'
+                                  ' hx-include="closest form" hx-target="#totaal-' ~ component.id ~ '" hx-swap="innerHTML"'
+                                  ' hx-trigger="change, keyup delay:300ms"') }}
       </div>
       {% endfor %}
     </div>
@@ -46,7 +46,7 @@
       {% include "_inschrijf_totaal.html" %}
     </div>
     <div>{{ ui.label(_("Opmerkingen"), "remarks") }}
-      <textarea name="remarks" id="remarks" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2" placeholder="{{ _('Eventuele boodschap voor de organisatie…') }}">{{ values.get('remarks', '') }}</textarea></div>
+      {{ ui.textarea_control("remarks", id="remarks", rows=2, value=values.get("remarks", ""), placeholder=_("Eventuele boodschap voor de organisatie…"), cls="w-full") }}</div>
     {# Betaalwijze enkel als er iets af te rekenen valt (#607) — dezelfde
        `heeft_prijs`-voorwaarde als het totaal hierboven. Bij een volledig gratis of
        ter-plaatse-onderdeel is de keuze betekenisloos; het zichtbare totaal vertelt

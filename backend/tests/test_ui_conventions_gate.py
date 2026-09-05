@@ -86,7 +86,7 @@ Vier regels, elk met een reden:
     input/select/textarea buiten `_macros.html` is een handgeschreven control. Die
     mist `text-sm` (dus hoger dan zijn buren) en heeft een eigen padding — op het
     activiteitdetail stonden er drie verschillende in omloop. Het restant staat als
-    telling in `CONTROL_ALLOWLIST`: een plafond dat alleen omláág mag.
+    telling in `CONTROL_ALLOWLIST`; sinds #663 is die leeg en de regel blokkerend.
 29. **Geen hint-alinea in een kolom van een `items-end`-vorm** (#656). Zo'n vorm
     lijnt haar kolommen op de ONDERKANT uit, dus een extra regel onder een
     invoerveld duwt dat veld omhoog. Op de betalingen stond het bedrag daardoor
@@ -122,6 +122,43 @@ TEMPLATES = sorted(
 
 # (bestandsnaam, regel-fragment) → reden. Leeg is het doel.
 ALLOWLIST: dict[tuple[str, str], str] = {}
+
+HEX = re.compile(r"#[0-9a-fA-F]{6}\b")
+DONKERBLAUW = re.compile(r"\bblue-(800|900)\b")
+AMBER = re.compile(r"\bamber-\d")
+JS_DIALOOG = re.compile(r"\b(alert|confirm)\s*\(")
+HX_CONFIRM = re.compile(r"\bhx-confirm\b")
+# Markers die aantonen dat een <select> de kit-stijl draagt.
+SELECT_OK = ("_control", "border")
+# Een kit-knop met een label dat enkel uit 1–2 symbolen bestaat (×, ⚙, ➤, …).
+GLYPH_KNOP = re.compile(r'btn_(?:danger|secondary|primary|outline)\(\s*"([^"\w\s]{1,2})"')
+# Metadata-emoji (#638). Zelfde klasse als de ⬇⬆📄-glyphs uit #593: ze horen als
+# ui.icon() in de kit, niet als tekstteken in een template.
+METADATA_GLYPH = re.compile("[\u2709\u260e\U0001f4f1\U0001f4cd\U0001f5d3]")
+# Verplicht-sterretje in de labeltekst i.p.v. via label(required=…) — #646.
+# `[^)]*` zou hier NIET werken: `label(_("E-mail") ~ …)` bevat zelf al een
+# sluithaakje van `_()`, dus de zoektocht stopt vóór het sterretje.
+STERRETJE_IN_LABEL_CALL = re.compile(r'\blabel\([^\n]*["\']\s*\*')
+# Een leeslink naar de huidige bijlage: <a href="{{ …_asset_url }}"> buiten het
+# uploadblok. Die hoort achter x-show="!<vlag>" (§2.12, #653).
+BIJLAGE_LINK = re.compile(r'<[^>]*href="\{\{\s*[a-z_.]*_asset_url[^"]*"[^>]*>')
+# Een scherm mét bewerkmodus: een <form> dat aan een Alpine-vlag hangt.
+BEWERKVORM = re.compile(r'<form[^>]*x-show="[a-z_]')
+# Een hint-alinea (§2.4: text-xs + een gedempte tint) binnen een kolom van een
+# flexvorm die op de onderkant uitlijnt — #656.
+HINT_ALINEA = re.compile(r'<p[^>]*class="[^"]*\btext-xs\b[^"]*\btext-(?:gray|ink)-(?:400|500|soft)\b')
+ITEMS_END = re.compile(r'\bitems-end\b')
+FLEX_OPEN = re.compile(r'<(div|form)\b')
+# Een handgeschreven formulier-control: de kit zet zijn rand via `_control_base`,
+# dus een losse `border-gray-300` op een input/select/textarea betekent dat het
+# scherm de kit omzeilt (#659).
+HANDGESCHREVEN_CONTROL = re.compile(r"<(?:input|select|textarea)\b[^>]*>")
+# Teal is geen semantische toon: de macro kent hem, §2.10 niet (#660).
+TEAL_BADGE = re.compile(r'badge\([^)]*"teal"')
+
+# #663 heeft de sweep afgemaakt: er staat er geen enkele meer buiten de kit, dus
+# de regel is blokkerend en de allowlist leeg. Blijft ze leeg, dan hoort dat zo.
+CONTROL_ALLOWLIST: dict[str, int] = {}
 
 HEX = re.compile(r"#[0-9a-fA-F]{6}\b")
 DONKERBLAUW = re.compile(r"\bblue-(800|900)\b")
@@ -948,7 +985,8 @@ def test_formuliervelden_komen_uit_de_kit():
     een eigen, iets andere ring overheen. Er is dus geen scherm zonder
     focus-indicatie; dit gaat over maatvoering en één bron van waarheid.
 
-    De allowlist is een telling per bestand, geen vrijbrief: ze mag alleen omlaag.
+    De allowlist was een telling per bestand tijdens de omzetting; #663 heeft de
+    laatste 93 gedaan, dus ze is leeg en deze regel is blokkerend.
     """
     fouten = []
     for pad in TEMPLATES:

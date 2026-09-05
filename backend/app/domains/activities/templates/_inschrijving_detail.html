@@ -58,14 +58,11 @@
          ene "Opslaan". #}
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <div>{{ ui.label(_("Naam"), "reg-naam-" ~ reg.id) }}
-          <input name="contact_name" id="reg-naam-{{ reg.id }}" value="{{ reg.contact_name or '' }}"
-                 class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+          {{ ui.input_control("contact_name", id="reg-naam-" ~ reg.id, value=reg.contact_name or "", cls="w-full") }}</div>
         <div>{{ ui.label(_("E-mailadres"), "reg-email-" ~ reg.id) }}
-          <input type="email" name="contact_email" id="reg-email-{{ reg.id }}" value="{{ reg.contact_email or '' }}"
-                 class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+          {{ ui.input_control("contact_email", id="reg-email-" ~ reg.id, type="email", value=reg.contact_email or "", cls="w-full") }}</div>
         <div>{{ ui.label(_("Mobiel nummer"), "reg-gsm-" ~ reg.id) }}
-          <input type="tel" name="phone" id="reg-gsm-{{ reg.id }}" value="{{ reg.phone or '' }}"
-                 class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+          {{ ui.input_control("phone", id="reg-gsm-" ~ reg.id, type="tel", value=reg.phone or "", cls="w-full") }}</div>
       </div>
       <p class="text-xs text-ink-soft">{{ _("Dit corrigeert enkel deze inschrijving. Het ledenbestand pas je aan bij Leden.") }}</p>
 
@@ -74,9 +71,9 @@
         <div class="flex items-center gap-2">
           <span class="flex-1">{{ item.product_name or "—" }}</span>
           {% if item.unit_price is not none %}<span class="text-gray-500 whitespace-nowrap">€ {{ "%.2f"|format(item.unit_price) }}</span>{% endif %}
-          <input type="number" min="1" value="{{ item.quantity }}" name="quantity_{{ item.id }}"
-                 aria-label="{{ _('Aantal') }} — {{ item.product_name or '' }}"
-                 class="w-20 border border-gray-300 rounded-lg px-2 py-1">
+          {{ ui.input_control("quantity_" ~ item.id, id="qty-" ~ item.id, type="number",
+                              value=item.quantity, cls="w-20",
+                              attrs='min="1" aria-label="' ~ _("Aantal") ~ ' — ' ~ (item.product_name or "") ~ '"') }}
           {% if item.line_total is not none %}<span class="w-20 text-right whitespace-nowrap">€ {{ "%.2f"|format(item.line_total) }}</span>{% endif %}
           {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="' ~ _base ~ '/regels/' ~ item.id ~ '/verwijderen" hx-target="closest .bg-gray-50" hx-swap="outerHTML"') }}
         </div>
@@ -94,7 +91,7 @@
 
       <div>
         {{ ui.label(_("Opmerking"), "reg-remarks-" ~ reg.id) }}
-        <textarea name="remarks" id="reg-remarks-{{ reg.id }}" rows="2" class="w-full border border-gray-300 rounded-lg px-3 py-2">{{ reg.remarks or "" }}</textarea>
+        {{ ui.textarea_control("remarks", id="reg-remarks-" ~ reg.id, rows=2, value=reg.remarks or "", cls="w-full") }}
       </div>
 
       {# [Opslaan] [Annuleren] onderaan (§2.8) — de toggle bovenaan vervangt dit niet. #}
@@ -112,8 +109,8 @@
         <option value="">{{ _("— Product toevoegen —") }}</option>
         {% for p in products %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
       {% endcall %}
-      <input type="number" name="quantity" min="1" value="1" aria-label="{{ _('Aantal') }}"
-             class="w-20 border border-gray-300 rounded-lg px-2 py-1">
+      {{ ui.input_control("quantity", id="new-qty-" ~ reg.id, type="number", value="1", cls="w-20",
+                          attrs='min="1" aria-label="' ~ _("Aantal") ~ '"') }}
       {{ ui.btn_secondary(_("Toevoegen"), type="submit") }}
     </form>
     {% endif %}

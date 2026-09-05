@@ -16,29 +16,30 @@
   {{ ui.label(f.label, key, required=f.required) }}
   {% if f.help_text %}<p class="text-xs text-gray-500 mb-1">{{ f.help_text }}</p>{% endif %}
   {% if f.field_type in ("text", "email", "phone") %}
-  <input name="{{ key }}" id="{{ key }}" {% if f.field_type == "email" %}type="email"{% elif f.field_type == "phone" %}type="tel"{% endif %}
-         {% if f.required and not wiz %}required{% endif %} value="{{ val if val is string else '' }}"
-         class="w-full border border-gray-300 rounded-lg px-3 py-2">
+  {% set _t = "email" if f.field_type == "email" else ("tel" if f.field_type == "phone" else "text") %}
+  {{ ui.input_control(key, type=_t, value=(val if val is string else ""),
+                      required=(f.required and not wiz), cls="w-full") }}
   {% elif f.field_type == "textarea" %}
-  <textarea name="{{ key }}" id="{{ key }}" rows="4" {% if f.required and not wiz %}required{% endif %}
-            class="w-full border border-gray-300 rounded-lg px-3 py-2">{{ val if val is string else '' }}</textarea>
+  {{ ui.textarea_control(key, rows=4, value=(val if val is string else ""),
+                         required=(f.required and not wiz), cls="w-full") }}
   {% elif f.field_type == "number" %}
-  <input name="{{ key }}" id="{{ key }}" inputmode="decimal" {% if f.required and not wiz %}required{% endif %}
-         value="{{ val if val is string else '' }}" class="w-40 border border-gray-300 rounded-lg px-3 py-2">
+  {{ ui.input_control(key, value=(val if val is string else ""),
+                      required=(f.required and not wiz), cls="w-40",
+                      attrs='inputmode="decimal"') }}
   {% elif f.field_type == "select" %}
-  <select name="{{ key }}" id="{{ key }}" {% if f.required and not wiz %}required{% endif %} class="w-full border border-gray-300 rounded-lg px-3 py-2">
+  {% call ui.select_control(key, cls="w-full", attrs='id="' ~ key ~ '"' ~ (' required' if (f.required and not wiz) else '')) %}
     <option value="">—</option>
     {% for o in f.options %}
     <option value="{{ o.id }}" {% if (val is string and val == o.id|string) or (val is not string and o.id|string in val) %}selected{% endif %}>{{ o.label }}</option>
     {% endfor %}
-  </select>
+  {% endcall %}
   {% elif f.field_type == "radio" %}
   <div class="space-y-1">
     {% for o in f.options %}
     <label class="flex items-center gap-2 text-sm">
       <input type="radio" name="{{ key }}" value="{{ o.id }}"
              {% if (val is string and val == o.id|string) or (val is not string and o.id|string in val) %}checked{% endif %}>
-      {{ o.label }}{% if o.is_other %} <input name="{{ key }}_other" placeholder="…" value="{{ values.get(key ~ '_other', '') }}" class="border border-gray-300 rounded px-2 py-0.5 text-sm">{% endif %}
+      {{ o.label }}{% if o.is_other %} {{ ui.input_control(key ~ "_other", id=key ~ "_other", placeholder="…", value=values.get(key ~ "_other", "")) }}{% endif %}
     </label>
     {% endfor %}
   </div>
@@ -48,7 +49,7 @@
     <label class="flex items-center gap-2 text-sm">
       <input type="checkbox" name="{{ key }}" value="{{ o.id }}"
              {% if (val is string and val == o.id|string) or (val is not string and o.id|string in val) %}checked{% endif %}>
-      {{ o.label }}{% if o.is_other %} <input name="{{ key }}_other" placeholder="…" value="{{ values.get(key ~ '_other', '') }}" class="border border-gray-300 rounded px-2 py-0.5 text-sm">{% endif %}
+      {{ o.label }}{% if o.is_other %} {{ ui.input_control(key ~ "_other", id=key ~ "_other", placeholder="…", value=values.get(key ~ "_other", "")) }}{% endif %}
     </label>
     {% endfor %}
   </div>
@@ -82,9 +83,9 @@
     {% call ui.card() %}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>{{ ui.label(_("Naam"), "submitter_name", required=True) }}
-          <input name="submitter_name" id="submitter_name" required value="{{ submitter_name }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+          {{ ui.input_control("submitter_name", id="submitter_name", value=submitter_name, required=True, cls="w-full") }}</div>
         <div>{{ ui.label(_("E-mailadres"), "submitter_email", required=True) }}
-          <input type="email" name="submitter_email" id="submitter_email" required value="{{ submitter_email }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+          {{ ui.input_control("submitter_email", id="submitter_email", type="email", value=submitter_email, required=True, cls="w-full") }}</div>
       </div>
     {% endcall %}
     {% endif %}

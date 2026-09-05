@@ -24,9 +24,7 @@
     <form hx-post="/raakje/vraag" hx-target="#raakje-widget-gesprek" hx-swap="beforeend"
           class="border-t border-gray-200 p-2 flex gap-2"
           x-on:htmx:after-request="if ($event.detail.successful) $refs.v.value = ''">
-      <input name="vraag" id="raakje-widget-vraag" x-ref="v" required autocomplete="off"
-             placeholder="{{ _('Typ je vraag…') }}"
-             class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm">
+      {{ ui.input_control("vraag", id="raakje-widget-vraag", required=True, placeholder=_("Typ je vraag…"), cls="flex-1", attrs='x-ref="v" autocomplete="off"') }}
       <button type="button" data-stt-target="#raakje-widget-vraag" data-stt-mode="{{ stt_mode }}"
               class="border border-gray-300 hover:bg-gray-100 px-2 rounded-lg"
               title="{{ _('Spreek je vraag in') }}" aria-label="{{ _('Spreek je vraag in') }}">🎙</button>
