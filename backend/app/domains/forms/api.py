@@ -178,7 +178,7 @@ def export_submissions_ods(db, form_id: int):
     """
     from app.domains.forms.router import export_form as _impl
 
-    return _impl(form_id, format="ods", db=db, _admin=None)
+    return _impl(form_id, format="ods", db=db, _admin=None)  # type: ignore[arg-type]
 
 
 def form_definition(db, form) -> dict:

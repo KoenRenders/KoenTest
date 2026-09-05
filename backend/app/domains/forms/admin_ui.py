@@ -59,7 +59,7 @@ def _bewerk(bewerking, *args, **kwargs):
         raise HTTPException(status_code=422, detail=str(exc))
 
 
-def _builder_ctx(request: Request, db: Session, form: FormModel, **extra) -> dict:
+def _builder_ctx(request: Request, db: Session, form, **extra) -> dict:
     sections = sorted(form.sections, key=lambda s: s.position)
     grouped = [{"section": s,
                 "fields": sorted((f for f in form.fields if f.section_id == s.id),
@@ -89,7 +89,7 @@ def _builder_ctx(request: Request, db: Session, form: FormModel, **extra) -> dic
     return ctx
 
 
-def _builder_response(request: Request, db: Session, form: FormModel, **extra):
+def _builder_response(request: Request, db: Session, form, **extra):
     return templates.TemplateResponse(request, "_fb_builder.html",
                                       _builder_ctx(request, db, form, **extra))
 
