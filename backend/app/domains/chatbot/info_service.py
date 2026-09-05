@@ -11,7 +11,7 @@ telt.
 """
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional
 
 from sqlalchemy.orm import Session
 
@@ -23,6 +23,9 @@ from app.domains.cms.api import CmsPage
 # Een module-level import hier zou EXTRACTABLE_KINDS opvragen terwijl
 # media/api.py nog aan het initialiseren is.
 from app.schemas.chatbot_info import ChatbotInfoEdit, NoteCreate
+
+if TYPE_CHECKING:  # alleen voor de typechecker — geen import bij het draaien
+    from app.domains.media.api import MediaAsset
 
 
 def _row(ci: Optional[ChatbotInfo]) -> Optional[dict]:
