@@ -85,9 +85,9 @@ LAYER_ALLOWLIST: set[tuple[str, str]] = {
     # er iets verandert — een eerlijke rode regel is beter dan een groene gate om
     # de verkeerde reden.
     #
-    # Voortgang: batch 1 (de activiteit zelf) en batch 2 (de datums) zijn
-    # verhuisd — zes van de twintig. Resteert: onderdelen + producten,
-    # bestelregels + inschrijvingen, export. Bij de laatste batch kan deze regel weg.
+    # Voortgang: batch 1 (de activiteit), 2 (datums) en 3 (onderdelen + producten)
+    # zijn verhuisd — twaalf van de twintig. Resteert: bestelregels +
+    # inschrijvingen, en de export. Bij de laatste batch kan deze regel weg.
     ("app.domains.activities.admin_ui", "imports"),
     # ── regel 2: rauw ORM-gebruik in de routebody ────────────────────────────
 }

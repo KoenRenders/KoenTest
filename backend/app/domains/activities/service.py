@@ -188,6 +188,163 @@ def _datum(db, activity_id: int, date_id: int) -> Optional[ActivityDate]:
             .first())
 
 
+class ActiviteitFout(ValueError):
+    """Een domeinregel is geschonden (#679, batch 3).
+
+    Geen HTTPException: die hoort bij de ingang, niet bij de regel. De router
+    vertaalt hem naar een 422, een script mag er iets anders mee doen. Zonder dit
+    type zou de regel "gratis én ter plaatse kan niet" in de route blijven staan,
+    en dan geldt ze niet voor wie de service rechtstreeks aanroept.
+    """
+
+
+def add_component(db, activity_id: int, gegevens, *, actor=None):
+    """Voeg een onderdeel toe. None als de activiteit niet bestaat."""
+    from app.domains.audit.api import snapshot_component
+
+    if db.query(Activity).filter(Activity.id == activity_id).first() is None:
+        return None
+    component = ActivitySubRegistration(
+        activity_id=activity_id,
+        name=gegevens.name,
+        team_name_required=gegevens.team_name_required,
+        sort_order=gegevens.sort_order,
+        external_register_url=gegevens.external_register_url,
+        external_registrations_url=gegevens.external_registrations_url,
+        info_url=gegevens.info_url,
+        max_participants=gegevens.max_participants,
+        # Verplichte FK, bewaard voor DB-compatibiliteit; sinds de v2.0-unificatie
+        # vertakt er niets meer op dit veld.
+        registration_type_code="INDIVIDUAL",
+        price=0,
+        is_free=True,
+    )
+    db.add(component)
+    db.flush()
+    snapshot_component(db, component, operation="insert", action="component_created",
+                       source="admin_manual", actor=actor)
+    db.commit()
+    db.refresh(component)
+    return component
+
+
+def update_component(db, activity_id: int, component_id: int, velden: dict, *,
+                     actor=None):
+    """Werk een onderdeel bij. None als het niet bij deze activiteit hoort."""
+    from app.domains.audit.api import snapshot_component
+
+    component = get_component(db, component_id, activity_id=activity_id)
+    if component is None:
+        return None
+    for veld, waarde in velden.items():
+        setattr(component, veld, waarde)
+    snapshot_component(db, component, operation="update", action="component_updated",
+                       source="admin_manual", actor=actor)
+    db.commit()
+    db.refresh(component)
+    return component
+
+
+def delete_component(db, activity_id: int, component_id: int, *, actor=None) -> bool:
+    """Soft delete van een onderdeel én zijn producten. False als het niet bestaat."""
+    from app.domains.audit.api import snapshot_component, snapshot_product
+    from app.soft_delete import soft_delete
+
+    component = get_component(db, component_id, activity_id=activity_id)
+    if component is None:
+        return False
+    for p in component.products:
+        snapshot_product(db, p, operation="delete", action="component_deleted",
+                         source="admin_manual", actor=actor)
+        soft_delete(p)
+    snapshot_component(db, component, operation="delete", action="component_deleted",
+                       source="admin_manual", actor=actor)
+    soft_delete(component)
+    db.commit()
+    return True
+
+
+def _controleer_afrekening(is_free, pay_on_site) -> None:
+    """Gratis én ter plaatse te betalen sluiten elkaar uit.
+
+    Een domeinregel, dus hier en niet in de route: ze geldt voor élke ingang.
+    """
+    if is_free and pay_on_site:
+        from app.i18n import _ as vertaal
+
+        raise ActiviteitFout(vertaal(
+            "Een product kan niet tegelijk gratis én ter plaatse te betalen zijn."))
+
+
+def add_product(db, activity_id: int, component_id: int, gegevens, *, actor=None):
+    """Voeg een product toe. None als het onderdeel niet bij de activiteit hoort."""
+    from app.domains.activities.models import ActivityProduct
+    from app.domains.audit.api import snapshot_product
+
+    if get_component(db, component_id, activity_id=activity_id) is None:
+        return None
+    _controleer_afrekening(gegevens.is_free, gegevens.pay_on_site)
+    product = ActivityProduct(
+        component_id=component_id,
+        name=gegevens.name,
+        price=gegevens.price,
+        member_price=gegevens.member_price,
+        is_free=gegevens.is_free,
+        pay_on_site=gegevens.pay_on_site,
+        max_participants=gegevens.max_participants,
+        sort_order=gegevens.sort_order,
+    )
+    db.add(product)
+    db.flush()
+    snapshot_product(db, product, operation="insert", action="product_created",
+                     source="admin_manual", actor=actor)
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+def update_product(db, component_id: int, product_id: int, velden: dict, *, actor=None):
+    """Werk een product bij. None als het niet bij dit onderdeel hoort."""
+    from app.domains.audit.api import snapshot_product
+
+    product = _product(db, component_id, product_id)
+    if product is None:
+        return None
+    for veld, waarde in velden.items():
+        setattr(product, veld, waarde)
+    # Ná het toepassen: de combinatie kan ook ontstaan door één veld te wijzigen.
+    _controleer_afrekening(product.is_free, product.pay_on_site)
+    snapshot_product(db, product, operation="update", action="product_updated",
+                     source="admin_manual", actor=actor)
+    db.commit()
+    db.refresh(product)
+    return product
+
+
+def delete_product(db, component_id: int, product_id: int, *, actor=None) -> bool:
+    """Soft delete van één product. False als het niet bij dit onderdeel hoort."""
+    from app.domains.audit.api import snapshot_product
+    from app.soft_delete import soft_delete
+
+    product = _product(db, component_id, product_id)
+    if product is None:
+        return False
+    snapshot_product(db, product, operation="delete", action="product_deleted",
+                     source="admin_manual", actor=actor)
+    soft_delete(product)
+    db.commit()
+    return True
+
+
+def _product(db, component_id: int, product_id: int):
+    from app.domains.activities.models import ActivityProduct
+
+    return (db.query(ActivityProduct)
+            .filter(ActivityProduct.id == product_id,
+                    ActivityProduct.component_id == component_id)
+            .first())
+
+
 def _activity_met_boom(db, activity_id: int) -> Optional[Activity]:
     """Eén activiteit met haar datums, onderdelen en producten in één keer."""
     from sqlalchemy.orm import selectinload

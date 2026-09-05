@@ -304,8 +304,9 @@ def create_activity(
 
     nieuw = service.create_activity(
         db, name=data.name, location=data.location, poster_url=data.poster_url,
-        members_only=data.members_only, dates=data.dates, actor=admin.email)
+        members_only=bool(data.members_only), dates=data.dates, actor=admin.email)
     activity = service._activity_met_boom(db, nieuw.id)
+    assert activity is not None  # net aangemaakt in dezelfde transactie
     return _build_response(activity, date.today(), status="Open", reg_count=0)
 
 
@@ -399,28 +400,11 @@ def add_component(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    activity = db.query(Activity).filter(Activity.id == activity_id).first()
-    if not activity:
+    from app.domains.activities import service
+
+    component = service.add_component(db, activity_id, data, actor=admin.email)
+    if component is None:
         raise HTTPException(status_code=404, detail=_("Activity not found"))
-    component = ActivitySubRegistration(
-        activity_id=activity_id,
-        name=data.name,
-        team_name_required=data.team_name_required,
-        sort_order=data.sort_order,
-        external_register_url=data.external_register_url,
-        external_registrations_url=data.external_registrations_url,
-        info_url=data.info_url,
-        max_participants=data.max_participants,
-        registration_type_code="INDIVIDUAL",  # required FK, kept for DB compat
-        price=0,
-        is_free=True,
-    )
-    db.add(component)
-    db.flush()
-    snapshot_component(db, component, operation="insert", action="component_created",
-                       source="admin_manual", actor=admin.email)
-    db.commit()
-    db.refresh(component)
     return component
 
 
@@ -432,18 +416,13 @@ def update_component(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    component = db.query(ActivitySubRegistration).filter(
-        ActivitySubRegistration.id == component_id,
-        ActivitySubRegistration.activity_id == activity_id,
-    ).first()
-    if not component:
+    from app.domains.activities import service
+
+    component = service.update_component(db, activity_id, component_id,
+                                         data.model_dump(exclude_unset=True),
+                                         actor=admin.email)
+    if component is None:
         raise HTTPException(status_code=404, detail=_("Component not found"))
-    for field, value in data.model_dump(exclude_unset=True).items():
-        setattr(component, field, value)
-    snapshot_component(db, component, operation="update", action="component_updated",
-                       source="admin_manual", actor=admin.email)
-    db.commit()
-    db.refresh(component)
     return component
 
 
@@ -454,20 +433,10 @@ def delete_component(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    component = db.query(ActivitySubRegistration).filter(
-        ActivitySubRegistration.id == component_id,
-        ActivitySubRegistration.activity_id == activity_id,
-    ).first()
-    if not component:
+    from app.domains.activities import service
+
+    if not service.delete_component(db, activity_id, component_id, actor=admin.email):
         raise HTTPException(status_code=404, detail=_("Component not found"))
-    for p in component.products:
-        snapshot_product(db, p, operation="delete", action="component_deleted",
-                         source="admin_manual", actor=admin.email)
-        soft_delete(p)
-    snapshot_component(db, component, operation="delete", action="component_deleted",
-                       source="admin_manual", actor=admin.email)
-    soft_delete(component)
-    db.commit()
     return {"detail": "deleted"}
 
 
@@ -481,33 +450,16 @@ def add_product(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    component = db.query(ActivitySubRegistration).filter(
-        ActivitySubRegistration.id == component_id,
-        ActivitySubRegistration.activity_id == activity_id,
-    ).first()
-    if not component:
+    from app.domains.activities import service
+
+    try:
+        product = service.add_product(db, activity_id, component_id, data,
+                                      actor=admin.email)
+    except service.ActiviteitFout as fout:
+        # De regel is een domeinregel; enkel de statuscode hoort hier.
+        raise HTTPException(status_code=422, detail=str(fout))
+    if product is None:
         raise HTTPException(status_code=404, detail=_("Component not found"))
-    if data.is_free and data.pay_on_site:
-        raise HTTPException(
-            status_code=422,
-            detail=_("Een product kan niet tegelijk gratis én ter plaatse te betalen zijn."),
-        )
-    product = ActivityProduct(
-        component_id=component_id,
-        name=data.name,
-        price=data.price,
-        member_price=data.member_price,
-        is_free=data.is_free,
-        pay_on_site=data.pay_on_site,
-        max_participants=data.max_participants,
-        sort_order=data.sort_order,
-    )
-    db.add(product)
-    db.flush()
-    snapshot_product(db, product, operation="insert", action="product_created",
-                     source="admin_manual", actor=admin.email)
-    db.commit()
-    db.refresh(product)
     return product
 
 
@@ -520,23 +472,16 @@ def update_product(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    product = db.query(ActivityProduct).filter(
-        ActivityProduct.id == product_id,
-        ActivityProduct.component_id == component_id,
-    ).first()
-    if not product:
+    from app.domains.activities import service
+
+    try:
+        product = service.update_product(db, component_id, product_id,
+                                         data.model_dump(exclude_unset=True),
+                                         actor=admin.email)
+    except service.ActiviteitFout as fout:
+        raise HTTPException(status_code=422, detail=str(fout))
+    if product is None:
         raise HTTPException(status_code=404, detail=_("Product not found"))
-    for field, value in data.model_dump(exclude_unset=True).items():
-        setattr(product, field, value)
-    if product.is_free and product.pay_on_site:
-        raise HTTPException(
-            status_code=422,
-            detail=_("Een product kan niet tegelijk gratis én ter plaatse te betalen zijn."),
-        )
-    snapshot_product(db, product, operation="update", action="product_updated",
-                     source="admin_manual", actor=admin.email)
-    db.commit()
-    db.refresh(product)
     return product
 
 
@@ -548,16 +493,10 @@ def delete_product(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    product = db.query(ActivityProduct).filter(
-        ActivityProduct.id == product_id,
-        ActivityProduct.component_id == component_id,
-    ).first()
-    if not product:
+    from app.domains.activities import service
+
+    if not service.delete_product(db, component_id, product_id, actor=admin.email):
         raise HTTPException(status_code=404, detail=_("Product not found"))
-    snapshot_product(db, product, operation="delete", action="product_deleted",
-                     source="admin_manual", actor=admin.email)
-    soft_delete(product)
-    db.commit()
     return {"detail": "deleted"}
 
 

@@ -149,12 +149,97 @@ def test_een_datum_bijwerken_bewaart_de_geschiedenis(db_session):
     assert "date_created" in acties and "date_updated" in acties
 
 
+# ── Batch 3: onderdelen en producten ──────────────────────────────────────────
+
+def _onderdeel_gegevens(naam="Onderdeel"):
+    return SimpleNamespace(name=naam, team_name_required=False, sort_order=0,
+                           external_register_url=None, external_registrations_url=None,
+                           info_url=None, max_participants=None)
+
+
+def _product_gegevens(naam="Product", is_free=False, pay_on_site=False):
+    from decimal import Decimal
+
+    return SimpleNamespace(name=naam, price=Decimal("10.00"), member_price=None,
+                           is_free=is_free, pay_on_site=pay_on_site,
+                           max_participants=None, sort_order=0)
+
+
+def test_een_onderdeel_toevoegen_en_verwijderen(db_session):
+    activiteit = service.create_activity(db_session, name="Met onderdeel", actor="a@b.c")
+    comp = service.add_component(db_session, activiteit.id, _onderdeel_gegevens(),
+                                 actor="a@b.c")
+    assert comp is not None and comp.activity_id == activiteit.id
+    assert service.delete_component(db_session, activiteit.id, comp.id,
+                                    actor="a@b.c") is True
+
+
+def test_een_onderdeel_verwijderen_neemt_zijn_producten_mee(db_session):
+    from app.domains.activities.api import ActivityProduct
+
+    activiteit = service.create_activity(db_session, name="Boom", actor="a@b.c")
+    comp = service.add_component(db_session, activiteit.id, _onderdeel_gegevens(),
+                                 actor="a@b.c")
+    prod = service.add_product(db_session, activiteit.id, comp.id,
+                               _product_gegevens(), actor="a@b.c")
+    assert prod is not None
+
+    service.delete_component(db_session, activiteit.id, comp.id, actor="a@b.c")
+    db_session.expire_all()
+    assert db_session.query(ActivityProduct).filter(
+        ActivityProduct.id == prod.id).first() is None
+
+
+def test_gratis_en_ter_plaatse_sluiten_elkaar_uit(db_session):
+    """Een DOMEINregel, dus ze geldt ook zonder de route.
+
+    Stond ze in de router, dan kon elke andere ingang het paar gewoon opslaan.
+    """
+    activiteit = service.create_activity(db_session, name="Afrekening", actor="a@b.c")
+    comp = service.add_component(db_session, activiteit.id, _onderdeel_gegevens(),
+                                 actor="a@b.c")
+
+    with pytest.raises(service.ActiviteitFout):
+        service.add_product(db_session, activiteit.id, comp.id,
+                            _product_gegevens(is_free=True, pay_on_site=True),
+                            actor="a@b.c")
+
+
+def test_de_regel_geldt_ook_als_je_er_via_een_wijziging_in_belandt(db_session):
+    """Eén veld wijzigen kan de verboden combinatie alsnog opleveren."""
+    activiteit = service.create_activity(db_session, name="Afrekening 2", actor="a@b.c")
+    comp = service.add_component(db_session, activiteit.id, _onderdeel_gegevens(),
+                                 actor="a@b.c")
+    prod = service.add_product(db_session, activiteit.id, comp.id,
+                               _product_gegevens(is_free=True), actor="a@b.c")
+
+    with pytest.raises(service.ActiviteitFout):
+        service.update_product(db_session, comp.id, prod.id, {"pay_on_site": True},
+                               actor="a@b.c")
+
+
+def test_een_product_van_een_ander_onderdeel_is_niet_te_raken(db_session):
+    activiteit = service.create_activity(db_session, name="Twee", actor="a@b.c")
+    a = service.add_component(db_session, activiteit.id, _onderdeel_gegevens("A"),
+                              actor="a@b.c")
+    b = service.add_component(db_session, activiteit.id, _onderdeel_gegevens("B"),
+                              actor="a@b.c")
+    prod = service.add_product(db_session, activiteit.id, a.id, _product_gegevens(),
+                               actor="a@b.c")
+
+    assert service.update_product(db_session, b.id, prod.id, {"name": "x"}) is None
+    assert service.delete_product(db_session, b.id, prod.id) is False
+    assert service.delete_product(db_session, a.id, prod.id) is True
+
+
 def test_de_router_rekent_niet_meer_zelf(db_session):
     """De scheiding zelf: wat overblijft in de route is HTTP, geen domeinlogica."""
     bron = open("app/domains/activities/router.py", encoding="utf-8").read()
     for naam in ("def create_activity(", "def update_activity(", "def delete_activity(",
                  "def add_activity_date(", "def update_activity_date(",
-                 "def delete_activity_date("):
+                 "def delete_activity_date(",
+                 "def add_component(", "def update_component(", "def delete_component(",
+                 "def add_product(", "def update_product(", "def delete_product("):
         start = bron.index(naam)
         einde = bron.index("\n@router", start)
         body = bron[start:einde]
