@@ -141,7 +141,7 @@ BUDGET_ACTIVITEITDETAIL = 16
 # alle 167 — precies zoals bij #645. Wat wél meeschaalt zijn de opgehaalde RIJEN,
 # en dat was hier de fout: de lijstbewerking laadde datums, onderdelen en
 # producten van alles om er daarna één uit te vissen. TIJDELIJK: meting.
-RIJEN_ACTIVITEITDETAIL = 1
+RIJEN_ACTIVITEITDETAIL = 20
 
 
 class Rijenteller(Queryteller):
@@ -170,6 +170,15 @@ class Rijenteller(Queryteller):
     def __exit__(self, *exc):
         event.remove(engine, "after_cursor_execute", self._rij_handler)
         return super().__exit__(*exc)
+
+
+def test_TIJDELIJK_meet_de_oude_weg(gevulde_databank, db_session):
+    """Meet hoeveel rijen de oude implementatie ophaalde. Verdwijnt weer."""
+    from app.domains.activities.api import list_activities
+
+    with Rijenteller() as teller:
+        list_activities(db_session, scope="all")
+    assert False, f"OUDE WEG: {teller.rijen} rijen, {len(teller)} queries"
 
 
 def test_het_activiteitdetail_haalt_niet_de_hele_lijst_op(gevulde_databank, db_session):
