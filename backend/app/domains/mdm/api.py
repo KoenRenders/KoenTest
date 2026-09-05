@@ -34,6 +34,7 @@ from app.domains.mdm.tenant_lookup import (  # noqa: F401
     tenant_codes,
 )
 
+from app.domains.mdm.service import form_code_lists  # noqa: F401
 from app.domains.mdm.tenant_service import (  # noqa: F401
     TenantFout,
     create_tenant,
@@ -44,7 +45,7 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
 )
 
 __all__ = [
-    "TenantFout", "create_tenant", "list_accounts", "list_units",
+    "TenantFout", "create_tenant", "form_code_lists", "list_accounts", "list_units",
     "secrets_gezet", "update_tenant_settings",
     "Address", "AddressHistory", "ContactDetail", "ContactDetailHistory",
     "ContactTypeCode", "ExternalNumber", "GenderCode", "Member",

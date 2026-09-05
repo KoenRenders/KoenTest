@@ -52,6 +52,56 @@ __all__ = [
 ]
 
 
+# ── Doorgangen naar het gezinsportaal ────────────────────────────────────────
+# De implementaties blijven in `household_router.py`: net als bij de
+# activiteiteninschrijving roept het scherm één domeinbewerking aan en doet het
+# zelf niets. Alleen de weg ernaartoe loopt nu via de facade (#635 I).
+
+def household_view(db, person):
+    """Het gezin van de ingelogde persoon, zoals het portaal het toont."""
+    from app.domains.membership.household_router import get_household as _impl
+
+    return _impl(person=person, db=db)
+
+
+def household_member_for(db, person):
+    """Het gezin waar deze persoon toe behoort, of een fout als dat er niet is."""
+    from app.domains.membership.household_router import _member_for
+
+    return _member_for(person, db)
+
+
+def household_update_person(db, person, person_id: int, data):
+    from app.domains.membership.household_router import update_person as _impl
+
+    return _impl(person_id, data, person=person, db=db)
+
+
+def household_add_person(db, person, data):
+    from app.domains.membership.household_router import add_person as _impl
+
+    return _impl(data, person=person, db=db)
+
+
+def household_remove_person(db, person, person_id: int):
+    from app.domains.membership.household_router import remove_person as _impl
+
+    return _impl(person_id, person=person, db=db)
+
+
+def household_renew_membership(db, person, payment_method: str = "online"):
+    from app.domains.membership.household_router import renew_membership as _impl
+
+    return _impl(person=person, db=db, payment_method=payment_method)
+
+
+def register_family(db, data, background_tasks):
+    """Publieke gezinsregistratie — de flow blijft in register_router."""
+    from app.domains.membership.register_router import register_family as _impl
+
+    return _impl(data, background_tasks, db=db)
+
+
 # ── Onderaan, en dat is opzet ────────────────────────────────────────────────
 # `audit/service.py` importeert op modulniveau `MembershipHistory` uit déze
 # facade. Staat de import hieronder bovenaan, dan is die naam nog niet gebonden

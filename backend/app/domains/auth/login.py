@@ -10,6 +10,7 @@ de pogingteller met lockout (#268) — dus ze horen in de service.
 import logging
 import secrets
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -114,3 +115,26 @@ def check_otp(db: Session, email: str, code: str) -> bool:
     login_token.used = True
     db.commit()
     return True
+
+
+def consume_magic_link(db: Session, token: str) -> Optional[str]:
+    """Verzilver een magic link: geeft het e-mailadres terug, of None.
+
+    Eenmalig gebruik (#268) — het token wordt hier meteen als verbruikt gemarkeerd,
+    zodat een gedeelde of onderschepte link niet twee keer werkt. Verlopen of
+    onbekend geeft None; de aanroeper toont dan dezelfde nette pagina, zonder
+    onderscheid dat iets zou verklappen.
+    """
+    nu = datetime.now(timezone.utc)
+    login_token = (db.query(LoginToken)
+                   .filter(LoginToken.token == token,
+                           LoginToken.used.is_(False),
+                           LoginToken.email.isnot(None))
+                   .first())
+    if login_token is None:
+        return None
+    if login_token.expires_at.replace(tzinfo=timezone.utc) < nu:
+        return None
+    login_token.used = True
+    db.commit()
+    return login_token.email

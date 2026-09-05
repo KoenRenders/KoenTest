@@ -103,3 +103,29 @@ def unmerge_person(db: Session, source_id: int, actor: Optional[str] = None) -> 
     logger.info("MDM: merge van persoon #%s teruggedraaid (door %s)",
                 source.id, actor or "system")
     return source
+
+
+# ── Codelijsten voor formulieren (#635 I) ────────────────────────────────────
+
+def _uniek_op_code(rijen):
+    """Eén rij per code. De codetabellen zijn tenant-gescheiden, dus dezelfde code
+    kan meermaals voorkomen; een keuzelijst met dubbels is verwarrend."""
+    gezien, uit = set(), []
+    for rij in rijen:
+        if rij.code not in gezien:
+            gezien.add(rij.code)
+            uit.append(rij)
+    return uit
+
+
+def form_code_lists(db) -> dict:
+    """De keuzelijsten die de inschrijf- en ledenformulieren nodig hebben."""
+    from app.domains.mdm.models import GenderCode, PostalCode, RelationTypeCode
+
+    return {
+        "gender_codes": _uniek_op_code(
+            db.query(GenderCode).order_by(GenderCode.code).all()),
+        "relation_types": _uniek_op_code(
+            db.query(RelationTypeCode).order_by(RelationTypeCode.code).all()),
+        "postal_codes": db.query(PostalCode).order_by(PostalCode.postal_code).all(),
+    }

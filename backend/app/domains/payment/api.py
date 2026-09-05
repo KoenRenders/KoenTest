@@ -16,6 +16,7 @@ from app.domains.payment.models import (  # noqa: F401
 )
 from app.domains.payment.service import (  # noqa: F401
     aggregate,
+    checkout_url_for,
     confirm_manual_payment,
     create_payment_record,
     create_refund,
@@ -43,7 +44,7 @@ from app.domains.payment.service import (  # noqa: F401
 __all__ = [
     "GatewayPayment", "PaymentRecord", "PaymentRecordHistory",
     "create_payment", "refresh_payment_status",
-    "aggregate", "confirm_manual_payment", "create_payment_record", "create_refund",
+    "aggregate", "checkout_url_for", "confirm_manual_payment", "create_payment_record", "create_refund",
     "current_membership_counts", "derived_status", "edit_payment_record",
     "enriched_records", "filter_records", "group_cards", "matches_filter",
     "may_delete",

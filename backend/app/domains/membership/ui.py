@@ -20,21 +20,11 @@ router = APIRouter(include_in_schema=False)
 
 
 def _codes(db: Session) -> dict:
-    from app.domains.mdm.api import GenderCode, PostalCode, RelationTypeCode
+    """De keuzelijsten voor de formulieren — inclusief de ontdubbeling per code,
+    die in de service woont omdat ze uit de tenant-scheiding volgt (#635 I)."""
+    from app.domains.mdm.api import form_code_lists
 
-    def _uniq(rows):
-        seen, out = set(), []
-        for r in rows:
-            if r.code not in seen:
-                seen.add(r.code)
-                out.append(r)
-        return out
-
-    return {
-        "gender_codes": _uniq(db.query(GenderCode).order_by(GenderCode.code).all()),
-        "relation_types": _uniq(db.query(RelationTypeCode).order_by(RelationTypeCode.code).all()),
-        "postal_codes": db.query(PostalCode).order_by(PostalCode.postal_code).all(),
-    }
+    return form_code_lists(db)
 
 
 @router.get("/lid-worden", response_class=HTMLResponse)
@@ -77,7 +67,7 @@ async def lid_worden_submit(request: Request, background_tasks: BackgroundTasks,
                             db: Session = Depends(get_db)):
     from pydantic import ValidationError
 
-    from app.domains.membership.register_router import register_family
+    from app.domains.membership.api import register_family
     from app.domains.membership.schemas_family import FamilyCreate, FamilyMemberCreate
 
     form = await request.form()
@@ -114,7 +104,7 @@ async def lid_worden_submit(request: Request, background_tasks: BackgroundTasks,
         return templates.TemplateResponse(request, "lid_worden.html", ctx)
 
     try:
-        result = register_family(data, background_tasks, db=db)
+        result = register_family(db, data, background_tasks)
     except HTTPException as exc:
         ctx["error"] = str(exc.detail)
         return templates.TemplateResponse(request, "lid_worden.html", ctx)
@@ -145,9 +135,9 @@ def _portal_ctx(request: Request, db: Session, person) -> dict:
 
     from app.domains.auth.api import SESSION_COOKIE, csrf_token_for
     from app.domains.membership.api import renewal_available, membership_coverage_until
-    from app.domains.membership.household_router import get_household
+    from app.domains.membership.api import household_view
 
-    household = get_household(person=person, db=db)
+    household = household_view(db, person)
     # Dekking t/m (incl. een al betaald volgend jaar) i.p.v. enkel 'geldig vandaag' (#496).
     valid_until = membership_coverage_until(person)
     ctx = {
@@ -182,10 +172,10 @@ def _lopende_vernieuwing(db: Session, person) -> dict:
     """
     leeg = {"renew_transfer": None, "renew_online": None}
     from app.domains.membership.api import open_renewal_payment
-    from app.domains.membership.household_router import _member_for
+    from app.domains.membership.api import household_member_for
 
     try:
-        member = _member_for(person, db)
+        member = household_member_for(db, person)
     except Exception:
         return leeg
     record = open_renewal_payment(db, member) if member is not None else None
@@ -205,13 +195,9 @@ def _lopende_vernieuwing(db: Session, person) -> dict:
     # Online afgebroken bij Mollie (#618-3): even doodlopend als de overschrijving.
     # Met een checkout-URL kan het lid de betaling hervatten; zonder blijft enkel de
     # uitleg dat ze nog loopt.
-    checkout_url = None
-    if record.gateway_payment_id:
-        from app.domains.payment.api import GatewayPayment
+    from app.domains.payment.api import checkout_url_for
 
-        gw = (db.query(GatewayPayment)
-              .filter(GatewayPayment.id == record.gateway_payment_id).first())
-        checkout_url = getattr(gw, "checkout_url", None)
+    checkout_url = checkout_url_for(db, record)
     return {**leeg, "renew_online": {"amount": record.amount,
                                      "checkout_url": checkout_url}}
 
@@ -239,7 +225,7 @@ def _require_member_csrf(request: Request, db: Session):
 @router.post("/leden/gezin/personen/{person_id}", response_class=HTMLResponse)
 async def gezin_persoon_opslaan(person_id: int, request: Request,
                                 db: Session = Depends(get_db)):
-    from app.domains.membership.household_router import update_person
+    from app.domains.membership.api import household_update_person
 
     person = _require_member_csrf(request, db)
     form = await request.form()
@@ -266,14 +252,14 @@ async def gezin_persoon_opslaan(person_id: int, request: Request,
             "bus_number": _v("bus_number") or None,
             "postal_code": _v("postal_code"),
         }
-    update_person(person_id, data, person=person, db=db)
+    household_update_person(db, person, person_id, data)
     return templates.TemplateResponse(request, "gezin_portaal.html",
                                       _portal_ctx(request, db, person))
 
 
 @router.post("/leden/gezin/personen", response_class=HTMLResponse)
 async def gezin_persoon_toevoegen(request: Request, db: Session = Depends(get_db)):
-    from app.domains.membership.household_router import add_person
+    from app.domains.membership.api import household_add_person
 
     person = _require_member_csrf(request, db)
     form = await request.form()
@@ -282,7 +268,7 @@ async def gezin_persoon_toevoegen(request: Request, db: Session = Depends(get_db
         value = form.get(key)
         return value.strip() if isinstance(value, str) else ""
 
-    add_person({
+    household_add_person(db, person, {
         "first_name": _v("first_name"),
         "last_name": _v("last_name"),
         "date_of_birth": _v("date_of_birth") or None,
@@ -290,7 +276,7 @@ async def gezin_persoon_toevoegen(request: Request, db: Session = Depends(get_db
         "email": _v("email") or None,
         "phone": _v("phone") or None,
         "mobile": _v("mobile") or None,
-    }, person=person, db=db)
+    })
     return templates.TemplateResponse(request, "gezin_portaal.html",
                                       _portal_ctx(request, db, person))
 
@@ -298,10 +284,10 @@ async def gezin_persoon_toevoegen(request: Request, db: Session = Depends(get_db
 @router.post("/leden/gezin/personen/{person_id}/verwijderen", response_class=HTMLResponse)
 def gezin_persoon_verwijderen(person_id: int, request: Request,
                               db: Session = Depends(get_db)):
-    from app.domains.membership.household_router import remove_person
+    from app.domains.membership.api import household_remove_person
 
     person = _require_member_csrf(request, db)
-    remove_person(person_id, person=person, db=db)
+    household_remove_person(db, person, person_id)
     return templates.TemplateResponse(request, "gezin_portaal.html",
                                       _portal_ctx(request, db, person))
 
@@ -309,12 +295,12 @@ def gezin_persoon_verwijderen(person_id: int, request: Request,
 @router.post("/leden/gezin/vernieuwen", response_class=HTMLResponse)
 def gezin_vernieuwen(request: Request, db: Session = Depends(get_db),
                      payment_method: str = Form("online")):
-    from app.domains.membership.household_router import renew_membership
+    from app.domains.membership.api import household_renew_membership
 
     person = _require_member_csrf(request, db)
     method = payment_method if payment_method in ("online", "transfer") else "online"
     try:
-        result = renew_membership(person=person, db=db, payment_method=method)
+        result = household_renew_membership(db, person, payment_method=method)
     except HTTPException as exc:
         ctx = _portal_ctx(request, db, person)
         ctx["error"] = str(exc.detail)
@@ -358,22 +344,18 @@ def leden_login_redirect(request: Request):
 def login_verify(request: Request, token: str = "", db: Session = Depends(get_db)):
     from fastapi.responses import RedirectResponse
 
-    from app.domains.auth.api import LoginToken, get_user_roles, set_session_cookie
-    from datetime import datetime, timezone
+    from app.domains.auth.api import (consume_magic_link, get_user_roles,
+                                      set_session_cookie)
 
-    now = datetime.now(timezone.utc)
-    login_token = (db.query(LoginToken)
-                   .filter(LoginToken.token == token, LoginToken.used == False,  # noqa: E712
-                           LoginToken.email.isnot(None)).first())
-    if not login_token or login_token.expires_at.replace(tzinfo=timezone.utc) < now:
+    # Eenmalig verzilveren (#268) — die regel woont in de auth-service, niet hier.
+    email = consume_magic_link(db, token)
+    if email is None:
         return templates.TemplateResponse(request, "login_verlopen.html",
                                           site_context(db, request), status_code=401)
-    login_token.used = True
-    db.commit()
     # Landing naar wat de rol mag openen (#530), gelijk aan de OTP-flow: ADMIN/
     # OPERATOR → werkbank; FINANCE-only → betalingen (werkbank is nu ADMIN/OPERATOR-
     # only en zou 403'en); overige (gewoon lid) → gezin.
-    roles = set(get_user_roles(db, login_token.email))
+    roles = set(get_user_roles(db, email))
     if {"ADMIN", "OPERATOR"} & roles:
         doel = "/admin/werkbank"
     elif "FINANCE" in roles:
@@ -381,7 +363,7 @@ def login_verify(request: Request, token: str = "", db: Session = Depends(get_db
     else:
         doel = "/leden/gezin"
     response = RedirectResponse(doel, status_code=302)
-    set_session_cookie(response, login_token.email)
+    set_session_cookie(response, email)
     return response
 
 

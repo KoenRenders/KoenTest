@@ -1020,3 +1020,19 @@ def verwijder_betaling(db: Session, record_id: str, *, note: str | None = None,
         raise BetalingFout(str(exc)) from exc
     db.commit()
     return record
+
+
+def checkout_url_for(db: Session, record) -> Optional[str]:
+    """De betaal-URL van een record, of None.
+
+    Een afgebroken online betaling kan hervat worden zolang de gateway haar
+    checkout-URL nog kent (#618-3). Het gezinsportaal vroeg dat zelf op met een
+    query op GatewayPayment; die koppeling hoort in het payment-domein.
+    """
+    if not getattr(record, "gateway_payment_id", None):
+        return None
+    from app.domains.payment.models import GatewayPayment
+
+    gateway = (db.query(GatewayPayment)
+               .filter(GatewayPayment.id == record.gateway_payment_id).first())
+    return getattr(gateway, "checkout_url", None)
