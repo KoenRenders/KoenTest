@@ -31,25 +31,6 @@ from app.domains.membership.service import (  # noqa: F401
     valid_membership_until,
 )
 
-# Sinds #635 H expliciet, niet meer via een lazy `__getattr__`-proxy naar
-# register_router. Die proxy gaf routerfuncties door als "servicelaag" — HTTP-
-# handlers met `Depends` in hun signatuur — en bestond om een importcyclus te
-# vermijden. De cyclus is weg nu de implementatie in household_service woont, dat
-# zelf geen router importeert.
-from app.domains.membership.household_service import (  # noqa: F401
-    add_person_to_family,
-    assign_board_member,
-    create_member,
-    create_membership_for_family,
-    delete_family,
-    delete_membership,
-    delete_person,
-    get_family,
-    list_families,
-    update_person,
-    update_person_address,
-    update_person_contacts,
-)
 
 
 __all__ = [
@@ -69,3 +50,30 @@ __all__ = [
     "MembershipCreate", "PersonAddToFamily", "PersonCreate", "PersonUpdate",
     "PostalCodeResponse",
 ]
+
+
+# ── Onderaan, en dat is opzet ────────────────────────────────────────────────
+# household_service importeert audit.api, en audit/service.py importeert op
+# modulniveau `MembershipHistory` uit déze facade. Staat de import hierboven, dan
+# is die naam nog niet gebonden wanneer de keten terugkomt en klapt het op een
+# "partially initialized module". Onderaan is `MembershipHistory` er wél, en
+# lost de cyclus zichzelf op — zonder de lazy proxy die #635 H juist wegneemt.
+# Sinds #635 H expliciet, niet meer via een lazy `__getattr__`-proxy naar
+# register_router. Die proxy gaf routerfuncties door als "servicelaag" — HTTP-
+# handlers met `Depends` in hun signatuur — en bestond om een importcyclus te
+# vermijden. De cyclus is weg nu de implementatie in household_service woont, dat
+# zelf geen router importeert.
+from app.domains.membership.household_service import (  # noqa: F401
+    add_person_to_family,
+    assign_board_member,
+    create_member,
+    create_membership_for_family,
+    delete_family,
+    delete_membership,
+    delete_person,
+    get_family,
+    list_families,
+    update_person,
+    update_person_address,
+    update_person_contacts,
+)
