@@ -17,11 +17,15 @@ logger = logging.getLogger(__name__)
 def get_form_by_slug(db: Session, slug: str) -> Form | None:
     """Publiek raadpleegbaar formulier (of None). DTO-verfijning volgt zodra de
     eerste externe consument (berichten/workflow, #398) zich aandient."""
-    return db.query(Form).filter(Form.slug == slug).first()
+    from app.domains.forms.service import get_form_by_slug as _impl
+
+    return _impl(db, slug)
 
 
 def submission_count(db: Session, form_id: int) -> int:
-    return db.query(FormSubmission).filter(FormSubmission.form_id == form_id).count()
+    from app.domains.forms.service import submission_count as _impl
+
+    return _impl(db, form_id)
 
 
 def submit_bericht(db: Session, *, naam: str, email: str | None, bericht: str,
@@ -105,3 +109,86 @@ def submission_view(db: Session, submission_id: int) -> list[tuple[str, str]]:
         per_label[label].append(waarde)
     rows.extend((label, "; ".join(per_label[label])) for label in volgorde)
     return rows
+
+
+# ── Wat de schermen gebruiken (#635 D/I) ─────────────────────────────────────
+# Onderaan, zodat de functies hierboven hun eigen naam houden: `submission_count`
+# en `get_form_by_slug` staan al als facade-functie gedefinieerd en delegeren nu
+# naar dezelfde service-implementatie.
+
+from app.domains.forms.models import (  # noqa: E402,F401
+    FIELD_TYPES,
+    FORM_STATUSES,
+)
+from app.domains.forms.service import (  # noqa: E402,F401
+    FormulierFout,
+    add_field,
+    add_option,
+    add_section,
+    apply_definition,
+    assert_submitter,
+    create_form,
+    delete_field,
+    delete_form,
+    delete_option,
+    delete_section,
+    delete_submission,
+    get_form,
+    get_form_by_share_token,
+    get_submission_by_edit_token,
+    import_definition,
+    list_forms,
+    list_submissions,
+    move_field,
+    move_section,
+    update_field,
+    update_form_settings,
+    update_option,
+    update_section,
+    update_settings,
+    validate_definition,
+)
+
+
+# ── Doorgangen waarvan de implementatie in de router blijft ──────────────────
+# De publieke inzendflow is één domeinbewerking die het scherm alleen aanroept —
+# hetzelfde patroon als de activiteiteninschrijving, die #635 expliciet als "zo
+# hoort het" aanmerkt. Alleen de weg ernaartoe loopt via deze facade.
+
+def submit_public_form(db, share_token: str, payload, background_tasks):
+    """Een publieke inzending verwerken."""
+    from app.domains.forms.router import submit_form as _impl
+
+    return _impl(share_token, payload, background_tasks, db=db)
+
+
+def update_public_submission(db, edit_token: str, payload):
+    """Een eigen inzending bijwerken via de edit-link."""
+    from app.domains.forms.router import update_submission as _impl
+
+    return _impl(edit_token, payload, db=db)
+
+
+def export_submissions_ods(db, form_id: int):
+    """De inzendingen als .ods.
+
+    `format` expliciet: `export_form` heeft `format=Query("ods")`, en bij een
+    directe aanroep is die default een FastAPI Query-object i.p.v. de string —
+    anders faalt de format-check met 422 "Ongeldig formaat".
+    """
+    from app.domains.forms.router import export_form as _impl
+
+    return _impl(form_id, format="ods", db=db, _admin=None)
+
+
+def form_definition(db, form) -> dict:
+    """De volledige definitie als dict (backup, inspectie, AI-gids)."""
+    from app.domains.forms.router import _admin_out
+
+    return _admin_out(db, form)
+
+
+def unique_share_token(db) -> str:
+    from app.domains.forms.router import _unique_share_token
+
+    return _unique_share_token(db)
