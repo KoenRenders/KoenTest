@@ -92,7 +92,7 @@ def update_row(row_id: int, data: ChatbotInfoEdit,
     try:
         return _service.update_row(db, row_id, data)
     except LookupError:
-        raise HTTPException(status_code=404, detail="Rij niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Rij niet gevonden"))
 
 
 @router.delete("/admin/chatbot-info/{row_id}", status_code=204)
@@ -101,5 +101,5 @@ def delete_row(row_id: int, db: Session = Depends(get_db),
     try:
         _service.delete_row(db, row_id)
     except LookupError:
-        raise HTTPException(status_code=404, detail="Rij niet gevonden")
+        raise HTTPException(status_code=404, detail=_("Rij niet gevonden"))
     return None
