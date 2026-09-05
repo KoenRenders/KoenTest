@@ -135,12 +135,22 @@ def gevulde_databank(client, db_session):
 
 # Het activiteitdetail staat niet in BUDGET: zijn pad heeft een id nodig, en dat
 # komt pas uit de fixture. En het heeft een ándere gate nodig — zie hieronder.
+# Beide plafonds zijn gemeten, niet geschat, en tegen de oude weg gehouden:
+#
+#                        ná de fix      de oude weg (list_activities scope=all)
+#   query's                    12                                           44
+#   opgehaalde rijen           10                                           40
+#
+# Twee grenzen, want ze vangen niet hetzelfde. Het rijenplafond vangt het
+# volume: de lijstbewerking laadde datums, onderdelen en producten van álle
+# activiteiten om er daarna één uit te vissen. Het querybudget vangt de N+1 die
+# daarin verstopt zat — `ActivityResponse` leest `poster_asset_url` én
+# `poster_asset_is_pdf`, en elk van die twee properties doet een eigen query per
+# activiteit (models.py:59-68). Vandaar 44 bij zestien activiteiten.
+#
+# Allebei schalen ze mee met AANTAL_ACTIVITEITEN, dus een terugval wordt met de
+# fixture alleen maar duidelijker zichtbaar.
 BUDGET_ACTIVITEITDETAIL = 16
-# Rijenplafond. Dit is de gate die #651 écht bewaakt; het aantal query's niet.
-# `selectinload` doet een vást aantal query's, of je nu één activiteit ophaalt of
-# alle 167 — precies zoals bij #645. Wat wél meeschaalt zijn de opgehaalde RIJEN,
-# en dat was hier de fout: de lijstbewerking laadde datums, onderdelen en
-# producten van alles om er daarna één uit te vissen. TIJDELIJK: meting.
 RIJEN_ACTIVITEITDETAIL = 20
 
 
@@ -172,15 +182,6 @@ class Rijenteller(Queryteller):
         return super().__exit__(*exc)
 
 
-def test_TIJDELIJK_meet_de_oude_weg(gevulde_databank, db_session):
-    """Meet hoeveel rijen de oude implementatie ophaalde. Verdwijnt weer."""
-    from app.domains.activities.api import list_activities
-
-    with Rijenteller() as teller:
-        list_activities(db_session, scope="all")
-    assert False, f"OUDE WEG: {teller.rijen} rijen, {len(teller)} queries"
-
-
 def test_het_activiteitdetail_haalt_niet_de_hele_lijst_op(gevulde_databank, db_session):
     """#651: het detail van één activiteit hergebruikte de volledige lijst.
 
@@ -188,12 +189,9 @@ def test_het_activiteitdetail_haalt_niet_de_hele_lijst_op(gevulde_databank, db_s
     (483 ms tegen 89 ms), en omdat het de gedeelde render-helper is, betaalde élke
     mutatie op dat scherm die prijs opnieuw.
 
-    Een tijdmeting is te wisselvallig voor CI. Een querybudget is stabiel maar
-    meet het verkeerde: `selectinload` doet een vást aantal query's, hoeveel
-    activiteiten er ook zijn — een terugval naar `list_activities` zou er ruim
-    onder blijven. Wat wél meeschaalt met de fout zijn de opgehaalde rijen, dus
-    dáár ligt het plafond. Het aantal query's staat er als tweede, ruimere grens
-    bij, tegen een N+1 die er later bij zou sluipen.
+    Een tijdmeting is te wisselvallig voor CI, dus meten we wat de traagheid
+    veroorzaakte: opgehaalde rijen én query's. Zie de plafonds hierboven voor de
+    gemeten getallen van beide implementaties.
     """
     from app.domains.activities.api import Activity
 
