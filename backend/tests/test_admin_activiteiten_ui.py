@@ -125,7 +125,9 @@ def test_admin_inschrijvingen_en_export(client, db_session):
     # (detail_disclosure → /admin/inschrijvingen/{id}), naast "Verwijder".
     from app.domains.activities.api import Registration
     reg = db_session.query(Registration).filter(Registration.contact_name == "Jef").one()
-    assert ">Bewerken<" in lijst.text
+    # #676: de rijknop heet "Details" — ze vouwt het paneel open, ze bewerkt niets.
+    # De bewerkstand zit ín dat paneel, met zijn eigen toggle.
+    assert ">Details<" in lijst.text
     assert f'hx-get="/admin/inschrijvingen/{reg.id}"' in lijst.text
     assert ">Verwijderen<" in lijst.text
 
