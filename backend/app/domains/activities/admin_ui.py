@@ -120,8 +120,16 @@ def _detail_response(request: Request, db: Session, activity_id: int,
                        if a.id == activity_id), None)
     if activiteit is None:
         return HTMLResponse('<div id="aa-detail" hx-swap-oob="true"></div>')
+    from app.domains.activities.api import registrations_without_component_count
+
     return templates.TemplateResponse(request, "_aa_detail.html", {
-        "a": activiteit, "csrf_token": csrf_from_request(request), "error": error})
+        "a": activiteit, "csrf_token": csrf_from_request(request), "error": error,
+        # #650: bepaalt of de kaart "Inschrijvingen zonder onderdeel" er staat. Het
+        # scherm mag dit niet zelf tellen (§635), en het is ook niet af te leiden
+        # uit a.sub_registrations — dat is nu net het punt: deze inschrijvingen
+        # hangen aan geen enkel onderdeel.
+        "inschrijvingen_zonder_onderdeel": registrations_without_component_count(
+            db, activiteit.id)})
 
 
 @router.get("/admin/activiteiten", response_class=HTMLResponse)
@@ -738,31 +746,64 @@ def inschrijving_regel_verwijderen(registration_id: int, item_id: int, request: 
 
 # ── Inschrijvingen + export ────────────────────────────────────────────────────
 
+def _inschrijvingen_lijst(request: Request, db: Session, email: str,
+                          activity_id: int, component_id: int | None):
+    """Eén lijst inschrijvingen, gefilterd zoals het scherm ze vroeg (#650).
+
+    Sinds de knop per onderdeel staat, bestaan er meerdere lijsten naast elkaar op
+    één scherm. Elke lijst moet weten wie ze is: haar eigen doel-div, en dezelfde
+    filter na een verwijdering — anders swapt een verwijdering in onderdeel A de
+    volledige activiteitenlijst in de plaats van A.
+
+    `component_id is None` betekent hier de inschrijvingen ZONDER onderdeel, niet
+    "alle": op activiteitniveau is dat het enige wat nog getoond wordt.
+    """
+    from app.domains.activities.router import get_registrations
+
+    regs = get_registrations(activity_id, component_id=component_id,
+                             without_component=component_id is None, db=db,
+                             admin=admin_user_by_email(db, email))
+    return templates.TemplateResponse(request, "_aa_inschrijvingen.html", {
+        "registrations": regs, "activity_id": activity_id,
+        "component_id": component_id,
+        "doel": f"#aa-insch-{component_id}" if component_id else "#aa-inschrijvingen",
+        "csrf_token": csrf_from_request(request)})
+
+
 @router.get("/admin/activiteiten/{activity_id}/inschrijvingen", response_class=HTMLResponse)
 def inschrijvingen_lijst(activity_id: int, request: Request,
                          db: Session = Depends(get_db),
                          email: str = Depends(require_admin_ui)):
-    from app.domains.activities.router import get_registrations
+    """Op activiteitniveau: enkel de inschrijvingen zonder onderdeel (#650)."""
+    return _inschrijvingen_lijst(request, db, email, activity_id, None)
 
-    regs = get_registrations(activity_id, db=db, admin=admin_user_by_email(db, email))
-    return templates.TemplateResponse(request, "_aa_inschrijvingen.html", {
-        "registrations": regs, "activity_id": activity_id,
-        "csrf_token": csrf_from_request(request)})
+
+@router.get("/admin/activiteiten/{activity_id}/onderdelen/{component_id}/inschrijvingen",
+            response_class=HTMLResponse)
+def onderdeel_inschrijvingen(activity_id: int, component_id: int, request: Request,
+                             db: Session = Depends(get_db),
+                             email: str = Depends(require_admin_ui)):
+    """De inschrijvingen van één onderdeel (#650).
+
+    Met één knop op activiteitniveau kreeg je bij twee onderdelen één platte lijst
+    waarin niet te zien is wie waarvoor ingeschreven is — de lijst toont het
+    onderdeel nergens per rij. Het filter zit in get_registrations, niet hier (§635).
+    """
+    return _inschrijvingen_lijst(request, db, email, activity_id, component_id)
 
 
 @router.post("/admin/activiteiten/{activity_id}/inschrijvingen/{registration_id}/verwijderen",
              response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 def inschrijving_verwijderen(activity_id: int, registration_id: int, request: Request,
+                             component_id: int | None = None,
                              db: Session = Depends(get_db),
                              email: str = Depends(require_admin_ui)):
-    from app.domains.activities.router import delete_registration, get_registrations
+    from app.domains.activities.router import delete_registration
 
     delete_registration(activity_id, registration_id, db=db,
                         admin=admin_user_by_email(db, email))
-    regs = get_registrations(activity_id, db=db, admin=admin_user_by_email(db, email))
-    return templates.TemplateResponse(request, "_aa_inschrijvingen.html", {
-        "registrations": regs, "activity_id": activity_id,
-        "csrf_token": csrf_from_request(request)})
+    # Dezelfde lijst terug, niet "alle": de knop stond in één bepaalde lijst.
+    return _inschrijvingen_lijst(request, db, email, activity_id, component_id)
 
 
 @router.get("/admin/activiteiten/{activity_id}/onderdelen/{component_id}/export")

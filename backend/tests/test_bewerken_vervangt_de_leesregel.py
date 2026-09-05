@@ -75,12 +75,13 @@ def test_de_knop_blijft_staan_tijdens_het_bewerken(client, db_session):
     html = _detail(client, activity.id)
 
     # ui.edit_toggle() rendert beide standen in één knop; die vorm is het bewijs
-    # dat de knop niet weggeschakeld wordt.
-    knoppen = re.findall(r'<button[^>]*@click="[a-z]+ = ![a-z]+"[^>]*>(.*?)</button>',
-                         html, re.S)
+    # dat de knop niet weggeschakeld wordt. Scoop op knoppen die "Bewerken" tonen:
+    # een patroon op @click alleen ving ook de hamburger van de schil (open = !open).
+    knoppen = [k for k in re.findall(r"<button[^>]*>(.*?)</button>", html, re.S)
+               if "Bewerken" in k]
     assert knoppen, "geen enkele bewerk-toggle op het scherm"
     for knop in knoppen:
-        assert "Bewerken" in knop and "Annuleren" in knop, (
+        assert "Annuleren" in knop, (
             f"een toggle toont niet beide standen (§2.8, #639): {knop.strip()[:100]!r}")
 
 

@@ -1,7 +1,7 @@
 import logging
 from datetime import date
 from sqlalchemy import or_, and_, func, nulls_last
-from typing import List
+from typing import List, Optional
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
 
@@ -642,6 +642,8 @@ def _enrich_registration(reg, activity):
 @router.get("/activities/{activity_id}/registrations", response_model=List[RegistrationResponse])
 def get_registrations(
     activity_id: int,
+    component_id: Optional[int] = None,
+    without_component: bool = False,
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
@@ -651,9 +653,18 @@ def get_registrations(
     # Expliciete, stabiele sortering (#285): zonder ORDER BY geeft Postgres de
     # rijen in heap-volgorde terug, waardoor een bewerkte inschrijving (UPDATE,
     # bv. opmerking #283) naar onderen springt. Oud → nieuw, id als tiebreaker.
+    vraag = db.query(Registration).filter(Registration.activity_id == activity.id)
+    # #650: het filter hoort hier, niet in het scherm. Twee losse vragen, want ze
+    # zijn niet hetzelfde: één onderdeel, of juist de inschrijvingen die aan GEEN
+    # onderdeel hangen. Die laatste bestaan — component_id is nullable met
+    # ondelete="SET NULL" — en zouden zonder eigen filter via geen enkele knop meer
+    # bereikbaar zijn.
+    if without_component:
+        vraag = vraag.filter(Registration.component_id.is_(None))
+    elif component_id is not None:
+        vraag = vraag.filter(Registration.component_id == component_id)
     regs = (
-        db.query(Registration)
-        .filter(Registration.activity_id == activity.id)
+        vraag
         .order_by(Registration.registered_at.asc(), Registration.id.asc())
         .all()
     )
