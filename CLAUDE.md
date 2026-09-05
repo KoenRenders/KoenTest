@@ -107,6 +107,24 @@ Onderbreek enkel voor (a) een echte inhoudelijke ontwerpkeuze die Koens input no
 heeft, of (b) een onomkeerbare/risicovolle stap — met name een **UAT- of
 PROD-deploy**, die altijd expliciete bevestiging vereist. HDEV mag autonoom.
 
+**Werk toewijzen aan een andere CLI is Koens beslissing, niet die van Claude.**
+De master-CLI mag issues *schrijven* zoveel ze wil — analyseren en uitkristalliseren
+is haar taak. Maar een issue **doorgeven** aan de feature-CLI (via `SendMessage`, of
+door het aan een release toe te wijzen) gebeurt **alleen als Koen daar expliciet om
+vraagt**. "Ik wil dit in v2.0" of "geef dit door aan de CLI" is zo'n vraag; een issue
+dat Claude zelf nuttig vindt, is dat niet.
+
+**Waarom:** Koen bepaalt wat er in een release komt en waar de andere CLI zijn tijd
+aan besteedt. Een issue dat ongevraagd doorgegeven wordt, is werk dat begint zonder
+dat iemand het inplande — en het is achteraf niet gratis terug te draaien, want de
+CLI heeft dan al gecommit. Dat Claude een bevinding terecht vindt, maakt haar nog
+geen prioriteit.
+
+**In de praktijk:** schrijf het issue, hang het **niet** aan de release-tracker, meld
+kort wat je gevonden hebt, en vraag of het naar v2.x mag én of je het mag doorgeven.
+Wacht op het antwoord. Dit staat los van de autonomie hierboven: die geldt *binnen*
+werk dat Koen al toegewezen heeft, niet voor het toewijzen zelf.
+
 **NOOIT vinkjes uitvinken die Koen heeft aangevinkt.** De checkboxes in een
 release-tracker/issue (m.n. de HDEV-validatie) vinkt **Koen zelf** af. Bij het
 bijwerken van een tracker: **haal eerst de huidige body op** en **behoud** de
