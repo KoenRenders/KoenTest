@@ -135,10 +135,12 @@ def _aa_detail_ctx(request: Request, db: Session, activiteit, error: str | None 
 
 def _detail_response(request: Request, db: Session, activity_id: int,
                      error: str | None = None):
-    from app.domains.activities.router import list_activities
+    from app.domains.activities.api import get_activity_detail
 
-    activiteit = next((a for a in list_activities(scope="all", db=db)
-                       if a.id == activity_id), None)
+    # #651: was `list_activities(scope="all")` + in Python filteren op id. Het
+    # detail van één activiteit kostte zo meer dan de lijst van alle 167 (483 ms
+    # tegen 89 ms op HDEV), en élke mutatie op dit scherm betaalde dat opnieuw.
+    activiteit = get_activity_detail(db, activity_id)
     if activiteit is None:
         return HTMLResponse('<div id="aa-detail" hx-swap-oob="true"></div>')
     return templates.TemplateResponse(request, "_aa_detail.html",
@@ -191,10 +193,9 @@ def admin_activiteit_detail(activity_id: int, request: Request,
     blijven htmx-fragmenten die in #aa-detail landen."""
     if is_fragment_request(request):
         return _detail_response(request, db, activity_id)
-    from app.domains.activities.router import list_activities
+    from app.domains.activities.api import get_activity_detail
 
-    activiteit = next((a for a in list_activities(scope="all", db=db)
-                       if a.id == activity_id), None)
+    activiteit = get_activity_detail(db, activity_id)
     if activiteit is None:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     return templates.TemplateResponse(

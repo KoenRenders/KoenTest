@@ -133,6 +133,37 @@ def gevulde_databank(client, db_session):
     return client
 
 
+# Het activiteitdetail staat niet in BUDGET: zijn pad heeft een id nodig, en dat
+# komt pas uit de fixture. Eigen test, zelfde teller.
+BUDGET_ACTIVITEITDETAIL = 1  # TIJDELIJK: meting
+
+
+def test_het_activiteitdetail_blijft_binnen_zijn_querybudget(gevulde_databank, db_session):
+    """#651: het detail van één activiteit hergebruikte de volledige lijst.
+
+    Deze gate telt query's en geen milliseconden — een tijdmeting is te
+    wisselvallig voor CI, maar het aantal query's is precies wat hier ontspoorde:
+    de lijstbewerking laadde datums, onderdelen én producten van álle activiteiten
+    om er daarna één uit te vissen.
+    """
+    from app.domains.activities.api import Activity
+
+    activiteit = db_session.query(Activity).filter(
+        Activity.name == "Testactiviteit").first()
+    assert activiteit is not None, "de fixture levert geen activiteit om te openen"
+    pad = f"/admin/activiteiten/{activiteit.id}"
+
+    with Queryteller() as teller:
+        antwoord = gevulde_databank.get(pad)
+
+    assert antwoord.status_code == 200, pad
+    assert len(teller) <= BUDGET_ACTIVITEITDETAIL, (
+        f"{pad}: {len(teller)} queries (budget {BUDGET_ACTIVITEITDETAIL}) naast "
+        f"{AANTAL_ACTIVITEITEN} andere activiteiten.\n"
+        f"    Meest herhaalde statements:\n    {teller.rapport()}"
+    )
+
+
 @pytest.mark.parametrize("pad", sorted(BUDGET))
 def test_een_lijstscherm_blijft_binnen_zijn_querybudget(gevulde_databank, pad):
     with Queryteller() as teller:
