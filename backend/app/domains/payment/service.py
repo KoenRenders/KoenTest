@@ -899,17 +899,18 @@ class BetalingFout(ValueError):
     service kent geen HTTP, en de route bepaalt zelf de statuscode."""
 
 
-def _bedrag(tekst: str | None) -> Decimal | None:
+def _ingetypt_bedrag(tekst: str | None) -> Decimal | None:
     """Een ingetypt bedrag, of None als er niets ingevuld is.
 
-    Komma én punt zijn toegestaan: op een Belgisch toetsenbord typ je een komma,
-    en dat mag geen foutmelding opleveren.
+    Heet niet `_bedrag`: die naam is hierboven al in gebruik voor het lezen van een
+    kolomwaarde. Komma én punt zijn toegestaan — op een Belgisch toetsenbord typ je
+    een komma, en dat mag geen foutmelding opleveren.
     """
-    if not (tekst or "").strip():
+    if tekst is None or not tekst.strip():
         return None
     try:
         return Decimal(tekst.replace(",", "."))
-    except (InvalidOperation, AttributeError):
+    except (InvalidOperation, ArithmeticError):
         raise BetalingFout("Ongeldig bedrag.")
 
 
@@ -918,7 +919,7 @@ def bevestig_betaling(db: Session, record_id: str, *, note: str | None = None,
     """"Bevestig betaald", met optioneel het effectief ontvangen bedrag (#455)."""
     try:
         record = confirm_manual_payment(db, record_id, (note or "").strip() or None,
-                                        actor=actor, amount_paid=_bedrag(amount_paid))
+                                        actor=actor, amount_paid=_ingetypt_bedrag(amount_paid))
     except ValueError as exc:
         db.rollback()
         raise BetalingFout(str(exc)) from exc
@@ -935,7 +936,7 @@ def registreer_terugbetaling(db: Session, record_id: str, *, amount: str,
     betalen bedrag en niets ontvangen. Aanmaken en afboeken zijn twee stappen. De
     service-default blijft True voor andere aanroepers.
     """
-    bedrag = _bedrag(amount)
+    bedrag = _ingetypt_bedrag(amount)
     if bedrag is None:
         raise BetalingFout("Ongeldig bedrag.")
     try:
@@ -963,9 +964,9 @@ def bewerk_betaling(db: Session, record_id: str, *, status: str | None = None,
     if record is None:
         raise LookupError("Betaling niet gevonden.")
 
-    bedrag = _bedrag(amount_paid)
+    bedrag = _ingetypt_bedrag(amount_paid)
     if bedrag is not None and record.type == "refund":
-        grens = abs(_bedrag(str(record.amount)) or Decimal("0"))
+        grens = abs(Decimal(str(record.amount)))
         if abs(bedrag) > grens:
             raise BetalingFout(
                 f"Meer dan het terug te betalen bedrag (€ {grens:.2f}).")
