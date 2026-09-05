@@ -61,11 +61,10 @@ def _upload_error(exc: HTTPException) -> str:
 
 
 def _verplaats(db: Session, siblings, item_id: int, richting: str) -> None:
-    """Herorden broers/zussen via ``sort_order`` (kernel-helper, #635 E)."""
-    from app.kernel.ordering import move_sibling
+    """Herorden broers/zussen via ``sort_order`` (#635 E/I)."""
+    from app.domains.activities.api import move_within
 
-    move_sibling(siblings, item_id, richting, attr="sort_order")
-    db.commit()
+    move_within(db, siblings, item_id, richting)
 
 
 SCOPES = ("upcoming", "archived", "all")
@@ -363,9 +362,9 @@ def onderdeel_verplaatsen(activity_id: int, component_id: int, request: Request,
                           email: str = Depends(require_admin_ui),
                           richting: str = Form("omhoog")):
     """Onderdeel omhoog/omlaag herordenen (sort_order-wissel) — #451."""
-    from app.domains.activities.api import Activity
+    from app.domains.activities.api import get_activity
 
-    activity = db.query(Activity).filter(Activity.id == activity_id).first()
+    activity = get_activity(db, activity_id)
     if activity is None:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     _verplaats(db, list(activity.sub_registrations), component_id, richting)
@@ -415,11 +414,9 @@ def product_verplaatsen(activity_id: int, component_id: int, product_id: int,
                         email: str = Depends(require_admin_ui),
                         richting: str = Form("omhoog")):
     """Product omhoog/omlaag herordenen binnen zijn onderdeel (sort_order) — #451."""
-    from app.domains.activities.api import ActivitySubRegistration
+    from app.domains.activities.api import get_component
 
-    component = db.query(ActivitySubRegistration).filter(
-        ActivitySubRegistration.id == component_id,
-        ActivitySubRegistration.activity_id == activity_id).first()
+    component = get_component(db, component_id, activity_id=activity_id)
     if component is None:
         raise HTTPException(status_code=404, detail=_("Onderdeel niet gevonden"))
     _verplaats(db, list(component.products), product_id, richting)
@@ -527,15 +524,15 @@ def _detail_ctx(request: Request, db: Session, registration_id: int,
     """Gedeelde context voor de inschrijving-detail/editor: de verrijkte
     inschrijving + de beschikbare producten van haar onderdeel (voor de
     'regel toevoegen'-keuze). Geeft None als de inschrijving niet bestaat."""
-    from app.domains.activities.api import Activity, Registration
-    from app.domains.activities.router import _enrich_registration
+    from app.domains.activities.api import (enrich_registration, get_activity,
+                                            get_registration)  # noqa: F401
 
-    reg = (db.query(Registration).execution_options(include_deleted=True)
-           .filter(Registration.id == registration_id).first())
+    # include_deleted: een betaling is een financieel feit, dus de bewaarde naam
+    # blijft zichtbaar ook als de inschrijving geschrapt is (#190).
+    reg = get_registration(db, registration_id, include_deleted=True)
     if reg is None:
         return None
-    activity = (db.query(Activity).execution_options(include_deleted=True)
-                .filter(Activity.id == reg.activity_id).first())
+    activity = get_activity(db, reg.activity_id, include_deleted=True)
     products = []
     if activity is not None and reg.component_id:
         component = next((c for c in activity.sub_registrations
@@ -558,7 +555,7 @@ def _detail_ctx(request: Request, db: Session, registration_id: int,
             bedragen[item.id] = regels[idx]
         idx += 1
 
-    verrijkt = _enrich_registration(reg, activity)
+    verrijkt = enrich_registration(reg, activity)
     for regel in verrijkt["items"]:
         bedrag = bedragen.get(regel["id"])
         regel["unit_price"] = bedrag["unit_price"] if bedrag else None
@@ -610,9 +607,9 @@ def inschrijving_detail(registration_id: int, request: Request,
 
 
 def _reg_or_404(db: Session, registration_id: int):
-    from app.domains.activities.api import Registration
+    from app.domains.activities.api import get_registration
 
-    reg = db.query(Registration).filter(Registration.id == registration_id).first()
+    reg = get_registration(db, registration_id)
     if reg is None:
         raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
     return reg

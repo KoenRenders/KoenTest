@@ -40,6 +40,28 @@ def list_activities(db, scope: str = "upcoming"):
     return _impl(scope=scope, db=db)
 
 
+def enrich_registration(registration, activity):
+    """Een inschrijving met haar activiteit- en productcontext, zoals het
+    beheerscherm ze toont. Implementatie in de router (#635 I)."""
+    from app.domains.activities.router import _enrich_registration
+
+    return _enrich_registration(registration, activity)
+
+
+def move_within(db, siblings, item_id: int, richting: str,
+                attr: str = "sort_order") -> None:
+    """Herorden broers/zussen en leg het vast.
+
+    De kernel-helper commit bewust niet (hij weet niets van transacties); dat
+    gebeurt hier, zodat de transactiegrens in het domein ligt en niet in het
+    scherm (#635 regel 2).
+    """
+    from app.kernel.ordering import move_sibling
+
+    move_sibling(siblings, item_id, richting, attr=attr)
+    db.commit()
+
+
 def public_registrations(db, activity_id: int, component_id: int):
     """De deelnemers van één onderdeel, zoals de publieke kaart ze toont (#451)."""
     from app.domains.activities.router import get_public_registrations as _impl
@@ -69,5 +91,6 @@ __all__ = [
     "ActivityProduct", "ActivitySubRegistration", "ComponentHistory",
     "ProductHistory", "Registration", "RegistrationItem",
     "RegistrationHistory", "RegistrationItemHistory", "build_component_export_ods", "compute_registration_total",
-    "list_activities", "public_registrations", "register_for_activity",
+    "enrich_registration", "list_activities", "move_within",
+    "public_registrations", "register_for_activity",
 ]

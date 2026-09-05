@@ -10,8 +10,12 @@ from app.domains.activities.models import (Activity, ActivitySubRegistration,
                                            Registration)
 
 
-def get_activity(db, activity_id: int) -> Optional[Activity]:
-    return db.query(Activity).filter(Activity.id == activity_id).first()
+def get_activity(db, activity_id: int,
+                 include_deleted: bool = False) -> Optional[Activity]:
+    query = db.query(Activity)
+    if include_deleted:
+        query = query.execution_options(include_deleted=True)
+    return query.filter(Activity.id == activity_id).first()
 
 
 def get_component(db, component_id: int,
@@ -29,5 +33,14 @@ def get_component(db, component_id: int,
     return query.first()
 
 
-def get_registration(db, registration_id: int) -> Optional[Registration]:
-    return db.query(Registration).filter(Registration.id == registration_id).first()
+def get_registration(db, registration_id: int,
+                     include_deleted: bool = False) -> Optional[Registration]:
+    """Een inschrijving. Met `include_deleted` ook een geschrapte.
+
+    Dat laatste is nodig op het betalingenscherm: een betaling is een financieel
+    feit, dus de bewaarde naam moet zichtbaar blijven ook als de inschrijving
+    geschrapt is (#190)."""
+    query = db.query(Registration)
+    if include_deleted:
+        query = query.execution_options(include_deleted=True)
+    return query.filter(Registration.id == registration_id).first()
