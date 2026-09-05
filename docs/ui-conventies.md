@@ -575,3 +575,12 @@ caught it before the browser. Five rules replace that safety net.
    (template, view-model), that the template asks for nothing the model does not
    promise. Both carry a shrinking allowlist — adding an entry is a visible diff,
    with the reason in the commit.
+
+### Status (5 Sep 2026)
+
+No UI module touches the session any more — no query, no commit — and no facade
+lets an ORM class or router function through to a screen. One entry is left on the
+layer gate's allowlist: `activities/admin_ui.py` still imports 21 CRUD functions
+from its own router (components, products, dates, order lines). Those move in
+their own batch, with tests written as they move; a facade passthrough would only
+hide the router. See `docs/ui-conformiteit.md` for the per-module table.
