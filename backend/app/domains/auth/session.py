@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import time
 from typing import Optional
 
@@ -146,10 +147,37 @@ def require_operator_ui(db: Session, email: str) -> None:
 
 def require_csrf(request: Request) -> None:
     """Dubbel-submit-CSRF voor POST's op server-pagina's: token in header
-    (htmx) of formulierveld moet matchen met de sessie-afgeleide waarde."""
+    (htmx) of formulierveld moet matchen met de sessie-afgeleide waarde.
+
+    Drie wezenlijk verschillende situaties gaven dezelfde 403 en waren daardoor
+    niet uit elkaar te houden (#662): géén sessiecookie, géén header, of een
+    header die niet matcht. Elk vraagt een andere oplossing — een verlopen sessie,
+    een verzoek dat buiten de schil vertrekt, of een token dat bij een andere
+    sessie hoort — dus het onderscheid gaat als veld naar het log.
+
+    Dit lost niets op en dat is opzet: de meting op HDEV (vier 403's op vier
+    endpoints die alle vier óók 200 gaven, nul aanmeldingen, een geldig token op
+    elke pagina) sluit de verklaring "herinlog in een ander venster" uit. Een fix
+    bovenop een onbekende oorzaak maskeert alleen het symptoom.
+
+    De tokenwaarde wordt NOOIT gelogd, ook niet afgekort: het is een
+    beveiligingstoken en deze logs worden opgehaald met `raak fetch`. Bij een
+    mismatch is enkel nuttig óf de header leeg was, niet wat erin stond.
+    """
     raw = _session_raw(request)
     token = request.headers.get("x-csrf-token")
-    if raw is None or token is None or not hmac.compare_digest(csrf_token_for(raw), token):
+    reden = None
+    if raw is None:
+        reden = "no_cookie"
+    elif token is None:
+        reden = "no_header"
+    elif not token:
+        reden = "empty_header"
+    elif not hmac.compare_digest(csrf_token_for(raw), token):
+        reden = "mismatch"
+    if reden is not None:
+        logging.getLogger("app.auth.csrf").warning(
+            "CSRF-controle geweigerd", extra={"csrf_fail": reden})
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=_("CSRF-token ongeldig"))
 
 

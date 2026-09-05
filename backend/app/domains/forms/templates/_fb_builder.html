@@ -2,10 +2,14 @@
 {% macro veld_kaart(f) %}
 <div class="border border-gray-200 rounded-lg p-3" x-data="{ edit: false }">
   <div class="flex items-center justify-between gap-2">
-    <div class="text-sm"><span class="font-medium">{{ f.label }}</span>
+    {# #653: leesweergave achter de bewerkstand — het formulier hieronder herhaalt
+       label en "verplicht", dus zonder deze x-show staat elk veld twee keer op het
+       scherm (§2.12, dezelfde fout als #648 en #653). #}
+    <div class="text-sm" x-show="!edit"><span class="font-medium">{{ f.label }}</span>
       {# §2.12 (#641): het veldtype in gewone taal, niet de DB-code. #}
       <span class="ml-1">{{ ui.badge(field_type_labels.get(f.field_type, f.field_type), "blue") }}</span>
       {% if f.required %}{{ ui.badge(_("verplicht"), "yellow") }}{% endif %}</div>
+    <span x-show="edit" x-cloak class="text-sm text-gray-500">{{ _("Veld bewerken") }}</span>
     <div class="flex flex-wrap gap-1">
       {{ ui.reorder(
            up_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
@@ -38,8 +42,9 @@
   <div class="mt-2 space-y-1">
     {% for o in f.options %}
     <div class="flex items-center justify-between text-xs bg-gray-50 rounded px-2 py-1" x-data="{ oedit: false }">
-      <span>{{ o.label }}{% if o.is_other %} {{ ui.badge(_("andere…")) }}{% endif %}
+      <span x-show="!oedit">{{ o.label }}{% if o.is_other %} {{ ui.badge(_("andere…")) }}{% endif %}
         {% if o.skip_to_end %}{{ ui.badge(_("→ einde"), "yellow") }}{% elif o.skip_to_section_id %}{{ ui.badge(_("→ sectie"), "yellow") }}{% endif %}</span>
+      <span x-show="oedit" x-cloak class="text-gray-500">{{ _("Optie bewerken") }}</span>
       <span class="flex gap-1">
         {{ ui.btn_secondary("⚙", aria_label=_("Optie bewerken"), attrs='@click="oedit = !oedit"') }}
         {{ ui.btn_danger("×", aria_label=_("Optie verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML"') }}

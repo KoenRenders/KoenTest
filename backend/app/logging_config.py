@@ -8,7 +8,11 @@ from app.config import settings
 # allowlist en geen vrije dump van `record.__dict__`: een logregel mag nooit per
 # ongeluk een e-mailadres, een naam of een querystring meedragen. Wie een veld
 # toevoegt, doet dat hier — zichtbaar in de diff.
-EXTRA_VELDEN = ("duration_ms", "method", "path", "route", "status", "slow")
+EXTRA_VELDEN = ("duration_ms", "method", "path", "route", "status", "slow",
+                # #662: wélk van de drie CSRF-gevallen faalde. Nooit de
+                # tokenwaarde zelf — dat is een beveiligingstoken en deze logs
+                # worden opgehaald met `raak fetch`.
+                "csrf_fail")
 
 
 class JsonFormatter(logging.Formatter):

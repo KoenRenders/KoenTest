@@ -133,6 +133,88 @@ def gevulde_databank(client, db_session):
     return client
 
 
+# Het activiteitdetail staat niet in BUDGET: zijn pad heeft een id nodig, en dat
+# komt pas uit de fixture. En het heeft een ándere gate nodig — zie hieronder.
+# Beide plafonds zijn gemeten, niet geschat, en tegen de oude weg gehouden:
+#
+#                        ná de fix      de oude weg (list_activities scope=all)
+#   query's                    12                                           44
+#   opgehaalde rijen           10                                           40
+#
+# Twee grenzen, want ze vangen niet hetzelfde. Het rijenplafond vangt het
+# volume: de lijstbewerking laadde datums, onderdelen en producten van álle
+# activiteiten om er daarna één uit te vissen. Het querybudget vangt de N+1 die
+# daarin verstopt zat — `ActivityResponse` leest `poster_asset_url` én
+# `poster_asset_is_pdf`, en elk van die twee properties doet een eigen query per
+# activiteit (models.py:59-68). Vandaar 44 bij zestien activiteiten.
+#
+# Allebei schalen ze mee met AANTAL_ACTIVITEITEN, dus een terugval wordt met de
+# fixture alleen maar duidelijker zichtbaar.
+BUDGET_ACTIVITEITDETAIL = 16
+RIJEN_ACTIVITEITDETAIL = 20
+
+
+class Rijenteller(Queryteller):
+    """Telt óók de opgehaalde rijen, niet enkel de statements.
+
+    psycopg2 zet `rowcount` bij een SELECT meteen na execute; -1 betekent
+    "niet van toepassing" (DDL, sommige DML) en telt niet mee.
+    """
+
+    def __init__(self):
+        super().__init__()
+        self.rijen = 0
+
+    def __enter__(self):
+        super().__enter__()
+
+        @event.listens_for(engine, "after_cursor_execute")
+        def _tel_rijen(conn, cursor, statement, params, context, executemany):
+            aantal = getattr(cursor, "rowcount", -1)
+            if aantal and aantal > 0:
+                self.rijen += aantal
+
+        self._rij_handler = _tel_rijen
+        return self
+
+    def __exit__(self, *exc):
+        event.remove(engine, "after_cursor_execute", self._rij_handler)
+        return super().__exit__(*exc)
+
+
+def test_het_activiteitdetail_haalt_niet_de_hele_lijst_op(gevulde_databank, db_session):
+    """#651: het detail van één activiteit hergebruikte de volledige lijst.
+
+    Op HDEV kostte het detail van ÉÉN activiteit meer dan de lijst van alle 167
+    (483 ms tegen 89 ms), en omdat het de gedeelde render-helper is, betaalde élke
+    mutatie op dat scherm die prijs opnieuw.
+
+    Een tijdmeting is te wisselvallig voor CI, dus meten we wat de traagheid
+    veroorzaakte: opgehaalde rijen én query's. Zie de plafonds hierboven voor de
+    gemeten getallen van beide implementaties.
+    """
+    from app.domains.activities.api import Activity
+
+    activiteit = db_session.query(Activity).filter(
+        Activity.name == "Testactiviteit").first()
+    assert activiteit is not None, "de fixture levert geen activiteit om te openen"
+    pad = f"/admin/activiteiten/{activiteit.id}"
+
+    with Rijenteller() as teller:
+        antwoord = gevulde_databank.get(pad)
+
+    assert antwoord.status_code == 200, pad
+    assert teller.rijen <= RIJEN_ACTIVITEITDETAIL, (
+        f"{pad}: {teller.rijen} rijen opgehaald (plafond {RIJEN_ACTIVITEITDETAIL}) "
+        f"naast {AANTAL_ACTIVITEITEN} andere activiteiten. Haalt dit scherm de "
+        f"volledige lijst op?\n    Meest herhaalde statements:\n    {teller.rapport()}"
+    )
+    assert len(teller) <= BUDGET_ACTIVITEITDETAIL, (
+        f"{pad}: {len(teller)} queries (budget {BUDGET_ACTIVITEITDETAIL}).\n"
+        f"    Meest herhaalde statements:\n    {teller.rapport()}"
+    )
+
+
 @pytest.mark.parametrize("pad", sorted(BUDGET))
 def test_een_lijstscherm_blijft_binnen_zijn_querybudget(gevulde_databank, pad):
     with Queryteller() as teller:

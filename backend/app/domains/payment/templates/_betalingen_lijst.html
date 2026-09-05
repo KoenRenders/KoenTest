@@ -63,7 +63,7 @@
     {% if _st %}{{ ui.badge(_st[0], _st[1]) }}
     {% else %}{{ ui.badge(status_labels.get(r.status, _("Onbekende status")), "gray") }}{% endif %}
     {# Tweede badge op de terugbetaling: de SOORT, naast de status. #}
-    {% if r.type == "refund" %}{{ ui.badge(_("Terugbetaling"), "teal") }}{% endif %}
+    {% if r.type == "refund" %}{{ ui.badge(_("Terugbetaling"), "orange") }}{% endif %}
   </div>
 </div>
 {% endmacro %}
@@ -91,13 +91,21 @@
     <label class="block text-xs text-gray-500">{{ _("Terugbetaald bedrag") if is_refund else _("Betaald bedrag") }}</label>
     <input name="amount_paid" x-model="bedrag" inputmode="decimal" placeholder="0,00"
            class="w-28 border border-gray-300 rounded-lg px-2 py-1 text-sm">
-    {% if is_refund %}
-    <p class="text-xs text-gray-400 mt-0.5">{{ _("Zet op 0 om te corrigeren — dan is de terugbetaling verwijderbaar.") }}</p>
-    {% endif %}
   </div>
   <input name="note" placeholder="{{ _('Opmerking') }}" class="w-40 border border-gray-300 rounded-lg px-2 py-1 text-sm">
   {{ ui.btn_primary(_("Opslaan"), type="submit") }}
   {{ ui.btn_secondary(_("Annuleren"), attrs='@click="' ~ vlag ~ ' = false"') }}
+  {# De hint hoort niet ín een kolom van een `items-end`-vorm: die lijnt op de
+     ONDERKANT uit, dus een extra regel onder het invoerveld duwt dat veld omhoog
+     — zichtbaar scheef, en alleen bij een terugbetaling omdat de hint daarachter
+     staat (#656). `w-full` dwingt in een flex-wrap-container een eigen regel af,
+     `order-last` houdt hem onder de knoppen ook wanneer de vorm op een smal
+     venster al wrapt. Niet `items-start`: dan lijnen de knoppen — die geen label
+     boven zich hebben — uit met de labels in plaats van met de invoervelden, en
+     verhuist de scheefheid gewoon. #}
+  {% if is_refund %}
+  <p class="w-full order-last text-xs text-gray-400">{{ _("Zet op 0 om te corrigeren — dan is de terugbetaling verwijderbaar.") }}</p>
+  {% endif %}
 </form>
 {% endmacro %}
 
@@ -140,8 +148,16 @@
       {% if r.method == "online" %}
       {% set _ignore = _acts.append(ui.btn_secondary(_("Status verversen"), size="sm", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/verversen" hx-target="#betalingen-lijst" hx-swap="innerHTML"')) %}
       {% endif %}
-      {% if r.status != "paid" and r.type != "refund" %}
-      {% set _ignore = _acts.append(ui.btn_secondary(_("Bevestig betaald"), size="sm", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_("Als volledig betaald bevestigen?"))) %}
+      {# #661: ook een openstaande terugbetaling krijgt deze knop. Ze moest via
+         Bewerken met het bedrag ingetypt, terwijl dat bedrag al bekend is. De laag
+         eronder kan het al: confirm_manual_payment boekt zonder bedrag "het
+         volledige verschuldigde, resp. de volledige refund" (#199) en is
+         tekengevoelig (#219). Label én bevestigingstekst per type: "Als volledig
+         betaald bevestigen?" op een terugbetaling is misleidend — er vertrekt geld. #}
+      {% if r.status != "paid" %}
+      {% set _bevestig_label = _("Bevestig terugbetaald") if r.type == "refund" else _("Bevestig betaald") %}
+      {% set _bevestig_vraag = _("Als volledig terugbetaald bevestigen?") if r.type == "refund" else _("Als volledig betaald bevestigen?") %}
+      {% set _ignore = _acts.append(ui.btn_secondary(_bevestig_label, size="sm", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_bevestig_vraag)) %}
       {% endif %}
       {# De verwijder-guard respecteren: geen knop tonen die de server toch weigert. #}
       {{ ui.row_actions(actions=_acts, max_visible=3,
@@ -173,7 +189,15 @@
     {{ kaartkop(rk) }}
     {% if is_finance %}
     <div class="mt-3 border-t border-gray-100 pt-2">
-      {{ ui.row_actions(actions=[ui.edit_toggle("rbewerk", size="sm")], max_visible=3,
+      {# #661: ook hier "Bevestig terugbetaald". Dit is het pad dat je in de
+         praktijk ziet — een terugbetaling ontstaat via "Terugbetaling registreren"
+         op een betaalde vordering en staat dan genest onder haar charge. Zonder
+         deze knop moest je Bewerken openen en het bedrag intypen dat al bekend is. #}
+      {% set _racts = [ui.edit_toggle("rbewerk", size="sm")] %}
+      {% if rf.status != "paid" %}
+      {% set _ignore = _racts.append(ui.btn_secondary(_("Bevestig terugbetaald"), size="sm", attrs='hx-post="/admin/betalingen/' ~ rf.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_("Als volledig terugbetaald bevestigen?"))) %}
+      {% endif %}
+      {{ ui.row_actions(actions=_racts, max_visible=3,
                         delete_attrs=('hx-post="/admin/betalingen/' ~ rf.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML"') if rk.mag_verwijderen else '',
                         delete_confirm=_("Deze terugbetaling verwijderen?")) }}
     </div>

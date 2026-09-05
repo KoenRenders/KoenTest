@@ -151,7 +151,13 @@ def _view(request: Request, db: Session, email: str,
         # "Deels betaald" werd vroeger in de template zelf uitgerekend (#635-9).
         kaart_status={
             "paid": (_("Vereffend"), "green"),
-            "refund_due": (_("Terug te betalen"), "orange"),
+            # Geel, gelijk aan "Openstaand" (#660): het is hetzelfde soort
+            # toestand — er moet nog geld bewegen, alleen de richting verschilt.
+            # Die richting lees je af aan de aparte type-badge "Terugbetaling",
+            # die sinds #660 oranje is. Zonder deze stap stonden er twee oranje
+            # badges naast elkaar op één kaart. "Deels betaald" blijft oranje;
+            # dat is een andere situatie.
+            "refund_due": (_("Terug te betalen"), "yellow"),
             "partial": (_("Deels betaald"), "orange"),
             "pending": (_("Openstaand"), "yellow"),
             "failed": (_("Mislukt"), "red"),

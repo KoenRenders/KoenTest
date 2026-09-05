@@ -189,11 +189,23 @@ Eén `<Badge>`-component; pill `px-2 py-0.5 rounded-full text-xs font-semibold`.
 > leest bij een terugbetaling als geld dat binnenkomt, terwijl er net geld vertrok.
 > *Vereffend* is richtingsneutraal en dekt beide.
 
-| in behandeling / wachtend | **geel** (`yellow-100/800`) — amber vervalt | Openstaand, Gewijzigd |
+| in behandeling / wachtend | **geel** (`yellow-100/800`) — amber vervalt | Openstaand, **Terug te betalen**, Gewijzigd |
 | fout / verwijderd | rood (`red-100/800`) | Mislukt, Verwijderd, Geannuleerd |
-| vol / aandacht (geen fout) | oranje (`orange-100/800`) | Volzet |
+| vol / aandacht (geen fout) | oranje (`orange-100/800`) | Volzet, **Terugbetaling**, Deels betaald |
 | concept / inactief / uit | grijs (`gray-100/600`) | Concept, Overgeslagen |
 | info / rol | blauw (`blue-100` bg / `blue-700` tekst) | ADMIN, FINANCE |
+
+> **"Terug te betalen" is geel, niet oranje (#660).** Het is hetzelfde soort
+> toestand als *Openstaand*: er moet nog geld bewegen, alleen de richting
+> verschilt. Die richting lees je af aan de aparte type-badge *Terugbetaling*, die
+> oranje is (pariteit met v1.14.0). *Deels betaald* blijft wél oranje — dat is een
+> andere situatie, geen wachtende beweging maar een onvolledige.
+
+> **Teal is geen semantische toon.** De macro kent hem, maar de tabel hierboven
+> niet, en een status of type hoort er nooit in. Hij is in #617 als zevende toon
+> binnengeslopen om twee oranje badges naast elkaar te vermijden; #660 lost dat op
+> aan de juiste kant, door de status geel te maken. Een lint-gate-regel houdt hem
+> buiten.
 
 ### 2.11 Laden & leeg
 - Laden: uniform **"Laden…"** via één `<Loading>`-component (vaste hoogte, geen
@@ -228,9 +240,13 @@ hint**. Macro: `ui.upload_field(name, text, current_url, delete_attrs, hint)`.
   bestand daarop primeert (#223), zodat het gedrag zichtbaar is.
 - **De huidige bijlage staat nooit twee keer tegelijk op het scherm.** In
   bewerkmodus hoort ze in het uploadblok — daar staat ze naast de kiezer, met haar
-  verwijderactie. Een leeslink erbuiten mag, maar dan **uitsluitend in leesmodus**,
-  dus achter `x-show="!edit"`. Dat je de bijlage kan openen zonder eerst te gaan
-  bewerken, is de reden dat die leeslink bestaat.
+  verwijderactie. Een leeslink erbuiten hoort er **wél** te zijn, maar
+  **uitsluitend in leesmodus**, dus achter `x-show="!edit"`. Dat je de bijlage kan
+  openen zonder eerst te gaan bewerken, is de reden dat die leeslink bestaat.
+  Sinds #655 is dat de **norm voor elke bijlage**, niet enkel een mogelijkheid: de
+  activiteit had een leeslink naar haar affiche en het onderdeel geen naar zijn
+  info-bijlage, wat op hetzelfde scherm twee gedragingen gaf. Zet er altijd een
+  guard omheen — zonder bijlage hoort er geen link te staan.
   Ontbreekt die `x-show`, dan lekt de leeslink de bewerkmodus in en staat ze dubbel —
   dat was #653 op het activiteitdetail ("Huidige affiche bekijken" twee keer).
 - Algemener, en de oorzaak van zowel #648 als #653: zet een leesweergave die naast

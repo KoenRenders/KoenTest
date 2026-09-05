@@ -78,6 +78,25 @@ Vier regels, elk met een reden:
 26. **Het verplicht-sterretje komt uit `label(required=…)`**, niet uit de labeltekst
     (#646). In de tekst erft het `text-gray-700` en staat er grijs naast een rood
     sterretje van een veld dat de parameter wél gebruikt.
+31. **Geen teal badge** (#660). §2.10 kent zes tonen; teal sloop er in #617 bij om
+    twee oranje badges naast elkaar te vermijden. #660 lost dat op aan de juiste
+    kant — "Terug te betalen" wordt geel, gelijk aan "Openstaand" — zodat de
+    ongedocumenteerde zevende toon niet meer nodig is.
+30. **Formuliervelden komen uit de kit** (#659). Een `border-gray-300` op een
+    input/select/textarea buiten `_macros.html` is een handgeschreven control. Die
+    mist `text-sm` (dus hoger dan zijn buren) en heeft een eigen padding — op het
+    activiteitdetail stonden er drie verschillende in omloop. Het restant staat als
+    telling in `CONTROL_ALLOWLIST`: een plafond dat alleen omláág mag.
+29. **Geen hint-alinea in een kolom van een `items-end`-vorm** (#656). Zo'n vorm
+    lijnt haar kolommen op de ONDERKANT uit, dus een extra regel onder een
+    invoerveld duwt dat veld omhoog. Op de betalingen stond het bedrag daardoor
+    scheef — en alleen bij een terugbetaling, want de hint staat achter een
+    `{% if %}`. Zet de hint als eigen regel in de vorm (`w-full order-last`).
+28. **Een leeslink naar de bijlage staat enkel in leesmodus** (#653, §2.12). Een
+    `<a href="…_asset_url">` buiten het uploadblok hoort achter `x-show="!edit"`;
+    anders staat "Huidige affiche bekijken" in bewerkmodus twee keer op het scherm.
+    Deze regel dekt bewust alleen de bijlage — zie de docstring voor waarom de
+    bredere structuurregel uit #653 geen betrouwbare gate oplevert.
 27. **Een KPI-cijfer draagt `font-brand` en geen eigen kleurklasse** (#647). Twee
     van de zes stonden in `text-blue-700` en één miste het merkfont; op één scherm
     stond een blauw cijfer naast een zwart. Het design-systeem legt voor KPI's
@@ -120,6 +139,51 @@ METADATA_GLYPH = re.compile("[\u2709\u260e\U0001f4f1\U0001f4cd\U0001f5d3]")
 # `[^)]*` zou hier NIET werken: `label(_("E-mail") ~ …)` bevat zelf al een
 # sluithaakje van `_()`, dus de zoektocht stopt vóór het sterretje.
 STERRETJE_IN_LABEL_CALL = re.compile(r'\blabel\([^\n]*["\']\s*\*')
+# Een leeslink naar de huidige bijlage: <a href="{{ …_asset_url }}"> buiten het
+# uploadblok. Die hoort achter x-show="!<vlag>" (§2.12, #653).
+BIJLAGE_LINK = re.compile(r'<[^>]*href="\{\{\s*[a-z_.]*_asset_url[^"]*"[^>]*>')
+# Een scherm mét bewerkmodus: een <form> dat aan een Alpine-vlag hangt.
+BEWERKVORM = re.compile(r'<form[^>]*x-show="[a-z_]')
+# Een hint-alinea (§2.4: text-xs + een gedempte tint) binnen een kolom van een
+# flexvorm die op de onderkant uitlijnt — #656.
+HINT_ALINEA = re.compile(r'<p[^>]*class="[^"]*\btext-xs\b[^"]*\btext-(?:gray|ink)-(?:400|500|soft)\b')
+ITEMS_END = re.compile(r'\bitems-end\b')
+FLEX_OPEN = re.compile(r'<(div|form)\b')
+# Een handgeschreven formulier-control: de kit zet zijn rand via `_control_base`,
+# dus een losse `border-gray-300` op een input/select/textarea betekent dat het
+# scherm de kit omzeilt (#659).
+HANDGESCHREVEN_CONTROL = re.compile(r"<(?:input|select|textarea)\b[^>]*>")
+# Teal is geen semantische toon: de macro kent hem, §2.10 niet (#660).
+TEAL_BADGE = re.compile(r'badge\([^)]*"teal"')
+
+# Het restant van #659, geteld op de dag dat de regel erbij kwam. Deze telling is
+# een plafond dat alleen omláág mag: zet je een bestand om, verlaag dan het getal
+# of haal de regel weg. Zo blijft de gate groen op master terwijl de omzetting
+# gefaseerd loopt, en groeit het probleem intussen niet.
+CONTROL_ALLOWLIST: dict[str, int] = {
+    "domains/activities/templates/_inschrijf_form.html": 6,
+    "domains/activities/templates/_inschrijving_detail.html": 6,
+    "domains/activities/templates/admin_activiteit_nieuw.html": 4,
+    "domains/auth/templates/_aanmelden_code.html": 1,
+    "domains/auth/templates/_aanmelden_email.html": 1,
+    "domains/auth/templates/_gu_lijst.html": 1,
+    "domains/chatbot/templates/_ai_context_lijst.html": 6,
+    "domains/chatbot/templates/_raakje_widget.html": 1,
+    "domains/chatbot/templates/raakje.html": 1,
+    "domains/cms/templates/_cp_detail.html": 4,
+    "domains/forms/templates/_berichten_form.html": 3,
+    "domains/forms/templates/_fb_builder.html": 24,
+    "domains/forms/templates/formulier.html": 8,
+    "domains/mdm/templates/_leden_detail.html": 6,
+    "domains/mdm/templates/leden_import.html": 1,
+    "domains/media/templates/_me_lijst.html": 3,
+    "domains/media/templates/admin_media_nieuw.html": 3,
+    "domains/membership/templates/gezin_portaal.html": 4,
+    "domains/membership/templates/lid_worden.html": 4,
+    "domains/payment/templates/_betalingen_lijst.html": 4,
+    "domains/workflow/templates/_werkbank_detail.html": 1,
+    "ui/templates/admin_ledenwijzigingen.html": 1,
+}
 RODE_SPAN = re.compile(r'<span class="text-red-600">.*?</span>')
 # Een KPI-cijfer herken je aan font-extrabold: §Weight reserveert dat gewicht voor
 # de paginatitel, de KPI-cijfers en het woordmerk, en die eerste twee dragen
@@ -773,4 +837,152 @@ def test_kpi_cijfers_zijn_gelijkvormig():
     assert not fouten, (
         "Een KPI-cijfer is `text-3xl font-extrabold font-brand`, zonder eigen kleur:\n  "
         + "\n  ".join(fouten)
+    )
+
+
+def test_een_leeslink_naar_de_bijlage_staat_enkel_in_leesmodus():
+    """§2.12: de huidige bijlage staat nooit twee keer tegelijk op het scherm (#653).
+
+    In bewerkmodus hoort ze in het uploadblok, naast de kiezer en haar
+    verwijderactie. Een leeslink daarbuiten mag — je wil een bijlage kunnen openen
+    zonder eerst te gaan bewerken — maar dan uitsluitend achter `x-show="!edit"`.
+    Ontbreekt die, dan lekt ze de bewerkmodus in en staat "Huidige affiche
+    bekijken" er twee keer, wat #653 was.
+
+    Bewust alleen de bijlage, en niet de bredere structuurregel die #653
+    voorstelde ("een x-data-blok met een bewerkvorm moet een x-show=\"!vlag\"
+    bevatten"). Die is geprobeerd en werkt niet als gate: de bewerk-toggle draagt
+    zélf een `x-show="!edit"` op zijn "Bewerken"-label, dus het blok lijkt altijd in
+    orde — hij zou #653 niet gevangen hebben. Sluit je die knop uit, dan slaat hij
+    aan op de onderdeelkop, die volgens de afweging in #648 juist mag blijven
+    staan. Op elementniveau lopen kind-elementen van een correct verborgen blok
+    weer binnen als valse treffers. Wat overblijft is deze regel: smal, en zonder
+    enkele valse treffer.
+
+    De regel kijkt naar links met een `…_asset_url` in de href. In het uploadblok
+    komt die uit `ui.upload_field(current_url=…)` en staat er dus geen letterlijke
+    `<a href>` in een template — precies daarom is dit machinaal te scheiden.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
+            if not BEWERKVORM.search(pad.read_text()):
+                # Geen bewerkmodus in dit scherm, dus ook geen dubbele bijlage: op
+                # een publieke kaart is de affichelink gewoon de link.
+                continue
+            for tag in BIJLAGE_LINK.findall(regel):
+                if 'x-show="!' in regel:
+                    continue
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: {tag[:90]}")
+    assert not fouten, (
+        'Zet een leeslink naar de bijlage achter x-show="!edit" (§2.12, #653):\n  '
+        + "\n  ".join(fouten)
+    )
+
+
+def test_geen_hint_in_een_kolom_die_op_de_onderkant_uitlijnt():
+    """Een `items-end`-vorm lijnt haar kolommen op de ONDERKANT uit (#656).
+
+    Staat er dan onder een invoerveld nog een hintregel, dan is die kolom hoger en
+    schuift alles erboven — dus het invoerveld — omhoog. Op /admin/betalingen gaf
+    dat een bedragveld dat te hoog stond, en alleen bij een terugbetaling, want de
+    hint staat achter een `{% if is_refund %}`. Geen marge- of paddingfout dus: de
+    hint hoort niet in een kolom die op haar onderkant uitlijnt.
+
+    `items-start` is niet de oplossing — dan lijnen de knoppen, die geen label
+    boven zich hebben, uit met de labels in plaats van met de invoervelden. Zet de
+    hint als eigen regel in de vorm: `w-full order-last`.
+
+    De regel zoekt binnen het element dat `items-end` draagt naar een hint-alinea
+    zonder `w-full`. Kolomgrenzen zijn met een regex niet te bepalen, dus dit kijkt
+    per vorm en niet per kolom: ruimer dan strikt nodig, maar een hint binnen zo'n
+    vorm hoort sowieso een eigen regel te zijn.
+    """
+    def blok_van(tekst: str, pos: int) -> str:
+        """Het element dat `items-end` draagt, tot zijn eigen sluittag.
+
+        Niet "tot het volgende items-end": `page_header` in de kit is het enige
+        voorkomen in `_macros.html`, dus zo'n venster liep tot het einde van het
+        bestand en sleepte elke hint uit de kit mee als valse treffer.
+        """
+        opens = [m for m in FLEX_OPEN.finditer(tekst) if m.start() < pos]
+        if not opens:
+            return ""
+        start = opens[-1]
+        tag = start.group(1)
+        diepte = 0
+        for t in re.finditer(rf"<{tag}\b|</{tag}>", tekst[start.start():]):
+            diepte += -1 if t.group(0).startswith(f"</{tag}") else 1
+            if diepte == 0:
+                return tekst[start.start():start.start() + t.end()]
+        return tekst[start.start():]
+
+    fouten = []
+    for pad in TEMPLATES:
+        tekst = _zonder_commentaar(pad)
+        for m in ITEMS_END.finditer(tekst):
+            for tag in HINT_ALINEA.findall(blok_van(tekst, m.start())):
+                if "w-full" in tag:
+                    continue
+                nr = tekst[:m.start()].count("\n") + 1
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: {tag[:90]}")
+    assert not fouten, (
+        "Zet de hint als eigen regel in de vorm (w-full order-last), niet in een "
+        "kolom van een items-end-vorm (#656):\n  " + "\n  ".join(fouten)
+    )
+
+
+def test_formuliervelden_komen_uit_de_kit():
+    """Een handgeschreven control is een control die uit de pas loopt (#659).
+
+    Koen meldde dat op de "+ Product"-vorm het label "Afrekening" lager staat en de
+    dropdown minder hoog is dan de tekstvelden. De diagnose staat omgekeerd: niet de
+    dropdown is te klein, de tekstvelden zijn te groot. `_control_base` bevat
+    `text-sm`; de select droeg dat wel, de vier handgeschreven inputs niet — grotere
+    letter bij dezelfde `py-2` geeft een hoger veld. In dat ene bestand stonden 30
+    handgeschreven controls tegen 2 uit de kit, met drie verschillende paddings.
+
+    Wat deze regel NIET is: een toegankelijkheidsprobleem. De zichtbare focusring
+    komt uit de base-layer in `scripts/build-css.sh` (`html :where(input…):focus`),
+    die élk formulierveld raakt, ook een handgeschreven. De kit-klassen zetten er
+    een eigen, iets andere ring overheen. Er is dus geen scherm zonder
+    focus-indicatie; dit gaat over maatvoering en één bron van waarheid.
+
+    De allowlist is een telling per bestand, geen vrijbrief: ze mag alleen omlaag.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        if pad.name == "_macros.html":
+            continue
+        naam = str(pad.relative_to(APP))
+        aantal = sum(1 for tag in HANDGESCHREVEN_CONTROL.findall(pad.read_text())
+                     if "border-gray-300" in tag)
+        toegestaan = CONTROL_ALLOWLIST.get(naam, 0)
+        if aantal > toegestaan:
+            fouten.append(f"{naam}: {aantal} handgeschreven controls "
+                          f"(toegestaan: {toegestaan})")
+        elif aantal < toegestaan:
+            fouten.append(f"{naam}: nog {aantal} van de {toegestaan} — verlaag het "
+                          "getal in CONTROL_ALLOWLIST (of haal de regel weg)")
+    assert not fouten, (
+        "Gebruik ui.input_control() / ui.select_control() / ui.field_* (#659):\n  "
+        + "\n  ".join(fouten)
+    )
+
+
+def test_geen_teal_badge():
+    """§2.10 kent zes tonen; teal hoort er niet bij (#660).
+
+    Hij is in #617 binnengeslopen om te vermijden dat er twee oranje badges naast
+    elkaar stonden — status "Terug te betalen" plus type "Terugbetaling". #660 lost
+    dat op aan de andere kant: de status wordt geel, gelijk aan "Openstaand", want
+    dat ís hetzelfde soort toestand. De richting lees je aan de type-badge.
+
+    De macro kent de toon nog wel; die weghalen zou elke bestaande aanroep stil
+    laten terugvallen op grijs. Deze regel houdt hem uit de schermen.
+    """
+    fouten = _overtredingen(TEAL_BADGE)
+    assert not fouten, (
+        "Teal is geen semantische toon (§2.10) — kies groen/geel/rood/oranje/"
+        "grijs/blauw:\n  " + "\n  ".join(fouten)
     )
