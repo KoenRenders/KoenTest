@@ -112,6 +112,27 @@ def _kpi(activities: list) -> dict:
     }
 
 
+def _aa_detail_ctx(request: Request, db: Session, activiteit, error: str | None = None):
+    """De context van `_aa_detail.html`, op één plek.
+
+    Dat fragment wordt vanuit twee routes gerenderd: als volledige pagina
+    (admin_activiteit.html omhult het) en als htmx-fragment na elke bewerking.
+    Beide bouwden hun eigen dict, en zo'n paar drift: #650 voegde één sleutel toe
+    en de paginaroute rende meteen op StrictUndefined.
+    """
+    from app.domains.activities.api import registrations_without_component_count
+
+    return {
+        "a": activiteit, "csrf_token": csrf_from_request(request), "error": error,
+        # #650: bepaalt of de kaart "Inschrijvingen zonder onderdeel" er staat. Het
+        # scherm mag dit niet zelf tellen (§635), en het is ook niet af te leiden
+        # uit a.sub_registrations — dat is nu net het punt: deze inschrijvingen
+        # hangen aan geen enkel onderdeel.
+        "inschrijvingen_zonder_onderdeel": registrations_without_component_count(
+            db, activiteit.id),
+    }
+
+
 def _detail_response(request: Request, db: Session, activity_id: int,
                      error: str | None = None):
     from app.domains.activities.router import list_activities
@@ -120,16 +141,8 @@ def _detail_response(request: Request, db: Session, activity_id: int,
                        if a.id == activity_id), None)
     if activiteit is None:
         return HTMLResponse('<div id="aa-detail" hx-swap-oob="true"></div>')
-    from app.domains.activities.api import registrations_without_component_count
-
-    return templates.TemplateResponse(request, "_aa_detail.html", {
-        "a": activiteit, "csrf_token": csrf_from_request(request), "error": error,
-        # #650: bepaalt of de kaart "Inschrijvingen zonder onderdeel" er staat. Het
-        # scherm mag dit niet zelf tellen (§635), en het is ook niet af te leiden
-        # uit a.sub_registrations — dat is nu net het punt: deze inschrijvingen
-        # hangen aan geen enkel onderdeel.
-        "inschrijvingen_zonder_onderdeel": registrations_without_component_count(
-            db, activiteit.id)})
+    return templates.TemplateResponse(request, "_aa_detail.html",
+                                      _aa_detail_ctx(request, db, activiteit, error))
 
 
 @router.get("/admin/activiteiten", response_class=HTMLResponse)
@@ -184,9 +197,9 @@ def admin_activiteit_detail(activity_id: int, request: Request,
                        if a.id == activity_id), None)
     if activiteit is None:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
-    return templates.TemplateResponse(request, "admin_activiteit.html", {
-        "nav_items": NAV, "a": activiteit,
-        "csrf_token": csrf_from_request(request), "error": None})
+    return templates.TemplateResponse(
+        request, "admin_activiteit.html",
+        {"nav_items": NAV, **_aa_detail_ctx(request, db, activiteit)})
 
 
 @router.post("/admin/activiteiten", response_class=HTMLResponse,
