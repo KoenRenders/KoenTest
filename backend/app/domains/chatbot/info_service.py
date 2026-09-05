@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.domains.activities.api import Activity, ActivitySubRegistration
 from app.domains.chatbot.models import ChatbotInfo
 from app.domains.cms.api import CmsPage
-from app.domains.media.api import MediaAsset
+from app.domains.media.api import EXTRACTABLE_KINDS, MediaAsset
 from app.schemas.chatbot_info import ChatbotInfoEdit, NoteCreate
 
 
@@ -126,7 +126,7 @@ def create_note(db: Session, data: NoteCreate, _admin=None):
 def update_row(db: Session, row_id: int, data: ChatbotInfoEdit, _admin=None):
     ci = db.query(ChatbotInfo).filter(ChatbotInfo.id == row_id).first()
     if not ci:
-        raise HTTPException(status_code=404, detail=_("Rij niet gevonden"))
+        raise LookupError("Rij niet gevonden")
     _apply_edit(ci, data)
     db.commit()
     db.refresh(ci)

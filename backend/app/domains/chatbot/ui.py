@@ -133,7 +133,7 @@ def rij_bewerken(row_id: int, request: Request, db: Session = Depends(get_db),
         text_override=text_override.strip() or None,
         text_addition=text_addition.strip() or None,
         is_active=ci.is_active, sort_order=ci.sort_order,
-    ), db=db, _admin=admin_user_by_email(db, email))
+    ))
     return templates.TemplateResponse(request, "_ai_context_lijst.html",
                                       _context_ctx(request, db, email))
 
