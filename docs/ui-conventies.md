@@ -228,9 +228,13 @@ hint**. Macro: `ui.upload_field(name, text, current_url, delete_attrs, hint)`.
   bestand daarop primeert (#223), zodat het gedrag zichtbaar is.
 - **De huidige bijlage staat nooit twee keer tegelijk op het scherm.** In
   bewerkmodus hoort ze in het uploadblok — daar staat ze naast de kiezer, met haar
-  verwijderactie. Een leeslink erbuiten mag, maar dan **uitsluitend in leesmodus**,
-  dus achter `x-show="!edit"`. Dat je de bijlage kan openen zonder eerst te gaan
-  bewerken, is de reden dat die leeslink bestaat.
+  verwijderactie. Een leeslink erbuiten hoort er **wél** te zijn, maar
+  **uitsluitend in leesmodus**, dus achter `x-show="!edit"`. Dat je de bijlage kan
+  openen zonder eerst te gaan bewerken, is de reden dat die leeslink bestaat.
+  Sinds #655 is dat de **norm voor elke bijlage**, niet enkel een mogelijkheid: de
+  activiteit had een leeslink naar haar affiche en het onderdeel geen naar zijn
+  info-bijlage, wat op hetzelfde scherm twee gedragingen gaf. Zet er altijd een
+  guard omheen — zonder bijlage hoort er geen link te staan.
   Ontbreekt die `x-show`, dan lekt de leeslink de bewerkmodus in en staat ze dubbel —
   dat was #653 op het activiteitdetail ("Huidige affiche bekijken" twee keer).
 - Algemener, en de oorzaak van zowel #648 als #653: zet een leesweergave die naast

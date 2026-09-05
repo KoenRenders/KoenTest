@@ -146,7 +146,19 @@
         {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Onderdeel"), c.name)) }}
       </div>
     </div>
+    {# Leeslink naar de info-bijlage (#655). De activiteit had er al een voor haar
+       affiche, het onderdeel niet — met #653 is die leeslink de norm voor élke
+       bijlage (§2.12), zodat je ze kan openen zonder eerst te gaan bewerken.
+       Achter x-show="!edit": in bewerkmodus staat ze in het uploadblok, en twee
+       keer tegelijk is precies wat #653 wegwerkte. De guard blijft nodig — zonder
+       bijlage hoort er geen link te staan. #}
+    {% if c.info_asset_url %}<p class="mt-1" x-show="!edit" x-cloak><a href="{{ c.info_asset_url }}" target="_blank" rel="noopener" class="text-sm text-link underline">{{ _("Huidige info-bijlage bekijken") }}</a></p>{% endif %}
+    {# Eén vorm voor tekstvelden én info-bijlage (#654). §2.12 verbood een eigen
+       submit-knop bij het uploadveld al, maar dat was in #623 alleen op de
+       activiteit toegepast; het onderdeel hield twee vormen naar twee endpoints en
+       toonde dus twee "Opslaan"-knoppen onder elkaar. #}
     <form x-show="edit" x-cloak class="flex flex-wrap gap-2 items-end mt-3"
+          enctype="multipart/form-data" hx-encoding="multipart/form-data"
           hx-post="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}"
           hx-target="#aa-detail" hx-swap="innerHTML">
       <div>{{ ui.label(_("Naam"), "cname-" ~ c.id, required=True) }}
@@ -160,17 +172,11 @@
         <input name="external_registrations_url" id="cexts-{{ c.id }}" value="{{ c.external_registrations_url or '' }}" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
       <div class="w-full sm:w-72">{{ ui.label(_("Info-URL"), "cinfo-" ~ c.id) }}
         <input name="info_url" id="cinfo-{{ c.id }}" value="{{ c.info_url or '' }}" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
-      <div class="w-full flex gap-2">
-        {{ ui.btn_primary(_("Opslaan")) }}
-        {{ ui.btn_secondary(_("Annuleren"), attrs='@click="edit = false"') }}
-      </div>
-    </form>
-    {# Info-bijlage (#451). Heette "reglement" tot #623 — één woord voor één ding
-       (§2.13) — en gebruikt nu het gedeelde uploadveld, met verwijderen erbij. #}
-    <div x-show="edit" x-cloak class="mt-2 border-t border-gray-100 pt-2">
-      <form enctype="multipart/form-data"
-            hx-post="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}/info"
-            hx-encoding="multipart/form-data" hx-target="#aa-detail" hx-swap="innerHTML">
+      {# Info-bijlage (#451). Heette "reglement" tot #623 — één woord voor één ding
+         (§2.13). Staat sinds #654 ín de vorm hierboven: één "Opslaan" bewaart de
+         velden én het bestand. De verwijderknop blijft een aparte actie — dat is
+         geen bewaarhandeling (§2.12). #}
+      <div class="w-full border-t border-gray-100 pt-2">
         {{ ui.upload_field(name="file", text=_("Info-bijlage (afbeelding of PDF)"),
                            id="cinfo-file-" ~ c.id,
                            current_url=c.info_asset_url,
@@ -178,9 +184,12 @@
                            delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/info/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML"',
                            delete_confirm=_("De opgeladen info-bijlage verwijderen?"),
                            hint=_("Een opgeladen bijlage primeert op de Info-URL.")) }}
-        <div class="mt-2">{{ ui.btn_secondary(_("Opslaan"), type="submit") }}</div>
-      </form>
-    </div>
+      </div>
+      <div class="w-full flex gap-2">
+        {{ ui.btn_primary(_("Opslaan")) }}
+        {{ ui.btn_secondary(_("Annuleren"), attrs='@click="edit = false"') }}
+      </div>
+    </form>
     {# "+ Product" in de paneelkop (#623-4): de toevoegvorm stond permanent open,
        terwijl de meeste onderdelen één product hebben. #}
     {% call ui.nested_panel(_("Producten"), _("+ Product"), '@click="addprod = !addprod"') %}

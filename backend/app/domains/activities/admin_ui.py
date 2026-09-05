@@ -348,15 +348,28 @@ def onderdeel_toevoegen(activity_id: int, request: Request,
 
 @router.post("/admin/activiteiten/{activity_id}/onderdelen/{component_id}",
              response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-def onderdeel_bijwerken(activity_id: int, component_id: int, request: Request,
-                        db: Session = Depends(get_db),
-                        email: str = Depends(require_admin_ui),
-                        name: str = Form(...), team_name_required: str = Form(""),
-                        max_participants: str = Form(""),
-                        external_register_url: str = Form(""),
-                        external_registrations_url: str = Form(""),
-                        info_url: str = Form("")):
+async def onderdeel_bijwerken(activity_id: int, component_id: int, request: Request,
+                              background_tasks: BackgroundTasks,
+                              db: Session = Depends(get_db),
+                              email: str = Depends(require_admin_ui),
+                              name: str = Form(...), team_name_required: str = Form(""),
+                              max_participants: str = Form(""),
+                              external_register_url: str = Form(""),
+                              external_registrations_url: str = Form(""),
+                              info_url: str = Form(""),
+                              file: Optional[UploadFile] = File(None)):
+    """Bewerkt het onderdeel; één "Opslaan" bewaart tekstvelden én de info-bijlage.
+
+    §2.12 verbood een eigen submit-knop bij het uploadveld al, maar dat was in #623
+    alleen op de activiteit toegepast. Het onderdeel hield twee vormen naar twee
+    endpoints en dus twee "Opslaan"-knoppen onder elkaar (#654). Zelfde leest als
+    activiteit_bijwerken: eerst de velden, dan het bestand als er een meegestuurd is.
+
+    De verwijderknop naast de bijlage blijft een aparte actie (/info/verwijderen):
+    verwijderen is geen bewaarhandeling en hoort niet onder de gedeelde "Opslaan".
+    """
     from app.domains.activities.router import update_component
+    from app.domains.media.api import replace_component_info
     from app.schemas.activity import ComponentUpdate
 
     update_component(activity_id, component_id, ComponentUpdate(
@@ -366,6 +379,12 @@ def onderdeel_bijwerken(activity_id: int, component_id: int, request: Request,
         external_registrations_url=_opt_str(external_registrations_url),
         info_url=_opt_str(info_url),
     ), db=db, admin=admin_user_by_email(db, email))
+
+    if file is not None and file.filename:
+        try:
+            await replace_component_info(db, component_id, file, background_tasks)
+        except (LookupError, HTTPException) as exc:
+            return _detail_response(request, db, activity_id, error=_upload_error(exc))
     return _detail_response(request, db, activity_id)
 
 
