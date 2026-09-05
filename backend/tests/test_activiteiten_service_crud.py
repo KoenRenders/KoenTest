@@ -366,3 +366,49 @@ def test_de_router_rekent_niet_meer_zelf(db_session):
             f"{naam} schrijft nog zelf geschiedenis — dat hoort in de service")
         assert "soft_delete(" not in body, (
             f"{naam} verwijdert nog zelf — dat hoort in de service")
+
+
+# ── Batch 6: het scherm gaat rechtstreeks naar de service ─────────────────────
+
+def test_inschrijvingen_ophalen_werkt_zonder_de_router(client, db_session):
+    """De laatste twee leesbewerkingen die `admin_ui` nog uit de router haalde."""
+    activity, comp, product, reg = _inschrijving_met_regel(client, db_session)
+
+    alle = service.registrations_for(db_session, activity.id, component_id=comp.id)
+    assert alle is not None and [r["id"] for r in alle] == [reg.id]
+    regel = alle[0]["items"][0]
+    assert regel["product_name"] == product.name
+    assert regel["component_name"] == comp.name
+
+    # Zonder onderdeel is een ándere vraag dan "alle" (#650): deze inschrijving
+    # hangt aan een onderdeel en hoort er dus niet bij.
+    assert service.registrations_for(db_session, activity.id,
+                                     without_component=True) == []
+    assert service.registrations_for(db_session, 999999) is None
+
+
+def test_het_activiteitenbeheer_gaat_niet_meer_via_de_router(db_session):
+    """De reden dat de laag-gate leeg mag: geen enkel scherm importeert de router.
+
+    Deze test kijkt naar `admin_ui` bij naam. De gate scant álle UI-modules en zou
+    hier ook op afgaan, maar juist daarom staat het hier nog eens expliciet: dit
+    bestand was de laatste uitzondering, en wie ze terugzet moet twee tests rood
+    zien, niet één.
+    """
+    bron = open("app/domains/activities/admin_ui.py", encoding="utf-8").read()
+    assert "activities.router" not in bron, (
+        "het activiteitenbeheer haalt weer een bewerking uit de router; die hoort "
+        "in `activities/service.py` te staan (#679)")
+    assert "admin_user_by_email" not in bron, (
+        "de actor is het e-mailadres uit de sessie; een User-rij opzoeken om er "
+        "`.email` van te lezen is een omweg langs de JSON-deurwachter")
+
+
+def test_de_laag_gate_heeft_geen_uitzonderingen_meer(db_session):
+    """#679 is pas af als de allowlist leeg is — anders staat de gate groen om de
+    verkeerde reden."""
+    from tests.test_layer_gate import LAYER_ALLOWLIST
+
+    assert LAYER_ALLOWLIST == set(), (
+        f"de laag-gate draagt weer uitzonderingen: {sorted(LAYER_ALLOWLIST)}. "
+        "Een uitzondering hoort tijdelijk te zijn en een issuenummer te dragen.")

@@ -54,10 +54,10 @@ def get_activity_detail(db, activity_id: int):
 
 def enrich_registration(registration, activity):
     """Een inschrijving met haar activiteit- en productcontext, zoals het
-    beheerscherm ze toont. Implementatie in de router (#635 I)."""
-    from app.domains.activities.router import _enrich_registration
+    beheerscherm ze toont. Implementatie in de service (#679, batch 6)."""
+    from app.domains.activities.service import enrich_registration as _impl
 
-    return _enrich_registration(registration, activity)
+    return _impl(registration, activity)
 
 
 def move_within(db, siblings, item_id: int, richting: str,

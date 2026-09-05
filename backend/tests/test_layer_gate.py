@@ -76,22 +76,13 @@ VIEWMODEL_ALLOWLIST: set[str] = {
     "app.ui.system_ui",
 }
 
-LAYER_ALLOWLIST: set[tuple[str, str]] = {
-    # ── regel 1: imports uit models/router, of een private naam ──────────────
-    # Laatste post (#679), en hij krimpt per batch. Het activiteitenbeheer roept
-    # CRUD-functies aan die nog in `activities/router.py` wonen. Ze verhuizen naar
-    # `activities/service.py`: het zijn inhoudelijke bewerkingen, geen doorgeefluik.
-    # Twintig facades die alleen doorgeven zouden deze gate groen zetten zonder dat
-    # er iets verandert — een eerlijke rode regel is beter dan een groene gate om
-    # de verkeerde reden.
-    #
-    # Voortgang: alle twintig zijn uit de router naar `activities/service.py`
-    # verhuisd (batch 1 t/m 5). Wat rest is dat `admin_ui` ze nog via de router
-    # aanroept i.p.v. rechtstreeks via de service; die omzetting is de laatste stap
-    # en dán kan deze regel weg.
-    ("app.domains.activities.admin_ui", "imports"),
-    # ── regel 2: rauw ORM-gebruik in de routebody ────────────────────────────
-}
+# Leeg, en dat is de bedoelde eindtoestand (#679 afgerond). Wat hier stond was
+# het activiteitenbeheer, dat CRUD-functies aanriep die nog in
+# `activities/router.py` woonden. Ze zijn met de bewerking zelf mee verhuisd naar
+# `activities/service.py` — geen twintig doorgeeffacades, die zouden deze gate
+# groen zetten zonder dat er iets verandert. Zet er niets bij zonder issue: een
+# uitzondering hoort tijdelijk te zijn en een nummer te dragen.
+LAYER_ALLOWLIST: set[tuple[str, str]] = set()
 
 
 def _ui_paden() -> list[Path]:

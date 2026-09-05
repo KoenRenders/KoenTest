@@ -19,7 +19,7 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import (
-    admin_user_by_email, csrf_from_request,
+    csrf_from_request,
     SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
 )
 from app.ui import admin_nav, is_fragment_request, templates
@@ -81,11 +81,11 @@ def _lijst_ctx(db: Session, scope: str = "all", q: str = "") -> dict:
     zijn tientallen activiteiten, geen duizenden, en list_activities levert al de
     view-modellen mét telling en volzet-status waar de kaarten op steunen.
     """
-    from app.domains.activities.router import list_activities
+    from app.domains.activities.api import list_activities
 
     if scope not in SCOPES:
         scope = "all"
-    activiteiten = list_activities(scope=scope, db=db)
+    activiteiten = list_activities(db, scope=scope)
     term = q.strip().lower()
     if term:
         activiteiten = [a for a in activiteiten
@@ -210,17 +210,15 @@ def activiteit_aanmaken(request: Request, db: Session = Depends(get_db),
                         name: str = Form(""), start_date: str = Form(""),
                         location: str = Form(""), poster_url: str = Form(""),
                         members_only: str = Form("")):
-    from app.domains.activities.router import create_activity
-    from app.schemas.activity import ActivityCreate, ActivityDateCreate
+    from app.domains.activities import service
+    from app.schemas.activity import ActivityDateCreate
 
     if not name.strip() or not start_date:
         raise HTTPException(status_code=400, detail=_("Naam en eerste datum zijn verplicht."))
-    nieuw = create_activity(ActivityCreate(
-        name=name.strip(), location=location.strip() or None,
-        poster_url=poster_url.strip() or None,
-        members_only=bool(members_only),
-        dates=[ActivityDateCreate(start_date=start_date)],
-    ), db=db, admin=admin_user_by_email(db, email))
+    nieuw = service.create_activity(
+        db, name=name.strip(), location=location.strip() or None,
+        poster_url=poster_url.strip() or None, members_only=bool(members_only),
+        dates=[ActivityDateCreate(start_date=start_date)], actor=email)
     # Aanmaken opent meteen de editor: een verse activiteit heeft nog datums en
     # onderdelen nodig, en die staan daar (C1, #586).
     return Response(status_code=204,
@@ -243,16 +241,17 @@ async def activiteit_bijwerken(activity_id: int, request: Request,
     schemas bleef bestaan — je kon alleen nog uploaden. Beide horen in dezelfde vorm,
     zoals in v1.14: een geüploade affiche primeert op de URL (#223).
     """
-    from app.domains.activities.router import update_activity
+    from app.domains.activities import service
     from app.domains.media.api import replace_activity_poster
     from app.schemas.activity import ActivityUpdate
 
-    admin = admin_user_by_email(db, email)
-    update_activity(activity_id, ActivityUpdate(
+    velden = ActivityUpdate(
         name=name.strip() or None, location=location.strip() or None,
         poster_url=poster_url.strip() or None,
         members_only=bool(members_only), is_cancelled=bool(is_cancelled),
-    ), db=db, admin=admin)
+    ).model_dump(exclude_none=True)
+    if service.update_activity(db, activity_id, velden, actor=email) is None:
+        raise HTTPException(status_code=404, detail=_("Activity not found"))
 
     if file is not None and file.filename:
         try:
@@ -267,9 +266,10 @@ async def activiteit_bijwerken(activity_id: int, request: Request,
 def activiteit_verwijderen(activity_id: int, request: Request,
                            db: Session = Depends(get_db),
                            email: str = Depends(require_admin_ui)):
-    from app.domains.activities.router import delete_activity
+    from app.domains.activities import service
 
-    delete_activity(activity_id, db=db, admin=admin_user_by_email(db, email))
+    if not service.delete_activity(db, activity_id, actor=email):
+        raise HTTPException(status_code=404, detail=_("Activity not found"))
     # Verwijderen gebeurt vanuit de editor; die pagina bestaat daarna niet meer.
     return Response(status_code=204, headers={"HX-Redirect": "/admin/activiteiten"})
 
@@ -282,13 +282,14 @@ def datum_toevoegen(activity_id: int, request: Request, db: Session = Depends(ge
                     email: str = Depends(require_admin_ui),
                     start_date: str = Form(...), end_date: str = Form(""),
                     start_time: str = Form(""), end_time: str = Form("")):
-    from app.domains.activities.router import add_activity_date
+    from app.domains.activities import service
     from app.schemas.activity import ActivityDateCreate
 
-    add_activity_date(activity_id, ActivityDateCreate(
+    gegevens = ActivityDateCreate(
         start_date=start_date, end_date=end_date or None,
-        start_time=start_time or None, end_time=end_time or None,
-    ), db=db, admin=admin_user_by_email(db, email))
+        start_time=start_time or None, end_time=end_time or None)
+    if service.add_activity_date(db, activity_id, gegevens, actor=email) is None:
+        raise HTTPException(status_code=404, detail=_("Activity not found"))
     return _detail_response(request, db, activity_id)
 
 
@@ -300,13 +301,16 @@ def datum_bijwerken(activity_id: int, date_id: int, request: Request,
                     start_date: str = Form(...), end_date: str = Form(""),
                     start_time: str = Form(""), end_time: str = Form("")):
     """Bestaande datum (incl. begin-/einduur) bewerken — v1.14-pariteit."""
-    from app.domains.activities.router import update_activity_date
+    from app.domains.activities import service
     from app.schemas.activity import ActivityDateUpdate
 
-    update_activity_date(activity_id, date_id, ActivityDateUpdate(
+    velden = ActivityDateUpdate(
         start_date=start_date, end_date=end_date or None,
         start_time=start_time or None, end_time=end_time or None,
-    ), db=db, admin=admin_user_by_email(db, email))
+    ).model_dump(exclude_unset=True)
+    if service.update_activity_date(db, activity_id, date_id, velden,
+                                    actor=email) is None:
+        raise HTTPException(status_code=404, detail=_("Date not found"))
     return _detail_response(request, db, activity_id)
 
 
@@ -315,9 +319,10 @@ def datum_bijwerken(activity_id: int, date_id: int, request: Request,
 def datum_verwijderen(activity_id: int, date_id: int, request: Request,
                       db: Session = Depends(get_db),
                       email: str = Depends(require_admin_ui)):
-    from app.domains.activities.router import delete_activity_date
+    from app.domains.activities import service
 
-    delete_activity_date(activity_id, date_id, db=db, admin=admin_user_by_email(db, email))
+    if not service.delete_activity_date(db, activity_id, date_id, actor=email):
+        raise HTTPException(status_code=404, detail=_("Date not found"))
     return _detail_response(request, db, activity_id)
 
 
@@ -333,16 +338,17 @@ def onderdeel_toevoegen(activity_id: int, request: Request,
                         external_register_url: str = Form(""),
                         external_registrations_url: str = Form(""),
                         info_url: str = Form("")):
-    from app.domains.activities.router import add_component
+    from app.domains.activities import service
     from app.schemas.activity import ComponentCreate
 
-    add_component(activity_id, ComponentCreate(
+    gegevens = ComponentCreate(
         name=name.strip(), team_name_required=bool(team_name_required),
         max_participants=_opt_int(max_participants),
         external_register_url=_opt_str(external_register_url),
         external_registrations_url=_opt_str(external_registrations_url),
-        info_url=_opt_str(info_url),
-    ), db=db, admin=admin_user_by_email(db, email))
+        info_url=_opt_str(info_url))
+    if service.add_component(db, activity_id, gegevens, actor=email) is None:
+        raise HTTPException(status_code=404, detail=_("Activity not found"))
     return _detail_response(request, db, activity_id)
 
 
@@ -368,17 +374,20 @@ async def onderdeel_bijwerken(activity_id: int, component_id: int, request: Requ
     De verwijderknop naast de bijlage blijft een aparte actie (/info/verwijderen):
     verwijderen is geen bewaarhandeling en hoort niet onder de gedeelde "Opslaan".
     """
-    from app.domains.activities.router import update_component
+    from app.domains.activities import service
     from app.domains.media.api import replace_component_info
     from app.schemas.activity import ComponentUpdate
 
-    update_component(activity_id, component_id, ComponentUpdate(
+    velden = ComponentUpdate(
         name=name.strip(), team_name_required=bool(team_name_required),
         max_participants=_opt_int(max_participants),
         external_register_url=_opt_str(external_register_url),
         external_registrations_url=_opt_str(external_registrations_url),
         info_url=_opt_str(info_url),
-    ), db=db, admin=admin_user_by_email(db, email))
+    ).model_dump(exclude_unset=True)
+    if service.update_component(db, activity_id, component_id, velden,
+                                actor=email) is None:
+        raise HTTPException(status_code=404, detail=_("Component not found"))
 
     if file is not None and file.filename:
         try:
@@ -393,9 +402,10 @@ async def onderdeel_bijwerken(activity_id: int, component_id: int, request: Requ
 def onderdeel_verwijderen(activity_id: int, component_id: int, request: Request,
                           db: Session = Depends(get_db),
                           email: str = Depends(require_admin_ui)):
-    from app.domains.activities.router import delete_component
+    from app.domains.activities import service
 
-    delete_component(activity_id, component_id, db=db, admin=admin_user_by_email(db, email))
+    if not service.delete_component(db, activity_id, component_id, actor=email):
+        raise HTTPException(status_code=404, detail=_("Component not found"))
     return _detail_response(request, db, activity_id)
 
 
@@ -425,17 +435,23 @@ def product_toevoegen(activity_id: int, component_id: int, request: Request,
                       name: str = Form(...), price: str = Form("0"),
                       member_price: str = Form(""), afrekening: str = Form("betalend"),
                       max_participants: str = Form("")):
-    from app.domains.activities.router import add_product
+    from app.domains.activities import service
     from app.schemas.activity import ProductCreate
 
     bedrag = _decimal(price)
-    add_product(activity_id, component_id, ProductCreate(
+    gegevens = ProductCreate(
         name=name.strip(), price=bedrag,
         member_price=_decimal(member_price) if member_price.strip() else None,
         is_free=(afrekening == "gratis"),
         pay_on_site=(afrekening == "ter_plaatse"),
-        max_participants=_opt_int(max_participants),
-    ), db=db, admin=admin_user_by_email(db, email))
+        max_participants=_opt_int(max_participants))
+    try:
+        product = service.add_product(db, activity_id, component_id, gegevens,
+                                      actor=email)
+    except service.ActiviteitFout as fout:
+        raise HTTPException(status_code=422, detail=str(fout))
+    if product is None:
+        raise HTTPException(status_code=404, detail=_("Component not found"))
     return _detail_response(request, db, activity_id)
 
 
@@ -444,10 +460,10 @@ def product_toevoegen(activity_id: int, component_id: int, request: Request,
 def product_verwijderen(activity_id: int, component_id: int, product_id: int,
                         request: Request, db: Session = Depends(get_db),
                         email: str = Depends(require_admin_ui)):
-    from app.domains.activities.router import delete_product
+    from app.domains.activities import service
 
-    delete_product(activity_id, component_id, product_id,
-                   db=db, admin=admin_user_by_email(db, email))
+    if not service.delete_product(db, component_id, product_id, actor=email):
+        raise HTTPException(status_code=404, detail=_("Product not found"))
     return _detail_response(request, db, activity_id)
 
 
@@ -476,17 +492,24 @@ def product_bijwerken(activity_id: int, component_id: int, product_id: int,
                       member_price: str = Form(""), afrekening: str = Form("betalend"),
                       max_participants: str = Form("")):
     """Product bijwerken incl. prijs/ledenprijs (#451)."""
-    from app.domains.activities.router import update_product
+    from app.domains.activities import service
     from app.schemas.activity import ProductUpdate
 
     bedrag = _decimal(price)
-    update_product(activity_id, component_id, product_id, ProductUpdate(
+    velden = ProductUpdate(
         name=name.strip(), price=bedrag,
         member_price=_decimal(member_price) if member_price.strip() else None,
         is_free=(afrekening == "gratis"),
         pay_on_site=(afrekening == "ter_plaatse"),
         max_participants=_opt_int(max_participants),
-    ), db=db, admin=admin_user_by_email(db, email))
+    ).model_dump(exclude_unset=True)
+    try:
+        product = service.update_product(db, component_id, product_id, velden,
+                                         actor=email)
+    except service.ActiviteitFout as fout:
+        raise HTTPException(status_code=422, detail=str(fout))
+    if product is None:
+        raise HTTPException(status_code=404, detail=_("Product not found"))
     return _detail_response(request, db, activity_id)
 
 
@@ -702,13 +725,14 @@ def inschrijving_opmerking(registration_id: int, request: Request,
                            db: Session = Depends(get_db),
                            email: str = Depends(require_admin_ui),
                            remarks: str = Form("")):
-    from app.domains.activities.router import update_registration_remarks
+    from app.domains.activities import service
     from app.schemas.activity import RegistrationContactUpdate
 
     reg = _reg_or_404(db, registration_id)
-    update_registration_remarks(reg.activity_id, registration_id,
-                                RegistrationContactUpdate(remarks=remarks),
-                                db=db, admin=admin_user_by_email(db, email))
+    velden = RegistrationContactUpdate(remarks=remarks).model_dump(exclude_unset=True)
+    if service.update_registration_contact(db, reg.activity_id, registration_id,
+                                           velden, actor=email) is None:
+        raise HTTPException(status_code=404, detail=_("Registration not found"))
     return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
 
 
@@ -730,11 +754,10 @@ async def inschrijving_opslaan(registration_id: int, request: Request,
     onbetaalde posten en herrekent naar één open post — dus tussenstanden laten geen
     verdwaalde refund achter.
     """
-    from app.domains.activities.router import update_order_line, update_registration_remarks
-    from app.schemas.activity import RegistrationContactUpdate, RegistrationItemUpdate
+    from app.domains.activities import service
+    from app.schemas.activity import RegistrationContactUpdate
 
     reg = _reg_or_404(db, registration_id)
-    admin = admin_user_by_email(db, email)
     form = await request.form()
 
     huidig = {item.id: item.quantity for item in (reg.items or [])}
@@ -748,8 +771,13 @@ async def inschrijving_opslaan(registration_id: int, request: Request,
             continue
         if item_id not in huidig or aantal == huidig[item_id]:
             continue
-        update_order_line(reg.activity_id, registration_id, item_id,
-                          RegistrationItemUpdate(quantity=aantal), db=db, admin=admin)
+        try:
+            gewijzigd = service.update_order_line(db, reg.activity_id, registration_id,
+                                                  item_id, quantity=aantal, actor=email)
+        except service.ActiviteitFout as fout:
+            raise HTTPException(status_code=400, detail=str(fout))
+        if gewijzigd is None:
+            raise HTTPException(status_code=404, detail=_("Order line not found"))
 
     # Contactgegevens meenemen in dezelfde "Opslaan" (#624). Enkel wat het formulier
     # meestuurt wordt gewijzigd; de route laat de rest ongemoeid.
@@ -765,8 +793,10 @@ async def inschrijving_opslaan(registration_id: int, request: Request,
         # foutbanner: htmx swapt een 200, dus de gebruiker ziet de fout écht staan.
         return _render_detail(request, db, registration_id, edit_open=True,
                               error=_("Vul een geldig e-mailadres in."))
-    update_registration_remarks(reg.activity_id, registration_id, gegevens,
-                                db=db, admin=admin)
+    if service.update_registration_contact(
+            db, reg.activity_id, registration_id,
+            gegevens.model_dump(exclude_unset=True), actor=email) is None:
+        raise HTTPException(status_code=404, detail=_("Registration not found"))
     return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
 
 
@@ -785,17 +815,20 @@ def inschrijving_regel_toevoegen(registration_id: int, request: Request,
     gekozen is. De controle staat daarom hier, met een leesbare melding in plaats
     van een 422.
     """
-    from app.domains.activities.router import add_order_line
-    from app.schemas.activity import RegistrationItemCreate
+    from app.domains.activities import service
 
     reg = _reg_or_404(db, registration_id)
     if not (product_id or "").strip():
         return _render_detail(request, db, registration_id, edit_open=True,
                               error=_("Kies eerst een product om toe te voegen."))
     gekozen = int(product_id)
-    add_order_line(reg.activity_id, registration_id,
-                   RegistrationItemCreate(product_id=gekozen, quantity=quantity),
-                   db=db, admin=admin_user_by_email(db, email))
+    try:
+        toegevoegd = service.add_order_line(db, reg.activity_id, registration_id,
+                                            gekozen, quantity, actor=email)
+    except service.ActiviteitFout as fout:
+        raise HTTPException(status_code=400, detail=str(fout))
+    if toegevoegd is None:
+        raise HTTPException(status_code=404, detail=_("Registration not found"))
     return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
 
 
@@ -805,13 +838,16 @@ def inschrijving_regel_bijwerken(registration_id: int, item_id: int, request: Re
                                  db: Session = Depends(get_db),
                                  email: str = Depends(require_admin_ui),
                                  quantity: int = Form(...)):
-    from app.domains.activities.router import update_order_line
-    from app.schemas.activity import RegistrationItemUpdate
+    from app.domains.activities import service
 
     reg = _reg_or_404(db, registration_id)
-    update_order_line(reg.activity_id, registration_id, item_id,
-                      RegistrationItemUpdate(quantity=quantity),
-                      db=db, admin=admin_user_by_email(db, email))
+    try:
+        gewijzigd = service.update_order_line(db, reg.activity_id, registration_id,
+                                              item_id, quantity=quantity, actor=email)
+    except service.ActiviteitFout as fout:
+        raise HTTPException(status_code=400, detail=str(fout))
+    if gewijzigd is None:
+        raise HTTPException(status_code=404, detail=_("Order line not found"))
     return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
 
 
@@ -820,11 +856,12 @@ def inschrijving_regel_bijwerken(registration_id: int, item_id: int, request: Re
 def inschrijving_regel_verwijderen(registration_id: int, item_id: int, request: Request,
                                    db: Session = Depends(get_db),
                                    email: str = Depends(require_admin_ui)):
-    from app.domains.activities.router import delete_order_line
+    from app.domains.activities import service
 
     reg = _reg_or_404(db, registration_id)
-    delete_order_line(reg.activity_id, registration_id, item_id,
-                      db=db, admin=admin_user_by_email(db, email))
+    if service.delete_order_line(db, reg.activity_id, registration_id, item_id,
+                                 actor=email) is None:
+        raise HTTPException(status_code=404, detail=_("Order line not found"))
     return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
 
 
@@ -842,11 +879,12 @@ def _inschrijvingen_lijst(request: Request, db: Session, email: str,
     `component_id is None` betekent hier de inschrijvingen ZONDER onderdeel, niet
     "alle": op activiteitniveau is dat het enige wat nog getoond wordt.
     """
-    from app.domains.activities.router import get_registrations
+    from app.domains.activities import service
 
-    regs = get_registrations(activity_id, component_id=component_id,
-                             without_component=component_id is None, db=db,
-                             admin=admin_user_by_email(db, email))
+    regs = service.registrations_for(db, activity_id, component_id=component_id,
+                                     without_component=component_id is None)
+    if regs is None:
+        raise HTTPException(status_code=404, detail=_("Activity not found"))
     return templates.TemplateResponse(request, "_aa_inschrijvingen.html", {
         "registrations": regs, "activity_id": activity_id,
         "component_id": component_id,
@@ -871,7 +909,7 @@ def onderdeel_inschrijvingen(activity_id: int, component_id: int, request: Reque
 
     Met één knop op activiteitniveau kreeg je bij twee onderdelen één platte lijst
     waarin niet te zien is wie waarvoor ingeschreven is — de lijst toont het
-    onderdeel nergens per rij. Het filter zit in get_registrations, niet hier (§635).
+    onderdeel nergens per rij. Het filter zit in `registrations_for`, niet hier (§635).
     """
     return _inschrijvingen_lijst(request, db, email, activity_id, component_id)
 
@@ -882,10 +920,10 @@ def inschrijving_verwijderen(activity_id: int, registration_id: int, request: Re
                              component_id: int | None = None,
                              db: Session = Depends(get_db),
                              email: str = Depends(require_admin_ui)):
-    from app.domains.activities.router import delete_registration
+    from app.domains.activities import service
 
-    delete_registration(activity_id, registration_id, db=db,
-                        admin=admin_user_by_email(db, email))
+    if not service.delete_registration(db, activity_id, registration_id, actor=email):
+        raise HTTPException(status_code=404, detail=_("Registration not found"))
     # Dezelfde lijst terug, niet "alle": de knop stond in één bepaalde lijst.
     return _inschrijvingen_lijst(request, db, email, activity_id, component_id)
 
@@ -894,7 +932,13 @@ def inschrijving_verwijderen(activity_id: int, registration_id: int, request: Re
 def onderdeel_export(activity_id: int, component_id: int, request: Request,
                      db: Session = Depends(get_db),
                      email: str = Depends(require_admin_ui)) -> Response:
-    from app.domains.activities.router import export_component_ods
+    from app.domains.activities import service
 
-    return export_component_ods(activity_id, component_id, db=db,
-                                admin=admin_user_by_email(db, email))
+    resultaat = service.component_export(db, activity_id, component_id)
+    if resultaat is None:
+        raise HTTPException(status_code=404, detail=_("Component not found"))
+    inhoud, bestandsnaam = resultaat
+    return Response(
+        content=inhoud,
+        media_type="application/vnd.oasis.opendocument.spreadsheet",
+        headers={"Content-Disposition": f'attachment; filename="{bestandsnaam}"'})

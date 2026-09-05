@@ -503,37 +503,11 @@ def delete_product(
 # ── Registrations ─────────────────────────────────────────────────────────────
 
 def _enrich_registration(reg, activity):
-    """Attach product_name and component_name to each registration item."""
-    product_map = {}
-    comp_map = {c.id: c.name for c in activity.sub_registrations}
-    for comp in activity.sub_registrations:
-        for p in comp.products:
-            product_map[p.id] = (p.name, comp.name)
-    component_name = comp_map.get(reg.component_id) if reg.component_id else None
-    items = []
-    for item in reg.items:
-        pname, cname = product_map.get(item.product_id, (None, component_name))
-        items.append({
-            "id": item.id,
-            "product_id": item.product_id,
-            "quantity": item.quantity,
-            "product_name": pname,
-            "component_name": cname or component_name,
-        })
-    return {
-        "id": reg.id,
-        "activity_id": reg.activity_id,
-        "component_id": reg.component_id,
-        "person_id": reg.person_id,
-        "registered_at": reg.registered_at,
-        "contact_name": reg.contact_name,
-        "contact_email": reg.contact_email,
-        "phone": reg.phone,
-        "team_name": reg.team_name,
-        "payment_method": getattr(reg, "payment_method", None),
-        "remarks": getattr(reg, "remarks", None),
-        "items": items,
-    }
+    """Verrijkte inschrijving zoals het scherm ze toont — implementatie in de
+    service (#679, batch 6)."""
+    from app.domains.activities import service
+
+    return service.enrich_registration(reg, activity)
 
 
 @router.get("/activities/{activity_id}/registrations", response_model=List[RegistrationResponse])
@@ -544,28 +518,13 @@ def get_registrations(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    activity = db.query(Activity).filter(Activity.id == activity_id).first()
-    if not activity:
+    from app.domains.activities import service
+
+    regs = service.registrations_for(db, activity_id, component_id=component_id,
+                                     without_component=without_component)
+    if regs is None:
         raise HTTPException(status_code=404, detail=_("Activity not found"))
-    # Expliciete, stabiele sortering (#285): zonder ORDER BY geeft Postgres de
-    # rijen in heap-volgorde terug, waardoor een bewerkte inschrijving (UPDATE,
-    # bv. opmerking #283) naar onderen springt. Oud → nieuw, id als tiebreaker.
-    vraag = db.query(Registration).filter(Registration.activity_id == activity.id)
-    # #650: het filter hoort hier, niet in het scherm. Twee losse vragen, want ze
-    # zijn niet hetzelfde: één onderdeel, of juist de inschrijvingen die aan GEEN
-    # onderdeel hangen. Die laatste bestaan — component_id is nullable met
-    # ondelete="SET NULL" — en zouden zonder eigen filter via geen enkele knop meer
-    # bereikbaar zijn.
-    if without_component:
-        vraag = vraag.filter(Registration.component_id.is_(None))
-    elif component_id is not None:
-        vraag = vraag.filter(Registration.component_id == component_id)
-    regs = (
-        vraag
-        .order_by(Registration.registered_at.asc(), Registration.id.asc())
-        .all()
-    )
-    return [_enrich_registration(r, activity) for r in regs]
+    return regs
 
 
 # ── OpenDocument-export per onderdeel (#85/#200) ──────────────────────────────
