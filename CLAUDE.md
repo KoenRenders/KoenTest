@@ -31,6 +31,30 @@ App-stack infrastructure that ships with the deployable stack (e.g. the
 `db-backup` service in docker-compose, generic scripts without secrets) may stay
 in the repo, as long as it contains no secrets or personal infra details.
 
+**Wat je uit een draaiende omgeving plakt, maskeer je eerst.** Dit geldt overal
+waar tekst publiek wordt — issues, comments, PR-teksten, commit-berichten, docs —
+en niet enkel voor code. Elk lek dat we tot nu toe gevonden hebben ontstond
+identiek: copy-paste van een crashlog, een `dig`-output, een auditrij of een
+betaalscherm, rechtstreeks in een issue.
+
+| Maskeer altijd | Mag blijven |
+|---|---|
+| IP's, hostnames, poorten van een omgeving | bedragen, aantallen, datums |
+| credentials, connection strings, tokens | interne id's (`inschrijving #3`, `Persoon 90`) |
+| namen van personen, e-mailadressen | rolbenamingen ("de penningmeester") |
+| telefoonnummers, IBAN's, OGM's | tabel-/kolomnamen, foutcodes |
+
+De rechterkolom is precies wat een bevinding bewijskracht geeft — een issue dat
+zegt "gemeten, niet geredeneerd" moet zijn cijfers kunnen tonen. Haal dus de
+*identiteit* weg, niet de meting: laat bij een meting de kolom `naam` /
+`contact_name` bewust weg in plaats van de tabel te schrappen.
+
+Twee dingen om te onthouden als het tóch misgaat: een issue-body bewerken
+**verwijdert niets** — GitHub bewaart de bewerkingsgeschiedenis en die is op een
+publieke repo voor iedereen zichtbaar. En bij een gelekte credential is roteren de
+enige echte fix; maskeren is enkel opruimwerk achteraf. De
+`publieke-repo-bewaker`-agent screent hierop, zowel de diff als de issues.
+
 ## Development workflow
 
 The user runs this after every session:
