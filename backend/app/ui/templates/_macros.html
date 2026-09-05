@@ -590,10 +590,15 @@
    voorouder met x-data="{ open: false }" en een doel-element met id=`target_id`
    (in een tabel: de trigger in de actie-cel, het doel in een detail-<tr> binnen
    dezelfde <tbody x-data>). Zo herbouwt geen enkel scherm de editor zelf. #}
+{# Standaardlabel "Details" en niet "Bewerken" (#676): de macro vouwt een detail
+   open, ze bewerkt niets. Met de oude default stonden er op één scherm twee
+   knoppen met dezelfde naam die iets anders deden — de ene laadt een paneel, de
+   andere schakelt een bewerkstand om. De enige aanroeper gaf zijn label al mee,
+   dus dit raakt vandaag niets; het voorkomt de verwarring op de volgende plek. #}
 {% macro detail_disclosure(load_url, target_id, label="", variant="secondary") -%}
 <button type="button" class="{{ btn_class(variant, 'sm') }}" @click="open = !open"
         hx-get="{{ load_url }}" hx-target="#{{ target_id }}" hx-trigger="click once"
-        :aria-expanded="open">{{ label or _("Bewerken") }}</button>
+        :aria-expanded="open">{{ label or _("Details") }}</button>
 {%- endmacro %}
 
 {# Sectiekop (#509): titel links + optionele primaire actie rechts ("+ …").

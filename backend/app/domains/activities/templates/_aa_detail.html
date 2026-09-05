@@ -125,7 +125,7 @@
     </form>
     <div class="space-y-3">
   {% for c in a.sub_registrations %}
-  <div class="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-4" x-data="{ edit: false, addprod: false }">
+  <div class="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-4" x-data="{ edit: false, addprod: false, insch: false }">
     <div class="flex items-center justify-between">
       <h3 class="font-semibold">{{ c.name }}
         {% if c.team_name_required %}{{ ui.badge(_("ploegnaam"), "blue") }}{% endif %}
@@ -136,8 +136,16 @@
              up_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verplaats" hx-vals=\'{"richting":"omhoog"}\' hx-target="#aa-detail" hx-swap="innerHTML"',
              down_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verplaats" hx-vals=\'{"richting":"omlaag"}\' hx-target="#aa-detail" hx-swap="innerHTML"') }}
         {# #650: de inschrijvingen horen per onderdeel. Detailscherm, dus geen
-           max_visible-plafond op deze rij (Fixed UI decisions). #}
-        {{ ui.btn_secondary(_("Toon inschrijvingen"), attrs='hx-get="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/inschrijvingen" hx-target="#aa-insch-' ~ c.id ~ '" hx-swap="innerHTML"', size="sm") }}
+           max_visible-plafond op deze rij (Fixed UI decisions).
+           #676: een kale hx-get had geen toestand — opnieuw klikken haalde
+           hetzelfde nog eens op en je kreeg de lijst niet meer weg. Nu een echte
+           toggle: `click once` laadt één keer, het label volgt de stand. #}
+        <button type="button" class="{{ ui.btn_class('secondary', 'sm') }}"
+                @click="insch = !insch" :aria-expanded="insch"
+                hx-get="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}/inschrijvingen"
+                hx-target="#aa-insch-{{ c.id }}" hx-swap="innerHTML" hx-trigger="click once">
+          <span x-show="!insch">{{ _("Toon inschrijvingen") }}</span><span x-show="insch" x-cloak>{{ _("Verberg inschrijvingen") }}</span>
+        </button>
         {{ ui.btn_secondary(_("Export"), lead_icon="download", href="/admin/activiteiten/" ~ a.id ~ "/onderdelen/" ~ c.id ~ "/export", size="sm") }}
         <button type="button" class="{{ ui.btn_class('secondary') }}" @click="edit = !edit">
           <span x-show="!edit">{{ _("Bewerken") }}</span><span x-show="edit" x-cloak>{{ _("Annuleren") }}</span>
@@ -250,7 +258,14 @@
         {{ ui.btn_primary(_("Toevoegen")) }}
       </form>
     {% endcall %}
-    <div id="aa-insch-{{ c.id }}"></div>
+    {# #676: de lijst begon zonder kop of scheiding, direct ná het productenpaneel,
+       en las daardoor als een vervolg van de producten. Zelfde omkadering als dat
+       paneel — een genest blok mét eigen kop. #}
+    <div x-show="insch" x-cloak>
+      {% call ui.nested_panel(_("Inschrijvingen")) %}
+        <div id="aa-insch-{{ c.id }}"></div>
+      {% endcall %}
+    </div>
   </div>
   {% endfor %}
   {% if not a.sub_registrations %}
