@@ -1,5 +1,5 @@
 from datetime import date, datetime, timezone
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Optional, Tuple
 from sqlalchemy import distinct, func
 from sqlalchemy.orm import Session
@@ -881,3 +881,141 @@ def enriched_records(db: Session) -> list:
             contact_name=contact_name,
         ))
     return resultaat
+
+
+# ── Schermbewerkingen: één handeling van de penningmeester (#635 I) ───────────
+# De functies hierboven zijn bouwstenen: ze muteren en flushen, maar committen
+# niet, want `reconcile_charges` roept er meerdere na elkaar aan en die reeks moet
+# in één transactie passen.
+#
+# Wat de penningmeester op het scherm doet, is één handeling — en die hoort hier
+# te eindigen, inclusief de commit. Voorheen stond dat in de route, samen met
+# regels die daar niet horen: het omdraaien van het teken bij een terugbetaling en
+# de bovengrens erop stonden in `payment/ui.py`, terwijl ze bepalen hoeveel geld er
+# terugvloeit.
+
+class BetalingFout(ValueError):
+    """Een invoerfout die het scherm als melding toont. Geen HTTPException: de
+    service kent geen HTTP, en de route bepaalt zelf de statuscode."""
+
+
+def _bedrag(tekst: str | None) -> Decimal | None:
+    """Een ingetypt bedrag, of None als er niets ingevuld is.
+
+    Komma én punt zijn toegestaan: op een Belgisch toetsenbord typ je een komma,
+    en dat mag geen foutmelding opleveren.
+    """
+    if not (tekst or "").strip():
+        return None
+    try:
+        return Decimal(tekst.replace(",", "."))
+    except (InvalidOperation, AttributeError):
+        raise BetalingFout("Ongeldig bedrag.")
+
+
+def bevestig_betaling(db: Session, record_id: str, *, note: str | None = None,
+                      amount_paid: str | None = None, actor: str | None = None):
+    """"Bevestig betaald", met optioneel het effectief ontvangen bedrag (#455)."""
+    try:
+        record = confirm_manual_payment(db, record_id, (note or "").strip() or None,
+                                        actor=actor, amount_paid=_bedrag(amount_paid))
+    except ValueError as exc:
+        db.rollback()
+        raise BetalingFout(str(exc)) from exc
+    db.commit()
+    return record
+
+
+def registreer_terugbetaling(db: Session, record_id: str, *, amount: str,
+                             note: str | None = None, actor: str | None = None):
+    """"Terugbetaling registreren" (#617-2b).
+
+    `settled=False`: de terugbetaling ontstaat met een terug te betalen bedrag en
+    een leeg uitbetaald bedrag, precies zoals een vordering ontstaat met een te
+    betalen bedrag en niets ontvangen. Aanmaken en afboeken zijn twee stappen. De
+    service-default blijft True voor andere aanroepers.
+    """
+    bedrag = _bedrag(amount)
+    if bedrag is None:
+        raise BetalingFout("Ongeldig bedrag.")
+    try:
+        refund = create_refund(db, record_id, bedrag, note=(note or "").strip() or None,
+                               actor=actor, settled=False)
+    except ValueError as exc:
+        db.rollback()
+        raise BetalingFout(str(exc)) from exc
+    db.commit()
+    return refund
+
+
+def bewerk_betaling(db: Session, record_id: str, *, status: str | None = None,
+                    amount_paid: str | None = None, note: str | None = None,
+                    actor: str | None = None):
+    """Status, ontvangen bedrag en opmerking in één keer (#515).
+
+    Het minteken op een terugbetaling is een boekhoudkundige interne conventie —
+    zo kloppen de sommen — en dat hoort niemand in te typen. De penningmeester
+    moest letterlijk "-40.00" invoeren, want "40.00" werd geweigerd (#617-2c). Het
+    scherm toont mét teken, je voert in zonder, en hier draait het om. De grens
+    (nooit meer dan het terug te betalen bedrag) hoort bij diezelfde regel.
+    """
+    record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
+    if record is None:
+        raise LookupError("Betaling niet gevonden.")
+
+    bedrag = _bedrag(amount_paid)
+    if bedrag is not None and record.type == "refund":
+        grens = abs(_bedrag(str(record.amount)) or Decimal("0"))
+        if abs(bedrag) > grens:
+            raise BetalingFout(
+                f"Meer dan het terug te betalen bedrag (€ {grens:.2f}).")
+        bedrag = -abs(bedrag)
+
+    try:
+        edit_payment_record(db, record_id, status=(status or "").strip() or None,
+                            amount_paid=bedrag, note=(note or "").strip() or None,
+                            actor=actor)
+    except ValueError as exc:
+        db.rollback()
+        raise BetalingFout(str(exc)) from exc
+    db.commit()
+    return record
+
+
+def ververs_betaalstatus(db: Session, record_id: str, *, actor: str | None = None):
+    """De status bij de betaalprovider ophalen en toepassen — de handmatige
+    tegenhanger van de webhook (#455)."""
+    try:
+        record = refresh_record_status(db, record_id, actor=actor)
+    except ValueError as exc:
+        db.rollback()
+        raise BetalingFout(str(exc)) from exc
+    db.commit()
+    return record
+
+
+def zet_betaalstatus(db: Session, record_id: str, status: str, *,
+                     note: str | None = None, actor: str | None = None):
+    """Vrije statuscorrectie door de penningmeester (#455)."""
+    try:
+        record = set_payment_status(db, record_id, (status or "").strip(), actor=actor,
+                                    note=(note or "").strip() or None)
+    except ValueError as exc:
+        db.rollback()
+        raise BetalingFout(str(exc)) from exc
+    db.commit()
+    return record
+
+
+def verwijder_betaling(db: Session, record_id: str, *, note: str | None = None,
+                       actor: str | None = None):
+    """Soft-delete: uit het saldo, maar bewaard als financieel feit (#455).
+    Corrigeert ook een foute terugbetaling."""
+    try:
+        record = void_payment_record(db, record_id, actor=actor,
+                                     note=(note or "").strip() or None)
+    except ValueError as exc:
+        db.rollback()
+        raise BetalingFout(str(exc)) from exc
+    db.commit()
+    return record

@@ -23,11 +23,31 @@ from app.domains.auth.api import (
 from app.ui import admin_nav, templates
 from app.i18n import _
 from app.domains.payment.api import PaymentRecord
+from app.domains.payment.service import (
+    BetalingFout, bevestig_betaling, bewerk_betaling, registreer_terugbetaling,
+    ververs_betaalstatus, verwijder_betaling, zet_betaalstatus,
+)
 from app.domains.payment.viewmodels import BetalingenView
 
 router = APIRouter(include_in_schema=False)
 
 NAV = admin_nav("/admin/betalingen")
+
+
+def _uitvoeren(bewerking, db: Session, *args, **kwargs):
+    """Voer één schermbewerking uit en vertaal haar fouten naar HTTP.
+
+    De servicelaag kent geen HTTP: ze gooit `BetalingFout` bij een invoerfout en
+    `LookupError` als het record niet bestaat. Deze route is de enige plek waar
+    dat een statuscode wordt (#635 regel 1: de router is de deurwachter, niet de
+    rekenmeester).
+    """
+    try:
+        return bewerking(db, *args, **kwargs)
+    except LookupError as exc:
+        raise HTTPException(status_code=404, detail=str(exc) or _("Betaling niet gevonden."))
+    except BetalingFout as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 def _view(request: Request, db: Session, email: str,
@@ -187,14 +207,8 @@ def betaling_bevestigen(record_id: str, request: Request,
                         db: Session = Depends(get_db),
                         email: str = Depends(require_finance_ui),
                         note: str = Form("")):
-    from app.domains.payment.api import confirm_manual_payment
-
     require_finance_mutation(db, email)
-    try:
-        confirm_manual_payment(db, record_id, note.strip() or None, actor=email)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    db.commit()
+    _uitvoeren(bevestig_betaling, db, record_id, note=note, actor=email)
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
                                       _view(request, db, email).as_context())
 
@@ -204,24 +218,9 @@ def betaling_bevestigen(record_id: str, request: Request,
 def betaling_refund(record_id: str, request: Request, db: Session = Depends(get_db),
                     email: str = Depends(require_finance_ui),
                     amount: str = Form(""), note: str = Form("")):
-    from app.domains.payment.api import create_refund
-
     require_finance_mutation(db, email)
-    try:
-        bedrag = Decimal(amount.replace(",", "."))
-    except (InvalidOperation, AttributeError):
-        raise HTTPException(status_code=400, detail=_("Ongeldig bedrag."))
-    try:
-        # settled=False (#617-2b): de refund ontstaat met een terug te betalen bedrag
-        # en een LEEG uitbetaald bedrag, precies zoals een charge ontstaat met een te
-        # betalen bedrag en niets ontvangen. De service-default is True — die blijft,
-        # want andere aanroepers gebruiken hem — maar de admin-UI geeft nooit meer
-        # True mee: aanmaken en afboeken zijn twee stappen.
-        create_refund(db, record_id, bedrag, note=note.strip() or None, actor=email,
-                      settled=False)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    db.commit()
+    _uitvoeren(registreer_terugbetaling, db, record_id, amount=amount, note=note,
+               actor=email)
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
                                       _view(request, db, email).as_context())
 
@@ -232,21 +231,9 @@ def betaling_bijwerken(record_id: str, request: Request, db: Session = Depends(g
                        email: str = Depends(require_finance_ui),
                        amount_paid: str = Form(""), note: str = Form("")):
     """Betaald bedrag invullen + als betaald bevestigen (#455)."""
-    from app.domains.payment.api import confirm_manual_payment
-
     require_finance_mutation(db, email)
-    bedrag = None
-    if amount_paid.strip():
-        try:
-            bedrag = Decimal(amount_paid.replace(",", "."))
-        except (InvalidOperation, AttributeError):
-            raise HTTPException(status_code=400, detail=_("Ongeldig bedrag."))
-    try:
-        confirm_manual_payment(db, record_id, note.strip() or None,
-                               actor=email, amount_paid=bedrag)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    db.commit()
+    _uitvoeren(bevestig_betaling, db, record_id, note=note, amount_paid=amount_paid,
+               actor=email)
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
                                       _view(request, db, email).as_context())
 
@@ -261,37 +248,12 @@ def betaling_bewerken(record_id: str, request: Request, db: Session = Depends(ge
     form, voor charges én refunds (zo registreer je op een refund de effectief
     uitbetaalde som). Hergebruikt de gedeelde service-regel `edit_payment_record`,
     zodat de admin-UI en de JSON-API dezelfde validatie delen."""
-    from app.domains.payment.api import edit_payment_record
-
     require_finance_mutation(db, email)
-    record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
-    if record is None:
-        raise HTTPException(status_code=404, detail=_("Betaling niet gevonden."))
-
-    bedrag = None
-    if amount_paid.strip():
-        try:
-            bedrag = Decimal(amount_paid.replace(",", "."))
-        except (InvalidOperation, AttributeError):
-            raise HTTPException(status_code=400, detail=_("Ongeldig bedrag."))
-        if record.type == "refund":
-            # Tonen mét teken, invoeren zonder (#617-2c). Het negatieve teken is een
-            # boekhoudkundige interne conventie zodat sommen kloppen — dat hoort
-            # niemand in te typen. De penningmeester moest letterlijk "-40.00"
-            # invoeren, want "40.00" werd geweigerd. De servicelaag en haar grenzen
-            # ([amount, 0]) blijven ongewijzigd; de invariant-tests hangen daaraan.
-            grens = abs(Decimal(str(record.amount)))
-            if abs(bedrag) > grens:
-                raise HTTPException(status_code=400, detail=_(
-                    "Meer dan het terug te betalen bedrag (€ %(bedrag)s)."
-                ) % {"bedrag": f"{grens:.2f}"})
-            bedrag = -abs(bedrag)
-    try:
-        edit_payment_record(db, record_id, status=status.strip() or None,
-                            amount_paid=bedrag, note=note.strip() or None, actor=email)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    db.commit()
+    # Het omdraaien van het teken bij een terugbetaling en de bovengrens erop
+    # stonden hier; ze bepalen hoeveel geld er terugvloeit en horen dus in de
+    # service (#635-I).
+    _uitvoeren(bewerk_betaling, db, record_id, status=status,
+               amount_paid=amount_paid, note=note, actor=email)
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
                                       _view(request, db, email).as_context())
 
@@ -301,14 +263,8 @@ def betaling_bewerken(record_id: str, request: Request, db: Session = Depends(ge
 def betaling_verversen(record_id: str, request: Request, db: Session = Depends(get_db),
                        email: str = Depends(require_finance_ui)):
     """Mollie-status ophalen en toepassen (handmatige tegenhanger van de webhook, #455)."""
-    from app.domains.payment.api import refresh_record_status
-
     require_finance_mutation(db, email)
-    try:
-        refresh_record_status(db, record_id, actor=email)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    db.commit()
+    _uitvoeren(ververs_betaalstatus, db, record_id, actor=email)
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
                                       _view(request, db, email).as_context())
 
@@ -319,15 +275,8 @@ def betaling_status(record_id: str, request: Request, db: Session = Depends(get_
                     email: str = Depends(require_finance_ui),
                     status: str = Form(...), note: str = Form("")):
     """Vrije status-correctie door de penningmeester (#455)."""
-    from app.domains.payment.api import set_payment_status
-
     require_finance_mutation(db, email)
-    try:
-        set_payment_status(db, record_id, status.strip(), actor=email,
-                           note=note.strip() or None)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    db.commit()
+    _uitvoeren(zet_betaalstatus, db, record_id, status, note=note, actor=email)
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
                                       _view(request, db, email).as_context())
 
@@ -339,13 +288,7 @@ def betaling_verwijderen(record_id: str, request: Request, db: Session = Depends
                          note: str = Form("")):
     """Betaal-/terugbetaalrecord verwijderen (soft-delete, uit het saldo, #455).
     Corrigeert ook een foute refund."""
-    from app.domains.payment.api import void_payment_record
-
     require_finance_mutation(db, email)
-    try:
-        void_payment_record(db, record_id, actor=email, note=note.strip() or None)
-    except ValueError as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-    db.commit()
+    _uitvoeren(verwijder_betaling, db, record_id, note=note, actor=email)
     return templates.TemplateResponse(request, "_betalingen_lijst.html",
                                       _view(request, db, email).as_context())

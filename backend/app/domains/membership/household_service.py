@@ -22,14 +22,6 @@ from sqlalchemy import and_, func, or_
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 from app.config import settings
-from app.domains.audit.api import (
-    snapshot_address,
-    snapshot_contact_detail,
-    snapshot_member,
-    snapshot_member_person,
-    snapshot_membership,
-    snapshot_person,
-)
 from app.domains.mdm.api import (Address, ContactDetail, Member, MemberPerson,
                                  Person, PostalCode)
 from app.domains.membership.models import Membership
@@ -459,3 +451,20 @@ def assign_board_member(
     db.commit()
     db.refresh(member)
     return _build_family_response(member)
+
+
+# ── Onderaan, en dat is opzet ────────────────────────────────────────────────
+# `audit/service.py` importeert op modulniveau `MembershipHistory` uit
+# `membership/api.py`, dat op zijn beurt deze module importeert. Staat de
+# audit-import bovenaan, dan begint die keten vóórdat de functies hieronder
+# bestaan en klapt hij op een "partially initialized module". Onderaan zijn ze er
+# wel, en lost de cyclus zichzelf op. De functies zoeken deze namen pas op wanneer
+# ze aangeroepen worden, dus qua gedrag verandert er niets.
+from app.domains.audit.api import (  # noqa: E402
+    snapshot_address,
+    snapshot_contact_detail,
+    snapshot_member,
+    snapshot_member_person,
+    snapshot_membership,
+    snapshot_person,
+)
