@@ -71,13 +71,23 @@ def test_zonder_de_filterbalk_wordt_er_niets_geduwd(client, db_session):
 
 @pytest.mark.parametrize("stand,verborgen", [
     ("context=membership", "35.00"),
-    ("status=paid", "20.00"),
-    ("q=zzz-bestaat-niet", "20.00"),
+    ("status=pending", "35.00"),
+    ("q=zzz-bestaat-niet", "35.00"),
 ])
 def test_de_filterstand_overleeft_een_mutatie(client, db_session, stand, verborgen):
     """Alle drie de filters lopen via dezelfde weg: werkt er één en de andere niet,
-    dan is de fix half."""
-    lid, _insch = _twee_records(db_session)
+    dan is de fix half.
+
+    Er wordt gemuteerd op het lidmaatschap-record en gecontroleerd dat het
+    INSCHRIJVINGS-record wegblijft. Andersom zou de test zichzelf voor de gek
+    houden: bevestigen zet dat record op `paid`, dus onder `status=paid` hoort het
+    er dan juist wél te staan.
+    """
+    lid, insch = _twee_records(db_session)
+    # De inschrijvingsbetaling valt buiten elk van de drie filters hierboven.
+    insch.status = "paid"
+    insch.amount_paid = insch.amount
+    db_session.commit()
     csrf = _login(client, db_session)
 
     r = client.post(f"/admin/betalingen/{lid.id}/bevestigen",

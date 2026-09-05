@@ -27,6 +27,34 @@ def open_tasks(db: Session, roles: Sequence[str]) -> list[WorkflowTask]:
     )
 
 
+def tasks(db: Session, roles: Sequence[str], *, status: str = "open") -> list[WorkflowTask]:
+    """Taken voor deze rollen, gefilterd op status (#674).
+
+    Bewust NAAST `open_tasks` en niet in de plaats ervan. Die functie is meer dan
+    een lijst voor het scherm: `payment/handlers.py` gebruikt haar voor de
+    idempotentie van de weesjob — hij vergelijkt titels van OPEN taken om er geen
+    tweede aan te maken — en de navigatieteller telt eruit. Verruim je haar naar
+    alle statussen, dan maakt de weesjob geen taken meer aan en klopt de teller
+    niet. Twee gebruikers met twee verschillende vragen, dus twee functies.
+
+    `status="all"` toont beide. De rolfilter geldt altijd, óók op afgehandelde
+    taken: een FINANCE-taak mag na het sluiten niet alsnog bij een gewone admin
+    opduiken.
+
+    Afgehandelde taken staan nieuwste eerst — je zoekt wat je net deed. Open taken
+    houden hun oudste-eerst, want daar is wachttijd het criterium.
+    """
+    vraag = db.query(WorkflowTask).filter(
+        WorkflowTask.required_role.in_(list(roles) or [""]))
+    if status in ("open", "done"):
+        vraag = vraag.filter(WorkflowTask.status == status)
+    if status == "done":
+        return vraag.order_by(WorkflowTask.done_at.desc().nullslast(),
+                              WorkflowTask.created_at.desc()).all()
+    return vraag.order_by(WorkflowTask.status,
+                          WorkflowTask.created_at).all()
+
+
 def open_count(db: Session, roles: Sequence[str]) -> int:
     return (
         db.query(WorkflowTask)

@@ -15,6 +15,15 @@
      #werkbank-lijst, vanaf de detailpagina een HX-Redirect terug naar de werkbank —
      de taak is daar dan immers weg. Zo hangt het fragment niet meer af van wie
      het opneemt. #}
+  {% if task.status == "done" %}
+  {# #674: een afgehandelde taak toont haar besluit, niet opnieuw het formulier. #}
+  <dl class="space-y-1">
+    <div class="flex gap-2 text-sm"><dt class="font-medium text-gray-600 w-32 shrink-0">{{ _("Besluit") }}</dt>
+      <dd class="whitespace-pre-wrap">{{ task.decision or _("Geen besluit genoteerd") }}</dd></div>
+    <div class="flex gap-2 text-sm"><dt class="font-medium text-gray-600 w-32 shrink-0">{{ _("Afgehandeld door") }}</dt>
+      <dd>{{ task.done_by or "—" }}{% if task.done_at %} · {{ task.done_at.strftime("%d-%m-%Y %H:%M") }}{% endif %}</dd></div>
+  </dl>
+  {% else %}
   <form hx-post="/admin/werkbank/taken/{{ task.id }}/afgehandeld" hx-target="this" hx-swap="outerHTML" class="flex gap-3 items-end">
     {% if standalone %}<input type="hidden" name="standalone" value="1">{% endif %}
     <div class="grow">
@@ -23,6 +32,7 @@
     </div>
     {{ ui.btn_primary(_("Afgehandeld")) }}
   </form>
+  {% endif %}
 </div>
 {% else %}
 {{ ui.empty_state(_("Taak niet gevonden (mogelijk al afgehandeld).")) }}

@@ -127,8 +127,10 @@
   {# #673: een tweede vordering op dezelfde inschrijving springt in, maar met een
      ANDERE markering dan een terugbetaling: die hangt met refund_of_id écht aan
      haar charge, twee vorderingen zijn broers op dezelfde inschrijving. Een
-     linkerrand en het woord "Bijkomend" zeggen "hoort erbij", geen "hangt onder". #}
-  <div class="rounded-2xl border p-4 {{ 'bg-gray-50 border-dashed border-gray-300' if kaart.is_context else 'bg-white shadow-sm border-gray-200' }}{{ ' ml-4 border-l-4 border-l-gray-300' if kaart.is_extra else '' }}"{% if is_finance and not kaart.is_context %} x-data="{ bewerk: false, terug: false }"{% endif %}>
+     diepere inspringing (ml-6 tegen ml-4) plus een eigen regel tekst zeggen "hoort
+     erbij", geen "hangt onder". Bewust geen linkerrand: `border-l-4` is de
+     statusstreep die #596 wegnam, en die regel erodeer ik niet voor een streepje. #}
+  <div class="rounded-2xl border p-4 {{ 'bg-gray-50 border-dashed border-gray-300' if kaart.is_context else 'bg-white shadow-sm border-gray-200' }}{{ ' ml-6' if kaart.is_extra else '' }}"{% if is_finance and not kaart.is_context %} x-data="{ bewerk: false, terug: false }"{% endif %}>
     {% if kaart.is_context %}<p class="text-xs text-gray-500 mb-1">{{ _("Ter context — valt buiten het filter") }}</p>{% endif %}
     {% if kaart.is_extra %}<p class="text-xs text-gray-500 mb-1">{{ _("Bijkomende vordering op dezelfde inschrijving") }}</p>{% endif %}
     {{ kaartkop(kaart) }}

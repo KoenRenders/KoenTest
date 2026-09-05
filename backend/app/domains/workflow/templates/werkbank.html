@@ -12,17 +12,21 @@
    record-editor — wél dezelfde zoek- en filterconventie, live via htmx. #}
 {% call ui.filter_bar("/admin/werkbank/lijst", "#werkbank-lijst") %}
   <div>{{ ui.search(value=q, placeholder=_('Zoek op taak of onderwerp…'), standalone=False) }}</div>
-  {% if filter_groups %}
   <div class="flex flex-wrap items-center gap-3">
+    {% if filter_groups %}
     {{ ui.grouped_filter("kind", filter_top, filter_groups, current=kind) }}
+    {% endif %}
+    {# #674: afgehandelde taken waren nergens terug te vinden terwijl het besluit,
+       wie en wanneer bewaard blijven. Een filter hier in plaats van een apart
+       scherm: de werkbank heeft de balk en de categorie-indeling al. #}
+    {{ ui.chips("status", status_opties, current=status) }}
   </div>
-  {% endif %}
 {% endcall %}
 
 {# De lijst blijft zichzelf elke 30 s verversen (§20.5) en stuurt daarbij de
    actieve zoek- en filterwaarden mee, zodat de polling het filter niet wist. #}
 <div id="werkbank-lijst" hx-get="/admin/werkbank/lijst" hx-trigger="every 30s" hx-swap="innerHTML"
-     hx-include="[name='kind'], [name='q']">
+     hx-include="[name='kind'], [name='q'], [name='status']">
   {% include "_werkbank_lijst.html" %}
 </div>
 {% endblock %}
