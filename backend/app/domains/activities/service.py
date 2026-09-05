@@ -99,3 +99,21 @@ def activity_options(db) -> list[ActivityOption]:
              .all())
     return [ActivityOption(id=rij[0], name=rij[1], first_date=rij[2])
             for rij in rijen]
+
+
+def registrations_without_component_count(db, activity_id: int) -> int:
+    """Inschrijvingen op deze activiteit die aan geen enkel onderdeel hangen (#650).
+
+    `Registration.component_id` is nullable met `ondelete="SET NULL"`: verwijder je
+    een onderdeel, dan blijven de inschrijvingen bestaan, maar zonder onderdeel.
+    Staat de knop "Toon inschrijvingen" enkel per onderdeel, dan zijn ze via geen
+    enkele knop meer te bereiken — onzichtbaar terwijl ze in de databank staan.
+    Dit getal bepaalt of het scherm daar een aparte kaart voor toont.
+
+    De soft-delete- en tenantfilters komen van `with_loader_criteria`, dus een
+    geschrapte inschrijving telt niet mee.
+    """
+    return (db.query(func.count(Registration.id))
+            .filter(Registration.activity_id == activity_id,
+                    Registration.component_id.is_(None))
+            .scalar() or 0)

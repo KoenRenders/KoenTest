@@ -58,7 +58,13 @@
     {% for d in a.dates %}
     <div class="text-sm py-1 border-b border-gray-100" x-data="{ edit: false }">
       <div class="flex items-center justify-between">
-        <span>{{ d.start_date.strftime("%d-%m-%Y") }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date.strftime("%d-%m-%Y") }}{% endif %}{% if d.start_time %} · {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %}–{{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}</span>
+        {# #648: de leesregel verdween niet, dus stond dezelfde datum twee keer op
+           het scherm — één keer als tekst, één keer in de invulvelden eronder.
+           Patroon van het adresblok (#639): leesregel weg, korte vervangtekst in
+           haar plaats, knop blijft staan. De x-show hoort op de leesregel, NIET op
+           het knoppenblok — dat laatste was precies de fout die #639 wegwerkte. #}
+        <span x-show="!edit">{{ d.start_date.strftime("%d-%m-%Y") }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date.strftime("%d-%m-%Y") }}{% endif %}{% if d.start_time %} · {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %}–{{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}</span>
+        <span x-show="edit" x-cloak class="text-gray-500">{{ _("Datum bewerken") }}</span>
         <div class="flex gap-2">
           {{ ui.edit_toggle("edit") }}
           {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/datums/' ~ d.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML"', confirm=_("Datum verwijderen?")) }}
@@ -124,6 +130,9 @@
         {{ ui.reorder(
              up_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verplaats" hx-vals=\'{"richting":"omhoog"}\' hx-target="#aa-detail" hx-swap="innerHTML"',
              down_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verplaats" hx-vals=\'{"richting":"omlaag"}\' hx-target="#aa-detail" hx-swap="innerHTML"') }}
+        {# #650: de inschrijvingen horen per onderdeel. Detailscherm, dus geen
+           max_visible-plafond op deze rij (Fixed UI decisions). #}
+        {{ ui.btn_secondary(_("Toon inschrijvingen"), attrs='hx-get="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/inschrijvingen" hx-target="#aa-insch-' ~ c.id ~ '" hx-swap="innerHTML"', size="sm") }}
         {{ ui.btn_secondary(_("Export"), lead_icon="download", href="/admin/activiteiten/" ~ a.id ~ "/onderdelen/" ~ c.id ~ "/export", size="sm") }}
         <button type="button" class="{{ ui.btn_class('secondary') }}" @click="edit = !edit">
           <span x-show="!edit">{{ _("Bewerken") }}</span><span x-show="edit" x-cloak>{{ _("Annuleren") }}</span>
@@ -172,10 +181,11 @@
       {% for p in c.products %}
       <div class="border-t border-gray-100 py-1" x-data="{ ed: false }">
         <div class="flex items-center justify-between text-sm">
-          <span>{{ p.name }} ·
+          <span x-show="!ed">{{ p.name }} ·
             {% if p.pay_on_site %}{{ _("ter plaatse") }}{% elif p.is_free or p.price == 0 %}{{ _("gratis") }}{% else %}€{{ "%.2f"|format(p.price) }}{% if p.member_price is not none %} / leden €{{ "%.2f"|format(p.member_price) }}{% endif %}{% endif %}
             {% if p.max_participants %} · max {{ p.max_participants }}{% endif %}
           </span>
+          <span x-show="ed" x-cloak class="text-gray-500">{{ _("Product bewerken") }}</span>
           <div class="flex gap-2">
             {{ ui.reorder(
                  up_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verplaats" hx-vals=\'{"richting":"omhoog"}\' hx-target="#aa-detail" hx-swap="innerHTML"',
@@ -226,17 +236,32 @@
         {{ ui.btn_primary(_("Toevoegen")) }}
       </form>
     {% endcall %}
+    <div id="aa-insch-{{ c.id }}"></div>
   </div>
   {% endfor %}
+  {% if not a.sub_registrations %}
+    {# #637/#650: zonder onderdelen was deze sectie visueel leeg, waardoor de
+       Inschrijvingen-kaart eronder als een onderdeel las. En het verklaart
+       meteen waarom er publiek geen inschrijfknop staat. #}
+    {{ ui.empty_state(_("Nog geen onderdelen. Voeg er een toe om inschrijven mogelijk te maken.")) }}
+  {% endif %}
     </div>
   </div>
 
-  {# Inschrijvingen #}
+  {# Inschrijvingen zonder onderdeel (#650) — enkel als ze bestaan.
+
+     Registration.component_id is nullable met ondelete="SET NULL": verwijder je
+     een onderdeel, dan blijven zijn inschrijvingen bestaan zonder onderdeel. Met
+     de knop enkel per onderdeel zouden die via geen enkele knop meer bereikbaar
+     zijn — onzichtbaar terwijl ze in de databank staan. Bij een normale
+     activiteit staat deze kaart er dus niet, en dát was de gemelde spookkaart. #}
+  {% if inschrijvingen_zonder_onderdeel %}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
     <div class="flex items-center justify-between mb-2">
-      <h3 class="font-semibold">{{ _("Inschrijvingen") }}</h3>
+      <h3 class="font-semibold">{{ _("Inschrijvingen zonder onderdeel") }}</h3>
       {{ ui.btn_secondary(_("Toon inschrijvingen"), attrs='hx-get="/admin/activiteiten/' ~ a.id ~ '/inschrijvingen" hx-target="#aa-inschrijvingen" hx-swap="innerHTML"') }}
     </div>
     <div id="aa-inschrijvingen"></div>
   </div>
+  {% endif %}
 </div>

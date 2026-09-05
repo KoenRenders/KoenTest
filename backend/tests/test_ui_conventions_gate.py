@@ -75,6 +75,15 @@ Vier regels, elk met een reden:
    preflight-hoogte en staat hij ~15px lager dan het zoekveld ernaast; dat gaf
    scheve filterbalken op zeven schermen (#611). Gebruik `ui.select_control()`,
    `ui.grouped_filter()` of `ui.field_select()`.
+26. **Het verplicht-sterretje komt uit `label(required=…)`**, niet uit de labeltekst
+    (#646). In de tekst erft het `text-gray-700` en staat er grijs naast een rood
+    sterretje van een veld dat de parameter wél gebruikt.
+27. **Een KPI-cijfer draagt `font-brand` en geen eigen kleurklasse** (#647). Twee
+    van de zes stonden in `text-blue-700` en één miste het merkfont; op één scherm
+    stond een blauw cijfer naast een zwart. Het design-systeem legt voor KPI's
+    alleen het gewicht vast en laat blauw enkel toe als tegelACHTERGROND — een
+    kleur op het cijfer zelf staat nergens. De kleur van een dashboardtegel zit op
+    de tegel, niet op het cijfer, en blijft dus toegestaan.
 
 Uitzonderingen staan expliciet in ALLOWLIST, met reden — zoals de allowlists in
 de andere gates: een regel toevoegen mag, maar niet stilzwijgend.
@@ -107,6 +116,16 @@ GLYPH_KNOP = re.compile(r'btn_(?:danger|secondary|primary|outline)\(\s*"([^"\w\s
 # Metadata-emoji (#638). Zelfde klasse als de ⬇⬆📄-glyphs uit #593: ze horen als
 # ui.icon() in de kit, niet als tekstteken in een template.
 METADATA_GLYPH = re.compile("[\u2709\u260e\U0001f4f1\U0001f4cd\U0001f5d3]")
+# Verplicht-sterretje in de labeltekst i.p.v. via label(required=…) — #646.
+# `[^)]*` zou hier NIET werken: `label(_("E-mail") ~ …)` bevat zelf al een
+# sluithaakje van `_()`, dus de zoektocht stopt vóór het sterretje.
+STERRETJE_IN_LABEL_CALL = re.compile(r'\blabel\([^\n]*["\']\s*\*')
+RODE_SPAN = re.compile(r'<span class="text-red-600">.*?</span>')
+# Een KPI-cijfer herken je aan font-extrabold: §Weight reserveert dat gewicht voor
+# de paginatitel, de KPI-cijfers en het woordmerk, en die eerste twee dragen
+# font-bold. In deze codebase is font-extrabold dus exact de KPI-cijfers (#647).
+KPI_CIJFER = re.compile(r"\bfont-extrabold\b")
+KLEURKLASSE = re.compile(r"\btext-(?:[a-z]+-\d{2,3}|white|black)\b")
 
 
 def _overtredingen(patroon: re.Pattern, *, negeer_root: bool = False):
@@ -686,4 +705,72 @@ def test_submit_heet_opslaan():
                 fouten.append(f"{pad.relative_to(APP)}:{nr}: {m.group(1)!r}")
     assert not fouten, (
         'Een admin-submit heet "Opslaan" (§2.12):\n  ' + "\n  ".join(fouten)
+    )
+
+
+def test_het_verplicht_sterretje_zit_niet_in_de_labeltekst():
+    """Het sterretje hoort uit `label(required=…)` te komen, niet uit de tekst (#646).
+
+    Plak je het sterretje aan de labeltekst — `label(_("E-mail") ~ (" *" if
+    hoofdlid else ""), …)` — dan staat het bínnen het label-element en erft het
+    `text-gray-700`. Naast een veld dat de parameter wél gebruikt, zie je dan twee
+    kleuren sterretje op één rij. Precies dat meldde Koen op /lid-worden: Voornaam
+    en Achternaam rood, E-mail en GSM grijs.
+
+    Het is een regel-vormige afwijking (regex-detecteerbaar, vier keer dezelfde
+    fout), dus ze hoort hier en niet in een handmatige controle per release.
+    B2-conventie 2, docs/ui-conventies.md:383: rood, overal.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        tekst = _zonder_commentaar(pad)
+        for nr, regel in enumerate(tekst.splitlines(), 1):
+            # (a) het sterretje als string in een label()-aanroep
+            if STERRETJE_IN_LABEL_CALL.search(regel):
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:100]}")
+                continue
+            # (b) handgeschreven <label>-markup met een sterretje buiten de rode
+            # span — dezelfde fout, zonder de macro.
+            if "<label" in regel and "*" in RODE_SPAN.sub("", regel):
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:100]}")
+    assert not fouten, (
+        "Geef het sterretje mee als ui.label(..., required=<bool>) — de parameter is\n"
+        "een boolean, dus een vlag kan er rechtstreeks in:\n  " + "\n  ".join(fouten)
+    )
+
+
+def test_kpi_cijfers_zijn_gelijkvormig():
+    """Zes KPI-cijfers, zes keer dezelfde opmaak: `text-3xl font-extrabold font-brand` (#647).
+
+    Op /admin/activiteiten stond "Open inschrijvingen" in `text-blue-700` naast
+    "Volzette onderdelen" in zwart; /admin/leden deed hetzelfde met Gezinnen. Het
+    design-systeem legt voor KPI's alleen het **gewicht** vast (§Weight: extra-bold
+    voor paginatitel, KPI-cijfers en het woordmerk) en noemt blauw enkel als
+    tegel*achtergrond* (`blue-50 (KPI tiles)`). Een kleur op het cijfer zelf is
+    ongedocumenteerd; de geërfde inktkleur is de bedoeling.
+
+    Twee regels dus: geen kleurklasse op het cijfer, en wél `font-brand` — dat
+    laatste ontbrak op het dashboard, waardoor hetzelfde soort cijfer daar in Inter
+    stond en elders in Radio Canada Big.
+
+    Bewust buiten scope: de dashboardtegels dragen hun kleur op de tegel
+    (`bg-blue-50 text-blue-700` op de <a>), niet op het cijfer. Dat is de
+    gedocumenteerde vorm en blijft staan — deze regel kijkt enkel naar de regel
+    waarop het cijfer zelf staat.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        tekst = _zonder_commentaar(pad)
+        for nr, regel in enumerate(tekst.splitlines(), 1):
+            if not KPI_CIJFER.search(regel):
+                continue
+            plek = f"{pad.relative_to(APP)}:{nr}"
+            kleuren = [k for k in KLEURKLASSE.findall(regel)]
+            if kleuren:
+                fouten.append(f"{plek}: kleurklasse op het cijfer: {kleuren}")
+            if "font-brand" not in regel:
+                fouten.append(f"{plek}: font-brand ontbreekt")
+    assert not fouten, (
+        "Een KPI-cijfer is `text-3xl font-extrabold font-brand`, zonder eigen kleur:\n  "
+        + "\n  ".join(fouten)
     )

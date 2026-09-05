@@ -115,7 +115,11 @@ def test_admin_inschrijvingen_en_export(client, db_session):
                 data={"contact_name": "Jef", "contact_email": "jef@example.com",
                       "phone": "047", f"product_{product.id}": "1",
                       "payment_method": "OVERSCHRIJVING"})
-    lijst = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen")
+    # #650: de lijst hangt aan het onderdeel, niet meer aan de activiteit — anders
+    # zie je bij meerdere onderdelen niet waarvoor iemand ingeschreven is. Het
+    # activiteitniveau toont sindsdien enkel de inschrijvingen zónder onderdeel.
+    lijst = client.get(
+        f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}/inschrijvingen")
     assert lijst.status_code == 200 and "Jef" in lijst.text
     # #510: elke rij heeft nu een "Bewerken" die de gedeelde editor in-lijn laadt
     # (detail_disclosure → /admin/inschrijvingen/{id}), naast "Verwijder".

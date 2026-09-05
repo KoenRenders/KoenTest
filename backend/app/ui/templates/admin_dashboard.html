@@ -6,7 +6,7 @@
 <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
   {% for label, waarde, kleur, href in tegels %}
   <a href="{{ href }}" class="block rounded-xl p-5 transition hover:shadow-md hover:brightness-95 {{ kleur }}">
-    <div class="text-3xl font-extrabold">{{ waarde }}</div>
+    <div class="text-3xl font-extrabold font-brand">{{ waarde }}</div>
     <div class="text-sm font-medium mt-1">{{ label }}</div>
   </a>
   {% endfor %}
