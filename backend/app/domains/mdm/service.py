@@ -129,3 +129,34 @@ def form_code_lists(db) -> dict:
             db.query(RelationTypeCode).order_by(RelationTypeCode.code).all()),
         "postal_codes": db.query(PostalCode).order_by(PostalCode.postal_code).all(),
     }
+
+
+def admin_code_lists(db) -> dict:
+    """Geslacht en relatietype voor de beheerformulieren.
+
+    Nederlandstalige rijen als die er zijn, anders alles: de codetabellen zijn
+    per taal gevuld en een lege keuzelijst is erger dan een Engelstalige. Daarna
+    ontdubbelen op code, want dezelfde code bestaat per taal.
+    """
+    from app.domains.mdm.models import GenderCode, RelationTypeCode
+
+    genders = (db.query(GenderCode).filter(GenderCode.language == "nl").all()
+               or db.query(GenderCode).all())
+    relations = (db.query(RelationTypeCode)
+                 .filter(RelationTypeCode.language == "nl").all()
+                 or db.query(RelationTypeCode).all())
+    return {"gender_codes": _uniek_op_code(genders),
+            "relation_types": _uniek_op_code(relations)}
+
+
+def list_persons(db):
+    """Alle personen, op naam — voor de keuzelijst 'bestaand lid toevoegen'."""
+    from app.domains.mdm.models import Person
+
+    return db.query(Person).order_by(Person.last_name, Person.first_name).all()
+
+
+def list_postal_codes(db):
+    from app.domains.mdm.models import PostalCode
+
+    return db.query(PostalCode).order_by(PostalCode.postal_code).all()

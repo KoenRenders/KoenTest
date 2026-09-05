@@ -18,7 +18,6 @@ from app.domains.auth.api import (
     admin_user_by_email, csrf_from_request,
     SESSION_COOKIE, User, csrf_token_for, require_admin_ui, require_csrf,
 )
-from app.domains.mdm.models import GenderCode, Person, RelationTypeCode, PostalCode
 from app.ui import admin_nav, is_fragment_request, templates
 from app.domains.mdm.viewmodels import LedenView
 from app.i18n import _
@@ -29,28 +28,15 @@ NAV = admin_nav("/admin/leden")
 
 
 def _codes(db: Session) -> dict:
-    genders = (db.query(GenderCode).filter(GenderCode.language == "nl").all()
-               or db.query(GenderCode).all())
-    relations = (db.query(RelationTypeCode).filter(RelationTypeCode.language == "nl").all()
-                 or db.query(RelationTypeCode).all())
-    # Ontdubbel op code (codes bestaan per taal).
-    def _uniq(rows):
-        seen, out = set(), []
-        for r in rows:
-            if r.code not in seen:
-                seen.add(r.code)
-                out.append(r)
-        return out
-    return {"gender_codes": _uniq(genders), "relation_types": _uniq(relations)}
+    from app.domains.mdm.api import admin_code_lists
+
+    return admin_code_lists(db)
 
 
 def _lidmaatschapsjaren(db: Session) -> list[int]:
-    """De jaren die écht in de data zitten (#582): de dropdown is data-gedreven,
-    net als op Betalingen — geen hardgecodeerde reeks die na nieuwjaar niet klopt."""
-    from app.domains.membership.api import Membership
+    from app.domains.membership.api import membership_years
 
-    return [j for (j,) in db.query(Membership.year).distinct()
-            .order_by(Membership.year.desc()).all() if j]
+    return membership_years(db)
 
 
 def _kpi(db: Session) -> dict:
@@ -111,9 +97,10 @@ def _detail_ctx(request: Request, db: Session, family_id: int) -> dict:
     from app.domains.membership.api import get_family
 
     family = get_family(db, family_id)
-    persons = (db.query(Person)
-               .order_by(Person.last_name, Person.first_name).all())
-    postal_codes = db.query(PostalCode).order_by(PostalCode.postal_code).all()
+    from app.domains.mdm.api import list_persons, list_postal_codes
+
+    persons = list_persons(db)
+    postal_codes = list_postal_codes(db)
     hoofdlid = next((m for m in family.members
                      if (m.relation_type or "").upper() == "HOOFDLID"),
                     family.members[0] if family.members else None)
@@ -220,7 +207,6 @@ def persoon_opslaan(family_id: int, person_id: int, request: Request,
     from app.domains.membership.api import set_relation_type
 
     set_relation_type(db, family_id, person_id, relation_type)
-    db.commit()
     return _detail_response(request, db, family_id)
 
 
@@ -243,7 +229,6 @@ def adres_opslaan(family_id: int, request: Request, db: Session = Depends(get_db
         street=street.strip(), house_number=house_number.strip(),
         bus_number=bus_number.strip() or None, postal_code=postal_code.strip(),
     ), admin=admin_user_by_email(db, email))
-    db.commit()
     return _detail_response(request, db, family_id)
 
 
@@ -264,7 +249,6 @@ def persoon_toevoegen(family_id: int, request: Request, db: Session = Depends(ge
         email=contact_email.strip() or None, phone=phone.strip() or None,
         mobile=mobile.strip() or None, relation_type=relation_type,
     ), admin=admin_user_by_email(db, email))
-    db.commit()
     return _detail_response(request, db, family_id)
 
 
@@ -276,7 +260,6 @@ def persoon_verwijderen(family_id: int, person_id: int, request: Request,
     from app.domains.membership.api import delete_person
 
     delete_person(db, person_id, admin=admin_user_by_email(db, email))
-    db.commit()
     return _detail_response(request, db, family_id)
 
 
@@ -291,7 +274,6 @@ def bestuurslid_zetten(family_id: int, request: Request, db: Session = Depends(g
     assign_board_member(db, family_id, BoardMemberAssign(
         person_id=int(person_id) if person_id else None,
     ), admin=admin_user_by_email(db, email))
-    db.commit()
     return _detail_response(request, db, family_id)
 
 
@@ -306,7 +288,6 @@ def lidmaatschap_toevoegen(family_id: int, request: Request,
 
     create_membership_for_family(db, family_id, MembershipCreate(year=year, is_active=True),
                                  admin=admin_user_by_email(db, email))
-    db.commit()
     return _detail_response(request, db, family_id)
 
 
@@ -318,7 +299,6 @@ def lidmaatschap_verwijderen(family_id: int, membership_id: int, request: Reques
     from app.domains.membership.api import delete_membership
 
     delete_membership(db, membership_id, admin=admin_user_by_email(db, email))
-    db.commit()
     return _detail_response(request, db, family_id)
 
 
@@ -329,7 +309,6 @@ def gezin_verwijderen(family_id: int, request: Request, db: Session = Depends(ge
     from app.domains.membership.api import delete_family
 
     delete_family(db, family_id, admin=admin_user_by_email(db, email))
-    db.commit()
     # Verwijderen gebeurt vanuit de gezinseditor; die pagina bestaat daarna niet
     # meer, dus terug naar de lijst (#582).
     return Response(status_code=204, headers={"HX-Redirect": "/admin/leden"})
@@ -351,10 +330,10 @@ def import_page(request: Request, db: Session = Depends(get_db),
 async def import_preview(request: Request, db: Session = Depends(get_db),
                          email: str = Depends(require_admin_ui),
                          file: UploadFile = File(...)):
-    from app.domains.mdm.import_router import preview
+    from app.domains.mdm.api import import_preview
 
     try:
-        data = await preview(file=file, db=db, admin=admin_user_by_email(db, email))
+        data = await import_preview(db, file, admin=admin_user_by_email(db, email))
     except HTTPException as exc:
         return templates.TemplateResponse(request, "_leden_import_resultaat.html", {
             "error": exc.detail, "stap": "preview"})
@@ -366,10 +345,10 @@ async def import_preview(request: Request, db: Session = Depends(get_db),
              dependencies=[Depends(require_csrf)])
 def import_commit(request: Request, db: Session = Depends(get_db),
                   email: str = Depends(require_admin_ui), token: str = Form(...)):
-    from app.domains.mdm.import_router import commit, CommitRequest
+    from app.domains.mdm.api import import_commit
 
     try:
-        data = commit(CommitRequest(token=token), db=db, admin=admin_user_by_email(db, email))
+        data = import_commit(db, token, admin=admin_user_by_email(db, email))
     except HTTPException as exc:
         return templates.TemplateResponse(request, "_leden_import_resultaat.html", {
             "error": exc.detail, "stap": "commit"})

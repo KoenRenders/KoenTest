@@ -24,6 +24,7 @@ from app.domains.membership.service import (  # noqa: F401
     renewal_years,
     is_member,
     membership_coverage_until,
+    membership_years,
     open_renewal_payment,
     renewal_available,
     renewal_open,
@@ -38,7 +39,7 @@ __all__ = [
     "has_valid_membership", "is_member", "membership_coverage_until",
     "open_renewal_payment",
     "members_valid_on", "members_with_membership_for_year",
-    "not_renewed_count", "renewal_years",
+    "membership_years", "not_renewed_count", "renewal_years",
     "renewal_available", "renewal_open", "valid_membership_until",
     # Schrijfbewerkingen op gezinnen/personen/lidmaatschappen (#635 H)
     "add_person_to_family", "assign_board_member", "create_member",

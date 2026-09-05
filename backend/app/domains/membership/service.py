@@ -239,7 +239,8 @@ def set_relation_type(db, family_id: int, person_id: int, relation_type: str) ->
     gezin zonder aanspreekpunt achter.
 
     De regel stond in `mdm/ui.py`, met een rauwe query erbij, en was daardoor niet
-    los testbaar (#498). Commit niet: de aanroeper bepaalt de transactiegrens.
+    los testbaar (#498). Commit zelf, net als de andere gezinsbewerkingen: de
+    transactiegrens ligt in de service (#635 regel 2).
 
     Geeft terug of er iets gewijzigd is.
     """
@@ -256,4 +257,17 @@ def set_relation_type(db, family_id: int, person_id: int, relation_type: str) ->
         return False
 
     koppeling.relation_type = gevraagd
+    db.commit()
     return True
+
+
+def membership_years(db) -> list[int]:
+    """De lidmaatschapsjaren die écht in de data zitten (#582).
+
+    De filterdropdown is data-gedreven, net als op Betalingen: een hardgecodeerde
+    reeks klopt na nieuwjaar niet meer.
+    """
+    from app.domains.membership.models import Membership
+
+    return [jaar for (jaar,) in db.query(Membership.year).distinct()
+            .order_by(Membership.year.desc()).all() if jaar]
