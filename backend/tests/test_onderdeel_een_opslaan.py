@@ -29,27 +29,40 @@ def _login(client):
     return csrf_token_for(value)
 
 
-def _onderdeelblok(html: str, activity_id: int, component_id: int) -> str:
-    """Het stuk HTML van één onderdeelkaart.
+def _bewerkvorm(html: str, activity_id: int, component_id: int) -> str:
+    """De bewerkvorm van dít onderdeel, tot haar eigen </form>.
 
-    Op de naam zoeken werkt niet: de toevoegvorm bovenaan heet "Nieuw onderdeel"
-    en `index("Onderdeel")` landde daar. Twee id-gebonden markeringen zijn wél
-    uniek: de bewerkvorm van dit onderdeel, en de doel-div van #650 die de kaart
-    afsluit.
+    Twee eerdere pogingen waren te grof. Op de naam zoeken landde op "Nieuw
+    onderdeel" in de toevoegvorm bovenaan; tot de doel-div van #650 lopen nam het
+    productpaneel mee, en elk product hééft een eigen Opslaan — terecht. De
+    invariant gaat over de vorm van het onderdeel zelf.
     """
     start = html.index(f'hx-post="/admin/activiteiten/{activity_id}/onderdelen/{component_id}"')
-    einde = html.index(f'id="aa-insch-{component_id}"', start)
-    return html[start:einde]
+    return html[start:html.index("</form>", start)]
+
+
+def _kaart(html: str, activity_id: int, component_id: int) -> str:
+    """De hele onderdeelkaart, tot de doel-div die haar afsluit (#650)."""
+    start = html.index(f'hx-post="/admin/activiteiten/{activity_id}/onderdelen/{component_id}"')
+    return html[start:html.index(f'id="aa-insch-{component_id}"', start)]
 
 
 def test_een_onderdeel_in_bewerkmodus_toont_precies_een_opslaan(client, db_session):
     """De kern van #654, en het enige wat je op het scherm ziet."""
     activity, component, _p = seed_activity_with_product(db_session)
     _login(client)
-    blok = _onderdeelblok(client.get(f"/admin/activiteiten/{activity.id}").text,
-                          activity.id, component.id)
-    assert blok.count(">Opslaan<") == 1, (
-        f"het onderdeel toont {blok.count('>Opslaan<')} Opslaan-knoppen (#654)")
+    html = client.get(f"/admin/activiteiten/{activity.id}").text
+    vorm = _bewerkvorm(html, activity.id, component.id)
+    assert vorm.count(">Opslaan<") == 1, (
+        f"de bewerkvorm van het onderdeel toont {vorm.count('>Opslaan<')} "
+        "Opslaan-knoppen (#654)")
+
+    # En het uploadblok zit erin, niet in een tweede vorm ernaast.
+    assert 'name="file"' in vorm, "het uploadblok staat niet in de gedeelde vorm"
+    assert "multipart/form-data" in vorm, "de vorm kan geen bestand versturen"
+    kaart = _kaart(html, activity.id, component.id)
+    assert f'hx-post="/admin/activiteiten/{activity.id}/onderdelen/{component.id}/info"' \
+        not in kaart, "er staat nog een tweede vorm naar /info op de kaart (#654)"
 
 
 def test_velden_en_bestand_gaan_in_een_post(client, db_session):
