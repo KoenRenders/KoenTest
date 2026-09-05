@@ -338,6 +338,20 @@
    <select>-regel en blijft de optielogica ongemoeid.
 
    Gebruik: {% call ui.select_control("status") %}<option …>{% endcall %} #}
+{# Losse control zonder label-wrapper, voor compacte rijen (#659).
+
+   `field_input()` past daar niet: die zet een eigen `mb-4`-blok, leidt de `id` af
+   van de `name` — wat in een herhaalde kaart dubbele id's geeft — en kent geen
+   breedte. In een `flex flex-wrap`-rij stuurt die breedte de kolom, dus ze moet
+   mee. Dit is de input-tegenhanger van `select_control()`: dezelfde
+   `_control_base`, en verder bepaal je zelf id, breedte en attributen. #}
+{% macro input_control(name, id=None, type="text", value="", required=False,
+                       placeholder="", cls="", attrs="") -%}
+<input type="{{ type }}" name="{{ name }}" id="{{ id or name }}"
+       value="{{ value }}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}
+       class="{{ _control_base }}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>
+{%- endmacro %}
+
 {% macro select_control(name, cls="", attrs="") -%}
 <select name="{{ name }}" class="{{ _control_base }}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>{{ caller() }}</select>
 {%- endmacro %}

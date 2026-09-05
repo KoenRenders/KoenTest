@@ -78,6 +78,11 @@ Vier regels, elk met een reden:
 26. **Het verplicht-sterretje komt uit `label(required=…)`**, niet uit de labeltekst
     (#646). In de tekst erft het `text-gray-700` en staat er grijs naast een rood
     sterretje van een veld dat de parameter wél gebruikt.
+30. **Formuliervelden komen uit de kit** (#659). Een `border-gray-300` op een
+    input/select/textarea buiten `_macros.html` is een handgeschreven control. Die
+    mist `text-sm` (dus hoger dan zijn buren) en heeft een eigen padding — op het
+    activiteitdetail stonden er drie verschillende in omloop. Het restant staat als
+    telling in `CONTROL_ALLOWLIST`: een plafond dat alleen omláág mag.
 29. **Geen hint-alinea in een kolom van een `items-end`-vorm** (#656). Zo'n vorm
     lijnt haar kolommen op de ONDERKANT uit, dus een extra regel onder een
     invoerveld duwt dat veld omhoog. Op de betalingen stond het bedrag daardoor
@@ -140,6 +145,39 @@ BEWERKVORM = re.compile(r'<form[^>]*x-show="[a-z_]')
 HINT_ALINEA = re.compile(r'<p[^>]*class="[^"]*\btext-xs\b[^"]*\btext-(?:gray|ink)-(?:400|500|soft)\b')
 ITEMS_END = re.compile(r'\bitems-end\b')
 FLEX_OPEN = re.compile(r'<(div|form)\b')
+# Een handgeschreven formulier-control: de kit zet zijn rand via `_control_base`,
+# dus een losse `border-gray-300` op een input/select/textarea betekent dat het
+# scherm de kit omzeilt (#659).
+HANDGESCHREVEN_CONTROL = re.compile(r"<(?:input|select|textarea)\b[^>]*>")
+
+# Het restant van #659, geteld op de dag dat de regel erbij kwam. Deze telling is
+# een plafond dat alleen omláág mag: zet je een bestand om, verlaag dan het getal
+# of haal de regel weg. Zo blijft de gate groen op master terwijl de omzetting
+# gefaseerd loopt, en groeit het probleem intussen niet.
+CONTROL_ALLOWLIST: dict[str, int] = {
+    "domains/activities/templates/_inschrijf_form.html": 6,
+    "domains/activities/templates/_inschrijving_detail.html": 6,
+    "domains/activities/templates/admin_activiteit_nieuw.html": 4,
+    "domains/auth/templates/_aanmelden_code.html": 1,
+    "domains/auth/templates/_aanmelden_email.html": 1,
+    "domains/auth/templates/_gu_lijst.html": 1,
+    "domains/chatbot/templates/_ai_context_lijst.html": 6,
+    "domains/chatbot/templates/_raakje_widget.html": 1,
+    "domains/chatbot/templates/raakje.html": 1,
+    "domains/cms/templates/_cp_detail.html": 4,
+    "domains/forms/templates/_berichten_form.html": 3,
+    "domains/forms/templates/_fb_builder.html": 24,
+    "domains/forms/templates/formulier.html": 8,
+    "domains/mdm/templates/_leden_detail.html": 6,
+    "domains/mdm/templates/leden_import.html": 1,
+    "domains/media/templates/_me_lijst.html": 3,
+    "domains/media/templates/admin_media_nieuw.html": 3,
+    "domains/membership/templates/gezin_portaal.html": 4,
+    "domains/membership/templates/lid_worden.html": 4,
+    "domains/payment/templates/_betalingen_lijst.html": 4,
+    "domains/workflow/templates/_werkbank_detail.html": 1,
+    "ui/templates/admin_ledenwijzigingen.html": 1,
+}
 RODE_SPAN = re.compile(r'<span class="text-red-600">.*?</span>')
 # Een KPI-cijfer herken je aan font-extrabold: §Weight reserveert dat gewicht voor
 # de paginatitel, de KPI-cijfers en het woordmerk, en die eerste twee dragen
@@ -885,4 +923,42 @@ def test_geen_hint_in_een_kolom_die_op_de_onderkant_uitlijnt():
     assert not fouten, (
         "Zet de hint als eigen regel in de vorm (w-full order-last), niet in een "
         "kolom van een items-end-vorm (#656):\n  " + "\n  ".join(fouten)
+    )
+
+
+def test_formuliervelden_komen_uit_de_kit():
+    """Een handgeschreven control is een control die uit de pas loopt (#659).
+
+    Koen meldde dat op de "+ Product"-vorm het label "Afrekening" lager staat en de
+    dropdown minder hoog is dan de tekstvelden. De diagnose staat omgekeerd: niet de
+    dropdown is te klein, de tekstvelden zijn te groot. `_control_base` bevat
+    `text-sm`; de select droeg dat wel, de vier handgeschreven inputs niet — grotere
+    letter bij dezelfde `py-2` geeft een hoger veld. In dat ene bestand stonden 30
+    handgeschreven controls tegen 2 uit de kit, met drie verschillende paddings.
+
+    Wat deze regel NIET is: een toegankelijkheidsprobleem. De zichtbare focusring
+    komt uit de base-layer in `scripts/build-css.sh` (`html :where(input…):focus`),
+    die élk formulierveld raakt, ook een handgeschreven. De kit-klassen zetten er
+    een eigen, iets andere ring overheen. Er is dus geen scherm zonder
+    focus-indicatie; dit gaat over maatvoering en één bron van waarheid.
+
+    De allowlist is een telling per bestand, geen vrijbrief: ze mag alleen omlaag.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        if pad.name == "_macros.html":
+            continue
+        naam = str(pad.relative_to(APP))
+        aantal = sum(1 for tag in HANDGESCHREVEN_CONTROL.findall(pad.read_text())
+                     if "border-gray-300" in tag)
+        toegestaan = CONTROL_ALLOWLIST.get(naam, 0)
+        if aantal > toegestaan:
+            fouten.append(f"{naam}: {aantal} handgeschreven controls "
+                          f"(toegestaan: {toegestaan})")
+        elif aantal < toegestaan:
+            fouten.append(f"{naam}: nog {aantal} van de {toegestaan} — verlaag het "
+                          "getal in CONTROL_ALLOWLIST (of haal de regel weg)")
+    assert not fouten, (
+        "Gebruik ui.input_control() / ui.select_control() / ui.field_* (#659):\n  "
+        + "\n  ".join(fouten)
     )

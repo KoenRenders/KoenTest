@@ -34,13 +34,12 @@
           hx-target="#aa-detail" hx-swap="innerHTML">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>{{ ui.label(_("Naam"), "name", required=True) }}
-          <input name="name" id="name" required value="{{ a.name }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+          {{ ui.input_control("name", id="name", value=a.name, required=True, cls="w-full") }}</div>
         <div>{{ ui.label(_("Locatie"), "location") }}
-          <input name="location" id="location" value="{{ a.location or '' }}" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+          {{ ui.input_control("location", id="location", value=a.location or "", cls="w-full") }}</div>
       </div>
       <div>{{ ui.label(_("Poster-URL"), "poster_url") }}
-        <input name="poster_url" id="poster_url" value="{{ a.poster_url or '' }}" placeholder="https://…"
-               class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("poster_url", id="poster_url", value=a.poster_url or "", placeholder="https://…", cls="w-full") }}</div>
       {{ ui.upload_field(name="file", text=_("of opladen (afbeelding of PDF)"),
                          current_url=a.poster_asset_url,
                          huidig_label=_("Huidige affiche bekijken"),
@@ -79,13 +78,13 @@
       <form x-show="edit" x-cloak class="flex flex-wrap gap-2 items-end mt-2 bg-gray-50 rounded-lg p-2"
             hx-post="/admin/activiteiten/{{ a.id }}/datums/{{ d.id }}" hx-target="#aa-detail" hx-swap="innerHTML">
         <div>{{ ui.label(_("Start"), "sd-" ~ d.id, required=True) }}
-          <input type="date" name="start_date" id="sd-{{ d.id }}" required value="{{ d.start_date.strftime('%Y-%m-%d') }}" class="border border-gray-300 rounded-lg px-2 py-1"></div>
+          {{ ui.input_control("start_date", id="sd-" ~ d.id, type="date", value=d.start_date.strftime("%Y-%m-%d"), required=True) }}</div>
         <div>{{ ui.label(_("Einde"), "ed-" ~ d.id) }}
-          <input type="date" name="end_date" id="ed-{{ d.id }}" value="{{ d.end_date.strftime('%Y-%m-%d') if d.end_date else '' }}" class="border border-gray-300 rounded-lg px-2 py-1"></div>
+          {{ ui.input_control("end_date", id="ed-" ~ d.id, type="date", value=d.end_date.strftime("%Y-%m-%d") if d.end_date else "") }}</div>
         <div>{{ ui.label(_("Beginuur"), "st-" ~ d.id) }}
-          <input type="time" name="start_time" id="st-{{ d.id }}" value="{{ d.start_time.strftime('%H:%M') if d.start_time else '' }}" class="border border-gray-300 rounded-lg px-2 py-1"></div>
+          {{ ui.input_control("start_time", id="st-" ~ d.id, type="time", value=d.start_time.strftime("%H:%M") if d.start_time else "") }}</div>
         <div>{{ ui.label(_("Einduur"), "et-" ~ d.id) }}
-          <input type="time" name="end_time" id="et-{{ d.id }}" value="{{ d.end_time.strftime('%H:%M') if d.end_time else '' }}" class="border border-gray-300 rounded-lg px-2 py-1"></div>
+          {{ ui.input_control("end_time", id="et-" ~ d.id, type="time", value=d.end_time.strftime("%H:%M") if d.end_time else "") }}</div>
         {{ ui.btn_primary(_("Opslaan")) }}
       </form>
     </div>
@@ -94,13 +93,13 @@
           hx-post="/admin/activiteiten/{{ a.id }}/datums"
           hx-target="#aa-detail" hx-swap="innerHTML">
       <div>{{ ui.label(_("Start"), "start_date", required=True) }}
-        <input type="date" name="start_date" required class="border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("start_date", type="date", required=True) }}</div>
       <div>{{ ui.label(_("Einde"), "end_date") }}
-        <input type="date" name="end_date" class="border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("end_date", type="date") }}</div>
       <div>{{ ui.label(_("Beginuur"), "start_time") }}
-        <input type="time" name="start_time" class="border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("start_time", type="time") }}</div>
       <div>{{ ui.label(_("Einduur"), "end_time") }}
-        <input type="time" name="end_time" class="border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("end_time", type="time") }}</div>
       {{ ui.btn_primary(_("Toevoegen")) }}
     </form>
   </div>
@@ -112,16 +111,16 @@
     <form x-show="addcomp" x-cloak class="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-3 flex flex-wrap gap-2 items-end"
           hx-post="/admin/activiteiten/{{ a.id }}/onderdelen" hx-target="#aa-detail" hx-swap="innerHTML">
       <div>{{ ui.label(_("Nieuw onderdeel"), "nc-name", required=True) }}
-        <input name="name" id="nc-name" required class="border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("name", id="nc-name", required=True) }}</div>
       <div>{{ ui.label(_("Max"), "nc-max") }}
-        <input name="max_participants" id="nc-max" class="w-24 border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("max_participants", id="nc-max", cls="w-24") }}</div>
       <label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="team_name_required" value="1"> {{ _("Ploegnaam vereist") }}</label>
       <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijf-URL"), "nc-ext") }}
-        <input name="external_register_url" id="nc-ext" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("external_register_url", id="nc-ext", placeholder="https://…", cls="w-full") }}</div>
       <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijvingen-URL"), "nc-exts") }}
-        <input name="external_registrations_url" id="nc-exts" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("external_registrations_url", id="nc-exts", placeholder="https://…", cls="w-full") }}</div>
       <div class="w-full sm:w-72">{{ ui.label(_("Info-URL"), "nc-info") }}
-        <input name="info_url" id="nc-info" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("info_url", id="nc-info", placeholder="https://…", cls="w-full") }}</div>
       <div class="w-full flex gap-2">{{ ui.btn_primary(_("Toevoegen")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="addcomp = false"') }}</div>
     </form>
     <div class="space-y-3">
@@ -162,16 +161,16 @@
           hx-post="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}"
           hx-target="#aa-detail" hx-swap="innerHTML">
       <div>{{ ui.label(_("Naam"), "cname-" ~ c.id, required=True) }}
-        <input name="name" id="cname-{{ c.id }}" required value="{{ c.name }}" class="border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("name", id="cname-" ~ c.id, value=c.name, required=True) }}</div>
       <div>{{ ui.label(_("Max"), "cmax-" ~ c.id) }}
-        <input name="max_participants" id="cmax-{{ c.id }}" value="{{ c.max_participants or '' }}" class="w-24 border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("max_participants", id="cmax-" ~ c.id, value=c.max_participants or "", cls="w-24") }}</div>
       <label class="flex items-center gap-2 text-sm pb-2"><input type="checkbox" name="team_name_required" value="1" {% if c.team_name_required %}checked{% endif %}> {{ _("Ploegnaam vereist") }}</label>
       <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijf-URL"), "cext-" ~ c.id) }}
-        <input name="external_register_url" id="cext-{{ c.id }}" value="{{ c.external_register_url or '' }}" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("external_register_url", id="cext-" ~ c.id, value=c.external_register_url or "", placeholder="https://…", cls="w-full") }}</div>
       <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijvingen-URL"), "cexts-" ~ c.id) }}
-        <input name="external_registrations_url" id="cexts-{{ c.id }}" value="{{ c.external_registrations_url or '' }}" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("external_registrations_url", id="cexts-" ~ c.id, value=c.external_registrations_url or "", placeholder="https://…", cls="w-full") }}</div>
       <div class="w-full sm:w-72">{{ ui.label(_("Info-URL"), "cinfo-" ~ c.id) }}
-        <input name="info_url" id="cinfo-{{ c.id }}" value="{{ c.info_url or '' }}" placeholder="https://…" class="w-full border border-gray-300 rounded-lg px-3 py-2"></div>
+        {{ ui.input_control("info_url", id="cinfo-" ~ c.id, value=c.info_url or "", placeholder="https://…", cls="w-full") }}</div>
       {# Info-bijlage (#451). Heette "reglement" tot #623 — één woord voor één ding
          (§2.13). Staat sinds #654 ín de vorm hierboven: één "Opslaan" bewaart de
          velden én het bestand. De verwijderknop blijft een aparte actie — dat is
@@ -212,21 +211,21 @@
         <form x-show="ed" x-cloak class="flex flex-wrap gap-2 items-end mt-2"
               hx-post="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}/producten/{{ p.id }}"
               hx-target="#aa-detail" hx-swap="innerHTML">
-          <div><label class="block text-xs text-gray-500">{{ _("Naam") }}</label>
-            <input name="name" required value="{{ p.name }}" class="border border-gray-300 rounded-lg px-3 py-2"></div>
-          <div><label class="block text-xs text-gray-500">{{ _("Prijs") }}</label>
-            <input name="price" value="{{ '%.2f'|format(p.price) }}" inputmode="decimal" class="w-24 border border-gray-300 rounded-lg px-3 py-2"></div>
-          <div><label class="block text-xs text-gray-500">{{ _("Ledenprijs") }}</label>
-            <input name="member_price" value="{% if p.member_price is not none %}{{ '%.2f'|format(p.member_price) }}{% endif %}" inputmode="decimal" class="w-24 border border-gray-300 rounded-lg px-3 py-2"></div>
-          <div><label class="block text-xs text-gray-500">{{ _("Max") }}</label>
-            <input name="max_participants" value="{{ p.max_participants or '' }}" class="w-20 border border-gray-300 rounded-lg px-3 py-2"></div>
+          <div>{{ ui.label(_("Naam"), "epname-" ~ p.id, required=True) }}
+            {{ ui.input_control("name", id="epname-" ~ p.id, value=p.name, required=True) }}</div>
+          <div>{{ ui.label(_("Prijs"), "epprice-" ~ p.id) }}
+            {{ ui.input_control("price", id="epprice-" ~ p.id, value="%.2f"|format(p.price), cls="w-24", attrs='inputmode="decimal"') }}</div>
+          <div>{{ ui.label(_("Ledenprijs"), "epmprice-" ~ p.id) }}
+            {{ ui.input_control("member_price", id="epmprice-" ~ p.id, value=("%.2f"|format(p.member_price) if p.member_price is not none else ""), cls="w-24", attrs='inputmode="decimal"') }}</div>
+          <div>{{ ui.label(_("Max"), "epmax-" ~ p.id) }}
+            {{ ui.input_control("max_participants", id="epmax-" ~ p.id, value=p.max_participants or "", cls="w-20") }}</div>
           {# #507: expliciete Afrekening-keuze (prijs blijft los invulbaar). #}
-          <div>{% set _afr = "ter_plaatse" if p.pay_on_site else ("gratis" if p.is_free else "betalend") %}<label class="block text-xs text-gray-500">{{ _("Afrekening") }}</label>
-            <select name="afrekening" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+          <div>{% set _afr = "ter_plaatse" if p.pay_on_site else ("gratis" if p.is_free else "betalend") %}{{ ui.label(_("Afrekening"), "epafr-" ~ p.id) }}
+            {% call ui.select_control("afrekening", attrs='id="epafr-' ~ p.id ~ '"') %}
               <option value="betalend" {% if _afr == "betalend" %}selected{% endif %}>{{ _("Betalend") }}</option>
               <option value="gratis" {% if _afr == "gratis" %}selected{% endif %}>{{ _("Gratis") }}</option>
               <option value="ter_plaatse" {% if _afr == "ter_plaatse" %}selected{% endif %}>{{ _("Ter plaatse") }}</option>
-            </select></div>
+            {% endcall %}</div>
           {{ ui.btn_primary(_("Opslaan")) }}
         </form>
       </div>
@@ -235,19 +234,19 @@
             hx-post="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}/producten"
             hx-target="#aa-detail" hx-swap="innerHTML">
         <div>{{ ui.label(_("Product"), "pname-" ~ c.id, required=True) }}
-          <input name="name" id="pname-{{ c.id }}" required class="border border-gray-300 rounded-lg px-3 py-2"></div>
+          {{ ui.input_control("name", id="pname-" ~ c.id, required=True) }}</div>
         <div>{{ ui.label(_("Prijs"), "pprice-" ~ c.id) }}
-          <input name="price" id="pprice-{{ c.id }}" value="0" inputmode="decimal" class="w-24 border border-gray-300 rounded-lg px-3 py-2"></div>
+          {{ ui.input_control("price", id="pprice-" ~ c.id, value="0", cls="w-24", attrs='inputmode="decimal"') }}</div>
         <div>{{ ui.label(_("Ledenprijs"), "pmprice-" ~ c.id) }}
-          <input name="member_price" id="pmprice-{{ c.id }}" inputmode="decimal" class="w-24 border border-gray-300 rounded-lg px-3 py-2"></div>
+          {{ ui.input_control("member_price", id="pmprice-" ~ c.id, cls="w-24", attrs='inputmode="decimal"') }}</div>
         <div>{{ ui.label(_("Max"), "pmax-" ~ c.id) }}
-          <input name="max_participants" id="pmax-{{ c.id }}" class="w-20 border border-gray-300 rounded-lg px-3 py-2"></div>
-        <div><label class="block text-xs text-gray-500">{{ _("Afrekening") }}</label>
-          <select name="afrekening" class="border border-gray-300 rounded-lg px-3 py-2 text-sm">
+          {{ ui.input_control("max_participants", id="pmax-" ~ c.id, cls="w-20") }}</div>
+        <div>{{ ui.label(_("Afrekening"), "pafr-" ~ c.id) }}
+          {% call ui.select_control("afrekening", attrs='id="pafr-' ~ c.id ~ '"') %}
             <option value="betalend">{{ _("Betalend") }}</option>
             <option value="gratis">{{ _("Gratis") }}</option>
             <option value="ter_plaatse">{{ _("Ter plaatse") }}</option>
-          </select></div>
+          {% endcall %}</div>
         {{ ui.btn_primary(_("Toevoegen")) }}
       </form>
     {% endcall %}
