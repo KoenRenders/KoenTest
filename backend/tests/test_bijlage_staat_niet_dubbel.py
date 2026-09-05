@@ -8,6 +8,7 @@ tijdens het bewerken, waar `ui.upload_field()` diezelfde link al rendert.
 bewerken is nuttig — maar dan uitsluitend achter `x-show="!edit"`.
 """
 import io
+import re
 
 import pytest
 
@@ -65,10 +66,14 @@ def test_ook_de_locatie_hangt_aan_de_leesmodus(client, db_session):
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
 
-    leesregels = [r for r in _regels_met(html, "Parochiezaal") if "<input" not in r]
-    assert leesregels, "de locatie staat niet als leesregel op het scherm"
-    assert all('x-show="!edit"' in r for r in leesregels), (
-        "de locatie blijft staan tijdens het bewerken:\n  " + "\n  ".join(leesregels))
+    # Op het element zoeken, niet per regel: sinds #659 rendert ui.input_control()
+    # zijn tag over twee regels, dus "de regel zonder <input>" bestaat niet meer.
+    alineas = re.findall(r"<p\b[^>]*>(?:(?!</p>).)*Parochiezaal", html, re.S)
+    assert alineas, "de locatie staat niet als leesregel op het scherm"
+    for alinea in alineas:
+        opening = alinea[:alinea.index(">") + 1]
+        assert 'x-show="!edit"' in opening, (
+            f"de locatie blijft staan tijdens het bewerken: {opening}")
 
 
 def test_zonder_bijlage_geen_leeslink(client, db_session):

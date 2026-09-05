@@ -78,6 +78,10 @@ Vier regels, elk met een reden:
 26. **Het verplicht-sterretje komt uit `label(required=…)`**, niet uit de labeltekst
     (#646). In de tekst erft het `text-gray-700` en staat er grijs naast een rood
     sterretje van een veld dat de parameter wél gebruikt.
+31. **Geen teal badge** (#660). §2.10 kent zes tonen; teal sloop er in #617 bij om
+    twee oranje badges naast elkaar te vermijden. #660 lost dat op aan de juiste
+    kant — "Terug te betalen" wordt geel, gelijk aan "Openstaand" — zodat de
+    ongedocumenteerde zevende toon niet meer nodig is.
 30. **Formuliervelden komen uit de kit** (#659). Een `border-gray-300` op een
     input/select/textarea buiten `_macros.html` is een handgeschreven control. Die
     mist `text-sm` (dus hoger dan zijn buren) en heeft een eigen padding — op het
@@ -149,6 +153,8 @@ FLEX_OPEN = re.compile(r'<(div|form)\b')
 # dus een losse `border-gray-300` op een input/select/textarea betekent dat het
 # scherm de kit omzeilt (#659).
 HANDGESCHREVEN_CONTROL = re.compile(r"<(?:input|select|textarea)\b[^>]*>")
+# Teal is geen semantische toon: de macro kent hem, §2.10 niet (#660).
+TEAL_BADGE = re.compile(r'badge\([^)]*"teal"')
 
 # Het restant van #659, geteld op de dag dat de regel erbij kwam. Deze telling is
 # een plafond dat alleen omláág mag: zet je een bestand om, verlaag dan het getal
@@ -961,4 +967,22 @@ def test_formuliervelden_komen_uit_de_kit():
     assert not fouten, (
         "Gebruik ui.input_control() / ui.select_control() / ui.field_* (#659):\n  "
         + "\n  ".join(fouten)
+    )
+
+
+def test_geen_teal_badge():
+    """§2.10 kent zes tonen; teal hoort er niet bij (#660).
+
+    Hij is in #617 binnengeslopen om te vermijden dat er twee oranje badges naast
+    elkaar stonden — status "Terug te betalen" plus type "Terugbetaling". #660 lost
+    dat op aan de andere kant: de status wordt geel, gelijk aan "Openstaand", want
+    dat ís hetzelfde soort toestand. De richting lees je aan de type-badge.
+
+    De macro kent de toon nog wel; die weghalen zou elke bestaande aanroep stil
+    laten terugvallen op grijs. Deze regel houdt hem uit de schermen.
+    """
+    fouten = _overtredingen(TEAL_BADGE)
+    assert not fouten, (
+        "Teal is geen semantische toon (§2.10) — kies groen/geel/rood/oranje/"
+        "grijs/blauw:\n  " + "\n  ".join(fouten)
     )

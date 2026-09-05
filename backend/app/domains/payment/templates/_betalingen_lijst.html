@@ -63,7 +63,7 @@
     {% if _st %}{{ ui.badge(_st[0], _st[1]) }}
     {% else %}{{ ui.badge(status_labels.get(r.status, _("Onbekende status")), "gray") }}{% endif %}
     {# Tweede badge op de terugbetaling: de SOORT, naast de status. #}
-    {% if r.type == "refund" %}{{ ui.badge(_("Terugbetaling"), "teal") }}{% endif %}
+    {% if r.type == "refund" %}{{ ui.badge(_("Terugbetaling"), "orange") }}{% endif %}
   </div>
 </div>
 {% endmacro %}
