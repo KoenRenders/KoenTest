@@ -93,24 +93,8 @@ async def _replace_single_asset(db, file: UploadFile, *, kind: str,
 
 
 def _meta(a: MediaAsset) -> dict:
-    """Lichte metadata-respons (zonder de blobs)."""
-    return {
-        "id": a.id,
-        "kind": a.kind,
-        "activity_id": a.activity_id,
-        "component_id": a.component_id,
-        "title": a.title,
-        "link_url": a.link_url,
-        "sort_order": a.sort_order,
-        "is_active": a.is_active,
-        "width": a.width,
-        "height": a.height,
-        "byte_size": a.byte_size,
-        "content_type": a.content_type,
-        "is_pdf": a.content_type == "application/pdf",
-        "url": f"/api/v1/media/{a.id}",
-        "thumb_url": f"/api/v1/media/{a.id}/thumb",
-    }
+    """Lichte metadata-respons (zonder de blobs) — één bron in de service."""
+    return _service.meta(a)
 
 
 # ---------------------------------------------------------------------------

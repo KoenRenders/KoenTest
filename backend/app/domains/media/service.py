@@ -36,6 +36,11 @@ def meta(asset: MediaAsset) -> dict:
         "is_active": asset.is_active,
         "width": asset.width,
         "height": asset.height,
+        "byte_size": asset.byte_size,
+        "content_type": asset.content_type,
+        "is_pdf": asset.content_type == "application/pdf",
+        "url": f"/api/v1/media/{asset.id}",
+        "thumb_url": f"/api/v1/media/{asset.id}/thumb",
     }
 
 
