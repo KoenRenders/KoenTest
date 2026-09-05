@@ -40,6 +40,17 @@ def list_activities(db, scope: str = "upcoming"):
     return _impl(scope=scope, db=db)
 
 
+def get_activity_detail(db, activity_id: int):
+    """Eén activiteit met de verrijking van de lijst (#651) — facade-doorgang.
+
+    Het beheerdetail haalde hiervoor de hele lijst op en filterde in Python; dat
+    maakte het detail van één activiteit trager dan de lijst van allemaal.
+    """
+    from app.domains.activities.router import get_activity_detail as _impl
+
+    return _impl(db, activity_id)
+
+
 def enrich_registration(registration, activity):
     """Een inschrijving met haar activiteit- en productcontext, zoals het
     beheerscherm ze toont. Implementatie in de router (#635 I)."""
@@ -95,6 +106,6 @@ __all__ = [
     "ActivityProduct", "ActivitySubRegistration", "ComponentHistory",
     "ProductHistory", "Registration", "RegistrationItem",
     "RegistrationHistory", "RegistrationItemHistory", "build_component_export_ods", "compute_registration_total",
-    "enrich_registration", "list_activities", "move_within",
+    "enrich_registration", "get_activity_detail", "list_activities", "move_within",
     "public_registrations", "register_for_activity",
 ]

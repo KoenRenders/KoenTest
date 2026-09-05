@@ -250,6 +250,47 @@ def list_activities(scope: str = "upcoming", db: Session = Depends(get_db)):
     return result
 
 
+def get_activity_detail(db: Session, activity_id: int) -> Optional[ActivityResponse]:
+    """Eén activiteit, met dezelfde verrijking als de lijst (#651).
+
+    Het beheerdetail hergebruikte `list_activities(scope="all")` en filterde
+    daarna in Python op id. Daardoor kostte het detail van ÉÉN activiteit meer dan
+    de lijst van alle 167: gemeten op HDEV 483 ms tegenover 89 ms. En omdat het de
+    gedeelde render-helper is, betaalde élke mutatie op dat scherm — datum
+    opslaan, onderdeel toevoegen, volgorde wijzigen — die prijs opnieuw.
+
+    Een kale query volstaat niet: het scherm heeft de verrijking wél nodig
+    (`sort_date`, status, inschrijvingsaantal, `is_full` per onderdeel). Vandaar
+    dezelfde bouwstenen als `list_activities`, maar gefilterd op id in SQL.
+
+    `all_dates=True` is niet optioneel: het beheerscherm toont álle datums, ook de
+    voorbije. Zonder die vlag zouden voorbije datums stil uit het detail
+    verdwijnen — precies wat een herimplementatie makkelijk stukmaakt.
+    """
+    activity = (
+        db.query(Activity)
+        .options(
+            selectinload(Activity.dates),
+            selectinload(Activity.sub_registrations).selectinload(
+                ActivitySubRegistration.products),
+        )
+        .filter(Activity.id == activity_id)
+        .first()
+    )
+    if activity is None:
+        return None
+    today = date.today()
+    reg_count = _registration_counts(db, [activity.id]).get(activity.id, 0)
+    info = compute_activity_status(activity, reg_count)
+    resp = _build_response(activity, today, all_dates=True, reg_count=reg_count,
+                           status=info["status"])
+    # Beide helpers nemen een lijst id's en zijn batched; met één id werken ze
+    # even goed. Nagekeken omdat een berekening die stilzwijgend van de volledige
+    # lijst afhangt, hier een lege bezetting zou geven.
+    _mark_full([resp], _component_occupancy(db, [activity.id]))
+    return resp
+
+
 @router.post("/activities", response_model=ActivityResponse)
 def create_activity(
     data: ActivityCreate,
