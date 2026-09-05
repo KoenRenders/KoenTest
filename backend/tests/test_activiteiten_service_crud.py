@@ -232,6 +232,121 @@ def test_een_product_van_een_ander_onderdeel_is_niet_te_raken(db_session):
     assert service.delete_product(db_session, a.id, prod.id) is True
 
 
+# ── Batch 4 en 5: bestelregels, inschrijvingen, export ────────────────────────
+
+def _inschrijving_met_regel(client, db, aantal=2):
+    from tests.conftest import seed_activity_with_product
+
+    activity, comp, product = seed_activity_with_product(db, price="10.00")
+    resp = client.post(f"/api/v1/activities/{activity.id}/register", json={
+        "contact_name": "An", "contact_email": "an@example.com",
+        "component_id": comp.id, "payment_method": "TRANSFER",
+        "items": [{"product_id": product.id, "quantity": aantal}]})
+    assert resp.status_code in (200, 201), resp.text
+    from app.domains.activities.api import Registration
+    reg = db.query(Registration).filter(Registration.id == resp.json()["id"]).one()
+    return activity, comp, product, reg
+
+
+def test_een_bestelregel_toevoegen_herrekent_het_saldo(client, db_session):
+    """De reconciliatie hoort bij de mutatie, niet bij de responsvorm.
+
+    Stond ze in de router-helper, dan laat een scherm dat de service rechtstreeks
+    aanroept het saldo stil verkeerd staan.
+    """
+    from decimal import Decimal
+
+    from tests._invarianten import assert_saldo_klopt
+
+    activity, comp, product, reg = _inschrijving_met_regel(client, db_session, aantal=1)
+    service.add_order_line(db_session, activity.id, reg.id, product.id, 2,
+                           actor="a@b.c")
+
+    db_session.expire_all()
+    assert_saldo_klopt(db_session, "registration", reg.id, Decimal("30.00"))
+
+
+def test_hetzelfde_product_hoogt_op_in_plaats_van_te_verdubbelen(client, db_session):
+    """#197: geen tweede regel voor hetzelfde product."""
+    activity, comp, product, reg = _inschrijving_met_regel(client, db_session, aantal=1)
+    service.add_order_line(db_session, activity.id, reg.id, product.id, 2,
+                           actor="a@b.c")
+
+    db_session.expire_all()
+    db_session.refresh(reg)
+    regels = [i for i in reg.items if i.product_id == product.id]
+    assert len(regels) == 1 and regels[0].quantity == 3
+
+
+def test_een_aantal_onder_een_is_een_domeinfout(client, db_session):
+    activity, comp, product, reg = _inschrijving_met_regel(client, db_session)
+    with pytest.raises(service.ActiviteitFout):
+        service.add_order_line(db_session, activity.id, reg.id, product.id, 0)
+
+
+def test_een_product_van_een_andere_activiteit_wordt_geweigerd(client, db_session):
+    """De koppeling inschrijving ↔ aanbod is een domeinregel."""
+    from tests.conftest import seed_activity_with_product
+
+    activity, comp, product, reg = _inschrijving_met_regel(client, db_session)
+    _andere, _c, vreemd = seed_activity_with_product(db_session)
+
+    with pytest.raises(service.ActiviteitFout):
+        service.add_order_line(db_session, activity.id, reg.id, vreemd.id, 1)
+
+
+def test_een_inschrijving_verwijderen_laat_de_betaling_staan(client, db_session):
+    """#190/#313: de bestelregels gaan mee, het financiële feit blijft."""
+    from app.domains.payment.api import get_records_for
+
+    activity, comp, product, reg = _inschrijving_met_regel(client, db_session)
+    assert service.delete_registration(db_session, activity.id, reg.id,
+                                       actor="a@b.c") is True
+
+    db_session.expire_all()
+    from app.domains.activities.api import Registration
+    assert db_session.query(Registration).filter(
+        Registration.id == reg.id).first() is None
+    assert get_records_for(db_session, "registration", reg.id) is not None
+
+
+def test_alleen_een_echte_wijziging_komt_in_het_logboek(client, db_session):
+    """Een opslag zonder verschil hoort geen rij in de geschiedenis op te leveren."""
+    from app.domains.activities.api import RegistrationHistory
+
+    activity, comp, product, reg = _inschrijving_met_regel(client, db_session)
+    voor = db_session.query(RegistrationHistory).filter(
+        RegistrationHistory.registration_id == reg.id).count()
+
+    service.update_registration_contact(db_session, activity.id, reg.id,
+                                        {"contact_name": "An"}, actor="a@b.c")
+    db_session.expire_all()
+    na = db_session.query(RegistrationHistory).filter(
+        RegistrationHistory.registration_id == reg.id).count()
+    assert na == voor, "een opslag zonder verschil schreef toch geschiedenis"
+
+    service.update_registration_contact(db_session, activity.id, reg.id,
+                                        {"contact_name": "Anneke"}, actor="a@b.c")
+    db_session.expire_all()
+    assert db_session.query(RegistrationHistory).filter(
+        RegistrationHistory.registration_id == reg.id).count() == voor + 1
+
+
+def test_de_export_levert_inhoud_en_een_veilige_bestandsnaam(client, db_session):
+    """De opbouw stond al in export.py; het opzoeken en de naam kwamen erbij."""
+    activity, comp, product, reg = _inschrijving_met_regel(client, db_session)
+    activity.name = "Ge/kke naam: 2026"
+    db_session.commit()
+
+    resultaat = service.component_export(db_session, activity.id, comp.id)
+    assert resultaat is not None
+    inhoud, naam = resultaat
+    assert inhoud and naam.endswith(".ods")
+    assert "/" not in naam and ":" not in naam, f"onveilige bestandsnaam: {naam}"
+
+    assert service.component_export(db_session, activity.id, 999999) is None
+
+
 def test_de_router_rekent_niet_meer_zelf(db_session):
     """De scheiding zelf: wat overblijft in de route is HTTP, geen domeinlogica."""
     bron = open("app/domains/activities/router.py", encoding="utf-8").read()
@@ -239,7 +354,10 @@ def test_de_router_rekent_niet_meer_zelf(db_session):
                  "def add_activity_date(", "def update_activity_date(",
                  "def delete_activity_date(",
                  "def add_component(", "def update_component(", "def delete_component(",
-                 "def add_product(", "def update_product(", "def delete_product("):
+                 "def add_product(", "def update_product(", "def delete_product(",
+                 "def add_order_line(", "def update_order_line(",
+                 "def delete_order_line(", "def delete_registration(",
+                 "def update_registration_remarks(", "def export_component_ods("):
         start = bron.index(naam)
         einde = bron.index("\n@router", start)
         body = bron[start:einde]

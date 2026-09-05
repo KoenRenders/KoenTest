@@ -85,9 +85,10 @@ LAYER_ALLOWLIST: set[tuple[str, str]] = {
     # er iets verandert — een eerlijke rode regel is beter dan een groene gate om
     # de verkeerde reden.
     #
-    # Voortgang: batch 1 (de activiteit), 2 (datums) en 3 (onderdelen + producten)
-    # zijn verhuisd — twaalf van de twintig. Resteert: bestelregels +
-    # inschrijvingen, en de export. Bij de laatste batch kan deze regel weg.
+    # Voortgang: alle twintig zijn uit de router naar `activities/service.py`
+    # verhuisd (batch 1 t/m 5). Wat rest is dat `admin_ui` ze nog via de router
+    # aanroept i.p.v. rechtstreeks via de service; die omzetting is de laatste stap
+    # en dán kan deze regel weg.
     ("app.domains.activities.admin_ui", "imports"),
     # ── regel 2: rauw ORM-gebruik in de routebody ────────────────────────────
 }

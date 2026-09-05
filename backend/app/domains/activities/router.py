@@ -580,23 +580,16 @@ def export_component_ods(
     """Download een .ods met aantallen per product + financials voor één
     onderdeel, zoals ze nu in de DB staan (#85). Admin-only; bevat persoons- en
     financiële data."""
-    import re
+    from app.domains.activities import service
 
-    activity = _load_activity_or_404(db, activity_id)
-    component = db.query(ActivitySubRegistration).filter(
-        ActivitySubRegistration.id == component_id,
-        ActivitySubRegistration.activity_id == activity.id,
-    ).first()
-    if not component:
+    resultaat = service.component_export(db, activity_id, component_id)
+    if resultaat is None:
         raise HTTPException(status_code=404, detail=_("Component not found"))
-
-    content = build_component_export_ods(db, activity, component)
-    raw_name = f"{activity.name}-{component.name}"
-    safe = re.sub(r"[^A-Za-z0-9_-]+", "_", raw_name).strip("_") or "export"
+    content, bestandsnaam = resultaat
     return Response(
         content=content,
         media_type="application/vnd.oasis.opendocument.spreadsheet",
-        headers={"Content-Disposition": f'attachment; filename="{safe}.ods"'},
+        headers={"Content-Disposition": f'attachment; filename="{bestandsnaam}"'},
     )
 
 
@@ -637,12 +630,13 @@ def _validate_order_product(db: Session, activity: Activity, reg: Registration, 
 def _order_edit_result(
     db: Session, activity: Activity, reg: Registration, actor: str | None = None
 ) -> dict:
-    """Reconcilieer de charges met het nieuwe besteltotaal (#185) en geef de
-    vernieuwde bestelling + financiële stand terug; signaleert of er nu een
-    terugbetaling openstaat (saldo < 0) zodat de UI naar de refund-flow kan wijzen."""
-    db.refresh(reg)
-    reconcile_registration_charges(db, reg, audit_actor=actor)
-    db.commit()
+    """Geef de vernieuwde bestelling + financiële stand terug; signaleert of er nu
+    een terugbetaling openstaat (saldo < 0) zodat de UI naar de refund-flow kan wijzen.
+
+    Het reconciliëren zelf staat sinds #679 in de service, bij de mutatie waar het
+    hoort: wie een bestelregel wijzigt zonder te herrekenen laat het saldo stil
+    verkeerd staan, en die regel moet gelden voor élke ingang. Wat hier overblijft
+    is het vormgeven van het antwoord."""
     db.refresh(reg)
     bal = registration_balance(db, reg)
     return {
@@ -660,33 +654,17 @@ def add_order_line(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
+    from app.domains.activities import service
+
     activity = _load_activity_or_404(db, activity_id)
-    reg = _load_registration_or_404(db, activity, registration_id)
-    if data.quantity < 1:
-        raise HTTPException(status_code=400, detail=_("Aantal moet minstens 1 zijn."))
-    _validate_order_product(db, activity, reg, data.product_id)
-    # #197: bestaat er al een (niet-verwijderde) regel voor dit product, hoog dan het
-    # aantal op i.p.v. een dubbele regel aan te maken.
-    existing = db.query(RegistrationItem).filter(
-        RegistrationItem.registration_id == reg.id,
-        RegistrationItem.product_id == data.product_id,
-    ).first()
-    if existing is not None:
-        existing.quantity += data.quantity
-        db.flush()
-        snapshot_registration_item(
-            db, existing, operation="update", action="order_changed",
-            source="admin_manual", actor=admin.email,
-        )
-    else:
-        item = RegistrationItem(registration_id=reg.id, product_id=data.product_id, quantity=data.quantity)
-        db.add(item)
-        db.flush()
-        snapshot_registration_item(
-            db, item, operation="insert", action="order_changed",
-            source="admin_manual", actor=admin.email,
-        )
-    db.commit()
+    try:
+        reg = service.add_order_line(db, activity_id, registration_id,
+                                     data.product_id, data.quantity,
+                                     actor=admin.email)
+    except service.ActiviteitFout as fout:
+        raise HTTPException(status_code=400, detail=str(fout))
+    if reg is None:
+        raise HTTPException(status_code=404, detail=_("Registration not found"))
     return _order_edit_result(db, activity, reg, actor=admin.email)
 
 
@@ -699,27 +677,17 @@ def update_order_line(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
+    from app.domains.activities import service
+
     activity = _load_activity_or_404(db, activity_id)
-    reg = _load_registration_or_404(db, activity, registration_id)
-    item = db.query(RegistrationItem).filter(
-        RegistrationItem.id == item_id,
-        RegistrationItem.registration_id == reg.id,
-    ).first()
-    if not item:
+    try:
+        reg = service.update_order_line(db, activity_id, registration_id, item_id,
+                                        product_id=data.product_id,
+                                        quantity=data.quantity, actor=admin.email)
+    except service.ActiviteitFout as fout:
+        raise HTTPException(status_code=400, detail=str(fout))
+    if reg is None:
         raise HTTPException(status_code=404, detail=_("Order line not found"))
-    if data.product_id is not None:
-        _validate_order_product(db, activity, reg, data.product_id)
-        item.product_id = data.product_id
-    if data.quantity is not None:
-        if data.quantity < 1:
-            raise HTTPException(status_code=400, detail=_("Aantal moet minstens 1 zijn; verwijder de regel om ze te schrappen."))
-        item.quantity = data.quantity
-    db.flush()
-    snapshot_registration_item(
-        db, item, operation="update", action="order_changed",
-        source="admin_manual", actor=admin.email,
-    )
-    db.commit()
     return _order_edit_result(db, activity, reg, actor=admin.email)
 
 
@@ -731,22 +699,13 @@ def delete_order_line(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
+    from app.domains.activities import service
+
     activity = _load_activity_or_404(db, activity_id)
-    reg = _load_registration_or_404(db, activity, registration_id)
-    item = db.query(RegistrationItem).filter(
-        RegistrationItem.id == item_id,
-        RegistrationItem.registration_id == reg.id,
-    ).first()
-    if not item:
+    reg = service.delete_order_line(db, activity_id, registration_id, item_id,
+                                    actor=admin.email)
+    if reg is None:
         raise HTTPException(status_code=404, detail=_("Order line not found"))
-    # Snapshot vóór de (soft) delete (#84/#166): de bronrij blijft bestaan maar
-    # wordt gemarkeerd; de globale filter sluit ze uit bij de saldo-herberekening.
-    snapshot_registration_item(
-        db, item, operation="delete", action="order_changed",
-        source="admin_manual", actor=admin.email,
-    )
-    soft_delete(item)
-    db.commit()
     return _order_edit_result(db, activity, reg, actor=admin.email)
 
 
@@ -771,25 +730,14 @@ def update_registration_remarks(
     iemands contactgegevens niet te verklaren. De gekoppelde `Person` blijft
     ongemoeid: die corrigeer je op /admin/leden.
     """
+    from app.domains.activities import service
+
     activity = _load_activity_or_404(db, activity_id)
-    reg = _load_registration_or_404(db, activity, registration_id)
-
-    gezet = data.model_dump(exclude_unset=True)
-    gewijzigd = False
-    for veld in ("contact_name", "contact_email", "phone", "remarks"):
-        if veld not in gezet:
-            continue
-        waarde = (str(gezet[veld]) if gezet[veld] is not None else "").strip() or None
-        if getattr(reg, veld) != waarde:
-            setattr(reg, veld, waarde)
-            gewijzigd = True
-
-    if gewijzigd:
-        db.flush()
-        snapshot_registration(db, reg, operation="update", action="registration_contact_updated",
-                              source="admin_manual", actor=admin.email)
-    db.commit()
-    db.refresh(reg)
+    reg = service.update_registration_contact(
+        db, activity_id, registration_id, data.model_dump(exclude_unset=True),
+        actor=admin.email)
+    if reg is None:
+        raise HTTPException(status_code=404, detail=_("Registration not found"))
     return _enrich_registration(reg, activity)
 
 
@@ -807,24 +755,12 @@ def delete_registration(
     soft-deleted inschrijvingen op via ``include_deleted``, #190). De bestelregels
     worden mee soft-deleted (met audit-snapshot) zodat ze niet in aantal-/
     saldoberekeningen lekken (#194)."""
-    activity = _load_activity_or_404(db, activity_id)
-    reg = _load_registration_or_404(db, activity, registration_id)
-    for item in list(reg.items):
-        if getattr(item, "deleted_at", None) is None:
-            snapshot_registration_item(
-                db, item, operation="delete", action="order_changed",
-                source="admin_manual", actor=admin.email,
-            )
-            soft_delete(item)
-    db.commit()
-    db.refresh(reg)
-    # Het besteltotaal is nu 0: reconcilieer de charges identiek aan het apart
-    # weghalen van álle producten (#185/#313). Zo wordt een reeds betaald bedrag een
-    # terugbetaling-verplichting en verdwijnt een nog-onbetaalde charge (niets
-    # verschuldigd). Pas daarna de inschrijving zelf soft-deleten.
-    reconcile_registration_charges(db, reg, audit_actor=admin.email)
-    soft_delete(reg)
-    db.commit()
+    from app.domains.activities import service
+
+    _load_activity_or_404(db, activity_id)
+    if not service.delete_registration(db, activity_id, registration_id,
+                                       actor=admin.email):
+        raise HTTPException(status_code=404, detail=_("Registration not found"))
     return {"status": "deleted", "registration_id": registration_id}
 
 

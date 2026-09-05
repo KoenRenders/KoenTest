@@ -345,6 +345,263 @@ def _product(db, component_id: int, product_id: int):
             .first())
 
 
+# ── Bestelregels en inschrijvingen (#679, batch 4) ────────────────────────────
+
+def _registratie(db, activity_id: int, registration_id: int):
+    return (db.query(Registration)
+            .filter(Registration.id == registration_id,
+                    Registration.activity_id == activity_id)
+            .first())
+
+
+def _regel(db, registration_id: int, item_id: int):
+    from app.domains.activities.models import RegistrationItem
+
+    return (db.query(RegistrationItem)
+            .filter(RegistrationItem.id == item_id,
+                    RegistrationItem.registration_id == registration_id)
+            .first())
+
+
+def controleer_bestelproduct(db, activity_id: int, registration, product_id: int):
+    """Een bestelregel mag enkel een product van deze activiteit/dit onderdeel dragen.
+
+    Domeinregel, dus hier: ze beschermt de koppeling tussen inschrijving en
+    aanbod, en die moet gelden ongeacht welke ingang een regel toevoegt. Geeft het
+    product terug; `ActiviteitFout` als de koppeling niet klopt, None als het
+    product niet bestaat — twee verschillende dingen, dus twee verschillende
+    antwoorden.
+    """
+    from app.domains.activities.models import ActivityProduct
+    from app.i18n import _ as vertaal
+
+    product = db.query(ActivityProduct).filter(
+        ActivityProduct.id == product_id).first()
+    if product is None:
+        return None
+    comp = get_component(db, product.component_id)
+    if comp is None or comp.activity_id != activity_id:
+        raise ActiviteitFout(vertaal("Product hoort niet bij deze activiteit."))
+    if (registration.component_id is not None
+            and product.component_id != registration.component_id):
+        raise ActiviteitFout(vertaal(
+            "Product hoort niet bij het onderdeel van deze inschrijving."))
+    return product
+
+
+def add_order_line(db, activity_id: int, registration_id: int, product_id: int,
+                   quantity: int, *, actor=None):
+    """Voeg een bestelregel toe, of hoog een bestaande regel op (#197).
+
+    Geeft de inschrijving terug, of None als activiteit/inschrijving/product niet
+    bestaat. Het reconciliëren van de betaalposten doet de aanroeper met
+    `reconcile_registration_charges` — dat is payment-domein, geen activiteiten.
+    """
+    from app.domains.activities.models import RegistrationItem
+    from app.domains.audit.api import snapshot_registration_item
+    from app.i18n import _ as vertaal
+
+    reg = _registratie(db, activity_id, registration_id)
+    if reg is None:
+        return None
+    if quantity < 1:
+        raise ActiviteitFout(vertaal("Aantal moet minstens 1 zijn."))
+    if controleer_bestelproduct(db, activity_id, reg, product_id) is None:
+        return None
+
+    bestaand = (db.query(RegistrationItem)
+                .filter(RegistrationItem.registration_id == reg.id,
+                        RegistrationItem.product_id == product_id)
+                .first())
+    if bestaand is not None:
+        # #197: geen tweede regel voor hetzelfde product, maar optellen.
+        bestaand.quantity += quantity
+        db.flush()
+        snapshot_registration_item(db, bestaand, operation="update",
+                                   action="order_changed", source="admin_manual",
+                                   actor=actor)
+    else:
+        item = RegistrationItem(registration_id=reg.id, product_id=product_id,
+                                quantity=quantity)
+        db.add(item)
+        db.flush()
+        snapshot_registration_item(db, item, operation="insert",
+                                   action="order_changed", source="admin_manual",
+                                   actor=actor)
+    db.commit()
+    _herbereken(db, reg, actor)
+    return reg
+
+
+def update_order_line(db, activity_id: int, registration_id: int, item_id: int,
+                      *, product_id=None, quantity=None, actor=None):
+    """Wijzig een bestelregel. None als activiteit/inschrijving/regel niet bestaat."""
+    from app.domains.audit.api import snapshot_registration_item
+    from app.i18n import _ as vertaal
+
+    reg = _registratie(db, activity_id, registration_id)
+    if reg is None:
+        return None
+    item = _regel(db, reg.id, item_id)
+    if item is None:
+        return None
+    if product_id is not None:
+        if controleer_bestelproduct(db, activity_id, reg, product_id) is None:
+            return None
+        item.product_id = product_id
+    if quantity is not None:
+        if quantity < 1:
+            raise ActiviteitFout(vertaal(
+                "Aantal moet minstens 1 zijn; verwijder de regel om ze te schrappen."))
+        item.quantity = quantity
+    db.flush()
+    snapshot_registration_item(db, item, operation="update", action="order_changed",
+                              source="admin_manual", actor=actor)
+    db.commit()
+    _herbereken(db, reg, actor)
+    return reg
+
+
+def delete_order_line(db, activity_id: int, registration_id: int, item_id: int, *,
+                      actor=None):
+    """Soft delete van één bestelregel. None als ze niet gevonden wordt.
+
+    Snapshot vóór het schrappen (#84/#166): de bronrij blijft bestaan maar wordt
+    gemarkeerd, en de globale filter sluit haar uit bij de saldo-herberekening.
+    """
+    from app.domains.audit.api import snapshot_registration_item
+    from app.soft_delete import soft_delete
+
+    reg = _registratie(db, activity_id, registration_id)
+    if reg is None:
+        return None
+    item = _regel(db, reg.id, item_id)
+    if item is None:
+        return None
+    snapshot_registration_item(db, item, operation="delete", action="order_changed",
+                              source="admin_manual", actor=actor)
+    soft_delete(item)
+    db.commit()
+    _herbereken(db, reg, actor)
+    return reg
+
+
+def _herbereken(db, reg, actor) -> None:
+    """De betaalposten volgen de bestelling (#185).
+
+    Dit hoorde in `_order_edit_result` in de router, samen met het vormgeven van
+    het antwoord. Twee verschillende dingen: dát de charges herrekend worden is een
+    domeinregel — wie een bestelregel wijzigt zonder te reconciliëren laat het
+    saldo stil verkeerd staan — en die regel moet gelden voor élke ingang, ook een
+    scherm dat de service rechtstreeks aanroept.
+
+    `reconcile_registration_charges` is integraal en dus idempotent: nog eens
+    aanroepen verandert niets.
+    """
+    from app.domains.payment.api import reconcile_registration_charges
+
+    db.refresh(reg)
+    reconcile_registration_charges(db, reg, audit_actor=actor)
+    db.commit()
+    db.refresh(reg)
+
+
+def update_registration_contact(db, activity_id: int, registration_id: int,
+                                gezet: dict, *, actor=None):
+    """Corrigeer contactgegevens en/of opmerking (#283, uitgebreid #624).
+
+    Raakt bestelregels, saldo en OGM NIET aan — dit is geen geldwijziging. Leeg of
+    enkel witruimte wordt NULL. Enkel meegestuurde velden veranderen, zodat de
+    oude #283-aanroep (alleen `remarks`) blijft werken.
+
+    Alleen bij een échte wijziging een snapshot: een opslag zonder verschil hoort
+    geen rij in het logboek op te leveren, anders wordt de geschiedenis ruis.
+    """
+    from app.domains.audit.api import snapshot_registration
+
+    reg = _registratie(db, activity_id, registration_id)
+    if reg is None:
+        return None
+    gewijzigd = False
+    for veld in ("contact_name", "contact_email", "phone", "remarks"):
+        if veld not in gezet:
+            continue
+        waarde = (str(gezet[veld]) if gezet[veld] is not None else "").strip() or None
+        if getattr(reg, veld) != waarde:
+            setattr(reg, veld, waarde)
+            gewijzigd = True
+    if gewijzigd:
+        db.flush()
+        snapshot_registration(db, reg, operation="update",
+                              action="registration_contact_updated",
+                              source="admin_manual", actor=actor)
+    db.commit()
+    db.refresh(reg)
+    return reg
+
+
+def delete_registration(db, activity_id: int, registration_id: int, *, actor=None) -> bool:
+    """Soft delete van een inschrijving én haar bestelregels (#313).
+
+    Raakt de betaling NIET aan: een PaymentRecord is een financieel feit en blijft
+    bestaan én zichtbaar (de verrijking haalt soft-deleted inschrijvingen op via
+    include_deleted, #190). De bestelregels gaan wél mee, met snapshot, zodat ze
+    niet in aantal- en saldoberekeningen lekken (#194).
+
+    Het reconciliëren gebeurt vóór het schrappen van de inschrijving zelf: het
+    besteltotaal is dan 0, dus een reeds betaald bedrag wordt een
+    terugbetaalverplichting en een onbetaalde charge verdwijnt (#185/#313).
+    """
+    from app.domains.audit.api import snapshot_registration_item
+    from app.domains.payment.api import reconcile_registration_charges
+    from app.soft_delete import soft_delete
+
+    reg = _registratie(db, activity_id, registration_id)
+    if reg is None:
+        return False
+    for item in list(reg.items):
+        if getattr(item, "deleted_at", None) is None:
+            snapshot_registration_item(db, item, operation="delete",
+                                       action="order_changed",
+                                       source="admin_manual", actor=actor)
+            soft_delete(item)
+    db.commit()
+    db.refresh(reg)
+    reconcile_registration_charges(db, reg, audit_actor=actor)
+    soft_delete(reg)
+    db.commit()
+    return True
+
+
+# ── Export (#679, batch 5) ────────────────────────────────────────────────────
+
+def component_export(db, activity_id: int, component_id: int):
+    """De .ods van één onderdeel, plus een veilige bestandsnaam.
+
+    De opbouw zelf staat al in `activities/export.py` en verhuist niet — die was
+    nooit routerlogica. Wat hier bijkomt is het OPZOEKEN (bestaat dit onderdeel bij
+    deze activiteit?) en het samenstellen van de naam. Dat laatste is geen HTTP:
+    dezelfde naam hoort in een e-mailbijlage of een bestand op schijf te staan.
+
+    Geeft (inhoud, bestandsnaam) terug, of None als de activiteit of het onderdeel
+    niet bestaat.
+    """
+    import re
+
+    from app.domains.activities.export import build_component_export_ods
+
+    activity = db.query(Activity).filter(Activity.id == activity_id).first()
+    if activity is None:
+        return None
+    component = get_component(db, component_id, activity_id=activity_id)
+    if component is None:
+        return None
+    inhoud = build_component_export_ods(db, activity, component)
+    ruw = f"{activity.name}-{component.name}"
+    veilig = re.sub(r"[^A-Za-z0-9_-]+", "_", ruw).strip("_") or "export"
+    return inhoud, f"{veilig}.ods"
+
+
 def _activity_met_boom(db, activity_id: int) -> Optional[Activity]:
     """Eén activiteit met haar datums, onderdelen en producten in één keer."""
     from sqlalchemy.orm import selectinload
