@@ -211,6 +211,15 @@ hint**. Macro: `ui.upload_field(name, text, current_url, delete_attrs, hint)`.
 - **Geen eigen submit-knop.** Het blok hoort in de vorm die het omvat, zodat één
   "Opslaan" het tekstveld én het bestand bewaart. Een losse "Uploaden"-knop maakt van
   één wijziging twee handelingen — precies wat de activiteiteneditor deed.
+  Dit geldt **op élk niveau** — activiteit, onderdeel, product — niet enkel op het
+  bovenste. Eén record in bewerkmodus toont **precies één** "Opslaan". Zie je er twee,
+  dan zijn het twee vormen naar twee endpoints en hoort dat één vorm te worden
+  (#654: het onderdeel bleef achter terwijl de activiteit in #623 al om was).
+  Referentie-implementatie: `activiteit_bijwerken` in `activities/admin_ui.py` —
+  `async def`, `file: Optional[UploadFile] = File(None)`, eerst de velden, dan het
+  bestand als er een meegestuurd is.
+  **Verwijderen valt hier buiten.** De verwijderknop naast een bijlage blijft een
+  aparte actie: dat is geen bewaarhandeling en hoort niet onder de gedeelde "Opslaan".
 - De omhullende vorm heeft `enctype="multipart/form-data"` en
   `hx-encoding="multipart/form-data"` nodig.
 - **De bestaande bijlage staat náást de kiezer**, met een verwijderactie ernaast — niet
