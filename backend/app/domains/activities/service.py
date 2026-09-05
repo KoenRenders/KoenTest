@@ -122,6 +122,72 @@ def delete_activity(db, activity_id: int, *, actor=None) -> bool:
     return True
 
 
+def add_activity_date(db, activity_id: int, gegevens, *, actor=None) -> Optional[ActivityDate]:
+    """Voeg een datum toe. None als de activiteit niet bestaat (#679, batch 2)."""
+    from app.domains.audit.api import snapshot_activity_date
+
+    if db.query(Activity).filter(Activity.id == activity_id).first() is None:
+        return None
+    ad = ActivityDate(
+        activity_id=activity_id,
+        start_date=gegevens.start_date,
+        end_date=getattr(gegevens, "end_date", None),
+        start_time=getattr(gegevens, "start_time", None),
+        end_time=getattr(gegevens, "end_time", None),
+    )
+    db.add(ad)
+    db.flush()
+    snapshot_activity_date(db, ad, operation="insert", action="date_created",
+                           source="admin_manual", actor=actor)
+    db.commit()
+    db.refresh(ad)
+    return ad
+
+
+def update_activity_date(db, activity_id: int, date_id: int, velden: dict, *,
+                         actor=None) -> Optional[ActivityDate]:
+    """Werk een datum bij. None als ze niet bij deze activiteit hoort.
+
+    Het activiteit-id hoort bij de sleutel en niet bij de HTTP-laag: een datum van
+    activiteit A mag je niet via activiteit B kunnen bewerken, ongeacht welke
+    ingang het probeert.
+    """
+    from app.domains.audit.api import snapshot_activity_date
+
+    ad = _datum(db, activity_id, date_id)
+    if ad is None:
+        return None
+    for veld, waarde in velden.items():
+        setattr(ad, veld, waarde)
+    snapshot_activity_date(db, ad, operation="update", action="date_updated",
+                           source="admin_manual", actor=actor)
+    db.commit()
+    db.refresh(ad)
+    return ad
+
+
+def delete_activity_date(db, activity_id: int, date_id: int, *, actor=None) -> bool:
+    """Soft delete van één datum. False als ze niet bij deze activiteit hoort."""
+    from app.domains.audit.api import snapshot_activity_date
+    from app.soft_delete import soft_delete
+
+    ad = _datum(db, activity_id, date_id)
+    if ad is None:
+        return False
+    snapshot_activity_date(db, ad, operation="delete", action="date_deleted",
+                           source="admin_manual", actor=actor)
+    soft_delete(ad)
+    db.commit()
+    return True
+
+
+def _datum(db, activity_id: int, date_id: int) -> Optional[ActivityDate]:
+    return (db.query(ActivityDate)
+            .filter(ActivityDate.id == date_id,
+                    ActivityDate.activity_id == activity_id)
+            .first())
+
+
 def _activity_met_boom(db, activity_id: int) -> Optional[Activity]:
     """Eén activiteit met haar datums, onderdelen en producten in één keer."""
     from sqlalchemy.orm import selectinload

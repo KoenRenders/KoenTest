@@ -94,10 +94,67 @@ def test_verwijderen_geeft_false_bij_een_onbekende_activiteit(db_session):
     assert service.delete_activity(db_session, 999999) is False
 
 
+# ── Batch 2: datums ───────────────────────────────────────────────────────────
+
+def test_een_datum_toevoegen_zonder_de_router(db_session):
+    from types import SimpleNamespace
+
+    activiteit = service.create_activity(db_session, name="Met datum", actor="a@b.c")
+    ad = service.add_activity_date(
+        db_session, activiteit.id,
+        SimpleNamespace(start_date=date.today(), end_date=None,
+                        start_time=None, end_time=None),
+        actor="a@b.c")
+    assert ad is not None and ad.activity_id == activiteit.id
+
+
+def test_een_datum_van_een_andere_activiteit_is_niet_te_bewerken(db_session):
+    """De sleutel is (activiteit, datum), en dat hoort in de service.
+
+    Zou alleen de route dat controleren, dan kan elke andere ingang een datum van
+    activiteit A via activiteit B bewerken.
+    """
+    from types import SimpleNamespace
+
+    a = service.create_activity(db_session, name="A", actor="a@b.c")
+    b = service.create_activity(db_session, name="B", actor="a@b.c")
+    datum = service.add_activity_date(
+        db_session, a.id,
+        SimpleNamespace(start_date=date.today(), end_date=None,
+                        start_time=None, end_time=None), actor="a@b.c")
+
+    assert service.update_activity_date(db_session, b.id, datum.id,
+                                        {"start_date": date.today()}) is None
+    assert service.delete_activity_date(db_session, b.id, datum.id) is False
+    # En via de eigen activiteit werkt het wél.
+    assert service.delete_activity_date(db_session, a.id, datum.id) is True
+
+
+def test_een_datum_bijwerken_bewaart_de_geschiedenis(db_session):
+    from types import SimpleNamespace
+
+    from app.domains.activities.api import ActivityDateHistory
+
+    activiteit = service.create_activity(db_session, name="Historie", actor="a@b.c")
+    datum = service.add_activity_date(
+        db_session, activiteit.id,
+        SimpleNamespace(start_date=date.today(), end_date=None,
+                        start_time=None, end_time=None), actor="a@b.c")
+    service.update_activity_date(db_session, activiteit.id, datum.id,
+                                 {"start_date": date.today() + timedelta(days=1)},
+                                 actor="a@b.c")
+
+    acties = [r.action for r in db_session.query(ActivityDateHistory).filter(
+        ActivityDateHistory.activity_id == activiteit.id).all()]
+    assert "date_created" in acties and "date_updated" in acties
+
+
 def test_de_router_rekent_niet_meer_zelf(db_session):
     """De scheiding zelf: wat overblijft in de route is HTTP, geen domeinlogica."""
     bron = open("app/domains/activities/router.py", encoding="utf-8").read()
-    for naam in ("def create_activity(", "def update_activity(", "def delete_activity("):
+    for naam in ("def create_activity(", "def update_activity(", "def delete_activity(",
+                 "def add_activity_date(", "def update_activity_date(",
+                 "def delete_activity_date("):
         start = bron.index(naam)
         einde = bron.index("\n@router", start)
         body = bron[start:einde]

@@ -350,22 +350,11 @@ def add_activity_date(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    activity = db.query(Activity).filter(Activity.id == activity_id).first()
-    if not activity:
+    from app.domains.activities import service
+
+    ad = service.add_activity_date(db, activity_id, data, actor=admin.email)
+    if ad is None:
         raise HTTPException(status_code=404, detail=_("Activity not found"))
-    ad = ActivityDate(
-        activity_id=activity_id,
-        start_date=data.start_date,
-        end_date=data.end_date,
-        start_time=data.start_time,
-        end_time=data.end_time,
-    )
-    db.add(ad)
-    db.flush()
-    snapshot_activity_date(db, ad, operation="insert", action="date_created",
-                           source="admin_manual", actor=admin.email)
-    db.commit()
-    db.refresh(ad)
     return ad
 
 
@@ -377,18 +366,13 @@ def update_activity_date(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    ad = db.query(ActivityDate).filter(
-        ActivityDate.id == date_id,
-        ActivityDate.activity_id == activity_id,
-    ).first()
-    if not ad:
+    from app.domains.activities import service
+
+    ad = service.update_activity_date(db, activity_id, date_id,
+                                      data.model_dump(exclude_unset=True),
+                                      actor=admin.email)
+    if ad is None:
         raise HTTPException(status_code=404, detail=_("Date not found"))
-    for field, value in data.model_dump(exclude_unset=True).items():
-        setattr(ad, field, value)
-    snapshot_activity_date(db, ad, operation="update", action="date_updated",
-                           source="admin_manual", actor=admin.email)
-    db.commit()
-    db.refresh(ad)
     return ad
 
 
@@ -399,16 +383,10 @@ def delete_activity_date(
     db: Session = Depends(get_db),
     admin: User = Depends(get_current_admin),
 ):
-    ad = db.query(ActivityDate).filter(
-        ActivityDate.id == date_id,
-        ActivityDate.activity_id == activity_id,
-    ).first()
-    if not ad:
+    from app.domains.activities import service
+
+    if not service.delete_activity_date(db, activity_id, date_id, actor=admin.email):
         raise HTTPException(status_code=404, detail=_("Date not found"))
-    snapshot_activity_date(db, ad, operation="delete", action="date_deleted",
-                           source="admin_manual", actor=admin.email)
-    soft_delete(ad)
-    db.commit()
     return {"detail": "deleted"}
 
 
