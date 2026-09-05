@@ -184,11 +184,21 @@ class Activiteitdetail:
         """Open een activiteitdetail vanuit de lijst; geeft False als er geen is."""
         self.page.goto("/admin/activiteiten")
         self.page.wait_for_selector("main", timeout=5000)
-        link = (self.page.get_by_text(naam).first if naam
-                else self.page.locator('a[href^="/admin/activiteiten/"]').first)
-        if link.count() == 0:
-            return False
-        link.click()
+        if naam:
+            link = self.page.get_by_text(naam).first
+            if link.count() == 0:
+                return False
+            link.click()
+        else:
+            # Niet de eerste /admin/activiteiten/-link nemen: "+ Activiteit" wijst
+            # naar /nieuw en staat bovenaan. Alleen een link naar een echt id telt.
+            pad = self.page.evaluate(
+                r"""Array.from(document.querySelectorAll('a[href]'))
+                        .map(a => a.getAttribute('href'))
+                        .find(h => /^\/admin\/activiteiten\/\d+$/.test(h)) || null""")
+            if not pad:
+                return False
+            self.page.goto(pad)
         self.page.wait_for_selector("#aa-detail", timeout=5000)
         return True
 
@@ -215,6 +225,10 @@ class Activiteitdetail:
         self.page.evaluate(
             """document.body.setAttribute('hx-headers',
                    JSON.stringify({'X-CSRF-Token': 'verlopen-token'}))""")
+
+    def datum_leesregel(self):
+        """De tekstregel met de datum — die hoort te verdwijnen tijdens bewerken (#648)."""
+        return self.datumregel().locator('xpath=../div/span[@x-show="!edit"]').first
 
     def foutmeldingen(self):
         """De meldingen die htmx_ux() in de toast-host zet (#649)."""

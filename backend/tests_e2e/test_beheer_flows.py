@@ -290,3 +290,30 @@ def test_de_export_blijft_een_download(admin_page):
         knop.first.click()
 
     assert download.value.suggested_filename.endswith(".ods")
+
+
+def test_bewerken_vervangt_de_datumregel(admin_page):
+    """#648: het formulier komt op de plaats van de leesregel, niet eronder.
+
+    Alleen een browser kan dit bewijzen: server en markup zijn beide in orde: het
+    is Alpine dat de leesregel moet wegschakelen. Stond de `x-show` er niet, dan
+    zag je dezelfde datum twee keer — als tekst én in de invulvelden.
+    """
+    from tests_e2e.schermen import Activiteitdetail
+
+    scherm = Activiteitdetail(admin_page)
+    if not scherm.open_eerste():
+        _ontbreekt("geen activiteit om te openen")
+    if scherm.datumregel().count() == 0:
+        _ontbreekt("de activiteit heeft geen datumregel om te bewerken")
+
+    leesregel = scherm.datum_leesregel()
+    assert leesregel.is_visible(), "de datum hoort in leesstand zichtbaar te zijn"
+    datum = leesregel.inner_text().strip()
+
+    scherm.bewerk_de_eerste_datum()
+    admin_page.wait_for_timeout(200)
+
+    assert not leesregel.is_visible(), (
+        f"de leesregel {datum!r} blijft staan naast het bewerkformulier (#648)")
+    assert scherm.datumregel().is_visible(), "het bewerkformulier ging niet open"

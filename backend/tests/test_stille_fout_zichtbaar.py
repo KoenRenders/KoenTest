@@ -20,7 +20,7 @@ pytestmark = pytest.mark.ui_serverrendered
 SCHILLEN = ("app/ui/templates/admin_base.html", "app/ui/templates/site_base.html")
 
 
-def test_token_van_een_vorige_sessie_geeft_403(client, db_session, monkeypatch):
+def test_token_van_een_vorige_sessie_geeft_403(client, db_session):
     """De oorzaak, uitgeschreven: het token hangt aan de exacte cookiewaarde.
 
     `csrf_token_for(raw)` tekent de volledige cookiewaarde, en die bevat een
@@ -34,12 +34,17 @@ def test_token_van_een_vorige_sessie_geeft_403(client, db_session, monkeypatch):
     activity, _comp, _p = seed_activity_with_product(db_session)
     from app.domains.auth import session as sessiemodule
 
-    # Een sessie van een uur geleden: dezelfde gebruiker, andere cookiewaarde.
-    monkeypatch.setattr(sessiemodule.time, "time", lambda: time.time() - 3600)
-    oude_waarde = make_session_value(SEEDED_ADMIN_EMAIL)
-    monkeypatch.undo()
+    # De cookiewaarde van een uur geleden, met de hand gebouwd zoals
+    # make_session_value het doet. Bewust niet time.time() patchen: de waarde die
+    # we hier nodig hebben is precies "dezelfde gebruiker, andere vervaltijd", en
+    # dat is duidelijker als het er letterlijk staat.
+    oude_exp = int(time.time()) - 3600 + sessiemodule.SESSION_MAX_AGE
+    oude_basis = f"{SEEDED_ADMIN_EMAIL}|{oude_exp}"
+    oude_waarde = f"{oude_basis}|{sessiemodule._sign(oude_basis)}"
     nieuwe_waarde = make_session_value(SEEDED_ADMIN_EMAIL)
     assert oude_waarde != nieuwe_waarde, "de twee sessies moeten verschillen"
+    # De oude sessie is nog gelding — het gaat om het token, niet om verlopen zijn.
+    assert sessiemodule.read_session_value(oude_waarde) == SEEDED_ADMIN_EMAIL
 
     # De browser draagt de nieuwe cookie (herinlog), het tabblad het oude token.
     client.cookies.set(SESSION_COOKIE, nieuwe_waarde)
