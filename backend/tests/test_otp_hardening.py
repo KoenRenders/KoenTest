@@ -4,7 +4,9 @@ from tests.conftest import SEEDED_ADMIN_EMAIL
 from app.domains.auth.api import LoginToken
 from app.domains.auth.router import MAX_OTP_ATTEMPTS
 from app.limiter import login_limiter
-from app.domains.auth import router as auth_router
+# De OTP-generator woont sinds #635 I in auth/login.py (de aanmeldstap is service,
+# geen router); patchen doe je waar de implementatie staat.
+from app.domains.auth import login as auth_login
 
 FIXED_OTP = "424242"
 
@@ -19,7 +21,7 @@ def _latest_token(db_session, email):
 
 
 def test_otp_locks_out_after_max_attempts(client, db_session, monkeypatch):
-    monkeypatch.setattr(auth_router, "_generate_otp", lambda: FIXED_OTP)
+    monkeypatch.setattr(auth_login, "_generate_otp", lambda: FIXED_OTP)
     client.post("/api/v1/auth/request-login", json={"email": SEEDED_ADMIN_EMAIL})
     code = FIXED_OTP
     wrong = "000000"

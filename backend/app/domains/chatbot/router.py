@@ -20,7 +20,7 @@ from app.database import get_db
 from app.domains.chatbot.context import build_system_prompt
 from app.domains.chatbot.providers import get_provider
 from app.domains.chatbot.service import run_chat
-from app.limiter import DailyCharBudget, chat_limiter
+from app.limiter import chat_limiter
 from app.schemas.chat import ChatRequest
 from app.i18n import _
 
@@ -28,9 +28,9 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["chat"])
 
-# Dagelijks tekenbudget per IP (config-gestuurd). Eén gedeelde instantie zodat de
-# teller over requests heen blijft staan.
-chat_char_budget = DailyCharBudget(settings.chat_daily_char_budget)
+# Eén gedeelde instantie (app/domains/chatbot/limits.py) zodat de teller over
+# requests én over de twee ingangen heen dezelfde is.
+from app.domains.chatbot.limits import chat_char_budget  # noqa: E402,F401
 
 
 def _sse(payload: dict) -> str:

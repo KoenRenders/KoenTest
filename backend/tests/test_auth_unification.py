@@ -12,14 +12,16 @@ Bewijst de kerngaranties van de auth-unificatie:
 """
 from tests.conftest import seed_postal_code, SEEDED_ADMIN_EMAIL
 from app.domains.auth.api import LoginToken
-from app.domains.auth import router as auth_router
+# De OTP-generator woont sinds #635 I in auth/login.py (de aanmeldstap is service,
+# geen router); patchen doe je waar de implementatie staat.
+from app.domains.auth import login as auth_login
 
 FIXED_OTP = "424242"
 
 
 def _fix_otp(monkeypatch):
     """De code staat sinds #395 gehasht in de DB - tests pinnen de plaintext."""
-    monkeypatch.setattr(auth_router, "_generate_otp", lambda: FIXED_OTP)
+    monkeypatch.setattr(auth_login, "_generate_otp", lambda: FIXED_OTP)
 
 
 def _family_payload(email):

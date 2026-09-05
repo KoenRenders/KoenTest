@@ -81,8 +81,10 @@ def test_afhandelen_without_csrf_fails(client, db_session):
 
 
 def test_verify_otp_sets_session_cookie(client, db_session, monkeypatch):
-    from app.domains.auth import router as auth_router
-    monkeypatch.setattr(auth_router, "_generate_otp", lambda: "424242")
+    # De OTP-generator woont sinds #635 I in auth/login.py; patchen doe je waar
+    # de implementatie staat.
+    from app.domains.auth import login as auth_login
+    monkeypatch.setattr(auth_login, "_generate_otp", lambda: "424242")
     client.post("/api/v1/auth/request-login", json={"email": SEEDED_ADMIN_EMAIL})
     resp = client.post("/api/v1/auth/verify-otp",
                        json={"email": SEEDED_ADMIN_EMAIL, "code": "424242"})

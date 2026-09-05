@@ -47,7 +47,7 @@ def raakje_vraag(request: Request, db: Session = Depends(get_db),
                  vraag: str = Form("")):
     from app.domains.chatbot.context import build_system_prompt
     from app.domains.chatbot.providers import get_provider
-    from app.domains.chatbot.router import chat_char_budget
+    from app.domains.chatbot.api import chat_char_budget
     from app.domains.chatbot.service import run_chat
 
     vraag = vraag.strip()
@@ -75,9 +75,9 @@ def raakje_vraag(request: Request, db: Session = Depends(get_db),
 # ── Admin: ai-context ──────────────────────────────────────────────────────────
 
 def _context_ctx(request: Request, db: Session, email: str) -> dict:
-    from app.domains.chatbot.info_router import list_chatbot_info
+    from app.domains.chatbot.api import list_chatbot_info
 
-    data = list_chatbot_info(db=db, _admin=admin_user_by_email(db, email))
+    data = list_chatbot_info(db)
     return {
         "csrf_token": csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
         **data,
@@ -103,14 +103,14 @@ def ai_context_lijst(request: Request, db: Session = Depends(get_db),
 def notitie_toevoegen(request: Request, db: Session = Depends(get_db),
                       email: str = Depends(require_admin_ui),
                       title: str = Form(""), text_addition: str = Form("")):
-    from app.domains.chatbot.info_router import create_note
+    from app.domains.chatbot.api import create_note
     from app.schemas.chatbot_info import NoteCreate
 
     if not title.strip() or not text_addition.strip():
         raise HTTPException(status_code=400, detail=_("Titel en tekst zijn verplicht."))
-    create_note(NoteCreate(title=title.strip(), text_addition=text_addition.strip(),
-                           is_active=True),
-                db=db, _admin=admin_user_by_email(db, email))
+    create_note(db, NoteCreate(title=title.strip(),
+                               text_addition=text_addition.strip(),
+                               is_active=True))
     return templates.TemplateResponse(request, "_ai_context_lijst.html",
                                       _context_ctx(request, db, email))
 
@@ -121,14 +121,14 @@ def rij_bewerken(row_id: int, request: Request, db: Session = Depends(get_db),
                  email: str = Depends(require_admin_ui),
                  title: str = Form(""), text_override: str = Form(""),
                  text_addition: str = Form("")):
-    from app.domains.chatbot.info_router import update_row
-    from app.domains.chatbot.models import ChatbotInfo
+    from app.domains.chatbot.api import get_row, update_row
     from app.schemas.chatbot_info import ChatbotInfoEdit
 
-    ci = db.query(ChatbotInfo).filter(ChatbotInfo.id == row_id).first()
-    if ci is None:
+    try:
+        ci = get_row(db, row_id)
+    except LookupError:
         raise HTTPException(status_code=404, detail=_("Rij niet gevonden"))
-    update_row(row_id, ChatbotInfoEdit(
+    update_row(db, row_id, ChatbotInfoEdit(
         title=title.strip() or None,
         text_override=text_override.strip() or None,
         text_addition=text_addition.strip() or None,
@@ -158,9 +158,12 @@ def document_opnieuw_lezen(asset_id: int, request: Request,
              dependencies=[Depends(require_csrf)])
 def rij_verwijderen(row_id: int, request: Request, db: Session = Depends(get_db),
                     email: str = Depends(require_admin_ui)):
-    from app.domains.chatbot.info_router import delete_row
+    from app.domains.chatbot.api import delete_row
 
-    delete_row(row_id, db=db, _admin=admin_user_by_email(db, email))
+    try:
+        delete_row(db, row_id)
+    except LookupError:
+        raise HTTPException(status_code=404, detail=_("Rij niet gevonden"))
     return templates.TemplateResponse(request, "_ai_context_lijst.html",
                                       _context_ctx(request, db, email))
 
@@ -169,12 +172,11 @@ def rij_verwijderen(row_id: int, request: Request, db: Session = Depends(get_db)
              dependencies=[Depends(require_csrf)])
 def rij_toggle(row_id: int, request: Request, db: Session = Depends(get_db),
                email: str = Depends(require_admin_ui)):
-    from app.domains.chatbot.models import ChatbotInfo
+    from app.domains.chatbot.api import toggle_row
 
-    ci = db.query(ChatbotInfo).filter(ChatbotInfo.id == row_id).first()
-    if ci is None:
+    try:
+        toggle_row(db, row_id)
+    except LookupError:
         raise HTTPException(status_code=404, detail=_("Rij niet gevonden"))
-    ci.is_active = not ci.is_active
-    db.commit()
     return templates.TemplateResponse(request, "_ai_context_lijst.html",
                                       _context_ctx(request, db, email))

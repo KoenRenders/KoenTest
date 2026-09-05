@@ -18,8 +18,10 @@ def test_aanmelden_page_renders(client):
 
 
 def test_aanmelden_flow_sets_session_cookie(client, monkeypatch):
-    from app.domains.auth import router as auth_router
-    monkeypatch.setattr(auth_router, "_generate_otp", lambda: "424242")
+    # De OTP-generator woont sinds #635 I in auth/login.py; patchen doe je waar
+    # de implementatie staat.
+    from app.domains.auth import login as auth_login
+    monkeypatch.setattr(auth_login, "_generate_otp", lambda: "424242")
 
     step1 = client.post("/aanmelden", data={"email": SEEDED_ADMIN_EMAIL})
     assert step1.status_code == 200 and "code" in step1.text.lower()
@@ -32,8 +34,10 @@ def test_aanmelden_flow_sets_session_cookie(client, monkeypatch):
 
 
 def test_aanmelden_wrong_code_shows_error_without_cookie(client, monkeypatch):
-    from app.domains.auth import router as auth_router
-    monkeypatch.setattr(auth_router, "_generate_otp", lambda: "424242")
+    # De OTP-generator woont sinds #635 I in auth/login.py; patchen doe je waar
+    # de implementatie staat.
+    from app.domains.auth import login as auth_login
+    monkeypatch.setattr(auth_login, "_generate_otp", lambda: "424242")
     client.post("/aanmelden", data={"email": SEEDED_ADMIN_EMAIL})
 
     resp = client.post("/aanmelden/code",
