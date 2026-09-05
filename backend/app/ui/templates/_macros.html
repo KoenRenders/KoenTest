@@ -709,6 +709,19 @@
     body.addEventListener('htmx:sendError', function () {
       meldFout({{ _("Geen verbinding met de server; je wijziging is niet bewaard.")|tojson }}, 'netwerk');
     });
+    // Derde soort stilte, en de gemeenste (#666): bij een doelfout is er GEEN
+    // response, dus htmx:responseError vuurt niet. htmx verstuurt het verzoek zelfs
+    // nooit — de knop ziet er normaal uit en doet niets. Zo bleef "Afgehandeld" op
+    // de taakpagina onopgemerkt: in het log stonden enkel GET's.
+    ['htmx:targetError', 'htmx:swapError'].forEach(function (evt) {
+      body.addEventListener(evt, function (e) {
+        // De gebruiker heeft niets aan een selector; de ontwikkelaar wel. Vandaar
+        // een leesbare melding op het scherm én het technische detail in de console.
+        console.error(evt, e.detail && (e.detail.target || e.detail.error), e.target);
+        meldFout({{ _("Deze actie kon niet uitgevoerd worden. Herlaad de pagina; blijft het fout gaan, meld het.")|tojson }},
+                 evt === 'htmx:targetError' ? 'doel' : 'swap');
+      });
+    });
     body.addEventListener('htmx:beforeSwap', function (e) {
       if (!e.detail.boosted) return;
       var tekst = e.detail.xhr && e.detail.xhr.responseText;
