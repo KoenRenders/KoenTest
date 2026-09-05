@@ -61,7 +61,7 @@ def _enrich(db, r) -> tuple[str, Optional[int], Optional[int]]:
 
 
 def build_payments_export_ods(db, context: str = "all", status: str = "all",
-                              q: str = "") -> bytes:
+                              q: str = "", openstaand: bool = False) -> bytes:
     """Bouw de .ods met de (gefilterde) betalingen & vorderingen + totaalrij. Bytes terug.
 
     De filter is `payment.service.matches_filter` — dezelfde functie die het scherm
@@ -80,6 +80,7 @@ def build_payments_export_ods(db, context: str = "all", status: str = "all",
     for r in records:
         label, membership_year, component_id = _enrich(db, r)
         if not matches_filter(r, context=context, status=status, q=q,
+                              openstaand=openstaand,
                               membership_year=membership_year,
                               component_id=component_id):
             continue

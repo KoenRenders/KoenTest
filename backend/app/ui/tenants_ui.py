@@ -25,7 +25,7 @@ from app.domains.auth.api import (  # noqa: F401
     csrf_from_request, get_user_roles, require_admin_ui, require_csrf,
 )
 from app.i18n import _
-from app.ui import admin_nav, is_fragment_request, templates
+from app.ui import admin_nav, filterparams, is_fragment_request, templates
 
 router = APIRouter(include_in_schema=False)
 
@@ -74,8 +74,10 @@ def _lijst_ctx(request: Request, db: Session) -> dict:
     """Lijst-index (C1): zoeken op naam/code, filter op status."""
     from app.domains.mdm.api import list_accounts
 
-    zoek = (request.query_params.get("q") or "").strip()
-    status = (request.query_params.get("status") or "").strip()
+    # #671: uit HX-Current-URL als htmx die meestuurt, anders uit de query-string.
+    stand = filterparams(request)
+    zoek = (stand.get("q") or "").strip()
+    status = (stand.get("status") or "").strip()
     units = _units(db)
     if zoek:
         naald = zoek.lower()

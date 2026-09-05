@@ -562,7 +562,7 @@ async def onderdeel_info_uploaden(activity_id: int, component_id: int, request: 
 # ── Gedeelde inschrijving-detail (betalingen + activiteiten-admin, #455/#451) ──
 
 def _detail_ctx(request: Request, db: Session, registration_id: int,
-                *, edit_open: bool = False) -> dict | None:
+                *, edit_open: bool = False, quantities: dict | None = None) -> dict | None:
     """Gedeelde context voor de inschrijving-detail/editor: de verrijkte
     inschrijving + de beschikbare producten van haar onderdeel (voor de
     'regel toevoegen'-keuze). Geeft None als de inschrijving niet bestaat."""
@@ -586,9 +586,15 @@ def _detail_ctx(request: Request, db: Session, registration_id: int,
     # de enige bron voor "wat kost deze inschrijving" (totals.py) — zodat het paneel
     # nooit een ander bedrag toont dan de betaalrecords. We lopen items en regels
     # parallel af en slaan items zonder product over, precies zoals die functie doet.
-    from app.domains.activities.api import compute_registration_total
+    # #670: met `quantities` rekent hij door op de aantallen uit het formulier,
+    # zónder iets te bewaren — dat is de live-herberekening. Zonder is het de
+    # bewaarde stand, zoals voorheen. Beide via totals.py, want een tweede
+    # berekening in deze module is precies wat §19.3 uitsluit.
+    from app.domains.activities.api import (compute_registration_total,
+                                            quote_registration)
 
-    totaal, regels = compute_registration_total(reg)
+    totaal, regels = (quote_registration(reg, quantities) if quantities is not None
+                      else compute_registration_total(reg))
     bedragen, idx = {}, 0
     for item in (reg.items or []):
         if getattr(item, "product", None) is None:
@@ -615,7 +621,8 @@ def _detail_ctx(request: Request, db: Session, registration_id: int,
 
 def _render_detail(request: Request, db: Session, registration_id: int,
                    *, edit_open: bool = False, ververs: bool = False,
-                   error: str | None = None) -> HTMLResponse:
+                   error: str | None = None,
+                   quantities: dict | None = None) -> HTMLResponse:
     """Rendert het detailfragment.
 
     ``edit_open`` houdt het paneel na een bewerking open (#613-3): het fragment
@@ -627,7 +634,8 @@ def _render_detail(request: Request, db: Session, registration_id: int,
     of toonde een nieuwe terugbetaling pas na F5 — terwijl de server al
     gereconcilieerd had. De betalingenlijst luistert op dat event.
     """
-    ctx = _detail_ctx(request, db, registration_id, edit_open=edit_open)
+    ctx = _detail_ctx(request, db, registration_id, edit_open=edit_open,
+                      quantities=quantities)
     if ctx is None:
         return HTMLResponse("")
     ctx["error"] = error
@@ -655,6 +663,37 @@ def _reg_or_404(db: Session, registration_id: int):
     if reg is None:
         raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
     return reg
+
+
+@router.post("/admin/inschrijvingen/{registration_id}/totaal",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+async def inschrijving_totaal(registration_id: int, request: Request,
+                              db: Session = Depends(get_db),
+                              email: str = Depends(require_admin_ui)):
+    """Herberekent regelbedragen en totaal bij een gewijzigd aantal (#670).
+
+    **Bewaart niets.** Er is bewust één "Opslaan" voor aantallen én opmerking
+    (#613-2), en de autosave-op-change is daar destijds uitgehaald. Een
+    live-endpoint dat stilletjes opslaat brengt die via de achterdeur terug, dus
+    dit leest het formulier en rekent — meer niet. Daar staat een test op.
+
+    Eigen endpoint en niet het publieke `/totaal`: dat laatste is open, dit vraagt
+    `require_admin_ui` + CSRF. Het patroon is hetzelfde, de rekenkant is dezelfde
+    (`totals.py`), alleen de deur verschilt.
+    """
+    formulier = await request.form()
+    aantallen = {}
+    for sleutel, waarde in formulier.items():
+        # form.items() kan een UploadFile geven; alleen tekstvelden zijn aantallen —
+        # zelfde guard als in inschrijving_opslaan.
+        if not sleutel.startswith("quantity_") or not isinstance(waarde, str):
+            continue
+        try:
+            aantallen[int(sleutel[len("quantity_"):])] = max(0, int(waarde))
+        except ValueError:
+            continue  # een leeg of onleesbaar veld laat het item op zijn eigen aantal
+    return _render_detail(request, db, registration_id, edit_open=True,
+                          quantities=aantallen)
 
 
 @router.post("/admin/inschrijvingen/{registration_id}/opmerking",
@@ -736,14 +775,26 @@ async def inschrijving_opslaan(registration_id: int, request: Request,
 def inschrijving_regel_toevoegen(registration_id: int, request: Request,
                                  db: Session = Depends(get_db),
                                  email: str = Depends(require_admin_ui),
-                                 product_id: int = Form(...),
+                                 product_id: str = Form(""),
                                  quantity: int = Form(1)):
+    """Voegt een regel toe. Aparte actie, buiten de ene "Opslaan" (#613-2).
+
+    `product_id` is sinds #670 optioneel op HTTP-niveau. De keuzelijst staat nu in
+    hetzelfde formulier als de aantallen — geneste formulieren bestaan niet — dus
+    ze kan geen `required` dragen zonder óók Opslaan te blokkeren wanneer er niets
+    gekozen is. De controle staat daarom hier, met een leesbare melding in plaats
+    van een 422.
+    """
     from app.domains.activities.router import add_order_line
     from app.schemas.activity import RegistrationItemCreate
 
     reg = _reg_or_404(db, registration_id)
+    if not (product_id or "").strip():
+        return _render_detail(request, db, registration_id, edit_open=True,
+                              error=_("Kies eerst een product om toe te voegen."))
+    gekozen = int(product_id)
     add_order_line(reg.activity_id, registration_id,
-                   RegistrationItemCreate(product_id=product_id, quantity=quantity),
+                   RegistrationItemCreate(product_id=gekozen, quantity=quantity),
                    db=db, admin=admin_user_by_email(db, email))
     return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
 

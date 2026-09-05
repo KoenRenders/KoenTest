@@ -13,13 +13,24 @@
       <div>
         <span class="font-semibold">{{ task.title }}</span>
         <span class="ml-2">{{ ui.badge(kind_labels.get(task.kind, kind_fallback), "blue") }}</span>
+        {% if task.status == "done" %}{{ ui.badge(_("afgehandeld"), "green") }}{% endif %}
         <span class="ml-2 text-sm text-gray-500">{{ task.created_at.strftime("%d-%m-%Y %H:%M") }}</span>
+        {# #674: het besluit stond bewaard maar was nergens te zien. Wie en wanneer
+           horen erbij — "afgehandeld" zonder naam is een halve verklaring. #}
+        {% if task.status == "done" %}
+        <p class="text-sm text-gray-600 mt-1">
+          {% if task.decision %}{{ task.decision }}{% else %}<span class="text-gray-400">{{ _("Geen besluit genoteerd") }}</span>{% endif %}
+        </p>
+        <p class="text-xs text-gray-500 mt-0.5">
+          {{ _("Afgehandeld door") }} {{ task.done_by or "—" }}{% if task.done_at %} · {{ task.done_at.strftime("%d-%m-%Y %H:%M") }}{% endif %}
+        </p>
+        {% endif %}
       </div>
-      <span class="{{ ui.btn_class('secondary', 'sm') }}">{{ _("Behartigen") }}</span>
+      <span class="{{ ui.btn_class('secondary', 'sm') }}">{{ _("Bekijken") if task.status == "done" else _("Behartigen") }}</span>
     </div>
   </a>
   {% endfor %}
 </div>
 {% else %}
-{{ ui.empty_state(_("Geen open taken — alles is behartigd.")) }}
+{{ ui.empty_state(_("Geen afgehandelde taken.") if status == "done" else _("Geen open taken — alles is behartigd.")) }}
 {% endif %}

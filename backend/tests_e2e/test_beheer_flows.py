@@ -96,11 +96,10 @@ def test_bestelregel_wijzigen_werkt_de_bedragen_bij(admin_page):
     """#613: aantal wijzigen deed niets doordat de attributen ge-escaped waren, en
     de bedragen op de kaart volgden niet."""
     betalingen = Betalingenscherm(admin_page).open()
-    kaart = betalingen.kaart_met_knop("Toon inschrijvingsdetails")
-    if kaart.count() == 0:
-        _ontbreekt("geen inschrijving met details op deze omgeving")
+    paneel = betalingen.bewerkbaar_detailpaneel()
+    if paneel is None:
+        _ontbreekt("geen inschrijving met een bewerkbaar detail op deze omgeving")
 
-    paneel = betalingen.toon_inschrijvingsdetails(kaart)
     detail = Inschrijvingsdetail(paneel)
     detail.bewerken()
     if detail.aantalvelden().count() == 0:
@@ -113,8 +112,9 @@ def test_bestelregel_wijzigen_werkt_de_bedragen_bij(admin_page):
     # opnieuw opgebouwd en het detailpaneel gaat mee. De invariant is niet dat het
     # paneel open blijft staan, maar dat het gewijzigde aantal bewaard is en de
     # bedragen herrekend zijn (#613-4) — dus openen we opnieuw.
-    kaart = betalingen.kaart_met_knop("Toon inschrijvingsdetails")
-    detail = Inschrijvingsdetail(betalingen.toon_inschrijvingsdetails(kaart))
+    paneel = betalingen.bewerkbaar_detailpaneel()
+    assert paneel is not None, "het paneel is na het opslaan niet meer te openen"
+    detail = Inschrijvingsdetail(paneel)
     detail.bewerken()
 
     assert detail.aantalvelden().first.input_value() == "3"

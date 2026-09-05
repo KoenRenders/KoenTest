@@ -20,7 +20,7 @@ from app.domains.auth.api import (
     SESSION_COOKIE, csrf_token_for, get_user_roles, require_csrf,
     require_finance_mutation, require_finance_ui,
 )
-from app.ui import admin_nav, templates
+from app.ui import admin_nav, filterparams, templates
 from app.i18n import _
 from app.domains.payment.service import (
     BetalingFout, bevestig_betaling, bewerk_betaling, registreer_terugbetaling,
@@ -67,9 +67,18 @@ def _view(request: Request, db: Session, email: str,
         may_delete,
     )
 
-    context = (request.query_params.get("context") or "all").strip()
-    status = (request.query_params.get("status") or "all").strip()
-    q = (request.query_params.get("q") or "").strip()
+    # #671: uit HX-Current-URL als htmx die meestuurt, anders uit de query-string.
+    # Eén gedeelde helper voor de vier modules die hun filter zo lezen.
+    stand = filterparams(request)
+    context = (stand.get("context") or "all").strip()
+    status = (stand.get("status") or "all").strip()
+    q = (stand.get("q") or "").strip()
+    # #669: eigen schakelaar naast de statuskeuzelijst. De oude waarde
+    # status=openstaand blijft werken (bestaande links, opgeslagen export-URL's) en
+    # zet de schakelaar aan.
+    openstaand = stand.get("openstaand") == "1" or status == "openstaand"
+    if status == "openstaand":
+        status = "all"
     records = enriched_records(db)
 
     # Filter-opties opbouwen: onderdelen (per activiteit) + lidmaatschapjaren.
@@ -84,7 +93,8 @@ def _view(request: Request, db: Session, email: str,
         if r.membership_year is not None:
             jaren.add(r.membership_year)
 
-    zichtbaar = filter_records(records, context=context, status=status, q=q)
+    zichtbaar = filter_records(records, context=context, status=status, q=q,
+                               openstaand=openstaand)
 
     charges = [r for r in zichtbaar if r.type != "refund"]
     refunds = [r for r in zichtbaar if r.type == "refund"]
@@ -112,10 +122,14 @@ def _view(request: Request, db: Session, email: str,
             "status": derived_status(rec),
         }
 
-    groepen = group_cards(zichtbaar)
+    # `records` erbij zodat een gefilterde terugbetaling haar charge als context
+    # kan meenemen (#668); die telt niet mee in de totalen.
+    groepen = group_cards(zichtbaar, records)
     for groep in groepen:
-        groep["kaarten"] = [(_kaart(charge), [_kaart(x) for x in eigen_refunds])
-                            for charge, eigen_refunds in groep["kaarten"]]
+        groep["kaarten"] = [(_kaart(k["charge"]) | {"is_context": k["is_context"],
+                                                    "is_extra": k["is_extra"]},
+                             [_kaart(x) for x in k["refunds"]])
+                            for k in groep["kaarten"]]
 
     # Gegroepeerde context-filter (#549): dezelfde grouped_filter-macro als de
     # Werkbank. Heterogene groepen (jaren/onderdelen) → (value, label)-tuples.
@@ -163,7 +177,7 @@ def _view(request: Request, db: Session, email: str,
             "failed": (_("Mislukt"), "red"),
             "cancelled": (_("Geannuleerd"), "gray"),
         },
-        status=status, q=q,
+        status=status, openstaand=openstaand, q=q,
         componenten=_comp, jaren=_jaren,
         context_top=context_top, context_groups=context_groups,
         matrix={"betalingen": m_bet, "terugbetalingen": m_ref, "netto": m_net},
@@ -196,9 +210,18 @@ def betalingen_export(request: Request, db: Session = Depends(get_db),
                       email: str = Depends(require_finance_ui)):
     from app.domains.payment.exports import build_payments_export_ods
 
-    context = (request.query_params.get("context") or "all").strip()
-    status = (request.query_params.get("status") or "all").strip()
-    content = build_payments_export_ods(db, context=context, status=status)
+    # Dezelfde bron als het scherm (#669/#671): de exportknop draagt de filterstand
+    # in zijn href, en die wordt hier langs dezelfde helper gelezen. Zonder dat
+    # exporteert hij iets anders dan wat je ziet — een stille afwijking tussen
+    # beeld en bestand.
+    stand = filterparams(request)
+    context = (stand.get("context") or "all").strip()
+    status = (stand.get("status") or "all").strip()
+    openstaand = stand.get("openstaand") == "1" or status == "openstaand"
+    if status == "openstaand":
+        status = "all"
+    content = build_payments_export_ods(db, context=context, status=status,
+                                        openstaand=openstaand)
     return Response(
         content=content,
         media_type="application/vnd.oasis.opendocument.spreadsheet",

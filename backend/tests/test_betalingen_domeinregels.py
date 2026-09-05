@@ -159,8 +159,11 @@ def test_refunds_hangen_onder_hun_eigen_vordering():
                  amount=Decimal("3"), amount_paid=Decimal("3"))
     groepen = group_cards([charge, refund])
     assert len(groepen) == 1
-    kaart, refunds = groepen[0]["kaarten"][0]
-    assert kaart is charge and refunds == [refund]
+    # Sinds #673 is een kaart een dict: charge, refunds, en twee vlaggen die niets
+    # met elkaar te maken hebben (context uit #668, bijkomend uit #673).
+    kaart = groepen[0]["kaarten"][0]
+    assert kaart["charge"] is charge and kaart["refunds"] == [refund]
+    assert kaart["is_context"] is False and kaart["is_extra"] is False
 
 
 def test_een_wees_refund_verdwijnt_niet_van_het_scherm():
@@ -168,7 +171,8 @@ def test_een_wees_refund_verdwijnt_niet_van_het_scherm():
     nog steeds getoond te worden — anders verdwijnt geld stil."""
     wees = rec(id="r9", type="refund", refund_of_id="c-onzichtbaar", created_at=1)
     groepen = group_cards([wees])
-    assert groepen[0]["kaarten"] == [(wees, [])]
+    assert groepen[0]["kaarten"] == [
+        {"charge": wees, "refunds": [], "is_context": False, "is_extra": False}]
 
 
 def test_de_totaalregel_telt_de_hele_payable():

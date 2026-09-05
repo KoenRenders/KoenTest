@@ -15,13 +15,18 @@ router = APIRouter(include_in_schema=False)
 
 
 def _ctx(request: Request, db: Session, email: str, kind: str = "",
-         q: str = "") -> dict:
+         q: str = "", status: str = "open") -> dict:
     from app.domains.auth.api import get_user_roles
     from app.i18n import _
 
     roles = sorted(get_user_roles(db, email))
     raw = request.cookies.get(SESSION_COOKIE) or ""
-    all_tasks = api.open_tasks(db, roles)
+    # #674: afgehandelde taken waren nergens terug te vinden, terwijl het besluit,
+    # wie en wanneer allemaal bewaard worden. `api.tasks` staat bewust naast
+    # `open_tasks`: die laatste voedt óók de idempotentie van de weesjob en de
+    # navigatieteller, en die mogen niet ineens de afgehandelde meetellen.
+    status = status if status in ("open", "done", "all") else "open"
+    all_tasks = api.tasks(db, roles, status=status)
 
     # Eén gegroepeerde filter (#549), data-gedreven uit de dotted `kind`
     # (bv. "membership.reminder" → categorie "membership", subtype "reminder").
@@ -86,6 +91,9 @@ def _ctx(request: Request, db: Session, email: str, kind: str = "",
         "filter_top": filter_top,
         "filter_groups": filter_groups,
         "kind": kind,
+        "status": status,
+        "status_opties": [("open", _("Open")), ("done", _("Afgehandeld")),
+                          ("all", _("Alle"))],
         # De template mapt `task.kind` hierlangs i.p.v. de code te tonen (#630).
         "kind_labels": KIND_LABELS,
         "kind_fallback": _("Overige taak"),
@@ -95,10 +103,10 @@ def _ctx(request: Request, db: Session, email: str, kind: str = "",
 @router.get("/admin/werkbank", response_class=HTMLResponse)
 def werkbank(request: Request, db: Session = Depends(get_db),
              email: str = Depends(require_admin_ui),
-             kind: str = "", q: str = ""):
+             kind: str = "", q: str = "", status: str = "open"):
     from app.config import settings
 
-    ctx = _ctx(request, db, email, kind, q)
+    ctx = _ctx(request, db, email, kind, q, status)
     ctx["workbench_enabled"] = settings.workbench_enabled
     return templates.TemplateResponse(request, "werkbank.html", ctx)
 
@@ -106,14 +114,14 @@ def werkbank(request: Request, db: Session = Depends(get_db),
 @router.get("/admin/werkbank/lijst", response_class=HTMLResponse)
 def werkbank_lijst(request: Request, db: Session = Depends(get_db),
                    email: str = Depends(require_admin_ui),
-                   kind: str = "", q: str = ""):
+                   kind: str = "", q: str = "", status: str = "open"):
     """Polling-fragment: enkel de takenlijst (elke 30s ververst, §20.5).
 
     Zoek en filter staan sinds #592 op de pagina zelf, in de kit-filterbalk; ze
     overleven de polling doordat het pollende element ze meestuurt (hx-include).
     """
     return templates.TemplateResponse(request, "_werkbank_lijst.html",
-                                      _ctx(request, db, email, kind, q))
+                                      _ctx(request, db, email, kind, q, status))
 
 
 @router.get("/admin/werkbank/taken/{task_id}", response_class=HTMLResponse)

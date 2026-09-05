@@ -74,9 +74,18 @@
           {# Het aria-label via de format-filter op een gewone string: `~` met de
              Markup uit _() is de escaping-trap van #514, en `Markup % dict` faalt
              op een named placeholder. #}
+          {# #670: het aantal wijzigen laat regelbedrag én totaal meteen meelopen,
+             zoals bij een bezoeker die bestelt. Alleen het totaal verversen zou
+             "€ 20,00" naast een aantal van 3 laten staan — verwarrender dan niets
+             doen. Het antwoord vervangt dit hele fragment, dus beide gaan mee.
+             Server-side gerekend (§19.3), en het endpoint bewaart niets. #}
           {{ ui.input_control("quantity_" ~ item.id, id="qty-" ~ item.id, type="number",
                               value=item.quantity, cls="w-20",
-                              attrs='min="1"',
+                              attrs='min="1"'
+                                    ' hx-post="' ~ _base ~ '/totaal"'
+                                    ' hx-include="closest form"'
+                                    ' hx-target="closest .bg-gray-50" hx-swap="outerHTML"'
+                                    ' hx-trigger="change, keyup delay:300ms"',
                               aria_label="%s — %s"|format(_("Aantal"), item.product_name or "")) }}
           {% if item.line_total is not none %}<span class="w-20 text-right whitespace-nowrap">€ {{ "%.2f"|format(item.line_total) }}</span>{% endif %}
           {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="' ~ _base ~ '/regels/' ~ item.id ~ '/verwijderen" hx-target="closest .bg-gray-50" hx-swap="outerHTML"') }}
@@ -86,10 +95,33 @@
         {% endfor %}
       </div>
 
-      {# Totaal in het paneel (#613-4): zonder bedragen zie je niet wat je wijzigt. #}
+      {# Totaal in het paneel (#613-4): zonder bedragen zie je niet wat je wijzigt.
+         Loopt sinds #670 mee met een gewijzigd aantal. #}
       {% if reg["items"] %}
       <div class="flex justify-end border-t border-gray-200 pt-2 font-medium">
         {{ _("Totaal") }}: € {{ "%.2f"|format(totaal) }}
+      </div>
+      {% endif %}
+
+      {# #670: "Product toevoegen" staat boven de opmerking, zoals op het publieke
+         formulier — het stond ná de Opslaan-knop, wat las alsof je eerst moest
+         opslaan. Géén eigen <form>: HTML staat geen geneste formulieren toe, en
+         een tweede vorm hier zou de opmerking losknippen van de aantallen — precies
+         de ene "Opslaan" die #613-2 bewust invoerde. Daarom hangt het toevoegen aan
+         de KNOP, met hx-include voor de twee velden ernaast. Ze reizen ook mee met
+         Opslaan, maar dat endpoint leest enkel de velden die het kent. #}
+      {% if products %}
+      <div class="flex items-center gap-2 border-t border-gray-200 pt-3">
+        {% call ui.select_control("product_id", cls="flex-1") %}
+          <option value="">{{ _("— Product toevoegen —") }}</option>
+          {% for p in products %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
+        {% endcall %}
+        {{ ui.input_control("quantity", id="new-qty-" ~ reg.id, type="number", value="1", cls="w-20",
+                            attrs='min="1"', aria_label=_("Aantal")) }}
+        {{ ui.btn_secondary(_("Toevoegen"), type="button",
+                            attrs='hx-post="' ~ _base ~ '/regels"'
+                                  ' hx-include="closest form"'
+                                  ' hx-target="closest .bg-gray-50" hx-swap="outerHTML"') }}
       </div>
       {% endif %}
 
@@ -104,20 +136,6 @@
         {{ ui.btn_secondary(_("Annuleren"), attrs='@click="edit = false"') }}
       </div>
     </form>
-
-    {# Regel toevoegen — aparte actie, buiten het opslaan-formulier. #}
-    {% if products %}
-    <form class="flex items-center gap-2 border-t border-gray-200 pt-3"
-          hx-post="{{ _base }}/regels" hx-target="closest .bg-gray-50" hx-swap="outerHTML">
-      {% call ui.select_control("product_id", cls="flex-1", attrs="required") %}
-        <option value="">{{ _("— Product toevoegen —") }}</option>
-        {% for p in products %}<option value="{{ p.id }}">{{ p.name }}</option>{% endfor %}
-      {% endcall %}
-      {{ ui.input_control("quantity", id="new-qty-" ~ reg.id, type="number", value="1", cls="w-20",
-                          attrs='min="1"', aria_label=_("Aantal")) }}
-      {{ ui.btn_secondary(_("Toevoegen"), type="submit") }}
-    </form>
-    {% endif %}
   </div>
   {% endif %}
 </div>

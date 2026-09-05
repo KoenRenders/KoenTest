@@ -219,6 +219,35 @@ async def _tenant_context(request: Request, call_next):
 
 
 @app.middleware("http")
+async def _filter_push_url(request: Request, call_next):
+    """Zet de filterstand in de browser-URL (#671).
+
+    Een filterbalk vraagt haar lijst bij een fragment-route; vier van de elf balken
+    doen dat op een eigen `…/lijst`-pad. `hx-push-url="true"` op de balk zou juist
+    díé URL in de adresbalk duwen, en een F5 daarop geeft het kale fragment zonder
+    schil. De balk merkt zich daarom met `X-Raak-Filter`, en hier zetten we het
+    PAGINApad met dezelfde query — de server is de enige die beide kent.
+
+    Drie dingen komen daarmee goed, en de derde is de reden dat #671 bestond:
+    de filterstand overleeft een F5, een gefilterde lijst is deelbaar als link, en
+    htmx stuurt de URL bij élk volgend verzoek mee als `HX-Current-URL` — ook bij
+    een mutatie, die vroeger de ongefilterde lijst terugkreeg.
+
+    Eén middleware in plaats van elf routes: een vergeten route is anders weer een
+    scherm dat zijn filter kwijtraakt. `app.ui.filterparams()` leest hem uit.
+    """
+    response = await call_next(request)
+    if request.headers.get("X-Raak-Filter") == "1" and response.status_code < 400:
+        pad = request.url.path
+        # De vier balken met een eigen fragment-route hangen onder hun pagina.
+        if pad.endswith("/lijst"):
+            pad = pad[: -len("/lijst")]
+        query = request.url.query
+        response.headers["HX-Push-Url"] = f"{pad}?{query}" if query else pad
+    return response
+
+
+@app.middleware("http")
 async def _boosted_swap_headers(request: Request, call_next):
     """Vertel htmx hoe het een gebooste navigatie moet inswappen (#634).
 

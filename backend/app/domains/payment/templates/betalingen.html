@@ -12,13 +12,22 @@
     {# Gegroepeerde context-filter via de gedeelde macro (#549); geen hx-* op de select
        zelf — de omhullende filterbalk vangt de change al op. #}
     {{ ui.grouped_filter("context", context_top, context_groups, current=context) }}
+    {# #669: de keuzelijst gaat over de statusKOLOM, "Openstaand saldo" over een
+       AFGELEIDE toestand (amount != amount_paid). Die twee stonden door elkaar in
+       één lijst, dus je kon er maar één tegelijk kiezen — "openstaande posten
+       onder de mislukte betalingen" kon niet. Nu combineren ze met EN, zoals in
+       v1.14, waar het vier losse knoppen waren. #}
     {% call ui.select_control("status") %}
-      {% for s in ["all", "openstaand", "pending", "paid", "failed", "cancelled"] %}
+      {% for s in ["all", "pending", "paid", "failed", "cancelled"] %}
       <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ status_labels[s] }}</option>
       {% endfor %}
     {% endcall %}
+    {{ ui.chips("openstaand", [("", _("Alles")), ("1", status_labels["openstaand"])],
+                current="1" if openstaand else "") }}
+    {# De exportknop draagt de filterstand mee: zonder de nieuwe parameter
+       exporteert hij iets anders dan wat op het scherm staat. #}
     {{ ui.btn_secondary(_("Export (.ods)"), lead_icon="download",
-                        href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status, size="sm",
+                        href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status ~ ("&openstaand=1" if openstaand else ""), size="sm",
                         attrs='hx-boost="false"') }}
   </div>
 {% endcall %}

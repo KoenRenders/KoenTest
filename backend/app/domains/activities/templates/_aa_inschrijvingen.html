@@ -17,7 +17,13 @@
        (laatst/rood). Geen nieuwe backend. #}
     {% for r in registrations %}
     <tbody x-data="{ open: false }" class="align-top">
-      <tr class="border-b border-gray-100">
+      {# #676: de rij WIJKT voor het paneel in plaats van ernaast te blijven staan.
+         `_inschrijving_detail.html` is een zelfstandige weergave — naam, contact,
+         producten, opmerking én een eigen bewerk-toggle. Naast een rij die
+         hetzelfde toont, staan er twee leesweergaven van één ding, elk met hun
+         eigen bewerkstand: precies de dubbele toestand die #648 wegnam. Zelfde
+         keuze als de betaalkaart maakt (§2.8). #}
+      <tr x-show="!open" class="border-b border-gray-100">
         <td class="px-3 py-2 whitespace-nowrap">{{ r.registered_at.strftime("%d-%m-%Y") if r.registered_at else "—" }}</td>
         <td class="px-3 py-2">{{ r.contact_name }}{% if r.team_name %} <span class="text-gray-500">({{ r.team_name }})</span>{% endif %}</td>
         <td class="px-3 py-2">{{ r.contact_email }}{% if r.phone %} · {{ r.phone }}{% endif %}</td>
@@ -27,13 +33,18 @@
         </td>
         <td class="px-3 py-2 text-right">
           {{ ui.row_actions(
-               actions=[ui.detail_disclosure("/admin/inschrijvingen/" ~ r.id, "insch-det-" ~ r.id, _("Bewerken"))],
+               actions=[ui.detail_disclosure("/admin/inschrijvingen/" ~ r.id, "insch-det-" ~ r.id, _("Details"))],
                delete_attrs='hx-post="/admin/activiteiten/' ~ activity_id ~ '/inschrijvingen/' ~ r.id ~ '/verwijderen' ~ ('?component_id=' ~ component_id if component_id else '') ~ '" hx-target="' ~ doel ~ '" hx-swap="innerHTML" ' ~ confirm_attrs(_("Inschrijving"), r.contact_name),
                delete_label=_("Verwijderen")) }}
         </td>
       </tr>
-      <tr x-show="open" x-cloak>
-        <td colspan="5" class="px-3 pb-3"><div id="insch-det-{{ r.id }}" class="bg-gray-50 rounded-lg"></div></td>
+      <tr x-show="open" x-cloak class="border-b border-gray-100">
+        <td colspan="5" class="px-3 py-2">
+          <div class="flex justify-end">
+            {{ ui.btn_secondary(_("Sluiten"), size="sm", attrs='@click="open = false"') }}
+          </div>
+          <div id="insch-det-{{ r.id }}" class="bg-gray-50 rounded-lg"></div>
+        </td>
       </tr>
     </tbody>
     {% endfor %}

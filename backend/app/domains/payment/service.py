@@ -630,6 +630,7 @@ def _bedrag(waarde) -> Decimal:
 
 
 def matches_filter(record, *, context: str = "all", status: str = "all", q: str = "",
+                   openstaand: bool = False,
                    membership_year=None, component_id=None) -> bool:
     """Hoort dit record bij het gekozen filter?
 
@@ -663,17 +664,39 @@ def matches_filter(record, *, context: str = "all", status: str = "all", q: str 
         if record.payable_type != "registration" or comp != int(context[5:]):
             return False
 
-    if status == "openstaand":
+    # #669: "openstaand" is een AFGELEIDE toestand (amount != amount_paid), de
+    # dropdown gaat over de statuskolom. Twee soorten predicaat in één keuzelijst
+    # betekende dat je er maar één tegelijk kon nemen — "openstaande posten onder
+    # de mislukte betalingen" kon niet. Nu combineren ze met EN. De oude waarde
+    # blijft werken, zodat een bestaande link of export-URL niet stil iets anders
+    # gaat tonen.
+    if openstaand or status == "openstaand":
         # Openstaand komt uit het saldo, niet uit de statuskolom: betaald =
         # waarheid (#198).
-        return (_bedrag(record.amount) - _bedrag(record.amount_paid)) > _SALDO_DREMPEL
+        #
+        # Op de ABSOLUTE waarde (#668). De oude vergelijking ging uit van één
+        # richting: bij een vordering is amount positief, dus `amount - betaald`
+        # is positief zolang er iets openstaat. Bij een terugbetaling is amount
+        # NEGATIEF — een openstaande refund van 10 gaf -10, kleiner dan de
+        # drempel, en verdween uit het filter. Op HDEV waren zo veertien
+        # openstaande terugbetalingen onzichtbaar, een derde van alles wat
+        # openstond. Geld dat de vereniging nog moet uitbetalen.
+        #
+        # abs() is hier niet ruwer maar preciezer, en het haalt een tweede geval
+        # boven water: een TE VEEL betaalde vordering heeft ook een negatief
+        # verschil en was even onzichtbaar, terwijl die net actie vraagt.
+        if abs(_bedrag(record.amount) - _bedrag(record.amount_paid)) <= _SALDO_DREMPEL:
+            return False
     if status in ("pending", "paid", "failed", "cancelled"):
         return record.status == status
     return True
 
 
-def filter_records(records, *, context: str = "all", status: str = "all", q: str = "") -> list:
-    return [r for r in records if matches_filter(r, context=context, status=status, q=q)]
+def filter_records(records, *, context: str = "all", status: str = "all", q: str = "",
+                   openstaand: bool = False) -> list:
+    return [r for r in records
+            if matches_filter(r, context=context, status=status, q=q,
+                              openstaand=openstaand)]
 
 
 def aggregate(records) -> dict:
@@ -715,7 +738,28 @@ def may_delete(record) -> bool:
     return record.amount_paid is None or _bedrag(record.amount_paid) == 0
 
 
-def group_cards(records) -> list[dict]:
+def _is_lege_vordering(record) -> bool:
+    """Een vordering van 0 waarop niets ontvangen is (#673).
+
+    Zo eentje ontstaat bij het reconciliëren: een charge met `amount_paid = 0`
+    wordt gesloten op zijn betaalde bedrag en houdt dan amount 0, status pending.
+    Ze kan nooit betaald worden en blijft eeuwig als openstaande kaart staan — en
+    ze is chronologisch vaak de EERSTE, dus zonder deze uitzondering wordt een
+    kaart van 0,00 de hoofdkaart met de echte bedragen eronder.
+
+    Verbergen is veilig omdat ze aan élk totaal exact 0 bijdraagt: het scherm toont
+    minder, maar telt hetzelfde. Het record blijft in de databank staan — de
+    geschiedenis van een betaling gooi je niet weg (#190) — en de export toont hem
+    nog: dat is de financiële lijst, daar wil je de rij die bestaat.
+    """
+    if record.type == "refund":
+        return False
+    betaald = record.amount_paid
+    return (_bedrag(record.amount) == 0
+            and (betaald is None or _bedrag(betaald) == 0))
+
+
+def group_cards(records, alle_records=None) -> list[dict]:
     """Groepeer records tot wat één kaartenlijst per payable toont.
 
     Per groep (payable_type, payable_id): de charges met hun eigen refunds
@@ -728,7 +772,7 @@ def group_cards(records) -> list[dict]:
     laatste was de fout van #617-2e — een inschrijving met twee charges kreeg twee
     regels die geen van beide de inschrijving telden.
     """
-    charges = [r for r in records if r.type != "refund"]
+    charges = [r for r in records if r.type != "refund" and not _is_lege_vordering(r)]
     refunds = [r for r in records if r.type == "refund"]
 
     per_charge: dict = {}
@@ -737,23 +781,60 @@ def group_cards(records) -> list[dict]:
             per_charge.setdefault(r.refund_of_id, []).append(r)
     charge_ids = {r.id for r in charges}
 
-    kaarten = [(r, per_charge.get(r.id, [])) for r in charges]
-    kaarten += [(r, []) for r in refunds
-                if not r.refund_of_id or r.refund_of_id not in charge_ids]
-    kaarten.sort(key=lambda p: p[0].created_at, reverse=True)
+    # #668: een terugbetaling zonder haar charge zegt "10 terug te betalen" zonder
+    # te zeggen waarvoor. Haal die ene charge erbij als CONTEXT — niet als
+    # treffer. Ze telt niet mee in de totalen, want dan zou het filter liegen over
+    # wat het toont. Alleen die ene charge, niet de hele groep: een inschrijving
+    # kan er meerdere hebben en die horen hier niet.
+    context_charges: dict = {}
+    if alle_records is not None:
+        buiten_beeld = {r.refund_of_id for r in refunds
+                        if r.refund_of_id and r.refund_of_id not in charge_ids}
+        if buiten_beeld:
+            context_charges = {r.id: r for r in alle_records if r.id in buiten_beeld}
+
+    # Eén dict per kaart in plaats van een groeiende tuple: er zijn nu twee
+    # eigenschappen die niets met elkaar te maken hebben (context, bijkomend), en
+    # een vierde tuple-veld leest nergens meer.
+    kaarten = [{"charge": r, "refunds": per_charge.get(r.id, []),
+                "is_context": False, "is_extra": False} for r in charges]
+    for charge_id, charge in context_charges.items():
+        kaarten.append({"charge": charge, "refunds": per_charge.get(charge_id, []),
+                        "is_context": True, "is_extra": False})
+    kaarten += [{"charge": r, "refunds": [], "is_context": False, "is_extra": False}
+                for r in refunds
+                if not r.refund_of_id
+                or (r.refund_of_id not in charge_ids
+                    and r.refund_of_id not in context_charges)]
+    kaarten.sort(key=lambda k: k["charge"].created_at, reverse=True)
 
     groepen: list[dict] = []
     volgorde: dict = {}
-    for charge, eigen_refunds in kaarten:
+    for kaart in kaarten:
+        charge = kaart["charge"]
         sleutel = (charge.payable_type, charge.payable_id)
         if sleutel not in volgorde:
             volgorde[sleutel] = len(groepen)
             groepen.append({"kaarten": [], "records": []})
         groep = groepen[volgorde[sleutel]]
-        groep["kaarten"].append((charge, eigen_refunds))
-        groep["records"].extend([charge] + eigen_refunds)
+        groep["kaarten"].append(kaart)
+        # Een contextkaart telt niet mee: het totaal hoort bij wat het filter
+        # selecteerde, niet bij wat we erbij tonen om het leesbaar te maken.
+        if not kaart["is_context"]:
+            groep["records"].append(charge)
+        groep["records"].extend(kaart["refunds"])
 
     for groep in groepen:
+        # #673: meerdere vorderingen op één inschrijving lazen als losse betalingen.
+        # De oudste blijft de volledige kaart, de latere komen ingesprongen eronder.
+        # Dat is VISUELE ordening, geen hiërarchie: tussen twee charges bestaat geen
+        # verband zoals refund_of_id er een legt — het zijn broers op dezelfde
+        # inschrijving. De template markeert dat verschil dan ook anders dan de
+        # refund-nesting.
+        echte = [k for k in groep["kaarten"]
+                 if not k["is_context"] and k["charge"].type != "refund"]
+        for kaart in sorted(echte, key=lambda k: k["charge"].created_at)[1:]:
+            kaart["is_extra"] = True
         groep["totaal"] = aggregate(groep["records"])
         groep["toon_totaal"] = len(groep["records"]) > 1
     return groepen

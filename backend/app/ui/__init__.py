@@ -159,6 +159,35 @@ def is_fragment_request(request) -> bool:
     return bool(kop.get("hx-request")) and kop.get("hx-boosted") != "true"
 
 
+def filterparams(request) -> dict:
+    """De filterstand van dit scherm, waar hij ook vandaan komt (#671).
+
+    Een filterbalk vraagt haar lijst met `?status=…&q=…`, maar een **mutatie** post
+    naar een eigen endpoint zonder die parameters. Wie enkel `request.query_params`
+    las, kreeg na elke opslag de ongefilterde lijst terug — en omdat alleen het
+    fragment geswapt wordt, bleef de balk de oude keuze tonen.
+
+    Sinds `ui.filter_bar` `hx-push-url` zet, staat de filterstand in de browser-URL
+    en stuurt htmx die bij élk verzoek mee als `HX-Current-URL`. Deze helper leest
+    dus eerst die header en valt terug op de query-string — die tweede weg blijft
+    nodig voor een gewone GET zonder htmx (een gedeelde link, een F5).
+
+    Eén helper voor de vier modules die hun filter zo lezen (betalingen, leden,
+    e-maillog, tenants): vier eigen varianten is precies hoe dit ontstaan is. Ze
+    leest wat er ís — niet elk scherm heeft dezelfde parameters.
+    """
+    from urllib.parse import parse_qsl, urlsplit
+
+    huidig = request.headers.get("hx-current-url")
+    if huidig:
+        params = dict(parse_qsl(urlsplit(huidig).query, keep_blank_values=True))
+        # Een htmx-GET van de filterbalk zelf draagt de nieuwe stand in zijn eigen
+        # query-string; die is verser dan de URL waar de gebruiker vandaan komt.
+        params.update(dict(request.query_params))
+        return params
+    return dict(request.query_params)
+
+
 def admin_nav(active: str, roles=None) -> list[dict]:
     """Navigatie-items voor de AdminShell; `active` is de href van het scherm.
 
