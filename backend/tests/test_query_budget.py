@@ -38,7 +38,7 @@ BUDGET = {
     "/admin/betalingen": 40,
     "/admin/ledenwijzigingen": 40,
     "/admin/werkbank": 25,
-    "/admin/media": 25,
+    "/admin/media": 1,      # TIJDELIJK: meting
     "/activiteiten": 40,
 }
 
