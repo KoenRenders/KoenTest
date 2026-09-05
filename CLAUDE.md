@@ -645,10 +645,17 @@ playwright-python in `backend/tests_e2e/` (aparte CI-job).
   read-only and on request. It ranks findings with `file:line` and a suggested issue
   title; it changes nothing and opens no issues. Run it before a UI batch and after.
 
-**Parity with v1.14 — check, don't guess.** The old React frontend is still in the
-history: `git show 149d180:frontend/src/components/ActivityList.tsx` (also
-`Navigation.tsx`, `app/globals.css`, `tailwind.config.ts`) shows exactly how
-something looked — font sizes, colours, spacing.
+**Parity with v1.14 — check, don't guess, and use the tag.** The old React frontend
+is still in the history: `git show v1.14.0:frontend/src/app/admin/betalingen/page.tsx`
+(also `components/ActivityList.tsx`, `Navigation.tsx`, `app/globals.css`,
+`tailwind.config.ts`) shows exactly how something looked — font sizes, colours,
+spacing.
+
+Always use the **tag** `v1.14.0`, never a loose commit. This file used to point at
+`149d180`, a commit from 10 June; the tag that actually runs on UAT and PROD is from
+13 July and sits **529 commits further**. Whole screens — the admin payments screen
+among them — do not exist yet in `149d180`, so a parity check there wrongly concludes
+"this did not exist in v1.14". That happened during the v2.0.0 validation (#660).
 
 **Brand.** The eight brand colours in `scripts/build-css.sh` match the official Raak
 huisstijlgids exactly. Brand blue `#0051a4` = `blue-700` (headings, chrome); link
