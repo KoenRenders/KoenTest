@@ -519,33 +519,20 @@ def delete_section(db, form: Form, section_id: int) -> None:
 
 # ── Velden ───────────────────────────────────────────────────────────────────
 
-def add_field(db, form: Form, *, label: str, field_type: str = "text",
-              section_id: str = "") -> None:
-    if field_type not in FIELD_TYPES:
-        raise FormulierFout(f"Ongeldig veldtype: {field_type}")
-    if not (label or "").strip():
-        raise FormulierFout("Elk veld heeft een vraag/label nodig.")
-    sid = int(section_id) if str(section_id).strip().isdigit() else None
-    broers = [f for f in form.fields if f.section_id == sid]
-    form.fields.append(FormField(label=label.strip(), field_type=field_type,
-                                 section_id=sid, position=len(broers)))
-    db.commit()
+def _veldwaarden(veld: FormField, waarden: dict) -> None:
+    """De eigenschappen van één veld toepassen (#701).
 
+    Gedeeld door toevoegen en bewerken. Die twee zetten eerder elk een andere helft:
+    toevoegen kende wél het type maar geen verplicht/hulptekst/min-max, bewerken die
+    wél maar geen type — precies omgekeerd op het enige veld dat ze deelden. Eén
+    plek betekent dat een nieuw veldkenmerk in beide paden tegelijk verschijnt.
 
-def update_field(db, form: Form, field_id: int, **waarden) -> None:
-    """De eigenschappen van één veld. Lege tekstwaarden betekenen "niet ingesteld"."""
-    veld = next((f for f in form.fields if f.id == field_id), None)
-    if veld is None:
-        raise LookupError("Veld niet gevonden")
-    label = (waarden.get("label") or "").strip()
-    if not label:
-        raise FormulierFout("Elk veld heeft een vraag/label nodig.")
-
+    Lege tekstwaarden betekenen "niet ingesteld".
+    """
     def _getal(naam):
         rauw = str(waarden.get(naam) or "").strip()
         return int(rauw) if rauw.isdigit() else None
 
-    veld.label = label
     veld.help_text = (waarden.get("help_text") or "").strip() or None
     veld.required = bool(waarden.get("required"))
     veld.min_length = _getal("min_length")
@@ -555,6 +542,64 @@ def update_field(db, form: Form, field_id: int, **waarden) -> None:
     veld.rating_max = _getal("rating_max")
     veld.rating_low_label = (waarden.get("rating_low_label") or "").strip() or None
     veld.rating_high_label = (waarden.get("rating_high_label") or "").strip() or None
+
+
+def add_field(db, form: Form, *, label: str, field_type: str = "text",
+              section_id: str = "", **waarden) -> None:
+    if field_type not in FIELD_TYPES:
+        raise FormulierFout(f"Ongeldig veldtype: {field_type}")
+    if not (label or "").strip():
+        raise FormulierFout("Elk veld heeft een vraag/label nodig.")
+    sid = int(section_id) if str(section_id).strip().isdigit() else None
+    broers = [f for f in form.fields if f.section_id == sid]
+    veld = FormField(label=label.strip(), field_type=field_type,
+                     section_id=sid, position=len(broers))
+    _veldwaarden(veld, waarden)
+    form.fields.append(veld)
+    db.commit()
+
+
+def update_field(db, form: Form, field_id: int, **waarden) -> None:
+    """De eigenschappen van één veld, inclusief het TYPE (#700).
+
+    Het type kon niet gewijzigd worden: alleen `add_field` zette het. Een
+    tekstvraag omzetten naar meerkeuze betekende dus verwijderen en opnieuw maken —
+    plaats kwijt, opties kwijt, sprongregels kwijt.
+
+    **Wijzigen mag zolang er geen inzendingen zijn** (beslissing Koen). Daarna niet
+    meer: bewaarde antwoorden verwijzen naar hun veld, en een typewissel maakt ze
+    niet fout maar betekenisloos — een getal dat als tekst bewaard staat, of een
+    optie-id onder een vraag die geen opties meer heeft. Strenger dan v1.14, en
+    bewust; het scherm toont de lijst dan uitgeschakeld met de reden erbij (§2.12).
+
+    Opties blijven bij een typewissel **bewaard**, zodat terugzetten niets kost. De
+    SPRONGREGELS gaan wél weg zodra het nieuwe type niet kan vertakken: een optie
+    met een `skip_to_section` onder een niet-vertakbare vraag is een slapende
+    vertakking die weer opleeft als iemand het type terugzet.
+    """
+    veld = next((f for f in form.fields if f.id == field_id), None)
+    if veld is None:
+        raise LookupError("Veld niet gevonden")
+    label = (waarden.get("label") or "").strip()
+    if not label:
+        raise FormulierFout("Elk veld heeft een vraag/label nodig.")
+
+    nieuw_type = (waarden.get("field_type") or "").strip()
+    if nieuw_type and nieuw_type != veld.field_type:
+        if nieuw_type not in FIELD_TYPES:
+            raise FormulierFout(f"Ongeldig veldtype: {nieuw_type}")
+        if submission_count(db, form.id):
+            raise FormulierFout(
+                "Dit formulier heeft al inzendingen. Het vraagtype wijzigen zou de "
+                "bewaarde antwoorden betekenisloos maken.")
+        veld.field_type = nieuw_type
+        if nieuw_type not in VERTAKBARE_VELDEN:
+            for optie in veld.options:
+                optie.skip_to_section_id = None
+                optie.skip_to_end = False
+
+    veld.label = label
+    _veldwaarden(veld, waarden)
     db.commit()
 
 

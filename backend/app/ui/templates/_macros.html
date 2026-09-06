@@ -376,8 +376,8 @@
 {# `aria_label` als parameter en niet via `attrs` (#663/#699): `_()` levert Markup,
    dus een vertaalde tekst met `~` in een attrs-string aan elkaar plakken escapet de
    gewone helft — de klasse fout uit #514/#613. #}
-{% macro select_control(name, cls="", attrs="", aria_label=None) -%}
-<select name="{{ name }}" class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}"{% if aria_label %} aria-label="{{ aria_label }}"{% endif %} {{ attrs|safe }}>{{ caller() }}</select>
+{% macro select_control(name, cls="", attrs="", aria_label=None, disabled=False, title=None) -%}
+<select name="{{ name }}" class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}{% if disabled %} opacity-60 cursor-not-allowed{% endif %}"{% if aria_label %} aria-label="{{ aria_label }}"{% endif %}{% if title %} title="{{ title }}"{% endif %}{% if disabled %} disabled{% endif %} {{ attrs|safe }}>{{ caller() }}</select>
 {%- endmacro %}
 
 {# ── Paginering (#528 as C) ───────────────────────────────────────────────────

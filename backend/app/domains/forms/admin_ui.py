@@ -309,12 +309,27 @@ def sectie_verwijderen(form_id: int, section_id: int, request: Request,
 def veld_toevoegen(form_id: int, request: Request, db: Session = Depends(get_db),
                    email: str = Depends(require_admin_ui),
                    label: str = Form(...), field_type: str = Form("text"),
-                   section_id: str = Form("")):
+                   section_id: str = Form(""), help_text: str = Form(""),
+                   required: str = Form(""), min_length: str = Form(""),
+                   max_length: str = Form(""), min_value: str = Form(""),
+                   max_value: str = Form(""), rating_max: str = Form(""),
+                   rating_low_label: str = Form(""),
+                   rating_high_label: str = Form("")):
+    """Een nieuwe vraag, met álle eigenschappen ineens (#701).
+
+    De toevoegbalk gaf enkel een label en een type; al de rest moest je in een
+    tweede stap openen. Beide paden delen nu dezelfde velden en dezelfde
+    servicelaag.
+    """
     from app.domains.forms.api import add_field
 
     form = _form_or_404(db, form_id)
     _bewerk(add_field, db, form, label=label, field_type=field_type,
-            section_id=section_id)
+            section_id=section_id, help_text=help_text, required=required,
+            min_length=min_length, max_length=max_length, min_value=min_value,
+            max_value=max_value, rating_max=rating_max,
+            rating_low_label=rating_low_label,
+            rating_high_label=rating_high_label)
     return _builder_response(request, db, form)
 
 
@@ -322,7 +337,8 @@ def veld_toevoegen(form_id: int, request: Request, db: Session = Depends(get_db)
              dependencies=[Depends(require_csrf)])
 def veld_bewerken(form_id: int, field_id: int, request: Request,
                   db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
-                  label: str = Form(...), help_text: str = Form(""),
+                  label: str = Form(...), field_type: str = Form(""),
+                  help_text: str = Form(""),
                   required: str = Form(""), min_length: str = Form(""),
                   max_length: str = Form(""), min_value: str = Form(""),
                   max_value: str = Form(""), rating_max: str = Form(""),
@@ -330,7 +346,8 @@ def veld_bewerken(form_id: int, field_id: int, request: Request,
     from app.domains.forms.api import update_field
 
     form = _form_or_404(db, form_id)
-    _bewerk(update_field, db, form, field_id, label=label, help_text=help_text,
+    _bewerk(update_field, db, form, field_id, label=label, field_type=field_type,
+            help_text=help_text,
             required=required, min_length=min_length, max_length=max_length,
             min_value=min_value, max_value=max_value, rating_max=rating_max,
             rating_low_label=rating_low_label, rating_high_label=rating_high_label)
