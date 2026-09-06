@@ -580,10 +580,20 @@ opgegaan en redirect met 301).
 
 ## Alembic migrations
 
-One linear chain, currently 89 revisions ending at `089_drop_business_events`.
-Do not write the chain out here — it goes stale immediately. Read the current
-head from the code instead: `ls backend/alembic/versions/ | sort | tail -1`, or
-`alembic heads` in a running backend container.
+One linear chain. **Never write the current head — not the number, not the
+filename — anywhere in this file.** It goes stale within days, and a stale example
+is worse than none: it reads as authoritative and gets copied into handoff blocks
+and release checklists, where a wrong head sends whoever runs the release looking
+for a break in the chain that does not exist. That happened: this paragraph named
+`089` long after the head had moved to `090`, and the number was copied from here
+into a release handoff.
+
+Read the head from the code, every time:
+
+```bash
+ls backend/alembic/versions/ | sort | tail -1     # from a checkout
+alembic heads                                      # in a running backend container
+```
 
 Never modify a migration that has already been merged to master. Always create a new migration file for schema changes. Make migrations idempotent (check if table/column exists before creating).
 
