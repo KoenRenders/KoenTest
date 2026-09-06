@@ -52,9 +52,12 @@ jobs:
           TEST_DATABASE_URL: postgresql+psycopg2://postgres:postgres@localhost:5432/raaktest
           SECRET_KEY: ci-test-secret-key-long-enough-for-hs256
           APP_ENV: dev
-        # Coverage wordt enkel gerapporteerd (geen faaldrempel; #127). Een drempel
-        # kan later stapsgewijs via --cov-fail-under.
-        run: python -m pytest -v --tb=short --cov=app --cov-report=term-missing --cov-fail-under=73
+        # Drempel op 85 % (#680), tegen een werkelijke 88,65 %. Bewust niet gelijk
+        # aan de huidige waarde: een drempel die op de meetwaarde ligt, valt om bij
+        # elke tijdelijke dip tijdens een refactor, en een drempel die je telkens
+        # wegduwt is erger dan geen drempel. Vier punten marge laat werk toe en zet
+        # toch een echte rem op verval. Verhoog mee als de meting structureel stijgt.
+        run: python -m pytest -v --tb=short --cov=app --cov-report=term-missing --cov-fail-under=85
 
   audit:
     runs-on: ubuntu-latest

@@ -75,9 +75,52 @@ def test_te_veel_afboeken_wordt_geweigerd_in_positieve_termen(client, db_session
 
     resp = client.post(f"/admin/betalingen/{refund.id}/bewerken", headers=hdr,
                        data={"status": "pending", "amount_paid": "99.00", "note": ""})
-    assert resp.status_code >= 400
+    assert resp.status_code == 400, resp.text
+    # Wélke 400 (#680): een weigering om een andere reden — een ontbrekende
+    # CSRF-token, een rol die niet mag, een onleesbaar bedrag — zou deze test ook
+    # groen zetten. De melding noemt de grens, en die staat hier omdat het bedrag
+    # eroverheen ging.
+    assert "10.50" in resp.text, resp.text
     db_session.expire_all()
     assert db_session.get(PaymentRecord, refund.id).amount_paid is None
+
+
+def test_de_rem_zit_op_de_grens_en_geen_cent_ervoor(client, db_session):
+    """De grens zelf, in twee aanroepen die alleen in het bedrag verschillen (#680).
+
+    De enige rem op te veel uitbetalen via het bewerkscherm is de controle in
+    `bewerk_betaling`. Een test die enkel een 4xx eist, bewijst niet dat díe rem
+    werkte: elke andere weigering ziet er hetzelfde uit. Hier verschilt tussen de
+    twee verzoeken niets dan één cent — dezelfde terugbetaling, dezelfde sessie,
+    dezelfde vorm — dus is het bedrag aantoonbaar de oorzaak.
+
+    En de tweede helft is even belangrijk als de eerste: zonder haar is niet
+    aangetoond dat de rem op de juiste plek zit en niet één cent te vroeg. Een
+    penningmeester die het volledige bedrag uitbetaalt, hoort niet geblokkeerd te
+    worden.
+
+    Bewust geen `match=` op de meldingstekst: die mag hertaald worden zonder deze
+    test om te gooien. Het bedrag in de melding is data, geen formulering.
+    """
+    charge = _charge(db_session)
+    hdr = _login(client, db_session)
+    client.post(f"/admin/betalingen/{charge.id}/refund", headers=hdr, data={"amount": "10.50"})
+    refund = [r for r in get_records_for(db_session, *PAYABLE) if r.type == "refund"][0]
+
+    erover = client.post(f"/admin/betalingen/{refund.id}/bewerken", headers=hdr,
+                         data={"status": "paid", "amount_paid": "10.51", "note": ""})
+    assert erover.status_code == 400, erover.text
+    assert "10.50" in erover.text, erover.text
+    db_session.expire_all()
+    assert db_session.get(PaymentRecord, refund.id).amount_paid is None, (
+        "een geweigerde uitbetaling mag niets vastleggen")
+
+    op_de_grens = client.post(f"/admin/betalingen/{refund.id}/bewerken", headers=hdr,
+                              data={"status": "paid", "amount_paid": "10.50", "note": ""})
+    assert op_de_grens.status_code == 200, op_de_grens.text
+    db_session.expire_all()
+    assert db_session.get(PaymentRecord, refund.id).amount_paid == Decimal("-10.50")
+    assert_saldo_klopt(db_session, *PAYABLE, "0")
 
 
 def test_nul_blijft_toegestaan(client, db_session):
