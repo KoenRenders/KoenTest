@@ -187,18 +187,19 @@ def test_het_scherm_benoemt_wat_er_nog_uitbetaald_moet_worden(client, db_session
     terugvordering niet langer alleen in het saldo zit, en dat hij wégblijft
     bewijst dat een gewone inschrijving geen betekenisloze kolom krijgt.
 
-    We zoeken op "Terug te betalen: €" en niet op de kale woorden. Die staan
-    namelijk óók op de statusbadge van een refund (`refund_due` in `payment/ui.py`),
-    en dan zou deze test de badge meten in plaats van de totaalregel — precies de
-    fout die #680 in de betaaltest blootlegde. De dubbelpunt met bedrag komt alleen
-    in de totaalregel voor.
+    De term heette eerst "Terug te betalen", en dat is óók de naam van de
+    statusbadge van een refund (`refund_due` in `payment/ui.py`). Deze test moest
+    daarom op `"Terug te betalen: €"` zoeken om niet de badge te meten — een
+    achtervoegsel dat de assertie overeind hield in plaats van de tekst. Sinds #684
+    heet de totaalregel "Nog uit te betalen" en is de naam op zichzelf uniek; de
+    valkuil is weg in plaats van omzeild.
     """
     _koens_geval(db_session, 6830)
     _login(client)
 
     met = client.get("/admin/betalingen?context=all")
     assert met.status_code == 200
-    assert "Terug te betalen: €" in met.text
+    assert "Nog uit te betalen" in met.text
 
     for rec in get_records_for(db_session, "registration", 6830):
         if rec.type == "refund":
@@ -208,5 +209,23 @@ def test_het_scherm_benoemt_wat_er_nog_uitbetaald_moet_worden(client, db_session
 
     zonder = client.get("/admin/betalingen?context=all")
     assert zonder.status_code == 200
-    assert "Terug te betalen: €" not in zonder.text, (
+    assert "Nog uit te betalen" not in zonder.text, (
         "een afgehandelde terugbetaling hoort de term niet te laten staan")
+
+
+def test_de_badge_en_de_totaalregel_zijn_niet_langer_dezelfde_tekst(client, db_session):
+    """Het geval dat de verwarring veroorzaakte: één kaart die beide toont.
+
+    De statusbadge benoemt een TOESTAND ("deze terugbetaling moet nog uitbetaald
+    worden"), de totaalregel telt een BEDRAG op over de hele inschrijving. Ze
+    stonden onder dezelfde naam boven elkaar.
+
+    Elk precies één keer — dat is de assertie. Alleen toetsen dat de nieuwe tekst
+    er staat zou ook slagen als de oude naam er nog naast stond.
+    """
+    _koens_geval(db_session, 6831)
+    _login(client)
+
+    html = client.get("/admin/betalingen?context=all").text
+    assert html.count("Nog uit te betalen") == 1, "de totaalregel"
+    assert html.count(">Terug te betalen<") == 1, "de statusbadge"

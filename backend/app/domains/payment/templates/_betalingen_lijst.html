@@ -245,9 +245,15 @@
        wat nog actie vraagt — die tien euro uitbetalen — zat onzichtbaar in het
        saldo. Deze term komt uit de service (`_nog_uit_te_betalen`) en is een
        ándere grootheid dan het saldo, geen tweede som ervan. Alleen tonen als er
-       iets openstaat: anders krijgt elke gewone inschrijving een lege kolom. #}
+       iets openstaat: anders krijgt elke gewone inschrijving een lege kolom.
+
+       #684: "Nog uit te betalen" en niet "Terug te betalen". Dat laatste is de
+       naam van een TOESTAND — de statusbadge van een refund die nog niet uitbetaald
+       is (`refund_due` in `payment/ui.py`) — en stond daardoor twee keer op dezelfde
+       kaart. Deze regel telt een BEDRAG op over de hele inschrijving; een eigen naam
+       maakt zichtbaar dat het om iets anders gaat dan de badge erboven. #}
     {% if groep.terug_te_betalen > 0 %}
-    <span class="text-teal-700 font-medium">{{ _("Terug te betalen") }}: € {{ "%.2f"|format(groep.terug_te_betalen) }}</span>
+    <span class="text-teal-700 font-medium">{{ _("Nog uit te betalen") }}: € {{ "%.2f"|format(groep.terug_te_betalen) }}</span>
     {% endif %}
     <span class="{{ 'text-teal-700 font-medium' if groep.totaal.saldo < 0 else ('text-orange-700 font-medium' if groep.totaal.saldo > 0 else 'text-ink-soft') }}">
       {{ _("Saldo") }}: € {{ "%.2f"|format(groep.totaal.saldo) }}</span>
