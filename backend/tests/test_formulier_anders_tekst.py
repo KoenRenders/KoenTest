@@ -196,3 +196,50 @@ def test_het_scherm_koppelt_de_tekst_aan_het_vinkje(client, admin_headers):
     assert 'x-ref="anders"' in html and 'x-ref="keuze"' in html
     assert "$refs.keuze.checked" in html, "typen vinkt niet aan"
     assert "$refs.anders.value = ''" in html, "uitvinken laat de tekst staan"
+
+
+# ── 7. Het veld is breed genoeg om na te lezen (#687) ────────────────────────
+
+def _anders_input(html: str, veld_id: int) -> str:
+    """De <input>-tag van het "Anders"-veld, als losse string."""
+    merk = f'id="f{veld_id}_other"'
+    start = html.rindex("<input", 0, html.index(merk))
+    return html[start:html.index(">", html.index(merk))]
+
+
+@pytest.mark.parametrize("veldtype", ["checkbox", "radio"])
+def test_het_anders_veld_vult_de_rest_van_de_rij(client, admin_headers, veldtype):
+    """Een ontbrekende klasse, dus de UI-conventiegate vangt dit niet: die kijkt
+    naar verboden klassen, niet naar afwezige. Zonder deze test verdwijnt de
+    breedte bij de volgende bewerking van dit blok zonder dat iets rood wordt.
+
+    Waarom het meer is dan opmaak: sinds #683 wordt die tekst écht bewaard, en
+    "Anders" is de enige plek in het formulier waar het antwoord uit het hoofd van
+    de invuller komt. Dat is het slechtste veld om te laten scrollen — je kunt niet
+    nalezen wat je schreef vóór je verstuurt.
+
+    Beide takken, want het is dezelfde regel twee keer (net als de twee lekken in
+    #683 zelf).
+    """
+    form, veld, _anders, _gewoon = _bouw(client, admin_headers, veldtype)
+    html = client.get(f"/formulier/{form['share_token']}").text
+
+    tag = _anders_input(html, veld["id"])
+    assert "flex-1" in tag, f"het veld groeit niet mee met de rij: {tag}"
+    assert "min-w-0" in tag, (
+        "zonder min-w-0 weigert een flex-item onder zijn intrinsieke breedte te "
+        f"krimpen en loopt het alsnog over: {tag}")
+    assert "<textarea" not in tag, "één regel per optie is de opzet van deze lijst"
+
+
+@pytest.mark.parametrize("veldtype", ["checkbox", "radio"])
+def test_de_optierij_mag_afbreken_op_een_smal_scherm(client, admin_headers, veldtype):
+    """De keerzijde van een volle-breedte veld: een lang optielabel plus dat veld
+    moet kunnen afbreken in plaats van buiten de kaart te lopen."""
+    form, veld, _anders, _gewoon = _bouw(client, admin_headers, veldtype)
+    html = client.get(f"/formulier/{form['share_token']}").text
+
+    merk = f'id="f{veld["id"]}_other"'
+    label_start = html.rindex("<label", 0, html.index(merk))
+    label_tag = html[label_start:html.index(">", label_start)]
+    assert "flex-wrap" in label_tag, label_tag

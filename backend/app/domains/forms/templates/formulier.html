@@ -53,11 +53,13 @@
   <div class="space-y-1" x-data
        @change="if ($refs.anders && $refs.keuze && !$refs.keuze.checked) $refs.anders.value = ''">
     {% for o in f.options %}
-    <label class="flex items-center gap-2 text-sm">
+    {# #687: `flex-wrap`, zodat een lang optielabel plus een volle-breedte veld
+       afbreekt in plaats van buiten de kaart te lopen op een smal scherm. #}
+    <label class="flex flex-wrap items-center gap-2 text-sm">
       <input type="radio" name="{{ key }}" value="{{ o.id }}"
              {% if o.is_other %}x-ref="keuze"{% endif %}
              {% if (val is string and val == o.id|string) or (val is not string and o.id|string in val) %}checked{% endif %}>
-      {{ o.label }}{% if o.is_other %} {{ ui.input_control(key ~ "_other", id=key ~ "_other", placeholder="…", value=values.get(key ~ "_other", ""), attrs='x-ref="anders" @input="$refs.keuze.checked = $event.target.value.trim().length > 0"') }}{% endif %}
+      {{ o.label }}{% if o.is_other %} {{ ui.input_control(key ~ "_other", id=key ~ "_other", placeholder="…", value=values.get(key ~ "_other", ""), cls="flex-1 min-w-0", attrs='x-ref="anders" @input="$refs.keuze.checked = $event.target.value.trim().length > 0"') }}{% endif %}
     </label>
     {% endfor %}
   </div>
@@ -81,11 +83,13 @@
   <div class="space-y-1" x-data
        @change="if ($refs.anders && $refs.keuze && !$refs.keuze.checked) $refs.anders.value = ''">
     {% for o in f.options %}
-    <label class="flex items-center gap-2 text-sm">
+    {# #687: `flex-wrap`, zodat een lang optielabel plus een volle-breedte veld
+       afbreekt in plaats van buiten de kaart te lopen op een smal scherm. #}
+    <label class="flex flex-wrap items-center gap-2 text-sm">
       <input type="checkbox" name="{{ key }}" value="{{ o.id }}"
              {% if o.is_other %}x-ref="keuze"{% endif %}
              {% if (val is string and val == o.id|string) or (val is not string and o.id|string in val) %}checked{% endif %}>
-      {{ o.label }}{% if o.is_other %} {{ ui.input_control(key ~ "_other", id=key ~ "_other", placeholder="…", value=values.get(key ~ "_other", ""), attrs='x-ref="anders" @input="$refs.keuze.checked = $event.target.value.trim().length > 0"') }}{% endif %}
+      {{ o.label }}{% if o.is_other %} {{ ui.input_control(key ~ "_other", id=key ~ "_other", placeholder="…", value=values.get(key ~ "_other", ""), cls="flex-1 min-w-0", attrs='x-ref="anders" @input="$refs.keuze.checked = $event.target.value.trim().length > 0"') }}{% endif %}
     </label>
     {% endfor %}
   </div>
