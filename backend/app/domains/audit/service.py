@@ -28,6 +28,19 @@ from app.domains.mdm.api import (
 )
 
 
+# #713: wat er in `actor` staat wanneer er níemand aangemeld was.
+#
+# Leeg betekende twee dingen tegelijk — "er was niemand aangemeld" én "we zijn
+# vergeten wie dit deed" — en het scherm toont allebei als een lege cel. Daardoor kon
+# niemand zo'n cel lezen, en kon een volgende vergetelheid er ongemerkt bij komen; zo
+# zijn de vier ontstaan die dit issue rechtzet.
+#
+# Vanaf nu schrijven de publieke wegen dit, en betekent leeg **fout**. Geen `@`, dus
+# niet te verwarren met een e-mailadres. Bestaande rijen blijven leeg: die kunnen we
+# niet met terugwerkende kracht duiden en horen we ook niet zo te behandelen.
+PUBLIEKE_ACTOR = "publiek"
+
+
 def snapshot_person(db: Session, person, *, operation: str, action: str,
                     source: str, actor: Optional[str] = None) -> None:
     db.add(PersonHistory(

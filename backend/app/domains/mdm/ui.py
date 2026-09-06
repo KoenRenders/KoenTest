@@ -169,10 +169,12 @@ def gezin_aanmaken(request: Request, db: Session = Depends(get_db),
     if not first_name.strip() or not last_name.strip():
         raise HTTPException(status_code=400,
                             detail=_("Voornaam en achternaam zijn verplicht."))
+    # #713: de beheerder tekent de auditregel. Zonder dit stond een handeling van
+    # dít scherm in de geschiedenis als een systeemactie zonder actor.
     gezin = create_member(db, MemberCreate(persons=[PersonCreate(
         first_name=first_name.strip(), last_name=last_name.strip(),
         date_of_birth=date_of_birth or None, gender_code=gender_code or None,
-        relation_type="HOOFDLID")]))
+        relation_type="HOOFDLID")]), admin=email)
     return Response(status_code=204,
                     headers={"HX-Redirect": f"/admin/leden/gezin/{gezin.id}"})
 

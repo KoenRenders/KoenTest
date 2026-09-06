@@ -115,13 +115,26 @@ def _reconcile_geschrapt_lidmaatschap(
         refund_note="Automatisch bij schrappen lidmaatschap — terugstorting te bevestigen",
     )
 
-def create_member(db: Session, data: MemberCreate, _admin=None):
+def create_member(db: Session, data: MemberCreate, admin=None):
+    """Een nieuw gezin met zijn hoofdlid.
+
+    #713: de actor stond hier niet in de auditregel, terwijl hij bekend was — de
+    functie had er zelfs een parameter voor die alleen niet gebruikt werd, en de
+    JSON-route gaf hem netjes door. De snapshots schreven bovendien
+    `source="system"`, dus een beheerdersactie stond genoteerd als systeemactie
+    zónder actor: aan geen van beide velden te herkennen.
+
+    `_admin` heet nu `admin`: de underscore zei "wordt niet gebruikt", en dat wás
+    het probleem.
+    """
     from app.domains.audit.api import snapshot_member, snapshot_member_person, snapshot_person
 
+    wie = getattr(admin, "email", None) or (admin if isinstance(admin, str) else None)
     member = Member()
     db.add(member)
     db.flush()
-    snapshot_member(db, member, operation="insert", action="member_created", source="system")
+    snapshot_member(db, member, operation="insert", action="member_created",
+                    source="admin_manual", actor=wie)
 
     for person_data in data.persons:
         # #681: ook hier, want dit is de weg van het beheerscherm "Nieuw lid". Een
@@ -141,7 +154,8 @@ def create_member(db: Session, data: MemberCreate, _admin=None):
         )
         db.add(person)
         db.flush()
-        snapshot_person(db, person, operation="insert", action="person_created", source="system")
+        snapshot_person(db, person, operation="insert", action="person_created",
+                        source="admin_manual", actor=wie)
 
         mp = MemberPerson(
             member_id=member.id,
@@ -150,7 +164,8 @@ def create_member(db: Session, data: MemberCreate, _admin=None):
         )
         db.add(mp)
         db.flush()
-        snapshot_member_person(db, mp, operation="insert", action="person_created", source="system")
+        snapshot_member_person(db, mp, operation="insert", action="person_created",
+                               source="admin_manual", actor=wie)
 
     db.commit()
     db.refresh(member)

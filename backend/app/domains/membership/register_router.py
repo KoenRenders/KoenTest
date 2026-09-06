@@ -45,7 +45,8 @@ from app.domains.membership.service import (LidgegevensFout,
                                             controleer_geboortedatum_en_geslacht)
 from app.domains.membership.schemas_family import FamilyCreate
 from app.domains.payment.api import create_payment_record, membership_price_for_date, membership_valid_period
-from app.domains.audit.api import (
+from app.domains.audit.api import (  # noqa: F401
+    PUBLIEKE_ACTOR,
     snapshot_person,
     snapshot_member,
     snapshot_member_person,
@@ -87,7 +88,8 @@ def create_member(
     db: Session = Depends(get_db),
     _admin: User = Depends(get_current_admin),
 ):
-    return _service.create_member(db, data=data, _admin=_admin)
+    # #713: de parameter heet `admin` sinds die de auditregel écht tekent.
+    return _service.create_member(db, data=data, admin=_admin)
 
 
 @router.get("/members/{member_id}", response_model=MemberResponse)
@@ -370,7 +372,7 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
     member = Member()
     db.add(member)
     db.flush()
-    snapshot_member(db, member, operation="insert", action="family_registered", source="registration")
+    snapshot_member(db, member, operation="insert", action="family_registered", source="registration", actor=PUBLIEKE_ACTOR)
 
     for person_data in data.members:
         person = Person(
@@ -381,7 +383,7 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
         )
         db.add(person)
         db.flush()
-        snapshot_person(db, person, operation="insert", action="family_registered", source="registration")
+        snapshot_person(db, person, operation="insert", action="family_registered", source="registration", actor=PUBLIEKE_ACTOR)
 
         mp = MemberPerson(
             member_id=member.id,
@@ -390,7 +392,7 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
         )
         db.add(mp)
         db.flush()
-        snapshot_member_person(db, mp, operation="insert", action="family_registered", source="registration")
+        snapshot_member_person(db, mp, operation="insert", action="family_registered", source="registration", actor=PUBLIEKE_ACTOR)
 
         # Adres hoort enkel bij het hoofdlid (= gezinsadres). #125
         if person_data.relation_type == "HOOFDLID":
@@ -403,7 +405,7 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
             )
             db.add(address)
             db.flush()
-            snapshot_address(db, address, operation="insert", action="family_registered", source="registration")
+            snapshot_address(db, address, operation="insert", action="family_registered", source="registration", actor=PUBLIEKE_ACTOR)
 
         contacts = []
         if person_data.phone:
@@ -417,7 +419,7 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
         if contacts:
             db.flush()
             for contact in contacts:
-                snapshot_contact_detail(db, contact, operation="insert", action="family_registered", source="registration")
+                snapshot_contact_detail(db, contact, operation="insert", action="family_registered", source="registration", actor=PUBLIEKE_ACTOR)
 
     # Annual membership record
     valid_from, valid_to = membership_valid_period(today)
@@ -430,7 +432,7 @@ def register_family(data: FamilyCreate, background_tasks: BackgroundTasks, db: S
     )
     db.add(membership)
     db.flush()
-    snapshot_membership(db, membership, operation="insert", action="family_registered", source="registration")
+    snapshot_membership(db, membership, operation="insert", action="family_registered", source="registration", actor=PUBLIEKE_ACTOR)
 
     # Payment
     amount = membership_price_for_date(today)
