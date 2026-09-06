@@ -489,6 +489,30 @@ per commit on GitHub.
 - **Elke functionele wijziging in een release krijgt waardecreërende pytests** —
   geen tests pro forma, wel de invarianten die ertoe doen (security, geld,
   autorisatie, datakoppelingen).
+- **Een test moet rood kunnen worden.** Vraag bij elke nieuwe test: *zou hij ook
+  groen staan als het onderwerp kapot was?* Zo ja, dan bewijst hij niets — en dat is
+  erger dan geen test, want hij wekt de indruk dat er bescherming is. Drie vormen
+  kwamen in v2.0.0 langs, alle drie in één nacht:
+  - **hij muteert niets** — de JWT-tampertest verving twee base64url-tekens waarvan
+    het laatste maar twee betekenisvolle bits draagt; ongeveer één run op vijfhonderd
+    toetste een ongewijzigd token en kleurde groen;
+  - **hij kijkt nergens** — veertien gate-functies haalden hun bestanden zonder te
+    controleren *dát* ze er vonden; een verplaatste map of een gewijzigde glob maakt
+    zo'n gate voorgoed groen (#678);
+  - **hij toetst het falen, niet de reden** — `assert status_code >= 400` slaagt ook
+    bij een CSRF-fout of een ontbrekende rol, dus de geldrem eronder kon verdwijnen
+    zonder dat de suite het merkte (#680).
+- **Bij een gate of een guard volstaat die vraag niet — bewijs het.** Maak één
+  overtreding, controleer dat hij faalt met de bedoelde melding, herstel. Zo is de
+  css-poort (#652) gebouwd en zo zijn de veertien gates afgedekt. Noteer in de
+  docstring wát je hebt kapotgemaakt, zodat de volgende het niet opnieuw hoeft te
+  bedenken.
+- **Absentie is geen bewijs.** Een `grep` die niets vindt toont aan dat de gezochte
+  string er niet staat, niet dat het gedrag ontbreekt: een test kan een pad prima
+  raken zonder de foutmelding te noemen, en twee velden met dezelfde `name` kunnen in
+  elkaar uitsluitende `{% if %}`-takken staan. Controleer de context vóór je uit een
+  lege zoekopdracht een conclusie trekt — die vergissing is in deze release twee keer
+  gemaakt en beide keren als bevinding doorgegeven.
 - **Test-evidence in het release-issue:** na de push haalt Claude de geslaagde
   CI-run op (`backend-tests.yml`) en noteert in het release-issue de **run-id +
   link** en de **pytest-samenvatting** (`N passed`). De CI draait tegen een echte
