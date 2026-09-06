@@ -48,7 +48,15 @@
       <span x-show="!oedit">{{ o.label }}{% if o.is_other %} {{ ui.badge(_("andere…")) }}{% endif %}
         {% if o.skip_to_end %}{{ ui.badge(_("→ einde"), "yellow") }}{% elif o.skip_to_section_id %}{{ ui.badge(_("→ sectie"), "yellow") }}{% endif %}</span>
       <span x-show="oedit" x-cloak class="text-gray-500">{{ _("Optie bewerken") }}</span>
-      <span class="flex gap-1">
+      <span class="flex items-center gap-1">
+        {# #697: opties konden niet geordend worden, terwijl secties en velden dat
+           wél kunnen. Een optie verplaatsen was verwijderen en opnieuw toevoegen —
+           en dan verlies je haar sprongregel én haar id. Dezelfde `reorder` als
+           hierboven; de service zorgt dat het binnen dít veld blijft. #}
+        {{ ui.reorder(
+             up_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
+             down_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
+             first=loop.first, last=loop.last) }}
         {{ ui.btn_secondary("⚙", aria_label=_("Optie bewerken"), attrs='@click="oedit = !oedit"') }}
         {{ ui.btn_danger("×", aria_label=_("Optie verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML"') }}
       </span>

@@ -373,6 +373,20 @@ def optie_bewerken(form_id: int, option_id: int, request: Request,
     return _builder_response(request, db, form)
 
 
+@router.post("/admin/formulieren/{form_id}/opties/{option_id}/verplaats",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def optie_verplaatsen(form_id: int, option_id: int, request: Request,
+                      db: Session = Depends(get_db),
+                      email: str = Depends(require_admin_ui),
+                      richting: str = Form("op")):
+    """Een keuze-optie omhoog of omlaag binnen haar eigen veld (#697)."""
+    from app.domains.forms.api import move_option
+
+    form = _form_or_404(db, form_id)
+    _bewerk(move_option, db, form, option_id, richting)
+    return _builder_response(request, db, form)
+
+
 @router.post("/admin/formulieren/{form_id}/opties/{option_id}/verwijderen",
              response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 def optie_verwijderen(form_id: int, option_id: int, request: Request,

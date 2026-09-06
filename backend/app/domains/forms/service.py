@@ -564,6 +564,35 @@ def move_field(db, form: Form, field_id: int, richting: str) -> None:
     db.commit()
 
 
+def move_option(db, form: Form, option_id: int, richting: str) -> None:
+    """Herorden een keuze-optie binnen HAAR EIGEN veld (#697).
+
+    Zonder deze bewerking was een optie verplaatsen: verwijderen en opnieuw
+    toevoegen — en dan verlies je haar `skip_to_section` én haar id, en daarmee de
+    koppeling met alle antwoorden die er al naar verwijzen.
+
+    De broers-en-zussen zijn de opties van dít veld, niet van het formulier. Zou de
+    filter ontbreken, dan wisselt een optie van plaats met een optie uit een ándere
+    vraag — onzichtbaar zolang er maar één keuzeveld is, en meteen zichtbaar zodra
+    er twee zijn.
+
+    "Anders" krijgt geen bijzondere behandeling (beslissing Koen): ze mag ook in het
+    midden staan. Geen onzichtbare regel die haar achteraan duwt of de ↑-knop laat
+    weigeren.
+
+    Dezelfde helper als `move_field` en `move_section`; de relatie sorteert al op
+    `position`, dus het scherm hoeft niets te sorteren.
+    """
+    from app.kernel.ordering import move_sibling
+
+    veld = next((f for f in form.fields
+                 if any(o.id == option_id for o in f.options)), None)
+    if veld is None:
+        raise LookupError("Optie niet gevonden")
+    move_sibling(list(veld.options), option_id, richting, attr="position")
+    db.commit()
+
+
 def delete_field(db, form: Form, field_id: int) -> None:
     veld = next((f for f in form.fields if f.id == field_id), None)
     if veld is not None:
