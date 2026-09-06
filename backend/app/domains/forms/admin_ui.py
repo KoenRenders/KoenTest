@@ -248,18 +248,34 @@ def sectie_toevoegen(form_id: int, request: Request, db: Session = Depends(get_d
     return _builder_response(request, db, form)
 
 
+def _bestemming(waarde: str) -> tuple[str, bool]:
+    """Eén keuzelijst → de twee kolommen die het model kent (#699).
+
+    Het scherm stelt één vraag — waar gaat dit naartoe — met drie antwoorden:
+    niets (gewone volgorde), een latere sectie, of het einde. Het model bewaart dat
+    in twee kolommen, en zolang die twee apart bediend werden kon je ze allebei
+    zetten. De vertaling hoort hier, aan de ingang: de service houdt haar eigen
+    signatuur, want de JSON-import spreekt diezelfde twee kolommen.
+    """
+    keuze = (waarde or "").strip()
+    if keuze == "end":
+        return "", True
+    return keuze, False
+
+
 @router.post("/admin/formulieren/{form_id}/secties/{section_id}", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
 def sectie_bewerken(form_id: int, section_id: int, request: Request,
                     db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
                     title: str = Form(""), description: str = Form(""),
-                    next_section_id: str = Form(""), next_is_end: str = Form("")):
+                    bestemming: str = Form("")):
     from app.domains.forms.api import update_section
 
     form = _form_or_404(db, form_id)
+    doel, naar_einde = _bestemming(bestemming)
     _bewerk(update_section, db, form, section_id, title=title,
-            description=description, next_section_id=next_section_id,
-            next_is_end=bool(next_is_end))
+            description=description, next_section_id=doel,
+            next_is_end=naar_einde)
     return _builder_response(request, db, form)
 
 
@@ -363,13 +379,14 @@ def optie_toevoegen(form_id: int, field_id: int, request: Request,
 def optie_bewerken(form_id: int, option_id: int, request: Request,
                    db: Session = Depends(get_db), email: str = Depends(require_admin_ui),
                    label: str = Form(...), is_other: str = Form(""),
-                   skip_to_section_id: str = Form(""), skip_to_end: str = Form("")):
+                   bestemming: str = Form("")):
     from app.domains.forms.api import update_option
 
     form = _form_or_404(db, form_id)
+    doel, naar_einde = _bestemming(bestemming)
     _bewerk(update_option, db, form, option_id, label=label,
-            is_other=bool(is_other), skip_to_section_id=skip_to_section_id,
-            skip_to_end=bool(skip_to_end))
+            is_other=bool(is_other), skip_to_section_id=doel,
+            skip_to_end=naar_einde)
     return _builder_response(request, db, form)
 
 

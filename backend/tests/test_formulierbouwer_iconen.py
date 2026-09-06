@@ -50,7 +50,7 @@ def _bouwer(client, admin_headers) -> str:
 
 # ── 1. De iconen staan er, en de glyphs niet meer ──────────────────────────
 
-def test_de_iconen_worden_echt_gerenderd(client, admin_headers):
+def test_de_prullenbak_wordt_echt_gerenderd(client, admin_headers):
     """Toetst het `<path>`, niet de macro-aanroep.
 
     `ui.icon()` geeft bij een onbekende naam een lege SVG zonder te klagen, dus
@@ -59,7 +59,24 @@ def test_de_iconen_worden_echt_gerenderd(client, admin_headers):
     """
     html = _bouwer(client, admin_headers)
     assert PRULLENBAK in html, "de prullenbak rendert niet (typefout in de naam?)"
-    assert POTLOOD in html, "het potlood rendert niet (typefout in de naam?)"
+
+
+def test_het_potlood_staat_klaar_in_de_set():
+    """Het potlood is vandaag nérgens in gebruik, en dat is geen vergissing.
+
+    Het kwam er met #698 voor de ⚙-knop op de optierij, en #699 haalde die knop
+    weg: de velden staan nu inline, dus er valt niets meer te openen. Elke andere
+    bewerkactie in de app is een knop mét tekst ("Bewerken"), en die hoort geen
+    icoon te dragen.
+
+    Het blijft geregistreerd omdat het de vastgelegde woordenschat is — potlood =
+    bewerken — zodat de volgende symbolische bewerkknop niet opnieuw een glyph
+    verzint. Deze test toetst dus de definitie en niet een render; een test die
+    beweert dat het ergens gebruikt wordt, zou liegen.
+    """
+    macros = open("app/ui/templates/_macros.html", encoding="utf-8").read()
+    assert '"pencil"' in macros
+    assert POTLOOD in macros, "het geregistreerde pad klopt niet meer"
 
 
 def test_de_glyphs_zijn_weg_van_de_knoppen(client, admin_headers):

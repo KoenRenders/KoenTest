@@ -373,8 +373,11 @@
           class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>{{ value }}</textarea>
 {%- endmacro %}
 
-{% macro select_control(name, cls="", attrs="") -%}
-<select name="{{ name }}" class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>{{ caller() }}</select>
+{# `aria_label` als parameter en niet via `attrs` (#663/#699): `_()` levert Markup,
+   dus een vertaalde tekst met `~` in een attrs-string aan elkaar plakken escapet de
+   gewone helft — de klasse fout uit #514/#613. #}
+{% macro select_control(name, cls="", attrs="", aria_label=None) -%}
+<select name="{{ name }}" class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}"{% if aria_label %} aria-label="{{ aria_label }}"{% endif %} {{ attrs|safe }}>{{ caller() }}</select>
 {%- endmacro %}
 
 {# ── Paginering (#528 as C) ───────────────────────────────────────────────────

@@ -210,6 +210,7 @@ def test_elk_htmx_element_heeft_een_bruikbaar_doel(client, gevulde_admin):
         html = _open(client, pad)
         if html is None:
             continue
+        volledige_pagina = "<html" in html
         for element in HX_ELEMENT.finditer(html):
             doel = HX_TARGET.search(element.group(0))
             if doel is None:
@@ -231,7 +232,13 @@ def test_elk_htmx_element_heeft_een_bruikbaar_doel(client, gevulde_admin):
             #
             # Alleen `#id`-doelen: die zijn eenduidig te controleren zonder een DOM
             # te bouwen, en het is de vorm die in dit project overal gebruikt wordt.
-            if re.fullmatch(r"#[\w\-]+", waarde):
+            # Alleen op een VOLLEDIGE pagina. Een fragmentroute (`…/lijst`)
+            # levert net de inhoud ván het doelelement, dus dat element staat op
+            # de ouderpagina en niet in het antwoord. Zou de check hier ook lopen,
+            # dan meldt hij elk fragment als kapot terwijl de knop in de browser
+            # gewoon werkt — en een gate die vals alarm geeft, leren mensen af te
+            # lezen.
+            if volledige_pagina and re.fullmatch(r"#[\w\-]+", waarde):
                 if f'id="{waarde[1:]}"' not in html:
                     fouten.append(
                         f"{pad}: doel {waarde} bestaat niet op deze pagina")

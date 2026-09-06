@@ -52,35 +52,45 @@
   {% if f.field_type in ("select", "radio", "checkbox") %}
   <div class="mt-2 space-y-1">
     {% for o in f.options %}
-    <div class="flex items-center justify-between text-xs bg-gray-50 rounded px-2 py-1" x-data="{ oedit: false }">
-      <span x-show="!oedit">{{ o.label }}{% if o.is_other %} {{ ui.badge(_("andere…")) }}{% endif %}
-        {% if o.skip_to_end %}{{ ui.badge(_("→ einde"), "yellow") }}{% elif o.skip_to_section_id %}{{ ui.badge(_("→ sectie"), "yellow") }}{% endif %}</span>
-      <span x-show="oedit" x-cloak class="text-gray-500">{{ _("Optie bewerken") }}</span>
-      <span class="flex items-center gap-1">
-        {# #697: opties konden niet geordend worden, terwijl secties en velden dat
-           wél kunnen. Een optie verplaatsen was verwijderen en opnieuw toevoegen —
-           en dan verlies je haar sprongregel én haar id. Dezelfde `reorder` als
-           hierboven; de service zorgt dat het binnen dít veld blijft. #}
-        {{ ui.reorder(
-             up_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
-             down_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
-             first=loop.first, last=loop.last) }}
-        {{ ui.btn_secondary("", lead_icon="pencil", aria_label=_("Optie bewerken"), attrs='@click="oedit = !oedit"') }}
-        {{ ui.btn_danger("", lead_icon="trash-2", aria_label=_("Optie verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML"') }}
-      </span>
-      <form x-show="oedit" x-cloak class="w-full flex flex-wrap gap-2 mt-1"
-            hx-post="/admin/formulieren/{{ form.id }}/opties/{{ o.id }}" hx-target="#fb-detail" hx-swap="innerHTML">
-        {{ ui.input_control("label", value=(o.label), required=True) }}
+    {# #699: geen bewerktoggle meer. In v1.14 stonden label, "Andere…" en de sprong
+       altijd inline, met alleen een verwijderknop ernaast; de toggle kostte drie
+       klikken voor één handeling en gaf de rij twee verschillende gedaantes.
+
+       Bewust GEEN automatisch bewaren bij `change`: elke post rendert `#fb-detail`
+       opnieuw, dus bij het verlaten van een tekstveld springt de focus en verschuift
+       de scroll. Dat vraagt eerst een gerichter swapdoel, en dat is een andere
+       wijziging. Eén bewaaractie per rij dus. #}
+    <div class="flex flex-wrap items-center gap-1 text-xs bg-gray-50 rounded px-2 py-1">
+      {{ ui.reorder(
+           up_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
+           down_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
+           first=loop.first, last=loop.last) }}
+      <form class="flex flex-wrap items-center gap-2 grow"
+            hx-post="/admin/formulieren/{{ form.id }}/opties/{{ o.id }}"
+            hx-target="#fb-detail" hx-swap="innerHTML">
+        {{ ui.input_control("label", value=(o.label), required=True, cls="grow min-w-32",
+                            aria_label=_("Label van de optie")) }}
         <label class="flex items-center gap-1"><input type="checkbox" name="is_other" value="1" {% if o.is_other %}checked{% endif %}> {{ _("Andere…") }}</label>
         {% if f.field_type in ("radio", "select") %}
-        {% call ui.select_control("skip_to_section_id") %}
-          <option value="">{{ _("geen sprong") }}</option>
-          {% for s in sections %}<option value="{{ s.id }}" {% if o.skip_to_section_id == s.id %}selected{% endif %}>→ {{ s.title or (_("Sectie ") ~ (loop.index)) }}</option>{% endfor %}
+        {# #699: één keuzelijst voor één beslissing. "Einde" stond als los vakje
+           naast deze select; samen konden ze een toestand maken die het formulier
+           niet kent, en dan won het einde stil.
+
+           Alleen látere secties, zoals v1.14 deed: niet aanbieden wat verboden is,
+           is beter dan het achteraf weigeren. De servercontrole blijft er wél —
+           het scherm maakt de fout onmogelijk, de service weigert hem alsnog. #}
+        {% set _eigen = sections | selectattr("id", "equalto", f.section_id) | map(attribute="position") | list %}
+        {% set _drempel = _eigen[0] if _eigen else -1 %}
+        {% call ui.select_control("bestemming", aria_label=_("Daarna naar")) %}
+          <option value="">{{ _("gewone volgorde") }}</option>
+          {% for s in sections %}{% if s.position > _drempel %}<option value="{{ s.id }}" {% if o.skip_to_section_id == s.id %}selected{% endif %}>&rarr; {{ s.title or (_("Sectie ") ~ (s.position + 1)) }}</option>{% endif %}{% endfor %}
+          <option value="end" {% if o.skip_to_end %}selected{% endif %}>{{ _("→ einde") }}</option>
         {% endcall %}
-        <label class="flex items-center gap-1"><input type="checkbox" name="skip_to_end" value="1" {% if o.skip_to_end %}checked{% endif %}> {{ _("→ einde") }}</label>
         {% endif %}
-        {{ ui.btn_primary(_("OK")) }}
+        {{ ui.btn_primary(_("Opslaan"), size="sm") }}
+        {{ ui.btn_secondary(_("Annuleren"), size="sm", attrs='hx-get="/admin/formulieren/' ~ form.id ~ '" hx-target="#fb-detail" hx-swap="innerHTML"') }}
       </form>
+      {{ ui.btn_danger("", lead_icon="trash-2", aria_label=_("Optie verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML"') }}
     </div>
     {% endfor %}
     <form class="flex gap-2 mt-1" hx-post="/admin/formulieren/{{ form.id }}/velden/{{ f.id }}/opties"
@@ -194,12 +204,16 @@
     <form x-show="sedit" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-sm"
           hx-post="/admin/formulieren/{{ form.id }}/secties/{{ g.section.id }}" hx-target="#fb-detail" hx-swap="innerHTML">
       <div>{{ ui.label(_("Titel"), "st-" ~ g.section.id) }}{{ ui.input_control("title", id="st-" ~ (g.section.id), value=(g.section.title or ""), cls="w-full") }}</div>
+      {# #699: één keuzelijst, net als bij een optie. "Daarna: einde" stond als los
+         vakje naast deze select en kon samen met een sectie gezet worden — een
+         toestand die het formulier niet kent. De bouwer hoort voor hetzelfde
+         begrip niet op twee plekken verschillend te zijn. #}
       <div>{{ ui.label(_("Daarna naar"), "sn-" ~ g.section.id) }}
-        {% call ui.select_control("next_section_id", cls="w-full", attrs='id="sn-' ~ g.section.id ~ '"') %}
+        {% call ui.select_control("bestemming", cls="w-full", attrs='id="sn-' ~ g.section.id ~ '"') %}
           <option value="">{{ _("volgende sectie (lineair)") }}</option>
-          {% for s in sections %}{% if s.position > g.section.position %}<option value="{{ s.id }}" {% if g.section.next_section_id == s.id %}selected{% endif %}>{{ s.title or (_("Sectie ") ~ (s.position + 1)) }}</option>{% endif %}{% endfor %}
-        {% endcall %}
-        <label class="flex items-center gap-2 mt-1"><input type="checkbox" name="next_is_end" value="1" {% if g.section.next_is_end %}checked{% endif %}> {{ _("Daarna: einde") }}</label></div>
+          {% for s in sections %}{% if s.position > g.section.position %}<option value="{{ s.id }}" {% if g.section.next_section_id == s.id %}selected{% endif %}>&rarr; {{ s.title or (_("Sectie ") ~ (s.position + 1)) }}</option>{% endif %}{% endfor %}
+          <option value="end" {% if g.section.next_is_end %}selected{% endif %}>{{ _("→ einde") }}</option>
+        {% endcall %}</div>
       <div class="sm:col-span-2">{{ ui.label(_("Omschrijving"), "sd-" ~ g.section.id) }}{{ ui.textarea_control("description", id="sd-" ~ g.section.id, rows=2, value=g.section.description or "", cls="w-full") }}</div>
       <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="sedit = false"') }}</div>
     </form>

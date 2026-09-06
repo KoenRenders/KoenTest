@@ -486,6 +486,11 @@ def update_section(db, form: Form, section_id: int, *, title: str = "",
     section.description = (description or "").strip() or None
 
     doel_id = int(next_section_id) if str(next_section_id).strip().isdigit() else None
+    # #699: zelfde regel als bij een optie — anders is de bouwer op twee plekken
+    # verschillend voor hetzelfde begrip.
+    if bool(next_is_end) and doel_id is not None:
+        raise FormulierFout(
+            "Kies één bestemming: een sectie óf het einde, niet allebei.")
     if doel_id is not None:
         doel = next((s for s in form.sections if s.id == doel_id), None)
         if doel is None or doel.position <= section.position:
@@ -634,6 +639,14 @@ def update_option(db, form: Form, option_id: int, *, label: str = "",
     veld = optie.field
     doel_id = (int(skip_to_section_id)
                if str(skip_to_section_id).strip().isdigit() else None)
+    # #699: "einde" én een sectie tegelijk is geen geldige toestand. Ze werden
+    # allebei weggeschreven zonder tegen elkaar afgewogen te worden, en het scherm
+    # liet het einde stil winnen (`_target()` in formulier.html vraagt eerst naar
+    # `end`). De beheerder zag zijn sectie staan en het formulier deed iets anders.
+    # De keuzelijst maakt dit onmogelijk; deze regel geldt óók voor de JSON-import.
+    if bool(skip_to_end) and doel_id is not None:
+        raise FormulierFout(
+            "Kies één bestemming: een sectie óf het einde, niet allebei.")
     if (bool(skip_to_end) or doel_id is not None) and veld.field_type not in VERTAKBARE_VELDEN:
         raise FormulierFout("Vertakking kan enkel bij 'één keuze' of 'keuzelijst'.")
     if doel_id is not None:
