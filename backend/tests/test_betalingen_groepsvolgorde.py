@@ -186,13 +186,19 @@ def test_het_scherm_benoemt_wat_er_nog_uitbetaald_moet_worden(client, db_session
     Beide helften horen erbij: dat hij verschijnt bewijst dat de openstaande
     terugvordering niet langer alleen in het saldo zit, en dat hij wégblijft
     bewijst dat een gewone inschrijving geen betekenisloze kolom krijgt.
+
+    We zoeken op "Terug te betalen: €" en niet op de kale woorden. Die staan
+    namelijk óók op de statusbadge van een refund (`refund_due` in `payment/ui.py`),
+    en dan zou deze test de badge meten in plaats van de totaalregel — precies de
+    fout die #680 in de betaaltest blootlegde. De dubbelpunt met bedrag komt alleen
+    in de totaalregel voor.
     """
     _koens_geval(db_session, 6830)
     _login(client)
 
     met = client.get("/admin/betalingen?context=all")
     assert met.status_code == 200
-    assert "Terug te betalen" in met.text
+    assert "Terug te betalen: €" in met.text
 
     for rec in get_records_for(db_session, "registration", 6830):
         if rec.type == "refund":
@@ -202,5 +208,5 @@ def test_het_scherm_benoemt_wat_er_nog_uitbetaald_moet_worden(client, db_session
 
     zonder = client.get("/admin/betalingen?context=all")
     assert zonder.status_code == 200
-    assert "Terug te betalen" not in zonder.text, (
+    assert "Terug te betalen: €" not in zonder.text, (
         "een afgehandelde terugbetaling hoort de term niet te laten staan")
