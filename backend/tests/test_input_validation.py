@@ -10,7 +10,8 @@ from tests.conftest import seed_postal_code, create_test_family
 
 _BASE = {"street": "Milostraat", "house_number": "40", "postal_code": "2400", "payment_method": "transfer"}
 _HOOFDLID = {"last_name": "Lid", "first_name": "Jan", "email": "jan@example.com",
-             "mobile": "0470000000", "relation_type": "HOOFDLID"}
+             "mobile": "0470000000", "date_of_birth": "1980-01-01",
+             "gender_code": "M", "relation_type": "HOOFDLID"}
 
 
 @pytest.mark.parametrize("payload, reason", [

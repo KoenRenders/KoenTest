@@ -86,8 +86,10 @@ def test_hoofdlid_elk_verplicht_veld_draagt_het_rode_sterretje(client, db_sessio
 
 def test_bijkomend_lid_geboortedatum_en_geslacht_dragen_het_rode_sterretje(client, db_session):
     """De rij die htmx bijlaadt: daar zijn geboortedatum en geslacht verplicht
-    (#551) en e-mail/GSM juist niet — de omgekeerde verdeling van het hoofdlid,
-    wat meteen bewijst dat de markering de vlag volgt en niet het veld."""
+    (#551/#681) en e-mail/GSM juist niet — omgekeerd aan het hoofdlid, dat e-mail
+    en GSM wél verplicht heeft. Dat verschil bewijst dat de markering de vlag volgt
+    en niet het veld. (Geboortedatum en geslacht zijn sinds #681 aan beide kanten
+    verplicht; e-mail/GSM dragen het onderscheid.)"""
     rij = client.get("/lid-worden/persoon-rij?index=1")
     assert rij.status_code == 200
     _controleer(rij.text, minstens={"m1_date_of_birth", "m1_gender_code"})

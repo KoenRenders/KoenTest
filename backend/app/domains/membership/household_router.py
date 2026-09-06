@@ -33,6 +33,8 @@ from app.domains.audit.api import (
     snapshot_address,
     snapshot_contact_detail,
 )
+from app.domains.membership.service import (LidgegevensFout,
+                                            controleer_geboortedatum_en_geslacht)
 from app.soft_delete import soft_delete
 from app.i18n import _
 
@@ -276,6 +278,14 @@ def update_person(
         if getattr(target, field) != new_val:
             setattr(target, field, new_val)
             changed = True
+    # #681: ná de lus, want het portaal stuurt niet altijd alle velden mee. De
+    # regel geldt de uitkomst: een lid mag zichzelf niet zonder geboortedatum of
+    # geslacht achterlaten.
+    try:
+        controleer_geboortedatum_en_geslacht(target.date_of_birth, target.gender_code)
+    except LidgegevensFout as fout:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(fout))
     if changed:
         snapshot_person(db, target, operation="update", action="person_updated",
                         source="member_self", actor=actor)
@@ -349,6 +359,11 @@ def add_person(
     last_name = (data.get("last_name") or "").strip()
     if not first_name or not last_name:
         raise HTTPException(status_code=422, detail=_("Voornaam en achternaam zijn verplicht."))
+    try:
+        controleer_geboortedatum_en_geslacht(data.get("date_of_birth"),
+                                             data.get("gender_code"))
+    except LidgegevensFout as fout:
+        raise HTTPException(status_code=422, detail=str(fout))
 
     new_person = Person(
         first_name=first_name,

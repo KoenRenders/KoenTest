@@ -25,6 +25,8 @@ from app.config import settings
 from app.domains.mdm.api import (Address, ContactDetail, Member, MemberPerson,
                                  Person, PostalCode)
 from app.domains.membership.models import Membership
+from app.domains.membership.service import (LidgegevensFout,
+                                            controleer_geboortedatum_en_geslacht)
 from app.domains.membership.schemas_member import (
     AddressUpdate,
     BoardMemberAssign,
@@ -310,6 +312,14 @@ def update_person(db: Session, person_id: int, data: PersonUpdate, admin=None):
         if getattr(person, field) != value:
             setattr(person, field, value)
             changed = True
+    # #681: ná het toepassen, want een gedeeltelijke wijziging (enkel de naam) mag
+    # niet afketsen op een veld dat niet meegestuurd werd — maar ze mag de persoon
+    # evenmin zónder deze twee achterlaten.
+    try:
+        controleer_geboortedatum_en_geslacht(person.date_of_birth, person.gender_code)
+    except LidgegevensFout as fout:
+        db.rollback()
+        raise HTTPException(status_code=422, detail=str(fout))
     if changed:
         snapshot_person(db, person, operation="update", action="person_updated", source="admin_update", actor=admin.email)
     db.commit()
@@ -417,6 +427,11 @@ def add_person_to_family(
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
         raise HTTPException(status_code=404, detail=_("Family not found"))
+
+    try:
+        controleer_geboortedatum_en_geslacht(data.date_of_birth, data.gender_code)
+    except LidgegevensFout as fout:
+        raise HTTPException(status_code=422, detail=str(fout))
 
     person = Person(
         last_name=data.last_name,

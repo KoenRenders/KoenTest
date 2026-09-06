@@ -11,5 +11,5 @@
      "phone": p.phone, "relation_type": p.relation_type} %}{% endif %}
 {{ ui.person_fields(name_prefix="", id_prefix=(("lp" ~ p.id ~ "-") if p else "np-"),
                     pv=pv, gender_codes=gender_codes, relation_types=relation_types,
-                    include_relation=True,
+                    include_relation=True, require_birth_gender=True,
                     hoofdlid=(p is not none and p.relation_type == "HOOFDLID")) }}

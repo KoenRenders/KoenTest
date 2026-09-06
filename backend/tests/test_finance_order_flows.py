@@ -433,7 +433,7 @@ def test_refund_on_membership_payment(client, db_session, admin_headers):
         "street": "Milostraat", "house_number": "40", "postal_code": "2400",
         "payment_method": "transfer",
         "members": [{"last_name": "Janssens", "first_name": "An", "email": "an@example.com",
-                     "mobile": "0470123456", "relation_type": "HOOFDLID"}],
+                     "mobile": "0470123456", "date_of_birth": "1980-01-01", "gender_code": "M", "relation_type": "HOOFDLID"}],
     })
     assert resp.status_code == 201, resp.text
     member = db_session.query(Member).order_by(Member.id.desc()).first()

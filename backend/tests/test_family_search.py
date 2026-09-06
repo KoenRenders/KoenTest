@@ -12,7 +12,7 @@ def _make_family(client, last, first, email, mobile, *, street="Milostraat", nr=
         "street": street, "house_number": nr, "postal_code": "2400",
         "payment_method": "transfer",
         "members": [{"last_name": last, "first_name": first, "email": email,
-                     "mobile": mobile, "relation_type": "HOOFDLID"}],
+                     "mobile": mobile, "date_of_birth": "1980-01-01", "gender_code": "M", "relation_type": "HOOFDLID"}],
     })
     assert resp.status_code == 201, resp.text
 
