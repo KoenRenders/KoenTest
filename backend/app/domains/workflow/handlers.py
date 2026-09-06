@@ -33,7 +33,7 @@ def create_behartigen_task(event: SubmissionCreated, db: Session) -> None:
         return
     afzender = event.submitter_name or "onbekende afzender"
     api.start(db, "bericht", subject_type="form_submission",
-              subject_id=event.submission_id, context={"afzender": afzender})
+              subject_id=str(event.submission_id), context={"afzender": afzender})
 
 
 def _sweep_sources(db: Session) -> list[dict]:
@@ -50,7 +50,9 @@ def _sweep_sources(db: Session) -> list[dict]:
         kandidaten.append(dict(
             kind="payment.refund_bevestigen",
             title=f"Refund {r.id} bevestigen ({r.payable_type} #{r.payable_id})",
-            subject_type="payment_record", subject_id=r.payable_id, role="FINANCE"))
+            # #704: het record-id, niet het payable — `subject_type` zegt
+            # "payment_record" en de waarde hoort dat te zijn.
+            subject_type="payment_record", subject_id=str(r.id), role="FINANCE"))
 
     # 2. Definitief gefaalde mails (na de mail.retry-pogingen).
     failed_mail_jobs = {j.payload.get("email_log_id")
@@ -63,7 +65,7 @@ def _sweep_sources(db: Session) -> list[dict]:
         kandidaten.append(dict(
             kind="mail.definitief_gefaald",
             title=f"E-mail #{log.id} aan {log.recipient} definitief gefaald",
-            subject_type="email_log", subject_id=log.id, role="ADMIN"))
+            subject_type="email_log", subject_id=str(log.id), role="ADMIN"))
 
     # 3. Webhook-mismatch: gateway zegt paid, het grootboek (nog) niet.
     rows = (db.query(GatewayPayment, PaymentRecord)
@@ -73,7 +75,7 @@ def _sweep_sources(db: Session) -> list[dict]:
         kandidaten.append(dict(
             kind="payment.webhook_mismatch",
             title=f"Webhook-mismatch: gateway {gp.id[:8]}… is paid, record {record.id[:8]}… is {record.status}",
-            subject_type="payment_record", subject_id=record.payable_id, role="FINANCE"))
+            subject_type="payment_record", subject_id=str(record.id), role="FINANCE"))
 
     # 4. Definitief gefaalde jobs (behalve mail.retry — bron 2 dekt die met context).
     for j in (db.query(KernelJob)
@@ -81,7 +83,7 @@ def _sweep_sources(db: Session) -> list[dict]:
         kandidaten.append(dict(
             kind="kernel.job_gefaald",
             title=f"Job {j.name} (#{j.id}) definitief gefaald: {(j.last_error or '')[:120]}",
-            subject_type="kernel_job", subject_id=j.id, role="ADMIN"))
+            subject_type="kernel_job", subject_id=str(j.id), role="ADMIN"))
 
     return kandidaten
 

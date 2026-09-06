@@ -12,16 +12,23 @@
 {% set _id = (f.id if f else "nieuw") %}
 {% set _type = (f.field_type if f else "text") %}
 {% set _slot = (submission_count > 0 and f is not none) %}
-<form x-show="{{ tonen }}" x-cloak class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 text-sm"
+{# #710: TYPE eerst, dan Vraag, dan Verplicht — op één regel, zoals v1.14.
+
+   Niet alleen omdat het compacter is: het type bepaalt wélke velden daarna
+   verschijnen (min/max tekens, puntenschaal, de optielijst). Je kiest dus eerst de
+   soort en vult daarna in; de omgekeerde volgorde laat je invullen in een vorm die
+   nog kan veranderen.
+
+   Vier kolommen op `sm` en niet drie: met drie wordt de vraag te smal zodra alle
+   drie op één regel moeten. Type (1) · Vraag (2) · Verplicht (1). Op smal blijft
+   alles gestapeld, met het type over de volle breedte. #}
+<form x-show="{{ tonen }}" x-cloak class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-sm"
       hx-post="/admin/formulieren/{{ form.id }}{% if f %}/velden/{{ f.id }}{% else %}/velden{% endif %}"
       hx-target="#fb-detail" hx-swap="innerHTML">
   {% if not f %}<input type="hidden" name="section_id" value="{{ sid or '' }}">{% endif %}
-  <div class="col-span-2">{{ ui.label(_("Vraag"), "fl-" ~ _id, required=True) }}
-    {{ ui.input_control("label", id="fl-" ~ _id, value=(f.label if f else ""), required=True, cls="w-full") }}</div>
-  <div><label class="flex items-center gap-2 text-sm pt-6"><input type="checkbox" name="required" value="1" {% if f and f.required %}checked{% endif %}> {{ _("Verplicht") }}</label></div>
   {# #700: het vraagtype. Uitgeschakeld zodra er inzendingen zijn — tonen mét de
      reden, niet verbergen (§2.12): een keuze die er niet staat, laat je zoeken. #}
-  <div class="col-span-3 sm:col-span-1">{{ ui.label(_("Type"), "ft-" ~ _id) }}
+  <div>{{ ui.label(_("Type"), "ft-" ~ _id) }}
     {# `disabled` en `title` als parameters en niet via `attrs`: `_()` levert Markup,
        dus een vertaalde tekst met `~` aan een attrs-string plakken escapet de
        aanhalingstekens van de gewone helft — de klasse fout uit #514/#613. #}
@@ -30,8 +37,14 @@
          title=(_("Er zijn al inzendingen; het type wijzigen zou de bewaarde antwoorden betekenisloos maken.") if _slot else None)) %}
       {% for t in field_types %}<option value="{{ t }}" {% if t == _type %}selected{% endif %}>{{ field_type_labels.get(t, t) }}</option>{% endfor %}
     {% endcall %}
+    {# Deze regel hoort ONDER de typekeuze te blijven staan, ook na de herindeling:
+       ze verklaart waarom die lijst grijs is, en verschijnt alleen bij een
+       formulier mét inzendingen. #}
     {% if _slot %}<p class="text-xs text-ink-soft mt-1">{{ _("Er zijn al inzendingen; het type ligt vast.") }}</p>{% endif %}</div>
-  <div class="col-span-3">{{ ui.label(_("Hulptekst"), "fh-" ~ _id) }}
+  <div class="sm:col-span-2">{{ ui.label(_("Vraag"), "fl-" ~ _id, required=True) }}
+    {{ ui.input_control("label", id="fl-" ~ _id, value=(f.label if f else ""), required=True, cls="w-full") }}</div>
+  <div><label class="flex items-center gap-2 text-sm sm:pt-6"><input type="checkbox" name="required" value="1" {% if f and f.required %}checked{% endif %}> {{ _("Verplicht") }}</label></div>
+  <div class="sm:col-span-4">{{ ui.label(_("Hulptekst"), "fh-" ~ _id) }}
     {{ ui.input_control("help_text", id="fh-" ~ _id, value=(f.help_text or "" if f else ""), cls="w-full") }}</div>
   {% if _type in ("text", "textarea", "email", "phone") %}
   <div>{{ ui.label(_("Min. tekens"), "fminl-" ~ _id) }}{{ ui.input_control("min_length", id="fminl-" ~ _id, value=(f.min_length or "" if f else ""), cls="w-full") }}</div>
@@ -44,7 +57,7 @@
   <div>{{ ui.label(_("Label laag"), "frl-" ~ _id) }}{{ ui.input_control("rating_low_label", id="frl-" ~ _id, value=(f.rating_low_label or "" if f else ""), cls="w-full") }}</div>
   <div>{{ ui.label(_("Label hoog"), "frh-" ~ _id) }}{{ ui.input_control("rating_high_label", id="frh-" ~ _id, value=(f.rating_high_label or "" if f else ""), cls="w-full") }}</div>
   {% endif %}
-  <div class="col-span-3 flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="' ~ tonen ~ ' = false"') }}</div>
+  <div class="sm:col-span-4 flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="' ~ tonen ~ ' = false"') }}</div>
 </form>
 {% endmacro %}
 

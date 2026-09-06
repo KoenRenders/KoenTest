@@ -11,7 +11,7 @@ from app.domains.workflow.models import WorkflowTask
 
 
 def create_task(db: Session, *, kind: str, title: str, subject_type: str,
-                subject_id: int, required_role: str = "ADMIN") -> WorkflowTask:
+                subject_id: str, required_role: str = "ADMIN") -> WorkflowTask:
     task = WorkflowTask(kind=kind, title=title, subject_type=subject_type,
                         subject_id=subject_id, required_role=required_role)
     db.add(task)
@@ -85,7 +85,7 @@ def close_task(db: Session, task_id: int, *, done_by: str,
 # ── Definities + instanties (fase 4b, #403) ────────────────────────────────────
 
 def start(db: Session, definition_code: str, *, subject_type: str,
-          subject_id: int, context: Optional[dict] = None):
+          subject_id: str, context: Optional[dict] = None):
     """Start een workflow-instantie en maak de taak van de eerste stap.
     ``context`` vult de titel-template van de stap (str.format)."""
     from app.domains.workflow.models import WorkflowDefinition, WorkflowInstance
