@@ -82,8 +82,12 @@ def test_de_titel_blijft_op_elke_stap(client, admin_headers):
     form = _maak(client, admin_headers, secties=2)
     html = client.get(f"/formulier/{form['share_token']}").text
 
-    tag = _open_tag(html, "h1", "Enquête")
+    # Rechtstreeks op de <h1>, niet via de titeltekst: die staat óók in <title>,
+    # en dáár staat geen <h1> vóór.
+    start = html.index("<h1")
+    tag = html[start:html.index(">", start)]
     assert STAP_NUL not in tag, tag
+    assert "Enquête" in html[start:html.index("</h1>", start)]
 
 
 # ── 2. Zonder wizard verandert er niets ──────────────────────────────────────
