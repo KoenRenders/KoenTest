@@ -132,7 +132,30 @@ def build_answers(form: Form, payload_answers: List[AnswerIn]) -> List[FormSubmi
         option_ids = [oid for oid in (ans.option_ids if ans else [])]
         rating = ans.rating if ans else None
 
-        has_value = bool(text) or number is not None or bool(option_ids) or rating is not None
+        # #683: een ingevulde "Anders"-tekst zonder aangevinkte optie is een
+        # antwoord. Het scherm zet het invoerveld gewoon aan, dus wie erin typt
+        # heeft geantwoord; de optie erbij nemen is wat de gebruiker bedoelde.
+        # Weigeren zou hem straffen voor iets waartoe het scherm uitnodigde.
+        #
+        # Bij radio/select is de keuze exclusief: getypte tekst VERVANGT een
+        # eerder aangevinkte optie, net zoals typen in het scherm de "Anders"-radio
+        # selecteert. Bij een checkbox komt ze erbij.
+        #
+        # Een LEGE tekst telt niet — `other_text` is hierboven al gestript, dus
+        # `bool(other_text)` laat witruimte niet door. Anders zou een leeg veld
+        # zonder vinkje een lege antwoordrij opleveren, én een verplicht veld
+        # ineens als ingevuld gelden.
+        # Tekst zonder "Anders"-optie om ze aan te hangen is geen antwoord: het veld
+        # heeft dan geen plek om ze te bewaren. Zonder deze voorwaarde zou zo'n post
+        # `has_value` waar maken en verderop op `option_ids[0]` breken.
+        anders_telt = bool(other_text) and bool(other_option_ids)
+        if anders_telt and not (set(option_ids) & other_option_ids):
+            anders_id = sorted(other_option_ids)[0]
+            option_ids = ([anders_id] if field.field_type in ("radio", "select")
+                          else option_ids + [anders_id])
+
+        has_value = (bool(text) or number is not None or bool(option_ids)
+                     or rating is not None or anders_telt)
 
         if field.required and not has_value:
             raise _fail(field, "dit veld is verplicht.")

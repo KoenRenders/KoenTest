@@ -94,17 +94,25 @@ def _answers_from_form(form_model, form_data) -> list:
         key = f"f{field.id}"
         if field.field_type == "info":
             continue
+        # #683: de "Anders"-tekst telt óók als er niets aangevinkt is. Voorheen
+        # stond `if option_ids:` vóór het aanmaken van het antwoord, dus werd
+        # `{key}_other` nooit gelezen zonder vinkje — het scherm nodigde uit tot
+        # typen en gooide het daarna weg. Wélke optie daarbij hoort, beslist de
+        # servicelaag; hier wordt alleen het formulier uitgepakt.
         if field.field_type == "checkbox":
             raw = [v for v in form_data.getlist(key) if v]
             option_ids = [int(v) for v in raw if str(v).isdigit()]
-            if option_ids:
+            anders = (form_data.get(f"{key}_other") or "").strip() or None
+            if option_ids or anders:
                 answers.append(AnswerIn(field_id=field.id, option_ids=option_ids,
-                                        other_text=(form_data.get(f"{key}_other") or None)))
+                                        other_text=anders))
         elif field.field_type in ("select", "radio"):
             raw = form_data.get(key)
-            if raw and str(raw).isdigit():
-                answers.append(AnswerIn(field_id=field.id, option_ids=[int(raw)],
-                                        other_text=(form_data.get(f"{key}_other") or None)))
+            anders = (form_data.get(f"{key}_other") or "").strip() or None
+            gekozen = [int(raw)] if (raw and str(raw).isdigit()) else []
+            if gekozen or anders:
+                answers.append(AnswerIn(field_id=field.id, option_ids=gekozen,
+                                        other_text=anders))
         elif field.field_type == "number":
             raw_num = form_data.get(key)
             num_text = raw_num.strip() if isinstance(raw_num, str) else ""

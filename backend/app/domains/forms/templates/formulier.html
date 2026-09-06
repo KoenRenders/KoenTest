@@ -34,22 +34,58 @@
     {% endfor %}
   {% endcall %}
   {% elif f.field_type == "radio" %}
-  <div class="space-y-1">
+  {# #683: typen vinkt aan, en zodra "Anders" niet meer gekozen is, wist het veld
+     zichzelf. Het invoerveld stond gewoon aan terwijl de server de tekst zonder
+     vinkje weggooide — het scherm nodigde uit tot iets wat het daarna stil
+     verwierp.
+
+     De bewaking staat op de GROEP, niet op de "Anders"-knop zelf: bij een radio
+     vuurt `change` alleen op de knop die aangevinkt wórdt, nooit op degene die
+     ontvinkt. Een handler op de knop zou dus wel merken dat je "Anders" uitzet,
+     maar niet dat je een andere optie kiest — en precies dán blijft er tekst staan
+     die niemand meer bedoelt.
+
+     Waarom wissen en niet laten staan: laten staan is vriendelijker (je kan per
+     ongeluk uitvinken), maar de server neemt sinds #683 de "Anders"-optie erbij
+     zodra er tekst binnenkomt. Tekst laten staan zou de optie dus meteen weer
+     aanvinken — "uitvinken" zou niet werken. Eén toestand: tekst aanwezig betekent
+     optie gekozen. De JS is enkel UX; het vangnet staat in `forms/service.py`. #}
+  <div class="space-y-1" x-data
+       @change="if ($refs.anders && $refs.keuze && !$refs.keuze.checked) $refs.anders.value = ''">
     {% for o in f.options %}
     <label class="flex items-center gap-2 text-sm">
       <input type="radio" name="{{ key }}" value="{{ o.id }}"
+             {% if o.is_other %}x-ref="keuze"{% endif %}
              {% if (val is string and val == o.id|string) or (val is not string and o.id|string in val) %}checked{% endif %}>
-      {{ o.label }}{% if o.is_other %} {{ ui.input_control(key ~ "_other", id=key ~ "_other", placeholder="…", value=values.get(key ~ "_other", "")) }}{% endif %}
+      {{ o.label }}{% if o.is_other %} {{ ui.input_control(key ~ "_other", id=key ~ "_other", placeholder="…", value=values.get(key ~ "_other", ""), attrs='x-ref="anders" @input="$refs.keuze.checked = $event.target.value.trim().length > 0"') }}{% endif %}
     </label>
     {% endfor %}
   </div>
   {% elif f.field_type == "checkbox" %}
-  <div class="space-y-1">
+  {# #683: typen vinkt aan, en zodra "Anders" niet meer gekozen is, wist het veld
+     zichzelf. Het invoerveld stond gewoon aan terwijl de server de tekst zonder
+     vinkje weggooide — het scherm nodigde uit tot iets wat het daarna stil
+     verwierp.
+
+     De bewaking staat op de GROEP, niet op de "Anders"-knop zelf: bij een radio
+     vuurt `change` alleen op de knop die aangevinkt wórdt, nooit op degene die
+     ontvinkt. Een handler op de knop zou dus wel merken dat je "Anders" uitzet,
+     maar niet dat je een andere optie kiest — en precies dán blijft er tekst staan
+     die niemand meer bedoelt.
+
+     Waarom wissen en niet laten staan: laten staan is vriendelijker (je kan per
+     ongeluk uitvinken), maar de server neemt sinds #683 de "Anders"-optie erbij
+     zodra er tekst binnenkomt. Tekst laten staan zou de optie dus meteen weer
+     aanvinken — "uitvinken" zou niet werken. Eén toestand: tekst aanwezig betekent
+     optie gekozen. De JS is enkel UX; het vangnet staat in `forms/service.py`. #}
+  <div class="space-y-1" x-data
+       @change="if ($refs.anders && $refs.keuze && !$refs.keuze.checked) $refs.anders.value = ''">
     {% for o in f.options %}
     <label class="flex items-center gap-2 text-sm">
       <input type="checkbox" name="{{ key }}" value="{{ o.id }}"
+             {% if o.is_other %}x-ref="keuze"{% endif %}
              {% if (val is string and val == o.id|string) or (val is not string and o.id|string in val) %}checked{% endif %}>
-      {{ o.label }}{% if o.is_other %} {{ ui.input_control(key ~ "_other", id=key ~ "_other", placeholder="…", value=values.get(key ~ "_other", "")) }}{% endif %}
+      {{ o.label }}{% if o.is_other %} {{ ui.input_control(key ~ "_other", id=key ~ "_other", placeholder="…", value=values.get(key ~ "_other", ""), attrs='x-ref="anders" @input="$refs.keuze.checked = $event.target.value.trim().length > 0"') }}{% endif %}
     </label>
     {% endfor %}
   </div>
