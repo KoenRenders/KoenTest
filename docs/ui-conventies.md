@@ -444,6 +444,14 @@ OrderLineEditor wisselt niet; laden-teksten wisselen ("Activiteiten laden…" vs
    bedankscherm** dat het formulier vervangt, patroon: «✅ <wat> ontvangen!» +
    wat volgt («Je ontvangt een bevestiging per e-mail…»). Kleine acties → toast.
    De homepage-inschrijfflow volgt dus het bedankscherm, niet de 5s-banner.
+
+   **Uitzondering: kopiëren naar het klembord bevestigt inline** (`ui.copy_button`,
+   #689). De knop toont zelf kort een vinkje in plaats van een toast te sturen. Bij
+   kopiëren is de vraag "pakte hij mijn klik?", en die hoort beantwoord te worden
+   wáár je klikte — een melding rechtsboven laat je wegkijken van de knop die je net
+   indrukte. Een toast is er bovendien voor iets wat elders gebeurde; hier gebeurde
+   het onder je cursor. Lukt het kopiëren niet (geen secure context), dan blijft het
+   vinkje weg en staat de tekst geselecteerd: de knop liegt niet.
 5. **Bezig-states**: submitknop disabled + label **"Bezig…"** — overal, ook
    ledenportaal en OrderLineEditor.
 6. **Modals**: dezelfde `<Modal>` als de admin (X + Esc + backdrop, `role=dialog`).

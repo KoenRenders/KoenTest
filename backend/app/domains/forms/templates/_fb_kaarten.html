@@ -5,19 +5,26 @@
 {% if forms %}
 <div class="space-y-3">
   {% for f in forms %}
-  <a href="/admin/formulieren/{{ f.id }}"
-     class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
+  {# #689: de kaart blijft één grote link, maar de kopieerknop moet erbinnen
+     klikbaar zijn — en een <button> in een <a> is ongeldige HTML. Vandaar de
+     uitgerekte link: de <a> dekt de hele kaart als absolute laag, en alleen wat
+     zélf gepositioneerd is (de knop, met z-10) ligt erboven. #}
+  <div class="relative bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
+    <a href="/admin/formulieren/{{ f.id }}" class="absolute inset-0 rounded-xl"
+       aria-label="{{ f.title }}"></a>
     <div class="flex items-start justify-between gap-3">
       <div>
         <div class="font-semibold text-ink">{{ f.title }}</div>
         <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
           {{ ui.badge(status_labels[f.status]|lower, status_tones.get(f.status, "gray")) }}
-          <span class="font-mono text-xs text-ink-soft">/formulier/{{ f.share_token }}</span>
+          <span class="font-mono text-xs text-ink-soft"
+                data-copy-bron="/formulier/{{ f.share_token }}">/formulier/{{ f.share_token }}</span>
+          {{ ui.copy_button("/formulier/" ~ f.share_token, _("Deellink kopiëren")) }}
         </div>
       </div>
       <span class="shrink-0 text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>
     </div>
-  </a>
+  </div>
   {% endfor %}
 </div>
 {% else %}

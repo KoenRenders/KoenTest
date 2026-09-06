@@ -608,6 +608,21 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     <div class="sec-h"><span class="num">2</span><h2>Components</h2></div>
     <p class="lede">Each pattern built properly once, with a macro name, and identical everywhere. Below, each time: live example + macro + do/don't.</p>
 
+    <h3 class="block" id="s2-0">2.0 Copy to clipboard</h3>
+    <div class="demo">
+      <button type="button" class="btn btn-secondary btn-sm" aria-label="Copy share link">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+      </button>
+      <button type="button" class="btn btn-secondary btn-sm" aria-label="Copied">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="16" height="16"><path d="M20 6 9 17l-5-5"/></svg>
+      </button>
+    </div>
+    <pre><code>{{ ui.copy_button("/formulier/" ~ form.share_token, _("Deellink kopiëren")) }}</code></pre>
+    <span class="mac">New (#689). Icon-only, so an <code>aria-label</code> is mandatory (§2.6). Copies the <em>full</em> URL — a path is prefixed with <code>location.origin</code>, because what you paste has to be clickable.</span>
+    <span class="mac"><strong>Confirms inline, not with a toast</strong> — a deliberate deviation from <code>ui-conventies.md</code> ("small actions → toast"), noted there. With copying, the question is "did it take my click?", and that belongs where you clicked; a message in the corner makes you look away from the button you just pressed.</span>
+    <span class="mac"><code>navigator.clipboard</code> only exists in a secure context, so <code>raakKopieer()</code> falls back to a hidden textarea + <code>execCommand</code>, and finally selects the visible text (<code>data-copy-bron</code>) so Ctrl+C still works. On failure the check mark stays away: the button does not lie.</span>
+    <span class="mac">Don't put it inside an <code>&lt;a&gt;</code> — a button in an anchor is invalid HTML. Use the stretched-link pattern instead (see <code>_fb_kaarten.html</code>): the anchor covers the card as an absolute layer and only the positioned button sits above it.</span>
+
     <h3 class="block" id="s2-1">2.1 Buttons</h3>
     <div class="demo">
       <div class="row">

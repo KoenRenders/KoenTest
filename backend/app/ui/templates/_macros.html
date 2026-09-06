@@ -69,7 +69,9 @@
   "phone": '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72c.13.96.36 1.9.7 2.81a2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45c.9.34 1.85.57 2.81.7A2 2 0 0 1 22 16.92z"/>',
   "mobile": '<rect width="14" height="20" x="5" y="2" rx="2" ry="2"/><path d="M12 18h.01"/>',
   "map-pin": '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
-  "calendar": '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>'} -%}
+  "calendar": '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
+  "copy": '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
+  "check": '<path d="M20 6 9 17l-5-5"/>'} -%}
 <svg xmlns="http://www.w3.org/2000/svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 {{ cls }}" aria-hidden="true">{{ paths.get(name, '')|safe }}</svg>
 {%- endmacro %}
 
@@ -663,6 +665,71 @@
       een opsomming die veroudert (een CMS-pagina kan morgen naar /raakje linken).
       Deze controle is het vangnet: draagt het antwoord een ander `data-shell` dan
       de huidige body — of helemaal geen — dan navigeren we hard. #}
+{# ── Kopiëren naar het klembord (#689, §1.5) ──────────────────────────────────
+   Er bestond nergens in de app een kopieer-patroon, dus dit is een kitcomponent
+   en geen losse knop in het formulierenscherm.
+
+   **Inline bevestiging, geen toast** — een bewuste afwijking van
+   `docs/ui-conventies.md` ("kleine acties → toast"). Bij kopiëren is de vraag
+   "pakte hij mijn klik?" en die hoort beantwoord te worden waar je klikte; een
+   melding rechtsboven laat je wegkijken van de knop die je net indrukte. Een toast
+   is er bovendien voor iets wat elders gebeurde — hier gebeurde het onder je
+   cursor. De afwijking staat genoteerd in ui-conventies.md.
+
+   De knop draagt altijd een `aria-label`: hij toont alleen een icoon (§2.6). #}
+{% macro copy_button(pad, aria_label, size="sm") -%}
+<button type="button" data-copy="{{ pad }}" aria-label="{{ aria_label }}"
+        class="{{ btn_class('secondary', size) }} relative z-10"
+        x-data="{ ok: false }"
+        @click.stop.prevent="ok = await raakKopieer($event.currentTarget.dataset.copy); if (ok) setTimeout(() => ok = false, 1500)">
+  <span x-show="!ok">{{ icon('copy') }}</span>
+  <span x-show="ok" x-cloak>{{ icon('check') }}</span>
+</button>
+{%- endmacro %}
+
+{% macro clipboard_js() -%}
+<script>
+  // #689: één helper voor élke kopieerknop. Geeft true bij een geslaagde kopie —
+  // de knop toont dan kort een vinkje. Bij mislukking false: dan liegt de knop
+  // niet, en heeft de gebruiker de tekst geselecteerd staan om zelf te kopiëren.
+  //
+  // `navigator.clipboard` bestaat alleen in een secure context (https of
+  // localhost). Op een intern adres over http is hij er domweg niet, en zonder
+  // terugval doet de knop dan stil niets — het ergste dat een knop kan doen.
+  window.raakKopieer = async function (waarde) {
+    // Een pad wordt een volledige URL: wat je plakt moet aanklikbaar zijn.
+    var tekst = waarde.charAt(0) === '/' ? new URL(waarde, location.origin).href : waarde;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(tekst);
+        return true;
+      }
+    } catch (e) { /* valt door naar de terugval hieronder */ }
+    var veld = document.createElement('textarea');
+    veld.value = tekst;
+    veld.setAttribute('readonly', '');
+    veld.style.position = 'fixed';
+    veld.style.top = '-1000px';
+    document.body.appendChild(veld);
+    veld.select();
+    var gelukt = false;
+    try { gelukt = document.execCommand('copy'); } catch (e) { gelukt = false; }
+    document.body.removeChild(veld);
+    if (gelukt) return true;
+    // Laatste redmiddel: selecteer de zichtbare tekst zodat Ctrl+C werkt.
+    var bron = document.querySelector('[data-copy-bron="' + CSS.escape(waarde) + '"]');
+    if (bron) {
+      var bereik = document.createRange();
+      bereik.selectNodeContents(bron);
+      var sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(bereik);
+    }
+    return false;
+  };
+</script>
+{%- endmacro %}
+
 {% macro htmx_ux() -%}
 <div id="nprogress" aria-hidden="true"></div>
 {# De foutmelding van #649 als <template>: dezelfde tint als ui.toast(kind="error")
