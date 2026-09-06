@@ -61,12 +61,21 @@ def _bouwer(client, form_id) -> str:
 
 
 def _instellingenknop(html: str) -> str:
-    """De knop die het instellingenpaneel opent, aan zijn Alpine-toggle herkend —
-    niet aan het woord "Bewerken", dat op deze pagina ook bij elke veldkaart staat."""
-    merk = '@click="open = !open"'
-    assert merk in html, "de instellingenknop toggelt niet"
+    """De knop die het instellingenpaneel opent.
+
+    Niet op het woord "Bewerken" zoeken: dat staat op deze pagina ook bij elke
+    veldkaart. Maar `@click="open = !open"` is óók niet genoeg — de beheerschil
+    gebruikt diezelfde toggle voor het mobiele menu (`☰`), en mijn eerste versie van
+    deze helper vond dáármee de verkeerde knop. Een botsing, precies de fout die
+    deze testreeks elders aanwijst.
+
+    De ondubbelzinnige haak is de INHOUD die `edit_toggle` voor deze state rendert:
+    `x-show="!open"` staat alleen op dit paar. De veldkaarten gebruiken `edit`.
+    """
+    merk = '<span x-show="!open">'
+    assert merk in html, "er staat geen bewerktoggle op de state `open`"
     start = html.rindex("<button", 0, html.index(merk))
-    return html[start:html.index("</button>", start)]
+    return html[start:html.index("</button>", start) + len("</button>")]
 
 
 # ── 1. Bewerken/Annuleren ──────────────────────────────────────────────────
