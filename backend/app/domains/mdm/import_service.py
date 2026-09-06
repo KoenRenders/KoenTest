@@ -153,21 +153,53 @@ def _identity_remove(identity_map: dict, person: Person) -> None:
         lst.remove(person)
 
 
+# Kolom in het rapport → attribuut op Person, in de volgorde waarin het rapport
+# ze noemt (het wijzigingsverslag leest zo als de rij).
+_PERSOONSVELDEN = {"naam": "last_name", "voornaam": "first_name",
+                   "geboortedatum": "date_of_birth", "geslacht": "gender_code"}
+
+
+def _leeg(waarde) -> bool:
+    """Een lege cel: niets, of enkel witruimte."""
+    return waarde is None or (isinstance(waarde, str) and not waarde.strip())
+
+
+def _person_field_values(person: Person, row: dict) -> dict:
+    """De waarden die deze rij op een BESTAANDE persoon zet (#685).
+
+    **Een lege cel laat staan wat er is.** Een import vult aan en corrigeert; hij
+    wist niet. Het ledenrapport komt uit een ander systeem en een leeg vakje daar
+    betekent "hier weet ik niets van", niet "verwijder dit". Voorheen overschreef
+    de import blind, dus één herimport kon een geboortedatum stilzwijgend op NULL
+    zetten — en juist die twee velden zijn sinds #681 overal elders verplicht.
+
+    Deze functie is de énige plek waar die regel staat. Zowel het bepalen wat er
+    verandert als het toepassen ervan gaat er doorheen: repareer je alleen het
+    toepassen, dan meldt het rapport een wijziging die niet gebeurt, telt
+    `persons_updated` te hoog en schrijft `snapshot_person` een lege auditregel.
+
+    **Bewust anders dan `_upsert_contact`, die op leeg juist verwíjdert.** Dat is
+    geen inconsistentie om weg te poetsen: een gsm-nummer kan ophouden te bestaan —
+    iemand geeft zijn nummer op, of wil het niet meer delen — en dan is een lege
+    cel een mededeling. Een geboortedatum houdt niet op te bestaan. Wie deze twee
+    gelijk wil trekken uit netheid, trekt ze de verkeerde kant op.
+
+    Geldt niet voor een nieuwe persoon: daar is niets om te behouden, en een
+    onvolledige rij wordt gemeld via `_meld_onvolledig`.
+    """
+    return {attr: (getattr(person, attr) if _leeg(row[kolom]) else row[kolom])
+            for kolom, attr in _PERSOONSVELDEN.items()}
+
+
 def _person_field_changes(person: Person, row: dict) -> list[str]:
     """Welke persoonsvelden wijken af van de rapportrij?"""
-    changes = []
-    if person.last_name != row["naam"]:
-        changes.append("naam")
-    if person.first_name != row["voornaam"]:
-        changes.append("voornaam")
-    if person.date_of_birth != row["geboortedatum"]:
-        changes.append("geboortedatum")
-    if person.gender_code != row["geslacht"]:
-        changes.append("geslacht")
-    return changes
+    waarden = _person_field_values(person, row)
+    return [kolom for kolom, attr in _PERSOONSVELDEN.items()
+            if getattr(person, attr) != waarden[attr]]
 
 
-def _meld_onvolledig(row: dict, report: ImportReport) -> None:
+def _meld_onvolledig(row: dict, report: ImportReport,
+                     person: Person | None = None) -> None:
     """Meld een rij zonder geboortedatum of geslacht (#681).
 
     De import weigert de rij NIET. Élk formulier dwingt deze twee velden af, maar
@@ -179,19 +211,28 @@ def _meld_onvolledig(row: dict, report: ImportReport) -> None:
     onvolledige leden ongemerkt binnenkomen — precies het gat dat #681 dicht. De
     waarschuwing staat in het dry-run-rapport én in de samenvatting, met naam en
     reden, zodat je vóór het bevestigen ziet wie je moet aanvullen.
+
+    Bij een BESTAANDE persoon telt wat er ná de import staat, niet wat er in de
+    rij stond (#685). Een lege cel laat de bestaande waarde staan, dus die persoon
+    mist niets en hoort niet in de lijst met aan te vullen namen. Zou de melding op
+    de rij blijven kijken, dan noemde het rapport bij elke herimport dezelfde mensen
+    zonder dat er iets aan te vullen valt — en een waarschuwing die je altijd ziet,
+    lees je niet meer.
     """
-    ontbreekt = [naam for naam, waarde in (("geboortedatum", row["geboortedatum"]),
-                                           ("geslacht", row["geslacht"])) if not waarde]
+    waarden = (_person_field_values(person, row) if person is not None
+               else {"date_of_birth": row["geboortedatum"],
+                     "gender_code": row["geslacht"]})
+    ontbreekt = [kolom for kolom, attr in (("geboortedatum", "date_of_birth"),
+                                           ("geslacht", "gender_code"))
+                 if _leeg(waarden[attr])]
     if ontbreekt:
         report.warn(f"{row['voornaam']} {row['naam']}: {' en '.join(ontbreekt)} "
                     f"ontbreekt — wel ingelezen, aanvullen in het ledenbeheer.")
 
 
 def _apply_person_fields(person: Person, row: dict) -> None:
-    person.last_name = row["naam"]
-    person.first_name = row["voornaam"]
-    person.date_of_birth = row["geboortedatum"]
-    person.gender_code = row["geslacht"]
+    for attr, waarde in _person_field_values(person, row).items():
+        setattr(person, attr, waarde)
 
 
 # ── Contacten ───────────────────────────────────────────────────────────────
@@ -423,7 +464,7 @@ def _sync_family(db: Session, member: Member, fam: list[dict], pc: PostalCode | 
                     action="person_moved" if cur_member is not None else "person_imported",
                     source=LEGACY_SOURCE, actor=actor)
 
-        _meld_onvolledig(row, report)
+        _meld_onvolledig(row, report, existing)
         changes = _person_field_changes(existing, row)
         rel_changed = mp is not None and mp.relation_type != row["_relatie"]
         if changes or rel_changed:
