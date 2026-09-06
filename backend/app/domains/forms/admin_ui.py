@@ -400,7 +400,8 @@ async def json_import(form_id: int, request: Request, db: Session = Depends(get_
     Een opgeladen bestand primeert op het tekstvak, net als een opgeladen affiche
     op de poster-URL (#223). Plakken blijft de gewone weg.
     """
-    from app.domains.forms.api import import_definition, submission_count
+    from app.domains.forms.api import (assert_geen_id_vorm, import_definition,
+                                       submission_count)
     from app.domains.forms.schemas import FormUpdate
 
     form = _form_or_404(db, form_id)
@@ -423,7 +424,12 @@ async def json_import(form_id: int, request: Request, db: Session = Depends(get_
         return _builder_response(request, db, form,
                                  error=_("Plak een JSON-definitie of kies een bestand."))
     try:
-        data = FormUpdate(**json.loads(payload))
+        rauw_json = json.loads(payload)
+        # #692: een bestand uit de oude, id-gebaseerde export leest niet terug. De
+        # schema's negeren onbekende sleutels, dus zonder deze controle zou het
+        # stilzwijgend als "alle velden zonder sectie" binnenkomen — wat Koen zag.
+        assert_geen_id_vorm(rauw_json)
+        data = FormUpdate(**rauw_json)
     except (json.JSONDecodeError, ValueError) as exc:
         return _builder_response(request, db, form,
                                  error=_("Ongeldige JSON: %(exc)s") % {"exc": exc})
@@ -489,10 +495,12 @@ def resultaten_tab(form_id: int, request: Request, db: Session = Depends(get_db)
 def json_export(form_id: int, request: Request, db: Session = Depends(get_db),
                 email: str = Depends(require_admin_ui)) -> Response:
     """Volledige formulierdefinitie als downloadbare JSON (backup/inspectie/AI)."""
-    from app.domains.forms.api import form_definition
+    from app.domains.forms.api import export_definition
 
     form = _form_or_404(db, form_id)
-    payload = json.dumps(form_definition(db, form), ensure_ascii=False,
+    # #692: de import-woordenschat, niet het leesmodel van de API. Dat laatste
+    # beschrijft rijen in déze databank en overleeft het vertrek eruit niet.
+    payload = json.dumps(export_definition(form), ensure_ascii=False,
                          indent=2, default=str)
     slug = form.slug or f"formulier-{form.id}"
     return Response(

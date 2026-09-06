@@ -766,3 +766,120 @@ def update_form_settings(db, form: Form, **waarden) -> None:
     for veld, waarde in waarden.items():
         setattr(form, veld, waarde)
     db.commit()
+
+
+# ── Export in de woordenschat van de import (#692) ───────────────────────────
+
+# De drie sleutels waaraan je een export in de ÓUDE, id-gebaseerde vorm herkent.
+# Ze verwijzen naar rijen in de databank waar het bestand vandaan komt en zijn
+# elders betekenisloos.
+ID_SLEUTELS = ("section_id", "next_section_id", "skip_to_section_id")
+
+
+def _sectie_indexen(secties) -> dict:
+    return {s.id: i for i, s in enumerate(secties)}
+
+
+def export_definition(form: Form) -> dict:
+    """De definitie zoals de IMPORT haar leest (#692).
+
+    De download hergebruikte het leesmodel van de API (`FormAdminOut`), en dat
+    beschrijft rijen in *deze* databank: `section_id`, `next_section_id`,
+    `skip_to_section_id`. De import verwijst naar secties met hun **index in de
+    payload**. De invoerschema's negeren onbekende sleutels, dus `section_id`
+    verdween, `section_index` viel terug op None, en elk veld belandde bij géén
+    sectie — lege secties bovenaan, alle vragen los eronder.
+
+    Wat je daarbij niet ziet is erger dan wat je wél ziet: ook de sectie- en
+    optiesprongen (`next_section_index`, `skip_to_section_index`) gingen verloren.
+    Repareer je alleen de indeling, dan oogt het formulier normaal terwijl de wizard
+    lineair door secties loopt die overgeslagen hadden moeten worden.
+
+    `FormAdminOut` blijft ongemoeid: die bedient `GET /forms/{id}`, waar de bouwer
+    de id's juist nodig heeft om ter plaatse te bewerken. Twee taken, twee modellen.
+
+    Bewust NIET meegenomen: `id`, `share_token`, `slug`, `created_at`,
+    `updated_at`, `submission_count`. Een export is een sjabloon, geen kopie van een
+    rij — en sinds #690 is de slug uniek, dus een import ervan zou botsen met het
+    formulier waaruit het bestand komt.
+
+    Wél meegenomen, want #635-3 heeft ze juist aan de import toegevoegd en ze mogen
+    hier niet sneuvelen: status, description, is_anonymous, send_confirmation,
+    allow_edit, confirmation_message, requires_login, max_submissions.
+    """
+    secties = sorted(form.sections, key=lambda s: (s.position, s.id))
+    index_van = _sectie_indexen(secties)
+
+    def _optie(o) -> dict:
+        return {
+            "label": o.label, "value": o.value, "position": o.position,
+            "is_other": o.is_other,
+            "skip_to_section_index": index_van.get(o.skip_to_section_id),
+            "skip_to_end": o.skip_to_end,
+        }
+
+    def _veld(f) -> dict:
+        return {
+            "field_type": f.field_type, "label": f.label, "help_text": f.help_text,
+            "required": f.required, "position": f.position,
+            "section_index": index_van.get(f.section_id),
+            "min_value": f.min_value, "max_value": f.max_value,
+            "min_length": f.min_length, "max_length": f.max_length,
+            "regex_pattern": f.regex_pattern, "rating_max": f.rating_max,
+            "rating_low_label": f.rating_low_label,
+            "rating_high_label": f.rating_high_label,
+            "options": [_optie(o) for o in sorted(f.options,
+                                                  key=lambda o: (o.position, o.id))],
+        }
+
+    return {
+        "title": form.title,
+        "description": form.description,
+        "status": form.status,
+        "requires_login": form.requires_login,
+        "max_submissions": form.max_submissions,
+        "send_confirmation": form.send_confirmation,
+        "confirmation_message": form.confirmation_message,
+        "allow_edit": form.allow_edit,
+        "is_anonymous": form.is_anonymous,
+        "sections": [{
+            "title": s.title, "description": s.description, "position": s.position,
+            "next_section_index": index_van.get(s.next_section_id),
+            "next_is_end": s.next_is_end,
+        } for s in secties],
+        "fields": [_veld(f) for f in sorted(form.fields,
+                                            key=lambda f: (f.position, f.id))],
+    }
+
+
+def assert_geen_id_vorm(rauw) -> None:
+    """Weiger een bestand in de oude id-vorm met een melding (#692).
+
+    Bewust géén vertaallaag: er staan geen id-bestanden in het veld, deze release
+    staat nog niet op productie, en de enige kapotte export ligt naast het formulier
+    waaruit hij komt. Een vertaling zou een dialect onderhouden dat na deze fix
+    niemand meer produceert.
+
+    Gerichte controle op de drie sleutels, NIET `extra="forbid"` op de schema's:
+    diezelfde schema's bedienen `POST /forms` in de JSON-API, en daar zou elke extra
+    sleutel plots een 422 geven. Een reparatie van de import hoort de API niet te
+    breken.
+    """
+    gevonden = set()
+
+    def _loop(knoop):
+        if isinstance(knoop, dict):
+            gevonden.update(k for k in knoop if k in ID_SLEUTELS)
+            for waarde in knoop.values():
+                _loop(waarde)
+        elif isinstance(knoop, list):
+            for waarde in knoop:
+                _loop(waarde)
+
+    _loop(rauw)
+    if gevonden:
+        raise HTTPException(status_code=422, detail=_(
+            "Dit bestand komt uit een oudere export die naar databank-id's verwees "
+            "(%(sleutels)s) en niet terug in te lezen is. Exporteer het formulier "
+            "opnieuw en gebruik dat bestand."
+        ) % {"sleutels": ", ".join(sorted(gevonden))})
