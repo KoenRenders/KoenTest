@@ -229,6 +229,7 @@ def formulier_op_slug(slug: str, request: Request, db: Session = Depends(get_db)
     kunnen openen dat toevallig zo heet.
     """
     from app.domains.forms.api import get_form_by_slug
+    from app.domains.forms.service import assert_open_for_submission
 
     form_model = get_form_by_slug(db, slug.strip().lower())
     if form_model is None:
