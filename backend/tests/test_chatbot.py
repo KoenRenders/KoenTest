@@ -164,7 +164,9 @@ def test_submit_idea_creates_bericht_submission(db_session):
     assert sub.answers[0].value_text == "Mooie speeltuin idee"
     # En de behartigen-taak staat open (werkbank, #398).
     task = db_session.query(WorkflowTask).order_by(WorkflowTask.id.desc()).first()
-    assert task.kind == "bericht.behartigen" and task.subject_id == sub.id
+    # #704: `subject_id` is tekst — een onderwerp-id is een ondoorzichtige sleutel
+    # en hoort niet te weten of de bron een reeksnummer of een UUID gebruikt.
+    assert task.kind == "bericht.behartigen" and task.subject_id == str(sub.id)
 
 
 def test_submit_idea_requires_email(db_session):

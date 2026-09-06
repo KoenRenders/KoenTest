@@ -18,6 +18,27 @@ def create_task(db: Session, *, kind: str, title: str, subject_type: str,
     return task
 
 
+def vervroeg_sweep(db: Session) -> None:
+    """Laat de werkbank-sweep meteen lopen in plaats van bij de volgende ronde (#705).
+
+    De sweep plant zichzelf elk uur opnieuw in, dus een openstaande terugbetaling kon
+    tot een uur onzichtbaar blijven — gemeten op HDEV: aangemaakt om 23:12, vorige
+    sweep 22:31, volgende 23:31. Berichten zijn wél gebeurtenisgedreven, dus
+    uitgerekend het soort taak dat over geld gaat werd het traagst zichtbaar.
+
+    **Vervroegen, niet zelf de taak aanmaken.** Een tweede plek die taken maakt krijgt
+    een eigen titelopbouw, en de titel ís de idempotentiesleutel — twee plekken die
+    die sleutel bouwen, betekent dezelfde refund twee keer.
+
+    `once=True` is wat dit veilig maakt: zo'n sweep plant géén opvolger. Er staat
+    altijd al een sweep te wachten en elke sweep plant er een na zich, dus een tweede
+    zónder die vlag zou de cadans blijvend verdubbelen.
+    """
+    from app.kernel.jobs import enqueue
+
+    enqueue(db, "workflow.sweep", {"once": True})
+
+
 def open_tasks(db: Session, roles: Sequence[str]) -> list[WorkflowTask]:
     return (
         db.query(WorkflowTask)

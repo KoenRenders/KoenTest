@@ -362,6 +362,14 @@ def create_refund(
         operation="insert", action="payment_refunded",
         source=source, actor=actor,
     )
+    # #705: een openstaande terugbetaling hoort meteen op de werkbank te staan, niet
+    # pas bij de volgende uurlijkse ronde. Deze aanroep VERVROEGT de sweep; ze maakt
+    # de taak niet zelf aan — de titel is de idempotentiesleutel, en een tweede plek
+    # die die sleutel bouwt levert dezelfde refund twee keer op.
+    if not settled:
+        from app.domains.workflow.api import vervroeg_sweep
+
+        vervroeg_sweep(db)
     return record
 
 
