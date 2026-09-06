@@ -110,9 +110,13 @@
 {% endmacro %}
 
 {% block content %}
-<div class="max-w-2xl mx-auto">
+{# #688: bij een wizard omvat de Alpine-scope de héle pagina, niet alleen de
+   stappen. De inleiding en de naam/e-mailkaart stonden erbuiten, dus `x-show` kon
+   er niet bij en ze bleven op élke stap staan. De TITEL blijft wel staan: die zegt
+   waar je bent, en dat wil je op elke stap zien. #}
+<div class="max-w-2xl mx-auto"{% if wizard %} x-data='formWizard({{ wizard_steps|tojson }})' @change="recompute()"{% endif %}>
   <h1 class="text-2xl font-bold text-blue-700 mb-2">{{ form.title }}</h1>
-  {% if form.description %}<p class="text-gray-600 mb-6 whitespace-pre-wrap">{{ form.description }}</p>{% endif %}
+  {% if form.description %}<p class="text-gray-600 mb-6 whitespace-pre-wrap"{% if wizard %} x-show="step === 0" x-cloak{% endif %}>{{ form.description }}</p>{% endif %}
   {{ ui.error_banner(error|default(None)) }}
   {# Het enige publieke formulier dat geen htmx gebruikt: een gewone POST met
      server-rendered antwoord. Buiten hx-boost (#634) houden zodat de
@@ -120,16 +124,31 @@
   <form method="post" action="/formulier/{{ form.share_token }}{% if edit_token|default(None) %}/edit/{{ edit_token }}{% endif %}"
         hx-boost="false" class="space-y-6">
     {% if not form.is_anonymous %}
+    {# #688: `required` valt weg zodra dit een wizard is, precies zoals bij de
+       sectievelden hierboven. Een verborgen veld met `required` laat de browser bij
+       verzenden falen met "An invalid form control is not focusable" — de
+       constraint-validatie wil naar een onzichtbaar veld springen en het verzenden
+       mislukt geruisloos. Dat is erger dan het probleem dat we oplossen.
+
+       Veilig, want het is niet de enige controle: `assert_submitter` in
+       `forms/service.py` weigert een niet-anonieme inzending zonder naam of geldig
+       e-mailadres al met een 422. Het HTML-attribuut was de vriendelijke variant,
+       niet de regel. Het sterretje in het label blijft: het veld is nog steeds
+       verplicht. #}
+    <div{% if wizard %} x-show="step === 0" x-cloak{% endif %}>
     {% call ui.card() %}
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>{{ ui.label(_("Naam"), "submitter_name", required=True) }}
-          {{ ui.input_control("submitter_name", id="submitter_name", value=submitter_name, required=True, cls="w-full") }}</div>
+          {{ ui.input_control("submitter_name", id="submitter_name", value=submitter_name, required=(not wizard), cls="w-full") }}</div>
         <div>{{ ui.label(_("E-mailadres"), "submitter_email", required=True) }}
-          {{ ui.input_control("submitter_email", id="submitter_email", type="email", value=submitter_email, required=True, cls="w-full") }}</div>
+          {{ ui.input_control("submitter_email", id="submitter_email", type="email", value=submitter_email, required=(not wizard), cls="w-full") }}</div>
       </div>
     {% endcall %}
+    </div>
     {% endif %}
-    {% if wizard %}<div x-data='formWizard({{ wizard_steps|tojson }})' x-cloak @change="recompute()">{% endif %}
+    {# De stappen houden hun eigen `x-cloak`: zonder dat staan ze allemaal tegelijk
+       op het scherm tot Alpine geladen is. #}
+    {% if wizard %}<div x-cloak>{% endif %}
     {% for g in grouped %}
     {% if wizard %}<div data-step="{{ loop.index0 }}" x-show="step === {{ loop.index0 }}">{% endif %}
     {% call ui.card() %}

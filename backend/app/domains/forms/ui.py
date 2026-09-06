@@ -216,6 +216,29 @@ def _load_open_form(db, share_token: str):
     return form_model
 
 
+@router.get("/f/{slug}", response_class=HTMLResponse)
+def formulier_op_slug(slug: str, request: Request, db: Session = Depends(get_db)):
+    """Een leesbare deellink (#690). Optioneel: niet elk formulier heeft er een.
+
+    De tokenlink blijft altijd werken, óók naast een slug. Een rondgestuurde link
+    mag niet breken omdat iemand er later een naam bij zet — dat is precies wat een
+    deellink onbruikbaar maakt.
+
+    Eigen prefix `/f/` in plaats van `/formulier/{slug}`: anders zou elke onbekende
+    slug op de tokenroute botsen en zou een tikfout in een token een formulier
+    kunnen openen dat toevallig zo heet.
+    """
+    from app.domains.forms.api import get_form_by_slug
+    from app.domains.forms.service import assert_open_for_submission
+
+    form_model = get_form_by_slug(db, slug.strip().lower())
+    if form_model is None:
+        raise HTTPException(status_code=404, detail=_("Formulier niet gevonden."))
+    assert_open_for_submission(db, form_model)
+    return templates.TemplateResponse(request, "formulier.html",
+                                      _form_render_ctx(db, form_model, request))
+
+
 @router.get("/formulier/{share_token}", response_class=HTMLResponse)
 def formulier_page(share_token: str, request: Request, db: Session = Depends(get_db)):
     form_model = _load_open_form(db, share_token)

@@ -70,8 +70,15 @@ def test_een_403_levert_een_zichtbare_melding(admin_page):
 
     melding = scherm.foutmeldingen().first
     melding.wait_for(state="visible", timeout=5000)
-    assert "sessie" in melding.inner_text().lower(), (
-        f"een 403 hoort te zeggen wat de gebruiker moet doen, kreeg: {melding.inner_text()!r}")
+    tekst = melding.inner_text().lower()
+    # #693: de melding noemt geen oorzaak meer. Ze zei dat de sessie in een ander
+    # venster vernieuwd was, en dat was zelden waar — de echte oorzaak was een leeg
+    # CSRF-token in `hx-headers`. Wat een melding moet doen, is zeggen wát er
+    # misging en wát te doen; daar toetsen we op.
+    assert "niet bewaard" in tekst, (
+        f"de melding zegt niet dat de wijziging niet bewaard is, kreeg: {tekst!r}")
+    assert "herlaad" in tekst, (
+        f"de melding zegt niet wat de gebruiker moet doen, kreeg: {tekst!r}")
 
 
 def test_herhaald_mislukken_geeft_niet_elf_meldingen(admin_page):

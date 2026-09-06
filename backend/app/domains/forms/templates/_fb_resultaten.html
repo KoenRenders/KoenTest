@@ -34,6 +34,16 @@
         <div class="mt-1">
           {% for o in f.options %}{{ balk(o.label, o.count, maxc) }}{% endfor %}
         </div>
+        {# #691: de vrije tekst bij een "Anders"-optie, onder de balken. Zelfde
+           lijstvorm als een tekstveld verderop in dit sjabloon — het ís hetzelfde
+           soort gegeven, en een tweede vorm bedenken maakt het scherm alleen maar
+           onrustiger. Enkel tonen als er iets is: een lege lijst onder elke
+           keuzevraag is ruis. #}
+        {% if f.other_texts %}
+        <ul class="mt-2 text-sm text-gray-700 space-y-1 max-h-64 overflow-y-auto">
+          {% for t in f.other_texts %}<li class="border-l-2 border-gray-200 pl-2">{{ t }}</li>{% endfor %}
+        </ul>
+        {% endif %}
 
       {% elif f.field_type == "rating" %}
         <p class="text-sm text-gray-700 mt-1">{{ _("Gemiddelde") }}:

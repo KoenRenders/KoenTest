@@ -114,10 +114,31 @@
         {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" ' ~ confirm_attrs(_("Formulier"), form.title)) }}
       </div>
     </div>
-    <p class="text-xs text-gray-500 mt-1">Deellink: /formulier/{{ form.share_token }} · {{ submission_count }} inzendingen</p>
+    {# #689: de deellink met een kopieerknop. `data-copy-bron` is de terugval van
+       de helper: lukt kopiëren niet (geen secure context), dan selecteert hij deze
+       tekst zodat Ctrl+C nog werkt. #}
+    <p class="text-xs text-gray-500 mt-1 flex flex-wrap items-center gap-2">
+      <span data-copy-bron="/formulier/{{ form.share_token }}">Deellink: /formulier/{{ form.share_token }}</span>
+      {{ ui.copy_button("/formulier/" ~ form.share_token, _("Deellink kopiëren")) }}
+      <span>· {{ submission_count }} inzendingen</span>
+    </p>
+    {# #690: de leesbare link staat naast de tokenlink, niet in de plaats ervan.
+       Beide werken — een rondgestuurde tokenlink mag niet breken omdat iemand er
+       later een naam bij zet. #}
+    {% if form.slug %}
+    <p class="text-xs text-gray-500 mt-1 flex flex-wrap items-center gap-2">
+      <span data-copy-bron="/f/{{ form.slug }}">{{ _("Leesbare link") }}: /f/{{ form.slug }}</span>
+      {{ ui.copy_button("/f/" ~ form.slug, _("Leesbare link kopiëren")) }}
+    </p>
+    {% endif %}
     <form x-show="open" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 text-sm"
           hx-post="/admin/formulieren/{{ form.id }}/instellingen" hx-target="#fb-detail" hx-swap="innerHTML">
       <div>{{ ui.label(_("Titel"), "fbt", required=True) }}{{ ui.input_control("title", id="fbt", value=(form.title), required=True, cls="w-full") }}</div>
+      {# #690: optioneel. Leeg laten betekent "alleen de tokenlink". #}
+      <div>{{ ui.label(_("Leesbare link"), "fbslug") }}
+        {{ ui.input_control("slug", id="fbslug", value=(form.slug or ""), placeholder="bv. zomerfeest", cls="w-full") }}
+        <p class="text-xs text-gray-500 mt-1">{{ _("Optioneel. Kleine letters, cijfers en koppeltekens. Het formulier blijft ook via de tokenlink bereikbaar.") }}</p>
+      </div>
       <div>{{ ui.label(_("Status"), "fbs") }}
         {% call ui.select_control("status", cls="w-full", attrs='id="fbs"') %}
           {% for s in statuses %}<option value="{{ s }}" {% if form.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
