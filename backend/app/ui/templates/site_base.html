@@ -106,7 +106,10 @@
           {% if site_tagline %}<span class="block font-brand text-sm font-medium text-yellow-300">{{ site_tagline }}</span>{% endif %}
         </a>
         <button class="md:hidden p-2 rounded hover:opacity-80" @click="open = !open" aria-label="{{ _("Menu") }}">☰</button>
-        <div class="hidden md:flex gap-5 items-center text-sm">
+        {# #714: zelfde oorzaak als in de beheerschil, tweede symptoom — "Home" bleef
+           onderstreept terwijl je op /leden/gezin stond. Out-of-band, zodat de
+           "welk item is actief"-regel blijft waar ze hoort: in `navlink`. #}
+        <div id="site-nav-breed" hx-swap-oob="true" class="hidden md:flex gap-5 items-center text-sm">
           {{ navlink(_pad, "/", _("Home"), exact=True) }}
           {{ navlink(_pad, "/fotos", _("Foto's")) }}
           {{ navlink(_pad, "/archief", _("Archief"), match="/activiteiten/archief") }}
@@ -121,7 +124,8 @@
           {% endif %}
         </div>
       </div>
-      <div x-show="open" x-cloak x-transition.opacity.duration.150ms class="md:hidden px-4 pb-4 flex flex-col gap-2 text-sm">
+      {# #714: ook de tweede rendering — op een telefoon is dit de enige die je ziet. #}
+      <div id="site-nav-mobiel" hx-swap-oob="true" x-show="open" x-cloak x-transition.opacity.duration.150ms class="md:hidden px-4 pb-4 flex flex-col gap-2 text-sm">
         {{ navlink(_pad, "/", _("Home"), exact=True) }}
         {{ navlink(_pad, "/fotos", _("Foto's")) }}
         {{ navlink(_pad, "/archief", _("Archief"), match="/activiteiten/archief") }}

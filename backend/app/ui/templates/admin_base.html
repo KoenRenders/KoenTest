@@ -65,7 +65,19 @@
       </a>
       {# #505: geen flex-1 — de voet staat met een scheidingslijn direct onder de
          items i.p.v. onderaan de zijbalk weggedrukt. #}
-      <nav class="px-3 space-y-0.5">
+      {# #714: de zijbalk komt mee als OUT-OF-BAND swap. `_boosted_swap_headers` zet
+         `HX-Reselect: #main` op elk geboost antwoord, dus alleen de inhoud wordt
+         vervangen en de zijbalk bleef letterlijk staan — met de markering van het
+         vórige scherm. Die keuze is goed (geen flikkerende zijbalk, en `hx-target`
+         op de body zou naar élke htmx-actie overerven — de val uit #613/#616); wat
+         over het hoofd gezien werd, is dat de zijbalk TOESTAND draagt.
+
+         Geverifieerd in de meegeleverde htmx 2.0.4: in `swap()` staat de
+         oob-afhandeling vóór het `select`-filter, dus een oob-element overleeft
+         `HX-Reselect`. Zonder die volgorde zou deze aanpak niet werken en was de
+         client-kant in `htmx_ux()` de terugval geweest — met de regel op twee
+         plaatsen als prijs. #}
+      <nav id="admin-nav-zijbalk" hx-swap-oob="true" class="px-3 space-y-0.5">
         {% for item in nav_items|default([]) %}
         <a href="{{ item.href }}"
            class="block px-3 py-2 rounded-lg text-sm transition-colors {% if item.active %}bg-white/20 text-white font-semibold{% else %}text-purple-200 hover:bg-white/10 hover:text-white{% endif %}">{{ item.label }}</a>
@@ -85,7 +97,9 @@
         <a href="/admin" class="font-brand uppercase tracking-tight text-xl leading-none">{{ _("Raak") }}</a>
         <button class="p-2 rounded hover:bg-white/10" @click="open = !open" aria-label="{{ _("Menu") }}">☰</button>
       </header>
-      <nav x-show="open" x-cloak x-transition.opacity.duration.150ms class="md:hidden bg-brand-indigo text-purple-100 px-3 pb-3 pt-1 space-y-0.5">
+      {# #714: twee renderingen per schil, dus ook deze mee. Een fix die er één
+         bijwerkt laat de andere fout staan — en op een telefoon zie je juist deze. #}
+      <nav id="admin-nav-mobiel" hx-swap-oob="true" x-show="open" x-cloak x-transition.opacity.duration.150ms class="md:hidden bg-brand-indigo text-purple-100 px-3 pb-3 pt-1 space-y-0.5">
         {% for item in nav_items|default([]) %}
         <a href="{{ item.href }}" @click="open = false"
            class="block px-3 py-2 rounded-lg text-sm {% if item.active %}bg-white/20 text-white font-semibold{% else %}text-purple-200 hover:bg-white/10 hover:text-white{% endif %}">{{ item.label }}</a>
