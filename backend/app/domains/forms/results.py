@@ -51,6 +51,32 @@ def compute_results(db, form: Form) -> dict:
             ]
             entry["response_count"] = int(sum(counts.values()))
 
+            # #691: de vrije tekst bij een "Anders"-optie stond op dezelfde
+            # antwoordrij maar werd nergens gelezen. Je zag "Anders: 3" zonder te
+            # weten wát die drie schreven — net de informatie waarvoor die optie
+            # bestaat.
+            #
+            # De TELLING verandert niet: `counts` blijft op `value_option_id`
+            # groeperen, dus de optie houdt haar aantal en de teksten komen
+            # eronder te staan. Zouden de teksten de telling sturen, dan telde een
+            # leeg tekstveld niet mee terwijl de optie wél aangevinkt is.
+            #
+            # Presentatie overgenomen van de ODS-export (`export.py`): "<optie>:
+            # <tekst>". Eén vorm voor hetzelfde gegeven — een tweede formulering
+            # bedenken maakt de twee schermen alleen maar verschillend.
+            labels = {o.id: o.label for o in field.options}
+            entry["other_texts"] = [
+                f"{labels.get(oid, '')}: {txt}" if labels.get(oid) else txt
+                for oid, txt in (
+                    db.query(FormSubmissionAnswer.value_option_id,
+                             FormSubmissionAnswer.value_text)
+                    .filter(FormSubmissionAnswer.field_id == field.id)
+                    .filter(FormSubmissionAnswer.value_option_id.isnot(None))
+                    .filter(FormSubmissionAnswer.value_text.isnot(None))
+                    .order_by(FormSubmissionAnswer.id.desc())
+                    .all())
+            ]
+
         elif ftype == "rating":
             rows = (
                 db.query(FormSubmissionAnswer.value_rating, func.count(FormSubmissionAnswer.id))

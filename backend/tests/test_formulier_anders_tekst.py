@@ -243,3 +243,78 @@ def test_de_optierij_mag_afbreken_op_een_smal_scherm(client, admin_headers, veld
     label_start = html.rindex("<label", 0, html.index(merk))
     label_tag = html[label_start:html.index(">", label_start)]
     assert "flex-wrap" in label_tag, label_tag
+
+
+# ── 8. De tekst verschijnt op het resultatenscherm (#691) ────────────────────
+
+def _resultaten(client, admin_headers, form_id: int) -> dict:
+    r = client.get(f"/api/v1/forms/{form_id}/results", headers=admin_headers)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_de_anders_tekst_staat_bij_de_resultaten(client, admin_headers, db_session):
+    """Je zag "Anders: 3" zonder te weten wát die drie schreven — net de informatie
+    waarvoor die optie bestaat.
+
+    De tweede helft is even belangrijk als de eerste: de **telling** moet 2 blijven.
+    Zouden de teksten de telling gaan sturen, dan telde een aangevinkte optie zonder
+    tekst niet meer mee, en dat is een stille verschuiving in een cijfer waar iemand
+    conclusies aan hangt.
+    """
+    form, veld, anders, _gewoon = _bouw(client, admin_headers, "checkbox")
+    _verstuur(client, form, veld, tekst="Op reis")
+    _verstuur(client, form, veld, tekst="Geen zin")
+
+    resultaat = _resultaten(client, admin_headers, form["id"])
+    vraag = next(f for f in resultaat["fields"] if f["field_id"] == veld["id"])
+
+    teksten = " ".join(vraag["other_texts"])
+    assert "Op reis" in teksten and "Geen zin" in teksten
+
+    anders_optie = next(o for o in vraag["options"] if o["option_id"] == anders["id"])
+    assert anders_optie["count"] == 2, (
+        "de teksten sturen de telling; die hoort op de optie te blijven")
+
+
+def test_de_presentatie_volgt_de_ods_export(client, admin_headers, db_session):
+    """"<optielabel>: <tekst>" — dezelfde vorm als `export.py`. Eén formulering voor
+    hetzelfde gegeven; een tweede bedenken maakt de twee schermen verschillend."""
+    form, veld, anders, _gewoon = _bouw(client, admin_headers, "checkbox")
+    _verstuur(client, form, veld, tekst="Op reis")
+
+    vraag = next(f for f in _resultaten(client, admin_headers, form["id"])["fields"]
+                 if f["field_id"] == veld["id"])
+    assert vraag["other_texts"] == [f"{anders['label']}: Op reis"]
+
+
+def test_een_gewone_optie_zonder_tekst_levert_geen_regel_op(client, admin_headers,
+                                                            db_session):
+    """De keerzijde: zonder deze test zou "zet elk antwoord in de lijst" ook slagen,
+    en dan staat er onder elke keuzevraag een rij lege regels."""
+    form, veld, _anders, gewoon = _bouw(client, admin_headers, "checkbox")
+    _verstuur(client, form, veld, gekozen=gewoon["id"])
+
+    vraag = next(f for f in _resultaten(client, admin_headers, form["id"])["fields"]
+                 if f["field_id"] == veld["id"])
+    assert vraag["other_texts"] == []
+    assert next(o for o in vraag["options"]
+                if o["option_id"] == gewoon["id"])["count"] == 1
+
+
+def test_het_scherm_toont_de_tekst_onder_de_balken(client, admin_headers, db_session):
+    """Het scherm zelf, niet alleen de JSON: het veld kan in het view-model staan
+    zonder dat het sjabloon het rendert."""
+    from app.domains.auth.api import (SESSION_COOKIE, csrf_token_for,
+                                      make_session_value)
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+
+    form, veld, _anders, _gewoon = _bouw(client, admin_headers, "checkbox")
+    _verstuur(client, form, veld, tekst="Op reis")
+
+    waarde = make_session_value(SEEDED_ADMIN_EMAIL)
+    client.cookies.set(SESSION_COOKIE, waarde)
+    csrf_token_for(waarde)
+    pagina = client.get(f"/admin/formulieren/{form['id']}/resultaten")
+    assert pagina.status_code == 200, pagina.text
+    assert "Op reis" in pagina.text
