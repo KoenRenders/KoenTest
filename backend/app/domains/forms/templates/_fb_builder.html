@@ -206,7 +206,11 @@
         {# Downloads staan buiten hx-boost (#634): het antwoord is een bestand, geen HTML. #}
         {{ ui.btn_secondary(_("Export"), lead_icon="download", href="/admin/formulieren/" ~ form.id ~ "/export", size="sm", attrs='hx-boost="false"') }}
         {{ ui.btn_secondary(_("JSON"), lead_icon="download", href="/admin/formulieren/" ~ form.id ~ "/json", size="sm", attrs='hx-boost="false"') }}
-        {{ ui.btn_secondary(_("Instellingen"), size="sm", attrs='@click="open = !open"') }}
+        {# #712: "Bewerken" en niet "Instellingen", en het is een toggle. §2.8
+           schrijft dat paar voor, en de kit heeft er een macro voor die twee
+           schermen verderop in dit bestand al op de veldkaart staat — een
+           handgemaakte knop ernaast is precies hoe die twee uit elkaar lopen. #}
+        {{ ui.edit_toggle("open", size="sm") }}
         {# #665: import staat hier, maar niet als gelijke van Bekijk/Afdruk/Export —
            die vier zijn onschadelijk, importeren gooit de opbouw weg. Het gewicht
            zit in de eigen bevestigingstekst op de knop die het écht doet, en de
@@ -220,20 +224,23 @@
     {# #689: de deellink met een kopieerknop. `data-copy-bron` is de terugval van
        de helper: lukt kopiëren niet (geen secure context), dan selecteert hij deze
        tekst zodat Ctrl+C nog werkt. #}
+    {# #689: de deellink met een kopieerknop. `data-copy-bron` is de terugval van de
+       helper: lukt kopiëren niet (geen secure context), dan selecteert hij deze
+       tekst zodat Ctrl+C nog werkt.
+
+       #690: de leesbare link staat NAAST de tokenlink, niet in de plaats ervan —
+       een rondgestuurde tokenlink mag niet breken omdat iemand er later een naam bij
+       zet. #712: op dezelfde regel; als eigen blok duwde ze alles omlaag, en dan
+       kost een optionele naam een hele regel. #}
     <p class="text-xs text-gray-500 mt-1 flex flex-wrap items-center gap-2">
       <span data-copy-bron="/formulier/{{ form.share_token }}">Deellink: /formulier/{{ form.share_token }}</span>
       {{ ui.copy_button("/formulier/" ~ form.share_token, _("Deellink kopiëren")) }}
+      {% if form.slug %}
+      <span data-copy-bron="/f/{{ form.slug }}">· {{ _("Leesbare link") }}: /f/{{ form.slug }}</span>
+      {{ ui.copy_button("/f/" ~ form.slug, _("Leesbare link kopiëren")) }}
+      {% endif %}
       <span>· {{ submission_count }} inzendingen</span>
     </p>
-    {# #690: de leesbare link staat naast de tokenlink, niet in de plaats ervan.
-       Beide werken — een rondgestuurde tokenlink mag niet breken omdat iemand er
-       later een naam bij zet. #}
-    {% if form.slug %}
-    <p class="text-xs text-gray-500 mt-1 flex flex-wrap items-center gap-2">
-      <span data-copy-bron="/f/{{ form.slug }}">{{ _("Leesbare link") }}: /f/{{ form.slug }}</span>
-      {{ ui.copy_button("/f/" ~ form.slug, _("Leesbare link kopiëren")) }}
-    </p>
-    {% endif %}
     <form x-show="open" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 text-sm"
           hx-post="/admin/formulieren/{{ form.id }}/instellingen" hx-target="#fb-detail" hx-swap="innerHTML">
       <div>{{ ui.label(_("Titel"), "fbt", required=True) }}{{ ui.input_control("title", id="fbt", value=(form.title), required=True, cls="w-full") }}</div>
@@ -242,24 +249,36 @@
         {{ ui.input_control("slug", id="fbslug", value=(form.slug or ""), placeholder="bv. zomerfeest", cls="w-full") }}
         <p class="text-xs text-gray-500 mt-1">{{ _("Optioneel. Kleine letters, cijfers, koppeltekens (-) en liggende streepjes (_). Het formulier blijft ook via de tokenlink bereikbaar.") }}</p>
       </div>
+      {# #712: de korte velden bij elkaar. Status liet zijn halve regel leeg terwijl
+         Max. inzendingen twee regels verderop stond, gescheiden door een tekstvak over
+         de volle breedte. Volgorde: Titel · Leesbare link → Status · Max. inzendingen →
+         de vinkjes → Omschrijving → Bevestigingsboodschap → knoppen. #}
       <div>{{ ui.label(_("Status"), "fbs") }}
         {% call ui.select_control("status", cls="w-full", attrs='id="fbs"') %}
           {% for s in statuses %}<option value="{{ s }}" {% if form.status == s %}selected{% endif %}>{{ s }}</option>{% endfor %}
         {% endcall %}</div>
-      <div class="sm:col-span-2">{{ ui.label(_("Omschrijving"), "fbd") }}{{ ui.textarea_control("description", id="fbd", rows=2, value=form.description or "", cls="w-full") }}</div>
       <div>{{ ui.label(_("Max. inzendingen"), "fbm") }}{{ ui.input_control("max_submissions", id="fbm", value=(form.max_submissions or ""), cls="w-full") }}</div>
-      <div class="space-y-1 pt-5">
+      {# Vier korte labels in twee kolommen op breed; in één volle-breedte kolom
+         bleef de rechterhelft leeg. Géén `pt-5` meer: dat lijnde uit met een label
+         ernaast, en op een eigen regel is het een zwevend gat. #}
+      <div class="sm:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
         <label class="flex items-center gap-2"><input type="checkbox" name="send_confirmation" value="1" {% if form.send_confirmation %}checked{% endif %}> {{ _("Bevestigingsmail") }}</label>
         <label class="flex items-center gap-2"><input type="checkbox" name="allow_edit" value="1" {% if form.allow_edit %}checked{% endif %}> {{ _("Wijzigen na indienen") }}</label>
         <label class="flex items-center gap-2"><input type="checkbox" name="is_anonymous" value="1" {% if form.is_anonymous %}checked{% endif %}> {{ _("Anoniem") }}</label>
         {# #629: deze checkbox ontbrak, terwijl de route requires_login wél accepteert
            en onvoorwaardelijk wegschrijft. `bool(Form(""))` is False, dus élke keer dat
-           iemand "Instellingen opslaan" klikte — ook voor een andere wijziging — viel
-           deze beveiligingsinstelling om, zonder melding. De checkbox draagt de stand:
-           aangevinkt = "1", niet aangevinkt = niet verstuurd = False. #}
+           iemand de instellingen opsloeg — ook voor een andere wijziging — viel deze
+           beveiligingsinstelling om, zonder melding. De checkbox draagt de stand:
+           aangevinkt = "1", niet aangevinkt = niet verstuurd = False.
+
+           Een herindeling is precies wanneer zoiets opnieuw sneuvelt; daar staat een
+           regressietest op die alle vier de vinkjes telt. #}
         <label class="flex items-center gap-2"><input type="checkbox" name="requires_login" value="1" {% if form.requires_login %}checked{% endif %}> {{ _("Enkel voor aangemelde leden") }}</label>
       </div>
-      <div class="sm:col-span-2">{{ ui.label(_("Bevestigingsboodschap"), "fbc") }}{{ ui.textarea_control("confirmation_message", id="fbc", rows=2, value=form.confirmation_message or "", cls="w-full") }}</div>
+      {# #712: geen eigen `rows` — de kit staat op vier, en iemand had die hier
+         actief teruggezet naar twee. Een omschrijving is lopende tekst. #}
+      <div class="sm:col-span-2">{{ ui.label(_("Omschrijving"), "fbd") }}{{ ui.textarea_control("description", id="fbd", value=form.description or "", cls="w-full") }}</div>
+      <div class="sm:col-span-2">{{ ui.label(_("Bevestigingsboodschap"), "fbc") }}{{ ui.textarea_control("confirmation_message", id="fbc", value=form.confirmation_message or "", cls="w-full") }}</div>
       <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="open = false"') }}</div>
     </form>
   </div>
@@ -290,6 +309,9 @@
           {% for s in sections %}{% if s.position > g.section.position %}<option value="{{ s.id }}" {% if g.section.next_section_id == s.id %}selected{% endif %}>&rarr; {{ s.title or (_("Sectie ") ~ (s.position + 1)) }}</option>{% endif %}{% endfor %}
           <option value="end" {% if g.section.next_is_end %}selected{% endif %}>{{ _("→ einde") }}</option>
         {% endcall %}</div>
+      {# Hier blijft `rows=2` bewust staan (#712): de omschrijving van een SECTIE is
+         een korte toelichting boven een groep vragen, geen lopende tekst zoals die
+         van het formulier zelf. #}
       <div class="sm:col-span-2">{{ ui.label(_("Omschrijving"), "sd-" ~ g.section.id) }}{{ ui.textarea_control("description", id="sd-" ~ g.section.id, rows=2, value=g.section.description or "", cls="w-full") }}</div>
       <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="sedit = false"') }}</div>
     </form>
