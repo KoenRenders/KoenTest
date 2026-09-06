@@ -746,7 +746,6 @@ def get_public_registrations(
     return result
 
 
-@router.post("/activities/{activity_id}/register", response_model=RegistrationResponse, dependencies=[Depends(registration_limiter)])
 def _inschrijver(current_member) -> str:
     """Wie de inschrijving tekent (#713).
 
@@ -763,6 +762,7 @@ def _inschrijver(current_member) -> str:
     return mail or PUBLIEKE_ACTOR
 
 
+@router.post("/activities/{activity_id}/register", response_model=RegistrationResponse, dependencies=[Depends(registration_limiter)])
 def register_for_activity(
     activity_id: int,
     data: RegistrationCreate,
