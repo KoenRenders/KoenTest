@@ -55,6 +55,16 @@
     {% if r.note %}<div class="text-xs text-ink-soft mt-1">{{ r.note }}</div>{% endif %}
   </div>
   <div class="flex flex-wrap items-start justify-end gap-1 shrink-0">
+    {# #686: eerst de SOORT, dan de status — in die volgorde, en dat is de hele
+       wijziging. Stond de soort erachter, dan droeg een terugbetaling uiterst
+       rechts "Terugbetaling" waar een vordering "Vereffend" draagt, en lagen de
+       statusbadges van samenhorende kaarten niet op één lijn.
+
+       Dezelfde redenering als #682, andere kolom: binnen een groep lees je de
+       kaarten verticaal en scan je de rechterkolom op wat nog actie vraagt. Springt
+       de status per kaart van plaats, dan moet je elke kaart apart lezen. Het leest
+       ook beter als zin: "Terugbetaling · Vereffend" is soort, dan toestand. #}
+    {% if r.type == "refund" %}{{ ui.badge(_("Terugbetaling"), "orange") }}{% endif %}
     {# De status komt uit service.derived_status() (#635-9): de template leidt niets
        meer af — "Deels betaald" bestond alleen hier en was dus niet testbaar.
        §2.12: nooit een rauwe statuscode tonen. Mollie kent ook `open`, `authorized`
@@ -62,8 +72,6 @@
     {% set _st = kaart_status.get(k.status) %}
     {% if _st %}{{ ui.badge(_st[0], _st[1]) }}
     {% else %}{{ ui.badge(status_labels.get(r.status, _("Onbekende status")), "gray") }}{% endif %}
-    {# Tweede badge op de terugbetaling: de SOORT, naast de status. #}
-    {% if r.type == "refund" %}{{ ui.badge(_("Terugbetaling"), "orange") }}{% endif %}
   </div>
 </div>
 {% endmacro %}

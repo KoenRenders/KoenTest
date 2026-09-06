@@ -229,3 +229,66 @@ def test_de_badge_en_de_totaalregel_zijn_niet_langer_dezelfde_tekst(client, db_s
     html = client.get("/admin/betalingen?context=all").text
     assert html.count("Nog uit te betalen") == 1, "de totaalregel"
     assert html.count(">Terug te betalen<") == 1, "de statusbadge"
+
+
+# ── 5. De statusbadge staat op elke kaart uiterst rechts (#686) ──────────────
+
+BADGE = __import__("re").compile(r'rounded-full[^>]*">([^<]*)</span>')
+
+
+def _badges(html: str) -> list[str]:
+    """De badgelabels in de volgorde waarin ze in de HTML staan."""
+    return [m.strip() for m in BADGE.findall(html)]
+
+
+def test_de_soortbadge_staat_vóór_de_status(client, db_session):
+    """De POSITIE, niet de aanwezigheid.
+
+    Beide badges staan er ook in de verkeerde volgorde, dus `"Terugbetaling" in
+    html` zou vóór #686 net zo groen zijn geweest. Wat telt is welke van de twee
+    als laatste komt: dát is de badge die uiterst rechts op de kaart terechtkomt.
+    Zelfde vorm als de correctie bij #684.
+
+    De vordering draagt maar één badge, dus haar status staat sowieso rechts. Op de
+    terugbetaling moest de soort ervóór — anders liggen de statusbadges van
+    samenhorende kaarten niet op één lijn en moet je elke kaart apart lezen in
+    plaats van de rechterkolom te scannen (dezelfde redenering als #682).
+    """
+    vordering = _rec(db_session, 6860, "30.00", betaald="30.00", minuten=0)
+    _rec(db_session, 6860, "-10.00", soort="refund", betaald="-10.00", minuten=5,
+         refund_of=vordering.id)
+    db_session.commit()
+    _login(client)
+
+    labels = _badges(client.get("/admin/betalingen?context=all").text)
+    assert "Terugbetaling" in labels, "de soortbadge ontbreekt"
+    na_de_soort = labels[labels.index("Terugbetaling") + 1:]
+    assert na_de_soort and na_de_soort[0] == "Vereffend", (
+        f"de status hoort ná de soort te komen; volgorde was {labels}")
+
+
+def test_een_openstaande_terugbetaling_toont_dezelfde_volgorde(client, db_session):
+    """Niet alleen voor een vereffende kaart: het is de volgorde die vastligt, niet
+    één toevallige statuscombinatie."""
+    vordering = _rec(db_session, 6861, "30.00", betaald="30.00", minuten=0)
+    _rec(db_session, 6861, "-10.00", soort="refund", minuten=5,
+         refund_of=vordering.id)
+    db_session.commit()
+    _login(client)
+
+    labels = _badges(client.get("/admin/betalingen?context=all").text)
+    na_de_soort = labels[labels.index("Terugbetaling") + 1:]
+    assert na_de_soort and na_de_soort[0] == "Terug te betalen", (
+        f"volgorde was {labels}")
+
+
+def test_een_gewone_vordering_krijgt_geen_soortbadge(client, db_session):
+    """De keerzijde: zonder deze test zou "zet de soort altijd vooraan" ook slagen,
+    en dan draagt elke betaling een badge die niets toevoegt."""
+    _rec(db_session, 6862, "30.00", betaald="30.00", minuten=0)
+    db_session.commit()
+    _login(client)
+
+    labels = _badges(client.get("/admin/betalingen?context=all").text)
+    assert "Terugbetaling" not in labels
+    assert "Vereffend" in labels
