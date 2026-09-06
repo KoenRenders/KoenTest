@@ -115,9 +115,29 @@ def _admin_gets_zonder_parameter() -> list[str]:
     """
     import ast
 
+    def _is_ui_module(pad: Path) -> bool:
+        """Een module die schermen levert, en dus zónder prefix ingeladen wordt.
+
+        De bron lezen kost je de include-prefix: `main.py` laadt de JSON-routers
+        onder `/api/v1` en de schermrouters zonder prefix, maar in de decorator zie
+        je dat verschil niet. `/admin/chatbot-info` staat in `info_router.py` en is
+        in werkelijkheid `/api/v1/admin/chatbot-info` — de gate haalde er dus een
+        404 op. (Dat de gate dát meteen vond, is precies waarvoor ze verbreed is.)
+
+        De repo-conventie geeft het antwoord: schermen zitten in `ui.py` /
+        `admin_ui.py` per domein en in `app/ui/`; JSON zit in `router.py` en
+        `*_router.py`. `app/ui/admin_api.py` is de genoemde uitzondering — JSON in
+        het UI-pakket, en zo ook in de laag-gate opgenomen.
+        """
+        if pad.name in ("ui.py", "admin_ui.py"):
+            return True
+        return "ui" in pad.parts and pad.name not in ("admin_api.py", "__init__.py")
+
     app_map = Path(__file__).resolve().parents[1] / "app"
     paden = set()
     for pad in app_map.rglob("*.py"):
+        if not _is_ui_module(pad):
+            continue
         boom = ast.parse(pad.read_text(encoding="utf-8"))
         for knoop in ast.walk(boom):
             if not isinstance(knoop, (ast.FunctionDef, ast.AsyncFunctionDef)):
