@@ -1083,3 +1083,54 @@ def test_een_symboolknop_krijgt_ook_een_tooltip():
     assert "{% if not label %}" in kop, (
         "de tooltip hoort alleen op een knop zonder zichtbare tekst — anders "
         "herhaalt hij wat er al staat")
+
+
+def test_een_kruisje_betekent_alleen_sluiten():
+    """§1.5/§2.12 (#706, voortzetting van #698): één betekenis per teken.
+
+    De regel hierboven kijkt naar `btn_danger("×")` en verwanten — naar
+    **macro-aanroepen**. `section_bar` schreef zijn verwijderknop als **rauwe HTML
+    binnen een kit-macro**, en dat is precies de vorm die daar doorheen glipt: op de
+    formulierbouwer stond nog steeds hetzelfde teken voor "sluit deze melding" en
+    voor "vernietig deze sectie met haar velden, opties en sprongregels".
+
+    Deze regel toetst daarom niet de vorm maar de **eigenschap**: een `×` in een
+    knop mag, mits die knop `aria-label="Sluiten"` draagt. Zo blijven de vier
+    legitieme sluitknoppen staan — toast, modal, foutmelding, activiteitenkaart —
+    zonder een uitzonderingslijst met bestandsnamen, die veroudert zodra iemand er
+    een vijfde bij zet.
+    """
+    knop = re.compile(r"<button\b[^>]*>\s*(?:&times;|×)\s*</button>", re.S)
+    fouten = []
+    for pad in TEMPLATES:
+        tekst = _zonder_commentaar(pad)
+        for treffer in knop.finditer(tekst):
+            tag = treffer.group(0)
+            if 'aria-label="{{ _("Sluiten") }}"' in tag or "_('Sluiten')" in tag \
+                    or 'aria-label="Sluiten"' in tag:
+                continue
+            regel = tekst[:treffer.start()].count("\n") + 1
+            fouten.append(f"{pad.relative_to(APP)}:{regel}")
+    assert not fouten, (
+        "Een × betekent in deze app SLUITEN. Gebruik `ui.icon('trash-2')` voor "
+        "verwijderen (§1.5, #698/#706):\n  " + "\n  ".join(fouten))
+
+
+def test_de_echte_sluitknoppen_blijven_bestaan():
+    """De keerzijde, en zonder haar is de regel hierboven waardeloos.
+
+    "Geen × meer" zou ook slagen door ze allemaal te slopen — en dan heeft "sluiten"
+    geen teken meer. Dít is de toets of de woordenschat klopt: ná #698 en #706
+    betekent `×` in de hele app nog precies één ding, en dat ding heeft nog steeds
+    een knop.
+    """
+    gevonden = 0
+    for pad in TEMPLATES:
+        tekst = _zonder_commentaar(pad)
+        for treffer in re.finditer(r"<button\b[^>]*>\s*(?:&times;|×)\s*</button>",
+                                   tekst, re.S):
+            if "Sluiten" in treffer.group(0):
+                gevonden += 1
+    assert gevonden >= 4, (
+        f"nog maar {gevonden} sluitknoppen met een kruisje; de vorige regel is "
+        "waarschijnlijk te breed toegepast")

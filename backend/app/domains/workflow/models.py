@@ -17,9 +17,15 @@ class WorkflowTask(TenantMixin, Base):
     # Taak-type, bv. "bericht.behartigen" — de bron bepaalt de betekenis.
     kind = Column(String(100), nullable=False, index=True)
     title = Column(String(300), nullable=False)
-    # Soft-ref naar het onderwerp (waarde, geen FK — §6): bv. ("form_submission", 7).
+    # Soft-ref naar het onderwerp (waarde, geen FK — §6): bv. ("form_submission", "7").
+    #
+    # #704: TEKST, niet een getal. Een onderwerp-id is een ondoorzichtige sleutel en
+    # hoort niet te weten of de bron een reeksnummer of een UUID gebruikt. Zolang
+    # dit een `Integer` was, paste `PaymentRecord.id` (UUID in String(36)) er niet
+    # in, en vulden de betaaltaken er `payable_id` in terwijl `subject_type`
+    # "payment_record" zei — het type zei iets wat de waarde niet was.
     subject_type = Column(String(50), nullable=False)
-    subject_id = Column(Integer, nullable=False)
+    subject_id = Column(String(36), nullable=False)
     # open | done — taken sluiten door toestand (§20.5).
     status = Column(String(10), nullable=False, default="open", index=True)
     required_role = Column(String(20), nullable=False, default="ADMIN")
@@ -58,7 +64,9 @@ class WorkflowInstance(TenantMixin, Base):
     id = Column(Integer, primary_key=True)
     definition_code = Column(String(50), nullable=False, index=True)
     subject_type = Column(String(50), nullable=False)
-    subject_id = Column(Integer, nullable=False)
+    # Tekst, net als bij de taak (#704): een instantie geeft dit door aan de taak
+    # van elke stap, dus twee vormen voor hetzelfde begrip lopen daar samen.
+    subject_id = Column(String(36), nullable=False)
     current_step = Column(Integer, nullable=False, default=0)
     # running | done
     status = Column(String(10), nullable=False, default="running", index=True)

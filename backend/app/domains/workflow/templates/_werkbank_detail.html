@@ -6,6 +6,21 @@
     <div class="flex gap-2 text-sm"><dt class="font-medium text-gray-600 w-32 shrink-0">{{ label }}</dt><dd class="whitespace-pre-wrap">{{ value }}</dd></div>
     {% endfor %}
   </dl>
+  {# #704: vanuit een betalingstaak naar de betaalkaart springen. Het record-id
+     staat sinds die wijziging écht in `subject_id` — voorheen stond daar het
+     payable, terwijl `subject_type` "payment_record" zei.
+
+     Een FILTER (`?record=<id>`) en geen anker: de betalingenlijst wordt gefilterd,
+     dus een anker kan naar een kaart wijzen die op die pagina niet gerenderd is, en
+     dan land je ergens zonder te zien waarom.
+
+     Juist bij een weesrecord telt dit: dáár bestaat het payable per definitie niet
+     — dat ís de aanleiding van de taak — dus een verwijzing die daarop steunt, is
+     precies bij die taak stuk. #}
+  {% if task.subject_type == "payment_record" %}
+  <p class="mb-4">{{ ui.btn_secondary(_("Toon deze betaling"), size="sm",
+       href="/admin/betalingen?record=" ~ task.subject_id, attrs='hx-boost="false"') }}</p>
+  {% endif %}
   {# #666: het doel was #werkbank-lijst, en dat id bestaat alléén op het
      lijstscherm. Vanaf de zelfstandige detailpagina gooide htmx een targetError en
      vertrok er niets — een knop die er normaal uitzag en niets deed.

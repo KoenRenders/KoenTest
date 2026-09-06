@@ -112,7 +112,11 @@ def test_media_zoekt_op_titel_en_behoudt_het_filter_bij_opslaan(client, db_sessi
     db_session.commit()
     bakkerij = db_session.query(MediaAsset).filter(MediaAsset.title == "Bakkerij Jan").one()
 
-    gezocht = client.get("/admin/media", params={"q": "bakkerij"})
+    # #708: de lijst opent sinds die wijziging op activiteitenfoto's, dus een test
+    # over sponsors geeft haar filter expliciet mee. Dat is geen omweg om de nieuwe
+    # standaard heen — het is wat het scherm ook doet zodra je op het sponsorfilter
+    # klikt, en deze test gaat over zoeken, niet over de beginstand.
+    gezocht = client.get("/admin/media", params={"q": "bakkerij", "kind": "sponsor"})
     assert "Bakkerij Jan" in gezocht.text and "Garage Piet" not in gezocht.text
 
     # Opslaan vanuit een gefilterde lijst mag niet terugvallen op 'alles'.

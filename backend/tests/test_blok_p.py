@@ -33,7 +33,7 @@ def test_bericht_creates_submission_and_task(client, db_session):
 
     task = db_session.query(WorkflowTask).order_by(WorkflowTask.id.desc()).first()
     assert task.kind == "bericht.behartigen" and task.status == "open"
-    assert task.subject_id == sub.id and "Fee" in task.title
+    assert task.subject_id == str(sub.id) and "Fee" in task.title  # #704: tekst
 
 
 def test_bericht_requires_name_and_message(client, db_session):

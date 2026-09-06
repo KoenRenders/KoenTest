@@ -58,7 +58,10 @@ def reconcile_orphans(db: Session, payload: dict) -> None:
                      title, record.amount, record.status)
         create_task(
             db, kind="payment.wees_record", title=title,
-            subject_type="payment_record", subject_id=record.payable_id,
+            # #704: het record-id. Juist bij een weesrecord bestáát het payable
+            # niet — dat is de aanleiding van deze taak — dus een verwijzing die
+            # daarop steunt is hier per definitie stuk.
+            subject_type="payment_record", subject_id=str(record.id),
             required_role="FINANCE",
         )
     if not payload.get("once"):

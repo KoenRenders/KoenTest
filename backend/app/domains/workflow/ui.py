@@ -133,7 +133,9 @@ def taak_detail(task_id: int, request: Request, db: Session = Depends(get_db),
     if task and task.subject_type == "form_submission":
         from app.domains.forms.api import submission_view
 
-        detail_rows = submission_view(db, task.subject_id)
+        # #704: `subject_id` is sinds die wijziging tekst; `submission_view`
+        # verwacht een getal. Dit is de plek die anders stil zou breken.
+        detail_rows = submission_view(db, int(task.subject_id))
     raw = request.cookies.get(SESSION_COOKIE) or ""
     template = ("_werkbank_detail.html" if is_fragment_request(request)
                 else "werkbank_taak.html")

@@ -362,6 +362,14 @@ def create_refund(
         operation="insert", action="payment_refunded",
         source=source, actor=actor,
     )
+    # #705: een openstaande terugbetaling hoort meteen op de werkbank te staan, niet
+    # pas bij de volgende uurlijkse ronde. Deze aanroep VERVROEGT de sweep; ze maakt
+    # de taak niet zelf aan — de titel is de idempotentiesleutel, en een tweede plek
+    # die die sleutel bouwt levert dezelfde refund twee keer op.
+    if not settled:
+        from app.domains.workflow.api import vervroeg_sweep
+
+        vervroeg_sweep(db)
     return record
 
 
@@ -693,7 +701,19 @@ def matches_filter(record, *, context: str = "all", status: str = "all", q: str 
 
 
 def filter_records(records, *, context: str = "all", status: str = "all", q: str = "",
-                   openstaand: bool = False) -> list:
+                   openstaand: bool = False, record_id: str = "") -> list:
+    """#704: `record_id` toont één betaling, ongeacht de andere filters.
+
+    Een werkbanktaak linkt hierheen. Bewust een FILTER en geen anker: de lijst wordt
+    gefilterd, dus een anker kan naar een kaart wijzen die op deze pagina niet
+    gerenderd is — en dan landt de beheerder ergens zonder te zien waarom.
+
+    De zoekterm (`q`) kon dit niet: die kijkt naar naam, mededeling, omschrijving en
+    onderdeel, niet naar het id.
+    """
+    doel = (record_id or "").strip()
+    if doel:
+        return [r for r in records if str(r.id) == doel]
     return [r for r in records
             if matches_filter(r, context=context, status=status, q=q,
                               openstaand=openstaand)]

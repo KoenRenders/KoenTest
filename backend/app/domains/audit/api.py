@@ -9,7 +9,8 @@ from app.domains.audit.changes import (
     build_member_changes_ods,
     member_changes_since,
 )
-from app.domains.audit.service import (
+from app.domains.audit.service import (  # noqa: F401
+    PUBLIEKE_ACTOR,
     snapshot_activity,
     snapshot_activity_date,
     snapshot_address,
@@ -26,6 +27,7 @@ from app.domains.audit.service import (
 )
 
 __all__ = [
+    "PUBLIEKE_ACTOR",
     "GROUPS", "all_changes_since", "build_member_changes_ods", "member_changes_since",
     "snapshot_activity", "snapshot_activity_date", "snapshot_address",
     "snapshot_component", "snapshot_contact_detail", "snapshot_member",

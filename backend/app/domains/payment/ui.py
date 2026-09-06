@@ -79,6 +79,11 @@ def _view(request: Request, db: Session, email: str,
     openstaand = stand.get("openstaand") == "1" or status == "openstaand"
     if status == "openstaand":
         status = "all"
+    # #704: `?record=<id>` toont die ene betaling, ongeacht de andere filters.
+    # Zo landt een werkbanktaak op de kaart die ze bedoelt, ook als die buiten
+    # het huidige filter valt. Alleen hier en niet in de export: een export van
+    # één record is een andere vraag, en niemand stelde ze.
+    record_id = (stand.get("record") or "").strip()
     records = enriched_records(db)
 
     # Filter-opties opbouwen: onderdelen (per activiteit) + lidmaatschapjaren.
@@ -94,7 +99,7 @@ def _view(request: Request, db: Session, email: str,
             jaren.add(r.membership_year)
 
     zichtbaar = filter_records(records, context=context, status=status, q=q,
-                               openstaand=openstaand)
+                               openstaand=openstaand, record_id=record_id)
 
     charges = [r for r in zichtbaar if r.type != "refund"]
     refunds = [r for r in zichtbaar if r.type == "refund"]

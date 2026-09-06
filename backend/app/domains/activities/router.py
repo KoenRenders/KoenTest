@@ -746,6 +746,22 @@ def get_public_registrations(
     return result
 
 
+def _inschrijver(current_member) -> str:
+    """Wie de inschrijving tekent (#713).
+
+    Een aangemeld lid draagt zijn e-mailadres; is er niemand aangemeld, dan de
+    publieke markering. Leeg laten zou "we weten het niet" betekenen, en dat is hier
+    niet waar — de helft van de tijd weten we het wél.
+    """
+    from app.domains.audit.api import PUBLIEKE_ACTOR
+
+    if current_member is None:
+        return PUBLIEKE_ACTOR
+    mail = next((c.value for c in getattr(current_member, "contact_details", [])
+                 if c.contact_type_code == "EMAIL"), None)
+    return mail or PUBLIEKE_ACTOR
+
+
 @router.post("/activities/{activity_id}/register", response_model=RegistrationResponse, dependencies=[Depends(registration_limiter)])
 def register_for_activity(
     activity_id: int,
@@ -845,9 +861,14 @@ def register_for_activity(
             db.flush()
             # Auditeer de initiële bestelregels (#84), zodat latere wijzigingen
             # tegen een vastgelegde startsituatie afgezet kunnen worden.
+            # #713: deze route bedient anonieme én aangemelde bezoekers. Twee
+            # regels hoger wordt `current_member` al gebruikt om de inschrijving aan
+            # een persoon te hangen; hem hier weglaten liet de auditregel ongetekend
+            # terwijl we wisten wie het was.
             snapshot_registration_item(
                 db, item,
                 operation="insert", action="order_created", source="registration",
+                actor=_inschrijver(current_member),
             )
 
     db.flush()

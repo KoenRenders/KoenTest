@@ -661,6 +661,11 @@ def add_option(db, form: Form, field_id: int, *, label: str,
     veld = next((f for f in form.fields if f.id == field_id), None)
     if veld is None or veld.field_type not in KEUZEVELDEN:
         raise FormulierFout("Opties kunnen enkel bij keuzevelden.")
+    # #711: een leeg label werd zonder klagen bewaard, en dat levert een radioknop
+    # ZONDER TEKST op in het publieke formulier — onzichtbaar voor wie het invult.
+    # `update_option` weigerde dit al; de aanmaakweg was het enige lek.
+    if not (label or "").strip():
+        raise FormulierFout("Elke optie heeft een label nodig.")
     veld.options.append(FormFieldOption(label=(label or "").strip(),
                                         position=len(veld.options),
                                         is_other=bool(is_other)))
