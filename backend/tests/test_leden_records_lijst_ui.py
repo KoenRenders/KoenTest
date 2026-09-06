@@ -144,7 +144,10 @@ def test_nieuw_lid_maakt_gezin_met_hoofdlid_en_opent_de_editor(client, db_sessio
 
     csrf = _login(client)
     resp = client.post("/admin/leden",
-                       data={"first_name": "Marie", "last_name": "Peeters"},
+                       # #681: het aanmaakscherm vraagt sinds deze release ook
+                       # geboortedatum en geslacht, en dwingt ze server-side af.
+                       data={"first_name": "Marie", "last_name": "Peeters",
+                             "date_of_birth": "1980-01-01", "gender_code": "F"},
                        headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 204
     persoon = db_session.query(Person).filter(Person.last_name == "Peeters").one()
