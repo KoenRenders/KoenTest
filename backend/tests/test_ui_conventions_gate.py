@@ -1003,3 +1003,41 @@ def test_een_paginabrede_editor_heeft_annuleren():
         "Zet [Annuleren] naast [Opslaan] in een paginabrede editor (§2.8):\n  "
         + "\n  ".join(fouten)
     )
+
+
+def test_elk_bewerkformulier_heeft_annuleren_naast_opslaan():
+    """§2.8, per FORMULIER in plaats van per pagina (#694).
+
+    De regel hierboven kijkt naar paginabrede editors. Die grens was een compromis:
+    haar docstring zei dat breder gaan de rij-formulieren op het activiteitdetail
+    vals zou raken, "want daar levert de bewerk-toggle het annuleren". Dat argument
+    is met #694 vervallen — §2.8 zegt uitdrukkelijk dat een toggle bovenaan de knop
+    onderaan niet vervangt. Wie een formulier open heeft staan kijkt naar beneden,
+    niet terug naar het icoon waarmee hij het opende.
+
+    Meting bij het schrijven van deze regel: zeven formulieren in vier bestanden
+    misten Annuleren — de drie in de formulierbouwer die Koen meldde, twee op het
+    activiteitdetail, en de bewerkrijen in het gebruikers- en het medialijstje.
+    Alle zeven zijn rechtgezet; deze gate houdt het zo.
+
+    Waarom een gate en geen afspraak: er bestond geen controle die een ONTBREKENDE
+    knop vangt — de andere regels kijken naar verboden klassen. Zo bleef de bouwer
+    op 3 om 0 staan terwijl vier andere bewerkschermen het paar wél hadden.
+
+    "Opslaan" is bewust de haak, niet elke submitknop: "Toevoegen", "Zoeken" en
+    "Importeren" horen géén Annuleren te krijgen. Bij die drie is er niets om te
+    verwerpen — je begint iets, je onderbreekt niets.
+    """
+    vorm = re.compile(r"<form\b.*?</form>", re.S)
+    fouten = []
+    for pad in TEMPLATES:
+        for stuk in vorm.findall(_zonder_commentaar(pad)):
+            if '_("Opslaan")' in stuk and '_("Annuleren")' not in stuk:
+                regel = _zonder_commentaar(pad)[:_zonder_commentaar(pad).index(stuk)].count("\n") + 1
+                fouten.append(f"{pad.relative_to(APP)}:{regel}")
+    assert not fouten, (
+        "Elk formulier met [Opslaan] hoort ook [Annuleren] te tonen (§2.8). Bij een "
+        "toggle-paneel sluit Annuleren het paneel; bij een rij die altijd openstaat "
+        "laadt hij het lijstfragment opnieuw, zodat het typwerk vervalt:\n  "
+        + "\n  ".join(fouten)
+    )

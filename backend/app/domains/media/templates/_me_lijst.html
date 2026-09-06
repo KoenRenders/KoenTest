@@ -23,6 +23,8 @@
       </div>
       <div class="flex gap-2">
         {{ ui.btn_primary(_("Opslaan")) }}
+        {# §2.8 (#694): altijd open, dus Annuleren = opnieuw laden wat bewaard is. #}
+        {{ ui.btn_secondary(_("Annuleren"), attrs='hx-get="/admin/media?kind=' ~ kind ~ '&q=' ~ q ~ '&filter_activity_id=' ~ (activity_id or "") ~ '" hx-target="#me-lijst" hx-swap="innerHTML"') }}
         {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/media/' ~ a.id ~ '/verwijderen" hx-vals=\'{"kind": "' ~ kind ~ '", "q": "' ~ q ~ '", "filter_activity_id": "' ~ (activity_id or "") ~ '"}\' hx-target="#me-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Media"), a.title or ("item " ~ a.id))) }}
       </div>
     </div>

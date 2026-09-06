@@ -85,7 +85,7 @@
           {{ ui.input_control("start_time", id="st-" ~ d.id, type="time", value=d.start_time.strftime("%H:%M") if d.start_time else "") }}</div>
         <div>{{ ui.label(_("Einduur"), "et-" ~ d.id) }}
           {{ ui.input_control("end_time", id="et-" ~ d.id, type="time", value=d.end_time.strftime("%H:%M") if d.end_time else "") }}</div>
-        {{ ui.btn_primary(_("Opslaan")) }}
+        {{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="edit = false"') }}
       </form>
     </div>
     {% endfor %}
@@ -234,7 +234,7 @@
               <option value="gratis" {% if _afr == "gratis" %}selected{% endif %}>{{ _("Gratis") }}</option>
               <option value="ter_plaatse" {% if _afr == "ter_plaatse" %}selected{% endif %}>{{ _("Ter plaatse") }}</option>
             {% endcall %}</div>
-          {{ ui.btn_primary(_("Opslaan")) }}
+          {{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="ed = false"') }}
         </form>
       </div>
       {% endfor %}

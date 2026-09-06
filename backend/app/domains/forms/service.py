@@ -707,7 +707,7 @@ def list_forms(db, *, q: str = "", status: str = ""):
 # formulier met die naam kaapt dat scherm.
 GERESERVEERDE_SLUGS = frozenset({"berichten"})
 
-_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_SLUG_RE = re.compile(r"^[a-z0-9]+(?:[-_][a-z0-9]+)*$")
 
 
 def normaliseer_slug(waarde) -> Optional[str]:
@@ -716,9 +716,13 @@ def normaliseer_slug(waarde) -> Optional[str]:
     Optioneel per formulier: de tokenlink blijft altijd werken, ook naast een slug.
     Rondgestuurde links mogen niet breken omdat iemand later een naam toevoegt.
 
-    Alleen kleine letters, cijfers en koppeltekens: de slug staat in een URL, en
-    spaties of hoofdletters worden per browser anders gecodeerd — dan werkt een
-    gekopieerde link soms wél en soms niet.
+    Alleen kleine letters, cijfers, koppeltekens en liggende streepjes: de slug
+    staat in een URL, en spaties of hoofdletters worden per browser anders gecodeerd
+    — dan werkt een gekopieerde link soms wél en soms niet.
+
+    Het liggend streepje kwam er met #694 bij: Koen vroeg in #690 letterlijk om
+    `enquete_ledenfeest_2026`, en die notatie weigeren terwijl ze in een URL niets
+    breekt is een regel omwille van de regel.
 
     Hoofdletters en witruimte aan de rand worden RECHTGEZET, een spatie in het
     midden wordt GEWEIGERD. Dat verschil is bewust: "Zomerfeest" heeft precies één
@@ -731,7 +735,8 @@ def normaliseer_slug(waarde) -> Optional[str]:
         return None
     if not _SLUG_RE.match(slug):
         raise HTTPException(status_code=422, detail=_(
-            "Gebruik alleen kleine letters, cijfers en koppeltekens in de link."))
+            "Gebruik alleen kleine letters, cijfers, koppeltekens (-) en liggende "
+            "streepjes (_) in de link."))
     if slug in GERESERVEERDE_SLUGS:
         raise HTTPException(status_code=422, detail=_(
             "Deze naam is voorbehouden aan de site zelf; kies een andere."))

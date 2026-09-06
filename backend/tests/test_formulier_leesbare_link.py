@@ -83,7 +83,8 @@ def test_twee_formulieren_kunnen_niet_dezelfde_slug_hebben(client, admin_headers
 
     assert _zet_slug(client, csrf, eerste, "feest").status_code == 200
     botsing = _zet_slug(client, csrf, tweede, "feest")
-    assert botsing.status_code == 422, botsing.text
+    assert botsing.status_code == 200, botsing.text
+    assert "bestaat al een formulier" in botsing.text
 
     # En het eerste formulier is nog altijd wat je op die link krijgt.
     assert "Eerste" in client.get("/f/feest").text
@@ -107,7 +108,8 @@ def test_berichten_is_voorbehouden_aan_de_site(client, admin_headers):
     csrf = _login(client)
 
     geweigerd = _zet_slug(client, csrf, form, "berichten")
-    assert geweigerd.status_code == 422, geweigerd.text
+    assert geweigerd.status_code == 200, geweigerd.text
+    assert "voorbehouden" in geweigerd.text
 
 
 # ── 4. Vorm van de slug ─────────────────────────────────────────────────────
@@ -125,7 +127,10 @@ def test_een_ongeldige_vorm_wordt_geweigerd(client, admin_headers, slug):
     csrf = _login(client)
 
     resp = _zet_slug(client, csrf, form, slug)
-    assert resp.status_code == 422, f"{slug!r} werd aanvaard: {resp.text[:200]}"
+    # Sinds #694 een foutbanner (200) i.p.v. een kale 422: dit scherm swapt zijn
+    # antwoord, en een 422 zou de generieke toast geven i.p.v. de uitleg.
+    assert resp.status_code == 200, resp.text[:200]
+    assert "koppeltekens" in resp.text, f"{slug!r} werd aanvaard: {resp.text[:200]}"
 
 
 @pytest.mark.parametrize("ingetypt", ["Zomerfeest", "ZOMERFEEST", "  zomerfeest  "])
@@ -183,3 +188,79 @@ def test_zonder_slug_staat_er_geen_lege_regel(client, admin_headers):
 
     html = client.get(f"/admin/formulieren/{form['id']}").text
     assert "/f/" not in html
+
+
+# ── 6. Een geweigerde instelling zegt wát er mis is (#694) ──────────────────
+
+def test_een_geweigerde_link_toont_de_reden_in_het_scherm(client, admin_headers):
+    """Koen zette een liggend streepje in de link en kreeg de generieke toast.
+
+    De 422 ontsnapte aan `instellingen_opslaan`, dus htmx kreeg een kale foutcode en
+    de uitleg viel weg. Dezelfde fout als in de importroute van ditzelfde bestand
+    (#692), één route verder.
+
+    Toetsen op de **reden**, niet op de statuscode: een 422 krijg je ook bij een
+    ongeldige status, en dan bewijst de test niets over déze melding.
+    """
+    form = _formulier(client, admin_headers)
+    csrf = _login(client)
+
+    resp = _zet_slug(client, csrf, form, "zomer feest")
+    assert resp.status_code == 200, "een kale 422 geeft de generieke toast"
+    assert "koppeltekens" in resp.text, resp.text[:400]
+
+
+def test_een_bezette_link_toont_de_reden_in_het_scherm(client, admin_headers):
+    """Zelfde weg, andere regel — anders dekt de test alleen de vormcontrole."""
+    eerste = _formulier(client, admin_headers, "Eerste")
+    tweede = _formulier(client, admin_headers, "Tweede")
+    csrf = _login(client)
+    _zet_slug(client, csrf, eerste, "feest")
+
+    resp = _zet_slug(client, csrf, tweede, "feest")
+    assert resp.status_code == 200
+    assert "bestaat al een formulier" in resp.text, resp.text[:400]
+
+
+def test_een_ongeldige_status_toont_ook_de_reden(client, admin_headers):
+    """De statuscontrole in dezelfde route wierp op dezelfde manier."""
+    form = _formulier(client, admin_headers)
+    csrf = _login(client)
+
+    resp = client.post(f"/admin/formulieren/{form['id']}/instellingen",
+                       data={"title": form["title"], "status": "bestaat-niet"},
+                       headers={"X-CSRF-Token": csrf})
+    assert resp.status_code == 200
+    assert "Ongeldige status" in resp.text, resp.text[:400]
+
+
+# ── 7. Het liggend streepje mag (#694) ─────────────────────────────────────
+
+@pytest.mark.parametrize("slug", ["enquete_ledenfeest_2026", "zomer_feest",
+                                  "zomer-feest", "zomer_feest-2026"])
+def test_een_liggend_streepje_is_toegestaan(client, admin_headers, db_session, slug):
+    """Koen vroeg in #690 letterlijk om `enquete_ledenfeest_2026`. Die notatie
+    weigeren terwijl ze in een URL niets breekt, is een regel omwille van de regel."""
+    from app.domains.forms.models import Form
+
+    form = _formulier(client, admin_headers)
+    csrf = _login(client)
+
+    assert _zet_slug(client, csrf, form, slug).status_code == 200
+    db_session.expire_all()
+    assert db_session.get(Form, form["id"]).slug == slug
+    assert client.get(f"/f/{slug}").status_code == 200
+
+
+@pytest.mark.parametrize("slug", ["_feest", "feest_", "zomer__feest"])
+def test_een_liggend_streepje_aan_de_rand_of_dubbel_blijft_geweigerd(client,
+                                                                     admin_headers,
+                                                                     slug):
+    """Dezelfde grens als voor het koppelteken. Zonder deze test zou "laat `_` toe"
+    ook een slug als `__` doorlaten, en dat leest niemand meer als een naam."""
+    form = _formulier(client, admin_headers)
+    csrf = _login(client)
+
+    resp = _zet_slug(client, csrf, form, slug)
+    assert resp.status_code == 200, resp.text[:200]
+    assert "koppeltekens" in resp.text, f"{slug!r} werd aanvaard"

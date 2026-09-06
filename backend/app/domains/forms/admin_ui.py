@@ -199,13 +199,21 @@ def instellingen_opslaan(form_id: int, request: Request, db: Session = Depends(g
                                        update_form_settings)
 
     form = _form_or_404(db, form_id)
-    if status not in FORM_STATUSES:
-        raise HTTPException(status_code=422,
-                            detail=_("Ongeldige status: %(status)s") % {"status": status})
-    # #690: vorm en uniciteit horen bij de regel, niet bij het scherm. De service
-    # werpt een leesbare 422; de unieke index (091) is het vangnet daaronder.
-    nieuwe_slug = normaliseer_slug(slug)
-    assert_slug_vrij(db, nieuwe_slug, huidige_id=form.id)
+    # #694: als foutbanner, niet als kale 422. Dit scherm swapt zijn antwoord, dus
+    # een 422 levert de generieke htmx-toast en neemt juist de uitleg weg die zegt
+    # wát er mis is — precies wat Koen zag toen hij een liggend streepje in de
+    # leesbare link zette. Dezelfde fout als in de importroute hieronder (#692),
+    # één route verder; beide gaan nu door dezelfde behandeling.
+    try:
+        if status not in FORM_STATUSES:
+            raise HTTPException(status_code=422, detail=_(
+                "Ongeldige status: %(status)s") % {"status": status})
+        # #690: vorm en uniciteit horen bij de regel, niet bij het scherm. De service
+        # werpt een leesbare 422; de unieke index (091) is het vangnet daaronder.
+        nieuwe_slug = normaliseer_slug(slug)
+        assert_slug_vrij(db, nieuwe_slug, huidige_id=form.id)
+    except HTTPException as exc:
+        return _builder_response(request, db, form, error=str(exc.detail))
     update_form_settings(
         db, form,
         slug=nieuwe_slug,
