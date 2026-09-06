@@ -80,7 +80,10 @@ def test_de_service_weigert_sectie_en_einde_tegelijk(client, admin_headers,
         update_option(db_session, form, a["id"], label="A",
                       skip_to_section_id=str(derde["id"]), skip_to_end=True)
 
-    db_session.rollback()
+    # Géén `db_session.rollback()`: de testsessie draait op een savepoint, dus een
+    # rollback wist óók de fixture — dezelfde val als in #681. De service werpt
+    # vóór ze iets wegschrijft, dus er is niets terug te draaien.
+    db_session.expire_all()
     bewaard = db_session.get(FormFieldOption, a["id"])
     assert bewaard.skip_to_section_id is None and bewaard.skip_to_end is False, (
         "er is een onmogelijke toestand bewaard")

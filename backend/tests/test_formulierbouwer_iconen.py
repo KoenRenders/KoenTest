@@ -101,8 +101,9 @@ def test_verwijderen_blijft_rood(client, admin_headers):
 
 # ── 2. De tooltip ──────────────────────────────────────────────────────────
 
-@pytest.mark.parametrize("label", ["Optie verwijderen", "Optie bewerken",
-                                   "Veld verwijderen"])
+# "Optie bewerken" stond hier tot #699; die knop bestaat niet meer — de velden van
+# een optie staan nu altijd inline, dus er valt niets te openen.
+@pytest.mark.parametrize("label", ["Optie verwijderen", "Veld verwijderen"])
 def test_elke_symboolknop_draagt_een_tooltip(client, admin_headers, label):
     """De schermlezer had het label al; wie met een muis werkt zag enkel een
     symbool."""
