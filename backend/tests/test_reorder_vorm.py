@@ -64,6 +64,16 @@ def _knoppen(html: str, label: str) -> list[str]:
     return uit
 
 
+def _staat_uit(knop: str) -> bool:
+    """Het ATTRIBUUT `disabled`, niet de tekenreeks.
+
+    De knopklasse bevat `disabled:opacity-30` — een Tailwind-variant — dus
+    `"disabled" in knop` is altijd waar en meet niets. Precies de fout die deze
+    tests elders in deze reeks aanwijzen; hier trapte ik er zelf in, en CI ving hem.
+    """
+    return re.search(r"\sdisabled(?=[\s>])", knop) is not None
+
+
 # ── 1. De vorm ─────────────────────────────────────────────────────────────
 
 def test_de_knoppen_dragen_pijlen_en_geen_chevrons(client, admin_headers):
@@ -127,9 +137,9 @@ def test_de_eindstanden_blijven_uitgeschakeld(client, admin_headers):
     omhoog = _knoppen(html, "Naar boven")
     omlaag = _knoppen(html, "Naar onder")
 
-    assert any("disabled" in k for k in omhoog), "geen enkele ↑ is uitgeschakeld"
-    assert any("disabled" in k for k in omlaag), "geen enkele ↓ is uitgeschakeld"
-    assert any("disabled" not in k for k in omhoog), (
+    assert any(_staat_uit(k) for k in omhoog), "geen enkele ↑ is uitgeschakeld"
+    assert any(_staat_uit(k) for k in omlaag), "geen enkele ↓ is uitgeschakeld"
+    assert any(not _staat_uit(k) for k in omhoog), (
         "álle ↑ staan uit — dan werkt verplaatsen nergens")
 
 
