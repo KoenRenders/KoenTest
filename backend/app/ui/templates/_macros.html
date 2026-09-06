@@ -243,14 +243,34 @@
 </div>
 {%- endmacro %}
 
-{# Reorder-knoppen (#594, §2.4): naar boven/onder verplaatsen — één glyph-set via
-   ui.icon() i.p.v. handmatige ▲▼/↑↓. `up_attrs`/`down_attrs` dragen de hx-* of href;
-   `first`/`last` dimmen de eindstanden. Dé enige reorder-vorm; schermen bouwen geen
-   eigen pijltjesknoppen meer. #}
-{% macro reorder(up_attrs="", down_attrs="", first=False, last=False) -%}
-<span class="inline-flex flex-col leading-none">
-  <button type="button" class="text-gray-400 hover:text-blue-700 disabled:opacity-30" {% if first %}disabled{% endif %} {{ up_attrs|safe }} aria-label="{{ _("Naar boven") }}">{{ icon('chevron-up', size=14) }}</button>
-  <button type="button" class="text-gray-400 hover:text-blue-700 disabled:opacity-30" {% if last %}disabled{% endif %} {{ down_attrs|safe }} aria-label="{{ _("Naar onder") }}">{{ icon('chevron-down', size=14) }}</button>
+{# Reorder-knoppen (#594, §2.4, herzien in #702): naar boven/onder verplaatsen.
+   `up_attrs`/`down_attrs` dragen de hx-* of href; `first`/`last` dimmen de
+   eindstanden. Dé enige reorder-vorm — en die zin was tot #702 onwaar: `section_bar`
+   had zijn eigen paar pijltjes, met een ándere vorm.
+
+   **Horizontaal, met chroom, met een gat ertussen.** De vorige versie stapelde twee
+   14px-chevrons zonder rand of achtergrond, grijs en zonder tussenruimte — letterlijk
+   de vorm van een spinner op een getalveld, en zo werd ze ook gelezen. Drie oorzaken
+   tegelijk: een chevron betekent uitklappen of scrollen (een pijl betekent
+   verplaatsen), zonder chroom en zonder gat versmelten twee knoppen tot één strookje,
+   en `text-gray-400` leest als versiering in plaats van als bediening.
+
+   Horizontaal ook op een optierij, ondanks de ruimte die dat lijkt te kosten: daar is
+   horizontale ruimte overvloedig en verticale schaars. Twee knoppen mét chroom bóven
+   elkaar maken zo'n rij bijna twee keer zo hoog, en dat betaal je op élke optie van
+   élke keuzevraag.
+
+   `op_donker` voor een blauwe balk (section_bar) tegenover een witte achtergrond.
+   Bewust een boolean en geen tekstwaarde: een verkeerd gespelde toon zou stil de
+   verkeerde variant geven, en dat is precies het soort stille fout dat we hier
+   vanavond meermaals tegenkwamen. #}
+{% macro reorder(up_attrs="", down_attrs="", first=False, last=False, op_donker=False) -%}
+{%- set _knop = ("px-1.5 py-0.5 rounded hover:bg-white/20 disabled:opacity-30"
+                 if op_donker else
+                 "px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30") -%}
+<span class="inline-flex items-center gap-1">
+  {% if up_attrs %}<button type="button" class="{{ _knop }}" {% if first %}disabled{% endif %} {{ up_attrs|safe }} aria-label="{{ _("Naar boven") }}" title="{{ _("Naar boven") }}">{{ icon('arrow-up', size=14) }}</button>{% endif %}
+  {% if down_attrs %}<button type="button" class="{{ _knop }}" {% if last %}disabled{% endif %} {{ down_attrs|safe }} aria-label="{{ _("Naar onder") }}" title="{{ _("Naar onder") }}">{{ icon('arrow-down', size=14) }}</button>{% endif %}
 </span>
 {%- endmacro %}
 
@@ -644,8 +664,9 @@
 <div class="flex items-center justify-between gap-2 bg-blue-700 text-white px-4 py-2">
   <span class="font-semibold text-sm">{{ label }}</span>
   <div class="flex items-center gap-1">
-    {% if up_attrs %}<button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/20" {{ up_attrs|safe }} aria-label="{{ _('Omhoog') }}">{{ icon('arrow-up', size=14) }}</button>{% endif %}
-    {% if down_attrs %}<button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/20" {{ down_attrs|safe }} aria-label="{{ _('Omlaag') }}">{{ icon('arrow-down', size=14) }}</button>{% endif %}
+    {# #702: dezelfde macro, niet een tweede stel pijltjes. Zo blijft "dé enige
+       reorder-vorm" waar, en gaan de twee niet opnieuw uit elkaar lopen. #}
+    {{ reorder(up_attrs=up_attrs, down_attrs=down_attrs, op_donker=True) }}
     {% if edit_attrs %}<button type="button" class="px-2 py-0.5 rounded hover:bg-white/20 text-sm" {{ edit_attrs|safe }}><span x-show="!sedit">{{ _("Bewerken") }}</span><span x-show="sedit" x-cloak>{{ _("Annuleren") }}</span></button>{% endif %}
     {% if delete_attrs %}<button type="button" class="px-2 py-0.5 rounded bg-red-500/30 hover:bg-red-500/60" {{ delete_attrs|safe }} aria-label="{{ _('Verwijderen') }}">×</button>{% endif %}
   </div>

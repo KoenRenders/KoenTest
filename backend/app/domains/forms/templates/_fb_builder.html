@@ -259,23 +259,43 @@
   </div>
   {% endfor %}
 
+  {# #703: de kaart bestaat alleen als er iets in zit. Voorheen rende de bouwer
+     ook zonder losse velden een volledige kaart met een kop waarvan de enige
+     inhoud de toevoegbalk was — een omhulsel om een knop.
+
+     Eén naam voor één begrip: "Velden zonder sectie". Mét losse velden heette de
+     kaart "Ongegroepeerde velden" en zonder "Velden zonder sectie" — twee namen op
+     hetzelfde scherm, afhankelijk van of de lijst toevallig leeg was.
+     "Ongegroepeerd" is bovendien jargon dat elders in de app niet voorkomt. #}
   {% if loose_fields %}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-    <h3 class="font-semibold mb-2">{{ _("Ongegroepeerde velden") }}</h3>
-    <div class="space-y-2">{% for f in loose_fields %}{{ veld_kaart(f) }}{% endfor %}</div>
-    {{ veld_toevoegen_form(None) }}
-  </div>
-  {% else %}
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
     <h3 class="font-semibold mb-2">{{ _("Velden zonder sectie") }}</h3>
+    <div class="space-y-2">{% for f in loose_fields %}{{ veld_kaart(f) }}{% endfor %}</div>
     {{ veld_toevoegen_form(None) }}
   </div>
   {% endif %}
 
-  <form class="flex gap-2" hx-post="/admin/formulieren/{{ form.id }}/secties" hx-target="#fb-detail" hx-swap="innerHTML">
-    {{ ui.input_control("title", placeholder=(_("Nieuwe sectie"))) }}
-    {{ ui.btn_secondary(_("+ sectie"), type="submit") }}
-  </form>
+  {# #703: twee knoppen naast elkaar, zoals v1.14. De sectiebalk was een kaal
+     invoerveld met knop tussen twee kaarten in — geen kaart, geen kop, geen
+     omhulsel — en hing daardoor buiten elke container.
+
+     Hier mag de knop wél METEEN posten, anders dan bij #701: `add_section` laat een
+     lege titel toe en de template rekent daar al op — de kop van een sectie staat
+     achter een voorwaarde op haar titel.
+     Een naamloze sectie is dus een geldige toestand — klikken maakt haar aan,
+     benoemen doe je in haar eigen bewerkvorm. Bij een veld kan dat niet, want
+     `add_field` eist een label; vandaar dáár de client-side lege kaart. #}
+  <div class="flex flex-wrap gap-2">
+    {% if not loose_fields %}
+    <div x-data="{ nieuw: false }">
+      {{ ui.btn_secondary(_("+ Vraag (zonder sectie)"), attrs='@click="nieuw = !nieuw"') }}
+      {{ veld_vorm(None, None, tonen='nieuw') }}
+    </div>
+    {% endif %}
+    <form hx-post="/admin/formulieren/{{ form.id }}/secties" hx-target="#fb-detail" hx-swap="innerHTML">
+      {{ ui.btn_secondary(_("+ Sectie toevoegen"), type="submit") }}
+    </form>
+  </div>
 
   {# Resultaten-tab (statistiek, #454) #}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
