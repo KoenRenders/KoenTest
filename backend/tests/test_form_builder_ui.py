@@ -82,9 +82,12 @@ def test_branching_validatie(client, db_session):
     db_session.expire_all()
     optie = veld.options[0]
 
-    # Terug-sprong (naar sectie 1 vanaf sectie 2) → 422.
+    # Terug-sprong (naar sectie 1 vanaf sectie 2) → 422. Sinds #699 stuurt het
+    # scherm één veld `bestemming`; de keuzelijst biedt zo'n sprong niet meer aan,
+    # maar de servercontrole hoort te blijven — dat is precies de reden dat ze
+    # naast de keuzelijst bestaat.
     fout = client.post(f"/admin/formulieren/{form.id}/opties/{optie.id}",
-                       data={"label": "Ja", "skip_to_section_id": str(s1.id)},
+                       data={"label": "Ja", "bestemming": str(s1.id)},
                        headers={"X-CSRF-Token": csrf})
     assert fout.status_code == 422
 

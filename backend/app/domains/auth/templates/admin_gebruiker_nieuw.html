@@ -9,7 +9,17 @@
 
 {{ ui.error_banner(error|default(None)) }}
 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-    <form class="space-y-3" hx-post="/admin/gebruikers" hx-target="#gu-lijst" hx-swap="innerHTML"
+{# #695: `hx-target="body"` en niet het lijstelement. Dat stond hier sinds #627,
+         toen dit formulier van bóven de lijst naar een eigen pagina verhuisde: het
+         doel bleef achter. htmx zoekt het doel vóórdat hij verstuurt, dus met een
+         onvindbaar doel vertrekt het verzoek nooit — Opslaan en Annuleren deden
+         allebei helemaal niets, en de link erfde het doel van de vorm.
+
+         Het geslaagde pad heeft sowieso geen lijstdoel nodig: dat antwoordt met
+         `HX-Redirect`. Wat overblijft is het foutpad, dat dit scherm opnieuw
+         rendert — en dat hoort dus op deze pagina te landen, zodat de foutbanner op
+         zijn plek verschijnt. Zelfde keuze als `admin_tenant_nieuw.html`. #}
+    <form class="space-y-3" hx-post="/admin/gebruikers" hx-target="body" hx-swap="innerHTML"
          >
       <input type="hidden" name="q" value="{{ q }}">
       <input type="hidden" name="rol" value="{{ rol }}">

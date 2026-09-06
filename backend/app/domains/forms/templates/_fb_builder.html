@@ -1,4 +1,53 @@
 {% import "_macros.html" as ui %}
+{# #700/#701: ÉÉN veldvorm voor toevoegen én bewerken.
+
+   De bouwer had twee halve formulieren: toevoegen kende wél het type maar geen
+   verplicht/hulptekst/min-max, bewerken die wél maar geen type — precies omgekeerd
+   op het enige veld dat ze deelden. Eén macro betekent dat een nieuw veldkenmerk in
+   beide paden tegelijk verschijnt, en dat het type niet twee keer gebouwd wordt.
+
+   `f` is het bestaande veld, of None bij toevoegen. `tonen` is de Alpine-vlag die
+   het paneel open houdt. #}
+{% macro veld_vorm(f, sid, tonen) %}
+{% set _id = (f.id if f else "nieuw") %}
+{% set _type = (f.field_type if f else "text") %}
+{% set _slot = (submission_count > 0 and f is not none) %}
+<form x-show="{{ tonen }}" x-cloak class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 text-sm"
+      hx-post="/admin/formulieren/{{ form.id }}{% if f %}/velden/{{ f.id }}{% else %}/velden{% endif %}"
+      hx-target="#fb-detail" hx-swap="innerHTML">
+  {% if not f %}<input type="hidden" name="section_id" value="{{ sid or '' }}">{% endif %}
+  <div class="col-span-2">{{ ui.label(_("Vraag"), "fl-" ~ _id, required=True) }}
+    {{ ui.input_control("label", id="fl-" ~ _id, value=(f.label if f else ""), required=True, cls="w-full") }}</div>
+  <div><label class="flex items-center gap-2 text-sm pt-6"><input type="checkbox" name="required" value="1" {% if f and f.required %}checked{% endif %}> {{ _("Verplicht") }}</label></div>
+  {# #700: het vraagtype. Uitgeschakeld zodra er inzendingen zijn — tonen mét de
+     reden, niet verbergen (§2.12): een keuze die er niet staat, laat je zoeken. #}
+  <div class="col-span-3 sm:col-span-1">{{ ui.label(_("Type"), "ft-" ~ _id) }}
+    {# `disabled` en `title` als parameters en niet via `attrs`: `_()` levert Markup,
+       dus een vertaalde tekst met `~` aan een attrs-string plakken escapet de
+       aanhalingstekens van de gewone helft — de klasse fout uit #514/#613. #}
+    {% call ui.select_control("field_type", cls="w-full", attrs='id="ft-' ~ _id ~ '"',
+         disabled=_slot,
+         title=(_("Er zijn al inzendingen; het type wijzigen zou de bewaarde antwoorden betekenisloos maken.") if _slot else None)) %}
+      {% for t in field_types %}<option value="{{ t }}" {% if t == _type %}selected{% endif %}>{{ field_type_labels.get(t, t) }}</option>{% endfor %}
+    {% endcall %}
+    {% if _slot %}<p class="text-xs text-ink-soft mt-1">{{ _("Er zijn al inzendingen; het type ligt vast.") }}</p>{% endif %}</div>
+  <div class="col-span-3">{{ ui.label(_("Hulptekst"), "fh-" ~ _id) }}
+    {{ ui.input_control("help_text", id="fh-" ~ _id, value=(f.help_text or "" if f else ""), cls="w-full") }}</div>
+  {% if _type in ("text", "textarea", "email", "phone") %}
+  <div>{{ ui.label(_("Min. tekens"), "fminl-" ~ _id) }}{{ ui.input_control("min_length", id="fminl-" ~ _id, value=(f.min_length or "" if f else ""), cls="w-full") }}</div>
+  <div>{{ ui.label(_("Max. tekens"), "fmaxl-" ~ _id) }}{{ ui.input_control("max_length", id="fmaxl-" ~ _id, value=(f.max_length or "" if f else ""), cls="w-full") }}</div>
+  {% elif _type == "number" %}
+  <div>{{ ui.label(_("Minimum"), "fminv-" ~ _id) }}{{ ui.input_control("min_value", id="fminv-" ~ _id, value=(f.min_value or "" if f else ""), cls="w-full") }}</div>
+  <div>{{ ui.label(_("Maximum"), "fmaxv-" ~ _id) }}{{ ui.input_control("max_value", id="fmaxv-" ~ _id, value=(f.max_value or "" if f else ""), cls="w-full") }}</div>
+  {% elif _type == "rating" %}
+  <div>{{ ui.label(_("Puntenschaal"), "frm-" ~ _id) }}{{ ui.input_control("rating_max", id="frm-" ~ _id, value=(f.rating_max or 5 if f else 5), cls="w-full") }}</div>
+  <div>{{ ui.label(_("Label laag"), "frl-" ~ _id) }}{{ ui.input_control("rating_low_label", id="frl-" ~ _id, value=(f.rating_low_label or "" if f else ""), cls="w-full") }}</div>
+  <div>{{ ui.label(_("Label hoog"), "frh-" ~ _id) }}{{ ui.input_control("rating_high_label", id="frh-" ~ _id, value=(f.rating_high_label or "" if f else ""), cls="w-full") }}</div>
+  {% endif %}
+  <div class="col-span-3 flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="' ~ tonen ~ ' = false"') }}</div>
+</form>
+{% endmacro %}
+
 {% macro veld_kaart(f) %}
 <div class="border border-gray-200 rounded-lg p-3" x-data="{ edit: false }">
   <div class="flex items-center justify-between gap-2">
@@ -15,53 +64,60 @@
            up_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
            down_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
       {{ ui.edit_toggle("edit") }}
-      {{ ui.btn_danger("×", aria_label=_("Veld verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Veld"), f.label)) }}
+      {# #698: prullenbak i.p.v. ×, en potlood i.p.v. ⚙ verderop. Geen smaak: `×`
+         betekende in deze app al "sluiten" (de toast sluit met datzelfde teken), en
+         dat is een gratis handeling terwijl dit er een is die niet terug kan. Het
+         tandwiel betekende "instellingen", en dát staat bovenaan dit scherm als
+         een échte knop die iets anders doet.
+
+         Leeg label + `lead_icon`: dan draagt de knop alleen het icoon, en de
+         button-macro geeft hem op grond van `aria_label` ook een tooltip. #}
+      {{ ui.btn_danger("", lead_icon="trash-2", aria_label=_("Veld verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Veld"), f.label)) }}
     </div>
   </div>
-  <form x-show="edit" x-cloak class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 text-sm"
-        hx-post="/admin/formulieren/{{ form.id }}/velden/{{ f.id }}" hx-target="#fb-detail" hx-swap="innerHTML">
-    <div class="col-span-2">{{ ui.label(_("Vraag"), "fl-" ~ f.id, required=True) }}
-      {{ ui.input_control("label", id="fl-" ~ (f.id), value=(f.label), required=True, cls="w-full") }}</div>
-    <div><label class="flex items-center gap-2 text-sm pt-6"><input type="checkbox" name="required" value="1" {% if f.required %}checked{% endif %}> {{ _("Verplicht") }}</label></div>
-    <div class="col-span-3">{{ ui.label(_("Hulptekst"), "fh-" ~ f.id) }}
-      {{ ui.input_control("help_text", id="fh-" ~ (f.id), value=(f.help_text or ""), cls="w-full") }}</div>
-    {% if f.field_type in ("text", "textarea", "email", "phone") %}
-    <div>{{ ui.label(_("Min. tekens"), "fminl-" ~ f.id) }}{{ ui.input_control("min_length", id="fminl-" ~ (f.id), value=(f.min_length or ""), cls="w-full") }}</div>
-    <div>{{ ui.label(_("Max. tekens"), "fmaxl-" ~ f.id) }}{{ ui.input_control("max_length", id="fmaxl-" ~ (f.id), value=(f.max_length or ""), cls="w-full") }}</div>
-    {% elif f.field_type == "number" %}
-    <div>{{ ui.label(_("Minimum"), "fminv-" ~ f.id) }}{{ ui.input_control("min_value", id="fminv-" ~ (f.id), value=(f.min_value or ""), cls="w-full") }}</div>
-    <div>{{ ui.label(_("Maximum"), "fmaxv-" ~ f.id) }}{{ ui.input_control("max_value", id="fmaxv-" ~ (f.id), value=(f.max_value or ""), cls="w-full") }}</div>
-    {% elif f.field_type == "rating" %}
-    <div>{{ ui.label(_("Puntenschaal"), "frm-" ~ f.id) }}{{ ui.input_control("rating_max", id="frm-" ~ (f.id), value=(f.rating_max or 5), cls="w-full") }}</div>
-    <div>{{ ui.label(_("Label laag"), "frl-" ~ f.id) }}{{ ui.input_control("rating_low_label", id="frl-" ~ (f.id), value=(f.rating_low_label or ""), cls="w-full") }}</div>
-    <div>{{ ui.label(_("Label hoog"), "frh-" ~ f.id) }}{{ ui.input_control("rating_high_label", id="frh-" ~ (f.id), value=(f.rating_high_label or ""), cls="w-full") }}</div>
-    {% endif %}
-    <div class="col-span-3">{{ ui.btn_primary(_("Opslaan")) }}</div>
-  </form>
+  {{ veld_vorm(f, f.section_id, tonen='edit') }}
   {% if f.field_type in ("select", "radio", "checkbox") %}
   <div class="mt-2 space-y-1">
     {% for o in f.options %}
-    <div class="flex items-center justify-between text-xs bg-gray-50 rounded px-2 py-1" x-data="{ oedit: false }">
-      <span x-show="!oedit">{{ o.label }}{% if o.is_other %} {{ ui.badge(_("andere…")) }}{% endif %}
-        {% if o.skip_to_end %}{{ ui.badge(_("→ einde"), "yellow") }}{% elif o.skip_to_section_id %}{{ ui.badge(_("→ sectie"), "yellow") }}{% endif %}</span>
-      <span x-show="oedit" x-cloak class="text-gray-500">{{ _("Optie bewerken") }}</span>
-      <span class="flex gap-1">
-        {{ ui.btn_secondary("⚙", aria_label=_("Optie bewerken"), attrs='@click="oedit = !oedit"') }}
-        {{ ui.btn_danger("×", aria_label=_("Optie verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML"') }}
-      </span>
-      <form x-show="oedit" x-cloak class="w-full flex flex-wrap gap-2 mt-1"
-            hx-post="/admin/formulieren/{{ form.id }}/opties/{{ o.id }}" hx-target="#fb-detail" hx-swap="innerHTML">
-        {{ ui.input_control("label", value=(o.label), required=True) }}
+    {# #699: geen bewerktoggle meer. In v1.14 stonden label, "Andere…" en de sprong
+       altijd inline, met alleen een verwijderknop ernaast; de toggle kostte drie
+       klikken voor één handeling en gaf de rij twee verschillende gedaantes.
+
+       Bewust GEEN automatisch bewaren bij `change`: elke post rendert `#fb-detail`
+       opnieuw, dus bij het verlaten van een tekstveld springt de focus en verschuift
+       de scroll. Dat vraagt eerst een gerichter swapdoel, en dat is een andere
+       wijziging. Eén bewaaractie per rij dus. #}
+    <div class="flex flex-wrap items-center gap-1 text-xs bg-gray-50 rounded px-2 py-1">
+      {{ ui.reorder(
+           up_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
+           down_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
+           first=loop.first, last=loop.last) }}
+      <form class="flex flex-wrap items-center gap-2 grow"
+            hx-post="/admin/formulieren/{{ form.id }}/opties/{{ o.id }}"
+            hx-target="#fb-detail" hx-swap="innerHTML">
+        {{ ui.input_control("label", value=(o.label), required=True, cls="grow min-w-32",
+                            aria_label=_("Label van de optie")) }}
         <label class="flex items-center gap-1"><input type="checkbox" name="is_other" value="1" {% if o.is_other %}checked{% endif %}> {{ _("Andere…") }}</label>
         {% if f.field_type in ("radio", "select") %}
-        {% call ui.select_control("skip_to_section_id") %}
-          <option value="">{{ _("geen sprong") }}</option>
-          {% for s in sections %}<option value="{{ s.id }}" {% if o.skip_to_section_id == s.id %}selected{% endif %}>→ {{ s.title or (_("Sectie ") ~ (loop.index)) }}</option>{% endfor %}
+        {# #699: één keuzelijst voor één beslissing. "Einde" stond als los vakje
+           naast deze select; samen konden ze een toestand maken die het formulier
+           niet kent, en dan won het einde stil.
+
+           Alleen látere secties, zoals v1.14 deed: niet aanbieden wat verboden is,
+           is beter dan het achteraf weigeren. De servercontrole blijft er wél —
+           het scherm maakt de fout onmogelijk, de service weigert hem alsnog. #}
+        {% set _eigen = sections | selectattr("id", "equalto", f.section_id) | map(attribute="position") | list %}
+        {% set _drempel = _eigen[0] if _eigen else -1 %}
+        {% call ui.select_control("bestemming", aria_label=_("Daarna naar")) %}
+          <option value="">{{ _("gewone volgorde") }}</option>
+          {% for s in sections %}{% if s.position > _drempel %}<option value="{{ s.id }}" {% if o.skip_to_section_id == s.id %}selected{% endif %}>&rarr; {{ s.title or (_("Sectie ") ~ (s.position + 1)) }}</option>{% endif %}{% endfor %}
+          <option value="end" {% if o.skip_to_end %}selected{% endif %}>{{ _("→ einde") }}</option>
         {% endcall %}
-        <label class="flex items-center gap-1"><input type="checkbox" name="skip_to_end" value="1" {% if o.skip_to_end %}checked{% endif %}> {{ _("→ einde") }}</label>
         {% endif %}
-        {{ ui.btn_primary(_("OK")) }}
+        {{ ui.btn_primary(_("Opslaan"), size="sm") }}
+        {{ ui.btn_secondary(_("Annuleren"), size="sm", attrs='hx-get="/admin/formulieren/' ~ form.id ~ '" hx-target="#fb-detail" hx-swap="innerHTML"') }}
       </form>
+      {{ ui.btn_danger("", lead_icon="trash-2", aria_label=_("Optie verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML"') }}
     </div>
     {% endfor %}
     <form class="flex gap-2 mt-1" hx-post="/admin/formulieren/{{ form.id }}/velden/{{ f.id }}/opties"
@@ -75,16 +131,23 @@
 </div>
 {% endmacro %}
 
+{# #701: één knop die een VOLLEDIGE veldkaart opent, zoals v1.14 deed — geen smalle
+   balk met label en type waarna je alles in een tweede stap moest openen.
+
+   De lege kaart verschijnt CLIENT-SIDE en post pas bij bewaren. De verleidelijke
+   variant — bij de klik meteen een veld aanmaken en in bewerkmodus openen — kan
+   hier niet: `add_field` eist een label, dus dat zou een tijdelijke naam als
+   "Nieuwe vraag" in de databank zetten, en wie afbreekt houdt een echte vraag met
+   die naam over. v1.14 kon dat wél, want daar werd niets bewaard tot je het hele
+   formulier opsloeg.
+
+   Opties op een nieuwe keuzevraag verschijnen pas ná de eerste keer bewaren; losse
+   opties client-side bijhouden is bewust buiten scope. #}
 {% macro veld_toevoegen_form(sid) %}
-<form class="flex flex-wrap gap-2 mt-3" hx-post="/admin/formulieren/{{ form.id }}/velden"
-      hx-target="#fb-detail" hx-swap="innerHTML">
-  <input type="hidden" name="section_id" value="{{ sid or '' }}">
-  {{ ui.input_control("label", placeholder=(_("Nieuwe vraag")), required=True) }}
-  {% call ui.select_control("field_type") %}
-    {% for t in field_types %}<option value="{{ t }}">{{ field_type_labels.get(t, t) }}</option>{% endfor %}
-  {% endcall %}
-  {{ ui.btn_secondary(_("+ veld"), type="submit") }}
-</form>
+<div class="mt-3" x-data="{ nieuw: false }">
+  {{ ui.btn_secondary(_("+ Vraag in deze sectie"), attrs='@click="nieuw = !nieuw"') }}
+  {{ veld_vorm(None, sid, tonen='nieuw') }}
+</div>
 {% endmacro %}
 
 {{ ui.error_banner(error) }}
@@ -137,7 +200,7 @@
       {# #690: optioneel. Leeg laten betekent "alleen de tokenlink". #}
       <div>{{ ui.label(_("Leesbare link"), "fbslug") }}
         {{ ui.input_control("slug", id="fbslug", value=(form.slug or ""), placeholder="bv. zomerfeest", cls="w-full") }}
-        <p class="text-xs text-gray-500 mt-1">{{ _("Optioneel. Kleine letters, cijfers en koppeltekens. Het formulier blijft ook via de tokenlink bereikbaar.") }}</p>
+        <p class="text-xs text-gray-500 mt-1">{{ _("Optioneel. Kleine letters, cijfers, koppeltekens (-) en liggende streepjes (_). Het formulier blijft ook via de tokenlink bereikbaar.") }}</p>
       </div>
       <div>{{ ui.label(_("Status"), "fbs") }}
         {% call ui.select_control("status", cls="w-full", attrs='id="fbs"') %}
@@ -157,7 +220,7 @@
         <label class="flex items-center gap-2"><input type="checkbox" name="requires_login" value="1" {% if form.requires_login %}checked{% endif %}> {{ _("Enkel voor aangemelde leden") }}</label>
       </div>
       <div class="sm:col-span-2">{{ ui.label(_("Bevestigingsboodschap"), "fbc") }}{{ ui.textarea_control("confirmation_message", id="fbc", rows=2, value=form.confirmation_message or "", cls="w-full") }}</div>
-      <div>{{ ui.btn_primary(_("Opslaan")) }}</div>
+      <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="open = false"') }}</div>
     </form>
   </div>
 
@@ -175,14 +238,18 @@
     <form x-show="sedit" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-sm"
           hx-post="/admin/formulieren/{{ form.id }}/secties/{{ g.section.id }}" hx-target="#fb-detail" hx-swap="innerHTML">
       <div>{{ ui.label(_("Titel"), "st-" ~ g.section.id) }}{{ ui.input_control("title", id="st-" ~ (g.section.id), value=(g.section.title or ""), cls="w-full") }}</div>
+      {# #699: één keuzelijst, net als bij een optie. "Daarna: einde" stond als los
+         vakje naast deze select en kon samen met een sectie gezet worden — een
+         toestand die het formulier niet kent. De bouwer hoort voor hetzelfde
+         begrip niet op twee plekken verschillend te zijn. #}
       <div>{{ ui.label(_("Daarna naar"), "sn-" ~ g.section.id) }}
-        {% call ui.select_control("next_section_id", cls="w-full", attrs='id="sn-' ~ g.section.id ~ '"') %}
+        {% call ui.select_control("bestemming", cls="w-full", attrs='id="sn-' ~ g.section.id ~ '"') %}
           <option value="">{{ _("volgende sectie (lineair)") }}</option>
-          {% for s in sections %}{% if s.position > g.section.position %}<option value="{{ s.id }}" {% if g.section.next_section_id == s.id %}selected{% endif %}>{{ s.title or (_("Sectie ") ~ (s.position + 1)) }}</option>{% endif %}{% endfor %}
-        {% endcall %}
-        <label class="flex items-center gap-2 mt-1"><input type="checkbox" name="next_is_end" value="1" {% if g.section.next_is_end %}checked{% endif %}> {{ _("Daarna: einde") }}</label></div>
+          {% for s in sections %}{% if s.position > g.section.position %}<option value="{{ s.id }}" {% if g.section.next_section_id == s.id %}selected{% endif %}>&rarr; {{ s.title or (_("Sectie ") ~ (s.position + 1)) }}</option>{% endif %}{% endfor %}
+          <option value="end" {% if g.section.next_is_end %}selected{% endif %}>{{ _("→ einde") }}</option>
+        {% endcall %}</div>
       <div class="sm:col-span-2">{{ ui.label(_("Omschrijving"), "sd-" ~ g.section.id) }}{{ ui.textarea_control("description", id="sd-" ~ g.section.id, rows=2, value=g.section.description or "", cls="w-full") }}</div>
-      <div>{{ ui.btn_primary(_("Opslaan")) }}</div>
+      <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="sedit = false"') }}</div>
     </form>
     <div class="mt-3 space-y-2">
       {% for f in g.fields %}{{ veld_kaart(f) }}{% endfor %}
@@ -192,23 +259,43 @@
   </div>
   {% endfor %}
 
+  {# #703: de kaart bestaat alleen als er iets in zit. Voorheen rende de bouwer
+     ook zonder losse velden een volledige kaart met een kop waarvan de enige
+     inhoud de toevoegbalk was — een omhulsel om een knop.
+
+     Eén naam voor één begrip: "Velden zonder sectie". Mét losse velden heette de
+     kaart "Ongegroepeerde velden" en zonder "Velden zonder sectie" — twee namen op
+     hetzelfde scherm, afhankelijk van of de lijst toevallig leeg was.
+     "Ongegroepeerd" is bovendien jargon dat elders in de app niet voorkomt. #}
   {% if loose_fields %}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-    <h3 class="font-semibold mb-2">{{ _("Ongegroepeerde velden") }}</h3>
-    <div class="space-y-2">{% for f in loose_fields %}{{ veld_kaart(f) }}{% endfor %}</div>
-    {{ veld_toevoegen_form(None) }}
-  </div>
-  {% else %}
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
     <h3 class="font-semibold mb-2">{{ _("Velden zonder sectie") }}</h3>
+    <div class="space-y-2">{% for f in loose_fields %}{{ veld_kaart(f) }}{% endfor %}</div>
     {{ veld_toevoegen_form(None) }}
   </div>
   {% endif %}
 
-  <form class="flex gap-2" hx-post="/admin/formulieren/{{ form.id }}/secties" hx-target="#fb-detail" hx-swap="innerHTML">
-    {{ ui.input_control("title", placeholder=(_("Nieuwe sectie"))) }}
-    {{ ui.btn_secondary(_("+ sectie"), type="submit") }}
-  </form>
+  {# #703: twee knoppen naast elkaar, zoals v1.14. De sectiebalk was een kaal
+     invoerveld met knop tussen twee kaarten in — geen kaart, geen kop, geen
+     omhulsel — en hing daardoor buiten elke container.
+
+     Hier mag de knop wél METEEN posten, anders dan bij #701: `add_section` laat een
+     lege titel toe en de template rekent daar al op — de kop van een sectie staat
+     achter een voorwaarde op haar titel.
+     Een naamloze sectie is dus een geldige toestand — klikken maakt haar aan,
+     benoemen doe je in haar eigen bewerkvorm. Bij een veld kan dat niet, want
+     `add_field` eist een label; vandaar dáár de client-side lege kaart. #}
+  <div class="flex flex-wrap gap-2">
+    {% if not loose_fields %}
+    <div x-data="{ nieuw: false }">
+      {{ ui.btn_secondary(_("+ Vraag (zonder sectie)"), attrs='@click="nieuw = !nieuw"') }}
+      {{ veld_vorm(None, None, tonen='nieuw') }}
+    </div>
+    {% endif %}
+    <form hx-post="/admin/formulieren/{{ form.id }}/secties" hx-target="#fb-detail" hx-swap="innerHTML">
+      {{ ui.btn_secondary(_("+ Sectie toevoegen"), type="submit") }}
+    </form>
+  </div>
 
   {# Resultaten-tab (statistiek, #454) #}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">

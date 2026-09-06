@@ -486,6 +486,11 @@ def update_section(db, form: Form, section_id: int, *, title: str = "",
     section.description = (description or "").strip() or None
 
     doel_id = int(next_section_id) if str(next_section_id).strip().isdigit() else None
+    # #699: zelfde regel als bij een optie — anders is de bouwer op twee plekken
+    # verschillend voor hetzelfde begrip.
+    if bool(next_is_end) and doel_id is not None:
+        raise FormulierFout(
+            "Kies één bestemming: een sectie óf het einde, niet allebei.")
     if doel_id is not None:
         doel = next((s for s in form.sections if s.id == doel_id), None)
         if doel is None or doel.position <= section.position:
@@ -514,33 +519,20 @@ def delete_section(db, form: Form, section_id: int) -> None:
 
 # ── Velden ───────────────────────────────────────────────────────────────────
 
-def add_field(db, form: Form, *, label: str, field_type: str = "text",
-              section_id: str = "") -> None:
-    if field_type not in FIELD_TYPES:
-        raise FormulierFout(f"Ongeldig veldtype: {field_type}")
-    if not (label or "").strip():
-        raise FormulierFout("Elk veld heeft een vraag/label nodig.")
-    sid = int(section_id) if str(section_id).strip().isdigit() else None
-    broers = [f for f in form.fields if f.section_id == sid]
-    form.fields.append(FormField(label=label.strip(), field_type=field_type,
-                                 section_id=sid, position=len(broers)))
-    db.commit()
+def _veldwaarden(veld: FormField, waarden: dict) -> None:
+    """De eigenschappen van één veld toepassen (#701).
 
+    Gedeeld door toevoegen en bewerken. Die twee zetten eerder elk een andere helft:
+    toevoegen kende wél het type maar geen verplicht/hulptekst/min-max, bewerken die
+    wél maar geen type — precies omgekeerd op het enige veld dat ze deelden. Eén
+    plek betekent dat een nieuw veldkenmerk in beide paden tegelijk verschijnt.
 
-def update_field(db, form: Form, field_id: int, **waarden) -> None:
-    """De eigenschappen van één veld. Lege tekstwaarden betekenen "niet ingesteld"."""
-    veld = next((f for f in form.fields if f.id == field_id), None)
-    if veld is None:
-        raise LookupError("Veld niet gevonden")
-    label = (waarden.get("label") or "").strip()
-    if not label:
-        raise FormulierFout("Elk veld heeft een vraag/label nodig.")
-
+    Lege tekstwaarden betekenen "niet ingesteld".
+    """
     def _getal(naam):
         rauw = str(waarden.get(naam) or "").strip()
         return int(rauw) if rauw.isdigit() else None
 
-    veld.label = label
     veld.help_text = (waarden.get("help_text") or "").strip() or None
     veld.required = bool(waarden.get("required"))
     veld.min_length = _getal("min_length")
@@ -550,6 +542,64 @@ def update_field(db, form: Form, field_id: int, **waarden) -> None:
     veld.rating_max = _getal("rating_max")
     veld.rating_low_label = (waarden.get("rating_low_label") or "").strip() or None
     veld.rating_high_label = (waarden.get("rating_high_label") or "").strip() or None
+
+
+def add_field(db, form: Form, *, label: str, field_type: str = "text",
+              section_id: str = "", **waarden) -> None:
+    if field_type not in FIELD_TYPES:
+        raise FormulierFout(f"Ongeldig veldtype: {field_type}")
+    if not (label or "").strip():
+        raise FormulierFout("Elk veld heeft een vraag/label nodig.")
+    sid = int(section_id) if str(section_id).strip().isdigit() else None
+    broers = [f for f in form.fields if f.section_id == sid]
+    veld = FormField(label=label.strip(), field_type=field_type,
+                     section_id=sid, position=len(broers))
+    _veldwaarden(veld, waarden)
+    form.fields.append(veld)
+    db.commit()
+
+
+def update_field(db, form: Form, field_id: int, **waarden) -> None:
+    """De eigenschappen van één veld, inclusief het TYPE (#700).
+
+    Het type kon niet gewijzigd worden: alleen `add_field` zette het. Een
+    tekstvraag omzetten naar meerkeuze betekende dus verwijderen en opnieuw maken —
+    plaats kwijt, opties kwijt, sprongregels kwijt.
+
+    **Wijzigen mag zolang er geen inzendingen zijn** (beslissing Koen). Daarna niet
+    meer: bewaarde antwoorden verwijzen naar hun veld, en een typewissel maakt ze
+    niet fout maar betekenisloos — een getal dat als tekst bewaard staat, of een
+    optie-id onder een vraag die geen opties meer heeft. Strenger dan v1.14, en
+    bewust; het scherm toont de lijst dan uitgeschakeld met de reden erbij (§2.12).
+
+    Opties blijven bij een typewissel **bewaard**, zodat terugzetten niets kost. De
+    SPRONGREGELS gaan wél weg zodra het nieuwe type niet kan vertakken: een optie
+    met een `skip_to_section` onder een niet-vertakbare vraag is een slapende
+    vertakking die weer opleeft als iemand het type terugzet.
+    """
+    veld = next((f for f in form.fields if f.id == field_id), None)
+    if veld is None:
+        raise LookupError("Veld niet gevonden")
+    label = (waarden.get("label") or "").strip()
+    if not label:
+        raise FormulierFout("Elk veld heeft een vraag/label nodig.")
+
+    nieuw_type = (waarden.get("field_type") or "").strip()
+    if nieuw_type and nieuw_type != veld.field_type:
+        if nieuw_type not in FIELD_TYPES:
+            raise FormulierFout(f"Ongeldig veldtype: {nieuw_type}")
+        if submission_count(db, form.id):
+            raise FormulierFout(
+                "Dit formulier heeft al inzendingen. Het vraagtype wijzigen zou de "
+                "bewaarde antwoorden betekenisloos maken.")
+        veld.field_type = nieuw_type
+        if nieuw_type not in VERTAKBARE_VELDEN:
+            for optie in veld.options:
+                optie.skip_to_section_id = None
+                optie.skip_to_end = False
+
+    veld.label = label
+    _veldwaarden(veld, waarden)
     db.commit()
 
 
@@ -561,6 +611,35 @@ def move_field(db, form: Form, field_id: int, richting: str) -> None:
         raise LookupError("Veld niet gevonden")
     broers = [f for f in form.fields if f.section_id == veld.section_id]
     move_sibling(broers, field_id, richting, attr="position")
+    db.commit()
+
+
+def move_option(db, form: Form, option_id: int, richting: str) -> None:
+    """Herorden een keuze-optie binnen HAAR EIGEN veld (#697).
+
+    Zonder deze bewerking was een optie verplaatsen: verwijderen en opnieuw
+    toevoegen — en dan verlies je haar `skip_to_section` én haar id, en daarmee de
+    koppeling met alle antwoorden die er al naar verwijzen.
+
+    De broers-en-zussen zijn de opties van dít veld, niet van het formulier. Zou de
+    filter ontbreken, dan wisselt een optie van plaats met een optie uit een ándere
+    vraag — onzichtbaar zolang er maar één keuzeveld is, en meteen zichtbaar zodra
+    er twee zijn.
+
+    "Anders" krijgt geen bijzondere behandeling (beslissing Koen): ze mag ook in het
+    midden staan. Geen onzichtbare regel die haar achteraan duwt of de ↑-knop laat
+    weigeren.
+
+    Dezelfde helper als `move_field` en `move_section`; de relatie sorteert al op
+    `position`, dus het scherm hoeft niets te sorteren.
+    """
+    from app.kernel.ordering import move_sibling
+
+    veld = next((f for f in form.fields
+                 if any(o.id == option_id for o in f.options)), None)
+    if veld is None:
+        raise LookupError("Optie niet gevonden")
+    move_sibling(list(veld.options), option_id, richting, attr="position")
     db.commit()
 
 
@@ -605,6 +684,14 @@ def update_option(db, form: Form, option_id: int, *, label: str = "",
     veld = optie.field
     doel_id = (int(skip_to_section_id)
                if str(skip_to_section_id).strip().isdigit() else None)
+    # #699: "einde" én een sectie tegelijk is geen geldige toestand. Ze werden
+    # allebei weggeschreven zonder tegen elkaar afgewogen te worden, en het scherm
+    # liet het einde stil winnen (`_target()` in formulier.html vraagt eerst naar
+    # `end`). De beheerder zag zijn sectie staan en het formulier deed iets anders.
+    # De keuzelijst maakt dit onmogelijk; deze regel geldt óók voor de JSON-import.
+    if bool(skip_to_end) and doel_id is not None:
+        raise FormulierFout(
+            "Kies één bestemming: een sectie óf het einde, niet allebei.")
     if (bool(skip_to_end) or doel_id is not None) and veld.field_type not in VERTAKBARE_VELDEN:
         raise FormulierFout("Vertakking kan enkel bij 'één keuze' of 'keuzelijst'.")
     if doel_id is not None:
@@ -707,7 +794,7 @@ def list_forms(db, *, q: str = "", status: str = ""):
 # formulier met die naam kaapt dat scherm.
 GERESERVEERDE_SLUGS = frozenset({"berichten"})
 
-_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+_SLUG_RE = re.compile(r"^[a-z0-9]+(?:[-_][a-z0-9]+)*$")
 
 
 def normaliseer_slug(waarde) -> Optional[str]:
@@ -716,9 +803,13 @@ def normaliseer_slug(waarde) -> Optional[str]:
     Optioneel per formulier: de tokenlink blijft altijd werken, ook naast een slug.
     Rondgestuurde links mogen niet breken omdat iemand later een naam toevoegt.
 
-    Alleen kleine letters, cijfers en koppeltekens: de slug staat in een URL, en
-    spaties of hoofdletters worden per browser anders gecodeerd — dan werkt een
-    gekopieerde link soms wél en soms niet.
+    Alleen kleine letters, cijfers, koppeltekens en liggende streepjes: de slug
+    staat in een URL, en spaties of hoofdletters worden per browser anders gecodeerd
+    — dan werkt een gekopieerde link soms wél en soms niet.
+
+    Het liggend streepje kwam er met #694 bij: Koen vroeg in #690 letterlijk om
+    `enquete_ledenfeest_2026`, en die notatie weigeren terwijl ze in een URL niets
+    breekt is een regel omwille van de regel.
 
     Hoofdletters en witruimte aan de rand worden RECHTGEZET, een spatie in het
     midden wordt GEWEIGERD. Dat verschil is bewust: "Zomerfeest" heeft precies één
@@ -731,7 +822,8 @@ def normaliseer_slug(waarde) -> Optional[str]:
         return None
     if not _SLUG_RE.match(slug):
         raise HTTPException(status_code=422, detail=_(
-            "Gebruik alleen kleine letters, cijfers en koppeltekens in de link."))
+            "Gebruik alleen kleine letters, cijfers, koppeltekens (-) en liggende "
+            "streepjes (_) in de link."))
     if slug in GERESERVEERDE_SLUGS:
         raise HTTPException(status_code=422, detail=_(
             "Deze naam is voorbehouden aan de site zelf; kies een andere."))

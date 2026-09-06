@@ -22,6 +22,10 @@
     {% endfor %}
     <span class="ml-auto flex gap-2">
       {{ ui.btn_primary(_("Opslaan")) }}
+      {# §2.8 (#694): deze rij staat altijd open, dus er is geen paneel om te
+         sluiten. "Annuleren" betekent hier: gooi mijn typwerk weg en toon opnieuw
+         wat er bewaard staat. Een verse fragment-GET doet dat zonder JS. #}
+      {{ ui.btn_secondary(_("Annuleren"), attrs='hx-get="/admin/gebruikers?q=' ~ q ~ '&rol=' ~ rol ~ '&actief=' ~ actief ~ '" hx-target="#gu-lijst" hx-swap="innerHTML"') }}
       {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/gebruikers/' ~ u.id ~ '/verwijderen" hx-vals=\'{"q": "' ~ q ~ '", "rol": "' ~ rol ~ '", "actief": "' ~ actief ~ '"}\' hx-target="#gu-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Gebruiker"), u.email)) }}
     </span>
   </form>

@@ -143,6 +143,7 @@ from app.domains.forms.service import (  # noqa: E402,F401
     list_forms,
     list_submissions,
     move_field,
+    move_option,
     move_section,
     normaliseer_slug,
     update_field,

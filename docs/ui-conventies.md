@@ -125,7 +125,22 @@ leeg-teksten wisselen tussen "Geen …" en "Nog geen …" en tussen italic en ni
 - **Verwijderen: altijd laatst, altijd rood** (`text-red-600`), in het ⋯-menu
   zodra dat bestaat. Nooit een emoji, nooit verstopt — indien niet toegestaan
   (bv. geld bewoog): tonen maar disabled met tooltip-reden.
-- **Symbool-knoppen** (×, ⚙, …) krijgen altijd een `aria-label` (screenreader).
+- **Symbool-knoppen** krijgen altijd een `aria-label` (screenreader) én — sinds
+  #698 automatisch, in de `button`-macro — een `title` met dezelfde tekst, zodat wie
+  met een muis werkt niet hoeft te raden wat het symbool betekent.
+- **Eén betekenis per teken** (#698). De iconen komen uit de Lucide-set via
+  `ui.icon()`; losse glyphs zijn geen keuze maar een restant van vóór die helper.
+
+  | Teken | Betekent | En alleen dat |
+  |---|---|---|
+  | prullenbak (`trash-2`) | verwijderen | altijd rood (`btn_danger`) |
+  | potlood (`pencil`) | bewerken | niet het tandwiel: dát betekent *instellingen* |
+  | `×` | sluiten | een toast, een modal, een paneel — nooit verwijderen |
+
+  Waarom dit meer is dan opmaak: `×` sloot al een toast, en dat is een gratis
+  handeling. Datzelfde teken gebruiken voor "verwijder deze optie met haar
+  sprongregel en haar id" laat twee handelingen van heel verschillend gewicht er
+  identiek uitzien.
 
 ### 2.7 Verwijderen (bevestiging)
 - Eén `ConfirmDialog` met vaste template, infinitief + objectnaam:

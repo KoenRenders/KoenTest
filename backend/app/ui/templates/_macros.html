@@ -31,7 +31,11 @@
 {% macro button(label, variant="primary", type="submit", href=None, size="md", attrs="", cls="", lead_icon=None, confirm=None, aria_label=None) -%}
 {%- set _c = btn_class(variant, size) ~ (" " ~ cls if cls else "") -%}
 {%- set _ic = icon(lead_icon) if lead_icon else "" -%}
-{%- set _extra %}{% if confirm %} data-confirm="{{ confirm }}"{% endif %}{% if aria_label %} aria-label="{{ aria_label }}"{% endif %}{% if not href and "hx-disabled-elt" not in attrs %} hx-disabled-elt="this"{% endif %}{% endset -%}
+{#- #698: een knop met een `aria_label` en zonder zichtbare tekst krijgt óók een
+    `title`. De schermlezer had het label al; wie met een muis werkt zag alleen een
+    symbool. Hier in de macro en niet per knop, zodat élke symboolknop in de app
+    meteen gedekt is en de volgende het niet kan vergeten. -#}
+{%- set _extra %}{% if confirm %} data-confirm="{{ confirm }}"{% endif %}{% if aria_label %} aria-label="{{ aria_label }}"{% if not label %} title="{{ aria_label }}"{% endif %}{% endif %}{% if not href and "hx-disabled-elt" not in attrs %} hx-disabled-elt="this"{% endif %}{% endset -%}
 {% if href %}<a href="{{ href }}" class="{{ _c }}"{{ _extra }} {{ attrs|safe }}>{{ _ic }}{{ label }}</a>{% else %}<button type="{{ type }}" class="{{ _c }}"{{ _extra }} {{ attrs|safe }}>{{ _ic }}{{ label }}</button>{% endif %}
 {%- endmacro %}
 
@@ -71,7 +75,9 @@
   "map-pin": '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
   "calendar": '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
   "copy": '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
-  "check": '<path d="M20 6 9 17l-5-5"/>'} -%}
+  "check": '<path d="M20 6 9 17l-5-5"/>',
+  "trash-2": '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
+  "pencil": '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>'} -%}
 <svg xmlns="http://www.w3.org/2000/svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 {{ cls }}" aria-hidden="true">{{ paths.get(name, '')|safe }}</svg>
 {%- endmacro %}
 
@@ -237,14 +243,34 @@
 </div>
 {%- endmacro %}
 
-{# Reorder-knoppen (#594, §2.4): naar boven/onder verplaatsen — één glyph-set via
-   ui.icon() i.p.v. handmatige ▲▼/↑↓. `up_attrs`/`down_attrs` dragen de hx-* of href;
-   `first`/`last` dimmen de eindstanden. Dé enige reorder-vorm; schermen bouwen geen
-   eigen pijltjesknoppen meer. #}
-{% macro reorder(up_attrs="", down_attrs="", first=False, last=False) -%}
-<span class="inline-flex flex-col leading-none">
-  <button type="button" class="text-gray-400 hover:text-blue-700 disabled:opacity-30" {% if first %}disabled{% endif %} {{ up_attrs|safe }} aria-label="{{ _("Naar boven") }}">{{ icon('chevron-up', size=14) }}</button>
-  <button type="button" class="text-gray-400 hover:text-blue-700 disabled:opacity-30" {% if last %}disabled{% endif %} {{ down_attrs|safe }} aria-label="{{ _("Naar onder") }}">{{ icon('chevron-down', size=14) }}</button>
+{# Reorder-knoppen (#594, §2.4, herzien in #702): naar boven/onder verplaatsen.
+   `up_attrs`/`down_attrs` dragen de hx-* of href; `first`/`last` dimmen de
+   eindstanden. Dé enige reorder-vorm — en die zin was tot #702 onwaar: `section_bar`
+   had zijn eigen paar pijltjes, met een ándere vorm.
+
+   **Horizontaal, met chroom, met een gat ertussen.** De vorige versie stapelde twee
+   14px-chevrons zonder rand of achtergrond, grijs en zonder tussenruimte — letterlijk
+   de vorm van een spinner op een getalveld, en zo werd ze ook gelezen. Drie oorzaken
+   tegelijk: een chevron betekent uitklappen of scrollen (een pijl betekent
+   verplaatsen), zonder chroom en zonder gat versmelten twee knoppen tot één strookje,
+   en `text-gray-400` leest als versiering in plaats van als bediening.
+
+   Horizontaal ook op een optierij, ondanks de ruimte die dat lijkt te kosten: daar is
+   horizontale ruimte overvloedig en verticale schaars. Twee knoppen mét chroom bóven
+   elkaar maken zo'n rij bijna twee keer zo hoog, en dat betaal je op élke optie van
+   élke keuzevraag.
+
+   `op_donker` voor een blauwe balk (section_bar) tegenover een witte achtergrond.
+   Bewust een boolean en geen tekstwaarde: een verkeerd gespelde toon zou stil de
+   verkeerde variant geven, en dat is precies het soort stille fout dat we hier
+   vanavond meermaals tegenkwamen. #}
+{% macro reorder(up_attrs="", down_attrs="", first=False, last=False, op_donker=False) -%}
+{%- set _knop = ("px-1.5 py-0.5 rounded hover:bg-white/20 disabled:opacity-30"
+                 if op_donker else
+                 "px-1.5 py-0.5 rounded text-ink-soft hover:bg-gray-100 hover:text-blue-700 disabled:opacity-30") -%}
+<span class="inline-flex items-center gap-1">
+  {% if up_attrs %}<button type="button" class="{{ _knop }}" {% if first %}disabled{% endif %} {{ up_attrs|safe }} aria-label="{{ _("Naar boven") }}" title="{{ _("Naar boven") }}">{{ icon('arrow-up', size=14) }}</button>{% endif %}
+  {% if down_attrs %}<button type="button" class="{{ _knop }}" {% if last %}disabled{% endif %} {{ down_attrs|safe }} aria-label="{{ _("Naar onder") }}" title="{{ _("Naar onder") }}">{{ icon('arrow-down', size=14) }}</button>{% endif %}
 </span>
 {%- endmacro %}
 
@@ -367,8 +393,11 @@
           class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>{{ value }}</textarea>
 {%- endmacro %}
 
-{% macro select_control(name, cls="", attrs="") -%}
-<select name="{{ name }}" class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>{{ caller() }}</select>
+{# `aria_label` als parameter en niet via `attrs` (#663/#699): `_()` levert Markup,
+   dus een vertaalde tekst met `~` in een attrs-string aan elkaar plakken escapet de
+   gewone helft — de klasse fout uit #514/#613. #}
+{% macro select_control(name, cls="", attrs="", aria_label=None, disabled=False, title=None) -%}
+<select name="{{ name }}" class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}{% if disabled %} opacity-60 cursor-not-allowed{% endif %}"{% if aria_label %} aria-label="{{ aria_label }}"{% endif %}{% if title %} title="{{ title }}"{% endif %}{% if disabled %} disabled{% endif %} {{ attrs|safe }}>{{ caller() }}</select>
 {%- endmacro %}
 
 {# ── Paginering (#528 as C) ───────────────────────────────────────────────────
@@ -635,8 +664,9 @@
 <div class="flex items-center justify-between gap-2 bg-blue-700 text-white px-4 py-2">
   <span class="font-semibold text-sm">{{ label }}</span>
   <div class="flex items-center gap-1">
-    {% if up_attrs %}<button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/20" {{ up_attrs|safe }} aria-label="{{ _('Omhoog') }}">{{ icon('arrow-up', size=14) }}</button>{% endif %}
-    {% if down_attrs %}<button type="button" class="px-1.5 py-0.5 rounded hover:bg-white/20" {{ down_attrs|safe }} aria-label="{{ _('Omlaag') }}">{{ icon('arrow-down', size=14) }}</button>{% endif %}
+    {# #702: dezelfde macro, niet een tweede stel pijltjes. Zo blijft "dé enige
+       reorder-vorm" waar, en gaan de twee niet opnieuw uit elkaar lopen. #}
+    {{ reorder(up_attrs=up_attrs, down_attrs=down_attrs, op_donker=True) }}
     {% if edit_attrs %}<button type="button" class="px-2 py-0.5 rounded hover:bg-white/20 text-sm" {{ edit_attrs|safe }}><span x-show="!sedit">{{ _("Bewerken") }}</span><span x-show="sedit" x-cloak>{{ _("Annuleren") }}</span></button>{% endif %}
     {% if delete_attrs %}<button type="button" class="px-2 py-0.5 rounded bg-red-500/30 hover:bg-red-500/60" {{ delete_attrs|safe }} aria-label="{{ _('Verwijderen') }}">×</button>{% endif %}
   </div>

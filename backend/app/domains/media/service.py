@@ -13,6 +13,7 @@ from typing import Optional, Sequence
 
 from app.domains.media.images import ALLOWED_CONTENT_TYPES, ImageError, process_image
 from app.domains.media.models import MediaAsset
+from app.i18n import _
 
 VALID_KINDS = {"sponsor", "activity_photo"}
 MAX_BATCH = 20
@@ -120,7 +121,10 @@ async def upload_media(db, *, files: Sequence, kind: str,
         raise MediaFout("Ongeldige 'kind'")
     if kind == "activity_photo":
         if activity_id is None:
-            raise MediaFout("activity_id vereist voor activiteitenfoto's")
+            # #696: v1.14 zei "Kies eerst een activiteit." en dat is wat de
+            # gebruiker moet doen; "activity_id vereist" is de naam van een
+            # kolom. Deze tekst komt in de foutbanner op het uploadscherm.
+            raise MediaFout(_("Kies eerst een activiteit."))
         if not db.query(Activity).filter(Activity.id == activity_id).first():
             raise LookupError("Activiteit niet gevonden")
     else:
