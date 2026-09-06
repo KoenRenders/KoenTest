@@ -30,7 +30,7 @@ def _family_payload(email):
         "payment_method": "transfer",
         "members": [
             {"last_name": "Lid", "first_name": "Jan", "email": email,
-             "mobile": "0470000000", "relation_type": "HOOFDLID"},
+             "mobile": "0470000000", "date_of_birth": "1980-01-01", "gender_code": "M", "relation_type": "HOOFDLID"},
         ],
     }
 

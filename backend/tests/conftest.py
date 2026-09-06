@@ -143,7 +143,11 @@ def mock_mollie(monkeypatch):
 def create_test_person(db, **kwargs):
     from datetime import date
     from app.domains.mdm.api import Person
-    defaults = {"first_name": "Test", "last_name": "Persoon", "date_of_birth": date(1990, 1, 1)}
+    # `gender_code` hoort erbij sinds #681: geboortedatum én geslacht zijn verplicht
+    # voor élk lid, dus een testpersoon zonder geslacht is geen geldig lid meer en
+    # zou op elke bewerkweg afketsen.
+    defaults = {"first_name": "Test", "last_name": "Persoon",
+                "date_of_birth": date(1990, 1, 1), "gender_code": "M"}
     person = Person(**{**defaults, **kwargs})
     db.add(person)
     db.flush()

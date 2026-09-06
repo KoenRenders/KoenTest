@@ -14,7 +14,7 @@ def _family_with_membership(client, db):
         "payment_method": "transfer",
         "members": [{"last_name": "Wiske", "first_name": "Suske",
                      "email": "suske@suske.be", "mobile": "0470111111",
-                     "relation_type": "HOOFDLID"}],
+                     "date_of_birth": "1980-01-01", "gender_code": "M", "relation_type": "HOOFDLID"}],
     })
     assert resp.status_code == 201, resp.text
     return db.query(Member).order_by(Member.id.desc()).first()

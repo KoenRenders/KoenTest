@@ -33,6 +33,8 @@ from app.domains.audit.api import (
     snapshot_address,
     snapshot_contact_detail,
 )
+from app.domains.membership.service import (LidgegevensFout,
+                                            controleer_geboortedatum_en_geslacht)
 from app.soft_delete import soft_delete
 from app.i18n import _
 
@@ -264,15 +266,29 @@ def update_person(
     # Enkel toegestane velden; relation_type, board_member_id, ExternalNumber
     # worden nooit aangeraakt.
     actor = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
-    changed = False
+    nieuw: dict = {}
     for field in ("first_name", "last_name", "date_of_birth", "gender_code"):
         if field not in data:
             continue
         new_val = data[field] or None
         if field == "date_of_birth" and new_val is not None and not isinstance(new_val, date):
             new_val = date.fromisoformat(new_val)
-        # Enkel snapshotten wat écht wijzigt (#188): een formulier stuurt alle velden,
-        # maar een onveranderd veld hoort geen history-rij te maken.
+        nieuw[field] = new_val
+
+    # #681: toets de uitkomst — het portaal stuurt niet altijd alle velden mee —
+    # en toets ze vóór het toepassen: een `rollback()` ná het muteren gooit ook al
+    # het andere werk in dezelfde sessie weg.
+    try:
+        controleer_geboortedatum_en_geslacht(
+            nieuw.get("date_of_birth", target.date_of_birth),
+            nieuw.get("gender_code", target.gender_code))
+    except LidgegevensFout as fout:
+        raise HTTPException(status_code=422, detail=str(fout))
+
+    # Enkel snapshotten wat écht wijzigt (#188): een formulier stuurt alle velden,
+    # maar een onveranderd veld hoort geen history-rij te maken.
+    changed = False
+    for field, new_val in nieuw.items():
         if getattr(target, field) != new_val:
             setattr(target, field, new_val)
             changed = True
@@ -349,6 +365,11 @@ def add_person(
     last_name = (data.get("last_name") or "").strip()
     if not first_name or not last_name:
         raise HTTPException(status_code=422, detail=_("Voornaam en achternaam zijn verplicht."))
+    try:
+        controleer_geboortedatum_en_geslacht(data.get("date_of_birth"),
+                                             data.get("gender_code"))
+    except LidgegevensFout as fout:
+        raise HTTPException(status_code=422, detail=str(fout))
 
     new_person = Person(
         first_name=first_name,

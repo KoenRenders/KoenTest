@@ -25,6 +25,8 @@ from app.config import settings
 from app.domains.mdm.api import (Address, ContactDetail, Member, MemberPerson,
                                  Person, PostalCode)
 from app.domains.membership.models import Membership
+from app.domains.membership.service import (LidgegevensFout,
+                                            controleer_geboortedatum_en_geslacht)
 from app.domains.membership.schemas_member import (
     AddressUpdate,
     BoardMemberAssign,
@@ -122,6 +124,15 @@ def create_member(db: Session, data: MemberCreate, _admin=None):
     snapshot_member(db, member, operation="insert", action="member_created", source="system")
 
     for person_data in data.persons:
+        # #681: ook hier, want dit is de weg van het beheerscherm "Nieuw lid". Een
+        # ingang die de regel overslaat maakt het gat even groot als voordien.
+        try:
+            controleer_geboortedatum_en_geslacht(
+                person_data.date_of_birth,
+                person_data.gender_code or person_data.gender)
+        except LidgegevensFout as fout:
+            raise HTTPException(status_code=422, detail=str(fout))
+
         person = Person(
             last_name=person_data.last_name,
             first_name=person_data.first_name,
@@ -305,8 +316,21 @@ def update_person(db: Session, person_id: int, data: PersonUpdate, admin=None):
         raise HTTPException(status_code=404, detail=_("Person not found"))
     # Enkel snapshotten wat écht wijzigt (#188): een formulier stuurt alle velden mee,
     # maar een onveranderd veld hoort geen history-rij te maken.
+    wijzigingen = data.model_dump(exclude_unset=True)
+    # #681: toets de UITKOMST, en toets ze vóór het toepassen. Een gedeeltelijke
+    # wijziging (enkel de naam) mag niet afketsen op een veld dat niet meegestuurd
+    # werd, maar ze mag de persoon evenmin zónder deze twee achterlaten. Vooraf,
+    # niet achteraf: een `rollback()` ná het muteren gooit ook al het andere werk
+    # in dezelfde sessie weg.
+    try:
+        controleer_geboortedatum_en_geslacht(
+            wijzigingen.get("date_of_birth", person.date_of_birth),
+            wijzigingen.get("gender_code", person.gender_code))
+    except LidgegevensFout as fout:
+        raise HTTPException(status_code=422, detail=str(fout))
+
     changed = False
-    for field, value in data.model_dump(exclude_unset=True).items():
+    for field, value in wijzigingen.items():
         if getattr(person, field) != value:
             setattr(person, field, value)
             changed = True
@@ -417,6 +441,11 @@ def add_person_to_family(
     member = db.query(Member).filter(Member.id == family_id).first()
     if not member:
         raise HTTPException(status_code=404, detail=_("Family not found"))
+
+    try:
+        controleer_geboortedatum_en_geslacht(data.date_of_birth, data.gender_code)
+    except LidgegevensFout as fout:
+        raise HTTPException(status_code=422, detail=str(fout))
 
     person = Person(
         last_name=data.last_name,

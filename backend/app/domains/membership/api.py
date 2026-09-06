@@ -17,6 +17,8 @@ from app.domains.membership.schemas_member import (  # noqa: F401
     PostalCodeResponse,
 )
 from app.domains.membership.service import (  # noqa: F401
+    LidgegevensFout,
+    controleer_geboortedatum_en_geslacht,
     has_valid_membership,
     members_valid_on,
     members_with_membership_for_year,
@@ -41,6 +43,8 @@ __all__ = [
     "members_valid_on", "members_with_membership_for_year",
     "membership_years", "not_renewed_count", "renewal_years",
     "renewal_available", "renewal_open", "valid_membership_until",
+    # Verplichte lidgegevens (#681)
+    "LidgegevensFout", "controleer_geboortedatum_en_geslacht",
     # Schrijfbewerkingen op gezinnen/personen/lidmaatschappen (#635 H)
     "add_person_to_family", "assign_board_member", "create_member",
     "create_membership_for_family", "delete_family", "delete_membership", "delete_person", "get_family",

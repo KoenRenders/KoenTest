@@ -44,6 +44,7 @@ def test_lid_worden_formulier_en_registratie(client, db_session, mock_mollie):
     resp = client.post("/lid-worden", data={
         "m0_first_name": "An", "m0_last_name": "Peeters",
         "m0_email": "an@example.com", "m0_mobile": "0470000000",
+        "m0_date_of_birth": "1980-01-01", "m0_gender_code": "F",
         "m0_relation_type": "HOOFDLID",
         "m1_first_name": "Bart", "m1_last_name": "Peeters",
         "m1_relation_type": "PARTNER",
@@ -67,9 +68,11 @@ def test_bijkomend_lid_vereist_dob_en_geslacht(client, db_session):
     resp = client.post("/lid-worden", data={
         "m0_first_name": "An", "m0_last_name": "Peeters",
         "m0_email": "an@example.com", "m0_mobile": "0470000000",
+        "m0_date_of_birth": "1980-01-01", "m0_gender_code": "F",
         "m0_relation_type": "HOOFDLID",
         "m1_first_name": "Bart", "m1_last_name": "Peeters", "m1_relation_type": "PARTNER",
-        # bewust géén m1_date_of_birth / m1_gender_code
+        # bewust géén m1_date_of_birth / m1_gender_code — het hoofdlid is compleet,
+        # dus enkel het bijkomende lid kan de weigering veroorzaken (#681).
         "street": "Dorpsstraat", "house_number": "1", "postal_code": "2400",
         "payment_method": "online",
     })
@@ -80,6 +83,7 @@ def test_lid_worden_validatiefout_toont_banner(client, db_session):
     seed_postal_code(db_session, code="2400", municipality="Mol")
     resp = client.post("/lid-worden", data={
         "m0_first_name": "Zonder", "m0_last_name": "Mail",
+        "m0_date_of_birth": "1980-01-01", "m0_gender_code": "M",
         "m0_relation_type": "HOOFDLID",
         "street": "X", "house_number": "1", "postal_code": "2400",
         "payment_method": "online",

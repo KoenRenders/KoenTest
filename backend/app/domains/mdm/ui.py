@@ -144,18 +144,25 @@ def lid_nieuw(request: Request, db: Session = Depends(get_db),
     return templates.TemplateResponse(request, "leden_nieuw.html", {
         "nav_items": NAV,
         "csrf_token": csrf_from_request(request),
+        **_codes(db),
     })
 
 
 @router.post("/admin/leden", dependencies=[Depends(require_csrf)])
 def gezin_aanmaken(request: Request, db: Session = Depends(get_db),
                    email: str = Depends(require_admin_ui),
-                   first_name: str = Form(""), last_name: str = Form("")) -> Response:
+                   first_name: str = Form(""), last_name: str = Form(""),
+                   date_of_birth: str = Form(""),
+                   gender_code: str = Form("")) -> Response:
     """Nieuw gezin met zijn hoofdlid (#582).
 
-    De modal vraagt enkel de naam; adres, contactgegevens en lidmaatschappen vul
-    je aan in de editor waar je meteen op uitkomt — dezelfde vorm als de andere
-    records-lijsten.
+    Het scherm vraagt naam, geboortedatum en geslacht; adres, contactgegevens en
+    lidmaatschappen vul je aan in de editor waar je meteen op uitkomt — dezelfde
+    vorm als de andere records-lijsten.
+
+    Die twee extra velden kwamen er met #681. Het scherm vroeg enkel een naam
+    (#627), en dat was precies de weg waarlangs een lid zónder geboortedatum en
+    geslacht in het bestand kon komen terwijl élke andere ingang ze afdwingt.
     """
     from app.domains.membership.api import MemberCreate, PersonCreate, create_member
 
@@ -164,6 +171,7 @@ def gezin_aanmaken(request: Request, db: Session = Depends(get_db),
                             detail=_("Voornaam en achternaam zijn verplicht."))
     gezin = create_member(db, MemberCreate(persons=[PersonCreate(
         first_name=first_name.strip(), last_name=last_name.strip(),
+        date_of_birth=date_of_birth or None, gender_code=gender_code or None,
         relation_type="HOOFDLID")]))
     return Response(status_code=204,
                     headers={"HX-Redirect": f"/admin/leden/gezin/{gezin.id}"})

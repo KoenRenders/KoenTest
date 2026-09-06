@@ -26,6 +26,8 @@ def test_gezin_portaal_toont_leden_en_muteert(client, db_session):
 
     resp = client.post(f"/leden/gezin/personen/{person.id}",
                        data={"first_name": "Aangepast", "last_name": person.last_name,
+                             "date_of_birth": person.date_of_birth.isoformat(),
+                             "gender_code": person.gender_code,
                              "email": "portaal@example.com"},  # #511: veldnaam `email`
                        headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 200 and "Aangepast" in resp.text
@@ -33,7 +35,8 @@ def test_gezin_portaal_toont_leden_en_muteert(client, db_session):
     assert db_session.get(Person, person.id).first_name == "Aangepast"
 
     nieuw = client.post("/leden/gezin/personen",
-                        data={"first_name": "Kindje", "last_name": "Persoon"},
+                        data={"first_name": "Kindje", "last_name": "Persoon",
+                              "date_of_birth": "2015-06-07", "gender_code": "F"},
                         headers={"X-CSRF-Token": csrf})
     assert nieuw.status_code == 200 and "Kindje" in nieuw.text
 

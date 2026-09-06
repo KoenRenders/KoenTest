@@ -16,7 +16,7 @@ def _make_person(client, db):
         "payment_method": "transfer",
         "members": [{"last_name": "Wiske", "first_name": "Suske",
                      "email": "suske@suske.be", "mobile": "0470111111",
-                     "relation_type": "HOOFDLID"}],
+                     "date_of_birth": "1980-01-01", "gender_code": "M", "relation_type": "HOOFDLID"}],
     })
     assert resp.status_code == 201, resp.text
     return db.query(Person).order_by(Person.id.desc()).first()

@@ -83,7 +83,8 @@
          include_relation=False: relatie blijft read-only in de kop (portaal-pariteit). #}
       {{ ui.person_fields(name_prefix="", id_prefix="p" ~ p.id ~ "-", pv=p,
                           gender_codes=gender_codes, relation_types=relation_types,
-                          include_relation=False, hoofdlid=_hoofd) }}
+                          include_relation=False, hoofdlid=_hoofd,
+                          require_birth_gender=True) }}
       {% if p.address %}
       <div class="grid grid-cols-4 gap-3">
         <div class="col-span-2">{{ ui.label(_("Straat"), "ps-" ~ p.id, required=_hoofd) }}
@@ -115,7 +116,8 @@
       {# Gedeelde veldenset (#511); portaal-pariteit: geen relatie-keuze in de add-flow. #}
       {{ ui.person_fields(name_prefix="", id_prefix="np-", pv=None,
                           gender_codes=gender_codes, relation_types=relation_types,
-                          include_relation=False, hoofdlid=False) }}
+                          include_relation=False, hoofdlid=False,
+                          require_birth_gender=True) }}
       {{ ui.btn_primary(_("Toevoegen")) }}
     </form>
   </div>

@@ -49,7 +49,9 @@ def test_persoon_bewerken_via_scherm(client, db_session):
     resp = client.post(f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
                        data={"first_name": "Nieuw", "last_name": "Naam",
                              "email": "nieuw@example.com",
-                             "mobile": "0470000000"},
+                             "mobile": "0470000000",
+                             "date_of_birth": person.date_of_birth.isoformat(),
+                             "gender_code": person.gender_code},
                        headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 200 and "Nieuw Naam" in resp.text
     db_session.expire_all()
@@ -69,7 +71,9 @@ def test_persoon_toevoegen_met_relatietype(client, db_session):
     csrf = _login(client)
     resp = client.post(f"/admin/leden/gezin/{member.id}/personen",
                        data={"first_name": "Partner", "last_name": "Test",
-                             "email": "partner@example.com", "relation_type": "PARTNER"},
+                             "email": "partner@example.com",
+                             "date_of_birth": "1985-05-05", "gender_code": "F",
+                             "relation_type": "PARTNER"},
                        headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 200 and "Partner Test" in resp.text
     db_session.expire_all()
@@ -134,12 +138,14 @@ def test_relatietype_bewerken(client, db_session):
     csrf = _login(client)
     client.post(f"/admin/leden/gezin/{member.id}/personen",
                 data={"first_name": "Partner", "last_name": "Persoon",
+                      "date_of_birth": "1985-05-05", "gender_code": "F",
                       "relation_type": "PARTNER"}, headers={"X-CSRF-Token": csrf})
     partner = db_session.query(Person).filter(Person.first_name == "Partner").one()
 
     # Partner -> KIND.
     resp = client.post(f"/admin/leden/gezin/{member.id}/persoon/{partner.id}",
                        data={"first_name": "Partner", "last_name": "Persoon",
+                             "date_of_birth": "1985-05-05", "gender_code": "F",
                              "relation_type": "KIND"}, headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 200
     db_session.expire_all()
@@ -150,6 +156,8 @@ def test_relatietype_bewerken(client, db_session):
     # Een poging om het hoofdlid te degraderen wordt genegeerd.
     client.post(f"/admin/leden/gezin/{member.id}/persoon/{hoofd.id}",
                 data={"first_name": hoofd.first_name, "last_name": hoofd.last_name,
+                      "date_of_birth": hoofd.date_of_birth.isoformat(),
+                      "gender_code": hoofd.gender_code,
                       "relation_type": "KIND"}, headers={"X-CSRF-Token": csrf})
     db_session.expire_all()
     assert db_session.query(MemberPerson).filter(

@@ -271,3 +271,34 @@ def membership_years(db) -> list[int]:
 
     return [jaar for (jaar,) in db.query(Membership.year).distinct()
             .order_by(Membership.year.desc()).all() if jaar]
+
+
+# ── Verplichte lidgegevens (#681) ────────────────────────────────────────────
+
+class LidgegevensFout(ValueError):
+    """Een lid mist een verplicht gegeven. Geen HTTPException: de regel geldt voor
+    élke ingang, en welke statuscode daarbij hoort weet alleen die ingang."""
+
+
+def controleer_geboortedatum_en_geslacht(date_of_birth, gender_code) -> None:
+    """Geboortedatum én geslacht zijn verplicht voor élk lid (#681).
+
+    Dit stond eerder als een lus in `register_router.register_family` en gold
+    alleen voor de bijkomende gezinsleden (#551); het hoofdlid was uitgezonderd en
+    de beheerkant toetste helemaal niets. Eén regel op zes schrijfwegen betekent
+    één plek waar ze staat — hier — en zes aanroepen, niet zes formuleringen.
+
+    Toets op de **uitkomst**, niet op de invoer. Een gedeeltelijke wijziging (het
+    portaal dat alleen een naam meestuurt) mag geen lid achterlaten zónder deze
+    velden, en mag evenmin afketsen op een veld dat niet meegestuurd werd. Roep
+    deze functie dus aan met de waarden zoals de persoon ze ná de wijziging heeft.
+
+    De kolommen blijven bewust nullable: op productie missen twee personen een
+    geboortedatum, en een NOT NULL-migratie zou daarop breken zonder ooit een
+    leesbare melding te kunnen geven. De databank als vangnet is #94.
+    """
+    from app.i18n import _
+
+    if not date_of_birth or not (gender_code or "").strip():
+        raise LidgegevensFout(
+            _("Geboortedatum en geslacht zijn verplicht voor elk gezinslid."))

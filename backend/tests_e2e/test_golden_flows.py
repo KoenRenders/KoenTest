@@ -31,6 +31,10 @@ def _vul_hoofdlid(page, email: str):
     page.fill("#m0_last_name", "Gezin")
     page.fill("#m0_email", email)
     page.fill("#m0_mobile", "0470000000")
+    # #681: verplicht voor élk lid, hoofdlid incluis — zonder deze twee blokkeert
+    # de browser de submit op `required` en komt het formulier niet weg.
+    page.fill("#m0_date_of_birth", "1980-01-01")
+    page.select_option("#m0_gender_code", "M")
     page.fill("#street", "Teststraat")
     page.fill("#house_number", "1")
 

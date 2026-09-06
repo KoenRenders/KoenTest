@@ -115,6 +115,15 @@
      een inschrijving met meerdere charges meerdere regels die elk "Totaal
      inschrijving" heetten. #}
   {% for groep in groepen %}
+  {# #682: één kader per groep. De totaalregel hing eronder zonder dat iets aangaf
+     wélke kaarten ze optelt. Het kader omvat de inspringing van #673 — het staat
+     eromheen, het concurreert er niet mee.
+
+     Alleen wanneer er iets te groeperen valt (`toon_totaal`, oftewel meer dan één
+     record): een rand rond één losse kaart is een tweede rand om hetzelfde en zegt
+     niets. Zonder kader blijft de wrapper bestaan voor de tussenruimte. #}
+  {% set _kader = groep.toon_totaal %}
+  <div class="{{ 'rounded-2xl border border-gray-200 bg-gray-50 p-3 space-y-3' if _kader else 'space-y-3' }}">
   {% for kaart, refunds in groep.kaarten %}
   {# Geen gekleurde statusstreep meer (B6, #596): de staat blijkt al uit de badge
      rechts. Eén status-signaal i.p.v. twee — de kaart draagt de neutrale kit-rand. #}
@@ -228,14 +237,23 @@
      werk. Verschijnt zodra er meer dan één record is: twee charges zonder refund
      verdienen net zo goed een totaal. #}
   {% if groep.toon_totaal %}
-  <div class="ml-4 flex flex-wrap justify-end gap-4 text-sm border-t border-gray-200 pt-2">
+  <div class="flex flex-wrap justify-end gap-4 text-sm border-t border-gray-200 pt-2">
     <span class="text-ink-soft">{{ _("Totaal inschrijving") }}</span>
     <span>{{ _("Bedrag") }}: <strong>€ {{ "%.2f"|format(groep.totaal.due) }}</strong></span>
     <span>{{ _("Ontvangen") }}: € {{ "%.2f"|format(groep.totaal.paid) }}</span>
+    {# #682: "Ontvangen 40,00" bij "Bedrag 30,00" leest als een fout, en het enige
+       wat nog actie vraagt — die tien euro uitbetalen — zat onzichtbaar in het
+       saldo. Deze term komt uit de service (`_nog_uit_te_betalen`) en is een
+       ándere grootheid dan het saldo, geen tweede som ervan. Alleen tonen als er
+       iets openstaat: anders krijgt elke gewone inschrijving een lege kolom. #}
+    {% if groep.terug_te_betalen > 0 %}
+    <span class="text-teal-700 font-medium">{{ _("Terug te betalen") }}: € {{ "%.2f"|format(groep.terug_te_betalen) }}</span>
+    {% endif %}
     <span class="{{ 'text-teal-700 font-medium' if groep.totaal.saldo < 0 else ('text-orange-700 font-medium' if groep.totaal.saldo > 0 else 'text-ink-soft') }}">
       {{ _("Saldo") }}: € {{ "%.2f"|format(groep.totaal.saldo) }}</span>
   </div>
   {% endif %}
+  </div>
   {% endfor %}
 </div>
 {% else %}
