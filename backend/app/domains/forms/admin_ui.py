@@ -430,6 +430,12 @@ async def json_import(form_id: int, request: Request, db: Session = Depends(get_
         # stilzwijgend als "alle velden zonder sectie" binnenkomen — wat Koen zag.
         assert_geen_id_vorm(rauw_json)
         data = FormUpdate(**rauw_json)
+    except HTTPException as exc:
+        # Als foutbanner, niet als kale 422: dit scherm swapt het antwoord, dus een
+        # 422 zou de generieke htmx-toast opleveren en juist de uitleg wegnemen die
+        # zegt wát er mis is met het bestand. Zelfde weg als de andere importfouten
+        # hieronder.
+        return _builder_response(request, db, form, error=str(exc.detail))
     except (json.JSONDecodeError, ValueError) as exc:
         return _builder_response(request, db, form,
                                  error=_("Ongeldige JSON: %(exc)s") % {"exc": exc})
