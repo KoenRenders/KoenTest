@@ -94,23 +94,73 @@ def gevulde_admin(client, db_session):
             "formulier": formulier.id, "pagina": pagina.id}
 
 
+def _admin_gets_zonder_parameter() -> list[str]:
+    """Élke admin-GET zonder padparameter, uit de ROUTETABEL (#695).
+
+    De lijst was het menu plus vijf met de hand opgesomde detailschermen. Daardoor
+    zag deze gate zeventien admin-GET-routes niet, waaronder alle zes de
+    aanmaakschermen — en #627 maakte in één klap precies zo'n soort pagina, buiten
+    het menu om. Zelfs mét de juiste controle had de gate de kapotte doelen op
+    /admin/media/nieuw en /admin/gebruikers/nieuw gemist, simpelweg omdat hij die
+    pagina's nooit opende.
+
+    Er stond al een `assert len(_ADMIN_NAV) >= 13` die bewaakt dat het menu niet
+    krimpt; niets bewaakte dat de gate álle schermen ziet. Uit de routetabel lezen
+    doet dat wel: een nieuw scherm is meteen meegetest, zonder dat iemand eraan hoeft
+    te denken.
+    """
+    from fastapi.responses import HTMLResponse
+
+    from app.main import app
+
+    paden = set()
+    for route in app.routes:
+        pad = getattr(route, "path", "")
+        methoden = getattr(route, "methods", set()) or set()
+        if not pad.startswith("/admin") or "{" in pad or "GET" not in methoden:
+            continue
+        # Alleen schermen. Exports leveren een bestand en de JSON-API onder /admin
+        # levert geen HTML; die hebben geen hx-target om te controleren en zouden
+        # de gate enkel ruis geven.
+        if getattr(route, "response_class", None) is not HTMLResponse:
+            continue
+        paden.add(pad)
+    return sorted(paden)
+
+
+def _open(client, pad: str):
+    """De HTML van een adminpagina, of None als ze voor deze sessie niet open gaat.
+
+    Een 301 (`/admin/instellingen` ging op in /admin/tenants) of een 403 (tenants is
+    OPERATOR-only) is geen renderfout — dat scherm bestaat gewoon niet voor deze
+    gebruiker. Álles daarbuiten wél: een 404 of een 500 hoort deze gate rood te
+    maken, want dan is er iets stuk.
+    """
+    resp = client.get(pad)
+    if resp.status_code in (301, 302, 307, 308, 401, 403):
+        return None
+    assert resp.status_code == 200, f"{pad} → {resp.status_code}"
+    return resp.text
+
+
 def _paginas(ids) -> list[str]:
     detail = [f"/admin/leden/gezin/{ids['member']}",
               f"/admin/activiteiten/{ids['activity']}",
               f"/admin/inschrijvingen/{ids['registration']}",
               f"/admin/formulieren/{ids['formulier']}",
               f"/admin/paginas/{ids['pagina']}"]
-    return [href for href, _label in _ADMIN_NAV] + detail
+    return _admin_gets_zonder_parameter() + detail
 
 
 def test_geen_geescapete_attributen_op_enige_adminpagina(client, gevulde_admin):
     """De klasse die drie keer opdook (#514/#613/#616), nu op de output getoetst."""
     fouten = []
     for pad in _paginas(gevulde_admin):
-        resp = client.get(pad)
-        assert resp.status_code == 200, f"{pad} → {resp.status_code}"
-        for treffer in GEESCAPED.finditer(resp.text):
-            regel = resp.text[:treffer.start()].count("\n") + 1
+        html = _open(client, pad)
+        if html is None:
+            continue
+        for treffer in GEESCAPED.finditer(html):
+            regel = html[:treffer.start()].count("\n") + 1
             fouten.append(f"{pad} (regel {regel}): {treffer.group(0)}")
     assert not fouten, (
         "Ge-escapete attributen in de gerenderde HTML — htmx ziet ze niet en de knop "
@@ -122,7 +172,9 @@ def test_elk_htmx_element_heeft_een_bruikbaar_doel(client, gevulde_admin):
     """Een hx-target die niet als selector te lezen is, mislukt stil in de browser."""
     fouten = []
     for pad in _paginas(gevulde_admin):
-        html = client.get(pad).text
+        html = _open(client, pad)
+        if html is None:
+            continue
         for element in HX_ELEMENT.finditer(html):
             doel = HX_TARGET.search(element.group(0))
             if doel is None:
@@ -135,14 +187,30 @@ def test_elk_htmx_element_heeft_een_bruikbaar_doel(client, gevulde_admin):
                 continue
             if not re.match(r"^[#.\[]?[\w\-\[\]='\"#. >:()]+$", waarde):
                 fouten.append(f"{pad}: doel parseert niet als selector: {waarde!r}")
-    assert not fouten, "Onbruikbare hx-target:\n  " + "\n  ".join(fouten)
+                continue
+            # #695: leesbaar is niet hetzelfde als bestaand. `#me-lijst` leest
+            # perfect, maar het element stond alleen op de lijstpagina — en htmx
+            # zoekt het doel vóórdat hij verstuurt, dus het verzoek vertrok nooit.
+            # Uploaden en Annuleren deden allebei niets, en de gate zag het niet:
+            # hij vroeg alleen óf de waarde als selector te lezen was.
+            #
+            # Alleen `#id`-doelen: die zijn eenduidig te controleren zonder een DOM
+            # te bouwen, en het is de vorm die in dit project overal gebruikt wordt.
+            if re.fullmatch(r"#[\w\-]+", waarde):
+                if f'id="{waarde[1:]}"' not in html:
+                    fouten.append(
+                        f"{pad}: doel {waarde} bestaat niet op deze pagina")
+    assert not fouten, (
+        "Onbruikbare hx-target — htmx zoekt het doel vóór het verzoek vertrekt, dus "
+        "een onvindbaar doel maakt de knop volledig inert (#695):\n  "
+        + "\n  ".join(fouten))
 
 
 def test_geen_hx_confirm_in_de_output(client, gevulde_admin):
     """Bevestiging gaat sinds #595 via de in-app modal; hx-confirm toont het native
     browser-confirm. De lint-gate dekt de templates, dit de gerenderde output."""
     fouten = [pad for pad in _paginas(gevulde_admin)
-              if "hx-confirm" in client.get(pad).text]
+              if "hx-confirm" in (_open(client, pad) or "")]
     assert not fouten, f"hx-confirm in de output van: {fouten}"
 
 
@@ -152,3 +220,25 @@ def test_de_gate_dekt_alle_menu_items(client, gevulde_admin):
     assert len(_ADMIN_NAV) >= 13
     for pad, _label in _ADMIN_NAV:
         assert client.get(pad).status_code == 200, f"{pad} rendert niet"
+
+
+def test_de_gate_ziet_ook_de_aanmaakschermen(client, gevulde_admin):
+    """Bewaakt de bron van de paginalijst (#695).
+
+    De lijst kwam uit het menu plus vijf handgeschreven detailpaden, en miste
+    daardoor álle zes de aanmaakschermen — precies de soort pagina die #627
+    introduceerde. De controle op onvindbare doelen zou de twee kapotte schermen
+    ook mét de juiste regel gemist hebben, simpelweg omdat hij ze nooit opende.
+
+    Deze test bewaakt niet dát ze werken (dat doen de gates hierboven), maar dat ze
+    in beeld zijn. Zonder haar kan de routetabel-afleiding stilletjes terug naar een
+    handlijst zonder dat iets rood wordt.
+    """
+    gezien = set(_paginas(gevulde_admin))
+    for pad in ("/admin/media/nieuw", "/admin/gebruikers/nieuw",
+                "/admin/activiteiten/nieuw", "/admin/formulieren/nieuw",
+                "/admin/paginas/nieuw", "/admin/leden/nieuw"):
+        assert pad in gezien, f"{pad} valt buiten de rendergate"
+    assert len(gezien) >= 20, (
+        f"de gate ziet er nog maar {len(gezien)}; kwam de paginalijst terug uit een "
+        "handgeschreven opsomming?")
