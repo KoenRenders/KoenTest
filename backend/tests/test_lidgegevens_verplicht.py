@@ -15,10 +15,14 @@ verder identiek. Het verschil ís het bewijs dat die twee velden de oorzaak zijn
 Bewust geen `match=` op de meldingstekst: die mag hertaald worden zonder deze
 tests om te gooien (dezelfde afweging als in #680).
 
-De vier schrijfwegen staan hier naast elkaar met opzet. Zit de regel op de juiste
-plek — in de servicelaag, gedeeld — dan is dit vier keer dezelfde korte test.
-Zakt er één door terwijl de andere slagen, dan is dát de nuttigste uitkomst: het
-bewijst dat de regel aan de ingang hangt in plaats van bij de bewerking.
+De vijf schrijfwegen staan hier naast elkaar met opzet — publieke registratie,
+beheer aanmaken/toevoegen/bewerken, gezinsportaal. Zit de regel op de juiste plek
+— in de servicelaag, gedeeld — dan is dit vijf keer dezelfde korte test. Zakt er
+één door terwijl de andere slagen, dan is dát de nuttigste uitkomst: het bewijst
+dat de regel aan de ingang hangt in plaats van bij de bewerking.
+
+De ledenimport is de zesde weg en de enige uitzondering: die meldt in plaats van
+te weigeren. Koens beslissing, en de reden staat bij die test.
 """
 import pytest
 
@@ -213,3 +217,59 @@ def test_de_regel_staat_in_de_service_en_niet_in_de_schermen():
         bron = open(pad, encoding="utf-8").read()
         assert "date_of_birth or not" not in bron and "Geboortedatum en geslacht" not in bron, (
             f"{pad} formuleert de regel zelf; ze hoort in membership/service.py")
+
+
+# ── Weg 5: beheer — "Nieuw lid" (Koens beslissing, #681) ─────────────────────
+
+def test_nieuw_lid_scherm_vraagt_de_velden_en_dwingt_ze_af(client, db_session):
+    """Het aanmaakscherm vroeg sinds #627 enkel een naam.
+
+    Dat was precies de ene weg waarlangs een lid zónder deze twee in het bestand
+    kon komen terwijl élke andere ingang ze afdwingt. Koen koos ervoor de twee
+    velden toe te voegen in plaats van de uitzondering te laten bestaan.
+    """
+    csrf = _admin(client)
+
+    scherm = client.get("/admin/leden/nieuw")
+    assert scherm.status_code == 200
+    assert 'name="date_of_birth"' in scherm.text and 'name="gender_code"' in scherm.text
+
+    velden = {"first_name": "Nieuw", "last_name": "Lid"}
+    zonder = client.post("/admin/leden", data=velden, headers={"X-CSRF-Token": csrf})
+    assert zonder.status_code == 422, zonder.text
+    assert not db_session.query(Person).filter(Person.first_name == "Nieuw").all()
+
+    met = client.post("/admin/leden",
+                      data={**velden, "date_of_birth": "1980-01-01",
+                            "gender_code": "M"},
+                      headers={"X-CSRF-Token": csrf})
+    assert met.status_code == 204, met.text
+    assert db_session.query(Person).filter(Person.first_name == "Nieuw").one()
+
+
+# ── De ledenimport meldt, maar weigert niet ──────────────────────────────────
+
+def test_de_import_meldt_een_onvolledige_rij_zonder_ze_te_weigeren(db_session):
+    """Koens beslissing: een ledenrapport is geen formulier.
+
+    Het komt uit een ander systeem, gaat over honderden rijen tegelijk, en op
+    productie missen er vandaag twee een geboortedatum. Een import die daarop
+    afbreekt kost meer dan hij oplevert — maar zwijgen mag ze evenmin, want dan is
+    de import de ene weg waarlangs onvolledige leden ongemerkt binnenkomen.
+    """
+    from app.domains.mdm.import_service import ImportReport, _meld_onvolledig
+
+    report = ImportReport()
+    _meld_onvolledig({"voornaam": "Jan", "naam": "Peeters",
+                      "geboortedatum": None, "geslacht": "M"}, report)
+    assert len(report.warnings) == 1
+    assert "geboortedatum" in report.warnings[0] and "Peeters" in report.warnings[0]
+
+    _meld_onvolledig({"voornaam": "An", "naam": "Janssens",
+                      "geboortedatum": None, "geslacht": None}, report)
+    assert "geboortedatum en geslacht" in report.warnings[1]
+
+    # Volledig → geen ruis. Een rapport dat alles meldt, meldt niets.
+    _meld_onvolledig({"voornaam": "Vol", "naam": "Ledig",
+                      "geboortedatum": "1980-01-01", "geslacht": "F"}, report)
+    assert len(report.warnings) == 2

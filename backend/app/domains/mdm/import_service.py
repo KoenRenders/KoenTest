@@ -167,6 +167,26 @@ def _person_field_changes(person: Person, row: dict) -> list[str]:
     return changes
 
 
+def _meld_onvolledig(row: dict, report: ImportReport) -> None:
+    """Meld een rij zonder geboortedatum of geslacht (#681).
+
+    De import weigert de rij NIET. Élk formulier dwingt deze twee velden af, maar
+    een ledenrapport is geen formulier: het komt uit een ander systeem, het gaat om
+    honderden rijen tegelijk, en op productie missen er vandaag twee een
+    geboortedatum. Een import die daarop afbreekt, kost meer dan hij oplevert.
+
+    Wat wél moet: zichtbaar zijn. Zonder melding is de import de ene weg waarlangs
+    onvolledige leden ongemerkt binnenkomen — precies het gat dat #681 dicht. De
+    waarschuwing staat in het dry-run-rapport én in de samenvatting, met naam en
+    reden, zodat je vóór het bevestigen ziet wie je moet aanvullen.
+    """
+    ontbreekt = [naam for naam, waarde in (("geboortedatum", row["geboortedatum"]),
+                                           ("geslacht", row["geslacht"])) if not waarde]
+    if ontbreekt:
+        report.warn(f"{row['voornaam']} {row['naam']}: {' en '.join(ontbreekt)} "
+                    f"ontbreekt — wel ingelezen, aanvullen in het ledenbeheer.")
+
+
 def _apply_person_fields(person: Person, row: dict) -> None:
     person.last_name = row["naam"]
     person.first_name = row["voornaam"]
@@ -255,6 +275,7 @@ def _create_person(db: Session, row: dict, member: Member, pc: PostalCode | None
     """Maak een nieuwe persoon, koppel aan het gezin, met externe-nummer,
     adres (enkel hoofdlid), contacten — alles geauditeerd."""
     report.persons_added += 1
+    _meld_onvolledig(row, report)
     if not apply:
         return None
 
@@ -402,6 +423,7 @@ def _sync_family(db: Session, member: Member, fam: list[dict], pc: PostalCode | 
                     action="person_moved" if cur_member is not None else "person_imported",
                     source=LEGACY_SOURCE, actor=actor)
 
+        _meld_onvolledig(row, report)
         changes = _person_field_changes(existing, row)
         rel_changed = mp is not None and mp.relation_type != row["_relatie"]
         if changes or rel_changed:

@@ -49,7 +49,9 @@ def test_persoon_bewerken_via_scherm(client, db_session):
     resp = client.post(f"/admin/leden/gezin/{member.id}/persoon/{person.id}",
                        data={"first_name": "Nieuw", "last_name": "Naam",
                              "email": "nieuw@example.com",
-                             "mobile": "0470000000"},
+                             "mobile": "0470000000",
+                             "date_of_birth": person.date_of_birth.isoformat(),
+                             "gender_code": person.gender_code},
                        headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 200 and "Nieuw Naam" in resp.text
     db_session.expire_all()

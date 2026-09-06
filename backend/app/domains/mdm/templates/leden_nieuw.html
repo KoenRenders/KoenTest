@@ -15,6 +15,18 @@
         <div>{{ ui.label(_("Achternaam"), "nl-last", required=True) }}
           <input name="last_name" id="nl-last" required class="w-full"></div>
       </div>
+      {# #681: geboortedatum en geslacht zijn verplicht voor élk lid. Ze staan hier
+         omdat dit scherm anders de ene weg zou zijn waarlangs een lid zónder deze
+         twee in het bestand komt — élke andere ingang dwingt ze af. #}
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+        <div>{{ ui.label(_("Geboortedatum"), "nl-dob", required=True) }}
+          {{ ui.input_control("date_of_birth", id="nl-dob", type="date", required=True, cls="w-full") }}</div>
+        <div>{{ ui.label(_("Geslacht"), "nl-gender", required=True) }}
+          {% call ui.select_control("gender_code", cls="w-full", attrs='id="nl-gender" required') %}
+            <option value="">{{ _("Kies…") }}</option>
+            {% for g in gender_codes %}<option value="{{ g.code }}">{{ g.value }}</option>{% endfor %}
+          {% endcall %}</div>
+      </div>
       <p class="text-xs text-ink-soft">{{ _("Dit maakt het gezin met deze persoon als hoofdlid. Adres, contactgegevens en lidmaatschap vul je aan in het gezin zelf.") }}</p>
       <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/leden") }}</div>
     </form>

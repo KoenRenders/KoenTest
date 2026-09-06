@@ -18,7 +18,8 @@ def _family_payload(email="cover@example.com", **overrides):
         "payment_method": "transfer",
         "members": [
             {"last_name": "Peeters", "first_name": "Jan", "email": email,
-             "mobile": "0470000000", "relation_type": "HOOFDLID"},
+             "mobile": "0470000000", "date_of_birth": "1980-01-01",
+             "gender_code": "M", "relation_type": "HOOFDLID"},
             {"last_name": "Peeters", "first_name": "Kind", "relation_type": "KIND",
              "date_of_birth": "2012-03-04", "gender_code": "M"},
         ],
@@ -79,12 +80,24 @@ def test_families_bijkomend_lid_zonder_dob_geslacht_422(client, db_session):
     assert db_session.query(Member).count() == 0
 
 
-def test_families_hoofdlid_zonder_dob_mag_wel(client, db_session):
-    """Het hoofdlid zelf heeft geen verplichte geboortedatum/geslacht (#551 geldt
-    enkel voor bijkomende leden) — bevestigt de reikwijdte van de regel."""
+def test_families_hoofdlid_zonder_dob_mag_niet(client, db_session):
+    """Sinds #681 gelden geboortedatum en geslacht ook voor het hoofdlid.
+
+    Deze test heette tot #681 `..._mag_wel` en legde het tegendeel vast: #551 gold
+    enkel voor de bijkomende leden. De uitzondering is bewust weggehaald — in het
+    programma waarmee Raak zijn ledenbestand voert zijn het twee verplichte velden,
+    en een uitzondering voor precies de persoon die élk gezin heeft, laat het gat
+    even groot als voordien.
+    """
     seed_postal_code(db_session)
     payload = _family_payload(email="hoofd@example.com")
-    payload["members"] = [payload["members"][0]]  # enkel het hoofdlid
+    hoofdlid = {k: v for k, v in payload["members"][0].items()
+                if k not in ("date_of_birth", "gender_code")}
+    payload["members"] = [hoofdlid]
+    assert client.post("/api/v1/families", json=payload).status_code == 422
+
+    payload["members"] = [{**hoofdlid, "date_of_birth": "1980-01-01",
+                           "gender_code": "M"}]
     resp = client.post("/api/v1/families", json=payload)
     assert resp.status_code == 201, resp.text
 

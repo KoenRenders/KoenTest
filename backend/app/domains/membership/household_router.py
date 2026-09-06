@@ -266,26 +266,32 @@ def update_person(
     # Enkel toegestane velden; relation_type, board_member_id, ExternalNumber
     # worden nooit aangeraakt.
     actor = next((c.value for c in person.contact_details if c.contact_type_code == "EMAIL"), None)
-    changed = False
+    nieuw: dict = {}
     for field in ("first_name", "last_name", "date_of_birth", "gender_code"):
         if field not in data:
             continue
         new_val = data[field] or None
         if field == "date_of_birth" and new_val is not None and not isinstance(new_val, date):
             new_val = date.fromisoformat(new_val)
-        # Enkel snapshotten wat écht wijzigt (#188): een formulier stuurt alle velden,
-        # maar een onveranderd veld hoort geen history-rij te maken.
+        nieuw[field] = new_val
+
+    # #681: toets de uitkomst — het portaal stuurt niet altijd alle velden mee —
+    # en toets ze vóór het toepassen: een `rollback()` ná het muteren gooit ook al
+    # het andere werk in dezelfde sessie weg.
+    try:
+        controleer_geboortedatum_en_geslacht(
+            nieuw.get("date_of_birth", target.date_of_birth),
+            nieuw.get("gender_code", target.gender_code))
+    except LidgegevensFout as fout:
+        raise HTTPException(status_code=422, detail=str(fout))
+
+    # Enkel snapshotten wat écht wijzigt (#188): een formulier stuurt alle velden,
+    # maar een onveranderd veld hoort geen history-rij te maken.
+    changed = False
+    for field, new_val in nieuw.items():
         if getattr(target, field) != new_val:
             setattr(target, field, new_val)
             changed = True
-    # #681: ná de lus, want het portaal stuurt niet altijd alle velden mee. De
-    # regel geldt de uitkomst: een lid mag zichzelf niet zonder geboortedatum of
-    # geslacht achterlaten.
-    try:
-        controleer_geboortedatum_en_geslacht(target.date_of_birth, target.gender_code)
-    except LidgegevensFout as fout:
-        db.rollback()
-        raise HTTPException(status_code=422, detail=str(fout))
     if changed:
         snapshot_person(db, target, operation="update", action="person_updated",
                         source="member_self", actor=actor)
