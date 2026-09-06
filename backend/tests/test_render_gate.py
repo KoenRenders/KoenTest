@@ -122,7 +122,13 @@ def _admin_gets_zonder_parameter() -> list[str]:
         # Alleen schermen. Exports leveren een bestand en de JSON-API onder /admin
         # levert geen HTML; die hebben geen hx-target om te controleren en zouden
         # de gate enkel ruis geven.
-        if getattr(route, "response_class", None) is not HTMLResponse:
+        # FastAPI bewaart `response_class` als een `DefaultPlaceholder` rond de
+        # klasse, niet als de klasse zelf — een identiteitsvergelijking geeft dan
+        # voor élke route False en de gate scant niets meer. Precies dát gebeurde
+        # bij de eerste versie hiervan, en `test_de_gate_ziet_ook_de_aanmaakschermen`
+        # ving het: een gate die nergens kijkt staat groen (#678).
+        soort = getattr(route, "response_class", None)
+        if getattr(soort, "value", soort) is not HTMLResponse:
             continue
         paden.add(pad)
     return sorted(paden)
