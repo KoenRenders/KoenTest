@@ -13,6 +13,7 @@ De pagina's komen uit `_ADMIN_NAV`, zodat een nieuw menu-item automatisch meeget
 wordt zonder dat iemand deze lijst moet bijwerken.
 """
 import re
+from pathlib import Path
 from decimal import Decimal
 
 import pytest
@@ -95,42 +96,44 @@ def gevulde_admin(client, db_session):
 
 
 def _admin_gets_zonder_parameter() -> list[str]:
-    """Élke admin-GET zonder padparameter, uit de ROUTETABEL (#695).
+    """Élke admin-GET zonder padparameter, uit de BRON (#695).
 
-    De lijst was het menu plus vijf met de hand opgesomde detailschermen. Daardoor
-    zag deze gate zeventien admin-GET-routes niet, waaronder alle zes de
+    De paginalijst was het menu plus vijf met de hand opgesomde detailschermen.
+    Daardoor zag deze gate zeventien admin-GET-routes niet, waaronder álle zes de
     aanmaakschermen — en #627 maakte in één klap precies zo'n soort pagina, buiten
-    het menu om. Zelfs mét de juiste controle had de gate de kapotte doelen op
-    /admin/media/nieuw en /admin/gebruikers/nieuw gemist, simpelweg omdat hij die
-    pagina's nooit opende.
+    het menu om. Zelfs mét de juiste controle op onvindbare doelen had de gate de
+    kapotte schermen gemist, simpelweg omdat hij ze nooit opende.
 
-    Er stond al een `assert len(_ADMIN_NAV) >= 13` die bewaakt dat het menu niet
-    krimpt; niets bewaakte dat de gate álle schermen ziet. Uit de routetabel lezen
-    doet dat wel: een nieuw scherm is meteen meegetest, zonder dat iemand eraan hoeft
-    te denken.
+    Uit de `@router.get`-decorators en niet uit `app.routes`: die eerste versie
+    filterde op `response_class is HTMLResponse` en leverde nul paden op — de gate
+    scande dus niets meer, en dat is precies het failliet uit #678. Een controle die
+    op een intern veld van het framework steunt, faalt stil zodra dat veld iets
+    anders blijkt te bevatten. Een decorator-argument is zichtbaar in de code en
+    verandert niet buiten ons om.
+
+    `test_de_gate_ziet_ook_de_aanmaakschermen` bewaakt de uitkomst hiervan.
     """
-    from fastapi.responses import HTMLResponse
+    import ast
 
-    from app.main import app
-
+    app_map = Path(__file__).resolve().parents[1] / "app"
     paden = set()
-    for route in app.routes:
-        pad = getattr(route, "path", "")
-        methoden = getattr(route, "methods", set()) or set()
-        if not pad.startswith("/admin") or "{" in pad or "GET" not in methoden:
-            continue
-        # Alleen schermen. Exports leveren een bestand en de JSON-API onder /admin
-        # levert geen HTML; die hebben geen hx-target om te controleren en zouden
-        # de gate enkel ruis geven.
-        # FastAPI bewaart `response_class` als een `DefaultPlaceholder` rond de
-        # klasse, niet als de klasse zelf — een identiteitsvergelijking geeft dan
-        # voor élke route False en de gate scant niets meer. Precies dát gebeurde
-        # bij de eerste versie hiervan, en `test_de_gate_ziet_ook_de_aanmaakschermen`
-        # ving het: een gate die nergens kijkt staat groen (#678).
-        soort = getattr(route, "response_class", None)
-        if getattr(soort, "value", soort) is not HTMLResponse:
-            continue
-        paden.add(pad)
+    for pad in app_map.rglob("*.py"):
+        boom = ast.parse(pad.read_text(encoding="utf-8"))
+        for knoop in ast.walk(boom):
+            if not isinstance(knoop, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                continue
+            for deco in knoop.decorator_list:
+                if not isinstance(deco, ast.Call):
+                    continue
+                if getattr(deco.func, "attr", "") != "get":
+                    continue
+                if not deco.args or not isinstance(deco.args[0], ast.Constant):
+                    continue
+                route = deco.args[0].value
+                if not isinstance(route, str):
+                    continue
+                if route.startswith("/admin") and "{" not in route:
+                    paden.add(route)
     return sorted(paden)
 
 
@@ -146,6 +149,12 @@ def _open(client, pad: str):
     if resp.status_code in (301, 302, 307, 308, 401, 403):
         return None
     assert resp.status_code == 200, f"{pad} → {resp.status_code}"
+    # Op het CONTENT-TYPE en niet op een declaratie in de decorator: een export
+    # levert een bestand en de JSON-routes onder /admin leveren JSON. Die hebben
+    # geen hx-target om te controleren, en wat er werkelijk uitkomt is een
+    # betrouwbaarder maatstaf dan wat de route belooft.
+    if "text/html" not in resp.headers.get("content-type", ""):
+        return None
     return resp.text
 
 

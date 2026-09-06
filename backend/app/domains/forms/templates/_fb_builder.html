@@ -15,7 +15,15 @@
            up_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
            down_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"') }}
       {{ ui.edit_toggle("edit") }}
-      {{ ui.btn_danger("×", aria_label=_("Veld verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Veld"), f.label)) }}
+      {# #698: prullenbak i.p.v. ×, en potlood i.p.v. ⚙ verderop. Geen smaak: `×`
+         betekende in deze app al "sluiten" (de toast sluit met datzelfde teken), en
+         dat is een gratis handeling terwijl dit er een is die niet terug kan. Het
+         tandwiel betekende "instellingen", en dát staat bovenaan dit scherm als
+         een échte knop die iets anders doet.
+
+         Leeg label + `lead_icon`: dan draagt de knop alleen het icoon, en de
+         button-macro geeft hem op grond van `aria_label` ook een tooltip. #}
+      {{ ui.btn_danger("", lead_icon="trash-2", aria_label=_("Veld verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Veld"), f.label)) }}
     </div>
   </div>
   <form x-show="edit" x-cloak class="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-3 text-sm"
@@ -57,8 +65,8 @@
              up_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
              down_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
              first=loop.first, last=loop.last) }}
-        {{ ui.btn_secondary("⚙", aria_label=_("Optie bewerken"), attrs='@click="oedit = !oedit"') }}
-        {{ ui.btn_danger("×", aria_label=_("Optie verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML"') }}
+        {{ ui.btn_secondary("", lead_icon="pencil", aria_label=_("Optie bewerken"), attrs='@click="oedit = !oedit"') }}
+        {{ ui.btn_danger("", lead_icon="trash-2", aria_label=_("Optie verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/opties/' ~ o.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML"') }}
       </span>
       <form x-show="oedit" x-cloak class="w-full flex flex-wrap gap-2 mt-1"
             hx-post="/admin/formulieren/{{ form.id }}/opties/{{ o.id }}" hx-target="#fb-detail" hx-swap="innerHTML">

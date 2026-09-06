@@ -608,6 +608,18 @@ td .num,.tnum{font-variant-numeric:tabular-nums}
     <div class="sec-h"><span class="num">2</span><h2>Components</h2></div>
     <p class="lede">Each pattern built properly once, with a macro name, and identical everywhere. Below, each time: live example + macro + do/don't.</p>
 
+    <h3 class="block" id="s2-00">2.00 Icon vocabulary</h3>
+    <div class="demo">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></svg>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" width="22" height="22"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/></svg>
+    </div>
+    <pre><code>{{ ui.btn_danger("", lead_icon="trash-2", aria_label=_("Optie verwijderen"), attrs=...) }}
+{{ ui.btn_secondary("", lead_icon="pencil", aria_label=_("Optie bewerken"), attrs=...) }}</code></pre>
+    <span class="mac">New (#698): <code>trash-2</code> = delete, <code>pencil</code> = edit. One meaning per glyph — <code>×</code> means <em>close</em> and nothing else (a toast, a modal, a panel).</span>
+    <span class="mac">Not cosmetic. <code>×</code> already closed the toast, which is a free action; using the same glyph for "delete this option along with its branching rule and its id" makes two actions of very different weight look identical. The gear was equally wrong: it means <em>settings</em>, and this screen has a real Settings button.</span>
+    <span class="mac">Empty label + <code>lead_icon</code>, so the button carries only the icon — and <code>button()</code> then adds a <code>title</code> from the <code>aria_label</code>. Screen readers had the label; mouse users had to guess.</span>
+    <span class="mac"><code>ui.icon()</code> fails <strong>silently</strong> on an unknown name (empty SVG). A typo gives a button with no icon and no error, so the gate asserts the rendered <code>&lt;path&gt;</code>, not the macro call.</span>
+
     <h3 class="block" id="s2-0">2.0 Copy to clipboard</h3>
     <div class="demo">
       <button type="button" class="btn btn-secondary btn-sm" aria-label="Copy share link">

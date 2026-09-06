@@ -1041,3 +1041,45 @@ def test_elk_bewerkformulier_heeft_annuleren_naast_opslaan():
         "laadt hij het lijstfragment opnieuw, zodat het typwerk vervalt:\n  "
         + "\n  ".join(fouten)
     )
+
+
+def test_geen_losse_glyphs_meer_voor_verwijderen_en_bewerken():
+    """§1.5/§2.12 (#698): één betekenis per teken.
+
+    `×` betekende in deze app al "sluiten" — de toast sluit ermee, en dat is een
+    gratis handeling. Datzelfde teken gebruiken voor "verwijder deze optie met haar
+    sprongregel en haar id" laat twee handelingen van heel verschillend gewicht er
+    identiek uitzien. Het tandwiel betekent *instellingen*, en dat staat op het
+    formulierscherm bovenaan als een échte knop die iets anders doet.
+
+    Bereik: knop-macro's. De `×` in `fotos_album.html` en `_raakje_widget.html` zijn
+    échte sluitknoppen en blijven — daarom kijkt deze regel naar `btn_danger`/
+    `btn_secondary` met een glyph als label, en niet naar het teken op zichzelf.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        tekst = _zonder_commentaar(pad)
+        for glyph, hoort in (("×", "trash-2"), ("⚙", "pencil")):
+            for macro in ("btn_danger", "btn_secondary", "btn_primary", "btn_outline"):
+                if f'{macro}("{glyph}"' in tekst:
+                    fouten.append(
+                        f"{pad.relative_to(APP)}: {macro}(\"{glyph}\") — gebruik "
+                        f'lead_icon="{hoort}" met een leeg label')
+    assert not fouten, "Losse glyphs op knoppen (§1.5, #698):\n  " + "\n  ".join(fouten)
+
+
+def test_een_symboolknop_krijgt_ook_een_tooltip():
+    """De `button`-macro geeft een knop zónder zichtbare tekst een `title` op grond
+    van zijn `aria_label` (#698).
+
+    Een bronregel op de macro, want dit is juist bedoeld om per knop niets te
+    hoeven doen: staat het hier, dan is élke symboolknop in de app gedekt en kan de
+    volgende het niet vergeten.
+    """
+    macros = (APP / "ui" / "templates" / "_macros.html").read_text(encoding="utf-8")
+    kop = macros[macros.index("{% macro button("):macros.index("{% macro btn_primary(")]
+    assert 'title="{{ aria_label }}"' in kop, (
+        "de button-macro zet geen tooltip; dan moet elke symboolknop het zelf doen")
+    assert "{% if not label %}" in kop, (
+        "de tooltip hoort alleen op een knop zonder zichtbare tekst — anders "
+        "herhaalt hij wat er al staat")

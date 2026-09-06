@@ -31,7 +31,11 @@
 {% macro button(label, variant="primary", type="submit", href=None, size="md", attrs="", cls="", lead_icon=None, confirm=None, aria_label=None) -%}
 {%- set _c = btn_class(variant, size) ~ (" " ~ cls if cls else "") -%}
 {%- set _ic = icon(lead_icon) if lead_icon else "" -%}
-{%- set _extra %}{% if confirm %} data-confirm="{{ confirm }}"{% endif %}{% if aria_label %} aria-label="{{ aria_label }}"{% endif %}{% if not href and "hx-disabled-elt" not in attrs %} hx-disabled-elt="this"{% endif %}{% endset -%}
+{#- #698: een knop met een `aria_label` en zonder zichtbare tekst krijgt óók een
+    `title`. De schermlezer had het label al; wie met een muis werkt zag alleen een
+    symbool. Hier in de macro en niet per knop, zodat élke symboolknop in de app
+    meteen gedekt is en de volgende het niet kan vergeten. -#}
+{%- set _extra %}{% if confirm %} data-confirm="{{ confirm }}"{% endif %}{% if aria_label %} aria-label="{{ aria_label }}"{% if not label %} title="{{ aria_label }}"{% endif %}{% endif %}{% if not href and "hx-disabled-elt" not in attrs %} hx-disabled-elt="this"{% endif %}{% endset -%}
 {% if href %}<a href="{{ href }}" class="{{ _c }}"{{ _extra }} {{ attrs|safe }}>{{ _ic }}{{ label }}</a>{% else %}<button type="{{ type }}" class="{{ _c }}"{{ _extra }} {{ attrs|safe }}>{{ _ic }}{{ label }}</button>{% endif %}
 {%- endmacro %}
 
@@ -71,7 +75,9 @@
   "map-pin": '<path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/>',
   "calendar": '<path d="M8 2v4"/><path d="M16 2v4"/><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M3 10h18"/>',
   "copy": '<rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/>',
-  "check": '<path d="M20 6 9 17l-5-5"/>'} -%}
+  "check": '<path d="M20 6 9 17l-5-5"/>',
+  "trash-2": '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
+  "pencil": '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>'} -%}
 <svg xmlns="http://www.w3.org/2000/svg" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 {{ cls }}" aria-hidden="true">{{ paths.get(name, '')|safe }}</svg>
 {%- endmacro %}
 
