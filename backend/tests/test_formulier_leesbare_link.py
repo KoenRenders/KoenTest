@@ -113,15 +113,38 @@ def test_berichten_is_voorbehouden_aan_de_site(client, admin_headers):
 # ── 4. Vorm van de slug ─────────────────────────────────────────────────────
 
 @pytest.mark.parametrize("slug", ["Zomer Feest", "zomer_feest", "zomer/feest",
-                                  "Zomerfeest", "-feest", "feest-"])
+                                  "-feest", "feest-", "zomer feest"])
 def test_een_ongeldige_vorm_wordt_geweigerd(client, admin_headers, slug):
-    """Hoofdletters en spaties worden per browser anders gecodeerd; dan werkt een
-    gekopieerde link soms wél en soms niet."""
+    """Spaties, liggende streepjes en schuine strepen worden geweigerd.
+
+    Ze zijn niet ondubbelzinnig te herstellen: wordt "zomer feest" nu
+    "zomer-feest" of "zomerfeest"? Stil iets kiezen levert een link op die de
+    beheerder niet intypte, en die hij dus verkeerd doorstuurt.
+    """
     form = _formulier(client, admin_headers)
     csrf = _login(client)
 
     resp = _zet_slug(client, csrf, form, slug)
     assert resp.status_code == 422, f"{slug!r} werd aanvaard: {resp.text[:200]}"
+
+
+@pytest.mark.parametrize("ingetypt", ["Zomerfeest", "ZOMERFEEST", "  zomerfeest  "])
+def test_hoofdletters_en_spatie_eromheen_worden_rechtgezet(client, admin_headers,
+                                                           db_session, ingetypt):
+    """Hier wél normaliseren, en dat is geen inconsistentie met de test hierboven.
+
+    Een hoofdletter of een spatie aan de rand heeft precies één redelijke lezing;
+    daarvoor een 422 geven is pesterig. Een spatie in het mídden heeft er meerdere,
+    en dan is weigeren eerlijker dan gokken.
+    """
+    from app.domains.forms.models import Form
+
+    form = _formulier(client, admin_headers)
+    csrf = _login(client)
+
+    assert _zet_slug(client, csrf, form, ingetypt).status_code == 200
+    db_session.expire_all()
+    assert db_session.get(Form, form["id"]).slug == "zomerfeest"
 
 
 def test_leeg_laten_betekent_geen_leesbare_link(client, admin_headers, db_session):

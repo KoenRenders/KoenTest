@@ -231,6 +231,7 @@ def site_context(db, request=None) -> dict:
     footer-blok en sponsors. Eén plek, elke publieke route neemt hem mee."""
     from datetime import date
 
+    from app.domains.auth.api import csrf_from_request
     from app.domains.cms.api import CmsPage, render_cms_content
     from app.domains.media.api import MediaAsset
 
@@ -269,4 +270,19 @@ def site_context(db, request=None) -> dict:
             "privacy_url": get_setting(db, "privacy_url") or None,
             # SEO (#454): canonieke origin + huidige canonical-URL voor OG/canonical.
             "base_url": base_url,
+            # #693: élke publieke pagina draagt het CSRF-token. Dit was de
+            # eigenlijke oorzaak van de 403's onder #649/#662, en het lag niet aan
+            # een verlopen sessie: het token staat in `hx-headers` op de <body> van
+            # de schil, en bij een hx-boost-navigatie vervangt htmx de INHOUD van de
+            # body, niet haar ATTRIBUTEN. Landde je via een publieke pagina zonder
+            # token (`{{ csrf_token|default("") }}` → lege string) en boostte je
+            # daarna naar /leden/gezin, dan bleef die lege waarde staan en stuurde
+            # elke mutatie een leeg token mee.
+            #
+            # Herladen hielp, want dat is een harde navigatie — vandaar dat het
+            # advies in de melding klopte terwijl de verklaring erin niet klopte.
+            #
+            # De reparatie hoort hier en niet in de JS: is het token overal correct,
+            # dan maakt het niet meer uit welke pagina de body-attributen leverde.
+            "csrf_token": csrf_from_request(request) if request is not None else "",
             "canonical_url": (base_url + request.url.path) if (base_url and request) else None}

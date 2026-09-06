@@ -716,9 +716,15 @@ def normaliseer_slug(waarde) -> Optional[str]:
     Optioneel per formulier: de tokenlink blijft altijd werken, ook naast een slug.
     Rondgestuurde links mogen niet breken omdat iemand later een naam toevoegt.
 
-    Alleen kleine letters, cijfers en koppeltekens — de slug staat in een URL, dus
-    hoofdletters en spaties zouden per browser anders gecodeerd worden en een
-    gekopieerde link soms wél en soms niet laten werken.
+    Alleen kleine letters, cijfers en koppeltekens: de slug staat in een URL, en
+    spaties of hoofdletters worden per browser anders gecodeerd — dan werkt een
+    gekopieerde link soms wél en soms niet.
+
+    Hoofdletters en witruimte aan de rand worden RECHTGEZET, een spatie in het
+    midden wordt GEWEIGERD. Dat verschil is bewust: "Zomerfeest" heeft precies één
+    redelijke lezing, en daarvoor een foutmelding geven is pesterig. "zomer feest"
+    heeft er meerdere — met of zonder koppelteken — en stil iets kiezen levert een
+    link op die de beheerder niet intypte en dus verkeerd doorstuurt.
     """
     slug = (waarde or "").strip().lower()
     if not slug:

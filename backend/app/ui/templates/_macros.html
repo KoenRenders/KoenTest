@@ -788,11 +788,14 @@
       if (e.detail.boosted) { window.location.assign(e.detail.pathInfo.finalRequestPath); return; }
       var status = (e.detail.xhr && e.detail.xhr.status) || 0;
       if (status === 401) { window.location.assign('/aanmelden'); return; }
-      // 403 is in de praktijk bijna altijd een verlopen CSRF-token: het token is
-      // afgeleid van de exacte sessiecookie, dus een herinlog in een ander venster
-      // maakt elk openstaand tabblad ongeldig. Zeg wat de gebruiker moet doen.
+      // #693: zeg wát er misging en wát te doen — geen oorzaak beweren. De oude
+      // tekst ("je sessie is vernieuwd in een ander venster") was aantoonbaar
+      // zelden juist: `set_session_cookie` heeft twee aanroepplaatsen, inloggen en
+      // het verzilveren van een magic link, dus de cookie roteert niet tijdens het
+      // browsen. De werkelijke oorzaak was een leeg token in `hx-headers`, en het
+      // advies "herlaad" hielp omdat dat een harde navigatie is.
       meldFout(status === 403
-        ? {{ _("Je sessie is vernieuwd in een ander venster. Herlaad de pagina en probeer opnieuw.")|tojson }}
+        ? {{ _("Je wijziging is niet bewaard: de beveiligingscontrole ging niet door. Herlaad de pagina en probeer opnieuw.")|tojson }}
         : {{ _("Er ging iets mis; je wijziging is niet bewaard. Probeer opnieuw.")|tojson }},
         String(status));
     });
@@ -822,6 +825,19 @@
       // vangnet dat per ongeluk aanslaat doet precies wat het moest voorkomen —
       // een volledige herlaad.
       var doc = new DOMParser().parseFromString(tekst, 'text/html');
+      // #693: neem óók `hx-headers` over. Bij een boost vervangt htmx de INHOUD
+      // van de body, niet haar ATTRIBUTEN — dus het CSRF-token bleef staan zoals de
+      // eerste pagina hem zette. Sinds het token op élke pagina correct is
+      // (`site_context`) is dat geen probleem meer; dit is het vangnet voor het
+      // geval dat de melding beschrijft en dat wél echt bestaat: opnieuw inloggen
+      // in een ander venster verandert de cookie, en dan klopt de waarde in de
+      // huidige body niet meer met de sessie.
+      //
+      // Vóór de schilcontrole, want die kan hieronder met `return` afbreken.
+      var nieuweHeaders = doc.body && doc.body.getAttribute('hx-headers');
+      if (nieuweHeaders && nieuweHeaders !== body.getAttribute('hx-headers')) {
+        body.setAttribute('hx-headers', nieuweHeaders);
+      }
       var schil = doc.body && doc.body.getAttribute('data-shell');
       // Onbekend? Dan niets doen: bij twijfel liever htmx laten swappen dan hard
       // navigeren.
