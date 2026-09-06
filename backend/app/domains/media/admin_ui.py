@@ -25,13 +25,23 @@ router = APIRouter(include_in_schema=False)
 NAV = admin_nav("/admin/media")
 
 
+# #708: activiteitenfoto's zijn wat er dagelijks bijkomt; sponsorlogo's zet je
+# eens per jaar. De standaard hoort de gewone handeling te zijn.
+#
+# Alle DRIE de plekken moeten mee — de lijst, het uploadscherm en de terugval in
+# `_lijst_ctx`. "+ Uploaden" geeft de huidige filterstand door in de URL, dus
+# verander je alleen het uploadscherm, dan overschrijft de lijst hem meteen weer en
+# lijkt de wijziging niet te werken.
+STANDAARD_KIND = "activity_photo"
+
+
 def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
                activity_id: Optional[int] = None) -> dict:
     from app.domains.activities.api import activity_options
     from app.domains.media.api import (VALID_KINDS, activity_ids_with_media,
                                        list_media)
 
-    actief_kind = kind if kind in VALID_KINDS else "sponsor"
+    actief_kind = kind if kind in VALID_KINDS else STANDAARD_KIND
     if activity_id is None:
         # GET: het filter staat in de querystring. Bij een mutatie (POST) geeft de
         # kaart hem als verborgen veld mee, zodat het filter niet wegvalt.
@@ -80,7 +90,7 @@ def _lijst_response(request: Request, db: Session, kind: str,
 
 
 @router.get("/admin/media", response_class=HTMLResponse)
-def admin_media(request: Request, kind: str = "sponsor", q: str = "",
+def admin_media(request: Request, kind: str = STANDAARD_KIND, q: str = "",
                 db: Session = Depends(get_db),
                 email: str = Depends(require_admin_ui)):
     # htmx (de filterbalk) krijgt enkel de kaarten terug: een pagina-swap zou het
@@ -102,7 +112,7 @@ def media_nieuw(request: Request, db: Session = Depends(get_db),
     """
     # `kind` uit de query, zodat "+ Uploaden" vanaf de foto-filter meteen de
     # activiteit-dropdown toont (die hoort enkel bij activity_photo).
-    kind = (request.query_params.get("kind") or "sponsor").strip()
+    kind = (request.query_params.get("kind") or STANDAARD_KIND).strip()
     ctx = _lijst_ctx(request, db, kind=kind)
     ctx["nav_items"] = NAV
     return templates.TemplateResponse(request, "admin_media_nieuw.html", ctx)

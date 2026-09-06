@@ -302,6 +302,11 @@ def update_media(
         return _service.update_media(db, asset_id, payload)
     except LookupError:
         raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    except _service.MediaFout as exc:
+        # #707: de linkcontrole zit in de service, dus ook deze ingang kan hem nu
+        # werpen. Zonder deze tak werd een geweigerde link een 500. 400 zoals de
+        # uploadroute hierboven — één statuscode voor dezelfde soort fout.
+        raise HTTPException(status_code=400, detail=str(exc))
 
 
 @router.delete("/admin/media/{asset_id}")

@@ -90,7 +90,7 @@ def test_een_refundtaak_verwijst_naar_het_record(client, db_session):
 def test_een_weesrecord_verwijst_ook_naar_het_record(client, db_session):
     """De taak die dit het hardst nodig heeft: hier bestáát het payable niet — dat is
     de aanleiding — dus een verwijzing die daarop steunt, is per definitie stuk."""
-    from app.domains.payment.handlers import reconcile
+    from app.domains.payment.handlers import reconcile_orphans
 
     wees = PaymentRecord(payable_type="registration", payable_id=999999,
                          type="charge", amount=Decimal("15.00"),
@@ -98,7 +98,7 @@ def test_een_weesrecord_verwijst_ook_naar_het_record(client, db_session):
     db_session.add(wees)
     db_session.flush()
 
-    reconcile(db_session, {"once": True})
+    reconcile_orphans(db_session, {"once": True})
     db_session.flush()
 
     taak = next(t for t in _taken(db_session, "payment.wees_record"))
@@ -205,3 +205,46 @@ def test_de_taak_wordt_niet_dubbel_aangemaakt(client, db_session):
     _sweep(db_session)
     _sweep(db_session)
     assert len(_taken(db_session, "payment.refund_bevestigen")) == 1
+
+
+# ── 4. Een lege optie kan niet meer ontstaan (#711) ────────────────────────
+
+def test_add_option_weigert_een_leeg_label(db_session):
+    """`add_option` deed `label=(label or "").strip()` zónder controle, dus een
+    bedachte klik zette een radioknop **zonder tekst** in het publieke formulier —
+    onzichtbaar voor wie het invult, en dus erger dan een zichtbare "Nieuwe vraag".
+
+    `update_option` weigerde een leeg label wél; de aanmaakweg was het enige lek.
+    Dit is het vangnet onder de client-side rij van #711.
+    """
+    from app.domains.forms.api import FormulierFout, add_option
+    from app.domains.forms.models import Form, FormField
+
+    form = Form(title="Leeg label", share_token="tok-711", status="draft")
+    db_session.add(form)
+    db_session.flush()
+    veld = FormField(form_id=form.id, field_type="radio", label="Kies", position=0)
+    db_session.add(veld)
+    db_session.flush()
+
+    for leeg in ("", "   "):
+        with pytest.raises(FormulierFout):
+            add_option(db_session, form, veld.id, label=leeg)
+
+    assert not veld.options, "er is een optie zonder tekst aangemaakt"
+
+
+def test_add_option_aanvaardt_een_gewoon_label(db_session):
+    """De keerzijde: zonder haar zou "weiger alles" ook slagen."""
+    from app.domains.forms.api import add_option
+    from app.domains.forms.models import Form, FormField
+
+    form = Form(title="Wel label", share_token="tok-711b", status="draft")
+    db_session.add(form)
+    db_session.flush()
+    veld = FormField(form_id=form.id, field_type="radio", label="Kies", position=0)
+    db_session.add(veld)
+    db_session.flush()
+
+    add_option(db_session, form, veld.id, label="  Ja  ")
+    assert [o.label for o in veld.options] == ["Ja"]

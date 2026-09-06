@@ -83,10 +83,53 @@ def list_media(db, *, kind: Optional[str] = None,
     return [meta(a) for a in rijen]
 
 
+# Schema's die veilig in een `href` op een publieke pagina mogen (#707).
+# `javascript:` en `data:` staan hier bewust niet in; die worden uitgevoerd in de
+# browser van de bezoeker. Relatieve links (beginnend met `/`) blijven toegestaan.
+VEILIGE_SCHEMAS = ("http://", "https://", "mailto:", "tel:")
+
+
+def controleer_link(url, *, kind: str):
+    """De doorklik van een sponsorlogo — of None (#707).
+
+    Twee regels, en allebei horen ze HIER en niet in het scherm: er zijn twee
+    ingangen (het uploadscherm en de JSON-route), en een regel in het scherm wordt
+    langs de andere omzeild.
+
+    1. **Alleen bij een sponsor.** `link_url` wordt op precies één plek gerenderd:
+       de sponsorstrook. Bij een activiteitenfoto wordt de waarde bewaard en nooit
+       gebruikt — dan is ze geen instelling maar rommel die later iemand verwart.
+       Een meegestuurde waarde wordt server-side genegeerd; vertrouwen op een
+       verborgen veld zou de andere ingang openlaten.
+    2. **Alleen een schema dat in een href mag.** De waarde gaat rechtstreeks in een
+       `href` op een publieke pagina, dus een `javascript:`-URL is klikbaar. Alleen
+       een beheerder kan het zetten, dus de ernst is beperkt — maar er stond
+       nergens een controle, en dat is geen bewuste keuze geweest.
+    """
+    from app.i18n import _
+
+    waarde = (url or "").strip()
+    if not waarde:
+        return None
+    if kind != "sponsor":
+        return None
+    if waarde.startswith("/"):
+        return waarde
+    if not waarde.lower().startswith(VEILIGE_SCHEMAS):
+        raise MediaFout(_(
+            "Een link moet met http://, https://, mailto:, tel: of / beginnen."))
+    return waarde
+
+
 def update_media(db, asset_id: int, payload: dict) -> dict:
     asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if asset is None:
         raise LookupError("Niet gevonden")
+    if "link_url" in payload:
+        # #707: dezelfde regel als bij het uploaden. De soort van het bestaande
+        # asset beslist, niet wat het formulier meestuurt.
+        payload = {**payload, "link_url": controleer_link(payload["link_url"],
+                                                          kind=asset.kind)}
     for veld in ("title", "link_url", "sort_order", "is_active"):
         if veld in payload:
             setattr(asset, veld, payload[veld])
@@ -129,6 +172,10 @@ async def upload_media(db, *, files: Sequence, kind: str,
             raise LookupError("Activiteit niet gevonden")
     else:
         activity_id = None      # sponsors hangen niet aan een activiteit
+
+    # #707: één plek voor de regel, dus ook op deze ingang. Bij een foto valt de
+    # waarde weg; bij een sponsor moet het schema in een href mogen.
+    link_url = controleer_link(link_url, kind=kind)
 
     if not files:
         raise MediaFout("Geen bestanden")

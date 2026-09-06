@@ -15,7 +15,8 @@
     <img src="{{ a.thumb_url }}" alt="{{ a.title or '' }}" class="w-24 h-24 object-contain bg-gray-50 rounded-lg shrink-0">
     <div class="flex-1 space-y-2 text-sm">
       {{ ui.input_control("title", id="me-title-" ~ a.id, value=a.title or "", placeholder=_("Titel"), cls="w-full") }}
-      {{ ui.input_control("link_url", id="me-link-" ~ a.id, value=a.link_url or "", placeholder=_("Link"), cls="w-full") }}
+      {# #707: alleen bij een sponsor; de soort van dit asset ligt vast. #}
+      {% if a.kind == "sponsor" %}{{ ui.input_control("link_url", id="me-link-" ~ a.id, value=a.link_url or "", placeholder=_("Link"), cls="w-full") }}{% endif %}
       <div class="flex items-center gap-4">
         <label class="flex items-center gap-1">{{ _("Volgorde") }} {{ ui.input_control("sort_order", id="me-sort-" ~ a.id, type="number", value=a.sort_order, cls="w-16") }}</label>
         <label class="flex items-center gap-1"><input type="checkbox" name="is_active" value="1" {% if a.is_active %}checked{% endif %}> {{ _("Actief") }}</label>

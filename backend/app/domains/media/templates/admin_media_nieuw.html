@@ -38,8 +38,6 @@
           <option value="sponsor" {% if kind == "sponsor" %}selected{% endif %}>{{ _("Sponsorlogo") }}</option>
           <option value="activity_photo" {% if kind == "activity_photo" %}selected{% endif %}>{{ _("Activiteitenfoto") }}</option>
         {% endcall %}</div>
-      <div>{{ ui.label(_("Bestanden (afbeeldingen)"), "me-files", required=True) }}
-        <input type="file" name="files" id="me-files" accept="image/*" multiple required class="block text-sm"></div>
       {# De dropdown volgt de keuze in plaats van de filterstand. `:required` en niet
          een vast `required`: een verborgen veld met required laat de browser bij
          verzenden falen met "An invalid form control is not focusable" en het
@@ -54,9 +52,19 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>{{ ui.label(_("Titel"), "me-title") }}
           {{ ui.input_control("title", id="me-title", cls="w-full") }}</div>
-        <div>{{ ui.label(_("Link (optioneel)"), "me-link") }}
+        {# #707: de doorklik hoort bij een sponsorlogo. Bij een activiteitenfoto
+           wordt ze bewaard en nooit gebruikt — dan is het geen instelling maar
+           rommel. De server negeert een meegestuurde waarde hoe dan ook; dit veld
+           verbergen is de vriendelijke helft, niet de regel. #}
+        <div x-show="soort === 'sponsor'" x-cloak>{{ ui.label(_("Link (optioneel)"), "me-link") }}
           {{ ui.input_control("link_url", id="me-link", cls="w-full") }}</div>
       </div>
+      {# #708: de bestanden staan ONDERAAN, vlak boven de knop. De volgorde volgt de
+         handeling: eerst zeggen wát je uploadt (soort, activiteit, titel), dan pas
+         kiezen wélke bestanden. Andersom kies je bestanden en moet je daarna weer
+         omhoog scrollen om te zeggen waar ze bij horen. #}
+      <div>{{ ui.label(_("Bestanden (afbeeldingen)"), "me-files", required=True) }}
+        <input type="file" name="files" id="me-files" accept="image/*" multiple required class="block text-sm"></div>
       <div class="flex gap-2">{{ ui.btn_primary(_("Uploaden")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/media") }}</div>
     </form>
 </div>
