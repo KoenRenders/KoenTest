@@ -788,12 +788,16 @@
       if (e.detail.boosted) { window.location.assign(e.detail.pathInfo.finalRequestPath); return; }
       var status = (e.detail.xhr && e.detail.xhr.status) || 0;
       if (status === 401) { window.location.assign('/aanmelden'); return; }
-      // #693: zeg wát er misging en wát te doen — geen oorzaak beweren. De oude
-      // tekst ("je sessie is vernieuwd in een ander venster") was aantoonbaar
-      // zelden juist: `set_session_cookie` heeft twee aanroepplaatsen, inloggen en
-      // het verzilveren van een magic link, dus de cookie roteert niet tijdens het
-      // browsen. De werkelijke oorzaak was een leeg token in `hx-headers`, en het
-      // advies "herlaad" hielp omdat dat een harde navigatie is.
+      // #693: zeg wát er misging en wát te doen — geen oorzaak beweren. De vorige
+      // tekst wees naar een herinlog elders, en dat was aantoonbaar zelden juist:
+      // `set_session_cookie` heeft twee aanroepplaatsen, inloggen en het verzilveren
+      // van een magic link, dus de cookie roteert niet tijdens het browsen. De
+      // werkelijke oorzaak was een leeg token in `hx-headers`, en het advies
+      // "herlaad" hielp omdat dat een harde navigatie is.
+      //
+      // De oude zin staat hier bewust niet uitgeschreven: dit commentaar wordt
+      // meegeleverd in de <script>, dus een test die de pagina afzoekt zou zijn
+      // eigen uitleg vinden.
       meldFout(status === 403
         ? {{ _("Je wijziging is niet bewaard: de beveiligingscontrole ging niet door. Herlaad de pagina en probeer opnieuw.")|tojson }}
         : {{ _("Er ging iets mis; je wijziging is niet bewaard. Probeer opnieuw.")|tojson }},

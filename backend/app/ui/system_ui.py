@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.auth.api import require_admin_ui
+from app.domains.auth.api import csrf_from_request, require_admin_ui
 from app.ui import admin_nav, templates
 
 router = APIRouter(include_in_schema=False)
@@ -34,8 +34,13 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db),
         ("Open taken (werkbank)", stats["open_tasks"], "bg-yellow-50 text-yellow-800", "/admin/werkbank"),
         ("Openstaand saldo", "€%.2f" % stats["outstanding_balance"], "bg-orange-50 text-orange-800", "/admin/betalingen"),
     ]
+    # #693: het dashboard zette een LEEG csrf-token in `hx-headers`. Landde je hier
+    # en boostte je daarna naar een beheerscherm, dan hield de body die lege waarde
+    # en faalde elke mutatie met een 403 — dezelfde fout als op de publieke schil,
+    # en even stil.
     return templates.TemplateResponse(request, "admin_dashboard.html", {
-        "nav_items": admin_nav("/admin"), "tegels": tegels})
+        "nav_items": admin_nav("/admin"), "tegels": tegels,
+        "csrf_token": csrf_from_request(request)})
 
 
 @router.get("/admin/info", response_class=HTMLResponse)
