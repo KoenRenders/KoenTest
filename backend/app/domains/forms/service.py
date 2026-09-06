@@ -21,7 +21,7 @@ Twee lagen domeinlogica:
 """
 import re
 from decimal import Decimal, InvalidOperation
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from fastapi import HTTPException
 
@@ -700,6 +700,54 @@ def list_forms(db, *, q: str = "", status: str = ""):
     if status in FORM_STATUSES:
         query = query.filter(Form.status == status)
     return query.order_by(Form.id.desc()).all()
+
+
+# Slugs die de site zelf gebruikt en die een formulier dus niet mag inpikken.
+# `/berichten` zoekt het contactformulier op slug op (`forms/ui.py`); een tweede
+# formulier met die naam kaapt dat scherm.
+GERESERVEERDE_SLUGS = frozenset({"berichten"})
+
+_SLUG_RE = re.compile(r"^[a-z0-9]+(?:-[a-z0-9]+)*$")
+
+
+def normaliseer_slug(waarde) -> Optional[str]:
+    """Een leesbare naam voor de deellink, of None (#690).
+
+    Optioneel per formulier: de tokenlink blijft altijd werken, ook naast een slug.
+    Rondgestuurde links mogen niet breken omdat iemand later een naam toevoegt.
+
+    Alleen kleine letters, cijfers en koppeltekens — de slug staat in een URL, dus
+    hoofdletters en spaties zouden per browser anders gecodeerd worden en een
+    gekopieerde link soms wél en soms niet laten werken.
+    """
+    slug = (waarde or "").strip().lower()
+    if not slug:
+        return None
+    if not _SLUG_RE.match(slug):
+        raise HTTPException(status_code=422, detail=_(
+            "Gebruik alleen kleine letters, cijfers en koppeltekens in de link."))
+    if slug in GERESERVEERDE_SLUGS:
+        raise HTTPException(status_code=422, detail=_(
+            "Deze naam is voorbehouden aan de site zelf; kies een andere."))
+    return slug
+
+
+def assert_slug_vrij(db, slug: Optional[str], *, huidige_id: Optional[int] = None) -> None:
+    """Twee formulieren met dezelfde slug kunnen niet (#690).
+
+    Zonder deze controle koos `get_form_by_slug` er met `.first()` stil één, en welk
+    formulier je te zien kreeg hing af van de rijvolgorde. De unieke index (091) is
+    het vangnet eronder; deze functie bestaat om er een leesbare melding van te
+    maken in plaats van een databankfout.
+    """
+    if slug is None:
+        return
+    bezet = db.query(Form).filter(Form.slug == slug)
+    if huidige_id is not None:
+        bezet = bezet.filter(Form.id != huidige_id)
+    if bezet.first() is not None:
+        raise HTTPException(status_code=422, detail=_(
+            "Er bestaat al een formulier met deze link."))
 
 
 def update_form_settings(db, form: Form, **waarden) -> None:

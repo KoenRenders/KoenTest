@@ -194,15 +194,21 @@ def instellingen_opslaan(form_id: int, request: Request, db: Session = Depends(g
                          status: str = Form("draft"), max_submissions: str = Form(""),
                          send_confirmation: str = Form(""), confirmation_message: str = Form(""),
                          allow_edit: str = Form(""), is_anonymous: str = Form(""),
-                         requires_login: str = Form("")):
-    from app.domains.forms.api import update_form_settings
+                         requires_login: str = Form(""), slug: str = Form("")):
+    from app.domains.forms.api import (assert_slug_vrij, normaliseer_slug,
+                                       update_form_settings)
 
     form = _form_or_404(db, form_id)
     if status not in FORM_STATUSES:
         raise HTTPException(status_code=422,
                             detail=_("Ongeldige status: %(status)s") % {"status": status})
+    # #690: vorm en uniciteit horen bij de regel, niet bij het scherm. De service
+    # werpt een leesbare 422; de unieke index (091) is het vangnet daaronder.
+    nieuwe_slug = normaliseer_slug(slug)
+    assert_slug_vrij(db, nieuwe_slug, huidige_id=form.id)
     update_form_settings(
         db, form,
+        slug=nieuwe_slug,
         title=title.strip() or form.title,
         description=description.strip() or None,
         status=status,
