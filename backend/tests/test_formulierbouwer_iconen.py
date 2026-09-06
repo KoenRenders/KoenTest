@@ -133,3 +133,40 @@ def test_de_toast_sluit_nog_altijd_met_een_kruisje(client, admin_headers):
     start = html.index('id="htmx-foutmelding"')
     assert "&times;" in html[start:start + 800], (
         "de sluitknop van de foutmelding is meeverdwenen")
+
+
+# ── 4. De sectiebalk verwijdert ook met een prullenbak (#706) ───────────────
+
+def test_de_sectiebalk_verwijdert_niet_meer_met_een_kruisje(client, admin_headers):
+    """`section_bar` schreef zijn knop als rauwe HTML binnen een kit-macro, en die
+    vorm glipte door de gate van #698 — die kijkt naar macro-aanroepen.
+
+    Op de bouwer stond daardoor nog steeds hetzelfde teken voor "sluit deze melding"
+    en voor "vernietig deze sectie met haar velden, opties en sprongregels".
+    """
+    r = client.post("/api/v1/forms", json={
+        "title": "Sectiebalk", "status": "draft",
+        "sections": [{"title": "Een", "position": 0}],
+        "fields": [{"field_type": "text", "label": "V", "position": 0,
+                    "section_index": 0}],
+    }, headers=admin_headers)
+    assert r.status_code == 200, r.text
+    _login(client)
+    html = client.get(f"/admin/formulieren/{r.json()['id']}").text
+
+    start = html.index('aria-label="Verwijderen"')
+    knop = html[html.rindex("<button", 0, start):html.index("</button>", start)]
+    assert "×" not in knop, f"de sectiebalk verwijdert nog met een kruisje: {knop}"
+    assert PRULLENBAK in knop, knop
+    assert "red" in knop, "verwijderen is altijd rood (§2.12)"
+    assert 'title="Verwijderen"' in knop, "de tooltip ontbreekt"
+
+
+def test_de_foutmelding_sluit_nog_steeds_met_een_kruisje(client, admin_headers):
+    """Na #698 én #706 betekent `×` in de hele app nog precies één ding — en dat
+    ding heeft nog steeds een knop. Zonder deze test zou "haal de kruisjes weg" ook
+    slagen."""
+    _login(client)
+    html = client.get("/admin/formulieren").text
+    start = html.index('id="htmx-foutmelding"')
+    assert "&times;" in html[start:start + 800]
