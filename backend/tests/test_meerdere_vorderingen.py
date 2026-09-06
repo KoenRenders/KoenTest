@@ -53,8 +53,10 @@ def test_de_tweede_vordering_springt_in(db_session):
 
 
 def test_de_oudste_is_de_hoofdkaart_ook_als_ze_later_binnenkomt(db_session):
-    """De kaartenlijst staat nieuwste-eerst; welke kaart de hoofdkaart is, hangt
-    van de aanmaakdatum af en niet van de volgorde op het scherm."""
+    """Welke kaart de hoofdkaart is, hangt van de aanmaakdatum af en niet van de
+    volgorde waarin de records binnenkomen. (Sinds #682 staan de kaarten bínnen een
+    groep oudste-eerst, dus die twee vallen nu samen — deze test bewijst dat het
+    ook klopt als de invoer omgekeerd is.)"""
     laatste = _charge(db_session, 6731, "10.00", minuten=5)
     oudste = _charge(db_session, 6731, "30.00", betaald="30.00", minuten=0)
     db_session.commit()

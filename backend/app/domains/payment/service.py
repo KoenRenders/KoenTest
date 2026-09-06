@@ -806,6 +806,10 @@ def group_cards(records, alle_records=None) -> list[dict]:
                 if not r.refund_of_id
                 or (r.refund_of_id not in charge_ids
                     and r.refund_of_id not in context_charges)]
+    # Nieuwste eerst — dit bepaalt de volgorde TUSSEN de groepen: een groep komt in
+    # de lijst te staan waar haar nieuwste kaart hem zet. Binnen een groep draaien
+    # we het hieronder om (#682). Twee vragen, twee antwoorden; ze deelden één
+    # sorteerregel en dat gaf de verkeerde uitkomst binnen een groep.
     kaarten.sort(key=lambda k: k["charge"].created_at, reverse=True)
 
     groepen: list[dict] = []
@@ -835,9 +839,44 @@ def group_cards(records, alle_records=None) -> list[dict]:
                  if not k["is_context"] and k["charge"].type != "refund"]
         for kaart in sorted(echte, key=lambda k: k["charge"].created_at)[1:]:
             kaart["is_extra"] = True
+        # #682: binnen een groep OUDSTE eerst. Hier vertelt de volgorde het verhaal
+        # — de oorspronkelijke vordering, dan wat erop volgde — en nieuwste-eerst
+        # zette de bijkomende vordering vóór de vordering waar ze bij hoort. Tussen
+        # groepen blijft nieuwste eerst: dat is een lijstvraag, geen verhaalvraag.
+        groep["kaarten"].sort(key=lambda k: k["charge"].created_at)
         groep["totaal"] = aggregate(groep["records"])
         groep["toon_totaal"] = len(groep["records"]) > 1
+        groep["terug_te_betalen"] = _nog_uit_te_betalen(groep["records"])
     return groepen
+
+
+def _nog_uit_te_betalen(records) -> Decimal:
+    """Wat er van de terugbetalingen nog écht de deur uit moet (#682).
+
+    GEEN tweede som van hetzelfde. `totaal.saldo` is bedrag min ontvangen over de
+    hele groep; dit is een andere grootheid — het deel van de terugbetalingen dat
+    nog niet uitbetaald is. De twee vallen vaak samen, maar niet altijd: een
+    inschrijving die per ongeluk te veel betaald kreeg heeft ook een negatief saldo
+    zonder dat er een terugbetaling openstaat.
+
+    Waarom het apart moet staan: de totaalregel las "Bedrag 30,00 · Ontvangen 40,00
+    · Saldo -10,00". Rekenkundig juist, maar "meer ontvangen dan gevorderd" leest
+    als een fout, en het enige wat nog actie vraagt — die 10 euro uitbetalen — zat
+    onzichtbaar in het saldo.
+
+    Terugbetalingen dragen een negatief `amount` (interne conventie); hier rekenen
+    we in absolute termen, want dit is wat de penningmeester uitbetaalt. Nooit
+    negatief: een refund die méér uitbetaald kreeg dan gevorderd is een fout die
+    elders thuishoort, niet een negatieve schuld in deze regel.
+    """
+    openstaand = Decimal("0")
+    for r in records:
+        if getattr(r, "type", None) != "refund":
+            continue
+        rest = abs(_bedrag(r.amount)) - abs(_bedrag(r.amount_paid))
+        if rest > 0:
+            openstaand += rest
+    return openstaand
 
 
 # ── Verrijkte betaalrecords voor scherm en export (#645 E, #635) ──────────────
