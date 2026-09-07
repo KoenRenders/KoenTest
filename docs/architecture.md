@@ -108,7 +108,7 @@ Points an operator will look for: images are pinned (`caddy:2.11.4`, `postgres:1
 
 ## 3.2 Component map
 
-The map below is the intended structure and, since v2.0.0, the actual one. Layer 1 holds identity, master data and mail; layer 2 the business domains; capabilities are cross-cutting services. Everything rests on a kernel that contains no business logic and imports no domain.
+The map below is the intended structure and, since v2.0.0, the actual one. Layer 1 holds identity, master data and mail: the three things every business domain needs, which is why master data sits *under* the business domains rather than among them (working document, decision 3). Layer 2 holds the business domains; capabilities are cross-cutting services. Everything rests on a kernel that contains no business logic and imports no domain.
 
 <!-- figure: name=components caption=Layered_package_structure_(master) -->
 ```mermaid
@@ -131,10 +131,10 @@ flowchart TB
     PAY ~~~ WB
     FORM ~~~ CHAT
   end
-  subgraph L1["Layer 1 — foundation"]
+  subgraph L1["Layer 1 — foundation shared by every business domain"]
     direction LR
     AUTH["auth<br/>magic link · OTP · roles<br/>CSRF · API keys"]:::c
-    MDM["mdm<br/>persons · households<br/>addresses · organisations<br/>merge · survivorship"]:::c
+    MDM["mdm — master data<br/>persons · households<br/>addresses · organisations<br/>merge · survivorship"]:::c
     MAIL["mail<br/>SMTP · log · retry job"]:::c
   end
   subgraph CAP["Capabilities"]
