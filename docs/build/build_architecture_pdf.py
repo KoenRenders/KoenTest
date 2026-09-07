@@ -3,7 +3,10 @@
 
 Pipeline (no application code involved):
   1. every ```mermaid fence in the Markdown is rendered to SVG with mermaid-cli
-     (mmdc) using the project theme in docs/build/mermaid-config.json;
+     (mmdc) using the project theme in docs/build/mermaid-config.json; figure
+     options live in an HTML comment on the line above the fence,
+     `<!-- figure: name=x caption=Some_caption wide=1 -->`, so GitHub still
+     renders the plain fence;
   2. the Markdown is converted to HTML (python-markdown) with the fences replaced by
      <figure><img></figure>, so GitHub keeps rendering the live Mermaid source while
      the PDF embeds static images;
@@ -34,7 +37,7 @@ DIAGRAMS = ROOT / "docs" / "architecture"
 CSS = ROOT / "docs" / "build" / "architecture.css"
 MERMAID_CFG = ROOT / "docs" / "build" / "mermaid-config.json"
 
-FENCE = re.compile(r"```mermaid[ \t]*(?:\{([^}]*)\})?[ \t]*\n(.*?)```", re.S)
+FENCE = re.compile(r"(?:<!--[ \t]*figure:([^>]*?)-->[ \t]*\n)?```mermaid[ \t]*\n(.*?)```", re.S)
 TAG = re.compile(r"\[(PROD|HDEV|PARTIAL|ROADMAP)\]")
 TAG_LABEL = {"PROD": "in production", "HDEV": "v2.0.0 · HDEV", "PARTIAL": "designed / partial", "ROADMAP": "roadmap"}
 
@@ -119,6 +122,11 @@ def main() -> int:
         extension_configs={"toc": {"permalink": False, "toc_depth": "1-3"}},
     )
     body = status_tags(body)
+    # small tables stay on one page (the CSS gives table.keep page-break-inside: avoid)
+    def _keep(m: "re.Match[str]") -> str:
+        tbl = m.group(0)
+        return tbl.replace("<table>", '<table class="keep">', 1) if tbl.count("<tr>") <= 9 else tbl
+    body = re.sub(r"<table>.*?</table>", _keep, body, flags=re.S)
     # Every H1 after the first starts a new page.
     body = re.sub(r'<h1 id="([^"]+)">', lambda m: f'<h1 class="section" id="{m.group(1)}">', body)
     title = html.escape(meta.get("title", "Architecture"))

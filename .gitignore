@@ -30,3 +30,6 @@ backend/tests/__pycache__/
 
 # Tailwind standalone-CLI (scripts/build-css.sh)
 .cache/
+
+# generated intermediate of the architecture PDF build
+docs/build/architecture.html

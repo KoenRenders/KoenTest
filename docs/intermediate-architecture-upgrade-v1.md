@@ -1,5 +1,12 @@
 # Intermediate Architecture Upgrade — v1
 
+> **Reference architecture (September 2026):** the printable, code-verified
+> description of what is actually on `master` lives in
+> [`docs/architecture.md`](architecture.md) (PDF: `docs/architecture.pdf`, built by
+> `scripts/build-architecture-pdf.sh`). This working document is the design
+> history and the "way forward" (§14); Appendix A of the reference architecture
+> lists where it and the code differ.
+
 > Werkdocument. Denkkader voor de tussenstap naar een **modulair, multi-tenant
 > ERP/portaal/CRM**: domeinmodules met een facade + eigen Postgres-schema (en, waar
 > afsplitsbaar, een eigen migratieketen), afgedwongen grenzen, en per-tenant merk-

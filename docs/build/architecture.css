@@ -25,8 +25,10 @@ a { color: #2367bd; text-decoration: none; }
 code { font-family: "JetBrains Mono", "DejaVu Sans Mono", Menlo, monospace; font-size: 8.8pt; background: #f1f5f9; padding: 0 2px; border-radius: 2px; }
 pre { font-family: "JetBrains Mono", "DejaVu Sans Mono", Menlo, monospace; font-size: 8.3pt; background: #f8fafc; border: 1px solid #e2e8f0; padding: 3mm; white-space: pre-wrap; page-break-inside: avoid; }
 pre code { background: none; padding: 0; }
-table { border-collapse: collapse; width: 100%; margin: 2mm 0 4mm; font-size: 9.2pt; page-break-inside: auto; }
-th, td { border: 1px solid #d1d5db; padding: 1.4mm 2mm; vertical-align: top; text-align: left; }
+table { border-collapse: collapse; width: 100%; margin: 2mm 0 4mm; font-size: 9pt; page-break-inside: auto; }
+table.keep { page-break-inside: avoid; }
+p:has(+ table.keep) { page-break-after: avoid; }
+th, td { border: 1px solid #d1d5db; padding: 1.1mm 2mm; vertical-align: top; text-align: left; }
 th { background: #e8f0ff; color: #0f2a55; font-weight: 600; }
 tr { page-break-inside: avoid; }
 blockquote { margin: 3mm 0; padding: 2mm 4mm; border-left: 3px solid #f16532; background: #fff7ed; color: #374151; }
@@ -41,9 +43,11 @@ hr { border: 0; border-top: 1px solid #cbd5e1; margin: 5mm 0; }
 
 /* Diagrams */
 figure { margin: 3mm 0 4mm; text-align: center; page-break-inside: avoid; }
-figure img { max-width: 100%; max-height: 160mm; }
+figure img { max-width: 100%; max-height: 205mm; }
 figure figcaption { font-size: 8.8pt; color: #6b7280; margin-top: 1.5mm; }
-figure.wide img { max-height: 235mm; }
+@page landscape { size: A4 landscape; margin: 16mm 18mm 16mm 18mm; }
+figure.wide { page: landscape; page-break-before: always; page-break-after: always; margin: 0; height: 168mm; display: flex; flex-direction: column; justify-content: center; }
+figure.wide img { max-width: 100%; max-height: 158mm; }
 
 /* Title page */
 .titlepage { page-break-after: always; height: 240mm; display: flex; flex-direction: column; justify-content: center; }
