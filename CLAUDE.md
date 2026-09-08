@@ -71,9 +71,12 @@ All commits and pushes are done by Claude — the user never does this manually.
   `master`, committed and pushed by Claude.
 - **Worktree CLIs** (feature worktrees, e.g. a `claude/...` or `feature/...`
   branch) work on a **feature branch**. That branch runs the full CI validation
-  and is **merged into `master` only after it goes green** — and, per the
-  feature-branch norm, only once Koen asks for the merge. Never commit feature
-  work straight onto `master` from a worktree CLI.
+  and is **merged into `master` as soon as it goes green**. Koen gave a
+  **standing approval for that merge** on 6 September 2026, so the CLI no longer
+  asks each time: CI green is the whole gate. This covers the merge only —
+  deploying to UAT or PROD and recreating the shared Caddy still require explicit
+  confirmation every time. Never commit feature work straight onto `master` from a
+  worktree CLI.
 
 In short: **decide by which working copy you are in.** Master worktree → commit on
 `master`. Feature worktree → commit on its branch, merge to `master` after CI
@@ -95,7 +98,7 @@ not require an issue and may be committed directly when Koen asks for them.
 After completing a task:
 1. In the master worktree: commit and push directly to `master`. In a feature
    worktree: commit and push to the feature branch, let CI run, and merge to
-   `master` once it is green (and Koen has asked for the merge).
+   `master` once it is green — without asking, per the standing approval above.
 
 **Autonoom een release afwerken (geen "mag ik doorgaan?").** Zodra Koen werk aan
 een release toewijst — of dat nu de lopende of de volgende release is (bv. "dit is
@@ -149,8 +152,8 @@ git fetch origin master && git reset --hard origin/master
 **Feature-branch work only enters the release pipeline once it is merged to
 `master` (after CI is green).** HDEV deploys `master` HEAD and the release tag
 targets `master`, so nothing on an unmerged feature branch can ever reach HDEV,
-UAT, or PROD. The merge-to-`master` is the gate into a release — do it (per the
-feature-branch norm, when Koen asks) before any HDEV test or tag step below.
+UAT, or PROD. The merge-to-`master` is the gate into a release — do it as soon as
+CI is green, before any HDEV test or tag step below.
 
 ### Handoff from a feature worktree to master
 
@@ -243,7 +246,7 @@ release afwerken*, *Testen en test-evidence* — and this table is only the
 | # | Step | Autonomy | How |
 |---|---|---|---|
 | 1 | Release tracking issue (single source of truth) | CLI | one checkbox per issue; never uncheck Koen's boxes |
-| 2 | Merge gate: every feature branch merged to `master`, CI green | CLI, merges on Koen's request | `gh pr merge` |
+| 2 | Merge gate: every feature branch merged to `master`, CI green | CLI, autonomous once CI is green | `gh pr merge` |
 | 3 | CI evidence into the tracker: run id + link + `N passed` + the `pip-audit` outcome | CLI | `gh run view` |
 | 4 | New/changed **env vars** set on each host | **Koen** | name them explicitly; they are never auto-added |
 | 5 | Deploy master to HDEV and verify | CLI, autonomous | `raak deploy hdev` |
