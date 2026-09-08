@@ -11,14 +11,18 @@
    border-color, en een radio- of checkbox-invoer draagt hier geen enkele klasse —
    er is dus geen rand om te kleuren en er verandert letterlijk niets zichtbaars.
    Bij een keuzevraag is het antwoord bovendien de groep, niet één knop. #}
-<div data-veld="{{ key }}">
+{# #749: de rand staat er altijd, doorzichtig. De markering uit #741 zette
+   `border-l-4 … pl-3` erbij, en dat verschóóf de vraag op het moment dat ze
+   gemarkeerd werd — precies wanneer je hem staat te lezen. Nu wisselt alleen de
+   kleur. #}
+<div data-veld="{{ key }}" class="border-l-4 border-transparent pl-3">
   {% if f.field_type == "info" %}
   <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-gray-700">
     {% if f.label %}<p class="font-medium mb-1">{{ f.label }}</p>{% endif %}
     {% if f.help_text %}<p>{{ f.help_text }}</p>{% endif %}
   </div>
   {% else %}
-  {{ ui.label(f.label, key, required=f.required) }}
+  {{ ui.vraag(f.label, key, required=f.required) }}
   {% if f.help_text %}<p class="text-xs text-gray-500 mb-1">{{ f.help_text }}</p>{% endif %}
   {% if f.field_type in ("text", "email", "phone") %}
   {% set _t = "email" if f.field_type == "email" else ("tel" if f.field_type == "phone" else "text") %}
@@ -169,9 +173,15 @@
     {% for g in grouped %}
     {% if wizard %}<div data-step="{{ loop.index0 }}" x-show="step === {{ loop.index0 }}">{% endif %}
     {% call ui.card() %}
-      {% if g.section.title %}<h2 class="font-bold mb-1">{{ g.section.title }}</h2>{% endif %}
+      {# #749: één stap boven de vraag, zodat de drietrap sectie → vraag → optie
+         zichtbaar is. Niet in merkblauw: §2.5 houdt kaarttitels in inktkleur. #}
+      {% if g.section.title %}<h2 class="text-lg font-bold mb-1">{{ g.section.title }}</h2>{% endif %}
       {% if g.section.description %}<p class="text-sm text-gray-600 mb-3 whitespace-pre-wrap">{{ g.section.description }}</p>{% endif %}
-      <div class="space-y-4">
+      {# #749: `space-y-6` en niet `space-y-4`. De typografie alleen loste het half
+         op — alles stond op gelijke afstand, en dáárom las de lijst als één massa.
+         De opties blijven met `space-y-1` dicht bij hun vraag, dus de ruimte boven
+         een vraag is nu ruim vier keer die eronder: nabijheid doet het werk. #}
+      <div class="space-y-6">
         {% for f in g.fields %}{{ veld(f, wizard) }}{% endfor %}
       </div>
     {% endcall %}
@@ -179,7 +189,7 @@
     {% endfor %}
     {% if loose_fields %}
     {% call ui.card() %}
-      <div class="space-y-4">
+      <div class="space-y-6">
         {% for f in loose_fields %}{{ veld(f) }}{% endfor %}
       </div>
     {% endcall %}
@@ -275,15 +285,20 @@ document.addEventListener('alpine:init', () => {
         el.removeAttribute('aria-invalid');
         el.classList.remove('border-red-600');
       });
+      // #749: alleen de kleur; de rand en de insprong staan permanent in de
+      // markup, zodat de vraag niet verspringt op het moment dat ze gemarkeerd
+      // wordt.
       c.querySelectorAll('[data-veld]').forEach(el => {
-        el.classList.remove('border-l-4', 'border-red-600', 'pl-3');
+        el.classList.remove('border-red-600');
+        el.classList.add('border-transparent');
       });
       const leeg = this._leegVerplicht();
       leeg.forEach(naam => {
         // De VRAAG markeren met een rode balk links: dat is zichtbaar bij elk
         // veldtype, ook bij een radiogroep zonder eigen rand.
         const blok = c.querySelector('[data-veld="' + naam + '"]');
-        if (blok) blok.classList.add('border-l-4', 'border-red-600', 'pl-3');
+        if (blok) { blok.classList.remove('border-transparent');
+                    blok.classList.add('border-red-600'); }
         c.querySelectorAll('[name="' + naam + '"]').forEach(el => {
           el.setAttribute('aria-invalid', 'true');
         });
