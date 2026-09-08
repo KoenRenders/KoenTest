@@ -70,9 +70,58 @@ def test_het_ritme_zet_de_ruimte_boven_de_vraag():
 
     Zonder dit las de lijst als één massa, ook mét grotere letters — alles stond op
     gelijke afstand.
+
+    #768 verhoogde de trefzone van een antwoord naar 40 px. Dat zet 10 px padding rond
+    élk antwoord, dus alle afstanden groeiden mee en de trap werd weer vlak. Gemeten
+    in een echte browser, na het bijstellen: 20 px witruimte tussen twee antwoorden,
+    30 px tussen de vraag en haar eerste antwoord, 42 px tussen twee vragen. De
+    `space-y-1` tussen de opties is dáárom weg — mét die 4 px stond een antwoord
+    24 px van zijn buur en 26 px van zijn eigen vraag, en dan las de lijst als vier
+    losse regels.
     """
-    assert "space-y-6" in FORMULIER, "de vragen staan niet verder uit elkaar"
-    assert "space-y-1" in FORMULIER, "de opties staan niet dicht bij hun vraag"
+    assert "space-y-8" in FORMULIER, "de vragen staan niet verder uit elkaar"
+    assert '<div class="mt-5" x-data' in FORMULIER, (
+        "de optiegroep zet geen ruimte tussen de vraag en haar antwoorden")
+
+
+def test_de_trefzone_van_een_antwoord_is_veertig_pixels():
+    """#768 — op een telefoon was 20 px regelhoogte een krappe trefzone.
+
+    De ruimte zit ín het klikvlak (`py-2.5`), niet ertussen. Negatieve marges zijn
+    hier geen alternatief — dan overlappen de trefzones en wint de onderste rij in de
+    overlap, zodat de bovenste onraakbaar wordt.
+
+    Kapotgemaakt om te controleren dat deze test rood kan worden: `py-2.5` terug naar
+    niets → beide asserts vallen om.
+    """
+    labels = [r for r in FORMULIER.splitlines()
+              if '<label class="flex flex-wrap items-center gap-2 text-sm' in r]
+    assert len(labels) == 2, (
+        f"verwacht een radio- en een checkbox-optielabel, gevonden: {len(labels)}")
+    for regel in labels:
+        assert "py-2.5" in regel, f"geen trefzone van 40 px: {regel.strip()}"
+        assert "-my-" not in regel, "negatieve marges laten de trefzones overlappen"
+
+
+def test_titel_vraag_en_antwoord_beginnen_op_dezelfde_lijn():
+    """#768 — de sectietitel stak 16 px links uit.
+
+    Het vraagblok reserveert sinds #741 `border-l-4 border-transparent pl-3` voor de
+    rode foutbalk. De titel stond buiten die reservering. Gelijktrekken gebeurt door
+    de titel mee te laten inspringen; de reservering zelf blijft, want zonder haar
+    verspringt de vraag weer op het moment dat ze gemarkeerd wordt (die tegenproef
+    staat hierboven en in `tests_e2e/test_formulier_wizard_stap.py`).
+
+    Let op de 4: de doorzichtige rand telt mee in de insprong, dus de tekst van een
+    vraag begint op 4+12 = 16 px en de titel heeft `pl-4` nodig, niet `pl-3`.
+
+    Kapotgemaakt om te controleren dat deze test rood kan worden: de `pl-4` van de
+    `<h2>` weggehaald → de eerste assert valt om.
+    """
+    assert '<h2 class="text-lg font-bold mb-1 pl-4"' in FORMULIER, (
+        "de sectietitel springt niet even ver in als haar vragen")
+    assert 'class="text-sm text-gray-600 mb-3 pl-4 whitespace-pre-wrap"' in FORMULIER, (
+        "de sectieomschrijving springt niet mee in")
 
 
 def test_de_markering_verschuift_de_vraag_niet():

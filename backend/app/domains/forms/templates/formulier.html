@@ -59,12 +59,31 @@
      zodra er tekst binnenkomt. Tekst laten staan zou de optie dus meteen weer
      aanvinken — "uitvinken" zou niet werken. Eén toestand: tekst aanwezig betekent
      optie gekozen. De JS is enkel UX; het vangnet staat in `forms/service.py`. #}
-  <div class="space-y-1" x-data
+  {# #768: de `space-y-1` is hier weg en dat is de kern van de oplossing, niet een
+     detail. Een trefzone van 40 px zet 10 px padding boven én onder elk antwoord;
+     tel daar de oude 4 px tussenruimte bij op en de antwoorden staan 24 px uit
+     elkaar — even ver als de vraag van haar eerste antwoord. Naast elkaar gerenderd
+     las de lijst dan als vier losse regels in plaats van als het antwoord op één
+     vraag: precies de gelijke afstand die #749 wegnam. Zonder die 4 px raken de
+     trefzones elkaar (geen dode zone tussen twee antwoorden, wat op een telefoon
+     ook beter is) en blijft de witruimte 20 px.
+
+     `mt-5` daarboven: 20 px, en die klapt samen met de `mb-2` van de vraag (gemeten:
+     de doos-afstand wordt 20, niet 28). Met de 10 px padding van het eerste antwoord
+     erbij is de ladder 20 : 30 : 42 px — tussen antwoorden, vraag naar antwoorden,
+     vraag naar vraag. #}
+  <div class="mt-5" x-data
        @change="if ($refs.anders && $refs.keuze && !$refs.keuze.checked) $refs.anders.value = ''">
     {% for o in f.options %}
     {# #687: `flex-wrap`, zodat een lang optielabel plus een volle-breedte veld
        afbreekt in plaats van buiten de kaart te lopen op een smal scherm. #}
-    <label class="flex flex-wrap items-center gap-2 text-sm">
+    {# #768: `py-2.5` maakt de trefzone 40 px hoog (20 px regelhoogte + 2×10 px), want
+       op een telefoon was één tekstregel te krap om te raken. De ruimte zit ín het
+       klikvlak; de tussenruimte van de groep ging naar nul om te vermijden dat de
+       lijst uit elkaar valt (zie de opmerking bij de omhullende `<div>`).
+       Negatieve marges zijn géén alternatief: dan overlappen de trefzones en wint de
+       onderste rij in de overlap, zodat je de bovenste niet meer raakt. #}
+    <label class="flex flex-wrap items-center gap-2 text-sm py-2.5 cursor-pointer">
       <input type="radio" name="{{ key }}" value="{{ o.id }}"
              {% if o.is_other %}x-ref="keuze"{% endif %}
              {% if (val is string and val == o.id|string) or (val is not string and o.id|string in val) %}checked{% endif %}>
@@ -89,12 +108,26 @@
      zodra er tekst binnenkomt. Tekst laten staan zou de optie dus meteen weer
      aanvinken — "uitvinken" zou niet werken. Eén toestand: tekst aanwezig betekent
      optie gekozen. De JS is enkel UX; het vangnet staat in `forms/service.py`. #}
-  <div class="space-y-1" x-data
+  {# #768: de `space-y-1` is hier weg en dat is de kern van de oplossing, niet een
+     detail. Een trefzone van 40 px zet 10 px padding boven én onder elk antwoord;
+     tel daar de oude 4 px tussenruimte bij op en de antwoorden staan 24 px uit
+     elkaar — even ver als de vraag van haar eerste antwoord. Naast elkaar gerenderd
+     las de lijst dan als vier losse regels in plaats van als het antwoord op één
+     vraag: precies de gelijke afstand die #749 wegnam. Zonder die 4 px raken de
+     trefzones elkaar (geen dode zone tussen twee antwoorden, wat op een telefoon
+     ook beter is) en blijft de witruimte 20 px.
+
+     `mt-5` daarboven: 20 px, en die klapt samen met de `mb-2` van de vraag (gemeten:
+     de doos-afstand wordt 20, niet 28). Met de 10 px padding van het eerste antwoord
+     erbij is de ladder 20 : 30 : 42 px — tussen antwoorden, vraag naar antwoorden,
+     vraag naar vraag. #}
+  <div class="mt-5" x-data
        @change="if ($refs.anders && $refs.keuze && !$refs.keuze.checked) $refs.anders.value = ''">
     {% for o in f.options %}
     {# #687: `flex-wrap`, zodat een lang optielabel plus een volle-breedte veld
        afbreekt in plaats van buiten de kaart te lopen op een smal scherm. #}
-    <label class="flex flex-wrap items-center gap-2 text-sm">
+    {# #768: zie de radiogroep hierboven. #}
+    <label class="flex flex-wrap items-center gap-2 text-sm py-2.5 cursor-pointer">
       <input type="checkbox" name="{{ key }}" value="{{ o.id }}"
              {% if o.is_other %}x-ref="keuze"{% endif %}
              {% if (val is string and val == o.id|string) or (val is not string and o.id|string in val) %}checked{% endif %}>
@@ -174,14 +207,29 @@
     {% if wizard %}<div data-step="{{ loop.index0 }}" x-show="step === {{ loop.index0 }}">{% endif %}
     {% call ui.card() %}
       {# #749: één stap boven de vraag, zodat de drietrap sectie → vraag → optie
-         zichtbaar is. Niet in merkblauw: §2.5 houdt kaarttitels in inktkleur. #}
-      {% if g.section.title %}<h2 class="text-lg font-bold mb-1">{{ g.section.title }}</h2>{% endif %}
-      {% if g.section.description %}<p class="text-sm text-gray-600 mb-3 whitespace-pre-wrap">{{ g.section.description }}</p>{% endif %}
-      {# #749: `space-y-6` en niet `space-y-4`. De typografie alleen loste het half
-         op — alles stond op gelijke afstand, en dáárom las de lijst als één massa.
-         De opties blijven met `space-y-1` dicht bij hun vraag, dus de ruimte boven
-         een vraag is nu ruim vier keer die eronder: nabijheid doet het werk. #}
-      <div class="space-y-6">
+         zichtbaar is. Niet in merkblauw: §2.5 houdt kaarttitels in inktkleur.
+
+         #768: `pl-3` erbij, dezelfde insprong als een vraagblok. Die blokken
+         reserveren sinds #741 4 px rand + 12 px ruimte voor de rode foutbalk, zodat
+         de vraag niet verspringt op het moment dat ze gemarkeerd wordt. De titel
+         stond buiten die reservering en stak dus 16 px links uit. Gelijktrekken door
+         de titel mee te laten inspringen — NIET door de reservering weg te halen,
+         want dan springt de vraag weer bij elke fout.
+
+         `pl-4` en niet `pl-3`: de doorzichtige rand van 4 px telt mee, dus de tekst
+         van een vraag begint op 4+12 = 16 px. #}
+      {% if g.section.title %}<h2 class="text-lg font-bold mb-1 pl-4">{{ g.section.title }}</h2>{% endif %}
+      {% if g.section.description %}<p class="text-sm text-gray-600 mb-3 pl-4 whitespace-pre-wrap">{{ g.section.description }}</p>{% endif %}
+      {# #749: ruim tussen de vragen, dicht bij de opties. De typografie alleen loste
+         het half op — alles stond op gelijke afstand, en dáárom las de lijst als één
+         massa. Nabijheid doet het werk.
+
+         #768: `space-y-6` → `space-y-8`. Dat is geen extra lucht om de lucht: de
+         trefzone van 40 px zette 10 px padding onder het laatste antwoord, zodat de
+         afstand tot de vólgende vraag (24+10=34) nauwelijks nog groter was dan die
+         binnen een vraagblok (30). Precies de gelijke afstand die #749 wegnam. Met
+         32 px is het 42 tegen 30 en staat de trap er weer. #}
+      <div class="space-y-8">
         {% for f in g.fields %}{{ veld(f, wizard) }}{% endfor %}
       </div>
     {% endcall %}
@@ -189,27 +237,32 @@
     {% endfor %}
     {% if loose_fields %}
     {% call ui.card() %}
-      <div class="space-y-6">
+      <div class="space-y-8">
         {% for f in loose_fields %}{{ veld(f) }}{% endfor %}
       </div>
     {% endcall %}
     {% endif %}
     {% if wizard %}
     {% set submit_label = _("Wijzigingen opslaan") if edit_token|default(None) else _("Verzenden") %}
-    <div class="text-xs text-gray-400 mt-4 mb-1" x-text="'{{ _('Stap') }} ' + (stack.length + 1)"></div>
-    <div class="flex justify-between items-center">
-      {# x-show i.p.v. een opacity-class: Tailwind purget dynamisch-in-:class
-         gebruikte classes (opacity-0), waardoor de knop toch zichtbaar bleef (#480). #}
-      <button type="button" @click="prev()" x-show="stack.length > 0" x-cloak
-              class="{{ ui.btn_class('secondary') }}">‹ {{ _("Vorige") }}</button>
-      <span x-show="stack.length === 0"></span>
-      <div>
+    {# #768: één voet in plaats van een losse stapregel bóven een `justify-between`
+       die de knoppen naar de uiterste randen duwt. De stapaanduiding staat er nu ín,
+       en de knoppen staan bij elkaar rechts — met "Vorige" links, want dat is de weg
+       terug en geen tegenhanger van "Volgende". #}
+    <div class="mt-4 flex items-center gap-3">
+      <span class="text-xs text-gray-400" x-text="'{{ _('Stap') }} ' + (stack.length + 1)"></span>
+      <div class="ml-auto flex items-center gap-2">
+        {# x-show i.p.v. een opacity-class: Tailwind purget dynamisch-in-:class
+           gebruikte classes (opacity-0), waardoor de knop toch zichtbaar bleef (#480).
+           #768: de lege `<span>` die hier stond was een opvulling voor
+           `justify-between` — zonder "Vorige" viel "Volgende" anders naar links. In
+           een `ml-auto`-groep is dat niet meer nodig, dus ze is weg. #}
+        <button type="button" @click="prev()" x-show="stack.length > 0" x-cloak
+                class="{{ ui.btn_class('secondary') }}">‹ {{ _("Vorige") }}</button>
         <button type="button" @click="next()" x-show="!atLast"
                 class="{{ ui.btn_class('primary') }}">{{ _("Volgende") }} ›</button>
         <button type="submit" x-show="atLast"
                 class="{{ ui.btn_class('primary') }}">{{ submit_label }}</button>
       </div>
-    </div>
     </div>
     {% else %}
     {{ ui.btn_primary(_("Wijzigingen opslaan") if edit_token|default(None) else _("Verzenden")) }}
