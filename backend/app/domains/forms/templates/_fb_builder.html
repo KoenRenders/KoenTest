@@ -206,11 +206,6 @@
         {# Downloads staan buiten hx-boost (#634): het antwoord is een bestand, geen HTML. #}
         {{ ui.btn_secondary(_("Export"), lead_icon="download", href="/admin/formulieren/" ~ form.id ~ "/export", size="sm", attrs='hx-boost="false"') }}
         {{ ui.btn_secondary(_("JSON"), lead_icon="download", href="/admin/formulieren/" ~ form.id ~ "/json", size="sm", attrs='hx-boost="false"') }}
-        {# #712: "Bewerken" en niet "Instellingen", en het is een toggle. §2.8
-           schrijft dat paar voor, en de kit heeft er een macro voor die twee
-           schermen verderop in dit bestand al op de veldkaart staat — een
-           handgemaakte knop ernaast is precies hoe die twee uit elkaar lopen. #}
-        {{ ui.edit_toggle("open", size="sm") }}
         {# #665: import staat hier, maar niet als gelijke van Bekijk/Afdruk/Export —
            die vier zijn onschadelijk, importeren gooit de opbouw weg. Het gewicht
            zit in de eigen bevestigingstekst op de knop die het écht doet, en de
@@ -218,6 +213,17 @@
         {% if not submission_count %}
         {{ ui.btn_secondary(_("JSON-import"), size="sm", attrs='@click="jsonimport = !jsonimport"') }}
         {% endif %}
+        {# #722: de import staat vóór de bewerktoggle. Deze rij mengt acties op de
+           INHOUD (bekijken, afdrukken, exporteren, importeren) met acties op het
+           RECORD (bewerken, verwijderen); §rij-acties in docs/ui-conventies.md zet
+           Verwijderen laatst en rood, Bewerken daar direct links van, en al de rest
+           links daarvan. Stond de import ertussen, dan verschoof Verwijderen — de
+           enige onomkeerbare knop — van plek naargelang er inzendingen waren. #}
+        {# #712: "Bewerken" en niet "Instellingen", en het is een toggle. §2.8
+           schrijft dat paar voor, en de kit heeft er een macro voor die twee
+           schermen verderop in dit bestand al op de veldkaart staat — een
+           handgemaakte knop ernaast is precies hoe die twee uit elkaar lopen. #}
+        {{ ui.edit_toggle("open", size="sm") }}
         {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" ' ~ confirm_attrs(_("Formulier"), form.title)) }}
       </div>
     </div>
