@@ -47,7 +47,7 @@ def test_admin_onderdeel_en_product_flow(client, db_session):
     prod = client.post(f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}/producten",
                        data={"name": "Pannenkoeken", "price": "5,00"},
                        headers={"X-CSRF-Token": csrf})
-    assert prod.status_code == 200 and "Pannenkoeken" in prod.text and "5.00" in prod.text
+    assert prod.status_code == 200 and "Pannenkoeken" in prod.text and "5,00" in prod.text
 
 
 def test_product_afrekening_keuze(client, db_session):
