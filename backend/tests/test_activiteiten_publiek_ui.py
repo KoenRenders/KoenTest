@@ -62,13 +62,13 @@ def _totaal_html(**ctx):
 def test_totaal_staat_er_meteen_bij_een_betalend_onderdeel():
     """Op €0,00 al zichtbaar (gedempt) — anders verspringt het formulier."""
     out = _totaal_html(heeft_prijs=True, totaal=Decimal("0"), is_member=False)
-    assert "Totaal:" in out and "0.00" in out
+    assert "Totaal:" in out and "0,00" in out
     assert "text-gray-500" in out and "text-blue-700" not in out
 
 
 def test_totaal_wordt_merkblauw_zodra_er_een_bedrag_staat():
     out = _totaal_html(heeft_prijs=True, totaal=Decimal("27.50"), is_member=False)
-    assert "27.50" in out and "text-blue-700" in out
+    assert "27,50" in out and "text-blue-700" in out
     assert "text-gray-500" not in out
 
 

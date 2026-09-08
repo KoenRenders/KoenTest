@@ -69,6 +69,13 @@ def _langedatum(d) -> str:
 templates.env.filters["langedatum"] = _langedatum
 
 
+# Geldbedragen in nl-BE-notatie (#735): `{{ bedrag|geld }}` → "35,00". Het euroteken
+# staat in de sjablonen, zodat de opmaak eromheen (kleur, uitlijning) daar blijft.
+from app.kernel.geld import bedrag as _bedrag  # noqa: E402
+
+templates.env.filters["geld"] = _bedrag
+
+
 # Relatietype leesbaar tonen (#476): ruwe code → label i.p.v. "HOOFDLID".
 _RELATIE_LABELS = {"HOOFDLID": "Hoofdlid", "PARTNER": "Partner",
                    "KIND": "(meerderjarig) kind"}

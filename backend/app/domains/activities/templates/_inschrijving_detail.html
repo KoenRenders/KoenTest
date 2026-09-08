@@ -31,10 +31,10 @@
   {# Read-only weergave #}
   <div {% if editable %}x-show="!edit"{% endif %}>
     <ul class="mt-2 text-gray-700">
-      {% for item in reg["items"] %}<li>{{ item.quantity }}× {{ item.product_name or "—" }}{% if item.line_total is not none %} · € {{ "%.2f"|format(item.line_total) }}{% endif %}</li>{% else %}<li class="text-gray-400">{{ _("Geen producten") }}</li>{% endfor %}
+      {% for item in reg["items"] %}<li>{{ item.quantity }}× {{ item.product_name or "—" }}{% if item.line_total is not none %} · € {{ item.line_total|geld }}{% endif %}</li>{% else %}<li class="text-gray-400">{{ _("Geen producten") }}</li>{% endfor %}
     </ul>
     {% if reg["items"] %}
-    <div class="mt-1 font-medium">{{ _("Totaal") }}: € {{ "%.2f"|format(totaal) }}</div>
+    <div class="mt-1 font-medium">{{ _("Totaal") }}: € {{ totaal|geld }}</div>
     {% endif %}
     {% if reg.remarks %}<div class="mt-2 text-gray-500">💬 {{ reg.remarks }}</div>{% endif %}
   </div>
@@ -85,7 +85,7 @@
         {% for item in reg["items"] %}
         <div class="flex items-center gap-2">
           <span class="flex-1">{{ item.product_name or "—" }}</span>
-          {% if item.unit_price is not none %}<span class="text-gray-500 whitespace-nowrap">€ {{ "%.2f"|format(item.unit_price) }}</span>{% endif %}
+          {% if item.unit_price is not none %}<span class="text-gray-500 whitespace-nowrap">€ {{ item.unit_price|geld }}</span>{% endif %}
           {# Het aria-label via de format-filter op een gewone string: `~` met de
              Markup uit _() is de escaping-trap van #514, en `Markup % dict` faalt
              op een named placeholder. #}
@@ -102,7 +102,7 @@
                                     ' hx-target="closest .bg-gray-50" hx-swap="outerHTML"'
                                     ' hx-trigger="change, keyup delay:300ms"',
                               aria_label="%s — %s"|format(_("Aantal"), item.product_name or "")) }}
-          {% if item.line_total is not none %}<span class="w-20 text-right whitespace-nowrap">€ {{ "%.2f"|format(item.line_total) }}</span>{% endif %}
+          {% if item.line_total is not none %}<span class="w-20 text-right whitespace-nowrap">€ {{ item.line_total|geld }}</span>{% endif %}
           {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="' ~ _base ~ '/regels/' ~ item.id ~ '/verwijderen" hx-target="closest .bg-gray-50" hx-swap="outerHTML"') }}
         </div>
         {% else %}
@@ -114,7 +114,7 @@
          Loopt sinds #670 mee met een gewijzigd aantal. #}
       {% if reg["items"] %}
       <div class="flex justify-end border-t border-gray-200 pt-2 font-medium">
-        {{ _("Totaal") }}: € {{ "%.2f"|format(totaal) }}
+        {{ _("Totaal") }}: € {{ totaal|geld }}
       </div>
       {% endif %}
 

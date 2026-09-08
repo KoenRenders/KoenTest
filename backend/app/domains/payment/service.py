@@ -362,12 +362,14 @@ def create_refund(
 
     available = net_paid(db, charge.payable_type, charge.payable_id)
     if refund_amount > available:
-        # #723: deze zin komt sinds vandaag écht op het scherm, dus de bedragen
-        # staan er als geld en niet kaal. Zelfde vorm als de rest van dat scherm
-        # ("€ 10.00"), zodat de melding en de kaart erboven niet uiteenlopen.
+        # #723: deze zin komt écht op het scherm, dus de bedragen staan er als geld
+        # en niet kaal. #735: met een komma, via dezelfde helper als de sjablonen —
+        # anders schrijft de melding het bedrag anders dan de kaart erboven.
+        from app.kernel.geld import bedrag
+
         raise ValueError(
-            f"Kan niet meer terugbetalen (€ {refund_amount:.2f}) dan er netto "
-            f"ontvangen is (€ {available:.2f})."
+            f"Kan niet meer terugbetalen (€ {bedrag(refund_amount)}) dan er netto "
+            f"ontvangen is (€ {bedrag(available)})."
         )
 
     record = PaymentRecord(
@@ -1146,6 +1148,8 @@ def bewerk_betaling(db: Session, record_id: str, *, status: str | None = None,
     scherm toont mét teken, je voert in zonder, en hier draait het om. De grens
     (nooit meer dan het terug te betalen bedrag) hoort bij diezelfde regel.
     """
+    from app.kernel.geld import bedrag as _geld
+
     record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
     if record is None:
         raise LookupError("Betaling niet gevonden.")
@@ -1155,7 +1159,7 @@ def bewerk_betaling(db: Session, record_id: str, *, status: str | None = None,
         grens = abs(Decimal(str(record.amount)))
         if abs(bedrag) > grens:
             raise BetalingFout(
-                f"Meer dan het terug te betalen bedrag (€ {grens:.2f}).")
+                f"Meer dan het terug te betalen bedrag (€ {_geld(grens)}).")
         bedrag = -abs(bedrag)
 
     try:

@@ -28,7 +28,7 @@
           <span class="ml-2 text-gray-500">
             {% if p.pay_on_site %}{{ _("ter plaatse te betalen (eigen budget)") }}
             {% elif p.is_free or p.price == 0 %}{{ _("gratis") }}
-            {% else %}€{{ "%.2f"|format(p.price) }}{% if is_member and p.member_price is not none %} / leden €{{ "%.2f"|format(p.member_price) }}{% endif %}
+            {% else %}€{{ p.price|geld }}{% if is_member and p.member_price is not none %} / leden €{{ p.member_price|geld }}{% endif %}
             {% endif %}
           </span>
         </div>

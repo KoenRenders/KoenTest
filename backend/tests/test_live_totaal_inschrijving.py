@@ -50,8 +50,8 @@ def test_een_hoger_aantal_toont_meteen_het_nieuwe_bedrag(client, db_session):
                     headers={"X-CSRF-Token": csrf})
     assert r.status_code == 200
     # Regelbedrag én totaal: 5 x 10,00.
-    assert "50.00" in r.text, "het totaal loopt niet mee"
-    assert r.text.count("50.00") >= 2, (
+    assert "50,00" in r.text, "het totaal loopt niet mee"
+    assert r.text.count("50,00") >= 2, (
         "alleen het totaal is bijgewerkt; het regelbedrag hoort ook mee te lopen")
 
 
@@ -78,7 +78,7 @@ def test_zonder_aantallen_toont_het_de_bewaarde_stand(client, db_session):
 
     r = client.post(f"/admin/inschrijvingen/{reg.id}/totaal", data={},
                     headers={"X-CSRF-Token": csrf})
-    assert r.status_code == 200 and "30.00" in r.text
+    assert r.status_code == 200 and "30,00" in r.text
 
 
 def test_het_endpoint_vereist_een_beheerder(client, db_session):

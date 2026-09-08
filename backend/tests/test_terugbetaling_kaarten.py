@@ -83,7 +83,7 @@ def test_te_veel_afboeken_wordt_geweigerd_in_positieve_termen(client, db_session
     # Wélke weigering (#680): een andere reden — een ontbrekende CSRF-token, een rol
     # die niet mag, een onleesbaar bedrag — zou deze test ook groen zetten. De melding
     # noemt de grens, en die staat hier omdat het bedrag eroverheen ging.
-    assert "10.50" in resp.text, resp.text
+    assert "10,50" in resp.text, resp.text
     db_session.expire_all()
     assert db_session.get(PaymentRecord, refund.id).amount_paid is None
 
@@ -119,7 +119,7 @@ def test_de_rem_zit_op_de_grens_en_geen_cent_ervoor(client, db_session):
                          data={"status": "paid", "amount_paid": "10.51", "note": ""})
     assert erover.status_code == 200, erover.text
     assert 'role="alert"' in erover.text, "de weigering is nergens zichtbaar"
-    assert "10.50" in erover.text, erover.text
+    assert "10,50" in erover.text, erover.text
     db_session.expire_all()
     assert db_session.get(PaymentRecord, refund.id).amount_paid is None, (
         "een geweigerde uitbetaling mag niets vastleggen")
@@ -236,7 +236,7 @@ def test_meerdere_charges_geven_een_totaalregel(client, db_session):
 
     html = client.get("/admin/betalingen/lijst").text
     assert html.count("Totaal inschrijving") == 1, "één regel per inschrijving"
-    assert "€ 81.00" in html and "€ 86.00" in html and "€ -5.00" in html
+    assert "€ 81,00" in html and "€ 86,00" in html and "€ -5,00" in html
 
 
 def test_refund_met_uitbetaald_bedrag_maar_status_pending(client, db_session):
@@ -254,4 +254,4 @@ def test_refund_met_uitbetaald_bedrag_maar_status_pending(client, db_session):
 
     html = client.get("/admin/betalingen/lijst").text
     assert "Terug te betalen" in html, "de badge volgt de status"
-    assert "-5.00" in html, "Ontvangen hoort zichtbaar te zijn"
+    assert "-5,00" in html, "Ontvangen hoort zichtbaar te zijn"

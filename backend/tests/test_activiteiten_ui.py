@@ -23,7 +23,7 @@ def test_inschrijf_form_en_serverside_totaal(client, db_session):
 
     totaal = client.post(f"/activiteiten/{activity.id}/inschrijven/{component.id}/totaal",
                          data={f"product_{product.id}": "3"})
-    assert totaal.status_code == 200 and "30.00" in totaal.text
+    assert totaal.status_code == 200 and "30,00" in totaal.text
 
 
 def test_inschrijven_gratis_zonder_checkout(client, db_session):

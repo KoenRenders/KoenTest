@@ -9,6 +9,6 @@
 {% if heeft_prijs %}
 {% set _leeg = not totaal or totaal <= 0 %}
 <div class="bg-white border rounded-lg p-3 text-sm font-medium {% if _leeg %}border-gray-200 text-gray-500{% else %}border-blue-200 text-blue-700{% endif %}">
-  {{ _("Totaal:") }} €{{ "%.2f"|format(totaal or 0) }}{% if is_member and not _leeg %} <span class="font-normal text-blue-600">{{ _("(ledenprijs)") }}</span>{% endif %}
+  {{ _("Totaal:") }} €{{ (totaal or 0)|geld }}{% if is_member and not _leeg %} <span class="font-normal text-blue-600">{{ _("(ledenprijs)") }}</span>{% endif %}
 </div>
 {% endif %}
