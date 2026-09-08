@@ -76,7 +76,7 @@ def _register(client, activity_id, comp_id, product_id, email, qty=2, headers=No
         f"/api/v1/activities/{activity_id}/register",
         headers=headers or {},
         json={
-            "contact_name": "Test", "contact_email": email,
+            "contact_name": "Test", "phone": "0470000000", "contact_email": email,
             "payment_method": "transfer", "component_id": comp_id,
             "items": [{"product_id": product_id, "quantity": qty}],
         },

@@ -57,21 +57,25 @@
          en OGM tot gevolg. Ze staan in dezelfde vorm als de aantallen, dus onder de
          ene "Opslaan". #}
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-        <div>{{ ui.label(_("Naam"), "reg-naam-" ~ reg.id) }}
+        <div>{{ ui.label(_("Naam"), "reg-naam-" ~ reg.id, required=True) }}
           {{ ui.input_control("contact_name", id="reg-naam-" ~ reg.id, value=reg.contact_name or "", cls="w-full") }}</div>
-        <div>{{ ui.label(_("E-mailadres"), "reg-email-" ~ reg.id) }}
+        <div>{{ ui.label(_("E-mailadres"), "reg-email-" ~ reg.id, required=True) }}
           {{ ui.input_control("contact_email", id="reg-email-" ~ reg.id, type="email", value=reg.contact_email or "", cls="w-full") }}</div>
-        <div>{{ ui.label(_("Mobiel nummer"), "reg-gsm-" ~ reg.id) }}
+        <div>{{ ui.label(_("Mobiel nummer"), "reg-gsm-" ~ reg.id, required=True) }}
           {{ ui.input_control("phone", id="reg-gsm-" ~ reg.id, type="tel", value=reg.phone or "", cls="w-full") }}</div>
         {# Ploegnaam (#716). Ze stond wél in de kop hierboven en was niet te
            wijzigen; een tikfout was enkel recht te zetten door de inschrijving te
            verwijderen en opnieuw in te voeren — dezelfde impasse die #624 voor het
            e-mailadres wegnam. `toon_ploegnaam` dekt twee gevallen: het onderdeel
            vraagt er een, óf de inschrijving heeft er al een (zie _detail_ctx).
-           Geen `required`: dit is een correctiescherm, en een inschrijving van vóór
-           het aanzetten van team_name_required mag niet onbewerkbaar worden. #}
+           #733: het sterretje volgt `ploegnaam_verplicht` en niet `toon_ploegnaam`.
+           Die twee lopen uiteen bij een bewaarde ploegnaam op een onderdeel dat er
+           geen vraagt: het veld staat er dan wél, maar mag leeggemaakt worden.
+           Het HTML-attribuut `required` staat er bewust NIET op — de server weigert
+           een leeg verplicht veld (#733) en toont dat in de foutbanner, zodat élke
+           weg dezelfde regel krijgt en niet alleen wie het scherm gebruikt. #}
         {% if toon_ploegnaam %}
-        <div>{{ ui.label(_("Ploegnaam"), "reg-ploeg-" ~ reg.id) }}
+        <div>{{ ui.label(_("Ploegnaam"), "reg-ploeg-" ~ reg.id, required=ploegnaam_verplicht) }}
           {{ ui.input_control("team_name", id="reg-ploeg-" ~ reg.id, value=reg.team_name or "", cls="w-full") }}</div>
         {% endif %}
       </div>

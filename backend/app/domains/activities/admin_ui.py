@@ -649,6 +649,18 @@ def _detail_ctx(request: Request, db: Session, registration_id: int,
         bedrag = bedragen.get(regel["id"])
         regel["unit_price"] = bedrag["unit_price"] if bedrag else None
         regel["line_total"] = bedrag["subtotal"] if bedrag else None
+        # #732: ook het AANTAL moet meekomen, niet alleen de bedragen. Het antwoord
+        # van /totaal vervangt het hele paneel — inclusief het veld waarin je net
+        # typte — en `enrich_registration` zet daar de BEWAARDE stand in. Wie 2 naar
+        # 1 bracht, kreeg dus een 1-prijs naast een 2 in het invoerveld, en bij
+        # Opslaan stuurde het formulier die 2 terug: `inschrijving_opslaan` zag geen
+        # verschil met de bewaarde waarde en bewaarde niets. De wijziging verdween
+        # zonder melding.
+        #
+        # Zonder `quantities` blijft het de bewaarde stand — dat is het gewone
+        # openen van het paneel — en dit endpoint bewaart nog steeds niets (#613-2).
+        if quantities is not None and regel["id"] in quantities:
+            regel["quantity"] = quantities[regel["id"]]
 
     return {
         "reg": verrijkt,
@@ -662,6 +674,11 @@ def _detail_ctx(request: Request, db: Session, registration_id: int,
         "toon_ploegnaam": bool(
             (component is not None and component.team_name_required)
             or verrijkt.get("team_name")),
+        # #733: getoond en verplicht zijn twee dingen. Het veld verschijnt óók bij
+        # een bewaarde ploegnaam op een onderdeel dat er geen vraagt — daar mag ze
+        # wél leeggemaakt worden, dus daar hoort geen sterretje.
+        "ploegnaam_verplicht": bool(component is not None
+                                    and component.team_name_required),
         "editable": reg.deleted_at is None,
         "edit_open": edit_open,
         "csrf_token": csrf_from_request(request),
@@ -762,8 +779,17 @@ def inschrijving_opmerking(registration_id: int, request: Request,
 
     reg = _reg_or_404(db, registration_id)
     velden = RegistrationContactUpdate(remarks=remarks).model_dump(exclude_unset=True)
-    if service.update_registration_contact(db, reg.activity_id, registration_id,
-                                           velden, actor=email) is None:
+    try:
+        bijgewerkt = service.update_registration_contact(db, reg.activity_id,
+                                                        registration_id, velden,
+                                                        actor=email)
+    except service.ActiviteitFout as fout:
+        # #733 toetst op de uitkomst, dus ook een opmerking-opslag op een inschrijving
+        # waar een verplicht veld al leeg stond loopt hier langs. In de banner, niet
+        # als 500.
+        return _render_detail(request, db, registration_id, edit_open=True,
+                              error=str(fout))
+    if bijgewerkt is None:
         raise HTTPException(status_code=404, detail=_("Registration not found"))
     return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
 
@@ -825,9 +851,17 @@ async def inschrijving_opslaan(registration_id: int, request: Request,
         # foutbanner: htmx swapt een 200, dus de gebruiker ziet de fout écht staan.
         return _render_detail(request, db, registration_id, edit_open=True,
                               error=_("Vul een geldig e-mailadres in."))
-    if service.update_registration_contact(
+    try:
+        bijgewerkt = service.update_registration_contact(
             db, reg.activity_id, registration_id,
-            gegevens.model_dump(exclude_unset=True), actor=email) is None:
+            gegevens.model_dump(exclude_unset=True), actor=email)
+    except service.ActiviteitFout as fout:
+        # #733: een verplicht veld leeggemaakt. In de bestaande foutbanner en met een
+        # 200, want htmx swapt een 4xx niet — dan zou de gebruiker niets zien
+        # gebeuren, precies zoals bij een ongeldig e-mailadres hierboven.
+        return _render_detail(request, db, registration_id, edit_open=True,
+                              error=str(fout))
+    if bijgewerkt is None:
         raise HTTPException(status_code=404, detail=_("Registration not found"))
     # #717: dit is de afsluitende handeling, geen tussenstap. Openblijven gaf
     # hetzelfde scherm terug als vóór de klik — zelfde velden, zelfde knop, geen

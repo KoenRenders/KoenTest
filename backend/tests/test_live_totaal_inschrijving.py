@@ -31,7 +31,7 @@ def _login(client):
 def _inschrijving(client, db, aantal=2):
     activity, comp, product = seed_activity_with_product(db, price="10.00")
     resp = client.post(f"/api/v1/activities/{activity.id}/register", json={
-        "contact_name": "An Janssens", "contact_email": "an@example.com",
+        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
         "component_id": comp.id, "payment_method": "TRANSFER",
         "items": [{"product_id": product.id, "quantity": aantal}]})
     assert resp.status_code in (200, 201), resp.text

@@ -73,7 +73,7 @@ def test_export_quantities_and_financials(client, db_session, admin_headers):
 
     # Inschrijving: 2 stuks → verschuldigd €36.
     reg_resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "An Janssens", "contact_email": "an@example.com",
+        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
         "component_id": comp.id, "payment_method": "TRANSFER",
         "items": [{"product_id": product.id, "quantity": 2}],
     })
@@ -130,7 +130,7 @@ def test_export_second_sheet_payments_and_totals(client, db_session, admin_heade
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
     client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "An Janssens", "contact_email": "an@example.com",
+        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
         "component_id": comp.id, "payment_method": "TRANSFER",
         "items": [{"product_id": product.id, "quantity": 2}],
     })
@@ -190,7 +190,7 @@ def test_export_aggregates_duplicate_product_lines(client, db_session, admin_hea
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
     reg_resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "An", "contact_email": "an@example.com",
+        "contact_name": "An", "phone": "0470000000", "contact_email": "an@example.com",
         "component_id": comp.id, "payment_method": "TRANSFER",
         "items": [{"product_id": product.id, "quantity": 1}],
     })
@@ -229,12 +229,12 @@ def test_export_multiple_products_and_registrations(client, db_session, admin_he
 
     # Inschrijving A: 2× p1, 1× p2 = 25 ; B: 3× p2 = 15
     client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "A", "contact_email": "a@example.com", "component_id": comp.id,
+        "contact_name": "A", "phone": "0470000000", "contact_email": "a@example.com", "component_id": comp.id,
         "payment_method": "TRANSFER",
         "items": [{"product_id": p1.id, "quantity": 2}, {"product_id": p2.id, "quantity": 1}],
     })
     client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "B", "contact_email": "b@example.com", "component_id": comp.id,
+        "contact_name": "B", "phone": "0470000000", "contact_email": "b@example.com", "component_id": comp.id,
         "payment_method": "TRANSFER",
         "items": [{"product_id": p2.id, "quantity": 3}],
     })
@@ -254,7 +254,7 @@ def test_export_online_payment_in_online_column(client, db_session, admin_header
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
     client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "An", "contact_email": "an@example.com", "component_id": comp.id,
+        "contact_name": "An", "phone": "0470000000", "contact_email": "an@example.com", "component_id": comp.id,
         "payment_method": "TRANSFER",
         "items": [{"product_id": product.id, "quantity": 1}],
     })
@@ -284,12 +284,12 @@ def test_export_includes_remarks_column(client, db_session, admin_headers):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
     client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "An", "contact_email": "an@example.com", "component_id": comp.id,
+        "contact_name": "An", "phone": "0470000000", "contact_email": "an@example.com", "component_id": comp.id,
         "payment_method": "TRANSFER", "remarks": "Komt iets later",
         "items": [{"product_id": product.id, "quantity": 1}],
     })
     client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "Bo", "contact_email": "bo@example.com", "component_id": comp.id,
+        "contact_name": "Bo", "phone": "0470000000", "contact_email": "bo@example.com", "component_id": comp.id,
         "payment_method": "TRANSFER",
         "items": [{"product_id": product.id, "quantity": 1}],
     })

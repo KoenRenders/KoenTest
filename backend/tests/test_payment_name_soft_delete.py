@@ -33,7 +33,7 @@ def test_registration_description_survives_activity_soft_delete(client, db_sessi
 
     _, comp, product = seed_activity_with_product(db_session, price="12.00")
     resp = client.post(f"/api/v1/activities/{comp.activity_id}/register", json={
-        "contact_name": "An", "contact_email": "an@example.com",
+        "contact_name": "An", "phone": "0470000000", "contact_email": "an@example.com",
         "component_id": comp.id, "payment_method": "TRANSFER",
         "items": [{"product_id": product.id, "quantity": 1}],
     })

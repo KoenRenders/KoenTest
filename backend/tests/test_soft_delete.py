@@ -88,7 +88,7 @@ def test_soft_delete_activity_hides_tree_keeps_payment(client, db_session, admin
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     activity_id = comp.activity_id
     client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "An", "contact_email": "an@example.com", "component_id": comp.id,
+        "contact_name": "An", "phone": "0470000000", "contact_email": "an@example.com", "component_id": comp.id,
         "payment_method": "TRANSFER", "items": [{"product_id": product.id, "quantity": 1}],
     })
     reg = db_session.query(Registration).filter(Registration.activity_id == activity_id).first()

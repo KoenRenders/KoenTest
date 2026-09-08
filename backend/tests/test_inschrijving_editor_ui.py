@@ -15,7 +15,7 @@ def _login(client):
 
 def _register(client, activity_id, comp, product, quantity=1):
     resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "An Janssens", "contact_email": "an@example.com",
+        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
         "component_id": comp.id, "payment_method": "TRANSFER",
         "items": [{"product_id": product.id, "quantity": quantity}],
     })

@@ -1184,3 +1184,53 @@ def test_de_out_of_band_navigatie_bestaat_nog():
     assert gevonden >= 4, (
         f"nog maar {gevonden} out-of-band navigatiecontainers; #714 is "
         "waarschijnlijk stilletjes teruggedraaid")
+
+
+# Een knop-aanroep in een actierij. `row_actions` telt mee: dat is er ook één.
+ACTIEKNOP = re.compile(r'ui\.btn_(?:secondary|primary|danger|ghost)\('
+                       r'|ui\.edit_toggle\(|ui\.row_actions\(')
+BEWERKKNOP = re.compile(r'ui\.edit_toggle\(|btn_\w+\(_\("Bewerken"\)')
+VERWIJDERKNOP = re.compile(r'btn_danger\(_\("Verwijderen"\)')
+
+
+def test_bewerken_staat_direct_links_van_verwijderen():
+    """#722: tussen Bewerken en Verwijderen hoort geen derde knop.
+
+    Een actierij mengt acties op de INHOUD (bekijken, afdrukken, exporteren,
+    importeren) met acties op het RECORD (bewerken, verwijderen). De conventie in
+    `docs/ui-conventies.md` zet Verwijderen laatst en rood, Bewerken daar direct
+    links van, en al de rest links daarvan.
+
+    Waarom dat meer is dan smaak: in de formulier-builder stond `JSON-import`
+    ertussen, en die knop verschijnt en verdwijnt naargelang er inzendingen zijn.
+    Verwijderen — de enige onomkeerbare knop — verschoof dus van plek naargelang de
+    toestand van het formulier.
+
+    De rij wordt afgebakend op het eerstvolgende `</div>`; dat is in alle zestien
+    huidige gevallen de sluiting van de knoppenrij zelf.
+
+    Kapotgemaakt om te controleren dat hij faalt: de JSON-import weer tussen de
+    toggle en Verwijderen gezet → betrapt op `_fb_builder.html:223->227`.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        regels = _zonder_commentaar(pad).splitlines()
+        for i, regel in enumerate(regels):
+            if not BEWERKKNOP.search(regel):
+                continue
+            tussen = []
+            for j in range(i + 1, min(i + 25, len(regels))):
+                if "</div>" in regels[j]:
+                    break
+                if VERWIJDERKNOP.search(regels[j]):
+                    if tussen:
+                        fouten.append(
+                            f"{pad.relative_to(APP)}:{i + 1}→{j + 1}: knop op regel "
+                            + ", ".join(str(t) for t in tussen))
+                    break
+                if ACTIEKNOP.search(regels[j]):
+                    tussen.append(j + 1)
+    assert not fouten, (
+        "Tussen Bewerken en Verwijderen hoort niets te staan — anders verschuift "
+        "de onomkeerbare knop mee met de toestand van het scherm (#722):\n  "
+        + "\n  ".join(fouten))

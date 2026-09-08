@@ -197,7 +197,7 @@ def test_registration_balance_reflects_charge_and_refund(client, db_session, adm
     activity_id = comp.activity_id
 
     reg_resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "An Janssens", "contact_email": "an@example.com",
+        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
         "component_id": comp.id, "payment_method": "TRANSFER",
         "items": [{"product_id": product.id, "quantity": 1}],
     })

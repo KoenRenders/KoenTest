@@ -9,7 +9,7 @@ from app.domains.activities.api import Registration
 from app.domains.payment.api import PaymentRecord
 from tests.conftest import seed_activity_with_product
 
-_REG = {"contact_name": "An Janssens", "contact_email": "an@example.com", "payment_method": "TRANSFER"}
+_REG = {"contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com", "payment_method": "TRANSFER"}
 
 
 def _public(client, activity_id, comp_id):
