@@ -15,6 +15,14 @@ mutatie-observer af. `ui.toast()` stond sinds #528 in de kit maar was tot #717
 door geen enkele template aangeroepen — het contract was dus nooit uitgeprobeerd,
 alleen opgeschreven.
 
+**Er wordt bewust niets gewijzigd vóór het opslaan.** Het aantal-veld draagt
+`hx-trigger="change, keyup delay:300ms"` en vervangt het hele paneel via `/totaal`;
+een waarde invullen en meteen op Opslaan klikken is dus een wedloop met die swap.
+Dat kostte deze tests hun eerste run: dezelfde twee stappen slaagden één keer en
+faalden één keer, zonder toast — het beeld van een klik die op een losgekoppelde
+knop landde. Voor #717 doet het aantal er niet toe: wat bewezen moet worden is dat
+een gesláágde opslag een bevestiging oplevert, en dat is ze ook zonder wijziging.
+
 Kapotgemaakt om te controleren dat deze test rood kan worden: het succespad van
 `inschrijving_opslaan` teruggezet op `edit_open=True` zonder `toast=` — dan faalt
 hij op de eerste assert (geen toast in #toasts) en, na die assert weg te halen,
@@ -72,10 +80,6 @@ def test_opslaan_toont_een_toast_en_sluit_het_paneel(admin_page):
 
     detail = Inschrijvingsdetail(paneel)
     detail.bewerken()
-    if detail.aantalvelden().count() == 0:
-        _ontbreekt("geen bestelregels om te wijzigen")
-
-    detail.zet_aantal(0, 2)
     detail.opslaan()
 
     melding = toasts(admin_page).first
@@ -103,10 +107,6 @@ def test_de_toast_verdwijnt_weer(admin_page):
 
     detail = Inschrijvingsdetail(paneel)
     detail.bewerken()
-    if detail.aantalvelden().count() == 0:
-        _ontbreekt("geen bestelregels om te wijzigen")
-
-    detail.zet_aantal(0, 3)
     detail.opslaan()
 
     melding = toasts(admin_page).first
