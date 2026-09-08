@@ -83,8 +83,10 @@
     <div class="flex flex-wrap items-center gap-5 text-sm">
       <label class="flex items-center gap-2"><input type="checkbox" name="is_published" value="1" {% if p.is_published %}checked{% endif %}> {{ _("Gepubliceerd") }}</label>
       <label class="flex items-center gap-2"><input type="checkbox" name="show_in_nav" value="1" {% if p.show_in_nav %}checked{% endif %}> {{ _("In navigatie") }}</label>
-      <label class="flex items-center gap-2">{{ _("Volgorde") }}
-        {{ ui.input_control("sort_order", id="cp-sort", type="number", value=p.sort_order, cls="w-20") }}</label>
+      {# #745: het getalveld "Volgorde" is hier weg. De volgorde zet je met de
+         pijltjes in de lijst; twee bedieningen voor hetzelfde ding kunnen elkaar
+         tegenspreken, en dit veld dwong je bovendien het nummer van de pagina
+         erboven te kennen. De kolom bestaat gewoon nog. #}
     </div>
     {# §2.8: [Opslaan] [Annuleren] onderaan links. De teruglink bovenaan blijft
        staan — die is navigatie, niet "verwerp mijn wijzigingen" — maar ligt na de

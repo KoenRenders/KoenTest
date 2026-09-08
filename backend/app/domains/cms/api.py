@@ -13,11 +13,12 @@ from app.domains.cms.service import (  # noqa: F401
     list_pages,
     placeholders,
     published_slugs,
+    verplaats_pagina,
     update_page,
 )
 
 __all__ = [
-    "SlugBestaatAl", "create_page", "delete_page",
+    "SlugBestaatAl", "create_page", "delete_page", "verplaats_pagina",
     "get_page_by_id", "get_published_page", "list_pages", "placeholders",
     "published_slugs", "update_page","CmsPage", "render_cms_content", "sanitize_cms_html",
            "_format_md", "_format_price"]

@@ -15,7 +15,7 @@ from app.domains.auth.api import (
     admin_user_by_email, csrf_from_request,
     SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf,
 )
-from app.ui import admin_nav, is_fragment_request, templates
+from app.ui import admin_nav, filterparams, is_fragment_request, templates
 from app.i18n import _
 
 router = APIRouter(include_in_schema=False)
@@ -31,7 +31,16 @@ def _lijst_ctx(db: Session, q: str = "", status: str = "") -> dict:
     """
     from app.domains.cms.api import list_pages as list_all_pages
 
-    pages = list_all_pages(db)
+    alle = list_all_pages(db)
+    # #745: de pijltjes verplaatsen binnen de VOLLEDIGE verzameling; het filter
+    # bepaalt alleen wat je ziet. Daarom wordt "eerste" en "laatste" ook daaraan
+    # afgemeten: met een filter aan is de bovenste zichtbare rij zelden de eerste
+    # pagina, en die dan uitgrijzen zou een verplaatsing blokkeren die gewoon kan.
+    geordend = sorted(alle, key=lambda p: (p.sort_order or 0, p.id))
+    eerste_id = geordend[0].id if geordend else None
+    laatste_id = geordend[-1].id if geordend else None
+
+    pages = list(alle)
     term = q.strip().lower()
     if term:
         pages = [p for p in pages
@@ -43,7 +52,8 @@ def _lijst_ctx(db: Session, q: str = "", status: str = "") -> dict:
     elif status == "in_nav":
         pages = [p for p in pages if p.show_in_nav]
     return {"pages": pages, "q": q, "status": status,
-            "gefilterd": bool(term or status)}
+            "gefilterd": bool(term or status),
+            "eerste_id": eerste_id, "laatste_id": laatste_id}
 
 
 def _detail_response(request: Request, db: Session, page_id: int, *,
@@ -125,14 +135,21 @@ def pagina_bijwerken(page_id: int, request: Request, db: Session = Depends(get_d
                      email: str = Depends(require_admin_ui),
                      title: str = Form(""), slug: str = Form(""),
                      content: str = Form(""), is_published: str = Form(""),
-                     show_in_nav: str = Form(""), sort_order: str = Form("0")):
+                     show_in_nav: str = Form(""),
+                     sort_order: str | None = Form(None)):
     from app.domains.cms.api import update_page
     from app.schemas.cms import CmsPageUpdate
 
-    try:
-        volgorde = int(sort_order or "0")
-    except ValueError:
-        raise HTTPException(status_code=400, detail=_("Ongeldige volgorde."))
+    # #745: het getalveld is uit de editor verdwenen, dus de sleutel komt niet meer
+    # mee. "Niet meegestuurd" is iets anders dan "op nul gezet": zou dit veld op 0
+    # terugvallen, dan wist een gewone opslag de volgorde die je net met de pijltjes
+    # gezet had — en dat merk je pas als het publieke menu door elkaar staat.
+    volgorde = None
+    if sort_order is not None:
+        try:
+            volgorde = int(sort_order or "0")
+        except ValueError:
+            raise HTTPException(status_code=400, detail=_("Ongeldige volgorde."))
     # CmsPageUpdate slaat None-velden over (exclude_none) — booleans en content
     # moeten dus altijd een waarde meekrijgen, anders kun je nooit uitvinken.
     data = CmsPageUpdate(
@@ -146,6 +163,38 @@ def pagina_bijwerken(page_id: int, request: Request, db: Session = Depends(get_d
     # #742: het scherm blijft staan, dus zonder toast zegt een geslaagde opslag
     # niets — je ziet dezelfde editor terug en weet niet of het gelukt is.
     return _detail_response(request, db, page_id, toast=True)
+
+
+@router.post("/admin/paginas/{page_id}/volgorde/{richting}",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def pagina_verplaatsen(page_id: int, richting: str, request: Request,
+                       db: Session = Depends(get_db),
+                       email: str = Depends(require_admin_ui)):
+    """Eén plaats omhoog of omlaag (#745).
+
+    De volgorde werd tot nu toe gezet door in élke pagina een getal te typen: om er
+    één omhoog te zetten moest je weten welk nummer de pagina erboven droeg, beide
+    editors openen en er een getal tussen verzinnen. Op HDEV stond er daardoor een
+    op -1 — iemand had geen ruimte meer.
+
+    **Verplaatsen gebeurt binnen de VOLLEDIGE verzameling**, ook als er gefilterd
+    is. `move_sibling()` hernummert `sort_order` naar 0..n over wat het krijgt; voed
+    je het de gefilterde rijen, dan krijgen die 0..n en verliezen alle pagina's
+    buiten het filter hun plaats — dan herschrijft een filter de volgorde van de hele
+    site, en dat merk je pas als het publieke menu door elkaar staat.
+
+    Dat hernummeren ruimt meteen de dubbels en de -1 op die er vandaag staan.
+    """
+    from app.domains.cms.api import verplaats_pagina
+
+    verplaats_pagina(db, page_id, richting)
+    # De filterstand komt uit de browser-URL (#671), zodat je na een verplaatsing
+    # dezelfde selectie terugkrijgt en niet plots de hele lijst.
+    stand = filterparams(request)
+    return templates.TemplateResponse(
+        request, "_cp_kaarten.html",
+        {"csrf_token": csrf_from_request(request),
+         **_lijst_ctx(db, stand.get("q", ""), stand.get("status", ""))})
 
 
 @router.post("/admin/paginas/{page_id}/verwijderen", response_class=HTMLResponse,

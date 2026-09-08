@@ -39,9 +39,33 @@ def published_slugs(db) -> list[str]:
 # punt 3 beschrijft. De routes zijn nu dunne schillen.
 
 def list_pages(db) -> list[CmsPage]:
-    """Alle pagina's, in de volgorde waarin ze in de navigatie horen."""
+    """Alle pagina's, in de volgorde waarin ze in de navigatie horen.
+
+    Tiebreaker op `id` en niet op titel (#745): `move_sibling()` hernummert en
+    wisselt op `(sort_order, id)`, en als de weergave op iets anders sorteert lijkt
+    een pijltje twee plaatsen te springen zodra twee pagina's dezelfde volgorde
+    dragen — precies de toestand die vandaag bestaat. Zelfde redenering als #725.
+    """
     return (db.query(CmsPage)
-            .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc()).all())
+            .order_by(CmsPage.sort_order.asc(), CmsPage.id.asc()).all())
+
+
+def verplaats_pagina(db, page_id: int, richting: str) -> bool:
+    """Eén plaats omhoog of omlaag in de navigatievolgorde (#745).
+
+    Verplaatst binnen de VOLLEDIGE verzameling. `move_sibling()` hernummert
+    `sort_order` naar 0..n over wat het krijgt; voed je het een gefilterde lijst,
+    dan krijgen die rijen 0..n en verliezen alle pagina's daarbuiten hun plaats —
+    dan herschrijft een filter de volgorde van de hele site.
+
+    Dat hernummeren ruimt meteen de dubbels en de -1 op die er vandaag staan.
+    """
+    from app.kernel.ordering import move_sibling
+
+    verplaatst = move_sibling(list_pages(db), page_id, richting)
+    if verplaatst:
+        db.commit()
+    return verplaatst
 
 
 def get_page_by_id(db, page_id: int) -> Optional[CmsPage]:
