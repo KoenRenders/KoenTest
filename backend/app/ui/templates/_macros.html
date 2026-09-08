@@ -97,7 +97,13 @@
 
     `2 2 20 20` en niet de omhullende (`3 3 18 18`): dat laatste is gemeten en
     daarna bekeken, en toen domineerde het vierkant de microfoon. De getallen wezen
-    de richting, het beeld besliste. -#}
+    de richting, het beeld besliste.
+
+    Let op het verschil met #744, want daar wérkte bijsnijden tot de omhullende wél:
+    de omhullende is niet altijd de juiste maat. Bij de sociale iconen ging het om
+    één icoon naast twee andere in dezelfde rij; hier gaat het om twee standen van
+    DEZELFDE knop, die elkaar afwisselen — daar valt een verschil in zwaarte veel
+    harder op. Snijd dus niet klakkeloos bij: meet, en kijk er dan naar. -#}
 {%- set viewboxes = {"square": "2 2 20 20"} -%}
 <svg xmlns="http://www.w3.org/2000/svg" width="{{ size }}" height="{{ size }}" viewBox="{{ viewboxes.get(name, '0 0 24 24') }}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 {{ cls }}" aria-hidden="true">{{ paths.get(name, '')|safe }}</svg>
 {%- endmacro %}

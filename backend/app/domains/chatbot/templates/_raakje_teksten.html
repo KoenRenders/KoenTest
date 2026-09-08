@@ -1,0 +1,12 @@
+{# #765: de introtekst van Raakje staat hier, op één plaats.
+
+   Twee kopieën lopen uit elkaar bij de eerstvolgende wijziging, en dat is precies
+   hoe het verschil ontstond: #570 zette de begroeting en de doorgeef-zin terug in de
+   widget en raakte `/raakje` niet. Sindsdien stelde de bot zich op het ene scherm
+   voor en op het andere niet.
+
+   Een macro en geen Python-constante: zo blijft `_()` de vertaling per tenant doen,
+   op dezelfde manier als overal elders in de sjablonen. #}
+{% macro intro() -%}
+{{ _("Hallo, ik ben Raakje! 👋 Stel je vraag over Raak Millegem — activiteiten, lid worden, praktisch. Ik kan ook je vraag of idee doorgeven aan het bestuur.") }}
+{%- endmacro %}
