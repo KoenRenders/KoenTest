@@ -10,6 +10,7 @@
 #   raakctl backup <env>                 manual pg_dump -> <checkout>/backups
 #   raakctl up <env>                     start a stopped stack (no build, no git)
 #   raakctl stop <env>                   stop a stack, keeping its containers
+#   raakctl restart <env> [service]      stop + up in one go (no git, no build)
 #   raakctl deploy hdev                  master to HDEV
 #   raakctl deploy uat  <tag>            release tag to UAT
 #   raakctl deploy prod <tag> --confirm
@@ -166,6 +167,37 @@ cmd_stop() {
   echo "$env stopped — it will NOT restart by itself after a reboot. Bring it back with: raakctl up $env"
 }
 
+cmd_restart() {
+  # Stop followed by up, in one command. Use this to pick up a changed env var.
+  #
+  # It does NO git, NO build and NO migrations — that is `deploy`, and it exists.
+  # Keeping those apart is the whole point: a restart must never change what runs
+  # on an environment, only give the same code its new configuration. There is a
+  # test on that (backend/tests/test_raakctl_restart.py); it fails if this verb
+  # ever grows a build or a git call.
+  #
+  # Naming one service is allowed and often what you want: changing STT_MODE only
+  # concerns the backend, and there is no reason to take the database with it.
+  local env="${1:?name an environment: hdev|uat|prod}"; shift || true
+  case "$env" in hdev|uat|prod) ;; *) die "restart works on hdev, uat or prod — not on '$env'" ;; esac
+
+  local services=() confirmed=0
+  for a in "$@"; do
+    case "$a" in --confirm) confirmed=1 ;; *) services+=("$a") ;; esac
+  done
+  # UAT and PROD serve real visitors: a restart interrupts them, so it asks the
+  # same way `deploy` does. HDEV does not — that is where you try things out.
+  case "$env" in
+    uat|prod) [ "$confirmed" = 1 ] ||
+      die "restarting $env interrupts the site — repeat with --confirm" ;;
+  esac
+
+  compose "$env" stop ${services[@]+"${services[@]}"}
+  compose "$env" up -d ${services[@]+"${services[@]}"}
+  echo "$env restarted${services[0]+ (${services[*]})} — no git, no build, no migrations."
+  echo "Changing what runs there is a deploy: raakctl deploy $env"
+}
+
 cmd_deploy() {
   local env="${1:?name an environment: hdev|uat|prod}"; shift
   # Guardrails first: a missing tag or confirmation must fail before we even look
@@ -195,7 +227,10 @@ cmd_caddy() {
   ( cd "$(checkout caddy)" && ./deploy-caddy.sh "$@" )
 }
 
-usage() { sed -n '2,20p' "$0" | sed 's/^# \{0,1\}//'; }
+# Snijden op de eerste lege regel en niet op een regelnummer (#753): dat nummer
+# schuift zodra er een verb bijkomt, en dan drukt de hulp stilletjes de toelichting
+# eronder mee af.
+usage() { sed -n '2,/^# Why this exists/p' "$0" | sed '$d; s/^# \{0,1\}//'; }
 
 # ── menu ─────────────────────────────────────────────────────────────────────
 # Pick an environment from a numbered list instead of typing it. Bash's `select`
@@ -273,6 +308,7 @@ case "$verb" in
   backup)   cmd_backup "$@" ;;
   up)       cmd_up "$@" ;;
   stop)     cmd_stop "$@" ;;
+  restart)  cmd_restart "$@" ;;
   deploy)   cmd_deploy "$@" ;;
   caddy)    cmd_caddy "$@" ;;
   help|-h|--help) usage ;;
