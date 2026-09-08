@@ -114,9 +114,11 @@ def _detail_ctx(request: Request, db: Session, family_id: int) -> dict:
             "csrf_token": csrf_from_request(request), **_codes(db)}
 
 
-def _detail_response(request: Request, db: Session, family_id: int):
-    return templates.TemplateResponse(request, "_leden_detail.html",
-                                      _detail_ctx(request, db, family_id))
+def _detail_response(request: Request, db: Session, family_id: int, *,
+                     toast: bool = False):
+    ctx = _detail_ctx(request, db, family_id)
+    ctx["toast_opgeslagen"] = toast
+    return templates.TemplateResponse(request, "_leden_detail.html", ctx)
 
 
 # ── Overzicht ──────────────────────────────────────────────────────────────────
@@ -219,7 +221,9 @@ def persoon_opslaan(family_id: int, person_id: int, request: Request,
     from app.domains.membership.api import set_relation_type
 
     set_relation_type(db, family_id, person_id, relation_type)
-    return _detail_response(request, db, family_id)
+    # #742: een afsluitende "Opslaan", dus mét bevestiging. Een persoon toevoegen of
+    # verwijderen is een deelactie en krijgt er géén — dezelfde grens als bij #717.
+    return _detail_response(request, db, family_id, toast=True)
 
 
 @router.post("/admin/leden/gezin/{family_id}/adres", response_class=HTMLResponse,
@@ -241,7 +245,7 @@ def adres_opslaan(family_id: int, request: Request, db: Session = Depends(get_db
         street=street.strip(), house_number=house_number.strip(),
         bus_number=bus_number.strip() or None, postal_code=postal_code.strip(),
     ), admin=admin_user_by_email(db, email))
-    return _detail_response(request, db, family_id)
+    return _detail_response(request, db, family_id, toast=True)
 
 
 @router.post("/admin/leden/gezin/{family_id}/personen", response_class=HTMLResponse,

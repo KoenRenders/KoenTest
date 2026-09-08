@@ -171,6 +171,4 @@
    `toast_bericht` staat alleen op het succespad van /opslaan. De detailroute,
    /totaal en /regels renderen ditzelfde fragment en horen geen bevestiging te
    tonen — daar is de vlag None. #}
-{% if toast_bericht %}
-<div hx-swap-oob="afterbegin:#toasts">{{ ui.toast(toast_bericht) }}</div>
-{% endif %}
+{% if toast_bericht %}{{ ui.toast_oob() }}{% endif %}

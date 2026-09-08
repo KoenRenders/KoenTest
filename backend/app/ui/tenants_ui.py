@@ -189,5 +189,8 @@ async def tenant_opslaan(tenant_id: int, request: Request,
         known=[key for key, _l, _h in BEKENDE_SLEUTELS],
         secret=[key for key, _l, _h in GEHEIME_SLEUTELS])
     ctx = _editor_ctx(request, db, tenant_id)
-    ctx["opgeslagen"] = True
+    # #742: een toast in plaats van de bestaande success_banner. §2.9 schrijft één
+    # bevestigingspatroon voor; twee vormen naast elkaar is precies de inconsistentie
+    # die dat issue wegneemt.
+    ctx["toast_opgeslagen"] = True
     return templates.TemplateResponse(request, "admin_tenant.html", ctx)

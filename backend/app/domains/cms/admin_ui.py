@@ -46,7 +46,8 @@ def _lijst_ctx(db: Session, q: str = "", status: str = "") -> dict:
             "gefilterd": bool(term or status)}
 
 
-def _detail_response(request: Request, db: Session, page_id: int):
+def _detail_response(request: Request, db: Session, page_id: int, *,
+                     toast: bool = False):
     from app.domains.cms.api import get_page_by_id, placeholders
 
     page = get_page_by_id(db, page_id)
@@ -54,7 +55,8 @@ def _detail_response(request: Request, db: Session, page_id: int):
         return HTMLResponse('<div id="cp-detail" hx-swap-oob="true"></div>')
     return templates.TemplateResponse(request, "_cp_detail.html", {
         "p": page, "placeholders": placeholders(),
-        "csrf_token": csrf_from_request(request), "error": None})
+        "csrf_token": csrf_from_request(request), "error": None,
+        "toast_opgeslagen": toast})
 
 
 @router.get("/admin/paginas", response_class=HTMLResponse)
@@ -141,7 +143,9 @@ def pagina_bijwerken(page_id: int, request: Request, db: Session = Depends(get_d
     update_page(db, page_id, data)
     # Geen HX-Trigger meer voor de zijlijst: die master-detail-lijst bestond
     # naast de editor en is met #587 verdwenen.
-    return _detail_response(request, db, page_id)
+    # #742: het scherm blijft staan, dus zonder toast zegt een geslaagde opslag
+    # niets — je ziet dezelfde editor terug en weet niet of het gelukt is.
+    return _detail_response(request, db, page_id, toast=True)
 
 
 @router.post("/admin/paginas/{page_id}/verwijderen", response_class=HTMLResponse,

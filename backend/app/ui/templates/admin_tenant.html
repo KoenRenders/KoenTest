@@ -9,7 +9,6 @@
   {{ ui.btn_secondary(_("‹ Alle tenants"), href="/admin/tenants", size="sm") }}
 {% endcall %}
 {{ ui.error_banner(error) }}
-{% if opgeslagen %}{{ ui.success_banner(_("Instellingen opgeslagen.")) }}{% endif %}
 
 <p class="text-sm text-ink-soft mb-4">
   {{ _("Code") }}: <span class="font-mono">/{{ unit.code }}</span>
@@ -43,4 +42,12 @@
      aanmaakschermen doen het wel goed. #}
   <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/tenants") }}</div>
 </form>
+
+{# #742: bevestiging na een geslaagde opslag (§2.9). Dit sjabloon ERFT van de
+   schil, dus alles buiten een block wordt genegeerd — het oob-element hoort hier,
+   aan het eind van de inhoud. Het antwoord is een volledige pagina die met
+   innerHTML in `body` landt, dus top-level in het antwoord kán niet; htmx pikt een
+   genest oob-element op (allowNestedOobSwaps staat standaard aan). De vlag staat
+   alleen op het succespad. #}
+{% if toast_opgeslagen|default(False) %}{{ ui.toast_oob() }}{% endif %}
 {% endblock %}

@@ -134,7 +134,7 @@ def _aa_detail_ctx(request: Request, db: Session, activiteit, error: str | None 
 
 
 def _detail_response(request: Request, db: Session, activity_id: int,
-                     error: str | None = None):
+                     error: str | None = None, *, toast: bool = False):
     from app.domains.activities.api import get_activity_detail
 
     # #651: was `list_activities(scope="all")` + in Python filteren op id. Het
@@ -143,8 +143,9 @@ def _detail_response(request: Request, db: Session, activity_id: int,
     activiteit = get_activity_detail(db, activity_id)
     if activiteit is None:
         return HTMLResponse('<div id="aa-detail" hx-swap-oob="true"></div>')
-    return templates.TemplateResponse(request, "_aa_detail.html",
-                                      _aa_detail_ctx(request, db, activiteit, error))
+    ctx = _aa_detail_ctx(request, db, activiteit, error)
+    ctx["toast_opgeslagen"] = toast
+    return templates.TemplateResponse(request, "_aa_detail.html", ctx)
 
 
 @router.get("/admin/activiteiten", response_class=HTMLResponse)
@@ -258,7 +259,10 @@ async def activiteit_bijwerken(activity_id: int, request: Request,
             await replace_activity_poster(db, activity_id, file, background_tasks)
         except (LookupError, HTTPException) as exc:
             return _detail_response(request, db, activity_id, error=_upload_error(exc))
-    return _detail_response(request, db, activity_id)
+    # #742: alleen deze afsluitende "Opslaan" bevestigt. De andere mutaties op dit
+    # scherm (een datum toevoegen, een onderdeel bijwerken, een affiche wissen) zijn
+    # deelacties en krijgen géén toast — dezelfde grens als bij #717.
+    return _detail_response(request, db, activity_id, toast=True)
 
 
 @router.post("/admin/activiteiten/{activity_id}/verwijderen", response_class=HTMLResponse,
