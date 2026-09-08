@@ -33,20 +33,43 @@ router = APIRouter(include_in_schema=False)
 NAV = admin_nav("/admin/betalingen")
 
 
-def _uitvoeren(bewerking, db: Session, *args, **kwargs):
-    """Voer één schermbewerking uit en vertaal haar fouten naar HTTP.
+def _uitvoeren(bewerking, request: Request, db: Session, email: str,
+               *args, **kwargs) -> HTMLResponse:
+    """Voer één schermbewerking uit en geef de lijst terug — met de reden bij een
+    weigering.
 
     De servicelaag kent geen HTTP: ze gooit `BetalingFout` bij een invoerfout en
-    `LookupError` als het record niet bestaat. Deze route is de enige plek waar
-    dat een statuscode wordt (#635 regel 1: de router is de deurwachter, niet de
+    `LookupError` als het record niet bestaat. Deze route is de enige plek waar dat
+    een statuscode wordt (#635 regel 1: de router is de deurwachter, niet de
     rekenmeester).
+
+    #723: een `BetalingFout` was een 400, en daar hield de uitleg op. htmx swapt niet
+    op een 4xx, dus de globale afhandelaar in `_macros.html` nam over — en die toont
+    voor élke status behalve 401/403 één vaste zin zonder ooit in het antwoord te
+    kijken. De precieze reden ("Kan niet meer terugbetalen (€ 100.00) dan er netto
+    ontvangen is (€ 10.00).") werd geschreven, doorgegeven, over de lijn gestuurd en
+    op de laatste meter weggegooid.
+
+    Nu gaat de lijst terug met een **200** en de reden in de foutbanner, precies
+    zoals `inschrijving_opslaan` het al deed — omdát htmx een 200 wél swapt.
+
+    Een `LookupError` blijft een 404: dat is geen invoerfout maar een verdwenen
+    record, en daar is "herlaad de pagina" wél het juiste antwoord.
+
+    Bewust géén `db.rollback()` op de foutweg: de services valideren vóór ze
+    muteren, dus er staat niets te herroepen — en een rollback zou in de tests de
+    savepoint van de fixture wegnemen.
     """
+    fout = None
     try:
-        return bewerking(db, *args, **kwargs)
+        bewerking(db, *args, **kwargs)
     except LookupError as exc:
         raise HTTPException(status_code=404, detail=str(exc) or _("Betaling niet gevonden."))
     except BetalingFout as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
+        fout = str(exc)
+    context = _view(request, db, email).as_context()
+    context["error"] = fout
+    return templates.TemplateResponse(request, "_betalingen_lijst.html", context)
 
 
 def _view(request: Request, db: Session, email: str,
@@ -241,9 +264,7 @@ def betaling_bevestigen(record_id: str, request: Request,
                         email: str = Depends(require_finance_ui),
                         note: str = Form("")):
     require_finance_mutation(db, email)
-    _uitvoeren(bevestig_betaling, db, record_id, note=note, actor=email)
-    return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _view(request, db, email).as_context())
+    return _uitvoeren(bevestig_betaling, request, db, email, record_id, note=note, actor=email)
 
 
 @router.post("/admin/betalingen/{record_id}/refund", response_class=HTMLResponse,
@@ -252,10 +273,8 @@ def betaling_refund(record_id: str, request: Request, db: Session = Depends(get_
                     email: str = Depends(require_finance_ui),
                     amount: str = Form(""), note: str = Form("")):
     require_finance_mutation(db, email)
-    _uitvoeren(registreer_terugbetaling, db, record_id, amount=amount, note=note,
+    return _uitvoeren(registreer_terugbetaling, request, db, email, record_id, amount=amount, note=note,
                actor=email)
-    return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _view(request, db, email).as_context())
 
 
 @router.post("/admin/betalingen/{record_id}/bijwerken", response_class=HTMLResponse,
@@ -265,10 +284,8 @@ def betaling_bijwerken(record_id: str, request: Request, db: Session = Depends(g
                        amount_paid: str = Form(""), note: str = Form("")):
     """Betaald bedrag invullen + als betaald bevestigen (#455)."""
     require_finance_mutation(db, email)
-    _uitvoeren(bevestig_betaling, db, record_id, note=note, amount_paid=amount_paid,
+    return _uitvoeren(bevestig_betaling, request, db, email, record_id, note=note, amount_paid=amount_paid,
                actor=email)
-    return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _view(request, db, email).as_context())
 
 
 @router.post("/admin/betalingen/{record_id}/bewerken", response_class=HTMLResponse,
@@ -285,10 +302,8 @@ def betaling_bewerken(record_id: str, request: Request, db: Session = Depends(ge
     # Het omdraaien van het teken bij een terugbetaling en de bovengrens erop
     # stonden hier; ze bepalen hoeveel geld er terugvloeit en horen dus in de
     # service (#635-I).
-    _uitvoeren(bewerk_betaling, db, record_id, status=status,
+    return _uitvoeren(bewerk_betaling, request, db, email, record_id, status=status,
                amount_paid=amount_paid, note=note, actor=email)
-    return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _view(request, db, email).as_context())
 
 
 @router.post("/admin/betalingen/{record_id}/verversen", response_class=HTMLResponse,
@@ -297,9 +312,7 @@ def betaling_verversen(record_id: str, request: Request, db: Session = Depends(g
                        email: str = Depends(require_finance_ui)):
     """Mollie-status ophalen en toepassen (handmatige tegenhanger van de webhook, #455)."""
     require_finance_mutation(db, email)
-    _uitvoeren(ververs_betaalstatus, db, record_id, actor=email)
-    return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _view(request, db, email).as_context())
+    return _uitvoeren(ververs_betaalstatus, request, db, email, record_id, actor=email)
 
 
 @router.post("/admin/betalingen/{record_id}/status", response_class=HTMLResponse,
@@ -309,9 +322,7 @@ def betaling_status(record_id: str, request: Request, db: Session = Depends(get_
                     status: str = Form(...), note: str = Form("")):
     """Vrije status-correctie door de penningmeester (#455)."""
     require_finance_mutation(db, email)
-    _uitvoeren(zet_betaalstatus, db, record_id, status, note=note, actor=email)
-    return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _view(request, db, email).as_context())
+    return _uitvoeren(zet_betaalstatus, request, db, email, record_id, status, note=note, actor=email)
 
 
 @router.post("/admin/betalingen/{record_id}/verwijderen", response_class=HTMLResponse,
@@ -322,6 +333,4 @@ def betaling_verwijderen(record_id: str, request: Request, db: Session = Depends
     """Betaal-/terugbetaalrecord verwijderen (soft-delete, uit het saldo, #455).
     Corrigeert ook een foute refund."""
     require_finance_mutation(db, email)
-    _uitvoeren(verwijder_betaling, db, record_id, note=note, actor=email)
-    return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _view(request, db, email).as_context())
+    return _uitvoeren(verwijder_betaling, request, db, email, record_id, note=note, actor=email)

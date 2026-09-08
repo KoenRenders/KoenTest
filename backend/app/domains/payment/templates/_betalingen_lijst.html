@@ -1,4 +1,9 @@
 {% import "_macros.html" as ui %}
+{# #723: de reden waarom een mutatie geweigerd is, bovenaan het fragment. Het
+   fragment wordt met innerHTML in #betalingen-lijst geswapt, dus meerdere
+   top-level elementen mogen — en de banner hoort boven de matrix te staan, waar
+   je hem ziet zonder te scrollen. `error` is None op elk geslaagd pad. #}
+{{ ui.error_banner(error) }}
 <div class="mb-4 overflow-x-auto">
   <table class="text-sm border border-gray-200 rounded-xl overflow-hidden">
     <thead>
