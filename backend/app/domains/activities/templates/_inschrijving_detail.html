@@ -63,6 +63,17 @@
           {{ ui.input_control("contact_email", id="reg-email-" ~ reg.id, type="email", value=reg.contact_email or "", cls="w-full") }}</div>
         <div>{{ ui.label(_("Mobiel nummer"), "reg-gsm-" ~ reg.id) }}
           {{ ui.input_control("phone", id="reg-gsm-" ~ reg.id, type="tel", value=reg.phone or "", cls="w-full") }}</div>
+        {# Ploegnaam (#716). Ze stond wél in de kop hierboven en was niet te
+           wijzigen; een tikfout was enkel recht te zetten door de inschrijving te
+           verwijderen en opnieuw in te voeren — dezelfde impasse die #624 voor het
+           e-mailadres wegnam. `toon_ploegnaam` dekt twee gevallen: het onderdeel
+           vraagt er een, óf de inschrijving heeft er al een (zie _detail_ctx).
+           Geen `required`: dit is een correctiescherm, en een inschrijving van vóór
+           het aanzetten van team_name_required mag niet onbewerkbaar worden. #}
+        {% if toon_ploegnaam %}
+        <div>{{ ui.label(_("Ploegnaam"), "reg-ploeg-" ~ reg.id) }}
+          {{ ui.input_control("team_name", id="reg-ploeg-" ~ reg.id, value=reg.team_name or "", cls="w-full") }}</div>
+        {% endif %}
       </div>
       <p class="text-xs text-ink-soft">{{ _("Dit corrigeert enkel deze inschrijving. Het ledenbestand pas je aan bij Leden.") }}</p>
 

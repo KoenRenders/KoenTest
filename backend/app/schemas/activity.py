@@ -198,6 +198,7 @@ class RegistrationContactUpdate(BaseModel):
     contact_name: Optional[str] = None
     contact_email: Optional[EmailStr] = None
     phone: Optional[str] = None
+    team_name: Optional[str] = None
     remarks: Optional[str] = None
 
 

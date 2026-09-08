@@ -523,7 +523,7 @@ def update_registration_contact(db, activity_id: int, registration_id: int,
     if reg is None:
         return None
     gewijzigd = False
-    for veld in ("contact_name", "contact_email", "phone", "remarks"):
+    for veld in ("contact_name", "contact_email", "phone", "team_name", "remarks"):
         if veld not in gezet:
             continue
         waarde = (str(gezet[veld]) if gezet[veld] is not None else "").strip() or None

@@ -616,6 +616,7 @@ def _detail_ctx(request: Request, db: Session, registration_id: int,
         return None
     activity = get_activity(db, reg.activity_id, include_deleted=True)
     products = []
+    component = None
     if activity is not None and reg.component_id:
         component = next((c for c in activity.sub_registrations
                           if c.id == reg.component_id), None)
@@ -653,6 +654,14 @@ def _detail_ctx(request: Request, db: Session, registration_id: int,
         "reg": verrijkt,
         "products": products,
         "totaal": totaal,
+        # #716: de ploegnaam is bewerkbaar wanneer het onderdeel er een vraagt, óf
+        # wanneer de inschrijving er al een heeft. Die tweede reden is nodig: gaat
+        # `team_name_required` later af, dan blijft de bewaarde ploegnaam in de kop
+        # staan en moet ze corrigeerbaar blijven. Zonder een van beide is het veld
+        # enkel ruis.
+        "toon_ploegnaam": bool(
+            (component is not None and component.team_name_required)
+            or verrijkt.get("team_name")),
         "editable": reg.deleted_at is None,
         "edit_open": edit_open,
         "csrf_token": csrf_from_request(request),
@@ -799,7 +808,7 @@ async def inschrijving_opslaan(registration_id: int, request: Request,
     # Contactgegevens meenemen in dezelfde "Opslaan" (#624). Enkel wat het formulier
     # meestuurt wordt gewijzigd; de route laat de rest ongemoeid.
     contact = {"remarks": str(form.get("remarks") or "")}
-    for veld in ("contact_name", "contact_email", "phone"):
+    for veld in ("contact_name", "contact_email", "phone", "team_name"):
         if veld in form:
             contact[veld] = str(form.get(veld) or "")
     try:
