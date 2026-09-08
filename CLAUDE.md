@@ -110,6 +110,24 @@ Onderbreek enkel voor (a) een echte inhoudelijke ontwerpkeuze die Koens input no
 heeft, of (b) een onomkeerbare/risicovolle stap — met name een **UAT- of
 PROD-deploy**, die altijd expliciete bevestiging vereist. HDEV mag autonoom.
 
+**Rolverdeling: de master-CLI analyseert en communiceert, de feature-CLI ontwikkelt.**
+Alle code — implementatie, tests, commits en pushes naar GitHub — komt van de
+feature-CLI. De master-CLI schrijft issues uit, meet, verifieert claims, drijft de
+release en praat met Koen; ze schrijft **geen** productiecode, ook niet voor een
+klein ding als een label of een ontbrekend veld. Twee uitzonderingen die Koen
+expliciet benoemd heeft: `CLAUDE.md` en de architectuurdocumentatie mag de
+master-CLI wél zelf bijwerken.
+
+**Waarom:** de twee CLI's hebben een verschillende taak en een verschillend tempo.
+Bouwt de master-CLI zelf mee, dan raakt ze haar snelheid kwijt op precies het moment
+dat Koen een antwoord nodig heeft — en ontstaat er werk op `master` dat de
+feature-CLI niet kent. "Het is maar een label" is geen uitzondering: dat is hoe het
+begint.
+
+**In de praktijk:** analyse → issue → aan Koen voorleggen → pas doorgeven als hij
+bevestigt dat jullie hetzelfde bedoelen. Dat laatste is een aparte stap: een
+goedgekeurd ontwerp is nog geen goedgekeurde overdracht.
+
 **Werk toewijzen aan een andere CLI is Koens beslissing, niet die van Claude.**
 De master-CLI mag issues *schrijven* zoveel ze wil — analyseren en uitkristalliseren
 is haar taak. Maar een issue **doorgeven** aan de feature-CLI (via `SendMessage`, of
