@@ -259,14 +259,31 @@ def confirm_manual_payment(
                     "bedrag niet verlagen zonder de terugbetaling te verrekenen. "
                     "Corrigeer eerst de terugbetaling."
                 )
-    record.status = "paid"
+    # #199: zonder expliciet bedrag → het volledige verschuldigde (resp. de volledige
+    # refund) boeken, zodat het saldo meteen klopt en één klik "betaald" volstaat.
+    geboekt = amount_paid if amount_paid is not None else record.amount
+    # #720: de status volgt uit de CIJFERS, niet uit de handeling. Ze stond hier
+    # onvoorwaardelijk op "paid", dus € 10,00 op een vordering van € 35,00 kwam er
+    # als "Vereffend" uit terwijl dezelfde kaart € 25,00 saldo toonde — en dat saldo
+    # telde in de totaalmatrix gewoon als openstaand mee.
+    #
+    # Dekt het bedrag de vordering niet, dan blijft de status "pending" en maakt
+    # `derived_status` er "Deels betaald" van. Die tak bestond al en werkt; ze kreeg
+    # alleen nooit de kans, want ze vraagt `status == "pending"` en die was net
+    # overschreven.
+    #
+    # abs() omdat een terugbetaling een NEGATIEF bedrag draagt (#219): daar is
+    # "volledig" juist de meest negatieve waarde. Een vergelijking zonder abs zou het
+    # oordeel op élke refund omkeren.
+    volledig = abs(_bedrag(geboekt)) >= abs(_bedrag(record.amount))
+    record.status = "paid" if volledig else "pending"
+    # paid_at blijft ook bij een gedeeltelijke betaling staan: er ís geld ontvangen,
+    # en dit veld zegt wanneer. Niets vertakt erop; het gaat mee in de export.
     record.paid_at = datetime.now(timezone.utc)
     if note:
         record.note = note
     # amount_paid vóór de snapshot zetten, zodat de history het juiste bedrag vastlegt.
-    # #199: zonder expliciet bedrag → het volledige verschuldigde (resp. de volledige
-    # refund) boeken, zodat het saldo meteen klopt en één klik "betaald" volstaat.
-    record.amount_paid = amount_paid if amount_paid is not None else record.amount
+    record.amount_paid = geboekt
     db.flush()
     snapshot_payment_record(
         db, record,
@@ -276,7 +293,13 @@ def confirm_manual_payment(
     # Handmatige bevestiging van een lidmaatschap-betaling (cash/overschrijving of
     # een vastgelopen online betaling) moet het lidmaatschap ook activeren — net
     # als de Mollie-webhook doet. Idempotent. #143
-    if record.payable_type == "membership":
+    #
+    # #720: enkel wanneer het bedrag de vordering dekt. Deze regel stond óók
+    # onvoorwaardelijk, dus wie € 10,00 van € 35,00 overmaakte kreeg een geldig
+    # lidmaatschap terwijl de resterende € 25,00 open bleef staan zonder iets tegen
+    # te houden. Dat is het gevolg dat geld en rechten raakt; de badge was maar het
+    # zichtbare symptoom.
+    if record.payable_type == "membership" and volledig:
         _activate_membership(db, record.payable_id, source="admin_manual", actor=actor)
     return record
 
