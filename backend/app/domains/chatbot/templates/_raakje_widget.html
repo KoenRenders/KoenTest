@@ -11,27 +11,50 @@
     <div class="px-4 py-3 bg-blue-700 text-white flex items-center justify-between gap-2">
       <span class="font-semibold">{{ _("Raakje") }}</span>
       <div class="flex items-center gap-1">
+        {# #570: kit-iconen in plaats van losse tekens. De twee standen reizen als
+           data-attribuut mee, want tts.js wisselt ze in JS. #}
         <button type="button" data-tts-toggle
-                class="hover:opacity-80 text-lg leading-none"
+                class="hover:opacity-80 leading-none"
+                data-icon-aan='{{ ui.icon("volume-2") }}' data-icon-uit='{{ ui.icon("volume-x") }}'
                 title="{{ _('Antwoorden voorlezen') }}"
-                aria-label="{{ _('Antwoorden voorlezen aan/uit') }}">🔇</button>
-        <button @click="open = false" class="hover:opacity-80" aria-label="{{ _('Sluiten') }}">✕</button>
+                aria-label="{{ _('Antwoorden voorlezen aan/uit') }}">{{ ui.icon("volume-x") }}</button>
+        <button @click="open = false" class="hover:opacity-80" aria-label="{{ _('Sluiten') }}">{{ ui.icon("x") }}</button>
       </div>
     </div>
     <div id="raakje-widget-gesprek" class="flex-1 overflow-auto p-3 space-y-2 text-sm">
-      <div class="text-gray-500">{{ _("Stel je vraag over Raak Millegem — activiteiten, lid worden, praktisch.") }}</div>
+      {# #570: de v1.14-tekst terug. Die laatste zin is niet decoratief — ze vertelt
+         dát de doorgeef-actie bestaat; zonder haar weet niemand dat dit kan. #}
+      <div class="text-gray-500">{{ _("Stel je vraag over Raak Millegem — activiteiten, lid worden, praktisch. Ik kan ook je vraag of idee doorgeven aan het bestuur.") }}</div>
     </div>
+    {# #570: een meegroeiende textarea. Een <input> van één regel toonde bij een
+       langere vraag maar een stukje, en je zag niet meer wat je typte. Enter
+       verstuurt (zoals bij een input), Shift+Enter geeft een nieuwe regel — dat
+       laatste doet een textarea vanzelf, het eerste moet je zelf doen. De hoogte
+       gaat na een antwoord terug naar één regel; anders blijft het veld hangen op
+       de hoogte van de vorige vraag. #}
     <form hx-post="/raakje/vraag" hx-target="#raakje-widget-gesprek" hx-swap="beforeend"
-          class="border-t border-gray-200 p-2 flex gap-2"
-          x-on:htmx:after-request="if ($event.detail.successful) $refs.v.value = ''">
-      {{ ui.input_control("vraag", id="raakje-widget-vraag", required=True, placeholder=_("Typ je vraag…"), cls="flex-1", attrs='x-ref="v" autocomplete="off"') }}
+          class="border-t border-gray-200 p-2 flex gap-2 items-end"
+          x-on:htmx:after-request="if ($event.detail.successful) { $refs.v.value = ''; $refs.v.style.height = 'auto'; }">
+      {# Backticks voor de JS-strings hieronder: het Jinja-literal staat tussen enkele
+         quotes en de HTML-attributen tussen dubbele, dus een derde soort
+         aanhalingsteken scheelt een rij escapes die niemand later nog kan lezen.
+         (Commentaar hoort BUITEN de aanroep: Jinja staat het niet toe binnen een
+         expressie — dat kostte me hier twee pogingen.) #}
+      {{ ui.textarea_control("vraag", id="raakje-widget-vraag", rows=1, required=True,
+                             placeholder=_("Typ je vraag…"),
+                             cls="flex-1 resize-none max-h-[120px] overflow-y-auto",
+                             attrs='x-ref="v" autocomplete="off"'
+                                   ' x-on:input="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, 120) + `px`"'
+                                   ' x-on:keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); $el.form.requestSubmit(); }"') }}
       <button type="button" data-stt-target="#raakje-widget-vraag" data-stt-mode="{{ stt_mode }}"
-              class="border border-gray-300 hover:bg-gray-100 px-2 rounded-lg"
-              title="{{ _('Spreek je vraag in') }}" aria-label="{{ _('Spreek je vraag in') }}">🎙</button>
+              class="border border-gray-300 hover:bg-gray-100 px-2 rounded-lg self-end h-[38px]"
+              data-icon-idle='{{ ui.icon("mic") }}' data-icon-listening='{{ ui.icon("square") }}'
+              data-icon-connecting='{{ ui.icon("loader") }}'
+              title="{{ _('Spreek je vraag in') }}" aria-label="{{ _('Spreek je vraag in') }}">{{ ui.icon("mic") }}</button>
       {# #631: enige knop zonder leesbare tekst én zonder aria-label — voor een
          schermlezer heette ze "➤". Deze widget staat op élke publieke pagina. De
          knopkleur stond hier handmatig gekopieerd; nu via de kit. #}
-      {{ ui.btn_primary("➤", type="submit", cls="px-3", aria_label=_("Versturen")) }}
+      {{ ui.btn_primary(ui.icon("send"), type="submit", cls="px-3 self-end", aria_label=_("Versturen")) }}
     </form>
   </div>
 </div>

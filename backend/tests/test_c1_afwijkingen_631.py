@@ -46,9 +46,14 @@ def test_de_verstuurknop_van_de_widget_heeft_een_aria_label():
 
     tpl = (Path(__file__).resolve().parents[1] / "app" / "domains" / "chatbot"
            / "templates" / "_raakje_widget.html").read_text()
-    knop = [r for r in tpl.splitlines() if "➤" in r and "btn_" in r]
+    # #570: het teken ➤ is een kit-icoon geworden — losse tekens renderen per
+    # lettertype en OS anders. De regel die deze test bewaakt verandert daar niet
+    # door: een knop zonder leesbare tekst heeft een aria-label nodig, of het nu een
+    # glyph of een SVG is.
+    knop = [r for r in tpl.splitlines()
+            if "btn_primary" in r and 'ui.icon("send")' in r]
     assert knop, "de verstuurknop is niet gevonden"
-    assert "aria_label" in knop[0], "een schermlezer leest anders het teken voor"
+    assert "aria_label" in knop[0], "een schermlezer leest anders niets voor"
 
 
 def test_albumtitels_staan_in_ink(client, db_session):

@@ -43,8 +43,15 @@
   }
 
   function wireToggle(btn) {
+    // #570: de twee standen komen als SVG uit de kit mee op de knop zelf. Losse
+    // tekens (🔊/🔇) renderen per lettertype en OS anders; de terugval op de
+    // bestaande inhoud houdt dit werkend op schermen die de attributen nog niet
+    // meesturen.
+    var aan = btn.getAttribute("data-icon-aan");
+    var uit = btn.getAttribute("data-icon-uit");
     function paint() {
-      btn.textContent = readAloud() ? "🔊" : "🔇";
+      if (aan && uit) { btn.innerHTML = readAloud() ? aan : uit; }
+      else { btn.textContent = readAloud() ? "🔊" : "🔇"; }
       btn.setAttribute("aria-pressed", readAloud() ? "true" : "false");
     }
     paint();

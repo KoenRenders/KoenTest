@@ -84,7 +84,10 @@ docker exec -e E2E_SEED=1 "$NAAM" python seed_e2e.py | tail -1
 # image heeft geen pkill, en de code wordt bij het importeren gelezen — een oude
 # server zou dus je vorige wijziging blijven serveren.
 docker restart "$NAAM" >/dev/null
-docker exec -d "$NAAM" sh -c "uvicorn app.main:app --host 127.0.0.1 --port ${POORT} > /tmp/uvicorn.log 2>&1"
+# CHAT_ENABLED hier en niet bij het aanmaken van de container: anders zou een
+# bestaande hulpcontainer de vlag missen tot iemand VERS=1 gebruikt, en dan toetst de
+# suite stilzwijgend een scherm zonder invoerveld (#570).
+docker exec -d -e CHAT_ENABLED=true "$NAAM" sh -c "uvicorn app.main:app --host 127.0.0.1 --port ${POORT} > /tmp/uvicorn.log 2>&1"
 for _ in $(seq 1 30); do
   if docker exec "$NAAM" python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:${POORT}/')" 2>/dev/null; then
     break
