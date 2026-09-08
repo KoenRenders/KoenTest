@@ -108,7 +108,11 @@
      onderdeel-kaarten, en de producten genest in een subpaneel per onderdeel. #}
   <div x-data="{ addcomp: false }">
     {{ ui.section_header(_("Onderdelen"), _("+ Onderdeel"), '@click="addcomp = !addcomp"') }}
+    {# #715: de info-bijlage hoort al bij het aanmaken te kunnen, niet pas na een
+       tweede ronde via "Bewerken". Vandaar enctype + hx-encoding: zonder die twee
+       stuurt htmx het bestand niet mee en verdwijnt het stil. #}
     <form x-show="addcomp" x-cloak class="bg-blue-50 border border-blue-100 rounded-2xl p-4 mb-3 flex flex-wrap gap-2 items-end"
+          enctype="multipart/form-data" hx-encoding="multipart/form-data"
           hx-post="/admin/activiteiten/{{ a.id }}/onderdelen" hx-target="#aa-detail" hx-swap="innerHTML">
       <div>{{ ui.label(_("Nieuw onderdeel"), "nc-name", required=True) }}
         {{ ui.input_control("name", id="nc-name", required=True) }}</div>
@@ -119,8 +123,15 @@
         {{ ui.input_control("external_register_url", id="nc-ext", placeholder="https://…", cls="w-full") }}</div>
       <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijvingen-URL"), "nc-exts") }}
         {{ ui.input_control("external_registrations_url", id="nc-exts", placeholder="https://…", cls="w-full") }}</div>
-      <div class="w-full sm:w-72">{{ ui.label(_("Info-URL"), "nc-info") }}
+      <div class="w-full sm:w-72">{{ ui.label(_("Externe info-URL"), "nc-info") }}
         {{ ui.input_control("info_url", id="nc-info", placeholder="https://…", cls="w-full") }}</div>
+      {# Geen current_url/delete_attrs: een onderdeel dat nog niet bestaat heeft
+         niets te tonen en niets te verwijderen. #}
+      <div class="w-full border-t border-blue-100 pt-2">
+        {{ ui.upload_field(name="file", text=_("Info-bijlage (afbeelding of PDF)"),
+                           id="nc-info-file",
+                           hint=_("Een opgeladen bijlage primeert op de externe info-URL.")) }}
+      </div>
       <div class="w-full flex gap-2">{{ ui.btn_primary(_("Toevoegen")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="addcomp = false"') }}</div>
     </form>
     <div class="space-y-3">
@@ -177,7 +188,7 @@
         {{ ui.input_control("external_register_url", id="cext-" ~ c.id, value=c.external_register_url or "", placeholder="https://…", cls="w-full") }}</div>
       <div class="w-full sm:w-72">{{ ui.label(_("Externe inschrijvingen-URL"), "cexts-" ~ c.id) }}
         {{ ui.input_control("external_registrations_url", id="cexts-" ~ c.id, value=c.external_registrations_url or "", placeholder="https://…", cls="w-full") }}</div>
-      <div class="w-full sm:w-72">{{ ui.label(_("Info-URL"), "cinfo-" ~ c.id) }}
+      <div class="w-full sm:w-72">{{ ui.label(_("Externe info-URL"), "cinfo-" ~ c.id) }}
         {{ ui.input_control("info_url", id="cinfo-" ~ c.id, value=c.info_url or "", placeholder="https://…", cls="w-full") }}</div>
       {# Info-bijlage (#451). Heette "reglement" tot #623 — één woord voor één ding
          (§2.13). Staat sinds #654 ín de vorm hierboven: één "Opslaan" bewaart de
@@ -190,7 +201,7 @@
                            huidig_label=_("Huidige info-bijlage bekijken"),
                            delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/info/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML"',
                            delete_confirm=_("De opgeladen info-bijlage verwijderen?"),
-                           hint=_("Een opgeladen bijlage primeert op de Info-URL.")) }}
+                           hint=_("Een opgeladen bijlage primeert op de externe info-URL.")) }}
       </div>
       <div class="w-full flex gap-2">
         {{ ui.btn_primary(_("Opslaan")) }}

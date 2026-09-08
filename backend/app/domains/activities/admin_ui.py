@@ -330,15 +330,25 @@ def datum_verwijderen(activity_id: int, date_id: int, request: Request,
 
 @router.post("/admin/activiteiten/{activity_id}/onderdelen", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
-def onderdeel_toevoegen(activity_id: int, request: Request,
-                        db: Session = Depends(get_db),
-                        email: str = Depends(require_admin_ui),
-                        name: str = Form(...), team_name_required: str = Form(""),
-                        max_participants: str = Form(""),
-                        external_register_url: str = Form(""),
-                        external_registrations_url: str = Form(""),
-                        info_url: str = Form("")):
+async def onderdeel_toevoegen(activity_id: int, request: Request,
+                              background_tasks: BackgroundTasks,
+                              db: Session = Depends(get_db),
+                              email: str = Depends(require_admin_ui),
+                              name: str = Form(...), team_name_required: str = Form(""),
+                              max_participants: str = Form(""),
+                              external_register_url: str = Form(""),
+                              external_registrations_url: str = Form(""),
+                              info_url: str = Form(""),
+                              file: Optional[UploadFile] = File(None)):
+    """Maakt het onderdeel; één "Toevoegen" bewaart de velden én de info-bijlage.
+
+    De bijlage kon tot #715 pas ná het aanmaken opgeladen worden, via "Bewerken".
+    Het toevoegformulier toonde enkel URL-velden en wekte zo de indruk dat een
+    externe URL de enige weg was. Zelfde leest als ``onderdeel_bijwerken`` (#654):
+    eerst de velden, dan het bestand als er een meegestuurd is.
+    """
     from app.domains.activities import service
+    from app.domains.media.api import replace_component_info
     from app.schemas.activity import ComponentCreate
 
     gegevens = ComponentCreate(
@@ -347,8 +357,15 @@ def onderdeel_toevoegen(activity_id: int, request: Request,
         external_register_url=_opt_str(external_register_url),
         external_registrations_url=_opt_str(external_registrations_url),
         info_url=_opt_str(info_url))
-    if service.add_component(db, activity_id, gegevens, actor=email) is None:
+    component = service.add_component(db, activity_id, gegevens, actor=email)
+    if component is None:
         raise HTTPException(status_code=404, detail=_("Activity not found"))
+
+    if file is not None and file.filename:
+        try:
+            await replace_component_info(db, component.id, file, background_tasks)
+        except (LookupError, HTTPException) as exc:
+            return _detail_response(request, db, activity_id, error=_upload_error(exc))
     return _detail_response(request, db, activity_id)
 
 
