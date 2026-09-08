@@ -6,16 +6,16 @@ komma de bedoeling was; ze was alleen op één plek gebeurd. En in het Nederland
 de punt een duizendtalteken, dus `€ 1342.00` naast `€ 25,00` op hetzelfde scherm is
 niet alleen inconsistent maar ook verkeerd te lezen.
 
-**De laatste test is de gevaarlijke kant.** Twee van de plekken die `%.2f`
-uitschrijven zijn geen weergave maar de **inhoud van een invoerveld** — daar hoort
-een machineleesbare waarde. Ze werken vandaag toevallig ook met een komma (het zijn
-tekstvelden met `inputmode="decimal"` en `_decimal()` doet `.replace(",", ".")`),
-maar dat is een keten van drie feiten. Maakt iemand er ooit een `type="number"` van,
-dan is een komma een ongeldige waarde: het veld toont leeg, er wordt niets
-verstuurd, en een prijs is stil weg.
+**De uitzondering van #735 was te breed, en #769 heeft haar scherper gezet.** Toen
+bleven de invoervelden met een punt staan omdat een komma in een `<input
+type="number">` stilzwijgend leeg wordt. Dat klopt — maar gemeten is **geen enkel
+bedragveld `type="number"`**: het zijn tekstvelden met `inputmode="decimal"`, en
+beide parsers (`_ingetypt_bedrag`, `_decimal`) aanvaarden al komma én punt.
 
-Zonder die tegenproef staat de gate hieronder ook groen wanneer iemand een komma in
-een prijsveld zet — en dan bewaakt ze precies het omgekeerde van wat ze belooft.
+De regel luidt nu: een invoerveld volgt de notatie van het scherm, **tenzij** het
+`type="number"` is. De laatste test bewaakt precies die voorwaarde — niet "deze twee
+velden houden een punt", maar "geen bedragveld is een number-veld". Verandert dat,
+dan valt ze om vóór er stilzwijgend een prijs verdwijnt.
 
 Kapotgemaakt om te controleren dat deze tests rood kunnen worden (lokaal):
   * `.replace(".", ",")` uit `kernel/geld.py` gehaald → de vier filtertests vallen om;
@@ -57,39 +57,53 @@ def test_het_filter_schrijft_nl_be(waarde, verwacht):
 def test_geen_handgeschreven_bedragen_meer_in_de_sjablonen():
     """`{{ "%.2f"|format(x) }}` naast een euroteken hoort `{{ x|geld }}` te zijn.
 
-    De uitzondering is precies afgebakend: een `value=` van een invoerveld draagt
-    een machineleesbare waarde en blijft met een punt. Zie de laatste test.
+    Sinds #769 zonder uitzondering: ook de invoervelden volgen de notatie van het
+    scherm, want geen ervan is een `type="number"`-veld. Die voorwaarde staat als
+    eigen test hieronder.
     """
     fouten = []
     for pad in TEMPLATES:
         for nr, regel in enumerate(pad.read_text().splitlines(), 1):
-            if '"%.2f"|format' not in regel or "value=" in regel:
+            if '"%.2f"|format' not in regel:
                 continue
             fouten.append(f"{pad.name}:{nr}: {regel.strip()[:100]}")
     assert not fouten, (
         "Bedragen horen door het `geld`-filter te gaan (#735):\n  " + "\n  ".join(fouten))
 
 
-def test_de_prijsvelden_dragen_nog_een_machineleesbare_waarde():
-    """De tegenproef, en de reden dat de gate een uitzondering heeft.
+def test_geen_enkel_bedragveld_is_een_number_veld():
+    """De voorwaarde onder de regel, en dus de plek waar het stil kan misgaan.
 
-    Een komma in de `value` van een prijsveld is vandaag nog te verwerken, maar dat
-    hangt aan drie losse feiten. Deze test legt vast dat die twee velden een punt
-    houden — niet omdat het mooier is, maar omdat er een prijs stil kan verdwijnen.
+    Een komma in een `<input type="number">` is een ongeldige waarde: de browser
+    toont het veld leeg en verstuurt niets. Zolang alle bedragvelden tekstvelden met
+    `inputmode="decimal"` zijn, is de komma veilig — en die voorwaarde toetst deze
+    test, niet de notatie zelf.
     """
-    bron = (Path(__file__).resolve().parents[1]
-            / "app/domains/activities/templates/_aa_detail.html").read_text()
-    # Enkel de BEWERK-velden vullen een bestaande prijs in; de aanmaakvelden staan
-    # leeg of op "0" en hebben geen opmaak nodig.
-    prijsvelden = [r for r in bron.splitlines()
-                   if ('ui.input_control("price"' in r or 'ui.input_control("member_price"' in r)
-                   and "%.2f" in r]
-    assert len(prijsvelden) == 2, (
-        f"verwacht twee ingevulde prijsvelden, gevonden {len(prijsvelden)}")
-    for regel in prijsvelden:
-        assert "value=" in regel and "|geld" not in regel, (
-            "een prijsveld gaat door het geld-filter; een komma kan daar een prijs "
-            f"stil laten verdwijnen:\n  {regel.strip()[:110]}")
+    fouten = []
+    for pad in TEMPLATES:
+        for nr, regel in enumerate(pad.read_text().splitlines(), 1):
+            if 'inputmode="decimal"' in regel and 'type="number"' in regel:
+                fouten.append(f"{pad.name}:{nr}")
+    assert not fouten, (
+        "een bedragveld is een number-veld geworden; een komma wordt daar "
+        "stilzwijgend leeg (#769):\n  " + "\n  ".join(fouten))
+
+
+def test_de_bedragvelden_volgen_de_notatie_van_het_scherm():
+    """#769: vier plekken vulden een bedragveld nog met een punt.
+
+    Twee daarvan vullen dezelfde Alpine-toestand — bij het renderen én via de
+    statuskeuze die het veld met het volle bedrag vult. Wordt er maar één omgezet,
+    dan toont hetzelfde veld twee schrijfwijzen naargelang hoe de waarde erin kwam.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        for nr, regel in enumerate(pad.read_text().splitlines(), 1):
+            if '"%.2f"|format' in regel or "'%.2f'|format" in regel:
+                fouten.append(f"{pad.name}:{nr}: {regel.strip()[:90]}")
+    assert not fouten, (
+        "een bedrag wordt nog met de hand opgemaakt; gebruik het `geld`-filter "
+        "(#735/#769):\n  " + "\n  ".join(fouten))
 
 
 def test_de_melding_van_de_servicelaag_gebruikt_dezelfde_notatie():

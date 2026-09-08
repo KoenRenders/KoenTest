@@ -92,10 +92,14 @@
 {% set rec = k.rec %}
 {% set is_refund = rec.type == "refund" %}
 <form x-show="{{ vlag }}" x-cloak class="mt-2 flex flex-wrap gap-2 items-end"
-      x-data="{ status: '{{ rec.status }}', bedrag: '{{ '%.2f'|format(rec.amount_paid|abs) if rec.amount_paid is not none else '' }}' }"
+      {# #769: de twee plekken die `bedrag` vullen moeten DEZELFDE notatie schrijven.
+         Hier bij het renderen, en hieronder in de statuskeuze die het veld met het
+         volle bedrag vult. Doe je er maar één, dan toont hetzelfde veld twee
+         schrijfwijzen naargelang hoe de waarde erin kwam. #}
+      x-data="{ status: '{{ rec.status }}', bedrag: '{{ (rec.amount_paid|abs)|geld if rec.amount_paid is not none else '' }}' }"
       hx-post="/admin/betalingen/{{ rec.id }}/bewerken" hx-target="#betalingen-lijst" hx-swap="innerHTML">
   <div><label class="block text-xs text-gray-500">{{ _("Status") }}</label>
-    {% call ui.select_control("status", cls="text-sm", attrs='x-model="status" @change="if (status === \'paid\' && !bedrag) bedrag = \'' ~ '%.2f'|format(rec.amount|abs) ~ '\'"') %}
+    {% call ui.select_control("status", cls="text-sm", attrs='x-model="status" @change="if (status === \'paid\' && !bedrag) bedrag = \'' ~ (rec.amount|abs)|geld ~ '\'"') %}
       {% for s in ["pending", "paid", "failed", "cancelled"] %}
       <option value="{{ s }}" {% if rec.status == s %}selected{% endif %}>{{ status_labels[s] }}</option>
       {% endfor %}

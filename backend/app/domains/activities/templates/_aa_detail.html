@@ -233,9 +233,9 @@
           <div>{{ ui.label(_("Naam"), "epname-" ~ p.id, required=True) }}
             {{ ui.input_control("name", id="epname-" ~ p.id, value=p.name, required=True) }}</div>
           <div>{{ ui.label(_("Prijs"), "epprice-" ~ p.id) }}
-            {{ ui.input_control("price", id="epprice-" ~ p.id, value="%.2f"|format(p.price), cls="w-24", attrs='inputmode="decimal"') }}</div>
+            {{ ui.input_control("price", id="epprice-" ~ p.id, value=p.price|geld, cls="w-24", attrs='inputmode="decimal"') }}</div>
           <div>{{ ui.label(_("Ledenprijs"), "epmprice-" ~ p.id) }}
-            {{ ui.input_control("member_price", id="epmprice-" ~ p.id, value=("%.2f"|format(p.member_price) if p.member_price is not none else ""), cls="w-24", attrs='inputmode="decimal"') }}</div>
+            {{ ui.input_control("member_price", id="epmprice-" ~ p.id, value=(p.member_price|geld if p.member_price is not none else ""), cls="w-24", attrs='inputmode="decimal"') }}</div>
           <div>{{ ui.label(_("Max"), "epmax-" ~ p.id) }}
             {{ ui.input_control("max_participants", id="epmax-" ~ p.id, value=p.max_participants or "", cls="w-20") }}</div>
           {# #507: expliciete Afrekening-keuze (prijs blijft los invulbaar). #}

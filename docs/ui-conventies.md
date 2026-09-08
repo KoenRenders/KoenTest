@@ -267,6 +267,27 @@ nieuwe out-of-band-functie is dit de eerste vraag.
 of het antwoord de toast bevát, en dat doet het — het misgaat bij het samenvoegen
 in de browser. Toets zichtbaarheid, e2e.
 
+### 2.4d Bedragen in een invoerveld (#735/#769)
+
+Een invoerveld volgt de notatie van het scherm — `€ 35,00` met een komma — **tenzij
+het `type="number"` is.** Daar is een komma een ongeldige waarde: de browser toont
+het veld leeg en verstuurt niets, en dan verdwijnt een prijs zonder melding.
+
+#735 hield alle invoervelden op een punt, uit voorzorg. Die uitzondering was te
+breed: gemeten is **geen enkel bedragveld** een number-veld. Het zijn tekstvelden
+met `inputmode="decimal"`, en `_ingetypt_bedrag()` (payment) en `_decimal()`
+(activities) aanvaarden allebei al komma én punt.
+
+De gate toetst daarom twee dingen apart: dat er nergens nog met de hand een bedrag
+wordt opgemaakt (`"%.2f"|format`), en dat geen veld met `inputmode="decimal"` een
+`type="number"` draagt. Dat tweede is de voorwaarde onder de regel; verandert ze,
+dan valt de test om vóór er een prijs verdwijnt.
+
+**Let op waar een waarde vandaan komt.** Op het betalingenscherm wordt hetzelfde
+veld op twee plaatsen gevuld: bij het renderen, en door de statuskeuze die het met
+het volle bedrag invult. Zet je er één om, dan toont dat veld twee schrijfwijzen
+naargelang hoe de waarde erin kwam.
+
 ### 2.4c Label of vraag (#749)
 
 De kit heeft twee stijlen voor de tekst boven een veld, en ze zijn niet

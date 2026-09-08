@@ -145,7 +145,7 @@ def test_het_betaalscherm_filtert_op_dat_record(client, db_session):
     _login(client, db_session)
 
     html = client.get(f"/admin/betalingen?record={eerste.id}").text
-    assert "30.00" in html
+    assert "30,00" in html
     assert "44.44" not in html, "de andere betaling staat er ook, dus er wordt niet gefilterd"
 
 

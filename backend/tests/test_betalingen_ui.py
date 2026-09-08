@@ -36,7 +36,7 @@ def test_betalingen_matrix_filters_and_totals(client, db_session):
     _record(db_session, amount="25.00", status="pending")
     _login(client)
     page = client.get("/admin/betalingen")
-    assert page.status_code == 200 and "25.00" in page.text
+    assert page.status_code == 200 and "25,00" in page.text
 
     gefilterd = client.get("/admin/betalingen/lijst?status=paid")
     assert "Geen betalingen voor deze filter" in gefilterd.text or "25.00" not in gefilterd.text
@@ -176,7 +176,7 @@ def test_betalingen_zoek_werkt_binnen_het_statusfilter(client, db_session):
 
     html = client.get("/admin/betalingen/lijst",
                       params={"q": "cara", "status": "paid"}).text
-    assert "25.00" in html and "30.00" not in html
+    assert "25,00" in html and "30,00" not in html
 
 
 def test_betalingen_zoekveld_staat_op_de_pagina_niet_in_het_fragment(client, db_session):
