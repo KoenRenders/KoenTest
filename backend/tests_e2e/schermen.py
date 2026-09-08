@@ -138,6 +138,25 @@ class Inschrijvingsdetail:
     def totaal(self) -> str:
         return self.paneel.locator("text=Totaal").first.inner_text()
 
+    def staat_in_bewerkmodus(self) -> bool:
+        """De bewerkstand herkennen aan de Opslaan-knop, niet aan de x-data.
+
+        Alpine zet `x-show` om naar `display:none`; het attribuut blijft staan. Wat
+        de gebruiker ziet, is dus of de knop er staat — en dat is ook waar #717 over
+        gaat.
+        """
+        knop = self.paneel.get_by_role("button", name="Opslaan")
+        return knop.count() > 0 and knop.first.is_visible()
+
+
+def toasts(page):
+    """De bevestigingen die in de vaste landingsplek zijn beland (#528/#717).
+
+    `#toasts` staat in de schil; htmx zet er out-of-band elementen in. Alleen de
+    kinderen tellen — de host zelf staat er altijd, ook leeg.
+    """
+    return page.locator("#toasts > *")
+
 
 class Ledenscherm:
     """/admin/leden — gezinnenlijst en het gezinsdetail."""
