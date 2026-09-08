@@ -147,6 +147,16 @@ def test_een_gezin_openen_bevestigt_niets(client, db_session):
 # ── Tenant ───────────────────────────────────────────────────────────────────
 
 def test_tenantinstellingen_opslaan_bevestigt(client, db_session):
+    """#748: hier staat de toast ÍN de host, niet als out-of-band broer ernaast.
+
+    Dit scherm stuurt een volledige pagina terug (`hx-target="body"`), en dan wordt
+    de host zelf mee vervangen — een oob-toast wordt geplaatst en meteen weggegooid.
+    Gemeten in een browser: nul kinderen in `#toasts`.
+
+    Deze servertest kan dat verschil niet zien; hij kijkt of de bevestiging op de
+    JUISTE plek staat. Dat ze ook echt zichtbaar wordt, toetst
+    `tests_e2e/test_tenant_toast.py`.
+    """
     from app.domains.mdm.api import list_units
 
     _operator(db_session)
@@ -157,7 +167,10 @@ def test_tenantinstellingen_opslaan_bevestigt(client, db_session):
                        data={"site_name": "Raak"})
 
     assert resp.status_code == 200, resp.text
-    assert OOB in resp.text
+    assert OOB not in resp.text, (
+        "een out-of-band toast overleeft een body-swap niet (#748)")
+    host = resp.text[resp.text.index('id="toasts"'):]
+    assert "Opgeslagen" in host[:600], "de bevestiging staat niet in de host"
 
 
 def test_de_tenant_editor_openen_bevestigt_niets(client, db_session):

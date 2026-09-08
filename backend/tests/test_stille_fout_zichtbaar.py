@@ -67,7 +67,8 @@ def test_de_schil_draagt_de_foutmelding(schil):
     """De melding hoort in de kit, niet per scherm — dus in beide schillen."""
     inhoud = open(schil, encoding="utf-8").read()
     assert "htmx_ux()" in inhoud, f"{schil} mist ui.htmx_ux()"
-    assert "toast_host()" in inhoud, f"{schil} mist de landingsplek van de melding"
+    # Zie de gate: sinds #748 kan de host een argument dragen.
+    assert "toast_host(" in inhoud, f"{schil} mist de landingsplek van de melding"
 
 
 def test_de_foutafhandeling_geldt_ook_voor_gewone_hx_posts():

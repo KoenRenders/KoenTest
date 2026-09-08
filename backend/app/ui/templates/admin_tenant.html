@@ -43,11 +43,8 @@
   <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/tenants") }}</div>
 </form>
 
-{# #742: bevestiging na een geslaagde opslag (§2.9). Dit sjabloon ERFT van de
-   schil, dus alles buiten een block wordt genegeerd — het oob-element hoort hier,
-   aan het eind van de inhoud. Het antwoord is een volledige pagina die met
-   innerHTML in `body` landt, dus top-level in het antwoord kán niet; htmx pikt een
-   genest oob-element op (allowNestedOobSwaps staat standaard aan). De vlag staat
-   alleen op het succespad. #}
-{% if toast_opgeslagen|default(False) %}{{ ui.toast_oob() }}{% endif %}
+{# #742/#748: dit scherm stuurt een VOLLEDIGE pagina terug (hx-target="body"), dus
+   de bevestiging kan hier niet als out-of-band broer staan: htmx zou haar in de
+   bestaande host zetten en die host meteen daarna mee vervangen. De schil rendert
+   haar in plaats daarvan ín de host — zie `toast_opgeslagen` in admin_base.html. #}
 {% endblock %}

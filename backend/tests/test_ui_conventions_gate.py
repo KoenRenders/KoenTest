@@ -295,7 +295,10 @@ def test_toasts_hebben_een_landingsplek():
     """ui.toast() stuurt out-of-band naar #toasts; die host hoort in de schil."""
     for schil in ("site_base.html", "admin_base.html"):
         inhoud = (APP / "ui" / "templates" / schil).read_text()
-        assert "toast_host()" in inhoud, f"{schil} mist ui.toast_host()"
+        # `toast_host(` en niet `toast_host()`: sinds #748 kan de host een
+        # bevestiging meekrijgen voor schermen die een volledige pagina
+        # terugsturen. Wat deze regel bewaakt is dát de landingsplek er is.
+        assert "toast_host(" in inhoud, f"{schil} mist ui.toast_host()"
 
 
 def test_geen_kale_select():
