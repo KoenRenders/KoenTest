@@ -6,7 +6,12 @@
 {% macro veld(f, wiz=False) %}
 {% set key = "f" ~ f.id %}
 {% set val = values.get(key, "") %}
-<div>
+{# #741: `data-veld` is het handvat waarmee de wizard een onbeantwoorde VRAAG
+   markeert. Op het invoerveld zelf werkt dat niet: `border-red-600` zet alleen
+   border-color, en een radio- of checkbox-invoer draagt hier geen enkele klasse —
+   er is dus geen rand om te kleuren en er verandert letterlijk niets zichtbaars.
+   Bij een keuzevraag is het antwoord bovendien de groep, niet één knop. #}
+<div data-veld="{{ key }}">
   {% if f.field_type == "info" %}
   <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-gray-700">
     {% if f.label %}<p class="font-medium mb-1">{{ f.label }}</p>{% endif %}
@@ -151,6 +156,15 @@
     {% endif %}
     {# De stappen houden hun eigen `x-cloak`: zonder dat staan ze allemaal tegelijk
        op het scherm tot Alpine geladen is. #}
+    {# #741: de melding. Zonder haar markeerde `controleer()` alleen en scrolde ze —
+       en op een keuzevraag was die markering onzichtbaar, dus je zag het scherm een
+       paar centimeter schuiven en verder niets. Dat leest als "er ging iets stuk".
+       Zelfde vorm als ui.error_banner, zodat het scherm dezelfde taal spreekt als de
+       rest van de app (§2.9). #}
+    {% if wizard %}
+    <div x-show="fout" x-cloak role="alert" x-text="fout"
+         class="mb-4 bg-red-50 border border-red-200 rounded-lg p-4 text-red-800"></div>
+    {% endif %}
     {% if wizard %}<div x-cloak>{% endif %}
     {% for g in grouped %}
     {% if wizard %}<div data-step="{{ loop.index0 }}" x-show="step === {{ loop.index0 }}">{% endif %}
@@ -195,9 +209,10 @@
 
 {% if wizard %}
 <script>
+const MELDING = {{ _("Beantwoord eerst de gemarkeerde vragen.")|tojson }};
 document.addEventListener('alpine:init', () => {
   Alpine.data('formWizard', (steps, startStep = 0) => ({
-    steps: steps, step: startStep, stack: [], atLast: false,
+    steps: steps, step: startStep, stack: [], atLast: false, fout: '',
     init() { this.recompute(); },
     _selected() {
       const c = this.$root.querySelector('[data-step="' + this.step + '"]');
@@ -253,23 +268,35 @@ document.addEventListener('alpine:init', () => {
     controleer() {
       const c = this.$root.querySelector('[data-step="' + this.step + '"]');
       if (!c) return true;
+      // Eerst alles schoonvegen: anders blijft een melding staan over een vraag die
+      // intussen beantwoord is, en dan is de markering ruis in plaats van uitleg.
+      this.fout = '';
       c.querySelectorAll('[aria-invalid]').forEach(el => {
         el.removeAttribute('aria-invalid');
         el.classList.remove('border-red-600');
       });
+      c.querySelectorAll('[data-veld]').forEach(el => {
+        el.classList.remove('border-l-4', 'border-red-600', 'pl-3');
+      });
       const leeg = this._leegVerplicht();
       leeg.forEach(naam => {
+        // De VRAAG markeren met een rode balk links: dat is zichtbaar bij elk
+        // veldtype, ook bij een radiogroep zonder eigen rand.
+        const blok = c.querySelector('[data-veld="' + naam + '"]');
+        if (blok) blok.classList.add('border-l-4', 'border-red-600', 'pl-3');
         c.querySelectorAll('[name="' + naam + '"]').forEach(el => {
           el.setAttribute('aria-invalid', 'true');
-          el.classList.add('border-red-600');
         });
       });
       if (!leeg.length) return true;
+      this.fout = MELDING;
+      // Naar het BLOK scrollen en niet naar het invoerveld: bij een keuzevraag staat
+      // het eerste invoerveld onder het label, en dan schuift het scherm naar iets
+      // waar de markering net buiten beeld valt.
+      const blok = c.querySelector('[data-veld="' + leeg[0] + '"]');
+      if (blok) blok.scrollIntoView({ block: 'center', behavior: 'smooth' });
       const eerste = c.querySelector('[name="' + leeg[0] + '"]');
-      if (eerste) {
-        eerste.scrollIntoView({ block: 'center', behavior: 'smooth' });
-        eerste.focus({ preventScroll: true });
-      }
+      if (eerste) eerste.focus({ preventScroll: true });
       return false;
     },
     next() {

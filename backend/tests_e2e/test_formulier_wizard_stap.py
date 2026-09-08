@@ -90,7 +90,12 @@ def _stap(page, nr: int):
 
 
 def test_een_leeg_verplicht_veld_houdt_de_stap_vast(page, vertakt_formulier):
-    """Het gemelde geval: Volgende doet niets zonder antwoord — maar wel zichtbaar."""
+    """Het gemelde geval: Volgende doet niets zonder antwoord — maar wel zichtbaar.
+
+    #741: getoetst op een RADIOVRAAG. Bij een tekstveld werkt de markering ook zonder
+    die fix (dat veld heeft al een rand uit de control-basis), dus een test daarop
+    staat groen mét de bug erin.
+    """
     page.goto(f"/formulier/{vertakt_formulier}")
     page.wait_for_selector('[data-step="0"]', timeout=5000)
 
@@ -102,6 +107,49 @@ def test_een_leeg_verplicht_veld_houdt_de_stap_vast(page, vertakt_formulier):
     gemarkeerd = page.locator('[data-step="0"] [aria-invalid="true"]')
     assert gemarkeerd.count() > 0, (
         "de onbeantwoorde vraag is niet gemarkeerd — dan lijkt de knop kapot")
+
+
+def test_je_ziet_waarom_je_niet_verder_kan(page, vertakt_formulier):
+    """#741: er stond geen melding en de markering was op een keuzevraag onzichtbaar.
+
+    `border-red-600` zet alleen border-color, en een radio-invoer draagt hier geen
+    enkele klasse — er is dus geen rand om te kleuren. Wat je zag was het scherm dat
+    een paar centimeter schoof en verder niets, en dat leest als "er ging iets stuk".
+
+    Getoetst op wat ZICHTBAAR is: de melding, en de markering op het vraagblok.
+    """
+    page.goto(f"/formulier/{vertakt_formulier}")
+    page.wait_for_selector('[data-step="0"]', timeout=5000)
+
+    page.get_by_role("button", name="Volgende").click()
+    page.wait_for_timeout(300)
+
+    melding = page.locator('[role="alert"]')
+    assert melding.count() > 0 and melding.first.is_visible(), (
+        "er staat geen zichtbare melding — dan lijkt de knop kapot")
+    blok = page.locator('[data-step="0"] [data-veld].border-red-600')
+    assert blok.count() > 0, (
+        "de vraag zelf is niet gemarkeerd; een rode rand op een radio doet niets")
+
+
+def test_na_het_antwoorden_zijn_melding_en_markering_weg(page, vertakt_formulier):
+    """De tegenproef. Zonder haar staat de vorige test ook groen wanneer de melding
+    er permanent staat — en dan meldt het scherm een fout die er niet is."""
+    page.goto(f"/formulier/{vertakt_formulier}")
+    page.wait_for_selector('[data-step="0"]', timeout=5000)
+    page.get_by_role("button", name="Volgende").click()
+    page.wait_for_timeout(300)
+
+    page.get_by_label("A", exact=True).check()
+    page.get_by_role("button", name="Volgende").click()
+    page.wait_for_timeout(300)
+
+    assert _stap(page, 1).is_visible(), "de wizard ging niet door na het antwoorden"
+    melding = page.locator('[role="alert"]')
+    assert melding.count() == 0 or not melding.first.is_visible(), (
+        "de melding blijft staan nadat de vraag beantwoord is")
+    assert page.locator('[data-veld].border-red-600').count() == 0, (
+        "de markering blijft staan nadat de vraag beantwoord is")
 
 
 def test_ingevuld_gaat_de_stap_wel_door(page, vertakt_formulier):
