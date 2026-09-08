@@ -55,6 +55,68 @@ a foreign paradigm.
 
 ---
 
+## Where a rule goes (the placement rule)
+
+Added 8 September 2026, after a validation round that produced seventeen findings
+in one day. Four of them — #720, #727, #733, #681 — were the same defect: a rule
+enforced on one entrance and not on another. The public form demanded a mobile
+number; the JSON API accepted a registration without one; the admin screen let you
+erase it. Not one of those was an oversight. The rule simply had no home, so it
+lived in whichever function happened to run.
+
+**A rule belongs where it can see what it needs to judge — and nowhere else.**
+That single question decides the form:
+
+| The rule looks at… | Where it goes | Why |
+|---|---|---|
+| **one field** ("a mobile number is not empty") | an **attribute validator** (SQLAlchemy `@validates`) | fires on every assignment, including on an object loaded from the database and then modified — which is exactly where #733 went wrong |
+| **several fields of the same object** ("team name required *if* the component asks for one") | a **method on the aggregate** | it needs siblings; no single attribute can answer it |
+| **other objects or the database** ("is this component still not full?") | a **function in the service layer** | a model that needs a session drags persistence into the domain — this is where OO rewrites usually run aground |
+| **integrity at rest** (no negative price, uniqueness) | a **database constraint** | the last net: it holds even when two requests race or a script writes directly |
+
+The layers are not alternatives. A critical invariant earns a place in more than
+one: a validator for a readable message, a constraint for the guarantee. That is
+defence in depth, not duplication — the same reasoning as the three validation
+layers in `CLAUDE.md`.
+
+**What this rule replaces:** the habit of putting every check in the route that
+happens to receive the request. A check in a route protects that route. Every other
+door stays open, and nobody notices until someone walks through one.
+
+### Making it checkable
+
+An end state you cannot count is an intention. Five numbers make this one
+measurable; they were taken on 8 September 2026 and belong in every release issue:
+
+| | then | target |
+|---|---|---|
+| attribute validators in use | **0** | every field-level rule |
+| database check constraints | **1** | the critical invariants (#94) |
+| mutating UI routes that confirm success | **2 of 91** | all |
+| orderings without a unique tiebreaker | **16** (rough count) | 0 |
+| `required=True` promises in templates | **88 in 25 templates** | each with a server-side counterpart |
+
+That last row is the important one, and today it is *unmeasurable*: nobody knows
+how many of those 88 promises the server actually keeps. **The first deliverable is
+therefore a count, not a fix** — a report that lists, per aggregate, which entrances
+exist and which of them pass through validation. Without that number, progress is a
+feeling.
+
+### Gates come last, not first
+
+Close a rule with a gate only once the count is near its target. A gate introduced
+while eighty-five routes violate it needs an exemption list, and an exemption list
+is where a rule goes to die.
+
+There is a sharper reason, learned the same day. The gate from #626 fixed that the
+three social icons carry the same CSS class. Correct at the time — they had silently
+shrunk. But it encoded *"equal boxes"* while the goal was *"equally legible"*, and
+when #744 showed the icons were still optically unequal, that gate stood in the way
+of the right fix. A gate freezes the understanding you had when you wrote it. Freeze
+it too early and it protects the wrong thing.
+
+---
+
 ## Three building blocks
 
 ### A. Value Objects (lowest risk, highest clarity)
