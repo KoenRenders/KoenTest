@@ -114,7 +114,7 @@
    stappen. De inleiding en de naam/e-mailkaart stonden erbuiten, dus `x-show` kon
    er niet bij en ze bleven op élke stap staan. De TITEL blijft wel staan: die zegt
    waar je bent, en dat wil je op elke stap zien. #}
-<div class="max-w-2xl mx-auto"{% if wizard %} x-data='formWizard({{ wizard_steps|tojson }})' @change="recompute()"{% endif %}>
+<div class="max-w-2xl mx-auto"{% if wizard %} x-data='formWizard({{ wizard_steps|tojson }}, {{ start_step }})' @change="recompute()"{% endif %}>
   <h1 class="text-2xl font-bold text-blue-700 mb-2">{{ form.title }}</h1>
   {% if form.description %}<p class="text-gray-600 mb-6 whitespace-pre-wrap"{% if wizard %} x-show="step === 0" x-cloak{% endif %}>{{ form.description }}</p>{% endif %}
   {{ ui.error_banner(error|default(None)) }}
@@ -122,7 +122,10 @@
      server-rendered antwoord. Buiten hx-boost (#634) houden zodat de
      verzend-flow (en de URL in de geschiedenis) exact blijft zoals ze was. #}
   <form method="post" action="/formulier/{{ form.share_token }}{% if edit_token|default(None) %}/edit/{{ edit_token }}{% endif %}"
-        hx-boost="false" class="space-y-6">
+        hx-boost="false" class="space-y-6"
+        {# #724: Verzenden is geen `next()`, dus de laatste stap heeft haar eigen
+           controle nodig — anders verschuift het probleem naar het einde. #}
+        {% if wizard %}@submit="if (!controleer()) $event.preventDefault()"{% endif %}>
     {% if not form.is_anonymous %}
     {# #688: `required` valt weg zodra dit een wizard is, precies zoals bij de
        sectievelden hierboven. Een verborgen veld met `required` laat de browser bij
@@ -193,8 +196,8 @@
 {% if wizard %}
 <script>
 document.addEventListener('alpine:init', () => {
-  Alpine.data('formWizard', (steps) => ({
-    steps: steps, step: 0, stack: [], atLast: false,
+  Alpine.data('formWizard', (steps, startStep = 0) => ({
+    steps: steps, step: startStep, stack: [], atLast: false,
     init() { this.recompute(); },
     _selected() {
       const c = this.$root.querySelector('[data-step="' + this.step + '"]');
@@ -221,7 +224,56 @@ document.addEventListener('alpine:init', () => {
       return 'end';
     },
     recompute() { this.atLast = (this._target() === 'end'); },
+    // #724: de verplichte velden van DEZE stap, en alleen van deze stap. De server
+    // blijft de garantie — die weigert nog steeds met een 422 en slaat de niet
+    // doorlopen secties netjes over — maar zonder dit hoor je pas bij Verzenden dat
+    // de eerste vraag leeg was, en sta je dan op een stap waar je niet was.
+    //
+    // Bewust niet via het `required`-attribuut (#688): de browser valideert bij
+    // verzending het HELE formulier, ook de stappen die je door een sprong nooit
+    // ziet, en kan een verborgen veld niet aanwijzen.
+    _leegVerplicht() {
+      const c = this.$root.querySelector('[data-step="' + this.step + '"]');
+      const leeg = [];
+      if (!c) return leeg;
+      for (const id of (this.steps[this.step].req || [])) {
+        const naam = 'f' + id;
+        let gevuld = false;
+        // `_other` telt mee: bij "Anders" is de tekst het antwoord (#683).
+        c.querySelectorAll('[name="' + naam + '"], [name="' + naam + '_other"]')
+          .forEach(el => {
+            if (el.type === 'radio' || el.type === 'checkbox') {
+              if (el.checked) gevuld = true;
+            } else if ((el.value || '').trim() !== '') { gevuld = true; }
+          });
+        if (!gevuld) leeg.push(naam);
+      }
+      return leeg;
+    },
+    controleer() {
+      const c = this.$root.querySelector('[data-step="' + this.step + '"]');
+      if (!c) return true;
+      c.querySelectorAll('[aria-invalid]').forEach(el => {
+        el.removeAttribute('aria-invalid');
+        el.classList.remove('border-red-600');
+      });
+      const leeg = this._leegVerplicht();
+      leeg.forEach(naam => {
+        c.querySelectorAll('[name="' + naam + '"]').forEach(el => {
+          el.setAttribute('aria-invalid', 'true');
+          el.classList.add('border-red-600');
+        });
+      });
+      if (!leeg.length) return true;
+      const eerste = c.querySelector('[name="' + leeg[0] + '"]');
+      if (eerste) {
+        eerste.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        eerste.focus({ preventScroll: true });
+      }
+      return false;
+    },
     next() {
+      if (!this.controleer()) return;
       const t = this._target();
       if (t === 'end') return;
       this.stack.push(this.step);

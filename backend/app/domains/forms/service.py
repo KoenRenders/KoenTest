@@ -35,8 +35,26 @@ from app.i18n import _
 _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
+class VeldFout(HTTPException):
+    """Een 422 die weet wélk veld faalde (#724).
+
+    Het scherm moet de wizard kunnen openen op de stap waar het probleem staat, en
+    daarvoor is het id nodig — niet het label. Labels zijn niet uniek en zijn
+    gebruikerstekst; erop terugzoeken is de variant die stilletjes uitvalt zodra
+    iemand een vraag hernoemt.
+
+    Een eigen type en geen attribuut op een gewone HTTPException: dat laatste is
+    voor mypy een `attr-defined`-fout, en terecht — wie de uitzondering opvangt kan
+    dan niet zien dat het veld erbij zit.
+    """
+
+    def __init__(self, veld_id: int, detail: str) -> None:
+        super().__init__(status_code=422, detail=detail)
+        self.veld_id = veld_id
+
+
 def _fail(field: FormField, msg: str) -> "HTTPException":
-    return HTTPException(status_code=422, detail=f"'{field.label}': {msg}")
+    return VeldFout(field.id, f"'{field.label}': {msg}")
 
 
 def _answers_by_field(payload_answers: List[AnswerIn]) -> Dict[int, AnswerIn]:
