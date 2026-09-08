@@ -3,20 +3,32 @@
 {% if pages %}
 <div class="space-y-3">
   {% for p in pages %}
-  <a href="/admin/paginas/{{ p.id }}"
-     class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
+  {# #745: de kaart is geen <a> meer. De pijltjes zijn knoppen, en een knop in een
+     link is ongeldige HTML — de browser mag dan zelf kiezen wat een klik doet. De
+     link zit nu om de inhoud, de pijltjes staan ernaast.
+
+     `first`/`last` komen uit de VOLLEDIGE lijst, niet uit deze lus: met een filter
+     aan is de bovenste zichtbare rij zelden de eerste pagina, en die uitgrijzen zou
+     een verplaatsing blokkeren die gewoon kan. #}
+  <div class="bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
     <div class="flex items-start justify-between gap-3">
-      <div>
+      <a href="/admin/paginas/{{ p.id }}" class="block flex-1 min-w-0">
         <div class="font-semibold text-ink">{{ p.title }}</div>
         <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
           <span class="font-mono text-xs text-ink-soft">/{{ p.slug }}</span>
           {% if p.is_published %}{{ ui.badge(_("gepubliceerd"), "green") }}{% else %}{{ ui.badge(_("concept")) }}{% endif %}
           {% if p.show_in_nav %}{{ ui.badge(_("in navigatie"), "blue") }}{% endif %}
         </div>
+      </a>
+      <div class="shrink-0 flex items-center gap-3">
+        {{ ui.reorder(
+             up_attrs='hx-post="/admin/paginas/' ~ p.id ~ '/volgorde/omhoog" hx-target="#cp-lijst" hx-swap="innerHTML"',
+             down_attrs='hx-post="/admin/paginas/' ~ p.id ~ '/volgorde/omlaag" hx-target="#cp-lijst" hx-swap="innerHTML"',
+             first=(p.id == eerste_id), last=(p.id == laatste_id)) }}
+        <a href="/admin/paginas/{{ p.id }}" class="text-sm text-ink-soft">{{ _("Bewerken") }} ›</a>
       </div>
-      <span class="shrink-0 text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>
     </div>
-  </a>
+  </div>
   {% endfor %}
 </div>
 {% else %}

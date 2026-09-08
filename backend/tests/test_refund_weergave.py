@@ -84,7 +84,7 @@ def test_totaalregel_telt_charge_en_refunds_samen(client, db_session):
     assert "Totaal inschrijving" in html
     # Sinds #617-2c draagt de totaalregel dezelfde labels als de kaarten en doet het
     # teken het werk: een negatief saldo betekent dat wij moeten terugstorten.
-    assert "Saldo: € -27.50" in html
+    assert "Saldo: € -27,50" in html
 
 
 def test_geen_totaalregel_zonder_refunds(client, db_session):

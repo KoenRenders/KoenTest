@@ -123,16 +123,22 @@ if [ "${SNEL:-}" != "1" ]; then
   docker exec "$NAAM" python -m mypy --cache-dir=/tmp/mypy_cache
 
   echo "→ app.css"
-  # Zelfde controle als de css-job: herbouwen en eisen dat er niets wijzigt. Draait
-  # op de host, want daar staat de Tailwind-binary (scripts/build-css.sh, .cache/).
-  # Wijkt het af, dan is het bestand nú herbouwd — je hoeft het alleen te committen.
+  # Zelfde controle als de css-job, maar op de juiste vergelijking. CI draait in een
+  # verse checkout en kan dus `git diff` gebruiken: daar betekent élk verschil "niet
+  # herbouwd". Lokaal niet — daar staat een terecht herbouwde maar nog niet
+  # gecommitte app.css óók als verschil in git, en dan blijft deze controle rood tot
+  # je commit. Wat we hier willen weten is of de HERBOUW iets verandert.
+  CSS="$ROOT/backend/app/static/app.css"
+  VOOR="$(mktemp)"
+  cp "$CSS" "$VOOR"
   "$ROOT/scripts/build-css.sh" >/dev/null
-  if ! git -C "$ROOT" diff --quiet -- backend/app/static/app.css; then
+  if ! cmp -s "$VOOR" "$CSS"; then
+    rm -f "$VOOR"
     echo "test-local.sh: app.css liep niet gelijk met de templates." >&2
     echo "  Het bestand is zojuist herbouwd; commit backend/app/static/app.css mee." >&2
-    git -C "$ROOT" diff --stat -- backend/app/static/app.css >&2
     exit 1
   fi
+  rm -f "$VOOR"
 fi
 
 echo "→ pytest tegen ${DB_NAAM}"

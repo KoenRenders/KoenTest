@@ -114,7 +114,7 @@ def test_totaal_negeert_client_aangeleverd_totaal(client, db_session):
         data={f"product_{product.id}": "2", "totaal": "999.00"},
     )
     assert resp.status_code == 200
-    assert "€20.00" in resp.text      # 2 × 10,00, server-side berekend
+    assert "€20,00" in resp.text      # 2 × 10,00, server-side berekend
     assert "999" not in resp.text     # het client-totaal telt niet mee
 
 
@@ -143,7 +143,7 @@ def test_totaal_rekent_ledenprijs_voor_ingelogd_lid(client, db_session):
         data={f"product_{product.id}": "2"},
     )
     assert resp.status_code == 200
-    assert "€12.00" in resp.text  # 2 × ledenprijs 6,00
+    assert "€12,00" in resp.text  # 2 × ledenprijs 6,00
     assert "(ledenprijs)" in resp.text
 
 

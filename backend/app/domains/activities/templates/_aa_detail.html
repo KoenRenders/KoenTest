@@ -215,7 +215,7 @@
       <div class="border-t border-gray-100 py-1" x-data="{ ed: false }">
         <div class="flex items-center justify-between text-sm">
           <span x-show="!ed">{{ p.name }} ·
-            {% if p.pay_on_site %}{{ _("ter plaatse") }}{% elif p.is_free or p.price == 0 %}{{ _("gratis") }}{% else %}€{{ "%.2f"|format(p.price) }}{% if p.member_price is not none %} / leden €{{ "%.2f"|format(p.member_price) }}{% endif %}{% endif %}
+            {% if p.pay_on_site %}{{ _("ter plaatse") }}{% elif p.is_free or p.price == 0 %}{{ _("gratis") }}{% else %}€{{ p.price|geld }}{% if p.member_price is not none %} / leden €{{ p.member_price|geld }}{% endif %}{% endif %}
             {% if p.max_participants %} · max {{ p.max_participants }}{% endif %}
           </span>
           <span x-show="ed" x-cloak class="text-gray-500">{{ _("Product bewerken") }}</span>
@@ -305,3 +305,10 @@
   </div>
   {% endif %}
 </div>
+
+
+{# #742: bevestiging na een geslaagde opslag (§2.9). Top-level, buiten het fragment
+   dat geswapt wordt — htmx haalt het oob-element eruit vóór de gewone swap. De vlag
+   staat alleen op het succespad: bij een fout blijft de foutbanner staan en komt er
+   geen toast, anders bevestigt het scherm iets wat niet gebeurd is. #}
+{% if toast_opgeslagen|default(False) %}{{ ui.toast_oob() }}{% endif %}

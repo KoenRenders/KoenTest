@@ -1,7 +1,7 @@
 """#723 — de reden van een geweigerde actie kwam aan als "Er ging iets mis".
 
-De servicelaag schrijft een precieze zin — *"Kan niet meer terugbetalen (€ 100.00)
-dan er netto ontvangen is (€ 10.00)."* — en die reisde tot vlak vóór het scherm.
+De servicelaag schrijft een precieze zin — *"Kan niet meer terugbetalen (€ 100,00)
+dan er netto ontvangen is (€ 10,00)."* — en die reisde tot vlak vóór het scherm.
 Daar werd ze een `HTTPException(400)`, en htmx swapt niet op een 4xx: de globale
 foutafhandelaar in `_macros.html` nam over en toont voor élke status behalve 401 en
 403 één vaste zin, zonder ooit in het antwoord te kijken. De uitleg werd dus
@@ -71,7 +71,7 @@ def test_een_te_hoge_terugbetaling_noemt_het_maximum(client, db_session):
     # Deze twee horen samen — zie de docstring.
     assert resp.status_code == 200, (
         "een 4xx wordt niet geswapt, dus de melding komt nooit op het scherm")
-    assert "10.00" in resp.text, (
+    assert "10,00" in resp.text, (
         "het maximum staat niet in de melding; dan blijft het 'probeer opnieuw'")
     assert "terugbetalen" in resp.text
 

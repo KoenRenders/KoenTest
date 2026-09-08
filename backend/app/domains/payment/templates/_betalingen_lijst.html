@@ -18,16 +18,16 @@
       {% for naam, rij in [(_("Betalingen"), matrix.betalingen), (_("Terugbetalingen"), matrix.terugbetalingen)] %}
       <tr class="border-t border-gray-100">
         <td class="px-4 py-2 text-gray-700">{{ naam }}</td>
-        <td class="px-4 py-2 text-right whitespace-nowrap">€ {{ "%.2f"|format(rij.due) }}</td>
-        <td class="px-4 py-2 text-right whitespace-nowrap text-green-700">€ {{ "%.2f"|format(rij.paid) }}</td>
-        <td class="px-4 py-2 text-right whitespace-nowrap">€ {{ "%.2f"|format(rij.saldo) }}</td>
+        <td class="px-4 py-2 text-right whitespace-nowrap">€ {{ rij.due|geld }}</td>
+        <td class="px-4 py-2 text-right whitespace-nowrap text-green-700">€ {{ rij.paid|geld }}</td>
+        <td class="px-4 py-2 text-right whitespace-nowrap">€ {{ rij.saldo|geld }}</td>
       </tr>
       {% endfor %}
       <tr class="border-t-2 border-gray-300 bg-gray-50 font-semibold">
         <td class="px-4 py-2">{{ _("Netto") }}</td>
-        <td class="px-4 py-2 text-right whitespace-nowrap">€ {{ "%.2f"|format(matrix.netto.due) }}</td>
-        <td class="px-4 py-2 text-right whitespace-nowrap text-green-700">€ {{ "%.2f"|format(matrix.netto.paid) }}</td>
-        <td class="px-4 py-2 text-right whitespace-nowrap {% if matrix.netto.saldo > 0 %}text-orange-700{% else %}text-green-700{% endif %}">€ {{ "%.2f"|format(matrix.netto.saldo) }}</td>
+        <td class="px-4 py-2 text-right whitespace-nowrap">€ {{ matrix.netto.due|geld }}</td>
+        <td class="px-4 py-2 text-right whitespace-nowrap text-green-700">€ {{ matrix.netto.paid|geld }}</td>
+        <td class="px-4 py-2 text-right whitespace-nowrap {% if matrix.netto.saldo > 0 %}text-orange-700{% else %}text-green-700{% endif %}">€ {{ matrix.netto.saldo|geld }}</td>
       </tr>
     </tbody>
   </table>
@@ -48,10 +48,10 @@
     <div class="font-semibold">{{ r.contact_name or "—" }}{% if r.description %} · {{ r.description }}{% endif %}{% if r.component_name %} · {{ r.component_name }}{% endif %}</div>
     <div class="text-sm text-ink-soft flex flex-wrap items-center gap-x-3">
       <span>{{ method_labels.get(r.method, _("Onbekende betaalwijze")) }}</span>
-      <span>{{ _("Bedrag") }}: <strong>€ {{ "%.2f"|format(k.bedrag) }}</strong></span>
+      <span>{{ _("Bedrag") }}: <strong>€ {{ k.bedrag|geld }}</strong></span>
       {% if k.ontvangen is not none %}
-      <span>{{ _("Ontvangen") }}: € {{ "%.2f"|format(k.ontvangen) }}</span>
-      <span>{{ _("Saldo") }}: € {{ "%.2f"|format(k.saldo) }}</span>
+      <span>{{ _("Ontvangen") }}: € {{ k.ontvangen|geld }}</span>
+      <span>{{ _("Saldo") }}: € {{ k.saldo|geld }}</span>
       {% endif %}
       {% if r.paid_at %}<span>{{ _("Betaald op") }}: {{ r.paid_at.strftime("%d-%m-%Y") }}</span>{% endif %}
     </div>
@@ -257,8 +257,8 @@
   {% if groep.toon_totaal %}
   <div class="flex flex-wrap justify-end gap-4 text-sm border-t border-gray-200 pt-2">
     <span class="text-ink-soft">{{ _("Totaal inschrijving") }}</span>
-    <span>{{ _("Bedrag") }}: <strong>€ {{ "%.2f"|format(groep.totaal.due) }}</strong></span>
-    <span>{{ _("Ontvangen") }}: € {{ "%.2f"|format(groep.totaal.paid) }}</span>
+    <span>{{ _("Bedrag") }}: <strong>€ {{ groep.totaal.due|geld }}</strong></span>
+    <span>{{ _("Ontvangen") }}: € {{ groep.totaal.paid|geld }}</span>
     {# #682: "Ontvangen 40,00" bij "Bedrag 30,00" leest als een fout, en het enige
        wat nog actie vraagt — die tien euro uitbetalen — zat onzichtbaar in het
        saldo. Deze term komt uit de service (`_nog_uit_te_betalen`) en is een
@@ -271,10 +271,10 @@
        kaart. Deze regel telt een BEDRAG op over de hele inschrijving; een eigen naam
        maakt zichtbaar dat het om iets anders gaat dan de badge erboven. #}
     {% if groep.terug_te_betalen > 0 %}
-    <span class="text-teal-700 font-medium">{{ _("Nog uit te betalen") }}: € {{ "%.2f"|format(groep.terug_te_betalen) }}</span>
+    <span class="text-teal-700 font-medium">{{ _("Nog uit te betalen") }}: € {{ groep.terug_te_betalen|geld }}</span>
     {% endif %}
     <span class="{{ 'text-teal-700 font-medium' if groep.totaal.saldo < 0 else ('text-orange-700 font-medium' if groep.totaal.saldo > 0 else 'text-ink-soft') }}">
-      {{ _("Saldo") }}: € {{ "%.2f"|format(groep.totaal.saldo) }}</span>
+      {{ _("Saldo") }}: € {{ groep.totaal.saldo|geld }}</span>
   </div>
   {% endif %}
   </div>

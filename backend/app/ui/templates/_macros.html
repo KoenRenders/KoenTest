@@ -507,6 +507,21 @@
 </div>
 {%- endmacro %}
 
+{# Bevestiging na een geslaagde opslag, klaar om out-of-band mee te sturen (#742).
+   De aanroeper zet enkel `{{ ui.toast_oob() }}` TOP-LEVEL in het antwoord — buiten
+   het fragment dat geswapt wordt.
+
+   Waarom hier en niet vier keer overgeschreven: het contract zit in het attribuut
+   (`hx-swap-oob="afterbegin:#toasts"`) en in de vorm van de wikkel. Bij `afterbegin`
+   neemt htmx de KINDEREN van het oob-element en gooit de wikkel weg — dat is precies
+   wat we willen, maar het is niet iets wat je vier keer wil onthouden.
+
+   Eén formulering voor de hele app (§2.9). Wijkt een scherm daarvan af, dan hebben
+   twee schermen twee bevestigingsteksten en is de conventie meteen weg. #}
+{% macro toast_oob(message=None) -%}
+<div hx-swap-oob="afterbegin:#toasts">{{ toast(message or _("Opgeslagen ✓")) }}</div>
+{%- endmacro %}
+
 {# Vaste plek waar toasts landen. Zet dit één keer in de basis-template. #}
 {% macro toast_host() -%}
 <div id="toasts" class="fixed top-4 right-4 z-50 flex flex-col gap-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none"></div>

@@ -132,3 +132,10 @@
     </form>
   </div>
 </div>
+
+
+{# #742: bevestiging na een geslaagde opslag (§2.9). Top-level, buiten het fragment
+   dat geswapt wordt — htmx haalt het oob-element eruit vóór de gewone swap. De vlag
+   staat alleen op het succespad: bij een fout blijft de foutbanner staan en komt er
+   geen toast, anders bevestigt het scherm iets wat niet gebeurd is. #}
+{% if toast_opgeslagen|default(False) %}{{ ui.toast_oob() }}{% endif %}

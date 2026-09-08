@@ -104,4 +104,8 @@ def test_paneel_toont_bedragen_en_totaal(client, db_session):
     db_session.expire_all()
     totaal, _regels = compute_registration_total(db_session.get(Registration, reg_id))
     assert "Totaal" in html
-    assert f'€ {totaal:.2f}' in html
+    # #735: de notatie is nl-BE; de test leest dezelfde helper als het sjabloon,
+    # anders toetst ze de opmaak van de test i.p.v. die van het scherm.
+    from app.kernel.geld import bedrag
+
+    assert f'€ {bedrag(totaal)}' in html

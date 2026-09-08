@@ -153,7 +153,20 @@
     {% block content %}{% endblock %}
   </main>
   <footer class="max-w-7xl mx-auto px-4 mt-16 border-t border-gray-200 pt-10 pb-6">
-    {# Sociale links als iconen (#491): inline SVG (zelf-gehost, geen dependency). #}
+    {# Sociale links als iconen (#491): inline SVG (zelf-gehost, geen dependency).
+
+       #744: de drie vakjes zijn even groot (`w-8 h-8`, bewaakt sinds #626), maar het
+       oog telt inkt en geen vakjes. Gemeten met getBBox() in een echte browser vulde
+       Facebook 100% van zijn vak, Instagram 82% breed / 86% hoog en TikTok 66% / 77%
+       — en Instagram is bovendien een dunne omtrek waar Facebook een massieve schijf
+       is. Vandaar dat Instagram klein oogde.
+
+       De viewBox is daarom bijgesneden tot de omhullende van de vorm, zodat elk
+       icoon zijn vak vult. Bewust NIET een grotere klasse voor één icoon: dan vecht
+       je met de gate uit #626 en krijg je per-icoon-uitzonderingen die zich
+       vermenigvuldigen zodra er een vierde netwerk bijkomt. `preserveAspectRatio`
+       staat op zijn standaard, dus een niet-vierkante viewBox vervormt niets — de
+       langste zijde vult het vak. #}
     <div class="flex justify-center gap-5 mb-6 text-gray-500">
       {% if facebook_url %}
       <a href="{{ facebook_url }}" target="_blank" rel="noopener noreferrer" aria-label="Facebook" class="hover:text-blue-700">
@@ -162,12 +175,12 @@
       {% endif %}
       {% if instagram_url %}
       <a href="{{ instagram_url }}" target="_blank" rel="noopener noreferrer" aria-label="Instagram" class="hover:text-blue-700">
-        <svg viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8" aria-hidden="true"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.42.56.21.96.47 1.38.9.43.42.69.82.9 1.38.17.43.37 1.06.42 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.42 2.23-.21.56-.47.96-.9 1.38-.42.43-.82.69-1.38.9-.43.17-1.06.37-2.23.42-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.42a3.72 3.72 0 01-1.38-.9 3.72 3.72 0 01-.9-1.38c-.17-.43-.37-1.06-.42-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.25-1.8.42-2.23.21-.56.47-.96.9-1.38.42-.43.82-.69 1.38-.9.43-.17 1.06-.37 2.23-.42C8.42 2.17 8.8 2.16 12 2.16zm0 1.44c-3.14 0-3.51.01-4.75.07-1.15.05-1.77.24-2.19.4-.55.21-.94.47-1.35.88-.41.41-.67.8-.88 1.35-.16.42-.35 1.04-.4 2.19-.06 1.24-.07 1.61-.07 4.75s.01 3.51.07 4.75c.05 1.15.24 1.77.4 2.19.21.55.47.94.88 1.35.41.41.8.67 1.35.88.42.16 1.04.35 2.19.4 1.24.06 1.61.07 4.75.07s3.51-.01 4.75-.07c1.15-.05 1.77-.24 2.19-.4.55-.21.94-.47 1.35-.88.41-.41.67-.8.88-1.35.16-.42.35-1.04.4-2.19.06-1.24.07-1.61.07-4.75s-.01-3.51-.07-4.75c-.05-1.15-.24-1.77-.4-2.19a3.62 3.62 0 00-.88-1.35 3.62 3.62 0 00-1.35-.88c-.42-.16-1.04-.35-2.19-.4-1.24-.06-1.61-.07-4.75-.07zm0 3.68a4.72 4.72 0 100 9.44 4.72 4.72 0 000-9.44zm0 7.79a3.07 3.07 0 110-6.14 3.07 3.07 0 010 6.14zm6.01-7.98a1.1 1.1 0 11-2.2 0 1.1 1.1 0 012.2 0z"/></svg>
+        <svg viewBox="2.15 2.16 19.7 20.72" fill="currentColor" class="w-8 h-8" aria-hidden="true"><path d="M12 2.16c3.2 0 3.58.01 4.85.07 1.17.05 1.8.25 2.23.42.56.21.96.47 1.38.9.43.42.69.82.9 1.38.17.43.37 1.06.42 2.23.06 1.27.07 1.65.07 4.85s-.01 3.58-.07 4.85c-.05 1.17-.25 1.8-.42 2.23-.21.56-.47.96-.9 1.38-.42.43-.82.69-1.38.9-.43.17-1.06.37-2.23.42-1.27.06-1.65.07-4.85.07s-3.58-.01-4.85-.07c-1.17-.05-1.8-.25-2.23-.42a3.72 3.72 0 01-1.38-.9 3.72 3.72 0 01-.9-1.38c-.17-.43-.37-1.06-.42-2.23-.06-1.27-.07-1.65-.07-4.85s.01-3.58.07-4.85c.05-1.17.25-1.8.42-2.23.21-.56.47-.96.9-1.38.42-.43.82-.69 1.38-.9.43-.17 1.06-.37 2.23-.42C8.42 2.17 8.8 2.16 12 2.16zm0 1.44c-3.14 0-3.51.01-4.75.07-1.15.05-1.77.24-2.19.4-.55.21-.94.47-1.35.88-.41.41-.67.8-.88 1.35-.16.42-.35 1.04-.4 2.19-.06 1.24-.07 1.61-.07 4.75s.01 3.51.07 4.75c.05 1.15.24 1.77.4 2.19.21.55.47.94.88 1.35.41.41.8.67 1.35.88.42.16 1.04.35 2.19.4 1.24.06 1.61.07 4.75.07s3.51-.01 4.75-.07c1.15-.05 1.77-.24 2.19-.4.55-.21.94-.47 1.35-.88.41-.41.67-.8.88-1.35.16-.42.35-1.04.4-2.19.06-1.24.07-1.61.07-4.75s-.01-3.51-.07-4.75c-.05-1.15-.24-1.77-.4-2.19a3.62 3.62 0 00-.88-1.35 3.62 3.62 0 00-1.35-.88c-.42-.16-1.04-.35-2.19-.4-1.24-.06-1.61-.07-4.75-.07zm0 3.68a4.72 4.72 0 100 9.44 4.72 4.72 0 000-9.44zm0 7.79a3.07 3.07 0 110-6.14 3.07 3.07 0 010 6.14zm6.01-7.98a1.1 1.1 0 11-2.2 0 1.1 1.1 0 012.2 0z"/></svg>
       </a>
       {% endif %}
       {% if tiktok_url %}
       <a href="{{ tiktok_url }}" target="_blank" rel="noopener noreferrer" aria-label="TikTok" class="hover:text-blue-700">
-        <svg viewBox="0 0 24 24" fill="currentColor" class="w-8 h-8" aria-hidden="true"><path d="M16.6 5.82a4.28 4.28 0 01-1.06-2.82h-3.2v12.9a2.59 2.59 0 01-2.59 2.5 2.59 2.59 0 01-2.59-2.59 2.59 2.59 0 013.36-2.47V9.9a5.87 5.87 0 00-.77-.05A5.79 5.79 0 003.8 15.6a5.79 5.79 0 005.75 5.79 5.79 5.79 0 005.79-5.79V9.01a7.35 7.35 0 004.31 1.38V7.18a4.28 4.28 0 01-2.84-1.36z"/></svg>
+        <svg viewBox="3.8 3 15.85 18.39" fill="currentColor" class="w-8 h-8" aria-hidden="true"><path d="M16.6 5.82a4.28 4.28 0 01-1.06-2.82h-3.2v12.9a2.59 2.59 0 01-2.59 2.5 2.59 2.59 0 01-2.59-2.59 2.59 2.59 0 013.36-2.47V9.9a5.87 5.87 0 00-.77-.05A5.79 5.79 0 003.8 15.6a5.79 5.79 0 005.75 5.79 5.79 5.79 0 005.79-5.79V9.01a7.35 7.35 0 004.31 1.38V7.18a4.28 4.28 0 01-2.84-1.36z"/></svg>
       </a>
       {% endif %}
     </div>
