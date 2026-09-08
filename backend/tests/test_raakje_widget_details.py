@@ -32,17 +32,36 @@ import pytest
 
 pytestmark = pytest.mark.ui_serverrendered
 
-WIDGET = (Path(__file__).resolve().parents[1]
-          / "app/domains/chatbot/templates/_raakje_widget.html").read_text()
+CHATBOT = Path(__file__).resolve().parents[1] / "app/domains/chatbot/templates"
+WIDGET = (CHATBOT / "_raakje_widget.html").read_text()
+PAGINA = (CHATBOT / "raakje.html").read_text()
+TEKSTEN = (CHATBOT / "_raakje_teksten.html").read_text()
 MACROS = (Path(__file__).resolve().parents[1] / "app/ui/templates/_macros.html").read_text()
 
 
-def test_de_widget_stelt_zich_voor():
-    """Zonder begroeting begint het gesprek met een opdracht in plaats van een naam."""
-    assert "Hallo, ik ben Raakje!" in WIDGET, "de begroeting ontbreekt"
-    assert "👋" in WIDGET, "de emoji hoort bij de begroeting (lopende tekst, geen knop)"
-    assert "doorgeven aan het bestuur" in WIDGET, (
+def test_de_bot_stelt_zich_voor():
+    """Zonder begroeting begint het gesprek met een opdracht in plaats van een naam.
+
+    De doorgeef-zin staat er als tegenproef bij: zonder haar zou deze test ook groen
+    blijven wanneer iemand de tekst later inkort, en dan weet niemand meer dát je je
+    vraag kan laten doorgeven (#570).
+    """
+    assert "Hallo, ik ben Raakje!" in TEKSTEN, "de begroeting ontbreekt"
+    assert "👋" in TEKSTEN, "de emoji hoort bij de begroeting (lopende tekst, geen knop)"
+    assert "doorgeven aan het bestuur" in TEKSTEN, (
         "de doorgeef-zin uit #570 mag niet sneuvelen — die vertelt dát dat kan")
+
+
+def test_beide_schermen_lezen_dezelfde_tekst():
+    """#765: één bron, want twee kopieën lopen uiteen bij de eerste wijziging.
+
+    Zo is dit verschil ook ontstaan: #570 raakte de widget en niet `/raakje`, en
+    sindsdien stelde de bot zich op het ene scherm voor en op het andere niet.
+    """
+    for naam, bron in (("widget", WIDGET), ("/raakje", PAGINA)):
+        assert "teksten.intro()" in bron, f"{naam} gebruikt de gedeelde tekst niet"
+        assert "Hallo, ik ben Raakje" not in bron, (
+            f"{naam} heeft de tekst weer overgeschreven in plaats van hem te lezen")
 
 
 def test_het_stopvierkantje_houdt_zijn_bijgesneden_viewbox():
