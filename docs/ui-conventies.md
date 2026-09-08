@@ -125,6 +125,13 @@ leeg-teksten wisselen tussen "Geen …" en "Nog geen …" en tussen italic en ni
 - **Verwijderen: altijd laatst, altijd rood** (`text-red-600`), in het ⋯-menu
   zodra dat bestaat. Nooit een emoji, nooit verstopt — indien niet toegestaan
   (bv. geld bewoog): tonen maar disabled met tooltip-reden.
+- **Bewerken staat er direct links van** (#722). De `edit_toggle` — die "Bewerken"
+  toont en in bewerkmodus "Annuleren" — hoort pal naast Verwijderen, zodat de twee
+  acties **op het record zelf** één paar vormen aan het einde van de rij of toolbar.
+  Alles wat iets met de *inhoud* doet (bekijken, afdrukken, exporteren, importeren)
+  staat links daarvan. Zet er niets tussen: een knop tussen Bewerken en Verwijderen
+  breekt het paar en laat de gevaarlijkste knop naast een willekeurige buur staan —
+  precies waar je hem niet per ongeluk wil raken.
 - **Symbool-knoppen** krijgen altijd een `aria-label` (screenreader) én — sinds
   #698 automatisch, in de `button`-macro — een `title` met dezelfde tekst, zodat wie
   met een muis werkt niet hoeft te raden wat het symbool betekent.
