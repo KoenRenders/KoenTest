@@ -12,16 +12,52 @@ import os
 BASE = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
 
 
-def login_als_admin(page, email: str, sessiewaarde: str) -> None:
+def login_met_sessie(page, sessiewaarde: str) -> None:
     """Zet de sessiecookie rechtstreeks.
 
     Sneller en minder broos dan de OTP-flow doorlopen, en die flow wordt elders al
     getest (test_fase1_ui). Wie de login zélf wil dekken, doet dat in een eigen test.
+
+    Los van `login_als_admin` sinds #718: die naam leest als admin-only terwijl er
+    ook als gewoon lid ingelogd moet kunnen worden. De rol zit in de sessiewaarde,
+    niet in deze functie.
     """
     page.context.add_cookies([{
         "name": "raak_session", "value": sessiewaarde,
         "url": BASE, "http_only": True, "same_site": "Lax",
     }])
+
+
+def login_als_admin(page, email: str, sessiewaarde: str) -> None:
+    """Zie `login_met_sessie`; `email` staat er voor de leesbaarheid van de aanroep."""
+    login_met_sessie(page, sessiewaarde)
+
+
+class Gezinsportaal:
+    """/leden/gezin — het portaal van een lid (#718)."""
+
+    pad = "/leden/gezin"
+
+    def __init__(self, page):
+        self.page = page
+
+    def open(self):
+        self.page.goto(self.pad)
+        self.page.wait_for_selector("main", timeout=5000)
+        return self
+
+    def navigatiebalk(self):
+        """De brede menubalk van de publieke schil — het onderwerp van #718."""
+        return self.page.locator("#site-nav-breed")
+
+    def voeg_gezinslid_toe(self, voornaam: str, achternaam: str):
+        self.page.get_by_role("button", name="+ Gezinslid toevoegen").click()
+        self.page.fill("#np-first_name", voornaam)
+        self.page.fill("#np-last_name", achternaam)
+        self.page.fill("#np-date_of_birth", "2012-03-04")
+        self.page.select_option("#np-gender_code", "M")
+        self.page.get_by_role("button", name="Toevoegen", exact=True).click()
+        self.page.wait_for_timeout(600)
 
 
 class Betalingenscherm:
