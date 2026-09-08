@@ -106,7 +106,8 @@
       </header>
       {# #714: twee renderingen per schil, dus ook deze mee. Een fix die er één
          bijwerkt laat de andere fout staan — en op een telefoon zie je juist deze. #}
-      <nav id="admin-nav-mobiel"{% if _oob %} hx-swap-oob="true"{% endif %} x-show="open" x-cloak x-transition.opacity.duration.150ms class="md:hidden bg-brand-indigo text-purple-100 px-3 pb-3 pt-1 space-y-0.5">
+      {# #737: `style="display: none"` staat er letterlijk bij (§2.9b). Dit element heeft een `id` én wordt door Alpine verborgen, dus htmx' settle zet bij een swap de attributen van het serverantwoord terug en wist de inline style die Alpine er net op zette (#726). Verborgen is hier de juiste beginstand: `open` begint op false. #}
+      <nav id="admin-nav-mobiel"{% if _oob %} hx-swap-oob="true"{% endif %} x-show="open" style="display: none" x-cloak x-transition.opacity.duration.150ms class="md:hidden bg-brand-indigo text-purple-100 px-3 pb-3 pt-1 space-y-0.5">
         {% for item in nav_items|default([]) %}
         <a href="{{ item.href }}" @click="open = false"
            class="block px-3 py-2 rounded-lg text-sm {% if item.active %}bg-white/20 text-white font-semibold{% else %}text-purple-200 hover:bg-white/10 hover:text-white{% endif %}">{{ item.label }}</a>

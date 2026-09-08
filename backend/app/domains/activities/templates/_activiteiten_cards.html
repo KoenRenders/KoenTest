@@ -73,7 +73,11 @@
           </div>
         </div>
         {% if not c.external_register_url and not c.external_registrations_url %}
-        <div id="deelnemers-{{ a.id }}-{{ c.id }}" x-show="open" x-cloak></div>
+        {# #737: zelfde regel als hierboven (§2.9b). Gemeten wist htmx' settle óók hier de
+           style, maar het valt niet op omdat de container op dat moment leeg is —
+           een leeg blok heeft geen hoogte. Het attribuut staat er toch: de regel geldt
+           voor de constructie, niet voor het toeval dat ze vandaag onzichtbaar blijft. #}
+        <div id="deelnemers-{{ a.id }}-{{ c.id }}" x-show="open" x-cloak style="display: none"></div>
         {% endif %}
         {# Inschrijven als gecentreerde popup (v1.14-pariteit, #601): de knop zet
            `ins=true` en laadt het formulier in de modal-body. Sluiten via ×/Escape/

@@ -132,7 +132,8 @@
         </div>
       </div>
       {# #714: ook de tweede rendering — op een telefoon is dit de enige die je ziet. #}
-      <div id="site-nav-mobiel"{% if _oob %} hx-swap-oob="true"{% endif %} x-show="open" x-cloak x-transition.opacity.duration.150ms class="md:hidden px-4 pb-4 flex flex-col gap-2 text-sm">
+      {# #737: `style="display: none"` staat er letterlijk bij (§2.9b). Dit element heeft een `id` én wordt door Alpine verborgen, dus htmx' settle zet bij een swap de attributen van het serverantwoord terug en wist de inline style die Alpine er net op zette (#726). Verborgen is hier de juiste beginstand: `open` begint op false. #}
+      <div id="site-nav-mobiel"{% if _oob %} hx-swap-oob="true"{% endif %} x-show="open" style="display: none" x-cloak x-transition.opacity.duration.150ms class="md:hidden px-4 pb-4 flex flex-col gap-2 text-sm">
         {{ navlink(_pad, "/", _("Home"), exact=True) }}
         {{ navlink(_pad, "/fotos", _("Foto's")) }}
         {{ navlink(_pad, "/archief", _("Archief"), match="/activiteiten/archief") }}
