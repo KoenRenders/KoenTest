@@ -26,12 +26,6 @@ def get_published_page(db, slug: str) -> Optional[CmsPage]:
             .first())
 
 
-def get_page(db, slug: str) -> Optional[CmsPage]:
-    """Een pagina op slug, gepubliceerd of niet — voor blokken die de site zelf
-    invult (home-intro, site-footer)."""
-    return db.query(CmsPage).filter(CmsPage.slug == slug).first()
-
-
 def published_slugs(db) -> list[str]:
     """De slugs die in de sitemap horen."""
     return [p.slug for p in (db.query(CmsPage)

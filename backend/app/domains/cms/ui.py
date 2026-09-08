@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, PlainTextResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.domains.cms.api import get_page, get_published_page, published_slugs
+from app.domains.cms.api import get_published_page, published_slugs
 from app.domains.cms.render import render_cms_content
 from app.ui import site_context, templates
 from app.i18n import _
@@ -34,7 +34,12 @@ def homepage(request: Request, db: Session = Depends(get_db)):
         return templates.TemplateResponse(request, "platform_landing.html", {
             "afdelingen": afdelingen, "current_year": site_context(db, request)["current_year"]})
 
-    intro = get_page(db, "home-intro")
+    # #727: `is_published` geldt ook voor de blokken die de site zelf invult. Er
+    # stond een vinkje "Gepubliceerd" op het beheerscherm dat niets deed — uitzetten
+    # veranderde niets aan de homepagina. Gepubliceerd → getoond, niet gepubliceerd
+    # → niet getoond, zonder uitzondering voor blok-pagina's; die uitzondering was
+    # juist de verwarring.
+    intro = get_published_page(db, "home-intro")
     return templates.TemplateResponse(request, "home.html", {
         **site_context(db, request),
         "intro_html": render_cms_content(intro.content or "") if intro else None,

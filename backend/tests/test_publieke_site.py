@@ -5,11 +5,16 @@ from tests.conftest import seed_postal_code
 
 
 def test_homepage_renders_with_intro_and_activities(client, db_session):
-    intro = db_session.query(CmsPage).filter(CmsPage.slug == "home-intro").first()
-    if intro is None:
-        intro = CmsPage(slug="home-intro", title="Intro", is_published=False)
-        db_session.add(intro)
-    intro.content = "<p>Welkom bij Raak!</p>"
+    # Sinds #727 geldt `is_published` ook voor dit blok. Alle rijen met deze slug:
+    # de migraties seeden er één per tenant en het verzoek kiest de zijne (zie
+    # test_siteblokken_publicatie.py, waar de tegenproef staat).
+    intros = db_session.query(CmsPage).filter(CmsPage.slug == "home-intro").all()
+    if not intros:
+        intros = [CmsPage(slug="home-intro", title="Intro")]
+        db_session.add(intros[0])
+    for intro in intros:
+        intro.is_published = True
+        intro.content = "<p>Welkom bij Raak!</p>"
     db_session.flush()
     resp = client.get("/")
     assert resp.status_code == 200

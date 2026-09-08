@@ -266,7 +266,12 @@ def site_context(db, request=None) -> dict:
              .filter(CmsPage.is_published == True,        # noqa: E712
                      CmsPage.show_in_nav == True)         # noqa: E712  (#465)
              .order_by(CmsPage.sort_order.asc(), CmsPage.title.asc()).all())
-    footer = db.query(CmsPage).filter(CmsPage.slug == "site-footer").first()
+    # #727: via de domeinfacade en niet met een eigen query — die keek langs
+    # `is_published` heen, dus de footer stond op elke publieke pagina terwijl het
+    # beheerscherm hem als niet-gepubliceerd toonde.
+    from app.domains.cms.api import get_published_page
+
+    footer = get_published_page(db, "site-footer")
     footer_block = None
     if footer is not None:
         footer_block = {"content": render_cms_content(footer.content or "")}
