@@ -161,7 +161,12 @@
     <div class="mt-2" x-data="{ det: false }">
       <button type="button" class="text-sm text-link hover:underline" @click="det = !det"
               hx-get="/admin/inschrijvingen/{{ r.payable_id }}" hx-target="#det-{{ r.id }}" hx-trigger="click once">{{ _("Toon inschrijvingsdetails") }}</button>
-      <div id="det-{{ r.id }}" x-show="det" x-cloak></div>
+      {# #737: `style="display: none"` staat er letterlijk bij, zoals §2.9b vraagt.
+         Dit element heeft een `id` én wordt door Alpine verborgen, dus bij een swap
+         zet htmx' settle de attributen van het serverantwoord terug en wist het de
+         inline style die Alpine er net op had gezet (#726). Verborgen ís hier de
+         juiste beginstand: `det` begint altijd op false. #}
+      <div id="det-{{ r.id }}" x-show="det" x-cloak style="display: none"></div>
     </div>
     {% endif %}
     {# Een contextkaart krijgt geen acties: ze staat er om te verklaren, niet om

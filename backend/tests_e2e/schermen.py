@@ -135,6 +135,18 @@ class Betalingenscherm:
         Geeft None als geen enkele kaart bewerkbaar is — dan is het een
         overslaan-geval voor de test, geen bevinding.
         """
+        # #736: begin bij een VERSE pagina. Deze helper wordt ook aangeroepen ná een
+        # bewerking, en dan staat er al een paneel open met een verbruikte
+        # `hx-trigger="click once"`. De klik hieronder haalt dan geen nieuw fragment
+        # op maar klapt dat oude paneel dicht, waarna de test wacht op iets dat nooit
+        # meer zichtbaar wordt — het beeld van de mislukking was letterlijk
+        # `x-data="{ edit: true }"`, verborgen.
+        #
+        # Een verse pagina in plaats van langer wachten: het gaat niet om een trage
+        # verversing maar om een toestand die er al ís. Wachten lost dat niet op, het
+        # verbergt het alleen tot de volgende keer dat de machine druk staat — en dat
+        # is precies waarom dit enkel in de volle suite omviel.
+        self.open()
         kaarten = self.page.locator(
             ".bg-white", has=self.page.get_by_role(
                 "button", name="Toon inschrijvingsdetails"))
