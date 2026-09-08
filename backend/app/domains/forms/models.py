@@ -82,13 +82,13 @@ class Form(TenantMixin, Base):
         "FormField",
         back_populates="form",
         cascade="all, delete-orphan",
-        order_by="FormField.position",
+        order_by="FormField.position, FormField.id",
     )
     sections = relationship(
         "FormSection",
         back_populates="form",
         cascade="all, delete-orphan",
-        order_by="FormSection.position",
+        order_by="FormSection.position, FormSection.id",
     )
     submissions = relationship(
         "FormSubmission", back_populates="form", cascade="all, delete-orphan"
@@ -152,7 +152,7 @@ class FormField(TenantMixin, Base):
         "FormFieldOption",
         back_populates="field",
         cascade="all, delete-orphan",
-        order_by="FormFieldOption.position",
+        order_by="FormFieldOption.position, FormFieldOption.id",
     )
 
 

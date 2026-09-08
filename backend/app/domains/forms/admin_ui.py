@@ -61,13 +61,13 @@ def _bewerk(bewerking, *args, **kwargs):
 
 
 def _builder_ctx(request: Request, db: Session, form, **extra) -> dict:
-    sections = sorted(form.sections, key=lambda s: s.position)
+    sections = sorted(form.sections, key=lambda s: (s.position, s.id))
     grouped = [{"section": s,
                 "fields": sorted((f for f in form.fields if f.section_id == s.id),
-                                 key=lambda f: f.position)}
+                                 key=lambda f: (f.position, f.id))}
                for s in sections]
     loose = sorted((f for f in form.fields if f.section_id is None),
-                   key=lambda f: f.position)
+                   key=lambda f: (f.position, f.id))
     # §2.12: nooit een rauwe DB-waarde op het scherm (#641). De veldtypes zijn
     # Engelse codes (`textarea`, `radio`); de form-builder wordt bediend door een
     # bestuurslid, niet door een ontwikkelaar. Per request opgebouwd zodat _() de
@@ -231,11 +231,6 @@ def instellingen_opslaan(form_id: int, request: Request, db: Session = Depends(g
 
 
 # ── Secties ────────────────────────────────────────────────────────────────────
-
-def _renumber(items) -> None:
-    for i, item in enumerate(sorted(items, key=lambda x: x.position)):
-        item.position = i
-
 
 @router.post("/admin/formulieren/{form_id}/secties", response_class=HTMLResponse,
              dependencies=[Depends(require_csrf)])
@@ -575,12 +570,12 @@ def json_export(form_id: int, request: Request, db: Session = Depends(get_db),
 def formulier_afdruk(form_id: int, request: Request, db: Session = Depends(get_db),
                      email: str = Depends(require_admin_ui)):
     form = _form_or_404(db, form_id)
-    sections = sorted(form.sections, key=lambda s: s.position)
+    sections = sorted(form.sections, key=lambda s: (s.position, s.id))
     grouped = [{"section": s,
                 "fields": sorted((f for f in form.fields if f.section_id == s.id),
-                                 key=lambda f: f.position)}
+                                 key=lambda f: (f.position, f.id))}
                for s in sections]
     loose = sorted((f for f in form.fields if f.section_id is None),
-                   key=lambda f: f.position)
+                   key=lambda f: (f.position, f.id))
     return templates.TemplateResponse(request, "formulier_afdruk.html", {
         "form": form, "grouped": grouped, "loose_fields": loose})
