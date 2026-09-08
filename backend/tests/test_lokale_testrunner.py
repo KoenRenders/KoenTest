@@ -40,13 +40,19 @@ E2E_SCRIPT = SCRIPTS / "e2e-local.sh"
 pytestmark = pytest.mark.ui_agnostisch
 
 
-def _draai(tmp_path, script=None, **omgeving):
-    """Draait het script met een neppe `docker` die elke aanroep noteert."""
+def _draai(tmp_path, script=None, faal_op=None, **omgeving):
+    """Draait het script met een neppe `docker` die elke aanroep noteert.
+
+    `faal_op` laat die neppe docker met 1 stoppen zodra het woord in de argumenten
+    staat — zo is te toetsen wát het script doet als een stap faalt, zonder die stap
+    echt te draaien.
+    """
     spoor = tmp_path / "docker-aanroepen.txt"
     nepbin = tmp_path / "bin"
     nepbin.mkdir()
     nepdocker = nepbin / "docker"
-    nepdocker.write_text(f'#!/bin/sh\necho "$@" >> "{spoor}"\nexit 0\n')
+    val = (f'\ncase "$*" in *{faal_op}*) exit 1 ;; esac' if faal_op else "")
+    nepdocker.write_text(f'#!/bin/sh\necho "$@" >> "{spoor}"{val}\nexit 0\n')
     nepdocker.chmod(0o755)
 
     env = dict(os.environ)
@@ -109,3 +115,49 @@ def test_de_e2e_runner_laat_een_echte_e2e_databank_wel_door(tmp_path):
 
     assert klaar.returncode != 2, klaar.stderr
     assert spoor.exists(), "het script bereikte docker niet met een geldige naam"
+
+
+# ── De volledige poort (#739) ────────────────────────────────────────────────
+# `test-local.sh` draaide alleen pytest en meldde bij #724 "1532 passed" terwijl CI
+# omviel op mypy en op een niet-herbouwde app.css. Lokaal groen hoort hetzelfde te
+# betekenen als CI groen.
+#
+# De css-controle staat hier BEWUST niet in een test. Ze roept `build-css.sh` echt
+# aan, en die downloadt in een kale omgeving de Tailwind-binary en schrijft
+# `app.css` in de werkmap — een test die het bestand onder zichzelf herschrijft is
+# erger dan geen test. Die kant is met de hand bewezen en staat hieronder.
+#
+# Kapotgemaakt om te controleren dat de poort echt rood wordt (lokaal gedraaid, niet
+# beredeneerd):
+#   * `VeldFout(field.id, …)` vervangen door `VeldFout("geen getal", …)` → het script
+#     stopt met exitcode 1 op `error: Argument 1 to "VeldFout" has incompatible type
+#     "str"; expected "int"`, en bereikt pytest niet;
+#   * `tracking-widest` toegevoegd aan een klasse in `site_base.html` → het script
+#     stopt op "app.css liep niet gelijk met de templates", met het bestand zojuist
+#     herbouwd zodat je het enkel hoeft te committen.
+
+
+def test_de_poort_stopt_op_mypy_voordat_pytest_draait(tmp_path):
+    """De volgorde is het punt: een typefout hoeft geen 1500 tests af te wachten."""
+    klaar, spoor = _draai(tmp_path, faal_op="mypy", TEST_DB_NAME="raaktest_proef")
+
+    assert klaar.returncode != 0, "een falende mypy hoort het script te stoppen"
+    aanroepen = spoor.read_text()
+    assert "mypy" in aanroepen, "mypy wordt niet gedraaid"
+    assert "pytest" not in aanroepen, (
+        "pytest is toch gedraaid nadat mypy faalde — dan is de volgorde zinloos")
+
+
+def test_snel_slaat_de_poort_over_maar_is_niet_de_standaard(tmp_path):
+    """De tegenhanger, en zonder haar bewijst de vorige test te weinig.
+
+    `SNEL=1` bestaat voor wie tijdens het bouwen één bestand draait. De STANDAARD
+    blijft de volle poort — dat is precies wat de vorige test vastlegt.
+    """
+    klaar, spoor = _draai(tmp_path, faal_op="mypy", SNEL="1",
+                          TEST_DB_NAME="raaktest_proef")
+
+    aanroepen = spoor.read_text()
+    assert "mypy" not in aanroepen, "SNEL=1 draait mypy toch"
+    assert "pytest" in aanroepen, "SNEL=1 draait niet eens pytest meer"
+    assert klaar.returncode == 0, klaar.stderr

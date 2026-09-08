@@ -6,12 +6,26 @@
 # een runtime die nergens bestaat — dan betekent een groene lokale run iets anders
 # dan een groene CI-run, en dat is erger dan geen lokale run.
 #
+# Draait dezelfde poort als CI: eerst mypy, dan de css-controle, dan pytest (#739).
+# "Lokaal groen" hoort hetzelfde te betekenen als "CI groen"; toen dit script alleen
+# pytest draaide, meldde het 1532 passed terwijl CI omviel op een typefout en een
+# niet-herbouwde app.css. Dat is dezelfde valse zekerheid waar #719 tegen geschreven
+# is, alleen aan de andere kant.
+#
+# Volgorde als in CI: mypy eerst, want een typefout hoeft geen suite van anderhalf
+# duizend tests af te wachten.
+#
+# BEWUST NIET meegenomen: de `boot`-job. Die start de echte applicatie met migraties
+# en seeds — waardevol, maar traag, en hij overlapt met wat een deploy naar HDEV
+# sowieso doet. Dat is een keuze, geen vergetelheid.
+#
 # Gebruik:
-#   scripts/test-local.sh                          # de hele suite
-#   scripts/test-local.sh tests/test_iets.py       # één bestand
-#   scripts/test-local.sh -k naam -x               # elk pytest-argument gaat door
+#   scripts/test-local.sh                          # de hele poort
+#   scripts/test-local.sh tests/test_iets.py       # één bestand (nog steeds mét poort)
+#   SNEL=1 scripts/test-local.sh -k naam           # alleen pytest, tijdens het bouwen
 #
 # Omgevingsvariabelen:
+#   SNEL=1              sla mypy en de css-controle over (de STANDAARD is de volle poort)
 #   TEST_DB_NAME        overschrijft de afgeleide databanknaam
 #   TEST_DATABASE_URL   overschrijft de hele URL (wordt óók door de vangrail getoetst)
 #   VERS                zet dit op 1 om de hulpcontainer opnieuw op te bouwen
@@ -98,6 +112,28 @@ fi
 "${COMPOSE[@]}" exec -T db sh -c \
   "psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -tc \"SELECT 1 FROM pg_database WHERE datname='${DB_NAAM}'\" \
    | grep -q 1 || psql -U \"\$POSTGRES_USER\" -d \"\$POSTGRES_DB\" -c 'CREATE DATABASE ${DB_NAAM}'" >/dev/null
+
+# ── De rest van de poort ─────────────────────────────────────────────────────
+if [ "${SNEL:-}" != "1" ]; then
+  echo "→ mypy"
+  # --cache-dir buiten /app: de werkmap is een bind mount en de container draait als
+  # een andere gebruiker, dus mypy kan er zijn cache niet aanmaken. Zonder dit stopt
+  # hij met een INTERNAL ERROR en een PermissionError die eruitziet als een bug in
+  # mypy zelf.
+  docker exec "$NAAM" python -m mypy --cache-dir=/tmp/mypy_cache
+
+  echo "→ app.css"
+  # Zelfde controle als de css-job: herbouwen en eisen dat er niets wijzigt. Draait
+  # op de host, want daar staat de Tailwind-binary (scripts/build-css.sh, .cache/).
+  # Wijkt het af, dan is het bestand nú herbouwd — je hoeft het alleen te committen.
+  "$ROOT/scripts/build-css.sh" >/dev/null
+  if ! git -C "$ROOT" diff --quiet -- backend/app/static/app.css; then
+    echo "test-local.sh: app.css liep niet gelijk met de templates." >&2
+    echo "  Het bestand is zojuist herbouwd; commit backend/app/static/app.css mee." >&2
+    git -C "$ROOT" diff --stat -- backend/app/static/app.css >&2
+    exit 1
+  fi
+fi
 
 echo "→ pytest tegen ${DB_NAAM}"
 # cache_dir buiten /app: die map is een bind mount naar de werkmap en de container
