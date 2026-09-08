@@ -44,7 +44,7 @@ def test_payments_export_requires_auth(client, db_session):
 def test_payments_export_records_and_totals(client, db_session, admin_headers):
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     client.post(f"/api/v1/activities/{comp.activity_id}/register", json={
-        "contact_name": "An Janssens", "contact_email": "an@example.com",
+        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
         "component_id": comp.id, "payment_method": "TRANSFER",
         "items": [{"product_id": product.id, "quantity": 2}],
     })
@@ -83,7 +83,7 @@ def test_payments_export_respects_context_filter(client, db_session, admin_heade
     activiteit-inschrijving; context=comp-<id> houdt ze."""
     _, comp, product = seed_activity_with_product(db_session, price="18.00")
     client.post(f"/api/v1/activities/{comp.activity_id}/register", json={
-        "contact_name": "An Janssens", "contact_email": "an@example.com",
+        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
         "component_id": comp.id, "payment_method": "TRANSFER",
         "items": [{"product_id": product.id, "quantity": 2}],
     })

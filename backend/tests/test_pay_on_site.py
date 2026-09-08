@@ -44,7 +44,7 @@ def _seed(db, products):
 
 def _register(client, activity_id, comp_id, items, email, payment_method="ONLINE"):
     body = {
-        "contact_name": "Test", "contact_email": email,
+        "contact_name": "Test", "phone": "0470000000", "contact_email": email,
         "component_id": comp_id, "items": items,
     }
     if payment_method is not None:

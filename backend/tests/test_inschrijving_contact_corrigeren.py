@@ -30,7 +30,7 @@ def _login(client):
 def _inschrijving(client, db):
     activity, comp, product = seed_activity_with_product(db, is_free=False)
     resp = client.post(f"/api/v1/activities/{activity.id}/register", json={
-        "contact_name": "An Janssens", "contact_email": "fout@example.com",
+        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "fout@example.com",
         "component_id": comp.id, "payment_method": "TRANSFER",
         "items": [{"product_id": product.id, "quantity": 1}]})
     assert resp.status_code in (200, 201), resp.text
@@ -42,15 +42,15 @@ def test_contactgegevens_worden_bewaard_en_genormaliseerd(client, db_session):
     hdr = _login(client)
 
     resp = client.post(f"/admin/inschrijvingen/{reg_id}/opslaan", headers=hdr, data={
-        "contact_name": "An Peeters", "contact_email": "juist@example.com",
-        "phone": "   ", "remarks": ""})
+        "contact_name": "  An Peeters  ", "contact_email": "juist@example.com",
+        "phone": "0470000000", "remarks": "   "})
     assert resp.status_code == 200, resp.text
 
     db_session.expire_all()
     reg = db_session.get(Registration, reg_id)
-    assert reg.contact_name == "An Peeters"
+    assert reg.contact_name == "An Peeters", "de spaties eromheen horen weg"
     assert reg.contact_email == "juist@example.com"
-    assert reg.phone is None, "enkel witruimte hoort NULL te worden"
+    assert reg.remarks is None, "enkel witruimte hoort NULL te worden"
 
 
 def test_ongeldig_e_mailadres_wordt_geweigerd(client, db_session):
@@ -79,10 +79,10 @@ def test_de_correctie_staat_in_het_auditlogboek(client, db_session):
     hdr = _login(client)
     client.post(f"/admin/inschrijvingen/{reg_id}/opslaan", headers=hdr, data={
         "contact_name": "An Janssens", "contact_email": "juist@example.com",
-        "phone": "", "remarks": ""})
+        "phone": "0470000000", "remarks": ""})
     client.post(f"/admin/inschrijvingen/{reg_id}/opslaan", headers=hdr, data={
         "contact_name": "An Janssens", "contact_email": "nogjuister@example.com",
-        "phone": "", "remarks": ""})
+        "phone": "0470000000", "remarks": ""})
 
     rijen = [r for r in all_changes_since(db_session, date.today())
              if r["entity"] == "Inschrijving" and r["entity_id"] == reg_id]

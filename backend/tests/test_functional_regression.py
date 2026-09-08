@@ -162,7 +162,7 @@ def test_admin_creates_paid_activity_and_public_registration(client, db_session,
     product_id = prod.json()["id"]
 
     reg = client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "Flow Inschrijver", "contact_email": "flow+act@example.com",
+        "contact_name": "Flow Inschrijver", "phone": "0470000000", "contact_email": "flow+act@example.com",
         "payment_method": "transfer", "component_id": component_id,
         "items": [{"product_id": product_id, "quantity": 1}],
     })
@@ -183,7 +183,7 @@ def test_registration_total_matches_payment_amount(client, db_session, mock_moll
     activity_id = comp.activity_id
 
     resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "Test", "contact_email": "total@example.com",
+        "contact_name": "Test", "phone": "0470000000", "contact_email": "total@example.com",
         "payment_method": "ONLINE", "component_id": comp.id,
         "items": [{"product_id": product.id, "quantity": 3}],
     })

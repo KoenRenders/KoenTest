@@ -506,6 +506,42 @@ def _herbereken(db, reg, actor) -> None:
     db.refresh(reg)
 
 
+def _ontbreekt(waarde) -> bool:
+    """Leeg of enkel witruimte telt als niet ingevuld.
+
+    Dezelfde normalisatie als hieronder, en bewust vóór die stap: `strip() or None`
+    maakt van "   " een NULL, dus ná de normalisatie is een leeg veld niet meer van
+    een weggelaten veld te onderscheiden.
+    """
+    return not (str(waarde) if waarde is not None else "").strip()
+
+
+def controleer_inschrijfvelden(component, *, contact_name, phone, team_name) -> None:
+    """De verplichte velden van een inschrijving (#733).
+
+    Het publieke formulier belóófde vier verplichte velden en de server dwong er
+    één af (`EmailStr`). `required` in HTML is vorm, geen betekenis: het geldt alleen
+    voor wie het formulier in een browser invult, en `POST /activities/{id}/register`
+    kwam er zonder mobiel nummer of ploegnaam gewoon door.
+
+    Hier en niet in de router, want de regel moet gelden op élke weg: het publieke
+    scherm, de JSON-API en het beheerscherm dat achteraf corrigeert.
+
+    De ploegnaam hangt aan de HUIDIGE configuratie van het onderdeel, niet aan de
+    geschiedenis van de rij: vraagt het onderdeel er een, dan hoort ze er te zijn —
+    ook bij een oude inschrijving die er nog geen had (Koens keuze, 8 sep 2026). Een
+    regel die aan de geschiedenis hangt is niet uit te leggen en niet te toetsen.
+    """
+    from app.i18n import _ as vertaal
+
+    if _ontbreekt(contact_name):
+        raise ActiviteitFout(vertaal("Vul een naam in."))
+    if _ontbreekt(phone):
+        raise ActiviteitFout(vertaal("Vul een mobiel nummer in."))
+    if getattr(component, "team_name_required", False) and _ontbreekt(team_name):
+        raise ActiviteitFout(vertaal("Dit onderdeel vraagt een ploegnaam."))
+
+
 def update_registration_contact(db, activity_id: int, registration_id: int,
                                 gezet: dict, *, actor=None):
     """Corrigeer contactgegevens en/of opmerking (#283, uitgebreid #624).
@@ -522,6 +558,16 @@ def update_registration_contact(db, activity_id: int, registration_id: int,
     reg = _registratie(db, activity_id, registration_id)
     if reg is None:
         return None
+    # #733: toetsen op de UITKOMST, niet op wat er meegestuurd is. Het beheerscherm
+    # stuurt alle velden mee, maar de oude #283-aanroep alleen `remarks` — dan telt
+    # wat er al staat. Vóór de mutatie, zodat een weigering niets wegschrijft.
+    onderdeel = (db.query(ActivitySubRegistration)
+                 .filter(ActivitySubRegistration.id == reg.component_id).first()
+                 if reg.component_id else None)
+    controleer_inschrijfvelden(
+        onderdeel,
+        **{veld: gezet.get(veld, getattr(reg, veld))
+           for veld in ("contact_name", "phone", "team_name")})
     gewijzigd = False
     for veld in ("contact_name", "contact_email", "phone", "team_name", "remarks"):
         if veld not in gezet:

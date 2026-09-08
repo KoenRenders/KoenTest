@@ -37,7 +37,7 @@ def _login(client):
 def _inschrijving(client, db, aantal=2):
     activity, comp, product = seed_activity_with_product(db, is_free=False)
     resp = client.post(f"/api/v1/activities/{activity.id}/register", json={
-        "contact_name": "An Janssens", "contact_email": "an@example.com",
+        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
         "component_id": comp.id, "payment_method": "TRANSFER",
         "items": [{"product_id": product.id, "quantity": aantal}]})
     assert resp.status_code in (200, 201), resp.text
@@ -104,7 +104,7 @@ def test_na_totaal_bewaart_opslaan_het_nieuwe_aantal(client, db_session):
     teruggestuurd = _veldwaarde(live.text, item_id)
 
     opslaan = client.post(f"/admin/inschrijvingen/{reg_id}/opslaan", headers=hdr, data={
-        "contact_name": "An Janssens", "contact_email": "an@example.com",
+        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
         "remarks": "", f"quantity_{item_id}": teruggestuurd})
     assert opslaan.status_code == 200, opslaan.text
 

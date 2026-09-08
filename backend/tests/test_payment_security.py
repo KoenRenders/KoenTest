@@ -37,7 +37,7 @@ def test_activity_negative_quantity_rejected(client, db_session):
     _, comp, product = seed_activity_with_product(db_session)
     activity_id = comp.activity_id
     resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "Test", "contact_email": "t@example.com",
+        "contact_name": "Test", "phone": "0470000000", "contact_email": "t@example.com",
         "component_id": comp.id,
         "items": [{"product_id": product.id, "quantity": -1}],
     })
@@ -48,7 +48,7 @@ def test_activity_invalid_product_rejected(client, db_session):
     _, comp, product = seed_activity_with_product(db_session)
     activity_id = comp.activity_id
     resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "Test", "contact_email": "t@example.com",
+        "contact_name": "Test", "phone": "0470000000", "contact_email": "t@example.com",
         "component_id": comp.id,
         "items": [{"product_id": product.id + 9999, "quantity": 1}],
     })
@@ -60,7 +60,7 @@ def test_activity_quantity_over_max_rejected(client, db_session):
     _, comp, product = seed_activity_with_product(db_session)
     activity_id = comp.activity_id
     resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "Test", "contact_email": "t@example.com",
+        "contact_name": "Test", "phone": "0470000000", "contact_email": "t@example.com",
         "component_id": comp.id,
         "items": [{"product_id": product.id, "quantity": settings.max_item_quantity + 1}],
     })
@@ -100,7 +100,7 @@ def test_activity_registration_limit_per_email(client, db_session):
 
     def register():
         return client.post(f"/api/v1/activities/{activity_id}/register", json={
-            "contact_name": "Gezin", "contact_email": "gezin@example.com",
+            "contact_name": "Gezin", "phone": "0470000000", "contact_email": "gezin@example.com",
             "component_id": comp.id,
             "items": [{"product_id": product.id, "quantity": 1}],
         })
@@ -133,7 +133,7 @@ def test_registration_limit_is_per_component_not_per_activity(client, db_session
 
     def register(comp, product):
         return client.post(f"/api/v1/activities/{activity.id}/register", json={
-            "contact_name": "Gezin", "contact_email": email,
+            "contact_name": "Gezin", "phone": "0470000000", "contact_email": email,
             "component_id": comp.id,
             "items": [{"product_id": product.id, "quantity": 1}],
         })
@@ -181,7 +181,7 @@ def test_activity_invalid_email_rejected(client, db_session):
     _, comp, product = seed_activity_with_product(db_session)
     activity_id = comp.activity_id
     resp = client.post(f"/api/v1/activities/{activity_id}/register", json={
-        "contact_name": "X", "contact_email": "geen-email",
+        "contact_name": "X", "phone": "0470000000", "contact_email": "geen-email",
         "component_id": comp.id,
         "items": [{"product_id": product.id, "quantity": 1}],
     })

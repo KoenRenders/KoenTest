@@ -113,7 +113,7 @@ def test_een_anonieme_inschrijving_draagt_de_publieke_markering(client, db_sessi
 
     activity, comp, product = seed_activity_with_product(db_session, price="10.00")
     resp = client.post(f"/api/v1/activities/{activity.id}/register", json={
-        "contact_name": "An", "contact_email": "an713@example.com",
+        "contact_name": "An", "phone": "0470000000", "contact_email": "an713@example.com",
         "component_id": comp.id, "payment_method": "TRANSFER",
         "items": [{"product_id": product.id, "quantity": 1}]})
     assert resp.status_code in (200, 201), resp.text

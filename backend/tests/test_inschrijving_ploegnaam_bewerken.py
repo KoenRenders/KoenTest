@@ -41,7 +41,7 @@ def _inschrijving(client, db, *, ploegnaam="A-team 1", vraagt_ploegnaam=True):
     activity, comp, product = seed_activity_with_product(db, is_free=False)
     comp.team_name_required = vraagt_ploegnaam
     db.flush()
-    payload = {"contact_name": "An Janssens", "contact_email": "an@example.com",
+    payload = {"contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
                "component_id": comp.id, "payment_method": "TRANSFER",
                "items": [{"product_id": product.id, "quantity": 1}]}
     if ploegnaam is not None:
@@ -56,7 +56,7 @@ def test_de_ploegnaam_wordt_bewaard(client, db_session):
     hdr = _login(client)
 
     resp = client.post(f"/admin/inschrijvingen/{reg_id}/opslaan", headers=hdr, data={
-        "contact_name": "An Janssens", "contact_email": "an@example.com",
+        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
         "team_name": "B-team 2", "remarks": ""})
     assert resp.status_code == 200, resp.text
 
@@ -65,12 +65,17 @@ def test_de_ploegnaam_wordt_bewaard(client, db_session):
 
 
 def test_leeg_opslaan_wordt_null(client, db_session):
-    """Zoals de andere velden: enkel witruimte is geen ploegnaam."""
-    reg_id = _inschrijving(client, db_session)
+    """Zoals de andere velden: enkel witruimte is geen ploegnaam.
+
+    Op een onderdeel dat er GEEN vraagt — sinds #733 weigert de server een lege
+    ploegnaam waar het onderdeel er wél een vraagt, en dat is precies de reden dat
+    deze test die kant op moest.
+    """
+    reg_id = _inschrijving(client, db_session, vraagt_ploegnaam=False)
     hdr = _login(client)
 
     client.post(f"/admin/inschrijvingen/{reg_id}/opslaan", headers=hdr, data={
-        "contact_name": "An Janssens", "contact_email": "an@example.com",
+        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
         "team_name": "   ", "remarks": ""})
 
     db_session.expire_all()
@@ -78,7 +83,18 @@ def test_leeg_opslaan_wordt_null(client, db_session):
 
 
 def test_het_veld_staat_er_als_het_onderdeel_een_ploegnaam_vraagt(client, db_session):
-    reg_id = _inschrijving(client, db_session, ploegnaam=None)
+    """Het veld hangt aan het ONDERDEEL, niet aan een bewaarde waarde.
+
+    De inschrijving wordt daarom zonder ploegnaam gemaakt op een onderdeel dat er
+    geen vraagt, waarna de vlag aangaat — sinds #733 kan zo'n inschrijving niet meer
+    rechtstreeks aangemaakt worden, en dat is juist de bedoeling.
+    """
+    from app.domains.activities.api import ActivitySubRegistration
+
+    reg_id = _inschrijving(client, db_session, ploegnaam=None, vraagt_ploegnaam=False)
+    reg = db_session.get(Registration, reg_id)
+    db_session.get(ActivitySubRegistration, reg.component_id).team_name_required = True
+    db_session.flush()
     _login(client)
     html = client.get(f"/admin/inschrijvingen/{reg_id}").text
     assert 'name="team_name"' in html, "geen invoerveld voor de ploegnaam (#716)"

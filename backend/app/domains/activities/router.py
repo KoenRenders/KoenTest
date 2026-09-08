@@ -819,10 +819,24 @@ def register_for_activity(
 
     new_qty = sum(i.quantity for i in data.items) if data.items else 1
 
+    component = next(
+        (c for c in activity.sub_registrations if c.id == data.component_id), None
+    ) if data.component_id else None
+
+    # #733: naam, mobiel nummer en — als het onderdeel er een vraagt — de ploegnaam
+    # zijn verplicht. Het formulier zette daar `required` op, maar dat is vorm en
+    # geen betekenis: dit endpoint kwam er zonder mobiel of ploegnaam gewoon door.
+    # De regel staat in de servicelaag, zodat ze ook geldt voor het beheerscherm dat
+    # achteraf corrigeert.
+    from app.domains.activities.service import (ActiviteitFout,
+                                                controleer_inschrijfvelden)
+    try:
+        controleer_inschrijfvelden(component, contact_name=data.contact_name,
+                                   phone=data.phone, team_name=data.team_name)
+    except ActiviteitFout as fout:
+        raise HTTPException(status_code=422, detail=str(fout))
+
     if data.component_id:
-        component = next(
-            (c for c in activity.sub_registrations if c.id == data.component_id), None
-        )
         if component and component.max_participants is not None:
             current_qty = 0
             for reg in activity.registrations:

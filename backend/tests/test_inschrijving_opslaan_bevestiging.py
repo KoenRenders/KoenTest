@@ -54,7 +54,7 @@ def _login(client):
 def _inschrijving(client, db):
     activity, comp, product = seed_activity_with_product(db, is_free=False)
     resp = client.post(f"/api/v1/activities/{activity.id}/register", json={
-        "contact_name": "An Janssens", "contact_email": "an@example.com",
+        "contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
         "component_id": comp.id, "payment_method": "TRANSFER",
         "items": [{"product_id": product.id, "quantity": 1}]})
     assert resp.status_code in (200, 201), resp.text
@@ -62,7 +62,7 @@ def _inschrijving(client, db):
 
 
 def _opslaan(client, reg_id, hdr, **velden):
-    data = {"contact_name": "An Janssens", "contact_email": "an@example.com",
+    data = {"contact_name": "An Janssens", "phone": "0470000000", "contact_email": "an@example.com",
             "remarks": ""}
     data.update(velden)
     return client.post(f"/admin/inschrijvingen/{reg_id}/opslaan",
