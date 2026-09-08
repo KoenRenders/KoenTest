@@ -267,6 +267,30 @@ nieuwe out-of-band-functie is dit de eerste vraag.
 of het antwoord de toast bevát, en dat doet het — het misgaat bij het samenvoegen
 in de browser. Toets zichtbaarheid, e2e.
 
+### 2.4c Label of vraag (#749)
+
+De kit heeft twee stijlen voor de tekst boven een veld, en ze zijn niet
+inwisselbaar.
+
+- **`ui.label()`** — een beheerformulier: `text-sm font-medium text-gray-700`. Een
+  grijs labeltje boven een omkaderd invoerveld. Daar klopt de verhouding: het véld
+  is de inhoud, het label is de aanduiding.
+- **`ui.vraag()`** — een publiek formulier: `text-base font-semibold text-ink`. Daar
+  is de verhouding omgekeerd — de vraag is de inhoud, de opties zijn het antwoord.
+
+Waarom dat verschil er moet zijn, gemeten bij #749: met `label()` stond de vraag op
+`#374151` terwijl haar eigen antwoordopties op `#14171c` staan. De vraag was dus
+lichter dan haar antwoorden, en `font-medium` (500 tegen 400) haalt dat niet terug —
+kleurcontrast weegt zwaarder dan gewicht.
+
+**En de ruimte hoort erbij.** De drietrap is sectietitel (`text-lg font-bold`) →
+vraag (`text-base font-semibold`) → optie (`text-sm`), met méér ruimte boven een
+vraag dan eronder: `space-y-6` tussen de vragen, `space-y-1` tussen de opties. Zonder
+dat verschil leest een enquête als één massa, ook mét grotere letters — dat was bij
+#749 het grootste deel van het probleem.
+
+`ui.label()` blijft zoals ze is: die aanpassen verschuift élk beheerscherm.
+
 ### 2.4b Welke control-macro (#659/#663)
 De kit heeft twee families en ze zijn niet inwisselbaar.
 
