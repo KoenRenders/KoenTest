@@ -150,3 +150,23 @@
   </div>
   {% endif %}
 </div>
+
+{# #717 — bevestiging na een geslaagde "Opslaan". Deze toast is de eerste gebruiker
+   van het ui.toast()-contract; alles eraan is uitgeprobeerd en niet aangenomen.
+
+   TOP-LEVEL, buiten de div hierboven. Niet omdat htmx een genest oob-element zou
+   negeren — `allowNestedOobSwaps` staat standaard aan — maar omdat die stand een
+   configuratie is en deze plaatsing er niet van afhangt; bovendien hoort de toast
+   niet in het paneel dat via outerHTML vervangen wordt.
+
+   De wikkel draagt enkel het attribuut. Bij een swap-stijl als `afterbegin` neemt
+   htmx de KINDEREN van het oob-element (`asParentNode`, geverifieerd in de
+   meegeleverde htmx 2.0.4) en gooit de wikkel zelf weg, dus wat in #toasts landt
+   is de toast — niet een div eromheen.
+
+   `toast_bericht` staat alleen op het succespad van /opslaan. De detailroute,
+   /totaal en /regels renderen ditzelfde fragment en horen geen bevestiging te
+   tonen — daar is de vlag None. #}
+{% if toast_bericht %}
+<div hx-swap-oob="afterbegin:#toasts">{{ ui.toast(toast_bericht) }}</div>
+{% endif %}

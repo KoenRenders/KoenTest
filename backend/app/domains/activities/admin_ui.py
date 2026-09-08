@@ -670,13 +670,18 @@ def _detail_ctx(request: Request, db: Session, registration_id: int,
 
 def _render_detail(request: Request, db: Session, registration_id: int,
                    *, edit_open: bool = False, ververs: bool = False,
-                   error: str | None = None,
+                   error: str | None = None, toast: str | None = None,
                    quantities: dict | None = None) -> HTMLResponse:
     """Rendert het detailfragment.
 
     ``edit_open`` houdt het paneel na een bewerking open (#613-3): het fragment
     vervangt zichzelf via outerHTML, dus zonder dit viel het terug in lees-modus en
-    voelde het alsof er niets gebeurd was.
+    voelde het alsof er niets gebeurd was. Dat geldt voor de tussenacties; de
+    afsluitende "Opslaan" sluit het paneel juist wél (#717).
+
+    ``toast`` stuurt een bevestiging out-of-band mee. Deze functie is de enige plek
+    die dit template rendert, dus die ene vlag volstaat om de toast weg te houden
+    bij de detailroute, /totaal en /regels — die renderen hetzelfde fragment.
 
     ``ververs`` zet een ``HX-Trigger`` (#613-4/#617-3). De kaart erboven op
     /admin/betalingen staat buiten dit fragment en bleef op het oude bedrag staan —
@@ -688,6 +693,7 @@ def _render_detail(request: Request, db: Session, registration_id: int,
     if ctx is None:
         return HTMLResponse("")
     ctx["error"] = error
+    ctx["toast_bericht"] = toast
     resp = templates.TemplateResponse(request, "_inschrijving_detail.html", ctx)
     if ververs:
         resp.headers["HX-Trigger"] = "betalingen-ververst"
@@ -823,7 +829,14 @@ async def inschrijving_opslaan(registration_id: int, request: Request,
             db, reg.activity_id, registration_id,
             gegevens.model_dump(exclude_unset=True), actor=email) is None:
         raise HTTPException(status_code=404, detail=_("Registration not found"))
-    return _render_detail(request, db, registration_id, edit_open=True, ververs=True)
+    # #717: dit is de afsluitende handeling, geen tussenstap. Openblijven gaf
+    # hetzelfde scherm terug als vóór de klik — zelfde velden, zelfde knop, geen
+    # enkel teken dat er bewaard was — en dus de reflex om nog eens te klikken.
+    # Sluiten alleen volstaat niet (dan zie je leesmodus zonder bevestiging), een
+    # toast alleen ook niet (dan blijft de knop staan). De tussenacties hierboven
+    # en hieronder houden edit_open=True: dat is #613-3 en blijft gelden.
+    return _render_detail(request, db, registration_id, ververs=True,
+                          toast=_("De inschrijving is opgeslagen."))
 
 
 @router.post("/admin/inschrijvingen/{registration_id}/regels",

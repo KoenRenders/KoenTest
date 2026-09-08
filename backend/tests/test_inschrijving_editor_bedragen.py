@@ -70,16 +70,23 @@ def test_opslaan_bewaart_aantal_en_opmerking_samen(client, db_session):
     assert db_session.get(Registration, reg_id).remarks == "Nota van de admin"
 
 
-def test_paneel_blijft_open_en_ververst_de_kaart(client, db_session):
-    """#613-3 en #613-4/#617-3: niet terugvallen in lees-modus, en de kaart erboven —
-    die buiten dit fragment staat — mee laten verversen."""
+def test_opslaan_ververst_de_kaart_erboven(client, db_session):
+    """#613-4/#617-3: de kaart staat buiten dit fragment en bleef op het oude bedrag
+    staan terwijl de server al gereconcilieerd had. De HX-Trigger haalt haar erbij.
+
+    Deze test toetste ook dat het paneel na "Opslaan" open bleef (#613-3). Die helft
+    is met #717 van betekenis veranderd, niet weggevallen: Opslaan is de afsluitende
+    handeling en sluit nu, mét een toast. Het openblijven geldt nog steeds voor de
+    tussenacties — /totaal, /regels en /regels/{id}/verwijderen — en staat als
+    invariant in test_inschrijving_opslaan_bevestiging.py, samen met de tegenhanger
+    (Opslaan sluit). Ze zijn dus samen nog altijd afgedekt, op één plek.
+    """
     reg_id, item_id = _inschrijving(client, db_session)
     csrf = _login(client)
 
     r = client.post(f"/admin/inschrijvingen/{reg_id}/opslaan",
                     data={f"quantity_{item_id}": "2", "remarks": ""},
                     headers={"X-CSRF-Token": csrf})
-    assert "{ edit: true }" in r.text
     assert r.headers.get("HX-Trigger") == "betalingen-ververst"
 
 
