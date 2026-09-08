@@ -649,6 +649,18 @@ def _detail_ctx(request: Request, db: Session, registration_id: int,
         bedrag = bedragen.get(regel["id"])
         regel["unit_price"] = bedrag["unit_price"] if bedrag else None
         regel["line_total"] = bedrag["subtotal"] if bedrag else None
+        # #732: ook het AANTAL moet meekomen, niet alleen de bedragen. Het antwoord
+        # van /totaal vervangt het hele paneel — inclusief het veld waarin je net
+        # typte — en `enrich_registration` zet daar de BEWAARDE stand in. Wie 2 naar
+        # 1 bracht, kreeg dus een 1-prijs naast een 2 in het invoerveld, en bij
+        # Opslaan stuurde het formulier die 2 terug: `inschrijving_opslaan` zag geen
+        # verschil met de bewaarde waarde en bewaarde niets. De wijziging verdween
+        # zonder melding.
+        #
+        # Zonder `quantities` blijft het de bewaarde stand — dat is het gewone
+        # openen van het paneel — en dit endpoint bewaart nog steeds niets (#613-2).
+        if quantities is not None and regel["id"] in quantities:
+            regel["quantity"] = quantities[regel["id"]]
 
     return {
         "reg": verrijkt,
