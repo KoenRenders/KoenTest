@@ -522,9 +522,20 @@
 <div hx-swap-oob="afterbegin:#toasts">{{ toast(message or _("Opgeslagen ✓")) }}</div>
 {%- endmacro %}
 
-{# Vaste plek waar toasts landen. Zet dit één keer in de basis-template. #}
-{% macro toast_host() -%}
-<div id="toasts" class="fixed top-4 right-4 z-50 flex flex-col gap-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none"></div>
+{# Vaste plek waar toasts landen. Zet dit één keer in de basis-template.
+
+   `bevestiging=True` rendert de toast er meteen ín (#748). Dat is nodig zodra het
+   ANTWOORD een volledige pagina is: htmx haalt een out-of-band element uit het
+   antwoord, zet het in de bestaande host, en vervangt daarna het hele lichaam —
+   inclusief die host — door de verse, lege versie uit datzelfde antwoord. De toast
+   wordt dan geplaatst en meteen weggegooid.
+
+   De scheidslijn is dus niet "toast ja/nee" maar de VORM van het antwoord:
+     * deel-antwoord (een fragment in een klein doel) → `ui.toast_oob()`;
+     * volledige pagina (hx-target="body") → deze vlag.
+   Zelfde grens als #718, toen voor de navigatie. Zie docs/ui-conventies.md §2.9c. #}
+{% macro toast_host(bevestiging=False) -%}
+<div id="toasts" class="fixed top-4 right-4 z-50 flex flex-col gap-2 w-80 max-w-[calc(100vw-2rem)] pointer-events-none">{% if bevestiging %}{{ toast(_("Opgeslagen ✓")) }}{% endif %}</div>
 {%- endmacro %}
 
 {# ── Bevestig-modal (#595, A1: in-app modal i.p.v. het native browser-dialoog) ──

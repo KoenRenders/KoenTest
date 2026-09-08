@@ -241,6 +241,32 @@ geldt alleen als de verborgen stand de **juiste beginstand** is, wat bij een
 hetzelfde blok ontsnapt er niet aan door een uitzondering maar omdat zijn juiste
 beginstand toevallig "zichtbaar" is.
 
+### 2.9c Out-of-band hoort bij een deel-antwoord (#748)
+
+**Een out-of-band element overleeft geen volledige-pagina-swap.** Stuurt een scherm
+een hele pagina terug (`hx-target="body" hx-swap="innerHTML"`), dan hoort de
+bevestiging **binnen** haar landingsplek gerenderd te worden — niet als
+out-of-band broer ernaast.
+
+Reden: htmx haalt het oob-element uit het antwoord, zet het in de bestaande
+`#toasts`-host, en vervangt daarna het hele lichaam — inclusief die host — door de
+verse, lege versie uit datzelfde antwoord. De toast wordt geplaatst en meteen
+weggegooid. Gemeten op `/admin/tenants/2`: het antwoord bevátte de toast, en de
+host had nul kinderen.
+
+In de praktijk:
+
+- **deel-antwoord** (een fragment dat in een klein doel landt) → `ui.toast_oob()`;
+- **volledige pagina** → `ui.toast_host(bevestiging=True)` via de schil.
+
+Dit is dezelfde scheidslijn als §2.9b en als #718 — daar ging het om de navigatie,
+hier om de bevestiging. Negen formulieren in deze app doen een body-swap; bij elke
+nieuwe out-of-band-functie is dit de eerste vraag.
+
+**En de bijbehorende testregel:** een servertest kan dit niet zien. Die controleert
+of het antwoord de toast bevát, en dat doet het — het misgaat bij het samenvoegen
+in de browser. Toets zichtbaarheid, e2e.
+
 ### 2.4b Welke control-macro (#659/#663)
 De kit heeft twee families en ze zijn niet inwisselbaar.
 

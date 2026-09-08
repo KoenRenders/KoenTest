@@ -125,8 +125,10 @@
       </main>
     </div>
   </div>
-  {# Vaste landingsplek voor toasts (#528 as C); htmx stuurt ze out-of-band mee. #}
-  {{ ui.toast_host() }}
+  {# Vaste landingsplek voor toasts (#528 as C); htmx stuurt ze out-of-band mee.
+     #748: een scherm dat een VOLLEDIGE pagina terugstuurt kan dat niet — dan wordt
+     deze host zelf mee vervangen — en zet in plaats daarvan `toast_opgeslagen`. #}
+  {{ ui.toast_host(toast_opgeslagen|default(False)) }}
   {# In-app bevestig-modal (#595): vervangt het browser-confirm(). #}
   {{ ui.confirm_host() }}
   {# Voortgangsbalk, focusverplaatsing en de boost-vangnetten (#634). #}
