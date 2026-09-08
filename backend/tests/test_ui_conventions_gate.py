@@ -1134,3 +1134,53 @@ def test_de_echte_sluitknoppen_blijven_bestaan():
     assert gevonden >= 4, (
         f"nog maar {gevonden} sluitknoppen met een kruisje; de vorige regel is "
         "waarschijnlijk te breed toegepast")
+
+
+# Alleen de twee schillen die sinds #714 navigatie out-of-band sturen. Bewust een
+# eigen naam: `SCHILLEN` hierboven is ruimer (ook public_base en platform_landing)
+# en wordt door de script-regel gebruikt.
+NAV_SCHILLEN = ("site_base.html", "admin_base.html")
+
+
+def test_de_schil_stuurt_navigatie_alleen_out_of_band_bij_een_boost():
+    """#718: een onvoorwaardelijke `hx-swap-oob` in een schil sloopt elke body-swap.
+
+    htmx licht een out-of-band element uit het antwoord vóór de gewone swap. Bij
+    een gebooste navigatie is dat precies de bedoeling — er wordt maar `#main`
+    ingeswapt (#714). Maar negen formulieren doen `hx-target="body"
+    hx-swap="innerHTML"` en krijgen een volledige pagina terug: daar haalt htmx de
+    navigatie eruit en vervangt het lichaam door de rest, zonder menubalk.
+
+    De regel is dus niet "geen oob in een schil" maar "geen oob **zonder
+    voorwaarde**". Dit staat hier en niet in een controle per release, want dit is
+    het soort afwijking waarvan het tiende exemplaar er over drie maanden weer bij
+    staat.
+
+    Kapotgemaakt om te controleren dat hij faalt: `{% if _oob %}` weggehaald bij
+    `#site-nav-breed` → faalt met dat bestand en regelnummer.
+    """
+    fouten = []
+    for schil in NAV_SCHILLEN:
+        pad = APP / "ui" / "templates" / schil
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
+            if "hx-swap-oob" in regel and "{% if" not in regel:
+                fouten.append(f"{schil}:{nr}: {regel.strip()[:110]}")
+    assert not fouten, (
+        "Out-of-band zonder voorwaarde in een schil: htmx haalt dit element uit "
+        "élk antwoord, ook uit een volledige pagina die naar `body` geswapt wordt "
+        "(#718). Hang het aan `_oob`:\n  " + "\n  ".join(fouten))
+
+
+def test_de_out_of_band_navigatie_bestaat_nog():
+    """De keerzijde, en zonder haar is de regel hierboven waardeloos.
+
+    "Geen onvoorwaardelijke oob" zou ook slagen door de out-of-band navigatie
+    helemaal te schrappen — en dan volgt de actieve markering geen gebooste
+    navigatie meer, precies de bug die #714 oploste. Beide schillen renderen hun
+    navigatie twee keer (breed + mobiel), dus vier in totaal.
+    """
+    gevonden = sum(_zonder_commentaar(APP / "ui" / "templates" / schil).count("hx-swap-oob")
+                   for schil in NAV_SCHILLEN)
+    assert gevonden >= 4, (
+        f"nog maar {gevonden} out-of-band navigatiecontainers; #714 is "
+        "waarschijnlijk stilletjes teruggedraaid")

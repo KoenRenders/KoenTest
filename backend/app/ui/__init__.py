@@ -100,6 +100,33 @@ def _confirm_attrs(type_label, name) -> str:
 
 templates.env.globals["confirm_attrs"] = _confirm_attrs
 
+
+# #718: de navigatiebalk van een schil reist out-of-band mee (#714) — maar dat mag
+# ALLEEN bij een gebooste navigatie.
+#
+# htmx licht een `hx-swap-oob`-element uit het antwoord vóór de gewone swap. Bij een
+# gebooste navigatie is dat precies wat we willen: het antwoord is een volledige
+# pagina, maar `_boosted_swap_headers` (main.py) laat er via HX-Reselect enkel `#main`
+# uit swappen, dus zonder die out-of-band-truc zou de navigatie nooit meebewegen en
+# bleef de actieve markering achter.
+#
+# Bij élk ander htmx-verzoek werkt diezelfde truc averechts. Negen formulieren doen
+# `hx-target="body" hx-swap="innerHTML"` en krijgen een volledige pagina terug: htmx
+# haalt de navigatie eruit, zet ze in het bestaande DOM, en vervangt dan het hele
+# lichaam door wat overblijft — zonder navigatie. Het logo bleef staan omdat het
+# buiten die container valt. Eén keer verversen bracht alles terug, want de server
+# stuurde wél correcte HTML; het ging mis bij het samenvoegen.
+#
+# Vandaar deze ene vlag in plaats van negen aangepaste formulieren: de out-of-band
+# navigatie is er voor een DEEL-antwoord, en `HX-Boosted` is exact de voorwaarde
+# waaronder er maar een deel geswapt wordt — dezelfde voorwaarde die
+# `_boosted_swap_headers` gebruikt om de reselect te zetten.
+def _nav_oob(request) -> bool:
+    return request.headers.get("HX-Boosted") == "true"
+
+
+templates.env.globals["nav_oob"] = _nav_oob
+
 # Omgevings-indicator (#464): [HDEV]/[UAT] in titel + gekleurde band. Als globale
 # beschikbaar in álle templates (publiek + admin); PROD blijft schoon.
 from app.config import settings as _settings  # noqa: E402
