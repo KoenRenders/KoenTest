@@ -199,6 +199,26 @@ leeg-teksten wisselen tussen "Geen …" en "Nog geen …" en tussen italic en ni
   geen feedback.
 - **Verboden**: `.catch(()=>{})` — elke load/save-fout is zichtbaar.
 
+**Na een geslaagde opslag blijf je waar je bent, met een toast** (#726, bevestigd
+door Koen op 8 sep 2026). Drie regels, en ze horen bij elkaar:
+
+- **Geen redirect naar de lijst.** Dat gooit je plaats weg: zie je meteen na het
+  opslaan nog een tikfout, dan moet je het record opnieuw gaan zoeken. En een
+  bevestiging die een navigatie moet overleven vraagt een flash-mechanisme dat we
+  niet hebben — dan bouw je iets nieuws om te compenseren wat je zelf weggooide.
+- **Geen tweede knop "Opslaan en sluiten".** Dat zet twee primaire acties naast
+  elkaar en laat de gebruiker elke keer kiezen tussen twee goede antwoorden. §2.8
+  legt `[Opslaan] [Annuleren]` vast; een derde knop breekt dat patroon op élk
+  scherm tegelijk.
+- **De weg terug is de terugkeerlink bovenaan** ("‹ Alle pagina's", "‹ Alle
+  activiteiten"). Je gaat terug wanneer jíj klaar bent, niet wanneer het systeem
+  beslist dat je klaar bent.
+
+Geldt voor beide vormen. Bij een **inline paneel** in een lijst sluit het paneel
+(de lijst staat er nog) — zo doet het inschrijvingspaneel het sinds #613-2/#717.
+Bij een **eigen-pagina-editor** blijft het scherm staan en toont het wat er nu
+écht bewaard is; alleen de toast komt erbij.
+
 ### 2.9b Verborgen beginstand hoort in de servermarkup (#726)
 
 **Een element met een `id` dat door Alpine verborgen wordt, moet óók in de
