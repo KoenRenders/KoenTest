@@ -318,14 +318,20 @@ def apply_definition(form: Form, data) -> None:
     # ── Secties: hergebruik-op-id, in payload-volgorde ──────────────────────────
     payload_sections = getattr(data, "sections", []) or []
     result_sections = []
-    for si in payload_sections:
+    for volgnummer, si in enumerate(payload_sections):
         section = existing_sections.get(si.id) if si.id is not None else None
         if section is None:
             section = FormSection()
             form.sections.append(section)
         section.title = si.title
         section.description = si.description
-        section.position = si.position
+        # #725: de positie komt uit de VOLGORDE VAN DE LIJST, niet uit het veld.
+        # `FieldIn.position`/`SectionIn.position` hebben default 0, en een import
+        # zonder expliciete posities zette daardoor élke rij op nul — op HDEV goed
+        # voor 22 groepen dubbele velden en 66 groepen dubbele opties, allemaal op 0.
+        # De lijstvolgorde is sowieso al de bron van waarheid in deze payload: de
+        # sprongen verwijzen met `section_index` naar diezelfde volgorde.
+        section.position = volgnummer
         section.next_is_end = si.next_is_end
         section.next_section = None  # onder resolven
         result_sections.append(section)
@@ -342,7 +348,7 @@ def apply_definition(form: Form, data) -> None:
 
     # ── Velden: hergebruik-op-id ────────────────────────────────────────────────
     result_fields = []
-    for fi in data.fields:
+    for veldnummer, fi in enumerate(data.fields):
         field = existing_fields.get(fi.id) if fi.id is not None else None
         if field is None:
             field = FormField()
@@ -351,7 +357,7 @@ def apply_definition(form: Form, data) -> None:
         field.label = fi.label
         field.help_text = fi.help_text
         field.required = fi.required
-        field.position = fi.position
+        field.position = veldnummer  # zie de sectie hierboven (#725)
         field.min_value = fi.min_value
         field.max_value = fi.max_value
         field.min_length = fi.min_length
@@ -368,14 +374,14 @@ def apply_definition(form: Form, data) -> None:
         # Opties: hergebruik-op-id binnen dit veld.
         existing_options = {o.id: o for o in field.options}
         result_options = []
-        for oi in fi.options:
+        for optienummer, oi in enumerate(fi.options):
             option = existing_options.get(oi.id) if oi.id is not None else None
             if option is None:
                 option = FormFieldOption()
                 field.options.append(option)
             option.label = oi.label
             option.value = oi.value
-            option.position = oi.position
+            option.position = optienummer  # zie de sectie hierboven (#725)
             option.is_other = oi.is_other
             option.skip_to_end = oi.skip_to_end
             sidx = oi.skip_to_section_index
@@ -458,7 +464,14 @@ def get_form(db, form_id: int) -> Form:
 
 
 def _hernummer(items) -> None:
-    for index, item in enumerate(sorted(items, key=lambda x: x.position)):
+    """Hernummer 0..n-1 in de bedoelde volgorde.
+
+    Tiebreaker op `id` (#725): zonder die tweede sleutel bevriest deze functie bij
+    gelijke posities een willekeurige volgorde — `sorted` is stabiel, dus ze neemt
+    over wat de DB toevallig teruggaf, en dat is heap-volgorde. Precies dat maakte
+    een bewerkt veld naar onderen springen.
+    """
+    for index, item in enumerate(sorted(items, key=lambda x: (x.position, x.id))):
         item.position = index
 
 
