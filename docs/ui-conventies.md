@@ -199,6 +199,28 @@ leeg-teksten wisselen tussen "Geen …" en "Nog geen …" en tussen italic en ni
   geen feedback.
 - **Verboden**: `.catch(()=>{})` — elke load/save-fout is zichtbaar.
 
+### 2.9b Verborgen beginstand hoort in de servermarkup (#726)
+
+**Een element met een `id` dat door Alpine verborgen wordt, moet óók in de
+servermarkup verborgen zijn** — `style="display: none"` erbij, naast `x-show`
+en `x-cloak`.
+
+Reden, gemeten in een echte browser bij #726: `style` staat in htmx'
+`attributesToSettle`. Bij een swap krijgt een element met een `id` na de
+settle-vertraging de attributen van het **serverantwoord** terug. Stond daar geen
+`style`, dan wist htmx precies de `display: none` die Alpine er 50 ms eerder had
+opgezet. Het element is dan zichtbaar zonder dat iemand iets fout deed: Alpine
+heeft gewerkt, htmx heeft zijn werk teruggedraaid.
+
+`x-cloak` helpt hier niet. Dat verbergt alleen tot Alpine geïnitialiseerd is, en
+Alpine is hier wél langsgekomen — de fout komt daarna.
+
+De regel geldt alleen bij een `id`: zonder id doet htmx' settle niets. En hij
+geldt alleen als de verborgen stand de **juiste beginstand** is, wat bij een
+`x-show` op een uitklapper altijd zo is. Een `<trix-editor x-show="!src">` in
+hetzelfde blok ontsnapt er niet aan door een uitzondering maar omdat zijn juiste
+beginstand toevallig "zichtbaar" is.
+
 ### 2.4b Welke control-macro (#659/#663)
 De kit heeft twee families en ze zijn niet inwisselbaar.
 
