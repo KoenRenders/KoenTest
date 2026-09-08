@@ -456,15 +456,50 @@ def test_woordmerk_schaalt_op_de_fontmetriek():
     assert "text-[1.4em]" not in inhoud
 
 
+def _sociale_iconen() -> list[str]:
+    """De drie inline SVG's in de footer van de publieke schil."""
+    return [regel for regel in _zonder_commentaar(SITE_BASE).splitlines()
+            if "<svg" in regel and 'fill="currentColor"' in regel
+            and 'aria-hidden="true"' in regel]
+
+
 def test_sociale_footer_iconen_zijn_32px():
     """v1.14 had w-8; in v2.0 stonden ze op w-6 en werd Instagram onleesbaar — dat
-    glyph heeft de meeste interne detaillering en loopt op 24px dicht (#626)."""
-    inhoud = _zonder_commentaar(SITE_BASE)
-    sociale = [regel for regel in inhoud.splitlines()
-               if "<svg" in regel and "currentColor" in regel and "viewBox=\"0 0 24 24\"" in regel]
+    glyph heeft de meeste interne detaillering en loopt op 24px dicht (#626).
+
+    **Gelijke klassen zijn niet genoeg, en deze regel dekt dat ook niet af.** Ze
+    bewaakt even grote VAKJES; het oog telt inkt. Bij #744 stonden alle drie netjes
+    op `w-8 h-8` en oogde Instagram tóch klein: gemeten vulde Facebook 100% van zijn
+    vak en Instagram 82% breed / 86% hoog, en dat laatste is bovendien een dunne
+    omtrek tegenover een massieve schijf. Dat is opgelost door de viewBox bij te
+    snijden, niet door de klasse te vergroten — zie de test hieronder.
+
+    Deze selectie hangt daarom NIET meer aan `viewBox="0 0 24 24"`: twee van de drie
+    dragen sinds #744 een bijgesneden viewBox.
+    """
+    sociale = _sociale_iconen()
     assert len(sociale) >= 3, "de drie sociale iconen zijn niet gevonden"
     fouten = [r.strip()[:70] for r in sociale if "w-8 h-8" not in r]
     assert not fouten, "footer-iconen horen w-8 h-8 te zijn:\n  " + "\n  ".join(fouten)
+
+
+def test_de_bijgesneden_viewboxen_blijven_staan():
+    """#744: de drie viewBox-waarden liggen vast.
+
+    Ze zijn gemeten met `getBBox()` in een echte browser en daarna optisch
+    vergeleken. Een latere "opruiming" die ze terugzet naar `0 0 24 24` laat het
+    verschil in inkt stil terugkeren, en dan lijkt Instagram weer klein zonder dat
+    iets faalt. Dit is de derde keer dat we aan deze iconen sleutelen; zonder
+    vangnet is er een vierde.
+    """
+    verwacht = {'viewBox="0 0 24 24"': "Facebook (vult zijn vak al volledig)",
+                'viewBox="2.15 2.16 19.7 20.72"': "Instagram (omtrek, 82% breed)",
+                'viewBox="3.8 3 15.85 18.39"': "TikTok (66% breed)"}
+    sociale = _sociale_iconen()
+    for waarde, waarom in verwacht.items():
+        assert any(waarde in r for r in sociale), (
+            f"de viewBox van {waarom} staat niet meer op {waarde} — is ze "
+            "teruggezet, dan oogt dat icoon weer kleiner dan de andere (#744)")
 
 
 def test_de_term_reglement_is_vervallen():
