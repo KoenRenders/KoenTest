@@ -8,7 +8,8 @@
     {% if enabled %}
     <button type="button" data-tts-toggle class="text-xl leading-none opacity-90 hover:opacity-100"
             title="{{ _('Antwoorden voorlezen') }}"
-            aria-label="{{ _('Antwoorden voorlezen aan/uit') }}">🔇</button>
+            aria-label="{{ _('Antwoorden voorlezen aan/uit') }}"
+            data-icon-aan='{{ ui.icon("volume-2") }}' data-icon-uit='{{ ui.icon("volume-x") }}'>{{ ui.icon("volume-x") }}</button>
     {% endif %}
   </div>
   {% if not enabled %}
@@ -16,12 +17,26 @@
   {% else %}
   <p class="text-gray-600 mb-6">{{ _("Stel je vraag over Raak Millegem — activiteiten, lid worden, praktisch.") }}</p>
   <div id="raakje-gesprek" class="space-y-4 mb-4"></div>
+  {# #570: dezelfde meegroeiende textarea als in de widget. Eén regel verloor een
+     langere vraag uit beeld. Enter verstuurt, Shift+Enter geeft een nieuwe regel;
+     `this.reset()` zet de waarde terug maar niet de hoogte, dus die gaat er los bij.
+     (Commentaar buiten de aanroep: Jinja staat het binnen een expressie niet toe.) #}
   <form hx-post="/raakje/vraag" hx-target="#raakje-gesprek" hx-swap="beforeend"
-        hx-on::after-request="this.reset()" class="flex gap-2">
-    {{ ui.input_control("vraag", id="raakje-vraag", required=True, placeholder=_("Typ je vraag…"), cls="flex-1") }}
+        hx-on::after-request="this.reset(); this.querySelector('textarea').style.height = 'auto'"
+        {# `x-data` zonder inhoud: zonder een Alpine-scope worden de `x-on:`-handlers
+           hieronder genegeerd, en dan groeit het veld niet mee en verstuurt Enter
+           niet. De widget heeft die scope al van haar buitenste div. #}
+        x-data class="flex gap-2 items-end">
+    {{ ui.textarea_control("vraag", id="raakje-vraag", rows=1, required=True,
+                           placeholder=_("Typ je vraag…"),
+                           cls="flex-1 resize-none max-h-[120px] overflow-y-auto",
+                           attrs='x-on:input="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, 120) + `px`"'
+                                 ' x-on:keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); $el.form.requestSubmit(); }"') }}
     <button type="button" data-stt-target="#raakje-vraag" data-stt-mode="{{ stt_mode }}"
             class="bg-white border border-gray-300 hover:bg-gray-100 px-3 py-2 rounded-lg"
-            title="{{ _('Spreek je vraag in') }}" aria-label="{{ _('Spreek je vraag in') }}">🎙</button>
+            title="{{ _('Spreek je vraag in') }}" aria-label="{{ _('Spreek je vraag in') }}"
+            data-icon-idle='{{ ui.icon("mic") }}' data-icon-listening='{{ ui.icon("square") }}'
+            data-icon-connecting='{{ ui.icon("loader") }}'>{{ ui.icon("mic") }}</button>
     {{ ui.btn_primary(_("Vraag")) }}
   </form>
   {{ ui.loading(_("Raakje denkt na…")) }}

@@ -69,12 +69,23 @@
         self.node.connect(sink);
         sink.connect(self.ctx.destination);
         self._connect();
-      }).catch(function () {
-        self._fail("audio", "Audio kon niet gestart worden.");
+      }).catch(function (e) {
+        self._audioFout(e);
       });
     } catch (e) {
-      self._fail("audio", "Audio kon niet gestart worden.");
+      self._audioFout(e);
     }
+  };
+
+  // #751: de onderliggende fout NIET weggooien. Beide catch-blokken gaven exact
+  // dezelfde zin ("Audio kon niet gestart worden."), en de reden die de browser
+  // mét naam levert kwam nergens terecht — ook de console bleef leeg. Daardoor was
+  // een storing op Firefox/Linux niet te diagnosticeren zonder te gokken. Zelfde
+  // klasse als #723: de code kent de reden en gooit ze weg.
+  VoxtralStt.prototype._audioFout = function (e) {
+    var reden = e && (e.name || e.message) ? (e.name || "") + (e.message ? ": " + e.message : "") : "";
+    if (window.console && console.error) { console.error("[stt] audio kon niet starten", e); }
+    this._fail("audio", "Audio kon niet gestart worden." + (reden ? " (" + reden + ")" : ""));
   };
 
   VoxtralStt.prototype._connect = function () {
@@ -196,6 +207,23 @@
     return { stop: function () { try { rec.stop(); } catch (e) { /* */ } } };
   }
 
+  // #570: een foutmelding hoort niet in de placeholder. Die staat in een smal veld
+  // en wordt afgekapt — Koen las "Spraakinvoer vereist een bev…" en verder niets. En
+  // ze verdwijnt zodra je begint te typen, precies wanneer je haar nodig hebt.
+  // Zelfde vorm als de melding in het publieke formulier (#741): een rode regel
+  // onder de knop, en ze verdwijnt bij de volgende poging.
+  function toonMelding(btn, tekst) {
+    var vorige = btn.parentNode.querySelector("[data-stt-melding]");
+    if (vorige) { vorige.remove(); }
+    if (!tekst) { return; }
+    var p = document.createElement("p");
+    p.setAttribute("data-stt-melding", "");
+    p.setAttribute("role", "alert");
+    p.className = "w-full text-xs text-red-800 mt-1";
+    p.textContent = tekst;
+    btn.parentNode.appendChild(p);
+  }
+
   // ── Knop-wiring: <button data-stt-target="#input" data-stt-mode="..."> ────
   document.addEventListener("DOMContentLoaded", function () {
     document.querySelectorAll("[data-stt-target]").forEach(function (btn) {
@@ -204,27 +232,36 @@
       if (!input) return;
       if (mode === "browser_only" && !nativeAvailable()) { btn.hidden = true; return; }
       var actief = null;
-      var origineel = btn.textContent;
+      // #570: de knop draagt haar drie standen als SVG mee (kit-iconen, niet 🎙/⏹/…).
+      // Losse tekens renderen per lettertype en OS anders, en deze widget staat op
+      // élke publieke pagina.
+      var iconen = {
+        idle: btn.getAttribute("data-icon-idle") || btn.innerHTML,
+        listening: btn.getAttribute("data-icon-listening") || btn.innerHTML,
+        connecting: btn.getAttribute("data-icon-connecting") || btn.innerHTML,
+      };
 
       function cb() {
         return {
           onPartial: function (t) { input.value = t; },
           onFinal: function (t) { input.value = t; input.focus(); },
-          onError: function (code, message) { input.placeholder = message; },
+          onError: function (code, message) { toonMelding(btn, message); },
           onStateChange: function (state) {
-            btn.textContent = state === "listening" ? "⏹" : state === "connecting" ? "…" : origineel;
+            btn.innerHTML = state === "listening" ? iconen.listening
+                          : state === "connecting" ? iconen.connecting : iconen.idle;
             if (state === "stopped") actief = null;
           },
         };
       }
 
       btn.addEventListener("click", function () {
+        toonMelding(btn, "");
         if (actief) { actief.stop(); return; }
         var useNative = mode !== "provider_only" && nativeAvailable();
         if (useNative) {
           actief = startNative(cb());
         } else if (mode === "browser_only") {
-          input.placeholder = "Spraakherkenning niet beschikbaar in deze browser.";
+          toonMelding(btn, "Spraakherkenning niet beschikbaar in deze browser.");
         } else {
           actief = new VoxtralStt(cb());
           actief.start();

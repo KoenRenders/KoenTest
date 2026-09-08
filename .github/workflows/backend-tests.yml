@@ -121,6 +121,11 @@ jobs:
       # staat deze variabele niet en blijft skippen het gedrag — daar bepaalt de
       # echte data wat er is.
       E2E_SEEDED: "1"
+      # #570: Raakje staat achter deze vlag, en zonder haar rendert het scherm zonder
+      # invoerveld — dan zou de e2e op het toetsgedrag stilzwijgend niets toetsen.
+      # Zonder MISTRAL_API_KEY antwoordt de bot in mock-modus, dus dit kost niets en
+      # belt niemand.
+      CHAT_ENABLED: "true"
 
     steps:
       - uses: actions/checkout@v4
