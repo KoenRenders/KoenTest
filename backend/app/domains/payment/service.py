@@ -362,8 +362,12 @@ def create_refund(
 
     available = net_paid(db, charge.payable_type, charge.payable_id)
     if refund_amount > available:
+        # #723: deze zin komt sinds vandaag écht op het scherm, dus de bedragen
+        # staan er als geld en niet kaal. Zelfde vorm als de rest van dat scherm
+        # ("€ 10.00"), zodat de melding en de kaart erboven niet uiteenlopen.
         raise ValueError(
-            f"Kan niet meer terugbetalen ({refund_amount}) dan er netto ontvangen is ({available})."
+            f"Kan niet meer terugbetalen (€ {refund_amount:.2f}) dan er netto "
+            f"ontvangen is (€ {available:.2f})."
         )
 
     record = PaymentRecord(
@@ -1077,9 +1081,27 @@ def _ingetypt_bedrag(tekst: str | None) -> Decimal | None:
         raise BetalingFout("Ongeldig bedrag.")
 
 
+def _bestaand_record(db: Session, record_id: str):
+    """Het record, of een LookupError met een leesbare melding (#723).
+
+    De vier schermmutaties gaven bij een onbekend id ieder iets anders: `bewerk_betaling`
+    een LookupError (→ 404), de andere drie een ValueError uit de laag eronder die als
+    `BetalingFout` naar boven kwam. Sinds de reden van een `BetalingFout` op het scherm
+    getoond wordt, is dat verschil zichtbaar geworden: "PaymentRecord <id> not found" is
+    een interne zin, geen gebruikersmelding. Een verdwenen record is bovendien geen
+    invoerfout — daar is "herlaad de pagina" het juiste antwoord, en dat is precies wat
+    een 404 doet.
+    """
+    record = db.query(PaymentRecord).filter(PaymentRecord.id == record_id).first()
+    if record is None:
+        raise LookupError("Betaling niet gevonden.")
+    return record
+
+
 def bevestig_betaling(db: Session, record_id: str, *, note: str | None = None,
                       amount_paid: str | None = None, actor: str | None = None):
     """"Bevestig betaald", met optioneel het effectief ontvangen bedrag (#455)."""
+    _bestaand_record(db, record_id)
     try:
         record = confirm_manual_payment(db, record_id, (note or "").strip() or None,
                                         actor=actor, amount_paid=_ingetypt_bedrag(amount_paid))
@@ -1099,6 +1121,7 @@ def registreer_terugbetaling(db: Session, record_id: str, *, amount: str,
     betalen bedrag en niets ontvangen. Aanmaken en afboeken zijn twee stappen. De
     service-default blijft True voor andere aanroepers.
     """
+    _bestaand_record(db, record_id)
     bedrag = _ingetypt_bedrag(amount)
     if bedrag is None:
         raise BetalingFout("Ongeldig bedrag.")
@@ -1175,6 +1198,7 @@ def verwijder_betaling(db: Session, record_id: str, *, note: str | None = None,
                        actor: str | None = None):
     """Soft-delete: uit het saldo, maar bewaard als financieel feit (#455).
     Corrigeert ook een foute terugbetaling."""
+    _bestaand_record(db, record_id)
     try:
         record = void_payment_record(db, record_id, actor=actor,
                                      note=(note or "").strip() or None)

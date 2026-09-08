@@ -8,7 +8,6 @@ from app.domains.cms.service import (  # noqa: F401
     SlugBestaatAl,
     create_page,
     delete_page,
-    get_page,
     get_page_by_id,
     get_published_page,
     list_pages,
@@ -18,7 +17,7 @@ from app.domains.cms.service import (  # noqa: F401
 )
 
 __all__ = [
-    "SlugBestaatAl", "create_page", "delete_page", "get_page",
+    "SlugBestaatAl", "create_page", "delete_page",
     "get_page_by_id", "get_published_page", "list_pages", "placeholders",
     "published_slugs", "update_page","CmsPage", "render_cms_content", "sanitize_cms_html",
            "_format_md", "_format_price"]

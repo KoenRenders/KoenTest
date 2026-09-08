@@ -75,11 +75,14 @@ def test_te_veel_afboeken_wordt_geweigerd_in_positieve_termen(client, db_session
 
     resp = client.post(f"/admin/betalingen/{refund.id}/bewerken", headers=hdr,
                        data={"status": "pending", "amount_paid": "99.00", "note": ""})
-    assert resp.status_code == 400, resp.text
-    # Wélke 400 (#680): een weigering om een andere reden — een ontbrekende
-    # CSRF-token, een rol die niet mag, een onleesbaar bedrag — zou deze test ook
-    # groen zetten. De melding noemt de grens, en die staat hier omdat het bedrag
-    # eroverheen ging.
+    # Sinds #723 is dit een 200 met de reden in de foutbanner: htmx swapt geen 4xx,
+    # dus die 400 kwam bij de penningmeester aan als "Er ging iets mis". De weigering
+    # zelf is niet veranderd — ze staat nu alleen op het scherm.
+    assert resp.status_code == 200, resp.text
+    assert 'role="alert"' in resp.text, "de weigering is nergens zichtbaar"
+    # Wélke weigering (#680): een andere reden — een ontbrekende CSRF-token, een rol
+    # die niet mag, een onleesbaar bedrag — zou deze test ook groen zetten. De melding
+    # noemt de grens, en die staat hier omdat het bedrag eroverheen ging.
     assert "10.50" in resp.text, resp.text
     db_session.expire_all()
     assert db_session.get(PaymentRecord, refund.id).amount_paid is None
@@ -101,6 +104,11 @@ def test_de_rem_zit_op_de_grens_en_geen_cent_ervoor(client, db_session):
 
     Bewust geen `match=` op de meldingstekst: die mag hertaald worden zonder deze
     test om te gooien. Het bedrag in de melding is data, geen formulering.
+
+    Sinds #723 antwoorden beide aanroepen met een 200 — de statuscode onderscheidt
+    ze dus niet meer. Wat ze onderscheidt is de foutbanner en wat er vastgelegd is,
+    en dat is ook wat de penningmeester ziet. De contrastregels staan er daarom
+    expliciet bij: banner mét bedrag versus geen banner.
     """
     charge = _charge(db_session)
     hdr = _login(client, db_session)
@@ -109,7 +117,8 @@ def test_de_rem_zit_op_de_grens_en_geen_cent_ervoor(client, db_session):
 
     erover = client.post(f"/admin/betalingen/{refund.id}/bewerken", headers=hdr,
                          data={"status": "paid", "amount_paid": "10.51", "note": ""})
-    assert erover.status_code == 400, erover.text
+    assert erover.status_code == 200, erover.text
+    assert 'role="alert"' in erover.text, "de weigering is nergens zichtbaar"
     assert "10.50" in erover.text, erover.text
     db_session.expire_all()
     assert db_session.get(PaymentRecord, refund.id).amount_paid is None, (
@@ -118,6 +127,8 @@ def test_de_rem_zit_op_de_grens_en_geen_cent_ervoor(client, db_session):
     op_de_grens = client.post(f"/admin/betalingen/{refund.id}/bewerken", headers=hdr,
                               data={"status": "paid", "amount_paid": "10.50", "note": ""})
     assert op_de_grens.status_code == 200, op_de_grens.text
+    assert 'role="alert"' not in op_de_grens.text, (
+        "het volledige bedrag uitbetalen hoort geen melding op te leveren")
     db_session.expire_all()
     assert db_session.get(PaymentRecord, refund.id).amount_paid == Decimal("-10.50")
     assert_saldo_klopt(db_session, *PAYABLE, "0")

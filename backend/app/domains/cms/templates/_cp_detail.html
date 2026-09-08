@@ -56,9 +56,27 @@
                      class="cms-content bg-white text-sm min-h-[16rem] rounded-t-none"></trix-editor>
         {# Bronvenster van de editor: mono en kleiner dan een gewoon veld, en met
            een vierkante bovenrand omdat het aan de werkbalk vastzit. De kitbasis
-           laat haar text-sm vallen zodra je zelf een grootte meegeeft (#663). #}
+           laat haar text-sm vallen zodra je zelf een grootte meegeeft (#663).
+
+           #726: `style="display:none"` staat er LETTERLIJK bij, en dat is de fix.
+           Na "Opslaan" verscheen dit vak als een tweede, leeg invoerveld onder de
+           editor. Gemeten verloop na de klik: op t+50 ms stond er `display: none`
+           en was `x-cloak` weg — Alpine had dus gewoon gewerkt — en tussen t+50 en
+           t+150 ms verdween het style-attribuut en werd het vak zichtbaar.
+
+           Dat laatste is htmx: `style` staat in `attributesToSettle`, en bij een
+           swap krijgt een element met een `id` na de settle-vertraging de
+           attributen van het SERVERANTWOORD terug. Stond daar geen style, dan wist
+           htmx dus precies het `display: none` dat Alpine er net op had gezet. Zet
+           de server hem er zelf op, dan settelt htmx naar dezelfde waarde en klopt
+           het beeld. `src` begint altijd op false, dus verborgen ís de juiste
+           beginstand.
+
+           Niet Trix, hoewel dat de eerste verdenking was: met de `<trix-editor>`
+           volledig uit deze template gehaald bleef het vak na het opslaan even goed
+           staan. #}
         {{ ui.textarea_control("", id="cp-htmlsrc", cls="w-full min-h-[16rem] rounded-b-lg font-mono text-xs bg-white",
-                               attrs='x-ref="htmlsrc" x-show="src" x-cloak'
+                               attrs='x-ref="htmlsrc" x-show="src" x-cloak style="display: none"'
                                      " @input=\"document.getElementById('cp-content-input').value = $refs.htmlsrc.value\"") }}
       </div>
       <p class="text-xs text-gray-400 mt-1">{{ _("Opmaak via de werkbalk (incl. H2/H3); of bewerk de HTML-bron. De opgeslagen HTML wordt server-side veilig gesanitiseerd.") }}</p></div>

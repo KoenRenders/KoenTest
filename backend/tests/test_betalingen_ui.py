@@ -82,11 +82,20 @@ def test_refund_via_scherm(client, db_session):
               .filter(PaymentRecord.refund_of_id == rec.id).one())
     assert refund.type == "refund" and refund.amount == Decimal("-10.00")
 
-    # Meer terugbetalen dan netto ontvangen → nette 400 uit de servicelaag.
-    fout = client.post(f"/admin/betalingen/{rec.id}/refund",
+    # Meer terugbetalen dan netto ontvangen wordt geweigerd. Sinds #723 met een 200
+    # en de reden in de lijst i.p.v. een 400: htmx swapt geen 4xx, dus die 400 kwam
+    # bij de gebruiker aan als "Er ging iets mis". De inhoudelijke controle op die
+    # melding staat in test_betaling_fout_toont_de_reden.py.
+    rec_id = rec.id
+    fout = client.post(f"/admin/betalingen/{rec_id}/refund",
                        data={"amount": "1000"},
                        headers={"X-CSRF-Token": csrf})
-    assert fout.status_code == 400
+    assert fout.status_code == 200
+    assert "terugbetalen" in fout.text
+    db_session.expire_all()
+    assert not db_session.query(PaymentRecord).filter(
+        PaymentRecord.amount == Decimal("-1000")).all(), (
+        "de geweigerde terugbetaling is toch aangemaakt")
 
 
 def test_export_downloads_ods(client, db_session):

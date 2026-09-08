@@ -54,3 +54,11 @@ class BetalingenView(ViewModel):
 
     # Alleen de volledige pagina draagt de navigatie; het fragment niet.
     nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+    # #723: de reden waarom een mutatie geweigerd is. De servicelaag schrijft een
+    # precieze zin ("Kan niet meer terugbetalen (€ 100.00) dan er netto ontvangen
+    # is (€ 10.00).") en die reisde tot vlak vóór het scherm, waar ze vervangen werd
+    # door "Er ging iets mis" — htmx swapt geen 4xx, dus de globale afhandelaar nam
+    # over en die kijkt nooit in het antwoord. Nu gaat de lijst terug mét de reden,
+    # als 200, precies zoals het inschrijvingenpaneel het al deed.
+    error: str | None = None
