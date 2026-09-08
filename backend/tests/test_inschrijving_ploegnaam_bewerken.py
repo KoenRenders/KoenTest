@@ -9,14 +9,19 @@ Getoetst wordt de BEWAARDE inschrijving, niet de statuscode: opslaan slaagde
 vandaag ook, het bewaarde de ploegnaam alleen niet. Een test op `status_code == 200`
 zou dus groen blijven staan met de bug erin (#680).
 
+Dat deze correctie geen geld raakt, staat al in
+`test_inschrijving_contact_corrigeren.py::test_de_correctie_raakt_het_geld_niet`:
+dezelfde route, dezelfde servicefunctie, en die vergelijkt de records veld per veld
+in plaats van enkel hun som. Hier nog eens een zwakkere variant zetten voegt niets
+toe — een som over een lege lijst is aan beide kanten 0 en slaagt dan zonder iets
+te toetsen.
+
 Kapotgemaakt om te controleren dat deze tests rood kunnen:
   * `team_name` uit de veldenlijst in `update_registration_contact` gehaald →
     test_de_ploegnaam_wordt_bewaard faalt op de oude waarde;
   * `team_name` uit de lijst in `inschrijving_opslaan` gehaald → dezelfde test faalt;
   * `toon_ploegnaam` hard op False → de twee scherm-tests falen.
 """
-from decimal import Decimal
-
 import pytest
 
 from app.domains.activities.api import Registration
@@ -70,23 +75,6 @@ def test_leeg_opslaan_wordt_null(client, db_session):
 
     db_session.expire_all()
     assert db_session.get(Registration, reg_id).team_name is None
-
-
-def test_de_ploegnaam_raakt_het_geld_niet(client, db_session):
-    """Een naamcorrectie is geen geldwijziging — het openstaande bedrag blijft."""
-    from app.domains.payment.api import get_records_for
-
-    reg_id = _inschrijving(client, db_session)
-    hdr = _login(client)
-    voor = sum(Decimal(str(r.amount)) for r in get_records_for(db_session, reg_id))
-
-    client.post(f"/admin/inschrijvingen/{reg_id}/opslaan", headers=hdr, data={
-        "contact_name": "An Janssens", "contact_email": "an@example.com",
-        "team_name": "Andere ploeg", "remarks": ""})
-
-    db_session.expire_all()
-    na = sum(Decimal(str(r.amount)) for r in get_records_for(db_session, reg_id))
-    assert na == voor, "een naamcorrectie hoort geen betaalrecord te raken"
 
 
 def test_het_veld_staat_er_als_het_onderdeel_een_ploegnaam_vraagt(client, db_session):
