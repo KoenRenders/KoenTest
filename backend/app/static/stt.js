@@ -235,11 +235,18 @@
       // #570: de knop draagt haar drie standen als SVG mee (kit-iconen, niet 🎙/⏹/…).
       // Losse tekens renderen per lettertype en OS anders, en deze widget staat op
       // élke publieke pagina.
-      var iconen = {
-        idle: btn.getAttribute("data-icon-idle") || btn.innerHTML,
-        listening: btn.getAttribute("data-icon-listening") || btn.innerHTML,
-        connecting: btn.getAttribute("data-icon-connecting") || btn.innerHTML,
-      };
+      //
+      // #762: bij ELKE wissel opnieuw uitlezen, niet één keer vastleggen bij het
+      // laden. Er is een melding dat de knop na het stoppen leeg bleef; ik kreeg dat
+      // niet gereproduceerd (niet op /raakje, niet in de widget, met het native pad
+      // nagebootst). Maar een waarde die bij het laden vastgelegd wordt, is precies
+      // wat leeg kán zijn wanneer het scherm op dat moment nog niet staat zoals je
+      // denkt — en uitlezen kost niets. De terugval op de huidige inhoud blijft
+      // staan voor knoppen zonder deze attributen.
+      var start = btn.innerHTML;
+      function icoon(stand) {
+        return btn.getAttribute("data-icon-" + stand) || start || "";
+      }
 
       function cb() {
         return {
@@ -247,8 +254,8 @@
           onFinal: function (t) { input.value = t; input.focus(); },
           onError: function (code, message) { toonMelding(btn, message); },
           onStateChange: function (state) {
-            btn.innerHTML = state === "listening" ? iconen.listening
-                          : state === "connecting" ? iconen.connecting : iconen.idle;
+            btn.innerHTML = state === "listening" ? icoon("listening")
+                          : state === "connecting" ? icoon("connecting") : icoon("idle");
             if (state === "stopped") actief = null;
           },
         };

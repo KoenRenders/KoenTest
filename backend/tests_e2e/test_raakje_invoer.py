@@ -82,3 +82,46 @@ def test_enter_verstuurt(page):
         "Enter zette een nieuwe regel in plaats van te versturen")
     assert page.locator("#raakje-gesprek").inner_text().strip() != "", (
         "er is niets verstuurd")
+
+
+# ── #762: de knop keert terug naar de microfoon ──────────────────────────────
+
+def test_de_microfoonknop_keert_terug_na_stoppen(page):
+    """Gemeld: na het stoppen bleef de knop leeg (microfoon → vierkant → niets).
+
+    **Niet gereproduceerd** — met een nagebootst native pad gaat de knop netjes heen
+    en terug, op `/raakje` én in de widget. Deze test legt dat vast, zodat de melding
+    niet stil terug kan komen; `stt.js` leest de iconen sinds #762 bij elke wissel
+    opnieuw uit in plaats van ze bij het laden vast te leggen.
+
+    Het native pad wordt nagebootst: headless Chromium heeft geen echte
+    `SpeechRecognition`, en dát is het pad dat een gebruiker in Chrome neemt. Zonder
+    die nabootsing zou deze test een ander pad toetsen dan de melding beschrijft.
+    """
+    page.add_init_script("""
+        window.SpeechRecognition = function () {
+          var self = this;
+          this.start = function () {};
+          this.stop = function () { if (self.onend) self.onend(); };
+        };
+    """)
+    page.goto("/raakje")
+    page.wait_for_selector("[data-stt-target]", timeout=5000)
+    knop = page.locator("[data-stt-target]").first
+
+    def inhoud():
+        return knop.inner_html().strip()
+
+    rust = inhoud()
+    assert rust, "de knop is bij het laden al leeg"
+
+    knop.click()
+    page.wait_for_timeout(300)
+    opnemen = inhoud()
+    assert opnemen and opnemen != rust, "de knop toont geen andere stand tijdens opnemen"
+
+    knop.click()
+    page.wait_for_timeout(300)
+    assert inhoud() == rust, (
+        "de knop keert niet terug naar de microfoon — ze blijft leeg of op het "
+        "vierkantje staan (#762)")
