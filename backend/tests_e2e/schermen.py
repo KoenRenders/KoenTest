@@ -185,6 +185,43 @@ class Inschrijvingsdetail:
         return knop.count() > 0 and knop.first.is_visible()
 
 
+class Paginascherm:
+    """/admin/paginas — de CMS-lijst en de paginabrede editor (#726)."""
+
+    pad = "/admin/paginas"
+
+    def __init__(self, page):
+        self.page = page
+
+    def open_eerste(self):
+        self.page.goto(self.pad)
+        self.page.wait_for_timeout(400)
+        # De kaarten zijn gewone links naar /admin/paginas/<id>; hx-boost maakt er
+        # een fragment-navigatie van. "Nieuw" valt af omdat die op /nieuw uitkomt.
+        links = self.page.locator("a[href^='/admin/paginas/']:not([href$='/nieuw'])")
+        if links.count() == 0:
+            return None
+        links.first.click()
+        # Op ATTACHED wachten en niet op zichtbaarheid: dit vak hóórt verborgen te
+        # zijn, en "wacht tot het zichtbaar is" zou hier de bug als geslaagd lezen.
+        self.page.wait_for_selector("#cp-htmlsrc", state="attached", timeout=10000)
+        return self
+
+    def htmlbron(self):
+        return self.page.locator("#cp-htmlsrc")
+
+    def opslaan(self):
+        self.page.get_by_role("button", name="Opslaan").first.click()
+        self.page.wait_for_timeout(800)
+
+    def toon_html_bron(self):
+        self.page.get_by_role("button", name="HTML").first.click()
+        self.page.wait_for_timeout(300)
+
+    def editorinhoud(self) -> str:
+        return self.page.locator("#cp-content-input").first.input_value() or ""
+
+
 def toasts(page):
     """De bevestigingen die in de vaste landingsplek zijn beland (#528/#717).
 
