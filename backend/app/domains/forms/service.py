@@ -36,7 +36,16 @@ _EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 
 def _fail(field: FormField, msg: str) -> "HTTPException":
-    return HTTPException(status_code=422, detail=f"'{field.label}': {msg}")
+    """De weigering, mét het veld-id erop (#724).
+
+    Het scherm moet de wizard kunnen openen op de stap waar het probleem staat, en
+    daarvoor is het id nodig — niet het label. Labels zijn niet uniek en zijn
+    gebruikerstekst; erop terugzoeken is de variant die stilletjes uitvalt zodra
+    iemand een vraag hernoemt.
+    """
+    fout = HTTPException(status_code=422, detail=f"'{field.label}': {msg}")
+    fout.veld_id = field.id
+    return fout
 
 
 def _answers_by_field(payload_answers: List[AnswerIn]) -> Dict[int, AnswerIn]:

@@ -156,7 +156,8 @@ def _prefill_from_session(db, request, submitter_name, submitter_email):
 
 
 def _form_render_ctx(db, form_model, request, *, values=None, error=None,
-                     submitter_name="", submitter_email="") -> dict:
+                     submitter_name="", submitter_email="",
+                     fout_veld_id=None) -> dict:
     from app.ui import site_context
 
     submitter_name, submitter_email = _prefill_from_session(
@@ -195,13 +196,30 @@ def _form_render_ctx(db, form_model, request, *, values=None, error=None,
                 "next": idx_by_id.get(section.next_section_id)
                         if section.next_section_id is not None else None,
                 "skips": skips,
+                # #724: welke velden van déze stap verplicht zijn. Het HTML-attribuut
+                # `required` staat er bewust niet op (#688) — de browser valideert het
+                # hele formulier bij verzending, ook de stappen die je nooit ziet —
+                # dus de wizard heeft die lijst zelf nodig om per stap te kunnen
+                # controleren. Een `info`-blok is geen vraag.
+                "req": [f.id for f in form_model.fields
+                        if f.section_id == section.id and f.required
+                        and f.field_type != "info"],
             })
+
+    # #724: openen op de stap van het gemelde veld. De foutweg rendert deze pagina
+    # opnieuw en Alpine initialiseert het component vers — dus zonder dit stond je
+    # weer op stap 0, met een melding over een vraag die je niet ziet.
+    start_step = 0
+    if wizard and fout_veld_id is not None:
+        veld = next((f for f in form_model.fields if f.id == fout_veld_id), None)
+        if veld is not None:
+            start_step = idx_by_id.get(veld.section_id, 0)
 
     return {
         **site_context(db, request), "form": form_model, "grouped": grouped,
         "loose_fields": loose, "values": values or {}, "error": error,
         "submitter_name": submitter_name, "submitter_email": submitter_email,
-        "wizard": wizard, "wizard_steps": wizard_steps,
+        "wizard": wizard, "wizard_steps": wizard_steps, "start_step": start_step,
     }
 
 
@@ -280,7 +298,8 @@ async def formulier_submit(share_token: str, request: Request,
         result = submit_public_form(db, share_token, payload, background_tasks)
     except HTTPException as exc:
         ctx = _form_render_ctx(db, form_model, request, values=values, error=str(exc.detail),
-                               submitter_name=naam, submitter_email=email)
+                               submitter_name=naam, submitter_email=email,
+                               fout_veld_id=getattr(exc, "veld_id", None))
         return templates.TemplateResponse(request, "formulier.html", ctx)
 
     from app.ui import site_context
@@ -341,7 +360,9 @@ async def formulier_edit_submit(share_token: str, edit_token: str, request: Requ
     try:
         update_public_submission(db, edit_token, payload)
     except HTTPException as exc:
-        ctx = _form_render_ctx(db, form_model, request, error=str(exc.detail),
+        ctx = _form_render_ctx(db, form_model, request,
+                               fout_veld_id=getattr(exc, "veld_id", None),
+                               error=str(exc.detail),
                                submitter_name=naam, submitter_email=email)
         ctx["edit_token"] = edit_token
         return templates.TemplateResponse(request, "formulier.html", ctx)
