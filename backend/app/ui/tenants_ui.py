@@ -178,16 +178,28 @@ def tenant_aanmaken(request: Request, db: Session = Depends(get_db),
 async def tenant_opslaan(tenant_id: int, request: Request,
                          db: Session = Depends(get_db),
                          email: str = Depends(require_admin_ui)):
-    from app.domains.mdm.api import update_tenant_settings
+    from app.domains.mdm.api import OngeldigeInstelling, update_tenant_settings
 
     require_operator_ui(db, email)
     if tenant_id not in {u.id for u in _units(db)}:
         raise HTTPException(status_code=404, detail=_("Onbekende tenant"))
     form = await request.form()
-    update_tenant_settings(
-        db, tenant_id, form,
-        known=[key for key, _l, _h in BEKENDE_SLEUTELS],
-        secret=[key for key, _l, _h in GEHEIME_SLEUTELS])
+    try:
+        update_tenant_settings(
+            db, tenant_id, form,
+            known=[key for key, _l, _h in BEKENDE_SLEUTELS],
+            secret=[key for key, _l, _h in GEHEIME_SLEUTELS])
+    except OngeldigeInstelling as fout:
+        # #797: het formulier terug tonen mét de ingetypte waarden. Ze wegwerpen zou
+        # betekenen dat één tikfout in een bedrag het hele scherm leegveegt, en dan
+        # is de melding erger dan de fout.
+        ctx = _editor_ctx(request, db, tenant_id)
+        labels = {key: label for key, label, _h in BEKENDE_SLEUTELS}
+        ctx["error"] = " ".join(f"{labels.get(k, k)}: {m}" for k, m in fout.fouten.items())
+        ctx["waarden"] = {**ctx["waarden"],
+                          **{k: v for k, v in form.items() if k in labels}}
+        return templates.TemplateResponse(request, "admin_tenant.html", ctx,
+                                          status_code=422)
     ctx = _editor_ctx(request, db, tenant_id)
     # #742: een toast in plaats van de bestaande success_banner. §2.9 schrijft één
     # bevestigingspatroon voor; twee vormen naast elkaar is precies de inconsistentie

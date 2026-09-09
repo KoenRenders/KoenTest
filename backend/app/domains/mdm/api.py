@@ -57,6 +57,7 @@ from app.domains.mdm.service import (  # noqa: F401
     list_postal_codes,
 )
 from app.domains.mdm.tenant_service import (  # noqa: F401
+    OngeldigeInstelling,
     TenantFout,
     create_tenant,
     list_accounts,
@@ -66,7 +67,7 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
 )
 
 __all__ = [
-    "TenantFout", "admin_code_lists", "import_commit", "import_preview", "create_tenant", "form_code_lists",
+    "OngeldigeInstelling", "TenantFout", "admin_code_lists", "import_commit", "import_preview", "create_tenant", "form_code_lists",
     "list_persons", "list_postal_codes", "list_accounts", "list_units",
     "secrets_gezet", "update_tenant_settings",
     "Address", "AddressHistory", "ContactDetail", "ContactDetailHistory",

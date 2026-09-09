@@ -67,6 +67,54 @@ def create_tenant(db, *, name: str, code: str, parent_id: int | None = None,
     return org
 
 
+# #797: welke instellingen een getal moeten zijn. Een tenant-instelling is door
+# mensen te bewerken data die op élke publieke pagina gelezen wordt, dus een
+# onleesbare waarde is geen lokaal probleem: `17,5` bij `membership_price_half`
+# gaf een `decimal.InvalidOperation` in `tenant_membership_config`, en die hangt
+# onder `site_context` — dus 500 op de homepage.
+BEDRAG_SLEUTELS = ("membership_price_full", "membership_price_half")
+GEHEEL_SLEUTELS = ("payment_term_days", "max_item_quantity",
+                   "max_registrations_per_email")
+
+
+class OngeldigeInstelling(TenantFout):
+    """Eén of meer velden bevatten geen bruikbaar getal.
+
+    Draagt de meldingen per sleutel mee, zodat het scherm kan zeggen wélk veld het
+    is in plaats van "er ging iets mis".
+    """
+
+    def __init__(self, fouten: dict[str, str]):
+        self.fouten = fouten
+        super().__init__("; ".join(f"{k}: {v}" for k, v in fouten.items()))
+
+
+def _als_bedrag(ruw: str) -> str:
+    """`17,50` → `17.50`. De komma wordt AANVAARD, niet geweigerd.
+
+    De hele applicatie toont bedragen als `€ 17,50`; iemand die dat overtypt doet
+    wat de interface hem voordoet. Hem corrigeren voor de notatie van zijn eigen
+    taal is de verkeerde kant op — dus normaliseren we naar het punt dat `Decimal`
+    verwacht, en slaan we die genormaliseerde vorm op.
+    """
+    from decimal import Decimal, InvalidOperation
+
+    genormaliseerd = ruw.replace(",", ".")
+    try:
+        waarde = Decimal(genormaliseerd)
+    except InvalidOperation:
+        raise ValueError("Geef een bedrag, bv. 17,50.")
+    if waarde < 0:
+        raise ValueError("Een bedrag kan niet negatief zijn.")
+    return genormaliseerd
+
+
+def _als_geheel(ruw: str) -> str:
+    if not ruw.lstrip("+").isdigit():
+        raise ValueError("Geef een geheel getal, bv. 7.")
+    return str(int(ruw))
+
+
 def update_tenant_settings(db, tenant_id: int, form: Mapping, *,
                            known: Iterable[str], secret: Iterable[str]) -> None:
     """Schrijf de instellingen van één tenant weg.
@@ -79,6 +127,10 @@ def update_tenant_settings(db, tenant_id: int, form: Mapping, *,
       teruggetoond, dus een leeg veld betekent "ik heb niets ingetypt", niet "wis
       dit". Wissen gebeurt expliciet met `<sleutel>_wissen`. Zonder die regel
       wist elke opslag van een ander veld stilzwijgend de Mollie-key.
+
+    Getalvelden worden eerst gecontroleerd (#797). ALLE velden eerst, en pas daarna
+    schrijven: anders staat de helft van het formulier in de databank en de andere
+    helft niet, en dan is de toestand na een tikfout onduidelijker dan ervoor.
     """
     from app.kernel.tenant_config import set_setting
 
@@ -86,8 +138,27 @@ def update_tenant_settings(db, tenant_id: int, form: Mapping, *,
         waarde = form.get(key)
         return waarde.strip() if isinstance(waarde, str) else ""
 
+    schoon: dict[str, str | None] = {}
+    fouten: dict[str, str] = {}
     for key in known:
-        set_setting(db, key, _tekst(key) or None, tenant_id=tenant_id)
+        ruw = _tekst(key)
+        if not ruw:
+            schoon[key] = None  # leeg = terug naar de .env-default
+            continue
+        try:
+            if key in BEDRAG_SLEUTELS:
+                schoon[key] = _als_bedrag(ruw)
+            elif key in GEHEEL_SLEUTELS:
+                schoon[key] = _als_geheel(ruw)
+            else:
+                schoon[key] = ruw
+        except ValueError as fout:
+            fouten[key] = str(fout)
+    if fouten:
+        raise OngeldigeInstelling(fouten)
+
+    for key, waarde in schoon.items():
+        set_setting(db, key, waarde, tenant_id=tenant_id)
 
     for key in secret:
         if form.get(f"{key}_wissen"):
