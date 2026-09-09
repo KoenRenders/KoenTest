@@ -71,27 +71,31 @@ def test_het_ritme_zet_de_ruimte_boven_de_vraag():
     Zonder dit las de lijst als één massa, ook mét grotere letters — alles stond op
     gelijke afstand.
 
-    #768 verhoogde de trefzone van een antwoord naar 40 px. Dat zet 10 px padding rond
-    élk antwoord, dus alle afstanden groeiden mee en de trap werd weer vlak. Gemeten
-    in een echte browser, na het bijstellen: 20 px witruimte tussen twee antwoorden,
-    30 px tussen de vraag en haar eerste antwoord, 42 px tussen twee vragen. De
-    `space-y-1` tussen de opties is dáárom weg — mét die 4 px stond een antwoord
-    24 px van zijn buur en 26 px van zijn eigen vraag, en dan las de lijst als vier
-    losse regels.
+    #768 verhoogde de trefzone van een antwoord, en die padding zit in álle
+    afstanden — dus groeiden ze alle drie mee en werd de trap weer vlak. #774 heeft ze
+    daarna strakker gezet: 16 px tussen twee antwoorden, 20 px tussen de vraag en haar
+    eerste antwoord, 30 px tussen twee vragen. De `space-y-1` tussen de opties is weg
+    en blijft weg — mét die 4 px stond een antwoord even ver van zijn buur als van
+    zijn eigen vraag, en dan las de lijst als losse regels.
+
+    De gemeten afstanden staan in `tests_e2e/test_formulier_afstanden.py`; hier staan
+    alleen de klassen die ze veroorzaken.
     """
-    assert "space-y-8" in FORMULIER, "de vragen staan niet verder uit elkaar"
-    assert '<div class="mt-5" x-data' in FORMULIER, (
+    assert "space-y-[22px]" in FORMULIER, "de vragen staan niet verder uit elkaar"
+    assert '<div class="mt-3" x-data' in FORMULIER, (
         "de optiegroep zet geen ruimte tussen de vraag en haar antwoorden")
 
 
-def test_de_trefzone_van_een_antwoord_is_veertig_pixels():
+def test_de_trefzone_van_een_antwoord_is_de_hele_regel():
     """#768 — op een telefoon was 20 px regelhoogte een krappe trefzone.
 
-    De ruimte zit ín het klikvlak (`py-2.5`), niet ertussen. Negatieve marges zijn
-    hier geen alternatief — dan overlappen de trefzones en wint de onderste rij in de
-    overlap, zodat de bovenste onraakbaar wordt.
+    De ruimte zit ín het klikvlak (`py-2`, sinds #774; #768 had `py-2.5`), niet
+    ertussen. Negatieve marges zijn hier geen alternatief — dan overlappen de
+    trefzones en wint de onderste rij in de overlap, zodat de bovenste onraakbaar
+    wordt. Dát de klikvlakken elkaar raken staat als meting in
+    `tests_e2e/test_formulier_afstanden.py`.
 
-    Kapotgemaakt om te controleren dat deze test rood kan worden: `py-2.5` terug naar
+    Kapotgemaakt om te controleren dat deze test rood kan worden: `py-2` terug naar
     niets → beide asserts vallen om.
     """
     labels = [r for r in FORMULIER.splitlines()
@@ -99,7 +103,7 @@ def test_de_trefzone_van_een_antwoord_is_veertig_pixels():
     assert len(labels) == 2, (
         f"verwacht een radio- en een checkbox-optielabel, gevonden: {len(labels)}")
     for regel in labels:
-        assert "py-2.5" in regel, f"geen trefzone van 40 px: {regel.strip()}"
+        assert "py-2" in regel, f"de trefzone is niet hoger dan de tekstregel: {regel.strip()}"
         assert "-my-" not in regel, "negatieve marges laten de trefzones overlappen"
 
 

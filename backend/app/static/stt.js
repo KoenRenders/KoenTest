@@ -79,7 +79,15 @@
     // van de stroom en het opzetten van de graaf gaven één identieke zin. Dat heeft
     // dit onderzoek vier vermoedens gekost: de code kende de reden en zei niet wélke
     // stap ze betrof.
-    self.ctx.audioWorklet.addModule("/static/stt-pcm-worklet.js").then(function () {
+    // #773: het adres van de worklet komt uit een data-attribuut op het script-tag,
+    // want alleen de server kent de inhoudshash. Zonder die versie zou de browser wél
+    // de nieuwe `stt.js` ophalen (die staat mét versie in de HTML) en dáárna de oude
+    // worklet uit zijn cache halen — de helft van een fix, en dat is lastiger te
+    // herkennen dan geen fix.
+    var tag = document.querySelector("script[data-worklet]");
+    self.ctx.audioWorklet.addModule(
+      (tag && tag.dataset.worklet) || "/static/stt-pcm-worklet.js"
+    ).then(function () {
       var source, sink;
       try {
         source = self.ctx.createMediaStreamSource(stream);

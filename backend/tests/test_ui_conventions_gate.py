@@ -107,6 +107,12 @@ Vier regels, elk met een reden:
     kleur op het cijfer zelf staat nergens. De kleur van een dashboardtegel zit op
     de tegel, niet op het cijfer, en blijft dus toegestaan.
 
+33. **Elke asset gaat via `statisch()`** (#773). Een `<script src="/static/…">` of
+    een stylesheet zonder inhoudshash laat de browser zelf gokken hoe lang hij het
+    bestand vers vindt — en dan draait een bezoeker na een deploy nog dagen de oude
+    code, zonder één foutmelding. Dit is regelvormig: het volgende script staat er
+    over een maand anders weer kaal bij.
+
 Uitzonderingen staan expliciet in ALLOWLIST, met reden — zoals de allowlists in
 de andere gates: een regel toevoegen mag, maar niet stilzwijgend.
 """
@@ -1272,3 +1278,31 @@ def test_bewerken_staat_direct_links_van_verwijderen():
         "Tussen Bewerken en Verwijderen hoort niets te staan — anders verschuift "
         "de onomkeerbare knop mee met de toestand van het scherm (#722):\n  "
         + "\n  ".join(fouten))
+
+
+def test_assets_dragen_een_inhoudsversie():
+    """Geen `/static/…` in een script- of stylesheetverwijzing zonder `statisch()` (#773).
+
+    De CSS had haar hash sinds #481; `stt.js`, `tts.js` en de drie in `vendor/`
+    stonden er kaal bij. Gevolg, gemeten bij #772: de fix uit #751 stond een uur op
+    HDEV terwijl de browser de JavaScript van de dag ervóór draaide, en drie
+    symptomen wezen naar een bug die al gerepareerd was.
+
+    De regel dekt bewust alleen `src=` en de stylesheet-`href=`. Een `<a href>` naar
+    een statisch document (de formaatgids) is geen asset die de pagina uitvoert; die
+    mag rechtstreeks.
+
+    Kapotgemaakt om te controleren dat deze test rood kan worden: één script in
+    `site_base.html` terug op `src="/static/stt.js"` → de test valt om met dat pad.
+    """
+    fouten = []
+    for pad in TEMPLATES:
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
+            asset = 'src="/static/' in regel or (
+                "stylesheet" in regel and 'href="/static/' in regel)
+            if asset:
+                fouten.append(f"{pad.relative_to(APP)}:{nr}: {regel.strip()[:90]}")
+    assert not fouten, (
+        "Laad de asset via `statisch('<naam>')`, zodat de URL een inhoudshash "
+        "draagt:\n  " + "\n  ".join(fouten)
+    )

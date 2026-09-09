@@ -15,6 +15,11 @@ def _env():
     env = Environment(loader=FileSystemLoader(str(TEMPLATES)), autoescape=True)
     from app.i18n import install_jinja_i18n
     install_jinja_i18n(env)
+    # #773: de schillen laden hun assets via `statisch()`. Deze omgeving is met de
+    # hand gebouwd en heeft dus niet de globals van `app.ui.templates.env`; zonder
+    # deze regel valt elke schil-rendertest om op een ongedefinieerde functie.
+    from app.ui import statisch
+    env.globals["statisch"] = statisch
     return env
 
 

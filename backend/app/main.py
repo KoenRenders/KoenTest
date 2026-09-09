@@ -2,6 +2,7 @@ import logging
 import time
 
 from pathlib import Path
+from urllib.parse import parse_qs
 
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
@@ -152,7 +153,33 @@ app.include_router(cms_public_ui_router)
 
 # Server-rendered UI (#396, §21): statics (CSS + gevendorde htmx/Alpine) komen
 # rechtstreeks uit de backend; Caddy routeert /static/* hierheen.
-app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
+class _StatischeBestanden(StaticFiles):
+    """StaticFiles met een expliciete `Cache-Control` (#773).
+
+    Zonder die header stuurt Starlette enkel een `ETag` en een `Last-Modified`, en dan
+    beslist de browser zélf hoe lang hij het bestand vers vindt. Dat is precies hoe de
+    fix uit #751 een uur lang niet bij de browser aankwam.
+
+    De duur hangt af van de vraag of er een versie in de URL staat. `app.ui.statisch()`
+    hangt er een inhoudshash aan, en zo'n adres wijzigt bij elke wijziging van het
+    bestand — dat mag dus een jaar blijven staan. Een adres **zonder** versie is niet
+    te onderscheiden van een oudere inhoud, en krijgt daarom vijf minuten: lang genoeg
+    om een pagina met haar eigen plaatjes te laden, kort genoeg om een deploy niet
+    urenlang te overleven.
+    """
+
+    def file_response(self, *args, **kwargs):
+        response = super().file_response(*args, **kwargs)
+        scope = args[2] if len(args) > 2 else kwargs.get("scope", {})
+        query = parse_qs((scope.get("query_string") or b"").decode("latin-1"))
+        response.headers["Cache-Control"] = (
+            "public, max-age=31536000, immutable" if "v" in query
+            else "public, max-age=300"
+        )
+        return response
+
+
+app.mount("/static", _StatischeBestanden(directory=str(Path(__file__).parent / "static")), name="static")
 
 
 @app.middleware("http")

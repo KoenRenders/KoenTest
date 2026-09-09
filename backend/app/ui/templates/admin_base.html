@@ -9,7 +9,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{% if omgeving and omgeving != 'prod' %}[{{ omgeving|upper }}] {% endif %}{% block title %}{{ _("Admin — Raak") }}{% endblock %}</title>
   <meta name="robots" content="noindex">
-  <link rel="stylesheet" href="/static/app.css?v={{ css_version }}">
+  <link rel="stylesheet" href="{{ statisch('app.css') }}">
   <style>
     [x-cloak]{display:none!important}
     /* CMS-content-opmaak (#457): ook in de admin voor de WYSIWYG-preview. */
@@ -26,14 +26,14 @@
   {# View Transitions voor gebooste navigatie (#634). Browsers zonder ondersteuning
      negeren dit; geen terugval nodig. #}
   <meta name="htmx-config" content='{"globalViewTransitions":true}'>
-  <script src="/static/vendor/htmx.min.js" defer></script>
-  <script src="/static/vendor/alpine.min.js" defer></script>
+  <script src="{{ statisch('vendor/htmx.min.js') }}" defer></script>
+  <script src="{{ statisch('vendor/alpine.min.js') }}" defer></script>
   {# Trix WYSIWYG (#520), verhuisd uit admin_pagina.html naar de schil (#634):
      htmx voert <script>-tags in ingeswapte inhoud uit, en Trix een tweede keer
      laden faalt op customElements.define('trix-editor'). In de schil laadt het
      precies één keer per sessie — met hx-boost zelfs goedkoper dan per pagina. #}
-  <link rel="stylesheet" href="/static/vendor/trix.css">
-  <script src="/static/vendor/trix.min.js" defer></script>
+  <link rel="stylesheet" href="{{ statisch('vendor/trix.css') }}">
+  <script src="{{ statisch('vendor/trix.min.js') }}" defer></script>
 </head>
 {# hx-boost (#634): navigatie zonder volledige herlaad — htmx haalt de nieuwe
    pagina op en vervangt alleen #main, zodat de zijbalk blijft staan en het witte
