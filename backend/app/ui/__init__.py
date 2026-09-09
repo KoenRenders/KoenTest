@@ -313,10 +313,17 @@ def site_context(db, request=None) -> dict:
     sponsors = (db.query(MediaAsset)
                 .filter(MediaAsset.kind == "sponsor", MediaAsset.is_active == True)  # noqa: E712
                 .order_by(MediaAsset.sort_order, MediaAsset.id).all())
-    from app.kernel.tenant_config import get_setting, tenant_display_name
+    from app.kernel.tenant_config import (get_setting, tenant_display_name,
+                                          umami_tracking)
     from app.config import settings
 
     base_url = (get_setting(db, "base_url") or "").rstrip("/")
+    # #808: sinds de React-exit (#405) werd het trackingscript NERGENS meer
+    # gerenderd — `Analytics.tsx` verdween zonder Jinja-vervanger. Gemeten in de
+    # Umami-databank van PROD: laatste bezoek 9 september 17:41 UTC, 33 bezoeken die
+    # dag daarvóór, nul erna. Dat uur is precies de omschakeling van `prod-frontend`
+    # naar `prod-backend`.
+    umami_src, umami_website_id = umami_tracking(db)
 
     return {"nav_pages": pages, "footer_block": footer_block,
             "sponsors": sponsors, "current_year": date.today().year,
@@ -337,6 +344,11 @@ def site_context(db, request=None) -> dict:
             "privacy_url": get_setting(db, "privacy_url") or None,
             # SEO (#454): canonieke origin + huidige canonical-URL voor OG/canonical.
             "base_url": base_url,
+            # Webstatistieken (#176/#808). Beide of geen van beide — zie
+            # `umami_tracking`. Alleen de PUBLIEKE schil draagt het script:
+            # beheerverkeer is geen bezoek en zou de cijfers vervuilen.
+            "umami_src": umami_src,
+            "umami_website_id": umami_website_id,
             # #693: élke publieke pagina draagt het CSRF-token. Dit was de
             # eigenlijke oorzaak van de 403's onder #649/#662, en het lag niet aan
             # een verlopen sessie: het token staat in `hx-headers` op de <body> van
