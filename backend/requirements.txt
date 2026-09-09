@@ -24,4 +24,4 @@ jinja2==3.1.6
 cryptography==50.0.1  # per-tenant secrets versleuteld (Fernet, #406)
 Babel==2.18.0  # taalcatalogus nl_BE (#407-T)
 nh3==0.3.6  # HTML-sanitisatie van CMS-inhoud bij render (stored-XSS-guard, #476)
-Markdown==3.10.3  # Raakje-antwoord markdown→HTML, daarna nh3-gesaneerd (#566)
+markdown-it-py==4.2.0  # Raakje-antwoord markdown→HTML, daarna nh3-gesaneerd (#566; CommonMark sinds #790 — python-markdown eiste vier spaties voor een geneste lijst, modellen schrijven er twee)

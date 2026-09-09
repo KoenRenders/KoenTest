@@ -1,5 +1,6 @@
 {% import "_macros.html" as ui %}
 {% import "_raakje_teksten.html" as teksten %}
+{% import "_raakje_ballon.html" as ballon %}
 {# Raakje-chatbot-widget (#469): zwevend knopje + paneel, hergebruikt /raakje/vraag.
    Spraakinvoer (STT, #567) en voorlezen (TTS, #568) als progressive enhancement. #}
 <div x-data="{ open: false }" class="fixed bottom-4 right-4 z-40 print:hidden">
@@ -24,8 +25,13 @@
     </div>
     <div id="raakje-widget-gesprek" class="flex-1 overflow-auto p-3 space-y-2 text-sm">
       {# #570/#765: de v1.14-tekst, uit `_raakje_teksten.html`. Die laatste zin is
-         niet decoratief — ze vertelt dát de doorgeef-actie bestaat. #}
-      <div class="text-gray-500">{{ teksten.intro() }}</div>
+         niet decoratief — ze vertelt dát de doorgeef-actie bestaat.
+         #791: in dezelfde ballon als een antwoord. Ze komt van dezelfde spreker, en
+         als grijze lopende tekst was het eerste wat je zag geen gesprek maar een
+         mededeling. Ze staat BINNEN `#raakje-widget-gesprek`, dus de antwoorden
+         (`hx-swap="beforeend"`) schuiven er netjes onder aan — precies zoals v1.14
+         het deed, waar de begroeting gewoon Raakjes eerste bericht was. #}
+      <div><div class="{{ ballon.van_raakje() }}">{{ teksten.intro() }}</div></div>
     </div>
     {# #570: een meegroeiende textarea. Een <input> van één regel toonde bij een
        langere vraag maar een stukje, en je zag niet meer wat je typte. Enter

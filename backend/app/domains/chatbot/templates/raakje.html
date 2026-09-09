@@ -1,6 +1,7 @@
 {% extends "public_base.html" %}
 {% import "_macros.html" as ui %}
 {% import "_raakje_teksten.html" as teksten %}
+{% import "_raakje_ballon.html" as ballon %}
 {% block title %}{{ _("Raakje — Raak") }}{% endblock %}
 {% block content %}
 {% call ui.card() %}
@@ -18,9 +19,14 @@
   {% else %}
   {# #765: dezelfde tekst als de widget, uit één bron. De kop hierboven blijft de
      naam van het SCHERM; deze zin is de stem van de bot. Dat de naam daardoor twee
-     keer valt, is een bewuste keuze. #}
-  <p class="text-gray-600 mb-6">{{ teksten.intro() }}</p>
-  <div id="raakje-gesprek" class="space-y-4 mb-4"></div>
+     keer valt, is een bewuste keuze.
+     #791: en in dezelfde ballon als in de widget, BINNEN het gesprek. Als paginakop
+     las ze als toelichting bij het scherm; als ballon is ze Raakjes eerste bericht,
+     en begint het gesprek op beide plaatsen op dezelfde manier. De antwoorden komen
+     er met `hx-swap="beforeend"` onder. #}
+  <div id="raakje-gesprek" class="space-y-4 mb-4">
+    <div><div class="{{ ballon.van_raakje() }}">{{ teksten.intro() }}</div></div>
+  </div>
   {# #570: dezelfde meegroeiende textarea als in de widget. Eén regel verloor een
      langere vraag uit beeld. Enter verstuurt, Shift+Enter geeft een nieuwe regel;
      `this.reset()` zet de waarde terug maar niet de hoogte, dus die gaat er los bij.
