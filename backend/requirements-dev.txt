@@ -4,5 +4,12 @@
 pytest==8.3.4
 pytest-cov==6.0.0
 
+# YAML lezen in tests (#798): de gate die controleert dat elke SEED_-variabele in
+# het environment:-blok van de compose-bestanden staat, parseert die bestanden echt
+# in plaats van ze te doorzoeken — een naam in een commentaarregel of bij een andere
+# service zou een substring-test tevreden stellen. Stond tot nu toe toevallig in het
+# image; expliciet is beter dan toevallig.
+PyYAML==6.0.3
+
 # Static type checking (mypy in CI; symmetrie met `tsc --noEmit` op de frontend).
 mypy==2.1.0

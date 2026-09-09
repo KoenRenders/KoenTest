@@ -48,6 +48,16 @@ services:
       FRONTEND_URL: ${FRONTEND_URL:?FRONTEND_URL ontbreekt in .env.hdev}
       PUBLIC_URL: ${PUBLIC_URL:?PUBLIC_URL ontbreekt in .env.hdev}
       APP_ENV: hdev
+      # Rol-seeds voor de migraties (#798). Deze staan hier omdat de backend-service
+      # GEEN `env_file:` heeft: elke variabele wordt expliciet doorgegeven, en wat
+      # hier niet staat bereikt de container nooit — hoe netjes het ook in .env.hdev
+      # staat. Gemeten bij de upgrade-generale voor v2.0.0: migratie 087 las haar
+      # placeholder, vond niemand met dat adres, en kende NUL gebruikers de rol
+      # OPERATOR toe, terwijl het juiste adres wel degelijk in .env.uat stond en als
+      # gebruiker bestond. Gevolg: /admin/tenants was voor niemand bereikbaar.
+      SEED_ADMIN_EMAILS: ${SEED_ADMIN_EMAILS:-}
+      SEED_FINANCE_EMAILS: ${SEED_FINANCE_EMAILS:-}
+      SEED_OPERATOR_EMAILS: ${SEED_OPERATOR_EMAILS:-}
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       MEMBERSHIP_RENEWAL_START_MD: ${MEMBERSHIP_RENEWAL_START_MD:-}
       PAYMENT_IBAN: ${PAYMENT_IBAN:-}

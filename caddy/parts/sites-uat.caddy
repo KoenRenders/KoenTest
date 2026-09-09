@@ -15,3 +15,12 @@
 	import security_headers
 	reverse_proxy uat-umami:3000
 }
+
+# Raak Digital Platform op UAT (#801). Een eigen naam per omgeving, zodat het
+# platform op UAT te bekijken is vóór PROD volgt — dezelfde gedachte als
+# expand/contract, maar zonder dat PROD ergens op moet wachten: beide blokken zitten
+# in dezelfde tag.
+{$PLATFORM_UAT_DOMAIN} {
+	import security_headers
+	reverse_proxy uat-backend:8000
+}

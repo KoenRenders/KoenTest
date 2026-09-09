@@ -19,11 +19,14 @@ from __future__ import annotations
 
 import base64
 import hashlib
+import logging
 from datetime import datetime, timezone
 
 from cryptography.fernet import Fernet
 from sqlalchemy import Column, DateTime, Integer, String, Text, UniqueConstraint
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.database import Base
 from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
@@ -204,7 +207,7 @@ def tenant_membership_config(db: Session | None = None,
     slice #407): DB-sleutels winnen, de .env-settings blijven de default.
     Zonder meegegeven sessie wordt een eigen SessionLocal geopend, zodat ook
     servicefuncties zonder db-parameter tenant-bewust zijn."""
-    from decimal import Decimal
+    from decimal import Decimal, InvalidOperation
 
     from app.config import settings
 
@@ -218,9 +221,33 @@ def tenant_membership_config(db: Session | None = None,
             waarde = get_setting(db, key, tenant_id=tenant_id)
             return waarde if waarde is not None else default
 
+        def _bedrag(key: str, default) -> Decimal:
+            """Een onleesbaar bedrag mag de site niet platleggen (#797).
+
+            `tenant_membership_config` hangt onder `site_context` en draait dus op
+            ÉLKE publieke pagina. Toen hier `17,5` stond — de Belgische notatie, en
+            precies wat de applicatie zelf toont — gooide `Decimal` een
+            `InvalidOperation` en gaf de homepage een 500. Sinds #797 aanvaardt het
+            formulier de komma en normaliseert het naar een punt, dus dit pad hoort
+            niet meer geraakt te worden; het is er voor waarden die er langs een
+            andere weg in komen (een import, een handmatige insert, een oudere rij).
+
+            De terugval is de `.env`-default, mét een waarschuwing die de SLEUTEL
+            noemt. Zonder die naam blijft een beheerder zoeken in een scherm met
+            twintig velden — dat was bij de storing precies het dure deel.
+            """
+            ruw = _s(key, default)
+            try:
+                return Decimal(str(ruw))
+            except InvalidOperation:
+                logger.warning(
+                    "Tenant-instelling %r is geen bedrag (%r); terug op de "
+                    "omgevingswaarde %r.", key, ruw, default)
+                return Decimal(str(default))
+
         return {
-            "price_full": Decimal(str(_s("membership_price_full", settings.membership_price_full))),
-            "price_half": Decimal(str(_s("membership_price_half", settings.membership_price_half))),
+            "price_full": _bedrag("membership_price_full", settings.membership_price_full),
+            "price_half": _bedrag("membership_price_half", settings.membership_price_half),
             "half_start_md": _s("membership_half_price_start_md", settings.membership_half_price_start_md),
             "half_end_md": _s("membership_half_price_end_md", settings.membership_half_price_end_md),
             "next_year_from_md": _s("membership_next_year_from_md", settings.membership_next_year_from_md),
