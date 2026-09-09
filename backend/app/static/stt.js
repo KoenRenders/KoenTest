@@ -241,7 +241,11 @@
     this.stopped = true;
     try {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify({ type: "stop" }));
+        // #772: `spraak` meldt of de VAD ooit energie boven de drempel zag. Zonder
+        // dat kan de server "Voxtral herkende niets" niet onderscheiden van "er is
+        // niets ingesproken" — beide eindigen in een lege transcriptie, en dat
+        // onderscheid is precies wat dit onderzoek drie rondes gekost heeft.
+        this.ws.send(JSON.stringify({ type: "stop", spraak: this.spokeOnce }));
       }
     } catch (e) { /* socket al weg */ }
     // Mic meteen vrij; de WS blijft open voor het eindtranscript (server sluit).

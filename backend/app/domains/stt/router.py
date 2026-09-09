@@ -144,6 +144,15 @@ async def stt_voxtral(websocket: WebSocket) -> None:
 
     provider = get_stt_provider(sample_rate=sample_rate)
 
+    # #772: drie uitkomsten die er in de logs identiek uitzagen — de provider
+    # weigerde het formaat, de provider aanvaardde het maar herkende geen spraak, of
+    # er is niets ingesproken. Alle drie eindigen in een lege transcriptie. Ze uit
+    # elkaar houden kostte dit onderzoek drie rondes, dus ze staan nu uit elkaar
+    # gehaald in één regel aan het eind van de sessie.
+    deltas = 0
+    provider_fout: str | None = None
+    spraak_gehoord: bool | None = None
+
     async def audio_iter():
         """Bridge: voedt de provider met de binnenkomende audiochunks tot ``None``
         het einde van de opname signaleert."""
@@ -154,15 +163,38 @@ async def stt_voxtral(websocket: WebSocket) -> None:
             yield chunk
 
     async def pump_transcripts() -> None:
+        nonlocal deltas, provider_fout
         try:
             async for ev in provider.stream(audio_iter()):
+                if not ev.is_final and ev.text:
+                    deltas += 1
                 if websocket.application_state != WebSocketState.CONNECTED:
                     break
                 await websocket.send_json(
                     {"type": "final" if ev.is_final else "partial", "text": ev.text}
                 )
         except Exception as exc:  # provider-fout mag de socket niet hard laten crashen
-            logger.warning("STT-provider mislukt: %s", exc)
+            provider_fout = str(exc)
+            logger.warning("STT-provider mislukt (%d Hz): %s", sample_rate, exc)
+
+    def _log_uitkomst() -> None:
+        """Eén regel per sessie, die de drie stille uitkomsten uit elkaar houdt."""
+        if provider_fout is not None:
+            return  # al gemeld, mét de snelheid erbij
+        if deltas:
+            logger.info("STT-sessie klaar: %d Hz, %d tekstdelen, %d audiobytes",
+                        sample_rate, deltas, session_bytes)
+        elif spraak_gehoord is False:
+            logger.info(
+                "STT-sessie zonder tekst: %d Hz, %d audiobytes — de browser hoorde "
+                "zelf geen spraak (VAD onder de drempel), dus dit zegt niets over de "
+                "provider", sample_rate, session_bytes)
+        else:
+            logger.warning(
+                "STT-sessie zonder tekst: %d Hz, %d audiobytes — de provider gaf geen "
+                "fout en dus aanvaardde ze het formaat, maar herkende geen spraak%s",
+                sample_rate, session_bytes,
+                " (de browser hoorde wél spraak)" if spraak_gehoord else "")
 
     pump_task = asyncio.create_task(pump_transcripts())
     try:
@@ -199,6 +231,9 @@ async def stt_voxtral(websocket: WebSocket) -> None:
                 except (ValueError, TypeError):
                     ctrl = {}
                 if ctrl.get("type") == "stop":
+                    gemeld_spraak = ctrl.get("spraak")
+                    if isinstance(gemeld_spraak, bool):
+                        spraak_gehoord = gemeld_spraak
                     break
     except _Grens:
         pass  # de reden staat al in close_code/close_reason
@@ -209,6 +244,7 @@ async def stt_voxtral(websocket: WebSocket) -> None:
             await asyncio.wait_for(pump_task, timeout=10)
         except Exception:
             pump_task.cancel()
+        _log_uitkomst()
         if websocket.application_state == WebSocketState.CONNECTED:
             try:
                 await websocket.close(code=close_code, reason=close_reason)
