@@ -4,9 +4,9 @@
 {% block content %}
 {% call ui.page_header(_("Archief") if scope == "archived" else _("Activiteiten")) %}
   {% if scope == "archived" %}
-  <a class="text-sm text-blue-700 hover:underline" href="/activiteiten">← {{ _("Naar de activiteiten") }}</a>
+  <a class="text-base md:text-sm text-blue-700 hover:underline" href="/activiteiten">← {{ _("Naar de activiteiten") }}</a>
   {% else %}
-  <a class="text-sm text-blue-700 hover:underline" href="/activiteiten/archief">{{ _("Archief") }} →</a>
+  <a class="text-base md:text-sm text-blue-700 hover:underline" href="/activiteiten/archief">{{ _("Archief") }} →</a>
   {% endif %}
 {% endcall %}
 {% include "_activiteiten_cards.html" %}

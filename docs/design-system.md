@@ -109,6 +109,44 @@ Line height 1.15 for headings, ~1.55 for text. Headings, section titles, card
 titles and status chips are semibold (600) — airy, not heavy. Extra-bold is
 reserved for the page title, KPI figures and the brand word.
 
+### 1.2a Mobile-first type scale (#804)
+
+**80% of visits are on a phone.** At that ratio the phone is not a variant of the
+design — the phone *is* the design, and a wide screen is the exception that adapts.
+So the bare Tailwind class is the phone size, and a `md:` variant appears only where
+a wide screen genuinely wants something else.
+
+| Role | Phone (bare class) | Wide screen (`md:`) |
+|---|---|---|
+| Reading text on a public page | `text-base` (16) | `md:text-sm` (14) where the wide layout was tuned for 14 |
+| Card title, year heading | `text-xl` (20) | `md:text-lg` (18) |
+| Caption / metadata that is *not* read in sequence | `text-sm` (14) | — |
+| Wordmark | `text-3xl` (30) | — |
+
+Why this exists: before #804 there was **one** scale, chosen on a wide screen, and
+it applied unchanged on a phone. `text-sm` is a fine caption on a desktop; on a
+device held at arm's length it is the body text, and 14 px is then too small. The
+tell was that the only element the owner did *not* call too small was the CMS intro
+— the one element with no size class at all, inheriting the 16 px base.
+
+Two rules that follow from the table and are easy to get wrong:
+
+- **Headings move up with the body.** Lift the reading text to 16 and leave a card
+  title at 18 and the step between them almost disappears — the page reads flat.
+- **`text-sm` is a caption again, not body text.** Use it for metadata that is
+  scanned rather than read. If a visitor is meant to read the sentence, it is
+  `text-base` on a phone.
+
+A block that only ever renders on one breakpoint needs no variant: the mobile menu
+is `md:hidden`, so `text-base` is enough, and the wide navigation is `hidden md:flex`,
+so its `text-sm` stays as it is.
+
+**Touch targets.** A control a finger has to hit is at least 44 px in both
+directions (`min-w-11 min-h-11`); the icon inside it may be smaller. The hamburger
+is the reference case — it was the text character `☰` without a size class, which
+inherits weight and height from the device font and therefore cannot be scaled
+reliably. Use `icon("menu")`, like every other symbol control.
+
 ### 1.3 Spacing, radii, elevation
 
 One 4 px scale: 4 (icon margin) · 8 (button padding) · 12 (field gap) · 16 (card

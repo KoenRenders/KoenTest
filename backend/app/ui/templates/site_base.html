@@ -111,9 +111,18 @@
              De arbitraire waarde moet LETTERLIJK hier staan, anders genereert Tailwind
              de klasse niet. #}
           <span class="flex items-baseline font-brand font-bold tracking-tight leading-none text-3xl" aria-label="{{ _('Raak') }}">R<span class="text-[1.3em]">aa</span>K</span>
-          {% if site_tagline %}<span class="block font-brand text-sm font-medium text-yellow-300">{{ site_tagline }}</span>{% endif %}
+          {# #804: `text-base md:text-sm` — mobiel-eerst. Zie §1.2a van het
+             design-system: 14 px is een bijschrift op een breed scherm en leestekst
+             op een telefoon, en 80% van het bezoek is mobiel. #}
+          {% if site_tagline %}<span class="block font-brand text-base md:text-sm font-medium text-yellow-300">{{ site_tagline }}</span>{% endif %}
         </a>
-        <button class="md:hidden p-2 rounded hover:opacity-80" @click="open = !open" aria-label="{{ _("Menu") }}">☰</button>
+        {# #804: een ICOON en geen tekstteken. `☰` erfde de dikte en de hoogte van het
+             lettertype van het toestel, dus het oogde dun naast een woordmerk van 30 px
+             en was niet betrouwbaar te schalen. Het aanraakvlak is 44 px (`min-w-11
+             min-h-11`) — dat is de ondergrens voor een vinger; het icoon zelf mag
+             kleiner. #}
+        <button class="md:hidden inline-flex items-center justify-center min-w-11 min-h-11 rounded hover:opacity-80"
+                @click="open = !open" aria-label="{{ _("Menu") }}">{{ ui.icon("menu", 24) }}</button>
         {# #714: zelfde oorzaak als in de beheerschil, tweede symptoom — "Home" bleef
            onderstreept terwijl je op /leden/gezin stond. Out-of-band, zodat de
            "welk item is actief"-regel blijft waar ze hoort: in `navlink`. #}
@@ -134,7 +143,7 @@
       </div>
       {# #714: ook de tweede rendering — op een telefoon is dit de enige die je ziet. #}
       {# #737: `style="display: none"` staat er letterlijk bij (§2.9b). Dit element heeft een `id` én wordt door Alpine verborgen, dus htmx' settle zet bij een swap de attributen van het serverantwoord terug en wist de inline style die Alpine er net op zette (#726). Verborgen is hier de juiste beginstand: `open` begint op false. #}
-      <div id="site-nav-mobiel"{% if _oob %} hx-swap-oob="true"{% endif %} x-show="open" style="display: none" x-cloak x-transition.opacity.duration.150ms class="md:hidden px-4 pb-4 flex flex-col gap-2 text-sm">
+      <div id="site-nav-mobiel"{% if _oob %} hx-swap-oob="true"{% endif %} x-show="open" style="display: none" x-cloak x-transition.opacity.duration.150ms class="md:hidden px-4 pb-4 flex flex-col gap-2 text-base">
         {{ navlink(_pad, "/", _("Home"), exact=True) }}
         {{ navlink(_pad, "/fotos", _("Foto's")) }}
         {{ navlink(_pad, "/archief", _("Archief"), match="/activiteiten/archief") }}
@@ -186,7 +195,7 @@
       {% endif %}
     </div>
     {% if footer_block and footer_block.content %}
-    <div class="cms-content text-center text-sm text-gray-600 mb-6">{{ footer_block.content | safe }}</div>
+    <div class="cms-content text-center text-base md:text-sm text-gray-600 mb-6">{{ footer_block.content | safe }}</div>
     {% endif %}
     {% if sponsors %}
     {# #492: label boven de sponsorlogo's. #}

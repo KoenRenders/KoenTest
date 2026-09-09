@@ -113,6 +113,11 @@ Vier regels, elk met een reden:
     code, zonder één foutmelding. Dit is regelvormig: het volgende script staat er
     over een maand anders weer kaal bij.
 
+34. **Geen `☰` als tekstteken** (#804). Een teken is geen icoon: dikte en hoogte
+    komen van het lettertype van het toestel, dus het is niet betrouwbaar te
+    schalen en het oogt dun naast een woordmerk van 30 px. De kit heeft
+    `icon("menu")`. Beide schillen overtraden dit.
+
 Uitzonderingen staan expliciet in ALLOWLIST, met reden — zoals de allowlists in
 de andere gates: een regel toevoegen mag, maar niet stilzwijgend.
 """
@@ -1305,4 +1310,30 @@ def test_assets_dragen_een_inhoudsversie():
     assert not fouten, (
         "Laad de asset via `statisch('<naam>')`, zodat de URL een inhoudshash "
         "draagt:\n  " + "\n  ".join(fouten)
+    )
+
+
+def test_de_hamburger_is_een_icoon_en_geen_teken():
+    """#804 — `☰` uit de templates, `icon("menu")` ervoor in de plaats.
+
+    Deze regel is mechanisch en dus een gate. De vraag die er NIET in past is of de
+    typeschaal goed voelt op een echt toestel; dat is een schermafdruk naast de norm
+    leggen, geen assertie.
+
+    De regel geldt voor alle templates en niet alleen voor de schillen: een
+    hamburger hoort in de schil thuis, dus een teken elders is óók fout.
+
+    Kapotgemaakt om te controleren dat deze test rood kan worden: `icon("menu")` in
+    `site_base.html` terug op `☰` → de test valt om met dat pad. (Bij het schrijven
+    stond hij meteen rood op twee bestanden — dat was het uitgangspunt.)
+    """
+    fouten = [
+        f"{pad.relative_to(APP)}:{nr}"
+        for pad in TEMPLATES
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1)
+        if "\u2630" in regel
+    ]
+    assert not fouten, (
+        "Gebruik `ui.icon(\"menu\")` in plaats van het tekstteken; een teken erft "
+        "dikte en hoogte van het lettertype van het toestel:\n  " + "\n  ".join(fouten)
     )

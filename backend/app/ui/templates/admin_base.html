@@ -102,7 +102,13 @@
       {# Mobiele topbalk met hamburger #}
       <header class="md:hidden bg-brand-indigo text-white flex items-center justify-between px-4 py-3">
         <a href="/admin" class="font-brand uppercase tracking-tight text-xl leading-none">{{ _("Raak") }}</a>
-        <button class="p-2 rounded hover:bg-white/10" @click="open = !open" aria-label="{{ _("Menu") }}">☰</button>
+        {# #804: een ICOON en geen tekstteken. `☰` erfde de dikte en de hoogte van het
+             lettertype van het toestel, dus het oogde dun naast een woordmerk van 30 px
+             en was niet betrouwbaar te schalen. Het aanraakvlak is 44 px (`min-w-11
+             min-h-11`) — dat is de ondergrens voor een vinger; het icoon zelf mag
+             kleiner. #}
+        <button class="inline-flex items-center justify-center min-w-11 min-h-11 rounded hover:bg-white/10"
+                @click="open = !open" aria-label="{{ _("Menu") }}">{{ ui.icon("menu", 24) }}</button>
       </header>
       {# #714: twee renderingen per schil, dus ook deze mee. Een fix die er één
          bijwerkt laat de andere fout staan — en op een telefoon zie je juist deze. #}
