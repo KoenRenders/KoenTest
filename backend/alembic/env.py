@@ -16,7 +16,18 @@ load_all_models()
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # #777: `disable_existing_loggers=False`. Zonder die parameter zet `fileConfig`
+    # elke logger die op dat moment al bestaat op `disabled = True` — dat is haar
+    # standaardgedrag, en alembic heeft er geen enkele reden voor: ze wil enkel haar
+    # eigen configuratie inlezen.
+    #
+    # Op de server viel het niet op, want `startup.sh` draait `alembic upgrade head`
+    # als een APART proces vóór uvicorn; die loggers zijn dus niemands loggers. In de
+    # tests draait conftest alembic in HETZELFDE proces, en daarna zag `caplog` niets
+    # meer van `app.*`. Het gevolg is niet dat er logregels wegvallen op productie,
+    # maar dat elke assertie op een logregel niets meet en tóch groen staat —
+    # dezelfde vorm als de veertien gates uit #678.
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 target_metadata = Base.metadata
 
