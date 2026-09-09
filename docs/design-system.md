@@ -1,14 +1,13 @@
 # Design system — the norm for every screen
 
 > **Status: the single source of truth for look, behaviour and copy** of this
-> code base, since 9 September 2026. It replaces the prose of
-> `docs/design-system.html` and the normative sections of
-> `docs/ui-conventies.md`; both remain in git history, and `ui-conventies.md`
-> keeps only the IST inventories and work lists. The components themselves are
-> not described here in pixels: they are rendered live from the real macros at
-> `/admin/design-system` (#783; until that route exists, read
-> `backend/app/ui/templates/_macros.html`). Decisions are dated and carry their
-> issue number so nothing is dropped silently.
+> code base, since 9 September 2026. It replaced the prose of
+> `docs/design-system.html` — deleted with #783, still in git history — and the
+> normative sections of `docs/ui-conventies.md`, which keeps only the IST
+> inventories and work lists. The components themselves are not described here in
+> pixels: they are rendered live from the real macros at **`/admin/design-system`**
+> (#783). Decisions are dated and carry their issue number so nothing is dropped
+> silently.
 >
 > Enforcement: `backend/tests/test_ui_conventions_gate.py` (mechanical rules),
 > `test_layer_gate.py` and `test_template_variables_gate.py` (where logic lives),
@@ -738,7 +737,14 @@ Consistency is enforced technically, not hoped for.
    status tone, symbol-only buttons without `aria-label`, hand-written controls.
    A **new rule-shaped** deviation becomes a gate rule, not a manual check each
    release. Judgement stays with the `design-conformiteit-bewaker` agent.
-4. **This guide** — a living document. A rule change, its macro change and its
+4. **The live page** — `/admin/design-system` renders every macro from the real
+   `_macros.html` with the real `app.css`, so the visual reference cannot drift
+   from the code. A completeness gate fails CI when a new macro has no demo.
+   What it *cannot* check is whether a demo is representative: it sees presence,
+   not fidelity. A macro is called there with the arguments a real screen gives
+   it, and each section links to that real screen — read those links as part of
+   the page, not as decoration.
+5. **This guide** — a living document. A rule change, its macro change and its
    gate change land in **one** pull request. The Dutch reasoning behind a rule
    travels with it: the *why* is what makes a rule survive the next reviewer.
 5. **The live route** `/admin/design-system` (#783) renders every macro with

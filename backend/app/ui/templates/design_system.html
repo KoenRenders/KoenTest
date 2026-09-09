@@ -1,0 +1,285 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Design system — Raak beheer") }}{% endblock %}
+{% block content %}
+{#
+  #783: dit scherm TOONT de kit, het legt hem niet uit. Regels, redenen en
+  beslissingen staan in `docs/design-system.md`; hier hooguit één regel per blok met
+  de paragraafverwijzing.
+
+  Elke macro wordt aangeroepen met argumenten zoals een echt scherm ze geeft. Dat is
+  geen stijlkeuze: de volledigheidsgate toetst AANWEZIGHEID, dus `ui.btn_primary()`
+  zonder argumenten zou "volledig" zijn en niets voorspellen. Wat de gate niet kan
+  zien — of een component in een smalle kolom of binnen een kaart nog klopt — vangen
+  de referentielinks per sectie op.
+
+  Nul eigen `<style>`: dezelfde `app.css` als elk beheerscherm, en de gate op rauwe
+  kleuren geldt hier onverkort.
+#}
+{{ ui.page_header(_("Design system"),
+                  _("De kit zoals hij vandaag is — gerenderd uit _macros.html en app.css.")) }}
+
+<p class="text-sm text-gray-600 mb-6">
+  {{ _("De norm staat in") }} <code>docs/design-system.md</code>.
+  {{ _("Deze pagina is de visuele helft: verandert een macro, dan verandert dit scherm mee.") }}
+</p>
+
+{# ── 1. Tokens ─────────────────────────────────────────────────────────────── #}
+{{ ui.section_header(_("1 · Kleurtokens")) }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("Gelezen uit de gegenereerde app.css, niet overgetypt — §1.1.") }}
+  </p>
+  {% if tokens %}
+  <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
+    {% for naam, waarde in tokens %}
+    <div class="flex items-center gap-3">
+      <span class="w-10 h-10 rounded-lg border border-line shrink-0"
+            style="background: var(--{{ naam }})" aria-hidden="true"></span>
+      <span class="min-w-0">
+        <span class="block text-sm font-medium truncate">{{ naam }}</span>
+        <span class="block text-xs text-gray-500 truncate">{{ waarde }}</span>
+      </span>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  {{ ui.empty_state(_("Geen tokens gevonden in app.css — is de CSS gebouwd?")) }}
+  {% endif %}
+{% endcall %}
+
+{# ── 2. Typografie ─────────────────────────────────────────────────────────── #}
+{{ ui.section_header(_("2 · Typografie")) }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("Mobiel-eerst sinds #804 — §1.2a. De kale klasse is de telefoonmaat.") }}
+  </p>
+  <div class="space-y-2">
+    <p class="text-3xl font-brand font-bold">{{ _("Woordmerk / paginatitel — text-3xl") }}</p>
+    <p class="text-xl md:text-lg font-semibold">{{ _("Kaarttitel, jaarkop — text-xl md:text-lg") }}</p>
+    <p class="text-base md:text-sm">{{ _("Leestekst op een publieke pagina — text-base md:text-sm") }}</p>
+    <p class="text-sm text-gray-600">{{ _("Bijschrift, metadata — text-sm") }}</p>
+    <p class="text-xs text-gray-400 uppercase tracking-wide">{{ _("Label — text-xs") }}</p>
+  </div>
+{% endcall %}
+
+{# ── 3. Iconen ─────────────────────────────────────────────────────────────── #}
+{{ ui.section_header(_("3 · Iconen"), _("Naar de activiteiten"), 'href="/admin/activiteiten"') }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("De volledige set van ui.icon() — §1.4. Symbolen zijn iconen, nooit teksttekens.") }}
+  </p>
+  {# Zes kolommen en geen acht: bij acht werden `chevron-down` en `arrow-down`
+     afgekapt tot `chevro…`, en dan is de naam precies het stuk dat je zocht. #}
+  <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
+    {% for naam in iconen %}
+    <div class="flex items-center gap-2 text-sm">
+      {{ ui.icon(naam) }}<span class="text-gray-600">{{ naam }}</span>
+    </div>
+    {% endfor %}
+  </div>
+{% endcall %}
+
+{# ── 4. Knoppen ────────────────────────────────────────────────────────────── #}
+{{ ui.section_header(_("4 · Knoppen"), _("Naar de betalingen"), 'href="/admin/betalingen"') }}
+{% call ui.card() %}
+  <div class="flex flex-wrap items-center gap-2 mb-3">
+    {{ ui.btn_primary(_("Opslaan")) }}
+    {{ ui.btn_secondary(_("Annuleren"), type="button") }}
+    {{ ui.btn_outline(_("Exporteren"), type="button", lead_icon="download") }}
+    {{ ui.btn_danger(_("Verwijderen"), type="button") }}
+    {{ ui.button(_("Kleine actie"), "secondary", "button", none, "sm") }}
+  </div>
+  <p class="text-xs text-gray-500">
+    <code>ui.btn_primary(_("Opslaan"))</code> ·
+    <code>ui.btn_outline(_("Exporteren"), type="button", lead_icon="download")</code>
+  </p>
+  <p class="text-xs text-gray-500 mt-1">
+    {{ _("De klassenreeks komt uit") }} <code>ui.btn_class("primary")</code>:
+    <code>{{ ui.btn_class("primary") }}</code>
+  </p>
+{% endcall %}
+
+{# ── 5. Badges ─────────────────────────────────────────────────────────────── #}
+{{ ui.section_header(_("5 · Statusbadges")) }}
+{% call ui.card() %}
+  <div class="flex flex-wrap items-center gap-2">
+    {{ ui.badge(_("Betaald"), "green") }}
+    {{ ui.badge(_("Openstaand"), "yellow") }}
+    {{ ui.badge(_("Mislukt"), "red") }}
+    {{ ui.badge(_("Concept"), "gray") }}
+    {{ ui.badge(_("Online"), "blue") }}
+    {{ ui.badge(_("Terugbetaald"), "purple") }}
+  </div>
+  <p class="text-xs text-gray-500 mt-3">
+    {{ _("Zes tonen — §2.10. Teal hoort er NIET bij: die sloop er in #617 bij en is met #660 weer weg.") }}
+  </p>
+{% endcall %}
+
+{# ── 6. Formuliervelden ────────────────────────────────────────────────────── #}
+{{ ui.section_header(_("6 · Formuliervelden"), _("Naar de formulierbouwer"), 'href="/admin/formulieren"') }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("Twee families, niet uitwisselbaar — §2.2. Links het beheerveld, rechts de losse control.") }}
+  </p>
+  <div class="grid sm:grid-cols-2 gap-4">
+    <div class="space-y-3">
+      {{ ui.field_input(_("Naam"), "naam", value="Raak Millegem", required=True,
+                        hint=_("Zoals het op de bevestigingsmail komt.")) }}
+      {{ ui.field_input(_("E-mail"), "email", value="geen", type="email",
+                        error=_("Dit is geen geldig e-mailadres.")) }}
+      {{ ui.field_textarea(_("Omschrijving"), "omschrijving", rows=3,
+                           value=_("Korte toelichting bij de activiteit.")) }}
+      {{ ui.field_select(_("Status"), "status",
+                         [("open", _("Open")), ("gesloten", _("Gesloten"))],
+                         selected="open") }}
+    </div>
+    <div class="space-y-3">
+      {{ ui.label(_("Losse control"), "los", required=True) }}
+      {{ ui.input_control("los", value="17,50", cls="w-full") }}
+      {{ ui.textarea_control("los_tekst", rows=2, value=_("Vrije tekst."), cls="w-full") }}
+      {% call ui.select_control("los_keuze", cls="w-full") %}
+        <option>{{ _("Eerste") }}</option><option>{{ _("Tweede") }}</option>
+      {% endcall %}
+      {{ ui.vraag(_("En dit is een vraag op een publiek formulier"), "los_vraag", required=True) }}
+      {{ ui.upload_field(name="affiche", text=_("Affiche")) }}
+    </div>
+  </div>
+{% endcall %}
+
+{# ── 7. Persoonsvelden ─────────────────────────────────────────────────────── #}
+{{ ui.section_header(_("7 · Persoonsvelden"), _("Naar de leden"), 'href="/admin/leden"') }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("Eén blok voor naam, geboortedatum en contact — overal dezelfde volgorde.") }}
+  </p>
+  {{ ui.person_fields(name_prefix="lid_", id_prefix="ds_") }}
+{% endcall %}
+
+{# ── 8. Lijstscherm: zoeken, filteren, pagineren ───────────────────────────── #}
+{{ ui.section_header(_("8 · Lijstscherm"), _("Naar de activiteiten"), 'href="/admin/activiteiten"') }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("De vaste volgorde van een records-lijst — §3.2: zoeken, filters, tabel, pager.") }}
+  </p>
+  {% call ui.filter_bar("/admin/design-system", "#ds-lijst") %}
+    {{ ui.search(hx_get="/admin/design-system", hx_target="#ds-lijst",
+                 value="", placeholder=_("Zoek op naam…")) }}
+    {{ ui.grouped_filter("jaar", top_options=[("", _("Alle jaren"))],
+                         groups={_("Recent"): [("2026", "2026"), ("2025", "2025")]},
+                         current="2026", hx_get="/admin/design-system",
+                         hx_target="#ds-lijst") }}
+  {% endcall %}
+  {{ ui.chips("status", [("", _("Alle")), ("open", _("Open")), ("dicht", _("Gesloten"))],
+              current="open") }}
+  <div id="ds-lijst" class="mt-3">
+    <table class="w-full text-sm">
+      <thead><tr class="text-left text-gray-500 border-b border-line">
+        <th class="py-2">{{ _("Naam") }}</th><th>{{ _("Status") }}</th>
+        <th class="text-right">{{ _("Acties") }}</th>
+      </tr></thead>
+      <tbody>
+        <tr class="border-b border-line">
+          <td class="py-2">{{ _("Voorbeeldactiviteit") }}</td>
+          <td>{{ ui.badge(_("Open"), "green") }}</td>
+          <td class="text-right">
+            {{ ui.row_actions(actions=[
+                 (_("Bewerken"), 'href="/admin/activiteiten"', "pencil"),
+                 (_("Kopiëren"), 'href="/admin/activiteiten"', "copy")],
+               delete_attrs='href="#"', delete_label=_("Verwijderen"),
+               delete_confirm=_("Voorbeeldactiviteit")) }}
+          </td>
+        </tr>
+      </tbody>
+    </table>
+    {{ ui.pager(1, per_page=50, total=132, hx_get="/admin/design-system",
+                hx_target="#ds-lijst") }}
+  </div>
+  <div class="mt-3">{{ ui.export_links(ods_url="#", json_url="#") }}</div>
+{% endcall %}
+
+{# ── 9. Lege en ladende toestand ───────────────────────────────────────────── #}
+{{ ui.section_header(_("9 · Leeg en ladend")) }}
+{% call ui.card() %}
+  {{ ui.empty_state(_("Nog geen inschrijvingen voor deze activiteit.")) }}
+  <div class="mt-3">{{ ui.loading(_("Bezig met laden…")) }}</div>
+{% endcall %}
+
+{# ── 10. Meldingen ─────────────────────────────────────────────────────────── #}
+{{ ui.section_header(_("10 · Meldingen")) }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("Eén bevestigingspatroon — §2.7. Een toast bevestigt, een banner legt uit.") }}
+  </p>
+  {{ ui.error_banner(_("Dit bedrag is geen getal. Geef een bedrag, bv. 17,50.")) }}
+  <div class="mt-2">{{ ui.success_banner(_("De wijzigingen zijn opgeslagen.")) }}</div>
+  <div class="mt-4 space-y-2">
+    {{ ui.toast(_("Opgeslagen."), kind="success") }}
+    {{ ui.toast(_("Er ging iets mis."), kind="error") }}
+    {{ ui.toast(_("Let op: dit onderdeel is volzet."), kind="warning") }}
+  </div>
+  <p class="text-xs text-gray-500 mt-3">
+    {{ _("De schil draagt") }} <code>ui.toast_host()</code> {{ _("en") }}
+    <code>ui.confirm_host()</code>; een htmx-antwoord stuurt een toast mee met
+    <code>ui.toast_oob()</code>. {{ _("Ze staan hier niet nog eens: twee hosts op één pagina vangen elkaars toasts op.") }}
+  </p>
+{% endcall %}
+
+{# ── 11. Modal en bevestiging ──────────────────────────────────────────────── #}
+{{ ui.section_header(_("11 · Modal")) }}
+{% call ui.card() %}
+  <div x-data="{ demo: false }">
+    {{ ui.btn_secondary(_("Toon de modal"), type="button", attrs='@click="demo = true"') }}
+    {% call ui.modal("demo", _("Inschrijving bevestigen")) %}
+      <p class="text-sm text-gray-600">
+        {{ _("Een modal is voor read-only detail en bevestigingen — §3.3. Aanmaken gebeurt op een volledige pagina.") }}
+      </p>
+      <div class="mt-4 flex justify-end gap-2">
+        {{ ui.btn_secondary(_("Annuleren"), type="button", attrs='@click="demo = false"') }}
+        {{ ui.btn_primary(_("Bevestigen"), type="button") }}
+      </div>
+    {% endcall %}
+  </div>
+{% endcall %}
+
+{# ── 12. Detailscherm ──────────────────────────────────────────────────────── #}
+{{ ui.section_header(_("12 · Detailscherm")) }}
+{% call ui.card() %}
+  <div class="flex items-center justify-between mb-3">
+    <h3 class="text-lg font-semibold">{{ _("Voorbeeldactiviteit") }}</h3>
+    {{ ui.edit_toggle("edit") }}
+  </div>
+  {% call ui.nested_panel(_("Onderdelen"), _("Toevoegen"), 'href="#"') %}
+    {{ ui.section_bar(_("Wandeling"), up_attrs='href="#"', down_attrs='href="#"',
+                      edit_attrs='href="#"', delete_attrs='href="#"', first=True) }}
+    <div class="mt-2">{{ ui.reorder(up_attrs='href="#"', down_attrs='href="#"', first=True) }}</div>
+  {% endcall %}
+  {# `detail_disclosure` laadt in een doel dat op dezelfde pagina moet bestaan — de
+     render-gate (#695) controleert dat, en terecht: htmx zoekt het doel vóór het
+     verzoek vertrekt, dus een onvindbaar doel maakt de knop volledig inert. #}
+  <div class="mt-3" x-data="{ open: false }">
+    {{ ui.detail_disclosure("/admin/design-system", "ds-detail", _("Toon de deelnemers")) }}
+    <div id="ds-detail" x-show="open" x-cloak class="mt-2 text-sm text-gray-600">
+      {{ _("Hier laadt het detailfragment.") }}
+    </div>
+  </div>
+  <div class="mt-3 flex items-center gap-2 text-sm">
+    <span>BE48 7875 5016 1327</span>{{ ui.copy_button("BE48 7875 5016 1327", _("Kopieer het rekeningnummer")) }}
+  </div>
+{% endcall %}
+
+{# ── 13. Tabs ──────────────────────────────────────────────────────────────── #}
+{{ ui.section_header(_("13 · Tabs")) }}
+{% call ui.card() %}
+  {{ ui.tabs([{"label": _("Gegevens"), "href": "/admin/design-system", "active": True},
+              {"label": _("Inschrijvingen"), "href": "/admin/design-system", "active": False}]) }}
+{% endcall %}
+
+{# ── 14. Publieke schil ────────────────────────────────────────────────────── #}
+{{ ui.section_header(_("14 · Publieke schil"), _("Naar de publieke activiteiten"), 'href="/activiteiten" hx-boost="false"') }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600">
+    {{ _("De publieke kant deelt de kit maar niet de dichtheid — §3.1. Bekijk haar op een telefoon; de typeschaal is daar de basis (§1.2a).") }}
+  </p>
+{% endcall %}
+{% endblock %}

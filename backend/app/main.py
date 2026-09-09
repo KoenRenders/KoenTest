@@ -30,6 +30,7 @@ from app.domains.auth.admin_ui import router as auth_admin_ui_router
 from app.domains.cms.admin_ui import router as cms_admin_ui_router
 from app.domains.media.admin_ui import router as media_admin_ui_router
 from app.ui.changes_ui import router as changes_ui_router
+from app.ui.design_system_ui import router as design_system_ui_router
 from app.ui.system_ui import router as system_ui_router
 from app.ui.tenants_ui import router as tenants_ui_router
 from app.domains.media.router import router as media_router
@@ -139,6 +140,7 @@ app.include_router(cms_admin_ui_router)
 app.include_router(media_admin_ui_router)
 app.include_router(media_ui_router)
 app.include_router(changes_ui_router)
+app.include_router(design_system_ui_router)
 app.include_router(system_ui_router)
 app.include_router(tenants_ui_router)
 app.include_router(email_log_ui_router)
