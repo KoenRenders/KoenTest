@@ -2,7 +2,14 @@
 
 Gebruikt de **officiële** ``mistralai[realtime]``-SDK
 (``client.audio.realtime.transcribe_stream``) — model
-``voxtral-mini-transcribe-realtime-2602``, audio ``pcm_s16le`` @ 16 kHz mono.
+``voxtral-mini-transcribe-realtime-2602``, audio ``pcm_s16le`` mono.
+
+**De sample rate is een parameter en geen eis** (#772). Deze docstring noemde
+16 kHz als "het formaat van dit model"; dat is enger dan de werkelijkheid, en die
+formulering hield een reparatie onnodig lang tegen. Gemeten op HDEV met een echte
+sessie: 48 kHz erin, elf tekstdelen eruit. De browser meldt sinds #772 de snelheid
+waarmee hij stuurt en die gaat als ``AudioFormat`` mee; ``STT_SAMPLE_RATE`` is nog
+enkel de terugval voor een client die niets meldt.
 De ``MISTRAL_API_KEY`` gaat naar de SDK en blijft serverside; de browser praat
 enkel met onze eigen proxy.
 

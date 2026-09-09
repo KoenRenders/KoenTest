@@ -66,7 +66,13 @@ class Settings(BaseSettings):
     stt_provider: str = "voxtral"
     stt_model: str = "voxtral-mini-transcribe-realtime-2602"
     stt_base_url: str = "wss://api.mistral.ai"   # server_url voor de mistralai[realtime]-SDK
-    stt_sample_rate: int = 16000                 # Voxtral: pcm_s16le @ 16 kHz mono
+    # TERUGVAL, geen eis (#772/#788). Wat vastligt is `pcm_s16le` mono; de SNELHEID
+    # komt per sessie van de browser mee en gaat zo als `AudioFormat` naar Voxtral.
+    # Gemeten op HDEV: een sessie op 48000 Hz leverde gewoon elf tekstdelen op. Deze
+    # waarde geldt alleen voor een client die niets meldt — een oude `stt.js` uit de
+    # cache. Lees "16 kHz" hier dus niet als een model-eis: dat is precies de lezing
+    # die in #772 tot een zelfgebouwde resampler leidde, en die verminkte de audio.
+    stt_sample_rate: int = 16000
     # STT_LANGUAGE — forceer de transcriptietaal i.p.v. autodetectie (#295), zodat
     # Voxtral niet spontaan naar een andere taal overschakelt. ISO-639-1 (bv. 'nl').
     # Defensief meegegeven: accepteert de realtime-SDK de parameter niet, dan valt de

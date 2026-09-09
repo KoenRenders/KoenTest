@@ -344,10 +344,29 @@
         return btn.getAttribute("data-icon-" + stand) || start || "";
       }
 
+      // #788: schrijven én de gebeurtenis afvuren. Een toewijzing vanuit JavaScript
+      // vuurt géén `input`-gebeurtenis, en het meegroeien van het chatveld hangt
+      // daaraan (`x-on:input` in de twee raakje-templates). Gevolg: de gedicteerde
+      // zin liep uit beeld tot je zelf één teken bijtypte.
+      //
+      // Bewust de gebeurtenis en NIET de hoogte rechtstreeks. Dit is het
+      // spraak-eiland; het hoort niet te weten hoe een chatveld zijn hoogte bepaalt.
+      // Met een gebeurtenis werkt alles wat aan invoer hangt — vandaag het
+      // meegroeien, morgen een tekenteller of `CHAT_MAX_INPUT_CHARS`. Elke
+      // toekomstige handler op `input` zou anders dezelfde stille fout krijgen, en
+      // niemand zou de link met spraakinvoer leggen.
+      function schrijf(t) {
+        input.value = t;
+        input.dispatchEvent(new Event("input", { bubbles: true }));
+      }
+
       function cb() {
         return {
-          onPartial: function (t) { input.value = t; },
-          onFinal: function (t) { input.value = t; input.focus(); },
+          // Ook bij `onPartial`, en niet enkel bij `onFinal`: die schrijft tijdens
+          // het inspreken mee, en zonder de gebeurtenis zie je tot het einde niet wat
+          // je zegt.
+          onPartial: function (t) { schrijf(t); },
+          onFinal: function (t) { schrijf(t); input.focus(); },
           onError: function (code, message) { toonMelding(btn, message); },
           onStateChange: function (state) {
             btn.innerHTML = state === "listening" ? icoon("listening")
