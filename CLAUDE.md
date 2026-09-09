@@ -17,6 +17,33 @@ Existing Dutch documentation stays as it is (`docs/ui-conventies.md`,
 Do not translate it unless Koen asks. User-facing UI copy is Dutch and is not
 documentation — it is unaffected by this rule.
 
+## Code language
+
+Decided 9 September 2026, with the ambition of several consultants working on
+this codebase: **all new code is English** — identifiers (modules, classes,
+functions, variables), database objects (tables, columns, constraints), migration
+filenames, test names and log messages. Same rule as for documentation, same
+date of effect.
+
+Existing Dutch identifiers stay. **Do not rename.** A rename touches every
+caller, every migration reference and every history row for no behavioural gain,
+and a half-renamed codebase is worse than either pure state. Extend a Dutch
+module in English; the mix at the seam is accepted.
+
+Dutch remains wherever it is data or copy rather than code: user-facing UI text
+and i18n strings, stored values (`relation_type = "hoofdlid"`), tenant content,
+and domain terms quoted in a docstring. A domain concept gets its accepted
+English name as identifier (`StructuredCommunication`, not
+`GestructureerdeMededeling`; `Household`, not `Gezin`), with the Dutch term once
+in the docstring so the vocabulary stays findable. Where CR-04 still names a
+value object in Dutch, the English name applies when it is built.
+
+Enforced on new work by a ratchet gate (#780): a frozen baseline of the Dutch
+identifiers that exist today, which may only shrink. Nothing outside the
+baseline may be Dutch; an entry that disappears from the code must leave the
+baseline. A rule with a growing exemption list is dead; a baseline that can only
+shrink is a ratchet.
+
 ## This repository is PUBLIC
 
 Never commit secrets, credentials, or operational/infrastructure details to this
