@@ -2,21 +2,31 @@
 # Komt bij een deploy uit de tag die PROD draait.
 # Domeinen komen uit .env.caddy (niet in git). Zie .env.caddy.example.
 #
-# ── EXPAND-FASE (#572) — LEES DIT VOOR JE HIER IETS WIJZIGT ──────────────────
-# Dit blok routeert PROD BEWUST nog via de frontend-container, zoals v1.14.0 dat
-# doet. Reden: één gedeelde Caddy bedient UAT en PROD, en tijdens de v2.0.0-uitrol
-# staan die twee tijdelijk op verschillende versies. Zolang PROD v1.14.0 draait,
-# bestaat prod-frontend nog en serveert díe de pagina's; alles naar prod-backend
-# sturen legt de site plat.
+# ── CONTRACT-STAP GEDAAN (#572) ─────────────────────────────────────────────
+# PROD gaat sinds v2.0.1 rechtstreeks naar de backend. Tot dan stond hier de
+# expand-vorm: `/api/*` naar prod-backend en de rest naar prod-frontend:3000,
+# omdat één gedeelde Caddy UAT én PROD bedient en die twee tijdens de uitrol op
+# verschillende versies stonden. Zolang PROD nog v1.14.0 draaide, serveerde
+# prod-frontend de pagina's; alles naar de backend sturen zou de site hebben
+# platgelegd. Die situatie is voorbij: PROD draait v2.0.0 en er is geen
+# frontend-container meer (React-exit #405).
 #
-# CONTRACT-STAP, pas nadat PROD op v2.0.0 staat (nieuwe tag, bv. v2.0.1):
-#   - dit blok wordt `reverse_proxy prod-backend:8000` (nul Node, React-exit #405),
-#     net zoals sites-uat.caddy nu al doet;
-#   - de platform-blokken ({$PLATFORM_WWW_DOMAIN}/{$PLATFORM_DOMAIN}, #406) komen
-#     er dan bij — die horen niet live te staan zolang PROD ze niet kan bedienen,
-#     en hun domeinvariabelen moeten dan in .env.caddy staan.
-# De doelversie van dit bestand staat in commit e375866; die kun je bij de
-# contract-stap terughalen.
+# ── WAT HIER NOG NIET STAAT: de platform-blokken (#406) ─────────────────────
+# Commit e375866 bevat ook site-blokken voor {$PLATFORM_DOMAIN} en
+# {$PLATFORM_WWW_DOMAIN}. Die zijn hier BEWUST weggelaten, en haal ze niet
+# "even" terug uit die commit — de reden is DNS en niet Caddy.
+#
+# Beide namen zijn bij de registrar doorstuurrecords en wijzen op dit moment
+# niet naar deze server. Een site-blok ervoor betekent dat Caddy voor elk van
+# beide een certificaat gaat aanvragen; die aanvraag kan niet slagen zolang de
+# naam hier niet uitkomt, wordt eindeloos herhaald, en eindigt in de
+# rate-limiting van Let's Encrypt. Dat raakt dan ook de aanvragen van de sites
+# die het wél doen.
+#
+# Ze komen er dus pas bij wanneer (a) de DNS van die namen naar deze server
+# wijst en (b) hun variabelen in .env.caddy op de server staan. Dat is eigen
+# werk met eigen DNS-stappen en hangt niet aan deze release.
+#
 # Zie CLAUDE.md → "Shared Caddy: expand/contract".
 
 # www → apex: 301-redirect naar de canonieke URL (best practice, één canonieke host)
@@ -27,14 +37,10 @@
 
 {$PROD_DOMAIN} {
 	import security_headers
-	# EXPAND: v1.14.0-routing — API naar de backend, pagina's naar de frontend.
-	# Wordt bij de contract-stap één `reverse_proxy prod-backend:8000`.
-	handle /api/* {
-		reverse_proxy prod-backend:8000
-	}
-	handle {
-		reverse_proxy prod-frontend:3000
-	}
+	# Nul Node (React-exit #405): API, statics en alle server-rendered
+	# pagina's komen uit de backend; de per-pad-blokken uit de hybride
+	# omklap-periode zijn opgeruimd.
+	reverse_proxy prod-backend:8000
 }
 
 # Umami-analytics op een eigen subdomein, root-served (#176).
