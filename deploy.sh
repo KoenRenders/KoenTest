@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
-# Deployt één omgeving. Vervangt deploy-hdev.sh / deploy-uat.sh / deploy-prod.sh,
-# die nu dunne wrappers om dit script zijn.
+# Deployt één omgeving. Vervangt deploy-hdev.sh / deploy-uat.sh / deploy-prod.sh;
+# die bestonden na #576 nog als dunne wrappers en zijn met #577 verwijderd, nadat
+# v2.0.0 op UAT én PROD draaide. Ze waren dragend tijdens de cutover: het
+# deploy-script van v1.14.0 doet na de checkout een `exec "$0"` (#162), en dan moet
+# de oude bestandsnaam in de NIEUWE tag nog bestaan.
 #
 #   ./deploy.sh hdev                      # volgt master (integratielijn, geen tag)
 #   ./deploy.sh uat  v2.0.0               # exacte release-tag
@@ -122,12 +125,6 @@ dc up --build -d ${UP_EXTRA[@]+"${UP_EXTRA[@]}"}
 # (#169). UAT/PROD delen één Caddy; die gaat apart via deploy-caddy.sh.
 if [ "$CADDY" = "own" ]; then
   dc up -d --force-recreate caddy
-  # De zonet herstarte Caddy heeft een paar seconden nodig; wacht tot ze weer
-  # serveert vóór de rooktest, anders geeft de compressie-check een valse fail.
-  for _ in $(seq 1 15); do
-    curl -fsS -o /dev/null "${SMOKE_BASE_DEFAULT}/" && break
-    sleep 1
-  done
 fi
 
 # ── Post-deploy rooktest ─────────────────────────────────────────────────────
@@ -143,6 +140,26 @@ if [ -z "$SMOKE_BASE" ]; then
   echo "FRONTEND_URL onbekend in $ENVFILE — rooktest overgeslagen"
   exit 0
 fi
+
+# Wacht tot de site antwoordt vóór de rooktest begint (#800). Deze lus stond
+# eerder BINNEN de `own`-tak en pollde `$SMOKE_BASE_DEFAULT` — dat is leeg op UAT
+# en PROD, dus daar draaide ze nooit. De bescherming zat op de omgeving die haar
+# het minst nodig heeft, en ontbrak op de twee waar een terugrol echte gevolgen
+# heeft: de compressie-check kreeg een 502 (Caddy comprimeert een foutpagina niet),
+# de rooktest faalde, en het script rolde een gezonde deploy terug.
+#
+# Gemeten op 9 september 2026 bij het gelijkzetten van UAT met v2.0.1: `1 OK ·
+# 1 gefaald` op de compressie, automatische terugrol, dezelfde fout op de
+# teruggerolde versie, en een minuut later drie keer netjes `content-encoding:
+# zstd`. De stack was gezond; alleen de test was te vroeg.
+#
+# `curl -fsS` faalt al op een 502, dus dit wacht op een échte 200 en niet op
+# "iets antwoordt". Dertig pogingen: antwoordt de backend daarna nog niet, dan is
+# dat een echte fout en hoort de rooktest gewoon te falen.
+for _ in $(seq 1 30); do
+  curl -fsS -o /dev/null "${SMOKE_BASE}/" && break
+  sleep 1
+done
 
 if BASE="$SMOKE_BASE" ./tests/run-all.sh; then
   echo "Smoke OK op ${REF:-master}."
