@@ -44,6 +44,21 @@ baseline may be Dutch; an entry that disappears from the code must leave the
 baseline. A rule with a growing exemption list is dead; a baseline that can only
 shrink is a ratchet.
 
+## Code style
+
+Decided 9 September 2026: **ruff is the formatter and the linter**, and CI
+blocks on both (`ruff format --check`, `ruff check`) — see #781 for the
+configuration, the one-off formatting commit and its timing. Only Claude writes
+code here, but two sessions have the same style questions as two people; ruff
+answers them once, up front, so a review is about meaning and never about
+quotes, line length or import order. Do not argue with the formatter and do
+not silence it with `# noqa` unless the reason stands on the same line.
+
+What ruff cannot decide lives in one short style guide, `docs/code-style.md`
+(English, one screen, created by #781): language, where a rule belongs
+(CR-04), layer boundaries, exceptions, typing, docstrings and tests. This file
+points there and does not repeat it.
+
 ## This repository is PUBLIC
 
 Never commit secrets, credentials, or operational/infrastructure details to this
