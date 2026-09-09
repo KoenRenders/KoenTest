@@ -37,7 +37,7 @@ PII: enkel anoniem bezoek + een handvol funnel-events.
    ```
 3. **Deploy** — Umami draait zelf de Prisma-migraties bij startup:
    ```
-   ./deploy-hdev.sh
+   ./deploy.sh hdev
    ```
 4. **Inloggen** op `http://YOUR_SERVER_IP:8082/` (standaard `admin` / `umami`
    — **meteen het wachtwoord wijzigen**).
@@ -48,7 +48,7 @@ PII: enkel anoniem bezoek + een handvol funnel-events.
    NEXT_PUBLIC_UMAMI_WEBSITE_ID=<website-id-uit-stap-5>
    ```
    ```
-   ./deploy-hdev.sh
+   ./deploy.sh hdev
    ```
 7. **Verifiëren**: bezoek de publieke site → pageviews verschijnen in Umami.
    Controleer dat `/admin` **niet** getrackt wordt en dat een browser met DNT geen
@@ -115,4 +115,4 @@ Stappen per omgeving:
 - De tracker is een **no-op** zolang `NEXT_PUBLIC_UMAMI_*` leeg is — veilig in dev
   en vóór configuratie.
 - `NEXT_PUBLIC_*` wordt **bij de build** geïnlined; na het wijzigen ervan moet de
-  frontend opnieuw gebouwd worden (`./deploy-hdev.sh`).
+  frontend opnieuw gebouwd worden (`./deploy.sh hdev`).
