@@ -63,6 +63,40 @@ if [ -z "${CADDY_PREV_DIR:-}" ]; then
   export CADDY_PREV_IMAGE
 fi
 
+# ── Tooling op master, daarna één re-exec (#796, #162-patroon) ───────────────
+# Dit staat VÓÓR elke beslissing, en dat is de hele wijziging van #796.
+#
+# Waarom het uitmaakt, preciezer dan "de oude versie beslist": een `exec` herstart
+# het script van boven af, dus alles vóór dat punt wordt door de nieuwe versie
+# gewoon opnieuw gedaan. Wat NIET goedkomt, is een pad dat vóór de re-exec
+# **afbreekt**. Hieronder staan twee `exit 1`-en — "kon niet bepalen welke tag PROD
+# draait" en de vangrail voor de gemengde toestand (#572) — en die stonden eerder
+# vóór de update. Een verouderde vangrail kon de run dus afbreken zonder dat de
+# update ooit gebeurde, of erger: een geval nog niet kennen en doorlopen.
+#
+# Dat is geen theorie. Bij de v2.0.1-uitrol faalde `raak caddy v2.0.1` met
+# "'encode' ontbreekt in caddy/Caddyfile.shared" terwijl `encode` er wél stond — in
+# caddy/parts/snippets.caddy. De checkout stond op een oudere master en díe versie
+# zocht alleen in Caddyfile.shared. Een tweede aanroep liep gewoon door, want de
+# eerste had de checkout intussen bijgewerkt.
+#
+# Toen viel het mee omdat de oude vangrail te STRENG was. De omgekeerde richting is
+# het risico: een oude versie die een geval nog niet kent en gewoon doorloopt — op de
+# gedeelde Caddy die ook PROD bedient.
+#
+# De snapshot hierboven blijft er wél vóór staan: die legt vast wat er NU draait, en
+# `git reset --hard` overschrijft precies dat. Hij overleeft de re-exec via export.
+#
+# Onvoorwaardelijk her-uitvoeren, zonder te kijken óf het script veranderd is: die
+# vergelijking is zelf logica die kan verouderen, en één extra `exec` kost niets.
+git fetch --tags --prune origin
+git reset --hard origin/master
+git checkout -B master origin/master
+if [ -z "${CADDY_REEXEC:-}" ]; then
+  export CADDY_REEXEC=1
+  exec "$0" "$@"
+fi
+
 # ── Welke refs leveren de config? ────────────────────────────────────────────
 # Argument > CADDY_REF > de tag van de betreffende omgeving. Er is BEWUST geen
 # terugval op master: dat is precies de fout die we uitsluiten.
@@ -87,8 +121,6 @@ if [ -z "$PROD_REF" ]; then
 fi
 [ -n "$UAT_REF" ] || UAT_REF="$PROD_REF"
 
-git fetch --tags --prune origin
-
 # ── Gemengde toestand afvangen (#572) ────────────────────────────────────────
 # Draait UAT al een tag MET caddy/parts/ terwijl PROD nog op een tag van vóór de
 # splitsing staat, dan valt de code hieronder terug op de monolithische config van
@@ -103,14 +135,6 @@ if [ -z "$EXPLICIT" ]; then
     echo "backwards compatible is, bv: ./deploy-caddy.sh $UAT_REF" >&2
     exit 1
   fi
-fi
-
-# ── Tooling op master, daarna één re-exec (#162-patroon) ─────────────────────
-git reset --hard origin/master
-git checkout -B master origin/master
-if [ -z "${CADDY_REEXEC:-}" ]; then
-  export CADDY_REEXEC=1
-  exec "$0" "$@"
 fi
 
 restore_prev() {
