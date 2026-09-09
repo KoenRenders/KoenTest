@@ -11,21 +11,20 @@
 # platgelegd. Die situatie is voorbij: PROD draait v2.0.0 en er is geen
 # frontend-container meer (React-exit #405).
 #
-# ── WAT HIER NOG NIET STAAT: de platform-blokken (#406) ─────────────────────
-# Commit e375866 bevat ook site-blokken voor {$PLATFORM_DOMAIN} en
-# {$PLATFORM_WWW_DOMAIN}. Die zijn hier BEWUST weggelaten, en haal ze niet
-# "even" terug uit die commit — de reden is DNS en niet Caddy.
+# ── HET PLATFORM-BLOK (#406/#801) ───────────────────────────────────────────
+# Het platform-domein staat er sinds #801 wél in. De voorwaarde die het tegenhield
+# is vervuld: de naam is een SUBDOMEIN dat naar deze server wijst (geverifieerd
+# vanaf de server), en `PLATFORM_PROD_DOMAIN` staat in .env.caddy.
 #
-# Beide namen zijn bij de registrar doorstuurrecords en wijzen op dit moment
-# niet naar deze server. Een site-blok ervoor betekent dat Caddy voor elk van
-# beide een certificaat gaat aanvragen; die aanvraag kan niet slagen zolang de
-# naam hier niet uitkomt, wordt eindeloos herhaald, en eindigt in de
-# rate-limiting van Let's Encrypt. Dat raakt dan ook de aanvragen van de sites
-# die het wél doen.
+# Er is bewust GEEN www-variant. Het is een subdomein, dus die vorm bestaat niet —
+# gecontroleerd: ze resolvet niet. Het oude `{$PLATFORM_WWW_DOMAIN}`-redirectblok is
+# daarom weg en de variabele bestaat niet meer.
 #
-# Ze komen er dus pas bij wanneer (a) de DNS van die namen naar deze server
-# wijst en (b) hun variabelen in .env.caddy op de server staan. Dat is eigen
-# werk met eigen DNS-stappen en hangt niet aan deze release.
+# Zet zo'n variabele nooit LEEG als je een blok wil uitschakelen: een lege waarde
+# expandeert tot een leeg site-adres en maakt de HELE gedeelde config ongeldig.
+# Gemeten met `caddy validate`: "server block without any key is global
+# configuration, and if used, it must be first" — en dan start Caddy niet meer op,
+# met PROD erin. Weg is veilig, leeg is fataal.
 #
 # Zie CLAUDE.md → "Shared Caddy: expand/contract".
 
@@ -47,4 +46,12 @@
 {$STATS_PROD_DOMAIN} {
 	import security_headers
 	reverse_proxy prod-umami:3000
+}
+
+# Raak Digital Platform (#406, 5c): de wortel is de platform-landing, de
+# pad-prefixen zijn de units zonder eigen domein. Alles gaat naar de prod-backend;
+# de tenant-middleware leidt de tenant af uit het pad.
+{$PLATFORM_PROD_DOMAIN} {
+	import security_headers
+	reverse_proxy prod-backend:8000
 }
