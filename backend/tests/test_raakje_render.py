@@ -45,15 +45,54 @@ def test_geneste_opsomming_met_twee_spaties():
     assert html.count("<li>") == 4  # twee activiteiten + twee datums
 
 
-def test_een_zacht_regeleinde_blijft_een_regeleinde():
-    """`breaks=True` vervangt de `nl2br`-extensie van de oude parser.
+def test_een_zacht_regeleinde_blijft_op_dezelfde_regel():
+    """#794 — dit draait #790 terug, en de reden hoort erbij.
 
-    Zonder deze test zou "zet de parser om" ook groen staan met twee regels die aan
-    elkaar geplakt worden — CommonMark negeert een enkel regeleinde standaard.
+    Bij #790 stond `breaks=True`, overgenomen van de `nl2br`-extensie uit #566. Maar
+    v1.14 draaide `react-markdown` **zonder plugins** — geen `remark-breaks` — dus
+    daar viel een los regeleinde samen tot een spatie en bleef een antwoord compact.
+    Met `breaks=True` werd elk regeleinde dat het model toevallig zet een zichtbare
+    breuk, en begon de locatie van een activiteit op een eigen regel.
+
+    Rood op de code van #790: die zette hier een `<br>`.
     """
-    html = render_answer_markdown("regel een\nregel twee")
+    html = render_answer_markdown("- **Wandeling** (Miloheem)\n  15 januari, gratis")
 
-    assert "<br" in html, f"het zachte regeleinde is verdwenen:\n{html}"
+    assert "<br" not in html, (
+        f"een zacht regeleinde wordt nog steeds een breuk:\n{html}")
+    assert "Miloheem" in html and "15 januari" in html
+
+
+def test_een_lege_regel_geeft_nog_steeds_een_nieuwe_alinea():
+    """De tegenproef op de vorige: `breaks` uitzetten mag niet doorschieten.
+
+    Zonder deze test zou "plak alles aan elkaar" ook groen staan, en dan loopt een
+    antwoord van twee alinea's als één blok tekst door.
+    """
+    html = render_answer_markdown("Eerste alinea.\n\nTweede alinea.")
+
+    assert html.count("<p>") == 2, f"de alinea-overgang is verdwenen:\n{html}"
+
+
+def test_een_scheidingslijn_haalt_de_ballon_niet_uit_elkaar():
+    """#794 — `hr` staat niet meer in de allowlist.
+
+    Let op de vorm van de assertie: hij kijkt naar de UITVOER, niet naar de
+    brontekst. Zoeken of `---` verdwenen is zou ook slagen terwijl de streep er
+    gewoon staat — nh3 verwijdert de tag, niet het bronteken.
+
+    Koppen blijven bewust wél toegestaan: nh3 houdt de tekst van een verwijderde tag,
+    dus een gestripte kop wordt een losse zin midden in de flow. Een streep draagt
+    geen informatie, dus die kost niets om weg te halen.
+    """
+    html = render_answer_markdown("Eerste deel\n\n---\n\nTweede deel")
+
+    assert "<hr" not in html, f"de tekstballon wordt nog in stukken gesneden:\n{html}"
+    assert "Eerste deel" in html and "Tweede deel" in html
+
+    # De asymmetrie, in dezelfde test zodat ze niet los van elkaar sneuvelt:
+    kop = render_answer_markdown("## Activiteiten")
+    assert "<h2>" in kop, "koppen horen wél toegestaan te blijven (#794)"
 
 
 def test_ruwe_html_wordt_gesaneerd():
@@ -95,6 +134,28 @@ def test_javascript_link_scheme_geweerd():
 def test_lege_invoer():
     assert render_answer_markdown(None) == ""
     assert render_answer_markdown("") == ""
+
+
+def test_de_systeemprompt_zegt_hoe_een_activiteitenlijst_eruitziet():
+    """#794 — de eigenlijke oorzaak zat in de prompt, niet in de renderer.
+
+    Dezelfde vraag gaf op dezelfde commit de ene keer één regel per activiteit en de
+    andere keer koppen met sublijsten en strepen ertussen. Dat is logisch: over de
+    présentatievorm stond er niets in `SYSTEM_PERSONA`, dus was ze aan het toeval
+    overgelaten.
+
+    **Wat deze test wel en niet doet.** Ze bewaakt dat de instructie er stáát; ze kan
+    niet bewijzen dat het model haar volgt — dat kan geen enkele test, en daarom zijn
+    de twee grendels hierboven (`breaks` uit, `hr` geweerd) er ook. Zonder deze test
+    verdwijnt de instructie ooit stilletjes bij een herschrijving van de persona en
+    komt het toeval terug.
+    """
+    from app.domains.chatbot.context import SYSTEM_PERSONA
+
+    assert "EEN opsommingsregel per activiteit" in SYSTEM_PERSONA
+    for verboden in ("GEEN sublijst", "GEEN scheidingslijn", "GEEN\n  koppen"):
+        assert verboden.replace("\n  ", " ") in " ".join(SYSTEM_PERSONA.split()), (
+            f"de persona verbiedt '{verboden}' niet meer")
 
 
 # ── #566 end-to-end: het /raakje/vraag-fragment rendert de markdown ─────────
