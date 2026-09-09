@@ -149,3 +149,27 @@ def test_de_kleurtokens_komen_uit_de_gegenereerde_css(client, db_session):
 
     assert resp.status_code == 200
     assert "var(--" in resp.text, "er wordt geen enkel token uit de CSS getoond"
+
+
+def test_systeeminfo_verwijst_naar_de_pagina(client, db_session):
+    """#783 punt 3b — anders vindt niemand haar.
+
+    Een scherm dat alleen bestaat als je het pad kent, wordt niet gebruikt, en dan
+    veroudert het precies zoals de HTML-gids die het vervangt. De volledigheidsgate
+    houdt de pagina volledig; deze link houdt haar in gebruik.
+
+    Systeeminfo is de juiste plek en niet zomaar een plek: die gaat over het systeem
+    en niet over de gegevens, net als het design system. Ze draaien allebei op
+    `require_admin_ui`, dus de link kan nooit naar een 403 wijzen — bij een
+    OPERATOR-only keuze was dat wél gebeurd voor elke ADMIN.
+
+    Kapotgemaakt om te controleren dat deze test rood kan worden: het blok uit
+    `admin_info.html` gehaald → rood.
+    """
+    _sessie(client, db_session, "ds-info@example.com", "ADMIN")
+
+    resp = client.get("/admin/info")
+
+    assert resp.status_code == 200
+    assert "/admin/design-system" in resp.text, (
+        "Systeeminfo verwijst niet naar het design system")

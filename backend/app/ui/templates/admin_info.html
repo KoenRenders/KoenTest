@@ -17,6 +17,24 @@
 {% block content %}
 {{ ui.page_header(_("Systeeminfo")) }}
 <div class="space-y-6">
+  {# #783: de link naar het design system hoort hier en niet zomaar ergens.
+     Systeeminfo gaat over het systeem en niet over de gegevens, net als die pagina —
+     en beide draaien op `require_admin_ui`, dus deze link kan nooit naar een scherm
+     wijzen dat de kijker niet mag zien.
+
+     Waarom het meer is dan een gemak: een pagina die je alleen vindt als je het pad
+     kent, gebruikt niemand — en dan veroudert ze precies zoals de HTML-gids die ze
+     vervangt. De volledigheidsgate houdt haar volledig; deze link houdt haar in
+     gebruik. #}
+  <div class="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between gap-4">
+    <div>
+      <h2 class="font-bold text-blue-700">{{ _("Design system") }}</h2>
+      <p class="text-sm text-gray-600">
+        {{ _("De kit zoals hij vandaag is — gerenderd uit de echte macro's en app.css.") }}
+      </p>
+    </div>
+    {{ ui.btn_secondary(_("Openen"), href="/admin/design-system") }}
+  </div>
   {{ sectie(_("Versie & omgeving"), [
       (_("Versie"), info.version), (_("Commit"), info.commit),
       (_("Omgeving"), info.environment), (_("Servertijd"), info.server_time),
