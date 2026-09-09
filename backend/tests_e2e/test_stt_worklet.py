@@ -1,22 +1,27 @@
-"""E2E: de worklet herbemonstert naar 16 kHz (#751).
+"""E2E: de worklet zet audio om naar PCM16 — en herbemonstert niet (#751, #772).
 
-De oorzaak, met de woorden van Firefox zelf:
+**Dit hoort in een browser.** De worklet draait in de audio-thread; een servertest kan
+er niet bij. Het echte bronbestand wordt hier ingeladen met een stub voor
+`AudioWorkletProcessor` en `registerProcessor`, zodat `process()` getoetst wordt zoals
+hij draait — niet een kopie ervan.
 
-    NotSupportedError — AudioContext.createMediaStreamSource: Connecting AudioNodes
-    from AudioContexts with different sample-rate is currently not supported.
+**Wat hier vroeger stond, en waarom het weg is.** Tussen #751 en #772 herbemonsterde
+deze worklet zelf naar 16 kHz, lineair en zonder anti-aliasfilter. Gemeten op die
+versie, met een raster van 125 Hz over de uitgang: een toon van 10 kHz kwam terug op
+6 kHz met amplitude 0,25 — even sterk als het origineel — en 14 kHz op 2 kHz, midden
+in de spraakband. Nul demping, want 48/16 is precies 3: de posities vielen op hele
+samples en de interpolatie kreeg nooit een breukdeel te zien. Voxtral herkende in die
+ruis geen spraak.
 
-De microfoon levert op Linux vrijwel altijd 48 kHz (PipeWire) en de context stond op
-16 kHz. Chrome herbemonstert stilzwijgend; daarom werkte het daar en nergens anders.
-De context draait nu op de snelheid van het apparaat en de worklet herbemonstert.
+De drie tests die er toen stonden (lengte, RMS, nuldoorgangen van een 440 Hz-sinus)
+waren correct en **ontoereikend**: een enkele toon onder de Nyquist-grens
+herbemonstert altijd netjes, dus geen ervan kón dit zien. Dat is geen verwijt, het is
+de blinde vlek die telt — en de les die #772 eruit trok is niet "toets beter" maar
+"doe het niet zelf". Herbemonsteren is het werk van de browser.
 
-**Dit hoort in een browser.** De worklet draait in de audio-thread en gebruikt de
-globale `sampleRate`; een servertest kan er niet bij. De echte bronbestanden worden
-hier ingeladen met een stub voor `AudioWorkletProcessor` en `registerProcessor`, zodat
-`process()` getoetst wordt zoals hij draait — niet een kopie ervan.
-
-De tweede test is de randvoorwaarde die het makkelijkst sneuvelt: op een apparaat dat
-16 kHz wél levert moet het een doorgeefluik blijven. Een herbemonstering die het
-gelijke-snelheid-geval sloopt, ruilt de ene storing voor de andere.
+Wat overblijft is dus wat de worklet nog wél doet: het aantal samples ongemoeid laten
+(er wordt niets meer uitgedund), Float32 correct naar Int16 schalen, en de RMS
+berekenen op precies de stroom die verstuurd wordt.
 """
 import os
 import sys
@@ -64,45 +69,36 @@ def _draai(page, rate, n):
     return page.evaluate(PROEF, [open(BRON).read(), rate, n])
 
 
-def test_48_khz_wordt_teruggebracht_naar_16(page):
-    """Het geval dat de storing gaf: 48 kHz in, een derde eruit."""
-    uit = _draai(page, 48000, 384)
+def test_de_worklet_dunt_niets_meer_uit(page):
+    """Wat erin gaat, gaat eruit — op elke snelheid.
 
-    assert uit["aantal"] == 128, (
-        f"384 samples op 48 kHz horen er 128 op 16 kHz te worden, niet {uit['aantal']}")
-    assert 0.2 < uit["rms"] < 0.5, (
-        f"de RMS ({uit['rms']:.3f}) klopt niet voor een sinus van 0,5 — de "
-        "stiltedetectie hoort op de HERBEMONSTERDE stroom te rekenen")
+    Dat is de kern van #772: de worklet is geen resampler meer. Zou hij het tóch weer
+    worden, dan valt het aantal samples meteen op.
+    """
+    for rate in (16000, 44100, 48000):
+        uit = _draai(page, rate, 384)
+        assert uit["aantal"] == 384, (
+            f"op {rate} Hz komen er {uit['aantal']} van de 384 samples uit — er wordt "
+            "weer herbemonsterd")
 
 
-def test_16_khz_blijft_een_doorgeefluik(page):
-    """De randvoorwaarde: een apparaat dat 16 kHz levert mag niet stukgaan."""
+def test_de_rms_hoort_bij_de_verstuurde_stroom(page):
+    """De stiltedetectie rekent op wat er verstuurd wordt, niet op iets ernaast.
+
+    Een sinus met amplitude 0,5 heeft een RMS van 0,5/√2 ≈ 0,354. Wijkt dit af, dan
+    klopt de schaling naar Int16 niet of wordt er over de verkeerde reeks gerekend —
+    en dan stopt de opname te vroeg of nooit.
+    """
+    uit = _draai(page, 48000, 480)
+
+    assert 0.34 < uit["rms"] < 0.37, f"RMS {uit['rms']:.3f}, verwacht ~0,354"
+
+
+def test_de_omzetting_naar_int16_klopt_op_het_teken(page):
+    """Negatief schaalt op 0x8000 en positief op 0x7fff — anders klipt de ene helft
+    of is de andere een sample te stil. Het eerste sample van een sinus is 0, het
+    tweede positief."""
     uit = _draai(page, 16000, 128)
 
-    assert uit["aantal"] == 128, "bij gelijke snelheid hoort er niets te veranderen"
-    # Het eerste sample van een sinus is 0; het tweede al niet meer. Zou de lus een
-    # halve stap verschoven zijn, dan zie je dat hier meteen.
     assert uit["eerste"][0] == 0
     assert uit["eerste"][1] > 0
-
-
-def test_de_toonhoogte_blijft_staan(page):
-    """Herbemonsteren mag het signaal niet uitrekken.
-
-    Een 440 Hz-sinus van 384 samples op 48 kHz duurt 8 ms en bevat ~3,5 perioden.
-    Na herbemonstering zijn dat 128 samples op 16 kHz — dezelfde 8 ms, dus nog
-    steeds ~3,5 perioden. Wie de stap verkeerd om zet, krijgt er 1,2 of 10.
-    """
-    uit = page.evaluate(PROEF.replace(
-        "return {aantal:", """
-        const pcm = new Int16Array(m.pcm);
-        let kruisingen = 0;
-        for (let i = 1; i < pcm.length; i++) {
-          if ((pcm[i - 1] < 0) !== (pcm[i] < 0)) kruisingen++;
-        }
-        return {kruisingen: kruisingen, aantal:"""),
-        [open(BRON).read(), 48000, 384])
-
-    # ~3,5 perioden → 7 nuldoorgangen; met wat speling voor de randen.
-    assert 5 <= uit["kruisingen"] <= 9, (
-        f"{uit['kruisingen']} nuldoorgangen — het signaal is uitgerekt of ingekort")
