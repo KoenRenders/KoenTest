@@ -12,8 +12,11 @@ Chat with Koen is in Dutch (nl-BE), but **all documentation written from now on
 is in English** — code comments, docstrings, README's, `docs/`, ADRs, and this
 file. This holds even when the conversation is in Dutch.
 
-Existing Dutch documentation stays as it is (`docs/ui-conventies.md`,
-`docs/rollen-en-rechten.md`, `docs/design-system.html`, the Dutch sections below, …).
+Existing Dutch documentation stays as it is (`docs/ui-conventies.md` — now only
+IST inventories and work lists, `docs/rollen-en-rechten.md`, the Dutch sections
+below, …). The UI norm itself is English since 9 September 2026:
+`docs/design-system.md`, one document for look, behaviour and copy, with the
+components rendered live from the real macros at `/admin/design-system` (#783).
 Do not translate it unless Koen asks. User-facing UI copy is Dutch and is not
 documentation — it is unaffected by this rule.
 
@@ -723,8 +726,8 @@ De oude group-size- en leeftijdscategorie-tellers (`GROUP`, `AGE_CATEGORY`,
 Er is geen Next.js/Node meer. Elke component levert zijn schermen als
 `ui.py`/`admin_ui.py` (routes bouwen een view-model en kiezen een template) +
 `templates/` (Jinja; htmx voor interactie, Alpine voor kleine client-state).
-Conventies: `docs/ui-conventies.md` (#396) en de UI-kit-macro's in
-`backend/app/ui/templates/_macros.html`. De publieke schil is
+Conventies: `docs/design-system.md` (de norm sinds 9 september 2026; #396 was de
+aanzet) en de UI-kit-macro's in `backend/app/ui/templates/_macros.html`. De publieke schil is
 `site_base.html` (+ `app.ui.site_context(db)`), de beheer-schil
 `admin_base.html` (+ `app.ui.admin_nav(active)`). CSS wordt gegenereerd met
 `scripts/build-css.sh` (Tailwind standalone-CLI, nul Node) → commit
@@ -857,4 +860,4 @@ only imports from a domain's `api.py`; its template context comes from a
 `ViewModel`, not a dict literal. And by `test_template_variables_gate.py`: a
 template asks for nothing its view-model does not promise. Templates render under
 `StrictUndefined` in dev/test/HDEV, so a typo fails instead of rendering blank —
-see *Where logic lives* in `docs/ui-conventies.md`.
+see *Where logic lives* in `docs/design-system.md` §8.3.

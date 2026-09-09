@@ -1,8 +1,9 @@
 # UI-conformiteitsmatrix (#528 as D)
 
-SOLL versus IST per scherm, gemeten tegen de code — niet geschat. De SOLL staat in
-`docs/design-system.html` (de mock) en `docs/ui-conventies.md`; deze matrix zegt
-waar de code daar vandaag staat.
+SOLL versus IST per scherm, gemeten tegen de code — niet geschat. De SOLL staat
+sinds 9 september 2026 in `docs/design-system.md` (één norm; de vroegere mock
+`design-system.html` en de normatieve delen van `ui-conventies.md` zijn daarin
+opgegaan); deze matrix zegt waar de code daar vandaag staat.
 
 **Bewaakt door `backend/tests/test_ui_conventions_gate.py`.** Die test is de reden
 dat deze matrix niet veroudert: zakt een kolom terug naar ⚠️, dan valt CI om. De
