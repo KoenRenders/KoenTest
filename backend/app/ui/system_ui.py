@@ -46,16 +46,22 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db),
 @router.get("/admin/info", response_class=HTMLResponse)
 def admin_info(request: Request, db: Session = Depends(get_db),
                email: str = Depends(require_admin_ui)):
-    from app.kernel.tenant_config import tenant_umami_src, tenant_umami_website_id
+    from app.kernel.tenant_config import tenant_umami_src, umami_tracking
     from app.ui.admin_api import get_system_info
 
     info = get_system_info(_admin=None)  # type: ignore[arg-type]
-    umami_src = tenant_umami_src(db)
-    umami_website_id = tenant_umami_website_id(db)
-    umami_dashboard = umami_src.removesuffix("script.js") if umami_src else ""
+    # #808: dezelfde functie als de publieke schil, zodat dit scherm niet iets
+    # anders kan beweren dan er gebeurt. Vóór #808 stond hier `bool(src and id)` en
+    # dat toetste of er tekst stond — het scherm meldde "geconfigureerd" terwijl er
+    # sinds de React-exit nergens een script gerenderd werd.
+    umami_src, umami_website_id = umami_tracking(db)
+    # De dashboard-link hangt alleen aan de script-URL: de historische cijfers zijn
+    # ook te bekijken wanneer het meten (nog) niet aan staat.
+    losse_src = tenant_umami_src(db)
+    umami_dashboard = losse_src.removesuffix("script.js") if losse_src else ""
     return templates.TemplateResponse(request, "admin_info.html", {
         "nav_items": NAV, "info": info,
-        "umami_configured": bool(umami_src and umami_website_id),
+        "umami_actief": bool(umami_src and umami_website_id),
         "umami_dashboard": umami_dashboard,
         "umami_website_id": umami_website_id,
     })

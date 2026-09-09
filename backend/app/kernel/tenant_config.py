@@ -201,6 +201,28 @@ def tenant_umami_website_id(db: Session, tenant_id: int | None = None) -> str:
             or settings.umami_website_id)
 
 
+def umami_tracking(db: Session, tenant_id: int | None = None) -> tuple[str, str]:
+    """(script-URL, website-id) — of twee lege strings (#808).
+
+    **Beide of geen van beide.** Een half ingevulde instelling zou een scripttag met
+    een lege `src` of een leeg `data-website-id` opleveren: een verzoek dat nergens
+    heen gaat, of een script dat naar niets rapporteert. Geen van beide meet iets, en
+    allebei zien ze er in de broncode uit alsof er wél iets gebeurt.
+
+    Eén functie, want de publieke schil en het Systeeminfo-scherm moeten hetzelfde
+    zeggen. Vóór #808 rekende Systeeminfo zelf `bool(src and id)` uit en toonde
+    "geconfigureerd" — terwijl er sinds de React-exit nergens een script gerenderd
+    werd. Die vlag toetste of er tekst stond, niet of er iets gebeurde. Nu is ze
+    hetzelfde antwoord als dat van de schil, dus ze kunnen niet meer uit elkaar
+    lopen.
+    """
+    src = tenant_umami_src(db, tenant_id)
+    website_id = tenant_umami_website_id(db, tenant_id)
+    if not (src and website_id):
+        return "", ""
+    return src, website_id
+
+
 def tenant_membership_config(db: Session | None = None,
                              tenant_id: int | None = None) -> dict:
     """Lidmaatschapsprijzen en -datumgrenzen van de actieve tenant (branding-

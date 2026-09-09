@@ -60,8 +60,12 @@
     <h2 class="font-bold text-blue-700 mb-3">{{ _("Analytics") }}</h2>
     <dl class="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1 text-sm">
       <div class="flex justify-between gap-4 border-b border-gray-100 py-1">
+        {# #808: "meet mee" en niet "geconfigureerd". Het oude label zei dat er
+           tekst in de instellingen stond; sinds de React-exit werd er niets
+           gerenderd, dus het vinkje stond groen voor iets dat niet gebeurde. Deze
+           waarde komt nu uit dezelfde `umami_tracking()` als de publieke schil. #}
         <dt class="text-gray-600">{{ _("Webstatistieken (Umami)") }}</dt>
-        <dd class="font-medium text-right">{{ _("geconfigureerd") if umami_configured else _("niet geconfigureerd") }}</dd>
+        <dd class="font-medium text-right">{{ _("meet mee") if umami_actief else _("meet niet") }}</dd>
       </div>
       {% if umami_dashboard %}
       <div class="flex justify-between gap-4 border-b border-gray-100 py-1">

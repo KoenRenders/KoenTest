@@ -75,6 +75,7 @@
           data-worklet="{{ statisch('stt-pcm-worklet.js') }}" defer></script>
   <script src="{{ statisch('tts.js') }}" defer></script>
   {% endif %}
+  {% include "_umami.html" %}
 </head>
 {# hx-boost (#634): zie admin_base voor de redenering. De publieke schil boost op
    dezelfde manier; links naar de andere schil (/admin) en /afmelden zetten het uit. #}

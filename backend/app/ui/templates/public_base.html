@@ -15,6 +15,7 @@
   <script src="{{ statisch('stt.js') }}"
           data-worklet="{{ statisch('stt-pcm-worklet.js') }}" defer></script>
   <script src="{{ statisch('tts.js') }}" defer></script>
+  {% include "_umami.html" %}
 </head>
 <body class="bg-gray-50 min-h-screen text-ink" data-shell="public" hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
   <main class="max-w-3xl mx-auto px-4 py-8">

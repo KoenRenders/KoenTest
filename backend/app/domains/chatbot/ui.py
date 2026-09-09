@@ -35,10 +35,19 @@ router = APIRouter(include_in_schema=False)
 # ── Publiek: Raakje ────────────────────────────────────────────────────────────
 
 @router.get("/raakje", response_class=HTMLResponse)
-def raakje_page(request: Request):
+def raakje_page(request: Request, db: Session = Depends(get_db)):
+    # #808: `/raakje` hangt aan `public_base.html` en NIET aan `site_base.html`,
+    # dus het krijgt `site_context()` niet. Zonder deze twee waarden zou het de enige
+    # publieke pagina zijn die niet meetelt — en dat merk je nooit, want de cijfers
+    # zien er verder normaal uit.
+    from app.kernel.tenant_config import umami_tracking
+
+    umami_src, umami_website_id = umami_tracking(db)
     return templates.TemplateResponse(request, "raakje.html",
                                       {"enabled": settings.chat_enabled,
-                                       "stt_mode": settings.stt_mode})
+                                       "stt_mode": settings.stt_mode,
+                                       "umami_src": umami_src,
+                                       "umami_website_id": umami_website_id})
 
 
 @router.post("/raakje/vraag", response_class=HTMLResponse,
