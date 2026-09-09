@@ -1,0 +1,26 @@
+{# #791: de tekstballonnen van Raakje, op één plaats.
+
+   Ze staan op drie schermdelen — de welkomsttekst in de widget, dezelfde tekst op
+   `/raakje`, en elk antwoord — en het zijn lange klassenreeksen. Drie kopieën lopen
+   uit elkaar bij de eerstvolgende wijziging; dat is precies hoe de introtekst zelf
+   uiteen liep vóór #765.
+
+   Het hoekje is de reden van dit issue. `rounded-bl-sm` (Raakje) en `rounded-br-sm`
+   (de bezoeker) komen letterlijk uit `frontend/src/components/ChatWidget.tsx` op tag
+   `v1.14.0`. Let op de maat: `sm` is 0,125rem = 2 px, géén rechte hoek. Op het scherm
+   oogt dat als vierkant, en dít is de hoek die op PROD staat — dus niet
+   `rounded-bl-none`, hoe logisch die naam ook klinkt.
+
+   Wat we NIET uit v1.14 overnemen is de kleur: daar was de Raakje-ballon wit met een
+   rand, hier is hij `bg-gray-100`. Daar is niet om gevraagd.
+
+   Géén macro in `_macros.html`: dat zou een kit-component zijn met een plaats op
+   `/admin/design-system`, en dat is een aparte afweging (zie #791). Dit blijft
+   binnen het chatbot-domein. #}
+{% macro van_raakje() -%}
+inline-block max-w-full bg-gray-100 text-gray-900 rounded-2xl rounded-bl-sm px-4 py-2 text-sm space-y-2 [&_strong]:font-semibold [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-blue-700 [&_a]:underline
+{%- endmacro %}
+
+{% macro van_bezoeker() -%}
+inline-block bg-blue-700 text-white rounded-2xl rounded-br-sm px-4 py-2 text-sm
+{%- endmacro %}
