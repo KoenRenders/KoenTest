@@ -10,7 +10,12 @@ precies de omschakeling waarbij de gedeelde Caddy de pagina's van `prod-frontend
 naar `prod-backend` stuurde — de meting stopte op het moment dat de server-rendered
 stack het overnam.
 
-**De derde test is de belangrijkste.** Zonder haar is "het script staat in de
+**Twee schillen, niet één.** `site_base.html` en `public_base.html` erven niet van
+elkaar; de tweede draagt alleen `/raakje`. Het script in één schil zetten maakt
+precies één pagina blind, en dat is onzichtbaar in de cijfers. Beide staan daarom in
+de parametrisering.
+
+**De tegenproef op de beheerschil is de belangrijkste.** Zonder haar is "het script staat in de
 basis-template" niet te onderscheiden van "het script staat in de JUISTE
 basis-template", en beheerverkeer zou meetellen als bezoek.
 
@@ -62,14 +67,25 @@ def _beheerder(client, db_session, email="umami@example.com"):
     client.cookies.set(SESSION_COOKIE, make_session_value(email))
 
 
-def test_een_publieke_pagina_draagt_het_script(client, db_session):
+# Er zijn TWEE publieke schillen en ze erven niet van elkaar: `site_base.html`
+# (veertien templates) en `public_base.html` (alleen `/raakje`). Het script alleen in
+# de eerste zetten maakt precies één pagina blind, en dat merk je nooit — de cijfers
+# zien er verder normaal uit.
+PUBLIEKE_PAGINAS = ["/", "/raakje"]
+
+
+@pytest.mark.parametrize("pad", PUBLIEKE_PAGINAS)
+def test_elke_publieke_schil_draagt_het_script(client, db_session, pad, monkeypatch):
+    from app.config import settings
+
+    monkeypatch.setattr(settings, "chat_enabled", True)
     _stel_in(db_session)
 
-    html = client.get("/").text
+    html = client.get(pad).text
 
-    assert SRC in html, "het trackingscript staat niet op de publieke pagina"
+    assert SRC in html, f"{pad} draagt het trackingscript niet"
     assert f'data-website-id="{WEBSITE_ID}"' in html, (
-        "het script rapporteert niet aan het juiste website-id")
+        f"{pad} rapporteert niet aan het juiste website-id")
 
 
 @pytest.mark.parametrize("src,website_id", [
@@ -118,3 +134,95 @@ def test_systeeminfo_zegt_of_er_echt_gemeten_wordt(client, db_session):
 
     _stel_in(db_session)
     assert "meet mee" in client.get("/admin/info").text
+
+
+# ── De gate: elke publieke schil draagt het blok ─────────────────────────────
+
+# Wélke soort schil het trackingscript hoort te dragen. De verzameling schillen zelf
+# wordt AFGELEID (elk template dat een volledig document is), niet opgesomd: een gate
+# die `site_base.html` en `public_base.html` bij naam noemt vangt de fout van vandaag
+# maar niet die van morgen — en die van morgen is een dérde schil waar niemand aan
+# denkt, precies hoe `public_base.html` vandaag over het hoofd gezien is.
+#
+# Een onbekende soort maakt de gate rood. Zo dwingt hij geen momentopname af maar een
+# beslissing: wie een schil toevoegt, zegt erbij of ze meetelt.
+SCHILSOORTEN = {
+    "site": True,       # de publieke site — veertien templates
+    "public": True,     # /raakje, een eigen schil die NIET van site_base erft
+    "platform": False,  # eigen domein; tenant-cijfers zouden vervuild raken
+    "admin": False,     # beheerverkeer is geen bezoek
+    "afdruk": False,    # papier, en de route eronder is een beheerscherm
+}
+
+
+def _schillen() -> dict:
+    """Elk template dat een volledig document is, met zijn `data-shell`-soort."""
+    import re
+    from pathlib import Path
+
+    app = Path(__file__).resolve().parents[1] / "app"
+    gevonden = {}
+    for pad in list(app.rglob("*.html")):
+        tekst = pad.read_text()
+        if "<!DOCTYPE" not in tekst:
+            continue
+        soort = re.search(r'data-shell="([a-z]+)"', tekst)
+        gevonden[pad] = soort.group(1) if soort else None
+    return gevonden
+
+
+def test_de_gate_vindt_uberhaupt_schillen():
+    """#678: een gate die niets vindt, staat voorgoed groen.
+
+    Verhuist de templatemap of wijzigt de manier waarop een schil herkenbaar is, dan
+    hoort deze poort te vallen in plaats van stilzwijgend niets meer te bewaken.
+    """
+    schillen = _schillen()
+
+    assert len(schillen) >= 4, (
+        f"maar {len(schillen)} volledige documenten gevonden — kijkt deze gate nog "
+        "wel op de juiste plaats?")
+
+
+def test_elk_volledig_document_zegt_wat_voor_schil_het_is():
+    """Zonder `data-shell` kan de gate niet beslissen, en dan raadt hij."""
+    zonder = sorted(str(p.name) for p, soort in _schillen().items() if soort is None)
+
+    assert not zonder, (
+        f"deze documenten dragen geen data-shell: {zonder}. Voeg er een toe en zet "
+        "de soort in SCHILSOORTEN, met de reden waarom ze wel of niet meetelt.")
+
+
+def test_elke_publieke_schil_bevat_het_analytics_blok():
+    """En de niet-publieke juist niet.
+
+    **Wat deze gate NIET bewijst:** dat een `hx-boost`-navigatie geteld wordt. Dat is
+    gedrag van Umami's script en geen eigenschap van onze templates. Een groene poort
+    zegt hier alleen "de tag staat er" — precies het onderscheid dat `umami_configured`
+    vóór #808 verkeerd maakte, en dat is het hele punt van dit issue.
+
+    (Gemeten uit het script dat onze eigen Umami serveert: het vervangt
+    `history.pushState`/`replaceState` door een wrapper die bij een échte
+    URL-wijziging een pageview inplant, en auto-track staat aan tenzij je
+    `data-auto-track="false"` zet. htmx boost navigeert via `pushState`. Dat is een
+    meting op een image-versie, geen garantie voor elke toekomstige versie — dus ze
+    staat hier als opmerking en niet als assertie.)
+
+    Kapotgemaakt om te controleren dat deze gate rood kan worden: het
+    `{% include "_umami.html" %}` uit `public_base.html` gehaald → rood mét die
+    bestandsnaam.
+    """
+    ontbreekt, teveel = [], []
+    for pad, soort in _schillen().items():
+        if soort not in SCHILSOORTEN:
+            continue  # de vorige test meldt dit al, met een bruikbaarder bericht
+        heeft = '{% include "_umami.html" %}' in pad.read_text()
+        if SCHILSOORTEN[soort] and not heeft:
+            ontbreekt.append(pad.name)
+        if not SCHILSOORTEN[soort] and heeft:
+            teveel.append(pad.name)
+
+    assert not ontbreekt, (
+        f"deze publieke schillen meten niets: {sorted(ontbreekt)}")
+    assert not teveel, (
+        f"deze schillen horen niet mee te tellen maar dragen het script: {sorted(teveel)}")

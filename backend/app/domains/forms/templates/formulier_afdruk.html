@@ -18,7 +18,9 @@
     @media print { .noprint { display: none; } }
   </style>
 </head>
-<body>
+{# #808: `data-shell` is verplicht op elk volledig document; `afdruk` draagt geen
+   trackingscript. Dit is papier — en de route eronder is een beheerscherm. #}
+<body data-shell="afdruk">
   <p class="noprint"><button onclick="window.print()">{{ _("🖨 Afdrukken") }}</button></p>
   <h1>{{ form.title }}</h1>
   {% if form.description %}<p>{{ form.description }}</p>{% endif %}

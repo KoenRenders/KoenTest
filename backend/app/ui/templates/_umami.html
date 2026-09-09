@@ -1,0 +1,29 @@
+{# Webstatistieken (#176), teruggezet met #808 en over BEIDE publieke schillen.
+
+   Eén include en geen twee kopieën: `site_base.html` (14 templates) en
+   `public_base.html` (alleen `/raakje`) zijn aparte schillen — de tweede erft NIET
+   van de eerste. Vier regels op twee plaatsen lopen uiteen zodra er één wijzigt, en
+   dan is precies één pagina blind zonder dat de cijfers er raar uitzien.
+
+   NIET in `admin_base.html`: beheerverkeer is geen bezoek en zou de cijfers
+   vervuilen. Er staat een test op dat de beheerschil dit script niet draagt.
+
+   Bewust ZONDER `|default("")`: elke route op een publieke schil hoort deze twee
+   waarden mee te geven. Vergeet er één, dan valt de pagina om onder
+   StrictUndefined in dev/test/HDEV — en dat is precies de fout die hier twee maanden
+   onopgemerkt bleef, alleen dan luidruchtig.
+
+   `umami_src` en `umami_website_id` zijn beide leeg zodra er één ontbreekt (zie
+   `umami_tracking`), dus deze `if` kan geen halve scripttag opleveren.
+
+   Geen versie via `statisch()`: dit script staat op de Umami-server, niet in onze
+   `/static`.
+
+   hx-boost is hier geen probleem, en dat is gemeten en niet aangenomen: het script
+   dat onze eigen Umami serveert vervangt `history.pushState` en `replaceState` door
+   een wrapper die bij een échte URL-wijziging een pageview inplant, en auto-track
+   staat aan tenzij je `data-auto-track="false"` zet. htmx boost navigeert via
+   `pushState`, dus die overgangen tellen mee. #}
+{% if umami_src and umami_website_id %}
+<script defer src="{{ umami_src }}" data-website-id="{{ umami_website_id }}"></script>
+{% endif %}

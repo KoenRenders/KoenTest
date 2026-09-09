@@ -75,24 +75,7 @@
           data-worklet="{{ statisch('stt-pcm-worklet.js') }}" defer></script>
   <script src="{{ statisch('tts.js') }}" defer></script>
   {% endif %}
-  {# Webstatistieken (#176), teruggezet met #808. In v1.14 deed
-     `frontend/src/components/Analytics.tsx` dit; bij de React-exit (#405) verdween
-     het zonder Jinja-vervanger, en toen stopte de meting op het uur dat de
-     server-rendered stack het overnam.
-
-     Alleen hier en NIET in `admin_base.html`: beheerverkeer is geen bezoek en zou
-     de cijfers vervuilen. Er staat een test op dat een beheerpagina dit script niet
-     draagt — zonder die tegenproef is "het staat in de basis-template" niet te
-     onderscheiden van "het staat in de júiste basis-template".
-
-     `umami_src` en `umami_website_id` zijn beide leeg zodra er één ontbreekt (zie
-     `umami_tracking`), dus deze `if` kan geen halve scripttag opleveren.
-
-     Geen versie via `statisch()`: dit script staat op de Umami-server en niet in
-     onze `/static`. #}
-  {% if umami_src and umami_website_id %}
-  <script defer src="{{ umami_src }}" data-website-id="{{ umami_website_id }}"></script>
-  {% endif %}
+  {% include "_umami.html" %}
 </head>
 {# hx-boost (#634): zie admin_base voor de redenering. De publieke schil boost op
    dezelfde manier; links naar de andere schil (/admin) en /afmelden zetten het uit. #}
