@@ -20,6 +20,23 @@ components rendered live from the real macros at `/admin/design-system` (#783).
 Do not translate it unless Koen asks. User-facing UI copy is Dutch and is not
 documentation — it is unaffected by this rule.
 
+## Referring to issues in chat
+
+Koen does not know issue numbers by heart, and there are hundreds of them.
+Keep using the numbers — they are the link into GitHub — but **in chat, every
+issue number carries a short name in parentheses, every time it is mentioned**:
+`#785 (ontwerprichting)`, `#779 (codes en enums)`, `#657 (tracker v2.1)`. Not
+only the first time in a message; every time, because messages are skimmed.
+
+The name is two to four Dutch words, the same words every time, so it becomes
+the issue's name rather than a fresh summary. Pick it from the issue title and
+reuse it. A number without a name costs Koen a lookup for every sentence; the
+name is what makes his answer fast. (Asked for on 9 September 2026.)
+
+In GitHub text — issue bodies, tracker lines, commit messages — the number alone
+is fine: GitHub shows the title on hover, and tracker lines already carry a
+description per issue.
+
 ## Code language
 
 Decided 9 September 2026, with the ambition of several consultants working on
