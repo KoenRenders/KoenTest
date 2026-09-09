@@ -1,15 +1,24 @@
 // Spraakinvoer-eiland (#282, herbouwd na de React-exit — #405/#404-restpunt).
 // Twee paden, gekozen via data-stt-mode op de knop:
 //   - native (browser_only/native_first): Web Speech API van de browser;
-//   - provider (native_first-fallback/provider_only): mic → AudioWorklet, die
-//     herbemonstert naar 16 kHz PCM16 → onze eigen WebSocket-proxy
-//     /api/v1/stt/voxtral (de Voxtral-key blijft serverside; de browser praat enkel
-//     met de proxy). Het herbemonsteren gebeurt in de worklet en NIET door de
-//     AudioContext op 16 kHz te zetten — zie #751 daar; de uitkomst is dezelfde,
-//     de weg ernaartoe was de storing.
+//   - provider (native_first-fallback/provider_only): mic → AudioWorklet → PCM16
+//     → onze eigen WebSocket-proxy /api/v1/stt/voxtral (de Voxtral-key blijft
+//     serverside; de browser praat enkel met de proxy).
+//
+// #772: NIEMAND herbemonstert meer met de hand. Wij vragen de browser om 16 kHz en
+// proberen de context daar ook op te zetten; lukt dat, dan heeft de browser het
+// gedaan — mét zijn eigen anti-aliasfilter. Lukt het niet, dan draait alles op de
+// snelheid van het apparaat en vertellen we Voxtral wélke snelheid dat is. Onze
+// eigen resampler (#751) deed lineaire interpolatie zonder filter en vouwde alles
+// boven 8 kHz terug als ruis; Voxtral herkende er geen spraak in.
 // VAD/auto-stop: 3 s stilte ná spraak, 8 s zonder spraak, en bij tab-wissel.
 (function () {
   "use strict";
+
+  // De snelheid die Voxtral het liefst krijgt (pcm_s16le @ 16 kHz mono). Het is een
+  // VOORKEUR, geen eis: krijgen we haar niet, dan gaat de echte snelheid mee naar de
+  // server in plaats van dat wij gaan herbemonsteren.
+  var DOEL_RATE = 16000;
 
   var VAD_SILENCE_MS = 3000;
   var NO_SPEECH_MS = 8000;
@@ -42,7 +51,12 @@
       self._fail("insecure-context", "Spraakinvoer vereist een beveiligde verbinding (https).");
       return;
     }
-    navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+    // #772, weg A: vraag het aan de BRON. `ideal` en niet `exact` — gemeten in
+    // Chromium levert `exact: 16000` een OverconstrainedError op een apparaat dat
+    // alleen 48 kHz kan, en dan start de spraakinvoer helemaal niet meer.
+    navigator.mediaDevices.getUserMedia({
+      audio: { sampleRate: { ideal: DOEL_RATE }, channelCount: { ideal: 1 } }
+    }).then(function (stream) {
       self.stream = stream;
       if (self.stopped) { self._cleanup(); return; }
       self._startAudio(stream);
@@ -56,24 +70,56 @@
     });
   };
 
+  // #772: twee pogingen, in deze volgorde — en de tweede is niet zomaar een
+  // terugval maar het bewezen pad uit #751.
+  //
+  //   1. context op 16 kHz. Slaagt `createMediaStreamSource`, dan lopen stroom en
+  //      context gelijk en heeft de BROWSER het herbemonsteren gedaan.
+  //   2. context zonder opties, dus op de snelheid van het apparaat. Firefox weigert
+  //      te koppelen zodra de twee verschillen:
+  //
+  //        NotSupportedError — AudioContext.createMediaStreamSource: Connecting
+  //        AudioNodes from AudioContexts with different sample-rate is currently not
+  //        supported.
+  //
+  //      Op deze weg gaat de echte snelheid mee naar de server (zie `_connect`).
+  //
+  // Waarom PROBEREN en niet uitlezen: `getSettings().sampleRate` is precies wat je
+  // hier zou willen, maar Firefox levert dat veld niet — gemeten met een nepapparaat
+  // in playwright-firefox: `sampleRate` ontbreekt in de settings, terwijl Chromium
+  // het gewoon meldt. In de browser waar deze storing thuishoort is uitlezen dus
+  // geen optie, en dan is een poging de enige eerlijke meting.
+  VoxtralStt.prototype._openAudio = function (stream) {
+    var opties = [{ sampleRate: DOEL_RATE }, null];
+    var stap = "de audiocontext aanmaken";
+    var laatste = null;
+    for (var i = 0; i < opties.length; i++) {
+      var ctx = null;
+      try {
+        ctx = opties[i] ? new AudioContext(opties[i]) : new AudioContext();
+      } catch (e) {
+        laatste = e;
+        continue;
+      }
+      try {
+        return { ctx: ctx, source: ctx.createMediaStreamSource(stream) };
+      } catch (e) {
+        stap = "de microfoon koppelen";
+        laatste = e;
+        // Opruimen mag de melding niet kapen: een fout in `close()` zou anders de
+        // reden vervangen waarom het koppelen niet lukte.
+        try { ctx.close(); } catch (sluitFout) { /* genegeerd */ }
+      }
+    }
+    this._audioFout(stap, laatste);
+    return null;
+  };
+
   VoxtralStt.prototype._startAudio = function (stream) {
     var self = this;
-    // #751: de context draait op de snelheid van het APPARAAT en wordt niet op
-    // 16 kHz gezet. Firefox weigert anders `createMediaStreamSource`:
-    //
-    //   NotSupportedError — AudioContext.createMediaStreamSource: Connecting
-    //   AudioNodes from AudioContexts with different sample-rate is currently not
-    //   supported.
-    //
-    // Een microfoon op Linux levert vrijwel altijd 48 kHz, dus die combinatie kwam er
-    // altijd. Chrome herbemonstert stilzwijgend, en daar viel het nooit op. Voxtral
-    // krijgt nog steeds 16 kHz PCM16 mono; de worklet herbemonstert.
-    try {
-      self.ctx = new AudioContext();
-    } catch (e) {
-      self._audioFout("de audiocontext aanmaken", e);
-      return;
-    }
+    var audio = self._openAudio(stream);
+    if (!audio) return;
+    self.ctx = audio.ctx;
     // #751: drie aparte stappen met drie aparte meldingen. Ze hingen alle drie aan
     // dezelfde `.catch()` van addModule, dus het laden van de worklet, het koppelen
     // van de stroom en het opzetten van de graaf gaven één identieke zin. Dat heeft
@@ -88,20 +134,14 @@
     self.ctx.audioWorklet.addModule(
       (tag && tag.dataset.worklet) || "/static/stt-pcm-worklet.js"
     ).then(function () {
-      var source, sink;
-      try {
-        source = self.ctx.createMediaStreamSource(stream);
-      } catch (e) {
-        self._audioFout("de microfoon koppelen", e);
-        return;
-      }
+      var sink;
       try {
         self.node = new AudioWorkletNode(self.ctx, "stt-pcm-worklet");
         self.node.port.onmessage = function (ev) { self._onAudio(ev.data); };
         // Gemute gain naar de uitgang: houdt de graaf levend zonder echo.
         sink = self.ctx.createGain();
         sink.gain.value = 0;
-        source.connect(self.node);
+        audio.source.connect(self.node);
         self.node.connect(sink);
         sink.connect(self.ctx.destination);
       } catch (e) {
@@ -135,6 +175,13 @@
       self.ws.binaryType = "arraybuffer";
       self.ws.onopen = function () {
         if (self.stopped) { self.stop(); return; }
+        // #772: als éérste bericht, vóór één byte audio — de server moet de snelheid
+        // kennen op het moment dat hij de sessie bij Voxtral opent. Dit is de
+        // snelheid van de CONTEXT en niet die van het apparaat: de worklet levert
+        // wat de context hem geeft, en dat is wat er over de lijn gaat.
+        self.ws.send(JSON.stringify({
+          type: "start", sample_rate: Math.round(self.ctx.sampleRate)
+        }));
         self.cb.onStateChange("listening");
         self._armNoSpeech();
       };
@@ -194,7 +241,11 @@
     this.stopped = true;
     try {
       if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-        this.ws.send(JSON.stringify({ type: "stop" }));
+        // #772: `spraak` meldt of de VAD ooit energie boven de drempel zag. Zonder
+        // dat kan de server "Voxtral herkende niets" niet onderscheiden van "er is
+        // niets ingesproken" — beide eindigen in een lege transcriptie, en dat
+        // onderscheid is precies wat dit onderzoek drie rondes gekost heeft.
+        this.ws.send(JSON.stringify({ type: "stop", spraak: this.spokeOnce }));
       }
     } catch (e) { /* socket al weg */ }
     // Mic meteen vrij; de WS blijft open voor het eindtranscript (server sluit).
