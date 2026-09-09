@@ -87,7 +87,15 @@ docker restart "$NAAM" >/dev/null
 # CHAT_ENABLED hier en niet bij het aanmaken van de container: anders zou een
 # bestaande hulpcontainer de vlag missen tot iemand VERS=1 gebruikt, en dan toetst de
 # suite stilzwijgend een scherm zonder invoerveld (#570).
-docker exec -d -e CHAT_ENABLED=true "$NAAM" sh -c "uvicorn app.main:app --host 127.0.0.1 --port ${POORT} > /tmp/uvicorn.log 2>&1"
+# STT_MODE/STT_PROVIDER erbij (#788). `native_first` en NIET `provider_only`: de
+# knop kiest dan per browser. Zonder `SpeechRecognition` — de gewone toestand in een
+# headless Chromium — valt hij terug op ONZE WebSocket, en dat is het pad dat de
+# dicteer-e2e toetst; een test die de Web Speech API nabootst (#762) neemt in dezelfde
+# opstelling nog steeds het native pad. Met `provider_only` zou dat tweede pad
+# onbereikbaar worden en die test stilzwijgend iets anders toetsen dan haar naam zegt.
+# `mock` transcribeert zonder Mistral, dus dit belt niemand.
+docker exec -d -e CHAT_ENABLED=true -e STT_MODE=native_first -e STT_PROVIDER=mock \
+  "$NAAM" sh -c "uvicorn app.main:app --host 127.0.0.1 --port ${POORT} > /tmp/uvicorn.log 2>&1"
 for _ in $(seq 1 30); do
   if docker exec "$NAAM" python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:${POORT}/')" 2>/dev/null; then
     break

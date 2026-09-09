@@ -126,6 +126,13 @@ jobs:
       # Zonder MISTRAL_API_KEY antwoordt de bot in mock-modus, dus dit kost niets en
       # belt niemand.
       CHAT_ENABLED: "true"
+      # #788: `native_first` en NIET `provider_only`. De knop kiest dan per browser:
+      # zonder `SpeechRecognition` — de gewone toestand in een headless Chromium —
+      # valt hij terug op ONZE WebSocket, en dat is het pad dat de dicteer-e2e toetst.
+      # Een test die de Web Speech API nabootst (#762) houdt in dezelfde opstelling
+      # het native pad. `mock` transcribeert zonder Mistral, dus dit belt niemand.
+      STT_MODE: native_first
+      STT_PROVIDER: mock
 
     steps:
       - uses: actions/checkout@v4
