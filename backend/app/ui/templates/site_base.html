@@ -42,7 +42,7 @@
   <meta name="description" content="{{ site_tagline or site_name }}">
   {% if omgeving and omgeving != 'prod' %}<meta name="robots" content="noindex">{% endif %}
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"{{ site_name }}"{% if base_url %},"url":"{{ base_url }}"{% endif %}{% if facebook_url %},"sameAs":["{{ facebook_url }}"{% if instagram_url %},"{{ instagram_url }}"{% endif %}{% if tiktok_url %},"{{ tiktok_url }}"{% endif %}]{% endif %}}</script>
-  <link rel="stylesheet" href="/static/app.css?v={{ css_version }}">
+  <link rel="stylesheet" href="{{ statisch('app.css') }}">
   <style>
     /* Alpine: verberg x-cloak-elementen tot Alpine geïnitialiseerd is (geen flits). */
     [x-cloak]{display:none!important}
@@ -65,14 +65,15 @@
   {# View Transitions voor gebooste navigatie (#634). Browsers zonder ondersteuning
      negeren dit; geen terugval nodig. #}
   <meta name="htmx-config" content='{"globalViewTransitions":true}'>
-  <script src="/static/vendor/htmx.min.js" defer></script>
-  <script src="/static/vendor/alpine.min.js" defer></script>
+  <script src="{{ statisch('vendor/htmx.min.js') }}" defer></script>
+  <script src="{{ statisch('vendor/alpine.min.js') }}" defer></script>
   {# Spraak-in/uit voor de Raakje-widget (#634): verhuisd uit _raakje_widget.html
      naar de schil, want htmx voert <script>-tags in ingeswapte inhoud uit en die
      scripts hangen document-listeners op. Alleen laden als de chat aan staat. #}
   {% if chat_enabled %}
-  <script src="/static/stt.js" defer></script>
-  <script src="/static/tts.js" defer></script>
+  <script src="{{ statisch('stt.js') }}"
+          data-worklet="{{ statisch('stt-pcm-worklet.js') }}" defer></script>
+  <script src="{{ statisch('tts.js') }}" defer></script>
   {% endif %}
 </head>
 {# hx-boost (#634): zie admin_base voor de redenering. De publieke schil boost op

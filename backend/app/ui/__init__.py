@@ -5,7 +5,9 @@ template kiezen) + ``templates/`` (dom: alleen tonen). Dit pakket levert de
 gedeelde machinerie: de template-omgeving (met de component-template-mappen),
 de UI-kit-macro's en de shells (base-layouts).
 """
+import hashlib
 import logging
+from functools import lru_cache
 from pathlib import Path
 
 from fastapi.templating import Jinja2Templates
@@ -141,21 +143,46 @@ from app.config import settings as _settings  # noqa: E402
 templates.env.globals["omgeving"] = _settings.app_env
 
 
-# Cache-busting voor app.css (#481): browsers serveren anders na een deploy een
-# oude stylesheet (stale layout). De <link>-URL krijgt ?v=<inhoud-hash>, zodat een
-# CSS-wijziging een nieuwe URL geeft en de browser gegarandeerd vers ophaalt.
-def _css_version() -> str:
-    import hashlib
-    from pathlib import Path
+# Cache-busting voor statische bestanden (#481 voor de CSS, #773 voor de rest).
+#
+# Zonder versie in de URL beslist de browser zelf hoe lang hij een bestand vers vindt
+# — de server stuurt enkel een ETag en een Last-Modified. Bij de CSS was dat sinds
+# #481 opgelost; de JavaScript werd kaal geladen, en dat is één keer duur geweest: de
+# fix uit #751 stond een uur op HDEV terwijl de browser nog de `stt.js` van de dag
+# ervóór draaide. Drie symptomen tegelijk, alle drie van een bug die al gerepareerd
+# was. Er komt geen foutmelding bij; het oude bestand doet gewoon nog wat het deed.
+#
+# De versie komt uit de INHOUD en niet uit een tijdstempel. Dat verschil is de kern:
+# een tijdstempel wijzigt bij elke deploy en gooit dan de cache van elke bezoeker weg,
+# ook voor de bestanden die niemand heeft aangeraakt. Een inhoudshash wijzigt precies
+# wanneer het bestand wijzigt, en geen moment eerder.
+def statisch_hash(pad: Path) -> str:
+    """De eerste acht tekens van de MD5 van de inhoud; `0` als het bestand ontbreekt.
 
+    MD5 en niet iets sterkers: dit is een cache-sleutel en geen handtekening. Er valt
+    hier niets te vervalsen — wie het bestand kan wijzigen, kan ook de hash wijzigen.
+    """
     try:
-        data = (Path(__file__).resolve().parent.parent / "static" / "app.css").read_bytes()
-        return hashlib.md5(data).hexdigest()[:8]
+        return hashlib.md5(pad.read_bytes()).hexdigest()[:8]
     except OSError:
         return "0"
 
 
-templates.env.globals["css_version"] = _css_version()
+_STATIC_DIR = Path(__file__).resolve().parent.parent / "static"
+
+
+@lru_cache(maxsize=None)
+def statisch(naam: str) -> str:
+    """`statisch("stt.js")` → `/static/stt.js?v=1a2b3c4d`.
+
+    Gecachet, dus een wijziging tijdens het draaien komt er pas na een herstart in —
+    net zoals de oude `css_version`, die de hash bij het importeren berekende. In dev
+    herstart uvicorn bij elke bestandswijziging, dus daar merk je er niets van.
+    """
+    return f"/static/{naam}?v={statisch_hash(_STATIC_DIR / naam)}"
+
+
+templates.env.globals["statisch"] = statisch
 
 # Canonieke admin-navigatie (React-exit 405-d, #405): één bron voor alle
 # server-rendered beheer-schermen i.p.v. een kopie per module.
