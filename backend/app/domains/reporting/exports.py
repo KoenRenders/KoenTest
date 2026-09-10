@@ -147,3 +147,65 @@ def report_filename(title: str) -> str:
     veilig = "".join(c if c.isalnum() or c in " -_" else "-" for c in title).strip()
     slug = "-".join(veilig.lower().split()) or "rapport"
     return f"rapport-{slug}.ods"
+
+
+def build_pivot_ods(db: Session, pivot, selection: Selection, *, title: str,
+                    tenant_id: int) -> bytes:
+    """The crosstab as a spreadsheet: sheet 1 the pivot, sheet 2 the rows behind it.
+
+    Sheet 1 is what is on the screen, subtotals included, with the report's name
+    and its active filters above it. The header is two rows when there is more
+    than one measure, exactly as the macro renders it, so a cell in Calc sits
+    under the same two labels it sat under on screen.
+    """
+    maten = pivot["measures"]
+    kolommen = pivot["column_values"]
+    breed = len(maten)
+
+    intro: list[list[Any]] = [["Rapport", title]]
+    for regel in filter_summary(selection):
+        intro.append(["Filter", regel])
+    if not selection.filters:
+        intro.append(["Filter", "geen"])
+    intro.append([])
+
+    # The column band: one label per column value, spanning its measures. A
+    # spreadsheet has no colspan, so the label sits in the first of its cells and
+    # the rest stay empty — which is how Calc shows a merged header anyway.
+    kop: list[Any] = list(pivot["row_headers"])
+    for waarde in kolommen:
+        kop.append(waarde)
+        kop += [""] * (breed - 1)
+    kop.append("Totaal")
+    kop += [""] * (breed - 1)
+
+    rijen: list[list[Any]] = []
+    if breed > 1:
+        onder: list[Any] = [""] * len(pivot["row_headers"])
+        for _waarde in kolommen:
+            onder += [m["name"] for m in maten]
+        onder += [m["name"] for m in maten]
+        rijen.append(onder)
+
+    for rij in pivot["rows"]:
+        uit: list[Any] = list(rij["labels"])
+        uit += [""] * (len(pivot["row_headers"]) - len(rij["labels"]))
+        if rij["is_subtotal"]:
+            uit[0] = f"Subtotaal — {rij['labels'][0]}"
+        for cel in (rij["cells"] or [[None] * breed for _ in kolommen]):
+            uit += [_cell(waarde) for waarde in cel]
+        uit += [_cell(waarde) for waarde in rij["total"]]
+        rijen.append(uit)
+
+    eind: list[Any] = ["Eindtotaal"]
+    eind += [""] * (len(pivot["row_headers"]) - 1)
+    eind += [""] * (len(kolommen) * breed)
+    eind += [_cell(waarde) for waarde in pivot["grand_total"]]
+    rijen.append(eind)
+
+    detail_headers, detail_rows = _detail_rows(db, selection, tenant_id=tenant_id)
+    return build_ods_multi([
+        {"name": title[:31] or "Draaitabel", "headers": kop, "rows": rijen,
+         "intro_rows": intro, "bold_last_row": True},
+        {"name": "Detail", "headers": detail_headers, "rows": detail_rows},
+    ])

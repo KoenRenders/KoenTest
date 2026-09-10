@@ -31,6 +31,7 @@ from app.domains.auth.api import (
 from app.domains.reporting.api import (
     Direction,
     Filter,
+    LAYOUTS,
     Operator,
     Selection,
     SelectionError,
@@ -38,6 +39,8 @@ from app.domains.reporting.api import (
     Sort,
     BY_KEY,
     build_dataset_ods,
+    build_pivot,
+    build_pivot_ods,
     build_report_ods,
     classes_of,
     classes_with_objects,
@@ -68,6 +71,10 @@ PER_PAGE = 50
 
 # Where a drill-down lands (design-system P8). A report is a way in, not a dead
 # end: the row that says "Quiz — 41 inschrijvingen" links to the activity.
+# The icon per shape of a saved report, so its card shows what it is without
+# running it.
+SHAPE_ICONS = {"table": "table", "pivot": "pivot"}
+
 DRILL_URLS = {
     "activity": "/admin/activiteiten/{id}",
     "household": "/admin/leden/gezin/{id}",
@@ -117,6 +124,8 @@ def _read_state(params) -> dict:
                  for k in params.keys() if k.startswith("op_")}
     sort = params.get("sort") or ""
     direction = params.get("dir") or "asc"
+    layout = params.get("layout") or "table"
+    pivot_column = params.get("pivot_column") or ""
 
     add = params.get("add")
     if add in BY_KEY and add not in objects:
@@ -151,6 +160,24 @@ def _read_state(params) -> dict:
         direction = "desc" if (sort_by == sort and direction == "asc") else "asc"
         sort = sort_by
 
+    set_layout = params.get("set_layout")
+    if set_layout in LAYOUTS:
+        layout = set_layout
+    set_column = params.get("set_column")
+    if set_column in BY_KEY or set_column == "":
+        pivot_column = set_column if set_column is not None else pivot_column
+
+    # A column dimension that is no longer in the selection is not a column
+    # dimension. Dropping it here keeps the state honest instead of letting the
+    # engine refuse a report the user cannot see is broken.
+    if pivot_column not in objects:
+        pivot_column = ""
+    if layout == "pivot" and not pivot_column:
+        # Falling back to the last dimension is what a user means by "draaitabel"
+        # when he has not said which axis yet — and it is undoable in one click.
+        dimensies = [k for k in objects if not BY_KEY[k].is_measure]
+        pivot_column = dimensies[-1] if len(dimensies) > 1 else ""
+
     goto = params.get("goto")
     page = max(1, int(goto)) if (goto or "").isdigit() else 1
 
@@ -161,6 +188,8 @@ def _read_state(params) -> dict:
         "operators": operators,
         "sort": sort,
         "direction": direction,
+        "layout": layout,
+        "pivot_column": pivot_column,
         "page": page,
     }
 
@@ -191,6 +220,7 @@ def _selection(state: dict) -> Selection:
     return Selection(
         object_keys=tuple(state["objects"]), filters=tuple(filters), sort=sort,
         limit=PER_PAGE + 1, offset=(state["page"] - 1) * PER_PAGE,
+        layout=state["layout"], pivot_column=state["pivot_column"],
     )
 
 
@@ -204,6 +234,9 @@ def _query_string(state: dict) -> str:
     if state["sort"]:
         paren.append(("sort", state["sort"]))
         paren.append(("dir", state["direction"]))
+    paren.append(("layout", state["layout"]))
+    if state["pivot_column"]:
+        paren.append(("pivot_column", state["pivot_column"]))
     return urlencode(paren)
 
 
@@ -217,6 +250,8 @@ def _state_from_selection(selection: Selection, page: int = 1) -> dict:
         "operators": {f.object_key: f.operator.value for f in selection.filters},
         "sort": selection.sort[0].object_key if selection.sort else "",
         "direction": selection.sort[0].direction.value if selection.sort else "asc",
+        "layout": selection.layout,
+        "pivot_column": selection.pivot_column,
         "page": page,
     }
 
@@ -237,22 +272,28 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
     rows: list = []
     totals: dict = {}
     drill_aliases: dict = {}
+    pivot: dict | None = None
     message: str | None = None
     has_next = False
 
     if state["objects"]:
         try:
             selection = _selection(state)
-            result = run_validated(db, selection, tenant_id=tenant_id)
-            columns = result.columns
-            rows = result.rows[:PER_PAGE]
-            has_next = len(result.rows) > PER_PAGE
-            totals = result.totals
-            drill_aliases = result.drill_aliases
+            if selection.layout == "pivot":
+                # A crosstab is not paged: it needs all its rows to lay itself
+                # out, and a half crosstab has subtotals that do not add up.
+                pivot = build_pivot(db, selection, tenant_id=tenant_id).as_context()
+            else:
+                result = run_validated(db, selection, tenant_id=tenant_id)
+                columns = result.columns
+                rows = result.rows[:PER_PAGE]
+                has_next = len(result.rows) > PER_PAGE
+                totals = result.totals
+                drill_aliases = result.drill_aliases
         except SelectionError as exc:
             message = str(exc)
     else:
-        message = "Kies objecten links, filters rechts."
+        message = _("Kies objecten links, filters rechts.")
 
     return ReportPanelView(
         classes=classes_with_objects(),
@@ -269,6 +310,9 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
         totals=totals,
         drill_aliases=drill_aliases,
         drill_urls=DRILL_URLS,
+        pivot=pivot,
+        layout=state["layout"],
+        pivot_column=state["pivot_column"],
         message=message,
         sort=state["sort"],
         direction=state["direction"],
@@ -314,6 +358,10 @@ def _list_view(request: Request, db: Session, email: str) -> ReportListView:
         classes_per_report={r.id: classes_of(r) for r in reports},
         owned={r.id: (r.owner_email == email or r.owner_email is None)
                for r in reports},
+        shapes={r.id: SHAPE_ICONS.get((r.selection or {}).get("layout", "table"),
+                                      "table")
+                for r in reports},
+        shape_labels={"table": _("Tabel"), "pivot": _("Draaitabel")},
         q=q, owner=owner, shared=shared,
         csrf_token=_csrf(request),
         nav_items=admin_nav(NAV),
@@ -387,19 +435,27 @@ def report_export(request: Request, db: Session = Depends(get_db),
 
     try:
         # No paging in an export: you take home the report, not the page.
-        selection = _selection({**state, "page": 1})
+        gekozen = _selection({**state, "page": 1})
         selection = Selection(
-            object_keys=selection.object_keys, filters=selection.filters,
-            sort=selection.sort, limit=5000, offset=0, layout=selection.layout)
-        result = run_validated(db, selection, tenant_id=tenant_id)
-        content = build_report_ods(db, result, selection, title=titel,
-                                   tenant_id=tenant_id)
+            object_keys=gekozen.object_keys, filters=gekozen.filters,
+            sort=gekozen.sort, limit=5000, offset=0, layout=gekozen.layout,
+            pivot_column=gekozen.pivot_column)
+        if selection.layout == "pivot":
+            pivot = build_pivot(db, selection, tenant_id=tenant_id)
+            content = build_pivot_ods(db, pivot.as_context(), selection,
+                                      title=titel, tenant_id=tenant_id)
+            aantal = len(pivot.rows)
+        else:
+            result = run_validated(db, selection, tenant_id=tenant_id)
+            content = build_report_ods(db, result, selection, title=titel,
+                                       tenant_id=tenant_id)
+            aantal = len(result.rows)
     except SelectionError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
     log_export(db, tenant_id=tenant_id, actor=email,
                kind="report" if bewaard else "ad-hoc", subject=titel,
-               row_count=len(result.rows),
+               row_count=aantal,
                filters=selection_to_dict(selection).get("filters"),
                saved_report_id=bewaard.id if bewaard else None)
     return Response(

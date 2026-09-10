@@ -109,7 +109,8 @@
   "send": '<path d="M14.5 21.7a.5.5 0 0 0 .9 0l6.5-19a.5.5 0 0 0-.6-.6l-19 6.5a.5.5 0 0 0 0 .9l7.9 3.2a2 2 0 0 1 1.1 1.1z"/><path d="m21.9 2.1-10.9 10.9"/>',
   "trash-2": '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
   "pencil": '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>',
-  "table": '<path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/>'} -%}
+  "table": '<path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/>',
+  "pivot": '<path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M3 9h18"/><path d="M9 3v18"/><path d="m14 14 4 4"/><path d="m18 14-4 4"/>'} -%}
 {#- #762: een enkel icoon krijgt een eigen viewBox. Alle vakjes zijn even groot,
     maar het oog telt inkt: `square` spant 18 van de 24 eenheden (75%) en `mic` 20
     (83%), dus het stopvierkantje oogde kleiner dan de microfoon die het vervangt.
@@ -1013,4 +1014,100 @@
     });
   })();
 </script>
+{%- endmacro %}
+
+{# ── Draaitabel (#834, CR-06 §5) ──────────────────────────────────────────────
+   Rijen × kolommen × maten, met subtotalen per rijgroep en een eindtotaal.
+
+   **Kitcode, dus zonder domeinkennis.** `pivot` is een gewone dict met
+   `row_headers`, `column_header`, `column_values`, `measures`, `rows` en
+   `grand_total`; Jinja leest `pivot.rows` op een dict net zo goed als op een
+   object. Daardoor kan de componentenpagina dezelfde macro een letterlijk
+   voorbeeld geven zonder iets uit het rapportagedomein te importeren.
+
+   **Elk getal komt uit de server.** Deze macro telt niets op — ook geen rijtotaal
+   dat er "gratis" uitziet. Een gemiddelde over drie kolommen is niet het
+   gemiddelde van drie gemiddelden, en dat is precies de fout die niemand ziet.
+
+   **Horizontaal scrollen binnen de kaart, nooit de pagina** (§2.3): de wikkel
+   draagt `overflow-x-auto`, en de eerste kolom blijft staan (`sticky left-0`)
+   zodat je bij kolom twaalf nog weet welke rij je leest.
+
+   Bij één maat blijft de tweede kopregel weg: "Aantal" onder elk jaartal herhalen
+   voegt niets toe en maakt de kop twee keer zo hoog. #}
+{% macro pivot_table(pivot) -%}
+{% set _maten = pivot.measures %}
+{% set _meervoudig = _maten|length > 1 %}
+<div class="bg-white border border-gray-200 rounded-xl overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b border-gray-200 bg-gray-50">
+        {% for kop in pivot.row_headers %}
+        <th scope="col" rowspan="{{ 2 if _meervoudig else 1 }}"
+            class="px-3 py-2 text-left font-semibold text-ink sticky left-0 bg-gray-50">{{ kop }}</th>
+        {% endfor %}
+        {% for waarde in pivot.column_values %}
+        <th scope="col" colspan="{{ _maten|length }}"
+            class="px-3 py-2 text-right font-semibold text-ink">{{ waarde }}</th>
+        {% endfor %}
+        <th scope="col" colspan="{{ _maten|length }}"
+            class="px-3 py-2 text-right font-semibold text-ink border-l border-gray-200">{{ _("Totaal") }}</th>
+      </tr>
+      {% if _meervoudig %}
+      <tr class="border-b border-gray-200 bg-gray-50">
+        {% for _waarde in pivot.column_values %}{% for m in _maten %}
+        <th scope="col" class="px-3 py-1 text-right text-xs font-medium text-ink-soft">{{ m.name }}</th>
+        {% endfor %}{% endfor %}
+        {% for m in _maten %}
+        <th scope="col" class="px-3 py-1 text-right text-xs font-medium text-ink-soft {% if loop.first %}border-l border-gray-200{% endif %}">{{ m.name }}</th>
+        {% endfor %}
+      </tr>
+      {% endif %}
+    </thead>
+    <tbody>
+      {% for rij in pivot.rows %}
+      <tr class="border-b border-gray-100 last:border-0 {% if rij.is_subtotal %}bg-gray-50 font-semibold{% endif %}">
+        {% for label in rij.labels %}
+        <th scope="row" class="px-3 py-2 text-left font-normal sticky left-0 {{ 'bg-gray-50' if rij.is_subtotal else 'bg-white' }}">
+          {% if rij.is_subtotal %}{{ _("Subtotaal") }} — {% endif %}{{ label }}
+        </th>
+        {% endfor %}
+        {% if rij.is_subtotal and pivot.row_headers|length > rij.labels|length %}
+        {# Een subtotaal draagt alleen het label van zijn groep; de fijnere
+           kolommen blijven leeg in plaats van herhaald te worden. #}
+        <td colspan="{{ pivot.row_headers|length - rij.labels|length }}" class="px-3 py-2"></td>
+        {% endif %}
+        {% for cel in rij.cells %}{% for waarde in cel %}
+        <td class="px-3 py-2 text-right tabular-nums">{{ _pivot_cell(waarde, _maten[loop.index0]) }}</td>
+        {% endfor %}{% endfor %}
+        {% for waarde in rij.total %}
+        <td class="px-3 py-2 text-right tabular-nums font-semibold {% if loop.first %}border-l border-gray-200{% endif %}">{{ _pivot_cell(waarde, _maten[loop.index0]) }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+        <th scope="row" colspan="{{ pivot.row_headers|length }}"
+            class="px-3 py-2 text-left sticky left-0 bg-gray-50">{{ _("Eindtotaal") }}</th>
+        {% for _waarde in pivot.column_values %}{% for _m in _maten %}
+        <td class="px-3 py-2"></td>
+        {% endfor %}{% endfor %}
+        {% for waarde in pivot.grand_total %}
+        <td class="px-3 py-2 text-right tabular-nums {% if loop.first %}border-l border-gray-200{% endif %}">{{ _pivot_cell(waarde, _maten[loop.index0]) }}</td>
+        {% endfor %}
+      </tr>
+    </tfoot>
+  </table>
+</div>
+{%- endmacro %}
+
+{# Eén cel van een draaitabel: de ene geldformatter, en een leegte die als leegte
+   leest. Los van `pivot_table` omdat drie plaatsen in die macro hem nodig hebben
+   en dezelfde drie regels drie keer overschrijven precies is hoe opmaak
+   uiteen gaat lopen. #}
+{% macro _pivot_cell(waarde, maat) -%}
+{%- if waarde is none %}<span class="text-ink-soft">—</span>
+{%- elif maat.format == "money" %}€&nbsp;{{ waarde|geld }}
+{%- else %}{{ waarde }}{%- endif %}
 {%- endmacro %}

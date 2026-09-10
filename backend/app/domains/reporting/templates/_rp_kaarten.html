@@ -9,9 +9,10 @@
     <div class="flex items-start justify-between gap-3">
       <div class="min-w-0">
         <div class="flex flex-wrap items-center gap-2">
-          {# Vormicoon: in deze fase altijd een tabel; draaitabel en grafiek
-             komen in fase 3 en 4 (#834, #835). #}
-          <span class="text-ink-soft" aria-hidden="true">{{ ui.icon("table", 16) }}</span>
+          {# Vormicoon: de vorm zit in de bewaarde selectie, dus de kaart kan hem
+             tonen zonder het rapport te draaien. #}
+          <span class="text-ink-soft" title="{{ shape_labels[shapes[r.id]] }}"
+                aria-hidden="true">{{ ui.icon(shapes[r.id], 16) }}</span>
           <span class="font-semibold text-ink">{{ r.name }}</span>
           {% if not r.is_shared %}{{ ui.badge(_("privé")) }}{% endif %}
           {% if r.builtin_key %}{{ ui.badge(_("meegeleverd"), "blue") }}{% endif %}

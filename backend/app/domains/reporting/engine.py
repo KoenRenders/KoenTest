@@ -94,10 +94,11 @@ class Sort:
 class Selection:
     """What the user composed. Data, not a query — this is what gets saved.
 
-    ``layout`` is "table" in this phase and nothing else; the pivot (#834) and the
-    charts (#835) add their own values. It is stored from the start so a report
-    saved today still reads correctly when they arrive — a key added later would
-    make every existing row a special case.
+    ``layout`` chooses the shape: a flat *table* or a *pivot*. Both read the SAME
+    objects — the pivot only moves one dimension to the column axis, named by
+    ``pivot_column``. That is what makes the grand total of a crosstab equal to
+    the total of the table for the same selection: it is one selection, drawn two
+    ways, not two reports that happen to agree (CR-06 §2.3).
     """
 
     object_keys: tuple[str, ...]
@@ -106,9 +107,18 @@ class Selection:
     limit: int = 200
     offset: int = 0
     layout: str = "table"
+    # The dimension on the column axis of a pivot. At most one in this phase
+    # (#834): a second one multiplies the columns and there is no reading of a
+    # 400-column crosstab that is a report.
+    pivot_column: str = ""
 
 
-LAYOUTS = ("table",)
+LAYOUTS = ("table", "pivot")
+
+# A crosstab wider than this is not a report (CR-06 §5.2). The message names the
+# dimension, because "too many columns" without saying which one leaves the user
+# guessing which of his three choices to undo.
+MAX_PIVOT_COLUMNS = 30
 
 
 def selection_to_dict(selection: Selection) -> dict[str, object]:
@@ -127,6 +137,7 @@ def selection_to_dict(selection: Selection) -> dict[str, object]:
         "sort": [{"object": s.object_key, "direction": s.direction.value}
                  for s in selection.sort],
         "layout": selection.layout,
+        "pivot_column": selection.pivot_column,
     }
 
 
@@ -185,12 +196,18 @@ def selection_from_dict(data: object, *, limit: int = 200,
     layout = data.get("layout", "table")
     if layout not in LAYOUTS:
         raise SelectionError(
-            f"De vorm '{layout}' bestaat nog niet. In deze versie is alleen een "
-            "tabel mogelijk.")
+            f"De vorm '{layout}' bestaat niet. Kies een tabel of een draaitabel.")
+
+    pivot_column = data.get("pivot_column") or ""
+    if pivot_column:
+        kolom = _object(str(pivot_column))
+        if kolom.is_measure:
+            raise SelectionError(
+                f"'{kolom.name}' is een maat en kan niet op de kolomas staan.")
 
     return Selection(object_keys=tuple(keys), filters=tuple(filters),
                      sort=tuple(sort), limit=limit, offset=offset,
-                     layout=str(layout))
+                     layout=str(layout), pivot_column=str(pivot_column))
 
 
 @dataclass
@@ -486,3 +503,31 @@ def build_detail_query(selection: Selection, *, tenant_id: int,
     sql = (f"SELECT {alias}.*\nFROM {_from_clause(fact, views, joins)}\n"
            f"WHERE {' AND '.join(conditions)}\nORDER BY {order}\nLIMIT :limit")
     return QueryPlan(sql=sql, totals_sql="", params=params, columns=[], fact=fact)
+
+
+def build_member_count_query(selection: Selection, object_key: str, *,
+                             tenant_id: int) -> tuple[str, dict[str, object]]:
+    """How many members a dimension has under this selection's filters.
+
+    Asked BEFORE the crosstab is built, so a column dimension that is too wide is
+    refused without ever running the wide query (#834). It counts under the active
+    filters and not over the whole dimension: filtering a report down to one year
+    is exactly how a user makes a crosstab fit, and a cap that ignored the filters
+    would refuse a report that would have been fine.
+    """
+    obj = _object(object_key)
+    if obj.is_measure:
+        raise SelectionError(
+            f"'{obj.name}' is een maat en kan niet op de kolomas staan.")
+
+    objects = [_object(key) for key in selection.object_keys]
+    fact = _resolve_fact(objects)
+    conditions, params, filter_objects = _where_clause(selection.filters, fact)
+    views = _needed_views(objects + filter_objects + [obj], fact)
+    joins = _check_joinable(views, fact)
+
+    params["tenant_id"] = tenant_id
+    sql = (f"SELECT COUNT(DISTINCT {_expression(obj)})\n"
+           f"FROM {_from_clause(fact, views, joins)}\n"
+           f"WHERE {' AND '.join(conditions)}")
+    return sql, params

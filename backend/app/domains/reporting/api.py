@@ -12,6 +12,7 @@ run it.
 """
 from app.domains.reporting.engine import (  # noqa: F401
     LAYOUTS,
+    MAX_PIVOT_COLUMNS,
     MAX_ROWS,
     Column,
     Direction,
@@ -22,16 +23,24 @@ from app.domains.reporting.engine import (  # noqa: F401
     SelectionError,
     Sort,
     build_detail_query,
+    build_member_count_query,
     build_query,
     selection_from_dict,
     selection_to_dict,
 )
 from app.domains.reporting.exports import (  # noqa: F401
     build_dataset_ods,
+    build_pivot_ods,
     build_report_ods,
     dataset_filename,
     filter_summary,
     report_filename,
+)
+from app.domains.reporting.pivot import (  # noqa: F401
+    Pivot,
+    PivotRow,
+    build_pivot,
+    check_column_cap,
 )
 from app.domains.reporting.service import (  # noqa: F401
     OFFER_LIMIT,
@@ -73,13 +82,15 @@ from app.domains.reporting.universe import (  # noqa: F401
 )
 
 __all__ = [
-    "BY_KEY", "CLASSES", "DIMENSIONS", "FACTS", "JOINS", "LAYOUTS", "MAX_ROWS",
-    "OBJECTS", "OFFER_LIMIT",
+    "BY_KEY", "CLASSES", "DIMENSIONS", "FACTS", "JOINS", "LAYOUTS",
+    "MAX_PIVOT_COLUMNS", "MAX_ROWS", "OBJECTS", "OFFER_LIMIT",
     "Column", "Dataset", "Direction", "Fact", "Filter", "Format", "ObjectKind",
-    "Operator", "QueryPlan", "ReportResult", "Role", "SavedReportError",
-    "Selection", "SelectionError", "Sort", "UniverseObject",
-    "build_dataset_ods", "build_detail_query", "build_query", "build_report_ods",
-    "classes_of", "classes_with_objects", "copy_report", "dataset_filename",
+    "Operator", "Pivot", "PivotRow", "QueryPlan", "ReportResult", "Role",
+    "SavedReportError", "Selection", "SelectionError", "Sort", "UniverseObject",
+    "build_dataset_ods", "build_detail_query", "build_member_count_query",
+    "build_pivot", "build_pivot_ods", "build_query", "build_report_ods",
+    "check_column_cap", "classes_of", "classes_with_objects", "copy_report",
+    "dataset_filename",
     "delete_report", "dimension_values", "fact_columns", "filter_summary",
     "get_saved_report", "joins_for", "list_saved_reports", "load_dataset",
     "log_export", "mark_run", "objects_in_pane_order", "report_filename",

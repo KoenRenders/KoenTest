@@ -284,6 +284,35 @@
 {% endcall %}
 
 {# ── 9. Lege en ladende toestand ───────────────────────────────────────────── #}
+{# ── 8c. Draaitabel ────────────────────────────────────────────────────────── #}
+{{ ui.section_header(_("8c · Draaitabel"), _("Naar de rapporten"), action_href="/admin/rapporten") }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("Rijen × kolommen × maten, met subtotalen per rijgroep en een eindtotaal — §2.9. De cijfers hieronder zijn verzonnen; de vorm is die van het rapportenscherm.") }}
+  </p>
+  {# De demo-waarden staan hier en niet in de route: bij elke component zie je zo
+     meteen met welke argumenten hij is aangeroepen. De macro is kitcode en kent
+     dit domein niet — hij leest een gewone dict. #}
+  {% set demo_pivot = {
+    "row_headers": [_("Gemeente"), _("Activiteit")],
+    "column_header": _("Jaar"),
+    "column_values": ["2025", "2026"],
+    "measures": [{"key": "aantal", "name": _("Aantal"), "format": "count"}],
+    "rows": [
+      {"labels": ["Mol", "Quiz"], "cells": [[12], [18]], "total": [30], "is_subtotal": False},
+      {"labels": ["Mol", "Wandeling"], "cells": [[7], [None]], "total": [7], "is_subtotal": False},
+      {"labels": ["Mol"], "cells": [], "total": [37], "is_subtotal": True},
+      {"labels": ["Balen", "Quiz"], "cells": [[4], [9]], "total": [13], "is_subtotal": False},
+      {"labels": ["Balen"], "cells": [], "total": [13], "is_subtotal": True}
+    ],
+    "grand_total": [50]
+  } %}
+  {{ ui.pivot_table(demo_pivot) }}
+  <p class="mt-3 text-sm text-gray-600">
+    {{ _("Een lege cel toont een liggend streepje: geen enkele combinatie is niet hetzelfde als nul. Een subtotaal draagt alleen het label van zijn groep.") }}
+  </p>
+{% endcall %}
+
 {{ ui.section_header(_("9 · Leeg en ladend")) }}
 {% call ui.card() %}
   {{ ui.empty_state(_("Nog geen inschrijvingen voor deze activiteit.")) }}

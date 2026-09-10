@@ -383,6 +383,33 @@ picker → current attachment (link + delete) → hint**. Macro
 search: **"Geen resultaten gevonden."**; never any data: **"Nog geen
 <items>."** — one sentence, not italic, no emoji, no call-to-action push.
 
+### 2.9 Pivot table (#834)
+
+The second shape of a report: rows × columns × measures, with a subtotal per row
+group and a grand total. `ui.pivot_table(pivot)` renders it from a plain dict, so
+the macro stays kit code and knows nothing about reporting.
+
+- **Every number comes from the server.** The macro adds nothing up — not even a
+  row total that looks free. An average over three columns is not the average of
+  three averages, and a distinct count over two months is not the sum of two
+  distinct counts. The engine asks SQL four times (the grid, the row totals, the
+  subtotals, the grand total); the macro only places the answers.
+- **An empty cell shows an em dash**, never a zero. "No such combination exists"
+  and "the total is nothing" are different statements, and a reader cannot tell
+  them apart once both read `0`.
+- **Horizontal scrolling stays inside the card** (§2.3), and the first column
+  stays put (`sticky left-0`) so you still know which row you are reading at
+  column twelve.
+- **Subtotals are distinguished with tokens** — `bg-gray-50` and a heavier weight,
+  no colour of their own. A subtotal line carries the label of its group only; the
+  finer columns stay empty rather than repeating.
+- **A crosstab is capped at 30 members on the column dimension**, counted under
+  the active filters, with a message that names the dimension. A 400-column
+  crosstab is not a report, and "too many columns" without saying which dimension
+  leaves the user guessing which of his choices to undo.
+- With a single measure the second header row is left out: repeating "Aantal"
+  under every year doubles the header height and says nothing.
+
 ## 3. Screen types
 
 The admin screens are compositions of seven real patterns. Build those well and

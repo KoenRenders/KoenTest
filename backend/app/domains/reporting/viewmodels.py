@@ -26,6 +26,11 @@ class ReportListView(ViewModel):
     # place where the rule lives (design-system §8.3).
     classes_per_report: dict[int, list[str]]
     owned: dict[int, bool]
+    # Per report id: the icon name of its shape, and the label behind it. Derived
+    # in the route — a template that derives state is a second place where the
+    # rule lives (design-system §8.3).
+    shapes: dict[int, str]
+    shape_labels: dict[str, str]
 
     # Active filter state — the bar reads it back.
     q: str
@@ -73,6 +78,11 @@ class ReportPanelView(ViewModel):
     totals: dict[str, Any]
     drill_aliases: dict[str, str]
     drill_urls: dict[str, str]
+    # The crosstab, as `ui.pivot_table()` reads it — None when the shape is a
+    # table. Never both: one selection, one drawing.
+    pivot: dict[str, Any] | None
+    layout: str
+    pivot_column: str
     message: str | None
     sort: str
     direction: str
