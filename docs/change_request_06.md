@@ -295,11 +295,25 @@ with the table.
    refuses a selection containing an object outside the role, with the reason
    (#680: assert the reason, not a status). In v2.3.0 the whole screen sits
    behind `require_admin_ui`, like every other admin screen.
-3. **No person-level data in the universe by default.** `d_person` carries
-   age group, gender, relation type — no name, no contact data. Names and
-   e-mails are details behind `member_details`, the same role that sees the
-   member screens, and never a grouping dimension. A count is a report; a list
-   of people is a screen.
+3. **Person-level data is allowed in the universe** (decided by Koen,
+   10 September 2026 — this reverses the earlier rule that a list of people is a
+   screen and never a report).
+
+   The reason it is defensible: the whole reporting screen sits behind
+   `require_admin_ui`, so only ADMIN and OPERATOR reach it — **the same roles that
+   already see the member screens and can already export those names**. Person
+   data in the universe therefore reveals nothing to anybody who could not already
+   see it.
+
+   **That makes it a condition, not a free hand.** The day "Rapporten" opens to any
+   other role — FINANCE-only is the case already on the table (§5.1) — the
+   per-object role fence has to exist *first*. Until it does, opening the screen
+   wider would hand names to a role that does not have them today. Whoever builds
+   that switch reads this paragraph before they start.
+
+   The aggregate protections stay: the threshold of five keeps a group of one from
+   naming itself in a grouped result. It does **not** protect a row list, which by
+   its nature identifies people — that is what the role boundary above is for.
 4. **One fact per selection** (§2.6), refused with a readable message.
 5. **No free SQL, ever.** Selections reference object keys; the engine builds
    SQL from the universe. Object keys, filter values and layout are validated
@@ -367,7 +381,9 @@ what Superset has and we do not, the universe is the part that moves over.
 - **No PDF reports, no scheduled e-mailing.** Later, if asked; the single-query
   design makes both cheap.
 - **No client-side chart or pivot library.** Server-rendered, kit-consistent.
-- **No person listings from the universe** (§7.3).
+- ~~No person listings from the universe~~ — **reversed 10 September 2026**, see
+  §7.3. Allowed, and bounded by the role that reaches the screen rather than by the
+  universe.
 - **No reports reading ORM models.** The layer gate extends to the `reporting`
   domain: its UI reads the engine, the engine reads the universe, the universe
   reads views.
