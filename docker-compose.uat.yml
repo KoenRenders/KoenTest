@@ -80,6 +80,12 @@ services:
       PAYMENT_IBAN: ${PAYMENT_IBAN:-}
       PAYMENT_BENEFICIARY: ${PAYMENT_BENEFICIARY:-}
       PAYMENT_TERM_DAYS: ${PAYMENT_TERM_DAYS:-7}
+    volumes:
+      # #766: het applicatielog overleeft de container. `up --build` maakt een
+      # nieuwe container en containerlogs horen bij de container, dus alles wat de
+      # app ooit gemeld heeft was na elke deploy weg. Een named volume blijft; de
+      # eigenaar komt uit het image (zie backend/Dockerfile).
+      - backend_uat_logs:/var/log/raak
     depends_on:
       db:
         condition: service_healthy
@@ -108,6 +114,7 @@ services:
           - uat-umami
 
 volumes:
+  backend_uat_logs:
   postgres_uat_data:
 
 networks:
