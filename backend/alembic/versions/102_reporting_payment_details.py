@@ -22,8 +22,8 @@ financial record unreadable for the person who has to reconcile it.
 """
 from alembic import op
 
-revision = "100"
-down_revision = "099"
+revision = "102"
+down_revision = "101"
 branch_labels = None
 depends_on = None
 

@@ -44,7 +44,7 @@ from tests._reporting_seed import TENANT_A, TENANT_B, seed
 # The migration that currently defines `d_address`. Move the view again and this
 # is the one line to follow it — the tests break loudly rather than silently
 # rebuilding a stale definition.
-ADDRESS_MIGRATION = "109_reporting_members_per_board_member.py"
+ADDRESS_MIGRATION = "111_reporting_members_per_board_member.py"
 
 
 def _migration():
@@ -94,7 +94,7 @@ def test_the_gate_goes_red_when_the_view_forgets_soft_delete(db_session, situati
     """The counter-proof, run here rather than asserted in a comment.
 
     What was broken: the line `WHERE a.deleted_at IS NULL` at the bottom of
-    `D_ADDRESS` in migration 108. Nothing else — same columns, same joins. With
+    `D_ADDRESS` in migration 110. Nothing else — same columns, same joins. With
     it gone, a person who has moved once appears twice and the grain check names
     them; putting the migration's own SQL back makes it green again.
     """

@@ -44,8 +44,8 @@ household counterparts.
 """
 from alembic import op
 
-revision = "108"
-down_revision = "107"
+revision = "110"
+down_revision = "109"
 branch_labels = None
 depends_on = None
 

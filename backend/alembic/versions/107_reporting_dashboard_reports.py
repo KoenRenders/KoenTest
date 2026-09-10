@@ -33,8 +33,8 @@ import json
 import sqlalchemy as sa
 from alembic import op
 
-revision = "105"
-down_revision = "104"
+revision = "107"
+down_revision = "106"
 branch_labels = None
 depends_on = None
 

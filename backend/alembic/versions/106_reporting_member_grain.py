@@ -38,8 +38,8 @@ baked into a view.
 import sqlalchemy as sa
 from alembic import op
 
-revision = "104"
-down_revision = "103"
+revision = "106"
+down_revision = "105"
 branch_labels = None
 depends_on = None
 

@@ -27,8 +27,8 @@ role that reaches the screen (CR-06 §7.3, 10 September 2026).
 """
 from alembic import op
 
-revision = "106"
-down_revision = "105"
+revision = "108"
+down_revision = "107"
 branch_labels = None
 depends_on = None
 

@@ -2,7 +2,7 @@
 dimension (#841, decided by Koen 10 September 2026).
 
 **The name was a promise about scope.** `f_operations` promised work, mails and
-payments, and since migration 102 it is only the workbench. Somebody reading that
+payments, and since migration 104 it is only the workbench. Somebody reading that
 name in half a year concludes the mail leg belongs there and puts it back — which
 is exactly the mistake that produced the union in the first place: the issue named
 three *kinds* of open item and it was read as three tables.
@@ -37,8 +37,8 @@ import json
 import sqlalchemy as sa
 from alembic import op
 
-revision = "103"
-down_revision = "102"
+revision = "105"
+down_revision = "104"
 branch_labels = None
 depends_on = None
 
@@ -91,7 +91,7 @@ FROM workflow.workflow_tasks t
 COMMENT = (
     "Feit taak, een rij per werkbanktaak — open én afgehandeld, met de status als "
     "dimensie. Bewust geen unie over werkbank, maillog en betalingen (die stond "
-    "in migratie 098 en telde hetzelfde probleem twee keer: een definitief "
+    "in migratie 100 en telde hetzelfde probleem twee keer: een definitief "
     "mislukte e-mail en een te bevestigen terugbetaling zijn taaksoorten). "
     "`workflow.workflow_tasks` kent geen soft delete. Ouderdom wordt tegen "
     "CURRENT_DATE gemeten en geldt alleen voor wat nog wacht."

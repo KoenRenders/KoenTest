@@ -1,6 +1,6 @@
 """Reporting: `f_operations` is the workbench, not a union of three tables (#841).
 
-Migration 098 built this fact as a union over the workbench, the mail log and the
+Migration 100 built this fact as a union over the workbench, the mail log and the
 payments. That was wrong twice, and the second one is the worse of the two.
 
 **It counted the same problem more than once.** The workbench sweep already turns
@@ -33,8 +33,8 @@ silently agreeing beats one of them claiming something else.
 """
 from alembic import op
 
-revision = "102"
-down_revision = "101"
+revision = "104"
+down_revision = "103"
 branch_labels = None
 depends_on = None
 
@@ -78,7 +78,7 @@ WHERE t.status = 'open'
 
 COMMENT = (
     "Feit operaties, een rij per OPEN WERKBANKTAAK. Bewust geen unie meer over "
-    "werkbank, maillog en betalingen (migratie 098): een definitief mislukte "
+    "werkbank, maillog en betalingen (migratie 100): een definitief mislukte "
     "e-mail en een te bevestigen terugbetaling zijn taaksoorten en zaten er dus "
     "twee keer in. `workflow.workflow_tasks` kent geen soft delete. Ouderdom "
     "wordt tegen CURRENT_DATE gemeten, dus deze weergave antwoordt morgen anders "

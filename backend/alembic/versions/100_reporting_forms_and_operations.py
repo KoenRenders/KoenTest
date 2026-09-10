@@ -25,8 +25,8 @@ so a reader does not go looking for a filter that cannot exist.
 """
 from alembic import op
 
-revision = "098"
-down_revision = "097"
+revision = "100"
+down_revision = "099"
 branch_labels = None
 depends_on = None
 

@@ -18,14 +18,26 @@ therefore lives with the domain that produces it. Moving it later is a migration
 not a redesign.
 
 Nothing that runs today changes: two new tables in a schema this release created.
+
+**Numbered 099 and hanging off 098, and the whole reporting chain with it.** This
+was 097 while it lived on `feature/reporting`; master meanwhile grew its own 097
+(platform tenant, #854) and 098 (dropping the reconcile queue, #858) on top of
+phase 1. Two migrations with the same revision id is not a merge conflict git can
+see — the filenames differ — so it would have arrived on master as a chain alembic
+refuses to load. The fourteen migrations of this branch were renumbered to
+099-112 before the merge.
+
+Safe because none of them had ever run anywhere: only phase 1 (096) is on master
+and on the environments; nothing else was ever deployed. The proof is the "exactly
+one head" check, which is why it runs before the merge and not after.
 """
 import json
 
 import sqlalchemy as sa
 from alembic import op
 
-revision = "097"
-down_revision = "096"
+revision = "099"
+down_revision = "098"
 branch_labels = None
 depends_on = None
 

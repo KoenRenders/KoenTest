@@ -84,7 +84,7 @@ def _operations(db, *, tenant=TENANT_A):
 # The fact was a union over three tables until it turned out to count the same
 # problem twice: a definitively failed mail and a refund awaiting confirmation are
 # workbench *task kinds*, so they were in the task leg and again in their own leg.
-# The three things #841 names are three kinds, not three tables. Migration 102
+# The three things #841 names are three kinds, not three tables. Migration 104
 # reduced it to the workbench; 103 renamed it to `f_tasks` — the old name promised
 # a scope it no longer had, and a promise like that invites the next reader to put
 # the mail leg back — and made status a dimension instead of a filter baked into
@@ -126,7 +126,7 @@ def test_the_kinds_are_the_task_kinds(db_session, situation):
 
 
 def test_a_failed_mail_is_one_problem_and_not_two(db_session, situation):
-    """The double count that migration 102 removed, pinned so it cannot return.
+    """The double count that migration 104 removed, pinned so it cannot return.
 
     The fixture writes one failed mail AND the task the sweep makes for it. The
     report must show one row. Before 102 it showed two: one as "Open taak" and one

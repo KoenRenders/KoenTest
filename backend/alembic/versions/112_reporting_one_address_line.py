@@ -6,7 +6,7 @@ in de view [...]? Dat gaat veel gebruikt worden."* He narrowed the scope himself
 nothing in the existing screens, and no shared Python function.
 
 **The view already has the column.** `d_address.address_line` was built in
-migration 108 and it is already declared in the universe, so this migration adds
+migration 110 and it is already declared in the universe, so this migration adds
 no SQL. What is left is the part that is data: the shipped report
 "Leden per bestuurslid" picked three separate address columns, and now picks one.
 
@@ -36,8 +36,8 @@ import json
 import sqlalchemy as sa
 from alembic import op
 
-revision = "110"
-down_revision = "109"
+revision = "112"
+down_revision = "111"
 branch_labels = None
 depends_on = None
 

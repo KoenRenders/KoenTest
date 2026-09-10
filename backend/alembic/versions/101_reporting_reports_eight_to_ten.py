@@ -1,7 +1,7 @@
 """Reporting phase 5 (#841): questions 8, 9 and 10 as saved reports.
 
 With these three the ten questions of CR-06 §3 are complete as a shipped set.
-Idempotent per tenant on ``builtin_key``, exactly like the seven of migration 097,
+Idempotent per tenant on ``builtin_key``, exactly like the seven of migration 099,
 and for the same reason: a board member may have adjusted a shipped report, and a
 seed that overwrites his change would be a silent surprise on every deploy.
 
@@ -17,8 +17,8 @@ import json
 import sqlalchemy as sa
 from alembic import op
 
-revision = "099"
-down_revision = "098"
+revision = "101"
+down_revision = "100"
 branch_labels = None
 depends_on = None
 
