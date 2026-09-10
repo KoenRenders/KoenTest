@@ -231,6 +231,47 @@ def test_een_beheerder_ziet_de_pagina(client, db_session):
     assert "Opslaan" in resp.text and "Openstaand" in resp.text
 
 
+def test_de_gerenderde_pagina_toont_geen_ontsnapte_html(client, db_session):
+    """#815 — de poorten hierboven tellen namen in de BRON; deze kijkt naar de uitvoer.
+
+    Twee defecten van Koens tweede ronde ontstonden pas bij het renderen en waren dus
+    onzichtbaar voor elke brontest:
+
+    * een vertaalde tekst in een `~`-concatenatie escapete de hele control, waardoor
+      er letterlijk `&lt;textarea` op het scherm stond. Gemeten in Jinja: met
+      autoescape escapet `~` de ándere operanden zodra er één `Markup` tussen staat,
+      en `_()` levert `Markup`;
+    * `row_actions` kreeg tuples in plaats van kant-en-klare HTML en drukte
+      `('Bewerken', 'href=…')` af.
+
+    Deze test vangt de hele klasse en niet die twee gevallen: alles wat als
+    ontsnapte tag of als Python-repr in de uitvoer belandt, valt op.
+
+    Kapotgemaakt om te controleren dat deze test rood kan worden: `.format()` in
+    `field_select` terug naar `~`-concatenatie → rood op `&lt;select`; de acties in
+    `row_actions` terug naar tuples → rood op de tuple-vorm.
+    """
+    _sessie(client, db_session, "ds-render@example.com", "ADMIN")
+
+    html = client.get("/admin/design-system").text
+
+    ontsnapt = [t for t in ("&lt;textarea", "&lt;select", "&lt;option", "&lt;input",
+                            "&lt;button", "&lt;a ") if t in html]
+    assert not ontsnapt, (
+        f"deze tags staan als tekst op de pagina in plaats van gerenderd: {ontsnapt}")
+
+    # Let op de vorm: `row_actions` doet `{{ a|safe }}`, dus een tuple belandt
+    # ONGE-escaped in de uitvoer — met `Markup('…')` en al. Zoeken naar `&#39;` (mijn
+    # eerste poging) vond dus niets, terwijl het defect er wel degelijk stond.
+    import re
+
+    reprs = [t for t in ("(Markup(", "Markup('") if t in html]
+    reprs += re.findall(r"\('[^']{1,40}', '[^']{1,80}'\)", html)
+    assert not reprs, (
+        f"er staan Python-waarden op de pagina; een macro kreeg het verkeerde soort "
+        f"argument: {reprs[:3]}")
+
+
 def test_de_kleurtokens_komen_uit_de_gegenereerde_css(client, db_session):
     """Niet overgetypt — dát was de fout van de oude gids.
 

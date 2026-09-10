@@ -56,7 +56,7 @@
 {{ ui.section_header(_("2 · Typografie")) }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-3">
-    {{ _("Mobiel-eerst sinds #804 — §1.2a. De kale klasse is de telefoonmaat.") }}
+    {{ _("Mobiel-eerst: de kale klasse is de telefoonmaat, de md:-variant is de uitzondering.") }}
   </p>
   {# #811: deze sectie is handgeschreven, want de typeschaal is geen macro maar losse
      klassen per template. Ze kan dus wél afdrijven, anders dan de knoppen hieronder.
@@ -125,7 +125,7 @@
     {{ ui.badge(_("Terugbetaald"), "purple") }}
   </div>
   <p class="text-xs text-gray-500 mt-3">
-    {{ _("Zes tonen — §2.10. Teal hoort er NIET bij: die sloop er in #617 bij en is met #660 weer weg.") }}
+    {{ _("Zes tonen — §2.10. Teal hoort er niet bij; die is bewust weer verdwenen.") }}
   </p>
 {% endcall %}
 
@@ -170,10 +170,18 @@
      eerste versie van deze pagina ontbraken de radio-optielijst, de "anders"-optie en
      de schaal. De gate loopt nu óók over `FIELD_TYPES`. #}
   <p class="text-sm text-gray-600 mb-3">
-    {{ _("Alle tien de soorten uit FIELD_TYPES, met de opmaak van #741/#749/#774.") }}
+    {{ _("Alle tien de soorten uit FIELD_TYPES, met de opmaak van het publieke formulier.") }}
   </p>
+  {# #815: de soortnaam erbij. Tien velden zonder naam dwingen je te raden welke
+     `rating` is — en die naam is de brug naar de formulierbouwer, waar je precies
+     die soort kiest. #}
   <div class="space-y-[22px]">
-    {% for f in velden %}{{ veld(f) }}{% endfor %}
+    {% for f in velden %}
+    <div>
+      <p class="text-xs uppercase tracking-wide text-gray-400 mb-1">{{ f.field_type }}</p>
+      {{ veld(f) }}
+    </div>
+    {% endfor %}
   </div>
 {% endcall %}
 
@@ -204,7 +212,10 @@
   <p class="text-sm text-gray-600 mb-3">
     {{ _("De volgorde ligt vast: paginakop met de primaire actie, kengetallen, filterbalk, lijst, pager.") }}
   </p>
-  <div class="border border-line rounded-xl p-4 bg-surface-2">
+  {# #815: `bg-gray-50` — de echte paginakleur. `bg-surface-2` gaf een
+       blauwzweem die op geen enkel scherm voorkomt; dat het een voorbeeld is,
+       laat de rand al zien. #}
+  <div class="border border-line rounded-xl p-4 bg-gray-50">
     {% call ui.page_header(_("Activiteiten"), _("Een kaart opent de activiteit.")) %}
       {{ ui.btn_primary(_("+ Nieuwe activiteit"), href="/admin/design-system") }}
     {% endcall %}
@@ -250,10 +261,17 @@
           <td class="py-2">{{ _("Voorbeeldactiviteit") }}</td>
           <td>{{ ui.badge(_("Open"), "green") }}</td>
           <td class="text-right">
+            {# #815: `row_actions` doet `{{ a|safe }}` per element en verwacht dus
+               kant-en-klare HTML — precies zoals de echte schermen het doen. Met een
+               tuple drukte de pagina letterlijk `('Bewerken', 'href=…')` af. #}
             {{ ui.row_actions(actions=[
-                 (_("Bewerken"), 'href="/admin/activiteiten"', "pencil"),
-                 (_("Kopiëren"), 'href="/admin/activiteiten"', "copy")],
-               delete_attrs='href="#"', delete_label=_("Verwijderen"),
+                 ui.btn_secondary(_("Bewerken"), type="button",
+                                  href="/admin/activiteiten", size="sm",
+                                  lead_icon="pencil"),
+                 ui.btn_secondary(_("Kopiëren"), type="button",
+                                  href="/admin/activiteiten", size="sm",
+                                  lead_icon="copy")],
+               delete_attrs='href="/admin/design-system"', delete_label=_("Verwijderen"),
                delete_confirm=_("Voorbeeldactiviteit")) }}
           </td>
         </tr>
