@@ -178,6 +178,57 @@ def tenant_base_url(db: Session, tenant_id: int | None = None, *,
     return origin
 
 
+def _omgevingspoort(schema: str) -> str:
+    """De poort van déze omgeving, als ze er een nodig heeft (#863).
+
+    ``TENANT_HOSTNAMES`` bevat hostnamen **zonder** poort, en dat hoort ook zo: de
+    tenant-resolutie vergelijkt met ``host.split(":")[0]``. Maar een adres dat daaruit
+    gebouwd wordt, verloor daarmee de poort. Op HDEV — dat op 8081 draait — leverde dat
+    een dode kaart op: poort 80 stuurt met een 308 naar https, en dat antwoordt niet.
+
+    Eerst uit de oorsprong van het lopende verzoek, anders uit ``FRONTEND_URL``. Die
+    tweede helft is geen detail: een sitemap of een mail kan uit een achtergrondtaak
+    komen, en dan is er geen verzoek — zonder terugval bouw je daar opnieuw een adres
+    zonder poort.
+
+    Een standaardpoort blijft weg. Een canoniek adres met een expliciete ``:443`` is een
+    tweede schrijfwijze van dezelfde URL, en dat is voor SEO precies wat je niet wil —
+    UAT en PROD veranderen hier dus niet.
+    """
+    from urllib.parse import urlparse
+
+    from app.config import settings
+    from app.kernel.tenancy import current_origin
+
+    poort = None
+    for bron in (current_origin.get(), settings.frontend_url):
+        if not bron:
+            continue
+        try:
+            poort = urlparse(bron).port
+        except ValueError:  # een onparseerbare poort is geen poort
+            poort = None
+        if poort:
+            break
+    if not poort or (schema, poort) in (("http", 80), ("https", 443)):
+        return ""
+    return f":{poort}"
+
+
+def _origin_voor(host: str) -> str:
+    """``<schema>://<host>[:poort]`` voor een hostnaam uit de routering (#863).
+
+    Het schema komt uit ``FRONTEND_URL`` (de omgeving weet of ze https draait), de host
+    uit ``TENANT_HOSTNAMES``, en de poort uit deze omgeving — zie ``_omgevingspoort``.
+    Elk levert wat het werkelijk weet.
+    """
+    from app.config import settings
+
+    schema = (settings.frontend_url.split("://", 1)[0]
+              if "://" in settings.frontend_url else "https")
+    return f"{schema}://{host}{_omgevingspoort(schema)}"
+
+
 def tenant_home_url(db: Session, tenant_id: int | None = None, *,
                     code: str | None = None) -> str:
     """Waar WOONT deze tenant — haar eigen canonieke adres (#860).
@@ -217,8 +268,7 @@ def tenant_home_url(db: Session, tenant_id: int | None = None, *,
         hosts = parse_hostname_map(settings.tenant_hostnames)
         eigen = next((h for h, c in hosts.items() if c == code.lower()), None)
         if eigen:
-            schema = settings.frontend_url.split("://", 1)[0] if "://" in settings.frontend_url else "https"
-            return f"{schema}://{eigen}"
+            return _origin_voor(eigen)
 
     stored = (get_setting(db, "base_url", tenant_id=tenant_id) or "").strip()
     if stored and _origin_serves_this_environment(stored):
