@@ -150,21 +150,28 @@ def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
     assert hrefs.index("/admin/rapporten") == hrefs.index("/admin/betalingen") + 1
 
 
-def test_the_dashboard_is_untouched(client, db_session):
-    """#835 test 5, in the only form that can be true.
+def test_the_dashboard_keeps_its_six_tiles_and_its_place(client, db_session):
+    """What still has to hold after #848 — and what no longer does.
 
-    Byte-for-byte equality with "before reporting" is not the right measure: the
-    admin shell gained one menu item in phase 2, so every admin page's HTML
-    differs by that one entry — which is exactly what
-    `test_the_menu_gained_exactly_one_item_and_nothing_else_moved` already pins.
+    This test used to assert that the dashboard knew nothing of reporting: no
+    link, not even the word. **Koen revised principle 8 for this one screen** on
+    10 September 2026: *"Gelieve in v2.3 de zaken te voorzien zodat alle bestaande
+    tegels vervangen kunnen worden door Reporting."* So the clause about the word
+    is gone, on purpose and with a decision behind it — not because it became
+    inconvenient.
 
-    What phase 4 has to prove is narrower and sharper: the dashboard itself was
-    not touched. Its six tiles are the same six, they still link where they linked,
-    and nothing on it points at a report. No "temporary" link, per Koen's rule of
-    10 September.
+    Three things did NOT change and are what this now guards:
+
+    - the screen stays on `/admin`, the landing page of the back office;
+    - six tiles in, six tiles out, with the same titles;
+    - each keeps its operational link — at "Open taken" you want the workbench,
+      not a table — and the link to its report comes beside it, not instead.
+
+    That the six NUMBERS did not change is a different test and a sharper one:
+    `test_reporting_dashboard.py` computes each of them the old way and through
+    its report and compares. It only works while both roads exist, which is why
+    `get_stats` stays.
     """
-    from pathlib import Path
-
     from tests.conftest import SEEDED_ADMIN_EMAIL
 
     seed(db_session)
@@ -181,13 +188,27 @@ def test_the_dashboard_is_untouched(client, db_session):
         assert titel in pagina.text, titel
         assert doel in pagina.text, doel
 
-    inhoud = pagina.text.split('id="main"')[-1] if 'id="main"' in pagina.text \
-        else pagina.text
-    assert inhoud.count("/admin/rapporten") <= 1, (
-        "alleen het menu-item mag naar Rapporten wijzen, geen tegel")
+    from app.ui.system_ui import DASHBOARD_TEGELS
 
-    bron = Path(__file__).resolve().parents[1] / "app"
-    for pad in (bron / "ui" / "system_ui.py",
-                bron / "ui" / "templates" / "admin_dashboard.html"):
-        assert "rapport" not in pad.read_text(encoding="utf-8").lower(), (
-            f"{pad.name} weet niets van rapportering, en dat blijft zo")
+    assert len(DASHBOARD_TEGELS) == 6, "zes tegels erin, zes eruit"
+
+
+def test_the_outstanding_tile_still_writes_its_amount_the_way_it_did(client,
+                                                                     db_session):
+    """A finding, kept as a test rather than quietly fixed.
+
+    The tile writes `€45.00` with a POINT, while #735 made the comma the house
+    rule and `ui.geld` exists for exactly this. #848 moves where the number comes
+    from and changes nothing about what is displayed, so the format stayed as it
+    was — and this pins it, so that when somebody does fix it, it is a decision
+    with a diff and not a side effect of moving a query.
+    """
+    import re
+
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+
+    seed(db_session)
+    login(client, db_session, SEEDED_ADMIN_EMAIL, ("ADMIN",))
+    pagina = client.get("/admin")
+    bedragen = re.findall(r"€\d+\.\d{2}", pagina.text)
+    assert bedragen, "de tegel toont een bedrag met een punt, zoals voordien"

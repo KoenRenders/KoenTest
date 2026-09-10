@@ -280,9 +280,9 @@ def test_a_group_of_four_is_merged_and_a_group_of_five_is_not(db_session,
     gezin(4, "1111")   # under the threshold
     gezin(5, "2222")   # exactly at it
 
-    result = run(db_session, ["household_municipality", "membership_person_count"],
+    result = run(db_session, ["member_municipality", "membership_person_count"],
                  filters=[Filter("membership_person_year", Operator.EQ, (str(y2),))])
-    per_gemeente = {row["household_municipality"]: row["membership_person_count"]
+    per_gemeente = {row["member_municipality"]: row["membership_person_count"]
                     for row in result.rows}
 
     assert "Plaats2222" in per_gemeente, "vijf personen: een eigen cel"
@@ -316,10 +316,10 @@ def test_a_non_additive_measure_stays_empty_in_the_merged_row(db_session,
     Deliberately not written with a `skip` if no cell is small: a test that can
     quietly do nothing is worse than no test, because it reads as coverage.
     """
-    result = run(db_session, ["household_municipality", "payment_amount",
+    result = run(db_session, ["member_municipality", "payment_amount",
                               "payment_count"])
     samengevoegd = [row for row in result.rows
-                    if row["household_municipality"] == MERGED_LABEL]
+                    if row["member_municipality"] == MERGED_LABEL]
     assert samengevoegd, (
         "elk gezin in de seed is klein, dus er hoort een samengevoegde rij te zijn")
 
@@ -336,7 +336,7 @@ def test_the_threshold_is_declared_and_not_hidden_in_a_template():
     from app.domains.reporting.api import OBJECTS
 
     gevoelig = {o.key for o in OBJECTS if o.sensitive}
-    assert {"person_age_group", "household_municipality", "household_size_group"} \
+    assert {"person_age_group", "member_municipality", "member_size_group"} \
         <= gevoelig
     assert SMALL_CELL_THRESHOLD == 5
 
@@ -367,9 +367,12 @@ def test_the_ten_questions_are_now_complete(db_session, situation):
         "member_demographics", "form_usage", "operations_now",
     }
     assert tien_vragen <= reports, "de tien bestuurdersvragen zijn compleet"
-    assert reports == tien_vragen | {"payments_list"}, (
-        "en daarnaast precies één rapport dat geen bestuurdersvraag is: de "
-        "betalingenlijst van #841 punt 4")
+    dashboard = {"dashboard_members", "dashboard_active_members",
+                 "dashboard_member_persons", "dashboard_upcoming_activities",
+                 "dashboard_open_tasks", "dashboard_outstanding"}
+    assert reports == tien_vragen | {"payments_list"} | dashboard, (
+        "en daarnaast de betalingenlijst (#841 punt 4) en de zes "
+        "dashboardtegels (#848) — geen van beide is een bestuurdersvraag")
 
 
 def test_the_three_new_reports_run_and_return_the_seed_s_numbers(db_session,

@@ -194,7 +194,7 @@ FACTS: tuple[Fact, ...] = (
             "Lidmaatschappen per gezin per jaar, inclusief de gezinnen die dat jaar "
             "níét vernieuwden — anders is 'hoeveel vervallen er?' niet te tellen."
         ),
-        dataset_key=("household_id", "year"),
+        dataset_key=("member_id", "year"),
         people_sql="SUM({view}.person_count)",
     ),
     Fact(
@@ -221,7 +221,7 @@ FACTS: tuple[Fact, ...] = (
         dataset_key=("payment_id",),
         # A payment belongs to a household, not to a person; counting households
         # is the closest honest measure of how few people a cell covers.
-        people_sql="COUNT(DISTINCT {view}.household_id)",
+        people_sql="COUNT(DISTINCT {view}.member_id)",
         # Newest first, like the payments screen and its export.
         detail_order=("{view}.created_at DESC", "{view}.payment_id"),
     ),
@@ -236,6 +236,30 @@ FACTS: tuple[Fact, ...] = (
         ),
         dataset_key=("year", "person_id"),
         people_sql="COUNT({view}.person_id)",
+    ),
+    Fact(
+        key="f_members",
+        name="Gezinnen",
+        role=Role.ADMIN,
+        grain="één rij per gezin",
+        description=(
+            "Elk gezin, ook een dat nooit lid was. Dat is het verschil met "
+            "Lidmaatschappen, dat alleen gezinnen kent die ooit aansloten."
+        ),
+        dataset_key=("member_id",),
+        people_sql="COUNT(DISTINCT {view}.member_id)",
+    ),
+    Fact(
+        key="f_activities",
+        name="Activiteiten",
+        role=Role.ADMIN,
+        grain="één rij per activiteit",
+        description=(
+            "Elke activiteit, ook een zonder inschrijvingen. Dat is het verschil "
+            "met Inschrijvingen, dat alleen activiteiten kent waarop iemand "
+            "inschreef."
+        ),
+        dataset_key=("activity_id",),
     ),
     Fact(
         key="f_form_submissions",
@@ -267,7 +291,7 @@ FACTS: tuple[Fact, ...] = (
 DIMENSIONS: tuple[Dimension, ...] = (
     Dimension(key="d_date", name="Datum", key_column="date_key"),
     Dimension(key="d_activity", name="Activiteit", key_column="activity_id"),
-    Dimension(key="d_household", name="Gezin", key_column="household_id"),
+    Dimension(key="d_member", name="Gezin", key_column="member_id"),
     Dimension(key="d_person", name="Persoon", key_column="person_id"),
     Dimension(key="d_payment_method", name="Betaalwijze", key_column="code"),
     Dimension(key="d_payment_status", name="Betaalstatus", key_column="code"),
@@ -278,20 +302,23 @@ DIMENSIONS: tuple[Dimension, ...] = (
 JOINS: tuple[Join, ...] = (
     Join("f_payments", "d_date", (("date_key", "date_key"),)),
     Join("f_payments", "d_activity", (("activity_id", "activity_id"),)),
-    Join("f_payments", "d_household", (("household_id", "household_id"),)),
+    Join("f_payments", "d_member", (("member_id", "member_id"),)),
     Join("f_payments", "d_payment_method", (("method_code", "code"),)),
     Join("f_payments", "d_payment_status", (("status_code", "code"),)),
     Join("f_registrations", "d_date", (("date_key", "date_key"),)),
     Join("f_registrations", "d_activity", (("activity_id", "activity_id"),)),
     Join("f_registrations", "d_person", (("person_id", "person_id"),)),
     Join("f_registrations", "d_payment_method", (("method_code", "code"),)),
-    Join("f_memberships", "d_household", (("household_id", "household_id"),)),
+    Join("f_memberships", "d_member", (("member_id", "member_id"),)),
     Join("f_memberships", "d_membership_status", (("status_code", "code"),)),
     Join("f_membership_persons", "d_person", (("person_id", "person_id"),)),
-    Join("f_membership_persons", "d_household", (("household_id", "household_id"),)),
+    Join("f_membership_persons", "d_member", (("member_id", "member_id"),)),
     Join("f_form_submissions", "d_form", (("form_id", "form_id"),)),
     Join("f_form_submissions", "d_date", (("date_key", "date_key"),)),
     Join("f_tasks", "d_date", (("date_key", "date_key"),)),
+    Join("f_members", "d_member", (("member_id", "member_id"),)),
+    Join("f_activities", "d_activity", (("activity_id", "activity_id"),)),
+    Join("f_activities", "d_date", (("date_key", "date_key"),)),
 )
 
 
@@ -393,33 +420,33 @@ OBJECTS: tuple[UniverseObject, ...] = (
         description="Nieuw, vernieuwd of vervallen.",
     ),
     UniverseObject(
-        key="household_municipality", name="Gemeente", klass="Leden",
-        kind=ObjectKind.DIMENSION, view="d_household", sql="{view}.municipality",
+        key="member_municipality", name="Gemeente", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="d_member", sql="{view}.municipality",
         format=Format.LABEL, role=Role.ADMIN, sensitive=True,
         description="Gemeente van het gezin, uit de postcodetabel.",
     ),
     UniverseObject(
-        key="household_postal_code", name="Postcode", klass="Leden",
-        kind=ObjectKind.DIMENSION, view="d_household", sql="{view}.postal_code",
+        key="member_postal_code", name="Postcode", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="d_member", sql="{view}.postal_code",
         format=Format.LABEL, role=Role.ADMIN, sensitive=True,
         description="Postcode van het gezin.",
     ),
     UniverseObject(
-        key="household_size_group", name="Gezinsgrootte", klass="Leden",
-        kind=ObjectKind.DIMENSION, view="d_household", sql="{view}.household_size_group",
+        key="member_size_group", name="Gezinsgrootte", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="d_member", sql="{view}.household_size_group",
         format=Format.LABEL, role=Role.ADMIN, sensitive=True,
         description="Aantal personen in het gezin, in klassen.",
     ),
     UniverseObject(
-        key="household_member_since", name="Lid sinds", klass="Leden",
-        kind=ObjectKind.DIMENSION, view="d_household", sql="{view}.member_since_year",
+        key="member_since", name="Lid sinds", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="d_member", sql="{view}.member_since_year",
         format=Format.YEAR, role=Role.ADMIN, sensitive=True,
         description="Het eerste jaar waarvoor dit gezin een lidmaatschap heeft.",
     ),
     UniverseObject(
-        key="household", name="Gezin", klass="Leden", kind=ObjectKind.DIMENSION,
-        view="d_household", sql="{view}.household_id", format=Format.COUNT,
-        role=Role.ADMIN, sensitive=True, drill="household", drill_sql="{view}.household_id",
+        key="member", name="Gezin", klass="Leden", kind=ObjectKind.DIMENSION,
+        view="d_member", sql="{view}.member_id", format=Format.COUNT,
+        role=Role.ADMIN, sensitive=True, drill="member", drill_sql="{view}.member_id",
         description="Het gezin zelf. Klik door naar het gezinsdossier.",
     ),
     UniverseObject(
@@ -497,6 +524,25 @@ OBJECTS: tuple[UniverseObject, ...] = (
         description="Of enkel leden zich mochten inschrijven.",
     ),
     UniverseObject(
+        key="activity_count", name="Aantal activiteiten", klass="Activiteiten",
+        kind=ObjectKind.MEASURE, view="f_activities",
+        sql="COUNT(DISTINCT {view}.activity_id)", format=Format.COUNT,
+        role=Role.ADMIN, fact="f_activities", additive=False,
+        description=(
+            "Elke activiteit, ook zonder inschrijvingen. Verschilt van 'Aantal "
+            "inschrijvingen', dat de inschrijvingen telt."
+        ),
+    ),
+    UniverseObject(
+        key="activity_last_date", name="Laatste datum", klass="Activiteiten",
+        kind=ObjectKind.DIMENSION, view="f_activities", sql="{view}.last_date",
+        format=Format.DATE, role=Role.ADMIN, fact="f_activities",
+        description=(
+            "De laatste dag van de activiteit (einddatum, anders begindatum). "
+            "Filter hierop vanaf vandaag voor de komende activiteiten."
+        ),
+    ),
+    UniverseObject(
         key="component", name="Onderdeel", klass="Activiteiten", kind=ObjectKind.DIMENSION,
         view="f_registrations", sql="{view}.component_name", format=Format.LABEL,
         role=Role.ADMIN, fact="f_registrations",
@@ -542,6 +588,19 @@ OBJECTS: tuple[UniverseObject, ...] = (
         kind=ObjectKind.MEASURE, view="f_payments", sql="SUM({view}.open_amount)",
         format=Format.MONEY, role=Role.FINANCE, fact="f_payments",
         description="Te betalen min ontvangen.",
+    ),
+    UniverseObject(
+        key="payment_outstanding", name="Openstaand volgens status",
+        klass="Betalingen", kind=ObjectKind.MEASURE, view="f_payments",
+        sql=("SUM(CASE WHEN {view}.status_code "
+             "NOT IN ('paid', 'cancelled', 'failed') THEN {view}.amount ELSE 0 END)"),
+        format=Format.MONEY, role=Role.FINANCE, fact="f_payments",
+        description=(
+            "Het bedrag op records die nog niet afgehandeld zijn. Iets anders dan "
+            "'Openstaand', dat gevorderd min ontvangen rekent: bij een deels "
+            "betaald record lopen die twee uiteen, en dat verschil is het "
+            "onderwerp — niet een dubbeling."
+        ),
     ),
     UniverseObject(
         key="payment_refunded", name="Terugbetaald", klass="Betalingen",
@@ -695,6 +754,55 @@ OBJECTS: tuple[UniverseObject, ...] = (
         kind=ObjectKind.DETAIL, view="f_payments", sql="{view}.note",
         format=Format.LABEL, role=Role.FINANCE, fact="f_payments",
         description="Wat de penningmeester erbij schreef.",
+    ),
+
+    UniverseObject(
+        key="member_total_count", name="Alle gezinnen", klass="Leden",
+        kind=ObjectKind.MEASURE, view="f_members",
+        sql="COUNT(DISTINCT {view}.member_id)", format=Format.COUNT,
+        role=Role.ADMIN, fact="f_members", additive=False,
+        description=(
+            "Elk gezin in de administratie, of het ooit lid was of niet. Verschilt "
+            "van 'Aantal gezinnen', dat alleen telt wie in dat jaar lid was."
+        ),
+    ),
+    UniverseObject(
+        key="member_ever_member", name="Ooit lid geweest", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="f_members",
+        sql=_boolean_label("was_ever_member"), format=Format.LABEL,
+        role=Role.ADMIN, fact="f_members",
+        description="Of dit gezin ooit een lidmaatschap had.",
+    ),
+    UniverseObject(
+        key="membership_active_count", name="Actieve lidmaatschappen",
+        klass="Leden", kind=ObjectKind.MEASURE, view="f_memberships",
+        sql="SUM({view}.active_membership_count)", format=Format.COUNT,
+        role=Role.ADMIN, fact="f_memberships",
+        description=(
+            "Lidmaatschappen die op actief staan. Telt lidmaatschappen en geen "
+            "gezinnen — dat is wat de dashboardtegel telt."
+        ),
+    ),
+    UniverseObject(
+        key="membership_person_valid_today", name="Vandaag geldig", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="f_membership_persons",
+        sql=_boolean_label("is_valid_today"), format=Format.LABEL,
+        role=Role.ADMIN, fact="f_membership_persons",
+        description=(
+            "Of het lidmaatschap van deze persoon vandaag geldig is. Iets anders "
+            "dan 'lid voor dit jaar': wie in oktober voor volgend jaar aansluit, "
+            "is vandaag geldig en hoort bij volgend jaar."
+        ),
+    ),
+    UniverseObject(
+        key="membership_person_unique", name="Aantal unieke leden", klass="Leden",
+        kind=ObjectKind.MEASURE, view="f_membership_persons",
+        sql="COUNT(DISTINCT {view}.person_id)", format=Format.COUNT,
+        role=Role.ADMIN, fact="f_membership_persons", additive=False,
+        description=(
+            "Personen, elk één keer geteld over alle jaren heen. Gebruik dit als "
+            "je niet op jaar groepeert; anders telt 'Aantal leden (personen)'."
+        ),
     ),
 
     # ── Formulieren ─────────────────────────────────────────────────────────

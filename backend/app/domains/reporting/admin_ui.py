@@ -87,7 +87,7 @@ SHAPE_ICONS = {"table": "table", "pivot": "pivot", "bar": "chart-bar",
 
 DRILL_URLS = {
     "activity": "/admin/activiteiten/{id}",
-    "household": "/admin/leden/gezin/{id}",
+    "member": "/admin/leden/gezin/{id}",
     "payment": "/admin/betalingen?record={id}",
 }
 

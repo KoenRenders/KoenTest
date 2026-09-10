@@ -30,8 +30,10 @@ The role column is the role the fact's **flat dataset dump** will need once the 
 |---|---|---|---|---|---|
 | `f_memberships` | Lidmaatschappen | één rij per gezin per lidmaatschapsjaar | `finance` | `SUM({view}.person_count)` | Lidmaatschappen per gezin per jaar, inclusief de gezinnen die dat jaar níét vernieuwden — anders is 'hoeveel vervallen er?' niet te tellen. |
 | `f_registrations` | Inschrijvingen | één rij per inschrijfregel | `finance` | `COUNT(DISTINCT {view}.person_id)` | Inschrijvingen op activiteiten, één rij per gekozen product. Een inschrijving zonder producten telt mee met aantal 0. |
-| `f_payments` | Betalingen | één rij per betaalrecord | `finance` | `COUNT(DISTINCT {view}.household_id)` | Vorderingen en terugbetalingen. Een terugbetaling draagt een negatief bedrag, dus elke som is meteen een nettobedrag. |
+| `f_payments` | Betalingen | één rij per betaalrecord | `finance` | `COUNT(DISTINCT {view}.member_id)` | Vorderingen en terugbetalingen. Een terugbetaling draagt een negatief bedrag, dus elke som is meteen een nettobedrag. |
 | `f_membership_persons` | Leden (personen) | één rij per persoon per lidmaatschapsjaar | `admin` | `COUNT({view}.person_id)` | Wie er lid is, op persoonsniveau — de korrel die vraag 8 nodig heeft. Een persoon in twee gezinnen telt één keer. |
+| `f_members` | Gezinnen | één rij per gezin | `admin` | `COUNT(DISTINCT {view}.member_id)` | Elk gezin, ook een dat nooit lid was. Dat is het verschil met Lidmaatschappen, dat alleen gezinnen kent die ooit aansloten. |
+| `f_activities` | Activiteiten | één rij per activiteit | `admin` | — | Elke activiteit, ook een zonder inschrijvingen. Dat is het verschil met Inschrijvingen, dat alleen activiteiten kent waarop iemand inschreef. |
 | `f_form_submissions` | Formulierinzendingen | één rij per inzending | `admin` | — | Inzendingen op formulieren. Zonder naam of e-mailadres: een rapport telt inzendingen, het formulierscherm toont wat iemand schreef. |
 | `f_tasks` | Taken | één rij per werkbanktaak, open én afgehandeld | `admin` | — | De werkbank: elke taak, met haar status als dimensie. Een definitief mislukte e-mail en een te bevestigen terugbetaling zitten erin als taaksoort — niet als aparte rij ernaast. Filter op Open voor de werkvoorraad; laat het filter weg en je ziet of ze groeit of krimpt. |
 
@@ -41,7 +43,7 @@ The role column is the role the fact's **flat dataset dump** will need once the 
 |---|---|---|
 | `d_date` | Datum | `date_key` |
 | `d_activity` | Activiteit | `activity_id` |
-| `d_household` | Gezin | `household_id` |
+| `d_member` | Gezin | `member_id` |
 | `d_person` | Persoon | `person_id` |
 | `d_payment_method` | Betaalwijze | `code` |
 | `d_payment_status` | Betaalstatus | `code` |
@@ -56,20 +58,23 @@ Every join also matches on `tenant_id`, unconditionally — a dimension row can 
 |---|---|---|
 | `f_payments` | `d_date` | `date_key` = `date_key` |
 | `f_payments` | `d_activity` | `activity_id` = `activity_id` |
-| `f_payments` | `d_household` | `household_id` = `household_id` |
+| `f_payments` | `d_member` | `member_id` = `member_id` |
 | `f_payments` | `d_payment_method` | `method_code` = `code` |
 | `f_payments` | `d_payment_status` | `status_code` = `code` |
 | `f_registrations` | `d_date` | `date_key` = `date_key` |
 | `f_registrations` | `d_activity` | `activity_id` = `activity_id` |
 | `f_registrations` | `d_person` | `person_id` = `person_id` |
 | `f_registrations` | `d_payment_method` | `method_code` = `code` |
-| `f_memberships` | `d_household` | `household_id` = `household_id` |
+| `f_memberships` | `d_member` | `member_id` = `member_id` |
 | `f_memberships` | `d_membership_status` | `status_code` = `code` |
 | `f_membership_persons` | `d_person` | `person_id` = `person_id` |
-| `f_membership_persons` | `d_household` | `household_id` = `household_id` |
+| `f_membership_persons` | `d_member` | `member_id` = `member_id` |
 | `f_form_submissions` | `d_form` | `form_id` = `form_id` |
 | `f_form_submissions` | `d_date` | `date_key` = `date_key` |
 | `f_tasks` | `d_date` | `date_key` = `date_key` |
+| `f_members` | `d_member` | `member_id` = `member_id` |
+| `f_activities` | `d_activity` | `activity_id` = `activity_id` |
+| `f_activities` | `d_date` | `date_key` = `date_key` |
 
 ## Roles
 
@@ -77,8 +82,8 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 
 | Universe role | Meaning | Objects |
 |---|---|---|
-| `admin` | the default: what an admin screen already shows | 47 |
-| `finance` | money — every measure formatted as money, and the Betalingen class | 26 |
+| `admin` | the default: what an admin screen already shows | 54 |
+| `finance` | money — every measure formatted as money, and the Betalingen class | 27 |
 | `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 2 |
 
 ## Objects
@@ -98,15 +103,20 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `membership_amount_paid` | Lidgeld ontvangen | measure | money | `finance` | `SUM(f_memberships.amount_paid)` | Wat er effectief op het lidgeld ontvangen is. |
 | `membership_open_amount` | Lidgeld openstaand | measure | money | `finance` | `SUM(f_memberships.open_amount)` | Gefactureerd min ontvangen. |
 | `membership_status` | Lidmaatschapsstatus | dimension | label | `admin` | `d_membership_status.label` | Nieuw, vernieuwd of vervallen. |
-| `household_municipality` | Gemeente | dimension | label | `admin` | `d_household.municipality` | Gemeente van het gezin, uit de postcodetabel. |
-| `household_postal_code` | Postcode | dimension | label | `admin` | `d_household.postal_code` | Postcode van het gezin. |
-| `household_size_group` | Gezinsgrootte | dimension | label | `admin` | `d_household.household_size_group` | Aantal personen in het gezin, in klassen. |
-| `household_member_since` | Lid sinds | dimension | year | `admin` | `d_household.member_since_year` | Het eerste jaar waarvoor dit gezin een lidmaatschap heeft. |
-| `household` | Gezin | dimension | count | `admin` | `d_household.household_id` | Het gezin zelf. Klik door naar het gezinsdossier. |
+| `member_municipality` | Gemeente | dimension | label | `admin` | `d_member.municipality` | Gemeente van het gezin, uit de postcodetabel. |
+| `member_postal_code` | Postcode | dimension | label | `admin` | `d_member.postal_code` | Postcode van het gezin. |
+| `member_size_group` | Gezinsgrootte | dimension | label | `admin` | `d_member.household_size_group` | Aantal personen in het gezin, in klassen. |
+| `member_since` | Lid sinds | dimension | year | `admin` | `d_member.member_since_year` | Het eerste jaar waarvoor dit gezin een lidmaatschap heeft. |
+| `member` | Gezin | dimension | count | `admin` | `d_member.member_id` | Het gezin zelf. Klik door naar het gezinsdossier. |
 | `person_age_group` | Leeftijdsgroep | dimension | label | `admin` | `d_person.age_group` | Leeftijdsklasse van de inschrijver, berekend op vandaag. |
 | `person_gender` | Geslacht | dimension | label | `admin` | `d_person.gender_label` | Geslacht van de inschrijver. |
 | `person_relation_type` | Relatietype | dimension | label | `admin` | `d_person.relation_type_label` | Hoofdlid, partner of (meerderjarig) kind binnen het gezin. |
 | `membership_person_count` | Aantal leden (personen) | measure | count | `admin` | `COUNT(f_membership_persons.person_id)` | Personen met een lidmaatschap in dat jaar. Eén rij per persoon per jaar, dus tellen is optellen. |
+| `member_total_count` | Alle gezinnen | measure | count | `admin` | `COUNT(DISTINCT f_members.member_id)` | Elk gezin in de administratie, of het ooit lid was of niet. Verschilt van 'Aantal gezinnen', dat alleen telt wie in dat jaar lid was. |
+| `member_ever_member` | Ooit lid geweest | dimension | label | `admin` | `CASE WHEN f_members.was_ever_member THEN 'Ja' ELSE 'Nee' END` | Of dit gezin ooit een lidmaatschap had. |
+| `membership_active_count` | Actieve lidmaatschappen | measure | count | `admin` | `SUM(f_memberships.active_membership_count)` | Lidmaatschappen die op actief staan. Telt lidmaatschappen en geen gezinnen — dat is wat de dashboardtegel telt. |
+| `membership_person_valid_today` | Vandaag geldig | dimension | label | `admin` | `CASE WHEN f_membership_persons.is_valid_today THEN 'Ja' ELSE 'Nee' END` | Of het lidmaatschap van deze persoon vandaag geldig is. Iets anders dan 'lid voor dit jaar': wie in oktober voor volgend jaar aansluit, is vandaag geldig en hoort bij volgend jaar. |
+| `membership_person_unique` | Aantal unieke leden | measure | count | `admin` | `COUNT(DISTINCT f_membership_persons.person_id)` | Personen, elk één keer geteld over alle jaren heen. Gebruik dit als je niet op jaar groepeert; anders telt 'Aantal leden (personen)'. |
 
 ### Activiteiten
 
@@ -120,6 +130,8 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `activity_location` | Locatie | dimension | label | `admin` | `d_activity.location` | Waar de activiteit doorgaat. |
 | `activity_cancelled` | Geannuleerd | dimension | label | `admin` | `CASE WHEN d_activity.is_cancelled THEN 'Ja' ELSE 'Nee' END` | Of de activiteit geannuleerd werd. |
 | `activity_members_only` | Enkel voor leden | dimension | label | `admin` | `CASE WHEN d_activity.members_only THEN 'Ja' ELSE 'Nee' END` | Of enkel leden zich mochten inschrijven. |
+| `activity_count` | Aantal activiteiten | measure | count | `admin` | `COUNT(DISTINCT f_activities.activity_id)` | Elke activiteit, ook zonder inschrijvingen. Verschilt van 'Aantal inschrijvingen', dat de inschrijvingen telt. |
+| `activity_last_date` | Laatste datum | dimension | date | `admin` | `f_activities.last_date` | De laatste dag van de activiteit (einddatum, anders begindatum). Filter hierop vanaf vandaag voor de komende activiteiten. |
 | `component` | Onderdeel | dimension | label | `admin` | `f_registrations.component_name` | Het onderdeel van de activiteit waarop ingeschreven werd. |
 | `product` | Product | dimension | label | `admin` | `f_registrations.product_name` | Het gekozen product. 'Geen product' bij een inschrijving zonder regels. |
 | `registration_type` | Inschrijfvorm | dimension | label | `admin` | `f_registrations.registration_type` | Individueel of gezin. |
@@ -132,6 +144,7 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `payment_amount` | Te betalen | measure | money | `finance` | `SUM(f_payments.amount)` | Som van de bedragen; terugbetalingen tellen negatief mee. |
 | `payment_amount_paid` | Ontvangen | measure | money | `finance` | `SUM(f_payments.amount_paid)` | Wat er effectief ontvangen is. |
 | `payment_open_amount` | Openstaand | measure | money | `finance` | `SUM(f_payments.open_amount)` | Te betalen min ontvangen. |
+| `payment_outstanding` | Openstaand volgens status | measure | money | `finance` | `SUM(CASE WHEN f_payments.status_code NOT IN ('paid', 'cancelled', 'failed') THEN f_payments.amount ELSE 0 END)` | Het bedrag op records die nog niet afgehandeld zijn. Iets anders dan 'Openstaand', dat gevorderd min ontvangen rekent: bij een deels betaald record lopen die twee uiteen, en dat verschil is het onderwerp — niet een dubbeling. |
 | `payment_refunded` | Terugbetaald | measure | money | `finance` | `SUM(CASE WHEN f_payments.record_type = 'refund' THEN -f_payments.amount ELSE 0 END)` | Terugbetaalde bedragen als positief getal. |
 | `payment_count` | Aantal betalingen | measure | count | `finance` | `COUNT(DISTINCT f_payments.payment_id)` | Aantal betaalrecords, vorderingen en terugbetalingen samen. |
 | `payment_days_to_paid` | Gemiddelde betaaltermijn | measure | days | `finance` | `AVG(f_payments.days_to_paid)` | Gemiddeld aantal dagen tussen aanmaak en betaling, over de betaalde records. |

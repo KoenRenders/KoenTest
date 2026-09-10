@@ -3,12 +3,24 @@
 {% block title %}{{ _("Dashboard — Raak beheer") }}{% endblock %}
 {% block content %}
 {{ ui.page_header(_("Dashboard")) }}
+{# De tegel houdt haar operationele link — bij "Open taken" wil je meestal naar de
+   werkbank, niet naar een tabel — en krijgt er één naar haar rapport bíj (#848).
+   Daarom een <div> met twee links erin en niet één grote <a>: een link in een link
+   bestaat niet in HTML. #}
 <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
-  {% for label, waarde, kleur, href in tegels %}
-  <a href="{{ href }}" class="block rounded-xl p-5 transition hover:shadow-md hover:brightness-95 {{ kleur }}">
-    <div class="text-3xl font-extrabold font-brand">{{ waarde }}</div>
-    <div class="text-sm font-medium mt-1">{{ label }}</div>
-  </a>
+  {% for tegel in tegels %}
+  <div class="rounded-xl p-5 transition hover:shadow-md {{ tegel.kleur }}">
+    <a href="{{ tegel.href }}" class="block hover:brightness-95">
+      <div class="text-3xl font-extrabold font-brand">{{ tegel.waarde }}</div>
+      <div class="text-sm font-medium mt-1">{{ tegel.label }}</div>
+    </a>
+    {% if tegel.rapport_href %}
+    <a href="{{ tegel.rapport_href }}"
+       class="mt-2 inline-flex items-center gap-1 text-xs font-medium opacity-80 hover:opacity-100 hover:underline">
+      {{ ui.icon("table", 12) }}{{ _("Rapport") }}
+    </a>
+    {% endif %}
+  </div>
   {% endfor %}
 </div>
 {% endblock %}

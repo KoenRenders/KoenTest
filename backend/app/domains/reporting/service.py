@@ -12,10 +12,13 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import date
-from typing import Any
+import logging
+from typing import Any, Sequence
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+logger = logging.getLogger(__name__)
 
 from app.domains.reporting.engine import (
     PEOPLE_ALIAS,
@@ -248,13 +251,24 @@ _VALUE_OPERATORS = (Operator.EQ, Operator.NE, Operator.IN)
 
 def validate_filter_values(db: Session, selection: Selection, *,
                            tenant_id: int) -> None:
-    """Refuse a filter value the dimension does not have — before a query runs.
+    """Refuse a filter value a CLOSED list does not have — before a query runs.
 
     CR-06 §7.5: object keys, filter values and layout are validated against the
-    universe before anything is executed. A value that does not exist would
-    otherwise return an empty table, which reads as "no data" instead of "you
-    filtered on something that is not there" — and a shared link with a stale
-    value would silently show nothing.
+    universe before anything is executed. For a code list that is exactly right:
+    "Bancontact" is not a payment method, and saying so beats an empty table that
+    reads as "no data".
+
+    **Only for a closed list, and that distinction was learned the hard way.** An
+    open dimension — a municipality, a required role, an activity name — has the
+    values the data happens to have today. A saved report that filters on
+    "ADMIN" is not wrong on the morning there is no task for an admin; it is a
+    report with no rows. Demanding a value from a list that changes under the
+    report turns a legitimate empty result into an error, and it did: the
+    dashboard's "Open taken" report refused itself on a seed without such a task.
+
+    A code list is recognised by having a `code` column — the same shape the three
+    of them share — rather than by a list kept here, which would go stale the
+    first time somebody adds a fourth.
     """
     for flt in selection.filters:
         if flt.operator not in _VALUE_OPERATORS:
@@ -265,11 +279,12 @@ def validate_filter_values(db: Session, selection: Selection, *,
             # for the one person who has no rows yet — and seeing nothing is the
             # right answer there, not an error.
             continue
+        obj = BY_KEY[flt.object_key]
+        if not _has_column(db, obj.view, "code"):
+            continue
         toegestaan = dimension_values(db, flt.object_key, tenant_id=tenant_id)
         if not toegestaan:
-            # Too many values to offer, so too many to demand. Free text it is.
             continue
-        obj = BY_KEY[flt.object_key]
         onbekend = [v for v in flt.values if v not in toegestaan]
         if onbekend:
             raise SelectionError(
@@ -542,6 +557,50 @@ def log_export(db: Session, *, tenant_id: int, actor: str | None, kind: str,
     db.commit()
 
 
+@dataclass
+class TileNumber:
+    """One number for one dashboard tile, and the report it came from."""
+
+    value: Any
+    report_id: int | None
+
+
+def dashboard_numbers(db: Session, wanted: Sequence[tuple[str, str]], *,
+                      tenant_id: int, viewer: str = "") -> dict[str, TileNumber]:
+    """Run one shipped report per tile and return its single number (#848).
+
+    The dashboard is a **consumer** of reporting now, not a second implementation.
+    Each of these reports is a selection with one measure and no grouping, so it
+    returns one row with one number — which is what a tile is.
+
+    **A report that fails gives an empty tile, not a broken page.** This is the
+    landing page of the back office; one selection that no longer resolves —
+    because an object was renamed, say — must not be the reason nobody can get in.
+    The failure is logged, and the tile shows a dash, which is visibly different
+    from a zero.
+    """
+    reports = {r.builtin_key: r for r in
+               list_saved_reports(db, tenant_id=tenant_id, viewer=viewer)
+               if r.builtin_key}
+
+    uitkomst: dict[str, TileNumber] = {}
+    for sleutel, maat in wanted:
+        rapport = reports.get(sleutel)
+        if rapport is None:
+            logger.warning("dashboard tile without report: %s", sleutel)
+            uitkomst[sleutel] = TileNumber(None, None)
+            continue
+        try:
+            resultaat = run_validated(db, selection_of(rapport),
+                                      tenant_id=tenant_id, viewer=viewer)
+            waarde = resultaat.rows[0].get(maat) if resultaat.rows else None
+        except SelectionError as exc:
+            logger.warning("dashboard tile %s could not run: %s", sleutel, exc)
+            waarde = None
+        uitkomst[sleutel] = TileNumber(waarde, rapport.id)
+    return uitkomst
+
+
 __all__ = [
     "Dataset",
     "MERGED_LABEL",
@@ -552,6 +611,8 @@ __all__ = [
     "copy_report",
     "delete_report",
     "dimension_values",
+    "TileNumber",
+    "dashboard_numbers",
     "fact_columns",
     "get_saved_report",
     "list_saved_reports",

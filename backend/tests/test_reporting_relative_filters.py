@@ -193,8 +193,8 @@ def test_a_year_filter_offers_this_year_and_a_municipality_does_not(client,
     assert 'value="@vandaag"' not in jaar.text
 
     gemeente = client.get(
-        "/admin/rapporten/paneel?object=household_municipality"
-        "&object=membership_households&filter=household_municipality")
+        "/admin/rapporten/paneel?object=member_municipality"
+        "&object=membership_households&filter=member_municipality")
     assert "@dit_jaar" not in gemeente.text and "@vandaag" not in gemeente.text
 
 
