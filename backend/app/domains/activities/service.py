@@ -18,7 +18,7 @@ from typing import NamedTuple, Optional
 
 from sqlalchemy import func, nulls_last
 
-from app.domains.activities.models import (Activity, ActivityDate,
+from app.domains.activities.models import (ActiviteitFout, Activity, ActivityDate,
                                            ActivitySubRegistration, Registration)
 
 
@@ -28,6 +28,30 @@ class ActivityOption(NamedTuple):
     id: int
     name: str
     first_date: Optional[date]
+
+
+def _terugdraaien_bij_regelfout(db):
+    """Een afgewezen schrijfactie laat geen halve transactie achter (#792).
+
+    De samenhangregel van een datumrij vuurt tijdens de flush, en dan staat de sessie
+    in "pending rollback": alles wat daarna met dezelfde sessie gebeurt faalt met een
+    onbegrijpelijke fout in plaats van met de reden. Bij `create_activity` is dat
+    bovendien niet theoretisch — de activiteit zelf is dan al geflusht.
+
+    De regelfout zelf gaat gewoon door naar de aanroeper; alleen de transactie wordt
+    opgeruimd.
+    """
+    from contextlib import contextmanager
+
+    @contextmanager
+    def _bewaking():
+        try:
+            yield
+        except ActiviteitFout:
+            db.rollback()
+            raise
+
+    return _bewaking()
 
 
 def create_activity(db, *, name: str, location=None, poster_url=None,
@@ -48,19 +72,20 @@ def create_activity(db, *, name: str, location=None, poster_url=None,
     snapshot_activity(db, activity, operation="insert", action="activity_created",
                       source="admin_manual", actor=actor)
 
-    for datum in dates:
-        ad = ActivityDate(
-            activity_id=activity.id,
-            start_date=datum.start_date,
-            end_date=getattr(datum, "end_date", None),
-            start_time=getattr(datum, "start_time", None),
-            end_time=getattr(datum, "end_time", None),
-        )
-        db.add(ad)
-        db.flush()
-        snapshot_activity_date(db, ad, operation="insert", action="activity_created",
-                               source="admin_manual", actor=actor)
-    db.commit()
+    with _terugdraaien_bij_regelfout(db):
+        for datum in dates:
+            ad = ActivityDate(
+                activity_id=activity.id,
+                start_date=datum.start_date,
+                end_date=getattr(datum, "end_date", None),
+                start_time=getattr(datum, "start_time", None),
+                end_time=getattr(datum, "end_time", None),
+            )
+            db.add(ad)
+            db.flush()
+            snapshot_activity_date(db, ad, operation="insert", action="activity_created",
+                                   source="admin_manual", actor=actor)
+        db.commit()
     return activity
 
 
@@ -135,11 +160,12 @@ def add_activity_date(db, activity_id: int, gegevens, *, actor=None) -> Optional
         start_time=getattr(gegevens, "start_time", None),
         end_time=getattr(gegevens, "end_time", None),
     )
-    db.add(ad)
-    db.flush()
-    snapshot_activity_date(db, ad, operation="insert", action="date_created",
-                           source="admin_manual", actor=actor)
-    db.commit()
+    with _terugdraaien_bij_regelfout(db):
+        db.add(ad)
+        db.flush()
+        snapshot_activity_date(db, ad, operation="insert", action="date_created",
+                               source="admin_manual", actor=actor)
+        db.commit()
     db.refresh(ad)
     return ad
 
@@ -159,9 +185,10 @@ def update_activity_date(db, activity_id: int, date_id: int, velden: dict, *,
         return None
     for veld, waarde in velden.items():
         setattr(ad, veld, waarde)
-    snapshot_activity_date(db, ad, operation="update", action="date_updated",
-                           source="admin_manual", actor=actor)
-    db.commit()
+    with _terugdraaien_bij_regelfout(db):
+        snapshot_activity_date(db, ad, operation="update", action="date_updated",
+                               source="admin_manual", actor=actor)
+        db.commit()
     db.refresh(ad)
     return ad
 
@@ -188,14 +215,14 @@ def _datum(db, activity_id: int, date_id: int) -> Optional[ActivityDate]:
             .first())
 
 
-class ActiviteitFout(ValueError):
-    """Een domeinregel is geschonden (#679, batch 3).
-
-    Geen HTTPException: die hoort bij de ingang, niet bij de regel. De router
-    vertaalt hem naar een 422, een script mag er iets anders mee doen. Zonder dit
-    type zou de regel "gratis én ter plaatse kan niet" in de route blijven staan,
-    en dan geldt ze niet voor wie de service rechtstreeks aanroept.
-    """
+# ActiviteitFout stond hier tot #792 en woont nu in models.py: de eerste regel die
+# op het object zelf leeft (`ActivityDate.valideer_samenhang`) heeft het type nodig,
+# en een model mag niets uit de service importeren. Het wordt bovenaan geïmporteerd,
+# dus `service.ActiviteitFout` blijft werken — dezelfde klasse, niet een tweede.
+#
+# Waarom het bestaat: geen HTTPException, want die hoort bij de ingang en niet bij
+# de regel. Zonder dit type zou "gratis én ter plaatse kan niet" in de route blijven
+# staan, en dan geldt ze niet voor wie de service rechtstreeks aanroept.
 
 
 def add_component(db, activity_id: int, gegevens, *, actor=None):

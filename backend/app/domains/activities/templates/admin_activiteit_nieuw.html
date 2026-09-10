@@ -6,7 +6,7 @@
    waarin je daarna werkt: één lay-out om te onderhouden, en je ziet meteen waar de
    velden staan. Bewust géén lege activiteit vooraf aanmaken — dan staat er een
    naamloze activiteit in de databank zodra iemand per ongeluk klikt. #}
-{{ ui.page_header(_("Nieuwe activiteit"), _("Naam en eerste datum volstaan; datums, onderdelen en producten vul je daarna aan.")) }}
+{{ ui.page_header(_("Nieuwe activiteit"), _("Vul de eerste datumrij meteen volledig in; extra datums, onderdelen en producten vul je daarna aan.")) }}
 
 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
   <form class="space-y-3" hx-post="/admin/activiteiten">
@@ -15,11 +15,29 @@
         {{ ui.input_control("name", id="name", required=True, cls="w-full") }}</div>
       <div>{{ ui.label(_("Locatie"), "location") }}
         {{ ui.input_control("location", id="location", cls="w-full") }}</div>
-      <div>{{ ui.label(_("Eerste datum"), "start_date", required=True) }}
-        {{ ui.input_control("start_date", id="start_date", type="date", required=True, cls="w-full") }}</div>
       <div>{{ ui.label(_("Poster-URL"), "poster_url") }}
         {{ ui.input_control("poster_url", id="poster_url", placeholder="https://…", cls="w-full") }}</div>
     </div>
+    {# #792: de volledige eerste datumrij, niet alleen de begindatum. Dit herziet
+       bewust de keuze van #623 ("naam en eerste datum volstaan"): in de praktijk is
+       die eerste rij bijna altijd meteen volledig, dus de omweg via de editor was de
+       regel geworden in plaats van de uitzondering. Lees dit niet als een terugval
+       en maak het formulier niet opnieuw smal.
+
+       Alleen de begindatum is verplicht, net als in de editor. Dezelfde vier velden,
+       dezelfde volgorde — je vult later hetzelfde in op een scherm dat er hetzelfde
+       uitziet. #}
+    <fieldset class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <legend class="text-sm font-medium text-ink mb-1">{{ _("Eerste datum") }}</legend>
+      <div>{{ ui.label(_("Van"), "start_date", required=True) }}
+        {{ ui.input_control("start_date", id="start_date", type="date", required=True, cls="w-full") }}</div>
+      <div>{{ ui.label(_("Tot"), "end_date") }}
+        {{ ui.input_control("end_date", id="end_date", type="date", cls="w-full") }}</div>
+      <div>{{ ui.label(_("Beginuur"), "start_time") }}
+        {{ ui.input_control("start_time", id="start_time", type="time", cls="w-full") }}</div>
+      <div>{{ ui.label(_("Einduur"), "end_time") }}
+        {{ ui.input_control("end_time", id="end_time", type="time", cls="w-full") }}</div>
+    </fieldset>
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1"> {{ _("Enkel voor leden") }}</label>
     <p class="text-xs text-ink-soft">{{ _("Een affiche opladen kan zodra de activiteit bestaat — dat doe je in de editor.") }}</p>
     <div class="flex gap-2">
