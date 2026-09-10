@@ -1,10 +1,15 @@
-"""Fase 3 (#401): payment-component — PaymentSettled-event, idempotente
-webhook-afhandeling en de wees-record-reconciliatie (§19.2)."""
+"""Fase 3 (#401): payment-component — PaymentSettled-event en idempotente
+webhook-afhandeling (§19.2).
+
+De wees-record-reconciliatie stond hier ook. Die is met #824 verdwenen: een
+wees-betaling is geen gebeurtenis in het bedrijf maar een symptoom van een bug, en
+sinds #667 kan de applicatie er geen meer maken. Wat ervan overblijft is een
+invariant in de TESTS (`_invarianten.assert_geen_wezen`) — voorkomen in plaats van
+signaleren.
+"""
 from decimal import Decimal
 
 from app.domains.payment.api import GatewayPayment, PaymentRecord, handle_gateway_update
-from app.domains.payment.handlers import find_orphan_records, reconcile_orphans
-from app.domains.workflow.models import WorkflowTask
 from app.kernel.contracts.payment import PaymentSettled
 from app.kernel.events import subscribe, _subscribers
 
@@ -46,28 +51,3 @@ def test_payment_settled_published_once_for_repeated_webhook(db_session):
         _subscribers[PaymentSettled].remove(_handler)
 
 
-def test_orphan_detection_and_workbench_task(db_session):
-    wees = _record(db_session, payable_type="registration", payable_id=987_654_321)
-    orphans = find_orphan_records(db_session)
-    assert wees in orphans
-
-    before = db_session.query(WorkflowTask).count()
-    reconcile_orphans(db_session, {"once": True})
-    tasks = (db_session.query(WorkflowTask)
-             .filter(WorkflowTask.kind == "payment.wees_record").all())
-    assert any(wees.id in t.title for t in tasks)
-    assert all(t.required_role == "FINANCE" for t in tasks)
-
-    # Idempotent: nogmaals draaien maakt geen tweede taak voor hetzelfde record.
-    reconcile_orphans(db_session, {"once": True})
-    assert db_session.query(WorkflowTask).count() == before + len(tasks)
-
-
-def test_reconcile_reschedules_itself(db_session):
-    from app.kernel.jobs import KernelJob
-
-    reconcile_orphans(db_session, {})
-    job = (db_session.query(KernelJob)
-           .filter(KernelJob.name == "payment.reconcile")
-           .order_by(KernelJob.id.desc()).first())
-    assert job is not None and job.status == "pending"

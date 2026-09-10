@@ -1,9 +1,22 @@
 """#667 — geen hard verwijderen in een domein dat een payable bezit.
 
 Koen zag weesbetalingen in de werkbank. De verwijderpaden zelf blijken correct:
-`delete_membership` en `delete_registration` doen allebei `soft_delete`, en de
-weesjob telt een soft-deleted payable als bestaand. Er staat vandaag geen enkele
-`db.delete()` op een payable in de codebase.
+`delete_membership` en `delete_registration` doen allebei `soft_delete`, en een
+soft-deleted payable telt als bestaand. Er staat vandaag geen enkele `db.delete()`
+op een payable in de codebase.
+
+**Er hangt sinds #824 een beslissing aan deze gate, en dat hoort de volgende die
+eraan zit te weten.** Het hele wees-mechanisme — de detectiejob, de werkbanktaak, het
+scherm — is toen verwijderd, met als argument dat een wees-betaling geen gebeurtenis
+in het bedrijf is maar een symptoom van een bug. Dat argument staat of valt met déze
+gate: zij is de reden dat de toestand niet meer kan ontstaan. Verzwakt ze, of komt er
+een uitzondering bij die een payable raakt, dan is er geen detectie meer die het
+opvangt — en dan hoort die beslissing opnieuw op tafel, niet stilzwijgend te blijven
+gelden.
+
+Wat er wél overbleef is een invariant in de tests
+(`_invarianten.assert_geen_wezen`): die controleert dat onze eigen mutaties geen
+wees achterlaten. Voorkomen in plaats van signaleren.
 
 Maar dat is discipline, geen constructie — en die zakt terug. Een foreign key kan
 het niet bewaken: `PaymentRecord` verwijst met `payable_type`/`payable_id` naar een
