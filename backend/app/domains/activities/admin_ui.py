@@ -209,6 +209,8 @@ def admin_activiteit_detail(activity_id: int, request: Request,
 def activiteit_aanmaken(request: Request, db: Session = Depends(get_db),
                         email: str = Depends(require_admin_ui),
                         name: str = Form(""), start_date: str = Form(""),
+                        end_date: str = Form(""), start_time: str = Form(""),
+                        end_time: str = Form(""),
                         location: str = Form(""), poster_url: str = Form(""),
                         members_only: str = Form("")):
     from app.domains.activities import service
@@ -216,10 +218,19 @@ def activiteit_aanmaken(request: Request, db: Session = Depends(get_db),
 
     if not name.strip() or not start_date:
         raise HTTPException(status_code=400, detail=_("Naam en eerste datum zijn verplicht."))
-    nieuw = service.create_activity(
-        db, name=name.strip(), location=location.strip() or None,
-        poster_url=poster_url.strip() or None, members_only=bool(members_only),
-        dates=[ActivityDateCreate(start_date=start_date)], actor=email)
+    # #792: de volledige eerste rij, dezelfde vier velden als `datum_toevoegen`.
+    # Ze werden hier weggegooid terwijl schema én model ze al aanvaardden — het was
+    # geen ontbrekende functie maar een smaller formulier.
+    eerste = ActivityDateCreate(
+        start_date=start_date, end_date=end_date or None,
+        start_time=start_time or None, end_time=end_time or None)
+    try:
+        nieuw = service.create_activity(
+            db, name=name.strip(), location=location.strip() or None,
+            poster_url=poster_url.strip() or None, members_only=bool(members_only),
+            dates=[eerste], actor=email)
+    except service.ActiviteitFout as fout:
+        raise HTTPException(status_code=422, detail=str(fout))
     # Aanmaken opent meteen de editor: een verse activiteit heeft nog datums en
     # onderdelen nodig, en die staan daar (C1, #586).
     return Response(status_code=204,
@@ -292,7 +303,14 @@ def datum_toevoegen(activity_id: int, request: Request, db: Session = Depends(ge
     gegevens = ActivityDateCreate(
         start_date=start_date, end_date=end_date or None,
         start_time=start_time or None, end_time=end_time or None)
-    if service.add_activity_date(db, activity_id, gegevens, actor=email) is None:
+    # #792: dezelfde samenhangregel als op het aanmaakscherm — ze staat op het
+    # object, dus dit scherm erft haar. Alleen de vertaling naar HTTP is van de
+    # ingang, en die staat daarom hier.
+    try:
+        toegevoegd = service.add_activity_date(db, activity_id, gegevens, actor=email)
+    except service.ActiviteitFout as fout:
+        raise HTTPException(status_code=422, detail=str(fout))
+    if toegevoegd is None:
         raise HTTPException(status_code=404, detail=_("Activity not found"))
     return _detail_response(request, db, activity_id)
 
@@ -312,8 +330,12 @@ def datum_bijwerken(activity_id: int, date_id: int, request: Request,
         start_date=start_date, end_date=end_date or None,
         start_time=start_time or None, end_time=end_time or None,
     ).model_dump(exclude_unset=True)
-    if service.update_activity_date(db, activity_id, date_id, velden,
-                                    actor=email) is None:
+    try:
+        bijgewerkt = service.update_activity_date(db, activity_id, date_id, velden,
+                                                  actor=email)
+    except service.ActiviteitFout as fout:
+        raise HTTPException(status_code=422, detail=str(fout))
+    if bijgewerkt is None:
         raise HTTPException(status_code=404, detail=_("Date not found"))
     return _detail_response(request, db, activity_id)
 

@@ -302,9 +302,12 @@ def create_activity(
     # vormgeven.
     from app.domains.activities import service
 
-    nieuw = service.create_activity(
-        db, name=data.name, location=data.location, poster_url=data.poster_url,
-        members_only=bool(data.members_only), dates=data.dates, actor=admin.email)
+    try:
+        nieuw = service.create_activity(
+            db, name=data.name, location=data.location, poster_url=data.poster_url,
+            members_only=bool(data.members_only), dates=data.dates, actor=admin.email)
+    except service.ActiviteitFout as fout:
+        raise HTTPException(status_code=422, detail=str(fout))
     activity = service._activity_met_boom(db, nieuw.id)
     assert activity is not None  # net aangemaakt in dezelfde transactie
     return _build_response(activity, date.today(), status="Open", reg_count=0)
@@ -353,7 +356,12 @@ def add_activity_date(
 ):
     from app.domains.activities import service
 
-    ad = service.add_activity_date(db, activity_id, data, actor=admin.email)
+    # #792: de samenhangregel staat op het object, dus deze ingang erft haar. De
+    # vertaling naar een statuscode is wél van de ingang.
+    try:
+        ad = service.add_activity_date(db, activity_id, data, actor=admin.email)
+    except service.ActiviteitFout as fout:
+        raise HTTPException(status_code=422, detail=str(fout))
     if ad is None:
         raise HTTPException(status_code=404, detail=_("Activity not found"))
     return ad
@@ -369,9 +377,12 @@ def update_activity_date(
 ):
     from app.domains.activities import service
 
-    ad = service.update_activity_date(db, activity_id, date_id,
-                                      data.model_dump(exclude_unset=True),
-                                      actor=admin.email)
+    try:
+        ad = service.update_activity_date(db, activity_id, date_id,
+                                          data.model_dump(exclude_unset=True),
+                                          actor=admin.email)
+    except service.ActiviteitFout as fout:
+        raise HTTPException(status_code=422, detail=str(fout))
     if ad is None:
         raise HTTPException(status_code=404, detail=_("Date not found"))
     return ad

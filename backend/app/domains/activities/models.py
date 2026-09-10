@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from sqlalchemy import Column, Integer, String, DateTime, Boolean, Date, Time, ForeignKey, Numeric, Text
+from sqlalchemy import Column, Integer, String, DateTime, Boolean, Date, Time, ForeignKey, Numeric, Text, event
 from sqlalchemy.orm import relationship, object_session
 from app.database import Base
 from app.kernel.tenancy import TenantMixin
@@ -24,6 +24,18 @@ def _single_asset(obj, kind, fk_attr):
     )
 
 
+class ActiviteitFout(ValueError):
+    """Een domeinregel van dit component is geschonden (#679, batch 3).
+
+    Geen HTTPException: die hoort bij de ingang, niet bij de regel. De router
+    vertaalt hem naar een 422, een script mag er iets anders mee doen.
+
+    Staat hier en niet meer in `service.py` sinds #792, omdat de eerste regel die
+    op een object zélf leeft hem nodig heeft en een model niets uit de service mag
+    importeren. `service.ActiviteitFout` blijft bestaan — het is dezelfde klasse.
+    """
+
+
 class ActivityDate(TenantMixin, SoftDeleteMixin, Base):
     __tablename__ = "activity_dates"
     __table_args__ = {"schema": "activities"}
@@ -36,6 +48,40 @@ class ActivityDate(TenantMixin, SoftDeleteMixin, Base):
     end_time = Column(Time, nullable=True)
 
     activity = relationship("Activity", back_populates="dates")
+
+    def valideer_samenhang(self) -> None:
+        """Een datumrij mag niet eindigen vóór ze begint (#792).
+
+        **Op het object en niet in het scherm**, volgens de plaatsingsregel van
+        CR-04: deze regel kijkt naar meerdere velden van hetzelfde object, dus hoort
+        ze op het object. Een controle in het aanmaakformulier laat de editor het gat
+        houden — en dan zijn er twee waarheden over dezelfde rij. Via de editor kon
+        je tot nu toe een rij opslaan die van 20 september tot 18 september liep.
+
+        Het uur telt alleen mee binnen één dag. Een rij die om 20:00 begint en de
+        volgende ochtend om 02:00 eindigt is niet fout; ze duurt gewoon een nacht.
+
+        Gelijke uren op dezelfde dag zijn wél fout: een rij van 14:00 tot 14:00 duurt
+        niets, en dat is bijna altijd een halve invoer.
+        """
+        from app.i18n import _ as vertaal
+
+        if self.end_date and self.start_date and self.end_date < self.start_date:
+            raise ActiviteitFout(vertaal(
+                "De einddatum ligt vóór de begindatum."))
+        eendaags = self.end_date is None or self.end_date == self.start_date
+        if eendaags and self.start_time and self.end_time and self.end_time <= self.start_time:
+            raise ActiviteitFout(vertaal(
+                "Het einduur ligt niet na het beginuur."))
+
+
+# De regel geldt bij élke ingang, niet alleen bij de twee schermen die er vandaag
+# zijn (#792). Een service die vergeet te valideren, een script of een toekomstige
+# importroute komen hier evengoed langs: dit vuurt bij het wegschrijven zelf.
+@event.listens_for(ActivityDate, "before_insert")
+@event.listens_for(ActivityDate, "before_update")
+def _bewaak_datumsamenhang(mapper, connection, target):  # noqa: ARG001
+    target.valideer_samenhang()
 
 
 class Activity(TenantMixin, SoftDeleteMixin, Base):
