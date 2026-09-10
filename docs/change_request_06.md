@@ -1,10 +1,11 @@
 # Change Request 06 — Reporting: a universe, a query panel, a pivot table
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** Proposal / discussion — not scheduled. Phased, each phase independently
-shippable. Written 9 September 2026, reworked 10 September after Koen asked for
-self-service in the BusinessObjects sense rather than reports written by the
-CLI. The ten questions in §3 are a proposal for him to strike and extend.
+**Status:** Assigned — release v2.3.0, tracker #838 (10 September 2026), all
+five phases (#832–#835, #841). Written 9 September 2026, reworked 10 September
+after Koen asked for self-service in the BusinessObjects sense rather than
+reports written by the CLI. The ten questions in §3 are **confirmed by Koen**
+(10 September) and all in scope.
 **Apply to:** a new `reporting` Postgres schema, a new `reporting` domain under
 `backend/app/domains/`, a new screen type in `docs/design-system.md`.
 
@@ -80,11 +81,12 @@ Three constraints, stated up front:
    is sent anywhere. Any later BI tool is self-hosted on our own EU
    infrastructure.
 
-## 3. The ten questions a board member asks (proposal — the test set)
+## 3. The ten questions a board member asks (confirmed — the test set)
 
-These are not reports the CLI writes; they are the questions the universe must
-let a board member answer by composing, and the first saved reports that ship
-with it. Each names the fact and the dimensions it needs.
+Confirmed by Koen on 10 September 2026: all ten are in scope. These are not
+reports the CLI writes; they are the questions the universe must let a board
+member answer by composing, and the saved reports that ship with it (1–7 in
+phase 2, 8–10 in phase 5). Each names the fact and the dimensions it needs.
 
 | # | Question | Fact | Dimensions |
 |---|---|---|---|
@@ -292,7 +294,7 @@ with the table.
 | **2** | The query panel with **table** layout: objects, selection, filters, sort, paging, totals, drill-down, ODS; saved reports; questions 1–7 shipped as saved reports | medium | `saved_reports` |
 | **3** | **Pivot** layout: rows × columns × measures, subtotals, column cap; ODS of the crosstab | medium | none |
 | **4** | **Charts** from the pivot result: bar, line, stacked; "show as" saved with the report; dashboard KPI tiles become saved reports | low | none |
-| **5** | Remaining facts (`f_form_submissions`, `f_operations`), questions 8–10; the four existing exports migrate onto saved reports | low | views |
+| **5** | Remaining facts (`f_form_submissions`, `f_operations`, aggregated demographics), questions 8–10 as saved reports; the four existing exports migrate onto saved reports (#841) | low | views |
 | later | Multi-fact synchronisation; Calc directly on the views (read-only role, tunnel); a self-hosted BI tool on the same universe | ops decision | none |
 
 Phase 0 is a conversation, not a sprint. Phases 1 and 2 are the release that
@@ -368,14 +370,13 @@ what Superset has and we do not, the universe is the part that moves over.
 
 The few decisions the CLI cannot take by default:
 
-1. **The ten questions** (§3): strike, extend, reorder. They become the first
-   saved reports and the known-seed tests.
+1. ~~The ten questions (§3)~~ — **decided 10 September 2026: all ten in scope**,
+   shipped as saved reports (1–7 in phase 2, 8–10 in phase 5).
 2. **Season or year for activities.** The model has no season; activities carry
    dates, memberships a calendar `year`. If the board thinks in seasons
    (September to June), `d_date` gets a derived `season` attribute and
    `d_activity` uses it; if not, the year of the first date stands.
 3. **FINANCE-only users and the Rapporten menu**: as proposed in §5.1 they see
    it with the Betalingen class only. Alternative: hide it for them entirely.
-4. **The first release**: phases 1 and 2 together (the release that shows a
-   board member something), or phase 1 alone first (the universe and the flat
-   dataset exports, no panel yet).
+4. ~~The first release~~ — **decided 10 September 2026: v2.3.0 carries all five
+   phases** (#838).
