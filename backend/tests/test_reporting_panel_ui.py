@@ -91,7 +91,7 @@ def test_an_admin_and_an_operator_both_get_in(client, db_session, situation):
 
 # ── The list (#833 point 2) ──────────────────────────────────────────────────
 
-def test_the_seven_reports_ship_with_the_release(client, db_session, situation):
+def test_the_shipped_reports_are_on_the_list(client, db_session, situation):
     login(client, db_session)
     pagina = client.get("/admin/rapporten")
     assert pagina.status_code == 200
@@ -129,7 +129,8 @@ def test_the_shipped_reports_return_the_numbers_of_the_seed(db_session, situatio
     reports = {r.builtin_key: r for r in
                list_saved_reports(db_session, tenant_id=TENANT_A, viewer=ADMIN_EMAIL)
                if r.builtin_key}
-    assert len(reports) == 7, "de zeven meegeleverde rapporten staan er"
+    # Seven since #833, ten since #841 — the full set of CR-06 §3.
+    assert len(reports) == 10, "de tien meegeleverde rapporten staan er"
 
     def run(key):
         selection = selection_of(reports[key])

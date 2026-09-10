@@ -87,7 +87,8 @@ class Role(str, Enum):
 
 # The classes, in the order the objects pane shows them. A class is how a user
 # thinks about the data, not how it is stored.
-CLASSES: tuple[str, ...] = ("Leden", "Activiteiten", "Betalingen", "Tijd")
+CLASSES: tuple[str, ...] = ("Leden", "Activiteiten", "Betalingen",
+                            "Formulieren", "Operaties", "Tijd")
 
 
 @dataclass(frozen=True)
@@ -106,6 +107,11 @@ class Fact:
     # on them so two exports of unchanged data are byte-for-byte the same file —
     # without a unique tail Postgres hands back whatever order the heap has (#761).
     dataset_key: tuple[str, ...] = ()
+    # How many distinct people a group of this fact covers, as SQL over its view.
+    # The small-cell threshold (#841) needs to know the size of a cell before it
+    # can protect it; a fact that cannot say leaves the threshold inapplicable and
+    # therefore refuses a sensitive grouping outright.
+    people_sql: str = ""
 
 
 @dataclass(frozen=True)
@@ -156,6 +162,14 @@ class UniverseObject:
     # (CR-06 §5, drill-down). The value comes from `drill_sql`, not from the label.
     drill: str | None = None
     drill_sql: str | None = None
+    # A dimension that cuts people into groups small enough to recognise somebody
+    # by. Grouping on one of these turns on the small-cell threshold (#841).
+    sensitive: bool = False
+    # A measure that may be added across merged rows. True for a SUM or a plain
+    # COUNT; false for an average or a distinct count, where the sum of the parts
+    # is not the whole — the merged row then shows nothing rather than a number
+    # that looks right.
+    additive: bool = True
 
     @property
     def is_measure(self) -> bool:
@@ -177,6 +191,7 @@ FACTS: tuple[Fact, ...] = (
             "níét vernieuwden — anders is 'hoeveel vervallen er?' niet te tellen."
         ),
         dataset_key=("household_id", "year"),
+        people_sql="SUM({view}.person_count)",
     ),
     Fact(
         key="f_registrations",
@@ -188,6 +203,7 @@ FACTS: tuple[Fact, ...] = (
             "inschrijving zonder producten telt mee met aantal 0."
         ),
         dataset_key=("registration_id", "registration_line_id"),
+        people_sql="COUNT(DISTINCT {view}.person_id)",
     ),
     Fact(
         key="f_payments",
@@ -199,6 +215,44 @@ FACTS: tuple[Fact, ...] = (
             "bedrag, dus elke som is meteen een nettobedrag."
         ),
         dataset_key=("payment_id",),
+        # A payment belongs to a household, not to a person; counting households
+        # is the closest honest measure of how few people a cell covers.
+        people_sql="COUNT(DISTINCT {view}.household_id)",
+    ),
+    Fact(
+        key="f_membership_persons",
+        name="Leden (personen)",
+        role=Role.ADMIN,
+        grain="één rij per persoon per lidmaatschapsjaar",
+        description=(
+            "Wie er lid is, op persoonsniveau — de korrel die vraag 8 nodig heeft. "
+            "Een persoon in twee gezinnen telt één keer."
+        ),
+        dataset_key=("year", "person_id"),
+        people_sql="COUNT({view}.person_id)",
+    ),
+    Fact(
+        key="f_form_submissions",
+        name="Formulierinzendingen",
+        role=Role.ADMIN,
+        grain="één rij per inzending",
+        description=(
+            "Inzendingen op formulieren. Zonder naam of e-mailadres: een rapport "
+            "telt inzendingen, het formulierscherm toont wat iemand schreef."
+        ),
+        dataset_key=("submission_id",),
+    ),
+    Fact(
+        key="f_operations",
+        name="Operaties",
+        role=Role.ADMIN,
+        grain="één rij per open item",
+        description=(
+            "De werkvoorraad: open werkbanktaken, mislukte e-mails en betalingen "
+            "in afwachting, samen in één feit. Antwoordt morgen anders — dat is "
+            "wat een werkvoorraad hoort te doen."
+        ),
+        dataset_key=("kind", "item_id"),
     ),
 )
 
@@ -210,6 +264,7 @@ DIMENSIONS: tuple[Dimension, ...] = (
     Dimension(key="d_payment_method", name="Betaalwijze", key_column="code"),
     Dimension(key="d_payment_status", name="Betaalstatus", key_column="code"),
     Dimension(key="d_membership_status", name="Lidmaatschapsstatus", key_column="code"),
+    Dimension(key="d_form", name="Formulier", key_column="form_id"),
 )
 
 JOINS: tuple[Join, ...] = (
@@ -224,6 +279,11 @@ JOINS: tuple[Join, ...] = (
     Join("f_registrations", "d_payment_method", (("method_code", "code"),)),
     Join("f_memberships", "d_household", (("household_id", "household_id"),)),
     Join("f_memberships", "d_membership_status", (("status_code", "code"),)),
+    Join("f_membership_persons", "d_person", (("person_id", "person_id"),)),
+    Join("f_membership_persons", "d_household", (("household_id", "household_id"),)),
+    Join("f_form_submissions", "d_form", (("form_id", "form_id"),)),
+    Join("f_form_submissions", "d_date", (("date_key", "date_key"),)),
+    Join("f_operations", "d_date", (("date_key", "date_key"),)),
 )
 
 
@@ -327,48 +387,48 @@ OBJECTS: tuple[UniverseObject, ...] = (
     UniverseObject(
         key="household_municipality", name="Gemeente", klass="Leden",
         kind=ObjectKind.DIMENSION, view="d_household", sql="{view}.municipality",
-        format=Format.LABEL, role=Role.ADMIN,
+        format=Format.LABEL, role=Role.ADMIN, sensitive=True,
         description="Gemeente van het gezin, uit de postcodetabel.",
     ),
     UniverseObject(
         key="household_postal_code", name="Postcode", klass="Leden",
         kind=ObjectKind.DIMENSION, view="d_household", sql="{view}.postal_code",
-        format=Format.LABEL, role=Role.ADMIN,
+        format=Format.LABEL, role=Role.ADMIN, sensitive=True,
         description="Postcode van het gezin.",
     ),
     UniverseObject(
         key="household_size_group", name="Gezinsgrootte", klass="Leden",
         kind=ObjectKind.DIMENSION, view="d_household", sql="{view}.household_size_group",
-        format=Format.LABEL, role=Role.ADMIN,
+        format=Format.LABEL, role=Role.ADMIN, sensitive=True,
         description="Aantal personen in het gezin, in klassen.",
     ),
     UniverseObject(
         key="household_member_since", name="Lid sinds", klass="Leden",
         kind=ObjectKind.DIMENSION, view="d_household", sql="{view}.member_since_year",
-        format=Format.YEAR, role=Role.ADMIN,
+        format=Format.YEAR, role=Role.ADMIN, sensitive=True,
         description="Het eerste jaar waarvoor dit gezin een lidmaatschap heeft.",
     ),
     UniverseObject(
         key="household", name="Gezin", klass="Leden", kind=ObjectKind.DIMENSION,
         view="d_household", sql="{view}.household_id", format=Format.COUNT,
-        role=Role.ADMIN, drill="household", drill_sql="{view}.household_id",
+        role=Role.ADMIN, sensitive=True, drill="household", drill_sql="{view}.household_id",
         description="Het gezin zelf. Klik door naar het gezinsdossier.",
     ),
     UniverseObject(
         key="person_age_group", name="Leeftijdsgroep", klass="Leden",
         kind=ObjectKind.DIMENSION, view="d_person", sql="{view}.age_group",
-        format=Format.LABEL, role=Role.ADMIN,
+        format=Format.LABEL, role=Role.ADMIN, sensitive=True,
         description="Leeftijdsklasse van de inschrijver, berekend op vandaag.",
     ),
     UniverseObject(
         key="person_gender", name="Geslacht", klass="Leden", kind=ObjectKind.DIMENSION,
-        view="d_person", sql="{view}.gender_label", format=Format.LABEL, role=Role.ADMIN,
+        view="d_person", sql="{view}.gender_label", format=Format.LABEL, role=Role.ADMIN, sensitive=True,
         description="Geslacht van de inschrijver.",
     ),
     UniverseObject(
         key="person_relation_type", name="Relatietype", klass="Leden",
         kind=ObjectKind.DIMENSION, view="d_person", sql="{view}.relation_type_label",
-        format=Format.LABEL, role=Role.ADMIN,
+        format=Format.LABEL, role=Role.ADMIN, sensitive=True,
         description="Hoofdlid, partner of (meerderjarig) kind binnen het gezin.",
     ),
 
@@ -377,7 +437,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="registration_count", name="Aantal inschrijvingen", klass="Activiteiten",
         kind=ObjectKind.MEASURE, view="f_registrations",
         sql="COUNT(DISTINCT {view}.registration_id)", format=Format.COUNT,
-        role=Role.ADMIN, fact="f_registrations",
+        role=Role.ADMIN, additive=False, fact="f_registrations",
         description="Aantal inschrijvingen, ongeacht hoeveel producten erop staan.",
     ),
     UniverseObject(
@@ -486,13 +546,13 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="payment_count", name="Aantal betalingen", klass="Betalingen",
         kind=ObjectKind.MEASURE, view="f_payments",
         sql="COUNT(DISTINCT {view}.payment_id)", format=Format.COUNT,
-        role=Role.FINANCE, fact="f_payments",
+        role=Role.FINANCE, additive=False, fact="f_payments",
         description="Aantal betaalrecords, vorderingen en terugbetalingen samen.",
     ),
     UniverseObject(
         key="payment_days_to_paid", name="Gemiddelde betaaltermijn", klass="Betalingen",
         kind=ObjectKind.MEASURE, view="f_payments", sql="AVG({view}.days_to_paid)",
-        format=Format.DAYS, role=Role.FINANCE, fact="f_payments",
+        format=Format.DAYS, role=Role.FINANCE, additive=False, fact="f_payments",
         description="Gemiddeld aantal dagen tussen aanmaak en betaling, over de betaalde records.",
     ),
     UniverseObject(
@@ -531,6 +591,98 @@ OBJECTS: tuple[UniverseObject, ...] = (
         format=Format.LABEL, role=Role.FINANCE, fact="f_payments",
         drill="payment", drill_sql="{view}.payment_id",
         description="Het betaalrecord zelf. Klik door naar de betalingenpagina.",
+    ),
+
+    UniverseObject(
+        key="membership_person_count", name="Aantal leden (personen)", klass="Leden",
+        kind=ObjectKind.MEASURE, view="f_membership_persons",
+        sql="COUNT({view}.person_id)",
+        format=Format.COUNT, role=Role.ADMIN, fact="f_membership_persons",
+        description=(
+            "Personen met een lidmaatschap in dat jaar. Eén rij per persoon per "
+            "jaar, dus tellen is optellen."
+        ),
+    ),
+    UniverseObject(
+        key="membership_person_year", name="Jaar van het lidmaatschap", klass="Tijd",
+        kind=ObjectKind.DIMENSION, view="f_membership_persons", sql="{view}.year",
+        format=Format.YEAR, role=Role.ADMIN, fact="f_membership_persons",
+        description="Het jaar waarvoor deze persoon lid was.",
+    ),
+
+    # ── Formulieren ─────────────────────────────────────────────────────────
+    UniverseObject(
+        key="submission_count", name="Aantal inzendingen", klass="Formulieren",
+        kind=ObjectKind.MEASURE, view="f_form_submissions",
+        sql="COUNT(DISTINCT {view}.submission_id)", format=Format.COUNT,
+        role=Role.ADMIN, fact="f_form_submissions", additive=False,
+        description="Aantal inzendingen op een formulier.",
+    ),
+    UniverseObject(
+        key="submission_answers", name="Aantal antwoorden", klass="Formulieren",
+        kind=ObjectKind.MEASURE, view="f_form_submissions",
+        sql="SUM({view}.answer_count)", format=Format.COUNT, role=Role.ADMIN,
+        fact="f_form_submissions",
+        description="Som van de ingevulde antwoorden — hoeveel er werkelijk ingevuld is.",
+    ),
+    UniverseObject(
+        key="form", name="Formulier", klass="Formulieren",
+        kind=ObjectKind.DIMENSION, view="d_form", sql="{view}.form_name",
+        format=Format.LABEL, role=Role.ADMIN, drill="form",
+        drill_sql="{view}.form_id",
+        description="Naam van het formulier. Klik door naar de formulierbouwer.",
+    ),
+    UniverseObject(
+        key="form_status", name="Status van het formulier", klass="Formulieren",
+        kind=ObjectKind.DIMENSION, view="d_form", sql="{view}.form_status_label",
+        format=Format.LABEL, role=Role.ADMIN,
+        description="Concept, gepubliceerd of gesloten.",
+    ),
+    UniverseObject(
+        key="form_anonymous", name="Anoniem formulier", klass="Formulieren",
+        kind=ObjectKind.DIMENSION, view="d_form", sql="{view}.is_anonymous_label",
+        format=Format.LABEL, role=Role.ADMIN,
+        description="Of het formulier anoniem ingevuld wordt.",
+    ),
+    UniverseObject(
+        key="submission_edited", name="Achteraf gewijzigd", klass="Formulieren",
+        kind=ObjectKind.DIMENSION, view="f_form_submissions",
+        sql=_boolean_label("was_edited"), format=Format.LABEL, role=Role.ADMIN,
+        fact="f_form_submissions",
+        description="Of de inzender zijn antwoord nadien nog aangepast heeft.",
+    ),
+
+    # ── Operaties ───────────────────────────────────────────────────────────
+    UniverseObject(
+        key="operation_count", name="Aantal open items", klass="Operaties",
+        kind=ObjectKind.MEASURE, view="f_operations",
+        sql="COUNT(DISTINCT {view}.item_id)", format=Format.COUNT, role=Role.ADMIN,
+        fact="f_operations", additive=False,
+        description="Hoeveel er nog ligt te wachten.",
+    ),
+    UniverseObject(
+        key="operation_age_days", name="Gemiddelde ouderdom", klass="Operaties",
+        kind=ObjectKind.MEASURE, view="f_operations", sql="AVG({view}.age_days)",
+        format=Format.DAYS, role=Role.ADMIN, fact="f_operations", additive=False,
+        description="Gemiddeld aantal dagen dat een open item al wacht.",
+    ),
+    UniverseObject(
+        key="operation_kind", name="Soort", klass="Operaties",
+        kind=ObjectKind.DIMENSION, view="f_operations", sql="{view}.kind_label",
+        format=Format.LABEL, role=Role.ADMIN, fact="f_operations",
+        description="Open taak, mislukte e-mail of openstaande betaling.",
+    ),
+    UniverseObject(
+        key="operation_detail", name="Onderwerp", klass="Operaties",
+        kind=ObjectKind.DIMENSION, view="f_operations", sql="{view}.detail",
+        format=Format.LABEL, role=Role.ADMIN, fact="f_operations",
+        description="Waar het item over gaat: het soort taak, het soort e-mail, of waarvoor betaald wordt.",
+    ),
+    UniverseObject(
+        key="operation_age_bucket", name="Ouderdom", klass="Operaties",
+        kind=ObjectKind.DIMENSION, view="f_operations", sql="{view}.age_bucket",
+        format=Format.LABEL, role=Role.ADMIN, fact="f_operations",
+        description="Hoe lang een item al open staat, in klassen.",
     ),
 )
 

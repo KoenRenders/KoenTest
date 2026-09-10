@@ -17,6 +17,8 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.domains.reporting.engine import (
+    PEOPLE_ALIAS,
+    SMALL_CELL_THRESHOLD,
     Column,
     Operator,
     Selection,
@@ -80,8 +82,58 @@ def run_selection(db: Session, selection: Selection, *,
         if record is not None:
             totals = dict(record)
 
+    if plan.guarded:
+        rows = merge_small_cells(rows, plan.columns)
+
     return ReportResult(columns=plan.columns, rows=rows, totals=totals,
                         fact=plan.fact, drill_aliases=plan.drill_aliases)
+
+
+# The label of the row that every group below the threshold ends up in. One row
+# and not one per group: two merged rows of four are still two groups of four.
+MERGED_LABEL = f"Samengevoegd (minder dan {SMALL_CELL_THRESHOLD})"
+
+
+def merge_small_cells(rows: list[dict[str, Any]],
+                      columns: list[Column]) -> list[dict[str, Any]]:
+    """Fold every group that covers fewer than five people into one row (#841).
+
+    A report that says "one member in Balen, aged 41-60, female" names somebody
+    without writing a name. Merging and not dropping, because the totals row comes
+    from SQL over the whole set: dropping would leave a table whose rows no longer
+    add up to their own total, and a reader would sooner distrust the total than
+    guess that something was withheld.
+
+    **Only an additive measure is added up in the merged row.** An average or a
+    distinct count over merged groups is not the average or the count of the
+    whole, and there is no way to ask SQL for it afterwards — the groups are gone.
+    Those cells stay empty, which reads as "not available here" instead of as a
+    number that happens to be wrong.
+    """
+    klein = [r for r in rows if (r.get(PEOPLE_ALIAS) or 0) < SMALL_CELL_THRESHOLD]
+    groot = [r for r in rows if (r.get(PEOPLE_ALIAS) or 0) >= SMALL_CELL_THRESHOLD]
+    for rij in groot:
+        rij.pop(PEOPLE_ALIAS, None)
+    if not klein:
+        return groot
+
+    samen: dict[str, Any] = {}
+    eerste = True
+    for kolom in columns:
+        if kolom.kind.value == "measure":
+            if not kolom.additive:
+                samen[kolom.key] = None
+                continue
+            waarden = [r.get(kolom.key) for r in klein if r.get(kolom.key) is not None]
+            samen[kolom.key] = sum(waarden) if waarden else None
+        else:
+            samen[kolom.key] = MERGED_LABEL if eerste else None
+            eerste = False
+    # The merged row points nowhere: a link would lead back to one of the records
+    # the merge exists to hide.
+    for kolom in columns:
+        samen.pop(f"{kolom.key}__drill", None)
+    return groot + [samen]
 
 
 def _fact_or_refuse(fact_key: str) -> Fact:
@@ -416,6 +468,7 @@ def log_export(db: Session, *, tenant_id: int, actor: str | None, kind: str,
 
 __all__ = [
     "Dataset",
+    "MERGED_LABEL",
     "OFFER_LIMIT",
     "ReportResult",
     "SavedReportError",
@@ -428,6 +481,7 @@ __all__ = [
     "list_saved_reports",
     "load_dataset",
     "log_export",
+    "merge_small_cells",
     "mark_run",
     "run_selection",
     "run_validated",

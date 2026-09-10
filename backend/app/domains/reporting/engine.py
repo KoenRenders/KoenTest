@@ -121,6 +121,19 @@ LAYOUTS = ("table", "pivot", "bar", "line", "stacked")
 # guessing which of his three choices to undo.
 MAX_PIVOT_COLUMNS = 30
 
+# ── The small-cell threshold (#841) ──────────────────────────────────────────
+# A report that says "one member in Balen, aged 41-60, female" names somebody
+# without writing a name. Grouping on a sensitive dimension therefore carries a
+# hidden count of the people in each group, and the service merges every group
+# below this number into one row. The rule is declared here and on the objects,
+# never in a template: a privacy rule that lives in a screen is a privacy rule
+# that the next screen forgets.
+SMALL_CELL_THRESHOLD = 5
+
+# The alias of that hidden count. It leaves the result before it reaches a
+# template — nothing renders it, it only decides.
+PEOPLE_ALIAS = "__people"
+
 
 def selection_to_dict(selection: Selection) -> dict[str, object]:
     """The selection as it is stored in `reporting.saved_reports`.
@@ -221,6 +234,8 @@ class Column:
     kind: ObjectKind
     format: str
     drill: str | None = None
+    # Whether this measure may be added across merged rows (see the threshold).
+    additive: bool = True
 
 
 @dataclass
@@ -234,6 +249,9 @@ class QueryPlan:
     fact: str
     # Column aliases that carry a drill target next to their label.
     drill_aliases: dict[str, str] = field(default_factory=dict)
+    # True when the rows carry the hidden people-count and the small-cell
+    # threshold has to be applied before anything is shown.
+    guarded: bool = False
 
 
 # A hard ceiling on what one report may return. At this scale it never fires; it
@@ -422,6 +440,15 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
             select_parts.append(f'{drill_expr} AS "{alias}"')
             drill_aliases[obj.key] = alias
 
+    # The hidden people-count: only when the selection groups on something that
+    # cuts people into small groups, and only when the fact can say how many
+    # people a group covers.
+    guarded = any(o.sensitive for o in grouped)
+    people_sql = FACT_BY_KEY[fact].people_sql
+    if guarded and people_sql:
+        select_parts.append(
+            f'{people_sql.format(view=_view_alias(fact))} AS "{PEOPLE_ALIAS}"')
+
     from_clause = _from_clause(fact, views, joins)
     where = "\n  AND ".join(conditions)
 
@@ -472,11 +499,12 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
 
     columns = [
         Column(key=o.key, name=o.name, kind=o.kind, format=o.format.value,
-               drill=o.drill)
+               drill=o.drill, additive=o.additive)
         for o in objects
     ]
     return QueryPlan(sql=sql, totals_sql=totals_sql, params=params,
-                     columns=columns, fact=fact, drill_aliases=drill_aliases)
+                     columns=columns, fact=fact, drill_aliases=drill_aliases,
+                     guarded=bool(guarded and people_sql))
 
 
 def build_detail_query(selection: Selection, *, tenant_id: int,

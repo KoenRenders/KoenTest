@@ -224,8 +224,19 @@ def test_the_payments_class_is_declared_finance_end_to_end():
     fouten = [o.key for o in OBJECTS
               if o.klass == "Betalingen" and o.role is not Role.FINANCE]
     assert not fouten, f"objecten in Betalingen zonder de rol finance: {fouten}"
-    assert all(f.role is Role.FINANCE for f in FACTS), (
-        "elke platte dump draagt geldkolommen, dus elk feit declareert finance")
+
+    # A fact's role governs its flat dump, and a dump carries every column. The
+    # three money facts therefore declare finance; the three that #841 added carry
+    # no amount at all — a form submission and an open task are not money — so
+    # they declare admin. The rule is "the strictest role any column needs", not
+    # "finance everywhere".
+    per_feit = {f.key: f.role for f in FACTS}
+    assert per_feit["f_memberships"] is Role.FINANCE
+    assert per_feit["f_registrations"] is Role.FINANCE
+    assert per_feit["f_payments"] is Role.FINANCE
+    assert per_feit["f_form_submissions"] is Role.ADMIN
+    assert per_feit["f_operations"] is Role.ADMIN
+    assert per_feit["f_membership_persons"] is Role.ADMIN
 
 
 def test_every_measure_and_detail_carries_a_role():
@@ -237,5 +248,6 @@ def test_every_measure_and_detail_carries_a_role():
 
 def test_the_objects_pane_is_grouped_in_declared_class_order():
     classes = [name for name, _objects in classes_with_objects()]
-    assert classes == ["Leden", "Activiteiten", "Betalingen", "Tijd"]
+    assert classes == ["Leden", "Activiteiten", "Betalingen", "Formulieren",
+                       "Operaties", "Tijd"]
     assert all(objects for _name, objects in classes_with_objects())

@@ -14,6 +14,8 @@ from app.domains.reporting.engine import (  # noqa: F401
     LAYOUTS,
     MAX_PIVOT_COLUMNS,
     MAX_ROWS,
+    PEOPLE_ALIAS,
+    SMALL_CELL_THRESHOLD,
     Column,
     Direction,
     Filter,
@@ -51,6 +53,7 @@ from app.domains.reporting.pivot import (  # noqa: F401
     check_column_cap,
 )
 from app.domains.reporting.service import (  # noqa: F401
+    MERGED_LABEL,
     OFFER_LIMIT,
     Dataset,
     ReportResult,
@@ -64,6 +67,7 @@ from app.domains.reporting.service import (  # noqa: F401
     list_saved_reports,
     load_dataset,
     log_export,
+    merge_small_cells,
     mark_run,
     run_selection,
     run_validated,
@@ -91,7 +95,8 @@ from app.domains.reporting.universe import (  # noqa: F401
 
 __all__ = [
     "BY_KEY", "CHART_LAYOUTS", "CLASSES", "DIMENSIONS", "FACTS", "JOINS",
-    "LAYOUTS", "SERIES_COLORS",
+    "LAYOUTS", "MERGED_LABEL", "PEOPLE_ALIAS", "SERIES_COLORS",
+    "SMALL_CELL_THRESHOLD",
     "MAX_PIVOT_COLUMNS", "MAX_ROWS", "OBJECTS", "OFFER_LIMIT",
     "Chart", "ChartData", "Column", "Dataset", "Direction", "Fact", "Filter",
     "Format", "ObjectKind",
@@ -104,7 +109,8 @@ __all__ = [
     "dataset_filename",
     "delete_report", "dimension_values", "fact_columns", "filter_summary",
     "get_saved_report", "joins_for", "list_saved_reports", "load_dataset",
-    "log_export", "mark_run", "objects_in_pane_order", "report_filename",
+    "log_export", "mark_run", "merge_small_cells", "objects_in_pane_order",
+    "report_filename",
     "run_selection", "run_validated", "save_report", "selection_from_dict",
     "selection_of", "selection_to_dict", "update_report", "validate_filter_values",
 ]

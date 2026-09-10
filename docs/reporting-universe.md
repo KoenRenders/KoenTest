@@ -22,13 +22,18 @@ every report that used it.
 
 A report is about exactly one fact — its measures decide the grain. Measures from two facts in one selection are refused: they would multiply each other (CR-06 §2.6).
 
+The last column is how the fact counts the people a group covers. The small-cell threshold needs it: a group of fewer than five is merged away, and a fact that cannot count people cannot be grouped by a sensitive dimension at all.
+
 The role column is the role the fact's **flat dataset dump** will need once the fence is built; see Roles below. Today every dump sits behind `require_admin_ui` like the rest of the back office.
 
-| Fact | Name | Grain | Role | What it holds |
-|---|---|---|---|---|
-| `f_memberships` | Lidmaatschappen | één rij per gezin per lidmaatschapsjaar | `finance` | Lidmaatschappen per gezin per jaar, inclusief de gezinnen die dat jaar níét vernieuwden — anders is 'hoeveel vervallen er?' niet te tellen. |
-| `f_registrations` | Inschrijvingen | één rij per inschrijfregel | `finance` | Inschrijvingen op activiteiten, één rij per gekozen product. Een inschrijving zonder producten telt mee met aantal 0. |
-| `f_payments` | Betalingen | één rij per betaalrecord | `finance` | Vorderingen en terugbetalingen. Een terugbetaling draagt een negatief bedrag, dus elke som is meteen een nettobedrag. |
+| Fact | Name | Grain | Role | People | What it holds |
+|---|---|---|---|---|---|
+| `f_memberships` | Lidmaatschappen | één rij per gezin per lidmaatschapsjaar | `finance` | `SUM({view}.person_count)` | Lidmaatschappen per gezin per jaar, inclusief de gezinnen die dat jaar níét vernieuwden — anders is 'hoeveel vervallen er?' niet te tellen. |
+| `f_registrations` | Inschrijvingen | één rij per inschrijfregel | `finance` | `COUNT(DISTINCT {view}.person_id)` | Inschrijvingen op activiteiten, één rij per gekozen product. Een inschrijving zonder producten telt mee met aantal 0. |
+| `f_payments` | Betalingen | één rij per betaalrecord | `finance` | `COUNT(DISTINCT {view}.household_id)` | Vorderingen en terugbetalingen. Een terugbetaling draagt een negatief bedrag, dus elke som is meteen een nettobedrag. |
+| `f_membership_persons` | Leden (personen) | één rij per persoon per lidmaatschapsjaar | `admin` | `COUNT({view}.person_id)` | Wie er lid is, op persoonsniveau — de korrel die vraag 8 nodig heeft. Een persoon in twee gezinnen telt één keer. |
+| `f_form_submissions` | Formulierinzendingen | één rij per inzending | `admin` | — | Inzendingen op formulieren. Zonder naam of e-mailadres: een rapport telt inzendingen, het formulierscherm toont wat iemand schreef. |
+| `f_operations` | Operaties | één rij per open item | `admin` | — | De werkvoorraad: open werkbanktaken, mislukte e-mails en betalingen in afwachting, samen in één feit. Antwoordt morgen anders — dat is wat een werkvoorraad hoort te doen. |
 
 ## Dimensions
 
@@ -41,6 +46,7 @@ The role column is the role the fact's **flat dataset dump** will need once the 
 | `d_payment_method` | Betaalwijze | `code` |
 | `d_payment_status` | Betaalstatus | `code` |
 | `d_membership_status` | Lidmaatschapsstatus | `code` |
+| `d_form` | Formulier | `form_id` |
 
 ## Join graph
 
@@ -59,6 +65,11 @@ Every join also matches on `tenant_id`, unconditionally — a dimension row can 
 | `f_registrations` | `d_payment_method` | `method_code` = `code` |
 | `f_memberships` | `d_household` | `household_id` = `household_id` |
 | `f_memberships` | `d_membership_status` | `status_code` = `code` |
+| `f_membership_persons` | `d_person` | `person_id` = `person_id` |
+| `f_membership_persons` | `d_household` | `household_id` = `household_id` |
+| `f_form_submissions` | `d_form` | `form_id` = `form_id` |
+| `f_form_submissions` | `d_date` | `date_key` = `date_key` |
+| `f_operations` | `d_date` | `date_key` = `date_key` |
 
 ## Roles
 
@@ -66,11 +77,13 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 
 | Universe role | Meaning | Objects |
 |---|---|---|
-| `admin` | the default: what an admin screen already shows | 31 |
+| `admin` | the default: what an admin screen already shows | 44 |
 | `finance` | money — every measure formatted as money, and the Betalingen class | 16 |
 | `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 0 |
 
 ## Objects
+
+**sensitive** marks a dimension that cuts people into groups small enough to recognise somebody by. Grouping on one turns on the small-cell threshold: every group of fewer than five people is merged into a single row. **not additive** marks a measure that may not be summed across those merged groups — an average of averages is not an average — so its cell stays empty there rather than showing a number that happens to be wrong.
 
 ### Leden
 
@@ -93,6 +106,7 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `person_age_group` | Leeftijdsgroep | dimension | label | `admin` | `d_person.age_group` | Leeftijdsklasse van de inschrijver, berekend op vandaag. |
 | `person_gender` | Geslacht | dimension | label | `admin` | `d_person.gender_label` | Geslacht van de inschrijver. |
 | `person_relation_type` | Relatietype | dimension | label | `admin` | `d_person.relation_type_label` | Hoofdlid, partner of (meerderjarig) kind binnen het gezin. |
+| `membership_person_count` | Aantal leden (personen) | measure | count | `admin` | `COUNT(f_membership_persons.person_id)` | Personen met een lidmaatschap in dat jaar. Eén rij per persoon per jaar, dus tellen is optellen. |
 
 ### Activiteiten
 
@@ -128,6 +142,27 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `payment_age_bucket` | Ouderdom | dimension | label | `finance` | `f_payments.age_bucket` | Hoe lang een vordering al openstaat, in klassen. Betaalde records staan op 'Betaald'. |
 | `payment_record` | Betaling | dimension | label | `finance` | `f_payments.payment_id` | Het betaalrecord zelf. Klik door naar de betalingenpagina. |
 
+### Formulieren
+
+| Key | Name | Type | Format | Role | Source | Description |
+|---|---|---|---|---|---|---|
+| `submission_count` | Aantal inzendingen | measure | count | `admin` | `COUNT(DISTINCT f_form_submissions.submission_id)` | Aantal inzendingen op een formulier. |
+| `submission_answers` | Aantal antwoorden | measure | count | `admin` | `SUM(f_form_submissions.answer_count)` | Som van de ingevulde antwoorden — hoeveel er werkelijk ingevuld is. |
+| `form` | Formulier | dimension | label | `admin` | `d_form.form_name` | Naam van het formulier. Klik door naar de formulierbouwer. |
+| `form_status` | Status van het formulier | dimension | label | `admin` | `d_form.form_status_label` | Concept, gepubliceerd of gesloten. |
+| `form_anonymous` | Anoniem formulier | dimension | label | `admin` | `d_form.is_anonymous_label` | Of het formulier anoniem ingevuld wordt. |
+| `submission_edited` | Achteraf gewijzigd | dimension | label | `admin` | `CASE WHEN f_form_submissions.was_edited THEN 'Ja' ELSE 'Nee' END` | Of de inzender zijn antwoord nadien nog aangepast heeft. |
+
+### Operaties
+
+| Key | Name | Type | Format | Role | Source | Description |
+|---|---|---|---|---|---|---|
+| `operation_count` | Aantal open items | measure | count | `admin` | `COUNT(DISTINCT f_operations.item_id)` | Hoeveel er nog ligt te wachten. |
+| `operation_age_days` | Gemiddelde ouderdom | measure | days | `admin` | `AVG(f_operations.age_days)` | Gemiddeld aantal dagen dat een open item al wacht. |
+| `operation_kind` | Soort | dimension | label | `admin` | `f_operations.kind_label` | Open taak, mislukte e-mail of openstaande betaling. |
+| `operation_detail` | Onderwerp | dimension | label | `admin` | `f_operations.detail` | Waar het item over gaat: het soort taak, het soort e-mail, of waarvoor betaald wordt. |
+| `operation_age_bucket` | Ouderdom | dimension | label | `admin` | `f_operations.age_bucket` | Hoe lang een item al open staat, in klassen. |
+
 ### Tijd
 
 | Key | Name | Type | Format | Role | Source | Description |
@@ -138,3 +173,4 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `date_month_label` | Maand voluit | detail | label | `admin` | `d_date.month_year_label` | Dezelfde maand als 'maart 2026'. Een detail: sorteren doe je op Maand. |
 | `date_day` | Datum | dimension | date | `admin` | `d_date.date_key` | De dag zelf. |
 | `membership_year` | Lidmaatschapsjaar | dimension | year | `admin` | `f_memberships.year` | Het jaar waarvoor het lidgeld geldt. Staat los van Jaar: een lidmaatschap heeft een lidmaatschapsjaar, geen datum. |
+| `membership_person_year` | Jaar van het lidmaatschap | dimension | year | `admin` | `f_membership_persons.year` | Het jaar waarvoor deze persoon lid was. |

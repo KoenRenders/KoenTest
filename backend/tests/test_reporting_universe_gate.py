@@ -155,6 +155,26 @@ def test_every_dimension_can_identify_its_own_row(db_session):
     assert not fouten, f"sleutelkolommen die niet bestaan: {fouten}"
 
 
+def test_every_people_count_resolves_too(db_session):
+    """The small-cell threshold reads `Fact.people_sql`, so it is a source as well.
+
+    Without this the threshold could point at a column that no longer exists and
+    fail at the moment a privacy rule was supposed to apply — the worst possible
+    moment for a query to break.
+    """
+    per_view = _schema_columns(db_session)
+    fouten = []
+    for fact in FACTS:
+        if not fact.people_sql:
+            continue
+        kolommen = _COLUMN_REFERENCE.findall(fact.people_sql)
+        assert kolommen, f"{fact.key}: people_sql noemt geen {{view}}.kolom"
+        for kolom in kolommen:
+            if kolom not in per_view.get(fact.key, set()):
+                fouten.append(f"{fact.key}.{kolom}")
+    assert not fouten, f"people_sql wijst naar kolommen die er niet zijn: {fouten}"
+
+
 def test_every_fact_can_identify_its_own_row(db_session):
     per_view = _schema_columns(db_session)
     fouten = []
