@@ -56,12 +56,24 @@ def test_prod_gaat_rechtstreeks_naar_de_backend():
         "sinds de React-exit (#405) en de site valt dan stil")
 
 
-def test_elke_domeinvariabele_staat_in_het_voorbeeldbestand():
+def test_elke_domeinvariabele_heeft_een_bekende_bron():
     """Anders bereikt een nieuwe variabele de server zonder dat iemand het merkt.
 
     De prijs van vergeten is niet "dat ene domein doet het niet" maar "Caddy start
     niet op", want een leeg site-adres maakt de héle config ongeldig — inclusief de
     sites die er niets mee te maken hebben.
+
+    **Twee geldige bronnen sinds #866**, en dat is het enige dat aan deze test
+    veranderd is:
+
+    1. ``.env.caddy.example`` — je typt de waarde per server in;
+    2. ``caddy/platform-domains.sh`` — de waarde wordt afgeleid uit
+       ``PLATFORM_HOSTS`` van de omgeving zelf, zodat proxy en app niet uit elkaar
+       kunnen lopen.
+
+    De tanden blijven: een variabele die in géén van beide staat, faalt nog steeds.
+    De platformdomeinen uit het voorbeeldbestand weghalen zónder deze tweede bron
+    zou hier dus rood geven, en dat hoort ook.
     """
     bestanden = list((CADDY / "parts").glob("*.caddy")) + [CADDY / "Caddyfile.shared"]
     assert len(bestanden) >= 4, f"de glob vindt te weinig bestanden: {bestanden}"
@@ -71,10 +83,16 @@ def test_elke_domeinvariabele_staat_in_het_voorbeeldbestand():
         gebruikt |= set(re.findall(r"\{\$([A-Z_]+)\}", _zonder_commentaar(pad.read_text())))
     assert gebruikt, "er wordt geen enkele variabele gevonden — kijkt deze test wel ergens?"
 
-    ontbreekt = sorted(v for v in gebruikt if not re.search(rf"^{v}=", VOORBEELD, re.M))
+    afgeleid = (CADDY / "platform-domains.sh").read_text()
+    assert "export" in afgeleid, "de afleiding exporteert niets — dan is bron 2 leeg"
+
+    ontbreekt = sorted(v for v in gebruikt
+                       if not re.search(rf"^{v}=", VOORBEELD, re.M)
+                       and not re.search(rf"\b{v}\b", afgeleid))
     assert not ontbreekt, (
-        "deze variabelen staan in de Caddy-config maar niet in .env.caddy.example, "
-        f"dus niemand weet dat ze op de server moeten staan: {ontbreekt}")
+        "deze variabelen staan in de Caddy-config maar worden nergens gezet — niet in "
+        ".env.caddy.example en niet afgeleid door caddy/platform-domains.sh, dus "
+        f"niemand weet dat ze op de server moeten staan: {ontbreekt}")
 
 
 def test_het_platform_heeft_een_eigen_naam_per_omgeving():

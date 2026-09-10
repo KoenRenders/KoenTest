@@ -176,6 +176,14 @@ if ! grep -rq 'encode' caddy/Caddyfile.shared caddy/parts/ 2>/dev/null; then
   exit 1
 fi
 
+# ── Platformdomeinen: uit de app-configuratie, niet uit .env.caddy (#866) ────
+# "Dit domein is het platform" stond op twee plaatsen en liep uiteen: op PROD
+# bediende Caddy het subdomein terwijl de app alleen het apex-domein kende, en de
+# landingspagina kwam uit op Raak Millegem. De app-variabele is nu de bron; dit
+# leidt af. Faalt dat, dan stoppen we hier — een leeg siteadres maakt de HELE
+# config ongeldig en dan start de proxy niet.
+. ./caddy/platform-domains.sh
+
 # ── VANGNET 1 — valideren vóór we de draaiende proxy aanraken ────────────────
 # `run --rm --no-deps` publiceert geen poorten en start niets anders op; de
 # env_file (.env.caddy) wordt wel geladen, zodat de {$DOMAIN}-placeholders

@@ -27,6 +27,16 @@ services:
     restart: unless-stopped
     env_file:
       - .env.caddy
+    environment:
+      # #866: de platformdomeinen komen uit PLATFORM_HOSTS van .env.uat/.env.prod,
+      # afgeleid door caddy/platform-domains.sh. Eén bewaarplaats voor "dit domein
+      # is het platform", zodat proxy en app niet uit elkaar kunnen lopen.
+      #
+      # De `:?`-vorm laat compose falen als de afleiding niet gedraaid heeft. Dat is
+      # met opzet: een lege waarde geeft een leeg siteadres, en dat maakt de config
+      # voor ALLE sites ongeldig — dan start de proxy niet en ligt PROD plat.
+      PLATFORM_UAT_DOMAIN: ${PLATFORM_UAT_DOMAIN:?PLATFORM_UAT_DOMAIN ontbreekt — draai deploy-caddy.sh, dat leidt het af uit .env.uat (#866)}
+      PLATFORM_PROD_DOMAIN: ${PLATFORM_PROD_DOMAIN:?PLATFORM_PROD_DOMAIN ontbreekt — draai deploy-caddy.sh, dat leidt het af uit .env.prod (#866)}
     ports:
       - "80:80"
       - "443:443"
