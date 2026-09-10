@@ -146,16 +146,29 @@ class ExternalNumber(TenantMixin, SoftDeleteMixin, Base):
 
 
 class Organization(SoftDeleteMixin, Base):
-    """Organisatie (§6): ACCOUNT = afdeling/klant (bv. Raak Millegem),
-    UNIT = onderdeel daarvan. Zelf-refererend; de tenancy-fase (#406) hangt de
-    tenant-kolommen aan dit begrip."""
+    """Organisatie (§6). Zelf-refererend; de tenancy-fase (#406) hangt de
+    tenant-kolommen aan dit begrip.
+
+    Drie soorten, en de vorige versie van deze docstring had er twee door elkaar:
+
+    - ``ACCOUNT`` — de klant, de rij waar de facturatie aan hangt (bv. Raak vzw).
+    - ``UNIT`` — de afdeling met haar eigen site en merk (bv. Raak Millegem). Dít is
+      wat elders "tenant" heet en wat een pad-prefix krijgt.
+    - ``PLATFORM`` — het platform zelf (#854): één rij zonder ouder, met een naam, een
+      afzender en sleutels, maar zonder leden, gezinnen of activiteiten. Geen
+      pad-prefix; ``tenant_lookup`` filtert bewust op ``UNIT``.
+
+    Tot 10 september 2026 stond hier "ACCOUNT = afdeling/klant (bv. Raak Millegem)".
+    Dat klopte niet met de data — Millegem is een UNIT — en het is precies de regel die
+    je leest als je hieraan werkt.
+    """
 
     __tablename__ = "organizations"
     __table_args__ = {"schema": "mdm"}
 
     id = Column(Integer, primary_key=True)
     parent_id = Column(Integer, ForeignKey("mdm.organizations.id"), nullable=True)
-    # ACCOUNT | UNIT — CHECK in migratie 078.
+    # ACCOUNT | UNIT | PLATFORM — CHECK in migratie 078, uitgebreid in 097.
     org_type = Column(String(10), nullable=False, default="ACCOUNT")
     # Stabiele technische naam (bv. "raakmillegem") — uniek.
     code = Column(String(50), nullable=False, unique=True)

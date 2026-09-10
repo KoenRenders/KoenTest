@@ -30,6 +30,30 @@ DEFAULT_TENANT_ID = TENANT_MILLEGEM_ID
 # Actieve tenant voor dit request. None = geen filtering.
 current_tenant_id: ContextVar[int | None] = ContextVar("current_tenant_id", default=None)
 
+# De host waarop dit verzoek binnenkwam, als origin (#860). Absolute URL's — de
+# inloglink, de Mollie-redirect, de bewerklink van een inzending, sitemap/robots —
+# hoorden altijd al terug te wijzen naar de site waar je vandaan komt, maar
+# `tenant_base_url` keek daar nooit naar. Op een platform-host leverde dat een
+# inloglink naar een afdelingssite op: je sessiecookie belandde op de verkeerde host
+# en je was op het platform nog steeds anoniem.
+#
+# Het SCHEMA komt uit `FRONTEND_URL` en niet uit het verzoek: er staat geen
+# proxy-header-verwerking aan, dus achter Caddy leest elk verzoek als http. De
+# omgeving weet of ze https draait, het verzoek weet welke host — elk levert wat het
+# echt weet. De poort hoort bij de host en blijft dus staan.
+#
+# Leeg buiten een verzoek (achtergrondjobs, scripts): dan blijft `FRONTEND_URL` de
+# enige waarheid die er is.
+current_origin: ContextVar[str | None] = ContextVar("current_origin", default=None)
+
+# Kwam dit verzoek binnen op een platform-host? Bepaalt of een afdeling zonder eigen
+# domein haar adres afleidt als <platform-origin>/<code> (#860).
+current_platform_host: ContextVar[bool] = ContextVar("current_platform_host", default=False)
+
+# De code van de actieve tenant, als ze er een heeft (UNIT). None voor de
+# platform-tenant zelf: die staat niet in de code→id-map en heeft geen pad-prefix.
+current_tenant_code: ContextVar[str | None] = ContextVar("current_tenant_code", default=None)
+
 
 def _tenant_default() -> int:
     return current_tenant_id.get() or DEFAULT_TENANT_ID
@@ -86,7 +110,8 @@ def resolve_tenant(host: str | None, path: str,
 def resolve_request(host: str | None, path: str, cookie_code: str | None,
                     hostname_map: dict[str, str],
                     platform_hosts: set[str],
-                    codes: dict[str, int] | None = None) -> tuple[int, str | None, bool]:
+                    codes: dict[str, int] | None = None,
+                    platform_tenant: int | None = None) -> tuple[int, str | None, bool]:
     """Volledige request-resolutie (§7, 5c): geeft (tenant_id, herschreven pad
     of None, platform-landing?).
 
@@ -95,8 +120,19 @@ def resolve_request(host: str | None, path: str, cookie_code: str | None,
       middleware zet een tenant-cookie zodat vervolgnavigatie (absolute
       paden zonder prefix) op dezelfde tenant blijft.
     - Daarna hostname, dan de tenant-cookie (enkel op platform-hosts), dan
-      de default (Millegem).
+      de platform-tenant als de host er een is, en anders de default (Millegem).
     - De wortel van een platform-host (platform.example, "/") is de landingspagina.
+
+    ``platform_tenant`` is het id van de PLATFORM-organisatie (#854). Een
+    platform-host resolvet daarnaartoe op **elk** pad, niet alleen op ``/``. Daarvóór
+    viel elk ander pad terug op de standaardtenant, en dan kreeg een platformbeheerder
+    de schil van Raak Millegem te zien én een e-mail van die afdeling (#853). Er was
+    niets om naar te resolven; nu wel.
+
+    ``None`` betekent "die rij bestaat hier nog niet" — vóór migratie 097, in een test
+    die er niet over gaat, of bij een haperende lookup. Dan blijft het oude gedrag
+    gelden. Resolutie mag nooit stukvallen op een ontbrekende rij; ze wordt hooguit
+    minder precies.
     """
     codes = codes if codes is not None else TENANT_CODES
     genormaliseerd = (host or "").split(":")[0].lower().removeprefix("www.")
@@ -108,10 +144,13 @@ def resolve_request(host: str | None, path: str, cookie_code: str | None,
     if code in codes:
         return codes[code], None, False
     if genormaliseerd in platform_hosts:
-        if path == "/":
-            return DEFAULT_TENANT_ID, None, True
-        if cookie_code in codes:
+        # De cookie blijft vóór de platform-tenant staan, en dat is met opzet: wie via
+        # een pad-prefix bij een afdeling binnenkwam, hoort daar te blijven als hij
+        # daarna een absoluut pad volgt. Zonder cookie is de host het enige signaal,
+        # en dan is dit het platform.
+        if path != "/" and cookie_code in codes:
             return codes[cookie_code], None, False
+        return (platform_tenant or DEFAULT_TENANT_ID), None, path == "/"
     return DEFAULT_TENANT_ID, None, False
 
 

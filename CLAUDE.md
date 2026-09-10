@@ -411,6 +411,22 @@ during the rebuild.
 
 ### Shared Caddy: expand/contract
 
+**HDEV komt hier nooit in — beslist door Koen op 10 september 2026.** HDEV houdt zijn
+eigen Caddy binnen zijn eigen stack (`caddy/Caddyfile.hdev`, poort 8081) en gaat niet
+mee in de gedeelde Caddy, ook niet wanneer het een echt certificaat krijgt (#865).
+
+**Waarom:** de gedeelde Caddy is één proces met één configuratie, en ze bedient PROD.
+HDEV beweegt dagelijks en volgt `master`. Een kapot HDEV-blok zou dus PROD platleggen —
+hetzelfde mechanisme als het `.env.caddy`-scenario verderop, waar één niet-gezette
+domeinvariabele de hele configuratie ongeldig maakt en Caddy weigert te starten. De
+versiebeheerregel hieronder wringt bovendien: elk onderdeel komt uit het tag van zijn
+omgeving, en HDEV heeft er geen.
+
+**Gevolg voor certificaten:** HDEV kan poort 80 niet gebruiken voor een
+certificaatuitgifte, want die is van de gedeelde Caddy. Een echt certificaat op HDEV
+loopt dus via een DNS-uitdaging, op een eigen TLS-poort.
+
+
 One Caddy container terminates HTTPS for UAT **and** PROD (one server, one `:443`).
 Its config therefore serves two releases at the same time — exactly like the
 database does during a deploy. The same expand/contract rule from architectuurdoc

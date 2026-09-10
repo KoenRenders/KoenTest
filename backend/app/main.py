@@ -194,20 +194,25 @@ async def _tenant_context(request: Request, call_next):
     vervolgnavigatie op dezelfde tenant blijft; noindex-tenants (demo) krijgen
     een X-Robots-Tag-header."""
     from app.kernel.tenancy import (
-        DEFAULT_TENANT_ID, current_tenant_id, parse_hostname_map,
-        resolve_request,
+        DEFAULT_TENANT_ID, current_origin, current_platform_host, current_tenant_code,
+        current_tenant_id, parse_hostname_map, resolve_request,
     )
-    from app.domains.mdm.api import tenant_codes
+    from app.domains.mdm.api import platform_tenant_id, tenant_codes
 
     # Dynamische code→id-map uit de DB (#546): een nieuw aangemaakte tenant resolvet
     # zonder codewijziging. Gecachet, dus geen query-per-request na de eerste.
     codes = tenant_codes()
+    platform_hosts = {h.strip().lower() for h in settings.platform_hosts.split(",") if h.strip()}
     tenant, nieuw_pad, platform_landing = resolve_request(
         request.headers.get("host"), request.url.path,
         request.cookies.get("raak_tenant"),
         parse_hostname_map(settings.tenant_hostnames),
-        {h.strip().lower() for h in settings.platform_hosts.split(",") if h.strip()},
+        platform_hosts,
         codes,
+        # #854: het platform is zelf een tenant, dus een platform-host heeft iets om
+        # naar te resolven — op élk pad, niet alleen op "/". Even gecachet als de
+        # codes; None zolang migratie 097 nog niet gelopen is.
+        platform_tenant_id(),
     )
     if nieuw_pad is not None:
         request.scope["path"] = nieuw_pad
@@ -224,6 +229,20 @@ async def _tenant_context(request: Request, call_next):
             taal = tenant_language(_db, tenant_id=tenant)
         finally:
             _db.close()
+    # #860: absolute URL's horen terug te wijzen naar de host waarop je binnenkwam.
+    # Het schema komt uit FRONTEND_URL en niet uit het verzoek — er staat geen
+    # proxy-header-verwerking aan, dus achter Caddy leest elk verzoek als http. De
+    # omgeving weet of ze https draait, het verzoek weet welke host.
+    binnenkomende_host = (request.headers.get("host") or "").strip()
+    schema = settings.frontend_url.split("://", 1)[0] if "://" in settings.frontend_url else "https"
+    origin_token = current_origin.set(
+        f"{schema}://{binnenkomende_host}" if binnenkomende_host else None)
+    platform_token = current_platform_host.set(
+        binnenkomende_host.split(":")[0].lower().removeprefix("www.") in platform_hosts)
+    # De code van de actieve tenant, als ze er een heeft. De platform-tenant staat
+    # niet in de code→id-map en heeft geen pad-prefix; dan blijft dit None.
+    code_token = current_tenant_code.set(
+        next((c for c, t in codes.items() if t == tenant), None))
     token = current_tenant_id.set(tenant)
     taal_token = current_locale.set(taal)
     try:
@@ -231,6 +250,9 @@ async def _tenant_context(request: Request, call_next):
     finally:
         current_locale.reset(taal_token)
         current_tenant_id.reset(token)
+        current_tenant_code.reset(code_token)
+        current_platform_host.reset(platform_token)
+        current_origin.reset(origin_token)
     if nieuw_pad is not None:
         code = next(c for c, t in codes.items() if t == tenant)
         response.set_cookie("raak_tenant", code, httponly=True, samesite="lax")

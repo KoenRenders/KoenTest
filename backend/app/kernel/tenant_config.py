@@ -29,7 +29,7 @@ from sqlalchemy.orm import Session
 logger = logging.getLogger(__name__)
 
 from app.database import Base
-from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
+from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id, parse_hostname_map
 
 
 class TenantSetting(Base):
@@ -96,22 +96,186 @@ def set_setting(db: Session, key: str, value: str | None, *, secret: bool = Fals
 
 # ── Afgeleide helpers (met .env als default) ───────────────────────────────────
 
-def tenant_base_url(db: Session, tenant_id: int | None = None) -> str:
-    """Canonieke publieke origin van de actieve tenant, voor absolute URL's in
-    mails, Mollie-redirects en SEO. Default: de globale FRONTEND_URL.
+def _origin_serves_this_environment(url: str) -> bool:
+    """Wijst deze ``base_url`` naar een host die déze omgeving werkelijk bedient?
 
-    OMGEVINGSVEILIGHEID (#477): in een **niet-prod** omgeving (APP_ENV != "prod")
-    wint de env ``FRONTEND_URL`` ALTIJD van een DB-``base_url``. Anders zou een
-    prod-URL die per ongeluk in de HDEV/UAT-database staat (seed/restore) in een
-    test-inloglink of -betaalredirect naar productie lekken. Op HDEV/UAT draait
-    alles op één origin, dus een per-tenant prod-domein is daar sowieso
-    betekenisloos. In prod blijft de per-tenant DB-``base_url`` leidend."""
+    OMGEVINGSVEILIGHEID (#477), preciezer gemaakt met #860. De oorspronkelijke rem
+    liet op niet-prod ``FRONTEND_URL`` altijd winnen, met als motivering: *"op
+    HDEV/UAT draait alles op één origin"*. Sinds #821 en #854 klopt dat niet meer —
+    UAT heeft een platform-host én afdelingsadressen — en de brede rem maakte de
+    platform-stroom daar onttestbaar.
+
+    Het gevaar is nooit een per-tenant adres op zich geweest, maar een adres dat naar
+    een ÁNDERE OMGEVING wijst: een prod-URL die na een restore of een seed in de
+    UAT-databank staat, en dan in een test-inloglink of een betaalredirect naar
+    productie zou wijzen. Die bescherming blijft volledig overeind — zo'n host hoort
+    bij geen van de drie bronnen hieronder en wordt nog altijd genegeerd.
+
+    Op prod is de DB-waarde onverkort leidend; daar is dit gedrag ongewijzigd.
+    """
+    from urllib.parse import urlparse
+
     from app.config import settings
 
-    if settings.app_env != "prod":
-        return settings.frontend_url.rstrip("/")
-    return (get_setting(db, "base_url", tenant_id=tenant_id)
-            or settings.frontend_url).rstrip("/")
+    if settings.app_env == "prod":
+        return True
+    host = (urlparse(url).hostname or "").lower().removeprefix("www.")
+    if not host:
+        return False
+    known = {(urlparse(settings.frontend_url).hostname or "")}
+    known |= {h.strip() for h in settings.platform_hosts.split(",") if h.strip()}
+    known |= set(parse_hostname_map(settings.tenant_hostnames))
+    return host in {h.lower().removeprefix("www.") for h in known if h}
+
+
+def tenant_base_url(db: Session, tenant_id: int | None = None, *,
+                    code: str | None = None) -> str:
+    """Canonieke publieke origin van een tenant, voor absolute URL's in mails,
+    Mollie-redirects en SEO.
+
+    **De regel, in één zin (#860): een absolute URL volgt de host waarop het verzoek
+    binnenkwam, tenzij de tenant een eigen canoniek domein heeft.** Dat is de host uit
+    dít verzoek en niet "een" host uit `PLATFORM_HOSTS` — dat is een lijst, en een kaart
+    die je wegstuurt van de site die je op dat moment bekijkt is precies de klacht.
+    Daarom zijn de landingspagina en de inloglink ook geen twee fixes: het is hetzelfde
+    geval, één keer mét een tenant-id en één keer zonder.
+
+    Volgorde:
+
+    1. de opgeslagen ``base_url``, als die naar deze omgeving wijst — zie
+       ``_origin_serves_this_environment``. Een afdeling met een eigen domein houdt
+       zo haar canonieke adres, want dát is het canonieke adres.
+    2. anders **de host waarop dit verzoek binnenkwam**. Dat is de eigenlijke
+       correctie: absolute URL's negeerden die host volledig, dus aanmelden op een
+       platform-host leverde een inloglink naar een afdelingssite op — je
+       sessiecookie belandde op de verkeerde host en op het platform bleef je
+       anoniem. De platform-tenant heeft daardoor ook geen eigen ``base_url`` nodig;
+       ze volgt de host waarop je haar bezoekt, en dat kan niet uit elkaar lopen.
+    3. buiten een verzoek: ``FRONTEND_URL``, de enige waarheid die er dan is.
+
+    **Een afdeling zonder eigen domein vult niets in.** Haar adres is afleidbaar uit
+    de platform-host plus haar code, en dat met de hand bewaren zou hetzelfde gegeven
+    op twee plaatsen zetten — dan is het geen kwestie óf ze uit elkaar lopen maar
+    wanneer. Op een platform-host krijgt zo'n afdeling dus ``<origin>/<code>``.
+    ``code`` mag expliciet meegegeven worden (de landingspagina doet dat voor élke
+    afdeling); zonder wordt de code van de actieve tenant gebruikt.
+    """
+    from app.config import settings
+    from app.kernel.tenancy import (current_origin, current_platform_host,
+                                    current_tenant_code, current_tenant_id)
+
+    stored = (get_setting(db, "base_url", tenant_id=tenant_id) or "").strip()
+    if stored and _origin_serves_this_environment(stored):
+        return stored.rstrip("/")
+
+    origin = (current_origin.get() or settings.frontend_url).rstrip("/")
+    if current_platform_host.get():
+        prefix = code
+        if prefix is None and tenant_id in (None, current_tenant_id.get()):
+            prefix = current_tenant_code.get()
+        if prefix:
+            return f"{origin}/{prefix}"
+    return origin
+
+
+def _omgevingspoort(schema: str) -> str:
+    """De poort van déze omgeving, als ze er een nodig heeft (#863).
+
+    ``TENANT_HOSTNAMES`` bevat hostnamen **zonder** poort, en dat hoort ook zo: de
+    tenant-resolutie vergelijkt met ``host.split(":")[0]``. Maar een adres dat daaruit
+    gebouwd wordt, verloor daarmee de poort. Op HDEV — dat op 8081 draait — leverde dat
+    een dode kaart op: poort 80 stuurt met een 308 naar https, en dat antwoordt niet.
+
+    Eerst uit de oorsprong van het lopende verzoek, anders uit ``FRONTEND_URL``. Die
+    tweede helft is geen detail: een sitemap of een mail kan uit een achtergrondtaak
+    komen, en dan is er geen verzoek — zonder terugval bouw je daar opnieuw een adres
+    zonder poort.
+
+    Een standaardpoort blijft weg. Een canoniek adres met een expliciete ``:443`` is een
+    tweede schrijfwijze van dezelfde URL, en dat is voor SEO precies wat je niet wil —
+    UAT en PROD veranderen hier dus niet.
+    """
+    from urllib.parse import urlparse
+
+    from app.config import settings
+    from app.kernel.tenancy import current_origin
+
+    poort = None
+    for bron in (current_origin.get(), settings.frontend_url):
+        if not bron:
+            continue
+        try:
+            poort = urlparse(bron).port
+        except ValueError:  # een onparseerbare poort is geen poort
+            poort = None
+        if poort:
+            break
+    if not poort or (schema, poort) in (("http", 80), ("https", 443)):
+        return ""
+    return f":{poort}"
+
+
+def _origin_voor(host: str) -> str:
+    """``<schema>://<host>[:poort]`` voor een hostnaam uit de routering (#863).
+
+    Het schema komt uit ``FRONTEND_URL`` (de omgeving weet of ze https draait), de host
+    uit ``TENANT_HOSTNAMES``, en de poort uit deze omgeving — zie ``_omgevingspoort``.
+    Elk levert wat het werkelijk weet.
+    """
+    from app.config import settings
+
+    schema = (settings.frontend_url.split("://", 1)[0]
+              if "://" in settings.frontend_url else "https")
+    return f"{schema}://{host}{_omgevingspoort(schema)}"
+
+
+def tenant_home_url(db: Session, tenant_id: int | None = None, *,
+                    code: str | None = None) -> str:
+    """Waar WOONT deze tenant — haar eigen canonieke adres (#860).
+
+    Dit is een andere vraag dan die van ``tenant_base_url``, en ze hebben een ander
+    antwoord zodra een afdeling een eigen host heeft:
+
+    ===============================  =====================================
+    De vraag                         Antwoord
+    ===============================  =====================================
+    *Waar woont die afdeling?*       haar eigen canonieke adres — hier
+    *Waar breng je mij terug?*       de host waarop je binnenkwam — ginder
+    ===============================  =====================================
+
+    Voor een afdeling zonder eigen host vallen die samen op ``<host>/<code>``, en
+    daarom lijkt het één regel. Ze lopen uiteen wanneer het telt: sta je op de
+    platform-host, dan hoort de kaart van Raak Millegem naar het eigen domein van
+    Millegem te wijzen en niet naar ``<platform-host>/raakmillegem`` — anders
+    verzwak je haar canonieke adres.
+
+    **De bron is de routering, niet een ingetypt veld.** ``TENANT_HOSTNAMES`` koppelt
+    per omgeving een host aan een afdeling; dat is exact hetzelfde feit als "deze
+    afdeling woont daar", het staat er al, en het kan niet uit elkaar lopen met de
+    routering want het *is* de routering. Gemeten op 10 september 2026: Raak Millegem
+    heeft op UAT én PROD geen ``base_url`` in haar instellingen — wél die koppeling.
+
+    Een opgeslagen ``base_url`` blijft bestaan voor een domein dat níét via deze
+    omgeving gerouteerd wordt, maar is niet meer de normale weg.
+    """
+    from app.config import settings
+    from app.kernel.tenancy import current_origin, current_tenant_code, current_tenant_id
+
+    if code is None and tenant_id in (None, current_tenant_id.get()):
+        code = current_tenant_code.get()
+
+    if code:
+        hosts = parse_hostname_map(settings.tenant_hostnames)
+        eigen = next((h for h, c in hosts.items() if c == code.lower()), None)
+        if eigen:
+            return _origin_voor(eigen)
+
+    stored = (get_setting(db, "base_url", tenant_id=tenant_id) or "").strip()
+    if stored and _origin_serves_this_environment(stored):
+        return stored.rstrip("/")
+
+    origin = (current_origin.get() or settings.frontend_url).rstrip("/")
+    return f"{origin}/{code}" if code else origin
 
 
 def tenant_display_name(db: Session, tenant_id: int | None = None) -> str:
