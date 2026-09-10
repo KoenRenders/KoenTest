@@ -71,7 +71,7 @@ def aanmelden_code(request: Request, db: Session = Depends(get_db),
     else:
         dest = "/leden/gezin"
     response = templates.TemplateResponse(request, "_aanmelden_klaar.html", {})
-    set_session_cookie(response, email)
+    set_session_cookie(response, email, request)
     response.headers["HX-Redirect"] = dest
     return response
 

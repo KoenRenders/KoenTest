@@ -3,7 +3,7 @@ import logging
 import secrets
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, Response, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy import func
 from sqlalchemy.orm import Session
 
@@ -34,10 +34,15 @@ from app.limiter import login_limiter
 from app.domains.auth.session import set_session_cookie as _set_ui_session_cookie
 
 
-def _set_ui_session(response: Response, email: str) -> None:
+def _set_ui_session(response: Response, email: str,
+                    request: Request | None = None) -> None:
     """Naast het JWT ook een HttpOnly-sessiecookie (#398): de server-rendered
-    schermen (werkbank e.v.) lezen díe — nooit localStorage."""
-    _set_ui_session_cookie(response, email)
+    schermen (werkbank e.v.) lezen díe — nooit localStorage.
+
+    `request` gaat mee sinds #865: de Secure-vlag volgt de verbinding en niet meer
+    de naam van de omgeving.
+    """
+    _set_ui_session_cookie(response, email, request)
 
 logger = logging.getLogger(__name__)
 
@@ -81,7 +86,8 @@ def request_login(body: MagicLinkRequest, db: Session = Depends(get_db)):
 
 
 @router.get("/auth/verify-login", response_model=TokenResponse)
-def verify_login(token: str, response: Response, db: Session = Depends(get_db)):
+def verify_login(token: str, request: Request, response: Response,
+                 db: Session = Depends(get_db)):
     now = datetime.now(timezone.utc)
     login_token = (
         db.query(LoginToken)
@@ -93,14 +99,15 @@ def verify_login(token: str, response: Response, db: Session = Depends(get_db)):
 
     login_token.used = True
     db.commit()
-    _set_ui_session(response, login_token.email)
+    _set_ui_session(response, login_token.email, request)
     return TokenResponse(access_token=create_access_token(data={"sub": login_token.email}))
 
 
 
 
 @router.post("/auth/verify-otp", response_model=TokenResponse, dependencies=[Depends(login_limiter)])
-def verify_otp(body: OtpVerifyRequest, response: Response, db: Session = Depends(get_db)):
+def verify_otp(body: OtpVerifyRequest, request: Request, response: Response,
+               db: Session = Depends(get_db)):
     email = body.email.strip()
     if not check_otp(db, email, body.code):
         # Generieke melding: lek geen onderscheid tussen "geen token", "code fout"
@@ -108,7 +115,7 @@ def verify_otp(body: OtpVerifyRequest, response: Response, db: Session = Depends
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail=_("Ongeldige of verlopen code.")
         )
-    _set_ui_session(response, email)
+    _set_ui_session(response, email, request)
     return TokenResponse(access_token=create_access_token(data={"sub": email}))
 
 

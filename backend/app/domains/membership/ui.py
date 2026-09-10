@@ -363,7 +363,7 @@ def login_verify(request: Request, token: str = "", db: Session = Depends(get_db
     else:
         doel = "/leden/gezin"
     response = RedirectResponse(doel, status_code=302)
-    set_session_cookie(response, email)
+    set_session_cookie(response, email, request)
     return response
 
 
