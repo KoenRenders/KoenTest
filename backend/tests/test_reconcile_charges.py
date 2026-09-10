@@ -21,8 +21,7 @@ from app.domains.payment.api import (
     PaymentRecord, PaymentRecordHistory, get_records_for, reconcile_charges,
     reconcile_registration_charges,
 )
-from app.domains.payment.handlers import find_orphan_records
-from tests._invarianten import assert_saldo_klopt
+from tests._invarianten import assert_geen_wezen, assert_saldo_klopt
 from tests.conftest import (create_test_family, create_test_member,
                             seed_activity_with_product)
 
@@ -291,9 +290,9 @@ def test_D1_er_ontstaan_geen_weesrecords(db_session):
     _schrap(db_session, ms)
     db_session.flush()
 
-    wezen = find_orphan_records(db_session)
-    assert not [w for w in wezen if w.payable_id == ms.id], \
-        "de reconciliatie hoort net géén wezen te maken"
+    # #824: de detectie zat in de applicatie en is daar verdwenen; de invariant is
+    # gebleven en staat nu in de tests. Voorkomen in plaats van signaleren.
+    assert_geen_wezen(db_session)
 
 
 def test_D2_de_audit_historie_legt_elk_geraakt_record_vast(db_session):

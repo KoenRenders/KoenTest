@@ -12,10 +12,11 @@ van de idempotentiecheck.
 
 Twee dingen die hier stil kapot kunnen:
 
-1. **Alleen soorten die de sweep zelf maakt.** `payment.wees_record` komt uit een
-   andere job, `bericht.behartigen` is event-gedreven. Van hun aanleiding weet
-   `_sweep_sources` niets, dus "sluit alles wat niet matcht" zou taken sluiten
-   waarvan de sweep het bestaan niet kent.
+1. **Alleen soorten die de sweep zelf maakt.** `bericht.behartigen` is
+   event-gedreven; van die aanleiding weet `_sweep_sources` niets, dus "sluit alles
+   wat niet matcht" zou taken sluiten waarvan de sweep het bestaan niet kent.
+   (#824: hier stond ook `payment.wees_record`. Dat mechanisme is verdwenen, maar de
+   valkuil geldt onverkort voor elke soort die van buiten komt.)
 2. **`done_by="systeem"` met een reden**, anders toont het archief uit #674 taken
    die door niemand afgehandeld lijken.
 """
@@ -77,7 +78,7 @@ def test_een_taak_met_aanleiding_blijft_open(db_session):
         "de sweep sloot een taak waarvan de aanleiding er nog is")
 
 
-@pytest.mark.parametrize("kind", ["payment.wees_record", "bericht.behartigen"])
+@pytest.mark.parametrize("kind", ["bericht.behartigen"])
 def test_soorten_van_buiten_de_sweep_blijven_ongemoeid(db_session, kind):
     """De valkuil: van deze aanleidingen weet _sweep_sources niets."""
     taak = _taak(db_session, kind=kind, titel=f"Taak van {kind}", rol="ADMIN")

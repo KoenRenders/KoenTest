@@ -89,10 +89,12 @@ def _sweep_sources(db: Session) -> list[dict]:
 
 
 # De soorten die de sweep zélf maakt. Alleen déze mag hij ook sluiten (#675):
-# `payment.wees_record` komt uit een andere job en `bericht.behartigen` is
-# event-gedreven, dus van hun bestaan weet `_sweep_sources` niets. Zou de sweep
-# "alles wat niet meer matcht" sluiten, dan sluit hij taken waarvan hij de
-# aanleiding nooit heeft gekend.
+# `bericht.behartigen` is event-gedreven, dus van zijn bestaan weet `_sweep_sources`
+# niets. Zou de sweep "alles wat niet meer matcht" sluiten, dan sluit hij taken
+# waarvan hij de aanleiding nooit heeft gekend.
+#
+# (#824: hier stond ook `payment.wees_record`, met dezelfde redenering. Dat
+# mechanisme is helemaal verdwenen.)
 SWEEP_SOORTEN = frozenset({
     "payment.refund_bevestigen", "mail.definitief_gefaald",
     "payment.webhook_mismatch", "kernel.job_gefaald",

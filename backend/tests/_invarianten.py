@@ -45,8 +45,31 @@ def assert_geen_pending_als_betaald(html: str) -> None:
 
 
 def assert_geen_wezen(db) -> None:
-    """Na een mutatie mag er geen betaling zonder payable achterblijven."""
-    from app.domains.payment.handlers import find_orphan_records
+    """Na een mutatie mag er geen betaling zonder payable achterblijven.
 
-    wezen = find_orphan_records(db)
+    De query staat sinds #824 HIER en niet meer in de applicatie. Het
+    wees-mechanisme — een job, een werkbanktaak, een scherm — is toen verdwenen:
+    een wees-betaling is geen gebeurtenis in het bedrijf maar een symptoom van een
+    bug, en sinds #667 kan de applicatie er geen meer maken. Zoiets hoort opgelost te
+    worden in de code, niet wekelijks weggeklikt door een penningmeester.
+
+    Dat maakt deze invariant juist bruikbaarder: hij bewaakt in de TESTS dat onze
+    eigen mutaties geen wees achterlaten, in plaats van in productie te wachten tot
+    het misgaat. Het is dus geen vervanging van het verwijderde mechanisme maar de
+    keerzijde ervan — voorkomen in plaats van signaleren.
+    """
+    from app.domains.activities.api import Registration
+    from app.domains.membership.api import Membership
+    from app.domains.payment.api import PaymentRecord
+
+    # `include_deleted`: soft-deleted payables tellen als BESTAAND. Een normale
+    # verwijdering levert dus geen wees op — alleen een harde delete doet dat, en
+    # precies die verbiedt de gate van #667.
+    reg_ids = {r for (r,) in db.query(Registration.id)
+               .execution_options(include_deleted=True).all()}
+    ms_ids = {m for (m,) in db.query(Membership.id)
+              .execution_options(include_deleted=True).all()}
+    wezen = [r for r in db.query(PaymentRecord).all()
+             if (r.payable_type == "registration" and r.payable_id not in reg_ids)
+             or (r.payable_type == "membership" and r.payable_id not in ms_ids)]
     assert not wezen, f"weesrecords na de mutatie: {[w.id for w in wezen]}"

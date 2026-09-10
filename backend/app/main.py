@@ -52,7 +52,6 @@ from app.domains.mail.router import router as email_log_router
 from app.domains.mail.ui import router as email_log_ui_router
 from app.domains.mdm.ui import router as mdm_ui_router
 from app.domains.mail.handlers import retry_mail  # noqa: F401 - registreert de mail.retry-job (#399)
-from app.domains.payment.handlers import reconcile_orphans  # noqa: F401 - registreert payment.reconcile (#401)
 from app.domains.payment.router import router as payment_router
 from app.domains.payment.ui import router as payment_ui_router
 
@@ -384,19 +383,14 @@ def _start_kernel_jobs() -> None:
         from app.kernel.jobs import KernelJob, enqueue, start_scheduler
 
         start_scheduler()
-        # Wees-record-reconciliatie (#401): zorg dat er altijd precies één
-        # geplande payment.reconcile-job leeft (her-enqueuet zichzelf daarna).
+        # #824: hier stond ook de wees-record-reconciliatie (#401). Die is met het
+        # hele mechanisme verdwenen — een wees-betaling is geen gebeurtenis in het
+        # bedrijf maar een symptoom van een bug, en sinds #667 kan de applicatie er
+        # geen meer maken.
         from app.database import SessionLocal
 
         db = SessionLocal()
         try:
-            pending = (db.query(KernelJob)
-                       .filter(KernelJob.name == "payment.reconcile",
-                               KernelJob.status.in_(["pending", "running"]))
-                       .count())
-            if not pending:
-                enqueue(db, "payment.reconcile", {})
-                db.commit()
             sweep_pending = (db.query(KernelJob)
                              .filter(KernelJob.name == "workflow.sweep",
                                      KernelJob.status.in_(["pending", "running"]))

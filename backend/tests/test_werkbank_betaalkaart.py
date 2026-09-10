@@ -6,9 +6,13 @@ was — en dat was geen slordigheid: de kolom was een `Integer` terwijl
 `PaymentRecord.id` een UUID in een `String(36)` is. **Het record-id paste er niet
 in**, en leefde alleen in de titeltekst.
 
-Dat brak precies de taak die een verwijzing het hardst nodig heeft: bij een
-`payment.wees_record` bestáát het payable per definitie niet — dat ís de aanleiding.
+Dat brak precies de taak die een verwijzing het hardst nodig had: bij een
+`payment.wees_record` bestond het payable per definitie niet — dat wás de aanleiding.
 Een link die op het payable steunt, is daar dus per definitie stuk.
+
+(#824: die soort bestaat niet meer; het hele wees-mechanisme is verdwenen omdat het
+een bugsymptoom is en geen gebeurtenis in het bedrijf. De les over `subject_id` geldt
+onverkort voor de overblijvende betalingstaken, dus de rest van dit bestand blijft.)
 
 **#705.** De sweep plant zichzelf elk uur opnieuw in, dus een openstaande
 terugbetaling kon tot een uur onzichtbaar blijven. Berichten zijn wél
@@ -85,25 +89,6 @@ def test_een_refundtaak_verwijst_naar_het_record(client, db_session):
     assert taak.subject_type == "payment_record"
     assert taak.subject_id == str(refund.id), (
         "de taak wijst naar het payable in plaats van naar het record")
-
-
-def test_een_weesrecord_verwijst_ook_naar_het_record(client, db_session):
-    """De taak die dit het hardst nodig heeft: hier bestáát het payable niet — dat is
-    de aanleiding — dus een verwijzing die daarop steunt, is per definitie stuk."""
-    from app.domains.payment.handlers import reconcile_orphans
-
-    wees = PaymentRecord(payable_type="registration", payable_id=999999,
-                         type="charge", amount=Decimal("15.00"),
-                         method="transfer", status="pending")
-    db_session.add(wees)
-    db_session.flush()
-
-    reconcile_orphans(db_session, {"once": True})
-    db_session.flush()
-
-    taak = next(t for t in _taken(db_session, "payment.wees_record"))
-    assert taak.subject_id == str(wees.id), (
-        "de weestaak wijst naar een payable dat niet bestaat")
 
 
 def test_het_record_id_past_in_de_kolom(client, db_session):
