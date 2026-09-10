@@ -119,7 +119,7 @@ soft-delete mechanics and name things the way a board member does.
 | `f_form_submissions` | fact | one row per submission | count, form, period |
 | `f_operations` | fact | one row per open item | kind, age |
 | `d_date` | dimension | one row per day | year, quarter, month, month label, season |
-| `d_activity` | dimension | one row per activity | activity, component, product, season, year |
+| `d_activity` | dimension | one row per activity | activity, component, product, year (of the first activity date — the model has no season, see §12) |
 | `d_household` | dimension | one row per household | household size, municipality, postal code, member since |
 | `d_person` | dimension | one row per person | age group, gender code and label, relation type — **no name, no contact data** (§7) |
 | `d_payment_method` · `d_payment_status` · `d_membership_status` · `d_form` | dimension | code lists | code and Dutch label, from the code tables (#779) |
@@ -213,6 +213,35 @@ The **result** is server-rendered from one query:
 The four existing exports migrate onto the panel in a later phase (§8): their
 buttons become links to a saved report with the filters preset. Nothing is
 removed before its replacement exists.
+
+### 5.1 Menu and access
+
+- **"Rapporten" is a top-level item in the admin menu** (`_ADMIN_NAV`), placed
+  after "Betalingen". Visible to ADMIN, OPERATOR and FINANCE. A FINANCE-only
+  user — who today sees only "Betalingen" in the menu — sees "Rapporten" too,
+  with only the Betalingen class in the objects pane; the role fence (§7.2)
+  does the rest.
+- **`/admin/rapporten`** is a records list (design-system C1): title, "+ Nieuw
+  rapport", search, filters (class, owner, shared), one card per saved report
+  with its layout icon (table / pivot / chart), last run and owner. Opening a
+  card loads the panel with that selection; "+ Nieuw rapport" opens the empty
+  panel (`/admin/rapporten/nieuw`).
+- **The dashboard KPI tiles** link to the saved report behind them once phase 4
+  lands; until then they stay as they are.
+
+### 5.2 Decisions taken by default (change them if wrong)
+
+So the CLI can start without a design round; each is reversible.
+
+| Decision | Default | Why |
+|---|---|---|
+| Adding objects to the selection | click or checkbox in the objects pane, then reorder with the kit's `ui.reorder()`; **no drag-and-drop in phase 2** | drag costs a library or a lot of Alpine; the value is in the universe, not the gesture. Drag may come with the pivot (phase 3) if the drop zones ask for it |
+| Saved reports | shared within the tenant by default; the owner edits, others open and "Kopiëren" to make their own; a "privé" flag hides one | a board shares its reports; personal drafts are the exception |
+| Pivot column cap | 30 members on the column dimension, with a message naming the dimension | a 400-column crosstab is not a report |
+| "Jaar" | membership: the membership `year`; activity: the year of its first date; payment: the year of `created`/`paid_at` as chosen | the model has calendar years and no season (§12) |
+| Object names | Dutch, proposed by the CLI in the universe declaration, validated by Koen on HDEV in the objects pane | the pane *is* the review screen |
+| Export log | one row per export in the audit domain: who, saved report or ad-hoc, filters, rows | an export is data leaving the system |
+| Empty panel | opens with the objects pane and one sentence: "Kies objecten links, filters rechts." | no wizard, no tour |
 
 ## 6. Charts — the same result, drawn
 
@@ -334,3 +363,19 @@ what Superset has and we do not, the universe is the part that moves over.
   separate.
 - **The four existing exports** (#200, #307, #512) become saved reports in
   phase 5; nothing is removed before its replacement exists.
+
+## 12. Open questions for Koen
+
+The few decisions the CLI cannot take by default:
+
+1. **The ten questions** (§3): strike, extend, reorder. They become the first
+   saved reports and the known-seed tests.
+2. **Season or year for activities.** The model has no season; activities carry
+   dates, memberships a calendar `year`. If the board thinks in seasons
+   (September to June), `d_date` gets a derived `season` attribute and
+   `d_activity` uses it; if not, the year of the first date stands.
+3. **FINANCE-only users and the Rapporten menu**: as proposed in §5.1 they see
+   it with the Betalingen class only. Alternative: hide it for them entirely.
+4. **The first release**: phases 1 and 2 together (the release that shows a
+   board member something), or phase 1 alone first (the universe and the flat
+   dataset exports, no panel yet).
