@@ -19,6 +19,29 @@ def _env_prefix() -> str:
     return ""
 
 
+def email_log_url(db, log_id) -> str | None:
+    """Waar is deze logregel te bekijken? (#822)
+
+    Het e-maillogboek filtert op ontvanger en niet op id, dus de link zoekt het adres
+    op en filtert daarop. Dat toont de mail én zijn eerdere pogingen — wat je bij een
+    definitief mislukte mail juist wil zien.
+
+    De URL staat HIER en niet in de werkbank: dit domein bezit dat scherm en zijn
+    routepatroon. Een taak hoeft niet te weten hoe de e-maillog-URL eruitziet.
+    """
+    from urllib.parse import quote
+
+    from app.domains.mail.models import EmailLog
+
+    try:
+        log = db.get(EmailLog, int(log_id))
+    except (TypeError, ValueError):
+        return None
+    if log is None or not log.recipient:
+        return None
+    return f"/admin/e-maillog?recipient={quote(log.recipient)}"
+
+
 def _dispatch(
     background_tasks,
     to_email: str,

@@ -1011,3 +1011,21 @@ def assert_geen_id_vorm(rauw) -> None:
             "(%(sleutels)s) en niet terug in te lezen is. Exporteer het formulier "
             "opnieuw en gebruik dat bestand."
         ) % {"sleutels": ", ".join(sorted(gevonden))})
+
+
+def submission_url(db, submission_id) -> str | None:
+    """Waar is deze inzending te bekijken? (#822)
+
+    Het inzendingen-tabblad van háár formulier. Het formulier-id staat niet in de
+    taak, dus dat wordt hier opgezocht — de werkbank hoeft het routepatroon van dit
+    domein niet te kennen.
+    """
+    from app.domains.forms.models import FormSubmission
+
+    try:
+        inzending = db.get(FormSubmission, int(submission_id))
+    except (TypeError, ValueError):
+        return None
+    if inzending is None:
+        return None
+    return f"/admin/formulieren/{inzending.form_id}/inzendingen"
