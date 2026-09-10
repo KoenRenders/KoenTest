@@ -514,7 +514,7 @@ is not a measurement.
 |---|---|---|
 | db | alle | PostgreSQL 16, volume-backed. Poort 5432 is container-intern — nooit gepubliceerd. |
 | backend | alle | FastAPI + Uvicorn op 8000 (intern) — serveert óók alle HTML (server-rendered, #405) |
-| umami | alle | Analytics (#176), eigen subdomein via Caddy. Alleen op HDEV gepubliceerd (8082). |
+| umami | uat, prod | Analytics (#176), eigen subdomein via Caddy. **Niet op HDEV** (#820): daar mat hij sinds 13 juli 2026 niets en zal hij ook niets meten — het trackingscript draait alleen waar tenant-instellingen zijn, en HDEV heeft die bewust niet. |
 | caddy | dev, hdev | Eigen proxy binnen de stack (`caddy/Caddyfile.hdev`). HDEV publiceert 8081. |
 | db-backup, umami-db-backup | prod | Periodieke dumps (`scripts/db-backup.sh`). |
 

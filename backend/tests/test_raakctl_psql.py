@@ -119,11 +119,16 @@ def test_een_onbekende_omgeving_weigert_voor_er_iets_gebeurt(tmp_path):
 
 
 def test_een_andere_databank_kan_gekozen_worden(tmp_path):
-    """`umami_<env>` was tijdens dezelfde uitrol herhaaldelijk nodig."""
-    _klaar, aanroepen = _draai(tmp_path, "psql", "hdev", "--db", "umami_hdev",
+    """`umami_<env>` was tijdens dezelfde uitrol herhaaldelijk nodig.
+
+    Op uat en niet op hdev: sinds #820 draait daar geen Umami meer en bestaat
+    `umami_hdev` niet — een voorbeeld dat naar een verdwenen databank wijst, stuurt
+    de volgende lezer het bos in.
+    """
+    _klaar, aanroepen = _draai(tmp_path, "psql", "uat", "--db", "umami_uat",
                                "-c", "SELECT 1")
 
-    assert "RAAKCTL_DB=umami_hdev" in aanroepen
+    assert "RAAKCTL_DB=umami_uat" in aanroepen
 
 
 def test_een_sql_bestand_gaat_over_stdin(tmp_path):

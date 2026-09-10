@@ -9,15 +9,23 @@ PII: enkel anoniem bezoek + een handvol funnel-events.
 > Postgres, server-side gelogd — zie `backend/app/domains/analytics/`). Laag 1 =
 > anoniem webgedrag; laag 2 = ERP-gerichte business-metrics.
 
+> **Waarschuwing bij het lezen (10 september 2026).** De onderdelen hieronder die
+> over de **frontend** gaan (`components/Analytics.tsx`, `lib/analytics.ts`,
+> `NEXT_PUBLIC_UMAMI_*`) stammen uit het React-tijdperk en bestaan niet meer sinds de
+> React-exit (#405). Het trackingscript wordt sinds #808 server-rendered uit de
+> **tenant-instellingen** gerenderd. De omgevings- en Caddy-stappen kloppen nog wel;
+> die zijn hieronder bijgewerkt. Deze doc integraal herschrijven is eigen scope.
+
 ## Wat zit al in de repo
 
-- **HDEV**: `umami`-service in `docker-compose.hdev.yml` (database `umami_hdev`)
-  op een **eigen poort `8082`** (root-served, geen subpad/Caddy-route). Het prebuilt
-  image past runtime-`BASE_PATH` niet toe, daarom geen `/umami`-subpad.
-- **Frontend**: `components/Analytics.tsx` laadt de tracker **enkel** op publieke
-  pagina's (nooit `/admin` of `/login`) en **enkel** wanneer geconfigureerd
-  (`NEXT_PUBLIC_UMAMI_SRC` + `NEXT_PUBLIC_UMAMI_WEBSITE_ID`, build-time). DNT via
-  `data-do-not-track="true"`.
+- **HDEV: niets, en dat is een keuze (#820).** De `umami`-service stond daar tot
+  10 september 2026 op poort 8082 en had sinds 13 juli van dat jaar niets meer
+  geregistreerd — de dag waarop HDEV server-rendered werd. Het trackingscript draait
+  sinds #808 alleen waar tenant-instellingen zijn, en HDEV heeft die bewust niet,
+  zodat testverkeer nooit in de productiecijfers belandt. Er werd dus niet alleen
+  niets gemeten, er zál ook niets gemeten worden. Zet hem niet terug zonder eerst dat
+  te wijzigen — anders staat er weer 156 MiB stil te draaien.
+- **Frontend**: zie de waarschuwing hierboven; dit is vervangen door #808.
 - **Funnel-events** (`lib/analytics.ts` → `trackEvent`), geen PII:
   - `lid-worden-verzonden` (`{ betaalkeuze }`) — FamilyRegistrationForm
   - `inschrijving-verzonden` (`{ betaalkeuze }`) — RegistrationForm
@@ -25,34 +33,9 @@ PII: enkel anoniem bezoek + een handvol funnel-events.
 
 ## Eenmalige setup op HDEV
 
-1. **Secret** in `.env.hdev`:
-   ```
-   UMAMI_APP_SECRET=$(python3 -c "import secrets; print(secrets.token_hex(32))")
-   ```
-2. **Database aanmaken** (het volume bestaat al, dus de init-scripts draaien niet
-   opnieuw — daarom handmatig, eenmalig):
-   ```
-   sudo docker compose -f docker-compose.hdev.yml --env-file .env.hdev \
-     exec db sh -c 'psql -U "$POSTGRES_USER" -d "$POSTGRES_DB" -c "CREATE DATABASE umami_hdev;"'
-   ```
-3. **Deploy** — Umami draait zelf de Prisma-migraties bij startup:
-   ```
-   ./deploy.sh hdev
-   ```
-4. **Inloggen** op `http://YOUR_SERVER_IP:8082/` (standaard `admin` / `umami`
-   — **meteen het wachtwoord wijzigen**).
-5. **Website aanmaken** in de Umami-UI → kopieer het gegenereerde **Website ID**.
-6. **Frontend koppelen** in `.env.hdev` en herbouwen:
-   ```
-   NEXT_PUBLIC_UMAMI_SRC=http://YOUR_SERVER_IP:8082/script.js
-   NEXT_PUBLIC_UMAMI_WEBSITE_ID=<website-id-uit-stap-5>
-   ```
-   ```
-   ./deploy.sh hdev
-   ```
-7. **Verifiëren**: bezoek de publieke site → pageviews verschijnen in Umami.
-   Controleer dat `/admin` **niet** getrackt wordt en dat een browser met DNT geen
-   hits genereert.
+Vervallen met #820: er is geen Umami op HDEV meer, en de database `umami_hdev` is
+verwijderd. Wil je analytics testen, doe dat op UAT — dáár draait een instance die
+ook werkelijk verkeer ziet.
 
 ## Privacyverklaring
 
@@ -70,8 +53,9 @@ pagina niet meer aan.
 
 ## Promotie naar UAT / PROD (#176)
 
-In tegenstelling tot HDEV (eigen poort 8082, geen gedeelde Caddy) draaien UAT/PROD
-achter de **gedeelde Caddy** (`raak_proxy`). Umami zit daar op een **eigen
+UAT en PROD draaien achter de **gedeelde Caddy** (`raak_proxy`); HDEV heeft sinds
+#820 geen Umami meer. Elke omgeving houdt haar **eigen** instance — samenvoegen is met
+#259 bewust afgewezen. Umami zit daar op een **eigen
 subdomein op root** (geen subpad — het prebuilt image negeert runtime-`BASE_PATH`).
 
 Wat al in de repo zit:
