@@ -139,6 +139,16 @@
           <p class="mt-2 text-sm text-ink-soft">{{ _("Kies objecten links, filters rechts.") }}</p>
           {% endif %}
 
+              {% if personal %}
+          {# #847: dit rapport vult de aangemelde gebruiker in, dus twee mensen
+             zien er iets anders in. Dat hoort op het scherm te staan — anders
+             deelt iemand een link en begrijpt de ontvanger niet waarom. #}
+          <p class="mt-3 text-sm text-ink-soft">
+            {{ ui.icon("check", 14) }}
+            {{ _("Dit rapport toont jouw eigen gegevens. Iemand anders die het opent, ziet zijn eigen rijen.") }}
+          </p>
+          {% endif %}
+
           {% if layout in ["pivot", "stacked"] and chosen %}
           <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
             <span class="text-ink-soft">{{ _("Kolommen:") }}</span>
@@ -170,12 +180,21 @@
                         title="{{ _('Verwijder filter') }} {{ objects_by_key[key].name }}"
                         class="text-ink-soft hover:text-red-700">{{ ui.icon("x", 14) }}</button>
               </div>
-              {% if filter_options[key] %}
-              {# Een gesloten lijst kies je uit, dus vergelijkt het filter exact. #}
+              {% if filter_options[key] or filter_relative[key] %}
+              {# Een gesloten lijst kies je uit, dus vergelijkt het filter exact.
+                 De relatieve waarden (#847) staan bovenaan met een streep eronder:
+                 ze horen bij de dimensie, maar ze zijn van een andere orde — ze
+                 bewegen mee met de dag waarop je het rapport opent. #}
               <input type="hidden" name="op_{{ key }}" value="eq">
               {% call ui.select_control("v_" ~ key, cls="mt-1 w-full",
                                         aria_label=objects_by_key[key].name) %}
                 <option value="">{{ _("Alle") }}</option>
+                {% for waarde, label in filter_relative[key] %}
+                <option value="{{ waarde }}" {% if filter_values.get(key) == waarde %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+                {% if filter_relative[key] and filter_options[key] %}
+                <option disabled>──────────</option>
+                {% endif %}
                 {% for waarde in filter_options[key] %}
                 <option value="{{ waarde }}" {% if filter_values.get(key) == waarde %}selected{% endif %}>{{ waarde }}</option>
                 {% endfor %}

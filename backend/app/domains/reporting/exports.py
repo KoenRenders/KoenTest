@@ -21,7 +21,9 @@ from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.domains.reporting.chart import chart_data
-from app.domains.reporting.engine import BY_KEY, Selection, build_detail_query
+from app.domains.reporting.engine import (
+    BY_KEY, SYMBOLIC_LABELS, Selection, build_detail_query,
+)
 from app.domains.reporting.service import Dataset, ReportResult, load_dataset
 from app.kernel.ods import build_ods, build_ods_multi
 
@@ -94,6 +96,12 @@ def filter_summary(selection: Selection) -> list[str]:
         naam = obj.name if obj else flt.object_key
         waarden = " en ".join(flt.values) if flt.operator.value == "between" \
             else ", ".join(flt.values)
+        if flt.symbolic:
+            # Both, and in this order: what it means and what that was at the
+            # moment of export. A sheet that says only "dit jaar" cannot be
+            # checked a year later; one that says only "2026" hides that it moves.
+            label = SYMBOLIC_LABELS.get(flt.symbolic, flt.symbolic)
+            waarden = f"{label} ({waarden})" if waarden else label
         regels.append(f"{naam} {woorden.get(flt.operator.value, flt.operator.value)} "
                       f"{waarden}")
     return regels

@@ -76,13 +76,46 @@ _SQL_OPERATOR = {
 }
 
 
+# ── Symbolic filter values (#847) ────────────────────────────────────────────
+# A saved report stores its filter values literally, which means a report about
+# "this year" is a report about 2026 forever — and in January it answers a
+# question nobody asked, while looking exactly as trustworthy as it did in
+# December. These three values are stored as a REFERENCE and resolved at the
+# moment the report runs.
+#
+# They are resolved OUTSIDE this module, on purpose (#847 point 1). `build_query`
+# knows no identity and no clock; `service.resolve_selection` hands it a selection
+# in which every value is already literal. That keeps `ik` a filter value and
+# stops it from quietly becoming a role fence — a different question, still open
+# until somebody builds the switch of CR-06 §5.1.
+SYMBOLIC_TODAY = "vandaag"
+SYMBOLIC_THIS_YEAR = "dit_jaar"
+SYMBOLIC_ME = "ik"
+SYMBOLIC_VALUES = (SYMBOLIC_TODAY, SYMBOLIC_THIS_YEAR, SYMBOLIC_ME)
+
+# What each one reads as, for the line a report shows above itself and for the
+# header of its export. A reader has to be able to see that a number moved.
+SYMBOLIC_LABELS = {
+    SYMBOLIC_TODAY: "vandaag",
+    SYMBOLIC_THIS_YEAR: "dit jaar",
+    SYMBOLIC_ME: "de aangemelde gebruiker",
+}
+
+
 @dataclass(frozen=True)
 class Filter:
-    """One condition on one object."""
+    """One condition on one object.
+
+    ``symbolic`` names a value that is resolved when the report runs instead of
+    when it was saved. Empty means the values are literal and stay literal —
+    which is what every filter saved before #847 is, and why they keep working
+    unchanged.
+    """
 
     object_key: str
     operator: Operator
     values: tuple[str, ...] = ()
+    symbolic: str = ""
 
 
 @dataclass(frozen=True)
@@ -149,7 +182,8 @@ def selection_to_dict(selection: Selection) -> dict[str, object]:
         "objects": list(selection.object_keys),
         "filters": [
             {"object": f.object_key, "operator": f.operator.value,
-             "values": list(f.values)}
+             "values": list(f.values),
+             **({"symbolic": f.symbolic} if f.symbolic else {})}
             for f in selection.filters
         ],
         "sort": [{"object": s.object_key, "direction": s.direction.value}
@@ -194,7 +228,13 @@ def selection_from_dict(data: object, *, limit: int = 200,
         values = raw.get("values") or []
         if not isinstance(values, list):
             raise SelectionError("Een filter zonder waarden.")
-        filters.append(Filter(object_key, operator, tuple(str(v) for v in values)))
+        symbolic = raw.get("symbolic") or ""
+        if symbolic and symbolic not in SYMBOLIC_VALUES:
+            raise SelectionError(
+                f"Onbekende relatieve waarde: '{symbolic}'. Er zijn er drie: "
+                f"{', '.join(SYMBOLIC_VALUES)}.")
+        filters.append(Filter(object_key, operator,
+                              tuple(str(v) for v in values), str(symbolic)))
 
     sort: list[Sort] = []
     for raw in data.get("sort") or []:

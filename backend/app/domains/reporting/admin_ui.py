@@ -32,6 +32,10 @@ from app.domains.reporting.api import (
     Direction,
     Filter,
     LAYOUTS,
+    SYMBOLIC_ME,
+    SYMBOLIC_THIS_YEAR,
+    SYMBOLIC_TODAY,
+    SYMBOLIC_VALUES,
     Operator,
     Selection,
     SelectionError,
@@ -42,6 +46,8 @@ from app.domains.reporting.api import (
     build_chart,
     build_dataset_ods,
     build_pivot,
+    is_personal,
+    resolve_selection,
     build_pivot_ods,
     build_report_ods,
     classes_of,
@@ -215,7 +221,14 @@ def _selection(state: dict) -> Selection:
         except ValueError as exc:
             raise SelectionError(
                 f"Onbekende filtersoort: '{state['operators'].get(key)}'.") from exc
-        filters.append(Filter(key, operator, (waarde,)))
+        # `@vandaag` in the query string is a RELATIVE value (#847). The prefix
+        # exists only in the panel's own state; what gets saved carries the name
+        # in its own field, so a literal value that happens to start with "@" —
+        # an e-mail address — can never be mistaken for one.
+        if waarde.startswith("@") and waarde[1:] in SYMBOLIC_VALUES:
+            filters.append(Filter(key, operator, (), waarde[1:]))
+        else:
+            filters.append(Filter(key, operator, (waarde,)))
 
     sort: tuple[Sort, ...] = ()
     if state["sort"] in state["objects"]:
@@ -250,7 +263,8 @@ def _state_from_selection(selection: Selection, page: int = 1) -> dict:
     return {
         "objects": list(selection.object_keys),
         "filters": [f.object_key for f in selection.filters],
-        "values": {f.object_key: (f.values[0] if f.values else "")
+        "values": {f.object_key: (f"@{f.symbolic}" if f.symbolic
+                                  else (f.values[0] if f.values else ""))
                    for f in selection.filters},
         "operators": {f.object_key: f.operator.value for f in selection.filters},
         "sort": selection.sort[0].object_key if selection.sort else "",
@@ -270,8 +284,10 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
     chosen = [BY_KEY[k] for k in state["objects"]]
 
     filter_options: dict[str, list[str]] = {}
+    filter_relative: dict[str, list[tuple[str, str]]] = {}
     for key in state["filters"]:
         filter_options[key] = dimension_values(db, key, tenant_id=tenant_id)
+        filter_relative[key] = _relative_options(key)
 
     columns: list = []
     rows: list = []
@@ -282,9 +298,14 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
     message: str | None = None
     has_next = False
 
+    persoonlijk = False
     if state["objects"]:
         try:
-            selection = _selection(state)
+            gekozen = _selection(state)
+            persoonlijk = is_personal(gekozen)
+            # Identity and the clock enter here and nowhere deeper: the engine
+            # gets a selection whose values are all literal (#847).
+            selection = resolve_selection(gekozen, viewer=_viewer(request))
             if selection.layout in ("pivot",) + CHART_LAYOUTS:
                 # Neither a crosstab nor a chart is paged: both need all their
                 # rows to lay themselves out, and half a crosstab has subtotals
@@ -300,7 +321,8 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
                     # number (#835 test 6).
                     pivot = gedraaid.as_context()
             else:
-                result = run_validated(db, selection, tenant_id=tenant_id)
+                result = run_validated(db, selection, tenant_id=tenant_id,
+                                       viewer=_viewer(request))
                 columns = result.columns
                 rows = result.rows[:PER_PAGE]
                 has_next = len(result.rows) > PER_PAGE
@@ -320,6 +342,7 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
         filter_keys=state["filters"],
         chosen=chosen,
         filter_options=filter_options,
+        filter_relative=filter_relative,
         filter_values=state["values"],
         columns=columns,
         rows=rows,
@@ -331,6 +354,7 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
         layout=state["layout"],
         pivot_column=state["pivot_column"],
         message=message,
+        personal=persoonlijk,
         sort=state["sort"],
         direction=state["direction"],
         page=state["page"],
@@ -352,6 +376,27 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
         csrf_token=_csrf(request),
         nav_items=admin_nav(NAV),
     )
+
+
+def _relative_options(key: str) -> list[tuple[str, str]]:
+    """The relative values that make sense for this object (#847).
+
+    A year takes "dit jaar", a date takes "vandaag", and a person-level field
+    takes "ik". Offering all three everywhere would let somebody filter a
+    municipality on today's date — refused later, but only after he wondered why
+    it was on the list.
+    """
+    obj = BY_KEY.get(key)
+    if obj is None:
+        return []
+    keuzes: list[tuple[str, str]] = []
+    if obj.format.value == "year":
+        keuzes.append((f"@{SYMBOLIC_THIS_YEAR}", _("Dit jaar")))
+    if obj.format.value == "date":
+        keuzes.append((f"@{SYMBOLIC_TODAY}", _("Vandaag")))
+    if obj.role.value == "member_details":
+        keuzes.append((f"@{SYMBOLIC_ME}", _("Ikzelf")))
+    return keuzes
 
 
 def _viewer(request: Request) -> str:
@@ -455,11 +500,11 @@ def report_export(request: Request, db: Session = Depends(get_db),
 
     try:
         # No paging in an export: you take home the report, not the page.
-        gekozen = _selection({**state, "page": 1})
+        ruw = resolve_selection(_selection({**state, "page": 1}), viewer=email)
         selection = Selection(
-            object_keys=gekozen.object_keys, filters=gekozen.filters,
-            sort=gekozen.sort, limit=5000, offset=0, layout=gekozen.layout,
-            pivot_column=gekozen.pivot_column)
+            object_keys=ruw.object_keys, filters=ruw.filters,
+            sort=ruw.sort, limit=5000, offset=0, layout=ruw.layout,
+            pivot_column=ruw.pivot_column)
         if selection.layout in ("pivot",) + CHART_LAYOUTS:
             gedraaid = build_pivot(db, selection, tenant_id=tenant_id)
             grafiek = (build_chart(gedraaid, selection.layout)
@@ -469,7 +514,8 @@ def report_export(request: Request, db: Session = Depends(get_db),
                                       chart=grafiek)
             aantal = len(gedraaid.rows)
         else:
-            result = run_validated(db, selection, tenant_id=tenant_id)
+            result = run_validated(db, selection, tenant_id=tenant_id,
+                                   viewer=email)
             content = build_report_ods(db, result, selection, title=titel,
                                        tenant_id=tenant_id)
             aantal = len(result.rows)

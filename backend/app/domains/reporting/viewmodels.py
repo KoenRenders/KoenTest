@@ -69,6 +69,9 @@ class ReportPanelView(ViewModel):
     chosen: list[Any]
     # Per filter object: its offered values (empty = free text) and current value.
     filter_options: dict[str, list[str]]
+    # Per filter object: the relative values it may take (#847), as
+    # (value, label). Empty for an object where "today" or "me" means nothing.
+    filter_relative: dict[str, list[tuple[str, str]]]
     filter_values: dict[str, str]
 
     # ── Result ──────────────────────────────────────────────────────────────
@@ -88,6 +91,9 @@ class ReportPanelView(ViewModel):
     layout: str
     pivot_column: str
     message: str | None
+    # #847: a report that fills in the viewer's own identity says so, or somebody
+    # shares a link and the receiver cannot explain why he sees something else.
+    personal: bool
     sort: str
     direction: str
     page: int

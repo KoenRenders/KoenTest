@@ -11,6 +11,7 @@ path here that queries a reporting view without it.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 from sqlalchemy import text
@@ -19,7 +20,11 @@ from sqlalchemy.orm import Session
 from app.domains.reporting.engine import (
     PEOPLE_ALIAS,
     SMALL_CELL_THRESHOLD,
+    SYMBOLIC_ME,
+    SYMBOLIC_THIS_YEAR,
+    SYMBOLIC_TODAY,
     Column,
+    Filter,
     Operator,
     Selection,
     SelectionError,
@@ -254,6 +259,12 @@ def validate_filter_values(db: Session, selection: Selection, *,
     for flt in selection.filters:
         if flt.operator not in _VALUE_OPERATORS:
             continue
+        if flt.symbolic:
+            # A resolved "today" or "me" is legitimate by construction. Checking
+            # it against the dimension's values would refuse a personal report
+            # for the one person who has no rows yet — and seeing nothing is the
+            # right answer there, not an error.
+            continue
         toegestaan = dimension_values(db, flt.object_key, tenant_id=tenant_id)
         if not toegestaan:
             # Too many values to offer, so too many to demand. Free text it is.
@@ -267,11 +278,77 @@ def validate_filter_values(db: Session, selection: Selection, *,
             )
 
 
-def run_validated(db: Session, selection: Selection, *,
-                  tenant_id: int) -> ReportResult:
-    """Validate the filter values, then run. The panel's single entry point."""
-    validate_filter_values(db, selection, tenant_id=tenant_id)
-    return run_selection(db, selection, tenant_id=tenant_id)
+# ── Resolving "now" and "me" (#847) ──────────────────────────────────────────
+
+def resolve_selection(selection: Selection, *, today: date | None = None,
+                      viewer: str = "") -> Selection:
+    """Replace every symbolic filter value with what it means right now.
+
+    **This is where identity and the clock enter, and nowhere deeper.**
+    `build_query` takes a selection and a tenant and nothing else; by the time it
+    sees this selection every value is literal. That is what keeps `ik` a filter
+    value instead of quietly becoming a role fence — which is a different
+    question, and still open (CR-06 §5.1, #847 point 1).
+
+    Pure, and it takes `today` as an argument rather than reading the clock: a
+    test that can only go red next January is not a test.
+
+    The stored selection is not touched. What is saved stays relative; only the
+    copy that runs is literal — otherwise opening a report once would freeze it.
+    """
+    if not any(f.symbolic for f in selection.filters):
+        return selection
+
+    nu = today or date.today()
+    opgelost: list[Filter] = []
+    for flt in selection.filters:
+        if not flt.symbolic:
+            opgelost.append(flt)
+            continue
+        if flt.symbolic == SYMBOLIC_TODAY:
+            waarden = (nu.isoformat(),)
+        elif flt.symbolic == SYMBOLIC_THIS_YEAR:
+            waarden = (str(nu.year),)
+        elif flt.symbolic == SYMBOLIC_ME:
+            if not viewer:
+                if flt.values:
+                    # Already resolved by a caller that DID know who was looking.
+                    # Resolving twice happens — the panel resolves before it
+                    # dispatches and the service resolves again — and the second
+                    # pass must not throw the first one's answer away. That is
+                    # what "idempotent" has to mean here, and it cost an hour to
+                    # learn: without it the panel rendered nothing at all.
+                    opgelost.append(flt)
+                    continue
+                raise SelectionError(
+                    "Dit rapport filtert op de aangemelde gebruiker, en er is er "
+                    "geen. Meld je aan en open het opnieuw.")
+            waarden = (viewer,)
+        else:  # pragma: no cover - `selection_from_dict` refuses anything else
+            raise SelectionError(f"Onbekende relatieve waarde: '{flt.symbolic}'.")
+        opgelost.append(Filter(flt.object_key, flt.operator, waarden, flt.symbolic))
+
+    return Selection(
+        object_keys=selection.object_keys, filters=tuple(opgelost),
+        sort=selection.sort, limit=selection.limit, offset=selection.offset,
+        layout=selection.layout, pivot_column=selection.pivot_column)
+
+
+def is_personal(selection: Selection) -> bool:
+    """Does this report show a different answer per person? (#847 point 2)
+
+    A report that fills in your own name has to say so, or somebody shares a link
+    and the receiver cannot explain why he sees something else.
+    """
+    return any(f.symbolic == SYMBOLIC_ME for f in selection.filters)
+
+
+def run_validated(db: Session, selection: Selection, *, tenant_id: int,
+                  today: date | None = None, viewer: str = "") -> ReportResult:
+    """Resolve, validate, run. The panel's single entry point."""
+    concreet = resolve_selection(selection, today=today, viewer=viewer)
+    validate_filter_values(db, concreet, tenant_id=tenant_id)
+    return run_selection(db, concreet, tenant_id=tenant_id)
 
 
 # ── Saved reports (CR-06 §5) ─────────────────────────────────────────────────
@@ -478,9 +555,11 @@ __all__ = [
     "fact_columns",
     "get_saved_report",
     "list_saved_reports",
+    "is_personal",
     "load_dataset",
     "log_export",
     "merge_small_cells",
+    "resolve_selection",
     "mark_run",
     "run_selection",
     "run_validated",
