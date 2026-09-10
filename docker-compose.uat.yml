@@ -55,21 +55,20 @@ services:
       # placeholder, vond niemand met dat adres, en kende NUL gebruikers de rol
       # OPERATOR toe, terwijl het juiste adres wel degelijk in .env.uat stond en als
       # gebruiker bestond. Gevolg: /admin/tenants was voor niemand bereikbaar.
-      # Multi-tenancy (#406/#821). Deze twee horen hier omdat de backend-service
-      # GEEN `env_file:` heeft: wat niet in dit blok staat, bereikt de container
-      # nooit — hoe netjes het ook in .env.uat staat. Gemeten op PROD:
-      # `PLATFORM_HOSTS=[]` en `TENANT_HOSTNAMES=[]` in de draaiende backend,
-      # terwijl beide in het env-bestand stonden.
+      # Multi-tenancy (#406/#821). These two belong here because the backend service
+      # has NO `env_file:`: whatever is not in this block never reaches the container,
+      # however neatly it sits in .env.uat. Measured on PROD: `PLATFORM_HOSTS=[]` and
+      # `TENANT_HOSTNAMES=[]` in the running backend, while both were present in the
+      # env file.
       #
-      # Het gevolg was niet alleen een ontbrekende landing: `resolve_request` leest
-      # de tenant-cookie ALLEEN op een platform-host. Met een lege set werd die
-      # cookie wel gezet en nooit gelezen, dus wie via een pad-prefix op een
-      # afdeling binnenkwam en daarna een absoluut pad volgde, stond zonder
-      # waarschuwing bij de standaard-tenant — met een inschrijfformulier voor de
-      # verkeerde afdeling.
+      # The consequence was not just a missing landing page: `resolve_request` reads the
+      # tenant cookie ONLY on a platform host. With an empty set that cookie was set and
+      # never read, so anyone entering an afdeling through a path prefix and then
+      # following an absolute path silently ended up on the default tenant — with a
+      # registration form for the wrong afdeling.
       #
-      # Derde keer dat een variabele hier ontbrak (#798 was de tweede); de gate in
-      # `test_config_env_bereikt_de_container.py` dekt nu élke omgevingsinstelling.
+      # Third time a variable was missing here (#798 was the second); the gate in
+      # `test_config_env_reaches_the_container.py` now covers EVERY environment setting.
       TENANT_HOSTNAMES: ${TENANT_HOSTNAMES:-}
       PLATFORM_HOSTS: ${PLATFORM_HOSTS:-}
       SEED_ADMIN_EMAILS: ${SEED_ADMIN_EMAILS:-}
@@ -81,10 +80,10 @@ services:
       PAYMENT_BENEFICIARY: ${PAYMENT_BENEFICIARY:-}
       PAYMENT_TERM_DAYS: ${PAYMENT_TERM_DAYS:-7}
     volumes:
-      # #766: het applicatielog overleeft de container. `up --build` maakt een
-      # nieuwe container en containerlogs horen bij de container, dus alles wat de
-      # app ooit gemeld heeft was na elke deploy weg. Een named volume blijft; de
-      # eigenaar komt uit het image (zie backend/Dockerfile).
+      # #766: the application log outlives the container. `up --build` creates a new
+      # container and container logs belong to the container, so everything the app had
+      # ever reported was gone after every deploy. A named volume stays; its owner comes
+      # from the image (see backend/Dockerfile).
       - backend_uat_logs:/var/log/raak
     depends_on:
       db:

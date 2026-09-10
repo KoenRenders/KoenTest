@@ -110,17 +110,17 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     # "text" (leesbaar, default) of "json" (gestructureerd, #395)
     log_format: str = "text"
-    # Waar het applicatielog naartoe geschreven wordt bovenóp stdout (#766).
-    # De containerlog verdwijnt bij elke deploy — `up --build` maakt een nieuwe
-    # container en de logs horen bij de container — en dat is precies goed voor een
-    # deploy-log en precies fout voor het applicatielog: dat gaat over wat de app
-    # doet, en dat houdt niet op bij een deploy. Vandaag is elke vraag van de vorm
-    # "gebeurt dit eigenlijk?" alleen te beantwoorden over de periode sinds de
-    # laatste deploy, en die is meestal kort.
+    # Where the application log is written ON TOP OF stdout (#766).
+    # The container log disappears with every deploy — `up --build` creates a new
+    # container and logs belong to the container — which is exactly right for a deploy
+    # log and exactly wrong for the application log: that one is about what the app
+    # does, and that does not stop at a deploy. Today every question of the form "does
+    # this actually happen?" can only be answered for the period since the last deploy,
+    # and that is usually short.
     #
-    # Deze map is in hdev/uat/prod een named volume; leeg zetten schakelt het
-    # bestand uit. Bestaat de map niet (lokaal, CI), dan logt de app gewoon naar
-    # stdout — een ontbrekende mount mag nooit de start blokkeren.
+    # On hdev/uat/prod this directory is a named volume; emptying the setting switches
+    # the file off. If the directory does not exist (locally, CI) the app simply logs
+    # to stdout — a missing mount must never block startup.
     app_log_dir: str = "/var/log/raak"
 
     # Drempel voor "traag" in het toegangslog (#645). Een request die er langer

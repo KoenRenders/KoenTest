@@ -20,14 +20,14 @@ def _env_prefix() -> str:
 
 
 def email_log_url(db, log_id) -> str | None:
-    """Waar is deze logregel te bekijken? (#822)
+    """Where can this log line be viewed? (#822)
 
-    Het e-maillogboek filtert op ontvanger en niet op id, dus de link zoekt het adres
-    op en filtert daarop. Dat toont de mail én zijn eerdere pogingen — wat je bij een
-    definitief mislukte mail juist wil zien.
+    The e-mail log filters on recipient rather than on id, so this looks up the address
+    and filters on that. It shows the mail AND its earlier attempts — which is exactly
+    what you want to see for a mail that failed for good.
 
-    De URL staat HIER en niet in de werkbank: dit domein bezit dat scherm en zijn
-    routepatroon. Een taak hoeft niet te weten hoe de e-maillog-URL eruitziet.
+    The URL lives HERE and not in the workbench: this domain owns that screen and its
+    route shape. A task should not have to know what an e-mail-log URL looks like.
     """
     from urllib.parse import quote
 

@@ -356,8 +356,8 @@ def add_activity_date(
 ):
     from app.domains.activities import service
 
-    # #792: de samenhangregel staat op het object, dus deze ingang erft haar. De
-    # vertaling naar een statuscode is wél van de ingang.
+    # #792: the coherence rule sits on the object, so this entrance inherits it. The
+    # translation into a status code does belong to the entrance.
     try:
         ad = service.add_activity_date(db, activity_id, data, actor=admin.email)
     except service.ActiviteitFout as fout:

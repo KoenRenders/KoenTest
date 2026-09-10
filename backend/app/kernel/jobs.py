@@ -76,12 +76,12 @@ def enqueue(db: Session, name: str, payload: Optional[dict] = None,
     return entry
 
 
-def job_gegevens(db: Session, job_id: str) -> Optional[dict]:
-    """De gegevens van één achtergrondtaak, voor een scherm dat ze wil tonen (#822).
+def job_details(db: Session, job_id: str) -> Optional[dict]:
+    """The data of one background job, for a screen that wants to show it (#822).
 
-    Geen labels en geen opmaak: die horen in de UI, want de taal volgt de tenant.
-    Deze functie bestaat opdat het scherm de sessie niet zelf hoeft aan te raken
-    (#635 regel 2) — er is geen kernel-job-scherm om het aan over te laten.
+    No labels and no formatting: those belong in the UI, because the language follows
+    the tenant. This function exists so that the screen need not touch the session
+    itself (#635 rule 2) — there is no kernel-job screen to leave it to.
     """
     try:
         job = db.get(KernelJob, int(job_id))

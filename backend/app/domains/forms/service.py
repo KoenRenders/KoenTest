@@ -1014,11 +1014,10 @@ def assert_geen_id_vorm(rauw) -> None:
 
 
 def submission_url(db, submission_id) -> str | None:
-    """Waar is deze inzending te bekijken? (#822)
+    """Where can this submission be viewed? (#822)
 
-    Het inzendingen-tabblad van háár formulier. Het formulier-id staat niet in de
-    taak, dus dat wordt hier opgezocht — de werkbank hoeft het routepatroon van dit
-    domein niet te kennen.
+    On the submissions tab of ITS OWN form. The form id is not in the task, so it is
+    looked up here — the workbench need not know this domain's route shape.
     """
     from app.domains.forms.models import FormSubmission
 

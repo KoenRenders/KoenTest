@@ -25,14 +25,15 @@ def _single_asset(obj, kind, fk_attr):
 
 
 class ActiviteitFout(ValueError):
-    """Een domeinregel van dit component is geschonden (#679, batch 3).
+    """A domain rule of this component was violated (#679, batch 3).
 
-    Geen HTTPException: die hoort bij de ingang, niet bij de regel. De router
-    vertaalt hem naar een 422, een script mag er iets anders mee doen.
+    Not an HTTPException: that belongs to the entrance, not to the rule. The router
+    turns it into a 422; a script may do something else with it.
 
-    Staat hier en niet meer in `service.py` sinds #792, omdat de eerste regel die
-    op een object zélf leeft hem nodig heeft en een model niets uit de service mag
-    importeren. `service.ActiviteitFout` blijft bestaan — het is dezelfde klasse.
+    Dutch name kept on purpose: it existed before and renaming it would touch every
+    caller for no behavioural gain. It lives here rather than in `service.py` since
+    #792, because the first rule that lives on an object itself needs it and a model
+    may not import from the service. `service.ActiviteitFout` is the same class.
     """
 
 
@@ -49,39 +50,39 @@ class ActivityDate(TenantMixin, SoftDeleteMixin, Base):
 
     activity = relationship("Activity", back_populates="dates")
 
-    def valideer_samenhang(self) -> None:
-        """Een datumrij mag niet eindigen vóór ze begint (#792).
+    def validate_coherence(self) -> None:
+        """A date row may not end before it starts (#792).
 
-        **Op het object en niet in het scherm**, volgens de plaatsingsregel van
-        CR-04: deze regel kijkt naar meerdere velden van hetzelfde object, dus hoort
-        ze op het object. Een controle in het aanmaakformulier laat de editor het gat
-        houden — en dan zijn er twee waarheden over dezelfde rij. Via de editor kon
-        je tot nu toe een rij opslaan die van 20 september tot 18 september liep.
+        **On the object and not in the screen**, per the placement rule of CR-04: this
+        rule looks at several fields of the same object, so it belongs on the object. A
+        check in the create form would let the editor keep the hole — and then there
+        are two truths about the same row. Until now the editor happily saved a row
+        running from 20 September to 18 September.
 
-        Het uur telt alleen mee binnen één dag. Een rij die om 20:00 begint en de
-        volgende ochtend om 02:00 eindigt is niet fout; ze duurt gewoon een nacht.
+        The time only counts within a single day. A row starting at 20:00 and ending at
+        02:00 the next morning is not wrong; it simply lasts a night.
 
-        Gelijke uren op dezelfde dag zijn wél fout: een rij van 14:00 tot 14:00 duurt
-        niets, en dat is bijna altijd een halve invoer.
+        Equal times on the same day ARE wrong: a row from 14:00 to 14:00 lasts nothing,
+        and that is almost always a half-finished entry.
         """
-        from app.i18n import _ as vertaal
+        from app.i18n import _ as translate
 
         if self.end_date and self.start_date and self.end_date < self.start_date:
-            raise ActiviteitFout(vertaal(
+            raise ActiviteitFout(translate(
                 "De einddatum ligt vóór de begindatum."))
-        eendaags = self.end_date is None or self.end_date == self.start_date
-        if eendaags and self.start_time and self.end_time and self.end_time <= self.start_time:
-            raise ActiviteitFout(vertaal(
+        one_day = self.end_date is None or self.end_date == self.start_date
+        if one_day and self.start_time and self.end_time and self.end_time <= self.start_time:
+            raise ActiviteitFout(translate(
                 "Het einduur ligt niet na het beginuur."))
 
 
-# De regel geldt bij élke ingang, niet alleen bij de twee schermen die er vandaag
-# zijn (#792). Een service die vergeet te valideren, een script of een toekomstige
-# importroute komen hier evengoed langs: dit vuurt bij het wegschrijven zelf.
+# The rule applies at EVERY entrance, not only at the two screens that exist today
+# (#792). A service that forgets to validate, a script, or a future import route all
+# pass through here: this fires on the write itself.
 @event.listens_for(ActivityDate, "before_insert")
 @event.listens_for(ActivityDate, "before_update")
-def _bewaak_datumsamenhang(mapper, connection, target):  # noqa: ARG001
-    target.valideer_samenhang()
+def _enforce_date_coherence(mapper, connection, target):  # noqa: ARG001
+    target.validate_coherence()
 
 
 class Activity(TenantMixin, SoftDeleteMixin, Base):

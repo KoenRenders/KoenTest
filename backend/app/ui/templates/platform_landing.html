@@ -1,11 +1,11 @@
 {# Platform-landing (§7, 5c #406): de wortel van platform.example — geen tenant-site,
    maar het overzicht van afdelingen op het Digital Platform.
 
-   #821: de naam draagt geen merk. Het platform is niet van één afdeling, en een
-   platform dat "Raak" heet, sluit de vraag "van wie is dit?" op voorhand af. Zie
-   `docs/intermediate-architecture-upgrade-v1.md` §7, "De operator is geen tenant" —
-   inclusief het voorbehoud dat de platformlaag op termijn tóch een tenant kan
-   worden. Wat hier staat is dus "voorlopig geen tenant", niet "nooit". #}
+   #821: the name carries no brand. The platform does not belong to one afdeling, and
+   a platform called "Raak" answers the question "whose is this?" before anyone asks
+   it. See `docs/intermediate-architecture-upgrade-v1.md` §7, "De operator is geen
+   tenant" — including the caveat that the platform layer may yet become a tenant. So
+   what stands here is "not a tenant for now", not "never". #}
 <!DOCTYPE html>
 <html lang="nl-BE">
 <head>
@@ -14,11 +14,11 @@
   <title>{{ _("Digital Platform") }}</title>
   <link rel="stylesheet" href="{{ statisch('app.css') }}">
 </head>
-{# #808: `data-shell` is verplicht op elk volledig document — de analytics-gate leidt
-   daaruit af of de pagina het trackingscript hoort te dragen, in plaats van
-   bestandsnamen op te sommen. `platform` telt NIET mee: deze landing staat op een
-   eigen domein, terwijl de tenant-instellingen bij een tenant horen. Platformverkeer
-   bij de cijfers van één afdeling optellen zou die cijfers stil vervalsen. #}
+{# #808: `data-shell` is required on every complete document — the analytics gate uses
+   it to decide whether the page should carry the tracking script, instead of listing
+   file names. `platform` does NOT count: this landing page lives on its own domain,
+   while tenant settings belong to a tenant. Adding platform traffic to the figures of
+   one afdeling would quietly falsify them. #}
 <body class="bg-gray-50 min-h-screen text-ink" data-shell="platform">
   <main class="max-w-3xl mx-auto px-4 py-16">
     <h1 class="text-4xl font-bold text-blue-700 mb-3">{{ _("Digital Platform") }}</h1>
@@ -32,17 +32,17 @@
       </a>
       {% endfor %}
     </div>
-    {# #821: geen verwijzing meer naar één afdeling. Een platform dat voor beheer
-       naar een van zijn eigen klanten wijst, is geen platform. #}
+    {# #821: no more pointing at one afdeling. A platform that sends you to one of its
+       own customers for administration is not a platform. #}
     <div class="bg-blue-50 border border-blue-100 rounded-2xl p-6">
       <h2 class="text-lg font-bold text-blue-700 mb-2">{{ _("Ook een afdeling op het platform?") }}</h2>
       <p class="text-sm text-gray-700">{{ _("Activiteiten publiceren, inschrijvingen en betalingen ontvangen, je leden beheren — elke afdeling krijgt een eigen site. Vraag het aan bij de platformbeheerder.") }}</p>
     </div>
-    {# #821: de ingang voor de platformbeheerder. Zichtbaar voor iedereen, en dat is
-       een keuze: /admin/tenants is OPERATOR-only en weigert de rest met een 403, dus
-       de link verraadt niets dat het inlogscherm niet al verraadt. Verbergen zou het
-       beheer alleen onvindbaar maken voor wie het nodig heeft — precies wat er nu aan
-       de hand is: het scherm bestaat en er is geen weg ernaartoe. #}
+    {# #821: the entrance for the platform administrator. Visible to everyone, and that
+       is a choice: /admin/tenants is OPERATOR-only and refuses the rest with a 403, so
+       the link gives away nothing the login screen does not already give away. Hiding
+       it would only make administration unfindable for whoever needs it — which is
+       exactly the situation today: the screen exists and there is no way to it. #}
     <p class="text-center text-sm text-gray-500 mt-8">
       <a href="/aanmelden" class="text-blue-700 underline hover:no-underline">{{ _("Aanmelden als platformbeheerder") }}</a>
     </p>
