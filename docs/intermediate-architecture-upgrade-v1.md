@@ -324,6 +324,44 @@ flowchart TB
 - **Uitrol per app, niet dark/big-bang**: kernel levert de `tenant_id`-mixin + context;
   elke app adopteert dat op zijn moment, grondig getest.
 
+### De operator is geen tenant (beslist 10 september 2026)
+
+De platformlaag is een **niveau boven** de tenants, geen tenant ernaast. Er komt
+dus géén "eigen tenant" voor het bedrijf dat het platform ontwikkelt en beheert.
+
+**Waarom, en dit ligt grotendeels al vast in de code:**
+
+- **Gebruikers zijn globaal.** `auth.users` draagt geen `tenant_id`, en
+  `auth.user_roles` bevat enkel `user_id` + `role_code`. `OPERATOR` is daarmee
+  vandaag al een rol over de hele installatie. Een platform-tenant zou een tweede
+  mechanisme toevoegen voor iets dat al werkt, en twee mechanismen voor dezelfde
+  vraag betekent dat over een jaar niemand meer weet welk van de twee geldt.
+- **Een tenant is een site.** Inhoud, leden, activiteiten, een publieke URL,
+  betaalinstellingen, analytics. De platformlaag heeft daar niets van. Maak je er
+  toch een tenant van, dan ontstaat een lege site die alleen bestaat om
+  aanmeldingen te dragen — en dan moet iedereen voor altijd onthouden dat die
+  nooit gepubliceerd mag worden.
+- **Dezelfde conclusie is al eens langs een andere weg genomen.** De
+  analytics-poort (#808) sluit de platform-landing bewust uit van de tenantcijfers,
+  *"want deze landing staat op een eigen domein, terwijl de tenant-instellingen bij
+  een tenant horen"*.
+
+**Het bedrijf als organisatie is een andere vraag.** `Organization` is
+zelf-refererend met `org_type` ACCOUNT of UNIT, dus facturatie- of
+contactgegevens van de beheerder kunnen als **organisatie-rij** bestaan zonder dat
+daar een tenant-site met een publieke URL bij hoort. Die twee begrippen uit elkaar
+houden is nu goedkoop en later duur.
+
+**De wortel van een platform-host** toont de platform-landing: de naam van het
+platform, de actieve afdelingen met hun URL, en een aanmeldmogelijkheid. Die
+landing draagt **geen tenant-branding** en verwijst niet naar een afdeling — een
+platform dat voor beheer naar een van zijn eigen klanten wijst, is geen platform.
+Wie na het aanmelden `OPERATOR` is, komt op het tenantbeheer uit.
+
+**Openstaande naad:** `resolve_request` geeft voor de landing vandaag
+`DEFAULT_TENANT_ID` terug, dus ze rendert technisch binnen de standaard-tenant. Dat
+is de plek waar deze beslissing nog niet waar is in de code (#821).
+
 ### Config & secrets (multi-tenant-scheiding)
 - **Per-tenant config** → **DB-beheerd** (afzendermail, Mollie-profiel, logo, branding,
   domein). Vandaag in `.env`; verhuist naar een per-tenant settings-store met `.env`-
