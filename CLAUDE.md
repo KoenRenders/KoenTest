@@ -58,6 +58,15 @@ English name as identifier (`StructuredCommunication`, not
 in the docstring so the vocabulary stays findable. Where CR-04 still names a
 value object in Dutch, the English name applies when it is built.
 
+**URL paths follow the audience, not the code language** (clarified 10
+September 2026). A path a person sees in the address bar, types, or gets in an
+e-mail is user-facing copy and follows the UI language: `/admin/betalingen`,
+`/lid-worden`, `/admin/rapporten`. A path a machine calls is an identifier and
+is English: `/api/v1/activities`, `/payment-gateway`. That is what the code
+base already does; the rule only names it. The route function, the template
+file, the view-model and the table behind a Dutch path are English like all new
+code (`def report_panel`, `report_panel.html`, `reporting.saved_reports`).
+
 Enforced on new work by a ratchet gate (#780): a frozen baseline of the Dutch
 identifiers that exist today, which may only shrink. Nothing outside the
 baseline may be Dutch; an entry that disappears from the code must leave the
