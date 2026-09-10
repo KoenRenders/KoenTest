@@ -15,7 +15,23 @@
   "secondary": "bg-white border border-gray-300 hover:bg-gray-100 text-gray-800",
   "danger": "bg-red-600 hover:bg-red-700 text-white border border-transparent",
   "outline": "bg-white border border-blue-600 text-blue-700 hover:bg-blue-50"} -%}
-{%- set sizes = {"xs": "px-2.5 py-1 text-xs", "sm": "px-3 py-1.5 text-sm", "md": "px-4 py-2"} -%}
+{#- #810: de knopmaten zijn mobiel-eerst, net als de typeschaal (§1.2a). De kale
+    klasse is de telefoonmaat, de `md:`-variant zet de bureaubladwaarde terug — dus
+    op een breed scherm verandert er niets.
+
+    Waarom dit nodig was: #804 tilde de leestekst naast een knop van 14 naar 16 px,
+    maar de knoppen bleven op `text-xs` (12) staan. Het gat ging van 2 px naar 4 en
+    een knop las als iets dat er niet bij hoorde. Terugbouwen naar v1.14 lost dat
+    NIET op — daar stonden diezelfde knoppen ook op `text-xs`, met nog minder padding.
+
+    `min-h-11` is 44 px, dezelfde ondergrens die #804 op de hamburger zette. Een knop
+    waar je echt op moet tikken, hoort niet strenger behandeld te worden dan een
+    menu-icoon. Op een telefoon worden rijen met knoppen daardoor hoger; dat is de
+    bedoeling en niet een neveneffect. -#}
+{%- set sizes = {
+  "xs": "px-3 py-1.5 text-sm min-h-11 md:px-2.5 md:py-1 md:text-xs md:min-h-0",
+  "sm": "px-3.5 py-2 text-base min-h-11 md:px-3 md:py-1.5 md:text-sm md:min-h-0",
+  "md": "px-4 py-2.5 text-base min-h-11 md:py-2 md:min-h-0"} -%}
 {{- "inline-flex items-center justify-center gap-1.5 font-semibold rounded-lg transition-colors " ~ variants.get(variant, variants["primary"]) ~ " " ~ sizes.get(size, sizes["md"]) -}}
 {%- endmacro %}
 

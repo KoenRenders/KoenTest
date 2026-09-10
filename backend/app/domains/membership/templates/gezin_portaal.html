@@ -59,14 +59,16 @@
         <span class="text-xs text-gray-500 ml-1">({{ p.relation_type | relatielabel }})</span>
         {% if p.date_of_birth %}<p class="text-sm text-gray-500 mt-0.5">° {{ p.date_of_birth }}</p>{% endif %}
         <div class="text-sm text-gray-500 mt-0.5 flex gap-3 flex-wrap">
-          {# #638: kit-iconen i.p.v. emoji. inline-flex + items-center houdt het
-             icoon op de tekstlijn; een emoji bracht zijn eigen regelhoogte mee. #}
-          {% if p.email %}<span class="inline-flex items-center gap-1">{{ ui.icon("mail") }} {{ p.email }}</span>{% endif %}
-          {% if p.mobile %}<span class="inline-flex items-center gap-1">{{ ui.icon("mobile") }} {{ p.mobile }}</span>{% endif %}
-          {% if p.phone %}<span class="inline-flex items-center gap-1">{{ ui.icon("phone") }} {{ p.phone }}</span>{% endif %}
+          {# #638: kit-iconen i.p.v. emoji; een emoji bracht zijn eigen regelhoogte
+             mee. #810: `items-start` + `mt-0.5` in plaats van `items-center` — een
+             lang e-mailadres loopt op een telefoon over twee regels, en dan hing het
+             icoon in het midden van het blok in plaats van bij de eerste regel. #}
+          {% if p.email %}<span class="inline-flex items-start gap-1">{{ ui.icon("mail", cls="mt-0.5 shrink-0") }} {{ p.email }}</span>{% endif %}
+          {% if p.mobile %}<span class="inline-flex items-start gap-1">{{ ui.icon("mobile", cls="mt-0.5 shrink-0") }} {{ p.mobile }}</span>{% endif %}
+          {% if p.phone %}<span class="inline-flex items-start gap-1">{{ ui.icon("phone", cls="mt-0.5 shrink-0") }} {{ p.phone }}</span>{% endif %}
         </div>
         {% if p.address %}
-        <p class="text-sm text-gray-500 mt-0.5 flex items-center gap-1">{{ ui.icon("map-pin") }} {{ p.address.street }} {{ p.address.house_number }}{% if p.address.bus_number %} bus {{ p.address.bus_number }}{% endif %}, {{ p.address.postal_code }} {{ p.address.municipality }}</p>
+        <p class="text-sm text-gray-500 mt-0.5 flex items-start gap-1">{{ ui.icon("map-pin", cls="mt-0.5 shrink-0") }} {{ p.address.street }} {{ p.address.house_number }}{% if p.address.bus_number %} bus {{ p.address.bus_number }}{% endif %}, {{ p.address.postal_code }} {{ p.address.municipality }}</p>
         {% endif %}
       </div>
       <div class="flex gap-2 shrink-0 ml-4">

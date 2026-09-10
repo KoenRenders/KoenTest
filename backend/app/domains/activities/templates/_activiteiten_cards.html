@@ -27,10 +27,16 @@
         {% if a.status %}{{ ui.badge(a.status, _status_tone.get(a.status, "blue")) }}{% endif %}
         {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
       </h2>
-      <p class="text-base md:text-sm text-gray-500 flex items-center gap-1">
-        {{ ui.icon("calendar") }} {% for d in a.dates %}{{ d.start_date | langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date | langedatum }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
+      {# #810: `items-start` en niet `items-center`. Dat laatste centreert het icoon
+         ten opzichte van het HELE blok, dus bij een datumreeks van drie regels hing
+         het midden in de tekst. `mt-0.5` lijnt het optisch uit met de eerste regel.
+
+         Niet veroorzaakt door #804 maar wél zichtbaar gemaakt: op 14 px pasten datum
+         en locatie vaker op één regel, en dan is het verschil nul. #}
+      <p class="text-base md:text-sm text-gray-500 flex items-start gap-1">
+        {{ ui.icon("calendar", cls="mt-0.5 shrink-0") }} {% for d in a.dates %}{{ d.start_date | langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date | langedatum }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
       </p>
-      {% if a.location %}<p class="text-base md:text-sm text-gray-500 flex items-center gap-1">{{ ui.icon("map-pin") }} {{ a.location }}</p>{% endif %}
+      {% if a.location %}<p class="text-base md:text-sm text-gray-500 flex items-start gap-1">{{ ui.icon("map-pin", cls="mt-0.5 shrink-0") }} {{ a.location }}</p>{% endif %}
     </div>
     {% if not a.is_cancelled %}
     {# Onderdelen ook in het archief (#476): 'Wie doet er mee?' + info blijven,
