@@ -25,11 +25,17 @@ def homepage(request: Request, db: Session = Depends(get_db)):
         # platform.example-wortel (§7, 5c): de "Raak Digital Platform"-landing met de
         # actieve afdelingen; units draaien op hun eigen adres of pad-prefix.
         from app.domains.mdm.api import list_units
-        from app.kernel.tenant_config import tenant_base_url, tenant_display_name
+        from app.kernel.tenant_config import tenant_display_name, tenant_home_url
 
         units = list_units(db, alleen_actief=True)
+        # #860: `tenant_home_url` en niet `tenant_base_url` — dit is de vraag "waar
+        # woont die afdeling", niet "waar breng je mij terug". Een afdeling mét eigen
+        # host krijgt dus haar eigen domein (uit TENANT_HOSTNAMES) en niet
+        # <platform-host>/<code>; zonder eigen host wordt haar adres afgeleid uit de
+        # host waarop JIJ binnenkwam. Dat laatste is wat Koen zag misgaan: de kaart
+        # "Raak Voorbeeldafdeling" wees naar het adres van Millegem.
         afdelingen = [{"naam": tenant_display_name(db, tenant_id=u.id),
-                       "url": tenant_base_url(db, tenant_id=u.id)}
+                       "url": tenant_home_url(db, tenant_id=u.id, code=u.code)}
                       for u in units]
         return templates.TemplateResponse(request, "platform_landing.html", {
             "afdelingen": afdelingen, "current_year": site_context(db, request)["current_year"]})
@@ -66,23 +72,23 @@ def betaling_geannuleerd(request: Request, db: Session = Depends(get_db)):
 
 @router.get("/robots.txt", response_class=PlainTextResponse)
 def robots(request: Request, db: Session = Depends(get_db)):
-    from app.kernel.tenant_config import get_setting, tenant_base_url
+    from app.kernel.tenant_config import get_setting, tenant_home_url
 
     if get_setting(db, "noindex") == "1":
         return "User-agent: *\nDisallow: /\n"
     return (f"User-agent: *\nAllow: /\nDisallow: /admin\n"
-            f"Sitemap: {tenant_base_url(db)}/sitemap.xml\n")
+            f"Sitemap: {tenant_home_url(db)}/sitemap.xml\n")
 
 
 @router.get("/sitemap.xml")
 def sitemap(request: Request, db: Session = Depends(get_db)):
     from fastapi.responses import Response
 
-    from app.kernel.tenant_config import get_setting, tenant_base_url
+    from app.kernel.tenant_config import get_setting, tenant_home_url
 
     if get_setting(db, "noindex") == "1":
         raise HTTPException(status_code=404, detail=_("Geen sitemap voor deze tenant"))
-    base = tenant_base_url(db)
+    base = tenant_home_url(db)
     paden = ["/", "/activiteiten", "/activiteiten/archief", "/fotos",
              "/lid-worden", "/berichten"]
     paden += [f"/{slug}" for slug in published_slugs(db)]
