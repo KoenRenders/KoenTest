@@ -50,14 +50,47 @@ def read_session_value(raw: Optional[str]) -> Optional[str]:
     return email
 
 
-def set_session_cookie(response: Response, email: str) -> None:
+def session_cookie_secure(request: Optional[Request]) -> bool:
+    """Hoort de sessiecookie de ``Secure``-vlag te dragen? (#865)
+
+    Tot nu keek dit naar de NAAM van de omgeving — ``app_env in ("uat", "prod")`` —
+    en niet naar de verbinding. Een lijst met omgevingsnamen loopt per definitie
+    achter: een omgeving die er later bijkomt draait https en krijgt de vlag toch
+    niet, en niemand merkt het, want een cookie zonder ``Secure`` werkt gewoon.
+
+    Twee bronnen, in deze volgorde:
+
+    1. **Wordt deze omgeving over https bediend?** Dan staat de vlag er, punt. Dat
+       lezen we uit ``FRONTEND_URL``, de canonieke origin van de omgeving zelf.
+    2. Anders: het schema van dít verzoek — uit ``X-Forwarded-Proto``, want achter
+       Caddy ziet de backend de verbinding van de proxy en niet die van de browser.
+
+    **Waarom de omgeving vóór het verzoek komt, en niet andersom.** Het issue vraagt
+    de vlag het schema van het verzoek te laten volgen. Dat alleen zou betekenen dat
+    een meegestuurde ``X-Forwarded-Proto: http`` de vlag van een échte https-sessie
+    afhaalt — een header die de backend niet kan onderscheiden van een die de proxy
+    zette. De omgeving als ondergrens neemt dat weg zonder de winst op te geven: de
+    lijst met omgevingsnamen is verdwenen, een nieuwe https-omgeving klopt vanzelf,
+    en op een omgeving zonder https volgt de vlag netjes het verzoek.
+    """
+    if settings.frontend_url.strip().lower().startswith("https://"):
+        return True
+    if request is None:
+        return False
+    doorgestuurd = (request.headers.get("x-forwarded-proto") or "").split(",")[0]
+    schema = doorgestuurd.strip().lower() or request.url.scheme
+    return schema == "https"
+
+
+def set_session_cookie(response: Response, email: str,
+                       request: Optional[Request] = None) -> None:
     response.set_cookie(
         SESSION_COOKIE,
         make_session_value(email),
         max_age=SESSION_MAX_AGE,
         httponly=True,
         samesite="lax",
-        secure=settings.app_env in ("uat", "prod"),
+        secure=session_cookie_secure(request),
         path="/",
     )
 
