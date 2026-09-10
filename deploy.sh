@@ -30,20 +30,25 @@ shift
 # ROLLBACK eenmalige automatische terugval als de rooktest faalt (#395)
 # CADDY    own = eigen Caddy in de stack (HDEV); shared = de gedeelde proxy,
 #          die apart gaat via deploy-caddy.sh
+# KETEN_GATE / LOG_GATE  na-controle (#604): 1 = poort (falen rolt terug op de
+#          omgevingen die ROLLBACK=1 hebben), 0 = rapporterend. Zie "Na-controle".
 case "$ENV" in
   hdev)
     COMPOSE="docker-compose.hdev.yml"; ENVFILE=".env.hdev"
     SOURCE="master"; BACKUP=0; ROLLBACK=0; CADDY="own"
+    KETEN_GATE=0; LOG_GATE=0
     SMOKE_BASE_DEFAULT="http://localhost:8081"
     ;;
   uat)
     COMPOSE="docker-compose.uat.yml"; ENVFILE=".env.uat"
     SOURCE="tag"; BACKUP=1; ROLLBACK=1; CADDY="shared"
+    KETEN_GATE=1; LOG_GATE=0
     SMOKE_BASE_DEFAULT=""
     ;;
   prod)
     COMPOSE="docker-compose.prod.yml"; ENVFILE=".env.prod"
     SOURCE="tag"; BACKUP=1; ROLLBACK=1; CADDY="shared"
+    KETEN_GATE=1; LOG_GATE=0
     SMOKE_BASE_DEFAULT=""
     ;;
   *)
@@ -127,6 +132,89 @@ if [ "$CADDY" = "own" ]; then
   dc up -d --force-recreate caddy
 fi
 
+# ── Na-controle: migratieketen en schone start (#604) ────────────────────────
+# Na élke deploy horen drie dingen te kloppen: precies één alembic-head, een
+# `current` die daaraan gelijk is, en een opstart zonder fouten. `raakctl diagnose`
+# verzamelt ze keurig — maar dat draai je ápart, ná de deploy, en dat rapport heeft
+# geen exit-code die iets tegenhoudt. Vergeet je het, dan merkt niemand het.
+#
+# De rooktest ziet deze twee fouten niet: hij toetst dat publieke pagina's 200 geven
+# en dat de admin afgeschermd is. Een gesplitste migratieketen en een backend die pas
+# ná die eerste geslaagde request stukloopt, passeren dat ongemerkt.
+#
+#   | check          | hdev         | uat / prod   |
+#   |----------------|--------------|--------------|
+#   | migratieketen  | rapporterend | POORT        |
+#   | schone start   | rapporterend | rapporterend |
+#
+# De ketencheck is deterministisch — twee heads zijn twee heads — dus die mag meteen
+# een poort zijn. De logcheck niet: een valse terugrol op PROD door één ERROR-regel
+# is duurder dan de melding missen, en we weten nog niet hoe stil die logs werkelijk
+# zijn. Ze draait daarom eerst een release lang luid mee. Zet LOG_GATE=1 in het
+# configblok zodra dat wel bekend is.
+#
+# Beide draaien via `dc exec -T backend`, dus met het env-bestand van deze omgeving —
+# hetzelfde patroon als logging.sh. En ze draaien binnen dezelfde DEPLOY_ROLLBACK-
+# guard als de rooktest, zodat een deploy nooit twee keer terugrolt.
+_revisies() { sed -nE 's/^([0-9a-z_]+)([[:space:]].*)?$/\1/p'; }
+
+migratieketen_ok() {
+  local heads current aantal
+  heads="$(dc exec -T backend alembic heads 2>/dev/null | _revisies || true)"
+  current="$(dc exec -T backend alembic current 2>/dev/null | _revisies || true)"
+  aantal="$(printf '%s\n' "$heads" | grep -c . || true)"
+  if [ "$aantal" -ne 1 ]; then
+    echo "!! Migratieketen: $aantal heads i.p.v. 1 — de keten is gesplitst: [$(echo $heads)]"
+    return 1
+  fi
+  if [ "$current" != "$heads" ]; then
+    echo "!! Migratieketen: alembic current is [$(echo $current)] en niet [$heads] — een migratie raakte niet toegepast."
+    return 1
+  fi
+  echo "Migratieketen OK: één head ($heads), current gelijk."
+}
+
+schone_start_ok() {
+  # STRAK gescoped op het opstartvenster: van "==> Running database migrations..."
+  # (de eerste regel die startup.sh print) tot "Uvicorn running". Verkeer ná de start
+  # telt bewust NIET mee — een Mollie-webhook die 404't of een gebruiker die een
+  # ongeldige aanvraag doet in de seconden na een deploy, mag geen terugrol worden.
+  # Bij een herstart neemt awk het LAATSTE venster: elke startmarkering begint opnieuw.
+  local venster fouten
+  venster="$(dc logs backend --tail=500 2>&1 | awk '
+      /==> Running database migrations/ { buf = ""; bezig = 1 }
+      bezig { buf = buf $0 "\n" }
+      bezig && /Uvicorn running on/ { bezig = 0 }
+      END { printf "%s", buf }')"
+  if [ -z "$venster" ]; then
+    echo "!! Schone start: geen opstartvenster in de laatste 500 backend-regels — is de backend gestart?"
+    return 1
+  fi
+  if ! printf '%s' "$venster" | grep -q 'Uvicorn running on'; then
+    echo "!! Schone start: de backend bereikte 'Uvicorn running' niet; het opstarten liep vast."
+    return 1
+  fi
+  fouten="$(printf '%s' "$venster" | grep -iE 'error|traceback|exception' || true)"
+  if [ -n "$fouten" ]; then
+    echo "!! Schone start: fouten tijdens het opstarten:"
+    printf '%s\n' "$fouten"
+    return 1
+  fi
+  echo "Schone start OK: geen ERROR/Traceback/Exception tussen containerstart en 'Uvicorn running'."
+}
+
+nacontrole() {
+  local mislukt=0
+  echo "== Na-controle (#604): migratieketen en schone start =="
+  if ! migratieketen_ok; then
+    if [ "$KETEN_GATE" = 1 ]; then mislukt=1; else echo "   (rapporterend op $ENV — dit rolt niets terug)"; fi
+  fi
+  if ! schone_start_ok; then
+    if [ "$LOG_GATE" = 1 ]; then mislukt=1; else echo "   (rapporterend op $ENV — dit rolt niets terug)"; fi
+  fi
+  return $mislukt
+}
+
 # ── Post-deploy rooktest ─────────────────────────────────────────────────────
 # STRIKT ALLEEN-LEZEN, maakt geen data aan (veilig op PROD). Doel-URL = de
 # publieke origin uit het env-bestand (Caddy proxiet /api/* naar de backend);
@@ -161,17 +249,25 @@ for _ in $(seq 1 30); do
   sleep 1
 done
 
-if BASE="$SMOKE_BASE" ./tests/run-all.sh; then
-  echo "Smoke OK op ${REF:-master}."
+FAAL=""
+if ! BASE="$SMOKE_BASE" ./tests/run-all.sh; then
+  FAAL="SMOKE"
+elif ! nacontrole; then
+  FAAL="NA-CONTROLE"
+fi
+
+if [ -z "$FAAL" ]; then
+  echo "Smoke + na-controle OK op ${REF:-master}."
   exit 0
 fi
 
-echo "!! SMOKE FAALDE op ${REF:-master}."
+echo "!! $FAAL FAALDE op ${REF:-master}."
 if [ "$ROLLBACK" != 1 ]; then
   exit 1
 fi
 
-# Smoke is een GATE (#395): faalt hij, dan rollen we één keer automatisch terug
+# Smoke en na-controle zijn samen de GATE (#395, #604): faalt er een, dan rollen we
+# één keer automatisch terug
 # naar wat er vóór deze deploy draaide (loop-guard via DEPLOY_ROLLBACK).
 CUR="$(git describe --tags --always 2>/dev/null || echo '')"
 if [ -z "${DEPLOY_ROLLBACK:-}" ] && [ -n "$DEPLOY_PREV_REF" ] && [ "$DEPLOY_PREV_REF" != "$CUR" ]; then

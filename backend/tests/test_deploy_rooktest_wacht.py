@@ -71,7 +71,18 @@ def _bouw(tmp_path, faal_altijd=False):
         'exit 0\n')
     # `docker compose ... ps -q db` moet leeg blijven: dan slaat het script de
     # pre-migratie-backup over en hoeven pg_dump/gzip niet nagebootst te worden.
-    (nepbin / "docker").write_text('#!/bin/sh\nexit 0\n')
+    #
+    # De alembic- en logregels komen van #604: sindsdien bevraagt de deploy na de
+    # rooktest de container zelf. Een container die niets antwoordt is voor die
+    # na-controle een gesplitste keten, en dan rolt UAT/PROD terug — wat hier de
+    # wachtlus zou verbergen. Deze stub is dus geen versiering: hij houdt het
+    # onderwerp van dit bestand het enige dat kan falen.
+    (nepbin / "docker").write_text(
+        '#!/bin/sh\ncase "$*" in\n'
+        '  *"alembic heads"*|*"alembic current"*) echo "001 (head)" ;;\n'
+        '  *"logs backend"*) printf "==> Running database migrations...\\n'
+        'INFO:     Uvicorn running on http://0.0.0.0:8000\\n" ;;\n'
+        'esac\nexit 0\n')
     # Een echte sleep zou deze test dertig seconden laten duren; de volgorde is wat
     # we toetsen, niet de wandklok.
     (nepbin / "sleep").write_text('#!/bin/sh\nexit 0\n')

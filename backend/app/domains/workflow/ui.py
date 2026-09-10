@@ -139,6 +139,14 @@ def werkbank_lijst(request: Request, db: Session = Depends(get_db),
 #
 # Op het onderwerp en niet op de soort, want dan volgt een nieuwe betalingstaak
 # vanzelf de juiste vorm.
+#
+# **Een onderwerp zónder scherm hoort in geen van beide.** `kernel_job` staat hier
+# niet in en krijgt ook geen link: er bestaat geen route naar een kernel-job-scherm,
+# dus dat is geen wegwijzer maar een dode knop. Wat je nodig hebt om te beoordelen —
+# naam, status, pogingen, laatste fout — staat in de detailrijen zelf
+# (`_kernel_job_rijen`), en dát is hier de weg naar het onderwerp. Voeg er dus geen
+# link aan toe "voor de consistentie": de bedoeling is een weg naar het ding, niet
+# een link als vorm. Wil je er een echt scherm voor, dan is dat nieuwe scope.
 EIGEN_SCHERM_MET_ACTIES = {"payment_record"}
 
 
