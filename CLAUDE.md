@@ -485,9 +485,19 @@ it instead of hand-writing `docker compose` commands; `raak fetch <env>` pulls t
 report down. Say plainly when something is missing rather than leaving it out —
 "no `Running upgrade` lines, and that is expected here" is a finding too.
 
-Until #604 lands this is a **manual** step: `deploy.sh` runs the smoke test but
-checks neither the migration chain nor the logs. That is exactly why it has to be
-reported every time.
+**Since #604 the deploy checks two of these itself**, right after the smoke test:
+the migration chain (exactly one head, `current` equal to it) and a clean start (no
+`ERROR`/`Traceback`/`Exception` between container start and `Uvicorn running`). On
+UAT and PROD the chain check is a **gate** — failing it triggers the same one-off
+rollback as a failed smoke test; the log check is **reporting only** for now, because
+a false rollback on PROD over a single `ERROR` line costs more than a missed warning.
+On HDEV both are reporting only. The flags are `KETEN_GATE`/`LOG_GATE` in the
+per-environment config block of `deploy.sh`.
+
+That does not remove the report: the deploy checks a subset, and it checks it once.
+Still report all six lines after every deploy — the commit, the smoke result and the
+expected `Running upgrade` lines are yours to verify, and "the script said nothing"
+is not a measurement.
 
 ## Docker stack
 
