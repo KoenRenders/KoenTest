@@ -118,6 +118,11 @@ Vier regels, elk met een reden:
     schalen en het oogt dun naast een woordmerk van 30 px. De kit heeft
     `icon("menu")`. Beide schillen overtraden dit.
 
+35. **Een icoonmarge van `mt-1` draagt `md:mt-0.5`** (#813). De uitlijnmarge is
+    `(regelhoogte − 16) / 2`, en die verschilt per breedte zodra de tekst dat doet:
+    24 px regel op een telefoon (4 px marge), 20 px op een breed scherm (2 px). Een
+    kale `mt-1` op een icoon is dus 2 px te veel op het brede scherm.
+
 Uitzonderingen staan expliciet in ALLOWLIST, met reden — zoals de allowlists in
 de andere gates: een regel toevoegen mag, maar niet stilzwijgend.
 """
@@ -1336,4 +1341,35 @@ def test_de_hamburger_is_een_icoon_en_geen_teken():
     assert not fouten, (
         "Gebruik `ui.icon(\"menu\")` in plaats van het tekstteken; een teken erft "
         "dikte en hoogte van het lettertype van het toestel:\n  " + "\n  ".join(fouten)
+    )
+
+
+def test_een_icoonmarge_schaalt_mee_met_de_tekst():
+    """#813 — `mt-1` op een icoon hoort `md:mt-0.5` naast zich te hebben.
+
+    De marge waarmee een icoon optisch op de eerste tekstregel valt is
+    `(regelhoogte − 16) / 2`. Op `text-base` (24 px regel) is dat 4 px, op `text-sm`
+    (20 px) 2 px. Een publieke regel is `text-base md:text-sm` en heeft dus allebei
+    nodig; een kale `mt-1` staat op een breed scherm 2 px te hoog.
+
+    Of een icoon écht optisch uitlijnt is een oordeel op een schermafdruk en hoort
+    niet in een gate — de rekenregel in §1.2a is die bescherming. Wat hier wél
+    mechanisch te toetsen is, is dat de marge meeschaalt.
+
+    Kapotgemaakt om te controleren dat deze test rood kan worden: `md:mt-0.5`
+    weggehaald bij het kalendericoon op de activiteitenkaart → rood met dat pad.
+    """
+    # Alleen naar de `cls` van de ICOON-aanroep kijken. "de regel bevat mt-1" is te
+    # grof: `_aa_detail.html:21` zet `mt-1` op de <p> (afstand tot het blok erboven)
+    # terwijl het icoon zelf keurig `mt-0.5` heeft. Dat vals alarm kwam er bij de
+    # eerste proefrun meteen uit.
+    fouten = []
+    for pad in TEMPLATES:
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1):
+            for cls in re.findall(r'ui\.icon\([^)]*cls="([^"]*)"', regel):
+                if "mt-1" in cls and "md:mt-0.5" not in cls:
+                    fouten.append(f"{pad.relative_to(APP)}:{nr}")
+    assert not fouten, (
+        "een icoonmarge van 4 px hoort alleen op een telefoon; zet er `md:mt-0.5` "
+        "naast:\n  " + "\n  ".join(fouten)
     )
