@@ -124,6 +124,71 @@ def werkbank_lijst(request: Request, db: Session = Depends(get_db),
                                       _ctx(request, db, email, kind, q, status))
 
 
+# #822: waar kijk je naar het onderwerp, en is de werkbank hier wegwijzer of
+# werkplek? Beide antwoorden hangen aan het ONDERWERP en niet aan de taaksoort.
+#
+# Koens regel, 10 september 2026: heeft de entiteit een eigen scherm met eigen
+# acties, dan is de werkbank een wegwijzer — *"een betaling 'afhandelen' via de
+# werkbank-record is zinloos"*. Kun je alleen beoordelen en noteren, dan is de
+# werkbank de werkplek: *"bericht-behartigen is voor mij een workflow-actie die wel
+# in de werkbank kan horen, idem die mails en kernel-job."*
+#
+# Bij een webhook-mismatch is dat extra scherp: de oplossing is de status opnieuw
+# ophalen bij Mollie, en die knop staat op het betaalscherm. Hier "Afgehandeld"
+# kunnen zetten zou verbergen dat het geld nog steeds niet geboekt staat.
+#
+# Op het onderwerp en niet op de soort, want dan volgt een nieuwe betalingstaak
+# vanzelf de juiste vorm.
+EIGEN_SCHERM_MET_ACTIES = {"payment_record"}
+
+
+def _onderwerp_link(db, task) -> str | None:
+    """De weg naar het ding zelf. Elk domein levert zijn eigen URL.
+
+    Van de vier onderwerpsoorten had er vóór #822 precies één een link
+    (`payment_record`); voor drie van de vijf taaksoorten was er dus geen weg naar
+    het onderwerp — je las de titel en ging zoeken.
+
+    `kernel_job` krijgt bewust géén link: daar is geen scherm voor. In plaats van een
+    knop die ergens heen wijst waar de job niet staat, toont het detail zijn gegevens
+    ter plaatse (zie `_kernel_job_rijen`). Een dode verwijzing is erger dan geen —
+    zie #811, waar zes van die links tegelijk stukbleken.
+    """
+    if not task or not task.subject_id:
+        return None
+    if task.subject_type == "payment_record":
+        return f"/admin/betalingen?record={task.subject_id}"
+    if task.subject_type == "email_log":
+        from app.domains.mail.api import email_log_url
+
+        return email_log_url(db, task.subject_id)
+    if task.subject_type == "form_submission":
+        from app.domains.forms.api import submission_url
+
+        return submission_url(db, task.subject_id)
+    return None
+
+
+def _kernel_job_rijen(db, task) -> list[tuple[str, str]]:
+    """De gegevens van een mislukte achtergrondtaak, ter plaatse.
+
+    Er is geen scherm voor kernel-jobs, dus dit is de "weg naar het onderwerp" voor
+    deze soort: naam, status, pogingen en de laatste fout. Precies wat je nodig hebt
+    om te beoordelen of je hier iets aan kan doen.
+    """
+    # Lazy, zoals elders in dit domein: `_()` moet de taal van de actieve tenant
+    # volgen en niet die van het importmoment.
+    from app.i18n import _
+    from app.kernel.jobs import job_gegevens
+
+    job = job_gegevens(db, task.subject_id)
+    if job is None:
+        return []
+    return [(_("Job"), job["name"]), (_("Status"), job["status"]),
+            (_("Pogingen"), f"{job['attempts']}/{job['max_attempts']}"),
+            (_("Laatste fout"), (job["last_error"] or "—")[:500])]
+
+
 @router.get("/admin/werkbank/taken/{task_id}", response_class=HTMLResponse)
 def taak_detail(task_id: int, request: Request, db: Session = Depends(get_db),
                 email: str = Depends(require_admin_ui)):
@@ -136,11 +201,17 @@ def taak_detail(task_id: int, request: Request, db: Session = Depends(get_db),
         # #704: `subject_id` is sinds die wijziging tekst; `submission_view`
         # verwacht een getal. Dit is de plek die anders stil zou breken.
         detail_rows = submission_view(db, int(task.subject_id))
+    elif task and task.subject_type == "kernel_job":
+        detail_rows = _kernel_job_rijen(db, task)
     raw = request.cookies.get(SESSION_COOKIE) or ""
     template = ("_werkbank_detail.html" if is_fragment_request(request)
                 else "werkbank_taak.html")
     ctx = {"task": task, "detail_rows": detail_rows,
            "csrf_token": csrf_token_for(raw),
+           # #822: wegwijzer of werkplek — zie `EIGEN_SCHERM_MET_ACTIES`.
+           "wegwijzer": (task.subject_type in EIGEN_SCHERM_MET_ACTIES
+                         if task else False),
+           "onderwerp_link": _onderwerp_link(db, task),
            # #666: het fragment leeft in twee schermen en moet weten in welke.
            # Zonder dat wees het naar een id dat maar in één van de twee bestaat.
            "standalone": template == "werkbank_taak.html"}

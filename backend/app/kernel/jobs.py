@@ -76,6 +76,23 @@ def enqueue(db: Session, name: str, payload: Optional[dict] = None,
     return entry
 
 
+def job_gegevens(db: Session, job_id: str) -> Optional[dict]:
+    """De gegevens van één achtergrondtaak, voor een scherm dat ze wil tonen (#822).
+
+    Geen labels en geen opmaak: die horen in de UI, want de taal volgt de tenant.
+    Deze functie bestaat opdat het scherm de sessie niet zelf hoeft aan te raken
+    (#635 regel 2) — er is geen kernel-job-scherm om het aan over te laten.
+    """
+    try:
+        job = db.get(KernelJob, int(job_id))
+    except (TypeError, ValueError):
+        return None
+    if job is None:
+        return None
+    return {"name": job.name, "status": job.status, "attempts": job.attempts,
+            "max_attempts": job.max_attempts, "last_error": job.last_error}
+
+
 def run_due_jobs(db: Session, batch: int = 10) -> int:
     """Voer vervallen jobs uit; elke job in zijn eigen (sub)transactie. Geeft het
     aantal verwerkte jobs terug. Wordt door de scheduler-loop aangeroepen maar is

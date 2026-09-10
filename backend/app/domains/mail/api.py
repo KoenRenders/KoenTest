@@ -13,6 +13,7 @@ from app.domains.mail.service import (  # noqa: F401
     send_magic_link,
     send_member_contact_board_notice,
     send_registration_confirmation,
+    email_log_url,
 )
 
 from app.domains.mail.service import (  # noqa: F401
@@ -21,6 +22,7 @@ from app.domains.mail.service import (  # noqa: F401
 )
 
 __all__ = [
+    "email_log_url",
     "EMAIL_STATUSES", "EMAIL_TYPES", "delete_email_log", "list_email_log",
     "EmailLog",
     "purge_old_email_logs",
