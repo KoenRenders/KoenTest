@@ -81,6 +81,10 @@ class ReportPanelView(ViewModel):
     # The crosstab, as `ui.pivot_table()` reads it — None when the shape is a
     # table. Never both: one selection, one drawing.
     pivot: dict[str, Any] | None
+    # The chart, as `ui.chart_*()` reads it — None unless the shape is a chart.
+    # When it is set, `pivot` is set too: the table under a chart is its text
+    # alternative and keeps rendering (#835).
+    chart: dict[str, Any] | None
     layout: str
     pivot_column: str
     message: str | None

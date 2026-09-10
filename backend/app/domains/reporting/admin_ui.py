@@ -38,6 +38,8 @@ from app.domains.reporting.api import (
     SavedReportError,
     Sort,
     BY_KEY,
+    CHART_LAYOUTS,
+    build_chart,
     build_dataset_ods,
     build_pivot,
     build_pivot_ods,
@@ -73,7 +75,8 @@ PER_PAGE = 50
 # end: the row that says "Quiz — 41 inschrijvingen" links to the activity.
 # The icon per shape of a saved report, so its card shows what it is without
 # running it.
-SHAPE_ICONS = {"table": "table", "pivot": "pivot"}
+SHAPE_ICONS = {"table": "table", "pivot": "pivot", "bar": "chart-bar",
+               "line": "chart-line", "stacked": "chart-stacked"}
 
 DRILL_URLS = {
     "activity": "/admin/activiteiten/{id}",
@@ -172,9 +175,10 @@ def _read_state(params) -> dict:
     # engine refuse a report the user cannot see is broken.
     if pivot_column not in objects:
         pivot_column = ""
-    if layout == "pivot" and not pivot_column:
+    if layout in ("pivot", "stacked") and not pivot_column:
         # Falling back to the last dimension is what a user means by "draaitabel"
-        # when he has not said which axis yet — and it is undoable in one click.
+        # or "gestapeld" when he has not said which axis yet — and it is undoable
+        # in one click. A bar or a line needs no column axis at all.
         dimensies = [k for k in objects if not BY_KEY[k].is_measure]
         pivot_column = dimensies[-1] if len(dimensies) > 1 else ""
 
@@ -273,16 +277,27 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
     totals: dict = {}
     drill_aliases: dict = {}
     pivot: dict | None = None
+    chart: dict | None = None
     message: str | None = None
     has_next = False
 
     if state["objects"]:
         try:
             selection = _selection(state)
-            if selection.layout == "pivot":
-                # A crosstab is not paged: it needs all its rows to lay itself
-                # out, and a half crosstab has subtotals that do not add up.
-                pivot = build_pivot(db, selection, tenant_id=tenant_id).as_context()
+            if selection.layout in ("pivot",) + CHART_LAYOUTS:
+                # Neither a crosstab nor a chart is paged: both need all their
+                # rows to lay themselves out, and half a crosstab has subtotals
+                # that do not add up.
+                gedraaid = build_pivot(db, selection, tenant_id=tenant_id)
+                if selection.layout == "pivot":
+                    pivot = gedraaid.as_context()
+                else:
+                    # A chart reads THIS result — never a second query (CR-06 §6).
+                    chart = build_chart(gedraaid, selection.layout).as_context()
+                    # The table below the chart is its text alternative, and it
+                    # keeps rendering: a picture is never the only way to the
+                    # number (#835 test 6).
+                    pivot = gedraaid.as_context()
             else:
                 result = run_validated(db, selection, tenant_id=tenant_id)
                 columns = result.columns
@@ -311,6 +326,7 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
         drill_aliases=drill_aliases,
         drill_urls=DRILL_URLS,
         pivot=pivot,
+        chart=chart,
         layout=state["layout"],
         pivot_column=state["pivot_column"],
         message=message,
@@ -361,7 +377,9 @@ def _list_view(request: Request, db: Session, email: str) -> ReportListView:
         shapes={r.id: SHAPE_ICONS.get((r.selection or {}).get("layout", "table"),
                                       "table")
                 for r in reports},
-        shape_labels={"table": _("Tabel"), "pivot": _("Draaitabel")},
+        shape_labels={"table": _("Tabel"), "pivot": _("Draaitabel"),
+                      "chart-bar": _("Staafgrafiek"), "chart-line": _("Lijngrafiek"),
+                      "chart-stacked": _("Gestapelde staafgrafiek")},
         q=q, owner=owner, shared=shared,
         csrf_token=_csrf(request),
         nav_items=admin_nav(NAV),
@@ -440,11 +458,14 @@ def report_export(request: Request, db: Session = Depends(get_db),
             object_keys=gekozen.object_keys, filters=gekozen.filters,
             sort=gekozen.sort, limit=5000, offset=0, layout=gekozen.layout,
             pivot_column=gekozen.pivot_column)
-        if selection.layout == "pivot":
-            pivot = build_pivot(db, selection, tenant_id=tenant_id)
-            content = build_pivot_ods(db, pivot.as_context(), selection,
-                                      title=titel, tenant_id=tenant_id)
-            aantal = len(pivot.rows)
+        if selection.layout in ("pivot",) + CHART_LAYOUTS:
+            gedraaid = build_pivot(db, selection, tenant_id=tenant_id)
+            grafiek = (build_chart(gedraaid, selection.layout)
+                       if selection.layout in CHART_LAYOUTS else None)
+            content = build_pivot_ods(db, gedraaid.as_context(), selection,
+                                      title=titel, tenant_id=tenant_id,
+                                      chart=grafiek)
+            aantal = len(gedraaid.rows)
         else:
             result = run_validated(db, selection, tenant_id=tenant_id)
             content = build_report_ods(db, result, selection, title=titel,

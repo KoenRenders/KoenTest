@@ -20,6 +20,7 @@ from typing import Any
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.domains.reporting.chart import chart_data
 from app.domains.reporting.engine import BY_KEY, Selection, build_detail_query
 from app.domains.reporting.service import Dataset, ReportResult, load_dataset
 from app.kernel.ods import build_ods, build_ods_multi
@@ -150,7 +151,7 @@ def report_filename(title: str) -> str:
 
 
 def build_pivot_ods(db: Session, pivot, selection: Selection, *, title: str,
-                    tenant_id: int) -> bytes:
+                    tenant_id: int, chart=None) -> bytes:
     """The crosstab as a spreadsheet: sheet 1 the pivot, sheet 2 the rows behind it.
 
     Sheet 1 is what is on the screen, subtotals included, with the report's name
@@ -204,8 +205,16 @@ def build_pivot_ods(db: Session, pivot, selection: Selection, *, title: str,
     rijen.append(eind)
 
     detail_headers, detail_rows = _detail_rows(db, selection, tenant_id=tenant_id)
-    return build_ods_multi([
+    bladen = [
         {"name": title[:31] or "Draaitabel", "headers": kop, "rows": rijen,
          "intro_rows": intro, "bold_last_row": True},
         {"name": "Detail", "headers": detail_headers, "rows": detail_rows},
-    ])
+    ]
+    if chart is not None:
+        # Sheet 3: the series exactly as they were drawn (CR-06 §5). A bar you
+        # can only measure with a ruler is not evidence; the number behind it is.
+        data = chart_data(chart)
+        bladen.append({"name": "Grafiek", "headers": data.headers,
+                       "rows": [[_cell(waarde) for waarde in rij]
+                                for rij in data.rows]})
+    return build_ods_multi(bladen)

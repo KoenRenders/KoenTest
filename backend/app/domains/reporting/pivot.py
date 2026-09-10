@@ -141,10 +141,10 @@ def build_pivot(db: Session, selection: Selection, *, tenant_id: int) -> Pivot:
 
     validate_filter_values(db, selection, tenant_id=tenant_id)
 
-    if not selection.pivot_column:
+    if not selection.pivot_column and selection.layout == "pivot":
         raise SelectionError(
             "Kies een dimensie voor de kolommen van de draaitabel.")
-    if selection.pivot_column not in selection.object_keys:
+    if selection.pivot_column and selection.pivot_column not in selection.object_keys:
         raise SelectionError(
             f"'{BY_KEY[selection.pivot_column].name}' staat niet in het rapport, "
             "dus kan het ook niet de kolomas zijn.")
@@ -163,15 +163,18 @@ def build_pivot(db: Session, selection: Selection, *, tenant_id: int) -> Pivot:
 
     check_column_cap(db, selection, tenant_id=tenant_id)
 
-    # The grid: one row per (row values, column value).
+    # The grid: one row per (row values, column value). Without a column axis —
+    # a bar or a line chart does not need one — the grid IS the row totals, and
+    # asking for it twice would be two queries for one answer.
     grid = run_selection(
         db,
         Selection(object_keys=selection.object_keys, filters=selection.filters,
                   sort=(), limit=selection.limit or 5000, offset=0),
         tenant_id=tenant_id)
 
-    # The row totals: the same question without the column dimension.
-    row_totals = run_selection(
+    # The row totals: the same question without the column dimension. With no
+    # column axis that IS the grid, so there is nothing to ask twice.
+    row_totals = grid if not selection.pivot_column else run_selection(
         db, _without(selection, {selection.pivot_column}, limit=5000),
         tenant_id=tenant_id)
 
@@ -184,13 +187,14 @@ def build_pivot(db: Session, selection: Selection, *, tenant_id: int) -> Pivot:
 
     cellen: dict[tuple, dict[str, dict[str, Any]]] = {}
     kolomwaarden: list[str] = []
-    for row in grid.rows:
-        waarde = _label(row.get(kolom_key))
-        if waarde not in kolomwaarden:
-            kolomwaarden.append(waarde)
-        cellen.setdefault(_sleutel(row), {})[waarde] = {
-            k: row.get(k) for k in measure_keys}
-    kolomwaarden.sort()
+    if kolom_key:
+        for row in grid.rows:
+            waarde = _label(row.get(kolom_key))
+            if waarde not in kolomwaarden:
+                kolomwaarden.append(waarde)
+            cellen.setdefault(_sleutel(row), {})[waarde] = {
+                k: row.get(k) for k in measure_keys}
+        kolomwaarden.sort()
 
     totalen = {_sleutel(row): {k: row.get(k) for k in measure_keys}
                for row in row_totals.rows}
@@ -199,11 +203,11 @@ def build_pivot(db: Session, selection: Selection, *, tenant_id: int) -> Pivot:
     # row is its own group and a subtotal would repeat the line above it.
     subtotalen: dict[str, dict[str, Any]] = {}
     if len(row_objects) > 1:
-        groep = run_selection(
-            db,
-            _without(selection, {selection.pivot_column} | set(row_keys[1:]),
-                     limit=5000),
-            tenant_id=tenant_id)
+        weg = set(row_keys[1:])
+        if selection.pivot_column:
+            weg.add(selection.pivot_column)
+        groep = run_selection(db, _without(selection, weg, limit=5000),
+                              tenant_id=tenant_id)
         subtotalen = {_label(row.get(row_keys[0])): {k: row.get(k)
                                                      for k in measure_keys}
                       for row in groep.rows}
@@ -230,7 +234,7 @@ def build_pivot(db: Session, selection: Selection, *, tenant_id: int) -> Pivot:
 
     return Pivot(
         row_columns=[_column(o) for o in row_objects],
-        column_column=_column(BY_KEY[kolom_key]),
+        column_column=_column(BY_KEY[kolom_key]) if kolom_key else None,
         column_values=kolomwaarden,
         measures=[_column(m) for m in measures],
         rows=rijen,

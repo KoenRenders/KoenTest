@@ -410,6 +410,34 @@ the macro stays kit code and knows nothing about reporting.
 - With a single measure the second header row is left out: repeating "Aantal"
   under every year doubles the header height and says nothing.
 
+### 2.10 Charts (#835)
+
+Three kinds, as server-rendered SVG: `ui.chart_bar`, `ui.chart_line`,
+`ui.chart_stacked`. No library, no CDN, no data leaving the server.
+
+- **A chart is the crosstab, drawn.** It reads the pivot result and never a second
+  query, so it cannot disagree with the table above it. That is also why it is
+  cheap: the numbers were already there.
+- **The table stays.** A chart is rendered *with* its table, never instead of it —
+  the table is the text alternative, and a picture must never be the only way to
+  the number. Every chart carries a `<title>` and a `<desc>`, and every bar, point
+  and segment its own `<title>` with the value.
+- **Zero is always in the domain**, and the axis ends on a round number. A bar
+  chart whose baseline is not zero exaggerates every difference on it — the most
+  common way a chart lies without anybody writing anything false.
+- **Colours come from the tokens** (`var(--brand-…)`), in a fixed order: brand blue
+  first because a single-series chart must look like the rest of the application,
+  then hues that stay apart; `danger` and `warning` last, because they mean
+  something here and a red bar for no reason reads as a problem.
+- **Responsive through `viewBox`**, never a fixed width. The scale is computed on
+  the server; the macro only places marks. Deciding where zero sits is a rule, and
+  a rule in a template is a rule in two places (§8.3).
+- Subtotal rows are left out of a chart: drawn beside their own parts they would
+  count the same money twice.
+- **Not built, on purpose**: pie and donut (a share drawn as a quantity), scatter,
+  and a second y-axis (two unrelated scales made to look comparable). Three kinds
+  are what a board member needs.
+
 ## 3. Screen types
 
 The admin screens are compositions of seven real patterns. Build those well and

@@ -113,7 +113,8 @@ class Selection:
     pivot_column: str = ""
 
 
-LAYOUTS = ("table", "pivot")
+# A chart is a shape of the same report, so it lives in the same field.
+LAYOUTS = ("table", "pivot", "bar", "line", "stacked")
 
 # A crosstab wider than this is not a report (CR-06 §5.2). The message names the
 # dimension, because "too many columns" without saying which one leaves the user
@@ -196,7 +197,8 @@ def selection_from_dict(data: object, *, limit: int = 200,
     layout = data.get("layout", "table")
     if layout not in LAYOUTS:
         raise SelectionError(
-            f"De vorm '{layout}' bestaat niet. Kies een tabel of een draaitabel.")
+            f"De vorm '{layout}' bestaat niet. Kies een tabel, een draaitabel "
+            "of een grafiek.")
 
     pivot_column = data.get("pivot_column") or ""
     if pivot_column:

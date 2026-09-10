@@ -36,6 +36,14 @@ from app.domains.reporting.exports import (  # noqa: F401
     filter_summary,
     report_filename,
 )
+from app.domains.reporting.chart import (  # noqa: F401
+    CHART_LAYOUTS,
+    SERIES_COLORS,
+    Chart,
+    ChartData,
+    build_chart,
+    chart_data,
+)
 from app.domains.reporting.pivot import (  # noqa: F401
     Pivot,
     PivotRow,
@@ -82,13 +90,16 @@ from app.domains.reporting.universe import (  # noqa: F401
 )
 
 __all__ = [
-    "BY_KEY", "CLASSES", "DIMENSIONS", "FACTS", "JOINS", "LAYOUTS",
+    "BY_KEY", "CHART_LAYOUTS", "CLASSES", "DIMENSIONS", "FACTS", "JOINS",
+    "LAYOUTS", "SERIES_COLORS",
     "MAX_PIVOT_COLUMNS", "MAX_ROWS", "OBJECTS", "OFFER_LIMIT",
-    "Column", "Dataset", "Direction", "Fact", "Filter", "Format", "ObjectKind",
+    "Chart", "ChartData", "Column", "Dataset", "Direction", "Fact", "Filter",
+    "Format", "ObjectKind",
     "Operator", "Pivot", "PivotRow", "QueryPlan", "ReportResult", "Role",
     "SavedReportError", "Selection", "SelectionError", "Sort", "UniverseObject",
     "build_dataset_ods", "build_detail_query", "build_member_count_query",
-    "build_pivot", "build_pivot_ods", "build_query", "build_report_ods",
+    "build_chart", "build_pivot", "build_pivot_ods", "build_query",
+    "build_report_ods", "chart_data",
     "check_column_cap", "classes_of", "classes_with_objects", "copy_report",
     "dataset_filename",
     "delete_report", "dimension_values", "fact_columns", "filter_summary",

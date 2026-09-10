@@ -148,3 +148,46 @@ def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
         "/admin/tenants", "/admin/design-system", "/admin/info",
     ]
     assert hrefs.index("/admin/rapporten") == hrefs.index("/admin/betalingen") + 1
+
+
+def test_the_dashboard_is_untouched(client, db_session):
+    """#835 test 5, in the only form that can be true.
+
+    Byte-for-byte equality with "before reporting" is not the right measure: the
+    admin shell gained one menu item in phase 2, so every admin page's HTML
+    differs by that one entry — which is exactly what
+    `test_the_menu_gained_exactly_one_item_and_nothing_else_moved` already pins.
+
+    What phase 4 has to prove is narrower and sharper: the dashboard itself was
+    not touched. Its six tiles are the same six, they still link where they linked,
+    and nothing on it points at a report. No "temporary" link, per Koen's rule of
+    10 September.
+    """
+    from pathlib import Path
+
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+
+    seed(db_session)
+    login(client, db_session, SEEDED_ADMIN_EMAIL, ("ADMIN",))
+    pagina = client.get("/admin")
+    assert pagina.status_code == 200
+
+    for titel, doel in [("Leden", "/admin/leden"),
+                        ("Actieve leden", "/admin/leden"),
+                        ("Leden (personen)", "/admin/leden"),
+                        ("Komende activiteiten", "/admin/activiteiten"),
+                        ("Open taken (werkbank)", "/admin/werkbank"),
+                        ("Openstaand saldo", "/admin/betalingen")]:
+        assert titel in pagina.text, titel
+        assert doel in pagina.text, doel
+
+    inhoud = pagina.text.split('id="main"')[-1] if 'id="main"' in pagina.text \
+        else pagina.text
+    assert inhoud.count("/admin/rapporten") <= 1, (
+        "alleen het menu-item mag naar Rapporten wijzen, geen tegel")
+
+    bron = Path(__file__).resolve().parents[1] / "app"
+    for pad in (bron / "ui" / "system_ui.py",
+                bron / "ui" / "templates" / "admin_dashboard.html"):
+        assert "rapport" not in pad.read_text(encoding="utf-8").lower(), (
+            f"{pad.name} weet niets van rapportering, en dat blijft zo")
