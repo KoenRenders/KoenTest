@@ -65,7 +65,7 @@ def seed(db) -> dict:
     db.add(postal)
     db.flush()
 
-    def household(tenant: int, persons: int) -> tuple:
+    def household(tenant: int, persons: int, house_number: str = "1") -> tuple:
         member = Member(tenant_id=tenant)
         db.add(member)
         db.flush()
@@ -80,17 +80,37 @@ def seed(db) -> dict:
                                 relation_type="HOOFDLID" if index == 0 else "PARTNER"))
             people.append(person)
         db.add(Address(tenant_id=tenant, person_id=people[0].id, street="Straat",
-                       house_number="1", postal_code_id=postal.id))
+                       house_number=house_number, postal_code_id=postal.id))
         db.flush()
         return member, people
 
     # ── Households ──────────────────────────────────────────────────────────
     # H1 renews every year, H2 lapses after the first, H3 joins in the last one.
-    h1, h1_people = household(TENANT_A, 2)
-    h2, _h2_people = household(TENANT_A, 1)
-    h3, h3_people = household(TENANT_A, 3)
-    h4, _h4_people = household(TENANT_A, 2)
+    #
+    # The house numbers are 2, 9, 10 and 12A in one street, and that is not
+    # decoration: `house_number` is a `String(10)`, so alphabetically "10" sorts
+    # before "9" and a street comes back shuffled. Any report that orders on it
+    # needs natural sorting, and a seed of all-1s would never show that (#850).
+    # H3 has two rows with a partner relation type, which is what keeps a
+    # household-grain report honest about not doubling on it.
+    h1, h1_people = household(TENANT_A, 2, house_number="2")
+    h2, _h2_people = household(TENANT_A, 1, house_number="9")
+    h3, h3_people = household(TENANT_A, 3, house_number="10")
+    h4, _h4_people = household(TENANT_A, 2, house_number="12A")
     hb, _hb_people = household(TENANT_B, 4)
+
+    # H2's head of household has moved. `uq_addresses_person_id` (migration 053)
+    # is UNIQUE (person_id) WHERE deleted_at IS NULL, so this is allowed and it is
+    # what everybody who ever moves looks like: one live address, one or more
+    # soft-deleted ones behind it. Without such a person in the seed, a grain test
+    # on `reporting.d_address` proves nothing — the unique index holds it green
+    # whatever the view does.
+    verhuisd = db.query(Address).filter(
+        Address.person_id == _h2_people[0].id).one()
+    soft_delete(verhuisd)
+    db.add(Address(tenant_id=TENANT_A, person_id=_h2_people[0].id,
+                   street="Straat", house_number="9", postal_code_id=postal.id))
+    db.flush()
 
     def membership(member, year: int, tenant: int = TENANT_A, valid: bool = False):
         row = Membership(
@@ -211,6 +231,9 @@ def seed(db) -> dict:
         "component_id": component.id,
         "product_id": product.id,
         "registrations": {"member": reg_member.id, "guest": reg_guest.id},
+        "heads": {"h1": h1_people[0].id, "h2": _h2_people[0].id,
+                  "h3": h3_people[0].id, "h4": _h4_people[0].id},
+        "moved_person": _h2_people[0].id,
     }
 
 

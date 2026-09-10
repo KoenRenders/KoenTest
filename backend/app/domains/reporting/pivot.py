@@ -89,6 +89,39 @@ class Pivot:
         }
 
 
+def _natural_key(waarde: str) -> tuple:
+    """Sort key that reads a number in a label as a number.
+
+    The pivot orders its rows in Python, not in SQL, so the natural sort the
+    engine puts in the ORDER BY does not reach here — and a house number is text,
+    so "10" would come before "9" and a street would come back shuffled (#850).
+    Splitting on digit runs fixes that for every label that carries a number:
+    house numbers, but also "Onderdeel 2" next to "Onderdeel 10".
+
+    Digits sort as (0, number) and text as (1, text), so a numeric part always
+    precedes a textual one and the two never compare against each other.
+    """
+    delen: list[tuple[int, Any]] = []
+    getal = ""
+    tekst = ""
+    for teken in waarde:
+        if teken.isdigit():
+            if tekst:
+                delen.append((1, tekst.lower()))
+                tekst = ""
+            getal += teken
+        else:
+            if getal:
+                delen.append((0, int(getal)))
+                getal = ""
+            tekst += teken
+    if getal:
+        delen.append((0, int(getal)))
+    if tekst:
+        delen.append((1, tekst.lower()))
+    return tuple(delen)
+
+
 def _label(value: Any) -> str:
     """A cell label a person reads. An empty group is "Onbekend", never blank.
 
@@ -141,9 +174,12 @@ def build_pivot(db: Session, selection: Selection, *, tenant_id: int) -> Pivot:
 
     validate_filter_values(db, selection, tenant_id=tenant_id)
 
-    if not selection.pivot_column and selection.layout == "pivot":
-        raise SelectionError(
-            "Kies een dimensie voor de kolommen van de draaitabel.")
+    # A pivot without a column dimension is not an error: it is a grouped listing
+    # with a subtotal per group, which is what "Leden per bestuurslid" (#850) is —
+    # one row per household, a subtotal of households per board member. Everything
+    # below already handles an empty `pivot_column`; only this refusal stood in
+    # the way. What it protected against is a table with a single Totaal column,
+    # and that is exactly the shape being asked for.
     if selection.pivot_column and selection.pivot_column not in selection.object_keys:
         raise SelectionError(
             f"'{BY_KEY[selection.pivot_column].name}' staat niet in het rapport, "
@@ -194,7 +230,7 @@ def build_pivot(db: Session, selection: Selection, *, tenant_id: int) -> Pivot:
                 kolomwaarden.append(waarde)
             cellen.setdefault(_sleutel(row), {})[waarde] = {
                 k: row.get(k) for k in measure_keys}
-        kolomwaarden.sort()
+        kolomwaarden.sort(key=_natural_key)
 
     totalen = {_sleutel(row): {k: row.get(k) for k in measure_keys}
                for row in row_totals.rows}
@@ -214,7 +250,8 @@ def build_pivot(db: Session, selection: Selection, *, tenant_id: int) -> Pivot:
 
     rijen: list[PivotRow] = []
     vorige_groep: str | None = None
-    for sleutel in sorted(totalen):
+    for sleutel in sorted(totalen,
+                          key=lambda s: tuple(_natural_key(deel) for deel in s)):
         if subtotalen and vorige_groep is not None and sleutel[0] != vorige_groep:
             rijen.append(PivotRow(labels=[vorige_groep], cells={},
                                   total=subtotalen.get(vorige_groep, {}),

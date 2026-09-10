@@ -183,6 +183,10 @@ class UniverseObject:
     drill_sql: str | None = None
     # A dimension that cuts people into groups small enough to recognise somebody
     # by. Grouping on one of these turns on the small-cell threshold (#841).
+    # An expression to ORDER BY instead of the object's own value. For a label
+    # that is not sortable as text: `house_number` is a String(10), so "10" sorts
+    # before "9". Empty means "sort on the value itself", which is the normal case.
+    sort_sql: str = ""
     sensitive: bool = False
     # A measure that may be added across merged rows. True for a SUM or a plain
     # COUNT; false for an average or a distinct count, where the sum of the parts
@@ -344,6 +348,13 @@ JOINS: tuple[Join, ...] = (
     # person grain, and chaining it to the household would count a household once
     # per resident with an address (#850).
     Join("d_person", "d_address", (("person_id", "person_id"),)),
+    # The Gezinnen fact reaches the person dimension through the HEAD of the
+    # household, which is how a household-grain report gets at the address without
+    # the address changing grain. Deliberately on the fact and not on `d_member`:
+    # on the dimension it would make the person reachable from memberships and
+    # payments too, where it is refused today. Here the person objects describe
+    # the hoofdlid, and their descriptions say so.
+    Join("f_members", "d_person", (("head_person_id", "person_id"),)),
 )
 
 
@@ -391,7 +402,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
 
     # ── Leden ───────────────────────────────────────────────────────────────
     UniverseObject(
-        key="membership_households", name="Aantal gezinnen", klass="Leden",
+        key="membership_households", name="Gezinnen met lidmaatschap", klass="Leden",
         kind=ObjectKind.MEASURE, view="f_memberships", sql="SUM({view}.is_member)",
         format=Format.COUNT, role=Role.ADMIN, fact="f_memberships",
         description="Gezinnen met een lidmaatschap in dat jaar.",
@@ -508,15 +519,75 @@ OBJECTS: tuple[UniverseObject, ...] = (
         ),
     ),
     UniverseObject(
+        key="address_street", name="Straat", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="d_address",
+        sql="COALESCE({view}.street, 'Geen adres')",
+        format=Format.LABEL, role=Role.MEMBER_DETAILS,
+        description="De straat van dit adres.",
+    ),
+    UniverseObject(
+        key="address_house_number", name="Huisnummer", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="d_address",
+        sql="COALESCE({view}.house_number, '')",
+        sort_sql="{view}.house_number_num, {view}.house_number_rest",
+        format=Format.LABEL, role=Role.MEMBER_DETAILS,
+        description=(
+            "Het huisnummer. Wordt natuurlijk gesorteerd — het is tekst, dus "
+            "alfabetisch zou 10 vóór 9 komen en staat een straat door elkaar."
+        ),
+    ),
+    UniverseObject(
+        key="address_bus", name="Bus", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="d_address", sql="{view}.bus_number",
+        format=Format.LABEL, role=Role.MEMBER_DETAILS,
+        description="Het busnummer, leeg als er geen is.",
+    ),
+    UniverseObject(
+        key="member_head_name", name="Hoofdlid", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="d_member", sql="{view}.head_name",
+        format=Format.LABEL, role=Role.MEMBER_DETAILS,
+        description=(
+            "De naam van het hoofdlid van dit gezin. Op gezinskorrel, dus één per "
+            "rij."
+        ),
+    ),
+    UniverseObject(
+        key="member_partner_name", name="Partner", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="d_member", sql="{view}.partner_name",
+        format=Format.LABEL, role=Role.MEMBER_DETAILS,
+        description=(
+            "De naam van de partner, leeg als er geen is. Staan er twee partners "
+            "in één gezin, dan toont dit er één — de korrel blijft één rij per "
+            "gezin."
+        ),
+    ),
+    UniverseObject(
+        key="member_valid_today", name="Vandaag geldig lid", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="f_members",
+        sql=_boolean_label("is_valid_today"), format=Format.LABEL,
+        role=Role.ADMIN, fact="f_members",
+        description=(
+            "Of dit gezin vandaag een geldig lidmaatschap heeft. Iets anders dan "
+            "'lid voor dit jaar': wie in oktober voor volgend jaar aansluit, is "
+            "vandaag geldig en hoort bij volgend jaar."
+        ),
+    ),
+    UniverseObject(
         key="person_age_group", name="Leeftijdsgroep", klass="Leden",
         kind=ObjectKind.DIMENSION, view="d_person", sql="{view}.age_group",
         format=Format.LABEL, role=Role.ADMIN, sensitive=True,
-        description="Leeftijdsklasse van de inschrijver, berekend op vandaag.",
+        description=(
+            "Leeftijdsklasse, berekend op vandaag. Van de persoon in het feit: de "
+            "inschrijver bij inschrijvingen, het hoofdlid bij een gezinsrapport."
+        ),
     ),
     UniverseObject(
         key="person_gender", name="Geslacht", klass="Leden", kind=ObjectKind.DIMENSION,
         view="d_person", sql="{view}.gender_label", format=Format.LABEL, role=Role.ADMIN, sensitive=True,
-        description="Geslacht van de inschrijver.",
+        description=(
+            "Geslacht van de persoon in het feit: de inschrijver bij "
+            "inschrijvingen, het hoofdlid bij een gezinsrapport."
+        ),
     ),
     UniverseObject(
         key="person_relation_type", name="Relatietype", klass="Leden",
@@ -832,13 +903,15 @@ OBJECTS: tuple[UniverseObject, ...] = (
         ),
     ),
     UniverseObject(
-        key="member_total_count", name="Alle gezinnen", klass="Leden",
+        key="member_total_count", name="Gezinnen (alle)", klass="Leden",
         kind=ObjectKind.MEASURE, view="f_members",
         sql="COUNT(DISTINCT {view}.member_id)", format=Format.COUNT,
         role=Role.ADMIN, fact="f_members", additive=False,
         description=(
             "Elk gezin in de administratie, of het ooit lid was of niet. Verschilt "
-            "van 'Aantal gezinnen', dat alleen telt wie in dat jaar lid was."
+            "van 'Gezinnen met lidmaatschap', dat alleen telt wie in dat jaar lid "
+            "was — de twee feiten schelen drie letters (`f_members` tegenover "
+            "`f_memberships`) en het verschil is gezin tegenover lidmaatschapsjaar."
         ),
     ),
     UniverseObject(

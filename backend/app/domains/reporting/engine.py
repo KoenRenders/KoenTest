@@ -344,6 +344,20 @@ def _view_alias(view: str) -> str:
     return view
 
 
+def _sort_expression(obj: UniverseObject) -> str:
+    """What to ORDER BY for this object: its alias, or the key it declares.
+
+    A label is normally sortable as itself. `house_number` is not — it is a
+    `String(10)`, so "10" sorts before "9" and a street comes back shuffled. Such
+    an object carries `sort_sql`, and then the order is on that instead. It can be
+    more than one expression (the number, then the rest), so it is spliced in as
+    written rather than wrapped.
+    """
+    if not obj.sort_sql:
+        return f'"{obj.key}"'
+    return obj.sort_sql.format(view=_view_alias(obj.view))
+
+
 def _expression(obj: UniverseObject) -> str:
     return obj.sql.format(view=_view_alias(obj.view))
 
@@ -510,6 +524,11 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
 
     group_by = [_expression(o) for o in grouped]
     group_by += [d for d in (_drill_expression(o) for o in grouped) if d]
+    # An object that orders on something other than itself has to group on it as
+    # well — Postgres refuses to order by a column that is not in the GROUP BY,
+    # and it is functionally dependent anyway (one house number, one sort key).
+    group_by += [deel.strip() for o in grouped if o.sort_sql
+                 for deel in _sort_expression(o).split(",")]
 
     # #761: the default sort ends in a unique key. Appending every grouping
     # expression is exactly that — a group-by set identifies its row by
@@ -524,15 +543,18 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
                 f"Je kunt niet sorteren op '{_object(sort.object_key).name}': dat "
                 "object staat niet in het rapport."
             )
-        order_parts.append(f'"{sort.object_key}" {sort.direction.value.upper()}')
+        richting = sort.direction.value.upper()
+        order_parts += [f"{deel.strip()} {richting}" for deel
+                        in _sort_expression(_object(sort.object_key)).split(",")]
         already_sorted.add(sort.object_key)
     # Deduplicated by COLUMN, not by the whole term: a column the user sorted
     # descending would otherwise come back as a second, ascending term. Postgres
     # ignores that second mention, so nothing breaks — which is exactly why it
     # would have stayed in the statement, unread, until somebody debugging an order
     # spent an afternoon on it.
-    order_by = order_parts + [f'"{o.key}" ASC' for o in grouped
-                              if o.key not in already_sorted]
+    order_by = order_parts + [f"{deel.strip()} ASC" for o in grouped
+                              if o.key not in already_sorted
+                              for deel in _sort_expression(o).split(",")]
 
     limit = max(1, min(selection.limit, MAX_ROWS))
     params["tenant_id"] = tenant_id
@@ -666,8 +688,12 @@ def _build_detail_list(selection: Selection, objects: list[UniverseObject], *,
     from_clause = _from_clause(fact, views, joins)
     where = "\n  AND ".join(conditions)
 
-    order_parts = [f'"{s.object_key}" {s.direction.value.upper()}'
-                   for s in selection.sort if s.object_key in selection.object_keys]
+    # A listing sorts the same way a table does, so an object with its own sort
+    # key uses it here too — a detail list of addresses is exactly where a
+    # shuffled street would show.
+    order_parts = [f"{deel.strip()} {s.direction.value.upper()}"
+                   for s in selection.sort if s.object_key in selection.object_keys
+                   for deel in _sort_expression(_object(s.object_key)).split(",")]
     natuurlijk = [fragment.format(view=_view_alias(fact))
                   for fragment in FACT_BY_KEY[fact].detail_order]
     order_by = order_parts + natuurlijk

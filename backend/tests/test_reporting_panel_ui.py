@@ -130,9 +130,10 @@ def test_the_shipped_reports_return_the_numbers_of_the_seed(db_session, situatio
                list_saved_reports(db_session, tenant_id=TENANT_A, viewer=ADMIN_EMAIL)
                if r.builtin_key}
     # Seven since #833, ten since #841 (the questions of CR-06 §3), plus the
-    # payments listing of #841 point 4, the six dashboard tiles of #848 and the
-    # board-member work list of #849.
-    assert len(reports) == 18, "de achttien meegeleverde rapporten staan er"
+    # payments listing of #841 point 4, the six dashboard tiles of #848, the
+    # board-member work list of #849 and the members-per-board-member listing of
+    # #850.
+    assert len(reports) == 19, "de negentien meegeleverde rapporten staan er"
 
     def run(key):
         selection = selection_of(reports[key])

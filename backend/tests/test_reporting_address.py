@@ -17,6 +17,10 @@ gate is: does the view still filter the same way the index does? A test that onl
 counted rows would be green forever, because the constraint keeps it green while
 the view can be broken independently.
 
+**So the seed carries somebody who has moved** — H2's head of household, with the
+old address soft-deleted and a new one live. Without such a person these tests
+would prove nothing at all, because the index keeps them green.
+
 **The counter-proof was run, not described.** `d_address` was replaced by the same
 view with `WHERE a.deleted_at IS NULL` removed — the single line at issue — and
 `test_the_grain_is_one_address_per_person` went red naming the person and the two
@@ -37,11 +41,17 @@ from app.domains.reporting.api import Selection, build_query, run_validated
 from tests._reporting_seed import TENANT_A, TENANT_B, seed
 
 
+# The migration that currently defines `d_address`. Move the view again and this
+# is the one line to follow it — the tests break loudly rather than silently
+# rebuilding a stale definition.
+ADDRESS_MIGRATION = "109_reporting_members_per_board_member.py"
+
+
 def _migration():
     """The migration module, so the view SQL lives in exactly one place."""
     pad = (Path(__file__).resolve().parents[1] / "alembic" / "versions"
-           / "108_reporting_address_dimension.py")
-    spec = importlib.util.spec_from_file_location("m108", pad)
+           / ADDRESS_MIGRATION)
+    spec = importlib.util.spec_from_file_location("address_migration", pad)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
@@ -59,32 +69,20 @@ def _grain_violations(db) -> list[tuple[int, int]]:
         "GROUP BY person_id HAVING COUNT(*) > 1 ORDER BY person_id"))]
 
 
-def _move_house(db, person_id: int) -> None:
-    """What a move looks like in the data: the old address soft-deleted, a new one.
-
-    The partial index allows exactly this, so it is the situation the view has to
-    survive — and the one it would fail if it stopped filtering.
-    """
-    db.execute(text("UPDATE mdm.addresses SET deleted_at = NOW() "
-                    "WHERE person_id = :p AND deleted_at IS NULL"), {"p": person_id})
-    pc = db.query(PostalCode).first()
-    db.add(Address(tenant_id=TENANT_A, person_id=person_id, street="Nieuwstraat",
-                   house_number="7", postal_code_id=pc.id))
-    db.commit()
-
-
 def test_the_grain_is_one_address_per_person(db_session, situation):
     """The gate this issue rests on, checked on a person who has moved.
 
     An unmoved seed proves nothing here: the unique index would hold the line
-    whatever the view does. Only a soft-deleted address makes the view's own
-    filter the thing being tested.
+    whatever the view does. The seed's H2 head has a soft-deleted address behind
+    his current one, and that is what makes the view's own filter the thing under
+    test.
     """
-    persoon = db_session.execute(text(
-        "SELECT person_id FROM reporting.d_address WHERE tenant_id = :t "
-        "ORDER BY person_id LIMIT 1"), {"t": TENANT_A}).scalar()
-    assert persoon, "de seed geeft minstens één persoon met een adres"
-    _move_house(db_session, persoon)
+    assert db_session.execute(text(
+        "SELECT COUNT(*) FROM mdm.addresses "
+        "WHERE person_id = :p AND deleted_at IS NOT NULL"),
+        {"p": situation["moved_person"]}).scalar() == 1, (
+        "de seed hoort iemand te bevatten die verhuisd is; zonder zo iemand "
+        "toetst deze gate niets")
 
     fouten = _grain_violations(db_session)
     assert not fouten, (
@@ -100,10 +98,7 @@ def test_the_gate_goes_red_when_the_view_forgets_soft_delete(db_session, situati
     it gone, a person who has moved once appears twice and the grain check names
     them; putting the migration's own SQL back makes it green again.
     """
-    persoon = db_session.execute(text(
-        "SELECT person_id FROM reporting.d_address WHERE tenant_id = :t "
-        "ORDER BY person_id LIMIT 1"), {"t": TENANT_A}).scalar()
-    _move_house(db_session, persoon)
+    persoon = situation["moved_person"]
     m = _migration()
     assert "WHERE a.deleted_at IS NULL" in m.D_ADDRESS, (
         "de weergave hoort die filter te dragen; verdwijnt hij, dan gaat deze "
@@ -131,21 +126,21 @@ def test_a_broken_grain_would_inflate_an_additive_measure(db_session, situation)
     a number and stops being the right one.
     """
     def totaal() -> int:
-        resultaat = run_validated(
-            db_session,
-            Selection(object_keys=("address_municipality", "registration_quantity")),
-            tenant_id=TENANT_A)
-        return sum(r.get("registration_quantity") or 0 for r in resultaat.rows)
+        """Members counted per municipality, through the address.
 
-    persoon = db_session.execute(text(
-        "SELECT r.person_id FROM activities.registrations r "
-        "JOIN mdm.addresses a ON a.person_id = r.person_id AND a.deleted_at IS NULL "
-        "WHERE r.tenant_id = :t LIMIT 1"), {"t": TENANT_A}).scalar()
-    assert persoon, "de seed geeft een inschrijver met een adres"
+        `membership_person_count` and not a distinct count: an additive measure is
+        the one that notices a duplicated join row, which is the whole point here.
+        The seed's moved person has memberships, so his second address row is what
+        does the inflating.
+        """
+        return run_validated(
+            db_session,
+            Selection(object_keys=("address_municipality",
+                                   "membership_person_count")),
+            tenant_id=TENANT_A).totals["membership_person_count"]
+
     goed = totaal()
     assert goed > 0, "er valt iets te tellen, anders meet deze test niets"
-
-    _move_house(db_session, persoon)
     m = _migration()
     try:
         db_session.execute(text(

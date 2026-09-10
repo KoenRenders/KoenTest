@@ -196,13 +196,24 @@ def test_exactly_the_cap_still_works(db_session, situation):
     assert len(kruis.column_values) == MAX_PIVOT_COLUMNS
 
 
-def test_a_pivot_without_a_column_dimension_says_what_to_do(db_session, situation):
-    with pytest.raises(SelectionError) as exc:
-        build_pivot(db_session,
-                    Selection(object_keys=("payment_method", "payment_amount"),
-                              layout="pivot"),
-                    tenant_id=TENANT_A)
-    assert "kolommen van de draaitabel" in str(exc.value)
+def test_a_pivot_without_a_column_dimension_is_a_grouped_listing(db_session,
+                                                                 situation):
+    """This used to be refused, and #850 needed it.
+
+    "Leden per bestuurslid" is one row per household with a subtotal of households
+    per board member — a pivot whose only column is the total. Everything in
+    `build_pivot` already handled an empty column dimension; only the refusal
+    stood in the way, and what it protected against is exactly the shape being
+    asked for.
+    """
+    pivot = build_pivot(db_session,
+                        Selection(object_keys=("payment_method", "payment_amount"),
+                                  layout="pivot"),
+                        tenant_id=TENANT_A)
+    assert pivot.rows, "een kolomloze draaitabel levert gewoon rijen"
+    assert pivot.column_column is None, "geen kolomas, want die is niet gekozen"
+    assert not pivot.column_values
+    assert all(rij.total for rij in pivot.rows), "elke rij draagt haar totaal"
 
 
 def test_a_pivot_needs_a_row_dimension_too(db_session, situation):

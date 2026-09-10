@@ -79,6 +79,7 @@ Every join also matches on `tenant_id`, unconditionally — a dimension row can 
 | `f_activities` | `d_date` | `date_key` = `date_key` |
 | `d_member` | `d_board_member` | `board_member_id` = `board_member_id` |
 | `d_person` | `d_address` | `person_id` = `person_id` |
+| `f_members` | `d_person` | `head_person_id` = `person_id` |
 
 ## Roles
 
@@ -86,9 +87,9 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 
 | Universe role | Meaning | Objects |
 |---|---|---|
-| `admin` | the default: what an admin screen already shows | 56 |
+| `admin` | the default: what an admin screen already shows | 57 |
 | `finance` | money — every measure formatted as money, and the Betalingen class | 27 |
-| `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 4 |
+| `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 9 |
 
 ## Objects
 
@@ -98,7 +99,7 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 
 | Key | Name | Type | Format | Role | Source | Description |
 |---|---|---|---|---|---|---|
-| `membership_households` | Aantal gezinnen | measure | count | `admin` | `SUM(f_memberships.is_member)` | Gezinnen met een lidmaatschap in dat jaar. |
+| `membership_households` | Gezinnen met lidmaatschap | measure | count | `admin` | `SUM(f_memberships.is_member)` | Gezinnen met een lidmaatschap in dat jaar. |
 | `membership_persons` | Aantal personen | measure | count | `admin` | `SUM(f_memberships.person_count)` | Personen in de gezinnen met een lidmaatschap in dat jaar. |
 | `membership_new` | Nieuw | measure | count | `admin` | `SUM(f_memberships.is_new)` | Gezinnen die dat jaar lid werden en het jaar ervoor niet waren. |
 | `membership_renewed` | Vernieuwd | measure | count | `admin` | `SUM(f_memberships.is_renewed)` | Gezinnen die dat jaar én het jaar ervoor lid waren. |
@@ -115,12 +116,18 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `address_line` | Adres | detail | label | `member_details` | `COALESCE(d_address.address_line, 'Geen adres')` | Straat, huisnummer en bus van deze persoon; 'Geen adres' als er geen is. Voor 'waar woont wie'; voor 'hoeveel gezinnen per gemeente' neem je Gemeente, die al op gezinskorrel staat. |
 | `address_municipality` | Gemeente (adres) | dimension | label | `admin` | `COALESCE(d_address.municipality, 'Geen adres')` | De gemeente van dit adres, op persoonskorrel. Verschilt van 'Gemeente', die het gezin volgt: daar telt een gezin één keer, hier elke bewoner met een adres. Wie geen adres heeft, valt onder 'Geen adres' en verdwijnt dus niet uit het rapport. |
 | `address_postal_code` | Postcode (adres) | dimension | label | `admin` | `COALESCE(d_address.postal_code, 'Geen adres')` | De postcode van dit adres, op persoonskorrel; 'Geen adres' voor wie er geen heeft. |
-| `person_age_group` | Leeftijdsgroep | dimension | label | `admin` | `d_person.age_group` | Leeftijdsklasse van de inschrijver, berekend op vandaag. |
-| `person_gender` | Geslacht | dimension | label | `admin` | `d_person.gender_label` | Geslacht van de inschrijver. |
+| `address_street` | Straat | dimension | label | `member_details` | `COALESCE(d_address.street, 'Geen adres')` | De straat van dit adres. |
+| `address_house_number` | Huisnummer | dimension | label | `member_details` | `COALESCE(d_address.house_number, '')` | Het huisnummer. Wordt natuurlijk gesorteerd — het is tekst, dus alfabetisch zou 10 vóór 9 komen en staat een straat door elkaar. |
+| `address_bus` | Bus | dimension | label | `member_details` | `d_address.bus_number` | Het busnummer, leeg als er geen is. |
+| `member_head_name` | Hoofdlid | dimension | label | `member_details` | `d_member.head_name` | De naam van het hoofdlid van dit gezin. Op gezinskorrel, dus één per rij. |
+| `member_partner_name` | Partner | dimension | label | `member_details` | `d_member.partner_name` | De naam van de partner, leeg als er geen is. Staan er twee partners in één gezin, dan toont dit er één — de korrel blijft één rij per gezin. |
+| `member_valid_today` | Vandaag geldig lid | dimension | label | `admin` | `CASE WHEN f_members.is_valid_today THEN 'Ja' ELSE 'Nee' END` | Of dit gezin vandaag een geldig lidmaatschap heeft. Iets anders dan 'lid voor dit jaar': wie in oktober voor volgend jaar aansluit, is vandaag geldig en hoort bij volgend jaar. |
+| `person_age_group` | Leeftijdsgroep | dimension | label | `admin` | `d_person.age_group` | Leeftijdsklasse, berekend op vandaag. Van de persoon in het feit: de inschrijver bij inschrijvingen, het hoofdlid bij een gezinsrapport. |
+| `person_gender` | Geslacht | dimension | label | `admin` | `d_person.gender_label` | Geslacht van de persoon in het feit: de inschrijver bij inschrijvingen, het hoofdlid bij een gezinsrapport. |
 | `person_relation_type` | Relatietype | dimension | label | `admin` | `d_person.relation_type_label` | Hoofdlid, partner of (meerderjarig) kind binnen het gezin. |
 | `membership_person_count` | Aantal leden (personen) | measure | count | `admin` | `COUNT(f_membership_persons.person_id)` | Personen met een lidmaatschap in dat jaar. Eén rij per persoon per jaar, dus tellen is optellen. |
 | `board_member` | Verantwoordelijk bestuurslid | dimension | label | `member_details` | `COALESCE(d_board_member.board_member_name, 'Niet toegewezen')` | Het bestuurslid dat dit gezin tot zijn verantwoordelijkheid neemt. Gezinnen zonder toewijzing staan onder 'Niet toegewezen' — dat is een van de nuttigste uitkomsten van dit rapport, geen gat. Draagt de huidige toewijzing, geen historie. |
-| `member_total_count` | Alle gezinnen | measure | count | `admin` | `COUNT(DISTINCT f_members.member_id)` | Elk gezin in de administratie, of het ooit lid was of niet. Verschilt van 'Aantal gezinnen', dat alleen telt wie in dat jaar lid was. |
+| `member_total_count` | Gezinnen (alle) | measure | count | `admin` | `COUNT(DISTINCT f_members.member_id)` | Elk gezin in de administratie, of het ooit lid was of niet. Verschilt van 'Gezinnen met lidmaatschap', dat alleen telt wie in dat jaar lid was — de twee feiten schelen drie letters (`f_members` tegenover `f_memberships`) en het verschil is gezin tegenover lidmaatschapsjaar. |
 | `member_ever_member` | Ooit lid geweest | dimension | label | `admin` | `CASE WHEN f_members.was_ever_member THEN 'Ja' ELSE 'Nee' END` | Of dit gezin ooit een lidmaatschap had. |
 | `membership_active_count` | Actieve lidmaatschappen | measure | count | `admin` | `SUM(f_memberships.active_membership_count)` | Lidmaatschappen die op actief staan. Telt lidmaatschappen en geen gezinnen — dat is wat de dashboardtegel telt. |
 | `membership_person_valid_today` | Vandaag geldig | dimension | label | `admin` | `CASE WHEN f_membership_persons.is_valid_today THEN 'Ja' ELSE 'Nee' END` | Of het lidmaatschap van deze persoon vandaag geldig is. Iets anders dan 'lid voor dit jaar': wie in oktober voor volgend jaar aansluit, is vandaag geldig en hoort bij volgend jaar. |
