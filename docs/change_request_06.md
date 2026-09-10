@@ -225,10 +225,13 @@ stay exactly as they are (§2.8): no link, no redirect, no removal.
 ### 5.1 Menu and access
 
 - **"Rapporten" is a top-level item in the admin menu** (`_ADMIN_NAV`), placed
-  after "Betalingen". Visible to ADMIN, OPERATOR and FINANCE. A FINANCE-only
-  user — who today sees only "Betalingen" in the menu — sees "Rapporten" too,
-  with only the Betalingen class in the objects pane; the role fence (§7.2)
-  does the rest.
+  after "Betalingen". **In v2.3.0 visible to ADMIN and OPERATOR only** (decided
+  by Koen, 10 September 2026: no new security surface in this release). Those
+  roles already see every screen, so no per-object role fence is needed yet;
+  the universe still records a role per object (§4.2) so that opening
+  "Rapporten" to FINANCE-only users later is a switch, not a rebuild. Until
+  then a FINANCE-only user does not see the menu item and gets the same 403 as
+  on any other admin screen.
 - **`/admin/rapporten`** is a records list (design-system C1): title, "+ Nieuw
   rapport", search, filters (class, owner, shared), one card per saved report
   with its layout icon (table / pivot / chart), last run and owner. Opening a
@@ -275,9 +278,12 @@ with the table.
    and injected into every query by the engine, with a test that seeds two
    tenants and proves a selection returns only its own rows — table, pivot,
    export.
-2. **Roles on objects**: the objects list shows only what the role allows; the
-   engine refuses a selection containing an object outside the role, with the
-   reason (#680: assert the reason, not a status).
+2. **Roles on objects** — declared in the universe from day one, enforced
+   from the release that opens "Rapporten" beyond ADMIN/OPERATOR (§5.1). From
+   then on: the objects list shows only what the role allows, and the engine
+   refuses a selection containing an object outside the role, with the reason
+   (#680: assert the reason, not a status). In v2.3.0 the whole screen sits
+   behind `require_admin_ui`, like every other admin screen.
 3. **No person-level data in the universe by default.** `d_person` carries
    age group, gender, relation type — no name, no contact data. Names and
    e-mails are details behind `member_details`, the same role that sees the
@@ -384,7 +390,9 @@ The few decisions the CLI cannot take by default:
    dates, memberships a calendar `year`. If the board thinks in seasons
    (September to June), `d_date` gets a derived `season` attribute and
    `d_activity` uses it; if not, the year of the first date stands.
-3. **FINANCE-only users and the Rapporten menu**: as proposed in §5.1 they see
-   it with the Betalingen class only. Alternative: hide it for them entirely.
+3. ~~FINANCE-only users and the Rapporten menu~~ — **decided 10 September
+   2026: not in v2.3.0.** "Rapporten" is ADMIN/OPERATOR only; no new security
+   surface in this release. Opening it to FINANCE-only users is a later switch
+   on the roles the universe already declares.
 4. ~~The first release~~ — **decided 10 September 2026: v2.3.0 carries all five
    phases** (#838).
