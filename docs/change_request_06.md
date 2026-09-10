@@ -232,6 +232,17 @@ stay exactly as they are (§2.8): no link, no redirect, no removal.
   "Rapporten" to FINANCE-only users later is a switch, not a rebuild. Until
   then a FINANCE-only user does not see the menu item and gets the same 403 as
   on any other admin screen.
+
+  > **When that switch is built, one thing has to be decided first, and it is not
+  > obvious.** A FINANCE-only universe limited to the class Payments cannot answer
+  > three of the seven delivered reports: questions 4, 5 and 7 are money reports
+  > that group by activity and by month, so they need `d_activity` and
+  > `date_month` — objects that do not belong to the Payments class.
+  >
+  > Either those two objects travel with FINANCE, or those three reports open
+  > empty for the very role they were written for. Found while building phase 1
+  > (#832); dormant as long as "Rapporten" stays ADMIN/OPERATOR, and back the day
+  > it does not.
 - **`/admin/rapporten`** is a records list (design-system C1): title, "+ Nieuw
   rapport", search, filters (class, owner, shared), one card per saved report
   with its layout icon (table / pivot / chart), last run and owner. Opening a
