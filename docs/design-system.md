@@ -155,11 +155,24 @@ something that did not belong. Rebuilding v1.14 does **not** fix that — the sa
 buttons were `text-xs` there too, with even less padding. On a phone this makes rows
 of buttons taller; that is intended, not a side effect.
 
-**Icon before text that can wrap** (#810): `items-start` with `mt-0.5` on the icon,
-never `items-center`. Centring aligns the icon to the middle of the *whole* block, so
-a date spanning three lines leaves the icon floating in the middle of the sentence.
-With the top margin the single-line case looks identical, so there is no reason to
-choose per case.
+**Icon before text that can wrap** (#810): `items-start`, never `items-center`.
+Centring aligns the icon to the middle of the *whole* block, so a date spanning three
+lines leaves the icon floating in the middle of the sentence.
+
+**The top margin is calculated, not guessed** (#813): `(line-height − icon height) / 2`.
+The icon is 16 px, the line is not, and `items-start` aligns their *tops*.
+
+| Text class | Line height | Margin |
+|---|---|---|
+| `text-sm` | 20 px | `mt-0.5` |
+| `text-base` | 24 px | `mt-1` |
+| `text-base md:text-sm` | 24 / 20 px | `mt-1 md:mt-0.5` |
+
+Write that last form as-is: a bare `mt-1` is 2 px too much on a wide screen, and
+that is what a gate checks. Without the rule the next text size gets a number that
+merely looks about right — which is exactly how #813 happened, one issue after #810.
+With the margin in place the single-line case looks identical, so there is no reason
+to choose per case.
 
 **Touch targets.** A control a finger has to hit is at least 44 px in both
 directions (`min-w-11 min-h-11`); the icon inside it may be smaller. The hamburger

@@ -1,5 +1,9 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
+{# #811: de veldsoorten komen uit de ECHTE formuliertemplate. Importeren en niet
+   nabouwen: een kopie hier zou precies het soort afdrijving worden dat deze pagina
+   moet uitsluiten. #}
+{% from "_formulier_veld.html" import veld with context %}
 {% block title %}{{ _("Design system — Raak beheer") }}{% endblock %}
 {% block content %}
 {#
@@ -54,17 +58,26 @@
   <p class="text-sm text-gray-600 mb-3">
     {{ _("Mobiel-eerst sinds #804 — §1.2a. De kale klasse is de telefoonmaat.") }}
   </p>
+  {# #811: deze sectie is handgeschreven, want de typeschaal is geen macro maar losse
+     klassen per template. Ze kan dus wél afdrijven, anders dan de knoppen hieronder.
+     Daarom staat elke maat als `data-schaal` op zijn eigen regel, en controleert
+     `test_design_system_pagina.py` dat die klassen ook echt in de templates
+     voorkomen die deze sectie beweert te beschrijven. Verdwijnt een maat uit de app,
+     dan valt de gate — in plaats van dat deze pagina het oude blijft beweren.
+
+     Dat dit nodig is, blijkt uit #810: omdat de schaal geen macro is, moest elk
+     voorkomen apart langs — en `btn_class` werd overgeslagen. #}
   <div class="space-y-2">
-    <p class="text-3xl font-brand font-bold">{{ _("Woordmerk / paginatitel — text-3xl") }}</p>
-    <p class="text-xl md:text-lg font-semibold">{{ _("Kaarttitel, jaarkop — text-xl md:text-lg") }}</p>
-    <p class="text-base md:text-sm">{{ _("Leestekst op een publieke pagina — text-base md:text-sm") }}</p>
-    <p class="text-sm text-gray-600">{{ _("Bijschrift, metadata — text-sm") }}</p>
-    <p class="text-xs text-gray-400 uppercase tracking-wide">{{ _("Label — text-xs") }}</p>
+    <p data-schaal="text-3xl" class="text-3xl font-brand font-bold">{{ _("Woordmerk / paginatitel — text-3xl") }}</p>
+    <p data-schaal="text-xl md:text-lg" class="text-xl md:text-lg font-semibold">{{ _("Kaarttitel, jaarkop — text-xl md:text-lg") }}</p>
+    <p data-schaal="text-base md:text-sm" class="text-base md:text-sm">{{ _("Leestekst op een publieke pagina — text-base md:text-sm") }}</p>
+    <p data-schaal="text-sm" class="text-sm text-gray-600">{{ _("Bijschrift, metadata — text-sm") }}</p>
+    <p data-schaal="text-xs" class="text-xs text-gray-400 uppercase tracking-wide">{{ _("Label — text-xs") }}</p>
   </div>
 {% endcall %}
 
 {# ── 3. Iconen ─────────────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("3 · Iconen"), _("Naar de activiteiten"), 'href="/admin/activiteiten"') }}
+{{ ui.section_header(_("3 · Iconen"), _("Naar de activiteiten"), action_href="/admin/activiteiten") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-3">
     {{ _("De volledige set van ui.icon() — §1.4. Symbolen zijn iconen, nooit teksttekens.") }}
@@ -81,7 +94,7 @@
 {% endcall %}
 
 {# ── 4. Knoppen ────────────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("4 · Knoppen"), _("Naar de betalingen"), 'href="/admin/betalingen"') }}
+{{ ui.section_header(_("4 · Knoppen"), _("Naar de betalingen"), action_href="/admin/betalingen") }}
 {% call ui.card() %}
   <div class="flex flex-wrap items-center gap-2 mb-3">
     {{ ui.btn_primary(_("Opslaan")) }}
@@ -117,7 +130,7 @@
 {% endcall %}
 
 {# ── 6. Formuliervelden ────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("6 · Formuliervelden"), _("Naar de formulierbouwer"), 'href="/admin/formulieren"') }}
+{{ ui.section_header(_("6 · Formuliervelden"), _("Naar de formulierbouwer"), action_href="/admin/formulieren") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-3">
     {{ _("Twee families, niet uitwisselbaar — §2.2. Links het beheerveld, rechts de losse control.") }}
@@ -147,24 +160,78 @@
   </div>
 {% endcall %}
 
+{# ── 6b. Veldsoorten van de formulierenbouwer ──────────────────────────────── #}
+{{ ui.section_header(_("6b · Veldsoorten van een formulier"),
+                     _("Naar de formulierbouwer"), action_href="/admin/formulieren") }}
+{% call ui.card() %}
+  {# #811: gerenderd door dezelfde `veld()`-macro als het publieke formulier, niet
+     nagebouwd — wat je hier ziet is letterlijk wat een bezoeker ziet. De soorten zijn
+     géén kit-macro, dus de volledigheidsgate (die macronamen telt) zag ze niet: op de
+     eerste versie van deze pagina ontbraken de radio-optielijst, de "anders"-optie en
+     de schaal. De gate loopt nu óók over `FIELD_TYPES`. #}
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("Alle tien de soorten uit FIELD_TYPES, met de opmaak van #741/#749/#774.") }}
+  </p>
+  <div class="space-y-[22px]">
+    {% for f in velden %}{{ veld(f) }}{% endfor %}
+  </div>
+{% endcall %}
+
 {# ── 7. Persoonsvelden ─────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("7 · Persoonsvelden"), _("Naar de leden"), 'href="/admin/leden"') }}
+{{ ui.section_header(_("7 · Persoonsvelden"), _("Naar de leden"), action_href="/admin/leden") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-3">
     {{ _("Eén blok voor naam, geboortedatum en contact — overal dezelfde volgorde.") }}
   </p>
-  {{ ui.person_fields(name_prefix="lid_", id_prefix="ds_") }}
+  {# #811: dezelfde stand als élk echt scherm — `require_birth_gender=True`, en met
+     gevulde keuzelijsten. Zonder die vlag toonde de demo een variant die nergens
+     bestaat, en dat is precies waar #783 voor waarschuwt: de gate telt macro's, niet
+     of de aanroep klopt. #}
+  {{ ui.person_fields(name_prefix="lid_", id_prefix="ds_", require_birth_gender=True,
+                      gender_codes=[{"code": "F", "value": _("Vrouw")},
+                                    {"code": "M", "value": _("Man")}],
+                      relation_types=[{"code": "PARTNER", "value": _("partner")},
+                                      {"code": "KIND", "value": _("(meerderjarig) kind")}]) }}
 {% endcall %}
 
-{# ── 8. Lijstscherm: zoeken, filteren, pagineren ───────────────────────────── #}
-{{ ui.section_header(_("8 · Lijstscherm"), _("Naar de activiteiten"), 'href="/admin/activiteiten"') }}
+{# ── 8. Schermtype: de records-lijst, in de vaste volgorde ─────────────────── #}
+{{ ui.section_header(_("8 · Schermtype: records-lijst"), _("Naar de activiteiten"), action_href="/admin/activiteiten") }}
+{% call ui.card() %}
+  {# #811: de vaste volgorde van §3.2, als miniatuur. Dat was punt 2 van #783 en
+     ontbrak: er stond wel een tabel met filters, maar niet de KOP met de primaire
+     actie en de kengetallenrij. `activities/admin_ui.py:_kpi()` verwijst in zijn
+     docstring naar "design-system §7" voor een component die hier niet stond. #}
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("De volgorde ligt vast: paginakop met de primaire actie, kengetallen, filterbalk, lijst, pager.") }}
+  </p>
+  <div class="border border-line rounded-xl p-4 bg-surface-2">
+    {% call ui.page_header(_("Activiteiten"), _("Een kaart opent de activiteit.")) %}
+      {{ ui.btn_primary(_("+ Nieuwe activiteit"), href="/admin/design-system") }}
+    {% endcall %}
+    <div class="grid grid-cols-2 gap-4 mb-6 max-w-md">
+      <div class="rounded-xl bg-white border border-line p-5">
+        <div class="text-xs font-semibold text-ink-soft">{{ _("Open inschrijvingen") }}</div>
+        <div class="text-3xl font-extrabold font-brand">7</div>
+      </div>
+      <div class="rounded-xl bg-white border border-line p-5">
+        <div class="text-xs font-semibold text-ink-soft">{{ _("Volzet") }}</div>
+        <div class="text-3xl font-extrabold font-brand">2</div>
+      </div>
+    </div>
+  </div>
+{% endcall %}
+
+{# ── 8b. De onderdelen van die lijst ───────────────────────────────────────── #}
+{{ ui.section_header(_("8b · Zoeken, filteren, pagineren"), _("Naar de activiteiten"), action_href="/admin/activiteiten") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-3">
     {{ _("De vaste volgorde van een records-lijst — §3.2: zoeken, filters, tabel, pager.") }}
   </p>
   {% call ui.filter_bar("/admin/design-system", "#ds-lijst") %}
+    {# `standalone=False`: binnen een filterbalk doen de echte schermen dat ook —
+       de balk levert de omhulling al. #}
     {{ ui.search(hx_get="/admin/design-system", hx_target="#ds-lijst",
-                 value="", placeholder=_("Zoek op naam…")) }}
+                 value="", placeholder=_("Zoek op naam…"), standalone=False) }}
     {{ ui.grouped_filter("jaar", top_options=[("", _("Alle jaren"))],
                          groups={_("Recent"): [("2026", "2026"), ("2025", "2025")]},
                          current="2026", hx_get="/admin/design-system",
@@ -276,7 +343,7 @@
 {% endcall %}
 
 {# ── 14. Publieke schil ────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("14 · Publieke schil"), _("Naar de publieke activiteiten"), 'href="/activiteiten" hx-boost="false"') }}
+{{ ui.section_header(_("14 · Publieke schil"), _("Naar de publieke activiteiten"), action_href="/activiteiten", action_attrs='hx-boost="false"') }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600">
     {{ _("De publieke kant deelt de kit maar niet de dichtheid — §3.1. Bekijk haar op een telefoon; de typeschaal is daar de basis (§1.2a).") }}

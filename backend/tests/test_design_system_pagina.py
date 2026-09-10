@@ -88,6 +88,100 @@ def test_de_uitzonderingen_bestaan_nog():
         f"deze namen staan in de uitzonderingenlijst maar niet meer in de kit: {verdwenen}")
 
 
+def test_elke_veldsoort_heeft_een_voorbeeld():
+    """#811 — de formuliersoorten zijn geen kit-macro, dus de macro-gate zag ze niet.
+
+    Gemeten op de eerste versie van deze pagina: geen radio-optielijst, geen
+    "anders"-optie, en `rating` stond er alleen als woord. Vier van de vijf
+    bevindingen van #811 waren onzichtbaar voor een poort die macronamen telt — deze
+    tweede poort dekt de soorten af.
+
+    De voorbeelden worden gerenderd door dezelfde `veld()`-macro als het publieke
+    formulier (`_formulier_veld.html`), niet nagebouwd. Dat het een eigen partial
+    werd, is de structurele helft van diezelfde belofte.
+
+    Kapotgemaakt om te controleren dat deze test rood kan worden: het
+    `radio`-voorbeeld uit `_voorbeeldvelden()` gehaald → rood mét die soort.
+    """
+    from app.domains.forms.models import FIELD_TYPES
+    from app.ui.design_system_ui import _voorbeeldvelden
+
+    getoond = {v.field_type for v in _voorbeeldvelden()}
+    ontbreekt = sorted(set(FIELD_TYPES) - getoond)
+
+    assert FIELD_TYPES, "geen veldsoorten gevonden — kijkt deze gate wel ergens?"
+    assert not ontbreekt, (
+        f"deze veldsoorten hebben geen voorbeeld op /admin/design-system: {ontbreekt}")
+
+
+def test_de_veldsoorten_komen_uit_de_echte_formuliertemplate():
+    """Niet nagebouwd — een kopie hier zou precies de afdrijving worden die deze
+    pagina moet uitsluiten."""
+    assert '{% from "_formulier_veld.html" import veld with context %}' in PAGINA
+
+
+def test_de_referentielinks_zijn_echte_links():
+    """#811 — zes secties verwezen naar een echt scherm en geen enkele link werkte.
+
+    `button()` maakt alleen een `<a>` als de PARAMETER `href` gezet is; een href die
+    als tekst in `attrs` meekomt, plakt aan een `<button>` en doet niets. Dat is in
+    de macro gerepareerd en niet in de aanroepen, want zoals het was had een
+    aanroeper geen enkele correcte manier om er een link van te maken.
+
+    Deze links zijn het tegenwicht dat de volledigheidsgate niet kan leveren: zij
+    ziet aanwezigheid, de links laten je getrouwheid controleren. Dood zijn ze dus
+    niet cosmetisch.
+
+    Kapotgemaakt om te controleren dat deze test rood kan worden: één
+    `action_href=` terug naar `'href="…"'` in `action_attrs` → rood.
+    """
+    import re
+
+    fouten = [r.strip()[:80] for r in PAGINA.splitlines()
+              if "section_header(" in r and 'href="' in r and "action_href=" not in r]
+
+    assert not fouten, (
+        "deze secties zetten een href in `action_attrs`; dat levert een <button> met "
+        f"een href-attribuut op en die doet niets:\n  " + "\n  ".join(fouten))
+    assert PAGINA.count("action_href=") >= 6, (
+        "er zijn minder referentielinks dan de zes die #783 belooft")
+
+
+def test_de_typografiesectie_beschrijft_bestaande_klassen():
+    """#811 — deze sectie is handgeschreven en kan dus wél afdrijven.
+
+    De knoppen hieronder komen uit `btn_class` en kunnen niet uit de pas lopen; de
+    typeschaal is geen macro maar losse klassen per template. Zonder deze poort
+    blijft de pagina de oude maten beweren zodra een template verandert.
+
+    Dat dit geen theorie is, blijkt uit #810: juist omdát de schaal geen macro is,
+    moest elk voorkomen apart langs — en `btn_class` werd overgeslagen.
+
+    De poort herbouwt de sectie niet; ze controleert alleen dat elke maat die de
+    sectie noemt, ergens in de templates voorkomt die ze beschrijft.
+
+    Kapotgemaakt om te controleren dat deze test rood kan worden: `data-schaal` op
+    een verzonnen maat (`text-9xl`) gezet → rood mét die klasse.
+    """
+    import re
+    from pathlib import Path
+
+    genoemd = re.findall(r'data-schaal="([^"]+)"', PAGINA)
+    assert len(genoemd) >= 4, (
+        f"maar {len(genoemd)} maten gevonden in de typografiesectie — leest deze "
+        "gate ze nog wel?")
+
+    app = Path(__file__).resolve().parents[1] / "app"
+    templates = [p for p in app.rglob("*.html") if p.name != "design_system.html"]
+    assert len(templates) > 50, "de glob vindt te weinig templates"
+    alles = "\n".join(p.read_text() for p in templates)
+
+    ontbreekt = [k for k in genoemd if k not in alles]
+    assert not ontbreekt, (
+        "de typografiesectie noemt maten die in geen enkel template meer voorkomen, "
+        f"dus deze pagina beweert iets ouds: {ontbreekt}")
+
+
 def test_de_pagina_heeft_geen_eigen_stijl():
     """Nul eigen `<style>`: dezelfde app.css als elk beheerscherm.
 

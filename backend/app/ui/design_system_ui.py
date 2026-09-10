@@ -80,12 +80,65 @@ def _iconen() -> list[str]:
     return sorted(set(re.findall(r"^\s{2}\"([a-z0-9-]+)\":", blok, re.M)))
 
 
+def _voorbeeldvelden() -> list:
+    """Eén voorbeeld per soort uit `FIELD_TYPES` (#811).
+
+    De formuliersoorten zijn géén kit-macro, dus de volledigheidsgate — die
+    macronamen telt — zag ze niet. Gemeten op de eerste versie van deze pagina:
+    geen radio-optielijst, geen "anders"-optie, en `rating` stond er alleen als
+    woord. Ze worden hieronder gerenderd door dezelfde `veld()`-macro als het
+    publieke formulier, niet nagebouwd; wat je hier ziet is dus letterlijk wat een
+    bezoeker ziet.
+    """
+    from types import SimpleNamespace as N
+
+    def optie(i, label, anders=False):
+        return N(id=i, label=label, is_other=anders)
+
+    return [
+        N(id=1, field_type="text", label="Naam", required=True, help_text=None,
+          options=[], rating_max=None, rating_low_label=None, rating_high_label=None),
+        N(id=2, field_type="textarea", label="Opmerking", required=False,
+          help_text="Zoveel of zo weinig als je wil.", options=[], rating_max=None,
+          rating_low_label=None, rating_high_label=None),
+        N(id=3, field_type="number", label="Aantal deelnemers", required=False,
+          help_text=None, options=[], rating_max=None, rating_low_label=None,
+          rating_high_label=None),
+        N(id=4, field_type="email", label="E-mailadres", required=True,
+          help_text=None, options=[], rating_max=None, rating_low_label=None,
+          rating_high_label=None),
+        N(id=5, field_type="phone", label="Gsm-nummer", required=False,
+          help_text=None, options=[], rating_max=None, rating_low_label=None,
+          rating_high_label=None),
+        N(id=6, field_type="select", label="Afdeling", required=False, help_text=None,
+          options=[optie(1, "Millegem"), optie(2, "Miloheem")], rating_max=None,
+          rating_low_label=None, rating_high_label=None),
+        N(id=7, field_type="radio", label="Hoe kom je?", required=False,
+          help_text=None,
+          options=[optie(3, "Te voet"), optie(4, "Met de fiets"),
+                   optie(5, "Anders", anders=True)],
+          rating_max=None, rating_low_label=None, rating_high_label=None),
+        N(id=8, field_type="checkbox", label="Wat neem je mee?", required=False,
+          help_text=None,
+          options=[optie(6, "Regenjas"), optie(7, "Picknick"),
+                   optie(8, "Iets anders", anders=True)],
+          rating_max=None, rating_low_label=None, rating_high_label=None),
+        N(id=9, field_type="rating", label="Hoe was het?", required=False,
+          help_text=None, options=[], rating_max=5,
+          rating_low_label="slecht", rating_high_label="top"),
+        N(id=10, field_type="info", label="Let op", required=False,
+          help_text="Een informatieblok vraagt niets; het vertelt alleen iets.",
+          options=[], rating_max=None, rating_low_label=None, rating_high_label=None),
+    ]
+
+
 @router.get("/admin/design-system", response_class=HTMLResponse)
 def design_system(request: Request, email: str = Depends(require_admin_ui)):
     view = DesignSystemView(
         nav_items=admin_nav("/admin/design-system"),
         tokens=_tokens(),
         iconen=_iconen(),
+        velden=_voorbeeldvelden(),
     )
     return templates.TemplateResponse(request, "design_system.html",
                                       view.as_context())
