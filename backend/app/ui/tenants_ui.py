@@ -64,10 +64,29 @@ GEHEIME_SLEUTELS = [
 ]
 
 
-def _units(db: Session, *, alleen_actief: bool = False):
-    from app.domains.mdm.api import list_units
+# #854: sleutels die een platform-tenant NIET aangeboden krijgt. Een platform heeft
+# geen leden en geen activiteiten, dus geen lidgeld en geen inschrijvingslimieten.
+# Bood het scherm ze toch aan, dan vult iemand ooit een lidgeld in voor het platform,
+# en dan staat er een waarde waarvan later niemand weet waarom.
+LEDENSLEUTELS = {
+    "membership_price_full", "membership_price_half",
+    "membership_half_price_start_md", "membership_half_price_end_md",
+    "membership_next_year_from_md", "membership_renewal_start_md",
+    "max_item_quantity", "max_registrations_per_email",
+}
 
-    return list_units(db, alleen_actief=alleen_actief)
+
+def _units(db: Session, *, alleen_actief: bool = False):
+    """Wat dit scherm mag instellen: de platform-tenant én de afdelingen (#854).
+
+    Bewust NIET `list_units`: het platform draagt dezelfde instellingen als elke
+    tenant — dat is de hele winst van die keuze — dus het heeft dezelfde editor nodig.
+    Waar afdelingen opgesomd worden (de platform-landing) blijft `list_units` gelden;
+    het platform is geen afdeling.
+    """
+    from app.domains.mdm.api import list_manageable_tenants
+
+    return list_manageable_tenants(db, alleen_actief=alleen_actief)
 
 
 def _lijst_ctx(request: Request, db: Session) -> dict:
@@ -101,12 +120,15 @@ def _editor_ctx(request: Request, db: Session, tenant_id: int) -> dict:
     unit = next((u for u in _units(db) if u.id == tenant_id), None)
     if unit is None:
         raise HTTPException(status_code=404, detail=_("Onbekende tenant"))
+    # #854: een platform-tenant krijgt de ledenvelden niet te zien.
+    sleutels = [rij for rij in BEKENDE_SLEUTELS
+                if not (unit.org_type == "PLATFORM" and rij[0] in LEDENSLEUTELS)]
     waarden = {key: get_setting(db, key, tenant_id=tenant_id) or ""
-               for key, _label, _hulp in BEKENDE_SLEUTELS}
+               for key, _label, _hulp in sleutels}
     secrets_gezet = _secrets_gezet(
         db, tenant_id, [key for key, _label, _hulp in GEHEIME_SLEUTELS])
     return {"nav_items": admin_nav("/admin/tenants"), "unit": unit,
-            "tenant_id": tenant_id, "sleutels": BEKENDE_SLEUTELS,
+            "tenant_id": tenant_id, "sleutels": sleutels,
             "geheime_sleutels": GEHEIME_SLEUTELS, "waarden": waarden,
             "secrets_gezet": secrets_gezet, "error": None, "opgeslagen": False,
             "csrf_token": csrf_from_request(request)}

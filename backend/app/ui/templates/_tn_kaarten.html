@@ -9,8 +9,17 @@
     <div class="flex items-start justify-between gap-3">
       <div>
         <div class="font-semibold text-ink">{{ u.name }}</div>
+        {# #854: het platform staat in deze lijst omdat het dezelfde instellingen
+           draagt als een afdeling, maar het is er geen. Vandaar de badge én de code
+           ZONDER schuine streep: `/platform` opent geen site, want `tenant_lookup`
+           filtert op UNIT. Een pad tonen dat niet bestaat, stuurt je zoeken. #}
         <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
+          {% if u.org_type == "PLATFORM" %}
+          <span class="font-mono text-xs text-ink-soft">{{ u.code }}</span>
+          {{ ui.badge(_("platform"), "blue") }}
+          {% else %}
           <span class="font-mono text-xs text-ink-soft">/{{ u.code }}</span>
+          {% endif %}
           {% if u.is_active %}{{ ui.badge(_("actief"), "green") }}{% else %}{{ ui.badge(_("inactief")) }}{% endif %}
         </div>
       </div>

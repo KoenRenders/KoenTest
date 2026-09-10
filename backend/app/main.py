@@ -197,7 +197,7 @@ async def _tenant_context(request: Request, call_next):
         DEFAULT_TENANT_ID, current_tenant_id, parse_hostname_map,
         resolve_request,
     )
-    from app.domains.mdm.api import tenant_codes
+    from app.domains.mdm.api import platform_tenant_id, tenant_codes
 
     # Dynamische code→id-map uit de DB (#546): een nieuw aangemaakte tenant resolvet
     # zonder codewijziging. Gecachet, dus geen query-per-request na de eerste.
@@ -208,6 +208,10 @@ async def _tenant_context(request: Request, call_next):
         parse_hostname_map(settings.tenant_hostnames),
         {h.strip().lower() for h in settings.platform_hosts.split(",") if h.strip()},
         codes,
+        # #854: het platform is zelf een tenant, dus een platform-host heeft iets om
+        # naar te resolven — op élk pad, niet alleen op "/". Even gecachet als de
+        # codes; None zolang migratie 097 nog niet gelopen is.
+        platform_tenant_id(),
     )
     if nieuw_pad is not None:
         request.scope["path"] = nieuw_pad
