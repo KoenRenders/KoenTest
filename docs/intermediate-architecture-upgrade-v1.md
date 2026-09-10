@@ -324,51 +324,62 @@ flowchart TB
 - **Uitrol per app, niet dark/big-bang**: kernel levert de `tenant_id`-mixin + context;
   elke app adopteert dat op zijn moment, grondig getest.
 
-### De operator is geen tenant (beslist 10 september 2026)
+### Het platform is een tenant, van een eigen soort (beslist 10 september 2026)
 
-De platformlaag is een **niveau boven** de tenants, geen tenant ernaast. Er komt
-dus géén "eigen tenant" voor het bedrijf dat het platform ontwikkelt en beheert.
+**Dit herziet een beslissing van dezelfde dag.** Er stond hier eerst dat de operator
+geen tenant is. Koen keerde die om, en met een argument dat sterker is dan het mijne:
 
-**Waarom, en dit ligt grotendeels al vast in de code:**
+> *"Het platform gaat mailtjes sturen, heeft een naam, op termijn een logo, een
+> bankrekeningnummer, een gmail-wachtwoord, tiktok, facebook, instagram, een
+> privacyverklaring, een afzender, een mollie-key. Maar het is geen Raak-afdeling — er
+> kunnen op termijn ook bedrijven klant worden. 'Platform' is dan een type tenant."*
 
-- **Gebruikers zijn globaal.** `auth.users` draagt geen `tenant_id`, en
-  `auth.user_roles` bevat enkel `user_id` + `role_code`. `OPERATOR` is daarmee
-  vandaag al een rol over de hele installatie. Een platform-tenant zou een tweede
-  mechanisme toevoegen voor iets dat al werkt, en twee mechanismen voor dezelfde
-  vraag betekent dat over een jaar niemand meer weet welk van de twee geldt.
-- **Een tenant is een site.** Inhoud, leden, activiteiten, een publieke URL,
-  betaalinstellingen, analytics. De platformlaag heeft daar niets van. Maak je er
-  toch een tenant van, dan ontstaat een lege site die alleen bestaat om
-  aanmeldingen te dragen — en dan moet iedereen voor altijd onthouden dat die
-  nooit gepubliceerd mag worden.
-- **Dezelfde conclusie is al eens langs een andere weg genomen.** De
-  analytics-poort (#808) sluit de platform-landing bewust uit van de tenantcijfers,
-  *"want deze landing staat op een eigen domein, terwijl de tenant-instellingen bij
-  een tenant horen"*.
+Die opsomming ís de lijst met tenant-instellingen. Wat een naam, een afzender, een
+merk en een sleutelbos nodig heeft, heeft precies dat nodig wat een tenant al draagt.
+Het alternatief — een tweede plek die dezelfde acht dingen bewaart voor één rij — is
+duurder dan de lege site waarvoor het oude argument bang was.
 
-**Het bedrijf als organisatie is een andere vraag.** `Organization` is
-zelf-refererend met `org_type` ACCOUNT of UNIT, dus facturatie- of
-contactgegevens van de beheerder kunnen als **organisatie-rij** bestaan zonder dat
-daar een tenant-site met een publieke URL bij hoort. Die twee begrippen uit elkaar
-houden is nu goedkoop en later duur.
+**De vorm: `org_type` krijgt een derde waarde.** Vandaag `ACCOUNT` (de klant, bv. Raak
+vzw) en `UNIT` (de afdeling met haar eigen site). Daar komt `PLATFORM` bij: één rij,
+zonder ouder, die het platform zelf is.
 
-**De wortel van een platform-host** toont de platform-landing: de naam van het
-platform ("Digital Platform" — bewust zonder merknaam, want het platform is niet
-van één afdeling), de actieve afdelingen met hun URL, en een aanmeldmogelijkheid. Die
-landing draagt **geen tenant-branding** en verwijst niet naar een afdeling — een
-platform dat voor beheer naar een van zijn eigen klanten wijst, is geen platform.
-Wie na het aanmelden `OPERATOR` is, komt op het tenantbeheer uit.
+```mermaid
+flowchart TB
+  P["PLATFORM: het platform zelf<br/>(naam, afzender, sleutels)"]:::p --> A1["ACCOUNT: Raak vzw"]:::a & A2["ACCOUNT: een bedrijf"]:::a
+  A1 --> U1["UNIT: Millegem"]:::u & U2["UNIT: Voorbeeldafdeling"]:::u
+  A2 --> U3["UNIT: Bedrijf A"]:::u
+  classDef p fill:#ffd,stroke:#aa0
+  classDef a fill:#e8f0ff,stroke:#36b
+  classDef u fill:#eef7ee,stroke:#3a3
+```
 
-**Koens voorbehoud, 10 september 2026:** hij is er niet van overtuigd dat de
-platformlaag op termijn géén tenant wordt. Deze beslissing geldt dus voor nu en
-niet voor altijd. Wat haar goedkoop terugdraaibaar houdt is precies de keuze
-hierboven: zolang de platformlaag geen tenant *is*, kost het toevoegen van er één
-niets aan bestaande data. Andersom — een tenant die er al is weer uit elkaar halen —
-is wél duur. Bij twijfel is de goedkope kant dus de kant die nog niets vastlegt.
+**Het platform is niet Raak.** Rij 1 (`raak`, `ACCOUNT`) blijft wat ze is: de klant.
+Het platform komt er als een eigen rij naast, want er kunnen klanten bij komen die
+niets met Raak te maken hebben. Rij 1 hergebruiken zou die twee begrippen voorgoed
+door elkaar halen.
 
-**Openstaande naad:** `resolve_request` geeft voor de landing vandaag
-`DEFAULT_TENANT_ID` terug, dus ze rendert technisch binnen de standaard-tenant. Dat
-is de plek waar deze beslissing nog niet waar is in de code (#821).
+**Wat een platform-tenant wél en niet is.** Wél: een naam, een merk, een afzender,
+sleutels, een landingspagina, een aanmeldscherm. Niet: leden, gezinnen, activiteiten,
+lidgeld. De instellingenpagina van een platform-tenant hoort die velden dan ook niet
+aan te bieden — anders vult iemand ooit een lidgeld in voor het platform, en dat is
+precies het soort gegeven waarvan later niemand weet waarom het er staat.
+
+**De prijs van deze keuze, expliciet.** Een tenant zijn betekent dat de globale
+tenant-filter meedoet: elke ORM-select krijgt `tenant_id = <actieve tenant>`. Draait
+een operator-scherm onder de platform-tenant, dan ziet het zonder meer alleen de
+platformrij — en de tenantlijst is net het scherm dat álles moet zien. Dat is geen
+reden om het niet te doen, maar het is wel de plek waar dit stil kan breken, en dus
+waar een test hoort.
+
+**Wat hiermee vanzelf oplost.** `resolve_request` gaf op een platform-host voor elk
+ander pad dan `/` de standaardtenant terug — waardoor een platformbeheerder de schil
+van Raak Millegem kreeg en post van die afdeling (#853). Met een platform-tenant is er
+iets om naar te resolven, en verdwijnt de terugval die gokte.
+
+**Rollen blijven waar ze zijn.** `auth.users` draagt geen `tenant_id` en `OPERATOR` is
+een rol over de hele installatie. Dat verandert niet: het platform wordt een tenant
+voor zijn *identiteit*, niet voor zijn *rechten*. Wie wat mag blijft hangen aan de rol,
+niet aan de tenant waarin het scherm toevallig rendert.
 
 ### Config & secrets (multi-tenant-scheiding)
 - **Per-tenant config** → **DB-beheerd** (afzendermail, Mollie-profiel, logo, branding,
