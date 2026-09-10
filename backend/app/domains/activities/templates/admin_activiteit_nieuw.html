@@ -18,15 +18,15 @@
       <div>{{ ui.label(_("Poster-URL"), "poster_url") }}
         {{ ui.input_control("poster_url", id="poster_url", placeholder="https://…", cls="w-full") }}</div>
     </div>
-    {# #792: de volledige eerste datumrij, niet alleen de begindatum. Dit herziet
-       bewust de keuze van #623 ("naam en eerste datum volstaan"): in de praktijk is
-       die eerste rij bijna altijd meteen volledig, dus de omweg via de editor was de
-       regel geworden in plaats van de uitzondering. Lees dit niet als een terugval
-       en maak het formulier niet opnieuw smal.
+    {# #792: the complete first date row, not just the start date. This deliberately
+       revises the choice made in #623 ("name and first date suffice"): in practice that
+       first row is almost always complete straight away, so the detour through the
+       editor had become the rule instead of the exception. Do not read this as a
+       regression and do not narrow the form again.
 
-       Alleen de begindatum is verplicht, net als in de editor. Dezelfde vier velden,
-       dezelfde volgorde — je vult later hetzelfde in op een scherm dat er hetzelfde
-       uitziet. #}
+       Only the start date is required, exactly as in the editor. The same four fields
+       in the same order — later on you fill in the same thing on a screen that looks
+       the same. #}
     <fieldset class="grid grid-cols-2 sm:grid-cols-4 gap-3">
       <legend class="text-sm font-medium text-ink mb-1">{{ _("Eerste datum") }}</legend>
       <div>{{ ui.label(_("Van"), "start_date", required=True) }}

@@ -89,12 +89,12 @@ def _sweep_sources(db: Session) -> list[dict]:
 
 
 # De soorten die de sweep zélf maakt. Alleen déze mag hij ook sluiten (#675):
-# `bericht.behartigen` is event-gedreven, dus van zijn bestaan weet `_sweep_sources`
-# niets. Zou de sweep "alles wat niet meer matcht" sluiten, dan sluit hij taken
-# waarvan hij de aanleiding nooit heeft gekend.
+# `bericht.behartigen` is event-driven, so `_sweep_sources` knows nothing of its
+# existence. If the sweep closed "everything that no longer matches", it would close
+# tasks whose cause it never knew about.
 #
-# (#824: hier stond ook `payment.wees_record`, met dezelfde redenering. Dat
-# mechanisme is helemaal verdwenen.)
+# (#824: `payment.wees_record` used to be listed here too, for the same reason. That
+# mechanism is gone entirely.)
 SWEEP_SOORTEN = frozenset({
     "payment.refund_bevestigen", "mail.definitief_gefaald",
     "payment.webhook_mismatch", "kernel.job_gefaald",

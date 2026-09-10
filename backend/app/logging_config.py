@@ -45,26 +45,26 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(entry, ensure_ascii=False)
 
 
-def app_logbestand() -> Path | None:
-    """Het pad waar het applicatielog óók naartoe gaat, of None (#766).
+def app_log_file() -> Path | None:
+    """The path the application log ALSO goes to, or None (#766).
 
-    None wanneer de map niet ingesteld is of niet bestaat — lokaal en in CI is er
-    geen volume gemonteerd, en een ontbrekende mount mag de start nooit blokkeren.
-    Op hdev/uat/prod hoort ze er wél te zijn, dus daar wordt het gemeld in plaats
-    van stil overgeslagen: een applicatielog dat stilletjes nergens landt, ontdek
-    je pas wanneer je het nodig hebt.
+    None when the directory is not configured or does not exist — locally and in CI no
+    volume is mounted, and a missing mount must never block startup. On hdev/uat/prod
+    it is supposed to be there, so it is reported instead of silently skipped: an
+    application log that quietly lands nowhere is something you find out about only
+    when you need it.
     """
-    map_ = (settings.app_log_dir or "").strip()
-    if not map_:
+    directory = (settings.app_log_dir or "").strip()
+    if not directory:
         return None
-    pad = Path(map_)
-    if not pad.is_dir() or not os.access(pad, os.W_OK):
+    path = Path(directory)
+    if not path.is_dir() or not os.access(path, os.W_OK):
         if settings.app_env in ("hdev", "uat", "prod"):
             logging.getLogger(__name__).warning(
-                "APP_LOG_DIR=%s bestaat niet of is niet schrijfbaar — het "
-                "applicatielog overleeft deze deploy niet (#766).", map_)
+                "APP_LOG_DIR=%s does not exist or is not writable — the application "
+                "log will not survive this deploy (#766).", directory)
         return None
-    return pad / "app.log"
+    return path / "app.log"
 
 
 def configure_logging() -> None:
@@ -81,24 +81,24 @@ def configure_logging() -> None:
         for handler in logging.getLogger().handlers:
             handler.setFormatter(JsonFormatter())
 
-    # #766: hetzelfde log, maar dan op een plek die de container overleeft. Bewust
-    # BOVENOP stdout en niet in plaats daarvan: `raakctl logs` en `docker compose
-    # logs` blijven werken zoals ze werkten, en de deploy-uitvoer verandert niet.
+    # #766: the same log, but somewhere that outlives the container. Deliberately ON
+    # TOP OF stdout rather than instead of it: `raakctl logs` and `docker compose logs`
+    # keep working exactly as they did, and the deploy output does not change.
     #
-    # Zonder rotatie, en dat is een besliste keuze en geen vergetelheid: gemeten op
-    # PROD (8 september 2026) ruwweg 1 MB per dag tegen 22 GB vrij. Rotatie én een
-    # bewaartermijn komen terug zodra deze logs echt lang blijven staan — de schijf
-    # loopt ooit vol, en er staan persoonsgegevens langer op schijf dan nodig. Dat
-    # laatste is geen theorie: op `email_log` staat niet voor niets al een termijn.
-    bestand = app_logbestand()
-    if bestand is not None:
-        bestandshandler = logging.FileHandler(bestand, encoding="utf-8")
-        bestandshandler.setLevel(level)
-        bestandshandler.setFormatter(
+    # Without rotation, and that is a decision rather than an oversight: measured on
+    # PROD (8 September 2026) roughly 1 MB per day against 22 GB free. Rotation AND a
+    # retention period come back the moment these logs really start piling up — the
+    # disk fills eventually, and personal data sits on disk longer than it needs to.
+    # That last part is not theory: `email_log` already carries a retention period.
+    log_file = app_log_file()
+    if log_file is not None:
+        file_handler = logging.FileHandler(log_file, encoding="utf-8")
+        file_handler.setLevel(level)
+        file_handler.setFormatter(
             JsonFormatter() if settings.log_format == "json"
             else logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s",
                                    datefmt="%Y-%m-%dT%H:%M:%S"))
-        logging.getLogger().addHandler(bestandshandler)
+        logging.getLogger().addHandler(file_handler)
 
     # Verlaag ruis van drukke third-party loggers
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)

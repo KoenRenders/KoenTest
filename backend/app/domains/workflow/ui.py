@@ -124,43 +124,43 @@ def werkbank_lijst(request: Request, db: Session = Depends(get_db),
                                       _ctx(request, db, email, kind, q, status))
 
 
-# #822: waar kijk je naar het onderwerp, en is de werkbank hier wegwijzer of
-# werkplek? Beide antwoorden hangen aan het ONDERWERP en niet aan de taaksoort.
+# #822: where do you go to look at the subject, and is the workbench a SIGNPOST or
+# the WORKPLACE here? Both answers hang on the SUBJECT, not on the task kind.
 #
-# Koens regel, 10 september 2026: heeft de entiteit een eigen scherm met eigen
-# acties, dan is de werkbank een wegwijzer — *"een betaling 'afhandelen' via de
-# werkbank-record is zinloos"*. Kun je alleen beoordelen en noteren, dan is de
-# werkbank de werkplek: *"bericht-behartigen is voor mij een workflow-actie die wel
-# in de werkbank kan horen, idem die mails en kernel-job."*
+# Koen's rule, 10 September 2026: if the entity has its own screen with its own
+# actions, the workbench is a signpost — *"marking a payment 'handled' from its
+# workbench record is pointless"*. If all you can do is judge and note it down, the
+# workbench IS the workplace: *"handling a message is a workflow action that does
+# belong in the workbench, same for those mails and the kernel job."*
 #
-# Bij een webhook-mismatch is dat extra scherp: de oplossing is de status opnieuw
-# ophalen bij Mollie, en die knop staat op het betaalscherm. Hier "Afgehandeld"
-# kunnen zetten zou verbergen dat het geld nog steeds niet geboekt staat.
+# A webhook mismatch makes that sharpest: the fix is to re-fetch the status from
+# Mollie, and that button lives on the payment screen. Being able to tick
+# "Handled" here would hide that the money is still not booked.
 #
-# Op het onderwerp en niet op de soort, want dan volgt een nieuwe betalingstaak
-# vanzelf de juiste vorm.
+# Keyed on the subject rather than the kind, so a future payment task gets the right
+# shape without anyone having to remember a second list.
 #
-# **Een onderwerp zónder scherm hoort in geen van beide.** `kernel_job` staat hier
-# niet in en krijgt ook geen link: er bestaat geen route naar een kernel-job-scherm,
-# dus dat is geen wegwijzer maar een dode knop. Wat je nodig hebt om te beoordelen —
-# naam, status, pogingen, laatste fout — staat in de detailrijen zelf
-# (`_kernel_job_rijen`), en dát is hier de weg naar het onderwerp. Voeg er dus geen
-# link aan toe "voor de consistentie": de bedoeling is een weg naar het ding, niet
-# een link als vorm. Wil je er een echt scherm voor, dan is dat nieuwe scope.
-EIGEN_SCHERM_MET_ACTIES = {"payment_record"}
+# **A subject with NO screen belongs to neither.** `kernel_job` is not in this set and
+# gets no link either: there is no route to a kernel-job screen, so a link would be a
+# dead button rather than a signpost. What you need in order to judge it — name,
+# status, attempts, last error — sits in the detail rows themselves
+# (`_kernel_job_rows`), and that IS the way to the subject here. So do not add a link
+# "for consistency": the point is a way to the thing, not a link as a shape. If you
+# want a real screen for it, that is new scope.
+SUBJECTS_WITH_OWN_SCREEN = {"payment_record"}
 
 
-def _onderwerp_link(db, task) -> str | None:
-    """De weg naar het ding zelf. Elk domein levert zijn eigen URL.
+def _subject_url(db, task) -> str | None:
+    """The way to the thing itself. Every domain supplies its own URL.
 
-    Van de vier onderwerpsoorten had er vóór #822 precies één een link
-    (`payment_record`); voor drie van de vijf taaksoorten was er dus geen weg naar
-    het onderwerp — je las de titel en ging zoeken.
+    Of the four subject types exactly one had a link before #822 (`payment_record`),
+    so for three of the five task kinds there was no way to the subject at all — you
+    read the title and went looking.
 
-    `kernel_job` krijgt bewust géén link: daar is geen scherm voor. In plaats van een
-    knop die ergens heen wijst waar de job niet staat, toont het detail zijn gegevens
-    ter plaatse (zie `_kernel_job_rijen`). Een dode verwijzing is erger dan geen —
-    zie #811, waar zes van die links tegelijk stukbleken.
+    `kernel_job` deliberately gets no link: there is no screen for it. Instead of a
+    button pointing somewhere the job is not, the detail shows its data in place (see
+    `_kernel_job_rows`). A dead reference is worse than none — see #811, where six of
+    them broke at once.
     """
     if not task or not task.subject_id:
         return None
@@ -177,19 +177,19 @@ def _onderwerp_link(db, task) -> str | None:
     return None
 
 
-def _kernel_job_rijen(db, task) -> list[tuple[str, str]]:
-    """De gegevens van een mislukte achtergrondtaak, ter plaatse.
+def _kernel_job_rows(db, task) -> list[tuple[str, str]]:
+    """The data of a failed background job, shown in place.
 
-    Er is geen scherm voor kernel-jobs, dus dit is de "weg naar het onderwerp" voor
-    deze soort: naam, status, pogingen en de laatste fout. Precies wat je nodig hebt
-    om te beoordelen of je hier iets aan kan doen.
+    There is no screen for kernel jobs, so this IS the "way to the subject" for this
+    type: name, status, attempts and the last error. Exactly what you need to judge
+    whether there is anything you can do about it.
     """
-    # Lazy, zoals elders in dit domein: `_()` moet de taal van de actieve tenant
-    # volgen en niet die van het importmoment.
+    # Imported lazily, as elsewhere in this domain: `_()` must follow the language of
+    # the active tenant, not the one in force at import time.
     from app.i18n import _
-    from app.kernel.jobs import job_gegevens
+    from app.kernel.jobs import job_details
 
-    job = job_gegevens(db, task.subject_id)
+    job = job_details(db, task.subject_id)
     if job is None:
         return []
     return [(_("Job"), job["name"]), (_("Status"), job["status"]),
@@ -210,16 +210,16 @@ def taak_detail(task_id: int, request: Request, db: Session = Depends(get_db),
         # verwacht een getal. Dit is de plek die anders stil zou breken.
         detail_rows = submission_view(db, int(task.subject_id))
     elif task and task.subject_type == "kernel_job":
-        detail_rows = _kernel_job_rijen(db, task)
+        detail_rows = _kernel_job_rows(db, task)
     raw = request.cookies.get(SESSION_COOKIE) or ""
     template = ("_werkbank_detail.html" if is_fragment_request(request)
                 else "werkbank_taak.html")
     ctx = {"task": task, "detail_rows": detail_rows,
            "csrf_token": csrf_token_for(raw),
-           # #822: wegwijzer of werkplek — zie `EIGEN_SCHERM_MET_ACTIES`.
-           "wegwijzer": (task.subject_type in EIGEN_SCHERM_MET_ACTIES
-                         if task else False),
-           "onderwerp_link": _onderwerp_link(db, task),
+           # #822: signpost or workplace — see `SUBJECTS_WITH_OWN_SCREEN`.
+           "signpost": (task.subject_type in SUBJECTS_WITH_OWN_SCREEN
+                        if task else False),
+           "subject_url": _subject_url(db, task),
            # #666: het fragment leeft in twee schermen en moet weten in welke.
            # Zonder dat wees het naar een id dat maar in één van de twee bestaat.
            "standalone": template == "werkbank_taak.html"}

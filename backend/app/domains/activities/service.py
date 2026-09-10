@@ -30,28 +30,28 @@ class ActivityOption(NamedTuple):
     first_date: Optional[date]
 
 
-def _terugdraaien_bij_regelfout(db):
-    """Een afgewezen schrijfactie laat geen halve transactie achter (#792).
+def _rollback_on_rule_violation(db):
+    """A rejected write leaves no half transaction behind (#792).
 
-    De samenhangregel van een datumrij vuurt tijdens de flush, en dan staat de sessie
-    in "pending rollback": alles wat daarna met dezelfde sessie gebeurt faalt met een
-    onbegrijpelijke fout in plaats van met de reden. Bij `create_activity` is dat
-    bovendien niet theoretisch — de activiteit zelf is dan al geflusht.
+    The coherence rule of a date row fires during the flush, and the session is then in
+    "pending rollback": everything done with that session afterwards fails with an
+    incomprehensible error instead of with the reason. For `create_activity` that is
+    not theoretical either — the activity itself has already been flushed by then.
 
-    De regelfout zelf gaat gewoon door naar de aanroeper; alleen de transactie wordt
-    opgeruimd.
+    The rule violation itself travels on to the caller; only the transaction is
+    cleaned up.
     """
     from contextlib import contextmanager
 
     @contextmanager
-    def _bewaking():
+    def _guard():
         try:
             yield
         except ActiviteitFout:
             db.rollback()
             raise
 
-    return _bewaking()
+    return _guard()
 
 
 def create_activity(db, *, name: str, location=None, poster_url=None,
@@ -72,7 +72,7 @@ def create_activity(db, *, name: str, location=None, poster_url=None,
     snapshot_activity(db, activity, operation="insert", action="activity_created",
                       source="admin_manual", actor=actor)
 
-    with _terugdraaien_bij_regelfout(db):
+    with _rollback_on_rule_violation(db):
         for datum in dates:
             ad = ActivityDate(
                 activity_id=activity.id,
@@ -160,7 +160,7 @@ def add_activity_date(db, activity_id: int, gegevens, *, actor=None) -> Optional
         start_time=getattr(gegevens, "start_time", None),
         end_time=getattr(gegevens, "end_time", None),
     )
-    with _terugdraaien_bij_regelfout(db):
+    with _rollback_on_rule_violation(db):
         db.add(ad)
         db.flush()
         snapshot_activity_date(db, ad, operation="insert", action="date_created",
@@ -185,7 +185,7 @@ def update_activity_date(db, activity_id: int, date_id: int, velden: dict, *,
         return None
     for veld, waarde in velden.items():
         setattr(ad, veld, waarde)
-    with _terugdraaien_bij_regelfout(db):
+    with _rollback_on_rule_violation(db):
         snapshot_activity_date(db, ad, operation="update", action="date_updated",
                                source="admin_manual", actor=actor)
         db.commit()
@@ -215,14 +215,14 @@ def _datum(db, activity_id: int, date_id: int) -> Optional[ActivityDate]:
             .first())
 
 
-# ActiviteitFout stond hier tot #792 en woont nu in models.py: de eerste regel die
-# op het object zelf leeft (`ActivityDate.valideer_samenhang`) heeft het type nodig,
-# en een model mag niets uit de service importeren. Het wordt bovenaan geïmporteerd,
-# dus `service.ActiviteitFout` blijft werken — dezelfde klasse, niet een tweede.
+# ActiviteitFout lived here until #792 and now lives in models.py: the first rule that
+# sits on the object itself (`ActivityDate.validate_coherence`) needs the type, and a
+# model may not import from the service. It is imported at the top, so
+# `service.ActiviteitFout` keeps working — the same class, not a second one.
 #
-# Waarom het bestaat: geen HTTPException, want die hoort bij de ingang en niet bij
-# de regel. Zonder dit type zou "gratis én ter plaatse kan niet" in de route blijven
-# staan, en dan geldt ze niet voor wie de service rechtstreeks aanroept.
+# Why it exists: not an HTTPException, because that belongs to the entrance and not to
+# the rule. Without this type the rule "free and pay-on-site cannot both hold" would
+# stay in the route, and then it would not apply to anyone calling the service directly.
 
 
 def add_component(db, activity_id: int, gegevens, *, actor=None):

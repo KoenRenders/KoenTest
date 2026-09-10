@@ -383,10 +383,10 @@ def _start_kernel_jobs() -> None:
         from app.kernel.jobs import KernelJob, enqueue, start_scheduler
 
         start_scheduler()
-        # #824: hier stond ook de wees-record-reconciliatie (#401). Die is met het
-        # hele mechanisme verdwenen — een wees-betaling is geen gebeurtenis in het
-        # bedrijf maar een symptoom van een bug, en sinds #667 kan de applicatie er
-        # geen meer maken.
+        # #824: the orphan-record reconciliation (#401) used to be scheduled here too.
+        # It disappeared together with the whole mechanism — an orphan payment is not
+        # an event in the business but a symptom of a bug, and since #667 the
+        # application can no longer create one.
         from app.database import SessionLocal
 
         db = SessionLocal()

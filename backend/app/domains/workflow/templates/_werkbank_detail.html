@@ -13,19 +13,19 @@
      dus een anker kan naar een kaart wijzen die op die pagina niet gerenderd is, en
      dan land je ergens zonder te zien waarom.
 
-     #822: dit gold alléén voor betalingen. Van de vier onderwerpsoorten had er
-     precies één een link, dus bij drie van de vijf taaksoorten las je de titel en
-     ging je zoeken. Elk domein levert nu zijn eigen URL (`_onderwerp_link`); voor
-     een kernel-job is er geen scherm, en dan staan de gegevens in de detailrijen
-     hierboven — een dode link is erger dan geen (#811).
+     #822: this used to apply to payments only. Of the four subject types exactly one
+     had a link, so for three of the five task kinds you read the title and went
+     looking. Every domain now supplies its own URL (`_subject_url`); a kernel job has
+     no screen, and then its data sits in the detail rows above — a dead link is worse
+     than none (#811).
 
-     Bij een WEGWIJZER is dit de primaire actie: het echte werk gebeurt daar. #}
-  {% if onderwerp_link %}
+     On a SIGNPOST this is the primary action: the real work happens over there. #}
+  {% if subject_url %}
   <p class="mb-4">
-    {% if wegwijzer %}{{ ui.btn_primary(_("Ga naar het onderwerp"), type="button",
-       href=onderwerp_link, attrs='hx-boost="false"') }}
+    {% if signpost %}{{ ui.btn_primary(_("Ga naar het onderwerp"), type="button",
+       href=subject_url, attrs='hx-boost="false"') }}
     {% else %}{{ ui.btn_secondary(_("Bekijk het onderwerp"), size="sm",
-       href=onderwerp_link, attrs='hx-boost="false"') }}
+       href=subject_url, attrs='hx-boost="false"') }}
     {% endif %}
   </p>
   {% endif %}
@@ -46,11 +46,11 @@
     <div class="flex gap-2 text-sm"><dt class="font-medium text-gray-600 w-32 shrink-0">{{ _("Afgehandeld door") }}</dt>
       <dd>{{ task.done_by or "—" }}{% if task.done_at %} · {{ task.done_at.strftime("%d-%m-%Y %H:%M") }}{% endif %}</dd></div>
   </dl>
-  {% elif wegwijzer %}
-  {# #822: geen besluitveld en geen "Afgehandeld". Het onderwerp heeft een eigen
-     scherm met eigen acties, dus dáár hoort het werk — en de taak sluit zichzelf
-     zodra de aanleiding weg is. Hier "afgehandeld" kunnen zetten zou bij een
-     webhook-mismatch verbergen dat het geld nog steeds niet geboekt staat. #}
+  {% elif signpost %}
+  {# #822: no decision field and no "Afgehandeld". The subject has its own screen with
+     its own actions, so that is where the work belongs — and the task closes itself
+     once its cause is gone. Being able to tick "handled" here would, on a webhook
+     mismatch, hide that the money is still not booked. #}
   <p class="text-sm text-gray-600">{{ _("Deze taak sluit zichzelf zodra de aanleiding verdwenen is. Handel ze af op het scherm van het onderwerp.") }}</p>
   {% else %}
   <form hx-post="/admin/werkbank/taken/{{ task.id }}/afgehandeld" hx-target="this" hx-swap="outerHTML" class="flex gap-3 items-end">
