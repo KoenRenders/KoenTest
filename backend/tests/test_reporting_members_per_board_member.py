@@ -48,14 +48,16 @@ def _rows(db, extra_filters=()):
 
 
 def test_the_report_is_shipped_and_readable(db_session, situation):
+    """Since #851 the address is one visible column, not three."""
     rapport = next(r for r in list_saved_reports(db_session, tenant_id=TENANT_A,
                                                  viewer="")
                    if r.builtin_key == "members_per_board_member")
     assert rapport.name == "Leden per bestuurslid"
     sel = selection_from_dict(rapport.selection)
     resultaat = run_validated(db_session, sel, tenant_id=TENANT_A)
-    assert {"board_member", "address_street", "address_house_number",
-            "member_head_name", "member_partner_name"} <= set(resultaat.rows[0])
+    assert {"board_member", "address_line", "member_head_name",
+            "member_partner_name"} <= set(resultaat.rows[0])
+    assert "address_street" not in resultaat.rows[0]
 
 
 def test_house_numbers_sort_naturally_and_not_alphabetically(db_session,
@@ -195,3 +197,87 @@ def test_the_address_columns_are_three_and_not_one(db_session, situation):
     assert sorted(samengesteld) != samengesteld, (
         "juist dit is de reden voor drie kolommen: als één tekst sorteert het "
         "adres alfabetisch en staat de straat door elkaar")
+
+
+def test_the_one_address_column_still_sorts_on_the_split_fields(db_session,
+                                                               situation):
+    """#851 made the address one column; the order still comes from underneath.
+
+    Sorting on the composed text is exactly the fault #850 fixed, and it would
+    come back the day somebody drops `sort_sql` as redundant. So this asserts the
+    order AND that the composed labels are not in alphabetical order — if they
+    ever are, the test stops proving anything and says so.
+    """
+    from app.domains.reporting.engine import Sort, build_query
+
+    plan = build_query(
+        Selection(object_keys=("address_line", "member_total_count"),
+                  sort=(Sort("address_line"),)),
+        tenant_id=TENANT_A)
+    assert "house_number_num" in plan.sql, (
+        "de sorteersleutel hoort de gesplitste velden te gebruiken")
+
+    rijen = run_validated(
+        db_session,
+        Selection(object_keys=("address_line", "member_total_count"),
+                  sort=(Sort("address_line"),)),
+        tenant_id=TENANT_A).rows
+    adressen = [r["address_line"] for r in rijen if r["address_line"] != "Geen adres"]
+    assert adressen == ["Straat 2", "Straat 9", "Straat 10", "Straat 12A"], adressen
+    assert adressen != sorted(adressen), (
+        "vallen samengevoegd en natuurlijk samen, dan toetst deze test niets")
+
+
+def test_an_address_without_a_bus_number_says_nothing_about_a_bus(db_session,
+                                                                  situation):
+    """The edge case a naive concatenation trips over.
+
+    Not just "no 'bus'": no trailing space either. A line ending in a space looks
+    identical on screen and sorts and compares differently, which is the kind of
+    difference that only shows up once it is in an export.
+    """
+    from sqlalchemy import text
+
+    lijnen = [row[0] for row in db_session.execute(text(
+        "SELECT address_line FROM reporting.d_address WHERE tenant_id = :t"),
+        {"t": TENANT_A})]
+    assert lijnen, "de seed heeft adressen"
+    zonder_bus = [lijn for lijn in lijnen if " bus " not in lijn]
+    assert zonder_bus, "de seed heeft adressen zonder bus"
+    for lijn in zonder_bus:
+        assert "bus" not in lijn.lower(), lijn
+        assert lijn == lijn.strip(), f"naslepende spatie in {lijn!r}"
+
+
+def test_a_house_number_with_a_letter_comes_through_unharmed(db_session,
+                                                             situation):
+    """`12A` is a house number, not a number with a typo in it."""
+    from sqlalchemy import text
+
+    lijnen = {row[0] for row in db_session.execute(text(
+        "SELECT address_line FROM reporting.d_address WHERE tenant_id = :t"),
+        {"t": TENANT_A})}
+    assert "Straat 12A" in lijnen
+
+
+def test_a_bus_number_is_written_the_way_the_rest_of_the_code_writes_it(
+        db_session, situation):
+    """The same form as the six places that already compose this line (#851).
+
+    They are deliberately left standing, so the view is a seventh copy for now —
+    which makes it worth pinning that the seventh says the same thing as the other
+    six: `straat huisnummer bus N`.
+    """
+    from sqlalchemy import text
+
+    from app.domains.mdm.api import Address
+
+    adres = db_session.query(Address).filter(
+        Address.tenant_id == TENANT_A, Address.deleted_at.is_(None)).first()
+    adres.bus_number = "3"
+    db_session.commit()
+
+    lijn = db_session.execute(text(
+        "SELECT address_line FROM reporting.d_address WHERE address_id = :a"),
+        {"a": adres.id}).scalar()
+    assert lijn == f"{adres.street} {adres.house_number} bus 3"

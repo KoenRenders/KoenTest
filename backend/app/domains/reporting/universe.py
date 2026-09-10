@@ -487,13 +487,20 @@ OBJECTS: tuple[UniverseObject, ...] = (
     ),
     UniverseObject(
         key="address_line", name="Adres", klass="Leden",
-        kind=ObjectKind.DETAIL, view="d_address",
+        kind=ObjectKind.DIMENSION, view="d_address",
         sql="COALESCE({view}.address_line, 'Geen adres')",
+        # Sorted on the SPLIT fields, never on the composed text — composing is
+        # exactly what made a street come back as 10, 12A, 2, 9 (#850, #851).
+        sort_sql=("{view}.street, {view}.house_number_num, "
+                  "{view}.house_number_rest, {view}.bus_number"),
         format=Format.LABEL, role=Role.MEMBER_DETAILS,
         description=(
-            "Straat, huisnummer en bus van deze persoon; 'Geen adres' als er geen "
-            "is. Voor 'waar woont wie'; voor 'hoeveel gezinnen per gemeente' neem "
-            "je Gemeente, die al op gezinskorrel staat."
+            "Straat, huisnummer en bus op één lijn; 'Geen adres' als er geen is. "
+            "Afgeleid in de weergave, niet bewaard — een samenvoeging die in de "
+            "databank staat, drijft weg van de velden waaruit ze komt. Sorteert op "
+            "straat, huisnummer numeriek en bus, dus niet op zichzelf. Voor "
+            "'hoeveel gezinnen per gemeente' neem je Gemeente, die al op "
+            "gezinskorrel staat."
         ),
     ),
     UniverseObject(
