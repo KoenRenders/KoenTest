@@ -46,7 +46,10 @@ def test_platform_landing(client, monkeypatch):
     monkeypatch.setattr(settings, "platform_hosts", "platform.example")
     resp = client.get("/", headers={"host": "platform.example"})
     assert resp.status_code == 200
-    assert "Raak Digital Platform" in resp.text
+    # #821: de landing draagt geen merknaam meer. Het platform is niet van één
+    # afdeling, en de afdelingen erop staan er wél met hun eigen naam.
+    assert "Digital Platform" in resp.text
+    assert "Raak Digital Platform" not in resp.text
     assert "Raak Voorbeeldafdeling" in resp.text
 
 
