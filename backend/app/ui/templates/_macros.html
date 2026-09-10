@@ -240,15 +240,44 @@
 {{ _field(text, name, '<input id="' ~ name ~ '" name="' ~ name ~ '" type="' ~ type ~ '" value="' ~ value ~ '" placeholder="' ~ placeholder ~ '"' ~ (' required' if required else '') ~ ' class="' ~ _control ~ '" ' ~ attrs ~ '>', required, hint, error) }}
 {%- endmacro %}
 
+{# #815: `.format()` op een `|safe`-sjabloon in plaats van `~`-concatenatie.
+   Gemeten: met autoescape escapet `~` de ÁNDERE operanden zodra er één `Markup`
+   tussen staat — en `_()` levert `Markup`. Eén vertaalde waarde en de hele
+   `<textarea>` verscheen als tekst op het scherm; de `|safe` in `_field` komt dan te
+   laat, want het resultaat ís al escaped. `Markup.format` doet het omgekeerde en
+   juiste: het sjabloon blijft veilig en de argumenten worden precies één keer
+   ge-escaped, of ze nu `str` of `Markup` zijn.
+
+   Geen enkel echt scherm raakte dit vandaag — het wachtte op de eerste aanroeper met
+   een vertaald label, en een keuzelijst met vertaalde opties is een normale wens. #}
 {% macro field_textarea(text, name, value="", rows=4, required=False, placeholder="", hint=None, error=None, attrs="") -%}
-{{ _field(text, name, '<textarea id="' ~ name ~ '" name="' ~ name ~ '" rows="' ~ rows ~ '" placeholder="' ~ placeholder ~ '"' ~ (' required' if required else '') ~ ' class="' ~ _control ~ '" ' ~ attrs ~ '>' ~ value ~ '</textarea>', required, hint, error) }}
+{#- `_control` staat hier BINNEN het sjabloon en niet als argument: de gate op kale
+    controls (#611) leest de `<textarea …>`-tag zoals hij in de bron staat, en die
+    hoort de control-klassen te tonen. Beide operanden zijn gewone strings, dus deze
+    `~` escapet niets — dat gebeurt pas zodra er `Markup` tussen staat. -#}
+{%- set _sjabloon = '<textarea id="{}" name="{}" rows="{}" placeholder="{}"{} class="' ~ _control ~ '" {}>{}</textarea>' -%}
+{%- set _html = (_sjabloon|safe).format(
+      name, name, rows, placeholder, ' required'|safe if required else ''|safe,
+      attrs|safe, value) -%}
+{{ _field(text, name, _html, required, hint, error) }}
 {%- endmacro %}
 
 {# Select: `options` = lijst van (waarde, label); `selected` = huidige waarde. #}
+{# #815: zelfde reparatie als bij `field_textarea` — zie de opmerking daar. Een
+   vertaald optielabel maakte hier de hele `<select>` zichtbaar als tekst. #}
 {% macro field_select(text, name, options, selected=None, required=False, hint=None, error=None, attrs="") -%}
 {% set opts = [] %}
-{% for val, lab in options %}{% set _ = opts.append('<option value="' ~ val ~ '"' ~ (' selected' if (val|string == selected|string) else '') ~ '>' ~ lab ~ '</option>') %}{% endfor %}
-{{ _field(text, name, '<select id="' ~ name ~ '" name="' ~ name ~ '"' ~ (' required' if required else '') ~ ' class="' ~ _control ~ '" ' ~ attrs ~ '>' ~ (opts|join('')) ~ '</select>', required, hint, error) }}
+{% for val, lab in options %}
+{%- set _ = opts.append(('<option value="{}"{}>{}</option>'|safe).format(
+      val, ' selected'|safe if (val|string == selected|string) else ''|safe, lab)) -%}
+{% endfor %}
+{#- Zie `field_textarea`: `_control` binnen het sjabloon, zodat de tag in de bron
+    toont dat de control-klassen erop staan. -#}
+{%- set _sjabloon = '<select id="{}" name="{}"{} class="' ~ _control ~ '" {}>{}</select>' -%}
+{%- set _html = (_sjabloon|safe).format(
+      name, name, ' required'|safe if required else ''|safe, attrs|safe,
+      (opts|join(''))|safe) -%}
+{{ _field(text, name, _html, required, hint, error) }}
 {%- endmacro %}
 
 {# ── Uploadveld (#623) ────────────────────────────────────────────────────────
