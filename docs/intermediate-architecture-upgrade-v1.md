@@ -353,10 +353,18 @@ daar een tenant-site met een publieke URL bij hoort. Die twee begrippen uit elka
 houden is nu goedkoop en later duur.
 
 **De wortel van een platform-host** toont de platform-landing: de naam van het
-platform, de actieve afdelingen met hun URL, en een aanmeldmogelijkheid. Die
+platform ("Digital Platform" — bewust zonder merknaam, want het platform is niet
+van één afdeling), de actieve afdelingen met hun URL, en een aanmeldmogelijkheid. Die
 landing draagt **geen tenant-branding** en verwijst niet naar een afdeling — een
 platform dat voor beheer naar een van zijn eigen klanten wijst, is geen platform.
 Wie na het aanmelden `OPERATOR` is, komt op het tenantbeheer uit.
+
+**Koens voorbehoud, 10 september 2026:** hij is er niet van overtuigd dat de
+platformlaag op termijn géén tenant wordt. Deze beslissing geldt dus voor nu en
+niet voor altijd. Wat haar goedkoop terugdraaibaar houdt is precies de keuze
+hierboven: zolang de platformlaag geen tenant *is*, kost het toevoegen van er één
+niets aan bestaande data. Andersom — een tenant die er al is weer uit elkaar halen —
+is wél duur. Bij twijfel is de goedkope kant dus de kant die nog niets vastlegt.
 
 **Openstaande naad:** `resolve_request` geeft voor de landing vandaag
 `DEFAULT_TENANT_ID` terug, dus ze rendert technisch binnen de standaard-tenant. Dat
