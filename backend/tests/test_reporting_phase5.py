@@ -1,10 +1,11 @@
 """The remaining facts, the threshold, and questions 8 to 10 (#841).
 
 Three things are worth a test here and they are not equally obvious. The facts
-have known numbers, like every fact since #832. `f_operations` is a **union over
-three domains**, so its interesting property is that it holds all three kinds and
-still filters each one by its own rule. And the small-cell threshold is a privacy
-rule, which means it has to be checked from both sides: a group of four must not
+have known numbers, like every fact since #832. `f_tasks` is the workbench and
+nothing else — it used to be a union over three domains and counted the same
+problem twice — so its interesting property is that a problem appears once, under
+the kind of task it produced. And the small-cell threshold is a privacy rule,
+which means it has to be checked from both sides: a group of four must not
 appear, a group of five must, and the numbers must still add up afterwards —
 otherwise a reader distrusts the total instead of realising something was folded.
 
@@ -78,22 +79,33 @@ def _operations(db, *, tenant=TENANT_A):
     db.commit()
 
 
-# ── f_operations: the workbench, and only the workbench ─────────────────────
+# ── f_tasks: the workbench, and only the workbench ──────────────────────────
 #
 # The fact was a union over three tables until it turned out to count the same
 # problem twice: a definitively failed mail and a refund awaiting confirmation are
 # workbench *task kinds*, so they were in the task leg and again in their own leg.
 # The three things #841 names are three kinds, not three tables. Migration 102
-# reduced the fact to one row per open task; these tests hold it there.
+# reduced it to the workbench; 103 renamed it to `f_tasks` — the old name promised
+# a scope it no longer had, and a promise like that invites the next reader to put
+# the mail leg back — and made status a dimension instead of a filter baked into
+# the view. These tests hold both.
 #
 # They assert a DELTA and not a total, and that is not laziness. The mail log is
 # written by dozens of other tests through their own session, so an absolute count
 # over a tenant is a claim about everything the suite left behind — it read 214
 # rows where this fixture adds one.
 
-def _per_kind(db, *, tenant=TENANT_A) -> dict[str, int]:
-    result = run(db, ["operation_kind", "operation_count"], tenant=tenant)
-    return {row["operation_kind"]: row["operation_count"] for row in result.rows}
+def _per_kind(db, *, tenant=TENANT_A, status="Open") -> dict[str, int]:
+    """Tasks per kind. The status is a FILTER now, not a property of the fact."""
+    filters = [Filter("task_status", Operator.EQ, (status,))] if status else []
+    result = run(db, ["task_kind", "task_count"], tenant=tenant, filters=filters)
+    return {row["task_kind"]: row["task_count"] for row in result.rows}
+
+
+def _open_count(db, *, tenant=TENANT_A) -> int:
+    result = run(db, ["task_count"], tenant=tenant,
+                 filters=[Filter("task_status", Operator.EQ, ("Open",))])
+    return result.rows[0]["task_count"] if result.rows else 0
 
 
 def _delta(voor: dict[str, int], na: dict[str, int]) -> dict[str, int]:
@@ -120,10 +132,9 @@ def test_a_failed_mail_is_one_problem_and_not_two(db_session, situation):
     report must show one row. Before 102 it showed two: one as "Open taak" and one
     as "Mislukte e-mail", and both looked entirely reasonable.
     """
-    voor = run(db_session, ["operation_count"]).rows[0]["operation_count"]
+    voor = _open_count(db_session)
     _operations(db_session)
-    na = run(db_session, ["operation_count"]).rows[0]["operation_count"]
-    assert na - voor == 2, (
+    assert _open_count(db_session) - voor == 2, (
         "twee open taken, niet vier: de mail en de refund tellen één keer")
 
 
@@ -141,7 +152,7 @@ def test_a_skipped_or_logged_mail_is_not_a_problem(db_session, situation):
         "WHERE tenant_id = :t AND status <> 'sent'"), {"t": TENANT_A}).scalar()
     assert niet_verzonden >= 3, "de fixture zet er failed, skipped én logged in"
 
-    open_items = run(db_session, ["operation_count"]).rows[0]["operation_count"]
+    open_items = _open_count(db_session)
     assert open_items < niet_verzonden, (
         "de werkvoorraad telt taken, niet elke mail die niet verzonden is")
 
@@ -377,7 +388,7 @@ def test_the_three_new_reports_run_and_return_the_seed_s_numbers(db_session,
 
     aandacht = run_validated(db_session, selection_of(reports["operations_now"]),
                              tenant_id=TENANT_A)
-    soorten = {row["operation_kind"] for row in aandacht.rows}
+    soorten = {row["task_kind"] for row in aandacht.rows}
     assert {"Terugbetaling bevestigen", "E-mail definitief mislukt"} <= soorten
 
     wie = run_validated(db_session, selection_of(reports["member_demographics"]),

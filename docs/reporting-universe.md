@@ -33,7 +33,7 @@ The role column is the role the fact's **flat dataset dump** will need once the 
 | `f_payments` | Betalingen | één rij per betaalrecord | `finance` | `COUNT(DISTINCT {view}.household_id)` | Vorderingen en terugbetalingen. Een terugbetaling draagt een negatief bedrag, dus elke som is meteen een nettobedrag. |
 | `f_membership_persons` | Leden (personen) | één rij per persoon per lidmaatschapsjaar | `admin` | `COUNT({view}.person_id)` | Wie er lid is, op persoonsniveau — de korrel die vraag 8 nodig heeft. Een persoon in twee gezinnen telt één keer. |
 | `f_form_submissions` | Formulierinzendingen | één rij per inzending | `admin` | — | Inzendingen op formulieren. Zonder naam of e-mailadres: een rapport telt inzendingen, het formulierscherm toont wat iemand schreef. |
-| `f_operations` | Operaties | één rij per open werkbanktaak | `admin` | — | De werkvoorraad: wat er open staat in de werkbank. Een definitief mislukte e-mail en een te bevestigen terugbetaling zitten er als taaksoort in — niet als aparte rij ernaast. Antwoordt morgen anders, en dat is wat een werkvoorraad hoort te doen. |
+| `f_tasks` | Taken | één rij per werkbanktaak, open én afgehandeld | `admin` | — | De werkbank: elke taak, met haar status als dimensie. Een definitief mislukte e-mail en een te bevestigen terugbetaling zitten erin als taaksoort — niet als aparte rij ernaast. Filter op Open voor de werkvoorraad; laat het filter weg en je ziet of ze groeit of krimpt. |
 
 ## Dimensions
 
@@ -69,7 +69,7 @@ Every join also matches on `tenant_id`, unconditionally — a dimension row can 
 | `f_membership_persons` | `d_household` | `household_id` = `household_id` |
 | `f_form_submissions` | `d_form` | `form_id` = `form_id` |
 | `f_form_submissions` | `d_date` | `date_key` = `date_key` |
-| `f_operations` | `d_date` | `date_key` = `date_key` |
+| `f_tasks` | `d_date` | `date_key` = `date_key` |
 
 ## Roles
 
@@ -77,9 +77,9 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 
 | Universe role | Meaning | Objects |
 |---|---|---|
-| `admin` | the default: what an admin screen already shows | 45 |
+| `admin` | the default: what an admin screen already shows | 47 |
 | `finance` | money — every measure formatted as money, and the Betalingen class | 26 |
-| `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 1 |
+| `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 2 |
 
 ## Objects
 
@@ -169,16 +169,19 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `form_anonymous` | Anoniem formulier | dimension | label | `admin` | `d_form.is_anonymous_label` | Of het formulier anoniem ingevuld wordt. |
 | `submission_edited` | Achteraf gewijzigd | dimension | label | `admin` | `CASE WHEN f_form_submissions.was_edited THEN 'Ja' ELSE 'Nee' END` | Of de inzender zijn antwoord nadien nog aangepast heeft. |
 
-### Operaties
+### Taken
 
 | Key | Name | Type | Format | Role | Source | Description |
 |---|---|---|---|---|---|---|
-| `operation_count` | Aantal open items | measure | count | `admin` | `COUNT(DISTINCT f_operations.item_id)` | Hoeveel er nog ligt te wachten. |
-| `operation_age_days` | Gemiddelde ouderdom | measure | days | `admin` | `AVG(f_operations.age_days)` | Gemiddeld aantal dagen dat een open item al wacht. |
-| `operation_kind` | Soort | dimension | label | `admin` | `f_operations.kind_label` | Wat voor taak het is: een terugbetaling bevestigen, een mislukte e-mail, een webhook die afwijkt, een mislukte achtergrondtaak. |
-| `operation_detail` | Onderwerp | dimension | label | `admin` | `f_operations.detail` | Waar de taak over gaat: een betaalrecord, een e-mail, een achtergrondtaak. |
-| `operation_role` | Voor welke rol | dimension | label | `admin` | `f_operations.required_role` | Wie de taak hoort op te pakken. |
-| `operation_age_bucket` | Ouderdom | dimension | label | `admin` | `f_operations.age_bucket` | Hoe lang een item al open staat, in klassen. |
+| `task_count` | Aantal taken | measure | count | `admin` | `COUNT(DISTINCT f_tasks.item_id)` | Hoeveel taken er zijn. Filter op status Open voor de werkvoorraad. |
+| `task_age_days` | Gemiddelde ouderdom | measure | days | `admin` | `AVG(f_tasks.age_days)` | Gemiddeld aantal dagen dat een openstaande taak al wacht. Afgehandelde taken tellen niet mee — die wachten niet meer. |
+| `task_days_to_done` | Gemiddelde doorlooptijd | measure | days | `admin` | `AVG(f_tasks.days_to_done)` | Gemiddeld aantal dagen tussen aanmaken en afhandelen, over de afgehandelde taken. |
+| `task_kind` | Soort | dimension | label | `admin` | `f_tasks.kind_label` | Wat voor taak het is: een terugbetaling bevestigen, een mislukte e-mail, een webhook die afwijkt, een mislukte achtergrondtaak. |
+| `task_status` | Status | dimension | label | `admin` | `f_tasks.status_label` | Open of afgehandeld. Filter hierop in plaats van te vertrouwen op wat het feit toevallig bevat. |
+| `task_detail` | Onderwerp | dimension | label | `admin` | `f_tasks.detail` | Waar de taak over gaat: een betaalrecord, een e-mail, een achtergrondtaak. |
+| `task_role` | Voor welke rol | dimension | label | `admin` | `f_tasks.required_role` | Wie de taak hoort op te pakken. |
+| `task_age_bucket` | Ouderdom | dimension | label | `admin` | `f_tasks.age_bucket` | Hoe lang een taak al open staat, in klassen. Afgehandelde taken staan op 'Afgehandeld'. |
+| `task_done_by` | Afgehandeld door | detail | label | `member_details` | `f_tasks.done_by` | Het e-mailadres van wie de taak afsloot. |
 
 ### Tijd
 

@@ -235,7 +235,7 @@ def test_the_payments_class_is_declared_finance_end_to_end():
     assert per_feit["f_registrations"] is Role.FINANCE
     assert per_feit["f_payments"] is Role.FINANCE
     assert per_feit["f_form_submissions"] is Role.ADMIN
-    assert per_feit["f_operations"] is Role.ADMIN
+    assert per_feit["f_tasks"] is Role.ADMIN
     assert per_feit["f_membership_persons"] is Role.ADMIN
 
 
@@ -249,5 +249,5 @@ def test_every_measure_and_detail_carries_a_role():
 def test_the_objects_pane_is_grouped_in_declared_class_order():
     classes = [name for name, _objects in classes_with_objects()]
     assert classes == ["Leden", "Activiteiten", "Betalingen", "Betaaldetail",
-                       "Formulieren", "Operaties", "Tijd"]
+                       "Formulieren", "Taken", "Tijd"]
     assert all(objects for _name, objects in classes_with_objects())

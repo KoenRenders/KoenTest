@@ -88,7 +88,7 @@ class Role(str, Enum):
 # The classes, in the order the objects pane shows them. A class is how a user
 # thinks about the data, not how it is stored.
 CLASSES: tuple[str, ...] = ("Leden", "Activiteiten", "Betalingen",
-                            "Betaaldetail", "Formulieren", "Operaties", "Tijd")
+                            "Betaaldetail", "Formulieren", "Taken", "Tijd")
 
 
 @dataclass(frozen=True)
@@ -249,17 +249,18 @@ FACTS: tuple[Fact, ...] = (
         dataset_key=("submission_id",),
     ),
     Fact(
-        key="f_operations",
-        name="Operaties",
+        key="f_tasks",
+        name="Taken",
         role=Role.ADMIN,
-        grain="één rij per open werkbanktaak",
+        grain="één rij per werkbanktaak, open én afgehandeld",
         description=(
-            "De werkvoorraad: wat er open staat in de werkbank. Een definitief "
-            "mislukte e-mail en een te bevestigen terugbetaling zitten er als "
-            "taaksoort in — niet als aparte rij ernaast. Antwoordt morgen anders, "
-            "en dat is wat een werkvoorraad hoort te doen."
+            "De werkbank: elke taak, met haar status als dimensie. Een definitief "
+            "mislukte e-mail en een te bevestigen terugbetaling zitten erin als "
+            "taaksoort — niet als aparte rij ernaast. Filter op Open voor de "
+            "werkvoorraad; laat het filter weg en je ziet of ze groeit of krimpt."
         ),
         dataset_key=("kind", "item_id"),
+        detail_order=("{view}.created_at DESC", "{view}.item_id"),
     ),
 )
 
@@ -290,7 +291,7 @@ JOINS: tuple[Join, ...] = (
     Join("f_membership_persons", "d_household", (("household_id", "household_id"),)),
     Join("f_form_submissions", "d_form", (("form_id", "form_id"),)),
     Join("f_form_submissions", "d_date", (("date_key", "date_key"),)),
-    Join("f_operations", "d_date", (("date_key", "date_key"),)),
+    Join("f_tasks", "d_date", (("date_key", "date_key"),)),
 )
 
 
@@ -738,43 +739,61 @@ OBJECTS: tuple[UniverseObject, ...] = (
         description="Of de inzender zijn antwoord nadien nog aangepast heeft.",
     ),
 
-    # ── Operaties ───────────────────────────────────────────────────────────
+    # ── Taken ───────────────────────────────────────────────────────────────
     UniverseObject(
-        key="operation_count", name="Aantal open items", klass="Operaties",
-        kind=ObjectKind.MEASURE, view="f_operations",
+        key="task_count", name="Aantal taken", klass="Taken",
+        kind=ObjectKind.MEASURE, view="f_tasks",
         sql="COUNT(DISTINCT {view}.item_id)", format=Format.COUNT, role=Role.ADMIN,
-        fact="f_operations", additive=False,
-        description="Hoeveel er nog ligt te wachten.",
+        fact="f_tasks", additive=False,
+        description="Hoeveel taken er zijn. Filter op status Open voor de werkvoorraad.",
     ),
     UniverseObject(
-        key="operation_age_days", name="Gemiddelde ouderdom", klass="Operaties",
-        kind=ObjectKind.MEASURE, view="f_operations", sql="AVG({view}.age_days)",
-        format=Format.DAYS, role=Role.ADMIN, fact="f_operations", additive=False,
-        description="Gemiddeld aantal dagen dat een open item al wacht.",
+        key="task_age_days", name="Gemiddelde ouderdom", klass="Taken",
+        kind=ObjectKind.MEASURE, view="f_tasks", sql="AVG({view}.age_days)",
+        format=Format.DAYS, role=Role.ADMIN, fact="f_tasks", additive=False,
+        description="Gemiddeld aantal dagen dat een openstaande taak al wacht. Afgehandelde taken tellen niet mee — die wachten niet meer.",
     ),
     UniverseObject(
-        key="operation_kind", name="Soort", klass="Operaties",
-        kind=ObjectKind.DIMENSION, view="f_operations", sql="{view}.kind_label",
-        format=Format.LABEL, role=Role.ADMIN, fact="f_operations",
+        key="task_days_to_done", name="Gemiddelde doorlooptijd", klass="Taken",
+        kind=ObjectKind.MEASURE, view="f_tasks", sql="AVG({view}.days_to_done)",
+        format=Format.DAYS, role=Role.ADMIN, fact="f_tasks", additive=False,
+        description="Gemiddeld aantal dagen tussen aanmaken en afhandelen, over de afgehandelde taken.",
+    ),
+    UniverseObject(
+        key="task_kind", name="Soort", klass="Taken",
+        kind=ObjectKind.DIMENSION, view="f_tasks", sql="{view}.kind_label",
+        format=Format.LABEL, role=Role.ADMIN, fact="f_tasks",
         description="Wat voor taak het is: een terugbetaling bevestigen, een mislukte e-mail, een webhook die afwijkt, een mislukte achtergrondtaak.",
     ),
     UniverseObject(
-        key="operation_detail", name="Onderwerp", klass="Operaties",
-        kind=ObjectKind.DIMENSION, view="f_operations", sql="{view}.detail",
-        format=Format.LABEL, role=Role.ADMIN, fact="f_operations",
+        key="task_status", name="Status", klass="Taken",
+        kind=ObjectKind.DIMENSION, view="f_tasks", sql="{view}.status_label",
+        format=Format.LABEL, role=Role.ADMIN, fact="f_tasks",
+        description="Open of afgehandeld. Filter hierop in plaats van te vertrouwen op wat het feit toevallig bevat.",
+    ),
+    UniverseObject(
+        key="task_detail", name="Onderwerp", klass="Taken",
+        kind=ObjectKind.DIMENSION, view="f_tasks", sql="{view}.detail",
+        format=Format.LABEL, role=Role.ADMIN, fact="f_tasks",
         description="Waar de taak over gaat: een betaalrecord, een e-mail, een achtergrondtaak.",
     ),
     UniverseObject(
-        key="operation_role", name="Voor welke rol", klass="Operaties",
-        kind=ObjectKind.DIMENSION, view="f_operations", sql="{view}.required_role",
-        format=Format.LABEL, role=Role.ADMIN, fact="f_operations",
+        key="task_role", name="Voor welke rol", klass="Taken",
+        kind=ObjectKind.DIMENSION, view="f_tasks", sql="{view}.required_role",
+        format=Format.LABEL, role=Role.ADMIN, fact="f_tasks",
         description="Wie de taak hoort op te pakken.",
     ),
     UniverseObject(
-        key="operation_age_bucket", name="Ouderdom", klass="Operaties",
-        kind=ObjectKind.DIMENSION, view="f_operations", sql="{view}.age_bucket",
-        format=Format.LABEL, role=Role.ADMIN, fact="f_operations",
-        description="Hoe lang een item al open staat, in klassen.",
+        key="task_age_bucket", name="Ouderdom", klass="Taken",
+        kind=ObjectKind.DIMENSION, view="f_tasks", sql="{view}.age_bucket",
+        format=Format.LABEL, role=Role.ADMIN, fact="f_tasks",
+        description="Hoe lang een taak al open staat, in klassen. Afgehandelde taken staan op 'Afgehandeld'.",
+    ),
+    UniverseObject(
+        key="task_done_by", name="Afgehandeld door", klass="Taken",
+        kind=ObjectKind.DETAIL, view="f_tasks", sql="{view}.done_by",
+        format=Format.LABEL, role=Role.MEMBER_DETAILS, fact="f_tasks",
+        description="Het e-mailadres van wie de taak afsloot.",
     ),
 )
 
