@@ -134,16 +134,31 @@ class Dimension:
 
 @dataclass(frozen=True)
 class Join:
-    """How a dimension attaches to a fact.
+    """How a dimension attaches — to a fact, or to another dimension.
 
-    ``pairs`` are ``(fact_column, dimension_column)``; ``tenant_id`` is added by
-    the engine on every join, unconditionally, so a dimension row can never be
+    ``pairs`` are ``(left_column, right_column)``; ``tenant_id`` is added by the
+    engine on every join, unconditionally, so a dimension row can never be
     borrowed from another tenant.
+
+    ``left`` is usually a fact, and then this is the plain star. It may also be
+    another **dimension**, which makes a snowflake: the board member hangs off the
+    household, the address off the person. The engine follows the chain and joins
+    in dependency order.
+
+    The direction is not free. A chained dimension must sit at the same grain as
+    the one it hangs off, or the join multiplies the fact underneath it — the
+    address hangs off `d_person` and not off `d_member` for exactly that reason: a
+    household with three addressed people would count three times.
     """
 
-    fact: str
+    left: str
     dimension: str
     pairs: tuple[tuple[str, str], ...]
+
+    @property
+    def fact(self) -> str:
+        """The old name of ``left``, kept for readability at the call sites."""
+        return self.left
 
 
 @dataclass(frozen=True)
@@ -297,6 +312,8 @@ DIMENSIONS: tuple[Dimension, ...] = (
     Dimension(key="d_payment_status", name="Betaalstatus", key_column="code"),
     Dimension(key="d_membership_status", name="Lidmaatschapsstatus", key_column="code"),
     Dimension(key="d_form", name="Formulier", key_column="form_id"),
+    Dimension(key="d_board_member", name="Verantwoordelijk bestuurslid",
+              key_column="board_member_id"),
 )
 
 JOINS: tuple[Join, ...] = (
@@ -319,6 +336,9 @@ JOINS: tuple[Join, ...] = (
     Join("f_members", "d_member", (("member_id", "member_id"),)),
     Join("f_activities", "d_activity", (("activity_id", "activity_id"),)),
     Join("f_activities", "d_date", (("date_key", "date_key"),)),
+    # A snowflake: the board member hangs off the household, not off a fact. Same
+    # grain as the household it hangs off, so nothing multiplies (#849).
+    Join("d_member", "d_board_member", (("board_member_id", "board_member_id"),)),
 )
 
 
@@ -757,6 +777,23 @@ OBJECTS: tuple[UniverseObject, ...] = (
     ),
 
     UniverseObject(
+        key="board_member", name="Verantwoordelijk bestuurslid", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="d_board_member",
+        sql="COALESCE({view}.board_member_name, 'Niet toegewezen')",
+        # NOT `sensitive`: the threshold protects members from being picked out
+        # of a small demographic group, and a board member is the axis here, not
+        # the population. Combine this with an age group and the threshold still
+        # fires — it triggers on any sensitive dimension in the selection — so the
+        # protection stays exactly where it belongs (#849).
+        format=Format.LABEL, role=Role.MEMBER_DETAILS,
+        description=(
+            "Het bestuurslid dat dit gezin tot zijn verantwoordelijkheid neemt. "
+            "Gezinnen zonder toewijzing staan onder 'Niet toegewezen' — dat is "
+            "een van de nuttigste uitkomsten van dit rapport, geen gat. Draagt de "
+            "huidige toewijzing, geen historie."
+        ),
+    ),
+    UniverseObject(
         key="member_total_count", name="Alle gezinnen", klass="Leden",
         kind=ObjectKind.MEASURE, view="f_members",
         sql="COUNT(DISTINCT {view}.member_id)", format=Format.COUNT,
@@ -914,8 +951,44 @@ DIMENSION_BY_KEY: dict[str, Dimension] = {d.key: d for d in DIMENSIONS}
 
 
 def joins_for(fact: str) -> dict[str, Join]:
-    """The dimensions reachable from ``fact``, keyed by dimension view."""
-    return {j.dimension: j for j in JOINS if j.fact == fact}
+    """Every dimension reachable from ``fact``, keyed by dimension view.
+
+    Follows chains: a dimension that hangs off another dimension is reachable as
+    soon as that one is. The value is the join that attaches it, so the caller can
+    put them in dependency order.
+    """
+    bereikbaar: dict[str, Join] = {}
+    grens = {fact}
+    while grens:
+        volgende: set[str] = set()
+        for join in JOINS:
+            if join.left in grens and join.dimension not in bereikbaar:
+                bereikbaar[join.dimension] = join
+                volgende.add(join.dimension)
+        grens = volgende
+    return bereikbaar
+
+
+def join_order(needed: list[str], reachable: dict[str, Join]) -> list[str]:
+    """The needed views plus whatever they hang off, parents first.
+
+    A snowflake join cannot be emitted before the dimension it references exists
+    in the FROM clause, and a dimension pulled in only as a stepping stone still
+    has to be there.
+    """
+    volgorde: list[str] = []
+
+    def _zet(view: str) -> None:
+        if view in volgorde or view not in reachable:
+            return
+        ouder = reachable[view].left
+        if ouder in reachable:
+            _zet(ouder)
+        volgorde.append(view)
+
+    for view in needed:
+        _zet(view)
+    return volgorde
 
 
 def objects_in_pane_order() -> list[UniverseObject]:

@@ -49,6 +49,7 @@ The role column is the role the fact's **flat dataset dump** will need once the 
 | `d_payment_status` | Betaalstatus | `code` |
 | `d_membership_status` | Lidmaatschapsstatus | `code` |
 | `d_form` | Formulier | `form_id` |
+| `d_board_member` | Verantwoordelijk bestuurslid | `board_member_id` |
 
 ## Join graph
 
@@ -75,6 +76,7 @@ Every join also matches on `tenant_id`, unconditionally — a dimension row can 
 | `f_members` | `d_member` | `member_id` = `member_id` |
 | `f_activities` | `d_activity` | `activity_id` = `activity_id` |
 | `f_activities` | `d_date` | `date_key` = `date_key` |
+| `d_member` | `d_board_member` | `board_member_id` = `board_member_id` |
 
 ## Roles
 
@@ -84,7 +86,7 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 |---|---|---|
 | `admin` | the default: what an admin screen already shows | 54 |
 | `finance` | money — every measure formatted as money, and the Betalingen class | 27 |
-| `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 2 |
+| `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 3 |
 
 ## Objects
 
@@ -112,6 +114,7 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `person_gender` | Geslacht | dimension | label | `admin` | `d_person.gender_label` | Geslacht van de inschrijver. |
 | `person_relation_type` | Relatietype | dimension | label | `admin` | `d_person.relation_type_label` | Hoofdlid, partner of (meerderjarig) kind binnen het gezin. |
 | `membership_person_count` | Aantal leden (personen) | measure | count | `admin` | `COUNT(f_membership_persons.person_id)` | Personen met een lidmaatschap in dat jaar. Eén rij per persoon per jaar, dus tellen is optellen. |
+| `board_member` | Verantwoordelijk bestuurslid | dimension | label | `member_details` | `COALESCE(d_board_member.board_member_name, 'Niet toegewezen')` | Het bestuurslid dat dit gezin tot zijn verantwoordelijkheid neemt. Gezinnen zonder toewijzing staan onder 'Niet toegewezen' — dat is een van de nuttigste uitkomsten van dit rapport, geen gat. Draagt de huidige toewijzing, geen historie. |
 | `member_total_count` | Alle gezinnen | measure | count | `admin` | `COUNT(DISTINCT f_members.member_id)` | Elk gezin in de administratie, of het ooit lid was of niet. Verschilt van 'Aantal gezinnen', dat alleen telt wie in dat jaar lid was. |
 | `member_ever_member` | Ooit lid geweest | dimension | label | `admin` | `CASE WHEN f_members.was_ever_member THEN 'Ja' ELSE 'Nee' END` | Of dit gezin ooit een lidmaatschap had. |
 | `membership_active_count` | Actieve lidmaatschappen | measure | count | `admin` | `SUM(f_memberships.active_membership_count)` | Lidmaatschappen die op actief staan. Telt lidmaatschappen en geen gezinnen — dat is wat de dashboardtegel telt. |

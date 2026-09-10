@@ -301,11 +301,18 @@ def test_every_object_still_declares_its_role():
     fouten = [o.key for o in OBJECTS if not isinstance(o.role, Role)]
     assert not fouten, f"objecten zonder rol: {fouten}"
 
+    # This used to also demand that a `member_details` object be a DETAIL and
+    # never a DIMENSION — "you do not group by a name". #849 is the case that
+    # shows the rule was too wide: grouping households by their responsible board
+    # member is the whole point of that report, and the name is what a reader
+    # recognises. Grouping by a person's name is a report about the STAFF member
+    # who carries the households, not about the households' members.
+    #
+    # What still has to hold is that such an object declares the role, so the
+    # later per-object switch (CR-06 §5.1) has something to turn on. That is the
+    # assertion above, and it is the one that matters.
     persoonlijk = [o for o in OBJECTS if o.role is Role.MEMBER_DETAILS]
-    for obj in persoonlijk:
-        assert obj.kind is ObjectKind.DETAIL, (
-            f"{obj.key}: een persoonsdetail is een detail, geen dimensie — je "
-            "groepeert niet op een naam")
+    assert persoonlijk, "de rol member_details hoort ergens gebruikt te worden"
 
 
 def test_a_drill_target_comes_with_the_sql_that_produces_it():

@@ -33,6 +33,7 @@ from app.domains.reporting.universe import (
     Format,
     ObjectKind,
     UniverseObject,
+    join_order,
     joins_for,
 )
 
@@ -375,24 +376,28 @@ def _check_joinable(views: list[str], fact: str) -> dict[str, object]:
                 f"'{FACT_BY_KEY[fact].name}' heeft geen verband met de dimensie "
                 f"'{view}'. Kies objecten die bij hetzelfde feit horen."
             )
-    return {v: available[v] for v in views}
+    # Whatever the needed views hang off comes along, parents first: a snowflake
+    # join cannot be emitted before the dimension it references is in the FROM.
+    return {v: available[v] for v in join_order(views, available)}
 
 
 def _from_clause(fact: str, views: list[str], joins: dict) -> str:
     lines = [f"reporting.{fact} AS {_view_alias(fact)}"]
-    for view in views:
+    for view in joins:
         join = joins[view]
         alias = _view_alias(view)
+        links = _view_alias(join.left)
         # tenant_id is part of EVERY join, unconditionally: without it a dimension
         # row could be borrowed from another tenant even though the fact is
         # filtered correctly. That is the classic leak this design refuses to make
         # a habit (CR-06 §2.4).
-        conditions = [f"{alias}.tenant_id = {_view_alias(fact)}.tenant_id"]
+        conditions = [f"{alias}.tenant_id = {links}.tenant_id"]
         conditions += [
-            f"{alias}.{dim_col} = {_view_alias(fact)}.{fact_col}"
-            for fact_col, dim_col in join.pairs
+            f"{alias}.{dim_col} = {links}.{left_col}"
+            for left_col, dim_col in join.pairs
         ]
-        lines.append(f"LEFT JOIN reporting.{view} AS {alias} ON " + " AND ".join(conditions))
+        lines.append(f"LEFT JOIN reporting.{view} AS {alias} ON "
+                     + " AND ".join(conditions))
     return "\n".join(lines)
 
 

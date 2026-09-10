@@ -370,9 +370,11 @@ def test_the_ten_questions_are_now_complete(db_session, situation):
     dashboard = {"dashboard_members", "dashboard_active_members",
                  "dashboard_member_persons", "dashboard_upcoming_activities",
                  "dashboard_open_tasks", "dashboard_outstanding"}
-    assert reports == tien_vragen | {"payments_list"} | dashboard, (
-        "en daarnaast de betalingenlijst (#841 punt 4) en de zes "
-        "dashboardtegels (#848) — geen van beide is een bestuurdersvraag")
+    assert reports == tien_vragen | dashboard | {"payments_list",
+                                                 "households_per_board_member"}, (
+        "en daarnaast de betalingenlijst (#841 punt 4), de zes dashboardtegels "
+        "(#848) en de werklijst per bestuurslid (#849) — geen van die is een "
+        "bestuurdersvraag uit §3")
 
 
 def test_the_three_new_reports_run_and_return_the_seed_s_numbers(db_session,
