@@ -26,8 +26,8 @@
       {# #593/#631: kit-iconen i.p.v. handgezette ▸/▾-glyphs, die per lettertype en
          OS anders renderen. De kit heeft chevron-down/-up; "dicht" wijst naar
          beneden ("klik om te openen"), "open" naar boven. #}
-      <span x-show="!show" class="inline-flex items-center gap-1">{{ ui.icon("chevron-down") }}{{ _("Toon gelezen tekst (OCR)") }}</span>
-      <span x-show="show" x-cloak class="inline-flex items-center gap-1">{{ ui.icon("chevron-up") }}{{ _("Verberg gelezen tekst") }}</span>
+      <span x-show="!show" class="inline-flex items-start gap-1">{{ ui.icon("chevron-down", cls="mt-0.5 shrink-0") }}{{ _("Toon gelezen tekst (OCR)") }}</span>
+      <span x-show="show" x-cloak class="inline-flex items-start gap-1">{{ ui.icon("chevron-up", cls="mt-0.5 shrink-0") }}{{ _("Verberg gelezen tekst") }}</span>
     </button>
     <div x-show="show" x-cloak class="mt-1">
       {% if info and info.extracted_text %}

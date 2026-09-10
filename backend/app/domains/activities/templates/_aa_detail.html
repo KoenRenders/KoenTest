@@ -18,7 +18,7 @@
     {# Dezelfde fout als de affichelink hieronder, gevonden bij het schrijven van de
        lintregel: de locatie bleef staan terwijl je ze in het formulier aan het
        wijzigen was (§2.8/#653). #}
-    {% if a.location %}<p class="text-sm text-gray-500 mt-1 flex items-center gap-1" x-show="!edit" x-cloak>{{ ui.icon("map-pin") }} {{ a.location }}</p>{% endif %}
+    {% if a.location %}<p class="text-sm text-gray-500 mt-1 flex items-start gap-1" x-show="!edit" x-cloak>{{ ui.icon("map-pin", cls="mt-0.5 shrink-0") }} {{ a.location }}</p>{% endif %}
     {# De leeslink naar de affiche (#503). Het commentaar zei "in read-modus" maar
        de x-show ontbrak, dus stond ze óók tijdens het bewerken — naast diezelfde
        link in het uploadblok (#653). §2.12: de bijlage staat nooit twee keer

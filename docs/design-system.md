@@ -140,6 +140,27 @@ A block that only ever renders on one breakpoint needs no variant: the mobile me
 is `md:hidden`, so `text-base` is enough, and the wide navigation is `hidden md:flex`,
 so its `text-sm` stays as it is.
 
+**Buttons follow the same rule** (#810). `btn_class` carries the phone size bare and
+the desktop size behind `md:`, so a wide screen keeps exactly what it had:
+
+| Size | Phone | Wide screen |
+|---|---|---|
+| `xs` | `px-3 py-1.5 text-sm min-h-11` | `md:px-2.5 md:py-1 md:text-xs md:min-h-0` |
+| `sm` | `px-3.5 py-2 text-base min-h-11` | `md:px-3 md:py-1.5 md:text-sm md:min-h-0` |
+| `md` | `px-4 py-2.5 text-base min-h-11` | `md:py-2 md:min-h-0` |
+
+Why: #804 lifted the reading text next to a button from 14 to 16 px while the buttons
+stayed at `text-xs` (12). The gap went from 2 px to 4 and the button read as
+something that did not belong. Rebuilding v1.14 does **not** fix that — the same
+buttons were `text-xs` there too, with even less padding. On a phone this makes rows
+of buttons taller; that is intended, not a side effect.
+
+**Icon before text that can wrap** (#810): `items-start` with `mt-0.5` on the icon,
+never `items-center`. Centring aligns the icon to the middle of the *whole* block, so
+a date spanning three lines leaves the icon floating in the middle of the sentence.
+With the top margin the single-line case looks identical, so there is no reason to
+choose per case.
+
 **Touch targets.** A control a finger has to hit is at least 44 px in both
 directions (`min-w-11 min-h-11`); the icon inside it may be smaller. The hamburger
 is the reference case — it was the text character `☰` without a size class, which
