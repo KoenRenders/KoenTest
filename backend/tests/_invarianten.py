@@ -57,6 +57,18 @@ def assert_geen_wezen(db) -> None:
     eigen mutaties geen wees achterlaten, in plaats van in productie te wachten tot
     het misgaat. Het is dus geen vervanging van het verwijderde mechanisme maar de
     keerzijde ervan — voorkomen in plaats van signaleren.
+
+    **Dit is de goede kant van hetzelfde argument, en daarom blijft hij staan**
+    (beslist bij #824). Koens bezwaar was dat de gebruiker niet mag hoeven bewaken
+    wat wij hadden moeten voorkomen. Een testinvariant is precies waar zo'n potentiële
+    bug wél thuishoort: hij vangt hem vóór hij bestaat, in plaats van hem achteraf aan
+    een penningmeester te tonen.
+
+    En nu de detectie in productie weg is, is dit het enige wat er nog tussen staat —
+    samen met de gate van #667, die verhindert dat de toestand kan ontstaan. Die twee
+    horen bij elkaar: haal je deze invariant óók weg, dan verschuift het van "we
+    voorkomen het" naar "we hopen het". Zie de docstring van
+    `test_payable_delete_gate.py` voor de andere helft.
     """
     from app.domains.activities.api import Registration
     from app.domains.membership.api import Membership
