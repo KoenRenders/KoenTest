@@ -80,6 +80,12 @@ Three constraints, stated up front:
 7. **Europe First, no data egress.** Everything renders on our server; nothing
    is sent anywhere. Any later BI tool is self-hosted on our own EU
    infrastructure.
+8. **v2.3.0 is additive: nothing that runs today is replaced, redirected or
+   removed** (decided by Koen, 10 September 2026). Saved reports live *beside*
+   the four existing export buttons and the six dashboard tiles; none of those
+   changes. Retiring anything old is a separate decision, after a release in
+   which old and new have been seen working side by side. A phase that turns
+   out to need a change to something existing is not built; it is reported.
 
 ## 3. The ten questions a board member asks (confirmed — the test set)
 
@@ -212,9 +218,9 @@ The **result** is server-rendered from one query:
   its objects. The ten questions ship as saved reports, so day one is not an
   empty panel.
 
-The four existing exports migrate onto the panel in a later phase (§8): their
-buttons become links to a saved report with the filters preset. Nothing is
-removed before its replacement exists.
+The four existing exports get a saved-report counterpart in phase 5 (§8),
+with the same columns and the filters preset. The existing buttons and routes
+stay exactly as they are (§2.8): no link, no redirect, no removal.
 
 ### 5.1 Menu and access
 
@@ -259,8 +265,9 @@ with the table.
   kind ever needs one, is vendored under `/static/vendor`, never a CDN.
 - The chart is part of the selection ("show as"), so it is saved with the
   report and exported with it (sheet 3).
-- KPI tiles on the dashboard become saved reports rendered as a single number;
-  the dashboard stops carrying its own queries.
+- The six dashboard KPIs also exist as saved reports (a single number, and the
+  same number as a line per month). The dashboard itself is untouched (§2.8);
+  the two are cross-checked by a test.
 
 ## 7. Security and privacy invariants (gates, not habits)
 
@@ -293,8 +300,8 @@ with the table.
 | **1** | `reporting` schema: `f_memberships`, `f_registrations`, `f_payments`, `d_date`, `d_activity`, `d_household`, `d_person`, the code-list dimensions; the universe declaration and its gates; the tenant gate; flat dataset ODS export per fact | low | views only |
 | **2** | The query panel with **table** layout: objects, selection, filters, sort, paging, totals, drill-down, ODS; saved reports; questions 1–7 shipped as saved reports | medium | `saved_reports` |
 | **3** | **Pivot** layout: rows × columns × measures, subtotals, column cap; ODS of the crosstab | medium | none |
-| **4** | **Charts** from the pivot result: bar, line, stacked; "show as" saved with the report; dashboard KPI tiles become saved reports | low | none |
-| **5** | Remaining facts (`f_form_submissions`, `f_operations`, aggregated demographics), questions 8–10 as saved reports; the four existing exports migrate onto saved reports (#841) | low | views |
+| **4** | **Charts** from the pivot result: bar, line, stacked; "show as" saved with the report; the six dashboard KPIs also as saved reports, dashboard untouched | low | none |
+| **5** | Remaining facts (`f_form_submissions`, `f_operations`, aggregated demographics), questions 8–10 as saved reports; the four existing exports get a saved-report counterpart beside them (#841) | low | views |
 | later | Multi-fact synchronisation; Calc directly on the views (read-only role, tunnel); a self-hosted BI tool on the same universe | ops decision | none |
 
 Phase 0 is a conversation, not a sprint. Phases 1 and 2 are the release that
@@ -363,8 +370,9 @@ what Superset has and we do not, the universe is the part that moves over.
 - **#171 (ML / predictions)**: consumes the same facts; independent otherwise.
 - **Umami** is web analytics (visits), not business reporting; it stays
   separate.
-- **The four existing exports** (#200, #307, #512) become saved reports in
-  phase 5; nothing is removed before its replacement exists.
+- **The four existing exports** (#200, #307, #512) get a saved-report
+  counterpart in phase 5 and stay as they are (§2.8). #512 is an external
+  contract: its columns never change.
 
 ## 12. Open questions for Koen
 
