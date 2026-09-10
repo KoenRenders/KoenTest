@@ -30,6 +30,30 @@ DEFAULT_TENANT_ID = TENANT_MILLEGEM_ID
 # Actieve tenant voor dit request. None = geen filtering.
 current_tenant_id: ContextVar[int | None] = ContextVar("current_tenant_id", default=None)
 
+# De host waarop dit verzoek binnenkwam, als origin (#860). Absolute URL's — de
+# inloglink, de Mollie-redirect, de bewerklink van een inzending, sitemap/robots —
+# hoorden altijd al terug te wijzen naar de site waar je vandaan komt, maar
+# `tenant_base_url` keek daar nooit naar. Op een platform-host leverde dat een
+# inloglink naar een afdelingssite op: je sessiecookie belandde op de verkeerde host
+# en je was op het platform nog steeds anoniem.
+#
+# Het SCHEMA komt uit `FRONTEND_URL` en niet uit het verzoek: er staat geen
+# proxy-header-verwerking aan, dus achter Caddy leest elk verzoek als http. De
+# omgeving weet of ze https draait, het verzoek weet welke host — elk levert wat het
+# echt weet. De poort hoort bij de host en blijft dus staan.
+#
+# Leeg buiten een verzoek (achtergrondjobs, scripts): dan blijft `FRONTEND_URL` de
+# enige waarheid die er is.
+current_origin: ContextVar[str | None] = ContextVar("current_origin", default=None)
+
+# Kwam dit verzoek binnen op een platform-host? Bepaalt of een afdeling zonder eigen
+# domein haar adres afleidt als <platform-origin>/<code> (#860).
+current_platform_host: ContextVar[bool] = ContextVar("current_platform_host", default=False)
+
+# De code van de actieve tenant, als ze er een heeft (UNIT). None voor de
+# platform-tenant zelf: die staat niet in de code→id-map en heeft geen pad-prefix.
+current_tenant_code: ContextVar[str | None] = ContextVar("current_tenant_code", default=None)
+
 
 def _tenant_default() -> int:
     return current_tenant_id.get() or DEFAULT_TENANT_ID
