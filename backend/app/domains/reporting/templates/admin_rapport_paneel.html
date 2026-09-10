@@ -1,0 +1,12 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Rapport — Raak beheer") }}{% endblock %}
+{# Het paneel is breder dan een gewoon beheerscherm: drie zones naast elkaar en
+   een tabel met maten erbij passen niet in max-w-5xl. #}
+{% block content_width %}max-w-7xl{% endblock %}
+{% block content %}
+{% call ui.page_header(name or _("Nieuw rapport"), description or _("Kies objecten links, filters rechts. Het resultaat verschijnt meteen.")) %}
+  {{ ui.btn_secondary(_("‹ Alle rapporten"), href="/admin/rapporten", size="sm") }}
+{% endcall %}
+{% include "_rp_paneel.html" %}
+{% endblock %}

@@ -11,6 +11,7 @@ from this domain is the vocabulary (the universe) and the two entry points that
 run it.
 """
 from app.domains.reporting.engine import (  # noqa: F401
+    LAYOUTS,
     MAX_ROWS,
     Column,
     Direction,
@@ -20,20 +21,42 @@ from app.domains.reporting.engine import (  # noqa: F401
     Selection,
     SelectionError,
     Sort,
+    build_detail_query,
     build_query,
+    selection_from_dict,
+    selection_to_dict,
 )
 from app.domains.reporting.exports import (  # noqa: F401
     build_dataset_ods,
+    build_report_ods,
     dataset_filename,
+    filter_summary,
+    report_filename,
 )
 from app.domains.reporting.service import (  # noqa: F401
+    OFFER_LIMIT,
     Dataset,
     ReportResult,
+    SavedReportError,
+    classes_of,
+    copy_report,
+    delete_report,
+    dimension_values,
     fact_columns,
+    get_saved_report,
+    list_saved_reports,
     load_dataset,
+    log_export,
+    mark_run,
     run_selection,
+    run_validated,
+    save_report,
+    selection_of,
+    update_report,
+    validate_filter_values,
 )
 from app.domains.reporting.universe import (  # noqa: F401
+    BY_KEY,
     CLASSES,
     DIMENSIONS,
     FACTS,
@@ -50,11 +73,16 @@ from app.domains.reporting.universe import (  # noqa: F401
 )
 
 __all__ = [
-    "CLASSES", "DIMENSIONS", "FACTS", "JOINS", "MAX_ROWS", "OBJECTS",
+    "BY_KEY", "CLASSES", "DIMENSIONS", "FACTS", "JOINS", "LAYOUTS", "MAX_ROWS",
+    "OBJECTS", "OFFER_LIMIT",
     "Column", "Dataset", "Direction", "Fact", "Filter", "Format", "ObjectKind",
-    "Operator", "QueryPlan", "ReportResult", "Role", "Selection",
-    "SelectionError", "Sort", "UniverseObject",
-    "build_dataset_ods", "build_query", "classes_with_objects", "dataset_filename",
-    "fact_columns", "joins_for", "load_dataset", "objects_in_pane_order",
-    "run_selection",
+    "Operator", "QueryPlan", "ReportResult", "Role", "SavedReportError",
+    "Selection", "SelectionError", "Sort", "UniverseObject",
+    "build_dataset_ods", "build_detail_query", "build_query", "build_report_ods",
+    "classes_of", "classes_with_objects", "copy_report", "dataset_filename",
+    "delete_report", "dimension_values", "fact_columns", "filter_summary",
+    "get_saved_report", "joins_for", "list_saved_reports", "load_dataset",
+    "log_export", "mark_run", "objects_in_pane_order", "report_filename",
+    "run_selection", "run_validated", "save_report", "selection_from_dict",
+    "selection_of", "selection_to_dict", "update_report", "validate_filter_values",
 ]

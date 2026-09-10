@@ -1,0 +1,31 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Rapporten — Raak beheer") }}{% endblock %}
+{% block content %}
+{# Lijst-index (design-system C1): paginatitel → "+ Nieuw rapport" (los, geen
+   blauwe balk) → zoeken → filters → record-kaarten. Een kaart opent het paneel
+   met die selectie. #}
+{% call ui.page_header(_("Rapporten"), _("Stel zelf een rapport samen uit de gegevens die er al zijn, bewaar het onder een naam en neem het mee als spreadsheet.")) %}
+  {{ ui.btn_primary(_("+ Nieuw rapport"), href="/admin/rapporten/nieuw") }}
+{% endcall %}
+
+{% call ui.filter_bar("/admin/rapporten/lijst", "#rp-lijst") %}
+  <div>{{ ui.search(value=q, placeholder=_('Zoek op naam of omschrijving…'), standalone=False) }}</div>
+  <div class="flex flex-wrap gap-3">
+    {% call ui.select_control("owner", aria_label=_("Eigenaar")) %}
+      <option value="all" {% if owner == "all" %}selected{% endif %}>{{ _("Alle eigenaars") }}</option>
+      <option value="mine" {% if owner == "mine" %}selected{% endif %}>{{ _("Van mij") }}</option>
+      <option value="builtin" {% if owner == "builtin" %}selected{% endif %}>{{ _("Meegeleverd") }}</option>
+    {% endcall %}
+    {% call ui.select_control("shared", aria_label=_("Gedeeld")) %}
+      <option value="all" {% if shared == "all" %}selected{% endif %}>{{ _("Gedeeld en privé") }}</option>
+      <option value="shared" {% if shared == "shared" %}selected{% endif %}>{{ _("Gedeeld") }}</option>
+      <option value="private" {% if shared == "private" %}selected{% endif %}>{{ _("Privé") }}</option>
+    {% endcall %}
+  </div>
+{% endcall %}
+
+<div id="rp-lijst">
+  {% include "_rp_kaarten.html" %}
+</div>
+{% endblock %}

@@ -385,7 +385,7 @@ search: **"Geen resultaten gevonden."**; never any data: **"Nog geen
 
 ## 3. Screen types
 
-The admin screens are compositions of six real patterns. Build those well and
+The admin screens are compositions of seven real patterns. Build those well and
 every screen follows.
 
 | # | Pattern | Made of | Admin | Public |
@@ -396,6 +396,7 @@ every screen follows.
 | 4 | Form | sections · fields · save/cancel · inline errors | edit activity or form | Word lid, register (airier) |
 | 5 | Detail | header + cards or side panel · related lists | family detail, dashboard | activity detail page |
 | 6 | Dialog | modal · side panel · toast · confirmation | everywhere | confirmation after registration |
+| 7 | Report | objects pane · selection · filters · result table | Rapporten | — |
 
 Candidates to add when a screen needs them: **wizard** (leden-import) and
 **dashboard** (KPI row); today they are sanctioned variants of 4 and 5.
@@ -445,6 +446,38 @@ table: trigger in the action cell, target in a detail `<tr>` inside the same
 `<tbody x-data="{ open: false }">`. Inside the editor: `[Opslaan] [Annuleren]`
 at the bottom, "Verwijderen" last and red; the **server recomputes derived
 values** (totals), never the client.
+
+### 3.5 Report — the query panel (#833, CR-06 §5)
+
+The only screen where the user composes the query instead of reading a prepared
+one, so it is its own type rather than a variant of the list. Three regions, in
+this order:
+
+1. **Objects** — the universe grouped in classes, each object with a type marker
+   (Σ measure · ▦ dimension · · detail) and its description as a tooltip. A click
+   adds a column; a dimension also offers "filter". Searching the list happens in
+   the browser: the whole list is already there, and a request per keystroke would
+   swap the field out from under the user's fingers.
+2. **Selection** — the chosen objects in order, each with `ui.reorder()` and a
+   remove button. Order is column order. No drag-and-drop: it costs a library or a
+   lot of Alpine, and the value is in the universe, not in the gesture.
+3. **Filters** — one control per chosen or extra dimension. A closed list renders
+   as `ui.select_control` and compares exactly; anything wider renders as a search
+   field and searches. Live (P11): no "Toon" button.
+
+The **result** is a C1 table: sortable headers, server-side paging, a totals row
+for the measures, the one money formatter, and a default sort that ends in a
+unique key (#761). A dimension that points at a record links through to it (P8) —
+a report is a way in, not a dead end.
+
+**The whole panel state lives in the query string**, and every change is one htmx
+request that re-renders the *whole* panel. Not only the result: the hidden inputs
+that carry the state and the screen that shows it must always say the same thing,
+and refreshing half of them is how they start to disagree. A shared link therefore
+opens the same report, and a refresh changes nothing.
+
+Saving follows P1 — you stay, a toast appears, and a failed save shows the banner
+**and no toast**.
 
 ## 4. Interaction patterns
 

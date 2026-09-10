@@ -92,13 +92,105 @@ class Sort:
 
 @dataclass(frozen=True)
 class Selection:
-    """What the user composed. Data, not a query — this is what gets saved."""
+    """What the user composed. Data, not a query — this is what gets saved.
+
+    ``layout`` is "table" in this phase and nothing else; the pivot (#834) and the
+    charts (#835) add their own values. It is stored from the start so a report
+    saved today still reads correctly when they arrive — a key added later would
+    make every existing row a special case.
+    """
 
     object_keys: tuple[str, ...]
     filters: tuple[Filter, ...] = ()
     sort: tuple[Sort, ...] = ()
     limit: int = 200
     offset: int = 0
+    layout: str = "table"
+
+
+LAYOUTS = ("table",)
+
+
+def selection_to_dict(selection: Selection) -> dict[str, object]:
+    """The selection as it is stored in `reporting.saved_reports`.
+
+    Paging is deliberately NOT part of it: which page you were on is where you
+    were looking, not what the report is.
+    """
+    return {
+        "objects": list(selection.object_keys),
+        "filters": [
+            {"object": f.object_key, "operator": f.operator.value,
+             "values": list(f.values)}
+            for f in selection.filters
+        ],
+        "sort": [{"object": s.object_key, "direction": s.direction.value}
+                 for s in selection.sort],
+        "layout": selection.layout,
+    }
+
+
+def selection_from_dict(data: object, *, limit: int = 200,
+                        offset: int = 0) -> Selection:
+    """A stored selection back into a `Selection` — validated on the way in.
+
+    Everything here comes from a database row or from a query string, so nothing
+    is trusted: an unknown object key, an operator that does not exist or a layout
+    from a later phase is refused with the reason, before any query is built. That
+    is the same fence as `build_query`, applied one step earlier so a broken saved
+    report says what is broken instead of failing halfway through rendering.
+    """
+    if not isinstance(data, dict):
+        raise SelectionError("De bewaarde selectie is onleesbaar.")
+
+    keys = data.get("objects") or []
+    if not isinstance(keys, list) or not all(isinstance(k, str) for k in keys):
+        raise SelectionError("De bewaarde selectie heeft geen geldige objectenlijst.")
+    for key in keys:
+        _object(key)
+
+    filters: list[Filter] = []
+    for raw in data.get("filters") or []:
+        if not isinstance(raw, dict):
+            raise SelectionError("Een filter in de bewaarde selectie is onleesbaar.")
+        object_key = raw.get("object")
+        if not isinstance(object_key, str):
+            raise SelectionError("Een filter zonder object.")
+        _object(object_key)
+        try:
+            operator = Operator(raw.get("operator"))
+        except ValueError as exc:
+            raise SelectionError(
+                f"Onbekende filtersoort: '{raw.get('operator')}'.") from exc
+        values = raw.get("values") or []
+        if not isinstance(values, list):
+            raise SelectionError("Een filter zonder waarden.")
+        filters.append(Filter(object_key, operator, tuple(str(v) for v in values)))
+
+    sort: list[Sort] = []
+    for raw in data.get("sort") or []:
+        if not isinstance(raw, dict):
+            raise SelectionError("Een sortering in de bewaarde selectie is onleesbaar.")
+        object_key = raw.get("object")
+        if not isinstance(object_key, str):
+            raise SelectionError("Een sortering zonder object.")
+        _object(object_key)
+        try:
+            direction = Direction(raw.get("direction", "asc"))
+        except ValueError as exc:
+            raise SelectionError(
+                f"Onbekende sorteerrichting: '{raw.get('direction')}'.") from exc
+        sort.append(Sort(object_key, direction))
+
+    layout = data.get("layout", "table")
+    if layout not in LAYOUTS:
+        raise SelectionError(
+            f"De vorm '{layout}' bestaat nog niet. In deze versie is alleen een "
+            "tabel mogelijk.")
+
+    return Selection(object_keys=tuple(keys), filters=tuple(filters),
+                     sort=tuple(sort), limit=limit, offset=offset,
+                     layout=str(layout))
 
 
 @dataclass
@@ -366,3 +458,31 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
     ]
     return QueryPlan(sql=sql, totals_sql=totals_sql, params=params,
                      columns=columns, fact=fact, drill_aliases=drill_aliases)
+
+
+def build_detail_query(selection: Selection, *, tenant_id: int,
+                       limit: int = 20000) -> QueryPlan:
+    """The rows BEHIND a report: the same filtered set, ungrouped.
+
+    Sheet 2 of the export (CR-06 §5). A grouped table answers the question; the
+    detail rows are what lets somebody pivot it themselves in Calc, or check a
+    total they do not believe. They must come from exactly the same statement
+    shape — same fact, same joins, same WHERE — or the two sheets would disagree
+    and the export would be worse than no export at all.
+
+    Only the fact's own columns: a dimension attribute would need a join per
+    column and adds nothing the report itself does not already show.
+    """
+    objects = [_object(key) for key in selection.object_keys]
+    fact = _resolve_fact(objects)
+    conditions, params, filter_objects = _where_clause(selection.filters, fact)
+    views = _needed_views(objects + filter_objects, fact)
+    joins = _check_joinable(views, fact)
+
+    alias = _view_alias(fact)
+    order = ", ".join(f"{alias}.{c}" for c in FACT_BY_KEY[fact].dataset_key)
+    params["tenant_id"] = tenant_id
+    params["limit"] = limit
+    sql = (f"SELECT {alias}.*\nFROM {_from_clause(fact, views, joins)}\n"
+           f"WHERE {' AND '.join(conditions)}\nORDER BY {order}\nLIMIT :limit")
+    return QueryPlan(sql=sql, totals_sql="", params=params, columns=[], fact=fact)

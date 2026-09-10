@@ -39,9 +39,16 @@ def _cell(value, stylename=None):
 
 
 def _add_sheet(doc, header_style, bold_style, sheet_idx, name, headers, rows,
-               col_widths=None, bold_last_row=False):
+               col_widths=None, bold_last_row=False, intro_rows=None):
     """Voeg één blad toe aan het document. Kolomstijlen krijgen een blad-prefix
-    (``s{idx}col{i}``) zodat ze niet botsen tussen bladen."""
+    (``s{idx}col{i}``) zodat ze niet botsen tussen bladen.
+
+    ``intro_rows`` (#833) komt VÓÓR de kopregel te staan: bij een rapport-export
+    hoort de actieve filterstand in de kop van het blad, zodat een gefilterde
+    tabel die iemand doormailt niet als "alles" gelezen kan worden. Standaard
+    ``None`` — dan is de uitvoer letterlijk dezelfde als voordien, en dat is wat
+    de bestaande vier exports nodig hebben.
+    """
     table = Table(name=(name or f"Blad{sheet_idx + 1}")[:31])
 
     if col_widths:
@@ -50,6 +57,12 @@ def _add_sheet(doc, header_style, bold_style, sheet_idx, name, headers, rows,
             cs.addElement(TableColumnProperties(columnwidth=f"{w}cm"))
             doc.automaticstyles.addElement(cs)
             table.addElement(TableColumn(stylename=cs))
+
+    for intro in (intro_rows or []):
+        ir = TableRow()
+        for i, value in enumerate(intro):
+            ir.addElement(_cell(value, stylename=bold_style if i == 0 else None))
+        table.addElement(ir)
 
     hr = TableRow()
     for h in headers:
@@ -71,8 +84,8 @@ def _add_sheet(doc, header_style, bold_style, sheet_idx, name, headers, rows,
 
 def build_ods_multi(sheets) -> bytes:
     """Bouw een .ods met meerdere bladen. ``sheets`` = lijst van dicts met keys
-    ``name``, ``headers``, ``rows`` en optioneel ``col_widths``, ``bold_last_row``.
-    Geeft de bytes terug."""
+    ``name``, ``headers``, ``rows`` en optioneel ``col_widths``, ``bold_last_row``
+    en ``intro_rows``. Geeft de bytes terug."""
     doc = OpenDocumentSpreadsheet()
 
     header_style = Style(name="hdr", family="table-cell")
@@ -89,6 +102,7 @@ def build_ods_multi(sheets) -> bytes:
             doc, header_style, bold_style, i,
             s.get("name"), s["headers"], s["rows"],
             col_widths=s.get("col_widths"), bold_last_row=s.get("bold_last_row", False),
+            intro_rows=s.get("intro_rows"),
         )
 
     buf = BytesIO()

@@ -191,6 +191,7 @@ _ADMIN_NAV: list[tuple[str, str]] = [
     ("/admin/activiteiten", "Activiteiten"),
     ("/admin/leden", "Leden"),
     ("/admin/betalingen", "Betalingen"),
+    ("/admin/rapporten", "Rapporten"),
     ("/admin/formulieren", "Formulieren"),
     ("/admin/paginas", "Pagina's"),
     ("/admin/media", "Media"),
