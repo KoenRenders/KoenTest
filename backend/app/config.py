@@ -110,6 +110,19 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     # "text" (leesbaar, default) of "json" (gestructureerd, #395)
     log_format: str = "text"
+    # Waar het applicatielog naartoe geschreven wordt bovenóp stdout (#766).
+    # De containerlog verdwijnt bij elke deploy — `up --build` maakt een nieuwe
+    # container en de logs horen bij de container — en dat is precies goed voor een
+    # deploy-log en precies fout voor het applicatielog: dat gaat over wat de app
+    # doet, en dat houdt niet op bij een deploy. Vandaag is elke vraag van de vorm
+    # "gebeurt dit eigenlijk?" alleen te beantwoorden over de periode sinds de
+    # laatste deploy, en die is meestal kort.
+    #
+    # Deze map is in hdev/uat/prod een named volume; leeg zetten schakelt het
+    # bestand uit. Bestaat de map niet (lokaal, CI), dan logt de app gewoon naar
+    # stdout — een ontbrekende mount mag nooit de start blokkeren.
+    app_log_dir: str = "/var/log/raak"
+
     # Drempel voor "traag" in het toegangslog (#645). Een request die er langer
     # over doet, wordt op WARNING gelogd met slow=true — met htmx is de snelheid
     # van de UI gelijk aan de snelheid van de server, dus dit hoort zichtbaar te

@@ -1,6 +1,11 @@
+from __future__ import annotations
+
 import json
 import logging
+import os
 import sys
+from pathlib import Path
+
 from app.config import settings
 
 
@@ -40,6 +45,28 @@ class JsonFormatter(logging.Formatter):
         return json.dumps(entry, ensure_ascii=False)
 
 
+def app_logbestand() -> Path | None:
+    """Het pad waar het applicatielog óók naartoe gaat, of None (#766).
+
+    None wanneer de map niet ingesteld is of niet bestaat — lokaal en in CI is er
+    geen volume gemonteerd, en een ontbrekende mount mag de start nooit blokkeren.
+    Op hdev/uat/prod hoort ze er wél te zijn, dus daar wordt het gemeld in plaats
+    van stil overgeslagen: een applicatielog dat stilletjes nergens landt, ontdek
+    je pas wanneer je het nodig hebt.
+    """
+    map_ = (settings.app_log_dir or "").strip()
+    if not map_:
+        return None
+    pad = Path(map_)
+    if not pad.is_dir() or not os.access(pad, os.W_OK):
+        if settings.app_env in ("hdev", "uat", "prod"):
+            logging.getLogger(__name__).warning(
+                "APP_LOG_DIR=%s bestaat niet of is niet schrijfbaar — het "
+                "applicatielog overleeft deze deploy niet (#766).", map_)
+        return None
+    return pad / "app.log"
+
+
 def configure_logging() -> None:
     level = getattr(logging, settings.log_level.upper(), logging.INFO)
 
@@ -53,6 +80,25 @@ def configure_logging() -> None:
     if settings.log_format == "json":
         for handler in logging.getLogger().handlers:
             handler.setFormatter(JsonFormatter())
+
+    # #766: hetzelfde log, maar dan op een plek die de container overleeft. Bewust
+    # BOVENOP stdout en niet in plaats daarvan: `raakctl logs` en `docker compose
+    # logs` blijven werken zoals ze werkten, en de deploy-uitvoer verandert niet.
+    #
+    # Zonder rotatie, en dat is een besliste keuze en geen vergetelheid: gemeten op
+    # PROD (8 september 2026) ruwweg 1 MB per dag tegen 22 GB vrij. Rotatie én een
+    # bewaartermijn komen terug zodra deze logs echt lang blijven staan — de schijf
+    # loopt ooit vol, en er staan persoonsgegevens langer op schijf dan nodig. Dat
+    # laatste is geen theorie: op `email_log` staat niet voor niets al een termijn.
+    bestand = app_logbestand()
+    if bestand is not None:
+        bestandshandler = logging.FileHandler(bestand, encoding="utf-8")
+        bestandshandler.setLevel(level)
+        bestandshandler.setFormatter(
+            JsonFormatter() if settings.log_format == "json"
+            else logging.Formatter("%(asctime)s %(levelname)s %(name)s: %(message)s",
+                                   datefmt="%Y-%m-%dT%H:%M:%S"))
+        logging.getLogger().addHandler(bestandshandler)
 
     # Verlaag ruis van drukke third-party loggers
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)

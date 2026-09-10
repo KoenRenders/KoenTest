@@ -72,6 +72,12 @@ caddy_logs() {
   fi
   echo
 
+  echo "--- applicatielog op schijf (#766: overleeft een deploy, laatste ${TAIL}) ---"
+  dc exec -T backend sh -c \
+    'f=/var/log/raak/app.log; [ -f "$f" ] || { echo "(nog geen $f)"; exit 0; }; echo "($(wc -l < "$f") regels, oudste: $(head -1 "$f" | cut -c1-19))"; tail -n '"${TAIL}"' "$f"' \
+    2>&1 || echo "(applicatielog niet leesbaar)"
+  echo
+
   echo "--- backend logs (laatste ${TAIL}) ---"
   dc logs backend --tail="${TAIL}" 2>&1 || echo "(backend logs faalden)"
   echo

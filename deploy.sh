@@ -203,6 +203,23 @@ schone_start_ok() {
   echo "Schone start OK: geen ERROR/Traceback/Exception tussen containerstart en 'Uvicorn running'."
 }
 
+applicatielog_regel() {
+  # INFORMATIEF, nooit een poort (#766). De controle die dit issue vraagt is: staat
+  # er na de deploy nog iets in dat van vóór de deploy komt? Dat lees je hieraan af —
+  # is de oudste regel ouder dan deze deploy, dan heeft het log de container
+  # overleefd. Een lege of ontbrekende map is geen reden om iets terug te rollen; het
+  # is wel iets wat je hier hoort te zien in plaats van te moeten gaan zoeken.
+  local uit
+  uit="$(dc exec -T backend sh -c \
+    'f=/var/log/raak/app.log; [ -f "$f" ] || exit 3; echo "$(wc -l < "$f") regels, oudste: $(head -1 "$f" | cut -c1-19)"' \
+    2>/dev/null || true)"
+  if [ -z "$uit" ]; then
+    echo "Applicatielog: /var/log/raak/app.log nog niet aanwezig — bij de eerste deploy ná #766 is dat normaal."
+  else
+    echo "Applicatielog (overleeft de deploy): $uit"
+  fi
+}
+
 nacontrole() {
   local mislukt=0
   echo "== Na-controle (#604): migratieketen en schone start =="
@@ -212,6 +229,7 @@ nacontrole() {
   if ! schone_start_ok; then
     if [ "$LOG_GATE" = 1 ]; then mislukt=1; else echo "   (rapporterend op $ENV — dit rolt niets terug)"; fi
   fi
+  applicatielog_regel
   return $mislukt
 }
 

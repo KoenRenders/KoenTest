@@ -4,7 +4,8 @@
 #   raakctl                              interactive menu
 #   raakctl status [env]                 checkout, version, containers
 #   raakctl logs <env> [service] [-n N]  logs of one service (default: backend;
-#                                        the menu lists what each env offers)
+#                                        the menu lists what each env offers).
+#                                        `app` reads the log that survives a deploy
 #   raakctl diagnose <env>               full report -> /tmp/<env>-diagnostics.log
 #   raakctl services <env>               which services this env can log
 #   raakctl backup <env>                 manual pg_dump -> <checkout>/backups
@@ -75,6 +76,9 @@ services_of() {  # names you can pass to `logs`, for this environment
   # UAT and PROD have no caddy of their own: they hang off the shared proxy, a
   # separate compose project. Offer it here so `logs <env> caddy` works anyway.
   case "$1" in uat|prod) echo caddy ;; esac
+  # Not a service (#766): the application log on disk, which unlike every name
+  # above outlives the container it was written by.
+  echo app
 }
 
 cmd_logs() {  # <env> [service] [-n N] — service defaults to backend
@@ -86,6 +90,16 @@ cmd_logs() {  # <env> [service] [-n N] — service defaults to backend
       *)  svc="$1"; shift ;;
     esac
   done
+  # `app` is the log that survives a deploy (#766). Everything above it comes from
+  # `docker compose logs`, and that only knows the CURRENT container: after
+  # `up --build` the previous one is gone and so is everything it ever said. This
+  # one is a file on a named volume, so it still holds what happened before the
+  # deploy you just did.
+  if [ "$svc" = app ]; then
+    compose "$env" exec -T backend sh -c \
+      'f=/var/log/raak/app.log; [ -f "$f" ] || { echo "(no $f yet — has the backend logged anything since the volume was added?)" >&2; exit 1; }; tail -n '"$n"' "$f"'
+    return
+  fi
   # The shared Caddy serves UAT *and* PROD, so its logs mix both environments.
   if [ "$svc" = caddy ] && { [ "$env" = uat ] || [ "$env" = prod ]; }; then
     echo "(shared Caddy — these logs cover UAT and PROD together)" >&2
