@@ -35,8 +35,12 @@ import pytest
 pytestmark = pytest.mark.ui_serverrendered
 
 MACROS = (Path(__file__).resolve().parents[1] / "app/ui/templates/_macros.html").read_text()
-FORMULIER = (Path(__file__).resolve().parents[1]
-             / "app/domains/forms/templates/formulier.html").read_text()
+# #811: `veld()` is een eigen partial geworden omdat /admin/design-system dezelfde
+# macro rendert. De opmaak van een vraag staat dus daar; de pagina eromheen (de
+# `space-y` tussen de vragen, de sectietitel) staat nog in formulier.html.
+_FORMS = Path(__file__).resolve().parents[1] / "app/domains/forms/templates"
+FORMULIER = ((_FORMS / "formulier.html").read_text()
+             + (_FORMS / "_formulier_veld.html").read_text())
 
 
 def test_de_drie_niveaus_zijn_onderscheiden():

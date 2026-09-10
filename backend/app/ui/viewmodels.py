@@ -21,4 +21,11 @@ class DesignSystemView(ViewModel):
     tokens: list[tuple[str, str]]
     #: De namen uit de `paths`-tabel van `ui.icon()`.
     iconen: list[str]
+    #: Eén voorbeeldveld per soort uit `FIELD_TYPES` (#811), gerenderd door dezelfde
+    #: `veld()`-macro als het publieke formulier.
+    velden: list[Any]
+    #: De macro `veld()` leest de ingevulde waarden uit `values`. Die moet in de
+    #: context staan op het moment van importeren, niet pas in het sjabloon: Jinja
+    #: bindt de context bij `{% from … with context %}`.
+    values: dict[str, Any] = field(default_factory=dict)
     nav_items: list[dict[str, Any]] = field(default_factory=list)

@@ -722,10 +722,17 @@
 
 {# Sectiekop (#509): titel links + optionele primaire actie rechts ("+ …").
    Voor "Datums"/"Onderdelen"/"Producten" — één stijl, overal gelijk. #}
-{% macro section_header(title, action_label=None, action_attrs="") -%}
+{# #811: `action_href` is een eigen parameter en géén stukje `action_attrs`.
+   `button()` maakt alleen een `<a>` als de PARAMETER `href` gezet is; een href die
+   als tekst in `attrs` meekomt, plakt aan een `<button>` en doet niets. Op
+   /admin/design-system waren zo zes referentielinks dood — en een aanroeper had geen
+   enkele correcte manier om er een link van te maken. Daarom hier gerepareerd en
+   niet bij de aanroepers. #}
+{% macro section_header(title, action_label=None, action_attrs="", action_href=None) -%}
 <div class="flex items-center justify-between mb-3">
   <h3 class="text-xl font-semibold text-blue-700">{{ title }}</h3>
-  {% if action_label %}{{ btn_secondary(action_label, attrs=action_attrs, size="sm") }}{% endif %}
+  {% if action_label %}{{ btn_secondary(action_label, type="button", href=action_href,
+                                        attrs=action_attrs, size="sm") }}{% endif %}
 </div>
 {%- endmacro %}
 
