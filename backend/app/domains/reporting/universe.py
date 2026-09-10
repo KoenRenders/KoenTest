@@ -252,11 +252,12 @@ FACTS: tuple[Fact, ...] = (
         key="f_operations",
         name="Operaties",
         role=Role.ADMIN,
-        grain="één rij per open item",
+        grain="één rij per open werkbanktaak",
         description=(
-            "De werkvoorraad: open werkbanktaken, mislukte e-mails en betalingen "
-            "in afwachting, samen in één feit. Antwoordt morgen anders — dat is "
-            "wat een werkvoorraad hoort te doen."
+            "De werkvoorraad: wat er open staat in de werkbank. Een definitief "
+            "mislukte e-mail en een te bevestigen terugbetaling zitten er als "
+            "taaksoort in — niet als aparte rij ernaast. Antwoordt morgen anders, "
+            "en dat is wat een werkvoorraad hoort te doen."
         ),
         dataset_key=("kind", "item_id"),
     ),
@@ -755,13 +756,19 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="operation_kind", name="Soort", klass="Operaties",
         kind=ObjectKind.DIMENSION, view="f_operations", sql="{view}.kind_label",
         format=Format.LABEL, role=Role.ADMIN, fact="f_operations",
-        description="Open taak, mislukte e-mail of openstaande betaling.",
+        description="Wat voor taak het is: een terugbetaling bevestigen, een mislukte e-mail, een webhook die afwijkt, een mislukte achtergrondtaak.",
     ),
     UniverseObject(
         key="operation_detail", name="Onderwerp", klass="Operaties",
         kind=ObjectKind.DIMENSION, view="f_operations", sql="{view}.detail",
         format=Format.LABEL, role=Role.ADMIN, fact="f_operations",
-        description="Waar het item over gaat: het soort taak, het soort e-mail, of waarvoor betaald wordt.",
+        description="Waar de taak over gaat: een betaalrecord, een e-mail, een achtergrondtaak.",
+    ),
+    UniverseObject(
+        key="operation_role", name="Voor welke rol", klass="Operaties",
+        kind=ObjectKind.DIMENSION, view="f_operations", sql="{view}.required_role",
+        format=Format.LABEL, role=Role.ADMIN, fact="f_operations",
+        description="Wie de taak hoort op te pakken.",
     ),
     UniverseObject(
         key="operation_age_bucket", name="Ouderdom", klass="Operaties",

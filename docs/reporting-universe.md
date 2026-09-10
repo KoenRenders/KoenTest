@@ -33,7 +33,7 @@ The role column is the role the fact's **flat dataset dump** will need once the 
 | `f_payments` | Betalingen | één rij per betaalrecord | `finance` | `COUNT(DISTINCT {view}.household_id)` | Vorderingen en terugbetalingen. Een terugbetaling draagt een negatief bedrag, dus elke som is meteen een nettobedrag. |
 | `f_membership_persons` | Leden (personen) | één rij per persoon per lidmaatschapsjaar | `admin` | `COUNT({view}.person_id)` | Wie er lid is, op persoonsniveau — de korrel die vraag 8 nodig heeft. Een persoon in twee gezinnen telt één keer. |
 | `f_form_submissions` | Formulierinzendingen | één rij per inzending | `admin` | — | Inzendingen op formulieren. Zonder naam of e-mailadres: een rapport telt inzendingen, het formulierscherm toont wat iemand schreef. |
-| `f_operations` | Operaties | één rij per open item | `admin` | — | De werkvoorraad: open werkbanktaken, mislukte e-mails en betalingen in afwachting, samen in één feit. Antwoordt morgen anders — dat is wat een werkvoorraad hoort te doen. |
+| `f_operations` | Operaties | één rij per open werkbanktaak | `admin` | — | De werkvoorraad: wat er open staat in de werkbank. Een definitief mislukte e-mail en een te bevestigen terugbetaling zitten er als taaksoort in — niet als aparte rij ernaast. Antwoordt morgen anders, en dat is wat een werkvoorraad hoort te doen. |
 
 ## Dimensions
 
@@ -77,7 +77,7 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 
 | Universe role | Meaning | Objects |
 |---|---|---|
-| `admin` | the default: what an admin screen already shows | 44 |
+| `admin` | the default: what an admin screen already shows | 45 |
 | `finance` | money — every measure formatted as money, and the Betalingen class | 26 |
 | `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 1 |
 
@@ -175,8 +175,9 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 |---|---|---|---|---|---|---|
 | `operation_count` | Aantal open items | measure | count | `admin` | `COUNT(DISTINCT f_operations.item_id)` | Hoeveel er nog ligt te wachten. |
 | `operation_age_days` | Gemiddelde ouderdom | measure | days | `admin` | `AVG(f_operations.age_days)` | Gemiddeld aantal dagen dat een open item al wacht. |
-| `operation_kind` | Soort | dimension | label | `admin` | `f_operations.kind_label` | Open taak, mislukte e-mail of openstaande betaling. |
-| `operation_detail` | Onderwerp | dimension | label | `admin` | `f_operations.detail` | Waar het item over gaat: het soort taak, het soort e-mail, of waarvoor betaald wordt. |
+| `operation_kind` | Soort | dimension | label | `admin` | `f_operations.kind_label` | Wat voor taak het is: een terugbetaling bevestigen, een mislukte e-mail, een webhook die afwijkt, een mislukte achtergrondtaak. |
+| `operation_detail` | Onderwerp | dimension | label | `admin` | `f_operations.detail` | Waar de taak over gaat: een betaalrecord, een e-mail, een achtergrondtaak. |
+| `operation_role` | Voor welke rol | dimension | label | `admin` | `f_operations.required_role` | Wie de taak hoort op te pakken. |
 | `operation_age_bucket` | Ouderdom | dimension | label | `admin` | `f_operations.age_bucket` | Hoe lang een item al open staat, in klassen. |
 
 ### Tijd

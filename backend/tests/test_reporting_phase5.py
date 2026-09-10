@@ -41,35 +41,55 @@ def situation(db_session):
 
 
 def _operations(db, *, tenant=TENANT_A):
-    """One open task, one failed mail, and the seed's two pending payments."""
+    """Two open workbench tasks and one that is done.
+
+    The kinds are the real ones the sweep produces: a refund waiting for FINANCE
+    and a mail that failed for good. Both come with the row they are *about* —
+    the failed mail in the log — because the point of one of the tests below is
+    that the report shows one problem once, not twice.
+    """
     from app.domains.mail.api import EmailLog
     from app.domains.workflow.api import WorkflowTask
 
     nu = datetime.now(timezone.utc)
-    db.add(WorkflowTask(tenant_id=tenant, kind="betaling-nakijken",
-                        title="Betaling nakijken", subject_type="payment",
+    db.add(WorkflowTask(tenant_id=tenant, kind="payment.refund_bevestigen",
+                        title="Refund bevestigen", subject_type="payment_record",
                         subject_id="abc", status="open", required_role="FINANCE",
                         created_at=nu - timedelta(days=3)))
-    db.add(WorkflowTask(tenant_id=tenant, kind="afgehandeld", title="Klaar",
-                        subject_type="payment", subject_id="def", status="done",
+    db.add(WorkflowTask(tenant_id=tenant, kind="mail.definitief_gefaald",
+                        title="E-mail definitief gefaald", subject_type="email_log",
+                        subject_id="1", status="open", required_role="ADMIN",
+                        created_at=nu - timedelta(days=10)))
+    db.add(WorkflowTask(tenant_id=tenant, kind="kernel.job_gefaald", title="Klaar",
+                        subject_type="kernel_job", subject_id="def", status="done",
                         required_role="ADMIN", created_at=nu - timedelta(days=40)))
+    # The mail behind that second task, plus one that was skipped and one that was
+    # logged — both of which are normal states and must not read as problems.
     db.add(EmailLog(tenant_id=tenant, recipient="iemand@example.com",
                     subject="Bevestiging", email_type="registration",
                     status="failed", error_message="smtp",
                     created_at=nu - timedelta(days=10)))
     db.add(EmailLog(tenant_id=tenant, recipient="iemand@example.com",
                     subject="Bevestiging", email_type="registration",
-                    status="sent", created_at=nu - timedelta(days=10)))
+                    status="skipped", created_at=nu - timedelta(days=10)))
+    db.add(EmailLog(tenant_id=tenant, recipient="iemand@example.com",
+                    subject="Bevestiging", email_type="registration",
+                    status="logged", created_at=nu - timedelta(days=10)))
     db.commit()
 
 
-# ── f_operations: a union that keeps each leg's own rule ─────────────────────
+# ── f_operations: the workbench, and only the workbench ─────────────────────
 #
-# These three assert a DELTA and not a total, and that is not laziness. The mail
-# log is written by dozens of other tests through their own session, so an
-# absolute count over a tenant is a claim about everything the suite left behind
-# — it read 214 failed e-mails where this fixture adds one. What has to hold is
-# what THIS fixture adds, and what it deliberately does not add.
+# The fact was a union over three tables until it turned out to count the same
+# problem twice: a definitively failed mail and a refund awaiting confirmation are
+# workbench *task kinds*, so they were in the task leg and again in their own leg.
+# The three things #841 names are three kinds, not three tables. Migration 102
+# reduced the fact to one row per open task; these tests hold it there.
+#
+# They assert a DELTA and not a total, and that is not laziness. The mail log is
+# written by dozens of other tests through their own session, so an absolute count
+# over a tenant is a claim about everything the suite left behind — it read 214
+# rows where this fixture adds one.
 
 def _per_kind(db, *, tenant=TENANT_A) -> dict[str, int]:
     result = run(db, ["operation_kind", "operation_count"], tenant=tenant)
@@ -82,33 +102,61 @@ def _delta(voor: dict[str, int], na: dict[str, int]) -> dict[str, int]:
             if na.get(soort, 0) != voor.get(soort, 0)}
 
 
-def test_the_operations_fact_holds_all_three_kinds(db_session, situation):
+def test_the_kinds_are_the_task_kinds(db_session, situation):
+    """A problem shows up once, under the kind of task it produced."""
     voor = _per_kind(db_session)
     _operations(db_session)
-    na = _per_kind(db_session)
 
-    assert _delta(voor, na) == {"Open taak": 1, "Mislukte e-mail": 1}, (
-        "de fixture voegt één open taak en één mislukte mail toe")
-    # And the third leg is there too — the seed's two pending charges.
-    assert na["Openstaande betaling"] >= 2
+    assert _delta(voor, _per_kind(db_session)) == {
+        "Terugbetaling bevestigen": 1,
+        "E-mail definitief mislukt": 1,
+    }, "twee open taken erbij, elk onder haar eigen soort"
 
 
-def test_a_finished_task_and_a_sent_mail_are_not_open_items(db_session, situation):
-    """Each leg of the union filters by its own rule, and that is the point.
+def test_a_failed_mail_is_one_problem_and_not_two(db_session, situation):
+    """The double count that migration 102 removed, pinned so it cannot return.
 
-    The fixture writes four rows to two tables: one open task and one finished
-    one, one failed mail and one sent one. Exactly two of those four are open
-    items.
+    The fixture writes one failed mail AND the task the sweep makes for it. The
+    report must show one row. Before 102 it showed two: one as "Open taak" and one
+    as "Mislukte e-mail", and both looked entirely reasonable.
     """
     voor = run(db_session, ["operation_count"]).rows[0]["operation_count"]
     _operations(db_session)
     na = run(db_session, ["operation_count"]).rows[0]["operation_count"]
     assert na - voor == 2, (
-        "de afgehandelde taak en de verzonden mail horen er niet bij")
+        "twee open taken, niet vier: de mail en de refund tellen één keer")
+
+
+def test_a_skipped_or_logged_mail_is_not_a_problem(db_session, situation):
+    """The other half of the same mistake, and the one that would have been seen.
+
+    `skipped` and `logged` are normal states — `logged` is exactly what a tenant
+    configured to log instead of send does with every message. The old mail leg
+    read `status <> 'sent'` and would have shown a board member 225 "problems" on
+    an afdeling that simply does not send mail.
+    """
+    _operations(db_session)
+    niet_verzonden = db_session.execute(text(
+        "SELECT COUNT(*) FROM mail.email_log "
+        "WHERE tenant_id = :t AND status <> 'sent'"), {"t": TENANT_A}).scalar()
+    assert niet_verzonden >= 3, "de fixture zet er failed, skipped én logged in"
+
+    open_items = run(db_session, ["operation_count"]).rows[0]["operation_count"]
+    assert open_items < niet_verzonden, (
+        "de werkvoorraad telt taken, niet elke mail die niet verzonden is")
+
+
+def test_a_finished_task_is_not_an_open_item(db_session, situation):
+    """The fixture adds three tasks; one of them is done."""
+    voor = _per_kind(db_session)
+    _operations(db_session)
+    na = _per_kind(db_session)
+    assert "Achtergrondtaak mislukt" not in _delta(voor, na), (
+        "de afgehandelde taak hoort niet in de werkvoorraad")
 
 
 def test_operations_stay_inside_their_tenant(db_session, situation):
-    """The union carries `tenant_id` from all three legs, or it would leak."""
+    """A task belongs to a tenant, and the fact filters on it."""
     voor_a = _per_kind(db_session)
     voor_b = _per_kind(db_session, tenant=TENANT_B)
     _operations(db_session, tenant=TENANT_B)
@@ -116,7 +164,7 @@ def test_operations_stay_inside_their_tenant(db_session, situation):
     assert _delta(voor_a, _per_kind(db_session)) == {}, (
         "wat in tenant B gebeurt, verschijnt niet bij tenant A")
     assert _delta(voor_b, _per_kind(db_session, tenant=TENANT_B)) == {
-        "Open taak": 1, "Mislukte e-mail": 1}
+        "Terugbetaling bevestigen": 1, "E-mail definitief mislukt": 1}
 
 
 # ── f_form_submissions ───────────────────────────────────────────────────────
@@ -330,7 +378,7 @@ def test_the_three_new_reports_run_and_return_the_seed_s_numbers(db_session,
     aandacht = run_validated(db_session, selection_of(reports["operations_now"]),
                              tenant_id=TENANT_A)
     soorten = {row["operation_kind"] for row in aandacht.rows}
-    assert {"Open taak", "Mislukte e-mail", "Openstaande betaling"} <= soorten
+    assert {"Terugbetaling bevestigen", "E-mail definitief mislukt"} <= soorten
 
     wie = run_validated(db_session, selection_of(reports["member_demographics"]),
                         tenant_id=TENANT_A)
@@ -353,4 +401,4 @@ def test_the_new_reports_show_up_in_the_panel(client, db_session, situation):
                                   viewer=ADMIN_EMAIL) if r.builtin_key}
     paneel = client.get(f"/admin/rapporten/{reports['operations_now'].id}")
     assert paneel.status_code == 200
-    assert "Open taak" in paneel.text
+    assert "Terugbetaling bevestigen" in paneel.text
