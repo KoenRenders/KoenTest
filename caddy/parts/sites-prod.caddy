@@ -14,7 +14,13 @@
 # ── HET PLATFORM-BLOK (#406/#801) ───────────────────────────────────────────
 # Het platform-domein staat er sinds #801 wél in. De voorwaarde die het tegenhield
 # is vervuld: de naam is een SUBDOMEIN dat naar deze server wijst (geverifieerd
-# vanaf de server), en `PLATFORM_PROD_DOMAIN` staat in .env.caddy.
+# vanaf de server).
+#
+# #866: `PLATFORM_PROD_DOMAIN` komt NIET meer uit .env.caddy. deploy-caddy.sh leidt
+# het af uit PLATFORM_HOSTS van .env.prod — dezelfde waarde die de app als
+# platform-host herkent. Ze stonden apart, en op PROD liepen ze uiteen: Caddy
+# bediende het subdomein, de app kende alleen het apex-domein, en de landingspagina
+# kwam uit op Raak Millegem.
 #
 # Er is bewust GEEN www-variant. Het is een subdomein, dus die vorm bestaat niet —
 # gecontroleerd: ze resolvet niet. Het oude `{$PLATFORM_WWW_DOMAIN}`-redirectblok is
