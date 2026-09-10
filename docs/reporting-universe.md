@@ -50,6 +50,7 @@ The role column is the role the fact's **flat dataset dump** will need once the 
 | `d_membership_status` | Lidmaatschapsstatus | `code` |
 | `d_form` | Formulier | `form_id` |
 | `d_board_member` | Verantwoordelijk bestuurslid | `board_member_id` |
+| `d_address` | Adres | `address_id` |
 
 ## Join graph
 
@@ -77,6 +78,7 @@ Every join also matches on `tenant_id`, unconditionally — a dimension row can 
 | `f_activities` | `d_activity` | `activity_id` = `activity_id` |
 | `f_activities` | `d_date` | `date_key` = `date_key` |
 | `d_member` | `d_board_member` | `board_member_id` = `board_member_id` |
+| `d_person` | `d_address` | `person_id` = `person_id` |
 
 ## Roles
 
@@ -84,9 +86,9 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 
 | Universe role | Meaning | Objects |
 |---|---|---|
-| `admin` | the default: what an admin screen already shows | 54 |
+| `admin` | the default: what an admin screen already shows | 56 |
 | `finance` | money — every measure formatted as money, and the Betalingen class | 27 |
-| `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 3 |
+| `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 4 |
 
 ## Objects
 
@@ -110,6 +112,9 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `member_size_group` | Gezinsgrootte | dimension | label | `admin` | `d_member.household_size_group` | Aantal personen in het gezin, in klassen. |
 | `member_since` | Lid sinds | dimension | year | `admin` | `d_member.member_since_year` | Het eerste jaar waarvoor dit gezin een lidmaatschap heeft. |
 | `member` | Gezin | dimension | count | `admin` | `d_member.member_id` | Het gezin zelf. Klik door naar het gezinsdossier. |
+| `address_line` | Adres | detail | label | `member_details` | `COALESCE(d_address.address_line, 'Geen adres')` | Straat, huisnummer en bus van deze persoon; 'Geen adres' als er geen is. Voor 'waar woont wie'; voor 'hoeveel gezinnen per gemeente' neem je Gemeente, die al op gezinskorrel staat. |
+| `address_municipality` | Gemeente (adres) | dimension | label | `admin` | `COALESCE(d_address.municipality, 'Geen adres')` | De gemeente van dit adres, op persoonskorrel. Verschilt van 'Gemeente', die het gezin volgt: daar telt een gezin één keer, hier elke bewoner met een adres. Wie geen adres heeft, valt onder 'Geen adres' en verdwijnt dus niet uit het rapport. |
+| `address_postal_code` | Postcode (adres) | dimension | label | `admin` | `COALESCE(d_address.postal_code, 'Geen adres')` | De postcode van dit adres, op persoonskorrel; 'Geen adres' voor wie er geen heeft. |
 | `person_age_group` | Leeftijdsgroep | dimension | label | `admin` | `d_person.age_group` | Leeftijdsklasse van de inschrijver, berekend op vandaag. |
 | `person_gender` | Geslacht | dimension | label | `admin` | `d_person.gender_label` | Geslacht van de inschrijver. |
 | `person_relation_type` | Relatietype | dimension | label | `admin` | `d_person.relation_type_label` | Hoofdlid, partner of (meerderjarig) kind binnen het gezin. |

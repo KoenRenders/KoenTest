@@ -314,6 +314,7 @@ DIMENSIONS: tuple[Dimension, ...] = (
     Dimension(key="d_form", name="Formulier", key_column="form_id"),
     Dimension(key="d_board_member", name="Verantwoordelijk bestuurslid",
               key_column="board_member_id"),
+    Dimension(key="d_address", name="Adres", key_column="address_id"),
 )
 
 JOINS: tuple[Join, ...] = (
@@ -339,6 +340,10 @@ JOINS: tuple[Join, ...] = (
     # A snowflake: the board member hangs off the household, not off a fact. Same
     # grain as the household it hangs off, so nothing multiplies (#849).
     Join("d_member", "d_board_member", (("board_member_id", "board_member_id"),)),
+    # The address hangs off the PERSON and not off the household: it lives at
+    # person grain, and chaining it to the household would count a household once
+    # per resident with an address (#850).
+    Join("d_person", "d_address", (("person_id", "person_id"),)),
 )
 
 
@@ -468,6 +473,39 @@ OBJECTS: tuple[UniverseObject, ...] = (
         view="d_member", sql="{view}.member_id", format=Format.COUNT,
         role=Role.ADMIN, sensitive=True, drill="member", drill_sql="{view}.member_id",
         description="Het gezin zelf. Klik door naar het gezinsdossier.",
+    ),
+    UniverseObject(
+        key="address_line", name="Adres", klass="Leden",
+        kind=ObjectKind.DETAIL, view="d_address",
+        sql="COALESCE({view}.address_line, 'Geen adres')",
+        format=Format.LABEL, role=Role.MEMBER_DETAILS,
+        description=(
+            "Straat, huisnummer en bus van deze persoon; 'Geen adres' als er geen "
+            "is. Voor 'waar woont wie'; voor 'hoeveel gezinnen per gemeente' neem "
+            "je Gemeente, die al op gezinskorrel staat."
+        ),
+    ),
+    UniverseObject(
+        key="address_municipality", name="Gemeente (adres)", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="d_address",
+        sql="COALESCE({view}.municipality, 'Geen adres')",
+        format=Format.LABEL, role=Role.ADMIN, sensitive=True,
+        description=(
+            "De gemeente van dit adres, op persoonskorrel. Verschilt van "
+            "'Gemeente', die het gezin volgt: daar telt een gezin één keer, hier "
+            "elke bewoner met een adres. Wie geen adres heeft, valt onder 'Geen "
+            "adres' en verdwijnt dus niet uit het rapport."
+        ),
+    ),
+    UniverseObject(
+        key="address_postal_code", name="Postcode (adres)", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="d_address",
+        sql="COALESCE({view}.postal_code, 'Geen adres')",
+        format=Format.LABEL, role=Role.ADMIN, sensitive=True,
+        description=(
+            "De postcode van dit adres, op persoonskorrel; 'Geen adres' voor wie "
+            "er geen heeft."
+        ),
     ),
     UniverseObject(
         key="person_age_group", name="Leeftijdsgroep", klass="Leden",
