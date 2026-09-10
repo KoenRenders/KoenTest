@@ -55,6 +55,23 @@ services:
       # placeholder, vond niemand met dat adres, en kende NUL gebruikers de rol
       # OPERATOR toe, terwijl het juiste adres wel degelijk in .env.uat stond en als
       # gebruiker bestond. Gevolg: /admin/tenants was voor niemand bereikbaar.
+      # Multi-tenancy (#406/#821). Deze twee horen hier omdat de backend-service
+      # GEEN `env_file:` heeft: wat niet in dit blok staat, bereikt de container
+      # nooit — hoe netjes het ook in .env.uat staat. Gemeten op PROD:
+      # `PLATFORM_HOSTS=[]` en `TENANT_HOSTNAMES=[]` in de draaiende backend,
+      # terwijl beide in het env-bestand stonden.
+      #
+      # Het gevolg was niet alleen een ontbrekende landing: `resolve_request` leest
+      # de tenant-cookie ALLEEN op een platform-host. Met een lege set werd die
+      # cookie wel gezet en nooit gelezen, dus wie via een pad-prefix op een
+      # afdeling binnenkwam en daarna een absoluut pad volgde, stond zonder
+      # waarschuwing bij de standaard-tenant — met een inschrijfformulier voor de
+      # verkeerde afdeling.
+      #
+      # Derde keer dat een variabele hier ontbrak (#798 was de tweede); de gate in
+      # `test_config_env_bereikt_de_container.py` dekt nu élke omgevingsinstelling.
+      TENANT_HOSTNAMES: ${TENANT_HOSTNAMES:-}
+      PLATFORM_HOSTS: ${PLATFORM_HOSTS:-}
       SEED_ADMIN_EMAILS: ${SEED_ADMIN_EMAILS:-}
       SEED_FINANCE_EMAILS: ${SEED_FINANCE_EMAILS:-}
       SEED_OPERATOR_EMAILS: ${SEED_OPERATOR_EMAILS:-}
