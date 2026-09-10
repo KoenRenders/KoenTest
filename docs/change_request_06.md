@@ -121,13 +121,13 @@ soft-delete mechanics and name things the way a board member does.
 
 | View | Kind | Grain | Content |
 |---|---|---|---|
-| `f_memberships` | fact | one row per household per membership year | persons, amount charged / paid, status (new / renewed / lapsed) |
+| `f_memberships` | fact | one row per household per membership `year` | persons, amount charged / paid, status (new / renewed / lapsed). A membership taken from mid-September for the next year counts in that next year only; `valid_from` in the current year does not make it a membership of the current year |
 | `f_registrations` | fact | one row per registration line | quantity, charged, paid, team present, contact present |
 | `f_payments` | fact | one row per payment record | type (charge / refund), amount, amount paid, open balance, days to paid |
 | `f_form_submissions` | fact | one row per submission | count, form, period |
 | `f_operations` | fact | one row per open item | kind, age |
-| `d_date` | dimension | one row per day | year, quarter, month, month label, season |
-| `d_activity` | dimension | one row per activity | activity, component, product, year (of the first activity date — the model has no season, see §12) |
+| `d_date` | dimension | one row per day | year, quarter, month, month label — no season: the working year is the calendar year (§12) |
+| `d_activity` | dimension | one row per activity | activity, component, product, year (calendar year of the first activity date, §12) |
 | `d_household` | dimension | one row per household | household size, municipality, postal code, member since |
 | `d_person` | dimension | one row per person | age group, gender code and label, relation type — **no name, no contact data** (§7) |
 | `d_payment_method` · `d_payment_status` · `d_membership_status` · `d_form` | dimension | code lists | code and Dutch label, from the code tables (#779) |
@@ -249,7 +249,7 @@ So the CLI can start without a design round; each is reversible.
 | Adding objects to the selection | click or checkbox in the objects pane, then reorder with the kit's `ui.reorder()`; **no drag-and-drop in phase 2** | drag costs a library or a lot of Alpine; the value is in the universe, not the gesture. Drag may come with the pivot (phase 3) if the drop zones ask for it |
 | Saved reports | shared within the tenant by default; the owner edits, others open and "Kopiëren" to make their own; a "privé" flag hides one | a board shares its reports; personal drafts are the exception |
 | Pivot column cap | 30 members on the column dimension, with a message naming the dimension | a 400-column crosstab is not a report |
-| "Jaar" | membership: the membership `year`; activity: the year of its first date; payment: the year of `created`/`paid_at` as chosen | the model has calendar years and no season (§12) |
+| "Jaar" | membership: the membership `year`; activity: the calendar year of its first date; payment: the year of `created`/`paid_at` as chosen | decided: the working year is the calendar year (§12) |
 | Object names | Dutch, proposed by the CLI in the universe declaration, validated by Koen on HDEV in the objects pane | the pane *is* the review screen |
 | Export log | one row per export in the audit domain: who, saved report or ad-hoc, filters, rows | an export is data leaving the system |
 | Empty panel | opens with the objects pane and one sentence: "Kies objecten links, filters rechts." | no wizard, no tour |
@@ -386,10 +386,13 @@ The few decisions the CLI cannot take by default:
 
 1. ~~The ten questions (§3)~~ — **decided 10 September 2026: all ten in scope**,
    shipped as saved reports (1–7 in phase 2, 8–10 in phase 5).
-2. **Season or year for activities.** The model has no season; activities carry
-   dates, memberships a calendar `year`. If the board thinks in seasons
-   (September to June), `d_date` gets a derived `season` attribute and
-   `d_activity` uses it; if not, the year of the first date stands.
+2. ~~Season or year for activities~~ — **decided 10 September 2026: the
+   working year is the calendar year.** No season attribute. An activity
+   belongs to the calendar year of its first date; a membership belongs to its
+   `year`. Memberships for the next year can be taken from mid-September; a
+   household joining then is a member for the rest of the current year *and*
+   the next, but the fact counts it **once, in the next year** — the free tail
+   of the current year is not a membership of that year (§4.1, `f_memberships`).
 3. ~~FINANCE-only users and the Rapporten menu~~ — **decided 10 September
    2026: not in v2.3.0.** "Rapporten" is ADMIN/OPERATOR only; no new security
    surface in this release. Opening it to FINANCE-only users is a later switch
