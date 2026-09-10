@@ -8,6 +8,8 @@
 #   raakctl diagnose <env>               full report -> /tmp/<env>-diagnostics.log
 #   raakctl services <env>               which services this env can log
 #   raakctl backup <env>                 manual pg_dump -> <checkout>/backups
+#   raakctl psql <env> [-c SQL]          database session, READ-ONLY by default
+#                                        (-f FILE, --db NAME, --write [--confirm])
 #   raakctl up <env>                     start a stopped stack (no build, no git)
 #   raakctl stop <env>                   stop a stack, keeping its containers
 #   raakctl restart <env> [service]      stop + up in one go (no git, no build)
@@ -142,6 +144,68 @@ cmd_backup() {
   echo "Copy it off the server with:  scp raak:$out ."
 }
 
+cmd_psql() {
+  # Database questions, by environment instead of by compose file. During the
+  # v2.0.0/v2.1.0 rollout this was the most-needed thing raakctl had no verb for:
+  # roughly ten hand-written invocations naming a compose file, an env file, a
+  # container and two levels of shell quoting. A forgotten -T gives a puzzling
+  # error; a wrong <env> runs your query against the wrong database, and that is
+  # the failure with the worst ending.
+  #
+  # READ-ONLY BY DEFAULT, on every environment. Reading is daily work and must not
+  # need a ritual, but a write is not daily work and must not be one keystroke
+  # away from a read. The guard is the server's own
+  # `default_transaction_read_only`, not a scan of your SQL: a regex over a query
+  # is guesswork, while Postgres refusing the write is a fact. It is a guard and
+  # not a prison — a superuser session can still turn it off deliberately, which
+  # is the point: deliberate, not accidental.
+  #
+  # --db exists because the stack holds more than one database: umami_<env> was
+  # needed repeatedly during the same rollout. Default is the app database, read
+  # from the container's own $POSTGRES_DB — credentials never live in this script.
+  local env="${1:?name an environment: hdev|uat|prod}"; shift || true
+  case "$env" in hdev|uat|prod) ;; *) die "psql works on hdev, uat or prod — not on '$env'" ;; esac
+
+  local write=0 confirmed=0 dbname="" sqlfile="" args=()
+  while [ $# -gt 0 ]; do
+    case "$1" in
+      --write)   write=1 ;;
+      --confirm) confirmed=1 ;;
+      --db)      dbname="${2:?--db takes a database name}"; shift ;;
+      # -f names a file on YOUR side; psql runs inside the container and cannot see
+      # it. So it is fed in over stdin instead of passed along — the alternative is
+      # a file that "does not exist" while you are looking straight at it.
+      -f|--file) sqlfile="${2:?-f takes an SQL file}"; shift ;;
+      *)         args+=("$1") ;;
+    esac
+    shift
+  done
+
+  if [ "$write" = 1 ] && [ "$env" = prod ] && [ "$confirmed" != 1 ]; then
+    die "writing to the PROD database is not reversible — repeat with --confirm"
+  fi
+  [ -z "$sqlfile" ] || [ -f "$sqlfile" ] || die "no such SQL file: $sqlfile"
+  [ -n "$(compose "$env" ps -q db 2>/dev/null)" ] || die "the db container of $env is not running"
+
+  local opts=(-e "PGOPTIONS=-c default_transaction_read_only=on")
+  local mode="read-only (add --write to change data)"
+  if [ "$write" = 1 ]; then opts=(-e "PGOPTIONS="); mode="WRITEABLE"; fi
+  [ -z "$dbname" ] || opts+=(-e "RAAKCTL_DB=$dbname")
+
+  # ON_ERROR_STOP so a failing statement in an -f script stops instead of running
+  # the rest against a half-applied state.
+  local inner='exec psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "${RAAKCTL_DB:-$POSTGRES_DB}" "$@"'
+  echo "raakctl: $env · ${dbname:-app database} · $mode" >&2
+
+  if [ -n "$sqlfile" ]; then
+    compose "$env" exec -T "${opts[@]}" db sh -c "$inner" -- ${args[@]+"${args[@]}"} < "$sqlfile"
+  elif [ -t 0 ]; then
+    compose "$env" exec "${opts[@]}" db sh -c "$inner" -- ${args[@]+"${args[@]}"}
+  else
+    compose "$env" exec -T "${opts[@]}" db sh -c "$inner" -- ${args[@]+"${args[@]}"}
+  fi
+}
+
 cmd_up() {
   # Bring a stopped stack back without touching git or rebuilding images — the
   # recovery counterpart to `stop`. A reboot does not need this: every container
@@ -271,7 +335,7 @@ menu() {
     echo "   2) logs of one service           6) deploy UAT (tag)"
     echo "   3) full diagnostics              7) deploy PROD (tag)"
     echo "   4) apply shared Caddy            8) manual backup"
-    echo "                                    q) quit"
+    echo "   9) database session (read-only)  q) quit"
     echo "  (fetch the report from step 3 onto your laptop with: raak fetch <env>)"
     read -rp "  choice: " k
     case "$k" in
@@ -291,6 +355,11 @@ menu() {
          if [ "$c" = "PROD" ]; then cmd_deploy prod "$t" --confirm; else echo "  aborted."; fi ;;
       8) e=$(pick_env "${ENVIRONMENTS[@]}") || continue
          cmd_backup "$e" ;;
+      # Read-only on purpose: the menu is for the things you do often, and writing
+      # to a database is not one of them. That needs `raakctl psql <env> --write`,
+      # typed out.
+      9) e=$(pick_env "${ENVIRONMENTS[@]}") || continue
+         cmd_psql "$e" ;;
       q|Q) return 0 ;;
       *) echo "  unknown choice" ;;
     esac
@@ -306,6 +375,7 @@ case "$verb" in
   diagnose) cmd_diagnose "$@" ;;
   services) cmd_services "$@" ;;
   backup)   cmd_backup "$@" ;;
+  psql)     cmd_psql "$@" ;;
   up)       cmd_up "$@" ;;
   stop)     cmd_stop "$@" ;;
   restart)  cmd_restart "$@" ;;
