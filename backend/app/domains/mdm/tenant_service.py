@@ -178,6 +178,34 @@ def list_units(db, *, alleen_actief: bool = False):
     return query.order_by(Organization.id).all()
 
 
+def platform_org(db):
+    """The PLATFORM organization, or None if this database has none (#854).
+
+    Separate from ``list_units`` on purpose: the platform is not a UNIT and must not
+    appear where afdelingen are listed — the landing page of the platform lists its
+    afdelingen, and the platform itself is not one of them.
+    """
+    from app.domains.mdm.models import Organization
+
+    return (db.query(Organization)
+            .filter(Organization.org_type == "PLATFORM")
+            .order_by(Organization.id).first())
+
+
+def list_manageable_tenants(db, *, alleen_actief: bool = False):
+    """What /admin/tenants may configure: the platform first, then the units (#854).
+
+    The platform carries the same settings as any tenant — that is the whole point of
+    making it one — so it needs the same editor. It leads the list because it is the
+    thing you are standing in when you are on a platform host.
+    """
+    platform = platform_org(db)
+    units = list_units(db, alleen_actief=alleen_actief)
+    if platform is None or (alleen_actief and not platform.is_active):
+        return units
+    return [platform] + units
+
+
 def list_accounts(db):
     """De accounts waar een tenant onder kan hangen."""
     from app.domains.mdm.models import Organization

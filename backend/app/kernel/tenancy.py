@@ -86,7 +86,8 @@ def resolve_tenant(host: str | None, path: str,
 def resolve_request(host: str | None, path: str, cookie_code: str | None,
                     hostname_map: dict[str, str],
                     platform_hosts: set[str],
-                    codes: dict[str, int] | None = None) -> tuple[int, str | None, bool]:
+                    codes: dict[str, int] | None = None,
+                    platform_tenant: int | None = None) -> tuple[int, str | None, bool]:
     """Volledige request-resolutie (§7, 5c): geeft (tenant_id, herschreven pad
     of None, platform-landing?).
 
@@ -95,8 +96,19 @@ def resolve_request(host: str | None, path: str, cookie_code: str | None,
       middleware zet een tenant-cookie zodat vervolgnavigatie (absolute
       paden zonder prefix) op dezelfde tenant blijft.
     - Daarna hostname, dan de tenant-cookie (enkel op platform-hosts), dan
-      de default (Millegem).
+      de platform-tenant als de host er een is, en anders de default (Millegem).
     - De wortel van een platform-host (platform.example, "/") is de landingspagina.
+
+    ``platform_tenant`` is het id van de PLATFORM-organisatie (#854). Een
+    platform-host resolvet daarnaartoe op **elk** pad, niet alleen op ``/``. Daarvóór
+    viel elk ander pad terug op de standaardtenant, en dan kreeg een platformbeheerder
+    de schil van Raak Millegem te zien én een e-mail van die afdeling (#853). Er was
+    niets om naar te resolven; nu wel.
+
+    ``None`` betekent "die rij bestaat hier nog niet" — vóór migratie 097, in een test
+    die er niet over gaat, of bij een haperende lookup. Dan blijft het oude gedrag
+    gelden. Resolutie mag nooit stukvallen op een ontbrekende rij; ze wordt hooguit
+    minder precies.
     """
     codes = codes if codes is not None else TENANT_CODES
     genormaliseerd = (host or "").split(":")[0].lower().removeprefix("www.")
@@ -108,10 +120,13 @@ def resolve_request(host: str | None, path: str, cookie_code: str | None,
     if code in codes:
         return codes[code], None, False
     if genormaliseerd in platform_hosts:
-        if path == "/":
-            return DEFAULT_TENANT_ID, None, True
-        if cookie_code in codes:
+        # De cookie blijft vóór de platform-tenant staan, en dat is met opzet: wie via
+        # een pad-prefix bij een afdeling binnenkwam, hoort daar te blijven als hij
+        # daarna een absoluut pad volgt. Zonder cookie is de host het enige signaal,
+        # en dan is dit het platform.
+        if path != "/" and cookie_code in codes:
             return codes[cookie_code], None, False
+        return (platform_tenant or DEFAULT_TENANT_ID), None, path == "/"
     return DEFAULT_TENANT_ID, None, False
 
 

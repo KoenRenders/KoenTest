@@ -47,6 +47,7 @@ from app.domains.mdm.service import (  # noqa: E402,F401
 )
 from app.domains.mdm.tenant_lookup import (  # noqa: F401
     invalidate_tenant_codes,
+    platform_tenant_id,
     tenant_codes,
 )
 
@@ -61,7 +62,9 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
     TenantFout,
     create_tenant,
     list_accounts,
+    list_manageable_tenants,
     list_units,
+    platform_org,
     secrets_gezet,
     update_tenant_settings,
 )
@@ -69,7 +72,8 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
 __all__ = [
     "OngeldigeInstelling", "TenantFout", "admin_code_lists", "import_commit", "import_preview", "create_tenant", "form_code_lists",
     "list_persons", "list_postal_codes", "list_accounts", "list_units",
-    "secrets_gezet", "update_tenant_settings",
+    "secrets_gezet", "update_tenant_settings", "platform_tenant_id",
+    "list_manageable_tenants", "platform_org",
     "Address", "AddressHistory", "ContactDetail", "ContactDetailHistory",
     "ContactTypeCode", "ExternalNumber", "GenderCode", "Member",
     "MemberHistory", "MemberPerson", "MemberPersonHistory", "Organization",
