@@ -93,28 +93,14 @@ services:
       - internal
 
 
-  # Zelf-gehoste, cookieloze web-analytics (#152, laag 1). Hergebruikt de
-  # bestaande Postgres via een EIGEN database (umami_hdev) — geen tweede DB-engine,
-  # en zo automatisch meegenomen in db-backup. Eenmalig provisionen: zie docs/umami.md
-  # (CREATE DATABASE umami_hdev). Umami draait Prisma-migraties zelf bij startup.
-  # Bereikbaar op een EIGEN poort (8082, root): het prebuilt image past runtime-
-  # BASE_PATH niet toe, dus geen subpad via de Caddy.
-  umami:
-    image: ghcr.io/umami-software/umami:postgresql-latest
-    restart: unless-stopped
-    environment:
-      DATABASE_URL: ${UMAMI_DATABASE_URL:-postgresql://${DB_USER:-postgres}:${DB_PASSWORD:-postgres}@db:5432/umami_hdev}
-      DATABASE_TYPE: postgresql
-      APP_SECRET: ${UMAMI_APP_SECRET:?UMAMI_APP_SECRET ontbreekt in .env.hdev}
-    ports:
-      # Eigen poort, root-served. Het prebuilt image negeert runtime-BASE_PATH,
-      # dus geen subpad via de Caddy (#172 vervangen door #174).
-      - "8082:3000"
-    depends_on:
-      db:
-        condition: service_healthy
-    networks:
-      - internal
+  # GEEN umami-service op HDEV (#820). Ze stond hier tot 10 september 2026 en heeft
+  # sinds 13 juli van dat jaar niets meer geregistreerd — precies de dag waarop HDEV
+  # server-rendered werd. Het trackingscript verdween bij de React-exit en is met
+  # #808 alleen teruggekomen voor omgevingen mét tenant-instellingen; HDEV heeft die
+  # bewust niet, zodat testverkeer nooit in de productiecijfers kan belanden. Er werd
+  # dus niet alleen niets gemeten, er zál ook niets gemeten worden — voor 156 MiB
+  # geheugen. UAT en PROD houden elk hun eigen instance; dit is geen consolidatie
+  # (die is met #259 afgewezen).
 
   caddy:
     # Vastgepind (was `caddy:2`, een bewegende tag): een recreate mag nooit
