@@ -500,6 +500,24 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
     grouped = [o for o in objects if not o.is_measure]
     measures = [o for o in objects if o.is_measure]
 
+    # #852: a detail is an attribute you may show but not group by, and until now
+    # that was a sentence in the universe rather than a rule. Nothing enforced it,
+    # so a detail simply grouped — `payment_note` is the case that shows why:
+    # free text is not a key, so two payments carrying the same note fold into one
+    # row whose measures add up. The sum is right for that group; a reader taking
+    # the row for one payment reads something else than what is there.
+    #
+    # Refused here and not in `_build_detail_list`: a list is exactly where a
+    # detail belongs, and this is the mirror of the refusal there ("a list shows
+    # rows, not totals").
+    details = [o for o in grouped if o.kind is ObjectKind.DETAIL]
+    if details:
+        namen = ", ".join(f"'{o.name}'" for o in details)
+        raise SelectionError(
+            f"Hier valt niet op te groeperen: {namen} is een detail, geen "
+            "dimensie. Een detail hoort in een lijst — kies de lijstvorm, of "
+            "laat het weg.")
+
     select_parts: list[str] = []
     drill_aliases: dict[str, str] = {}
     for obj in objects:

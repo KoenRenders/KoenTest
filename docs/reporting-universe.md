@@ -209,7 +209,7 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `task_detail` | Onderwerp | dimension | label | `admin` | `f_tasks.detail` | Waar de taak over gaat: een betaalrecord, een e-mail, een achtergrondtaak. |
 | `task_role` | Voor welke rol | dimension | label | `admin` | `f_tasks.required_role` | Wie de taak hoort op te pakken. |
 | `task_age_bucket` | Ouderdom | dimension | label | `admin` | `f_tasks.age_bucket` | Hoe lang een taak al open staat, in klassen. Afgehandelde taken staan op 'Afgehandeld'. |
-| `task_done_by` | Afgehandeld door | detail | label | `member_details` | `f_tasks.done_by` | Het e-mailadres van wie de taak afsloot. |
+| `task_done_by` | Afgehandeld door | dimension | label | `member_details` | `f_tasks.done_by` | Het e-mailadres van wie de taak afsloot. Groepeerbaar: dat is de vraag 'hoeveel heeft ieder van ons afgewerkt'. |
 
 ### Tijd
 

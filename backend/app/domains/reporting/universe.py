@@ -1054,9 +1054,17 @@ OBJECTS: tuple[UniverseObject, ...] = (
     ),
     UniverseObject(
         key="task_done_by", name="Afgehandeld door", klass="Taken",
-        kind=ObjectKind.DETAIL, view="f_tasks", sql="{view}.done_by",
+        # A dimension and not a detail, corrected when the gate of #852 refused
+        # the personal work list of #847. An e-mail address is a key, unlike a
+        # free-text note, and "how many did each of us close" is a question — it
+        # is the very question `@ik` was built for. The declaration was wrong,
+        # not the report.
+        kind=ObjectKind.DIMENSION, view="f_tasks", sql="{view}.done_by",
         format=Format.LABEL, role=Role.MEMBER_DETAILS, fact="f_tasks",
-        description="Het e-mailadres van wie de taak afsloot.",
+        description=(
+            "Het e-mailadres van wie de taak afsloot. Groepeerbaar: dat is de "
+            "vraag 'hoeveel heeft ieder van ons afgewerkt'."
+        ),
     ),
 )
 

@@ -76,9 +76,18 @@
                   <span class="w-4 shrink-0 text-center text-xs text-ink-soft"
                         title="{{ kind_labels[o.kind.value] }}"
                         aria-hidden="true">{{ kind_symbols[o.kind.value] }}</span>
+                  {# #852: een detail hoort in een lijst en nergens anders. De
+                     engine weigert het, dus het paneel mag het hier niet
+                     aanbieden — een gebruiker mag niet kunnen kiezen wat daarna
+                     afgewezen wordt. Uitgeschakeld en niet verborgen: waarom het
+                     niet kan is de helft van het antwoord. #}
+                  {% set enkel_lijst = o.kind.value == "detail" and layout != "detail" %}
                   <button type="button" name="add" value="{{ o.key }}"
-                          hx-get="{{ paneel_url }}" title="{{ o.description }}"
-                          class="flex-1 text-left text-sm px-2 py-1 rounded hover:bg-gray-50 {% if o.key in chosen_keys %}text-ink-soft{% else %}text-ink{% endif %}">
+                          hx-get="{{ paneel_url }}"
+                          {% if enkel_lijst %}disabled
+                          title="{{ o.name }} {{ _('is een detail: kies de lijstvorm om het te tonen.') }}"
+                          {% else %}title="{{ o.description }}"{% endif %}
+                          class="flex-1 text-left text-sm px-2 py-1 rounded {% if enkel_lijst %}text-ink-soft/60 cursor-not-allowed{% else %}hover:bg-gray-50 {% if o.key in chosen_keys %}text-ink-soft{% else %}text-ink{% endif %}{% endif %}">
                     {{ o.name }}{% if o.key in chosen_keys %} ✓{% endif %}
                   </button>
                   {% if o.kind.value != "measure" %}
