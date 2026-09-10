@@ -419,6 +419,39 @@ met één-head- + drift-test — een éigen keten per component pas bij extracti
 grens wordt bewaakt door (1)+(2), niet door ketensplitsing); **(4)** later
 per-schema `GRANT` + RLS.
 
+### Kernel of ui? (vastgelegd 10 september 2026)
+
+Laag 0 valt in de praktijk uiteen in twee mappen, en de scheidslijn stond nergens
+opgeschreven — §5 noemt de UI-kit-macro's zelfs "in de kernel/shell", wat de
+verwarring bevestigt. De regel is:
+
+**`app/kernel/` weet niets van HTML. `app/ui/` weet niets van domeinen.**
+
+- **`app/kernel/`** draagt domeinloze bouwstenen die geen scherm kennen: `ods.py`
+  (een bestandsformaat), `geld.py`, `tenancy.py`, `tenant_config.py`, `events.py`,
+  `jobs.py`, `history.py`, `ordering.py`, `contracts/`. Ze zijn even bruikbaar
+  vanuit een achtergrondtaak als vanuit een scherm.
+- **`app/ui/`** draagt alles dat alleen bestaat om getekend te worden: de
+  UI-kit-macro's en de iconenset in `templates/_macros.html`, de twee schillen
+  (`site_base`, `admin_base`), de view-models, en de cross-cutting beheerschermen
+  die bij geen enkel domein horen (Systeeminfo, tenants, wijzigingen,
+  design-system).
+
+De toets bij twijfel: **zou een cron-job dit ooit nodig hebben?** Zo ja, kernel. Zo
+nee, ui.
+
+Waarom dit ertoe doet: zonder de regel is elke uitbreiding opnieuw een oordeel, en
+komt er ooit een macro in kernel of een geldberekening in ui. Toen het
+reporting-domein (#833) twee gedeelde bestanden nodig had, viel het antwoord met
+deze regel meteen: `intro_rows` hoort in `kernel/ods.py` (een exportformaat) en het
+icoon `table` in `ui/_macros.html` (een scherm). Dat zijn twee verschillende
+soorten uitbreiding, geen twee keer hetzelfde.
+
+Dupliceren is geen uitweg. Een tweede ODS-schrijver in een domein loopt uiteen
+zodra iemand er één aanpast; de gedeelde bouwsteen uitbreiden mét een test die
+bewijst dat het bestaande gedrag onveranderd is, is het antwoord (Koen,
+10 september 2026: *"ODS kernel moeten we niet dupliceren"*).
+
 ---
 
 ## 9. Ontwikkelen binnen een component — contract-stabiliteit
