@@ -107,7 +107,8 @@
                                               ("pivot", _("Draaitabel"), "pivot"),
                                               ("bar", _("Staaf"), "chart-bar"),
                                               ("line", _("Lijn"), "chart-line"),
-                                              ("stacked", _("Gestapeld"), "chart-stacked")] %}
+                                              ("stacked", _("Gestapeld"), "chart-stacked"),
+                                              ("detail", _("Lijst"), "list")] %}
               <button type="button" name="set_layout" value="{{ waarde }}"
                       hx-get="{{ paneel_url }}"
                       aria-pressed="{{ 'true' if layout == waarde else 'false' }}"

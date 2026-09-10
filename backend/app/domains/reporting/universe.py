@@ -88,7 +88,7 @@ class Role(str, Enum):
 # The classes, in the order the objects pane shows them. A class is how a user
 # thinks about the data, not how it is stored.
 CLASSES: tuple[str, ...] = ("Leden", "Activiteiten", "Betalingen",
-                            "Formulieren", "Operaties", "Tijd")
+                            "Betaaldetail", "Formulieren", "Operaties", "Tijd")
 
 
 @dataclass(frozen=True)
@@ -107,6 +107,10 @@ class Fact:
     # on them so two exports of unchanged data are byte-for-byte the same file —
     # without a unique tail Postgres hands back whatever order the heap has (#761).
     dataset_key: tuple[str, ...] = ()
+    # The natural reading order of the fact's rows, for a detail listing. Ends in
+    # the unique key (#761): without it, paging a listing shows the same row twice
+    # and never another.
+    detail_order: tuple[str, ...] = ()
     # How many distinct people a group of this fact covers, as SQL over its view.
     # The small-cell threshold (#841) needs to know the size of a cell before it
     # can protect it; a fact that cannot say leaves the threshold inapplicable and
@@ -218,6 +222,8 @@ FACTS: tuple[Fact, ...] = (
         # A payment belongs to a household, not to a person; counting households
         # is the closest honest measure of how few people a cell covers.
         people_sql="COUNT(DISTINCT {view}.household_id)",
+        # Newest first, like the payments screen and its export.
+        detail_order=("{view}.created_at DESC", "{view}.payment_id"),
     ),
     Fact(
         key="f_membership_persons",
@@ -608,6 +614,85 @@ OBJECTS: tuple[UniverseObject, ...] = (
         kind=ObjectKind.DIMENSION, view="f_membership_persons", sql="{view}.year",
         format=Format.YEAR, role=Role.ADMIN, fact="f_membership_persons",
         description="Het jaar waarvoor deze persoon lid was.",
+    ),
+
+    # ── Betaaldetail ────────────────────────────────────────────────────────
+    # The row-level fields of a payment, for a listing rather than a summary.
+    # A class of their own and not beside the measures, for two reasons: their
+    # names would otherwise collide ("Te betalen" is both a total and a row
+    # value), and a user choosing between "the sum of the amounts" and "the
+    # amount on this row" deserves to see that they are different kinds of thing.
+    #
+    # `payment_payable_label` carries a person's name. That is allowed since
+    # CR-06 §7.3 (10 September 2026) and bounded by the role that reaches the
+    # screen; it declares `member_details` so the later per-object switch has
+    # something to turn on.
+    UniverseObject(
+        key="payment_payable_label", name="Waarvoor", klass="Betaaldetail",
+        kind=ObjectKind.DETAIL, view="f_payments", sql="{view}.payable_label",
+        format=Format.LABEL, role=Role.MEMBER_DETAILS, fact="f_payments",
+        description="Voor wie en waarvoor deze betaling is — de inschrijver en de activiteit, of het hoofdlid en het lidmaatschapsjaar.",
+    ),
+    UniverseObject(
+        key="payment_kind_label", name="Soort", klass="Betaaldetail",
+        kind=ObjectKind.DETAIL, view="f_payments", sql="{view}.payable_type_label",
+        format=Format.LABEL, role=Role.FINANCE, fact="f_payments",
+        description="Lidgeld of activiteit.",
+    ),
+    UniverseObject(
+        key="payment_type_label", name="Type", klass="Betaaldetail",
+        kind=ObjectKind.DETAIL, view="f_payments", sql="{view}.record_type_label",
+        format=Format.LABEL, role=Role.FINANCE, fact="f_payments",
+        description="Vordering of terugbetaling.",
+    ),
+    UniverseObject(
+        key="payment_method_label", name="Betaalwijze", klass="Betaaldetail",
+        kind=ObjectKind.DETAIL, view="d_payment_method", sql="{view}.label",
+        format=Format.LABEL, role=Role.FINANCE,
+        description="Online, overschrijving of cash.",
+    ),
+    UniverseObject(
+        key="payment_status_label", name="Status", klass="Betaaldetail",
+        kind=ObjectKind.DETAIL, view="d_payment_status", sql="{view}.label",
+        format=Format.LABEL, role=Role.FINANCE,
+        description="In afwachting, betaald, mislukt of geannuleerd.",
+    ),
+    UniverseObject(
+        key="payment_ogm", name="Mededeling (OGM)", klass="Betaaldetail",
+        kind=ObjectKind.DETAIL, view="f_payments",
+        sql="{view}.structured_communication", format=Format.LABEL,
+        role=Role.FINANCE, fact="f_payments",
+        description="De gestructureerde mededeling op een overschrijving.",
+    ),
+    UniverseObject(
+        key="payment_due", name="Te betalen", klass="Betaaldetail",
+        kind=ObjectKind.DETAIL, view="f_payments", sql="{view}.amount",
+        format=Format.MONEY, role=Role.FINANCE, fact="f_payments",
+        description="Het bedrag van deze ene regel. Een terugbetaling is negatief.",
+    ),
+    UniverseObject(
+        key="payment_received", name="Betaald", klass="Betaaldetail",
+        kind=ObjectKind.DETAIL, view="f_payments", sql="{view}.amount_paid",
+        format=Format.MONEY, role=Role.FINANCE, fact="f_payments",
+        description="Wat er op deze regel ontvangen is.",
+    ),
+    UniverseObject(
+        key="payment_balance", name="Saldo", klass="Betaaldetail",
+        kind=ObjectKind.DETAIL, view="f_payments", sql="{view}.open_amount",
+        format=Format.MONEY, role=Role.FINANCE, fact="f_payments",
+        description="Te betalen min betaald, op deze regel.",
+    ),
+    UniverseObject(
+        key="payment_paid_on", name="Betaald op", klass="Betaaldetail",
+        kind=ObjectKind.DETAIL, view="f_payments", sql="{view}.paid_date",
+        format=Format.DATE, role=Role.FINANCE, fact="f_payments",
+        description="Wanneer de betaling binnenkwam.",
+    ),
+    UniverseObject(
+        key="payment_note", name="Notitie", klass="Betaaldetail",
+        kind=ObjectKind.DETAIL, view="f_payments", sql="{view}.note",
+        format=Format.LABEL, role=Role.FINANCE, fact="f_payments",
+        description="Wat de penningmeester erbij schreef.",
     ),
 
     # ── Formulieren ─────────────────────────────────────────────────────────

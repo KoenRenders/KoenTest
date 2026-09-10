@@ -135,12 +135,19 @@ def build_report_ods(db: Session, result: ReportResult, selection: Selection, *,
             for index, column in enumerate(result.columns)
         ])
 
-    detail_headers, detail_rows = _detail_rows(db, selection, tenant_id=tenant_id)
-    return build_ods_multi([
+    bladen = [
         {"name": title[:31] or "Rapport", "headers": headers, "rows": rows,
          "intro_rows": intro, "bold_last_row": bool(result.totals)},
-        {"name": "Detail", "headers": detail_headers, "rows": detail_rows},
-    ])
+    ]
+    if selection.layout != "detail":
+        # Sheet 2 is the rows behind an aggregate. A listing IS those rows, so a
+        # second sheet would be the same table twice — and a spreadsheet with a
+        # duplicate invites somebody to add the two together.
+        detail_headers, detail_rows = _detail_rows(db, selection,
+                                                   tenant_id=tenant_id)
+        bladen.append({"name": "Detail", "headers": detail_headers,
+                       "rows": detail_rows})
+    return build_ods_multi(bladen)
 
 
 def report_filename(title: str) -> str:

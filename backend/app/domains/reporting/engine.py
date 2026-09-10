@@ -30,6 +30,7 @@ from enum import Enum
 from app.domains.reporting.universe import (
     BY_KEY,
     FACT_BY_KEY,
+    Format,
     ObjectKind,
     UniverseObject,
     joins_for,
@@ -113,8 +114,11 @@ class Selection:
     pivot_column: str = ""
 
 
-# A chart is a shape of the same report, so it lives in the same field.
-LAYOUTS = ("table", "pivot", "bar", "line", "stacked")
+# A chart is a shape of the same report, so it lives in the same field. "detail"
+# is the odd one out and deliberately so: every other layout aggregates, and this
+# one lists the rows of the fact as they are. It exists because the four exports
+# this application already has are listings, not summaries (#841 point 4).
+LAYOUTS = ("table", "pivot", "bar", "line", "stacked", "detail")
 
 # A crosstab wider than this is not a report (CR-06 §5.2). The message names the
 # dimension, because "too many columns" without saying which one leaves the user
@@ -252,6 +256,10 @@ class QueryPlan:
     # True when the rows carry the hidden people-count and the small-cell
     # threshold has to be applied before anything is shown.
     guarded: bool = False
+    # Whether `totals_sql` has anything to say. A table totals its measures; a
+    # listing totals its money columns; a selection with neither has no totals row
+    # at all, and asking anyway would return a meaningless `1`.
+    has_totals: bool = False
 
 
 # A hard ceiling on what one report may return. At this scale it never fires; it
@@ -417,6 +425,9 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
 
     objects = [_object(key) for key in selection.object_keys]
 
+    if selection.layout == "detail":
+        return _build_detail_list(selection, objects, tenant_id=tenant_id)
+
     # No role check on the fact itself: the fence sits on the objects, and a
     # selection cannot exist without a measure, so every fact a report reaches is
     # reached through a measure that was already checked. `Fact.role` governs the
@@ -504,7 +515,8 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
     ]
     return QueryPlan(sql=sql, totals_sql=totals_sql, params=params,
                      columns=columns, fact=fact, drill_aliases=drill_aliases,
-                     guarded=bool(guarded and people_sql))
+                     guarded=bool(guarded and people_sql),
+                     has_totals=bool(measures))
 
 
 def build_detail_query(selection: Selection, *, tenant_id: int,
@@ -521,7 +533,11 @@ def build_detail_query(selection: Selection, *, tenant_id: int,
     column and adds nothing the report itself does not already show.
     """
     objects = [_object(key) for key in selection.object_keys]
-    fact = _resolve_fact(objects)
+    # A listing has no measure to name its fact, so fall back to the objects that
+    # live on one. Same answer for an aggregating selection, and no crash for a
+    # selection that legitimately has no measure at all.
+    fact = (_resolve_fact(objects) if any(o.is_measure for o in objects)
+            else _fact_of(objects))
     conditions, params, filter_objects = _where_clause(selection.filters, fact)
     views = _needed_views(objects + filter_objects, fact)
     joins = _check_joinable(views, fact)
@@ -561,3 +577,97 @@ def build_member_count_query(selection: Selection, object_key: str, *,
            f"FROM {_from_clause(fact, views, joins)}\n"
            f"WHERE {' AND '.join(conditions)}")
     return sql, params
+
+
+def _build_detail_list(selection: Selection, objects: list[UniverseObject], *,
+                       tenant_id: int) -> QueryPlan:
+    """A row list: the fact's rows as they are, without a GROUP BY (#841).
+
+    Every other layout answers "how much"; this one answers "which ones". The
+    difference is not cosmetic — a listing has no grain to choose and therefore no
+    measure to require, and a measure in it would be an aggregate over a single
+    row, which is a number that says nothing.
+
+    The totals row is the sum of the **money** columns and nothing else. That is a
+    rule and not a guess: a row list of payments ends in a total because a
+    treasurer adds up money, and adding up a payment id or an age in days would be
+    noise. It is the same total the existing payments export writes.
+
+    The order is the fact's own reading order, ending in its unique key (#761) —
+    otherwise paging a listing would show the same row twice and never another.
+    """
+    measures = [o for o in objects if o.is_measure]
+    if measures:
+        namen = ", ".join(f"'{o.name}'" for o in measures)
+        raise SelectionError(
+            f"Een lijst toont rijen, geen totalen: {namen} hoort niet in een "
+            "detailrapport. Laat de maat weg, of kies de tabelvorm.")
+
+    fact = _fact_of(objects)
+    conditions, params, filter_objects = _where_clause(selection.filters, fact)
+    views = _needed_views(objects + filter_objects, fact)
+    joins = _check_joinable(views, fact)
+
+    select_parts: list[str] = []
+    drill_aliases: dict[str, str] = {}
+    for obj in objects:
+        select_parts.append(f'{_expression(obj)} AS "{obj.key}"')
+        drill_expr = _drill_expression(obj)
+        if drill_expr is not None:
+            alias = f"{obj.key}__drill"
+            select_parts.append(f'{drill_expr} AS "{alias}"')
+            drill_aliases[obj.key] = alias
+
+    from_clause = _from_clause(fact, views, joins)
+    where = "\n  AND ".join(conditions)
+
+    order_parts = [f'"{s.object_key}" {s.direction.value.upper()}'
+                   for s in selection.sort if s.object_key in selection.object_keys]
+    natuurlijk = [fragment.format(view=_view_alias(fact))
+                  for fragment in FACT_BY_KEY[fact].detail_order]
+    order_by = order_parts + natuurlijk
+
+    limit = max(1, min(selection.limit, MAX_ROWS))
+    params["tenant_id"] = tenant_id
+    params["limit"] = limit
+    params["offset"] = max(0, selection.offset)
+
+    sql = ("SELECT\n  " + ",\n  ".join(select_parts)
+           + f"\nFROM {from_clause}\nWHERE {where}")
+    if order_by:
+        sql += "\nORDER BY " + ", ".join(order_by)
+    sql += "\nLIMIT :limit OFFSET :offset"
+
+    geld = [o for o in objects if o.format is Format.MONEY]
+    totals_select = ", ".join(
+        f'SUM({_expression(o)}) AS "{o.key}"' for o in geld) or "1"
+    totals_sql = f"SELECT {totals_select}\nFROM {from_clause}\nWHERE {where}"
+
+    columns = [
+        Column(key=o.key, name=o.name, kind=o.kind, format=o.format.value,
+               drill=o.drill, additive=o.additive)
+        for o in objects
+    ]
+    return QueryPlan(sql=sql, totals_sql=totals_sql, params=params,
+                     columns=columns, fact=fact, drill_aliases=drill_aliases,
+                     has_totals=bool(geld))
+
+
+def _fact_of(objects: list[UniverseObject]) -> str:
+    """The fact a listing is about — from the objects that belong to one.
+
+    A listing has no measure to name its fact, so the fact comes from the objects
+    that live on a fact view. Two of them is the fan trap in a different shape and
+    is refused for the same reason.
+    """
+    facts = {o.fact for o in objects if o.fact}
+    if not facts:
+        raise SelectionError(
+            "Kies minstens één veld van het feit zelf: uit alleen dimensies valt "
+            "geen lijst te maken.")
+    if len(facts) > 1:
+        namen = sorted(FACT_BY_KEY[f].name for f in facts)
+        raise SelectionError(
+            "Velden uit twee feiten in één lijst kunnen niet: "
+            f"{' en '.join(namen)}. Maak er twee rapporten van.")
+    return facts.pop()

@@ -76,8 +76,7 @@ def run_selection(db: Session, selection: Selection, *,
         rows.append(dict(record))
 
     totals: dict[str, Any] = {}
-    measures = [c for c in plan.columns if c.kind.value == "measure"]
-    if measures:
+    if plan.has_totals:
         record = db.execute(text(plan.totals_sql), plan.params).mappings().first()
         if record is not None:
             totals = dict(record)

@@ -292,15 +292,25 @@ def test_the_threshold_is_declared_and_not_hidden_in_a_template():
 # ── Questions 8, 9 and 10 as shipped reports (#841 test 1) ───────────────────
 
 def test_the_ten_questions_are_now_complete(db_session, situation):
+    """The ten of CR-06 §3, as shipped reports.
+
+    Asserted as a subset and then as an exact set, so a new shipped report is a
+    visible change here instead of a silent one: the payments listing of #841
+    point 4 is the eleventh and is deliberately NOT one of the ten questions.
+    """
     reports = {r.builtin_key for r in
                list_saved_reports(db_session, tenant_id=TENANT_A,
                                   viewer=ADMIN_EMAIL) if r.builtin_key}
-    assert reports == {
+    tien_vragen = {
         "members_per_year", "membership_flow_per_year",
         "registrations_per_activity", "revenue_per_activity", "revenue_per_month",
         "outstanding_by_age", "payment_method_per_month",
         "member_demographics", "form_usage", "operations_now",
     }
+    assert tien_vragen <= reports, "de tien bestuurdersvragen zijn compleet"
+    assert reports == tien_vragen | {"payments_list"}, (
+        "en daarnaast precies één rapport dat geen bestuurdersvraag is: de "
+        "betalingenlijst van #841 punt 4")
 
 
 def test_the_three_new_reports_run_and_return_the_seed_s_numbers(db_session,

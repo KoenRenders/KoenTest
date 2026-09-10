@@ -78,8 +78,8 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | Universe role | Meaning | Objects |
 |---|---|---|
 | `admin` | the default: what an admin screen already shows | 44 |
-| `finance` | money — every measure formatted as money, and the Betalingen class | 16 |
-| `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 0 |
+| `finance` | money — every measure formatted as money, and the Betalingen class | 26 |
+| `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 1 |
 
 ## Objects
 
@@ -141,6 +141,22 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `payment_payable_type` | Waarvoor | dimension | label | `finance` | `f_payments.payable_type_label` | Lidgeld of activiteit. |
 | `payment_age_bucket` | Ouderdom | dimension | label | `finance` | `f_payments.age_bucket` | Hoe lang een vordering al openstaat, in klassen. Betaalde records staan op 'Betaald'. |
 | `payment_record` | Betaling | dimension | label | `finance` | `f_payments.payment_id` | Het betaalrecord zelf. Klik door naar de betalingenpagina. |
+
+### Betaaldetail
+
+| Key | Name | Type | Format | Role | Source | Description |
+|---|---|---|---|---|---|---|
+| `payment_payable_label` | Waarvoor | detail | label | `member_details` | `f_payments.payable_label` | Voor wie en waarvoor deze betaling is — de inschrijver en de activiteit, of het hoofdlid en het lidmaatschapsjaar. |
+| `payment_kind_label` | Soort | detail | label | `finance` | `f_payments.payable_type_label` | Lidgeld of activiteit. |
+| `payment_type_label` | Type | detail | label | `finance` | `f_payments.record_type_label` | Vordering of terugbetaling. |
+| `payment_method_label` | Betaalwijze | detail | label | `finance` | `d_payment_method.label` | Online, overschrijving of cash. |
+| `payment_status_label` | Status | detail | label | `finance` | `d_payment_status.label` | In afwachting, betaald, mislukt of geannuleerd. |
+| `payment_ogm` | Mededeling (OGM) | detail | label | `finance` | `f_payments.structured_communication` | De gestructureerde mededeling op een overschrijving. |
+| `payment_due` | Te betalen | detail | money | `finance` | `f_payments.amount` | Het bedrag van deze ene regel. Een terugbetaling is negatief. |
+| `payment_received` | Betaald | detail | money | `finance` | `f_payments.amount_paid` | Wat er op deze regel ontvangen is. |
+| `payment_balance` | Saldo | detail | money | `finance` | `f_payments.open_amount` | Te betalen min betaald, op deze regel. |
+| `payment_paid_on` | Betaald op | detail | date | `finance` | `f_payments.paid_date` | Wanneer de betaling binnenkwam. |
+| `payment_note` | Notitie | detail | label | `finance` | `f_payments.note` | Wat de penningmeester erbij schreef. |
 
 ### Formulieren
 

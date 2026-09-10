@@ -248,6 +248,6 @@ def test_every_measure_and_detail_carries_a_role():
 
 def test_the_objects_pane_is_grouped_in_declared_class_order():
     classes = [name for name, _objects in classes_with_objects()]
-    assert classes == ["Leden", "Activiteiten", "Betalingen", "Formulieren",
-                       "Operaties", "Tijd"]
+    assert classes == ["Leden", "Activiteiten", "Betalingen", "Betaaldetail",
+                       "Formulieren", "Operaties", "Tijd"]
     assert all(objects for _name, objects in classes_with_objects())

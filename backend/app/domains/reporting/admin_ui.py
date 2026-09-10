@@ -76,7 +76,8 @@ PER_PAGE = 50
 # The icon per shape of a saved report, so its card shows what it is without
 # running it.
 SHAPE_ICONS = {"table": "table", "pivot": "pivot", "bar": "chart-bar",
-               "line": "chart-line", "stacked": "chart-stacked"}
+               "line": "chart-line", "stacked": "chart-stacked",
+               "detail": "list"}
 
 DRILL_URLS = {
     "activity": "/admin/activiteiten/{id}",
@@ -379,7 +380,8 @@ def _list_view(request: Request, db: Session, email: str) -> ReportListView:
                 for r in reports},
         shape_labels={"table": _("Tabel"), "pivot": _("Draaitabel"),
                       "chart-bar": _("Staafgrafiek"), "chart-line": _("Lijngrafiek"),
-                      "chart-stacked": _("Gestapelde staafgrafiek")},
+                      "chart-stacked": _("Gestapelde staafgrafiek"),
+                      "list": _("Lijst")},
         q=q, owner=owner, shared=shared,
         csrf_token=_csrf(request),
         nav_items=admin_nav(NAV),

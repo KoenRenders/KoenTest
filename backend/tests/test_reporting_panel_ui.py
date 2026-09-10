@@ -129,8 +129,9 @@ def test_the_shipped_reports_return_the_numbers_of_the_seed(db_session, situatio
     reports = {r.builtin_key: r for r in
                list_saved_reports(db_session, tenant_id=TENANT_A, viewer=ADMIN_EMAIL)
                if r.builtin_key}
-    # Seven since #833, ten since #841 — the full set of CR-06 §3.
-    assert len(reports) == 10, "de tien meegeleverde rapporten staan er"
+    # Seven since #833, ten since #841 (the questions of CR-06 §3), plus the
+    # payments listing of #841 point 4.
+    assert len(reports) == 11, "de elf meegeleverde rapporten staan er"
 
     def run(key):
         selection = selection_of(reports[key])
