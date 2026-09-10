@@ -1102,7 +1102,26 @@ def _bestaand_record(db: Session, record_id: str):
 
 def bevestig_betaling(db: Session, record_id: str, *, note: str | None = None,
                       amount_paid: str | None = None, actor: str | None = None):
-    """"Bevestig betaald", met optioneel het effectief ontvangen bedrag (#455)."""
+    """"Bevestig betaald", met optioneel het effectief ontvangen bedrag (#455).
+
+    Vervroegt de sweep, net als `create_refund` (#855). Sinds #705 verschijnt een
+    openstaande terugbetaling meteen op de werkbank; verdwijnen wachtte nog op de klok.
+    Gemeten op HDEV, 10 september 2026: vereffend om 21:40, sweep net gelopen om 21:38,
+    volgende om 22:38 — achtenvijftig minuten een taak in beeld voor werk dat al gedaan
+    was.
+
+    Dit dekt beide gevallen, want `/bevestigen` (vereffenen) en `/bijwerken` (een
+    vordering afboeken, #617-2b) komen allebei hier langs.
+
+    **Niet via het kernel-event `PaymentSettled`**, hoe net dat er ook uitziet: dat
+    wordt gepubliceerd vanuit `apply_gateway_status`, het Mollie-pad. Handmatig
+    bevestigen komt daar niet langs, dus een luisteraar zou precies dit geval missen —
+    en een test die via een online betaling schrijft, zou dat niet merken.
+
+    **Vervroegen, niet zelf de taak sluiten.** Zelfde reden als #705: de titel is de
+    idempotentiesleutel, en een tweede plek die daar iets mee doet is hoe dubbele of te
+    vroeg gesloten taken ontstaan. De sweep beslist; dit zegt alleen "kijk nu".
+    """
     _bestaand_record(db, record_id)
     try:
         record = confirm_manual_payment(db, record_id, (note or "").strip() or None,
@@ -1110,6 +1129,9 @@ def bevestig_betaling(db: Session, record_id: str, *, note: str | None = None,
     except ValueError as exc:
         db.rollback()
         raise BetalingFout(str(exc)) from exc
+    from app.domains.workflow.api import vervroeg_sweep
+
+    vervroeg_sweep(db)
     db.commit()
     return record
 
