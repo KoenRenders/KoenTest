@@ -78,6 +78,8 @@
    lettertype en OS anders — precies wat #698 wegwerkte, en deze widget staat op élke
    publieke pagina. De toestandswissels (opnemen/verbinden, voorlezen aan/uit) gebeuren
    in JS, dus die iconen reizen als data-attribuut mee; zie stt.js en tts.js. #}
+{# `table` (#833) is de vorm van een rapport; de draaitabel en de grafiek krijgen
+   er in fase 3 en 4 hun eigen icoon naast. #}
 {% macro icon(name, size=16, cls="") -%}
 {%- set paths = {
   "download": '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
@@ -106,7 +108,13 @@
   "x": '<path d="M18 6 6 18"/><path d="m6 6 12 12"/>',
   "send": '<path d="M14.5 21.7a.5.5 0 0 0 .9 0l6.5-19a.5.5 0 0 0-.6-.6l-19 6.5a.5.5 0 0 0 0 .9l7.9 3.2a2 2 0 0 1 1.1 1.1z"/><path d="m21.9 2.1-10.9 10.9"/>',
   "trash-2": '<path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/>',
-  "pencil": '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>'} -%}
+  "pencil": '<path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/><path d="m15 5 4 4"/>',
+  "table": '<path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M3 9h18"/><path d="M3 15h18"/><path d="M9 3v18"/>',
+  "pivot": '<path d="M3 5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z"/><path d="M3 9h18"/><path d="M9 3v18"/><path d="m14 14 4 4"/><path d="m18 14-4 4"/>',
+  "chart-bar": '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><rect x="7" y="11" width="3" height="6"/><rect x="12" y="7" width="3" height="10"/><rect x="17" y="13" width="3" height="4"/>',
+  "chart-line": '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><path d="m7 15 4-5 3 3 5-7"/>',
+  "chart-stacked": '<path d="M3 3v16a2 2 0 0 0 2 2h16"/><rect x="7" y="13" width="4" height="4"/><rect x="7" y="9" width="4" height="4"/><rect x="15" y="11" width="4" height="6"/><rect x="15" y="7" width="4" height="4"/>',
+  "list": '<line x1="8" x2="21" y1="6" y2="6"/><line x1="8" x2="21" y1="12" y2="12"/><line x1="8" x2="21" y1="18" y2="18"/><line x1="3" x2="3.01" y1="6" y2="6"/><line x1="3" x2="3.01" y1="12" y2="12"/><line x1="3" x2="3.01" y1="18" y2="18"/>'} -%}
 {#- #762: een enkel icoon krijgt een eigen viewBox. Alle vakjes zijn even groot,
     maar het oog telt inkt: `square` spant 18 van de 24 eenheden (75%) en `mic` 20
     (83%), dus het stopvierkantje oogde kleiner dan de microfoon die het vervangt.
@@ -1010,4 +1018,222 @@
     });
   })();
 </script>
+{%- endmacro %}
+
+{# ── Draaitabel (#834, CR-06 §5) ──────────────────────────────────────────────
+   Rijen × kolommen × maten, met subtotalen per rijgroep en een eindtotaal.
+
+   **Kitcode, dus zonder domeinkennis.** `pivot` is een gewone dict met
+   `row_headers`, `column_header`, `column_values`, `measures`, `rows` en
+   `grand_total`; Jinja leest `pivot.rows` op een dict net zo goed als op een
+   object. Daardoor kan de componentenpagina dezelfde macro een letterlijk
+   voorbeeld geven zonder iets uit het rapportagedomein te importeren.
+
+   **Elk getal komt uit de server.** Deze macro telt niets op — ook geen rijtotaal
+   dat er "gratis" uitziet. Een gemiddelde over drie kolommen is niet het
+   gemiddelde van drie gemiddelden, en dat is precies de fout die niemand ziet.
+
+   **Horizontaal scrollen binnen de kaart, nooit de pagina** (§2.3): de wikkel
+   draagt `overflow-x-auto`, en de eerste kolom blijft staan (`sticky left-0`)
+   zodat je bij kolom twaalf nog weet welke rij je leest.
+
+   Bij één maat blijft de tweede kopregel weg: "Aantal" onder elk jaartal herhalen
+   voegt niets toe en maakt de kop twee keer zo hoog. #}
+{% macro pivot_table(pivot) -%}
+{% set _maten = pivot.measures %}
+{% set _meervoudig = _maten|length > 1 %}
+<div class="bg-white border border-gray-200 rounded-xl overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead>
+      <tr class="border-b border-gray-200 bg-gray-50">
+        {% for kop in pivot.row_headers %}
+        <th scope="col" rowspan="{{ 2 if _meervoudig else 1 }}"
+            class="px-3 py-2 text-left font-semibold text-ink sticky left-0 bg-gray-50">{{ kop }}</th>
+        {% endfor %}
+        {% for waarde in pivot.column_values %}
+        <th scope="col" colspan="{{ _maten|length }}"
+            class="px-3 py-2 text-right font-semibold text-ink">{{ waarde }}</th>
+        {% endfor %}
+        <th scope="col" colspan="{{ _maten|length }}"
+            class="px-3 py-2 text-right font-semibold text-ink border-l border-gray-200">{{ _("Totaal") }}</th>
+      </tr>
+      {% if _meervoudig %}
+      <tr class="border-b border-gray-200 bg-gray-50">
+        {% for _waarde in pivot.column_values %}{% for m in _maten %}
+        <th scope="col" class="px-3 py-1 text-right text-xs font-medium text-ink-soft">{{ m.name }}</th>
+        {% endfor %}{% endfor %}
+        {% for m in _maten %}
+        <th scope="col" class="px-3 py-1 text-right text-xs font-medium text-ink-soft {% if loop.first %}border-l border-gray-200{% endif %}">{{ m.name }}</th>
+        {% endfor %}
+      </tr>
+      {% endif %}
+    </thead>
+    <tbody>
+      {% for rij in pivot.rows %}
+      <tr class="border-b border-gray-100 last:border-0 {% if rij.is_subtotal %}bg-gray-50 font-semibold{% endif %}">
+        {% for label in rij.labels %}
+        <th scope="row" class="px-3 py-2 text-left font-normal sticky left-0 {{ 'bg-gray-50' if rij.is_subtotal else 'bg-white' }}">
+          {% if rij.is_subtotal %}{{ _("Subtotaal") }} — {% endif %}{{ label }}
+        </th>
+        {% endfor %}
+        {% if rij.is_subtotal and pivot.row_headers|length > rij.labels|length %}
+        {# Een subtotaal draagt alleen het label van zijn groep; de fijnere
+           kolommen blijven leeg in plaats van herhaald te worden. #}
+        <td colspan="{{ pivot.row_headers|length - rij.labels|length }}" class="px-3 py-2"></td>
+        {% endif %}
+        {% for cel in rij.cells %}{% for waarde in cel %}
+        <td class="px-3 py-2 text-right tabular-nums">{{ _pivot_cell(waarde, _maten[loop.index0]) }}</td>
+        {% endfor %}{% endfor %}
+        {% for waarde in rij.total %}
+        <td class="px-3 py-2 text-right tabular-nums font-semibold {% if loop.first %}border-l border-gray-200{% endif %}">{{ _pivot_cell(waarde, _maten[loop.index0]) }}</td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+    <tfoot>
+      <tr class="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+        <th scope="row" colspan="{{ pivot.row_headers|length }}"
+            class="px-3 py-2 text-left sticky left-0 bg-gray-50">{{ _("Eindtotaal") }}</th>
+        {% for _waarde in pivot.column_values %}{% for _m in _maten %}
+        <td class="px-3 py-2"></td>
+        {% endfor %}{% endfor %}
+        {% for waarde in pivot.grand_total %}
+        <td class="px-3 py-2 text-right tabular-nums {% if loop.first %}border-l border-gray-200{% endif %}">{{ _pivot_cell(waarde, _maten[loop.index0]) }}</td>
+        {% endfor %}
+      </tr>
+    </tfoot>
+  </table>
+</div>
+{%- endmacro %}
+
+{# Eén cel van een draaitabel: de ene geldformatter, en een leegte die als leegte
+   leest. Los van `pivot_table` omdat drie plaatsen in die macro hem nodig hebben
+   en dezelfde drie regels drie keer overschrijven precies is hoe opmaak
+   uiteen gaat lopen. #}
+{% macro _pivot_cell(waarde, maat) -%}
+{%- if waarde is none %}<span class="text-ink-soft">—</span>
+{%- elif maat.format == "money" %}€&nbsp;{{ waarde|geld }}
+{%- else %}{{ waarde }}{%- endif %}
+{%- endmacro %}
+
+{# ── Grafieken (#835, CR-06 §6) ───────────────────────────────────────────────
+   Drie soorten, alle drie server-gerenderde SVG: staaf, lijn, gestapelde staaf.
+   Geen bibliotheek, geen CDN, geen data die de server verlaat.
+
+   **Kitcode, dus zonder domeinkennis**, net als `pivot_table`: `chart` is een
+   gewone dict met `title`, `x_labels`, `series` (elk met `name`, `points`,
+   `color`), `y_min`, `y_max`, `y_ticks` en `money`. De componentenpagina kan er
+   dus een letterlijk voorbeeld in stoppen.
+
+   **De schaal komt van de server, het tekenen gebeurt hier.** Waar de nul ligt en
+   hoe ver de as reikt is een regel — en een regel in een sjabloon is een regel op
+   twee plaatsen (§8.3). Wat hier gebeurt is rekenen met een gegeven domein: dat
+   is tekenen, niet beslissen.
+
+   **Kleuren uit de tokens** (`var(--brand-…)`), nooit rauwe hex — de lint-poort
+   bewaakt dat. **Responsive via `viewBox`** en niet via vaste breedtes.
+
+   **Toegankelijk**: `role="img"` met een `<title>` en een `<desc>`, en per element
+   een `<title>` met de waarde. De tabel of draaitabel eronder blijft staan; die is
+   het echte tekstalternatief. #}
+{% set _plot = {"left": 96, "right": 704, "top": 24, "bottom": 248, "legend": 276} %}
+
+{% macro _chart_open(chart, id) -%}
+<svg viewBox="0 0 720 300" class="w-full h-auto" role="img"
+     aria-labelledby="{{ id }}-t {{ id }}-d" preserveAspectRatio="xMidYMid meet">
+  <title id="{{ id }}-t">{{ chart.title }}</title>
+  <desc id="{{ id }}-d">{{ chart.description }}</desc>
+{%- endmacro %}
+
+{% macro _chart_value(waarde, money) -%}
+{%- if waarde is none %}—{% elif money %}€ {{ waarde|geld }}{% else %}{{ waarde }}{% endif -%}
+{%- endmacro %}
+
+{# De assen, de rasterlijnen en de legende: gelijk voor de drie soorten, dus één
+   keer. `y(v)` staat als uitdrukking in elke soort omdat Jinja geen functies kent;
+   het is telkens dezelfde regel, en de tests toetsen de uitkomst. #}
+{% macro _chart_frame(chart) -%}
+{% set span = (chart.y_max - chart.y_min) or 1 %}
+{% for tick in chart.y_ticks %}
+{% set y = _plot.bottom - ((tick - chart.y_min) / span) * (_plot.bottom - _plot.top) %}
+<line x1="{{ _plot.left }}" x2="{{ _plot.right }}" y1="{{ y }}" y2="{{ y }}"
+      stroke="var(--line)" stroke-width="1"/>
+<text x="{{ _plot.left - 8 }}" y="{{ y + 4 }}" text-anchor="end"
+      font-size="11" fill="var(--ink-soft)">{{ tick|round(2) }}</text>
+{% endfor %}
+{% for label in chart.x_labels %}
+{% set breedte = (_plot.right - _plot.left) / (chart.x_labels|length or 1) %}
+<text x="{{ _plot.left + breedte * loop.index0 + breedte / 2 }}" y="{{ _plot.bottom + 16 }}"
+      text-anchor="middle" font-size="11" fill="var(--ink-soft)">{{ label|truncate(18, True, "…") }}</text>
+{% endfor %}
+{% if chart.series|length > 1 %}
+{% for reeks in chart.series %}
+<rect x="{{ _plot.left + loop.index0 * 140 }}" y="{{ _plot.legend - 9 }}" width="10" height="10"
+      rx="2" fill="{{ reeks.color }}"/>
+<text x="{{ _plot.left + loop.index0 * 140 + 15 }}" y="{{ _plot.legend }}"
+      font-size="11" fill="var(--ink-soft)">{{ reeks.name|truncate(16, True, "…") }}</text>
+{% endfor %}
+{% endif %}
+{%- endmacro %}
+
+{% macro chart_bar(chart, id="chart") -%}
+{% set span = (chart.y_max - chart.y_min) or 1 %}
+{% set groep = (_plot.right - _plot.left) / (chart.x_labels|length or 1) %}
+{% set breedte = (groep * 0.7) / (chart.series|length or 1) %}
+{{ _chart_open(chart, id) }}
+  {{ _chart_frame(chart) }}
+  {% for reeks in chart.series %}{% set r = loop.index0 %}
+  {% for waarde in reeks.points %}{% if waarde is not none %}
+  {% set y0 = _plot.bottom - ((0 - chart.y_min) / span) * (_plot.bottom - _plot.top) %}
+  {% set y1 = _plot.bottom - ((waarde - chart.y_min) / span) * (_plot.bottom - _plot.top) %}
+  <rect x="{{ _plot.left + groep * loop.index0 + groep * 0.15 + breedte * r }}"
+        y="{{ [y0, y1]|min }}" width="{{ breedte }}" height="{{ (y0 - y1)|abs or 1 }}"
+        fill="{{ reeks.color }}" data-series="{{ reeks.name }}" data-value="{{ waarde }}">
+    <title>{{ chart.x_labels[loop.index0] }} — {{ reeks.name }}: {{ _chart_value(waarde, chart.money) }}</title>
+  </rect>
+  {% endif %}{% endfor %}
+  {% endfor %}
+</svg>
+{%- endmacro %}
+
+{% macro chart_line(chart, id="chart") -%}
+{% set span = (chart.y_max - chart.y_min) or 1 %}
+{% set stap = (_plot.right - _plot.left) / (chart.x_labels|length or 1) %}
+{{ _chart_open(chart, id) }}
+  {{ _chart_frame(chart) }}
+  {% for reeks in chart.series %}
+  <polyline fill="none" stroke="{{ reeks.color }}" stroke-width="2"
+            stroke-linejoin="round" data-series="{{ reeks.name }}"
+            points="{% for waarde in reeks.points %}{% if waarde is not none %}{{ _plot.left + stap * loop.index0 + stap / 2 }},{{ _plot.bottom - ((waarde - chart.y_min) / span) * (_plot.bottom - _plot.top) }} {% endif %}{% endfor %}"/>
+  {% for waarde in reeks.points %}{% if waarde is not none %}
+  <circle cx="{{ _plot.left + stap * loop.index0 + stap / 2 }}"
+          cy="{{ _plot.bottom - ((waarde - chart.y_min) / span) * (_plot.bottom - _plot.top) }}"
+          r="3" fill="{{ reeks.color }}" data-series="{{ reeks.name }}" data-value="{{ waarde }}">
+    <title>{{ chart.x_labels[loop.index0] }} — {{ reeks.name }}: {{ _chart_value(waarde, chart.money) }}</title>
+  </circle>
+  {% endif %}{% endfor %}
+  {% endfor %}
+</svg>
+{%- endmacro %}
+
+{% macro chart_stacked(chart, id="chart") -%}
+{% set span = (chart.y_max - chart.y_min) or 1 %}
+{% set groep = (_plot.right - _plot.left) / (chart.x_labels|length or 1) %}
+{% set breedte = groep * 0.6 %}
+{{ _chart_open(chart, id) }}
+  {{ _chart_frame(chart) }}
+  {% for label in chart.x_labels %}{% set k = loop.index0 %}
+  {% set ns = namespace(onder=0) %}
+  {% for reeks in chart.series %}{% set waarde = reeks.points[k] %}{% if waarde is not none %}
+  {% set y0 = _plot.bottom - ((ns.onder - chart.y_min) / span) * (_plot.bottom - _plot.top) %}
+  {% set y1 = _plot.bottom - ((ns.onder + waarde - chart.y_min) / span) * (_plot.bottom - _plot.top) %}
+  <rect x="{{ _plot.left + groep * k + groep * 0.2 }}" y="{{ [y0, y1]|min }}"
+        width="{{ breedte }}" height="{{ (y0 - y1)|abs or 1 }}" fill="{{ reeks.color }}"
+        data-series="{{ reeks.name }}" data-value="{{ waarde }}">
+    <title>{{ label }} — {{ reeks.name }}: {{ _chart_value(waarde, chart.money) }}</title>
+  </rect>
+  {% set ns.onder = ns.onder + waarde %}
+  {% endif %}{% endfor %}
+  {% endfor %}
+</svg>
 {%- endmacro %}

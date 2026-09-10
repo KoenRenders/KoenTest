@@ -284,6 +284,84 @@
 {% endcall %}
 
 {# ── 9. Lege en ladende toestand ───────────────────────────────────────────── #}
+{# ── 8c. Draaitabel ────────────────────────────────────────────────────────── #}
+{{ ui.section_header(_("8c · Draaitabel"), _("Naar de rapporten"), action_href="/admin/rapporten") }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("Rijen × kolommen × maten, met subtotalen per rijgroep en een eindtotaal — §2.9. De cijfers hieronder zijn verzonnen; de vorm is die van het rapportenscherm.") }}
+  </p>
+  {# De demo-waarden staan hier en niet in de route: bij elke component zie je zo
+     meteen met welke argumenten hij is aangeroepen. De macro is kitcode en kent
+     dit domein niet — hij leest een gewone dict. #}
+  {% set demo_pivot = {
+    "row_headers": [_("Gemeente"), _("Activiteit")],
+    "column_header": _("Jaar"),
+    "column_values": ["2025", "2026"],
+    "measures": [{"key": "aantal", "name": _("Aantal"), "format": "count"}],
+    "rows": [
+      {"labels": ["Mol", "Quiz"], "cells": [[12], [18]], "total": [30], "is_subtotal": False},
+      {"labels": ["Mol", "Wandeling"], "cells": [[7], [None]], "total": [7], "is_subtotal": False},
+      {"labels": ["Mol"], "cells": [], "total": [37], "is_subtotal": True},
+      {"labels": ["Balen", "Quiz"], "cells": [[4], [9]], "total": [13], "is_subtotal": False},
+      {"labels": ["Balen"], "cells": [], "total": [13], "is_subtotal": True}
+    ],
+    "grand_total": [50]
+  } %}
+  {{ ui.pivot_table(demo_pivot) }}
+  <p class="mt-3 text-sm text-gray-600">
+    {{ _("Een lege cel toont een liggend streepje: geen enkele combinatie is niet hetzelfde als nul. Een subtotaal draagt alleen het label van zijn groep.") }}
+  </p>
+{% endcall %}
+
+{# ── 8d. Grafieken ─────────────────────────────────────────────────────────── #}
+{{ ui.section_header(_("8d · Grafieken"), _("Naar de rapporten"), action_href="/admin/rapporten") }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("Drie soorten — staaf, lijn, gestapelde staaf — als server-gerenderde SVG, §2.10. Kleuren uit de tokens, schaal van de server, geen bibliotheek. De cijfers hieronder zijn verzonnen.") }}
+  </p>
+  {% set demo_chart = {
+    "kind": "bar",
+    "title": _("Aantal per activiteit"),
+    "description": _("Aantal inschrijvingen, per activiteit."),
+    "x_labels": ["Quiz", "Wandeling", "Kaarting", "Eetdag"],
+    "series": [
+      {"name": _("Aantal"), "points": [30, 7, 18, 24], "color": "var(--brand-ocean)"}
+    ],
+    "y_min": 0, "y_max": 40, "y_ticks": [0, 10, 20, 30, 40], "money": False
+  } %}
+  {{ ui.chart_bar(demo_chart, id="ds-bar") }}
+
+  {% set demo_line = {
+    "kind": "line",
+    "title": _("Omzet per maand"),
+    "description": _("Gevorderd en ontvangen, per maand."),
+    "x_labels": ["2026-01", "2026-02", "2026-03", "2026-04"],
+    "series": [
+      {"name": _("Gevorderd"), "points": [120, 260, 190, 310], "color": "var(--brand-ocean)"},
+      {"name": _("Ontvangen"), "points": [100, 210, 190, 240], "color": "var(--brand-teal)"}
+    ],
+    "y_min": 0, "y_max": 400, "y_ticks": [0, 100, 200, 300, 400], "money": True
+  } %}
+  <div class="mt-6">{{ ui.chart_line(demo_line, id="ds-line") }}</div>
+
+  {% set demo_stacked = {
+    "kind": "stacked",
+    "title": _("Inschrijvingen per activiteit per jaar"),
+    "description": _("Aantal inschrijvingen, per activiteit. Gestapeld per jaar."),
+    "x_labels": ["Quiz", "Wandeling", "Kaarting"],
+    "series": [
+      {"name": "2025", "points": [12, 7, 5], "color": "var(--brand-ocean)"},
+      {"name": "2026", "points": [18, None, 13], "color": "var(--brand-teal)"}
+    ],
+    "y_min": 0, "y_max": 40, "y_ticks": [0, 10, 20, 30, 40], "money": False
+  } %}
+  <div class="mt-6">{{ ui.chart_stacked(demo_stacked, id="ds-stacked") }}</div>
+
+  <p class="mt-3 text-sm text-gray-600">
+    {{ _("Elke grafiek heeft een <title> en een <desc>, en per element een <title> met de waarde. De tabel eronder blijft staan — die is het echte tekstalternatief.") }}
+  </p>
+{% endcall %}
+
 {{ ui.section_header(_("9 · Leeg en ladend")) }}
 {% call ui.card() %}
   {{ ui.empty_state(_("Nog geen inschrijvingen voor deze activiteit.")) }}

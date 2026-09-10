@@ -26,13 +26,17 @@ from __future__ import annotations
 
 from sqlalchemy import text
 
-# Every view the phase-1 migration creates. Listed so the gate can prove it looked
-# at a real schema; later phases add to it, and a phase that forgets to is exactly
-# what the minimum below catches.
+# Every view the schema is supposed to have. Listed so the gate can prove it
+# looked at a real schema, and updated per phase — a phase that adds a view and
+# forgets this list is exactly what the minimum below catches. It also catches a
+# RENAME that left the old name behind: `d_household` became `d_member` in #848,
+# and the gate went red until the list said so.
 EXPECTED_VIEWS = {
-    "d_activity", "d_date", "d_household", "d_membership_status",
-    "d_payment_method", "d_payment_status", "d_person",
-    "f_memberships", "f_payments", "f_registrations",
+    "d_activity", "d_date", "d_member", "d_membership_status",
+    "d_payment_method", "d_payment_status", "d_person", "d_form",
+    "d_board_member", "d_address",
+    "f_memberships", "f_payments", "f_registrations", "f_membership_persons",
+    "f_form_submissions", "f_tasks", "f_members", "f_activities",
 }
 
 
@@ -51,7 +55,11 @@ def test_the_gate_actually_looks_at_the_reporting_schema(db_session):
         f"minstens {len(EXPECTED_VIEWS)}. Draaide de migratie, of heet het schema "
         "anders?")
     ontbreekt = EXPECTED_VIEWS - found
-    assert not ontbreekt, f"weergaven uit fase 1 ontbreken: {sorted(ontbreekt)}"
+    assert not ontbreekt, f"verwachte weergaven ontbreken: {sorted(ontbreekt)}"
+    onverwacht = found - EXPECTED_VIEWS
+    assert not onverwacht, (
+        f"weergaven die deze lijst niet kent: {sorted(onverwacht)} — een nieuwe "
+        "hoort erbij te komen, een hernoemde hoort de oude te vervangen")
 
 
 def test_every_reporting_view_carries_tenant_id(db_session):

@@ -17,10 +17,15 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Any
 
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
-from app.domains.reporting.service import Dataset, load_dataset
-from app.kernel.ods import build_ods
+from app.domains.reporting.chart import chart_data
+from app.domains.reporting.engine import (
+    BY_KEY, SYMBOLIC_LABELS, Selection, build_detail_query,
+)
+from app.domains.reporting.service import Dataset, ReportResult, load_dataset
+from app.kernel.ods import build_ods, build_ods_multi
 
 logger = logging.getLogger(__name__)
 
@@ -71,3 +76,160 @@ def dataset_filename(dataset: Dataset) -> str:
     """A file name a board member recognises in his download folder."""
     slug = dataset.fact.name.lower().replace(" ", "-")
     return f"rapportering-{slug}.ods"
+
+
+def filter_summary(selection: Selection) -> list[str]:
+    """The active filters in words — one line per filter.
+
+    This is what goes in the header of sheet 1 (CR-06 §5). A filtered table that
+    travels without saying what was filtered gets read as "everything", and that
+    is how a board ends up discussing the wrong number.
+    """
+    woorden = {
+        "eq": "is", "ne": "is niet", "in": "is een van", "lt": "is kleiner dan",
+        "lte": "is hoogstens", "gt": "is groter dan", "gte": "is minstens",
+        "between": "ligt tussen", "contains": "bevat",
+    }
+    regels = []
+    for flt in selection.filters:
+        obj = BY_KEY.get(flt.object_key)
+        naam = obj.name if obj else flt.object_key
+        waarden = " en ".join(flt.values) if flt.operator.value == "between" \
+            else ", ".join(flt.values)
+        if flt.symbolic:
+            # Both, and in this order: what it means and what that was at the
+            # moment of export. A sheet that says only "dit jaar" cannot be
+            # checked a year later; one that says only "2026" hides that it moves.
+            label = SYMBOLIC_LABELS.get(flt.symbolic, flt.symbolic)
+            waarden = f"{label} ({waarden})" if waarden else label
+        regels.append(f"{naam} {woorden.get(flt.operator.value, flt.operator.value)} "
+                      f"{waarden}")
+    return regels
+
+
+def _detail_rows(db: Session, selection: Selection, *,
+                 tenant_id: int) -> tuple[list[str], list[list[Any]]]:
+    """Sheet 2: the fact rows behind the report, filtered exactly the same way."""
+    plan = build_detail_query(selection, tenant_id=tenant_id)
+    result = db.execute(text(plan.sql), plan.params)
+    headers = list(result.keys())
+    rows = [[_cell(value) for value in row] for row in result]
+    return headers, rows
+
+
+def build_report_ods(db: Session, result: ReportResult, selection: Selection, *,
+                     title: str, tenant_id: int) -> bytes:
+    """The report as a spreadsheet: sheet 1 the table, sheet 2 the rows behind it.
+
+    Sheet 1 is what is on the screen — same columns, same order, same totals row —
+    with the report's name and its active filters above it. Sheet 2 is the fact at
+    its own grain, so somebody can pivot it in Calc or check a total by hand.
+    """
+    intro: list[list[Any]] = [["Rapport", title]]
+    for regel in filter_summary(selection):
+        intro.append(["Filter", regel])
+    if not selection.filters:
+        intro.append(["Filter", "geen"])
+    intro.append([])
+
+    headers = [column.name for column in result.columns]
+    rows: list[list[Any]] = [
+        [_cell(row.get(column.key)) for column in result.columns]
+        for row in result.rows
+    ]
+    if result.totals:
+        rows.append([
+            "Totaal" if index == 0 else _cell(result.totals.get(column.key, ""))
+            for index, column in enumerate(result.columns)
+        ])
+
+    bladen = [
+        {"name": title[:31] or "Rapport", "headers": headers, "rows": rows,
+         "intro_rows": intro, "bold_last_row": bool(result.totals)},
+    ]
+    if selection.layout != "detail":
+        # Sheet 2 is the rows behind an aggregate. A listing IS those rows, so a
+        # second sheet would be the same table twice — and a spreadsheet with a
+        # duplicate invites somebody to add the two together.
+        detail_headers, detail_rows = _detail_rows(db, selection,
+                                                   tenant_id=tenant_id)
+        bladen.append({"name": "Detail", "headers": detail_headers,
+                       "rows": detail_rows})
+    return build_ods_multi(bladen)
+
+
+def report_filename(title: str) -> str:
+    """A file name a board member recognises in his download folder."""
+    veilig = "".join(c if c.isalnum() or c in " -_" else "-" for c in title).strip()
+    slug = "-".join(veilig.lower().split()) or "rapport"
+    return f"rapport-{slug}.ods"
+
+
+def build_pivot_ods(db: Session, pivot, selection: Selection, *, title: str,
+                    tenant_id: int, chart=None) -> bytes:
+    """The crosstab as a spreadsheet: sheet 1 the pivot, sheet 2 the rows behind it.
+
+    Sheet 1 is what is on the screen, subtotals included, with the report's name
+    and its active filters above it. The header is two rows when there is more
+    than one measure, exactly as the macro renders it, so a cell in Calc sits
+    under the same two labels it sat under on screen.
+    """
+    maten = pivot["measures"]
+    kolommen = pivot["column_values"]
+    breed = len(maten)
+
+    intro: list[list[Any]] = [["Rapport", title]]
+    for regel in filter_summary(selection):
+        intro.append(["Filter", regel])
+    if not selection.filters:
+        intro.append(["Filter", "geen"])
+    intro.append([])
+
+    # The column band: one label per column value, spanning its measures. A
+    # spreadsheet has no colspan, so the label sits in the first of its cells and
+    # the rest stay empty — which is how Calc shows a merged header anyway.
+    kop: list[Any] = list(pivot["row_headers"])
+    for waarde in kolommen:
+        kop.append(waarde)
+        kop += [""] * (breed - 1)
+    kop.append("Totaal")
+    kop += [""] * (breed - 1)
+
+    rijen: list[list[Any]] = []
+    if breed > 1:
+        onder: list[Any] = [""] * len(pivot["row_headers"])
+        for _waarde in kolommen:
+            onder += [m["name"] for m in maten]
+        onder += [m["name"] for m in maten]
+        rijen.append(onder)
+
+    for rij in pivot["rows"]:
+        uit: list[Any] = list(rij["labels"])
+        uit += [""] * (len(pivot["row_headers"]) - len(rij["labels"]))
+        if rij["is_subtotal"]:
+            uit[0] = f"Subtotaal — {rij['labels'][0]}"
+        for cel in (rij["cells"] or [[None] * breed for _ in kolommen]):
+            uit += [_cell(waarde) for waarde in cel]
+        uit += [_cell(waarde) for waarde in rij["total"]]
+        rijen.append(uit)
+
+    eind: list[Any] = ["Eindtotaal"]
+    eind += [""] * (len(pivot["row_headers"]) - 1)
+    eind += [""] * (len(kolommen) * breed)
+    eind += [_cell(waarde) for waarde in pivot["grand_total"]]
+    rijen.append(eind)
+
+    detail_headers, detail_rows = _detail_rows(db, selection, tenant_id=tenant_id)
+    bladen = [
+        {"name": title[:31] or "Draaitabel", "headers": kop, "rows": rijen,
+         "intro_rows": intro, "bold_last_row": True},
+        {"name": "Detail", "headers": detail_headers, "rows": detail_rows},
+    ]
+    if chart is not None:
+        # Sheet 3: the series exactly as they were drawn (CR-06 §5). A bar you
+        # can only measure with a ruler is not evidence; the number behind it is.
+        data = chart_data(chart)
+        bladen.append({"name": "Grafiek", "headers": data.headers,
+                       "rows": [[_cell(waarde) for waarde in rij]
+                                for rij in data.rows]})
+    return build_ods_multi(bladen)

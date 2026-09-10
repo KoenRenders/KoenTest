@@ -62,16 +62,21 @@ def _facts_section() -> list[str]:
              "A report is about exactly one fact — its measures decide the grain. "
              "Measures from two facts in one selection are refused: they would "
              "multiply each other (CR-06 §2.6).", "",
+             "The last column is how the fact counts the people a group covers. "
+             "The small-cell threshold needs it: a group of fewer than five is "
+             "merged away, and a fact that cannot count people cannot be grouped "
+             "by a sensitive dimension at all.", "",
              "The role column is the role the fact's **flat dataset dump** will "
              "need once the fence is built; see Roles below. Today every dump "
              "sits behind `require_admin_ui` like the rest of the back office.",
              "",
-             "| Fact | Name | Grain | Role | What it holds |",
-             "|---|---|---|---|---|"]
+             "| Fact | Name | Grain | Role | People | What it holds |",
+             "|---|---|---|---|---|---|"]
     for fact in FACTS:
+        mensen = f"`{_escape(fact.people_sql)}`" if fact.people_sql else "—"
         lines.append(
             f"| `{fact.key}` | {_escape(fact.name)} | {_escape(fact.grain)} | "
-            f"`{fact.role.value}` | {_escape(fact.description)} |"
+            f"`{fact.role.value}` | {mensen} | {_escape(fact.description)} |"
         )
     return lines + [""]
 
@@ -121,7 +126,14 @@ def _roles_section() -> list[str]:
 
 
 def _objects_section() -> list[str]:
-    lines = ["## Objects", ""]
+    lines = ["## Objects", "",
+             "**sensitive** marks a dimension that cuts people into groups small "
+             "enough to recognise somebody by. Grouping on one turns on the "
+             "small-cell threshold: every group of fewer than five people is "
+             "merged into a single row. **not additive** marks a measure that may "
+             "not be summed across those merged groups — an average of averages "
+             "is not an average — so its cell stays empty there rather than "
+             "showing a number that happens to be wrong.", ""]
     for klass in CLASSES:
         members = [o for o in OBJECTS if o.klass == klass]
         if not members:

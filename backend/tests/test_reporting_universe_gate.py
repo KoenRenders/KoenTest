@@ -21,9 +21,11 @@ is a template over `{view}`, so every column it touches is literally
 - Deleting one line from `docs/reporting-universe.md` made
   `test_the_generated_document_matches_the_declaration` fail with the regenerate
   command in the message.
-- Recreating `reporting.d_person` with a `last_name` column, and separately adding
-  an object whose SQL reads one, made each of the two privacy tests fail naming
-  what it found. Both restored by re-running migration 096.
+- The two privacy tests that used to live here were removed on 10 September 2026
+  when CR-06 §7.3 changed; the comment where they stood explains why, and what
+  guards the rule now. Their counter-proof at the time: recreating
+  `reporting.d_person` with a `last_name` column, and separately adding an object
+  whose SQL reads one, made each of them fail naming what it found.
 
 And it refuses an empty scan: no objects, no joins or no views means the gate is
 looking at the wrong thing, not that everything is fine.
@@ -31,6 +33,7 @@ looking at the wrong thing, not that everything is fine.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 
 from sqlalchemy import text
 
@@ -155,6 +158,26 @@ def test_every_dimension_can_identify_its_own_row(db_session):
     assert not fouten, f"sleutelkolommen die niet bestaan: {fouten}"
 
 
+def test_every_people_count_resolves_too(db_session):
+    """The small-cell threshold reads `Fact.people_sql`, so it is a source as well.
+
+    Without this the threshold could point at a column that no longer exists and
+    fail at the moment a privacy rule was supposed to apply — the worst possible
+    moment for a query to break.
+    """
+    per_view = _schema_columns(db_session)
+    fouten = []
+    for fact in FACTS:
+        if not fact.people_sql:
+            continue
+        kolommen = _COLUMN_REFERENCE.findall(fact.people_sql)
+        assert kolommen, f"{fact.key}: people_sql noemt geen {{view}}.kolom"
+        for kolom in kolommen:
+            if kolom not in per_view.get(fact.key, set()):
+                fouten.append(f"{fact.key}.{kolom}")
+    assert not fouten, f"people_sql wijst naar kolommen die er niet zijn: {fouten}"
+
+
 def test_every_fact_can_identify_its_own_row(db_session):
     per_view = _schema_columns(db_session)
     fouten = []
@@ -189,42 +212,107 @@ def test_every_object_sits_in_a_declared_class_and_carries_a_role():
     assert not fouten, "\n".join(fouten)
 
 
-# Names and contact data are the one thing that may not be in this universe at
-# all (CR-06 §7.3: a count is a report, a list of people is a screen). The two
-# tests below check that from both sides — what the declaration asks for, and what
-# the database actually offers — because either one alone can be satisfied while
-# the other leaks.
-_PERSONAL_COLUMNS = (
-    "first_name", "last_name", "name", "email", "e_mail", "phone", "mobile",
-    "value", "contact_name", "contact_email", "street", "house_number",
-    "bus_number", "date_of_birth", "structured_communication", "note",
-)
+# ── Where the person fence moved to (CR-06 §7.3, 10 September 2026) ─────────
+#
+# Two tests stood here and they are gone on purpose, so this comment is the
+# record of why — in half a year "the privacy test was deleted" must not be the
+# whole story anybody can find.
+#
+# They were `test_no_object_reads_a_name_or_a_contact_column` and
+# `test_the_person_dimension_does_not_even_offer_a_name`, and they enforced CR-06
+# §7.3 as it read until 10 September 2026: *a count is a report, a list of people
+# is a screen*. Koen reversed that rule. **Person-level data is allowed in the
+# universe**, and the reason it is defensible is not that names became less
+# sensitive — it is that the whole reporting screen sits behind
+# `require_admin_ui`. Only ADMIN and OPERATOR reach it, and those are the same
+# roles that already open the member screens and already export those names. The
+# universe therefore reveals nothing to anybody who could not already see it.
+#
+# **Which makes the role boundary the thing that now has to be guarded**, and the
+# test below is that guard. It is a condition and not a free hand: the day
+# "Rapporten" opens to another role — FINANCE-only is already on the table in
+# §5.1 — the per-object fence has to exist *first*, or that switch hands names to
+# a role that does not have them today.
+#
+# The threshold of five stays and keeps its honest scope: it protects a GROUPED
+# result from a group of one naming itself. It does not protect a row list, which
+# identifies people by construction. That is what the role boundary is for.
+
+_ADMIN_UI = (Path(__file__).resolve().parents[1] / "app" / "domains" / "reporting"
+             / "admin_ui.py")
+_REPORTING_UI = _ADMIN_UI.read_text(encoding="utf-8")
 
 
-def test_no_object_reads_a_name_or_a_contact_column(db_session):
-    """#832 test 4. A count is a report; a list of people is a screen."""
-    fouten = []
-    for obj in OBJECTS:
-        for source in (obj.sql, obj.drill_sql or ""):
-            for column in _COLUMN_REFERENCE.findall(source):
-                if column.lower() in _PERSONAL_COLUMNS:
-                    fouten.append(f"{obj.name} (`{obj.key}`) leest "
-                                  f"{obj.view}.{column}")
-    assert not fouten, ("de universe draagt geen namen of contactgegevens "
-                        "(CR-06 §7.3):\n" + "\n".join(sorted(fouten)))
+def test_every_reporting_route_sits_behind_require_admin_ui():
+    """The whole fence, in one place — CR-06 §7.3 leans on exactly this.
 
+    Every route in the reporting UI is ADMIN/OPERATOR only, whether it renders a
+    screen, a fragment or a spreadsheet. A route that slipped out from behind
+    that door would hand names to whoever could reach it, because the universe no
+    longer keeps them out.
 
-def test_the_person_dimension_does_not_even_offer_a_name(db_session):
-    """The view itself, not only what the universe picks from it.
-
-    An object can be added tomorrow; a column that is not there cannot be read at
-    all. This is the side of the fence that survives a careless declaration.
+    Counter-proof: replacing one `require_admin_ui` with `require_finance_ui`
+    made this fail naming that route; restored afterwards.
     """
-    kolommen = _schema_columns(db_session).get("d_person", set())
-    assert kolommen, "d_person bestaat niet"
-    verboden = sorted(c for c in kolommen if c.lower() in _PERSONAL_COLUMNS)
-    assert not verboden, (
-        f"d_person mag geen naam- of contactkolom dragen; gevonden: {verboden}")
+    import re
+
+    routes = re.findall(r'@router\.(?:get|post)\((.*?)\)\n(?:async )?def (\w+)',
+                        _REPORTING_UI, re.S)
+    assert len(routes) >= 8, (
+        f"deze gate vond {len(routes)} routes in admin_ui.py — leest ze het goede "
+        "bestand? (#678)")
+
+    fouten = []
+    for decorator, naam in routes:
+        # The door is either on the decorator or on the signature; both count.
+        signatuur = _REPORTING_UI.split(f"def {naam}(", 1)[1].split("):", 1)[0]
+        if "require_admin_ui" not in decorator and "require_admin_ui" not in signatuur:
+            fouten.append(naam)
+        for zwakker in ("require_finance_ui", "require_operator_ui"):
+            if zwakker in decorator or zwakker in signatuur:
+                fouten.append(f"{naam} gebruikt {zwakker}")
+    assert not fouten, (
+        "elke rapportageroute hoort achter require_admin_ui (CR-06 §7.3): "
+        f"{fouten}")
+
+
+def test_no_per_object_role_fence_has_quietly_appeared():
+    """The other half of §7.3: the switch is not half-built.
+
+    The roles on objects are a declaration until somebody builds the fence and
+    tests it. Half a fence is worse than none — it suggests a protection that is
+    not there — so `build_query` takes no roles, and this says so on the
+    signature where it cannot be passed by accident.
+    """
+    import inspect
+
+    from app.domains.reporting.api import build_query
+
+    assert set(inspect.signature(build_query).parameters) == {"selection", "tenant_id"}
+
+
+def test_every_object_still_declares_its_role():
+    """The declaration has to stay complete, precisely because it is not enforced.
+
+    It is what the later switch will be built on. A person-level detail that
+    forgets `member_details` would be invisible to that switch and would stay
+    readable for a role that should not have it.
+    """
+    fouten = [o.key for o in OBJECTS if not isinstance(o.role, Role)]
+    assert not fouten, f"objecten zonder rol: {fouten}"
+
+    # This used to also demand that a `member_details` object be a DETAIL and
+    # never a DIMENSION — "you do not group by a name". #849 is the case that
+    # shows the rule was too wide: grouping households by their responsible board
+    # member is the whole point of that report, and the name is what a reader
+    # recognises. Grouping by a person's name is a report about the STAFF member
+    # who carries the households, not about the households' members.
+    #
+    # What still has to hold is that such an object declares the role, so the
+    # later per-object switch (CR-06 §5.1) has something to turn on. That is the
+    # assertion above, and it is the one that matters.
+    persoonlijk = [o for o in OBJECTS if o.role is Role.MEMBER_DETAILS]
+    assert persoonlijk, "de rol member_details hoort ergens gebruikt te worden"
 
 
 def test_a_drill_target_comes_with_the_sql_that_produces_it():

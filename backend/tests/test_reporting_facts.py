@@ -112,11 +112,13 @@ def test_a_membership_taken_out_in_october_counts_in_its_own_year(db_session,
     assert rows[y3]["membership_households"] == 1
     assert rows[y3]["membership_new"] == 1, "H4 is nieuw in het jaar waarvoor hij betaalt"
 
-    per_household = run(db_session, ["household", "membership_year",
-                                     "membership_households"],
-                        filters=[Filter("household", Operator.EQ,
-                                        (str(situation["households"]["h4"]),))])
-    jaren = {row["membership_year"] for row in per_household.rows}
+    # Filtered to H4 and NOT grouped by household: grouping by a single family is
+    # exactly what the small-cell threshold of #841 folds away, and rightly so —
+    # this test is about the September rule, not about privacy.
+    alleen_h4 = run(db_session, ["membership_year", "membership_households"],
+                    filters=[Filter("member", Operator.EQ,
+                                    (str(situation["households"]["h4"]),))])
+    jaren = {row["membership_year"] for row in alleen_h4.rows}
     assert jaren == {y3}, "één rij, in één jaar"
 
 
@@ -272,7 +274,7 @@ def test_a_dimension_row_is_not_borrowed_from_another_tenant(db_session, situati
     tenant A's municipality to tenant B's fact row — a leak the fact filter alone
     does not catch.
     """
-    b = run(db_session, ["household_municipality", "membership_households"],
+    b = run(db_session, ["member_municipality", "membership_households"],
             tenant=TENANT_B)
     assert b.rows[0]["membership_households"] == EXPECTED["tenant_b"]["households"]
 

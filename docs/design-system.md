@@ -383,9 +383,64 @@ picker → current attachment (link + delete) → hint**. Macro
 search: **"Geen resultaten gevonden."**; never any data: **"Nog geen
 <items>."** — one sentence, not italic, no emoji, no call-to-action push.
 
+### 2.9 Pivot table (#834)
+
+The second shape of a report: rows × columns × measures, with a subtotal per row
+group and a grand total. `ui.pivot_table(pivot)` renders it from a plain dict, so
+the macro stays kit code and knows nothing about reporting.
+
+- **Every number comes from the server.** The macro adds nothing up — not even a
+  row total that looks free. An average over three columns is not the average of
+  three averages, and a distinct count over two months is not the sum of two
+  distinct counts. The engine asks SQL four times (the grid, the row totals, the
+  subtotals, the grand total); the macro only places the answers.
+- **An empty cell shows an em dash**, never a zero. "No such combination exists"
+  and "the total is nothing" are different statements, and a reader cannot tell
+  them apart once both read `0`.
+- **Horizontal scrolling stays inside the card** (§2.3), and the first column
+  stays put (`sticky left-0`) so you still know which row you are reading at
+  column twelve.
+- **Subtotals are distinguished with tokens** — `bg-gray-50` and a heavier weight,
+  no colour of their own. A subtotal line carries the label of its group only; the
+  finer columns stay empty rather than repeating.
+- **A crosstab is capped at 30 members on the column dimension**, counted under
+  the active filters, with a message that names the dimension. A 400-column
+  crosstab is not a report, and "too many columns" without saying which dimension
+  leaves the user guessing which of his choices to undo.
+- With a single measure the second header row is left out: repeating "Aantal"
+  under every year doubles the header height and says nothing.
+
+### 2.10 Charts (#835)
+
+Three kinds, as server-rendered SVG: `ui.chart_bar`, `ui.chart_line`,
+`ui.chart_stacked`. No library, no CDN, no data leaving the server.
+
+- **A chart is the crosstab, drawn.** It reads the pivot result and never a second
+  query, so it cannot disagree with the table above it. That is also why it is
+  cheap: the numbers were already there.
+- **The table stays.** A chart is rendered *with* its table, never instead of it —
+  the table is the text alternative, and a picture must never be the only way to
+  the number. Every chart carries a `<title>` and a `<desc>`, and every bar, point
+  and segment its own `<title>` with the value.
+- **Zero is always in the domain**, and the axis ends on a round number. A bar
+  chart whose baseline is not zero exaggerates every difference on it — the most
+  common way a chart lies without anybody writing anything false.
+- **Colours come from the tokens** (`var(--brand-…)`), in a fixed order: brand blue
+  first because a single-series chart must look like the rest of the application,
+  then hues that stay apart; `danger` and `warning` last, because they mean
+  something here and a red bar for no reason reads as a problem.
+- **Responsive through `viewBox`**, never a fixed width. The scale is computed on
+  the server; the macro only places marks. Deciding where zero sits is a rule, and
+  a rule in a template is a rule in two places (§8.3).
+- Subtotal rows are left out of a chart: drawn beside their own parts they would
+  count the same money twice.
+- **Not built, on purpose**: pie and donut (a share drawn as a quantity), scatter,
+  and a second y-axis (two unrelated scales made to look comparable). Three kinds
+  are what a board member needs.
+
 ## 3. Screen types
 
-The admin screens are compositions of six real patterns. Build those well and
+The admin screens are compositions of seven real patterns. Build those well and
 every screen follows.
 
 | # | Pattern | Made of | Admin | Public |
@@ -396,6 +451,7 @@ every screen follows.
 | 4 | Form | sections · fields · save/cancel · inline errors | edit activity or form | Word lid, register (airier) |
 | 5 | Detail | header + cards or side panel · related lists | family detail, dashboard | activity detail page |
 | 6 | Dialog | modal · side panel · toast · confirmation | everywhere | confirmation after registration |
+| 7 | Report | objects pane · selection · filters · result table | Rapporten | — |
 
 Candidates to add when a screen needs them: **wizard** (leden-import) and
 **dashboard** (KPI row); today they are sanctioned variants of 4 and 5.
@@ -445,6 +501,38 @@ table: trigger in the action cell, target in a detail `<tr>` inside the same
 `<tbody x-data="{ open: false }">`. Inside the editor: `[Opslaan] [Annuleren]`
 at the bottom, "Verwijderen" last and red; the **server recomputes derived
 values** (totals), never the client.
+
+### 3.5 Report — the query panel (#833, CR-06 §5)
+
+The only screen where the user composes the query instead of reading a prepared
+one, so it is its own type rather than a variant of the list. Three regions, in
+this order:
+
+1. **Objects** — the universe grouped in classes, each object with a type marker
+   (Σ measure · ▦ dimension · · detail) and its description as a tooltip. A click
+   adds a column; a dimension also offers "filter". Searching the list happens in
+   the browser: the whole list is already there, and a request per keystroke would
+   swap the field out from under the user's fingers.
+2. **Selection** — the chosen objects in order, each with `ui.reorder()` and a
+   remove button. Order is column order. No drag-and-drop: it costs a library or a
+   lot of Alpine, and the value is in the universe, not in the gesture.
+3. **Filters** — one control per chosen or extra dimension. A closed list renders
+   as `ui.select_control` and compares exactly; anything wider renders as a search
+   field and searches. Live (P11): no "Toon" button.
+
+The **result** is a C1 table: sortable headers, server-side paging, a totals row
+for the measures, the one money formatter, and a default sort that ends in a
+unique key (#761). A dimension that points at a record links through to it (P8) —
+a report is a way in, not a dead end.
+
+**The whole panel state lives in the query string**, and every change is one htmx
+request that re-renders the *whole* panel. Not only the result: the hidden inputs
+that carry the state and the screen that shows it must always say the same thing,
+and refreshing half of them is how they start to disagree. A shared link therefore
+opens the same report, and a refresh changes nothing.
+
+Saving follows P1 — you stay, a toast appears, and a failed save shows the banner
+**and no toast**.
 
 ## 4. Interaction patterns
 

@@ -1,0 +1,40 @@
+{% import "_macros.html" as ui %}
+{# Alleen de kaarten: de filterbalk swapt dít fragment, niet de pagina — anders
+   verdwijnt het zoekveld onder je vingers. #}
+{% if reports %}
+<div class="space-y-3">
+  {% for r in reports %}
+  <a href="/admin/rapporten/{{ r.id }}"
+     class="block bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
+    <div class="flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          {# Vormicoon: de vorm zit in de bewaarde selectie, dus de kaart kan hem
+             tonen zonder het rapport te draaien. #}
+          <span class="text-ink-soft" title="{{ shape_labels[shapes[r.id]] }}"
+                aria-hidden="true">{{ ui.icon(shapes[r.id], 16) }}</span>
+          <span class="font-semibold text-ink">{{ r.name }}</span>
+          {% if not r.is_shared %}{{ ui.badge(_("privé")) }}{% endif %}
+          {% if r.builtin_key %}{{ ui.badge(_("meegeleverd"), "blue") }}{% endif %}
+        </div>
+        {% if r.description %}
+        <div class="mt-1 text-sm text-ink-soft">{{ r.description }}</div>
+        {% endif %}
+        <div class="mt-1.5 flex flex-wrap items-center gap-2 text-xs text-ink-soft">
+          {% for klasse in classes_per_report[r.id] %}
+          <span class="rounded-md bg-gray-100 px-1.5 py-0.5">{{ klasse }}</span>
+          {% endfor %}
+          <span>{{ _("Eigenaar") }}: {{ r.owner_email or _("de afdeling") }}</span>
+          {% if r.last_run_at %}
+          <span>{{ _("laatst bekeken") }} {{ r.last_run_at.date()|langedatum }}</span>
+          {% endif %}
+        </div>
+      </div>
+      <span class="shrink-0 text-sm text-ink-soft">{{ _("Openen") }} ›</span>
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% else %}
+{{ ui.empty_state(_("Geen rapporten gevonden.")) }}
+{% endif %}

@@ -30,8 +30,10 @@ from enum import Enum
 from app.domains.reporting.universe import (
     BY_KEY,
     FACT_BY_KEY,
+    Format,
     ObjectKind,
     UniverseObject,
+    join_order,
     joins_for,
 )
 
@@ -75,13 +77,46 @@ _SQL_OPERATOR = {
 }
 
 
+# ── Symbolic filter values (#847) ────────────────────────────────────────────
+# A saved report stores its filter values literally, which means a report about
+# "this year" is a report about 2026 forever — and in January it answers a
+# question nobody asked, while looking exactly as trustworthy as it did in
+# December. These three values are stored as a REFERENCE and resolved at the
+# moment the report runs.
+#
+# They are resolved OUTSIDE this module, on purpose (#847 point 1). `build_query`
+# knows no identity and no clock; `service.resolve_selection` hands it a selection
+# in which every value is already literal. That keeps `ik` a filter value and
+# stops it from quietly becoming a role fence — a different question, still open
+# until somebody builds the switch of CR-06 §5.1.
+SYMBOLIC_TODAY = "vandaag"
+SYMBOLIC_THIS_YEAR = "dit_jaar"
+SYMBOLIC_ME = "ik"
+SYMBOLIC_VALUES = (SYMBOLIC_TODAY, SYMBOLIC_THIS_YEAR, SYMBOLIC_ME)
+
+# What each one reads as, for the line a report shows above itself and for the
+# header of its export. A reader has to be able to see that a number moved.
+SYMBOLIC_LABELS = {
+    SYMBOLIC_TODAY: "vandaag",
+    SYMBOLIC_THIS_YEAR: "dit jaar",
+    SYMBOLIC_ME: "de aangemelde gebruiker",
+}
+
+
 @dataclass(frozen=True)
 class Filter:
-    """One condition on one object."""
+    """One condition on one object.
+
+    ``symbolic`` names a value that is resolved when the report runs instead of
+    when it was saved. Empty means the values are literal and stay literal —
+    which is what every filter saved before #847 is, and why they keep working
+    unchanged.
+    """
 
     object_key: str
     operator: Operator
     values: tuple[str, ...] = ()
+    symbolic: str = ""
 
 
 @dataclass(frozen=True)
@@ -92,13 +127,147 @@ class Sort:
 
 @dataclass(frozen=True)
 class Selection:
-    """What the user composed. Data, not a query — this is what gets saved."""
+    """What the user composed. Data, not a query — this is what gets saved.
+
+    ``layout`` chooses the shape: a flat *table* or a *pivot*. Both read the SAME
+    objects — the pivot only moves one dimension to the column axis, named by
+    ``pivot_column``. That is what makes the grand total of a crosstab equal to
+    the total of the table for the same selection: it is one selection, drawn two
+    ways, not two reports that happen to agree (CR-06 §2.3).
+    """
 
     object_keys: tuple[str, ...]
     filters: tuple[Filter, ...] = ()
     sort: tuple[Sort, ...] = ()
     limit: int = 200
     offset: int = 0
+    layout: str = "table"
+    # The dimension on the column axis of a pivot. At most one in this phase
+    # (#834): a second one multiplies the columns and there is no reading of a
+    # 400-column crosstab that is a report.
+    pivot_column: str = ""
+
+
+# A chart is a shape of the same report, so it lives in the same field. "detail"
+# is the odd one out and deliberately so: every other layout aggregates, and this
+# one lists the rows of the fact as they are. It exists because the four exports
+# this application already has are listings, not summaries (#841 point 4).
+LAYOUTS = ("table", "pivot", "bar", "line", "stacked", "detail")
+
+# A crosstab wider than this is not a report (CR-06 §5.2). The message names the
+# dimension, because "too many columns" without saying which one leaves the user
+# guessing which of his three choices to undo.
+MAX_PIVOT_COLUMNS = 30
+
+# ── The small-cell threshold (#841) ──────────────────────────────────────────
+# A report that says "one member in Balen, aged 41-60, female" names somebody
+# without writing a name. Grouping on a sensitive dimension therefore carries a
+# hidden count of the people in each group, and the service merges every group
+# below this number into one row. The rule is declared here and on the objects,
+# never in a template: a privacy rule that lives in a screen is a privacy rule
+# that the next screen forgets.
+SMALL_CELL_THRESHOLD = 5
+
+# The alias of that hidden count. It leaves the result before it reaches a
+# template — nothing renders it, it only decides.
+PEOPLE_ALIAS = "__people"
+
+
+def selection_to_dict(selection: Selection) -> dict[str, object]:
+    """The selection as it is stored in `reporting.saved_reports`.
+
+    Paging is deliberately NOT part of it: which page you were on is where you
+    were looking, not what the report is.
+    """
+    return {
+        "objects": list(selection.object_keys),
+        "filters": [
+            {"object": f.object_key, "operator": f.operator.value,
+             "values": list(f.values),
+             **({"symbolic": f.symbolic} if f.symbolic else {})}
+            for f in selection.filters
+        ],
+        "sort": [{"object": s.object_key, "direction": s.direction.value}
+                 for s in selection.sort],
+        "layout": selection.layout,
+        "pivot_column": selection.pivot_column,
+    }
+
+
+def selection_from_dict(data: object, *, limit: int = 200,
+                        offset: int = 0) -> Selection:
+    """A stored selection back into a `Selection` — validated on the way in.
+
+    Everything here comes from a database row or from a query string, so nothing
+    is trusted: an unknown object key, an operator that does not exist or a layout
+    from a later phase is refused with the reason, before any query is built. That
+    is the same fence as `build_query`, applied one step earlier so a broken saved
+    report says what is broken instead of failing halfway through rendering.
+    """
+    if not isinstance(data, dict):
+        raise SelectionError("De bewaarde selectie is onleesbaar.")
+
+    keys = data.get("objects") or []
+    if not isinstance(keys, list) or not all(isinstance(k, str) for k in keys):
+        raise SelectionError("De bewaarde selectie heeft geen geldige objectenlijst.")
+    for key in keys:
+        _object(key)
+
+    filters: list[Filter] = []
+    for raw in data.get("filters") or []:
+        if not isinstance(raw, dict):
+            raise SelectionError("Een filter in de bewaarde selectie is onleesbaar.")
+        object_key = raw.get("object")
+        if not isinstance(object_key, str):
+            raise SelectionError("Een filter zonder object.")
+        _object(object_key)
+        try:
+            operator = Operator(raw.get("operator"))
+        except ValueError as exc:
+            raise SelectionError(
+                f"Onbekende filtersoort: '{raw.get('operator')}'.") from exc
+        values = raw.get("values") or []
+        if not isinstance(values, list):
+            raise SelectionError("Een filter zonder waarden.")
+        symbolic = raw.get("symbolic") or ""
+        if symbolic and symbolic not in SYMBOLIC_VALUES:
+            raise SelectionError(
+                f"Onbekende relatieve waarde: '{symbolic}'. Er zijn er drie: "
+                f"{', '.join(SYMBOLIC_VALUES)}.")
+        filters.append(Filter(object_key, operator,
+                              tuple(str(v) for v in values), str(symbolic)))
+
+    sort: list[Sort] = []
+    for raw in data.get("sort") or []:
+        if not isinstance(raw, dict):
+            raise SelectionError("Een sortering in de bewaarde selectie is onleesbaar.")
+        object_key = raw.get("object")
+        if not isinstance(object_key, str):
+            raise SelectionError("Een sortering zonder object.")
+        _object(object_key)
+        try:
+            direction = Direction(raw.get("direction", "asc"))
+        except ValueError as exc:
+            raise SelectionError(
+                f"Onbekende sorteerrichting: '{raw.get('direction')}'.") from exc
+        sort.append(Sort(object_key, direction))
+
+    layout = data.get("layout", "table")
+    if layout not in LAYOUTS:
+        raise SelectionError(
+            f"De vorm '{layout}' bestaat niet. Kies een tabel, een draaitabel "
+            "of een grafiek.")
+
+    pivot_column = data.get("pivot_column") or ""
+    if pivot_column:
+        kolom = _object(str(pivot_column))
+        if kolom.is_measure:
+            raise SelectionError(
+                f"'{kolom.name}' is een maat en kan niet op de kolomas staan.")
+
+    return Selection(object_keys=tuple(keys), filters=tuple(filters),
+                     sort=tuple(sort), limit=limit, offset=offset,
+                     layout=str(layout), pivot_column=str(pivot_column))
 
 
 @dataclass
@@ -110,6 +279,8 @@ class Column:
     kind: ObjectKind
     format: str
     drill: str | None = None
+    # Whether this measure may be added across merged rows (see the threshold).
+    additive: bool = True
 
 
 @dataclass
@@ -123,6 +294,13 @@ class QueryPlan:
     fact: str
     # Column aliases that carry a drill target next to their label.
     drill_aliases: dict[str, str] = field(default_factory=dict)
+    # True when the rows carry the hidden people-count and the small-cell
+    # threshold has to be applied before anything is shown.
+    guarded: bool = False
+    # Whether `totals_sql` has anything to say. A table totals its measures; a
+    # listing totals its money columns; a selection with neither has no totals row
+    # at all, and asking anyway would return a meaningless `1`.
+    has_totals: bool = False
 
 
 # A hard ceiling on what one report may return. At this scale it never fires; it
@@ -166,6 +344,20 @@ def _view_alias(view: str) -> str:
     return view
 
 
+def _sort_expression(obj: UniverseObject) -> str:
+    """What to ORDER BY for this object: its alias, or the key it declares.
+
+    A label is normally sortable as itself. `house_number` is not — it is a
+    `String(10)`, so "10" sorts before "9" and a street comes back shuffled. Such
+    an object carries `sort_sql`, and then the order is on that instead. It can be
+    more than one expression (the number, then the rest), so it is spliced in as
+    written rather than wrapped.
+    """
+    if not obj.sort_sql:
+        return f'"{obj.key}"'
+    return obj.sort_sql.format(view=_view_alias(obj.view))
+
+
 def _expression(obj: UniverseObject) -> str:
     return obj.sql.format(view=_view_alias(obj.view))
 
@@ -198,24 +390,28 @@ def _check_joinable(views: list[str], fact: str) -> dict[str, object]:
                 f"'{FACT_BY_KEY[fact].name}' heeft geen verband met de dimensie "
                 f"'{view}'. Kies objecten die bij hetzelfde feit horen."
             )
-    return {v: available[v] for v in views}
+    # Whatever the needed views hang off comes along, parents first: a snowflake
+    # join cannot be emitted before the dimension it references is in the FROM.
+    return {v: available[v] for v in join_order(views, available)}
 
 
 def _from_clause(fact: str, views: list[str], joins: dict) -> str:
     lines = [f"reporting.{fact} AS {_view_alias(fact)}"]
-    for view in views:
+    for view in joins:
         join = joins[view]
         alias = _view_alias(view)
+        links = _view_alias(join.left)
         # tenant_id is part of EVERY join, unconditionally: without it a dimension
         # row could be borrowed from another tenant even though the fact is
         # filtered correctly. That is the classic leak this design refuses to make
         # a habit (CR-06 §2.4).
-        conditions = [f"{alias}.tenant_id = {_view_alias(fact)}.tenant_id"]
+        conditions = [f"{alias}.tenant_id = {links}.tenant_id"]
         conditions += [
-            f"{alias}.{dim_col} = {_view_alias(fact)}.{fact_col}"
-            for fact_col, dim_col in join.pairs
+            f"{alias}.{dim_col} = {links}.{left_col}"
+            for left_col, dim_col in join.pairs
         ]
-        lines.append(f"LEFT JOIN reporting.{view} AS {alias} ON " + " AND ".join(conditions))
+        lines.append(f"LEFT JOIN reporting.{view} AS {alias} ON "
+                     + " AND ".join(conditions))
     return "\n".join(lines)
 
 
@@ -288,6 +484,9 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
 
     objects = [_object(key) for key in selection.object_keys]
 
+    if selection.layout == "detail":
+        return _build_detail_list(selection, objects, tenant_id=tenant_id)
+
     # No role check on the fact itself: the fence sits on the objects, and a
     # selection cannot exist without a measure, so every fact a report reaches is
     # reached through a measure that was already checked. `Fact.role` governs the
@@ -301,6 +500,24 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
     grouped = [o for o in objects if not o.is_measure]
     measures = [o for o in objects if o.is_measure]
 
+    # #852: a detail is an attribute you may show but not group by, and until now
+    # that was a sentence in the universe rather than a rule. Nothing enforced it,
+    # so a detail simply grouped — `payment_note` is the case that shows why:
+    # free text is not a key, so two payments carrying the same note fold into one
+    # row whose measures add up. The sum is right for that group; a reader taking
+    # the row for one payment reads something else than what is there.
+    #
+    # Refused here and not in `_build_detail_list`: a list is exactly where a
+    # detail belongs, and this is the mirror of the refusal there ("a list shows
+    # rows, not totals").
+    details = [o for o in grouped if o.kind is ObjectKind.DETAIL]
+    if details:
+        namen = ", ".join(f"'{o.name}'" for o in details)
+        raise SelectionError(
+            f"Hier valt niet op te groeperen: {namen} is een detail, geen "
+            "dimensie. Een detail hoort in een lijst — kies de lijstvorm, of "
+            "laat het weg.")
+
     select_parts: list[str] = []
     drill_aliases: dict[str, str] = {}
     for obj in objects:
@@ -311,11 +528,25 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
             select_parts.append(f'{drill_expr} AS "{alias}"')
             drill_aliases[obj.key] = alias
 
+    # The hidden people-count: only when the selection groups on something that
+    # cuts people into small groups, and only when the fact can say how many
+    # people a group covers.
+    guarded = any(o.sensitive for o in grouped)
+    people_sql = FACT_BY_KEY[fact].people_sql
+    if guarded and people_sql:
+        select_parts.append(
+            f'{people_sql.format(view=_view_alias(fact))} AS "{PEOPLE_ALIAS}"')
+
     from_clause = _from_clause(fact, views, joins)
     where = "\n  AND ".join(conditions)
 
     group_by = [_expression(o) for o in grouped]
     group_by += [d for d in (_drill_expression(o) for o in grouped) if d]
+    # An object that orders on something other than itself has to group on it as
+    # well — Postgres refuses to order by a column that is not in the GROUP BY,
+    # and it is functionally dependent anyway (one house number, one sort key).
+    group_by += [deel.strip() for o in grouped if o.sort_sql
+                 for deel in _sort_expression(o).split(",")]
 
     # #761: the default sort ends in a unique key. Appending every grouping
     # expression is exactly that — a group-by set identifies its row by
@@ -330,15 +561,18 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
                 f"Je kunt niet sorteren op '{_object(sort.object_key).name}': dat "
                 "object staat niet in het rapport."
             )
-        order_parts.append(f'"{sort.object_key}" {sort.direction.value.upper()}')
+        richting = sort.direction.value.upper()
+        order_parts += [f"{deel.strip()} {richting}" for deel
+                        in _sort_expression(_object(sort.object_key)).split(",")]
         already_sorted.add(sort.object_key)
     # Deduplicated by COLUMN, not by the whole term: a column the user sorted
     # descending would otherwise come back as a second, ascending term. Postgres
     # ignores that second mention, so nothing breaks — which is exactly why it
     # would have stayed in the statement, unread, until somebody debugging an order
     # spent an afternoon on it.
-    order_by = order_parts + [f'"{o.key}" ASC' for o in grouped
-                              if o.key not in already_sorted]
+    order_by = order_parts + [f"{deel.strip()} ASC" for o in grouped
+                              if o.key not in already_sorted
+                              for deel in _sort_expression(o).split(",")]
 
     limit = max(1, min(selection.limit, MAX_ROWS))
     params["tenant_id"] = tenant_id
@@ -361,8 +595,168 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
 
     columns = [
         Column(key=o.key, name=o.name, kind=o.kind, format=o.format.value,
-               drill=o.drill)
+               drill=o.drill, additive=o.additive)
         for o in objects
     ]
     return QueryPlan(sql=sql, totals_sql=totals_sql, params=params,
-                     columns=columns, fact=fact, drill_aliases=drill_aliases)
+                     columns=columns, fact=fact, drill_aliases=drill_aliases,
+                     guarded=bool(guarded and people_sql),
+                     has_totals=bool(measures))
+
+
+def build_detail_query(selection: Selection, *, tenant_id: int,
+                       limit: int = 20000) -> QueryPlan:
+    """The rows BEHIND a report: the same filtered set, ungrouped.
+
+    Sheet 2 of the export (CR-06 §5). A grouped table answers the question; the
+    detail rows are what lets somebody pivot it themselves in Calc, or check a
+    total they do not believe. They must come from exactly the same statement
+    shape — same fact, same joins, same WHERE — or the two sheets would disagree
+    and the export would be worse than no export at all.
+
+    Only the fact's own columns: a dimension attribute would need a join per
+    column and adds nothing the report itself does not already show.
+    """
+    objects = [_object(key) for key in selection.object_keys]
+    # A listing has no measure to name its fact, so fall back to the objects that
+    # live on one. Same answer for an aggregating selection, and no crash for a
+    # selection that legitimately has no measure at all.
+    fact = (_resolve_fact(objects) if any(o.is_measure for o in objects)
+            else _fact_of(objects))
+    conditions, params, filter_objects = _where_clause(selection.filters, fact)
+    views = _needed_views(objects + filter_objects, fact)
+    joins = _check_joinable(views, fact)
+
+    alias = _view_alias(fact)
+    order = ", ".join(f"{alias}.{c}" for c in FACT_BY_KEY[fact].dataset_key)
+    params["tenant_id"] = tenant_id
+    params["limit"] = limit
+    sql = (f"SELECT {alias}.*\nFROM {_from_clause(fact, views, joins)}\n"
+           f"WHERE {' AND '.join(conditions)}\nORDER BY {order}\nLIMIT :limit")
+    return QueryPlan(sql=sql, totals_sql="", params=params, columns=[], fact=fact)
+
+
+def build_member_count_query(selection: Selection, object_key: str, *,
+                             tenant_id: int) -> tuple[str, dict[str, object]]:
+    """How many members a dimension has under this selection's filters.
+
+    Asked BEFORE the crosstab is built, so a column dimension that is too wide is
+    refused without ever running the wide query (#834). It counts under the active
+    filters and not over the whole dimension: filtering a report down to one year
+    is exactly how a user makes a crosstab fit, and a cap that ignored the filters
+    would refuse a report that would have been fine.
+    """
+    obj = _object(object_key)
+    if obj.is_measure:
+        raise SelectionError(
+            f"'{obj.name}' is een maat en kan niet op de kolomas staan.")
+
+    objects = [_object(key) for key in selection.object_keys]
+    fact = _resolve_fact(objects)
+    conditions, params, filter_objects = _where_clause(selection.filters, fact)
+    views = _needed_views(objects + filter_objects + [obj], fact)
+    joins = _check_joinable(views, fact)
+
+    params["tenant_id"] = tenant_id
+    sql = (f"SELECT COUNT(DISTINCT {_expression(obj)})\n"
+           f"FROM {_from_clause(fact, views, joins)}\n"
+           f"WHERE {' AND '.join(conditions)}")
+    return sql, params
+
+
+def _build_detail_list(selection: Selection, objects: list[UniverseObject], *,
+                       tenant_id: int) -> QueryPlan:
+    """A row list: the fact's rows as they are, without a GROUP BY (#841).
+
+    Every other layout answers "how much"; this one answers "which ones". The
+    difference is not cosmetic — a listing has no grain to choose and therefore no
+    measure to require, and a measure in it would be an aggregate over a single
+    row, which is a number that says nothing.
+
+    The totals row is the sum of the **money** columns and nothing else. That is a
+    rule and not a guess: a row list of payments ends in a total because a
+    treasurer adds up money, and adding up a payment id or an age in days would be
+    noise. It is the same total the existing payments export writes.
+
+    The order is the fact's own reading order, ending in its unique key (#761) —
+    otherwise paging a listing would show the same row twice and never another.
+    """
+    measures = [o for o in objects if o.is_measure]
+    if measures:
+        namen = ", ".join(f"'{o.name}'" for o in measures)
+        raise SelectionError(
+            f"Een lijst toont rijen, geen totalen: {namen} hoort niet in een "
+            "detailrapport. Laat de maat weg, of kies de tabelvorm.")
+
+    fact = _fact_of(objects)
+    conditions, params, filter_objects = _where_clause(selection.filters, fact)
+    views = _needed_views(objects + filter_objects, fact)
+    joins = _check_joinable(views, fact)
+
+    select_parts: list[str] = []
+    drill_aliases: dict[str, str] = {}
+    for obj in objects:
+        select_parts.append(f'{_expression(obj)} AS "{obj.key}"')
+        drill_expr = _drill_expression(obj)
+        if drill_expr is not None:
+            alias = f"{obj.key}__drill"
+            select_parts.append(f'{drill_expr} AS "{alias}"')
+            drill_aliases[obj.key] = alias
+
+    from_clause = _from_clause(fact, views, joins)
+    where = "\n  AND ".join(conditions)
+
+    # A listing sorts the same way a table does, so an object with its own sort
+    # key uses it here too — a detail list of addresses is exactly where a
+    # shuffled street would show.
+    order_parts = [f"{deel.strip()} {s.direction.value.upper()}"
+                   for s in selection.sort if s.object_key in selection.object_keys
+                   for deel in _sort_expression(_object(s.object_key)).split(",")]
+    natuurlijk = [fragment.format(view=_view_alias(fact))
+                  for fragment in FACT_BY_KEY[fact].detail_order]
+    order_by = order_parts + natuurlijk
+
+    limit = max(1, min(selection.limit, MAX_ROWS))
+    params["tenant_id"] = tenant_id
+    params["limit"] = limit
+    params["offset"] = max(0, selection.offset)
+
+    sql = ("SELECT\n  " + ",\n  ".join(select_parts)
+           + f"\nFROM {from_clause}\nWHERE {where}")
+    if order_by:
+        sql += "\nORDER BY " + ", ".join(order_by)
+    sql += "\nLIMIT :limit OFFSET :offset"
+
+    geld = [o for o in objects if o.format is Format.MONEY]
+    totals_select = ", ".join(
+        f'SUM({_expression(o)}) AS "{o.key}"' for o in geld) or "1"
+    totals_sql = f"SELECT {totals_select}\nFROM {from_clause}\nWHERE {where}"
+
+    columns = [
+        Column(key=o.key, name=o.name, kind=o.kind, format=o.format.value,
+               drill=o.drill, additive=o.additive)
+        for o in objects
+    ]
+    return QueryPlan(sql=sql, totals_sql=totals_sql, params=params,
+                     columns=columns, fact=fact, drill_aliases=drill_aliases,
+                     has_totals=bool(geld))
+
+
+def _fact_of(objects: list[UniverseObject]) -> str:
+    """The fact a listing is about — from the objects that belong to one.
+
+    A listing has no measure to name its fact, so the fact comes from the objects
+    that live on a fact view. Two of them is the fan trap in a different shape and
+    is refused for the same reason.
+    """
+    facts = {o.fact for o in objects if o.fact}
+    if not facts:
+        raise SelectionError(
+            "Kies minstens één veld van het feit zelf: uit alleen dimensies valt "
+            "geen lijst te maken.")
+    if len(facts) > 1:
+        namen = sorted(FACT_BY_KEY[f].name for f in facts)
+        raise SelectionError(
+            "Velden uit twee feiten in één lijst kunnen niet: "
+            f"{' en '.join(namen)}. Maak er twee rapporten van.")
+    return facts.pop()
