@@ -26,6 +26,12 @@ Broken on purpose, and this is the proof the issue asks for: `PLATFORM_HOSTS` re
 `scripts/e2e-local.sh` → **all four fall over**, starting with the landing itself. Not one
 of them slips through green without its starting point.
 
+That guard immediately did its job for real: the first CI run failed here, because CI serves
+on `localhost` while the local runner uses `127.0.0.1`, and the host swap below was written
+for one of the two. The variable also had to be set in the workflow — the CI e2e job does not
+go through `scripts/e2e-local.sh`. A test that had quietly passed instead would have left
+that gap in place.
+
 A second one, found while writing: the first version asserted "Digital Platform" is absent
 once you have clicked through. That failed on the demo afdeling, which names *"het Raak
 Digital Platform"* in her own intro text. The assertion now reads `data-shell` — what the
@@ -38,6 +44,7 @@ one source for that address — and not here.
 """
 import os
 import sys
+from urllib.parse import urlsplit, urlunsplit
 
 import pytest
 from playwright.sync_api import sync_playwright
@@ -48,7 +55,14 @@ from tests_e2e.schermen import BASE  # noqa: E402
 
 # Dezelfde poort als de rest van de suite, andere hostnaam: zo is de landing bereikbaar
 # zonder dat élk ander e2e-verzoek een platformverzoek wordt.
-PLATFORM = BASE.replace("127.0.0.1", "platform.localhost")
+#
+# De host wordt VERVANGEN en niet gezocht: CI draait op `localhost` en de lokale runner op
+# `127.0.0.1`. Een `replace()` op één van die twee werkt op de ene machine en stilletjes
+# niet op de andere — en daar viel deze test dan ook over, precies zoals bedoeld.
+_SPLIT = urlsplit(BASE)
+PLATFORM = urlunsplit((_SPLIT.scheme,
+                       f"platform.localhost:{_SPLIT.port}" if _SPLIT.port else "platform.localhost",
+                       _SPLIT.path, "", ""))
 
 
 @pytest.fixture(scope="module")
