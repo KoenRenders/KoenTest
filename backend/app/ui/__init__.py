@@ -200,7 +200,11 @@ _ADMIN_NAV: list[tuple[str, str]] = [
     ("/admin/ai-context", "Raakje"),
     ("/admin/e-maillog", "E-maillog"),
     ("/admin/tenants", "Tenants"),
-    ("/admin/design-system", "Design system"),
+    # GEEN Design system hier (#878). De balk is voor schermen waar een bestuurder
+    # werk doet; `/admin/design-system` is naslag over knoppen, kleuren en afstanden —
+    # nuttig bij het bouwen, niet bij het besturen. De route blijft bestaan achter
+    # `require_admin_ui`, en je gaat ernaartoe via Info. "Uit het menu" is dus iets
+    # anders dan "weg": ruim de route niet op omdat er niets meer naar wijst.
     ("/admin/info", "Info"),
 ]
 

@@ -136,7 +136,14 @@ def test_the_component_export_still_works(client, db_session):
 
 
 def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
-    """One entry inserted after Betalingen; every other entry in its old place."""
+    """One entry inserted after Betalingen; every other entry in its old place.
+
+    `/admin/design-system` left this list with #878 — Koen took it out of the bar because
+    it is reference material and not a screen where a board member does work. That is a
+    decision, not a loosening of this gate: the list below is still exact and still holds
+    the position of Rapporten. The route itself is very much alive, and
+    `test_design_system_out_of_the_admin_bar.py` is what keeps it that way.
+    """
     from app.ui import _ADMIN_NAV
 
     hrefs = [href for href, _label in _ADMIN_NAV]
@@ -145,7 +152,7 @@ def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
         "/admin/betalingen", "/admin/rapporten", "/admin/formulieren",
         "/admin/paginas", "/admin/media", "/admin/gebruikers",
         "/admin/ledenwijzigingen", "/admin/ai-context", "/admin/e-maillog",
-        "/admin/tenants", "/admin/design-system", "/admin/info",
+        "/admin/tenants", "/admin/info",
     ]
     assert hrefs.index("/admin/rapporten") == hrefs.index("/admin/betalingen") + 1
 
