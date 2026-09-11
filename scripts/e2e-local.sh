@@ -94,8 +94,15 @@ docker restart "$NAAM" >/dev/null
 # opstelling nog steeds het native pad. Met `provider_only` zou dat tweede pad
 # onbereikbaar worden en die test stilzwijgend iets anders toetsen dan haar naam zegt.
 # `mock` transcribeert zonder Mistral, dus dit belt niemand.
+# PLATFORM_HOSTS (#870-G): de landingspagina verschijnt alleen op een platform-host,
+# dus zonder dit vindt die test zijn beginpunt niet. Bewust een ANDERE naam dan de host
+# waarop de rest van de suite draait (127.0.0.1): zou `localhost` hier staan, dan werd
+# élke andere e2e-test een platformverzoek en kreeg `/` de landing in plaats van de
+# tenantsite. Chromium resolvet `*.localhost` zelf naar loopback, dus dit heeft geen DNS
+# nodig.
 docker exec -d -e CHAT_ENABLED=true -e STT_MODE=native_first -e STT_PROVIDER=mock \
-  "$NAAM" sh -c "uvicorn app.main:app --host 127.0.0.1 --port ${POORT} > /tmp/uvicorn.log 2>&1"
+  -e PLATFORM_HOSTS=platform.localhost \
+  "$NAAM" sh -c "uvicorn app.main:app --host 0.0.0.0 --port ${POORT} > /tmp/uvicorn.log 2>&1"
 for _ in $(seq 1 30); do
   if docker exec "$NAAM" python -c "import urllib.request;urllib.request.urlopen('http://127.0.0.1:${POORT}/')" 2>/dev/null; then
     break
