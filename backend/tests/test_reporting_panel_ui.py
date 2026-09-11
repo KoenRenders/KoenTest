@@ -145,10 +145,19 @@ def test_the_shipped_reports_return_the_numbers_of_the_seed(db_session, situatio
     assert leden[y2]["membership_households"] == EXPECTED["memberships"]["households"][2]
     assert leden[y2]["membership_persons"] == EXPECTED["memberships"]["persons"][2]
 
-    verloop = {row["membership_year"]: row
+    # Since #871 the flow report groups on the status dimension instead of
+    # carrying three measures — the same numbers, as rows.
+    verloop = {(row["membership_year"], row["membership_status"]):
+               row["membership_count"]
                for row in run("membership_flow_per_year").rows}
-    assert verloop[y2]["membership_new"] == EXPECTED["memberships"]["new"][2]
-    assert verloop[y2]["membership_lapsed"] == EXPECTED["memberships"]["lapsed"][2]
+    assert verloop[(y2, "Nieuw")] == EXPECTED["memberships"]["new"][2]
+    # A status with nobody in it has no row now, where a measure column showed a
+    # literal 0. That is the visible difference of the conversion, and `.get` is
+    # not slack here: 2026 has no lapsed household and EXPECTED says so.
+    assert verloop.get((y2, "Vervallen"), 0) == EXPECTED["memberships"]["lapsed"][2]
+    assert EXPECTED["memberships"]["lapsed"][2] == 0, (
+        "de regel hierboven toetst juist het lege geval; is dit niet meer nul, "
+        "kies dan een jaar waarin niemand vervalt")
 
     inschrijvingen = run("registrations_per_activity").rows
     assert inschrijvingen[0]["activity"] == "Quiz"

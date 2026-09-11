@@ -45,7 +45,7 @@ DASHBOARD_TEGELS = [
      "bg-purple-50 text-purple-800", "/admin/activiteiten", False),
     ("Open taken (werkbank)", "dashboard_open_tasks", "task_count",
      "bg-yellow-50 text-yellow-800", "/admin/werkbank", False),
-    ("Openstaand saldo", "dashboard_outstanding", "payment_outstanding",
+    ("Openstaand saldo", "dashboard_outstanding", "payment_amount",
      "bg-orange-50 text-orange-800", "/admin/betalingen", True),
 ]
 

@@ -98,7 +98,7 @@ def test_each_subtotal_is_the_sum_of_its_rows(db_session, situation):
     kruis = pivot(db_session, ["payment_payable_type", "payment_method",
                                "payment_status", "payment_amount"],
                   "payment_status").as_context()
-    assert kruis["row_headers"] == ["Waarvoor", "Betaalwijze"]
+    assert kruis["row_headers"] == ["Soort", "Betaalwijze"]
 
     som_per_groep: dict[str, Decimal] = {}
     subtotalen: dict[str, Decimal] = {}

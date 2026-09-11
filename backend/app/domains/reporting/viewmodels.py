@@ -90,6 +90,11 @@ class ReportPanelView(ViewModel):
     chart: dict[str, Any] | None
     layout: str
     pivot_column: str
+    # Which population the report counts — the fact, as (name, grain). None while
+    # the selection cannot say yet. The panel shows it so the difference between
+    # "every household" and "households with a membership" is on the screen
+    # instead of inside the name of a measure (#871).
+    population: Any | None
     # "The user cleared the column axis", as opposed to "there is none yet" — the
     # panel needs the difference to keep the "geen" button pressed (#873).
     no_column: bool

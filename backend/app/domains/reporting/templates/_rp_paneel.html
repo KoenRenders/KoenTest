@@ -149,7 +149,17 @@
           <p class="mt-2 text-sm text-ink-soft">{{ _("Kies objecten links, filters rechts.") }}</p>
           {% endif %}
 
-              {% if personal %}
+              {% if population %}
+          {# #871: welke POPULATIE je telt, stond nergens — en daardoor moest je
+             het uit de naam van een maat afleiden. Dat is precies hoe een filter
+             in een naam kruipt. Nu zegt het scherm het. #}
+          <p class="mt-3 text-sm text-ink-soft">
+            {{ _("Je telt:") }} <span class="text-ink">{{ population.name }}</span>
+            — {{ population.grain }}.
+          </p>
+          {% endif %}
+
+          {% if personal %}
           {# #847: dit rapport vult de aangemelde gebruiker in, dus twee mensen
              zien er iets anders in. Dat hoort op het scherm te staan — anders
              deelt iemand een link en begrijpt de ontvanger niet waarom. #}

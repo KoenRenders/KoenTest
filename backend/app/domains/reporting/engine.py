@@ -24,12 +24,14 @@ facts — are provable without one, and the service layer decides when to execut
 """
 from __future__ import annotations
 
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from enum import Enum
 
 from app.domains.reporting.universe import (
     BY_KEY,
     FACT_BY_KEY,
+    Fact,
     Format,
     ObjectKind,
     UniverseObject,
@@ -313,6 +315,25 @@ def _object(key: str) -> UniverseObject:
     if obj is None:
         raise SelectionError(f"Onbekend object: '{key}'.")
     return obj
+
+
+def population_of(object_keys: Sequence[str]) -> Fact | None:
+    """Which fact a selection reads, or None when it cannot be told yet.
+
+    The panel shows this (#871). Without it the population a report counts had to
+    be guessed from the name of a measure — and a name that carries a condition is
+    exactly how a filter creeps into a measure. `f_members` counts every
+    household, `f_memberships` only the ones that ever joined; that difference is
+    the fact, not the wording.
+
+    Returns None rather than raising: a half-built selection is the normal state
+    of this screen, and the line simply stays away until there is something to
+    say.
+    """
+    try:
+        return FACT_BY_KEY[_resolve_fact([_object(k) for k in object_keys])]
+    except (SelectionError, KeyError):
+        return None
 
 
 def _resolve_fact(objects: list[UniverseObject]) -> str:
