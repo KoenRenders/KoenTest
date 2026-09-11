@@ -90,6 +90,9 @@ class ReportPanelView(ViewModel):
     chart: dict[str, Any] | None
     layout: str
     pivot_column: str
+    # "The user cleared the column axis", as opposed to "there is none yet" — the
+    # panel needs the difference to keep the "geen" button pressed (#873).
+    no_column: bool
     message: str | None
     # #847: a report that fills in the viewer's own identity says so, or somebody
     # shares a link and the receiver cannot explain why he sees something else.
