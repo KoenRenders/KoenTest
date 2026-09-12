@@ -33,6 +33,8 @@ import re
 from functools import lru_cache
 from pathlib import Path
 
+from datetime import date
+
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
 
@@ -139,6 +141,9 @@ def design_system(request: Request, email: str = Depends(require_admin_ui)):
         tokens=_tokens(),
         iconen=_iconen(),
         velden=_voorbeeldvelden(),
+        # A real date, because the date format is the one that cannot be written
+        # as a literal in the template (#875).
+        demo_datum=date(2026, 9, 12),
     )
     return templates.TemplateResponse(request, "design_system.html",
                                       view.as_context())

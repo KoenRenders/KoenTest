@@ -1110,10 +1110,17 @@
    leest. Los van `pivot_table` omdat drie plaatsen in die macro hem nodig hebben
    en dezelfde drie regels drie keer overschrijven precies is hoe opmaak
    uiteen gaat lopen. #}
-{% macro _pivot_cell(waarde, maat) -%}
+{# Eén meetwaarde, opgemaakt volgens haar soort (#875). Ook gebruikt door het
+   rapportagepaneel, zodat rij, totaalrij en draaitabel dezelfde afronding tonen:
+   de opmaak stond op drie plekken met elk hun eigen geldtak. #}
+{% macro value_cell(waarde, formaat) -%}
 {%- if waarde is none %}<span class="text-ink-soft">—</span>
-{%- elif maat.format == "money" %}€&nbsp;{{ waarde|geld }}
-{%- else %}{{ waarde }}{%- endif %}
+{%- elif formaat == "money" %}€&nbsp;{{ waarde|meetwaarde("money") }}
+{%- else %}{{ waarde|meetwaarde(formaat) }}{%- endif %}
+{%- endmacro %}
+
+{% macro _pivot_cell(waarde, maat) -%}
+{{- value_cell(waarde, maat.format) -}}
 {%- endmacro %}
 
 {# ── Grafieken (#835, CR-06 §6) ───────────────────────────────────────────────

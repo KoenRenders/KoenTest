@@ -301,12 +301,10 @@
                   {% for c in columns %}
                   <td class="px-3 py-2 {% if c.kind.value == 'measure' %}text-right tabular-nums{% endif %}">
                     {% set waarde = row[c.key] %}
-                    {% if waarde is none %}<span class="text-ink-soft">—</span>
-                    {% elif c.format == "money" %}€&nbsp;{{ waarde|geld }}
-                    {% elif c.drill and drill_urls.get(c.drill) and row.get(drill_aliases.get(c.key, "")) %}
+                    {% if waarde is not none and c.drill and drill_urls.get(c.drill) and row.get(drill_aliases.get(c.key, "")) %}
                     <a class="text-blue-500 underline"
-                       href="{{ drill_urls[c.drill].replace('{id}', row[drill_aliases[c.key]]|string) }}">{{ waarde }}</a>
-                    {% else %}{{ waarde }}{% endif %}
+                       href="{{ drill_urls[c.drill].replace('{id}', row[drill_aliases[c.key]]|string) }}">{{ ui.value_cell(waarde, c.format) }}</a>
+                    {% else %}{{ ui.value_cell(waarde, c.format) }}{% endif %}
                   </td>
                   {% endfor %}
                 </tr>
@@ -321,7 +319,7 @@
                   <td class="px-3 py-2 {% if c.kind.value == 'measure' %}text-right tabular-nums{% endif %}">
                     {% if loop.first and c.kind.value != "measure" %}{{ _("Totaal") }}
                     {% elif totals.get(c.key) is not none %}
-                      {% if c.format == "money" %}€&nbsp;{{ totals[c.key]|geld }}{% else %}{{ totals[c.key] }}{% endif %}
+                      {{ ui.value_cell(totals[c.key], c.format) }}
                     {% endif %}
                   </td>
                   {% endfor %}
