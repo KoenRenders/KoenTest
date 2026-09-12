@@ -43,6 +43,7 @@ from app.domains.reporting.api import (
     Sort,
     BY_KEY,
     CHART_LAYOUTS,
+    CLASSES,
     build_chart,
     build_dataset_ods,
     build_pivot,
@@ -139,6 +140,15 @@ def _read_state(params) -> dict:
     pivot_column = params.get("pivot_column") or ""
     # "The user cleared the column axis", as opposed to "there is none yet".
     no_column = (params.get("no_column") or "") == "1"
+    # Which object classes are folded shut (#872). The CLOSED set and not the open
+    # one, because every class starts open: an empty state is then the default
+    # state, and a new class needs no entry anywhere to behave correctly.
+    #
+    # In the state and not in Alpine: the panel swaps its own outerHTML on every
+    # interaction, so client-side state is gone the moment you pick an object.
+    # With default-open and no memory the feature is worthless — you fold three
+    # classes shut, choose one object, and face all 93 lines again.
+    closed = [k for k in params.getlist("closed") if k in CLASSES]
 
     add = params.get("add")
     if add in BY_KEY and add not in objects:
@@ -172,6 +182,13 @@ def _read_state(params) -> dict:
         # what every table in this application does.
         direction = "desc" if (sort_by == sort and direction == "asc") else "asc"
         sort = sort_by
+
+    toggle_class = params.get("toggle_class")
+    if toggle_class in CLASSES:
+        if toggle_class in closed:
+            closed.remove(toggle_class)
+        else:
+            closed.append(toggle_class)
 
     set_layout = params.get("set_layout")
     if set_layout in LAYOUTS:
@@ -213,8 +230,25 @@ def _read_state(params) -> dict:
         "layout": layout,
         "pivot_column": pivot_column,
         "no_column": no_column,
+        "closed": closed,
         "page": page,
     }
+
+
+def _chosen_per_class(object_keys: list[str]) -> dict[str, int]:
+    """How many objects are chosen per class (#872).
+
+    A folded class has to keep showing that you picked something in it. With the
+    selection summary dropped at Koen's request, this count is the only place left
+    where a closed class reveals your choice — and without it, folding hides
+    exactly what you were trying to survey.
+    """
+    per_klasse: dict[str, int] = {}
+    for key in object_keys:
+        obj = BY_KEY.get(key)
+        if obj is not None:
+            per_klasse[obj.klass] = per_klasse.get(obj.klass, 0) + 1
+    return per_klasse
 
 
 def _selection(state: dict) -> Selection:
@@ -286,6 +320,9 @@ def _state_from_selection(selection: Selection, page: int = 1) -> dict:
         # A saved pivot without a column axis was saved that way on purpose — the
         # report of #850 is exactly that — so reopening it must not refill the axis.
         "no_column": selection.layout == "pivot" and not selection.pivot_column,
+        # Folding is a viewing preference, not part of a report: opening a saved
+        # one shows every class, the way a first visit does.
+        "closed": [],
         "page": page,
     }
 
@@ -370,6 +407,8 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
         chart=chart,
         layout=state["layout"],
         pivot_column=state["pivot_column"],
+        closed_classes=state["closed"],
+        chosen_per_class=_chosen_per_class(state["objects"]),
         refused=refused,
         population=population_of(state["objects"]),
         no_column=state["no_column"],

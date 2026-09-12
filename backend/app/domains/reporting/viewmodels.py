@@ -63,6 +63,11 @@ class ReportPanelView(ViewModel):
     kind_symbols: dict[str, str]
     kind_labels: dict[str, str]
     chosen_keys: list[str]
+    #: Classes the user folded shut (#872). The closed set, not the open one:
+    #: every class starts open, so the default state is the empty list.
+    closed_classes: list[str]
+    #: Per class, how many objects are chosen — what a folded class still shows.
+    chosen_per_class: dict[str, int]
     filter_keys: list[str]
 
     # ── Selection ───────────────────────────────────────────────────────────

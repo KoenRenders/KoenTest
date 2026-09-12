@@ -39,6 +39,9 @@
     <input type="hidden" name="layout" value="{{ layout }}">
     <input type="hidden" name="pivot_column" value="{{ pivot_column }}">
     <input type="hidden" name="no_column" value="{{ "1" if no_column else "" }}">
+    {% for klasse in closed_classes %}
+    <input type="hidden" name="closed" value="{{ klasse }}">
+    {% endfor %}
 
     <div class="lg:grid lg:grid-cols-[18rem_minmax(0,1fr)] lg:gap-6 lg:items-start">
 
@@ -67,10 +70,31 @@
                                 attrs='x-model="zoek" autocomplete="off" @change.stop @keyup.stop') }}
 
             {% for klasse, objecten in classes %}
+            {% set dicht = klasse in closed_classes %}
+            {% set gekozen = chosen_per_class.get(klasse, 0) %}
             <div class="mt-4"
                  x-show='{{ objecten|map(attribute="name")|list|tojson }}.some(n => n.toLowerCase().includes(zoek.toLowerCase()))'>
-              <div class="text-xs font-semibold uppercase tracking-wide text-ink-soft">{{ klasse }}</div>
-              <ul class="mt-1 space-y-0.5">
+              {# #872: 93 objecten onder elkaar, waarvan 33 bij Leden — wie iets bij
+                 Betalingen zoekt, scrolt eerst langs alles van Leden. Per klasse
+                 in- en uitklapbaar dus, standaard open, en de stand reist mee in
+                 de staat: het paneel vervangt zijn eigen outerHTML, dus
+                 client-state is weg zodra je één object kiest.
+
+                 Het aantal naast een dichte klasse is geen versiering. De
+                 selectie-samenvatting bovenaan is op Koens vraag geschrapt, dus
+                 dit is de enige plek waar een dichte klasse je keuze nog toont —
+                 zonder dat verbergt inklappen precies wat je wou overzien. #}
+              <button type="button" name="toggle_class" value="{{ klasse }}"
+                      hx-get="{{ paneel_url }}"
+                      aria-expanded="{{ 'false' if dicht else 'true' }}"
+                      class="w-full flex items-center gap-1 text-left text-xs font-semibold uppercase tracking-wide text-ink-soft hover:text-ink">
+                <span class="shrink-0">{% if dicht %}{{ ui.icon("chevron-down", 14) }}{% else %}{{ ui.icon("chevron-up", 14) }}{% endif %}</span>
+                <span class="flex-1">{{ klasse }}</span>
+                {% if dicht and gekozen %}
+                <span class="shrink-0 rounded-full bg-blue-700 text-white text-[10px] px-1.5 py-0.5">{{ gekozen }}</span>
+                {% endif %}
+              </button>
+              <ul class="mt-1 space-y-0.5" x-show='{{ (not dicht)|tojson }} || zoek.length > 0'>
                 {% for o in objecten %}
                 <li class="flex items-center gap-1"
                     x-show='{{ o.name|tojson }}.toLowerCase().includes(zoek.toLowerCase())'>
@@ -83,13 +107,29 @@
                      afgewezen wordt. Uitgeschakeld en niet verborgen: waarom het
                      niet kan is de helft van het antwoord. #}
                   {% set enkel_lijst = o.kind.value == "detail" and layout != "detail" %}
-                  <button type="button" name="add" value="{{ o.key }}"
+                  {% set staat_erin = o.key in chosen_keys %}
+                  {# #876: een object in de selectie is een SCHAKELAAR, dus een
+                     tweede klik haalt het eruit. Dat is het standaardidioom voor
+                     in-of-uit, en het verschilt bewust van de kolomas (#873), die
+                     één-uit-N is en daarom een expliciete "geen" krijgt: een radio
+                     zet je nergens uit door hem nog eens aan te klikken.
+
+                     De titel zegt wát de klik doet. Het vinkje alleen leest als
+                     "gelukt", niet als "klik om ongedaan te maken".
+
+                     Een filter op hetzelfde object blijft staan: dat is een aparte
+                     actie met een eigen verwijderknop, en een klik die er
+                     stilzwijgend ook een filter afhaalt, verandert het resultaat
+                     op een manier die niemand verwacht. #}
+                  <button type="button" name="{{ "remove" if staat_erin else "add" }}" value="{{ o.key }}"
                           hx-get="{{ paneel_url }}"
+                          aria-pressed="{{ 'true' if staat_erin else 'false' }}"
                           {% if enkel_lijst %}disabled
                           title="{{ o.name }} {{ _('is een detail: kies de lijstvorm om het te tonen.') }}"
+                          {% elif staat_erin %}title="{{ _('Klik om') }} {{ o.name }} {{ _('uit het rapport te halen') }}"
                           {% else %}title="{{ o.description }}"{% endif %}
-                          class="flex-1 text-left text-sm px-2 py-1 rounded {% if enkel_lijst %}text-ink-soft/60 cursor-not-allowed{% else %}hover:bg-gray-50 {% if o.key in chosen_keys %}text-ink-soft{% else %}text-ink{% endif %}{% endif %}">
-                    {{ o.name }}{% if o.key in chosen_keys %} ✓{% endif %}
+                          class="flex-1 text-left text-sm px-2 py-1 rounded {% if enkel_lijst %}text-ink-soft/60 cursor-not-allowed{% else %}hover:bg-gray-50 {% if staat_erin %}text-ink-soft{% else %}text-ink{% endif %}{% endif %}">
+                    {{ o.name }}{% if staat_erin %} ✓{% endif %}
                   </button>
                   {% if o.kind.value != "measure" %}
                   <button type="button" name="add_filter" value="{{ o.key }}"
