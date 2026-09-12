@@ -35,6 +35,13 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>{{ ui.label(_("Naam"), "name", required=True) }}
           {{ ui.input_control("name", id="name", value=a.name, required=True, cls="w-full") }}</div>
+        {# #884: de vriendelijke URL. Hij VOLGT DE NAAM NIET — bij het aanmaken wordt er
+           één voorgesteld, daarna blijft hij staan. De hulptekst zegt waarom: wie hem
+           wijzigt, breekt de links die al gedeeld zijn, en dat merkt niemand, want wie
+           erop klikt is geen bestuurder. #}
+        <div>{{ ui.label(_("Vriendelijke URL"), "slug") }}
+          {{ ui.input_control("slug", id="slug", value=a.slug or "", placeholder=_("bv. zomerfeest-2026"), cls="w-full") }}
+          <p class="text-xs text-ink-soft mt-1">{{ _("Optioneel. Leeg = enkel het nummer-adres. Wijzig je dit, dan werken eerder gedeelde links niet meer.") }}</p></div>
         <div>{{ ui.label(_("Locatie"), "location") }}
           {{ ui.input_control("location", id="location", value=a.location or "", cls="w-full") }}</div>
       </div>

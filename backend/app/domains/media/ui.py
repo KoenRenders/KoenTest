@@ -57,10 +57,21 @@ def _duim_token(request: Request) -> str | None:
     return waarde or None
 
 
-@router.get("/activiteiten/{activity_id}/fotos", response_class=HTMLResponse)
-def activiteit_fotos(activity_id: int, request: Request,
+@router.get("/activiteiten/{activity_key}/fotos", response_class=HTMLResponse)
+def activiteit_fotos(activity_key: str, request: Request,
                      db: Session = Depends(get_db)):
-    from app.domains.activities.api import get_activity
+    """Het album van één activiteit, op nummer ÓF op vriendelijke URL (#884).
+
+    Het pad is een STRING en geen int: `/activiteiten/7/fotos` en
+    `/activiteiten/zomerfeest-2026/fotos` leiden naar dezelfde pagina. De nummer-URL
+    blijft werken omdat er nummer-URL's in verstuurde e-mails, WhatsApp-berichten en de
+    zoekmachine staan.
+
+    Precies één van de twee is canoniek: bestaat er een slug, dan is die het, en de
+    nummer-URL verwijst ernaar. Anders indexeert Google beide adressen en verdeelt hij
+    de waarde over twee pagina's — dan verzwak je wat je wilde versterken.
+    """
+    from app.domains.activities.api import activity_by_key
     from app.domains.media.api import list_activity_photos
 
     # Lazy, zoals elders: `_()` moet de taal van de actieve tenant volgen en niet die
@@ -68,7 +79,10 @@ def activiteit_fotos(activity_id: int, request: Request,
     from app.i18n import _
     from app.kernel.tenant_config import tenant_base_url
 
-    activiteit = get_activity(db, activity_id)
+    activiteit = activity_by_key(db, activity_key)
+    if activiteit is None:
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    activity_id = activiteit.id
     fotos = list_activity_photos(db, activity_id)
     from app.domains.media.api import thumb_counts, thumbs_of_visitor
 
@@ -83,6 +97,17 @@ def activiteit_fotos(activity_id: int, request: Request,
         context["og_title"] = _("Foto's — %(naam)s") % {"naam": activiteit.name}
         context["og_description"] = _(
             "Bekijk de foto's van %(naam)s.") % {"naam": activiteit.name}
+    # #884: precies ÉÉN van de twee adressen is canoniek, en deze pagina zegt altijd
+    # welke. Bestaat er een slug, dan is die het en wijst de nummer-URL ernaar; anders is
+    # de nummer-URL zelf het canonieke adres. Zonder die uitspraak indexeert Google beide
+    # en verdeelt hij de waarde over twee pagina's.
+    #
+    # `tenant_base_url` geeft de host waarop dit verzoek binnenkwam (#860), dus dit blijft
+    # kloppen op elke omgeving en op een platform-host met pad-prefix. Bewust hier en niet
+    # in `site_context`: daar hangt `canonical_url` aan de ingestelde `base_url`, en dat
+    # gedrag verandert deze wijziging niet voor de rest van de site.
+    _sleutel = activiteit.slug or activity_id
+    context["canonical_url"] = f"{tenant_base_url(db)}/activiteiten/{_sleutel}/fotos"
     if fotos:
         # De VOLLEDIGE foto en niet de thumbnail: WhatsApp en Facebook wijzen kleine
         # beelden af of tonen ze onscherp. De eerste van het album (laagste

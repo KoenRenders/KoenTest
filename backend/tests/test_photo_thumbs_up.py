@@ -40,6 +40,19 @@ COOKIE = "raak_duim"
 
 
 def _photo(db, *, activity_id=901, title="foto"):
+    # Mét een échte activiteit: sinds #884 geeft een album van een onbestaande activiteit
+    # een 404 (dat pad accepteert nu ook een slug, en dan is "niet gevonden" het enige
+    # juiste antwoord). Een test die een los asset maakte, leunde op de oude 200.
+    from datetime import date
+
+    from app.domains.activities.api import Activity, ActivityDate
+
+    if db.query(Activity).filter(Activity.id == activity_id).first() is None:
+        activiteit = Activity(id=activity_id, name=f"Album {activity_id}")
+        db.add(activiteit)
+        db.flush()
+        db.add(ActivityDate(activity_id=activity_id, start_date=date(2026, 7, 1)))
+        db.flush()
     asset = MediaAsset(kind="activity_photo", activity_id=activity_id, title=title,
                        sort_order=0, is_active=True, content_type="image/jpeg",
                        byte_size=10, width=100, height=100, data=b"x", thumbnail=b"y")
