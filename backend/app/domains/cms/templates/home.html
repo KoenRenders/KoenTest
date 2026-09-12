@@ -9,11 +9,11 @@
   <div class="flex flex-wrap gap-3">
     {# #499: een ingelogd lid ziet 'Mijn gezin' i.p.v. een leeg registratieformulier. #}
     {% if gebruiker and gebruiker.is_member %}
-    {{ ui.btn_primary(_("Mijn gezin"), href="/leden/gezin") }}
+    {{ ui.btn_primary(_("Mijn gezin"), href=path_for("/leden/gezin")) }}
     {% else %}
-    {{ ui.btn_primary(_("Word lid"), href="/lid-worden") }}
+    {{ ui.btn_primary(_("Word lid"), href=path_for("/lid-worden")) }}
     {% endif %}
-    {{ ui.btn_secondary(_("Contacteer ons"), href="/berichten") }}
+    {{ ui.btn_secondary(_("Contacteer ons"), href=path_for("/berichten")) }}
   </div>
 </section>
 <section class="mt-8">

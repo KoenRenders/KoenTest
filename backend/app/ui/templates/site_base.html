@@ -17,7 +17,9 @@
 {% macro navlink(pad, href, label, exact=False, match=None) -%}
 {%- set _m = match or href -%}
 {%- set _actief = (pad == _m) if exact else (pad == _m or pad.startswith(_m ~ "/")) -%}
-<a href="{{ href }}" class="hover:underline {% if _actief %}text-white font-semibold underline underline-offset-4 decoration-2{% else %}text-blue-100{% endif %}"{% if _actief %} aria-current="page"{% endif %}>{{ label }}</a>
+{# #889: de VERGELIJKING blijft op het kale pad — de middleware heeft de prefix er al
+   afgehaald voor `_pad`. Alleen wat de bezoeker aanklikt draagt hem. #}
+<a href="{{ path_for(href) }}" class="hover:underline {% if _actief %}text-white font-semibold underline underline-offset-4 decoration-2{% else %}text-blue-100{% endif %}"{% if _actief %} aria-current="page"{% endif %}>{{ label }}</a>
 {%- endmacro %}
 {# SiteShell (React-exit #405, §21): de volwaardige publieke schil — navigatie
    (CMS-pagina's server-side), inhoud en footer (site-footer-blok + sponsors).
@@ -109,7 +111,7 @@
   <header class="sticky {{ 'top-6' if env_bar else 'top-0' }} z-40">
     <nav class="bg-blue-700 text-white shadow-md" x-data="{ open: false }">
       <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-        <a href="/" class="hover:opacity-80">
+        <a href="{{ path_for("/") }}" class="hover:opacity-80">
           {# Woordmerk "RaaK" (huisstijl): kapitale R en K, kleine "aa" opgetrokken naar
              kapitaalhoogte via een grotere fontsize (#605). Radio Canada Big (font-brand).
              aria-label houdt het leesbaar als "Raak" voor schermlezers.
@@ -145,9 +147,9 @@
           {% endfor %}
           {% if gebruiker %}
           {% if gebruiker.is_member %}{{ navlink(_pad, "/leden/gezin", _("Mijn gezin")) }}{% endif %}{% if gebruiker.is_admin %}<a href="/admin" hx-boost="false" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
-          <a href="/afmelden" hx-boost="false" class="hover:underline opacity-80">{{ _("Uitloggen") }} ({{ gebruiker.naam }})</a>
+          <a href="{{ path_for("/afmelden") }}" hx-boost="false" class="hover:underline opacity-80">{{ _("Uitloggen") }} ({{ gebruiker.naam }})</a>
           {% else %}
-          <a href="/aanmelden" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>
+          <a href="{{ path_for("/aanmelden") }}" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>
           {% endif %}
         </div>
       </div>
@@ -162,9 +164,9 @@
         {% endfor %}
         {% if gebruiker %}
         {% if gebruiker.is_member %}{{ navlink(_pad, "/leden/gezin", _("Mijn gezin")) }}{% endif %}{% if gebruiker.is_admin %}<a href="/admin" hx-boost="false" class="hover:underline text-yellow-300 font-medium">{{ _("Admin") }}</a>{% endif %}
-        <a href="/afmelden" hx-boost="false" class="hover:underline opacity-80">{{ _("Uitloggen") }} ({{ gebruiker.naam }})</a>
+        <a href="{{ path_for("/afmelden") }}" hx-boost="false" class="hover:underline opacity-80">{{ _("Uitloggen") }} ({{ gebruiker.naam }})</a>
         {% else %}
-        <a href="/aanmelden" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>
+        <a href="{{ path_for("/aanmelden") }}" class="hover:underline opacity-80">{{ _("Aanmelden") }}</a>
         {% endif %}
       </div>
     </nav>
