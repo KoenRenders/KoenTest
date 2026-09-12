@@ -182,7 +182,39 @@ def statisch(naam: str) -> str:
     return f"/static/{naam}?v={statisch_hash(_STATIC_DIR / naam)}"
 
 
+def path_for(pad: str) -> str:
+    """Een intern pad, voorzien van de tenant-prefix wanneer dat nodig is (#889).
+
+    Kwam je via `/raakmillegem/...` op een platform-host binnen, dan hoort *Home* naar
+    `/raakmillegem/` te wijzen en niet naar `/`. Vandaag staat er `/fotos` in de adresbalk
+    terwijl je bij Millegem zit, en weet alleen een cookie dat nog. Drie dingen worden
+    daarmee tegelijk goed:
+
+    - **de URL zegt waar je bent**;
+    - **een gedeelde link werkt** — stuur `/fotos` door en de ontvanger komt zonder jouw
+      cookie ergens anders uit;
+    - **de cookie wordt een vangnet in plaats van het mechanisme.** Nu is hij dragend, en
+      wie zijn cookies wist verdwaalt.
+
+    Doet niets wanneer de afdeling op haar eigen hostnaam draait: daar zou een prefix
+    alleen maar lelijke URL's opleveren.
+
+    `/admin`, `/static` en `/api` worden nooit geprefixt, en die uitzondering staat HIER
+    en niet bij elke aanroeper: beheerschermen worden niet via een prefix bereikt, en een
+    regel die je op tientallen plaatsen moet onthouden is een regel die iemand vergeet.
+    """
+    from app.kernel.tenancy import current_platform_host, current_tenant_code
+
+    if not pad.startswith("/") or pad.startswith(("/admin", "/static", "/api")):
+        return pad
+    code = current_tenant_code.get()
+    if not (current_platform_host.get() and code):
+        return pad
+    return f"/{code}" if pad == "/" else f"/{code}{pad}"
+
+
 templates.env.globals["statisch"] = statisch
+templates.env.globals["path_for"] = path_for
 
 # Canonieke admin-navigatie (React-exit 405-d, #405): één bron voor alle
 # server-rendered beheer-schermen i.p.v. een kopie per module.
