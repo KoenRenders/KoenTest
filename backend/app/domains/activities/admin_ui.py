@@ -244,7 +244,7 @@ async def activiteit_bijwerken(activity_id: int, request: Request,
                                db: Session = Depends(get_db),
                                email: str = Depends(require_admin_ui),
                                name: str = Form(""), location: str = Form(""),
-                               poster_url: str = Form(""),
+                               poster_url: str = Form(""), slug: str = Form(""),
                                members_only: str = Form(""), is_cancelled: str = Form(""),
                                file: Optional[UploadFile] = File(None)):
     """Bewerkt de activiteit; één "Opslaan" bewaart tekstvelden én de affiche (#623).
@@ -262,7 +262,15 @@ async def activiteit_bijwerken(activity_id: int, request: Request,
         poster_url=poster_url.strip() or None,
         members_only=bool(members_only), is_cancelled=bool(is_cancelled),
     ).model_dump(exclude_none=True)
-    if service.update_activity(db, activity_id, velden, actor=email) is None:
+    # #884: de slug staat BUITEN `exclude_none`, want leegmaken is een geldige keuze —
+    # dan verdwijnt de vriendelijke URL en blijft alleen de nummer-URL over. Hij volgt
+    # de naam niet: wie hem wijzigt, doet dat met de waarschuwing op het scherm.
+    velden["slug"] = slug.strip() or None
+    try:
+        bijgewerkt = service.update_activity(db, activity_id, velden, actor=email)
+    except service.ActiviteitFout as fout:
+        return _detail_response(request, db, activity_id, error=str(fout))
+    if bijgewerkt is None:
         raise HTTPException(status_code=404, detail=_("Activity not found"))
 
     if file is not None and file.filename:

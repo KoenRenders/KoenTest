@@ -54,8 +54,69 @@ def _rollback_on_rule_violation(db):
     return _guard()
 
 
+def slugify(naam: str) -> str:
+    """Een vriendelijke URL uit een naam (#884): kleine letters, cijfers, koppeltekens.
+
+    Alleen een VOORSTEL. Wat er daarna met de slug gebeurt, beslist de bestuurder — deze
+    functie wordt nooit opnieuw over een bestaande activiteit gehaald, want dan zou de
+    slug de naam volgen en zouden gedeelde links breken bij een hernoeming.
+    """
+    import re
+    import unicodedata
+
+    kaal = unicodedata.normalize("NFKD", naam or "").encode("ascii", "ignore").decode()
+    kaal = re.sub(r"[^a-zA-Z0-9]+", "-", kaal).strip("-").lower()
+    return re.sub(r"-{2,}", "-", kaal)[:255]
+
+
+def slug_is_vrij(db, slug: str, *, behalve_id: int | None = None) -> bool:
+    """Is deze slug nog vrij binnen de actieve tenant? (#884)
+
+    De globale tenant-filter doet hier het werk: dezelfde slug bij twee verschillende
+    afdelingen is toegestaan, want dat zijn andere verenigingen op andere adressen.
+    """
+    query = db.query(Activity).filter(Activity.slug == slug)
+    if behalve_id is not None:
+        query = query.filter(Activity.id != behalve_id)
+    return query.first() is None
+
+
+def activity_by_key(db, key: str):
+    """Een activiteit op id ÓF op slug (#884).
+
+    De nummer-URL blijft werken, en dat is geen hoffelijkheid: er staan nummer-URL's in
+    verstuurde e-mails, in WhatsApp-berichten en in de zoekmachine. Alleen cijfers = een
+    id; al de rest = een slug.
+    """
+    sleutel = (key or "").strip()
+    if not sleutel:
+        return None
+    if sleutel.isdigit():
+        return db.query(Activity).filter(Activity.id == int(sleutel)).first()
+    return db.query(Activity).filter(Activity.slug == sleutel.lower()).first()
+
+
+def _controleer_slug(db, slug: str | None, *, behalve_id: int | None = None) -> str | None:
+    """Normaliseer en controleer een ingetypte slug; None blijft None (optioneel)."""
+    if slug is None:
+        return None
+    schoon = slugify(slug)
+    if not schoon:
+        return None
+    if not slug_is_vrij(db, schoon, behalve_id=behalve_id):
+        from app.i18n import _ as vertaal
+
+        # Zichtbaar weigeren en niet stil een cijfer erachter zetten: dan krijgt de
+        # bestuurder een adres dat hij niet gekozen heeft en nergens ziet.
+        raise ActiviteitFout(vertaal(
+            "De URL '%(slug)s' is al in gebruik door een andere activiteit."
+        ) % {"slug": schoon})
+    return schoon
+
+
 def create_activity(db, *, name: str, location=None, poster_url=None,
-                    members_only: bool = False, dates=(), actor=None) -> Activity:
+                    members_only: bool = False, dates=(), actor=None,
+                    slug: str | None = None) -> Activity:
     """Maak een activiteit met haar eerste datums (#679, batch 1).
 
     De audit-snapshots horen bij de mutatie, niet bij de route: een activiteit die
@@ -65,8 +126,17 @@ def create_activity(db, *, name: str, location=None, poster_url=None,
     """
     from app.domains.audit.api import snapshot_activity, snapshot_activity_date
 
+    # #884: bij het AANMAKEN een voorstel uit de naam, tenzij er één meegegeven is.
+    # Botst het voorstel, dan blijft de slug leeg in plaats van te falen: de activiteit
+    # aanmaken is de handeling, niet het kiezen van een adres — dat kan daarna in de
+    # editor, met een zichtbare melding als het nog steeds botst.
+    if slug is None:
+        voorstel = slugify(name)
+        slug = voorstel if voorstel and slug_is_vrij(db, voorstel) else None
+    else:
+        slug = _controleer_slug(db, slug)
     activity = Activity(name=name, location=location, poster_url=poster_url,
-                        members_only=bool(members_only))
+                        members_only=bool(members_only), slug=slug)
     db.add(activity)
     db.flush()
     snapshot_activity(db, activity, operation="insert", action="activity_created",
@@ -101,6 +171,13 @@ def update_activity(db, activity_id: int, velden: dict, *, actor=None) -> Option
     activity = _activity_met_boom(db, activity_id)
     if activity is None:
         return None
+    # #884: een slug volgt de naam NIET. Hij verandert alleen wanneer hij expliciet in
+    # `velden` staat — en dan met een zichtbare controle op botsing. Zou hij meebewegen
+    # met de naam, dan sterft elke gedeelde link bij een hernoeming, zonder dat iemand
+    # het merkt: wie op zo'n link klikt is geen bestuurder.
+    if "slug" in velden:
+        velden = {**velden,
+                  "slug": _controleer_slug(db, velden["slug"], behalve_id=activity_id)}
     for veld, waarde in velden.items():
         setattr(activity, veld, waarde)
     snapshot_activity(db, activity, operation="update", action="activity_updated",

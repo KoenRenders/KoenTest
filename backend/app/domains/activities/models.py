@@ -91,6 +91,12 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String(255), nullable=False)
+    # Optionele vriendelijke URL (#884), uniek per tenant — zelfde patroon als
+    # `CmsPage.slug`. VOLGT DE NAAM NIET: bij het aanmaken wordt er één voorgesteld,
+    # daarna blijft hij staan, ook als de activiteit hernoemd wordt. Anders breken
+    # gedeelde links zonder dat iemand het merkt — wie op zo'n link klikt is geen
+    # bestuurder en meldt het dus nooit.
+    slug = Column(String(255), nullable=True, index=True)
     location = Column(String(255), nullable=True)
     poster_url = Column(Text, nullable=True)
     is_cancelled = Column(Boolean, default=False, nullable=False)
