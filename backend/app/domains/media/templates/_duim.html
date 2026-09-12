@@ -1,0 +1,15 @@
+{% import "_macros.html" as ui %}
+{# #883: één duimpje per bezoeker per foto. Enkel een AANTAL — nooit wie.
+   Toon je wie geduimd heeft, dan heb je een sociaal netwerkje gebouwd met alles wat
+   daarbij hoort, en bij foto's van een dorpsactiviteit wil je dat niet.
+
+   Het fragment vervangt zichzelf (`hx-target="this"`), dus de teller en de stand komen
+   uit hetzelfde antwoord als de handeling. #}
+<button type="button" id="duim-{{ foto_id }}"
+        hx-post="/fotos/{{ foto_id }}/duim" hx-target="this" hx-swap="outerHTML"
+        aria-pressed="{{ 'true' if aan else 'false' }}"
+        aria-label="{{ _("Duimpje geven") if not aan else _("Duimpje weghalen") }}"
+        class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium
+               {{ 'bg-blue-100 text-blue-700' if aan else 'bg-white/90 text-ink-soft hover:bg-white' }}">
+  {{ ui.icon('thumbs-up', size=14) }}<span>{{ aantal }}</span>
+</button>

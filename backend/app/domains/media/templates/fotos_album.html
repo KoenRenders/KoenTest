@@ -6,7 +6,17 @@
 {% block title %}Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %} — {{ site_name }}{% endblock %}
 {% block content %}
 <a href="/fotos" class="text-blue-700 hover:underline text-sm">← {{ _("Terug naar alle albums") }}</a>
-<h1 class="text-3xl font-bold text-blue-700 mt-2 mb-6">Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %}</h1>
+<h1 class="text-3xl font-bold text-blue-700 mt-2">Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %}</h1>
+{# #883: deze zin hoort op het SCHERM en niet alleen in het issue. Een duimpjestelling
+   meet vooral positie: foto's bovenaan krijgen er meer omdat ze vaker gezien worden.
+   Als warm signaal prima; kies er geen headerfoto of flyerbeeld mee, want dan meet je
+   scrollgedrag en denk je dat je smaak meet. En het is niet fraudebestendig — één per
+   browser, en wie zijn cookies wist begint opnieuw. #}
+{% if fotos %}
+<p class="text-sm text-ink-soft mb-6">{{ _("Een duimpje per foto, één per bezoeker — een warm signaal en geen stemming. Foto's bovenaan krijgen er meer omdat ze vaker gezien worden.") }}</p>
+{% else %}
+<div class="mb-6"></div>
+{% endif %}
 {% if fotos %}
 {# Lightbox met vorige/volgende-navigatie (#473): thumbnails openen een overlay;
    ‹/› verschijnen enkel waar er een buur is; Esc/✕/achtergrond/pijltjes sluiten/
@@ -17,11 +27,20 @@
      @keydown.arrow-right.window="if (open !== null &amp;&amp; open < urls.length - 1) open++">
   <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
     {% for f in fotos %}
-    <button type="button" @click="open = {{ loop.index0 }}"
-            class="block aspect-square bg-gray-100 rounded-xl overflow-hidden hover:opacity-90">
-      <img src="{{ f.thumb_url }}" alt="{{ f.title or activiteit.name if activiteit else '' }}"
-           class="w-full h-full object-cover" loading="lazy">
-    </button>
+    {# #883: het duimpje staat NAAST de foto-knop en niet erin — een knop in een knop
+       is ongeldige HTML, en dan opent de lightbox bij het duimen. #}
+    <div class="relative">
+      <button type="button" @click="open = {{ loop.index0 }}"
+              class="block w-full aspect-square bg-gray-100 rounded-xl overflow-hidden hover:opacity-90">
+        <img src="{{ f.thumb_url }}" alt="{{ f.title or activiteit.name if activiteit else '' }}"
+             class="w-full h-full object-cover" loading="lazy">
+      </button>
+      <div class="absolute bottom-1.5 right-1.5">
+        {% with foto_id = f.id, aantal = duimen.get(f.id, 0), aan = f.id in eigen_duimen %}
+        {% include "_duim.html" %}
+        {% endwith %}
+      </div>
+    </div>
     {% endfor %}
   </div>
 

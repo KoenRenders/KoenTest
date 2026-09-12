@@ -10,13 +10,14 @@ from app.domains.media.extraction import (  # noqa: F401
     extract_document_text,
     update_media_extracted_text,
 )
-from app.domains.media.models import MediaAsset  # noqa: F401
+from app.domains.media.models import MediaAsset, MediaThumbsUp  # noqa: F401
 
 __all__ = [
     "MediaFout", "VALID_KINDS", "activity_ids_with_media",
     "activity_photo_covers", "delete_media",
     "list_activity_photos", "list_media", "move_media", "update_media", "upload_media",
-    "MediaAsset", "EXTRACTABLE_KINDS", "extract_document_text",
+    "thumb_counts", "thumbs_of_visitor", "toggle_thumb",
+    "MediaAsset", "MediaThumbsUp", "EXTRACTABLE_KINDS", "extract_document_text",
     "delete_activity_poster", "delete_component_info", "reextract_text",
     "replace_activity_poster", "replace_component_info",
     "update_media_extracted_text",
@@ -41,6 +42,9 @@ from app.domains.media.service import (  # noqa: F401
     list_activity_photos,
     list_media,
     move_media,
+    thumb_counts,
+    thumbs_of_visitor,
+    toggle_thumb,
     update_media,
     upload_media,
 )

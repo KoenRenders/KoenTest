@@ -6,11 +6,12 @@ in de SiteShell; hergebruikt de media-routerfuncties als servicelaag.
 """
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
+from app.limiter import form_submit_limiter
 from app.ui import site_context, templates
 
 router = APIRouter(include_in_schema=False)
@@ -37,6 +38,25 @@ def fotos_overzicht(request: Request, db: Session = Depends(get_db)):
         "covers": covers})
 
 
+# #883: de cookie die "één duimpje per bezoeker" mogelijk maakt.
+#
+# **Ze wordt pas gezet bij de eerste klik, nooit bij het bekijken van een pagina.** Dat is
+# de kern van de afweging: zo is de opslag het directe gevolg van een handeling die de
+# bezoeker zelf vraagt, en niet iets dat op het toestel van iemand belandt die niets
+# gevraagd heeft. Zie de afsluitcomment van #883 voor de volledige uitleg; de beslissing
+# over een toestemmingsbanner is aan Koen.
+#
+# HttpOnly: alleen de server leest ze. SameSite=Lax volstaat — dit is geen gevoelige
+# handeling en een duimpje vanaf een externe link mag werken.
+DUIM_COOKIE = "raak_duim"
+DUIM_MAX_AGE = 60 * 60 * 24 * 180  # een half jaar
+
+
+def _duim_token(request: Request) -> str | None:
+    waarde = (request.cookies.get(DUIM_COOKIE) or "").strip()
+    return waarde or None
+
+
 @router.get("/activiteiten/{activity_id}/fotos", response_class=HTMLResponse)
 def activiteit_fotos(activity_id: int, request: Request,
                      db: Session = Depends(get_db)):
@@ -50,7 +70,14 @@ def activiteit_fotos(activity_id: int, request: Request,
 
     activiteit = get_activity(db, activity_id)
     fotos = list_activity_photos(db, activity_id)
-    context = {**site_context(db, request), "activiteit": activiteit, "fotos": fotos}
+    from app.domains.media.api import thumb_counts, thumbs_of_visitor
+
+    ids = [f["id"] for f in fotos]
+    token = _duim_token(request)
+    context = {**site_context(db, request), "activiteit": activiteit, "fotos": fotos,
+               # #883: alleen AANTALLEN en "heb ik zelf geduimd" — nooit wie.
+               "duimen": thumb_counts(db, ids),
+               "eigen_duimen": thumbs_of_visitor(db, ids, token)}
     if activiteit is not None:
         # #881: de naam van het ALBUM in de voorbeschouwing, niet die van de site.
         context["og_title"] = _("Foto's — %(naam)s") % {"naam": activiteit.name}
@@ -67,3 +94,36 @@ def activiteit_fotos(activity_id: int, request: Request,
         # toeval — een crawler heeft er geen.
         context["og_image"] = f"{tenant_base_url(db)}{fotos[0]['url']}"
     return templates.TemplateResponse(request, "fotos_album.html", context)
+
+
+@router.post("/fotos/{asset_id}/duim", response_class=HTMLResponse,
+             dependencies=[Depends(form_submit_limiter)])
+def foto_duim(asset_id: int, request: Request, db: Session = Depends(get_db)):
+    """Duimpje aan of uit voor deze bezoeker (#883). Publiek, geen sessie.
+
+    De cookie wordt HIER gezet als ze nog niet bestaat — bij de klik dus, en niet bij het
+    bekijken van een albumpagina. Zonder token is er geen "één per bezoeker", en met een
+    token dat bij elk paginabezoek gezet wordt sla je iets op bij iemand die niets
+    gevraagd heeft.
+
+    Een rem erop (`form_submit_limiter`): dit schrijft rijen en is publiek. Niet
+    fraudebestendig — dat is aanvaard en staat in de omschrijving op het scherm — maar een
+    script hoort niet ongelimiteerd rijen te kunnen maken.
+    """
+    import secrets
+
+    from app.domains.media.api import toggle_thumb
+    from app.i18n import _
+
+    token = _duim_token(request) or secrets.token_urlsafe(32)
+    try:
+        aantal, aan = toggle_thumb(db, asset_id, token)
+    except LookupError:
+        raise HTTPException(status_code=404, detail=_("Foto niet gevonden"))
+
+    antwoord = templates.TemplateResponse(request, "_duim.html", {
+        "foto_id": asset_id, "aantal": aantal, "aan": aan})
+    if _duim_token(request) is None:
+        antwoord.set_cookie(DUIM_COOKIE, token, max_age=DUIM_MAX_AGE,
+                            httponly=True, samesite="lax", path="/")
+    return antwoord

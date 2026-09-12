@@ -8,6 +8,7 @@ from sqlalchemy import (
     Boolean,
     ForeignKey,
     LargeBinary,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -79,3 +80,31 @@ class MediaAsset(TenantMixin, Base):
         primaryjoin="foreign(MediaAsset.component_id) == ActivitySubRegistration.id",
         viewonly=True,
     )
+
+
+class MediaThumbsUp(TenantMixin, Base):
+    """Eén duimpje van één bezoeker op één foto (#883).
+
+    De uniciteit staat op ``(asset_id, visitor_token)`` in de DATABANK (migratie 113) en
+    niet alleen in de service: twee snelle kliks kruisen elkaar, en dan controleren beide
+    "bestaat er al een rij?" vóór er één geland is.
+
+    ``visitor_token`` is een lang toevalsgetal uit een first-party cookie. Geen IP, geen
+    vingerafdruk, geen naam — dat is een grens en geen tekortkoming: met een identifier
+    die van de bezoeker afgeleid is, had je een volgmechanisme gebouwd voor een duimpje
+    op een dorpsfoto.
+
+    Er wordt nooit per bezoeker uitgelezen. Het token bestaat alleen om nog eens klikken
+    het duimpje te kunnen laten weghalen.
+    """
+
+    __tablename__ = "media_thumbs_up"
+    __table_args__ = (UniqueConstraint("asset_id", "visitor_token",
+                                       name="uq_thumb_per_visitor"),
+                      {"schema": "media"})
+
+    id = Column(Integer, primary_key=True)
+    asset_id = Column(Integer, ForeignKey("media.media_assets.id", ondelete="CASCADE"),
+                      nullable=False, index=True)
+    visitor_token = Column(String(64), nullable=False)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)

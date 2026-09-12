@@ -138,6 +138,83 @@ def update_media(db, asset_id: int, payload: dict) -> dict:
     return meta(asset)
 
 
+def thumb_counts(db, asset_ids) -> dict[int, int]:
+    """Aantal duimpjes per foto (#883). Eén query voor de hele pagina."""
+    from sqlalchemy import func
+
+    from app.domains.media.models import MediaThumbsUp
+
+    if not asset_ids:
+        return {}
+    rijen = (db.query(MediaThumbsUp.asset_id, func.count(MediaThumbsUp.id))
+             .filter(MediaThumbsUp.asset_id.in_(list(asset_ids)))
+             .group_by(MediaThumbsUp.asset_id).all())
+    return {asset_id: aantal for asset_id, aantal in rijen}
+
+
+def thumbs_of_visitor(db, asset_ids, token: str | None) -> set[int]:
+    """Op welke van deze foto's heeft déze bezoeker geduimd? (#883)
+
+    Enkel om de knop de juiste stand te geven. Er wordt nooit een token of een lijst
+    van bezoekers naar buiten gegeven — alleen een aantal, en per foto of jíj geduimd
+    hebt.
+    """
+    from app.domains.media.models import MediaThumbsUp
+
+    if not token or not asset_ids:
+        return set()
+    rijen = (db.query(MediaThumbsUp.asset_id)
+             .filter(MediaThumbsUp.asset_id.in_(list(asset_ids)),
+                     MediaThumbsUp.visitor_token == token).all())
+    return {rij[0] for rij in rijen}
+
+
+def toggle_thumb(db, asset_id: int, token: str) -> tuple[int, bool]:
+    """Duimpje aan of uit voor deze bezoeker; geeft (aantal, staat het aan) terug (#883).
+
+    Schakelen en niet enkel toevoegen, en dat is meer dan gemak: het maakt de
+    cookie-aanpak eerlijk. Wie zijn cookies wist, verliest zijn duimpjes in plaats van
+    ze te kunnen verdubbelen.
+
+    De uniciteit ligt in de databank (`uq_thumb_per_visitor`, migratie 113). Deze
+    functie vangt de IntegrityError op die twee gelijktijdige kliks opleveren: dan heeft
+    de andere het al gezet en is er niets te doen. Zonder die grendel zouden beide
+    kliks "bestaat er al een rij?" met nee beantwoorden vóór er één geland is.
+    """
+    from sqlalchemy.exc import IntegrityError
+
+    from app.domains.media.models import MediaAsset, MediaThumbsUp
+
+    asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
+    if asset is None:
+        raise LookupError("Niet gevonden")
+
+    bestaand = (db.query(MediaThumbsUp)
+                .filter(MediaThumbsUp.asset_id == asset_id,
+                        MediaThumbsUp.visitor_token == token).first())
+    if bestaand is not None:
+        db.delete(bestaand)
+        db.commit()
+        return _thumb_total(db, asset_id), False
+
+    db.add(MediaThumbsUp(asset_id=asset_id, visitor_token=token))
+    try:
+        db.commit()
+    except IntegrityError:
+        # De andere klik was eerst. Dat is geen fout: de gewenste toestand is bereikt.
+        db.rollback()
+    return _thumb_total(db, asset_id), True
+
+
+def _thumb_total(db, asset_id: int) -> int:
+    from sqlalchemy import func
+
+    from app.domains.media.models import MediaThumbsUp
+
+    return (db.query(func.count(MediaThumbsUp.id))
+            .filter(MediaThumbsUp.asset_id == asset_id).scalar() or 0)
+
+
 def move_media(db, asset_id: int, richting: str) -> None:
     """Verschuif één asset één plaats binnen ZIJN EIGEN groep (#882).
 
