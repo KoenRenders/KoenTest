@@ -131,6 +131,8 @@ class ActivityCreate(BaseModel):
 
 class ActivityUpdate(BaseModel):
     name: Optional[str] = None
+    # #884: optionele vriendelijke URL. Volgt de naam NIET — zie Activity.slug.
+    slug: Optional[str] = None
     location: Optional[str] = None
     poster_url: Optional[str] = None
     is_cancelled: Optional[bool] = None
@@ -140,6 +142,10 @@ class ActivityUpdate(BaseModel):
 class ActivityResponse(BaseModel):
     id: int
     name: str
+    # #884: de vriendelijke URL hoort bij de activiteit, dus ook in haar antwoord — het
+    # beheerscherm leest hem hieruit, en een externe aanroeper moet het adres kunnen
+    # kennen dat hij deelt.
+    slug: Optional[str] = None
     sort_date: Optional[Date] = None
     dates: List[ActivityDateResponse] = []
     location: Optional[str] = None

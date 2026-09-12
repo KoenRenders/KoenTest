@@ -190,7 +190,39 @@ def statisch(naam: str) -> str:
     return f"/static/{naam}?v={statisch_hash(_STATIC_DIR / naam)}"
 
 
+def path_for(pad: str) -> str:
+    """Een intern pad, voorzien van de tenant-prefix wanneer dat nodig is (#889).
+
+    Kwam je via `/raakmillegem/...` op een platform-host binnen, dan hoort *Home* naar
+    `/raakmillegem/` te wijzen en niet naar `/`. Vandaag staat er `/fotos` in de adresbalk
+    terwijl je bij Millegem zit, en weet alleen een cookie dat nog. Drie dingen worden
+    daarmee tegelijk goed:
+
+    - **de URL zegt waar je bent**;
+    - **een gedeelde link werkt** — stuur `/fotos` door en de ontvanger komt zonder jouw
+      cookie ergens anders uit;
+    - **de cookie wordt een vangnet in plaats van het mechanisme.** Nu is hij dragend, en
+      wie zijn cookies wist verdwaalt.
+
+    Doet niets wanneer de afdeling op haar eigen hostnaam draait: daar zou een prefix
+    alleen maar lelijke URL's opleveren.
+
+    `/admin`, `/static` en `/api` worden nooit geprefixt, en die uitzondering staat HIER
+    en niet bij elke aanroeper: beheerschermen worden niet via een prefix bereikt, en een
+    regel die je op tientallen plaatsen moet onthouden is een regel die iemand vergeet.
+    """
+    from app.kernel.tenancy import current_platform_host, current_tenant_code
+
+    if not pad.startswith("/") or pad.startswith(("/admin", "/static", "/api")):
+        return pad
+    code = current_tenant_code.get()
+    if not (current_platform_host.get() and code):
+        return pad
+    return f"/{code}" if pad == "/" else f"/{code}{pad}"
+
+
 templates.env.globals["statisch"] = statisch
+templates.env.globals["path_for"] = path_for
 
 # Canonieke admin-navigatie (React-exit 405-d, #405): één bron voor alle
 # server-rendered beheer-schermen i.p.v. een kopie per module.
@@ -208,7 +240,11 @@ _ADMIN_NAV: list[tuple[str, str]] = [
     ("/admin/ai-context", "Raakje"),
     ("/admin/e-maillog", "E-maillog"),
     ("/admin/tenants", "Tenants"),
-    ("/admin/design-system", "Design system"),
+    # GEEN Design system hier (#878). De balk is voor schermen waar een bestuurder
+    # werk doet; `/admin/design-system` is naslag over knoppen, kleuren en afstanden —
+    # nuttig bij het bouwen, niet bij het besturen. De route blijft bestaan achter
+    # `require_admin_ui`, en je gaat ernaartoe via Info. "Uit het menu" is dus iets
+    # anders dan "weg": ruim de route niet op omdat er niets meer naar wijst.
     ("/admin/info", "Info"),
 ]
 
@@ -343,6 +379,18 @@ def site_context(db, request=None) -> dict:
             # tenant-config. GEEN Millegem-specifieke defaults meer — die lekten
             # naar andere tenants (multi-tenancy-fout). Leeg = niet tonen, net als
             # Instagram/TikTok/privacy (#493): elke tenant zet zijn eigen waarden.
+            # Open Graph per PAGINA (#881), met de sitewaarden als terugval. Altijd
+            # aanwezig en niet via `|default()`: de sjablonen renderen onder
+            # StrictUndefined, en een ontbrekende naam hoort daar te falen in plaats van
+            # leeg te renderen. Een pagina die niets overschrijft krijgt exact de tags
+            # die ze vandaag heeft.
+            #
+            # Waarom dit nodig was: titel en omschrijving kwamen van de SITE, dus wie een
+            # album deelde las de naam van de vereniging in plaats van die van het album —
+            # en er was helemaal geen `og:image`, dus nooit een beeld.
+            "og_title": None,
+            "og_description": None,
+            "og_image": None,
             "site_name": tenant_display_name(db),
             "site_tagline": get_setting(db, "tagline") or "",
             "facebook_url": get_setting(db, "facebook_url") or None,

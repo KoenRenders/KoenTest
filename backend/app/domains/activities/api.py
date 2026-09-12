@@ -92,6 +92,9 @@ def register_for_activity(db, activity_id: int, data, background_tasks,
 from app.domains.activities.export import build_component_export_ods  # noqa: F401
 
 from app.domains.activities.service import (  # noqa: F401
+    activity_by_key,
+    slug_is_vrij,
+    slugify,
     ActivityOption,
     activity_options,
     get_activity,

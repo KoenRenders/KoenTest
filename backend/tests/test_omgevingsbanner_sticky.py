@@ -29,14 +29,12 @@ BASIS = dict(nav_pages=[], sponsors=[], gebruiker=None, footer_block=None,
 
 
 def _render(schil: str, omgeving: str) -> str:
-    env = Environment(loader=FileSystemLoader(str(TEMPLATES)), autoescape=True)
-    from app.i18n import install_jinja_i18n
-    install_jinja_i18n(env)
-    # #773: de schillen laden hun assets via `statisch()`. Deze omgeving is met de
-    # hand gebouwd en heeft dus niet de globals van `app.ui.templates.env`; zonder
-    # deze regel valt elke schil-rendertest om op een ongedefinieerde functie.
-    from app.ui import statisch
-    env.globals["statisch"] = statisch
+    # #889: één plek voor de globals die een schil nodig heeft. Deze vier regels stonden
+    # in twee bestanden en vielen bij élke nieuwe global opnieuw om — eerst bij #773
+    # (`statisch`), daarna bij #889 (`path_for`). Zie tests/_shell_env.py.
+    from tests._shell_env import bare_shell_env
+
+    env = bare_shell_env()
     return env.get_template(schil).render(**BASIS, omgeving=omgeving)
 
 

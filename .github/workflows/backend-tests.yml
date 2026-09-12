@@ -133,6 +133,13 @@ jobs:
       # het native pad. `mock` transcribeert zonder Mistral, dus dit belt niemand.
       STT_MODE: native_first
       STT_PROVIDER: mock
+      # #870-G: de platform-landing verschijnt alleen op een host uit PLATFORM_HOSTS,
+      # dus zonder dit vindt die test zijn beginpunt niet — en hij hoort dan rood te
+      # staan, niet groen. Bewust een ANDERE naam dan de host waarop de rest van de
+      # suite draait (`localhost`): zou die hier staan, dan werd élk ander e2e-verzoek
+      # een platformverzoek en kreeg `/` de landing in plaats van de tenantsite.
+      # Chromium resolvet `*.localhost` zelf naar loopback, dus dit heeft geen DNS nodig.
+      PLATFORM_HOSTS: platform.localhost
 
     steps:
       - uses: actions/checkout@v4

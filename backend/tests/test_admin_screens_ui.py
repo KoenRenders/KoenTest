@@ -103,12 +103,19 @@ def test_media_upload_en_beheer(client, db_session):
     assert resp.headers.get("HX-Redirect") == "/admin/media"
     asset = db_session.query(MediaAsset).filter(MediaAsset.title == "Sponsor X").one()
 
+    # #882: dit formulier stuurt GEEN `sort_order` meer mee — de volgorde gaat met
+    # pijltjes, en een nummerveld met default "0" zou bij elke keer opslaan de volgorde
+    # wissen. Het meesturen ervan hoort dus niets te doen; de pijltjes zelf zijn getest
+    # in test_media_order_with_arrows.py.
     resp = client.post(f"/admin/media/{asset.id}", data={
         "kind": "sponsor", "title": "Sponsor Y", "sort_order": "3", "is_active": "1"},
         headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 200
     db_session.expire_all()
-    assert asset.title == "Sponsor Y" and asset.sort_order == 3
+    assert asset.title == "Sponsor Y"
+    assert asset.sort_order != 3, (
+        "de volgorde volgt nog een meegestuurd nummerveld; dat is precies de invoer die "
+        "#882 weggehaald heeft")
 
     resp = client.post(f"/admin/media/{asset.id}/verwijderen", data={"kind": "sponsor"},
                        headers={"X-CSRF-Token": csrf})
