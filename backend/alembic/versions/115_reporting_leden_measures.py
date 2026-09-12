@@ -1,5 +1,11 @@
 """Reporting (#871): the Leden measures, and the filter that had crept into a name.
 
+Numbered 115 and hanging off 114. It was 113 on `feature/reporting` while master
+grew its own 113 (media thumbnails) and 114 (activity slug) on the same base — the
+second time this release that two branches picked the same number off one parent.
+Git sees no conflict there, because the filenames differ; alembic refuses the
+result. Renumbered before the merge, with the "exactly one head" check run again.
+
 Koen, looking at v2.3.0 on HDEV: *"Bij leden vind ik de measures moeilijk te
 onderscheiden. In mijn beleving heb je: aantal leden (hoofdlid) en aantal leden
 (personen), aantal leden en op basis van status zijn die actief of niet. Ik hoef
@@ -110,8 +116,8 @@ import json
 import sqlalchemy as sa
 from alembic import op
 
-revision = "113"
-down_revision = "112"
+revision = "115"
+down_revision = "114"
 branch_labels = None
 depends_on = None
 
