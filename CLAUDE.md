@@ -863,6 +863,31 @@ it.** Europe First.
 - Never "clean up" surrounding code while fixing something else.
 - If a requested change requires touching something adjacent, explain what and why before doing it.
 
+## Twee keer dezelfde reparatie? Dan is de duplicatie de bug
+
+Merk je dat je dezelfde wijziging op twee plaatsen aanbrengt, stop dan. **De fout is niet
+dat er één plek achterliep — de fout is dat het er twee zijn.** Haal er één weg in plaats
+van ze allebei te repareren; anders repareer je dezelfde regel over een half jaar opnieuw,
+en dan loopt er weer één achter.
+
+In de week van 8 tot 12 september 2026 kwam deze vorm **vijf keer** langs:
+
+| Wat stond er twee keer | Hoe het misging |
+|---|---|
+| `base_url` naast de routering | een verouderd adres won van een juiste afleiding (#860) |
+| `PLATFORM_HOSTS` naast het Caddy-domein | de landingspagina van PROD kwam op een afdeling uit (#866) |
+| een met de hand gebouwde Jinja-omgeving in twee testbestanden | tweemaal dezelfde global vergeten, met dezelfde viervoudige kopie van de fix (#773 en later) |
+| drie getalopmaak-takken in het rapportenpaneel | vier van de zeven formaten gingen rauw naar het scherm (#875) |
+| twee objecten die *Soort* heten | ze noemden elkaars kolom (#871) |
+
+De reparatie is telkens dezelfde vorm: **één bron, en de andere leidt eruit af.** Kan dat
+niet, zet er dan een poort op die faalt zodra de twee uit elkaar lopen — maar besef dat
+een poort de tweede plek in stand houdt en dus de duurdere oplossing is.
+
+**Het herkenningspunt is praktisch:** je schrijft een commit waarin dezelfde zin twee keer
+voorkomt op twee paden. Dat is het moment om te stoppen en te vragen welke van de twee weg
+kan.
+
 ## Common mistakes to avoid
 
 - Do not add `mobile` as a kwarg to `Person(...)` — it's not a column on Person.
