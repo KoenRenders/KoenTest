@@ -72,6 +72,16 @@ def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
 
     # Chip-labels horen per request opgebouwd: _() volgt de taal van de tenant.
     kind_labels = {"sponsor": _("Sponsors"), "activity_photo": _("Activiteitenfoto's")}
+    # #882: de pijltjes moeten weten of dit item het eerste of laatste van ZIJN GROEP
+    # is — niet van de lijst. Ongefilterd staan de foto's van alle activiteiten door
+    # elkaar, dus de buur in de lijst hoort vaak bij een ander album.
+    for groep_key in {(a["kind"], a["activity_id"], a["component_id"]) for a in assets}:
+        groep = [a for a in assets
+                 if (a["kind"], a["activity_id"], a["component_id"]) == groep_key]
+        for positie, asset in enumerate(groep):
+            asset["is_first"] = positie == 0
+            asset["is_last"] = positie == len(groep) - 1
+
     return {"assets": assets, "q": q, "gefilterd": bool(term or activity_id),
             "kind": actief_kind, "kinds": sorted(VALID_KINDS),
             "kind_options": [(k, kind_labels.get(k, k)) for k in sorted(VALID_KINDS)],
@@ -150,21 +160,41 @@ def media_bijwerken(asset_id: int, request: Request,
                     db: Session = Depends(get_db),
                     email: str = Depends(require_admin_ui),
                     kind: str = Form("sponsor"), title: str = Form(""),
-                    link_url: str = Form(""), sort_order: str = Form("0"),
-                    is_active: str = Form(""),
+                    link_url: str = Form(""), is_active: str = Form(""),
                     q: str = Form(""), filter_activity_id: Optional[int] = Form(None)):
+    """Titel, link en zichtbaarheid. NIET de volgorde (#882).
+
+    `sort_order` stond hier tot #882 als formulierveld met default "0". Nu de pijltjes
+    de volgorde bepalen, stuurt het formulier dat veld niet meer mee — en dan zou die
+    default bij élke keer opslaan de volgorde op 0 zetten. Vandaar: `sort_order` staat
+    niet in de payload, en `update_media` raakt alleen aan wat er wél in staat.
+    """
     from app.domains.media.api import MediaFout, update_media
 
     try:
-        volgorde = int(sort_order or "0")
-    except ValueError:
-        return _lijst_response(request, db, kind, "Ongeldige volgorde.", q, filter_activity_id)
-    try:
         update_media(db, asset_id, {
             "title": title.strip() or None, "link_url": link_url.strip() or None,
-            "sort_order": volgorde, "is_active": bool(is_active),
+            "is_active": bool(is_active),
         })
     except (LookupError, MediaFout) as exc:
+        return _lijst_response(request, db, kind, str(exc), q, filter_activity_id)
+    return _lijst_response(request, db, kind, q=q, activity_id=filter_activity_id)
+
+
+@router.post("/admin/media/{asset_id}/verplaats", response_class=HTMLResponse,
+             dependencies=[Depends(require_csrf)])
+def media_verplaatsen(asset_id: int, request: Request,
+                      db: Session = Depends(get_db),
+                      email: str = Depends(require_admin_ui),
+                      kind: str = Form("sponsor"), richting: str = Form("omhoog"),
+                      q: str = Form(""), filter_activity_id: Optional[int] = Form(None)):
+    """Media omhoog/omlaag herordenen (#882) — dezelfde vorm als de vier andere
+    schermen met `ui.reorder`."""
+    from app.domains.media.api import move_media
+
+    try:
+        move_media(db, asset_id, richting)
+    except LookupError as exc:
         return _lijst_response(request, db, kind, str(exc), q, filter_activity_id)
     return _lijst_response(request, db, kind, q=q, activity_id=filter_activity_id)
 

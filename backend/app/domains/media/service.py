@@ -138,6 +138,40 @@ def update_media(db, asset_id: int, payload: dict) -> dict:
     return meta(asset)
 
 
+def move_media(db, asset_id: int, richting: str) -> None:
+    """Verschuif één asset één plaats binnen ZIJN EIGEN groep (#882).
+
+    v1.14 had hiervoor pijltjes (`moveAsset`) die na elke wissel `sort_order`
+    hernummerden naar de positie — zelfherstellend, en het nummer was onzichtbaar. Bij
+    de React-exit werd dat een kaal nummerveld, en dat bewaakt niets: twee foto's kunnen
+    hetzelfde nummer krijgen (dan beslist het id, wat niemand kan zien), er kunnen gaten
+    vallen, en om één foto vooraan te zetten moet je alle andere zelf herzien.
+
+    **De groep is de groep van het asset zelf**, niet de lijst op het scherm: dezelfde
+    `kind`, dezelfde `activity_id` en dezelfde `component_id`. Zonder die grens zou het
+    herschikken van één album de sponsorlogo's hernummeren — en het scherm toont
+    ongefilterd de foto's van álle activiteiten door elkaar.
+
+    `move_sibling` normaliseert eerst naar 0..n en wisselt dan, dus bestaande gaten en
+    duplicaten herstellen zich bij de eerste verschuiving. Buiten bereik (bovenste
+    omhoog, onderste omlaag) is een no-op en geen fout.
+    """
+    from app.kernel.ordering import move_sibling
+
+    asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
+    if asset is None:
+        raise LookupError("Niet gevonden")
+    # `== None` wordt door SQLAlchemy een IS NULL, dus dit dekt ook een sponsor
+    # (activity_id en component_id leeg) zonder aparte tak.
+    groep = (db.query(MediaAsset)
+             .filter(MediaAsset.kind == asset.kind,
+                     MediaAsset.activity_id == asset.activity_id,
+                     MediaAsset.component_id == asset.component_id)
+             .all())
+    move_sibling(groep, asset_id, richting)
+    db.commit()
+
+
 def delete_media(db, asset_id: int) -> None:
     asset = db.query(MediaAsset).filter(MediaAsset.id == asset_id).first()
     if asset is None:

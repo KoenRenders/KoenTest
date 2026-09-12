@@ -15,7 +15,7 @@ from app.domains.media.models import MediaAsset  # noqa: F401
 __all__ = [
     "MediaFout", "VALID_KINDS", "activity_ids_with_media",
     "activity_photo_covers", "delete_media",
-    "list_activity_photos", "list_media", "update_media", "upload_media",
+    "list_activity_photos", "list_media", "move_media", "update_media", "upload_media",
     "MediaAsset", "EXTRACTABLE_KINDS", "extract_document_text",
     "delete_activity_poster", "delete_component_info", "reextract_text",
     "replace_activity_poster", "replace_component_info",
@@ -40,6 +40,7 @@ from app.domains.media.service import (  # noqa: F401
     delete_media,
     list_activity_photos,
     list_media,
+    move_media,
     update_media,
     upload_media,
 )
