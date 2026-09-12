@@ -46,6 +46,11 @@
   </form>
   {% endfor %}
 </div>
+{% elif kies_eerst %}
+{# #891: een BEGINPUNT en geen weigering — dus een lege staat die zegt wat er van je
+   verwacht wordt, geen foutmelding. Zonder gekozen activiteit stond hier een lijst van
+   alle albums door elkaar, met sorteerpijltjes die daar niets kunnen betekenen. #}
+{{ ui.empty_state(_("Kies eerst een activiteit om haar foto's te zien.")) }}
 {% else %}
 {{ ui.empty_state(_("Geen media gevonden.") if gefilterd else _("Nog geen media in deze categorie.")) }}
 {% endif %}

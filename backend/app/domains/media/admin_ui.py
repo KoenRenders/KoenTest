@@ -62,7 +62,21 @@ def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
     aids = activity_ids_with_media(db)
     activiteiten = [a for a in alle_activiteiten if a["id"] in aids]
 
-    assets = list_media(db, kind=actief_kind, activity_id=activity_id)
+    # #891: bij activiteitenfoto's toont het scherm niets tot er een activiteit gekozen
+    # is. Ongefilterd stond hier een lijst van alle albums door elkaar, met pijltjes die
+    # iets doen wat je op dat scherm niet kán zien: de volgorde van een foto geldt binnen
+    # HAAR album, en over activiteiten heen bestaat er geen volgorde.
+    #
+    # Dat is dezelfde tegenstrijdigheid die bij #882 opdook, waar de groepsgrens bewust
+    # aan het asset zelf moest hangen en niet aan de getoonde lijst — juist omdát die
+    # lijst ongefilterd geen bruikbare groep is. Dit haalt ze weg in plaats van ze te
+    # omzeilen.
+    #
+    # ALLEEN voor deze soort: sponsors en component-info hangen niet aan een activiteit,
+    # en daar is de volle lijst juist de bedoeling.
+    kies_eerst = actief_kind == "activity_photo" and activity_id is None
+    assets = [] if kies_eerst else list_media(db, kind=actief_kind,
+                                              activity_id=activity_id)
     # Vrij zoeken op titel (C1, #588). Media zonder titel valt weg zodra er
     # gezocht wordt — dat is de bedoeling van een zoekterm.
     term = q.strip().lower()
@@ -83,6 +97,7 @@ def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
             asset["is_last"] = positie == len(groep) - 1
 
     return {"assets": assets, "q": q, "gefilterd": bool(term or activity_id),
+            "kies_eerst": kies_eerst,
             "kind": actief_kind, "kinds": sorted(VALID_KINDS),
             "kind_options": [(k, kind_labels.get(k, k)) for k in sorted(VALID_KINDS)],
             "activity_id": activity_id, "activiteiten": activiteiten,
