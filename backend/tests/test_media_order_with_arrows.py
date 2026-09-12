@@ -164,7 +164,10 @@ def test_the_number_field_is_gone_from_the_screen(client, db_session):
     headers = _login(client, db_session)
     _asset(db_session, activity_id=7, title="foto", sort_order=0)
 
-    html = client.get("/admin/media?kind=activity_photo").text
+    # Mét het activiteitenfilter: sinds #891 toont dit scherm bij activiteitenfoto's
+    # niets tot er een activiteit gekozen is, precies omdat een ongefilterde lijst geen
+    # groep is om in te sorteren.
+    html = client.get("/admin/media?kind=activity_photo&activity_id=7").text
 
     assert 'name="sort_order"' not in html, "het nummerveld staat er nog"
     assert "/verplaats" in html, "er zijn geen pijltjes"

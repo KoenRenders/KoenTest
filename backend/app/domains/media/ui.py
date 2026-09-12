@@ -82,6 +82,20 @@ def activiteit_fotos(activity_key: str, request: Request,
     activiteit = activity_by_key(db, activity_key)
     if activiteit is None:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    # #890: kwam je met het NUMMER binnen terwijl er een slug is, dan sturen we door naar
+    # het vriendelijke adres. Mensen delen vanuit de adresbalk — ze kopiëren wat er staat
+    # of drukken op de deelknop van hun telefoon. Niemand leest een canonical-tag, dus
+    # zonder deze stap blijft het nummer circuleren en is de slug gebouwd maar ongebruikt.
+    #
+    # TIJDELIJK (307) en niet permanent: een permanente doorverwijzing wordt door de
+    # browser onthouden en krijg je nauwelijks nog weg. Blijkt een slug ooit fout, of
+    # verdwijnt hij, dan landen mensen uit hun eigen cache op een dood adres. Zoekmachines
+    # weten via de canonical-tag toch al welke de echte is, dus dit kost niets.
+    if activiteit.slug and activity_key != activiteit.slug:
+        from fastapi.responses import RedirectResponse
+
+        return RedirectResponse(f"/activiteiten/{activiteit.slug}/fotos",
+                                status_code=307)
     activity_id = activiteit.id
     fotos = list_activity_photos(db, activity_id)
     from app.domains.media.api import thumb_counts, thumbs_of_visitor
