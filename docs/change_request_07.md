@@ -2,8 +2,8 @@
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** Draft — brainstorm of 12 September 2026, not assigned to a release.
-Decisions marked "confirmed by Koen" in §11 are settled; the open questions in
-§12 are not.
+All design questions are settled (§11); what remains open is measurement, not
+decision: the starting model and the caps are defaults to challenge in phase 1.
 **Apply to:** the `reporting` domain (new assistant seam + admin screen), a small
 facade addition to the `chatbot` domain. No new schema; one new log table.
 
@@ -129,6 +129,11 @@ instead of importing the public ones (one loop, two configurations — public an
 admin). The admin screen mirrors `/raakje`: htmx question/answer,
 server-side complete, no SSE. History capped like the public bot.
 
+A conversation is **multi-turn within the screen session** (confirmed by Koen,
+12 September 2026): follow-ups like "en per maand?" build on earlier turns, and
+clarifying questions get their answer in the same thread. History is not
+persisted across sessions — see §10.
+
 ### 4.4 Model choice
 
 Provider stays Mistral (EU — Europe First holds; nothing new is added).
@@ -238,6 +243,12 @@ seasons?") — not a prompt tweak.
 
 - Saving reports from the conversation (confirmed by Koen, 12 September 2026:
   answering is enough).
+- **A persistent per-user chat log** (revisitable past conversations). Deferred,
+  not rejected: a stored answer ages silently while reading as current, the
+  recurring-question need is what saved reports already serve, and the question
+  log (§6.4) will show after a few weeks of real use whether people re-ask —
+  build it then, on measured need. Within one screen session the conversation
+  does persist (§4.3).
 - Charts or any visual output.
 - The public Raakje answering any of this, now or later.
 - A trained prediction model (§8).
@@ -255,17 +266,10 @@ seasons?") — not a prompt tweak.
 | Prediction in v1 | Cohort reasoning, indicator language, no invented probabilities |
 | Saving reports | Out of scope — answering is enough |
 | Answer form | Text with bullets, no charts |
+| Entry point | A "Vraag het Raakje" button on the reports screen, opening the assistant's own page — no separate menu entry |
+| Conversation | Multi-turn within the screen session; not persisted across sessions (§10) |
+| Per-user chat history | Not in v1 — deferred until the question log shows measured need (§10) |
 
-Defaults taken in this draft, to be challenged: a **separate admin screen**
-rather than a panel inside `/admin/rapporten` (different interaction model, and
-the reports screen is dense); `mistral-medium-latest` as the starting model;
-row cap 50, round cap 6.
-
-## 12. Open questions for Koen
-
-1. Where does the screen live — own menu entry, or reachable from the reports
-   screen (button "Vraag het Raakje")?
-2. May a conversation reference *earlier answers'* data ("en per maand?"), i.e.
-   history kept within the browser session — or is each question standalone?
-3. Does the question log need a screen of its own, or is the table enough for
-   now?
+Defaults taken in this draft, to be challenged: `mistral-medium-latest` as the
+starting model; row cap 50, round cap 6; the question log stays a table without
+a screen of its own until someone needs to read it.
