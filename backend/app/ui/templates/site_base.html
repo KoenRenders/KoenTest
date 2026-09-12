@@ -36,10 +36,19 @@
   {% if canonical_url %}<link rel="canonical" href="{{ canonical_url }}">{% endif %}
   <meta property="og:type" content="website">
   <meta property="og:site_name" content="{{ site_name }}">
-  <meta property="og:title" content="{{ _seo_title }}">
-  <meta property="og:description" content="{{ site_tagline or site_name }}">
+  {# #881: per pagina overschrijfbaar, met de sitewaarden als terugval. De
+     omschrijving volgt dezelfde regel als de titel — anders leest een gedeeld album
+     nog steeds de baseline van de vereniging. #}
+  {% set _og_beschrijving = og_description or site_tagline or site_name %}
+  <meta property="og:title" content="{{ og_title or _seo_title }}">
+  <meta property="og:description" content="{{ _og_beschrijving }}">
   {% if canonical_url %}<meta property="og:url" content="{{ canonical_url }}">{% endif %}
-  <meta name="description" content="{{ site_tagline or site_name }}">
+  {# Alleen zenden als er een beeld ís: een lege of gebroken og:image is slechter dan
+     geen, want dan toont de voorbeschouwing een leeg kader (#881). De URL is absoluut,
+     want een crawler lost een relatief pad niet op. #}
+  {% if og_image %}<meta property="og:image" content="{{ og_image }}">
+  <meta name="twitter:card" content="summary_large_image">{% endif %}
+  <meta name="description" content="{{ _og_beschrijving }}">
   {% if omgeving and omgeving != 'prod' %}<meta name="robots" content="noindex">{% endif %}
   <script type="application/ld+json">{"@context":"https://schema.org","@type":"Organization","name":"{{ site_name }}"{% if base_url %},"url":"{{ base_url }}"{% endif %}{% if facebook_url %},"sameAs":["{{ facebook_url }}"{% if instagram_url %},"{{ instagram_url }}"{% endif %}{% if tiktok_url %},"{{ tiktok_url }}"{% endif %}]{% endif %}}</script>
   <link rel="stylesheet" href="{{ statisch('app.css') }}">

@@ -1,6 +1,9 @@
 {% extends "site_base.html" %}
 {% import "_macros.html" as ui %}
-{% block title %}Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %} — Raak Millegem{% endblock %}
+{# #881: `site_name` en niet "Raak Millegem". Die merknaam stond hier hardgecodeerd,
+   dus op de voorbeeldafdeling — en op elke tenant die er later bij komt — stond de naam
+   van een andere vereniging in de paginatitel, en straks ook in de gedeelde link. #}
+{% block title %}Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %} — {{ site_name }}{% endblock %}
 {% block content %}
 <a href="/fotos" class="text-blue-700 hover:underline text-sm">← {{ _("Terug naar alle albums") }}</a>
 <h1 class="text-3xl font-bold text-blue-700 mt-2 mb-6">Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %}</h1>

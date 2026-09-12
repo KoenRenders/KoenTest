@@ -43,7 +43,27 @@ def activiteit_fotos(activity_id: int, request: Request,
     from app.domains.activities.api import get_activity
     from app.domains.media.api import list_activity_photos
 
+    # Lazy, zoals elders: `_()` moet de taal van de actieve tenant volgen en niet die
+    # van het importmoment.
+    from app.i18n import _
+    from app.kernel.tenant_config import tenant_base_url
+
     activiteit = get_activity(db, activity_id)
     fotos = list_activity_photos(db, activity_id)
-    return templates.TemplateResponse(request, "fotos_album.html", {
-        **site_context(db, request), "activiteit": activiteit, "fotos": fotos})
+    context = {**site_context(db, request), "activiteit": activiteit, "fotos": fotos}
+    if activiteit is not None:
+        # #881: de naam van het ALBUM in de voorbeschouwing, niet die van de site.
+        context["og_title"] = _("Foto's — %(naam)s") % {"naam": activiteit.name}
+        context["og_description"] = _(
+            "Bekijk de foto's van %(naam)s.") % {"naam": activiteit.name}
+    if fotos:
+        # De VOLLEDIGE foto en niet de thumbnail: WhatsApp en Facebook wijzen kleine
+        # beelden af of tonen ze onscherp. De eerste van het album (laagste
+        # `sort_order`) — dezelfde volgorde die de pagina zelf toont.
+        #
+        # Absoluut, want een crawler lost een relatief pad niet op; `tenant_base_url`
+        # geeft de host waarop dit verzoek binnenkwam (#860). En die URL is publiek:
+        # `/api/v1/media/{id}` heeft geen sessie nodig, wat hier een eis is en geen
+        # toeval — een crawler heeft er geen.
+        context["og_image"] = f"{tenant_base_url(db)}{fotos[0]['url']}"
+    return templates.TemplateResponse(request, "fotos_album.html", context)
