@@ -183,14 +183,20 @@ tool result** — the engine and the panel are untouched.
 5. **The small-cell threshold keeps applying.** Same engine, same merge. It
    protects grouped results; the pii tokens protect row-level ones. Together
    they cover both shapes an answer takes.
-6. **The typed question is an outbound channel too.** Tokenisation covers what
-   comes back from the database, but an admin who types "gaat het gezin Renders
-   stoppen?" sends that name to Mistral in the question text itself. **OPEN —
-   Koen's call:** (a) inbound scrub in phase 2 — match the question against the
-   tenant's member/person names and replace matches with their token before
-   sending, so the model reasons over `gezin-23` consistently; or (b) accept
-   with a screen hint ("noem geen namen"). Option (a) keeps "no personal data
-   to Mistral" true without a footnote and is the draft's recommendation.
+6. **The typed question is an outbound channel too — and it is scrubbed**
+   (confirmed by Koen, 12 September 2026). Tokenisation covers what comes back
+   from the database, but an admin who types "gaat het gezin Renders stoppen?"
+   would send that name to Mistral in the question text itself. So, in phase 2
+   together with the outbound tokenisation: the question text is matched
+   against the tenant's member and person names and every match is replaced by
+   the entity's token before the message leaves — the model reasons over
+   `gezin-23` consistently, and can filter by it, because the token carries
+   the id. The match is case-insensitive over a few hundred names; the
+   question log stores the **scrubbed** text, so the log holds what Mistral
+   saw, not a second copy of the name. This keeps "no personal data to
+   Mistral" true without a footnote. The masking gate test (§5, below) covers
+   this channel too: a seeded name typed into a question must not reach the
+   provider payload.
 
 Gate-style test (the CLAUDE.md "bewijs het" norm): a test composes a selection
 containing every pii-flagged object, captures the exact payload handed to the
@@ -255,7 +261,8 @@ seasons?") — not a prompt tweak.
    around them). The refusal lives in the **assistant layer**, before
    `build_query` — never in the engine, which serves the query panel too and
    must keep showing these objects there.
-2. **Person level.** Outbound tokenisation + inbound re-translation replace
+2. **Person level.** Outbound tokenisation + question scrub (§5.6) + inbound
+   re-translation replace
    the phase-1 refusal; the masking gate test. Answers may now list
    households by name (rendered server-side).
 3. **Cohorts.** Prompt work + evaluation of questions 7–8 against known
@@ -285,6 +292,7 @@ seasons?") — not a prompt tweak.
 | Role distinction within admin | None — all admin roles equal |
 | Tenant scope | Per-tenant flag; Raak Millegem only for now |
 | PII to the LLM | Never; pseudonymous ids allowed; names re-translated server-side in the rendered answer |
+| Names typed in the question | Scrubbed inbound (phase 2): matched against the tenant's names and replaced by their token before sending (§5.6) |
 | Prediction in v1 | Cohort reasoning, indicator language, no invented probabilities |
 | Saving reports | Out of scope — answering is enough |
 | Answer form | Text with bullets, no charts |
