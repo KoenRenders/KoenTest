@@ -18,7 +18,21 @@
       {# #707: alleen bij een sponsor; de soort van dit asset ligt vast. #}
       {% if a.kind == "sponsor" %}{{ ui.input_control("link_url", id="me-link-" ~ a.id, value=a.link_url or "", placeholder=_("Link"), cls="w-full") }}{% endif %}
       <div class="flex items-center gap-4">
-        <label class="flex items-center gap-1">{{ _("Volgorde") }} {{ ui.input_control("sort_order", id="me-sort-" ~ a.id, type="number", value=a.sort_order, cls="w-16") }}</label>
+        {# #882: pijltjes en geen nummerveld. Een nummer laat de gebruiker een toestand
+           invoeren die intern consistent moet zijn en die niets bewaakt: twee foto's
+           met hetzelfde nummer, gaten in de reeks, en alles herzien om er één vooraan
+           te zetten. v1.14 deed dit met pijltjes die na de wissel hernummerden naar de
+           positie — zelfherstellend — en vier andere v2-schermen gebruiken dezelfde
+           macro. `sort_order` blijft bestaan, maar het is geen invoer meer.
+
+           `first`/`last` komen uit de EIGEN GROEP van het item en niet uit de lijst:
+           ongefilterd staan de foto's van alle activiteiten door elkaar. #}
+        <label class="flex items-center gap-1">{{ _("Volgorde") }}
+          {{ ui.reorder(
+               up_attrs='hx-post="/admin/media/' ~ a.id ~ '/verplaats" hx-vals=\'{"richting":"omhoog","kind":"' ~ kind ~ '","q":"' ~ q ~ '","filter_activity_id":"' ~ (activity_id or "") ~ '"}\' hx-target="#me-lijst" hx-swap="innerHTML"',
+               down_attrs='hx-post="/admin/media/' ~ a.id ~ '/verplaats" hx-vals=\'{"richting":"omlaag","kind":"' ~ kind ~ '","q":"' ~ q ~ '","filter_activity_id":"' ~ (activity_id or "") ~ '"}\' hx-target="#me-lijst" hx-swap="innerHTML"',
+               first=a.is_first, last=a.is_last) }}
+        </label>
         <label class="flex items-center gap-1"><input type="checkbox" name="is_active" value="1" {% if a.is_active %}checked{% endif %}> {{ _("Actief") }}</label>
         <span class="text-xs text-gray-400">{{ a.width }}×{{ a.height }}</span>
       </div>
