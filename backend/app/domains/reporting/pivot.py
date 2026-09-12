@@ -193,9 +193,12 @@ def build_pivot(db: Session, selection: Selection, *, tenant_id: int) -> Pivot:
         raise SelectionError(
             "Kies minstens één maat: een draaitabel zonder maat heeft niets te "
             "tonen in haar cellen.")
-    if not row_objects:
-        raise SelectionError(
-            "Kies minstens één dimensie voor de rijen van de draaitabel.")
+    # No row dimension is NOT refused (#877). `engine.py` says both shapes read
+    # the same objects and the pivot only moves one of them to the column axis —
+    # so a selection that gives €1059 in the table may not come back empty here.
+    # One cell with the grand total is the right answer: the degenerate case, and
+    # what a spreadsheet does too. A pivot without a MEASURE stays refused; there
+    # is nothing to put in the cells.
 
     check_column_cap(db, selection, tenant_id=tenant_id)
 
@@ -252,14 +255,19 @@ def build_pivot(db: Session, selection: Selection, *, tenant_id: int) -> Pivot:
     vorige_groep: str | None = None
     for sleutel in sorted(totalen,
                           key=lambda s: tuple(_natural_key(deel) for deel in s)):
-        if subtotalen and vorige_groep is not None and sleutel[0] != vorige_groep:
+        # `sleutel` is empty when there is no row dimension (#877) — one cell with
+        # the grand total. `subtotalen` is empty in that case too (they need more
+        # than one row dimension), so the guard below never indexes it; the
+        # explicit length check says so instead of leaving it to that coincidence.
+        if (subtotalen and len(sleutel) > 0 and vorige_groep is not None
+                and sleutel[0] != vorige_groep):
             rijen.append(PivotRow(labels=[vorige_groep], cells={},
                                   total=subtotalen.get(vorige_groep, {}),
                                   is_subtotal=True))
         rijen.append(PivotRow(labels=list(sleutel),
                               cells=cellen.get(sleutel, {}),
                               total=totalen[sleutel]))
-        vorige_groep = sleutel[0]
+        vorige_groep = sleutel[0] if sleutel else None
     if subtotalen and vorige_groep is not None:
         rijen.append(PivotRow(labels=[vorige_groep], cells={},
                               total=subtotalen.get(vorige_groep, {}),

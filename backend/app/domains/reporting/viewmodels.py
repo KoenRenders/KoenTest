@@ -75,6 +75,10 @@ class ReportPanelView(ViewModel):
     filter_values: dict[str, str]
 
     # ── Result ──────────────────────────────────────────────────────────────
+    # True when `message` is a REFUSAL and not an absence. The two are drawn
+    # differently on purpose: a refusal asks the user to change something, an
+    # empty result does not (#877).
+    refused: bool
     # None until at least one measure is chosen; `message` says why.
     columns: list[Any]
     rows: list[dict[str, Any]]

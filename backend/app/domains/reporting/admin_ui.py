@@ -311,6 +311,7 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
     pivot: dict | None = None
     chart: dict | None = None
     message: str | None = None
+    refused = False
     has_next = False
 
     persoonlijk = False
@@ -345,6 +346,7 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
                 drill_aliases = result.drill_aliases
         except SelectionError as exc:
             message = str(exc)
+            refused = True
     else:
         message = _("Kies objecten links, filters rechts.")
 
@@ -368,6 +370,7 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
         chart=chart,
         layout=state["layout"],
         pivot_column=state["pivot_column"],
+        refused=refused,
         population=population_of(state["objects"]),
         no_column=state["no_column"],
         message=message,

@@ -216,10 +216,27 @@ def test_a_pivot_without_a_column_dimension_is_a_grouped_listing(db_session,
     assert all(rij.total for rij in pivot.rows), "elke rij draagt haar totaal"
 
 
-def test_a_pivot_needs_a_row_dimension_too(db_session, situation):
+def test_a_pivot_without_a_row_dimension_gives_one_cell(db_session, situation):
+    """This used to be refused, and #877 is why it is not any more.
+
+    `engine.py` says both shapes read the same objects and the pivot only moves
+    one of them to the column axis. A selection that gives a total in the table
+    may then not come back empty here: one cell with the grand total is the
+    degenerate case, and what a spreadsheet does too.
+    """
+    kruis = pivot(db_session, ["payment_method", "payment_amount"],
+                  "payment_method").as_context()
+    assert kruis["row_headers"] == []
+    assert len(kruis["rows"]) == 1, "één cel, het eindtotaal"
+    assert kruis["grand_total"], "en die cel draagt een getal"
+
+
+def test_a_pivot_without_a_measure_is_still_refused(db_session, situation):
+    """The other half: there is nothing to put in the cells."""
     with pytest.raises(SelectionError) as exc:
-        pivot(db_session, ["payment_method", "payment_amount"], "payment_method")
-    assert "rijen van de draaitabel" in str(exc.value)
+        pivot(db_session, ["payment_method", "payment_payable_type"],
+              "payment_method")
+    assert "maat" in str(exc.value)
 
 
 def test_a_measure_cannot_be_the_column_axis(db_session, situation):

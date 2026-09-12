@@ -256,7 +256,14 @@
 
         {# ── 4. Resultaat ──────────────────────────────────────────────── #}
         <div class="mt-4">
-          {% if message %}
+          {% if message and refused %}
+          {# #877: een weigering is géén lege staat. `empty_state` is dezelfde
+             grijze blok als bij nul rijen, en die twee betekenen het
+             tegenovergestelde: bij nul rijen klopt de vraag en is er geen data,
+             bij een weigering moet de gebruiker iets aanpassen. Identiek
+             getekend las Koen "er staat niets" in plaats van een instructie. #}
+          {{ ui.error_banner(message) }}
+          {% elif message %}
           {{ ui.empty_state(message) }}
           {% elif chart %}
           {# De grafiek leest hetzelfde resultaat als de draaitabel eronder; die
