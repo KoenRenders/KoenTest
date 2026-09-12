@@ -198,10 +198,34 @@ tool result** — the engine and the panel are untouched.
    this channel too: a seeded name typed into a question must not reach the
    provider payload.
 
-Gate-style test (the CLAUDE.md "bewijs het" norm): a test composes a selection
-containing every pii-flagged object, captures the exact payload handed to the
-provider (mock), and asserts no value from a seeded name/address set appears in
-it — then breaks the masking deliberately and asserts the test goes red.
+7. **Verifiability: the admin can see what left** (asked by Koen, 12 September
+   2026 — "ik kan dat immers niet zien"). Every outbound provider call is
+   stored verbatim with the conversation: the scrubbed question, the tokenised
+   tool results. The screen offers a per-answer "wat zag Mistral" fold-out
+   showing exactly that payload — the admin reads `gezin-23` where the answer
+   says "Renders". Trust by inspection, not by promise. Phase 1.
+8. **A guard on the seam itself — refuse, don't hope.** Immediately before the
+   HTTP post, an **independent** second check scans the payload: against the
+   tenant's member/person name list, and against patterns that must never
+   occur in outbound data at all (e-mail address, phone number, IBAN). A hit
+   **blocks the call** — error on screen, loud log line — rather than sending.
+   Independent means: no shared code with the tokenisation or the pii flag; a
+   check that fails together with what it checks, checks nothing. This is the
+   layer that catches the bug nobody predicted. Phase 1 — it protects even
+   while pii objects are still refused outright.
+
+   Honest limits, stated here so nobody restates them as a finding: name
+   matching misses nicknames and typos (the payload view is the backstop), and
+   a family name that is also a street name gives a false block — the safe
+   side, resolved by rephrasing the question.
+
+Gate-style tests (the CLAUDE.md "bewijs het" norm), one per mechanism: a test
+composes a selection containing every pii-flagged object, captures the exact
+payload handed to the provider (mock), and asserts no value from a seeded
+name/address set appears in it; a second seeds a name into the question text
+and asserts the scrub replaced it; a third hands the guard a payload with a
+planted name and asserts the call is blocked with the intended message. Each
+then breaks its mechanism deliberately and asserts the test goes red.
 
 ## 6. Security invariants
 
@@ -255,7 +279,8 @@ seasons?") — not a prompt tweak.
 ## 9. Phasing (each phase shippable)
 
 1. **Aggregates.** Catalogue renderer, the two tools, generalised loop, admin
-   screen, kill-switch + tenant flag, question log, caps. Test set 1–6 green.
+   screen, kill-switch + tenant flag, question log, caps, **seam guard and the
+   "wat zag Mistral" payload view (§5.7–5.8)**. Test set 1–6 green.
    Pii flag already declared; person-naming objects simply refused in the
    assistant's selections this phase (named refusal, so the model routes
    around them). The refusal lives in the **assistant layer**, before
@@ -293,6 +318,7 @@ seasons?") — not a prompt tweak.
 | Tenant scope | Per-tenant flag; Raak Millegem only for now |
 | PII to the LLM | Never; pseudonymous ids allowed; names re-translated server-side in the rendered answer |
 | Names typed in the question | Scrubbed inbound (phase 2): matched against the tenant's names and replaced by their token before sending (§5.6) |
+| Verifiability | Outbound payloads stored and inspectable per answer ("wat zag Mistral", §5.7); an independent guard on the seam blocks a payload containing a name or an e-mail/phone/IBAN pattern (§5.8) |
 | Prediction in v1 | Cohort reasoning, indicator language, no invented probabilities |
 | Saving reports | Out of scope — answering is enough |
 | Answer form | Text with bullets, no charts |
