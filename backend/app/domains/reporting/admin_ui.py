@@ -43,10 +43,12 @@ from app.domains.reporting.api import (
     Sort,
     BY_KEY,
     CHART_LAYOUTS,
+    CLASSES,
     build_chart,
     build_dataset_ods,
     build_pivot,
     is_personal,
+    population_of,
     resolve_selection,
     build_pivot_ods,
     build_report_ods,
@@ -136,6 +138,17 @@ def _read_state(params) -> dict:
     direction = params.get("dir") or "asc"
     layout = params.get("layout") or "table"
     pivot_column = params.get("pivot_column") or ""
+    # "The user cleared the column axis", as opposed to "there is none yet".
+    no_column = (params.get("no_column") or "") == "1"
+    # Which object classes are folded shut (#872). The CLOSED set and not the open
+    # one, because every class starts open: an empty state is then the default
+    # state, and a new class needs no entry anywhere to behave correctly.
+    #
+    # In the state and not in Alpine: the panel swaps its own outerHTML on every
+    # interaction, so client-side state is gone the moment you pick an object.
+    # With default-open and no memory the feature is worthless — you fold three
+    # classes shut, choose one object, and face all 93 lines again.
+    closed = [k for k in params.getlist("closed") if k in CLASSES]
 
     add = params.get("add")
     if add in BY_KEY and add not in objects:
@@ -170,19 +183,34 @@ def _read_state(params) -> dict:
         direction = "desc" if (sort_by == sort and direction == "asc") else "asc"
         sort = sort_by
 
+    toggle_class = params.get("toggle_class")
+    if toggle_class in CLASSES:
+        if toggle_class in closed:
+            closed.remove(toggle_class)
+        else:
+            closed.append(toggle_class)
+
     set_layout = params.get("set_layout")
     if set_layout in LAYOUTS:
         layout = set_layout
     set_column = params.get("set_column")
     if set_column in BY_KEY or set_column == "":
         pivot_column = set_column if set_column is not None else pivot_column
+        no_column = set_column == ""
+    # A stacked chart has no column-less shape, so the choice cannot survive there.
+    if layout == "stacked":
+        no_column = False
 
     # A column dimension that is no longer in the selection is not a column
     # dimension. Dropping it here keeps the state honest instead of letting the
     # engine refuse a report the user cannot see is broken.
     if pivot_column not in objects:
         pivot_column = ""
-    if layout in ("pivot", "stacked") and not pivot_column:
+    # `no_column` is what makes "geen" stick (#873). Without it the fallback below
+    # refills the axis on the very next request, so the button would appear to do
+    # nothing — and an empty `pivot_column` cannot carry the difference, because it
+    # also means "not chosen yet", which is exactly when the fallback SHOULD fire.
+    if layout in ("pivot", "stacked") and not pivot_column and not no_column:
         # Falling back to the last dimension is what a user means by "draaitabel"
         # or "gestapeld" when he has not said which axis yet — and it is undoable
         # in one click. A bar or a line needs no column axis at all.
@@ -201,8 +229,26 @@ def _read_state(params) -> dict:
         "direction": direction,
         "layout": layout,
         "pivot_column": pivot_column,
+        "no_column": no_column,
+        "closed": closed,
         "page": page,
     }
+
+
+def _chosen_per_class(object_keys: list[str]) -> dict[str, int]:
+    """How many objects are chosen per class (#872).
+
+    A folded class has to keep showing that you picked something in it. With the
+    selection summary dropped at Koen's request, this count is the only place left
+    where a closed class reveals your choice — and without it, folding hides
+    exactly what you were trying to survey.
+    """
+    per_klasse: dict[str, int] = {}
+    for key in object_keys:
+        obj = BY_KEY.get(key)
+        if obj is not None:
+            per_klasse[obj.klass] = per_klasse.get(obj.klass, 0) + 1
+    return per_klasse
 
 
 def _selection(state: dict) -> Selection:
@@ -271,6 +317,12 @@ def _state_from_selection(selection: Selection, page: int = 1) -> dict:
         "direction": selection.sort[0].direction.value if selection.sort else "asc",
         "layout": selection.layout,
         "pivot_column": selection.pivot_column,
+        # A saved pivot without a column axis was saved that way on purpose — the
+        # report of #850 is exactly that — so reopening it must not refill the axis.
+        "no_column": selection.layout == "pivot" and not selection.pivot_column,
+        # Folding is a viewing preference, not part of a report: opening a saved
+        # one shows every class, the way a first visit does.
+        "closed": [],
         "page": page,
     }
 
@@ -296,6 +348,7 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
     pivot: dict | None = None
     chart: dict | None = None
     message: str | None = None
+    refused = False
     has_next = False
 
     persoonlijk = False
@@ -330,6 +383,7 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
                 drill_aliases = result.drill_aliases
         except SelectionError as exc:
             message = str(exc)
+            refused = True
     else:
         message = _("Kies objecten links, filters rechts.")
 
@@ -353,6 +407,11 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
         chart=chart,
         layout=state["layout"],
         pivot_column=state["pivot_column"],
+        closed_classes=state["closed"],
+        chosen_per_class=_chosen_per_class(state["objects"]),
+        refused=refused,
+        population=population_of(state["objects"]),
+        no_column=state["no_column"],
         message=message,
         personal=persoonlijk,
         sort=state["sort"],

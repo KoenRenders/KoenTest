@@ -284,6 +284,38 @@
 {% endcall %}
 
 {# ── 9. Lege en ladende toestand ───────────────────────────────────────────── #}
+{# ── 8b2. Meetwaarden ─────────────────────────────────────────────────────── #}
+{{ ui.section_header(_("8b · Meetwaarden per soort")) }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">
+    {{ _("Eén cel per opmaaksoort die de universe declareert (#875). Vóór deze macro kende het paneel alleen geld en drukte de rest rauw af — een gemiddelde kwam als 0E-20 op het scherm. Elke soort hoort hier te staan; een soort zonder weergave laat de gate in test_reporting_number_format.py falen.") }}
+  </p>
+  <table class="w-full text-sm">
+    <tbody>
+      {% for soort, waarde in [
+        ("money", 247.0), ("count", 4), ("days", 12.1), ("percentage", 62.5),
+        ("year", 2026), ("label", "Mol")
+      ] %}
+      <tr class="border-b border-gray-100 last:border-0">
+        <td class="px-3 py-2 text-ink-soft"><code>{{ soort }}</code></td>
+        <td class="px-3 py-2 text-right tabular-nums">{{ ui.value_cell(waarde, soort) }}</td>
+      </tr>
+      {% endfor %}
+      <tr class="border-b border-gray-100 last:border-0">
+        <td class="px-3 py-2 text-ink-soft"><code>date</code></td>
+        <td class="px-3 py-2 text-right tabular-nums">{{ ui.value_cell(demo_datum, "date") }}</td>
+      </tr>
+      <tr>
+        <td class="px-3 py-2 text-ink-soft">{{ _("geen waarde") }}</td>
+        <td class="px-3 py-2 text-right">{{ ui.value_cell(None, "money") }}</td>
+      </tr>
+    </tbody>
+  </table>
+  <p class="mt-3 text-sm text-gray-600">
+    {{ _("Geen waarde is een liggend streepje en niet een nul: niets gemeten is iets anders dan nul gemeten. Het euroteken hoort bij de geldsoort en niet bij de kolom, zodat een tabel met twee maten niet doet alsof beide bedragen zijn.") }}
+  </p>
+{% endcall %}
+
 {# ── 8c. Draaitabel ────────────────────────────────────────────────────────── #}
 {{ ui.section_header(_("8c · Draaitabel"), _("Naar de rapporten"), action_href="/admin/rapporten") }}
 {% call ui.card() %}

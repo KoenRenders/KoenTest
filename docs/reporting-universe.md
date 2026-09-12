@@ -33,6 +33,7 @@ The role column is the role the fact's **flat dataset dump** will need once the 
 | `f_payments` | Betalingen | één rij per betaalrecord | `finance` | `COUNT(DISTINCT {view}.member_id)` | Vorderingen en terugbetalingen. Een terugbetaling draagt een negatief bedrag, dus elke som is meteen een nettobedrag. |
 | `f_membership_persons` | Leden (personen) | één rij per persoon per lidmaatschapsjaar | `admin` | `COUNT({view}.person_id)` | Wie er lid is, op persoonsniveau — de korrel die vraag 8 nodig heeft. Een persoon in twee gezinnen telt één keer. |
 | `f_members` | Gezinnen | één rij per gezin | `admin` | `COUNT(DISTINCT {view}.member_id)` | Elk gezin, ook een dat nooit lid was. Dat is het verschil met Lidmaatschappen, dat alleen gezinnen kent die ooit aansloten. |
+| `f_forms` | Formulieren | één rij per formulier | `admin` | — | Elk formulier, ook een zonder inzendingen. Dat is het verschil met Inzendingen, dat alleen formulieren kent waarop iemand antwoordde. |
 | `f_activities` | Activiteiten | één rij per activiteit | `admin` | — | Elke activiteit, ook een zonder inschrijvingen. Dat is het verschil met Inschrijvingen, dat alleen activiteiten kent waarop iemand inschreef. |
 | `f_form_submissions` | Formulierinzendingen | één rij per inzending | `admin` | — | Inzendingen op formulieren. Zonder naam of e-mailadres: een rapport telt inzendingen, het formulierscherm toont wat iemand schreef. |
 | `f_tasks` | Taken | één rij per werkbanktaak, open én afgehandeld | `admin` | — | De werkbank: elke taak, met haar status als dimensie. Een definitief mislukte e-mail en een te bevestigen terugbetaling zitten erin als taaksoort — niet als aparte rij ernaast. Filter op Open voor de werkvoorraad; laat het filter weg en je ziet of ze groeit of krimpt. |
@@ -72,6 +73,7 @@ Every join also matches on `tenant_id`, unconditionally — a dimension row can 
 | `f_membership_persons` | `d_person` | `person_id` = `person_id` |
 | `f_membership_persons` | `d_member` | `member_id` = `member_id` |
 | `f_form_submissions` | `d_form` | `form_id` = `form_id` |
+| `f_forms` | `d_form` | `form_id` = `form_id` |
 | `f_form_submissions` | `d_date` | `date_key` = `date_key` |
 | `f_tasks` | `d_date` | `date_key` = `date_key` |
 | `f_members` | `d_member` | `member_id` = `member_id` |
@@ -88,7 +90,7 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | Universe role | Meaning | Objects |
 |---|---|---|
 | `admin` | the default: what an admin screen already shows | 57 |
-| `finance` | money — every measure formatted as money, and the Betalingen class | 27 |
+| `finance` | money — every measure formatted as money, and the Betalingen class | 22 |
 | `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 9 |
 
 ## Objects
@@ -99,14 +101,13 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 
 | Key | Name | Type | Format | Role | Source | Description |
 |---|---|---|---|---|---|---|
-| `membership_households` | Gezinnen met lidmaatschap | measure | count | `admin` | `SUM(f_memberships.is_member)` | Gezinnen met een lidmaatschap in dat jaar. |
-| `membership_persons` | Aantal personen | measure | count | `admin` | `SUM(f_memberships.person_count)` | Personen in de gezinnen met een lidmaatschap in dat jaar. |
-| `membership_new` | Nieuw | measure | count | `admin` | `SUM(f_memberships.is_new)` | Gezinnen die dat jaar lid werden en het jaar ervoor niet waren. |
-| `membership_renewed` | Vernieuwd | measure | count | `admin` | `SUM(f_memberships.is_renewed)` | Gezinnen die dat jaar én het jaar ervoor lid waren. |
-| `membership_lapsed` | Vervallen | measure | count | `admin` | `SUM(f_memberships.is_lapsed)` | Gezinnen die het jaar ervoor lid waren en dat jaar niet vernieuwden. |
+| `membership_count` | Aantal gezinnen | measure | count | `admin` | `COUNT(DISTINCT f_memberships.member_id)` | Gezinnen in de telling, ongeacht of ze dat jaar lid waren. Dit is de maat waarmee je op Lidmaatschapsstatus groepeert: een vervallen gezin heeft dat jaar per definitie géén lidmaatschap, dus 'Aantal leden (hoofdlid)' staat daar terecht op nul en telt het niet (#871). |
+| `membership_households` | Aantal leden (hoofdlid) | measure | count | `admin` | `SUM(f_memberships.is_member)` | Gezinnen met een lidmaatschap in dat jaar — één per gezin, wat Koen 'leden (hoofdlid)' noemt. Wil je weten hoeveel daarvan nieuw, vernieuwd of vervallen zijn, groepeer dan op Lidmaatschapsstatus; dat is een dimensie en geen aparte maat (#871). |
+| `membership_persons` | Aantal leden (personen) | measure | count | `admin` | `SUM(f_memberships.person_count)` | Personen in de gezinnen met een lidmaatschap in dat jaar. |
 | `membership_amount_charged` | Lidgeld gefactureerd | measure | money | `finance` | `SUM(f_memberships.amount_charged)` | Som van de vorderingen op het lidgeld, terugbetalingen afgetrokken. |
 | `membership_amount_paid` | Lidgeld ontvangen | measure | money | `finance` | `SUM(f_memberships.amount_paid)` | Wat er effectief op het lidgeld ontvangen is. |
 | `membership_open_amount` | Lidgeld openstaand | measure | money | `finance` | `SUM(f_memberships.open_amount)` | Gefactureerd min ontvangen. |
+| `membership_is_active` | Actief | dimension | label | `admin` | `CASE WHEN f_memberships.active_membership_count > 0 THEN 'Ja' ELSE 'Nee' END` | Of dit gezin dat jaar een actief lidmaatschap had. Een dimensie en geen maat: 'hoeveel actieve leden' is een telling mét een filter, en dan staat op het scherm welk filter (#871). |
 | `membership_status` | Lidmaatschapsstatus | dimension | label | `admin` | `d_membership_status.label` | Nieuw, vernieuwd of vervallen. |
 | `member_municipality` | Gemeente | dimension | label | `admin` | `d_member.municipality` | Gemeente van het gezin, uit de postcodetabel. |
 | `member_postal_code` | Postcode | dimension | label | `admin` | `d_member.postal_code` | Postcode van het gezin. |
@@ -125,13 +126,13 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `person_age_group` | Leeftijdsgroep | dimension | label | `admin` | `d_person.age_group` | Leeftijdsklasse, berekend op vandaag. Van de persoon in het feit: de inschrijver bij inschrijvingen, het hoofdlid bij een gezinsrapport. |
 | `person_gender` | Geslacht | dimension | label | `admin` | `d_person.gender_label` | Geslacht van de persoon in het feit: de inschrijver bij inschrijvingen, het hoofdlid bij een gezinsrapport. |
 | `person_relation_type` | Relatietype | dimension | label | `admin` | `d_person.relation_type_label` | Hoofdlid, partner of (meerderjarig) kind binnen het gezin. |
-| `membership_person_count` | Aantal leden (personen) | measure | count | `admin` | `COUNT(f_membership_persons.person_id)` | Personen met een lidmaatschap in dat jaar. Eén rij per persoon per jaar, dus tellen is optellen. |
+| `membership_person_count` | Aantal lidmaatschappen (personen) | measure | count | `admin` | `COUNT(f_membership_persons.person_id)` | Personen met een lidmaatschap in dat jaar. Eén rij per persoon per jaar, dus tellen is optellen. |
 | `board_member` | Verantwoordelijk bestuurslid | dimension | label | `member_details` | `COALESCE(d_board_member.board_member_name, 'Niet toegewezen')` | Het bestuurslid dat dit gezin tot zijn verantwoordelijkheid neemt. Gezinnen zonder toewijzing staan onder 'Niet toegewezen' — dat is een van de nuttigste uitkomsten van dit rapport, geen gat. Draagt de huidige toewijzing, geen historie. |
-| `member_total_count` | Gezinnen (alle) | measure | count | `admin` | `COUNT(DISTINCT f_members.member_id)` | Elk gezin in de administratie, of het ooit lid was of niet. Verschilt van 'Gezinnen met lidmaatschap', dat alleen telt wie in dat jaar lid was — de twee feiten schelen drie letters (`f_members` tegenover `f_memberships`) en het verschil is gezin tegenover lidmaatschapsjaar. |
+| `member_total_count` | Aantal gezinnen in de administratie | measure | count | `admin` | `COUNT(DISTINCT f_members.member_id)` | Elk gezin in de administratie, of het ooit lid was of niet. Dat is de populatie van het feit Gezinnen; 'Aantal leden (hoofdlid)' telt op het feit Lidmaatschappen en kent alleen gezinnen die ooit aansloten. Het paneel toont bij elk rapport welke populatie je telt. |
 | `member_ever_member` | Ooit lid geweest | dimension | label | `admin` | `CASE WHEN f_members.was_ever_member THEN 'Ja' ELSE 'Nee' END` | Of dit gezin ooit een lidmaatschap had. |
-| `membership_active_count` | Actieve lidmaatschappen | measure | count | `admin` | `SUM(f_memberships.active_membership_count)` | Lidmaatschappen die op actief staan. Telt lidmaatschappen en geen gezinnen — dat is wat de dashboardtegel telt. |
+| `membership_active_count` | Aantal actieve lidmaatschappen | measure | count | `admin` | `SUM(f_memberships.active_membership_count)` | Lidmaatschappen die op actief staan. Telt lidmaatschappen en geen gezinnen — dat is wat de dashboardtegel telt. |
 | `membership_person_valid_today` | Vandaag geldig | dimension | label | `admin` | `CASE WHEN f_membership_persons.is_valid_today THEN 'Ja' ELSE 'Nee' END` | Of het lidmaatschap van deze persoon vandaag geldig is. Iets anders dan 'lid voor dit jaar': wie in oktober voor volgend jaar aansluit, is vandaag geldig en hoort bij volgend jaar. |
-| `membership_person_unique` | Aantal unieke leden | measure | count | `admin` | `COUNT(DISTINCT f_membership_persons.person_id)` | Personen, elk één keer geteld over alle jaren heen. Gebruik dit als je niet op jaar groepeert; anders telt 'Aantal leden (personen)'. |
+| `membership_person_unique` | Aantal unieke personen | measure | count | `admin` | `COUNT(DISTINCT f_membership_persons.person_id)` | Personen, elk één keer geteld over alle jaren heen. Gebruik dit als je niet op jaar groepeert; anders telt 'Aantal leden (personen)'. |
 
 ### Activiteiten
 
@@ -157,31 +158,21 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | Key | Name | Type | Format | Role | Source | Description |
 |---|---|---|---|---|---|---|
 | `payment_amount` | Te betalen | measure | money | `finance` | `SUM(f_payments.amount)` | Som van de bedragen; terugbetalingen tellen negatief mee. |
-| `payment_amount_paid` | Ontvangen | measure | money | `finance` | `SUM(f_payments.amount_paid)` | Wat er effectief ontvangen is. |
-| `payment_open_amount` | Openstaand | measure | money | `finance` | `SUM(f_payments.open_amount)` | Te betalen min ontvangen. |
-| `payment_outstanding` | Openstaand volgens status | measure | money | `finance` | `SUM(CASE WHEN f_payments.status_code NOT IN ('paid', 'cancelled', 'failed') THEN f_payments.amount ELSE 0 END)` | Het bedrag op records die nog niet afgehandeld zijn. Iets anders dan 'Openstaand', dat gevorderd min ontvangen rekent: bij een deels betaald record lopen die twee uiteen, en dat verschil is het onderwerp — niet een dubbeling. |
+| `payment_amount_paid` | Betaald | measure | money | `finance` | `SUM(f_payments.amount_paid)` | Wat er effectief ontvangen is. |
+| `payment_open_amount` | Openstaand | measure | money | `finance` | `SUM(f_payments.open_amount)` | Te betalen min betaald — het derde getal van de rij Te betalen · Betaald · Openstaand, en zichtbaar het verschil van de eerste twee. De enige openstaand-maat sinds #871: 'Openstaand volgens status' stond ernaast met een statusvoorwaarde in zijn naam, en die twee liepen uiteen zodra een betaling deels betaald was. Wil je dat tweede antwoord, neem dan 'Te betalen' met een filter op Betaalstatus — dan staat de voorwaarde op het scherm. |
 | `payment_refunded` | Terugbetaald | measure | money | `finance` | `SUM(CASE WHEN f_payments.record_type = 'refund' THEN -f_payments.amount ELSE 0 END)` | Terugbetaalde bedragen als positief getal. |
 | `payment_count` | Aantal betalingen | measure | count | `finance` | `COUNT(DISTINCT f_payments.payment_id)` | Aantal betaalrecords, vorderingen en terugbetalingen samen. |
 | `payment_days_to_paid` | Gemiddelde betaaltermijn | measure | days | `finance` | `AVG(f_payments.days_to_paid)` | Gemiddeld aantal dagen tussen aanmaak en betaling, over de betaalde records. |
 | `payment_method` | Betaalwijze | dimension | label | `finance` | `d_payment_method.label` | Online, overschrijving of cash. |
-| `payment_status` | Betaalstatus | dimension | label | `finance` | `d_payment_status.label` | In afwachting, betaald, mislukt of geannuleerd. |
-| `payment_type` | Soort | dimension | label | `finance` | `f_payments.record_type_label` | Vordering of terugbetaling. |
-| `payment_payable_type` | Waarvoor | dimension | label | `finance` | `f_payments.payable_type_label` | Lidgeld of activiteit. |
+| `payment_status` | Status | dimension | label | `finance` | `d_payment_status.label` | In afwachting, betaald, mislukt of geannuleerd. |
+| `payment_type` | Type | dimension | label | `finance` | `f_payments.record_type_label` | Vordering of terugbetaling. |
+| `payment_payable_type` | Soort | dimension | label | `finance` | `f_payments.payable_type_label` | Lidgeld of activiteit. |
 | `payment_age_bucket` | Ouderdom | dimension | label | `finance` | `f_payments.age_bucket` | Hoe lang een vordering al openstaat, in klassen. Betaalde records staan op 'Betaald'. |
 | `payment_record` | Betaling | dimension | label | `finance` | `f_payments.payment_id` | Het betaalrecord zelf. Klik door naar de betalingenpagina. |
-
-### Betaaldetail
-
-| Key | Name | Type | Format | Role | Source | Description |
-|---|---|---|---|---|---|---|
 | `payment_payable_label` | Waarvoor | detail | label | `member_details` | `f_payments.payable_label` | Voor wie en waarvoor deze betaling is — de inschrijver en de activiteit, of het hoofdlid en het lidmaatschapsjaar. |
-| `payment_kind_label` | Soort | detail | label | `finance` | `f_payments.payable_type_label` | Lidgeld of activiteit. |
-| `payment_type_label` | Type | detail | label | `finance` | `f_payments.record_type_label` | Vordering of terugbetaling. |
-| `payment_method_label` | Betaalwijze | detail | label | `finance` | `d_payment_method.label` | Online, overschrijving of cash. |
-| `payment_status_label` | Status | detail | label | `finance` | `d_payment_status.label` | In afwachting, betaald, mislukt of geannuleerd. |
 | `payment_ogm` | Mededeling (OGM) | detail | label | `finance` | `f_payments.structured_communication` | De gestructureerde mededeling op een overschrijving. |
-| `payment_due` | Te betalen | detail | money | `finance` | `f_payments.amount` | Het bedrag van deze ene regel. Een terugbetaling is negatief. |
-| `payment_received` | Betaald | detail | money | `finance` | `f_payments.amount_paid` | Wat er op deze regel ontvangen is. |
+| `payment_due` | Bedrag | detail | money | `finance` | `f_payments.amount` | Het bedrag van deze ene regel. Een terugbetaling is negatief. |
+| `payment_received` | Betaald bedrag | detail | money | `finance` | `f_payments.amount_paid` | Wat er op deze regel ontvangen is. |
 | `payment_balance` | Saldo | detail | money | `finance` | `f_payments.open_amount` | Te betalen min betaald, op deze regel. |
 | `payment_paid_on` | Betaald op | detail | date | `finance` | `f_payments.paid_date` | Wanneer de betaling binnenkwam. |
 | `payment_note` | Notitie | detail | label | `finance` | `f_payments.note` | Wat de penningmeester erbij schreef. |
@@ -190,8 +181,9 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 
 | Key | Name | Type | Format | Role | Source | Description |
 |---|---|---|---|---|---|---|
+| `form_count` | Aantal formulieren | measure | count | `admin` | `COUNT(DISTINCT f_forms.form_id)` | Formulieren, ook die zonder één inzending. Dat is de reden dat deze telling van het formulierfeit komt en niet van de inzendingen: op het inzendingenfeit verdwijnt een leeg formulier stilzwijgend, en 'welk formulier staat open en krijgt niets binnen' is juist een vraag die een bestuurder stelt (#871, dezelfde val als #848). |
 | `submission_count` | Aantal inzendingen | measure | count | `admin` | `COUNT(DISTINCT f_form_submissions.submission_id)` | Aantal inzendingen op een formulier. |
-| `submission_answers` | Aantal antwoorden | measure | count | `admin` | `SUM(f_form_submissions.answer_count)` | Som van de ingevulde antwoorden — hoeveel er werkelijk ingevuld is. |
+| `submission_answers` | Ingevulde velden | measure | count | `admin` | `SUM(f_form_submissions.answer_count)` | Som van de ingevulde antwoorden — hoeveel er werkelijk ingevuld is. |
 | `form` | Formulier | dimension | label | `admin` | `d_form.form_name` | Naam van het formulier. Klik door naar de formulierbouwer. |
 | `form_status` | Status van het formulier | dimension | label | `admin` | `d_form.form_status_label` | Concept, gepubliceerd of gesloten. |
 | `form_anonymous` | Anoniem formulier | dimension | label | `admin` | `d_form.is_anonymous_label` | Of het formulier anoniem ingevuld wordt. |

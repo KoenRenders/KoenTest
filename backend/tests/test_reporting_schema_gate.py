@@ -34,7 +34,7 @@ from sqlalchemy import text
 EXPECTED_VIEWS = {
     "d_activity", "d_date", "d_member", "d_membership_status",
     "d_payment_method", "d_payment_status", "d_person", "d_form",
-    "d_board_member", "d_address",
+    "d_board_member", "d_address", "f_forms",
     "f_memberships", "f_payments", "f_registrations", "f_membership_persons",
     "f_form_submissions", "f_tasks", "f_members", "f_activities",
 }

@@ -84,34 +84,51 @@ def _strip_intro(blad: list[list[str]], kop: list[str]) -> list[list[str]]:
     return blad[blad.index(kop):]
 
 
+# The header of the reporting listing. Same columns and same order as the payments
+# export; only the two money titles differ, for the reason in the test below.
+NIEUWE_KOP = ["Waarvoor", "Soort", "Type", "Betaalwijze", "Status",
+              "Mededeling (OGM)", "Bedrag", "Betaald bedrag", "Saldo",
+              "Betaald op", "Notitie"]
+
+
 def test_the_saved_report_and_the_button_produce_the_same_sheet(client, db_session,
                                                                 situation):
     oud = _old_export(client, db_session)
-    nieuw = _strip_intro(_new_report(db_session), oud[0])
+    nieuw = _strip_intro(_new_report(db_session), NIEUWE_KOP)
 
-    assert nieuw[0] == oud[0], "de kopregel is dezelfde, in dezelfde volgorde"
+    # Two column TITLES differ since #871 and the rest may not. Folding
+    # `Betaaldetail` into `Betalingen` put the aggregate and the row value of the
+    # same quantity in one class, and the universe gate forbids two objects with
+    # the same name inside a class — rightly, because a picker that offers "Te
+    # betalen" twice is not saved by a symbol. So the row-level columns are
+    # "Bedrag" and "Betaald bedrag" here; the payments screen's own export is
+    # untouched and still says "Te betalen" and "Betaald".
+    assert len(nieuw[0]) == len(oud[0])
+    verschillen = {(a, b) for a, b in zip(nieuw[0], oud[0]) if a != b}
+    assert verschillen == {("Bedrag", "Te betalen"), ("Betaald bedrag", "Betaald")}, (
+        f"onverwacht verschil in de kopregel: {verschillen}")
+
     assert len(nieuw) == len(oud), (
         f"de nieuwe lijst heeft {len(nieuw)} regels, de bestaande {len(oud)}")
 
-    for index, (rij_nieuw, rij_oud) in enumerate(zip(nieuw, oud)):
+    # Everything under the header — the rows and the total — must be identical.
+    # That is what this parity is about, and it is not weakened.
+    for index, (rij_nieuw, rij_oud) in enumerate(zip(nieuw[1:], oud[1:]), start=1):
         assert rij_nieuw == rij_oud, (
             f"regel {index} verschilt:\n  rapport: {rij_nieuw}\n  knop:    {rij_oud}")
 
 
 def test_the_intro_is_the_only_thing_the_report_adds(db_session, situation):
     blad = _new_report(db_session)
-    kop = ["Waarvoor", "Soort", "Type", "Betaalwijze", "Status",
-           "Mededeling (OGM)", "Te betalen", "Betaald", "Saldo", "Betaald op",
-           "Notitie"]
-    assert kop in blad, "de kop staat er, met exact deze kolommen"
-    intro = blad[:blad.index(kop)]
+    assert NIEUWE_KOP in blad, "de kop staat er, met exact deze kolommen"
+    intro = blad[:blad.index(NIEUWE_KOP)]
     assert intro[0][:2] == ["Rapport", "Betalingen en vorderingen"]
     assert any(rij[:1] == ["Filter"] for rij in intro)
 
 
 def test_the_totals_row_is_the_same_total(client, db_session, situation):
     oud = _old_export(client, db_session)
-    nieuw = _strip_intro(_new_report(db_session), oud[0])
+    nieuw = _strip_intro(_new_report(db_session), NIEUWE_KOP)
     assert oud[-1][0] == "Totaal" and nieuw[-1][0] == "Totaal"
     assert nieuw[-1] == oud[-1], "hetzelfde totaal, in dezelfde kolommen"
 

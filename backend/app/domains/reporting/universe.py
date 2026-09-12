@@ -87,8 +87,14 @@ class Role(str, Enum):
 
 # The classes, in the order the objects pane shows them. A class is how a user
 # thinks about the data, not how it is stored.
+# "Betaaldetail" is gone since #871. It was the only class named after a SHAPE
+# instead of a subject, and that split is what hid the collisions: two objects
+# called "Soort" and two called "Te betalen", each pair meaning something
+# different, invisible as long as they sat in separate classes. Inside one class
+# they had to be resolved. Four of those "details" turned out to be the same
+# expression as an existing dimension and simply went.
 CLASSES: tuple[str, ...] = ("Leden", "Activiteiten", "Betalingen",
-                            "Betaaldetail", "Formulieren", "Taken", "Tijd")
+                            "Formulieren", "Taken", "Tijd")
 
 
 @dataclass(frozen=True)
@@ -269,6 +275,17 @@ FACTS: tuple[Fact, ...] = (
         people_sql="COUNT(DISTINCT {view}.member_id)",
     ),
     Fact(
+        key="f_forms",
+        name="Formulieren",
+        role=Role.ADMIN,
+        grain="één rij per formulier",
+        description=(
+            "Elk formulier, ook een zonder inzendingen. Dat is het verschil met "
+            "Inzendingen, dat alleen formulieren kent waarop iemand antwoordde."
+        ),
+        dataset_key=("form_id",),
+    ),
+    Fact(
         key="f_activities",
         name="Activiteiten",
         role=Role.ADMIN,
@@ -336,6 +353,7 @@ JOINS: tuple[Join, ...] = (
     Join("f_membership_persons", "d_person", (("person_id", "person_id"),)),
     Join("f_membership_persons", "d_member", (("member_id", "member_id"),)),
     Join("f_form_submissions", "d_form", (("form_id", "form_id"),)),
+    Join("f_forms", "d_form", (("form_id", "form_id"),)),
     Join("f_form_submissions", "d_date", (("date_key", "date_key"),)),
     Join("f_tasks", "d_date", (("date_key", "date_key"),)),
     Join("f_members", "d_member", (("member_id", "member_id"),)),
@@ -402,34 +420,33 @@ OBJECTS: tuple[UniverseObject, ...] = (
 
     # ── Leden ───────────────────────────────────────────────────────────────
     UniverseObject(
-        key="membership_households", name="Gezinnen met lidmaatschap", klass="Leden",
-        kind=ObjectKind.MEASURE, view="f_memberships", sql="SUM({view}.is_member)",
-        format=Format.COUNT, role=Role.ADMIN, fact="f_memberships",
-        description="Gezinnen met een lidmaatschap in dat jaar.",
+        key="membership_count", name="Aantal gezinnen", klass="Leden",
+        kind=ObjectKind.MEASURE, view="f_memberships",
+        sql="COUNT(DISTINCT {view}.member_id)", format=Format.COUNT,
+        role=Role.ADMIN, fact="f_memberships", additive=False,
+        description=(
+            "Gezinnen in de telling, ongeacht of ze dat jaar lid waren. Dit is de "
+            "maat waarmee je op Lidmaatschapsstatus groepeert: een vervallen gezin "
+            "heeft dat jaar per definitie géén lidmaatschap, dus 'Aantal leden "
+            "(hoofdlid)' staat daar terecht op nul en telt het niet (#871)."
+        ),
     ),
     UniverseObject(
-        key="membership_persons", name="Aantal personen", klass="Leden",
+        key="membership_households", name="Aantal leden (hoofdlid)", klass="Leden",
+        kind=ObjectKind.MEASURE, view="f_memberships", sql="SUM({view}.is_member)",
+        format=Format.COUNT, role=Role.ADMIN, fact="f_memberships",
+        description=(
+            "Gezinnen met een lidmaatschap in dat jaar — één per gezin, wat Koen "
+            "'leden (hoofdlid)' noemt. Wil je weten hoeveel daarvan nieuw, "
+            "vernieuwd of vervallen zijn, groepeer dan op Lidmaatschapsstatus; "
+            "dat is een dimensie en geen aparte maat (#871)."
+        ),
+    ),
+    UniverseObject(
+        key="membership_persons", name="Aantal leden (personen)", klass="Leden",
         kind=ObjectKind.MEASURE, view="f_memberships", sql="SUM({view}.person_count)",
         format=Format.COUNT, role=Role.ADMIN, fact="f_memberships",
         description="Personen in de gezinnen met een lidmaatschap in dat jaar.",
-    ),
-    UniverseObject(
-        key="membership_new", name="Nieuw", klass="Leden", kind=ObjectKind.MEASURE,
-        view="f_memberships", sql="SUM({view}.is_new)", format=Format.COUNT,
-        role=Role.ADMIN, fact="f_memberships",
-        description="Gezinnen die dat jaar lid werden en het jaar ervoor niet waren.",
-    ),
-    UniverseObject(
-        key="membership_renewed", name="Vernieuwd", klass="Leden", kind=ObjectKind.MEASURE,
-        view="f_memberships", sql="SUM({view}.is_renewed)", format=Format.COUNT,
-        role=Role.ADMIN, fact="f_memberships",
-        description="Gezinnen die dat jaar én het jaar ervoor lid waren.",
-    ),
-    UniverseObject(
-        key="membership_lapsed", name="Vervallen", klass="Leden", kind=ObjectKind.MEASURE,
-        view="f_memberships", sql="SUM({view}.is_lapsed)", format=Format.COUNT,
-        role=Role.ADMIN, fact="f_memberships",
-        description="Gezinnen die het jaar ervoor lid waren en dat jaar niet vernieuwden.",
     ),
     UniverseObject(
         key="membership_amount_charged", name="Lidgeld gefactureerd", klass="Leden",
@@ -448,6 +465,17 @@ OBJECTS: tuple[UniverseObject, ...] = (
         kind=ObjectKind.MEASURE, view="f_memberships", sql="SUM({view}.open_amount)",
         format=Format.MONEY, role=Role.FINANCE, fact="f_memberships",
         description="Gefactureerd min ontvangen.",
+    ),
+    UniverseObject(
+        key="membership_is_active", name="Actief", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="f_memberships",
+        sql="CASE WHEN {view}.active_membership_count > 0 THEN 'Ja' ELSE 'Nee' END",
+        format=Format.LABEL, role=Role.ADMIN, fact="f_memberships",
+        description=(
+            "Of dit gezin dat jaar een actief lidmaatschap had. Een dimensie en "
+            "geen maat: 'hoeveel actieve leden' is een telling mét een filter, en "
+            "dan staat op het scherm welk filter (#871)."
+        ),
     ),
     UniverseObject(
         key="membership_status", name="Lidmaatschapsstatus", klass="Leden",
@@ -714,7 +742,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
         description="Som van de bedragen; terugbetalingen tellen negatief mee.",
     ),
     UniverseObject(
-        key="payment_amount_paid", name="Ontvangen", klass="Betalingen",
+        key="payment_amount_paid", name="Betaald", klass="Betalingen",
         kind=ObjectKind.MEASURE, view="f_payments", sql="SUM({view}.amount_paid)",
         format=Format.MONEY, role=Role.FINANCE, fact="f_payments",
         description="Wat er effectief ontvangen is.",
@@ -723,19 +751,14 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="payment_open_amount", name="Openstaand", klass="Betalingen",
         kind=ObjectKind.MEASURE, view="f_payments", sql="SUM({view}.open_amount)",
         format=Format.MONEY, role=Role.FINANCE, fact="f_payments",
-        description="Te betalen min ontvangen.",
-    ),
-    UniverseObject(
-        key="payment_outstanding", name="Openstaand volgens status",
-        klass="Betalingen", kind=ObjectKind.MEASURE, view="f_payments",
-        sql=("SUM(CASE WHEN {view}.status_code "
-             "NOT IN ('paid', 'cancelled', 'failed') THEN {view}.amount ELSE 0 END)"),
-        format=Format.MONEY, role=Role.FINANCE, fact="f_payments",
         description=(
-            "Het bedrag op records die nog niet afgehandeld zijn. Iets anders dan "
-            "'Openstaand', dat gevorderd min ontvangen rekent: bij een deels "
-            "betaald record lopen die twee uiteen, en dat verschil is het "
-            "onderwerp — niet een dubbeling."
+            "Te betalen min betaald — het derde getal van de rij Te betalen · "
+            "Betaald · Openstaand, en zichtbaar het verschil van de eerste twee. "
+            "De enige openstaand-maat sinds #871: "
+            "'Openstaand volgens status' stond ernaast met een statusvoorwaarde "
+            "in zijn naam, en die twee liepen uiteen zodra een betaling deels "
+            "betaald was. Wil je dat tweede antwoord, neem dan 'Te betalen' met "
+            "een filter op Betaalstatus — dan staat de voorwaarde op het scherm."
         ),
     ),
     UniverseObject(
@@ -765,19 +788,19 @@ OBJECTS: tuple[UniverseObject, ...] = (
         description="Online, overschrijving of cash.",
     ),
     UniverseObject(
-        key="payment_status", name="Betaalstatus", klass="Betalingen",
+        key="payment_status", name="Status", klass="Betalingen",
         kind=ObjectKind.DIMENSION, view="d_payment_status", sql="{view}.label",
         format=Format.LABEL, role=Role.FINANCE,
         description="In afwachting, betaald, mislukt of geannuleerd.",
     ),
     UniverseObject(
-        key="payment_type", name="Soort", klass="Betalingen", kind=ObjectKind.DIMENSION,
+        key="payment_type", name="Type", klass="Betalingen", kind=ObjectKind.DIMENSION,
         view="f_payments", sql="{view}.record_type_label", format=Format.LABEL,
         role=Role.FINANCE, fact="f_payments",
         description="Vordering of terugbetaling.",
     ),
     UniverseObject(
-        key="payment_payable_type", name="Waarvoor", klass="Betalingen",
+        key="payment_payable_type", name="Soort", klass="Betalingen",
         kind=ObjectKind.DIMENSION, view="f_payments", sql="{view}.payable_type_label",
         format=Format.LABEL, role=Role.FINANCE, fact="f_payments",
         description="Lidgeld of activiteit.",
@@ -797,7 +820,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
     ),
 
     UniverseObject(
-        key="membership_person_count", name="Aantal leden (personen)", klass="Leden",
+        key="membership_person_count", name="Aantal lidmaatschappen (personen)", klass="Leden",
         kind=ObjectKind.MEASURE, view="f_membership_persons",
         sql="COUNT({view}.person_id)",
         format=Format.COUNT, role=Role.ADMIN, fact="f_membership_persons",
@@ -825,68 +848,44 @@ OBJECTS: tuple[UniverseObject, ...] = (
     # screen; it declares `member_details` so the later per-object switch has
     # something to turn on.
     UniverseObject(
-        key="payment_payable_label", name="Waarvoor", klass="Betaaldetail",
+        key="payment_payable_label", name="Waarvoor", klass="Betalingen",
         kind=ObjectKind.DETAIL, view="f_payments", sql="{view}.payable_label",
         format=Format.LABEL, role=Role.MEMBER_DETAILS, fact="f_payments",
         description="Voor wie en waarvoor deze betaling is — de inschrijver en de activiteit, of het hoofdlid en het lidmaatschapsjaar.",
     ),
     UniverseObject(
-        key="payment_kind_label", name="Soort", klass="Betaaldetail",
-        kind=ObjectKind.DETAIL, view="f_payments", sql="{view}.payable_type_label",
-        format=Format.LABEL, role=Role.FINANCE, fact="f_payments",
-        description="Lidgeld of activiteit.",
-    ),
-    UniverseObject(
-        key="payment_type_label", name="Type", klass="Betaaldetail",
-        kind=ObjectKind.DETAIL, view="f_payments", sql="{view}.record_type_label",
-        format=Format.LABEL, role=Role.FINANCE, fact="f_payments",
-        description="Vordering of terugbetaling.",
-    ),
-    UniverseObject(
-        key="payment_method_label", name="Betaalwijze", klass="Betaaldetail",
-        kind=ObjectKind.DETAIL, view="d_payment_method", sql="{view}.label",
-        format=Format.LABEL, role=Role.FINANCE,
-        description="Online, overschrijving of cash.",
-    ),
-    UniverseObject(
-        key="payment_status_label", name="Status", klass="Betaaldetail",
-        kind=ObjectKind.DETAIL, view="d_payment_status", sql="{view}.label",
-        format=Format.LABEL, role=Role.FINANCE,
-        description="In afwachting, betaald, mislukt of geannuleerd.",
-    ),
-    UniverseObject(
-        key="payment_ogm", name="Mededeling (OGM)", klass="Betaaldetail",
+        key="payment_ogm", name="Mededeling (OGM)", klass="Betalingen",
         kind=ObjectKind.DETAIL, view="f_payments",
         sql="{view}.structured_communication", format=Format.LABEL,
         role=Role.FINANCE, fact="f_payments",
         description="De gestructureerde mededeling op een overschrijving.",
     ),
     UniverseObject(
-        key="payment_due", name="Te betalen", klass="Betaaldetail",
+        key="payment_due", name="Bedrag", klass="Betalingen",
         kind=ObjectKind.DETAIL, view="f_payments", sql="{view}.amount",
         format=Format.MONEY, role=Role.FINANCE, fact="f_payments",
         description="Het bedrag van deze ene regel. Een terugbetaling is negatief.",
     ),
     UniverseObject(
-        key="payment_received", name="Betaald", klass="Betaaldetail",
+        key="payment_received", name="Betaald bedrag", klass="Betalingen",
         kind=ObjectKind.DETAIL, view="f_payments", sql="{view}.amount_paid",
         format=Format.MONEY, role=Role.FINANCE, fact="f_payments",
         description="Wat er op deze regel ontvangen is.",
     ),
     UniverseObject(
-        key="payment_balance", name="Saldo", klass="Betaaldetail",
+        key="payment_balance", name="Saldo", klass="Betalingen",
         kind=ObjectKind.DETAIL, view="f_payments", sql="{view}.open_amount",
         format=Format.MONEY, role=Role.FINANCE, fact="f_payments",
         description="Te betalen min betaald, op deze regel.",
     ),
     UniverseObject(
-        key="payment_paid_on", name="Betaald op", klass="Betaaldetail",
+        key="payment_paid_on", name="Betaald op", klass="Betalingen",
         kind=ObjectKind.DETAIL, view="f_payments", sql="{view}.paid_date",
         format=Format.DATE, role=Role.FINANCE, fact="f_payments",
         description="Wanneer de betaling binnenkwam.",
     ),
     UniverseObject(
-        key="payment_note", name="Notitie", klass="Betaaldetail",
+        key="payment_note", name="Notitie", klass="Betalingen",
         kind=ObjectKind.DETAIL, view="f_payments", sql="{view}.note",
         format=Format.LABEL, role=Role.FINANCE, fact="f_payments",
         description="Wat de penningmeester erbij schreef.",
@@ -910,15 +909,15 @@ OBJECTS: tuple[UniverseObject, ...] = (
         ),
     ),
     UniverseObject(
-        key="member_total_count", name="Gezinnen (alle)", klass="Leden",
+        key="member_total_count", name="Aantal gezinnen in de administratie", klass="Leden",
         kind=ObjectKind.MEASURE, view="f_members",
         sql="COUNT(DISTINCT {view}.member_id)", format=Format.COUNT,
         role=Role.ADMIN, fact="f_members", additive=False,
         description=(
-            "Elk gezin in de administratie, of het ooit lid was of niet. Verschilt "
-            "van 'Gezinnen met lidmaatschap', dat alleen telt wie in dat jaar lid "
-            "was — de twee feiten schelen drie letters (`f_members` tegenover "
-            "`f_memberships`) en het verschil is gezin tegenover lidmaatschapsjaar."
+            "Elk gezin in de administratie, of het ooit lid was of niet. Dat is de "
+            "populatie van het feit Gezinnen; 'Aantal leden (hoofdlid)' telt op het "
+            "feit Lidmaatschappen en kent alleen gezinnen die ooit aansloten. Het "
+            "paneel toont bij elk rapport welke populatie je telt."
         ),
     ),
     UniverseObject(
@@ -929,7 +928,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
         description="Of dit gezin ooit een lidmaatschap had.",
     ),
     UniverseObject(
-        key="membership_active_count", name="Actieve lidmaatschappen",
+        key="membership_active_count", name="Aantal actieve lidmaatschappen",
         klass="Leden", kind=ObjectKind.MEASURE, view="f_memberships",
         sql="SUM({view}.active_membership_count)", format=Format.COUNT,
         role=Role.ADMIN, fact="f_memberships",
@@ -950,7 +949,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
         ),
     ),
     UniverseObject(
-        key="membership_person_unique", name="Aantal unieke leden", klass="Leden",
+        key="membership_person_unique", name="Aantal unieke personen", klass="Leden",
         kind=ObjectKind.MEASURE, view="f_membership_persons",
         sql="COUNT(DISTINCT {view}.person_id)", format=Format.COUNT,
         role=Role.ADMIN, fact="f_membership_persons", additive=False,
@@ -962,6 +961,19 @@ OBJECTS: tuple[UniverseObject, ...] = (
 
     # ── Formulieren ─────────────────────────────────────────────────────────
     UniverseObject(
+        key="form_count", name="Aantal formulieren", klass="Formulieren",
+        kind=ObjectKind.MEASURE, view="f_forms",
+        sql="COUNT(DISTINCT {view}.form_id)", format=Format.COUNT,
+        role=Role.ADMIN, fact="f_forms", additive=False,
+        description=(
+            "Formulieren, ook die zonder één inzending. Dat is de reden dat deze "
+            "telling van het formulierfeit komt en niet van de inzendingen: op "
+            "het inzendingenfeit verdwijnt een leeg formulier stilzwijgend, en "
+            "'welk formulier staat open en krijgt niets binnen' is juist een "
+            "vraag die een bestuurder stelt (#871, dezelfde val als #848)."
+        ),
+    ),
+    UniverseObject(
         key="submission_count", name="Aantal inzendingen", klass="Formulieren",
         kind=ObjectKind.MEASURE, view="f_form_submissions",
         sql="COUNT(DISTINCT {view}.submission_id)", format=Format.COUNT,
@@ -969,7 +981,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
         description="Aantal inzendingen op een formulier.",
     ),
     UniverseObject(
-        key="submission_answers", name="Aantal antwoorden", klass="Formulieren",
+        key="submission_answers", name="Ingevulde velden", klass="Formulieren",
         kind=ObjectKind.MEASURE, view="f_form_submissions",
         sql="SUM({view}.answer_count)", format=Format.COUNT, role=Role.ADMIN,
         fact="f_form_submissions",

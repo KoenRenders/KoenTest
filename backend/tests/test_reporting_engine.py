@@ -95,7 +95,7 @@ def test_sorting_on_something_that_is_not_in_the_report_is_refused():
     with pytest.raises(SelectionError) as exc:
         plan(["payment_method", "payment_amount"],
              sort=(Sort("payment_status", Direction.ASC),))
-    assert "'Betaalstatus'" in str(exc.value)
+    assert "'Status'" in str(exc.value)
 
 
 def test_filtering_on_a_measure_is_refused():
@@ -221,9 +221,17 @@ def test_every_money_measure_is_declared_finance():
 
 
 def test_the_payments_class_is_declared_finance_end_to_end():
+    # Finance OR stricter. Since #871 the payment details live in this class too,
+    # and one of them names a person (`payment_payable_label`: "voor wie en
+    # waarvoor"). That is `member_details`, which is a tighter fence than finance
+    # and not a hole in it — the rule is "at least finance", never "exactly".
     fouten = [o.key for o in OBJECTS
-              if o.klass == "Betalingen" and o.role is not Role.FINANCE]
-    assert not fouten, f"objecten in Betalingen zonder de rol finance: {fouten}"
+              if o.klass == "Betalingen"
+              and o.role not in (Role.FINANCE, Role.MEMBER_DETAILS)]
+    assert not fouten, (
+        f"objecten in Betalingen met een ruimere rol dan finance: {fouten}")
+    assert any(o.klass == "Betalingen" and o.role is Role.FINANCE
+               for o in OBJECTS), "anders toetst de regel hierboven niets"
 
     # A fact's role governs its flat dump, and a dump carries every column. The
     # three money facts therefore declare finance; the three that #841 added carry
@@ -248,6 +256,6 @@ def test_every_measure_and_detail_carries_a_role():
 
 def test_the_objects_pane_is_grouped_in_declared_class_order():
     classes = [name for name, _objects in classes_with_objects()]
-    assert classes == ["Leden", "Activiteiten", "Betalingen", "Betaaldetail",
+    assert classes == ["Leden", "Activiteiten", "Betalingen",
                        "Formulieren", "Taken", "Tijd"]
     assert all(objects for _name, objects in classes_with_objects())

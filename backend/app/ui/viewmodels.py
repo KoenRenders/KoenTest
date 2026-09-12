@@ -24,6 +24,9 @@ class DesignSystemView(ViewModel):
     #: Eén voorbeeldveld per soort uit `FIELD_TYPES` (#811), gerenderd door dezelfde
     #: `veld()`-macro als het publieke formulier.
     velden: list[Any]
+    #: Eén echte datum voor de meetwaarden-demo (#875): een datum is de enige
+    #: opmaaksoort die je niet als letterlijke waarde in het sjabloon kunt zetten.
+    demo_datum: Any = None
     #: De macro `veld()` leest de ingevulde waarden uit `values`. Die moet in de
     #: context staan op het moment van importeren, niet pas in het sjabloon: Jinja
     #: bindt de context bij `{% from … with context %}`.

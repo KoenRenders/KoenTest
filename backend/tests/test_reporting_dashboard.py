@@ -37,7 +37,7 @@ TILE_REPORTS = {
     "dashboard_member_persons": "membership_person_unique",
     "dashboard_upcoming_activities": "activity_count",
     "dashboard_open_tasks": "task_count",
-    "dashboard_outstanding": "payment_outstanding",
+    "dashboard_outstanding": "payment_amount",
 }
 
 

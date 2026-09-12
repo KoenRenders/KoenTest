@@ -76,16 +76,20 @@ def test_new_renewed_and_lapsed_add_up_per_year(db_session, situation):
     one that proves the grid in `f_memberships` does its job.
     """
     y0, y1, y2, y3 = situation["years"]
-    result = run(db_session, ["membership_year", "membership_new",
-                              "membership_renewed", "membership_lapsed"])
-    rows = by(result, "membership_year")
+    # Since #871 these are one count grouped by the status dimension, not three
+    # measures. Same three numbers; the condition is now visible instead of baked
+    # into a name.
+    result = run(db_session, ["membership_year", "membership_status",
+                              "membership_count"])
+    rows = {(r["membership_year"], r["membership_status"]):
+            r["membership_count"] for r in result.rows}
 
     verwacht = EXPECTED["memberships"]
     for offset, year in enumerate((y0, y1, y2, y3)):
-        assert rows[year]["membership_new"] == verwacht["new"][offset], f"nieuw in {year}"
-        assert rows[year]["membership_renewed"] == verwacht["renewed"][offset], (
+        assert rows.get((year, "Nieuw"), 0) == verwacht["new"][offset], f"nieuw in {year}"
+        assert rows.get((year, "Vernieuwd"), 0) == verwacht["renewed"][offset], (
             f"vernieuwd in {year}")
-        assert rows[year]["membership_lapsed"] == verwacht["lapsed"][offset], (
+        assert rows.get((year, "Vervallen"), 0) == verwacht["lapsed"][offset], (
             f"vervallen in {year}")
 
 
@@ -103,14 +107,12 @@ def test_a_membership_taken_out_in_october_counts_in_its_own_year(db_session,
     numbers that each look reasonable on their own.
     """
     _y0, _y1, y2, y3 = situation["years"]
-    result = run(db_session, ["membership_year", "membership_households",
-                              "membership_new"])
+    result = run(db_session, ["membership_year", "membership_households"])
     rows = by(result, "membership_year")
 
     assert rows[y2]["membership_households"] == 2, (
         "H4 is dit jaar geen lid, ook al loopt zijn lidmaatschap al")
     assert rows[y3]["membership_households"] == 1
-    assert rows[y3]["membership_new"] == 1, "H4 is nieuw in het jaar waarvoor hij betaalt"
 
     # Filtered to H4 and NOT grouped by household: grouping by a single family is
     # exactly what the small-cell threshold of #841 folds away, and rightly so —

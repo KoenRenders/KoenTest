@@ -63,6 +63,11 @@ class ReportPanelView(ViewModel):
     kind_symbols: dict[str, str]
     kind_labels: dict[str, str]
     chosen_keys: list[str]
+    #: Classes the user folded shut (#872). The closed set, not the open one:
+    #: every class starts open, so the default state is the empty list.
+    closed_classes: list[str]
+    #: Per class, how many objects are chosen — what a folded class still shows.
+    chosen_per_class: dict[str, int]
     filter_keys: list[str]
 
     # ── Selection ───────────────────────────────────────────────────────────
@@ -75,6 +80,10 @@ class ReportPanelView(ViewModel):
     filter_values: dict[str, str]
 
     # ── Result ──────────────────────────────────────────────────────────────
+    # True when `message` is a REFUSAL and not an absence. The two are drawn
+    # differently on purpose: a refusal asks the user to change something, an
+    # empty result does not (#877).
+    refused: bool
     # None until at least one measure is chosen; `message` says why.
     columns: list[Any]
     rows: list[dict[str, Any]]
@@ -90,6 +99,14 @@ class ReportPanelView(ViewModel):
     chart: dict[str, Any] | None
     layout: str
     pivot_column: str
+    # Which population the report counts — the fact, as (name, grain). None while
+    # the selection cannot say yet. The panel shows it so the difference between
+    # "every household" and "households with a membership" is on the screen
+    # instead of inside the name of a measure (#871).
+    population: Any | None
+    # "The user cleared the column axis", as opposed to "there is none yet" — the
+    # panel needs the difference to keep the "geen" button pressed (#873).
+    no_column: bool
     message: str | None
     # #847: a report that fills in the viewer's own identity says so, or somebody
     # shares a link and the receiver cannot explain why he sees something else.

@@ -78,6 +78,14 @@ from app.kernel.geld import bedrag as _bedrag  # noqa: E402
 templates.env.filters["geld"] = _bedrag
 
 
+# Een meetwaarde per opmaaksoort (#875): `{{ waarde|meetwaarde(c.format) }}`. Eén
+# plek voor alle vijf de soorten die de universe declareert — het paneel kende er
+# één en drukte de rest rauw af, met `0E-20` als resultaat.
+from app.kernel.meetwaarden import meetwaarde as _meetwaarde  # noqa: E402
+
+templates.env.filters["meetwaarde"] = _meetwaarde
+
+
 # Relatietype leesbaar tonen (#476): ruwe code → label i.p.v. "HOOFDLID".
 _RELATIE_LABELS = {"HOOFDLID": "Hoofdlid", "PARTNER": "Partner",
                    "KIND": "(meerderjarig) kind"}

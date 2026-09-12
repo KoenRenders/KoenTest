@@ -18,9 +18,12 @@ gate reads as heavy-handed without them:
 - `date_month_label` only sorts wrong — alphabetically, "april 2026" before
   "januari 2026". Visible, and no silent number.
 
-**Enforcing and not dropping the kind.** Twelve objects carry `DETAIL`, eleven of
-them columns of the payments listing. Dropping the kind would promote those eleven
-to grouping axes — it removes the warning instead of the trap.
+**Enforcing and not dropping the kind.** Eight objects carry `DETAIL`, seven of
+them columns of the payments listing. It was thirteen until #871 merged the
+`Betaaldetail` class into `Betalingen` and four of those "details" turned out to be
+the same expression as a dimension that already existed — a duplication the split
+class had been hiding. Dropping the kind would promote the rest to grouping axes:
+that removes the warning instead of the trap.
 
 **The gate found a misdeclaration on its first run.** `task_done_by` was a detail,
 and the personal work list of #847 groups on it — "how many did each of us close",
@@ -132,12 +135,12 @@ def test_the_kind_is_worth_keeping_because_thirteen_objects_carry_it():
     revisiting, and this test is where that conversation starts.
     """
     details = [o for o in OBJECTS if o.kind is ObjectKind.DETAIL]
-    assert len(details) >= 10, (
+    assert len(details) >= 6, (
         f"nog maar {len(details)} details — is de afweging uit #852 nog dezelfde?")
     assert BY_KEY["task_done_by"].kind is ObjectKind.DIMENSION, (
         "'Afgehandeld door' is een sleutel en de as van de werklijst uit #847; "
         "als detail zou de gate die werklijst weigeren")
-    assert sum(1 for o in details if o.view == "f_payments") >= 6, (
+    assert sum(1 for o in details if o.view == "f_payments") >= 5, (
         "het merendeel hoort bij de betalingenlijst")
 
 

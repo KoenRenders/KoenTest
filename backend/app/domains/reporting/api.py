@@ -32,6 +32,7 @@ from app.domains.reporting.engine import (  # noqa: F401
     build_detail_query,
     build_member_count_query,
     build_query,
+    population_of,
     selection_from_dict,
     selection_to_dict,
 )
@@ -119,6 +120,7 @@ __all__ = [
     "check_column_cap", "classes_of", "classes_with_objects", "copy_report",
     "dashboard_numbers", "dataset_filename",
     "delete_report", "dimension_values", "fact_columns", "filter_summary",
+    "population_of",
     "get_saved_report", "joins_for", "list_saved_reports", "load_dataset",
     "is_personal", "log_export", "mark_run", "merge_small_cells",
     "objects_in_pane_order", "report_filename", "resolve_selection",
