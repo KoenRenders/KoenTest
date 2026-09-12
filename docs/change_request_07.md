@@ -113,14 +113,22 @@ Two tools, in their own allowlist with their own dispatch — the public
 | `run_report(selection)` | Validate + execute one selection; return columns, rows (pseudonymised, capped), totals, and the refusal text on failure | `selection_from_dict` → `resolve_selection` → `run_selection` |
 | `list_values(object_key)` | The existing values a dimension holds, for clarification and for filter construction | `dimension_values` |
 
+`list_values` follows the same pii rule as `run_report`: the values of a
+person-naming dimension *are* names, so on a pii-flagged object it is refused in
+phase 1 and tokenised in phase 2 — a tool result is a tool result, whichever
+tool produced it.
+
 The universe catalogue is **system prompt, not a tool**: it is small, static per
 release, and the model needs it before its first move.
 
 Caps: rows per tool result (start: 50, with an explicit "refine your filter"
 marker when cut), tool rounds (start: 6 — selections need more retries than the
-public bot's lookups), an admin-side daily budget next to the public one
-(`limits.py` pattern), and the engine's own `MAX_ROWS`/statement limits beneath
-everything.
+public bot's lookups), a daily budget **per admin user** (session e-mail, not
+per IP as the public bot — admins are authenticated; `limits.py` pattern), and
+the engine's own `MAX_ROWS`/statement limits beneath everything. Settings:
+`admin_chat_enabled` (kill-switch, default off), `admin_chat_model`,
+`admin_chat_daily_char_budget` — separate from and next to the public `chat_*`
+family.
 
 ### 4.3 The conversation loop
 
@@ -159,11 +167,15 @@ tool result** — the engine and the panel are untouched.
    value is replaced by a stable token built from the row's entity id, which
    `drill_aliases` already carries: `gezin-23`, `persoon-90`. Same entity, same
    token, within and across turns of one conversation — the model can reason
-   about recurrence.
+   about recurrence. The id in the token is what makes the whole mechanism
+   **stateless**: nothing about the mapping is stored per conversation.
+   Consequence: a pii-flagged object must have an entity id in its rows — a
+   gate test asserts it for every object carrying the flag, so an object that
+   cannot be tokenised cannot be declared pii-and-allowed.
 3. **Inbound: token → value, at render time.** Tokens occurring in the final
-   answer are replaced server-side by the real label (one lookup, tenant-scoped,
-   at most once per token). The admin reads "het gezin Renders"; Mistral only
-   ever saw `gezin-23`. Tokens the model never mentions cost nothing.
+   answer are replaced server-side by the real label — the id is parsed from
+   the token, resolved with one tenant-scoped lookup against the dimension
+   view. The admin reads "het gezin Renders"; Mistral only ever saw `gezin-23`. Tokens the model never mentions cost nothing.
 4. **What never enters the universe needs no masking.** Phone numbers, e-mail
    addresses and exact birth dates are not universe objects and stay out
    (CR-06 §7.3 attitude: the fence is declared before the first object needs
@@ -171,6 +183,14 @@ tool result** — the engine and the panel are untouched.
 5. **The small-cell threshold keeps applying.** Same engine, same merge. It
    protects grouped results; the pii tokens protect row-level ones. Together
    they cover both shapes an answer takes.
+6. **The typed question is an outbound channel too.** Tokenisation covers what
+   comes back from the database, but an admin who types "gaat het gezin Renders
+   stoppen?" sends that name to Mistral in the question text itself. **OPEN —
+   Koen's call:** (a) inbound scrub in phase 2 — match the question against the
+   tenant's member/person names and replace matches with their token before
+   sending, so the model reasons over `gezin-23` consistently; or (b) accept
+   with a screen hint ("noem geen namen"). Option (a) keeps "no personal data
+   to Mistral" true without a footnote and is the draft's recommendation.
 
 Gate-style test (the CLAUDE.md "bewijs het" norm): a test composes a selection
 containing every pii-flagged object, captures the exact payload handed to the
@@ -232,7 +252,9 @@ seasons?") — not a prompt tweak.
    screen, kill-switch + tenant flag, question log, caps. Test set 1–6 green.
    Pii flag already declared; person-naming objects simply refused in the
    assistant's selections this phase (named refusal, so the model routes
-   around them).
+   around them). The refusal lives in the **assistant layer**, before
+   `build_query` — never in the engine, which serves the query panel too and
+   must keep showing these objects there.
 2. **Person level.** Outbound tokenisation + inbound re-translation replace
    the phase-1 refusal; the masking gate test. Answers may now list
    households by name (rendered server-side).
