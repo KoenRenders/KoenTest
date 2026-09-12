@@ -339,6 +339,18 @@ def site_context(db, request=None) -> dict:
             # tenant-config. GEEN Millegem-specifieke defaults meer — die lekten
             # naar andere tenants (multi-tenancy-fout). Leeg = niet tonen, net als
             # Instagram/TikTok/privacy (#493): elke tenant zet zijn eigen waarden.
+            # Open Graph per PAGINA (#881), met de sitewaarden als terugval. Altijd
+            # aanwezig en niet via `|default()`: de sjablonen renderen onder
+            # StrictUndefined, en een ontbrekende naam hoort daar te falen in plaats van
+            # leeg te renderen. Een pagina die niets overschrijft krijgt exact de tags
+            # die ze vandaag heeft.
+            #
+            # Waarom dit nodig was: titel en omschrijving kwamen van de SITE, dus wie een
+            # album deelde las de naam van de vereniging in plaats van die van het album —
+            # en er was helemaal geen `og:image`, dus nooit een beeld.
+            "og_title": None,
+            "og_description": None,
+            "og_image": None,
             "site_name": tenant_display_name(db),
             "site_tagline": get_setting(db, "tagline") or "",
             "facebook_url": get_setting(db, "facebook_url") or None,
