@@ -119,6 +119,39 @@ def test_a_days_measure_is_not_printed_raw(client, db_session, situation):
         "genegeerd")
 
 
+def test_all_three_shapes_format_a_days_measure(client, db_session, situation):
+    """Koen's second screenshot came from the CROSSTAB, not from the flat table.
+
+    Three places did the formatting, each with its own money branch and each blind
+    to the other four formats: the table row, the totals row, and `_pivot_cell` in
+    the kit. So whoever repairs only `_rp_paneel.html` does not see his own fix in
+    the screen the report came from.
+
+    They all go through `ui.value_cell` now, and this test walks all three shapes
+    with the same pair of measures — money beside days — because that pair is what
+    made the difference visible: `€ 320,50` next to `8.4285714285714286`.
+    """
+    login(client, db_session)
+    maten = "&object=payment_amount&object=payment_days_to_paid"
+    vormen = {
+        "platte tabel": f"/admin/rapporten/paneel?object=payment_method{maten}",
+        "draaitabel": (f"/admin/rapporten/paneel?object=payment_method"
+                       f"&object=payment_payable_type{maten}"
+                       "&layout=pivot&pivot_column=payment_payable_type"),
+        "kolomloze draaitabel": (f"/admin/rapporten/paneel?object=payment_method"
+                                 f"{maten}&layout=pivot&pivot_column="
+                                 "&no_column=1"),
+    }
+    for naam, url in vormen.items():
+        fragment = client.get(url)
+        assert fragment.status_code == 200, naam
+        assert "0E-20" not in fragment.text, f"rauwe Decimal in de {naam}"
+        assert "0000000" not in fragment.text, f"rauwe Decimal in de {naam}"
+        assert "€" in fragment.text, (
+            f"de geldkolom hoort ook in de {naam} opgemaakt te zijn — staat die "
+            "er niet, dan toetst deze ronde niets")
+
+
 def test_the_totals_row_formats_the_same_way_as_the_rows(client, db_session,
                                                          situation):
     """The formatting used to sit in three places, each with its own money branch.
