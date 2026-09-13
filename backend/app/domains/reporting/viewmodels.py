@@ -141,3 +141,41 @@ class ReportPanelView(ViewModel):
     toast: bool = False
     csrf_token: str = ""
     nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class AssistantView(ViewModel):
+    """`admin_rapporten_raakje.html` — the assistant's own page (CR-07 §4.3).
+
+    The conversation lives in the page and not on the server: `history` is what
+    goes back into the form, so a reload starts a fresh conversation and nothing is
+    kept between sessions (§10). Deliberately only questions and answers — tool
+    results are rebuilt server-side each turn, so nothing that reaches the model as
+    data can be edited on its way back through the browser.
+    """
+
+    enabled: bool
+    # Why it is off, when it is: the global switch, the tenant switch, or neither.
+    # Derived in the route — a template that works this out is a second place where
+    # the rule lives (design-system §8.3).
+    reason: str
+    history: str
+    csrf_token: str
+    nav_items: list[Any] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class AssistantTurnView(ViewModel):
+    """`_rp_raakje_antwoord.html` — one question with its answer.
+
+    `payload` is what the provider was handed, verbatim, for the "wat zag Mistral"
+    fold-out (§5.7). It is on the turn and not on the page because it belongs to
+    this answer: the promise being checked is about this question, not about the
+    session.
+    """
+
+    vraag: str
+    antwoord: str
+    error: str
+    payload: str
+    history: str

@@ -17,6 +17,7 @@ code (CLAUDE.md, "URL paths follow the audience").
 """
 from __future__ import annotations
 
+import logging
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -73,7 +74,11 @@ from app.domains.reporting.api import (
 )
 from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
 from app.ui import admin_nav, is_fragment_request, templates
-from app.domains.reporting.viewmodels import ReportListView, ReportPanelView
+from app.domains.reporting.viewmodels import (
+    AssistantTurnView, AssistantView, ReportListView, ReportPanelView,
+)
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(include_in_schema=False)
 
@@ -718,6 +723,167 @@ def dataset_export(fact_key: str, request: Request,
         headers={"Content-Disposition":
                  f'attachment; filename="{dataset_filename(dataset)}"'},
     )
+
+
+# ── Raakje: the assistant on this universe (#917, CR-07) ─────────────────────
+#
+# The screen mirrors `/raakje`: one htmx question, a server-side complete answer,
+# no SSE. What is different is everything around it — the door, the toolset, the
+# guard and the budget — and none of that is visible here, because it sits at the
+# seam the chatbot facade exports.
+
+# How much of the conversation travels back and forth. The turns are questions and
+# answers only; a cap keeps a long afternoon from growing into a prompt nobody
+# meant to pay for.
+HISTORY_TURNS = 12
+
+
+def _assistant_state(db: Session, request: Request) -> tuple[bool, str]:
+    """Is the assistant available here, and if not, which switch is off?
+
+    Two switches in series (CR-07 §6.3), and the reason is shown rather than a bare
+    "not available": the person reading this screen is the person who can turn it
+    on, and a dead end that does not say which switch costs them a search.
+    """
+    from app.config import settings
+    from app.kernel.tenant_config import tenant_admin_chat_enabled
+
+    if not settings.admin_chat_enabled:
+        return False, _("Raakje staat uit voor deze omgeving (ADMIN_CHAT_ENABLED).")
+    if not tenant_admin_chat_enabled(db, _tenant(request)):
+        return False, _("Raakje staat uit voor deze vereniging. Zet 'Raakje in de "
+                        "backoffice' aan bij de instellingen van de tenant.")
+    return True, ""
+
+
+def _history_in(raw: str) -> list[dict[str, str]]:
+    """The conversation as it came back from the browser — nothing trusted.
+
+    Only two roles and only text: whatever else a tampered field carries is
+    dropped. The system prompt and every tool result are rebuilt server-side each
+    turn, so the worst a doctored history can do is put words in the user's own
+    mouth — which they could have typed anyway.
+    """
+    import json as _json
+
+    try:
+        data = _json.loads(raw or "[]")
+    except (ValueError, TypeError):
+        return []
+    if not isinstance(data, list):
+        return []
+    turns = []
+    for item in data[-HISTORY_TURNS * 2:]:
+        if not isinstance(item, dict):
+            continue
+        role, content = item.get("role"), item.get("content")
+        if role in ("user", "assistant") and isinstance(content, str):
+            turns.append({"role": role, "content": content[:4000]})
+    return turns
+
+
+def _history_out(turns: list[dict[str, str]]) -> str:
+    import json as _json
+
+    return _json.dumps(turns[-HISTORY_TURNS * 2:], ensure_ascii=False)
+
+
+@router.get("/admin/rapporten/raakje", response_class=HTMLResponse)
+def assistant_page(request: Request, db: Session = Depends(get_db),
+                   email: str = Depends(require_admin_ui)):
+    enabled, reason = _assistant_state(db, request)
+    view = AssistantView(enabled=enabled, reason=reason, history="[]",
+                         csrf_token=_csrf(request), nav_items=admin_nav(NAV))
+    return templates.TemplateResponse(request, "admin_rapporten_raakje.html",
+                                      view.as_context())
+
+
+@router.post("/admin/rapporten/raakje", response_class=HTMLResponse,
+             dependencies=[Depends(require_csrf)])
+async def assistant_ask(request: Request, db: Session = Depends(get_db),
+                        email: str = Depends(require_admin_ui)):
+    import time
+
+    from app.config import settings
+    from app.domains.chatbot.api import (
+        ChatTimeout, GuardedProvider, SeamBlocked, admin_chat_char_budget,
+        admin_rules, get_provider, run_chat, sink_for,
+    )
+    from app.domains.mdm.api import person_name_parts
+    from app.domains.reporting.assistant import (
+        CAPABILITY, TOOL_SPECS, build_system_prompt, dispatcher,
+    )
+
+    form = await request.form()
+    vraag = str(form.get("vraag") or "").strip()
+    turns = _history_in(str(form.get("historie") or ""))
+
+    enabled, reason = _assistant_state(db, request)
+    if not enabled:
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    if not vraag:
+        return templates.TemplateResponse(
+            request, "_rp_raakje_antwoord.html",
+            AssistantTurnView(vraag="", antwoord="", error=_("Typ eerst een vraag."),
+                              payload="", history=_history_out(turns)).as_context())
+
+    # Per admin and not per IP: they are signed in, and two board members on one
+    # network are two people (CR-07 §4.2).
+    admin_chat_char_budget.charge(request, len(vraag), key=email)
+
+    messages = [{"role": "system", "content": build_system_prompt()}]
+    messages += turns
+    messages.append({"role": "user", "content": vraag})
+
+    provider = GuardedProvider(
+        get_provider(settings.admin_chat_model),
+        admin_rules(lambda: person_name_parts(db), capability=CAPABILITY),
+        sink_for(email),
+    )
+    deadline = time.monotonic() + settings.admin_chat_timeout_seconds
+    try:
+        antwoord = run_chat(db, messages, provider,
+                            max_rounds=settings.admin_chat_max_tool_rounds,
+                            tools=TOOL_SPECS,
+                            dispatch=dispatcher(tenant_id=_tenant(request)),
+                            deadline=deadline)
+    except (SeamBlocked, ChatTimeout) as gestopt:
+        # The log row is already written, in the logbook's own session — precisely
+        # because this turn ends on an error path.
+        return templates.TemplateResponse(
+            request, "_rp_raakje_antwoord.html",
+            AssistantTurnView(vraag=vraag, antwoord="", error=str(gestopt),
+                              payload=_last_payload(provider),
+                              history=_history_out(turns)).as_context())
+    except Exception:
+        logger.exception("Raakje (backoffice) kon geen antwoord geven")
+        return templates.TemplateResponse(
+            request, "_rp_raakje_antwoord.html",
+            AssistantTurnView(
+                vraag=vraag, antwoord="",
+                error=_("Sorry, dat lukte niet. Probeer het opnieuw of stel de "
+                        "vraag anders."),
+                payload=_last_payload(provider),
+                history=_history_out(turns)).as_context())
+
+    turns = turns + [{"role": "user", "content": vraag},
+                     {"role": "assistant", "content": antwoord}]
+    return templates.TemplateResponse(
+        request, "_rp_raakje_antwoord.html",
+        AssistantTurnView(vraag=vraag, antwoord=antwoord, error="",
+                          payload=_last_payload(provider),
+                          history=_history_out(turns)).as_context())
+
+
+def _last_payload(provider) -> str:
+    """What went out on the final round — the "wat zag Mistral" fold-out (§5.7).
+
+    The last one and not all of them: it carries the whole conversation including
+    every tool result, so it is the one that shows what the model knew when it
+    answered. The full series is in the log table.
+    """
+    sent = getattr(provider, "sent", None) or []
+    return sent[-1] if sent else ""
 
 
 @router.get("/admin/rapporten/{report_id}", response_class=HTMLResponse)

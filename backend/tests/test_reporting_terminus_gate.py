@@ -45,10 +45,11 @@ MIGRATIONS = Path(__file__).resolve().parents[1] / "alembic" / "versions"
 ALLOWED_IMPORTERS = {
     "app.main",              # route registration
     "app.ui.system_ui",      # the dashboard tiles
-    # The assistant's capability pack (CR-07 §4.1): reporting supplies the tools,
-    # the chatbot kernel runs them. Reporting imports chatbot, never the reverse.
-    "app.domains.chatbot.assistant",
 }
+# Deliberately not on the list: the assistant (CR-07 §4.1). Its capability pack
+# lives *inside* reporting (`reporting/assistant.py`), because reporting imports
+# the chatbot kernel and never the reverse — so it is the domain itself, not a
+# consumer, and needs no permission.
 
 # The rule, in the failure message — refusing without explaining sends the reader
 # looking for a workaround instead of the right door.
@@ -111,13 +112,11 @@ def test_the_allowlist_names_only_modules_that_exist():
 
     Left standing, it silently re-permits the day someone recreates that module —
     the same reason `LEGACY_ALLOWLIST` in `test_import_boundaries.py` may only
-    shrink. `chatbot.assistant` is exempt while it is being built (CR-07 phase 1).
+    shrink.
     """
     stale = []
     for module in ALLOWED_IMPORTERS:
         path = APP.parent / Path(*module.split(".")).with_suffix(".py")
-        if module == "app.domains.chatbot.assistant" and not path.exists():
-            continue
         assert path.exists(), f"allowlist noemt {module}, maar dat bestand bestaat niet"
         if not _IMPORT.search(path.read_text(encoding="utf-8")):
             stale.append(module)

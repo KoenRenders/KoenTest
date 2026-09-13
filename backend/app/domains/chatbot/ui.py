@@ -57,7 +57,9 @@ def raakje_vraag(request: Request, db: Session = Depends(get_db),
     from app.domains.chatbot.context import build_system_prompt
     from app.domains.chatbot.providers import get_provider
     from app.domains.chatbot.api import chat_char_budget
-    from app.domains.chatbot.service import run_chat
+    from app.domains.chatbot.service import run_public_chat
+    from app.domains.chatbot.seam import GuardedProvider, SeamBlocked, public_rules
+    from app.domains.chatbot.logbook import sink_for
 
     vraag = vraag.strip()
     if not settings.chat_enabled:
@@ -69,9 +71,20 @@ def raakje_vraag(request: Request, db: Session = Depends(get_db),
     chat_char_budget.charge(request, len(vraag))
     messages = [{"role": "system", "content": build_system_prompt(db)},
                 {"role": "user", "content": vraag}]
+    # Elke uitgaande oproep passeert de naadwachter en het logboek — ook de
+    # publieke (CR-07 §5.8/§6.4). De publieke bot krijgt de patroon-controles en
+    # niet de naam-/e-mailcontrole: zijn contactpad bestaat net om een naam en een
+    # e-mailadres te ontvangen.
+    provider = GuardedProvider(get_provider(), public_rules(), sink_for())
     try:
-        antwoord = run_chat(db, messages, get_provider(),
-                            max_rounds=settings.chat_max_tool_rounds)
+        antwoord = run_public_chat(db, messages, provider,
+                                   max_rounds=settings.chat_max_tool_rounds)
+    except SeamBlocked as geblokkeerd:
+        # De logregel staat al — het logboek schrijft in zijn eigen sessie, juist
+        # omdat deze beurt op een foutpad eindigt.
+        return templates.TemplateResponse(request, "_raakje_antwoord.html",
+                                          {"vraag": vraag, "antwoord": None,
+                                           "error": str(geblokkeerd)})
     except Exception:
         return templates.TemplateResponse(request, "_raakje_antwoord.html",
                                           {"vraag": vraag, "antwoord": None,

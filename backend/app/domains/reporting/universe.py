@@ -734,7 +734,12 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="paid_date_year", name="Betaaldatum › Jaar", klass="Betalingen",
         kind=ObjectKind.DIMENSION, view="d_paid_date", sql="{view}.year",
         format=Format.YEAR, role=Role.FINANCE,
-        description="Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd. Opgerold tot jaar.",
+        description=(
+            "Het jaar waarover een lidmaatschap gaat. Eén object voor beide "
+            "lidmaatschapsfeiten (#894) — en géén hiërarchie, want de dag eronder is 1 "
+            "januari en dus verzonnen. Niet te verwarren met 'Lid sinds' (het eerste jaar) "
+            "of met de aanmaakdatum van het gezin."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
@@ -908,21 +913,27 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="membership_amount_charged", name="Lidgeld gefactureerd", klass="Leden",
         kind=ObjectKind.MEASURE, view="f_memberships", sql="SUM({view}.amount_charged)",
         format=Format.MONEY, role=Role.FINANCE, fact="f_memberships",
-        description="Som van de vorderingen op het lidgeld, terugbetalingen afgetrokken.",
+        description=(
+            "Som van de vorderingen op het lidgeld, terugbetalingen afgetrokken. De "
+            "standaardbetekenis van 'lidgeldomzet': gefactureerd, niet ontvangen."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
         key="membership_amount_paid", name="Lidgeld ontvangen", klass="Leden",
         kind=ObjectKind.MEASURE, view="f_memberships", sql="SUM({view}.amount_paid)",
         format=Format.MONEY, role=Role.FINANCE, fact="f_memberships",
-        description="Wat er effectief op het lidgeld ontvangen is.",
+        description=(
+            "Wat er effectief op het lidgeld ontvangen is. Lager dan 'Lidgeld "
+            "gefactureerd' zolang er nog iets openstaat."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
         key="membership_open_amount", name="Lidgeld openstaand", klass="Leden",
         kind=ObjectKind.MEASURE, view="f_memberships", sql="SUM({view}.open_amount)",
         format=Format.MONEY, role=Role.FINANCE, fact="f_memberships",
-        description="Gefactureerd min ontvangen.",
+        description="Gefactureerd min ontvangen: het lidgeld dat nog binnen moet komen.",
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
@@ -941,35 +952,53 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="membership_status", name="Lidmaatschapsstatus", klass="Leden",
         kind=ObjectKind.DIMENSION, view="d_membership_status", sql="{view}.label",
         format=Format.LABEL, role=Role.ADMIN,
-        description="Nieuw, vernieuwd of vervallen.",
+        description=(
+            "Of dit lidmaatschap nieuw, vernieuwd of vervallen is ten opzichte van het "
+            "jaar ervoor. Dit is de dimensie die 'hoeveel nieuwe leden' beantwoordt."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
         key="member_municipality", name="Gemeente", klass="Leden",
         kind=ObjectKind.DIMENSION, view="d_member", sql="{view}.municipality",
         format=Format.LABEL, role=Role.ADMIN, sensitive=True,
-        description="Gemeente van het gezin, uit de postcodetabel.",
+        description=(
+            "De gemeente van het gezin, uit de postcodetabel. Op gezinskorrel: elk gezin "
+            "telt één keer, ook al wonen er vier mensen. Voor de telling per bewoner is er "
+            "'Gemeente (adres)'."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
         key="member_postal_code", name="Postcode", klass="Leden",
         kind=ObjectKind.DIMENSION, view="d_member", sql="{view}.postal_code",
         format=Format.LABEL, role=Role.ADMIN, sensitive=True,
-        description="Postcode van het gezin.",
+        description=(
+            "De postcode van het gezin, uit de postcodetabel. Op gezinskorrel: elk gezin "
+            "telt één keer. Voor de postcode per bewoner is er 'Postcode (adres)'."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
         key="member_size_group", name="Gezinsgrootte", klass="Leden",
         kind=ObjectKind.DIMENSION, view="d_member", sql="{view}.household_size_group",
         format=Format.LABEL, role=Role.ADMIN, sensitive=True,
-        description="Aantal personen in het gezin, in klassen.",
+        description=(
+            "Het aantal personen in het gezin, samengenomen in klassen. Vraag de waarden "
+            "op als je erop wil filteren — de klassegrenzen staan in de data, niet hier."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
         key="member_since", name="Lid sinds", klass="Leden",
         kind=ObjectKind.DIMENSION, view="d_member", sql="{view}.member_since_year",
         format=Format.YEAR, role=Role.ADMIN, sensitive=True,
-        description="Het eerste jaar waarvoor dit gezin een lidmaatschap heeft.",
+        description=(
+            "Het eerste jaar waarvoor dit gezin een lidmaatschap heeft — sinds wanneer het "
+            "lid is. Iets anders dan de aanmaakdatum van het gezin (wanneer het in de "
+            "administratie kwam) en dan Lidmaatschapsjaar (het jaar waarover een "
+            "lidmaatschap gaat)."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
@@ -1028,7 +1057,10 @@ OBJECTS: tuple[UniverseObject, ...] = (
         kind=ObjectKind.DIMENSION, view="d_address",
         sql="COALESCE({view}.street, 'Geen adres')",
         format=Format.LABEL, role=Role.MEMBER_DETAILS,
-        description="De straat van dit adres.",
+        description=(
+            "De straatnaam van dit adres, zonder huisnummer. Op persoonskorrel, dus elke "
+            "bewoner telt mee."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
@@ -1110,7 +1142,11 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="person_relation_type", name="Relatietype", klass="Leden",
         kind=ObjectKind.DIMENSION, view="d_person", sql="{view}.relation_type_label",
         format=Format.LABEL, role=Role.ADMIN, sensitive=True,
-        description="Hoofdlid, partner of (meerderjarig) kind binnen het gezin.",
+        description=(
+            "Het geslacht van de persoon in het feit: de inschrijver bij inschrijvingen, "
+            "het hoofdlid bij een gezinsrapport. Niet ingevuld blijft een eigen waarde en "
+            "verdwijnt niet uit het rapport."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
 
@@ -1120,14 +1156,22 @@ OBJECTS: tuple[UniverseObject, ...] = (
         kind=ObjectKind.MEASURE, view="f_registrations",
         sql="COUNT(DISTINCT {view}.registration_id)", format=Format.COUNT,
         role=Role.ADMIN, additive=False, fact="f_registrations",
-        description="Aantal inschrijvingen, ongeacht hoeveel producten erop staan.",
+        description=(
+            "Aantal inschrijvingen, ongeacht hoeveel producten erop staan. Voor 'hoeveel "
+            "mensen of plaatsen' neem je 'Aantal stuks': één inschrijving kan vier kaarten "
+            "bevatten."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
         key="registration_quantity", name="Aantal stuks", klass="Activiteiten",
         kind=ObjectKind.MEASURE, view="f_registrations", sql="SUM({view}.quantity)",
         format=Format.COUNT, role=Role.ADMIN, fact="f_registrations",
-        description="Som van de aantallen op de inschrijfregels — de bezetting.",
+        description=(
+            "Som van de aantallen op de inschrijfregels — de bezetting, dus wat je neemt "
+            "voor 'hoeveel deelnemers'. Een inschrijving met vier kaarten telt hier vier "
+            "en bij 'Aantal inschrijvingen' één."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
@@ -1144,7 +1188,12 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="activity", name="Activiteit", klass="Activiteiten", kind=ObjectKind.DIMENSION,
         view="d_activity", sql="{view}.activity_name", format=Format.LABEL,
         role=Role.ADMIN, drill="activity", drill_sql="{view}.activity_id",
-        description="Naam van de activiteit. Klik door naar het activiteitdossier.",
+        description=(
+            "Waarde van de inschrijfregels aan de prijs van dat moment — de omzet uit "
+            "inschrijvingen, gefactureerd en niet ontvangen. Gratis producten en 'ter "
+            "plaatse te betalen' tellen niet mee. Wat er werkelijk betaald is, staat bij "
+            "Betalingen."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
@@ -1161,21 +1210,32 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="activity_location", name="Locatie", klass="Activiteiten",
         kind=ObjectKind.DIMENSION, view="d_activity", sql="{view}.location",
         format=Format.LABEL, role=Role.ADMIN,
-        description="Waar de activiteit doorgaat.",
+        description=(
+            "Het jaar van de eerste datum van de activiteit, als eigenschap van de "
+            "activiteit zelf. Neem dit voor 'welke activiteiten in 2026'; wil je per maand "
+            "of kwartaal groeperen, gebruik dan Startdatum. Het model kent geen seizoen "
+            "(CR-06 §12)."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
         key="activity_cancelled", name="Geannuleerd", klass="Activiteiten",
         kind=ObjectKind.DIMENSION, view="d_activity",
         sql=_boolean_label("is_cancelled"), format=Format.LABEL, role=Role.ADMIN,
-        description="Of de activiteit geannuleerd werd.",
+        description=(
+            "Waar de activiteit doorgaat, zoals ingevuld bij de activiteit — vrije tekst, "
+            "dus geen adres en niet genormaliseerd."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
         key="activity_members_only", name="Enkel voor leden", klass="Activiteiten",
         kind=ObjectKind.DIMENSION, view="d_activity",
         sql=_boolean_label("members_only"), format=Format.LABEL, role=Role.ADMIN,
-        description="Of enkel leden zich mochten inschrijven.",
+        description=(
+            "Of de activiteit geannuleerd werd. Geannuleerde activiteiten blijven in de "
+            "cijfers staan, dus filter hierop als je ze niet wil meetellen."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
@@ -1203,7 +1263,10 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="component", name="Onderdeel", klass="Activiteiten", kind=ObjectKind.DIMENSION,
         view="f_registrations", sql="{view}.component_name", format=Format.LABEL,
         role=Role.ADMIN, fact="f_registrations",
-        description="Het onderdeel van de activiteit waarop ingeschreven werd.",
+        description=(
+            "Het onderdeel van de activiteit waarop ingeschreven werd — een activiteit kan "
+            "er meerdere hebben, elk met een eigen prijs en capaciteit."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
@@ -1217,7 +1280,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="registration_type", name="Inschrijfvorm", klass="Activiteiten",
         kind=ObjectKind.DIMENSION, view="f_registrations", sql="{view}.registration_type",
         format=Format.LABEL, role=Role.ADMIN, fact="f_registrations",
-        description="Individueel of gezin.",
+        description="Of er individueel of als gezin ingeschreven werd.",
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
@@ -1236,14 +1299,22 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="payment_amount", name="Te betalen", klass="Betalingen",
         kind=ObjectKind.MEASURE, view="f_payments", sql="SUM({view}.amount)",
         format=Format.MONEY, role=Role.FINANCE, fact="f_payments",
-        description="Som van de bedragen; terugbetalingen tellen negatief mee.",
+        description=(
+            "Som van de bedragen; terugbetalingen tellen negatief mee. Dit is wat 'omzet', "
+            "'opbrengst' of 'inkomsten' betekent zolang de vraag het niet preciseert: wat "
+            "gefactureerd is, niet wat binnenkwam. Voor dat laatste neem je 'Betaald'."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
         key="payment_amount_paid", name="Betaald", klass="Betalingen",
         kind=ObjectKind.MEASURE, view="f_payments", sql="SUM({view}.amount_paid)",
         format=Format.MONEY, role=Role.FINANCE, fact="f_payments",
-        description="Wat er effectief ontvangen is.",
+        description=(
+            "Wat er effectief ontvangen is. Niet hetzelfde als 'Te betalen': het verschil "
+            "tussen die twee is wat openstaat. Vraagt iemand naar omzet zonder meer, dan "
+            "bedoelt hij 'Te betalen'."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
@@ -1274,7 +1345,10 @@ OBJECTS: tuple[UniverseObject, ...] = (
         kind=ObjectKind.MEASURE, view="f_payments",
         sql="COUNT(DISTINCT {view}.payment_id)", format=Format.COUNT,
         role=Role.FINANCE, additive=False, fact="f_payments",
-        description="Aantal betaalrecords, vorderingen en terugbetalingen samen.",
+        description=(
+            "Aantal betaalrecords, vorderingen en terugbetalingen samen. Telt regels en "
+            "geen gezinnen: één gezin kan er meerdere hebben."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
@@ -1288,28 +1362,37 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="payment_method", name="Betaalwijze", klass="Betalingen",
         kind=ObjectKind.DIMENSION, view="d_payment_method", sql="{view}.label",
         format=Format.LABEL, role=Role.FINANCE,
-        description="Online, overschrijving of cash.",
+        description="Hoe er betaald werd of moet worden: online, overschrijving of cash.",
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
         key="payment_status", name="Status", klass="Betalingen",
         kind=ObjectKind.DIMENSION, view="d_payment_status", sql="{view}.label",
         format=Format.LABEL, role=Role.FINANCE,
-        description="In afwachting, betaald, mislukt of geannuleerd.",
+        description=(
+            "Waar deze betaling staat: in afwachting, betaald, mislukt of geannuleerd. Een "
+            "deels betaalde vordering staat nog in afwachting."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
         key="payment_type", name="Type", klass="Betalingen", kind=ObjectKind.DIMENSION,
         view="f_payments", sql="{view}.record_type_label", format=Format.LABEL,
         role=Role.FINANCE, fact="f_payments",
-        description="Vordering of terugbetaling.",
+        description=(
+            "Of deze regel een vordering is of een terugbetaling. Terugbetalingen tellen "
+            "negatief mee in 'Te betalen'."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
         key="payment_payable_type", name="Soort", klass="Betalingen",
         kind=ObjectKind.DIMENSION, view="f_payments", sql="{view}.payable_type_label",
         format=Format.LABEL, role=Role.FINANCE, fact="f_payments",
-        description="Lidgeld of activiteit.",
+        description=(
+            "Waarvoor betaald wordt: lidgeld of een activiteit. Hiermee splits je de "
+            "geldvragen in hun twee stromen."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
@@ -1391,7 +1474,10 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="payment_paid_on", name="Betaald op", klass="Betalingen",
         kind=ObjectKind.DETAIL, view="f_payments", sql="{view}.paid_date",
         format=Format.DATE, role=Role.FINANCE, fact="f_payments",
-        description="Wanneer de betaling binnenkwam.",
+        description=(
+            "De dag waarop deze ene betaling binnenkwam. Leeg zolang er niets ontvangen "
+            "is."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
@@ -1497,7 +1583,10 @@ OBJECTS: tuple[UniverseObject, ...] = (
         kind=ObjectKind.MEASURE, view="f_form_submissions",
         sql="COUNT(DISTINCT {view}.submission_id)", format=Format.COUNT,
         role=Role.ADMIN, fact="f_form_submissions", additive=False,
-        description="Aantal inzendingen op een formulier.",
+        description=(
+            "Aantal inzendingen op een formulier. Telt de inzendingen, niet de personen — "
+            "wie twee keer invult, telt twee keer."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
@@ -1520,14 +1609,20 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="form_status", name="Status van het formulier", klass="Formulieren",
         kind=ObjectKind.DIMENSION, view="d_form", sql="{view}.form_status_label",
         format=Format.LABEL, role=Role.ADMIN,
-        description="Concept, gepubliceerd of gesloten.",
+        description=(
+            "Waar het formulier staat: concept, gepubliceerd of gesloten. Enkel een "
+            "gepubliceerd formulier kan inzendingen krijgen."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
         key="form_anonymous", name="Anoniem formulier", klass="Formulieren",
         kind=ObjectKind.DIMENSION, view="d_form", sql="{view}.is_anonymous_label",
         format=Format.LABEL, role=Role.ADMIN,
-        description="Of het formulier anoniem ingevuld wordt.",
+        description=(
+            "Of het formulier anoniem ingevuld wordt. Bij een anoniem formulier is er geen "
+            "inzender bekend, dus koppelen aan een gezin kan daar niet."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
@@ -1566,14 +1661,20 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="task_kind", name="Soort", klass="Taken",
         kind=ObjectKind.DIMENSION, view="f_tasks", sql="{view}.kind_label",
         format=Format.LABEL, role=Role.ADMIN, fact="f_tasks",
-        description="Wat voor taak het is: een terugbetaling bevestigen, een mislukte e-mail, een webhook die afwijkt, een mislukte achtergrondtaak.",
+        description=(
+            "Wat voor taak het is: een terugbetaling bevestigen, een mislukte e-mail, een "
+            "webhook die afwijkt, een mislukte achtergrondtaak."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
         key="task_status", name="Status", klass="Taken",
         kind=ObjectKind.DIMENSION, view="f_tasks", sql="{view}.status_label",
         format=Format.LABEL, role=Role.ADMIN, fact="f_tasks",
-        description="Open of afgehandeld. Filter hierop in plaats van te vertrouwen op wat het feit toevallig bevat.",
+        description=(
+            "Of de taak open staat of afgehandeld is. Filter hierop in plaats van te "
+            "vertrouwen op wat het feit toevallig bevat."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
@@ -1587,7 +1688,10 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="task_role", name="Voor welke rol", klass="Taken",
         kind=ObjectKind.DIMENSION, view="f_tasks", sql="{view}.required_role",
         format=Format.LABEL, role=Role.ADMIN, fact="f_tasks",
-        description="Wie de taak hoort op te pakken.",
+        description=(
+            "De rol die deze taak hoort op te pakken — wie ze toegewezen krijgt, niet wie "
+            "ze afhandelde."
+        ),
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(

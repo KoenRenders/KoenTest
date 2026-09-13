@@ -31,6 +31,11 @@ class AssistantMessage:
 
     content: Optional[str] = None
     tool_calls: list[ToolCall] = field(default_factory=list)
+    #: Token usage the provider reported, ``{"prompt": n, "completion": n}``.
+    #: Mistral returns it with every response and it used to be dropped on the
+    #: floor; the seam logs it now, so one query answers what the AI costs this
+    #: month — for both surfaces at once (CR-07 §6.4).
+    usage: dict[str, int] = field(default_factory=dict)
 
 
 class LLMProvider(ABC):

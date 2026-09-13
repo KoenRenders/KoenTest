@@ -68,3 +68,31 @@ class ChatbotInfo(TenantMixin, Base):
         base = self.text_override or self.extracted_text or ""
         parts = [p for p in (base, self.text_addition) if p]
         return "\n\n".join(parts).strip()
+
+
+class AiCallLog(TenantMixin, Base):
+    """One outbound call to a language model (CR-07 §6.4).
+
+    Written at the provider seam, so both Raakje's — the public bot and the back
+    office assistant — land in the same table without either knowing about it.
+    Append-only: nothing in the application updates or deletes a row; retention is
+    a cleanup job's business, not a caller's.
+
+    ``payload`` is the verbatim message list as it went out. It is what the "wat
+    zag Mistral" fold-out shows, which is why it is stored at all: an admin who
+    cannot inspect the promise has only been told one.
+    """
+
+    __tablename__ = "ai_call_log"
+    __table_args__ = {"schema": "ai"}
+
+    id = Column(Integer, primary_key=True, index=True)
+    surface = Column(String(32), nullable=False)
+    capability = Column(String(32), nullable=False, default="")
+    actor = Column(String(255), nullable=False, default="")
+    model = Column(String(64), nullable=False, default="")
+    payload = Column(Text, nullable=False, default="")
+    tokens_prompt = Column(Integer, nullable=True)
+    tokens_completion = Column(Integer, nullable=True)
+    blocked_reason = Column(Text, nullable=False, default="")
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
