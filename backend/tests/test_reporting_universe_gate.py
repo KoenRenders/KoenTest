@@ -39,6 +39,7 @@ from sqlalchemy import text
 
 from app.domains.reporting.docs import DOC_PATH, render
 from app.domains.reporting.universe import (
+    DIMENSION_BY_KEY,
     CLASSES,
     DIMENSIONS,
     FACTS,
@@ -75,17 +76,21 @@ def test_every_object_resolves_against_the_database(db_session):
     per_view = _schema_columns(db_session)
     fouten = []
     for obj in OBJECTS:
-        columns = per_view.get(obj.view)
+        # Een rol-datum (#895) leest uit `d_date` onder een eigen alias, dus de
+        # kolommen komen van de BRON en niet van de naam waaronder ze joint.
+        bron = DIMENSION_BY_KEY[obj.view].source if obj.view in DIMENSION_BY_KEY \
+            else obj.view
+        columns = per_view.get(bron)
         if columns is None:
             fouten.append(f"{obj.name} (`{obj.key}`) verwijst naar de weergave "
-                          f"{obj.view}, die niet bestaat")
+                          f"{bron}, die niet bestaat")
             continue
         for source in (obj.sql, obj.drill_sql or ""):
             for column in _COLUMN_REFERENCE.findall(source):
                 if column not in columns:
                     fouten.append(
                         f"{obj.name} (`{obj.key}`) verwijst naar "
-                        f"{obj.view}.{column}, die niet bestaat")
+                        f"{bron}.{column}, die niet bestaat")
     assert not fouten, "objecten wijzen naar kolommen die er niet zijn:\n" + \
         "\n".join(sorted(fouten))
 
@@ -136,7 +141,11 @@ def test_every_join_key_exists(db_session):
     per_view = _schema_columns(db_session)
     fouten = []
     for join in JOINS:
-        for view in (join.fact, join.dimension):
+        # Een rol-datum joint onder een eigen alias maar leest uit `d_date`
+        # (#895), dus de kolommen worden bij de bron gezocht.
+        doel = (DIMENSION_BY_KEY[join.dimension].source
+                if join.dimension in DIMENSION_BY_KEY else join.dimension)
+        for view in (join.fact, doel):
             if view not in per_view:
                 fouten.append(f"join {join.fact} -> {join.dimension}: "
                               f"{view} bestaat niet")
@@ -144,9 +153,9 @@ def test_every_join_key_exists(db_session):
             if fact_column not in per_view.get(join.fact, set()):
                 fouten.append(f"join {join.fact} -> {join.dimension}: "
                               f"{join.fact}.{fact_column} bestaat niet")
-            if dim_column not in per_view.get(join.dimension, set()):
+            if dim_column not in per_view.get(doel, set()):
                 fouten.append(f"join {join.fact} -> {join.dimension}: "
-                              f"{join.dimension}.{dim_column} bestaat niet")
+                              f"{doel}.{dim_column} bestaat niet")
     assert not fouten, "\n".join(sorted(fouten))
 
 
@@ -154,7 +163,7 @@ def test_every_dimension_can_identify_its_own_row(db_session):
     """#761 again: the tiebreaker has to exist before it can be appended."""
     per_view = _schema_columns(db_session)
     fouten = [f"{dim.key}.{dim.key_column}" for dim in DIMENSIONS
-              if dim.key_column not in per_view.get(dim.key, set())]
+              if dim.key_column not in per_view.get(dim.source, set())]
     assert not fouten, f"sleutelkolommen die niet bestaan: {fouten}"
 
 

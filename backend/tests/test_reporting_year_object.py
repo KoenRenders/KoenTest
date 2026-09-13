@@ -48,11 +48,19 @@ def _rows(db, keys, **kw):
                          tenant_id=TENANT_A, **kw).rows
 
 
-def test_there_is_exactly_one_year_object():
-    """Koen's complaint, as an assertion."""
-    jaren = [o for o in OBJECTS if o.klass == "Tijd" and o.format.value == "year"]
+def test_there_is_exactly_one_bare_year_object():
+    """Koen's complaint, as an assertion.
+
+    One *Jaar*, full stop. The roles of #895 are years too — *Betaaldatum › Jaar*
+    — but they carry their date in the name and are therefore not what he meant:
+    the complaint was two objects that answer the same question without saying
+    which is which.
+    """
+    jaren = [o for o in OBJECTS
+             if o.klass == "Tijd" and o.format.value == "year"
+             and "›" not in o.name]
     assert len(jaren) == 1, (
-        f"meer dan één jaarobject: {[o.name for o in jaren]}")
+        f"meer dan één kaal jaarobject: {[o.name for o in jaren]}")
     assert jaren[0].key == "date_year" and jaren[0].name == "Jaar"
 
 
@@ -144,7 +152,13 @@ def test_every_date_object_declares_its_grain():
     through every bolt there is — silently, because nothing raises. A new one has
     to be declared here, or this fails.
     """
-    datumobjecten = {o.key for o in OBJECTS if o.view == "d_date"}
+    # Ook de rollen van #895: die lezen dezelfde kalender onder een eigen alias,
+    # en een rol zonder korrel zou net zo goed door elke grendel glippen.
+    from app.domains.reporting.universe import DIMENSION_BY_KEY
+
+    datumviews = {k for k, d in DIMENSION_BY_KEY.items() if d.source == "d_date"}
+    datumviews.add("d_date")
+    datumobjecten = {o.key for o in OBJECTS if o.view in datumviews}
     assert datumobjecten == set(DATE_OBJECT_GRAIN), (
         f"zonder korrel: {sorted(datumobjecten - set(DATE_OBJECT_GRAIN))}; "
         f"onbekend object: {sorted(set(DATE_OBJECT_GRAIN) - datumobjecten)}")

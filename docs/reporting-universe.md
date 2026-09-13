@@ -52,6 +52,10 @@ The role column is the role the fact's **flat dataset dump** will need once the 
 | `d_form` | Formulier | `form_id` |
 | `d_board_member` | Verantwoordelijk bestuurslid | `board_member_id` |
 | `d_address` | Adres | `address_id` |
+| `d_paid_date` | Betaaldatum | `date_key` |
+| `d_done_date` | Afhandeldatum | `date_key` |
+| `d_activity_start` | Startdatum | `date_key` |
+| `d_activity_end` | Einddatum | `date_key` |
 
 ## Join graph
 
@@ -60,6 +64,7 @@ Every join also matches on `tenant_id`, unconditionally — a dimension row can 
 | Fact | Dimension | On |
 |---|---|---|
 | `f_payments` | `d_date` | `date_key` = `date_key` |
+| `f_payments` | `d_paid_date` | `paid_date` = `date_key` |
 | `f_payments` | `d_activity` | `activity_id` = `activity_id` |
 | `f_payments` | `d_member` | `member_id` = `member_id` |
 | `f_payments` | `d_payment_method` | `method_code` = `code` |
@@ -75,12 +80,17 @@ Every join also matches on `tenant_id`, unconditionally — a dimension row can 
 | `f_membership_persons` | `d_person` | `person_id` = `person_id` |
 | `f_membership_persons` | `d_member` | `member_id` = `member_id` |
 | `f_form_submissions` | `d_form` | `form_id` = `form_id` |
+| `f_forms` | `d_date` | `date_key` = `date_key` |
 | `f_forms` | `d_form` | `form_id` = `form_id` |
 | `f_form_submissions` | `d_date` | `date_key` = `date_key` |
 | `f_tasks` | `d_date` | `date_key` = `date_key` |
+| `f_tasks` | `d_done_date` | `done_date` = `date_key` |
+| `f_members` | `d_date` | `date_key` = `date_key` |
 | `f_members` | `d_member` | `member_id` = `member_id` |
 | `f_activities` | `d_activity` | `activity_id` = `activity_id` |
 | `f_activities` | `d_date` | `date_key` = `date_key` |
+| `f_activities` | `d_activity_start` | `first_date` = `date_key` |
+| `f_activities` | `d_activity_end` | `last_date` = `date_key` |
 | `d_member` | `d_board_member` | `board_member_id` = `board_member_id` |
 | `d_person` | `d_address` | `person_id` = `person_id` |
 | `f_members` | `d_person` | `head_person_id` = `person_id` |
@@ -91,7 +101,7 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 
 | Universe role | Meaning | Objects |
 |---|---|---|
-| `admin` | the default: what an admin screen already shows | 55 |
+| `admin` | the default: what an admin screen already shows | 71 |
 | `finance` | money — every measure formatted as money, and the Betalingen class | 22 |
 | `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 9 |
 
@@ -214,3 +224,19 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `date_month` | Maand | dimension | label | `admin` | `d_date.year_month` | Jaar en maand als 2026-03, zodat maanden vanzelf chronologisch staan. |
 | `date_month_label` | Maand voluit | detail | label | `admin` | `d_date.month_year_label` | Dezelfde maand als 'maart 2026'. Een detail: sorteren doe je op Maand. |
 | `date_day` | Datum | dimension | date | `admin` | `d_date.date_key` | De dag zelf. |
+| `paid_date_year` | Betaaldatum › Jaar | dimension | year | `admin` | `d_paid_date.year` | Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd. Opgerold tot jaar. |
+| `paid_date_quarter` | Betaaldatum › Kwartaal | dimension | count | `admin` | `d_paid_date.quarter` | Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd. Opgerold tot kwartaal. |
+| `paid_date_month` | Betaaldatum › Maand | dimension | label | `admin` | `d_paid_date.year_month` | Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd. Opgerold tot maand. |
+| `paid_date_day` | Betaaldatum › Datum | dimension | date | `admin` | `d_paid_date.date_key` | Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd. Opgerold tot datum. |
+| `done_date_year` | Afhandeldatum › Jaar | dimension | year | `admin` | `d_done_date.year` | Wanneer de taak afgesloten is. Leeg zolang ze open staat. Opgerold tot jaar. |
+| `done_date_quarter` | Afhandeldatum › Kwartaal | dimension | count | `admin` | `d_done_date.quarter` | Wanneer de taak afgesloten is. Leeg zolang ze open staat. Opgerold tot kwartaal. |
+| `done_date_month` | Afhandeldatum › Maand | dimension | label | `admin` | `d_done_date.year_month` | Wanneer de taak afgesloten is. Leeg zolang ze open staat. Opgerold tot maand. |
+| `done_date_day` | Afhandeldatum › Datum | dimension | date | `admin` | `d_done_date.date_key` | Wanneer de taak afgesloten is. Leeg zolang ze open staat. Opgerold tot datum. |
+| `start_date_year` | Startdatum › Jaar | dimension | year | `admin` | `d_activity_start.year` | De eerste dag van de activiteit. Opgerold tot jaar. |
+| `start_date_quarter` | Startdatum › Kwartaal | dimension | count | `admin` | `d_activity_start.quarter` | De eerste dag van de activiteit. Opgerold tot kwartaal. |
+| `start_date_month` | Startdatum › Maand | dimension | label | `admin` | `d_activity_start.year_month` | De eerste dag van de activiteit. Opgerold tot maand. |
+| `start_date_day` | Startdatum › Datum | dimension | date | `admin` | `d_activity_start.date_key` | De eerste dag van de activiteit. Opgerold tot datum. |
+| `end_date_year` | Einddatum › Jaar | dimension | year | `admin` | `d_activity_end.year` | De laatste dag van de activiteit, of de startdag als er maar één is. Opgerold tot jaar. |
+| `end_date_quarter` | Einddatum › Kwartaal | dimension | count | `admin` | `d_activity_end.quarter` | De laatste dag van de activiteit, of de startdag als er maar één is. Opgerold tot kwartaal. |
+| `end_date_month` | Einddatum › Maand | dimension | label | `admin` | `d_activity_end.year_month` | De laatste dag van de activiteit, of de startdag als er maar één is. Opgerold tot maand. |
+| `end_date_day` | Einddatum › Datum | dimension | date | `admin` | `d_activity_end.date_key` | De laatste dag van de activiteit, of de startdag als er maar één is. Opgerold tot datum. |
