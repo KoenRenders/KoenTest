@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse
 from sqlalchemy.orm import Session
 
 from app.database import get_db
-from app.limiter import form_submit_limiter
+from app.limiter import thumb_limiter
 from app.ui import site_context, templates
 
 router = APIRouter(include_in_schema=False)
@@ -136,7 +136,7 @@ def activiteit_fotos(activity_key: str, request: Request,
 
 
 @router.post("/fotos/{asset_id}/duim", response_class=HTMLResponse,
-             dependencies=[Depends(form_submit_limiter)])
+             dependencies=[Depends(thumb_limiter)])
 def foto_duim(asset_id: int, request: Request, db: Session = Depends(get_db)):
     """Duimpje aan of uit voor deze bezoeker (#883). Publiek, geen sessie.
 
@@ -145,9 +145,14 @@ def foto_duim(asset_id: int, request: Request, db: Session = Depends(get_db)):
     token dat bij elk paginabezoek gezet wordt sla je iets op bij iemand die niets
     gevraagd heeft.
 
-    Een rem erop (`form_submit_limiter`): dit schrijft rijen en is publiek. Niet
+    Een rem erop (`thumb_limiter`): dit schrijft rijen en is publiek. Niet
     fraudebestendig — dat is aanvaard en staat in de omschrijving op het scherm — maar een
     script hoort niet ongelimiteerd rijen te kunnen maken.
+
+    **Een eigen limiet, niet die van de formulieren (#920).** Het endpoint hing eerst aan
+    `form_submit_limiter` (tien per minuut per IP) en dat brak op productie binnen enkele
+    uren: tien duimpjes in een album is normaal gebruik. Wie de drempel ooit verlaagt,
+    breekt precies het gedrag waarvoor dit bestaat.
     """
     import secrets
 

@@ -171,3 +171,62 @@ def test_a_thumb_of_another_tenant_does_not_show_up(client, db_session):
             "de duimpjes van een andere afdeling worden meegeteld")
     finally:
         current_tenant_id.reset(token)
+
+
+# ── #920: de rem hoort een script tegen te houden, geen bezoeker ────────────────
+
+def test_eleven_thumbs_in_one_minute_is_normal_use_and_must_work(client, db_session):
+    """Koens geval op productie, letterlijk.
+
+    Het endpoint hing aan `form_submit_limiter` — tien per minuut per IP — en dat is de
+    limiet van een formulierinzending: rijen wegschrijven plus een mogelijke
+    bevestigingsmail. Door een album klikken en tien foto's leuk vinden is geen aanval
+    maar het normale gebruik; na de tiende kreeg Koen een foutmelding.
+
+    Elf is hier het getal dat telt: precies één boven de oude drempel. Slaagt deze test
+    terwijl iemand `thumb_limiter` terugzet op tien, dan is dat onmogelijk — en dat is de
+    bedoeling.
+    """
+    from app.limiter import thumb_limiter
+
+    # De teller leeft per proces, dus een eerdere test kan hem al gevuld hebben. Zonder
+    # deze regel hangt het resultaat van de volgorde af, en een test die met de volgorde
+    # meebeweegt is even onbetrouwbaar als een test die met de kalender meebeweegt.
+    thumb_limiter._calls.clear()
+
+    fotos = [_photo(db_session, activity_id=920, title=f"foto {i}") for i in range(11)]
+
+    codes = [client.post(f"/fotos/{f.id}/duim").status_code for f in fotos]
+
+    assert codes == [200] * 11, (
+        f"een bezoeker liep tegen de rem bij klik {codes.index(429) + 1} van de elf: "
+        f"{codes}")
+
+
+def test_the_brake_still_exists_above_the_new_threshold(client, db_session):
+    """De andere helft, en zonder haar is 'de limiet verhoogd' niet te onderscheiden van
+    'de limiet weggehaald'.
+
+    Zonder cookie krijgt elk verzoek een nieuw token en dus een nieuwe rij, dus een script
+    mag hier niet ongelimiteerd kunnen schrijven. Die redenering staat in #883 en blijft
+    gelden; #920 verhoogt alleen de drempel.
+
+    Kapotgemaakt om te controleren dat hij rood kan worden: de `dependencies` van het
+    endpoint weggehaald — dan blijven alle verzoeken 200 en valt deze test om.
+    """
+    from app.limiter import thumb_limiter
+
+    thumb_limiter._calls.clear()
+
+    foto = _photo(db_session, activity_id=921, title="rem")
+    grens = thumb_limiter.max_calls
+
+    for _ in range(grens):
+        client.cookies.clear()
+        client.post(f"/fotos/{foto.id}/duim")
+
+    client.cookies.clear()
+    over_de_grens = client.post(f"/fotos/{foto.id}/duim")
+    assert over_de_grens.status_code == 429, (
+        "boven de drempel hoort de rem te knijpen; nu schrijft een script "
+        "ongelimiteerd rijen")
