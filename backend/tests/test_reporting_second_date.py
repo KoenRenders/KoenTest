@@ -267,3 +267,48 @@ def test_existing_reports_still_group_on_the_key_date(db_session, situation):
                            Selection(object_keys=("payment_amount",)),
                            tenant_id=TENANT_A).rows[0]["payment_amount"]
     assert totaal == alleen
+
+
+def test_a_role_can_be_offered_as_a_filter_without_blowing_up(db_session,
+                                                              situation):
+    """Every place that puts a view into SQL has to translate the alias first.
+
+    This is the one that was missed. `d_paid_date` is an alias on `d_date`, so the
+    name does not exist in the database — and the panel asks for a filter's
+    offered values with its **own** query, which built `FROM reporting.d_paid_date`
+    and blew up. The main query translated; this one did not.
+
+    Two implementations of one line, and the second missed it. There is one
+    `physical_view()` now, called from both. The test drills at the seam rather
+    than at the symptom: any future caller that forgets it fails here.
+    """
+    from app.domains.reporting.api import dimension_values
+
+    for sleutel in ("paid_date_year", "paid_date_month", "done_date_year",
+                    "start_date_quarter", "end_date_day"):
+        waarden = dimension_values(db_session, sleutel, tenant_id=TENANT_A)
+        assert isinstance(waarden, list), sleutel
+
+
+def test_the_translation_lives_in_one_place():
+    """Not a style rule: the copy that drifted is what reached a board member.
+
+    `physical_view()` is the only thing that may turn an object's view into a
+    table name. A second copy is how drilling on a payment date became "Er ging
+    iets mis".
+    """
+    import pathlib
+    import re
+
+    domein = pathlib.Path(__file__).resolve().parents[1] / "app" / "domains" / "reporting"
+    fouten = []
+    for pad in domein.glob("*.py"):
+        for nummer, regel in enumerate(pad.read_text().splitlines(), start=1):
+            if "reporting.{" not in regel or regel.lstrip().startswith("#"):
+                continue
+            if re.search(r"reporting\.\{(physical_view\(|fact)", regel):
+                continue
+            fouten.append(f"{pad.name}:{nummer}: {regel.strip()}")
+    assert not fouten, (
+        "een weergavenaam gaat rechtstreeks de SQL in zonder physical_view():\n"
+        + "\n".join(fouten))

@@ -1347,6 +1347,22 @@ HIERARCHY_OF: dict[str, Hierarchy] = {
     key: hier for hier in HIERARCHIES for key in hier.level_keys}
 
 
+def physical_view(view: str) -> str:
+    """The view name in the database for an object's view.
+
+    Usually the same string — but a date role (#895) is an **alias**: `d_paid_date`
+    reads from `reporting.d_date` under its own name, so that the same calendar can
+    sit in one report twice. Anything that puts a view into SQL has to translate
+    first, or Postgres is asked for a relation that does not exist.
+
+    Here, and called from both places that build a FROM. Two implementations of
+    this one line is how drilling on a payment date reached a board member as
+    *"Er ging iets mis"*: the main query translated, the value list did not.
+    """
+    dimensie = DIMENSION_BY_KEY.get(view)
+    return dimensie.source if dimensie else view
+
+
 def objects_in_pane_order() -> list[UniverseObject]:
     """Every object, in class order and then declaration order.
 

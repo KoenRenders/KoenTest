@@ -47,6 +47,11 @@ class PivotRow:
     total: dict[str, Any]
     # A subtotal line closes a row group; it carries the label of that group only.
     is_subtotal: bool = False
+    #: Per label: mag er op doorgeklikt worden? Niet op "Onbekend" — dat is het
+    #: etiket voor een LEGE waarde, en eronder zit niets om naartoe te drillen.
+    #: Wél doorklikken zou een filter op de tekst "Onbekend" zetten, en dat is
+    #: geen jaartal (#899).
+    drillable: list[bool] = field(default_factory=list)
 
 
 @dataclass
@@ -87,6 +92,7 @@ class Pivot:
                               for waarde in self.column_values],
                     "total": [row.total.get(m.key) for m in self.measures],
                     "is_subtotal": row.is_subtotal,
+                "drillable": list(row.drillable),
                 }
                 for row in self.rows
             ],
@@ -127,13 +133,16 @@ def _natural_key(waarde: str) -> tuple:
     return tuple(delen)
 
 
+ONBEKEND = "Onbekend"
+
+
 def _label(value: Any) -> str:
     """A cell label a person reads. An empty group is "Onbekend", never blank.
 
     A blank row header in a crosstab is unreadable: you cannot tell a missing
     value from a rendering bug, and both look like the table is broken.
     """
-    return "Onbekend" if value is None or value == "" else str(value)
+    return ONBEKEND if value is None or value == "" else str(value)
 
 
 def check_column_cap(db: Session, selection: Selection, *, tenant_id: int) -> None:
@@ -277,9 +286,12 @@ def build_pivot(db: Session, selection: Selection, *, tenant_id: int) -> Pivot:
             rijen.append(PivotRow(labels=[vorige_groep], cells={},
                                   total=subtotalen.get(vorige_groep, {}),
                                   is_subtotal=True))
-        rijen.append(PivotRow(labels=list(sleutel),
-                              cells=cellen.get(sleutel, {}),
-                              total=totalen[sleutel]))
+        rijen.append(PivotRow(
+            labels=list(sleutel),
+            cells=cellen.get(sleutel, {}),
+            total=totalen[sleutel],
+            drillable=[bool(_drill_target(row_objects[i])) and deel != ONBEKEND
+                       for i, deel in enumerate(sleutel)]))
         vorige_groep = sleutel[0] if sleutel else None
     if subtotalen and vorige_groep is not None:
         rijen.append(PivotRow(labels=[vorige_groep], cells={},

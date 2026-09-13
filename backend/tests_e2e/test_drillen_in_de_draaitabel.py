@@ -28,6 +28,25 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tests_e2e.schermen import BASE, login_als_admin  # noqa: E402
 
 
+def _wacht_op(page, objectsleutel: str) -> None:
+    """Wacht tot de staat het object draagt, en zeg wat er misging als niet.
+
+    Op de TOESTAND en niet op de klok: een vaste pauze gaat groen of rood met de
+    belasting van de machine. `state="attached"` en niet de standaard "visible":
+    de staat zit in verborgen invoer en die wordt nooit zichtbaar.
+    """
+    from playwright.sync_api import TimeoutError as PWTimeout
+
+    try:
+        page.wait_for_selector(f'input[name="object"][value="{objectsleutel}"]',
+                               state="attached", timeout=15000)
+    except PWTimeout:
+        paneel = [u for u in getattr(page, "verzoeken", []) if "paneel" in u]
+        raise AssertionError(
+            f"de staat kwam niet op {objectsleutel}. Verzoeken naar het paneel: "
+            f"{paneel[-3:] or 'GEEN — de klik vertrok niet'}") from None
+
+
 def _ontbreekt(reden: str) -> None:
     """Ontbrekende data: skip tegen een echte omgeving, fout onder de e2e-seed.
 
@@ -47,7 +66,18 @@ def _ontbreekt(reden: str) -> None:
 # dus zonder htmx. In een pagina zonder htmx doet élke knop niets, dus een test
 # daarop zou altijd falen — en zou over de verkeerde oorzaak vallen. Dat is precies
 # de eerste ronde van deze test geweest.
-PANEEL = ("/admin/rapporten/nieuw?object=date_year&object=payment_amount"
+# Op een ROLDATUM en niet op de gedeelde datum, en dat is geen willekeur. Een rol
+# is een ALIAS op `d_date` (#895), en juist die naam bestaat niet in de databank —
+# dus juist daar breekt een plek die vergeet te vertalen. De eerste versie van deze
+# test drilde op `date_year`, waar alias en sleutel samenvallen, en stond groen
+# terwijl klikken op een betaaldatum een foutbanner gaf.
+#
+# En op de STARTDATUM van een activiteit en niet op de betaaldatum, omdat de
+# e2e-seed geen betaalde betaling heeft: elke betaaldatum is dan leeg, de enige rij
+# heet "Onbekend", en daar hoort juist niet op gedrild te worden. De activiteiten
+# hebben wél datums, dus dit is de rol die in een verse databank iets te klikken
+# geeft.
+PANEEL = ("/admin/rapporten/nieuw?object=start_date_year&object=activity_count"
           "&layout=pivot&pivot_column=&no_column=1")
 
 
@@ -74,6 +104,11 @@ def admin_page():
         browser = pw.chromium.launch(executable_path=exe) if exe else pw.chromium.launch()
         page = browser.new_page(base_url=BASE)
         login_als_admin(page, email, make_session_value(email))
+        # Wat htmx werkelijk verstuurt. Zonder dit staat er bij een falende klik
+        # alleen "de toestand veranderde niet", en dan weet je niet of het verzoek
+        # niet vertrok of of de server iets anders terugstuurde.
+        page.verzoeken = []
+        page.on("request", lambda r: page.verzoeken.append(r.url))
         page.goto("/admin/rapporten")
         if page.locator("text=Rapporten").count() == 0:
             browser.close()
@@ -87,18 +122,23 @@ def test_klikken_op_een_jaartal_drilt_naar_kwartaal(admin_page):
     admin_page.goto(PANEEL)
     knop = admin_page.locator('button[name="drill"]').first
     if knop.count() == 0:
-        _ontbreekt("geen betaling in deze omgeving, dus geen jaartal om te drillen")
+        _ontbreekt("geen activiteit met een datum, dus geen jaartal om te drillen")
 
     jaar = knop.inner_text().strip()
     knop.click()
-    admin_page.wait_for_timeout(800)
+
+    # Wachten op de TOESTAND en niet op de klok: een vaste pauze gaat groen of
+    # rood met de belasting van de machine, en dat is precies het soort test dat
+    # later voor een echte bevinding wordt aangezien. Slaat er niets aan, dan
+    # verloopt dit met een melding die zegt wat er ontbrak.
+    #
+    # `state="attached"` en niet de standaard "visible": de staat zit in VERBORGEN
+    # invoer, en die wordt nooit zichtbaar.
+    _wacht_op(admin_page, "start_date_quarter")
 
     inhoud = admin_page.content()
-    assert 'name="object" value="date_quarter"' in inhoud, (
-        "na de klik hoort het rapport op kwartaal te staan; gebeurt er niets, "
-        "dan mist de knop zijn hx-get en is de markup alleen decor")
     assert f'value="{jaar}"' in inhoud, (
-        "en de filter op het aangeklikte jaar hoort zichtbaar in de staat te staan")
+        "de filter op het aangeklikte jaar hoort zichtbaar in de staat te staan")
 
 
 def test_terug_omhoog_brengt_je_terug(admin_page):
@@ -106,17 +146,16 @@ def test_terug_omhoog_brengt_je_terug(admin_page):
     admin_page.goto(PANEEL)
     knop = admin_page.locator('button[name="drill"]').first
     if knop.count() == 0:
-        _ontbreekt("geen betaling in deze omgeving")
+        _ontbreekt("geen activiteit met een datum")
     knop.click()
-    admin_page.wait_for_timeout(800)
+    _wacht_op(admin_page, "start_date_quarter")
 
     terug = admin_page.locator('button[name="rollup"]').first
     assert terug.count() > 0, "na het drillen hoort er een weg terug te staan"
     terug.click()
-    admin_page.wait_for_timeout(800)
+    _wacht_op(admin_page, "start_date_year")
 
     inhoud = admin_page.content()
-    assert 'name="object" value="date_year"' in inhoud
-    assert 'name="filter" value="date_year"' not in inhoud, (
+    assert 'name="filter" value="start_date_year"' not in inhoud, (
         "oprollen hoort de filter mee terug te nemen; blijft hij staan, dan is "
         "het rapport stilletjes nog op dat jaar")

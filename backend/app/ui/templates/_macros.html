@@ -1080,7 +1080,8 @@
       {% for rij in pivot.rows %}
       <tr class="border-b border-gray-100 last:border-0 {% if rij.is_subtotal %}bg-gray-50 font-semibold{% endif %}">
         {% for label in rij.labels %}
-        {% set _doel = _drills[loop.index0] if _drills|length > loop.index0 else "" %}
+        {% set _mag = rij.drillable is defined and (rij.drillable|length > loop.index0) and rij.drillable[loop.index0] %}
+        {% set _doel = _drills[loop.index0] if (_drills|length > loop.index0 and _mag) else "" %}
         <th scope="row" class="px-3 py-2 text-left font-normal sticky left-0 {{ 'bg-gray-50' if rij.is_subtotal else 'bg-white' }}">
           {% if rij.is_subtotal %}{{ _("Subtotaal") }} — {% endif %}
           {%- if _doel and drill_url and not rij.is_subtotal %}

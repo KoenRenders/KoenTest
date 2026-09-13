@@ -36,7 +36,8 @@ from app.domains.reporting.engine import (
     selection_to_dict,
 )
 from app.domains.reporting.models import ExportLog, SavedReport
-from app.domains.reporting.universe import BY_KEY, FACT_BY_KEY, Fact, UniverseObject
+from app.domains.reporting.universe import (BY_KEY, FACT_BY_KEY, Fact,
+                                           UniverseObject, physical_view)
 
 
 @dataclass
@@ -219,14 +220,18 @@ def dimension_values(db: Session, object_key: str, *, tenant_id: int) -> list[st
     obj = BY_KEY.get(object_key)
     if obj is None or obj.is_measure:
         return []
-    expression = obj.sql.format(view=obj.view)
+    # Zonder alias: deze query bevraagt één weergave rechtstreeks, dus overal de
+    # FYSIEKE naam. Een roldatum (#895) is een alias op `d_date`, en die naam
+    # bestaat niet in de databank.
+    bron = physical_view(obj.view)
+    expression = obj.sql.format(view=bron)
     # A code list carries its own reading order; anything else sorts on itself.
-    order = "2" if _has_column(db, obj.view, "sort_order") else "1"
+    order = "2" if _has_column(db, bron, "sort_order") else "1"
     sort_column = (", MIN(sort_order) AS sort_order"
-                   if _has_column(db, obj.view, "sort_order") else "")
+                   if _has_column(db, bron, "sort_order") else "")
     rows = db.execute(
         text(f"SELECT {expression} AS value{sort_column} "
-             f"FROM reporting.{obj.view} "
+             f"FROM reporting.{physical_view(obj.view)} "
              f"WHERE tenant_id = :tenant_id AND {expression} IS NOT NULL "
              f"GROUP BY {expression} ORDER BY {order} LIMIT :limit"),
         {"tenant_id": tenant_id, "limit": OFFER_LIMIT + 1},
