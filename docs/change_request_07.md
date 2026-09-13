@@ -129,6 +129,23 @@ so an HTTP hop to itself would add token plumbing and a second surface to
 secure, for nothing. The tools call `reporting.api` directly — the same way the
 public bot's tools call the activities facade — so the engine remains the one
 enforcement point for tenant, threshold and refusals, whoever the caller is.
+**Why not the other domain facades, which hold the complex business rules?**
+(asked by Koen, 13 September 2026). Three reasons, one pattern. A domain facade
+returns unclassified shapes — everything on the object, names included, with no
+`ai_exposure`, no threshold, no declared refusals; every domain tool opened is
+a second surface to classify field by field. The business rules a *question*
+needs are already being lifted into the universe as declared objects —
+`payment_outstanding` and `member_valid_today` are business rules, not columns
+— and that is the pattern when one is missing: "volzet" becomes a view column
+and a declared object, never a service call from the LLM. And two paths to one
+number means two answers to one question: if the assistant computed revenue
+through a service while the panel reads the universe, one discrepancy would
+break trust in both. The rule, stated once: **when a question needs a business
+rule the universe lacks, the universe grows — never the tool list.** An
+assistant that *acts* (send a reminder) is the one thing that genuinely needs
+domain facades — that is workflow, its own change request with its own
+contracts, not a shortcut through this one.
+
 The "descriptive API" is what the model sees, not how it executes: the
 catalogue plus these tool specs. An HTTP surface becomes relevant only the day
 an agent *outside* the backend must ask questions — a different requirement.
