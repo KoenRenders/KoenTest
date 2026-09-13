@@ -30,3 +30,7 @@ backend/tests/__pycache__/
 
 # Tailwind standalone-CLI (scripts/build-css.sh)
 .cache/
+
+# Design-track screenshot output (scripts/screenshots.sh, #785) — seed-data
+# screenshots, maar hoort nooit in de publieke repo
+/screenshots/

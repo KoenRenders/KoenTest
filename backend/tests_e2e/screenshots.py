@@ -150,6 +150,17 @@ def _capture(page, screen: Screen, width: dict, out_dir: Path) -> Path:
 
 
 def main(argv: list[str]) -> int:
+    # Hard stop, not a docstring: against HDEV/UAT/PROD these images would show
+    # real members and addresses. Localhost is the only target this tool has.
+    from urllib.parse import urlparse
+
+    host = urlparse(BASE).hostname or ""
+    if host not in ("localhost", "127.0.0.1", "::1"):
+        print(f"refused: E2E_BASE_URL points at {host!r} — this tool captures "
+              "seeded LOCAL screens only, never a live environment.",
+              file=sys.stderr)
+        return 2
+
     out_dir = Path(argv[1]) if len(argv) > 1 else Path("screenshots")
     out_dir.mkdir(parents=True, exist_ok=True)
 
