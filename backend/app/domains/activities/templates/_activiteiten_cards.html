@@ -51,10 +51,8 @@
          op een telefoon (dus 4 px) en 20 px op een breed scherm (dus 2). Mijn eerste
          meting van "2 px verschil" klopte, alleen was ze tegen de regelhoogte van
          een breed scherm afgezet. #}
-      <p class="text-base md:text-sm text-ink-soft flex items-start gap-1">
-        {{ ui.icon("calendar", cls="mt-1 md:mt-0.5 shrink-0") }} {% for d in a.dates %}{{ d.start_date | langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date | langedatum }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
-      </p>
-      {% if a.location %}<p class="text-base md:text-sm text-ink-soft flex items-start gap-1">{{ ui.icon("map-pin", cls="mt-1 md:mt-0.5 shrink-0") }} {{ a.location }}</p>{% endif %}
+      {% call ui.icon_text("calendar", cls="text-ink-soft") %}{% for d in a.dates %}{{ d.start_date | langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date | langedatum }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}{% endcall %}
+      {% if a.location %}{% call ui.icon_text("map-pin", cls="text-ink-soft") %}{{ a.location }}{% endcall %}{% endif %}
     </div>
       </div>
     </div>
