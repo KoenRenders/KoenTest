@@ -202,18 +202,60 @@ def test_a_single_level_offers_no_way_up(client, db_session, situation):
         "ook een kwartaal zonder jaar erboven kan niet oprollen")
 
 
-def test_drilling_leaves_the_sort_and_the_column_axis_alone(client, db_session,
-                                                            situation):
-    """Sinds #907 verhuist er niets, dus er valt niets te verslepen."""
+def test_the_new_level_lands_where_its_parent_stood(client, db_session,
+                                                    situation):
+    """#915, en het is één zin met twee kanten.
+
+    Stond het hogere niveau in de rijen, dan komt het nieuwe er in de rijen bij.
+    Stond het op de kolomas, dan komt het daar. Wat er niet hoort te gebeuren is
+    wat Koen zag: een klik op een jaar in de rijen die de kwartalen als kolommen
+    laat verschijnen.
+
+    De oorzaak was de terugval die de kolomas invult als er geen gekozen is: die
+    pakte de laatste dimensie, en bij een drill is dat precies het zojuist
+    toegevoegde niveau. Een drill telt nu als een keuze, net als het uitdrukkelijk
+    aanwijzen van een as.
+    """
+    login(client, db_session)
+
+    # De ouder stond in de RIJEN: het kind komt er ook in de rijen bij.
+    in_rijen = _paneel(client, "object=payment_created_year&object=payment_amount"
+                               "&layout=pivot&drill=payment_created_quarter|2026")
+    assert 'name="pivot_column" value=""' in in_rijen, (
+        "het kwartaal hoort een tweede rijkolom te worden, geen kolomas")
+    assert 'name="object" value="payment_created_quarter"' in in_rijen
+
+    # De ouder stond op de KOLOMAS: daar komt het kind.
+    op_de_as = _paneel(client, "object=payment_method"
+                               "&object=payment_created_year&object=payment_amount"
+                               "&layout=pivot&pivot_column=payment_created_year"
+                               "&drill=payment_created_quarter|2026")
+    assert 'name="pivot_column" value="payment_created_quarter"' in op_de_as, (
+        "stond de ouder op de kolomas, dan hoort het kind daar te landen")
+
+
+def test_one_click_on_the_crosstab_still_picks_an_axis(client, db_session,
+                                                       situation):
+    """Dit issue beperkt wanneer de terugval vuurt; het haalt haar niet weg.
+
+    Eén klik op *Draaitabel* zonder gekozen kolomas hoort nog steeds een
+    kruistabel te geven en geen lege keuze (#873). Dat onderscheid is makkelijk
+    kwijt te raken bij een reparatie als deze.
+    """
+    login(client, db_session)
+    tekst = _paneel(client, "object=payment_method&object=payment_payable_type"
+                            "&object=payment_amount&set_layout=pivot")
+    assert 'name="pivot_column" value="payment_payable_type"' in tekst
+
+
+def test_drilling_leaves_the_sort_alone(client, db_session, situation):
+    """Er verhuist niets, dus er valt niets te verslepen."""
     login(client, db_session)
     tekst = _paneel(client, "object=payment_created_year&object=payment_method"
-                            "&object=payment_amount&sort=payment_created_year&dir=asc"
-                            "&layout=pivot&pivot_column=payment_created_year"
+                            "&object=payment_amount&sort=payment_created_year"
+                            "&dir=asc&layout=pivot"
                             "&drill=payment_created_quarter|2026")
-    # Niets verhuist meer: het jaar blijft in het rapport, dus sorteren en de
-    # kolomas blijven wijzen waar ze wezen. Dat was bij VERVANGEN wél nodig.
     assert 'name="sort" value="payment_created_year"' in tekst
-    assert 'name="pivot_column" value="payment_created_year"' in tekst
 
 
 def test_a_detail_level_is_skipped_when_drilling():
