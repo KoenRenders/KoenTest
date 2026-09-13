@@ -39,8 +39,8 @@ def situation(db_session):
 def _members_this_year() -> Selection:
     """"How many members do we have this year", saved as a relative report."""
     return Selection(
-        object_keys=("date_year", "membership_households"),
-        filters=(Filter("date_year", Operator.EQ, (), SYMBOLIC_THIS_YEAR),))
+        object_keys=("membership_year", "membership_households"),
+        filters=(Filter("membership_year", Operator.EQ, (), SYMBOLIC_THIS_YEAR),))
 
 
 # ── The reason this issue exists (#847 test 1) ───────────────────────────────
@@ -54,8 +54,8 @@ def test_the_same_saved_report_moves_with_the_year(db_session, situation):
     dit = run_validated(db_session, _members_this_year(), tenant_id=TENANT_A,
                         today=date(y2, 6, 1))
 
-    assert [r["date_year"] for r in vorig.rows] == [y1]
-    assert [r["date_year"] for r in dit.rows] == [y2]
+    assert [r["membership_year"] for r in vorig.rows] == [y1]
+    assert [r["membership_year"] for r in dit.rows] == [y2]
     assert vorig.rows[0]["membership_households"] != dit.rows[0]["membership_households"], (
         "de seed heeft 1 gezin in het ene jaar en 2 in het andere — het getal "
         "beweegt mee, niet alleen het label")
@@ -66,22 +66,22 @@ def test_a_literal_value_does_not_move(db_session, situation):
     moves" look the same from the green side."""
     _y0, y1, y2, _y3 = situation["years"]
     vast = Selection(
-        object_keys=("date_year", "membership_households"),
-        filters=(Filter("date_year", Operator.EQ, (str(y1),)),))
+        object_keys=("membership_year", "membership_households"),
+        filters=(Filter("membership_year", Operator.EQ, (str(y1),)),))
 
     vroeg = run_validated(db_session, vast, tenant_id=TENANT_A,
                           today=date(y1, 6, 1))
     laat = run_validated(db_session, vast, tenant_id=TENANT_A,
                          today=date(y2, 6, 1))
-    assert [r["date_year"] for r in vroeg.rows] == [y1]
-    assert [r["date_year"] for r in laat.rows] == [y1], (
+    assert [r["membership_year"] for r in vroeg.rows] == [y1]
+    assert [r["membership_year"] for r in laat.rows] == [y1], (
         "een hardgezette waarde blijft staan waar ze stond")
 
 
 def test_today_resolves_to_the_day_it_runs(db_session, situation):
     selectie = Selection(
-        object_keys=("date_day", "payment_amount"),
-        filters=(Filter("date_day", Operator.LTE, (), SYMBOLIC_TODAY),))
+        object_keys=("payment_created_day", "payment_amount"),
+        filters=(Filter("payment_created_day", Operator.LTE, (), SYMBOLIC_TODAY),))
     opgelost = resolve_selection(selectie, today=date(2026, 3, 4))
     assert opgelost.filters[0].values == ("2026-03-04",)
     # And it still runs against the database.
@@ -187,8 +187,8 @@ def test_a_year_filter_offers_this_year_and_a_municipality_does_not(client,
 
     login(client, db_session)
     jaar = client.get(
-        "/admin/rapporten/paneel?object=date_year"
-        "&object=membership_households&filter=date_year")
+        "/admin/rapporten/paneel?object=membership_year"
+        "&object=membership_households&filter=membership_year")
     assert 'value="@dit_jaar"' in jaar.text
     assert 'value="@vandaag"' not in jaar.text
 
@@ -268,8 +268,8 @@ def test_a_relative_value_survives_being_saved_and_read_back():
 def test_an_unknown_relative_value_is_refused_by_name():
     with pytest.raises(SelectionError) as exc:
         selection_from_dict({
-            "objects": ["date_year", "membership_households"],
-            "filters": [{"object": "date_year", "operator": "eq",
+            "objects": ["membership_year", "membership_households"],
+            "filters": [{"object": "membership_year", "operator": "eq",
                          "values": [], "symbolic": "vorige_maand"}],
         })
     assert "'vorige_maand'" in str(exc.value)
@@ -278,8 +278,8 @@ def test_an_unknown_relative_value_is_refused_by_name():
 def test_a_report_saved_before_this_change_still_reads_literally():
     """Every filter saved before #847 has no `symbolic` key, and must not gain one."""
     oud = selection_from_dict({
-        "objects": ["date_year", "membership_households"],
-        "filters": [{"object": "date_year", "operator": "eq",
+        "objects": ["membership_year", "membership_households"],
+        "filters": [{"object": "membership_year", "operator": "eq",
                      "values": ["2026"]}],
     })
     assert oud.filters[0].symbolic == ""
@@ -295,4 +295,4 @@ def test_the_export_header_says_both_what_it_means_and_what_it_was(db_session,
     opgelost = resolve_selection(_members_this_year(), today=date(2026, 6, 1))
     regels = filter_summary(opgelost)
     # Sinds #894 is er één jaarobject, en dat heet simpelweg "Jaar".
-    assert regels == ["Jaar is dit jaar (2026)"]
+    assert regels == ["Lidmaatschapsjaar is dit jaar (2026)"]

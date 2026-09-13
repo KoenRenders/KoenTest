@@ -162,10 +162,10 @@ def test_a_column_dimension_with_too_many_members_is_refused_by_name(db_session,
     """No query runs: the count is asked first, under the same filters."""
     _extra_payments(db_session, MAX_PIVOT_COLUMNS + 5)
     with pytest.raises(SelectionError) as exc:
-        pivot(db_session, ["payment_method", "date_day", "payment_amount"],
-              "date_day")
+        pivot(db_session, ["payment_method", "payment_created_day", "payment_amount"],
+              "payment_created_day")
     melding = str(exc.value)
-    assert "'Datum'" in melding, "de melding noemt de dimensie"
+    assert "'Aanmaakdatum › Datum'" in melding, "de melding noemt de dimensie"
     assert str(MAX_PIVOT_COLUMNS) in melding
 
 
@@ -190,8 +190,8 @@ def test_exactly_the_cap_still_works(db_session, situation):
         "WHERE tenant_id = :t"), {"t": TENANT_A}).scalar()
     assert alle_dagen > MAX_PIVOT_COLUMNS, "ongefilterd zit het erboven"
 
-    kruis = pivot(db_session, ["payment_method", "date_day", "payment_amount"],
-                  "date_day",
+    kruis = pivot(db_session, ["payment_method", "payment_created_day", "payment_amount"],
+                  "payment_created_day",
                   filters=[Filter("payment_method", Operator.EQ, ("Cash",))])
     assert len(kruis.column_values) == MAX_PIVOT_COLUMNS
 

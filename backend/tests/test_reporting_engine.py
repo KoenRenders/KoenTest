@@ -62,7 +62,7 @@ def test_measures_from_two_facts_are_refused_as_a_fan_trap():
 
 def test_a_selection_without_a_measure_is_refused():
     with pytest.raises(SelectionError) as exc:
-        plan(["activity", "date_year"])
+        plan(["activity", "payment_created_year"])
     assert "minstens één maat" in str(exc.value)
 
 
@@ -92,15 +92,19 @@ def test_a_membership_cannot_be_grouped_finer_than_a_year():
     kind of answer that looks right on a chart.
     """
     with pytest.raises(SelectionError) as exc:
-        plan(["date_month", "membership_households"])
+        plan(["payment_created_month", "membership_households"])
     melding = str(exc.value)
     assert "januari" in melding, f"de reden hoort in de melding te staan: {melding}"
     assert "Jaar" in melding, "en wat je dan wél neemt"
 
 
-def test_a_membership_can_be_grouped_by_the_shared_year():
-    """The other half: one *Jaar* works on a membership report as well."""
-    plan(["date_year", "membership_households"])
+def test_a_membership_can_be_grouped_by_its_own_year():
+    """The other half: the membership year still works on a membership report.
+
+    Its own year since #901 — a payment has its own dates now, because the shared
+    one meant something different there.
+    """
+    plan(["membership_year", "membership_households"])
 
 
 def test_sorting_on_something_that_is_not_in_the_report_is_refused():
@@ -194,7 +198,7 @@ def test_a_drill_column_travels_next_to_its_label():
 
 def test_the_same_selection_builds_the_same_statement_twice():
     """A statement you cannot recognise in a log is a statement you cannot debug."""
-    keys = ["activity", "date_year", "payment_method", "payment_amount"]
+    keys = ["activity", "payment_created_year", "payment_method", "payment_amount"]
     assert plan(keys).sql == plan(keys).sql
 
 
@@ -269,5 +273,5 @@ def test_every_measure_and_detail_carries_a_role():
 def test_the_objects_pane_is_grouped_in_declared_class_order():
     classes = [name for name, _objects in classes_with_objects()]
     assert classes == ["Leden", "Activiteiten", "Betalingen",
-                       "Formulieren", "Taken", "Tijd"]
+                       "Formulieren", "Taken"]
     assert all(objects for _name, objects in classes_with_objects())

@@ -48,6 +48,7 @@ UITZONDERINGEN: dict[str, str] = {
     "f_activities.created_at": "bron van date_key; idem",
     "f_forms.created_at": "bron van date_key; idem",
     "f_registrations.registered_at": "bron van date_key; idem",
+    "f_activities.date_key": "is de einddatum, en die heeft haar eigen rol (#901)",
 }
 
 # Twee vermeldingen zijn er bij het schrijven al uit gevallen: `f_payments.paid_at`
@@ -97,8 +98,8 @@ def test_payments_per_paid_month_differ_from_per_created_month(
     Same fact, same measure, two dates — and the answers have to differ, otherwise
     the second date is decoration.
     """
-    aangemaakt = {r["date_month"]: r["payment_amount_paid"]
-                  for r in _rows(db_session, ("date_month", "payment_amount_paid"))}
+    aangemaakt = {r["payment_created_month"]: r["payment_amount_paid"]
+                  for r in _rows(db_session, ("payment_created_month", "payment_amount_paid"))}
     betaald = {r["paid_date_month"]: r["payment_amount_paid"]
                for r in _rows(db_session, ("paid_date_month",
                                            "payment_amount_paid"))}
@@ -147,8 +148,11 @@ def test_the_role_is_visible_in_the_name(db_session, situation):
     """Two dates on one fact means two objects that could both be "Maand"."""
     namen = {o.key: o.name for o in OBJECTS}
     assert namen["paid_date_month"] == "Betaaldatum › Maand"
-    assert namen["date_month"] == "Maand"
     assert namen["done_date_year"] == "Afhandeldatum › Jaar"
+    # En sinds #901 draagt óók de sleuteldatum de naam van haar onderwerp: er is
+    # geen kale "Maand" meer die per feit iets anders betekent.
+    assert namen["payment_created_month"] == "Aanmaakdatum › Maand"
+    assert not any(n == "Maand" for n in namen.values())
 
 
 def test_a_role_reads_the_shared_calendar_and_not_a_copy():
@@ -260,8 +264,8 @@ def test_existing_reports_still_group_on_the_key_date(db_session, situation):
     The #880 gate guards the shipped ones; this is the direct statement that
     adding a second date did not change the first.
     """
-    rijen = _rows(db_session, ("date_month", "payment_amount"))
-    assert rijen and all("date_month" in rij for rij in rijen)
+    rijen = _rows(db_session, ("payment_created_month", "payment_amount"))
+    assert rijen and all("payment_created_month" in rij for rij in rijen)
     totaal = sum(r["payment_amount"] or Decimal("0") for r in rijen)
     alleen = run_validated(db_session,
                            Selection(object_keys=("payment_amount",)),

@@ -94,7 +94,7 @@ class Role(str, Enum):
 # they had to be resolved. Four of those "details" turned out to be the same
 # expression as an existing dimension and simply went.
 CLASSES: tuple[str, ...] = ("Leden", "Activiteiten", "Betalingen",
-                            "Formulieren", "Taken", "Tijd")
+                            "Formulieren", "Taken")
 
 
 @dataclass(frozen=True)
@@ -230,14 +230,14 @@ DATE_GRAINS: tuple[str, ...] = ("year", "quarter", "month", "day")
 # hier niet in staat, laat de poort in `test_reporting_year_object.py` falen — dan
 # zou het stilzwijgend door elke grendel heen glippen.
 DATE_OBJECT_GRAIN: dict[str, str] = {
-    "date_year": "year",
-    "date_quarter": "quarter",
-    "date_month": "month",
-    "date_month_label": "month",
-    "date_day": "day",
-    # De rollen van #895 lezen dezelfde kalender, dus dezelfde korrels.
-    **{f"{rol}_date_{korrel}": korrel
-       for rol in ("paid", "done", "start", "end")
+    # Elke datum in de universe, per korrel. Een datumobject dat hier niet in staat
+    # glipt door elke grendel heen, dus de poort in `test_reporting_year_object.py`
+    # houdt deze afbeelding volledig.
+    "membership_year": "year",
+    **{f"{rol}_{korrel}": korrel
+       for rol in ("registration_date", "payment_created", "member_created",
+                   "form_created", "submission_date", "task_created",
+                   "paid_date", "done_date", "start_date", "end_date")
        for korrel in ("year", "quarter", "month", "day")},
 }
 
@@ -376,6 +376,26 @@ DIMENSIONS: tuple[Dimension, ...] = (
     # kolom er al lag. Een rol is dezelfde datumdimensie onder een eigen alias,
     # aangehaakt op een andere kolom — geen tweede weergave, geen tweede kopie van
     # de kalenderlogica.
+    # #901: de gedeelde datum betekende per feit iets ANDERS — bij inschrijvingen
+    # de inschrijfdatum, bij betalingen de aanmaakdatum. Eén object met twee
+    # betekenissen is erger dan #894, want daar stond de fout zichtbaar in de
+    # lijst; hier klopt het rapport en weet alleen wie het feit eronder kent wat
+    # er geteld is. Elke sleuteldatum krijgt dus de naam van haar onderwerp, via
+    # dezelfde alias-machinerie als de rollen van #895.
+    Dimension(key="d_registration_date", name="Inschrijfdatum",
+              key_column="date_key", source_view="d_date"),
+    Dimension(key="d_payment_created", name="Aanmaakdatum",
+              key_column="date_key", source_view="d_date"),
+    Dimension(key="d_membership_year", name="Lidmaatschapsjaar",
+              key_column="date_key", source_view="d_date"),
+    Dimension(key="d_member_created", name="Aanmaakdatum gezin",
+              key_column="date_key", source_view="d_date"),
+    Dimension(key="d_form_created", name="Aanmaakdatum formulier",
+              key_column="date_key", source_view="d_date"),
+    Dimension(key="d_submission_date", name="Inzenddatum",
+              key_column="date_key", source_view="d_date"),
+    Dimension(key="d_task_created", name="Aanmaakdatum taak",
+              key_column="date_key", source_view="d_date"),
     Dimension(key="d_paid_date", name="Betaaldatum", key_column="date_key",
               source_view="d_date"),
     Dimension(key="d_done_date", name="Afhandeldatum", key_column="date_key",
@@ -387,13 +407,13 @@ DIMENSIONS: tuple[Dimension, ...] = (
 )
 
 JOINS: tuple[Join, ...] = (
-    Join("f_payments", "d_date", (("date_key", "date_key"),)),
+    Join("f_payments", "d_payment_created", (("date_key", "date_key"),)),
     Join("f_payments", "d_paid_date", (("paid_date", "date_key"),)),
     Join("f_payments", "d_activity", (("activity_id", "activity_id"),)),
     Join("f_payments", "d_member", (("member_id", "member_id"),)),
     Join("f_payments", "d_payment_method", (("method_code", "code"),)),
     Join("f_payments", "d_payment_status", (("status_code", "code"),)),
-    Join("f_registrations", "d_date", (("date_key", "date_key"),)),
+    Join("f_registrations", "d_registration_date", (("date_key", "date_key"),)),
     Join("f_registrations", "d_activity", (("activity_id", "activity_id"),)),
     Join("f_registrations", "d_person", (("person_id", "person_id"),)),
     Join("f_registrations", "d_payment_method", (("method_code", "code"),)),
@@ -401,22 +421,21 @@ JOINS: tuple[Join, ...] = (
     # hingen, en droegen daarom hun eigen jaarkolom — twee feiten, twee objecten,
     # dezelfde woorden in een andere volgorde. De dag is 1 januari en dus
     # verzonnen; `Fact.date_grain` weigert hem fijner te lezen dan een jaar.
-    Join("f_memberships", "d_date", (("date_key", "date_key"),)),
+    Join("f_memberships", "d_membership_year", (("date_key", "date_key"),)),
     Join("f_memberships", "d_member", (("member_id", "member_id"),)),
     Join("f_memberships", "d_membership_status", (("status_code", "code"),)),
-    Join("f_membership_persons", "d_date", (("date_key", "date_key"),)),
+    Join("f_membership_persons", "d_membership_year", (("date_key", "date_key"),)),
     Join("f_membership_persons", "d_person", (("person_id", "person_id"),)),
     Join("f_membership_persons", "d_member", (("member_id", "member_id"),)),
     Join("f_form_submissions", "d_form", (("form_id", "form_id"),)),
-    Join("f_forms", "d_date", (("date_key", "date_key"),)),
+    Join("f_forms", "d_form_created", (("date_key", "date_key"),)),
     Join("f_forms", "d_form", (("form_id", "form_id"),)),
-    Join("f_form_submissions", "d_date", (("date_key", "date_key"),)),
-    Join("f_tasks", "d_date", (("date_key", "date_key"),)),
+    Join("f_form_submissions", "d_submission_date", (("date_key", "date_key"),)),
+    Join("f_tasks", "d_task_created", (("date_key", "date_key"),)),
     Join("f_tasks", "d_done_date", (("done_date", "date_key"),)),
-    Join("f_members", "d_date", (("date_key", "date_key"),)),
+    Join("f_members", "d_member_created", (("date_key", "date_key"),)),
     Join("f_members", "d_member", (("member_id", "member_id"),)),
     Join("f_activities", "d_activity", (("activity_id", "activity_id"),)),
-    Join("f_activities", "d_date", (("date_key", "date_key"),)),
     Join("f_activities", "d_activity_start", (("first_date", "date_key"),)),
     Join("f_activities", "d_activity_end", (("last_date", "date_key"),)),
     # A snowflake: the board member hangs off the household, not off a fact. Same
@@ -443,128 +462,261 @@ def _boolean_label(column: str) -> str:
 
 OBJECTS: tuple[UniverseObject, ...] = (
     # ── Tijd ────────────────────────────────────────────────────────────────
-    UniverseObject(
-        key="date_year", name="Jaar", klass="Tijd", kind=ObjectKind.DIMENSION,
-        view="d_date", sql="{view}.year", format=Format.YEAR, role=Role.ADMIN,
-        description="Kalenderjaar van de gebeurtenis (inschrijfdatum of aanmaakdatum van de betaling).",
-    ),
-    UniverseObject(
-        key="date_quarter", name="Kwartaal", klass="Tijd", kind=ObjectKind.DIMENSION,
-        view="d_date", sql="{view}.quarter", format=Format.COUNT, role=Role.ADMIN,
-        description="Kwartaal 1 tot 4 binnen het jaar.",
-    ),
-    UniverseObject(
-        key="date_month", name="Maand", klass="Tijd", kind=ObjectKind.DIMENSION,
-        view="d_date", sql="{view}.year_month", format=Format.LABEL, role=Role.ADMIN,
-        description="Jaar en maand als 2026-03, zodat maanden vanzelf chronologisch staan.",
-    ),
-    UniverseObject(
-        key="date_month_label", name="Maand voluit", klass="Tijd", kind=ObjectKind.DETAIL,
-        view="d_date", sql="{view}.month_year_label", format=Format.LABEL, role=Role.ADMIN,
-        description="Dezelfde maand als 'maart 2026'. Een detail: sorteren doe je op Maand.",
-    ),
-    UniverseObject(
-        key="date_day", name="Datum", klass="Tijd", kind=ObjectKind.DIMENSION,
-        view="d_date", sql="{view}.date_key", format=Format.DATE, role=Role.ADMIN,
-        description="De dag zelf.",
-    ),
 
+
+    # #901: elke sleuteldatum draagt de naam van haar onderwerp. Zolang ze allemaal
+    # "Datum" heetten, betekende hetzelfde object per feit iets anders — en dat
+    # stond nergens op het scherm.
+    UniverseObject(
+        key="registration_date_year", name="Inschrijfdatum › Jaar", klass="Activiteiten",
+        kind=ObjectKind.DIMENSION, view="d_registration_date", sql="{view}.year",
+        format=Format.YEAR, role=Role.ADMIN,
+        description="Wanneer er ingeschreven is. Opgerold tot jaar.",
+    ),
+    UniverseObject(
+        key="registration_date_quarter", name="Inschrijfdatum › Kwartaal", klass="Activiteiten",
+        kind=ObjectKind.DIMENSION, view="d_registration_date", sql="{view}.quarter",
+        format=Format.COUNT, role=Role.ADMIN,
+        description="Wanneer er ingeschreven is. Opgerold tot kwartaal.",
+    ),
+    UniverseObject(
+        key="registration_date_month", name="Inschrijfdatum › Maand", klass="Activiteiten",
+        kind=ObjectKind.DIMENSION, view="d_registration_date", sql="{view}.year_month",
+        format=Format.LABEL, role=Role.ADMIN,
+        description="Wanneer er ingeschreven is. Opgerold tot maand.",
+    ),
+    UniverseObject(
+        key="registration_date_day", name="Inschrijfdatum › Datum", klass="Activiteiten",
+        kind=ObjectKind.DIMENSION, view="d_registration_date", sql="{view}.date_key",
+        format=Format.DATE, role=Role.ADMIN,
+        description="Wanneer er ingeschreven is. Opgerold tot datum.",
+    ),
+    UniverseObject(
+        key="payment_created_year", name="Aanmaakdatum › Jaar", klass="Betalingen",
+        kind=ObjectKind.DIMENSION, view="d_payment_created", sql="{view}.year",
+        format=Format.YEAR, role=Role.FINANCE,
+        description="Wanneer de vordering aangemaakt is — iets anders dan wanneer er betaald is. Opgerold tot jaar.",
+    ),
+    UniverseObject(
+        key="payment_created_quarter", name="Aanmaakdatum › Kwartaal", klass="Betalingen",
+        kind=ObjectKind.DIMENSION, view="d_payment_created", sql="{view}.quarter",
+        format=Format.COUNT, role=Role.FINANCE,
+        description="Wanneer de vordering aangemaakt is — iets anders dan wanneer er betaald is. Opgerold tot kwartaal.",
+    ),
+    UniverseObject(
+        key="payment_created_month", name="Aanmaakdatum › Maand", klass="Betalingen",
+        kind=ObjectKind.DIMENSION, view="d_payment_created", sql="{view}.year_month",
+        format=Format.LABEL, role=Role.FINANCE,
+        description="Wanneer de vordering aangemaakt is — iets anders dan wanneer er betaald is. Opgerold tot maand.",
+    ),
+    UniverseObject(
+        key="payment_created_day", name="Aanmaakdatum › Datum", klass="Betalingen",
+        kind=ObjectKind.DIMENSION, view="d_payment_created", sql="{view}.date_key",
+        format=Format.DATE, role=Role.FINANCE,
+        description="Wanneer de vordering aangemaakt is — iets anders dan wanneer er betaald is. Opgerold tot datum.",
+    ),
+    UniverseObject(
+        key="member_created_year", name="Aanmaakdatum gezin › Jaar", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="d_member_created", sql="{view}.year",
+        format=Format.YEAR, role=Role.ADMIN,
+        description="Wanneer het gezin in de administratie kwam. Opgerold tot jaar.",
+    ),
+    UniverseObject(
+        key="member_created_quarter", name="Aanmaakdatum gezin › Kwartaal", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="d_member_created", sql="{view}.quarter",
+        format=Format.COUNT, role=Role.ADMIN,
+        description="Wanneer het gezin in de administratie kwam. Opgerold tot kwartaal.",
+    ),
+    UniverseObject(
+        key="member_created_month", name="Aanmaakdatum gezin › Maand", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="d_member_created", sql="{view}.year_month",
+        format=Format.LABEL, role=Role.ADMIN,
+        description="Wanneer het gezin in de administratie kwam. Opgerold tot maand.",
+    ),
+    UniverseObject(
+        key="member_created_day", name="Aanmaakdatum gezin › Datum", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="d_member_created", sql="{view}.date_key",
+        format=Format.DATE, role=Role.ADMIN,
+        description="Wanneer het gezin in de administratie kwam. Opgerold tot datum.",
+    ),
+    UniverseObject(
+        key="form_created_year", name="Aanmaakdatum formulier › Jaar", klass="Formulieren",
+        kind=ObjectKind.DIMENSION, view="d_form_created", sql="{view}.year",
+        format=Format.YEAR, role=Role.ADMIN,
+        description="Wanneer het formulier aangemaakt is. Opgerold tot jaar.",
+    ),
+    UniverseObject(
+        key="form_created_quarter", name="Aanmaakdatum formulier › Kwartaal", klass="Formulieren",
+        kind=ObjectKind.DIMENSION, view="d_form_created", sql="{view}.quarter",
+        format=Format.COUNT, role=Role.ADMIN,
+        description="Wanneer het formulier aangemaakt is. Opgerold tot kwartaal.",
+    ),
+    UniverseObject(
+        key="form_created_month", name="Aanmaakdatum formulier › Maand", klass="Formulieren",
+        kind=ObjectKind.DIMENSION, view="d_form_created", sql="{view}.year_month",
+        format=Format.LABEL, role=Role.ADMIN,
+        description="Wanneer het formulier aangemaakt is. Opgerold tot maand.",
+    ),
+    UniverseObject(
+        key="form_created_day", name="Aanmaakdatum formulier › Datum", klass="Formulieren",
+        kind=ObjectKind.DIMENSION, view="d_form_created", sql="{view}.date_key",
+        format=Format.DATE, role=Role.ADMIN,
+        description="Wanneer het formulier aangemaakt is. Opgerold tot datum.",
+    ),
+    UniverseObject(
+        key="submission_date_year", name="Inzenddatum › Jaar", klass="Formulieren",
+        kind=ObjectKind.DIMENSION, view="d_submission_date", sql="{view}.year",
+        format=Format.YEAR, role=Role.ADMIN,
+        description="Wanneer het formulier ingevuld is. Opgerold tot jaar.",
+    ),
+    UniverseObject(
+        key="submission_date_quarter", name="Inzenddatum › Kwartaal", klass="Formulieren",
+        kind=ObjectKind.DIMENSION, view="d_submission_date", sql="{view}.quarter",
+        format=Format.COUNT, role=Role.ADMIN,
+        description="Wanneer het formulier ingevuld is. Opgerold tot kwartaal.",
+    ),
+    UniverseObject(
+        key="submission_date_month", name="Inzenddatum › Maand", klass="Formulieren",
+        kind=ObjectKind.DIMENSION, view="d_submission_date", sql="{view}.year_month",
+        format=Format.LABEL, role=Role.ADMIN,
+        description="Wanneer het formulier ingevuld is. Opgerold tot maand.",
+    ),
+    UniverseObject(
+        key="submission_date_day", name="Inzenddatum › Datum", klass="Formulieren",
+        kind=ObjectKind.DIMENSION, view="d_submission_date", sql="{view}.date_key",
+        format=Format.DATE, role=Role.ADMIN,
+        description="Wanneer het formulier ingevuld is. Opgerold tot datum.",
+    ),
+    UniverseObject(
+        key="task_created_year", name="Aanmaakdatum taak › Jaar", klass="Taken",
+        kind=ObjectKind.DIMENSION, view="d_task_created", sql="{view}.year",
+        format=Format.YEAR, role=Role.ADMIN,
+        description="Wanneer de taak ontstond. Opgerold tot jaar.",
+    ),
+    UniverseObject(
+        key="task_created_quarter", name="Aanmaakdatum taak › Kwartaal", klass="Taken",
+        kind=ObjectKind.DIMENSION, view="d_task_created", sql="{view}.quarter",
+        format=Format.COUNT, role=Role.ADMIN,
+        description="Wanneer de taak ontstond. Opgerold tot kwartaal.",
+    ),
+    UniverseObject(
+        key="task_created_month", name="Aanmaakdatum taak › Maand", klass="Taken",
+        kind=ObjectKind.DIMENSION, view="d_task_created", sql="{view}.year_month",
+        format=Format.LABEL, role=Role.ADMIN,
+        description="Wanneer de taak ontstond. Opgerold tot maand.",
+    ),
+    UniverseObject(
+        key="task_created_day", name="Aanmaakdatum taak › Datum", klass="Taken",
+        kind=ObjectKind.DIMENSION, view="d_task_created", sql="{view}.date_key",
+        format=Format.DATE, role=Role.ADMIN,
+        description="Wanneer de taak ontstond. Opgerold tot datum.",
+    ),
+    UniverseObject(
+        key="membership_year", name="Lidmaatschapsjaar", klass="Leden",
+        kind=ObjectKind.DIMENSION, view="d_membership_year", sql="{view}.year",
+        format=Format.YEAR, role=Role.ADMIN,
+        description=(
+            "Het lidmaatschapsjaar. Eén object voor beide lidmaatschapsfeiten "
+            "(#894) — en géén hiërarchie, want de dag eronder is 1 januari en dus "
+            "verzonnen."
+        ),
+    ),
     # #895: dezelfde oprolling op een TWEEDE datum van hetzelfde feit. De rol staat
     # in de naam — "Betaaldatum › Maand" en niet een tweede kaal "Maand" — want
     # zodra hetzelfde begrip twee keer voorkomt, hoort het onderscheid op het
     # scherm en niet in een naam die je uit je hoofd moet kennen (#894, #871).
     UniverseObject(
-        key="paid_date_year", name="Betaaldatum › Jaar", klass="Tijd",
+        key="paid_date_year", name="Betaaldatum › Jaar", klass="Betalingen",
         kind=ObjectKind.DIMENSION, view="d_paid_date", sql="{view}.year",
-        format=Format.YEAR, role=Role.ADMIN,
+        format=Format.YEAR, role=Role.FINANCE,
         description="Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd. Opgerold tot jaar.",
     ),
     UniverseObject(
-        key="paid_date_quarter", name="Betaaldatum › Kwartaal", klass="Tijd",
+        key="paid_date_quarter", name="Betaaldatum › Kwartaal", klass="Betalingen",
         kind=ObjectKind.DIMENSION, view="d_paid_date", sql="{view}.quarter",
-        format=Format.COUNT, role=Role.ADMIN,
+        format=Format.COUNT, role=Role.FINANCE,
         description="Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd. Opgerold tot kwartaal.",
     ),
     UniverseObject(
-        key="paid_date_month", name="Betaaldatum › Maand", klass="Tijd",
+        key="paid_date_month", name="Betaaldatum › Maand", klass="Betalingen",
         kind=ObjectKind.DIMENSION, view="d_paid_date", sql="{view}.year_month",
-        format=Format.LABEL, role=Role.ADMIN,
+        format=Format.LABEL, role=Role.FINANCE,
         description="Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd. Opgerold tot maand.",
     ),
     UniverseObject(
-        key="paid_date_day", name="Betaaldatum › Datum", klass="Tijd",
+        key="paid_date_day", name="Betaaldatum › Datum", klass="Betalingen",
         kind=ObjectKind.DIMENSION, view="d_paid_date", sql="{view}.date_key",
-        format=Format.DATE, role=Role.ADMIN,
+        format=Format.DATE, role=Role.FINANCE,
         description="Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd. Opgerold tot datum.",
     ),
     UniverseObject(
-        key="done_date_year", name="Afhandeldatum › Jaar", klass="Tijd",
+        key="done_date_year", name="Afhandeldatum › Jaar", klass="Taken",
         kind=ObjectKind.DIMENSION, view="d_done_date", sql="{view}.year",
         format=Format.YEAR, role=Role.ADMIN,
         description="Wanneer de taak afgesloten is. Leeg zolang ze open staat. Opgerold tot jaar.",
     ),
     UniverseObject(
-        key="done_date_quarter", name="Afhandeldatum › Kwartaal", klass="Tijd",
+        key="done_date_quarter", name="Afhandeldatum › Kwartaal", klass="Taken",
         kind=ObjectKind.DIMENSION, view="d_done_date", sql="{view}.quarter",
         format=Format.COUNT, role=Role.ADMIN,
         description="Wanneer de taak afgesloten is. Leeg zolang ze open staat. Opgerold tot kwartaal.",
     ),
     UniverseObject(
-        key="done_date_month", name="Afhandeldatum › Maand", klass="Tijd",
+        key="done_date_month", name="Afhandeldatum › Maand", klass="Taken",
         kind=ObjectKind.DIMENSION, view="d_done_date", sql="{view}.year_month",
         format=Format.LABEL, role=Role.ADMIN,
         description="Wanneer de taak afgesloten is. Leeg zolang ze open staat. Opgerold tot maand.",
     ),
     UniverseObject(
-        key="done_date_day", name="Afhandeldatum › Datum", klass="Tijd",
+        key="done_date_day", name="Afhandeldatum › Datum", klass="Taken",
         kind=ObjectKind.DIMENSION, view="d_done_date", sql="{view}.date_key",
         format=Format.DATE, role=Role.ADMIN,
         description="Wanneer de taak afgesloten is. Leeg zolang ze open staat. Opgerold tot datum.",
     ),
     UniverseObject(
-        key="start_date_year", name="Startdatum › Jaar", klass="Tijd",
+        key="start_date_year", name="Startdatum › Jaar", klass="Activiteiten",
         kind=ObjectKind.DIMENSION, view="d_activity_start", sql="{view}.year",
         format=Format.YEAR, role=Role.ADMIN,
         description="De eerste dag van de activiteit. Opgerold tot jaar.",
     ),
     UniverseObject(
-        key="start_date_quarter", name="Startdatum › Kwartaal", klass="Tijd",
+        key="start_date_quarter", name="Startdatum › Kwartaal", klass="Activiteiten",
         kind=ObjectKind.DIMENSION, view="d_activity_start", sql="{view}.quarter",
         format=Format.COUNT, role=Role.ADMIN,
         description="De eerste dag van de activiteit. Opgerold tot kwartaal.",
     ),
     UniverseObject(
-        key="start_date_month", name="Startdatum › Maand", klass="Tijd",
+        key="start_date_month", name="Startdatum › Maand", klass="Activiteiten",
         kind=ObjectKind.DIMENSION, view="d_activity_start", sql="{view}.year_month",
         format=Format.LABEL, role=Role.ADMIN,
         description="De eerste dag van de activiteit. Opgerold tot maand.",
     ),
     UniverseObject(
-        key="start_date_day", name="Startdatum › Datum", klass="Tijd",
+        key="start_date_day", name="Startdatum › Datum", klass="Activiteiten",
         kind=ObjectKind.DIMENSION, view="d_activity_start", sql="{view}.date_key",
         format=Format.DATE, role=Role.ADMIN,
         description="De eerste dag van de activiteit. Opgerold tot datum.",
     ),
     UniverseObject(
-        key="end_date_year", name="Einddatum › Jaar", klass="Tijd",
+        key="end_date_year", name="Einddatum › Jaar", klass="Activiteiten",
         kind=ObjectKind.DIMENSION, view="d_activity_end", sql="{view}.year",
         format=Format.YEAR, role=Role.ADMIN,
         description="De laatste dag van de activiteit, of de startdag als er maar één is. Opgerold tot jaar.",
     ),
     UniverseObject(
-        key="end_date_quarter", name="Einddatum › Kwartaal", klass="Tijd",
+        key="end_date_quarter", name="Einddatum › Kwartaal", klass="Activiteiten",
         kind=ObjectKind.DIMENSION, view="d_activity_end", sql="{view}.quarter",
         format=Format.COUNT, role=Role.ADMIN,
         description="De laatste dag van de activiteit, of de startdag als er maar één is. Opgerold tot kwartaal.",
     ),
     UniverseObject(
-        key="end_date_month", name="Einddatum › Maand", klass="Tijd",
+        key="end_date_month", name="Einddatum › Maand", klass="Activiteiten",
         kind=ObjectKind.DIMENSION, view="d_activity_end", sql="{view}.year_month",
         format=Format.LABEL, role=Role.ADMIN,
         description="De laatste dag van de activiteit, of de startdag als er maar één is. Opgerold tot maand.",
     ),
     UniverseObject(
-        key="end_date_day", name="Einddatum › Datum", klass="Tijd",
+        key="end_date_day", name="Einddatum › Datum", klass="Activiteiten",
         kind=ObjectKind.DIMENSION, view="d_activity_end", sql="{view}.date_key",
         format=Format.DATE, role=Role.ADMIN,
         description="De laatste dag van de activiteit, of de startdag als er maar één is. Opgerold tot datum.",
@@ -1330,17 +1482,29 @@ def _date_levels(prefix: str) -> tuple[str, ...]:
 
 
 HIERARCHIES: tuple[Hierarchy, ...] = (
-    Hierarchy(key="date", name="Datum", klass="Tijd",
-              level_keys=("date_year", "date_quarter", "date_month",
-                          "date_month_label", "date_day")),
-    Hierarchy(key="paid_date", name="Betaaldatum", klass="Tijd",
-              level_keys=_date_levels("paid_date_")),
-    Hierarchy(key="done_date", name="Afhandeldatum", klass="Tijd",
-              level_keys=_date_levels("done_date_")),
-    Hierarchy(key="start_date", name="Startdatum", klass="Tijd",
+    # Elke datum staat bij haar onderwerp (#901). De klasse "Tijd" bestond niet
+    # meer zodra dat doorgetrokken werd: ze was ingedeeld naar SOORT ding en niet
+    # naar onderwerp, net als "Betaaldetail" voor #871.
+    Hierarchy(key="registration_date", name="Inschrijfdatum", klass="Activiteiten",
+              level_keys=_date_levels("registration_date_")),
+    Hierarchy(key="start_date", name="Startdatum", klass="Activiteiten",
               level_keys=_date_levels("start_date_")),
-    Hierarchy(key="end_date", name="Einddatum", klass="Tijd",
+    Hierarchy(key="end_date", name="Einddatum", klass="Activiteiten",
               level_keys=_date_levels("end_date_")),
+    Hierarchy(key="payment_created", name="Aanmaakdatum", klass="Betalingen",
+              level_keys=_date_levels("payment_created_")),
+    Hierarchy(key="paid_date", name="Betaaldatum", klass="Betalingen",
+              level_keys=_date_levels("paid_date_")),
+    Hierarchy(key="member_created", name="Aanmaakdatum gezin", klass="Leden",
+              level_keys=_date_levels("member_created_")),
+    Hierarchy(key="form_created", name="Aanmaakdatum formulier",
+              klass="Formulieren", level_keys=_date_levels("form_created_")),
+    Hierarchy(key="submission_date", name="Inzenddatum", klass="Formulieren",
+              level_keys=_date_levels("submission_date_")),
+    Hierarchy(key="task_created", name="Aanmaakdatum taak", klass="Taken",
+              level_keys=_date_levels("task_created_")),
+    Hierarchy(key="done_date", name="Afhandeldatum", klass="Taken",
+              level_keys=_date_levels("done_date_")),
 )
 
 HIERARCHY_OF: dict[str, Hierarchy] = {

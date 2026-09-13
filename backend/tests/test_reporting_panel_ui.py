@@ -85,7 +85,7 @@ def test_an_admin_and_an_operator_both_get_in(client, db_session, situation):
         pagina = client.get("/admin/rapporten/nieuw")
         assert pagina.status_code == 200, email
         # All four classes are offered: the role fence is declared, not enforced.
-        for klasse in ("Leden", "Activiteiten", "Betalingen", "Tijd"):
+        for klasse in ("Leden", "Activiteiten", "Betalingen", "Taken"):
             assert klasse in pagina.text, f"{email} mist de klasse {klasse}"
 
 
@@ -141,13 +141,13 @@ def test_the_shipped_reports_return_the_numbers_of_the_seed(db_session, situatio
 
     _y0, _y1, y2, _y3 = situation["years"]
 
-    leden = {row["date_year"]: row for row in run("members_per_year").rows}
+    leden = {row["membership_year"]: row for row in run("members_per_year").rows}
     assert leden[y2]["membership_households"] == EXPECTED["memberships"]["households"][2]
     assert leden[y2]["membership_persons"] == EXPECTED["memberships"]["persons"][2]
 
     # Since #871 the flow report groups on the status dimension instead of
     # carrying three measures — the same numbers, as rows.
-    verloop = {(row["date_year"], row["membership_status"]):
+    verloop = {(row["membership_year"], row["membership_status"]):
                row["membership_count"]
                for row in run("membership_flow_per_year").rows}
     assert verloop[(y2, "Nieuw")] == EXPECTED["memberships"]["new"][2]
@@ -614,7 +614,7 @@ def test_a_report_that_points_at_a_vanished_object_says_so(client, db_session,
     rapport = [r for r in list_saved_reports(db_session, tenant_id=TENANT_A,
                                              viewer=ADMIN_EMAIL)
                if r.builtin_key == "revenue_per_month"][0]
-    rapport.selection = {"objects": ["date_month", "verdwenen_maat"],
+    rapport.selection = {"objects": ["payment_created_month", "verdwenen_maat"],
                          "filters": [], "sort": [], "layout": "table"}
     db_session.commit()
 
