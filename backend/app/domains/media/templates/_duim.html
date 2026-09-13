@@ -6,7 +6,7 @@
    Het fragment vervangt zichzelf (`hx-target="this"`), dus de teller en de stand komen
    uit hetzelfde antwoord als de handeling. #}
 <button type="button" id="duim-{{ foto_id }}"
-        hx-post="/fotos/{{ foto_id }}/duim" hx-target="this" hx-swap="outerHTML"
+        hx-post="{{ path_for('/fotos/' ~ foto_id ~ '/duim') }}" hx-target="this" hx-swap="outerHTML"
         aria-pressed="{{ 'true' if aan else 'false' }}"
         aria-label="{{ _("Duimpje geven") if not aan else _("Duimpje weghalen") }}"
         class="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium

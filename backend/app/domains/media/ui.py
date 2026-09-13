@@ -91,10 +91,18 @@ def activiteit_fotos(activity_key: str, request: Request,
     # browser onthouden en krijg je nauwelijks nog weg. Blijkt een slug ooit fout, of
     # verdwijnt hij, dan landen mensen uit hun eigen cache op een dood adres. Zoekmachines
     # weten via de canonical-tag toch al welke de echte is, dus dit kost niets.
+    #
+    # MET de tenant-prefix (#922). Zonder `path_for` viel de prefix weg: wie via
+    # `/raakmillegem/activiteiten/4/fotos` binnenkwam, werd doorgestuurd naar
+    # `/activiteiten/irrland26/fotos`, en een bezoeker zónder tenant-cookie landde
+    # daarmee op het platform — dat die activiteit niet heeft. Gevonden op HDEV: 404
+    # na één doorverwijzing. Dat is precies de regel die #889 vastlegde, hier gemist.
     if activiteit.slug and activity_key != activiteit.slug:
         from fastapi.responses import RedirectResponse
 
-        return RedirectResponse(f"/activiteiten/{activiteit.slug}/fotos",
+        from app.ui import path_for
+
+        return RedirectResponse(path_for(f"/activiteiten/{activiteit.slug}/fotos"),
                                 status_code=307)
     activity_id = activiteit.id
     fotos = list_activity_photos(db, activity_id)
