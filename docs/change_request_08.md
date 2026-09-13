@@ -1,8 +1,12 @@
 # Change Request 08 — The eye wants something too: a visual tightening
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** Draft — brainstorm of 13 September 2026, not assigned to a release.
-Open questions in §6 are genuinely open.
+**Status:** Direction chosen. Drafted 13 September 2026; the same day the
+maker round delivered three directions and **Cobalt (01) was chosen — a very
+clear preference**, for both sides. The conventions debate ran externally and
+was triaged on #785 (buckets: adopt / owner decides / deferred with trigger);
+three decisions remain open there (unsaved changes, what a record name opens,
+dashboard as a type). Execution follows §3 step 3 once those close.
 **Apply to:** scope and sequence only. The method, the briefing template, the
 triage chain and the admin-side direction live in **issue #785** and are not
 repeated here — one place per fact. This document decides what #785 left open:
