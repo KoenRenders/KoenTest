@@ -71,6 +71,9 @@ class ReportPanelView(ViewModel):
     closed_classes: list[str]
     #: Per class, how many objects are chosen — what a folded class still shows.
     chosen_per_class: dict[str, int]
+    #: Per hiërarchie: het niveau waarop de filterknop filtert (#912). Het diepste
+    #: dat in het rapport staat — het aanbod gaat over waar je bent.
+    filter_level: dict[str, str]
     filter_keys: list[str]
 
     # ── Selection ───────────────────────────────────────────────────────────

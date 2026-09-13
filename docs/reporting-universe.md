@@ -120,7 +120,7 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | Key | Name | Type | Format | Role | Source | Description |
 |---|---|---|---|---|---|---|
 | `member_created_year` | Aanmaakdatum gezin › Jaar | dimension | year | `admin` | `d_member_created.year` | Wanneer het gezin in de administratie kwam. Opgerold tot jaar. |
-| `member_created_quarter` | Aanmaakdatum gezin › Kwartaal | dimension | count | `admin` | `d_member_created.quarter` | Wanneer het gezin in de administratie kwam. Opgerold tot kwartaal. |
+| `member_created_quarter` | Aanmaakdatum gezin › Kwartaal | dimension | label | `admin` | `(d_member_created.year::text \|\| '-K' \|\| d_member_created.quarter::text)` | Wanneer het gezin in de administratie kwam. Opgerold tot kwartaal. |
 | `member_created_month` | Aanmaakdatum gezin › Maand | dimension | label | `admin` | `d_member_created.year_month` | Wanneer het gezin in de administratie kwam. Opgerold tot maand. |
 | `member_created_day` | Aanmaakdatum gezin › Datum | dimension | date | `admin` | `d_member_created.date_key` | Wanneer het gezin in de administratie kwam. Opgerold tot datum. |
 | `membership_year` | Lidmaatschapsjaar | dimension | year | `admin` | `d_membership_year.year` | Het lidmaatschapsjaar. Eén object voor beide lidmaatschapsfeiten (#894) — en géén hiërarchie, want de dag eronder is 1 januari en dus verzonnen. |
@@ -162,15 +162,15 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | Key | Name | Type | Format | Role | Source | Description |
 |---|---|---|---|---|---|---|
 | `registration_date_year` | Inschrijfdatum › Jaar | dimension | year | `admin` | `d_registration_date.year` | Wanneer er ingeschreven is. Opgerold tot jaar. |
-| `registration_date_quarter` | Inschrijfdatum › Kwartaal | dimension | count | `admin` | `d_registration_date.quarter` | Wanneer er ingeschreven is. Opgerold tot kwartaal. |
+| `registration_date_quarter` | Inschrijfdatum › Kwartaal | dimension | label | `admin` | `(d_registration_date.year::text \|\| '-K' \|\| d_registration_date.quarter::text)` | Wanneer er ingeschreven is. Opgerold tot kwartaal. |
 | `registration_date_month` | Inschrijfdatum › Maand | dimension | label | `admin` | `d_registration_date.year_month` | Wanneer er ingeschreven is. Opgerold tot maand. |
 | `registration_date_day` | Inschrijfdatum › Datum | dimension | date | `admin` | `d_registration_date.date_key` | Wanneer er ingeschreven is. Opgerold tot datum. |
 | `start_date_year` | Startdatum › Jaar | dimension | year | `admin` | `d_activity_start.year` | De eerste dag van de activiteit. Opgerold tot jaar. |
-| `start_date_quarter` | Startdatum › Kwartaal | dimension | count | `admin` | `d_activity_start.quarter` | De eerste dag van de activiteit. Opgerold tot kwartaal. |
+| `start_date_quarter` | Startdatum › Kwartaal | dimension | label | `admin` | `(d_activity_start.year::text \|\| '-K' \|\| d_activity_start.quarter::text)` | De eerste dag van de activiteit. Opgerold tot kwartaal. |
 | `start_date_month` | Startdatum › Maand | dimension | label | `admin` | `d_activity_start.year_month` | De eerste dag van de activiteit. Opgerold tot maand. |
 | `start_date_day` | Startdatum › Datum | dimension | date | `admin` | `d_activity_start.date_key` | De eerste dag van de activiteit. Opgerold tot datum. |
 | `end_date_year` | Einddatum › Jaar | dimension | year | `admin` | `d_activity_end.year` | De laatste dag van de activiteit, of de startdag als er maar één is. Opgerold tot jaar. |
-| `end_date_quarter` | Einddatum › Kwartaal | dimension | count | `admin` | `d_activity_end.quarter` | De laatste dag van de activiteit, of de startdag als er maar één is. Opgerold tot kwartaal. |
+| `end_date_quarter` | Einddatum › Kwartaal | dimension | label | `admin` | `(d_activity_end.year::text \|\| '-K' \|\| d_activity_end.quarter::text)` | De laatste dag van de activiteit, of de startdag als er maar één is. Opgerold tot kwartaal. |
 | `end_date_month` | Einddatum › Maand | dimension | label | `admin` | `d_activity_end.year_month` | De laatste dag van de activiteit, of de startdag als er maar één is. Opgerold tot maand. |
 | `end_date_day` | Einddatum › Datum | dimension | date | `admin` | `d_activity_end.date_key` | De laatste dag van de activiteit, of de startdag als er maar één is. Opgerold tot datum. |
 | `registration_count` | Aantal inschrijvingen | measure | count | `admin` | `COUNT(DISTINCT f_registrations.registration_id)` | Aantal inschrijvingen, ongeacht hoeveel producten erop staan. |
@@ -193,11 +193,11 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | Key | Name | Type | Format | Role | Source | Description |
 |---|---|---|---|---|---|---|
 | `payment_created_year` | Aanmaakdatum › Jaar | dimension | year | `finance` | `d_payment_created.year` | Wanneer de vordering aangemaakt is — iets anders dan wanneer er betaald is. Opgerold tot jaar. |
-| `payment_created_quarter` | Aanmaakdatum › Kwartaal | dimension | count | `finance` | `d_payment_created.quarter` | Wanneer de vordering aangemaakt is — iets anders dan wanneer er betaald is. Opgerold tot kwartaal. |
+| `payment_created_quarter` | Aanmaakdatum › Kwartaal | dimension | label | `finance` | `(d_payment_created.year::text \|\| '-K' \|\| d_payment_created.quarter::text)` | Wanneer de vordering aangemaakt is — iets anders dan wanneer er betaald is. Opgerold tot kwartaal. |
 | `payment_created_month` | Aanmaakdatum › Maand | dimension | label | `finance` | `d_payment_created.year_month` | Wanneer de vordering aangemaakt is — iets anders dan wanneer er betaald is. Opgerold tot maand. |
 | `payment_created_day` | Aanmaakdatum › Datum | dimension | date | `finance` | `d_payment_created.date_key` | Wanneer de vordering aangemaakt is — iets anders dan wanneer er betaald is. Opgerold tot datum. |
 | `paid_date_year` | Betaaldatum › Jaar | dimension | year | `finance` | `d_paid_date.year` | Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd. Opgerold tot jaar. |
-| `paid_date_quarter` | Betaaldatum › Kwartaal | dimension | count | `finance` | `d_paid_date.quarter` | Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd. Opgerold tot kwartaal. |
+| `paid_date_quarter` | Betaaldatum › Kwartaal | dimension | label | `finance` | `(d_paid_date.year::text \|\| '-K' \|\| d_paid_date.quarter::text)` | Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd. Opgerold tot kwartaal. |
 | `paid_date_month` | Betaaldatum › Maand | dimension | label | `finance` | `d_paid_date.year_month` | Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd. Opgerold tot maand. |
 | `paid_date_day` | Betaaldatum › Datum | dimension | date | `finance` | `d_paid_date.date_key` | Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd. Opgerold tot datum. |
 | `payment_amount` | Te betalen | measure | money | `finance` | `SUM(f_payments.amount)` | Som van de bedragen; terugbetalingen tellen negatief mee. |
@@ -225,11 +225,11 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | Key | Name | Type | Format | Role | Source | Description |
 |---|---|---|---|---|---|---|
 | `form_created_year` | Aanmaakdatum formulier › Jaar | dimension | year | `admin` | `d_form_created.year` | Wanneer het formulier aangemaakt is. Opgerold tot jaar. |
-| `form_created_quarter` | Aanmaakdatum formulier › Kwartaal | dimension | count | `admin` | `d_form_created.quarter` | Wanneer het formulier aangemaakt is. Opgerold tot kwartaal. |
+| `form_created_quarter` | Aanmaakdatum formulier › Kwartaal | dimension | label | `admin` | `(d_form_created.year::text \|\| '-K' \|\| d_form_created.quarter::text)` | Wanneer het formulier aangemaakt is. Opgerold tot kwartaal. |
 | `form_created_month` | Aanmaakdatum formulier › Maand | dimension | label | `admin` | `d_form_created.year_month` | Wanneer het formulier aangemaakt is. Opgerold tot maand. |
 | `form_created_day` | Aanmaakdatum formulier › Datum | dimension | date | `admin` | `d_form_created.date_key` | Wanneer het formulier aangemaakt is. Opgerold tot datum. |
 | `submission_date_year` | Inzenddatum › Jaar | dimension | year | `admin` | `d_submission_date.year` | Wanneer het formulier ingevuld is. Opgerold tot jaar. |
-| `submission_date_quarter` | Inzenddatum › Kwartaal | dimension | count | `admin` | `d_submission_date.quarter` | Wanneer het formulier ingevuld is. Opgerold tot kwartaal. |
+| `submission_date_quarter` | Inzenddatum › Kwartaal | dimension | label | `admin` | `(d_submission_date.year::text \|\| '-K' \|\| d_submission_date.quarter::text)` | Wanneer het formulier ingevuld is. Opgerold tot kwartaal. |
 | `submission_date_month` | Inzenddatum › Maand | dimension | label | `admin` | `d_submission_date.year_month` | Wanneer het formulier ingevuld is. Opgerold tot maand. |
 | `submission_date_day` | Inzenddatum › Datum | dimension | date | `admin` | `d_submission_date.date_key` | Wanneer het formulier ingevuld is. Opgerold tot datum. |
 | `form_count` | Aantal formulieren | measure | count | `admin` | `COUNT(DISTINCT f_forms.form_id)` | Formulieren, ook die zonder één inzending. Dat is de reden dat deze telling van het formulierfeit komt en niet van de inzendingen: op het inzendingenfeit verdwijnt een leeg formulier stilzwijgend, en 'welk formulier staat open en krijgt niets binnen' is juist een vraag die een bestuurder stelt (#871, dezelfde val als #848). |
@@ -245,11 +245,11 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | Key | Name | Type | Format | Role | Source | Description |
 |---|---|---|---|---|---|---|
 | `task_created_year` | Aanmaakdatum taak › Jaar | dimension | year | `admin` | `d_task_created.year` | Wanneer de taak ontstond. Opgerold tot jaar. |
-| `task_created_quarter` | Aanmaakdatum taak › Kwartaal | dimension | count | `admin` | `d_task_created.quarter` | Wanneer de taak ontstond. Opgerold tot kwartaal. |
+| `task_created_quarter` | Aanmaakdatum taak › Kwartaal | dimension | label | `admin` | `(d_task_created.year::text \|\| '-K' \|\| d_task_created.quarter::text)` | Wanneer de taak ontstond. Opgerold tot kwartaal. |
 | `task_created_month` | Aanmaakdatum taak › Maand | dimension | label | `admin` | `d_task_created.year_month` | Wanneer de taak ontstond. Opgerold tot maand. |
 | `task_created_day` | Aanmaakdatum taak › Datum | dimension | date | `admin` | `d_task_created.date_key` | Wanneer de taak ontstond. Opgerold tot datum. |
 | `done_date_year` | Afhandeldatum › Jaar | dimension | year | `admin` | `d_done_date.year` | Wanneer de taak afgesloten is. Leeg zolang ze open staat. Opgerold tot jaar. |
-| `done_date_quarter` | Afhandeldatum › Kwartaal | dimension | count | `admin` | `d_done_date.quarter` | Wanneer de taak afgesloten is. Leeg zolang ze open staat. Opgerold tot kwartaal. |
+| `done_date_quarter` | Afhandeldatum › Kwartaal | dimension | label | `admin` | `(d_done_date.year::text \|\| '-K' \|\| d_done_date.quarter::text)` | Wanneer de taak afgesloten is. Leeg zolang ze open staat. Opgerold tot kwartaal. |
 | `done_date_month` | Afhandeldatum › Maand | dimension | label | `admin` | `d_done_date.year_month` | Wanneer de taak afgesloten is. Leeg zolang ze open staat. Opgerold tot maand. |
 | `done_date_day` | Afhandeldatum › Datum | dimension | date | `admin` | `d_done_date.date_key` | Wanneer de taak afgesloten is. Leeg zolang ze open staat. Opgerold tot datum. |
 | `task_count` | Aantal taken | measure | count | `admin` | `COUNT(DISTINCT f_tasks.item_id)` | Hoeveel taken er zijn. Filter op status Open voor de werkvoorraad. |

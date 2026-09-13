@@ -118,7 +118,7 @@
                           title="{{ kind_labels['dimension'] }}"
                           aria-hidden="true">{{ kind_symbols['dimension'] }}</span>
                     <span class="flex-1 text-sm text-ink">{{ o.name }}</span>
-                    <button type="button" name="add_filter" value="{{ o.level_keys[0] }}"
+                    <button type="button" name="add_filter" value="{{ filter_level.get(o.key, o.level_keys[0]) }}"
                             hx-get="{{ paneel_url }}"
                             aria-label="{{ _('Filter op') }} {{ o.name }}"
                             title="{{ _('Filter op') }} {{ o.name }}"

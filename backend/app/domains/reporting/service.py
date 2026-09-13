@@ -32,6 +32,7 @@ from app.domains.reporting.engine import (
     Selection,
     SelectionError,
     build_query,
+    values_from_fact_sql,
     selection_from_dict,
     selection_to_dict,
 )
@@ -210,16 +211,35 @@ def load_dataset(db: Session, fact_key: str, *, tenant_id: int,
 OFFER_LIMIT = 60
 
 
-def dimension_values(db: Session, object_key: str, *, tenant_id: int) -> list[str]:
+def dimension_values(db: Session, object_key: str, *, tenant_id: int,
+                     fact: str = "") -> list[str]:
     """The distinct values of one dimension for this tenant, in reading order.
 
     Empty when there are more than `OFFER_LIMIT` of them: that is the signal to
     the panel to render a text field instead of a dropdown, and to the check below
     to let any value through.
+
+    **Met een feit erbij komen de waarden uit de DATA en niet uit de dimensie
+    (#912).** De kalender loopt van 2015 tot twee jaar vooruit, dus rechtstreeks
+    lezen geeft elk jaar — ook jaren zonder één betaling. Koen vroeg het
+    omgekeerde: *"altijd enkel diegene die mogelijk zijn, anders zou de lijst zeer
+    sterk groeien."* Zonder feit blijft het gedrag zoals het was; dat pad wordt
+    nog gebruikt waar geen rapport in de buurt is.
     """
     obj = BY_KEY.get(object_key)
     if obj is None or obj.is_measure:
         return []
+    if fact:
+        try:
+            sql, _extra = values_from_fact_sql(object_key, fact)
+        except SelectionError:
+            # Het object hoort niet bij dit feit; dan is er niets te bieden.
+            return []
+        rijen = db.execute(text(sql), {"tenant_id": tenant_id,
+                                       "limit": OFFER_LIMIT + 1}).all()
+        if len(rijen) > OFFER_LIMIT:
+            return []
+        return [str(rij[0]) for rij in rijen]
     # Zonder alias: deze query bevraagt één weergave rechtstreeks, dus overal de
     # FYSIEKE naam. Een roldatum (#895) is een alias op `d_date`, en die naam
     # bestaat niet in de databank.

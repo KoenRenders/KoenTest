@@ -44,6 +44,7 @@ from app.domains.reporting.api import (
     BY_KEY,
     CHART_LAYOUTS,
     CLASSES,
+    HIERARCHIES,
     HIERARCHY_OF,
     build_chart,
     build_dataset_ods,
@@ -274,6 +275,21 @@ def _read_state(params) -> dict:
     }
 
 
+def _filter_level(object_keys: list[str]) -> dict[str, str]:
+    """Per hiërarchie: op welk niveau de filterknop moet filteren (#912).
+
+    Het DIEPSTE niveau dat in het rapport staat, en anders het bovenste. De knop
+    gebruikte altijd `level_keys[0]`, dus wie tot de dag gedrild had kreeg nog
+    steeds een jaarfilter — het aanbod ging over waar je begon in plaats van over
+    waar je bent.
+    """
+    per_hierarchie: dict[str, str] = {}
+    for hier in HIERARCHIES:
+        gekozen = [k for k in hier.level_keys if k in object_keys]
+        per_hierarchie[hier.key] = gekozen[-1] if gekozen else hier.level_keys[0]
+    return per_hierarchie
+
+
 def _rollup_levels(object_keys: list[str]) -> list[tuple[str, str]]:
     """(niveau, eigen naam) voor het diepste niveau per hiërarchie dat weg mag.
 
@@ -401,8 +417,14 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
 
     filter_options: dict[str, list[str]] = {}
     filter_relative: dict[str, list[tuple[str, str]]] = {}
+    # #912: de aangeboden waarden komen uit de DATA van het feit dat je bevraagt,
+    # niet uit de dimensie. De kalender loopt van 2015 tot twee jaar vooruit, dus
+    # rechtstreeks lezen bood elk jaar aan — ook jaren zonder één betaling.
+    populatie = population_of(state["objects"])
     for key in state["filters"]:
-        filter_options[key] = dimension_values(db, key, tenant_id=tenant_id)
+        filter_options[key] = dimension_values(
+            db, key, tenant_id=tenant_id,
+            fact=populatie.key if populatie else "")
         filter_relative[key] = _relative_options(key)
 
     columns: list = []
@@ -474,6 +496,7 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
         rollup_levels=_rollup_levels(state["objects"]),
         closed_classes=state["closed"],
         chosen_per_class=_chosen_per_class(state["objects"]),
+        filter_level=_filter_level(state["objects"]),
         refused=refused,
         population=population_of(state["objects"]),
         no_column=state["no_column"],

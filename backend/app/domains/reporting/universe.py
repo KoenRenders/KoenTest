@@ -475,8 +475,15 @@ OBJECTS: tuple[UniverseObject, ...] = (
     ),
     UniverseObject(
         key="registration_date_quarter", name="Inschrijfdatum › Kwartaal", klass="Activiteiten",
-        kind=ObjectKind.DIMENSION, view="d_registration_date", sql="{view}.quarter",
-        format=Format.COUNT, role=Role.ADMIN,
+        kind=ObjectKind.DIMENSION, view="d_registration_date",
+        sql="({view}.year::text || \'-K\' || {view}.quarter::text)",
+        # #912: MET het jaartal erin. Kaal telde een kwartaal de tweede
+        # kwartalen van 2025, 2026 en 2027 in één rij op — een getal dat
+        # netjes optelt en een andere vraag beantwoordt. Precies de val van
+        # #894, en ze viel pas op toen drillen jaar en kwartaal naast elkaar
+        # zette: daar leest "2026 · 2" nog, op zichzelf niet.
+        sort_sql="{view}.year, {view}.quarter",
+        format=Format.LABEL, role=Role.ADMIN,
         description="Wanneer er ingeschreven is. Opgerold tot kwartaal.",
     ),
     UniverseObject(
@@ -499,8 +506,15 @@ OBJECTS: tuple[UniverseObject, ...] = (
     ),
     UniverseObject(
         key="payment_created_quarter", name="Aanmaakdatum › Kwartaal", klass="Betalingen",
-        kind=ObjectKind.DIMENSION, view="d_payment_created", sql="{view}.quarter",
-        format=Format.COUNT, role=Role.FINANCE,
+        kind=ObjectKind.DIMENSION, view="d_payment_created",
+        sql="({view}.year::text || \'-K\' || {view}.quarter::text)",
+        # #912: MET het jaartal erin. Kaal telde een kwartaal de tweede
+        # kwartalen van 2025, 2026 en 2027 in één rij op — een getal dat
+        # netjes optelt en een andere vraag beantwoordt. Precies de val van
+        # #894, en ze viel pas op toen drillen jaar en kwartaal naast elkaar
+        # zette: daar leest "2026 · 2" nog, op zichzelf niet.
+        sort_sql="{view}.year, {view}.quarter",
+        format=Format.LABEL, role=Role.FINANCE,
         description="Wanneer de vordering aangemaakt is — iets anders dan wanneer er betaald is. Opgerold tot kwartaal.",
     ),
     UniverseObject(
@@ -523,8 +537,15 @@ OBJECTS: tuple[UniverseObject, ...] = (
     ),
     UniverseObject(
         key="member_created_quarter", name="Aanmaakdatum gezin › Kwartaal", klass="Leden",
-        kind=ObjectKind.DIMENSION, view="d_member_created", sql="{view}.quarter",
-        format=Format.COUNT, role=Role.ADMIN,
+        kind=ObjectKind.DIMENSION, view="d_member_created",
+        sql="({view}.year::text || \'-K\' || {view}.quarter::text)",
+        # #912: MET het jaartal erin. Kaal telde een kwartaal de tweede
+        # kwartalen van 2025, 2026 en 2027 in één rij op — een getal dat
+        # netjes optelt en een andere vraag beantwoordt. Precies de val van
+        # #894, en ze viel pas op toen drillen jaar en kwartaal naast elkaar
+        # zette: daar leest "2026 · 2" nog, op zichzelf niet.
+        sort_sql="{view}.year, {view}.quarter",
+        format=Format.LABEL, role=Role.ADMIN,
         description="Wanneer het gezin in de administratie kwam. Opgerold tot kwartaal.",
     ),
     UniverseObject(
@@ -547,8 +568,15 @@ OBJECTS: tuple[UniverseObject, ...] = (
     ),
     UniverseObject(
         key="form_created_quarter", name="Aanmaakdatum formulier › Kwartaal", klass="Formulieren",
-        kind=ObjectKind.DIMENSION, view="d_form_created", sql="{view}.quarter",
-        format=Format.COUNT, role=Role.ADMIN,
+        kind=ObjectKind.DIMENSION, view="d_form_created",
+        sql="({view}.year::text || \'-K\' || {view}.quarter::text)",
+        # #912: MET het jaartal erin. Kaal telde een kwartaal de tweede
+        # kwartalen van 2025, 2026 en 2027 in één rij op — een getal dat
+        # netjes optelt en een andere vraag beantwoordt. Precies de val van
+        # #894, en ze viel pas op toen drillen jaar en kwartaal naast elkaar
+        # zette: daar leest "2026 · 2" nog, op zichzelf niet.
+        sort_sql="{view}.year, {view}.quarter",
+        format=Format.LABEL, role=Role.ADMIN,
         description="Wanneer het formulier aangemaakt is. Opgerold tot kwartaal.",
     ),
     UniverseObject(
@@ -571,8 +599,15 @@ OBJECTS: tuple[UniverseObject, ...] = (
     ),
     UniverseObject(
         key="submission_date_quarter", name="Inzenddatum › Kwartaal", klass="Formulieren",
-        kind=ObjectKind.DIMENSION, view="d_submission_date", sql="{view}.quarter",
-        format=Format.COUNT, role=Role.ADMIN,
+        kind=ObjectKind.DIMENSION, view="d_submission_date",
+        sql="({view}.year::text || \'-K\' || {view}.quarter::text)",
+        # #912: MET het jaartal erin. Kaal telde een kwartaal de tweede
+        # kwartalen van 2025, 2026 en 2027 in één rij op — een getal dat
+        # netjes optelt en een andere vraag beantwoordt. Precies de val van
+        # #894, en ze viel pas op toen drillen jaar en kwartaal naast elkaar
+        # zette: daar leest "2026 · 2" nog, op zichzelf niet.
+        sort_sql="{view}.year, {view}.quarter",
+        format=Format.LABEL, role=Role.ADMIN,
         description="Wanneer het formulier ingevuld is. Opgerold tot kwartaal.",
     ),
     UniverseObject(
@@ -595,8 +630,15 @@ OBJECTS: tuple[UniverseObject, ...] = (
     ),
     UniverseObject(
         key="task_created_quarter", name="Aanmaakdatum taak › Kwartaal", klass="Taken",
-        kind=ObjectKind.DIMENSION, view="d_task_created", sql="{view}.quarter",
-        format=Format.COUNT, role=Role.ADMIN,
+        kind=ObjectKind.DIMENSION, view="d_task_created",
+        sql="({view}.year::text || \'-K\' || {view}.quarter::text)",
+        # #912: MET het jaartal erin. Kaal telde een kwartaal de tweede
+        # kwartalen van 2025, 2026 en 2027 in één rij op — een getal dat
+        # netjes optelt en een andere vraag beantwoordt. Precies de val van
+        # #894, en ze viel pas op toen drillen jaar en kwartaal naast elkaar
+        # zette: daar leest "2026 · 2" nog, op zichzelf niet.
+        sort_sql="{view}.year, {view}.quarter",
+        format=Format.LABEL, role=Role.ADMIN,
         description="Wanneer de taak ontstond. Opgerold tot kwartaal.",
     ),
     UniverseObject(
@@ -633,8 +675,15 @@ OBJECTS: tuple[UniverseObject, ...] = (
     ),
     UniverseObject(
         key="paid_date_quarter", name="Betaaldatum › Kwartaal", klass="Betalingen",
-        kind=ObjectKind.DIMENSION, view="d_paid_date", sql="{view}.quarter",
-        format=Format.COUNT, role=Role.FINANCE,
+        kind=ObjectKind.DIMENSION, view="d_paid_date",
+        sql="({view}.year::text || \'-K\' || {view}.quarter::text)",
+        # #912: MET het jaartal erin. Kaal telde een kwartaal de tweede
+        # kwartalen van 2025, 2026 en 2027 in één rij op — een getal dat
+        # netjes optelt en een andere vraag beantwoordt. Precies de val van
+        # #894, en ze viel pas op toen drillen jaar en kwartaal naast elkaar
+        # zette: daar leest "2026 · 2" nog, op zichzelf niet.
+        sort_sql="{view}.year, {view}.quarter",
+        format=Format.LABEL, role=Role.FINANCE,
         description="Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd. Opgerold tot kwartaal.",
     ),
     UniverseObject(
@@ -657,8 +706,15 @@ OBJECTS: tuple[UniverseObject, ...] = (
     ),
     UniverseObject(
         key="done_date_quarter", name="Afhandeldatum › Kwartaal", klass="Taken",
-        kind=ObjectKind.DIMENSION, view="d_done_date", sql="{view}.quarter",
-        format=Format.COUNT, role=Role.ADMIN,
+        kind=ObjectKind.DIMENSION, view="d_done_date",
+        sql="({view}.year::text || \'-K\' || {view}.quarter::text)",
+        # #912: MET het jaartal erin. Kaal telde een kwartaal de tweede
+        # kwartalen van 2025, 2026 en 2027 in één rij op — een getal dat
+        # netjes optelt en een andere vraag beantwoordt. Precies de val van
+        # #894, en ze viel pas op toen drillen jaar en kwartaal naast elkaar
+        # zette: daar leest "2026 · 2" nog, op zichzelf niet.
+        sort_sql="{view}.year, {view}.quarter",
+        format=Format.LABEL, role=Role.ADMIN,
         description="Wanneer de taak afgesloten is. Leeg zolang ze open staat. Opgerold tot kwartaal.",
     ),
     UniverseObject(
@@ -681,8 +737,15 @@ OBJECTS: tuple[UniverseObject, ...] = (
     ),
     UniverseObject(
         key="start_date_quarter", name="Startdatum › Kwartaal", klass="Activiteiten",
-        kind=ObjectKind.DIMENSION, view="d_activity_start", sql="{view}.quarter",
-        format=Format.COUNT, role=Role.ADMIN,
+        kind=ObjectKind.DIMENSION, view="d_activity_start",
+        sql="({view}.year::text || \'-K\' || {view}.quarter::text)",
+        # #912: MET het jaartal erin. Kaal telde een kwartaal de tweede
+        # kwartalen van 2025, 2026 en 2027 in één rij op — een getal dat
+        # netjes optelt en een andere vraag beantwoordt. Precies de val van
+        # #894, en ze viel pas op toen drillen jaar en kwartaal naast elkaar
+        # zette: daar leest "2026 · 2" nog, op zichzelf niet.
+        sort_sql="{view}.year, {view}.quarter",
+        format=Format.LABEL, role=Role.ADMIN,
         description="De eerste dag van de activiteit. Opgerold tot kwartaal.",
     ),
     UniverseObject(
@@ -705,8 +768,15 @@ OBJECTS: tuple[UniverseObject, ...] = (
     ),
     UniverseObject(
         key="end_date_quarter", name="Einddatum › Kwartaal", klass="Activiteiten",
-        kind=ObjectKind.DIMENSION, view="d_activity_end", sql="{view}.quarter",
-        format=Format.COUNT, role=Role.ADMIN,
+        kind=ObjectKind.DIMENSION, view="d_activity_end",
+        sql="({view}.year::text || \'-K\' || {view}.quarter::text)",
+        # #912: MET het jaartal erin. Kaal telde een kwartaal de tweede
+        # kwartalen van 2025, 2026 en 2027 in één rij op — een getal dat
+        # netjes optelt en een andere vraag beantwoordt. Precies de val van
+        # #894, en ze viel pas op toen drillen jaar en kwartaal naast elkaar
+        # zette: daar leest "2026 · 2" nog, op zichzelf niet.
+        sort_sql="{view}.year, {view}.quarter",
+        format=Format.LABEL, role=Role.ADMIN,
         description="De laatste dag van de activiteit, of de startdag als er maar één is. Opgerold tot kwartaal.",
     ),
     UniverseObject(

@@ -348,6 +348,35 @@ def _refuse_too_fine_a_date(objects: list[UniverseObject], fact: str) -> None:
             "zou alles op januari laten vallen. Neem 'Jaar'.")
 
 
+def values_from_fact_sql(object_key: str, fact: str) -> tuple[str, list[str]]:
+    """SQL that lists the values a dimension actually TAKES in a fact (#912).
+
+    Not the values the dimension could hold. The calendar runs from 2015 to two
+    years out, so reading it straight gives every year whether or not a single
+    payment falls in it — and Koen asked for the opposite: *"altijd enkel diegene
+    die mogelijk zijn, anders zou de lijst zeer sterk groeien."*
+
+    So the list comes through the same join the report uses. Returns the statement
+    and the ORDER BY parts, because a caller that sorts differently from the report
+    would offer the same values in another order and read as a second list.
+    """
+    obj = _object(object_key)
+    views = _needed_views([obj], fact)
+    joins = _check_joinable(views, fact)
+    from_clause = _from_clause(fact, views, joins)
+    expressie = _expression(obj)
+    order = [deel.strip() for deel in _sort_expression(obj).split(",")]
+    # De sorteersleutel kan een uitdrukking zijn ("jaar, kwartaal"); die hoort dan
+    # ook in de SELECT, anders weigert Postgres het DISTINCT.
+    extra = [deel for deel in order if not deel.startswith('"')]
+    select = ", ".join([f"{expressie} AS waarde", *extra])
+    sql = (f"SELECT DISTINCT {select}\nFROM {from_clause}\n"
+           f"WHERE {_view_alias(fact)}.tenant_id = :tenant_id "
+           f"AND {expressie} IS NOT NULL\n"
+           f"ORDER BY {', '.join(extra or ['1'])}\nLIMIT :limit")
+    return sql, extra
+
+
 def population_of(object_keys: Sequence[str]) -> Fact | None:
     """Which fact a selection reads, or None when it cannot be told yet.
 
