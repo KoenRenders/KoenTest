@@ -20,6 +20,18 @@
   {% set _ns.jaar = _jaar %}
   {% endif %}
   {% call ui.card() %}
+    {# Datumblok links (Ontwerpspoor golf 1, #913 — het herkenbaarste element uit
+       de gekozen Cobalt-richting): dag groot, maand kort, in de zachte
+       selectietint. Afgeleid van de sorteerdatum; een activiteit zonder datum
+       krijgt gewoon geen blok. #}
+    <div class="flex gap-4">
+      {% if a.sort_date %}
+      <div class="shrink-0 w-14 h-14 rounded-xl bg-blue-50 text-blue-700 flex flex-col items-center justify-center" aria-hidden="true">
+        <span class="text-xl font-bold leading-none">{{ a.sort_date.strftime("%d") }}</span>
+        <span class="text-xs font-semibold uppercase leading-none mt-0.5">{{ a.sort_date | maandkort }}</span>
+      </div>
+      {% endif %}
+      <div class="min-w-0 flex-1">
     {# Titel + status-badge inline (#488); titel linkt naar de affiche (v1.14). #}
     <div>
       <h2 class="text-xl md:text-lg font-semibold flex flex-wrap items-center gap-2">
@@ -39,10 +51,12 @@
          op een telefoon (dus 4 px) en 20 px op een breed scherm (dus 2). Mijn eerste
          meting van "2 px verschil" klopte, alleen was ze tegen de regelhoogte van
          een breed scherm afgezet. #}
-      <p class="text-base md:text-sm text-gray-500 flex items-start gap-1">
+      <p class="text-base md:text-sm text-ink-soft flex items-start gap-1">
         {{ ui.icon("calendar", cls="mt-1 md:mt-0.5 shrink-0") }} {% for d in a.dates %}{{ d.start_date | langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date | langedatum }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}
       </p>
-      {% if a.location %}<p class="text-base md:text-sm text-gray-500 flex items-start gap-1">{{ ui.icon("map-pin", cls="mt-1 md:mt-0.5 shrink-0") }} {{ a.location }}</p>{% endif %}
+      {% if a.location %}<p class="text-base md:text-sm text-ink-soft flex items-start gap-1">{{ ui.icon("map-pin", cls="mt-1 md:mt-0.5 shrink-0") }} {{ a.location }}</p>{% endif %}
+    </div>
+      </div>
     </div>
     {% if not a.is_cancelled %}
     {# Onderdelen ook in het archief (#476): 'Wie doet er mee?' + info blijven,

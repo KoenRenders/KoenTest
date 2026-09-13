@@ -81,6 +81,18 @@ cat > "$TMP/in.css" << 'CSS'
         --ground:rgb(var(--c-ground));--surface:rgb(var(--c-surface));--surface-2:rgb(var(--c-surface-2));
         --ink:rgb(var(--c-ink));--ink-soft:rgb(var(--c-ink-soft));--line:rgb(var(--c-line));
         --brand-font:"Radio Canada Big",system-ui,sans-serif;--sans:Inter,system-ui,sans-serif}
+  /* ── Ontwerpspoor golf 1 (#913): de PUBLIEKE schil in de Cobalt-richting ──
+     Gekozen door Koen op de makersronde-mockups (#785, 13 september 2026):
+     kobaltblauw draagt actie en selectie, koelere neutralen, zelfde
+     statuskleuren (groen/geel/rood/oranje wijzigen NIET — betekenis is
+     schil-onafhankelijk). Alleen waarden: geen template weet hiervan.
+     De beheerschil volgt in golf 2 met een eigen blok. */
+  body[data-shell="site"]{
+        --c-blue-50:234 240 255;--c-blue-100:220 230 253;--c-blue-200:189 207 250;--c-blue-300:150 175 244;--c-blue-400:100 136 234;--c-blue-500:61 99 218;--c-blue-600:44 83 206;--c-blue-700:36 75 197;--c-blue-800:29 60 158;--c-blue-900:23 46 119;--c-blue-950:15 29 75;
+        --c-brand:36 75 197;--c-brand-ocean:36 75 197;--c-brand-ocean-hover:29 60 158;
+        --c-link:36 75 197;
+        --c-ink:25 38 56;--c-ink-soft:83 97 116;
+        --c-line:210 217 227;--c-ground:244 246 250;--c-surface-2:239 243 250}
   html{font-family:Inter,system-ui,sans-serif}
   h1,h2,h3{font-family:"Radio Canada Big",system-ui,sans-serif}
   /* Automatische consistentie (#482): elk tekst-input/select/textarea krijgt

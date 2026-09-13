@@ -90,7 +90,7 @@
 </head>
 {# hx-boost (#634): zie admin_base voor de redenering. De publieke schil boost op
    dezelfde manier; links naar de andere schil (/admin) en /afmelden zetten het uit. #}
-<body class="bg-gray-50 min-h-screen text-ink" data-shell="site" hx-boost="true"
+<body class="bg-ground min-h-screen text-ink" data-shell="site" hx-boost="true"
       hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
   {# Omgevingsbanner (#464) moet blijven staan bij het scrollen (#610): hij is zelf
      sticky, en het element eronder start op de bannerhoogte. Op PROD is er geen
