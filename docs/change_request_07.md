@@ -292,9 +292,11 @@ geen inschrijvingen" reads as what it is — a pattern, explainable and
 checkable. The prompt explicitly forbids invented probabilities.
 
 What this deliberately is not: a trained churn model with calibrated scores.
-If the cohort answers prove useful and Koen wants real scores, that is its own
-change request, with its own evaluation question ("calibrated against which
-seasons?") — not a prompt tweak.
+That track exists and stays separate: **#171** — local, explainable
+scikit-learn ML, finalised 16 June 2026 as a learning exercise, explicitly
+decoupled from the chatbot/Mistral line. If the cohort answers prove useful
+and Koen wants real scores, #171 is where that happens — not a prompt tweak
+here.
 
 ## 9. Phasing (each phase shippable)
 
