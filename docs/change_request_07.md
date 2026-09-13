@@ -515,3 +515,41 @@ here.
 Defaults taken in this draft, to be challenged: `mistral-medium-latest` as the
 starting model; row cap 50, round cap 6; the question log stays a table without
 a screen of its own until someone needs to read it.
+
+## 12. Implementation findings (14 September 2026 — measured, folded back)
+
+Built integrally on `feature/v2-finetuning` (tracker #917; background in
+`docs/raakje-backoffice.md`). Five findings from the implementation amend the
+letter of this document; each was measured, not preferred, and each carries a
+gate test on the branch:
+
+1. **The seam guard's pattern checks skip the system message; the name check
+   does not** (amends §5.8). The public system prompt deliberately carries the
+   association's own e-mail address and IBAN (the privacy page — without an
+   account number the bot cannot say where the membership fee goes). A guard
+   that blocks its own published text is disabled within a week. Everything
+   the user types and everything a tool returns passes the full guard; a
+   member name is refused in every channel, system message included.
+2. **Tokenised objects carry their own `entity_sql`** (amends §5.2). Four of
+   the seven person-naming objects have no drill alias, and giving them one
+   would silently make their panel cells clickable. `entity_sql` falls back
+   to the drill where it exists.
+3. **The engine gained one parameter, `with_entities`, off for the panel**
+   (amends §4.2's "same engine" reading). Grouping by entity id would split
+   two households sharing a head-of-household name into two panel rows; the
+   panel groups by what the reader sees. The assistant cannot: one token must
+   be one household.
+4. **The threshold reaches a household row before the token does** (§5.5
+   working as designed, with a consequence for §8): a row per household is a
+   group of one, merged before tokenisation ever runs. "Welke gezinnen…" is
+   therefore a **list**, not a grouped table — the assistant renders that
+   form, and without it cohort questions 7–8 have no data path.
+5. **The evaluation harness needs its own, larger seed**: over the four-family
+   reporting seed the small-cell threshold merges nearly every grouped
+   answer, so a harness on it would grade the threshold instead of the
+   assistant.
+
+Merge gate (set by Koen, 13 September 2026): the branch merges only once
+v2.3 runs on PROD; the master CLI releases it. The processor agreement and
+the privacy-statement update remain Koen's checkboxes before anything moves
+past HDEV; `ADMIN_CHAT_ENABLED` defaults off with a tenant switch on top.
