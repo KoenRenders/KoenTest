@@ -97,14 +97,23 @@ feature work.
 The fixed UI decisions of CLAUDE.md hold unless a concept explicitly proposes
 otherwise *and* the proposal is accepted per item: address grid, postal-code
 dropdown, registration as a narrow modal, hard redirect to Mollie, row-action
-caps, confirmation copy. The Inter-for-readability deviation stands. No new
-frontend stack, no component library, no hand-written CSS (#785 non-goals).
+caps, confirmation copy. No new frontend stack, no component library, no
+hand-written CSS (#785 non-goals).
+
+**The huisstijl is NOT out of bounds** (decided 13 September 2026): the
+current eight colours and typefaces are the Raak print identity, and the goal
+here is tight, professional software — a concept may propose different
+colours, typefaces or conventions wherever that serves the goal, judged on
+quality, no board detour required. The current huisstijl is the starting
+point, not a fence; the Inter deviation is simply superseded by whatever the
+direction decides. Two things survive any palette because they are
+architecture, not taste: tenant branding stays **configuration** (the chosen
+identity lands as tokens and tenant settings, never hard-coded), and the
+product-brand-vs-tenant-brand question for admin vs public remains #785's
+decision on the mockups.
 
 ## 5. Non-goals
 
-- A rebrand: the huisstijl is input, not output. A concept may propose a
-  brand adjustment, but that goes to the board explicitly, never in as a
-  token change.
 - Dark mode, gradients, decoration — excluded by the review briefing on
   purpose: this is a dense back office, not a marketing page. (Settled; no
   longer an open question.)
@@ -120,7 +129,8 @@ are decided there, on the mockups. Open in *this* document:
 1. Which screens bother the eye most today? A handful of named examples
    (screenshot + one sentence) sharpens the proposal brief more than any
    adjective.
-2. Should the concept round be allowed to propose huisstijl changes for the
-   board, or stay strictly within the eight colours?
-3. Own photography as a structural design element (hero images, activity
+2. Own photography as a structural design element (hero images, activity
    cards) — in scope for the public concept?
+
+Settled 13 September 2026: the concept round is free of the huisstijl (§4) —
+the earlier question whether it could propose changes is overtaken.
