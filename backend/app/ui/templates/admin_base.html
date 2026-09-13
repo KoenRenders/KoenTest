@@ -43,7 +43,7 @@
    pagina en zouden elke fragment-swap in de app breken.
    Uitzonderingen zetten de boost zelf uit: downloads, /afmelden en links naar de
    andere schil (zie ui.htmx_ux() voor het vangnet). #}
-<body class="bg-gray-50 min-h-screen text-ink" x-data="{ open: false }"
+<body class="bg-gray-50 min-h-screen text-ink" data-shell="admin" x-data="{ open: false }"
       data-shell="admin" hx-boost="true"
       hx-headers='{"X-CSRF-Token": "{{ csrf_token|default("") }}"}'>
   {# Zie site_base: de banner is sticky (#610) en de zijbalk start eronder. Op PROD
