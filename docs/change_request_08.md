@@ -119,7 +119,13 @@ triage first, Koen decides.
    touched twice.
 3. **Execution along the governance chain** (#785 step 5): per pattern one
    issue where code changes, one issue for the tokens; per screen type, not
-   per screen; absorbing #758/#760 per touched screen.
+   per screen; absorbing #758/#760 per touched screen. **In waves, no big
+   bang** (decided 13 September 2026): an invisible token-infrastructure wave
+   first (the brand/semantic split enables switching per shell), then public
+   to Cobalt, then the admin shell, then admin screen types iteratively —
+   each wave separately shippable, validated on HDEV and revertible. The wave
+   plan and its progress live in the **Ontwerpspoor tracker, #913** — one
+   place; this document does not repeat it.
 4. **Measured second review round** per side (#785 step 6): fewer and lighter
    findings than round one, both counts recorded on the issue.
 
