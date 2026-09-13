@@ -35,24 +35,33 @@ def situation(db_session):
     return seed(db_session)
 
 
-def _tijd_entries():
-    return next(objecten for naam, objecten in classes_with_objects()
-                if naam == "Tijd")
+def _datumregels() -> list:
+    """Elke hiërarchieregel in het paneel, over alle klassen heen.
+
+    Sinds #901 staat er geen klasse *Tijd* meer: elke datum hoort bij haar
+    onderwerp. Het aantal dat #899 terugbracht wordt dus over de klassen geteld en
+    niet meer binnen één ervan.
+    """
+    return [entry for _naam, objecten in classes_with_objects()
+            for entry in objecten if hasattr(entry, "level_keys")]
 
 
-def test_the_time_class_is_five_lines_instead_of_twenty_one():
+def test_every_date_is_one_line_and_not_four():
     """The count, and it is the test that catches the usual failure.
 
     This kind of tidy-up fails silently by **adding** a layer rather than
-    replacing one: the hierarchy appears and the sixteen lines stay. So the number
-    is asserted, not the presence of the hierarchy.
+    replacing one: the hierarchy appears and the four lines per date stay. So the
+    number is asserted, not the presence of the hierarchy.
+
+    Ten hierarchies of four levels is forty objects on ten lines. Counted over the
+    classes since #901, because the class *Tijd* is gone — each date now sits with
+    its subject.
     """
-    entries = _tijd_entries()
-    assert len(entries) == 5, (
-        f"Tijd toont {len(entries)} regels: "
-        f"{[getattr(e, 'name', e) for e in entries]}")
-    assert all(hasattr(e, "level_keys") for e in entries), (
-        "alle vijf horen hiërarchieën te zijn")
+    regels = _datumregels()
+    niveaus = sum(len(r.level_keys) for r in regels)
+    assert len(regels) == 10, (
+        f"{len(regels)} datumregels: {[r.name for r in regels]}")
+    assert niveaus >= 40, f"{niveaus} niveaus achter {len(regels)} regels"
 
 
 def test_a_level_is_still_directly_selectable(db_session, situation):
@@ -108,18 +117,31 @@ def test_every_level_key_still_exists_as_an_object():
 
 def test_no_time_object_is_left_outside_a_hierarchy():
     """Otherwise the list grows back one object at a time."""
+    from app.domains.reporting.universe import DIMENSION_BY_KEY
+
+    # Alleen wat uit de KALENDER komt. Een `member_since` of een `activity_year`
+    # is een jaartal uit het feit zelf en heeft geen niveaus eronder; die in een
+    # hiërarchie duwen zou vier lege beloftes maken.
+    uit_de_kalender = {k for k, d in DIMENSION_BY_KEY.items()
+                       if d.source == "d_date"}
     los = [o.key for o in OBJECTS
-           if o.klass == "Tijd" and o.key not in HIERARCHY_OF]
+           if o.view in uit_de_kalender and o.key not in HIERARCHY_OF
+           and o.key != "membership_year"]
     assert not los, (
-        f"objecten in Tijd zonder hiërarchie: {los} — zet ze in een hiërarchie, "
-        "of de klasse groeit terug naar een lijst van losse niveaus")
+        f"kalenderobjecten zonder hiërarchie: {los} — zet ze in een hiërarchie, "
+        "of de lijst groeit terug naar losse niveaus")
 
 
-def test_the_shared_date_keeps_its_full_month_level():
-    """"Maand voluit" is a detail, not a fifth role — it belongs to the date."""
-    datum = next(h for h in HIERARCHIES if h.key == "date")
-    assert "date_month_label" in datum.level_keys
-    assert BY_KEY["date_month_label"].kind.value == "detail"
+def test_the_full_month_label_is_gone():
+    """"Maand voluit" was a leftover from before the roles (#901).
+
+    It existed only on the shared date and on none of the four roles, and since
+    #852 it cannot be grouped on. `2026-03` sorts chronologically by itself and
+    reads just as well — the alternative was making three more copies of it, and
+    that is not a choice.
+    """
+    assert "date_month_label" not in BY_KEY
+    assert not any("voluit" in o.name.lower() for o in OBJECTS)
 
 
 def test_the_roles_of_895_still_roll_up_on_every_level(db_session, situation):
@@ -128,6 +150,10 @@ def test_the_roles_of_895_still_roll_up_on_every_level(db_session, situation):
     Grouping a date column into a tidier list must not make any of it
     unreachable — that would trade a real capability for a shorter screen.
     """
-    for sleutel in ("done_date_year", "start_date_month", "end_date_quarter"):
+    for sleutel, klasse in (("done_date_year", "Taken"),
+                            ("start_date_month", "Activiteiten"),
+                            ("end_date_quarter", "Activiteiten"),
+                            ("paid_date_day", "Betalingen")):
         obj = BY_KEY[sleutel]
-        assert obj.klass == "Tijd" and sleutel in HIERARCHY_OF, sleutel
+        assert obj.klass == klasse, f"{sleutel} staat in {obj.klass}"
+        assert sleutel in HIERARCHY_OF, sleutel

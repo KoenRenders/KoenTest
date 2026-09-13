@@ -108,7 +108,7 @@ def test_the_table_keeps_rendering_under_the_chart(client, db_session, situation
 def test_revenue_per_month_as_a_line(db_session, situation):
     """Question 5, drawn. The months follow from when the seed ran, so what is
     asserted is what must hold anyway: the line's points add up to the total."""
-    _pivot, grafiek = chart_for(db_session, ["date_month", "payment_amount"], "line")
+    _pivot, grafiek = chart_for(db_session, ["payment_created_month", "payment_amount"], "line")
     assert len(grafiek.series) == 1
     som = sum(v for v in grafiek.series[0].values if v is not None)
     assert Decimal(str(som)) == EXPECTED["payments"]["amount"]

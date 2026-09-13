@@ -118,7 +118,7 @@ def test_every_class_starts_open(client, db_session, situation):
     login(client, db_session)
     tekst = _paneel(client)
     assert 'aria-expanded="false"' not in tekst
-    assert tekst.count('aria-expanded="true"') >= 6, "zes klassen, alle open"
+    assert tekst.count('aria-expanded="true"') >= 5, "vijf klassen, alle open"
 
 
 def test_a_class_can_be_folded_shut(client, db_session, situation):

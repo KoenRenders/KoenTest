@@ -56,21 +56,32 @@ def test_there_is_exactly_one_bare_year_object():
     the complaint was two objects that answer the same question without saying
     which is which.
     """
+    from app.domains.reporting.universe import DIMENSION_BY_KEY
+
+    uit_de_kalender = {k for k, d in DIMENSION_BY_KEY.items()
+                       if d.source == "d_date"}
     jaren = [o for o in OBJECTS
-             if o.klass == "Tijd" and o.format.value == "year"
+             if o.view in uit_de_kalender and o.format.value == "year"
              and "›" not in o.name]
     assert len(jaren) == 1, (
         f"meer dan één kaal jaarobject: {[o.name for o in jaren]}")
-    assert jaren[0].key == "date_year" and jaren[0].name == "Jaar"
+    # Sinds #901 heet het naar zijn onderwerp en staat het bij Leden: één object
+    # voor béide lidmaatschapsfeiten, wat de klacht van #894 was.
+    assert jaren[0].key == "membership_year"
+    assert jaren[0].name == "Lidmaatschapsjaar" and jaren[0].klass == "Leden"
 
 
-def test_the_one_year_works_on_a_membership_and_on_a_payment(db_session,
-                                                             situation):
-    """One object, two facts — which is the whole point of a conformed dimension."""
-    leden = _rows(db_session, ("date_year", "membership_households"))
-    betalingen = _rows(db_session, ("date_year", "payment_amount"))
-    assert leden and betalingen
-    assert all("date_year" in rij for rij in leden + betalingen)
+def test_the_one_year_works_on_both_membership_facts(db_session, situation):
+    """One object, two facts — which is the whole point of a conformed dimension.
+
+    Not on payments: since #901 a payment has its own dates, because the shared one
+    meant something different there. That distinction is exactly what this object
+    used to hide.
+    """
+    gezinnen = _rows(db_session, ("membership_year", "membership_households"))
+    personen = _rows(db_session, ("membership_year", "membership_person_count"))
+    assert gezinnen and personen
+    assert all("membership_year" in rij for rij in gezinnen + personen)
 
 
 def test_the_numbers_are_the_ones_from_before_the_change(db_session, situation):
@@ -81,8 +92,8 @@ def test_the_numbers_are_the_ones_from_before_the_change(db_session, situation):
     1 January hook is attaching rows to the wrong year.
     """
     y0, y1, y2, y3 = situation["years"]
-    rijen = {r["date_year"]: r for r in
-             _rows(db_session, ("date_year", "membership_households",
+    rijen = {r["membership_year"]: r for r in
+             _rows(db_session, ("membership_year", "membership_households",
                                 "membership_persons"))}
     for offset, jaar in enumerate((y0, y1, y2, y3)):
         assert rijen[jaar]["membership_households"] == \
@@ -91,58 +102,87 @@ def test_the_numbers_are_the_ones_from_before_the_change(db_session, situation):
             EXPECTED["memberships"]["persons"][offset], f"personen in {jaar}"
 
 
-def test_a_membership_report_refuses_a_month(db_session, situation):
-    """The bolt, with the reason in the message."""
-    with pytest.raises(SelectionError) as exc:
-        _rows(db_session, ("date_month", "membership_households"))
-    melding = str(exc.value)
-    assert "januari" in melding and "Jaar" in melding
+def test_a_membership_offers_no_level_below_the_year(db_session, situation):
+    """Since #901 the bolt has a second lock in front of it, and that is better.
 
-
-def test_the_bolt_also_covers_a_filter_and_the_person_grain(db_session,
-                                                            situation):
-    """Two holes a bolt on the select list alone would leave open.
-
-    A date object can enter a selection through a filter without being shown, and
-    the second membership fact has the same invented day.
+    Every date now belongs to its subject, so the membership facts reach only
+    `d_membership_year` — and on that alias the universe declares one object, the
+    year. There is simply nothing finer to ask for, which is a stronger guarantee
+    than refusing the request: the wrong question cannot be typed.
     """
-    from app.domains.reporting.engine import Filter, Operator
+    from app.domains.reporting.universe import DIMENSION_BY_KEY, joins_for
 
-    with pytest.raises(SelectionError):
-        run_validated(db_session,
-                      Selection(object_keys=("membership_households",),
-                                filters=(Filter("date_day", Operator.EQ,
-                                                ("2026-01-01",)),)),
-                      tenant_id=TENANT_A)
-    with pytest.raises(SelectionError):
-        _rows(db_session, ("date_quarter", "membership_person_count"))
+    for feit in ("f_memberships", "f_membership_persons"):
+        kalender = {v for v in joins_for(feit)
+                    if DIMENSION_BY_KEY.get(v) is not None
+                    and DIMENSION_BY_KEY[v].source == "d_date"}
+        assert kalender == {"d_membership_year"}, f"{feit}: {kalender}"
+
+    niveaus = [o.key for o in OBJECTS if o.view == "d_membership_year"]
+    assert niveaus == ["membership_year"], niveaus
 
 
-def test_the_bolt_goes_red_and_everything_lands_in_january(db_session, situation):
-    """The counter-proof, and it shows the damage rather than the message.
+def test_the_bolt_still_refuses_a_finer_level_if_one_appears(db_session,
+                                                             situation):
+    """The bolt itself, exercised — because it is now unreachable by design.
 
-    What was broken: `date_grain` on `f_memberships` set back to "day". No error
-    followed — the report simply came back with every membership of every year
-    under one **januari**, a number that adds up and answers nothing. That is the
-    failure the bolt exists to prevent, and why asserting "it raised" would not
-    have been enough.
+    A lock nobody can reach is a lock nobody tests, and then it quietly stops
+    working. So a month object is registered on the membership calendar for the
+    length of this test, exactly as a future change might: the bolt has to refuse
+    it, naming the reason.
+
+    What was broken, in other words: the universe was given the level it does not
+    have. Without the bolt that selection would come back with every membership of
+    every year under one **januari** — a number that adds up and answers nothing.
     """
-    feit = FACT_BY_KEY["f_memberships"]
-    origineel = feit.date_grain
-    object.__setattr__(feit, "date_grain", "day")
+    from dataclasses import replace
+
+    from app.domains.reporting.universe import (BY_KEY, DATE_OBJECT_GRAIN,
+                                                Format, ObjectKind)
+
+    maand = replace(BY_KEY["membership_year"], key="membership_month_tijdelijk",
+                    name="Lidmaatschapsjaar › Maand", sql="{view}.year_month",
+                    format=Format.LABEL, kind=ObjectKind.DIMENSION)
+    BY_KEY[maand.key] = maand
+    DATE_OBJECT_GRAIN[maand.key] = "month"
     try:
-        rijen = _rows(db_session, ("date_month", "membership_households"))
-        maanden = {r["date_month"] for r in rijen}
-        assert maanden, "zonder grendel komt er gewoon een antwoord"
-        assert all(m.endswith("-01") for m in maanden), (
-            f"alles hoort op januari te vallen: {sorted(maanden)}")
-        assert sum(r["membership_households"] for r in rijen) > 0, (
-            "en het telt op — precies waarom niemand het zou opmerken")
+        with pytest.raises(SelectionError) as exc:
+            _rows(db_session, (maand.key, "membership_households"))
+        melding = str(exc.value)
+        assert "januari" in melding, melding
+        assert "Jaar" in melding, "en wat je dan wél neemt"
     finally:
-        object.__setattr__(feit, "date_grain", origineel)
+        BY_KEY.pop(maand.key)
+        DATE_OBJECT_GRAIN.pop(maand.key)
 
-    with pytest.raises(SelectionError):
-        _rows(db_session, ("date_month", "membership_households"))
+
+def test_the_bolt_also_covers_a_filter(db_session, situation):
+    """A date object can enter a selection through a filter without being shown.
+
+    So the check runs over the filters too; a bolt on the select list alone would
+    leave that door open.
+    """
+    from dataclasses import replace
+
+    from app.domains.reporting.engine import Filter, Operator
+    from app.domains.reporting.universe import (BY_KEY, DATE_OBJECT_GRAIN,
+                                                Format, ObjectKind)
+
+    dag = replace(BY_KEY["membership_year"], key="membership_day_tijdelijk",
+                  name="Lidmaatschapsjaar › Datum", sql="{view}.date_key",
+                  format=Format.DATE, kind=ObjectKind.DIMENSION)
+    BY_KEY[dag.key] = dag
+    DATE_OBJECT_GRAIN[dag.key] = "day"
+    try:
+        with pytest.raises(SelectionError):
+            run_validated(db_session,
+                          Selection(object_keys=("membership_households",),
+                                    filters=(Filter(dag.key, Operator.EQ,
+                                                    ("2026-01-01",)),)),
+                          tenant_id=TENANT_A)
+    finally:
+        BY_KEY.pop(dag.key)
+        DATE_OBJECT_GRAIN.pop(dag.key)
 
 
 def test_every_date_object_declares_its_grain():

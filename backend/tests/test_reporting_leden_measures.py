@@ -45,18 +45,18 @@ def test_grouping_on_the_status_adds_up_to_the_unfiltered_count(db_session,
     across years it appears in more than one status and the totals are not meant
     to add up. Within a year they are, and that is where the partition lives.
     """
-    per_jaar = {r["date_year"]: r["membership_count"] for r in run_validated(
-        db_session, Selection(object_keys=("date_year", "membership_count")),
+    per_jaar = {r["membership_year"]: r["membership_count"] for r in run_validated(
+        db_session, Selection(object_keys=("membership_year", "membership_count")),
         tenant_id=TENANT_A).rows}
     per_status: dict[int, int] = {}
     rijen = run_validated(
         db_session,
-        Selection(object_keys=("date_year", "membership_status",
+        Selection(object_keys=("membership_year", "membership_status",
                                "membership_count")),
         tenant_id=TENANT_A).rows
     for rij in rijen:
-        per_status[rij["date_year"]] = (
-            per_status.get(rij["date_year"], 0) + rij["membership_count"])
+        per_status[rij["membership_year"]] = (
+            per_status.get(rij["membership_year"], 0) + rij["membership_count"])
     assert per_status == per_jaar, (
         f"per status {per_status} telt niet op tot per jaar {per_jaar}")
     assert len({r["membership_status"] for r in rijen}) > 1, (
@@ -84,7 +84,7 @@ def test_every_household_year_lands_in_a_named_status(db_session, situation):
     def naamloos() -> int:
         return sum(r["membership_count"] for r in run_validated(
             db_session,
-            Selection(object_keys=("date_year", "membership_status",
+            Selection(object_keys=("membership_year", "membership_status",
                                    "membership_count")),
             tenant_id=TENANT_A).rows
             if not (r["membership_status"] or "").strip())
@@ -138,14 +138,14 @@ def test_active_is_a_filter_now_and_the_tile_number_holds(db_session, situation)
     """"How many active" is a count with a visible filter."""
     actief = run_validated(
         db_session,
-        Selection(object_keys=("date_year", "membership_is_active",
+        Selection(object_keys=("membership_year", "membership_is_active",
                                "membership_count")),
         tenant_id=TENANT_A).rows
     labels = {r["membership_is_active"] for r in actief}
     assert labels <= {"Ja", "Nee"} and labels
 
     per_jaar = sum(r["membership_count"] for r in run_validated(
-        db_session, Selection(object_keys=("date_year", "membership_count")),
+        db_session, Selection(object_keys=("membership_year", "membership_count")),
         tenant_id=TENANT_A).rows)
     assert sum(r["membership_count"] for r in actief) == per_jaar
 

@@ -34,7 +34,7 @@ def situation(db_session):
     return seed(db_session)
 
 
-BASIS = ("object=date_year&object=payment_amount&layout=pivot"
+BASIS = ("object=payment_created_year&object=payment_amount&layout=pivot"
          "&pivot_column=&no_column=1")
 
 
@@ -48,9 +48,9 @@ def test_a_year_label_is_clickable_in_the_crosstab(db_session, situation):
     """The crosstab says which column can go deeper; the kit macro renders it."""
     kruis = build_pivot(
         db_session,
-        Selection(object_keys=("date_year", "payment_amount"), layout="pivot"),
+        Selection(object_keys=("payment_created_year", "payment_amount"), layout="pivot"),
         tenant_id=TENANT_A)
-    assert kruis.row_drill == ["date_quarter"], kruis.row_drill
+    assert kruis.row_drill == ["payment_created_quarter"], kruis.row_drill
 
 
 def test_the_drill_button_carries_the_url_it_posts_to(client, db_session,
@@ -81,7 +81,7 @@ def test_the_deepest_level_offers_no_further_drill(db_session, situation):
     """A dead end has to look like a dead end."""
     kruis = build_pivot(
         db_session,
-        Selection(object_keys=("date_day", "payment_amount"), layout="pivot"),
+        Selection(object_keys=("payment_created_day", "payment_amount"), layout="pivot"),
         tenant_id=TENANT_A)
     assert kruis.row_drill == [""]
 
@@ -90,10 +90,10 @@ def test_drilling_replaces_the_level_and_adds_a_visible_filter(client,
                                                                db_session,
                                                                situation):
     login(client, db_session)
-    tekst = _paneel(client, f"{BASIS}&drill=date_quarter|2026")
-    assert 'name="object" value="date_quarter"' in tekst
-    assert 'name="object" value="date_year"' not in tekst
-    assert 'name="filter" value="date_year"' in tekst, (
+    tekst = _paneel(client, f"{BASIS}&drill=payment_created_quarter|2026")
+    assert 'name="object" value="payment_created_quarter"' in tekst
+    assert 'name="object" value="payment_created_year"' not in tekst
+    assert 'name="filter" value="payment_created_year"' in tekst, (
         "de filter die het drillen zette, hoort zichtbaar in de filterlijst te "
         "staan — anders is het rapport stilletjes versmald")
 
@@ -109,15 +109,15 @@ def test_the_grand_total_does_not_move_when_you_drill(db_session, situation):
 
     jaren = build_pivot(
         db_session,
-        Selection(object_keys=("date_year", "payment_amount"), layout="pivot"),
+        Selection(object_keys=("payment_created_year", "payment_amount"), layout="pivot"),
         tenant_id=TENANT_A)
     jaar = jaren.rows[0].labels[0]
     heel_jaar = jaren.rows[0].total["payment_amount"]
 
     kwartalen = build_pivot(
         db_session,
-        Selection(object_keys=("date_quarter", "payment_amount"), layout="pivot",
-                  filters=(Filter("date_year", Operator.EQ, (jaar,)),)),
+        Selection(object_keys=("payment_created_quarter", "payment_amount"), layout="pivot",
+                  filters=(Filter("payment_created_year", Operator.EQ, (jaar,)),)),
         tenant_id=TENANT_A)
     assert kwartalen.grand_total["payment_amount"] == heel_jaar, (
         f"{jaar} telt {heel_jaar}, zijn kwartalen samen "
@@ -127,19 +127,19 @@ def test_the_grand_total_does_not_move_when_you_drill(db_session, situation):
 def test_rolling_up_takes_the_filter_with_it(client, db_session, situation):
     """The filter was the staircase down, not a choice."""
     login(client, db_session)
-    tekst = _paneel(client, "object=date_quarter&object=payment_amount"
-                            "&filter=date_year&op_date_year=eq&v_date_year=2026"
-                            "&layout=pivot&rollup=date_quarter")
-    assert 'name="object" value="date_year"' in tekst
-    assert 'name="object" value="date_quarter"' not in tekst
-    assert 'name="filter" value="date_year"' not in tekst, (
+    tekst = _paneel(client, "object=payment_created_quarter&object=payment_amount"
+                            "&filter=payment_created_year&op_date_year=eq&v_date_year=2026"
+                            "&layout=pivot&rollup=payment_created_quarter")
+    assert 'name="object" value="payment_created_year"' in tekst
+    assert 'name="object" value="payment_created_quarter"' not in tekst
+    assert 'name="filter" value="payment_created_year"' not in tekst, (
         "blijft de filter staan, dan staat het rapport stilletjes nog op 2026")
 
 
 def test_the_way_back_up_is_offered(client, db_session, situation):
     login(client, db_session)
-    tekst = _paneel(client, "object=date_quarter&object=payment_amount&layout=pivot")
-    assert 'name="rollup" value="date_quarter"' in tekst
+    tekst = _paneel(client, "object=payment_created_quarter&object=payment_amount&layout=pivot")
+    assert 'name="rollup" value="payment_created_quarter"' in tekst
     assert "Terug omhoog" in tekst
 
 
@@ -147,7 +147,7 @@ def test_the_top_level_offers_no_way_up(client, db_session, situation):
     """Otherwise there is a button that does nothing."""
     login(client, db_session)
     tekst = _paneel(client, BASIS)
-    assert 'name="rollup" value="date_year"' not in tekst
+    assert 'name="rollup" value="payment_created_year"' not in tekst
 
 
 def test_drilling_carries_the_sort_and_the_column_axis(client, db_session,
@@ -158,12 +158,12 @@ def test_drilling_carries_the_sort_and_the_column_axis(client, db_session,
     so a drill that forgot the sort would produce an error instead of a report.
     """
     login(client, db_session)
-    tekst = _paneel(client, "object=date_year&object=payment_method"
-                            "&object=payment_amount&sort=date_year&dir=asc"
-                            "&layout=pivot&pivot_column=date_year"
-                            "&drill=date_quarter|2026")
-    assert 'name="sort" value="date_quarter"' in tekst
-    assert 'name="pivot_column" value="date_quarter"' in tekst
+    tekst = _paneel(client, "object=payment_created_year&object=payment_method"
+                            "&object=payment_amount&sort=payment_created_year&dir=asc"
+                            "&layout=pivot&pivot_column=payment_created_year"
+                            "&drill=payment_created_quarter|2026")
+    assert 'name="sort" value="payment_created_quarter"' in tekst
+    assert 'name="pivot_column" value="payment_created_quarter"' in tekst
 
 
 def test_a_detail_level_is_skipped_when_drilling():
@@ -172,9 +172,9 @@ def test_a_detail_level_is_skipped_when_drilling():
     Drilling into a dead end would be worse than no drill at all, so the step
     skips detail levels.
     """
-    datum = HIERARCHY_OF["date_month"]
-    assert datum.step("date_month", +1) == "date_day"
-    assert datum.step("date_day", -1) == "date_month"
+    datum = HIERARCHY_OF["payment_created_month"]
+    assert datum.step("payment_created_month", +1) == "payment_created_day"
+    assert datum.step("payment_created_day", -1) == "payment_created_month"
 
 
 def test_drilling_works_on_a_role_date_too(client, db_session, situation):
@@ -182,7 +182,7 @@ def test_drilling_works_on_a_role_date_too(client, db_session, situation):
 
     `d_paid_date` is an alias on `d_date`, so a place that forgets to translate
     breaks only here — on the shared date the alias and the key are the same
-    string. The first version of the browser test drilled on `date_year` and
+    string. The first version of the browser test drilled on `payment_created_year` and
     stayed green while clicking a payment date gave an error banner.
     """
     login(client, db_session)
@@ -196,9 +196,9 @@ def test_drilling_works_on_a_role_date_too(client, db_session, situation):
 def test_drilling_an_unrelated_value_does_nothing(client, db_session, situation):
     """State arrives in a query string, so it is user input."""
     login(client, db_session)
-    tekst = _paneel(client, f"{BASIS}&drill=verzonnen|2026")
-    assert 'name="object" value="date_year"' in tekst
-    assert "verzonnen" not in tekst
+    tekst = _paneel(client, f"{BASIS}&drill=bestaatniet|2026")
+    assert 'name="object" value="payment_created_year"' in tekst
+    assert 'name="object" value="bestaatniet"' not in tekst
 
 
 def test_an_unknown_label_is_not_drillable(db_session, situation):
@@ -240,7 +240,7 @@ def test_a_real_value_stays_drillable(db_session, situation):
     """De andere kant, zodat de reparatie niet 'niets is meer doorklikbaar' wordt."""
     kruis = build_pivot(
         db_session,
-        Selection(object_keys=("date_year", "payment_amount"), layout="pivot"),
+        Selection(object_keys=("payment_created_year", "payment_amount"), layout="pivot"),
         tenant_id=TENANT_A)
     assert any(rij.drillable == [True] for rij in kruis.rows), (
         "een echt jaartal hoort doorklikbaar te blijven")
