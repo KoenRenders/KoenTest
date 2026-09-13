@@ -113,6 +113,10 @@ class Fact:
     # on them so two exports of unchanged data are byte-for-byte the same file —
     # without a unique tail Postgres hands back whatever order the heap has (#761).
     dataset_key: tuple[str, ...] = ()
+    #: Hoe fijn de datum van dit feit gelezen mag worden. "day" voor een echte
+    #: datum; "year" voor de twee lidmaatschapsfeiten, waar de dag 1 januari is en
+    #: dus verzonnen (#894).
+    date_grain: str = "day"
     # The natural reading order of the fact's rows, for a detail listing. Ends in
     # the unique key (#761): without it, paging a listing shows the same row twice
     # and never another.
@@ -209,9 +213,26 @@ class UniverseObject:
         return self.kind is ObjectKind.DIMENSION
 
 
+# Van grof naar fijn. Een feit dat zijn datum op `year` zet, laat zich niet op de
+# soorten daarachter groeperen (#894).
+DATE_GRAINS: tuple[str, ...] = ("year", "quarter", "month", "day")
+
+# Welke korrel elk object van de datumdimensie leest. Een nieuw datumobject dat
+# hier niet in staat, laat de poort in `test_reporting_year_object.py` falen — dan
+# zou het stilzwijgend door elke grendel heen glippen.
+DATE_OBJECT_GRAIN: dict[str, str] = {
+    "date_year": "year",
+    "date_quarter": "quarter",
+    "date_month": "month",
+    "date_month_label": "month",
+    "date_day": "day",
+}
+
+
 FACTS: tuple[Fact, ...] = (
     Fact(
         key="f_memberships",
+        date_grain="year",
         name="Lidmaatschappen",
         role=Role.FINANCE,
         grain="één rij per gezin per lidmaatschapsjaar",
@@ -252,6 +273,7 @@ FACTS: tuple[Fact, ...] = (
     ),
     Fact(
         key="f_membership_persons",
+        date_grain="year",
         name="Leden (personen)",
         role=Role.ADMIN,
         grain="één rij per persoon per lidmaatschapsjaar",
@@ -348,8 +370,14 @@ JOINS: tuple[Join, ...] = (
     Join("f_registrations", "d_activity", (("activity_id", "activity_id"),)),
     Join("f_registrations", "d_person", (("person_id", "person_id"),)),
     Join("f_registrations", "d_payment_method", (("method_code", "code"),)),
+    # #894: de twee lidmaatschapsfeiten waren de enige die NIET aan `d_date`
+    # hingen, en droegen daarom hun eigen jaarkolom — twee feiten, twee objecten,
+    # dezelfde woorden in een andere volgorde. De dag is 1 januari en dus
+    # verzonnen; `Fact.date_grain` weigert hem fijner te lezen dan een jaar.
+    Join("f_memberships", "d_date", (("date_key", "date_key"),)),
     Join("f_memberships", "d_member", (("member_id", "member_id"),)),
     Join("f_memberships", "d_membership_status", (("status_code", "code"),)),
+    Join("f_membership_persons", "d_date", (("date_key", "date_key"),)),
     Join("f_membership_persons", "d_person", (("person_id", "person_id"),)),
     Join("f_membership_persons", "d_member", (("member_id", "member_id"),)),
     Join("f_form_submissions", "d_form", (("form_id", "form_id"),)),
@@ -407,15 +435,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="date_day", name="Datum", klass="Tijd", kind=ObjectKind.DIMENSION,
         view="d_date", sql="{view}.date_key", format=Format.DATE, role=Role.ADMIN,
         description="De dag zelf.",
-    ),
-    UniverseObject(
-        key="membership_year", name="Lidmaatschapsjaar", klass="Tijd",
-        kind=ObjectKind.DIMENSION, view="f_memberships", sql="{view}.year",
-        format=Format.YEAR, role=Role.ADMIN, fact="f_memberships",
-        description=(
-            "Het jaar waarvoor het lidgeld geldt. Staat los van Jaar: een lidmaatschap "
-            "heeft een lidmaatschapsjaar, geen datum."
-        ),
     ),
 
     # ── Leden ───────────────────────────────────────────────────────────────
@@ -828,12 +847,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
             "Personen met een lidmaatschap in dat jaar. Eén rij per persoon per "
             "jaar, dus tellen is optellen."
         ),
-    ),
-    UniverseObject(
-        key="membership_person_year", name="Jaar van het lidmaatschap", klass="Tijd",
-        kind=ObjectKind.DIMENSION, view="f_membership_persons", sql="{view}.year",
-        format=Format.YEAR, role=Role.ADMIN, fact="f_membership_persons",
-        description="Het jaar waarvoor deze persoon lid was.",
     ),
 
     # ── Betaaldetail ────────────────────────────────────────────────────────

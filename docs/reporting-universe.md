@@ -68,8 +68,10 @@ Every join also matches on `tenant_id`, unconditionally — a dimension row can 
 | `f_registrations` | `d_activity` | `activity_id` = `activity_id` |
 | `f_registrations` | `d_person` | `person_id` = `person_id` |
 | `f_registrations` | `d_payment_method` | `method_code` = `code` |
+| `f_memberships` | `d_date` | `date_key` = `date_key` |
 | `f_memberships` | `d_member` | `member_id` = `member_id` |
 | `f_memberships` | `d_membership_status` | `status_code` = `code` |
+| `f_membership_persons` | `d_date` | `date_key` = `date_key` |
 | `f_membership_persons` | `d_person` | `person_id` = `person_id` |
 | `f_membership_persons` | `d_member` | `member_id` = `member_id` |
 | `f_form_submissions` | `d_form` | `form_id` = `form_id` |
@@ -89,7 +91,7 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 
 | Universe role | Meaning | Objects |
 |---|---|---|
-| `admin` | the default: what an admin screen already shows | 57 |
+| `admin` | the default: what an admin screen already shows | 55 |
 | `finance` | money — every measure formatted as money, and the Betalingen class | 22 |
 | `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 9 |
 
@@ -212,5 +214,3 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `date_month` | Maand | dimension | label | `admin` | `d_date.year_month` | Jaar en maand als 2026-03, zodat maanden vanzelf chronologisch staan. |
 | `date_month_label` | Maand voluit | detail | label | `admin` | `d_date.month_year_label` | Dezelfde maand als 'maart 2026'. Een detail: sorteren doe je op Maand. |
 | `date_day` | Datum | dimension | date | `admin` | `d_date.date_key` | De dag zelf. |
-| `membership_year` | Lidmaatschapsjaar | dimension | year | `admin` | `f_memberships.year` | Het jaar waarvoor het lidgeld geldt. Staat los van Jaar: een lidmaatschap heeft een lidmaatschapsjaar, geen datum. |
-| `membership_person_year` | Jaar van het lidmaatschap | dimension | year | `admin` | `f_membership_persons.year` | Het jaar waarvoor deze persoon lid was. |

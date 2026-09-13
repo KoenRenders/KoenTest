@@ -281,7 +281,7 @@ def test_a_group_of_four_is_merged_and_a_group_of_five_is_not(db_session,
     gezin(5, "2222")   # exactly at it
 
     result = run(db_session, ["member_municipality", "membership_person_count"],
-                 filters=[Filter("membership_person_year", Operator.EQ, (str(y2),))])
+                 filters=[Filter("date_year", Operator.EQ, (str(y2),))])
     per_gemeente = {row["member_municipality"]: row["membership_person_count"]
                     for row in result.rows}
 
@@ -299,8 +299,8 @@ def test_a_group_of_four_is_merged_and_a_group_of_five_is_not(db_session,
 
 def test_the_threshold_only_fires_on_a_sensitive_dimension(db_session, situation):
     """Grouping by year is not grouping people into recognisable groups."""
-    result = run(db_session, ["membership_person_year", "membership_person_count"])
-    assert MERGED_LABEL not in {row["membership_person_year"] for row in result.rows}
+    result = run(db_session, ["date_year", "membership_person_count"])
+    assert MERGED_LABEL not in {row["date_year"] for row in result.rows}
     assert all(row["membership_person_count"] for row in result.rows)
 
 

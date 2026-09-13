@@ -30,6 +30,8 @@ from enum import Enum
 
 from app.domains.reporting.universe import (
     BY_KEY,
+    DATE_GRAINS,
+    DATE_OBJECT_GRAIN,
     FACT_BY_KEY,
     Fact,
     Format,
@@ -317,6 +319,33 @@ def _object(key: str) -> UniverseObject:
     return obj
 
 
+def _refuse_too_fine_a_date(objects: list[UniverseObject], fact: str) -> None:
+    """A fact whose date is invented may not be read finer than it is (#894).
+
+    Both membership facts hang off the shared date dimension on **1 January** of
+    their year, so that there is one object *Jaar* instead of two. The day is a
+    hook and not a fact: grouping such a report by month would drop everything on
+    January — a plausible-looking, meaningless answer, the same trap as a detail
+    you could group by (#852).
+
+    Refused with the reason in the message, so the screen says what to do. Since
+    #877 a refusal is drawn as an error and not as an empty result, which is what
+    makes this readable rather than puzzling.
+    """
+    toegestaan = FACT_BY_KEY[fact].date_grain
+    if toegestaan == DATE_GRAINS[-1]:
+        return
+    grens = DATE_GRAINS.index(toegestaan)
+    te_fijn = [o for o in objects
+               if o.key in DATE_OBJECT_GRAIN
+               and DATE_GRAINS.index(DATE_OBJECT_GRAIN[o.key]) > grens]
+    if te_fijn:
+        namen = ", ".join(f"'{o.name}'" for o in te_fijn)
+        raise SelectionError(
+            f"{FACT_BY_KEY[fact].name} kent alleen een jaar, geen dag: {namen} "
+            "zou alles op januari laten vallen. Neem 'Jaar'.")
+
+
 def population_of(object_keys: Sequence[str]) -> Fact | None:
     """Which fact a selection reads, or None when it cannot be told yet.
 
@@ -515,6 +544,7 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
     fact = _resolve_fact(objects)
 
     conditions, params, filter_objects = _where_clause(selection.filters, fact)
+    _refuse_too_fine_a_date(objects + filter_objects, fact)
     views = _needed_views(objects + filter_objects, fact)
     joins = _check_joinable(views, fact)
 
@@ -711,6 +741,7 @@ def _build_detail_list(selection: Selection, objects: list[UniverseObject], *,
 
     fact = _fact_of(objects)
     conditions, params, filter_objects = _where_clause(selection.filters, fact)
+    _refuse_too_fine_a_date(objects + filter_objects, fact)
     views = _needed_views(objects + filter_objects, fact)
     joins = _check_joinable(views, fact)
 
