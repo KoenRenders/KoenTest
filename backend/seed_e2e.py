@@ -13,7 +13,7 @@ Wat het maakt (alles herkenbaar aan de marker hieronder):
   - een inschrijving van 2 stuks via het **echte** registratiepad, zodat het
     openstaande betaalrecord en de OGM ontstaan zoals in productie,
   - één extra, volledig betaald record (voor de terugbetaal- en editorknoppen),
-  - een formulier in draft en een CMS-pagina.
+  - een formulier in draft, een open formulier met velden en een CMS-pagina.
 
 Idempotent: draait het script een tweede keer, dan herkent het zijn eigen data
 aan de marker en doet het niets.
@@ -52,7 +52,7 @@ def main() -> None:
         Activity, ActivityDate, ActivityProduct, ActivitySubRegistration, Registration,
     )
     from app.domains.cms.api import CmsPage
-    from app.domains.forms.api import Form
+    from app.domains.forms.api import Form, FormField
     from app.domains.mdm.api import ContactDetail, Member, MemberPerson, Person, PostalCode
     from app.domains.membership.api import Membership
     from app.domains.payment.api import PaymentRecord
@@ -168,15 +168,30 @@ def main() -> None:
 
         formulier = Form(title="E2E-formulier", share_token="tok-e2e-seed",
                          status="draft")
+        # Een OPEN formulier mét velden, zodat de publieke formulierpagina iets
+        # te tonen heeft (#785 stap 0: het screenshotscript legt hem vast; de
+        # draft hierboven geeft op zijn deellink een 403).
+        open_formulier = Form(title="E2E-open-formulier", share_token="tok-e2e-open",
+                              status="open")
         pagina = CmsPage(title="E2E-pagina", slug="e2e-pagina", content="<p>e2e</p>")
-        db.add_all([formulier, pagina])
+        db.add_all([formulier, open_formulier, pagina])
+        db.flush()
+        db.add_all([
+            FormField(form_id=open_formulier.id, field_type="text",
+                      label="Naam ploeg", required=True, position=0),
+            FormField(form_id=open_formulier.id, field_type="textarea",
+                      label="Opmerking", position=1),
+            FormField(form_id=open_formulier.id, field_type="rating",
+                      label="Hoe graag kom je?", position=2, rating_max=5),
+        ])
         db.commit()
 
         print(f"seed_e2e: gezin={member.id} lidmaatschap={membership.id} "
               f"activiteit={activity.id} "
               f"onderdeel={component.id} product={product.id} "
               f"inschrijving={reg_id} tweede-inschrijving={tweede_id} "
-              f"formulier={formulier.id} pagina={pagina.id}")
+              f"formulier={formulier.id} open-formulier={open_formulier.id} "
+              f"pagina={pagina.id}")
     finally:
         db.close()
 
