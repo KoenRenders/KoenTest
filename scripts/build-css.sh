@@ -95,6 +95,11 @@ cat > "$TMP/in.css" << 'CSS'
         --c-line:210 217 227;--c-ground:244 246 250;--c-surface-2:239 243 250}
   html{font-family:Inter,system-ui,sans-serif}
   h1,h2,h3{font-family:"Radio Canada Big",system-ui,sans-serif}
+  /* Golf 1 (#913), gekozen door Koen op het goedkeuringspakket (13 sep 2026,
+     variant B): publieke koppen in Inter — neutraler, dichter bij de gekozen
+     Cobalt-richting. Het woordmerk (font-brand) blijft Radio Canada Big; de
+     beheerschil beslist haar typografie in golf 2. */
+  body[data-shell="site"] h1,body[data-shell="site"] h2,body[data-shell="site"] h3{font-family:Inter,system-ui,sans-serif}
   /* Automatische consistentie (#482): elk tekst-input/select/textarea krijgt
      standaard dezelfde stijl — geen macro of losse klassen nodig. Checkboxes,
      radios, files en knoppen blijven ongemoeid.

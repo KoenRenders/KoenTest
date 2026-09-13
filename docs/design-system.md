@@ -48,6 +48,7 @@ change to all four, in one pull request.
 | 13 Sep 2026 | Dashboard is a first-class screen type, defined as a **reporting** surface (tiles, drill-through, peilmoment) — expressly separate from the werkbank, which is process | #785 (B3) |
 | 13 Sep 2026 | The unsaved-changes promise is dropped as a system rule; it returns as a per-editor pattern field for long editors | #785 (B1) |
 | 13 Sep 2026 | Judging viewports follow the audience: public phone-first, admin desktop-first | CR-08 |
+| 13 Sep 2026 | Golf 1 approved on the package: public shell in Cobalt; **public headings in Inter** (variant B), wordmark stays Radio Canada Big; status colours shell-independent | #913 |
 
 Decisions still open are listed in §12.
 
