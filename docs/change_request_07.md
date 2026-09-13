@@ -121,6 +121,18 @@ tool produced it.
 The universe catalogue is **system prompt, not a tool**: it is small, static per
 release, and the model needs it before its first move.
 
+**In-process on the domain facade — not on the views, not over HTTP** (asked by
+Koen, 13 September 2026). The LLM never sees SQL or the `reporting.*` views:
+that would trade "no free SQL, ever" for a prompt's good behaviour. And the
+tools do not call `/api/v1` either: the assistant runs inside the same backend,
+so an HTTP hop to itself would add token plumbing and a second surface to
+secure, for nothing. The tools call `reporting.api` directly — the same way the
+public bot's tools call the activities facade — so the engine remains the one
+enforcement point for tenant, threshold and refusals, whoever the caller is.
+The "descriptive API" is what the model sees, not how it executes: the
+catalogue plus these tool specs. An HTTP surface becomes relevant only the day
+an agent *outside* the backend must ask questions — a different requirement.
+
 Caps: rows per tool result (start: 50, with an explicit "refine your filter"
 marker when cut), tool rounds (start: 6 — selections need more retries than the
 public bot's lookups), a daily budget **per admin user** (session e-mail, not
