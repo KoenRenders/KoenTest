@@ -141,8 +141,13 @@ def test_klikken_op_een_jaartal_drilt_naar_kwartaal(admin_page):
         "de filter op het aangeklikte jaar hoort zichtbaar in de staat te staan")
 
 
-def test_terug_omhoog_brengt_je_terug(admin_page):
-    """De weg terug, ook door de browser: één knop, één niveau omhoog."""
+def test_terug_omhoog_haalt_de_diepste_kolom_weg(admin_page):
+    """De weg terug, ook door de browser: één knop, één niveau minder.
+
+    Sinds #907 voegt drillen een kolom TOE, dus oprollen haalt er een weg — het
+    niveau erboven blijft gewoon staan. De filter blijft ook staan: die is sinds
+    dat issue een aanbod en geen trap, en wie er iets in aanvinkt heeft gekozen.
+    """
     admin_page.goto(PANEEL)
     knop = admin_page.locator('button[name="drill"]').first
     if knop.count() == 0:
@@ -153,9 +158,12 @@ def test_terug_omhoog_brengt_je_terug(admin_page):
     terug = admin_page.locator('button[name="rollup"]').first
     assert terug.count() > 0, "na het drillen hoort er een weg terug te staan"
     terug.click()
-    _wacht_op(admin_page, "start_date_year")
+    # Wachten tot de diepere kolom WEG is: oprollen haalt een niveau weg, het
+    # jaar stond er al en blijft staan (#907).
+    admin_page.wait_for_selector(
+        'input[name="object"][value="start_date_quarter"]',
+        state="detached", timeout=15000)
 
     inhoud = admin_page.content()
-    assert 'name="filter" value="start_date_year"' not in inhoud, (
-        "oprollen hoort de filter mee terug te nemen; blijft hij staan, dan is "
-        "het rapport stilletjes nog op dat jaar")
+    assert 'name="object" value="start_date_year"' in inhoud, (
+        "het jaar blijft; oprollen haalt alleen het niveau eronder weg")

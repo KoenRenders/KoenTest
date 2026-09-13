@@ -1044,6 +1044,14 @@
    Bij één maat blijft de tweede kopregel weg: "Aantal" onder elk jaartal herhalen
    voegt niets toe en maakt de kop twee keer zo hoog. #}
 {% macro pivot_table(pivot, drill_url="") -%}
+{% if pivot.truncated is defined and pivot.truncated %}
+{# #907: zonder filter groeit een draaitabel snel. Stilzwijgend afkappen is de
+   vorm uit #877 — het scherm toont iets anders dan wat er is — dus de melding
+   staat bóven de tabel en niet eronder, waar niemand kijkt. #}
+<div class="mb-2 bg-yellow-50 border border-yellow-200 rounded-lg p-3 text-sm text-ink" role="status">
+  {{ _("Deze draaitabel is afgekapt: er zijn meer rijen dan getoond. Filter of rol een niveau op om alles te zien.") }}
+</div>
+{% endif %}
 {% set _maten = pivot.measures %}
 {# `row_drill` is optioneel: een oudere aanroeper (en de voorbeelddict op de
    componentenpagina) kent de sleutel niet, en kitcode hoort daar niet op te

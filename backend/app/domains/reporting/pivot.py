@@ -68,6 +68,10 @@ class Pivot:
     row_drill: list[str] = field(default_factory=list)
     rows: list[PivotRow] = field(default_factory=list)
     grand_total: dict[str, Any] = field(default_factory=dict)
+    #: True zodra het rooster op de rijlimiet stopte. Zonder filter groeit een
+    #: draaitabel snel, en een tabel die stilzwijgend afkapt is de vorm uit #877:
+    #: het scherm toont iets anders dan wat er is (#907).
+    truncated: bool = False
 
     def as_context(self) -> dict[str, Any]:
         """The shape `ui.pivot_table()` reads.
@@ -82,6 +86,7 @@ class Pivot:
             "row_drill": list(self.row_drill),
             "column_header": self.column_column.name if self.column_column else "",
             "column_values": self.column_values,
+            "truncated": self.truncated,
             "measures": [{"key": m.key, "name": m.name, "format": m.format}
                          for m in self.measures],
             "rows": [
@@ -317,4 +322,5 @@ def build_pivot(db: Session, selection: Selection, *, tenant_id: int) -> Pivot:
         # The grand total is the one the table form already computes: same WHERE,
         # no grouping. Never the sum of the subtotals.
         grand_total=grid.totals,
+        truncated=len(grid.rows) >= (selection.limit or 5000),
     )

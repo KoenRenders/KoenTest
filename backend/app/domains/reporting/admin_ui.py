@@ -191,43 +191,43 @@ def _read_state(params) -> dict:
         else:
             closed.append(toggle_class)
 
-    # #899 stap 2: drillen VERVANGT het niveau in plaats van rijen open te klappen.
-    # Klik op 2026 en het rapport staat op kwartaal, gefilterd op 2026 — wat een
-    # klassieke drill doet, en wat de draaitabel één selectie met één queryplan
-    # houdt. Opengeklapte rijen zouden een boom zijn met een bevraging per knoop en
-    # subtotalen over gemengde niveaus; dat is een andere machine, geen uitbreiding.
+    # #907: drillen VOEGT het volgende niveau TOE als rijkolom, voor alle leden
+    # en zonder te filteren. Koen: *"Ik vind niet dat op 2026 klikken, 2026
+    # instellen als filter is. In mijn beleving komt er bij drillen een kolom
+    # bij."* Klik op 2026 bij een jaarrapport en je krijgt jaar én kwartaal naast
+    # elkaar — voor álle jaren — met de subtotalen per jaar ertussen.
+    #
+    # Dat vraagt geen nieuwe machinerie: de draaitabel kent meerdere rijdimensies
+    # met een subtotaal per groep al, en dat is precies wat "Leden per bestuurslid"
+    # doet. Drillen is dus "voeg het volgende niveau toe aan de rij-as" — één
+    # object erbij in de selectie.
+    #
+    # En de tweede helft, die het af maakt: bij die klik verschijnt óók het filter
+    # voor de datum waarop je klikte, **zonder waarde**. De klik versmalt niets;
+    # ze laat zien dát je kan versmallen en hoe. Dat is het verschil tussen
+    # "klikken filtert" en "klikken biedt aan".
     drill = params.get("drill") or ""
     if "|" in drill:
-        kind, waarde = drill.split("|", 1)
+        kind, _waarde = drill.split("|", 1)
         ouder = next((k for k in objects
                       if k in HIERARCHY_OF
                       and HIERARCHY_OF[k].step(k, +1) == kind), "")
-        if ouder and kind in BY_KEY:
-            objects = [kind if k == ouder else k for k in objects]
+        if ouder and kind in BY_KEY and kind not in objects:
+            objects.insert(objects.index(ouder) + 1, kind)
             if ouder not in filters:
                 filters.append(ouder)
-            values[ouder] = waarde
-            operators[ouder] = "eq"
-            if sort == ouder:
-                sort = kind
-            if pivot_column == ouder:
-                pivot_column = kind
+                operators[ouder] = "in"
 
+    # Oprollen haalt de diepste kolom van die hiërarchie weg. Het filter blijft
+    # staan: dat is een keuze van de gebruiker zodra hij er iets in aanvinkt, en
+    # het leeg weghalen zou zijn aanzet ongedaan maken.
     rollup = params.get("rollup") or ""
     if rollup in objects and rollup in HIERARCHY_OF:
-        ouder = HIERARCHY_OF[rollup].step(rollup, -1)
-        if ouder:
-            objects = [ouder if k == rollup else k for k in objects]
-            # De filter die het drillen zette, hoort mee terug: hij was de trap
-            # naar beneden, niet een keuze van de gebruiker.
-            if ouder in filters:
-                filters.remove(ouder)
-                values.pop(ouder, None)
-                operators.pop(ouder, None)
-            if sort == rollup:
-                sort = ouder
-            if pivot_column == rollup:
-                pivot_column = ouder
+        objects.remove(rollup)
+        if sort == rollup:
+            sort, direction = "", "asc"
+        if pivot_column == rollup:
+            pivot_column = ""
 
     set_layout = params.get("set_layout")
     if set_layout in LAYOUTS:
@@ -275,20 +275,28 @@ def _read_state(params) -> dict:
 
 
 def _rollup_levels(object_keys: list[str]) -> list[tuple[str, str]]:
-    """(level key, parent name) for every chosen level that has one above it.
+    """(niveau, eigen naam) voor het diepste niveau per hiërarchie dat weg mag.
 
-    The way back up (#899 stap 2). Without it a drill is a one-way street: you
-    click 2026, land on quarters, and the only way back is rebuilding the report.
+    De weg terug (#907). Zonder die knop is drillen eenrichtingsverkeer: je klikt
+    een jaar open, krijgt de kwartalen erbij, en moet het rapport opnieuw opbouwen
+    om terug te komen.
+
+    Alleen als er nog een niveau van dezelfde hiërarchie BOVEN staat. Anders zou
+    oprollen de enige datumkolom weghalen, en dat is geen niveau minder maar een
+    ander rapport.
     """
-    terug: list[tuple[str, str]] = []
+    diepste: dict[str, str] = {}
     for key in object_keys:
         hier = HIERARCHY_OF.get(key)
         if hier is None:
             continue
+        # Alleen als er nog een niveau van dezelfde hiërarchie BOVEN staat; anders
+        # zou oprollen de enige datumkolom weghalen en het rapport veranderen in
+        # iets anders dan een niveau minder.
         ouder = hier.step(key, -1)
-        if ouder:
-            terug.append((key, BY_KEY[ouder].name))
-    return terug
+        if ouder and ouder in object_keys:
+            diepste[hier.key] = key
+    return [(key, BY_KEY[key].name) for key in diepste.values()]
 
 
 def _chosen_per_class(object_keys: list[str]) -> dict[str, int]:

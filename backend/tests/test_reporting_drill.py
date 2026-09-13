@@ -3,24 +3,28 @@
 Koen: *"Moet je in een draaitabel niet kunnen drillen en oprollen van jaar naar
 datum en terug omhoog?"*
 
-**Drilling replaces the level; it does not unfold rows.** Click 2026 and the report
-stands on quarter, filtered on 2026 — which is what a classic drill does, and what
-keeps the crosstab one selection with one query plan. Rows that each hold their own
-open/closed state would be a tree: a query per node, and subtotals across mixed
-levels. That is a different machine, not an extension of this one, and it would
-have to earn its cost separately.
+**Drilling ADDS the next level as a row column (#907).** Click 2026 and you get
+year and quarter side by side — for *all* years — with the subtotals per year in
+between. Koen's objection to the first version was exact: *"Ik vind niet dat op 2026
+klikken, 2026 instellen als filter is. In mijn beleving komt er bij drillen een
+kolom bij."*
 
-The consequence of that choice is testable, and it is the point of the second test
-here: **the grand total does not move when you drill.** Replacing a level narrows
-what you see, not what is counted — the filter that comes with the drill is
-visible in the filter list, so nothing is hidden.
+That needs no new machinery: the crosstab already carries several row dimensions
+with a subtotal per group — it is what *Leden per bestuurslid* does. Drilling is one
+object more in the selection.
 
-**And the way back has to exist.** Without it a drill is a one-way street: you click
-2026, land on quarters, and have to rebuild the report to get back. Rolling up also
-takes the filter with it — that filter was the staircase down, not a choice the
-user made, and leaving it behind would silently keep the report on 2026.
+**And the click offers a filter without applying one.** The filter row for the date
+you clicked appears, empty. The click narrows nothing; it shows *that* you can
+narrow and where. That is the whole difference between "clicking filters" and
+"clicking offers", and it is what the first version got wrong.
+
+The consequence is testable, and it is the point of the second test here: **the
+grand total does not move when you drill.** Adding a level splits rows; it adds and
+subtracts nothing.
 """
 from __future__ import annotations
+
+import re
 
 import pytest
 
@@ -86,84 +90,130 @@ def test_the_deepest_level_offers_no_further_drill(db_session, situation):
     assert kruis.row_drill == [""]
 
 
-def test_drilling_replaces_the_level_and_adds_a_visible_filter(client,
-                                                               db_session,
-                                                               situation):
+def test_drilling_adds_a_column_and_keeps_the_one_above(client, db_session,
+                                                       situation):
+    """Koen's objection, as an assertion: er komt een kolom bij."""
     login(client, db_session)
     tekst = _paneel(client, f"{BASIS}&drill=payment_created_quarter|2026")
+    assert 'name="object" value="payment_created_year"' in tekst, (
+        "het jaar blijft staan; drillen vervangt niet")
     assert 'name="object" value="payment_created_quarter"' in tekst
-    assert 'name="object" value="payment_created_year"' not in tekst
-    assert 'name="filter" value="payment_created_year"' in tekst, (
-        "de filter die het drillen zette, hoort zichtbaar in de filterlijst te "
-        "staan — anders is het rapport stilletjes versmald")
+
+
+def test_the_new_level_comes_right_after_its_parent(client, db_session,
+                                                    situation):
+    """Kolomvolgorde is rijgroepering: jaar, dan kwartaal, dan de rest.
+
+    Achteraan aanschuiven zou de subtotalen op de verkeerde as zetten en een
+    tabel opleveren die klopt en niets zegt.
+    """
+    login(client, db_session)
+    tekst = _paneel(client, "object=payment_created_year&object=payment_method"
+                            "&object=payment_amount&layout=pivot&pivot_column="
+                            "&no_column=1&drill=payment_created_quarter|2026")
+    volgorde = re.findall(r'name="object" value="([^"]+)"', tekst)
+    assert volgorde == ["payment_created_year", "payment_created_quarter",
+                        "payment_method", "payment_amount"], volgorde
+
+
+def test_the_click_offers_a_filter_and_filters_nothing(client, db_session,
+                                                       situation):
+    """De tweede helft, en allebei de kanten worden getoetst.
+
+    Alleen "het filter staat er" zou slagen terwijl het rapport stilzwijgend
+    versmald is; alleen "er is niets weggefilterd" zou slagen terwijl het aanbod
+    ontbreekt. Het aanbod toetst de markup, het niet-filteren toetst het
+    RESULTAAT — een filter dat wel degelijk knipt, zie je aan de rijen en niet aan
+    een attribuut.
+    """
+    login(client, db_session)
+    met = _paneel(client, f"{BASIS}&drill=payment_created_quarter|2026")
+    assert 'name="filter" value="payment_created_year"' in met, (
+        "het filter voor de aangeklikte datum hoort te verschijnen")
+
+    # En dat het niets filtert, op de naad waar de staat een selectie wordt: een
+    # filter zonder waarde hoort de query niet te bereiken. De motor weigert een
+    # filter zónder waarden, dus als dit lek was, kreeg Koen een foutmelding in
+    # plaats van een rapport — wat precies het omgekeerde is van "een klik minder".
+    from starlette.datastructures import QueryParams
+
+    from app.domains.reporting.admin_ui import _read_state, _selection
+
+    # De hele querystring en niet een dict: `object` komt meermaals voor, en een
+    # dict houdt er één van over — dan vindt het drillen zijn ouder niet.
+    staat = _read_state(QueryParams(f"{BASIS}&drill=payment_created_quarter|2026"))
+    assert "payment_created_year" in staat["filters"], (
+        "het filter hoort in de staat te staan")
+    assert not staat["values"].get("payment_created_year"), "en zonder waarde"
+
+    selectie = _selection(staat)
+    assert selectie.filters == (), (
+        "een leeg filter hoort de query niet te bereiken")
+    assert "payment_created_quarter" in selectie.object_keys
 
 
 def test_the_grand_total_does_not_move_when_you_drill(db_session, situation):
-    """The consequence of replacing instead of unfolding, as an assertion.
+    """De test die dit issue draagt.
 
-    Drilling narrows what you SEE within the group you clicked; it may not change
-    what is counted inside that group. So the year's own total has to equal the
-    sum of its quarters.
+    Een niveau toevoegen splitst rijen op en telt niets bij of af. Wijkt het
+    eindtotaal af, dan doet drillen iets anders dan het belooft.
     """
-    from app.domains.reporting.engine import Filter, Operator
+    from app.domains.reporting.api import Selection, build_pivot
 
-    jaren = build_pivot(
+    jaar = build_pivot(
         db_session,
-        Selection(object_keys=("payment_created_year", "payment_amount"), layout="pivot"),
+        Selection(object_keys=("payment_created_year", "payment_amount"),
+                  layout="pivot"),
         tenant_id=TENANT_A)
-    jaar = jaren.rows[0].labels[0]
-    heel_jaar = jaren.rows[0].total["payment_amount"]
-
-    kwartalen = build_pivot(
+    jaar_kwartaal = build_pivot(
         db_session,
-        Selection(object_keys=("payment_created_quarter", "payment_amount"), layout="pivot",
-                  filters=(Filter("payment_created_year", Operator.EQ, (jaar,)),)),
+        Selection(object_keys=("payment_created_year", "payment_created_quarter",
+                               "payment_amount"), layout="pivot"),
         tenant_id=TENANT_A)
-    assert kwartalen.grand_total["payment_amount"] == heel_jaar, (
-        f"{jaar} telt {heel_jaar}, zijn kwartalen samen "
-        f"{kwartalen.grand_total['payment_amount']}")
 
-
-def test_rolling_up_takes_the_filter_with_it(client, db_session, situation):
-    """The filter was the staircase down, not a choice."""
-    login(client, db_session)
-    tekst = _paneel(client, "object=payment_created_quarter&object=payment_amount"
-                            "&filter=payment_created_year&op_date_year=eq&v_date_year=2026"
-                            "&layout=pivot&rollup=payment_created_quarter")
-    assert 'name="object" value="payment_created_year"' in tekst
-    assert 'name="object" value="payment_created_quarter"' not in tekst
-    assert 'name="filter" value="payment_created_year"' not in tekst, (
-        "blijft de filter staan, dan staat het rapport stilletjes nog op 2026")
+    assert jaar.grand_total == jaar_kwartaal.grand_total, (
+        f"eindtotaal per jaar {jaar.grand_total}, met kwartaal erbij "
+        f"{jaar_kwartaal.grand_total}")
+    assert jaar.grand_total, "er valt iets te tellen"
+    assert any(r.is_subtotal for r in jaar_kwartaal.rows), (
+        "met twee rijdimensies horen er subtotalen per jaar te staan")
 
 
 def test_the_way_back_up_is_offered(client, db_session, situation):
     login(client, db_session)
-    tekst = _paneel(client, "object=payment_created_quarter&object=payment_amount&layout=pivot")
+    tekst = _paneel(client, "object=payment_created_year"
+                            "&object=payment_created_quarter&object=payment_amount"
+                            "&layout=pivot")
     assert 'name="rollup" value="payment_created_quarter"' in tekst
     assert "Terug omhoog" in tekst
 
 
-def test_the_top_level_offers_no_way_up(client, db_session, situation):
-    """Otherwise there is a button that does nothing."""
-    login(client, db_session)
-    tekst = _paneel(client, BASIS)
-    assert 'name="rollup" value="payment_created_year"' not in tekst
+def test_a_single_level_offers_no_way_up(client, db_session, situation):
+    """Anders staat er een knop die het rapport in iets anders verandert.
 
-
-def test_drilling_carries_the_sort_and_the_column_axis(client, db_session,
-                                                       situation):
-    """A level that is replaced may not leave a dangling reference behind.
-
-    Sorting on an object that is no longer in the report is refused by the engine,
-    so a drill that forgot the sort would produce an error instead of a report.
+    Oprollen betekent "één niveau minder". Is er maar één datumkolom, dan zou die
+    knop de enige datum weghalen, en dat is geen niveau minder.
     """
+    login(client, db_session)
+    assert 'name="rollup"' not in _paneel(client, BASIS)
+    diep = _paneel(client, "object=payment_created_quarter&object=payment_amount"
+                           "&layout=pivot")
+    assert 'name="rollup"' not in diep, (
+        "ook een kwartaal zonder jaar erboven kan niet oprollen")
+
+
+def test_drilling_leaves_the_sort_and_the_column_axis_alone(client, db_session,
+                                                            situation):
+    """Sinds #907 verhuist er niets, dus er valt niets te verslepen."""
     login(client, db_session)
     tekst = _paneel(client, "object=payment_created_year&object=payment_method"
                             "&object=payment_amount&sort=payment_created_year&dir=asc"
                             "&layout=pivot&pivot_column=payment_created_year"
                             "&drill=payment_created_quarter|2026")
-    assert 'name="sort" value="payment_created_quarter"' in tekst
-    assert 'name="pivot_column" value="payment_created_quarter"' in tekst
+    # Niets verhuist meer: het jaar blijft in het rapport, dus sorteren en de
+    # kolomas blijven wijzen waar ze wezen. Dat was bij VERVANGEN wél nodig.
+    assert 'name="sort" value="payment_created_year"' in tekst
+    assert 'name="pivot_column" value="payment_created_year"' in tekst
 
 
 def test_a_detail_level_is_skipped_when_drilling():
