@@ -266,13 +266,18 @@ def test_the_public_bot_may_receive_a_name_and_an_email(db_session):
 
 
 def test_a_phone_number_or_an_account_number_stops_both_surfaces(db_session):
-    """Patterns are not about whose data it is — that data has no business here."""
+    """Patterns are not about whose data it is — that data has no business here.
+
+    The account number is the IBAN from the IBAN documentation, and deliberately
+    so: any valid number would do, and this is a public repository, so the one
+    number that is nobody's account is the right one to write down.
+    """
     for rules in (public_rules(),
                   admin_rules(lambda: set(), capability=CAPABILITY)):
         assert "een telefoonnummer" in findings(
             [{"role": "user", "content": "bel me op 0473 12 34 56"}], rules)
         assert "een rekeningnummer" in findings(
-            [{"role": "user", "content": "stort op BE48 7875 5016 1327"}], rules)
+            [{"role": "user", "content": "stort op BE68 5390 0754 7034"}], rules)
 
 
 def test_the_system_prompt_is_exempt_from_the_pattern_check(db_session):
@@ -288,11 +293,38 @@ def test_the_system_prompt_is_exempt_from_the_pattern_check(db_session):
     channels along which administration data can actually leave.
     """
     prompt = [{"role": "system",
-               "content": "IBAN: BE48 7875 5016 1327 · info@example.org"}]
+               "content": "IBAN: BE68 5390 0754 7034 · info@example.org"}]
     rules = admin_rules(lambda: set(), capability=CAPABILITY)
     assert findings(prompt, rules) == []
-    assert findings(prompt + [{"role": "user", "content": "BE48 7875 5016 1327"}],
+    assert findings(prompt + [{"role": "user", "content": "BE68 5390 0754 7034"}],
                     rules) != []
+
+
+def test_the_name_check_does_not_skip_the_system_prompt(db_session):
+    """The exemption is for the patterns only, and this is why that matters.
+
+    The system prompt is not a fixed string: it is built from tenant content —
+    CMS pages, notes somebody typed into the AI context screen. The day one of
+    those carries a member's name, the name check is the only line standing there,
+    because the pattern check has been told to look away.
+
+    So the asymmetry is an invariant and not an implementation detail, and it is
+    worth a test of its own: a future prompt source that is added without thinking
+    about this would otherwise pass silently. Raised by the brainstorm session on
+    13 September 2026 while reviewing the exemption above.
+
+    Broken to see it red: `payload_text(messages)` in the name branch given
+    `include_system=False` — the planted name then sits in the system prompt
+    unnoticed.
+    """
+    _person(db_session, "Mira", "Vandenbulcke")
+    from app.domains.mdm.api import person_name_parts
+
+    prompt = [{"role": "system",
+               "content": "Nota van het bestuur: Vandenbulcke belt nog terug."}]
+    rules = admin_rules(lambda: person_name_parts(db_session),
+                        capability=CAPABILITY)
+    assert findings(prompt, rules) != []
 
 
 # ── The outbound log (CR-07 §6.4) ────────────────────────────────────────────
