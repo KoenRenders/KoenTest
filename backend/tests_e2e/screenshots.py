@@ -44,6 +44,8 @@ FREEZE_CSS = """
   caret-color: transparent !important;
 }
 html { scroll-behavior: auto !important; }
+/* The hx-boost progress bar is mid-flight state, not design. */
+#nprogress { display: none !important; }
 """
 
 
@@ -59,11 +61,21 @@ class Screen:
     action: Optional[Callable] = None
 
 
-def _open_first_link(page, text: str) -> None:
-    """Click the first link containing ``text`` (a seeded record's name)."""
+def _open_first_link(page, text: str, url_glob: str) -> None:
+    """Navigate to the record behind the first link named ``text``.
+
+    Deliberately goto(href) instead of click(): a click goes through hx-boost,
+    whose swap leaves bistable end states (progress bar, focus, swap timing)
+    that made these two screens the only irreproducible ones. A full page
+    load renders the same target screen the boring, deterministic way.
+    """
     link = page.get_by_role("link", name=text).first
     link.wait_for(state="visible", timeout=5000)
-    link.click()
+    href = link.get_attribute("href")
+    if not href:
+        raise RuntimeError(f"link {text!r} has no href")
+    page.goto(href)
+    page.wait_for_url(url_glob, timeout=5000)
     page.wait_for_load_state("networkidle")
 
 
@@ -89,9 +101,11 @@ SCREENS: tuple[Screen, ...] = (
     Screen("admin-betalingen", "/admin/betalingen", admin=True),
     Screen("admin-leden", "/admin/leden", admin=True),
     Screen("admin-activiteit-detail", "/admin/activiteiten", admin=True,
-           action=lambda page: _open_first_link(page, "E2E-activiteit")),
+           action=lambda page: _open_first_link(
+               page, "E2E-activiteit", "**/admin/activiteiten/*")),
     Screen("admin-formulierbouwer", "/admin/formulieren", admin=True,
-           action=lambda page: _open_first_link(page, "E2E-formulier")),
+           action=lambda page: _open_first_link(
+               page, "E2E-formulier", "**/admin/formulieren/*")),
     # The living component kit — review-round material.
     Screen("admin-design-system", "/admin/design-system", admin=True),
 )
@@ -116,6 +130,17 @@ def _capture(page, screen: Screen, width: dict, out_dir: Path) -> Path:
     if screen.action:
         screen.action(page)
     page.add_style_tag(content=FREEZE_CSS)
+    # Webfonts shift every line height when they land late — one run rendered
+    # the builder in the fallback font and nothing hashed the same. fonts.ready
+    # alone resolves trivially when the face was not requested yet, so load the
+    # families explicitly before waiting.
+    page.evaluate(
+        """Promise.all([
+             document.fonts.load('1em Inter'),
+             document.fonts.load('700 1em Inter'),
+             document.fonts.load('1em "Radio Canada Big"'),
+           ]).then(() => document.fonts.ready).then(() => null)"""
+    )
     # One settle beat for htmx swaps that finished just before the freeze.
     page.wait_for_timeout(250)
     name = f"{screen.key}-{width['width']}.png"
