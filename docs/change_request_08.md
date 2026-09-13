@@ -106,7 +106,19 @@ here is tight, professional software — a concept may propose different
 colours, typefaces or conventions wherever that serves the goal, judged on
 quality, no board detour required. The current huisstijl is the starting
 point, not a fence; the Inter deviation is simply superseded by whatever the
-direction decides. Two things survive any palette because they are
+direction decides.
+
+**An existing design standard may be the base** (decided 13 September 2026):
+a direction may adopt a proven design system from the React ecosystem — the
+shadcn/ui, Radix genre — and fold its *design language* (tokens, component
+styling, density, states) into the kit. Tailwind-based systems map almost
+one-to-one onto `build-css.sh`; the macros take the styling, htmx/Alpine keep
+the behaviour. The React-exit stands untouched: the look is borrowed, never
+the runtime — no Node, no component library as a dependency. One guard,
+because this is a public repository: **the source and its licence are named
+in the direction proposal, and only MIT-or-compatible sources enter the
+repo** — shadcn/ui and Radix are MIT; Tailwind UI/Catalyst is paid and may
+not be copied. Two things survive any palette because they are
 architecture, not taste: tenant branding stays **configuration** (the chosen
 identity lands as tokens and tenant settings, never hard-coded), and the
 product-brand-vs-tenant-brand question for admin vs public remains #785's
