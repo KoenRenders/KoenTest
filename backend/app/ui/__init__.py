@@ -71,6 +71,21 @@ def _langedatum(d) -> str:
 templates.env.filters["langedatum"] = _langedatum
 
 
+def _maandkort(d) -> str:
+    """Korte Nederlandse maand voor het datumblok op activiteitenkaarten
+    (Ontwerpspoor golf 1, #913): 'sep', 'okt' — zelfde babel-bron als
+    `langedatum`, dus dezelfde taalinstelling."""
+    if d is None:
+        return ""
+    from babel.dates import format_date
+    from app.i18n import current_locale
+
+    return format_date(d, format="MMM", locale=current_locale.get()).rstrip(".")
+
+
+templates.env.filters["maandkort"] = _maandkort
+
+
 # Geldbedragen in nl-BE-notatie (#735): `{{ bedrag|geld }}` → "35,00". Het euroteken
 # staat in de sjablonen, zodat de opmaak eromheen (kleur, uitlijning) daar blijft.
 from app.kernel.geld import bedrag as _bedrag  # noqa: E402

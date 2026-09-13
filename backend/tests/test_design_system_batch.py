@@ -118,10 +118,17 @@ def test_header_woordmerk_is_raak():
 
 
 def test_link_tint_token_en_cms_link():
-    """Links dragen de fellere merk-tint #2367bd via de --link/text-link-token (#603)."""
+    """Links dragen de fellere merk-tint #2367bd via de --link/text-link-token (#603).
+
+    Sinds golf 0 van het Ontwerpspoor (#913) staat de waarde als RGB-triplet in
+    `--c-link` (35 103 189 = #2367bd) en verwijzen de utility en de leesbare
+    alias ernaar — de bedoeling van #603 blijft: één linktoken, en de CMS-inhoud
+    gebruikt hem.
+    """
     build = (Path(__file__).resolve().parents[2] / "scripts" / "build-css.sh").read_text()
-    assert "--link:#2367bd" in build           # CSS-var-token
-    assert "link: '#2367bd'" in build          # Tailwind text-link-utility
+    assert "--c-link:35 103 189" in build                       # de ene bron (= #2367bd)
+    assert "--link:rgb(var(--c-link))" in build                 # leesbare alias
+    assert "link: 'rgb(var(--c-link) / <alpha-value>)'" in build  # Tailwind text-link-utility
     site = (APP / "ui" / "templates" / "site_base.html").read_text()
     assert ".cms-content a{color:var(--link)" in site and "underline" in site
 

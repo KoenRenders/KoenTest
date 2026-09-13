@@ -63,11 +63,38 @@ def _tokens() -> list[tuple[str, str]]:
     if not root:
         return []
     alles = re.findall(r"--([a-z0-9-]+):\s*([^;]+);", root.group(1))
-    # Enkel de KLEUREN: `--brand-font` is ook een token maar geen vlak, en als
-    # kleurstaal getoond zou hij een leeg vierkant met een lettertypenaam ernaast
-    # zijn. Die hoort bij de typografie, niet bij het palet.
-    return [(naam, waarde.strip()) for naam, waarde in alles
-            if re.fullmatch(r"#[0-9a-fA-F]{3,8}|rgba?\([^)]*\)", waarde.strip())]
+    # Sinds golf 0 van het Ontwerpspoor (#913) staan de kleurWAARDEN als
+    # RGB-tripletten in `--c-*` (de machinelaag waar de utilities en een
+    # toekomstige schil-omschakeling naar verwijzen), en zijn de leesbare
+    # namen (`--primary`, `--brand-ocean`, …) verwijzingen: `rgb(var(--c-…))`.
+    # Dit scherm toont de leesbare laag, met de verwijzing geresolved naar de
+    # hex die een ontwerper herkent — de tripletten zelf zijn loodgieterij.
+    per_naam = {naam: waarde.strip() for naam, waarde in alles}
+
+    def _hex_van(waarde: str) -> str | None:
+        if re.fullmatch(r"#[0-9a-fA-F]{3,8}", waarde):
+            return waarde
+        verwijzing = re.fullmatch(r"rgb\(var\(--([a-z0-9-]+)\)\)", waarde)
+        if verwijzing:
+            triplet = per_naam.get(verwijzing.group(1), "")
+            delen = re.fullmatch(r"(\d{1,3}) (\d{1,3}) (\d{1,3})", triplet)
+            if delen:
+                vol = "".join(f"{int(d):02x}" for d in delen.groups())
+                # Zoals de css-minifier: #ffffff → #fff. Zo toont dit scherm
+                # exact wat het vóór golf 0 toonde.
+                if vol[0] == vol[1] and vol[2] == vol[3] and vol[4] == vol[5]:
+                    vol = vol[0] + vol[2] + vol[4]
+                return "#" + vol
+        return None
+
+    resultaat = []
+    for naam, waarde in per_naam.items():
+        if naam.startswith("c-"):
+            continue
+        kleur = _hex_van(waarde)
+        if kleur:
+            resultaat.append((naam, kleur))
+    return resultaat
 
 
 @lru_cache(maxsize=1)

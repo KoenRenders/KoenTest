@@ -1,8 +1,12 @@
 # Change Request 08 — The eye wants something too: a visual tightening
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** Draft — brainstorm of 13 September 2026, not assigned to a release.
-Open questions in §6 are genuinely open.
+**Status:** Direction chosen. Drafted 13 September 2026; the same day the
+maker round delivered three directions and **Cobalt (01) was chosen — a very
+clear preference**, for both sides. The conventions debate ran externally and
+was triaged on #785 (buckets: adopt / owner decides / deferred with trigger);
+three decisions remain open there (unsaved changes, what a record name opens,
+dashboard as a type). Execution follows §3 step 3 once those close.
 **Apply to:** scope and sequence only. The method, the briefing template, the
 triage chain and the admin-side direction live in **issue #785** and are not
 repeated here — one place per fact. This document decides what #785 left open:
@@ -115,7 +119,13 @@ triage first, Koen decides.
    touched twice.
 3. **Execution along the governance chain** (#785 step 5): per pattern one
    issue where code changes, one issue for the tokens; per screen type, not
-   per screen; absorbing #758/#760 per touched screen.
+   per screen; absorbing #758/#760 per touched screen. **In waves, no big
+   bang** (decided 13 September 2026): an invisible token-infrastructure wave
+   first (the brand/semantic split enables switching per shell), then public
+   to Cobalt, then the admin shell, then admin screen types iteratively —
+   each wave separately shippable, validated on HDEV and revertible. The wave
+   plan and its progress live in the **Ontwerpspoor tracker, #913** — one
+   place; this document does not repeat it.
 4. **Measured second review round** per side (#785 step 6): fewer and lighter
    findings than round one, both counts recorded on the issue.
 

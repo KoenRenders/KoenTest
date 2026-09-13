@@ -4,7 +4,7 @@
 {% if bericht_verzonden %}{{ ui.success_banner(_("Bedankt! We hebben je bericht goed ontvangen en behartigen het zo snel mogelijk.")) }}{% endif %}
 <section class="py-4">
   {% if intro_html %}
-  <div class="cms-content mb-6 text-gray-700">{{ intro_html | safe }}</div>
+  <div class="cms-content mb-6 text-ink">{{ intro_html | safe }}</div>
   {% endif %}
   <div class="flex flex-wrap gap-3">
     {# #499: een ingelogd lid ziet 'Mijn gezin' i.p.v. een leeg registratieformulier. #}

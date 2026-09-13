@@ -28,28 +28,18 @@ module.exports = {
             "backend/app/domains/**/templates/**/*.html"],
   theme: { extend: {
     colors: {
-      // Ocean Blue (#0051a4) als DE merkblauw: het hele blue-palet herschaald,
-      // zodat bestaande blue-*-klassen automatisch de merkkleur krijgen (700 = merk).
-      blue: {50:'#edf4fc',100:'#d2e3f6',200:'#a6c7ed',300:'#79a9e2',400:'#4a86d2',
-             500:'#2367bd',600:'#0f57ac',700:'#0051a4',800:'#02407c',900:'#062f59',950:'#041d38'},
-      // Raak-merkpalet (stijlgids): expliciete tokens voor accenten buiten het blauw.
-      brand: {DEFAULT:'#0051a4',ocean:'#0051a4','ocean-hover':'#02407c',accent:'#ffce00',
-              indigo:'#460359',green:'#005d29',teal:'#3aba9b',danger:'#ee3a37',
-              warning:'#f16532',pink:'#f17fb2'},
-      // Tekst-/prose-links: een fellere merk-tint (= blue-500 #2367bd) zodat links
-      // onderscheidend "poppen" naast het diepe merkblauw van koppen/chrome (#0051a4).
-      // On-brand (afgeleid van de ocean-tint), niet het generieke Tailwind-linkblauw.
-      link: '#2367bd',
-      // Neutralen & oppervlakken (design-system §1.1) als utility-kleuren, zodat
-      // text-ink-soft / border-line / bg-surface-2 bestaan i.p.v. gray-* te gokken.
-      ink: {DEFAULT:'#14171c',soft:'#52607a'},
-      line: '#d7e0ec', ground: '#eef3f9',
-      surface: {DEFAULT:'#ffffff','2':'#f7fafd'},
-      // Geel = "wachtend" (#528 as A). Het amber-palet vervalt: één gele schaal,
-      // herschaald rond het merkaccent (400 = #ffce00), zodat yellow-* de token
-      // IS — dezelfde truc als bij blue-700 = merkblauw.
-      yellow: {50:'#fffbea',100:'#fff3c4',200:'#fce588',300:'#fadb5f',400:'#ffce00',
-               500:'#e0b400',600:'#c29200',700:'#9c7500',800:'#7a5c00',900:'#5c4500',950:'#3d2e00'},
+      // Ontwerpspoor golf 0 (#913, triage A16): elke kleur-utility verwijst naar
+      // een CSS-variabele (RGB-triplet, zodat de /alpha-modifier blijft werken).
+      // De WAARDEN staan één keer, in de :root van in.css hieronder. Daardoor kan
+      // een schil (body[data-shell]) in een latere golf zijn palet omschakelen
+      // zonder dat één template verandert. Visueel verandert deze stap niets.
+      blue: {50:'rgb(var(--c-blue-50) / <alpha-value>)', 100:'rgb(var(--c-blue-100) / <alpha-value>)', 200:'rgb(var(--c-blue-200) / <alpha-value>)', 300:'rgb(var(--c-blue-300) / <alpha-value>)', 400:'rgb(var(--c-blue-400) / <alpha-value>)', 500:'rgb(var(--c-blue-500) / <alpha-value>)', 600:'rgb(var(--c-blue-600) / <alpha-value>)', 700:'rgb(var(--c-blue-700) / <alpha-value>)', 800:'rgb(var(--c-blue-800) / <alpha-value>)', 900:'rgb(var(--c-blue-900) / <alpha-value>)', 950:'rgb(var(--c-blue-950) / <alpha-value>)'},
+      brand: {DEFAULT:'rgb(var(--c-brand) / <alpha-value>)', 'ocean':'rgb(var(--c-brand-ocean) / <alpha-value>)', 'ocean-hover':'rgb(var(--c-brand-ocean-hover) / <alpha-value>)', 'accent':'rgb(var(--c-brand-accent) / <alpha-value>)', 'indigo':'rgb(var(--c-brand-indigo) / <alpha-value>)', 'green':'rgb(var(--c-brand-green) / <alpha-value>)', 'teal':'rgb(var(--c-brand-teal) / <alpha-value>)', 'danger':'rgb(var(--c-brand-danger) / <alpha-value>)', 'warning':'rgb(var(--c-brand-warning) / <alpha-value>)', 'pink':'rgb(var(--c-brand-pink) / <alpha-value>)'},
+      link: 'rgb(var(--c-link) / <alpha-value>)',
+      ink: {DEFAULT:'rgb(var(--c-ink) / <alpha-value>)', 'soft':'rgb(var(--c-ink-soft) / <alpha-value>)'},
+      line: 'rgb(var(--c-line) / <alpha-value>)', ground: 'rgb(var(--c-ground) / <alpha-value>)',
+      surface: {DEFAULT:'rgb(var(--c-surface) / <alpha-value>)', 2:'rgb(var(--c-surface-2) / <alpha-value>)'},
+      yellow: {50:'rgb(var(--c-yellow-50) / <alpha-value>)', 100:'rgb(var(--c-yellow-100) / <alpha-value>)', 200:'rgb(var(--c-yellow-200) / <alpha-value>)', 300:'rgb(var(--c-yellow-300) / <alpha-value>)', 400:'rgb(var(--c-yellow-400) / <alpha-value>)', 500:'rgb(var(--c-yellow-500) / <alpha-value>)', 600:'rgb(var(--c-yellow-600) / <alpha-value>)', 700:'rgb(var(--c-yellow-700) / <alpha-value>)', 800:'rgb(var(--c-yellow-800) / <alpha-value>)', 900:'rgb(var(--c-yellow-900) / <alpha-value>)', 950:'rgb(var(--c-yellow-950) / <alpha-value>)'},
     },
     fontFamily: { brand: ['"Radio Canada Big"','system-ui','sans-serif'],
                   sans: ['Inter','system-ui','sans-serif'] },
@@ -74,15 +64,42 @@ cat > "$TMP/in.css" << 'CSS'
   /* Merkkleuren als CSS-variabelen (#486): ÉÉN bron voor plekken met rauwe CSS
      (bv. de CMS-content-opmaak) i.p.v. hardgecodeerde hexes — zo blijft de
      merkkleur automatisch consistent en verandert een tint op één plek. */
-  :root{--brand-ocean:#0051a4;--brand-accent:#ffce00;--brand-indigo:#460359;--brand-green:#005d29;--brand-teal:#3aba9b;--brand-danger:#ee3a37;--brand-warning:#f16532;--brand-pink:#f17fb2;
-        /* Design-system-tokens (docs/design-system.html §1.1): dit zijn de namen
-           waar rauwe CSS naar verwijst. Hex hoort ALLEEN hier thuis. */
-        --primary:#0051a4;--primary-hover:#02407c;--link:#2367bd;--accent:#ffce00;
-        --ground:#eef3f9;--surface:#ffffff;--surface-2:#f7fafd;
-        --ink:#14171c;--ink-soft:#52607a;--line:#d7e0ec;
+  /* Ontwerpspoor golf 0 (#913): de --c-*-tripletten zijn DE ene bron van elke
+     kleur; de Tailwind-utilities hierboven en de leesbare aliassen hieronder
+     verwijzen ernaar. Een schil schakelt in een latere golf om door dezelfde
+     namen te herdefiniëren onder body[data-shell="…"] — templates blijven
+     onaangeraakt. Hex hoort ALLEEN hier thuis. */
+  :root{
+        --c-blue-50:237 244 252;--c-blue-100:210 227 246;--c-blue-200:166 199 237;--c-blue-300:121 169 226;--c-blue-400:74 134 210;--c-blue-500:35 103 189;--c-blue-600:15 87 172;--c-blue-700:0 81 164;--c-blue-800:2 64 124;--c-blue-900:6 47 89;--c-blue-950:4 29 56;
+        --c-yellow-50:255 251 234;--c-yellow-100:255 243 196;--c-yellow-200:252 229 136;--c-yellow-300:250 219 95;--c-yellow-400:255 206 0;--c-yellow-500:224 180 0;--c-yellow-600:194 146 0;--c-yellow-700:156 117 0;--c-yellow-800:122 92 0;--c-yellow-900:92 69 0;--c-yellow-950:61 46 0;
+        --c-brand:0 81 164;--c-brand-ocean:0 81 164;--c-brand-ocean-hover:2 64 124;--c-brand-accent:255 206 0;--c-brand-indigo:70 3 89;--c-brand-green:0 93 41;--c-brand-teal:58 186 155;--c-brand-danger:238 58 55;--c-brand-warning:241 101 50;--c-brand-pink:241 127 178;
+        --c-ink:20 23 28;--c-ink-soft:82 96 122;
+        --c-surface:255 255 255;--c-surface-2:247 250 253;
+        --c-link:35 103 189;--c-line:215 224 236;--c-ground:238 243 249;
+        --brand-ocean:rgb(var(--c-brand-ocean));--brand-accent:rgb(var(--c-brand-accent));--brand-indigo:rgb(var(--c-brand-indigo));--brand-green:rgb(var(--c-brand-green));--brand-teal:rgb(var(--c-brand-teal));--brand-danger:rgb(var(--c-brand-danger));--brand-warning:rgb(var(--c-brand-warning));--brand-pink:rgb(var(--c-brand-pink));
+        --primary:rgb(var(--c-brand-ocean));--primary-hover:rgb(var(--c-brand-ocean-hover));--link:rgb(var(--c-link));--accent:rgb(var(--c-brand-accent));
+        --ground:rgb(var(--c-ground));--surface:rgb(var(--c-surface));--surface-2:rgb(var(--c-surface-2));
+        --ink:rgb(var(--c-ink));--ink-soft:rgb(var(--c-ink-soft));--line:rgb(var(--c-line));
         --brand-font:"Radio Canada Big",system-ui,sans-serif;--sans:Inter,system-ui,sans-serif}
+  /* ── Ontwerpspoor golf 1 (#913): de PUBLIEKE schil in de Cobalt-richting ──
+     Gekozen door Koen op de makersronde-mockups (#785, 13 september 2026):
+     kobaltblauw draagt actie en selectie, koelere neutralen, zelfde
+     statuskleuren (groen/geel/rood/oranje wijzigen NIET — betekenis is
+     schil-onafhankelijk). Alleen waarden: geen template weet hiervan.
+     De beheerschil volgt in golf 2 met een eigen blok. */
+  body[data-shell="site"]{
+        --c-blue-50:234 240 255;--c-blue-100:220 230 253;--c-blue-200:189 207 250;--c-blue-300:150 175 244;--c-blue-400:100 136 234;--c-blue-500:61 99 218;--c-blue-600:44 83 206;--c-blue-700:36 75 197;--c-blue-800:29 60 158;--c-blue-900:23 46 119;--c-blue-950:15 29 75;
+        --c-brand:36 75 197;--c-brand-ocean:36 75 197;--c-brand-ocean-hover:29 60 158;
+        --c-link:36 75 197;
+        --c-ink:25 38 56;--c-ink-soft:83 97 116;
+        --c-line:210 217 227;--c-ground:244 246 250;--c-surface-2:239 243 250}
   html{font-family:Inter,system-ui,sans-serif}
   h1,h2,h3{font-family:"Radio Canada Big",system-ui,sans-serif}
+  /* Golf 1 (#913), gekozen door Koen op het goedkeuringspakket (13 sep 2026,
+     variant B): publieke koppen in Inter — neutraler, dichter bij de gekozen
+     Cobalt-richting. Het woordmerk (font-brand) blijft Radio Canada Big; de
+     beheerschil beslist haar typografie in golf 2. */
+  body[data-shell="site"] h1,body[data-shell="site"] h2,body[data-shell="site"] h3{font-family:Inter,system-ui,sans-serif}
   /* Automatische consistentie (#482): elk tekst-input/select/textarea krijgt
      standaard dezelfde stijl — geen macro of losse klassen nodig. Checkboxes,
      radios, files en knoppen blijven ongemoeid.
@@ -114,7 +131,7 @@ cat > "$TMP/in.css" << 'CSS'
 
      Een <textarea> hoort er NIET bij — die groeit met `rows` en moet dat kunnen. */
   html :where(input[type="text"],input[type="email"],input[type="tel"],input[type="number"],input[type="password"],input[type="search"],input[type="url"],input[type="date"],input[type="time"],input[type="datetime-local"],input:not([type]),select){height:2.375rem}
-  html :where(input[type="text"],input[type="email"],input[type="tel"],input[type="number"],input[type="password"],input[type="search"],input[type="url"],input[type="date"],input[type="time"],input[type="datetime-local"],input:not([type]),select,textarea):focus{border-color:var(--brand-ocean);box-shadow:0 0 0 3px rgba(0,81,164,.15);outline:none}
+  html :where(input[type="text"],input[type="email"],input[type="tel"],input[type="number"],input[type="password"],input[type="search"],input[type="url"],input[type="date"],input[type="time"],input[type="datetime-local"],input:not([type]),select,textarea):focus{border-color:var(--brand-ocean);box-shadow:0 0 0 3px rgb(var(--c-brand-ocean)/.15);outline:none}
 }
 /* ── Wacht- en overgangsfeedback voor htmx (#634) ────────────────────────────
    BEWUST buiten @layer components: Tailwind snoeit de components-laag op wat het
