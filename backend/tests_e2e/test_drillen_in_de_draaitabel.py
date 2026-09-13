@@ -27,9 +27,27 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tests_e2e.schermen import BASE, login_als_admin  # noqa: E402
 
+
+def _ontbreekt(reden: str) -> None:
+    """Ontbrekende data: skip tegen een echte omgeving, fout onder de e2e-seed.
+
+    Zelfde afweging als in `test_beheer_flows.py`: tegen HDEV zegt "geen
+    betalingen" iets over die omgeving, tegen de seed betekent het dat het scherm
+    ze niet toont — een bevinding. Een skip is tussen groene runs onzichtbaar, en
+    dat is precies hoe een test maandenlang niets kan bewijzen (#644).
+    """
+    if os.environ.get("E2E_SEEDED") == "1":
+        pytest.fail(f"e2e-seed geladen maar: {reden}")
+    pytest.skip(reden)
+
 # Een draaitabel op jaar met één maat en geen kolomas: de kortste weg naar een
 # scherm waarin een jaartal doorklikbaar hoort te zijn.
-PANEEL = ("/admin/rapporten/paneel?object=date_year&object=payment_amount"
+#
+# `/nieuw` en NIET `/paneel`: dat tweede adres levert het fragment, zonder schil en
+# dus zonder htmx. In een pagina zonder htmx doet élke knop niets, dus een test
+# daarop zou altijd falen — en zou over de verkeerde oorzaak vallen. Dat is precies
+# de eerste ronde van deze test geweest.
+PANEEL = ("/admin/rapporten/nieuw?object=date_year&object=payment_amount"
           "&layout=pivot&pivot_column=&no_column=1")
 
 
@@ -69,8 +87,7 @@ def test_klikken_op_een_jaartal_drilt_naar_kwartaal(admin_page):
     admin_page.goto(PANEEL)
     knop = admin_page.locator('button[name="drill"]').first
     if knop.count() == 0:
-        pytest.skip("geen betalingen in deze omgeving, dus geen jaartal om te "
-                    "drillen")
+        _ontbreekt("geen betaling in deze omgeving, dus geen jaartal om te drillen")
 
     jaar = knop.inner_text().strip()
     knop.click()
@@ -89,7 +106,7 @@ def test_terug_omhoog_brengt_je_terug(admin_page):
     admin_page.goto(PANEEL)
     knop = admin_page.locator('button[name="drill"]').first
     if knop.count() == 0:
-        pytest.skip("geen betalingen in deze omgeving")
+        _ontbreekt("geen betaling in deze omgeving")
     knop.click()
     admin_page.wait_for_timeout(800)
 
