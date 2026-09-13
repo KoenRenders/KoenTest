@@ -42,8 +42,20 @@ change to all four, in one pull request.
 | 8 Sep 2026 | The question above its options uses `ui.vraag()`, not `ui.label()` | #749 |
 | 8 Sep 2026 | Amount fields are text with `inputmode="decimal"` and accept a comma | #735, #769 |
 | 9 Sep 2026 | Prose in Markdown, components live from the app; the HTML mock retires | #783 |
+| 13 Sep 2026 | Visual direction **Cobalt** chosen on mockups (maker round); huisstijl is a starting point, not a fence | #785, CR-08 |
+| 13 Sep 2026 | Conventions debate triaged: 17 adoptions (action bar bottom, menu workspaces, account presence, P13 relation bar, save granularity follows the business unit, …), deferrals with named triggers | #785 (triage) |
+| 13 Sep 2026 | A record name opens a full detail page; inline disclosure becomes the secondary variant | #785 (B2) |
+| 13 Sep 2026 | Dashboard is a first-class screen type, defined as a **reporting** surface (tiles, drill-through, peilmoment) — expressly separate from the werkbank, which is process | #785 (B3) |
+| 13 Sep 2026 | The unsaved-changes promise is dropped as a system rule; it returns as a per-editor pattern field for long editors | #785 (B1) |
+| 13 Sep 2026 | Judging viewports follow the audience: public phone-first, admin desktop-first | CR-08 |
 
 Decisions still open are listed in §12.
+
+> **Execution note (13 September 2026):** the decisions above are recorded here
+> but land in the sections, macros and gates **per execution issue** of the
+> design track (#785 step 5) — rule, macro, gate and guide in one PR, as §11
+> requires. Until an issue lands, the section text below may still describe
+> the pre-decision state; the decisions log and #785 win.
 
 ## 1. Foundations (tokens)
 
@@ -86,7 +98,7 @@ Rules:
 - Semantic colour (success, attention, error) is separate from the accents. The
   "warmth" comes from the soft ground and whitespace, not from coloured text on
   coloured surfaces.
-- Text meets 4.5:1 (3:1 at ≥ 18 px), verified per token.
+- Text meets 4.5:1; 3:1 only for large text (≥ 24 px, or ≥ 18.66 px bold — the earlier "≥ 18 px" was wrong, corrected 13 September 2026), verified per token.
 
 ### 1.2 Typography
 
@@ -883,23 +895,24 @@ shortest path is the right path.
 
 ## 12. Open decisions
 
-Raised on 9 September 2026; each needs Koen's decision before it becomes a
-rule. Until then the pattern says *open*.
+**All five are decided** (13 September 2026, on #785 — the mockup round and
+the conventions-debate triage). Recorded here as pointers; the pattern fields
+and sections update per execution issue (see the execution note in §0).
 
-1. **Product brand for the admin, tenant brand for the public side.** The admin
-   shell is Raak (indigo, wordmark, palette). In a multi-tenant product a second
-   client should not see Raak in the back office. Decide on four mockups
-   (payments list, activity detail, registration panel, form builder); then the
-   tokens change and every screen follows through the macros.
-2. **Attention after an action** (P1, P4): where scroll and focus go after a
-   save, and how a control relates to a result elsewhere on the page (the JSON
-   import). Today unspecified; the builder carries a workaround.
-3. **The way back from a registration opened via an activity** (P3): to the
-   activity, not to all registrations. How the origin is carried.
-4. **Warning on unsaved changes**: promised, never built. Keep and build, or
-   drop the promise.
-5. **Screen types 7 and 8**: wizard and dashboard as first-class types, or keep
-   them as sanctioned variants.
+1. **Product brand for the admin** — decided: product brand in the admin
+   shell, tenant identity permanently visible; public side keeps the tenant
+   brand. Visual direction: **Cobalt** (#785 maker round).
+2. **Attention after an action** — decided: no scroll on save, focus stays or
+   returns to the trigger; a control's result opens next to it (#785 triage A6).
+3. **The way back** — decided: an explicit, validated origin parameter, never
+   the referrer; restores filters, sort and position (#785 triage A7).
+4. **Unsaved changes** — decided: dropped as a system promise; returns as a
+   per-editor pattern field for long editors, form builder first (#785 B1).
+5. **Wizard and dashboard** — decided: both first-class. Wizard with steps,
+   per-step validation and resume (#785 triage A9); dashboard as a
+   **reporting** surface — tiles from the reporting engine, everything
+   drill-through, with a peilmoment — expressly separate from the werkbank,
+   which is process (#785 B3).
 
 ## 13. Migration — current → target
 
