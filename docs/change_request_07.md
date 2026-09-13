@@ -342,6 +342,26 @@ then breaks its mechanism deliberately and asserts the test goes red.
    replacement. Side effect worth keeping: reporting stays the domain that
    owns almost no data.
 5. **CSRF and session semantics** as on every admin htmx screen.
+6. **Reporting is a terminus — gated, not assumed** (rule fixed 13 September
+   2026). Its views are read models: question-shaped, derived, and free to
+   change with the universe. A business process that reads them couples
+   itself to a shape that may move per release, reads derived data where it
+   should read the source, and reverses the dependency direction —
+   downstream becomes upstream. So reporting has an explicit consumer
+   allowlist: the reports panel (the domain itself), the dashboard tiles
+   (`app/ui/system_ui.py`), route registration (`main.py`), and now the
+   assistant. Nothing else — not master data, not payments, not a public or
+   admin screen — may consume reporting in its processes. Measured today the
+   list already holds, but by discipline only: the existing import-boundary
+   test allows any domain to import another's `api`, so `payment` importing
+   `reporting.api` would pass green, and nothing stops raw SQL against
+   `reporting.*` views. Phase 1 therefore builds the gate, two levels deep:
+   an importer allowlist for `app.domains.reporting` (a new importer is a
+   red build, with a message that explains this rule rather than just
+   refusing, #680), and a source scan proving the `reporting.` schema prefix
+   occurs only under the reporting domain and its migrations (#678: the scan
+   must prove it found the legitimate occurrences, so a moved directory
+   cannot turn it silently green).
 
 ### 6.1 Risks this feature adds — each held by a named counterweight
 
@@ -394,7 +414,8 @@ here.
 
 1. **Aggregates.** Catalogue renderer, the two tools, generalised loop, admin
    screen, kill-switch + tenant flag, question log, caps, **seam guard and the
-   "wat zag Mistral" payload view (§5.7–5.8)**. Test set 1–6 green.
+   "wat zag Mistral" payload view (§5.7–5.8)**, **the reporting-terminus gate
+   (§6.6)**. Test set 1–6 green.
    **Deploy gate**: the processor agreement with Mistral and the privacy-
    statement update (§6.1.1) are tracker checkboxes ticked by hand before the
    first deploy to any environment beyond HDEV.
