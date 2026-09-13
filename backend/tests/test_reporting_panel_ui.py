@@ -141,13 +141,13 @@ def test_the_shipped_reports_return_the_numbers_of_the_seed(db_session, situatio
 
     _y0, _y1, y2, _y3 = situation["years"]
 
-    leden = {row["membership_year"]: row for row in run("members_per_year").rows}
+    leden = {row["date_year"]: row for row in run("members_per_year").rows}
     assert leden[y2]["membership_households"] == EXPECTED["memberships"]["households"][2]
     assert leden[y2]["membership_persons"] == EXPECTED["memberships"]["persons"][2]
 
     # Since #871 the flow report groups on the status dimension instead of
     # carrying three measures — the same numbers, as rows.
-    verloop = {(row["membership_year"], row["membership_status"]):
+    verloop = {(row["date_year"], row["membership_status"]):
                row["membership_count"]
                for row in run("membership_flow_per_year").rows}
     assert verloop[(y2, "Nieuw")] == EXPECTED["memberships"]["new"][2]

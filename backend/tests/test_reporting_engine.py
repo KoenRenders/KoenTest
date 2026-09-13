@@ -80,15 +80,27 @@ def test_a_dimension_without_a_path_to_the_fact_is_refused():
     assert "Lidmaatschappen" in melding and "d_person" in melding
 
 
-def test_the_date_dimension_does_not_reach_the_membership_fact():
-    """A membership has a year, not a date — and the universe says so out loud.
+def test_a_membership_cannot_be_grouped_finer_than_a_year():
+    """A membership has a year, not a date — and the universe still says so.
 
-    Silently joining `d_date` on 1 January would give every membership the month
-    "januari", which is the kind of answer that looks right on a chart.
+    Until #894 the refusal came from the join graph: `d_date` simply did not reach
+    this fact, and the fact carried its own year column. That gave two objects
+    called almost the same thing, which was Koen's complaint. Now both membership
+    facts DO hang off `d_date`, on 1 January of their year, so there is one object
+    *Jaar* for everything — and the refusal moved to where the invented day would
+    be read: anything finer than a year drops everything on January, which is the
+    kind of answer that looks right on a chart.
     """
     with pytest.raises(SelectionError) as exc:
         plan(["date_month", "membership_households"])
-    assert "d_date" in str(exc.value)
+    melding = str(exc.value)
+    assert "januari" in melding, f"de reden hoort in de melding te staan: {melding}"
+    assert "Jaar" in melding, "en wat je dan wél neemt"
+
+
+def test_a_membership_can_be_grouped_by_the_shared_year():
+    """The other half: one *Jaar* works on a membership report as well."""
+    plan(["date_year", "membership_households"])
 
 
 def test_sorting_on_something_that_is_not_in_the_report_is_refused():

@@ -56,9 +56,9 @@ def by(result, key):
 def test_members_per_year_counts_households_and_persons(db_session, situation):
     """Question 1: how many members, and how does that evolve per year?"""
     y0, y1, y2, y3 = situation["years"]
-    result = run(db_session, ["membership_year", "membership_households",
+    result = run(db_session, ["date_year", "membership_households",
                               "membership_persons"])
-    rows = by(result, "membership_year")
+    rows = by(result, "date_year")
 
     verwacht = EXPECTED["memberships"]
     for offset, year in enumerate((y0, y1, y2, y3)):
@@ -79,9 +79,9 @@ def test_new_renewed_and_lapsed_add_up_per_year(db_session, situation):
     # Since #871 these are one count grouped by the status dimension, not three
     # measures. Same three numbers; the condition is now visible instead of baked
     # into a name.
-    result = run(db_session, ["membership_year", "membership_status",
+    result = run(db_session, ["date_year", "membership_status",
                               "membership_count"])
-    rows = {(r["membership_year"], r["membership_status"]):
+    rows = {(r["date_year"], r["membership_status"]):
             r["membership_count"] for r in result.rows}
 
     verwacht = EXPECTED["memberships"]
@@ -107,8 +107,8 @@ def test_a_membership_taken_out_in_october_counts_in_its_own_year(db_session,
     numbers that each look reasonable on their own.
     """
     _y0, _y1, y2, y3 = situation["years"]
-    result = run(db_session, ["membership_year", "membership_households"])
-    rows = by(result, "membership_year")
+    result = run(db_session, ["date_year", "membership_households"])
+    rows = by(result, "date_year")
 
     assert rows[y2]["membership_households"] == 2, (
         "H4 is dit jaar geen lid, ook al loopt zijn lidmaatschap al")
@@ -117,28 +117,28 @@ def test_a_membership_taken_out_in_october_counts_in_its_own_year(db_session,
     # Filtered to H4 and NOT grouped by household: grouping by a single family is
     # exactly what the small-cell threshold of #841 folds away, and rightly so —
     # this test is about the September rule, not about privacy.
-    alleen_h4 = run(db_session, ["membership_year", "membership_households"],
+    alleen_h4 = run(db_session, ["date_year", "membership_households"],
                     filters=[Filter("member", Operator.EQ,
                                     (str(situation["households"]["h4"]),))])
-    jaren = {row["membership_year"] for row in alleen_h4.rows}
+    jaren = {row["date_year"] for row in alleen_h4.rows}
     assert jaren == {y3}, "één rij, in één jaar"
 
 
 def test_membership_status_dimension_labels_the_same_rows(db_session, situation):
     """The status dimension and the three counters must tell the same story."""
     _y0, y1, _y2, _y3 = situation["years"]
-    result = run(db_session, ["membership_year", "membership_status",
+    result = run(db_session, ["date_year", "membership_status",
                               "membership_households"],
-                 filters=[Filter("membership_year", Operator.EQ, (str(y1),))])
+                 filters=[Filter("date_year", Operator.EQ, (str(y1),))])
     labels = {row["membership_status"] for row in result.rows}
     assert labels == {"Vernieuwd", "Vervallen"}
 
 
 def test_membership_money_is_the_charged_and_received_amount(db_session, situation):
     y0, y1, y2, y3 = situation["years"]
-    result = run(db_session, ["membership_year", "membership_amount_charged",
+    result = run(db_session, ["date_year", "membership_amount_charged",
                               "membership_amount_paid"])
-    rows = by(result, "membership_year")
+    rows = by(result, "date_year")
     verwacht = EXPECTED["memberships"]
     for offset, year in enumerate((y0, y1, y2, y3)):
         assert Decimal(rows[year]["membership_amount_charged"]) == verwacht["charged"][offset]
@@ -386,14 +386,14 @@ def test_every_filter_form_narrows_the_same_report(db_session, situation):
     assert {row["payment_method"] for row in zoek.rows} == {"Overschrijving"}
 
     y0, _y1, y2, y3 = situation["years"]
-    bereik = run(db_session, ["membership_year", "membership_households"],
-                 filters=[Filter("membership_year", Operator.BETWEEN,
+    bereik = run(db_session, ["date_year", "membership_households"],
+                 filters=[Filter("date_year", Operator.BETWEEN,
                                  (str(y0), str(y0)))])
-    assert [row["membership_year"] for row in bereik.rows] == [y0]
+    assert [row["date_year"] for row in bereik.rows] == [y0]
 
-    vanaf = run(db_session, ["membership_year", "membership_households"],
-                filters=[Filter("membership_year", Operator.GTE, (str(y2),))])
-    assert [row["membership_year"] for row in vanaf.rows] == [y2, y3]
+    vanaf = run(db_session, ["date_year", "membership_households"],
+                filters=[Filter("date_year", Operator.GTE, (str(y2),))])
+    assert [row["date_year"] for row in vanaf.rows] == [y2, y3]
 
 
 def test_a_filter_may_use_a_dimension_that_is_not_a_column(db_session, situation):
