@@ -101,11 +101,15 @@ Two layers, split so the assistant can grow beyond reporting (raised
 13 September 2026):
 
 - **The conversation kernel is domain-neutral and lives in the `chatbot`
-  domain**: the generalised loop (§4.3), the provider seam, the budgets, and —
-  deliberately — the seam guard and the payload log (§5.7–5.8). Nothing in
-  that list is about reporting; putting it at the seam means every future
-  capability inherits the privacy boundary automatically instead of
-  reimplementing it.
+  domain**: the generalised loop (§4.3), the provider seam, the budgets, the
+  question/payload log (§6.4) and — deliberately — the seam guard (§5.7–5.8).
+  Nothing in that list is about reporting; putting it at the seam means every
+  future capability inherits the privacy boundary automatically instead of
+  reimplementing it. There is **one Raakje domain, not two**: the public bot
+  is itself the first pack on this kernel (its three tools + the `/raakje`
+  screen), and the back-office Raakje is not a domain but the same kernel
+  wearing a different toolset — the pack with the data's owner, the screen
+  with its audience.
 - **A capability is a pluggable toolset.** Reporting is the *first* one:
   `reporting/assistant.py` (toolset + catalogue renderer + pseudonymisation) +
   an `admin_ui` route + template, read-only by construction. Reporting stays
@@ -326,11 +330,17 @@ then breaks its mechanism deliberately and asserts the test goes red.
    per-tenant (a tenant setting — Raak Millegem on, platform off) under a
    global kill-switch (`admin_chat_enabled`, default off, next to
    `chat_enabled`).
-4. **Every outbound call is logged.** One row per `run_report` execution:
-   actor, question text, the selection, row count, timestamp — a new
-   `ai_question_log` table in the reporting schema, append-only like
-   `export_log`, and for the same reason: rows handed to Mistral are data
-   leaving the system.
+4. **Every outbound call is logged — by the kernel, in the `ai` schema**
+   (corrected 13 September 2026: logging outbound AI calls is a kernel
+   concern, not a reporting one). One row per tool execution: actor, scrubbed
+   question, the selection, row count, timestamp. The table lives in the
+   `ai` schema (the chatbot domain's schema, migration 084) and is written at
+   the seam, so a future capability's calls land in the *same* log without
+   new plumbing. Append-only like reporting's `export_log`, and for the same
+   reason: rows handed to Mistral are data leaving the system. `export_log`
+   itself is untouched — the AI log is its counterpart at the seam, not its
+   replacement. Side effect worth keeping: reporting stays the domain that
+   owns almost no data.
 5. **CSRF and session semantics** as on every admin htmx screen.
 
 ### 6.1 Risks this feature adds — each held by a named counterweight
