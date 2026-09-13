@@ -1309,6 +1309,20 @@ class Hierarchy:
     def description(self) -> str:
         return BY_KEY[self.level_keys[0]].description
 
+    def step(self, key: str, richting: int) -> str:
+        """The next level down (+1) or up (-1), or "" at the end of the road.
+
+        Detail levels are skipped: "Maand voluit" sits between month and day in
+        the shared date, and drilling into something you cannot group by would be
+        a dead end (#852).
+        """
+        bruikbaar = [k for k in self.level_keys
+                     if BY_KEY[k].kind is ObjectKind.DIMENSION]
+        if key not in bruikbaar:
+            return ""
+        index = bruikbaar.index(key) + richting
+        return bruikbaar[index] if 0 <= index < len(bruikbaar) else ""
+
 
 def _date_levels(prefix: str) -> tuple[str, ...]:
     return tuple(f"{prefix}{korrel}"

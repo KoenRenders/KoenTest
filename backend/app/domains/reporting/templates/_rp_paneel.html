@@ -244,6 +244,22 @@
           </p>
           {% endif %}
 
+          {% if rollup_levels %}
+          {# #899 stap 2: de weg terug omhoog. Zonder deze knoppen is drillen
+             eenrichtingsverkeer — je klikt op 2026, belandt op kwartaal, en moet
+             het rapport opnieuw opbouwen om terug te komen. #}
+          <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
+            <span class="text-ink-soft">{{ _("Terug omhoog:") }}</span>
+            {% for niveau, ouder in rollup_levels %}
+            <button type="button" name="rollup" value="{{ niveau }}"
+                    hx-get="{{ paneel_url }}"
+                    class="rounded-lg border border-gray-200 bg-white px-2 py-0.5 text-ink hover:bg-gray-50">
+              {{ ui.icon("chevron-up", 14) }} {{ ouder }}
+            </button>
+            {% endfor %}
+          </div>
+          {% endif %}
+
           {% if layout in ["pivot", "stacked"] and chosen %}
           <div class="mt-3 flex flex-wrap items-center gap-2 text-sm">
             <span class="text-ink-soft">{{ _("Kolommen:") }}</span>

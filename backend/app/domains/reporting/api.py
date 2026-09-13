@@ -89,6 +89,8 @@ from app.domains.reporting.service import (  # noqa: F401
 from app.domains.reporting.universe import (  # noqa: F401
     BY_KEY,
     CLASSES,
+    HIERARCHIES,
+    HIERARCHY_OF,
     DIMENSIONS,
     FACTS,
     JOINS,
@@ -105,6 +107,7 @@ from app.domains.reporting.universe import (  # noqa: F401
 
 __all__ = [
     "BY_KEY", "CHART_LAYOUTS", "CLASSES", "DIMENSIONS", "FACTS", "JOINS",
+    "HIERARCHIES", "HIERARCHY_OF",
     "LAYOUTS", "MERGED_LABEL", "PEOPLE_ALIAS", "SERIES_COLORS",
     "SMALL_CELL_THRESHOLD", "SYMBOLIC_LABELS", "SYMBOLIC_ME",
     "SYMBOLIC_THIS_YEAR", "SYMBOLIC_TODAY", "SYMBOLIC_VALUES",

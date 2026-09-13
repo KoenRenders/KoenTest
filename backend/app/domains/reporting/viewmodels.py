@@ -63,6 +63,9 @@ class ReportPanelView(ViewModel):
     kind_symbols: dict[str, str]
     kind_labels: dict[str, str]
     chosen_keys: list[str]
+    #: (niveau, naam van het niveau erboven) voor elk gekozen niveau dat omhoog
+    #: kan (#899 stap 2). Zonder de weg terug is drillen eenrichtingsverkeer.
+    rollup_levels: list[tuple[str, str]]
     #: Classes the user folded shut (#872). The closed set, not the open one:
     #: every class starts open, so the default state is the empty list.
     closed_classes: list[str]
