@@ -210,9 +210,10 @@ def test_the_engine_still_knows_no_identity_and_no_clock():
     """
     import inspect
 
-    from app.domains.reporting.api import build_query, resolve_selection
+    from app.domains.reporting.api import resolve_selection
+    from tests._engine_signature import assert_engine_signature
 
-    assert set(inspect.signature(build_query).parameters) == {"selection", "tenant_id"}
+    assert_engine_signature()
     resolutie = set(inspect.signature(resolve_selection).parameters)
     assert resolutie == {"selection", "today", "viewer"}, (
         "identiteit en de klok komen hier binnen, en alleen hier")

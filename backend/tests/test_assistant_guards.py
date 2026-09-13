@@ -1,8 +1,10 @@
-"""Raakje in the back office, phase 1 (#917, CR-07).
+"""Raakje in the back office: the guards around it (#917, CR-07).
 
 Four mechanisms are new here, and each of them is the kind that fails silently:
 the exposure fence in the assistant layer, the guard on the provider seam, the
-outbound log, and the two separate tool allowlists. A broken one of those does not
+outbound log, and the two separate tool allowlists. The masking itself — token
+out, name back, question scrubbed — has its own file,
+`test_assistant_masking.py`. A broken one of those does not
 crash anything — it just sends a little more than it should, to a third party, and
 nobody notices. So each is tested by breaking it on purpose and watching the test
 go red, as the docstrings record.
@@ -55,6 +57,17 @@ class Recorder:
         return json.dumps(self.calls, ensure_ascii=False, default=str)
 
 
+def _assign_board_member(db, person):
+    """Make this person the board member of a household, so `d_board_member`
+    knows them — the view is built from the assignment, not from the person."""
+    from app.domains.mdm.api import Member
+
+    member = Member(tenant_id=TENANT, board_member_id=person.id)
+    db.add(member)
+    db.flush()
+    return member
+
+
 def _person(db, first: str, last: str):
     from app.domains.mdm.api import Member, MemberPerson, Person
 
@@ -72,28 +85,30 @@ def _person(db, first: str, last: str):
 
 # ── The exposure fence sits in the assistant, not in the engine ──────────────
 
-def test_a_person_naming_object_is_refused_by_name(db_session):
-    """Every `admin_tokenised` and `none` object, refused with a usable reason.
+def test_free_text_never_reaches_a_model(db_session):
+    """The `none` objects, refused by name and with a usable reason.
+
+    Free text cannot be classified field by field and there is no token to put on
+    it — a treasurer's note carries whatever the treasurer wrote. So unlike the
+    person-naming objects, there is no later phase in which this becomes allowed,
+    and the refusal says exactly that rather than sounding temporary.
 
     Named and not merely blocked: the model reads the refusal and composes its
-    next attempt from it, so "niet toegelaten" costs a round and "beantwoord de
-    vraag op groepsniveau" costs none (#680, applied to a reader that is a
-    machine).
+    next attempt from it (#680, applied to a reader that is a machine).
 
-    Broken to see it red: `_REFUSED` emptied — every one of these then returns
-    rows instead of a refusal, and the test names the first object that got
-    through.
+    Broken to see it red: `_REFUSED` emptied — the notes then come back as rows,
+    and the test names the first object that got through.
     """
     from app.domains.reporting.universe import AiExposure, OBJECTS
 
     dispatch = dispatcher(tenant_id=TENANT)
-    gevoelig = [o for o in OBJECTS if o.ai_exposure is not AiExposure.PLAIN]
-    assert len(gevoelig) >= 10, (
-        "deze test draait over de objecten die niet naar een model mogen; vindt ze "
-        "er bijna geen, dan is de classificatie stuk en bewijst de test niets"
+    vrije_tekst = [o for o in OBJECTS if o.ai_exposure is AiExposure.NONE]
+    assert len(vrije_tekst) >= 4, (
+        "deze test draait over de objecten die nooit naar een model mogen; vindt "
+        "ze er bijna geen, dan is de classificatie stuk en bewijst de test niets"
     )
 
-    for obj in gevoelig:
+    for obj in vrije_tekst:
         out = json.loads(dispatch("run_report", {"objects": [obj.key]}, db_session))
         assert "error" in out, f"{obj.key} werd niet geweigerd"
         assert obj.name in out["error"], (
@@ -102,12 +117,12 @@ def test_a_person_naming_object_is_refused_by_name(db_session):
         assert "rows" not in out
 
 
-def test_the_fence_also_covers_a_filter_on_such_an_object(db_session):
-    """Filtering on a name is asking for a name, one step later.
+def test_the_refusal_also_covers_a_filter_on_such_an_object(db_session):
+    """Filtering on free text is asking for free text, one step later.
 
-    A selection of `member_municipality` filtered on `member_head_name = 'Peeters'`
-    carries no name in its columns — and would tell the model, row by row, which
-    municipality that household lives in. The fence therefore reads the filters
+    A selection of `member_municipality` filtered on a treasurer's note carries no
+    note in its columns — and would tell the model, row by row, which municipality
+    the households with that note live in. The fence therefore reads the filters
     too.
 
     Broken to see it red: the `filter_keys` line dropped from `run_report`; the
@@ -115,29 +130,32 @@ def test_the_fence_also_covers_a_filter_on_such_an_object(db_session):
     """
     dispatch = dispatcher(tenant_id=TENANT)
     out = json.loads(dispatch("run_report", {
-        "objects": ["member_municipality", "member_total_count"],
-        "filters": [{"object": "member_head_name", "operator": "eq",
-                     "values": ["Peeters"]}],
+        "objects": ["payment_method", "payment_count"],
+        "filters": [{"object": "payment_note", "operator": "contains",
+                     "values": ["herinnering"]}],
     }, db_session))
-    assert "error" in out and "Hoofdlid" in out["error"]
+    assert "error" in out and "Notitie" in out["error"]
 
 
-def test_list_values_obeys_the_same_rule(db_session):
+def test_list_values_hands_back_tokens_and_never_names(db_session):
     """The values of a person-naming dimension ARE names (CR-07 §4.2).
 
     Worth its own test because it is the gap that would be easy to leave: the
-    fence was written for `run_report`, and `list_values` is a different function
-    reaching the same data by another road. A tool result is a tool result.
+    tokenisation was written for `run_report`, and `list_values` is a different
+    function reaching the same data by another road. A tool result is a tool
+    result, whichever tool produced it.
 
-    Broken to see it red: the `_REFUSED` check removed from `list_values` — the
-    seeded surname then comes back in the value list.
+    Broken to see it red: the `_TOKENISED` branch removed from `list_values` —
+    the seeded surname then comes back in the value list, which is the second
+    assertion.
     """
-    _person(db_session, "Mira", "Vandenbulcke")
+    persoon = _person(db_session, "Mira", "Vandenbulcke")
+    _assign_board_member(db_session, persoon)
     dispatch = dispatcher(tenant_id=TENANT)
-    out = json.loads(dispatch("list_values", {"object": "member_head_name"},
+    out = json.loads(dispatch("list_values", {"object": "board_member"},
                               db_session))
-    assert "error" in out
     assert "Vandenbulcke" not in json.dumps(out)
+    assert any(v.startswith("persoon-") for v in out["values"]), out
 
 
 def test_the_query_panel_still_shows_what_the_assistant_refuses(db_session):

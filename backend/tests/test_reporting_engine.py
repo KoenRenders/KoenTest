@@ -217,11 +217,22 @@ def test_every_object_is_offered_to_whoever_gets_through_the_door():
 
 
 def test_the_engine_takes_no_roles_at_all():
-    """Stated on the signature, so it cannot be passed by accident."""
-    import inspect
+    """Stated on the signature, so it cannot be passed by accident.
 
-    parameters = set(inspect.signature(build_query).parameters)
-    assert parameters == {"selection", "tenant_id"}
+    The list is exact rather than a "does not contain role" check: a fence that
+    only forbids the words you thought of forbids nothing. Adding a parameter here
+    is allowed — it just has to be a deliberate edit with a reason written down,
+    which is the whole mechanism.
+
+    `with_entities` (CR-07 §5.2) is not identity. It asks for the entity id of a
+    row as a hidden column so the assistant can turn a household into `gezin-23`;
+    it says nothing about who is asking and grants nothing. The parameter that
+    would break this rule is one that changes WHAT you may see, not one that
+    changes what shape it comes back in.
+    """
+    from tests._engine_signature import assert_engine_signature
+
+    assert_engine_signature()
 
 
 def test_every_money_measure_is_declared_finance():

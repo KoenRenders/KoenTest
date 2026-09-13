@@ -1,5 +1,12 @@
 # Architectuur — chatbot 'Raakje' (#205)
 
+> **De backoffice-assistent staat in een eigen document:**
+> [`raakje-backoffice.md`](raakje-backoffice.md) (#917, CR-07). Sinds die
+> wijziging is de gesprekslus hieronder domeinvrij en is de publieke bot zelf het
+> eerste *capability-pakket* erop — één Raakje, twee gereedschapskisten. Wat hier
+> staat blijft kloppen voor de publieke kant; de naadwachter en het uitgaand
+> logboek die daar beschreven staan, gelden voor béide.
+
 Publieke website-chatbot die bezoekers informeert over Raak Millegem, hun naar de
 juiste activiteit begeleidt, en hen via de bestaande IdeaBox een vraag/idee laat
 achterlaten. Dit document legt uit **hoe data van ons systeem bij het taalmodel

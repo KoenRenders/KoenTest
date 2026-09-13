@@ -239,6 +239,12 @@ class UniverseObject:
     # klikbare cel in het paneel worden omdat de assistent een id nodig heeft. Leeg =
     # gebruik `drill_sql`.
     entity_sql: str = ""
+    # CR-07 §5.2: het woord vóór het id in de token — `gezin-23`, `persoon-90`. Het
+    # hoort bij de ENTITEIT waar het id naar wijst en niet bij het object, want
+    # 'Hoofdlid' en 'Adres' wijzen allebei een gezin aan: dezelfde rij levert dan
+    # twee keer `gezin-23`, en dat is juist wat het model moet zien. Verplicht zodra
+    # `ai_exposure` op tokenised staat — anders valt er niets te tokeniseren.
+    token_prefix: str = ""
     sensitive: bool = False
     # A measure that may be added across merged rows. True for a SUM or a plain
     # COUNT; false for an average or a distinct count, where the sum of the parts
@@ -1006,7 +1012,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
         view="d_member", sql="{view}.member_id", format=Format.COUNT,
         role=Role.ADMIN, sensitive=True, drill="member", drill_sql="{view}.member_id",
         description="Het gezin zelf. Klik door naar het gezinsdossier.",
-        ai_exposure=AiExposure.TOKENISED,
+        ai_exposure=AiExposure.TOKENISED, token_prefix="gezin",
     ),
     UniverseObject(
         key="address_line", name="Adres", klass="Leden",
@@ -1025,7 +1031,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
             "'hoeveel gezinnen per gemeente' neem je Gemeente, die al op "
             "gezinskorrel staat."
         ),
-        ai_exposure=AiExposure.TOKENISED,
+        ai_exposure=AiExposure.TOKENISED, token_prefix="gezin",
         entity_sql="{view}.member_id",
     ),
     UniverseObject(
@@ -1073,7 +1079,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
             "Het huisnummer. Wordt natuurlijk gesorteerd — het is tekst, dus "
             "alfabetisch zou 10 vóór 9 komen en staat een straat door elkaar."
         ),
-        ai_exposure=AiExposure.TOKENISED,
+        ai_exposure=AiExposure.TOKENISED, token_prefix="gezin",
         entity_sql="{view}.member_id",
     ),
     UniverseObject(
@@ -1081,7 +1087,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
         kind=ObjectKind.DIMENSION, view="d_address", sql="{view}.bus_number",
         format=Format.LABEL, role=Role.MEMBER_DETAILS,
         description="Het busnummer, leeg als er geen is.",
-        ai_exposure=AiExposure.TOKENISED,
+        ai_exposure=AiExposure.TOKENISED, token_prefix="gezin",
         entity_sql="{view}.member_id",
     ),
     UniverseObject(
@@ -1092,7 +1098,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
             "De naam van het hoofdlid van dit gezin. Op gezinskorrel, dus één per "
             "rij."
         ),
-        ai_exposure=AiExposure.TOKENISED,
+        ai_exposure=AiExposure.TOKENISED, token_prefix="gezin",
         entity_sql="{view}.member_id",
     ),
     UniverseObject(
@@ -1104,7 +1110,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
             "in één gezin, dan toont dit er één — de korrel blijft één rij per "
             "gezin."
         ),
-        ai_exposure=AiExposure.TOKENISED,
+        ai_exposure=AiExposure.TOKENISED, token_prefix="gezin",
         entity_sql="{view}.member_id",
     ),
     UniverseObject(
@@ -1504,7 +1510,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
             "een van de nuttigste uitkomsten van dit rapport, geen gat. Draagt de "
             "huidige toewijzing, geen historie."
         ),
-        ai_exposure=AiExposure.TOKENISED,
+        ai_exposure=AiExposure.TOKENISED, token_prefix="persoon",
         entity_sql="{view}.board_member_id",
     ),
     UniverseObject(

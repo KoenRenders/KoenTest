@@ -101,3 +101,55 @@ def test_free_text_fields_reach_no_model():
     for key in ("payment_note", "task_detail", "payment_payable_label"):
         assert per_key[key].ai_exposure is AiExposure.NONE, (
             f"{key} is vrije tekst en zou een model kunnen bereiken")
+
+
+# ── Phase 2: a token needs a prefix as much as it needs an id ────────────────
+
+KNOWN_PREFIXES = {"gezin", "persoon"}
+
+
+def test_a_tokenised_object_declares_what_its_token_is_called():
+    """`token_prefix` is the word before the id: `gezin-23`, `persoon-90`.
+
+    Without it the tokenisation would have to guess a name from the column, and a
+    guess here is worse than it sounds: the prefix is what the inbound
+    re-translation looks the id up by, so a wrong one silently fails to resolve
+    and the admin reads `gezin-23` where a name was promised.
+
+    The prefix belongs to the ENTITY and not to the object, which is why more than
+    one object shares one: 'Hoofdlid' and 'Adres' both point at a household, so the
+    same row gives `gezin-23` twice — and that is exactly what the model should
+    see.
+
+    Broken to see it red: the prefix removed from `member_head_name` (the first
+    assertion names it), and set to `"huishouden"` (the second — a prefix the
+    re-translation has no lookup for would resolve to nothing, forever).
+    """
+    tokenised = [o for o in OBJECTS if o.ai_exposure is AiExposure.TOKENISED]
+    assert len(tokenised) >= 5, (
+        "deze poort draait over de getokeniseerde objecten; vindt ze er bijna "
+        "geen, dan bewaakt ze niets (#678)"
+    )
+
+    zonder = [o.key for o in tokenised if not o.token_prefix]
+    assert not zonder, f"deze objecten worden getokeniseerd zonder prefix: {zonder}"
+
+    onbekend = {o.key: o.token_prefix for o in tokenised
+                if o.token_prefix not in KNOWN_PREFIXES}
+    assert not onbekend, (
+        "deze prefixen kent de terugvertaling niet, dus hun token wordt op het "
+        f"scherm nooit een naam: {onbekend}. Voeg de opzoeking toe in "
+        "`assistant._LABEL_SQL`, of gebruik een bestaande prefix."
+    )
+
+
+def test_an_object_that_is_not_tokenised_carries_no_prefix():
+    """A prefix on a plain object is a leftover, and leftovers get believed.
+
+    It would read as "this is tokenised" to the next person, while the value goes
+    out as itself — the most expensive kind of wrong documentation, because it is
+    in the code.
+    """
+    fout = {o.key: o.token_prefix for o in OBJECTS
+            if o.token_prefix and o.ai_exposure is not AiExposure.TOKENISED}
+    assert not fout, f"prefix zonder tokenisatie: {fout}"

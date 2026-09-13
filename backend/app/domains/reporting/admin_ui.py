@@ -811,7 +811,8 @@ async def assistant_ask(request: Request, db: Session = Depends(get_db),
     )
     from app.domains.mdm.api import person_name_parts
     from app.domains.reporting.assistant import (
-        CAPABILITY, TOOL_SPECS, build_system_prompt, dispatcher,
+        CAPABILITY, TOOL_SPECS, build_system_prompt, detokenise, dispatcher,
+        scrub_question,
     )
 
     form = await request.form()
@@ -831,9 +832,16 @@ async def assistant_ask(request: Request, db: Session = Depends(get_db),
     # network are two people (CR-07 §4.2).
     admin_chat_char_budget.charge(request, len(vraag), key=email)
 
+    # The typed question is an outbound channel too (CR-07 §5.6). A name in it
+    # becomes that household's token before anything leaves — so the history, the
+    # payload and the log all hold what Mistral saw, and not a second copy of the
+    # name.
+    tenant = _tenant(request)
+    verstuurd = scrub_question(db, vraag, tenant_id=tenant)
+
     messages = [{"role": "system", "content": build_system_prompt()}]
     messages += turns
-    messages.append({"role": "user", "content": vraag})
+    messages.append({"role": "user", "content": verstuurd})
 
     provider = GuardedProvider(
         get_provider(settings.admin_chat_model),
@@ -845,7 +853,7 @@ async def assistant_ask(request: Request, db: Session = Depends(get_db),
         antwoord = run_chat(db, messages, provider,
                             max_rounds=settings.admin_chat_max_tool_rounds,
                             tools=TOOL_SPECS,
-                            dispatch=dispatcher(tenant_id=_tenant(request)),
+                            dispatch=dispatcher(tenant_id=tenant),
                             deadline=deadline)
     except (SeamBlocked, ChatTimeout) as gestopt:
         # The log row is already written, in the logbook's own session — precisely
@@ -866,12 +874,16 @@ async def assistant_ask(request: Request, db: Session = Depends(get_db),
                 payload=_last_payload(provider),
                 history=_history_out(turns)).as_context())
 
-    turns = turns + [{"role": "user", "content": vraag},
+    # The history carries what the model said, tokens and all; the screen shows
+    # the names. Feeding the rendered answer back would put a name in the next
+    # payload — the one place this whole mechanism must not put one.
+    turns = turns + [{"role": "user", "content": verstuurd},
                      {"role": "assistant", "content": antwoord}]
     return templates.TemplateResponse(
         request, "_rp_raakje_antwoord.html",
-        AssistantTurnView(vraag=vraag, antwoord=antwoord, error="",
-                          payload=_last_payload(provider),
+        AssistantTurnView(vraag=vraag,
+                          antwoord=detokenise(db, antwoord, tenant_id=tenant),
+                          error="", payload=_last_payload(provider),
                           history=_history_out(turns)).as_context())
 
 

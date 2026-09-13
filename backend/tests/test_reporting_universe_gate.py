@@ -340,11 +340,9 @@ def test_no_per_object_role_fence_has_quietly_appeared():
     not there — so `build_query` takes no roles, and this says so on the
     signature where it cannot be passed by accident.
     """
-    import inspect
+    from tests._engine_signature import assert_engine_signature
 
-    from app.domains.reporting.api import build_query
-
-    assert set(inspect.signature(build_query).parameters) == {"selection", "tenant_id"}
+    assert_engine_signature()
 
 
 def test_every_object_still_declares_its_role():
