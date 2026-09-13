@@ -113,6 +113,15 @@ Two layers, split so the assistant can grow beyond reporting (raised
   `chatbot` facade grows one export (the seam), so reporting imports chatbot —
   never the reverse.
 
+**A capability pack holds no business logic of its own** (confirmed
+13 September 2026). It is tool specs plus adapter glue; everything a tool
+needs substantively is built in the domain that owns the subject and exported
+through that domain's `api.py` facade — reporting through `reporting.api`, a
+future newsletter tool through `mail.api`, and so on. When something is
+missing, the owning domain's facade grows (an issue in that domain), never the
+assistant. The same import-boundary test that binds every `ui.py` to facades
+binds the assistant layer.
+
 Future *acting* capabilities (draft a meeting template, draft a newsletter)
 are later packs on the same kernel — their own change request. Three rules are
 fixed for them now, because they follow from standing policy: **drafting is
