@@ -206,6 +206,12 @@ A conversation is **multi-turn within the screen session** (decided
 clarifying questions get their answer in the same thread. History is not
 persisted across sessions — see §10.
 
+An answer can take 15–30 seconds (several rounds against a medium model), so
+the screen shows a busy state ("Raakje denkt na…") while the request runs, and
+a **wall-clock cap per question** ends a stuck conversation with a clean error
+instead of an endless spinner (decided 13 September 2026; cap value is a
+phase-1 default to measure).
+
 ### 4.4 Model choice
 
 Provider stays Mistral (EU — Europe First holds; nothing new is added).
@@ -297,7 +303,11 @@ tool result** — the engine and the panel are untouched.
    Independent means: no shared code with the tokenisation or the `ai_exposure` declaration; a
    check that fails together with what it checks, checks nothing. It sits at
    the provider seam (§4.1), so every capability — present or future — passes
-   through it. This is the layer that catches the bug nobody predicted. Phase 1 — it protects even
+   through it. The guard is **per capability, not global**: the public pack is
+   exempt from the tenant-name/e-mail matching, because a visitor deliberately
+   types their own name and e-mail for the contact path and the public bot's
+   privacy note already covers that — a global guard would break `submit_idea`.
+   The pattern checks and the logging apply to both surfaces. This is the layer that catches the bug nobody predicted. Phase 1 — it protects even
    while person-naming objects are still refused outright.
 
    Honest limits, stated here so nobody restates them as a finding: name
@@ -341,6 +351,13 @@ then breaks its mechanism deliberately and asserts the test goes red.
    itself is untouched — the AI log is its counterpart at the seam, not its
    replacement. Side effect worth keeping: reporting stays the domain that
    owns almost no data.
+
+   The log also records **token usage per provider call** (Mistral returns it
+   with every response; today's provider discards the field) and **which
+   surface called** — public or back office. Logging at the seam means the
+   public Raakje gets cost observability in the same release for free, and
+   one query answers "wat kost de AI deze maand?" for both bots (decided
+   13 September 2026).
 5. **CSRF and session semantics** as on every admin htmx screen.
 6. **Reporting is a terminus — gated, not assumed** (rule fixed 13 September
    2026). Its views are read models: question-shaped, derived, and free to
@@ -386,12 +403,29 @@ exists and defaults to off.
 ## 7. Answer form
 
 Text only, Dutch, bullets allowed; no charts, no tables-as-images. Numbers in
-an answer come from tool results — the system prompt forbids arithmetic beyond
-what a returned row states, and the totals row is returned precisely so the
-model does not add up pages. Every answer carries a one-line provenance footer
+an answer come from tool results, and the totals row is returned precisely so
+the model does not add up pages. **Simple derived arithmetic is allowed —
+difference, percentage — on the condition that both base numbers appear in the
+answer** (decided 13 September 2026): "2026: 120, 2025: 100 — 20% meer" is
+fine; a percentage whose operands are not shown is not. Numbers that rest on
+nothing remain forbidden. Every answer carries a one-line provenance footer
 ("op basis van: inschrijvingen × activiteit, filter jaar = 2026") rendered from
 the executed selection — the admin sees what was actually asked, which is also
 the debugging handle when an answer looks off.
+
+Two answer-content rules, both decided 13 September 2026:
+
+- **Ambiguous money words carry a declared default.** "Omzet" means the
+  *charged* amounts (te betalen/gefactureerd) unless the question says
+  otherwise; the catalogue declares this preference and the answer names the
+  measure it used ("omzet (gefactureerd): …"), so the default is visible, not
+  silent. When two measures remain genuinely plausible, Raakje asks instead of
+  picking.
+- **The threshold explains itself.** The assistant merges groups under five
+  (its rows go to Mistral; the panel's do not), so the assistant is stricter
+  than the panel on purpose. Whenever a merge happened, the answer says so —
+  "kleine groepen samengevoegd (privacydrempel)" — because an unexplained
+  difference with the panel reads as a bug and costs trust.
 
 ## 8. Cohort reasoning — prediction without a model
 
@@ -415,7 +449,15 @@ here.
 1. **Aggregates.** Catalogue renderer, the two tools, generalised loop, admin
    screen, kill-switch + tenant flag, question log, caps, **seam guard and the
    "wat zag Mistral" payload view (§5.7–5.8)**, **the reporting-terminus gate
-   (§6.6)**. Test set 1–6 green.
+   (§6.6)**. Also in phase 1, decided 13 September 2026: **sharpening every
+   object description in the universe** — the descriptions are the model's
+   whole understanding of the data, and the same text becomes the panel
+   tooltip, one source (this lifts the earlier deliberate deferral of writing
+   column descriptions); and the **evaluation harness**: the six test-set
+   questions with known-correct answers on seeded data, run by hand before
+   each release that touches the assistant, result recorded in the release
+   tracker — the bar is 6/6, where a clarifying question counts as correct.
+   Test set 1–6 green.
    **Deploy gate**: the processor agreement with Mistral and the privacy-
    statement update (§6.1.1) are tracker checkboxes ticked by hand before the
    first deploy to any environment beyond HDEV.
@@ -463,6 +505,12 @@ here.
 | Entry point | A "Vraag het Raakje" button on the reports screen, opening the assistant's own page — no separate menu entry |
 | Conversation | Multi-turn within the screen session; not persisted across sessions (§10) |
 | Per-user chat history | Not in v1 — deferred until the question log shows measured need (§10) |
+| "Omzet" without qualification | The charged amounts (gefactureerd); the answer names the measure used; genuine ambiguity → ask (13 September 2026) |
+| Small-cell threshold for the assistant | Stays on — stricter than the panel by design; every merge is named in the answer (13 September 2026) |
+| Object descriptions | Sharpened in phase 1; same text serves as panel tooltip — the earlier deferral is lifted (13 September 2026) |
+| Derived arithmetic | Allowed when both base numbers are shown in the answer (13 September 2026) |
+| Acceptance bar | 6/6 on the seeded test set, run by hand per release, result in the tracker (13 September 2026) |
+| Cost & latency | Token usage logged per call at the seam for both surfaces; wall-clock cap per question; busy indicator on screen (13 September 2026) |
 
 Defaults taken in this draft, to be challenged: `mistral-medium-latest` as the
 starting model; row cap 50, round cap 6; the question log stays a table without
