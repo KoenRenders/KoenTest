@@ -113,8 +113,8 @@ Two tools, in their own allowlist with their own dispatch — the public
 | `run_report(selection)` | Validate + execute one selection; return columns, rows (pseudonymised, capped), totals, and the refusal text on failure | `selection_from_dict` → `resolve_selection` → `run_selection` |
 | `list_values(object_key)` | The existing values a dimension holds, for clarification and for filter construction | `dimension_values` |
 
-`list_values` follows the same pii rule as `run_report`: the values of a
-person-naming dimension *are* names, so on a pii-flagged object it is refused in
+`list_values` follows the same exposure rule as `run_report`: the values of a
+person-naming dimension *are* names, so on an `admin_tokenised` object it is refused in
 phase 1 and tokenised in phase 2 — a tool result is a tool result, whichever
 tool produced it.
 
@@ -168,22 +168,42 @@ pseudonymisation and the screen are testable without a key.
 The one genuinely new mechanism. Placement: **between `run_selection` and the
 tool result** — the engine and the panel are untouched.
 
-1. **A `pii` flag on universe objects.** Set on the objects whose value
-   identifies a person: head-of-household name, partner name, address line,
-   house number, bus, and the label of the household/person dimensions. Not on
-   street, municipality, postal code, age group, household size — those are the
-   aggregates the assistant exists for. The flag is declared in the universe,
-   so it appears in the generated documentation and is gated like every other
-   universe property.
-2. **Outbound: value → token.** In a tool result, every pii-flagged column's
+1. **A mandatory `ai_exposure` classification on every universe object —
+   no default** (sharpened by Koen, 13 September 2026: a flag someone can
+   forget is the wrong default on an outbound AI channel). Every object
+   declares one of three values:
+
+   | Value | Meaning |
+   |---|---|
+   | `admin_plain` | May reach the admin assistant as-is — aggregates and non-identifying dimensions: street, municipality, age group, household size |
+   | `admin_tokenised` | Identifies a person (pii — *personally identifiable information*): head-of-household name, partner name, address line, house number, bus, the household/person dimension labels. Reaches the assistant only as a token |
+   | `none` | Reaches no LLM at all, admin included |
+
+   The field has **no default value in the dataclass**: adding an object
+   without deciding its exposure is an import error — CI is red before a
+   single test runs. Deliberately absent from the enum: a "public" value —
+   the public Raakje never touches the universe, structurally, and this
+   declaration must not suggest otherwise. The classification appears in the
+   generated documentation like every other universe property, and a gate
+   test enforces coherence: values from the enum only, `admin_tokenised`
+   requires an entity-id source (point 2), `none` objects are refused by
+   name in the assistant layer. The gate proves itself the #678 way: declare
+   one object wrongly on purpose, see red, restore.
+
+   The same exhaustiveness applies to the **public** bot's own surface: each
+   of its three tools gets a declared field contract, and a gate compares the
+   keys a tool result actually emits against it — a field added to a
+   serialiser without a contract update is a red build, not a silent new
+   export to Mistral.
+2. **Outbound: value → token.** In a tool result, every `admin_tokenised` column's
    value is replaced by a stable token built from the row's entity id, which
    `drill_aliases` already carries: `gezin-23`, `persoon-90`. Same entity, same
    token, within and across turns of one conversation — the model can reason
    about recurrence. The id in the token is what makes the whole mechanism
    **stateless**: nothing about the mapping is stored per conversation.
-   Consequence: a pii-flagged object must have an entity id in its rows — a
+   Consequence: an `admin_tokenised` object must have an entity id in its rows — a
    gate test asserts it for every object carrying the flag, so an object that
-   cannot be tokenised cannot be declared pii-and-allowed.
+   cannot be tokenised cannot be declared `admin_tokenised`.
 3. **Inbound: token → value, at render time.** Tokens occurring in the final
    answer are replaced server-side by the real label — the id is parsed from
    the token, resolved with one tenant-scoped lookup against the dimension
@@ -221,10 +241,10 @@ tool result** — the engine and the panel are untouched.
    tenant's member/person name list, and against patterns that must never
    occur in outbound data at all (e-mail address, phone number, IBAN). A hit
    **blocks the call** — error on screen, loud log line — rather than sending.
-   Independent means: no shared code with the tokenisation or the pii flag; a
+   Independent means: no shared code with the tokenisation or the `ai_exposure` declaration; a
    check that fails together with what it checks, checks nothing. This is the
    layer that catches the bug nobody predicted. Phase 1 — it protects even
-   while pii objects are still refused outright.
+   while person-naming objects are still refused outright.
 
    Honest limits, stated here so nobody restates them as a finding: name
    matching misses nicknames and typos (the payload view is the backstop), and
@@ -232,7 +252,7 @@ tool result** — the engine and the panel are untouched.
    side, resolved by rephrasing the question.
 
 Gate-style tests (the CLAUDE.md "bewijs het" norm), one per mechanism: a test
-composes a selection containing every pii-flagged object, captures the exact
+composes a selection containing every `admin_tokenised` object, captures the exact
 payload handed to the provider (mock), and asserts no value from a seeded
 name/address set appears in it; a second seeds a name into the question text
 and asserts the scrub replaced it; a third hands the guard a payload with a
@@ -318,7 +338,7 @@ here.
    **Deploy gate**: the processor agreement with Mistral and the privacy-
    statement update (§6.1.1) are tracker checkboxes ticked by Koen before the
    first deploy to any environment beyond HDEV.
-   Pii flag already declared; person-naming objects simply refused in the
+   `ai_exposure` already declared on every object; `admin_tokenised` objects simply refused in the
    assistant's selections this phase (named refusal, so the model routes
    around them). The refusal lives in the **assistant layer**, before
    `build_query` — never in the engine, which serves the query panel too and
