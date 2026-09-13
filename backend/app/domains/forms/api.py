@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 
 import logging
 
-from app.domains.forms.models import Form, FormSubmission
+from app.domains.forms.models import Form, FormField, FormSubmission
 
 logger = logging.getLogger(__name__)
 
