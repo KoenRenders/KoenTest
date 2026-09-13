@@ -19,7 +19,20 @@ in #785). Issue #785 turned that into a method for the admin side: mockups in
 a proposed direction, an external review round, triage into tokens and macros,
 Koen decides, execution along the governance chain, a measured second round.
 
-This change request is the umbrella above it:
+The redesign has **two halves, and this umbrella covers both** (context from
+the architecture session of 9–10 September 2026):
+
+- **The interaction model** — design-system §4: twelve named patterns
+  (P1–P12), each with when / what happens / where attention goes / the way
+  back / forbidden / test. Three patterns carry open fields (P1, P3, P4) and
+  §12 lists the five open decisions. A screen *names* its patterns; an agent
+  picks one, never invents one. Behaviour is the half of "strak" that no
+  colour token can fix.
+- **The visual direction** — issue #785: product brand for the admin shell,
+  tenant brand for the public side, decided on four mockups (payments list,
+  activity detail + registration panel, form builder, registration modal).
+
+This change request is the umbrella above both:
 
 1. **#785 runs as written** — the admin side gets its product-brand direction,
    decided on mockups. Nothing about the method is restated or altered here.
@@ -58,16 +71,26 @@ whichever criticises sharpest; anything that ever contains real data goes
 masked and to Mistral only. Model feedback is never applied automatically —
 triage first, Koen decides.
 
-## 3. Sequence
+## 3. Sequence (deliberate — from the architecture session)
 
-1. **#785 phase 0–4 for the admin side** (screenshot script, mockups, review,
-   triage, direction decided — including design-system §12.1).
-2. **Public concept round** with the maker-role addition (§0.3): proposals →
-   review → triage → Koen chooses the public direction.
-3. **Execution along the governance chain** (#785 step 5), admin and public
-   each per screen type, absorbing #758/#760 per touched screen.
+1. **The decision round first**: the interaction-model decisions
+   (design-system §12: attention after an action, the way back, the unsaved-
+   changes promise, wizard/dashboard as types) *and* the visual direction —
+   #785 phase 0–4 plus the public concept round with the maker-role addition
+   (§0.3). One decision moment, both halves, decided per pattern and per
+   direction on the mockups.
+2. **Only then the screen sweep #758**: sweeping first would measure twenty
+   screens against rules the decision round is about to change — every screen
+   touched twice.
+3. **Execution along the governance chain** (#785 step 5): per pattern one
+   issue where code changes, one issue for the tokens; per screen type, not
+   per screen; absorbing #758/#760 per touched screen.
 4. **Measured second review round** per side (#785 step 6): fewer and lighter
    findings than round one, both counts recorded on the issue.
+
+The whole runs as **its own track with its own tracker ("Ontwerpspoor")**,
+not inside a running release — it touches too many screens to ride along with
+feature work.
 
 ## 4. Out of bounds (fixed decisions that stand)
 
@@ -82,11 +105,17 @@ frontend stack, no component library, no hand-written CSS (#785 non-goals).
 - A rebrand: the huisstijl is input, not output. A concept may propose a
   brand adjustment, but that goes to the board explicitly, never in as a
   token change.
-- Dark mode — #785 excludes it from review rounds; it enters only if §6
-  declares it in scope.
+- Dark mode, gradients, decoration — excluded by the review briefing on
+  purpose: this is a dense back office, not a marketing page. (Settled; no
+  longer an open question.)
 - New screen functionality smuggled in as "while we're here".
 
 ## 6. Open questions
+
+The five §12 decisions of `docs/design-system.md` (admin brand, attention
+after an action, the way back, the unsaved-changes promise, wizard/dashboard
+as types) are the core of the decision round and are not repeated here — they
+are decided there, on the mockups. Open in *this* document:
 
 1. Which screens bother the eye most today? A handful of named examples
    (screenshot + one sentence) sharpens the proposal brief more than any
@@ -95,7 +124,3 @@ frontend stack, no component library, no hand-written CSS (#785 non-goals).
    board, or stay strictly within the eight colours?
 3. Own photography as a structural design element (hero images, activity
    cards) — in scope for the public concept?
-4. Dark mode: in or out?
-5. Order: #785's admin track first, or the public concept round first now
-   that the broader ambition is on the table? (#785 assumed admin first; the
-   80%-mobile argument pulls the other way.)
