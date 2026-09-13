@@ -97,11 +97,46 @@ asks which cut the user wants — driven by `list_values`, not by guessing.
 
 ### 4.1 Placement
 
-The assistant lives **inside the reporting domain** (`reporting/assistant.py` +
-an `admin_ui` route + template). Reporting already is the domain that reads from
-everywhere and is imported by nobody; that invariant stands. The `chatbot`
-facade grows one export: the provider seam (`LLMProvider`, `get_provider`), so
-reporting imports chatbot — never the reverse.
+Two layers, split so the assistant can grow beyond reporting (raised
+13 September 2026):
+
+- **The conversation kernel is domain-neutral and lives in the `chatbot`
+  domain**: the generalised loop (§4.3), the provider seam, the budgets, the
+  question/payload log (§6.4) and — deliberately — the seam guard (§5.7–5.8).
+  Nothing in that list is about reporting; putting it at the seam means every
+  future capability inherits the privacy boundary automatically instead of
+  reimplementing it. There is **one Raakje domain, not two**: the public bot
+  is itself the first pack on this kernel (its three tools + the `/raakje`
+  screen), and the back-office Raakje is not a domain but the same kernel
+  wearing a different toolset — the pack with the data's owner, the screen
+  with its audience.
+- **A capability is a pluggable toolset.** Reporting is the *first* one:
+  `reporting/assistant.py` (toolset + catalogue renderer + pseudonymisation) +
+  an `admin_ui` route + template, read-only by construction. Reporting stays
+  the domain that reads from everywhere and is imported by nobody; the
+  `chatbot` facade grows one export (the seam), so reporting imports chatbot —
+  never the reverse.
+
+**A capability pack holds no business logic of its own** (confirmed
+13 September 2026). It is tool specs plus adapter glue; everything a tool
+needs substantively is built in the domain that owns the subject and exported
+through that domain's `api.py` facade — reporting through `reporting.api`, a
+future newsletter tool through `mail.api`, and so on. When something is
+missing, the owning domain's facade grows (an issue in that domain), never the
+assistant. The same import-boundary test that binds every `ui.py` to facades
+binds the assistant layer.
+
+Future *acting* capabilities (draft a meeting template, draft a newsletter)
+are later packs on the same kernel — their own change request. Three rules are
+fixed for them now, because they follow from standing policy: **drafting is
+not sending** (the AI composes, a person confirms anything outward-facing —
+the same line UAT/PROD deploys draw); **one write path** (an acting tool
+reuses its domain's existing write path, as the public bot's `submit_idea`
+already goes through `submit_bericht`); and **injection weighs heavier with
+acting tools** (a planted instruction can trigger an action, not just a wrong
+answer — the confirmation step is the brake, not a courtesy). The read-only
+rule of §4.2 is about *questions*; acting tools use domain facades for
+*actions*, behind confirmation, and change neither rule.
 
 ### 4.2 The tool surface (the whole of it)
 
@@ -113,13 +148,42 @@ Two tools, in their own allowlist with their own dispatch — the public
 | `run_report(selection)` | Validate + execute one selection; return columns, rows (pseudonymised, capped), totals, and the refusal text on failure | `selection_from_dict` → `resolve_selection` → `run_selection` |
 | `list_values(object_key)` | The existing values a dimension holds, for clarification and for filter construction | `dimension_values` |
 
-`list_values` follows the same pii rule as `run_report`: the values of a
-person-naming dimension *are* names, so on a pii-flagged object it is refused in
+`list_values` follows the same exposure rule as `run_report`: the values of a
+person-naming dimension *are* names, so on an `admin_tokenised` object it is refused in
 phase 1 and tokenised in phase 2 — a tool result is a tool result, whichever
 tool produced it.
 
 The universe catalogue is **system prompt, not a tool**: it is small, static per
 release, and the model needs it before its first move.
+
+**In-process on the domain facade — not on the views, not over HTTP** (settled
+13 September 2026). The LLM never sees SQL or the `reporting.*` views:
+that would trade "no free SQL, ever" for a prompt's good behaviour. And the
+tools do not call `/api/v1` either: the assistant runs inside the same backend,
+so an HTTP hop to itself would add token plumbing and a second surface to
+secure, for nothing. The tools call `reporting.api` directly — the same way the
+public bot's tools call the activities facade — so the engine remains the one
+enforcement point for tenant, threshold and refusals, whoever the caller is.
+**Why not the other domain facades, which hold the complex business rules?**
+(settled 13 September 2026). Three reasons, one pattern. A domain facade
+returns unclassified shapes — everything on the object, names included, with no
+`ai_exposure`, no threshold, no declared refusals; every domain tool opened is
+a second surface to classify field by field. The business rules a *question*
+needs are already being lifted into the universe as declared objects —
+`payment_outstanding` and `member_valid_today` are business rules, not columns
+— and that is the pattern when one is missing: "volzet" becomes a view column
+and a declared object, never a service call from the LLM. And two paths to one
+number means two answers to one question: if the assistant computed revenue
+through a service while the panel reads the universe, one discrepancy would
+break trust in both. The rule, stated once: **when a question needs a business
+rule the universe lacks, the universe grows — never the tool list.** An
+assistant that *acts* (send a reminder) is the one thing that genuinely needs
+domain facades — that is workflow, its own change request with its own
+contracts, not a shortcut through this one.
+
+The "descriptive API" is what the model sees, not how it executes: the
+catalogue plus these tool specs. An HTTP surface becomes relevant only the day
+an agent *outside* the backend must ask questions — a different requirement.
 
 Caps: rows per tool result (start: 50, with an explicit "refine your filter"
 marker when cut), tool rounds (start: 6 — selections need more retries than the
@@ -137,10 +201,16 @@ instead of importing the public ones (one loop, two configurations — public an
 admin). The admin screen mirrors `/raakje`: htmx question/answer,
 server-side complete, no SSE. History capped like the public bot.
 
-A conversation is **multi-turn within the screen session** (confirmed by Koen,
+A conversation is **multi-turn within the screen session** (decided
 12 September 2026): follow-ups like "en per maand?" build on earlier turns, and
 clarifying questions get their answer in the same thread. History is not
 persisted across sessions — see §10.
+
+An answer can take 15–30 seconds (several rounds against a medium model), so
+the screen shows a busy state ("Raakje denkt na…") while the request runs, and
+a **wall-clock cap per question** ends a stuck conversation with a clean error
+instead of an endless spinner (decided 13 September 2026; cap value is a
+phase-1 default to measure).
 
 ### 4.4 Model choice
 
@@ -156,22 +226,42 @@ pseudonymisation and the screen are testable without a key.
 The one genuinely new mechanism. Placement: **between `run_selection` and the
 tool result** — the engine and the panel are untouched.
 
-1. **A `pii` flag on universe objects.** Set on the objects whose value
-   identifies a person: head-of-household name, partner name, address line,
-   house number, bus, and the label of the household/person dimensions. Not on
-   street, municipality, postal code, age group, household size — those are the
-   aggregates the assistant exists for. The flag is declared in the universe,
-   so it appears in the generated documentation and is gated like every other
-   universe property.
-2. **Outbound: value → token.** In a tool result, every pii-flagged column's
+1. **A mandatory `ai_exposure` classification on every universe object —
+   no default** (sharpened 13 September 2026: a flag someone can
+   forget is the wrong default on an outbound AI channel). Every object
+   declares one of three values:
+
+   | Value | Meaning |
+   |---|---|
+   | `admin_plain` | May reach the admin assistant as-is — aggregates and non-identifying dimensions: street, municipality, age group, household size |
+   | `admin_tokenised` | Identifies a person (pii — *personally identifiable information*): head-of-household name, partner name, address line, house number, bus, the household/person dimension labels. Reaches the assistant only as a token |
+   | `none` | Reaches no LLM at all, admin included |
+
+   The field has **no default value in the dataclass**: adding an object
+   without deciding its exposure is an import error — CI is red before a
+   single test runs. Deliberately absent from the enum: a "public" value —
+   the public Raakje never touches the universe, structurally, and this
+   declaration must not suggest otherwise. The classification appears in the
+   generated documentation like every other universe property, and a gate
+   test enforces coherence: values from the enum only, `admin_tokenised`
+   requires an entity-id source (point 2), `none` objects are refused by
+   name in the assistant layer. The gate proves itself the #678 way: declare
+   one object wrongly on purpose, see red, restore.
+
+   The same exhaustiveness applies to the **public** bot's own surface: each
+   of its three tools gets a declared field contract, and a gate compares the
+   keys a tool result actually emits against it — a field added to a
+   serialiser without a contract update is a red build, not a silent new
+   export to Mistral.
+2. **Outbound: value → token.** In a tool result, every `admin_tokenised` column's
    value is replaced by a stable token built from the row's entity id, which
    `drill_aliases` already carries: `gezin-23`, `persoon-90`. Same entity, same
    token, within and across turns of one conversation — the model can reason
    about recurrence. The id in the token is what makes the whole mechanism
    **stateless**: nothing about the mapping is stored per conversation.
-   Consequence: a pii-flagged object must have an entity id in its rows — a
+   Consequence: an `admin_tokenised` object must have an entity id in its rows — a
    gate test asserts it for every object carrying the flag, so an object that
-   cannot be tokenised cannot be declared pii-and-allowed.
+   cannot be tokenised cannot be declared `admin_tokenised`.
 3. **Inbound: token → value, at render time.** Tokens occurring in the final
    answer are replaced server-side by the real label — the id is parsed from
    the token, resolved with one tenant-scoped lookup against the dimension
@@ -184,7 +274,7 @@ tool result** — the engine and the panel are untouched.
    protects grouped results; the pii tokens protect row-level ones. Together
    they cover both shapes an answer takes.
 6. **The typed question is an outbound channel too — and it is scrubbed**
-   (confirmed by Koen, 12 September 2026). Tokenisation covers what comes back
+   (decided 12 September 2026). Tokenisation covers what comes back
    from the database, but an admin who types "gaat het gezin Peeters stoppen?"
    would send that name to Mistral in the question text itself. So, in phase 2
    together with the outbound tokenisation: the question text is matched
@@ -198,10 +288,11 @@ tool result** — the engine and the panel are untouched.
    this channel too: a seeded name typed into a question must not reach the
    provider payload.
 
-7. **Verifiability: the admin can see what left** (asked by Koen, 12 September
-   2026 — "ik kan dat immers niet zien"). Every outbound provider call is
+7. **Verifiability: the admin can see what left** (raised 12 September
+   2026 — a promise the admin cannot check is not assurance). Every outbound provider call is
    stored verbatim with the conversation: the scrubbed question, the tokenised
-   tool results. The screen offers a per-answer "wat zag Mistral" fold-out
+   tool results. Stored at the provider seam (§4.1), capability-independent —
+   whatever the assistant learns to do later is logged the same way. The screen offers a per-answer "wat zag Mistral" fold-out
    showing exactly that payload — the admin reads `gezin-23` where the answer
    says "Peeters". Trust by inspection, not by promise. Phase 1.
 8. **A guard on the seam itself — refuse, don't hope.** Immediately before the
@@ -209,10 +300,15 @@ tool result** — the engine and the panel are untouched.
    tenant's member/person name list, and against patterns that must never
    occur in outbound data at all (e-mail address, phone number, IBAN). A hit
    **blocks the call** — error on screen, loud log line — rather than sending.
-   Independent means: no shared code with the tokenisation or the pii flag; a
-   check that fails together with what it checks, checks nothing. This is the
-   layer that catches the bug nobody predicted. Phase 1 — it protects even
-   while pii objects are still refused outright.
+   Independent means: no shared code with the tokenisation or the `ai_exposure` declaration; a
+   check that fails together with what it checks, checks nothing. It sits at
+   the provider seam (§4.1), so every capability — present or future — passes
+   through it. The guard is **per capability, not global**: the public pack is
+   exempt from the tenant-name/e-mail matching, because a visitor deliberately
+   types their own name and e-mail for the contact path and the public bot's
+   privacy note already covers that — a global guard would break `submit_idea`.
+   The pattern checks and the logging apply to both surfaces. This is the layer that catches the bug nobody predicted. Phase 1 — it protects even
+   while person-naming objects are still refused outright.
 
    Honest limits, stated here so nobody restates them as a finding: name
    matching misses nicknames and typos (the payload view is the backstop), and
@@ -220,7 +316,7 @@ tool result** — the engine and the panel are untouched.
    side, resolved by rephrasing the question.
 
 Gate-style tests (the CLAUDE.md "bewijs het" norm), one per mechanism: a test
-composes a selection containing every pii-flagged object, captures the exact
+composes a selection containing every `admin_tokenised` object, captures the exact
 payload handed to the provider (mock), and asserts no value from a seeded
 name/address set appears in it; a second seeds a name into the question text
 and asserts the scrub replaced it; a third hands the guard a payload with a
@@ -231,7 +327,7 @@ then breaks its mechanism deliberately and asserts the test goes red.
 
 1. **Admin-only.** The screen and its route sit behind `require_admin_ui` —
    the same door as the reports panel. All admin roles are equal here
-   (confirmed by Koen, 12 September 2026: no ADMIN/FINANCE/OPERATOR
+   (decided 12 September 2026: no ADMIN/FINANCE/OPERATOR
    distinction), consistent with the universe's declared-not-enforced roles.
    The day per-object role enforcement is built (CR-06 §7.2), the assistant
    inherits it through the engine — by construction, not by extra work.
@@ -244,23 +340,56 @@ then breaks its mechanism deliberately and asserts the test goes red.
    per-tenant (a tenant setting — Raak Millegem on, platform off) under a
    global kill-switch (`admin_chat_enabled`, default off, next to
    `chat_enabled`).
-4. **Every outbound call is logged.** One row per `run_report` execution:
-   actor, question text, the selection, row count, timestamp — a new
-   `ai_question_log` table in the reporting schema, append-only like
-   `export_log`, and for the same reason: rows handed to Mistral are data
-   leaving the system.
+4. **Every outbound call is logged — by the kernel, in the `ai` schema**
+   (corrected 13 September 2026: logging outbound AI calls is a kernel
+   concern, not a reporting one). One row per tool execution: actor, scrubbed
+   question, the selection, row count, timestamp. The table lives in the
+   `ai` schema (the chatbot domain's schema, migration 084) and is written at
+   the seam, so a future capability's calls land in the *same* log without
+   new plumbing. Append-only like reporting's `export_log`, and for the same
+   reason: rows handed to Mistral are data leaving the system. `export_log`
+   itself is untouched — the AI log is its counterpart at the seam, not its
+   replacement. Side effect worth keeping: reporting stays the domain that
+   owns almost no data.
+
+   The log also records **token usage per provider call** (Mistral returns it
+   with every response; today's provider discards the field) and **which
+   surface called** — public or back office. Logging at the seam means the
+   public Raakje gets cost observability in the same release for free, and
+   one query answers "wat kost de AI deze maand?" for both bots (decided
+   13 September 2026).
 5. **CSRF and session semantics** as on every admin htmx screen.
+6. **Reporting is a terminus — gated, not assumed** (rule fixed 13 September
+   2026). Its views are read models: question-shaped, derived, and free to
+   change with the universe. A business process that reads them couples
+   itself to a shape that may move per release, reads derived data where it
+   should read the source, and reverses the dependency direction —
+   downstream becomes upstream. So reporting has an explicit consumer
+   allowlist: the reports panel (the domain itself), the dashboard tiles
+   (`app/ui/system_ui.py`), route registration (`main.py`), and now the
+   assistant. Nothing else — not master data, not payments, not a public or
+   admin screen — may consume reporting in its processes. Measured today the
+   list already holds, but by discipline only: the existing import-boundary
+   test allows any domain to import another's `api`, so `payment` importing
+   `reporting.api` would pass green, and nothing stops raw SQL against
+   `reporting.*` views. Phase 1 therefore builds the gate, two levels deep:
+   an importer allowlist for `app.domains.reporting` (a new importer is a
+   red build, with a message that explains this rule rather than just
+   refusing, #680), and a source scan proving the `reporting.` schema prefix
+   occurs only under the reporting domain and its migrations (#678: the scan
+   must prove it found the legitimate occurrences, so a moved directory
+   cannot turn it silently green).
 
 ### 6.1 Risks this feature adds — each held by a named counterweight
 
-Raised by Koen on 12 September 2026 ("daar ben ik echt bevreesd voor, dus dat
-moeten we strak houden"). These four risks did not exist before this feature.
+Raised 12 September 2026, with the explicit instruction to hold this tight.
+These four risks did not exist before this feature.
 Each row names what holds it and **where that hold is enforced** — a risk held
 by prose is not held.
 
 | # | Added risk | Counterweight | Enforced by |
 |---|---|---|---|
-| 1 | Pseudonymised data sent to Mistral is still personal data under the GDPR — we hold the key that links `gezin-23` back to a person | Processor agreement (verwerkersovereenkomst) with Mistral accepted, and the members' privacy statement names Mistral as processor for reporting questions | **Release gate**: the phase-1 tracker carries both as checkboxes Koen ticks himself; no deploy before they are ticked |
+| 1 | Pseudonymised data sent to Mistral is still personal data under the GDPR — we hold the key that links `gezin-23` back to a person | Processor agreement (verwerkersovereenkomst) with Mistral accepted, and the members' privacy statement names Mistral as processor for reporting questions | **Release gate**: the phase-1 tracker carries both as checkboxes ticked by hand by the responsible administrator; no deploy before they are ticked |
 | 2 | Re-identification without names: street × household size × age group can identify a person in a village | The small-cell threshold (groups < 5 merged) applies to every grouped result — inherited from the engine, not reimplemented; row-level results carry tokens only | Engine (unconditional, same code path as the panel); the §5 masking gates |
 | 3 | Prompt injection: a value stored in the DB carries instructions into a tool result | The toolset is read-only, so the blast radius is a wrong answer, not an action. Member-entered text is exactly the pii set — tokenised or refused, so it never reaches Mistral. What remains is board-entered labels. The system prompt marks tool results as data, and the phase-1 test set includes a planted-instruction label probe | Allowlist dispatch + the pii mechanism; the probe in the phase-1 evaluation |
 | 4 | New data at rest: the payload log and question log are new places where (scrubbed) data sits | Both store only the scrubbed/tokenised form — what Mistral saw, nothing rawer; behind the same admin door; retention-limited (start: 90 days, a setting) with a cleanup job | The masking gates reuse their seeded names against the log tables; retention in config, cleanup tested |
@@ -274,12 +403,29 @@ exists and defaults to off.
 ## 7. Answer form
 
 Text only, Dutch, bullets allowed; no charts, no tables-as-images. Numbers in
-an answer come from tool results — the system prompt forbids arithmetic beyond
-what a returned row states, and the totals row is returned precisely so the
-model does not add up pages. Every answer carries a one-line provenance footer
+an answer come from tool results, and the totals row is returned precisely so
+the model does not add up pages. **Simple derived arithmetic is allowed —
+difference, percentage — on the condition that both base numbers appear in the
+answer** (decided 13 September 2026): "2026: 120, 2025: 100 — 20% meer" is
+fine; a percentage whose operands are not shown is not. Numbers that rest on
+nothing remain forbidden. Every answer carries a one-line provenance footer
 ("op basis van: inschrijvingen × activiteit, filter jaar = 2026") rendered from
 the executed selection — the admin sees what was actually asked, which is also
 the debugging handle when an answer looks off.
+
+Two answer-content rules, both decided 13 September 2026:
+
+- **Ambiguous money words carry a declared default.** "Omzet" means the
+  *charged* amounts (te betalen/gefactureerd) unless the question says
+  otherwise; the catalogue declares this preference and the answer names the
+  measure it used ("omzet (gefactureerd): …"), so the default is visible, not
+  silent. When two measures remain genuinely plausible, Raakje asks instead of
+  picking.
+- **The threshold explains itself.** The assistant merges groups under five
+  (its rows go to Mistral; the panel's do not), so the assistant is stricter
+  than the panel on purpose. Whenever a merge happened, the answer says so —
+  "kleine groepen samengevoegd (privacydrempel)" — because an unexplained
+  difference with the panel reads as a bug and costs trust.
 
 ## 8. Cohort reasoning — prediction without a model
 
@@ -292,19 +438,30 @@ geen inschrijvingen" reads as what it is — a pattern, explainable and
 checkable. The prompt explicitly forbids invented probabilities.
 
 What this deliberately is not: a trained churn model with calibrated scores.
-If the cohort answers prove useful and Koen wants real scores, that is its own
-change request, with its own evaluation question ("calibrated against which
-seasons?") — not a prompt tweak.
+That track exists and stays separate: **#171** — local, explainable
+scikit-learn ML, finalised 16 June 2026 as a learning exercise, explicitly
+decoupled from the chatbot/Mistral line. If the cohort answers prove useful
+and real, calibrated scores are wanted, #171 is where that happens — not a prompt tweak
+here.
 
 ## 9. Phasing (each phase shippable)
 
 1. **Aggregates.** Catalogue renderer, the two tools, generalised loop, admin
    screen, kill-switch + tenant flag, question log, caps, **seam guard and the
-   "wat zag Mistral" payload view (§5.7–5.8)**. Test set 1–6 green.
+   "wat zag Mistral" payload view (§5.7–5.8)**, **the reporting-terminus gate
+   (§6.6)**. Also in phase 1, decided 13 September 2026: **sharpening every
+   object description in the universe** — the descriptions are the model's
+   whole understanding of the data, and the same text becomes the panel
+   tooltip, one source (this lifts the earlier deliberate deferral of writing
+   column descriptions); and the **evaluation harness**: the six test-set
+   questions with known-correct answers on seeded data, run by hand before
+   each release that touches the assistant, result recorded in the release
+   tracker — the bar is 6/6, where a clarifying question counts as correct.
+   Test set 1–6 green.
    **Deploy gate**: the processor agreement with Mistral and the privacy-
-   statement update (§6.1.1) are tracker checkboxes ticked by Koen before the
+   statement update (§6.1.1) are tracker checkboxes ticked by hand before the
    first deploy to any environment beyond HDEV.
-   Pii flag already declared; person-naming objects simply refused in the
+   `ai_exposure` already declared on every object; `admin_tokenised` objects simply refused in the
    assistant's selections this phase (named refusal, so the model routes
    around them). The refusal lives in the **assistant layer**, before
    `build_query` — never in the engine, which serves the query panel too and
@@ -318,7 +475,7 @@ seasons?") — not a prompt tweak.
 
 ## 10. Non-goals
 
-- Saving reports from the conversation (confirmed by Koen, 12 September 2026:
+- Saving reports from the conversation (decided 12 September 2026:
   answering is enough).
 - **A persistent per-user chat log** (revisitable past conversations). Deferred,
   not rejected: a stored answer ages silently while reading as current, the
@@ -332,7 +489,7 @@ seasons?") — not a prompt tweak.
 - Streaming/SSE — server-side complete answers, like the public htmx screen.
 - Cross-tenant or platform-level questions.
 
-## 11. Decisions taken (confirmed by Koen, 12 September 2026)
+## 11. Decisions taken (12 September 2026)
 
 | Decision | Choice |
 |---|---|
@@ -348,6 +505,12 @@ seasons?") — not a prompt tweak.
 | Entry point | A "Vraag het Raakje" button on the reports screen, opening the assistant's own page — no separate menu entry |
 | Conversation | Multi-turn within the screen session; not persisted across sessions (§10) |
 | Per-user chat history | Not in v1 — deferred until the question log shows measured need (§10) |
+| "Omzet" without qualification | The charged amounts (gefactureerd); the answer names the measure used; genuine ambiguity → ask (13 September 2026) |
+| Small-cell threshold for the assistant | Stays on — stricter than the panel by design; every merge is named in the answer (13 September 2026) |
+| Object descriptions | Sharpened in phase 1; same text serves as panel tooltip — the earlier deferral is lifted (13 September 2026) |
+| Derived arithmetic | Allowed when both base numbers are shown in the answer (13 September 2026) |
+| Acceptance bar | 6/6 on the seeded test set, run by hand per release, result in the tracker (13 September 2026) |
+| Cost & latency | Token usage logged per call at the seam for both surfaces; wall-clock cap per question; busy indicator on screen (13 September 2026) |
 
 Defaults taken in this draft, to be challenged: `mistral-medium-latest` as the
 starting model; row cap 50, round cap 6; the question log stays a table without
