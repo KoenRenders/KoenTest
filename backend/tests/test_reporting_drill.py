@@ -53,6 +53,30 @@ def test_a_year_label_is_clickable_in_the_crosstab(db_session, situation):
     assert kruis.row_drill == ["date_quarter"], kruis.row_drill
 
 
+def test_the_drill_button_carries_the_url_it_posts_to(client, db_session,
+                                                      situation):
+    """The thing that was missing, and the reason it went unnoticed.
+
+    The button rendered with the right name and the right value, and the tests in
+    this file — markup and route — were both green. But it had no `hx-get`, and
+    `type="button"` submits nothing: clicking did literally nothing. The kit macro
+    knew what to send back and not where to send it, and nobody had given it the
+    URL.
+
+    This assertion is cheap and catches the regression, but it is **not enough**:
+    it reads the same markup the blind spot lived in. `tests_e2e/
+    test_drillen_in_de_draaitabel.py` clicks the button in a real browser, and
+    that is the layer that proves it does something.
+    """
+    login(client, db_session)
+    tekst = _paneel(client, BASIS)
+    knoppen = [m for m in tekst.split("<button") if 'name="drill"' in m]
+    assert knoppen, "er hoort een drill-knop te staan"
+    for knop in knoppen:
+        assert "hx-get=" in knop.split(">")[0], (
+            "een drill-knop zonder hx-get doet niets — de markup is dan decor")
+
+
 def test_the_deepest_level_offers_no_further_drill(db_session, situation):
     """A dead end has to look like a dead end."""
     kruis = build_pivot(

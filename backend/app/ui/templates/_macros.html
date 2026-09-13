@@ -1043,7 +1043,7 @@
 
    Bij één maat blijft de tweede kopregel weg: "Aantal" onder elk jaartal herhalen
    voegt niets toe en maakt de kop twee keer zo hoog. #}
-{% macro pivot_table(pivot) -%}
+{% macro pivot_table(pivot, drill_url="") -%}
 {% set _maten = pivot.measures %}
 {# `row_drill` is optioneel: een oudere aanroeper (en de voorbeelddict op de
    componentenpagina) kent de sleutel niet, en kitcode hoort daar niet op te
@@ -1083,10 +1083,15 @@
         {% set _doel = _drills[loop.index0] if _drills|length > loop.index0 else "" %}
         <th scope="row" class="px-3 py-2 text-left font-normal sticky left-0 {{ 'bg-gray-50' if rij.is_subtotal else 'bg-white' }}">
           {% if rij.is_subtotal %}{{ _("Subtotaal") }} — {% endif %}
-          {%- if _doel and not rij.is_subtotal %}
+          {%- if _doel and drill_url and not rij.is_subtotal %}
           {# Kitcode, dus zonder domeinkennis: de macro krijgt een naam om terug te
-             sturen en weet niet wat een niveau is. #}
+             sturen en weet niet wat een niveau is. Maar ze weet evenmin naar WELKE
+             url dat moet, en zonder `hx-get` doet `type="button"` letterlijk
+             niets — het onderdeel stond er, de verbinding niet. Vandaar
+             `drill_url` als parameter: leeg betekent "niet doorklikbaar", en dan
+             blijft het label gewoon tekst (zoals op de componentenpagina). #}
           <button type="button" name="drill" value="{{ _doel }}|{{ label }}"
+                  hx-get="{{ drill_url }}"
                   class="text-left underline decoration-dotted hover:text-blue-700"
                   title="{{ _('Toon het niveau eronder voor') }} {{ label }}">{{ label }}</button>
           {%- else %}{{ label }}{% endif %}

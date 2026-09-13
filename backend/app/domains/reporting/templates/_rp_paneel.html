@@ -364,9 +364,9 @@
             {% elif layout == "line" %}{{ ui.chart_line(chart, id="rp-chart") }}
             {% else %}{{ ui.chart_stacked(chart, id="rp-chart") }}{% endif %}
           </div>
-          <div class="mt-4">{{ ui.pivot_table(pivot) }}</div>
+          <div class="mt-4">{{ ui.pivot_table(pivot, drill_url=paneel_url) }}</div>
           {% elif pivot %}
-          {{ ui.pivot_table(pivot) }}
+          {{ ui.pivot_table(pivot, drill_url=paneel_url) }}
           {% elif columns %}
           <div class="bg-white border border-gray-200 rounded-xl overflow-x-auto">
             <table class="w-full text-sm">
