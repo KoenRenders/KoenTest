@@ -29,10 +29,20 @@ def situation(db_session):
     hand uitgerekende verwachtingen voor elk bedrag.
     """
     gegevens = seed(db_session)
+    # Twee betalingen in DEZELFDE maand, twee jaar uit elkaar. Niet "schuif er
+    # eentje twee jaar terug": dan verhuist die rij en houdt haar oude kwartaal
+    # misschien geen enkele andere betaling over — of wel, afhankelijk van de dag
+    # waarop de suite draait. Deze test viel daar al een keer over om, alleen in
+    # de volledige run, en een test die met de kalender meebeweegt is erger dan
+    # geen test.
     db_session.execute(text(
-        "UPDATE payment.payment_records SET created_at = created_at - interval "
-        "'2 years' WHERE id = (SELECT MIN(id) FROM payment.payment_records "
-        "WHERE tenant_id = :t)"), {"t": TENANT_A})
+        "UPDATE payment.payment_records b "
+        "SET created_at = a.created_at - interval '2 years' "
+        "FROM (SELECT created_at FROM payment.payment_records "
+        "      WHERE tenant_id = :t ORDER BY id LIMIT 1) a "
+        "WHERE b.tenant_id = :t "
+        "  AND b.id = (SELECT MAX(id) FROM payment.payment_records "
+        "              WHERE tenant_id = :t)"), {"t": TENANT_A})
     db_session.commit()
     return gegevens
 

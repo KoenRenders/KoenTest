@@ -218,6 +218,21 @@ def _read_state(params) -> dict:
             if ouder not in filters:
                 filters.append(ouder)
                 operators[ouder] = "in"
+            # #915: een drill is een KEUZE van de gebruiker, net zoals het
+            # uitdrukkelijk aanwijzen van een kolomas. Zonder dit vuurde de
+            # terugval hieronder en werd het zojuist toegevoegde niveau de
+            # kolomas — precies wat Koen zag: "waarom maakt een klik op jaar de
+            # kwartalen verschijnen als kolommen?".
+            #
+            # De regel is één zin met twee kanten: het nieuwe niveau komt te
+            # staan waar zijn ouder stond. Stond die in de rijen, dan de rijen;
+            # stond die op de kolomas, dan de kolomas.
+            if pivot_column == ouder:
+                pivot_column = kind
+            elif not pivot_column:
+                # In de rijen, en dat is dan een gekozen "geen kolomas" — anders
+                # zet de terugval er alsnog een.
+                no_column = True
 
     # Oprollen haalt de diepste kolom van die hiërarchie weg. Het filter blijft
     # staan: dat is een keuze van de gebruiker zodra hij er iets in aanvinkt, en
