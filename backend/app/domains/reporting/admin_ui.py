@@ -44,6 +44,7 @@ from app.domains.reporting.api import (
     BY_KEY,
     CHART_LAYOUTS,
     CLASSES,
+    HIERARCHY_OF,
     build_chart,
     build_dataset_ods,
     build_pivot,
@@ -190,6 +191,44 @@ def _read_state(params) -> dict:
         else:
             closed.append(toggle_class)
 
+    # #899 stap 2: drillen VERVANGT het niveau in plaats van rijen open te klappen.
+    # Klik op 2026 en het rapport staat op kwartaal, gefilterd op 2026 — wat een
+    # klassieke drill doet, en wat de draaitabel één selectie met één queryplan
+    # houdt. Opengeklapte rijen zouden een boom zijn met een bevraging per knoop en
+    # subtotalen over gemengde niveaus; dat is een andere machine, geen uitbreiding.
+    drill = params.get("drill") or ""
+    if "|" in drill:
+        kind, waarde = drill.split("|", 1)
+        ouder = next((k for k in objects
+                      if k in HIERARCHY_OF
+                      and HIERARCHY_OF[k].step(k, +1) == kind), "")
+        if ouder and kind in BY_KEY:
+            objects = [kind if k == ouder else k for k in objects]
+            if ouder not in filters:
+                filters.append(ouder)
+            values[ouder] = waarde
+            operators[ouder] = "eq"
+            if sort == ouder:
+                sort = kind
+            if pivot_column == ouder:
+                pivot_column = kind
+
+    rollup = params.get("rollup") or ""
+    if rollup in objects and rollup in HIERARCHY_OF:
+        ouder = HIERARCHY_OF[rollup].step(rollup, -1)
+        if ouder:
+            objects = [ouder if k == rollup else k for k in objects]
+            # De filter die het drillen zette, hoort mee terug: hij was de trap
+            # naar beneden, niet een keuze van de gebruiker.
+            if ouder in filters:
+                filters.remove(ouder)
+                values.pop(ouder, None)
+                operators.pop(ouder, None)
+            if sort == rollup:
+                sort = ouder
+            if pivot_column == rollup:
+                pivot_column = ouder
+
     set_layout = params.get("set_layout")
     if set_layout in LAYOUTS:
         layout = set_layout
@@ -233,6 +272,23 @@ def _read_state(params) -> dict:
         "closed": closed,
         "page": page,
     }
+
+
+def _rollup_levels(object_keys: list[str]) -> list[tuple[str, str]]:
+    """(level key, parent name) for every chosen level that has one above it.
+
+    The way back up (#899 stap 2). Without it a drill is a one-way street: you
+    click 2026, land on quarters, and the only way back is rebuilding the report.
+    """
+    terug: list[tuple[str, str]] = []
+    for key in object_keys:
+        hier = HIERARCHY_OF.get(key)
+        if hier is None:
+            continue
+        ouder = hier.step(key, -1)
+        if ouder:
+            terug.append((key, BY_KEY[ouder].name))
+    return terug
 
 
 def _chosen_per_class(object_keys: list[str]) -> dict[str, int]:
@@ -407,6 +463,7 @@ def _panel(request: Request, db: Session, state: dict, *, report=None,
         chart=chart,
         layout=state["layout"],
         pivot_column=state["pivot_column"],
+        rollup_levels=_rollup_levels(state["objects"]),
         closed_classes=state["closed"],
         chosen_per_class=_chosen_per_class(state["objects"]),
         refused=refused,

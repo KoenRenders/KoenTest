@@ -1045,6 +1045,10 @@
    voegt niets toe en maakt de kop twee keer zo hoog. #}
 {% macro pivot_table(pivot) -%}
 {% set _maten = pivot.measures %}
+{# `row_drill` is optioneel: een oudere aanroeper (en de voorbeelddict op de
+   componentenpagina) kent de sleutel niet, en kitcode hoort daar niet op te
+   breken. Onder StrictUndefined moet dat met `is defined` en niet met `or`. #}
+{% set _drills = pivot.row_drill if pivot.row_drill is defined else [] %}
 {% set _meervoudig = _maten|length > 1 %}
 <div class="bg-white border border-gray-200 rounded-xl overflow-x-auto">
   <table class="w-full text-sm">
@@ -1076,8 +1080,16 @@
       {% for rij in pivot.rows %}
       <tr class="border-b border-gray-100 last:border-0 {% if rij.is_subtotal %}bg-gray-50 font-semibold{% endif %}">
         {% for label in rij.labels %}
+        {% set _doel = _drills[loop.index0] if _drills|length > loop.index0 else "" %}
         <th scope="row" class="px-3 py-2 text-left font-normal sticky left-0 {{ 'bg-gray-50' if rij.is_subtotal else 'bg-white' }}">
-          {% if rij.is_subtotal %}{{ _("Subtotaal") }} — {% endif %}{{ label }}
+          {% if rij.is_subtotal %}{{ _("Subtotaal") }} — {% endif %}
+          {%- if _doel and not rij.is_subtotal %}
+          {# Kitcode, dus zonder domeinkennis: de macro krijgt een naam om terug te
+             sturen en weet niet wat een niveau is. #}
+          <button type="button" name="drill" value="{{ _doel }}|{{ label }}"
+                  class="text-left underline decoration-dotted hover:text-blue-700"
+                  title="{{ _('Toon het niveau eronder voor') }} {{ label }}">{{ label }}</button>
+          {%- else %}{{ label }}{% endif %}
         </th>
         {% endfor %}
         {% if rij.is_subtotal and pivot.row_headers|length > rij.labels|length %}

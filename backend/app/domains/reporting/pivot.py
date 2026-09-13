@@ -57,6 +57,10 @@ class Pivot:
     column_column: Column | None
     column_values: list[str]
     measures: list[Column]
+    #: Per rijkolom: de objectsleutel van het niveau eronder, of "" als er geen
+    #: is. Zo weet de kit-macro dát een label doorklikbaar is zonder dit domein te
+    #: kennen — ze krijgt gewoon een naam om terug te sturen (#899 stap 2).
+    row_drill: list[str] = field(default_factory=list)
     rows: list[PivotRow] = field(default_factory=list)
     grand_total: dict[str, Any] = field(default_factory=dict)
 
@@ -70,6 +74,7 @@ class Pivot:
         """
         return {
             "row_headers": [c.name for c in self.row_columns],
+            "row_drill": list(self.row_drill),
             "column_header": self.column_column.name if self.column_column else "",
             "column_values": self.column_values,
             "measures": [{"key": m.key, "name": m.name, "format": m.format}
@@ -161,6 +166,14 @@ def _without(selection: Selection, keys: set[str], *, limit: int) -> Selection:
         offset=0,
         layout="table",
     )
+
+
+def _drill_target(obj) -> str:
+    """The level below this one, or "" when there is none."""
+    from app.domains.reporting.universe import HIERARCHY_OF
+
+    hier = HIERARCHY_OF.get(obj.key)
+    return hier.step(obj.key, +1) if hier else ""
 
 
 def build_pivot(db: Session, selection: Selection, *, tenant_id: int) -> Pivot:
@@ -279,6 +292,12 @@ def build_pivot(db: Session, selection: Selection, *, tenant_id: int) -> Pivot:
 
     return Pivot(
         row_columns=[_column(o) for o in row_objects],
+        # Drillen is niet nesten maar VERVANGEN (#899 stap 2): klik op 2026 en het
+        # rapport staat op kwartaal, gefilterd op 2026. Dat is wat een klassieke
+        # drill doet, en het houdt de draaitabel één selectie met één queryplan —
+        # rijen die per stuk opengeklapt staan, zouden een boom met een eigen
+        # bevraging per knoop worden, en subtotalen over gemengde niveaus.
+        row_drill=[_drill_target(o) for o in row_objects],
         column_column=_column(BY_KEY[kolom_key]) if kolom_key else None,
         column_values=kolomwaarden,
         measures=[_column(m) for m in measures],
