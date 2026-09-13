@@ -1275,6 +1275,64 @@ def join_order(needed: list[str], reachable: dict[str, Join]) -> list[str]:
     return volgorde
 
 
+# ── Hiërarchieën (#899) ──────────────────────────────────────────────────────
+#
+# Na #895 telde de klasse Tijd eenentwintig regels: vijf basisobjecten plus vier
+# datumrollen × vier niveaus. Zestien van die eenentwintig zijn dezelfde vier
+# niveaus, vier keer herhaald — en dat leest niemand als vier keer hetzelfde, dat
+# leest als zestien keuzes.
+#
+# Een hiërarchie is puur een **presentatiebegrip**: de niveaus blijven gewone
+# objecten met hun eigen sleutel, want daar hangen de bewaarde rapporten aan en
+# daar kijken alle poorten naar. Wat verandert is dat het paneel ze als één regel
+# toont in plaats van als vier.
+#
+# Een niveau blijft dus **rechtstreeks** te kiezen: Maand op de kolomas zetten mag
+# geen omweg via Jaar worden. Een hiërarchie die alleen van bovenaf benaderbaar is,
+# neemt iets weg dat vandaag werkt.
+
+@dataclass(frozen=True)
+class Hierarchy:
+    """Eén regel in het paneel, met haar niveaus als knoppen ernaast."""
+
+    key: str
+    name: str
+    klass: str
+    #: De objectsleutels, van grof naar fijn. Elk is een gewoon object in `BY_KEY`.
+    level_keys: tuple[str, ...]
+
+    @property
+    def levels(self) -> list["UniverseObject"]:
+        return [BY_KEY[k] for k in self.level_keys]
+
+    @property
+    def description(self) -> str:
+        return BY_KEY[self.level_keys[0]].description
+
+
+def _date_levels(prefix: str) -> tuple[str, ...]:
+    return tuple(f"{prefix}{korrel}"
+                 for korrel in ("year", "quarter", "month", "day"))
+
+
+HIERARCHIES: tuple[Hierarchy, ...] = (
+    Hierarchy(key="date", name="Datum", klass="Tijd",
+              level_keys=("date_year", "date_quarter", "date_month",
+                          "date_month_label", "date_day")),
+    Hierarchy(key="paid_date", name="Betaaldatum", klass="Tijd",
+              level_keys=_date_levels("paid_date_")),
+    Hierarchy(key="done_date", name="Afhandeldatum", klass="Tijd",
+              level_keys=_date_levels("done_date_")),
+    Hierarchy(key="start_date", name="Startdatum", klass="Tijd",
+              level_keys=_date_levels("start_date_")),
+    Hierarchy(key="end_date", name="Einddatum", klass="Tijd",
+              level_keys=_date_levels("end_date_")),
+)
+
+HIERARCHY_OF: dict[str, Hierarchy] = {
+    key: hier for hier in HIERARCHIES for key in hier.level_keys}
+
+
 def objects_in_pane_order() -> list[UniverseObject]:
     """Every object, in class order and then declaration order.
 
@@ -1287,9 +1345,22 @@ def objects_in_pane_order() -> list[UniverseObject]:
                                           OBJECTS.index(o)))
 
 
-def classes_with_objects() -> list[tuple[str, list[UniverseObject]]]:
-    """The objects pane: classes with their objects, empty classes dropped."""
-    per_class: dict[str, list[UniverseObject]] = {}
+def classes_with_objects() -> list[tuple[str, list]]:
+    """The objects pane: classes with their entries, empty classes dropped.
+
+    An entry is either a `UniverseObject` or a `Hierarchy` (#899). The levels of a
+    hierarchy are ordinary objects and stay selectable one by one; they simply
+    share one line here instead of taking four.
+    """
+    per_class: dict[str, list] = {}
+    gezien: set[str] = set()
     for obj in objects_in_pane_order():
-        per_class.setdefault(obj.klass, []).append(obj)
+        hier = HIERARCHY_OF.get(obj.key)
+        if hier is None:
+            per_class.setdefault(obj.klass, []).append(obj)
+            continue
+        if hier.key in gezien:
+            continue
+        gezien.add(hier.key)
+        per_class.setdefault(hier.klass, []).append(hier)
     return [(name, per_class[name]) for name in CLASSES if name in per_class]
