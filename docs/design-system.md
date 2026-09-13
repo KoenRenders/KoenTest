@@ -49,6 +49,7 @@ change to all four, in one pull request.
 | 13 Sep 2026 | The unsaved-changes promise is dropped as a system rule; it returns as a per-editor pattern field for long editors | #785 (B1) |
 | 13 Sep 2026 | Judging viewports follow the audience: public phone-first, admin desktop-first | CR-08 |
 | 13 Sep 2026 | Golf 1 approved on the package: public shell in Cobalt; **public headings in Inter** (variant B), wordmark stays Radio Canada Big; status colours shell-independent | #913 |
+| 13 Sep 2026 | Golf 2: the admin shell joins Cobalt — white grouped sidebar (workspaces Vereniging/Financieel/Inhoud/Systeem), account presence top right (initials + e-mail, logout in its menu), headings Inter in both shells | #913 |
 
 Decisions still open are listed in §12.
 

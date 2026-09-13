@@ -73,8 +73,9 @@ def test_a_finance_only_user_is_refused_with_the_reason(client, db_session):
 def test_a_finance_only_user_does_not_see_the_menu_item(db_session):
     from app.ui import admin_nav
 
-    labels = [item["href"] for item in admin_nav("/admin/betalingen",
-                                                 roles=["FINANCE"])]
+    labels = [item["href"] for groep in admin_nav("/admin/betalingen",
+                                                  roles=["FINANCE"])
+              for item in groep["items"]]
     assert labels == ["/admin/betalingen"]
 
 
