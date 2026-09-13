@@ -97,11 +97,33 @@ asks which cut the user wants — driven by `list_values`, not by guessing.
 
 ### 4.1 Placement
 
-The assistant lives **inside the reporting domain** (`reporting/assistant.py` +
-an `admin_ui` route + template). Reporting already is the domain that reads from
-everywhere and is imported by nobody; that invariant stands. The `chatbot`
-facade grows one export: the provider seam (`LLMProvider`, `get_provider`), so
-reporting imports chatbot — never the reverse.
+Two layers, split so the assistant can grow beyond reporting (raised by Koen,
+13 September 2026 — "wat als de admin-Raakje ooit ook iets *doet*?"):
+
+- **The conversation kernel is domain-neutral and lives in the `chatbot`
+  domain**: the generalised loop (§4.3), the provider seam, the budgets, and —
+  deliberately — the seam guard and the payload log (§5.7–5.8). Nothing in
+  that list is about reporting; putting it at the seam means every future
+  capability inherits the privacy boundary automatically instead of
+  reimplementing it.
+- **A capability is a pluggable toolset.** Reporting is the *first* one:
+  `reporting/assistant.py` (toolset + catalogue renderer + pseudonymisation) +
+  an `admin_ui` route + template, read-only by construction. Reporting stays
+  the domain that reads from everywhere and is imported by nobody; the
+  `chatbot` facade grows one export (the seam), so reporting imports chatbot —
+  never the reverse.
+
+Future *acting* capabilities (draft a meeting template, draft a newsletter)
+are later packs on the same kernel — their own change request. Three rules are
+fixed for them now, because they follow from standing policy: **drafting is
+not sending** (the AI composes, a person confirms anything outward-facing —
+the same line UAT/PROD deploys draw); **one write path** (an acting tool
+reuses its domain's existing write path, as the public bot's `submit_idea`
+already goes through `submit_bericht`); and **injection weighs heavier with
+acting tools** (a planted instruction can trigger an action, not just a wrong
+answer — the confirmation step is the brake, not a courtesy). The read-only
+rule of §4.2 is about *questions*; acting tools use domain facades for
+*actions*, behind confirmation, and change neither rule.
 
 ### 4.2 The tool surface (the whole of it)
 
@@ -250,7 +272,8 @@ tool result** — the engine and the panel are untouched.
 7. **Verifiability: the admin can see what left** (asked by Koen, 12 September
    2026 — "ik kan dat immers niet zien"). Every outbound provider call is
    stored verbatim with the conversation: the scrubbed question, the tokenised
-   tool results. The screen offers a per-answer "wat zag Mistral" fold-out
+   tool results. Stored at the provider seam (§4.1), capability-independent —
+   whatever the assistant learns to do later is logged the same way. The screen offers a per-answer "wat zag Mistral" fold-out
    showing exactly that payload — the admin reads `gezin-23` where the answer
    says "Peeters". Trust by inspection, not by promise. Phase 1.
 8. **A guard on the seam itself — refuse, don't hope.** Immediately before the
@@ -259,8 +282,9 @@ tool result** — the engine and the panel are untouched.
    occur in outbound data at all (e-mail address, phone number, IBAN). A hit
    **blocks the call** — error on screen, loud log line — rather than sending.
    Independent means: no shared code with the tokenisation or the `ai_exposure` declaration; a
-   check that fails together with what it checks, checks nothing. This is the
-   layer that catches the bug nobody predicted. Phase 1 — it protects even
+   check that fails together with what it checks, checks nothing. It sits at
+   the provider seam (§4.1), so every capability — present or future — passes
+   through it. This is the layer that catches the bug nobody predicted. Phase 1 — it protects even
    while person-naming objects are still refused outright.
 
    Honest limits, stated here so nobody restates them as a finding: name
