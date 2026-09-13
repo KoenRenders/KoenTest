@@ -32,6 +32,7 @@ from app.domains.reporting.universe import (
     BY_KEY,
     DATE_GRAINS,
     DIMENSION_BY_KEY,
+    physical_view,
     DATE_OBJECT_GRAIN,
     FACT_BY_KEY,
     Fact,
@@ -461,12 +462,7 @@ def _from_clause(fact: str, views: list[str], joins: dict) -> str:
             f"{alias}.{dim_col} = {links}.{left_col}"
             for left_col, dim_col in join.pairs
         ]
-        # De BRON kan anders heten dan de alias: een rol-datum (#895) leest uit
-        # `d_date` onder een eigen naam, zodat dezelfde kalender twee keer in één
-        # rapport kan staan — één keer op de sleuteldatum, één keer op de
-        # betaaldatum.
-        bron = DIMENSION_BY_KEY[view].source if view in DIMENSION_BY_KEY else view
-        lines.append(f"LEFT JOIN reporting.{bron} AS {alias} ON "
+        lines.append(f"LEFT JOIN reporting.{physical_view(view)} AS {alias} ON "
                      + " AND ".join(conditions))
     return "\n".join(lines)
 

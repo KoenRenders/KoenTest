@@ -177,9 +177,70 @@ def test_a_detail_level_is_skipped_when_drilling():
     assert datum.step("date_day", -1) == "date_month"
 
 
+def test_drilling_works_on_a_role_date_too(client, db_session, situation):
+    """The roles of #895 are where an alias bug hides.
+
+    `d_paid_date` is an alias on `d_date`, so a place that forgets to translate
+    breaks only here — on the shared date the alias and the key are the same
+    string. The first version of the browser test drilled on `date_year` and
+    stayed green while clicking a payment date gave an error banner.
+    """
+    login(client, db_session)
+    tekst = _paneel(client, "object=paid_date_year&object=payment_amount"
+                            "&layout=pivot&pivot_column=&no_column=1"
+                            "&drill=paid_date_quarter|2026")
+    assert 'name="object" value="paid_date_quarter"' in tekst
+    assert 'name="filter" value="paid_date_year"' in tekst
+
+
 def test_drilling_an_unrelated_value_does_nothing(client, db_session, situation):
     """State arrives in a query string, so it is user input."""
     login(client, db_session)
     tekst = _paneel(client, f"{BASIS}&drill=verzonnen|2026")
     assert 'name="object" value="date_year"' in tekst
     assert "verzonnen" not in tekst
+
+
+def test_an_unknown_label_is_not_drillable(db_session, situation):
+    """"Onbekend" is the label for an EMPTY value, and there is nothing below it.
+
+    Found by the browser test, and it is the kind of fault a markup test cannot
+    see: the button rendered, the click fired, and the server got a filter asking
+    for the year "Onbekend". A year column is an integer, so Postgres refused the
+    comparison, htmx got a 500 and swapped nothing — a click that did nothing, for
+    the second time and for a completely different reason.
+
+    A payment that has not been paid has no payment date, so this is not an edge
+    case: it is the normal state of half the payments.
+    """
+    from sqlalchemy import text
+
+    # Geen enkele betaling betaald: elke betaaldatum is dan leeg.
+    db_session.execute(text(
+        "UPDATE payment.payment_records SET paid_at = NULL WHERE tenant_id = :t"),
+        {"t": TENANT_A})
+    db_session.commit()
+
+    kruis = build_pivot(
+        db_session,
+        Selection(object_keys=("paid_date_year", "payment_amount"),
+                  layout="pivot"),
+        tenant_id=TENANT_A)
+    assert kruis.rows, "er zijn betalingen, dus er is een rij"
+    for rij in kruis.rows:
+        if rij.labels and rij.labels[0] == "Onbekend":
+            assert rij.drillable == [False], (
+                "op 'Onbekend' hoort niet doorgeklikt te kunnen worden")
+            break
+    else:
+        pytest.fail("geen 'Onbekend'-rij, dus deze test meet niets")
+
+
+def test_a_real_value_stays_drillable(db_session, situation):
+    """De andere kant, zodat de reparatie niet 'niets is meer doorklikbaar' wordt."""
+    kruis = build_pivot(
+        db_session,
+        Selection(object_keys=("date_year", "payment_amount"), layout="pivot"),
+        tenant_id=TENANT_A)
+    assert any(rij.drillable == [True] for rij in kruis.rows), (
+        "een echt jaartal hoort doorklikbaar te blijven")
