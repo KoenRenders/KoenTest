@@ -22,7 +22,8 @@ def _env():
 def test_shells_render():
     env = _env()
     for shell in ("public_base.html", "admin_base.html"):
-        html = env.get_template(shell).render(nav_items=[{"href": "/x", "label": "X", "active": True}])
+        html = env.get_template(shell).render(
+            nav_items=[{"label": None, "items": [{"href": "/x", "label": "X", "active": True}]}])
         assert "htmx.min.js" in html and "alpine.min.js" in html and "app.css" in html
 
 
@@ -45,18 +46,21 @@ def test_admin_nav_info_onderaan_en_een_tenant_item():
     hetzelfde object bestaan niet meer."""
     from app.ui import admin_nav
 
-    hrefs = [i["href"] for i in admin_nav("/admin/werkbank")]
+    hrefs = [i["href"] for groep in admin_nav("/admin/werkbank")
+             for i in groep["items"]]
     assert "/admin/instellingen" not in hrefs
     assert hrefs.index("/admin/tenants") < hrefs.index("/admin/info")
 
 
 def test_admin_shell_heeft_uitloggen_en_sticky_sidebar():
     """#526: de admin-schil biedt een Uitloggen-link (→ /afmelden) en een sticky,
-    volledige-hoogte zijbalk die bij het scrollen in beeld blijft."""
+    volledige-hoogte zijbalk. Sinds golf 2 (#913, beslissing i) woont Uitloggen
+    rechtsboven bij de account-aanwezigheid, niet meer in de zijbalkvoet — de
+    link zelf blijft een contract."""
     env = _env()
     html = env.get_template("admin_base.html").render(
-        nav_items=[{"href": "/x", "label": "X", "active": True}])
-    assert "/afmelden" in html            # logout-link aanwezig
+        nav_items=[{"label": None, "items": [{"href": "/x", "label": "X", "active": True}]}])
+    assert "/afmelden" in html            # logout-link aanwezig (topbalk/mobiel menu)
     assert "Uitloggen" in html
     assert "md:sticky" in html and "md:h-screen" in html  # sticky full-height aside
 
