@@ -97,7 +97,13 @@ triage first, Koen decides.
 
 ## 3. Sequence (deliberate — from the architecture session)
 
-1. **The decision round first**: the interaction-model decisions
+1. **The decision round first**, fed by three package rounds that may run in
+   parallel (briefings on #785): the **maker round** (visual directions,
+   deliberately without the current tokens — no anchoring on the palette we
+   just freed), the **conventions debate** (the full corpus — design-system,
+   IST, the §1a findings — argued rule by rule, "settle it once"), and the
+   **review round** (the existing #785 template, tokens as answer
+   vocabulary). Then the decisions: the interaction-model decisions
    (design-system §12: attention after an action, the way back, the unsaved-
    changes promise, wizard/dashboard as types) *and* the visual direction —
    #785 phase 0–4 plus the public concept round with the maker-role addition
