@@ -194,6 +194,13 @@ Added after the first mockup round (14 September 2026, Koen's review):
     child, two or three pieces), so one price field would lie. The line
     is **name | date time location**; prices live where they are managed,
     one click away through the source chip.
+22. **The activity line does show the registration count** (asked the
+    same day): "· N ingeschreven", live from the activities domain — the
+    same occupancy source the public "Volzet" badge uses — in the
+    evaluation section and the upcoming section alike; it is the number
+    the meeting always asks for. Only on activities that take portal
+    registrations; head-counts of activities without a registration flow
+    ("4 wandelaars") stay typed notes.
 
 Inherited, not reopened: **#785 triage A17** — the AI-per-module contract
 (read / propose / execute separated). This module has no AI at all, which is
