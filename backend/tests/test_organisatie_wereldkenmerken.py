@@ -15,7 +15,8 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
-from app.domains.mdm.api import Address, Organization, Person, PostalCode
+from app.domains.mdm.api import (Address, BankAccount, Organization, Person,
+                                 PostalCode)
 from app.kernel.tenant_config import (_actieve_tenant, set_setting,
                                       tenant_display_name,
                                       tenant_payment_beneficiary,
@@ -52,8 +53,10 @@ def postcode(db_session):
 # ── 1. De betaalinstructies komen uit de organisatie ────────────────────────
 
 def test_the_payment_details_come_from_the_organisation(db_session, organisatie):
-    organisatie.payment_iban = "BE68 5390 0754 7034"
-    organisatie.payment_beneficiary = "Raak Millegem"
+    # #945: de rekening is een eigen rij geworden (UBL `cac:PayeeFinancialAccount`).
+    db_session.add(BankAccount(organization_id=organisatie.id,
+                               iban="BE68 5390 0754 7034",
+                               beneficiary="Raak Millegem"))
     db_session.commit()
 
     assert tenant_payment_iban(db_session, TENANT) == "BE68 5390 0754 7034"
@@ -68,7 +71,8 @@ def test_the_tenant_setting_no_longer_exists_as_a_source(db_session, organisatie
     wordt er hier eentje gezet die van de organisatie verschilt. Wint die, dan is
     het veld verplaatst in plaats van weggenomen.
     """
-    organisatie.payment_iban = "BE11 1111 1111 1111"
+    db_session.add(BankAccount(organization_id=organisatie.id,
+                               iban="BE11 1111 1111 1111"))
     db_session.commit()
     set_setting(db_session, "payment_iban", "BE99 9999 9999 9999", tenant_id=TENANT)
 
@@ -93,7 +97,8 @@ def test_the_env_stays_the_safety_net(db_session, organisatie):
     """Een organisatie zonder rekeningnummer valt terug op `.env`."""
     from app.config import settings
 
-    organisatie.payment_iban = None
+    db_session.query(BankAccount).filter(
+        BankAccount.organization_id == organisatie.id).delete()
     db_session.commit()
     assert tenant_payment_iban(db_session, TENANT) == settings.payment_iban
 
@@ -219,15 +224,26 @@ def test_a_tenant_without_its_own_name_is_not_called_raak_millegem(db_session):
         "die van een andere afdeling")
 
 
-def test_an_explicit_display_name_still_wins(db_session):
-    """De merknaam mag de juridische naam overrulen — Koens eigen voorbehoud."""
+def test_no_setting_overrules_the_organisation_name(db_session):
+    """Omgedraaid door #945, en dat is de hele wijziging.
+
+    Tot #945 won een `display_name`-instelling van de organisatienaam. Die
+    overrule bestond dus al terwijl niemand erom gevraagd had — twee plaatsen voor
+    één feit, met de bekende afloop. Koen op 14 september: *"laten we gaan voor de
+    naam die we in organisatie hebben."*
+
+    De instelling wordt hier alsnog gezet, want anders toetst deze test alleen dat
+    er niets staat. Wint ze, dan is de tweede bron er nog.
+    """
     tweede = Organization(org_type="UNIT", code="derde-afdeling",
                           name="Raak Derdegem", legal_form="FEITELIJKE_VERENIGING")
     db_session.add(tweede)
     db_session.commit()
     set_setting(db_session, "display_name", "Derdegem Beweegt", tenant_id=tweede.id)
 
-    assert tenant_display_name(db_session, tweede.id) == "Derdegem Beweegt"
+    assert tenant_display_name(db_session, tweede.id) == "Raak Derdegem", (
+        "de instelling hoort niet meer mee te spelen; doet ze dat wel, dan is de "
+        "naam op twee plaatsen bewerkbaar")
 
 
 # ── 5. De rechtsvorm ────────────────────────────────────────────────────────
@@ -305,8 +321,11 @@ def test_saving_the_screen_writes_to_the_organisation(client, db_session,
         "legal_form": "VZW"})
     db_session.refresh(organisatie)
 
-    assert organisatie.payment_iban == "BE68 5390 0754 7034", "en getrimd"
-    assert organisatie.payment_beneficiary is None, (
+    rekening = (db_session.query(BankAccount)
+                .filter(BankAccount.organization_id == TENANT)
+                .execution_options(include_all_tenants=True).one())
+    assert rekening.iban == "BE68 5390 0754 7034", "en getrimd"
+    assert rekening.beneficiary is None, (
         "leeg wordt None en niet de lege string, anders betekent 'leeg' twee "
         "dingen en valt de lezer niet terug op .env")
     assert organisatie.legal_form == "VZW"
