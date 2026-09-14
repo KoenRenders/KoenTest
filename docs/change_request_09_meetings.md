@@ -222,6 +222,16 @@ Added after the first mockup round (14 September 2026, Koen's review):
     of the admin who sends, so reply-all conversations keep landing with
     the secretary, as they do today.
 
+    *Re-asked and confirmed the same day.* Koen asked why the From is not
+    his personal address, the way it is when he sends by hand. Two reasons
+    it stays: the portal authenticates on **one** Gmail account, and Gmail
+    only lets a message claim an address that is a verified send-as alias
+    on it — without that, Gmail rewrites the From or DMARC drops the mail.
+    Making it work would mean a one-off verification in the association's
+    Gmail settings. Koen chose to leave it: **a board mail is from the
+    association**, and that keeps being true when the secretary changes.
+    Reply-To already puts the answers where they belong.
+
 Inherited, not reopened: **#785 triage A17** — the AI-per-module contract
 (read / propose / execute separated). This module has no AI at all, which is
 the simplest way to honour it.
