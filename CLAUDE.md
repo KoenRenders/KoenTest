@@ -898,6 +898,54 @@ een poort de tweede plek in stand houdt en dus de duurdere oplossing is.
 voorkomt op twee paden. Dat is het moment om te stoppen en te vragen welke van de twee weg
 kan.
 
+## Modelleer op standaarden — bouw wat nodig is, in de vorm die meegroeit
+
+Vastgelegd door Koen op 15 september 2026, na de herwerking van `Organization` (#924).
+
+**De regel bestaat uit twee helften en je hebt ze allebei nodig.** Bouw **alleen wat
+vandaag nodig is** — geen velden, tabellen of abstracties op voorraad. Maar geef wat je
+bouwt de **vorm** die een gevestigde standaard eraan geeft, zodat de uitbreiding later een
+rij is en geen herwerking.
+
+**Waarom dit een regel werd.** Het domeinmodel kende een `Organization` die uitsluitend een
+tenantrol beschreef. Toen de vereniging ook adres, rechtsvorm en rekeningnummer moest
+dragen, bleek er geen plaats voor en moest de entiteit herwerkt worden. Koen achteraf:
+*"Ik had achteraf gezien ook liever met de 'party' gewerkt en we hebben nu organisatie
+moeten herwerken."* De kost zat niet in de ontbrekende velden — die voeg je toe — maar in
+de **vorm** die geen tweede geval toeliet.
+
+**Welke standaarden.** Voor alles wat een partij, een adres, een identificatie of een
+betaling beschrijft: **UBL 2.1 / EN 16931** (het Europese semantische factuurmodel, waarop
+PEPPOL BIS Billing 3.0 draait). Dat is geen academische keuze — België verplicht
+gestructureerde B2B-facturatie via PEPPOL, dus dit vocabularium komt deze codebase hoe dan
+ook binnen. Voor rekeningen en betalingen sluit **ISO 20022** erop aan (`IBAN`, `BICFI`),
+voor organisatie-identificatieschema's **ISO 6523/ICD**.
+
+**Wat die standaarden concreet zeggen**, want dit is de kern en niet de verwijzing:
+
+| Wat | UBL-vorm | Gevolg voor het schema |
+|---|---|---|
+| Identificaties (ondernemings-, btw-nummer) | `cac:PartyIdentification`, `cac:PartyTaxScheme` — **herhaalbaar**, elk met schema en land | eigen tabel met (schema, waarde), nooit één kolom per soort |
+| Rekening | `cac:PayeeFinancialAccount` — `cbc:ID` = IBAN, `cac:FinancialInstitutionBranch/cbc:ID` = BIC | eigen tabel; een partij kan er meerdere hebben |
+| Rechtsvorm, registratienaam | `cac:PartyLegalEntity` — `cbc:CompanyLegalForm`, `cbc:RegistrationName` | mag op de partij, is per definitie enkelvoudig |
+| Contact | `cac:Contact` — `cbc:ElectronicMail`, `cbc:Telephone` | enkelvoudig volstaat tot er rollen bijkomen |
+| Adres | `cac:PostalAddress` met `cac:Country` | het adres hangt áán de partij, niet ín de partij |
+
+**Het herkenningspunt:** je staat op het punt een tweede kolom toe te voegen die hetzelfde
+soort ding beschrijft als de eerste — `vat_number_nl` naast `vat_number`, `iban_2` naast
+`iban`. Dat is het moment waarop de standaard al een tabel had voorzien. Eén kolom voor een
+ding dat van nature herhaalt, is dezelfde fout als twee plaatsen voor één feit — alleen
+merk je hem pas bij het tweede geval.
+
+**Wat dit NIET betekent.** Niet: bouw UBL na. Niet: haal velden binnen die we niet gebruiken
+omdat de standaard ze kent. Wel: als een standaard een ding **herhaalbaar** maakt of het
+**apart** modelleert, neem die vorm over — ook wanneer je vandaag één rij vult. En noem de
+velden zoals de standaard ze noemt, zodat een latere koppeling een mapping is en geen
+vertaalslag.
+
+Wijkt een geval af, schrijf dan in de docstring **welke** standaard je verlaat en waarom.
+Een bewuste afwijking is werkbaar; een onbewuste is de herwerking van de volgende.
+
 ## Common mistakes to avoid
 
 - Do not add `mobile` as a kwarg to `Person(...)` — it's not a column on Person.
