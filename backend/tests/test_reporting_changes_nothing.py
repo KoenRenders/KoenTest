@@ -158,7 +158,9 @@ def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
         "/admin/gebruikers", "/admin/ledenwijzigingen", "/admin/e-maillog",
         "/admin/tenants", "/admin/info",
     ]
-    assert hrefs.index("/admin/rapporten") == hrefs.index("/admin/betalingen") + 1
+    # Sinds de Inzicht-groep (Koen, 14 sep) staat Rapporten naast het Dashboard,
+    # niet meer naast Betalingen — rapportering is niet enkel financieel.
+    assert hrefs.index("/admin/rapporten") == hrefs.index("/admin") + 1
 
 
 def test_the_dashboard_keeps_its_six_tiles_and_its_place(client, db_session):
