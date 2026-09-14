@@ -183,7 +183,12 @@ Added after the first mockup round (14 September 2026, Koen's review):
     Display rule (a household has no name of its own): a new member
     renders as **head member's name – partner's name, address**, derived
     from the `MemberPerson` relations; just the head member when there is
-    no partner.
+    no partner. No "nieuw lid" badge — the section header already says
+    it. Linked items carry a clickable source chip, uniformly: an
+    activity item's chip opens the activity in activity management, a
+    member item's chip opens the household in member management; free
+    items show "vrij punt". Editing always happens at the source — the
+    report only references.
 
 Inherited, not reopened: **#785 triage A17** — the AI-per-module contract
 (read / propose / execute separated). This module has no AI at all, which is
