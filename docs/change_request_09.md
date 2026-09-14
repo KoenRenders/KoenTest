@@ -92,8 +92,13 @@ Taken by Koen on 14 September 2026, in the CR-shaping conversation:
 2. **Agenda and report are composed in the portal** — one document that grows
    from agenda into report, as the board already works, with the activities
    sections pre-filled from the `activities` domain.
-3. **The meeting module is board-only.** Back-office, desktop-first, no plan
-   whatsoever toward a member-facing view.
+3. **The meeting module is board-only.** Back-office, **desktop-only** — no
+   public side, no plan whatsoever toward a member-facing view. Refined
+   14 September 2026: the meeting circle is wider than "the board" — it
+   includes fixed participants who are not called board members and the
+   branch supporter from Raak national, **who is not even a member**. The
+   recipient list is therefore its own maintained list, not a query over
+   membership or roles.
 4. **The portal sends the meeting mails itself**: agenda mail and report mail
    to the ~28 board members, the document rendered as PDF attachment, plus
    freely added extra attachments (a working-group report, a municipal
@@ -143,8 +148,8 @@ Two mail paths, deliberately different:
 New domain `meetings`:
 
 - `Meeting` — `id`, `meeting_date`, `status` (`agenda` → `report` → `sent`),
-  `location`, attendance (present / excused, referencing board persons),
-  timestamps for the agenda mail and report mail.
+  `location`, attendance (present / excused, referencing meeting
+  participants), timestamps for the agenda mail and report mail.
 - `MeetingItem` — `id`, `meeting_id`, `section` (evaluation / upcoming /
   members / ideas / misc), `position`, optional `activity_id` FK, `title`
   (free for non-activity items), `notes` (the bullets, rich-ish text),
@@ -152,6 +157,10 @@ New domain `meetings`:
   to the next meeting).
 - `MeetingAttachment` — link to a `media` file, per meeting, flagged
   agenda-mail / report-mail / both.
+- `MeetingParticipant` — the meeting circle (~28 people): name, e-mail,
+  active flag, optional soft link to `Person`. Its own list because the
+  circle includes non-members (decision §3.3); it drives both the mail
+  recipients and the present/excused picker.
 
 `communication` domain: exactly CR-05's model (`Subscriber` with status,
 tokens, consent fields), plus the import provenance of decision §3.1. Nothing
@@ -242,9 +251,10 @@ From the real examples of §1, anonymised:
    them (owner + text + open/done, carried to the next agenda automatically)?
    Structured is more build and more value — the agenda could open with
    outstanding actions.
-3. **Attendance.** Free text (as today) or picked from the board member list?
-   Picking gives S2/D1 nothing (attendance never leaves the board), so this is
-   purely a meeting-module ergonomics question.
+3. **Attendance.** Free text (as today) or picked from the
+   `MeetingParticipant` list (§5)? Picking gives S2/D1 nothing (attendance
+   never leaves the board), so this is purely a meeting-module ergonomics
+   question.
 4. **Names in newsletter drafts.** The masking default strips volunteer names
    from LLM input. Is a newsletter that thanks helpers by name a case the
    board wants — and if so, does the person's name enter during human editing
