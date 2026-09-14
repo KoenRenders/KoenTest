@@ -144,9 +144,10 @@ class Fact:
     # and never another.
     detail_order: tuple[str, ...] = ()
     # How many distinct people a group of this fact covers, as SQL over its view.
-    # The small-cell threshold (#841) needs to know the size of a cell before it
-    # can protect it; a fact that cannot say leaves the threshold inapplicable and
-    # therefore refuses a sensitive grouping outright.
+    # Declared and not enforced since 14 September 2026: the small-cell threshold
+    # that needed this count was removed, so no query asks for it any more. It
+    # records which facts *could* answer "how many people are behind this group",
+    # and that stays true whether or not a rule leans on it.
     people_sql: str = ""
 
 
@@ -226,8 +227,6 @@ class UniverseObject:
     # (CR-06 §5, drill-down). The value comes from `drill_sql`, not from the label.
     drill: str | None = None
     drill_sql: str | None = None
-    # A dimension that cuts people into groups small enough to recognise somebody
-    # by. Grouping on one of these turns on the small-cell threshold (#841).
     # An expression to ORDER BY instead of the object's own value. For a label
     # that is not sortable as text: `house_number` is a String(10), so "10" sorts
     # before "9". Empty means "sort on the value itself", which is the normal case.
@@ -245,11 +244,25 @@ class UniverseObject:
     # twee keer `gezin-23`, en dat is juist wat het model moet zien. Verplicht zodra
     # `ai_exposure` op tokenised staat — anders valt er niets te tokeniseren.
     token_prefix: str = ""
+    # A dimension that cuts people into groups small enough to recognise somebody
+    # by: municipality, age group, household size. **Declared and not enforced**
+    # since 14 September 2026, when the small-cell threshold that read this flag was
+    # removed — inside the back office a report shows what it counted. What may not
+    # travel to a language model is a different question and is answered by
+    # `ai_exposure`, because a count is not personal data.
+    #
+    # It stays because it describes the DATA and that description is still true; the
+    # generated documentation says in as many words that nothing acts on it, so
+    # nobody reads it as a protection that is not there.
     sensitive: bool = False
-    # A measure that may be added across merged rows. True for a SUM or a plain
-    # COUNT; false for an average or a distinct count, where the sum of the parts
-    # is not the whole — the merged row then shows nothing rather than a number
-    # that looks right.
+    # Whether a measure may be added across groups that were rolled together. True
+    # for a SUM or a plain COUNT; false for an average or a distinct count, where
+    # the sum of the parts is not the whole.
+    #
+    # Declared and not enforced, for the same reason and since the same date: the
+    # merged row it protected no longer exists. It is not wired to anything — the
+    # result column stopped carrying it, because a field travelling to no reader is
+    # the kind of thing that looks like a working mechanism.
     additive: bool = True
 
     @property
@@ -1498,11 +1511,14 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="board_member", name="Verantwoordelijk bestuurslid", klass="Leden",
         kind=ObjectKind.DIMENSION, view="d_board_member",
         sql="COALESCE({view}.board_member_name, 'Niet toegewezen')",
-        # NOT `sensitive`: the threshold protects members from being picked out
-        # of a small demographic group, and a board member is the axis here, not
-        # the population. Combine this with an age group and the threshold still
-        # fires — it triggers on any sensitive dimension in the selection — so the
-        # protection stays exactly where it belongs (#849).
+        # NOT `sensitive`: that flag describes a dimension that cuts MEMBERS into
+        # small groups, and a board member is the axis here, not the population
+        # (#849). Unchanged by the removal of the threshold on 14 September 2026 —
+        # the flag is a description of the data, and this description was never
+        # about the rule that used to read it.
+        #
+        # What protects this column is `ai_exposure`: a board member is a person,
+        # so it travels as `persoon-90` and the admin reads the name back on screen.
         format=Format.LABEL, role=Role.MEMBER_DETAILS,
         description=(
             "Het bestuurslid dat dit gezin tot zijn verantwoordelijkheid neemt. "

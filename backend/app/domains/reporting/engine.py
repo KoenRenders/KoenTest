@@ -296,8 +296,6 @@ class Column:
     kind: ObjectKind
     format: str
     drill: str | None = None
-    # Whether this measure may be added across merged rows (see the threshold).
-    additive: bool = True
 
 
 @dataclass
@@ -711,7 +709,7 @@ def build_query(selection: Selection, *, tenant_id: int,
 
     columns = [
         Column(key=o.key, name=o.name, kind=o.kind, format=o.format.value,
-               drill=o.drill, additive=o.additive)
+               drill=o.drill)
         for o in objects
     ]
     return QueryPlan(sql=sql, totals_sql=totals_sql, params=params,
@@ -865,7 +863,7 @@ def _build_detail_list(selection: Selection, objects: list[UniverseObject], *,
 
     columns = [
         Column(key=o.key, name=o.name, kind=o.kind, format=o.format.value,
-               drill=o.drill, additive=o.additive)
+               drill=o.drill)
         for o in objects
     ]
     return QueryPlan(sql=sql, totals_sql=totals_sql, params=params,
