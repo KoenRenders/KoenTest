@@ -206,6 +206,7 @@ class Organization(SoftDeleteMixin, Base):
     # organisatie geen website had — de beslisregel uit het issue.
     payment_iban = Column(String(40), nullable=True)
     payment_beneficiary = Column(String(255), nullable=True)
+    payment_bic = Column(String(20), nullable=True)
     facebook_url = Column(String(255), nullable=True)
     instagram_url = Column(String(255), nullable=True)
     tiktok_url = Column(String(255), nullable=True)

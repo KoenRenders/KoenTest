@@ -216,7 +216,7 @@
       {% for regel in organisatie.address_lines %}<p>{{ regel }}</p>{% endfor %}
       {% if organisatie.email %}<p><a href="mailto:{{ organisatie.email }}" class="hover:text-blue-700 hover:underline">{{ organisatie.email }}</a></p>{% endif %}
       {% if organisatie.phone %}<p>{{ organisatie.phone }}</p>{% endif %}
-      {% if organisatie.iban %}<p>{{ _("Rekeningnummer") }}: {{ organisatie.iban }}</p>{% endif %}
+      {% if organisatie.iban %}<p>{{ _("Rekeningnummer") }}: {{ organisatie.iban }}{% if organisatie.bic %} ({{ organisatie.bic }}){% endif %}</p>{% endif %}
     </div>
     {% endif %}
     {% if footer_block and footer_block.content %}

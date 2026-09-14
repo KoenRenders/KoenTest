@@ -237,7 +237,8 @@ def secrets_gezet(db, tenant_id: int, keys) -> dict[str, bool]:
 # aan (`test_layer_gate`).
 ORGANISATIEVELDEN: tuple[str, ...] = (
     "legal_form", "enterprise_number", "vat_number", "email", "phone", "website",
-    "payment_iban", "payment_beneficiary", "facebook_url", "instagram_url",
+    "payment_iban", "payment_beneficiary", "payment_bic", "facebook_url",
+    "instagram_url",
     "tiktok_url",
 )
 

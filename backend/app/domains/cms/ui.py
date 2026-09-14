@@ -110,6 +110,11 @@ def cms_pagina(slug: str, request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "cms_pagina.html", {
         **site_context(db, request), "page": page,
         "content_html": render_cms_content(page.content or ""),
+        # #924: één vaste slug krijgt het contactblok uit de organisatie, zoals de
+        # footer er een krijgt. Geen shortcode en geen nieuwe pagina: er ís geen
+        # contactpagina, en een blok dat van een paginanaam afhangt werkt niet voor
+        # een tweede afdeling die haar pagina anders noemt.
+        "toon_contactblok": slug == "privacy",
         # De template toont een concept-banner; de publieke route serveert alleen
         # gepubliceerde pagina's, dus hier altijd False. Expliciet meegeven i.p.v.
         # de template laten raden — dat is de afspraak sinds #643.

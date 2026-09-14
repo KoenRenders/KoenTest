@@ -81,6 +81,7 @@ ORGANISATIEVELDEN = [
      "Voor de overschrijvingsinstructies. Leeg = .env-default."),
     ("payment_beneficiary", "Begunstigde",
      "Naam op de overschrijving. Leeg = .env-default."),
+    ("payment_bic", "BIC", "Optioneel; staat bij het rekeningnummer in de footer."),
     ("facebook_url", "Facebook-link", "Footer-icoon. Leeg = niet tonen."),
     ("instagram_url", "Instagram-link", "Footer-icoon. Leeg = niet tonen."),
     ("tiktok_url", "TikTok-link", "Footer-icoon. Leeg = niet tonen."),

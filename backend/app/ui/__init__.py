@@ -469,8 +469,10 @@ def _footer_organisatie(db, organisatie) -> dict | None:
         "email": organisatie.email or None,
         "phone": organisatie.phone or None,
         "iban": organisatie.payment_iban or None,
+        "bic": organisatie.payment_bic or None,
     }
-    heeft_inhoud = regels or blok["email"] or blok["phone"] or blok["iban"]
+    heeft_inhoud = (regels or blok["email"] or blok["phone"] or blok["iban"]
+                    or blok["bic"])
     return blok if heeft_inhoud else None
 
 
