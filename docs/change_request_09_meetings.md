@@ -1,9 +1,9 @@
 # Change Request 09 — Meetings in the portal
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** Shaped with Koen on 14 September 2026 (handover on #258). All
-scope decisions are settled; no open questions remain on the meeting side.
-Not assigned to a release.
+**Status:** Shaped with Koen on 14 September 2026 (handover on #258) and
+**built the same day** (#939), assigned to v2.5 (#925). All scope decisions are
+settled; no open questions remain. §9 records what the build itself decided.
 **Apply to:** a new `meetings` domain (backend + admin screens). Board mail
 goes through the existing `mail` domain; attachments through `media`.
 **Split note (14 September 2026):** this CR covers the **meeting module
@@ -469,6 +469,35 @@ in the backend Dockerfile (named in the "Na de merge" block);
 Migration + models → circle screen (mdm relation) → agenda generation +
 document screen → files + PDF → send + lifecycle → tests/e2e. One
 release item; ships as a whole.
+
+## 9. What the build decided (14 September 2026, #939)
+
+Three things the code settled that this document had left at sketch level. Each
+was a rule of the repository meeting a choice in §4, and in each case the
+repository won — noted here so the next reader does not re-derive them.
+
+1. **No cross-schema foreign keys.** §4 proposed `activity_id`, `member_id` and
+   `noted_steward_person_id` as real FKs, "integrity at rest". The repo forbids
+   them outright (`test_schema_boundaries`): a FK across schemas ties two
+   domains' deploys together. They are **soft-refs**; a reference that no longer
+   resolves renders as a free item instead of breaking the screen.
+2. **The relation type is two tables.** The older code tables key on
+   (code, language), so the code alone is not unique and nothing can point a
+   foreign key at it — and a unique key on the code alone is exactly what
+   silently dropped every English label in migration 017.
+   `organization_relation_types` holds the code, `…_labels` its texts per
+   language. A third language is a row; the FK keeps working.
+3. **Creating a meeting is a screen, not a modal.** The first build used a
+   modal — one date field, after all — and the UI gate refused it (#627: a
+   creation dialog rarely makes the object complete, and you work on in the
+   editor anyway). `/admin/vergaderingen/nieuw` it is, with time and location
+   prefilled from the previous meeting.
+
+One duplication was avoided in passing: the rule for *counting* a registration
+(the sum of the item quantities, or one per registration without items) was
+about to exist twice, once per component in the activities router and once per
+activity here. It now lives once in the activities service, with the router
+helper as a pass-through.
 
 ## Non-goals
 
