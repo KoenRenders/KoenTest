@@ -138,6 +138,23 @@ Decided later the same day (14 September 2026), while PR #932 ran:
     off-portal items, and far-out items with nothing to discuss can be
     left off this month's agenda.
 
+Added after the first mockup round (14 September 2026, Koen's review):
+
+15. **Loose one-off e-mail addresses on a meeting mail.** A guest speaker
+    who comes once is not created as a `Person`: their address is added to
+    that mail only (in the To line like everyone else), stored with the
+    meeting so the report mail can reuse it, and gone afterwards. The fixed
+    circle stays the organisation relation of §3.11.
+16. **No PDF preview pane — a download is the control step.** Before
+    sending, the secretary downloads the generated PDF and checks it; the
+    PDF is regenerated at send time so what is checked is what goes out.
+    This sharpens §3.12: the human review happens on the real artefact.
+17. **Sections are per meeting, extensible.** Besides the five standard
+    sections, the secretary can add a named section block ("Jaarplanning
+    2027") to agenda a big topic and notulate its discussion. Standard
+    sections keep their generation and carry-over semantics; a custom
+    section holds free items only.
+
 Inherited, not reopened: **#785 triage A17** — the AI-per-module contract
 (read / propose / execute separated). This module has no AI at all, which is
 the simplest way to honour it.
@@ -149,8 +166,12 @@ New domain `meetings`:
 - `Meeting` — `id`, `meeting_date`, `status` (`agenda` → `report` → `sent`),
   `location`, attendance (present / excused, referencing meeting
   participants), timestamps for the agenda mail and report mail.
-- `MeetingItem` — `id`, `meeting_id`, `section` (evaluation / upcoming /
-  members / ideas / misc), `position`, optional `activity_id` FK, `title`
+- `MeetingSection` — the sections of one meeting: the five standard kinds
+  (evaluation / upcoming / members / ideas / misc) seeded at agenda
+  generation, plus manually added named sections (decision §3.17). Carries
+  `kind` (standard code or `custom`), `title`, `position`.
+- `MeetingItem` — `id`, `meeting_id`, `section_id` (FK to
+  `MeetingSection`), `position`, optional `activity_id` FK, `title`
   (free for non-activity items), `notes` (the bullets, rich-ish text),
   `carried_over_from` (optional self-reference: an ideas/misc item that
   moves to the next meeting), and the **newsletter marker** — during the
@@ -158,6 +179,8 @@ New domain `meetings`:
   consumed by CR-05).
 - `MeetingAttachment` — link to a `media` file, per meeting, flagged
   agenda-mail / report-mail / both.
+- Extra recipients (decision §3.15): per meeting, plain e-mail strings for
+  one-off guests — no `Person`, no relation.
 - The meeting circle lives in **MDM, not here** (decision §3.11): a new
   generic person↔organisation relation (person, organisation, relation-type
   code — first code `BOARD_MEETING` — begin/end date), following the
