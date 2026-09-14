@@ -324,8 +324,18 @@
   }
 
   // ── Knop-wiring: <button data-stt-target="#input" data-stt-mode="..."> ────
-  document.addEventListener("DOMContentLoaded", function () {
+  //
+  // #917: niet alleen bij het laden. In de BEHEERSCHIL komt een scherm binnen via
+  // hx-boost — htmx vervangt `#main` en er is geen tweede DOMContentLoaded — dus een
+  // microfoonknop op een gebooste pagina bleef dood. Op de publieke kant viel dat
+  // nooit op: daar staat de widget in de schil en is hij er al bij het laden.
+  //
+  // Het `data-stt-wired`-merkteken is niet optioneel: zonder dat hangt elke swap er
+  // een tweede klik-listener bij, en dan start één klik twee opnames.
+  function wireSttButtons() {
     document.querySelectorAll("[data-stt-target]").forEach(function (btn) {
+      if (btn.dataset.sttWired) return;
+      btn.dataset.sttWired = "1";
       var input = document.querySelector(btn.getAttribute("data-stt-target"));
       var mode = btn.getAttribute("data-stt-mode") || "browser_only";
       if (!input) return;
@@ -390,5 +400,8 @@
         }
       });
     });
-  });
+  }
+
+  document.addEventListener("DOMContentLoaded", wireSttButtons);
+  document.addEventListener("htmx:afterSwap", wireSttButtons);
 })();

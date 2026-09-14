@@ -34,6 +34,20 @@
      precies één keer per sessie — met hx-boost zelfs goedkoper dan per pagina. #}
   <link rel="stylesheet" href="{{ statisch('vendor/trix.css') }}">
   <script src="{{ statisch('vendor/trix.min.js') }}" defer></script>
+  {# Spraak-in en voorlezen voor Raakje in de backoffice (#917). Zelfde plaats en
+     zelfde redenering als Trix hierboven: in de schil, niet in het scherm. Een
+     <script> in gebooste inhoud draait bij élke navigatie opnieuw en hangt
+     document-listeners op; hier laadt het precies één keer per sessie.
+
+     En bewust ZONDER voorwaarde. Een `{% if %}` op de assistent zou hier de
+     verkeerde vraag stellen: met hx-boost wordt alleen `#main` vervangen, dus de
+     schil van de eerste pagina die je opent bepaalt wat er geladen is. Wie via de
+     rapportenlijst naar de assistent boost, zou dan een dode microfoonknop
+     krijgen. Samen ~21 KB, deferred — minder dan Trix, dat hier om dezelfde reden
+     onvoorwaardelijk staat voor één scherm. #}
+  <script src="{{ statisch('stt.js') }}"
+          data-worklet="{{ statisch('stt-pcm-worklet.js') }}" defer></script>
+  <script src="{{ statisch('tts.js') }}" defer></script>
 </head>
 {# hx-boost (#634): navigatie zonder volledige herlaad — htmx haalt de nieuwe
    pagina op en vervangt alleen #main, zodat de zijbalk blijft staan en het witte

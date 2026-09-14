@@ -218,3 +218,57 @@ def test_the_reports_screen_offers_the_way_in(client, db_session, aan):
     resp = client.get("/admin/rapporten")
     assert PATH in resp.text
     assert "Vraag het Raakje" in resp.text
+
+
+# ── Spraak: dezelfde twee knoppen als op de publieke Raakje (#917) ───────────
+
+def test_the_screen_offers_a_microphone_and_a_speaker(client, db_session, aan):
+    """Identiek aan de publieke bot — en dat is hier een letterlijke eis.
+
+    Het zijn dezelfde attributen (`data-stt-target`, `data-tts-toggle`), dezelfde
+    iconen en hetzelfde script; alleen de schil eromheen verschilt. Wie hier iets
+    anders bouwt, bouwt een tweede spraakmechanisme dat over een half jaar
+    achterloopt op het eerste.
+
+    Kapotgemaakt om het rood te zien: `data-stt-target` weggehaald uit de
+    knop — dan staat er een microfoon die nergens aan hangt, wat er op het scherm
+    net zo uitziet als een werkende.
+    """
+    login(client, db_session)
+    resp = client.get(PATH)
+    assert 'data-stt-target="#rp-raakje-vraag"' in resp.text
+    assert "data-tts-toggle" in resp.text
+    # De modus komt uit de configuratie en niet uit de template.
+    from app.config import settings
+    assert f'data-stt-mode="{settings.stt_mode}"' in resp.text
+
+
+def test_the_answer_carries_the_hook_the_speaker_reads(client, db_session, aan):
+    """Zonder `data-raakje-answer` staat de voorleesknop aan en gebeurt er niets.
+
+    Dat is de stille helft van deze functie: de toggle in de kop schakelt, maar
+    tts.js hangt zijn knopje en zijn tekst aan dít haakje in het antwoord. Twee
+    plaatsen die moeten kloppen, waarvan er één onzichtbaar is.
+    """
+    seed(db_session)
+    csrf = login(client, db_session)
+    resp = client.post(PATH, data={"vraag": "hoe zit het met de betalingen?",
+                                   "historie": "[]"},
+                       headers={"X-CSRF-Token": csrf})
+    assert "data-raakje-answer" in resp.text
+
+
+def test_the_speech_scripts_are_loaded_by_the_admin_shell(client, db_session, aan):
+    """In de schil en niet in het scherm, net als Trix.
+
+    Met hx-boost wordt alleen `#main` vervangen, dus de schil van de eerste pagina
+    die je opent bepaalt wat er geladen is. Zat dit in het assistentscherm achter
+    een `{% if %}`, dan kreeg wie via de rapportenlijst naar de assistent boost een
+    dode microfoonknop — en dat is precies het soort fout dat lokaal nooit opvalt,
+    omdat je daar de pagina rechtstreeks opent.
+    """
+    login(client, db_session)
+    for pagina in (PATH, "/admin/rapporten"):
+        tekst = client.get(pagina).text
+        assert "stt.js" in tekst, f"{pagina} laadt stt.js niet"
+        assert "tts.js" in tekst, f"{pagina} laadt tts.js niet"

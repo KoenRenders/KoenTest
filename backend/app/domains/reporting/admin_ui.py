@@ -791,8 +791,11 @@ def _history_out(turns: list[dict[str, str]]) -> str:
 @router.get("/admin/rapporten/raakje", response_class=HTMLResponse)
 def assistant_page(request: Request, db: Session = Depends(get_db),
                    email: str = Depends(require_admin_ui)):
+    from app.config import settings
+
     enabled, reason = _assistant_state(db, request)
     view = AssistantView(enabled=enabled, reason=reason, history="[]",
+                         stt_mode=settings.stt_mode,
                          csrf_token=_csrf(request), nav_items=admin_nav(NAV))
     return templates.TemplateResponse(request, "admin_rapporten_raakje.html",
                                       view.as_context())

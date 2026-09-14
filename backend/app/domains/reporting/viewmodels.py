@@ -159,6 +159,9 @@ class AssistantView(ViewModel):
     # Derived in the route — a template that works this out is a second place where
     # the rule lives (design-system §8.3).
     reason: str
+    # Which speech path the microphone button uses (#917). Read from the config in
+    # the route; the same value the public Raakje passes to its own button.
+    stt_mode: str
     history: str
     csrf_token: str
     nav_items: list[Any] = field(default_factory=list)
