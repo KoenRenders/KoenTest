@@ -199,7 +199,9 @@ _werkruimte_cache: dict[int, str] = {}
 def _werkruimte_naam() -> str:
     from app.kernel.tenancy import current_tenant_id
 
-    tid = current_tenant_id.get()
+    # ContextVar kan None dragen buiten een request; 0 is dan de cachesleutel
+    # en tenant_display_name valt zelf terug op de default.
+    tid = current_tenant_id.get() or 0
     naam = _werkruimte_cache.get(tid)
     if naam is None:
         try:
