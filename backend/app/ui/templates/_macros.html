@@ -83,6 +83,9 @@
 {# `thumbs-up` is er sinds #883, voor het duimpje bij een foto. Lucide, zoals de rest
    van deze set. Let op: binnen de `paths`-dict kan geen Jinja-commentaar staan — dat is
    een expressie, geen sjabloontekst. #}
+{# `link` (#258): de bron-chip op een vergaderpunt wijst naar de activiteit of het
+   gezin waarvan het punt komt. Zonder dit pad rendert `icon("link")` een leeg
+   SVG-vakje — zichtbaar als een gat naast de tekst, en zo is het opgemerkt. #}
 {% macro icon(name, size=16, cls="") -%}
 {%- set paths = {
   "download": '<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/>',
@@ -90,6 +93,7 @@
   "file-text": '<path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
   "printer": '<path d="M6 9V2h12v7"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/>',
   "search": '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  "link": '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>',
   "chevron-up": '<path d="m18 15-6-6-6 6"/>',
   "chevron-down": '<path d="m6 9 6 6 6-6"/>',
   "arrow-up": '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
@@ -460,6 +464,14 @@
                        placeholder="", cls="", attrs="", aria_label=None) -%}
 <input type="{{ type }}" name="{{ name }}" id="{{ id or name }}"{% if value != "" %} value="{{ value }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}
        {% if aria_label %}aria-label="{{ aria_label }}" {% endif %}class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>
+{%- endmacro %}
+
+{# Meegroeiend tekstveld (#788): de attributen die een textarea met zijn inhoud
+   laten meegroeien. Als macro en niet per scherm overgetypt — dit stond al op drie
+   plaatsen in de chatbot-schermen, en de vergadernotities waren de vierde. `max_px`
+   begrenst de groei; zet hem hoog waar de tekst lang mag worden. #}
+{% macro autogrow(max_px=400) -%}
+x-data x-init="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, {{ max_px }}) + `px`" x-on:input="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, {{ max_px }}) + `px`"
 {%- endmacro %}
 
 {% macro textarea_control(name, id=None, value="", rows=4, required=False,

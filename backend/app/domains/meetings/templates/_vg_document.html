@@ -114,12 +114,25 @@
     </form>
     {% endif %}
 
+    {# De notities: één regel = één opsommingspunt, inspringen nest. Het tekstvak
+       blijft platte tekst — tijdens een vergadering wil je typen, niet opmaken —
+       en dit is hoe diezelfde tekst gelezen wordt, hier en in de PDF. #}
+    {% if item.bullets %}
+    <ul class="mt-2 text-sm text-ink space-y-0.5">
+      {% for niveau, tekst in item.bullets %}
+      <li class="flex gap-2 {% if niveau == 1 %}pl-5{% elif niveau == 2 %}pl-10{% endif %}">
+        <span class="text-ink-soft select-none" aria-hidden="true">{% if niveau == 0 %}●{% elif niveau == 1 %}○{% else %}■{% endif %}</span>
+        <span>{{ tekst }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% endif %}
     <form class="mt-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt/{{ item.id }}"
           hx-target="#vg-document" hx-swap="innerHTML" hx-trigger="change">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       {{ ui.textarea_control("notes", value=item.notes, rows=2, cls="w-full",
-                             placeholder=_("Notities…"),
-                             attrs=("disabled" if not editable else "")) }}
+                             placeholder=_("Notities… — één regel per punt, spring twee spaties in voor een subpunt"),
+                             attrs=ui.autogrow(320) ~ (" disabled" if not editable else "")) }}
     </form>
   </div>
   {% endfor %}
@@ -196,6 +209,21 @@
     <span class="inline-flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-sm">
       {{ ui.icon("file-text", 14) }}
       <a href="/admin/vergaderingen/{{ meeting.id }}/bestand/{{ file.id }}" hx-boost="false" class="hover:underline">{{ file.filename }}</a>
+      {# Per bijlage kiezen met wélke mail ze meegaat: soms hoort een draaiboek bij
+         de agenda en een ander document bij het verslag. Eén klik keert de stand om. #}
+      {% if editable %}
+      {% for mail, label, aan in [("agenda", _("agenda"), file.on_agenda_mail),
+                                  ("report", _("verslag"), file.on_report_mail)] %}
+      <form hx-post="/admin/vergaderingen/{{ meeting.id }}/bijlage/{{ file.id }}/meesturen"
+            hx-target="#vg-document" hx-swap="innerHTML">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="mail" value="{{ mail }}">
+        <button type="submit"
+                title="{{ _("Klik om te wisselen") }}"
+                class="rounded-full px-2 py-0.5 text-xs font-medium border {% if aan %}border-blue-200 bg-blue-50 text-blue-700{% else %}border-line text-ink-soft line-through{% endif %}">{{ label }}</button>
+      </form>
+      {% endfor %}
+      {% endif %}
       {% if editable and not meeting.agenda_sent_at and not meeting.report_sent_at %}
       <form hx-post="/admin/vergaderingen/{{ meeting.id }}/bijlage/{{ file.id }}/verwijder"
             hx-target="#vg-document" hx-swap="innerHTML">

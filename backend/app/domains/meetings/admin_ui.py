@@ -62,6 +62,7 @@ from app.domains.meetings.api import (
     sections_of,
     send_meeting_mail,
     set_attendance,
+    set_file_mailing,
     set_noted_steward,
     update_item,
 )
@@ -257,7 +258,8 @@ def _document_view(request: Request, db: Session, meeting,
 
     picker_options = []
     if picker_section_id is not None:
-        picker_options = addable_activities(db, meeting, picker_query)
+        picker_options = addable_activities(db, meeting, picker_query,
+                                            section_id=picker_section_id)
     return MeetingDocumentView(
         meeting=meeting, title=_title(meeting),
         status_label=_(STATUS_LABELS.get(meeting.status, meeting.status)),
@@ -407,6 +409,21 @@ async def attachment_add(meeting_id: int, request: Request,
     return _document_response(request, db, meeting)
 
 
+@router.post("/admin/vergaderingen/{meeting_id}/bijlage/{file_id}/meesturen",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def attachment_mailing(meeting_id: int, file_id: int, request: Request,
+                       db: Session = Depends(get_db),
+                       _email: str = Depends(require_admin_ui),
+                       mail: str = Form(...)):
+    """Zet deze bijlage aan of uit voor de agenda- of de verslagmail."""
+    meeting = _meeting_or_404(db, meeting_id)
+    try:
+        set_file_mailing(db, meeting, file_id, mail=mail)
+    except MeetingError as exc:
+        return _document_response(request, db, meeting, error=str(exc))
+    return _document_response(request, db, meeting)
+
+
 @router.post("/admin/vergaderingen/{meeting_id}/bijlage/{file_id}/verwijder",
              response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 def attachment_delete(meeting_id: int, file_id: int, request: Request,
@@ -439,6 +456,26 @@ def file_download(meeting_id: int, file_id: int, db: Session = Depends(get_db),
 
 # ── The PDF ──────────────────────────────────────────────────────────────────
 
+def _logo_data_uri(db: Session) -> Optional[str]:
+    """Het verenigingslogo als data-URI, of None.
+
+    Als data-URI en niet als link: WeasyPrint rendert los van de webserver en
+    haalt niets op — en een PDF die bij het genereren het net op moet, is een PDF
+    die op een dag zonder logo uit de printer komt. Het logo staat in de
+    mediabibliotheek (soort "Logo van de vereniging"); is er geen, dan valt de kop
+    terug op het woordmerk.
+    """
+    import base64
+
+    from app.domains.media.api import tenant_logo
+
+    asset = tenant_logo(db)
+    if asset is None or not asset.data:
+        return None
+    gecodeerd = base64.b64encode(asset.data).decode("ascii")
+    return f"data:{asset.content_type};base64,{gecodeerd}"
+
+
 def _pdf_context(db: Session, meeting, *, kind: str) -> dict:
     """Everything the PDF template needs — the same structure the screen shows."""
     from app.domains.mdm.api import organization_circle
@@ -451,7 +488,7 @@ def _pdf_context(db: Session, meeting, *, kind: str) -> dict:
             present.append(name)
         elif ticked.get(entry.person.id) == ATTENDANCE_EXCUSED:
             excused.append(name)
-    return {"meeting": meeting, "kind": kind,
+    return {"meeting": meeting, "kind": kind, "logo": _logo_data_uri(db),
             "kind_label": _("Agenda") if kind == "agenda" else _("Verslag"),
             "date_label": long_date(meeting.meeting_date),
             "sections": document_of(db, meeting),

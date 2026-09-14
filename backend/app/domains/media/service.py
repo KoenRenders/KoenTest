@@ -15,7 +15,11 @@ from app.domains.media.images import ALLOWED_CONTENT_TYPES, ImageError, process_
 from app.domains.media.models import MediaAsset
 from app.i18n import _
 
-VALID_KINDS = {"sponsor", "activity_photo"}
+# `tenant_logo` (#258): het logo van de vereniging zelf — één per tenant.
+# Eerste afnemer is de vergader-PDF, die het in zijn kop zet in plaats van een
+# ingetypt woordmerk. Een mediasoort en geen tenant-instelling: een logo is
+# bytes, en die horen waar de andere bytes al staan.
+VALID_KINDS = {"sponsor", "activity_photo", "tenant_logo"}
 MAX_BATCH = 20
 
 
@@ -410,3 +414,17 @@ def delete_component_info(db, component_id: int) -> None:
                           MediaAsset.component_id == component_id).all()):
         db.delete(asset)
     db.commit()
+
+
+def tenant_logo(db):
+    """Het logo van deze vereniging, of None (#258).
+
+    Eén per tenant: de nieuwste wint, zodat een nieuwe upload de oude vervangt
+    zonder dat er iets opgeruimd moet worden. Geeft het asset zelf terug en niet
+    een URL, want de eerste afnemer is een PDF — die kan niets ophalen en heeft
+    de bytes nodig.
+    """
+    return (db.query(MediaAsset)
+            .filter(MediaAsset.kind == "tenant_logo")
+            .order_by(MediaAsset.id.desc())
+            .first())

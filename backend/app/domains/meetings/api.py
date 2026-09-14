@@ -56,6 +56,7 @@ from app.domains.meetings.service import (  # noqa: F401
     items_of,
     list_meetings,
     member_standing,
+    note_bullets,
     previous_meeting,
     recipients_for,
     remove_extra_recipient,
@@ -64,6 +65,7 @@ from app.domains.meetings.service import (  # noqa: F401
     sections_of,
     send_meeting_mail,
     set_attendance,
+    set_file_mailing,
     set_noted_steward,
     update_item,
 )
@@ -85,8 +87,9 @@ __all__ = [
     "addable_activities", "attendance_of", "create_meeting", "delete_file",
     "delete_item", "document_of", "extra_recipients_of", "files_of", "generate_agenda", "get_file",
     "get_meeting", "items_of", "list_meetings", "member_standing",
+    "note_bullets",
     "previous_meeting", "recipients_for", "remove_extra_recipient", "reopen",
     "section_label", "sections_of", "send_meeting_mail", "set_attendance",
-    "set_noted_steward",
+    "set_file_mailing", "set_noted_steward",
     "update_item", "filename_for", "long_date", "render", "short_date",
 ]
