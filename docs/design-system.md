@@ -50,6 +50,7 @@ change to all four, in one pull request.
 | 13 Sep 2026 | Judging viewports follow the audience: public phone-first, admin desktop-first | CR-08 |
 | 13 Sep 2026 | Golf 1 approved on the package: public shell in Cobalt; **public headings in Inter** (variant B), wordmark stays Radio Canada Big; status colours shell-independent | #913 |
 | 13 Sep 2026 | Golf 2: the admin shell joins Cobalt — white grouped sidebar, account presence top right (initials + e-mail, logout in its menu), headings Inter in both shells | #913 |
+| 14 Sep 2026 | Wave 0b: the `field_*` wrapper family is removed — one field family (`*_control` + `ui.label`); hint/error lines are a written convention (§2.2) | #913 |
 | 14 Sep 2026 | Package-2 feedback: top-left = **tenant name + "Werkruimte"** (product label; the Raak wordmark leaves the admin shell — §12 decision a made concrete); workspace groups **Werking** (was Vereniging) / Financieel / **Inzicht** (Dashboard + Rapporten — reporting is not finance-only) / Inhoud / Systeem; address grid two columns on a phone (bus stays right of the house number) | #913 |
 
 Decisions still open are listed in §12.
@@ -245,17 +246,17 @@ Import with `{% import "_macros.html" as ui %}`.
 - Icon-only buttons need an `aria_label`; `button()` then adds a `title` with
   the same text, so mouse users do not have to guess either (#698).
 
-### 2.2 Form fields — two families, not interchangeable (#659, #663)
+### 2.2 Form fields — one family (#659, #663; consolidated in wave 0b, #913)
 
-- **`ui.field_input` / `field_select` / `field_textarea`** — a field in an
-  ordinary vertical form. They bring label, `mb-4` block, hint and error line,
-  and derive the `id` from the `name`. Usable only when that `name` is unique on
-  the page.
-- **`ui.input_control` / `select_control` / `textarea_control`** — a loose
-  control in a compact or repeated context: you set label, id and width
-  yourself. Needed as soon as the same `name` appears more than once (every card
-  in a loop has a field `name`), or when the width drives the column in a
-  `flex flex-wrap` row.
+- **`ui.input_control` / `select_control` / `textarea_control`** is the one
+  field family: you set label (`ui.label`), id and width yourself. Explicit
+  ids, because a derived id duplicates in repeated cards; explicit width,
+  because in a `flex flex-wrap` row the width drives the column.
+- The former `field_*` wrapper family is gone (14 September 2026): the count
+  was 4 calls — all its own kit demo — against 149 for the controls. What it
+  bundled is now the written convention: label above, control, then an
+  optional hint line (`text-xs text-gray-500 mt-1`) and error line
+  (`text-xs text-red-600 mt-1`), field block spacing `mb-4` from the form.
 - Pass your own text size (`text-xs` for a code field) and the kit base drops
   its `text-sm`; otherwise two equal utilities collide and the generated CSS
   order decides, not the attribute.
