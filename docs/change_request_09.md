@@ -72,7 +72,7 @@ was written for, now measured rather than presumed.
 |---|---|
 | Activities | the `activities` domain holds name, date, location, price, registration link and occupancy — the agenda's "upcoming activities" section is a query, not typing |
 | Subscription model | CR-05: `Subscriber`, double opt-in, unsubscribe tokens, `EmailCampaignProvider` adapter — designed, nothing built |
-| Transactional mail | `mail` domain + Gmail SMTP — fine for ~28 board recipients, wrong for campaigns |
+| Transactional mail | `mail` domain + Gmail SMTP — carries the board mails, and initially the newsletters too: per recipient and queued (decision §3.11), never as one Bcc |
 | LLM plumbing | CR-07's conversation kernel and capability-pack architecture; the drafting pack was already named there as the first acting capability |
 | Attachments | the `media` domain stores uploaded files |
 | STT | a `stt` domain exists but is **out of scope** — decided 14 September 2026: the report is typed, never transcribed |
@@ -134,8 +134,21 @@ Taken by Koen on 14 September 2026, in the CR-shaping conversation:
 10. **The newsletter flag is the whole gate for names.** Flagged content may
     name volunteers; the human editor decides what survives. No separate
     "public names" machinery.
-11. **From S2 on, the monthly member newsletter is sent from the portal via
-    the ESP** — not from Gmail — so the member opt-out is real.
+11. **Newsletters are composed and sent from the portal** — refined later
+    the same day: sending starts on the existing Gmail account, but the
+    portal sends **one mail per recipient** through Gmail SMTP (the `mail`
+    domain's transport), each with its own unsubscribe token and a
+    `List-Unsubscribe` header, queued and batched under Gmail's daily
+    limit. That ends the Bcc sends (and the To/Bcc accident they invite)
+    and makes the opt-out real. Gmail SMTP is the **first
+    `EmailCampaignProvider` implementation**; the EU ESP of CR-05 stays
+    behind the same adapter as a later provider swap, **deferred with
+    named triggers**: Gmail's daily cap starts to pinch, deliverability
+    degrades, or manual bounce handling becomes a burden. The compose
+    screen carries the blocks the newsletters already have (intro, "in de
+    kijker", two-month calendar, outlook, external events), pre-filled
+    from activities and flagged report items — and is where the D1 draft
+    lands.
 12. **Import comes from Koen's existing file**, and adding a subscriber by
     hand later must be possible (a small admin add — part of the subscriber
     screen, not a separate import feature). **Two people already opted out
@@ -174,7 +187,8 @@ activities domain ──► agenda (pre-filled) ──► meeting (typed notes) 
                                      monthly member NL     half-yearly NL
                                               │                   │
                                               ▼                   ▼
-                                   communication domain: audience + send (ESP)
+                          communication domain: audience + queued send
+                          (provider: Gmail SMTP first, EU ESP later)
 ```
 
 Two mail paths, deliberately different:
@@ -182,7 +196,7 @@ Two mail paths, deliberately different:
 | Mail | Audience | Path | Why |
 |---|---|---|---|
 | Agenda / report mail | ~28 board members | `mail` domain (Gmail SMTP), PDF + extra attachments | one-to-few, operational, attachment-heavy — transactional in nature |
-| Newsletters | members (auto) and/or subscribers | `communication` domain via the ESP adapter | campaigns need unsubscribe headers, bounce handling, deliverability — CR-05's whole argument |
+| Newsletters | members (auto) and/or subscribers | `communication` domain via `EmailCampaignProvider` — Gmail SMTP first (per recipient, queued), an EU ESP later behind the same adapter | campaigns need per-recipient unsubscribe and batching; the ESP adds deliverability and bounce handling the day its triggers fire |
 
 ## 5. Data model (sketch — to be settled with the open questions)
 
@@ -245,20 +259,22 @@ never in an outbox.
 
 ## 7. Phasing (each phase shippable)
 
-The order interleaves this CR with CR-05's phases — CR-05 phase 0/1/2 are
-built here, unchanged, as steps of this chain:
+The order interleaves this CR with CR-05's phases; the ESP itself moved from
+"phase" to "deferred, with triggers" (decision §3.11):
 
 | Phase | Scope | Builds on | AI? |
 |---|---|---|---|
-| **M1 — Meeting module** | `meetings` domain: compose agenda (pre-filled from activities), fill in during meeting, report; PDF render; board mail with attachments via `mail` domain | activities, mail, media | No |
-| **S0 — Subscriber core** | CR-05 phase 0: `Subscriber` + double opt-in + unsubscribe pages **+ the one-off import of the ~800 with provenance** | CR-05 as decided | No |
-| **S1 — ESP adapter** | CR-05 phase 1: `EmailCampaignProvider` + provider choice (§10.6: ListMonk vs Brevo) | S0 | No |
-| **S2 — Compose & send** | CR-05 phase 2: admin compose, audience build (members auto + subscribers), send, archive | S1 | No |
-| **D1 — Drafting pack** | LLM concept button on the compose screen, sourced from meeting + activity data, per §6 | M1 + S2 + CR-07 kernel | Yes |
+| **M1 — Meeting module** | `meetings` domain: compose agenda (pre-filled per §3.2), fill in during meeting, report; PDF render; board mail with attachments via `mail` domain | activities, mail, media | No |
+| **S0 — Subscriber core** | CR-05 phase 0: `Subscriber` + double opt-in + unsubscribe pages, **the one-off import of the ~800 with provenance** (two known opt-outs land as `unsubscribed`), manual add, subscriber list screen | CR-05 as decided | No |
+| **S2′ — Compose & send** | block-based compose screen; audience build (members auto + subscribers); per-recipient send through the Gmail SMTP provider with queue/batching, personal unsubscribe token and `List-Unsubscribe` header; campaign archive | S0 | No |
+| **D1 — Drafting pack** | LLM concept button on the compose screen, sourced per §6 | M1 + S2′ + CR-07 kernel | Yes |
+| **E — ESP swap (deferred)** | second `EmailCampaignProvider` (Brevo or another EU ESP — the §10.1 trade-off, decided when a trigger fires) | S2′ | No |
 
 M1 and S0 are independent and can run in either order or in parallel; D1 is
-deliberately last — it needs both a source (M1) and a destination (S2) to be
-more than a demo.
+deliberately last — it needs both a source (M1) and a destination (S2′) to be
+more than a demo. Before S2′ is built, **measure Gmail's actual SMTP daily
+limit** on the association account — it decides over how many days the
+half-yearly run spreads, and it is a measurement, not a guess.
 
 ## 8. Test set — what the build must reproduce
 
@@ -278,6 +294,9 @@ From the real examples of §1, anonymised:
    only, promotional tone — the July edition's shape.
 5. **Unsubscribe works end to end** on an imported address: link in the mail,
    token page, status flip, excluded from the next audience build.
+6. **A ~800-recipient campaign runs queued** across Gmail's daily limit:
+   batches spread over days, progress visible, resumes cleanly after a
+   backend restart, and every sent mail carried its own unsubscribe token.
 
 ## 9. GDPR / compliance (additions to CR-05's checklist)
 
@@ -285,7 +304,9 @@ From the real examples of §1, anonymised:
       recorded per imported row.
 - [ ] First mailing after import names where the address comes from, next to
       the unsubscribe link.
-- [ ] Every campaign mail: unsubscribe link + `List-Unsubscribe` header (ESP).
+- [ ] Every campaign mail: personal unsubscribe link + `List-Unsubscribe`
+      header — set by the portal itself while Gmail is the transport, by the
+      ESP after the swap.
 - [ ] Board mail path stays out of the campaign machinery — no unsubscribe on
       operational board mail, per CR-05's transactional/marketing distinction.
 - [ ] Meeting reports contain personal data (names, attendance) — board-only
@@ -296,23 +317,19 @@ From the real examples of §1, anonymised:
 ## 10. Open questions
 
 Questions 1–5, 7, 9 and 10 were settled on 14 September 2026 and moved into
-§3 (decisions 6, 8–14). Two remain:
+§3 (decisions 6, 8–14). The ESP choice closed the same day: sending starts on
+Gmail SMTP behind the adapter, the ESP swap is deferred with named triggers
+(decision §3.11) — the ListMonk-vs-Brevo trade-off is decided only when a
+trigger fires, with the exploratory cloud session "ListMonk voor
+nieuwsbriefmodule" as input. One question remains:
 
-1. **ESP choice: ListMonk (self-hosted, EU infra) vs Brevo (FR, SaaS).**
-   Under discussion (14 September 2026). Koen's decisions of the same day
-   already settle *where the list lives*: in the portal (import, opt-out,
-   manual add, members auto-subscribed from the member data). What remains
-   is the **sending arm** behind `EmailCampaignProvider`. The trade-off is
-   being worked out in the shaping conversation and lands here; the
-   exploratory cloud session "ListMonk voor nieuwsbriefmodule" is input.
-   Final call needed no later than S1.
-2. **Does the half-yearly edition also go to the members?** Today the ~800
+1. **Does the half-yearly edition also go to the members?** Today the ~800
    do not include the members; the half-yearly went to the mailing list
-   only, while members get the monthly edition. To choose at or before S2:
+   only, while members get the monthly edition. To choose at or before S2′:
    (a) half-yearly to subscribers only, members rely on the monthly; or
    (b) half-yearly to subscribers **and** members, deduplicated by e-mail
    address at send time, member newsletter opt-out respected. This is an
-   audience-builder question, not a schema question — it can wait until S2
+   audience-builder question, not a schema question — it can wait until S2′
    without blocking anything.
 
 ## Non-goals
