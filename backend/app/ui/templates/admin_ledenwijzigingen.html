@@ -15,7 +15,11 @@
                         attrs='hx-boost="false"') }}
 {% endcall %}
 
-{% call ui.filter_bar("/admin/ledenwijzigingen", "#lw-inhoud") %}
+{% call ui.filter_bar("/admin/ledenwijzigingen", "#lw-inhoud", id="lw-filters") %}
+  {# Golf 3 (#913): sorteerstand reist mee met elke filterwijziging; het
+     fragment ververst deze velden out-of-band (#748-conform). #}
+  <input type="hidden" id="lw-sort" name="sort" value="{{ sort }}">
+  <input type="hidden" id="lw-richting" name="richting" value="{{ richting }}">
   <div>{{ ui.search(value=actor, name="actor", placeholder=_('Zoek op actor…'), standalone=False) }}</div>
   <div class="flex flex-wrap items-end gap-3">
     <div>{{ ui.label(_("Vanaf"), "lw-since") }}

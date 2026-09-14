@@ -457,13 +457,34 @@ def purge_old_email_logs(db, retention_days: Optional[int] = None) -> int:
 
 # ── E-maillogboek (#635 I) ───────────────────────────────────────────────────
 
+# Sorteerbare kolommen (Ontwerpspoor golf 3, #913): sleutel → kolom. Een
+# whitelist, geen vrije kolomnaam — dezelfde reden als "no free SQL, ever".
+_EMAIL_LOG_SORT = {
+    "datum": "created_at",
+    "ontvanger": "recipient",
+    "onderwerp": "subject",
+    "type": "email_type",
+    "status": "status",
+}
+
+#: De sleutels die een scherm mag aanbieden — via de facade, zodat de ui-laag
+#: geen service-internals hoeft te kennen.
+EMAIL_LOG_SORT_KEYS: tuple[str, ...] = tuple(_EMAIL_LOG_SORT)
+
+
 def list_email_log(db, *, email_type: str = "", status: str = "",
-                   recipient: str = "", page: int = 1, page_size: int = 25):
+                   recipient: str = "", page: int = 1, page_size: int = 25,
+                   sort: str = "datum", richting: str = "desc"):
     """Een pagina uit het e-maillogboek, met de actieve filters toegepast.
 
     Geeft `(rijen, is_er_nog_een_pagina)` terug. De "nog een pagina?"-vraag wordt
     beantwoord door één rij méér op te halen dan de paginagrootte — goedkoper dan
     een tweede COUNT-query over een tabel die alleen maar groeit.
+
+    `sort` komt uit `_EMAIL_LOG_SORT` (onbekend → datum), `richting` is asc/desc
+    (anders desc). Elke ordening eindigt op het unieke id in dezelfde richting —
+    de #761-les: zonder tiebreaker toont paging dezelfde rij twee keer en een
+    andere nooit.
     """
     from app.domains.mail.models import EmailLog
 
@@ -475,7 +496,12 @@ def list_email_log(db, *, email_type: str = "", status: str = "",
     if recipient:
         query = query.filter(EmailLog.recipient.ilike(f"%{recipient}%"))
 
-    rijen = (query.order_by(EmailLog.created_at.desc())
+    kolomnaam = _EMAIL_LOG_SORT.get(sort, "created_at")
+    kolom = getattr(EmailLog, kolomnaam)
+    aflopend = richting != "asc"
+    orden = (kolom.desc(), EmailLog.id.desc()) if aflopend else (kolom.asc(), EmailLog.id.asc())
+
+    rijen = (query.order_by(*orden)
              .offset((max(1, page) - 1) * page_size).limit(page_size + 1).all())
     return rijen[:page_size], len(rijen) > page_size
 

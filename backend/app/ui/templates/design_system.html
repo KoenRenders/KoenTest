@@ -410,9 +410,25 @@
   </p>
 {% endcall %}
 
+{# Sorteerbare kolomkop (golf 3): de kop is een link met chevron. #}
+{% call ui.card() %}
+  <p class="text-sm font-semibold mb-2">{{ _("Sorteerbare kolomkoppen") }}</p>
+  <div class="overflow-x-auto"><table class="min-w-full text-sm"><thead>
+    <tr class="text-left text-gray-500 border-b border-gray-200">
+      {{ ui.sort_th(_("Datum"), "#", active=True, direction="desc") }}
+      {{ ui.sort_th(_("Ontvanger"), "#") }}
+      {{ ui.sort_th(_("Bedrag"), "#", align="right") }}
+    </tr>
+  </thead></table></div>
+  <p class="text-xs text-gray-500 mt-2"><code>ui.sort_th(label, url, active=…, direction=…, include="#filters")</code> — {{ _("de route bewaakt de whitelist en de tiebreaker (#761).") }}</p>
+{% endcall %}
+
 {{ ui.section_header(_("9 · Leeg en ladend")) }}
 {% call ui.card() %}
   {{ ui.empty_state(_("Nog geen inschrijvingen voor deze activiteit.")) }}
+  {# Golf 3 (A10): de nog-leeg-vorm mag een passende eerste actie dragen. #}
+  {{ ui.empty_state(_("Nog geen formulieren."), action_label=_("+ Nieuw formulier"), action_href="/admin/formulieren/nieuw") }}
+  {{ ui.empty_state(_("Geen resultaten gevonden.")) }}
   <div class="mt-3">{{ ui.loading(_("Bezig met laden…")) }}</div>
 {% endcall %}
 

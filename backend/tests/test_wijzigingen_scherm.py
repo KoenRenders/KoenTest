@@ -15,7 +15,20 @@ from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, make_session_va
 from app.domains.mdm.api import Person
 from app.ui.changes_ui import PER_PAGE
 
-KOP = re.compile(r"<th[^>]*>\s*([^<]+?)\s*</th>", re.S)
+_TH_BLOK = re.compile(r"<th[^>]*>(.*?)</th>", re.S)
+
+
+def _koppen(html: str) -> list[str]:
+    """Kolomkoppen als kale tekst. Sinds golf 3 (#913) wikkelt een sorteerbare
+    kop haar label in een link met chevron-svg; strip de tags zodat deze tests
+    hun onderwerp (de VOLGORDE) blijven toetsen, onafhankelijk van de vorm."""
+    koppen = []
+    for blok in _TH_BLOK.findall(html):
+        tekst = re.sub(r"<[^>]+>", " ", blok)
+        tekst = " ".join(tekst.split())
+        if tekst:
+            koppen.append(tekst)
+    return koppen
 
 
 def _login(client):
@@ -46,7 +59,7 @@ def test_details_staat_voor_object_actor(client, db_session):
     """De kern van #620-1: Details mag niet als eerste buiten beeld vallen."""
     _wijzigingen(db_session, 2)
     _login(client)
-    koppen = KOP.findall(client.get("/admin/ledenwijzigingen").text)
+    koppen = _koppen(client.get("/admin/ledenwijzigingen").text)
 
     assert "Details" in koppen
     for later in ("Object", "Actor"):
@@ -58,7 +71,7 @@ def test_persoon_staat_voor_details(client, db_session):
     """Bij het scannen van een auditlogboek wil je eerst weten over wíé het gaat."""
     _wijzigingen(db_session, 2)
     _login(client)
-    koppen = KOP.findall(client.get("/admin/ledenwijzigingen").text)
+    koppen = _koppen(client.get("/admin/ledenwijzigingen").text)
     assert koppen.index("Persoon") < koppen.index("Details")
 
 
@@ -66,7 +79,7 @@ def test_de_rauwe_actiecode_is_geen_kolom_meer(client, db_session):
     """#620-3a: die herhaalde Wijziging + Details in ontwikkelaarstaal."""
     _wijzigingen(db_session, 2)
     _login(client)
-    assert "Actie" not in KOP.findall(client.get("/admin/ledenwijzigingen").text)
+    assert "Actie" not in _koppen(client.get("/admin/ledenwijzigingen").text)
 
 
 def test_operatie_is_een_badge_zonder_rijkleur(client, db_session):

@@ -1,14 +1,20 @@
 {% import "_macros.html" as ui %}
+{# Sorteerstand out-of-band terug de filterform in (golf 3, #913): zo draagt
+   de eerstvolgende filterwijziging de actuele sortering mee. #}
+<input type="hidden" id="el-sort" name="sort" value="{{ sort }}" hx-swap-oob="true">
+<input type="hidden" id="el-richting" name="richting" value="{{ richting }}" hx-swap-oob="true">
+<input type="hidden" id="el-per-page" name="per_page" value="{{ per_page }}" hx-swap-oob="true">
+{% if toast_melding is defined and toast_melding %}{{ ui.toast_oob(toast_melding) }}{% endif %}
 {% if rows %}
 <div class="overflow-x-auto bg-white rounded-2xl shadow-sm border border-gray-200">
   <table class="min-w-full text-sm">
     <thead>
       <tr class="text-left text-gray-500 border-b border-gray-200">
-        <th class="px-4 py-3">{{ _("Datum") }}</th>
-        <th class="px-4 py-3">{{ _("Ontvanger") }}</th>
-        <th class="px-4 py-3">{{ _("Onderwerp") }}</th>
-        <th class="px-4 py-3">{{ _("Type") }}</th>
-        <th class="px-4 py-3">{{ _("Status") }}</th>
+        {{ ui.sort_th(_("Datum"), sorteer_urls["datum"], active=(sort == "datum"), direction=richting, hx_target="#email-log-lijst") }}
+        {{ ui.sort_th(_("Ontvanger"), sorteer_urls["ontvanger"], active=(sort == "ontvanger"), direction=richting, hx_target="#email-log-lijst") }}
+        {{ ui.sort_th(_("Onderwerp"), sorteer_urls["onderwerp"], active=(sort == "onderwerp"), direction=richting, hx_target="#email-log-lijst") }}
+        {{ ui.sort_th(_("Type"), sorteer_urls["type"], active=(sort == "type"), direction=richting, hx_target="#email-log-lijst") }}
+        {{ ui.sort_th(_("Status"), sorteer_urls["status"], active=(sort == "status"), direction=richting, hx_target="#email-log-lijst") }}
         <th class="px-4 py-3"></th>
       </tr>
     </thead>
@@ -64,9 +70,19 @@
 {# Kit-pager (#580). Zonder totaal: dit scherm haalt bewust één rij extra op i.p.v.
    een COUNT te doen, dus has_prev/has_next sturen de knoppen. De filters gaan mee
    in de URL zodat ze bij het bladeren behouden blijven. #}
-{% set _base = "/admin/e-maillog/lijst?email_type=" ~ (email_type or "") ~ "&status=" ~ (status or "") ~ "&recipient=" ~ (recipient or "") %}
+{% set _base = "/admin/e-maillog/lijst?email_type=" ~ (email_type or "") ~ "&status=" ~ (status or "") ~ "&recipient=" ~ (recipient or "") ~ "&sort=" ~ sort ~ "&richting=" ~ richting ~ "&per_page=" ~ per_page %}
+<div class="flex items-center justify-between gap-3">
+  <div class="flex items-center gap-2 mt-3 text-sm text-ink-soft">
+    <label for="el-per-page-keuze">{{ _("Per pagina") }}</label>
+    {% call ui.select_control("per_page", cls="w-20", attrs='id="el-per-page-keuze" hx-get="/admin/e-maillog/lijst?email_type=' ~ (email_type or "") ~ '&status=' ~ (status or "") ~ '&recipient=' ~ (recipient or "") ~ '&sort=' ~ sort ~ '&richting=' ~ richting ~ '" hx-target="#email-log-lijst" hx-trigger="change"') %}
+      {% for n in (25, 50, 100) %}<option value="{{ n }}" {% if n == per_page %}selected{% endif %}>{{ n }}</option>{% endfor %}
+    {% endcall %}
+  </div>
+  <div class="flex-1">
 {{ ui.pager(page, hx_get=_base, hx_target="#email-log-lijst",
             has_prev=has_prev, has_next=has_next) }}
+  </div>
+</div>
 {% else %}
 {{ ui.empty_state(_("Geen e-mails gevonden voor deze filter.")) }}
 {% endif %}
