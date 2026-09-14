@@ -21,6 +21,7 @@ from app.domains.auth.api import (
 from app.domains.forms.api import (
     FIELD_TYPES,
     FORM_STATUSES,
+    deellink_pad,
     delete_submission,
     list_forms,
     list_submissions,
@@ -84,6 +85,8 @@ def _builder_ctx(request: Request, db: Session, form, **extra) -> dict:
         "sections": sections, "field_types": FIELD_TYPES, "statuses": FORM_STATUSES,
         "field_type_labels": veldtype_labels,
         "submission_count": submission_count(db, form.id),
+        # Zelfde regel als op de kaarten (#928), uit dezelfde functie.
+        "share_path": deellink_pad(form),
         "csrf_token": csrf_from_request(request), "error": None,
     }
     ctx.update(extra)
@@ -126,6 +129,10 @@ def formulieren_page(request: Request, db: Session = Depends(get_db),
         "nav_items": NAV, "forms": forms, "q": q, "status": status,
         "statuses": FORM_STATUSES, "status_labels": _status_labels(),
         "status_tones": STATUS_TONES, "gefilterd": bool(q.strip() or status),
+        # De deellink wordt HIER gekozen en niet in de template (#928): welke van
+        # de twee URL's je toont is een regel, en een regel in een sjabloon is een
+        # tweede plaats waar hij woont.
+        "share_paths": {f.id: deellink_pad(f) for f in forms},
         "csrf_token": csrf_from_request(request)})
 
 

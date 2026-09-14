@@ -305,6 +305,9 @@ async def formulier_submit(share_token: str, request: Request,
     from app.ui import site_context
     return templates.TemplateResponse(request, "formulier_klaar.html", {
         **site_context(db, request), "form": form_model, "updated": False,
+        # De sleutel-URL, ook bij een formulier mét slug (#690/#928): bewerken
+        # bestaat alleen onder deze route. Een slug verandert wat je deelt, niet
+        # waarlangs een inzending bewerkt wordt.
         "edit_link": (f"/formulier/{share_token}/edit/{result.edit_token}"
                       if result.edit_token else None)})
 
