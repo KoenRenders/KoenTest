@@ -151,10 +151,11 @@ def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
     # (Vereniging / Financieel / Inhoud / Systeem); de exacte lijst hieronder is
     # de nieuwe volgorde en blijft even exact als voorheen.
     assert hrefs == [
-        "/admin/werkbank", "/admin", "/admin/rapporten",
+        "/admin/werkbank",
         "/admin/activiteiten", "/admin/leden", "/admin/formulieren",
-        "/admin/betalingen",
         "/admin/paginas", "/admin/media", "/admin/ai-context",
+        "/admin/betalingen",
+        "/admin", "/admin/rapporten",
         "/admin/gebruikers", "/admin/ledenwijzigingen", "/admin/e-maillog",
         "/admin/tenants", "/admin/info",
     ]
