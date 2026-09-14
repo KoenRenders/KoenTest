@@ -68,6 +68,8 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
     platform_org,
     secrets_gezet,
     update_tenant_settings,
+    organization_details,
+    update_organization_details,
 )
 
 __all__ = [
@@ -75,6 +77,7 @@ __all__ = [
     "OngeldigeInstelling", "TenantFout", "admin_code_lists", "import_commit", "import_preview", "create_tenant", "form_code_lists",
     "list_persons", "list_postal_codes", "list_accounts", "list_units",
     "secrets_gezet", "update_tenant_settings", "platform_tenant_id",
+    "organization_details", "update_organization_details",
     "list_manageable_tenants", "platform_org",
     "Address", "AddressHistory", "ContactDetail", "ContactDetailHistory",
     "ContactTypeCode", "ExternalNumber", "GenderCode", "Member",

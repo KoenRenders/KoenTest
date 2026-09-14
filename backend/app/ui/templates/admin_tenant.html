@@ -16,6 +16,21 @@
 
 <form hx-post="/admin/tenants/{{ tenant_id }}" hx-target="body" hx-swap="innerHTML"
       class="space-y-4 max-w-2xl">
+  {# #924: eerst wat de organisatie IS, dan de instellingen van deze site. Twee
+     assen, twee secties — en niet twee schermen, want sinds de omkering zijn de
+     tenants organisaties en zou een tweede scherm dezelfde rijen bewerken. #}
+  {{ ui.section_header(_("De organisatie")) }}
+  {% for key, label, hulp in organisatievelden %}
+  <div>
+    {{ ui.label(label, "org_" ~ key) }}
+    <input name="{{ key }}" id="org_{{ key }}" value="{{ organisatie[key] }}" class="w-full">
+    <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p>
+  </div>
+  {% endfor %}
+
+  <div class="border-t border-line pt-4">
+    {{ ui.section_header(_("Instellingen van deze site")) }}
+  </div>
   {% for key, label, hulp in sleutels %}
   <div>
     {{ ui.label(label, key) }}
