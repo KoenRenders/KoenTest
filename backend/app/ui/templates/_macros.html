@@ -722,6 +722,29 @@
    is op het moment dat je opslaat, deze schakelt de modus.
 
    `state` is de naam van de Alpine-boolean in de omliggende x-data-scope. #}
+{# ── Actiebalk (Ontwerpspoor golf 2, #913 — beslissing g van het
+   conventiedebat) ─ Eén actiebalk per bewerkvlak, onderaan: [Opslaan]
+   [Annuleren] links en Verwijderen rechts — gescheiden door ruimte, niet door
+   nabijheid (vervangt de #722-nabijheidsregel zodra een scherm deze balk
+   draagt). `sticky=True` voor lange formulieren. De uitrol over de bestaande
+   bewerkschermen is golf 6; nieuwe schermen gebruiken hem meteen. #}
+{% macro action_bar(save_label=None, save_attrs="", cancel_attrs="", cancel_href=None, delete_attrs="", delete_label=None, delete_confirm=None, sticky=False, cls="") -%}
+<div class="flex items-center gap-2 mt-6 pt-4 border-t border-line{% if sticky %} sticky bottom-0 bg-surface pb-4 -mb-4 z-30{% endif %}{% if cls %} {{ cls }}{% endif %}">
+  {{ btn_primary(save_label or _("Opslaan"), attrs=save_attrs) }}
+  {{ btn_secondary(_("Annuleren"), href=cancel_href, attrs=cancel_attrs) }}
+  {% if delete_attrs %}<span class="ml-auto">{{ btn_danger(delete_label or _("Verwijderen"), attrs=delete_attrs, confirm=delete_confirm) }}</span>{% endif %}
+</div>
+{%- endmacro %}
+
+{# ── Icoon vóór tekst die kan wikkelen (golf 0b, #913): #810/#813 als macro ──
+   `items-start` plus de berekende topmarge (regelhoogte − 16 px) / 2 per
+   tekstklasse. De margetabel uit design-system §1.2a woont HIER en wordt niet
+   meer per aanroepplaats overgetypt. #}
+{% macro icon_text(name, text_cls="text-base md:text-sm", cls="", icon_cls="") -%}
+{%- set _mt = {"text-sm": "mt-0.5", "text-base": "mt-1", "text-base md:text-sm": "mt-1 md:mt-0.5"}.get(text_cls, "mt-1 md:mt-0.5") -%}
+<p class="{{ text_cls }} flex items-start gap-1{% if cls %} {{ cls }}{% endif %}">{{ icon(name, cls=_mt ~ " shrink-0" ~ (" " ~ icon_cls if icon_cls else "")) }}<span class="min-w-0">{{ caller() }}</span></p>
+{%- endmacro %}
+
 {% macro edit_toggle(state="edit", size="md", cls="") -%}
 <button type="button" class="{{ btn_class('secondary', size) }}{% if cls %} {{ cls }}{% endif %}" @click="{{ state }} = !{{ state }}">
   <span x-show="!{{ state }}">{{ _("Bewerken") }}</span>

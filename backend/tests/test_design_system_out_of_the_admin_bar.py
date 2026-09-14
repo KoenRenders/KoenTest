@@ -38,7 +38,7 @@ def _admin_session(client, db, email="ds-bar@example.com"):
 
 
 def test_the_bar_no_longer_offers_the_design_system():
-    hrefs = [item["href"] for item in admin_nav("/admin/werkbank")]
+    hrefs = [item["href"] for groep in admin_nav("/admin/werkbank") for item in groep["items"]]
 
     assert "/admin/design-system" not in hrefs
     assert "/admin/info" in hrefs, (
@@ -67,7 +67,8 @@ def test_the_page_still_opens_and_its_bar_renders_normally(client, db_session):
 
 def test_none_of_the_bar_items_is_marked_active_here():
     """Geen actief item is een geldige toestand; één verkeerd actief item niet."""
-    items = admin_nav("/admin/design-system")
+    items = [i for groep in admin_nav("/admin/design-system")
+             for i in groep["items"]]
 
     assert items, "de balk is leeg"
     assert not [i for i in items if i["active"]], (

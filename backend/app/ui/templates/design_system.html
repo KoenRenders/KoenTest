@@ -113,6 +113,20 @@
   </p>
 {% endcall %}
 
+{# Actiebalk (golf 2, #913 — beslissing g): het patroon voor élk bewerkvlak
+   vanaf golf 6; nieuwe schermen gebruiken hem meteen. #}
+{% call ui.card() %}
+  <p class="text-sm font-semibold mb-1">{{ _("Actiebalk (onderaan een bewerkvlak)") }}</p>
+  {{ ui.action_bar(cancel_href="/admin/design-system", delete_attrs='hx-post="/demo"') }}
+  <p class="text-xs text-gray-500 mt-3"><code>ui.action_bar(cancel_href=…, delete_attrs=…)</code> — {{ _("Opslaan en Annuleren links, Verwijderen rechts; ruimte is de scheiding.") }}</p>
+{% endcall %}
+
+{# Icoon vóór wikkelende tekst (golf 0b): de #810/#813-marges als macro. #}
+{% call ui.card() %}
+  {% call ui.icon_text("calendar", cls="text-ink-soft") %}{{ _("zaterdag 29 augustus 2026 om 14:00 – 18:00, met een datumreeks die op een telefoon over drie regels wikkelt zonder dat het icoon gaat zweven") }}{% endcall %}
+  <p class="text-xs text-gray-500 mt-2"><code>{% raw %}{% call ui.icon_text("calendar") %}…{% endcall %}{% endraw %}</code></p>
+{% endcall %}
+
 {# ── 5. Badges ─────────────────────────────────────────────────────────────── #}
 {{ ui.section_header(_("5 · Statusbadges")) }}
 {% call ui.card() %}

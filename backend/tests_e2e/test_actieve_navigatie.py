@@ -53,7 +53,7 @@ def admin_page():
 def _actief(page) -> list[str]:
     """De href's die in de zijbalk als actief gemarkeerd staan."""
     return page.eval_on_selector_all(
-        "#admin-nav-zijbalk a.bg-white\\/20", "els => els.map(e => e.getAttribute('href'))")
+        "#admin-nav-zijbalk a.bg-blue-50", "els => els.map(e => e.getAttribute('href'))")
 
 
 def test_de_markering_volgt_een_geboorde_navigatie(admin_page):

@@ -86,20 +86,21 @@ cat > "$TMP/in.css" << 'CSS'
      kobaltblauw draagt actie en selectie, koelere neutralen, zelfde
      statuskleuren (groen/geel/rood/oranje wijzigen NIET — betekenis is
      schil-onafhankelijk). Alleen waarden: geen template weet hiervan.
-     De beheerschil volgt in golf 2 met een eigen blok. */
-  body[data-shell="site"]{
+     Golf 2 trok de beheerschil bij in hetzelfde blok — beide schillen dragen
+     nu Cobalt; het per-schil-mechanisme blijft staan voor de dag dat ze weer
+     uiteen willen. */
+  body[data-shell="site"],body[data-shell="admin"]{
         --c-blue-50:234 240 255;--c-blue-100:220 230 253;--c-blue-200:189 207 250;--c-blue-300:150 175 244;--c-blue-400:100 136 234;--c-blue-500:61 99 218;--c-blue-600:44 83 206;--c-blue-700:36 75 197;--c-blue-800:29 60 158;--c-blue-900:23 46 119;--c-blue-950:15 29 75;
         --c-brand:36 75 197;--c-brand-ocean:36 75 197;--c-brand-ocean-hover:29 60 158;
         --c-link:36 75 197;
         --c-ink:25 38 56;--c-ink-soft:83 97 116;
         --c-line:210 217 227;--c-ground:244 246 250;--c-surface-2:239 243 250}
   html{font-family:Inter,system-ui,sans-serif}
-  h1,h2,h3{font-family:"Radio Canada Big",system-ui,sans-serif}
-  /* Golf 1 (#913), gekozen door Koen op het goedkeuringspakket (13 sep 2026,
-     variant B): publieke koppen in Inter — neutraler, dichter bij de gekozen
-     Cobalt-richting. Het woordmerk (font-brand) blijft Radio Canada Big; de
-     beheerschil beslist haar typografie in golf 2. */
-  body[data-shell="site"] h1,body[data-shell="site"] h2,body[data-shell="site"] h3{font-family:Inter,system-ui,sans-serif}
+  /* Koppen in Inter (golf 1 variant B, door Koen gekozen op het
+     goedkeuringspakket; golf 2 trok de beheerschil bij — één typografie,
+     zoals de Cobalt-richting). Het woordmerk draagt Radio Canada Big via de
+     font-brand-klasse; dat is identiteit, geen kop. */
+  h1,h2,h3{font-family:Inter,system-ui,sans-serif}
   /* Automatische consistentie (#482): elk tekst-input/select/textarea krijgt
      standaard dezelfde stijl — geen macro of losse klassen nodig. Checkboxes,
      radios, files en knoppen blijven ongemoeid.

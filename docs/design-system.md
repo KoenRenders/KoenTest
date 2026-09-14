@@ -49,6 +49,8 @@ change to all four, in one pull request.
 | 13 Sep 2026 | The unsaved-changes promise is dropped as a system rule; it returns as a per-editor pattern field for long editors | #785 (B1) |
 | 13 Sep 2026 | Judging viewports follow the audience: public phone-first, admin desktop-first | CR-08 |
 | 13 Sep 2026 | Golf 1 approved on the package: public shell in Cobalt; **public headings in Inter** (variant B), wordmark stays Radio Canada Big; status colours shell-independent | #913 |
+| 13 Sep 2026 | Golf 2: the admin shell joins Cobalt — white grouped sidebar, account presence top right (initials + e-mail, logout in its menu), headings Inter in both shells | #913 |
+| 14 Sep 2026 | Package-2 feedback: top-left = **tenant name + "Werkruimte"** (product label; the Raak wordmark leaves the admin shell — §12 decision a made concrete); workspace groups **Werking** (was Vereniging) / Financieel / **Inzicht** (Dashboard + Rapporten — reporting is not finance-only) / Inhoud / Systeem; address grid two columns on a phone (bus stays right of the house number) | #913 |
 
 Decisions still open are listed in §12.
 
@@ -181,6 +183,8 @@ The icon is 16 px, the line is not, and `items-start` aligns their *tops*.
 | `text-base` | 24 px | `mt-1` |
 | `text-base md:text-sm` | 24 / 20 px | `mt-1 md:mt-0.5` |
 
+Since wave 0b (#913) this table lives in one place: **`ui.icon_text()`** wraps
+icon, margin and wrap-safe text — call it instead of retyping the margins.
 Write that last form as-is: a bare `mt-1` is 2 px too much on a wide screen, and
 that is what a gate checks. Without the rule the next text size gets a number that
 merely looks about right — which is exactly how #813 happened, one issue after #810.
@@ -230,7 +234,7 @@ Import with `{% import "_macros.html" as ui %}`.
 | Lists | `search` · `filter_bar` · `grouped_filter` · `chips` · `pager` · `row_actions` · `reorder` · `empty_state` · `loading` |
 | Forms | `field_input` · `field_select` · `field_textarea` · `label` · `vraag` · `input_control` · `select_control` · `textarea_control` · `person_fields` · `upload_field` · `export_links` · `copy_button` |
 | Feedback | `toast` · `toast_oob` · `toast_host` · `success_banner` · `error_banner` · `modal` · `confirm_host` · `badge` |
-| Buttons | `btn_primary` · `btn_secondary` · `btn_outline` · `btn_danger` · `button` · `btn_class` · `edit_toggle` · `icon` |
+| Buttons | `btn_primary` · `btn_secondary` · `btn_outline` · `btn_danger` · `button` · `btn_class` · `edit_toggle` · `icon` · `icon_text` · `action_bar` |
 
 ### 2.1 Buttons
 
@@ -317,6 +321,11 @@ by the status choice; convert one and the field shows two notations.
 - **"Verwijderen" last and red**, in the `⋯` menu once it exists. Never an
   emoji, never hidden: if not allowed (money moved) show it disabled with a
   tooltip reason.
+- **The end state is one action bar** (`ui.action_bar`, decision g of the
+  conventions debate, #913): [Opslaan] [Annuleren] left, Verwijderen right —
+  separated by space, not adjacency. New edit surfaces use it now; the
+  roll-out over existing screens is wave 6, and until a screen carries the
+  bar, the rule below still governs its top cluster.
 - **"Bewerken" directly left of "Verwijderen"**, nothing between them. The
   `edit_toggle` shows "Bewerken" in read mode and "Annuleren" in edit mode, in
   the same place. Anything acting on the *content* (view, print, export, import)

@@ -72,7 +72,7 @@
           {% endfor %}
         </div>
       </div>
-      {% if a.location %}<p class="text-base md:text-sm text-ink-soft flex items-start gap-1">{{ ui.icon("map-pin", cls="mt-1 md:mt-0.5 shrink-0") }} {{ a.location }}</p>{% endif %}
+      {% if a.location %}{% call ui.icon_text("map-pin", cls="text-ink-soft") %}{{ a.location }}{% endcall %}{% endif %}
     </div>
       </div>
     </div>
