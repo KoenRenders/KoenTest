@@ -308,3 +308,23 @@ def test_systeeminfo_verwijst_naar_de_pagina(client, db_session):
     assert resp.status_code == 200
     assert "/admin/design-system" in resp.text, (
         "Systeeminfo verwijst niet naar het design system")
+
+
+def test_precies_een_title_element_in_de_uitvoer(client, db_session):
+    """#942 — een rauwe <title> in lopende tekst is een RCDATA-element: de
+    browser slikt er de hele rest van de pagina mee in als tekst. Sinds #835
+    stond dat letterlijk in de grafiekenproza (via de Markup-val van #514, die
+    de autoescape omzeilt) en waren secties 9-14 onzichtbaar. De pagina hoort
+    precies één <title> te hebben: die van de head.
+
+    Rood bewezen door de escape in §8d één keer terug te draaien (één rauwe
+    <title> in de proza) — faalt; hersteld — slaagt."""
+    import re
+
+    _sessie(client, db_session, "ds-admin@example.com", "ADMIN")
+    html = client.get("/admin/design-system").text
+    # Binnen <svg> is <title> een gewoon (en gewenst, #835) element — het
+    # RCDATA-gevaar bestaat alleen in HTML-context. Dus eerst de svg's eruit.
+    zonder_svg = re.sub(r"<svg\b.*?</svg>", "", html, flags=re.S)
+    assert zonder_svg.count("<title>") == 1, (
+        "meer dan één <title> buiten svg — een prozatekst laat een rauwe titel-tag door")

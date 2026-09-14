@@ -406,7 +406,10 @@
   <div class="mt-6">{{ ui.chart_stacked(demo_stacked, id="ds-stacked") }}</div>
 
   <p class="mt-3 text-sm text-gray-600">
-    {{ _("Elke grafiek heeft een <title> en een <desc>, en per element een <title> met de waarde. De tabel eronder blijft staan — die is het echte tekstalternatief.") }}
+    {# #942: de tags in de string zelf ge-escaped. `_()` geeft Markup terug (de
+       #514-val), dus een rauwe <title> hier komt onontsnapt in de pagina en de
+       browser slikt als RCDATA-element de hele rest van de kitpagina in. #}
+    {{ _("Elke grafiek heeft een &lt;title&gt; en een &lt;desc&gt;, en per element een &lt;title&gt; met de waarde. De tabel eronder blijft staan — die is het echte tekstalternatief.") }}
   </p>
 {% endcall %}
 
