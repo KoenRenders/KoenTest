@@ -170,6 +170,8 @@
         <option selected>{{ _("Open") }}</option><option>{{ _("Gesloten") }}</option>
       {% endcall %}
     </div>
+    {{ ui.vraag(_("En dit is een vraag op een publiek formulier"), "los_vraag", required=True) }}
+    {{ ui.upload_field(name="affiche", text=_("Affiche")) }}
   </div>
 {% endcall %}
 
