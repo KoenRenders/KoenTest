@@ -107,6 +107,14 @@ def _view(request: Request, db: Session, email: str,
     # het huidige filter valt. Alleen hier en niet in de export: een export van
     # één record is een andere vraag, en niemand stelde ze.
     record_id = (stand.get("record") or "").strip()
+    # P13 (golf 5, #913): `?inschrijving=<id>` is een recordSCOPE — de betalingen
+    # van één inschrijving, met de gewone filters daarbinnen. Zichtbaar via de
+    # scope-regel hieronder; de enige uitgang is haar "Alle bekijken". Alleen
+    # cijfers tellen: al het andere is geen id en zou de scope-regel een
+    # vervalste tekst laten tonen.
+    inschrijving_id = (stand.get("inschrijving") or "").strip()
+    if not inschrijving_id.isdigit():
+        inschrijving_id = ""
     records = enriched_records(db)
 
     # Filter-opties opbouwen: onderdelen (per activiteit) + lidmaatschapjaren.
@@ -122,7 +130,36 @@ def _view(request: Request, db: Session, email: str,
             jaren.add(r.membership_year)
 
     zichtbaar = filter_records(records, context=context, status=status, q=q,
-                               openstaand=openstaand, record_id=record_id)
+                               openstaand=openstaand, record_id=record_id,
+                               registration_id=inschrijving_id)
+
+    # De scope-regel (P13): benoemt de scope en linkt naar het record zelf, met
+    # de weg terug naar deze gescopeerde lijst (P3). De naam komt via de
+    # activities-facade — de server hercontroleert het id dus altijd; een
+    # onbestaand id houdt de scope (en haar lege lijst) zichtbaar i.p.v. stil
+    # alles te tonen. #704's `?record=` krijgt dezelfde zichtbaarheid: dat was
+    # tot nu een onzichtbaar voorfilter.
+    scope = None
+    if inschrijving_id:
+        from urllib.parse import quote
+
+        from app.domains.activities.api import get_registration
+
+        reg = get_registration(db, int(inschrijving_id), include_deleted=True)
+        naam = (reg.contact_name if reg is not None else None) or f"#{inschrijving_id}"
+        terug = quote(f"/admin/betalingen?inschrijving={inschrijving_id}", safe="")
+        scope = {
+            "soort": _("Voor inschrijving:"), "titel": naam,
+            "titel_url": f"/admin/inschrijvingen/{inschrijving_id}?terug={terug}",
+            "alles_url": "/admin/betalingen",
+            "param_naam": "inschrijving", "param_waarde": inschrijving_id,
+        }
+    elif record_id:
+        scope = {
+            "soort": _("Eén betaling uitgelicht"), "titel": None, "titel_url": None,
+            "alles_url": "/admin/betalingen",
+            "param_naam": "record", "param_waarde": record_id,
+        }
 
     charges = [r for r in zichtbaar if r.type != "refund"]
     refunds = [r for r in zichtbaar if r.type == "refund"]
@@ -205,7 +242,7 @@ def _view(request: Request, db: Session, email: str,
             "failed": (_("Mislukt"), "red"),
             "cancelled": (_("Geannuleerd"), "gray"),
         },
-        status=status, openstaand=openstaand, q=q,
+        status=status, openstaand=openstaand, q=q, scope=scope,
         componenten=_comp, jaren=_jaren,
         context_top=context_top, context_groups=context_groups,
         matrix={"betalingen": m_bet, "terugbetalingen": m_ref, "netto": m_net},
@@ -248,8 +285,12 @@ def betalingen_export(request: Request, db: Session = Depends(get_db),
     openstaand = stand.get("openstaand") == "1" or status == "openstaand"
     if status == "openstaand":
         status = "all"
-    content = build_payments_export_ods(db, context=context, status=status,
-                                        openstaand=openstaand)
+    # P13 (golf 5, #913): de recordscope reist mee, zoals elke filterstand —
+    # dezelfde cijfercontrole als in _view.
+    inschrijving_id = (stand.get("inschrijving") or "").strip()
+    content = build_payments_export_ods(
+        db, context=context, status=status, openstaand=openstaand,
+        registration_id=inschrijving_id if inschrijving_id.isdigit() else "")
     return Response(
         content=content,
         media_type="application/vnd.oasis.opendocument.spreadsheet",

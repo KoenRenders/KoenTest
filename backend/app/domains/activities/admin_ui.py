@@ -794,6 +794,17 @@ def inschrijving_pagina(registration_id: int, request: Request,
     ctx = _detail_ctx(request, db, registration_id)
     if ctx is None:
         raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
+    # P13 (golf 5, #913): relatiebalk met aantallen. Betalingen is vandaag de
+    # enige relatie met een eigen gescopeerde lijst; de chip opent het GEWONE
+    # betalingenscherm in de inschrijvingscope. Lokale import: de payment-facade
+    # importeert zelf uit activities, dus een module-import zou een cirkel zijn.
+    from app.domains.payment.api import get_records_for
+
+    relaties = [{
+        "label": _("Betalingen"),
+        "count": len(get_records_for(db, "registration", registration_id)),
+        "href": f"/admin/betalingen?inschrijving={registration_id}",
+    }]
     pad = veilige_terug(terug, f"/admin/activiteiten/{ctx['activiteit_id']}")
     # P3: de teruglink BENOEMT waar je vandaan kwam. Het label wordt uit het
     # gevalideerde pad afgeleid, nooit uit een eigen parameter — een tweede
@@ -806,7 +817,7 @@ def inschrijving_pagina(registration_id: int, request: Request,
         label = _("Terug")
     vm = AdminInschrijvingView(
         **ctx, error=None, toast_bericht=None,
-        terug=pad, terug_label=label, nav_items=NAV)
+        terug=pad, terug_label=label, relaties=relaties, nav_items=NAV)
     return templates.TemplateResponse(request, "admin_inschrijving.html",
                                       vm.as_context())
 
