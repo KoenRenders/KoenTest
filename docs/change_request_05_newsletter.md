@@ -41,21 +41,24 @@ plugs the drafting into the architecture that now exists.
    session exists) is decided only when a trigger fires.
 3. **The compose screen carries the blocks the newsletters already have**
    (intro, "in de kijker", two-month calendar, outlook, external events),
-   pre-filled from activities and from meeting items flagged "for the
-   newsletter" (CR-09's one outward interface). The monthly member edition
-   also goes through the portal from then on.
+   pre-filled from activities — and the composer browses the recent meeting
+   report(s) there and **selects** which items come along (revised
+   14 September 2026, mockup round: the earlier per-item "for the
+   newsletter" flag set during the meeting is dropped; the newsletter maker
+   decides, not the secretary). The monthly member edition also goes
+   through the portal from then on.
 4. **Drafting is the first acting capability pack on the CR-07 kernel**
    (CR-07 §4.1) — this supersedes the older "#205 swappable LLM layer"
    phrasing below; the seam guard, payload log and budgets inherit from the
    kernel. The three fixed rules apply: drafting is not sending, one write
    path, injection weighs heavier with acting tools. Its input: activity
    data (date/price/location/registration link), media (flyers, photos),
-   positive evaluation notes and other items **flagged in the meeting
-   report** ([`change_request_09_meetings.md`](change_request_09_meetings.md)).
-   **The flag is the PII gate**: unflagged report content never enters an
-   LLM payload; flagged content may name volunteers — it is written to be
-   public and passes a human editor anyway. **And the LLM never detects
-   activities in prose**: a flagged meeting item carries the `activity_id`
+   and the report items the composer **selected in the compose screen**
+   ([`change_request_09_meetings.md`](change_request_09_meetings.md), §3.18).
+   **That selection is the PII gate**: unselected report content never
+   enters an LLM payload; selected content may name volunteers — the human
+   editor decides what survives into the sent newsletter. **And the LLM never detects
+   activities in prose**: a selected meeting item carries the `activity_id`
    set when the agenda was generated (CR-09 §4), so the pack fetches the
    canonical activity data fresh from the activities domain and the
    structured fields win over whatever the note's free text says — the

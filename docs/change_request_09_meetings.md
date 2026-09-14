@@ -26,10 +26,10 @@ change request moves it into the portal:
    document filled in during the meeting.
 2. **The portal sends the meeting mails** — agenda and report as PDF to the
    meeting circle, with ad-hoc extra attachments.
-3. **Report items can be flagged "for the newsletter"** — the portal form of
-   what the board already does in prose. The flag is this module's one
-   interface to the newsletter chain (CR-05); nothing else of the report
-   ever leaves the meeting module.
+3. **The newsletter composer reads the report afterwards** and picks what
+   goes to the newsletter in the compose screen (CR-05) — the meeting module
+   itself carries no newsletter machinery. Nothing of the report leaves this
+   module except what that person selects there.
 
 ## 1. The source material (measured, 14 September 2026)
 
@@ -155,6 +155,18 @@ Added after the first mockup round (14 September 2026, Koen's review):
     sections keep their generation and carry-over semantics; a custom
     section holds free items only.
 
+18. **No newsletter flag during the meeting** (revises §3.10's flag idea,
+    same day). Selecting what reaches the newsletter is the newsletter
+    composer's call, made afterwards in the compose screen — not the
+    secretary's call mid-meeting. The privacy gate moves with it and holds:
+    only what the composer explicitly selects from a report can enter an
+    LLM payload (CR-05); everything unselected never leaves the meeting
+    module.
+19. **Chronological insertion.** In the activity sections, items order by
+    activity date — a point added during the meeting slides into its
+    chronological place, also in between existing points. Free items
+    without a date go at the end and can be repositioned by hand.
+
 Inherited, not reopened: **#785 triage A17** — the AI-per-module contract
 (read / propose / execute separated). This module has no AI at all, which is
 the simplest way to honour it.
@@ -174,9 +186,9 @@ New domain `meetings`:
   `MeetingSection`), `position`, optional `activity_id` FK, `title`
   (free for non-activity items), `notes` (the bullets, rich-ish text),
   `carried_over_from` (optional self-reference: an ideas/misc item that
-  moves to the next meeting), and the **newsletter marker** — during the
-  meeting an item (or a note) can be flagged "for the newsletter" (§3.10;
-  consumed by CR-05).
+  moves to the next meeting). No newsletter marker (decision §3.18): the
+  newsletter side reads the report through the facade and the composer
+  selects there.
 - `MeetingAttachment` — link to a `media` file, per meeting, flagged
   agenda-mail / report-mail / both.
 - Extra recipients (decision §3.15): per meeting, plain e-mail strings for
@@ -228,8 +240,8 @@ From the real September 2026 cycle, anonymised:
    including one manually added activity that was not on the portal's
    calendar.
 2. **Fill in the report during a meeting** — attendance ticked from the
-   participant list, notes per item, an item flagged for the newsletter —
-   and send it the same evening — one mail, the whole circle in the To
+   participant list, notes per item, one activity added mid-meeting that
+   slots in chronologically — and send it the same evening — one mail, the whole circle in the To
    line — with the PDF plus one extra attachment (the working-group
    scenario).
 3. **The next agenda carries over** the ideas/misc items of this one.
@@ -245,8 +257,9 @@ From the real September 2026 cycle, anonymised:
 
 ## Relationship to existing work
 
-- **Feeds** [`change_request_05_newsletter.md`](change_request_05_newsletter.md)
-  through the newsletter flag — its only outward interface.
+- **Feeds** [`change_request_05_newsletter.md`](change_request_05_newsletter.md):
+  the newsletter compose screen reads reports through this domain's facade;
+  the composer selects there (decision §3.18).
 - **Reads** the `activities` domain through its facade; the meeting module
   never duplicates activity data, it references it.
 - **Uses** the `mail` domain for the meeting mails and the `media` domain
