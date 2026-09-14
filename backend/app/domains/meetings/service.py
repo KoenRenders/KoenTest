@@ -431,6 +431,34 @@ def add_file(db: Session, meeting: Meeting, *, filename: str, content_type: str,
     return record
 
 
+def set_file_mailing(db: Session, meeting: Meeting, file_id: int, *,
+                     mail: str) -> None:
+    """Zet aan of uit of deze bijlage met de agenda- dan wel de verslagmail meegaat.
+
+    Gevraagd door Koen op 14 september: het gebeurt dat er één bijlage bij de
+    agenda hoort (een draaiboek vooraf) en een ándere bij het verslag. Het model
+    kon dat al — `on_agenda_mail` en `on_report_mail` staan er sinds de eerste
+    migratie — maar het scherm bood de keuze niet aan, dus stond alles altijd op
+    beide.
+
+    Een schakelaar en geen waarde: het scherm toont de huidige stand, en één klik
+    keert ze om. Zo hoeft het scherm geen toestand mee te sturen die intussen
+    verouderd kan zijn.
+    """
+    record = db.get(MeetingFile, file_id)
+    if record is None or record.meeting_id != meeting.id:
+        return
+    if record.purpose == FILE_SENT_PDF:
+        raise MeetingError(_("Een verstuurde PDF verandert niet meer."))
+    if mail == "agenda":
+        record.on_agenda_mail = not record.on_agenda_mail
+    elif mail == "report":
+        record.on_report_mail = not record.on_report_mail
+    else:
+        raise MeetingError(_("Onbekende mail."))
+    db.commit()
+
+
 def delete_file(db: Session, meeting: Meeting, file_id: int) -> None:
     """Remove an attachment — refused once the meeting has been sent.
 
@@ -638,6 +666,35 @@ def member_standing(db: Session, today: Optional[date] = None) -> MemberStanding
 # the PDF, and a second builder is how the two start disagreeing about what a
 # meeting says.
 
+def note_bullets(notes: Optional[str]) -> list[tuple[int, str]]:
+    """De notitietekst als geneste opsomming: (niveau, tekst) per regel.
+
+    Het bestuur schrijft zijn verslag al in opsommingen met twee, soms drie
+    niveaus. Dat blijft hier **platte tekst** in een gewoon tekstvak — tijdens een
+    vergadering wil je typen, niet opmaken — en de nesting komt uit wat je toch al
+    doet: inspringen. Twee spaties (of een tab) is één niveau dieper; een leidend
+    streepje of bolletje mag en wordt weggelaten bij het tonen.
+
+    Eén functie voor het scherm én de PDF: zouden die elk hun eigen regeltjes
+    hebben, dan leest het verslag op papier anders dan op het scherm.
+    """
+    out: list[tuple[int, str]] = []
+    for regel in (notes or "").splitlines():
+        if not regel.strip():
+            continue
+        zonder_tabs = regel.replace("\t", "  ")
+        inspringing = len(zonder_tabs) - len(zonder_tabs.lstrip(" "))
+        tekst = zonder_tabs.strip()
+        for teken in ("- ", "* ", "• ", "○ ", "● "):
+            if tekst.startswith(teken):
+                tekst = tekst[len(teken):].strip()
+                break
+        # Drie niveaus volstaan: dieper dan dat leest niemand nog als structuur,
+        # en het echte verslag komt niet verder.
+        out.append((min(inspringing // 2, 2), tekst))
+    return out
+
+
 @dataclass(frozen=True)
 class DocumentItem:
     """One point, with everything both the screen and the PDF need."""
@@ -646,6 +703,9 @@ class DocumentItem:
     label: str
     meta: str
     notes: str
+    # Dezelfde notities als opsomming, voor het tonen; `notes` blijft de ruwe
+    # tekst waar het tekstvak op werkt.
+    bullets: list
     kind: str                      # "activity" | "member" | "free"
     source_url: Optional[str]      # where the source chip goes
     is_full: bool
@@ -673,10 +733,12 @@ def document_of(db: Session, meeting: Meeting) -> list[DocumentSection]:
                     if i.activity_id]
     activities = {}
     counts = {}
+    times = {}
     if activity_ids:
         activities = {a.id: a for a in
                       db.query(Activity).filter(Activity.id.in_(activity_ids)).all()}
         counts = registration_counts(db, activity_ids)
+        times = _start_times(db, activity_ids)
 
     member_ids = [i.member_id for items in all_items.values() for i in items
                   if i.member_id]
@@ -684,7 +746,7 @@ def document_of(db: Session, meeting: Meeting) -> list[DocumentSection]:
 
     out = []
     for section in sections:
-        items = [_present(item, activities, counts, member_labels)
+        items = [_present(item, activities, counts, member_labels, times)
                  for item in all_items[section.id]]
         out.append(DocumentSection(
             id=section.id, kind=section.kind, label=section_label(section),
@@ -707,8 +769,36 @@ def _subtitle_for(kind: str) -> str:
     return ""
 
 
+def _start_times(db: Session, activity_ids: list[int]) -> dict[int, object]:
+    """Het beginuur van de eerste datumrij per activiteit, of None.
+
+    Het uur hoort op de regel: het bestuur schrijft "maandag 10 augustus 20u
+    Miloheem", en zonder uur moet je voor elke activiteit het detailscherm open.
+    Uit de eerste datumrij, dezelfde rij waaruit de sorteerdatum komt — anders
+    zouden datum en uur bij een reeks uit verschillende rijen kunnen komen.
+    """
+    from app.domains.activities.api import ActivityDate
+
+    rijen = (db.query(ActivityDate)
+             .filter(ActivityDate.activity_id.in_(activity_ids))
+             .order_by(ActivityDate.activity_id.asc(),
+                       ActivityDate.start_date.asc(), ActivityDate.id.asc())
+             .all())
+    eerste: dict[int, object] = {}
+    for rij in rijen:
+        eerste.setdefault(rij.activity_id, rij.start_time)
+    return eerste
+
+
+def _uur(moment) -> str:
+    """`20u` of `20u30` — zoals het bestuur een uur schrijft."""
+    if moment is None:
+        return ""
+    return f"{moment.hour}u" + (f"{moment.minute:02d}" if moment.minute else "")
+
+
 def _present(item: MeetingItem, activities: dict, counts: dict,
-             member_labels: dict) -> DocumentItem:
+             member_labels: dict, times: Optional[dict] = None) -> DocumentItem:
     """One stored item as it reads on screen.
 
     An activity point renders **name | date time location · N ingeschreven** and
@@ -722,7 +812,9 @@ def _present(item: MeetingItem, activities: dict, counts: dict,
         booked, capacity = counts.get(activity.id, (0, None))
         parts = []
         if item.sort_key:
-            parts.append(short_date(item.sort_key))
+            datum = short_date(item.sort_key)
+            uur = _uur((times or {}).get(activity.id))
+            parts.append(f"{datum} {uur}".strip())
         if activity.location:
             parts.append(activity.location)
         if booked or capacity:
@@ -730,7 +822,8 @@ def _present(item: MeetingItem, activities: dict, counts: dict,
             parts.append(_("%s ingeschreven") % shown)
         return DocumentItem(
             id=item.id, label=activity.name, meta=" · ".join(parts),
-            notes=item.notes or "", kind="activity",
+            notes=item.notes or "", bullets=note_bullets(item.notes),
+            kind="activity",
             source_url=f"/admin/activiteiten/{activity.id}",
             is_full=bool(capacity and booked >= capacity),
             steward_person_id=None)
@@ -739,11 +832,13 @@ def _present(item: MeetingItem, activities: dict, counts: dict,
         label, address = member_labels.get(item.member_id, (_("Nieuw lid"), ""))
         return DocumentItem(
             id=item.id, label=label, meta=address, notes=item.notes or "",
+            bullets=note_bullets(item.notes),
             kind="member", source_url=f"/admin/leden/gezin/{item.member_id}",
             is_full=False, steward_person_id=item.noted_steward_person_id)
 
     return DocumentItem(id=item.id, label=item.title or _("Punt"), meta="",
-                        notes=item.notes or "", kind="free", source_url=None,
+                        notes=item.notes or "", bullets=note_bullets(item.notes),
+                        kind="free", source_url=None,
                         is_full=False, steward_person_id=None)
 
 
@@ -787,21 +882,50 @@ def _address_line(person) -> str:
                     if part).strip()
 
 
-def addable_activities(db: Session, meeting: Meeting, query: str = "") -> list:
-    """Activities that could still be added to this agenda.
+# Hoe ver de kiezer terugkijkt onder "Evaluatie". Een jaar, omdat de reden om
+# handmatig toe te voegen juist is dat iets niet automatisch opgepikt werd — en
+# het zoekveld maakt een lange lijst hanteerbaar.
+EVALUATION_LOOKBACK = timedelta(days=365)
 
-    The picker behind "Punt toevoegen" during the meeting (§3.19): everything
-    planned that is not already a point here — which is how a venue booked a year
-    ahead, or something created after the agenda went out, still gets discussed.
+
+def addable_activities(db: Session, meeting: Meeting, query: str = "",
+                       section_id: Optional[int] = None) -> list:
+    """Activities that could still be added to this agenda, per section.
+
+    The picker behind "Punt toevoegen" (§3.19). **What it offers follows the
+    section it opens in**, because the two activity sections look in opposite
+    directions: under *Evaluatie* you want something that already happened —
+    an activity that was not picked up automatically, or one taken off the agenda
+    earlier — and under *Volgende activiteiten* you want what is still coming.
+    Offering only the future in both (the first build did) made half the picker
+    useless: a past activity could never be added back.
+
+    In the free-form sections there is no window to follow, so everything is on
+    offer; the search box is what makes that list workable.
     """
-    from app.domains.activities.api import activities_from
+    from app.domains.activities.api import activities_active_between, activities_from
 
     present = {item.activity_id for item in
                db.query(MeetingItem).filter(MeetingItem.meeting_id == meeting.id).all()
                if item.activity_id}
+    section = db.get(MeetingSection, section_id) if section_id else None
+    kind = getattr(section, "kind", None)
+
+    if kind == SECTION_EVALUATION:
+        # Meest recente eerst: wat je onder evaluatie zoekt, is bijna altijd van
+        # de voorbije weken.
+        spans = list(reversed(activities_active_between(
+            db, meeting.meeting_date - EVALUATION_LOOKBACK, meeting.meeting_date)))
+    elif kind == SECTION_UPCOMING:
+        spans = activities_from(db, meeting.meeting_date)
+    else:
+        spans = list(reversed(activities_active_between(
+            db, meeting.meeting_date - EVALUATION_LOOKBACK, meeting.meeting_date)))
+        spans += activities_from(db, meeting.meeting_date)
+
     query = (query or "").strip().lower()
     out = []
-    for span in activities_from(db, meeting.meeting_date):
+    for span in spans:
         if span.activity.id in present:
             continue
         if query and query not in span.activity.name.lower():

@@ -457,6 +457,17 @@ def _huidige_gebruiker(db, request) -> dict | None:
         return None
 
 
+def _site_logo_url(db) -> str | None:
+    """De URL van het verenigingslogo, of None. Mag het renderen nooit breken."""
+    try:
+        from app.domains.media.api import tenant_logo
+
+        asset = tenant_logo(db)
+        return f"/api/v1/media/{asset.id}" if asset is not None else None
+    except Exception:
+        return None
+
+
 def _footer_organisatie(db, organisatie) -> dict | None:
     """Het organisatieblok in de footer (#924), of None als er niets te tonen is.
 
@@ -566,6 +577,12 @@ def site_context(db, request=None) -> dict:
             "og_image": None,
             "site_name": tenant_display_name(db),
             "site_tagline": get_setting(db, "tagline") or "",
+            # Het logo van de vereniging (#258), als het er is: de header toont het
+            # in plaats van het ingetypte woordmerk, en de vergader-PDF gebruikt
+            # hetzelfde logo. Eén bron, twee afnemers — daarom staat het bij de
+            # media en niet in de vergadermodule. Als URL en niet als bytes: de
+            # browser haalt het gewoon op, en de mediaroute cachet het al.
+            "site_logo_url": _site_logo_url(db),
             # #924: de sociale links komen uit de ORGANISATIE en niet meer uit de
             # tenant-instellingen. Een Facebook-pagina van een vereniging bestaat
             # los van haar site — de beslisregel uit het issue. Enkel tonen als

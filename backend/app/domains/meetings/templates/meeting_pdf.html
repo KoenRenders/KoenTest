@@ -22,15 +22,28 @@
   .head h1 { font-size: 16pt; color: var(--pdf-brand); margin: 0 0 2pt 0; }
   .head .sub { font-size: 10pt; color: var(--pdf-soft); }
   .brand { font-size: 18pt; font-weight: bold; color: var(--pdf-brand); letter-spacing: -0.5pt; }
+  /* Het logo mag de kop niet domineren: hoogte begrensd, breedte volgt. */
+  .logo { max-height: 42pt; max-width: 120pt; }
   .people { font-size: 9.5pt; color: var(--pdf-ink); margin-bottom: 14pt; }
   .people b { color: var(--pdf-soft); font-weight: normal; display: inline-block; width: 78pt; }
   h2 { font-size: 12pt; color: var(--pdf-brand); margin: 14pt 0 5pt 0;
        border-bottom: 1px solid var(--pdf-line); padding-bottom: 3pt; page-break-after: avoid; }
-  .item { margin: 0 0 6pt 0; page-break-inside: avoid; }
+  /* Hangend inspringen: een lange regel breekt af onder de TEKST en niet onder
+     het bolletje. Zonder dit begon "· 11 ingeschreven" tegen de linkermarge en
+     las de tweede regel als een nieuw punt. */
+  .item { margin: 0 0 6pt 0; padding-left: 12pt; text-indent: -12pt;
+          page-break-inside: avoid; }
   .item .line { font-size: 10.5pt; }
   .item .line b { font-weight: bold; }
   .item .meta { color: var(--pdf-soft); }
-  .notes { margin: 2pt 0 0 14pt; color: var(--pdf-ink); white-space: pre-line; font-size: 10pt; }
+  /* Het bolletje markeert de regel, het hoeft niet te roepen: de vette naam doet
+     het werk al. Grijs en klein, zoals in het Google-Docs-verslag. */
+  .item .bullet { color: var(--pdf-soft); font-size: 8pt; vertical-align: 1pt; }
+  .notes { margin: 1pt 0 0 0; color: var(--pdf-ink); font-size: 10pt;
+           text-indent: 0; padding-left: 10pt; }
+  .notes.n0 { margin-left: 14pt; }
+  .notes.n1 { margin-left: 28pt; }
+  .notes.n2 { margin-left: 42pt; }
   .empty { color: var(--pdf-faint); font-style: italic; font-size: 10pt; }
   .members-total { font-size: 9.5pt; font-weight: normal; color: var(--pdf-soft); }
 </style>
@@ -41,7 +54,9 @@
       <h1>{{ kind_label }} — {{ _("Vergadering Raak Millegem") }}</h1>
       <div class="sub">{{ date_label }}{% if location %} · {{ location }}{% endif %}</div>
     </div>
-    <div class="brand">RaaK</div>
+    {# Het logo uit de mediabibliotheek; is er geen, dan het woordmerk als tekst.
+       Zo staat er altijd iets in de kop, ook bij een verse tenant. #}
+    {% if logo %}<img class="logo" src="{{ logo }}" alt="">{% else %}<div class="brand">RaaK</div>{% endif %}
   </div>
 
   <div class="people">
@@ -56,8 +71,10 @@
   {% endif %}
   {% for item in section.items %}
   <div class="item">
-    <div class="line">● <b>{{ item.label }}</b>{% if item.meta %} <span class="meta">| {{ item.meta }}</span>{% endif %}{% if item.is_full %} <span class="meta">({{ _("volzet") }})</span>{% endif %}</div>
-    {% if item.notes %}<div class="notes">{{ item.notes }}</div>{% endif %}
+    <div class="line"><span class="bullet">●</span> <b>{{ item.label }}</b>{% if item.meta %} <span class="meta">| {{ item.meta }}</span>{% endif %}{% if item.is_full %} <span class="meta">({{ _("volzet") }})</span>{% endif %}</div>
+    {% for niveau, tekst in item.bullets %}
+    <div class="notes n{{ niveau }}">{% if niveau == 0 %}○{% elif niveau == 1 %}■{% else %}·{% endif %} {{ tekst }}</div>
+    {% endfor %}
   </div>
   {% endfor %}
   {% endfor %}
