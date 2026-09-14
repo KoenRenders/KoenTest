@@ -45,7 +45,10 @@
 {% set r = k.rec %}
 <div class="flex items-start justify-between gap-3">
   <div>
-    <div class="font-semibold">{{ r.contact_name or "—" }}{% if r.description %} · {{ r.description }}{% endif %}{% if r.component_name %} · {{ r.component_name }}{% endif %}</div>
+    {# B2 (golf 4, #913): de naam opent de inschrijvingspagina — dezelfde regel als
+       in de activiteitenlijst. Alleen bij een registration-payable: een andere
+       payable heeft geen inschrijving om naartoe te gaan. #}
+    <div class="font-semibold">{% if r.payable_type == "registration" and r.payable_id %}<a class="text-blue-700 hover:underline" href="/admin/inschrijvingen/{{ r.payable_id }}?terug=/admin/betalingen">{{ r.contact_name or "—" }}</a>{% else %}{{ r.contact_name or "—" }}{% endif %}{% if r.description %} · {{ r.description }}{% endif %}{% if r.component_name %} · {{ r.component_name }}{% endif %}</div>
     <div class="text-sm text-ink-soft flex flex-wrap items-center gap-x-3">
       <span>{{ method_labels.get(r.method, _("Onbekende betaalwijze")) }}</span>
       <span>{{ _("Bedrag") }}: <strong>€ {{ k.bedrag|geld }}</strong></span>
@@ -164,7 +167,7 @@
     {% if r.payable_type == "registration" %}
     <div class="mt-2" x-data="{ det: false }">
       <button type="button" class="text-sm text-link hover:underline" @click="det = !det"
-              hx-get="/admin/inschrijvingen/{{ r.payable_id }}" hx-target="#det-{{ r.id }}" hx-trigger="click once">{{ _("Toon inschrijvingsdetails") }}</button>
+              hx-get="/admin/inschrijvingen/{{ r.payable_id }}/fragment" hx-target="#det-{{ r.id }}" hx-trigger="click once">{{ _("Toon inschrijvingsdetails") }}</button>
       {# #737: `style="display: none"` staat er letterlijk bij, zoals §2.9b vraagt.
          Dit element heeft een `id` én wordt door Alpine verborgen, dus bij een swap
          zet htmx' settle de attributen van het serverantwoord terug en wist het de

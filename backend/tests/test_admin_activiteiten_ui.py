@@ -122,14 +122,18 @@ def test_admin_inschrijvingen_en_export(client, db_session):
         f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}/inschrijvingen")
     assert lijst.status_code == 200 and "Jef" in lijst.text
     # #510: elke rij heeft nu een "Bewerken" die de gedeelde editor in-lijn laadt
-    # (detail_disclosure → /admin/inschrijvingen/{id}), naast "Verwijder".
+    # (detail_disclosure → /admin/inschrijvingen/{id}/fragment sinds golf 4,
+    # #913 — de kale id-URL is van de volwaardige pagina), naast "Verwijder".
     from app.domains.activities.api import Registration
     reg = db_session.query(Registration).filter(Registration.contact_name == "Jef").one()
     # #676: de rijknop heet "Details" — ze vouwt het paneel open, ze bewerkt niets.
     # De bewerkstand zit ín dat paneel, met zijn eigen toggle.
     assert ">Details<" in lijst.text
-    assert f'hx-get="/admin/inschrijvingen/{reg.id}"' in lijst.text
+    assert f'hx-get="/admin/inschrijvingen/{reg.id}/fragment"' in lijst.text
     assert ">Verwijderen<" in lijst.text
+    # B2 (golf 4): de recordnaam zelf opent de pagina, met de A7-retourcontext.
+    assert (f'href="/admin/inschrijvingen/{reg.id}'
+            f'?terug=/admin/activiteiten/{activity.id}"') in lijst.text
 
     export = client.get(f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}/export")
     assert export.status_code == 200
