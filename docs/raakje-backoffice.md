@@ -6,7 +6,7 @@ language model, and what stops it from reaching one it should not** — the same
 question `chatbot.md` answers for the public bot, with a different answer, because
 the data is different.
 
-Built per `change_request_07.md` (#917). That change request is the reasoning; this
+Built per `change_request_07_raakje_backoffice.md` (#917). That change request is the reasoning; this
 is what was built, including the three places where it turned out differently.
 
 ## One Raakje, two toolkits

@@ -116,5 +116,5 @@ findings per `file:line`. Use it before every commit/push.
 ## Documentation
 
 - [Project Specification](docs/spec.md)
-- [Change Request 01](docs/change_request_01.md)
-- [Change Request 02](docs/change_request_02.md)
+- [Change Request 01](docs/change_request_01_postal_codes.md)
+- [Change Request 02](docs/change_request_02_registration_form.md)
