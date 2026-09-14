@@ -23,7 +23,7 @@ import pytest
 from sqlalchemy import text
 
 from app.domains.reporting.api import (
-    MERGED_LABEL, SMALL_CELL_THRESHOLD, Filter, Operator, Selection,
+    Filter, Operator, Selection,
     list_saved_reports, run_validated, selection_of,
 )
 from tests._reporting_seed import TENANT_A, TENANT_B, seed
@@ -237,12 +237,24 @@ def test_a_person_in_two_households_counts_once(db_session, situation):
 
 # ── The small-cell threshold (#841 test 2) ───────────────────────────────────
 
-def test_a_group_of_four_is_merged_and_a_group_of_five_is_not(db_session,
-                                                              situation):
-    """The rule from both sides — and the counter-proof is the group of five.
+def test_a_group_of_four_is_shown_as_itself(db_session, situation):
+    """Een rapport toont wat het geteld heeft — beslist door Koen, 14 september 2026.
 
-    Without it, a threshold that folded everything and a threshold that works
-    would look the same from the green side.
+    Hier stond de kleine-groependrempel: elke groep met minder dan vijf personen
+    verdween in één verzamelrij. Hij gold overal, ook op het scherm van een
+    bestuurder achter zijn eigen login met zijn eigen ledenlijst, en daar beschermde
+    hij niemand tegen iets — wie dit rapport mag openen, mag het gezin ook gewoon
+    opzoeken. Wat hij wél deed was "Anderlecht: 1" wegmoffelen, en een cijfer dat
+    zonder zichtbare reden verdwijnt kost vertrouwen in elk getal eromheen.
+
+    Ook voor de assistent is hij weg, en dat is een apart punt waard: de regel die
+    dáár geldt is een andere en staat overeind. Namen, adressen, geboortedatums,
+    telefoonnummers, e-mailadressen en vrije tekst gaan niet naar een taalmodel —
+    geweigerd of getokeniseerd. Een AANTAL is geen persoonsgegeven, en die twee
+    dingen liepen door elkaar.
+
+    Kapotgemaakt om het rood te zien: de samenvoeging teruggezet in
+    `run_selection` — dan verdwijnt Plaats1111 en valt de derde assertie om.
     """
     from datetime import date
 
@@ -287,8 +299,10 @@ def test_a_group_of_four_is_merged_and_a_group_of_five_is_not(db_session,
 
     assert "Plaats2222" in per_gemeente, "vijf personen: een eigen cel"
     assert per_gemeente["Plaats2222"] == 5
-    assert "Plaats1111" not in per_gemeente, "vier personen: geen eigen cel"
-    assert MERGED_LABEL in per_gemeente, "ze zijn samengevoegd, niet weggegooid"
+    assert "Plaats1111" in per_gemeente, "vier personen: óók een eigen cel"
+    assert per_gemeente["Plaats1111"] == 4
+    assert not any("Samengevoegd" in naam for naam in per_gemeente), (
+        "er wordt niets meer samengevoegd")
 
     # And it still adds up: the totals row comes from SQL over the whole set.
     som = sum(row["membership_person_count"] for row in result.rows
@@ -297,11 +311,19 @@ def test_a_group_of_four_is_merged_and_a_group_of_five_is_not(db_session,
         "de som van de buckets blijft gelijk aan het totaal, ook mét samenvoeging")
 
 
-def test_the_threshold_only_fires_on_a_sensitive_dimension(db_session, situation):
-    """Grouping by year is not grouping people into recognisable groups."""
-    result = run(db_session, ["membership_year", "membership_person_count"])
-    assert MERGED_LABEL not in {row["membership_year"] for row in result.rows}
-    assert all(row["membership_person_count"] for row in result.rows)
+def test_no_query_asks_for_a_hidden_people_count_any_more(db_session, situation):
+    """De verborgen kolom bestond alleen voor de drempel, en gaat er dus mee weg.
+
+    Blijven staan zou erger zijn dan nutteloos: een kolom met een privacynaam die
+    niemand leest, leest als bescherming die er niet is. `sensitive` en `people_sql`
+    blijven wél staan als declaratie — met, net als bij `Role`, de eerlijke
+    vermelding in de gegenereerde documentatie dat niets ze afdwingt.
+    """
+    result = run(db_session, ["member_municipality", "membership_person_count"])
+    assert result.rows, "zonder rijen bewijst deze test niets"
+    for rij in result.rows:
+        assert not any(sleutel.startswith("__") for sleutel in rij), (
+            f"er reist nog een verborgen kolom mee: {sorted(rij)}")
 
 
 def test_a_non_additive_measure_stays_empty_in_the_merged_row(db_session,
@@ -313,39 +335,55 @@ def test_a_non_additive_measure_stays_empty_in_the_merged_row(db_session,
     chosen because it puts both kinds of measure in one report: an amount, which
     adds up over merged groups, and a distinct count, which does not.
 
-    Deliberately not written with a `skip` if no cell is small: a test that can
-    quietly do nothing is worse than no test, because it reads as coverage.
+    Sinds 14 september 2026 voegt niets meer samen, dus er is geen samengevoegde rij
+    meer om leeg te laten. Wat blijft is de eigenschap waarop die regel steunde:
+    `additive` op een maat. Ze wordt nu nergens meer afgedwongen, en deze test
+    bewaakt dat ze in elk geval nog KLOPT — wie ooit opnieuw groepen samenvoegt,
+    heeft ze nodig en moet niet eerst ontdekken dat ze scheefgegroeid is.
     """
+    from app.domains.reporting.api import BY_KEY
+
     result = run(db_session, ["member_municipality", "payment_amount",
                               "payment_count"])
-    samengevoegd = [row for row in result.rows
-                    if row["member_municipality"] == MERGED_LABEL]
-    assert samengevoegd, (
-        "elk gezin in de seed is klein, dus er hoort een samengevoegde rij te zijn")
-
-    assert samengevoegd[0]["payment_count"] is None, (
-        "COUNT(DISTINCT) is niet optelbaar over samengevoegde groepen")
-    assert Decimal(samengevoegd[0]["payment_amount"]) > 0, (
-        "een SUM is dat wel, en die blijft dus staan")
+    assert result.rows, "zonder rijen bewijst deze test niets"
+    assert BY_KEY["payment_amount"].additive, "een SUM telt op over groepen heen"
+    assert not BY_KEY["payment_count"].additive, (
+        "COUNT(DISTINCT) telt dat niet — dubbeltellingen tussen de groepen")
+    # En het rapport zelf toont gewoon alle gemeenten, groot en klein.
+    assert all(Decimal(r["payment_amount"]) >= 0 for r in result.rows)
 
 
-def test_the_threshold_is_declared_and_not_hidden_in_a_template():
-    """#841: the rule lives in the universe declaration, not in a screen."""
+def test_no_screen_has_kept_a_copy_of_the_removed_threshold():
+    """#841 omgekeerd: de regel is weg, en hij mag nergens blijven hangen.
+
+    De oorspronkelijke test bewaakte dat de drempel in de declaratie stond en niet
+    in een scherm. Nu hij verwijderd is, is de vraag dezelfde maar het antwoord
+    anders: een template die nog "minder dan 5" toont of uitlegt, belooft een
+    bescherming die er niet meer is — en dat is erger dan de regel zelf ooit was.
+
+    `sensitive` blijft wél staan op de objecten, als declaratie zonder afdwinging,
+    net als `Role`. Dat het nog klopt is hier de tweede assertie; de gegenereerde
+    documentatie zegt er in zoveel woorden bij dat niets het afdwingt.
+    """
     from pathlib import Path
 
     from app.domains.reporting.api import OBJECTS
 
     gevoelig = {o.key for o in OBJECTS if o.sensitive}
     assert {"person_age_group", "member_municipality", "member_size_group"} \
-        <= gevoelig
-    assert SMALL_CELL_THRESHOLD == 5
+        <= gevoelig, "de declaratie beschrijft nog steeds wie mensen fijn snijdt"
 
     sjablonen = Path(__file__).resolve().parents[1] / "app" / "domains" / "reporting" \
         / "templates"
+    bekeken = 0
     for pad in sjablonen.glob("*.html"):
-        tekst = pad.read_text(encoding="utf-8")
-        assert "minder dan 5" not in tekst.lower(), (
-            f"{pad.name} kent de drempel — die hoort in de declaratie")
+        bekeken += 1
+        tekst = pad.read_text(encoding="utf-8").lower()
+        assert "minder dan 5" not in tekst and "samengevoegd" not in tekst, (
+            f"{pad.name} spreekt nog over de verwijderde drempel")
+    assert bekeken >= 5, (
+        f"deze poort keek naar {bekeken} templates; dat zijn er te weinig om iets "
+        "te bewijzen (#678)")
 
 
 # ── Questions 8, 9 and 10 as shipped reports (#841 test 1) ───────────────────

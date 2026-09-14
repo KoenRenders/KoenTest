@@ -107,26 +107,26 @@ def test_a_question_gets_an_answer_built_from_real_rows(client, db_session, aan)
     assert "Wat zag Mistral?" in resp.text
 
 
-def test_the_threshold_applies_to_the_assistant_and_says_so(client, db_session, aan):
-    """Stricter than the panel, on purpose — and never silently (CR-07 §7).
+def test_a_small_group_is_shown_and_not_pooled_away(client, db_session, aan):
+    """Er wordt niets meer samengevoegd — beslist door Koen, 14 september 2026.
 
-    The assistant's rows go to Mistral and the panel's do not, so a group of three
-    households in one municipality is merged here and shown there. That difference
-    reads as a bug unless the answer names it, which is why the tool result carries
-    the instruction and the answer repeats it.
+    Hier stond de tegenovergestelde test: de gemeente met minder dan vijf personen
+    verdween in een verzamelrij, en het antwoord moest dat benoemen. De drempel is
+    weg, aan beide kanten. Wat naar Mistral mag is een andere regel en die staat
+    overeind: de gemeente is een plaatsnaam, geen persoonsgegeven — een naam of een
+    adres komt hier nog steeds niet doorheen.
 
-    Found by measurement, not by design: this test was first written expecting the
-    municipality to appear, and the seeded households turned out to be too few for
-    it to be allowed to.
+    Kapotgemaakt om het rood te zien: `merge_small_cells` teruggezet in
+    `run_report` — dan staat "Mol" er niet meer en valt de eerste assertie om.
     """
     seed(db_session)
     csrf = login(client, db_session)
     resp = client.post(PATH, data={"vraag": "hoeveel gezinnen per gemeente?",
                                    "historie": "[]"},
                        headers={"X-CSRF-Token": csrf})
-    assert "Samengevoegd" in resp.text
-    assert "privacydrempel" in resp.text
-    assert "Mol" not in resp.text
+    assert "Mol" in resp.text, "de gemeente uit de seed hoort gewoon in het antwoord"
+    assert "Samengevoegd" not in resp.text
+    assert "privacydrempel" not in resp.text
 
 
 def test_the_fold_out_shows_what_actually_left(client, db_session, aan):
