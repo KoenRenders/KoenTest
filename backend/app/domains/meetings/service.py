@@ -279,6 +279,8 @@ def add_item(db: Session, meeting: Meeting, section: MeetingSection, *,
     no date and joins the tail.
     """
     _refuse_when_sent(meeting)
+    if activity_id is None and not (title or "").strip():
+        raise MeetingError(_("Kies een activiteit of typ een titel voor het punt."))
     sort_key = None
     if activity_id is not None:
         from app.domains.activities.api import Activity, ActivityDate
@@ -299,26 +301,44 @@ def add_item(db: Session, meeting: Meeting, section: MeetingSection, *,
 
 
 def update_item(db: Session, meeting: Meeting, item_id: int, *,
-                notes: Optional[str] = None, title: Optional[str] = None,
-                steward_person_id: Optional[int] = None) -> MeetingItem:
-    """Write the minutes on one point.
-
-    The steward choice is minutes too: it is stored on the item and never
-    written into the member data (§3.9) — the assignment itself is made in the
-    national administration and returns through the import.
-    """
+                notes: Optional[str] = None,
+                title: Optional[str] = None) -> MeetingItem:
+    """Write the minutes on one point. `None` means "left alone", not "cleared"."""
     _refuse_when_sent(meeting)
-    item = db.get(MeetingItem, item_id)
-    if item is None or item.meeting_id != meeting.id:
-        raise MeetingError(_("Dat punt hoort niet bij deze vergadering."))
+    item = _item_of(db, meeting, item_id)
     if notes is not None:
         item.notes = notes
     if title is not None:
         item.title = title
-    if steward_person_id is not None:
-        item.noted_steward_person_id = steward_person_id or None
     _touch(db, meeting)
     db.commit()
+    return item
+
+
+def set_noted_steward(db: Session, meeting: Meeting, item_id: int,
+                      person_id: Optional[int]) -> MeetingItem:
+    """Note which steward a new member gets — or take the note back out.
+
+    Its own function and not a keyword on `update_item`, because there the
+    "leave alone" and "clear" cases collapse into the same `None`: choosing the
+    empty option in the dropdown would then be silently ignored, and the wrong
+    name would keep standing in the report.
+
+    What is stored is *minutes*: the assignment itself is made in the national
+    administration and returns through the MDM import (§3.9).
+    """
+    _refuse_when_sent(meeting)
+    item = _item_of(db, meeting, item_id)
+    item.noted_steward_person_id = person_id
+    _touch(db, meeting)
+    db.commit()
+    return item
+
+
+def _item_of(db: Session, meeting: Meeting, item_id: int) -> MeetingItem:
+    item = db.get(MeetingItem, item_id)
+    if item is None or item.meeting_id != meeting.id:
+        raise MeetingError(_("Dat punt hoort niet bij deze vergadering."))
     return item
 
 

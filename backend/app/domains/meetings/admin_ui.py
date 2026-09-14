@@ -61,6 +61,7 @@ from app.domains.meetings.api import (
     sections_of,
     send_meeting_mail,
     set_attendance,
+    set_noted_steward,
     update_item,
 )
 from app.domains.meetings.viewmodels import (
@@ -324,9 +325,13 @@ def item_update(meeting_id: int, item_id: int, request: Request,
                 title: str = Form(None), steward_person_id: str = Form(None)):
     meeting = _meeting_or_404(db, meeting_id)
     try:
-        update_item(db, meeting, item_id, notes=notes, title=title,
-                    steward_person_id=(int(steward_person_id)
-                                       if steward_person_id else None))
+        # `None` = het veld stond niet in dít formulier (notities en wijkmeester
+        # posten elk hun eigen); een lege string = de gebruiker koos "geen".
+        if steward_person_id is not None:
+            set_noted_steward(db, meeting, item_id,
+                              int(steward_person_id) if steward_person_id else None)
+        if notes is not None or title is not None:
+            update_item(db, meeting, item_id, notes=notes, title=title)
     except MeetingError as exc:
         return _document_response(request, db, meeting, error=str(exc))
     return _document_response(request, db, meeting)

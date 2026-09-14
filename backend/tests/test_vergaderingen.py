@@ -510,3 +510,35 @@ def test_elk_formulier_op_de_vergaderschermen_kan_ook_echt_verzenden():
                 kop = " ".join(stuk.split())[:90]
                 dood.append(f"{pad.name}: {kop}")
     assert not dood, ("Formulier zonder verzendknop of trigger:\n  " + "\n  ".join(dood))
+
+
+# ── 10. Notuleren: zetten én terugnemen ──────────────────────────────────────
+
+def test_een_genoteerde_wijkmeester_kan_ook_weer_leeg(db_session):
+    """"Geen wijkmeester" kiezen moet de notitie wissen, niet genegeerd worden.
+
+    Dit ging mis in de eerste versie: zetten en wissen liepen allebei door
+    dezelfde `None`, dus de lege keuze deed niets en de verkeerde naam bleef in
+    het verslag staan. Kapotgemaakt om te toetsen: met de wis-tak eruit blijft de
+    tweede assert op de oude persoon staan.
+    """
+    from app.domains.meetings.api import set_noted_steward
+
+    persoon = _person(db_session, "Ivo", "Verwimp")
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+    sectie = next(s for s in sections_of(db_session, meeting) if s.kind == "MEMBERS")
+    punt = add_item(db_session, meeting, sectie, title="Gezin Peeters – Van Dael")
+
+    set_noted_steward(db_session, meeting, punt.id, persoon.id)
+    assert db_session.get(type(punt), punt.id).noted_steward_person_id == persoon.id
+
+    set_noted_steward(db_session, meeting, punt.id, None)
+    assert db_session.get(type(punt), punt.id).noted_steward_person_id is None
+
+
+def test_een_punt_zonder_activiteit_en_zonder_titel_wordt_geweigerd(db_session):
+    """Anders staat er een regel "Punt" in het verslag waar niemand iets aan heeft."""
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+    sectie = next(s for s in sections_of(db_session, meeting) if s.kind == "MISC")
+    with pytest.raises(MeetingError):
+        add_item(db_session, meeting, sectie, title="   ")

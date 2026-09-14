@@ -63,6 +63,7 @@ from app.domains.meetings.service import (  # noqa: F401
     sections_of,
     send_meeting_mail,
     set_attendance,
+    set_noted_steward,
     update_item,
 )
 from app.domains.meetings.pdf import (  # noqa: F401
@@ -85,5 +86,6 @@ __all__ = [
     "get_meeting", "items_of", "list_meetings", "member_standing",
     "previous_meeting", "recipients_for", "remove_extra_recipient", "reopen",
     "section_label", "sections_of", "send_meeting_mail", "set_attendance",
+    "set_noted_steward",
     "update_item", "filename_for", "long_date", "render", "short_date",
 ]
