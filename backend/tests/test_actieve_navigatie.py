@@ -81,7 +81,7 @@ def test_de_meegestuurde_zijbalk_markeert_het_juiste_scherm(client, db_session):
     zijbalk = _blok(client.get("/admin/activiteiten", headers=BOOST).text,
                     "admin-nav-zijbalk")
 
-    actief = [r for r in zijbalk.split("<a ") if "bg-white/20" in r]
+    actief = [r for r in zijbalk.split("<a ") if "bg-blue-50" in r]
     assert len(actief) == 1, f"{len(actief)} actieve items i.p.v. één"
     assert "/admin/activiteiten" in actief[0], actief[0][:200]
 
@@ -92,7 +92,7 @@ def test_een_ander_scherm_markeert_een_ander_item(client, db_session):
     zijbalk = _blok(client.get("/admin/leden", headers=BOOST).text,
                     "admin-nav-zijbalk")
 
-    actief = [r for r in zijbalk.split("<a ") if "bg-white/20" in r]
+    actief = [r for r in zijbalk.split("<a ") if "bg-blue-50" in r]
     assert len(actief) == 1 and "/admin/leden" in actief[0], actief[0][:200]
 
 

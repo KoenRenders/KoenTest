@@ -49,6 +49,9 @@ change to all four, in one pull request.
 | 13 Sep 2026 | The unsaved-changes promise is dropped as a system rule; it returns as a per-editor pattern field for long editors | #785 (B1) |
 | 13 Sep 2026 | Judging viewports follow the audience: public phone-first, admin desktop-first | CR-08 |
 | 13 Sep 2026 | Golf 1 approved on the package: public shell in Cobalt; **public headings in Inter** (variant B), wordmark stays Radio Canada Big; status colours shell-independent | #913 |
+| 13 Sep 2026 | Golf 2: the admin shell joins Cobalt — white grouped sidebar, account presence top right (initials + e-mail, logout in its menu), headings Inter in both shells | #913 |
+| 14 Sep 2026 | Wave 0b: the `field_*` wrapper family is removed — one field family (`*_control` + `ui.label`); hint/error lines are a written convention (§2.2) | #913 |
+| 14 Sep 2026 | Package-2 feedback: top-left = **tenant name + "Werkruimte"** (product label; the Raak wordmark leaves the admin shell — §12 decision a made concrete); workspace groups **Werking** (was Vereniging) / Financieel / **Inzicht** (Dashboard + Rapporten — reporting is not finance-only) / Inhoud / Systeem; address grid two columns on a phone (bus stays right of the house number) | #913 |
 
 Decisions still open are listed in §12.
 
@@ -181,6 +184,8 @@ The icon is 16 px, the line is not, and `items-start` aligns their *tops*.
 | `text-base` | 24 px | `mt-1` |
 | `text-base md:text-sm` | 24 / 20 px | `mt-1 md:mt-0.5` |
 
+Since wave 0b (#913) this table lives in one place: **`ui.icon_text()`** wraps
+icon, margin and wrap-safe text — call it instead of retyping the margins.
 Write that last form as-is: a bare `mt-1` is 2 px too much on a wide screen, and
 that is what a gate checks. Without the rule the next text size gets a number that
 merely looks about right — which is exactly how #813 happened, one issue after #810.
@@ -230,7 +235,7 @@ Import with `{% import "_macros.html" as ui %}`.
 | Lists | `search` · `filter_bar` · `grouped_filter` · `chips` · `pager` · `row_actions` · `reorder` · `empty_state` · `loading` |
 | Forms | `field_input` · `field_select` · `field_textarea` · `label` · `vraag` · `input_control` · `select_control` · `textarea_control` · `person_fields` · `upload_field` · `export_links` · `copy_button` |
 | Feedback | `toast` · `toast_oob` · `toast_host` · `success_banner` · `error_banner` · `modal` · `confirm_host` · `badge` |
-| Buttons | `btn_primary` · `btn_secondary` · `btn_outline` · `btn_danger` · `button` · `btn_class` · `edit_toggle` · `icon` |
+| Buttons | `btn_primary` · `btn_secondary` · `btn_outline` · `btn_danger` · `button` · `btn_class` · `edit_toggle` · `icon` · `icon_text` · `action_bar` |
 
 ### 2.1 Buttons
 
@@ -241,17 +246,17 @@ Import with `{% import "_macros.html" as ui %}`.
 - Icon-only buttons need an `aria_label`; `button()` then adds a `title` with
   the same text, so mouse users do not have to guess either (#698).
 
-### 2.2 Form fields — two families, not interchangeable (#659, #663)
+### 2.2 Form fields — one family (#659, #663; consolidated in wave 0b, #913)
 
-- **`ui.field_input` / `field_select` / `field_textarea`** — a field in an
-  ordinary vertical form. They bring label, `mb-4` block, hint and error line,
-  and derive the `id` from the `name`. Usable only when that `name` is unique on
-  the page.
-- **`ui.input_control` / `select_control` / `textarea_control`** — a loose
-  control in a compact or repeated context: you set label, id and width
-  yourself. Needed as soon as the same `name` appears more than once (every card
-  in a loop has a field `name`), or when the width drives the column in a
-  `flex flex-wrap` row.
+- **`ui.input_control` / `select_control` / `textarea_control`** is the one
+  field family: you set label (`ui.label`), id and width yourself. Explicit
+  ids, because a derived id duplicates in repeated cards; explicit width,
+  because in a `flex flex-wrap` row the width drives the column.
+- The former `field_*` wrapper family is gone (14 September 2026): the count
+  was 4 calls — all its own kit demo — against 149 for the controls. What it
+  bundled is now the written convention: label above, control, then an
+  optional hint line (`text-xs text-gray-500 mt-1`) and error line
+  (`text-xs text-red-600 mt-1`), field block spacing `mb-4` from the form.
 - Pass your own text size (`text-xs` for a code field) and the kit base drops
   its `text-sm`; otherwise two equal utilities collide and the generated CSS
   order decides, not the attribute.
@@ -317,6 +322,11 @@ by the status choice; convert one and the field shows two notations.
 - **"Verwijderen" last and red**, in the `⋯` menu once it exists. Never an
   emoji, never hidden: if not allowed (money moved) show it disabled with a
   tooltip reason.
+- **The end state is one action bar** (`ui.action_bar`, decision g of the
+  conventions debate, #913): [Opslaan] [Annuleren] left, Verwijderen right —
+  separated by space, not adjacency. New edit surfaces use it now; the
+  roll-out over existing screens is wave 6, and until a screen carries the
+  bar, the rule below still governs its top cluster.
 - **"Bewerken" directly left of "Verwijderen"**, nothing between them. The
   `edit_toggle` shows "Bewerken" in read mode and "Annuleren" in edit mode, in
   the same place. Anything acting on the *content* (view, print, export, import)

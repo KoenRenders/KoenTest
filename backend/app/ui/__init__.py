@@ -159,6 +159,68 @@ def _nav_oob(request) -> bool:
 
 templates.env.globals["nav_oob"] = _nav_oob
 
+
+def _beheer_account(request) -> dict | None:
+    """Accountchip rechtsboven in de beheerschil (golf 2, #913, beslissing i).
+
+    Bewust DB-loos: de e-mail komt rechtstreeks uit de sessiecookie, dus de schil
+    hoeft geen gebruikerscontext van elk scherm te eisen. Naam en rol volgen
+    wanneer een latere golf een gedeelde gebruikerscontext invoert."""
+    if request is None:
+        return None
+    try:
+        from app.domains.auth.api import SESSION_COOKIE, read_session_value
+
+        email = read_session_value(request.cookies.get(SESSION_COOKIE))
+    except Exception:  # noqa: BLE001 - de schil mag nooit breken op een chip
+        return None
+    if not email:
+        return None
+    import re as _re
+
+    delen = [d for d in _re.split(r"[._-]+", email.split("@")[0]) if d]
+    initialen = "".join(d[0] for d in delen[:2]).upper() or email[:2].upper()
+    return {"email": email, "initialen": initialen}
+
+
+templates.env.globals["beheer_account"] = _beheer_account
+
+
+# Golf 2-nazorg (#913, Koens pakket-2-feedback): linksboven staat niet langer het
+# Raak-woordmerk maar de TENANTNAAM met het productlabel "Werkruimte" eronder —
+# de beheerschil is een product dat ook niet-Raak-organisaties bedient
+# (design-system §12-beslissing a). De naam komt uit de tenant-instellingen en
+# wordt per tenant gecachet: schilchrome, één query per proces per tenant. Een
+# hernoemde tenant verschijnt na een herstart — dat is de bewuste prijs; de
+# instelling wijzigt zelden en de schil mag geen query per paginaweergave kosten.
+_werkruimte_cache: dict[int, str] = {}
+
+
+def _werkruimte_naam() -> str:
+    from app.kernel.tenancy import current_tenant_id
+
+    # ContextVar kan None dragen buiten een request; 0 is dan de cachesleutel
+    # en tenant_display_name valt zelf terug op de default.
+    tid = current_tenant_id.get() or 0
+    naam = _werkruimte_cache.get(tid)
+    if naam is None:
+        try:
+            from app.database import SessionLocal
+            from app.kernel.tenant_config import tenant_display_name
+
+            db = SessionLocal()
+            try:
+                naam = tenant_display_name(db, tenant_id=tid)
+            finally:
+                db.close()
+        except Exception:  # noqa: BLE001 - chrome mag nooit een scherm breken
+            naam = "Werkruimte"
+        _werkruimte_cache[tid] = naam
+    return naam
+
+
+templates.env.globals["werkruimte_naam"] = _werkruimte_naam
+
 # Omgevings-indicator (#464): [HDEV]/[UAT] in titel + gekleurde band. Als globale
 # beschikbaar in álle templates (publiek + admin); PROD blijft schoon.
 from app.config import settings as _settings  # noqa: E402
@@ -241,26 +303,48 @@ templates.env.globals["path_for"] = path_for
 
 # Canonieke admin-navigatie (React-exit 405-d, #405): één bron voor alle
 # server-rendered beheer-schermen i.p.v. een kopie per module.
+# Ontwerpspoor golf 2 (#913, triage A3/j): het menu draagt WERKGEBIEDEN — een
+# vlak menu van veertien items was op de kantelgrens, en elke module die op de
+# ERP-horizon bijkomt zou de verhuis duurder maken. De groepen zijn de bron;
+# `_ADMIN_NAV` wordt eruit afgeleid voor wie de vlakke lijst nodig heeft
+# (de render-gate bezoekt élk item, groep of niet).
+_ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = [
+    (None, [("/admin/werkbank", "Werkbank")]),
+    ("Werking", [
+        ("/admin/activiteiten", "Activiteiten"),
+        ("/admin/leden", "Leden"),
+        ("/admin/formulieren", "Formulieren"),
+    ]),
+    ("Inhoud", [
+        ("/admin/paginas", "Pagina's"),
+        ("/admin/media", "Media"),
+        ("/admin/ai-context", "Raakje"),
+    ]),
+    ("Financieel", [
+        ("/admin/betalingen", "Betalingen"),
+    ]),
+    # Inzicht (Rapporten is niet enkel financieel; het dashboard verdient een
+    # menuplek) staat vlak boven Systeem — volgorde beslist door Koen, 14 sep.
+    ("Inzicht", [
+        ("/admin", "Dashboard"),
+        ("/admin/rapporten", "Rapporten"),
+    ]),
+    ("Systeem", [
+        ("/admin/gebruikers", "Gebruikers"),
+        ("/admin/ledenwijzigingen", "Wijzigingen"),
+        ("/admin/e-maillog", "E-maillog"),
+        ("/admin/tenants", "Tenants"),
+        # GEEN Design system hier (#878). De balk is voor schermen waar een bestuurder
+        # werk doet; `/admin/design-system` is naslag over knoppen, kleuren en afstanden —
+        # nuttig bij het bouwen, niet bij het besturen. De route blijft bestaan achter
+        # `require_admin_ui`, en je gaat ernaartoe via Info. "Uit het menu" is dus iets
+        # anders dan "weg": ruim de route niet op omdat er niets meer naar wijst.
+        ("/admin/info", "Info"),
+    ]),
+]
+
 _ADMIN_NAV: list[tuple[str, str]] = [
-    ("/admin/werkbank", "Werkbank"),
-    ("/admin/activiteiten", "Activiteiten"),
-    ("/admin/leden", "Leden"),
-    ("/admin/betalingen", "Betalingen"),
-    ("/admin/rapporten", "Rapporten"),
-    ("/admin/formulieren", "Formulieren"),
-    ("/admin/paginas", "Pagina's"),
-    ("/admin/media", "Media"),
-    ("/admin/gebruikers", "Gebruikers"),
-    ("/admin/ledenwijzigingen", "Wijzigingen"),
-    ("/admin/ai-context", "Raakje"),
-    ("/admin/e-maillog", "E-maillog"),
-    ("/admin/tenants", "Tenants"),
-    # GEEN Design system hier (#878). De balk is voor schermen waar een bestuurder
-    # werk doet; `/admin/design-system` is naslag over knoppen, kleuren en afstanden —
-    # nuttig bij het bouwen, niet bij het besturen. De route blijft bestaan achter
-    # `require_admin_ui`, en je gaat ernaartoe via Info. "Uit het menu" is dus iets
-    # anders dan "weg": ruim de route niet op omdat er niets meer naar wijst.
-    ("/admin/info", "Info"),
+    item for _, _items in _ADMIN_NAV_GROEPEN for item in _items
 ]
 
 
@@ -311,18 +395,23 @@ def filterparams(request) -> dict:
 
 
 def admin_nav(active: str, roles=None) -> list[dict]:
-    """Navigatie-items voor de AdminShell; `active` is de href van het scherm.
+    """Navigatiegroepen voor de AdminShell; `active` is de href van het scherm.
+
+    Sinds golf 2 (#913) per werkgebied: [{"label": ..|None, "items": [...]}].
 
     Role-aware (#530): een FINANCE-only gebruiker (geen ADMIN/OPERATOR) mag enkel de
     betalingen-schermen openen — toon dan enkel Betalingen, zodat de nav niet vol
     links staat die 403'en. ADMIN/OPERATOR (of geen `roles` meegegeven) zien alles."""
     from app.i18n import _
 
-    items = _ADMIN_NAV
+    groepen = _ADMIN_NAV_GROEPEN
     if roles is not None and not ({"ADMIN", "OPERATOR"} & set(roles)):
-        items = [(h, l) for h, l in _ADMIN_NAV if h == "/admin/betalingen"]
-    return [{"href": href, "label": _(label), "active": href == active}
-            for href, label in items]
+        # FINANCE-only: één ongelabelde groep met enkel Betalingen.
+        groepen = [(None, [(h, l) for h, l in _ADMIN_NAV if h == "/admin/betalingen"])]
+    return [{"label": _(label) if label else None,
+             "items": [{"href": href, "label": _(l), "active": href == active}
+                       for href, l in items]}
+            for label, items in groepen if items]
 
 
 def _huidige_gebruiker(db, request) -> dict | None:

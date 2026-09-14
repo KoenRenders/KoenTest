@@ -73,8 +73,8 @@ Vier regels, elk met een reden:
     over de opslaan-variant.
 25. **Geen kale `<select>`.** Zonder control-klassen valt hij terug op de
    preflight-hoogte en staat hij ~15px lager dan het zoekveld ernaast; dat gaf
-   scheve filterbalken op zeven schermen (#611). Gebruik `ui.select_control()`,
-   `ui.grouped_filter()` of `ui.field_select()`.
+   scheve filterbalken op zeven schermen (#611). Gebruik `ui.select_control()` of
+   `ui.grouped_filter()`.
 26. **Het verplicht-sterretje komt uit `label(required=…)`**, niet uit de labeltekst
     (#646). In de tekst erft het `text-gray-700` en staat er grijs naast een rood
     sterretje van een veld dat de parameter wél gebruikt.
@@ -300,7 +300,7 @@ def test_de_kit_levert_de_beloofde_macros():
         "search", "grouped_filter", "pager", "row_actions", "reorder",
         "empty_state", "loading", "badge", "modal",
         "toast", "toast_host", "success_banner", "error_banner",
-        "field_input", "field_select", "field_textarea", "person_fields",
+        "person_fields",
         "btn_primary", "btn_secondary", "btn_outline", "btn_danger",
     ]
     ontbreekt = [m for m in beloofd if f"macro {m}(" not in kit]
@@ -337,7 +337,7 @@ def test_geen_kale_select():
             regel = tekst[:treffer.start()].count("\n") + 1
             fouten.append(f"{pad.relative_to(APP)}:{regel}: {tag.strip()[:90]}")
     assert not fouten, (
-        "Gebruik ui.select_control() / ui.grouped_filter() / ui.field_select():\n  "
+        "Gebruik ui.select_control() / ui.grouped_filter():\n  "
         + "\n  ".join(fouten)
     )
 

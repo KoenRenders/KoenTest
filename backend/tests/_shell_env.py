@@ -31,4 +31,13 @@ def bare_shell_env(*extra_dirs) -> Environment:
     # prefix binnenkwam. Buiten een verzoek — zoals hier — geeft hij het pad ongewijzigd
     # terug, dus deze tests zien exact wat ze vroeger zagen.
     env.globals["path_for"] = path_for
+    # Golf 2 (#913): de beheerschil toont linksboven de tenantnaam via
+    # `werkruimte_naam()`. Buiten de app is er geen tenantcontext; de echte
+    # functie valt dan óók terug op de default, dus dit is dezelfde waarde
+    # langs een DB-loze weg.
+    from app.ui import _werkruimte_naam  # noqa: F401 - zelfde bron, zie boven
+
+    env.globals["werkruimte_naam"] = lambda: "Raak Millegem"
+    # `beheer_account(request)` staat achter `request is defined` in de schil en
+    # hoeft hier dus niet.
     return env

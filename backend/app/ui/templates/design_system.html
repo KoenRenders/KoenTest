@@ -113,6 +113,20 @@
   </p>
 {% endcall %}
 
+{# Actiebalk (golf 2, #913 — beslissing g): het patroon voor élk bewerkvlak
+   vanaf golf 6; nieuwe schermen gebruiken hem meteen. #}
+{% call ui.card() %}
+  <p class="text-sm font-semibold mb-1">{{ _("Actiebalk (onderaan een bewerkvlak)") }}</p>
+  {{ ui.action_bar(cancel_href="/admin/design-system", delete_attrs='hx-post="/demo"') }}
+  <p class="text-xs text-gray-500 mt-3"><code>ui.action_bar(cancel_href=…, delete_attrs=…)</code> — {{ _("Opslaan en Annuleren links, Verwijderen rechts; ruimte is de scheiding.") }}</p>
+{% endcall %}
+
+{# Icoon vóór wikkelende tekst (golf 0b): de #810/#813-marges als macro. #}
+{% call ui.card() %}
+  {% call ui.icon_text("calendar", cls="text-ink-soft") %}{{ _("zaterdag 29 augustus 2026 om 14:00 – 18:00, met een datumreeks die op een telefoon over drie regels wikkelt zonder dat het icoon gaat zweven") }}{% endcall %}
+  <p class="text-xs text-gray-500 mt-2"><code>{% raw %}{% call ui.icon_text("calendar") %}…{% endcall %}{% endraw %}</code></p>
+{% endcall %}
+
 {# ── 5. Badges ─────────────────────────────────────────────────────────────── #}
 {{ ui.section_header(_("5 · Statusbadges")) }}
 {% call ui.card() %}
@@ -133,30 +147,31 @@
 {{ ui.section_header(_("6 · Formuliervelden"), _("Naar de formulierbouwer"), action_href="/admin/formulieren") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-3">
-    {{ _("Twee families, niet uitwisselbaar — §2.2. Links het beheerveld, rechts de losse control.") }}
+    {{ _("Eén familie (sinds golf 0b): label + control, expliciete id en breedte. Hint- en foutregel zet het scherm zelf — de vaste vorm staat hieronder.") }}
   </p>
-  <div class="grid sm:grid-cols-2 gap-4">
-    <div class="space-y-3">
-      {{ ui.field_input(_("Naam"), "naam", value="Raak Millegem", required=True,
-                        hint=_("Zoals het op de bevestigingsmail komt.")) }}
-      {{ ui.field_input(_("E-mail"), "email", value="geen", type="email",
-                        error=_("Dit is geen geldig e-mailadres.")) }}
-      {{ ui.field_textarea(_("Omschrijving"), "omschrijving", rows=3,
-                           value=_("Korte toelichting bij de activiteit.")) }}
-      {{ ui.field_select(_("Status"), "status",
-                         [("open", _("Open")), ("gesloten", _("Gesloten"))],
-                         selected="open") }}
+  <div class="max-w-md space-y-3">
+    <div>
+      {{ ui.label(_("Naam"), "ds-naam", required=True) }}
+      {{ ui.input_control("naam", id="ds-naam", value="Raak Millegem", required=True, cls="w-full") }}
+      <p class="text-xs text-gray-500 mt-1">{{ _("Zoals het op de bevestigingsmail komt.") }}</p>
     </div>
-    <div class="space-y-3">
-      {{ ui.label(_("Losse control"), "los", required=True) }}
-      {{ ui.input_control("los", value="17,50", cls="w-full") }}
-      {{ ui.textarea_control("los_tekst", rows=2, value=_("Vrije tekst."), cls="w-full") }}
-      {% call ui.select_control("los_keuze", cls="w-full") %}
-        <option>{{ _("Eerste") }}</option><option>{{ _("Tweede") }}</option>
+    <div>
+      {{ ui.label(_("E-mail"), "ds-email") }}
+      {{ ui.input_control("email", id="ds-email", type="email", value="geen", cls="w-full") }}
+      <p class="text-xs text-red-600 mt-1">{{ _("Dit is geen geldig e-mailadres.") }}</p>
+    </div>
+    <div>
+      {{ ui.label(_("Omschrijving"), "ds-omschrijving") }}
+      {{ ui.textarea_control("omschrijving", id="ds-omschrijving", rows=2, value=_("Korte toelichting bij de activiteit."), cls="w-full") }}
+    </div>
+    <div>
+      {{ ui.label(_("Status"), "ds-status") }}
+      {% call ui.select_control("status", cls="w-full", attrs='id="ds-status"') %}
+        <option selected>{{ _("Open") }}</option><option>{{ _("Gesloten") }}</option>
       {% endcall %}
-      {{ ui.vraag(_("En dit is een vraag op een publiek formulier"), "los_vraag", required=True) }}
-      {{ ui.upload_field(name="affiche", text=_("Affiche")) }}
     </div>
+    {{ ui.vraag(_("En dit is een vraag op een publiek formulier"), "los_vraag", required=True) }}
+    {{ ui.upload_field(name="affiche", text=_("Affiche")) }}
   </div>
 {% endcall %}
 

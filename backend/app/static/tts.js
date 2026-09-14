@@ -78,9 +78,20 @@
     if (readAloud()) speak(text);
   }
 
-  document.addEventListener("DOMContentLoaded", function () {
-    document.querySelectorAll("[data-tts-toggle]").forEach(wireToggle);
-  });
+  // #917: ook na een htmx-swap wiren. In de beheerschil komt een scherm via
+  // hx-boost binnen zonder tweede DOMContentLoaded, en dan bleef de
+  // voorleesknop dood. `wireToggle` markeert wat het al gedaan heeft, zodat
+  // een tweede swap er geen tweede listener bij hangt.
+  function wireAllToggles() {
+    document.querySelectorAll("[data-tts-toggle]").forEach(function (b) {
+      if (b.dataset.ttsWired) return;
+      b.dataset.ttsWired = "1";
+      wireToggle(b);
+    });
+  }
+
+  document.addEventListener("DOMContentLoaded", wireAllToggles);
+  document.addEventListener("htmx:afterSwap", wireAllToggles);
 
   // Nieuwe antwoorden komen via htmx binnen (beforeend-swap in het gesprek-paneel).
   document.body.addEventListener("htmx:afterSwap", function (e) {

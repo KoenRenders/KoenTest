@@ -88,14 +88,19 @@
                           include_relation=False, hoofdlid=_hoofd,
                           require_birth_gender=True) }}
       {% if p.address %}
-      <div class="grid grid-cols-4 gap-3">
+      {# Golf 2-nazorg (#913, bevinding Koen 14 sep): op een telefoon wikkelde het
+   label "Huisnummer" in zijn smalle kolom en zakte het veld. Mobiel-eerst:
+   straat voluit, huisnummer + bus samen op rij twee (bus blijft rechts van
+   huisnummer — de geest van de vaste beslissing), postcode voluit; vanaf
+   md: het originele 4-koloms grid. #}
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
         <div class="col-span-2">{{ ui.label(_("Straat"), "ps-" ~ p.id, required=_hoofd) }}
           {{ ui.input_control("street", id="ps-" ~ p.id, value=p.address.street, required=_hoofd, cls="w-full") }}</div>
         <div>{{ ui.label(_("Huisnummer"), "ph-" ~ p.id, required=_hoofd) }}
           {{ ui.input_control("house_number", id="ph-" ~ p.id, value=p.address.house_number, required=_hoofd, cls="w-full") }}</div>
         <div>{{ ui.label(_("Bus"), "pb-" ~ p.id) }}
           {{ ui.input_control("bus_number", id="pb-" ~ p.id, value=p.address.bus_number or "", cls="w-full") }}</div>
-        <div class="col-span-4">{{ ui.label(_("Postcode"), "pc-" ~ p.id) }}
+        <div class="col-span-2 md:col-span-4">{{ ui.label(_("Postcode"), "pc-" ~ p.id) }}
           {% call ui.select_control("postal_code", cls="w-full", attrs='id="pc-' ~ p.id ~ '"') %}
             {% for pc in postal_codes %}
             <option value="{{ pc.postal_code }}" {% if p.address.postal_code == pc.postal_code %}selected{% endif %}>{{ pc.postal_code }} {{ pc.municipality }}</option>

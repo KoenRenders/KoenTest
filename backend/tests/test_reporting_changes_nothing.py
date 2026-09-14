@@ -147,14 +147,21 @@ def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
     from app.ui import _ADMIN_NAV
 
     hrefs = [href for href, _label in _ADMIN_NAV]
+    # Golf 2 van het Ontwerpspoor (#913) hergroepeerde het menu per werkgebied
+    # (Vereniging / Financieel / Inhoud / Systeem); de exacte lijst hieronder is
+    # de nieuwe volgorde en blijft even exact als voorheen.
     assert hrefs == [
-        "/admin/werkbank", "/admin/activiteiten", "/admin/leden",
-        "/admin/betalingen", "/admin/rapporten", "/admin/formulieren",
-        "/admin/paginas", "/admin/media", "/admin/gebruikers",
-        "/admin/ledenwijzigingen", "/admin/ai-context", "/admin/e-maillog",
+        "/admin/werkbank",
+        "/admin/activiteiten", "/admin/leden", "/admin/formulieren",
+        "/admin/paginas", "/admin/media", "/admin/ai-context",
+        "/admin/betalingen",
+        "/admin", "/admin/rapporten",
+        "/admin/gebruikers", "/admin/ledenwijzigingen", "/admin/e-maillog",
         "/admin/tenants", "/admin/info",
     ]
-    assert hrefs.index("/admin/rapporten") == hrefs.index("/admin/betalingen") + 1
+    # Sinds de Inzicht-groep (Koen, 14 sep) staat Rapporten naast het Dashboard,
+    # niet meer naast Betalingen — rapportering is niet enkel financieel.
+    assert hrefs.index("/admin/rapporten") == hrefs.index("/admin") + 1
 
 
 def test_the_dashboard_keeps_its_six_tiles_and_its_place(client, db_session):
