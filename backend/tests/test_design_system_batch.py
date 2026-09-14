@@ -161,3 +161,14 @@ def test_tabs_rendert_labels_hrefs_en_een_actieve():
     assert 'href="/a"' in html and 'href="/b"' in html
     assert '>href</a>' not in html
     assert html.count("border-blue-700") == 1, "precies één tab is actief"
+
+
+def test_modal_draagt_dialoogsemantiek_en_focusherstel():
+    """A6 (golf 4, #913): het modal is een echt dialog (role + aria-modal) en
+    sluiten geeft de focus terug aan de trigger. De focus-heen-en-terug zelf is
+    browsergedrag; hier pinnen we vast dat de bedrading er staat — valt het
+    x-effect weg, dan kleurt dit rood."""
+    html = _render('{% call ui.modal("open", "Proef") %}inhoud{% endcall %}')
+    assert 'role="dialog"' in html and 'aria-modal="true"' in html
+    assert "x-effect=" in html
+    assert "_vorige" in html and ".focus()" in html

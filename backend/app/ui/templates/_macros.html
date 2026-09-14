@@ -288,8 +288,14 @@
 {# Modal (design-system §2.5): Alpine stuurt een boolean in de parent-scope aan.
    Gebruik: <div x-data="{ open:false }"> … {% call ui.modal('open', 'Titel') %}…{% endcall %}. #}
 {% macro modal(state, title, max_w="max-w-lg") -%}
-<div x-show="{{ state }}" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4"
-     style="background:rgba(17,17,17,.5)" @keydown.escape.window="{{ state }} = false">
+{# A6 (golf 4, #913): openen onthoudt wie de focus had en zet hem op de sluitknop
+   (eerste focusbare element van het dialoogpatroon); sluiten geeft hem terug aan
+   de trigger. Op $el bewaard, niet globaal: twee modals op één scherm mogen
+   elkaars herkomst niet overschrijven. Bij paginalading (state al false) is
+   _vorige undefined en doet de effect-tak niets. #}
+<div x-show="{{ state }}" x-cloak role="dialog" aria-modal="true" class="fixed inset-0 z-50 flex items-center justify-center p-4"
+     style="background:rgba(17,17,17,.5)" @keydown.escape.window="{{ state }} = false"
+     x-effect="{{ state }} ? ($el._vorige = document.activeElement, $nextTick(() => $el.querySelector('button[aria-label]')?.focus())) : ($el._vorige && $el._vorige.focus(), $el._vorige = null)">
   <div class="bg-white rounded-2xl shadow-xl w-full {{ max_w }} max-h-[90vh] overflow-auto" @click.outside="{{ state }} = false">
     <div class="flex items-center justify-between border-b border-gray-200 px-5 py-3">
       <h3 class="text-lg font-semibold text-blue-700">{{ title }}</h3>
