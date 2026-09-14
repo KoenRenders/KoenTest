@@ -52,6 +52,44 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
       PAYMENT_IBAN: ${PAYMENT_IBAN:-}
       PAYMENT_BENEFICIARY: ${PAYMENT_BENEFICIARY:-}
+      # Hier stond een gat, en het was het derde van zijn soort (#798, #821, nu
+      # #917). Deze variabelen staan met uitleg in `.env.<omgeving>.example` — dus
+      # gedocumenteerd als iets dat je per omgeving zet — maar werden nergens
+      # doorgegeven. Wie ze op de host invulde, kreeg stilzwijgend de default: de
+      # kill-switch van de backoffice-assistent stond vast in de uit-stand, en het
+      # lidgeld uit `.env.prod` bereikte de applicatie nooit.
+      #
+      # `${VAR:-}` en niet `${VAR:-<default>}`: die tweede vorm zet dezelfde default
+      # in vier compose-bestanden náást config.py, en dat is de vorm die uit elkaar
+      # loopt. Een lege waarde betekent hier "niet gezet" — één regel in
+      # `Settings._leeg_is_niet_gezet` maakt dat waar.
+      # Raakje, publiek en backoffice (#205, #917). Allemaal optioneel: een lege
+      # waarde betekent 'niet gezet' en valt terug op de default in config.py.
+      CHAT_MODEL: ${CHAT_MODEL:-}
+      CHAT_MAX_HISTORY_MESSAGES: ${CHAT_MAX_HISTORY_MESSAGES:-}
+      CHAT_DAILY_CHAR_BUDGET: ${CHAT_DAILY_CHAR_BUDGET:-}
+      CHAT_MAX_TOOL_ROUNDS: ${CHAT_MAX_TOOL_ROUNDS:-}
+      ADMIN_CHAT_ENABLED: ${ADMIN_CHAT_ENABLED:-}
+      ADMIN_CHAT_MODEL: ${ADMIN_CHAT_MODEL:-}
+      ADMIN_CHAT_DAILY_CHAR_BUDGET: ${ADMIN_CHAT_DAILY_CHAR_BUDGET:-}
+      ADMIN_CHAT_MAX_TOOL_ROUNDS: ${ADMIN_CHAT_MAX_TOOL_ROUNDS:-}
+      ADMIN_CHAT_MAX_ROWS: ${ADMIN_CHAT_MAX_ROWS:-}
+      ADMIN_CHAT_TIMEOUT_SECONDS: ${ADMIN_CHAT_TIMEOUT_SECONDS:-}
+      # Lidgeld en inschrijflimieten. Per tenant instelbaar in het beheerscherm;
+      # deze waarden zijn de terugval daaronder.
+      MEMBERSHIP_PRICE_FULL: ${MEMBERSHIP_PRICE_FULL:-}
+      MEMBERSHIP_PRICE_HALF: ${MEMBERSHIP_PRICE_HALF:-}
+      MEMBERSHIP_HALF_PRICE_START_MD: ${MEMBERSHIP_HALF_PRICE_START_MD:-}
+      MEMBERSHIP_HALF_PRICE_END_MD: ${MEMBERSHIP_HALF_PRICE_END_MD:-}
+      MEMBERSHIP_NEXT_YEAR_FROM_MD: ${MEMBERSHIP_NEXT_YEAR_FROM_MD:-}
+      MAX_ITEM_QUANTITY: ${MAX_ITEM_QUANTITY:-}
+      MAX_REGISTRATIONS_PER_EMAIL: ${MAX_REGISTRATIONS_PER_EMAIL:-}
+      # Onderhoud en diagnose.
+      EMAIL_LOG_RETENTION_DAYS: ${EMAIL_LOG_RETENTION_DAYS:-}
+      SLOW_REQUEST_MS: ${SLOW_REQUEST_MS:-}
+      SQL_ECHO: ${SQL_ECHO:-}
+      # Alleen hier nog niet doorgegeven.
+      MEMBERSHIP_RENEWAL_START_MD: ${MEMBERSHIP_RENEWAL_START_MD:-}
       PAYMENT_TERM_DAYS: ${PAYMENT_TERM_DAYS:-7}
     depends_on:
       db:
