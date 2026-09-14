@@ -476,3 +476,37 @@ def test_de_pdf_wordt_echt_gerenderd(client, db_session):
     # Een lege PDF is ook een PDF: de omvang is het verschil tussen "gerenderd"
     # en "een leeg document teruggegeven".
     assert len(antwoord.content) > 2000, len(antwoord.content)
+
+
+# ── 9. Geen dode formulieren ─────────────────────────────────────────────────
+
+def test_elk_formulier_op_de_vergaderschermen_kan_ook_echt_verzenden():
+    """Een formulier zonder verzendknop én zonder trigger is een dode knop.
+
+    Dit is geen stijlregel maar een echte bug die hier gemaakt is: het
+    bijlage-formulier had alleen een bestandsveld, dus je koos een bestand en er
+    gebeurde niets — htmx verstuurt een formulier op `submit`, en zonder knop komt
+    dat event nooit. De servertest zag niets: de route wérkte, ze werd alleen nooit
+    aangeroepen.
+
+    Kapotgemaakt om te toetsen: met de knop weer verwijderd valt deze test om op
+    precies dat formulier.
+    """
+    import re
+    from pathlib import Path
+
+    map_ = Path(__file__).resolve().parents[1] / "app" / "domains" / "meetings" / "templates"
+    dood = []
+    for pad in sorted(map_.glob("*.html")):
+        tekst = pad.read_text()
+        for stuk in re.findall(r"<form\b.*?</form>", tekst, re.S):
+            if "hx-post" not in stuk and "method=\"post\"" not in stuk:
+                continue
+            heeft_knop = 'type="submit"' in stuk or "btn_primary(" in stuk \
+                or "btn_secondary(" in stuk or "btn_outline(" in stuk \
+                or "action_bar(" in stuk
+            heeft_trigger = "hx-trigger=" in stuk
+            if not (heeft_knop or heeft_trigger):
+                kop = " ".join(stuk.split())[:90]
+                dood.append(f"{pad.name}: {kop}")
+    assert not dood, ("Formulier zonder verzendknop of trigger:\n  " + "\n  ".join(dood))

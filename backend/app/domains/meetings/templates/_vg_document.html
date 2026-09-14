@@ -210,10 +210,13 @@
     {% endfor %}
   </div>
   {% if editable %}
-  <form class="mt-3" hx-post="/admin/vergaderingen/{{ meeting.id }}/bijlage"
+  <form class="mt-3 flex items-end gap-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/bijlage"
         hx-target="#vg-document" hx-swap="innerHTML" hx-encoding="multipart/form-data">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    {{ ui.upload_field("file", text=_("Bijlage toevoegen"), accept="application/pdf,image/*,.doc,.docx,.odt") }}
+    <div class="flex-1">
+      {{ ui.upload_field("file", text=_("Bijlage toevoegen"), accept="application/pdf,image/*,.doc,.docx,.odt") }}
+    </div>
+    {{ ui.btn_secondary(_("Uploaden"), type="submit", size="sm") }}
   </form>
   {% endif %}
 
