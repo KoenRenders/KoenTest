@@ -408,9 +408,13 @@ def attendance_of(db: Session, meeting: Meeting) -> dict[int, str]:
 
 def add_file(db: Session, meeting: Meeting, *, filename: str, content_type: str,
              data: bytes, on_agenda_mail: bool = True,
-             on_report_mail: bool = True,
-             purpose: str = FILE_ATTACHMENT) -> MeetingFile:
-    """Store an attachment with the meeting (bytes and all, see models.py)."""
+             on_report_mail: bool = True, purpose: str = FILE_ATTACHMENT,
+             commit: bool = True) -> MeetingFile:
+    """Store an attachment with the meeting (bytes and all, see models.py).
+
+    `commit=False` for the caller that is building a larger transaction — the
+    send, which archives the PDF and stamps the sent moment as one step.
+    """
     if not data:
         raise MeetingError(_("Het bestand is leeg."))
     record = MeetingFile(meeting_id=meeting.id, purpose=purpose,
@@ -420,7 +424,10 @@ def add_file(db: Session, meeting: Meeting, *, filename: str, content_type: str,
                          on_agenda_mail=on_agenda_mail,
                          on_report_mail=on_report_mail)
     db.add(record)
-    db.commit()
+    if commit:
+        db.commit()
+    else:
+        db.flush()
     return record
 
 
@@ -472,6 +479,13 @@ def add_extra_recipient(db: Session, meeting: Meeting, email: str) -> None:
         db.commit()
 
 
+def extra_recipients_of(db: Session, meeting: Meeting) -> list[MeetingExtraRecipient]:
+    """De losse adressen van deze vergadering, in de volgorde van toevoegen."""
+    return (db.query(MeetingExtraRecipient)
+            .filter(MeetingExtraRecipient.meeting_id == meeting.id)
+            .order_by(MeetingExtraRecipient.id.asc()).all())
+
+
 def remove_extra_recipient(db: Session, meeting: Meeting, recipient_id: int) -> None:
     row = db.get(MeetingExtraRecipient, recipient_id)
     if row is not None and row.meeting_id == meeting.id:
@@ -505,9 +519,7 @@ def recipients_for(db: Session, meeting: Meeting) -> Recipients:
             names.append(name)
         else:
             missing.append(name)
-    for extra in (db.query(MeetingExtraRecipient)
-                  .filter(MeetingExtraRecipient.meeting_id == meeting.id)
-                  .order_by(MeetingExtraRecipient.id.asc()).all()):
+    for extra in extra_recipients_of(db, meeting):
         if extra.email not in emails:
             emails.append(extra.email)
             names.append(extra.email)
@@ -545,8 +557,10 @@ def send_meeting_mail(db: Session, meeting: Meeting, *, kind: str, subject: str,
                           body_html=body_html, attachments=attachments,
                           reply_to=reply_to, email_type="meeting")
 
+    # Archiveren en stempelen in ÉÉN commit: anders kan een crash ertussen een
+    # bewaarde PDF achterlaten bij een vergadering die "niet verstuurd" heet.
     add_file(db, meeting, filename=pdf_filename, content_type="application/pdf",
-             data=pdf, purpose=FILE_SENT_PDF)
+             data=pdf, purpose=FILE_SENT_PDF, commit=False)
     now = datetime.now(timezone.utc)
     if kind == "agenda":
         meeting.agenda_sent_at = now
