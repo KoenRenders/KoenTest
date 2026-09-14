@@ -55,6 +55,7 @@ the evening after; ~28 recipients, from a personal Gmail account.
 | Board mail | `mail` domain + Gmail SMTP — one-to-few operational mail with attachments is exactly what it is for |
 | Attachments | the `media` domain stores uploaded files |
 | New members | the membership data knows who joined since a given date, and `Member` carries the steward (`board_member_id`) |
+| Organisation | `Organization` exists in MDM (#924); a person↔organisation relation does not yet — this CR adds it (decision §3.11) |
 | STT | a `stt` domain exists but is **out of scope** — decided 14 September 2026: the report is typed, never transcribed |
 
 ## 3. Decisions
@@ -67,7 +68,8 @@ Taken by Koen on 14 September 2026, in the CR-shaping conversation:
    - **evaluation**: the activities between the previous meeting and this
      one, from the platform — plus manual additions for something that was
      not on the portal's calendar;
-   - **upcoming**: the activities of the coming months, same source;
+   - **upcoming**: **all** planned future activities, however far ahead,
+     same source (decision §3.14);
    - **members**: the new members since the previous meeting, with their
      steward assignment;
    - **ideas**: textual, carried over between meetings (the brainstorm);
@@ -78,8 +80,9 @@ Taken by Koen on 14 September 2026, in the CR-shaping conversation:
    public side, no plan whatsoever toward a member-facing view. The meeting
    circle is wider than "the board": it includes fixed participants who are
    not called board members and the branch supporter from Raak national,
-   **who is not even a member**. The recipient list is therefore its own
-   maintained list, not a query over membership or roles.
+   **who is not even a member**. The circle is therefore never a query over
+   membership or roles — it is modelled as **persons in relation to the
+   organisation** (decision §3.11).
 3. **The portal sends the meeting mails itself**: agenda mail and report
    mail to the ~28-person circle, the document rendered as PDF attachment,
    plus freely added extra attachments (a working-group report, a municipal
@@ -105,6 +108,36 @@ Taken by Koen on 14 September 2026, in the CR-shaping conversation:
     flagged report items next to activity data and media — so meetings must
     exist before newsletter drafting can.
 
+Decided later the same day (14 September 2026), while PR #932 ran:
+
+11. **The meeting circle is a person↔organisation relation in MDM**, not a
+    standalone list. A new generic link following the `MemberPerson`
+    pattern — person, organisation, relation-type code, begin/end date —
+    with `BOARD_MEETING` as its first code (English identifier, Dutch
+    label, per the #779 pattern). The circle is the persons with an active
+    `BOARD_MEETING` relation to Raak Millegem; their e-mail address comes
+    from `ContactDetail`. The branch supporter is created once as a
+    `Person` without membership. First fill: link the ~28 people (most
+    already exist as members), each with an e-mail contact detail. One
+    place per fact: persons and their contact details already live in MDM;
+    only the relation was missing.
+12. **A human reads, then sends.** The agenda mail and the report mail
+    (with their attachments) never leave automatically: someone reviews
+    the document — PDF preview and attachment list next to the send
+    button — and sends deliberately. The same brake as "drafting is not
+    sending", here without any AI involved.
+13. **One mail, the whole circle in the To line.** The circle knows each
+    other and replies-all (the report mail is a reply to the agenda mail
+    today). Deliberately the opposite of the newsletter's per-recipient
+    campaign path; no Bcc, no unsubscribe machinery.
+14. **"Upcoming activities" has no time window.** It lists everything
+    planned, however far out — booking a venue a year ahead is a normal
+    agenda point. Evaluation covers what *started* since the previous
+    meeting, running activities included (the photo hunt sat under
+    evaluation while it ran). The secretary curates: manual additions for
+    off-portal items, and far-out items with nothing to discuss can be
+    left off this month's agenda.
+
 Inherited, not reopened: **#785 triage A17** — the AI-per-module contract
 (read / propose / execute separated). This module has no AI at all, which is
 the simplest way to honour it.
@@ -125,10 +158,14 @@ New domain `meetings`:
   consumed by CR-05).
 - `MeetingAttachment` — link to a `media` file, per meeting, flagged
   agenda-mail / report-mail / both.
-- `MeetingParticipant` — the meeting circle (~28 people): name, e-mail,
-  active flag, optional soft link to `Person`. Its own list because the
-  circle includes non-members (decision §3.2); it drives both the mail
-  recipients and the present/excused picker.
+- The meeting circle lives in **MDM, not here** (decision §3.11): a new
+  generic person↔organisation relation (person, organisation, relation-type
+  code — first code `BOARD_MEETING` — begin/end date), following the
+  `MemberPerson` pattern. The circle is the persons with an active
+  `BOARD_MEETING` relation; e-mail from `ContactDetail`; ending a relation
+  end-dates it, so the attendance history of old reports stays intact.
+  Attendance on `Meeting` references `Person`. The `meetings` domain reads
+  the circle through the MDM facade.
 
 The **report is data, not a blob**: sections and items are rows, so the next
 agenda can be generated (upcoming activities + carried-over items) instead
@@ -149,7 +186,9 @@ distinction.
 ## 6. Phasing
 
 One phase, shippable on its own: the `meetings` domain with agenda
-preparation, report editing, PDF render, and the two mails with attachments.
+preparation, report editing, PDF render, and the two mails with attachments —
+plus the small MDM addition it stands on: the person↔organisation relation
+and its `BOARD_MEETING` code (decision §3.11), one migration.
 (In the original combined draft this was "M1"; the newsletter phases live in
 CR-05.)
 
@@ -167,8 +206,9 @@ From the real September 2026 cycle, anonymised:
    calendar.
 2. **Fill in the report during a meeting** — attendance ticked from the
    participant list, notes per item, an item flagged for the newsletter —
-   and send it the same evening with the PDF plus one extra attachment (the
-   working-group scenario).
+   and send it the same evening — one mail, the whole circle in the To
+   line — with the PDF plus one extra attachment (the working-group
+   scenario).
 3. **The next agenda carries over** the ideas/misc items of this one.
 
 ## Non-goals
