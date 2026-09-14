@@ -26,7 +26,14 @@ def test_een_tenant_krijgt_zijn_basisinstellingen(db_session):
     from app.kernel.tenant_config import get_setting
 
     assert org.org_type == "UNIT" and org.is_active is True
-    assert get_setting(db_session, "display_name", tenant_id=org.id) == "Raak Voorbeeld"
+    # #945: de naam staat één keer, op de organisatie. `create_tenant` schreef hem
+    # daarnaast als `display_name`-instelling weg — een tweede bron, aangelegd op
+    # het moment van aanmaken, en dat is precies waar er twee uit elkaar gaan lopen.
+    assert org.name == "Raak Voorbeeld"
+    from app.kernel.tenant_config import tenant_display_name
+
+    assert tenant_display_name(db_session, org.id) == "Raak Voorbeeld"
+    assert get_setting(db_session, "display_name", tenant_id=org.id) is None
     assert get_setting(db_session, "base_url", tenant_id=org.id) == "https://voorbeeld.example"
     assert org.id in {u.id for u in list_units(db_session)}
 

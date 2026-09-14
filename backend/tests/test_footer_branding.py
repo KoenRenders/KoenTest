@@ -25,8 +25,7 @@ def _render(**overrides):
     ctx = dict(nav_pages=[], sponsors=[], gebruiker=None, footer_block=None,
                current_year=2026, chat_enabled=False, canonical_url=None,
                base_url="", site_name="Raak Voorbeeld", site_tagline="",
-               facebook_url=None, instagram_url=None, tiktok_url=None,
-               omgeving="prod")
+               sociale_links=[], omgeving="prod")
     ctx.update(overrides)
     return _env().get_template("site_base.html").render(**ctx)
 
@@ -39,16 +38,17 @@ def test_geen_millegem_fallback_zonder_waarden():
 
 def test_tenant_eigen_waarden_getoond():
     html = _render(site_tagline="Onze eigen leuze",
-                   facebook_url="https://www.facebook.com/raakvoorbeeld")
+                   sociale_links=[{"code": "FACEBOOK", "label": "Facebook",
+                                   "url": "https://www.facebook.com/raakvoorbeeld"}])
     assert "Onze eigen leuze" in html
     assert 'aria-label="Facebook"' in html
     assert "raakvoorbeeld" in html
 
 
 def test_site_context_default_leeg(db_session):
-    """De context-bron zelf: zonder settings is tagline leeg en facebook None."""
+    """De context-bron zelf: zonder settings is tagline leeg en de linklijst leeg."""
     from app.ui import site_context
 
     ctx = site_context(db_session)
     assert ctx["site_tagline"] == ""
-    assert ctx["facebook_url"] is None
+    assert ctx["sociale_links"] == []

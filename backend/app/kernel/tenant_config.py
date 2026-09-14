@@ -8,8 +8,9 @@ afgeleid van ``SECRET_KEY``). Infra-secrets (DB-wachtwoord, SECRET_KEY zelf)
 blijven in ``.env`` — die zijn niet tenant-gebonden.
 
 Bekende sleutels:
-- ``display_name``   — afzend-/merknaam (default "Raak Millegem")
 - ``base_url``       — canonieke publieke origin voor links in mails/redirects
+  (de plek van déze site; de *website* van de vereniging is iets anders en staat
+  sinds #945 als contactgegeven bij de organisatie)
 - ``mollie_api_key`` — (secret) per-tenant Mollie-key; default env-key
 - ``mail_mode``      — "send" (default) of "log_only" (demo-tenant: mails
                        worden enkel gelogd, nooit echt verstuurd)
@@ -295,27 +296,43 @@ def _organisatie(db: Session, tenant_id: int | None = None):
     anders te leveren.
     """
     return db.execute(text(
-        "SELECT name, payment_iban, payment_beneficiary "
-        "FROM mdm.organizations WHERE id = :id AND deleted_at IS NULL"),
+        "SELECT name FROM mdm.organizations "
+        "WHERE id = :id AND deleted_at IS NULL"),
+        {"id": _actieve_tenant(tenant_id)}).first()
+
+
+def _eerste_rekening(db: Session, tenant_id: int | None = None):
+    """De eerste rekening van deze organisatie (#945), of None.
+
+    `sort_order` bepaalt welke "de eerste" is zodra er meer dan één bestaat — dat
+    is het hele punt van de eigen tabel. Ook hier met SQL en een uitgeschreven
+    kolomlijst, om dezelfde reden als `_organisatie` hierboven.
+    """
+    return db.execute(text(
+        "SELECT iban, bic, beneficiary FROM mdm.bank_accounts "
+        "WHERE organization_id = :id AND deleted_at IS NULL "
+        "ORDER BY sort_order, id LIMIT 1"),
         {"id": _actieve_tenant(tenant_id)}).first()
 
 
 def tenant_display_name(db: Session, tenant_id: int | None = None) -> str:
-    """De naam van de tenant: eigen instelling, anders die van de organisatie.
+    """De naam van de tenant: die van de organisatie (#945).
 
-    De terugval was de letterlijke string "Raak Millegem" (#924). Elke tenant
-    zónder eigen `display_name` heette dus zo — in zijn paginatitel, zijn mails,
-    zijn afzender. Hetzelfde soort lek als het hardgecodeerde "— Raak Millegem" in
-    de albumtitel (#881). De organisatienaam bestaat voor élke tenant, dus die is
-    de juiste terugval.
+    Tot #945 stond hier een `display_name`-instelling **met** de organisatienaam
+    als terugval. De overrule bestond dus al terwijl niemand erom gevraagd had, en
+    het was opnieuw twee plaatsen voor één feit met de bekende afloop: ze lopen
+    uit elkaar en de instelling wint. Koen op 14 september: *"laten we gaan voor de
+    naam die we in organisatie hebben — als we een merknaam willen introduceren die
+    overruled zullen we dat dan wel doen."*
 
-    Vandaag is de omschakeling onzichtbaar: `organizations.name` en de instelling
-    zijn allebei *Raak Millegem*. Zichtbaar wordt ze bij de tweede afdeling, en dat
-    is precies het geval dat vandaag stuk was.
+    Komt die merknaam er, dan is het een kolom op de organisatie
+    (`cbc:RegistrationName` naast de roepnaam) en geen tenant-instelling: een naam
+    is een kenmerk van de vereniging, ook zonder site.
+
+    De letterlijke terugval "Raak Millegem" blijft staan voor het geval er géén
+    organisatie is — dat is geen tenant en dan is elke naam fout, maar een lege
+    paginatitel is erger.
     """
-    eigen = get_setting(db, "display_name", tenant_id=tenant_id)
-    if eigen:
-        return eigen
     organisatie = _organisatie(db, tenant_id)
     return organisatie.name if organisatie else "Raak Millegem"
 
@@ -399,8 +416,8 @@ def tenant_payment_iban(db: Session, tenant_id: int | None = None) -> str | None
     """
     from app.config import settings
 
-    organisatie = _organisatie(db, tenant_id)
-    return (organisatie.payment_iban if organisatie and organisatie.payment_iban
+    rekening = _eerste_rekening(db, tenant_id)
+    return (rekening.iban if rekening and rekening.iban
             else settings.payment_iban)
 
 
@@ -408,9 +425,9 @@ def tenant_payment_beneficiary(db: Session, tenant_id: int | None = None) -> str
     """De begunstigde van de organisatie, met `.env` als vangnet (#924)."""
     from app.config import settings
 
-    organisatie = _organisatie(db, tenant_id)
-    return (organisatie.payment_beneficiary
-            if organisatie and organisatie.payment_beneficiary
+    rekening = _eerste_rekening(db, tenant_id)
+    return (rekening.beneficiary
+            if rekening and rekening.beneficiary
             else settings.payment_beneficiary)
 
 

@@ -49,7 +49,13 @@ def test_footer_sociale_links_zijn_iconen(client, db_session):
     organisatie = (db_session.query(Organization)
                    .filter(Organization.id == _actieve_tenant(None))
                    .execution_options(include_all_tenants=True).one())
-    organisatie.facebook_url = "https://www.facebook.com/raakvoorbeeld"
+    # #945: een sociale link is een rij in `contact_details`, geen kolom.
+    from app.domains.mdm.api import ContactDetail
+
+    db_session.add(ContactDetail(tenant_id=organisatie.id,
+                                 organization_id=organisatie.id,
+                                 contact_type_code="FACEBOOK",
+                                 value="https://www.facebook.com/raakvoorbeeld"))
     db_session.commit()
     html = client.get("/aanmelden").text
     assert 'aria-label="Facebook"' in html

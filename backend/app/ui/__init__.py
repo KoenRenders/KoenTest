@@ -480,7 +480,7 @@ def _footer_organisatie(db, organisatie) -> dict | None:
     """
     if organisatie is None:
         return None
-    from app.domains.mdm.api import Address
+    from app.domains.mdm.api import Address, BankAccount, ContactDetail
 
     adres = (db.query(Address)
              .filter(Address.organization_id == organisatie.id,
@@ -494,17 +494,68 @@ def _footer_organisatie(db, organisatie) -> dict | None:
         if adres.postal_code is not None:
             regels.append(f"{adres.postal_code.postal_code} "
                           f"{adres.postal_code.municipality}")
+    # `include_all_tenants=True`: `tenant_id` is op een organisatierij niet de
+    # scope (zie `ContactDetail`), dus de gewone filter zou hier het verkeerde
+    # antwoord geven in plaats van geen.
+    contacten = {c.contact_type_code: c.value for c in
+                 db.query(ContactDetail)
+                 .filter(ContactDetail.organization_id == organisatie.id,
+                         ContactDetail.deleted_at.is_(None))
+                 .execution_options(include_all_tenants=True).all()}
+    # De eerste rekening: `sort_order` bepaalt welke er getoond wordt zodra er
+    # meer dan één is (#945).
+    rekening = (db.query(BankAccount)
+                .filter(BankAccount.organization_id == organisatie.id,
+                        BankAccount.deleted_at.is_(None))
+                .order_by(BankAccount.sort_order, BankAccount.id)
+                .execution_options(include_all_tenants=True).first())
     blok = {
         "name": organisatie.name,
         "address_lines": regels,
-        "email": organisatie.email or None,
-        "phone": organisatie.phone or None,
-        "iban": organisatie.payment_iban or None,
-        "bic": organisatie.payment_bic or None,
+        "email": contacten.get("EMAIL") or None,
+        "phone": contacten.get("PHONE") or None,
+        "iban": (rekening.iban if rekening else None) or None,
+        "bic": (rekening.bic if rekening else None) or None,
     }
     heeft_inhoud = (regels or blok["email"] or blok["phone"] or blok["iban"]
                     or blok["bic"])
     return blok if heeft_inhoud else None
+
+
+SOCIALE_CODES: tuple[tuple[str, str], ...] = (
+    ("FACEBOOK", "Facebook"),
+    ("INSTAGRAM", "Instagram"),
+    ("TIKTOK", "TikTok"),
+)
+
+
+def _sociale_links(db, organisatie) -> list[dict]:
+    """De sociale links van de organisatie, in vaste volgorde (#945).
+
+    De volgorde komt van :data:`SOCIALE_CODES` en niet uit de databank: een footer
+    waarin de iconen van plaats wisselen omdat iemand een rij bewerkte, ziet er
+    stuk uit. Een code die hier nog niet staat maar wél een rij heeft, komt
+    achteraan mee — zo is een vijfde netwerk zichtbaar zonder codewijziging, wat
+    de hele reden is dat dit een lijst werd.
+    """
+    if organisatie is None:
+        return []
+    from app.domains.mdm.api import ContactDetail
+
+    rijen = {c.contact_type_code: c.value for c in
+             db.query(ContactDetail)
+             .filter(ContactDetail.organization_id == organisatie.id,
+                     ContactDetail.deleted_at.is_(None))
+             .execution_options(include_all_tenants=True).all()}
+    bekend = {code for code, _ in SOCIALE_CODES}
+    links = [{"code": code, "label": label, "url": rijen[code]}
+             for code, label in SOCIALE_CODES if rijen.get(code)]
+    # EMAIL/PHONE/WEBSITE horen in het contactblok, niet tussen de iconen.
+    geen_icoon = {"EMAIL", "PHONE", "WEBSITE"}
+    links += [{"code": code, "label": code.title(), "url": waarde}
+              for code, waarde in sorted(rijen.items())
+              if code not in bekend and code not in geen_icoon and waarde]
+    return links
 
 
 def site_context(db, request=None) -> dict:
@@ -587,9 +638,10 @@ def site_context(db, request=None) -> dict:
             # tenant-instellingen. Een Facebook-pagina van een vereniging bestaat
             # los van haar site — de beslisregel uit het issue. Enkel tonen als
             # gezet; er is geen zinvolle default.
-            "facebook_url": (organisatie.facebook_url if organisatie else None) or None,
-            "instagram_url": (organisatie.instagram_url if organisatie else None) or None,
-            "tiktok_url": (organisatie.tiktok_url if organisatie else None) or None,
+            # #945: en ze zijn een lijst geworden. Drie contextsleutels werden er
+            # één, want drie sleutels zijn drie sjabloonregels en dus precies de
+            # kolom-per-netwerk die dit issue opruimt.
+            "sociale_links": _sociale_links(db, organisatie),
             # Het organisatieblok in de footer (#924). Het CMS-blok blijft eronder
             # staan: `site-footer` is vrije tekst en een migratie kan een adres
             # niet van een zin onderscheiden, dus er verdwijnt niets.

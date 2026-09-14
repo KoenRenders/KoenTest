@@ -175,11 +175,48 @@ class Address(TenantMixin, SoftDeleteMixin, Base):
 
 
 class ContactDetail(TenantMixin, SoftDeleteMixin, Base):
+    """Een contactgegeven van een persoon OF van een organisatie (#945).
+
+    UBL ``cac:Contact`` (``cbc:ElectronicMail``, ``cbc:Telephone``) en
+    ``cbc:WebsiteURI``. Waar UBL die enkelvoudig houdt, draagt deze tabel ze als
+    rijen met een type uit ``contact_type_codes`` — dat is de vorm die de
+    codebase al voor personen gebruikt, en ze laat een vijfde sociaal netwerk een
+    rij zijn in plaats van een kolom.
+
+    **De tenant-naad, expliciet (#945).** Deze tabel draagt ``TenantMixin`` omdat
+    ze gedeeld wordt met persoonsrijen, die de scope echt nodig hebben.
+    ``organizations`` draagt zelf géén ``tenant_id``.
+
+    Voor een organisatierij is ``tenant_id`` daarom **niet de scope**. De scope is
+    ``organization_id``. De kolom staat er alleen omdat ze ``NOT NULL`` is en de
+    tabel gedeeld wordt; ze krijgt de waarde van ``organization_id`` omdat er geen
+    betere bestaat, niet omdat ze iets betekent. Organisatierijen lees je dus met
+    ``include_all_tenants=True``, zoals de footer dat al voor het adres doet, en
+    ``test_organisatie_contactgegevens`` legt vast dat ze **zonder** die optie
+    niet gevonden worden.
+
+    **Waarschuwing voor wie ooit RLS aanzet.** De mixin bestaat opdat "RLS
+    aanzetten later een migratieregel wordt, geen verbouwing". Een policy op
+    ``tenant_id`` zou deze rijen **stil mis-scopen**: de rijen van de
+    ACCOUNT-organisatie krijgen ``tenant_id = 1``, en tenant 1 is geen tenant. Wie
+    die policy schrijft, moet organisatierijen apart behandelen — op
+    ``organization_id``, of door ze uit te sluiten met ``person_id IS NOT NULL``.
+
+    Bij ``addresses`` (#924) bleef deze naad impliciet; hier staat ze opgeschreven.
+
+    Dezelfde XOR-regel als ``Address``: precies één van ``person_id`` en
+    ``organization_id`` is gevuld, bewaakt door een CHECK. Bestaande query's
+    zoeken op ``person_id`` en zien de organisatierijen niet — dat is wat deze
+    uitbreiding contained maakt.
+    """
+
     __tablename__ = "contact_details"
     __table_args__ = {"schema": "mdm"}
 
     id = Column(Integer, primary_key=True, index=True)
-    person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=False)
+    person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=True)
+    organization_id = Column(Integer, ForeignKey("mdm.organizations.id"),
+                             nullable=True)
     contact_type_code = Column(String(10), ForeignKey("mdm.contact_type_codes.code"), nullable=False)
     value = Column(String(255), nullable=False)
     is_primary = Column(Boolean, default=False, nullable=False)
@@ -264,24 +301,134 @@ class Organization(SoftDeleteMixin, Base):
     # die laat maar één taal per code toe — zie de migratie. De geldige waarden
     # staan in `LegalForm` hieronder.
     legal_form = Column(String(30), nullable=True)
-    enterprise_number = Column(String(20), nullable=True)
-    vat_number = Column(String(20), nullable=True)
-    email = Column(String(255), nullable=True)
-    phone = Column(String(50), nullable=True)
-    website = Column(String(255), nullable=True)
-    # Verhuisd uit `kernel_tenant_settings` (#924): dit blijft waar ook als de
-    # organisatie geen website had — de beslisregel uit het issue.
-    payment_iban = Column(String(40), nullable=True)
-    payment_beneficiary = Column(String(255), nullable=True)
-    payment_bic = Column(String(20), nullable=True)
-    facebook_url = Column(String(255), nullable=True)
-    instagram_url = Column(String(255), nullable=True)
-    tiktok_url = Column(String(255), nullable=True)
 
     parent = relationship("Organization", remote_side=[id])
 
+    # Elf kolommen stonden hier tot #945: `enterprise_number`, `vat_number`,
+    # `email`, `phone`, `website`, `payment_iban`, `payment_beneficiary`,
+    # `payment_bic` en de drie `*_url`. Ze zijn geen kolom meer maar een rij —
+    # identificaties in `OrganizationIdentification`, rekeningen in `BankAccount`,
+    # contact en links in `ContactDetail`. Reden: elk van de drie is van nature
+    # een lijst (een tweede btw-nummer in een ander land, een tweede rekening,
+    # een vijfde netwerk) en één kolom per soort laat het tweede geval niet toe.
+    # `legal_form` blijft wél staan: UBL houdt `cac:PartyLegalEntity/
+    # cbc:CompanyLegalForm` per definitie enkelvoudig.
+
+
+class BankAccount(SoftDeleteMixin, Base):
+    """Een rekening van een organisatie (#945) — UBL ``cac:PayeeFinancialAccount``.
+
+    Tot #945 stonden IBAN, BIC en begunstigde als drie kolommen op de
+    organisatie. Een vzw met een aparte rekening per werking is niets
+    bijzonders, en UBL modelleert de rekening dan ook als een eigen,
+    herhaalbare structuur. Vandaag vullen we er één.
+
+    **Afwijking van de naamgeving, bewust.** UBL noemt de IBAN ``cbc:ID`` en de
+    BIC ``cac:FinancialInstitutionBranch/cbc:ID``; ISO 20022 noemt die laatste
+    ``BICFI``. Hier heten ze ``iban`` en ``bic``. Een kolom ``id`` die een
+    rekeningnummer draagt naast een technische sleutel die óók ``id`` heet is
+    onleesbaar, en ``bicfi`` zegt een penningmeester niets. De mapping naar UBL
+    is een hernoeming van twee velden en geen vertaalslag — dat is de afweging
+    die `CLAUDE.md` vraagt op te schrijven.
+
+    **Geen ``TenantMixin``**, en dat is geen vergetelheid. De rijen zijn eigendom
+    van de organisatie en raken niets dat tenant-scoped is; ``organization_id``
+    ís de scope, precies zoals ``organizations`` zelf geen ``tenant_id`` draagt.
+    ``organization_persons`` heeft er wél een omdat die naar personen wijst, en
+    die zijn het wel.
+    """
+
+    __tablename__ = "bank_accounts"
+    __table_args__ = {"schema": "mdm"}
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("mdm.organizations.id"),
+                             nullable=False, index=True)
+    iban = Column(String(40), nullable=False)
+    bic = Column(String(20), nullable=True)
+    # UBL `cac:PayeeFinancialAccount/cbc:Name`: op wiens naam de rekening staat.
+    beneficiary = Column(String(255), nullable=True)
+    # Welke rekening de eerste is waar er één getoond wordt (footer, overschrijving).
+    sort_order = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+
+    organization = relationship("Organization")
+
+
+class OrganizationIdentification(SoftDeleteMixin, Base):
+    """Een identificatienummer van een organisatie (#945).
+
+    UBL ``cac:PartyIdentification`` en ``cac:PartyTaxScheme`` — allebei
+    **herhaalbaar**, en die laatste draagt een eigen ``cac:RegistrationAddress``.
+    Dát is Koens geval: een btw-nummer hoort bij een **land**, niet bij de partij
+    als geheel, dus een tweede btw-nummer in een tweede land is hier een rij en
+    geen migratie. Het ondernemingsnummer (KBO) en het btw-nummer zijn vandaag
+    de twee rijen die we vullen.
+
+    ``scheme`` komt uit :class:`IdentificationScheme`; ISO 6523/ICD levert de
+    vocabulaire en wij vullen alleen wat we gebruiken. ``country`` is
+    ISO 3166-1 alpha-2, zoals ``cbc:IdentificationCode``.
+
+    Geen ``TenantMixin``, om dezelfde reden als :class:`BankAccount`.
+    """
+
+    __tablename__ = "organization_identifications"
+    __table_args__ = {"schema": "mdm"}
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("mdm.organizations.id"),
+                             nullable=False, index=True)
+    scheme = Column(String(20), ForeignKey("mdm.identification_schemes.code"),
+                    nullable=False)
+    value = Column(String(50), nullable=False)
+    country = Column(String(2), nullable=True)
+    sort_order = Column(Integer, nullable=False, default=0)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+
+    organization = relationship("Organization")
+
 
 # ── Codetabellen van de masterdata ──────────────────────────────────────────────
+
+
+class IdentificationScheme(Base):
+    """Welke identificatieschema's bestaan (#945) — de identiteit.
+
+    Gesplitst van zijn labels, zoals :class:`OrganizationRelationType` en om
+    dezelfde reden: de oudere codetabellen sleutelen op (code, taal), waardoor de
+    code alleen niet uniek is en er geen foreign key naar kan wijzen. Een
+    uniciteit op de code alleen toevoegen is precies wat in migratie 017 elk
+    Engels label wegvaagde. Hier is de code de rij en draagt
+    :class:`IdentificationSchemeLabel` de teksten — een derde taal is een rij en
+    de foreign key blijft werken.
+
+    Bewust **niet** het patroon van ``contact_type_codes`` nagevolgd: die vorm is
+    stuk (#929) en op een tabel die vandaag nog niet bestaat hoef je die fout
+    niet opnieuw te maken.
+    """
+
+    __tablename__ = "identification_schemes"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(20), primary_key=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class IdentificationSchemeLabel(Base):
+    """De leesbare naam van een identificatieschema, per taal (#945)."""
+
+    __tablename__ = "identification_scheme_labels"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(20), ForeignKey("mdm.identification_schemes.code"),
+                  primary_key=True)
+    language = Column(String(5), primary_key=True)
+    value = Column(String(100), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
 
 class LegalForm(str, Enum):
     """De rechtsvormen die de codelijst kent (#924, patroon van #779).

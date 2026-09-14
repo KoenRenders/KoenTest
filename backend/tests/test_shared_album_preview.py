@@ -109,9 +109,15 @@ def test_an_album_without_photos_sends_no_og_image(client, db_session):
 def test_the_page_title_carries_the_tenant_name(client, db_session, monkeypatch):
     """Het tenantlek dat bij dit issue hoort: "Raak Millegem" stond hardgecodeerd in het
     titelblok van het album."""
-    from app.kernel.tenant_config import set_setting
+    # Sinds #945 komt de naam uit de organisatie; er is geen instelling meer die
+    # hem overschrijft.
+    from app.domains.mdm.api import Organization
+    from app.kernel.tenant_config import _actieve_tenant
 
-    set_setting(db_session, "display_name", "Raak Voorbeeldafdeling")
+    organisatie = (db_session.query(Organization)
+                   .filter(Organization.id == _actieve_tenant(None))
+                   .execution_options(include_all_tenants=True).one())
+    organisatie.name = "Raak Voorbeeldafdeling"
     db_session.flush()
     activity = _activity_with_photos(db_session, name="Buurtfeest")
 
