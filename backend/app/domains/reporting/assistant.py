@@ -53,6 +53,17 @@ logger = logging.getLogger(__name__)
 
 CAPABILITY = "reporting"
 
+# De system-prompt van dit pakket wordt gerenderd uit `universe.py` — instructietekst
+# plus de catalogus — en kan per constructie geen waarde uit de databank bevatten.
+# Daarom wordt hij niet op namen gescand: hij is twintigduizend tekens Nederlands, en
+# één gezin met een tussenvoegsel volstond om élke vraag te blokkeren (gemeten op
+# HDEV). Wat wél administratiegegevens kan dragen — de getypte vraag en elk
+# tool-resultaat — blijft onverkort gescand.
+#
+# Dit is geen vrijstelling op vertrouwen: `test_assistant_masking.py` toetst dat de
+# gerenderde prompt geen enkele gezaaide naam bevat.
+SCAN_PROMPT_NAMES = False
+
 # Objects that never travel to a model. Free text cannot be classified field by
 # field and there is no token to put on it, so there is no version of the question
 # in which it may go — which is what the refusal says.

@@ -811,8 +811,8 @@ async def assistant_ask(request: Request, db: Session = Depends(get_db),
     )
     from app.domains.mdm.api import person_name_parts
     from app.domains.reporting.assistant import (
-        CAPABILITY, TOOL_SPECS, build_system_prompt, detokenise, dispatcher,
-        scrub_question,
+        CAPABILITY, SCAN_PROMPT_NAMES, TOOL_SPECS, build_system_prompt,
+        detokenise, dispatcher, scrub_question,
     )
 
     form = await request.form()
@@ -845,7 +845,8 @@ async def assistant_ask(request: Request, db: Session = Depends(get_db),
 
     provider = GuardedProvider(
         get_provider(settings.admin_chat_model),
-        admin_rules(lambda: person_name_parts(db), capability=CAPABILITY),
+        admin_rules(lambda: person_name_parts(db), capability=CAPABILITY,
+                    scan_prompt_names=SCAN_PROMPT_NAMES),
         sink_for(email),
     )
     deadline = time.monotonic() + settings.admin_chat_timeout_seconds

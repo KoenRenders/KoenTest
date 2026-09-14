@@ -164,6 +164,25 @@ def list_postal_codes(db):
 
 # ── Names, for the outbound AI guard (CR-07 §5.8) ────────────────────────────
 
+# Tussenvoegsels: ze horen bij een naam maar wijzen niemand aan, en ze zijn
+# tegelijk doodgewone Nederlandse woorden. In de naamlijst van de wachter maken ze
+# elke zin verdacht — gemeten op HDEV, waar één gezin "Van den Broeck" volstond om
+# elke vraag met "van" erin te blokkeren.
+#
+# Bewust een vaste, korte lijst en geen woordenboek: wat hier weg moet is precies
+# de groep die per definitie niet discrimineert. Een achternaam die toevallig een
+# gewoon woord is (Bos, Mol, De Groot) blijft staan; dat is de bekende valse
+# blokkade en die kant is de veilige.
+NAME_PARTICLES = {
+    "van", "de", "den", "der", "des", "het", "ten", "ter", "tot", "toe",
+    "op", "in", "aan", "uit", "bij", "onder", "over", "voor",
+    "vande", "vanden", "vander", "vandel", "vanhet",
+    "le", "la", "les", "du", "des", "da", "di", "del", "della", "dos", "das",
+    "el", "al", "bin", "ibn", "abu",
+    "von", "zu", "zur", "vom",
+    "mac", "mc", "san", "santa", "saint",
+}
+
 def person_name_parts(db: Session) -> set[str]:
     """Every first and last name of this tenant's people, lowercased.
 
@@ -179,12 +198,25 @@ def person_name_parts(db: Session) -> set[str]:
     Short parts are dropped: a two-letter name is a substring of ordinary Dutch and
     would block every second question. That is a real hole, and the payload view is
     the backstop for it (CR-07 §5.8, "honest limits").
+
+    **En de tussenvoegsels gaan eruit, wat op HDEV gemeten is.** "Van den Broeck"
+    leverde `van`, `den` en `broeck` op, en de eerste twee komen in vrijwel elke
+    Nederlandse zin voor. Daarmee blokkeerde de wachter "Wat is de omzet van de
+    activiteiten?" — niet af en toe, maar structureel, en op een manier die er voor
+    de gebruiker uitziet als een kapotte assistent in plaats van als een
+    beschermingsmaatregel. Een controle die alles tegenhoudt, beschermt niets: ze
+    wordt uitgezet.
+
+    Een tussenvoegsel wijst ook niemand aan. `broeck` doet dat wel en blijft dus
+    staan, net als `bos` of `mol` — dat een achternaam soms een gewoon woord is, is
+    de bekende valse blokkade uit §5.8 en die kant is de veilige.
     """
     rows = db.query(Person.first_name, Person.last_name).all()
     parts: set[str] = set()
     for first, last in rows:
         for value in (first, last):
             for part in (value or "").replace("-", " ").split():
-                if len(part) >= 3:
-                    parts.add(part.lower())
+                schoon = part.lower().strip("'\u2019")
+                if len(schoon) >= 3 and schoon not in NAME_PARTICLES:
+                    parts.add(schoon)
     return parts
