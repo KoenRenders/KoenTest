@@ -298,8 +298,14 @@ to delete a file of a sent meeting, derived from the meeting's own sent
 timestamps, with the violation proven in a test (send, attempt delete,
 assert the named refusal). The earlier design — a media-owned lock and
 visibility, set through `media.api` at send time — remains the right
-pattern where reuse is real, and was consciously dropped here in favour
-of fail-closed ownership. The media library screen and the media domain
+pattern where the receiving domain's contract already fits; here it
+would have put an auth branch into media's *public* serving route — the
+path every site visitor hits for every image — turning a one-fact
+translation into a contract change on a production-critical public
+path. Not touching that path is the strongest argument for the own
+table: zero regression surface on the site. Consciously dropped in
+favour of fail-closed ownership; reversible if media ever becomes a
+document store with visibility classes for reasons of its own. The media library screen and the media domain
 stay untouched.
 An asset whose meeting has been sent cannot be deleted; before sending, replacing one
 really deletes the old blob, as media does everywhere. The sent agenda and
