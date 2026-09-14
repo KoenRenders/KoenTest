@@ -103,8 +103,9 @@ Taken by Koen on 14 September 2026, in the CR-shaping conversation:
    to the ~28 board members, the document rendered as PDF attachment, plus
    freely added extra attachments (a working-group report, a municipal
    document, …).
-5. **No speech-to-text in this chain.** The report is typed during the
-   meeting; the `stt` domain stays untouched.
+5. **The report's source is what an admin types during the meeting.** Not
+   an uploaded document, not speech — no STT anywhere in this chain; the
+   `stt` domain stays untouched.
 
 Inherited, not reopened:
 
