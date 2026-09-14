@@ -516,20 +516,36 @@ def meeting_pdf(meeting_id: int, db: Session = Depends(get_db),
 
 # ── Sending ──────────────────────────────────────────────────────────────────
 
+def _wanneer(meeting) -> str:
+    """`donderdag 1 oktober 2026 om 20u in Miloheem` — datum, uur en plaats.
+
+    Eén hulpje voor het onderwerp én de tekst: het bestuur schrijft in beide
+    hetzelfde ("RAAK vergadering donderdag 3 september 2026 om 20u Miloheem"), en
+    twee opbouwtjes zouden op een dag uiteenlopen. Ontbreekt het uur of de
+    locatie, dan valt dat stuk gewoon weg in plaats van "om None" te tonen.
+    """
+    stuk = long_date(meeting.meeting_date)
+    if meeting.start_time:
+        uur = meeting.start_time.hour
+        minuut = meeting.start_time.minute
+        stuk += _(" om %s") % (f"{uur}u{minuut:02d}" if minuut else f"{uur}u")
+    if meeting.location:
+        stuk += _(" in %s") % meeting.location
+    return stuk
+
+
 def _default_subject(meeting, kind: str) -> str:
     """The subject the board already uses, so the thread stays recognisable."""
-    stem = _("RAAK vergadering %s") % long_date(meeting.meeting_date)
-    if meeting.location:
-        stem = f"{stem} {meeting.location}"
+    stem = _("RAAK vergadering %s") % _wanneer(meeting)
     return stem if kind == "agenda" else f"Re: {stem} — {_('verslag')}"
 
 
 def _default_body(meeting, kind: str) -> str:
     if kind == "agenda":
         return _("Hallo allemaal,\n\nIn bijlage de agenda van onze vergadering "
-                 "van %s.\n\nAllen warm uitgenodigd!") % long_date(meeting.meeting_date)
+                 "van %s.\n\nAllen warm uitgenodigd!") % _wanneer(meeting)
     return _("Hoi allemaal,\n\nIn bijlage het verslag van onze vergadering "
-             "van %s.") % long_date(meeting.meeting_date)
+             "van %s.") % _wanneer(meeting)
 
 
 def _send_view(request: Request, db: Session, meeting, kind: str, email: str,

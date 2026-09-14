@@ -671,3 +671,57 @@ def test_de_pdf_gebruikt_het_verenigingslogo_als_dat_er_is(client, db_session):
     assert met.status_code == 200 and met.content.startswith(b"%PDF-")
     assert len(met.content) != len(zonder.content), \
         "de PDF veranderde niet, dus het logo kwam er niet in"
+
+
+# ── 14. Eén logo, twee afnemers ──────────────────────────────────────────────
+
+def test_het_logo_verschijnt_ook_in_de_publieke_header(client, db_session):
+    """Hetzelfde logo dat de PDF gebruikt, staat ook in de kop van de site.
+
+    Dat is de reden dat het bij de media hoort en niet in de vergadermodule: de
+    vereniging uploadt het één keer. Zonder logo blijft het woordmerk staan — de
+    kop mag nooit leeg zijn, ook niet bij een verse tenant.
+    """
+    from app.domains.media.api import MediaAsset
+
+    zonder = client.get("/").text
+    assert 'aria-label="Raak"' in zonder, "zonder logo hoort het woordmerk er te staan"
+
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+    logo = MediaAsset(kind="tenant_logo", data=png, content_type="image/png",
+                      byte_size=len(png))
+    db_session.add(logo)
+    db_session.flush()
+
+    met = client.get("/").text
+    assert f"/api/v1/media/{logo.id}" in met, "de header pakte het logo niet op"
+    assert 'aria-label="Raak"' not in met, "het woordmerk hoort dan te wijken"
+
+
+# ── 15. Wanneer en waar, in onderwerp én tekst ───────────────────────────────
+
+def test_onderwerp_en_tekst_dragen_uur_en_locatie(client, db_session):
+    """Het bestuur schrijft "om 20u in Miloheem" — in de onderwerpregel en in de
+    mail zelf. Eén hulpje voedt beide, zodat ze niet uiteen kunnen lopen.
+
+    En een vergadering zonder uur of locatie mag niet "om None" tonen: dan valt
+    het stuk gewoon weg.
+    """
+    _login(client)
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1),
+                             start_time=time(20, 0), location="Miloheem — zaal 1")
+
+    html = client.get(f"/admin/vergaderingen/{meeting.id}/verstuur?kind=verslag").text
+    assert "om 20u" in html
+    assert "Miloheem — zaal 1" in html
+    # Twee keer: één keer in het onderwerp, één keer in de tekst.
+    assert html.count("om 20u") >= 2, "uur hoort in onderwerp én tekst"
+
+    kaal = create_meeting(db_session, meeting_date=date(2026, 11, 5))
+    kaal.start_time = None
+    kaal.location = None
+    db_session.flush()
+    html2 = client.get(f"/admin/vergaderingen/{kaal.id}/verstuur?kind=agenda").text
+    assert "None" not in html2
+    assert " om " not in html2.split("RAAK vergadering")[1][:60]
