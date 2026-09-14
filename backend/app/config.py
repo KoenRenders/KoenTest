@@ -200,6 +200,38 @@ class Settings(BaseSettings):
     class Config:
         env_file = ".env"
 
+    @model_validator(mode="before")
+    @classmethod
+    def _leeg_is_niet_gezet(cls, waarden):
+        """Een lege omgevingswaarde betekent: niet gezet (#917, na de HDEV-meting).
+
+        Docker Compose kent geen "laat weg als hij niet bestaat". Elke variabele in
+        een `environment:`-blok komt binnen, en `${VAR:-}` levert dan een LEGE
+        STRING waar niets gezet is. Dat is iets anders dan afwezig: bij een
+        `Optional[str]` werd het `""` in plaats van `None`, en bij een `int` is het
+        een parsefout die de backend niet laat starten.
+
+        Het alternatief — per variabele de default herhalen als
+        `${VAR:-2000}` — zet datzelfde getal in vier compose-bestanden náást
+        `config.py`. Vijf plaatsen voor één waarde, en dat is precies de vorm die
+        uit elkaar loopt (CLAUDE.md). Hier staat de regel één keer, en dan is
+        `${VAR:-}` overal veilig.
+
+        **Alleen voor velden mét een default.** Een verplicht veld dat leeg
+        binnenkomt moet zijn eigen foutmelding houden — `SECRET_KEY=""` hoort te
+        struikelen over de zwakke-sleutelcontrole en niet over "field required".
+
+        Dit veralgemeent wat `_strip_md` hierboven al per veld deed, om precies
+        dezelfde reden.
+        """
+        if not isinstance(waarden, dict):
+            return waarden
+        met_default = {naam for naam, veld in cls.model_fields.items()
+                       if not veld.is_required()}
+        return {naam: waarde for naam, waarde in waarden.items()
+                if not (isinstance(waarde, str) and not waarde.strip()
+                        and naam.lower() in met_default)}
+
     @field_validator(
         "membership_half_price_start_md",
         "membership_half_price_end_md",
