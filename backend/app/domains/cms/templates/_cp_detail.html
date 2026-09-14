@@ -7,7 +7,6 @@
          gepubliceerd) bekeken kan worden; de publieke /{slug} geeft 404 op concept. #}
       <a href="/admin/paginas/{{ p.id }}/voorbeeld" target="_blank" rel="noopener noreferrer"
          class="text-sm text-blue-700 underline self-center">{{ _("Bekijk") }}</a>
-      {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/paginas/' ~ p.id ~ '/verwijderen" ' ~ confirm_attrs(_("Pagina"), p.title)) }}
     </div>
   </div>
   {{ ui.error_banner(error) }}
@@ -88,11 +87,12 @@
          tegenspreken, en dit veld dwong je bovendien het nummer van de pagina
          erboven te kennen. De kolom bestaat gewoon nog. #}
     </div>
-    {# §2.8: [Opslaan] [Annuleren] onderaan links. De teruglink bovenaan blijft
-       staan — die is navigatie, niet "verwerp mijn wijzigingen" — maar ligt na de
-       hele editor buiten beeld, en dat is precies de motivering in de conventie
-       (#664). #}
-    <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/paginas") }}</div>
+    {# Golf 6 (#913, A2): dé ene actiebalk. Bovenaan blijft alleen de titel en
+       "Bekijk" (inhoudsactie); Verwijderen verhuisde hierheen, rechts en door
+       ruimte gescheiden. Sticky — de Trix-editor duwt de balk anders ver onder
+       de vouw (#664 was daar al de motivering voor onderaan). #}
+    {{ ui.action_bar(cancel_href="/admin/paginas", sticky=True,
+                     delete_attrs='hx-post="/admin/paginas/' ~ p.id ~ '/verwijderen" ' ~ confirm_attrs(_("Pagina"), p.title)) }}
   </form>
   {% if placeholders %}
   <details class="mt-5 text-sm">

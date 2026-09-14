@@ -24,7 +24,7 @@
       <div>{{ ui.label(_("Canonieke URL"), "t-baseurl") }}
         <input name="base_url" id="t-baseurl" placeholder="https://…" class="w-full">
         <p class="text-xs text-ink-soft mt-1">{{ _("Optioneel; de overige instellingen zet je nadien in de tenant zelf.") }}</p></div>
-      <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/tenants") }}</div>
+      {{ ui.action_bar(cancel_href="/admin/tenants") }}
     </form>
 </div>
 {% endblock %}

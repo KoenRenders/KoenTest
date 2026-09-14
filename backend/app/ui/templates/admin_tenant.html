@@ -55,7 +55,8 @@
   </div>
   {# §2.8, #664: bewerken kreeg een teruglink in plaats van Annuleren; de zes
      aanmaakschermen doen het wel goed. #}
-  <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/tenants") }}</div>
+  {# Golf 6 (#913, A2): sticky — drie onbegrensde instellingensecties. #}
+  {{ ui.action_bar(cancel_href="/admin/tenants", sticky=True) }}
 </form>
 
 {# #742/#748: dit scherm stuurt een VOLLEDIGE pagina terug (hx-target="body"), dus

@@ -13,7 +13,7 @@
         <input name="title" id="f-title" required class="w-full"
                placeholder="{{ _('bv. Inschrijving zomerkamp') }}"></div>
       <p class="text-xs text-ink-soft">{{ _("Na het aanmaken open je meteen de form-builder; de naam kan je daar nog wijzigen.") }}</p>
-      <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/formulieren") }}</div>
+      {{ ui.action_bar(cancel_href="/admin/formulieren") }}
     </form>
 </div>
 {% endblock %}

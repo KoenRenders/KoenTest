@@ -65,7 +65,7 @@
          omhoog scrollen om te zeggen waar ze bij horen. #}
       <div>{{ ui.label(_("Bestanden (afbeeldingen)"), "me-files", required=True) }}
         <input type="file" name="files" id="me-files" accept="image/*" multiple required class="block text-sm"></div>
-      <div class="flex gap-2">{{ ui.btn_primary(_("Uploaden")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/media") }}</div>
+      {{ ui.action_bar(save_label=_("Uploaden"), cancel_href="/admin/media") }}
     </form>
 </div>
 {% endblock %}

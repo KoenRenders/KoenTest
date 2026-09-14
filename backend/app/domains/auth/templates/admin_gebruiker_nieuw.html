@@ -31,7 +31,7 @@
         <label class="flex items-center gap-2"><input type="checkbox" name="role_codes" value="{{ rc.code }}"> {{ rc.code }}</label>
         {% endfor %}
       </div>
-      <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/gebruikers") }}</div>
+      {{ ui.action_bar(cancel_href="/admin/gebruikers") }}
     </form>
 </div>
 {% endblock %}

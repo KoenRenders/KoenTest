@@ -28,7 +28,8 @@
           {% endcall %}</div>
       </div>
       <p class="text-xs text-ink-soft">{{ _("Dit maakt het gezin met deze persoon als hoofdlid. Adres, contactgegevens en lidmaatschap vul je aan in het gezin zelf.") }}</p>
-      <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/leden") }}</div>
+      {# Golf 6 (#913, A2): sticky — lang formulier. #}
+      {{ ui.action_bar(cancel_href="/admin/leden", sticky=True) }}
     </form>
 </div>
 {% endblock %}

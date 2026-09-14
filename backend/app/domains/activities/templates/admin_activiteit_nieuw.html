@@ -40,10 +40,8 @@
     </fieldset>
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1"> {{ _("Enkel voor leden") }}</label>
     <p class="text-xs text-ink-soft">{{ _("Een affiche opladen kan zodra de activiteit bestaat — dat doe je in de editor.") }}</p>
-    <div class="flex gap-2">
-      {{ ui.btn_primary(_("Opslaan")) }}
-      {{ ui.btn_secondary(_("Annuleren"), href="/admin/activiteiten") }}
-    </div>
+    {# Golf 6 (#913, A2): de ene actiebalk onderaan; sticky — lang formulier. #}
+    {{ ui.action_bar(cancel_href="/admin/activiteiten", sticky=True) }}
   </form>
 </div>
 {% endblock %}

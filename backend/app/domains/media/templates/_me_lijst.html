@@ -36,12 +36,12 @@
         <label class="flex items-center gap-1"><input type="checkbox" name="is_active" value="1" {% if a.is_active %}checked{% endif %}> {{ _("Actief") }}</label>
         <span class="text-xs text-gray-400">{{ a.width }}×{{ a.height }}</span>
       </div>
-      <div class="flex gap-2">
-        {{ ui.btn_primary(_("Opslaan")) }}
-        {# §2.8 (#694): altijd open, dus Annuleren = opnieuw laden wat bewaard is. #}
-        {{ ui.btn_secondary(_("Annuleren"), attrs='hx-get="/admin/media?kind=' ~ kind ~ '&q=' ~ q ~ '&filter_activity_id=' ~ (activity_id or "") ~ '" hx-target="#me-lijst" hx-swap="innerHTML"') }}
-        {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/media/' ~ a.id ~ '/verwijderen" hx-vals=\'{"kind": "' ~ kind ~ '", "q": "' ~ q ~ '", "filter_activity_id": "' ~ (activity_id or "") ~ '"}\' hx-target="#me-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Media"), a.title or ("item " ~ a.id))) }}
-      </div>
+      {# Golf 6 (#913, A2): de ene actiebalk — Verwijderen rechts, door ruimte
+         gescheiden. §2.8 (#694) blijft gelden: altijd open, dus Annuleren =
+         opnieuw laden wat bewaard is. #}
+      {{ ui.action_bar(
+           cancel_attrs='hx-get="/admin/media?kind=' ~ kind ~ '&q=' ~ q ~ '&filter_activity_id=' ~ (activity_id or "") ~ '" hx-target="#me-lijst" hx-swap="innerHTML"',
+           delete_attrs='hx-post="/admin/media/' ~ a.id ~ '/verwijderen" hx-vals=\'{"kind": "' ~ kind ~ '", "q": "' ~ q ~ '", "filter_activity_id": "' ~ (activity_id or "") ~ '"}\' hx-target="#me-lijst" hx-swap="innerHTML" ' ~ confirm_attrs(_("Media"), a.title or ("item " ~ a.id))) }}
     </div>
   </form>
   {% endfor %}
