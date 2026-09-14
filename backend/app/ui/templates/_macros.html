@@ -158,8 +158,15 @@
 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">{{ caller() }}</div>
 {%- endmacro %}
 
-{% macro empty_state(message) -%}
-<p class="text-gray-500 text-sm py-6 text-center">{{ message }}</p>
+{# Golf 3 (#913, triage A10): drie vormen van leegte. "Nog geen <items>." mag
+   een passende EERSTE ACTIE dragen (nog-leeg); "Geen resultaten gevonden."
+   blijft één zin (filter-leeg); geen-toegang legt uit. De aanroeper kiest de
+   zin; de actie is optioneel en hoort alleen bij de nog-leeg-vorm. #}
+{% macro empty_state(message, action_label=None, action_href=None, action_attrs="") -%}
+<div class="py-6 text-center">
+  <p class="text-gray-500 text-sm">{{ message }}</p>
+  {% if action_label %}<div class="mt-3">{{ btn_primary(action_label, href=action_href, attrs=action_attrs, size="sm") }}</div>{% endif %}
+</div>
 {%- endmacro %}
 
 {% macro loading(message=None) -%}

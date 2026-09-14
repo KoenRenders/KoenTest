@@ -50,6 +50,7 @@ change to all four, in one pull request.
 | 13 Sep 2026 | Judging viewports follow the audience: public phone-first, admin desktop-first | CR-08 |
 | 13 Sep 2026 | Golf 1 approved on the package: public shell in Cobalt; **public headings in Inter** (variant B), wordmark stays Radio Canada Big; status colours shell-independent | #913 |
 | 13 Sep 2026 | Golf 2: the admin shell joins Cobalt — white grouped sidebar, account presence top right (initials + e-mail, logout in its menu), headings Inter in both shells | #913 |
+| 14 Sep 2026 | Wave 3 start: title + create in ONE header row (all eight list screens measured conform; §3.2 text follows practice); `empty_state` carries the three forms of empty with an optional first action (A10) | #913 |
 | 14 Sep 2026 | Wave 0b: the `field_*` wrapper family is removed — one field family (`*_control` + `ui.label`); hint/error lines are a written convention (§2.2) | #913 |
 | 14 Sep 2026 | Package-2 feedback: top-left = **tenant name + "Werkruimte"** (product label; the Raak wordmark leaves the admin shell — §12 decision a made concrete); workspace groups **Werking** (was Vereniging) / Financieel / **Inzicht** (Dashboard + Rapporten — reporting is not finance-only) / Inhoud / Systeem; address grid two columns on a phone (bus stays right of the house number) | #913 |
 
@@ -402,9 +403,13 @@ picker → current attachment (link + delete) → hint**. Macro
 
 ### 2.8 Loading and empty
 
-"Laden…" via `ui.loading()` (fixed height, no layout jump). After a filter or
-search: **"Geen resultaten gevonden."**; never any data: **"Nog geen
-<items>."** — one sentence, not italic, no emoji, no call-to-action push.
+"Laden…" via `ui.loading()` (fixed height, no layout jump). Three forms of
+empty (wave 3, #913 — triage A10): never any data yet → **"Nog geen
+<items>."**, optionally with the fitting FIRST action
+(`ui.empty_state(…, action_label=…, action_href=…)`); after a filter or
+search → **"Geen resultaten gevonden."**, one sentence, no action; no access
+→ say so plainly. Never marketing push — the action is the next step, not a
+pitch.
 
 ### 2.9 Pivot table (#834)
 
@@ -491,10 +496,12 @@ one interaction language.
 ### 3.2 Records list — the fixed layout
 
 Every admin screen with records has the same order in the content column, top
-to bottom: **page title → one-line description (optional) → KPI row (optional)
-→ one "+ Nieuwe <item>" button, primary, standing on its own → search → filters
-→ record cards or table.** No blue bar around the create button, no collapsible
-form under it; the create form opens as a full-page editor.
+to bottom: **page header carrying the title, the optional one-line description
+AND the "+ Nieuwe <item>" button right-aligned in the same header row
+(`ui.page_header` call-slot — wave 3, #913: measured, all eight list screens
+already conform) → KPI row (optional) → search → filters → record cards or
+table.** No blue bar, no collapsible form; the create form opens as a
+full-page editor.
 
 Page title is `<h1>` in `text-blue-700` with an optional grey subtitle. The
 create button reads **"+ Nieuwe <item>"**, `btn-primary btn-sm`, no exceptions;

@@ -413,6 +413,9 @@
 {{ ui.section_header(_("9 · Leeg en ladend")) }}
 {% call ui.card() %}
   {{ ui.empty_state(_("Nog geen inschrijvingen voor deze activiteit.")) }}
+  {# Golf 3 (A10): de nog-leeg-vorm mag een passende eerste actie dragen. #}
+  {{ ui.empty_state(_("Nog geen formulieren."), action_label=_("+ Nieuw formulier"), action_href="/admin/formulieren/nieuw") }}
+  {{ ui.empty_state(_("Geen resultaten gevonden.")) }}
   <div class="mt-3">{{ ui.loading(_("Bezig met laden…")) }}</div>
 {% endcall %}
 
