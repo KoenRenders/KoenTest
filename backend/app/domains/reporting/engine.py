@@ -165,18 +165,29 @@ LAYOUTS = ("table", "pivot", "bar", "line", "stacked", "detail")
 # guessing which of his three choices to undo.
 MAX_PIVOT_COLUMNS = 30
 
-# ── The small-cell threshold (#841) ──────────────────────────────────────────
-# A report that says "one member in Balen, aged 41-60, female" names somebody
-# without writing a name. Grouping on a sensitive dimension therefore carries a
-# hidden count of the people in each group, and the service merges every group
-# below this number into one row. The rule is declared here and on the objects,
-# never in a template: a privacy rule that lives in a screen is a privacy rule
-# that the next screen forgets.
-SMALL_CELL_THRESHOLD = 5
+# ── De kleine-groependrempel is weg (14 september 2026, beslist door Koen) ───
+# Hier stond een regel die elke groep met minder dan vijf personen samenvoegde tot
+# één rij. Hij is verwijderd, en het is de moeite waard waaróm.
+#
+# De drempel gold overal, ook op het scherm van een bestuurder achter zijn eigen
+# login met zijn eigen ledenlijst. Daar beschermde hij niemand tegen iets: wie het
+# rapport mag openen, mag het gezin ook gewoon opzoeken. Wat hij wél deed was
+# "Anderlecht: 1" wegmoffelen in een verzamelrij, en een cijfer dat zonder
+# zichtbare reden verdwijnt kost vertrouwen in elk getal eromheen.
+#
+# Ook voor de assistent is hij weg. De regel die daar geldt is een andere en die
+# staat overeind: namen, adressen, geboortedatums, telefoonnummers, e-mailadressen
+# en vrije tekst gaan niet naar een taalmodel — geweigerd of getokeniseerd
+# (`ai_exposure`), en de naadwachter kijkt er nog een keer overheen. Een
+# AANTAL is geen persoonsgegeven, en die twee dingen liepen hier door elkaar.
 
 # The alias of that hidden count. It leaves the result before it reaches a
 # template — nothing renders it, it only decides.
-PEOPLE_ALIAS = "__people"
+# De verborgen personentelling bestond alleen voor de drempel hierboven en wordt
+# dus niet meer opgevraagd. `sensitive` op een object en `people_sql` op een feit
+# blijven staan als DECLARATIE — net als `Role`, en met dezelfde eerlijkheid erbij:
+# er is niets dat ze afdwingt. Ze beschrijven welke dimensies mensen in kleine
+# groepjes snijden, en dat blijft waar, ook nu er geen regel aan hangt.
 
 
 def selection_to_dict(selection: Selection) -> dict[str, object]:
@@ -304,9 +315,6 @@ class QueryPlan:
     # Only filled when the caller asked for them — see `with_entities` on
     # `build_query`.
     entity_aliases: dict[str, str] = field(default_factory=dict)
-    # True when the rows carry the hidden people-count and the small-cell
-    # threshold has to be applied before anything is shown.
-    guarded: bool = False
     # Whether `totals_sql` has anything to say. A table totals its measures; a
     # listing totals its money columns; a selection with neither has no totals row
     # at all, and asking anyway would return a meaningless `1`.
@@ -641,15 +649,6 @@ def build_query(selection: Selection, *, tenant_id: int,
             select_parts.append(f'{entity_expr} AS "{alias}"')
             entity_aliases[obj.key] = alias
 
-    # The hidden people-count: only when the selection groups on something that
-    # cuts people into small groups, and only when the fact can say how many
-    # people a group covers.
-    guarded = any(o.sensitive for o in grouped)
-    people_sql = FACT_BY_KEY[fact].people_sql
-    if guarded and people_sql:
-        select_parts.append(
-            f'{people_sql.format(view=_view_alias(fact))} AS "{PEOPLE_ALIAS}"')
-
     from_clause = _from_clause(fact, views, joins)
     where = "\n  AND ".join(conditions)
 
@@ -718,7 +717,6 @@ def build_query(selection: Selection, *, tenant_id: int,
     return QueryPlan(sql=sql, totals_sql=totals_sql, params=params,
                      columns=columns, fact=fact, drill_aliases=drill_aliases,
                      entity_aliases=entity_aliases,
-                     guarded=bool(guarded and people_sql),
                      has_totals=bool(measures))
 
 

@@ -21,6 +21,12 @@
    tool-resultaat. Dichtgeklapt, want het is een controlemiddel en geen leesstof. #}
 <details class="mt-2">
   <summary class="text-xs text-gray-500 cursor-pointer hover:text-gray-700">{{ _("Wat zag Mistral?") }}</summary>
-  <pre class="mt-2 max-h-64 overflow-auto bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs whitespace-pre-wrap break-words text-gray-700">{{ payload }}</pre>
+  {# De knop zoekt omhoog naar `data-copy-bron` en kopieert wat daarbinnen staat,
+     dus zonder id: er staan meerdere antwoorden onder elkaar, en een id dat
+     botst zou stil de payload van een andere beurt kopiëren. #}
+  <div class="mt-2 flex items-start gap-2">
+    <div data-copy-bron class="flex-1 min-w-0"><pre class="max-h-64 overflow-auto bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs whitespace-pre-wrap break-words text-gray-700">{{ payload }}</pre></div>
+    {{ ui.copy_button(uit_bron=True, aria_label=_("Kopieer wat Mistral zag")) }}
+  </div>
 </details>
 {% endif %}

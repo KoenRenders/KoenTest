@@ -38,7 +38,6 @@ from app.domains.reporting.api import (
     CLASSES,
     FACTS,
     HIERARCHY_OF,
-    MERGED_LABEL,
     OBJECTS,
     Selection,
     SelectionError,
@@ -133,8 +132,6 @@ def _tokenise_rows(result, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for row in rows:
         nieuw = dict(row)
         for key, prefix in kolommen:
-            if nieuw.get(key) == MERGED_LABEL:
-                continue
             entiteit = row.get(bron.get(key, ""), None)
             nieuw[key] = f"{prefix}-{entiteit}" if entiteit is not None else "onbekend"
         out.append(nieuw)
@@ -414,9 +411,6 @@ def render_catalogue() -> str:
     lines += [
         "## Regels",
         "",
-        f"- Groepen van minder dan vijf personen worden samengevoegd tot één rij "
-        f"'{MERGED_LABEL}'. Gebeurt dat, zeg het in je antwoord: "
-        "'kleine groepen samengevoegd (privacydrempel)'.",
         "- 'Omzet', 'opbrengst' of 'inkomsten' zonder meer betekent het "
         "GEFACTUREERDE bedrag. Noem in je antwoord welke maat je nam "
         "('omzet (gefactureerd): …'). Blijven twee maten even plausibel, vraag "
@@ -640,12 +634,6 @@ def run_report(db: Session, arguments: dict[str, Any], *,
         out["truncated"] = (
             f"Er zijn meer dan {max_rows} rijen; alleen de eerste {max_rows} "
             "staan hier. Verfijn het filter of groepeer grover."
-        )
-    if any(row.get(result.columns[0].key) == MERGED_LABEL for row in rows
-           if result.columns):
-        out["threshold_applied"] = (
-            "Groepen van minder dan vijf personen zijn samengevoegd "
-            "(privacydrempel). Vermeld dat in je antwoord."
         )
     return out
 

@@ -213,16 +213,18 @@ def test_grouping_by_address_is_guarded_like_its_household_twin(db_session,
                                                                 situation):
     """Municipality on person grain is no less identifying than on household grain.
 
-    On a seed this small every group falls under the threshold, which is the point:
-    the merged label proves the guard is armed for this dimension too.
+    Sinds 14 september 2026 wordt er nergens meer samengevoegd (zie
+    `test_reporting_phase5.py` voor de reden). Wat deze test nog bewaakt is dat
+    groeperen op deze dimensie werkt en de gemeenten zelf teruggeeft — ook de
+    gemeente met één bewoner, die vroeger in een verzamelrij verdween.
     """
-    from app.domains.reporting.service import MERGED_LABEL
-
     resultaat = run_validated(
         db_session,
         Selection(object_keys=("address_municipality", "registration_count")),
         tenant_id=TENANT_A)
-    assert any(r["address_municipality"] == MERGED_LABEL for r in resultaat.rows)
+    assert resultaat.rows, "zonder rijen bewijst deze test niets"
+    assert all("Samengevoegd" not in str(r["address_municipality"])
+               for r in resultaat.rows)
 
 
 def test_the_address_carries_the_reference_to_the_household(db_session, situation):

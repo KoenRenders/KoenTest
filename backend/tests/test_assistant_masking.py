@@ -107,26 +107,27 @@ def test_no_person_naming_object_hands_back_a_name(db_session):
                        for w in waarden), f"{obj.key}: {waarden}"
 
 
-def test_the_threshold_reaches_a_household_row_before_the_token_does(db_session):
-    """Two mechanisms in the same result, and the order is worth knowing.
+def test_a_household_row_is_a_token_and_nothing_else_holds_it_back(db_session):
+    """Zonder drempel is de token het enige dat deze rij beschermt.
 
-    A row per household is a group of one family, which is under five people, so
-    the small-cell threshold merges it away before the tokenisation has anything to
-    do. The token is not the thing protecting these rows — the threshold is — and
-    that is why CR-07 §5.5 keeps both: the threshold covers grouped answers, the
-    token covers the rows the threshold does not guard (a board member with
-    twenty households, a fact that cannot count people).
+    Hier stond het omgekeerde: een rij per gezin is een groep van één gezin, dus
+    onder vijf personen, en de kleine-groependrempel voegde hem samen vóór de token
+    aan de beurt kwam. Die drempel is weg (14 september 2026, beslist door Koen: een
+    aantal is geen persoonsgegeven), en daarmee is dit de rij die werkelijk
+    vertrekt.
 
-    Measured rather than assumed: this test was first written expecting a token
-    and found `Samengevoegd`.
+    Wat betekent dat de tokenisatie hier geen tweede lijn meer is maar de eerste en
+    de enige. Deze test is dus zwaarder gaan wegen dan toen ze geschreven werd, en
+    dat is de reden dat ze blijft staan in plaats van mee te verdwijnen met de
+    drempel die ze beschreef.
     """
-    from app.domains.reporting.api import MERGED_LABEL
-
-    _household(db_session, "Mira", ACHTERNAAM)
+    member, _ = _household(db_session, "Mira", ACHTERNAAM)
     out = json.loads(dispatcher(tenant_id=TENANT)(
         "run_report", {"objects": ["member", "member_total_count"]}, db_session))
-    assert [r["member"] for r in out["rows"]] == [MERGED_LABEL]
-    assert "threshold_applied" in out
+
+    waarden = {str(r["member"]) for r in out["rows"]}
+    assert waarden == {f"gezin-{member.id}"}, waarden
+    assert ACHTERNAAM not in json.dumps(out)
 
 
 def test_the_same_household_keeps_the_same_token(db_session):
@@ -137,10 +138,9 @@ def test_the_same_household_keeps_the_same_token(db_session):
     after a restart. That is what lets the model notice that two rows are about
     one family without ever learning which family.
 
-    Over the memberships fact, where "people" means people: five in this household,
-    so the row stands. On the households fact a "person" is a household, so any
-    row there is a group of one and the threshold merges it first — see the test
-    above.
+    Het gezin telt vijf personen en is lid, zodat beide objecten hem kunnen tonen;
+    dat was ooit nodig om de verwijderde drempel te ontlopen en is nu gewoon een
+    volledig gezin.
     """
     member, _ = _household(db_session, "Mira", ACHTERNAAM, extra=4, lid=True)
     dispatch = dispatcher(tenant_id=TENANT)

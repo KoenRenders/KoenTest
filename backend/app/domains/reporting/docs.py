@@ -63,9 +63,12 @@ def _facts_section() -> list[str]:
              "Measures from two facts in one selection are refused: they would "
              "multiply each other (CR-06 §2.6).", "",
              "The last column is how the fact counts the people a group covers. "
-             "The small-cell threshold needs it: a group of fewer than five is "
-             "merged away, and a fact that cannot count people cannot be grouped "
-             "by a sensitive dimension at all.", "",
+             "It is a **declaration and nothing more** since 14 September 2026: "
+             "the small-cell threshold that used to read it has been removed, so "
+             "no query asks for this count today. It records which facts could "
+             "answer \"how many people are behind this group\", which stays true "
+             "whether or not a rule leans on it — the same honesty as the role "
+             "column below.", "",
              "The role column is the role the fact's **flat dataset dump** will "
              "need once the fence is built; see Roles below. Today every dump "
              "sits behind `require_admin_ui` like the rest of the back office.",
