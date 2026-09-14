@@ -1,22 +1,17 @@
 """UI-fundament (#396): de shells en macro's renderen — de Jinja-rendertest
 uit §19.5.3c (één keer de kit testen verslaat elke pagina testen)."""
-from jinja2 import Environment, FileSystemLoader
 from pathlib import Path
 
 TEMPLATES = Path(__file__).resolve().parents[1] / "app" / "ui" / "templates"
 
 
 def _env():
-    env = Environment(loader=FileSystemLoader(str(TEMPLATES)), autoescape=True)
-    # zelfde i18n-machinerie als de echte app-omgeving (#407-T)
-    from app.i18n import install_jinja_i18n
-    install_jinja_i18n(env)
-    # #773: de schillen laden hun assets via `statisch()`. Deze omgeving is met de
-    # hand gebouwd en heeft dus niet de globals van `app.ui.templates.env`; zonder
-    # deze regel valt elke schil-rendertest om op een ongedefinieerde functie.
-    from app.ui import statisch
-    env.globals["statisch"] = statisch
-    return env
+    # Was een eigen kopie van de schil-omgeving en viel daardoor als derde om bij
+    # een nieuwe global (na #773 en #889 — precies waarvoor tests/_shell_env.py
+    # bestaat). De kopie is weg; één bron.
+    from tests._shell_env import bare_shell_env
+
+    return bare_shell_env()
 
 
 def test_shells_render():
