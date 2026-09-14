@@ -60,24 +60,57 @@ def test_een_vergadering_aanmaken_en_notuleren(admin_page):
     page.goto("/admin/vergaderingen/nieuw")
     page.fill("#vg-datum", "2026-10-01")
     page.click("button[type=submit]")
-    page.wait_for_url("**/admin/vergaderingen/**")
+    # Op het document wachten en NIET op een URL-patroon: `**/admin/vergaderingen/**`
+    # matcht ook `/admin/vergaderingen/nieuw`, dus dat wachten was meteen voorbij
+    # en de test keek naar het aanmaakscherm. Het fragment is het bewijs.
+    page.wait_for_selector("#vg-document", timeout=10_000)
+    url = page.url
 
     # De agenda is samengesteld: de vaste secties staan er, met Varia als laatste.
     assert page.locator("h2", has_text="Evaluatie voorbije activiteiten").count() == 1
     assert page.locator("h2", has_text="Volgende activiteiten").count() == 1
-    koppen = page.locator("#vg-document h2").all_text_contents()
-    assert koppen[-1].strip() == "Varia", koppen
+    # De vijf vaste secties in hun vaste volgorde, met Varia als laatste daarvan.
+    # Niet "de laatste h2 op de pagina": Aanwezigheid en Bijlagen zijn ook koppen,
+    # en die staan er bewust omheen.
+    koppen = [k.strip() for k in page.locator("#vg-document h2").all_text_contents()]
+    secties = [k for k in koppen if k in ("Evaluatie voorbije activiteiten",
+                                          "Volgende activiteiten", "Leden",
+                                          "Programma-ideeën", "Varia")]
+    assert secties == ["Evaluatie voorbije activiteiten", "Volgende activiteiten",
+                       "Leden", "Programma-ideeën", "Varia"], koppen
 
     # Aanwezigheid: één klik, en de knop komt als 'aanwezig' terug uit de swap.
     knoppen = page.locator("#vg-document form[hx-post*='aanwezigheid'] button")
     if knoppen.count() == 0:
-        pytest.skip("geen vergaderkring in deze omgeving om aan te vinken")
+        # De kring is leeg in deze omgeving. Hem hier aanleggen in plaats van de
+        # test over te slaan: een skip is tussen groene runs onzichtbaar, en dit
+        # toetst meteen het kringscherm — dezelfde reden waarom de beheerflows
+        # `_ontbreekt()` gebruiken in plaats van stil weg te kijken (#644).
+        _vul_de_kring(page)
+        page.goto(url)
+        page.wait_for_selector("#vg-document")
+        knoppen = page.locator("#vg-document form[hx-post*='aanwezigheid'] button")
+        if knoppen.count() == 0:
+            pytest.skip("geen enkele persoon in deze omgeving om in de kring te zetten")
     naam = knoppen.first.text_content().strip()
     knoppen.first.click()
     page.wait_for_timeout(700)
     aangevinkt = page.locator("#vg-document form[hx-post*='aanwezigheid'] button").first
     assert "bg-green-50" in (aangevinkt.get_attribute("class") or ""), \
         f"'{naam}' kleurde niet als aanwezig na de swap"
+
+
+def _vul_de_kring(page) -> None:
+    """Zet de eerste gevonden persoon in de vergaderkring, via het scherm zelf."""
+    page.goto("/admin/vergaderingen/kring")
+    page.wait_for_selector("#vg-kring")
+    page.fill("input[name=q]", "e")
+    page.wait_for_timeout(800)
+    toevoegen = page.locator("#vg-kring form[hx-post='/admin/vergaderingen/kring'] button")
+    if toevoegen.count() == 0:
+        return
+    toevoegen.first.click()
+    page.wait_for_timeout(800)
 
 
 def test_een_notitie_overleeft_de_swap(admin_page):

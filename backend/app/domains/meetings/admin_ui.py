@@ -168,7 +168,15 @@ def meeting_create(request: Request, db: Session = Depends(get_db),
             moment = None
     meeting = create_meeting(db, meeting_date=day, start_time=moment,
                              location=location.strip() or None)
-    return RedirectResponse(f"/admin/vergaderingen/{meeting.id}", status_code=303)
+    doel = f"/admin/vergaderingen/{meeting.id}"
+    # De schil draagt hx-boost, dus dit formulier vertrekt als htmx-verzoek. Een
+    # 303 laat htmx het antwoord inswappen zonder dat het adres in de balk
+    # meeverhuist; `HX-Redirect` laat de browser écht navigeren, zodat de
+    # gebruiker op het document staat en een verversing daar blijft. Zonder boost
+    # (of vanuit een script) blijft de gewone redirect het juiste antwoord.
+    if request.headers.get("HX-Request"):
+        return Response(status_code=204, headers={"HX-Redirect": doel})
+    return RedirectResponse(doel, status_code=303)
 
 
 # ── The circle ───────────────────────────────────────────────────────────────
