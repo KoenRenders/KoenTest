@@ -236,6 +236,18 @@ DB-level integrity only: in code, meetings reaches activities through
 (CR-05) reads reports through `meetings.api` — never straight into the
 tables. `test_import_boundaries` enforces all of it.
 
+**Soft-delete, measured (14 September 2026).** Everything the items
+reference carries `SoftDeleteMixin` — `Activity`, `Person`, `Member`,
+`Organization`, `ContactDetail` — so FKs in old reports stay valid; the one
+exception is `MediaAsset` (hard delete). Two rules follow: the attachment
+FK gets `ON DELETE RESTRICT` (a media file attached to a meeting cannot be
+deleted while referenced; giving `MediaAsset` soft delete would be another
+domain's change and is out of scope), and the historical-report screen
+deliberately bypasses the global soft-delete filter — a soft-deleted
+activity must still show in the report it was discussed in, as the sent
+PDF does. The meetings tables themselves take `TenantMixin` +
+`SoftDeleteMixin` like the rest.
+
 The **report is data, not a blob**: sections and items are rows, so the next
 agenda can be generated (upcoming activities + carried-over items) instead
 of copied, and the newsletter flag can select items instead of prose.
