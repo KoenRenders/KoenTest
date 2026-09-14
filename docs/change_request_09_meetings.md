@@ -204,6 +204,18 @@ Added after the first mockup round (14 September 2026, Koen's review):
     shows **N/max**, and a full activity carries the same "Volzet" badge
     the public site shows (asked the same day).
 
+23. **Sending closes nothing; only the sent report locks — reversibly**
+    (14 September 2026). "Verstuur agenda" opens the send screen; the
+    send button there mails, stamps the moment and archives the sent PDF
+    — the document stays editable afterwards (a typo fix between agenda
+    mail and meeting is normal). Agenda and minute-taking are one
+    document with a label, not locked modes: taking attendance or typing
+    a note *is* entering the report phase. The one hard moment is
+    "Verstuur verslag": the meeting becomes *sent* and read-only — with
+    an explicit "Heropen verslag" for the day-after correction; resending
+    archives a new PDF while the earlier one stays kept, so history never
+    lies. Resending anything already sent asks one confirmation.
+
 Inherited, not reopened: **#785 triage A17** — the AI-per-module contract
 (read / propose / execute separated). This module has no AI at all, which is
 the simplest way to honour it.
