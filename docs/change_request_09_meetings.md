@@ -235,7 +235,8 @@ New domain `meetings`:
   member total, "new members since the previous meeting") are queries on
   the member data, never stored columns. The sent PDF is the frozen
   snapshot; the rows stay references.
-- `MeetingAttachment` — link to a `media` file, per meeting, flagged
+- `MeetingAttachment` — per meeting: soft-ref to the `media_assets` row
+  that holds the bytes (see the storage paragraph below), flagged
   agenda-mail / report-mail / both.
 - Extra recipients (decision §3.15): per meeting, plain e-mail strings for
   one-off guests — no `Person`, no relation.
@@ -266,9 +267,11 @@ exception is `MediaAsset`: blobs live as BYTEA in Postgres
 (`media.media_assets`, served via `/api/v1/media/<id>`, PDFs unchanged,
 images downscaled, included in the db-backup dumps), deliberately without
 soft delete (#166) and referenced by *soft-refs*, not FKs. Attachments
-follow that existing pattern: a new `kind = "meeting_attachment"` with
-`meeting_id` as soft-ref (so `MeetingAttachment` as a separate table
-drops), and the protection sits in the service layer — an asset whose
+follow that existing pattern for the **bytes**: a new
+`kind = "meeting_attachment"` in `media_assets`; the per-meeting metadata
+(which mail carries it) stays in the meetings-owned `MeetingAttachment`
+row, referencing the asset by soft-ref. The protection sits in the
+service layer — an asset whose
 meeting has been sent cannot be deleted; before sending, replacing one
 really deletes the old blob, as media does everywhere. The sent agenda and
 report PDFs are themselves archived as assets (`kind = "meeting_pdf"`), so
