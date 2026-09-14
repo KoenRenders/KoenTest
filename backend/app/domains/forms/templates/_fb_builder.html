@@ -57,7 +57,10 @@
   <div>{{ ui.label(_("Label laag"), "frl-" ~ _id) }}{{ ui.input_control("rating_low_label", id="frl-" ~ _id, value=(f.rating_low_label or "" if f else ""), cls="w-full") }}</div>
   <div>{{ ui.label(_("Label hoog"), "frh-" ~ _id) }}{{ ui.input_control("rating_high_label", id="frh-" ~ _id, value=(f.rating_high_label or "" if f else ""), cls="w-full") }}</div>
   {% endif %}
-  <div class="sm:col-span-4 flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="' ~ tonen ~ ' = false"') }}</div>
+  {# Golf 6 (#913, A2): één balk per bewerkvlak; het veld-verwijderen (#698)
+     verhuisde van de kaartkop hierheen — alleen bij een bestaand veld. #}
+  <div class="sm:col-span-4">{{ ui.action_bar(cancel_attrs='@click="' ~ tonen ~ ' = false"',
+       delete_attrs=('hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Veld"), f.label)) if f else "") }}</div>
 </form>
 {% endmacro %}
 
@@ -137,15 +140,6 @@
            down_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
            first=eerste, last=laatste) }}
       {{ ui.edit_toggle("edit") }}
-      {# #698: prullenbak i.p.v. ×, en potlood i.p.v. ⚙ verderop. Geen smaak: `×`
-         betekende in deze app al "sluiten" (de toast sluit met datzelfde teken), en
-         dat is een gratis handeling terwijl dit er een is die niet terug kan. Het
-         tandwiel betekende "instellingen", en dát staat bovenaan dit scherm als
-         een échte knop die iets anders doet.
-
-         Leeg label + `lead_icon`: dan draagt de knop alleen het icoon, en de
-         button-macro geeft hem op grond van `aria_label` ook een tooltip. #}
-      {{ ui.btn_danger("", lead_icon="trash-2", aria_label=_("Veld verwijderen"), attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Veld"), f.label)) }}
     </div>
   </div>
   {{ veld_vorm(f, f.section_id, tonen='edit') }}
@@ -224,7 +218,6 @@
            schermen verderop in dit bestand al op de veldkaart staat — een
            handgemaakte knop ernaast is precies hoe die twee uit elkaar lopen. #}
         {{ ui.edit_toggle("open", size="sm") }}
-        {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" ' ~ confirm_attrs(_("Formulier"), form.title)) }}
       </div>
     </div>
     {# #689: de deellink met een kopieerknop. `data-copy-bron` is de terugval van
@@ -285,7 +278,10 @@
          actief teruggezet naar twee. Een omschrijving is lopende tekst. #}
       <div class="sm:col-span-2">{{ ui.label(_("Omschrijving"), "fbd") }}{{ ui.textarea_control("description", id="fbd", value=form.description or "", cls="w-full") }}</div>
       <div class="sm:col-span-2">{{ ui.label(_("Bevestigingsboodschap"), "fbc") }}{{ ui.textarea_control("confirmation_message", id="fbc", value=form.confirmation_message or "", cls="w-full") }}</div>
-      <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="open = false"') }}</div>
+      {# Golf 6 (#913, A2): sticky — lang instellingenpaneel; Verwijderen
+         verhuisde van de kop (die houdt de inhoudsacties) naar hier. #}
+      {{ ui.action_bar(cancel_attrs='@click="open = false"', sticky=True,
+                       delete_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" ' ~ confirm_attrs(_("Formulier"), form.title)) }}
     </form>
   </div>
 
@@ -298,8 +294,7 @@
          first=loop.first, last=loop.last,
          up_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verplaats" hx-vals=\'{"richting":"op"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
          down_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
-         edit_attrs='@click="sedit = !sedit"',
-         delete_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Sectie"), g.section.title or _("Sectie"))) }}
+         edit_attrs='@click="sedit = !sedit"') }}
     <div class="p-4">
     {% if g.section.next_is_end %}<p class="mb-2">{{ ui.badge(_("daarna: einde"), "yellow") }}</p>{% elif g.section.next_section_id %}<p class="mb-2">{{ ui.badge(_("daarna: sprong"), "yellow") }}</p>{% endif %}
     <form x-show="sedit" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-sm"
@@ -319,7 +314,8 @@
          een korte toelichting boven een groep vragen, geen lopende tekst zoals die
          van het formulier zelf. #}
       <div class="sm:col-span-2">{{ ui.label(_("Omschrijving"), "sd-" ~ g.section.id) }}{{ ui.textarea_control("description", id="sd-" ~ g.section.id, rows=2, value=g.section.description or "", cls="w-full") }}</div>
-      <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), attrs='@click="sedit = false"') }}</div>
+      <div class="sm:col-span-2">{{ ui.action_bar(cancel_attrs='@click="sedit = false"',
+           delete_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Sectie"), g.section.title or _("Sectie"))) }}</div>
     </form>
     <div class="mt-3 space-y-2">
       {% for f in g.fields %}{{ veld_kaart(f, eerste=loop.first, laatste=loop.last) }}{% endfor %}

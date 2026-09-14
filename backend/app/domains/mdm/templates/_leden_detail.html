@@ -16,9 +16,6 @@
       </div>
       <div class="flex gap-2 shrink-0 ml-4">
         {{ ui.edit_toggle("edit") }}
-        {% if not hoofd %}
-        {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/leden/gezin/' ~ family.id ~ '/persoon/' ~ m.id ~ '/verwijderen" hx-target="#leden-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Persoon"), m.first_name ~ " " ~ m.last_name)) }}
-        {% endif %}
       </div>
     </div>
   </div>
@@ -27,10 +24,10 @@
         hx-target="#leden-detail" hx-swap="innerHTML">
     {# Veldenset incl. relatie (#498) via de gedeelde macro — zie _leden_persoon_velden. #}
     {% with p = m %}{% include "_leden_persoon_velden.html" %}{% endwith %}
-    <div class="flex gap-2">
-      {{ ui.btn_primary(_("Opslaan")) }}
-      {{ ui.btn_secondary(_("Annuleren"), attrs='@click="edit = false"') }}
-    </div>
+    {# Golf 6 (#913, A2): Verwijderen verhuisde van de kaartkop hierheen —
+       niet voor het hoofdlid, dat kan niet weg. #}
+    {{ ui.action_bar(cancel_attrs='@click="edit = false"',
+         delete_attrs=('hx-post="/admin/leden/gezin/' ~ family.id ~ '/persoon/' ~ m.id ~ '/verwijderen" hx-target="#leden-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Persoon"), m.first_name ~ " " ~ m.last_name)) if not hoofd else "") }}
   </form>
 </div>
 {% endmacro %}
@@ -75,10 +72,7 @@
             {% endfor %}
           {% endcall %}</div>
       </div>
-      <div class="flex gap-2">
-        {{ ui.btn_primary(_("Opslaan")) }}
-        {{ ui.btn_secondary(_("Annuleren"), attrs='@click="edit = false"') }}
-      </div>
+      {{ ui.action_bar(cancel_attrs='@click="edit = false"') }}
     </form>
   </div>
 

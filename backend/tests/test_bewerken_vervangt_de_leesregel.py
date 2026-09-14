@@ -56,8 +56,11 @@ def test_de_productregel_verdwijnt_tijdens_het_bewerken(client, db_session):
     _login(client)
     html = _detail(client, activity.id)
 
+    # Sinds golf 6 (#913) noemt óók de Verwijderen-knop in de actiebalk het
+    # product — in zijn data-confirm-tekst. Dat is geen leesregel; eruit filteren.
     regels = [r for r in html.splitlines()
-              if product.name in r and "<span" in r and "input" not in r]
+              if product.name in r and "<span" in r and "input" not in r
+              and "data-confirm" not in r]
     assert regels, "de productnaam staat niet als leesregel op het scherm"
     assert all('x-show="!ed"' in r for r in regels), (
         "de leesregel van het product blijft staan tijdens het bewerken (#648):\n"

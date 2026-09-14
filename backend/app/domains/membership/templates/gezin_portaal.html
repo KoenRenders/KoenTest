@@ -73,9 +73,6 @@
       </div>
       <div class="flex gap-2 shrink-0 ml-4">
         {{ ui.edit_toggle("edit") }}
-        {% if p.id != person_id %}
-        {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/leden/gezin/personen/' ~ p.id ~ '/verwijderen" hx-target="body" hx-swap="innerHTML" ' ~ confirm_attrs(_("Gezinslid"), p.first_name ~ " " ~ p.last_name)) }}
-        {% endif %}
       </div>
     </div>
     <form x-show="edit" x-cloak class="space-y-3"
@@ -108,10 +105,10 @@
           {% endcall %}</div>
       </div>
       {% endif %}
-      <div class="flex gap-2">
-        {{ ui.btn_primary(_("Opslaan")) }}
-        {{ ui.btn_secondary(_("Annuleren"), attrs='@click="edit = false"') }}
-      </div>
+      {# Golf 6 (#913, A2): sticky — het portaal is mobiel-eerst en het
+         persoonsformulier is lang. Verwijderen verhuisde van de kaartkop. #}
+      {{ ui.action_bar(cancel_attrs='@click="edit = false"', sticky=True,
+           delete_attrs=('hx-post="/leden/gezin/personen/' ~ p.id ~ '/verwijderen" hx-target="body" hx-swap="innerHTML" ' ~ confirm_attrs(_("Gezinslid"), p.first_name ~ " " ~ p.last_name)) if p.id != person_id else "") }}
     </form>
   </div>
   {% endfor %}
