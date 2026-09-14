@@ -848,7 +848,27 @@
    cursor. De afwijking staat genoteerd in ui-conventies.md.
 
    De knop draagt altijd een `aria-label`: hij toont alleen een icoon (§2.6). #}
-{% macro copy_button(pad, aria_label, size="sm") -%}
+{# `uit_bron` kopieert de INHOUD van het element ernaast in plaats van een
+   meegegeven tekst (#917). Nodig zodra het te kopiëren stuk groot is: de
+   payload-uitklapper van Raakje is tot honderd kilobyte, en die een tweede keer in
+   een `data-copy`-attribuut zetten verdubbelt de pagina voor iets dat er al staat.
+
+   GEEN id, en dat is de hele reden dat het zo werkt. Er staan meerdere antwoorden
+   onder elkaar in één gesprek; met een id zou elke knop het juiste moeten raden, en
+   een botsing betekent dat je stilzwijgend de payload van een ándere beurt kopieert
+   — precies de fout die niemand opmerkt. De knop zoekt in plaats daarvan omhoog naar
+   `[data-copy-bron]` en pakt wat daarbinnen staat. Eén kopieerhelper blijft het
+   uitgangspunt: dit is een tweede BRON, geen tweede mechanisme. #}
+{% macro copy_button(pad=None, aria_label="", size="sm", uit_bron=False) -%}
+{% if uit_bron %}
+<button type="button" aria-label="{{ aria_label }}"
+        class="{{ btn_class('secondary', size) }} relative z-10"
+        x-data="{ ok: false }"
+        @click.stop.prevent="ok = await raakKopieer(($event.currentTarget.closest('[data-copy-bron]') || {}).textContent || ''); if (ok) setTimeout(() => ok = false, 1500)">
+  <span x-show="!ok">{{ icon('copy') }}</span>
+  <span x-show="ok" x-cloak>{{ icon('check') }}</span>
+</button>
+{% else %}
 <button type="button" data-copy="{{ pad }}" aria-label="{{ aria_label }}"
         class="{{ btn_class('secondary', size) }} relative z-10"
         x-data="{ ok: false }"
@@ -856,6 +876,7 @@
   <span x-show="!ok">{{ icon('copy') }}</span>
   <span x-show="ok" x-cloak>{{ icon('check') }}</span>
 </button>
+{% endif %}
 {%- endmacro %}
 
 {% macro clipboard_js() -%}

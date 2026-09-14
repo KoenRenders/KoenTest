@@ -272,3 +272,35 @@ def test_the_speech_scripts_are_loaded_by_the_admin_shell(client, db_session, aa
         tekst = client.get(pagina).text
         assert "stt.js" in tekst, f"{pagina} laadt stt.js niet"
         assert "tts.js" in tekst, f"{pagina} laadt tts.js niet"
+
+
+def test_the_payload_can_be_copied_out_in_one_click(client, db_session, aan):
+    """Gevraagd door Koen: de uitklapper naar een editor kunnen plakken (#917).
+
+    De knop draagt de payload NIET zelf — hij zoekt omhoog naar `data-copy-bron` en
+    kopieert wat daarbinnen staat. Dat is geen detail: de payload is tot honderd
+    kilobyte, en hem in een attribuut herhalen verdubbelt de pagina voor iets dat er
+    al staat. Het tweede voordeel weegt zwaarder: er staan meerdere antwoorden onder
+    elkaar in één gesprek, en zonder id kan geen enkele knop stilzwijgend de payload
+    van een ándere beurt kopiëren.
+
+    Kapotgemaakt om het rood te zien: `data-copy-bron` van de wikkel gehaald — de
+    knop vindt dan niets en kopieert een lege string, wat er op het scherm uitziet
+    als een geslaagde kopie.
+
+    Die proef ging de eerste keer GROEN, en dat is de reden dat de assertie eruitziet
+    zoals ze eruitziet. Ze zocht `data-copy-bron` ergens in de pagina, en die string
+    staat óók in de klik-handler van de knop zelf (`closest('[data-copy-bron]')`) —
+    dus de test slaagde terwijl de wikkel weg was. Precies de vorm uit CLAUDE.md:
+    hij keek nergens. Nu staat er `<div data-copy-bron`, en dat kan alleen de wikkel
+    zijn.
+    """
+    seed(db_session)
+    csrf = login(client, db_session)
+    resp = client.post(PATH, data={"vraag": "hoe zit het met de betalingen?",
+                                   "historie": "[]"},
+                       headers={"X-CSRF-Token": csrf})
+    assert "<div data-copy-bron" in resp.text
+    assert "Kopieer wat Mistral zag" in resp.text
+    # De payload staat één keer in de pagina, niet ook nog eens in een attribuut.
+    assert 'data-copy="[' not in resp.text
