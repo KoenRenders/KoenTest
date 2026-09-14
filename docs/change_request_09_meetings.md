@@ -197,12 +197,21 @@ New domain `meetings`:
   generation, plus manually added named sections (decision §3.17). Carries
   `kind` (standard code or `custom`), `title`, `position`.
 - `MeetingItem` — `id`, `meeting_id`, `section_id` (FK to
-  `MeetingSection`), `position`, optional `activity_id` FK, `title`
-  (free for non-activity items), `notes` (the bullets, rich-ish text),
-  `carried_over_from` (optional self-reference: an ideas/misc item that
-  moves to the next meeting). No newsletter marker (decision §3.18): the
-  newsletter side reads the report through the facade and the composer
-  selects there.
+  `MeetingSection`), `position`, `title` (free items), `notes` (the
+  bullets, rich-ish text), and three optional references by item kind:
+  `activity_id` (activity item — name/date/location always render fresh
+  through the FK, and chronological order within a section derives from
+  the activity date, decision §3.19), `member_id` (new-member item) and
+  `noted_steward_person_id` (the steward dropdown — minutes, never a
+  write into membership, decision §3.20). Plus `carried_over_from`
+  (optional self-reference: an ideas/misc item that moves to the next
+  meeting). No newsletter marker (decision §3.18): the newsletter side
+  reads the report through the facade and the composer selects there.
+- `MeetingAttendance` — per meeting and person: present or excused; the
+  candidate list is the §3.11 relation. Computed values (the working-year
+  member total, "new members since the previous meeting") are queries on
+  the member data, never stored columns. The sent PDF is the frozen
+  snapshot; the rows stay references.
 - `MeetingAttachment` — link to a `media` file, per meeting, flagged
   agenda-mail / report-mail / both.
 - Extra recipients (decision §3.15): per meeting, plain e-mail strings for
