@@ -91,7 +91,18 @@ Taken by Koen on 14 September 2026, in the CR-shaping conversation:
    got on the list.
 2. **Agenda and report are composed in the portal** — one document that grows
    from agenda into report, as the board already works, with the activities
-   sections pre-filled from the `activities` domain.
+   sections pre-filled from the `activities` domain. Detailed 14 September
+   2026 — the agenda is *prepared deterministically*, section by section:
+   - **evaluation**: the activities between the previous meeting and this
+     one, from the platform — plus manual additions for something that was
+     not on the portal's calendar;
+   - **upcoming**: the activities of the coming months, same source;
+   - **members**: the new members since the previous meeting, with their
+     steward assignment;
+   - **ideas**: textual, carried over between meetings (the brainstorm);
+   - **miscellaneous**: free — anyone can raise something.
+   No LLM anywhere in this preparation: it is queries and carry-over. The
+   newsletter concept (§6) is the only AI goal in this CR.
 3. **The meeting module is board-only.** Back-office, **desktop-only** — no
    public side, no plan whatsoever toward a member-facing view. Refined
    14 September 2026: the meeting circle is wider than "the board" — it
@@ -278,6 +289,12 @@ From the real examples of §1, anonymised:
 9. **PDF rendering.** The meeting PDF replaces a Google-Docs export the board
    is used to. Is a clean, portal-styled PDF acceptable from day one, or must
    it resemble the current template (logo header, table layout)?
+10. **Steward assignment for new members.** The members section lists new
+    members with their steward ("wijkmeester"). `Member` already carries a
+    `board_member_id`. Does the meeting screen only *show* the assignment
+    (read-only, link to the member screen), or is the meeting the place where
+    it is *made*? The latter is a write into the membership domain from the
+    meeting module — possible through the facade, but it must be deliberate.
 
 ## Non-goals
 
