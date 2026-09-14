@@ -122,7 +122,15 @@
              stond ze 7,5 % te hoog. Wijzigt het display-font, herbereken deze factor.
              De arbitraire waarde moet LETTERLIJK hier staan, anders genereert Tailwind
              de klasse niet. #}
+          {# Staat er een logo bij de media, dan toont de header dát; anders het
+             woordmerk hieronder. Dezelfde bron als de vergader-PDF (#258), zodat
+             de vereniging haar logo één keer uploadt. De hoogte is begrensd zodat
+             een groot bestand de balk niet oprekt. #}
+          {% if site_logo_url %}
+          <img src="{{ site_logo_url }}" alt="{{ site_name }}" class="h-10 md:h-12 w-auto">
+          {% else %}
           <span class="flex items-baseline font-brand font-bold tracking-tight leading-none text-3xl" aria-label="{{ _('Raak') }}">R<span class="text-[1.3em]">aa</span>K</span>
+          {% endif %}
           {# #804: `text-base md:text-sm` — mobiel-eerst. Zie §1.2a van het
              design-system: 14 px is een bijschrift op een breed scherm en leestekst
              op een telefoon, en 80% van het bezoek is mobiel. #}

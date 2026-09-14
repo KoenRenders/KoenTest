@@ -21,6 +21,7 @@ De invarianten die ertoe doen, en per stuk het scenario dat ze kan breken:
 De tests draaien tegen een echte Postgres via de gewone fixtures; de e-mail gaat
 door een dubbel, zodat er geen SMTP aan te pas komt.
 """
+import base64
 from datetime import date, time, timedelta
 
 import pytest
@@ -542,3 +543,185 @@ def test_een_punt_zonder_activiteit_en_zonder_titel_wordt_geweigerd(db_session):
     sectie = next(s for s in sections_of(db_session, meeting) if s.kind == "MISC")
     with pytest.raises(MeetingError):
         add_item(db_session, meeting, sectie, title="   ")
+
+
+# ── 11. Opmaak in de notities, en de kiezer die de sectie volgt ──────────────
+
+def test_notities_worden_een_geneste_opsomming():
+    """Eén regel is één punt; twee spaties inspringen is één niveau dieper.
+
+    Zo schrijft het bestuur zijn verslag al — de vorm komt dus uit wat ze toch
+    doen, niet uit een opmaakbalk die tijdens een vergadering in de weg zit.
+    """
+    from app.domains.meetings.api import note_bullets
+
+    tekst = ("Uitverkocht, 300 tickets\n"
+             "  Volgend jaar zelfde periode\n"
+             "    Koen legt de zaal vast\n"
+             "- Bedankt aan alle helpers")
+    assert note_bullets(tekst) == [
+        (0, "Uitverkocht, 300 tickets"),
+        (1, "Volgend jaar zelfde periode"),
+        (2, "Koen legt de zaal vast"),
+        (0, "Bedankt aan alle helpers"),
+    ]
+    # Lege regels dragen niets en verdwijnen; dieper dan drie niveaus bestaat niet.
+    assert note_bullets("a\n\n        b") == [(0, "a"), (2, "b")]
+    assert note_bullets(None) == []
+
+
+def test_de_kiezer_biedt_onder_evaluatie_voorbije_activiteiten_aan(db_session):
+    """Het gat dat Koen zag: onder Evaluatie bood de kiezer alleen toekomst aan,
+    dus een voorbije activiteit die al in het systeem stond kon je niet toevoegen.
+
+    Kapotgemaakt om te toetsen: met de sectie-tak eruit valt de eerste assert om —
+    dan komt 'Comedy Festival' niet in de lijst voor.
+    """
+    from app.domains.meetings.api import addable_activities
+
+    _activity(db_session, "Comedy Festival", date(2026, 9, 11))
+    _activity(db_session, "Rumproefavond", date(2026, 10, 2))
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+
+    # Haal beide punten van de agenda, zodat de kiezer ze weer mag aanbieden.
+    for item in db_session.query(type(meeting).items.property.mapper.class_) \
+            .filter_by(meeting_id=meeting.id).all():
+        if item.activity_id:
+            db_session.delete(item)
+    db_session.flush()
+
+    evaluatie = next(s for s in sections_of(db_session, meeting) if s.kind == "EVALUATION")
+    volgende = next(s for s in sections_of(db_session, meeting) if s.kind == "UPCOMING")
+
+    onder_evaluatie = [s.activity.name for s in
+                       addable_activities(db_session, meeting, section_id=evaluatie.id)]
+    onder_volgende = [s.activity.name for s in
+                      addable_activities(db_session, meeting, section_id=volgende.id)]
+
+    assert "Comedy Festival" in onder_evaluatie, "voorbij, dus hoort bij evaluatie"
+    assert "Rumproefavond" not in onder_evaluatie, "dat komt nog"
+    assert "Rumproefavond" in onder_volgende
+    assert "Comedy Festival" not in onder_volgende
+
+
+# ── 12. Een bijlage hoort niet altijd bij beide mails ────────────────────────
+
+def test_een_bijlage_kan_bij_de_agenda_horen_en_niet_bij_het_verslag(db_session, mailbox,
+                                                                     monkeypatch):
+    """Koens geval: een draaiboek gaat met de agenda mee, een ander stuk met het
+    verslag. Het model kon dat al; het scherm bood de keuze niet aan.
+
+    Dit is het bewijs dat de keuze ook echt doorwerkt tot in de mail — een
+    schakelaar die alleen het scherm kleurt, is geen keuze.
+    """
+    from app.domains.meetings.api import set_file_mailing
+
+    monkeypatch.setattr("app.domains.meetings.service.send_with_attachments",
+                        mailbox, raising=False)
+    _in_circle(db_session, _person(db_session, "Mon", "Essers", "mon@example.org"))
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+    draaiboek = add_file(db_session, meeting, filename="draaiboek.pdf",
+                         content_type="application/pdf", data=b"%PDF draaiboek")
+    gemeente = add_file(db_session, meeting, filename="gemeente.pdf",
+                        content_type="application/pdf", data=b"%PDF gemeente")
+
+    # Draaiboek alleen bij de agenda, het gemeentestuk alleen bij het verslag.
+    set_file_mailing(db_session, meeting, draaiboek.id, mail="report")
+    set_file_mailing(db_session, meeting, gemeente.id, mail="agenda")
+
+    send_meeting_mail(db_session, meeting, kind="agenda", subject="Agenda",
+                      body_html="Hallo", reply_to="s@example.org",
+                      pdf=b"%PDF agenda", pdf_filename="agenda.pdf")
+    bij_agenda = [naam for naam, _t, _d in mailbox.sent[-1]["attachments"]]
+    assert bij_agenda == ["agenda.pdf", "draaiboek.pdf"]
+
+    send_meeting_mail(db_session, meeting, kind="report", subject="Verslag",
+                      body_html="Hoi", reply_to="s@example.org",
+                      pdf=b"%PDF verslag", pdf_filename="verslag.pdf")
+    bij_verslag = [naam for naam, _t, _d in mailbox.sent[-1]["attachments"]]
+    assert bij_verslag == ["verslag.pdf", "gemeente.pdf"]
+
+
+# ── 13. Het logo in de PDF-kop ───────────────────────────────────────────────
+
+def test_de_pdf_gebruikt_het_verenigingslogo_als_dat_er_is(client, db_session):
+    """Staat er een logo in de mediabibliotheek, dan staat dat in de kop.
+
+    Als data-URI ingebed en niet als link: WeasyPrint haalt niets op, dus een
+    verwijzing zou een lege plek opleveren. Zonder logo blijft het woordmerk
+    staan — de kop mag nooit leeg zijn.
+    """
+    from app.domains.media.api import MediaAsset
+
+    _login(client)
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+
+    zonder = client.get(f"/admin/vergaderingen/{meeting.id}/pdf")
+    assert zonder.status_code == 200 and zonder.content.startswith(b"%PDF-")
+
+    # Een kleine echte PNG volstaat: het gaat om de weg van de bytes naar de PDF,
+    # niet om het beeld.
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+    db_session.add(MediaAsset(kind="tenant_logo", data=png, content_type="image/png",
+                              byte_size=len(png)))
+    db_session.flush()
+
+    met = client.get(f"/admin/vergaderingen/{meeting.id}/pdf")
+    assert met.status_code == 200 and met.content.startswith(b"%PDF-")
+    assert len(met.content) != len(zonder.content), \
+        "de PDF veranderde niet, dus het logo kwam er niet in"
+
+
+# ── 14. Eén logo, twee afnemers ──────────────────────────────────────────────
+
+def test_het_logo_verschijnt_ook_in_de_publieke_header(client, db_session):
+    """Hetzelfde logo dat de PDF gebruikt, staat ook in de kop van de site.
+
+    Dat is de reden dat het bij de media hoort en niet in de vergadermodule: de
+    vereniging uploadt het één keer. Zonder logo blijft het woordmerk staan — de
+    kop mag nooit leeg zijn, ook niet bij een verse tenant.
+    """
+    from app.domains.media.api import MediaAsset
+
+    zonder = client.get("/").text
+    assert 'aria-label="Raak"' in zonder, "zonder logo hoort het woordmerk er te staan"
+
+    png = base64.b64decode(
+        "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+    logo = MediaAsset(kind="tenant_logo", data=png, content_type="image/png",
+                      byte_size=len(png))
+    db_session.add(logo)
+    db_session.flush()
+
+    met = client.get("/").text
+    assert f"/api/v1/media/{logo.id}" in met, "de header pakte het logo niet op"
+    assert 'aria-label="Raak"' not in met, "het woordmerk hoort dan te wijken"
+
+
+# ── 15. Wanneer en waar, in onderwerp én tekst ───────────────────────────────
+
+def test_onderwerp_en_tekst_dragen_uur_en_locatie(client, db_session):
+    """Het bestuur schrijft "om 20u in Miloheem" — in de onderwerpregel en in de
+    mail zelf. Eén hulpje voedt beide, zodat ze niet uiteen kunnen lopen.
+
+    En een vergadering zonder uur of locatie mag niet "om None" tonen: dan valt
+    het stuk gewoon weg.
+    """
+    _login(client)
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1),
+                             start_time=time(20, 0), location="Miloheem — zaal 1")
+
+    html = client.get(f"/admin/vergaderingen/{meeting.id}/verstuur?kind=verslag").text
+    assert "om 20u" in html
+    assert "Miloheem — zaal 1" in html
+    # Twee keer: één keer in het onderwerp, één keer in de tekst.
+    assert html.count("om 20u") >= 2, "uur hoort in onderwerp én tekst"
+
+    kaal = create_meeting(db_session, meeting_date=date(2026, 11, 5))
+    kaal.start_time = None
+    kaal.location = None
+    db_session.flush()
+    html2 = client.get(f"/admin/vergaderingen/{kaal.id}/verstuur?kind=agenda").text
+    assert "None" not in html2
+    assert " om " not in html2.split("RAAK vergadering")[1][:60]

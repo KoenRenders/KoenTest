@@ -29,7 +29,7 @@ from app.i18n import _
 
 router = APIRouter(tags=["media"])
 
-VALID_KINDS = {"sponsor", "activity_photo"}
+VALID_KINDS = {"sponsor", "activity_photo", "tenant_logo"}
 MAX_BATCH = 20
 
 # Poster/reglement mag een afbeelding óf een PDF zijn (#223).

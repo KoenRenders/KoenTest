@@ -166,6 +166,15 @@
       {{ ui.textarea_control("omschrijving", id="ds-omschrijving", rows=2, value=_("Korte toelichting bij de activiteit."), cls="w-full") }}
     </div>
     <div>
+      {# `autogrow` levert de attributen die een tekstvak met zijn inhoud laten
+         meegroeien (#788/#258). Hier op een tweede tekstvak, zodat de demo toont
+         wat het verschil is met het vaste vak hierboven. #}
+      {{ ui.label(_("Notities (groeit mee)"), "ds-notities") }}
+      {{ ui.textarea_control("notities", id="ds-notities", rows=2,
+                             value=_("Typ hier meerdere regels.\nHet vak groeit mee tot het maximum."),
+                             cls="w-full", attrs=ui.autogrow(200)) }}
+    </div>
+    <div>
       {{ ui.label(_("Status"), "ds-status") }}
       {% call ui.select_control("status", cls="w-full", attrs='id="ds-status"') %}
         <option selected>{{ _("Open") }}</option><option>{{ _("Gesloten") }}</option>

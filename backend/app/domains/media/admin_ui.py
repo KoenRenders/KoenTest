@@ -85,7 +85,8 @@ def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
         assets = [a for a in assets if term in (a.get("title") or "").lower()]
 
     # Chip-labels horen per request opgebouwd: _() volgt de taal van de tenant.
-    kind_labels = {"sponsor": _("Sponsors"), "activity_photo": _("Activiteitenfoto's")}
+    kind_labels = {"sponsor": _("Sponsors"), "activity_photo": _("Activiteitenfoto's"),
+                   "tenant_logo": _("Logo van de vereniging")}
     # #882: de pijltjes moeten weten of dit item het eerste of laatste van ZIJN GROEP
     # is — niet van de lijst. Ongefilterd staan de foto's van alle activiteiten door
     # elkaar, dus de buur in de lijst hoort vaak bij een ander album.
