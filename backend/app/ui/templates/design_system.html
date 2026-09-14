@@ -113,12 +113,13 @@
   </p>
 {% endcall %}
 
-{# Actiebalk (golf 2, #913 — beslissing g): het patroon voor élk bewerkvlak
-   vanaf golf 6; nieuwe schermen gebruiken hem meteen. #}
+{# Actiecluster (golf 6, #913 — beslissing g, kop-herziening 14 sep 2026):
+   ALLE recordacties bovenaan het bewerkvlak. In leesmodus staat er alleen de
+   opener (ui.edit_toggle); in bewerkmodus dit cluster — nooit twee Annulerens. #}
 {% call ui.card() %}
-  <p class="text-sm font-semibold mb-1">{{ _("Actiebalk (onderaan een bewerkvlak)") }}</p>
+  <p class="text-sm font-semibold mb-1">{{ _("Actiecluster (bovenaan een bewerkvlak)") }}</p>
   {{ ui.action_bar(cancel_href="/admin/design-system", delete_attrs='hx-post="/demo"') }}
-  <p class="text-xs text-gray-500 mt-3"><code>ui.action_bar(cancel_href=…, delete_attrs=…)</code> — {{ _("Opslaan en Annuleren links, Verwijderen rechts; ruimte is de scheiding.") }}</p>
+  <p class="text-xs text-gray-500 mt-3"><code>ui.action_bar(form=…, cancel_attrs=…, delete_attrs=…)</code> — {{ _("Opslaan en Annuleren links, Verwijderen laatst en rood; `form=` koppelt Opslaan aan het formulier eronder.") }}</p>
 {% endcall %}
 
 {# Icoon vóór wikkelende tekst (golf 0b): de #810/#813-marges als macro. #}

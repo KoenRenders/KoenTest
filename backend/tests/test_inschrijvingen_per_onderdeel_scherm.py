@@ -121,7 +121,10 @@ def test_het_paneel_heeft_een_bewerkstand(client, db_session):
     _login(client)
     paneel = client.get(f"/admin/inschrijvingen/{reg_id}").text
 
-    assert paneel.count('x-show="!edit">Bewerken<') == 1
+    # Kop-herziening golf 6 (#913): de opener draagt x-show="!edit" op de knop
+    # zelf (klasse ertussen), met het cluster ernaast als bewerkstand.
+    import re as _re
+    assert len(_re.findall(r'<button[^>]*x-show="!edit"[^>]*>Bewerken</button>', paneel)) == 1
     # Leesregel én invulveld: precies één van elk.
     assert paneel.count('value="An Janssens"') == 1
     assert "An Janssens" in paneel

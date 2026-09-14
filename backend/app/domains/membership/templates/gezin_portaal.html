@@ -73,9 +73,11 @@
       </div>
       <div class="flex gap-2 shrink-0 ml-4">
         {{ ui.edit_toggle("edit") }}
+        <div x-show="edit" x-cloak>{{ ui.action_bar(form="pp-" ~ p.id, cancel_attrs='@click="edit = false"',
+             delete_attrs=('hx-post="/leden/gezin/personen/' ~ p.id ~ '/verwijderen" hx-target="body" hx-swap="innerHTML" ' ~ confirm_attrs(_("Gezinslid"), p.first_name ~ " " ~ p.last_name)) if p.id != person_id else "") }}</div>
       </div>
     </div>
-    <form x-show="edit" x-cloak class="space-y-3"
+    <form id="pp-{{ p.id }}" x-show="edit" x-cloak class="space-y-3"
           hx-post="/leden/gezin/personen/{{ p.id }}" hx-target="body" hx-swap="innerHTML">
       {% set _hoofd = p.relation_type == "HOOFDLID" %}
       {# Gedeelde veldenset (#511); id_prefix p{id}- houdt de ids uniek per gezinslid.
@@ -105,10 +107,6 @@
           {% endcall %}</div>
       </div>
       {% endif %}
-      {# Golf 6 (#913, A2): sticky — het portaal is mobiel-eerst en het
-         persoonsformulier is lang. Verwijderen verhuisde van de kaartkop. #}
-      {{ ui.action_bar(cancel_attrs='@click="edit = false"', sticky=True,
-           delete_attrs=('hx-post="/leden/gezin/personen/' ~ p.id ~ '/verwijderen" hx-target="body" hx-swap="innerHTML" ' ~ confirm_attrs(_("Gezinslid"), p.first_name ~ " " ~ p.last_name)) if p.id != person_id else "") }}
     </form>
   </div>
   {% endfor %}

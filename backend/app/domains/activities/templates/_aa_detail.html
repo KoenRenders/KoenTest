@@ -2,18 +2,19 @@
 <div class="space-y-4">
   {{ ui.error_banner(error|default(None)) }}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
-    <div class="flex items-center justify-between">
+    {# Golf 6, kop-herziening (Koen, 14 sep 2026): ALLE recordacties bovenaan.
+       Leesmodus toont de opener (#503-toggle werd opener-only); bewerkmodus
+       wisselt hem voor het cluster — nooit twee Annulerens. Sticky: lang
+       formulier, Opslaan blijft in beeld. #}
+    <div class="flex items-center justify-between sticky top-0 z-20 bg-white py-1">
       <h2 class="font-bold text-lg">{{ a.name }}
         {% if a.is_cancelled %}{{ ui.badge(_("geannuleerd"), "red") }}{% endif %}
         {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
       </h2>
       <div class="flex gap-2">
-        {# #503: Bewerken ↔ Annuleren op dezelfde toggle-knop (§2.8-conventie). #}
-        {# Golf 6 (#913, A2): de kop draagt enkel titel + toggle; Verwijderen
-           verhuisde naar de actiebalk onderaan het bewerkvlak. #}
-        <button type="button" class="{{ ui.btn_class('secondary') }}" @click="edit = !edit">
-          <span x-show="!edit">{{ _("Bewerken") }}</span><span x-show="edit" x-cloak>{{ _("Annuleren") }}</span>
-        </button>
+        {{ ui.edit_toggle("edit") }}
+        <div x-show="edit" x-cloak>{{ ui.action_bar(form="aa-act-form", cancel_attrs='@click="edit = false"',
+             delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/verwijderen" ' ~ confirm_attrs(_("Activiteit"), a.name)) }}</div>
       </div>
     </div>
     {# Dezelfde fout als de affichelink hieronder, gevonden bij het schrijven van de
@@ -30,7 +31,7 @@
        verdwenen terwijl het veld op het model bleef bestaan — je kon alleen nog
        uploaden. En het uploadblok had een eigen "Uploaden"-knop, dus twee handelingen
        voor één wijziging. Nu bewaart één "Opslaan" allebei. #}
-    <form x-show="edit" x-cloak class="space-y-3 mt-3" enctype="multipart/form-data"
+    <form id="aa-act-form" x-show="edit" x-cloak class="space-y-3 mt-3" enctype="multipart/form-data"
           hx-post="/admin/activiteiten/{{ a.id }}" hx-encoding="multipart/form-data"
           hx-target="#aa-detail" hx-swap="innerHTML">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -56,8 +57,6 @@
                          hint=_("Een opgeladen affiche primeert op de Poster-URL.")) }}
       <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1" {% if a.members_only %}checked{% endif %}> {{ _("Enkel voor leden") }}</label>
       <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_cancelled" value="1" {% if a.is_cancelled %}checked{% endif %}> {{ _("Geannuleerd") }}</label>
-      {{ ui.action_bar(cancel_attrs='@click="edit = false"', sticky=True,
-                       delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/verwijderen" ' ~ confirm_attrs(_("Activiteit"), a.name)) }}
     </form>
   </div>
 
@@ -76,9 +75,14 @@
            het knoppenblok — dat laatste was precies de fout die #639 wegwerkte. #}
         <span x-show="!edit">{{ d.start_date.strftime("%d-%m-%Y") }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date.strftime("%d-%m-%Y") }}{% endif %}{% if d.start_time %} · {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %}–{{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}</span>
         <span x-show="edit" x-cloak class="text-gray-500">{{ _("Datum bewerken") }}</span>
-        {{ ui.edit_toggle("edit") }}
+        <div class="flex gap-2">
+          {{ ui.edit_toggle("edit") }}
+          <div x-show="edit" x-cloak>{{ ui.action_bar(form="aa-datum-" ~ d.id, cancel_attrs='@click="edit = false"',
+               delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/datums/' ~ d.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML"',
+               delete_confirm=_("Datum verwijderen?")) }}</div>
+        </div>
       </div>
-      <form x-show="edit" x-cloak class="flex flex-wrap gap-2 items-end mt-2 bg-gray-50 rounded-lg p-2"
+      <form id="aa-datum-{{ d.id }}" x-show="edit" x-cloak class="flex flex-wrap gap-2 items-end mt-2 bg-gray-50 rounded-lg p-2"
             hx-post="/admin/activiteiten/{{ a.id }}/datums/{{ d.id }}" hx-target="#aa-detail" hx-swap="innerHTML">
         <div>{{ ui.label(_("Start"), "sd-" ~ d.id, required=True) }}
           {{ ui.input_control("start_date", id="sd-" ~ d.id, type="date", value=d.start_date.strftime("%Y-%m-%d"), required=True) }}</div>
@@ -88,9 +92,6 @@
           {{ ui.input_control("start_time", id="st-" ~ d.id, type="time", value=d.start_time.strftime("%H:%M") if d.start_time else "") }}</div>
         <div>{{ ui.label(_("Einduur"), "et-" ~ d.id) }}
           {{ ui.input_control("end_time", id="et-" ~ d.id, type="time", value=d.end_time.strftime("%H:%M") if d.end_time else "") }}</div>
-        {{ ui.action_bar(cancel_attrs='@click="edit = false"', cls="w-full",
-                         delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/datums/' ~ d.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML"',
-                         delete_confirm=_("Datum verwijderen?")) }}
       </form>
     </div>
     {% endfor %}
@@ -163,9 +164,9 @@
           <span x-show="!insch">{{ _("Toon inschrijvingen") }}</span><span x-show="insch" x-cloak>{{ _("Verberg inschrijvingen") }}</span>
         </button>
         {{ ui.btn_secondary(_("Export"), lead_icon="download", href="/admin/activiteiten/" ~ a.id ~ "/onderdelen/" ~ c.id ~ "/export", size="sm") }}
-        <button type="button" class="{{ ui.btn_class('secondary') }}" @click="edit = !edit">
-          <span x-show="!edit">{{ _("Bewerken") }}</span><span x-show="edit" x-cloak>{{ _("Annuleren") }}</span>
-        </button>
+        {{ ui.edit_toggle("edit") }}
+        <div x-show="edit" x-cloak>{{ ui.action_bar(form="aa-comp-" ~ c.id, cancel_attrs='@click="edit = false"',
+             delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Onderdeel"), c.name)) }}</div>
       </div>
     </div>
     {# Leeslink naar de info-bijlage (#655). De activiteit had er al een voor haar
@@ -179,7 +180,7 @@
        submit-knop bij het uploadveld al, maar dat was in #623 alleen op de
        activiteit toegepast; het onderdeel hield twee vormen naar twee endpoints en
        toonde dus twee "Opslaan"-knoppen onder elkaar. #}
-    <form x-show="edit" x-cloak class="flex flex-wrap gap-2 items-end mt-3"
+    <form id="aa-comp-{{ c.id }}" x-show="edit" x-cloak class="flex flex-wrap gap-2 items-end mt-3"
           enctype="multipart/form-data" hx-encoding="multipart/form-data"
           hx-post="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}"
           hx-target="#aa-detail" hx-swap="innerHTML">
@@ -207,8 +208,6 @@
                            delete_confirm=_("De opgeladen info-bijlage verwijderen?"),
                            hint=_("Een opgeladen bijlage primeert op de externe info-URL.")) }}
       </div>
-      {{ ui.action_bar(cancel_attrs='@click="edit = false"', cls="w-full",
-                       delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Onderdeel"), c.name)) }}
     </form>
     {# "+ Product" in de paneelkop (#623-4): de toevoegvorm stond permanent open,
        terwijl de meeste onderdelen één product hebben. #}
@@ -226,9 +225,11 @@
                  up_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verplaats" hx-vals=\'{"richting":"omhoog"}\' hx-target="#aa-detail" hx-swap="innerHTML"',
                  down_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verplaats" hx-vals=\'{"richting":"omlaag"}\' hx-target="#aa-detail" hx-swap="innerHTML"') }}
             {{ ui.edit_toggle("ed") }}
+            <div x-show="ed" x-cloak>{{ ui.action_bar(form="aa-prod-" ~ p.id, cancel_attrs='@click="ed = false"',
+                 delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Product"), p.name)) }}</div>
           </div>
         </div>
-        <form x-show="ed" x-cloak class="flex flex-wrap gap-2 items-end mt-2"
+        <form id="aa-prod-{{ p.id }}" x-show="ed" x-cloak class="flex flex-wrap gap-2 items-end mt-2"
               hx-post="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}/producten/{{ p.id }}"
               hx-target="#aa-detail" hx-swap="innerHTML">
           <div>{{ ui.label(_("Naam"), "epname-" ~ p.id, required=True) }}
@@ -246,8 +247,6 @@
               <option value="gratis" {% if _afr == "gratis" %}selected{% endif %}>{{ _("Gratis") }}</option>
               <option value="ter_plaatse" {% if _afr == "ter_plaatse" %}selected{% endif %}>{{ _("Ter plaatse") }}</option>
             {% endcall %}</div>
-          {{ ui.action_bar(cancel_attrs='@click="ed = false"', cls="w-full",
-                           delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Product"), p.name)) }}
         </form>
       </div>
       {% endfor %}

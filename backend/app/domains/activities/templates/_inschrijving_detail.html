@@ -24,7 +24,10 @@
       {% endif %}
     </div>
     {% if editable %}
-    {{ ui.edit_toggle("edit", size="sm") }}
+    <div class="flex gap-2">
+      {{ ui.edit_toggle("edit", size="sm") }}
+      <div x-show="edit" x-cloak>{{ ui.action_bar(form="insch-form-" ~ reg.id, cancel_attrs='@click="edit = false"') }}</div>
+    </div>
     {% endif %}
   </div>
 
@@ -49,7 +52,7 @@
        is vervallen: hij sloeg per veld op, waardoor je niet kon zien wat er samen
        bewaard werd. "Toevoegen" en "Verwijder" blijven aparte acties — die wijzigen
        wélke regels er zijn, niet hun waarden. #}
-    <form class="space-y-3" hx-post="{{ _base }}/opslaan"
+    <form id="insch-form-{{ reg.id }}" class="space-y-3" hx-post="{{ _base }}/opslaan"
           hx-target="closest .bg-gray-50" hx-swap="outerHTML">
       {# Contactgegevens corrigeerbaar (#624). Een tikfout in het e-mailadres betekende
          dat de bevestiging niet aankwam, en dat was alleen recht te zetten door de
@@ -145,10 +148,6 @@
         {{ ui.textarea_control("remarks", id="reg-remarks-" ~ reg.id, rows=2, value=reg.remarks or "", cls="w-full") }}
       </div>
 
-      {# Golf 6 (#913, A2): dé ene actiebalk sluit het bewerkvlak af — de toggle
-         bovenaan vervangt dit niet. Geen Verwijderen hier: dat is een
-         lijst-rijactie op het scherm dat dit fragment toont. #}
-      {{ ui.action_bar(cancel_attrs='@click="edit = false"') }}
     </form>
   </div>
   {% endif %}

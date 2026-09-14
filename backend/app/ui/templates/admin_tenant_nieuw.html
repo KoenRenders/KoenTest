@@ -10,6 +10,8 @@
 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
     <form class="space-y-3" hx-post="/admin/tenants" hx-target="body" hx-swap="innerHTML"
          >
+      {# Golf 6, kop-herziening: alles bovenaan. #}
+      {{ ui.action_bar(cancel_href="/admin/tenants") }}
       <div>{{ ui.label(_("Naam"), "t-name", required=True) }}
         <input name="name" id="t-name" required class="w-full"></div>
       <div>{{ ui.label(_("Code (slug)"), "t-code", required=True) }}
@@ -24,7 +26,6 @@
       <div>{{ ui.label(_("Canonieke URL"), "t-baseurl") }}
         <input name="base_url" id="t-baseurl" placeholder="https://…" class="w-full">
         <p class="text-xs text-ink-soft mt-1">{{ _("Optioneel; de overige instellingen zet je nadien in de tenant zelf.") }}</p></div>
-      {{ ui.action_bar(cancel_href="/admin/tenants") }}
     </form>
 </div>
 {% endblock %}

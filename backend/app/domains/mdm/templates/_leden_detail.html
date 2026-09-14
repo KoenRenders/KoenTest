@@ -16,18 +16,16 @@
       </div>
       <div class="flex gap-2 shrink-0 ml-4">
         {{ ui.edit_toggle("edit") }}
+        <div x-show="edit" x-cloak>{{ ui.action_bar(form="pc-" ~ m.id, cancel_attrs='@click="edit = false"',
+             delete_attrs=('hx-post="/admin/leden/gezin/' ~ family.id ~ '/persoon/' ~ m.id ~ '/verwijderen" hx-target="#leden-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Persoon"), m.first_name ~ " " ~ m.last_name)) if not hoofd else "") }}</div>
       </div>
     </div>
   </div>
-  <form x-show="edit" x-cloak class="space-y-3"
+  <form id="pc-{{ m.id }}" x-show="edit" x-cloak class="space-y-3"
         hx-post="/admin/leden/gezin/{{ family.id }}/persoon/{{ m.id }}"
         hx-target="#leden-detail" hx-swap="innerHTML">
     {# Veldenset incl. relatie (#498) via de gedeelde macro — zie _leden_persoon_velden. #}
     {% with p = m %}{% include "_leden_persoon_velden.html" %}{% endwith %}
-    {# Golf 6 (#913, A2): Verwijderen verhuisde van de kaartkop hierheen —
-       niet voor het hoofdlid, dat kan niet weg. #}
-    {{ ui.action_bar(cancel_attrs='@click="edit = false"',
-         delete_attrs=('hx-post="/admin/leden/gezin/' ~ family.id ~ '/persoon/' ~ m.id ~ '/verwijderen" hx-target="#leden-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Persoon"), m.first_name ~ " " ~ m.last_name)) if not hoofd else "") }}
   </form>
 </div>
 {% endmacro %}
@@ -53,9 +51,12 @@
     <div class="flex items-center justify-between gap-2">
       <span x-show="!edit" class="text-sm text-gray-700 inline-flex items-start gap-1">{{ ui.icon("map-pin", cls="mt-0.5 shrink-0") }} {{ family.street }} {{ family.house_number }}{% if family.bus_number %} bus {{ family.bus_number }}{% endif %}, {{ family.postal_code }} {{ family.municipality }}</span>
       <span x-show="edit" x-cloak class="text-sm text-gray-500">{{ _("Adres bewerken") }}</span>
-      {{ ui.edit_toggle("edit") }}
+      <div class="flex gap-2">
+        {{ ui.edit_toggle("edit") }}
+        <div x-show="edit" x-cloak>{{ ui.action_bar(form="adres-form", cancel_attrs='@click="edit = false"') }}</div>
+      </div>
     </div>
-    <form x-show="edit" x-cloak class="space-y-3"
+    <form id="adres-form" x-show="edit" x-cloak class="space-y-3"
           hx-post="/admin/leden/gezin/{{ family.id }}/adres"
           hx-target="#leden-detail" hx-swap="innerHTML">
       <div class="grid grid-cols-4 gap-3">
@@ -72,7 +73,6 @@
             {% endfor %}
           {% endcall %}</div>
       </div>
-      {{ ui.action_bar(cancel_attrs='@click="edit = false"') }}
     </form>
   </div>
 
@@ -93,6 +93,8 @@
   {# Bestuurslid #}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
     <h3 class="font-semibold mb-2">{{ _("Verantwoordelijk bestuurslid") }}</h3>
+    {# A8 (golf 6, #913): autosave alleen als benoemd gedrag — de regel eronder
+       zegt het; een stille autosave was de enige in het beheer. #}
     <form hx-post="/admin/leden/gezin/{{ family.id }}/bestuurslid"
           hx-target="#leden-detail" hx-swap="innerHTML" hx-trigger="change">
       {% call ui.select_control("person_id", cls="w-full") %}
@@ -101,6 +103,9 @@
         <option value="{{ p.id }}" {% if family.board_member and family.board_member.id == p.id %}selected{% endif %}>{{ p.last_name }} {{ p.first_name }}</option>
         {% endfor %}
       {% endcall %}
+      {# A8 (golf 6, #913): dit was de enige stille autosave in het beheer.
+         Autosave mag, maar alleen benoemd — vandaar deze regel. #}
+      <p class="text-xs text-ink-soft mt-1">{{ _("Een keuze wordt meteen bewaard.") }}</p>
     </form>
   </div>
 

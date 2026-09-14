@@ -9,11 +9,12 @@
 
 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
     <form class="space-y-3" hx-post="/admin/formulieren">
+      {# Golf 6, kop-herziening: alles bovenaan. #}
+      {{ ui.action_bar(cancel_href="/admin/formulieren") }}
       <div>{{ ui.label(_("Naam"), "f-title", required=True) }}
         <input name="title" id="f-title" required class="w-full"
                placeholder="{{ _('bv. Inschrijving zomerkamp') }}"></div>
       <p class="text-xs text-ink-soft">{{ _("Na het aanmaken open je meteen de form-builder; de naam kan je daar nog wijzigen.") }}</p>
-      {{ ui.action_bar(cancel_href="/admin/formulieren") }}
     </form>
 </div>
 {% endblock %}

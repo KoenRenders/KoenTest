@@ -10,6 +10,8 @@
 
 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
   <form class="space-y-3" hx-post="/admin/activiteiten">
+      {# Golf 6, kop-herziening: alles bovenaan. #}
+    {{ ui.action_bar(cancel_href="/admin/activiteiten") }}
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div>{{ ui.label(_("Naam"), "name", required=True) }}
         {{ ui.input_control("name", id="name", required=True, cls="w-full") }}</div>
@@ -40,8 +42,6 @@
     </fieldset>
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1"> {{ _("Enkel voor leden") }}</label>
     <p class="text-xs text-ink-soft">{{ _("Een affiche opladen kan zodra de activiteit bestaat — dat doe je in de editor.") }}</p>
-    {# Golf 6 (#913, A2): de ene actiebalk onderaan; sticky — lang formulier. #}
-    {{ ui.action_bar(cancel_href="/admin/activiteiten", sticky=True) }}
   </form>
 </div>
 {% endblock %}

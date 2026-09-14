@@ -22,7 +22,7 @@
    Vier kolommen op `sm` en niet drie: met drie wordt de vraag te smal zodra alle
    drie op één regel moeten. Type (1) · Vraag (2) · Verplicht (1). Op smal blijft
    alles gestapeld, met het type over de volle breedte. #}
-<form x-show="{{ tonen }}" x-cloak class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-sm"
+<form {% if f %}id="fb-veld-{{ f.id }}" {% endif %}x-show="{{ tonen }}" x-cloak class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-sm"
       hx-post="/admin/formulieren/{{ form.id }}{% if f %}/velden/{{ f.id }}{% else %}/velden{% endif %}"
       hx-target="#fb-detail" hx-swap="innerHTML">
   {% if not f %}<input type="hidden" name="section_id" value="{{ sid or '' }}">{% endif %}
@@ -57,10 +57,9 @@
   <div>{{ ui.label(_("Label laag"), "frl-" ~ _id) }}{{ ui.input_control("rating_low_label", id="frl-" ~ _id, value=(f.rating_low_label or "" if f else ""), cls="w-full") }}</div>
   <div>{{ ui.label(_("Label hoog"), "frh-" ~ _id) }}{{ ui.input_control("rating_high_label", id="frh-" ~ _id, value=(f.rating_high_label or "" if f else ""), cls="w-full") }}</div>
   {% endif %}
-  {# Golf 6 (#913, A2): één balk per bewerkvlak; het veld-verwijderen (#698)
-     verhuisde van de kaartkop hierheen — alleen bij een bestaand veld. #}
-  <div class="sm:col-span-4">{{ ui.action_bar(cancel_attrs='@click="' ~ tonen ~ ' = false"',
-       delete_attrs=('hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Veld"), f.label)) if f else "") }}</div>
+  {# Golf 6, kop-herziening: bij een bestaand veld staat het cluster in de
+     kaartkop; alleen de toevoegvariant houdt zijn knoppen in de vorm. #}
+  {% if not f %}<div class="sm:col-span-4">{{ ui.action_bar(cancel_attrs='@click="' ~ tonen ~ ' = false"') }}</div>{% endif %}
 </form>
 {% endmacro %}
 
@@ -140,6 +139,8 @@
            down_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verplaats" hx-vals=\'{"richting":"neer"}\' hx-target="#fb-detail" hx-swap="innerHTML"',
            first=eerste, last=laatste) }}
       {{ ui.edit_toggle("edit") }}
+      <div x-show="edit" x-cloak>{{ ui.action_bar(form="fb-veld-" ~ f.id, cancel_attrs='@click="edit = false"',
+           delete_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/velden/' ~ f.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Veld"), f.label)) }}</div>
     </div>
   </div>
   {{ veld_vorm(f, f.section_id, tonen='edit') }}
@@ -218,6 +219,8 @@
            schermen verderop in dit bestand al op de veldkaart staat — een
            handgemaakte knop ernaast is precies hoe die twee uit elkaar lopen. #}
         {{ ui.edit_toggle("open", size="sm") }}
+        <div x-show="open" x-cloak>{{ ui.action_bar(form="fb-inst", cancel_attrs='@click="open = false"',
+             delete_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" ' ~ confirm_attrs(_("Formulier"), form.title)) }}</div>
       </div>
     </div>
     {# #689: de deellink met een kopieerknop. `data-copy-bron` is de terugval van
@@ -240,7 +243,7 @@
       {% endif %}
       <span>· {{ submission_count }} inzendingen</span>
     </p>
-    <form x-show="open" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 text-sm"
+    <form id="fb-inst" x-show="open" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 text-sm"
           hx-post="/admin/formulieren/{{ form.id }}/instellingen" hx-target="#fb-detail" hx-swap="innerHTML">
       <div>{{ ui.label(_("Titel"), "fbt", required=True) }}{{ ui.input_control("title", id="fbt", value=(form.title), required=True, cls="w-full") }}</div>
       {# #690: optioneel. Leeg laten betekent "alleen de tokenlink". #}
@@ -278,10 +281,6 @@
          actief teruggezet naar twee. Een omschrijving is lopende tekst. #}
       <div class="sm:col-span-2">{{ ui.label(_("Omschrijving"), "fbd") }}{{ ui.textarea_control("description", id="fbd", value=form.description or "", cls="w-full") }}</div>
       <div class="sm:col-span-2">{{ ui.label(_("Bevestigingsboodschap"), "fbc") }}{{ ui.textarea_control("confirmation_message", id="fbc", value=form.confirmation_message or "", cls="w-full") }}</div>
-      {# Golf 6 (#913, A2): sticky — lang instellingenpaneel; Verwijderen
-         verhuisde van de kop (die houdt de inhoudsacties) naar hier. #}
-      {{ ui.action_bar(cancel_attrs='@click="open = false"', sticky=True,
-                       delete_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" ' ~ confirm_attrs(_("Formulier"), form.title)) }}
     </form>
   </div>
 
@@ -298,6 +297,10 @@
     <div class="p-4">
     {% if g.section.next_is_end %}<p class="mb-2">{{ ui.badge(_("daarna: einde"), "yellow") }}</p>{% elif g.section.next_section_id %}<p class="mb-2">{{ ui.badge(_("daarna: sprong"), "yellow") }}</p>{% endif %}
     <form x-show="sedit" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2 text-sm"
+          data-sectievorm>
+      {# Golf 6, kop-herziening: het cluster staat bovenaan het bewerkvlak. #}
+      <div class="sm:col-span-2">{{ ui.action_bar(cancel_attrs='@click="sedit = false"',
+           delete_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Sectie"), g.section.title or _("Sectie"))) }}</div
           hx-post="/admin/formulieren/{{ form.id }}/secties/{{ g.section.id }}" hx-target="#fb-detail" hx-swap="innerHTML">
       <div>{{ ui.label(_("Titel"), "st-" ~ g.section.id) }}{{ ui.input_control("title", id="st-" ~ (g.section.id), value=(g.section.title or ""), cls="w-full") }}</div>
       {# #699: één keuzelijst, net als bij een optie. "Daarna: einde" stond als los
@@ -314,8 +317,6 @@
          een korte toelichting boven een groep vragen, geen lopende tekst zoals die
          van het formulier zelf. #}
       <div class="sm:col-span-2">{{ ui.label(_("Omschrijving"), "sd-" ~ g.section.id) }}{{ ui.textarea_control("description", id="sd-" ~ g.section.id, rows=2, value=g.section.description or "", cls="w-full") }}</div>
-      <div class="sm:col-span-2">{{ ui.action_bar(cancel_attrs='@click="sedit = false"',
-           delete_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/secties/' ~ g.section.id ~ '/verwijderen" hx-target="#fb-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Sectie"), g.section.title or _("Sectie"))) }}</div>
     </form>
     <div class="mt-3 space-y-2">
       {% for f in g.fields %}{{ veld_kaart(f, eerste=loop.first, laatste=loop.last) }}{% endfor %}

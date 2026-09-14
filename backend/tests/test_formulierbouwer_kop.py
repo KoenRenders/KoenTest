@@ -69,13 +69,14 @@ def _instellingenknop(html: str) -> str:
     deze helper vond dáármee de verkeerde knop. Een botsing, precies de fout die
     deze testreeks elders aanwijst.
 
-    De ondubbelzinnige haak is de INHOUD die `edit_toggle` voor deze state rendert:
-    `x-show="!open"` staat alleen op dit paar. De veldkaarten gebruiken `edit`.
+    De ondubbelzinnige haak is wat `edit_toggle` voor deze state rendert — sinds
+    de kop-herziening van golf 6 (#913) de `x-show="!open"` op de KNOP zelf
+    (opener-only). De veldkaarten gebruiken `edit`.
     """
-    merk = '<span x-show="!open">'
-    assert merk in html, "er staat geen bewerktoggle op de state `open`"
-    start = html.rindex("<button", 0, html.index(merk))
-    return html[start:html.index("</button>", start) + len("</button>")]
+    merk = 'x-show="!open"'
+    knoppen = [k for k in html.split("<button")[1:] if merk in k.split(">")[0]]
+    assert knoppen, "er staat geen bewerk-opener op de state `open`"
+    return "<button" + knoppen[0].split("</button>")[0] + "</button>"
 
 
 # ── 1. Bewerken/Annuleren ──────────────────────────────────────────────────
@@ -86,7 +87,9 @@ def test_de_instellingenknop_is_een_bewerktoggle(client, admin_headers):
     knop = _instellingenknop(_bouwer(client, form["id"]))
 
     assert "Bewerken" in knop, knop
-    assert "Annuleren" in knop, "de knop wordt niet Annuleren zodra je bewerkt"
+    # Kop-herziening golf 6 (#913): de opener verdwijnt in bewerkmodus; het
+    # cluster ernaast draagt Annuleren.
+    assert 'x-show="!open"' in knop, "de opener hoort te verdwijnen zodra je bewerkt"
     assert "Instellingen" not in knop, knop
 
 
