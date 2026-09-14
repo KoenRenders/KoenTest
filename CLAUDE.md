@@ -141,21 +141,24 @@ All commits and pushes are done by Claude — the user never does this manually.
   `master`**. Routine work, quick fixes, and integration land here straight on
   `master`, committed and pushed by Claude.
 - **Worktree CLIs** (feature worktrees, e.g. a `claude/...` or `feature/...`
-  branch) work on a **feature branch** and keep it CI-green. **A feature CLI
-  NEVER merges to `master` itself — not with green CI, not with an approved
-  deliverable, not "as a milestone"** (decided by Koen on 14 September 2026;
-  this supersedes and revokes the standing merge approval of 6 September 2026).
-  Work reaches `master` only through the release planning: Koen assigns it to a
-  release, and the **master CLI** performs the merge as a release step. CI green
-  and content approval are necessary, never sufficient — the planning decides
-  the moment. Deploying to UAT or PROD and recreating the shared Caddy require
-  explicit confirmation every time, as before. Never commit feature work
-  straight onto `master` from a worktree CLI.
+  branch) work on a **feature branch**. **The release assignment IS the merge
+  approval** (standing approval of 6 September 2026, scope made explicit by
+  Koen on 14 September 2026): work that Koen has assigned to a release merges
+  into `master` autonomously as soon as CI is green — asking again per merge
+  would be the double work this approval exists to remove. **Work that is NOT
+  on a release never merges itself** — not with green CI, not with an approved
+  deliverable, not "as a milestone": it waits until Koen plans it onto a
+  release (or the master CLI merges it as a release step). Content approval of
+  a deliverable is not a release assignment. Deploying to UAT or PROD and
+  recreating the shared Caddy require explicit confirmation every time, as
+  before. Never commit feature work straight onto `master` from a worktree
+  CLI.
 
 In short: **decide by which working copy you are in.** Master worktree → commit on
-`master`. Feature worktree → commit on its branch; the merge to `master` is the
-master CLI's release step, never your own. The only branch exception on the master
-side is a hotfix on a released tag — see "Releases and hotfixes" below.
+`master`. Feature worktree → commit on its branch; merge to `master` when the work
+is release-assigned and CI is green, and otherwise not at all. The only branch
+exception on the master side is a hotfix on a released tag — see "Releases and
+hotfixes" below.
 
 **Every deployable code change goes through an issue.** Before implementing
 anything that ships in the deployable stack (backend, frontend, migrations,
@@ -171,8 +174,9 @@ not require an issue and may be committed directly when Koen asks for them.
 
 After completing a task:
 1. In the master worktree: commit and push directly to `master`. In a feature
-   worktree: commit and push to the feature branch and keep CI green; the merge
-   to `master` waits for the release planning (14 September 2026 — see above).
+   worktree: commit and push to the feature branch, let CI run, and — only when
+   the work is assigned to a release — merge to `master` once it is green.
+   Unassigned work stays on its branch (14 September 2026 — see above).
 
 **Autonoom een release afwerken (geen "mag ik doorgaan?").** Zodra Koen werk aan
 een release toewijst — of dat nu de lopende of de volgende release is (bv. "dit is
@@ -244,9 +248,10 @@ git fetch origin master && git reset --hard origin/master
 **Feature-branch work only enters the release pipeline once it is merged to
 `master` (after CI is green).** HDEV deploys `master` HEAD and the release tag
 targets `master`, so nothing on an unmerged feature branch can ever reach HDEV,
-UAT, or PROD. The merge-to-`master` is the gate into a release and is **performed
-by the master CLI, on the moment the release planning dictates** (14 September
-2026) — before any HDEV test or tag step below.
+UAT, or PROD. The merge-to-`master` is the gate into a release — for
+release-assigned work, do it as soon as CI is green, before any HDEV test or
+tag step below; unassigned work does not take this gate at all (14 September
+2026).
 
 ### Handoff from a feature worktree to master
 
@@ -339,7 +344,7 @@ release afwerken*, *Testen en test-evidence* — and this table is only the
 | # | Step | Autonomy | How |
 |---|---|---|---|
 | 1 | Release tracking issue (single source of truth) | CLI | one checkbox per issue; never uncheck Koen's boxes |
-| 2 | Merge gate: every feature branch merged to `master`, CI green | **master CLI**, within the assigned release (feature CLIs never merge) | `gh pr merge` |
+| 2 | Merge gate: every feature branch merged to `master`, CI green | CLI, autonomous once CI is green — the release assignment is the approval | `gh pr merge` |
 | 3 | CI evidence into the tracker: run id + link + `N passed` + the `pip-audit` outcome | CLI | `gh run view` |
 | 4 | New/changed **env vars** set on each host | **Koen** | name them explicitly; they are never auto-added |
 | 5 | Deploy master to HDEV and verify | CLI, autonomous | `raak deploy hdev` |
