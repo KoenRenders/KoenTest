@@ -8,11 +8,11 @@
   <table class="min-w-full text-sm">
     <thead>
       <tr class="text-left text-gray-500 border-b border-gray-200">
-        {{ ui.sort_th(_("Datum"), sorteer_urls["datum"], active=(sort == "datum"), direction=richting, hx_target="#email-log-lijst", include="#el-filters") }}
-        {{ ui.sort_th(_("Ontvanger"), sorteer_urls["ontvanger"], active=(sort == "ontvanger"), direction=richting, hx_target="#email-log-lijst", include="#el-filters") }}
-        {{ ui.sort_th(_("Onderwerp"), sorteer_urls["onderwerp"], active=(sort == "onderwerp"), direction=richting, hx_target="#email-log-lijst", include="#el-filters") }}
-        {{ ui.sort_th(_("Type"), sorteer_urls["type"], active=(sort == "type"), direction=richting, hx_target="#email-log-lijst", include="#el-filters") }}
-        {{ ui.sort_th(_("Status"), sorteer_urls["status"], active=(sort == "status"), direction=richting, hx_target="#email-log-lijst", include="#el-filters") }}
+        {{ ui.sort_th(_("Datum"), sorteer_urls["datum"], active=(sort == "datum"), direction=richting, hx_target="#email-log-lijst") }}
+        {{ ui.sort_th(_("Ontvanger"), sorteer_urls["ontvanger"], active=(sort == "ontvanger"), direction=richting, hx_target="#email-log-lijst") }}
+        {{ ui.sort_th(_("Onderwerp"), sorteer_urls["onderwerp"], active=(sort == "onderwerp"), direction=richting, hx_target="#email-log-lijst") }}
+        {{ ui.sort_th(_("Type"), sorteer_urls["type"], active=(sort == "type"), direction=richting, hx_target="#email-log-lijst") }}
+        {{ ui.sort_th(_("Status"), sorteer_urls["status"], active=(sort == "status"), direction=richting, hx_target="#email-log-lijst") }}
         <th class="px-4 py-3"></th>
       </tr>
     </thead>
