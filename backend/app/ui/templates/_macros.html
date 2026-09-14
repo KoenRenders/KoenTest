@@ -92,6 +92,7 @@
   "search": '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
   "chevron-up": '<path d="m18 15-6-6-6 6"/>',
   "chevron-down": '<path d="m6 9 6 6 6-6"/>',
+  "arrow-up-right": '<path d="M7 7h10v10"/><path d="M7 17 17 7"/>',
   "arrow-up": '<path d="m5 12 7-7 7 7"/><path d="M12 19V5"/>',
   "arrow-down": '<path d="M12 5v14"/><path d="m19 12-7 7-7-7"/>',
   "plus": '<path d="M5 12h14"/><path d="M12 5v14"/>',
@@ -556,6 +557,46 @@
   <a href="{{ url }}" hx-get="{{ url }}"{% if hx_target %} hx-target="{{ hx_target }}"{% endif %}{% if include %} hx-include="{{ include }}"{% endif %} hx-swap="innerHTML"
      class="inline-flex items-center gap-1 hover:underline">{{ label }}{% if active %}{{ icon("chevron-up" if direction == "asc" else "chevron-down", 12) }}{% endif %}</a>
 </th>
+{%- endmacro %}
+
+{# ── P13 relatienavigatie (golf 5, #913 — triage A5) ──────────────────────────
+   Drie macro's, samen het patroon:
+
+   `relatie_chips(items)` — de relatiebalk onder een recordkop. `items` = lijst
+   van dicts {label, count, href}; elke chip opent de GEWONE lijst van dat
+   domein in een expliciete recordscope. Bij meer dan ~5 relaties hoort een
+   "Meer"-chip — die variant bestaat nog niet en komt met het scherm dat hem
+   nodig heeft.
+
+   `scope_regel(alles_url)` — de zichtbare scope op zo'n gescopeerde lijst.
+   De caller levert de tekst ("Voor inschrijving: <a>Anna</a>"); de macro zet
+   er de expliciete uitgang naast. De scope overleeft filterwijzigingen (hidden
+   field in de filter_bar) en verdwijnt ALLEEN via deze uitgang — een
+   onzichtbaar voorfilter is verboden, precies daarom bestaat deze regel.
+
+   `spronglink(url, tekst)` — een inline verwijzing naar een ander record:
+   tekst + arrow-up-right. De pijl betekent hier "springt naar een ander
+   record" — de #702-regel (pijl = verplaatsen) geldt voor knoppen, dit is een
+   link; het patroon (A5) schrijft dit icoon voor. #}
+{% macro relatie_chips(items) -%}
+<div class="mb-4 flex flex-wrap gap-2">
+  {% for c in items %}
+  <a href="{{ c.href }}" class="inline-flex items-center gap-1.5 rounded-full border border-line bg-surface px-3 py-1 text-sm text-blue-700 hover:bg-blue-50">
+    {{ c.label }} <span class="font-semibold">{{ c.count }}</span>
+  </a>
+  {% endfor %}
+</div>
+{%- endmacro %}
+
+{% macro scope_regel(alles_url, alles_label=None) -%}
+<div class="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-700" data-scope-regel>
+  <span>{{ caller() }}</span>
+  <a class="font-medium text-blue-700 hover:underline whitespace-nowrap" href="{{ alles_url }}">{{ alles_label or _("Alle bekijken") }}</a>
+</div>
+{%- endmacro %}
+
+{% macro spronglink(url, tekst, aria=None) -%}
+<a href="{{ url }}" class="text-blue-700 hover:underline inline-flex items-center gap-0.5"{% if aria %} aria-label="{{ aria }}"{% endif %}>{{ tekst }}{{ icon("arrow-up-right", 12) }}</a>
 {%- endmacro %}
 
 {# ── Filterchips (#586) ───────────────────────────────────────────────────────

@@ -78,7 +78,7 @@ def _ctx(request: Request, db: Session, since: str, group: str, actor: str,
 
     alle = sorted(alle, key=_sleutel, reverse=(richting == "desc"))
 
-    from urllib.parse import urlencode
+    from urllib.parse import quote, urlencode
 
     def _sorteer_url(key: str) -> str:
         params = {k: v for k, v in (("since", since), ("group", group),
@@ -93,6 +93,24 @@ def _ctx(request: Request, db: Session, since: str, group: str, actor: str,
     totaal = len(alle)
     page = max(1, page)
     feed_rows = alle[(page - 1) * PER_PAGE:page * PER_PAGE]
+
+    # P13-spronglinks (golf 5, #913): de object-cel linkt naar de canonieke
+    # pagina van het record — alleen voor entiteiten die er een hébben; de rest
+    # blijft tekst. De inschrijvingspagina kent P3, dus alleen die sprong draagt
+    # de weg terug naar dit scherm mét zijn filter- en sorteerstand.
+    terug = quote("/admin/ledenwijzigingen?" + urlencode(
+        {k: v for k, v in (("since", since), ("group", group), ("actor", actor),
+                           ("sort", sort), ("richting", richting),
+                           ("page", page if page > 1 else "")) if v}), safe="")
+    _OBJECT_URLS = {
+        "Gezin": "/admin/leden/gezin/{id}",
+        "Activiteit": "/admin/activiteiten/{id}",
+        "Inschrijving": "/admin/inschrijvingen/{id}?terug=" + terug,
+    }
+    for r in feed_rows:
+        sjabloon = _OBJECT_URLS.get(r["entity"])
+        r["object_url"] = (sjabloon.format(id=r["entity_id"])
+                           if sjabloon and r.get("entity_id") else None)
     return {
         "since": vanaf.isoformat(),
         "group": group, "actor": actor,

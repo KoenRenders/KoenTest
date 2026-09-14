@@ -11,6 +11,9 @@
   <p class="text-sm text-ink-soft -mt-4 mb-4">
     <a class="text-blue-700 hover:underline" href="/admin/activiteiten/{{ activiteit_id }}">{{ activiteit_titel }}</a>{% if component_naam %} · {{ component_naam }}{% endif %}{% if reg.registered_at %} · {{ _("ingeschreven op") }} {{ reg.registered_at.strftime("%d-%m-%Y") }}{% endif %}
   </p>
+  {# P13 (golf 5, #913): relatiebalk onder de recordkop — elke chip opent de
+     gewone lijst van dat domein in deze recordscope. #}
+  {{ ui.relatie_chips(relaties) }}
   {% include "_inschrijving_detail.html" %}
 </div>
 {% endblock %}

@@ -747,6 +747,41 @@ See §2.7: confirms inline, never with a toast.
 - **Test**: e2e across **two** actions — every finding in this class sat
   between two actions, not inside one (#759).
 
+### P13 · Related records (A5, wave 5 #913)
+
+In an ERP this pattern carries most of the daily navigation (order →
+deliveries → invoices). Three macros, one behaviour:
+
+- **When**: a detail page whose record has related records elsewhere.
+- **What happens**: a **relation bar** (`ui.relatie_chips`) under the record
+  header — chips with counts ("Betalingen 3"), max ~5 plus a "Meer" chip when
+  it grows past that. Each chip opens the **ordinary list screen** of that
+  domain in an explicit **record scope** (a query parameter, e.g.
+  `?inschrijving=12`).
+- **The scoped list** shows a visible **scope rule** (`ui.scope_regel`):
+  "Voor inschrijving: *Anna Peeters*" with the record name linking back to the
+  record (carrying P3 `?terug=` to return to the scoped list). The scope
+  survives every filter change (hidden field in the filter bar) and clearing
+  filters; the **only exit** is the explicit "Alle bekijken" link. The export
+  carries the scope too — a scoped screen that exports everything is a silent
+  mismatch between screen and file. The server re-validates the scope id; an
+  unknown id shows the scope with an empty list rather than silently showing
+  everything. **An invisible pre-filter is forbidden** — `?record=` (#704)
+  got the same visible rule for that reason.
+- **Inline references** to another record (a name, an "Inschrijving #12" in a
+  log) use `ui.spronglink`: text plus `arrow-up-right`, with an `aria-label`.
+  Only for entities that actually have a canonical page; the rest stays text.
+- **The way back**: P3 — the jump carries `?terug=` where the target supports
+  it.
+- **Forbidden**: pre-filtered lists without a visible scope rule; building a
+  special-purpose "related payments" screen instead of scoping the ordinary
+  list.
+- **Test**: scope shows only the record's rows, survives a filter request,
+  and a forged or unknown scope id never silently widens the list
+  (`test_relatienavigatie.py`).
+- **Reference**: inschrijving → betalingen (`/admin/betalingen?inschrijving=`),
+  and the spronglinks on `/admin/ledenwijzigingen`.
+
 ## 5. Behaviour rules and their status
 
 The rules below apply everywhere. The status column says whether the code base

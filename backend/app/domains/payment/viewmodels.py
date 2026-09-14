@@ -35,6 +35,10 @@ class BetalingenView(ViewModel):
     # iets open" zijn twee verschillende vragen, en je wil ze kunnen combineren.
     openstaand: bool
     q: str
+    # P13 (golf 5, #913): actieve recordscope (?inschrijving= of ?record=), of
+    # None. Draagt de tekst en uitgang voor ui.scope_regel plus het hidden field
+    # waarmee de scope filterwijzigingen overleeft.
+    scope: dict[str, Any] | None
 
     # Filteropties, opgebouwd uit de zichtbare records.
     componenten: list[tuple[int, str]]

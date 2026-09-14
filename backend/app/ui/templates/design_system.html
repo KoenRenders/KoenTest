@@ -406,7 +406,10 @@
   <div class="mt-6">{{ ui.chart_stacked(demo_stacked, id="ds-stacked") }}</div>
 
   <p class="mt-3 text-sm text-gray-600">
-    {{ _("Elke grafiek heeft een <title> en een <desc>, en per element een <title> met de waarde. De tabel eronder blijft staan — die is het echte tekstalternatief.") }}
+    {# #942: de tags in de string zelf ge-escaped. `_()` geeft Markup terug (de
+       #514-val), dus een rauwe <title> hier komt onontsnapt in de pagina en de
+       browser slikt als RCDATA-element de hele rest van de kitpagina in. #}
+    {{ _("Elke grafiek heeft een &lt;title&gt; en een &lt;desc&gt;, en per element een &lt;title&gt; met de waarde. De tabel eronder blijft staan — die is het echte tekstalternatief.") }}
   </p>
 {% endcall %}
 
@@ -495,6 +498,18 @@
        pagina toont een kopieerknop, en daar voldoet elk geldig nummer voor. #}
     <span>BE68 5390 0754 7034</span>{{ ui.copy_button("BE68 5390 0754 7034", _("Kopieer het rekeningnummer")) }}
   </div>
+{% endcall %}
+
+{# ── 12b. Relatienavigatie (P13, golf 5 #913) ─────────────────────────────── #}
+{{ ui.section_header(_("12b · Relatienavigatie (P13)")) }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">{{ _("Relatiebalk onder een recordkop: elke chip opent de gewone lijst van dat domein in een expliciete recordscope.") }}</p>
+  {{ ui.relatie_chips([{"label": _("Betalingen"), "count": 3, "href": "#"},
+                       {"label": _("Inschrijvingen"), "count": 12, "href": "#"}]) }}
+  <p class="text-sm text-gray-600 mb-3">{{ _("De scope-regel op zo'n gescopeerde lijst — zichtbaar, met de expliciete uitgang. Ze overleeft filterwijzigingen; een onzichtbaar voorfilter is verboden.") }}</p>
+  {% call ui.scope_regel("#") %}{{ _("Voor inschrijving:") }} <a class="font-medium hover:underline" href="#">Anna Peeters</a>{% endcall %}
+  <p class="text-sm text-gray-600 mb-2">{{ _("Inline verwijzing naar een ander record: de spronglink.") }}</p>
+  <p class="text-sm">{{ _("Gewijzigd door") }} {{ ui.spronglink("#", "Inschrijving #12", aria=_("Open inschrijving #12")) }}</p>
 {% endcall %}
 
 {# ── 13. Tabs ──────────────────────────────────────────────────────────────── #}
