@@ -1,0 +1,16 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ reg.contact_name }} — {{ _("Raak beheer") }}{% endblock %}
+{% block content %}
+{# Volwaardige inschrijvingspagina (golf 4, #913 — B2): de recordnaam in een lijst
+   landt hier. De terugknop draagt de A7-retourcontext: het gevalideerde adres van
+   de lijst die hierheen linkte, met haar filters en sortering er nog in. #}
+<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="{{ terug }}">← {{ terug_label }}</a></p>
+<div class="max-w-2xl">
+  {{ ui.page_header(reg.contact_name) }}
+  <p class="text-sm text-ink-soft -mt-4 mb-4">
+    <a class="text-blue-700 hover:underline" href="/admin/activiteiten/{{ activiteit_id }}">{{ activiteit_titel }}</a>{% if component_naam %} · {{ component_naam }}{% endif %}{% if reg.registered_at %} · {{ _("ingeschreven op") }} {{ reg.registered_at.strftime("%d-%m-%Y") }}{% endif %}
+  </p>
+  {% include "_inschrijving_detail.html" %}
+</div>
+{% endblock %}

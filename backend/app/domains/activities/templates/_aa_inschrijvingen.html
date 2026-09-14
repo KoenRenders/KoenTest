@@ -3,9 +3,11 @@
 <div class="overflow-x-auto">
   <table class="min-w-full text-sm">
     <thead>
+      {# Sorteerbare koppen (golf 4, #913 — de tabelnorm uit golf 3). Contact en
+         de productkolom zijn samengesteld en dus bewust niet sorteerbaar. #}
       <tr class="text-left text-gray-500 border-b border-gray-200">
-        <th class="px-3 py-2">{{ _("Datum") }}</th>
-        <th class="px-3 py-2">{{ _("Naam") }}</th>
+        {{ ui.sort_th(_("Datum"), sorteer_urls["datum"], active=(sort == "datum"), direction=richting, hx_target=doel, cls="px-3 py-2") }}
+        {{ ui.sort_th(_("Naam"), sorteer_urls["naam"], active=(sort == "naam"), direction=richting, hx_target=doel, cls="px-3 py-2") }}
         <th class="px-3 py-2">{{ _("Contact") }}</th>
         <th class="px-3 py-2">{{ _("Onderdeel / producten") }}</th>
         <th class="px-3 py-2"></th>
@@ -25,7 +27,10 @@
          keuze als de betaalkaart maakt (§2.8). #}
       <tr x-show="!open" class="border-b border-gray-100">
         <td class="px-3 py-2 whitespace-nowrap">{{ r.registered_at.strftime("%d-%m-%Y") if r.registered_at else "—" }}</td>
-        <td class="px-3 py-2">{{ r.contact_name }}{% if r.team_name %} <span class="text-gray-500">({{ r.team_name }})</span>{% endif %}</td>
+        {# B2 (golf 4, #913): de recordnaam opent de volwaardige pagina; het inline
+           openvouwen via "Details" blijft de secundaire variant. `terug` is de
+           A7-retourcontext — het activiteitenscherm waarop deze lijst staat. #}
+        <td class="px-3 py-2"><a class="text-blue-700 hover:underline" href="/admin/inschrijvingen/{{ r.id }}?terug=/admin/activiteiten/{{ activity_id }}">{{ r.contact_name }}</a>{% if r.team_name %} <span class="text-gray-500">({{ r.team_name }})</span>{% endif %}</td>
         <td class="px-3 py-2">{{ r.contact_email }}{% if r.phone %} · {{ r.phone }}{% endif %}</td>
         <td class="px-3 py-2">
           {% for item in r["items"] %}{{ item.quantity }}× {{ item.product_name or "—" }}{% if not loop.last %}, {% endif %}{% else %}—{% endfor %}
@@ -33,8 +38,8 @@
         </td>
         <td class="px-3 py-2 text-right">
           {{ ui.row_actions(
-               actions=[ui.detail_disclosure("/admin/inschrijvingen/" ~ r.id, "insch-det-" ~ r.id, _("Details"))],
-               delete_attrs='hx-post="/admin/activiteiten/' ~ activity_id ~ '/inschrijvingen/' ~ r.id ~ '/verwijderen' ~ ('?component_id=' ~ component_id if component_id else '') ~ '" hx-target="' ~ doel ~ '" hx-swap="innerHTML" ' ~ confirm_attrs(_("Inschrijving"), r.contact_name),
+               actions=[ui.detail_disclosure("/admin/inschrijvingen/" ~ r.id ~ "/fragment", "insch-det-" ~ r.id, _("Details"))],
+               delete_attrs='hx-post="/admin/activiteiten/' ~ activity_id ~ '/inschrijvingen/' ~ r.id ~ '/verwijderen?sort=' ~ sort ~ '&amp;richting=' ~ richting ~ ('&amp;component_id=' ~ component_id if component_id else '') ~ '" hx-target="' ~ doel ~ '" hx-swap="innerHTML" ' ~ confirm_attrs(_("Inschrijving"), r.contact_name),
                delete_label=_("Verwijderen")) }}
         </td>
       </tr>

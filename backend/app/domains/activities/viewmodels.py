@@ -28,3 +28,31 @@ class AdminActiviteitenView(ViewModel):
 
     csrf_token: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class AdminInschrijvingView(ViewModel):
+    """`admin_inschrijving.html` — de inschrijving als volwaardige pagina (golf 4,
+    #913, B2). De pagina wikkelt `_inschrijving_detail.html`, dus dit model draagt
+    naast de paginakop precies wat dat gedeelde fragment belooft te krijgen
+    (`_detail_ctx` + de error/toast-vlaggen die `_render_detail` altijd zet)."""
+
+    # Fragmentcontract (_inschrijving_detail.html)
+    reg: dict[str, Any]
+    products: list[dict[str, Any]]
+    totaal: Any
+    toon_ploegnaam: bool
+    ploegnaam_verplicht: bool
+    editable: bool
+    edit_open: bool
+    csrf_token: str
+    error: str | None
+    toast_bericht: str | None
+
+    # Paginakop + de weg terug (A7)
+    activiteit_id: int
+    activiteit_titel: str
+    component_naam: str | None
+    terug: str
+    terug_label: str
+    nav_items: list[dict[str, Any]] = field(default_factory=list)
