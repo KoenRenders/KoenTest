@@ -133,20 +133,28 @@ def _objects_section() -> list[str]:
              "merged into a single row. **not additive** marks a measure that may "
              "not be summed across those merged groups — an average of averages "
              "is not an average — so its cell stays empty there rather than "
-             "showing a number that happens to be wrong.", ""]
+             "showing a number that happens to be wrong.", "",
+             "**AI** is how far the object may travel towards a language model "
+             "(CR-07 §5.1): `admin_plain` as it is, `admin_tokenised` only as a "
+             "token like `gezin-23`, `none` never. The field has no default in "
+             "the declaration — adding an object without deciding this is an "
+             "import error, not an oversight that ships.", ""]
     for klass in CLASSES:
         members = [o for o in OBJECTS if o.klass == klass]
         if not members:
             continue
         lines += [f"### {klass}", "",
-                  "| Key | Name | Type | Format | Role | Source | Description |",
-                  "|---|---|---|---|---|---|---|"]
+                  "| Key | Name | Type | Format | Role | AI | Source | Description |",
+                  "|---|---|---|---|---|---|---|---|"]
         for obj in members:
             source = obj.sql.format(view=obj.view)
+            blootstelling = obj.ai_exposure.value
+            if obj.token_prefix:
+                blootstelling += f" (`{obj.token_prefix}-…`)"
             lines.append(
                 f"| `{obj.key}` | {_escape(obj.name)} | {obj.kind.value} | "
-                f"{obj.format.value} | `{obj.role.value}` | `{_escape(source)}` | "
-                f"{_escape(obj.description)} |"
+                f"{obj.format.value} | `{obj.role.value}` | {blootstelling} | "
+                f"`{_escape(source)}` | {_escape(obj.description)} |"
             )
         lines.append("")
     return lines

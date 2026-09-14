@@ -1,0 +1,24 @@
+{% import "_macros.html" as ui %}
+{% import "_raakje_ballon.html" as ballon %}
+{# De geschiedenis wordt buiten dit fragment om bijgewerkt (out-of-band): het
+   antwoord zelf gaat onderaan het gesprek, het verborgen veld staat in het
+   formulier. Zonder deze swap zou elke volgende vraag opnieuw bij nul beginnen. #}
+<input type="hidden" name="historie" id="rp-raakje-historie" value="{{ history }}"
+       hx-swap-oob="true">
+{% if vraag %}
+<div class="text-right"><span class="{{ ballon.van_bezoeker() }}">{{ vraag }}</span></div>
+{% endif %}
+{% if error %}
+{{ ui.error_banner(error) }}
+{% else %}
+<div><div class="{{ ballon.van_raakje() }}">{{ antwoord | raakje_md | safe }}</div></div>
+{% endif %}
+{% if payload %}
+{# "Wat zag Mistral" (CR-07 §5.7). Een belofte die de beheerder niet kan nakijken,
+   is geen belofte: hier staat letterlijk wat er vertrok — de vraag en elk
+   tool-resultaat. Dichtgeklapt, want het is een controlemiddel en geen leesstof. #}
+<details class="mt-2">
+  <summary class="text-xs text-gray-500 cursor-pointer hover:text-gray-700">{{ _("Wat zag Mistral?") }}</summary>
+  <pre class="mt-2 max-h-64 overflow-auto bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs whitespace-pre-wrap break-words text-gray-700">{{ payload }}</pre>
+</details>
+{% endif %}

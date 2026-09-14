@@ -107,6 +107,49 @@ TOOL_SPECS: list[dict[str, Any]] = [
 
 ALLOWED_TOOLS = {spec["function"]["name"] for spec in TOOL_SPECS}
 
+# --- Wat een tool-resultaat naar buiten mag dragen --------------------------
+
+# Het veldcontract van de publieke bot (CR-07 §5.1). De allowlist hierboven zegt
+# WELKE tools mogen draaien; dit zegt WELKE VELDEN hun antwoord mag bevatten —
+# want een tool-resultaat gaat integraal naar Mistral. Een veld dat aan een
+# serialiser wordt toegevoegd zonder dat het hier staat, is een nieuwe export naar
+# een derde partij; die mag geen stille wijziging zijn maar een rode build
+# (`test_public_tool_field_contract.py`).
+#
+# Waarom hier geen classificatie per veld zoals in het universum (`ai_exposure`)?
+# Daar is het object de eenheid en kiest een gebruiker wat hij meeneemt; hier ligt
+# de vorm van het antwoord vast in code en reist alles even ver — naar het model.
+# Het contract hoeft dus niet te zeggen hoe ver een veld mag, wel dát de lijst
+# volledig en bedoeld is. Sleutels zijn paden: "" is de wortel, "x[]" is één
+# element van lijst x.
+PUBLIC_FIELD_CONTRACT: dict[str, dict[str, set[str]]] = {
+    "get_activities": {
+        "": {"when", "activities"},
+        "activities[]": {
+            "id", "name", "location", "members_only", "price_from", "dates",
+        },
+        "activities[].dates[]": {
+            "start_date", "end_date", "start_time", "end_time",
+        },
+    },
+    "get_activity_detail": {
+        # Twee vormen: de gevonden activiteit, of de nette weigering.
+        "": {
+            "id", "name", "location", "members_only", "notes", "flyer_text",
+            "price_from", "dates", "components", "error",
+        },
+        "dates[]": {"start_date", "end_date", "start_time", "end_time"},
+        "components[]": {
+            "name", "description", "price", "member_price", "info_text",
+            "products",
+        },
+        "components[].products[]": {"name", "price", "member_price"},
+    },
+    # Bewust geen bezoekersgegevens terug: wat de bezoeker instuurde komt niet in
+    # het antwoord, dus het model krijgt naam en e-mail niet nog eens voorgeschoteld.
+    "submit_idea": {"": {"ok", "message", "error"}},
+}
+
 
 # --- Helpers -----------------------------------------------------------------
 

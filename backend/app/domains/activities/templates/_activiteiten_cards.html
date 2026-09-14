@@ -51,7 +51,27 @@
          op een telefoon (dus 4 px) en 20 px op een breed scherm (dus 2). Mijn eerste
          meting van "2 px verschil" klopte, alleen was ze tegen de regelhoogte van
          een breed scherm afgezet. #}
-      {% call ui.icon_text("calendar", cls="text-ink-soft") %}{% for d in a.dates %}{{ d.start_date | langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date | langedatum }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}{% if not loop.last %} · {% endif %}{% endfor %}{% endcall %}
+      {# #926: ÉÉN REGEL PER DATUM. Alles achter elkaar met een `·` ertussen was
+         bij één of twee datums onopvallend, maar *Wandelen* heeft er zeven en
+         *Stappen en klappen* zes — mét tijdstippen is dat een blok tekst dat op
+         een telefoon over drie of vier regels doorloopt zonder dat er één datum
+         uitspringt. v1.14 gaf elke datum haar eigen alinea; dat is hier terug.
+
+         Het icoon staat bij de REEKS en niet bij elke regel: het kondigt aan wat
+         er volgt, en zeven keer hetzelfde symbool is ruis. Geen bullets om
+         dezelfde reden — de regels staan al onder elkaar onder dat ene icoon.
+
+         `flex-col` op de tekstkolom, dus een datum met een eindtijd of einddatum
+         blijft in zijn geheel op zijn eigen regel staan: dat is het geval dat bij
+         opsplitsen het makkelijkst half sneuvelt. #}
+      <div class="text-base md:text-sm text-ink-soft flex items-start gap-1">
+        {{ ui.icon("calendar", cls="mt-1 md:mt-0.5 shrink-0") }}
+        <div class="flex flex-col">
+          {% for d in a.dates %}
+          <span>{{ d.start_date | langedatum }}{% if d.end_date and d.end_date != d.start_date %} – {{ d.end_date | langedatum }}{% endif %}{% if d.start_time %} om {{ d.start_time.strftime("%H:%M") }}{% if d.end_time %} – {{ d.end_time.strftime("%H:%M") }}{% endif %}{% endif %}</span>
+          {% endfor %}
+        </div>
+      </div>
       {% if a.location %}{% call ui.icon_text("map-pin", cls="text-ink-soft") %}{{ a.location }}{% endcall %}{% endif %}
     </div>
       </div>

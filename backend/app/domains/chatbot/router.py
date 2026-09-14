@@ -19,7 +19,9 @@ from app.config import settings
 from app.database import get_db
 from app.domains.chatbot.context import build_system_prompt
 from app.domains.chatbot.providers import get_provider
-from app.domains.chatbot.service import run_chat
+from app.domains.chatbot.logbook import sink_for
+from app.domains.chatbot.seam import GuardedProvider, SeamBlocked, public_rules
+from app.domains.chatbot.service import run_public_chat
 from app.limiter import chat_limiter
 from app.schemas.chat import ChatRequest
 from app.i18n import _
@@ -55,13 +57,17 @@ def chat(
     messages = [{"role": "system", "content": build_system_prompt(db)}]
     messages += [{"role": m.role, "content": m.content} for m in data.messages]
 
-    provider = get_provider()
+    provider = GuardedProvider(get_provider(), public_rules(), sink_for())
 
     def event_stream():
         try:
-            answer = run_chat(
+            answer = run_public_chat(
                 db, messages, provider, max_rounds=settings.chat_max_tool_rounds
             )
+        except SeamBlocked as blocked:
+            yield _sse({"delta": str(blocked)})
+            yield _sse({"done": True})
+            return
         except Exception as exc:
             logger.warning("Chat-afhandeling mislukt: %s", exc)
             yield _sse(

@@ -71,9 +71,17 @@ class DailyCharBudget:
             self._usage.clear()
             self._day = today
 
-    def charge(self, request: Request, chars: int):
+    def charge(self, request: Request, chars: int, *, key: str = ""):
+        """Boek tekens op de teller van vandaag.
+
+        ``key`` overschrijft het IP als teleenheid. De publieke bot telt per IP —
+        daar is geen gebruiker. De backoffice-assistent telt per aangemelde
+        beheerder (#917, CR-07 §4.2): die is aangemeld, dus per IP tellen zou twee
+        bestuursleden op hetzelfde thuisnetwerk elkaars budget laten opeten, en
+        tegelijk één bestuurslid met twee toestellen twee budgetten geven.
+        """
         self._roll_day()
-        key = _client_ip(request)
+        key = key or _client_ip(request)
         if self._usage[key] + chars > self.max_chars:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -93,6 +101,17 @@ registration_limiter = RateLimiter(max_calls=10, window_seconds=60)
 # Publieke formulier-inzending/-wijziging: schrijft rijen + kan een bevestigingsmail
 # triggeren → rem tegen spam/DoS. Ruim genoeg voor een legitieme piek per IP (#371).
 form_submit_limiter = RateLimiter(max_calls=10, window_seconds=60)
+# Duimpje bij een foto (#920): een EIGEN limiet, en bewust ruimer dan die hierboven.
+# Het endpoint hing eerst aan `form_submit_limiter`, en dat brak op productie binnen
+# enkele uren: door een album klikken en tien foto's leuk vinden is het normale gebruik,
+# niet een aanval — het is letterlijk waar #883 voor gebouwd is. De teller loopt per IP,
+# dus een gezin dat samen thuiskijkt of een zaal op één wifi deelde die tien.
+#
+# De rem zelf blijft: zonder cookie krijgt elk verzoek een nieuw token en dus een nieuwe
+# rij, dus een script mag hier niet ongelimiteerd kunnen schrijven. Ze moet een script
+# tegenhouden, geen bezoeker — en zestig per minuut is sneller dan iemand klikt en traag
+# genoeg om een teller niet in een uitslag te veranderen.
+thumb_limiter = RateLimiter(max_calls=60, window_seconds=60)
 # Chatbot: matige burst-limiet + dagelijks tekenbudget tegen 'pagina-droppen'.
 chat_limiter = RateLimiter(max_calls=20, window_seconds=60)
 # Mollie-webhook: ruime limiet (#182). Mollie deelt enkele IP's en kan bursts/

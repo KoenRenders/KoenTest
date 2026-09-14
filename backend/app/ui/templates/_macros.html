@@ -992,10 +992,19 @@
       // De oude zin staat hier bewust niet uitgeschreven: dit commentaar wordt
       // meegeleverd in de <script>, dus een test die de pagina afzoekt zou zijn
       // eigen uitleg vinden.
-      meldFout(status === 403
-        ? {{ _("Je wijziging is niet bewaard: de beveiligingscontrole ging niet door. Herlaad de pagina en probeer opnieuw.")|tojson }}
-        : {{ _("Er ging iets mis; je wijziging is niet bewaard. Probeer opnieuw.")|tojson }},
-        String(status));
+      // #920: 429 is geen storing maar een rem. De algemene zin ("er ging iets mis")
+      // beweert iets onwaars en stuurt de bezoeker naar "opnieuw proberen", precies wat
+      // de teller opnieuw vult. Gevonden op productie bij het duimpje: tien kliks in een
+      // album en dan een foutmelding die niets uitlegt.
+      var melding;
+      if (status === 403) {
+        melding = {{ _("Je wijziging is niet bewaard: de beveiligingscontrole ging niet door. Herlaad de pagina en probeer opnieuw.")|tojson }};
+      } else if (status === 429) {
+        melding = {{ _("Je gaat sneller dan de server verwerkt. Wacht even en klik opnieuw.")|tojson }};
+      } else {
+        melding = {{ _("Er ging iets mis; je wijziging is niet bewaard. Probeer opnieuw.")|tojson }};
+      }
+      meldFout(melding, String(status));
     });
     // Zelfde stille falen, andere oorzaak: de aanvraag bereikte de server niet.
     body.addEventListener('htmx:sendError', function () {

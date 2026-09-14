@@ -171,3 +171,138 @@ def test_a_thumb_of_another_tenant_does_not_show_up(client, db_session):
             "de duimpjes van een andere afdeling worden meegeteld")
     finally:
         current_tenant_id.reset(token)
+
+
+# ── #920: de rem hoort een script tegen te houden, geen bezoeker ────────────────
+
+def test_eleven_thumbs_in_one_minute_is_normal_use_and_must_work(client, db_session):
+    """Koens geval op productie, letterlijk.
+
+    Het endpoint hing aan `form_submit_limiter` — tien per minuut per IP — en dat is de
+    limiet van een formulierinzending: rijen wegschrijven plus een mogelijke
+    bevestigingsmail. Door een album klikken en tien foto's leuk vinden is geen aanval
+    maar het normale gebruik; na de tiende kreeg Koen een foutmelding.
+
+    Elf is hier het getal dat telt: precies één boven de oude drempel. Slaagt deze test
+    terwijl iemand `thumb_limiter` terugzet op tien, dan is dat onmogelijk — en dat is de
+    bedoeling.
+    """
+    from app.limiter import thumb_limiter
+
+    # De teller leeft per proces, dus een eerdere test kan hem al gevuld hebben. Zonder
+    # deze regel hangt het resultaat van de volgorde af, en een test die met de volgorde
+    # meebeweegt is even onbetrouwbaar als een test die met de kalender meebeweegt.
+    thumb_limiter._calls.clear()
+
+    fotos = [_photo(db_session, activity_id=920, title=f"foto {i}") for i in range(11)]
+
+    codes = [client.post(f"/fotos/{f.id}/duim").status_code for f in fotos]
+
+    assert codes == [200] * 11, (
+        f"een bezoeker liep tegen de rem bij klik {codes.index(429) + 1} van de elf: "
+        f"{codes}")
+
+
+def test_the_brake_still_exists_above_the_new_threshold(client, db_session):
+    """De andere helft, en zonder haar is 'de limiet verhoogd' niet te onderscheiden van
+    'de limiet weggehaald'.
+
+    Zonder cookie krijgt elk verzoek een nieuw token en dus een nieuwe rij, dus een script
+    mag hier niet ongelimiteerd kunnen schrijven. Die redenering staat in #883 en blijft
+    gelden; #920 verhoogt alleen de drempel.
+
+    Kapotgemaakt om te controleren dat hij rood kan worden: de `dependencies` van het
+    endpoint weggehaald — dan blijven alle verzoeken 200 en valt deze test om.
+    """
+    from app.limiter import thumb_limiter
+
+    thumb_limiter._calls.clear()
+
+    foto = _photo(db_session, activity_id=921, title="rem")
+    grens = thumb_limiter.max_calls
+
+    for _ in range(grens):
+        client.cookies.clear()
+        client.post(f"/fotos/{foto.id}/duim")
+
+    client.cookies.clear()
+    over_de_grens = client.post(f"/fotos/{foto.id}/duim")
+    assert over_de_grens.status_code == 429, (
+        "boven de drempel hoort de rem te knijpen; nu schrijft een script "
+        "ongelimiteerd rijen")
+
+
+# ── #922: een gedeelde link werkt ook zonder cookie ────────────────────────────
+
+PLATFORM_HOST = "platform.example.test"
+
+
+@pytest.fixture
+def platform_host(monkeypatch):
+    """De prefix bestaat alleen op een platform-host — daar komt een gedeelde link binnen.
+
+    Zonder deze fixture prefixt `path_for` niets en zouden de twee tests hieronder groen
+    staan zonder iets te toetsen: precies de vorm waar #678 over gaat.
+    """
+    from app.config import settings
+    from app.domains.mdm.api import invalidate_tenant_codes
+
+    monkeypatch.setattr(settings, "platform_hosts", PLATFORM_HOST)
+    invalidate_tenant_codes()
+    yield PLATFORM_HOST
+    invalidate_tenant_codes()
+
+
+def test_the_number_url_keeps_the_tenant_prefix_when_it_redirects(client, db_session, platform_host):
+    """Wie een link deelt die via het platformpad loopt, stuurt ontvangers zonder cookie.
+
+    #890 liet de nummer-URL doorverwijzen naar de slug, maar zonder `path_for`: de prefix
+    viel weg. `/raakmillegem/activiteiten/4/fotos` werd `/activiteiten/irrland26/fotos`,
+    en wie geen tenant-cookie had landde daarmee op het **platform** — dat die activiteit
+    niet heeft. Gemeten op HDEV: 404 na één doorverwijzing.
+
+    De cookie verbergt dat voor wie al rondgeklikt heeft; precies daarom test dit zonder.
+
+    Kapotgemaakt om te controleren dat hij rood kan worden: `path_for` uit de
+    doorverwijzing gehaald — dan wijst `Location` naar een pad zonder prefix en valt deze
+    test om op de eerste assertie.
+    """
+    from app.domains.activities.api import Activity
+
+    activiteit = db_session.query(Activity).filter(Activity.id == 901).first()
+    if activiteit is None:
+        _photo(db_session, activity_id=901)
+        activiteit = db_session.query(Activity).filter(Activity.id == 901).first()
+    activiteit.slug = "zomerfeest-922"
+    db_session.flush()
+
+    client.cookies.clear()
+    antwoord = client.get("/raakmillegem/activiteiten/901/fotos",
+                          headers={"host": platform_host}, follow_redirects=False)
+
+    assert antwoord.status_code == 307, antwoord.text[:200]
+    bestemming = antwoord.headers["location"]
+    assert bestemming.startswith("/raakmillegem/"), (
+        f"de prefix viel weg bij de doorverwijzing: {bestemming} — een bezoeker zonder "
+        "cookie belandt zo op het platform in plaats van bij de afdeling")
+
+
+def test_the_thumb_button_posts_to_a_prefixed_path(client, db_session, platform_host):
+    """Zelfde regel, andere plek: het fragment met de duim-knop miste `path_for`.
+
+    Zes publieke sjablonen gebruiken het sinds #889; `_duim.html` was de enige die het
+    niet deed. Zonder prefix leunt de klik op de tenant-cookie, en dan werkt hij voor wie
+    al rondklikte en niet voor wie binnenkomt via een gedeelde link.
+    """
+    from app.domains.activities.api import Activity
+
+    if db_session.query(Activity).filter(Activity.id == 902).first() is None:
+        _photo(db_session, activity_id=902, title="duimpad")
+
+    client.cookies.clear()
+    pagina = client.get("/raakmillegem/activiteiten/902/fotos",
+                        headers={"host": platform_host})
+
+    assert pagina.status_code == 200, pagina.text[:200]
+    assert 'hx-post="/raakmillegem/fotos/' in pagina.text, (
+        "de duim-knop post naar een pad zonder tenant-prefix; dan hangt hij aan de cookie")

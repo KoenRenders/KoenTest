@@ -437,6 +437,43 @@ def _huidige_gebruiker(db, request) -> dict | None:
         return None
 
 
+def _footer_organisatie(db, organisatie) -> dict | None:
+    """Het organisatieblok in de footer (#924), of None als er niets te tonen is.
+
+    Naam, adres en contact van de vereniging zelf. Tot nu stond dat als vrije
+    tekst in een CMS-pagina; nu komt het uit de entiteit, en het CMS-blok blijft
+    eronder staan zodat er bij de deploy niets verdwijnt.
+
+    Geeft None terug als er niets ingevuld is: een leeg blok met alleen een naam
+    erin ziet eruit als een renderfout, en de footer heeft al een naam onderaan.
+    """
+    if organisatie is None:
+        return None
+    from app.domains.mdm.api import Address
+
+    adres = (db.query(Address)
+             .filter(Address.organization_id == organisatie.id,
+                     Address.deleted_at.is_(None))
+             .execution_options(include_all_tenants=True)
+             .one_or_none())
+    regels: list[str] = []
+    if adres is not None:
+        bus = f" bus {adres.bus_number}" if adres.bus_number else ""
+        regels.append(f"{adres.street} {adres.house_number}{bus}")
+        if adres.postal_code is not None:
+            regels.append(f"{adres.postal_code.postal_code} "
+                          f"{adres.postal_code.municipality}")
+    blok = {
+        "name": organisatie.name,
+        "address_lines": regels,
+        "email": organisatie.email or None,
+        "phone": organisatie.phone or None,
+        "iban": organisatie.payment_iban or None,
+    }
+    heeft_inhoud = regels or blok["email"] or blok["phone"] or blok["iban"]
+    return blok if heeft_inhoud else None
+
+
 def site_context(db, request=None) -> dict:
     """Gedeelde context van de SiteShell (site_base.html): navigatie-pagina's,
     footer-blok en sponsors. Eén plek, elke publieke route neemt hem mee."""
@@ -445,6 +482,16 @@ def site_context(db, request=None) -> dict:
     from app.domains.auth.api import csrf_from_request
     from app.domains.cms.api import CmsPage, render_cms_content
     from app.domains.media.api import MediaAsset
+    from app.domains.mdm.api import Organization
+    from app.kernel.tenant_config import _actieve_tenant
+
+    # Dezelfde tenantresolutie als de rest van de configuratie (#924): buiten een
+    # verzoek — een script, een test — is er geen context, en dan hoort de
+    # standaardtenant te gelden in plaats van "geen organisatie".
+    organisatie = (db.query(Organization)
+                   .filter(Organization.id == _actieve_tenant(None))
+                   .execution_options(include_all_tenants=True)
+                   .one_or_none())
 
     pages = (db.query(CmsPage)
              .filter(CmsPage.is_published == True,        # noqa: E712
@@ -497,10 +544,17 @@ def site_context(db, request=None) -> dict:
             "og_image": None,
             "site_name": tenant_display_name(db),
             "site_tagline": get_setting(db, "tagline") or "",
-            "facebook_url": get_setting(db, "facebook_url") or None,
-            # Instagram/TikTok hebben geen zinvolle default → enkel tonen als gezet.
-            "instagram_url": get_setting(db, "instagram_url") or None,
-            "tiktok_url": get_setting(db, "tiktok_url") or None,
+            # #924: de sociale links komen uit de ORGANISATIE en niet meer uit de
+            # tenant-instellingen. Een Facebook-pagina van een vereniging bestaat
+            # los van haar site — de beslisregel uit het issue. Enkel tonen als
+            # gezet; er is geen zinvolle default.
+            "facebook_url": (organisatie.facebook_url if organisatie else None) or None,
+            "instagram_url": (organisatie.instagram_url if organisatie else None) or None,
+            "tiktok_url": (organisatie.tiktok_url if organisatie else None) or None,
+            # Het organisatieblok in de footer (#924). Het CMS-blok blijft eronder
+            # staan: `site-footer` is vrije tekst en een migratie kan een adres
+            # niet van een zin onderscheiden, dus er verdwijnt niets.
+            "organisatie": _footer_organisatie(db, organisatie),
             # Privacyverklaring-link per tenant (#493, raakt #453): leeg = niet tonen.
             "privacy_url": get_setting(db, "privacy_url") or None,
             # SEO (#454): canonieke origin + huidige canonical-URL voor OG/canonical.

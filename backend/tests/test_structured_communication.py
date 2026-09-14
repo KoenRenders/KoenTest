@@ -50,7 +50,7 @@ def test_cash_payment_has_no_ogm(db_session):
 
 def test_transfer_instructions_contain_iban_ogm_amount(monkeypatch):
     from app.config import settings
-    monkeypatch.setattr(settings, "payment_iban", "BE48 7875 5016 1327")
+    monkeypatch.setattr(settings, "payment_iban", "BE68 5390 0754 7034")
     monkeypatch.setattr(settings, "payment_beneficiary", "Raak Millegem")
 
     class FakeRecord:
@@ -59,7 +59,7 @@ def test_transfer_instructions_contain_iban_ogm_amount(monkeypatch):
         amount = Decimal("35.00")
 
     html = email_mod._transfer_instructions_html(FakeRecord())
-    assert "BE48 7875 5016 1327" in html
+    assert "BE68 5390 0754 7034" in html
     assert "+++123/4567/89012+++" in html
     assert "35.00" in html
 

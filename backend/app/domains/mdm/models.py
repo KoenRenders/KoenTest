@@ -8,6 +8,8 @@ keten plat (O(1) doordat merges platgeslagen worden bijgehouden).
 """
 from datetime import datetime, timezone
 
+from enum import Enum
+
 from sqlalchemy import Column, Integer, String, DateTime, Date, Boolean, ForeignKey
 from sqlalchemy.orm import relationship
 
@@ -85,7 +87,15 @@ class Address(TenantMixin, SoftDeleteMixin, Base):
 
     id = Column(Integer, primary_key=True, index=True)
     # Uniciteit op person_id is partieel (WHERE deleted_at IS NULL) — zie migratie 050.
-    person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=False)
+    #
+    # #924: een adres hangt aan een persoon OF aan een organisatie, nooit aan
+    # allebei en nooit aan geen van beide. De databank bewaakt dat met een
+    # XOR-CHECK; `person_id` gaf daarvoor zijn NOT NULL af. Bestaande query's
+    # zoeken op `person_id = X` en zien de organisatierijen niet — dat is wat deze
+    # uitbreiding contained maakt.
+    person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=True)
+    organization_id = Column(Integer, ForeignKey("mdm.organizations.id"),
+                             nullable=True)
     street = Column(String(255), nullable=False)
     house_number = Column(String(10), nullable=False)
     bus_number = Column(String(10), nullable=True)
@@ -169,6 +179,8 @@ class Organization(SoftDeleteMixin, Base):
     id = Column(Integer, primary_key=True)
     parent_id = Column(Integer, ForeignKey("mdm.organizations.id"), nullable=True)
     # ACCOUNT | UNIT | PLATFORM — CHECK in migratie 078, uitgebreid in 097.
+    # Dit is de ROL die de organisatie speelt in het platform; de kolommen
+    # hieronder zeggen wat ze IS in de wereld (#924). Twee assen, één ding.
     org_type = Column(String(10), nullable=False, default="ACCOUNT")
     # Stabiele technische naam (bv. "raakmillegem") — uniek.
     code = Column(String(50), nullable=False, unique=True)
@@ -177,10 +189,61 @@ class Organization(SoftDeleteMixin, Base):
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
 
+    # ── Wat de organisatie is in de wereld (#924) ────────────────────────────
+    # Rechtsvorm uit `mdm.legal_form_codes` (#779-patroon). Leeg voor PLATFORM:
+    # het platform is geen vereniging, en een verzonnen rechtsvorm is erger dan
+    # een lege kolom.
+    # Geen FK: een verwijzing naar `code` alleen vereist een uniciteit daarop, en
+    # die laat maar één taal per code toe — zie de migratie. De geldige waarden
+    # staan in `LegalForm` hieronder.
+    legal_form = Column(String(30), nullable=True)
+    enterprise_number = Column(String(20), nullable=True)
+    vat_number = Column(String(20), nullable=True)
+    email = Column(String(255), nullable=True)
+    phone = Column(String(50), nullable=True)
+    website = Column(String(255), nullable=True)
+    # Verhuisd uit `kernel_tenant_settings` (#924): dit blijft waar ook als de
+    # organisatie geen website had — de beslisregel uit het issue.
+    payment_iban = Column(String(40), nullable=True)
+    payment_beneficiary = Column(String(255), nullable=True)
+    facebook_url = Column(String(255), nullable=True)
+    instagram_url = Column(String(255), nullable=True)
+    tiktok_url = Column(String(255), nullable=True)
+
     parent = relationship("Organization", remote_side=[id])
 
 
 # ── Codetabellen van de masterdata ──────────────────────────────────────────────
+
+class LegalForm(str, Enum):
+    """De rechtsvormen die de codelijst kent (#924, patroon van #779).
+
+    De code staat in de databank, het label per taal in `mdm.legal_form_codes`, en
+    deze Enum is waar de code in de applicatie vandaan komt. Uitbreidbaar: een
+    nieuwe vorm is een rij in de codelijst plus een lid hier.
+    """
+
+    VZW = "VZW"
+    FEITELIJKE_VERENIGING = "FEITELIJKE_VERENIGING"
+    BEDRIJF = "BEDRIJF"
+
+
+class LegalFormCode(Base):
+    """Rechtsvorm van een organisatie (#924), patroon van #779.
+
+    vzw, feitelijke vereniging, bedrijf — uitbreidbaar. Let op het verschil dat
+    ertoe doet: een **feitelijke vereniging heeft geen rechtspersoonlijkheid**, en
+    dat is precies wat Raak Millegem is. Daarom heet dit veld de rechtsVORM en niet
+    de rechtsPERSOON.
+    """
+
+    __tablename__ = "legal_form_codes"
+    __table_args__ = {"schema": "mdm"}
+    code = Column(String(30), primary_key=True)
+    language = Column(String(5), primary_key=True)
+    value = Column(String(100), nullable=False)
+    description = Column(String(255), nullable=True)
+
 
 class GenderCode(Base):
     __tablename__ = "gender_codes"
