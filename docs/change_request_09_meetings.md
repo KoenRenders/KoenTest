@@ -320,6 +320,17 @@ The **report is data, not a blob**: sections and items are rows, so the next
 agenda can be generated (upcoming activities + carried-over items) instead
 of copied, and the newsletter flag can select items instead of prose.
 
+### PDF generation
+
+**WeasyPrint** (approved by Koen, 14 September 2026): a Python pip
+package rendering HTML/CSS to PDF in-process, so the agenda/report PDF
+is a Jinja template like every screen. Europe First: open source,
+self-hosted, maintained by CourtBouillon (FR); alternatives weighed were
+ReportLab (programmatic layout — more code per layout change) and
+headless Chromium (heavy in the image). Cost: two Debian packages
+(Pango/Cairo) added to the backend image — a Dockerfile change that must
+be named in the "Na de merge" block when this ships.
+
 ## 5. Privacy
 
 Meeting reports are personal data: attendance, first names in notes, who
