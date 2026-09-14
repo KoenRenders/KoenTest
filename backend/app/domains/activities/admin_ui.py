@@ -794,11 +794,19 @@ def inschrijving_pagina(registration_id: int, request: Request,
     ctx = _detail_ctx(request, db, registration_id)
     if ctx is None:
         raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
+    pad = veilige_terug(terug, f"/admin/activiteiten/{ctx['activiteit_id']}")
+    # P3: de teruglink BENOEMT waar je vandaan kwam. Het label wordt uit het
+    # gevalideerde pad afgeleid, nooit uit een eigen parameter — een tweede
+    # vrije waarde in de URL zou een tweede ding zijn om te valideren.
+    if pad.startswith("/admin/betalingen"):
+        label = _("Betalingen")
+    elif pad.startswith("/admin/activiteiten"):
+        label = ctx["activiteit_titel"]
+    else:
+        label = _("Terug")
     vm = AdminInschrijvingView(
         **ctx, error=None, toast_bericht=None,
-        terug=veilige_terug(terug,
-                            f"/admin/activiteiten/{ctx['activiteit_id']}"),
-        nav_items=NAV)
+        terug=pad, terug_label=label, nav_items=NAV)
     return templates.TemplateResponse(request, "admin_inschrijving.html",
                                       vm.as_context())
 

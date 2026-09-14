@@ -96,3 +96,16 @@ def test_fragmentroute_blijft_het_kale_fragment(client, db_session):
     frag = client.get(f"/admin/inschrijvingen/{reg.id}/fragment").text
     assert "Pagina Proef" in frag
     assert "<title>" not in frag
+
+
+def test_teruglink_benoemt_de_herkomst(client, db_session):
+    """P3: geen kaal "Terug" — het label volgt het gevalideerde pad, dus een
+    vervalste terug krijgt ook een canoniek label (de activiteitnaam)."""
+    activity, component, reg = _inschrijving(client, db_session, naam="Label Proef")
+    _login(client)
+    via_betalingen = client.get(f"/admin/inschrijvingen/{reg.id}",
+                                params={"terug": "/admin/betalingen"}).text
+    assert "← Betalingen" in via_betalingen
+    vervalst = client.get(f"/admin/inschrijvingen/{reg.id}",
+                          params={"terug": "https://evil.example"}).text
+    assert f"← {activity.name}" in vervalst

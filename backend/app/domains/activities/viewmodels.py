@@ -54,4 +54,5 @@ class AdminInschrijvingView(ViewModel):
     activiteit_titel: str
     component_naam: str | None
     terug: str
+    terug_label: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)
