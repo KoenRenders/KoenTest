@@ -725,3 +725,24 @@ def test_onderwerp_en_tekst_dragen_uur_en_locatie(client, db_session):
     html2 = client.get(f"/admin/vergaderingen/{kaal.id}/verstuur?kind=agenda").text
     assert "None" not in html2
     assert " om " not in html2.split("RAAK vergadering")[1][:60]
+
+
+# ── 16. Een nieuwe mediasoort moet ook te uploaden zijn ──────────────────────
+
+def test_elke_mediasoort_staat_in_de_keuzelijst_bij_uploaden(client, db_session):
+    """Een soort die het filter kent maar het uploadscherm niet, is onbruikbaar.
+
+    Precies wat hier misging: `tenant_logo` werd toegevoegd aan VALID_KINDS, het
+    filter op de mediabibliotheek toonde hem, maar de keuzelijst bij "Uploaden"
+    somde de soorten met de hand op — dus het logo was niet te uploaden. Koen
+    merkte het op door het te proberen.
+
+    Kapotgemaakt om te toetsen: met de lus weer vervangen door twee vaste
+    `<option>`-regels valt deze test om op `tenant_logo`.
+    """
+    from app.domains.media.api import VALID_KINDS
+
+    _login(client)
+    html = client.get("/admin/media/nieuw").text
+    ontbreekt = [k for k in VALID_KINDS if f'value="{k}"' not in html]
+    assert not ontbreekt, f"niet te kiezen bij het uploaden: {sorted(ontbreekt)}"

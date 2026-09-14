@@ -35,8 +35,13 @@
       <input type="hidden" name="filter_activity_id" value="{{ activity_id or '' }}">
       <div class="max-w-xs">{{ ui.label(_("Soort"), "me-kind", required=True) }}
         {% call ui.select_control("kind", cls="w-full", attrs='id="me-kind" x-model="soort"') %}
-          <option value="sponsor" {% if kind == "sponsor" %}selected{% endif %}>{{ _("Sponsorlogo") }}</option>
-          <option value="activity_photo" {% if kind == "activity_photo" %}selected{% endif %}>{{ _("Activiteitenfoto") }}</option>
+          {# Uit `kind_options` en niet met de hand opgesomd (#258): de soorten
+             stonden hier hardgecodeerd, dus een nieuwe soort verscheen wél in het
+             filter van de lijst maar niet in deze keuzelijst — en was daardoor niet
+             te uploaden. Nu is er één bron: VALID_KINDS. #}
+          {% for waarde, label in kind_options %}
+          <option value="{{ waarde }}" {% if kind == waarde %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
         {% endcall %}</div>
       {# De dropdown volgt de keuze in plaats van de filterstand. `:required` en niet
          een vast `required`: een verborgen veld met required laat de browser bij
