@@ -131,7 +131,9 @@
         </div>
         {% endfor %}
         <div class="mt-2 pt-2 border-t border-line">
-        <a href="/" hx-boost="false" class="block px-3 py-2 rounded-lg text-sm text-ink-soft hover:bg-surface-2 hover:text-ink">↗ {{ _("Naar de site") }}</a>
+        {# path_for (#889): op een platform-host is "/" de platform-landing; de
+           tenant-site woont op /{code}. Op een eigen hostnaam verandert er niets. #}
+        <a href="{{ path_for('/') }}" hx-boost="false" class="block px-3 py-2 rounded-lg text-sm text-ink-soft hover:bg-surface-2 hover:text-ink">↗ {{ _("Naar de site") }}</a>
         <a href="/afmelden" hx-boost="false" @click="open = false" class="block px-3 py-2 rounded-lg text-sm text-brand-danger hover:bg-surface-2">⎋ {{ _("Uitloggen") }}</a>
         </div>
       </nav>
@@ -141,7 +143,7 @@
          een latere golf een gedeelde gebruikerscontext invoert. #}
       {% set _account = beheer_account(request) if request is defined else None %}
       <div class="hidden md:flex items-center justify-end gap-1 px-6 py-2 bg-surface border-b border-line">
-        <a href="/" hx-boost="false" class="px-3 py-1.5 rounded-lg text-sm text-ink-soft hover:bg-surface-2 hover:text-ink">{{ _("Naar de site") }} ↗</a>
+        <a href="{{ path_for('/') }}" hx-boost="false" class="px-3 py-1.5 rounded-lg text-sm text-ink-soft hover:bg-surface-2 hover:text-ink">{{ _("Naar de site") }} ↗</a>
         {% if _account %}
         <div x-data="{ acc: false }" class="relative">
           <button type="button" @click="acc = !acc" @keydown.escape.window="acc = false"
