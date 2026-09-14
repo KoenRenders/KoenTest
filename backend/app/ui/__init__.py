@@ -337,6 +337,12 @@ _ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = [
     ("Financieel", [
         ("/admin/betalingen", "Betalingen"),
     ]),
+    # Communicatie (#258): de vergadermodule. Een eigen werkgebied en niet onder
+    # "Werking", omdat wat hier staat naar buiten gaat — straks komt de
+    # nieuwsbrief (CR-05) ernaast te staan.
+    ("Communicatie", [
+        ("/admin/vergaderingen", "Vergaderingen"),
+    ]),
     # Inzicht (Rapporten is niet enkel financieel; het dashboard verdient een
     # menuplek) staat vlak boven Systeem — volgorde beslist door Koen, 14 sep.
     ("Inzicht", [

@@ -131,12 +131,15 @@ def _roles_section() -> list[str]:
 def _objects_section() -> list[str]:
     lines = ["## Objects", "",
              "**sensitive** marks a dimension that cuts people into groups small "
-             "enough to recognise somebody by. Grouping on one turns on the "
-             "small-cell threshold: every group of fewer than five people is "
-             "merged into a single row. **not additive** marks a measure that may "
-             "not be summed across those merged groups — an average of averages "
-             "is not an average — so its cell stays empty there rather than "
-             "showing a number that happens to be wrong.", "",
+             "enough to recognise somebody by. Like the people-count above it is "
+             "**declared and not enforced**: the small-cell threshold that used to "
+             "read it was removed on 14 September 2026. Inside the back office a "
+             "report shows what it counted; what may not reach a language model is "
+             "decided by `AI` below, and a count is not personal data. **not "
+             "additive** is a declaration in the same sense: it records that a "
+             "measure cannot be summed across groups that were rolled together — "
+             "an average of averages is not an average — which stays true although "
+             "nothing rolls groups together today.", "",
              "**AI** is how far the object may travel towards a language model "
              "(CR-07 §5.1): `admin_plain` as it is, `admin_tokenised` only as a "
              "token like `gezin-23`, `none` never. The field has no default in "

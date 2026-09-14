@@ -516,3 +516,79 @@ def delete_email_log(db, log_id: int) -> bool:
     db.delete(rij)
     db.commit()
     return True
+
+
+def send_with_attachments(*, to_emails: list[str], subject: str, body_html: str,
+                          attachments: list[tuple] | None = None,
+                          reply_to: Optional[str] = None,
+                          email_type: str = "other") -> None:
+    """Eén mail naar meerdere ontvangers, met bijlagen (#258, CR-09 §3.13).
+
+    Verschilt bewust van ``_send`` op drie punten, en elk punt is een beslissing:
+
+    - **Iedereen in de To-regel.** De vergaderkring kent elkaar en antwoordt
+      elkaar; dit is géén campagne, dus geen Bcc en geen uitschrijflink. De
+      nieuwsbrief (CR-05) gaat juist wél per ontvanger — dat is het andere pad.
+    - **Bijlagen.** ``(bestandsnaam, content-type, bytes)`` per stuk, in een
+      ``multipart/mixed`` om het bestaande ``alternative``-deel heen.
+    - **Reply-To.** De afzender blijft het verenigingsadres; antwoorden komen bij
+      de beheerder die verstuurt, zodat de gesprekken toekomen waar ze vandaag
+      ook toekomen (§3.24).
+
+    Logt één rij per ontvanger in de email_log, zoals elke andere verzending:
+    de log beantwoordt "heeft deze persoon dit gekregen?", en dat antwoord mag
+    niet afhangen van hoeveel mensen er in dezelfde mail zaten.
+    """
+    from email.mime.base import MIMEBase
+    from email import encoders
+
+    to_emails = [e for e in (to_emails or []) if e]
+    if not to_emails:
+        return
+    joined = ", ".join(to_emails)
+
+    if _mail_mode() == "log_only":
+        for address in to_emails:
+            _log_email(address, subject, body_html, email_type, "logged",
+                       "demo-tenant: alleen gelogd, niet verstuurd")
+        return
+
+    gmail_user, gmail_password, gmail_from = _gmail_config()
+    if not gmail_user or not gmail_password:
+        logger.warning("E-mail niet verstuurd (GMAIL_USER/GMAIL_APP_PASSWORD ontbreekt): %s",
+                       subject)
+        for address in to_emails:
+            _log_email(address, subject, body_html, email_type, "skipped",
+                       "GMAIL_USER/GMAIL_APP_PASSWORD niet ingesteld")
+        return
+
+    msg = MIMEMultipart("mixed")
+    msg["Subject"] = f"{_env_prefix()}{subject}"
+    from_address = gmail_from or gmail_user
+    msg["From"] = f"{_display_name()} <{from_address}>"
+    msg["To"] = joined
+    if reply_to:
+        msg["Reply-To"] = reply_to
+    body = MIMEMultipart("alternative")
+    body.attach(MIMEText(body_html, "html"))
+    msg.attach(body)
+
+    for filename, content_type, data in (attachments or []):
+        main, _, sub = (content_type or "application/octet-stream").partition("/")
+        part = MIMEBase(main or "application", sub or "octet-stream")
+        part.set_payload(data)
+        encoders.encode_base64(part)
+        part.add_header("Content-Disposition", "attachment", filename=filename)
+        msg.attach(part)
+
+    try:
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, timeout=30) as server:
+            server.login(gmail_user, gmail_password)
+            server.sendmail(gmail_user, to_emails, msg.as_string())
+    except Exception as exc:
+        logger.error("Vergadermail versturen mislukt (%s): %s", joined, exc)
+        for address in to_emails:
+            _log_email(address, subject, body_html, email_type, "failed", str(exc))
+        raise
+    for address in to_emails:
+        _log_email(address, subject, body_html, email_type, "sent", None)

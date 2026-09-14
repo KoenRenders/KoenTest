@@ -81,6 +81,73 @@ class MemberPerson(TenantMixin, SoftDeleteMixin, Base):
     person = relationship("Person", back_populates="member_persons")
 
 
+class OrganizationPerson(TenantMixin, SoftDeleteMixin, Base):
+    """Junction table linking persons to an organisation in a named role (#258).
+
+    The board-meeting circle is the first consumer (CR-09 §3.11): the people who
+    receive the agenda and the report are not derivable from membership — the
+    circle holds fixed participants who are not board members, and the branch
+    supporter of the national organisation, who is not a member at all. Modelling
+    them as a *relation to the organisation* keeps the fact in master data, where
+    persons and their contact details already live, instead of in a second address
+    list owned by the meetings module.
+
+    Deliberately generic, following :class:`MemberPerson`: a code table decides
+    which relations exist, so a second kind (committee, working group) is a row and
+    not a table. ``end_date`` ends a relation instead of deleting it — the
+    attendance of an old report must keep resolving to the person who was there.
+    """
+
+    __tablename__ = "organization_persons"
+    __table_args__ = {"schema": "mdm"}
+
+    id = Column(Integer, primary_key=True, index=True)
+    organization_id = Column(Integer, ForeignKey("mdm.organizations.id"), nullable=False, index=True)
+    person_id = Column(Integer, ForeignKey("mdm.persons.id"), nullable=False, index=True)
+    relation_type = Column(String(30), ForeignKey("mdm.organization_relation_types.code"),
+                           nullable=False, default="BOARD_MEETING")
+    start_date = Column(Date, nullable=True)
+    end_date = Column(Date, nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+
+    organization = relationship("Organization")
+    person = relationship("Person")
+
+
+class OrganizationRelationType(Base):
+    """Which relations a person can have to an organisation (#258) — the identity.
+
+    Split from its labels deliberately. The older code tables key on
+    (code, language), so the code alone is not unique and no foreign key can
+    point at it; adding a unique key on the code alone is precisely what dropped
+    every English label in migration 017. Here the code is the row, and
+    :class:`OrganizationRelationTypeLabel` carries the texts — a third language
+    is a row, and the foreign key keeps working.
+    """
+
+    __tablename__ = "organization_relation_types"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(30), primary_key=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+
+
+class OrganizationRelationTypeLabel(Base):
+    """The readable name of a relation type, per language."""
+
+    __tablename__ = "organization_relation_type_labels"
+    __table_args__ = {"schema": "mdm"}
+
+    code = Column(String(30), ForeignKey("mdm.organization_relation_types.code"),
+                  primary_key=True)
+    language = Column(String(5), primary_key=True)
+    value = Column(String(100), nullable=False)
+    description = Column(String(255), nullable=True)
+    created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
+    updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc, nullable=False)
+
+
 class Address(TenantMixin, SoftDeleteMixin, Base):
     __tablename__ = "addresses"
     __table_args__ = {"schema": "mdm"}

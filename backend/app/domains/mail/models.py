@@ -16,6 +16,10 @@ EMAIL_TYPES = (
     "magic_link",
     "member_contact_notice",
     "form_confirmation",
+    # De vergadermails (#258): agenda en verslag naar de vergaderkring. Eén type
+    # voor beide — de log beantwoordt "wie kreeg wat wanneer", en het onderwerp
+    # zegt al welke van de twee het was.
+    "meeting",
     "other",
 )
 

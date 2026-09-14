@@ -1,0 +1,65 @@
+{# De vergadering als PDF (CR-09 §3.8): een strakke portaal-PDF, géén nabootsing
+   van het Google-Docs-sjabloon. WeasyPrint rendert deze HTML; de stijl staat hier
+   inline omdat een PDF geen app.css laadt en de maten in punten denken, niet in
+   Tailwind-stappen. #}
+<!doctype html>
+<html lang="nl-BE">
+<head>
+<meta charset="utf-8">
+<title>{{ kind_label }} {{ date_label }}</title>
+<style>
+  /* De PDF laadt app.css niet — WeasyPrint krijgt één zelfstandig document. De
+     merkkleuren staan daarom hier als tokendefinitie, één keer, en de regels
+     eronder verwijzen ernaar. Zelfde waarden als in scripts/build-css.sh; zou
+     het merk ooit verschuiven, dan is dit de enige plek die meeverhuist. */
+  :root { --pdf-brand: #0051A4; --pdf-ink: #14171C; --pdf-soft: #52607A; --pdf-line: #D7E0EC; --pdf-faint: #8A94A6; }
+  @page { size: A4; margin: 18mm 16mm 20mm 16mm;
+          @bottom-right { content: counter(page); font-size: 9pt; color: var(--pdf-soft); } }
+  body { font-family: "Helvetica", "Arial", sans-serif; font-size: 10.5pt;
+         color: var(--pdf-ink); line-height: 1.45; }
+  .head { display: flex; justify-content: space-between; align-items: flex-start;
+          border-bottom: 2px solid var(--pdf-brand); padding-bottom: 8pt; margin-bottom: 14pt; }
+  .head h1 { font-size: 16pt; color: var(--pdf-brand); margin: 0 0 2pt 0; }
+  .head .sub { font-size: 10pt; color: var(--pdf-soft); }
+  .brand { font-size: 18pt; font-weight: bold; color: var(--pdf-brand); letter-spacing: -0.5pt; }
+  .people { font-size: 9.5pt; color: var(--pdf-ink); margin-bottom: 14pt; }
+  .people b { color: var(--pdf-soft); font-weight: normal; display: inline-block; width: 78pt; }
+  h2 { font-size: 12pt; color: var(--pdf-brand); margin: 14pt 0 5pt 0;
+       border-bottom: 1px solid var(--pdf-line); padding-bottom: 3pt; page-break-after: avoid; }
+  .item { margin: 0 0 6pt 0; page-break-inside: avoid; }
+  .item .line { font-size: 10.5pt; }
+  .item .line b { font-weight: bold; }
+  .item .meta { color: var(--pdf-soft); }
+  .notes { margin: 2pt 0 0 14pt; color: var(--pdf-ink); white-space: pre-line; font-size: 10pt; }
+  .empty { color: var(--pdf-faint); font-style: italic; font-size: 10pt; }
+  .members-total { font-size: 9.5pt; font-weight: normal; color: var(--pdf-soft); }
+</style>
+</head>
+<body>
+  <div class="head">
+    <div>
+      <h1>{{ kind_label }} — {{ _("Vergadering Raak Millegem") }}</h1>
+      <div class="sub">{{ date_label }}{% if location %} · {{ location }}{% endif %}</div>
+    </div>
+    <div class="brand">RaaK</div>
+  </div>
+
+  <div class="people">
+    <div><b>{{ _("Aanwezig") }}</b>{% if present %}{{ present|join(", ") }}{% else %}<span class="empty">{{ _("niet genoteerd") }}</span>{% endif %}</div>
+    <div><b>{{ _("Verontschuldigd") }}</b>{% if excused %}{{ excused|join(", ") }}{% else %}<span class="empty">—</span>{% endif %}</div>
+  </div>
+
+  {% for section in sections %}
+  <h2>{{ section.label }}{% if section.kind == "MEMBERS" %} <span class="members-total">({{ _("totaal %(jaar)s: %(n)s gezinnen", jaar=standing.year, n=standing.total) }}{% if standing.renewal_running %}{{ _("; hernieuwd voor %(jaar)s: %(x)s van %(n)s", jaar=standing.renewal_year, x=standing.renewed, n=standing.to_renew) }}{% endif %})</span>{% endif %}</h2>
+  {% if not section.items %}
+  <p class="empty">{{ _("Geen punten.") }}</p>
+  {% endif %}
+  {% for item in section.items %}
+  <div class="item">
+    <div class="line">● <b>{{ item.label }}</b>{% if item.meta %} <span class="meta">| {{ item.meta }}</span>{% endif %}{% if item.is_full %} <span class="meta">({{ _("volzet") }})</span>{% endif %}</div>
+    {% if item.notes %}<div class="notes">{{ item.notes }}</div>{% endif %}
+  </div>
+  {% endfor %}
+  {% endfor %}
+</body>
+</html>

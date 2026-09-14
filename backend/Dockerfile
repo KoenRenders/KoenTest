@@ -1,5 +1,13 @@
 FROM python:3.12-slim
 WORKDIR /app
+# WeasyPrint (#258) rendert de vergader-PDF en heeft Pango/Cairo nodig — een
+# systeemafhankelijkheid, geen pip-pakket. Ze staat hier vóór de pip-install zodat
+# de laag gecachet blijft, en `check_imports.py` verderop importeert weasyprint:
+# ontbreekt een van deze pakketten, dan faalt de BUILD en niet de eerste PDF in
+# productie.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 \
+    && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY . .

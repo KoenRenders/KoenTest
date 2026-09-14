@@ -927,3 +927,125 @@ def registrations_for(db, activity_id: int, *, component_id: Optional[int] = Non
             .order_by(Registration.registered_at.asc(), Registration.id.asc())
             .all())
     return [enrich_registration(r, activity) for r in regs]
+
+
+# ── What a meeting agenda needs (CR-09, #258) ────────────────────────────────
+# An activity's window is min(start_date) .. max(end_date or start_date) over its
+# date rows, so a run of dates counts as one span — the photo hunt runs from June
+# to September and is one activity, not four.
+
+class ActivitySpan(NamedTuple):
+    """One activity with the window it occupies and how full it is."""
+
+    activity: Activity
+    start: date
+    end: date
+    registered: int
+    capacity: Optional[int]
+
+
+def _spans(db, having) -> list[ActivitySpan]:
+    """Activities whose span matches `having`, chronologically.
+
+    `having` receives the aggregated first/last columns so both callers express
+    their window in the same vocabulary; the counting itself happens once, below.
+    """
+    first = func.min(ActivityDate.start_date)
+    last = func.max(func.coalesce(ActivityDate.end_date, ActivityDate.start_date))
+    rows = (db.query(Activity, first.label("first"), last.label("last"))
+            .join(ActivityDate, ActivityDate.activity_id == Activity.id)
+            .filter(Activity.is_cancelled.is_(False))
+            .group_by(Activity.id)
+            .having(having(first, last))
+            .order_by(first.asc(), Activity.id.asc())
+            .all())
+    counts = registration_counts(db, [a.id for a, _f, _l in rows])
+    return [ActivitySpan(activity=a, start=f, end=l,
+                         registered=counts.get(a.id, (0, None))[0],
+                         capacity=counts.get(a.id, (0, None))[1])
+            for a, f, l in rows]
+
+
+def activities_active_between(db, start: date, end: date) -> list[ActivitySpan]:
+    """Activities that were running or started in the window [start, end).
+
+    What a meeting evaluates: everything since the previous meeting, a still
+    running activity included — the photo hunt sat under evaluation every month
+    while it ran, which is exactly what the board discussed.
+    """
+    return _spans(db, lambda first, last: (first < end) & (last >= start))
+
+
+def activities_from(db, day: date) -> list[ActivitySpan]:
+    """Activities starting on or after `day` — the whole planned programme.
+
+    No time window (CR-09 §3.21): booking a venue a year ahead is a normal agenda
+    point, and the secretary leaves off what has nothing to discuss.
+    """
+    return _spans(db, lambda first, last: first >= day)
+
+
+def registration_counts(db, activity_ids: list[int]) -> dict[int, tuple[int, Optional[int]]]:
+    """Per activity: registrations booked, and the capacity if one is set.
+
+    The counting rule — the sum of the item quantities, or one per registration
+    without items — is the same rule the full-check and the public occupancy use;
+    it lives here once, and `_component_occupancy` in the router asks for the
+    per-component grain of the same thing.
+
+    Capacity is the sum of the component maxima, and `None` when no component
+    caps: an activity without a maximum shows "N ingeschreven", never "N/0".
+    """
+    if not activity_ids:
+        return {}
+    per_component = _booked_per_component(db, activity_ids)
+    caps = (db.query(ActivitySubRegistration.activity_id,
+                     func.sum(ActivitySubRegistration.max_participants),
+                     func.count(ActivitySubRegistration.max_participants))
+            .filter(ActivitySubRegistration.activity_id.in_(activity_ids))
+            .group_by(ActivitySubRegistration.activity_id)
+            .all())
+    capacity = {activity_id: (int(total) if capped else None)
+                for activity_id, total, capped in caps}
+
+    booked: dict[int, int] = {}
+    component_owner = dict(
+        db.query(ActivitySubRegistration.id, ActivitySubRegistration.activity_id)
+        .filter(ActivitySubRegistration.activity_id.in_(activity_ids)).all())
+    for component_id, quantity in per_component.items():
+        activity_id = component_owner.get(component_id)
+        if activity_id is not None:
+            booked[activity_id] = booked.get(activity_id, 0) + quantity
+    # Registrations that hang on no component still count as attendance.
+    loose = (db.query(Registration.activity_id, func.count(Registration.id))
+             .filter(Registration.activity_id.in_(activity_ids),
+                     Registration.component_id.is_(None))
+             .group_by(Registration.activity_id)
+             .all())
+    for activity_id, count in loose:
+        booked[activity_id] = booked.get(activity_id, 0) + int(count or 0)
+
+    return {activity_id: (booked.get(activity_id, 0), capacity.get(activity_id))
+            for activity_id in activity_ids}
+
+
+def _booked_per_component(db, activity_ids: list[int]) -> dict[int, int]:
+    """Booked places per component: the sum of the item quantities, or one per
+    registration without items. One batched query; the global soft-delete and
+    tenant filters apply, so deleted registrations do not count."""
+    from app.domains.activities.models import RegistrationItem
+
+    if not activity_ids:
+        return {}
+    item_sum = (db.query(RegistrationItem.registration_id.label("rid"),
+                         func.sum(RegistrationItem.quantity).label("q"))
+                .group_by(RegistrationItem.registration_id)
+                .subquery())
+    rows = (db.query(Registration.component_id,
+                     func.sum(func.coalesce(item_sum.c.q, 1)))
+            .outerjoin(item_sum, item_sum.c.rid == Registration.id)
+            .filter(Registration.activity_id.in_(activity_ids),
+                    Registration.component_id.isnot(None))
+            .group_by(Registration.component_id)
+            .all())
+    return {component_id: int(quantity or 0) for component_id, quantity in rows}

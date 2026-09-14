@@ -1,9 +1,9 @@
 # Change Request 09 — Meetings in the portal
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** Shaped with Koen on 14 September 2026 (handover on #258). All
-scope decisions are settled; no open questions remain on the meeting side.
-Not assigned to a release.
+**Status:** Shaped with Koen on 14 September 2026 (handover on #258) and
+**built the same day** (#939), assigned to v2.5 (#925). All scope decisions are
+settled; no open questions remain. §9 records what the build itself decided.
 **Apply to:** a new `meetings` domain (backend + admin screens). Board mail
 goes through the existing `mail` domain; attachments through `media`.
 **Split note (14 September 2026):** this CR covers the **meeting module
@@ -26,10 +26,10 @@ change request moves it into the portal:
    document filled in during the meeting.
 2. **The portal sends the meeting mails** — agenda and report as PDF to the
    meeting circle, with ad-hoc extra attachments.
-3. **Report items can be flagged "for the newsletter"** — the portal form of
-   what the board already does in prose. The flag is this module's one
-   interface to the newsletter chain (CR-05); nothing else of the report
-   ever leaves the meeting module.
+3. **The newsletter composer reads the report afterwards** and picks what
+   goes to the newsletter in the compose screen (CR-05) — the meeting module
+   itself carries no newsletter machinery. Nothing of the report leaves this
+   module except what that person selects there.
 
 ## 1. The source material (measured, 14 September 2026)
 
@@ -138,6 +138,90 @@ Decided later the same day (14 September 2026), while PR #932 ran:
     off-portal items, and far-out items with nothing to discuss can be
     left off this month's agenda.
 
+Added after the first mockup round (14 September 2026, Koen's review):
+
+15. **Loose one-off e-mail addresses on a meeting mail.** A guest speaker
+    who comes once is not created as a `Person`: their address is added to
+    that mail only (in the To line like everyone else), stored with the
+    meeting so the report mail can reuse it, and gone afterwards. The fixed
+    circle stays the organisation relation of §3.11.
+16. **No PDF preview pane — a download is the control step.** Before
+    sending, the secretary downloads the generated PDF and checks it; the
+    PDF is regenerated at send time so what is checked is what goes out.
+    This sharpens §3.12: the human review happens on the real artefact.
+17. **Sections are per meeting, extensible.** Besides the five standard
+    sections, the secretary can add a named section block ("Jaarplanning
+    2027") to agenda a big topic and notulate its discussion. Standard
+    sections keep their generation and carry-over semantics; a custom
+    section holds free items only. **Miscellaneous is always the last
+    section** — a custom section inserts before it (refined 14 September
+    2026). Adding sections — like adding items and attachments — works
+    identically while preparing the agenda and while taking minutes:
+    agenda and report are one document in two statuses.
+
+18. **No newsletter flag during the meeting** (revises §3.10's flag idea,
+    same day). Selecting what reaches the newsletter is the newsletter
+    composer's call, made afterwards in the compose screen — not the
+    secretary's call mid-meeting. The privacy gate moves with it and holds:
+    only what the composer explicitly selects from a report can enter an
+    LLM payload (CR-05); everything unselected never leaves the meeting
+    module.
+19. **Chronological insertion.** In the activity sections, items order by
+    activity date — a point added during the meeting slides into its
+    chronological place, also in between existing points. Free items
+    without a date go at the end and can be repositioned by hand.
+
+20. **The members section, detailed** (14 September 2026, mockup round).
+    The steward next to a new member is a **dropdown over the board
+    members** — what is chosen is *minutes*, stored on the meeting item;
+    the authoritative assignment still flows through Raak national's
+    administration and returns via the MDM import (§3.9), so the next
+    agenda shows the confirmed state. Every member item takes prose notes
+    like any other item; the section also accepts **free items** below the
+    generated ones; and the section header always shows the **running
+    member total of the current working year**, from the member data.
+    Display rule (a household has no name of its own): a new member
+    renders as **head member's name – partner's name, address**, derived
+    from the `MemberPerson` relations; just the head member when there is
+    no partner. No "nieuw lid" badge — the section header already says
+    it. Linked items carry a clickable source chip, uniformly: an
+    activity item's chip opens the activity in activity management, a
+    member item's chip opens the household in member management; free
+    items show "vrij punt". Editing always happens at the source — the
+    report only references.
+21. **The activity line shows no price** (14 September 2026, mockup
+    round). An activity can carry several prices (the barbecue: adult,
+    child, two or three pieces), so one price field would lie. The line
+    is **name | date time location**; prices live where they are managed,
+    one click away through the source chip.
+22. **The activity line does show the registration count** (asked the
+    same day): "· N ingeschreven", live from the activities domain — the
+    same occupancy source the public "Volzet" badge uses — in the
+    evaluation section and the upcoming section alike; it is the number
+    the meeting always asks for. Only on activities that take portal
+    registrations; head-counts of activities without a registration flow
+    ("4 wandelaars") stay typed notes. Where a maximum exists the line
+    shows **N/max**, and a full activity carries the same "Volzet" badge
+    the public site shows (asked the same day).
+
+23. **Sending closes nothing; only the sent report locks — reversibly**
+    (14 September 2026). "Verstuur agenda" opens the send screen; the
+    send button there mails, stamps the moment and archives the sent PDF
+    — the document stays editable afterwards (a typo fix between agenda
+    mail and meeting is normal). Agenda and minute-taking are one
+    document with a label, not locked modes: taking attendance or typing
+    a note *is* entering the report phase. The one hard moment is
+    "Verstuur verslag": the meeting becomes *sent* and read-only — with
+    an explicit "Heropen verslag" for the day-after correction; resending
+    archives a new PDF while the earlier one stays kept, so history never
+    lies. Resending anything already sent asks one confirmation.
+
+24. **Meeting mails leave from the association account with Reply-To set
+    to the secretary** (14 September 2026). The From is the same Gmail
+    account the transactional mail uses; Reply-To is the e-mail address
+    of the admin who sends, so reply-all conversations keep landing with
+    the secretary, as they do today.
+
 Inherited, not reopened: **#785 triage A17** — the AI-per-module contract
 (read / propose / execute separated). This module has no AI at all, which is
 the simplest way to honour it.
@@ -149,15 +233,32 @@ New domain `meetings`:
 - `Meeting` — `id`, `meeting_date`, `status` (`agenda` → `report` → `sent`),
   `location`, attendance (present / excused, referencing meeting
   participants), timestamps for the agenda mail and report mail.
-- `MeetingItem` — `id`, `meeting_id`, `section` (evaluation / upcoming /
-  members / ideas / misc), `position`, optional `activity_id` FK, `title`
-  (free for non-activity items), `notes` (the bullets, rich-ish text),
-  `carried_over_from` (optional self-reference: an ideas/misc item that
-  moves to the next meeting), and the **newsletter marker** — during the
-  meeting an item (or a note) can be flagged "for the newsletter" (§3.10;
-  consumed by CR-05).
-- `MeetingAttachment` — link to a `media` file, per meeting, flagged
-  agenda-mail / report-mail / both.
+- `MeetingSection` — the sections of one meeting: the five standard kinds
+  (evaluation / upcoming / members / ideas / misc) seeded at agenda
+  generation, plus manually added named sections (decision §3.17). Carries
+  `kind` (standard code or `custom`), `title`, `position`.
+- `MeetingItem` — `id`, `meeting_id`, `section_id` (FK to
+  `MeetingSection`), `position`, `title` (free items), `notes` (the
+  bullets, rich-ish text), and three optional references by item kind:
+  `activity_id` (activity item — name/date/location always render fresh
+  through the FK, and chronological order within a section derives from
+  the activity date, decision §3.19), `member_id` (new-member item) and
+  `noted_steward_person_id` (the steward dropdown — minutes, never a
+  write into membership, decision §3.20). Plus `carried_over_from`
+  (optional self-reference: an ideas/misc item that moves to the next
+  meeting). No newsletter marker (decision §3.18): the newsletter side
+  reads the report through the facade and the composer selects there.
+- `MeetingAttendance` — per meeting and person: present or excused; the
+  candidate list is the §3.11 relation. Computed values (the working-year
+  member total, "new members since the previous meeting") are queries on
+  the member data, never stored columns. The sent PDF is the frozen
+  snapshot; the rows stay references.
+- `MeetingFile` — per meeting: the bytes themselves (BYTEA), filename,
+  content type, purpose (attachment or sent PDF), flagged agenda-mail /
+  report-mail / both. Deliberately meetings-owned, not a media asset —
+  see the storage paragraph below.
+- Extra recipients (decision §3.15): per meeting, plain e-mail strings for
+  one-off guests — no `Person`, no relation.
 - The meeting circle lives in **MDM, not here** (decision §3.11): a new
   generic person↔organisation relation (person, organisation, relation-type
   code — first code `BOARD_MEETING` — begin/end date), following the
@@ -167,9 +268,74 @@ New domain `meetings`:
   Attendance on `Meeting` references `Person`. The `meetings` domain reads
   the circle through the MDM facade.
 
+**A real schema, and the boundaries the repo already enforces.** No tags,
+no JSON columns: sections and items are rows with FKs, so the database
+guards integrity (layer 3) and agenda generation is a query. The tables
+above belong to the `meetings` domain; the person↔organisation relation is
+deliberately **MDM's** (master data — meetings is merely its first
+consumer). Cross-domain FKs (`activity_id`, `member_id`, `person_id`) are
+DB-level integrity only: in code, meetings reaches activities through
+`activities.api` and persons through `mdm.api`, and the newsletter side
+(CR-05) reads reports through `meetings.api` — never straight into the
+tables. `test_import_boundaries` enforces all of it.
+
+**Soft-delete and storage, measured (14 September 2026).** Everything the
+items reference carries `SoftDeleteMixin` — `Activity`, `Person`, `Member`,
+`Organization`, `ContactDetail` — so FKs in old reports stay valid. The
+exception is `MediaAsset`: blobs live as BYTEA in Postgres
+(`media.media_assets`, served via `/api/v1/media/<id>`, PDFs unchanged,
+images downscaled, included in the db-backup dumps), deliberately without
+soft delete (#166) and referenced by *soft-refs*, not FKs. Attachments do **not**
+go into `media_assets` — settled with Koen, 14 September 2026, after
+weighing both options. Media is by design a *public* server (its
+docstring: "upload (admin) en serveren (publiek)"; `GET
+/api/v1/media/<id>` carries no login); board documents stored there
+would depend, forever, on a confidentiality flag being set on every
+upload — that fails open. Meetings gets its **own table**,
+`meetings.meeting_files` (BYTEA bytes, filename, content type, byte
+size, purpose: attachment or sent PDF, the agenda-/report-mail flags),
+downloaded through a meetings route behind the same admin session as
+every meeting screen — no public path exists to forget, so it fails
+closed. The duplication is mechanics only (no thumbnails, no public
+listing, no kinds — a small upload/store/serve), not a fact that can
+drift; `MeetingAttachment` as a separate row dissolves into this table.
+The deletion rule becomes fully internal: the meetings service refuses
+to delete a file of a sent meeting, derived from the meeting's own sent
+timestamps, with the violation proven in a test (send, attempt delete,
+assert the named refusal). The earlier design — a media-owned lock and
+visibility, set through `media.api` at send time — remains the right
+pattern where the receiving domain's contract already fits; here it
+would have put an auth branch into media's *public* serving route — the
+path every site visitor hits for every image — turning a one-fact
+translation into a contract change on a production-critical public
+path. Not touching that path is the strongest argument for the own
+table: zero regression surface on the site. Consciously dropped in
+favour of fail-closed ownership; reversible if media ever becomes a
+document store with visibility classes for reasons of its own. The media library screen and the media domain
+stay untouched.
+An asset whose meeting has been sent cannot be deleted; before sending, replacing one
+really deletes the old blob, as media does everywhere. The sent agenda and
+report PDFs are themselves archived as assets (`kind = "meeting_pdf"`), so
+the archive holds literally what went out. And the historical-report
+screen deliberately bypasses the global soft-delete filter — a
+soft-deleted activity must still show in the report it was discussed in,
+as the sent PDF does. The meetings tables themselves take `TenantMixin` +
+`SoftDeleteMixin` like the rest.
+
 The **report is data, not a blob**: sections and items are rows, so the next
 agenda can be generated (upcoming activities + carried-over items) instead
 of copied, and the newsletter flag can select items instead of prose.
+
+### PDF generation
+
+**WeasyPrint** (approved by Koen, 14 September 2026): a Python pip
+package rendering HTML/CSS to PDF in-process, so the agenda/report PDF
+is a Jinja template like every screen. Europe First: open source,
+self-hosted, maintained by CourtBouillon (FR); alternatives weighed were
+ReportLab (programmatic layout — more code per layout change) and
+headless Chromium (heavy in the image). Cost: two Debian packages
+(Pango/Cairo) added to the backend image — a Dockerfile change that must
+be named in the "Na de merge" block when this ships.
 
 ## 5. Privacy
 
@@ -205,11 +371,133 @@ From the real September 2026 cycle, anonymised:
    including one manually added activity that was not on the portal's
    calendar.
 2. **Fill in the report during a meeting** — attendance ticked from the
-   participant list, notes per item, an item flagged for the newsletter —
-   and send it the same evening — one mail, the whole circle in the To
+   participant list, notes per item, one activity added mid-meeting that
+   slots in chronologically — and send it the same evening — one mail, the whole circle in the To
    line — with the PDF plus one extra attachment (the working-group
    scenario).
 3. **The next agenda carries over** the ideas/misc items of this one.
+
+## 8. Implementation specification
+
+Concrete enough to build from in one run. Where this section names an
+existing function, the build verifies it against the code before relying
+on it; facade placement follows whatever the owning domain already
+exports.
+
+### 8.1 Migration (one file, idempotent, both schemas)
+
+- **mdm**: `organization_relation_type_codes` (code table, #779 pattern;
+  seed `BOARD_MEETING`, Dutch label "bestuursvergadering") and
+  `organization_persons` (tenant, `person_id` FK, `organization_id` FK,
+  `relation_type` code FK, `start_date`, `end_date` nullable, soft
+  delete; history table following the `MemberPerson` pattern).
+- **meetings** (new schema; all tables `TenantMixin` + `SoftDeleteMixin`):
+  `meetings` (meeting_date, location, status `agenda|report|sent`,
+  `agenda_sent_at`, `report_sent_at`), `meeting_sections` (kind code or
+  `custom`, title, position), `meeting_items` (section FK, position,
+  title, notes, `activity_id`, `member_id`, `noted_steward_person_id`,
+  `carried_over_from`), `meeting_attendances` (person FK, status
+  present/excused), `meeting_files` (bytes BYTEA, filename, content
+  type, byte size, purpose `attachment|sent_pdf`, on_agenda_mail,
+  on_report_mail), `meeting_extra_recipients` (email).
+
+### 8.2 Domain layout
+
+`backend/app/domains/meetings/`: `models.py`, `service.py` (agenda
+generation, lifecycle, guards), `pdf.py` (WeasyPrint over a Jinja
+template), `schemas.py`, `api.py` (facade; exports the report-reading
+functions CR-05 will need), `admin_ui.py` + `templates/` (document
+screen, send screen, circle screen, PDF template). No public `ui.py`.
+Cross-domain reads through facades only: `activities.api` (activities
+between dates + occupancy; the facade grows if a function is missing —
+never a direct model import), `mdm.api` (circle, board members, new
+members), `membership.api` (year totals and renewal state), `mail.api`
+(sending). Enforced by the existing import-boundary, layer and
+template-variable gates.
+
+### 8.3 Routes (Dutch paths, English functions; all `require_admin_ui`
+ADMIN/OPERATOR + `require_csrf` on writes)
+
+| Route | Does |
+|---|---|
+| `GET /admin/vergaderingen` | C1 records list: date, status, sent moments |
+| `POST /admin/vergaderingen` | create meeting (date; agenda generated per §3.1; location/time prefilled from the previous meeting) |
+| `GET /admin/vergaderingen/{id}` | the document (agenda = report, §3.23); htmx fragments for: attendance toggle, notes autosave, add item (picker over portal activities not yet on the agenda + free item), add section (before misc), reorder, upload/remove file, extra recipient |
+| `GET /admin/vergaderingen/{id}/pdf` | generate + download the current PDF (control step, §3.16) |
+| `GET/POST /admin/vergaderingen/{id}/verstuur` | send screen (recipients = active circle + extras, To-line) and the send action |
+| `POST /admin/vergaderingen/{id}/heropen` | reopen a sent meeting (§3.23) |
+| `GET /admin/vergaderingen/bestanden/{id}` | download a stored file (admin session — fail-closed, §4) |
+| `GET /admin/vergaderingen/kring` | manage the circle: list/add/end `BOARD_MEETING` relations, writes via `mdm.api` |
+
+"Previous meeting" = the latest meeting with `report_sent_at` set.
+
+### 8.4 Sending
+
+`mail.api` grows `send_with_attachments(recipients, subject, body_html,
+attachments, reply_to)` — `MIMEMultipart("mixed")` around the existing
+alternative part; one mail, all recipients in To (§3.13); From = the
+association account, Reply-To = the sending admin (§3.24); the report
+mail threads on the agenda mail (In-Reply-To). At send: regenerate the
+PDF, store it as `meeting_files` purpose `sent_pdf`, stamp the sent
+moment — one transaction. Resending asks one confirmation (§3.23).
+
+### 8.5 Dependencies and image
+
+`weasyprint` pinned in `requirements.txt`; Pango/Cairo Debian packages
+in the backend Dockerfile (named in the "Na de merge" block);
+`check_imports.py` covers the import at build time.
+
+### 8.6 Tests (each can go red; guards proven by violation)
+
+1. Agenda generation: evaluation vs upcoming split around the previous
+   meeting's date, running activity included, carried-over ideas copied,
+   new members listed, one manual addition inserted chronologically
+   *between* existing items.
+2. File guard: send, attempt file delete, assert the named refusal.
+3. Fail-closed download: fetch a meeting file without a session, assert
+   the refusal.
+4. Send: one mail; all active circle members plus one extra address in
+   To; attachments present; Reply-To = sender; PDF archived as
+   `sent_pdf`.
+5. Reopen and resend: a second `sent_pdf` exists, the first is kept.
+6. Members header: the three renewal-cycle states of §3.20 (frozen
+   dates).
+7. One e2e golden flow (`tests_e2e`): create → notulate → send.
+
+### 8.7 Build order
+
+Migration + models → circle screen (mdm relation) → agenda generation +
+document screen → files + PDF → send + lifecycle → tests/e2e. One
+release item; ships as a whole.
+
+## 9. What the build decided (14 September 2026, #939)
+
+Three things the code settled that this document had left at sketch level. Each
+was a rule of the repository meeting a choice in §4, and in each case the
+repository won — noted here so the next reader does not re-derive them.
+
+1. **No cross-schema foreign keys.** §4 proposed `activity_id`, `member_id` and
+   `noted_steward_person_id` as real FKs, "integrity at rest". The repo forbids
+   them outright (`test_schema_boundaries`): a FK across schemas ties two
+   domains' deploys together. They are **soft-refs**; a reference that no longer
+   resolves renders as a free item instead of breaking the screen.
+2. **The relation type is two tables.** The older code tables key on
+   (code, language), so the code alone is not unique and nothing can point a
+   foreign key at it — and a unique key on the code alone is exactly what
+   silently dropped every English label in migration 017.
+   `organization_relation_types` holds the code, `…_labels` its texts per
+   language. A third language is a row; the FK keeps working.
+3. **Creating a meeting is a screen, not a modal.** The first build used a
+   modal — one date field, after all — and the UI gate refused it (#627: a
+   creation dialog rarely makes the object complete, and you work on in the
+   editor anyway). `/admin/vergaderingen/nieuw` it is, with time and location
+   prefilled from the previous meeting.
+
+One duplication was avoided in passing: the rule for *counting* a registration
+(the sum of the item quantities, or one per registration without items) was
+about to exist twice, once per component in the activities router and once per
+activity here. It now lives once in the activities service, with the router
+helper as a pass-through.
 
 ## Non-goals
 
@@ -222,8 +510,9 @@ From the real September 2026 cycle, anonymised:
 
 ## Relationship to existing work
 
-- **Feeds** [`change_request_05_newsletter.md`](change_request_05_newsletter.md)
-  through the newsletter flag — its only outward interface.
+- **Feeds** [`change_request_05_newsletter.md`](change_request_05_newsletter.md):
+  the newsletter compose screen reads reports through this domain's facade;
+  the composer selects there (decision §3.18).
 - **Reads** the `activities` domain through its facade; the meeting module
   never duplicates activity data, it references it.
 - **Uses** the `mail` domain for the meeting mails and the `media` domain

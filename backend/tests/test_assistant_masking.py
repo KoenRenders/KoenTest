@@ -85,11 +85,17 @@ def test_no_person_naming_object_hands_back_a_name(db_session):
     of seven objects is the kind that reads as finished. The measure alongside is
     there because a selection without one is refused — the point is the dimension.
 
+    Het gezin krijgt een bestuurslid toegewezen, zodat élk getokeniseerd object
+    hier een entiteit heeft en de strenge vorm getoetst kan worden. De rij zónder
+    entiteit — 'Niet toegewezen' — is een eigen geval met een eigen test verderop;
+    die twee door elkaar halen zou deze poort verzwakken tot "er staat geen naam in".
+
     Broken to see it red: `_tokenise_rows` returning its rows unchanged. The
     seeded surname then appears in the result of `member_head_name`, and the
     failure names the object it came from.
     """
-    _household(db_session, "Mira", ACHTERNAAM)
+    bestuurslid = _person_row(db_session, "Wolfgang", "Steenhuyse")
+    _household(db_session, "Mira", ACHTERNAAM, board_member=bestuurslid)
     dispatch = dispatcher(tenant_id=TENANT)
 
     for obj in _all_tokenised_objects():
@@ -99,12 +105,12 @@ def test_no_person_naming_object_hands_back_a_name(db_session):
                                   {"objects": [obj.key, maat]}, db_session))
         tekst = json.dumps(out, ensure_ascii=False)
         assert ACHTERNAAM not in tekst, f"{obj.key} gaf een naam terug: {tekst[:200]}"
+        assert "Steenhuyse" not in tekst, f"{obj.key} gaf een bestuurdersnaam terug"
         assert "Kerkstraat" not in tekst, f"{obj.key} gaf een adres terug"
         if out.get("rows"):
             waarden = {str(r.get(obj.key)) for r in out["rows"]}
-            assert any(w.startswith(obj.token_prefix + "-") or w in ("onbekend",)
-                       or w.startswith("Samengevoegd")
-                       for w in waarden), f"{obj.key}: {waarden}"
+            assert all(w.startswith(obj.token_prefix + "-") for w in waarden), (
+                f"{obj.key}: {waarden}")
 
 
 def test_a_household_row_is_a_token_and_nothing_else_holds_it_back(db_session):
@@ -320,3 +326,40 @@ def _person_row(db, first: str, last: str):
     db.add(persoon)
     db.flush()
     return persoon
+
+
+def test_a_row_without_an_entity_keeps_its_own_label(db_session):
+    """'Niet toegewezen' is een uitkomst, geen gat (#917, 14 september 2026).
+
+    Een dimensie met een "niemand"-emmer levert rijen zonder entiteit: gezinnen
+    zonder verantwoordelijk bestuurslid. De tokenisatie ving dat af met "onbekend",
+    en verklaarde dat in haar docstring als een gevolg van de kleine-groependrempel.
+    Die drempel bestaat niet meer en was ook nooit de reden — maar het gedrag bleef,
+    en het maakte precies de uitkomst onleesbaar waarvoor een bestuurder dit rapport
+    draait. De beschrijving van het object zegt letterlijk: *"een van de nuttigste
+    uitkomsten van dit rapport, geen gat"*.
+
+    Er is niets te tokeniseren waar geen entiteit is, en er wordt niemand
+    aangewezen. Het label blijft dus staan; de naadwachter scant het resultaat toch
+    nog een keer op namen, dus een toekomstig object dat wél een naam zonder id zou
+    opleveren blokkeert de oproep in plaats van mee te reizen.
+
+    Kapotgemaakt om het rood te zien: de `if entiteit is not None`-tak weer op
+    "onbekend" gezet — dan verdwijnt 'Niet toegewezen' uit het antwoord.
+    """
+    from app.domains.mdm.api import Member
+
+    toegewezen = _person_row(db_session, "Wolfgang", "Steenhuyse")
+    _household(db_session, "Mira", ACHTERNAAM, board_member=toegewezen)
+    db_session.add(Member(tenant_id=TENANT))   # een gezin zonder bestuurslid
+    db_session.flush()
+
+    out = json.loads(dispatcher(tenant_id=TENANT)(
+        "run_report", {"objects": ["board_member", "member_total_count"]},
+        db_session))
+    waarden = {str(r["board_member"]) for r in out["rows"]}
+
+    assert "Niet toegewezen" in waarden, waarden
+    assert any(w.startswith("persoon-") for w in waarden), waarden
+    assert "Steenhuyse" not in json.dumps(out), "de naam zelf reist niet mee"
+    assert "onbekend" not in waarden

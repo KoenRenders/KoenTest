@@ -1,0 +1,8 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Versturen") }} — {{ _("Raak beheer") }}{% endblock %}
+{% block content %}
+<div id="vg-verstuur">
+  {% include "_vg_verstuur.html" %}
+</div>
+{% endblock %}

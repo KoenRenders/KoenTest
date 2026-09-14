@@ -12,8 +12,10 @@ Regels:
 from __future__ import annotations
 
 import logging
-from typing import Optional
+from datetime import date
+from typing import NamedTuple, Optional
 
+from sqlalchemy import or_
 from sqlalchemy.orm import Session
 
 from app.domains.mdm.models import Person, PersonHistory
@@ -220,3 +222,144 @@ def person_name_parts(db: Session) -> set[str]:
                 if len(schoon) >= 3 and schoon not in NAME_PARTICLES:
                     parts.add(schoon)
     return parts
+
+
+# ── The meeting circle, as a relation to the organisation (CR-09, #258) ──────
+
+BOARD_MEETING = "BOARD_MEETING"
+
+
+class CirclePerson(NamedTuple):
+    """One person in a circle, with the address the mail goes to."""
+
+    relation_id: int
+    person: Person
+    email: Optional[str]
+
+
+def _email_of(person: Person) -> Optional[str]:
+    """The person's e-mail address, or None. `EMAIL` is the code the whole code
+    base uses for it (auth, activities, audit all read it this way)."""
+    for contact in getattr(person, "contact_details", []) or []:
+        if contact.contact_type_code == "EMAIL" and contact.value:
+            return contact.value
+    return None
+
+
+def organization_circle(db: Session, *, relation_type: str = BOARD_MEETING,
+                        on_day: Optional[date] = None) -> list[CirclePerson]:
+    """Who is in this organisation's circle today, alphabetically.
+
+    A relation counts when it has started and has not ended: ending one
+    end-dates it rather than deleting it, so the attendance of an old report
+    keeps resolving to the person who was there.
+    """
+    from app.domains.mdm.models import OrganizationPerson, Person
+
+    if on_day is None:
+        on_day = date.today()
+    rows = (db.query(OrganizationPerson, Person)
+            .join(Person, Person.id == OrganizationPerson.person_id)
+            .filter(OrganizationPerson.relation_type == relation_type,
+                    or_(OrganizationPerson.start_date.is_(None),
+                        OrganizationPerson.start_date <= on_day),
+                    or_(OrganizationPerson.end_date.is_(None),
+                        OrganizationPerson.end_date >= on_day))
+            .order_by(Person.first_name.asc(), Person.last_name.asc(),
+                      Person.id.asc())
+            .all())
+    return [CirclePerson(relation_id=relation.id, person=person,
+                         email=_email_of(person))
+            for relation, person in rows]
+
+
+def add_to_circle(db: Session, person_id: int, *, organization_id: int,
+                  relation_type: str = BOARD_MEETING,
+                  on_day: Optional[date] = None):
+    """Put a person in the circle. Idempotent: an existing open relation is
+    returned unchanged, so a double click does not create a second row."""
+    from app.domains.mdm.models import OrganizationPerson
+
+    existing = (db.query(OrganizationPerson)
+                .filter(OrganizationPerson.person_id == person_id,
+                        OrganizationPerson.relation_type == relation_type,
+                        OrganizationPerson.end_date.is_(None))
+                .first())
+    if existing is not None:
+        return existing
+    relation = OrganizationPerson(
+        person_id=person_id, organization_id=organization_id,
+        relation_type=relation_type, start_date=on_day or date.today())
+    db.add(relation)
+    db.commit()
+    return relation
+
+
+def end_circle_relation(db: Session, relation_id: int,
+                        on_day: Optional[date] = None) -> None:
+    """End someone's place in the circle — end-dated, never deleted."""
+    from app.domains.mdm.models import OrganizationPerson
+
+    relation = db.get(OrganizationPerson, relation_id)
+    if relation is None:
+        return
+    relation.end_date = on_day or date.today()
+    db.commit()
+
+
+def new_members_between(db: Session, start: date, end: date) -> list[dict]:
+    """Households that joined in the window, as the meeting names them.
+
+    A household has no name of its own, so it is rendered as *head member –
+    partner, address* (CR-09 §3.20), built from the person relations. The
+    steward is included when the administration knows one; assigning one is not
+    this module's job — that happens in the national administration and returns
+    through the import.
+    """
+    from app.domains.mdm.models import (Address, Member, MemberPerson, Person,
+                                        PostalCode)
+
+    members = (db.query(Member)
+               .filter(Member.created_at >= start, Member.created_at < end)
+               .order_by(Member.created_at.asc(), Member.id.asc())
+               .all())
+    if not members:
+        return []
+    ids = [m.id for m in members]
+    links = (db.query(MemberPerson, Person)
+             .join(Person, Person.id == MemberPerson.person_id)
+             .filter(MemberPerson.member_id.in_(ids))
+             .all())
+    by_member: dict[int, list] = {}
+    for link, person in links:
+        by_member.setdefault(link.member_id, []).append((link.relation_type, person))
+
+    person_ids = [p.id for _link, p in links]
+    addresses = {}
+    if person_ids:
+        for address, postal in (db.query(Address, PostalCode)
+                                .outerjoin(PostalCode, PostalCode.id == Address.postal_code_id)
+                                .filter(Address.person_id.in_(person_ids)).all()):
+            addresses[address.person_id] = (address, postal)
+
+    out = []
+    for member in members:
+        people = by_member.get(member.id, [])
+        head = next((p for relation, p in people if relation == "HOOFDLID"), None)
+        partner = next((p for relation, p in people if relation == "PARTNER"), None)
+        if head is None and people:
+            head = people[0][1]
+        names = [f"{p.first_name} {p.last_name}".strip()
+                 for p in (head, partner) if p is not None]
+        address, postal = addresses.get(getattr(head, "id", None), (None, None))
+        street = ""
+        if address is not None:
+            street = " ".join(part for part in
+                              [address.street, address.house_number] if part).strip()
+            if postal is not None and postal.municipality:
+                street = f"{street}, {postal.municipality}".strip(", ")
+        out.append({"member_id": member.id,
+                    "label": " – ".join(names) or f"gezin {member.id}",
+                    "address": street,
+                    "steward_person_id": member.board_member_id})
+    return out

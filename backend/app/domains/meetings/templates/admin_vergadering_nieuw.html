@@ -1,0 +1,28 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Nieuwe vergadering — Raak beheer") }}{% endblock %}
+{% block content %}
+{% call ui.page_header(_("Nieuwe vergadering"), _("Eén datum volstaat: de agenda wordt meteen samengesteld uit de activiteiten en de nieuwe leden.")) %}{% endcall %}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+<div class="bg-surface border border-line rounded-2xl p-6 max-w-xl">
+  <form method="post" action="/admin/vergaderingen" class="space-y-4">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div>
+      {{ ui.label(_("Datum"), "vg-datum", required=True) }}
+      {{ ui.input_control("meeting_date", id="vg-datum", type="date", value=suggested_date, required=True, cls="w-full") }}
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        {{ ui.label(_("Aanvang"), "vg-uur") }}
+        {{ ui.input_control("start_time", id="vg-uur", type="time", value=suggested_time, cls="w-full") }}
+      </div>
+      <div>
+        {{ ui.label(_("Locatie"), "vg-locatie") }}
+        {{ ui.input_control("location", id="vg-locatie", value=suggested_location, cls="w-full") }}
+      </div>
+    </div>
+    <p class="text-sm text-ink-soft">{{ _("Uur en locatie zijn overgenomen van de vorige vergadering; pas ze aan waar nodig.") }}</p>
+    {{ ui.action_bar(save_label=_("Vergadering aanmaken"), cancel_href="/admin/vergaderingen") }}
+  </form>
+</div>
+{% endblock %}

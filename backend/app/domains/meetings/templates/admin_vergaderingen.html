@@ -1,0 +1,18 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Vergaderingen — Raak beheer") }}{% endblock %}
+{% block content %}
+{# Records-lijst (design-system C1): titel → duidingsregel → primaire actie in de
+   kop → de kaarten. Aanmaken is een LINK naar een eigen scherm en geen modal
+   (#627, §2.8): je werkt na het aanmaken toch verder in het document. #}
+{% call ui.page_header(_("Vergaderingen"), _("Agenda en verslag zijn één document: voorbereiden, notuleren en versturen gebeuren op hetzelfde scherm.")) %}
+  <div class="flex gap-2">
+    {{ ui.btn_secondary(_("Vergaderkring"), href="/admin/vergaderingen/kring") }}
+    {{ ui.btn_primary(_("+ Nieuwe vergadering"), href="/admin/vergaderingen/nieuw") }}
+  </div>
+{% endcall %}
+
+<div id="vg-lijst">
+  {% include "_vg_lijst.html" %}
+</div>
+{% endblock %}
