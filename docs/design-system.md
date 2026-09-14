@@ -46,6 +46,7 @@ change to all four, in one pull request.
 | 13 Sep 2026 | Conventions debate triaged: 17 adoptions (action bar bottom, menu workspaces, account presence, P13 relation bar, save granularity follows the business unit, …), deferrals with named triggers | #785 (triage) |
 | 13 Sep 2026 | A record name opens a full detail page; inline disclosure becomes the secondary variant | #785 (B2) |
 | 14 Sep 2026 | One action cluster per edit surface, **at the top** (revised from bottom on owner feedback the same day): read mode shows the opener, edit mode swaps it for [Opslaan][Annuleren][Verwijderen]; sticky header on long editors — replaces the #722 adjacency rule on edit surfaces | #913 (wave 6, A2) |
+| 14 Sep 2026 | The meetings module (CR-09) **keeps autosave** as its saving model — owner decision; A8's "autosave only as named concept behaviour" is satisfied at module level, no per-field naming required | #913 (wave 6, A8) |
 | 13 Sep 2026 | Dashboard is a first-class screen type, defined as a **reporting** surface (tiles, drill-through, peilmoment) — expressly separate from the werkbank, which is process | #785 (B3) |
 | 13 Sep 2026 | The unsaved-changes promise is dropped as a system rule; it returns as a per-editor pattern field for long editors | #785 (B1) |
 | 13 Sep 2026 | Judging viewports follow the audience: public phone-first, admin desktop-first | CR-08 |
