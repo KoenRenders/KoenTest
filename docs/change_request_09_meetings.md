@@ -225,6 +225,17 @@ New domain `meetings`:
   Attendance on `Meeting` references `Person`. The `meetings` domain reads
   the circle through the MDM facade.
 
+**A real schema, and the boundaries the repo already enforces.** No tags,
+no JSON columns: sections and items are rows with FKs, so the database
+guards integrity (layer 3) and agenda generation is a query. The tables
+above belong to the `meetings` domain; the person↔organisation relation is
+deliberately **MDM's** (master data — meetings is merely its first
+consumer). Cross-domain FKs (`activity_id`, `member_id`, `person_id`) are
+DB-level integrity only: in code, meetings reaches activities through
+`activities.api` and persons through `mdm.api`, and the newsletter side
+(CR-05) reads reports through `meetings.api` — never straight into the
+tables. `test_import_boundaries` enforces all of it.
+
 The **report is data, not a blob**: sections and items are rows, so the next
 agenda can be generated (upcoming activities + carried-over items) instead
 of copied, and the newsletter flag can select items instead of prose.
