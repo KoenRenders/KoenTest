@@ -32,13 +32,24 @@ def test_archief_redirect_lands_on_page_with_header(client):
 # ── Footer + aanmelden (HDEV-testbevindingen 17 juli) ──────────────────────────
 
 def test_footer_sociale_links_zijn_iconen(client, db_session):
-    """#491/#519: mét een tenant-Facebook-URL is de sociale link in de footer een
-    icoon (inline SVG), geen platte tekst. Zonder waarde geen (kapotte lege) link —
-    er is geen hardgecodeerde Millegem-default meer."""
-    from app.kernel.tenant_config import set_setting
+    """#491/#519: mét een Facebook-URL is de sociale link in de footer een icoon
+    (inline SVG), geen platte tekst. Zonder waarde geen (kapotte lege) link — er is
+    geen hardgecodeerde Millegem-default meer.
+
+    Sinds #924 komt die URL uit de ORGANISATIE en niet meer uit de
+    tenant-instellingen: een Facebook-pagina van een vereniging bestaat ook als ze
+    geen site heeft.
+    """
+    from app.domains.mdm.api import Organization
 
     assert 'aria-label="Facebook"' not in client.get("/aanmelden").text
-    set_setting(db_session, "facebook_url", "https://www.facebook.com/raakvoorbeeld")
+    from app.kernel.tenant_config import _actieve_tenant
+
+    # De tenant die de schil werkelijk gebruikt: de UNIT, niet het ACCOUNT.
+    organisatie = (db_session.query(Organization)
+                   .filter(Organization.id == _actieve_tenant(None))
+                   .execution_options(include_all_tenants=True).one())
+    organisatie.facebook_url = "https://www.facebook.com/raakvoorbeeld"
     db_session.commit()
     html = client.get("/aanmelden").text
     assert 'aria-label="Facebook"' in html

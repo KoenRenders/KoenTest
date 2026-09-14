@@ -206,6 +206,19 @@
       </a>
       {% endif %}
     </div>
+    {# #924: het organisatieblok komt uit de entiteit. Het CMS-blok blijft eronder
+       staan: `site-footer` is vrije tekst en een migratie kan een adresblok niet
+       onderscheiden van een zin die iemand schreef, dus er verdwijnt niets. Of dat
+       blok daarna weg mag, beslissen we ná het bekijken van een omgeving. #}
+    {% if organisatie %}
+    <div class="text-center text-base md:text-sm text-gray-600 mb-6">
+      <p class="font-semibold text-ink">{{ organisatie.name }}</p>
+      {% for regel in organisatie.address_lines %}<p>{{ regel }}</p>{% endfor %}
+      {% if organisatie.email %}<p><a href="mailto:{{ organisatie.email }}" class="hover:text-blue-700 hover:underline">{{ organisatie.email }}</a></p>{% endif %}
+      {% if organisatie.phone %}<p>{{ organisatie.phone }}</p>{% endif %}
+      {% if organisatie.iban %}<p>{{ _("Rekeningnummer") }}: {{ organisatie.iban }}</p>{% endif %}
+    </div>
+    {% endif %}
     {% if footer_block and footer_block.content %}
     <div class="cms-content text-center text-base md:text-sm text-gray-600 mb-6">{{ footer_block.content | safe }}</div>
     {% endif %}

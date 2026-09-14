@@ -33,10 +33,10 @@ router = APIRouter(include_in_schema=False)
 BEKENDE_SLEUTELS = [
     ("display_name", "Naam", "Merk-/afzendnaam (mails, footer, titel). Default: Raak Millegem."),
     ("tagline", "Tagline", "Ondertitel in de header. Leeg = geen ondertitel (#519)."),
+    # #924: de sociale links staan bij de ORGANISATIE — ze bestaan ook als de
+    # vereniging geen site heeft. Hier laten staan zou een tweede bewerkbare bron
+    # zijn.
     ("base_url", "Canonieke URL", "Publieke origin voor links in mails/Mollie/SEO, bv. https://raakmillegem.be."),
-    ("facebook_url", "Facebook-link", "Footer-link naar je Facebook-pagina. Leeg = geen Facebook-icoon (#519)."),
-    ("instagram_url", "Instagram-link", "Footer-link. Leeg = niet tonen."),
-    ("tiktok_url", "TikTok-link", "Footer-link. Leeg = niet tonen."),
     ("privacy_url", "Privacyverklaring-link", "Footer-link naar je privacyverklaring. Leeg = niet tonen."),
     ("mail_mode", "Mail-modus", "'send' (default) of 'log_only' (mails enkel loggen — demo)."),
     ("noindex", "Noindex", "'1' = niet indexeren door zoekmachines (demo)."),

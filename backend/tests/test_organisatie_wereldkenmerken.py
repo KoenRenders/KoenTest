@@ -16,11 +16,18 @@ from sqlalchemy import text
 from sqlalchemy.exc import IntegrityError
 
 from app.domains.mdm.api import Address, Organization, Person, PostalCode
-from app.kernel.tenant_config import (set_setting, tenant_display_name,
+from app.kernel.tenant_config import (_actieve_tenant, set_setting,
+                                      tenant_display_name,
                                       tenant_payment_beneficiary,
                                       tenant_payment_iban)
 
-TENANT = 1
+# De tenant die de applicatie werkelijk gebruikt, en niet 1. De seed zet vier
+# organisaties neer: 1 is het ACCOUNT ("Raak"), 2 is de UNIT "Raak Millegem" — en
+# dát is de tenant. Mijn eerste versie van dit bestand toetste op 1 en slaagde,
+# omdat elke aanroep dezelfde verkeerde rij meekreeg: het mechanisme klopte, de rij
+# niet. Zichtbaar geworden toen de footer (die zelf resolveert) een waarde op 1
+# niet zag.
+TENANT = _actieve_tenant(None)
 
 
 @pytest.fixture
