@@ -153,7 +153,9 @@ Added after the first mockup round (14 September 2026, Koen's review):
     sections, the secretary can add a named section block ("Jaarplanning
     2027") to agenda a big topic and notulate its discussion. Standard
     sections keep their generation and carry-over semantics; a custom
-    section holds free items only.
+    section holds free items only. **Miscellaneous is always the last
+    section** — a custom section inserts before it (refined 14 September
+    2026).
 
 18. **No newsletter flag during the meeting** (revises §3.10's flag idea,
     same day). Selecting what reaches the newsletter is the newsletter
