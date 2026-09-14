@@ -117,7 +117,10 @@ Taken by Koen on 14 September 2026, in the CR-shaping conversation:
 5. **The report's source is what an admin types during the meeting.** Not
    an uploaded document, not speech — no STT anywhere in this chain; the
    `stt` domain stays untouched.
-6. **The meeting module is built separately and first; the newsletter chain
+6. **Single editor.** One person types during the meeting (the secretary
+   model) — no concurrent editing, which keeps M1 well clear of A17's
+   simultaneous-edit machinery.
+7. **The meeting module is built separately and first; the newsletter chain
    follows.** The newsletter draws its input from what the meeting track
    produces: the agenda's activity data, media, positive evaluation notes
    from the report, and items the report explicitly marks as newsletter
@@ -271,10 +274,8 @@ From the real examples of §1, anonymised:
 
 ## 10. Open questions
 
-1. **Live editing during the meeting.** One person types (the secretary
-   model), or must two board members be able to edit the same report at once?
-   Concurrent editing brings A17's simultaneous-edit detection into scope;
-   single-editor keeps M1 much smaller.
+1. ~~Live editing during the meeting~~ — **settled 14 September 2026: one
+   person types** (decision §3.6).
 2. **Action items.** Keep them as text in the notes (as today), or structure
    them (owner + text + open/done, carried to the next agenda automatically)?
    Structured is more build and more value — the agenda could open with
