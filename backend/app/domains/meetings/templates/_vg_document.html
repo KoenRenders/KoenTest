@@ -121,7 +121,9 @@
     <ul class="mt-2 text-sm text-ink space-y-0.5">
       {% for niveau, tekst in item.bullets %}
       <li class="flex gap-2 {% if niveau == 1 %}pl-5{% elif niveau == 2 %}pl-10{% endif %}">
-        <span class="text-ink-soft select-none" aria-hidden="true">{% if niveau == 0 %}●{% elif niveau == 1 %}○{% else %}■{% endif %}</span>
+        {# Dezelfde tekens als in de PDF: ● is de activiteit zelf, dus de notities
+           beginnen bij ○. Anders leest het scherm anders dan het verslag op papier. #}
+        <span class="text-ink-soft select-none" aria-hidden="true">{% if niveau == 0 %}○{% elif niveau == 1 %}■{% else %}·{% endif %}</span>
         <span>{{ tekst }}</span>
       </li>
       {% endfor %}
