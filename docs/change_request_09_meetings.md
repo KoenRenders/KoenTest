@@ -288,6 +288,9 @@ media domain offers no delete surface for this kind), derived from the
 meeting's own sent timestamps: deliberately no marker on the media row,
 which would put the same fact in a second place. Its test makes the
 violation for real — send, attempt the delete, assert the named refusal.
+Measured: the media library screen (`/admin/media`) lists only `sponsor`
+and `activity_photo`; meeting kinds stay out of it, like posters do —
+visible and managed on the meeting screen only.
 An asset whose meeting has been sent cannot be deleted; before sending, replacing one
 really deletes the old blob, as media does everywhere. The sent agenda and
 report PDFs are themselves archived as assets (`kind = "meeting_pdf"`), so
