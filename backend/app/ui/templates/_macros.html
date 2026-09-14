@@ -525,13 +525,27 @@
    De `delay:400ms` op de zoek-trigger beperkt de geschiedenis tot één ingang per
    pauze in het typen; elke aanslag apart zou de terugknop onbruikbaar maken. #}
 {% macro filter_bar(hx_get, hx_target,
-                    trigger="change, keyup changed delay:400ms from:input[type=search]") -%}
-<form class="mb-4 space-y-3" hx-get="{{ hx_get }}" hx-target="{{ hx_target }}"
+                    trigger="change, keyup changed delay:400ms from:input[type=search]",
+                    id=None) -%}
+<form{% if id %} id="{{ id }}"{% endif %} class="mb-4 space-y-3" hx-get="{{ hx_get }}" hx-target="{{ hx_target }}"
       hx-swap="innerHTML" hx-trigger="{{ trigger }}"
       hx-headers='{"X-Raak-Filter": "1"}'
       onsubmit="return false">
   {{ caller() }}
 </form>
+{%- endmacro %}
+
+{# ── Sorteerbare kolomkop (golf 3, #913 — triage A12) ─────────────────────────
+   Voor een servergesorteerde tabel: de kop is een link die de lijst herlaadt
+   met `sort`/`richting` in de query. `include` (een CSS-selector, meestal de
+   filter_bar-form) laat de actieve filters meereizen. Chevron en geen pijl:
+   de pijl betekent in deze kit "verplaatsen" (#702). De aanroepende route
+   bewaakt de whitelist en de #761-tiebreaker — deze macro is alleen de kop. #}
+{% macro sort_th(label, url, active=False, direction="desc", hx_target="", include="", align="left", cls="") -%}
+<th scope="col"{% if active %} aria-sort="{{ 'ascending' if direction == 'asc' else 'descending' }}"{% endif %} class="px-4 py-3 {{ 'text-right' if align == 'right' else 'text-left' }}{% if cls %} {{ cls }}{% endif %}">
+  <a href="{{ url }}" hx-get="{{ url }}"{% if hx_target %} hx-target="{{ hx_target }}"{% endif %}{% if include %} hx-include="{{ include }}"{% endif %} hx-swap="innerHTML"
+     class="inline-flex items-center gap-1 hover:underline">{{ label }}{% if active %}{{ icon("chevron-up" if direction == "asc" else "chevron-down", 12) }}{% endif %}</a>
+</th>
 {%- endmacro %}
 
 {# ── Filterchips (#586) ───────────────────────────────────────────────────────

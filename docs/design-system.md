@@ -50,6 +50,7 @@ change to all four, in one pull request.
 | 13 Sep 2026 | Judging viewports follow the audience: public phone-first, admin desktop-first | CR-08 |
 | 13 Sep 2026 | Golf 1 approved on the package: public shell in Cobalt; **public headings in Inter** (variant B), wordmark stays Radio Canada Big; status colours shell-independent | #913 |
 | 13 Sep 2026 | Golf 2: the admin shell joins Cobalt — white grouped sidebar, account presence top right (initials + e-mail, logout in its menu), headings Inter in both shells | #913 |
+| 14 Sep 2026 | Wave 3: server-sorted columns are the table norm — `ui.sort_th` + whitelist in the route + id-tiebreaker; e-maillog is the reference | #913 |
 | 14 Sep 2026 | Wave 3 start: title + create in ONE header row (all eight list screens measured conform; §3.2 text follows practice); `empty_state` carries the three forms of empty with an optional first action (A10) | #913 |
 | 14 Sep 2026 | Wave 0b: the `field_*` wrapper family is removed — one field family (`*_control` + `ui.label`); hint/error lines are a written convention (§2.2) | #913 |
 | 14 Sep 2026 | Package-2 feedback: top-left = **tenant name + "Werkruimte"** (product label; the Raak wordmark leaves the admin shell — §12 decision a made concrete); workspace groups **Werking** (was Vereniging) / Financieel / **Inzicht** (Dashboard + Rapporten — reporting is not finance-only) / Inhoud / Systeem; address grid two columns on a phone (bus stays right of the house number) | #913 |
@@ -306,9 +307,12 @@ by the status choice; convert one and the field shows two notations.
   independent axes (status next to context on Betalingen).
 - **Filters and search apply live** (htmx on change / debounced input); no
   "Toon" button. Filters sit below "+ Nieuwe" and search, never above.
-- **Sorting**: fixed, documented order until column sorting exists (newest first
-  for logs, alphabetical or `sort_order` for management). Every ordering carries
-  a unique tiebreaker (#761).
+- **Sorting**: server-sorted columns are the norm for tables (wave 3, #913 —
+  triage A12 resolved the old contradiction with §3.5): `ui.sort_th` heads the
+  column, the route owns a whitelist of sortable keys, and every ordering ends
+  in the unique id as tiebreaker (#761). The e-maillog is the reference
+  implementation; screens without sorting yet keep a fixed, documented order —
+  also with the tiebreaker.
 - **Manual reorder = `ui.reorder()`**: arrows follow the layout (vertical ▲▼,
   grid ◀▶), identical style; visible click target, never a glyph that reads as a
   spinner (#702).
