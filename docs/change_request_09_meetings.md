@@ -283,8 +283,12 @@ follow that existing pattern for the **bytes**: a new
 `kind = "meeting_attachment"` in `media_assets`; the per-meeting metadata
 (which mail carries it) stays in the meetings-owned `MeetingAttachment`
 row, referencing the asset by soft-ref. The protection sits in the
-service layer — an asset whose
-meeting has been sent cannot be deleted; before sending, replacing one
+service layer, in `meetings` (the one write path for these assets — the
+media domain offers no delete surface for this kind), derived from the
+meeting's own sent timestamps: deliberately no marker on the media row,
+which would put the same fact in a second place. Its test makes the
+violation for real — send, attempt the delete, assert the named refusal.
+An asset whose meeting has been sent cannot be deleted; before sending, replacing one
 really deletes the old blob, as media does everywhere. The sent agenda and
 report PDFs are themselves archived as assets (`kind = "meeting_pdf"`), so
 the archive holds literally what went out. And the historical-report
