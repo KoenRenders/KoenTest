@@ -1,9 +1,12 @@
 {% import "_macros.html" as ui %}
 {% macro persoon_card(m, hoofd) %}
 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
-  <div x-show="!edit">
+  {# #639-patroon, maar de KNOPPEN horen buiten de x-show: Koens bevinding op
+     golfpakket-6 v2 — in bewerkmodus verdween de hele kop en was er geen
+     Opslaan. De leesinfo wijkt, de knoppenrij blijft. #}
+  <div>
     <div class="flex items-start justify-between">
-      <div>
+      <div x-show="!edit">
         <span class="font-semibold">{{ m.first_name }} {{ m.last_name }}</span>
         <span class="text-xs text-gray-500 ml-1">({{ m.relation_type | relatielabel }})</span>
         {% if m.date_of_birth %}<p class="text-sm text-gray-500 mt-0.5">° {{ m.date_of_birth.strftime("%d-%m-%Y") }}</p>{% endif %}
@@ -14,6 +17,7 @@
           {% if m.phone %}<span class="inline-flex items-start gap-1">{{ ui.icon("phone", cls="mt-0.5 shrink-0") }} {{ m.phone }}</span>{% endif %}
         </div>
       </div>
+      <span x-show="edit" x-cloak class="text-sm text-gray-500 self-center">{{ m.first_name }} {{ m.last_name }} — {{ _("bewerken") }}</span>
       <div class="flex gap-2 shrink-0 ml-4">
         {{ ui.edit_toggle("edit") }}
         <div x-show="edit" x-cloak>{{ ui.action_bar(form="pc-" ~ m.id, cancel_attrs='@click="edit = false"',

@@ -52,3 +52,37 @@ def test_de_baseline_krimpt_mee():
     assert not verouderd, (
         "Deze schermen zijn (deels) omgebouwd; verlaag hun tel in de "
         f"BASELINE zodat de ratchet niet terug kan: {verouderd}")
+
+
+def test_het_cluster_zit_nooit_in_een_verborgen_leeswrapper():
+    """Koens bevinding op golfpakket-6 v2: de persoonskaart opende in
+    bewerkmodus ZONDER Opslaan — het cluster stond in de kopregel die met
+    x-show="!edit" verdwijnt (#639-patroon te breed toegepast). De leesinfo
+    mag wijken; de knoppen niet.
+
+    Statische scan: een ui.action_bar-aanroep mag nergens binnen een
+    <div x-show="!…">-wrapper staan. Rood bewezen door de fix in
+    _leden_detail.html één keer terug te draaien.
+    """
+    import re
+
+    fouten = []
+    for pad in APP.rglob("templates/*.html"):
+        if pad.name in ("_macros.html", "design_system.html"):
+            continue
+        tekst = pad.read_text(encoding="utf-8")
+        # dieptes van open divs; onthoud per open div of hij negatief verbergt.
+        stapel: list[bool] = []
+        for token in re.finditer(r"<div\b[^>]*>|</div>|ui\.action_bar\(", tekst):
+            t = token.group(0)
+            if t == "</div>":
+                if stapel:
+                    stapel.pop()
+            elif t.startswith("<div"):
+                stapel.append('x-show="!' in t)
+            elif any(stapel):
+                regel = tekst[:token.start()].count("\n") + 1
+                fouten.append(f"{pad.relative_to(APP)}:{regel}")
+    assert not fouten, (
+        "action_bar binnen een x-show=\"!…\"-wrapper — de knoppen verdwijnen "
+        f"in bewerkmodus: {fouten}")

@@ -119,7 +119,7 @@
 {% call ui.card() %}
   <p class="text-sm font-semibold mb-1">{{ _("Actiecluster (bovenaan een bewerkvlak)") }}</p>
   {{ ui.action_bar(cancel_href="/admin/design-system", delete_attrs='hx-post="/demo"') }}
-  <p class="text-xs text-gray-500 mt-3"><code>ui.action_bar(form=…, cancel_attrs=…, delete_attrs=…)</code> — {{ _("Opslaan en Annuleren links, Verwijderen laatst en rood; `form=` koppelt Opslaan aan het formulier eronder.") }}</p>
+  <p class="text-xs text-gray-500 mt-3"><code>ui.action_bar(form=…, cancel_attrs=…, delete_attrs=…)</code> — {{ _("Verwijderen uiterst links (alleen in bewerkmodus), dan Annuleren, en Opslaan uiterst rechts — op de plek van de opener. `form=` koppelt Opslaan aan het formulier eronder.") }}</p>
 {% endcall %}
 
 {# Icoon vóór wikkelende tekst (golf 0b): de #810/#813-marges als macro. #}

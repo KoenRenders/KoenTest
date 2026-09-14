@@ -45,7 +45,7 @@ change to all four, in one pull request.
 | 13 Sep 2026 | Visual direction **Cobalt** chosen on mockups (maker round); huisstijl is a starting point, not a fence | #785, CR-08 |
 | 13 Sep 2026 | Conventions debate triaged: 17 adoptions (action bar bottom, menu workspaces, account presence, P13 relation bar, save granularity follows the business unit, …), deferrals with named triggers | #785 (triage) |
 | 13 Sep 2026 | A record name opens a full detail page; inline disclosure becomes the secondary variant | #785 (B2) |
-| 14 Sep 2026 | One action cluster per edit surface, **at the top** (revised from bottom on owner feedback the same day): read mode shows the opener, edit mode swaps it for [Opslaan][Annuleren][Verwijderen]; sticky header on long editors — replaces the #722 adjacency rule on edit surfaces | #913 (wave 6, A2) |
+| 14 Sep 2026 | One action cluster per edit surface, **at the top** (revised from bottom on owner feedback the same day): read mode shows the opener; edit mode swaps it for [Verwijderen]·[Annuleren][Opslaan] with Opslaan on the opener's spot; sticky header on long editors — replaces the #722 adjacency rule on edit surfaces | #913 (wave 6, A2) |
 | 14 Sep 2026 | The meetings module (CR-09) **keeps autosave** as its saving model — owner decision; A8's "autosave only as named concept behaviour" is satisfied at module level, no per-field naming required | #913 (wave 6, A8) |
 | 13 Sep 2026 | Dashboard is a first-class screen type, defined as a **reporting** surface (tiles, drill-through, peilmoment) — expressly separate from the werkbank, which is process | #785 (B3) |
 | 13 Sep 2026 | The unsaved-changes promise is dropped as a system rule; it returns as a per-editor pattern field for long editors | #785 (B1) |
@@ -333,8 +333,10 @@ by the status choice; convert one and the field shows two notations.
   decision g/A2 revised on owner feedback, wave 6 #913): in read mode the
   header row carries the opener (`edit_toggle`, "Bewerken", hidden while
   editing) plus *content* actions (view, print, export, import); in edit mode
-  the opener is swapped for the cluster — [Opslaan] [Annuleren], Verwijderen
-  last and red — so there is never a second Annuleren. `form=` binds the
+  the opener is swapped for the cluster — **[Verwijderen] (far left, red,
+  spaced) [Annuleren] [Opslaan]**, with Opslaan on the exact spot of the
+  opener, so the rightmost button is always the current mode's primary
+  action and there is never a second Annuleren. `form=` binds the
   Opslaan to the form below (HTML form owner). On long editors the header row
   is `sticky top-0` so Opslaan stays in view. Deleting means opening the edit
   surface first — deliberate ("dat is zelfs veilig").
@@ -820,9 +822,10 @@ Fixed words, everywhere: **Opslaan** (create and edit; never "Bewaar",
 "Toevoegen" only for adding a sub-item or line to a collection inside a form.
 
 - Button order in the action cluster at the top of an edit surface:
-  **[Opslaan] [Annuleren]**, then Verwijderen last and red, via
-  `ui.action_bar` (wave 6, #913 — head revision). On a long form the header
-  row is sticky so Opslaan stays in view.
+  **[Verwijderen] (far left, red, edit mode only) [Annuleren] [Opslaan]** —
+  Opslaan rightmost, on the opener's spot — via `ui.action_bar` (wave 6,
+  #913, head revision). On a long form the header row is sticky so Opslaan
+  stays in view.
 - The core action of an activity is **"Inschrijven"** — on the card, in the
   modal title and on the submit. Not "Schrijf je in".
 - **No vendor names in labels**: "Status verversen", not "Ververs bij Mollie".

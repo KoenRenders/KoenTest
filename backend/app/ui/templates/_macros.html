@@ -756,14 +756,20 @@
    `edit_toggle` (de opener); het cluster vervangt hem in bewerkmodus — zo
    bestaat er nooit een tweede Annuleren.
 
+   Volgorde (Koen, 14 sep 2026, tweede verfijning): [Verwijderen] uiterst
+   links — alleen in bewerkmodus, met ruimte ernaast — dan [Annuleren], en
+   [Opslaan] uiterst rechts: exact de plek waar in leesmodus de opener
+   ("Bewerken") staat. De rechtse knop is zo altijd de hoofdactie van de
+   huidige stand.
+
    `form` koppelt de Opslaan-submit aan een formulier elders in het vlak
    (HTML `form=`-attribuut): het cluster staat in de kop, het formulier
    eronder. Binnen een formulier (aanmaakvlakken) mag `form` weg. #}
 {% macro action_bar(save_label=None, form=None, save_attrs="", cancel_attrs="", cancel_href=None, delete_attrs="", delete_label=None, delete_confirm=None, cls="") -%}
 <div class="flex items-center gap-2{% if cls %} {{ cls }}{% endif %}">
-  {{ btn_primary(save_label or _("Opslaan"), attrs=(('form="' ~ form ~ '" ')|safe if form else '') ~ save_attrs) }}
+  {% if delete_attrs %}<span class="mr-3">{{ btn_danger(delete_label or _("Verwijderen"), attrs=delete_attrs, confirm=delete_confirm) }}</span>{% endif %}
   {{ btn_secondary(_("Annuleren"), href=cancel_href, attrs=cancel_attrs) }}
-  {% if delete_attrs %}<span class="ml-3">{{ btn_danger(delete_label or _("Verwijderen"), attrs=delete_attrs, confirm=delete_confirm) }}</span>{% endif %}
+  {{ btn_primary(save_label or _("Opslaan"), attrs=(('form="' ~ form ~ '" ')|safe if form else '') ~ save_attrs) }}
 </div>
 {%- endmacro %}
 
