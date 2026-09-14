@@ -302,6 +302,8 @@ def test_de_kit_levert_de_beloofde_macros():
         "toast", "toast_host", "success_banner", "error_banner",
         "person_fields",
         "btn_primary", "btn_secondary", "btn_outline", "btn_danger",
+        # P13 (golf 5, #913): relatienavigatie.
+        "relatie_chips", "scope_regel", "spronglink",
     ]
     ontbreekt = [m for m in beloofd if f"macro {m}(" not in kit]
     assert not ontbreekt, f"Beloofd in ui-conventies.md §5.1 maar niet in de kit: {ontbreekt}"

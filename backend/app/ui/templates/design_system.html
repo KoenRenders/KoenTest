@@ -497,6 +497,18 @@
   </div>
 {% endcall %}
 
+{# ── 12b. Relatienavigatie (P13, golf 5 #913) ─────────────────────────────── #}
+{{ ui.section_header(_("12b · Relatienavigatie (P13)")) }}
+{% call ui.card() %}
+  <p class="text-sm text-gray-600 mb-3">{{ _("Relatiebalk onder een recordkop: elke chip opent de gewone lijst van dat domein in een expliciete recordscope.") }}</p>
+  {{ ui.relatie_chips([{"label": _("Betalingen"), "count": 3, "href": "#"},
+                       {"label": _("Inschrijvingen"), "count": 12, "href": "#"}]) }}
+  <p class="text-sm text-gray-600 mb-3">{{ _("De scope-regel op zo'n gescopeerde lijst — zichtbaar, met de expliciete uitgang. Ze overleeft filterwijzigingen; een onzichtbaar voorfilter is verboden.") }}</p>
+  {% call ui.scope_regel("#") %}{{ _("Voor inschrijving:") }} <a class="font-medium hover:underline" href="#">Anna Peeters</a>{% endcall %}
+  <p class="text-sm text-gray-600 mb-2">{{ _("Inline verwijzing naar een ander record: de spronglink.") }}</p>
+  <p class="text-sm">{{ _("Gewijzigd door") }} {{ ui.spronglink("#", "Inschrijving #12", aria=_("Open inschrijving #12")) }}</p>
+{% endcall %}
+
 {# ── 13. Tabs ──────────────────────────────────────────────────────────────── #}
 {{ ui.section_header(_("13 · Tabs")) }}
 {% call ui.card() %}

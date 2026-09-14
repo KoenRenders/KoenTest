@@ -730,7 +730,8 @@ def matches_filter(record, *, context: str = "all", status: str = "all", q: str 
 
 
 def filter_records(records, *, context: str = "all", status: str = "all", q: str = "",
-                   openstaand: bool = False, record_id: str = "") -> list:
+                   openstaand: bool = False, record_id: str = "",
+                   registration_id: str = "") -> list:
     """#704: `record_id` toont één betaling, ongeacht de andere filters.
 
     Een werkbanktaak linkt hierheen. Bewust een FILTER en geen anker: de lijst wordt
@@ -739,7 +740,16 @@ def filter_records(records, *, context: str = "all", status: str = "all", q: str
 
     De zoekterm (`q`) kon dit niet: die kijkt naar naam, mededeling, omschrijving en
     onderdeel, niet naar het id.
+
+    `registration_id` (P13, golf 5 #913) is een SCOPE, geen filter: ze beperkt de
+    verzameling tot de betalingen van één inschrijving, en de gewone filters werken
+    daarbinnen. Het scherm toont er een zichtbare scope-regel bij — een onzichtbaar
+    voorfilter is precies wat het patroon verbiedt.
     """
+    scope = (registration_id or "").strip()
+    if scope:
+        records = [r for r in records
+                   if r.payable_type == "registration" and str(r.payable_id) == scope]
     doel = (record_id or "").strip()
     if doel:
         return [r for r in records if str(r.id) == doel]

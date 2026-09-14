@@ -7,6 +7,10 @@
    live via de kit-filterbalk. De balk swapt enkel de kaartenlijst, zodat het
    zoekveld niet onder je vingers vervangen wordt. #}
 {% call ui.filter_bar("/admin/betalingen/lijst", "#betalingen-lijst") %}
+  {# P13 (golf 5, #913): de recordscope reist als hidden field met élke
+     filterwijziging mee — de scope overleeft filteren en wissen, en verdwijnt
+     alleen via "Alle bekijken" in de scope-regel. #}
+  {% if scope %}<input type="hidden" name="{{ scope.param_naam }}" value="{{ scope.param_waarde }}">{% endif %}
   <div>{{ ui.search(value=q, placeholder=_('Zoek op naam, OGM of omschrijving…'), standalone=False) }}</div>
   <div class="flex flex-wrap gap-3 items-center">
     {# Gegroepeerde context-filter via de gedeelde macro (#549); geen hx-* op de select
@@ -27,7 +31,7 @@
     {# De exportknop draagt de filterstand mee: zonder de nieuwe parameter
        exporteert hij iets anders dan wat op het scherm staat. #}
     {{ ui.btn_secondary(_("Export (.ods)"), lead_icon="download",
-                        href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status ~ ("&openstaand=1" if openstaand else ""), size="sm",
+                        href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status ~ ("&openstaand=1" if openstaand else "") ~ ("&inschrijving=" ~ scope.param_waarde if scope and scope.param_naam == "inschrijving" else ""), size="sm",
                         attrs='hx-boost="false"') }}
   </div>
 {% endcall %}
@@ -39,7 +43,7 @@
    hier halen we de lijst opnieuw op mét de huidige filterstand. #}
 <div id="betalingen-lijst"
      hx-get="/admin/betalingen/lijst" hx-trigger="betalingen-ververst from:body"
-     hx-include="[name='q'],[name='status'],[name='context']" hx-swap="innerHTML">
+     hx-include="[name='q'],[name='status'],[name='context'],[name='inschrijving'],[name='record']" hx-swap="innerHTML">
   {% include "_betalingen_lijst.html" %}
 </div>
 {% endblock %}
