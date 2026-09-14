@@ -180,6 +180,10 @@ Added after the first mockup round (14 September 2026, Koen's review):
     like any other item; the section also accepts **free items** below the
     generated ones; and the section header always shows the **running
     member total of the current working year**, from the member data.
+    Display rule (a household has no name of its own): a new member
+    renders as **head member's name – partner's name, address**, derived
+    from the `MemberPerson` relations; just the head member when there is
+    no partner.
 
 Inherited, not reopened: **#785 triage A17** — the AI-per-module contract
 (read / propose / execute separated). This module has no AI at all, which is
