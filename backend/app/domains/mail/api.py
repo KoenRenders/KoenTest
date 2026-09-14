@@ -13,6 +13,7 @@ from app.domains.mail.service import (  # noqa: F401
     send_magic_link,
     send_member_contact_board_notice,
     send_registration_confirmation,
+    send_with_attachments,
     email_log_url,
 )
 
@@ -33,4 +34,5 @@ __all__ = [
     "send_magic_link",
     "send_member_contact_board_notice",
     "send_registration_confirmation",
+    "send_with_attachments",
 ]

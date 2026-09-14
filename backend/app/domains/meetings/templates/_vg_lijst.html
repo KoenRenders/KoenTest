@@ -1,0 +1,27 @@
+{% import "_macros.html" as ui %}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+{% if not meetings %}
+  {{ ui.empty_state(_("Nog geen vergaderingen. Maak er een aan; de agenda wordt meteen ingevuld.")) }}
+{% else %}
+<div class="space-y-2">
+  {% for meeting in meetings %}
+  <a href="/admin/vergaderingen/{{ meeting.id }}"
+     class="block bg-surface border border-line rounded-2xl px-5 py-4 hover:bg-surface-2 transition-colors">
+    <div class="flex items-center gap-3 flex-wrap">
+      <span class="font-semibold text-ink">{{ dates[meeting.id] }}</span>
+      {{ ui.badge(status_labels[meeting.id], status_tones[meeting.id]) }}
+      {% if meeting.location %}<span class="text-sm text-ink-soft">{{ meeting.location }}</span>{% endif %}
+      {% if meeting.report_sent_at %}
+      <span class="text-sm text-ink-soft ml-auto">{{ _("verslag verstuurd") }}</span>
+      {% elif meeting.agenda_sent_at %}
+      <span class="text-sm text-ink-soft ml-auto">{{ _("agenda verstuurd") }}</span>
+      {% endif %}
+    </div>
+  </a>
+  {% endfor %}
+</div>
+{% endif %}
+<p class="text-sm text-ink-soft mt-4">
+  {{ _("De vergaderkring telt %(n)s personen.", n=circle_size) }}
+  <a href="/admin/vergaderingen/kring" class="underline">{{ _("Beheer de kring") }}</a>
+</p>

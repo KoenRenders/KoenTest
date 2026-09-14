@@ -102,37 +102,16 @@ def _registration_counts(db: Session, activity_ids: List[int]) -> dict:
 
 
 def _component_occupancy(db: Session, activity_ids: List[int]) -> dict:
-    """Bezette plaatsen per onderdeel: som van item-hoeveelheden, of 1 per
-    inschrijving zonder items (zelfde telling als de volzet-check bij inschrijven).
-    Eén batched query; de globale soft-delete- en tenant-filters gelden ook hier,
-    dus verwijderde inschrijvingen tellen niet mee."""
-    occ: dict = {}
-    if not activity_ids:
-        return occ
-    item_sum = (
-        db.query(
-            RegistrationItem.registration_id.label("rid"),
-            func.sum(RegistrationItem.quantity).label("q"),
-        )
-        .group_by(RegistrationItem.registration_id)
-        .subquery()
-    )
-    rows = (
-        db.query(
-            Registration.component_id,
-            func.sum(func.coalesce(item_sum.c.q, 1)),
-        )
-        .outerjoin(item_sum, item_sum.c.rid == Registration.id)
-        .filter(
-            Registration.activity_id.in_(activity_ids),
-            Registration.component_id.isnot(None),
-        )
-        .group_by(Registration.component_id)
-        .all()
-    )
-    for component_id, qty in rows:
-        occ[component_id] = int(qty or 0)
-    return occ
+    """Bezette plaatsen per onderdeel — de telling zelf staat in de service.
+
+    Dezelfde regel ("som van de item-hoeveelheden, of 1 per inschrijving zonder
+    items") beantwoordt ook de vraag van de vergaderagenda, per activiteit i.p.v.
+    per onderdeel (#258). Ze staat daarom één keer, in de service; hier blijft de
+    doorgang staan omdat de router-helper op vier plaatsen aangeroepen wordt.
+    """
+    from app.domains.activities.service import _booked_per_component
+
+    return _booked_per_component(db, activity_ids)
 
 
 def _mark_full(responses: List[ActivityResponse], occ: dict) -> None:

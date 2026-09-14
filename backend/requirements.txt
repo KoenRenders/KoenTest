@@ -15,6 +15,15 @@ xlrd==2.0.2
 odfpy==1.4.1
 pillow==12.3.0
 pypdf==6.16.2
+# WeasyPrint (#258): HTML/CSS -> PDF voor de vergaderagenda en het verslag.
+# Europe First: open source, draait bij ons, onderhouden door CourtBouillon (FR).
+# Vereist de Pango-systeempakketten uit de Dockerfile.
+#
+# 70.0 en niet 63.1: pip-audit meldde vijf advisories op 63.1 (PYSEC-2026-2034,
+# -3412, -3940). 70.0 is nagemeten en draagt er geen enkele — de vondst van de
+# audit is dus opgelost en niet doorgeschoven (#574: de uitkomst mag nooit stil
+# passeren).
+weasyprint==70.0
 # STT Voxtral Realtime (#282). De realtime-adapter (app/domains/stt/providers/voxtral.py)
 # lazy-importeert deze SDK; vereist httpx>=0.28.1 + pydantic>=2.11.2 (vandaar de bumps
 # hierboven). check_imports/CI raken hem niet (mock-provider); pas actief bij
