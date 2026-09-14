@@ -145,3 +145,19 @@ def test_create_schermen_gebruiken_opslaan():
         assert 'btn_primary(_("Aanmaken"))' not in inhoud, pad[1]
     tenants = (APP / "ui" / "templates" / "admin_tenants.html").read_text()
     assert "Tenant aanmaken" not in tenants
+
+
+# ── golf 4 (#913): tabs op het dict-contract ─────────────────────────────────
+
+def test_tabs_rendert_labels_hrefs_en_een_actieve():
+    """De macro pakte tuples uit terwijl de enige aanroeper dicts gaf: Jinja
+    itereerde dan over de sléutels, dus elke tab heette "href", linkte naar
+    "label" en was actief. Dit pint het dict-contract vast: was de bug er nog,
+    dan stond "Gegevens" nergens en "href" wél als tekst."""
+    html = _render(
+        '{{ ui.tabs([{"label": "Gegevens", "href": "/a", "active": True},'
+        '            {"label": "Historiek", "href": "/b", "active": False}]) }}')
+    assert '>Gegevens</a>' in html and '>Historiek</a>' in html
+    assert 'href="/a"' in html and 'href="/b"' in html
+    assert '>href</a>' not in html
+    assert html.count("border-blue-700") == 1, "precies één tab is actief"

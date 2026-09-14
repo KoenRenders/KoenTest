@@ -300,12 +300,16 @@
 </div>
 {%- endmacro %}
 
-{# Tab-balk: `items` = lijst van (href, label, is_active). #}
+{# Tab-balk: `items` = lijst van dicts {label, href, active} — dezelfde vorm als
+   nav-items. Tot golf 4 (#913) pakte de lus hier tuples uit terwijl de enige
+   aanroeper (de kitpagina) al dicts gaf: Jinja itereerde dan over de SLEUTELS,
+   dus elke tab heette "href", linkte naar "label" en was actief ("active" is als
+   string waar). Dicts zijn nu het contract; er waren geen tuple-aanroepers. #}
 {% macro tabs(items) -%}
 <div class="border-b border-gray-200 mb-6">
   <nav class="-mb-px flex flex-wrap gap-6 text-sm">
-    {% for href, lab, active in items %}
-    <a href="{{ href }}" class="py-2 border-b-2 {% if active %}border-blue-700 text-blue-700 font-semibold{% else %}border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300{% endif %}">{{ lab }}</a>
+    {% for t in items %}
+    <a href="{{ t.href }}" class="py-2 border-b-2 {% if t.active %}border-blue-700 text-blue-700 font-semibold{% else %}border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300{% endif %}">{{ t.label }}</a>
     {% endfor %}
   </nav>
 </div>
