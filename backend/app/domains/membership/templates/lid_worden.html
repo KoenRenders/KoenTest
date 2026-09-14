@@ -12,14 +12,19 @@
 
   {# Adres — vaste 4-koloms grid; postcode altijd dropdown (vaste UI-beslissing) #}
   {% call ui.card() %}
-    <div class="grid grid-cols-4 gap-3">
+    {# Golf 2-nazorg (#913, bevinding Koen 14 sep): op een telefoon wikkelde het
+   label "Huisnummer" in zijn smalle kolom en zakte het veld. Mobiel-eerst:
+   straat voluit, huisnummer + bus samen op rij twee (bus blijft rechts van
+   huisnummer — de geest van de vaste beslissing), postcode voluit; vanaf
+   md: het originele 4-koloms grid. #}
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
       <div class="col-span-2">{{ ui.label(_("Straat"), "street", required=True) }}
         {{ ui.input_control("street", id="street", value=values.get("street", ""), required=True, cls="w-full") }}</div>
       <div>{{ ui.label(_("Huisnummer"), "house_number", required=True) }}
         {{ ui.input_control("house_number", id="house_number", value=values.get("house_number", ""), required=True, cls="w-full") }}</div>
       <div>{{ ui.label(_("Bus"), "bus_number") }}
         {{ ui.input_control("bus_number", id="bus_number", value=values.get("bus_number", ""), cls="w-full") }}</div>
-      <div class="col-span-4">{{ ui.label(_("Postcode"), "postal_code", required=True) }}
+      <div class="col-span-2 md:col-span-4">{{ ui.label(_("Postcode"), "postal_code", required=True) }}
         {% call ui.select_control("postal_code", cls="w-full", attrs='id="postal_code" required') %}
           <option value="">{{ _("— Kies je postcode —") }}</option>
           {% for pc in postal_codes %}

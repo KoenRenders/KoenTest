@@ -274,6 +274,12 @@ templates.env.globals["path_for"] = path_for
 # (de render-gate bezoekt élk item, groep of niet).
 _ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = [
     (None, [("/admin/werkbank", "Werkbank")]),
+    # Inzicht (bevinding Koen, 14 sep): Rapporten is niet enkel financieel, en het
+    # dashboard was alleen via het woordmerk bereikbaar — samen in één blok.
+    ("Inzicht", [
+        ("/admin", "Dashboard"),
+        ("/admin/rapporten", "Rapporten"),
+    ]),
     ("Vereniging", [
         ("/admin/activiteiten", "Activiteiten"),
         ("/admin/leden", "Leden"),
@@ -281,7 +287,6 @@ _ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = [
     ]),
     ("Financieel", [
         ("/admin/betalingen", "Betalingen"),
-        ("/admin/rapporten", "Rapporten"),
     ]),
     ("Inhoud", [
         ("/admin/paginas", "Pagina's"),
