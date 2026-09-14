@@ -25,17 +25,22 @@ def _seed(db, *recipients, moment=None):
 
 
 def test_sorteren_op_ontvanger_geeft_alfabetische_volgorde(db_session):
-    _seed(db_session, "chris@example.com", "an@example.com", "bert@example.com")
-    rijen, _ = list_email_log(db_session, sort="ontvanger", richting="asc")
+    # Filter op een eigen marker: de tabel is gedeeld met andere tests/seeds.
+    _seed(db_session, "sorttest-chris@example.com", "sorttest-an@example.com",
+          "sorttest-bert@example.com")
+    rijen, _ = list_email_log(db_session, recipient="sorttest-",
+                              sort="ontvanger", richting="asc")
     assert [r.recipient for r in rijen] == [
-        "an@example.com", "bert@example.com", "chris@example.com"]
+        "sorttest-an@example.com", "sorttest-bert@example.com",
+        "sorttest-chris@example.com"]
 
 
 def test_onbekende_sorteersleutel_valt_terug_op_datum(db_session):
     """De whitelist is de bescherming: een verzonnen sleutel wordt geen
     kolomnaam (zelfde reden als "no free SQL") maar de datum-default."""
-    _seed(db_session, "a@example.com")
-    rijen, _ = list_email_log(db_session, sort="'; DROP TABLE--", richting="asc")
+    _seed(db_session, "whitelisttest-a@example.com")
+    rijen, _ = list_email_log(db_session, recipient="whitelisttest-",
+                              sort="'; DROP TABLE--", richting="asc")
     assert len(rijen) == 1  # geen fout, gewoon de default-ordening
 
 
@@ -45,20 +50,22 @@ def test_tiebreaker_maakt_paging_sluitend_bij_gelijke_datums(db_session):
     Kapotgemaakt om rood te zien: de id-tail uit `orden` halen laat Postgres
     de heapvolgorde kiezen en dan is de vereniging van de pagina's niet meer
     gegarandeerd volledig."""
-    _seed(db_session, "x@example.com", "y@example.com", "z@example.com")
-    p1, nog = list_email_log(db_session, page=1, page_size=2)
+    _seed(db_session, "tieb-x@example.com", "tieb-y@example.com",
+          "tieb-z@example.com")
+    p1, nog = list_email_log(db_session, recipient="tieb-", page=1, page_size=2)
     assert nog is True
-    p2, _ = list_email_log(db_session, page=2, page_size=2)
+    p2, _ = list_email_log(db_session, recipient="tieb-", page=2, page_size=2)
     gezien = [r.id for r in p1] + [r.id for r in p2]
     assert len(gezien) == 3 and len(set(gezien)) == 3
 
 
 def test_kopklik_rendert_gesorteerde_lijst_met_chevron(client, db_session):
-    _seed(db_session, "zoe@example.com", "an@example.com")
+    _seed(db_session, "koptest-zoe@example.com", "koptest-an@example.com")
     _login(client)
-    resp = client.get("/admin/e-maillog/lijst?sort=ontvanger&richting=asc")
+    resp = client.get("/admin/e-maillog/lijst?sort=ontvanger&richting=asc"
+                      "&recipient=koptest-")
     assert resp.status_code == 200
-    assert resp.text.index("an@example.com") < resp.text.index("zoe@example.com")
+    assert resp.text.index("koptest-an@example.com") < resp.text.index("koptest-zoe@example.com")
     # De actieve kop draagt de richting — zichtbaar (chevron) én semantisch.
     assert 'aria-sort="ascending"' in resp.text
     # De sorteerstand reist out-of-band terug de filterform in.
