@@ -70,3 +70,27 @@ def test_kopklik_rendert_gesorteerde_lijst_met_chevron(client, db_session):
     assert 'aria-sort="ascending"' in resp.text
     # De sorteerstand reist out-of-band terug de filterform in.
     assert 'id="el-sort"' in resp.text and 'hx-swap-oob' in resp.text
+
+
+def test_paginagrootte_kent_enkel_de_whitelist(db_session):
+    """25/50/100; al de rest — ook 9999 — valt terug op de default (#913 golf 3)."""
+    _seed(db_session, *[f"pp-{i:02d}@example.com" for i in range(30)])
+    rijen, _ = list_email_log(db_session, recipient="pp-", page_size=25)
+    assert len(rijen) == 25
+
+
+def test_verwijderen_bevestigt_met_een_toast(client, db_session):
+    """#760-absorptie: elke mutatie bevestigt. Fragment-antwoord → toast_oob."""
+    from app.domains.auth.api import csrf_token_for
+    from app.domains.mail.models import EmailLog
+
+    _seed(db_session, "toast-weg@example.com")
+    rij = (db_session.query(EmailLog)
+           .filter(EmailLog.recipient == "toast-weg@example.com").first())
+    waarde = make_session_value(SEEDED_ADMIN_EMAIL)
+    client.cookies.set(SESSION_COOKIE, waarde)
+    resp = client.post(f"/admin/e-maillog/{rij.id}/verwijderen",
+                       headers={"X-CSRF-Token": csrf_token_for(waarde)})
+    assert resp.status_code == 200
+    assert "Logregel verwijderd." in resp.text
+    assert 'hx-swap-oob="afterbegin:#toasts"' in resp.text
