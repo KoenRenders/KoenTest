@@ -20,6 +20,9 @@ from jinja2 import meta
 from app.domains.activities.viewmodels import AdminActiviteitenView
 from app.domains.mdm.viewmodels import LedenView
 from app.domains.payment.viewmodels import BetalingenView
+from app.domains.meetings.viewmodels import (
+    MeetingCircleView, MeetingDocumentView, MeetingListView, MeetingNewView,
+    MeetingSendView)
 from app.domains.reporting.viewmodels import ReportListView, ReportPanelView
 from app.ui import templates
 
@@ -37,6 +40,15 @@ VIEWMODELS = {
     "_rp_kaarten.html": ReportListView,
     "admin_rapport_paneel.html": ReportPanelView,
     "_rp_paneel.html": ReportPanelView,
+    "admin_vergaderingen.html": MeetingListView,
+    "admin_vergadering_nieuw.html": MeetingNewView,
+    "_vg_lijst.html": MeetingListView,
+    "admin_vergadering.html": MeetingDocumentView,
+    "_vg_document.html": MeetingDocumentView,
+    "admin_vergadering_verstuur.html": MeetingSendView,
+    "_vg_verstuur.html": MeetingSendView,
+    "admin_vergaderkring.html": MeetingCircleView,
+    "_vg_kring.html": MeetingCircleView,
 }
 
 # Namen die niet uit het view-model komen maar altijd bestaan:

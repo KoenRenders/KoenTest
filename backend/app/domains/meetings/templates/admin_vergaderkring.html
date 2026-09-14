@@ -1,0 +1,11 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Vergaderkring — Raak beheer") }}{% endblock %}
+{% block content %}
+{% call ui.page_header(_("Vergaderkring"), _("Wie agenda en verslag krijgt, en wie je kunt aanvinken bij de aanwezigheid.")) %}
+  {{ ui.btn_secondary(_("Naar de vergaderingen"), href="/admin/vergaderingen") }}
+{% endcall %}
+<div id="vg-kring">
+  {% include "_vg_kring.html" %}
+</div>
+{% endblock %}

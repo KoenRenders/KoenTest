@@ -1,0 +1,234 @@
+{% import "_macros.html" as ui %}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+
+{% call ui.page_header(title, _("Agenda en verslag zijn hetzelfde document. Wat je tijdens de vergadering typt, staat meteen in het verslag.")) %}
+  <div class="flex items-center gap-2 flex-wrap">
+    {{ ui.badge(status_label, status_tone) }}
+    {{ ui.btn_secondary(_("Download PDF"), href="/admin/vergaderingen/" ~ meeting.id ~ "/pdf", attrs='hx-boost="false"', lead_icon="download") }}
+    {% if editable %}
+      {% if not meeting.agenda_sent_at %}
+        {{ ui.btn_outline(_("Verstuur agenda"), href="/admin/vergaderingen/" ~ meeting.id ~ "/verstuur?kind=agenda", lead_icon="mail") }}
+      {% endif %}
+      {{ ui.btn_primary(_("Verstuur verslag"), href="/admin/vergaderingen/" ~ meeting.id ~ "/verstuur?kind=verslag", lead_icon="mail") }}
+    {% else %}
+      <form hx-post="/admin/vergaderingen/{{ meeting.id }}/heropen" hx-target="#vg-document" hx-swap="innerHTML">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        {{ ui.btn_secondary(_("Heropen verslag"), type="submit") }}
+      </form>
+    {% endif %}
+  </div>
+{% endcall %}
+
+{% if not editable %}
+<div class="rounded-lg border border-line bg-surface-2 px-4 py-3 text-sm text-ink-soft mb-4">
+  {{ _("Het verslag is verstuurd en staat op alleen-lezen. Heropen het om nog iets te wijzigen; bij het opnieuw versturen wordt een nieuwe PDF bewaard naast de vorige.") }}
+</div>
+{% endif %}
+
+{# ── Aanwezigheid ────────────────────────────────────────────────────────── #}
+<div class="bg-surface border border-line rounded-2xl p-5 mb-4">
+  <h2 class="font-semibold text-blue-700">{{ _("Aanwezigheid") }}</h2>
+  <p class="text-sm text-ink-soft mt-0.5">{{ _("Aanvinken uit de vergaderkring — klik: aanwezig → verontschuldigd → leeg.") }}</p>
+  {% if not circle %}
+    {{ ui.empty_state(_("De vergaderkring is nog leeg."), action_label=_("Kring beheren"), action_href="/admin/vergaderingen/kring") }}
+  {% else %}
+  <div class="flex flex-wrap gap-2 mt-3">
+    {% for entry in circle %}
+    {% set state = attendance.get(entry.person.id, "") %}
+    <form hx-post="/admin/vergaderingen/{{ meeting.id }}/aanwezigheid" hx-target="#vg-document" hx-swap="innerHTML">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="person_id" value="{{ entry.person.id }}">
+      <input type="hidden" name="current" value="{{ state }}">
+      <button type="submit" {% if not editable %}disabled{% endif %}
+              class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors
+              {% if state == 'present' %}border-green-300 bg-green-50 text-green-800 font-medium
+              {% elif state == 'excused' %}border-yellow-300 bg-yellow-50 text-yellow-800 font-medium
+              {% else %}border-line bg-surface text-ink-soft hover:bg-surface-2{% endif %}">
+        {% if state == 'present' %}{{ ui.icon("check", 14) }}{% endif %}
+        {{ entry.person.first_name }} {{ entry.person.last_name }}
+        {% if state == 'excused' %}<span class="text-xs">· {{ _("verontschuldigd") }}</span>{% endif %}
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+
+{# ── De secties ──────────────────────────────────────────────────────────── #}
+{% for section in sections %}
+<div class="bg-surface border border-line rounded-2xl p-5 mb-4">
+  <div class="flex items-center gap-3 flex-wrap">
+    <h2 class="font-semibold text-blue-700">{{ section.label }}</h2>
+    {% if section.kind == "MEMBERS" %}
+      {{ ui.badge(_("totaal %(jaar)s: %(n)s gezinnen", jaar=standing.year, n=standing.total), "blue") }}
+      {% if standing.renewal_running %}
+        {{ ui.badge(_("hernieuwd voor %(jaar)s: %(x)s van %(n)s", jaar=standing.renewal_year, x=standing.renewed, n=standing.to_renew), "yellow") }}
+      {% endif %}
+    {% elif section.kind == "CUSTOM" %}
+      {{ ui.badge(_("eigen sectie"), "gray") }}
+    {% endif %}
+  </div>
+  {% if section.subtitle %}<p class="text-sm text-ink-soft mt-0.5">{{ section.subtitle }}</p>{% endif %}
+
+  {% if not section.items %}
+    <p class="text-sm text-ink-soft py-4 text-center">{{ _("Nog geen punten.") }}</p>
+  {% endif %}
+  {% for item in section.items %}
+  <div class="py-3 {% if not loop.first %}border-t border-line{% endif %}">
+    <div class="flex items-center gap-2.5 flex-wrap">
+      <span class="font-semibold text-sm text-ink">{{ item.label }}</span>
+      {% if item.meta %}<span class="text-sm text-ink-soft">{{ item.meta }}</span>{% endif %}
+      {% if item.is_full %}{{ ui.badge(_("Volzet"), "red") }}{% endif %}
+      {% if item.source_url %}
+        {# De bron-chip: hier bewerk je niet, je gaat naar de bron. Het verslag
+           kopieert die gegevens niet — het verwijst ernaar (CR-09 §3.20). #}
+        <a href="{{ item.source_url }}" class="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-md px-2 py-0.5 hover:bg-blue-100">
+          {{ ui.icon("link", 12) }}{% if item.kind == "activity" %}{{ _("activiteit") }}{% else %}{{ _("lid") }}{% endif %}
+        </a>
+      {% else %}
+        <span class="inline-flex items-center text-xs text-ink-soft bg-surface-2 rounded-md px-2 py-0.5">{{ _("vrij punt") }}</span>
+      {% endif %}
+      {% if editable %}
+      <form class="ml-auto" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt/{{ item.id }}/verwijder"
+            hx-target="#vg-document" hx-swap="innerHTML">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="text-ink-soft hover:text-brand-danger p-1 rounded"
+                aria-label="{{ _("Punt van deze agenda halen") }}"
+                data-confirm="{{ _("Dit punt van de agenda halen?") }}">{{ ui.icon("x", 15) }}</button>
+      </form>
+      {% endif %}
+    </div>
+
+    {% if item.kind == "member" %}
+    <form class="mt-2 flex items-center gap-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt/{{ item.id }}"
+          hx-target="#vg-document" hx-swap="innerHTML" hx-trigger="change">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <span class="text-sm text-ink-soft">{{ _("wijkmeester") }}</span>
+      {% call ui.select_control("steward_person_id", cls="w-56", aria_label=_("Wijkmeester"), disabled=not editable) %}
+        <option value="">{{ _("— kies bestuurder —") }}</option>
+        {% for entry in circle %}
+        <option value="{{ entry.person.id }}" {% if item.steward_person_id == entry.person.id %}selected{% endif %}>{{ entry.person.first_name }} {{ entry.person.last_name }}</option>
+        {% endfor %}
+      {% endcall %}
+      <span class="text-xs text-ink-soft">{{ _("genotuleerd — de toewijzing zelf gebeurt in de Raak-administratie") }}</span>
+    </form>
+    {% endif %}
+
+    <form class="mt-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt/{{ item.id }}"
+          hx-target="#vg-document" hx-swap="innerHTML" hx-trigger="change">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {{ ui.textarea_control("notes", value=item.notes, rows=2, cls="w-full",
+                             placeholder=_("Notities…"),
+                             attrs=("disabled" if not editable else "")) }}
+    </form>
+  </div>
+  {% endfor %}
+
+  {% if section.can_add %}
+    {% if picker_section_id == section.id %}
+    {# De kiezer: een bestaande activiteit alsnog toevoegen, ook tijdens de
+       vergadering — het geval van een hotel dat een jaar vooruit vastligt. #}
+    <div class="mt-3 rounded-lg border border-blue-200 bg-blue-50 p-4">
+      <div class="flex items-center justify-between gap-3">
+        <h3 class="font-semibold text-sm text-blue-700">{{ _("Punt toevoegen") }}</h3>
+        <a href="/admin/vergaderingen/{{ meeting.id }}" hx-get="/admin/vergaderingen/{{ meeting.id }}/kiezer"
+           hx-target="#vg-document" hx-swap="innerHTML"
+           class="text-ink-soft hover:text-ink" aria-label="{{ _("Kiezer sluiten") }}">{{ ui.icon("x", 16) }}</a>
+      </div>
+      <input type="search" name="q" value="{{ picker_query }}" placeholder="{{ _("Zoek een activiteit…") }}"
+             class="mt-3 w-full rounded-lg border border-line px-3 py-2 text-sm"
+             hx-get="/admin/vergaderingen/{{ meeting.id }}/kiezer" hx-target="#vg-document"
+             hx-swap="innerHTML" hx-trigger="input changed delay:300ms"
+             hx-vals='{"section_id": "{{ section.id }}"}'>
+      <div class="mt-2 divide-y divide-line">
+        {% for span in picker_options %}
+        <form class="flex items-center gap-3 py-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt"
+              hx-target="#vg-document" hx-swap="innerHTML">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="section_id" value="{{ section.id }}">
+          <input type="hidden" name="activity_id" value="{{ span.activity.id }}">
+          <span class="font-medium text-sm">{{ span.activity.name }}</span>
+          <span class="text-sm text-ink-soft">{{ span.start.strftime("%d/%m/%Y") }}</span>
+          <span class="ml-auto">{{ ui.btn_outline(_("Toevoegen"), type="submit", size="xs") }}</span>
+        </form>
+        {% else %}
+        <p class="text-sm text-ink-soft py-2">{{ _("Geen activiteiten gevonden die hier nog niet staan.") }}</p>
+        {% endfor %}
+      </div>
+      <form class="mt-3 flex items-center gap-2 border-t border-blue-200 pt-3"
+            hx-post="/admin/vergaderingen/{{ meeting.id }}/punt" hx-target="#vg-document" hx-swap="innerHTML">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="section_id" value="{{ section.id }}">
+        {{ ui.input_control("title", cls="flex-1", placeholder=_("… of typ een vrij punt")) }}
+        {{ ui.btn_secondary(_("Vrij punt toevoegen"), type="submit", size="sm") }}
+      </form>
+    </div>
+    {% else %}
+    <div class="mt-3">
+      <button type="button" hx-get="/admin/vergaderingen/{{ meeting.id }}/kiezer"
+              hx-vals='{"section_id": "{{ section.id }}"}' hx-target="#vg-document" hx-swap="innerHTML"
+              class="inline-flex items-center gap-1.5 rounded-lg border border-dashed border-line px-3 py-2 text-sm text-blue-700 hover:bg-surface-2">
+        {{ ui.icon("plus", 14) }}{{ _("Punt toevoegen") }}
+      </button>
+    </div>
+    {% endif %}
+  {% endif %}
+</div>
+
+{# Een eigen sectie komt vóór Varia; Varia is altijd het laatste punt. #}
+{% if section.kind == "IDEAS" and editable %}
+<form class="flex items-center gap-2 justify-center mb-4"
+      hx-post="/admin/vergaderingen/{{ meeting.id }}/sectie" hx-target="#vg-document" hx-swap="innerHTML">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  {{ ui.input_control("title", cls="w-64", placeholder=_("Naam van de sectie")) }}
+  {{ ui.btn_secondary(_("Sectie toevoegen"), type="submit", size="sm") }}
+  <span class="text-xs text-ink-soft">{{ _("komt vóór Varia") }}</span>
+</form>
+{% endif %}
+{% endfor %}
+
+{# ── Bijlagen ────────────────────────────────────────────────────────────── #}
+<div class="bg-surface border border-line rounded-2xl p-5">
+  <h2 class="font-semibold text-blue-700">{{ _("Bijlagen") }}</h2>
+  <p class="text-sm text-ink-soft mt-0.5">{{ _("Gaan mee met de agenda- en verslagmail — bijvoorbeeld een werkgroepverslag of een document van de gemeente.") }}</p>
+  <div class="flex flex-wrap gap-2 mt-3 items-center">
+    {% for file in attachments %}
+    <span class="inline-flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-sm">
+      {{ ui.icon("file-text", 14) }}
+      <a href="/admin/vergaderingen/{{ meeting.id }}/bestand/{{ file.id }}" hx-boost="false" class="hover:underline">{{ file.filename }}</a>
+      {% if editable and not meeting.agenda_sent_at and not meeting.report_sent_at %}
+      <form hx-post="/admin/vergaderingen/{{ meeting.id }}/bijlage/{{ file.id }}/verwijder"
+            hx-target="#vg-document" hx-swap="innerHTML">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="text-ink-soft hover:text-brand-danger" aria-label="{{ _("Bijlage verwijderen") }}"
+                data-confirm="{{ _("Deze bijlage verwijderen?") }}">{{ ui.icon("x", 13) }}</button>
+      </form>
+      {% endif %}
+    </span>
+    {% else %}
+    <span class="text-sm text-ink-soft">{{ _("Nog geen bijlagen.") }}</span>
+    {% endfor %}
+  </div>
+  {% if editable %}
+  <form class="mt-3" hx-post="/admin/vergaderingen/{{ meeting.id }}/bijlage"
+        hx-target="#vg-document" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {{ ui.upload_field("file", text=_("Bijlage toevoegen"), accept="application/pdf,image/*,.doc,.docx,.odt") }}
+  </form>
+  {% endif %}
+
+  {% if sent_pdfs %}
+  <div class="mt-4 pt-3 border-t border-line">
+    <h3 class="text-sm font-semibold text-ink">{{ _("Verstuurd") }}</h3>
+    <p class="text-xs text-ink-soft">{{ _("Wat er écht vertrokken is. Elke verzending bewaart haar eigen PDF.") }}</p>
+    <div class="flex flex-wrap gap-2 mt-2">
+      {% for file in sent_pdfs %}
+      <a href="/admin/vergaderingen/{{ meeting.id }}/bestand/{{ file.id }}" hx-boost="false"
+         class="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-sm hover:bg-surface-2">
+        {{ ui.icon("file-text", 14) }}{{ file.filename }}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+</div>
