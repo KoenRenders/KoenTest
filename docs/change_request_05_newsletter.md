@@ -1,8 +1,76 @@
 # Change Request 05 — Newsletter & Communication (subscriptions + LLM-assisted drafts)
 
 **Project:** Web Portal "Raak Millegem"
-**Status:** Proposal / discussion — not scheduled. Phased, each phase independently shippable.
-**Apply to:** `backend/app/` (new communication domain), `frontend/src/` (public signup + admin compose).
+**Status:** Decided 17 June 2026 (consent model, `Subscriber`, ESP adapter);
+**updated 14 September 2026** in the CR-09 shaping conversation — see *Update
+(14 September 2026)* below. Not scheduled. Phased, each phase independently
+shippable.
+**Apply to:** `backend/app/` (new `communication` domain; public signup and
+admin compose are server-rendered screens — the `frontend/src/` mention
+predates the React exit, #405).
+
+---
+
+## Update (14 September 2026)
+
+Decided by Koen while shaping CR-09 (meetings). The 17 June 2026 decisions
+below stand; this update refines the sending model, adds the import, and
+plugs the drafting into the architecture that now exists.
+
+1. **The existing mailing list (~800 addresses) is imported as `Subscriber`
+   rows with opt-out.** Double opt-in stays the rule for *new* signups
+   through the public form; the import rests on the existing relationship
+   (legitimate interest), provided every mail carries a working unsubscribe
+   link and the first mailing after import says where the address came from.
+   Every imported row records provenance (`source = "import_2026"`, import
+   date). The import comes from Koen's existing file; **two people already
+   opted out** of the current mailing and are imported as `unsubscribed`
+   from day one. Adding a subscriber by hand later must be possible (a small
+   admin add on the subscriber screen). The members are **not** in the ~800.
+2. **Newsletters are composed and sent from the portal — starting on the
+   existing Gmail account.** The portal sends **one mail per recipient**
+   through Gmail SMTP (the `mail` domain's transport), each with its own
+   unsubscribe token and a `List-Unsubscribe` header, queued and batched
+   under Gmail's daily limit (measure the actual limit before building).
+   That ends the Bcc sends and the To/Bcc accident they invite, and makes
+   the opt-out real. Gmail SMTP is the **first `EmailCampaignProvider`
+   implementation**; the EU ESP below stays behind the same adapter as a
+   later provider swap, **deferred with named triggers**: Gmail's daily cap
+   starts to pinch, deliverability degrades, or manual bounce handling
+   becomes a burden. The ListMonk-vs-Brevo trade-off (an exploratory cloud
+   session exists) is decided only when a trigger fires.
+3. **The compose screen carries the blocks the newsletters already have**
+   (intro, "in de kijker", two-month calendar, outlook, external events),
+   pre-filled from activities and from meeting items flagged "for the
+   newsletter" (CR-09's one outward interface). The monthly member edition
+   also goes through the portal from then on.
+4. **Drafting is the first acting capability pack on the CR-07 kernel**
+   (CR-07 §4.1) — this supersedes the older "#205 swappable LLM layer"
+   phrasing below; the seam guard, payload log and budgets inherit from the
+   kernel. The three fixed rules apply: drafting is not sending, one write
+   path, injection weighs heavier with acting tools. Its input: activity
+   data (date/price/location/registration link), media (flyers, photos),
+   positive evaluation notes and other items **flagged in the meeting
+   report** ([`change_request_09_meetings.md`](change_request_09_meetings.md)).
+   **The flag is the PII gate**: unflagged report content never enters an
+   LLM payload; flagged content may name volunteers — it is written to be
+   public and passes a human editor anyway.
+5. **Open question — the half-yearly edition and the members.** Today the
+   ~800 do not include the members; the half-yearly went to the mailing
+   list only, while members get the monthly edition. To choose at or before
+   the compose/send phase: (a) half-yearly to subscribers only; or (b) to
+   subscribers **and** members, deduplicated by e-mail address at send
+   time, member newsletter opt-out respected. An audience-builder question,
+   not a schema question.
+
+**Phasing after this update:** phase 0 (+ the import) → phase 2′ (compose &
+send via the Gmail SMTP provider, per recipient, queued; personal
+unsubscribe token + `List-Unsubscribe` header; campaign archive) → phase 3
+(drafting, after CR-09's meeting module exists) → **ESP swap deferred with
+the triggers above** (the old phase 1) → phase 4 unchanged, optional. Test
+additions: an ~800-recipient campaign runs queued across the daily limit,
+resumes cleanly after a backend restart, and every sent mail carried its own
+unsubscribe token; unsubscribe works end to end on an imported address.
 
 ---
 
