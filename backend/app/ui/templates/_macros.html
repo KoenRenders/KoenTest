@@ -542,7 +542,7 @@
    de pijl betekent in deze kit "verplaatsen" (#702). De aanroepende route
    bewaakt de whitelist en de #761-tiebreaker — deze macro is alleen de kop. #}
 {% macro sort_th(label, url, active=False, direction="desc", hx_target="", include="", align="left", cls="") -%}
-<th scope="col"{% if active %} aria-sort="{{ 'ascending' if direction == 'asc' else 'descending' }}"{% endif %} class="px-4 py-3 {{ 'text-right' if align == 'right' else 'text-left' }}{% if cls %} {{ cls }}{% endif %}">
+<th scope="col"{% if active %} aria-sort="{{ 'ascending' if direction == 'asc' else 'descending' }}"{% endif %} class="{{ cls or 'px-4 py-3' }} {{ 'text-right' if align == 'right' else 'text-left' }}">
   <a href="{{ url }}" hx-get="{{ url }}"{% if hx_target %} hx-target="{{ hx_target }}"{% endif %}{% if include %} hx-include="{{ include }}"{% endif %} hx-swap="innerHTML"
      class="inline-flex items-center gap-1 hover:underline">{{ label }}{% if active %}{{ icon("chevron-up" if direction == "asc" else "chevron-down", 12) }}{% endif %}</a>
 </th>
