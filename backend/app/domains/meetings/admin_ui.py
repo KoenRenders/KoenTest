@@ -291,6 +291,7 @@ def _document_view(request: Request, db: Session, meeting,
         status_tone=STATUS_TONES.get(meeting.status, "gray"),
         sections=document_of(db, meeting),
         circle=organization_circle(db, on_day=meeting.meeting_date),
+        guests=extra_recipients_of(db, meeting),
         attendance=attendance_of(db, meeting),
         standing=member_standing(db),
         picker_section_id=picker_section_id, picker_options=picker_options,
@@ -411,11 +412,15 @@ def section_add(meeting_id: int, request: Request, db: Session = Depends(get_db)
              response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 def attendance_toggle(meeting_id: int, request: Request, db: Session = Depends(get_db),
                       _email: str = Depends(require_admin_ui),
-                      person_id: int = Form(...), current: str = Form("")):
+                      person_id: str = Form(""), guest_id: str = Form(""),
+                      current: str = Form("")):
     meeting = _meeting_or_404(db, meeting_id)
     nxt = NEXT_ATTENDANCE.get(current or None, ATTENDANCE_PRESENT)
     try:
-        set_attendance(db, meeting, person_id, nxt or None)
+        set_attendance(db, meeting,
+                       person_id=int(person_id) if person_id else None,
+                       guest_id=int(guest_id) if guest_id else None,
+                       status=nxt or None)
     except MeetingError as exc:
         return _document_response(request, db, meeting, error=str(exc))
     return _document_response(request, db, meeting)
@@ -463,6 +468,31 @@ def meeting_edit_save(meeting_id: int, request: Request,
     if request.headers.get("HX-Request"):
         return Response(status_code=204, headers={"HX-Redirect": doel})
     return RedirectResponse(doel, status_code=303)
+
+
+@router.post("/admin/vergaderingen/{meeting_id}/gast", response_class=HTMLResponse,
+             dependencies=[Depends(require_csrf)])
+def guest_add(meeting_id: int, request: Request, db: Session = Depends(get_db),
+              _email: str = Depends(require_admin_ui),
+              guest_name: str = Form(""), guest_email: str = Form("")):
+    """Een gast voor deze ene vergadering: krijgt de mails én staat in de
+    aanwezigheidslijst."""
+    meeting = _meeting_or_404(db, meeting_id)
+    try:
+        add_extra_recipient(db, meeting, guest_email, name=guest_name)
+    except MeetingError as exc:
+        return _document_response(request, db, meeting, error=str(exc))
+    return _document_response(request, db, meeting)
+
+
+@router.post("/admin/vergaderingen/{meeting_id}/gast/{guest_id}/verwijder",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def guest_remove(meeting_id: int, guest_id: int, request: Request,
+                 db: Session = Depends(get_db),
+                 _email: str = Depends(require_admin_ui)):
+    meeting = _meeting_or_404(db, meeting_id)
+    remove_extra_recipient(db, meeting, guest_id)
+    return _document_response(request, db, meeting)
 
 
 @router.post("/admin/vergaderingen/{meeting_id}/heropen", response_class=HTMLResponse,
@@ -567,11 +597,17 @@ def _pdf_context(db: Session, meeting, *, kind: str) -> dict:
 
     ticked = attendance_of(db, meeting)
     present, excused = [], []
-    for entry in organization_circle(db, on_day=meeting.meeting_date):
-        name = f"{entry.person.first_name} {entry.person.last_name}".strip()
-        if ticked.get(entry.person.id) == ATTENDANCE_PRESENT:
+    deelnemers = [(f"p{e.person.id}",
+                   f"{e.person.first_name} {e.person.last_name}".strip())
+                  for e in organization_circle(db, on_day=meeting.meeting_date)]
+    # Gasten staan in dezelfde lijst, met "(gast)" erbij: wie het verslag leest,
+    # moet kunnen zien dat iemand niet tot de vaste kring hoort.
+    deelnemers += [(f"g{g.id}", f"{g.name or g.email} ({_('gast')})")
+                   for g in extra_recipients_of(db, meeting)]
+    for sleutel, name in deelnemers:
+        if ticked.get(sleutel) == ATTENDANCE_PRESENT:
             present.append(name)
-        elif ticked.get(entry.person.id) == ATTENDANCE_EXCUSED:
+        elif ticked.get(sleutel) == ATTENDANCE_EXCUSED:
             excused.append(name)
     return {"meeting": meeting, "kind": kind, "logo": _logo_data_uri(db),
             "kind_label": _("Agenda") if kind == "agenda" else _("Verslag"),

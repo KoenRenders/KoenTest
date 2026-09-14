@@ -91,31 +91,21 @@
       </div>
     </form>
 
-    {# Losse adressen: een gastspreker die één keer komt, wordt geen persoon. #}
+    {# Gasten beheer je op het document zelf, bij de aanwezigheid (Koen,
+       15 september 2026): daar vink je ze ook aanwezig of verontschuldigd aan.
+       Hier staan ze alleen ter controle vóór het versturen. #}
+    {% if extra_recipients %}
     <div class="bg-surface border border-line rounded-2xl p-5">
-      <h2 class="font-semibold text-blue-700">{{ _("Losse mailadressen") }}</h2>
-      <p class="text-sm text-ink-soft mt-0.5">{{ _("Gelden alleen voor deze vergadering — bijvoorbeeld een gastspreker. De vaste kring beheer je bij de vergaderkring.") }}</p>
-      <div class="flex flex-wrap gap-2 mt-3 items-center">
+      <h2 class="font-semibold text-blue-700">{{ _("Gasten") }}</h2>
+      <p class="text-sm text-ink-soft mt-0.5">{{ _("Genodigd voor deze vergadering. Toevoegen of weghalen doe je op het document, bij de aanwezigheid.") }}</p>
+      <div class="flex flex-wrap gap-2 mt-3">
         {% for extra in extra_recipients %}
         <span class="inline-flex items-center gap-2 rounded-lg border border-line px-3 py-1.5 text-sm">
-          {{ extra.email }}{{ ui.badge(_("eenmalig"), "gray") }}
-          <form hx-post="/admin/vergaderingen/{{ meeting.id }}/ontvanger/{{ extra.id }}/verwijder"
-                hx-target="#vg-verstuur" hx-swap="innerHTML">
-            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-            <input type="hidden" name="kind" value="{{ kind }}">
-            <button type="submit" class="text-ink-soft hover:text-brand-danger"
-                    aria-label="{{ _("Adres verwijderen") }}">{{ ui.icon("x", 13) }}</button>
-          </form>
+          {{ extra.name or extra.email }}{{ ui.badge(_("gast"), "gray") }}
         </span>
         {% endfor %}
       </div>
-      <form class="mt-3 flex items-center gap-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/ontvanger"
-            hx-target="#vg-verstuur" hx-swap="innerHTML">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <input type="hidden" name="kind" value="{{ kind }}">
-        {{ ui.input_control("extra_email", type="email", cls="w-72", placeholder=_("naam@voorbeeld.be")) }}
-        {{ ui.btn_secondary(_("Mailadres toevoegen"), type="submit", size="sm") }}
-      </form>
     </div>
+    {% endif %}
   </div>
 </div>

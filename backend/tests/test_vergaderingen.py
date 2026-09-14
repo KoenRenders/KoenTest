@@ -380,7 +380,8 @@ def test_een_verstuurd_verslag_weigert_wijzigingen(db_session, mailbox, monkeypa
                       pdf=b"%PDF", pdf_filename="verslag.pdf")
 
     with pytest.raises(MeetingError):
-        set_attendance(db_session, meeting, persoon.id, ATTENDANCE_PRESENT)
+        set_attendance(db_session, meeting, person_id=persoon.id,
+                       status=ATTENDANCE_PRESENT)
 
 
 # ── 7. De ledenkop ───────────────────────────────────────────────────────────
@@ -798,3 +799,57 @@ def test_een_verstuurde_vergadering_verschuift_niet_meer(db_session, mailbox, mo
 
     with pytest.raises(MeetingError):
         update_meeting(db_session, meeting, meeting_date=date(2026, 10, 8))
+
+
+# ── 18. Een gast zit mee aan tafel ───────────────────────────────────────────
+
+def test_een_gast_krijgt_de_mail_en_staat_in_de_aanwezigheid(db_session, mailbox,
+                                                             monkeypatch):
+    """Koens vraag: een los adres hoort in de agenda zelf, zodat je het ook op
+    aanwezig of verontschuldigd kan zetten.
+
+    Een gast wordt bewust geen persoon in de administratie, en hoort toch in het
+    verslag: wie er was, was er. Deze test volgt beide paden — de mail én de
+    aanwezigheidslijst — want een gast die wel post krijgt maar niet in het
+    verslag staat, is het halve werk.
+    """
+    from app.domains.meetings.api import (add_extra_recipient, attendance_of,
+                                          extra_recipients_of, set_attendance)
+
+    monkeypatch.setattr("app.domains.meetings.service.send_with_attachments",
+                        mailbox, raising=False)
+    _in_circle(db_session, _person(db_session, "Mon", "Essers", "mon@example.org"))
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+
+    add_extra_recipient(db_session, meeting, "spreker@example.org",
+                        name="Alexander W.")
+    gast = extra_recipients_of(db_session, meeting)[0]
+    assert gast.name == "Alexander W."
+
+    set_attendance(db_session, meeting, guest_id=gast.id,
+                   status=ATTENDANCE_PRESENT)
+    assert attendance_of(db_session, meeting) == {f"g{gast.id}": "present"}
+
+    send_meeting_mail(db_session, meeting, kind="agenda", subject="Agenda",
+                      body_html="Hallo", reply_to="s@example.org",
+                      pdf=b"%PDF", pdf_filename="agenda.pdf")
+    assert "spreker@example.org" in mailbox.sent[0]["to_emails"]
+
+
+def test_een_aanwezigheidsrij_wijst_naar_precies_een_deelnemer(db_session):
+    """Persoon óf gast, nooit allebei en nooit geen van beide.
+
+    Een rij die naar allebei wijst is betekenisloos, en de databank weigert ze
+    ook (CHECK in migratie 124). Hier wordt de servicelaag getoetst, zodat de
+    fout een nette melding geeft in plaats van een databankfout.
+    """
+    from app.domains.meetings.api import set_attendance
+
+    persoon = _person(db_session, "Mon", "Essers", "mon@example.org")
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+
+    with pytest.raises(MeetingError):
+        set_attendance(db_session, meeting, status=ATTENDANCE_PRESENT)
+    with pytest.raises(MeetingError):
+        set_attendance(db_session, meeting, person_id=persoon.id, guest_id=1,
+                       status=ATTENDANCE_PRESENT)

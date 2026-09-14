@@ -429,37 +429,49 @@ def add_section(db: Session, meeting: Meeting, title: str) -> MeetingSection:
     return section
 
 
-def set_attendance(db: Session, meeting: Meeting, person_id: int,
-                   status: Optional[str]) -> None:
-    """Tick someone present, excused, or neither.
+def set_attendance(db: Session, meeting: Meeting, *, person_id: Optional[int] = None,
+                   guest_id: Optional[int] = None,
+                   status: Optional[str] = None) -> None:
+    """Tick someone present, excused, or neither — iemand uit de kring of een gast.
 
-    `None` removes the row rather than storing a third state: "not ticked" is
-    the absence of an answer, and a row saying so would have to be kept in step
-    with the circle.
+    `None` als status verwijdert de rij in plaats van een derde toestand te
+    bewaren: "niet aangevinkt" is de afwezigheid van een antwoord, en een rij die
+    dat zegt zou in de pas moeten blijven met de kring.
     """
     _refuse_when_sent(meeting)
     if status is not None and status not in ATTENDANCE_STATUSES:
         raise MeetingError(_("Onbekende aanwezigheid."))
-    row = (db.query(MeetingAttendance)
-           .filter(MeetingAttendance.meeting_id == meeting.id,
-                   MeetingAttendance.person_id == person_id).first())
+    if (person_id is None) == (guest_id is None):
+        raise MeetingError(_("Geef één persoon of één gast op."))
+    vraag = db.query(MeetingAttendance).filter(
+        MeetingAttendance.meeting_id == meeting.id)
+    vraag = (vraag.filter(MeetingAttendance.person_id == person_id) if person_id
+             else vraag.filter(MeetingAttendance.guest_id == guest_id))
+    row = vraag.first()
     if status is None:
         if row is not None:
             db.delete(row)
     elif row is None:
         db.add(MeetingAttendance(meeting_id=meeting.id, person_id=person_id,
-                                 status=status))
+                                 guest_id=guest_id, status=status))
     else:
         row.status = status
     _touch(db, meeting)
     db.commit()
 
 
-def attendance_of(db: Session, meeting: Meeting) -> dict[int, str]:
-    """Per person id: present or excused. Everyone else is simply not ticked."""
-    return {row.person_id: row.status for row in
-            db.query(MeetingAttendance)
-            .filter(MeetingAttendance.meeting_id == meeting.id).all()}
+def attendance_of(db: Session, meeting: Meeting) -> dict[str, str]:
+    """Per deelnemer: present of excused. Wie er niet in staat, is niet aangevinkt.
+
+    De sleutel is een string (`p12` of `g3`) en geen id: personen en gasten
+    worden apart genummerd, dus alleen een id zou de twee door elkaar halen.
+    """
+    uit = {}
+    for row in (db.query(MeetingAttendance)
+                .filter(MeetingAttendance.meeting_id == meeting.id).all()):
+        sleutel = f"p{row.person_id}" if row.person_id else f"g{row.guest_id}"
+        uit[sleutel] = row.status
+    return uit
 
 
 # ── Files ────────────────────────────────────────────────────────────────────
@@ -568,8 +580,14 @@ def get_file(db: Session, meeting_id: int, file_id: int) -> Optional[MeetingFile
 
 # ── Recipients ───────────────────────────────────────────────────────────────
 
-def add_extra_recipient(db: Session, meeting: Meeting, email: str) -> None:
-    """A one-off address for this meeting only — the guest speaker case."""
+def add_extra_recipient(db: Session, meeting: Meeting, email: str,
+                        name: Optional[str] = None) -> None:
+    """Nodig een gast uit voor deze ene vergadering: naam en adres.
+
+    Hij krijgt de mails én hij staat in de aanwezigheidslijst — wie mee aan tafel
+    zit, hoort in het verslag, ook als hij geen lid en geen persoon in de
+    administratie is.
+    """
     email = (email or "").strip()
     if "@" not in email:
         raise MeetingError(_("Dat is geen e-mailadres."))
@@ -578,7 +596,8 @@ def add_extra_recipient(db: Session, meeting: Meeting, email: str) -> None:
                       func.lower(MeetingExtraRecipient.email) == email.lower())
               .first())
     if exists is None:
-        db.add(MeetingExtraRecipient(meeting_id=meeting.id, email=email))
+        db.add(MeetingExtraRecipient(meeting_id=meeting.id, email=email,
+                                     name=(name or "").strip() or None))
         db.commit()
 
 
@@ -625,7 +644,7 @@ def recipients_for(db: Session, meeting: Meeting) -> Recipients:
     for extra in extra_recipients_of(db, meeting):
         if extra.email not in emails:
             emails.append(extra.email)
-            names.append(extra.email)
+            names.append(extra.name or extra.email)
     return Recipients(emails=emails, names=names, without_email=missing)
 
 
