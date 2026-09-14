@@ -47,8 +47,9 @@ BEKENDE_SLEUTELS = [
     ("membership_half_price_end_md", "Halfprijs tot", "MM-DD, bv. 09-16."),
     ("membership_next_year_from_md", "Volgend jaar vanaf", "MM-DD, bv. 09-17."),
     ("membership_renewal_start_md", "Hernieuwen vanaf", "MM-DD; leeg = enkel bij verlopen lidmaatschap."),
-    ("payment_iban", "Rekeningnummer (IBAN)", "Voor de overschrijvingsinstructies in de bevestigingsmail. Leeg = .env-default."),
-    ("payment_beneficiary", "Begunstigde", "Naam op de overschrijving. Leeg = .env-default."),
+    # #924: rekeningnummer en begunstigde staan bij de ORGANISATIE. Ze hier laten
+    # staan "voor het geval dat" zou een tweede bewerkbare bron zijn — dan is het
+    # veld verplaatst in plaats van weggenomen.
     ("payment_term_days", "Betaaltermijn (dagen)", "Aantal dagen voor een overschrijving. Default 7."),
     ("gmail_user", "Gmail-gebruiker", "Afzender-account voor uitgaande mail (SMTP). Leeg = .env-default."),
     ("gmail_from", "Afzender (From)", "Getoonde afzender; leeg = de Gmail-gebruiker."),

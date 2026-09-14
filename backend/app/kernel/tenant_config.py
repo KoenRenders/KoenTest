@@ -23,7 +23,8 @@ import logging
 from datetime import datetime, timezone
 
 from cryptography.fernet import Fernet
-from sqlalchemy import Column, DateTime, Integer, String, Text, UniqueConstraint
+from sqlalchemy import (Column, DateTime, Integer, String, Text,
+                        UniqueConstraint, text)
 from sqlalchemy.orm import Session
 
 logger = logging.getLogger(__name__)
@@ -278,8 +279,45 @@ def tenant_home_url(db: Session, tenant_id: int | None = None, *,
     return f"{origin}/{code}" if code else origin
 
 
+def _organisatie(db: Session, tenant_id: int | None = None):
+    """De organisatie achter deze tenant (#924).
+
+    Een tenant *is* een organisatie — `org_type` is de rol die ze speelt, de
+    kolommen ernaast zeggen wat ze is. Vandaar dat dit gewoon de rij is en geen
+    tweede entiteit.
+
+    Gelezen met SQL en niet via het mdm-model, want de kernel mag geen domein
+    importeren (`test_import_boundaries`). Dat is geen omweg om een poort heen:
+    de kernel wéét al dat een tenant een `mdm.organizations`-rij is — `tenancy.py`
+    schrijft het in zijn eerste regel — maar hij hoort dat domein niet aan te
+    trekken om het te lezen. De kolomlijst staat er daarom uitgeschreven, zodat
+    een wijziging aan het model hier zichtbaar breekt in plaats van stil iets
+    anders te leveren.
+    """
+    return db.execute(text(
+        "SELECT name, payment_iban, payment_beneficiary "
+        "FROM mdm.organizations WHERE id = :id AND deleted_at IS NULL"),
+        {"id": _actieve_tenant(tenant_id)}).first()
+
+
 def tenant_display_name(db: Session, tenant_id: int | None = None) -> str:
-    return get_setting(db, "display_name", tenant_id=tenant_id) or "Raak Millegem"
+    """De naam van de tenant: eigen instelling, anders die van de organisatie.
+
+    De terugval was de letterlijke string "Raak Millegem" (#924). Elke tenant
+    zónder eigen `display_name` heette dus zo — in zijn paginatitel, zijn mails,
+    zijn afzender. Hetzelfde soort lek als het hardgecodeerde "— Raak Millegem" in
+    de albumtitel (#881). De organisatienaam bestaat voor élke tenant, dus die is
+    de juiste terugval.
+
+    Vandaag is de omschakeling onzichtbaar: `organizations.name` en de instelling
+    zijn allebei *Raak Millegem*. Zichtbaar wordt ze bij de tweede afdeling, en dat
+    is precies het geval dat vandaag stuk was.
+    """
+    eigen = get_setting(db, "display_name", tenant_id=tenant_id)
+    if eigen:
+        return eigen
+    organisatie = _organisatie(db, tenant_id)
+    return organisatie.name if organisatie else "Raak Millegem"
 
 
 def tenant_mollie_key(db: Session, tenant_id: int | None = None) -> str | None:
@@ -347,14 +385,33 @@ def tenant_gmail_from(db: Session, tenant_id: int | None = None) -> str | None:
 
 
 def tenant_payment_iban(db: Session, tenant_id: int | None = None) -> str | None:
+    """Het rekeningnummer van de organisatie, met `.env` als vangnet (#924).
+
+    De tenant-instelling zit hier **niet** meer tussen, en dat is de hele
+    omschakeling: migratie 119 heeft de waarden naar de organisatie gebracht én de
+    rijen verwijderd. Ze als derde niveau laten staan zou betekenen dat het veld op
+    twee plaatsen bewerkbaar blijft — dan is het verplaatst in plaats van
+    weggenomen, en dat is precies het patroon dat dit issue opruimt.
+
+    Hier omgeschakeld en niet bij de drie aanroepers: de leesvolgorde hoort op één
+    plek te staan, en de schermen hoeven niet te weten dat er een organisatie
+    bestaat.
+    """
     from app.config import settings
-    return get_setting(db, "payment_iban", tenant_id=tenant_id) or settings.payment_iban
+
+    organisatie = _organisatie(db, tenant_id)
+    return (organisatie.payment_iban if organisatie and organisatie.payment_iban
+            else settings.payment_iban)
 
 
 def tenant_payment_beneficiary(db: Session, tenant_id: int | None = None) -> str | None:
+    """De begunstigde van de organisatie, met `.env` als vangnet (#924)."""
     from app.config import settings
-    return (get_setting(db, "payment_beneficiary", tenant_id=tenant_id)
-            or settings.payment_beneficiary)
+
+    organisatie = _organisatie(db, tenant_id)
+    return (organisatie.payment_beneficiary
+            if organisatie and organisatie.payment_beneficiary
+            else settings.payment_beneficiary)
 
 
 def tenant_payment_term_days(db: Session, tenant_id: int | None = None) -> int:
