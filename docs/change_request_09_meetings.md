@@ -200,7 +200,9 @@ Added after the first mockup round (14 September 2026, Koen's review):
     evaluation section and the upcoming section alike; it is the number
     the meeting always asks for. Only on activities that take portal
     registrations; head-counts of activities without a registration flow
-    ("4 wandelaars") stay typed notes.
+    ("4 wandelaars") stay typed notes. Where a maximum exists the line
+    shows **N/max**, and a full activity carries the same "Volzet" badge
+    the public site shows (asked the same day).
 
 Inherited, not reopened: **#785 triage A17** — the AI-per-module contract
 (read / propose / execute separated). This module has no AI at all, which is
