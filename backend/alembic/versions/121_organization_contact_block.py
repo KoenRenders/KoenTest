@@ -59,10 +59,10 @@ def _kale_tekst(fragment: str) -> str:
 def _rest_na_de_waarden(tekst: str, waarden: list[str]) -> str:
     """Wat er van een alinea overblijft als je de contactgegevens wegdenkt."""
     rest = tekst.lower()
-    # Langste eerst, en dat is geen netheid maar een reparatie. "Raak Millegem"
-    # zonder spaties zit ín "bestuur@raakmillegem.be": wie de korte waarde eerst
-    # wegneemt, houdt "bestuur@.be" over en herkent het e-mailadres daarna niet
-    # meer. De alinea bleef dan staan — de veilige kant op, maar wel fout.
+    # Langste eerst, en dat is geen netheid maar een reparatie. "Raak Voorbeeld"
+    # zonder spaties zit ín "bestuur@raakvoorbeeld.example": wie de korte waarde
+    # eerst wegneemt, houdt "bestuur@.example" over en herkent het e-mailadres
+    # daarna niet meer. De alinea bleef dan staan — de veilige kant op, maar wel fout.
     for waarde in sorted(waarden, key=len, reverse=True):
         if not waarde:
             continue

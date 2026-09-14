@@ -33,17 +33,17 @@ def _opruimer():
     return module
 
 
-WAARDEN = ["Raak Millegem", "bestuur@raakmillegem.be", "014 00 00 00",
+WAARDEN = ["Raak Voorbeeld", "bestuur@raakvoorbeeld.example", "014 00 00 00",
            "BE68 5390 0754 7034", "GKCCBEBB", "Kerkstraat 12",
            "2400 Mol", "Mol", "Kerkstraat"]
 
 
 def test_a_pure_contact_paragraph_goes():
     m = _opruimer()
-    inhoud = ('<p>Raak Millegem</p>'
+    inhoud = ('<p>Raak Voorbeeld</p>'
               '<p>Kerkstraat 12, 2400 Mol</p>'
-              '<p>E-mail: <a href="mailto:bestuur@raakmillegem.be">'
-              'bestuur@raakmillegem.be</a></p>')
+              '<p>E-mail: <a href="mailto:bestuur@raakvoorbeeld.example">'
+              'bestuur@raakvoorbeeld.example</a></p>')
     assert m._opgeruimd(inhoud, WAARDEN).strip() == ""
 
 
@@ -54,7 +54,7 @@ def test_a_paragraph_with_anything_else_stays():
     de alinea staan — ook als er een adres of een e-mailadres in zit.
     """
     m = _opruimer()
-    inhoud = ('<p>Je kan ons bereiken via bestuur@raakmillegem.be, '
+    inhoud = ('<p>Je kan ons bereiken via bestuur@raakvoorbeeld.example, '
               'elke woensdag vanaf 19u.</p>')
     assert m._opgeruimd(inhoud, WAARDEN) == inhoud
 
@@ -62,7 +62,7 @@ def test_a_paragraph_with_anything_else_stays():
 def test_headings_are_never_touched():
     """Een kop met de naam erin is een titel, geen contactregel."""
     m = _opruimer()
-    inhoud = "<h2>Raak Millegem</h2><p>Wie zijn wij?</p>"
+    inhoud = "<h2>Raak Voorbeeld</h2><p>Wie zijn wij?</p>"
     assert m._opgeruimd(inhoud, WAARDEN) == inhoud
 
 
@@ -71,7 +71,7 @@ def test_the_rest_of_the_page_survives():
     m = _opruimer()
     inhoud = ('<h2>Privacyverklaring</h2>'
               '<p>Wij verwerken je gegevens zorgvuldig.</p>'
-              '<p>Raak Millegem</p>'
+              '<p>Raak Voorbeeld</p>'
               '<p>Kerkstraat 12</p>'
               '<p>Je rechten oefen je uit via een schriftelijk verzoek.</p>')
     uit = m._opgeruimd(inhoud, WAARDEN)
@@ -90,17 +90,17 @@ def test_a_mailto_link_is_not_broken_halfway():
     """
     m = _opruimer()
     inhoud = ('<p>Vragen? Schrijf naar '
-              '<a href="mailto:bestuur@raakmillegem.be">bestuur@raakmillegem.be</a> '
+              '<a href="mailto:bestuur@raakvoorbeeld.example">bestuur@raakvoorbeeld.example</a> '
               'en we antwoorden binnen de week.</p>')
     uit = m._opgeruimd(inhoud, WAARDEN)
     assert uit == inhoud, "deze alinea zegt méér dan het adres, dus ze blijft"
-    assert 'href="mailto:bestuur@raakmillegem.be"' in uit
+    assert 'href="mailto:bestuur@raakvoorbeeld.example"' in uit
 
 
 def test_running_it_twice_changes_nothing():
     """Idempotent: na de eerste run staan de waarden er niet meer."""
     m = _opruimer()
-    inhoud = ('<p>Raak Millegem</p><p>Iets wat blijft staan.</p>')
+    inhoud = ('<p>Raak Voorbeeld</p><p>Iets wat blijft staan.</p>')
     een = m._opgeruimd(inhoud, WAARDEN)
     assert m._opgeruimd(een, WAARDEN) == een
 
@@ -119,7 +119,7 @@ def test_nothing_is_removed_without_values():
     die bij deze stap het duurst is.
     """
     m = _opruimer()
-    inhoud = "<p>Raak Millegem</p><p>Kerkstraat 12</p>"
+    inhoud = "<p>Raak Voorbeeld</p><p>Kerkstraat 12</p>"
     assert m._opgeruimd(inhoud, []) == inhoud
 
 
@@ -181,15 +181,15 @@ def test_another_page_does_not_get_the_block(client, db_session):
 def test_a_short_value_inside_a_long_one_does_not_break_the_match():
     """De bug die deze tests vonden, vastgelegd.
 
-    "Raak Millegem" zonder spaties zit ín "bestuur@raakmillegem.be". Wie de korte
-    waarde eerst wegneemt, houdt "bestuur@.be" over en herkent het e-mailadres
-    daarna niet meer — en dan blijft een pure contactalinea staan. De veilige kant
+    "Raak Voorbeeld" zonder spaties zit ín "bestuur@raakvoorbeeld.example".
+    Wie de korte waarde eerst wegneemt, houdt "bestuur@.example" over en herkent
+    het e-mailadres daarna niet meer — en dan blijft een pure contactalinea staan. De veilige kant
     op, maar wel fout, en precies het soort fout dat je niet ziet omdat er niets
     misgaat.
     """
     m = _opruimer()
-    blok = ('<p>E-mail: <a href="mailto:bestuur@raakmillegem.be">'
-            'bestuur@raakmillegem.be</a></p>')
+    blok = ('<p>E-mail: <a href="mailto:bestuur@raakvoorbeeld.example">'
+            'bestuur@raakvoorbeeld.example</a></p>')
     assert m._opgeruimd(blok, WAARDEN).strip() == ""
     # En omgekeerd gesorteerd zou het blijven staan: dat is wat er misging.
     assert m._rest_na_de_waarden(m._kale_tekst(blok), WAARDEN) == ""
