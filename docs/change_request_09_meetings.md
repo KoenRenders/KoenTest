@@ -294,9 +294,16 @@ never the reverse). This is not double bookkeeping: "sent" remains one
 fact on the meeting, "immutable" is media's own fact, derived once,
 causally, at a defined moment — not two places that must keep agreeing.
 (An earlier draft kept the rule in the meetings service only; that
-guarded a single write path and was revised.) Two tests make the
-violation for real: media's — lock, attempt delete, assert the named
-refusal; meetings' — send, assert the assets are locked.
+guarded a single write path and was revised.) The same translation covers
+**confidentiality** (measured the same day: `GET /api/v1/media/<id>`
+serves publicly, by design, for site imagery): media gains a generic
+visibility — `public` or `restricted` — enforced in its own serving
+route (a restricted asset requires the admin session, otherwise 404);
+meetings uploads its attachments and PDFs as restricted, existing kinds
+stay public. Three tests make the violations for real: media's — lock,
+attempt delete, assert the named refusal; media's — fetch a restricted
+asset without a session, assert the 404; meetings' — send, assert the
+assets are locked.
 Measured: the media library screen (`/admin/media`) lists only `sponsor`
 and `activity_photo`; meeting kinds stay out of it, like posters do —
 visible and managed on the meeting screen only.
