@@ -452,3 +452,27 @@ def test_de_activiteitregel_toont_inschrijvingen_en_geen_prijs(client, db_sessio
 
     assert "3/30 ingeschreven" in html
     assert "30,00" not in html and "€30" not in html
+
+
+# ── 8. De PDF rendert echt ───────────────────────────────────────────────────
+
+def test_de_pdf_wordt_echt_gerenderd(client, db_session):
+    """Downloaden levert een échte PDF, niet een lege of een foutpagina.
+
+    Deze test bestaat omdat de rest van de suite WeasyPrint nooit aanroept: de
+    keten zou groen kunnen staan terwijl het Pango-systeempakket ontbreekt of de
+    template ongeldige CSS draagt, en dan valt de eerste PDF pas om bij Koen.
+    Hij toetst de héle weg: template → WeasyPrint → bytes met een PDF-header.
+    """
+    _login(client)
+    _activity(db_session, "Comedy Festival", date(2026, 9, 11))
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+
+    antwoord = client.get(f"/admin/vergaderingen/{meeting.id}/pdf")
+
+    assert antwoord.status_code == 200
+    assert antwoord.headers["content-type"] == "application/pdf"
+    assert antwoord.content.startswith(b"%PDF-"), antwoord.content[:40]
+    # Een lege PDF is ook een PDF: de omvang is het verschil tussen "gerenderd"
+    # en "een leeg document teruggegeven".
+    assert len(antwoord.content) > 2000, len(antwoord.content)
