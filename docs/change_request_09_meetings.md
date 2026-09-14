@@ -282,12 +282,21 @@ soft delete (#166) and referenced by *soft-refs*, not FKs. Attachments
 follow that existing pattern for the **bytes**: a new
 `kind = "meeting_attachment"` in `media_assets`; the per-meeting metadata
 (which mail carries it) stays in the meetings-owned `MeetingAttachment`
-row, referencing the asset by soft-ref. The protection sits in the
-service layer, in `meetings` (the one write path for these assets — the
-media domain offers no delete surface for this kind), derived from the
-meeting's own sent timestamps: deliberately no marker on the media row,
-which would put the same fact in a second place. Its test makes the
-violation for real — send, attempt the delete, assert the named refusal.
+row, referencing the asset by soft-ref. The protection is **translated at
+the domain boundary** (settled with Koen, 14 September 2026): media gains
+its own generic concept — an asset can be **locked** (`locked_at` on
+`media_assets`, a media-domain migration) — and media itself refuses to
+delete a locked asset, in its own vocabulary, knowing nothing of
+meetings. At send time the meetings service calls `media.api` to lock its
+attachments and the archived PDF, in the same transaction that stamps the
+sent moment; the dependency keeps its direction (meetings → media.api,
+never the reverse). This is not double bookkeeping: "sent" remains one
+fact on the meeting, "immutable" is media's own fact, derived once,
+causally, at a defined moment — not two places that must keep agreeing.
+(An earlier draft kept the rule in the meetings service only; that
+guarded a single write path and was revised.) Two tests make the
+violation for real: media's — lock, attempt delete, assert the named
+refusal; meetings' — send, assert the assets are locked.
 Measured: the media library screen (`/admin/media`) lists only `sponsor`
 and `activity_photo`; meeting kinds stay out of it, like posters do —
 visible and managed on the meeting screen only.
