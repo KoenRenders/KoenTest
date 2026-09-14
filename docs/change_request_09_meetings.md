@@ -171,6 +171,16 @@ Added after the first mockup round (14 September 2026, Koen's review):
     chronological place, also in between existing points. Free items
     without a date go at the end and can be repositioned by hand.
 
+20. **The members section, detailed** (14 September 2026, mockup round).
+    The steward next to a new member is a **dropdown over the board
+    members** — what is chosen is *minutes*, stored on the meeting item;
+    the authoritative assignment still flows through Raak national's
+    administration and returns via the MDM import (§3.9), so the next
+    agenda shows the confirmed state. Every member item takes prose notes
+    like any other item; the section also accepts **free items** below the
+    generated ones; and the section header always shows the **running
+    member total of the current working year**, from the member data.
+
 Inherited, not reopened: **#785 triage A17** — the AI-per-module contract
 (read / propose / execute separated). This module has no AI at all, which is
 the simplest way to honour it.
