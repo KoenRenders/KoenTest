@@ -107,26 +107,26 @@ def test_a_question_gets_an_answer_built_from_real_rows(client, db_session, aan)
     assert "Wat zag Mistral?" in resp.text
 
 
-def test_the_threshold_applies_to_the_assistant_and_says_so(client, db_session, aan):
-    """Stricter than the panel, on purpose — and never silently (CR-07 §7).
+def test_a_small_group_is_shown_and_not_pooled_away(client, db_session, aan):
+    """Er wordt niets meer samengevoegd — beslist door Koen, 14 september 2026.
 
-    The assistant's rows go to Mistral and the panel's do not, so a group of three
-    households in one municipality is merged here and shown there. That difference
-    reads as a bug unless the answer names it, which is why the tool result carries
-    the instruction and the answer repeats it.
+    Hier stond de tegenovergestelde test: de gemeente met minder dan vijf personen
+    verdween in een verzamelrij, en het antwoord moest dat benoemen. De drempel is
+    weg, aan beide kanten. Wat naar Mistral mag is een andere regel en die staat
+    overeind: de gemeente is een plaatsnaam, geen persoonsgegeven — een naam of een
+    adres komt hier nog steeds niet doorheen.
 
-    Found by measurement, not by design: this test was first written expecting the
-    municipality to appear, and the seeded households turned out to be too few for
-    it to be allowed to.
+    Kapotgemaakt om het rood te zien: `merge_small_cells` teruggezet in
+    `run_report` — dan staat "Mol" er niet meer en valt de eerste assertie om.
     """
     seed(db_session)
     csrf = login(client, db_session)
     resp = client.post(PATH, data={"vraag": "hoeveel gezinnen per gemeente?",
                                    "historie": "[]"},
                        headers={"X-CSRF-Token": csrf})
-    assert "Samengevoegd" in resp.text
-    assert "privacydrempel" in resp.text
-    assert "Mol" not in resp.text
+    assert "Mol" in resp.text, "de gemeente uit de seed hoort gewoon in het antwoord"
+    assert "Samengevoegd" not in resp.text
+    assert "privacydrempel" not in resp.text
 
 
 def test_the_fold_out_shows_what_actually_left(client, db_session, aan):
@@ -272,3 +272,35 @@ def test_the_speech_scripts_are_loaded_by_the_admin_shell(client, db_session, aa
         tekst = client.get(pagina).text
         assert "stt.js" in tekst, f"{pagina} laadt stt.js niet"
         assert "tts.js" in tekst, f"{pagina} laadt tts.js niet"
+
+
+def test_the_payload_can_be_copied_out_in_one_click(client, db_session, aan):
+    """Gevraagd door Koen: de uitklapper naar een editor kunnen plakken (#917).
+
+    De knop draagt de payload NIET zelf — hij zoekt omhoog naar `data-copy-bron` en
+    kopieert wat daarbinnen staat. Dat is geen detail: de payload is tot honderd
+    kilobyte, en hem in een attribuut herhalen verdubbelt de pagina voor iets dat er
+    al staat. Het tweede voordeel weegt zwaarder: er staan meerdere antwoorden onder
+    elkaar in één gesprek, en zonder id kan geen enkele knop stilzwijgend de payload
+    van een ándere beurt kopiëren.
+
+    Kapotgemaakt om het rood te zien: `data-copy-bron` van de wikkel gehaald — de
+    knop vindt dan niets en kopieert een lege string, wat er op het scherm uitziet
+    als een geslaagde kopie.
+
+    Die proef ging de eerste keer GROEN, en dat is de reden dat de assertie eruitziet
+    zoals ze eruitziet. Ze zocht `data-copy-bron` ergens in de pagina, en die string
+    staat óók in de klik-handler van de knop zelf (`closest('[data-copy-bron]')`) —
+    dus de test slaagde terwijl de wikkel weg was. Precies de vorm uit CLAUDE.md:
+    hij keek nergens. Nu staat er `<div data-copy-bron`, en dat kan alleen de wikkel
+    zijn.
+    """
+    seed(db_session)
+    csrf = login(client, db_session)
+    resp = client.post(PATH, data={"vraag": "hoe zit het met de betalingen?",
+                                   "historie": "[]"},
+                       headers={"X-CSRF-Token": csrf})
+    assert "<div data-copy-bron" in resp.text
+    assert "Kopieer wat Mistral zag" in resp.text
+    # De payload staat één keer in de pagina, niet ook nog eens in een attribuut.
+    assert 'data-copy="[' not in resp.text

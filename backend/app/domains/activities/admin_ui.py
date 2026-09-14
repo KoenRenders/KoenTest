@@ -716,6 +716,12 @@ def _detail_ctx(request: Request, db: Session, registration_id: int,
         "editable": reg.deleted_at is None,
         "edit_open": edit_open,
         "csrf_token": csrf_from_request(request),
+        # Golf 4 (#913): de paginavariant heeft de kop en de canonieke terugweg
+        # nodig. Ze komen hiervandaan — activiteit en onderdeel zijn hierboven al
+        # geladen — zodat de pagina ze niet zelf opnieuw afleidt.
+        "activiteit_id": reg.activity_id,
+        "activiteit_titel": activity.name if activity is not None else "",
+        "component_naam": component.name if component is not None else None,
     }
 
 
@@ -751,15 +757,58 @@ def _render_detail(request: Request, db: Session, registration_id: int,
     return resp
 
 
-@router.get("/admin/inschrijvingen/{registration_id}", response_class=HTMLResponse)
+@router.get("/admin/inschrijvingen/{registration_id}/fragment",
+            response_class=HTMLResponse)
 def inschrijving_detail(registration_id: int, request: Request,
                         db: Session = Depends(get_db),
                         email: str = Depends(require_admin_ui)):
     """Detail/editor van één inschrijving (contact + producten + opmerking) als
     htmx-fragment. Herbruikbaar vanuit betalingen ('Toon inschrijvingsdetails')
     en de activiteiten-admin. Verrijking neemt soft-deleted mee (financieel feit);
-    een soft-deleted inschrijving is niet bewerkbaar."""
+    een soft-deleted inschrijving is niet bewerkbaar.
+
+    Tot golf 4 (#913) woonde dit fragment op de id-URL zelf; die is nu van de
+    volwaardige pagina hieronder (huispatroon: pagina op de id-URL, fragmenten op
+    subpaden — zoals /admin/activiteiten/{id} naast zijn fragmentroutes)."""
     return _render_detail(request, db, registration_id)
+
+
+@router.get("/admin/inschrijvingen/{registration_id}", response_class=HTMLResponse)
+def inschrijving_pagina(registration_id: int, request: Request,
+                        terug: str = "",
+                        db: Session = Depends(get_db),
+                        email: str = Depends(require_admin_ui)):
+    """De inschrijving als volwaardige pagina (golf 4, #913 — B2).
+
+    De recordnaam in een lijst opent deze pagina; het inline openvouwen blijft
+    bestaan als secundaire variant (het fragment op /fragment). Zelfde bron:
+    beide renderen `_inschrijving_detail.html` uit `_detail_ctx`.
+
+    `terug` is de A7-retourcontext: de lijst die hierheen linkte geeft haar eigen
+    adres mee, zodat de terugknop filters en sortering herstelt. Gevalideerd via
+    `veilige_terug`; alles wat geen intern pad is valt terug op de canonieke plek
+    van dit record — zijn activiteit."""
+    from app.domains.activities.viewmodels import AdminInschrijvingView
+    from app.ui import veilige_terug
+
+    ctx = _detail_ctx(request, db, registration_id)
+    if ctx is None:
+        raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
+    pad = veilige_terug(terug, f"/admin/activiteiten/{ctx['activiteit_id']}")
+    # P3: de teruglink BENOEMT waar je vandaan kwam. Het label wordt uit het
+    # gevalideerde pad afgeleid, nooit uit een eigen parameter — een tweede
+    # vrije waarde in de URL zou een tweede ding zijn om te valideren.
+    if pad.startswith("/admin/betalingen"):
+        label = _("Betalingen")
+    elif pad.startswith("/admin/activiteiten"):
+        label = ctx["activiteit_titel"]
+    else:
+        label = _("Terug")
+    vm = AdminInschrijvingView(
+        **ctx, error=None, toast_bericht=None,
+        terug=pad, terug_label=label, nav_items=NAV)
+    return templates.TemplateResponse(request, "admin_inschrijving.html",
+                                      vm.as_context())
 
 
 def _reg_or_404(db: Session, registration_id: int):
@@ -974,8 +1023,21 @@ def inschrijving_regel_verwijderen(registration_id: int, item_id: int, request: 
 
 # ── Inschrijvingen + export ────────────────────────────────────────────────────
 
+# Sorteersleutels voor de inschrijvingenlijst (golf 4, #913 — zelfde regels als de
+# golf 3-referentie op het e-maillog): een whitelist omdat de sleutel uit de
+# querystring komt, en elke ordening eindigt op id (#761) zodat gelijke waarden een
+# stabiele volgorde houden. Python-side, zoals ledenwijzigingen: de lijst is al
+# verrijkt tot dicts wanneer hij hier aankomt.
+_INSCHRIJVING_SORT = {
+    "datum": lambda r: (r["registered_at"] is None, str(r["registered_at"] or "")),
+    "naam": lambda r: ((r["contact_name"] or "") == "",
+                       str(r["contact_name"] or "").lower()),
+}
+
+
 def _inschrijvingen_lijst(request: Request, db: Session, email: str,
-                          activity_id: int, component_id: int | None):
+                          activity_id: int, component_id: int | None,
+                          sort: str = "datum", richting: str = "asc"):
     """Eén lijst inschrijvingen, gefilterd zoals het scherm ze vroeg (#650).
 
     Sinds de knop per onderdeel staat, bestaan er meerdere lijsten naast elkaar op
@@ -985,31 +1047,52 @@ def _inschrijvingen_lijst(request: Request, db: Session, email: str,
 
     `component_id is None` betekent hier de inschrijvingen ZONDER onderdeel, niet
     "alle": op activiteitniveau is dat het enige wat nog getoond wordt.
+
+    De default datum/asc is exact de bewaarde volgorde van #285 (oud → nieuw, id
+    als tiebreaker): zonder klik verandert er niets aan het scherm.
     """
     from app.domains.activities import service
 
+    if sort not in _INSCHRIJVING_SORT:
+        sort = "datum"
+    if richting not in ("asc", "desc"):
+        richting = "asc"
     regs = service.registrations_for(db, activity_id, component_id=component_id,
                                      without_component=component_id is None)
     if regs is None:
         raise HTTPException(status_code=404, detail=_("Activity not found"))
+    sleutel = _INSCHRIJVING_SORT[sort]
+    regs.sort(key=lambda r: (*sleutel(r), r["id"]), reverse=richting == "desc")
+
+    basis = (f"/admin/activiteiten/{activity_id}/onderdelen/{component_id}"
+             f"/inschrijvingen" if component_id
+             else f"/admin/activiteiten/{activity_id}/inschrijvingen")
+    sorteer_urls = {
+        naam: (f"{basis}?sort={naam}&richting="
+               + ("desc" if sort == naam and richting == "asc" else "asc"))
+        for naam in _INSCHRIJVING_SORT}
     return templates.TemplateResponse(request, "_aa_inschrijvingen.html", {
         "registrations": regs, "activity_id": activity_id,
         "component_id": component_id,
+        "sort": sort, "richting": richting, "sorteer_urls": sorteer_urls,
         "doel": f"#aa-insch-{component_id}" if component_id else "#aa-inschrijvingen",
         "csrf_token": csrf_from_request(request)})
 
 
 @router.get("/admin/activiteiten/{activity_id}/inschrijvingen", response_class=HTMLResponse)
 def inschrijvingen_lijst(activity_id: int, request: Request,
+                         sort: str = "datum", richting: str = "asc",
                          db: Session = Depends(get_db),
                          email: str = Depends(require_admin_ui)):
     """Op activiteitniveau: enkel de inschrijvingen zonder onderdeel (#650)."""
-    return _inschrijvingen_lijst(request, db, email, activity_id, None)
+    return _inschrijvingen_lijst(request, db, email, activity_id, None,
+                                 sort=sort, richting=richting)
 
 
 @router.get("/admin/activiteiten/{activity_id}/onderdelen/{component_id}/inschrijvingen",
             response_class=HTMLResponse)
 def onderdeel_inschrijvingen(activity_id: int, component_id: int, request: Request,
+                             sort: str = "datum", richting: str = "asc",
                              db: Session = Depends(get_db),
                              email: str = Depends(require_admin_ui)):
     """De inschrijvingen van één onderdeel (#650).
@@ -1018,21 +1101,26 @@ def onderdeel_inschrijvingen(activity_id: int, component_id: int, request: Reque
     waarin niet te zien is wie waarvoor ingeschreven is — de lijst toont het
     onderdeel nergens per rij. Het filter zit in `registrations_for`, niet hier (§635).
     """
-    return _inschrijvingen_lijst(request, db, email, activity_id, component_id)
+    return _inschrijvingen_lijst(request, db, email, activity_id, component_id,
+                                 sort=sort, richting=richting)
 
 
 @router.post("/admin/activiteiten/{activity_id}/inschrijvingen/{registration_id}/verwijderen",
              response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 def inschrijving_verwijderen(activity_id: int, registration_id: int, request: Request,
                              component_id: int | None = None,
+                             sort: str = "datum", richting: str = "asc",
                              db: Session = Depends(get_db),
                              email: str = Depends(require_admin_ui)):
     from app.domains.activities import service
 
     if not service.delete_registration(db, activity_id, registration_id, actor=email):
         raise HTTPException(status_code=404, detail=_("Registration not found"))
-    # Dezelfde lijst terug, niet "alle": de knop stond in één bepaalde lijst.
-    return _inschrijvingen_lijst(request, db, email, activity_id, component_id)
+    # Dezelfde lijst terug, niet "alle": de knop stond in één bepaalde lijst — en in
+    # dezelfde volgorde (golf 4): de delete-URL draagt de sorteerstand mee, anders
+    # springt de lijst na een verwijdering terug naar de default.
+    return _inschrijvingen_lijst(request, db, email, activity_id, component_id,
+                                 sort=sort, richting=richting)
 
 
 @router.get("/admin/activiteiten/{activity_id}/onderdelen/{component_id}/export")

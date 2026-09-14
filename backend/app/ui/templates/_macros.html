@@ -288,8 +288,14 @@
 {# Modal (design-system §2.5): Alpine stuurt een boolean in de parent-scope aan.
    Gebruik: <div x-data="{ open:false }"> … {% call ui.modal('open', 'Titel') %}…{% endcall %}. #}
 {% macro modal(state, title, max_w="max-w-lg") -%}
-<div x-show="{{ state }}" x-cloak class="fixed inset-0 z-50 flex items-center justify-center p-4"
-     style="background:rgba(17,17,17,.5)" @keydown.escape.window="{{ state }} = false">
+{# A6 (golf 4, #913): openen onthoudt wie de focus had en zet hem op de sluitknop
+   (eerste focusbare element van het dialoogpatroon); sluiten geeft hem terug aan
+   de trigger. Op $el bewaard, niet globaal: twee modals op één scherm mogen
+   elkaars herkomst niet overschrijven. Bij paginalading (state al false) is
+   _vorige undefined en doet de effect-tak niets. #}
+<div x-show="{{ state }}" x-cloak role="dialog" aria-modal="true" class="fixed inset-0 z-50 flex items-center justify-center p-4"
+     style="background:rgba(17,17,17,.5)" @keydown.escape.window="{{ state }} = false"
+     x-effect="{{ state }} ? ($el._vorige = document.activeElement, $nextTick(() => $el.querySelector('button[aria-label]')?.focus())) : ($el._vorige && $el._vorige.focus(), $el._vorige = null)">
   <div class="bg-white rounded-2xl shadow-xl w-full {{ max_w }} max-h-[90vh] overflow-auto" @click.outside="{{ state }} = false">
     <div class="flex items-center justify-between border-b border-gray-200 px-5 py-3">
       <h3 class="text-lg font-semibold text-blue-700">{{ title }}</h3>
@@ -300,12 +306,16 @@
 </div>
 {%- endmacro %}
 
-{# Tab-balk: `items` = lijst van (href, label, is_active). #}
+{# Tab-balk: `items` = lijst van dicts {label, href, active} — dezelfde vorm als
+   nav-items. Tot golf 4 (#913) pakte de lus hier tuples uit terwijl de enige
+   aanroeper (de kitpagina) al dicts gaf: Jinja itereerde dan over de SLEUTELS,
+   dus elke tab heette "href", linkte naar "label" en was actief ("active" is als
+   string waar). Dicts zijn nu het contract; er waren geen tuple-aanroepers. #}
 {% macro tabs(items) -%}
 <div class="border-b border-gray-200 mb-6">
   <nav class="-mb-px flex flex-wrap gap-6 text-sm">
-    {% for href, lab, active in items %}
-    <a href="{{ href }}" class="py-2 border-b-2 {% if active %}border-blue-700 text-blue-700 font-semibold{% else %}border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300{% endif %}">{{ lab }}</a>
+    {% for t in items %}
+    <a href="{{ t.href }}" class="py-2 border-b-2 {% if t.active %}border-blue-700 text-blue-700 font-semibold{% else %}border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300{% endif %}">{{ t.label }}</a>
     {% endfor %}
   </nav>
 </div>
@@ -847,7 +857,27 @@
    cursor. De afwijking staat genoteerd in ui-conventies.md.
 
    De knop draagt altijd een `aria-label`: hij toont alleen een icoon (§2.6). #}
-{% macro copy_button(pad, aria_label, size="sm") -%}
+{# `uit_bron` kopieert de INHOUD van het element ernaast in plaats van een
+   meegegeven tekst (#917). Nodig zodra het te kopiëren stuk groot is: de
+   payload-uitklapper van Raakje is tot honderd kilobyte, en die een tweede keer in
+   een `data-copy`-attribuut zetten verdubbelt de pagina voor iets dat er al staat.
+
+   GEEN id, en dat is de hele reden dat het zo werkt. Er staan meerdere antwoorden
+   onder elkaar in één gesprek; met een id zou elke knop het juiste moeten raden, en
+   een botsing betekent dat je stilzwijgend de payload van een ándere beurt kopieert
+   — precies de fout die niemand opmerkt. De knop zoekt in plaats daarvan omhoog naar
+   `[data-copy-bron]` en pakt wat daarbinnen staat. Eén kopieerhelper blijft het
+   uitgangspunt: dit is een tweede BRON, geen tweede mechanisme. #}
+{% macro copy_button(pad=None, aria_label="", size="sm", uit_bron=False) -%}
+{% if uit_bron %}
+<button type="button" aria-label="{{ aria_label }}"
+        class="{{ btn_class('secondary', size) }} relative z-10"
+        x-data="{ ok: false }"
+        @click.stop.prevent="ok = await raakKopieer(($event.currentTarget.closest('[data-copy-bron]') || {}).textContent || ''); if (ok) setTimeout(() => ok = false, 1500)">
+  <span x-show="!ok">{{ icon('copy') }}</span>
+  <span x-show="ok" x-cloak>{{ icon('check') }}</span>
+</button>
+{% else %}
 <button type="button" data-copy="{{ pad }}" aria-label="{{ aria_label }}"
         class="{{ btn_class('secondary', size) }} relative z-10"
         x-data="{ ok: false }"
@@ -855,6 +885,7 @@
   <span x-show="!ok">{{ icon('copy') }}</span>
   <span x-show="ok" x-cloak>{{ icon('check') }}</span>
 </button>
+{% endif %}
 {%- endmacro %}
 
 {% macro clipboard_js() -%}

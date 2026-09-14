@@ -100,13 +100,20 @@ can type their own name and e-mail; a global name-and-e-mail check would block
 `submit_idea` on the first message it was designed for. Phone and IBAN patterns
 apply to both surfaces; names and e-mail only to the back office.
 
-**The threshold reaches a household row before the token does.** A row per
-household is a group of one family, which is under five people, so the small-cell
-threshold merges it away — the token never gets its turn. That is CR-07 §5.5
-working as written: the threshold covers *grouped* answers, the token covers the
-*row-level* ones, which is the `detail` layout with no `GROUP BY`. So "welke
-gezinnen…" is a listing, not a grouped table, and the assistant is told so in its
-catalogue.
+**The small-cell threshold is gone, on both sides** (decided by Koen, 14 September
+2026). CR-07 §5.5 kept it as a second line: groups under five people were merged
+into one row, for the panel and the assistant alike. Two things were wrong with
+that. Inside the back office it protected nobody — whoever may open the report may
+look the household up anyway — while hiding "Anderlecht: 1" in a pooled row, and a
+figure that disappears without a visible reason costs trust in every number around
+it. And for the assistant it conflated two different rules: **a count is not
+personal data**. What must not reach a language model is a name, an address, a date
+of birth, a phone number, an e-mail address, free text — and that rule is untouched
+and enforced three ways over (declaration, tokenisation, seam guard).
+
+The consequence worth stating: for a row about one household, the token is now the
+first line and the only one. That makes the masking gates heavier than they were,
+not lighter.
 
 ## Operating it
 

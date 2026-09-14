@@ -63,9 +63,12 @@ def _facts_section() -> list[str]:
              "Measures from two facts in one selection are refused: they would "
              "multiply each other (CR-06 §2.6).", "",
              "The last column is how the fact counts the people a group covers. "
-             "The small-cell threshold needs it: a group of fewer than five is "
-             "merged away, and a fact that cannot count people cannot be grouped "
-             "by a sensitive dimension at all.", "",
+             "It is a **declaration and nothing more** since 14 September 2026: "
+             "the small-cell threshold that used to read it has been removed, so "
+             "no query asks for this count today. It records which facts could "
+             "answer \"how many people are behind this group\", which stays true "
+             "whether or not a rule leans on it — the same honesty as the role "
+             "column below.", "",
              "The role column is the role the fact's **flat dataset dump** will "
              "need once the fence is built; see Roles below. Today every dump "
              "sits behind `require_admin_ui` like the rest of the back office.",
@@ -128,12 +131,15 @@ def _roles_section() -> list[str]:
 def _objects_section() -> list[str]:
     lines = ["## Objects", "",
              "**sensitive** marks a dimension that cuts people into groups small "
-             "enough to recognise somebody by. Grouping on one turns on the "
-             "small-cell threshold: every group of fewer than five people is "
-             "merged into a single row. **not additive** marks a measure that may "
-             "not be summed across those merged groups — an average of averages "
-             "is not an average — so its cell stays empty there rather than "
-             "showing a number that happens to be wrong.", "",
+             "enough to recognise somebody by. Like the people-count above it is "
+             "**declared and not enforced**: the small-cell threshold that used to "
+             "read it was removed on 14 September 2026. Inside the back office a "
+             "report shows what it counted; what may not reach a language model is "
+             "decided by `AI` below, and a count is not personal data. **not "
+             "additive** is a declaration in the same sense: it records that a "
+             "measure cannot be summed across groups that were rolled together — "
+             "an average of averages is not an average — which stays true although "
+             "nothing rolls groups together today.", "",
              "**AI** is how far the object may travel towards a language model "
              "(CR-07 §5.1): `admin_plain` as it is, `admin_tokenised` only as a "
              "token like `gezin-23`, `none` never. The field has no default in "

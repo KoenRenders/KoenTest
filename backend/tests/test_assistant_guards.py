@@ -511,6 +511,10 @@ def test_the_catalogue_is_rendered_from_the_declaration(db_session):
     ontbreekt = [o.key for o in OBJECTS if f"`{o.key}`" not in catalogue]
     assert not ontbreekt, f"niet in de catalogus: {ontbreekt[:5]}"
     assert "GEWEIGERD" in catalogue
-    assert "privacydrempel" in catalogue
     # The money default is declared rather than assumed (CR-07 §7).
     assert "GEFACTUREERDE" in catalogue
+    # En de verwijderde drempel spookt er niet meer in rond (14 september 2026):
+    # een instructie over samenvoegen zou het model laten schrijven dat er
+    # samengevoegd is terwijl dat niet gebeurt.
+    assert "privacydrempel" not in catalogue
+    assert "Samengevoegd" not in catalogue

@@ -1,17 +1,21 @@
 """A situation big enough to answer the test-set questions (#917, CR-07 §3/§9).
 
 The reporting seed (`_reporting_seed.py`) is built to catch join and tenant
-mistakes, and it is deliberately tiny: four households. For the assistant that is
-too small to say anything, and not because of a bug — the small-cell threshold
-merges every group under five people, so almost every grouped answer over that
-seed is one row reading "Samengevoegd". A harness on that data would grade the
-threshold, not the assistant.
+mistakes, and it is deliberately tiny: four households. That is too small to grade
+an assistant on — with three activities and a handful of payments, half the
+test-set questions have one plausible answer and no runner-up, so an answer that
+picks the wrong object still looks right.
 
 So this is a second situation, shaped by the questions it must answer: nine
 households of three people across three streets, two board members, two
-activities with their payments. Every group it produces is above the threshold on
-purpose, and every number it should produce is written out in :data:`EXPECTED` —
-worked out by hand from the description below, never read off a run.
+activities with their payments. Every number it should produce is written out in
+:data:`EXPECTED` — worked out by hand from the description below, never read off a
+run — and no two of them are equal, so a wrong object gives a wrong number instead
+of a coincidence.
+
+(It was originally sized to clear the small-cell threshold, which merged every
+group under five people. That threshold was removed on 14 September 2026; the size
+is still right, for the reason above.)
 
 **The people are 45, 38 and 10 years old** in every household, which puts them in
 three different age buckets (41-60, 26-40, 6-12) with nine in each. That is what

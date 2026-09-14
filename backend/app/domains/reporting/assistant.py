@@ -9,9 +9,8 @@ into it. It holds three things and no business logic of its own:
 - the **two tools**, `run_report` and `list_values`, which call `reporting.api`
   in-process. The LLM never sees SQL and never sees a `reporting.*` view: it
   composes a selection, and the existing engine executes it with the tenant
-  filter, the small-cell threshold and the refusals it already had. Two paths to
-  one number would mean two answers to one question, so there is one path and the
-  panel uses it too;
+  filter and the refusals it already had. Two paths to one number would mean two
+  answers to one question, so there is one path and the panel uses it too;
 - the **pseudonymisation**: an object classified `admin_tokenised` leaves as
   `gezin-23`, never as a name; `none` is refused **here**, by name, before
   `build_query`. Here and not in the engine — the engine also serves the query
@@ -38,7 +37,6 @@ from app.domains.reporting.api import (
     CLASSES,
     FACTS,
     HIERARCHY_OF,
-    MERGED_LABEL,
     OBJECTS,
     Selection,
     SelectionError,
@@ -119,10 +117,22 @@ _LABEL_SQL = {
 def _tokenise_rows(result, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Replace every person-naming value by its token. The rows are already read.
 
-    The id comes from the hidden entity column the engine added. Is there none —
-    which happens on the merged row of the small-cell threshold, where there is
-    deliberately no entity any more — then the label stays as it is: that row
-    names nobody by construction.
+    The id comes from the hidden entity column the engine added. **Soms is er geen
+    id, en dat is geen randgeval maar een nuttige uitkomst.** Een dimensie met een
+    "niemand"-emmer levert een rij zonder entiteit: `board_member` toont
+    'Niet toegewezen' voor de gezinnen die nog geen bestuurslid hebben, en de
+    beschrijving van dat object noemt dat met zoveel woorden *"een van de nuttigste
+    uitkomsten van dit rapport, geen gat"*.
+
+    Zo'n label blijft dus staan zoals het is. Het wijst niemand aan — er ís geen
+    entiteit — en het vervangen door "onbekend" maakte precies de uitkomst
+    onleesbaar waarvoor bestuursleden dit rapport draaien. Dat deed deze functie tot
+    14 september 2026, en het stond hier verklaard als een gevolg van de
+    kleine-groependrempel; die drempel is weg en was nooit de reden.
+
+    De waarborg eronder is niet dit oordeel maar de naadwachter: die scant elk
+    tool-resultaat nog een keer op namen, dus een toekomstig object dat wél een
+    naam zonder id zou opleveren, blokkeert de oproep in plaats van mee te reizen.
     """
     kolommen = [(c.key, _TOKENISED[c.key].token_prefix)
                 for c in result.columns if c.key in _TOKENISED]
@@ -133,10 +143,9 @@ def _tokenise_rows(result, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     for row in rows:
         nieuw = dict(row)
         for key, prefix in kolommen:
-            if nieuw.get(key) == MERGED_LABEL:
-                continue
             entiteit = row.get(bron.get(key, ""), None)
-            nieuw[key] = f"{prefix}-{entiteit}" if entiteit is not None else "onbekend"
+            if entiteit is not None:
+                nieuw[key] = f"{prefix}-{entiteit}"
         out.append(nieuw)
     return out
 
@@ -414,9 +423,6 @@ def render_catalogue() -> str:
     lines += [
         "## Regels",
         "",
-        f"- Groepen van minder dan vijf personen worden samengevoegd tot één rij "
-        f"'{MERGED_LABEL}'. Gebeurt dat, zeg het in je antwoord: "
-        "'kleine groepen samengevoegd (privacydrempel)'.",
         "- 'Omzet', 'opbrengst' of 'inkomsten' zonder meer betekent het "
         "GEFACTUREERDE bedrag. Noem in je antwoord welke maat je nam "
         "('omzet (gefactureerd): …'). Blijven twee maten even plausibel, vraag "
@@ -640,12 +646,6 @@ def run_report(db: Session, arguments: dict[str, Any], *,
         out["truncated"] = (
             f"Er zijn meer dan {max_rows} rijen; alleen de eerste {max_rows} "
             "staan hier. Verfijn het filter of groepeer grover."
-        )
-    if any(row.get(result.columns[0].key) == MERGED_LABEL for row in rows
-           if result.columns):
-        out["threshold_applied"] = (
-            "Groepen van minder dan vijf personen zijn samengevoegd "
-            "(privacydrempel). Vermeld dat in je antwoord."
         )
     return out
 

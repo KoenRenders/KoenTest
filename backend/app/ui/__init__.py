@@ -133,6 +133,20 @@ def _confirm_attrs(type_label, name) -> str:
 templates.env.globals["confirm_attrs"] = _confirm_attrs
 
 
+# A7 (#913, golf 4): "de weg terug" is een gevalideerde INTERNE retourcontext, nooit
+# de Referer-header. Een `?terug=`-parameter komt uit de URL en is dus door de
+# gebruiker (of een mail-link) te vervalsen: zonder validatie wordt de terugknop een
+# open redirect. Alleen een pad binnen deze site telt; al het andere — een absolute
+# URL, het scheme-relatieve `//evil.example`, een backslash-variant die browsers
+# stilletjes normaliseren, controltekens — valt terug op de canonieke plek van het
+# record (de fallback), zodat de knop altijd ergens zinnigs heen gaat.
+def veilige_terug(waarde: str | None, fallback: str) -> str:
+    if (not waarde or not waarde.startswith("/") or waarde.startswith("//")
+            or "\\" in waarde or any(ord(t) < 0x20 for t in waarde)):
+        return fallback
+    return waarde
+
+
 # #718: de navigatiebalk van een schil reist out-of-band mee (#714) — maar dat mag
 # ALLEEN bij een gebooste navigatie.
 #

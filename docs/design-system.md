@@ -395,8 +395,10 @@ picker → current attachment (link + delete) → hint**. Macro
 - `ui.toast()` — short confirmation that fades on its own (4 s); `kind="error"`
   does not fade. Rendered as a fragment, so a response can send it out-of-band
   (§8.2 says when). `ui.toast_host()` is already in both shells.
-- `ui.modal()` — X + Esc + backdrop, `role="dialog"`. Modals are for read-only
-  detail, confirmations, and the one sanctioned capture (§3.3).
+- `ui.modal()` — X + Esc + backdrop, `role="dialog"` + `aria-modal`. Opening
+  moves focus to the close button; closing returns it to the trigger (A6,
+  wave 4 #913). Modals are for read-only detail, confirmations, and the one
+  sanctioned capture (§3.3).
 - `ui.confirm()` — confirmation before a destructive action, on `ui.modal()`;
   never `confirm()`, never `hx-confirm`.
 - **Copy to clipboard confirms inline** (`ui.copy_button`, #689): the button
@@ -606,20 +608,24 @@ back · forbidden · test.** Fields marked *open* are decisions still to take
 - **Test**: the list shows no create modal; the create route renders the
   full-page editor.
 
-### P3 · The way back
+### P3 · The way back (A7, wave 4 #913)
 
 - **When**: any screen reached from another (registration from an activity,
   detail from a list).
-- **What happens**: a return link at the top names where you came from.
-- **Where attention goes**: *open* — which position in the origin list you land
-  on, and whether filters are preserved, is not yet specified (the guide
-  promises "filters preserved after returning"; not verified, §5).
-- **The way back**: *open* — from a registration opened via an activity, the
-  link should return to that activity, not to "all registrations". Decision
-  needed on how the origin is carried (referrer, query parameter, or the
-  activity as the only entry).
-- **Forbidden**: relying on the browser back button as the only way.
-- **Test**: the return link exists and points at the origin.
+- **What happens**: a return link at the top. The origin is carried in a
+  `?terug=` query parameter that the linking list fills with its own address —
+  including its filters and sort state, so returning restores them.
+- **Validation is not optional**: the parameter comes from the URL, so it is
+  forgeable. `veilige_terug()` (app/ui) accepts only an internal path; an
+  absolute URL, a scheme-relative `//host`, backslashes or control characters
+  fall back to the record's canonical place (e.g. a registration falls back to
+  its activity). Never the Referer header.
+- **Forbidden**: relying on the browser back button as the only way; building
+  the return target from the Referer.
+- **Test**: the return link exists; a forged `?terug=` renders the canonical
+  fallback (`test_inschrijving_pagina.py`).
+- **Reference**: `/admin/inschrijvingen/{id}` and the name links that carry
+  `?terug=` into it.
 
 ### P4 · Action with a result elsewhere
 
@@ -676,18 +682,26 @@ back · forbidden · test.** Fields marked *open* are decisions still to take
 - **Test**: the failure path asserts the reason text, not just a status ≥ 400
   (#680).
 
-### P8 · List, detail, edit (#510)
+### P8 · List, detail, edit (#510; B2 since wave 4, #913)
 
 - **When**: a list of concrete records.
-- **What happens**: the row's primary action opens the shared detail fragment
-  in place (`detail_disclosure`); "Bewerken" toggles the fragment into edit mode
-  (`edit_toggle`); save follows P1 and the panel closes.
-- **Where attention goes**: the opened panel, directly under its row.
-- **The way back**: closing the panel; the list has not moved.
+- **What happens**: the **record name opens the canonical detail page** at the
+  record's id-URL (B2 decision, 13 Sep 2026); the page carries the P3 `?terug=`
+  context back to the list. Inline disclosure (`detail_disclosure` on a
+  "Details" row action) is the **secondary** variant for staying in list
+  context. Both render the same shared fragment — one source; the fragment
+  lives on a `/fragment` subpath under the page URL.
+- **Where attention goes**: the page (primary) or the opened panel directly
+  under its row (secondary).
+- **The way back**: the page's return link (P3); or closing the panel — the
+  list has not moved.
 - **Forbidden**: a second copy of the editor built by the list screen; an edited
-  row that jumps to the bottom (ordering without a tiebreaker, #761).
+  row that jumps to the bottom (ordering without a tiebreaker, #761); a record
+  name that is dead text while only a button opens the record.
 - **Test**: the fragment is rendered from one template; after save the row
-  keeps its position.
+  keeps its position; the name link exists and carries `?terug=`.
+- **Reference**: registrations — `/admin/inschrijvingen/{id}` (page) next to
+  `/admin/inschrijvingen/{id}/fragment` (disclosure and the betalingen expand).
 
 ### P9 · One-shot public capture
 
