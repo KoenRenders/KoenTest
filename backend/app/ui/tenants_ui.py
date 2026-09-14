@@ -62,6 +62,31 @@ BEKENDE_SLEUTELS = [
      "Werkt enkel als ADMIN_CHAT_ENABLED ook aan staat (#917)."),
 ]
 
+# #924: wat de organisatie IS. Aparte lijst en een aparte sectie op het scherm,
+# want dit zijn geen instellingen van de site maar eigenschappen van de vereniging
+# erachter — de twee assen uit het issue. Ze komen uit `mdm.organizations` en niet
+# uit `kernel_tenant_settings`.
+#
+# Dit scherm en geen nieuw: sinds Koens omkering ZIJN de tenants organisaties, dus
+# een tweede scherm voor dezelfde rijen zou de duplicatie zijn die dit issue
+# opruimt — nu in schermen in plaats van in kolommen.
+ORGANISATIEVELDEN = [
+    ("legal_form", "Rechtsvorm", "VZW, FEITELIJKE_VERENIGING of BEDRIJF."),
+    ("enterprise_number", "Ondernemingsnummer", "Optioneel, bv. 0123.456.789."),
+    ("vat_number", "Btw-nummer", "Optioneel."),
+    ("email", "E-mailadres", "Contactadres van de vereniging; komt in de footer."),
+    ("phone", "Telefoon", "Optioneel; komt in de footer."),
+    ("website", "Website", "Optioneel."),
+    ("payment_iban", "Rekeningnummer (IBAN)",
+     "Voor de overschrijvingsinstructies. Leeg = .env-default."),
+    ("payment_beneficiary", "Begunstigde",
+     "Naam op de overschrijving. Leeg = .env-default."),
+    ("payment_bic", "BIC", "Optioneel; staat bij het rekeningnummer in de footer."),
+    ("facebook_url", "Facebook-link", "Footer-icoon. Leeg = niet tonen."),
+    ("instagram_url", "Instagram-link", "Footer-icoon. Leeg = niet tonen."),
+    ("tiktok_url", "TikTok-link", "Footer-icoon. Leeg = niet tonen."),
+]
+
 GEHEIME_SLEUTELS = [
     ("mollie_api_key", "Mollie API-key", "Versleuteld opgeslagen; wordt nooit teruggetoond."),
     ("gmail_app_password", "Gmail app-wachtwoord", "Versleuteld opgeslagen; wordt nooit teruggetoond."),
@@ -133,7 +158,12 @@ def _editor_ctx(request: Request, db: Session, tenant_id: int) -> dict:
                for key, _label, _hulp in sleutels}
     secrets_gezet = _secrets_gezet(
         db, tenant_id, [key for key, _label, _hulp in GEHEIME_SLEUTELS])
+    from app.domains.mdm.api import organization_details
+
+    organisatievelden = list(ORGANISATIEVELDEN)
+    organisatie = organization_details(db, tenant_id)
     return {"nav_items": admin_nav("/admin/tenants"), "unit": unit,
+            "organisatievelden": organisatievelden, "organisatie": organisatie,
             "tenant_id": tenant_id, "sleutels": sleutels,
             "geheime_sleutels": GEHEIME_SLEUTELS, "waarden": waarden,
             "secrets_gezet": secrets_gezet, "error": None, "opgeslagen": False,
@@ -206,12 +236,18 @@ def tenant_aanmaken(request: Request, db: Session = Depends(get_db),
 async def tenant_opslaan(tenant_id: int, request: Request,
                          db: Session = Depends(get_db),
                          email: str = Depends(require_admin_ui)):
-    from app.domains.mdm.api import OngeldigeInstelling, update_tenant_settings
+    from app.domains.mdm.api import (OngeldigeInstelling,
+                                     update_organization_details,
+                                     update_tenant_settings)
 
     require_operator_ui(db, email)
     if tenant_id not in {u.id for u in _units(db)}:
         raise HTTPException(status_code=404, detail=_("Onbekende tenant"))
     form = await request.form()
+    # #924: de organisatievelden gaan naar `mdm.organizations` en niet naar de
+    # instellingen. Vóór de instellingen, zodat een validatiefout hieronder het
+    # formulier terugtoont met wat er al bewaard is.
+    update_organization_details(db, tenant_id, form)
     try:
         update_tenant_settings(
             db, tenant_id, form,

@@ -230,3 +230,59 @@ def secrets_gezet(db, tenant_id: int, keys) -> dict[str, bool]:
                      TenantSetting.key.in_(list(keys)),
                      TenantSetting.value_encrypted.isnot(None)).all()}
     return {key: key in gezet for key in keys}
+
+
+# #924: wat de organisatie IS, tegenover wat de site instelt. Twee assen, dus twee
+# functies — maar allebei in de servicelaag: het scherm raakt de sessie niet zelf
+# aan (`test_layer_gate`).
+ORGANISATIEVELDEN: tuple[str, ...] = (
+    "legal_form", "enterprise_number", "vat_number", "email", "phone", "website",
+    "payment_iban", "payment_beneficiary", "payment_bic", "facebook_url",
+    "instagram_url",
+    "tiktok_url",
+)
+
+
+def update_organization_details(db, tenant_id: int, form: Mapping) -> None:
+    """De wereld-kenmerken van de organisatie bewaren (#924).
+
+    Deze velden verdwenen bij de eerste twee omschakelingen uit de
+    tenant-instellingen, en daarmee was er even **geen** scherm meer waar een
+    penningmeester het rekeningnummer kon wijzigen. Dat is erger dan de duplicatie
+    die eruit ging: dubbel is verwarrend, onbereikbaar is stuk.
+
+    Een lege waarde wordt None en niet "": dan betekent "leeg" overal hetzelfde en
+    valt de lezer terug op `.env` zoals bedoeld.
+    """
+    from app.domains.mdm.models import LegalForm, Organization
+
+    rij = (db.query(Organization).filter(Organization.id == tenant_id)
+           .execution_options(include_all_tenants=True).one_or_none())
+    if rij is None:
+        return
+    geldig = {vorm.value for vorm in LegalForm}
+    for key in ORGANISATIEVELDEN:
+        if key not in form:
+            continue
+        waarde = (form.get(key) or "").strip() or None
+        if key == "legal_form" and waarde is not None and waarde not in geldig:
+            # Een onbekende rechtsvorm stil opslaan zou een code opleveren die
+            # nergens een label heeft; dan staat er straks een lege cel.
+            continue
+        setattr(rij, key, waarde)
+    db.commit()
+
+
+def organization_details(db, tenant_id: int) -> dict[str, str]:
+    """Diezelfde velden als platte tekst, voor het formulier.
+
+    Platte waarden en geen ORM-rij: de facade geeft de UI geen modelklassen
+    (`test_layer_gate`).
+    """
+    from app.domains.mdm.models import Organization
+
+    rij = (db.query(Organization).filter(Organization.id == tenant_id)
+           .execution_options(include_all_tenants=True).one_or_none())
+    if rij is None:
+        return {key: "" for key in ORGANISATIEVELDEN}
+    return {key: (getattr(rij, key, None) or "") for key in ORGANISATIEVELDEN}
