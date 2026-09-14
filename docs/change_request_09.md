@@ -117,6 +117,11 @@ Taken by Koen on 14 September 2026, in the CR-shaping conversation:
 5. **The report's source is what an admin types during the meeting.** Not
    an uploaded document, not speech — no STT anywhere in this chain; the
    `stt` domain stays untouched.
+6. **The meeting module is built separately and first; the newsletter chain
+   follows.** The newsletter draws its input from what the meeting track
+   produces: the agenda's activity data, media, positive evaluation notes
+   from the report, and items the report explicitly marks as newsletter
+   material — so meetings must exist before drafting can.
 
 Inherited, not reopened:
 
@@ -166,7 +171,10 @@ New domain `meetings`:
   members / ideas / misc), `position`, optional `activity_id` FK, `title`
   (free for non-activity items), `notes` (the bullets, rich-ish text),
   `carried_over_from` (optional self-reference: an ideas/misc item that moves
-  to the next meeting).
+  to the next meeting), and a **newsletter marker** — during the meeting an
+  item (or a note) can be flagged "for the newsletter", the portal form of
+  what the board already does in prose ("X adds the choir call to the
+  newsletter").
 - `MeetingAttachment` — link to a `media` file, per meeting, flagged
   agenda-mail / report-mail / both.
 - `MeetingParticipant` — the meeting circle (~28 people): name, e-mail,
@@ -189,6 +197,14 @@ meeting + activity data — the monthly member edition and the half-yearly
 public edition are two prompts over the same source, differing in audience,
 tone and which activities qualify (the half-yearly takes public activities
 only).
+
+Its input, named by Koen (14 September 2026): the agenda's activity data
+(upcoming, with date/price/location/registration link), media (flyers,
+photos), positive evaluation notes from the report, and the items flagged
+"for the newsletter" (§5). **The flag is also the PII gate**: unflagged
+report content — attendance, action items, internal discussion — never
+enters an LLM payload; what is flagged is written to be public and passes a
+human editor anyway.
 
 The boundary CR-05 and CR-07 both draw: **the LLM never sees the subscriber
 list, recipient PII, or member data.** New and specific to this CR: the
