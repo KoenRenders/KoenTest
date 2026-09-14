@@ -11,8 +11,9 @@ from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.domains.auth.api import SESSION_COOKIE, csrf_token_for, require_admin_ui, require_csrf
-from app.domains.mail.api import (EMAIL_STATUSES, EMAIL_TYPES,
-                                  delete_email_log, list_email_log)
+from app.domains.mail.api import (EMAIL_LOG_SORT_KEYS, EMAIL_STATUSES,
+                                  EMAIL_TYPES, delete_email_log, list_email_log)
+from app.i18n import _
 from app.ui import admin_nav, filterparams, templates
 
 router = APIRouter(include_in_schema=False)
@@ -43,9 +44,39 @@ def _ctx(request: Request, db: Session) -> dict:
         page = max(1, int(stand.get("page", "1")))
     except ValueError:
         page = 1
+    # Golf 3 (#913): sorteerbare kolommen. Onbekende sleutel → datum; de
+    # kop-URL's dragen de volledige stand (deelbare link, §3.5-principe) en
+    # klikken op de actieve kolom draait de richting.
+    sort = (stand.get("sort") or "datum").strip()
+    if sort not in EMAIL_LOG_SORT_KEYS:
+        sort = "datum"
+    richting = "asc" if (stand.get("richting") or "").strip() == "asc" else "desc"
+    # Golf 3 (#913): paginagrootte-keuze — whitelist, zoals alles wat uit de
+    # querystring komt.
+    try:
+        per_page = int(stand.get("per_page", ""))
+    except ValueError:
+        per_page = PAGE_SIZE
+    if per_page not in (25, 50, 100):
+        per_page = PAGE_SIZE
     rows, has_next = list_email_log(db, email_type=email_type, status=status,
                                     recipient=recipient, page=page,
-                                    page_size=PAGE_SIZE)
+                                    page_size=per_page, sort=sort,
+                                    richting=richting)
+
+    from urllib.parse import urlencode
+
+    def _sorteer_url(key: str) -> str:
+        volgende = "asc" if (sort == key and richting == "desc") else "desc"
+        # Standaardrichting per klik: eerst desc (nieuwste/hoogste eerst), een
+        # tweede klik draait om. Pagina reset — een andere ordening is een
+        # andere lijst.
+        params = {k: v for k, v in (("email_type", email_type), ("status", status),
+                                    ("recipient", recipient)) if v}
+        params.update({"sort": key, "richting": volgende if sort == key else ("desc" if key == "datum" else "asc")})
+        if per_page != PAGE_SIZE:
+            params["per_page"] = per_page
+        return "/admin/e-maillog/lijst?" + urlencode(params)
     raw = request.cookies.get(SESSION_COOKIE) or ""
     return {
         "csrf_token": csrf_token_for(raw),
@@ -56,6 +87,10 @@ def _ctx(request: Request, db: Session) -> dict:
         "page": page,
         "has_prev": page > 1,
         "has_next": has_next,
+        "sort": sort,
+        "richting": richting,
+        "per_page": per_page,
+        "sorteer_urls": {key: _sorteer_url(key) for key in EMAIL_LOG_SORT_KEYS},
         "email_types": EMAIL_TYPES,
         "email_statuses": EMAIL_STATUSES,
         "type_labels": _TYPE_LABELS,
@@ -82,7 +117,11 @@ def email_log_lijst(request: Request, db: Session = Depends(get_db),
 def email_log_verwijderen(log_id: int, request: Request, db: Session = Depends(get_db),
                           email: str = Depends(require_admin_ui)):
     delete_email_log(db, log_id)
-    return templates.TemplateResponse(request, "_email_log_lijst.html", _ctx(request, db))
+    # #760-absorptie (golf 3): elke mutatie bevestigt — fragment-antwoord, dus
+    # de toast mag out-of-band mee (#748).
+    ctx = _ctx(request, db)
+    ctx["toast_melding"] = _("Logregel verwijderd.")
+    return templates.TemplateResponse(request, "_email_log_lijst.html", ctx)
 
 
 @router.get("/admin/emails", response_class=HTMLResponse)

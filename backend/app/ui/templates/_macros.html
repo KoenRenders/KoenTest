@@ -158,8 +158,21 @@
 <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">{{ caller() }}</div>
 {%- endmacro %}
 
-{% macro empty_state(message) -%}
+{# Golf 3 (#913, triage A10): drie vormen van leegte. "Nog geen <items>." mag
+   een passende EERSTE ACTIE dragen (nog-leeg); "Geen resultaten gevonden."
+   blijft één zin (filter-leeg); geen-toegang legt uit. De aanroeper kiest de
+   zin; de actie is optioneel en hoort alleen bij de nog-leeg-vorm. #}
+{% macro empty_state(message, action_label=None, action_href=None, action_attrs="") -%}
+{%- if action_label -%}
+<div class="py-6 text-center">
+  <p class="text-gray-500 text-sm">{{ message }}</p>
+  <div class="mt-3">{{ btn_primary(action_label, href=action_href, attrs=action_attrs, size="sm") }}</div>
+</div>
+{%- else -%}
+{#- Zonder actie exact de oude markup: meerdere tests fingerprinten dit element,
+    en de actieloze vorm hoort dan ook niets te veranderen. -#}
 <p class="text-gray-500 text-sm py-6 text-center">{{ message }}</p>
+{%- endif -%}
 {%- endmacro %}
 
 {% macro loading(message=None) -%}
@@ -512,13 +525,27 @@
    De `delay:400ms` op de zoek-trigger beperkt de geschiedenis tot één ingang per
    pauze in het typen; elke aanslag apart zou de terugknop onbruikbaar maken. #}
 {% macro filter_bar(hx_get, hx_target,
-                    trigger="change, keyup changed delay:400ms from:input[type=search]") -%}
-<form class="mb-4 space-y-3" hx-get="{{ hx_get }}" hx-target="{{ hx_target }}"
+                    trigger="change, keyup changed delay:400ms from:input[type=search]",
+                    id=None) -%}
+<form{% if id %} id="{{ id }}"{% endif %} class="mb-4 space-y-3" hx-get="{{ hx_get }}" hx-target="{{ hx_target }}"
       hx-swap="innerHTML" hx-trigger="{{ trigger }}"
       hx-headers='{"X-Raak-Filter": "1"}'
       onsubmit="return false">
   {{ caller() }}
 </form>
+{%- endmacro %}
+
+{# ── Sorteerbare kolomkop (golf 3, #913 — triage A12) ─────────────────────────
+   Voor een servergesorteerde tabel: de kop is een link die de lijst herlaadt
+   met `sort`/`richting` in de query. `include` (een CSS-selector, meestal de
+   filter_bar-form) laat de actieve filters meereizen. Chevron en geen pijl:
+   de pijl betekent in deze kit "verplaatsen" (#702). De aanroepende route
+   bewaakt de whitelist en de #761-tiebreaker — deze macro is alleen de kop. #}
+{% macro sort_th(label, url, active=False, direction="desc", hx_target="", include="", align="left", cls="") -%}
+<th scope="col"{% if active %} aria-sort="{{ 'ascending' if direction == 'asc' else 'descending' }}"{% endif %} class="{{ cls or 'px-4 py-3' }} {{ 'text-right' if align == 'right' else 'text-left' }}">
+  <a href="{{ url }}" hx-get="{{ url }}"{% if hx_target %} hx-target="{{ hx_target }}"{% endif %}{% if include %} hx-include="{{ include }}"{% endif %} hx-swap="innerHTML"
+     class="inline-flex items-center gap-1 hover:underline">{{ label }}{% if active %}{{ icon("chevron-up" if direction == "asc" else "chevron-down", 12) }}{% endif %}</a>
+</th>
 {%- endmacro %}
 
 {# ── Filterchips (#586) ───────────────────────────────────────────────────────

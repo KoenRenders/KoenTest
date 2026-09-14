@@ -269,3 +269,55 @@ def test_org_type_is_untouched(db_session):
     soorten = {rij[0] for rij in db_session.execute(text(
         "SELECT DISTINCT org_type FROM mdm.organizations"))}
     assert soorten <= {"ACCOUNT", "UNIT", "PLATFORM"}
+
+
+# ── 6. De velden zijn ergens te bewerken ────────────────────────────────────
+
+def test_the_organisation_fields_have_a_screen(client, db_session):
+    """De fout die ik zelf maakte, en die erger was dan wat ze verving.
+
+    Bij de eerste twee omschakelingen verdwenen IBAN, begunstigde en de sociale
+    links uit `/admin/tenants` — en er kwam niets voor in de plaats. Een
+    penningmeester kon het rekeningnummer daarna langs geen enkele weg wijzigen.
+    Dubbel is verwarrend; onbereikbaar is stuk.
+
+    Eén scherm en geen tweede: sinds Koens omkering ZIJN de tenants organisaties,
+    dus een apart organisatiescherm zou dezelfde rijen bewerken — de duplicatie die
+    dit issue opruimt, dan in schermen.
+    """
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+    from tests.test_reporting_panel_ui import login
+
+    login(client, db_session, SEEDED_ADMIN_EMAIL, ("OPERATOR",))
+    html = client.get(f"/admin/tenants/{TENANT}").text
+    for veld in ("payment_iban", "payment_beneficiary", "legal_form",
+                 "facebook_url", "email"):
+        assert f'name="{veld}"' in html, f"{veld} is nergens te bewerken"
+
+
+def test_saving_the_screen_writes_to_the_organisation(client, db_session,
+                                                      organisatie):
+    """En het slaat op in de organisatie, niet in de instellingen."""
+    from app.domains.mdm.api import update_organization_details
+
+    update_organization_details(db_session, TENANT, {
+        "payment_iban": " BE68 5390 0754 7034 ", "payment_beneficiary": "",
+        "legal_form": "VZW"})
+    db_session.refresh(organisatie)
+
+    assert organisatie.payment_iban == "BE68 5390 0754 7034", "en getrimd"
+    assert organisatie.payment_beneficiary is None, (
+        "leeg wordt None en niet de lege string, anders betekent 'leeg' twee "
+        "dingen en valt de lezer niet terug op .env")
+    assert organisatie.legal_form == "VZW"
+
+
+def test_an_unknown_legal_form_is_not_stored(db_session, organisatie):
+    """Een code zonder label levert straks een lege cel op."""
+    from app.domains.mdm.api import update_organization_details
+
+    organisatie.legal_form = "VZW"
+    db_session.commit()
+    update_organization_details(db_session, TENANT, {"legal_form": "VERZONNEN"})
+    db_session.refresh(organisatie)
+    assert organisatie.legal_form == "VZW"

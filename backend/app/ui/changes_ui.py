@@ -33,8 +33,22 @@ def _since(value: str) -> date:
 PER_PAGE = 50  # §2.5: server-side, 50 per pagina zodra een lijst kan groeien.
 
 
+# Sorteerbare kolommen (golf 3, #913): sleutel → veld van de feed-rij. De feed
+# is een in Python samengevoegde lijst dicts (±10 history-tabellen), dus hier
+# wordt in Python gesorteerd — de whitelist blijft om dezelfde reden bestaan
+# als bij SQL: een sleutel van buiten wordt nooit blind een veldnaam.
+_SORT_VELDEN = {
+    "wanneer": "recorded_at",
+    "wijziging": "operation_label",
+    "groep": "group",
+    "persoon": "person_name",
+    "object": "entity",
+    "actor": "actor",
+}
+
+
 def _ctx(request: Request, db: Session, since: str, group: str, actor: str,
-         page: int = 1) -> dict:
+         page: int = 1, sort: str = "wanneer", richting: str = "desc") -> dict:
     from app.domains.audit.api import GROUPS, all_changes_since
 
     vanaf = _since(since)
@@ -48,12 +62,42 @@ def _ctx(request: Request, db: Session, since: str, group: str, actor: str,
     # één query bestaat niet. De "Vanaf"-datum blijft de echte begrenzing en bij
     # deze volumes volstaat dit. Groeit het logboek fors, dan is een echte UNION ALL
     # in SQL de duurzame oplossing — dat is opvolging, niet iets om nu te bouwen.
+    if sort not in _SORT_VELDEN:
+        sort = "wanneer"
+    richting = "asc" if richting == "asc" else "desc"
+    veld = _SORT_VELDEN[sort]
+
+    def _sleutel(r: dict):
+        w = r.get(veld)
+        # None-veilig: lege waarden achteraan bij asc; sorted() is stabiel en de
+        # feed komt al nieuw→oud binnen, dus gelijke waarden houden een vaste
+        # volgorde — de paging-tegenhanger van de #761-tiebreaker.
+        if veld == "recorded_at":
+            return w
+        return (w is None or w == "", str(w).lower(), r.get("entity_id") or 0)
+
+    alle = sorted(alle, key=_sleutel, reverse=(richting == "desc"))
+
+    from urllib.parse import urlencode
+
+    def _sorteer_url(key: str) -> str:
+        params = {k: v for k, v in (("since", since), ("group", group),
+                                    ("actor", actor)) if v}
+        if sort == key:
+            volgende = "asc" if richting == "desc" else "desc"
+        else:
+            volgende = "desc" if key == "wanneer" else "asc"
+        params.update({"sort": key, "richting": volgende})
+        return "/admin/ledenwijzigingen?" + urlencode(params)
+
     totaal = len(alle)
     page = max(1, page)
     feed_rows = alle[(page - 1) * PER_PAGE:page * PER_PAGE]
     return {
         "since": vanaf.isoformat(),
         "group": group, "actor": actor,
+        "sort": sort, "richting": richting,
+        "sorteer_urls": {key: _sorteer_url(key) for key in _SORT_VELDEN},
         "groups": GROUPS, "feed_rows": feed_rows,
         "page": page, "per_page": PER_PAGE, "totaal": totaal,
         "csrf_token": csrf_token_for(request.cookies.get(SESSION_COOKIE) or ""),
@@ -63,9 +107,10 @@ def _ctx(request: Request, db: Session, since: str, group: str, actor: str,
 @router.get("/admin/ledenwijzigingen", response_class=HTMLResponse)
 def admin_ledenwijzigingen(request: Request, since: str = "", group: str = "",
                            actor: str = "", page: int = 1,
+                           sort: str = "wanneer", richting: str = "desc",
                            db: Session = Depends(get_db),
                            email: str = Depends(require_admin_ui)):
-    ctx = _ctx(request, db, since, group, actor, page)
+    ctx = _ctx(request, db, since, group, actor, page, sort, richting)
     template = ("_lw_inhoud.html" if is_fragment_request(request)
                 else "admin_ledenwijzigingen.html")
     if template == "admin_ledenwijzigingen.html":

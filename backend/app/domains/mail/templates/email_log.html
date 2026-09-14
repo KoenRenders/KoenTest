@@ -7,7 +7,12 @@
    versturen, niet door hem aan te maken. #}
 {{ ui.page_header(_("E-maillog"),
                   _("Elke uitgaande e-mail, met status. Persoonsgegevens — enkel voor beheer.")) }}
-{% call ui.filter_bar("/admin/e-maillog/lijst", "#email-log-lijst") %}
+{% call ui.filter_bar("/admin/e-maillog/lijst", "#email-log-lijst", id="el-filters") %}
+  {# Golf 3 (#913): de sorteerstand reist mee met elke filterwijziging; het
+     lijstfragment ververst deze velden out-of-band na een kop-klik (#748:
+     oob mag, want het is een fragment-antwoord). #}
+  <input type="hidden" id="el-sort" name="sort" value="{{ sort }}">
+  <input type="hidden" id="el-richting" name="richting" value="{{ richting }}">
   <div>
     {{ ui.search(value=recipient or "", name="recipient",
                  placeholder=_('Zoek op ontvanger…'), standalone=False) }}

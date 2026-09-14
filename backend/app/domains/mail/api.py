@@ -18,12 +18,14 @@ from app.domains.mail.service import (  # noqa: F401
 
 from app.domains.mail.service import (  # noqa: F401
     delete_email_log,
+    EMAIL_LOG_SORT_KEYS,
     list_email_log,
 )
 
 __all__ = [
     "email_log_url",
-    "EMAIL_STATUSES", "EMAIL_TYPES", "delete_email_log", "list_email_log",
+    "EMAIL_LOG_SORT_KEYS", "EMAIL_STATUSES", "EMAIL_TYPES", "delete_email_log",
+    "list_email_log",
     "EmailLog",
     "purge_old_email_logs",
     "send_activity_registration_confirmation",
