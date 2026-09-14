@@ -216,6 +216,12 @@ Added after the first mockup round (14 September 2026, Koen's review):
     archives a new PDF while the earlier one stays kept, so history never
     lies. Resending anything already sent asks one confirmation.
 
+24. **Meeting mails leave from the association account with Reply-To set
+    to the secretary** (14 September 2026). The From is the same Gmail
+    account the transactional mail uses; Reply-To is the e-mail address
+    of the admin who sends, so reply-all conversations keep landing with
+    the secretary, as they do today.
+
 Inherited, not reopened: **#785 triage A17** — the AI-per-module contract
 (read / propose / execute separated). This module has no AI at all, which is
 the simplest way to honour it.
@@ -370,6 +376,99 @@ From the real September 2026 cycle, anonymised:
    line — with the PDF plus one extra attachment (the working-group
    scenario).
 3. **The next agenda carries over** the ideas/misc items of this one.
+
+## 8. Implementation specification
+
+Concrete enough to build from in one run. Where this section names an
+existing function, the build verifies it against the code before relying
+on it; facade placement follows whatever the owning domain already
+exports.
+
+### 8.1 Migration (one file, idempotent, both schemas)
+
+- **mdm**: `organization_relation_type_codes` (code table, #779 pattern;
+  seed `BOARD_MEETING`, Dutch label "bestuursvergadering") and
+  `organization_persons` (tenant, `person_id` FK, `organization_id` FK,
+  `relation_type` code FK, `start_date`, `end_date` nullable, soft
+  delete; history table following the `MemberPerson` pattern).
+- **meetings** (new schema; all tables `TenantMixin` + `SoftDeleteMixin`):
+  `meetings` (meeting_date, location, status `agenda|report|sent`,
+  `agenda_sent_at`, `report_sent_at`), `meeting_sections` (kind code or
+  `custom`, title, position), `meeting_items` (section FK, position,
+  title, notes, `activity_id`, `member_id`, `noted_steward_person_id`,
+  `carried_over_from`), `meeting_attendances` (person FK, status
+  present/excused), `meeting_files` (bytes BYTEA, filename, content
+  type, byte size, purpose `attachment|sent_pdf`, on_agenda_mail,
+  on_report_mail), `meeting_extra_recipients` (email).
+
+### 8.2 Domain layout
+
+`backend/app/domains/meetings/`: `models.py`, `service.py` (agenda
+generation, lifecycle, guards), `pdf.py` (WeasyPrint over a Jinja
+template), `schemas.py`, `api.py` (facade; exports the report-reading
+functions CR-05 will need), `admin_ui.py` + `templates/` (document
+screen, send screen, circle screen, PDF template). No public `ui.py`.
+Cross-domain reads through facades only: `activities.api` (activities
+between dates + occupancy; the facade grows if a function is missing —
+never a direct model import), `mdm.api` (circle, board members, new
+members), `membership.api` (year totals and renewal state), `mail.api`
+(sending). Enforced by the existing import-boundary, layer and
+template-variable gates.
+
+### 8.3 Routes (Dutch paths, English functions; all `require_admin_ui`
+ADMIN/OPERATOR + `require_csrf` on writes)
+
+| Route | Does |
+|---|---|
+| `GET /admin/vergaderingen` | C1 records list: date, status, sent moments |
+| `POST /admin/vergaderingen` | create meeting (date; agenda generated per §3.1; location/time prefilled from the previous meeting) |
+| `GET /admin/vergaderingen/{id}` | the document (agenda = report, §3.23); htmx fragments for: attendance toggle, notes autosave, add item (picker over portal activities not yet on the agenda + free item), add section (before misc), reorder, upload/remove file, extra recipient |
+| `GET /admin/vergaderingen/{id}/pdf` | generate + download the current PDF (control step, §3.16) |
+| `GET/POST /admin/vergaderingen/{id}/verstuur` | send screen (recipients = active circle + extras, To-line) and the send action |
+| `POST /admin/vergaderingen/{id}/heropen` | reopen a sent meeting (§3.23) |
+| `GET /admin/vergaderingen/bestanden/{id}` | download a stored file (admin session — fail-closed, §4) |
+| `GET /admin/vergaderingen/kring` | manage the circle: list/add/end `BOARD_MEETING` relations, writes via `mdm.api` |
+
+"Previous meeting" = the latest meeting with `report_sent_at` set.
+
+### 8.4 Sending
+
+`mail.api` grows `send_with_attachments(recipients, subject, body_html,
+attachments, reply_to)` — `MIMEMultipart("mixed")` around the existing
+alternative part; one mail, all recipients in To (§3.13); From = the
+association account, Reply-To = the sending admin (§3.24); the report
+mail threads on the agenda mail (In-Reply-To). At send: regenerate the
+PDF, store it as `meeting_files` purpose `sent_pdf`, stamp the sent
+moment — one transaction. Resending asks one confirmation (§3.23).
+
+### 8.5 Dependencies and image
+
+`weasyprint` pinned in `requirements.txt`; Pango/Cairo Debian packages
+in the backend Dockerfile (named in the "Na de merge" block);
+`check_imports.py` covers the import at build time.
+
+### 8.6 Tests (each can go red; guards proven by violation)
+
+1. Agenda generation: evaluation vs upcoming split around the previous
+   meeting's date, running activity included, carried-over ideas copied,
+   new members listed, one manual addition inserted chronologically
+   *between* existing items.
+2. File guard: send, attempt file delete, assert the named refusal.
+3. Fail-closed download: fetch a meeting file without a session, assert
+   the refusal.
+4. Send: one mail; all active circle members plus one extra address in
+   To; attachments present; Reply-To = sender; PDF archived as
+   `sent_pdf`.
+5. Reopen and resend: a second `sent_pdf` exists, the first is kept.
+6. Members header: the three renewal-cycle states of §3.20 (frozen
+   dates).
+7. One e2e golden flow (`tests_e2e`): create → notulate → send.
+
+### 8.7 Build order
+
+Migration + models → circle screen (mdm relation) → agenda generation +
+document screen → files + PDF → send + lifecycle → tests/e2e. One
+release item; ships as a whole.
 
 ## Non-goals
 
