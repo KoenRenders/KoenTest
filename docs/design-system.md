@@ -45,6 +45,8 @@ change to all four, in one pull request.
 | 13 Sep 2026 | Visual direction **Cobalt** chosen on mockups (maker round); huisstijl is a starting point, not a fence | #785, CR-08 |
 | 13 Sep 2026 | Conventions debate triaged: 17 adoptions (action bar bottom, menu workspaces, account presence, P13 relation bar, save granularity follows the business unit, …), deferrals with named triggers | #785 (triage) |
 | 13 Sep 2026 | A record name opens a full detail page; inline disclosure becomes the secondary variant | #785 (B2) |
+| 14 Sep 2026 | One action cluster per edit surface, **at the top** (revised from bottom on owner feedback the same day): read mode shows the opener; edit mode swaps it for [Verwijderen]·[Annuleren][Opslaan] with Opslaan on the opener's spot; sticky header on long editors — replaces the #722 adjacency rule on edit surfaces | #913 (wave 6, A2) |
+| 14 Sep 2026 | The meetings module (CR-09) **keeps autosave** as its saving model — owner decision; A8's "autosave only as named concept behaviour" is satisfied at module level, no per-field naming required | #913 (wave 6, A8) |
 | 13 Sep 2026 | Dashboard is a first-class screen type, defined as a **reporting** surface (tiles, drill-through, peilmoment) — expressly separate from the werkbank, which is process | #785 (B3) |
 | 13 Sep 2026 | The unsaved-changes promise is dropped as a system rule; it returns as a per-editor pattern field for long editors | #785 (B1) |
 | 13 Sep 2026 | Judging viewports follow the audience: public phone-first, admin desktop-first | CR-08 |
@@ -327,16 +329,23 @@ by the status choice; convert one and the field shows two notations.
 - **"Verwijderen" last and red**, in the `⋯` menu once it exists. Never an
   emoji, never hidden: if not allowed (money moved) show it disabled with a
   tooltip reason.
-- **The end state is one action bar** (`ui.action_bar`, decision g of the
-  conventions debate, #913): [Opslaan] [Annuleren] left, Verwijderen right —
-  separated by space, not adjacency. New edit surfaces use it now; the
-  roll-out over existing screens is wave 6, and until a screen carries the
-  bar, the rule below still governs its top cluster.
-- **"Bewerken" directly left of "Verwijderen"**, nothing between them. The
-  `edit_toggle` shows "Bewerken" in read mode and "Annuleren" in edit mode, in
-  the same place. Anything acting on the *content* (view, print, export, import)
-  stands left of that pair. A button between the two breaks the pair and puts
-  the most dangerous button next to an arbitrary neighbour.
+- **One action cluster per edit surface, at the TOP** (`ui.action_bar`,
+  decision g/A2 revised on owner feedback, wave 6 #913): in read mode the
+  header row carries the opener (`edit_toggle`, "Bewerken", hidden while
+  editing) plus *content* actions (view, print, export, import); in edit mode
+  the opener is swapped for the cluster — **[Verwijderen] (far left, red,
+  spaced) [Annuleren] [Opslaan]**, with Opslaan on the exact spot of the
+  opener, so the rightmost button is always the current mode's primary
+  action and there is never a second Annuleren. `form=` binds the
+  Opslaan to the form below (HTML form owner). On long editors the header row
+  is `sticky top-0` so Opslaan stays in view. Deleting means opening the edit
+  surface first — deliberate ("dat is zelfs veilig").
+- The old #722 adjacency rule ("Bewerken directly left of Verwijderen") is
+  **replaced by the bar** on edit surfaces. It still governs `row_actions` on
+  list rows, where delete remains a row action (e.g. the AI-context rows).
+  Accepted exceptions to the bar, tracked by the ratchet in
+  `test_actiebalk_ratchet.py`: the horizontal user row, and the kit page's
+  raw-pair demo.
 
 ### 2.5 Status chips (badges)
 
@@ -812,9 +821,11 @@ Fixed words, everywhere: **Opslaan** (create and edit; never "Bewaar",
 **"Bezig…"** · **"(Nog) geen <items>."** · **"Geen resultaten gevonden."**
 "Toevoegen" only for adding a sub-item or line to a collection inside a form.
 
-- Button order at the bottom of a form: **[Opslaan] [Annuleren]**, left-aligned.
-  The `edit_toggle` at the top does not replace them: the bottom pair is where
-  attention is when you save; on a long form the top is out of view.
+- Button order in the action cluster at the top of an edit surface:
+  **[Verwijderen] (far left, red, edit mode only) [Annuleren] [Opslaan]** —
+  Opslaan rightmost, on the opener's spot — via `ui.action_bar` (wave 6,
+  #913, head revision). On a long form the header row is sticky so Opslaan
+  stays in view.
 - The core action of an activity is **"Inschrijven"** — on the card, in the
   modal title and on the submit. Not "Schrijf je in".
 - **No vendor names in labels**: "Status verversen", not "Ververs bij Mollie".

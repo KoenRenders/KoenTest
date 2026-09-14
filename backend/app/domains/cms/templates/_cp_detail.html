@@ -1,17 +1,20 @@
 {% import "_macros.html" as ui %}
 <div class="bg-white border border-gray-200 rounded-2xl p-5">
-  <div class="flex items-start justify-between mb-4">
+  {# Golf 6, kop-herziening (Koen, 14 sep 2026): alles bovenaan, sticky —
+     de Trix-editor is lang en Opslaan blijft zo in beeld. #}
+  <div class="flex items-start justify-between mb-4 sticky top-0 z-20 bg-white py-1">
     <h2 class="text-lg font-bold text-blue-700">{{ p.title }}</h2>
     <div class="flex gap-2">
       {# #554: linkt naar de admin-voorbeeld-route zodat ook een concept (nog niet
          gepubliceerd) bekeken kan worden; de publieke /{slug} geeft 404 op concept. #}
       <a href="/admin/paginas/{{ p.id }}/voorbeeld" target="_blank" rel="noopener noreferrer"
          class="text-sm text-blue-700 underline self-center">{{ _("Bekijk") }}</a>
-      {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/paginas/' ~ p.id ~ '/verwijderen" ' ~ confirm_attrs(_("Pagina"), p.title)) }}
+      {{ ui.action_bar(form="cp-form", cancel_href="/admin/paginas",
+                       delete_attrs='hx-post="/admin/paginas/' ~ p.id ~ '/verwijderen" ' ~ confirm_attrs(_("Pagina"), p.title)) }}
     </div>
   </div>
   {{ ui.error_banner(error) }}
-  <form class="space-y-3" hx-post="/admin/paginas/{{ p.id }}" hx-target="#cp-detail" hx-swap="innerHTML">
+  <form id="cp-form" class="space-y-3" hx-post="/admin/paginas/{{ p.id }}" hx-target="#cp-detail" hx-swap="innerHTML">
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div>{{ ui.label(_("Titel"), "cp-title", required=True) }}
         {{ ui.input_control("title", id="cp-title", value=p.title, required=True, cls="w-full") }}</div>
@@ -88,11 +91,6 @@
          tegenspreken, en dit veld dwong je bovendien het nummer van de pagina
          erboven te kennen. De kolom bestaat gewoon nog. #}
     </div>
-    {# §2.8: [Opslaan] [Annuleren] onderaan links. De teruglink bovenaan blijft
-       staan — die is navigatie, niet "verwerp mijn wijzigingen" — maar ligt na de
-       hele editor buiten beeld, en dat is precies de motivering in de conventie
-       (#664). #}
-    <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/paginas") }}</div>
   </form>
   {% if placeholders %}
   <details class="mt-5 text-sm">

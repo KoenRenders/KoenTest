@@ -40,12 +40,21 @@ def test_upload_knop_is_submit(client, db_session):
     _login(client)
     html = client.get(f"/admin/activiteiten/{comp.activity_id}").text
 
-    # Elke vorm met een bestandskiezer heeft een submitknop.
+    # Elke vorm met een bestandskiezer heeft een submitknop — sinds de
+    # kop-herziening van golf 6 (#913) mag die ook BUITEN de vorm staan,
+    # gekoppeld via het HTML form=-attribuut (het actiecluster in de kop).
+    import re
     assert 'type="file"' in html
     for stuk in html.split("<form")[1:]:
         vorm = stuk.split("</form>")[0]
-        if 'type="file"' in vorm:
-            assert 'type="submit"' in vorm, "een uploadvorm zonder submitknop verstuurt niets"
+        if 'type="file"' not in vorm:
+            continue
+        if 'type="submit"' in vorm:
+            continue
+        m = re.match(r'\s*id="([^"]+)"', stuk)
+        assert m, "uploadvorm zonder submit én zonder id — niets kan haar versturen"
+        assert f'form="{m.group(1)}"' in html, (
+            f"geen submitknop gekoppeld aan uploadvorm #{m.group(1)}")
 
 
 def test_info_valid_pdf_succeeds(client, db_session):

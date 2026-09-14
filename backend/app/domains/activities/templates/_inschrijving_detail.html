@@ -24,7 +24,10 @@
       {% endif %}
     </div>
     {% if editable %}
-    {{ ui.edit_toggle("edit", size="sm") }}
+    <div class="flex gap-2">
+      {{ ui.edit_toggle("edit", size="sm") }}
+      <div x-show="edit" x-cloak>{{ ui.action_bar(form="insch-form-" ~ reg.id, cancel_attrs='@click="edit = false"') }}</div>
+    </div>
     {% endif %}
   </div>
 
@@ -49,7 +52,7 @@
        is vervallen: hij sloeg per veld op, waardoor je niet kon zien wat er samen
        bewaard werd. "Toevoegen" en "Verwijder" blijven aparte acties — die wijzigen
        wélke regels er zijn, niet hun waarden. #}
-    <form class="space-y-3" hx-post="{{ _base }}/opslaan"
+    <form id="insch-form-{{ reg.id }}" class="space-y-3" hx-post="{{ _base }}/opslaan"
           hx-target="closest .bg-gray-50" hx-swap="outerHTML">
       {# Contactgegevens corrigeerbaar (#624). Een tikfout in het e-mailadres betekende
          dat de bevestiging niet aankwam, en dat was alleen recht te zetten door de
@@ -145,11 +148,6 @@
         {{ ui.textarea_control("remarks", id="reg-remarks-" ~ reg.id, rows=2, value=reg.remarks or "", cls="w-full") }}
       </div>
 
-      {# [Opslaan] [Annuleren] onderaan (§2.8) — de toggle bovenaan vervangt dit niet. #}
-      <div class="flex gap-2">
-        {{ ui.btn_primary(_("Opslaan")) }}
-        {{ ui.btn_secondary(_("Annuleren"), attrs='@click="edit = false"') }}
-      </div>
     </form>
   </div>
   {% endif %}
