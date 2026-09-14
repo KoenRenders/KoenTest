@@ -369,7 +369,11 @@ class Activiteitdetail:
         rij.get_by_role("button", name="Bewerken").first.click()
 
     def bewaar(self):
-        self.datumregel().get_by_role("button", name="Opslaan").first.click()
+        """Sinds de kop-herziening van golf 6 (#913) staat Opslaan niet meer ín
+        de datumvorm maar in het kop-cluster van de rij, via het HTML
+        form=-attribuut aan de vorm gekoppeld — dus zoeken op die koppeling."""
+        form_id = self.datumregel().get_attribute("id")
+        self.page.locator(f'button[form="{form_id}"]').first.click()
 
     def breek_het_csrf_token(self) -> None:
         """Vervang het CSRF-token door een ongeldige waarde.
