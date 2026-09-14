@@ -247,9 +247,10 @@ New domain `meetings`:
   member total, "new members since the previous meeting") are queries on
   the member data, never stored columns. The sent PDF is the frozen
   snapshot; the rows stay references.
-- `MeetingAttachment` — per meeting: soft-ref to the `media_assets` row
-  that holds the bytes (see the storage paragraph below), flagged
-  agenda-mail / report-mail / both.
+- `MeetingFile` — per meeting: the bytes themselves (BYTEA), filename,
+  content type, purpose (attachment or sent PDF), flagged agenda-mail /
+  report-mail / both. Deliberately meetings-owned, not a media asset —
+  see the storage paragraph below.
 - Extra recipients (decision §3.15): per meeting, plain e-mail strings for
   one-off guests — no `Person`, no relation.
 - The meeting circle lives in **MDM, not here** (decision §3.11): a new
@@ -278,35 +279,28 @@ items reference carries `SoftDeleteMixin` — `Activity`, `Person`, `Member`,
 exception is `MediaAsset`: blobs live as BYTEA in Postgres
 (`media.media_assets`, served via `/api/v1/media/<id>`, PDFs unchanged,
 images downscaled, included in the db-backup dumps), deliberately without
-soft delete (#166) and referenced by *soft-refs*, not FKs. Attachments
-follow that existing pattern for the **bytes**: a new
-`kind = "meeting_attachment"` in `media_assets`; the per-meeting metadata
-(which mail carries it) stays in the meetings-owned `MeetingAttachment`
-row, referencing the asset by soft-ref. The protection is **translated at
-the domain boundary** (settled with Koen, 14 September 2026): media gains
-its own generic concept — an asset can be **locked** (`locked_at` on
-`media_assets`, a media-domain migration) — and media itself refuses to
-delete a locked asset, in its own vocabulary, knowing nothing of
-meetings. At send time the meetings service calls `media.api` to lock its
-attachments and the archived PDF, in the same transaction that stamps the
-sent moment; the dependency keeps its direction (meetings → media.api,
-never the reverse). This is not double bookkeeping: "sent" remains one
-fact on the meeting, "immutable" is media's own fact, derived once,
-causally, at a defined moment — not two places that must keep agreeing.
-(An earlier draft kept the rule in the meetings service only; that
-guarded a single write path and was revised.) The same translation covers
-**confidentiality** (measured the same day: `GET /api/v1/media/<id>`
-serves publicly, by design, for site imagery): media gains a generic
-visibility — `public` or `restricted` — enforced in its own serving
-route (a restricted asset requires the admin session, otherwise 404);
-meetings uploads its attachments and PDFs as restricted, existing kinds
-stay public. Three tests make the violations for real: media's — lock,
-attempt delete, assert the named refusal; media's — fetch a restricted
-asset without a session, assert the 404; meetings' — send, assert the
-assets are locked.
-Measured: the media library screen (`/admin/media`) lists only `sponsor`
-and `activity_photo`; meeting kinds stay out of it, like posters do —
-visible and managed on the meeting screen only.
+soft delete (#166) and referenced by *soft-refs*, not FKs. Attachments do **not**
+go into `media_assets` — settled with Koen, 14 September 2026, after
+weighing both options. Media is by design a *public* server (its
+docstring: "upload (admin) en serveren (publiek)"; `GET
+/api/v1/media/<id>` carries no login); board documents stored there
+would depend, forever, on a confidentiality flag being set on every
+upload — that fails open. Meetings gets its **own table**,
+`meetings.meeting_files` (BYTEA bytes, filename, content type, byte
+size, purpose: attachment or sent PDF, the agenda-/report-mail flags),
+downloaded through a meetings route behind the same admin session as
+every meeting screen — no public path exists to forget, so it fails
+closed. The duplication is mechanics only (no thumbnails, no public
+listing, no kinds — a small upload/store/serve), not a fact that can
+drift; `MeetingAttachment` as a separate row dissolves into this table.
+The deletion rule becomes fully internal: the meetings service refuses
+to delete a file of a sent meeting, derived from the meeting's own sent
+timestamps, with the violation proven in a test (send, attempt delete,
+assert the named refusal). The earlier design — a media-owned lock and
+visibility, set through `media.api` at send time — remains the right
+pattern where reuse is real, and was consciously dropped here in favour
+of fail-closed ownership. The media library screen and the media domain
+stay untouched.
 An asset whose meeting has been sent cannot be deleted; before sending, replacing one
 really deletes the old blob, as media does everywhere. The sent agenda and
 report PDFs are themselves archived as assets (`kind = "meeting_pdf"`), so
