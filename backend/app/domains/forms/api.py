@@ -145,6 +145,7 @@ from app.domains.forms.service import (  # noqa: E402,F401
     move_field,
     move_option,
     move_section,
+    deellink_pad,
     normaliseer_slug,
     update_field,
     update_form_settings,
