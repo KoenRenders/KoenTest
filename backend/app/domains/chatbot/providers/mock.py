@@ -7,6 +7,13 @@ Data-bewust: vraagt de bezoeker naar activiteiten, dan vraagt de mock één keer
 de ``get_activities``-tool aan; zodra er een tool-resultaat binnen is,
 formatteert hij de **echte** opgehaalde gegevens via een vast sjabloon. Zo toont
 optie A (zonder key) je werkelijke data, alleen zonder vrije conversatie.
+
+**Sinds CR-07 kan hij ook een selectie samenstellen.** De backoffice-assistent
+moet testbaar zijn zonder sleutel — anders is het enige dat de lus, de
+naadwachter, de tokenweigering en het scherm samen bewijst, een handmatige
+sessie met een echte rekening. De mock kiest objecten op trefwoord, roept
+``run_report`` aan en zet het resultaat om in een leesbaar antwoord. Dat is geen
+taalbegrip en doet ook niet alsof: het is genoeg om het pad te laten lopen.
 """
 from __future__ import annotations
 
@@ -77,7 +84,54 @@ def _format_tool_result(name: str, content: str) -> Optional[str]:
         return _format_detail(data)
     if name == "submit_idea":
         return data.get("message") or "Je bericht is doorgegeven."
+    if name == "run_report":
+        return _format_report(data)
+    if name == "list_values":
+        if data.get("error"):
+            return f"Dat lukt niet: {data['error']}"
+        waarden = data.get("values") or []
+        return ("Mogelijke waarden: " + ", ".join(waarden)) if waarden \
+            else (data.get("note") or "Geen waarden.")
     return None
+
+
+# Trefwoord → objecten, voor de backoffice-assistent. Klein en stom met opzet: een
+# slimmere mock zou een model nabootsen, en dan test je de imitatie.
+_REPORT_RECIPES: tuple[tuple[tuple[str, ...], list[str]], ...] = (
+    (("gemeente", "waar", "woon"), ["member_municipality", "member_total_count"]),
+    (("betal", "omzet", "geld", "openstaand"),
+     ["payment_status", "payment_amount", "payment_amount_paid"]),
+    (("activiteit", "inschrijving", "deelnem"),
+     ["activity", "registration_count", "registration_quantity"]),
+    (("naam", "hoofdlid", "wie"), ["member_head_name"]),  # de weigering, met opzet
+)
+
+
+def _report_objects(text: str) -> Optional[list[str]]:
+    for triggers, objects in _REPORT_RECIPES:
+        if any(t in text for t in triggers):
+            return objects
+    return None
+
+
+def _format_report(data: dict[str, Any]) -> str:
+    if data.get("error"):
+        return f"Dat lukt niet: {data['error']}"
+    columns = data.get("columns") or []
+    rows = data.get("rows") or []
+    if not rows:
+        return "Daar zijn geen gegevens voor."
+    kop = " · ".join(c.get("name", "") for c in columns)
+    lines = [f"Op basis van: {kop}.", ""]
+    for row in rows[:10]:
+        lines.append("- " + " · ".join(str(row.get(c["key"], "")) for c in columns))
+    if data.get("threshold_applied"):
+        lines.append("")
+        lines.append("Kleine groepen samengevoegd (privacydrempel).")
+    if data.get("truncated"):
+        lines.append("")
+        lines.append(data["truncated"])
+    return "\n".join(lines)
 
 
 class MockProvider(LLMProvider):
@@ -107,6 +161,20 @@ class MockProvider(LLMProvider):
         text = (last_user or "").lower()
 
         tool_names = {t.get("function", {}).get("name") for t in (tools or [])}
+        if "run_report" in tool_names:
+            objects = _report_objects(text)
+            if objects:
+                return AssistantMessage(
+                    tool_calls=[ToolCall(id="mock-report-1", name="run_report",
+                                         arguments={"objects": objects})]
+                )
+            return AssistantMessage(
+                content=(
+                    "Ik ben Raakje in testmodus: zonder sleutel stel ik zelf geen "
+                    "selectie samen. Vraag me iets over gemeentes, betalingen of "
+                    "inschrijvingen, dan draai ik een echt rapport." + _MOCK_SUFFIX
+                )
+            )
         if "get_activities" in tool_names and any(
             trigger in text for trigger in _ACTIVITY_TRIGGERS
         ):

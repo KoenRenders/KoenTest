@@ -460,7 +460,9 @@
     </div>
   </div>
   <div class="mt-3 flex items-center gap-2 text-sm">
-    <span>BE48 7875 5016 1327</span>{{ ui.copy_button("BE48 7875 5016 1327", _("Kopieer het rekeningnummer")) }}
+    {# Het IBAN uit de IBAN-documentatie, niet dat van de vereniging (#917): deze
+       pagina toont een kopieerknop, en daar voldoet elk geldig nummer voor. #}
+    <span>BE68 5390 0754 7034</span>{{ ui.copy_button("BE68 5390 0754 7034", _("Kopieer het rekeningnummer")) }}
   </div>
 {% endcall %}
 

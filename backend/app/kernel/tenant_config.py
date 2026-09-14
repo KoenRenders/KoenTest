@@ -292,6 +292,25 @@ def tenant_mail_mode(db: Session, tenant_id: int | None = None) -> str:
     return get_setting(db, "mail_mode", tenant_id=tenant_id) or "send"
 
 
+def tenant_admin_chat_enabled(db: Session, tenant_id: int | None = None) -> bool:
+    """Mag het bestuur van deze tenant Raakje vragen stellen? (#917, CR-07 §6.3)
+
+    Twee schakelaars in serie, en dat is de bedoeling: de omgeving zet
+    ``ADMIN_CHAT_ENABLED`` (standaard uit, zodat de code naar PROD mag zonder dat
+    er iets draait), en de tenant zet er de zijne naast. Zo kan Raak Millegem aan
+    staan terwijl het platform en elke andere afdeling uit blijven, zonder dat
+    iemand de omgeving hoeft te splitsen.
+
+    Uit wint altijd. Een kill-switch die je op twee plaatsen moet uitzetten is er
+    geen.
+    """
+    from app.config import settings
+
+    if not settings.admin_chat_enabled:
+        return False
+    return (get_setting(db, "admin_chat_enabled", tenant_id=tenant_id) or "") == "1"
+
+
 def tenant_language(db: Session, tenant_id: int | None = None) -> str:
     """Taal van de tenant (#407-T) — default nl_BE; voorbereiding meertaligheid."""
     return get_setting(db, "language", tenant_id=tenant_id) or "nl_BE"

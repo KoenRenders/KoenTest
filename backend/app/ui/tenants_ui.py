@@ -56,6 +56,9 @@ BEKENDE_SLEUTELS = [
     ("umami_website_id", "Umami Website-ID", "Het Umami-site-ID (geen secret)."),
     ("max_item_quantity", "Max. aantal per item", "Inschrijvingslimiet per item. Default 50."),
     ("max_registrations_per_email", "Max. inschrijvingen per e-mail", "Per activiteit. Default 3."),
+    ("admin_chat_enabled", "Raakje in de backoffice",
+     "'1' = het bestuur mag Raakje vragen stellen over de eigen cijfers. Leeg = uit. "
+     "Werkt enkel als ADMIN_CHAT_ENABLED ook aan staat (#917)."),
 ]
 
 GEHEIME_SLEUTELS = [
@@ -73,6 +76,8 @@ LEDENSLEUTELS = {
     "membership_half_price_start_md", "membership_half_price_end_md",
     "membership_next_year_from_md", "membership_renewal_start_md",
     "max_item_quantity", "max_registrations_per_email",
+    # Een platform heeft geen leden, dus ook geen vragen over leden (#917).
+    "admin_chat_enabled",
 }
 
 

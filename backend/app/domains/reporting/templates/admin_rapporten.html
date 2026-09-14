@@ -7,6 +7,9 @@
    met die selectie. #}
 {% call ui.page_header(_("Rapporten"), _("Stel zelf een rapport samen uit de gegevens die er al zijn, bewaar het onder een naam en neem het mee als spreadsheet.")) %}
   {{ ui.btn_primary(_("+ Nieuw rapport"), href="/admin/rapporten/nieuw") }}
+  {# De ingang van de assistent (CR-07 §11): één knop hier, geen eigen menu-item.
+     Wie een vraag over de cijfers heeft, staat op dit scherm. #}
+  {{ ui.btn_secondary(_("Vraag het Raakje"), href="/admin/rapporten/raakje") }}
 {% endcall %}
 
 {% call ui.filter_bar("/admin/rapporten/lijst", "#rp-lijst") %}

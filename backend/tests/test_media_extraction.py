@@ -66,7 +66,7 @@ def test_clean_collapses_layout_whitespace():
 
 def test_clean_preserves_single_spaces_in_iban():
     # Enkele spaties (bv. in een rekeningnummer) blijven behouden.
-    assert mx._clean_extracted_text("BE48 7875 5016 1327") == "BE48 7875 5016 1327"
+    assert mx._clean_extracted_text("BE68 5390 0754 7034") == "BE68 5390 0754 7034"
 
 
 def test_extract_document_text_cleans_ocr_output(monkeypatch):

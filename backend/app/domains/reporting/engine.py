@@ -300,6 +300,10 @@ class QueryPlan:
     fact: str
     # Column aliases that carry a drill target next to their label.
     drill_aliases: dict[str, str] = field(default_factory=dict)
+    # Column aliases that carry the row's ENTITY id next to its label (CR-07 §5.2).
+    # Only filled when the caller asked for them — see `with_entities` on
+    # `build_query`.
+    entity_aliases: dict[str, str] = field(default_factory=dict)
     # True when the rows carry the hidden people-count and the small-cell
     # threshold has to be applied before anything is shown.
     guarded: bool = False
@@ -449,6 +453,14 @@ def _drill_expression(obj: UniverseObject) -> str | None:
     return obj.drill_sql.format(view=_view_alias(obj.view))
 
 
+def _entity_expression(obj: UniverseObject) -> str | None:
+    """Where this row's entity id comes from, for the tokenisation (CR-07 §5.2)."""
+    bron = obj.entity_source
+    if not bron:
+        return None
+    return bron.format(view=_view_alias(obj.view))
+
+
 def _needed_views(objects: list[UniverseObject], fact: str) -> list[str]:
     """The dimension views this selection reaches, in a stable order.
 
@@ -552,13 +564,23 @@ def _where_clause(filters: tuple[Filter, ...],
     return conditions, params, used
 
 
-def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
+def build_query(selection: Selection, *, tenant_id: int,
+                with_entities: bool = False) -> QueryPlan:
     """Build the one statement this selection means.
 
     Refuses, in this order and always by name: an unknown object, a selection
     without a measure, measures from two facts, and a dimension that has no path
     to the fact. The order matters for the message: "unknown object" is more
     useful than "not joinable" for a typo.
+
+    ``with_entities`` adds the entity id of each tokenisable object as a hidden
+    column and groups on it (CR-07 §5.2). **Off for the panel, and that is not a
+    detail.** Grouping on the id splits two households that share a head's name
+    into two rows; the panel groups on what the reader sees, so it merges them.
+    The assistant cannot: one token must mean one household, and two households
+    under one token would be worse than no token at all. Two callers, two
+    questions — so the difference is a parameter and not a default somebody has to
+    remember.
     """
     if not selection.object_keys:
         raise SelectionError("Kies eerst objecten voor je rapport.")
@@ -566,7 +588,8 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
     objects = [_object(key) for key in selection.object_keys]
 
     if selection.layout == "detail":
-        return _build_detail_list(selection, objects, tenant_id=tenant_id)
+        return _build_detail_list(selection, objects, tenant_id=tenant_id,
+                                  with_entities=with_entities)
 
     # No role check on the fact itself: the fence sits on the objects, and a
     # selection cannot exist without a measure, so every fact a report reaches is
@@ -602,6 +625,7 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
 
     select_parts: list[str] = []
     drill_aliases: dict[str, str] = {}
+    entity_aliases: dict[str, str] = {}
     for obj in objects:
         select_parts.append(f'{_expression(obj)} AS "{obj.key}"')
         drill_expr = _drill_expression(obj)
@@ -609,6 +633,13 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
             alias = f"{obj.key}__drill"
             select_parts.append(f'{drill_expr} AS "{alias}"')
             drill_aliases[obj.key] = alias
+        entity_expr = _entity_expression(obj) if with_entities else None
+        # Only when it is not already there as the drill target: the same column
+        # twice in one SELECT is a second alias to keep in step for nothing.
+        if entity_expr is not None and obj.key not in drill_aliases:
+            alias = f"{obj.key}__entity"
+            select_parts.append(f'{entity_expr} AS "{alias}"')
+            entity_aliases[obj.key] = alias
 
     # The hidden people-count: only when the selection groups on something that
     # cuts people into small groups, and only when the fact can say how many
@@ -624,6 +655,10 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
 
     group_by = [_expression(o) for o in grouped]
     group_by += [d for d in (_drill_expression(o) for o in grouped) if d]
+    if with_entities:
+        group_by += [e for o in grouped
+                     if o.key in entity_aliases
+                     and (e := _entity_expression(o)) is not None]
     # An object that orders on something other than itself has to group on it as
     # well — Postgres refuses to order by a column that is not in the GROUP BY,
     # and it is functionally dependent anyway (one house number, one sort key).
@@ -682,6 +717,7 @@ def build_query(selection: Selection, *, tenant_id: int) -> QueryPlan:
     ]
     return QueryPlan(sql=sql, totals_sql=totals_sql, params=params,
                      columns=columns, fact=fact, drill_aliases=drill_aliases,
+                     entity_aliases=entity_aliases,
                      guarded=bool(guarded and people_sql),
                      has_totals=bool(measures))
 
@@ -747,7 +783,7 @@ def build_member_count_query(selection: Selection, object_key: str, *,
 
 
 def _build_detail_list(selection: Selection, objects: list[UniverseObject], *,
-                       tenant_id: int) -> QueryPlan:
+                       tenant_id: int, with_entities: bool = False) -> QueryPlan:
     """A row list: the fact's rows as they are, without a GROUP BY (#841).
 
     Every other layout answers "how much"; this one answers "which ones". The
@@ -762,6 +798,12 @@ def _build_detail_list(selection: Selection, objects: list[UniverseObject], *,
 
     The order is the fact's own reading order, ending in its unique key (#761) —
     otherwise paging a listing would show the same row twice and never another.
+
+    **This is the shape the tokens exist for** (CR-07 §5.5). A listing has no
+    GROUP BY, so the small-cell threshold — which counts the people behind a group
+    — has nothing to hold on to here. A grouped answer is protected by the merge;
+    a row list is protected by the token, and by nothing else. `with_entities`
+    is what makes that possible.
     """
     measures = [o for o in objects if o.is_measure]
     if measures:
@@ -778,6 +820,7 @@ def _build_detail_list(selection: Selection, objects: list[UniverseObject], *,
 
     select_parts: list[str] = []
     drill_aliases: dict[str, str] = {}
+    entity_aliases: dict[str, str] = {}
     for obj in objects:
         select_parts.append(f'{_expression(obj)} AS "{obj.key}"')
         drill_expr = _drill_expression(obj)
@@ -785,6 +828,13 @@ def _build_detail_list(selection: Selection, objects: list[UniverseObject], *,
             alias = f"{obj.key}__drill"
             select_parts.append(f'{drill_expr} AS "{alias}"')
             drill_aliases[obj.key] = alias
+        entity_expr = _entity_expression(obj) if with_entities else None
+        # Only when it is not already there as the drill target: the same column
+        # twice in one SELECT is a second alias to keep in step for nothing.
+        if entity_expr is not None and obj.key not in drill_aliases:
+            alias = f"{obj.key}__entity"
+            select_parts.append(f'{entity_expr} AS "{alias}"')
+            entity_aliases[obj.key] = alias
 
     from_clause = _from_clause(fact, views, joins)
     where = "\n  AND ".join(conditions)
@@ -822,7 +872,7 @@ def _build_detail_list(selection: Selection, objects: list[UniverseObject], *,
     ]
     return QueryPlan(sql=sql, totals_sql=totals_sql, params=params,
                      columns=columns, fact=fact, drill_aliases=drill_aliases,
-                     has_totals=bool(geld))
+                     entity_aliases=entity_aliases, has_totals=bool(geld))
 
 
 def _fact_of(objects: list[UniverseObject]) -> str:

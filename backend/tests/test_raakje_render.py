@@ -165,7 +165,7 @@ def test_antwoordfragment_rendert_markdown_niet_als_ruwe_tekst(client, monkeypat
     from app.domains.chatbot import service
     monkeypatch.setattr(settings, "chat_enabled", True)
     # Gecontroleerd markdown-antwoord i.p.v. afhankelijk van de mock-provider.
-    monkeypatch.setattr(service, "run_chat",
+    monkeypatch.setattr(service, "run_public_chat",
                         lambda *a, **k: "Kom naar **Irrland**!\n\n- 16 augustus\n- 29 augustus")
     resp = client.post("/raakje/vraag", data={"vraag": "Wat is er te doen?"})
     assert resp.status_code == 200

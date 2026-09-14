@@ -322,9 +322,14 @@ def test_system_prompt_has_strict_grounding_rules(db_session):
 
 def test_activity_question_forces_a_tool_call():
     """Laag 3: bij een activiteiten-/agendavraag wordt in ronde 1 een tool-aanroep
-    geforceerd (tool_choice='any'); een begroeting niet."""
+    geforceerd (tool_choice='any'); een begroeting niet.
+
+    Via `run_public_chat` sinds CR-07: de lus eronder is domeinvrij geworden en
+    kent geen agenda's meer, dus de heuristiek zit in de publieke ingang. Het
+    gedrag dat deze test bewaakt is niet verhuisd, de plek waar het vandaan komt
+    wel."""
     from app.domains.chatbot.providers.base import AssistantMessage
-    from app.domains.chatbot.service import _wants_activity_data, run_chat
+    from app.domains.chatbot.service import _wants_activity_data, run_public_chat
 
     assert _wants_activity_data([{"role": "user", "content": "Wat staat er op de agenda?"}])
     assert not _wants_activity_data([{"role": "user", "content": "hallo"}])
@@ -339,8 +344,10 @@ def test_activity_question_forces_a_tool_call():
             seen[self.key] = tool_choice
             return AssistantMessage(content="ok")
 
-    run_chat(None, [{"role": "user", "content": "Wat staat er op de agenda?"}], FakeProvider("activiteit"))
-    run_chat(None, [{"role": "user", "content": "hallo"}], FakeProvider("begroeting"))
+    run_public_chat(None, [{"role": "user", "content": "Wat staat er op de agenda?"}],
+                    FakeProvider("activiteit"))
+    run_public_chat(None, [{"role": "user", "content": "hallo"}],
+                    FakeProvider("begroeting"))
     assert seen["activiteit"] == "any"
     assert seen["begroeting"] is None
 

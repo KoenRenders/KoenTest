@@ -49,6 +49,27 @@ class Settings(BaseSettings):
     chat_daily_char_budget: int = 20000
     chat_max_tool_rounds: int = 4
 
+    # Raakje in de backoffice (#917, CR-07). Een eigen familie naast chat_*, niet
+    # een uitbreiding ervan: de twee bots delen de lus maar niets van hun
+    # begrenzing. Een beheerder stelt andere vragen dan een bezoeker, kost meer per
+    # antwoord en is aangemeld — dus een dagbudget per gebruiker in plaats van per
+    # IP, en meer rondes, want een selectie samenstellen vergt meer pogingen dan een
+    # opzoeking.
+    #
+    # Standaard UIT, net als chat_enabled en om dezelfde reden: de code mag mee naar
+    # PROD zonder dat de assistent daar iets doet. Daarbovenop staat de
+    # tenant-schakelaar — dit is de hoofdschakelaar, niet de enige.
+    admin_chat_enabled: bool = False
+    admin_chat_model: str = "mistral-medium-latest"
+    admin_chat_daily_char_budget: int = 40000
+    admin_chat_max_tool_rounds: int = 6
+    # Rijen per tool-resultaat. Meer dan dit leest geen model en betaalt niemand
+    # graag; wie afgekapt wordt, krijgt dat te zien in het resultaat zelf.
+    admin_chat_max_rows: int = 50
+    # Harde wandklok per vraag. Zonder deze blijft een vastgelopen gesprek een
+    # spinner die nooit stopt (§4.3).
+    admin_chat_timeout_seconds: int = 90
+
     # Spraak-naar-tekst (STT) van chatbot Raakje — #282. Twee orthogonale knoppen:
     # de STRATEGIE (STT_MODE) en de server-side PROVIDER (STT_PROVIDER).
     #

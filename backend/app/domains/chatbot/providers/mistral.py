@@ -29,6 +29,9 @@ class MistralProvider(LLMProvider):
     def __init__(self, api_key: str, model: str):
         self._api_key = api_key
         self._model = model
+        #: Read by the seam log — which model answered is half of what a cost
+        #: question asks.
+        self.model = model
 
     def complete(
         self,
@@ -76,14 +79,21 @@ class MistralProvider(LLMProvider):
                 ToolCall(id=raw.get("id", ""), name=fn.get("name", ""), arguments=args)
             )
 
-        return AssistantMessage(content=message.get("content"), tool_calls=tool_calls)
+        raw_usage = data.get("usage") or {}
+        usage = {
+            "prompt": int(raw_usage.get("prompt_tokens") or 0),
+            "completion": int(raw_usage.get("completion_tokens") or 0),
+        }
+
+        return AssistantMessage(content=message.get("content"),
+                                tool_calls=tool_calls, usage=usage)
 
 
-def build_mistral_provider() -> MistralProvider:
+def build_mistral_provider(model: str = "") -> MistralProvider:
     """Construeer de provider uit de config. Roept alleen aan wie zeker is dat
     er een sleutel is (zie ``factory.get_provider``)."""
     assert settings.mistral_api_key is not None, "mistral_api_key ontbreekt"
     return MistralProvider(
         api_key=settings.mistral_api_key,
-        model=settings.chat_model,
+        model=model or settings.chat_model,
     )

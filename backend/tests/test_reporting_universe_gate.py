@@ -221,6 +221,53 @@ def test_every_object_sits_in_a_declared_class_and_carries_a_role():
     assert not fouten, "\n".join(fouten)
 
 
+def test_every_description_can_carry_its_weight():
+    """The description is not decoration — it is what chooses the object.
+
+    In the panel it is the tooltip; since CR-07 it is also the whole of what the
+    assistant knows about a column before it composes a selection. A model that
+    picks "Aantal inschrijvingen" where the question meant "Aantal stuks" gives a
+    wrong answer that looks right, and the only thing standing between those two
+    objects is this text.
+
+    So the bar is mechanical and low, and deliberately so: length and uniqueness
+    catch the description that was never written, not the one that is merely
+    mediocre. Whether a description is genuinely sharp is a judgement, and it is
+    measured elsewhere — the evaluation harness (CR-07 §9) answers real questions
+    and a wrong object shows up as a wrong answer.
+
+    Two objects with the SAME description is the case worth a hard rule: to
+    whoever chooses between them, they are then indistinguishable by definition.
+
+    Broken to see it red: `address_street` set to "De straat." (too short) and
+    `member_postal_code` given the description of `address_postal_code`
+    (duplicate); both named in the failure.
+    """
+    seen: dict[str, str] = {}
+    fouten = []
+    for obj in OBJECTS:
+        text = obj.description.strip()
+        if len(text) < 30:
+            fouten.append(
+                f"{obj.key}: beschrijving van {len(text)} tekens — te kort om een "
+                "keuze op te baseren"
+            )
+        if not text.endswith((".", "!", "?")):
+            fouten.append(f"{obj.key}: beschrijving eindigt niet op een punt")
+        if text in seen:
+            fouten.append(
+                f"{obj.key}: exact dezelfde beschrijving als {seen[text]} — wie "
+                "tussen die twee moet kiezen, kan dat hierop niet"
+            )
+        seen[text] = obj.key
+
+    assert len(seen) >= 100, (
+        f"deze poort keek naar {len(seen)} beschrijvingen; het universum hoort er "
+        "ruim honderd te hebben (#678)"
+    )
+    assert not fouten, "\n".join(fouten)
+
+
 # ── Where the person fence moved to (CR-06 §7.3, 10 September 2026) ─────────
 #
 # Two tests stood here and they are gone on purpose, so this comment is the
@@ -293,11 +340,9 @@ def test_no_per_object_role_fence_has_quietly_appeared():
     not there — so `build_query` takes no roles, and this says so on the
     signature where it cannot be passed by accident.
     """
-    import inspect
+    from tests._engine_signature import assert_engine_signature
 
-    from app.domains.reporting.api import build_query
-
-    assert set(inspect.signature(build_query).parameters) == {"selection", "tenant_id"}
+    assert_engine_signature()
 
 
 def test_every_object_still_declares_its_role():

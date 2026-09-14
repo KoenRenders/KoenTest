@@ -71,9 +71,17 @@ class DailyCharBudget:
             self._usage.clear()
             self._day = today
 
-    def charge(self, request: Request, chars: int):
+    def charge(self, request: Request, chars: int, *, key: str = ""):
+        """Boek tekens op de teller van vandaag.
+
+        ``key`` overschrijft het IP als teleenheid. De publieke bot telt per IP —
+        daar is geen gebruiker. De backoffice-assistent telt per aangemelde
+        beheerder (#917, CR-07 §4.2): die is aangemeld, dus per IP tellen zou twee
+        bestuursleden op hetzelfde thuisnetwerk elkaars budget laten opeten, en
+        tegelijk één bestuurslid met twee toestellen twee budgetten geven.
+        """
         self._roll_day()
-        key = _client_ip(request)
+        key = key or _client_ip(request)
         if self._usage[key] + chars > self.max_chars:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,

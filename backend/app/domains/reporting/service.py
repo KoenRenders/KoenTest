@@ -10,7 +10,7 @@ path here that queries a reporting view without it.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import date
 import logging
 from typing import Any, Sequence
@@ -56,6 +56,9 @@ class ReportResult:
     # The drill target per column key, e.g. ``{"activity": 12}`` per row, kept
     # alongside the label so the cell can become a link without a second query.
     drill_aliases: dict[str, str]
+    # The entity id per column key, for the assistant's tokenisation (CR-07 §5.2).
+    # Empty unless the caller asked for it — the panel does not.
+    entity_aliases: dict[str, str] = field(default_factory=dict)
 
     @property
     def row_count(self) -> int:
@@ -72,14 +75,14 @@ class Dataset:
 
 
 def run_selection(db: Session, selection: Selection, *,
-                  tenant_id: int) -> ReportResult:
+                  tenant_id: int, with_entities: bool = False) -> ReportResult:
     """Execute one selection and return its rows plus the totals row.
 
     Two statements, not one: the totals row is the same aggregate over the whole
     filtered set, so it stays right when the table is paged. Adding up the page
     would report the page, and a board member reading "Totaal" expects the report.
     """
-    plan = build_query(selection, tenant_id=tenant_id)
+    plan = build_query(selection, tenant_id=tenant_id, with_entities=with_entities)
 
     rows: list[dict[str, Any]] = []
     for record in db.execute(text(plan.sql), plan.params).mappings():
@@ -95,7 +98,8 @@ def run_selection(db: Session, selection: Selection, *,
         rows = merge_small_cells(rows, plan.columns)
 
     return ReportResult(columns=plan.columns, rows=rows, totals=totals,
-                        fact=plan.fact, drill_aliases=plan.drill_aliases)
+                        fact=plan.fact, drill_aliases=plan.drill_aliases,
+                        entity_aliases=plan.entity_aliases)
 
 
 # The label of the row that every group below the threshold ends up in. One row
@@ -384,11 +388,14 @@ def is_personal(selection: Selection) -> bool:
 
 
 def run_validated(db: Session, selection: Selection, *, tenant_id: int,
-                  today: date | None = None, viewer: str = "") -> ReportResult:
-    """Resolve, validate, run. The panel's single entry point."""
+                  today: date | None = None, viewer: str = "",
+                  with_entities: bool = False) -> ReportResult:
+    """Resolve, validate, run. The panel's single entry point — and the
+    assistant's, which is the point: one path to one number (CR-07 §4.2)."""
     concreet = resolve_selection(selection, today=today, viewer=viewer)
     validate_filter_values(db, concreet, tenant_id=tenant_id)
-    return run_selection(db, concreet, tenant_id=tenant_id)
+    return run_selection(db, concreet, tenant_id=tenant_id,
+                         with_entities=with_entities)
 
 
 # ── Saved reports (CR-06 §5) ─────────────────────────────────────────────────

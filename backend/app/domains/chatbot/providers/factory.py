@@ -12,7 +12,14 @@ from .base import LLMProvider
 from .mock import MockProvider
 
 
-def get_provider() -> LLMProvider:
+def get_provider(model: str = "") -> LLMProvider:
+    """De provider voor deze oproep, eventueel op een ander model.
+
+    ``model`` overschrijft `CHAT_MODEL`. De backoffice-assistent stelt een selectie
+    samen en dat is zwaarder werk dan een opzoeking, dus die draait op een groter
+    model dan de publieke bot (CR-07 §4.4) — dezelfde leverancier, dezelfde naad,
+    alleen een andere keuze. Eén plek die de provider bouwt blijft eraan vasthouden.
+    """
     choice = (settings.chat_llm_provider or "auto").lower()
     has_key = bool(settings.mistral_api_key)
 
@@ -27,6 +34,6 @@ def get_provider() -> LLMProvider:
         # Lazy import: geen Mistral-config nodig om de mock te draaien.
         from .mistral import build_mistral_provider
 
-        return build_mistral_provider()
+        return build_mistral_provider(model=model)
 
     return MockProvider()

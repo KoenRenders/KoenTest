@@ -57,10 +57,34 @@ def upgrade():
 
     intro_html = _build_home_intro(price_full, price_half, half_start, half_end, next_year_from)
 
+    # PLACEHOLDERS, en met opzet (#917, 14 september 2026). Hier stond de echte
+    # contactregel van Raak Millegem: naam, straat, gemeente, e-mailadres, IBAN en
+    # BIC. Drie bezwaren, en het derde is het zwaarste:
+    #
+    # 1. Deze repo is publiek en een rekeningnummer hoort in de linkerkolom van de
+    #    maskeertabel in CLAUDE.md.
+    # 2. Elke VERSE installatie van deze stack kreeg hiermee de contactgegevens van
+    #    één vereniging als standaardfooter. Dat is niet alleen lelijk, het is fout:
+    #    de tweede afdeling die dit draait, publiceert andermans adres.
+    # 3. Een migratiebestand verdwijnt nooit uit de geschiedenis. Dit vervangen is
+    #    dus opruimen en geen ongedaan maken — de oude waarde blijft in de git-log
+    #    staan. Om die reden is de BIC hier helemaal weg in plaats van vervangen:
+    #    wat niemand nodig heeft, zaaien we niet opnieuw.
+    #
+    # Dit RAAKT BESTAANDE DATABANKEN NIET. De insert hieronder slaat over wat er al
+    # staat, dus een omgeving die 027 ooit gedraaid heeft, houdt haar footer zoals
+    # ze is; wie hem daar wil wijzigen, doet dat in het CMS-scherm. Dit blok bepaalt
+    # alleen wat een lege databank krijgt.
+    #
+    # De BETAALGEGEVENS lopen hier niet langs: de overschrijvingsinstructies in de
+    # mails en op de lidmaatschapsschermen komen uit `payment_iban` /
+    # `payment_beneficiary` (tenant-instelling, met de .env als terugval). Deze
+    # footer is contacttekst, geen geldpad — vandaar dat placeholders hier niets
+    # kunnen breken aan een betaling.
     footer_html = (
-        "<p>Feitelijke vereniging Raak Millegem · Milostraat 40, 2400 Mol</p>"
-        "<p>📧 <a href=\"mailto:raakmillegem@gmail.com\">raakmillegem@gmail.com</a> · "
-        "IBAN: BE48 7875 5016 1327 · BIC: GKCCBEBB</p>"
+        "<p>&laquo;Naam van de vereniging&raquo; · &laquo;straat en nummer&raquo;, "
+        "&laquo;postcode en gemeente&raquo;</p>"
+        "<p>📧 &laquo;e-mailadres&raquo; · IBAN: &laquo;rekeningnummer&raquo;</p>"
     )
 
     for slug, title, content in [

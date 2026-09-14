@@ -160,3 +160,31 @@ def list_postal_codes(db):
     from app.domains.mdm.models import PostalCode
 
     return db.query(PostalCode).order_by(PostalCode.postal_code).all()
+
+
+# ── Names, for the outbound AI guard (CR-07 §5.8) ────────────────────────────
+
+def person_name_parts(db: Session) -> set[str]:
+    """Every first and last name of this tenant's people, lowercased.
+
+    The seam guard scans an outbound AI payload against this set: a name from the
+    administration in a message to a language model blocks the call. Which is why
+    this lives here and not there — the guard must not know how people are stored,
+    and mdm must not know what a guard is.
+
+    Parts and not full names, deliberately. "Peeters" alone is the form a question
+    actually takes ("gaat het gezin Peeters stoppen?"), and matching only
+    "Jan Peeters" would sail straight past it.
+
+    Short parts are dropped: a two-letter name is a substring of ordinary Dutch and
+    would block every second question. That is a real hole, and the payload view is
+    the backstop for it (CR-07 §5.8, "honest limits").
+    """
+    rows = db.query(Person.first_name, Person.last_name).all()
+    parts: set[str] = set()
+    for first, last in rows:
+        for value in (first, last):
+            for part in (value or "").replace("-", " ").split():
+                if len(part) >= 3:
+                    parts.add(part.lower())
+    return parts

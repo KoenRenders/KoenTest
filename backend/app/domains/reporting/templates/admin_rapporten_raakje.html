@@ -1,0 +1,41 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% import "_raakje_ballon.html" as ballon %}
+{% block title %}{{ _("Vraag het Raakje — Raak beheer") }}{% endblock %}
+{% block content %}
+{% call ui.page_header(_("Vraag het Raakje"), _("Stel een vraag over de eigen cijfers in gewone zinnen. Raakje draait er een echt rapport voor — het verzint geen getallen.")) %}
+  {{ ui.btn_secondary(_("Naar de rapporten"), href="/admin/rapporten") }}
+{% endcall %}
+
+{% call ui.card() %}
+  {% if not enabled %}
+  {{ ui.empty_state(reason) }}
+  {% else %}
+  {# De ballonnen komen uit het chatbot-domein: het is dezelfde bot met een andere
+     gereedschapskist, en dan hoort hij er ook hetzelfde uit te zien (#791). #}
+  <div id="rp-raakje-gesprek" class="space-y-4 mb-4">
+    <div><div class="{{ ballon.van_raakje() }}">{{ _("Dag! Vraag me iets over de leden, de inschrijvingen of de betalingen — bijvoorbeeld “hoeveel gezinnen per gemeente?” of “wat staat er nog open aan lidgeld?”. Namen van personen geef ik niet: ik antwoord op groepsniveau.") }}</div></div>
+  </div>
+
+  {# De geschiedenis reist mee in het formulier en staat niet op de server: een
+     verversing begint een nieuw gesprek, en er blijft niets van bewaard tussen
+     twee sessies (CR-07 §10). Alleen vragen en antwoorden — elk tool-resultaat
+     wordt elke beurt opnieuw op de server opgehaald. #}
+  <form hx-post="/admin/rapporten/raakje" hx-target="#rp-raakje-gesprek"
+        hx-swap="beforeend"
+        hx-on::after-request="this.querySelector('textarea').value = ''; this.querySelector('textarea').style.height = 'auto'"
+        x-data class="flex gap-2 items-end">
+    <input type="hidden" name="historie" id="rp-raakje-historie" value="{{ history }}">
+    {{ ui.textarea_control("vraag", id="rp-raakje-vraag", rows=1, required=True,
+                           placeholder=_("Typ je vraag…"),
+                           cls="flex-1 resize-none max-h-[120px] overflow-y-auto",
+                           attrs='x-on:input="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, 120) + `px`"'
+                                 ' x-on:keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); $el.form.requestSubmit(); }"') }}
+    {{ ui.btn_primary(_("Vraag")) }}
+  </form>
+  {# Een antwoord duurt 15 tot 30 seconden (§4.3): zonder deze regel lijkt het
+     scherm stuk. #}
+  {{ ui.loading(_("Raakje denkt na… dit kan een halve minuut duren.")) }}
+  {% endif %}
+{% endcall %}
+{% endblock %}
