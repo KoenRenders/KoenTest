@@ -49,7 +49,8 @@ change to all four, in one pull request.
 | 13 Sep 2026 | The unsaved-changes promise is dropped as a system rule; it returns as a per-editor pattern field for long editors | #785 (B1) |
 | 13 Sep 2026 | Judging viewports follow the audience: public phone-first, admin desktop-first | CR-08 |
 | 13 Sep 2026 | Golf 1 approved on the package: public shell in Cobalt; **public headings in Inter** (variant B), wordmark stays Radio Canada Big; status colours shell-independent | #913 |
-| 13 Sep 2026 | Golf 2: the admin shell joins Cobalt — white grouped sidebar (workspaces Vereniging/Financieel/Inhoud/Systeem), account presence top right (initials + e-mail, logout in its menu), headings Inter in both shells | #913 |
+| 13 Sep 2026 | Golf 2: the admin shell joins Cobalt — white grouped sidebar, account presence top right (initials + e-mail, logout in its menu), headings Inter in both shells | #913 |
+| 14 Sep 2026 | Package-2 feedback: top-left = **tenant name + "Werkruimte"** (product label; the Raak wordmark leaves the admin shell — §12 decision a made concrete); workspace groups **Werking** (was Vereniging) / Financieel / **Inzicht** (Dashboard + Rapporten — reporting is not finance-only) / Inhoud / Systeem; address grid two columns on a phone (bus stays right of the house number) | #913 |
 
 Decisions still open are listed in §12.
 

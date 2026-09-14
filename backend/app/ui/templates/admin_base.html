@@ -66,9 +66,11 @@
        een lege paarse balk te veranderen; overflow-y-auto laat een lange nav intern
        scrollen. #}
     <aside class="hidden md:flex md:flex-col md:w-60 md:shrink-0 md:sticky {{ 'md:top-6 md:h-[calc(100vh-1.5rem)]' if env_bar else 'md:top-0 md:h-screen' }} overflow-y-auto bg-surface border-r border-line text-ink">
+      {# Pakket-2-feedback (14 sep): tenantnaam + productlabel i.p.v. het
+         Raak-woordmerk — de schil bedient ook organisaties buiten Raak. #}
       <a href="/admin" class="block px-5 py-4 hover:opacity-90">
-        <span class="font-brand uppercase tracking-tight text-blue-700 text-2xl leading-none">{{ _("Raak") }}</span>
-        <span class="block text-xs text-ink-soft mt-0.5">{{ _("beheer") }}</span>
+        <span class="block text-lg font-semibold text-ink leading-tight">{{ werkruimte_naam() }}</span>
+        <span class="block text-xs text-ink-soft mt-0.5">{{ _("Werkruimte") }}</span>
       </a>
       {# #505: geen flex-1 — de voet staat met een scheidingslijn direct onder de
          items i.p.v. onderaan de zijbalk weggedrukt. #}
@@ -102,7 +104,7 @@
     <div class="flex-1 flex flex-col min-w-0">
       {# Mobiele topbalk met hamburger #}
       <header class="md:hidden bg-surface border-b border-line text-ink flex items-center justify-between px-4 py-3">
-        <a href="/admin" class="font-brand uppercase tracking-tight text-blue-700 text-xl leading-none">{{ _("Raak") }}</a>
+        <a href="/admin" class="text-base font-semibold text-ink leading-none">{{ werkruimte_naam() }}</a>
         {# #804: een ICOON en geen tekstteken. `☰` erfde de dikte en de hoogte van het
              lettertype van het toestel, dus het oogde dun naast een woordmerk van 30 px
              en was niet betrouwbaar te schalen. Het aanraakvlak is 44 px (`min-w-11

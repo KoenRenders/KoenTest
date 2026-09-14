@@ -185,6 +185,40 @@ def _beheer_account(request) -> dict | None:
 
 templates.env.globals["beheer_account"] = _beheer_account
 
+
+# Golf 2-nazorg (#913, Koens pakket-2-feedback): linksboven staat niet langer het
+# Raak-woordmerk maar de TENANTNAAM met het productlabel "Werkruimte" eronder —
+# de beheerschil is een product dat ook niet-Raak-organisaties bedient
+# (design-system §12-beslissing a). De naam komt uit de tenant-instellingen en
+# wordt per tenant gecachet: schilchrome, één query per proces per tenant. Een
+# hernoemde tenant verschijnt na een herstart — dat is de bewuste prijs; de
+# instelling wijzigt zelden en de schil mag geen query per paginaweergave kosten.
+_werkruimte_cache: dict[int, str] = {}
+
+
+def _werkruimte_naam() -> str:
+    from app.kernel.tenancy import current_tenant_id
+
+    tid = current_tenant_id.get()
+    naam = _werkruimte_cache.get(tid)
+    if naam is None:
+        try:
+            from app.database import SessionLocal
+            from app.kernel.tenant_config import tenant_display_name
+
+            db = SessionLocal()
+            try:
+                naam = tenant_display_name(db, tenant_id=tid)
+            finally:
+                db.close()
+        except Exception:  # noqa: BLE001 - chrome mag nooit een scherm breken
+            naam = "Werkruimte"
+        _werkruimte_cache[tid] = naam
+    return naam
+
+
+templates.env.globals["werkruimte_naam"] = _werkruimte_naam
+
 # Omgevings-indicator (#464): [HDEV]/[UAT] in titel + gekleurde band. Als globale
 # beschikbaar in álle templates (publiek + admin); PROD blijft schoon.
 from app.config import settings as _settings  # noqa: E402
@@ -280,7 +314,7 @@ _ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = [
         ("/admin", "Dashboard"),
         ("/admin/rapporten", "Rapporten"),
     ]),
-    ("Vereniging", [
+    ("Werking", [
         ("/admin/activiteiten", "Activiteiten"),
         ("/admin/leden", "Leden"),
         ("/admin/formulieren", "Formulieren"),
