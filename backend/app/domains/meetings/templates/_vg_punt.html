@@ -1,0 +1,66 @@
+{# Eén punt in een sectie (#258). Een eigen bestand omdat het ook ALLEEN
+   teruggestuurd wordt: de notitie-editor swapt zijn eigen rij, zodat een klik
+   elders op het scherm de editor niet onder je handen wegtrekt. #}
+{% import "_macros.html" as ui %}
+<div id="vg-punt-{{ item.id }}" class="py-3 {% if not loop_first|default(False) %}border-t border-line{% endif %}">
+    <div class="flex items-center gap-2.5 flex-wrap">
+      <span class="font-semibold text-sm text-ink">{{ item.label }}</span>
+      {% if item.meta %}<span class="text-sm text-ink-soft">{{ item.meta }}</span>{% endif %}
+      {% if item.is_full %}{{ ui.badge(_("Volzet"), "red") }}{% endif %}
+      {% if item.source_url %}
+        {# De bron-chip: hier bewerk je niet, je gaat naar de bron. Het verslag
+           kopieert die gegevens niet — het verwijst ernaar (CR-09 §3.20). #}
+        <a href="{{ item.source_url }}" class="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-md px-2 py-0.5 hover:bg-blue-100">
+          {{ ui.icon("link", 12) }}{% if item.kind == "activity" %}{{ _("activiteit") }}{% else %}{{ _("lid") }}{% endif %}
+        </a>
+      {% else %}
+        <span class="inline-flex items-center text-xs text-ink-soft bg-surface-2 rounded-md px-2 py-0.5">{{ _("vrij punt") }}</span>
+      {% endif %}
+      {% if editable %}
+      <form class="ml-auto" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt/{{ item.id }}/verwijder"
+            hx-target="#vg-document" hx-swap="innerHTML">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <button type="submit" class="text-ink-soft hover:text-brand-danger p-1 rounded"
+                aria-label="{{ _("Punt van deze agenda halen") }}"
+                data-confirm="{{ _("Dit punt van de agenda halen?") }}">{{ ui.icon("x", 15) }}</button>
+      </form>
+      {% endif %}
+    </div>
+
+    {% if item.kind == "member" %}
+    <form class="mt-2 flex items-center gap-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt/{{ item.id }}"
+          hx-target="#vg-punt-{{ item.id }}" hx-swap="outerHTML" hx-trigger="change">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <span class="text-sm text-ink-soft">{{ _("wijkmeester") }}</span>
+      {% call ui.select_control("steward_person_id", cls="w-56", aria_label=_("Wijkmeester"), disabled=not editable) %}
+        <option value="">{{ _("— kies bestuurder —") }}</option>
+        {% for entry in circle %}
+        <option value="{{ entry.person.id }}" {% if item.steward_person_id == entry.person.id %}selected{% endif %}>{{ entry.person.first_name }} {{ entry.person.last_name }}</option>
+      
+        {% endfor %}
+      {% endcall %}
+      <span class="text-xs text-ink-soft">{{ _("genotuleerd — de toewijzing zelf gebeurt in de Raak-administratie") }}</span>
+    </form>
+    {% endif %}
+
+    {# De notities: één WYSIWYG-veld, geen tekstvak mét voorvertoning ernaast.
+       Twee weergaven van dezelfde tekst naast elkaar is dubbel werk voor de ogen,
+       en het tekstvak sprong bij elke swap terug naar zijn kleinste maat.
+
+       Elk punt swapt alleen ZICHZELF (`hx-target` op de eigen rij). Zou dit het
+       hele document vervangen, dan viel de editor onder je handen weg zodra
+       iemand anders iets aanklikte. #}
+    {% if editable %}
+    <form class="mt-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt/{{ item.id }}"
+          hx-target="#vg-punt-{{ item.id }}" hx-swap="outerHTML"
+          hx-trigger="trix-blur from:find trix-editor">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" id="vg-notes-{{ item.id }}" name="notes" value="{{ item.notes }}">
+      <trix-editor input="vg-notes-{{ item.id }}"
+                   class="cms-content bg-white text-sm rounded-lg border border-line min-h-[4rem]"
+                   placeholder="{{ _("Notities…") }}"></trix-editor>
+    </form>
+    {% elif item.notes %}
+    <div class="cms-content mt-2 text-sm">{{ item.notes|safe }}</div>
+    {% endif %}
+  </div>

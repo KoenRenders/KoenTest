@@ -4,6 +4,7 @@
 {% call ui.page_header(title, _("Agenda en verslag zijn hetzelfde document. Wat je tijdens de vergadering typt, staat meteen in het verslag.")) %}
   <div class="flex items-center gap-2 flex-wrap">
     {{ ui.badge(status_label, status_tone) }}
+    {% if editable %}{{ ui.btn_secondary(_("Datum, uur, locatie"), href="/admin/vergaderingen/" ~ meeting.id ~ "/bewerken", lead_icon="pencil") }}{% endif %}
     {{ ui.btn_secondary(_("Download PDF"), href="/admin/vergaderingen/" ~ meeting.id ~ "/pdf", attrs='hx-boost="false"', lead_icon="download") }}
     {% if editable %}
       {% if not meeting.agenda_sent_at %}
@@ -74,69 +75,7 @@
     <p class="text-sm text-ink-soft py-4 text-center">{{ _("Nog geen punten.") }}</p>
   {% endif %}
   {% for item in section.items %}
-  <div class="py-3 {% if not loop.first %}border-t border-line{% endif %}">
-    <div class="flex items-center gap-2.5 flex-wrap">
-      <span class="font-semibold text-sm text-ink">{{ item.label }}</span>
-      {% if item.meta %}<span class="text-sm text-ink-soft">{{ item.meta }}</span>{% endif %}
-      {% if item.is_full %}{{ ui.badge(_("Volzet"), "red") }}{% endif %}
-      {% if item.source_url %}
-        {# De bron-chip: hier bewerk je niet, je gaat naar de bron. Het verslag
-           kopieert die gegevens niet — het verwijst ernaar (CR-09 §3.20). #}
-        <a href="{{ item.source_url }}" class="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 rounded-md px-2 py-0.5 hover:bg-blue-100">
-          {{ ui.icon("link", 12) }}{% if item.kind == "activity" %}{{ _("activiteit") }}{% else %}{{ _("lid") }}{% endif %}
-        </a>
-      {% else %}
-        <span class="inline-flex items-center text-xs text-ink-soft bg-surface-2 rounded-md px-2 py-0.5">{{ _("vrij punt") }}</span>
-      {% endif %}
-      {% if editable %}
-      <form class="ml-auto" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt/{{ item.id }}/verwijder"
-            hx-target="#vg-document" hx-swap="innerHTML">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <button type="submit" class="text-ink-soft hover:text-brand-danger p-1 rounded"
-                aria-label="{{ _("Punt van deze agenda halen") }}"
-                data-confirm="{{ _("Dit punt van de agenda halen?") }}">{{ ui.icon("x", 15) }}</button>
-      </form>
-      {% endif %}
-    </div>
-
-    {% if item.kind == "member" %}
-    <form class="mt-2 flex items-center gap-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt/{{ item.id }}"
-          hx-target="#vg-document" hx-swap="innerHTML" hx-trigger="change">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <span class="text-sm text-ink-soft">{{ _("wijkmeester") }}</span>
-      {% call ui.select_control("steward_person_id", cls="w-56", aria_label=_("Wijkmeester"), disabled=not editable) %}
-        <option value="">{{ _("— kies bestuurder —") }}</option>
-        {% for entry in circle %}
-        <option value="{{ entry.person.id }}" {% if item.steward_person_id == entry.person.id %}selected{% endif %}>{{ entry.person.first_name }} {{ entry.person.last_name }}</option>
-        {% endfor %}
-      {% endcall %}
-      <span class="text-xs text-ink-soft">{{ _("genotuleerd — de toewijzing zelf gebeurt in de Raak-administratie") }}</span>
-    </form>
-    {% endif %}
-
-    {# De notities: één regel = één opsommingspunt, inspringen nest. Het tekstvak
-       blijft platte tekst — tijdens een vergadering wil je typen, niet opmaken —
-       en dit is hoe diezelfde tekst gelezen wordt, hier en in de PDF. #}
-    {% if item.bullets %}
-    <ul class="mt-2 text-sm text-ink space-y-0.5">
-      {% for niveau, tekst in item.bullets %}
-      <li class="flex gap-2 {% if niveau == 1 %}pl-5{% elif niveau == 2 %}pl-10{% endif %}">
-        {# Dezelfde tekens als in de PDF: ● is de activiteit zelf, dus de notities
-           beginnen bij ○. Anders leest het scherm anders dan het verslag op papier. #}
-        <span class="text-ink-soft select-none" aria-hidden="true">{% if niveau == 0 %}○{% elif niveau == 1 %}■{% else %}·{% endif %}</span>
-        <span>{{ tekst }}</span>
-      </li>
-      {% endfor %}
-    </ul>
-    {% endif %}
-    <form class="mt-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt/{{ item.id }}"
-          hx-target="#vg-document" hx-swap="innerHTML" hx-trigger="change">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      {{ ui.textarea_control("notes", value=item.notes, rows=2, cls="w-full",
-                             placeholder=_("Notities… — één regel per punt, spring twee spaties in voor een subpunt"),
-                             attrs=ui.autogrow(320) ~ (" disabled" if not editable else "")) }}
-    </form>
-  </div>
+  {% with loop_first = loop.first %}{% include "_vg_punt.html" %}{% endwith %}
   {% endfor %}
 
   {% if section.can_add %}
@@ -207,13 +146,14 @@
   <h2 class="font-semibold text-blue-700">{{ _("Bijlagen") }}</h2>
   <p class="text-sm text-ink-soft mt-0.5">{{ _("Gaan mee met de agenda- en verslagmail — bijvoorbeeld een werkgroepverslag of een document van de gemeente.") }}</p>
   <div class="flex flex-wrap gap-2 mt-3 items-center">
-    {% for file in attachments %}
+    {% for file, verstuurd in attachments %}
     <span class="inline-flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-sm">
       {{ ui.icon("file-text", 14) }}
       <a href="/admin/vergaderingen/{{ meeting.id }}/bestand/{{ file.id }}" hx-boost="false" class="hover:underline">{{ file.filename }}</a>
+      {% if verstuurd %}<span class="text-xs text-ink-soft">{{ _("verstuurd") }}</span>{% endif %}
       {# Per bijlage kiezen met wélke mail ze meegaat: soms hoort een draaiboek bij
          de agenda en een ander document bij het verslag. Eén klik keert de stand om. #}
-      {% if editable %}
+      {% if editable and not verstuurd %}
       {% for mail, label, aan in [("agenda", _("agenda"), file.on_agenda_mail),
                                   ("report", _("verslag"), file.on_report_mail)] %}
       <form hx-post="/admin/vergaderingen/{{ meeting.id }}/bijlage/{{ file.id }}/meesturen"
@@ -226,7 +166,10 @@
       </form>
       {% endfor %}
       {% endif %}
-      {% if editable and not meeting.agenda_sent_at and not meeting.report_sent_at %}
+      {# Verwijderen kan zolang dít bestand nog niet mee is geweest. Ging het al
+         de deur uit, dan blijft het staan — wie de mail opent, moet de bijlage
+         nog kunnen ophalen. #}
+      {% if editable and not verstuurd %}
       <form hx-post="/admin/vergaderingen/{{ meeting.id }}/bijlage/{{ file.id }}/verwijder"
             hx-target="#vg-document" hx-swap="innerHTML">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

@@ -30,11 +30,23 @@ class MeetingListView(ViewModel):
 
 @dataclass(frozen=True, kw_only=True)
 class MeetingNewView(ViewModel):
-    """`admin_vergadering_nieuw.html` — één datum volstaat om te beginnen."""
+    """`admin_vergadering_nieuw.html` — aanmaken én wijzigen.
+
+    Eén view-model en één template voor beide: het zijn dezelfde drie velden met
+    dezelfde regels. Twee schermen zouden betekenen dat een wijziging aan de
+    invoer op twee plaatsen moet gebeuren — en dan loopt er een keer één achter.
+    """
 
     suggested_date: str
     suggested_time: str
     suggested_location: str
+    # Waarheen het formulier post, hoe de knop heet en wat de titel zegt: dat is
+    # het hele verschil tussen aanmaken en wijzigen.
+    action: str
+    title: str
+    intro: str
+    submit_label: str
+    cancel_href: str
     csrf_token: str
     error: Optional[str] = None
     nav_items: list[dict[str, Any]] = field(default_factory=list)
@@ -64,11 +76,32 @@ class MeetingDocumentView(ViewModel):
     picker_section_id: Optional[int]
     picker_options: list[Any]
     picker_query: str
+    # Per bijlage: (bestand, is-ze-al-verstuurd). Afgeleid in de route,
+    # want een template die toestand afleidt is een tweede plek voor de regel.
     attachments: list[Any]
     sent_pdfs: list[Any]
     editable: bool
     csrf_token: str
     error: Optional[str] = None
+    nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class MeetingItemView(ViewModel):
+    """`_vg_punt.html` — één punt, los teruggestuurd na een notitie of een keuze.
+
+    Een fragment krijgt een eigen view-model, juist omdat het vanuit twee routes
+    gerenderd wordt: in de lus van het document, en alleen voor zichzelf na een
+    bewerking. Daar loopt het gemakkelijkst iets mis.
+    """
+
+    item: Any
+    meeting: Any
+    circle: list[Any]
+    editable: bool
+    csrf_token: str
+    # Alleen waar in de lus van het document: de eerste rij draagt geen scheiding.
+    loop_first: bool = False
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 
 

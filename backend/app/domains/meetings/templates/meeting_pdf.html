@@ -39,11 +39,11 @@
   /* Het bolletje markeert de regel, het hoeft niet te roepen: de vette naam doet
      het werk al. Grijs en klein, zoals in het Google-Docs-verslag. */
   .item .bullet { color: var(--pdf-soft); font-size: 8pt; vertical-align: 1pt; }
-  .notes { margin: 1pt 0 0 0; color: var(--pdf-ink); font-size: 10pt;
-           text-indent: 0; padding-left: 10pt; }
-  .notes.n0 { margin-left: 14pt; }
-  .notes.n1 { margin-left: 28pt; }
-  .notes.n2 { margin-left: 42pt; }
+  .notes { margin: 2pt 0 0 0; color: var(--pdf-ink); font-size: 10pt;
+           text-indent: 0; padding-left: 14pt; }
+  .notes p { margin: 0 0 2pt 0; }
+  .notes ul, .notes ol { margin: 2pt 0; padding-left: 14pt; }
+  .notes li { margin: 0 0 1pt 0; }
   .empty { color: var(--pdf-faint); font-style: italic; font-size: 10pt; }
   .members-total { font-size: 9.5pt; font-weight: normal; color: var(--pdf-soft); }
 </style>
@@ -72,9 +72,9 @@
   {% for item in section.items %}
   <div class="item">
     <div class="line"><span class="bullet">●</span> <b>{{ item.label }}</b>{% if item.meta %} <span class="meta">| {{ item.meta }}</span>{% endif %}{% if item.is_full %} <span class="meta">({{ _("volzet") }})</span>{% endif %}</div>
-    {% for niveau, tekst in item.bullets %}
-    <div class="notes n{{ niveau }}">{% if niveau == 0 %}○{% elif niveau == 1 %}■{% else %}·{% endif %} {{ tekst }}</div>
-    {% endfor %}
+    {# De notities zijn HTML uit de editor, al ontsmet bij het opslaan (één plek,
+       zie service.update_item). WeasyPrint rendert lijsten en nadruk gewoon. #}
+    {% if item.notes %}<div class="notes">{{ item.notes|safe }}</div>{% endif %}
   </div>
   {% endfor %}
   {% endfor %}
