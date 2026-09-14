@@ -231,67 +231,19 @@
 </div>
 {%- endmacro %}
 
-{# Gedeelde veld-basis: label + control in één blok. `input_html` is de reeds
-   opgebouwde control (input/select/textarea), zodat de opmaak één plek heeft. #}
-{% macro _field(text, for_id, input_html, required=False, hint=None, error=None) -%}
-<div class="mb-4">
-  {{ label(text, for_id, required) }}
-  {{ input_html|safe }}
-  {% if hint %}<p class="text-xs text-gray-500 mt-1">{{ hint }}</p>{% endif %}
-  {% if error %}<p class="text-xs text-red-600 mt-1">{{ error }}</p>{% endif %}
-</div>
-{%- endmacro %}
-
 {# Eén bron voor de hoogte/rand van een formulier-control (#611). De basis staat
    los van `w-full` zodat een filterveld dezelfde hoogte krijgt zonder de volle
    breedte te nemen — zie select_control(). #}
 {% set _control_base = "rounded-lg border border-gray-300 px-3 py-2 text-sm text-ink focus:border-blue-600 focus:ring-2 focus:ring-blue-200 focus:outline-none" %}
-{% set _control = "w-full " ~ _control_base %}
 
-{% macro field_input(text, name, value="", type="text", required=False, placeholder="", hint=None, error=None, attrs="") -%}
-{{ _field(text, name, '<input id="' ~ name ~ '" name="' ~ name ~ '" type="' ~ type ~ '" value="' ~ value ~ '" placeholder="' ~ placeholder ~ '"' ~ (' required' if required else '') ~ ' class="' ~ _control ~ '" ' ~ attrs ~ '>', required, hint, error) }}
-{%- endmacro %}
-
-{# #815: `.format()` op een `|safe`-sjabloon in plaats van `~`-concatenatie.
-   Gemeten: met autoescape escapet `~` de ÁNDERE operanden zodra er één `Markup`
-   tussen staat — en `_()` levert `Markup`. Eén vertaalde waarde en de hele
-   `<textarea>` verscheen als tekst op het scherm; de `|safe` in `_field` komt dan te
-   laat, want het resultaat ís al escaped. `Markup.format` doet het omgekeerde en
-   juiste: het sjabloon blijft veilig en de argumenten worden precies één keer
-   ge-escaped, of ze nu `str` of `Markup` zijn.
-
-   Geen enkel echt scherm raakte dit vandaag — het wachtte op de eerste aanroeper met
-   een vertaald label, en een keuzelijst met vertaalde opties is een normale wens. #}
-{% macro field_textarea(text, name, value="", rows=4, required=False, placeholder="", hint=None, error=None, attrs="") -%}
-{#- `_control` staat hier BINNEN het sjabloon en niet als argument: de gate op kale
-    controls (#611) leest de `<textarea …>`-tag zoals hij in de bron staat, en die
-    hoort de control-klassen te tonen. Beide operanden zijn gewone strings, dus deze
-    `~` escapet niets — dat gebeurt pas zodra er `Markup` tussen staat. -#}
-{%- set _sjabloon = '<textarea id="{}" name="{}" rows="{}" placeholder="{}"{} class="' ~ _control ~ '" {}>{}</textarea>' -%}
-{%- set _html = (_sjabloon|safe).format(
-      name, name, rows, placeholder, ' required'|safe if required else ''|safe,
-      attrs|safe, value) -%}
-{{ _field(text, name, _html, required, hint, error) }}
-{%- endmacro %}
-
-{# Select: `options` = lijst van (waarde, label); `selected` = huidige waarde. #}
-{# #815: zelfde reparatie als bij `field_textarea` — zie de opmerking daar. Een
-   vertaald optielabel maakte hier de hele `<select>` zichtbaar als tekst. #}
-{% macro field_select(text, name, options, selected=None, required=False, hint=None, error=None, attrs="") -%}
-{% set opts = [] %}
-{% for val, lab in options %}
-{%- set _ = opts.append(('<option value="{}"{}>{}</option>'|safe).format(
-      val, ' selected'|safe if (val|string == selected|string) else ''|safe, lab)) -%}
-{% endfor %}
-{#- Zie `field_textarea`: `_control` binnen het sjabloon, zodat de tag in de bron
-    toont dat de control-klassen erop staan. -#}
-{%- set _sjabloon = '<select id="{}" name="{}"{} class="' ~ _control ~ '" {}>{}</select>' -%}
-{%- set _html = (_sjabloon|safe).format(
-      name, name, ' required'|safe if required else ''|safe, attrs|safe,
-      (opts|join(''))|safe) -%}
-{{ _field(text, name, _html, required, hint, error) }}
-{%- endmacro %}
-
+{# De vroegere `field_input`/`field_select`/`field_textarea`-familie is opgeheven
+   in golf 0b (#913, 14 sep 2026): de telling gaf 4 aanroepen — allemaal de eigen
+   kitdemo — tegenover 149 voor de control-familie. Eén familie dus; label, id en
+   foutregel zet een scherm expliciet (zie design-system §2.2). De #815-les
+   verhuist mee als regel: bouw je in een macro HTML als string, gebruik dan
+   `Markup.format` en nooit `~`-concatenatie — één `Markup`-operand (en `_()`
+   levert er een) escapet anders alle andere operanden en de tag verschijnt als
+   tekst. De uitvoer-gate in test_design_system_pagina bewaakt die klasse. #}
 {# ── Uploadveld (#623) ────────────────────────────────────────────────────────
    Eén vorm voor de drie plekken waar een bestand bij een record hoort
    (activiteitaffiche, onderdeel-info, media). Die zagen er alle drie anders uit.
@@ -477,13 +429,10 @@
 {% set _tekstmaten = ["text-xs", "text-sm", "text-base", "text-lg", "text-xl"] %}
 {% macro _basis(cls) %}{{ _control_base|replace(" text-sm", "") if (cls.split()|select("in", _tekstmaten)|list) else _control_base }}{% endmacro %}
 
-{# Losse control zonder label-wrapper, voor compacte rijen (#659).
-
-   `field_input()` past daar niet: die zet een eigen `mb-4`-blok, leidt de `id` af
-   van de `name` — wat in een herhaalde kaart dubbele id's geeft — en kent geen
-   breedte. In een `flex flex-wrap`-rij stuurt die breedte de kolom, dus ze moet
-   mee. Dit is de input-tegenhanger van `select_control()`: dezelfde
-   `_control_base`, en verder bepaal je zelf id, breedte en attributen. #}
+{# Dé veldvorm van de kit (#659; sinds golf 0b de enige familie): jij zet zelf
+   label (`ui.label`), id, breedte en attributen. Expliciete id's, want een
+   afgeleide id gaf dubbele id's in herhaalde kaarten; expliciete breedte, want
+   in een `flex flex-wrap`-rij stuurt de breedte de kolom. #}
 {% macro input_control(name, id=None, type="text", value="", required=False,
                        placeholder="", cls="", attrs="", aria_label=None) -%}
 <input type="{{ type }}" name="{{ name }}" id="{{ id or name }}"{% if value != "" %} value="{{ value }}"{% endif %}{% if placeholder %} placeholder="{{ placeholder }}"{% endif %}{% if required %} required{% endif %}

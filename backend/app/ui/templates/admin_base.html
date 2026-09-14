@@ -89,12 +89,17 @@
       {# Golf 2 (#913, triage A3/j): werkgebied-groepen met sectiekopjes; actief =
          zachte kobalttint. De id en het oob-mechanisme (#714) blijven exact. #}
       <nav id="admin-nav-zijbalk"{% if _oob %} hx-swap-oob="true"{% endif %} class="px-3 space-y-0.5 pb-4">
+        {# HDEV-feedback 14 sep: de kopjes labelden maar groepeerden niet — kleiner
+           dan de links en in dezelfde tint. Groeperen doet vooral de SCHEIDING:
+           een lijn + witruimte boven elke groep; het kopje zelf iets vetter en
+           wijder gespatieerd. #}
         {% for groep in nav_items|default([]) %}
-        {% if groep.label %}<div class="px-3 pt-4 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ink-soft">{{ groep.label }}</div>{% endif %}
+        {% if groep.label %}<div class="mt-3 pt-3 border-t border-line"><div class="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-widest text-ink-soft">{{ groep.label }}</div>{% else %}<div>{% endif %}
         {% for item in groep["items"] %}
         <a href="{{ item.href }}"
            class="block px-3 py-2 rounded-lg text-sm transition-colors {% if item.active %}bg-blue-50 text-blue-700 font-semibold{% else %}text-ink-soft hover:bg-surface-2 hover:text-ink{% endif %}">{{ item.label }}</a>
         {% endfor %}
+        </div>
         {% endfor %}
       </nav>
       {# De vroegere zijbalkvoet (Naar de site + Uitloggen, #526) verhuisde in
@@ -118,11 +123,12 @@
       {# #737: `style="display: none"` staat er letterlijk bij (§2.9b). Dit element heeft een `id` én wordt door Alpine verborgen, dus htmx' settle zet bij een swap de attributen van het serverantwoord terug en wist de inline style die Alpine er net op zette (#726). Verborgen is hier de juiste beginstand: `open` begint op false. #}
       <nav id="admin-nav-mobiel"{% if _oob %} hx-swap-oob="true"{% endif %} x-show="open" style="display: none" x-cloak x-transition.opacity.duration.150ms class="md:hidden bg-surface border-b border-line px-3 pb-3 pt-1 space-y-0.5">
         {% for groep in nav_items|default([]) %}
-        {% if groep.label %}<div class="px-3 pt-3 pb-1 text-[11px] font-semibold uppercase tracking-wider text-ink-soft">{{ groep.label }}</div>{% endif %}
+        {% if groep.label %}<div class="mt-2 pt-2 border-t border-line"><div class="px-3 pb-1.5 text-[11px] font-bold uppercase tracking-widest text-ink-soft">{{ groep.label }}</div>{% else %}<div>{% endif %}
         {% for item in groep["items"] %}
         <a href="{{ item.href }}" @click="open = false"
            class="block px-3 py-2 rounded-lg text-sm {% if item.active %}bg-blue-50 text-blue-700 font-semibold{% else %}text-ink-soft hover:bg-surface-2 hover:text-ink{% endif %}">{{ item.label }}</a>
         {% endfor %}
+        </div>
         {% endfor %}
         <div class="mt-2 pt-2 border-t border-line">
         <a href="/" hx-boost="false" class="block px-3 py-2 rounded-lg text-sm text-ink-soft hover:bg-surface-2 hover:text-ink">↗ {{ _("Naar de site") }}</a>
