@@ -155,7 +155,9 @@ Added after the first mockup round (14 September 2026, Koen's review):
     sections keep their generation and carry-over semantics; a custom
     section holds free items only. **Miscellaneous is always the last
     section** — a custom section inserts before it (refined 14 September
-    2026).
+    2026). Adding sections — like adding items and attachments — works
+    identically while preparing the agenda and while taking minutes:
+    agenda and report are one document in two statuses.
 
 18. **No newsletter flag during the meeting** (revises §3.10's flag idea,
     same day). Selecting what reaches the newsletter is the newsletter
