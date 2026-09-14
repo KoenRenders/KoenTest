@@ -171,6 +171,11 @@ Added after the first mockup round (14 September 2026, Koen's review):
     chronological place, also in between existing points. Free items
     without a date go at the end and can be repositioned by hand.
 
+21. **The activity line shows no price** (14 September 2026, mockup
+    round). An activity can carry several prices (the barbecue: adult,
+    child, two or three pieces), so one price field would lie. The line
+    is **name | date time location**; prices live where they are managed,
+    one click away through the source chip.
 20. **The members section, detailed** (14 September 2026, mockup round).
     The steward next to a new member is a **dropdown over the board
     members** — what is chosen is *minutes*, stored on the meeting item;
