@@ -143,8 +143,8 @@ def ask(db, question: Question, *, tenant_id: int, actor: str = "evaluatie") -> 
     )
     from app.domains.mdm.api import person_name_parts
     from app.domains.reporting.assistant import (
-        CAPABILITY, TOOL_SPECS, build_system_prompt, detokenise, dispatcher,
-        scrub_question,
+        CAPABILITY, SCAN_PROMPT_NAMES, TOOL_SPECS, build_system_prompt,
+        detokenise, dispatcher, scrub_question,
     )
 
     messages = [{"role": "system", "content": build_system_prompt()},
@@ -152,7 +152,8 @@ def ask(db, question: Question, *, tenant_id: int, actor: str = "evaluatie") -> 
                  "content": scrub_question(db, question.text, tenant_id=tenant_id)}]
     provider = GuardedProvider(
         get_provider(settings.admin_chat_model),
-        admin_rules(lambda: person_name_parts(db), capability=CAPABILITY),
+        admin_rules(lambda: person_name_parts(db), capability=CAPABILITY,
+                    scan_prompt_names=SCAN_PROMPT_NAMES),
         sink_for(actor))
     antwoord = run_chat(db, messages, provider,
                         max_rounds=settings.admin_chat_max_tool_rounds,

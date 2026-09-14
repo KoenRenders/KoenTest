@@ -21,7 +21,28 @@ and the e-mail pattern are on for the back office and off for the public surface
 while the phone/IBAN patterns and the logging apply to both. That asymmetry is
 deliberate and is the only one: everything else the two surfaces share.
 
-**De patroon-controles slaan het system-bericht over, de naam-controle niet.** Dat
+**Wat er van het system-bericht gescand wordt, hangt af van waar dat bericht
+vandaan komt.** Administratiegegevens komen een payload binnen langs twee deuren:
+wat de gebruiker typt, en wat een tool teruggeeft. Een derde deur bestaat alleen
+wanneer de prompt zélf uit opgeslagen inhoud gebouwd wordt — bij de publieke bot is
+dat zo (CMS-pagina's en notities), bij de rapportage-assistent niet: die prompt
+wordt gerenderd uit de universum-declaratie en kan per constructie geen enkele
+waarde uit de databank bevatten.
+
+Dat onderscheid is geen verfijning achteraf maar de reparatie van een blokkade die
+ALLES tegenhield. Gemeten op HDEV: één gezin "Van den Broeck" zet `van` en `den` in
+de namenlijst, de catalogus is twintigduizend tekens Nederlands, en dus botste élke
+vraag — drie treffers, altijd dezelfde drie, ongeacht wat de beheerder typte. Voor
+wie het gebruikt is dat geen bescherming maar een kapotte assistent, en zo'n
+controle gaat uit.
+
+Daarom `scan_prompt_names`, en daarom staat hij standaard AAN: een pakket dat er
+niets over zegt, wordt volledig gescand. Alleen een pakket dat kan aantonen dat zijn
+prompt machinaal gegenereerd is, mag hem uitzetten — en dat aantonen is een test,
+geen belofte.
+
+**De patroon-controles slaan het system-bericht altijd over, de naam-controle
+alleen wanneer die prompt gegenereerd is.** Dat
 is geen versoepeling maar een meting: de eerste keer dat de wachter draaide,
 blokkeerde ze elke publieke vraag, en de dader was de privacypagina in de
 system-prompt — met het e-mailadres van de vereniging en haar IBAN erin. Dat is
@@ -110,6 +131,10 @@ class GuardRules:
     capability: str = ""
     match_names: bool = False
     match_email: bool = False
+    #: Of het system-bericht meegescand wordt op namen. Standaard aan: wie er niets
+    #: over zegt, krijgt de volledige controle. Uit mag alleen wanneer de prompt
+    #: machinaal gegenereerd is en dus geen opgeslagen waarde kan dragen.
+    scan_prompt_names: bool = True
     names: Callable[[], set[str]] = field(default=lambda: set())
     message: str = _ADMIN_MESSAGE
 
@@ -120,10 +145,17 @@ def public_rules() -> GuardRules:
                       match_email=False, message=_PUBLIC_MESSAGE)
 
 
-def admin_rules(names: Callable[[], set[str]], *, capability: str) -> GuardRules:
-    """The back office: everything on. Nothing here is anybody's own name to give."""
+def admin_rules(names: Callable[[], set[str]], *, capability: str,
+                scan_prompt_names: bool = True) -> GuardRules:
+    """The back office: everything on. Nothing here is anybody's own name to give.
+
+    ``scan_prompt_names=False`` is for a pack whose system prompt is rendered from
+    a declaration rather than from stored content — see the module docstring, and
+    prove it with a test before passing it.
+    """
     return GuardRules(surface=SURFACE_ADMIN, capability=capability,
-                      match_names=True, match_email=True, names=names)
+                      match_names=True, match_email=True,
+                      scan_prompt_names=scan_prompt_names, names=names)
 
 
 def payload_text(messages: Sequence[dict[str, Any]], *,
@@ -151,11 +183,13 @@ def findings(messages: Sequence[dict[str, Any]], rules: GuardRules) -> list[str]
         if pattern.search(typed):
             found.append(reason)
 
-    # Names: the whole payload, system prompt included.
+    # Names: the question and the tool results always; the system prompt only when
+    # it is built from stored content (see the module docstring).
     if rules.match_names:
         known = rules.names()
         if known:
-            whole = payload_text(messages).lower()
+            whole = payload_text(
+                messages, include_system=rules.scan_prompt_names).lower()
             words = {w for w in _WORD.findall(whole) if len(w) >= 3}
             hit = sorted(words & known)
             if hit:

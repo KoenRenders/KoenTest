@@ -276,3 +276,47 @@ def test_the_whole_path_hands_the_provider_no_name(db_session, client,
     assert payload, "de payload-uitklapper ontbreekt"
     assert ACHTERNAAM not in payload.group(1)
     assert "Kerkstraat" not in payload.group(1)
+
+
+# ── The claim behind the prompt exemption (CR-07 §5.8, 14 September 2026) ─────
+
+def test_the_catalogue_carries_no_value_from_the_database(db_session):
+    """Why the assistant's system prompt may skip the name check.
+
+    `SCAN_PROMPT_NAMES = False` rests on one claim: this prompt is RENDERED from
+    the universe declaration — instruction text plus object names and descriptions
+    — and therefore cannot carry a stored value. That claim is worth proving rather
+    than believing, because it is the one thing standing between the exemption and
+    a hole.
+
+    The seed here is not subtle on purpose: a household, an address, a board
+    member. If any of it can reach the prompt, one of these assertions catches it.
+
+    Broken to see it red: a line added to `render_catalogue` that appends the
+    values of a dimension to its description — the seeded surname then stands in
+    the prompt and the first assertion names it.
+    """
+    from app.domains.reporting.assistant import build_system_prompt
+
+    persoon = _person_row(db_session, "Wolfgang", "Steenhuyse")
+    _household(db_session, "Mira", ACHTERNAAM, board_member=persoon)
+
+    prompt = build_system_prompt().lower()
+    # Onderscheidende waarden, en dat is geen gemak maar de bedoeling: deze test
+    # vraagt of een WAARDE de prompt bereikt, niet of een woord toevallig samenvalt.
+    # De eerste versie zaaide een bestuurslid "Bestuur" en viel om op de zin "het
+    # bestuur van deze vereniging" — een terechte rode test over de verkeerde vraag.
+    for waarde in (ACHTERNAAM, "Mira", "Kerkstraat", "Steenhuyse", "Wolfgang"):
+        assert waarde.lower() not in prompt, (
+            f"'{waarde}' staat in de gerenderde catalogus — dan is de vrijstelling "
+            "van de naamcontrole op het system-bericht niet langer verdiend "
+            "(SCAN_PROMPT_NAMES in reporting/assistant.py)")
+
+
+def _person_row(db, first: str, last: str):
+    from app.domains.mdm.api import Person
+
+    persoon = Person(tenant_id=TENANT, first_name=first, last_name=last)
+    db.add(persoon)
+    db.flush()
+    return persoon

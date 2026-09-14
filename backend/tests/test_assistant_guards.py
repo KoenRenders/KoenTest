@@ -300,31 +300,74 @@ def test_the_system_prompt_is_exempt_from_the_pattern_check(db_session):
                     rules) != []
 
 
-def test_the_name_check_does_not_skip_the_system_prompt(db_session):
-    """The exemption is for the patterns only, and this is why that matters.
+def test_the_name_check_covers_the_system_prompt_unless_a_pack_earns_otherwise(
+        db_session):
+    """The default is: scan everything. Deviating from it has to be argued.
 
-    The system prompt is not a fixed string: it is built from tenant content —
-    CMS pages, notes somebody typed into the AI context screen. The day one of
-    those carries a member's name, the name check is the only line standing there,
-    because the pattern check has been told to look away.
+    The system prompt is not always a fixed string. For the public bot it is built
+    from tenant content — CMS pages, notes somebody typed into the AI context
+    screen — and the day one of those carries a member's name, the name check is
+    the only line standing there, because the pattern check has been told to look
+    away. So `scan_prompt_names` defaults to True: a pack that says nothing about
+    its prompt gets the full check.
 
-    So the asymmetry is an invariant and not an implementation detail, and it is
-    worth a test of its own: a future prompt source that is added without thinking
-    about this would otherwise pass silently. Raised by the brainstorm session on
-    13 September 2026 while reviewing the exemption above.
+    Turning it off is allowed for a prompt that is RENDERED rather than stored, and
+    that claim is proven in `test_assistant_masking.py`, not asserted here.
 
-    Broken to see it red: `payload_text(messages)` in the name branch given
-    `include_system=False` — the planted name then sits in the system prompt
-    unnoticed.
+    Raised by the brainstorm session on 13 September 2026; sharpened on 14
+    September when the full scan turned out to block every question on HDEV.
+
+    Broken to see it red: `scan_prompt_names: bool = False` as the dataclass
+    default — a new pack would then silently ship without the check.
     """
     _person(db_session, "Mira", "Vandenbulcke")
     from app.domains.mdm.api import person_name_parts
 
     prompt = [{"role": "system",
                "content": "Nota van het bestuur: Vandenbulcke belt nog terug."}]
-    rules = admin_rules(lambda: person_name_parts(db_session),
-                        capability=CAPABILITY)
-    assert findings(prompt, rules) != []
+    namen = lambda: person_name_parts(db_session)  # noqa: E731
+
+    standaard = admin_rules(namen, capability=CAPABILITY)
+    assert standaard.scan_prompt_names is True
+    assert findings(prompt, standaard) != []
+
+    verdiend = admin_rules(namen, capability=CAPABILITY, scan_prompt_names=False)
+    assert findings(prompt, verdiend) == []
+    # En wat de gebruiker typt blijft onverkort gescand, ook dan.
+    assert findings(prompt + [{"role": "user", "content": "Vandenbulcke?"}],
+                    verdiend) != []
+
+
+def test_a_name_particle_does_not_make_every_sentence_suspect(db_session):
+    """Measured on HDEV, and it stopped the assistant answering anything.
+
+    One household called "Van den Broeck" puts `van` and `den` into the name list.
+    The catalogue that travels with every question is twenty thousand characters of
+    Dutch, so every single question collided — three hits, always the same three,
+    whatever the admin typed. To the person using it that is not protection, it is
+    a broken assistant, and a check like that gets switched off.
+
+    A particle points at nobody, so it is not a name in the sense this list means.
+    A surname that happens to be an ordinary word — Bos, Mol — stays in: that is
+    the known false block of CR-07 §5.8, and that side is the safe one.
+
+    Broken to see it red: `NAME_PARTICLES` emptied — `van` is then back in the
+    list and the first assertion fails.
+    """
+    from app.domains.mdm.api import person_name_parts
+
+    _person(db_session, "Jan", "Van den Broeck")
+    delen = person_name_parts(db_session)
+
+    assert "van" not in delen and "den" not in delen
+    assert "broeck" in delen, "de naam zelf moet wél herkend blijven"
+    assert "jan" in delen
+
+    rules = admin_rules(lambda: delen, capability=CAPABILITY)
+    gewoon = [{"role": "user", "content": "Wat is de omzet van de activiteiten?"}]
+    assert findings(gewoon, rules) == []
+    echt = [{"role": "user", "content": "Stopt het gezin Broeck?"}]
+    assert findings(echt, rules) != []
 
 
 # ── The outbound log (CR-07 §6.4) ────────────────────────────────────────────

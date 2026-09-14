@@ -11,7 +11,9 @@
 {% if error %}
 {{ ui.error_banner(error) }}
 {% else %}
-<div><div class="{{ ballon.van_raakje() }}">{{ antwoord | raakje_md | safe }}</div></div>
+{# `data-raakje-answer`: hieraan hangt tts.js zijn voorleesknopje, en hierop leest
+   hij de tekst uit — hetzelfde haakje als bij de publieke Raakje (#917). #}
+<div><div data-raakje-answer class="{{ ballon.van_raakje() }}">{{ antwoord | raakje_md | safe }}</div></div>
 {% endif %}
 {% if payload %}
 {# "Wat zag Mistral" (CR-07 §5.7). Een belofte die de beheerder niet kan nakijken,
