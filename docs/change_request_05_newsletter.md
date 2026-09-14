@@ -54,7 +54,15 @@ plugs the drafting into the architecture that now exists.
    report** ([`change_request_09_meetings.md`](change_request_09_meetings.md)).
    **The flag is the PII gate**: unflagged report content never enters an
    LLM payload; flagged content may name volunteers — it is written to be
-   public and passes a human editor anyway.
+   public and passes a human editor anyway. **And the LLM never detects
+   activities in prose**: a flagged meeting item carries the `activity_id`
+   set when the agenda was generated (CR-09 §4), so the pack fetches the
+   canonical activity data fresh from the activities domain and the
+   structured fields win over whatever the note's free text says — the
+   grounding rule the chatbot already has. A manually added item without a
+   link contributes only its text; an item that should appear with a
+   registration link gets one by first creating the activity in the portal
+   and linking it, never by the model guessing.
 5. **Open question — the half-yearly edition and the members.** Today the
    ~800 do not include the members; the half-yearly went to the mailing
    list only, while members get the monthly edition. To choose at or before
