@@ -125,6 +125,27 @@ Taken by Koen on 14 September 2026, in the CR-shaping conversation:
    produces: the agenda's activity data, media, positive evaluation notes
    from the report, and items the report explicitly marks as newsletter
    material — so meetings must exist before drafting can.
+8. **Action items stay free text inside the notes**, as today — no
+   structured owner/status tracking. Only ideas/misc items carry over
+   between meetings (§5); everything else is retyped or dropped by the
+   person preparing the agenda.
+9. **Attendance is ticked off from the participant list** (present /
+   excused), not typed.
+10. **The newsletter flag is the whole gate for names.** Flagged content may
+    name volunteers; the human editor decides what survives. No separate
+    "public names" machinery.
+11. **From S2 on, the monthly member newsletter is sent from the portal via
+    the ESP** — not from Gmail — so the member opt-out is real.
+12. **Import comes from Koen's existing file**, and adding a subscriber by
+    hand later must be possible (a small admin add — part of the subscriber
+    screen, not a separate import feature). **Two people already opted out
+    of the current mailing**: they are imported as `unsubscribed` from day
+    one and never mailed.
+13. **The meeting PDF is a clean portal-styled document** (logo, header with
+    date and attendance) — no mimicry of the current Google-Docs template.
+14. **Steward assignment is only noted in the report.** The actual change is
+    made in Raak national's administration programme and comes back through
+    the existing MDM import. The portal changes nothing itself.
 
 Inherited, not reopened:
 
@@ -274,44 +295,25 @@ From the real examples of §1, anonymised:
 
 ## 10. Open questions
 
-1. ~~Live editing during the meeting~~ — **settled 14 September 2026: one
-   person types** (decision §3.6).
-2. **Action items.** Keep them as text in the notes (as today), or structure
-   them (owner + text + open/done, carried to the next agenda automatically)?
-   Structured is more build and more value — the agenda could open with
-   outstanding actions.
-3. **Attendance.** Free text (as today) or picked from the
-   `MeetingParticipant` list (§5)? Picking gives S2/D1 nothing (attendance
-   never leaves the board), so this is purely a meeting-module ergonomics
-   question.
-4. **Names in newsletter drafts.** The masking default strips volunteer names
-   from LLM input. Is a newsletter that thanks helpers by name a case the
-   board wants — and if so, does the person's name enter during human editing
-   (simplest, compliant), or does the pack need a whitelisted "public names"
-   field per item?
-5. **The monthly member newsletter's sending path.** CR-05 auto-subscribes
-   members with per-member opt-out. Confirm that from S2 on, the member
-   edition also goes through the ESP (not Gmail), so the opt-out is real.
-6. **ESP choice: ListMonk (self-hosted, EU infra) vs Brevo (FR, SaaS).**
-   The exploratory cloud session "ListMonk voor nieuwsbriefmodule" exists;
-   Europe First requires the trade-off to be made explicitly. The adapter
-   makes it reversible; S1 is where it must be decided.
-7. **Import mechanics.** The ~800 live in Gmail (contacts / historical Bcc
-   lists, duplicates and dead addresses included). One-off CSV export cleaned
-   by hand, or a small import screen with dedup? And who owns the cleaning?
-8. **The half-yearly audience vs the member list.** Are members part of the
-   ~800, or disjoint? This decides whether the audience builder needs
-   segments (member edition / public edition) or two simple lists with dedup
-   at send time.
-9. **PDF rendering.** The meeting PDF replaces a Google-Docs export the board
-   is used to. Is a clean, portal-styled PDF acceptable from day one, or must
-   it resemble the current template (logo header, table layout)?
-10. **Steward assignment for new members.** The members section lists new
-    members with their steward ("wijkmeester"). `Member` already carries a
-    `board_member_id`. Does the meeting screen only *show* the assignment
-    (read-only, link to the member screen), or is the meeting the place where
-    it is *made*? The latter is a write into the membership domain from the
-    meeting module — possible through the facade, but it must be deliberate.
+Questions 1–5, 7, 9 and 10 were settled on 14 September 2026 and moved into
+§3 (decisions 6, 8–14). Two remain:
+
+1. **ESP choice: ListMonk (self-hosted, EU infra) vs Brevo (FR, SaaS).**
+   Under discussion (14 September 2026). Koen's decisions of the same day
+   already settle *where the list lives*: in the portal (import, opt-out,
+   manual add, members auto-subscribed from the member data). What remains
+   is the **sending arm** behind `EmailCampaignProvider`. The trade-off is
+   being worked out in the shaping conversation and lands here; the
+   exploratory cloud session "ListMonk voor nieuwsbriefmodule" is input.
+   Final call needed no later than S1.
+2. **Does the half-yearly edition also go to the members?** Today the ~800
+   do not include the members; the half-yearly went to the mailing list
+   only, while members get the monthly edition. To choose at or before S2:
+   (a) half-yearly to subscribers only, members rely on the monthly; or
+   (b) half-yearly to subscribers **and** members, deduplicated by e-mail
+   address at send time, member newsletter opt-out respected. This is an
+   audience-builder question, not a schema question — it can wait until S2
+   without blocking anything.
 
 ## Non-goals
 
