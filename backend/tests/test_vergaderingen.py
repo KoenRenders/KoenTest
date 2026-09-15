@@ -910,3 +910,106 @@ def test_de_genoteerde_wijkmeester_staat_in_het_document(db_session):
     getoond = next(i for s in document_of(db_session, meeting) for i in s.items
                    if i.id == punt.id)
     assert getoond.steward_name == "Ivo Verwimp"
+
+
+# ── 21. Wat op het scherm staat, hoort in het verslag ────────────────────────
+
+def _pdf_tekst(inhoud: bytes) -> str:
+    """De tekst uit een PDF, om te kunnen toetsen wat er écht op papier staat."""
+    from io import BytesIO
+
+    from pypdf import PdfReader
+
+    return "\n".join(p.extract_text() or "" for p in PdfReader(BytesIO(inhoud)).pages)
+
+
+def test_de_bijlagen_staan_in_het_verslag(client, db_session):
+    """De PDF noemde nergens welke stukken er meegingen.
+
+    Dezelfde vorm als de wijkmeester die alleen een keuzelijst was: het scherm kon
+    iets wat er verderop niet uitkwam. Juist de PDF is wat een bestuurslid later
+    terugleest — dan hoort er te staan wélke documenten erbij hoorden.
+
+    Er wordt op de PDF-TEKST getoetst en niet op het view-model, want dat laatste
+    zou ook groen staan met de regel weg uit de template.
+    """
+    from app.domains.meetings.api import set_file_mailing
+
+    _login(client)
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+    add_file(db_session, meeting, filename="draaiboek-kerstradio.pdf",
+             content_type="application/pdf", data=b"%PDF draaiboek")
+    alleen_agenda = add_file(db_session, meeting, filename="enkel-bij-de-agenda.pdf",
+                             content_type="application/pdf", data=b"%PDF agenda")
+    set_file_mailing(db_session, meeting, alleen_agenda.id, mail="report")
+
+    verslag = client.get(f"/admin/vergaderingen/{meeting.id}/pdf?kind=verslag")
+    assert verslag.status_code == 200
+    tekst = _pdf_tekst(verslag.content)
+    assert "draaiboek-kerstradio.pdf" in tekst
+    assert "enkel-bij-de-agenda.pdf" not in tekst, \
+        "een bijlage die niet met het verslag meegaat, hoort er ook niet in te staan"
+
+
+def test_de_wijkmeester_staat_op_papier(client, db_session):
+    """Niet alleen in het view-model: de PDF-tekst moet hem dragen.
+
+    Toetsen op het view-model zou ook groen staan met de regel weg uit de
+    template — precies de fout die de wijkmeester hier in de eerste plaats had.
+    """
+    from app.domains.mdm.api import Member, MemberPerson
+    from app.domains.meetings.api import set_noted_steward
+
+    _login(client)
+    wijkmeester = _person(db_session, "Ivo", "Verwimp")
+    hoofdlid = _person(db_session, "An", "Peeters")
+    gezin = Member()
+    db_session.add(gezin)
+    db_session.flush()
+    db_session.add(MemberPerson(member_id=gezin.id, person_id=hoofdlid.id,
+                                relation_type="HOOFDLID"))
+    db_session.flush()
+
+    meeting = create_meeting(db_session, meeting_date=date.today())
+    sectie = next(s for s in document_of(db_session, meeting) if s.kind == "MEMBERS")
+    set_noted_steward(db_session, meeting, sectie.items[0].id, wijkmeester.id)
+
+    tekst = _pdf_tekst(client.get(f"/admin/vergaderingen/{meeting.id}/pdf").content)
+    assert "An Peeters" in tekst
+    assert "wijkmeester: Ivo Verwimp" in tekst
+    assert "nieuw lid" in tekst
+
+
+def test_cursieve_tekst_krijgt_een_echte_cursieve_letter(client, db_session):
+    """Cursief bleef rechtop staan: er was geen cursief letterbestand.
+
+    WeasyPrint/Pango maakt géén schuine variant bij wanneer alleen een rechte
+    letter bestaat — gemeten in een proefrender, niet aangenomen. Het gevolg was
+    stil: de knop werkte, de tekst werd bewaard, en op papier zag je niets.
+
+    Toetst daarom op de ingesloten lettertypes van de PDF en niet op de tekst:
+    tekst blijft identiek of ze nu schuin staat of niet, dus een assertie daarop
+    zou precies dit geval missen.
+    """
+    from io import BytesIO
+
+    from pypdf import PdfReader
+
+    _login(client)
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+    sectie = next(s for s in sections_of(db_session, meeting) if s.kind == "MISC")
+    from app.domains.meetings.api import update_item
+
+    punt = add_item(db_session, meeting, sectie, title="Opmaak")
+    update_item(db_session, meeting, punt.id, notes="<div><em>schuin</em></div>")
+
+    inhoud = client.get(f"/admin/vergaderingen/{meeting.id}/pdf").content
+    lezer = PdfReader(BytesIO(inhoud))
+    namen = []
+    for bladzijde in lezer.pages:
+        bronnen = bladzijde.get("/Resources", {})
+        for lettertype in (bronnen.get("/Font", {}) or {}).values():
+            naam = str(lettertype.get_object().get("/BaseFont", ""))
+            namen.append(naam)
+    assert any("Italic" in n for n in namen), \
+        f"geen cursief lettertype ingesloten; wel: {sorted(set(namen))}"

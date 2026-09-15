@@ -908,13 +908,8 @@ def _present(item: MeetingItem, activities: dict, counts: dict,
     if item.member_id:
         label, address = member_labels.get(item.member_id, (_("Nieuw lid"), ""))
         naam = (steward_names or {}).get(item.noted_steward_person_id or 0, "")
-        meta = address
-        if naam:
-            # In de meta en niet als aparte regel: het verslag schrijft het ook op
-            # één lijn ("Groenvinkstraat 8 → wijkmeester: Ivo Verwimp").
-            meta = f"{address} → {_('wijkmeester')}: {naam}".lstrip(" →")
         return DocumentItem(
-            id=item.id, label=label, meta=meta, notes=item.notes or "",
+            id=item.id, label=label, meta=address, notes=item.notes or "",
             kind="member", source_url=f"/admin/leden/gezin/{item.member_id}",
             is_full=False, steward_person_id=item.noted_steward_person_id,
             steward_name=naam)
@@ -969,6 +964,9 @@ def _address_line(person) -> str:
 # het zoekveld maakt een lange lijst hanteerbaar.
 EVALUATION_LOOKBACK = timedelta(days=365)
 
+# Hoeveel activiteiten de kiezer toont vóór je moet zoeken.
+PICKER_LIMIT = 8
+
 
 def addable_activities(db: Session, meeting: Meeting, query: str = "",
                        section_id: Optional[int] = None) -> list:
@@ -1013,4 +1011,7 @@ def addable_activities(db: Session, meeting: Meeting, query: str = "",
         if query and query not in span.activity.name.lower():
             continue
         out.append(span)
-    return out
+    # Afkappen, want een vereniging met een vol programma levert hier tientallen
+    # regels en dan scrol je door een lijst in plaats van te kiezen. Het zoekveld
+    # erboven is de weg naar de rest; de sectie wijst al de goede kant op.
+    return out[:PICKER_LIMIT]

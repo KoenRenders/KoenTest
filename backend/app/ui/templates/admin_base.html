@@ -22,6 +22,13 @@
     .cms-content a{color:var(--brand-ocean);text-decoration:underline}
     .cms-content strong,.cms-content b{font-weight:700}
     .cms-content em,.cms-content i{font-style:italic}
+    /* Zonder deze regels ziet een citaat, code of doorstreping er precies uit als
+       gewone tekst — en dan lijkt de knop stuk terwijl de opmaak wel degelijk
+       bewaard wordt (#939, gemeten in een browser). */
+    .cms-content del,.cms-content s{text-decoration:line-through}
+    .cms-content blockquote{border-left:3px solid var(--line);padding-left:.75rem;margin:.5rem 0;color:var(--ink-soft)}
+    .cms-content pre{background:var(--surface-2);border:1px solid var(--line);border-radius:.375rem;padding:.5rem .75rem;margin:.5rem 0;font-family:ui-monospace,monospace;font-size:.875em;white-space:pre-wrap}
+    .cms-content code{font-family:ui-monospace,monospace;font-size:.875em}
   </style>
   {# View Transitions voor gebooste navigatie (#634). Browsers zonder ondersteuning
      negeren dit; geen terugval nodig. #}
