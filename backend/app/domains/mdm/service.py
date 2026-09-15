@@ -389,3 +389,37 @@ def gezin_tabs(db, family, viewer_email: str, actief: str) -> list[dict]:
                  "href": f"/admin/leden/gezin/{family.id}/wijzigingen",
                  "active": actief == "wijzigingen"})
     return tabs
+
+
+def create_person_for_circle(db: Session, *, first_name: str, last_name: str,
+                             email: str, organization_id: int,
+                             relation_type: str = BOARD_MEETING):
+    """Een persoon aanmaken die aan de organisatie hangt en aan géén gezin (#939).
+
+    De vergaderkring bevat mensen die geen lid zijn — de afdelingsondersteuner van
+    Raak nationaal is het voorbeeld waarmee de beslissing genomen is (CR-09 §3.2).
+    Tot nu was zo iemand onmogelijk aan te maken: élk pad naar een nieuwe `Person`
+    liep via een gezin, dus wie geen lid was, bestond niet in de administratie en
+    kon dus ook niet in de kring.
+
+    Het gezin ontbreekt hier bewust en dat is geen half werk: `Person` staat
+    los van `Member` — de koppeling is een aparte tabel. Een persoon zonder gezin
+    is dus een geldige rij en geen wees.
+    """
+    from app.domains.mdm.models import ContactDetail, Person
+
+    first_name = (first_name or "").strip()
+    last_name = (last_name or "").strip()
+    email = (email or "").strip()
+    if not (first_name or last_name):
+        raise ValueError("naam ontbreekt")
+    person = Person(first_name=first_name, last_name=last_name)
+    db.add(person)
+    db.flush()
+    if email:
+        db.add(ContactDetail(person_id=person.id, contact_type_code="EMAIL",
+                             value=email, is_primary=True))
+        db.flush()
+    add_to_circle(db, person.id, organization_id=organization_id,
+                  relation_type=relation_type)
+    return person

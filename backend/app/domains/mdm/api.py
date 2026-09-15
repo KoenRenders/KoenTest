@@ -51,6 +51,7 @@ from app.domains.mdm.service import (  # noqa: F401
     BOARD_MEETING,
     CirclePerson,
     add_to_circle,
+    create_person_for_circle,
     end_circle_relation,
     new_members_between,
     organization_circle,
@@ -105,6 +106,6 @@ __all__ = [
     "MergeError", "merge_persons", "resolve", "unmerge_person",
     "tenant_codes", "invalidate_tenant_codes",
     "BOARD_MEETING", "CirclePerson", "OrganizationPerson",
-    "OrganizationRelationType", "OrganizationRelationTypeLabel", "add_to_circle", "end_circle_relation",
+    "OrganizationRelationType", "OrganizationRelationTypeLabel", "add_to_circle", "create_person_for_circle", "end_circle_relation",
     "new_members_between", "organization_circle",
 ]

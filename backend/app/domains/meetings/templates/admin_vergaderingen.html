@@ -2,14 +2,18 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Vergaderingen — Raak beheer") }}{% endblock %}
 {% block content %}
-{# Records-lijst (design-system C1): titel → duidingsregel → primaire actie in de
-   kop → de kaarten. Aanmaken is een LINK naar een eigen scherm en geen modal
-   (#627, §2.8): je werkt na het aanmaken toch verder in het document. #}
+{# Records-lijst (design-system C1), precies zoals Leden en Pagina's: titel met
+   duidingsregel, de acties rechts in de kop — secundair eerst, de primaire actie
+   uiterst rechts — en daaronder de kit-filterbalk. Geen eigen wikkel-div om de
+   knoppen: `page_header` levert die rij zelf, en een tweede laag eromheen zou de
+   afstanden per scherm laten verschillen. #}
 {% call ui.page_header(_("Vergaderingen"), _("Agenda en verslag zijn één document: voorbereiden, notuleren en versturen gebeuren op hetzelfde scherm.")) %}
-  <div class="flex gap-2">
     {{ ui.btn_secondary(_("Vergaderkring"), href="/admin/vergaderingen/kring") }}
     {{ ui.btn_primary(_("+ Nieuwe vergadering"), href="/admin/vergaderingen/nieuw") }}
-  </div>
+  {% endcall %}
+
+{% call ui.filter_bar("/admin/vergaderingen", "#vg-lijst") %}
+  <div>{{ ui.search(value=q, placeholder=_('Zoek op datum of locatie…'), standalone=False) }}</div>
 {% endcall %}
 
 <div id="vg-lijst">
