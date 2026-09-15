@@ -263,8 +263,12 @@ def organization_circle(db: Session, *, relation_type: str = BOARD_MEETING,
             .filter(OrganizationPerson.relation_type == relation_type,
                     or_(OrganizationPerson.start_date.is_(None),
                         OrganizationPerson.start_date <= on_day),
+                    # `>` en niet `>=`: de einddatum is de dag waaróp iemand de
+                    # kring verlaat, niet zijn laatste dag erin. Met `>=` bleef
+                    # wie je vandaag verwijderde nog tot morgen in de lijst staan
+                    # — en dan lijkt de knop stuk (gemeld door Koen, 15 sep 2026).
                     or_(OrganizationPerson.end_date.is_(None),
-                        OrganizationPerson.end_date >= on_day))
+                        OrganizationPerson.end_date > on_day))
             .order_by(Person.first_name.asc(), Person.last_name.asc(),
                       Person.id.asc())
             .all())
@@ -297,7 +301,13 @@ def add_to_circle(db: Session, person_id: int, *, organization_id: int,
 
 def end_circle_relation(db: Session, relation_id: int,
                         on_day: Optional[date] = None) -> None:
-    """End someone's place in the circle — end-dated, never deleted."""
+    """Beëindig iemands plaats in de kring — einddatum, nooit verwijderd.
+
+    De datum is de dag waaróp hij vertrekt: vanaf dat moment staat hij niet meer
+    in de kring, maar een vergadering van vóór die dag toont hem gewoon nog. Zo
+    blijft de aanwezigheid van oude verslagen leesbaar zonder dat er iets
+    gekopieerd hoeft te worden.
+    """
     from app.domains.mdm.models import OrganizationPerson
 
     relation = db.get(OrganizationPerson, relation_id)
