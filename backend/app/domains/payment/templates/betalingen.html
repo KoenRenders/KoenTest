@@ -31,7 +31,7 @@
     {# De exportknop draagt de filterstand mee: zonder de nieuwe parameter
        exporteert hij iets anders dan wat op het scherm staat. #}
     {{ ui.btn_secondary(_("Export (.ods)"), lead_icon="download",
-                        href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status ~ ("&openstaand=1" if openstaand else "") ~ ("&inschrijving=" ~ scope.param_waarde if scope and scope.param_naam == "inschrijving" else ""), size="sm",
+                        href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status ~ ("&openstaand=1" if openstaand else "") ~ ("&" ~ scope.param_naam ~ "=" ~ scope.param_waarde if scope and scope.param_naam != "record" else ""), size="sm",
                         attrs='hx-boost="false"') }}
   </div>
 {% endcall %}
@@ -43,7 +43,7 @@
    hier halen we de lijst opnieuw op mét de huidige filterstand. #}
 <div id="betalingen-lijst"
      hx-get="/admin/betalingen/lijst" hx-trigger="betalingen-ververst from:body"
-     hx-include="[name='q'],[name='status'],[name='context'],[name='inschrijving'],[name='record']" hx-swap="innerHTML">
+     hx-include="[name='q'],[name='status'],[name='context'],[name='inschrijving'],[name='activiteit'],[name='record']" hx-swap="innerHTML">
   {% include "_betalingen_lijst.html" %}
 </div>
 {% endblock %}

@@ -104,12 +104,18 @@ from app.domains.activities.service import (  # noqa: F401
     get_activity,
     get_component,
     get_registration,
+    booked_per_component,
+    registration_count_for,
+    registration_ids_for,
+    registrations_for,
     registrations_without_component_count,
 )
 
 __all__ = [
     "ActivityOption", "activity_options", "get_activity", "get_component",
-    "get_registration", "registrations_without_component_count",
+    "booked_per_component", "get_registration", "registration_count_for",
+    "registration_ids_for", "registrations_for",
+    "registrations_without_component_count",
     "Activity", "ActivityDate", "ActivityDateHistory", "ActivityHistory",
     "ActivityProduct", "ActivitySubRegistration", "ComponentHistory",
     "ProductHistory", "Registration", "RegistrationItem",

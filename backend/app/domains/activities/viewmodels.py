@@ -58,3 +58,20 @@ class AdminInschrijvingView(ViewModel):
     # P13 (golf 5): relatiebalk-items {label, count, href} voor ui.relatie_chips.
     relaties: list[dict[str, Any]]
     nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class AdminActiviteitInschrijvingenView(ViewModel):
+    """`admin_activiteit_inschrijvingen.html` — de Inschrijvingen-tab van de
+    recordpagina (golf 8, #913): alle inschrijvingen over de onderdelen heen."""
+
+    a: Any
+    registrations: list[dict[str, Any]]
+    sort: str
+    richting: str
+    sorteer_urls: dict[str, str]
+    # A7-retourcontext (url-ge-encodeerd) die de naamlinks meegeven.
+    terug: str
+    record_tabs: list[dict[str, Any]]
+    csrf_token: str
+    nav_items: list[dict[str, Any]] = field(default_factory=list)

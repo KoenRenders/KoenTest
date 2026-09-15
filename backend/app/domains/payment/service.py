@@ -304,6 +304,19 @@ def confirm_manual_payment(
     return record
 
 
+def count_registration_records_by_activity(db: Session, activity_id: int) -> int:
+    """Idem, maar per activiteit en als één COUNT met subquery (golf 8): de
+    recordpagina mag niet schalen met het aantal inschrijvingen (#651)."""
+    from app.domains.activities.api import Registration
+
+    sub = db.query(Registration.id).filter(
+        Registration.activity_id == activity_id)
+    return (db.query(PaymentRecord)
+            .filter(PaymentRecord.payable_type == "registration",
+                    PaymentRecord.payable_id.in_(sub))
+            .count())
+
+
 def get_records_for(db: Session, payable_type: str, payable_id: int) -> list[PaymentRecord]:
     return db.query(PaymentRecord).filter(
         PaymentRecord.payable_type == payable_type,
@@ -731,7 +744,8 @@ def matches_filter(record, *, context: str = "all", status: str = "all", q: str 
 
 def filter_records(records, *, context: str = "all", status: str = "all", q: str = "",
                    openstaand: bool = False, record_id: str = "",
-                   registration_id: str = "") -> list:
+                   registration_id: str = "",
+                   registration_ids: set | None = None) -> list:
     """#704: `record_id` toont één betaling, ongeacht de andere filters.
 
     Een werkbanktaak linkt hierheen. Bewust een FILTER en geen anker: de lijst wordt
@@ -750,6 +764,13 @@ def filter_records(records, *, context: str = "all", status: str = "all", q: str
     if scope:
         records = [r for r in records
                    if r.payable_type == "registration" and str(r.payable_id) == scope]
+    # Golf 8 (#913): de activiteitscope — dezelfde regel, maar over de verzameling
+    # inschrijvingen van één activiteit. De aanroeper lost de activiteit op naar
+    # ids (via de activities-facade); dit blijft een pure lijstfilter.
+    if registration_ids is not None:
+        records = [r for r in records
+                   if r.payable_type == "registration"
+                   and r.payable_id in registration_ids]
     doel = (record_id or "").strip()
     if doel:
         return [r for r in records if str(r.id) == doel]

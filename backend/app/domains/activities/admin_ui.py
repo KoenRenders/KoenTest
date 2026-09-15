@@ -199,9 +199,14 @@ def admin_activiteit_detail(activity_id: int, request: Request,
     activiteit = get_activity_detail(db, activity_id)
     if activiteit is None:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    from app.domains.activities.api import registration_count_for
+
+    reg_count = registration_count_for(db, activity_id)
     return templates.TemplateResponse(
         request, "admin_activiteit.html",
-        {"nav_items": NAV, **_aa_detail_ctx(request, db, activiteit)})
+        {"nav_items": NAV, **_aa_detail_ctx(request, db, activiteit),
+         **_record_tabs(activiteit, reg_count, db, email, "overzicht"),
+         **_record_rail(db, activiteit, reg_count)})
 
 
 @router.post("/admin/activiteiten", response_class=HTMLResponse,
@@ -1090,14 +1095,111 @@ def _inschrijvingen_lijst(request: Request, db: Session, email: str,
         "csrf_token": csrf_from_request(request)})
 
 
-@router.get("/admin/activiteiten/{activity_id}/inschrijvingen", response_class=HTMLResponse)
+@router.get("/admin/activiteiten/{activity_id}/inschrijvingen/fragment",
+            response_class=HTMLResponse)
 def inschrijvingen_lijst(activity_id: int, request: Request,
                          sort: str = "datum", richting: str = "asc",
                          db: Session = Depends(get_db),
                          email: str = Depends(require_admin_ui)):
-    """Op activiteitniveau: enkel de inschrijvingen zonder onderdeel (#650)."""
+    """Op activiteitniveau: enkel de inschrijvingen zonder onderdeel (#650).
+
+    Tot golf 8 (#913) woonde dit fragment op /inschrijvingen zelf; dat adres is
+    nu van de tabpagina hieronder (huispatroon: pagina op het pad, fragmenten op
+    subpaden — zoals de inschrijvingspagina in golf 4)."""
     return _inschrijvingen_lijst(request, db, email, activity_id, None,
                                  sort=sort, richting=richting)
+
+
+_ALLE_INSCHRIJVING_SORT = dict(_INSCHRIJVING_SORT)
+_ALLE_INSCHRIJVING_SORT["onderdeel"] = lambda r: (
+    (r["component_name"] or "") == "", str(r["component_name"] or "").lower())
+
+
+def _record_tabs(activiteit, reg_count: int, db, email: str, actief: str) -> dict:
+    """De tabbalk van de activiteit-recordpagina (golf 8, #913).
+
+    P13 in tabvorm: elke tab toont een bestaand lijstscherm in de scope van dit
+    record. Betalingen alleen voor wie ze mag zien (#544: +FINANCE) — een tab
+    die op een 403 uitkomt is erger dan geen tab. De Betalingen-tab navigeert
+    naar het gewone betalingenscherm in activiteitscope; de scope-regel daar
+    draagt de weg terug.
+    """
+    from app.domains.auth.api import get_user_roles
+    from app.domains.payment.api import count_registration_records_by_activity
+
+    tabs = [
+        {"label": _("Overzicht"),
+         "href": f"/admin/activiteiten/{activiteit.id}",
+         "active": actief == "overzicht"},
+        {"label": _("Inschrijvingen") + f" {reg_count}",
+         "href": f"/admin/activiteiten/{activiteit.id}/inschrijvingen",
+         "active": actief == "inschrijvingen"},
+    ]
+    if "FINANCE" in get_user_roles(db, email):
+        n = count_registration_records_by_activity(db, activiteit.id)
+        tabs.append({"label": _("Betalingen") + f" {n}",
+                     "href": f"/admin/betalingen?activiteit={activiteit.id}",
+                     "active": False})
+    return {"record_tabs": tabs}
+
+
+def _record_rail(db, activiteit, totaal: int) -> dict:
+    """De rechterrail van de recordpagina: publicatie-info en bezetting per
+    onderdeel — via dezelfde telling als de volzet-berekening (#451), in één
+    query (#651: het detailscherm haalt niet de hele boom op)."""
+    from app.domains.activities.api import booked_per_component
+
+    bezetting = booked_per_component(db, [activiteit.id])
+    onderdelen = [{
+        "naam": c.name,
+        "bezet": bezetting.get(c.id, 0),
+        "max": c.max_participants,
+    } for c in activiteit.sub_registrations]
+    return {"rail_onderdelen": onderdelen,
+            "rail_inschrijvingen_totaal": totaal}
+
+
+@router.get("/admin/activiteiten/{activity_id}/inschrijvingen",
+            response_class=HTMLResponse)
+def activiteit_inschrijvingen_tab(activity_id: int, request: Request,
+                                  sort: str = "datum", richting: str = "asc",
+                                  db: Session = Depends(get_db),
+                                  email: str = Depends(require_admin_ui)):
+    """De Inschrijvingen-tab van de recordpagina (golf 8, #913): álle
+    inschrijvingen van de activiteit, over de onderdelen heen, met een
+    Onderdeel-kolom en de golf 4-sorteermachinerie."""
+    from urllib.parse import quote
+
+    from app.domains.activities.api import get_activity, registrations_for
+    from app.domains.activities.viewmodels import AdminActiviteitInschrijvingenView
+
+    activiteit = get_activity(db, activity_id)
+    if activiteit is None:
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    regs = registrations_for(db, activity_id, alle=True) or []
+
+    if sort not in _ALLE_INSCHRIJVING_SORT:
+        sort = "datum"
+    if richting not in ("asc", "desc"):
+        richting = "asc"
+    sleutel = _ALLE_INSCHRIJVING_SORT[sort]
+    regs = sorted(regs, key=lambda r: (*sleutel(r), r["id"]),
+                  reverse=richting == "desc")
+
+    basis = f"/admin/activiteiten/{activity_id}/inschrijvingen"
+    sorteer_urls = {
+        naam: (f"{basis}?sort={naam}&richting="
+               + ("desc" if sort == naam and richting == "asc" else "asc"))
+        for naam in _ALLE_INSCHRIJVING_SORT}
+    terug = quote(f"{basis}?sort={sort}&richting={richting}", safe="")
+    vm = AdminActiviteitInschrijvingenView(
+        a=activiteit, registrations=regs,
+        sort=sort, richting=richting, sorteer_urls=sorteer_urls,
+        terug=terug,
+        **_record_tabs(activiteit, len(regs), db, email, "inschrijvingen"),
+        csrf_token=csrf_from_request(request), nav_items=NAV)
+    return templates.TemplateResponse(
+        request, "admin_activiteit_inschrijvingen.html", vm.as_context())
 
 
 @router.get("/admin/activiteiten/{activity_id}/onderdelen/{component_id}/inschrijvingen",
