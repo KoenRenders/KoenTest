@@ -118,6 +118,14 @@ def _detail_response(request: Request, db: Session, family_id: int, *,
                      toast: bool = False):
     ctx = _detail_ctx(request, db, family_id)
     ctx["toast_opgeslagen"] = toast
+    # Oob-kopverversing (HDEV-melding 15 sep) — zie _aa_detail.html.
+    from app.domains.auth.api import SESSION_COOKIE, read_session_value
+    from app.domains.mdm.api import gezin_tabs
+
+    email = read_session_value(request.cookies.get(SESSION_COOKIE))
+    if email:
+        ctx["record_tabs"] = gezin_tabs(db, ctx["family"], email, "overzicht")
+        ctx["oob_kop"] = True
     return templates.TemplateResponse(request, "_leden_detail.html", ctx)
 
 

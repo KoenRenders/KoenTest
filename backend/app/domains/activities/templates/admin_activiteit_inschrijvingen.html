@@ -6,7 +6,8 @@
    15 sep 2026): per onderdeel gegroepeerd, open/dichtklapbaar (standaard
    open — dichtgeklapt zou de tab leeg laten lijken), met een exportknop per
    groep. De sortering (golf 4-machinerie) geldt binnen elke groep; de
-   rij-knop "Bewerken" opent de inschrijvingspagina meteen in bewerkmodus. #}
+   rij-knop "Details" opent de inschrijvingspagina in leesmodus — daar staat
+   de consistente Bewerken-opener (feedback 15 sep). #}
 <p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/activiteiten">{{ _("‹ Alle activiteiten") }}</a></p>
 {% include "_aa_recordkop.html" %}
 {% if totaal %}
@@ -42,7 +43,7 @@
             <td class="px-4 py-2"><a class="text-blue-700 hover:underline" href="/admin/inschrijvingen/{{ r.id }}?terug={{ terug }}">{{ r.contact_name }}</a>{% if r.team_name %} <span class="text-gray-500">({{ r.team_name }})</span>{% endif %}</td>
             <td class="px-4 py-2">{{ r.contact_email }}{% if r.phone %} · {{ r.phone }}{% endif %}</td>
             <td class="px-4 py-2">{% for item in r["items"] %}{{ item.quantity }}× {{ item.product_name or "—" }}{% if not loop.last %}, {% endif %}{% else %}—{% endfor %}</td>
-            <td class="px-4 py-2 text-right">{{ ui.btn_secondary(_("Bewerken"), size="sm", href="/admin/inschrijvingen/" ~ r.id ~ "?bewerk=1&terug=" ~ terug) }}</td>
+            <td class="px-4 py-2 text-right">{{ ui.btn_secondary(_("Details"), size="sm", href="/admin/inschrijvingen/" ~ r.id ~ "?terug=" ~ terug) }}</td>
           </tr>
           {% endfor %}
         </tbody>

@@ -894,6 +894,68 @@ def record_tabs(db, activiteit, viewer_email: str, actief: str, *,
     return tabs
 
 
+def inschrijving_tabs(db, registration_id: int, viewer_email: str,
+                      actief: str, *, terug: str = "") -> list[dict]:
+    """Tabbalk van de inschrijvings-recordpagina (feedback 15 sep): Overzicht ·
+    Betalingen N — zelfde patroon als activiteit en gezin; de P13-chip op dat
+    scherm verdween hiermee. `terug` (door de route gevalideerd) reist met
+    beide tabs mee, zodat de A7-terugweg een tabwissel overleeft."""
+    from urllib.parse import quote
+
+    from app.i18n import _
+    from app.domains.auth.api import may_view_payments
+    from app.domains.payment.api import get_records_for
+
+    suffix = f"?terug={quote(terug, safe='')}" if terug else ""
+    tabs = [{"label": _("Overzicht"),
+             "href": f"/admin/inschrijvingen/{registration_id}{suffix}",
+             "active": actief == "overzicht"}]
+    if may_view_payments(db, viewer_email):
+        n = len(get_records_for(db, "registration", registration_id))
+        tabs.append({"label": _("Betalingen") + f" {n}",
+                     "href": (f"/admin/inschrijvingen/{registration_id}"
+                              f"/betalingen{suffix}"),
+                     "active": actief == "betalingen"})
+    return tabs
+
+
+def inschrijving_kop_ctx(db, registration_id: int, viewer_email: str,
+                         actief: str, terug: str = "") -> dict | None:
+    """Context van `_insch_recordkop.html`, op één plek: de Overzicht-pagina en
+    de ingebedde Betalingen-tab renderen dezelfde kop — naam, contextregel,
+    A7-terugweg (incl. labelafleiding uit het gevalideerde pad) en tabs.
+    None wanneer de inschrijving niet bestaat."""
+    from app.i18n import _
+    from app.ui import veilige_terug
+
+    reg = get_registration(db, registration_id, include_deleted=True)
+    if reg is None:
+        return None
+    activity = db.get(Activity, reg.activity_id)
+    component = (next((c for c in activity.sub_registrations
+                       if c.id == reg.component_id), None)
+                 if activity is not None else None)
+    titel = activity.name if activity is not None else ""
+    pad = veilige_terug(terug, f"/admin/activiteiten/{reg.activity_id}")
+    # P3: het label wordt uit het gevalideerde pad afgeleid, nooit uit een
+    # eigen parameter — een tweede vrije waarde zou een tweede te valideren
+    # ding zijn.
+    if pad.startswith("/admin/betalingen"):
+        label = _("Betalingen")
+    elif pad.startswith("/admin/activiteiten"):
+        label = titel
+    else:
+        label = _("Terug")
+    return {
+        "activiteit_id": reg.activity_id,
+        "activiteit_titel": titel,
+        "component_naam": component.name if component is not None else None,
+        "terug": pad, "terug_label": label,
+        "record_tabs": inschrijving_tabs(db, registration_id, viewer_email,
+                                         actief, terug=pad),
+    }
+
+
 def registration_count_for(db, activity_id: int) -> int:
     """Alleen het aantal (golf 8, #913) — één rij, hoe groot de lijst ook is;
     de query-budget-gate (#651) rekent in opgehaalde rijen."""

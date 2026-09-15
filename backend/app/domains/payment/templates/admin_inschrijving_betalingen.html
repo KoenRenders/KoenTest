@@ -1,0 +1,10 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ reg.contact_name }} — {{ _("Betalingen") }}{% endblock %}
+{% block content %}
+{# De Betalingen-tab van de inschrijvingspagina (feedback 15 sep): exact het
+   betalingenscherm, gefilterd op deze inschrijving, onder de gedeelde
+   recordkop. Geen scope-regel — de kop zegt al waar je bent. #}
+{% include "_insch_recordkop.html" %}
+{% include "_betalingen_scherm.html" %}
+{% endblock %}

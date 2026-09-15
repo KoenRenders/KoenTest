@@ -11,7 +11,9 @@
   <div class="flex flex-wrap gap-3 items-center">
     {# Gegroepeerde context-filter via de gedeelde macro (#549); geen hx-* op de select
        zelf — de omhullende filterbalk vangt de change al op. #}
+    {% if not (scope and scope.get("stil")) %}
     {{ ui.grouped_filter("context", context_top, context_groups, current=context) }}
+    {% endif %}
     {# #669: de keuzelijst gaat over de statusKOLOM, "Openstaand saldo" over een
        AFGELEIDE toestand (amount != amount_paid). Die twee stonden door elkaar in
        één lijst, dus je kon er maar één tegelijk kiezen — "openstaande posten

@@ -154,3 +154,19 @@ def test_mijn_profiel_toont_rollen_werkruimtebreed(client, db_session):
     assert SEEDED_ADMIN_EMAIL in html
     assert "ADMIN" in html and "FINANCE" in html  # migraties 014/056
     assert "#963" in html  # de eerlijke kanttekening tot rollen-per-werkruimte
+
+
+def test_opslaan_ververst_de_kop_out_of_band(client, db_session):
+    """Zelfde HDEV-melding als de activiteit: de kop (naam, adres) staat
+    buiten #leden-detail en reist nu oob mee met elk mutatie-antwoord."""
+    m, p, _ms, _reg = _gezin(db_session)
+    db_session.commit()
+    csrf = _login(client)
+    r = client.post(f"/admin/leden/gezin/{m.id}/persoon/{p.id}",
+                    data={"first_name": "Rita", "last_name": "Nieuwnaam",
+                          "date_of_birth": "1980-01-01", "gender_code": "M",
+                          "relation_type": "HOOFDLID"},
+                    headers={"X-CSRF-Token": csrf})
+    assert r.status_code == 200
+    assert 'id="gezin-recordkop" hx-swap-oob="true"' in r.text
+    assert "Nieuwnaam Rita" in r.text

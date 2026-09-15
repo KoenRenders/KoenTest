@@ -102,6 +102,7 @@ def _view(request: Request, db: Session, email: str,
           nav_items: list | None = None, *,
           forceer_activiteit: int | None = None,
           forceer_gezin: int | None = None,
+          forceer_inschrijving: int | None = None,
           scope_stil: bool = False) -> BetalingenView:
     """View-model voor het betalingenscherm.
 
@@ -141,7 +142,8 @@ def _view(request: Request, db: Session, email: str,
     # scope-regel hieronder; de enige uitgang is haar "Alle bekijken". Alleen
     # cijfers tellen: al het andere is geen id en zou de scope-regel een
     # vervalste tekst laten tonen.
-    inschrijving_id = (stand.get("inschrijving") or "").strip()
+    inschrijving_id = (str(forceer_inschrijving) if forceer_inschrijving
+                       else (stand.get("inschrijving") or "").strip())
     if not inschrijving_id.isdigit():
         inschrijving_id = ""
     # Golf 8 (#913): `?activiteit=<id>` — de betalingen van één activiteit, voor
@@ -224,6 +226,7 @@ def _view(request: Request, db: Session, email: str,
             "titel_url": f"/admin/inschrijvingen/{inschrijving_id}?terug={terug}",
             "alles_url": "/admin/betalingen",
             "param_naam": "inschrijving", "param_waarde": inschrijving_id,
+            "stil": stil,
         }
     elif record_id:
         scope = {
@@ -348,7 +351,10 @@ def activiteit_betalingen_tab(activity_id: int, request: Request,
     activiteit = get_activity_detail(db, activity_id)
     if activiteit is None:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
-    ctx = _view(request, db, email, nav_items=NAV,
+    # Nav-focus (Koen, 15 sep): je zit ín Activiteiten — de linkernavigatie
+    # blijft daar staan, ook al rendert het betalingenscherm.
+    nav = admin_nav("/admin/activiteiten", roles=get_user_roles(db, email))
+    ctx = _view(request, db, email, nav_items=nav,
                 forceer_activiteit=activity_id, scope_stil=True).as_context()
     ctx["a"] = activiteit
     ctx["record_tabs"] = record_tabs(db, activiteit, email, "betalingen")
@@ -373,12 +379,43 @@ def gezin_betalingen_tab(family_id: int, request: Request,
         gezin = None
     if gezin is None:
         raise HTTPException(status_code=404, detail=_("Gezin niet gevonden"))
-    ctx = _view(request, db, email, nav_items=NAV,
+    nav = admin_nav("/admin/leden", roles=get_user_roles(db, email))
+    ctx = _view(request, db, email, nav_items=nav,
                 forceer_gezin=family_id, scope_stil=True).as_context()
     ctx["family"] = gezin
     ctx["record_tabs"] = gezin_tabs(db, gezin, email, "betalingen")
     return templates.TemplateResponse(
         request, "admin_gezin_betalingen.html", ctx)
+
+
+@router.get("/admin/inschrijvingen/{registration_id}/betalingen",
+            response_class=HTMLResponse)
+def inschrijving_betalingen_tab(registration_id: int, request: Request,
+                                terug: str = "",
+                                db: Session = Depends(get_db),
+                                email: str = Depends(require_finance_ui)):
+    """De Betalingen-tab van de inschrijvingspagina (feedback 15 sep): het
+    gewone betalingenscherm in de inschrijvingscope, onder de gedeelde
+    recordkop — dit verving de P13-chip op dat scherm. FINANCE-gated zoals
+    /admin/betalingen zelf (#544)."""
+    from app.domains.activities.api import inschrijving_kop_ctx, get_registration
+
+    reg = get_registration(db, registration_id, include_deleted=True)
+    if reg is None:
+        raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
+    # Nav-focus (Koen, 15 sep): je kwam uit Activiteiten — de navigatie blijft
+    # daar staan, ook al rendert het betalingenscherm.
+    nav = admin_nav("/admin/activiteiten", roles=get_user_roles(db, email))
+    ctx = _view(request, db, email, nav_items=nav,
+                forceer_inschrijving=registration_id,
+                scope_stil=True).as_context()
+    kop = inschrijving_kop_ctx(db, registration_id, email, "betalingen", terug)
+    if kop is None:  # kan niet meer na de 404 hierboven; mypy weet dat niet
+        raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
+    ctx.update(kop)
+    ctx["reg"] = reg
+    return templates.TemplateResponse(
+        request, "admin_inschrijving_betalingen.html", ctx)
 
 
 @router.get("/admin/betalingen/lijst", response_class=HTMLResponse)

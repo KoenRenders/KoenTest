@@ -212,3 +212,18 @@ def test_deeladres_stuurt_naar_de_juiste_lijst(client, db_session):
     assert r3.status_code == 302
     assert client.get("/activiteiten/bestaat-niet",
                       follow_redirects=False).status_code == 404
+
+
+def test_opslaan_ververst_kop_en_rail_out_of_band(client, db_session):
+    """HDEV-melding 15 sep: kop en rail staan buiten #aa-detail en bleven na
+    een opslag op de oude stand. Het fragment-antwoord draagt ze nu oob mee —
+    mét de nieuwe naam."""
+    activity, component = _activiteit_met_inschrijvingen(client, db_session)
+    csrf = _login(client)
+    r = client.post(f"/admin/activiteiten/{activity.id}",
+                    data={"name": "Vernieuwde naam", "location": "Elders"},
+                    headers={"X-CSRF-Token": csrf})
+    assert r.status_code == 200
+    assert 'id="aa-recordkop" hx-swap-oob="true"' in r.text
+    assert 'id="aa-rail" hx-swap-oob="true"' in r.text
+    assert "Vernieuwde naam" in r.text and "Bezetting" in r.text

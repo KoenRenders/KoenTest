@@ -80,19 +80,20 @@ def test_geen_inline_paneel_meer(client, db_session):
     assert "detail_disclosure" not in html and "insch-det-" not in html
 
 
-def test_de_rijknop_heet_bewerken_en_opent_de_bewerkstand(client, db_session):
-    """Eén klik naar het bewerkscherm (feedbackronde 15 sep): de rij-knop heet
-    "Bewerken" en de pagina waar hij op landt opent mét de editor open. #676
-    ("Details, want de rijknop bewerkt niets") is daarmee herroepen: de knop
-    bewerkt nu wél — hij landt op het bewerkscherm zelf."""
+def test_de_rijknop_heet_details_en_opent_leesmodus(client, db_session):
+    """Tweede herroeping (15 sep, later op de dag): de rij-knop heet weer
+    "Details" en landt in LEESmodus — dáár staat de consistente
+    Bewerken-opener met Verwijderen in het cluster. De `bewerk=1`-sluiproute
+    is weg; direct Verwijderen blijft van de rij verdwenen."""
     activity, comp, reg = _met_inschrijving(client, db_session)
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen").text
 
-    assert ">Bewerken<" in html
-    assert ">Details<" not in html and ">Verwijderen<" not in html
+    assert ">Details<" in html
+    assert ">Verwijderen<" not in html
     pagina = client.get(f"/admin/inschrijvingen/{reg}?bewerk=1").text
-    assert "{ edit: true }" in pagina, "bewerk=1 opent de pagina niet in bewerkmodus"
+    assert "{ edit: true }" not in pagina, "bewerk=1 hoort geen bewerkmodus meer te openen"
+    assert ">Bewerken<" in pagina  # de opener staat op de pagina zelf
 
 
 def test_de_macro_belooft_geen_bewerken_meer():
