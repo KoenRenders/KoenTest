@@ -56,9 +56,13 @@ def test_een_onderdeel_in_bewerkmodus_toont_precies_een_opslaan(client, db_sessi
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
     vorm = _bewerkvorm(html, activity.id, component.id)
-    assert vorm.count(">Opslaan<") == 1, (
-        f"de bewerkvorm van het onderdeel toont {vorm.count('>Opslaan<')} "
-        "Opslaan-knoppen (#654)")
+    # Kop-herziening golf 6 (#913): de ene Opslaan staat in het kop-cluster en
+    # is via form= aan deze vorm gekoppeld — precies één, en géén tweede meer
+    # ín de vorm (dat was #654).
+    assert html.count(f'form="aa-comp-{component.id}"') == 1, (
+        "er hoort precies één Opslaan aan de onderdeelvorm gekoppeld te zijn")
+    assert vorm.count(">Opslaan<") == 0, (
+        "de vorm zelf draagt weer een eigen Opslaan naast het kop-cluster (#654)")
 
     # En het uploadblok zit erin, niet in een tweede vorm ernaast.
     assert 'name="file"' in vorm, "het uploadblok staat niet in de gedeelde vorm"

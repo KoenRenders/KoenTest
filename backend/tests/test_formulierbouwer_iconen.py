@@ -102,8 +102,10 @@ def test_verwijderen_blijft_rood(client, admin_headers):
 # ── 2. De tooltip ──────────────────────────────────────────────────────────
 
 # "Optie bewerken" stond hier tot #699; die knop bestaat niet meer — de velden van
-# een optie staan nu altijd inline, dus er valt niets te openen.
-@pytest.mark.parametrize("label", ["Optie verwijderen", "Veld verwijderen"])
+# een optie staan nu altijd inline, dus er valt niets te openen. "Veld verwijderen"
+# verdween in golf 6 (#913): het veld-verwijderen is nu een tekstknop in de
+# actiebalk van de veldvorm, en een knop met tekst krijgt geen tooltip.
+@pytest.mark.parametrize("label", ["Optie verwijderen"])
 def test_elke_symboolknop_draagt_een_tooltip(client, admin_headers, label):
     """De schermlezer had het label al; wie met een muis werkt zag enkel een
     symbool."""
@@ -154,12 +156,15 @@ def test_de_sectiebalk_verwijdert_niet_meer_met_een_kruisje(client, admin_header
     _login(client)
     html = client.get(f"/admin/formulieren/{r.json()['id']}").text
 
-    start = html.index('aria-label="Verwijderen"')
-    knop = html[html.rindex("<button", 0, start):html.index("</button>", start)]
-    assert "×" not in knop, f"de sectiebalk verwijdert nog met een kruisje: {knop}"
-    assert PRULLENBAK in knop, knop
-    assert "red" in knop, "verwijderen is altijd rood (§2.12)"
-    assert 'title="Verwijderen"' in knop, "de tooltip ontbreekt"
+    # Golf 6 (#913, A2): de sectiebalk draagt geen verwijderknop meer — het
+    # sectie-verwijderen is een tekstknop in de actiebalk van de sectievorm.
+    # De oorspronkelijke zorg (× voor vernietigen) kan dus niet terugkomen via
+    # deze balk; het kale aria-label was er het kenmerk van.
+    assert 'aria-label="Verwijderen"' not in html, \
+        "de sectiebalk heeft weer een eigen (symbool)verwijderknop"
+    # De verhuisde knop bestaat écht: rood en met tekst, in de sectievorm.
+    assert html.count(">Verwijderen<") >= 2, \
+        "sectie- en formulier-verwijderen horen als tekstknop in een actiebalk"
 
 
 def test_de_foutmelding_sluit_nog_steeds_met_een_kruisje(client, admin_headers):

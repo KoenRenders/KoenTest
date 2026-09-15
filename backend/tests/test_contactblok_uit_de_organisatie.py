@@ -130,14 +130,20 @@ def test_the_privacy_page_shows_the_block(client, db_session):
     de gegevens gewoon verdwenen zijn.
     """
     from app.domains.cms.api import CmsPage
-    from app.domains.mdm.api import Address, Organization, PostalCode
+    from app.domains.mdm.api import (Address, ContactDetail, Organization,
+                                     PostalCode)
     from app.kernel.tenant_config import _actieve_tenant
 
     tenant = _actieve_tenant(None)
     organisatie = (db_session.query(Organization)
                    .filter(Organization.id == tenant)
                    .execution_options(include_all_tenants=True).one())
-    organisatie.email = "bestuur@example.com"
+    # Sinds #945 is het e-mailadres een rij en geen kolom. `organisatie.email = …`
+    # zou hier geruisloos een Python-attribuut zetten dat nooit in de databank
+    # belandt — precies het soort stille nuloperatie waar deze week vol mee zat.
+    db_session.add(ContactDetail(tenant_id=tenant, organization_id=organisatie.id,
+                                 contact_type_code="EMAIL",
+                                 value="bestuur@example.com"))
     pc = db_session.query(PostalCode).first()
     if pc is None:
         pc = PostalCode(postal_code="2400", municipality="Mol")

@@ -61,10 +61,9 @@
     <div>{{ ui.label(_("Extra tekst (toegevoegd aan de bron)"), "edit-add2-" ~ info.id) }}
       {{ ui.textarea_control("text_addition", id="edit-add2-" ~ info.id, rows=2, value=info.text_addition or "", cls="w-full") }}</div>
     {% endif %}
-    <div class="flex gap-2">
-      {{ ui.btn_primary(_("Opslaan")) }}
-      {{ ui.btn_secondary(_("Annuleren"), attrs='type="button" @click="edit = false"') }}
-    </div>
+    {# Golf 6 (#913, A2): de balk sluit het bewerkvlak af; Verwijderen blijft
+       een rij-actie — dit is een lijstrij, geen detailscherm. #}
+    {{ ui.action_bar(cancel_attrs='@click="edit = false"') }}
   </form>
   {% endif %}
 </div>

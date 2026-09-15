@@ -53,8 +53,10 @@
 <div class="mt-6 space-y-4">
   {% for p in household.persons %}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ edit: false }">
-    <div x-show="!edit" class="flex items-start justify-between">
-      <div>
+    {# Zelfde fix als de beheer-persoonskaart: de knoppen buiten de x-show,
+       anders is er in bewerkmodus geen Opslaan (golfpakket-6 v2). #}
+    <div class="flex items-start justify-between">
+      <div x-show="!edit">
         <span class="font-semibold">{{ p.first_name }} {{ p.last_name }}</span>
         <span class="text-xs text-gray-500 ml-1">({{ p.relation_type | relatielabel }})</span>
         {% if p.date_of_birth %}<p class="text-sm text-gray-500 mt-0.5">° {{ p.date_of_birth }}</p>{% endif %}
@@ -71,14 +73,14 @@
         <p class="text-sm text-gray-500 mt-0.5 flex items-start gap-1">{{ ui.icon("map-pin", cls="mt-0.5 shrink-0") }} {{ p.address.street }} {{ p.address.house_number }}{% if p.address.bus_number %} bus {{ p.address.bus_number }}{% endif %}, {{ p.address.postal_code }} {{ p.address.municipality }}</p>
         {% endif %}
       </div>
+      <span x-show="edit" x-cloak class="text-sm text-gray-500 self-center">{{ p.first_name }} {{ p.last_name }} — {{ _("bewerken") }}</span>
       <div class="flex gap-2 shrink-0 ml-4">
         {{ ui.edit_toggle("edit") }}
-        {% if p.id != person_id %}
-        {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/leden/gezin/personen/' ~ p.id ~ '/verwijderen" hx-target="body" hx-swap="innerHTML" ' ~ confirm_attrs(_("Gezinslid"), p.first_name ~ " " ~ p.last_name)) }}
-        {% endif %}
+        <div x-show="edit" x-cloak>{{ ui.action_bar(form="pp-" ~ p.id, cancel_attrs='@click="edit = false"',
+             delete_attrs=('hx-post="/leden/gezin/personen/' ~ p.id ~ '/verwijderen" hx-target="body" hx-swap="innerHTML" ' ~ confirm_attrs(_("Gezinslid"), p.first_name ~ " " ~ p.last_name)) if p.id != person_id else "") }}</div>
       </div>
     </div>
-    <form x-show="edit" x-cloak class="space-y-3"
+    <form id="pp-{{ p.id }}" x-show="edit" x-cloak class="space-y-3"
           hx-post="/leden/gezin/personen/{{ p.id }}" hx-target="body" hx-swap="innerHTML">
       {% set _hoofd = p.relation_type == "HOOFDLID" %}
       {# Gedeelde veldenset (#511); id_prefix p{id}- houdt de ids uniek per gezinslid.
@@ -108,10 +110,6 @@
           {% endcall %}</div>
       </div>
       {% endif %}
-      <div class="flex gap-2">
-        {{ ui.btn_primary(_("Opslaan")) }}
-        {{ ui.btn_secondary(_("Annuleren"), attrs='@click="edit = false"') }}
-      </div>
     </form>
   </div>
   {% endfor %}

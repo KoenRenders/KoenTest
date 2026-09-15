@@ -14,7 +14,11 @@
   {{ _("Code") }}: <span class="font-mono">/{{ unit.code }}</span>
 </p>
 
-<form hx-post="/admin/tenants/{{ tenant_id }}" hx-target="body" hx-swap="innerHTML"
+{# Golf 6, kop-herziening: alles bovenaan, sticky — drie onbegrensde secties. #}
+<div class="max-w-2xl sticky top-0 z-20 bg-ground py-2">
+  {{ ui.action_bar(form="tn-form", cancel_href="/admin/tenants") }}
+</div>
+<form id="tn-form" hx-post="/admin/tenants/{{ tenant_id }}" hx-target="body" hx-swap="innerHTML"
       class="space-y-4 max-w-2xl">
   {# #924: eerst wat de organisatie IS, dan de instellingen van deze site. Twee
      assen, twee secties — en niet twee schermen, want sinds de omkering zijn de
@@ -55,7 +59,6 @@
   </div>
   {# §2.8, #664: bewerken kreeg een teruglink in plaats van Annuleren; de zes
      aanmaakschermen doen het wel goed. #}
-  <div class="flex gap-2">{{ ui.btn_primary(_("Opslaan")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/tenants") }}</div>
 </form>
 
 {# #742/#748: dit scherm stuurt een VOLLEDIGE pagina terug (hx-target="body"), dus

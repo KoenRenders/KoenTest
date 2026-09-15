@@ -143,8 +143,14 @@ class _SubjectResolver:
             return None
         from sqlalchemy import func
         from app.domains.mdm.api import ContactDetail
+        # `person_id IS NOT NULL` is niet overbodig sinds #945: een organisatie
+        # draagt haar e-mailadres nu als rij in dezelfde tabel, met `person_id`
+        # leeg. Zonder deze voorwaarde kan deze `.first()` — die geen ordening
+        # heeft — de organisatierij pakken en `None` teruggeven, waarna de
+        # auditregel stil haar onderwerp verliest.
         cd = (self._q(ContactDetail)
-              .filter(func.lower(ContactDetail.value) == email.strip().lower(),
+              .filter(ContactDetail.person_id.isnot(None),
+                      func.lower(ContactDetail.value) == email.strip().lower(),
                       ContactDetail.contact_type_code == "EMAIL").first())
         return cd.person_id if cd else None
 

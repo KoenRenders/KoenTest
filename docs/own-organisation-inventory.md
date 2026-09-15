@@ -1,5 +1,18 @@
 # The tenant's own organisation: field inventory (#924)
 
+> **Superseded in part by #945 (15 September 2026).** This document describes the
+> three switchovers of #924 and the eleven columns they put on `Organization`. Of
+> those, only `legal_form` is still a column. Identifications, bank accounts and
+> contact details — including the social links — became **rows** in
+> `mdm.organization_identifications`, `mdm.bank_accounts` and
+> `mdm.contact_details`, in the shape UBL 2.1 / EN 16931 gives them, and the
+> `display_name` setting is gone: the name comes from the organisation.
+>
+> The reasoning below still holds and is worth keeping — it is how the fields got
+> off the settings screen in the first place. The *locations* are the part that
+> moved. Left as written rather than rewritten, because a snapshot that pretends
+> to be current is exactly the second source this document argues against.
+
 Where each field lives **today**, where it goes, and — the part that is easiest to
 lose — **what happens to the old source**. A field that keeps existing in two
 places is the duplication this issue set out to remove: then it was moved, not

@@ -15,7 +15,8 @@ from __future__ import annotations
 
 import pytest
 
-from app.domains.mdm.api import Address, Organization, PostalCode
+from app.domains.mdm.api import (Address, BankAccount, ContactDetail,
+                                 Organization, PostalCode)
 from app.kernel.tenant_config import _actieve_tenant
 
 TENANT = _actieve_tenant(None)
@@ -28,6 +29,17 @@ def organisatie(db_session):
             .execution_options(include_all_tenants=True).one())
 
 
+def _contact(db_session, organisatie, code: str, waarde: str) -> None:
+    """Eén contactgegeven van de organisatie (#945).
+
+    `tenant_id` krijgt de eigenaar mee omdat de kolom NOT NULL is; hij is hier
+    niet de scope — zie de docstring van `ContactDetail`.
+    """
+    db_session.add(ContactDetail(tenant_id=TENANT,
+                                 organization_id=organisatie.id,
+                                 contact_type_code=code, value=waarde))
+
+
 @pytest.fixture
 def met_adres(db_session, organisatie):
     pc = db_session.query(PostalCode).first()
@@ -35,9 +47,11 @@ def met_adres(db_session, organisatie):
         pc = PostalCode(postal_code="2400", municipality="Mol")
         db_session.add(pc)
         db_session.flush()
-    organisatie.email = "bestuur@example.com"
-    organisatie.phone = "014 00 00 00"
-    organisatie.payment_iban = "BE68 5390 0754 7034"
+    # Sinds #945 zijn contact en rekening rijen en geen kolommen.
+    _contact(db_session, organisatie, "EMAIL", "bestuur@example.com")
+    _contact(db_session, organisatie, "PHONE", "014 00 00 00")
+    db_session.add(BankAccount(organization_id=organisatie.id,
+                               iban="BE68 5390 0754 7034"))
     db_session.add(Address(tenant_id=TENANT, organization_id=organisatie.id,
                            street="Kerkstraat", house_number="12", bus_number="3",
                            postal_code_id=pc.id))
@@ -85,9 +99,10 @@ def test_an_empty_organisation_renders_no_block(client, db_session, organisatie)
     De footer draagt onderaan al de naam van de site, dus een tweede kale naam
     voegt niets toe en roept de vraag op wat er mis is.
     """
-    organisatie.email = None
-    organisatie.phone = None
-    organisatie.payment_iban = None
+    db_session.query(ContactDetail).filter(
+        ContactDetail.organization_id == organisatie.id).delete()
+    db_session.query(BankAccount).filter(
+        BankAccount.organization_id == organisatie.id).delete()
     db_session.query(Address).filter(
         Address.organization_id == organisatie.id).delete()
     db_session.commit()
@@ -98,7 +113,8 @@ def test_an_empty_organisation_renders_no_block(client, db_session, organisatie)
 
 def test_the_social_links_come_from_the_organisation(client, db_session,
                                                      organisatie):
-    organisatie.instagram_url = "https://instagram.com/raakvoorbeeld"
+    _contact(db_session, organisatie, "INSTAGRAM",
+             "https://instagram.com/raakvoorbeeld")
     db_session.commit()
     assert 'aria-label="Instagram"' in client.get("/aanmelden").text
 
@@ -122,7 +138,9 @@ def test_a_tenant_setting_no_longer_wins(client, db_session, organisatie):
     """
     from app.kernel.tenant_config import set_setting
 
-    organisatie.facebook_url = None
+    db_session.query(ContactDetail).filter(
+        ContactDetail.organization_id == organisatie.id,
+        ContactDetail.contact_type_code == "FACEBOOK").delete()
     db_session.commit()
     set_setting(db_session, "facebook_url", "https://facebook.com/oud",
                 tenant_id=TENANT)

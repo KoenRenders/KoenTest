@@ -17,9 +17,15 @@
         <div class="font-semibold text-ink">{{ f.title }}</div>
         <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
           {{ ui.badge(status_labels[f.status]|lower, status_tones.get(f.status, "gray")) }}
+          {# De leesbare link zodra er een slug is, anders de sleutel-URL (#928) —
+             gekozen in de route, niet hier. `path_for` zet er de tenant-prefix
+             voor wanneer de afdeling via een pad-prefix bereikt wordt: zonder dat
+             deelt een beheerder op een platform-host een link die bij de
+             verkeerde afdeling uitkomt (#889, dezelfde val als bij de foto's). #}
+          {% set deellink = path_for(share_paths[f.id]) %}
           <span class="font-mono text-xs text-ink-soft"
-                data-copy-bron="/formulier/{{ f.share_token }}">/formulier/{{ f.share_token }}</span>
-          {{ ui.copy_button("/formulier/" ~ f.share_token, _("Deellink kopiëren")) }}
+                data-copy-bron="{{ deellink }}">{{ deellink }}</span>
+          {{ ui.copy_button(deellink, _("Deellink kopiëren")) }}
         </div>
       </div>
       <span class="shrink-0 text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>

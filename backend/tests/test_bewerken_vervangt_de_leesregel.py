@@ -56,8 +56,11 @@ def test_de_productregel_verdwijnt_tijdens_het_bewerken(client, db_session):
     _login(client)
     html = _detail(client, activity.id)
 
+    # Sinds golf 6 (#913) noemt óók de Verwijderen-knop in de actiebalk het
+    # product — in zijn data-confirm-tekst. Dat is geen leesregel; eruit filteren.
     regels = [r for r in html.splitlines()
-              if product.name in r and "<span" in r and "input" not in r]
+              if product.name in r and "<span" in r and "input" not in r
+              and "data-confirm" not in r]
     assert regels, "de productnaam staat niet als leesregel op het scherm"
     assert all('x-show="!ed"' in r for r in regels), (
         "de leesregel van het product blijft staan tijdens het bewerken (#648):\n"
@@ -74,15 +77,16 @@ def test_de_knop_blijft_staan_tijdens_het_bewerken(client, db_session):
     _login(client)
     html = _detail(client, activity.id)
 
-    # ui.edit_toggle() rendert beide standen in één knop; die vorm is het bewijs
-    # dat de knop niet weggeschakeld wordt. Scoop op knoppen die "Bewerken" tonen:
-    # een patroon op @click alleen ving ook de hamburger van de schil (open = !open).
-    knoppen = [k for k in re.findall(r"<button[^>]*>(.*?)</button>", html, re.S)
-               if "Bewerken" in k]
-    assert knoppen, "geen enkele bewerk-toggle op het scherm"
-    for knop in knoppen:
-        assert "Annuleren" in knop, (
-            f"een toggle toont niet beide standen (§2.8, #639): {knop.strip()[:100]!r}")
+    # Kop-herziening golf 6 (#913, Koen 14 sep 2026): de opener VERDWIJNT in
+    # bewerkmodus (x-show="!state") en het actiecluster — mét Annuleren — neemt
+    # zijn plek in. De weg terug bestaat dus nog steeds, alleen als andere knop;
+    # wat niet mag is een opener zónder x-show (die zou blijven staan en liegen).
+    knoppen = re.findall(r'(<button[^>]*)>((?:(?!</button>).)*Bewerken(?:(?!</button>).)*)</button>', html, re.S)
+    assert knoppen, "geen enkele bewerk-opener op het scherm"
+    for attrs, _inhoud in knoppen:
+        assert 'x-show="!' in attrs, (
+            f"een opener zonder x-show blijft in bewerkmodus staan en liegt: {attrs[:100]!r}")
+    assert ">Annuleren<" in html, "geen Annuleren in het cluster — geen weg terug"
 
 
 def test_de_koppen_blijven_wel_staan(client, db_session):

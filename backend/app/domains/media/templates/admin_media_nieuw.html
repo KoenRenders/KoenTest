@@ -13,6 +13,8 @@
           x-data="{ soort: '{{ kind }}' }"
           hx-post="/admin/media" hx-encoding="multipart/form-data"
           hx-target="body" hx-swap="innerHTML">
+      {# Golf 6, kop-herziening: alles bovenaan. #}
+      {{ ui.action_bar(save_label=_("Uploaden"), cancel_href="/admin/media") }}
       {# #695: `hx-target="body"` en niet het lijstelement. Dat stond hier sinds #627,
          toen dit formulier van bóven de lijst naar een eigen pagina verhuisde: het
          doel bleef achter. htmx zoekt het doel vóórdat hij verstuurt, dus met een
@@ -70,7 +72,6 @@
          omhoog scrollen om te zeggen waar ze bij horen. #}
       <div>{{ ui.label(_("Bestanden (afbeeldingen)"), "me-files", required=True) }}
         <input type="file" name="files" id="me-files" accept="image/*" multiple required class="block text-sm"></div>
-      <div class="flex gap-2">{{ ui.btn_primary(_("Uploaden")) }}{{ ui.btn_secondary(_("Annuleren"), href="/admin/media") }}</div>
     </form>
 </div>
 {% endblock %}
