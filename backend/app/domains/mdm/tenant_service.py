@@ -20,6 +20,8 @@ alleen voor de route die er toevallig aan dacht.
 import re
 from typing import Iterable, Mapping
 
+from app.i18n import _
+
 _CODE = re.compile(r"[a-z0-9-]+")
 
 
@@ -244,7 +246,11 @@ def secrets_gezet(db, tenant_id: int, keys) -> dict[str, bool]:
 # soort — dat is wat het vandaag nodig heeft. Een tweede btw-nummer of een tweede
 # rekening bestaat in het model en is nog geen scherm; dat is het verschil tussen
 # "de vorm laat het toe" en "we bouwen het vooruit".
-ORGANISATIEVELDEN: tuple[str, ...] = ("legal_form",)
+# `name` staat vooraan: het is het veld waar alle andere bij horen (#954). Hij
+# ontbrak hier tussen #945 en #954, en daardoor was de naam van de vereniging
+# nergens meer te wijzigen — wél te zetten bij het aanmaken van een tenant, en
+# daarna nooit meer. Eén bron, nul invoervelden.
+ORGANISATIEVELDEN: tuple[str, ...] = ("name", "legal_form")
 
 # (veldnaam in het formulier, code in `contact_type_codes`)
 CONTACTVELDEN: tuple[tuple[str, str], ...] = (
@@ -325,6 +331,18 @@ def update_organization_details(db, tenant_id: int, form: Mapping) -> None:
     rij = _organisatie(db, tenant_id)
     if rij is None:
         return
+
+    # Eerst weigeren, dan pas schrijven: een afgekeurde opslag mag niet half
+    # doorgevoerd zijn. `name` voedt sinds #945 de paginatitel, de afzender van
+    # mails en de footer, en `tenant_display_name` heeft geen terugval meer
+    # achter de organisatie — een lege naam laat dus overal een gat vallen (#954).
+    if "name" in form:
+        naam = (form.get("name") or "").strip()
+        if not naam:
+            raise OngeldigeInstelling({"name": _(
+                "De naam van de organisatie mag niet leeg zijn: hij staat in de "
+                "paginatitel, de afzender van je mails en de footer.")})
+        rij.name = naam
 
     geldig = {vorm.value for vorm in LegalForm}
     if "legal_form" in form:
@@ -408,6 +426,7 @@ def organization_details(db, tenant_id: int) -> dict[str, str]:
         return leeg
 
     uit = dict(leeg)
+    uit["name"] = rij.name or ""
     uit["legal_form"] = rij.legal_form or ""
 
     contacten = {c.contact_type_code: c.value for c in
