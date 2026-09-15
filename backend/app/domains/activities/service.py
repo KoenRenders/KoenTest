@@ -894,6 +894,28 @@ def record_tabs(db, activiteit, viewer_email: str, actief: str, *,
     return tabs
 
 
+INSCHRIJVING_SORT_VELDEN = ("datum", "naam")
+
+
+def sorteer_inschrijvingen(regs, sort: str, richting: str):
+    """Whitelist-sortering van verrijkte inschrijvingsrijen — één bron voor de
+    Inschrijvingen-tab van activiteit én gezin (Koens unificatievraag, 15 sep).
+    Geeft (rijen, sort, richting) terug met gevalideerde waarden; #761-tiebreaker
+    op id zodat gelijke sleutels een stabiele volgorde houden."""
+    sleutels = {
+        "datum": lambda r: (r["registered_at"] is None,
+                            str(r["registered_at"] or "")),
+        "naam": lambda r: ((r["contact_name"] or "") == "",
+                           str(r["contact_name"] or "").lower()),
+    }
+    if sort not in sleutels:
+        sort = "datum"
+    richting = "desc" if richting == "desc" else "asc"
+    sleutel = sleutels[sort]
+    return (sorted(regs, key=lambda r: (*sleutel(r), r["id"]),
+                   reverse=richting == "desc"), sort, richting)
+
+
 def inschrijving_tabs(db, registration_id: int, viewer_email: str,
                       actief: str, *, terug: str = "") -> list[dict]:
     """Tabbalk van de inschrijvings-recordpagina (feedback 15 sep): Overzicht ·

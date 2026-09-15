@@ -413,12 +413,16 @@ def family_registration_count(db, family_id: int) -> int:
         Registration.id.in_(ids)).scalar() or 0
 
 
-def family_registrations(db, family_id: int) -> list[dict]:
+def family_registrations(db, family_id: int, sort: str = "datum",
+                         richting: str = "asc") -> list[dict]:
     """De inschrijvingen van een gezin, per activiteit gegroepeerd (feedback
-    15 sep, verving de Wijzigingen-tab): recentste activiteit eerst, binnen
-    de groep nieuwste inschrijving eerst. Verrijkt via de activities-facade
-    zodat de rijen dezelfde vorm hebben als op de activiteit-tab."""
-    from app.domains.activities.api import Registration, enrich_registration
+    15 sep, verving de Wijzigingen-tab): recentste activiteit eerst. De
+    groepen volgen het contract van `_inschrijvingen_groepen.html` — het
+    gedeelde sjabloon met de activiteitstab (unificatie, zelfde dag) — en
+    binnen elke groep sorteert dezelfde whitelist-helper als daar."""
+    from app.domains.activities.api import (
+        Registration, enrich_registration, sorteer_inschrijvingen,
+    )
 
     ids = _family_registration_ids(db, family_id)
     if not ids:
@@ -440,8 +444,10 @@ def family_registrations(db, family_id: int) -> list[dict]:
                   if d.start_date or d.end_date]
         return max(datums) if datums else None
 
-    groepen = [{"activiteit": a, "regs": rijen, "aantal": len(rijen),
-                "datum": _laatste_datum(a)}
+    groepen = [{"naam": a.name, "aantal": len(rijen),
+                "regs": sorteer_inschrijvingen(rijen, sort, richting)[0],
+                "titel_url": f"/admin/activiteiten/{a.id}",
+                "export_href": None, "datum": _laatste_datum(a)}
                for a, rijen in per_activiteit.items()]
     groepen.sort(key=lambda g: (g["datum"] is not None, g["datum"] or date.min),
                  reverse=True)

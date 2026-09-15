@@ -208,3 +208,48 @@ def test_inschrijvingen_tab_overleeft_geschrapte_activiteit(client, db_session):
     r = client.get(f"/admin/leden/gezin/{m.id}/inschrijvingen")
     assert r.status_code == 200
     assert "Nog geen inschrijvingen" in r.text
+
+
+def test_inschrijvingen_tab_sorteert_binnen_de_groep(client, db_session):
+    """De gezinstab kreeg met de unificatie (15 sep) dezelfde sortering als
+    de activiteitstab — zelfde whitelist, zelfde parameters."""
+    import re
+
+    from app.domains.activities.api import Registration
+
+    m, p, _ms, reg = _gezin(db_session)
+    extra = Registration(activity_id=reg.activity_id,
+                         registration_type="INDIVIDUAL",
+                         contact_name="Aaa Eerst",
+                         contact_email="recordmans@example.com",
+                         component_id=reg.component_id, person_id=p.id)
+    db_session.add(extra); db_session.commit()
+    _login(client)
+    basis = f"/admin/leden/gezin/{m.id}/inschrijvingen"
+
+    def namen(html):
+        return re.findall(r">(Aaa Eerst|Rita Recordmans)</a>", html)
+
+    assert namen(client.get(f"{basis}?sort=naam&richting=asc").text) == \
+        ["Aaa Eerst", "Rita Recordmans"]
+    assert namen(client.get(f"{basis}?sort=naam&richting=desc").text) == \
+        ["Rita Recordmans", "Aaa Eerst"]
+    # Vervalste parameters vallen veilig terug en lekken niet in de links.
+    veilig = client.get(f"{basis}?sort=x);DROP--&richting=zijwaarts")
+    assert veilig.status_code == 200 and "DROP" not in veilig.text
+
+
+def test_beide_tabs_renderen_het_gedeelde_sjabloon():
+    """Ratchet op de unificatie (Koens vraag, 15 sep): de groepentabel bestaat
+    één keer, in _inschrijvingen_groepen.html; beide tabpagina's includen
+    hem. Wie de tabel opnieuw in een pagina kopieert, maakt deze rood."""
+    from pathlib import Path
+
+    basis = Path(__file__).resolve().parents[1] / "app" / "domains"
+    act = (basis / "activities" / "templates"
+           / "admin_activiteit_inschrijvingen.html").read_text()
+    gez = (basis / "mdm" / "templates"
+           / "admin_gezin_inschrijvingen.html").read_text()
+    for pagina in (act, gez):
+        assert '{% include "_inschrijvingen_groepen.html" %}' in pagina
+        assert "<table" not in pagina, "de tabel hoort alleen in het gedeelde sjabloon"

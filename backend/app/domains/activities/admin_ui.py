@@ -1059,17 +1059,8 @@ def inschrijving_regel_verwijderen(registration_id: int, item_id: int, request: 
 # querystring komt, en elke ordening eindigt op id (#761) zodat gelijke waarden een
 # stabiele volgorde houden. Python-side, zoals ledenwijzigingen: de lijst is al
 # verrijkt tot dicts wanneer hij hier aankomt.
-_INSCHRIJVING_SORT = {
-    "datum": lambda r: (r["registered_at"] is None, str(r["registered_at"] or "")),
-    "naam": lambda r: ((r["contact_name"] or "") == "",
-                       str(r["contact_name"] or "").lower()),
-}
-
-
-# Sorteersleutels van de Inschrijvingen-tab (whitelist; #761-tiebreaker in de
-# aanroeper). Geen onderdeel-sleutel meer: de groepering (feedbackronde 2)
-# vervangt hem.
-_ALLE_INSCHRIJVING_SORT = dict(_INSCHRIJVING_SORT)
+# De sorteer-whitelist verhuisde naar de service (sorteer_inschrijvingen):
+# de gezinstab sorteert sinds de unificatie met exact dezelfde sleutels.
 
 
 def _record_tabs(activiteit, reg_count: int, db, email: str, actief: str) -> dict:
@@ -1109,48 +1100,48 @@ def activiteit_inschrijvingen_tab(activity_id: int, request: Request,
     Onderdeel-kolom en de golf 4-sorteermachinerie."""
     from urllib.parse import quote
 
-    from app.domains.activities.api import get_activity, registrations_for
+    from app.domains.activities.api import (
+        INSCHRIJVING_SORT_VELDEN, get_activity, registrations_for,
+        sorteer_inschrijvingen,
+    )
     from app.domains.activities.viewmodels import AdminActiviteitInschrijvingenView
 
     activiteit = get_activity(db, activity_id)
     if activiteit is None:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     regs = registrations_for(db, activity_id, alle=True) or []
-
-    if sort not in _ALLE_INSCHRIJVING_SORT:
-        sort = "datum"
-    if richting not in ("asc", "desc"):
-        richting = "asc"
-    sleutel = _ALLE_INSCHRIJVING_SORT[sort]
-    regs = sorted(regs, key=lambda r: (*sleutel(r), r["id"]),
-                  reverse=richting == "desc")
+    regs, sort, richting = sorteer_inschrijvingen(regs, sort, richting)
 
     # Feedbackronde 2 (15 sep): gegroepeerd per onderdeel, open/dichtklapbaar,
     # met een exportknop per groep — de Overzicht-knoppen zijn hierheen
     # verhuisd. De sortering geldt bínnen elke groep. "Zonder onderdeel"
     # achteraan: zo blijven ook die bereikbaar (de reden achter #650).
+    # Groepssleutels altijd compleet (datum/titel_url None): het gedeelde
+    # sjabloon rendert onder StrictUndefined.
     groepen = []
     for c in activiteit.sub_registrations:
         rijen = [r for r in regs if r["component_id"] == c.id]
         groepen.append({
             "naam": c.name, "aantal": len(rijen), "regs": rijen,
             "export_href": (f"/admin/activiteiten/{activity_id}"
-                            f"/onderdelen/{c.id}/export")})
+                            f"/onderdelen/{c.id}/export"),
+            "titel_url": None, "datum": None})
     zonder = [r for r in regs if r["component_id"] is None]
     if zonder:
         groepen.append({"naam": _("Zonder onderdeel"), "aantal": len(zonder),
-                        "regs": zonder, "export_href": None})
+                        "regs": zonder, "export_href": None,
+                        "titel_url": None, "datum": None})
 
     basis = f"/admin/activiteiten/{activity_id}/inschrijvingen"
     sorteer_urls = {
         naam: (f"{basis}?sort={naam}&richting="
                + ("desc" if sort == naam and richting == "asc" else "asc"))
-        for naam in _ALLE_INSCHRIJVING_SORT}
+        for naam in INSCHRIJVING_SORT_VELDEN}
     terug = quote(f"{basis}?sort={sort}&richting={richting}", safe="")
     vm = AdminActiviteitInschrijvingenView(
         a=activiteit, groepen=groepen, totaal=len(regs),
         sort=sort, richting=richting, sorteer_urls=sorteer_urls,
-        terug=terug,
+        terug=terug, toon_onderdeel=False,
         **_record_tabs(activiteit, len(regs), db, email, "inschrijvingen"),
         csrf_token=csrf_from_request(request), nav_items=NAV)
     return templates.TemplateResponse(

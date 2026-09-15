@@ -10,50 +10,6 @@
    de consistente Bewerken-opener (feedback 15 sep). #}
 <p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/activiteiten">{{ _("‹ Alle activiteiten") }}</a></p>
 {% include "_aa_recordkop.html" %}
-{% if totaal %}
-<div class="space-y-4">
-  {% for groep in groepen %}
-  {% if groep.aantal %}
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ uitgeklapt: true }">
-    <div class="flex items-center justify-between gap-2">
-      <button type="button" class="inline-flex items-center gap-1.5 text-xl font-semibold text-kop"
-              @click="uitgeklapt = !uitgeklapt" :aria-expanded="uitgeklapt">
-        <span x-show="uitgeklapt">{{ ui.icon("chevron-down", 14) }}</span><span x-show="!uitgeklapt" x-cloak class="-rotate-90">{{ ui.icon("chevron-down", 14) }}</span>
-        {{ groep.naam }} <span class="text-sm font-normal text-ink-soft">{{ groep.aantal }}</span>
-      </button>
-      {% if groep.export_href %}
-      {{ ui.btn_secondary(_("Export"), lead_icon="download", href=groep.export_href, size="sm", attrs='hx-boost="false"') }}
-      {% endif %}
-    </div>
-    <div x-show="uitgeklapt" class="overflow-x-auto mt-2">
-      <table class="min-w-full text-sm">
-        <thead>
-          <tr class="text-left text-gray-500 border-b border-gray-200">
-            {{ ui.sort_th(_("Datum"), sorteer_urls["datum"], active=(sort == "datum"), direction=richting) }}
-            {{ ui.sort_th(_("Naam"), sorteer_urls["naam"], active=(sort == "naam"), direction=richting) }}
-            <th class="px-4 py-3">{{ _("Contact") }}</th>
-            <th class="px-4 py-3">{{ _("Producten") }}</th>
-            <th class="px-4 py-3"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {% for r in groep.regs %}
-          <tr class="border-b border-gray-100">
-            <td class="px-4 py-2 whitespace-nowrap">{{ r.registered_at.strftime("%d-%m-%Y") if r.registered_at else "—" }}</td>
-            <td class="px-4 py-2"><a class="text-blue-700 hover:underline" href="/admin/inschrijvingen/{{ r.id }}?terug={{ terug }}">{{ r.contact_name }}</a>{% if r.team_name %} <span class="text-gray-500">({{ r.team_name }})</span>{% endif %}</td>
-            <td class="px-4 py-2">{{ r.contact_email }}{% if r.phone %} · {{ r.phone }}{% endif %}</td>
-            <td class="px-4 py-2">{% for item in r["items"] %}{{ item.quantity }}× {{ item.product_name or "—" }}{% if not loop.last %}, {% endif %}{% else %}—{% endfor %}</td>
-            <td class="px-4 py-2 text-right">{{ ui.btn_secondary(_("Details"), size="sm", href="/admin/inschrijvingen/" ~ r.id ~ "?terug=" ~ terug) }}</td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
-    </div>
-  </div>
-  {% endif %}
-  {% endfor %}
-</div>
-{% else %}
-{{ ui.empty_state(_("Nog geen inschrijvingen.")) }}
-{% endif %}
+{# Gedeeld met de gezinstab (Koens unificatievraag, 15 sep): één bron. #}
+{% include "_inschrijvingen_groepen.html" %}
 {% endblock %}

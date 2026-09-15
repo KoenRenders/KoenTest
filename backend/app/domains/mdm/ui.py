@@ -207,6 +207,7 @@ def gezin_detail(family_id: int, request: Request, db: Session = Depends(get_db)
 @router.get("/admin/leden/gezin/{family_id}/inschrijvingen",
             response_class=HTMLResponse)
 def gezin_inschrijvingen_tab(family_id: int, request: Request,
+                             sort: str = "datum", richting: str = "asc",
                              db: Session = Depends(get_db),
                              email: str = Depends(require_admin_ui)):
     """De Inschrijvingen-tab van de gezinspagina (Koen, 15 sep — verving de
@@ -216,6 +217,7 @@ def gezin_inschrijvingen_tab(family_id: int, request: Request,
     Betalingen-tab)."""
     from urllib.parse import quote
 
+    from app.domains.activities.api import INSCHRIJVING_SORT_VELDEN
     from app.domains.membership.api import get_family
     from app.domains.mdm.api import family_registrations, gezin_tabs
 
@@ -225,14 +227,28 @@ def gezin_inschrijvingen_tab(family_id: int, request: Request,
         family = None
     if family is None:
         raise HTTPException(status_code=404, detail=_("Gezin niet gevonden"))
-    groepen = family_registrations(db, family_id)
+    # Normaliseren vóór de URL-bouw: een vervalste sort/richting mag nooit
+    # rauw in sorteer_urls of de terugweg belanden (zelfde regel als de
+    # activiteitstab, die de gevalideerde waarden uit de helper terugkrijgt).
+    if sort not in INSCHRIJVING_SORT_VELDEN:
+        sort = "datum"
+    richting = "desc" if richting == "desc" else "asc"
+    groepen = family_registrations(db, family_id, sort, richting)
+    # Zelfde sorteer- en terug-machinerie als de activiteitstab: het gedeelde
+    # sjabloon verwacht exact hetzelfde contract.
+    basis = f"/admin/leden/gezin/{family_id}/inschrijvingen"
+    sorteer_urls = {
+        naam: (f"{basis}?sort={naam}&richting="
+               + ("desc" if sort == naam and richting == "asc" else "asc"))
+        for naam in INSCHRIJVING_SORT_VELDEN}
     return templates.TemplateResponse(
         request, "admin_gezin_inschrijvingen.html", {
             "nav_items": NAV, "family": family,
             "record_tabs": gezin_tabs(db, family, email, "inschrijvingen"),
-            "groepen": groepen,
+            "groepen": groepen, "toon_onderdeel": True,
             "totaal": sum(g["aantal"] for g in groepen),
-            "terug": quote(f"/admin/leden/gezin/{family_id}/inschrijvingen",
+            "sort": sort, "richting": richting, "sorteer_urls": sorteer_urls,
+            "terug": quote(f"{basis}?sort={sort}&richting={richting}",
                            safe=""),
             "csrf_token": csrf_from_request(request),
         })
