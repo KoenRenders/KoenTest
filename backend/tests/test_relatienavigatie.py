@@ -115,15 +115,41 @@ def test_export_draagt_de_scope_mee(client, db_session):
     assert "Scope Anna" in inhoud and "Scope Bert" not in inhoud
 
 
-def test_relatiebalk_op_de_inschrijvingspagina(client, db_session):
-    import re
-
+def test_tabs_op_de_inschrijvingspagina(client, db_session):
+    """Feedback 15 sep: tabs (Overzicht · Betalingen N) i.p.v. de P13-chip —
+    zelfde patroon als de activiteit- en gezinspagina. De Betalingen-tab is de
+    INGEBEDDE pagina onder dezelfde kop, niet meer het losse scherm."""
     anna, bert = _twee_inschrijvingen(client, db_session)
     _login(client)
     html = client.get(f"/admin/inschrijvingen/{anna.id}").text
-    assert f'href="/admin/betalingen?inschrijving={anna.id}"' in html
-    # De chip: label + aantal (één betaalrecord uit het publieke pad).
-    assert re.search(r"Betalingen\s*<span[^>]*>1</span>", html)
+    assert ">Overzicht</a>" in html
+    assert f"/admin/inschrijvingen/{anna.id}/betalingen" in html
+    assert "Betalingen 1" in html  # één betaalrecord uit het publieke pad
+
+
+def test_betalingen_tab_van_de_inschrijving_is_gescopeerd(client, db_session):
+    anna, bert = _twee_inschrijvingen(client, db_session)
+    _make_finance(db_session)
+    db_session.commit()
+    _login(client)
+    html = client.get(f"/admin/inschrijvingen/{anna.id}/betalingen").text
+
+    assert "Scope Anna" in html and "Scope Bert" not in html
+    assert "Voor inschrijving:" not in html  # ingebed: de kop zegt al waar je bent
+    # De contextfilter ("Alle betalingen · …") verdwijnt op een ingebedde tab —
+    # je filtert daar al doelbewust op het record zelf (Koen, 15 sep).
+    assert 'name="context"' not in html
+    # Nav-focus blijft op Activiteiten, niet op Betalingen (Koen, 15 sep).
+    assert _actieve_nav(html) == {"/admin/activiteiten"}
+
+
+def _actieve_nav(html: str) -> set:
+    """De hrefs van de actieve navigatie-items (de font-semibold-toestand
+    uit admin_base.html)."""
+    import re
+
+    return {m.group(1) for m in re.finditer(
+        r'<a[^>]*href="(/admin/[^"?]*)"[^>]*font-semibold', html)}
 
 
 def test_wijzigingen_object_springt_naar_de_inschrijving(client, db_session):

@@ -35,6 +35,33 @@ NAV = admin_nav("/admin/media")
 STANDAARD_KIND = "activity_photo"
 
 
+def _filterstand(kind: str, q: str = "", activity_id: Optional[int] = None) -> str:
+    """"Waar ik was", als query-string. De enige plek die dat adres samenstelt (#962).
+
+    Soort, zoekterm en activiteit vormen samen de plek waar je stond, en die plek
+    moet drie overgangen overleven: van de lijst naar het uploadscherm, van het
+    uploadscherm terug, en van een mislukte upload terug naar hetzelfde scherm. Tot
+    nu toe bouwde elk van die drie zijn eigen adres — de knop in het sjabloon, een
+    verborgen veld en de redirect — en dat is precies hoe ze uit elkaar liepen: de
+    foutafhandeling nam de filterstand wél mee, het geslaagde pad niet. De
+    uitzondering zat dus op het pad dat je elke keer neemt.
+
+    **Een activiteit reist alleen mee bij activiteitenfoto's.** Bij een sponsorlogo
+    betekent ze niets — er is daar geen activiteitenfilter — en meesturen zou een
+    parameter achterlaten die bij de volgende overgang weer opduikt. De regel staat
+    hier en niet bij de drie aanroepers, want een regel die je op drie plaatsen moet
+    onthouden is de fout die dit issue is.
+    """
+    from urllib.parse import urlencode
+
+    params: list[tuple[str, str]] = [("kind", kind)]
+    if q:
+        params.append(("q", q))
+    if activity_id and kind == "activity_photo":
+        params.append(("activity_id", str(activity_id)))
+    return urlencode(params)
+
+
 def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
                activity_id: Optional[int] = None) -> dict:
     from app.domains.activities.api import activity_options
@@ -107,6 +134,10 @@ def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
             "kind_options": [(k, kind_labels.get(k, k)) for k in sorted(VALID_KINDS)],
             "activity_id": activity_id, "activiteiten": activiteiten,
             "alle_activiteiten": alle_activiteiten,
+            # Waar je stond, als één waarde (#962). Het sjabloon plakt er een pad
+            # voor en stelt niets zelf samen — de knop die hem vergat, is de reden
+            # dat je de activiteit drie keer moest kiezen.
+            "filterstand": _filterstand(actief_kind, q, activity_id),
             "csrf_token": csrf_from_request(request)}
 
 
@@ -170,8 +201,17 @@ async def media_uploaden(request: Request, db: Session = Depends(get_db),
         ctx["nav_items"] = NAV
         ctx["error"] = str(exc)
         return templates.TemplateResponse(request, "admin_media_nieuw.html", ctx)
-    # Media is met één handeling compleet, dus terug naar de lijst (#627).
-    return Response(status_code=204, headers={"HX-Redirect": "/admin/media"})
+    # Media is met één handeling compleet, dus terug naar de lijst (#627) — en naar
+    # DEZELFDE lijst (#962). Hier stond een kaal `/admin/media`, dus je kwam terug in
+    # de ongefilterde lijst en koos je activiteit een derde keer, terwijl het typische
+    # gebruik nu juist is: foto's van één activiteit, in meerdere keren.
+    #
+    # `kind` is dat van de UPLOAD en niet van het filter waar je vandaan kwam: schakel
+    # je op dit scherm om naar een sponsorlogo, dan hoort de lijst te tonen wat je net
+    # toevoegde en niet de filtering waarin het onzichtbaar is.
+    terug = _filterstand(kind, q, filter_activity_id)
+    return Response(status_code=204,
+                    headers={"HX-Redirect": f"/admin/media?{terug}"})
 
 
 @router.post("/admin/media/{asset_id}", response_class=HTMLResponse,

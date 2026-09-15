@@ -46,16 +46,17 @@ def test_overzicht_draagt_tabs_met_aantallen(client, db_session):
     assert f'href="/admin/activiteiten/{activity.id}/inschrijvingen"' in html
 
 
-def test_zonder_finance_geen_betalingen_tab(client, db_session):
-    """Een tab die op een 403 uitkomt is erger dan geen tab (#544). De
-    gezaaide beheerder draagt FINANCE (migratie 056), dus dit toetst met het
-    bestuurslid — ADMIN zonder FINANCE (migratie 014)."""
+def test_admin_zonder_finance_ziet_de_betalingen_tab_wel(client, db_session):
+    """Herzien in golf 9: betalingen BEKIJKEN mag voor ADMIN/FINANCE/OPERATOR
+    (require_finance_ui) — de golf 8-gating op FINANCE alleen was te streng en
+    verstopte de tab voor een gewone ADMIN terwijl het scherm gewoon opende.
+    De tab volgt nu exact dezelfde vraag als de poort (may_view_payments)."""
     activity, component = _activiteit_met_inschrijvingen(client, db_session)
     waarde = make_session_value("bestuurslid@example.com")
     client.cookies.set(SESSION_COOKIE, waarde)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
     assert "Inschrijvingen 2" in html
-    assert f"/admin/activiteiten/{activity.id}/betalingen" not in html
+    assert f"/admin/activiteiten/{activity.id}/betalingen" in html
 
 
 def test_finance_ziet_de_betalingen_tab(client, db_session):
@@ -69,12 +70,14 @@ def test_finance_ziet_de_betalingen_tab(client, db_session):
     assert "Betalingen 2" in html  # twee inschrijvingen, elk één betaalrecord
 
 
-def test_de_rail_toont_bezetting_en_totaal(client, db_session):
+def test_de_rail_toont_bezetting(client, db_session):
     activity, component = _activiteit_met_inschrijvingen(client, db_session)
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
     assert "Bezetting" in html and component.name in html
-    assert "Inschrijvingen totaal" in html
+    # "Inschrijvingen totaal" verdween op Koens vraag (15 sep): het aantal
+    # staat al op de tab.
+    assert "Inschrijvingen totaal" not in html
 
 
 def test_inschrijvingen_tab_toont_alles_met_onderdeelkolom(client, db_session):
@@ -170,9 +173,57 @@ def test_elk_invulbaar_veld_is_zichtbaar_in_leesmodus(client, db_session):
 
     # Zonder upload geldt de Poster-URL en staat hij als leesregel.
     assert "Poster-URL" in html and "https://example.org/affiche.png" in html
-    # De slug zit in de deellink (anker = vriendelijke URL), niet dubbel links
-    # als leesregel — het bewérkveld heet uiteraard nog zo.
-    assert "/activiteiten#proefslug-2026" in html
+    # De slug zit in de deellink (het kanonieke adres, ronde 6), niet dubbel
+    # links als leesregel — het bewérkveld heet uiteraard nog zo.
+    assert "/activiteiten/proefslug-2026" in html
     assert "Vriendelijke URL:" not in html
     blok = html.split("Poster-URL")[0]
     assert 'x-show="!edit"' in blok[-400:]
+
+
+def test_deeladres_stuurt_naar_de_juiste_lijst(client, db_session):
+    """Ronde 6 (15 sep): een vooraf gedeelde link blijft ná het evenement
+    werken — het kanonieke adres kiest zelf tussen de komende lijst en het
+    archief, met het kaart-anker erbij."""
+    from datetime import date, timedelta
+
+    from app.domains.activities.api import Activity, ActivityDate
+
+    komend = Activity(name="Komende proef", slug="komende-proef")
+    voorbij = Activity(name="Voorbije proef", slug="voorbije-proef")
+    db_session.add_all([komend, voorbij])
+    db_session.flush()
+    db_session.add_all([
+        ActivityDate(activity_id=komend.id,
+                     start_date=date.today() + timedelta(days=10)),
+        ActivityDate(activity_id=voorbij.id,
+                     start_date=date.today() - timedelta(days=10)),
+    ])
+    db_session.flush()
+
+    r1 = client.get("/activiteiten/komende-proef", follow_redirects=False)
+    assert r1.status_code == 302 and r1.headers["location"].endswith(
+        "/activiteiten#komende-proef")
+    r2 = client.get("/activiteiten/voorbije-proef", follow_redirects=False)
+    assert r2.status_code == 302 and r2.headers["location"].endswith(
+        "/activiteiten/archief#voorbije-proef")
+    # Ook op nummer, en onbekend is een nette 404.
+    r3 = client.get(f"/activiteiten/{komend.id}", follow_redirects=False)
+    assert r3.status_code == 302
+    assert client.get("/activiteiten/bestaat-niet",
+                      follow_redirects=False).status_code == 404
+
+
+def test_opslaan_ververst_kop_en_rail_out_of_band(client, db_session):
+    """HDEV-melding 15 sep: kop en rail staan buiten #aa-detail en bleven na
+    een opslag op de oude stand. Het fragment-antwoord draagt ze nu oob mee —
+    mét de nieuwe naam."""
+    activity, component = _activiteit_met_inschrijvingen(client, db_session)
+    csrf = _login(client)
+    r = client.post(f"/admin/activiteiten/{activity.id}",
+                    data={"name": "Vernieuwde naam", "location": "Elders"},
+                    headers={"X-CSRF-Token": csrf})
+    assert r.status_code == 200
+    assert 'id="aa-recordkop" hx-swap-oob="true"' in r.text
+    assert 'id="aa-rail" hx-swap-oob="true"' in r.text
+    assert "Vernieuwde naam" in r.text and "Bezetting" in r.text

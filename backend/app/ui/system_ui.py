@@ -96,6 +96,20 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db),
         "csrf_token": csrf_from_request(request)})
 
 
+@router.get("/admin/profiel", response_class=HTMLResponse)
+def admin_profiel(request: Request, db: Session = Depends(get_db),
+                  email: str = Depends(require_admin_ui)):
+    """Mijn profiel (golf 9, #913): read-only — e-mail, werkruimte, rollen.
+    Wordt met #963 (rollen per werkruimte) de plek die rechten pér werkruimte
+    toont; tot dan zegt de pagina eerlijk dat rollen werkruimte-breed zijn."""
+    from app.domains.auth.api import get_user_roles
+
+    return templates.TemplateResponse(request, "admin_profiel.html", {
+        "nav_items": admin_nav(""), "profiel_email": email,
+        "profiel_rollen": sorted(get_user_roles(db, email)),
+        "csrf_token": csrf_from_request(request)})
+
+
 @router.get("/admin/info", response_class=HTMLResponse)
 def admin_info(request: Request, db: Session = Depends(get_db),
                email: str = Depends(require_admin_ui)):

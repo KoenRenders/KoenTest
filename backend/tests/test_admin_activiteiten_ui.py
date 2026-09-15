@@ -120,15 +120,14 @@ def test_admin_inschrijvingen_en_export(client, db_session):
     # #650-waarborg (zien waarvoor iemand ingeschreven is) zit in de groepskop.
     lijst = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen")
     assert lijst.status_code == 200 and "Jef" in lijst.text
-    # Feedbackronde 15 sep (golf 8): de rij draagt één "Bewerken" die de
-    # inschrijvingspagina meteen in bewerkmodus opent; Details en direct
-    # Verwijderen zijn vervallen — verwijderen zit op de pagina, achter de
-    # bewerkklik, uiterst links in het cluster.
+    # Feedback 15 sep (tweede ronde): de rij draagt één "Details" naar de
+    # pagina in LEESmodus — daar staat de consistente Bewerken-opener, met
+    # Verwijderen in het cluster. Direct Verwijderen blijft van de rij weg.
     from app.domains.activities.api import Registration
     reg = db_session.query(Registration).filter(Registration.contact_name == "Jef").one()
-    assert ">Bewerken<" in lijst.text
-    assert f'href="/admin/inschrijvingen/{reg.id}?bewerk=1' in lijst.text
-    assert ">Details<" not in lijst.text
+    assert ">Details<" in lijst.text
+    assert f'href="/admin/inschrijvingen/{reg.id}?terug=' in lijst.text
+    assert "bewerk=1" not in lijst.text
     assert ">Verwijderen<" not in lijst.text
     # B2 (golf 4): de recordnaam zelf opent de pagina (leesmodus), met A7 —
     # de terugweg is sinds ronde 2 de tab-URL mét sorteerstand (ge-encodeerd).

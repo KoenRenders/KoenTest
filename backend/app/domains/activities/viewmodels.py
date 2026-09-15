@@ -57,8 +57,8 @@ class AdminInschrijvingView(ViewModel):
     component_naam: str | None
     terug: str
     terug_label: str
-    # P13 (golf 5): relatiebalk-items {label, count, href} voor ui.relatie_chips.
-    relaties: list[dict[str, Any]]
+    # Feedback 15 sep: tabs (Overzicht · Betalingen) i.p.v. de P13-chips.
+    record_tabs: list[dict[str, Any]]
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 
 

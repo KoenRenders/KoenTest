@@ -140,6 +140,24 @@ def _detail_response(request: Request, db: Session, activity_id: int,
         return HTMLResponse('<div id="aa-detail" hx-swap-oob="true"></div>')
     ctx = _aa_detail_ctx(request, db, activiteit, error)
     ctx["toast_opgeslagen"] = toast
+    # HDEV-melding 15 sep: kop en rail staan buiten #aa-detail en bleven na een
+    # opslag op de oude stand. Het fragment stuurt ze nu out-of-band mee; de
+    # e-mail (voor de tab-rollen) komt uit de sessie die require_admin_ui al
+    # gevalideerd heeft.
+    from app.domains.auth.api import SESSION_COOKIE, read_session_value
+    from app.domains.activities.api import registration_count_for
+    from app.kernel.tenant_config import tenant_base_url
+
+    email = read_session_value(request.cookies.get(SESSION_COOKIE))
+    if email:
+        reg_count = registration_count_for(db, activity_id)
+        ctx.update(_record_tabs(activiteit, reg_count, db, email, "overzicht"))
+        ctx.update(_record_rail(db, activiteit))
+        ctx["deellink"] = (f"{tenant_base_url(db)}/activiteiten/"
+                           f"{activiteit.slug or activity_id}")
+        # Alleen op het FRAGMENT-antwoord: de volledige pagina rendert de kop
+        # zelf al — een oob-blok zou hem daar dubbel zetten.
+        ctx["oob_kop"] = True
     return templates.TemplateResponse(request, "_aa_detail.html", ctx)
 
 
@@ -203,12 +221,13 @@ def admin_activiteit_detail(activity_id: int, request: Request,
         request, "admin_activiteit.html",
         {"nav_items": NAV, **_aa_detail_ctx(request, db, activiteit),
          **_record_tabs(activiteit, reg_count, db, email, "overzicht"),
-         **_record_rail(db, activiteit, reg_count),
-         # De deellink (ronde 4/5): de publieke lijst, verankerd op de kaart van
-         # deze activiteit. Mét slug wordt het anker de vriendelijke URL — zo is
-         # het veld zichtbaar én kopieerbaar zonder tweede regel.
-         "deellink": (f"{tenant_base_url(db)}/activiteiten"
-                      f"#{activiteit.slug or f'act-{activity_id}'}")})
+         **_record_rail(db, activiteit),
+         # De deellink (ronde 6): het kanonieke adres /activiteiten/<slug|nr> —
+         # tijdsbestendig: de route stuurt zelf door naar de komende lijst of
+         # het archief, dus een vooraf gedeelde link blijft ná het evenement
+         # werken.
+         "deellink": (f"{tenant_base_url(db)}/activiteiten/"
+                      f"{activiteit.slug or activity_id}")})
 
 
 @router.post("/admin/activiteiten", response_class=HTMLResponse,
@@ -788,7 +807,7 @@ def inschrijving_detail(registration_id: int, request: Request,
 
 @router.get("/admin/inschrijvingen/{registration_id}", response_class=HTMLResponse)
 def inschrijving_pagina(registration_id: int, request: Request,
-                        terug: str = "", bewerk: int = 0,
+                        terug: str = "",
                         db: Session = Depends(get_db),
                         email: str = Depends(require_admin_ui)):
     """De inschrijving als volwaardige pagina (golf 4, #913 — B2).
@@ -802,37 +821,23 @@ def inschrijving_pagina(registration_id: int, request: Request,
     `veilige_terug`; alles wat geen intern pad is valt terug op de canonieke plek
     van dit record — zijn activiteit."""
     from app.domains.activities.viewmodels import AdminInschrijvingView
-    from app.ui import veilige_terug
 
-    # `bewerk=1` (feedbackronde 15 sep): de rij-knop "Bewerken" opent de pagina
-    # meteen in bewerkmodus — Details en dan nog eens Bewerken is twee klikken.
-    ctx = _detail_ctx(request, db, registration_id, edit_open=bool(bewerk))
+    # De rij-knop in de lijsten heet sinds de feedback van 15 sep "Details" en
+    # opent LEESmodus: de consistente Bewerken-opener (met Verwijderen in het
+    # cluster) staat op de pagina zelf. De vroegere `bewerk=1` verdween daarmee.
+    ctx = _detail_ctx(request, db, registration_id, edit_open=False)
     if ctx is None:
         raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
-    # P13 (golf 5, #913): relatiebalk met aantallen. Betalingen is vandaag de
-    # enige relatie met een eigen gescopeerde lijst; de chip opent het GEWONE
-    # betalingenscherm in de inschrijvingscope. Lokale import: de payment-facade
-    # importeert zelf uit activities, dus een module-import zou een cirkel zijn.
-    from app.domains.payment.api import get_records_for
+    from app.domains.activities.api import inschrijving_kop_ctx
 
-    relaties = [{
-        "label": _("Betalingen"),
-        "count": len(get_records_for(db, "registration", registration_id)),
-        "href": f"/admin/betalingen?inschrijving={registration_id}",
-    }]
-    pad = veilige_terug(terug, f"/admin/activiteiten/{ctx['activiteit_id']}")
-    # P3: de teruglink BENOEMT waar je vandaan kwam. Het label wordt uit het
-    # gevalideerde pad afgeleid, nooit uit een eigen parameter — een tweede
-    # vrije waarde in de URL zou een tweede ding zijn om te valideren.
-    if pad.startswith("/admin/betalingen"):
-        label = _("Betalingen")
-    elif pad.startswith("/admin/activiteiten"):
-        label = ctx["activiteit_titel"]
-    else:
-        label = _("Terug")
+    # Kop (terugweg + label + tabs) uit de gedeelde bouwer — de ingebedde
+    # Betalingen-tab rendert exact dezelfde kop.
+    kop = inschrijving_kop_ctx(db, registration_id, email, "overzicht", terug)
+    if kop is None:  # kan niet meer na de 404 hierboven; mypy weet dat niet
+        raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
+    ctx.update(kop)
     vm = AdminInschrijvingView(
-        **ctx, error=None, toast_bericht=None, op_pagina=True,
-        terug=pad, terug_label=label, relaties=relaties, nav_items=NAV)
+        **ctx, error=None, toast_bericht=None, op_pagina=True, nav_items=NAV)
     return templates.TemplateResponse(request, "admin_inschrijving.html",
                                       vm.as_context())
 
@@ -1076,7 +1081,7 @@ def _record_tabs(activiteit, reg_count: int, db, email: str, actief: str) -> dic
                                        reg_count=reg_count)}
 
 
-def _record_rail(db, activiteit, totaal: int) -> dict:
+def _record_rail(db, activiteit) -> dict:
     """De rechterrail van de recordpagina: publicatie-info en bezetting per
     onderdeel — via dezelfde telling als de volzet-berekening (#451), in één
     query (#651: het detailscherm haalt niet de hele boom op)."""
@@ -1088,8 +1093,9 @@ def _record_rail(db, activiteit, totaal: int) -> dict:
         "bezet": bezetting.get(c.id, 0),
         "max": c.max_participants,
     } for c in activiteit.sub_registrations]
-    return {"rail_onderdelen": onderdelen,
-            "rail_inschrijvingen_totaal": totaal}
+    # "Inschrijvingen totaal" verdween op Koens vraag (15 sep): het aantal
+    # staat al op de tab.
+    return {"rail_onderdelen": onderdelen}
 
 
 @router.get("/admin/activiteiten/{activity_id}/inschrijvingen",

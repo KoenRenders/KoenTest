@@ -221,3 +221,37 @@ async def inschrijf_submit(activity_id: int, component_id: int, request: Request
         return response
     return templates.TemplateResponse(request, "_inschrijf_klaar.html",
                                       {"naam": naam, "checkout": False})
+
+
+@router.get("/activiteiten/{sleutel}")
+def activiteit_deeplink(sleutel: str, request: Request,
+                        db: Session = Depends(get_db)):
+    """Het kanonieke deeladres van één activiteit (golf 8, 15 sep 2026).
+
+    Een vooraf gecommuniceerde link moet ook ná het evenement blijven werken,
+    maar de kaart verhuist dan van /activiteiten naar het archief. Deze route
+    zoekt de activiteit (slug of nummer, zoals de fotoalbums #884/#890) en
+    stuurt door naar de juiste lijst mét het kaart-anker. Komt er ooit een
+    volwaardige publieke activiteitspagina, dan neemt die dit adres over en
+    breekt geen enkele oude link.
+
+    Staat ná /activiteiten/archief geregistreerd, dus "archief" wint als pad.
+    """
+    from datetime import date
+
+    from fastapi.responses import RedirectResponse
+
+    from app.domains.activities.api import activity_by_key
+    from app.ui import path_for
+
+    activiteit = activity_by_key(db, sleutel)
+    if activiteit is None:
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    # Voorbij = de laatste (eind)datum ligt vóór vandaag — dezelfde blik als de
+    # lijstscopes: zonder datums blijft ze op de komende lijst staan.
+    laatste = max((d.end_date or d.start_date for d in activiteit.dates),
+                  default=None)
+    lijst = ("/activiteiten/archief" if laatste and laatste < date.today()
+             else "/activiteiten")
+    anker = activiteit.slug or f"act-{activiteit.id}"
+    return RedirectResponse(path_for(f"{lijst}#{anker}"), status_code=302)

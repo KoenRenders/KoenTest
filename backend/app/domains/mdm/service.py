@@ -365,6 +365,32 @@ def new_members_between(db: Session, start: date, end: date) -> list[dict]:
     return out
 
 
+def gezin_tabs(db, family, viewer_email: str, actief: str) -> list[dict]:
+    """De tabbalk van de gezins-recordpagina (golf 9, #913) — zelfde patroon
+    als activities.record_tabs: P13 in tabvorm. Betalingen alleen met FINANCE
+    (#544); Wijzigingen zonder aantal — de feed over tien history-tabellen
+    materialiseren voor één getal is de prijs niet waard. Lokale imports:
+    auth en payment importeren zelf uit mdm."""
+    from app.i18n import _
+    from app.domains.auth.api import may_view_payments
+    from app.domains.payment.api import count_records_for_family
+
+    tabs = [
+        {"label": _("Overzicht"),
+         "href": f"/admin/leden/gezin/{family.id}",
+         "active": actief == "overzicht"},
+    ]
+    if may_view_payments(db, viewer_email):
+        n = count_records_for_family(db, family.id)
+        tabs.append({"label": _("Betalingen") + f" {n}",
+                     "href": f"/admin/leden/gezin/{family.id}/betalingen",
+                     "active": actief == "betalingen"})
+    tabs.append({"label": _("Wijzigingen"),
+                 "href": f"/admin/leden/gezin/{family.id}/wijzigingen",
+                 "active": actief == "wijzigingen"})
+    return tabs
+
+
 def create_person_for_circle(db: Session, *, first_name: str, last_name: str,
                              email: str, organization_id: int,
                              relation_type: str = BOARD_MEETING):

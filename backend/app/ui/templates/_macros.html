@@ -778,10 +778,12 @@ x-data x-init="$el.style.height = `auto`; $el.style.height = Math.min($el.scroll
    (HTML `form=`-attribuut): het cluster staat in de kop, het formulier
    eronder. Binnen een formulier (aanmaakvlakken) mag `form` weg. #}
 {% macro action_bar(save_label=None, form=None, save_attrs="", cancel_attrs="", cancel_href=None, delete_attrs="", delete_label=None, delete_confirm=None, cls="") -%}
+{# size="sm" overal (Koen, 15 sep): de kleinere knoppen van de tabbladen ogen
+   rustiger en professioneler — één maat voor elk cluster en elke opener. #}
 <div class="flex items-center gap-2{% if cls %} {{ cls }}{% endif %}">
-  {% if delete_attrs %}<span class="mr-3">{{ btn_danger(delete_label or _("Verwijderen"), attrs=delete_attrs, confirm=delete_confirm) }}</span>{% endif %}
-  {{ btn_secondary(_("Annuleren"), href=cancel_href, attrs=cancel_attrs) }}
-  {{ btn_primary(save_label or _("Opslaan"), attrs=(('form="' ~ form ~ '" ')|safe if form else '') ~ save_attrs) }}
+  {% if delete_attrs %}<span class="mr-3">{{ btn_danger(delete_label or _("Verwijderen"), size="sm", attrs=delete_attrs, confirm=delete_confirm) }}</span>{% endif %}
+  {{ btn_secondary(_("Annuleren"), size="sm", href=cancel_href, attrs=cancel_attrs) }}
+  {{ btn_primary(save_label or _("Opslaan"), size="sm", attrs=(('form="' ~ form ~ '" ')|safe if form else '') ~ save_attrs) }}
 </div>
 {%- endmacro %}
 
@@ -800,7 +802,7 @@ x-data x-init="$el.style.height = `auto`; $el.style.height = Math.min($el.scroll
    twee-standenknop (#615) gaf in bewerkmodus een tweede Annuleren naast die
    van het cluster; de toestandseerlijkheid zit nu in de wissel zelf: er staat
    nooit een knop die liegt over de stand, er staat een andere set. #}
-{% macro edit_toggle(state="edit", size="md", cls="") -%}
+{% macro edit_toggle(state="edit", size="sm", cls="") -%}
 <button type="button" x-show="!{{ state }}" class="{{ btn_class('secondary', size) }}{% if cls %} {{ cls }}{% endif %}" @click="{{ state }} = true">{{ _("Bewerken") }}</button>
 {%- endmacro %}
 
