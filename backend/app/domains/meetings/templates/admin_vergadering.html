@@ -2,6 +2,13 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ title }} — {{ _("Raak beheer") }}{% endblock %}
 {% block content %}
+<style>
+  /* Ingeklapt tot de editor focus krijgt (#939). Geen knop: de klik waarmee je
+     begint te typen is al de bedoeling — een extra klik om de balk te openen zou
+     precies de handeling toevoegen die we willen besparen. */
+  .vg-notitie trix-toolbar { display: none; }
+  .vg-notitie:has(trix-editor:focus) trix-toolbar { display: block; }
+</style>
 {# Eén scherm voor agenda én verslag (CR-09 §3.23). De statusbadge zegt waar je
    staat; er is geen modus om in of uit te gaan. Elke schrijfactie vervangt dit
    ene fragment, zodat er maar één waarheid op het scherm staat. #}

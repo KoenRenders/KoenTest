@@ -853,3 +853,24 @@ def test_een_aanwezigheidsrij_wijst_naar_precies_een_deelnemer(db_session):
     with pytest.raises(MeetingError):
         set_attendance(db_session, meeting, person_id=persoon.id, guest_id=1,
                        status=ATTENDANCE_PRESENT)
+
+
+# ── 19. Het uur in de PDF-kop ────────────────────────────────────────────────
+
+def test_de_pdf_kop_draagt_het_beginuur(client, db_session):
+    """De kop zei wanneer de vergadering was, maar niet hoe laat.
+
+    Dezelfde opmaak als in de mail en op de activiteitregel — één functie, zodat
+    er nooit ergens "20:00" komt te staan waar elders "20u" staat.
+    """
+    from app.domains.meetings.api import clock
+
+    assert clock(time(20, 0)) == "20u"
+    assert clock(time(20, 30)) == "20u30"
+    assert clock(None) == ""
+
+    _login(client)
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1),
+                             start_time=time(20, 0), location="Miloheem")
+    antwoord = client.get(f"/admin/vergaderingen/{meeting.id}/pdf")
+    assert antwoord.status_code == 200 and antwoord.content.startswith(b"%PDF-")

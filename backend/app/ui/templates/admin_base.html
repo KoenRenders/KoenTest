@@ -34,6 +34,19 @@
      precies één keer per sessie — met hx-boost zelfs goedkoper dan per pagina. #}
   <link rel="stylesheet" href="{{ statisch('vendor/trix.css') }}">
   <script src="{{ statisch('vendor/trix.min.js') }}" defer></script>
+  {# Bijlagen in een Trix-editor bestaan hier nergens: er is geen upload-hook, dus
+     een gesleept bestand zou een data-URI worden die de HTML opblaast en toch door
+     de sanitisatie sneuvelt. De knop verbergen en het accepteren blokkeren hoort
+     dus bij Trix zelf en niet bij één scherm — het stond eerst alleen in het
+     pagina-scherm, waardoor de paperclip in de vergadernotities wél verscheen en
+     niets deed (#939). #}
+  <style>trix-toolbar .trix-button-group--file-tools { display: none; }</style>
+  <script>
+    if (!window.__raakTrixFilesBlocked) {
+      window.__raakTrixFilesBlocked = true;
+      addEventListener("trix-file-accept", function (e) { e.preventDefault(); });
+    }
+  </script>
   {# Spraak-in en voorlezen voor Raakje in de backoffice (#917). Zelfde plaats en
      zelfde redenering als Trix hierboven: in de schil, niet in het scherm. Een
      <script> in gebooste inhoud draait bij élke navigatie opnieuw en hangt
