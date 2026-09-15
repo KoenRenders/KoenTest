@@ -74,7 +74,7 @@ from app.domains.meetings.viewmodels import (
     MeetingNewView, MeetingSendView,
 )
 from app.i18n import _
-from app.ui import admin_nav, templates
+from app.ui import admin_nav, is_fragment_request, templates
 
 logger = logging.getLogger(__name__)
 
@@ -110,13 +110,21 @@ def _title(meeting) -> str:
 
 # ── The list ─────────────────────────────────────────────────────────────────
 
-def _list_view(request: Request, db: Session, error: Optional[str] = None
-               ) -> MeetingListView:
+def _list_view(request: Request, db: Session, error: Optional[str] = None,
+               q: str = "") -> MeetingListView:
     from app.domains.mdm.api import organization_circle
 
     meetings = list_meetings(db)
+    zoek = (q or "").strip().lower()
+    if zoek:
+        # Op het GETOONDE label zoeken en niet op de kolom: een bestuurder typt
+        # "oktober", niet "2026-10-01". De lijst is klein (een twaalftal per jaar),
+        # dus dit filtert in Python zonder dat iemand het merkt.
+        meetings = [m for m in meetings
+                    if zoek in long_date(m.meeting_date).lower()
+                    or zoek in (m.location or "").lower()]
     return MeetingListView(
-        meetings=meetings,
+        meetings=meetings, q=q,
         status_labels={m.id: _(STATUS_LABELS.get(m.status, m.status)) for m in meetings},
         status_tones={m.id: STATUS_TONES.get(m.status, "gray") for m in meetings},
         dates={m.id: long_date(m.meeting_date) for m in meetings},
@@ -161,9 +169,13 @@ def _edit_view(request: Request, db: Session, meeting,
 
 @router.get("/admin/vergaderingen", response_class=HTMLResponse)
 def meeting_list(request: Request, db: Session = Depends(get_db),
-                 _email: str = Depends(require_admin_ui)):
-    return templates.TemplateResponse(request, "admin_vergaderingen.html",
-                                      _list_view(request, db).as_context())
+                 _email: str = Depends(require_admin_ui), q: str = ""):
+    view = _list_view(request, db, q=q)
+    # Bij een filterverzoek alleen de kaartenlijst terug, zodat het zoekveld niet
+    # onder je vingers vervangen wordt (dezelfde regel als op het betalingsscherm).
+    template = ("_vg_lijst.html" if is_fragment_request(request)
+                else "admin_vergaderingen.html")
+    return templates.TemplateResponse(request, template, view.as_context())
 
 
 @router.get("/admin/vergaderingen/nieuw", response_class=HTMLResponse)

@@ -1063,3 +1063,29 @@ def _organisatie(db):
         db.add(org)
         db.flush()
     return org
+
+
+# ── 23. De lijst volgt de conventie van de andere lijstschermen ──────────────
+
+def test_de_vergaderlijst_kan_gezocht_worden(client, db_session):
+    """Zoeken op wat er STAAT, niet op wat er in de kolom zit.
+
+    Een bestuurder typt "oktober", geen datum in ISO-notatie. Daarom filtert het
+    scherm op het getoonde label; een test op de kolom zou die keuze niet vangen.
+    """
+    _login(client)
+    oktober = create_meeting(db_session, meeting_date=date(2026, 10, 1),
+                             location="Miloheem")
+    november = create_meeting(db_session, meeting_date=date(2026, 11, 5),
+                              location="Café Christiane")
+
+    alles = client.get("/admin/vergaderingen").text
+    assert "1 oktober 2026" in alles and "5 november 2026" in alles
+
+    op_maand = client.get("/admin/vergaderingen?q=oktober").text
+    assert "1 oktober 2026" in op_maand
+    assert "5 november 2026" not in op_maand
+
+    op_locatie = client.get("/admin/vergaderingen?q=christiane").text
+    assert "5 november 2026" in op_locatie
+    assert "1 oktober 2026" not in op_locatie
