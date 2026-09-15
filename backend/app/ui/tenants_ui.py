@@ -80,6 +80,11 @@ BEKENDE_SLEUTELS = [
 # model en nog niet in dit scherm; dat is het verschil tussen "de vorm laat het
 # toe" en "we bouwen het vooruit".
 ORGANISATIEVELDEN = [
+    # #954: de naam stond hier niet, en daardoor was hij sinds #945 nergens meer
+    # te wijzigen — wél te zetten bij het aanmaken van een tenant, en daarna
+    # nooit meer. Hij staat vooraan omdat alle andere velden erbij horen.
+    ("name", "Naam van de organisatie",
+     "Staat in de paginatitel, de afzender van je mails en de footer. Mag niet leeg."),
     ("legal_form", "Rechtsvorm", "VZW, FEITELIJKE_VERENIGING of BEDRIJF."),
     ("enterprise_number", "Ondernemingsnummer", "Optioneel, bv. 0123.456.789."),
     ("vat_number", "Btw-nummer", "Optioneel."),
@@ -256,8 +261,8 @@ async def tenant_opslaan(tenant_id: int, request: Request,
     # #924: de organisatievelden gaan naar `mdm.organizations` en niet naar de
     # instellingen. Vóór de instellingen, zodat een validatiefout hieronder het
     # formulier terugtoont met wat er al bewaard is.
-    update_organization_details(db, tenant_id, form)
     try:
+        update_organization_details(db, tenant_id, form)
         update_tenant_settings(
             db, tenant_id, form,
             known=[key for key, _l, _h in BEKENDE_SLEUTELS],
@@ -267,10 +272,18 @@ async def tenant_opslaan(tenant_id: int, request: Request,
         # betekenen dat één tikfout in een bedrag het hele scherm leegveegt, en dan
         # is de melding erger dan de fout.
         ctx = _editor_ctx(request, db, tenant_id)
-        labels = {key: label for key, label, _h in BEKENDE_SLEUTELS}
+        # #954: ook de organisatievelden kunnen nu weigeren, dus hun labels horen
+        # in dezelfde melding. Zonder die helft zou een lege naam "name: …" tonen.
+        labels = {key: label
+                  for key, label, _h in (*BEKENDE_SLEUTELS, *ORGANISATIEVELDEN)}
         ctx["error"] = " ".join(f"{labels.get(k, k)}: {m}" for k, m in fout.fouten.items())
         ctx["waarden"] = {**ctx["waarden"],
                           **{k: v for k, v in form.items() if k in labels}}
+        # De ingetypte organisatiewaarden ook terug, om dezelfde reden als #797:
+        # één tikfout mag het scherm niet leegvegen.
+        ctx["organisatie"] = {**ctx["organisatie"],
+                              **{k: v for k, v in form.items()
+                                 if k in ctx["organisatie"]}}
         return templates.TemplateResponse(request, "admin_tenant.html", ctx,
                                           status_code=422)
     ctx = _editor_ctx(request, db, tenant_id)
