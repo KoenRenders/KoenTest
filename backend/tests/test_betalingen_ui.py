@@ -187,3 +187,24 @@ def test_betalingen_zoekveld_staat_op_de_pagina_niet_in_het_fragment(client, db_
     assert 'type="search"' in pagina and 'name="q"' in pagina
     fragment = client.get("/admin/betalingen/lijst").text
     assert 'type="search"' not in fragment
+
+
+def test_netto_rij_telt_negatieve_refunds_op(client, db_session):
+    """HDEV-melding Koen (15 sep): de Netto-rij bovenaan week af van de
+    (juiste) totaalregels onderaan. Terugbetalingen staan al negatief in de
+    records, dus netto = betalingen + terugbetalingen: 18 + (−9) = 9. De
+    oude aftrekking maakte er 27 van — dit assert expliciet dat die weg is."""
+    rec = _record(db_session, amount="18.00", status="paid")
+    rec.amount_paid = Decimal("18.00")
+    db_session.flush()
+    from app.domains.payment.api import create_refund
+    create_refund(db_session, rec.id, amount="9.00", settled=True,
+                  actor="tester@example.com")
+    db_session.commit()
+    _make_finance(db_session)
+    _login(client)
+    html = client.get("/admin/betalingen").text
+
+    netto_rij = html.split(">Netto<")[1].split("</tr>")[0]
+    assert netto_rij.count("€ 9,00") >= 2  # Te betalen én Betaald: 18 + (−9)
+    assert "27,00" not in html
