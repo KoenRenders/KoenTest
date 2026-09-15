@@ -194,7 +194,15 @@ class MeetingAttendance(TenantMixin, SoftDeleteMixin, Base):
     id = Column(Integer, primary_key=True, index=True)
     meeting_id = Column(Integer, ForeignKey("meetings.meetings.id", ondelete="CASCADE"),
                         nullable=False, index=True)
-    person_id = Column(Integer, nullable=False, index=True)  # soft-ref, see MeetingItem
+    # Precies één van de twee is gezet: iemand uit de kring, of een gast die voor
+    # deze ene vergadering uitgenodigd is. Een gast heeft bewust geen `Person`
+    # (CR-09 §3.15), en toch hoort hij in de aanwezigheidslijst — wie er was, was
+    # er (Koen, 15 september 2026).
+    person_id = Column(Integer, nullable=True, index=True)  # soft-ref, see MeetingItem
+    guest_id = Column(Integer,
+                      ForeignKey("meetings.meeting_extra_recipients.id",
+                                 ondelete="CASCADE"),
+                      nullable=True, index=True)
     status = Column(String(10), nullable=False)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
     updated_at = Column(DateTime(timezone=True), default=_now_utc, onupdate=_now_utc,
@@ -230,10 +238,12 @@ class MeetingFile(TenantMixin, SoftDeleteMixin, Base):
 
 
 class MeetingExtraRecipient(TenantMixin, SoftDeleteMixin, Base):
-    """A one-off e-mail address on this meeting's mails (CR-09 §3.15).
+    """Een gast op deze vergadering: naam en adres, voor deze keer (CR-09 §3.15).
 
-    A guest speaker who comes once is not created as a person; their address
-    rides along with this meeting and with nothing else.
+    Een gastspreker die één keer komt, wordt geen `Person`. Maar hij krijgt wél
+    de agenda én hij zit mee aan tafel — dus hij staat in de aanwezigheidslijst
+    en niet alleen in een verzendlijstje op het verstuurscherm (Koen,
+    15 september 2026). Daarom draagt deze rij ook een naam.
     """
 
     __tablename__ = "meeting_extra_recipients"
@@ -242,6 +252,7 @@ class MeetingExtraRecipient(TenantMixin, SoftDeleteMixin, Base):
     id = Column(Integer, primary_key=True, index=True)
     meeting_id = Column(Integer, ForeignKey("meetings.meetings.id", ondelete="CASCADE"),
                         nullable=False, index=True)
+    name = Column(String(255), nullable=True)
     email = Column(String(255), nullable=False)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
 

@@ -21,8 +21,8 @@ from app.domains.activities.viewmodels import AdminActiviteitenView
 from app.domains.mdm.viewmodels import LedenView
 from app.domains.payment.viewmodels import BetalingenView
 from app.domains.meetings.viewmodels import (
-    MeetingCircleView, MeetingDocumentView, MeetingListView, MeetingNewView,
-    MeetingSendView)
+    MeetingCircleView, MeetingDocumentView, MeetingItemView, MeetingListView,
+    MeetingNewView, MeetingSendView)
 from app.domains.reporting.viewmodels import ReportListView, ReportPanelView
 from app.ui import templates
 
@@ -45,6 +45,7 @@ VIEWMODELS = {
     "_vg_lijst.html": MeetingListView,
     "admin_vergadering.html": MeetingDocumentView,
     "_vg_document.html": MeetingDocumentView,
+    "_vg_punt.html": MeetingItemView,
     "admin_vergadering_verstuur.html": MeetingSendView,
     "_vg_verstuur.html": MeetingSendView,
     "admin_vergaderkring.html": MeetingCircleView,

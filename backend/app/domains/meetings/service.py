@@ -148,6 +148,33 @@ def create_meeting(db: Session, *, meeting_date: date,
     return meeting
 
 
+def update_meeting(db: Session, meeting: Meeting, *, meeting_date: date,
+                   start_time: Optional[time] = None,
+                   location: Optional[str] = None) -> Meeting:
+    """Verplaats of hernoem een vergadering — en stel de agenda opnieuw samen.
+
+    Een vergadering een week opschuiven gebeurt (Koen, 14 september 2026), en dan
+    klopt de agenda niet meer: activiteiten van die week horen ineens bij de
+    evaluatie in plaats van bij wat komt. Daarom volgt bij een datumwijziging een
+    nieuwe samenstelling — maar **alleen van wat gegenereerd is**: elk punt waar
+    iemand op getypt heeft blijft staan, op zijn plaats. Werk kwijtraken door een
+    datum te corrigeren zou de correctie duurder maken dan de fout.
+
+    Enkel uur of locatie wijzigen raakt de agenda niet: die twee bepalen geen
+    venster.
+    """
+    _refuse_when_sent(meeting)
+    verschoven = meeting.meeting_date != meeting_date
+    meeting.meeting_date = meeting_date
+    meeting.start_time = start_time
+    meeting.location = location
+    db.flush()
+    if verschoven:
+        generate_agenda(db, meeting)
+    db.commit()
+    return meeting
+
+
 def _seed_sections(db: Session, meeting: Meeting) -> dict[str, MeetingSection]:
     """The five standard sections, in their fixed order. Misc is last (§3.17)."""
     sections = {}
@@ -176,24 +203,26 @@ def generate_agenda(db: Session, meeting: Meeting,
     since = previous.meeting_date if previous else meeting.meeting_date - timedelta(days=31)
     by_kind = {s.kind: s for s in sections_of(db, meeting)}
 
-    # Evaluation: what ran or started since the previous meeting.
+    # EERST alle gegenereerde punten van de twee activiteitensecties weg, DAN pas
+    # opnieuw vullen. Dat is geen stijlkwestie: verschuift de vergadering, dan
+    # wisselt een activiteit van sectie — en wie sectie per sectie opruimt-en-vult,
+    # ziet bij de evaluatie het oude punt nog in "volgende" staan, slaat het over,
+    # en ruimt het daarna op. Het punt verdwijnt dan helemaal.
     evaluation = by_kind.get(SECTION_EVALUATION)
+    upcoming = by_kind.get(SECTION_UPCOMING)
+    for sectie in (evaluation, upcoming):
+        if sectie is not None:
+            _replace_generated(db, sectie)
+
+    # Evaluation: what ran or started since the previous meeting.
     if evaluation is not None:
-        _replace_generated(db, evaluation)
-        for position, span in enumerate(
-                activities_active_between(db, since, meeting.meeting_date)):
-            db.add(MeetingItem(meeting_id=meeting.id, section_id=evaluation.id,
-                               position=position, activity_id=span.activity.id,
-                               sort_key=span.start))
+        _add_activities(db, meeting, evaluation,
+                        activities_active_between(db, since, meeting.meeting_date))
 
     # Upcoming: the whole planned programme, however far ahead.
-    upcoming = by_kind.get(SECTION_UPCOMING)
     if upcoming is not None:
-        _replace_generated(db, upcoming)
-        for position, span in enumerate(activities_from(db, meeting.meeting_date)):
-            db.add(MeetingItem(meeting_id=meeting.id, section_id=upcoming.id,
-                               position=position, activity_id=span.activity.id,
-                               sort_key=span.start))
+        _add_activities(db, meeting, upcoming,
+                        activities_from(db, meeting.meeting_date))
 
     # Members: who joined since the previous meeting.
     members = by_kind.get(SECTION_MEMBERS)
@@ -212,6 +241,29 @@ def generate_agenda(db: Session, meeting: Meeting,
     if ideas is not None and previous is not None:
         _carry_over(db, previous, meeting, by_kind)
 
+    db.flush()
+
+
+def _add_activities(db: Session, meeting: Meeting, section: MeetingSection,
+                    spans) -> None:
+    """Zet deze activiteiten in de sectie, zonder iets te verdubbelen.
+
+    Overslaan wat er al staat is niet netjesheid maar noodzaak: bij het opnieuw
+    samenstellen (na een datumwijziging) blijft een punt mét notities staan, en
+    zonder deze controle zou er een tweede, leeg punt voor dezelfde activiteit
+    naast komen te staan.
+    """
+    aanwezig = {item.activity_id for item in
+                db.query(MeetingItem)
+                .filter(MeetingItem.meeting_id == meeting.id).all()
+                if item.activity_id}
+    for position, span in enumerate(spans):
+        if span.activity.id in aanwezig:
+            continue
+        db.add(MeetingItem(meeting_id=meeting.id, section_id=section.id,
+                           position=position, activity_id=span.activity.id,
+                           sort_key=span.start))
+        aanwezig.add(span.activity.id)
     db.flush()
 
 
@@ -307,7 +359,13 @@ def update_item(db: Session, meeting: Meeting, item_id: int, *,
     _refuse_when_sent(meeting)
     item = _item_of(db, meeting, item_id)
     if notes is not None:
-        item.notes = notes
+        # De notities komen uit een WYSIWYG-editor en gaan als HTML naar het
+        # scherm én de PDF. Ontsmetten bij het OPSLAAN en niet bij het tonen: dan
+        # is er één plek, en staat er nooit iets in de databank dat we bij het
+        # renderen nog moeten wantrouwen. Dezelfde filter als de CMS-inhoud.
+        from app.domains.cms.api import sanitize_cms_html
+
+        item.notes = sanitize_cms_html(notes) or ""
     if title is not None:
         item.title = title
     _touch(db, meeting)
@@ -371,37 +429,49 @@ def add_section(db: Session, meeting: Meeting, title: str) -> MeetingSection:
     return section
 
 
-def set_attendance(db: Session, meeting: Meeting, person_id: int,
-                   status: Optional[str]) -> None:
-    """Tick someone present, excused, or neither.
+def set_attendance(db: Session, meeting: Meeting, *, person_id: Optional[int] = None,
+                   guest_id: Optional[int] = None,
+                   status: Optional[str] = None) -> None:
+    """Tick someone present, excused, or neither — iemand uit de kring of een gast.
 
-    `None` removes the row rather than storing a third state: "not ticked" is
-    the absence of an answer, and a row saying so would have to be kept in step
-    with the circle.
+    `None` als status verwijdert de rij in plaats van een derde toestand te
+    bewaren: "niet aangevinkt" is de afwezigheid van een antwoord, en een rij die
+    dat zegt zou in de pas moeten blijven met de kring.
     """
     _refuse_when_sent(meeting)
     if status is not None and status not in ATTENDANCE_STATUSES:
         raise MeetingError(_("Onbekende aanwezigheid."))
-    row = (db.query(MeetingAttendance)
-           .filter(MeetingAttendance.meeting_id == meeting.id,
-                   MeetingAttendance.person_id == person_id).first())
+    if (person_id is None) == (guest_id is None):
+        raise MeetingError(_("Geef één persoon of één gast op."))
+    vraag = db.query(MeetingAttendance).filter(
+        MeetingAttendance.meeting_id == meeting.id)
+    vraag = (vraag.filter(MeetingAttendance.person_id == person_id) if person_id
+             else vraag.filter(MeetingAttendance.guest_id == guest_id))
+    row = vraag.first()
     if status is None:
         if row is not None:
             db.delete(row)
     elif row is None:
         db.add(MeetingAttendance(meeting_id=meeting.id, person_id=person_id,
-                                 status=status))
+                                 guest_id=guest_id, status=status))
     else:
         row.status = status
     _touch(db, meeting)
     db.commit()
 
 
-def attendance_of(db: Session, meeting: Meeting) -> dict[int, str]:
-    """Per person id: present or excused. Everyone else is simply not ticked."""
-    return {row.person_id: row.status for row in
-            db.query(MeetingAttendance)
-            .filter(MeetingAttendance.meeting_id == meeting.id).all()}
+def attendance_of(db: Session, meeting: Meeting) -> dict[str, str]:
+    """Per deelnemer: present of excused. Wie er niet in staat, is niet aangevinkt.
+
+    De sleutel is een string (`p12` of `g3`) en geen id: personen en gasten
+    worden apart genummerd, dus alleen een id zou de twee door elkaar halen.
+    """
+    uit = {}
+    for row in (db.query(MeetingAttendance)
+                .filter(MeetingAttendance.meeting_id == meeting.id).all()):
+        sleutel = f"p{row.person_id}" if row.person_id else f"g{row.guest_id}"
+        uit[sleutel] = row.status
+    return uit
 
 
 # ── Files ────────────────────────────────────────────────────────────────────
@@ -459,21 +529,38 @@ def set_file_mailing(db: Session, meeting: Meeting, file_id: int, *,
     db.commit()
 
 
-def delete_file(db: Session, meeting: Meeting, file_id: int) -> None:
-    """Remove an attachment — refused once the meeting has been sent.
+def file_is_sent(meeting: Meeting, record: MeetingFile) -> bool:
+    """Is dit bestand al écht de deur uit?
 
-    The guard reads the meeting's own sent timestamps: what went out with a mail
-    stays retrievable, and an archived PDF is never removable at all. Proven by
-    a test that sends, tries the delete, and asserts this refusal.
+    Niet "hoort deze vergadering bij een verstuurde mail", maar: ging dít bestand
+    mee? Een bijlage die alleen bij het verslag hoort, is niet verstuurd wanneer
+    enkel de agenda vertrok — en die moet je dus nog kunnen weghalen. De eerste
+    versie keek naar de vergadering in plaats van naar het bestand, en sloot
+    daarmee te veel af (Koen, 15 september 2026).
+    """
+    if record.purpose == FILE_SENT_PDF:
+        return True
+    if meeting.agenda_sent_at is not None and record.on_agenda_mail:
+        return True
+    return meeting.report_sent_at is not None and record.on_report_mail
+
+
+def delete_file(db: Session, meeting: Meeting, file_id: int) -> None:
+    """Remove an attachment — refused once this file has actually gone out.
+
+    Wat verstuurd is, blijft opvraagbaar: een bestuurslid dat de mail openslaat,
+    moet de bijlage nog kunnen ophalen. Een gearchiveerde PDF verdwijnt nooit.
+    Bewezen door een test die verstuurt, probeert te verwijderen, en de benoemde
+    weigering controleert.
     """
     record = db.get(MeetingFile, file_id)
     if record is None or record.meeting_id != meeting.id:
         return
     if record.purpose == FILE_SENT_PDF:
         raise MeetingError(_("Een verstuurde PDF blijft bewaard."))
-    if meeting.agenda_sent_at is not None or meeting.report_sent_at is not None:
+    if file_is_sent(meeting, record):
         raise MeetingError(
-            _("Deze vergadering is al verstuurd — de bijlage blijft bewaard."))
+            _("Deze bijlage is al meegestuurd — ze blijft bewaard."))
     db.delete(record)
     db.commit()
 
@@ -493,8 +580,14 @@ def get_file(db: Session, meeting_id: int, file_id: int) -> Optional[MeetingFile
 
 # ── Recipients ───────────────────────────────────────────────────────────────
 
-def add_extra_recipient(db: Session, meeting: Meeting, email: str) -> None:
-    """A one-off address for this meeting only — the guest speaker case."""
+def add_extra_recipient(db: Session, meeting: Meeting, email: str,
+                        name: Optional[str] = None) -> None:
+    """Nodig een gast uit voor deze ene vergadering: naam en adres.
+
+    Hij krijgt de mails én hij staat in de aanwezigheidslijst — wie mee aan tafel
+    zit, hoort in het verslag, ook als hij geen lid en geen persoon in de
+    administratie is.
+    """
     email = (email or "").strip()
     if "@" not in email:
         raise MeetingError(_("Dat is geen e-mailadres."))
@@ -503,7 +596,8 @@ def add_extra_recipient(db: Session, meeting: Meeting, email: str) -> None:
                       func.lower(MeetingExtraRecipient.email) == email.lower())
               .first())
     if exists is None:
-        db.add(MeetingExtraRecipient(meeting_id=meeting.id, email=email))
+        db.add(MeetingExtraRecipient(meeting_id=meeting.id, email=email,
+                                     name=(name or "").strip() or None))
         db.commit()
 
 
@@ -550,7 +644,7 @@ def recipients_for(db: Session, meeting: Meeting) -> Recipients:
     for extra in extra_recipients_of(db, meeting):
         if extra.email not in emails:
             emails.append(extra.email)
-            names.append(extra.email)
+            names.append(extra.name or extra.email)
     return Recipients(emails=emails, names=names, without_email=missing)
 
 
@@ -666,35 +760,6 @@ def member_standing(db: Session, today: Optional[date] = None) -> MemberStanding
 # the PDF, and a second builder is how the two start disagreeing about what a
 # meeting says.
 
-def note_bullets(notes: Optional[str]) -> list[tuple[int, str]]:
-    """De notitietekst als geneste opsomming: (niveau, tekst) per regel.
-
-    Het bestuur schrijft zijn verslag al in opsommingen met twee, soms drie
-    niveaus. Dat blijft hier **platte tekst** in een gewoon tekstvak — tijdens een
-    vergadering wil je typen, niet opmaken — en de nesting komt uit wat je toch al
-    doet: inspringen. Twee spaties (of een tab) is één niveau dieper; een leidend
-    streepje of bolletje mag en wordt weggelaten bij het tonen.
-
-    Eén functie voor het scherm én de PDF: zouden die elk hun eigen regeltjes
-    hebben, dan leest het verslag op papier anders dan op het scherm.
-    """
-    out: list[tuple[int, str]] = []
-    for regel in (notes or "").splitlines():
-        if not regel.strip():
-            continue
-        zonder_tabs = regel.replace("\t", "  ")
-        inspringing = len(zonder_tabs) - len(zonder_tabs.lstrip(" "))
-        tekst = zonder_tabs.strip()
-        for teken in ("- ", "* ", "• ", "○ ", "● "):
-            if tekst.startswith(teken):
-                tekst = tekst[len(teken):].strip()
-                break
-        # Drie niveaus volstaan: dieper dan dat leest niemand nog als structuur,
-        # en het echte verslag komt niet verder.
-        out.append((min(inspringing // 2, 2), tekst))
-    return out
-
-
 @dataclass(frozen=True)
 class DocumentItem:
     """One point, with everything both the screen and the PDF need."""
@@ -702,10 +767,8 @@ class DocumentItem:
     id: int
     label: str
     meta: str
+    # De notities als (ontsmette) HTML uit de WYSIWYG-editor.
     notes: str
-    # Dezelfde notities als opsomming, voor het tonen; `notes` blijft de ruwe
-    # tekst waar het tekstvak op werkt.
-    bullets: list
     kind: str                      # "activity" | "member" | "free"
     source_url: Optional[str]      # where the source chip goes
     is_full: bool
@@ -822,8 +885,7 @@ def _present(item: MeetingItem, activities: dict, counts: dict,
             parts.append(_("%s ingeschreven") % shown)
         return DocumentItem(
             id=item.id, label=activity.name, meta=" · ".join(parts),
-            notes=item.notes or "", bullets=note_bullets(item.notes),
-            kind="activity",
+            notes=item.notes or "", kind="activity",
             source_url=f"/admin/activiteiten/{activity.id}",
             is_full=bool(capacity and booked >= capacity),
             steward_person_id=None)
@@ -832,13 +894,11 @@ def _present(item: MeetingItem, activities: dict, counts: dict,
         label, address = member_labels.get(item.member_id, (_("Nieuw lid"), ""))
         return DocumentItem(
             id=item.id, label=label, meta=address, notes=item.notes or "",
-            bullets=note_bullets(item.notes),
             kind="member", source_url=f"/admin/leden/gezin/{item.member_id}",
             is_full=False, steward_person_id=item.noted_steward_person_id)
 
     return DocumentItem(id=item.id, label=item.title or _("Punt"), meta="",
-                        notes=item.notes or "", bullets=note_bullets(item.notes),
-                        kind="free", source_url=None,
+                        notes=item.notes or "", kind="free", source_url=None,
                         is_full=False, steward_person_id=None)
 
 
