@@ -617,7 +617,15 @@ def _pdf_context(db: Session, meeting, *, kind: str) -> dict:
             "sections": document_of(db, meeting),
             "present": present, "excused": excused,
             "location": meeting.location or "",
-            "standing": member_standing(db)}
+            "standing": member_standing(db),
+            # De bijlagen die mét déze mail meegaan. Ze staan op het scherm maar
+            # nergens in het document zelf, en juist de PDF is wat een bestuurslid
+            # later terugleest: dan hoort er te staan wélke stukken erbij hoorden
+            # (#939, naar aanleiding van de wijkmeester die ook alleen op het
+            # scherm stond).
+            "attachments": [f for f in files_of(db, meeting)
+                            if (f.on_agenda_mail if kind == "agenda"
+                                else f.on_report_mail)]}
 
 
 @router.get("/admin/vergaderingen/{meeting_id}/pdf")
