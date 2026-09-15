@@ -29,11 +29,9 @@ NAV = admin_nav("/admin/info")
 # meestal naar de werkbank — en de doorklik naar het rapport komt eronder, niet
 # ervoor in de plaats.
 #
-# `geld=True` op de laatste: die tegel toont een bedrag. LET OP, en dit is bewust
-# NIET rechtgezet in #848: het bestaande scherm schrijft `€45.00` met een punt,
-# terwijl §735 de komma voorschrijft en `ui.geld` daarvoor bestaat. Dit issue
-# verplaatst waar het cijfer vandaan komt en verandert niets aan wat er staat;
-# de opmaak is als bevinding gemeld en hoort in een eigen wijziging.
+# `geld=True` op de laatste: die tegel toont een bedrag — sinds golf 7 (#913)
+# via dezelfde geld-formatter als overal ("€ 45,00", §735). #848 had de oude
+# punt-notatie bewust laten staan; die eigen wijziging is dit.
 DASHBOARD_TEGELS = [
     ("Leden", "dashboard_members", "member_total_count",
      "bg-blue-50 text-blue-700", "/admin/leden", False),
@@ -59,17 +57,27 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db),
     rapportagedomein. `app.ui.admin_api.get_stats` blijft bestaan — het is de
     JSON-API — maar het scherm rekent niet meer zelf.
     """
-    from app.domains.reporting.api import dashboard_numbers
+    from datetime import datetime
 
+    from app.domains.reporting.api import dashboard_numbers
+    from app.kernel.geld import bedrag
+
+    # Golf 7 (#913, B3): één peilmoment voor het hele scherm — de tegels resolven
+    # hun symbolische filters ("vandaag", "dit jaar") op déze ene klok, en het
+    # scherm zegt eronder van wanneer de cijfers zijn.
+    peilmoment = datetime.now()
     cijfers = dashboard_numbers(
         db, [(sleutel, maat) for _l, sleutel, maat, _k, _h, _g in DASHBOARD_TEGELS],
-        tenant_id=current_tenant_id.get() or DEFAULT_TENANT_ID, viewer=email)
+        tenant_id=current_tenant_id.get() or DEFAULT_TENANT_ID, viewer=email,
+        today=peilmoment.date())
 
     def _toon(sleutel: str, geld: bool):
         getal = cijfers[sleutel].value
         if getal is None:
             return "—"
-        return ("€%.2f" % float(getal)) if geld else getal
+        # Golf 7: de bevinding uit #848 bewust rechtgezet — €45.00 met een punt
+        # werd "€ 45,00" via dezelfde formatter als overal (§735).
+        return ("€ " + bedrag(getal)) if geld else getal
 
     tegels = [
         {"label": label, "waarde": _toon(sleutel, geld), "kleur": kleur,
@@ -84,6 +92,7 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db),
     # en even stil.
     return templates.TemplateResponse(request, "admin_dashboard.html", {
         "nav_items": admin_nav("/admin"), "tegels": tegels,
+        "peilmoment": peilmoment,
         "csrf_token": csrf_from_request(request)})
 
 

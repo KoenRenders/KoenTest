@@ -23,4 +23,8 @@
   </div>
   {% endfor %}
 </div>
+{# Golf 7 (#913, B3): het peilmoment — de ene klok waarop alle tegels hun
+   symbolische filters resolven. Buiten het grid: het hoort bij het scherm,
+   niet bij één tegel (en de KPI-gelijkvormigheidsgate kijkt in de tegels). #}
+<p class="mt-4 text-xs text-ink-soft">{{ _("Cijfers van") }} {{ peilmoment|langedatum }} · {{ peilmoment.strftime("%H:%M") }}</p>
 {% endblock %}

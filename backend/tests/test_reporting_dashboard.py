@@ -261,3 +261,33 @@ def test_the_dashboard_numbers_are_the_report_numbers(client, db_session,
     for key in ("dashboard_members", "dashboard_member_persons"):
         getal = _tile_number(db_session, key)
         assert f">{getal}<" in pagina.text, f"{key} = {getal} staat op het scherm"
+
+
+def test_dashboard_numbers_resolves_every_tile_on_the_one_clock(db_session,
+                                                                situation):
+    """Wave 7 (#913, B3): `dashboard_numbers` takes `today` and threads it into
+    every tile's `run_validated`. Without it each tile resolved its own clock,
+    and around midnight six tiles could disagree. Proven the same way as the
+    next-year test above: the same call with two clocks gives two answers."""
+    from datetime import date
+
+    from app.domains.reporting.api import dashboard_numbers
+
+    _y0, y1, y2, _y3 = situation["years"]
+    wanted = [("dashboard_active_members", "membership_active_count")]
+    vorig = dashboard_numbers(db_session, wanted, tenant_id=TENANT_A,
+                              viewer=ADMIN_EMAIL, today=date(y1, 6, 1))
+    dit = dashboard_numbers(db_session, wanted, tenant_id=TENANT_A,
+                            viewer=ADMIN_EMAIL, today=date(y2, 6, 1))
+    assert vorig["dashboard_active_members"].value != \
+        dit["dashboard_active_members"].value
+
+
+def test_the_dashboard_names_its_peilmoment(client, db_session, situation):
+    """Wave 7 (#913, B3): the screen says what moment its numbers are from —
+    the same single clock the tiles resolved on."""
+    from tests.conftest import SEEDED_ADMIN_EMAIL
+
+    login(client, db_session, SEEDED_ADMIN_EMAIL, ("ADMIN",))
+    pagina = client.get("/admin")
+    assert "Cijfers van" in pagina.text

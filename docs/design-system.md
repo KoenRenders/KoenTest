@@ -496,8 +496,12 @@ every screen follows.
 | 6 | Dialog | modal · side panel · toast · confirmation | everywhere | confirmation after registration |
 | 7 | Report | objects pane · selection · filters · result table | Rapporten | — |
 
-Candidates to add when a screen needs them: **wizard** (leden-import) and
-**dashboard** (KPI row); today they are sanctioned variants of 4 and 5.
+Candidates to add when a screen needs them: **wizard** (leden-import).
+**Dashboard** is a first-class type since wave 7 (#913, B3): a **reporting
+surface** — every tile is a shipped saved report (`builtin_key`), doubly
+clickable (operational screen + report), all tiles resolved on **one
+peilmoment** that the screen names below the grid. Expressly separate from
+the werkbank, which is process.
 
 ### 3.1 Admin and public — family, not twins
 
