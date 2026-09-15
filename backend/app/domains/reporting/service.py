@@ -548,7 +548,8 @@ class TileNumber:
 
 
 def dashboard_numbers(db: Session, wanted: Sequence[tuple[str, str]], *,
-                      tenant_id: int, viewer: str = "") -> dict[str, TileNumber]:
+                      tenant_id: int, viewer: str = "",
+                      today: date | None = None) -> dict[str, TileNumber]:
     """Run one shipped report per tile and return its single number (#848).
 
     The dashboard is a **consumer** of reporting now, not a second implementation.
@@ -573,8 +574,12 @@ def dashboard_numbers(db: Session, wanted: Sequence[tuple[str, str]], *,
             uitkomst[sleutel] = TileNumber(None, None)
             continue
         try:
+            # Golf 7 (#913, B3): één peilmoment voor álle tegels. Zonder deze
+            # doorlus loste elke tegel "vandaag" apart op, en rond middernacht
+            # konden zes tegels elkaar tegenspreken.
             resultaat = run_validated(db, selection_of(rapport),
-                                      tenant_id=tenant_id, viewer=viewer)
+                                      tenant_id=tenant_id, viewer=viewer,
+                                      today=today)
             waarde = resultaat.rows[0].get(maat) if resultaat.rows else None
         except SelectionError as exc:
             logger.warning("dashboard tile %s could not run: %s", sleutel, exc)

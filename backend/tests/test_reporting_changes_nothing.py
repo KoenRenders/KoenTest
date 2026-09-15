@@ -210,15 +210,16 @@ def test_the_dashboard_keeps_its_six_tiles_and_its_place(client, db_session):
     assert len(DASHBOARD_TEGELS) == 6, "zes tegels erin, zes eruit"
 
 
-def test_the_outstanding_tile_still_writes_its_amount_the_way_it_did(client,
-                                                                     db_session):
-    """A finding, kept as a test rather than quietly fixed.
+def test_the_outstanding_tile_now_writes_its_amount_the_house_way(client,
+                                                                  db_session):
+    """The #848 tripwire, sprung on purpose in wave 7 (#913).
 
-    The tile writes `€45.00` with a POINT, while #735 made the comma the house
-    rule and `ui.geld` exists for exactly this. #848 moves where the number comes
-    from and changes nothing about what is displayed, so the format stayed as it
-    was — and this pins it, so that when somebody does fix it, it is a decision
-    with a diff and not a side effect of moving a query.
+    The tile wrote `€45.00` with a point; #735 made the comma the house rule.
+    #848 deliberately left the format and pinned it with this test, so that the
+    fix would be a decision with a diff — this is that diff. The tile now runs
+    through the one money formatter (`app.kernel.geld.bedrag`, the same source
+    as the `|geld` filter): "€ 45,00". The old point-notation failing here is
+    the point of the test.
     """
     import re
 
@@ -227,5 +228,7 @@ def test_the_outstanding_tile_still_writes_its_amount_the_way_it_did(client,
     seed(db_session)
     login(client, db_session, SEEDED_ADMIN_EMAIL, ("ADMIN",))
     pagina = client.get("/admin")
-    bedragen = re.findall(r"€\d+\.\d{2}", pagina.text)
-    assert bedragen, "de tegel toont een bedrag met een punt, zoals voordien"
+    assert not re.findall(r"€\d+\.\d{2}", pagina.text), (
+        "de saldotegel schrijft weer een punt-bedrag buiten de ene formatter om")
+    assert re.findall(r"€ \d+,\d{2}", pagina.text), (
+        "de saldotegel toont geen huisstijl-bedrag (spatie + komma, §735)")
