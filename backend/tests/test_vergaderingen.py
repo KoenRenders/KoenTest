@@ -978,3 +978,38 @@ def test_de_wijkmeester_staat_op_papier(client, db_session):
     assert "An Peeters" in tekst
     assert "wijkmeester: Ivo Verwimp" in tekst
     assert "nieuw lid" in tekst
+
+
+def test_cursieve_tekst_krijgt_een_echte_cursieve_letter(client, db_session):
+    """Cursief bleef rechtop staan: er was geen cursief letterbestand.
+
+    WeasyPrint/Pango maakt géén schuine variant bij wanneer alleen een rechte
+    letter bestaat — gemeten in een proefrender, niet aangenomen. Het gevolg was
+    stil: de knop werkte, de tekst werd bewaard, en op papier zag je niets.
+
+    Toetst daarom op de ingesloten lettertypes van de PDF en niet op de tekst:
+    tekst blijft identiek of ze nu schuin staat of niet, dus een assertie daarop
+    zou precies dit geval missen.
+    """
+    from io import BytesIO
+
+    from pypdf import PdfReader
+
+    _login(client)
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+    sectie = next(s for s in sections_of(db_session, meeting) if s.kind == "MISC")
+    from app.domains.meetings.api import update_item
+
+    punt = add_item(db_session, meeting, sectie, title="Opmaak")
+    update_item(db_session, meeting, punt.id, notes="<div><em>schuin</em></div>")
+
+    inhoud = client.get(f"/admin/vergaderingen/{meeting.id}/pdf").content
+    lezer = PdfReader(BytesIO(inhoud))
+    namen = []
+    for bladzijde in lezer.pages:
+        bronnen = bladzijde.get("/Resources", {})
+        for lettertype in (bronnen.get("/Font", {}) or {}).values():
+            naam = str(lettertype.get_object().get("/BaseFont", ""))
+            namen.append(naam)
+    assert any("Italic" in n for n in namen), \
+        f"geen cursief lettertype ingesloten; wel: {sorted(set(namen))}"

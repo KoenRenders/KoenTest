@@ -17,6 +17,12 @@
   400/500/600/700, de vier die het design system gebruikt.
 - Gebruik: de **body-font** (lopende tekst, tabellen, formulieren). Radio Canada
   Big blijft voorbehouden aan koppen.
+- Bestanden: `Inter-Italic.otf` en `Inter-BoldItalic.otf` — **enkel voor de PDF**
+  (het vergaderverslag, #939). Reden: WeasyPrint/Pango maakt géén schuine variant
+  bij wanneer er alleen een rechte letter bestaat, dus zonder deze twee bestanden
+  bleef cursieve tekst rechtop staan — gemeten, niet aangenomen. De site heeft ze
+  niet nodig: de browser doet daar wél schuinstelling. OTF omdat het Debian-pakket
+  ze zo levert; de PDF leest ze rechtstreeks van schijf.
 - Herkomst: het Debian-pakket `fonts-inter` 4.1+ds-1 (upstream
   https://github.com/rsms/inter). Debian levert OTF; die zijn met `fontTools`
   omgezet naar woff2 en ttf.
