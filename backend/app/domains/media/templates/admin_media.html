@@ -14,8 +14,13 @@
 {% call ui.page_header(_("Media"), _("Sponsorlogo's en activiteitenfoto's; elke kaart bewerk je ter plaatse.")) %}
     {# #696: `kind` gaat mee als BEGINWAARDE van de soort-keuze op het
        uploadscherm, niet meer als de beslissing zelf. Sta je op het sponsorfilter,
-       dan begin je bij sponsor — maar je kunt daar omschakelen. #}
-    {{ ui.btn_primary(_("+ Uploaden"), href="/admin/media/nieuw?kind=" ~ kind) }}
+       dan begin je bij sponsor — maar je kunt daar omschakelen.
+
+       #962: en de gekozen ACTIVITEIT gaat mee, zodat de dropdown daarginds al goed
+       staat. Het sjabloon stelt dat adres niet zelf samen — `filterstand` komt uit
+       de route, want de knop die één stuk context liet vallen is precies waarom je
+       dezelfde activiteit drie keer moest kiezen. #}
+    {{ ui.btn_primary(_("+ Uploaden"), href="/admin/media/nieuw?" ~ filterstand) }}
   {% endcall %}
 
 
