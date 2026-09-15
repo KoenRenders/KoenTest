@@ -949,3 +949,32 @@ def test_de_bijlagen_staan_in_het_verslag(client, db_session):
     assert "draaiboek-kerstradio.pdf" in tekst
     assert "enkel-bij-de-agenda.pdf" not in tekst, \
         "een bijlage die niet met het verslag meegaat, hoort er ook niet in te staan"
+
+
+def test_de_wijkmeester_staat_op_papier(client, db_session):
+    """Niet alleen in het view-model: de PDF-tekst moet hem dragen.
+
+    Toetsen op het view-model zou ook groen staan met de regel weg uit de
+    template — precies de fout die de wijkmeester hier in de eerste plaats had.
+    """
+    from app.domains.mdm.api import Member, MemberPerson
+    from app.domains.meetings.api import set_noted_steward
+
+    _login(client)
+    wijkmeester = _person(db_session, "Ivo", "Verwimp")
+    hoofdlid = _person(db_session, "An", "Peeters")
+    gezin = Member()
+    db_session.add(gezin)
+    db_session.flush()
+    db_session.add(MemberPerson(member_id=gezin.id, person_id=hoofdlid.id,
+                                relation_type="HOOFDLID"))
+    db_session.flush()
+
+    meeting = create_meeting(db_session, meeting_date=date.today())
+    sectie = next(s for s in document_of(db_session, meeting) if s.kind == "MEMBERS")
+    set_noted_steward(db_session, meeting, sectie.items[0].id, wijkmeester.id)
+
+    tekst = _pdf_tekst(client.get(f"/admin/vergaderingen/{meeting.id}/pdf").content)
+    assert "An Peeters" in tekst
+    assert "wijkmeester: Ivo Verwimp" in tekst
+    assert "nieuw lid" in tekst
