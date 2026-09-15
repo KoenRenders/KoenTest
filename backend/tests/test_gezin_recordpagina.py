@@ -190,3 +190,21 @@ def test_opslaan_ververst_de_kop_out_of_band(client, db_session):
     assert r.status_code == 200
     assert 'id="gezin-recordkop" hx-swap-oob="true"' in r.text
     assert "Nieuwnaam Rita" in r.text
+
+
+def test_inschrijvingen_tab_overleeft_geschrapte_activiteit(client, db_session):
+    """Een inschrijving waarvan de activiteit soft-deleted is hoort de tab
+    niet te laten crashen (reg.activity is dan None door het
+    soft-delete-filter); ze verdwijnt uit de deelnamelijst."""
+    from datetime import datetime, timezone
+
+    from app.domains.activities.api import Activity
+
+    m, p, _ms, reg = _gezin(db_session)
+    db_session.query(Activity).filter(Activity.id == reg.activity_id).update(
+        {"deleted_at": datetime.now(timezone.utc)})
+    db_session.commit()
+    _login(client)
+    r = client.get(f"/admin/leden/gezin/{m.id}/inschrijvingen")
+    assert r.status_code == 200
+    assert "Nog geen inschrijvingen" in r.text

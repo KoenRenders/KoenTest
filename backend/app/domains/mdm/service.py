@@ -427,6 +427,11 @@ def family_registrations(db, family_id: int) -> list[dict]:
             .order_by(Registration.id.desc()).all())
     per_activiteit: dict = {}
     for reg in regs:
+        # Defensief: een inschrijving waarvan de activiteit niet meer zichtbaar
+        # is (soft-deleted) hoort de tab niet te laten crashen; ze staat dan
+        # ook niet in een deelnamelijst.
+        if reg.activity is None:
+            continue
         per_activiteit.setdefault(reg.activity, []).append(
             enrich_registration(reg, reg.activity))
 
