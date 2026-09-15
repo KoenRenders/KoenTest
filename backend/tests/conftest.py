@@ -52,6 +52,16 @@ def _migrate_schema():
         for schema in ("form", "workflow", "mail", "auth", "mdm", "payment", "membership", "activities", "cms", "ai", "media", "analytics", "reporting", "meetings", "public"):
             conn.exec_driver_sql(f"DROP SCHEMA IF EXISTS {schema} CASCADE")
         conn.exec_driver_sql("CREATE SCHEMA public")
+    # #951: eerst de keten lezen, dan pas draaien. Klopt ze niet, dan valt de
+    # hele suite om op `MultipleHeads` — en dat leest als "alles is kapot" terwijl
+    # het "één regel" is. De melding hoort te staan waar de schade ontstaat, niet
+    # in een test die er toch niet meer aan toekomt.
+    from tests._migratieketen import melding, problemen
+
+    fouten = problemen()
+    if fouten:
+        pytest.exit(melding(fouten), returncode=1)
+
     cfg = Config(os.path.join(os.path.dirname(os.path.dirname(__file__)), "alembic.ini"))
     command.upgrade(cfg, "head")
     yield

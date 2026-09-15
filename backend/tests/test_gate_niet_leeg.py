@@ -51,6 +51,11 @@ GATE_BESTANDEN = [
     "test_ui_conventions_gate.py",
     "test_style_guardrails.py",
     "test_import_boundaries.py",
+    # Geen `test_`-bestand: de migratiepoort (#951) leest haar bestanden in
+    # `_migratieketen.py`, omdat `conftest` diezelfde controle draait vóór
+    # `alembic upgrade head`. De glob staat daar, dus daar hoort de niet-leeg-
+    # controle ook gemeten te worden.
+    "_migratieketen.py",
 ]
 
 
