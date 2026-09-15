@@ -874,3 +874,39 @@ def test_de_pdf_kop_draagt_het_beginuur(client, db_session):
                              start_time=time(20, 0), location="Miloheem")
     antwoord = client.get(f"/admin/vergaderingen/{meeting.id}/pdf")
     assert antwoord.status_code == 200 and antwoord.content.startswith(b"%PDF-")
+
+
+# ── 20. De wijkmeester hoort in het verslag ──────────────────────────────────
+
+def test_de_genoteerde_wijkmeester_staat_in_het_document(db_session):
+    """Hij stond alleen op het scherm, als keuzelijst — dus niet in de PDF.
+
+    Het echte verslag schrijft "Groenvinkstraat 8 → wijkmeester: Ivo Verwimp";
+    zonder die regel is de notulering wel gemaakt maar nergens te lezen, en dan
+    heeft ze geen enkel nut.
+    """
+    from app.domains.mdm.api import Member, MemberPerson
+    from app.domains.meetings.api import set_noted_steward
+
+    wijkmeester = _person(db_session, "Ivo", "Verwimp")
+    # Een écht nieuw gezin, zodat de agenda het punt zelf genereert — dat is de
+    # weg die in de praktijk gelopen wordt, en meteen een toets op die generatie.
+    hoofdlid = _person(db_session, "An", "Peeters")
+    gezin = Member()
+    db_session.add(gezin)
+    db_session.flush()
+    db_session.add(MemberPerson(member_id=gezin.id, person_id=hoofdlid.id,
+                                relation_type="HOOFDLID"))
+    db_session.flush()
+
+    meeting = create_meeting(db_session, meeting_date=date.today())
+    sectie = next(s for s in document_of(db_session, meeting) if s.kind == "MEMBERS")
+    assert sectie.items, "het nieuwe gezin hoort automatisch op de agenda te staan"
+    punt = sectie.items[0]
+    assert "An Peeters" in punt.label
+
+    set_noted_steward(db_session, meeting, punt.id, wijkmeester.id)
+
+    getoond = next(i for s in document_of(db_session, meeting) for i in s.items
+                   if i.id == punt.id)
+    assert getoond.steward_name == "Ivo Verwimp"
