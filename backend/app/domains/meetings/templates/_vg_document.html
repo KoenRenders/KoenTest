@@ -131,6 +131,17 @@
            hx-target="#vg-document" hx-swap="innerHTML"
            class="text-ink-soft hover:text-ink" aria-label="{{ _("Kiezer sluiten") }}">{{ ui.icon("x", 16) }}</a>
       </div>
+      {# Het vrije punt staat BOVEN de lijst: negen van de tien keer is dat wat je
+         wil onder Varia of Programma-ideeën, en anders moest je eerst langs de
+         hele activiteitenlijst scrollen om erbij te komen. #}
+      <form class="mt-3 flex items-center gap-2" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt"
+            hx-target="#vg-document" hx-swap="innerHTML">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="section_id" value="{{ section.id }}">
+        {{ ui.input_control("title", cls="flex-1", placeholder=_("Typ een vrij punt")) }}
+        {{ ui.btn_secondary(_("Toevoegen"), type="submit", size="sm") }}
+      </form>
+      <p class="mt-3 text-xs text-ink-soft">{{ _("… of kies een activiteit die al in het portaal staat:") }}</p>
       <input type="search" name="q" value="{{ picker_query }}" placeholder="{{ _("Zoek een activiteit…") }}"
              class="mt-3 w-full rounded-lg border border-line px-3 py-2 text-sm"
              hx-get="/admin/vergaderingen/{{ meeting.id }}/kiezer" hx-target="#vg-document"
@@ -151,13 +162,6 @@
         <p class="text-sm text-ink-soft py-2">{{ _("Geen activiteiten gevonden die hier nog niet staan.") }}</p>
         {% endfor %}
       </div>
-      <form class="mt-3 flex items-center gap-2 border-t border-blue-200 pt-3"
-            hx-post="/admin/vergaderingen/{{ meeting.id }}/punt" hx-target="#vg-document" hx-swap="innerHTML">
-        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <input type="hidden" name="section_id" value="{{ section.id }}">
-        {{ ui.input_control("title", cls="flex-1", placeholder=_("… of typ een vrij punt")) }}
-        {{ ui.btn_secondary(_("Vrij punt toevoegen"), type="submit", size="sm") }}
-      </form>
     </div>
     {% else %}
     <div class="mt-3">

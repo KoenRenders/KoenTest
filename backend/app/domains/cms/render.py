@@ -22,7 +22,11 @@ _ALLOWED_TAGS = {
     "p", "br", "hr", "span", "div",
     "h1", "h2", "h3", "h4", "h5", "h6",
     "ul", "ol", "li",
-    "a", "strong", "b", "em", "i", "u", "s",
+    # `del` en `ins` horen bij "wat de WYSIWYG-editor produceert": Trix schrijft
+    # doorstreepte tekst als <del>. Stond er niet in, dus doorstrepen werkte in de
+    # editor en was na het opslaan spoorloos — in het CMS net zo goed als in de
+    # vergadernotities (#939, gemeten).
+    "a", "strong", "b", "em", "i", "u", "s", "del", "ins",
     "blockquote", "pre", "code",
     "img", "table", "thead", "tbody", "tr", "th", "td",
 }

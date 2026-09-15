@@ -23,15 +23,11 @@
 
   :root { --pdf-brand: #0051A4; --pdf-ink: #14171C; --pdf-soft: #52607A; --pdf-line: #D7E0EC; --pdf-faint: #8A94A6; }
 
-  /* Een vervolgkop op elke pagina waar een sectie doorloopt. `start` en niet
-     `first-except`: dat laatste kijkt of de string ergens op de pagina gezet
-     wordt, en pagina twee draagt meestal zelf ook koppen — dan bleef de vervolgkop
-     leeg, precies waar hij nodig was. `start` geeft de sectie die liep toen de
-     pagina begon; op pagina één is dat niets. De volledige tekst zit in de
-     string, zodat er nooit een kaal "— vervolg" verschijnt. */
-  @page { size: A4; margin: 20mm 16mm 20mm 16mm;
-          @top-left { content: string(sectie, start); font-family: Inter, sans-serif;
-                      font-size: 8.5pt; color: var(--pdf-faint); padding-bottom: 6pt; }
+  /* Geen vervolgkop bovenaan een doorlopende sectie (Koen, 15 september 2026):
+     het verslag is kort genoeg om de structuur zonder hulp te volgen, en de kop
+     kostte elke pagina een regel. De bovenmarge is een derde kleiner dan de
+     14 mm die hij hiervoor had — het document begon te ver van de rand. */
+  @page { size: A4; margin: 13mm 16mm 20mm 16mm;
           @bottom-right { content: counter(page); font-family: Inter, sans-serif;
                           font-size: 8.5pt; color: var(--pdf-soft); } }
 
@@ -57,7 +53,7 @@
   /* Ritme: veel lucht vóór een sectie, weinig erna — de kop hoort bij wat volgt. */
   h2 { font-size: 12pt; font-weight: 600; color: var(--pdf-brand); margin: 16pt 0 6pt 0;
        border-bottom: 1px solid var(--pdf-line); padding-bottom: 3pt;
-       break-after: avoid; string-set: sectie content() " — vervolg"; }
+       break-after: avoid; }
   h2:first-of-type { margin-top: 0; }
 
   /* Geen bolletje en geen zwaar vet meer: één item is één blok met lucht eromheen,
@@ -114,7 +110,13 @@
        Bolletjes blijven waar ze betekenis hebben — in de opsommingen van de
        verslagtekst zelf. Een gezinsnaam staat in gewone tekst: een lijst van
        volledig vette namen leest als een blok, niet als een lijst. #}
-    <div class="line"><span class="titel{% if section.kind == "MEMBERS" or item.kind == "member" %} licht{% endif %}">{{ item.label }}</span>{% if item.meta %} <span class="meta">| {{ item.meta }}</span>{% endif %}{% if item.is_full %} <span class="meta">({{ _("volzet") }})</span>{% endif %}</div>
+    <div class="line"><span class="titel">{{ item.label }}</span>{% if item.meta %} <span class="meta">{% if section.kind != "MEMBERS" %}| {% endif %}{{ item.meta }}</span>{% endif %}{% if section.kind == "MEMBERS" %} <span class="meta">({{ _("nieuw lid") }})</span>{% endif %}{% if item.is_full %} <span class="meta">({{ _("volzet") }})</span>{% endif %}</div>
+    {# De genoteerde wijkmeester staat als gewone verslagregel onder het lid, in
+       dezelfde zwarte tekst als elke andere notulering — het ís genotuleerde
+       inhoud, geen administratieve context (Koen, 15 september 2026). #}
+    {% if item.steward_name %}
+    <div class="notes">{{ _("wijkmeester") }}: {{ item.steward_name }}</div>
+    {% endif %}
     {# De notities zijn HTML uit de editor, al ontsmet bij het opslaan (één plek,
        zie service.update_item). WeasyPrint rendert lijsten en nadruk gewoon. #}
     {% if item.notes %}<div class="notes">{{ item.notes|safe }}</div>{% endif %}
