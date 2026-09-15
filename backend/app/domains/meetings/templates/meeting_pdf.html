@@ -27,7 +27,7 @@
   @font-face { font-family: "Inter"; src: url("fonts/Inter-Italic.otf"); font-weight: 400; font-style: italic; }
   @font-face { font-family: "Inter"; src: url("fonts/Inter-BoldItalic.otf"); font-weight: 700; font-style: italic; }
 
-  :root { --pdf-brand: #0051A4; --pdf-ink: #14171C; --pdf-soft: #52607A; --pdf-line: #D7E0EC; --pdf-faint: #8A94A6; }
+  :root { --pdf-brand: #0051A4; --pdf-ink: #14171C; --pdf-soft: #52607A; --pdf-line: #D7E0EC; --pdf-faint: #8A94A6; --pdf-code: #F3F6FA; }
 
   /* Geen vervolgkop bovenaan een doorlopende sectie (Koen, 15 september 2026):
      het verslag is kort genoeg om de structuur zonder hulp te volgen, en de kop
@@ -91,7 +91,7 @@
                                     color: var(--pdf-ink); margin: 5pt 0 2pt 0; }
   .notes blockquote { margin: 3pt 0 3pt 0; padding-left: 8pt;
                       border-left: 2pt solid var(--pdf-line); color: var(--pdf-soft); }
-  .notes pre { margin: 3pt 0; padding: 3pt 5pt; background: #F3F6FA;
+  .notes pre { margin: 3pt 0; padding: 3pt 5pt; background: var(--pdf-code);
                border: 0.5pt solid var(--pdf-line); border-radius: 2pt;
                font-family: "DejaVu Sans Mono", monospace; font-size: 9pt;
                white-space: pre-wrap; }
