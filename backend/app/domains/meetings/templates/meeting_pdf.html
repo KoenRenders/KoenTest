@@ -8,48 +8,83 @@
 <meta charset="utf-8">
 <title>{{ kind_label }} {{ date_label }}</title>
 <style>
-  /* De PDF laadt app.css niet — WeasyPrint krijgt één zelfstandig document. De
-     merkkleuren staan daarom hier als tokendefinitie, één keer, en de regels
-     eronder verwijzen ernaar. Zelfde waarden als in scripts/build-css.sh; zou
-     het merk ooit verschuiven, dan is dit de enige plek die meeverhuist. */
+  /* De merkfonts, rechtstreeks uit de statische map (#939). WeasyPrint rendert
+     los van de webserver, dus de bestanden komen via `base_url`; TTF en niet
+     woff2, want dat laatste heeft brotli nodig en die afhankelijkheid is het
+     niet waard. Winst: Inter heeft een échte SemiBold, en het verslag gebruikt
+     dezelfde letter als de beheerschermen. Zonder deze regels valt alles terug op
+     DejaVu, dat alleen Book en Bold kent — dan is "iets minder vet" onmogelijk.
+     Het merkfont staat er bewust NIET meer bij: het diende alleen het woordmerk,
+     en dat is nu een geüpload logo (Koen, 15 september 2026). */
+  @font-face { font-family: "Inter"; src: url("fonts/Inter-Regular.ttf"); font-weight: 400; }
+  @font-face { font-family: "Inter"; src: url("fonts/Inter-Medium.ttf"); font-weight: 500; }
+  @font-face { font-family: "Inter"; src: url("fonts/Inter-SemiBold.ttf"); font-weight: 600; }
+  @font-face { font-family: "Inter"; src: url("fonts/Inter-Bold.ttf"); font-weight: 700; }
+
   :root { --pdf-brand: #0051A4; --pdf-ink: #14171C; --pdf-soft: #52607A; --pdf-line: #D7E0EC; --pdf-faint: #8A94A6; }
-  @page { size: A4; margin: 18mm 16mm 20mm 16mm;
-          @bottom-right { content: counter(page); font-size: 9pt; color: var(--pdf-soft); } }
-  body { font-family: "Helvetica", "Arial", sans-serif; font-size: 10.5pt;
-         color: var(--pdf-ink); line-height: 1.45; }
+
+  /* Een vervolgkop op elke pagina waar een sectie doorloopt. `start` en niet
+     `first-except`: dat laatste kijkt of de string ergens op de pagina gezet
+     wordt, en pagina twee draagt meestal zelf ook koppen — dan bleef de vervolgkop
+     leeg, precies waar hij nodig was. `start` geeft de sectie die liep toen de
+     pagina begon; op pagina één is dat niets. De volledige tekst zit in de
+     string, zodat er nooit een kaal "— vervolg" verschijnt. */
+  @page { size: A4; margin: 20mm 16mm 20mm 16mm;
+          @top-left { content: string(sectie, start); font-family: Inter, sans-serif;
+                      font-size: 8.5pt; color: var(--pdf-faint); padding-bottom: 6pt; }
+          @bottom-right { content: counter(page); font-family: Inter, sans-serif;
+                          font-size: 8.5pt; color: var(--pdf-soft); } }
+
+  body { font-family: Inter, "Helvetica", sans-serif; font-size: 10.5pt;
+         color: var(--pdf-ink); line-height: 1.35; }
+
   .head { display: flex; justify-content: space-between; align-items: flex-start;
-          border-bottom: 2px solid var(--pdf-brand); padding-bottom: 8pt; margin-bottom: 14pt; }
-  .head h1 { font-size: 16pt; color: var(--pdf-brand); margin: 0 0 2pt 0; }
-  .head .sub { font-size: 10pt; color: var(--pdf-soft); }
-  .brand { font-size: 18pt; font-weight: bold; color: var(--pdf-brand); letter-spacing: -0.5pt; }
-  /* Het logo mag de kop niet domineren: hoogte begrensd, breedte volgt. */
+          border-bottom: 2px solid var(--pdf-brand); padding-bottom: 8pt; margin-bottom: 12pt; }
+  .head h1 { font-size: 16pt; font-weight: 700; color: var(--pdf-brand); margin: 0 0 2pt 0; }
+  .head .sub { font-size: 9.5pt; color: var(--pdf-soft); }
+  /* Het woordmerk als tekst is enkel nog de terugval voor een vereniging zonder
+     geüpload logo (#939): het merkfont is hier niet meer nodig, dus alles in
+     Inter — dezelfde letter als de beheerschermen. */
+  .brand { font-size: 18pt; font-weight: 700; color: var(--pdf-brand); letter-spacing: -0.5pt; }
   .logo { max-height: 42pt; max-width: 120pt; }
+
+  /* Aanwezigheid: een vaste labelkolom, zodat beide regels uitlijnen en het label
+     de naam niet raakt. 92pt is de breedte van "Verontschuldigd" plus lucht. */
   .people { font-size: 9.5pt; color: var(--pdf-ink); margin-bottom: 14pt; }
-  .people b { color: var(--pdf-soft); font-weight: normal; display: inline-block; width: 78pt; }
-  h2 { font-size: 12pt; color: var(--pdf-brand); margin: 14pt 0 5pt 0;
-       border-bottom: 1px solid var(--pdf-line); padding-bottom: 3pt; page-break-after: avoid; }
-  /* Hangend inspringen: een lange regel breekt af onder de TEKST en niet onder
-     het bolletje. Zonder dit begon "· 11 ingeschreven" tegen de linkermarge en
-     las de tweede regel als een nieuw punt. */
-  .item { margin: 0 0 6pt 0; padding-left: 12pt; text-indent: -12pt;
-          page-break-inside: avoid; }
-  .item .line { font-size: 10.5pt; }
-  .item .line b { font-weight: bold; }
-  .item .meta { color: var(--pdf-soft); }
-  /* Het bolletje markeert de regel, het hoeft niet te roepen: de vette naam doet
-     het werk al. Grijs en klein, zoals in het Google-Docs-verslag. */
-  .item .bullet { color: var(--pdf-soft); font-size: 8pt; vertical-align: 1pt; }
-  /* Geen eigen inspringing: het punt zelf hangt al in (padding-left 12pt met een
-     negatieve text-indent voor het bolletje), dus de notitie begint precies onder
-     de eerste letter van de titel. Een extra padding zette ze een stukje verder
-     naar rechts — zichtbaar scheef zodra je ernaar kijkt. */
-  .notes { margin: 2pt 0 0 0; color: var(--pdf-ink); font-size: 10pt;
-           text-indent: 0; padding-left: 0; }
-  .notes p { margin: 0 0 2pt 0; }
-  .notes ul, .notes ol { margin: 2pt 0; padding-left: 14pt; }
-  .notes li { margin: 0 0 1pt 0; }
-  .empty { color: var(--pdf-faint); font-style: italic; font-size: 10pt; }
-  .members-total { font-size: 9.5pt; font-weight: normal; color: var(--pdf-soft); }
+  .people div { display: flex; gap: 8pt; margin-bottom: 1.5pt; }
+  .people b { color: var(--pdf-soft); font-weight: 400; flex: 0 0 92pt; }
+
+  /* Ritme: veel lucht vóór een sectie, weinig erna — de kop hoort bij wat volgt. */
+  h2 { font-size: 12pt; font-weight: 600; color: var(--pdf-brand); margin: 16pt 0 6pt 0;
+       border-bottom: 1px solid var(--pdf-line); padding-bottom: 3pt;
+       break-after: avoid; string-set: sectie content() " — vervolg"; }
+  h2:first-of-type { margin-top: 0; }
+
+  /* Geen bolletje en geen zwaar vet meer: één item is één blok met lucht eromheen,
+     en de nadruk komt uit gewicht en grootte. `break-inside` staat bewust NIET op
+     avoid — een lange bespreking mag over een pagina lopen, anders ontstaan er
+     grote lege zones onderaan. De titel blijft wél bij zijn eerste regels. */
+  .item { margin: 0 0 9pt 0; }
+  .item .line { font-size: 10.5pt; break-after: avoid; }
+  .item .titel { font-weight: 600; }
+  .item .titel.licht { font-weight: 400; }
+  .item .meta { font-size: 9pt; color: var(--pdf-soft); }
+
+  /* De verslagtekst: iets ruimer van regelafstand dan de rest, want dit is wat
+     gelezen wordt. Eén marge per alinea — geen optelling van container, alinea en
+     lijst, want dan wordt de afstand willekeurig. */
+  .notes { margin: 4pt 0 0 0; font-size: 10.5pt; line-height: 1.38;
+           orphans: 2; widows: 2; }
+  .notes > *:first-child { margin-top: 0; }
+  .notes p, .notes div { margin: 0 0 3pt 0; }
+  .notes ul, .notes ol { margin: 3pt 0; padding-left: 13pt; }
+  .notes ul ul, .notes ol ol, .notes ul ol, .notes ol ul { margin: 2pt 0; padding-left: 12pt; }
+  .notes li { margin: 0 0 2pt 0; }
+  .notes li > p { margin: 0; }
+
+  .empty { color: var(--pdf-faint); font-style: italic; font-size: 9.5pt; margin: 0 0 9pt 0; }
+  .members-total { font-family: Inter, sans-serif; font-size: 9pt; font-weight: 400;
+                   color: var(--pdf-soft); }
 </style>
 </head>
 <body>
@@ -75,7 +110,11 @@
   {% endif %}
   {% for item in section.items %}
   <div class="item">
-    <div class="line"><span class="bullet">●</span> <b>{{ item.label }}</b>{% if item.meta %} <span class="meta">| {{ item.meta }}</span>{% endif %}{% if item.is_full %} <span class="meta">({{ _("volzet") }})</span>{% endif %}</div>
+    {# Geen bolletje vóór een activiteit of een gezin: de titel draagt het item al.
+       Bolletjes blijven waar ze betekenis hebben — in de opsommingen van de
+       verslagtekst zelf. Een gezinsnaam staat in gewone tekst: een lijst van
+       volledig vette namen leest als een blok, niet als een lijst. #}
+    <div class="line"><span class="titel{% if section.kind == "MEMBERS" or item.kind == "member" %} licht{% endif %}">{{ item.label }}</span>{% if item.meta %} <span class="meta">| {{ item.meta }}</span>{% endif %}{% if item.is_full %} <span class="meta">({{ _("volzet") }})</span>{% endif %}</div>
     {# De notities zijn HTML uit de editor, al ontsmet bij het opslaan (één plek,
        zie service.update_item). WeasyPrint rendert lijsten en nadruk gewoon. #}
     {% if item.notes %}<div class="notes">{{ item.notes|safe }}</div>{% endif %}
