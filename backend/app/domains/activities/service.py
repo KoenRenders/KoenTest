@@ -944,6 +944,8 @@ def inschrijving_kop_ctx(db, registration_id: int, viewer_email: str,
         label = _("Betalingen")
     elif pad.startswith("/admin/activiteiten"):
         label = titel
+    elif pad.startswith("/admin/leden"):
+        label = _("Gezin")
     else:
         label = _("Terug")
     return {

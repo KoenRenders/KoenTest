@@ -1,11 +1,10 @@
 """Golf 9 (#913): het gezin als recordpagina — zelfde patroon als de activiteit.
 
 Recordkop met het gezinslabel (hoofdlid, uit één bron: family_label) en tabs
-Overzicht · Betalingen N (FINANCE, #544) · Wijzigingen. De Betalingen-tab is
-het gewone betalingenscherm gescopeerd op de payable-verzameling van het
-gezin (lidmaatschappen + inschrijvingen van zijn personen, incl. de
-e-mail-terugval voor gastinschrijvingen); de Wijzigingen-tab filtert de
-audit-feed op het member_id dat de resolver nu meedraagt — nooit op naam.
+Overzicht · Inschrijvingen N · Betalingen N (#544). Beide tabs putten uit
+dezelfde payable-verzameling van het gezin (inschrijvingen van zijn personen,
+incl. de e-mail-terugval voor gastinschrijvingen); de Wijzigingen-tab verviel
+op Koens vraag (15 sep).
 """
 from decimal import Decimal
 
@@ -65,7 +64,12 @@ def test_recordkop_draagt_label_tabs_en_verwijderen(client, db_session):
     assert "Recordmans Rita" in html  # gezinslabel = hoofdlid, zoals de lijst
     assert f"{_('Gezin') if False else 'Gezin'} #{m.id}" in html
     assert ">Overzicht</a>" in html
-    assert f'href="/admin/leden/gezin/{m.id}/wijzigingen"' in html
+    # De Wijzigingen-tab verviel op Koens vraag (15 sep); Inschrijvingen
+    # kwam ervoor in de plaats — met het aantal (één inschrijving gezaaid).
+    # ("Wijzigingen" als woord staat nog in de linkernav — die blijft.)
+    assert f"/admin/leden/gezin/{m.id}/wijzigingen" not in html
+    assert f'href="/admin/leden/gezin/{m.id}/inschrijvingen"' in html
+    assert "Inschrijvingen 1" in html
     # De oude Gezin#-kaart is weg; Verwijderen zit in de kop.
     assert ">Verwijderen<" in html
     # De gezaaide beheerder draagt FINANCE (migratie 056) → Betalingen-tab
@@ -110,23 +114,39 @@ def test_gezin_deeplink_toont_zichtbare_scope(client, db_session):
     assert "Alle bekijken" in html
 
 
-def test_wijzigingen_tab_filtert_op_dit_gezin(client, db_session):
-    from app.domains.audit.api import snapshot_person
-
-    m, p, _ms, _reg = _gezin(db_session)
-    ander, q, *_r = _gezin(db_session, achternaam="Anderman", voornaam="Bert")
-    snapshot_person(db_session, p, operation="update", action="person_updated",
-                    source="test", actor="tester@example.com")
-    snapshot_person(db_session, q, operation="update", action="person_updated",
-                    source="test", actor="tester@example.com")
+def test_inschrijvingen_tab_groepeert_per_activiteit(client, db_session):
+    """De Inschrijvingen-tab (verving Wijzigingen, 15 sep): de inschrijvingen
+    van dit gezin — via zijn personen — per activiteit, met de groepskop als
+    link naar de activiteitpagina en een Details-knop per rij. Een ander
+    gezin lekt niet mee de scope in."""
+    m, p, _ms, reg = _gezin(db_session)
+    ander, *_r = _gezin(db_session, achternaam="Anderman", voornaam="Bert")
     db_session.commit()
     _login(client)
-    html = client.get(f"/admin/leden/gezin/{m.id}/wijzigingen?since=2000-01-01").text
+    html = client.get(f"/admin/leden/gezin/{m.id}/inschrijvingen").text
 
-    assert "Recordmans" in html
-    assert "Anderman" not in html, "de feed lekt een ander gezin de scope in"
-    # De sorteerlinks blijven binnen de tab (basis-parameter).
-    assert f'href="/admin/leden/gezin/{m.id}/wijzigingen?' in html
+    assert "Rita Recordmans" in html          # de rij (contact_name)
+    assert "Anderman" not in html, "een ander gezin lekt de scope in"
+    assert f'href="/admin/activiteiten/{reg.activity_id}"' in html  # groepskop
+    assert ">Details<" in html
+    assert f"/admin/inschrijvingen/{reg.id}?terug=" in html
+    # De oude Wijzigingen-tab is echt weg, niet enkel verstopt.
+    assert client.get(
+        f"/admin/leden/gezin/{m.id}/wijzigingen").status_code == 404
+
+
+def test_leesmodus_toont_ook_het_geslacht(client, db_session):
+    """Alle invulbare velden zichtbaar in leesmodus (Koen, 15 sep): het
+    geslacht ontbrak als enige op de persoonskaart."""
+    from datetime import date as _date
+
+    m, p, *_rest = _gezin(db_session)
+    p.date_of_birth = _date(1980, 1, 1)
+    p.gender_code = "M"
+    db_session.commit()
+    _login(client)
+    html = client.get(f"/admin/leden/gezin/{m.id}").text
+    assert "° 01-01-1980 · Man" in html
 
 
 def test_family_label_valt_terug_op_het_nummer(db_session):

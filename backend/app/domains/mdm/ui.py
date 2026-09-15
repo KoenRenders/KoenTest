@@ -204,20 +204,20 @@ def gezin_detail(family_id: int, request: Request, db: Session = Depends(get_db)
         "record_tabs": gezin_tabs(db, ctx["family"], email, "overzicht")})
 
 
-@router.get("/admin/leden/gezin/{family_id}/wijzigingen",
+@router.get("/admin/leden/gezin/{family_id}/inschrijvingen",
             response_class=HTMLResponse)
-def gezin_wijzigingen_tab(family_id: int, request: Request,
-                          since: str = "", page: int = 1,
-                          sort: str = "wanneer", richting: str = "desc",
-                          db: Session = Depends(get_db),
-                          email: str = Depends(require_admin_ui)):
-    """De Wijzigingen-tab van de gezinspagina (golf 9, #913): het gewone
-    audit-logboek, gescopeerd op dit gezin via het member_id dat de feed nu
-    meedraagt — nooit op naam of adres. Hergebruikt wijzigingen_ctx (sortering,
-    paginering, spronglinks) met deze tab als basisadres."""
+def gezin_inschrijvingen_tab(family_id: int, request: Request,
+                             db: Session = Depends(get_db),
+                             email: str = Depends(require_admin_ui)):
+    """De Inschrijvingen-tab van de gezinspagina (Koen, 15 sep — verving de
+    Wijzigingen-tab): wat dit gezin ingeschreven heeft, per activiteit
+    gegroepeerd, op basis van de personen van het gezin (person_id én de
+    e-mail-terugval voor gastinschrijvingen — dezelfde ene bron als de
+    Betalingen-tab)."""
+    from urllib.parse import quote
+
     from app.domains.membership.api import get_family
-    from app.domains.mdm.api import gezin_tabs
-    from app.ui.changes_ui import wijzigingen_ctx
+    from app.domains.mdm.api import family_registrations, gezin_tabs
 
     try:
         family = get_family(db, family_id)
@@ -225,14 +225,17 @@ def gezin_wijzigingen_tab(family_id: int, request: Request,
         family = None
     if family is None:
         raise HTTPException(status_code=404, detail=_("Gezin niet gevonden"))
-    ctx = wijzigingen_ctx(request, db, since, "", "", page, sort, richting,
-                          member_id=family_id,
-                          basis=f"/admin/leden/gezin/{family_id}/wijzigingen")
-    ctx["nav_items"] = NAV
-    ctx["family"] = family
-    ctx["record_tabs"] = gezin_tabs(db, family, email, "wijzigingen")
+    groepen = family_registrations(db, family_id)
     return templates.TemplateResponse(
-        request, "admin_gezin_wijzigingen.html", ctx)
+        request, "admin_gezin_inschrijvingen.html", {
+            "nav_items": NAV, "family": family,
+            "record_tabs": gezin_tabs(db, family, email, "inschrijvingen"),
+            "groepen": groepen,
+            "totaal": sum(g["aantal"] for g in groepen),
+            "terug": quote(f"/admin/leden/gezin/{family_id}/inschrijvingen",
+                           safe=""),
+            "csrf_token": csrf_from_request(request),
+        })
 
 
 # ── Mutaties (allemaal: sessie + CSRF; herrenderen het detail) ─────────────────
