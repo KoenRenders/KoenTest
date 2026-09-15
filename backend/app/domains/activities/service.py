@@ -873,7 +873,7 @@ def record_tabs(db, activiteit, viewer_email: str, actief: str, *,
     importeren zelf uit activities.
     """
     from app.i18n import _
-    from app.domains.auth.api import get_user_roles
+    from app.domains.auth.api import may_view_payments
     from app.domains.payment.api import count_registration_records_by_activity
 
     if reg_count is None:
@@ -886,7 +886,7 @@ def record_tabs(db, activiteit, viewer_email: str, actief: str, *,
          "href": f"/admin/activiteiten/{activiteit.id}/inschrijvingen",
          "active": actief == "inschrijvingen"},
     ]
-    if "FINANCE" in get_user_roles(db, viewer_email):
+    if may_view_payments(db, viewer_email):
         n = count_registration_records_by_activity(db, activiteit.id)
         tabs.append({"label": _("Betalingen") + f" {n}",
                      "href": f"/admin/activiteiten/{activiteit.id}/betalingen",

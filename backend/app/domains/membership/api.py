@@ -47,7 +47,7 @@ __all__ = [
     "LidgegevensFout", "controleer_geboortedatum_en_geslacht",
     # Schrijfbewerkingen op gezinnen/personen/lidmaatschappen (#635 H)
     "add_person_to_family", "assign_board_member", "create_member",
-    "create_membership_for_family", "delete_family", "delete_membership", "delete_person", "get_family",
+    "create_membership_for_family", "delete_family", "delete_membership", "delete_person", "family_label", "get_family",
     "list_families", "update_person", "update_person_address",
     "update_person_contacts",
     # Schemas (#444)
@@ -126,6 +126,7 @@ from app.domains.membership.household_service import (  # noqa: F401
     delete_family,
     delete_membership,
     delete_person,
+    family_label,
     get_family,
     list_families,
     update_person,

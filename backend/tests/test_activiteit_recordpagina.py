@@ -46,16 +46,17 @@ def test_overzicht_draagt_tabs_met_aantallen(client, db_session):
     assert f'href="/admin/activiteiten/{activity.id}/inschrijvingen"' in html
 
 
-def test_zonder_finance_geen_betalingen_tab(client, db_session):
-    """Een tab die op een 403 uitkomt is erger dan geen tab (#544). De
-    gezaaide beheerder draagt FINANCE (migratie 056), dus dit toetst met het
-    bestuurslid — ADMIN zonder FINANCE (migratie 014)."""
+def test_admin_zonder_finance_ziet_de_betalingen_tab_wel(client, db_session):
+    """Herzien in golf 9: betalingen BEKIJKEN mag voor ADMIN/FINANCE/OPERATOR
+    (require_finance_ui) — de golf 8-gating op FINANCE alleen was te streng en
+    verstopte de tab voor een gewone ADMIN terwijl het scherm gewoon opende.
+    De tab volgt nu exact dezelfde vraag als de poort (may_view_payments)."""
     activity, component = _activiteit_met_inschrijvingen(client, db_session)
     waarde = make_session_value("bestuurslid@example.com")
     client.cookies.set(SESSION_COOKIE, waarde)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
     assert "Inschrijvingen 2" in html
-    assert f"/admin/activiteiten/{activity.id}/betalingen" not in html
+    assert f"/admin/activiteiten/{activity.id}/betalingen" in html
 
 
 def test_finance_ziet_de_betalingen_tab(client, db_session):

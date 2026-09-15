@@ -39,6 +39,6 @@
    hier halen we de lijst opnieuw op mét de huidige filterstand. #}
 <div id="betalingen-lijst"
      hx-get="/admin/betalingen/lijst" hx-trigger="betalingen-ververst from:body"
-     hx-include="[name='q'],[name='status'],[name='context'],[name='inschrijving'],[name='activiteit'],[name='record']" hx-swap="innerHTML">
+     hx-include="[name='q'],[name='status'],[name='context'],[name='inschrijving'],[name='activiteit'],[name='gezin'],[name='record']" hx-swap="innerHTML">
   {% include "_betalingen_lijst.html" %}
 </div>

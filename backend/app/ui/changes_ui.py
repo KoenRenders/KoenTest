@@ -47,15 +47,20 @@ _SORT_VELDEN = {
 }
 
 
-def _ctx(request: Request, db: Session, since: str, group: str, actor: str,
-         page: int = 1, sort: str = "wanneer", richting: str = "desc") -> dict:
+def wijzigingen_ctx(request: Request, db: Session, since: str, group: str, actor: str,
+                    page: int = 1, sort: str = "wanneer", richting: str = "desc",
+                    member_id: int | None = None,
+                    basis: str = "/admin/ledenwijzigingen") -> dict:
     from app.domains.audit.api import GROUPS, all_changes_since
 
     vanaf = _since(since)
     # #512 (v1.4-pariteit): één algemeen audit-logboek als primaire, gefilterde
     # tabel. De ledendata-mutaties voor Raak Nationaal blijven als .ods-export
     # (aparte route), niet meer als altijd-zichtbare tabel bovenaan.
-    alle = all_changes_since(db, vanaf, group=group or None, actor=actor or None)
+    # Golf 9 (#913): member_id scoopt de feed op één gezin (de tab op de
+    # gezinspagina); basis laat de sorteerlinks binnen die tab blijven.
+    alle = all_changes_since(db, vanaf, group=group or None, actor=actor or None,
+                             member_id=member_id)
 
     # Paginering (#620). Bewust ná het sorteren en in Python: all_changes_since()
     # verenigt ~10 history-tabellen in Python, dus een server-side LIMIT/OFFSET op
@@ -88,7 +93,7 @@ def _ctx(request: Request, db: Session, since: str, group: str, actor: str,
         else:
             volgende = "desc" if key == "wanneer" else "asc"
         params.update({"sort": key, "richting": volgende})
-        return "/admin/ledenwijzigingen?" + urlencode(params)
+        return f"{basis}?" + urlencode(params)
 
     totaal = len(alle)
     page = max(1, page)
@@ -98,7 +103,7 @@ def _ctx(request: Request, db: Session, since: str, group: str, actor: str,
     # pagina van het record — alleen voor entiteiten die er een hébben; de rest
     # blijft tekst. De inschrijvingspagina kent P3, dus alleen die sprong draagt
     # de weg terug naar dit scherm mét zijn filter- en sorteerstand.
-    terug = quote("/admin/ledenwijzigingen?" + urlencode(
+    terug = quote(f"{basis}?" + urlencode(
         {k: v for k, v in (("since", since), ("group", group), ("actor", actor),
                            ("sort", sort), ("richting", richting),
                            ("page", page if page > 1 else "")) if v}), safe="")
@@ -128,7 +133,7 @@ def admin_ledenwijzigingen(request: Request, since: str = "", group: str = "",
                            sort: str = "wanneer", richting: str = "desc",
                            db: Session = Depends(get_db),
                            email: str = Depends(require_admin_ui)):
-    ctx = _ctx(request, db, since, group, actor, page, sort, richting)
+    ctx = wijzigingen_ctx(request, db, since, group, actor, page, sort, richting)
     template = ("_lw_inhoud.html" if is_fragment_request(request)
                 else "admin_ledenwijzigingen.html")
     if template == "admin_ledenwijzigingen.html":

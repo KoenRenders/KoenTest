@@ -4,6 +4,7 @@
 {# Paginabrede gezinseditor (C1, #582): de kaart-klik landt hier. De bewerkingen
    binnen het gezin blijven htmx-fragmenten die #leden-detail vervangen. #}
 <p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/leden">{{ _("‹ Alle leden") }}</a></p>
+{% include "_leden_recordkop.html" %}
 <div id="leden-detail">
   {% include "_leden_detail.html" %}
 </div>

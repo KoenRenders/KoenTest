@@ -133,6 +133,18 @@ def _confirm_attrs(type_label, name) -> str:
 templates.env.globals["confirm_attrs"] = _confirm_attrs
 
 
+# Gezinslabel (golf 9, #913): één bron voor "hoe heet dit gezin op het scherm"
+# — de HOOFDLID-selectie stond in vijf kopieën (Jinja, mdm/ui 2x,
+# payment-verrijking, audit-resolver).
+def _gezinslabel(family) -> str:
+    from app.domains.membership.api import family_label
+
+    return family_label(family)
+
+
+templates.env.globals["gezinslabel"] = _gezinslabel
+
+
 # A7 (#913, golf 4): "de weg terug" is een gevalideerde INTERNE retourcontext, nooit
 # de Referer-header. Een `?terug=`-parameter komt uit de URL en is dus door de
 # gebruiker (of een mail-link) te vervalsen: zonder validatie wordt de terugknop een

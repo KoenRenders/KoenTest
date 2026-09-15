@@ -35,10 +35,8 @@
 {% endmacro %}
 
 <div class="space-y-4">
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4 flex items-center justify-between">
-    <h2 class="font-bold text-lg">{{ _("Gezin") }} #{{ family.id }}</h2>
-    {{ ui.btn_danger(_("Verwijderen"), attrs='hx-post="/admin/leden/gezin/' ~ family.id ~ '/verwijderen" ' ~ confirm_attrs(_("Gezin"), "#" ~ family.id)) }}
-  </div>
+  {# De Gezin#-kaart verdween in golf 9: de recordkop (_leden_recordkop.html)
+     draagt naam, nummer, adres én Verwijderen. #}
 
   <div class="flex items-center justify-between" x-data>
     <h3 class="font-semibold text-gray-700">{{ _("Gezinsleden") }}</h3>
