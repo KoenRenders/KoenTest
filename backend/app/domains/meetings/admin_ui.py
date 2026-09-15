@@ -263,6 +263,38 @@ def circle_add(request: Request, db: Session = Depends(get_db),
                                       _circle_view(request, db).as_context())
 
 
+@router.post("/admin/vergaderingen/kring/nieuw", response_class=HTMLResponse,
+             dependencies=[Depends(require_csrf)])
+def circle_new_person(request: Request, db: Session = Depends(get_db),
+                      _email: str = Depends(require_admin_ui),
+                      first_name: str = Form(""), last_name: str = Form(""),
+                      person_email: str = Form("")):
+    """Iemand in de kring die (nog) geen lid is — de afdelingsondersteuner.
+
+    Maakt een persoon zonder gezin aan. Tot nu liep élk pad naar een nieuwe
+    persoon via een gezin, dus een niet-lid bestond niet en kon dus ook niet in de
+    kring (#939).
+    """
+    from app.domains.mdm.api import create_person_for_circle, platform_org
+
+    organization = platform_org(db)
+    if organization is None:
+        return templates.TemplateResponse(
+            request, "_vg_kring.html",
+            _circle_view(request, db,
+                         error=_("Er is nog geen organisatie ingesteld.")).as_context())
+    try:
+        create_person_for_circle(db, first_name=first_name, last_name=last_name,
+                                 email=person_email, organization_id=organization.id)
+    except ValueError:
+        return templates.TemplateResponse(
+            request, "_vg_kring.html",
+            _circle_view(request, db,
+                         error=_("Vul minstens een naam in.")).as_context())
+    return templates.TemplateResponse(request, "_vg_kring.html",
+                                      _circle_view(request, db).as_context())
+
+
 @router.post("/admin/vergaderingen/kring/{relation_id}/beeindigen",
              response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 def circle_end(relation_id: int, request: Request, db: Session = Depends(get_db),
