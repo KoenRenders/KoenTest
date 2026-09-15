@@ -862,6 +862,58 @@ def registrations_without_component_count(db, activity_id: int) -> int:
             .scalar() or 0)
 
 
+def record_tabs(db, activiteit, viewer_email: str, actief: str, *,
+                reg_count: int | None = None) -> list[dict]:
+    """De tabbalk van de activiteit-recordpagina (golf 8, #913) — P13 in
+    tabvorm: elke tab een bestaand lijstscherm in de scope van dit record.
+
+    Betalingen alleen voor wie ze mag zien (#544: +FINANCE) — een tab die op
+    een 403 uitkomt is erger dan geen tab; sinds Koens feedbackronde wijst hij
+    naar de INGEBEDDE pagina onder het record. Lokale imports: auth en payment
+    importeren zelf uit activities.
+    """
+    from app.i18n import _
+    from app.domains.auth.api import get_user_roles
+    from app.domains.payment.api import count_registration_records_by_activity
+
+    if reg_count is None:
+        reg_count = registration_count_for(db, activiteit.id)
+    tabs = [
+        {"label": _("Overzicht"),
+         "href": f"/admin/activiteiten/{activiteit.id}",
+         "active": actief == "overzicht"},
+        {"label": _("Inschrijvingen") + f" {reg_count}",
+         "href": f"/admin/activiteiten/{activiteit.id}/inschrijvingen",
+         "active": actief == "inschrijvingen"},
+    ]
+    if "FINANCE" in get_user_roles(db, viewer_email):
+        n = count_registration_records_by_activity(db, activiteit.id)
+        tabs.append({"label": _("Betalingen") + f" {n}",
+                     "href": f"/admin/activiteiten/{activiteit.id}/betalingen",
+                     "active": actief == "betalingen"})
+    return tabs
+
+
+def registration_count_for(db, activity_id: int) -> int:
+    """Alleen het aantal (golf 8, #913) — één rij, hoe groot de lijst ook is;
+    de query-budget-gate (#651) rekent in opgehaalde rijen."""
+    from sqlalchemy import func as _func
+
+    return db.query(_func.count(Registration.id)).filter(
+        Registration.activity_id == activity_id).scalar() or 0
+
+
+def registration_ids_for(db, activity_id: int) -> list[int]:
+    """Alleen de ids van de inschrijvingen van één activiteit (golf 8, #913).
+
+    Voor tellers en scopes: de recordpagina en de betalingen-activiteitscope
+    hebben geen verrijking nodig, en de query-budget-gate (#651) bewaakt dat
+    het detailscherm niet de hele boom ophaalt."""
+    return [rij[0] for rij in
+            db.query(Registration.id)
+            .filter(Registration.activity_id == activity_id).all()]
+
+
 def enrich_registration(reg, activity) -> dict:
     """Eén inschrijving met de namen erbij die het scherm toont (#679, batch 6).
 
@@ -889,6 +941,7 @@ def enrich_registration(reg, activity) -> dict:
         "id": reg.id,
         "activity_id": reg.activity_id,
         "component_id": reg.component_id,
+        "component_name": component_name,
         "person_id": reg.person_id,
         "registered_at": reg.registered_at,
         "contact_name": reg.contact_name,
@@ -902,7 +955,8 @@ def enrich_registration(reg, activity) -> dict:
 
 
 def registrations_for(db, activity_id: int, *, component_id: Optional[int] = None,
-                      without_component: bool = False) -> Optional[list[dict]]:
+                      without_component: bool = False,
+                      alle: bool = False) -> Optional[list[dict]]:
     """De inschrijvingen van één activiteit, verrijkt. None als ze niet bestaat.
 
     Expliciete, stabiele sortering (#285): zonder ORDER BY geeft Postgres de rijen
@@ -919,7 +973,11 @@ def registrations_for(db, activity_id: int, *, component_id: Optional[int] = Non
     if activity is None:
         return None
     vraag = db.query(Registration).filter(Registration.activity_id == activity.id)
-    if without_component:
+    # Golf 8 (#913): `alle` overstijgt de twee filters — de recordpagina toont
+    # één lijst over alle onderdelen heen, mét Onderdeel-kolom.
+    if alle:
+        pass
+    elif without_component:
         vraag = vraag.filter(Registration.component_id.is_(None))
     elif component_id is not None:
         vraag = vraag.filter(Registration.component_id == component_id)
@@ -1049,3 +1107,8 @@ def _booked_per_component(db, activity_ids: list[int]) -> dict[int, int]:
             .group_by(Registration.component_id)
             .all())
     return {component_id: int(quantity or 0) for component_id, quantity in rows}
+
+
+# Publieke naam (golf 8, #913): de recordpagina leest de bezetting via de
+# facade; de router-doorgang blijft voor zijn vier bestaande aanroepers.
+booked_per_component = _booked_per_component

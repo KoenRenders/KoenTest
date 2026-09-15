@@ -36,6 +36,7 @@ module.exports = {
       blue: {50:'rgb(var(--c-blue-50) / <alpha-value>)', 100:'rgb(var(--c-blue-100) / <alpha-value>)', 200:'rgb(var(--c-blue-200) / <alpha-value>)', 300:'rgb(var(--c-blue-300) / <alpha-value>)', 400:'rgb(var(--c-blue-400) / <alpha-value>)', 500:'rgb(var(--c-blue-500) / <alpha-value>)', 600:'rgb(var(--c-blue-600) / <alpha-value>)', 700:'rgb(var(--c-blue-700) / <alpha-value>)', 800:'rgb(var(--c-blue-800) / <alpha-value>)', 900:'rgb(var(--c-blue-900) / <alpha-value>)', 950:'rgb(var(--c-blue-950) / <alpha-value>)'},
       brand: {DEFAULT:'rgb(var(--c-brand) / <alpha-value>)', 'ocean':'rgb(var(--c-brand-ocean) / <alpha-value>)', 'ocean-hover':'rgb(var(--c-brand-ocean-hover) / <alpha-value>)', 'accent':'rgb(var(--c-brand-accent) / <alpha-value>)', 'indigo':'rgb(var(--c-brand-indigo) / <alpha-value>)', 'green':'rgb(var(--c-brand-green) / <alpha-value>)', 'teal':'rgb(var(--c-brand-teal) / <alpha-value>)', 'danger':'rgb(var(--c-brand-danger) / <alpha-value>)', 'warning':'rgb(var(--c-brand-warning) / <alpha-value>)', 'pink':'rgb(var(--c-brand-pink) / <alpha-value>)'},
       link: 'rgb(var(--c-link) / <alpha-value>)',
+      kop: 'rgb(var(--c-kop) / <alpha-value>)',
       ink: {DEFAULT:'rgb(var(--c-ink) / <alpha-value>)', 'soft':'rgb(var(--c-ink-soft) / <alpha-value>)'},
       line: 'rgb(var(--c-line) / <alpha-value>)', ground: 'rgb(var(--c-ground) / <alpha-value>)',
       surface: {DEFAULT:'rgb(var(--c-surface) / <alpha-value>)', 2:'rgb(var(--c-surface-2) / <alpha-value>)'},
@@ -95,6 +96,13 @@ cat > "$TMP/in.css" << 'CSS'
         --c-link:36 75 197;
         --c-ink:25 38 56;--c-ink-soft:83 97 116;
         --c-line:210 217 227;--c-ground:244 246 250;--c-surface-2:239 243 250}
+  /* Kopkleur per schil (golf 8-feedbackronde 3, 15 sep 2026): het beheer volgt
+     de Cobalt-mockup — koppen in ink, blauw is voor acties/links/selectie. De
+     publieke schil houdt de merkblauwe koppen tot de golf 10-tokenronde die
+     kant expliciet langsgaat. Templates schrijven text-kop en weten van geen
+     schil. */
+  body[data-shell="site"]{--c-kop:36 75 197}
+  body[data-shell="admin"]{--c-kop:25 38 56}
   html{font-family:Inter,system-ui,sans-serif}
   /* Koppen in Inter (golf 1 variant B, door Koen gekozen op het
      goedkeuringspakket; golf 2 trok de beheerschil bij — één typografie,

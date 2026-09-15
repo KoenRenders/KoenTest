@@ -81,7 +81,8 @@ def test_activiteit_geneste_producten_paneel(client, db_session):
     activity, component, product = seed_activity_with_product(db_session)
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
-    assert ">Onderdelen<" in html            # sectiekop
+    # _() levert Markup, dus de & staat rauw in de uitvoer (#514-familie).
+    assert ">Onderdelen & producten<" in html  # sectiekop, feedbackronde 15 sep
     assert ">Producten<" in html             # nested_panel-mini-kop
     assert "border-l-2 border-blue-200" in html  # geneste-paneel-inspringing
     assert product.name in html
@@ -115,25 +116,23 @@ def test_admin_inschrijvingen_en_export(client, db_session):
                 data={"contact_name": "Jef", "contact_email": "jef@example.com",
                       "phone": "047", f"product_{product.id}": "1",
                       "payment_method": "OVERSCHRIJVING"})
-    # #650: de lijst hangt aan het onderdeel, niet meer aan de activiteit — anders
-    # zie je bij meerdere onderdelen niet waarvoor iemand ingeschreven is. Het
-    # activiteitniveau toont sindsdien enkel de inschrijvingen zónder onderdeel.
-    lijst = client.get(
-        f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}/inschrijvingen")
+    # Ronde 2 (15 sep): één tabpagina, per onderdeel gegroepeerd — de
+    # #650-waarborg (zien waarvoor iemand ingeschreven is) zit in de groepskop.
+    lijst = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen")
     assert lijst.status_code == 200 and "Jef" in lijst.text
-    # #510: elke rij heeft nu een "Bewerken" die de gedeelde editor in-lijn laadt
-    # (detail_disclosure → /admin/inschrijvingen/{id}/fragment sinds golf 4,
-    # #913 — de kale id-URL is van de volwaardige pagina), naast "Verwijder".
+    # Feedbackronde 15 sep (golf 8): de rij draagt één "Bewerken" die de
+    # inschrijvingspagina meteen in bewerkmodus opent; Details en direct
+    # Verwijderen zijn vervallen — verwijderen zit op de pagina, achter de
+    # bewerkklik, uiterst links in het cluster.
     from app.domains.activities.api import Registration
     reg = db_session.query(Registration).filter(Registration.contact_name == "Jef").one()
-    # #676: de rijknop heet "Details" — ze vouwt het paneel open, ze bewerkt niets.
-    # De bewerkstand zit ín dat paneel, met zijn eigen toggle.
-    assert ">Details<" in lijst.text
-    assert f'hx-get="/admin/inschrijvingen/{reg.id}/fragment"' in lijst.text
-    assert ">Verwijderen<" in lijst.text
-    # B2 (golf 4): de recordnaam zelf opent de pagina, met de A7-retourcontext.
-    assert (f'href="/admin/inschrijvingen/{reg.id}'
-            f'?terug=/admin/activiteiten/{activity.id}"') in lijst.text
+    assert ">Bewerken<" in lijst.text
+    assert f'href="/admin/inschrijvingen/{reg.id}?bewerk=1' in lijst.text
+    assert ">Details<" not in lijst.text
+    assert ">Verwijderen<" not in lijst.text
+    # B2 (golf 4): de recordnaam zelf opent de pagina (leesmodus), met A7 —
+    # de terugweg is sinds ronde 2 de tab-URL mét sorteerstand (ge-encodeerd).
+    assert f'href="/admin/inschrijvingen/{reg.id}?terug=' in lijst.text
 
     export = client.get(f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}/export")
     assert export.status_code == 200

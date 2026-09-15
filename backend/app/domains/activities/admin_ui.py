@@ -120,16 +120,11 @@ def _aa_detail_ctx(request: Request, db: Session, activiteit, error: str | None 
     Beide bouwden hun eigen dict, en zo'n paar drift: #650 voegde één sleutel toe
     en de paginaroute rende meteen op StrictUndefined.
     """
-    from app.domains.activities.api import registrations_without_component_count
-
+    # De zonder-onderdeel-kaart (#650) verdween in feedbackronde 2 van golf 8:
+    # de Inschrijvingen-tab toont die inschrijvingen als groep "Zonder onderdeel",
+    # dus ze blijven bereikbaar — de reden achter #650 blijft gedekt.
     return {
         "a": activiteit, "csrf_token": csrf_from_request(request), "error": error,
-        # #650: bepaalt of de kaart "Inschrijvingen zonder onderdeel" er staat. Het
-        # scherm mag dit niet zelf tellen (§635), en het is ook niet af te leiden
-        # uit a.sub_registrations — dat is nu net het punt: deze inschrijvingen
-        # hangen aan geen enkel onderdeel.
-        "inschrijvingen_zonder_onderdeel": registrations_without_component_count(
-            db, activiteit.id),
     }
 
 
@@ -199,9 +194,21 @@ def admin_activiteit_detail(activity_id: int, request: Request,
     activiteit = get_activity_detail(db, activity_id)
     if activiteit is None:
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    from app.domains.activities.api import registration_count_for
+
+    from app.kernel.tenant_config import tenant_base_url
+
+    reg_count = registration_count_for(db, activity_id)
     return templates.TemplateResponse(
         request, "admin_activiteit.html",
-        {"nav_items": NAV, **_aa_detail_ctx(request, db, activiteit)})
+        {"nav_items": NAV, **_aa_detail_ctx(request, db, activiteit),
+         **_record_tabs(activiteit, reg_count, db, email, "overzicht"),
+         **_record_rail(db, activiteit, reg_count),
+         # De deellink (ronde 4/5): de publieke lijst, verankerd op de kaart van
+         # deze activiteit. Mét slug wordt het anker de vriendelijke URL — zo is
+         # het veld zichtbaar én kopieerbaar zonder tweede regel.
+         "deellink": (f"{tenant_base_url(db)}/activiteiten"
+                      f"#{activiteit.slug or f'act-{activity_id}'}")})
 
 
 @router.post("/admin/activiteiten", response_class=HTMLResponse,
@@ -751,6 +758,12 @@ def _render_detail(request: Request, db: Session, registration_id: int,
         return HTMLResponse("")
     ctx["error"] = error
     ctx["toast_bericht"] = toast
+    # Golf 8-feedback: op de eigen pagina draagt het cluster ook Verwijderen
+    # (achter de bewerkklik, uiterst links). Of we óp die pagina zijn, zegt
+    # HX-Current-URL — de POSTs van het fragment reizen daarmee.
+    huidig = request.headers.get("HX-Current-URL", "")
+    ctx["op_pagina"] = (f"/admin/inschrijvingen/{registration_id}" in huidig
+                        and "/fragment" not in huidig)
     resp = templates.TemplateResponse(request, "_inschrijving_detail.html", ctx)
     if ververs:
         resp.headers["HX-Trigger"] = "betalingen-ververst"
@@ -775,7 +788,7 @@ def inschrijving_detail(registration_id: int, request: Request,
 
 @router.get("/admin/inschrijvingen/{registration_id}", response_class=HTMLResponse)
 def inschrijving_pagina(registration_id: int, request: Request,
-                        terug: str = "",
+                        terug: str = "", bewerk: int = 0,
                         db: Session = Depends(get_db),
                         email: str = Depends(require_admin_ui)):
     """De inschrijving als volwaardige pagina (golf 4, #913 — B2).
@@ -791,7 +804,9 @@ def inschrijving_pagina(registration_id: int, request: Request,
     from app.domains.activities.viewmodels import AdminInschrijvingView
     from app.ui import veilige_terug
 
-    ctx = _detail_ctx(request, db, registration_id)
+    # `bewerk=1` (feedbackronde 15 sep): de rij-knop "Bewerken" opent de pagina
+    # meteen in bewerkmodus — Details en dan nog eens Bewerken is twee klikken.
+    ctx = _detail_ctx(request, db, registration_id, edit_open=bool(bewerk))
     if ctx is None:
         raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
     # P13 (golf 5, #913): relatiebalk met aantallen. Betalingen is vandaag de
@@ -816,7 +831,7 @@ def inschrijving_pagina(registration_id: int, request: Request,
     else:
         label = _("Terug")
     vm = AdminInschrijvingView(
-        **ctx, error=None, toast_bericht=None,
+        **ctx, error=None, toast_bericht=None, op_pagina=True,
         terug=pad, terug_label=label, relaties=relaties, nav_items=NAV)
     return templates.TemplateResponse(request, "admin_inschrijving.html",
                                       vm.as_context())
@@ -1046,74 +1061,94 @@ _INSCHRIJVING_SORT = {
 }
 
 
-def _inschrijvingen_lijst(request: Request, db: Session, email: str,
-                          activity_id: int, component_id: int | None,
-                          sort: str = "datum", richting: str = "asc"):
-    """Eén lijst inschrijvingen, gefilterd zoals het scherm ze vroeg (#650).
+# Sorteersleutels van de Inschrijvingen-tab (whitelist; #761-tiebreaker in de
+# aanroeper). Geen onderdeel-sleutel meer: de groepering (feedbackronde 2)
+# vervangt hem.
+_ALLE_INSCHRIJVING_SORT = dict(_INSCHRIJVING_SORT)
 
-    Sinds de knop per onderdeel staat, bestaan er meerdere lijsten naast elkaar op
-    één scherm. Elke lijst moet weten wie ze is: haar eigen doel-div, en dezelfde
-    filter na een verwijdering — anders swapt een verwijdering in onderdeel A de
-    volledige activiteitenlijst in de plaats van A.
 
-    `component_id is None` betekent hier de inschrijvingen ZONDER onderdeel, niet
-    "alle": op activiteitniveau is dat het enige wat nog getoond wordt.
+def _record_tabs(activiteit, reg_count: int, db, email: str, actief: str) -> dict:
+    """Doorgeefluik naar de ene tabs-bouwer in de service (golf 8, #913):
+    de payment-kant rendert dezelfde recordkop en mag alleen via de facade."""
+    from app.domains.activities.api import record_tabs
 
-    De default datum/asc is exact de bewaarde volgorde van #285 (oud → nieuw, id
-    als tiebreaker): zonder klik verandert er niets aan het scherm.
-    """
-    from app.domains.activities import service
+    return {"record_tabs": record_tabs(db, activiteit, email, actief,
+                                       reg_count=reg_count)}
 
-    if sort not in _INSCHRIJVING_SORT:
+
+def _record_rail(db, activiteit, totaal: int) -> dict:
+    """De rechterrail van de recordpagina: publicatie-info en bezetting per
+    onderdeel — via dezelfde telling als de volzet-berekening (#451), in één
+    query (#651: het detailscherm haalt niet de hele boom op)."""
+    from app.domains.activities.api import booked_per_component
+
+    bezetting = booked_per_component(db, [activiteit.id])
+    onderdelen = [{
+        "naam": c.name,
+        "bezet": bezetting.get(c.id, 0),
+        "max": c.max_participants,
+    } for c in activiteit.sub_registrations]
+    return {"rail_onderdelen": onderdelen,
+            "rail_inschrijvingen_totaal": totaal}
+
+
+@router.get("/admin/activiteiten/{activity_id}/inschrijvingen",
+            response_class=HTMLResponse)
+def activiteit_inschrijvingen_tab(activity_id: int, request: Request,
+                                  sort: str = "datum", richting: str = "asc",
+                                  db: Session = Depends(get_db),
+                                  email: str = Depends(require_admin_ui)):
+    """De Inschrijvingen-tab van de recordpagina (golf 8, #913): álle
+    inschrijvingen van de activiteit, over de onderdelen heen, met een
+    Onderdeel-kolom en de golf 4-sorteermachinerie."""
+    from urllib.parse import quote
+
+    from app.domains.activities.api import get_activity, registrations_for
+    from app.domains.activities.viewmodels import AdminActiviteitInschrijvingenView
+
+    activiteit = get_activity(db, activity_id)
+    if activiteit is None:
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    regs = registrations_for(db, activity_id, alle=True) or []
+
+    if sort not in _ALLE_INSCHRIJVING_SORT:
         sort = "datum"
     if richting not in ("asc", "desc"):
         richting = "asc"
-    regs = service.registrations_for(db, activity_id, component_id=component_id,
-                                     without_component=component_id is None)
-    if regs is None:
-        raise HTTPException(status_code=404, detail=_("Activity not found"))
-    sleutel = _INSCHRIJVING_SORT[sort]
-    regs.sort(key=lambda r: (*sleutel(r), r["id"]), reverse=richting == "desc")
+    sleutel = _ALLE_INSCHRIJVING_SORT[sort]
+    regs = sorted(regs, key=lambda r: (*sleutel(r), r["id"]),
+                  reverse=richting == "desc")
 
-    basis = (f"/admin/activiteiten/{activity_id}/onderdelen/{component_id}"
-             f"/inschrijvingen" if component_id
-             else f"/admin/activiteiten/{activity_id}/inschrijvingen")
+    # Feedbackronde 2 (15 sep): gegroepeerd per onderdeel, open/dichtklapbaar,
+    # met een exportknop per groep — de Overzicht-knoppen zijn hierheen
+    # verhuisd. De sortering geldt bínnen elke groep. "Zonder onderdeel"
+    # achteraan: zo blijven ook die bereikbaar (de reden achter #650).
+    groepen = []
+    for c in activiteit.sub_registrations:
+        rijen = [r for r in regs if r["component_id"] == c.id]
+        groepen.append({
+            "naam": c.name, "aantal": len(rijen), "regs": rijen,
+            "export_href": (f"/admin/activiteiten/{activity_id}"
+                            f"/onderdelen/{c.id}/export")})
+    zonder = [r for r in regs if r["component_id"] is None]
+    if zonder:
+        groepen.append({"naam": _("Zonder onderdeel"), "aantal": len(zonder),
+                        "regs": zonder, "export_href": None})
+
+    basis = f"/admin/activiteiten/{activity_id}/inschrijvingen"
     sorteer_urls = {
         naam: (f"{basis}?sort={naam}&richting="
                + ("desc" if sort == naam and richting == "asc" else "asc"))
-        for naam in _INSCHRIJVING_SORT}
-    return templates.TemplateResponse(request, "_aa_inschrijvingen.html", {
-        "registrations": regs, "activity_id": activity_id,
-        "component_id": component_id,
-        "sort": sort, "richting": richting, "sorteer_urls": sorteer_urls,
-        "doel": f"#aa-insch-{component_id}" if component_id else "#aa-inschrijvingen",
-        "csrf_token": csrf_from_request(request)})
-
-
-@router.get("/admin/activiteiten/{activity_id}/inschrijvingen", response_class=HTMLResponse)
-def inschrijvingen_lijst(activity_id: int, request: Request,
-                         sort: str = "datum", richting: str = "asc",
-                         db: Session = Depends(get_db),
-                         email: str = Depends(require_admin_ui)):
-    """Op activiteitniveau: enkel de inschrijvingen zonder onderdeel (#650)."""
-    return _inschrijvingen_lijst(request, db, email, activity_id, None,
-                                 sort=sort, richting=richting)
-
-
-@router.get("/admin/activiteiten/{activity_id}/onderdelen/{component_id}/inschrijvingen",
-            response_class=HTMLResponse)
-def onderdeel_inschrijvingen(activity_id: int, component_id: int, request: Request,
-                             sort: str = "datum", richting: str = "asc",
-                             db: Session = Depends(get_db),
-                             email: str = Depends(require_admin_ui)):
-    """De inschrijvingen van één onderdeel (#650).
-
-    Met één knop op activiteitniveau kreeg je bij twee onderdelen één platte lijst
-    waarin niet te zien is wie waarvoor ingeschreven is — de lijst toont het
-    onderdeel nergens per rij. Het filter zit in `registrations_for`, niet hier (§635).
-    """
-    return _inschrijvingen_lijst(request, db, email, activity_id, component_id,
-                                 sort=sort, richting=richting)
+        for naam in _ALLE_INSCHRIJVING_SORT}
+    terug = quote(f"{basis}?sort={sort}&richting={richting}", safe="")
+    vm = AdminActiviteitInschrijvingenView(
+        a=activiteit, groepen=groepen, totaal=len(regs),
+        sort=sort, richting=richting, sorteer_urls=sorteer_urls,
+        terug=terug,
+        **_record_tabs(activiteit, len(regs), db, email, "inschrijvingen"),
+        csrf_token=csrf_from_request(request), nav_items=NAV)
+    return templates.TemplateResponse(
+        request, "admin_activiteit_inschrijvingen.html", vm.as_context())
 
 
 @router.post("/admin/activiteiten/{activity_id}/inschrijvingen/{registration_id}/verwijderen",
@@ -1121,17 +1156,21 @@ def onderdeel_inschrijvingen(activity_id: int, component_id: int, request: Reque
 def inschrijving_verwijderen(activity_id: int, registration_id: int, request: Request,
                              component_id: int | None = None,
                              sort: str = "datum", richting: str = "asc",
+                             vanuit: str = "",
                              db: Session = Depends(get_db),
                              email: str = Depends(require_admin_ui)):
+    """Verwijdert een inschrijving en keert terug naar de activiteit.
+
+    Sinds feedbackronde 2 van golf 8 is de inschrijvingspagina (cluster,
+    uiterst links) de enige plek met een verwijderknop — de lijstfragmenten
+    met een directe rij-delete bestaan niet meer. De oude parameters blijven
+    aanvaard zodat bestaande links geen 422 geven."""
     from app.domains.activities import service
 
     if not service.delete_registration(db, activity_id, registration_id, actor=email):
         raise HTTPException(status_code=404, detail=_("Registration not found"))
-    # Dezelfde lijst terug, niet "alle": de knop stond in één bepaalde lijst — en in
-    # dezelfde volgorde (golf 4): de delete-URL draagt de sorteerstand mee, anders
-    # springt de lijst na een verwijdering terug naar de default.
-    return _inschrijvingen_lijst(request, db, email, activity_id, component_id,
-                                 sort=sort, richting=richting)
+    return Response(status_code=204, headers={
+        "HX-Redirect": f"/admin/activiteiten/{activity_id}"})
 
 
 @router.get("/admin/activiteiten/{activity_id}/onderdelen/{component_id}/export")

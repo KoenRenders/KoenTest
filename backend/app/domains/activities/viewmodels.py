@@ -45,6 +45,8 @@ class AdminInschrijvingView(ViewModel):
     ploegnaam_verplicht: bool
     editable: bool
     edit_open: bool
+    # Golf 8-feedback: op de eigen pagina draagt het cluster ook Verwijderen.
+    op_pagina: bool
     csrf_token: str
     error: str | None
     toast_bericht: str | None
@@ -57,4 +59,24 @@ class AdminInschrijvingView(ViewModel):
     terug_label: str
     # P13 (golf 5): relatiebalk-items {label, count, href} voor ui.relatie_chips.
     relaties: list[dict[str, Any]]
+    nav_items: list[dict[str, Any]] = field(default_factory=list)
+
+
+@dataclass(frozen=True, kw_only=True)
+class AdminActiviteitInschrijvingenView(ViewModel):
+    """`admin_activiteit_inschrijvingen.html` — de Inschrijvingen-tab van de
+    recordpagina (golf 8, #913): alle inschrijvingen over de onderdelen heen."""
+
+    a: Any
+    # Feedbackronde 2: per onderdeel gegroepeerd — {naam, aantal, regs,
+    # export_href (None bij "Zonder onderdeel")}.
+    groepen: list[dict[str, Any]]
+    totaal: int
+    sort: str
+    richting: str
+    sorteer_urls: dict[str, str]
+    # A7-retourcontext (url-ge-encodeerd) die de naamlinks meegeven.
+    terug: str
+    record_tabs: list[dict[str, Any]]
+    csrf_token: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)

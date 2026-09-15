@@ -7,7 +7,7 @@
 {# P13 (golf 5, #913): de zichtbare recordscope. In het fragment en niet op de
    pagina, zodat ze elke verversing meebeweegt; de totalenmatrix eronder telt
    dus zichtbaar BINNEN de scope. #}
-{% if scope %}
+{% if scope and not scope.get("stil") %}
 {% call ui.scope_regel(scope.alles_url) %}{{ scope.soort }}{% if scope.titel %} <a class="font-medium hover:underline" href="{{ scope.titel_url }}">{{ scope.titel }}</a>{% endif %}{% endcall %}
 {% endif %}
 <div class="mb-4 overflow-x-auto">

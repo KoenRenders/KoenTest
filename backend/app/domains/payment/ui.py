@@ -72,8 +72,21 @@ def _uitvoeren(bewerking, request: Request, db: Session, email: str,
     return templates.TemplateResponse(request, "_betalingen_lijst.html", context)
 
 
+def _activiteit_scope(db: Session, activiteit_id: int):
+    """(naam, inschrijving-ids) van één activiteit — of (None, lege set) als ze
+    niet bestaat: de scope blijft dan zichtbaar met een lege lijst, nooit stil
+    alles (P13). Lokale import: activities importeert zelf uit payment."""
+    from app.domains.activities.api import get_activity, registration_ids_for
+
+    activiteit = get_activity(db, activiteit_id, include_deleted=True)
+    return (activiteit.name if activiteit is not None else None,
+            set(registration_ids_for(db, activiteit_id)))
+
+
 def _view(request: Request, db: Session, email: str,
-          nav_items: list | None = None) -> BetalingenView:
+          nav_items: list | None = None, *,
+          forceer_activiteit: int | None = None,
+          scope_stil: bool = False) -> BetalingenView:
     """View-model voor het betalingenscherm.
 
     Filteren, optellen, groeperen en het afleiden van de status gebeuren in
@@ -115,6 +128,18 @@ def _view(request: Request, db: Session, email: str,
     inschrijving_id = (stand.get("inschrijving") or "").strip()
     if not inschrijving_id.isdigit():
         inschrijving_id = ""
+    # Golf 8 (#913): `?activiteit=<id>` — de betalingen van één activiteit, voor
+    # de Betalingen-tab op haar recordpagina. Zelfde regels als de
+    # inschrijvingscope; de resolutie naar inschrijving-ids gebeurt in
+    # _activiteit_scope via de activities-facade.
+    activiteit_id = (str(forceer_activiteit) if forceer_activiteit
+                     else (stand.get("activiteit") or "").strip())
+    if not activiteit_id.isdigit():
+        activiteit_id = ""
+    # Golf 8-feedback: op de ingebedde tab zegt de recordkop al waar je bent —
+    # de scope-regel zou dat herhalen. De vlag reist als hidden field mee met
+    # elke filterwissel, anders dook de regel na de eerste wissel alsnog op.
+    stil = scope_stil or stand.get("scope_stil") == "1"
     records = enriched_records(db)
 
     # Filter-opties opbouwen: onderdelen (per activiteit) + lidmaatschapjaren.
@@ -129,9 +154,13 @@ def _view(request: Request, db: Session, email: str,
         if r.membership_year is not None:
             jaren.add(r.membership_year)
 
+    activiteit_naam, activiteit_reg_ids = (None, None)
+    if activiteit_id:
+        activiteit_naam, activiteit_reg_ids = _activiteit_scope(db, int(activiteit_id))
     zichtbaar = filter_records(records, context=context, status=status, q=q,
                                openstaand=openstaand, record_id=record_id,
-                               registration_id=inschrijving_id)
+                               registration_id=inschrijving_id,
+                               registration_ids=activiteit_reg_ids)
 
     # De scope-regel (P13): benoemt de scope en linkt naar het record zelf, met
     # de weg terug naar deze gescopeerde lijst (P3). De naam komt via de
@@ -140,7 +169,16 @@ def _view(request: Request, db: Session, email: str,
     # alles te tonen. #704's `?record=` krijgt dezelfde zichtbaarheid: dat was
     # tot nu een onzichtbaar voorfilter.
     scope = None
-    if inschrijving_id:
+    if activiteit_id:
+        scope = {
+            "soort": _("Voor activiteit:"),
+            "titel": activiteit_naam or f"#{activiteit_id}",
+            "titel_url": f"/admin/activiteiten/{activiteit_id}",
+            "alles_url": "/admin/betalingen",
+            "param_naam": "activiteit", "param_waarde": activiteit_id,
+            "stil": stil,
+        }
+    elif inschrijving_id:
         from urllib.parse import quote
 
         from app.domains.activities.api import get_registration
@@ -263,6 +301,28 @@ def betalingen_page(request: Request, db: Session = Depends(get_db),
         _view(request, db, email, nav_items=nav).as_context())
 
 
+@router.get("/admin/activiteiten/{activity_id}/betalingen",
+            response_class=HTMLResponse)
+def activiteit_betalingen_tab(activity_id: int, request: Request,
+                              db: Session = Depends(get_db),
+                              email: str = Depends(require_finance_ui)):
+    """De Betalingen-tab van de activiteit-recordpagina (golf 8-feedback):
+    exact het betalingenscherm, gefilterd op dit record, onder de recordkop —
+    zonder scope-regel, want de kop zegt al waar je bent. FINANCE-gated zoals
+    /admin/betalingen zelf (#544)."""
+    from app.domains.activities.api import get_activity_detail, record_tabs
+
+    activiteit = get_activity_detail(db, activity_id)
+    if activiteit is None:
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    ctx = _view(request, db, email, nav_items=NAV,
+                forceer_activiteit=activity_id, scope_stil=True).as_context()
+    ctx["a"] = activiteit
+    ctx["record_tabs"] = record_tabs(db, activiteit, email, "betalingen")
+    return templates.TemplateResponse(
+        request, "admin_activiteit_betalingen.html", ctx)
+
+
 @router.get("/admin/betalingen/lijst", response_class=HTMLResponse)
 def betalingen_lijst(request: Request, db: Session = Depends(get_db),
                      email: str = Depends(require_finance_ui)):
@@ -288,9 +348,14 @@ def betalingen_export(request: Request, db: Session = Depends(get_db),
     # P13 (golf 5, #913): de recordscope reist mee, zoals elke filterstand —
     # dezelfde cijfercontrole als in _view.
     inschrijving_id = (stand.get("inschrijving") or "").strip()
+    activiteit_id = (stand.get("activiteit") or "").strip()
+    reg_ids = None
+    if activiteit_id.isdigit():
+        _naam, reg_ids = _activiteit_scope(db, int(activiteit_id))
     content = build_payments_export_ods(
         db, context=context, status=status, openstaand=openstaand,
-        registration_id=inschrijving_id if inschrijving_id.isdigit() else "")
+        registration_id=inschrijving_id if inschrijving_id.isdigit() else "",
+        registration_ids=reg_ids)
     return Response(
         content=content,
         media_type="application/vnd.oasis.opendocument.spreadsheet",
