@@ -1,4 +1,5 @@
-"""Golf 4 (#913): sorteerbare kolommen op de inschrijvingenlijst.
+"""Golf 4 (#913): sorteerbare kolommen op de inschrijvingenlijst — sinds de
+golf 8-feedbackronde 2 op de gegroepeerde Inschrijvingen-tab.
 
 Zelfde regels als de golf 3-referentie (e-maillog): whitelist op de sleutel —
 die komt uit de querystring, om dezelfde reden als er geen vrije SQL is — en
@@ -45,8 +46,7 @@ def _namen(html: str) -> list[str]:
 def test_sorteren_op_naam_is_alfabetisch(client, db_session):
     activity, component = _drie_inschrijvingen(client, db_session)
     _login(client)
-    basis = (f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}"
-             f"/inschrijvingen")
+    basis = f"/admin/activiteiten/{activity.id}/inschrijvingen"
 
     assert _namen(client.get(f"{basis}?sort=naam&richting=asc").text) == \
         ["Anna", "Bert", "Carla"]
@@ -59,8 +59,7 @@ def test_onbekende_sleutel_valt_terug_op_de_default(client, db_session):
     kolomnaam. Terugvallen betekent hier: de #285-volgorde (oud → nieuw)."""
     activity, component = _drie_inschrijvingen(client, db_session)
     _login(client)
-    basis = (f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}"
-             f"/inschrijvingen")
+    basis = f"/admin/activiteiten/{activity.id}/inschrijvingen"
     resp = client.get(f"{basis}?sort=contact_name);DROP--&richting=zijwaarts")
     assert resp.status_code == 200
     assert _namen(resp.text) == ["Carla", "Anna", "Bert"]  # inschrijfvolgorde
@@ -69,8 +68,8 @@ def test_onbekende_sleutel_valt_terug_op_de_default(client, db_session):
 def test_actieve_kop_draagt_chevron_en_ariasort(client, db_session):
     activity, component = _drie_inschrijvingen(client, db_session)
     _login(client)
-    html = client.get(f"/admin/activiteiten/{activity.id}/onderdelen/"
-                      f"{component.id}/inschrijvingen?sort=naam&richting=asc").text
+    html = client.get(f"/admin/activiteiten/{activity.id}"
+                      f"/inschrijvingen?sort=naam&richting=asc").text
     assert 'aria-sort="ascending"' in html
     # De chevron-up van ui.icon() — het svg-pad, want de naam staat niet in de
     # output (zelfde toets als de golf 3-referentie).
@@ -79,9 +78,10 @@ def test_actieve_kop_draagt_chevron_en_ariasort(client, db_session):
     assert "sort=naam&amp;richting=desc" in html
 
 
-def test_verwijderen_behoudt_de_sorteerstand(client, db_session):
-    """De delete-URL draagt sort/richting mee: na een verwijdering komt dezelfde
-    lijst terug in dezelfde volgorde, niet de default."""
+def test_verwijderen_keert_terug_naar_de_activiteit(client, db_session):
+    """Ronde 2 (15 sep): de enige verwijderknop staat op de inschrijvingspagina;
+    het endpoint stuurt na afloop terug naar de activiteit — er is geen
+    lijstfragment meer om te verversen."""
     from app.domains.activities.api import Registration
 
     activity, component = _drie_inschrijvingen(client, db_session)
@@ -90,9 +90,9 @@ def test_verwijderen_behoudt_de_sorteerstand(client, db_session):
            .filter(Registration.contact_name == "Bert Sorteer").one())
     resp = client.post(
         f"/admin/activiteiten/{activity.id}/inschrijvingen/{weg.id}"
-        f"/verwijderen?sort=naam&richting=desc&component_id={component.id}",
-        headers={"X-CSRF-Token": csrf})
-    assert resp.status_code == 200
-    assert _namen(resp.text) == ["Carla", "Anna"]
-    # En de koppen van het antwoord staan nog steeds op die stand.
-    assert 'aria-sort="descending"' in resp.text
+        f"/verwijderen?vanuit=pagina", headers={"X-CSRF-Token": csrf})
+    assert resp.status_code == 204
+    assert resp.headers["HX-Redirect"] == f"/admin/activiteiten/{activity.id}"
+    tab = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen"
+                     f"?sort=naam&richting=desc").text
+    assert _namen(tab) == ["Carla", "Anna"]

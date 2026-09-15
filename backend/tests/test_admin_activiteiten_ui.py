@@ -116,11 +116,9 @@ def test_admin_inschrijvingen_en_export(client, db_session):
                 data={"contact_name": "Jef", "contact_email": "jef@example.com",
                       "phone": "047", f"product_{product.id}": "1",
                       "payment_method": "OVERSCHRIJVING"})
-    # #650: de lijst hangt aan het onderdeel, niet meer aan de activiteit — anders
-    # zie je bij meerdere onderdelen niet waarvoor iemand ingeschreven is. Het
-    # activiteitniveau toont sindsdien enkel de inschrijvingen zónder onderdeel.
-    lijst = client.get(
-        f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}/inschrijvingen")
+    # Ronde 2 (15 sep): één tabpagina, per onderdeel gegroepeerd — de
+    # #650-waarborg (zien waarvoor iemand ingeschreven is) zit in de groepskop.
+    lijst = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen")
     assert lijst.status_code == 200 and "Jef" in lijst.text
     # Feedbackronde 15 sep (golf 8): de rij draagt één "Bewerken" die de
     # inschrijvingspagina meteen in bewerkmodus opent; Details en direct
@@ -132,9 +130,9 @@ def test_admin_inschrijvingen_en_export(client, db_session):
     assert f'href="/admin/inschrijvingen/{reg.id}?bewerk=1' in lijst.text
     assert ">Details<" not in lijst.text
     assert ">Verwijderen<" not in lijst.text
-    # B2 (golf 4): de recordnaam zelf opent de pagina (leesmodus), met A7.
-    assert (f'href="/admin/inschrijvingen/{reg.id}'
-            f'?terug=/admin/activiteiten/{activity.id}"') in lijst.text
+    # B2 (golf 4): de recordnaam zelf opent de pagina (leesmodus), met A7 —
+    # de terugweg is sinds ronde 2 de tab-URL mét sorteerstand (ge-encodeerd).
+    assert f'href="/admin/inschrijvingen/{reg.id}?terug=' in lijst.text
 
     export = client.get(f"/admin/activiteiten/{activity.id}/onderdelen/{component.id}/export")
     assert export.status_code == 200

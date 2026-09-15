@@ -82,10 +82,12 @@ def test_inschrijvingen_tab_toont_alles_met_onderdeelkolom(client, db_session):
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen").text
 
-    assert "<title>" in html  # volwaardige pagina, niet het oude fragment
-    assert ">Onderdeel<" in html or "Onderdeel" in html
+    assert "<title>" in html  # volwaardige pagina
+    # Ronde 2: gegroepeerd per onderdeel — de groepskop draagt de naam en het
+    # aantal, met een exportknop per groep.
+    assert component.name in html
+    assert f"/onderdelen/{component.id}/export" in html
     assert "Rec Anna" in html and "Rec Bert" in html
-    assert html.count(component.name) >= 2  # de Onderdeel-kolom per rij
     # Naamlink draagt de A7-terugweg met de sorteerstand.
     assert "?terug=" in html
 
@@ -112,20 +114,14 @@ def test_inschrijvingen_tab_sorteert_en_valt_veilig_terug(client, db_session):
     assert namen(resp.text) == ["Carla", "Anna", "Bert"]  # inschrijfvolgorde
 
 
-def test_activiteitniveau_fragment_verhuisde_naar_fragment(client, db_session):
-    """Het oude fragmentadres is nu de tabpagina; het fragment woont op
-    /fragment. De knop staat alleen bij inschrijvingen zonder onderdeel
-    (#650), dus de bedrading toetsen we op de template-bron."""
-    from pathlib import Path
-
+def test_de_lijstfragmenten_bestaan_niet_meer(client, db_session):
+    """Ronde 2 (15 sep): de tab verving de losse lijstfragmenten volledig; het
+    oude fragmentadres hoort niet stil iets anders te gaan betekenen."""
     activity, component = _activiteit_met_inschrijvingen(client, db_session)
     _login(client)
-    frag = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen/fragment").text
-    assert "<title>" not in frag
-    bron = (Path(__file__).resolve().parents[1] / "app" / "domains" / "activities"
-            / "templates" / "_aa_detail.html").read_text(encoding="utf-8")
-    assert "/inschrijvingen/fragment" in bron, \
-        "de Overzicht-knop wijst niet naar het verhuisde fragment"
+    assert client.get(
+        f"/admin/activiteiten/{activity.id}/inschrijvingen/fragment"
+    ).status_code == 404
 
 
 def test_betalingen_activiteitscope_toont_enkel_deze_activiteit(client, db_session):

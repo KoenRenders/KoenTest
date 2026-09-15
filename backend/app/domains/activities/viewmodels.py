@@ -68,7 +68,10 @@ class AdminActiviteitInschrijvingenView(ViewModel):
     recordpagina (golf 8, #913): alle inschrijvingen over de onderdelen heen."""
 
     a: Any
-    registrations: list[dict[str, Any]]
+    # Feedbackronde 2: per onderdeel gegroepeerd — {naam, aantal, regs,
+    # export_href (None bij "Zonder onderdeel")}.
+    groepen: list[dict[str, Any]]
+    totaal: int
     sort: str
     richting: str
     sorteer_urls: dict[str, str]

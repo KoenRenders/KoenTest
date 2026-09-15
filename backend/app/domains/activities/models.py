@@ -116,6 +116,13 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
         return f"/api/v1/media/{a.id}" if a else None
 
     @property
+    def poster_asset_title(self):
+        """De titel van de opgeladen affiche (feedbackronde golf 8): de leeslink
+        toont wat er hangt, niet een generieke tekst."""
+        a = _single_asset(self, "activity_poster", "activity_id")
+        return a.title if a else None
+
+    @property
     def poster_asset_is_pdf(self):
         a = _single_asset(self, "activity_poster", "activity_id")
         return bool(a and a.content_type == "application/pdf")

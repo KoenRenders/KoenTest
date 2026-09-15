@@ -43,28 +43,24 @@ def _met_inschrijving(client, db):
     return activity, comp, resp.json()["id"]
 
 
-def test_de_toonknop_is_een_toggle_met_toestand(client, db_session):
+def test_het_overzicht_heeft_geen_toonknop_meer(client, db_session):
+    """Ronde 2 van de golf 8-feedback (15 sep): Toon inschrijvingen verhuisde
+    naar de Inschrijvingen-tab; het Overzicht draagt de knop niet meer."""
     activity, comp, _reg = _met_inschrijving(client, db_session)
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
-
-    assert "Toon inschrijvingen" in html and "Verberg inschrijvingen" in html, (
-        "de knop volgt de toestand niet")
-    assert ':aria-expanded="insch"' in html, "de knop meldt zijn stand niet"
-    # Eén keer laden: opnieuw klikken hoort te sluiten, niet opnieuw op te halen.
-    knopblok = html[html.index("Toon inschrijvingen") - 600:html.index("Toon inschrijvingen")]
-    assert 'hx-trigger="click once"' in knopblok
+    assert "Toon inschrijvingen" not in html
+    assert "aa-insch-" not in html
 
 
-def test_de_lijst_staat_in_een_eigen_omkaderd_blok(client, db_session):
-    """Zonder kop las ze als een vervolg van de producten."""
+def test_de_groep_is_dichtklapbaar_met_toestand(client, db_session):
+    """De open/dichtklap van de groepen (ronde 2) meldt zijn stand, zoals de
+    oude toonknop dat deed (§toegankelijkheid)."""
     activity, comp, _reg = _met_inschrijving(client, db_session)
     _login(client)
-    html = client.get(f"/admin/activiteiten/{activity.id}").text
-
-    blok = html[html.index(f'id="aa-insch-{comp.id}"') - 900:]
-    blok = blok[:blok.index(f'id="aa-insch-{comp.id}"') + 100]
-    assert "Inschrijvingen" in blok, "het blok heeft geen eigen kop"
+    html = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen").text
+    assert ':aria-expanded="uitgeklapt"' in html, "de groepkop meldt zijn stand niet"
+    assert 'x-data="{ uitgeklapt: true }"' in html, "de groep hoort standaard open"
 
 
 def test_geen_inline_paneel_meer(client, db_session):
@@ -75,12 +71,13 @@ def test_geen_inline_paneel_meer(client, db_session):
     """
     activity, comp, _reg = _met_inschrijving(client, db_session)
     _login(client)
-    html = client.get(
-        f"/admin/activiteiten/{activity.id}/onderdelen/{comp.id}/inschrijvingen").text
+    html = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen").text
 
-    assert 'x-show="!open"' not in html and 'x-show="open"' not in html, (
-        "het inline paneel is terug — de feedbackronde van 15 sep haalde het weg")
-    assert "detail_disclosure" not in html
+    # `x-show="open"` bestaat nu wél — voor de groep-dichtklap; wat weg moet
+    # blijven is het rij-paneel met zijn negatie en de disclosure-machinerie.
+    assert 'x-show="!open"' not in html, (
+        "het inline rij-paneel is terug — ronde 2 haalde het weg")
+    assert "detail_disclosure" not in html and "insch-det-" not in html
 
 
 def test_de_rijknop_heet_bewerken_en_opent_de_bewerkstand(client, db_session):
@@ -90,8 +87,7 @@ def test_de_rijknop_heet_bewerken_en_opent_de_bewerkstand(client, db_session):
     bewerkt nu wél — hij landt op het bewerkscherm zelf."""
     activity, comp, reg = _met_inschrijving(client, db_session)
     _login(client)
-    html = client.get(
-        f"/admin/activiteiten/{activity.id}/onderdelen/{comp.id}/inschrijvingen").text
+    html = client.get(f"/admin/activiteiten/{activity.id}/inschrijvingen").text
 
     assert ">Bewerken<" in html
     assert ">Details<" not in html and ">Verwijderen<" not in html

@@ -48,13 +48,17 @@ def test_de_affichelink_staat_er_twee_keer_maar_nooit_tegelijk(client, db_sessio
     _upload_affiche(client, csrf, activity)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
 
-    regels = _regels_met(html, "Huidige affiche bekijken")
+    # Sinds ronde 2 van golf 8 draagt de leeslink de documentTITEL; het vaste
+    # label staat alleen nog in het uploadblok. Op de bijlage-URL zoeken dekt
+    # beide vormen — de invariant (#653: nooit twee tegelijk) blijft dezelfde.
+    regels = _regels_met(html, "/api/v1/media/")
     assert len(regels) == 2, (
         f"verwacht één leeslink en één in het uploadblok, kreeg er {len(regels)}")
     lees = [r for r in regels if 'x-show="!edit"' in r]
     assert len(lees) == 1, (
         "de leeslink hangt niet aan de leesmodus en staat dus ook tijdens het "
         f"bewerken op het scherm (#653):\n  " + "\n  ".join(regels))
+    assert "- poster" in html, "de leeslink toont de documenttitel niet"
 
 
 def test_ook_de_locatie_hangt_aan_de_leesmodus(client, db_session):

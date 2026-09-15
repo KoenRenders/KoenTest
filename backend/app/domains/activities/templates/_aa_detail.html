@@ -9,7 +9,8 @@
     <div class="flex items-center justify-between sticky top-0 z-20 bg-white py-1">
       {# Naam, status en locatie staan sinds de feedbackronde in de recordkop
          (_aa_recordkop.html); deze kaart draagt de rest. #}
-      <h2 class="font-bold text-lg">{{ _("Activiteit") }}</h2>
+      {# Feedbackronde 2 (15 sep): zelfde titelstijl als Datums en Onderdelen. #}
+      <h2 class="text-xl font-semibold text-blue-700">{{ _("Activiteit") }}</h2>
       <div class="flex gap-2">
         {{ ui.edit_toggle("edit") }}
         <div x-show="edit" x-cloak>{{ ui.action_bar(form="aa-act-form", cancel_attrs='@click="edit = false"',
@@ -21,7 +22,7 @@
        link in het uploadblok (#653). §2.12: de bijlage staat nooit twee keer
        tegelijk op het scherm; de leeslink mag blijven, maar enkel in leesmodus.
        Ze bestaat om de bijlage te kunnen openen zónder eerst te gaan bewerken. #}
-    {% if a.poster_asset_url %}<p class="mt-2" x-show="!edit" x-cloak><a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-sm text-link underline">{{ _("Huidige affiche bekijken") }}</a></p>{% endif %}
+    {% if a.poster_asset_url %}<p class="mt-2" x-show="!edit" x-cloak><a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-sm text-link underline">{{ a.poster_asset_title or _("Huidige affiche bekijken") }}</a></p>{% endif %}
     {# Eén vorm voor tekstvelden én affiche (#623). Poster-URL was uit het scherm
        verdwenen terwijl het veld op het model bleef bestaan — je kon alleen nog
        uploaden. En het uploadblok had een eigen "Uploaden"-knop, dus twee handelingen
@@ -139,7 +140,7 @@
     </form>
     <div class="space-y-3">
   {% for c in a.sub_registrations %}
-  <div class="bg-white rounded-xl border border-gray-200 p-4" x-data="{ edit: false, addprod: false, insch: false }">
+  <div class="bg-white rounded-xl border border-gray-200 p-4" x-data="{ edit: false, addprod: false }">
     <div class="flex items-center justify-between">
       <h3 class="font-semibold">{{ c.name }}
         {% if c.team_name_required %}{{ ui.badge(_("ploegnaam"), "blue") }}{% endif %}
@@ -149,18 +150,9 @@
         {{ ui.reorder(
              up_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verplaats" hx-vals=\'{"richting":"omhoog"}\' hx-target="#aa-detail" hx-swap="innerHTML"',
              down_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verplaats" hx-vals=\'{"richting":"omlaag"}\' hx-target="#aa-detail" hx-swap="innerHTML"') }}
-        {# #650: de inschrijvingen horen per onderdeel. Detailscherm, dus geen
-           max_visible-plafond op deze rij (Fixed UI decisions).
-           #676: een kale hx-get had geen toestand — opnieuw klikken haalde
-           hetzelfde nog eens op en je kreeg de lijst niet meer weg. Nu een echte
-           toggle: `click once` laadt één keer, het label volgt de stand. #}
-        <button type="button" class="{{ ui.btn_class('secondary', 'sm') }}"
-                @click="insch = !insch" :aria-expanded="insch"
-                hx-get="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}/inschrijvingen"
-                hx-target="#aa-insch-{{ c.id }}" hx-swap="innerHTML" hx-trigger="click once">
-          <span x-show="!insch">{{ _("Toon inschrijvingen") }}</span><span x-show="insch" x-cloak>{{ _("Verberg inschrijvingen") }}</span>
-        </button>
-        {{ ui.btn_secondary(_("Export"), lead_icon="download", href="/admin/activiteiten/" ~ a.id ~ "/onderdelen/" ~ c.id ~ "/export", size="sm") }}
+        {# Feedbackronde 2 (15 sep): Toon inschrijvingen en Export verhuisden
+           naar de Inschrijvingen-tab — daar staat de lijst per onderdeel
+           gegroepeerd, met een exportknop per groep. #}
         {{ ui.edit_toggle("edit") }}
         <div x-show="edit" x-cloak>{{ ui.action_bar(form="aa-comp-" ~ c.id, cancel_attrs='@click="edit = false"',
              delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Onderdeel"), c.name)) }}</div>
@@ -267,14 +259,6 @@
         {{ ui.btn_primary(_("Toevoegen")) }}
       </form>
     {% endcall %}
-    {# #676: de lijst begon zonder kop of scheiding, direct ná het productenpaneel,
-       en las daardoor als een vervolg van de producten. Zelfde omkadering als dat
-       paneel — een genest blok mét eigen kop. #}
-    <div x-show="insch" x-cloak>
-      {% call ui.nested_panel(_("Inschrijvingen")) %}
-        <div id="aa-insch-{{ c.id }}"></div>
-      {% endcall %}
-    </div>
   </div>
   {% endfor %}
   {% if not a.sub_registrations %}
@@ -286,22 +270,6 @@
     </div>
   </div>
 
-  {# Inschrijvingen zonder onderdeel (#650) — enkel als ze bestaan.
-
-     Registration.component_id is nullable met ondelete="SET NULL": verwijder je
-     een onderdeel, dan blijven zijn inschrijvingen bestaan zonder onderdeel. Met
-     de knop enkel per onderdeel zouden die via geen enkele knop meer bereikbaar
-     zijn — onzichtbaar terwijl ze in de databank staan. Bij een normale
-     activiteit staat deze kaart er dus niet, en dát was de gemelde spookkaart. #}
-  {% if inschrijvingen_zonder_onderdeel %}
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
-    <div class="flex items-center justify-between mb-2">
-      <h3 class="font-semibold">{{ _("Inschrijvingen zonder onderdeel") }}</h3>
-      {{ ui.btn_secondary(_("Toon inschrijvingen"), attrs='hx-get="/admin/activiteiten/' ~ a.id ~ '/inschrijvingen/fragment" hx-target="#aa-inschrijvingen" hx-swap="innerHTML"') }}
-    </div>
-    <div id="aa-inschrijvingen"></div>
-  </div>
-  {% endif %}
 </div>
 
 

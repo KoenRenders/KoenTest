@@ -151,6 +151,8 @@ class ActivityResponse(BaseModel):
     location: Optional[str] = None
     poster_url: Optional[str] = None
     poster_asset_url: Optional[str] = None
+    # Feedbackronde 2 golf 8 (#913): de leeslink toont de documenttitel.
+    poster_asset_title: Optional[str] = None
     poster_asset_is_pdf: bool = False
     members_only: bool = False
     is_cancelled: bool = False
