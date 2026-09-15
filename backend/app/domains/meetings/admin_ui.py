@@ -40,6 +40,7 @@ from app.domains.meetings.api import (
     add_item,
     add_section,
     addable_activities,
+    clock,
     attendance_of,
     create_meeting,
     delete_file,
@@ -612,6 +613,7 @@ def _pdf_context(db: Session, meeting, *, kind: str) -> dict:
     return {"meeting": meeting, "kind": kind, "logo": _logo_data_uri(db),
             "kind_label": _("Agenda") if kind == "agenda" else _("Verslag"),
             "date_label": long_date(meeting.meeting_date),
+            "time_label": clock(meeting.start_time),
             "sections": document_of(db, meeting),
             "present": present, "excused": excused,
             "location": meeting.location or "",
@@ -647,9 +649,7 @@ def _wanneer(meeting) -> str:
     """
     stuk = long_date(meeting.meeting_date)
     if meeting.start_time:
-        uur = meeting.start_time.hour
-        minuut = meeting.start_time.minute
-        stuk += _(" om %s") % (f"{uur}u{minuut:02d}" if minuut else f"{uur}u")
+        stuk += _(" om %s") % clock(meeting.start_time)
     if meeting.location:
         stuk += _(" in %s") % meeting.location
     return stuk

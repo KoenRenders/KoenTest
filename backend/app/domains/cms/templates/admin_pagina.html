@@ -9,10 +9,8 @@
    op customElements.define('trix-editor') stuk lopen. Hieronder blijft alleen de
    paginaspecifieke Trix-configuratie. #}
 <style>
-  /* CMS-inhoud is tekst-opmaak: verberg de bijlage-knop. Afbeeldingen via de
-     media-component zijn aparte scope (#459); zonder upload-hook zouden ze
-     data-URI's worden die de HTML opblazen en toch door de sanitisatie sneuvelen. */
-  trix-toolbar .trix-button-group--file-tools { display: none; }
+  /* De bijlage-knop en het blokkeren van bestanden staan in de beheerschil, naast
+     waar Trix geladen wordt (#939): daar geldt het voor élke editor. */
 </style>
 <script>
   // Eenmalig registreren (#634): onder hx-boost wordt dit blok opnieuw uitgevoerd
@@ -20,9 +18,6 @@
   // zich telkens opnieuw op.
   if (!window.__raakTrixConfigured) {
   window.__raakTrixConfigured = true;
-  // Sluit bestandsbijlagen af (één document-listener dekt elke, ook later
-  // ge-swapte, editor). Sluit aan bij de verborgen bijlage-knop hierboven.
-  addEventListener("trix-file-accept", function (e) { e.preventDefault(); });
   // #555: H2 + H3 als kop-niveaus (Trix kent standaard enkel heading1/<h1>).
   // Vóór elke editor-init het blok-attribuut registreren; de knoppen in
   // _cp_detail.html activeren ze via de editor-API. h2/h3 staan al in de

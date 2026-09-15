@@ -853,13 +853,6 @@ def _start_times(db: Session, activity_ids: list[int]) -> dict[int, object]:
     return eerste
 
 
-def _uur(moment) -> str:
-    """`20u` of `20u30` — zoals het bestuur een uur schrijft."""
-    if moment is None:
-        return ""
-    return f"{moment.hour}u" + (f"{moment.minute:02d}" if moment.minute else "")
-
-
 def _present(item: MeetingItem, activities: dict, counts: dict,
              member_labels: dict, times: Optional[dict] = None) -> DocumentItem:
     """One stored item as it reads on screen.
@@ -876,7 +869,9 @@ def _present(item: MeetingItem, activities: dict, counts: dict,
         parts = []
         if item.sort_key:
             datum = short_date(item.sort_key)
-            uur = _uur((times or {}).get(activity.id))
+            from app.domains.meetings.pdf import clock
+
+            uur = clock((times or {}).get(activity.id))
             parts.append(f"{datum} {uur}".strip())
         if activity.location:
             parts.append(activity.location)
