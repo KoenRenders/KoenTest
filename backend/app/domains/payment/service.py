@@ -304,6 +304,51 @@ def confirm_manual_payment(
     return record
 
 
+def family_payables(db: Session, family_id: int) -> set:
+    """(payable_type, payable_id)-paren van één gezin (golf 9, #913): de
+    lidmaatschappen van het gezin plus de inschrijvingen van zijn personen —
+    op person_id, én op e-mailadres voor gastinschrijvingen (dezelfde regel
+    als de audit-resolver). include_deleted: een betaling is een financieel
+    feit (#190), dus ook geschrapte lidmaatschappen/inschrijvingen tellen."""
+    from sqlalchemy import func, or_
+    from app.domains.activities.api import Registration
+    from app.domains.mdm.api import ContactDetail
+
+    def q(model):
+        return db.query(model).execution_options(include_deleted=True)
+
+    ms_ids = [r[0] for r in q(Membership.id).filter(
+        Membership.member_id == family_id).all()]
+    person_ids = [r[0] for r in q(MemberPerson.person_id).filter(
+        MemberPerson.member_id == family_id).all()]
+    emails = [r[0].strip().lower() for r in q(ContactDetail.value).filter(
+        ContactDetail.person_id.in_(person_ids or [0]),
+        ContactDetail.contact_type_code == "EMAIL").all() if r[0]]
+    voorwaarden = []
+    if person_ids:
+        voorwaarden.append(Registration.person_id.in_(person_ids))
+    if emails:
+        voorwaarden.append(func.lower(Registration.contact_email).in_(emails))
+    reg_ids = ([r[0] for r in q(Registration.id).filter(or_(*voorwaarden)).all()]
+               if voorwaarden else [])
+    return ({("membership", i) for i in ms_ids}
+            | {("registration", i) for i in reg_ids})
+
+
+def count_records_for_family(db: Session, family_id: int) -> int:
+    """Het getal op de Betalingen-tab van de gezinspagina — via dezelfde
+    payable-verzameling, één COUNT."""
+    from sqlalchemy import or_, tuple_
+
+    paren = family_payables(db, family_id)
+    if not paren:
+        return 0
+    return (db.query(PaymentRecord)
+            .filter(tuple_(PaymentRecord.payable_type,
+                           PaymentRecord.payable_id).in_(list(paren)))
+            .count())
+
+
 def count_registration_records_by_activity(db: Session, activity_id: int) -> int:
     """Idem, maar per activiteit en als één COUNT met subquery (golf 8): de
     recordpagina mag niet schalen met het aantal inschrijvingen (#651)."""
@@ -745,7 +790,7 @@ def matches_filter(record, *, context: str = "all", status: str = "all", q: str 
 def filter_records(records, *, context: str = "all", status: str = "all", q: str = "",
                    openstaand: bool = False, record_id: str = "",
                    registration_id: str = "",
-                   registration_ids: set | None = None) -> list:
+                   payables: set | None = None) -> list:
     """#704: `record_id` toont één betaling, ongeacht de andere filters.
 
     Een werkbanktaak linkt hierheen. Bewust een FILTER en geen anker: de lijst wordt
@@ -764,13 +809,14 @@ def filter_records(records, *, context: str = "all", status: str = "all", q: str
     if scope:
         records = [r for r in records
                    if r.payable_type == "registration" and str(r.payable_id) == scope]
-    # Golf 8 (#913): de activiteitscope — dezelfde regel, maar over de verzameling
-    # inschrijvingen van één activiteit. De aanroeper lost de activiteit op naar
-    # ids (via de activities-facade); dit blijft een pure lijstfilter.
-    if registration_ids is not None:
+    # Golf 8/9 (#913): recordSCOPES als payable-verzameling — activiteit (alleen
+    # inschrijvingen) of gezin (inschrijvingen + lidmaatschappen). De aanroeper
+    # lost het record op naar (payable_type, payable_id)-paren via de facades;
+    # dit blijft een pure lijstfilter. Registration-only zou elk lidgeld van het
+    # gezin laten vallen — vandaar paren en geen kale id-set.
+    if payables is not None:
         records = [r for r in records
-                   if r.payable_type == "registration"
-                   and r.payable_id in registration_ids]
+                   if (r.payable_type, r.payable_id) in payables]
     doel = (record_id or "").strip()
     if doel:
         return [r for r in records if str(r.id) == doel]

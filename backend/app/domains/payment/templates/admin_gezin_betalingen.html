@@ -1,0 +1,10 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ gezinslabel(family) }} — {{ _("Betalingen") }}{% endblock %}
+{% block content %}
+{# De Betalingen-tab van de gezinspagina (golf 9, #913): het betalingenscherm,
+   gefilterd op dit gezin, onder de gedeelde gezins-recordkop. #}
+<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/leden">{{ _("‹ Alle leden") }}</a></p>
+{% include "_leden_recordkop.html" %}
+{% include "_betalingen_scherm.html" %}
+{% endblock %}

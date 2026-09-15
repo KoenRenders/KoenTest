@@ -69,6 +69,20 @@ def _person_to_schema(person: Person, relation_type: str) -> FamilyMemberRespons
         relation_type=relation_type,
     )
 
+def family_label(family) -> str:
+    """De schermnaam van een gezin (golf 9, #913): het hoofdlid, zoals de
+    ledenlijst hem al toonde — die selectie stond in vijf kopieën (Jinja,
+    mdm/ui 2x, payment-verrijking, audit-resolver); dit is dé bron voor de
+    weergavenaam. Werkt op FamilyResponse én op alles met .members."""
+    leden = getattr(family, "members", None) or []
+    hoofd = next((p for p in leden
+                  if getattr(p, "relation_type", None) == "HOOFDLID"),
+                 leden[0] if leden else None)
+    if hoofd is None:
+        return f"Gezin #{family.id}"
+    return f"{hoofd.last_name} {hoofd.first_name}"
+
+
 def _build_family_response(m: Member) -> FamilyResponse:
     primary = next((mp.person for mp in m.member_persons if mp.relation_type == "HOOFDLID"), None)
     address = primary.address if primary else None

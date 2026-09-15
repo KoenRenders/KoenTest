@@ -148,6 +148,17 @@ def require_finance_ui(request: Request, db: Session = Depends(get_db)) -> str:
     return _require_ui_roles(request, db, _PAYMENTS_VIEW_ROLES)
 
 
+def may_view_payments(db: Session, email: str) -> bool:
+    """Dezelfde vraag als require_finance_ui, maar als vraag i.p.v. poort —
+    voor tab-zichtbaarheid (golf 9, #913): een tab die je niet mag openen
+    hoort er niet te staan, maar een tab die je wél mag openen ook niet te
+    ontbreken. Golf 8 gate-te op FINANCE alleen en verstopte de tab dus voor
+    een gewone ADMIN."""
+    from app.domains.auth.service import get_user_roles
+
+    return bool(set(get_user_roles(db, email)) & set(_PAYMENTS_VIEW_ROLES))
+
+
 def require_finance_mutation(db: Session, email: str) -> None:
     """Betaal-MUTATIES (bevestigen/terugbetalen/bewerken/verwijderen): FINANCE of
     OPERATOR (#83/#530).

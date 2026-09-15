@@ -118,6 +118,14 @@ def _detail_response(request: Request, db: Session, family_id: int, *,
                      toast: bool = False):
     ctx = _detail_ctx(request, db, family_id)
     ctx["toast_opgeslagen"] = toast
+    # Oob-kopverversing (HDEV-melding 15 sep) — zie _aa_detail.html.
+    from app.domains.auth.api import SESSION_COOKIE, read_session_value
+    from app.domains.mdm.api import gezin_tabs
+
+    email = read_session_value(request.cookies.get(SESSION_COOKIE))
+    if email:
+        ctx["record_tabs"] = gezin_tabs(db, ctx["family"], email, "overzicht")
+        ctx["oob_kop"] = True
     return templates.TemplateResponse(request, "_leden_detail.html", ctx)
 
 
@@ -188,8 +196,43 @@ def gezin_detail(family_id: int, request: Request, db: Session = Depends(get_db)
     daarbinnen blijven htmx-fragmenten die in #leden-detail landen."""
     if is_fragment_request(request):
         return _detail_response(request, db, family_id)
+    from app.domains.mdm.api import gezin_tabs
+
+    ctx = _detail_ctx(request, db, family_id)
     return templates.TemplateResponse(request, "leden_gezin.html", {
-        "nav_items": NAV, **_detail_ctx(request, db, family_id)})
+        "nav_items": NAV, **ctx,
+        "record_tabs": gezin_tabs(db, ctx["family"], email, "overzicht")})
+
+
+@router.get("/admin/leden/gezin/{family_id}/wijzigingen",
+            response_class=HTMLResponse)
+def gezin_wijzigingen_tab(family_id: int, request: Request,
+                          since: str = "", page: int = 1,
+                          sort: str = "wanneer", richting: str = "desc",
+                          db: Session = Depends(get_db),
+                          email: str = Depends(require_admin_ui)):
+    """De Wijzigingen-tab van de gezinspagina (golf 9, #913): het gewone
+    audit-logboek, gescopeerd op dit gezin via het member_id dat de feed nu
+    meedraagt — nooit op naam of adres. Hergebruikt wijzigingen_ctx (sortering,
+    paginering, spronglinks) met deze tab als basisadres."""
+    from app.domains.membership.api import get_family
+    from app.domains.mdm.api import gezin_tabs
+    from app.ui.changes_ui import wijzigingen_ctx
+
+    try:
+        family = get_family(db, family_id)
+    except Exception:
+        family = None
+    if family is None:
+        raise HTTPException(status_code=404, detail=_("Gezin niet gevonden"))
+    ctx = wijzigingen_ctx(request, db, since, "", "", page, sort, richting,
+                          member_id=family_id,
+                          basis=f"/admin/leden/gezin/{family_id}/wijzigingen")
+    ctx["nav_items"] = NAV
+    ctx["family"] = family
+    ctx["record_tabs"] = gezin_tabs(db, family, email, "wijzigingen")
+    return templates.TemplateResponse(
+        request, "admin_gezin_wijzigingen.html", ctx)
 
 
 # ── Mutaties (allemaal: sessie + CSRF; herrenderen het detail) ─────────────────

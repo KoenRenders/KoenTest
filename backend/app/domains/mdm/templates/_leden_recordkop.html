@@ -1,0 +1,15 @@
+{% import "_macros.html" as ui %}
+{# Recordkop van het gezin (golf 9, #913) — zelfde patroon als de activiteit:
+   naam als titel, adres eronder, de tabbalk (mdm.api.gezin_tabs) eronder.
+   Verwijderen van het gezin staat hier rechts: het record heeft geen eigen
+   bewerkvlak-cluster om hem in te zetten. #}
+<div class="mb-2 flex items-start justify-between gap-3">
+  <div>
+    <h1 class="text-3xl font-bold text-kop">{{ gezinslabel(family) }}</h1>
+    <p class="text-sm text-ink-soft mt-1">
+      {{ _("Gezin") }} #{{ family.id }}{% if family.street %} · {{ family.street }} {{ family.house_number }}{% if family.bus_number %} bus {{ family.bus_number }}{% endif %}, {{ family.postal_code }} {{ family.municipality }}{% endif %}
+    </p>
+  </div>
+  {{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/leden/gezin/' ~ family.id ~ '/verwijderen" ' ~ confirm_attrs(_("Gezin"), gezinslabel(family))) }}
+</div>
+{{ ui.tabs(record_tabs) }}
