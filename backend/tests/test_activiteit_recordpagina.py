@@ -154,3 +154,25 @@ def test_betalingen_activiteitscope_vervalst_id_lekt_niets(client, db_session):
     leeg = client.get("/admin/betalingen?activiteit=999999").text
     assert "Voor activiteit:" in leeg and "#999999" in leeg
     assert "Rec Anna" not in leeg
+
+
+def test_elk_invulbaar_veld_is_zichtbaar_in_leesmodus(client, db_session):
+    """Ronde 4/5 (15 sep): wat je kan invullen, zie je ook in leesmodus — maar
+    zonder misleiding. De Poster-URL toont alleen wanneer hij GELDT (zonder
+    upload; een upload prevaleert, #223), en de vriendelijke URL zit in de
+    deellink rechts — kopieerbaar, en niet dubbel op de kaart."""
+    activity, component = _activiteit_met_inschrijvingen(client, db_session)
+    activity.slug = "proefslug-2026"
+    activity.poster_url = "https://example.org/affiche.png"
+    db_session.flush()
+    _login(client)
+    html = client.get(f"/admin/activiteiten/{activity.id}").text
+
+    # Zonder upload geldt de Poster-URL en staat hij als leesregel.
+    assert "Poster-URL" in html and "https://example.org/affiche.png" in html
+    # De slug zit in de deellink (anker = vriendelijke URL), niet dubbel links
+    # als leesregel — het bewérkveld heet uiteraard nog zo.
+    assert "/activiteiten#proefslug-2026" in html
+    assert "Vriendelijke URL:" not in html
+    blok = html.split("Poster-URL")[0]
+    assert 'x-show="!edit"' in blok[-400:]

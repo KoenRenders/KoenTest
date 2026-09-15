@@ -22,7 +22,14 @@
        link in het uploadblok (#653). §2.12: de bijlage staat nooit twee keer
        tegelijk op het scherm; de leeslink mag blijven, maar enkel in leesmodus.
        Ze bestaat om de bijlage te kunnen openen zónder eerst te gaan bewerken. #}
-    {% if a.poster_asset_url %}<p class="mt-2" x-show="!edit" x-cloak><a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-sm text-link underline">{{ a.poster_asset_title or _("Huidige affiche bekijken") }}</a></p>{% endif %}
+    {# Ronde 4 (15 sep): mét label — een kale bestandsnaam leest niet als
+       "dit is de affiche". #}
+    {# Ronde 4/5 (15 sep): élk veld zichtbaar in leesmodus, zonder misleiding —
+       de Poster-URL toont alleen wanneer hij ook GELDT (een upload prevaleert,
+       #223); de vriendelijke URL zit in de deellink rechts, niet dubbel hier.
+       x-show per regel: gate-regel 28 leest per element. #}
+    {% if a.poster_asset_url %}<p class="mt-2 text-sm" x-show="!edit" x-cloak><span class="text-ink-soft">{{ _("Affiche") }}:</span> <a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-link underline">{{ a.poster_asset_title or _("Huidige affiche bekijken") }}</a></p>
+    {% elif a.poster_url %}<p class="mt-2 text-sm" x-show="!edit" x-cloak><span class="text-ink-soft">{{ _("Poster-URL") }}:</span> <a href="{{ a.poster_url }}" target="_blank" rel="noopener" class="text-link underline break-all">{{ a.poster_url }}</a></p>{% endif %}
     {# Eén vorm voor tekstvelden én affiche (#623). Poster-URL was uit het scherm
        verdwenen terwijl het veld op het model bleef bestaan — je kon alleen nog
        uploaden. En het uploadblok had een eigen "Uploaden"-knop, dus twee handelingen

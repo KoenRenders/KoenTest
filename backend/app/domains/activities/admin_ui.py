@@ -204,9 +204,11 @@ def admin_activiteit_detail(activity_id: int, request: Request,
         {"nav_items": NAV, **_aa_detail_ctx(request, db, activiteit),
          **_record_tabs(activiteit, reg_count, db, email, "overzicht"),
          **_record_rail(db, activiteit, reg_count),
-         # De deellink (feedbackronde): de publieke lijst, verankerd op de kaart
-         # van deze activiteit — het enige publieke adres dat vandaag bestaat.
-         "deellink": f"{tenant_base_url(db)}/activiteiten#act-{activity_id}"})
+         # De deellink (ronde 4/5): de publieke lijst, verankerd op de kaart van
+         # deze activiteit. Mét slug wordt het anker de vriendelijke URL — zo is
+         # het veld zichtbaar én kopieerbaar zonder tweede regel.
+         "deellink": (f"{tenant_base_url(db)}/activiteiten"
+                      f"#{activiteit.slug or f'act-{activity_id}'}")})
 
 
 @router.post("/admin/activiteiten", response_class=HTMLResponse,
