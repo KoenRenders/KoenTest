@@ -36,7 +36,7 @@
        voor één wijziging. Nu bewaart één "Opslaan" allebei. #}
     <form id="aa-act-form" x-show="edit" x-cloak class="space-y-3 mt-3" enctype="multipart/form-data"
           hx-post="/admin/activiteiten/{{ a.id }}" hx-encoding="multipart/form-data"
-          hx-target="#aa-detail" hx-swap="innerHTML">
+          hx-target="#aa-detail" hx-swap="innerHTML" style="display: none">
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <div>{{ ui.label(_("Naam"), "name", required=True) }}
           {{ ui.input_control("name", id="name", value=a.name, required=True, cls="w-full") }}</div>
@@ -86,7 +86,7 @@
         </div>
       </div>
       <form id="aa-datum-{{ d.id }}" x-show="edit" x-cloak class="flex flex-wrap gap-2 items-end mt-2 bg-gray-50 rounded-lg p-2"
-            hx-post="/admin/activiteiten/{{ a.id }}/datums/{{ d.id }}" hx-target="#aa-detail" hx-swap="innerHTML">
+            hx-post="/admin/activiteiten/{{ a.id }}/datums/{{ d.id }}" hx-target="#aa-detail" hx-swap="innerHTML" style="display: none">
         <div>{{ ui.label(_("Start"), "sd-" ~ d.id, required=True) }}
           {{ ui.input_control("start_date", id="sd-" ~ d.id, type="date", value=d.start_date.strftime("%Y-%m-%d"), required=True) }}</div>
         <div>{{ ui.label(_("Einde"), "ed-" ~ d.id) }}
@@ -179,7 +179,7 @@
     <form id="aa-comp-{{ c.id }}" x-show="edit" x-cloak class="flex flex-wrap gap-2 items-end mt-3"
           enctype="multipart/form-data" hx-encoding="multipart/form-data"
           hx-post="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}"
-          hx-target="#aa-detail" hx-swap="innerHTML">
+          hx-target="#aa-detail" hx-swap="innerHTML" style="display: none">
       <div>{{ ui.label(_("Naam"), "cname-" ~ c.id, required=True) }}
         {{ ui.input_control("name", id="cname-" ~ c.id, value=c.name, required=True) }}</div>
       <div>{{ ui.label(_("Max"), "cmax-" ~ c.id) }}
@@ -227,7 +227,7 @@
         </div>
         <form id="aa-prod-{{ p.id }}" x-show="ed" x-cloak class="flex flex-wrap gap-2 items-end mt-2"
               hx-post="/admin/activiteiten/{{ a.id }}/onderdelen/{{ c.id }}/producten/{{ p.id }}"
-              hx-target="#aa-detail" hx-swap="innerHTML">
+              hx-target="#aa-detail" hx-swap="innerHTML" style="display: none">
           <div>{{ ui.label(_("Naam"), "epname-" ~ p.id, required=True) }}
             {{ ui.input_control("name", id="epname-" ~ p.id, value=p.name, required=True) }}</div>
           <div>{{ ui.label(_("Prijs"), "epprice-" ~ p.id) }}

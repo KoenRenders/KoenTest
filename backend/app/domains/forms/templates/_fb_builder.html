@@ -24,7 +24,7 @@
    alles gestapeld, met het type over de volle breedte. #}
 <form {% if f %}id="fb-veld-{{ f.id }}" {% endif %}x-show="{{ tonen }}" x-cloak class="grid grid-cols-1 sm:grid-cols-4 gap-2 mt-3 text-sm"
       hx-post="/admin/formulieren/{{ form.id }}{% if f %}/velden/{{ f.id }}{% else %}/velden{% endif %}"
-      hx-target="#fb-detail" hx-swap="innerHTML">
+      hx-target="#fb-detail" hx-swap="innerHTML" style="display: none">
   {% if not f %}<input type="hidden" name="section_id" value="{{ sid or '' }}">{% endif %}
   {# #700: het vraagtype. Uitgeschakeld zodra er inzendingen zijn — tonen mét de
      reden, niet verbergen (§2.12): een keuze die er niet staat, laat je zoeken. #}
@@ -251,7 +251,7 @@
       <span>· {{ submission_count }} inzendingen</span>
     </p>
     <form id="fb-inst" x-show="open" x-cloak class="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 text-sm"
-          hx-post="/admin/formulieren/{{ form.id }}/instellingen" hx-target="#fb-detail" hx-swap="innerHTML">
+          hx-post="/admin/formulieren/{{ form.id }}/instellingen" hx-target="#fb-detail" hx-swap="innerHTML" style="display: none">
       <div>{{ ui.label(_("Titel"), "fbt", required=True) }}{{ ui.input_control("title", id="fbt", value=(form.title), required=True, cls="w-full") }}</div>
       {# #690: optioneel. Leeg laten betekent "alleen de tokenlink". #}
       <div>{{ ui.label(_("Leesbare link"), "fbslug") }}

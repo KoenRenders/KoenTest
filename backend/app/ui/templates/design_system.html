@@ -499,7 +499,7 @@
      verzoek vertrekt, dus een onvindbaar doel maakt de knop volledig inert. #}
   <div class="mt-3" x-data="{ open: false }">
     {{ ui.detail_disclosure("/admin/design-system", "ds-detail", _("Toon de deelnemers")) }}
-    <div id="ds-detail" x-show="open" x-cloak class="mt-2 text-sm text-gray-600">
+    <div id="ds-detail" x-show="open" x-cloak class="mt-2 text-sm text-gray-600" style="display: none">
       {{ _("Hier laadt het detailfragment.") }}
     </div>
   </div>

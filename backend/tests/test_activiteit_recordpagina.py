@@ -69,12 +69,14 @@ def test_finance_ziet_de_betalingen_tab(client, db_session):
     assert "Betalingen 2" in html  # twee inschrijvingen, elk één betaalrecord
 
 
-def test_de_rail_toont_bezetting_en_totaal(client, db_session):
+def test_de_rail_toont_bezetting(client, db_session):
     activity, component = _activiteit_met_inschrijvingen(client, db_session)
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
     assert "Bezetting" in html and component.name in html
-    assert "Inschrijvingen totaal" in html
+    # "Inschrijvingen totaal" verdween op Koens vraag (15 sep): het aantal
+    # staat al op de tab.
+    assert "Inschrijvingen totaal" not in html
 
 
 def test_inschrijvingen_tab_toont_alles_met_onderdeelkolom(client, db_session):
@@ -170,9 +172,42 @@ def test_elk_invulbaar_veld_is_zichtbaar_in_leesmodus(client, db_session):
 
     # Zonder upload geldt de Poster-URL en staat hij als leesregel.
     assert "Poster-URL" in html and "https://example.org/affiche.png" in html
-    # De slug zit in de deellink (anker = vriendelijke URL), niet dubbel links
-    # als leesregel — het bewérkveld heet uiteraard nog zo.
-    assert "/activiteiten#proefslug-2026" in html
+    # De slug zit in de deellink (het kanonieke adres, ronde 6), niet dubbel
+    # links als leesregel — het bewérkveld heet uiteraard nog zo.
+    assert "/activiteiten/proefslug-2026" in html
     assert "Vriendelijke URL:" not in html
     blok = html.split("Poster-URL")[0]
     assert 'x-show="!edit"' in blok[-400:]
+
+
+def test_deeladres_stuurt_naar_de_juiste_lijst(client, db_session):
+    """Ronde 6 (15 sep): een vooraf gedeelde link blijft ná het evenement
+    werken — het kanonieke adres kiest zelf tussen de komende lijst en het
+    archief, met het kaart-anker erbij."""
+    from datetime import date, timedelta
+
+    from app.domains.activities.api import Activity, ActivityDate
+
+    komend = Activity(name="Komende proef", slug="komende-proef")
+    voorbij = Activity(name="Voorbije proef", slug="voorbije-proef")
+    db_session.add_all([komend, voorbij])
+    db_session.flush()
+    db_session.add_all([
+        ActivityDate(activity_id=komend.id,
+                     start_date=date.today() + timedelta(days=10)),
+        ActivityDate(activity_id=voorbij.id,
+                     start_date=date.today() - timedelta(days=10)),
+    ])
+    db_session.flush()
+
+    r1 = client.get("/activiteiten/komende-proef", follow_redirects=False)
+    assert r1.status_code == 302 and r1.headers["location"].endswith(
+        "/activiteiten#komende-proef")
+    r2 = client.get("/activiteiten/voorbije-proef", follow_redirects=False)
+    assert r2.status_code == 302 and r2.headers["location"].endswith(
+        "/activiteiten/archief#voorbije-proef")
+    # Ook op nummer, en onbekend is een nette 404.
+    r3 = client.get(f"/activiteiten/{komend.id}", follow_redirects=False)
+    assert r3.status_code == 302
+    assert client.get("/activiteiten/bestaat-niet",
+                      follow_redirects=False).status_code == 404

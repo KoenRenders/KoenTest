@@ -1375,3 +1375,33 @@ def test_een_icoonmarge_schaalt_mee_met_de_tekst():
         "een icoonmarge van 4 px hoort alleen op een telefoon; zet er `md:mt-0.5` "
         "naast:\n  " + "\n  ".join(fouten)
     )
+
+
+def test_verborgen_beginstand_met_id_staat_ook_in_de_servermarkup():
+    """#726, veralgemeend na de golf 8-terugval (15 sep, HDEV-melding van Koen):
+    een element mét `id` én `x-show` krijgt bij een htmx-swap zijn attributen
+    uit het SERVERANTWOORD terug (settle) — dat wist de `display:none` die
+    Alpine er net op zette, en dan staan lees- én bewerkmodus tegelijk op het
+    scherm. De server hoort de verborgen beginstand zelf te dragen:
+    `style="display: none"` letterlijk op het element.
+
+    De kop-herziening gaf negen bewerkformulieren een id (voor de
+    form=-koppeling van Opslaan) zonder die regel — precies wat deze gate
+    voortaan tegenhoudt. Rood bewezen: vóór de fix vlagde hij alle negen plus
+    de kitpagina-demo.
+    """
+    import re
+
+    fouten = []
+    for pad in TEMPLATES:
+        tekst = _zonder_commentaar(pad)
+        for m in re.finditer(r"<(?:div|form|section|tbody|span|p)\b[^>]*>", tekst, re.S):
+            tag = m.group(0)
+            if re.search(r'(?<![-\w])id="', tag) and "x-show=" in tag \
+                    and 'style="display: none"' not in tag:
+                nr = tekst[:m.start()].count("\n") + 1
+                fouten.append(f"{pad.relative_to(APP)}:{nr}")
+    assert not fouten, (
+        'Element met id én x-show zonder letterlijke style="display: none" — '
+        "htmx' settle wist anders de Alpine-stand na een swap (#726):\n  "
+        + "\n  ".join(fouten))
