@@ -1089,3 +1089,64 @@ def test_de_vergaderlijst_kan_gezocht_worden(client, db_session):
     op_locatie = client.get("/admin/vergaderingen?q=christiane").text
     assert "5 november 2026" in op_locatie
     assert "1 oktober 2026" not in op_locatie
+
+
+def test_zoeken_staat_boven_het_aanmaken_van_een_niet_lid(client, db_session):
+    """De volgorde op het kringscherm is de volgorde van de handeling.
+
+    Eerst kijken of de persoon al in de administratie staat — in verreweg de
+    meeste gevallen is dat zo. Stond het aanmaakformulier bovenaan, dan maak je
+    een tweede persoon aan voor iemand die er al was, en dat is niet terug te
+    draaien zonder samenvoegen.
+    """
+    _login(client)
+    html = client.get("/admin/vergaderingen/kring").text
+    zoeken = html.index("Iemand toevoegen<")
+    aanmaken = html.index("Iemand toevoegen die geen lid is")
+    assert zoeken < aanmaken, "het aanmaakformulier hoort ONDER het zoeken te staan"
+
+
+# ── 24. Iemand uit de kring halen ────────────────────────────────────────────
+
+def test_wie_je_uit_de_kring_haalt_is_er_meteen_uit(db_session):
+    """Verwijderen werkte niet: de einddatum was vandaag en het filter liet "tot
+    en met vandaag" nog meetellen, dus de persoon bleef tot morgen staan.
+
+    Kapotgemaakt om te toetsen: met `>=` in plaats van `>` staat hij er na het
+    verwijderen nog steeds.
+    """
+    from app.domains.mdm.api import end_circle_relation, organization_circle
+
+    persoon = _person(db_session, "Kris", "Vermeulen", "kris@example.org")
+    relatie = _in_circle(db_session, persoon)
+    assert any(e.person.id == persoon.id for e in organization_circle(db_session))
+
+    end_circle_relation(db_session, relatie.id)
+
+    assert not any(e.person.id == persoon.id for e in organization_circle(db_session)), \
+        "wie je verwijdert, hoort meteen uit de kring te zijn"
+
+
+def test_een_vertrokken_deelnemer_blijft_in_het_oude_verslag(client, db_session):
+    """Wie er wás, blijft er staan — ook nadat hij de kring verlaten heeft.
+
+    De kring is een momentopname. Zou het verslag alleen de huidige kring tonen,
+    dan verdween zijn naam uit een oud verslag terwijl zijn aanwezigheid gewoon in
+    de databank staat: het document klopt dan niet meer met die avond, en niemand
+    die het leest kan dat zien.
+    """
+    from app.domains.mdm.api import end_circle_relation
+    from app.domains.meetings.api import set_attendance
+
+    _login(client)
+    persoon = _person(db_session, "Kris", "Vermeulen", "kris@example.org")
+    relatie = _in_circle(db_session, persoon)
+    meeting = create_meeting(db_session, meeting_date=date.today())
+    set_attendance(db_session, meeting, person_id=persoon.id,
+                   status=ATTENDANCE_PRESENT)
+
+    end_circle_relation(db_session, relatie.id)
+
+    tekst = _pdf_tekst(client.get(f"/admin/vergaderingen/{meeting.id}/pdf").content)
+    assert "Kris Vermeulen" in tekst, \
+        "de aanwezigheid van die avond verdween uit het verslag"

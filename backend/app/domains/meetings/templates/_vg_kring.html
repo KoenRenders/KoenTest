@@ -30,23 +30,6 @@
   {% endif %}
 </div>
 
-{# Iemand die (nog) geen lid is — de afdelingsondersteuner van Raak nationaal is
-   het geval waarvoor dit bestaat. Elke andere weg naar een nieuwe persoon loopt
-   via een gezin, dus zonder dit formulier kon zo iemand niet bestaan en dus ook
-   niet in de kring. #}
-<div class="bg-surface border border-line rounded-2xl p-5 mt-4">
-  <h2 class="font-semibold text-blue-700">{{ _("Iemand toevoegen die geen lid is") }}</h2>
-  <p class="text-sm text-ink-soft mt-0.5">{{ _("Bijvoorbeeld de afdelingsondersteuner. Er wordt een persoon aangemaakt zonder gezin; hij komt meteen in de kring.") }}</p>
-  <form class="mt-3 flex flex-wrap items-center gap-2" hx-post="/admin/vergaderingen/kring/nieuw"
-        hx-target="#vg-kring" hx-swap="innerHTML">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    {{ ui.input_control("first_name", cls="w-36", placeholder=_("Voornaam")) }}
-    {{ ui.input_control("last_name", cls="w-40", placeholder=_("Achternaam")) }}
-    {{ ui.input_control("person_email", type="email", cls="w-56", placeholder=_("naam@voorbeeld.be")) }}
-    {{ ui.btn_secondary(_("Toevoegen aan de kring"), type="submit", size="sm") }}
-  </form>
-</div>
-
 <div class="bg-surface border border-line rounded-2xl p-5 mt-4">
   <h2 class="font-semibold text-blue-700">{{ _("Iemand toevoegen") }}</h2>
   {# Het zoekveld vervangt ALLEEN de resultaten en niet zichzelf. Vervang je het
@@ -75,4 +58,25 @@
   </div>
   {% endif %}
   </div>
+</div>
+
+{# ONDER het zoeken, en dat is de volgorde van de handeling (Koen, 15 september
+   2026): eerst kijken of de persoon al in de administratie staat — in 95% van de
+   gevallen is dat zo. Stond dit formulier bovenaan, dan maakte je een tweede
+   persoon aan voor iemand die er al was.
+
+   Het bestaat voor de afdelingsondersteuner van Raak nationaal: elke andere weg
+   naar een nieuwe persoon loopt via een gezin, dus zonder dit formulier kon een
+   niet-lid niet bestaan en dus ook niet in de kring. #}
+<div class="bg-surface border border-line rounded-2xl p-5 mt-4">
+  <h2 class="font-semibold text-blue-700">{{ _("Iemand toevoegen die geen lid is") }}</h2>
+  <p class="text-sm text-ink-soft mt-0.5">{{ _("Staat de persoon hierboven niet tussen de zoekresultaten? Dan is hij nog niet gekend — bijvoorbeeld de afdelingsondersteuner. Er wordt een persoon aangemaakt zonder gezin; hij komt meteen in de kring.") }}</p>
+  <form class="mt-3 flex flex-wrap items-center gap-2" hx-post="/admin/vergaderingen/kring/nieuw"
+        hx-target="#vg-kring" hx-swap="innerHTML">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {{ ui.input_control("first_name", cls="w-36", placeholder=_("Voornaam")) }}
+    {{ ui.input_control("last_name", cls="w-40", placeholder=_("Achternaam")) }}
+    {{ ui.input_control("person_email", type="email", cls="w-56", placeholder=_("naam@voorbeeld.be")) }}
+    {{ ui.btn_secondary(_("Toevoegen aan de kring"), type="submit", size="sm") }}
+  </form>
 </div>

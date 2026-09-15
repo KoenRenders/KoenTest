@@ -34,47 +34,32 @@
     {{ ui.empty_state(_("De vergaderkring is nog leeg."), action_label=_("Kring beheren"), action_href="/admin/vergaderingen/kring") }}
   {% else %}
   <div class="flex flex-wrap gap-2 mt-3">
-    {% for entry in circle %}
-    {% set state = attendance.get("p" ~ entry.person.id, "") %}
-    <form hx-post="/admin/vergaderingen/{{ meeting.id }}/aanwezigheid" hx-target="#vg-document" hx-swap="innerHTML">
-      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" name="person_id" value="{{ entry.person.id }}">
-      <input type="hidden" name="current" value="{{ state }}">
-      <button type="submit" {% if not editable %}disabled{% endif %}
-              class="inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-sm transition-colors
-              {% if state == 'present' %}border-green-300 bg-green-50 text-green-800 font-medium
-              {% elif state == 'excused' %}border-yellow-300 bg-yellow-50 text-yellow-800 font-medium
-              {% else %}border-line bg-surface text-ink-soft hover:bg-surface-2{% endif %}">
-        {% if state == 'present' %}{{ ui.icon("check", 14) }}{% endif %}
-        {{ entry.person.first_name }} {{ entry.person.last_name }}
-        {% if state == 'excused' %}<span class="text-xs">· {{ _("verontschuldigd") }}</span>{% endif %}
-      </button>
-    </form>
-    {% endfor %}
-
-    {# Gasten staan in dezelfde rij als de kring: wie mee aan tafel zit, vink je
-       aan zoals iedereen. Ze krijgen ook de agenda- en verslagmail, maar worden
-       geen persoon in de administratie (CR-09 §3.15). #}
-    {% for gast in guests %}
-    {% set state = attendance.get("g" ~ gast.id, "") %}
+    {# Eén lijst: de kring van dát moment, de gasten, en wie aangevinkt staat maar
+       de kring intussen verlaten heeft. Die laatste blijft zichtbaar — wie er was,
+       was er, en een verslag dat hem weglaat klopt niet meer met die avond. #}
+    {% for deelnemer in participants %}
+    {% set state = attendance.get(deelnemer.key, "") %}
     <span class="inline-flex items-center">
       <form hx-post="/admin/vergaderingen/{{ meeting.id }}/aanwezigheid" hx-target="#vg-document" hx-swap="innerHTML">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        <input type="hidden" name="guest_id" value="{{ gast.id }}">
+        {% if deelnemer.person_id %}<input type="hidden" name="person_id" value="{{ deelnemer.person_id }}">{% endif %}
+        {% if deelnemer.guest_id %}<input type="hidden" name="guest_id" value="{{ deelnemer.guest_id }}">{% endif %}
         <input type="hidden" name="current" value="{{ state }}">
         <button type="submit" {% if not editable %}disabled{% endif %}
-                class="inline-flex items-center gap-1.5 rounded-l-full border border-r-0 px-3 py-1.5 text-sm transition-colors
+                class="inline-flex items-center gap-1.5 border px-3 py-1.5 text-sm transition-colors
+                {% if deelnemer.is_guest %}rounded-l-full border-r-0{% else %}rounded-full{% endif %}
                 {% if state == 'present' %}border-green-300 bg-green-50 text-green-800 font-medium
                 {% elif state == 'excused' %}border-yellow-300 bg-yellow-50 text-yellow-800 font-medium
                 {% else %}border-line bg-surface text-ink-soft hover:bg-surface-2{% endif %}">
           {% if state == 'present' %}{{ ui.icon("check", 14) }}{% endif %}
-          {{ gast.name or gast.email }}
-          <span class="text-xs">· {{ _("gast") }}</span>
+          {{ deelnemer.name }}
+          {% if deelnemer.is_guest %}<span class="text-xs">· {{ _("gast") }}</span>{% endif %}
+          {% if not deelnemer.in_circle %}<span class="text-xs">· {{ _("niet meer in de kring") }}</span>{% endif %}
           {% if state == 'excused' %}<span class="text-xs">· {{ _("verontschuldigd") }}</span>{% endif %}
         </button>
       </form>
-      {% if editable %}
-      <form hx-post="/admin/vergaderingen/{{ meeting.id }}/gast/{{ gast.id }}/verwijder"
+      {% if editable and deelnemer.is_guest %}
+      <form hx-post="/admin/vergaderingen/{{ meeting.id }}/gast/{{ deelnemer.guest_id }}/verwijder"
             hx-target="#vg-document" hx-swap="innerHTML">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button type="submit" class="inline-flex items-center rounded-r-full border border-line px-2 py-1.5 text-ink-soft hover:text-brand-danger hover:bg-surface-2"

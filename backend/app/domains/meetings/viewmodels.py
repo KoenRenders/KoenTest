@@ -71,9 +71,10 @@ class MeetingDocumentView(ViewModel):
     sections: list[Any]
     # The circle, with who is ticked present or excused.
     circle: list[Any]
-    # Gasten voor deze ene vergadering: ze krijgen de mails en staan in de
-    # aanwezigheidslijst, maar worden geen persoon in de administratie.
-    guests: list[Any]
+    # Iedereen die bij deze vergadering hoort: de kring van dát moment, de gasten,
+    # én wie aangevinkt staat maar de kring intussen verlaten heeft. Afgeleid in de
+    # service, want het is een regel en geen opsomming.
+    participants: list[Any]
     # Sleutel is `p<id>` of `g<id>` — personen en gasten zijn apart genummerd.
     attendance: dict[str, str]
     # The members header, following the renewal cycle (§3.20).
