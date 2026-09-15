@@ -47,6 +47,7 @@ change to all four, in one pull request.
 | 13 Sep 2026 | A record name opens a full detail page; inline disclosure becomes the secondary variant | #785 (B2) |
 | 14 Sep 2026 | One action cluster per edit surface, **at the top** (revised from bottom on owner feedback the same day): read mode shows the opener; edit mode swaps it for [Verwijderen]·[Annuleren][Opslaan] with Opslaan on the opener's spot; sticky header on long editors — replaces the #722 adjacency rule on edit surfaces | #913 (wave 6, A2) |
 | 14 Sep 2026 | The meetings module (CR-09) **keeps autosave** as its saving model — owner decision; A8's "autosave only as named concept behaviour" is satisfied at module level, no per-field naming required | #913 (wave 6, A8) |
+| 15 Sep 2026 | Heading colour is a **shell token** (`text-kop`): admin headings in ink per the Cobalt mockup (blue is for actions/links/selection); the public shell keeps brand-blue headings until the wave-10 public token pass | #913 (wave 8, round 3) |
 | 13 Sep 2026 | Dashboard is a first-class screen type, defined as a **reporting** surface (tiles, drill-through, peilmoment) — expressly separate from the werkbank, which is process | #785 (B3) |
 | 13 Sep 2026 | The unsaved-changes promise is dropped as a system rule; it returns as a per-editor pattern field for long editors | #785 (B1) |
 | 13 Sep 2026 | Judging viewports follow the audience: public phone-first, admin desktop-first | CR-08 |
@@ -100,6 +101,10 @@ Rules:
 - Allowed blue tints: `blue-700` (primary), `blue-600` / `blue-50` (outline),
   `blue-50` (KPI tiles). **`blue-800` and `blue-900` are forbidden** outside the
   primary hover. The gate enforces it.
+- **Headings use `text-kop`**, a shell token (wave 8, round 3): ink in the
+  admin shell — Cobalt reserves blue for actions, links and selection — and
+  brand blue on the public shell until the wave-10 public pass. Never hardcode
+  a heading colour per screen.
 - Links carry the brighter Link Blue, underlined, so they pop next to the deep
   brand blue of headings — never a generic Tailwind link blue. Contrast on white
   ≈ 5.5:1.

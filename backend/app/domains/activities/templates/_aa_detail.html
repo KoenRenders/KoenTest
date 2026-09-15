@@ -10,7 +10,7 @@
       {# Naam, status en locatie staan sinds de feedbackronde in de recordkop
          (_aa_recordkop.html); deze kaart draagt de rest. #}
       {# Feedbackronde 2 (15 sep): zelfde titelstijl als Datums en Onderdelen. #}
-      <h2 class="text-xl font-semibold text-blue-700">{{ _("Activiteit") }}</h2>
+      <h2 class="text-xl font-semibold text-kop">{{ _("Activiteit") }}</h2>
       <div class="flex gap-2">
         {{ ui.edit_toggle("edit") }}
         <div x-show="edit" x-cloak>{{ ui.action_bar(form="aa-act-form", cancel_attrs='@click="edit = false"',

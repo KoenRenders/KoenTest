@@ -15,7 +15,7 @@
   {% if groep.aantal %}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ uitgeklapt: true }">
     <div class="flex items-center justify-between gap-2">
-      <button type="button" class="inline-flex items-center gap-1.5 text-xl font-semibold text-blue-700"
+      <button type="button" class="inline-flex items-center gap-1.5 text-xl font-semibold text-kop"
               @click="uitgeklapt = !uitgeklapt" :aria-expanded="uitgeklapt">
         <span x-show="uitgeklapt">{{ ui.icon("chevron-down", 14) }}</span><span x-show="!uitgeklapt" x-cloak class="-rotate-90">{{ ui.icon("chevron-down", 14) }}</span>
         {{ groep.naam }} <span class="text-sm font-normal text-ink-soft">{{ groep.aantal }}</span>
