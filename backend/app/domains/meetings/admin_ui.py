@@ -46,6 +46,7 @@ from app.domains.meetings.api import (
     delete_item,
     document_of,
     extra_recipients_of,
+    file_is_sent,
     files_of,
     filename_for,
     get_file,
@@ -65,10 +66,11 @@ from app.domains.meetings.api import (
     set_file_mailing,
     set_noted_steward,
     update_item,
+    update_meeting,
 )
 from app.domains.meetings.viewmodels import (
-    MeetingCircleView, MeetingDocumentView, MeetingListView, MeetingNewView,
-    MeetingSendView,
+    MeetingCircleView, MeetingDocumentView, MeetingItemView, MeetingListView,
+    MeetingNewView, MeetingSendView,
 )
 from app.i18n import _
 from app.ui import admin_nav, templates
@@ -130,6 +132,29 @@ def _new_view(request: Request, db: Session, error: Optional[str] = None
         suggested_time=(previous.start_time.strftime("%H:%M")
                         if previous is not None and previous.start_time else ""),
         suggested_location=(previous.location or "") if previous is not None else "",
+        action="/admin/vergaderingen",
+        title=_("Nieuwe vergadering"),
+        intro=_("Eén datum volstaat: de agenda wordt meteen samengesteld uit de "
+                "activiteiten en de nieuwe leden."),
+        submit_label=_("Vergadering aanmaken"),
+        cancel_href="/admin/vergaderingen",
+        csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
+
+
+def _edit_view(request: Request, db: Session, meeting,
+               error: Optional[str] = None) -> MeetingNewView:
+    """Hetzelfde formulier, maar voor een vergadering die al bestaat."""
+    return MeetingNewView(
+        suggested_date=meeting.meeting_date.isoformat(),
+        suggested_time=(meeting.start_time.strftime("%H:%M")
+                        if meeting.start_time else ""),
+        suggested_location=meeting.location or "",
+        action=f"/admin/vergaderingen/{meeting.id}/bewerken",
+        title=_("Vergadering wijzigen"),
+        intro=_("Verschuift de vergadering, pas dan de datum aan: de agenda wordt "
+                "opnieuw samengesteld. Punten waar al op genotuleerd is, blijven staan."),
+        submit_label=_("Wijziging bewaren"),
+        cancel_href=f"/admin/vergaderingen/{meeting.id}",
         csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
 
 
@@ -266,14 +291,29 @@ def _document_view(request: Request, db: Session, meeting,
         status_tone=STATUS_TONES.get(meeting.status, "gray"),
         sections=document_of(db, meeting),
         circle=organization_circle(db, on_day=meeting.meeting_date),
+        guests=extra_recipients_of(db, meeting),
         attendance=attendance_of(db, meeting),
         standing=member_standing(db),
         picker_section_id=picker_section_id, picker_options=picker_options,
         picker_query=picker_query,
-        attachments=files_of(db, meeting),
+        attachments=[(f, file_is_sent(meeting, f)) for f in files_of(db, meeting)],
         sent_pdfs=files_of(db, meeting, purpose=FILE_SENT_PDF),
         editable=meeting.status != STATUS_SENT,
         csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
+
+
+def _item_response(request: Request, db: Session, meeting, item_id: int):
+    """Eén punt als fragment — het antwoord op een notitie of een wijkmeesterkeuze."""
+    from app.domains.mdm.api import organization_circle
+
+    punt = next((i for section in document_of(db, meeting) for i in section.items
+                 if i.id == item_id), None)
+    if punt is None:
+        return _document_response(request, db, meeting)
+    return templates.TemplateResponse(request, "_vg_punt.html", MeetingItemView(
+        item=punt, meeting=meeting, editable=meeting.status != STATUS_SENT,
+        circle=organization_circle(db, on_day=meeting.meeting_date),
+        csrf_token=_csrf(request)).as_context())
 
 
 def _document_response(request: Request, db: Session, meeting, **kwargs):
@@ -337,7 +377,9 @@ def item_update(meeting_id: int, item_id: int, request: Request,
             update_item(db, meeting, item_id, notes=notes, title=title)
     except MeetingError as exc:
         return _document_response(request, db, meeting, error=str(exc))
-    return _document_response(request, db, meeting)
+    # Alleen dít punt terug: het hele document vervangen zou elke andere open
+    # editor op het scherm opnieuw opbouwen, midden in het typen.
+    return _item_response(request, db, meeting, item_id)
 
 
 @router.post("/admin/vergaderingen/{meeting_id}/punt/{item_id}/verwijder",
@@ -370,13 +412,86 @@ def section_add(meeting_id: int, request: Request, db: Session = Depends(get_db)
              response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 def attendance_toggle(meeting_id: int, request: Request, db: Session = Depends(get_db),
                       _email: str = Depends(require_admin_ui),
-                      person_id: int = Form(...), current: str = Form("")):
+                      person_id: str = Form(""), guest_id: str = Form(""),
+                      current: str = Form("")):
     meeting = _meeting_or_404(db, meeting_id)
     nxt = NEXT_ATTENDANCE.get(current or None, ATTENDANCE_PRESENT)
     try:
-        set_attendance(db, meeting, person_id, nxt or None)
+        set_attendance(db, meeting,
+                       person_id=int(person_id) if person_id else None,
+                       guest_id=int(guest_id) if guest_id else None,
+                       status=nxt or None)
     except MeetingError as exc:
         return _document_response(request, db, meeting, error=str(exc))
+    return _document_response(request, db, meeting)
+
+
+@router.get("/admin/vergaderingen/{meeting_id}/bewerken", response_class=HTMLResponse)
+def meeting_edit(meeting_id: int, request: Request, db: Session = Depends(get_db),
+                 _email: str = Depends(require_admin_ui)):
+    """Datum, uur en locatie van een bestaande vergadering."""
+    meeting = _meeting_or_404(db, meeting_id)
+    return templates.TemplateResponse(
+        request, "admin_vergadering_nieuw.html",
+        _edit_view(request, db, meeting).as_context())
+
+
+@router.post("/admin/vergaderingen/{meeting_id}/bewerken", response_class=HTMLResponse,
+             dependencies=[Depends(require_csrf)])
+def meeting_edit_save(meeting_id: int, request: Request,
+                      db: Session = Depends(get_db),
+                      _email: str = Depends(require_admin_ui),
+                      meeting_date: str = Form(...), start_time: str = Form(""),
+                      location: str = Form("")):
+    meeting = _meeting_or_404(db, meeting_id)
+    try:
+        day = date.fromisoformat(meeting_date)
+    except ValueError:
+        return templates.TemplateResponse(
+            request, "admin_vergadering_nieuw.html",
+            _edit_view(request, db, meeting,
+                       error=_("Vul een geldige datum in.")).as_context())
+    moment = None
+    if start_time:
+        try:
+            moment = time.fromisoformat(start_time)
+        except ValueError:
+            moment = None
+    try:
+        update_meeting(db, meeting, meeting_date=day, start_time=moment,
+                       location=location.strip() or None)
+    except MeetingError as exc:
+        return templates.TemplateResponse(
+            request, "admin_vergadering_nieuw.html",
+            _edit_view(request, db, meeting, error=str(exc)).as_context())
+    doel = f"/admin/vergaderingen/{meeting.id}"
+    if request.headers.get("HX-Request"):
+        return Response(status_code=204, headers={"HX-Redirect": doel})
+    return RedirectResponse(doel, status_code=303)
+
+
+@router.post("/admin/vergaderingen/{meeting_id}/gast", response_class=HTMLResponse,
+             dependencies=[Depends(require_csrf)])
+def guest_add(meeting_id: int, request: Request, db: Session = Depends(get_db),
+              _email: str = Depends(require_admin_ui),
+              guest_name: str = Form(""), guest_email: str = Form("")):
+    """Een gast voor deze ene vergadering: krijgt de mails én staat in de
+    aanwezigheidslijst."""
+    meeting = _meeting_or_404(db, meeting_id)
+    try:
+        add_extra_recipient(db, meeting, guest_email, name=guest_name)
+    except MeetingError as exc:
+        return _document_response(request, db, meeting, error=str(exc))
+    return _document_response(request, db, meeting)
+
+
+@router.post("/admin/vergaderingen/{meeting_id}/gast/{guest_id}/verwijder",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def guest_remove(meeting_id: int, guest_id: int, request: Request,
+                 db: Session = Depends(get_db),
+                 _email: str = Depends(require_admin_ui)):
+    meeting = _meeting_or_404(db, meeting_id)
+    remove_extra_recipient(db, meeting, guest_id)
     return _document_response(request, db, meeting)
 
 
@@ -482,11 +597,17 @@ def _pdf_context(db: Session, meeting, *, kind: str) -> dict:
 
     ticked = attendance_of(db, meeting)
     present, excused = [], []
-    for entry in organization_circle(db, on_day=meeting.meeting_date):
-        name = f"{entry.person.first_name} {entry.person.last_name}".strip()
-        if ticked.get(entry.person.id) == ATTENDANCE_PRESENT:
+    deelnemers = [(f"p{e.person.id}",
+                   f"{e.person.first_name} {e.person.last_name}".strip())
+                  for e in organization_circle(db, on_day=meeting.meeting_date)]
+    # Gasten staan in dezelfde lijst, met "(gast)" erbij: wie het verslag leest,
+    # moet kunnen zien dat iemand niet tot de vaste kring hoort.
+    deelnemers += [(f"g{g.id}", f"{g.name or g.email} ({_('gast')})")
+                   for g in extra_recipients_of(db, meeting)]
+    for sleutel, name in deelnemers:
+        if ticked.get(sleutel) == ATTENDANCE_PRESENT:
             present.append(name)
-        elif ticked.get(entry.person.id) == ATTENDANCE_EXCUSED:
+        elif ticked.get(sleutel) == ATTENDANCE_EXCUSED:
             excused.append(name)
     return {"meeting": meeting, "kind": kind, "logo": _logo_data_uri(db),
             "kind_label": _("Agenda") if kind == "agenda" else _("Verslag"),

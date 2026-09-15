@@ -833,6 +833,28 @@ GERESERVEERDE_SLUGS = frozenset({"berichten"})
 _SLUG_RE = re.compile(r"^[a-z0-9]+(?:[-_][a-z0-9]+)*$")
 
 
+def deellink_pad(form) -> str:
+    """Het pad dat je van dit formulier deelt: de slug als die er is (#928).
+
+    Exact de conventie van de activiteiten (#870-reeks, migratie 114): heeft het
+    formulier een leesbare naam, dan is dát de link die je toont en kopieert;
+    anders blijft de sleutel-URL staan.
+
+    **De sleutellink blijft altijd werken, en dat is de hele reden dat dit een
+    functie is en geen veld** (#690). Een slug verandert wat je TOONT, nooit wat er
+    nog WERKT: iemand die vorige maand `/formulier/a1b2c3` rondstuurde, mag niet
+    stukgaan omdat er later een naam bij komt. Beide routes bestaan naast elkaar en
+    blijven bestaan; deze functie kiest enkel welke van de twee je aan een mens
+    voorlegt.
+
+    Geen tenant-prefix en geen host: dat is de taak van `path_for` bij het tonen,
+    op dezelfde manier als overal elders. Zou die prefix hier zitten, dan droeg elke
+    aanroeper hem mee naar plaatsen waar hij niet hoort — en werd deze functie
+    onbruikbaar voor wie hem wél absoluut nodig heeft.
+    """
+    return f"/f/{form.slug}" if form.slug else f"/formulier/{form.share_token}"
+
+
 def normaliseer_slug(waarde) -> Optional[str]:
     """Een leesbare naam voor de deellink, of None (#690).
 

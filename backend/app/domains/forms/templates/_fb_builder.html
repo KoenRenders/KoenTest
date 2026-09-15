@@ -196,7 +196,10 @@
         {% if form.status == "open" %}{{ ui.badge(_("open"), "green") }}{% elif form.status == "closed" %}{{ ui.badge(_("gesloten"), "red") }}{% else %}{{ ui.badge(_("concept"), "yellow") }}{% endif %}
       </h2>
       <div class="flex flex-wrap gap-2">
-        {{ ui.btn_secondary(_("Bekijk"), href="/formulier/" ~ form.share_token, size="sm", attrs='target="_blank"') }}
+        {# Dezelfde link als hieronder getoond wordt (#928): stond hier de sleutel-URL
+           terwijl de deellink de slug toont, dan zou dit scherm twee adressen voor
+           één formulier laten zien. #}
+        {{ ui.btn_secondary(_("Bekijk"), href=path_for(share_path), size="sm", attrs='target="_blank"') }}
         {{ ui.btn_secondary(_("Afdruk"), href="/admin/formulieren/" ~ form.id ~ "/afdruk", size="sm", attrs='target="_blank"') }}
         {# Downloads staan buiten hx-boost (#634): het antwoord is een bestand, geen HTML. #}
         {{ ui.btn_secondary(_("Export"), lead_icon="download", href="/admin/formulieren/" ~ form.id ~ "/export", size="sm", attrs='hx-boost="false"') }}
@@ -223,23 +226,27 @@
              delete_attrs='hx-post="/admin/formulieren/' ~ form.id ~ '/verwijderen" ' ~ confirm_attrs(_("Formulier"), form.title)) }}</div>
       </div>
     </div>
-    {# #689: de deellink met een kopieerknop. `data-copy-bron` is de terugval van
-       de helper: lukt kopiëren niet (geen secure context), dan selecteert hij deze
-       tekst zodat Ctrl+C nog werkt. #}
     {# #689: de deellink met een kopieerknop. `data-copy-bron` is de terugval van de
        helper: lukt kopiëren niet (geen secure context), dan selecteert hij deze
-       tekst zodat Ctrl+C nog werkt.
+       tekst zodat Ctrl+C nog werkt. #712: op één regel; als eigen blok duwde dit
+       alles omlaag, en dan kost een optionele naam een hele regel.
 
-       #690: de leesbare link staat NAAST de tokenlink, niet in de plaats ervan —
-       een rondgestuurde tokenlink mag niet breken omdat iemand er later een naam bij
-       zet. #712: op dezelfde regel; als eigen blok duwde ze alles omlaag, en dan
-       kost een optionele naam een hele regel. #}
+       #928: ÉÉN deellink, en dat is de leesbare zodra er een slug is — dezelfde
+       conventie als bij de activiteiten, en dezelfde die de kaartenlijst toont. De
+       keuze wordt in de route gemaakt (`deellink_pad`), niet hier.
+
+       #690: de sleutellink staat er daarnaast zodra er een slug is, met zoveel
+       woorden dat hij blíjft werken. Dat is de belofte van dit hele mechanisme, en
+       dit is de plek waar iemand eraan twijfelt — hij staat immers net een naam in
+       te vullen voor een formulier dat hij vorige week al rondstuurde. #}
+    {% set deellink = path_for(share_path) %}
     <p class="text-xs text-gray-500 mt-1 flex flex-wrap items-center gap-2">
-      <span data-copy-bron="/formulier/{{ form.share_token }}">Deellink: /formulier/{{ form.share_token }}</span>
-      {{ ui.copy_button("/formulier/" ~ form.share_token, _("Deellink kopiëren")) }}
+      <span data-copy-bron="{{ deellink }}">{{ _("Deellink") }}: {{ deellink }}</span>
+      {{ ui.copy_button(deellink, _("Deellink kopiëren")) }}
       {% if form.slug %}
-      <span data-copy-bron="/f/{{ form.slug }}">· {{ _("Leesbare link") }}: /f/{{ form.slug }}</span>
-      {{ ui.copy_button("/f/" ~ form.slug, _("Leesbare link kopiëren")) }}
+      {% set sleutellink = path_for("/formulier/" ~ form.share_token) %}
+      <span data-copy-bron="{{ sleutellink }}">· {{ _("blijft werken") }}: {{ sleutellink }}</span>
+      {{ ui.copy_button(sleutellink, _("Sleutellink kopiëren")) }}
       {% endif %}
       <span>· {{ submission_count }} inzendingen</span>
     </p>

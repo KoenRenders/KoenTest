@@ -271,9 +271,27 @@ def submit_form(
     if form.send_confirmation and not form.is_anonymous and sub_email:
         edit_link = None
         if form.allow_edit and submission.edit_token:
-            from app.kernel.tenant_config import tenant_base_url
+            from app.kernel.tenant_config import tenant_home_url
 
-            edit_link = f"{tenant_base_url(db)}/formulier/{form.share_token}/edit/{submission.edit_token}"
+            # `tenant_home_url` en niet `tenant_base_url` (#928). Geen bugfix maar
+            # een betekeniscorrectie, en het verschil is de moeite waard omdat het
+            # klein is: allebei zetten ze de pad-prefix op een platform-host, dus de
+            # link was niet stuk. Ze lopen uiteen zodra de afdeling een EIGEN domein
+            # heeft. Dan geeft `tenant_base_url` de host waar de beheerder toevallig
+            # werkte (`https://platform.example/raakmillegem`) en `tenant_home_url`
+            # het adres waar de afdeling woont (`https://raakmillegem.be`).
+            #
+            # Voor een link in een MAIL is dat tweede het juiste: er is geen "terug".
+            # Hij wordt geopend vanuit een andere browser, zonder de cookie die de
+            # afdeling onthield, misschien weken later — en dan hoort er het adres
+            # van de afdeling te staan en niet dat van de beheerder zijn werkdag.
+            #
+            # De SLEUTEL-URL blijft staan, ook als het formulier een slug heeft
+            # (#690/#928): bewerken bestaat alleen onder
+            # `/formulier/{share_token}/edit/{edit_token}`. De slug verandert wat je
+            # DEELT, niet waarlangs een inzending bewerkt wordt.
+            edit_link = (f"{tenant_home_url(db)}/formulier/{form.share_token}"
+                         f"/edit/{submission.edit_token}")
         try:
             send_form_confirmation(
                 to_email=sub_email,

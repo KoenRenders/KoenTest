@@ -95,11 +95,11 @@ def test_de_ingetypte_waarden_blijven_staan_na_een_fout(client, db_session):
     csrf = _operator(client, db_session)
     tid = _tenant_id(db_session)
 
-    resp = _opslaan(client, csrf, tid, display_name="Raak Voorbeeld",
+    resp = _opslaan(client, csrf, tid, tagline="Onze eigen leuze",
                     membership_price_half="fout")
 
     assert resp.status_code == 422
-    assert "Raak Voorbeeld" in resp.text
+    assert "Onze eigen leuze" in resp.text
 
 
 def test_een_geheel_getalveld_weigert_een_bedrag(client, db_session):

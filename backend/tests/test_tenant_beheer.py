@@ -88,12 +88,14 @@ def test_settings_persisteren_en_secret_blijft_geheim(client, db_session):
     assert resp.status_code == 200 and "Instellingen van deze afdeling" in resp.text
 
     resp = client.post(f"/admin/tenants/{TENANT_VOORBEELD_ID}", data={
-        "display_name": "Raak Testafdeling", "mail_mode": "log_only",
+        "tagline": "Onze eigen leuze", "mail_mode": "log_only",
         "mollie_api_key": "test_sleutel123"},
         headers={"X-CSRF-Token": csrf})
     assert resp.status_code == 200 and "opgeslagen" in resp.text.lower()
-    assert get_setting(db_session, "display_name",
-                       tenant_id=TENANT_VOORBEELD_ID) == "Raak Testafdeling"
+    # `display_name` bestaat niet meer sinds #945 — de naam komt uit de
+    # organisatie. `tagline` doet hier hetzelfde werk: een gewone instelling.
+    assert get_setting(db_session, "tagline",
+                       tenant_id=TENANT_VOORBEELD_ID) == "Onze eigen leuze"
     rij = (db_session.query(TenantSetting)
            .filter_by(tenant_id=TENANT_VOORBEELD_ID, key="mollie_api_key").one())
     assert rij.value_encrypted and "test_sleutel123" not in (rij.value_encrypted or "")

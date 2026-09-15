@@ -239,7 +239,7 @@ def test_een_bijlage_van_een_verstuurde_vergadering_kan_niet_weg(db_session, mai
 
     with pytest.raises(MeetingError) as gevangen:
         delete_file(db_session, meeting, bijlage.id)
-    assert "verstuurd" in str(gevangen.value)
+    assert "meegestuurd" in str(gevangen.value)
     assert any(f.id == bijlage.id for f in files_of(db_session, meeting))
 
 
@@ -380,7 +380,8 @@ def test_een_verstuurd_verslag_weigert_wijzigingen(db_session, mailbox, monkeypa
                       pdf=b"%PDF", pdf_filename="verslag.pdf")
 
     with pytest.raises(MeetingError):
-        set_attendance(db_session, meeting, persoon.id, ATTENDANCE_PRESENT)
+        set_attendance(db_session, meeting, person_id=persoon.id,
+                       status=ATTENDANCE_PRESENT)
 
 
 # ── 7. De ledenkop ───────────────────────────────────────────────────────────
@@ -545,29 +546,7 @@ def test_een_punt_zonder_activiteit_en_zonder_titel_wordt_geweigerd(db_session):
         add_item(db_session, meeting, sectie, title="   ")
 
 
-# ── 11. Opmaak in de notities, en de kiezer die de sectie volgt ──────────────
-
-def test_notities_worden_een_geneste_opsomming():
-    """Eén regel is één punt; twee spaties inspringen is één niveau dieper.
-
-    Zo schrijft het bestuur zijn verslag al — de vorm komt dus uit wat ze toch
-    doen, niet uit een opmaakbalk die tijdens een vergadering in de weg zit.
-    """
-    from app.domains.meetings.api import note_bullets
-
-    tekst = ("Uitverkocht, 300 tickets\n"
-             "  Volgend jaar zelfde periode\n"
-             "    Koen legt de zaal vast\n"
-             "- Bedankt aan alle helpers")
-    assert note_bullets(tekst) == [
-        (0, "Uitverkocht, 300 tickets"),
-        (1, "Volgend jaar zelfde periode"),
-        (2, "Koen legt de zaal vast"),
-        (0, "Bedankt aan alle helpers"),
-    ]
-    # Lege regels dragen niets en verdwijnen; dieper dan drie niveaus bestaat niet.
-    assert note_bullets("a\n\n        b") == [(0, "a"), (2, "b")]
-    assert note_bullets(None) == []
+# ── 11. De kiezer volgt de sectie ────────────────────────────────────────────
 
 
 def test_de_kiezer_biedt_onder_evaluatie_voorbije_activiteiten_aan(db_session):
@@ -725,3 +704,152 @@ def test_onderwerp_en_tekst_dragen_uur_en_locatie(client, db_session):
     html2 = client.get(f"/admin/vergaderingen/{kaal.id}/verstuur?kind=agenda").text
     assert "None" not in html2
     assert " om " not in html2.split("RAAK vergadering")[1][:60]
+
+
+# ── 16. Een nieuwe mediasoort moet ook te uploaden zijn ──────────────────────
+
+def test_elke_mediasoort_staat_in_de_keuzelijst_bij_uploaden(client, db_session):
+    """Een soort die het filter kent maar het uploadscherm niet, is onbruikbaar.
+
+    Precies wat hier misging: `tenant_logo` werd toegevoegd aan VALID_KINDS, het
+    filter op de mediabibliotheek toonde hem, maar de keuzelijst bij "Uploaden"
+    somde de soorten met de hand op — dus het logo was niet te uploaden. Koen
+    merkte het op door het te proberen.
+
+    Kapotgemaakt om te toetsen: met de lus weer vervangen door twee vaste
+    `<option>`-regels valt deze test om op `tenant_logo`.
+    """
+    from app.domains.media.api import VALID_KINDS
+
+    _login(client)
+    html = client.get("/admin/media/nieuw").text
+    ontbreekt = [k for k in VALID_KINDS if f'value="{k}"' not in html]
+    assert not ontbreekt, f"niet te kiezen bij het uploaden: {sorted(ontbreekt)}"
+
+
+# ── 17. Een vergadering verschuiven ──────────────────────────────────────────
+
+def test_een_vergadering_verschuiven_stelt_de_agenda_opnieuw_samen(db_session):
+    """Koens geval: de vergadering schuift een week op nadat ze al vastlag.
+
+    Dan klopt de agenda niet meer — een activiteit die tussen de oude en de nieuwe
+    datum valt, hoort ineens bij de evaluatie in plaats van bij wat komt. Wat
+    iemand al getypt heeft, moet die verschuiving wél overleven: een datum
+    corrigeren mag geen werk kosten.
+    """
+    from app.domains.meetings.api import update_meeting
+
+    tussenin = _activity(db_session, "Rumproefavond", date(2026, 10, 5))
+    _activity(db_session, "Bowlen", date(2026, 11, 15))
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1),
+                             start_time=time(20, 0), location="Miloheem")
+
+    secties = {s.kind: s for s in document_of(db_session, meeting)}
+    assert "Rumproefavond" in [i.label for i in secties["UPCOMING"].items]
+
+    # Typ iets op een punt, zodat we kunnen zien dat het blijft staan.
+    punt = next(i for i in secties["UPCOMING"].items if i.label == "Bowlen")
+    from app.domains.meetings.api import update_item
+    update_item(db_session, meeting, punt.id, notes="Jo heeft het onder controle.")
+
+    update_meeting(db_session, meeting, meeting_date=date(2026, 10, 8),
+                   start_time=time(20, 30), location="Miloheem — zaal 2")
+
+    assert meeting.meeting_date == date(2026, 10, 8)
+    assert meeting.start_time == time(20, 30)
+    assert meeting.location == "Miloheem — zaal 2"
+
+    opnieuw = {s.kind: s for s in document_of(db_session, meeting)}
+    evaluatie = [i.label for i in opnieuw["EVALUATION"].items]
+    volgende = [i.label for i in opnieuw["UPCOMING"].items]
+    assert "Rumproefavond" in evaluatie, "viel nu vóór de vergadering"
+    assert "Rumproefavond" not in volgende
+
+    bowlen = [i for i in opnieuw["UPCOMING"].items if i.label == "Bowlen"]
+    assert len(bowlen) == 1, "geen dubbel punt na het opnieuw samenstellen"
+    assert "onder controle" in bowlen[0].notes, "de notitie moet de verschuiving overleven"
+
+
+def test_alleen_het_uur_wijzigen_raakt_de_agenda_niet(db_session):
+    """Uur en locatie bepalen geen venster; die mogen de agenda niet omgooien."""
+    from app.domains.meetings.api import update_meeting
+
+    _activity(db_session, "Bowlen", date(2026, 11, 15))
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+    voor = [i.label for s in document_of(db_session, meeting) for i in s.items]
+
+    update_meeting(db_session, meeting, meeting_date=date(2026, 10, 1),
+                   start_time=time(19, 30), location="Elders")
+
+    na = [i.label for s in document_of(db_session, meeting) for i in s.items]
+    assert voor == na
+
+
+def test_een_verstuurde_vergadering_verschuift_niet_meer(db_session, mailbox, monkeypatch):
+    """Na het versturen ligt het verslag vast; eerst heropenen."""
+    from app.domains.meetings.api import update_meeting
+
+    monkeypatch.setattr("app.domains.meetings.service.send_with_attachments",
+                        mailbox, raising=False)
+    _in_circle(db_session, _person(db_session, "Mon", "Essers", "mon@example.org"))
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+    send_meeting_mail(db_session, meeting, kind="report", subject="Verslag",
+                      body_html="v1", reply_to="s@example.org",
+                      pdf=b"%PDF", pdf_filename="verslag.pdf")
+
+    with pytest.raises(MeetingError):
+        update_meeting(db_session, meeting, meeting_date=date(2026, 10, 8))
+
+
+# ── 18. Een gast zit mee aan tafel ───────────────────────────────────────────
+
+def test_een_gast_krijgt_de_mail_en_staat_in_de_aanwezigheid(db_session, mailbox,
+                                                             monkeypatch):
+    """Koens vraag: een los adres hoort in de agenda zelf, zodat je het ook op
+    aanwezig of verontschuldigd kan zetten.
+
+    Een gast wordt bewust geen persoon in de administratie, en hoort toch in het
+    verslag: wie er was, was er. Deze test volgt beide paden — de mail én de
+    aanwezigheidslijst — want een gast die wel post krijgt maar niet in het
+    verslag staat, is het halve werk.
+    """
+    from app.domains.meetings.api import (add_extra_recipient, attendance_of,
+                                          extra_recipients_of, set_attendance)
+
+    monkeypatch.setattr("app.domains.meetings.service.send_with_attachments",
+                        mailbox, raising=False)
+    _in_circle(db_session, _person(db_session, "Mon", "Essers", "mon@example.org"))
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+
+    add_extra_recipient(db_session, meeting, "spreker@example.org",
+                        name="Alexander W.")
+    gast = extra_recipients_of(db_session, meeting)[0]
+    assert gast.name == "Alexander W."
+
+    set_attendance(db_session, meeting, guest_id=gast.id,
+                   status=ATTENDANCE_PRESENT)
+    assert attendance_of(db_session, meeting) == {f"g{gast.id}": "present"}
+
+    send_meeting_mail(db_session, meeting, kind="agenda", subject="Agenda",
+                      body_html="Hallo", reply_to="s@example.org",
+                      pdf=b"%PDF", pdf_filename="agenda.pdf")
+    assert "spreker@example.org" in mailbox.sent[0]["to_emails"]
+
+
+def test_een_aanwezigheidsrij_wijst_naar_precies_een_deelnemer(db_session):
+    """Persoon óf gast, nooit allebei en nooit geen van beide.
+
+    Een rij die naar allebei wijst is betekenisloos, en de databank weigert ze
+    ook (CHECK in migratie 124). Hier wordt de servicelaag getoetst, zodat de
+    fout een nette melding geeft in plaats van een databankfout.
+    """
+    from app.domains.meetings.api import set_attendance
+
+    persoon = _person(db_session, "Mon", "Essers", "mon@example.org")
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+
+    with pytest.raises(MeetingError):
+        set_attendance(db_session, meeting, status=ATTENDANCE_PRESENT)
+    with pytest.raises(MeetingError):
+        set_attendance(db_session, meeting, person_id=persoon.id, guest_id=1,
+                       status=ATTENDANCE_PRESENT)

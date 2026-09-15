@@ -85,7 +85,11 @@ def _lijst_ctx(request: Request, db: Session, kind: str, q: str = "",
         assets = [a for a in assets if term in (a.get("title") or "").lower()]
 
     # Chip-labels horen per request opgebouwd: _() volgt de taal van de tenant.
-    kind_labels = {"sponsor": _("Sponsors"), "activity_photo": _("Activiteitenfoto's"),
+    # Enkelvoud, want dezelfde labels voeden nu zowel het filter op de lijst als de
+    # keuzelijst bij het uploaden (#258). "Sponsorlogo" leest in beide goed;
+    # "Sponsors" deed dat niet in een keuzelijst waar je één soort kiest.
+    kind_labels = {"sponsor": _("Sponsorlogo"),
+                   "activity_photo": _("Activiteitenfoto"),
                    "tenant_logo": _("Logo van de vereniging")}
     # #882: de pijltjes moeten weten of dit item het eerste of laatste van ZIJN GROEP
     # is — niet van de lijst. Ongefilterd staan de foto's van alle activiteiten door

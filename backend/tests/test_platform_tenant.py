@@ -189,7 +189,8 @@ def test_the_platform_settings_page_offers_no_membership_fields(client, db_sessi
     assert 'name="membership_price_full"' not in resp.text
     assert 'name="max_registrations_per_email"' not in resp.text
     # The counterproof, in the same response: the fields a platform DOES have.
-    assert 'name="display_name"' in resp.text and 'name="gmail_from"' in resp.text
+    # `display_name` stond hier tot #945; de naam komt nu uit de organisatie.
+    assert 'name="tagline"' in resp.text and 'name="gmail_from"' in resp.text
 
 
 def test_a_unit_keeps_all_its_fields(client, db_session, platform_host):

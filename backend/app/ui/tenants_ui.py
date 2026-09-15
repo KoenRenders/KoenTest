@@ -31,7 +31,10 @@ router = APIRouter(include_in_schema=False)
 
 # Bekende sleutels: (key, label, hulptekst). Secrets staan apart.
 BEKENDE_SLEUTELS = [
-    ("display_name", "Naam", "Merk-/afzendnaam (mails, footer, titel). Default: Raak Millegem."),
+    # #945: `display_name` stond hier als merknaam mét de organisatienaam als
+    # terugval — twee plaatsen voor één feit, en de instelling won. De naam komt
+    # nu uit de organisatie. Komt er ooit een merknaam die van de statutaire naam
+    # afwijkt, dan is dat een kolom op de organisatie en geen tenant-instelling.
     ("tagline", "Tagline", "Ondertitel in de header. Leeg = geen ondertitel (#519)."),
     # #924: de sociale links staan bij de ORGANISATIE — ze bestaan ook als de
     # vereniging geen site heeft. Hier laten staan zou een tweede bewerkbare bron
@@ -70,6 +73,12 @@ BEKENDE_SLEUTELS = [
 # Dit scherm en geen nieuw: sinds Koens omkering ZIJN de tenants organisaties, dus
 # een tweede scherm voor dezelfde rijen zou de duplicatie zijn die dit issue
 # opruimt — nu in schermen in plaats van in kolommen.
+#
+# #945: achter deze invoervelden zitten sinds #945 drie tabellen in plaats van elf
+# kolommen. Het scherm bleef bewust hetzelfde — één invoer per soort — want dat is
+# wat er vandaag nodig is. Een tweede rekening of een tweede btw-nummer past in het
+# model en nog niet in dit scherm; dat is het verschil tussen "de vorm laat het
+# toe" en "we bouwen het vooruit".
 ORGANISATIEVELDEN = [
     ("legal_form", "Rechtsvorm", "VZW, FEITELIJKE_VERENIGING of BEDRIJF."),
     ("enterprise_number", "Ondernemingsnummer", "Optioneel, bv. 0123.456.789."),
