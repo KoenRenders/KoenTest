@@ -39,8 +39,12 @@
   /* Het bolletje markeert de regel, het hoeft niet te roepen: de vette naam doet
      het werk al. Grijs en klein, zoals in het Google-Docs-verslag. */
   .item .bullet { color: var(--pdf-soft); font-size: 8pt; vertical-align: 1pt; }
+  /* Geen eigen inspringing: het punt zelf hangt al in (padding-left 12pt met een
+     negatieve text-indent voor het bolletje), dus de notitie begint precies onder
+     de eerste letter van de titel. Een extra padding zette ze een stukje verder
+     naar rechts — zichtbaar scheef zodra je ernaar kijkt. */
   .notes { margin: 2pt 0 0 0; color: var(--pdf-ink); font-size: 10pt;
-           text-indent: 0; padding-left: 14pt; }
+           text-indent: 0; padding-left: 0; }
   .notes p { margin: 0 0 2pt 0; }
   .notes ul, .notes ol { margin: 2pt 0; padding-left: 14pt; }
   .notes li { margin: 0 0 1pt 0; }
@@ -52,7 +56,7 @@
   <div class="head">
     <div>
       <h1>{{ kind_label }} — {{ _("Vergadering Raak Millegem") }}</h1>
-      <div class="sub">{{ date_label }}{% if location %} · {{ location }}{% endif %}</div>
+      <div class="sub">{{ date_label }}{% if time_label %} {{ _("om") }} {{ time_label }}{% endif %}{% if location %} · {{ location }}{% endif %}</div>
     </div>
     {# Het logo uit de mediabibliotheek; is er geen, dan het woordmerk als tekst.
        Zo staat er altijd iets in de kop, ook bij een verse tenant. #}

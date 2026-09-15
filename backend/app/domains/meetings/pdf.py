@@ -35,6 +35,18 @@ def long_date(day: date | None) -> str:
     return f"{WEEKDAYS[day.weekday()]} {day.day} {MONTHS[day.month - 1]} {day.year}"
 
 
+def clock(moment) -> str:
+    """`20u` of `20u30` — zoals het bestuur een uur schrijft.
+
+    Hier en niet in de service, naast `long_date` en `short_date`: het is
+    datum-opmaak, en drie plaatsen die elk hun eigen uur opmaken is precies hoe
+    de ene op een dag "20:00" gaat tonen en de andere "20u".
+    """
+    if moment is None:
+        return ""
+    return f"{moment.hour}u" + (f"{moment.minute:02d}" if moment.minute else "")
+
+
 def short_date(day: date | None) -> str:
     """`1 oktober` — inside an item line, where the year is already known."""
     if day is None:
