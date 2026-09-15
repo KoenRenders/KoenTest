@@ -23,6 +23,9 @@ class MeetingListView(ViewModel):
     status_tones: dict[int, str]
     dates: dict[int, str]
     circle_size: int
+    # Het actieve zoekwoord: de filterbalk leest het terug, zodat het in het veld
+    # blijft staan na een swap.
+    q: str = ""
     csrf_token: str
     error: Optional[str] = None
     nav_items: list[dict[str, Any]] = field(default_factory=list)

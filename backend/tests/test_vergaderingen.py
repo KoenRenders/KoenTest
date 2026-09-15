@@ -1013,3 +1013,79 @@ def test_cursieve_tekst_krijgt_een_echte_cursieve_letter(client, db_session):
             namen.append(naam)
     assert any("Italic" in n for n in namen), \
         f"geen cursief lettertype ingesloten; wel: {sorted(set(namen))}"
+
+
+# ── 22. Iemand in de kring die geen lid is ───────────────────────────────────
+
+def test_een_niet_lid_kan_in_de_vergaderkring(client, db_session):
+    """De afdelingsondersteuner is geen lid en hoort toch aan tafel (CR-09 §3.2).
+
+    Dat kon niet: élk pad naar een nieuwe persoon liep via een gezin, dus wie geen
+    lid was bestond niet in de administratie — en kon dus ook niet in de kring.
+    Het gat zat niet in de kring maar een laag dieper, in het aanmaken van een
+    persoon.
+
+    Toetst de hele weg: de persoon bestaat zonder gezin, staat in de kring, en
+    krijgt de vergadermail.
+    """
+    from app.domains.mdm.api import MemberPerson, organization_circle
+    from app.domains.meetings.api import recipients_for
+
+    _login(client)
+    organisatie = _organisatie(db_session)
+    antwoord = client.post("/admin/vergaderingen/kring/nieuw", data={
+        "csrf_token": _login(client), "first_name": "Lies",
+        "last_name": "Ondersteuner", "person_email": "lies@raak-nationaal.example"},
+        headers={"X-CSRF-Token": _login(client)})
+    assert antwoord.status_code == 200, antwoord.text[:200]
+
+    kring = organization_circle(db_session)
+    erbij = [e for e in kring if e.person.last_name == "Ondersteuner"]
+    assert len(erbij) == 1, "de nieuwe persoon staat niet in de kring"
+    assert erbij[0].email == "lies@raak-nationaal.example"
+
+    # En bewust zonder gezin: een niet-lid hoort in geen enkel gezin te belanden.
+    koppelingen = (db_session.query(MemberPerson)
+                   .filter(MemberPerson.person_id == erbij[0].person.id).all())
+    assert koppelingen == [], "een niet-lid hoort aan geen enkel gezin te hangen"
+
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+    assert "lies@raak-nationaal.example" in recipients_for(db_session, meeting).emails
+
+
+def _organisatie(db):
+    """De organisatie waaraan de kring hangt; maak er een als ze ontbreekt."""
+    from app.domains.mdm.api import Organization
+
+    org = db.query(Organization).first()
+    if org is None:
+        org = Organization(name="Raak Millegem", code="raakmillegem")
+        db.add(org)
+        db.flush()
+    return org
+
+
+# ── 23. De lijst volgt de conventie van de andere lijstschermen ──────────────
+
+def test_de_vergaderlijst_kan_gezocht_worden(client, db_session):
+    """Zoeken op wat er STAAT, niet op wat er in de kolom zit.
+
+    Een bestuurder typt "oktober", geen datum in ISO-notatie. Daarom filtert het
+    scherm op het getoonde label; een test op de kolom zou die keuze niet vangen.
+    """
+    _login(client)
+    oktober = create_meeting(db_session, meeting_date=date(2026, 10, 1),
+                             location="Miloheem")
+    november = create_meeting(db_session, meeting_date=date(2026, 11, 5),
+                              location="Café Christiane")
+
+    alles = client.get("/admin/vergaderingen").text
+    assert "1 oktober 2026" in alles and "5 november 2026" in alles
+
+    op_maand = client.get("/admin/vergaderingen?q=oktober").text
+    assert "1 oktober 2026" in op_maand
+    assert "5 november 2026" not in op_maand
+
+    op_locatie = client.get("/admin/vergaderingen?q=christiane").text
+    assert "5 november 2026" in op_locatie
+    assert "1 oktober 2026" not in op_locatie

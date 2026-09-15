@@ -98,9 +98,12 @@ def test_media_upload_en_beheer(client, db_session):
                              "link_url": "https://example.com"},
                        headers={"X-CSRF-Token": csrf})
     # Sinds #627 stuurt de upload door naar de lijst (media is met één handeling
-    # compleet) i.p.v. het lijstfragment terug te geven.
+    # compleet) i.p.v. het lijstfragment terug te geven. Sinds #962 mét de plek waar
+    # je stond erin: hier alleen de soort, want er is geen filter meegestuurd. Dat
+    # dit adres niet langer kaal is, is de wijziging — kwam je van een activiteit,
+    # dan sta je nu bij die activiteit terug in plaats van in de volledige lijst.
     assert resp.status_code == 204
-    assert resp.headers.get("HX-Redirect") == "/admin/media"
+    assert resp.headers.get("HX-Redirect") == "/admin/media?kind=sponsor"
     asset = db_session.query(MediaAsset).filter(MediaAsset.title == "Sponsor X").one()
 
     # #882: dit formulier stuurt GEEN `sort_order` meer mee — de volgorde gaat met
