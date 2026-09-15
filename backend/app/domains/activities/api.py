@@ -105,6 +105,8 @@ from app.domains.activities.service import (  # noqa: F401
     get_component,
     get_registration,
     inschrijving_kop_ctx,
+    INSCHRIJVING_SORT_VELDEN,
+    sorteer_inschrijvingen,
     inschrijving_tabs,
     booked_per_component,
     record_tabs,
@@ -116,7 +118,8 @@ from app.domains.activities.service import (  # noqa: F401
 
 __all__ = [
     "ActivityOption", "activity_options", "get_activity", "get_component",
-    "booked_per_component", "get_registration", "inschrijving_kop_ctx",
+    "INSCHRIJVING_SORT_VELDEN", "booked_per_component", "get_registration",
+    "inschrijving_kop_ctx", "sorteer_inschrijvingen",
     "inschrijving_tabs", "record_tabs",
     "registration_count_for",
     "registration_ids_for", "registrations_for",

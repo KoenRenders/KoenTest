@@ -169,10 +169,6 @@ class _SubjectResolver:
             "person_external_id": self._ext_of(subject_person_id),
             "head_address": self._addr_of(head_person_id),
             "head_external_id": self._ext_of(head_person_id),
-            # Golf 9 (#913): de ids werden hierboven al berekend en dan
-            # weggegooid — de gezins-recordpagina filtert erop.
-            "member_id": head_member_id,
-            "person_id": subject_person_id,
         }
 
     def from_registration(self, registration_id) -> Optional[dict]:
@@ -210,7 +206,6 @@ class _SubjectResolver:
 
 _EMPTY_SUBJECT = {
     "person_name": "", "person_external_id": "", "head_address": "", "head_external_id": "",
-    "member_id": None, "person_id": None,
 }
 
 
@@ -348,8 +343,7 @@ GROUPS = ["Leden", "Activiteiten", "Inschrijvingen", "Betalingen"]
 
 
 def all_changes_since(
-    db: Session, since: date, *, group: Optional[str] = None,
-    actor: Optional[str] = None, member_id: Optional[int] = None
+    db: Session, since: date, *, group: Optional[str] = None, actor: Optional[str] = None
 ) -> List[dict]:
     """Unified audit-feed (#189): alle history-tabellen sinds ``since``, met een
     objectgroep per rij; optioneel gefilterd op groep en/of actor. Nieuw → oud."""
@@ -410,10 +404,6 @@ def all_changes_since(
         rows = [r for r in rows if r["group"] == group]
     if actor:
         rows = [r for r in rows if (r["actor"] or "") == actor]
-    # Golf 9 (#913): de gezinsscope — op het id dat de resolver toch al
-    # berekende, nooit op naam of adres (gedeelde strings liegen).
-    if member_id is not None:
-        rows = [r for r in rows if r.get("member_id") == member_id]
     rows.sort(key=lambda r: r["recorded_at"], reverse=True)
     return rows
 
