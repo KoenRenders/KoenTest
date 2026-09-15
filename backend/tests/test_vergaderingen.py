@@ -910,3 +910,42 @@ def test_de_genoteerde_wijkmeester_staat_in_het_document(db_session):
     getoond = next(i for s in document_of(db_session, meeting) for i in s.items
                    if i.id == punt.id)
     assert getoond.steward_name == "Ivo Verwimp"
+
+
+# ── 21. Wat op het scherm staat, hoort in het verslag ────────────────────────
+
+def _pdf_tekst(inhoud: bytes) -> str:
+    """De tekst uit een PDF, om te kunnen toetsen wat er écht op papier staat."""
+    from io import BytesIO
+
+    from pypdf import PdfReader
+
+    return "\n".join(p.extract_text() or "" for p in PdfReader(BytesIO(inhoud)).pages)
+
+
+def test_de_bijlagen_staan_in_het_verslag(client, db_session):
+    """De PDF noemde nergens welke stukken er meegingen.
+
+    Dezelfde vorm als de wijkmeester die alleen een keuzelijst was: het scherm kon
+    iets wat er verderop niet uitkwam. Juist de PDF is wat een bestuurslid later
+    terugleest — dan hoort er te staan wélke documenten erbij hoorden.
+
+    Er wordt op de PDF-TEKST getoetst en niet op het view-model, want dat laatste
+    zou ook groen staan met de regel weg uit de template.
+    """
+    from app.domains.meetings.api import set_file_mailing
+
+    _login(client)
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+    add_file(db_session, meeting, filename="draaiboek-kerstradio.pdf",
+             content_type="application/pdf", data=b"%PDF draaiboek")
+    alleen_agenda = add_file(db_session, meeting, filename="enkel-bij-de-agenda.pdf",
+                             content_type="application/pdf", data=b"%PDF agenda")
+    set_file_mailing(db_session, meeting, alleen_agenda.id, mail="report")
+
+    verslag = client.get(f"/admin/vergaderingen/{meeting.id}/pdf?kind=verslag")
+    assert verslag.status_code == 200
+    tekst = _pdf_tekst(verslag.content)
+    assert "draaiboek-kerstradio.pdf" in tekst
+    assert "enkel-bij-de-agenda.pdf" not in tekst, \
+        "een bijlage die niet met het verslag meegaat, hoort er ook niet in te staan"

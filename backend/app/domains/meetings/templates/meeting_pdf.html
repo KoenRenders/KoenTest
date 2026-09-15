@@ -121,5 +121,12 @@
   </div>
   {% endfor %}
   {% endfor %}
+
+  {% if attachments %}
+  <h2>{{ _("Bijlagen") }}</h2>
+  {% for bestand in attachments %}
+  <div class="item"><div class="line"><span class="titel licht">{{ bestand.filename }}</span></div></div>
+  {% endfor %}
+  {% endif %}
 </body>
 </html>
