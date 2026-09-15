@@ -773,6 +773,10 @@ class DocumentItem:
     source_url: Optional[str]      # where the source chip goes
     is_full: bool
     steward_person_id: Optional[int]
+    # De naam erbij, niet alleen het id: het verslag drukt "wijkmeester: Ivo
+    # Verwimp" af, en een scherm dat zelf namen gaat opzoeken is een tweede plek
+    # waar dezelfde vraag beantwoord wordt.
+    steward_name: str = ""
 
 
 @dataclass(frozen=True)
@@ -806,10 +810,14 @@ def document_of(db: Session, meeting: Meeting) -> list[DocumentSection]:
     member_ids = [i.member_id for items in all_items.values() for i in items
                   if i.member_id]
     member_labels = _member_labels(db, member_ids)
+    steward_names = _person_names(db, [i.noted_steward_person_id
+                                       for items in all_items.values() for i in items
+                                       if i.noted_steward_person_id])
 
     out = []
     for section in sections:
-        items = [_present(item, activities, counts, member_labels, times)
+        items = [_present(item, activities, counts, member_labels, times,
+                          steward_names)
                  for item in all_items[section.id]]
         out.append(DocumentSection(
             id=section.id, kind=section.kind, label=section_label(section),
@@ -853,8 +861,20 @@ def _start_times(db: Session, activity_ids: list[int]) -> dict[int, object]:
     return eerste
 
 
+def _person_names(db: Session, person_ids: list[int]) -> dict[int, str]:
+    """Per persoon-id de naam. Leeg wanneer er niets te zoeken valt."""
+    from app.domains.mdm.api import Person
+
+    ids = [p for p in person_ids if p]
+    if not ids:
+        return {}
+    return {p.id: f"{p.first_name} {p.last_name}".strip()
+            for p in db.query(Person).filter(Person.id.in_(ids)).all()}
+
+
 def _present(item: MeetingItem, activities: dict, counts: dict,
-             member_labels: dict, times: Optional[dict] = None) -> DocumentItem:
+             member_labels: dict, times: Optional[dict] = None,
+             steward_names: Optional[dict] = None) -> DocumentItem:
     """One stored item as it reads on screen.
 
     An activity point renders **name | date time location · N ingeschreven** and
@@ -887,10 +907,17 @@ def _present(item: MeetingItem, activities: dict, counts: dict,
 
     if item.member_id:
         label, address = member_labels.get(item.member_id, (_("Nieuw lid"), ""))
+        naam = (steward_names or {}).get(item.noted_steward_person_id or 0, "")
+        meta = address
+        if naam:
+            # In de meta en niet als aparte regel: het verslag schrijft het ook op
+            # één lijn ("Groenvinkstraat 8 → wijkmeester: Ivo Verwimp").
+            meta = f"{address} → {_('wijkmeester')}: {naam}".lstrip(" →")
         return DocumentItem(
-            id=item.id, label=label, meta=address, notes=item.notes or "",
+            id=item.id, label=label, meta=meta, notes=item.notes or "",
             kind="member", source_url=f"/admin/leden/gezin/{item.member_id}",
-            is_full=False, steward_person_id=item.noted_steward_person_id)
+            is_full=False, steward_person_id=item.noted_steward_person_id,
+            steward_name=naam)
 
     return DocumentItem(id=item.id, label=item.title or _("Punt"), meta="",
                         notes=item.notes or "", kind="free", source_url=None,
