@@ -137,3 +137,20 @@ def test_family_label_valt_terug_op_het_nummer(db_session):
     db_session.add(m); db_session.flush()
 
     assert family_label(get_family(db_session, m.id)) == f"Gezin #{m.id}"
+
+
+def test_accountmenu_draagt_mijn_profiel(client, db_session):
+    """Golf 9-chroom: het accountmenu heeft Mijn profiel en Uitloggen;
+    Werkruimte wisselen verschijnt pas bij meer dan één werkruimte (#963)."""
+    _login(client)
+    html = client.get("/admin").text
+    assert "Mijn profiel" in html and 'href="/admin/profiel"' in html
+    assert "Werkruimte wisselen" not in html  # één werkruimte vandaag
+
+
+def test_mijn_profiel_toont_rollen_werkruimtebreed(client, db_session):
+    _login(client)
+    html = client.get("/admin/profiel").text
+    assert SEEDED_ADMIN_EMAIL in html
+    assert "ADMIN" in html and "FINANCE" in html  # migraties 014/056
+    assert "#963" in html  # de eerlijke kanttekening tot rollen-per-werkruimte
