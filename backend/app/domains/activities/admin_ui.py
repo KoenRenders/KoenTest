@@ -203,12 +203,13 @@ def admin_activiteit_detail(activity_id: int, request: Request,
         request, "admin_activiteit.html",
         {"nav_items": NAV, **_aa_detail_ctx(request, db, activiteit),
          **_record_tabs(activiteit, reg_count, db, email, "overzicht"),
-         **_record_rail(db, activiteit, reg_count),
-         # De deellink (ronde 4/5): de publieke lijst, verankerd op de kaart van
-         # deze activiteit. Mét slug wordt het anker de vriendelijke URL — zo is
-         # het veld zichtbaar én kopieerbaar zonder tweede regel.
-         "deellink": (f"{tenant_base_url(db)}/activiteiten"
-                      f"#{activiteit.slug or f'act-{activity_id}'}")})
+         **_record_rail(db, activiteit),
+         # De deellink (ronde 6): het kanonieke adres /activiteiten/<slug|nr> —
+         # tijdsbestendig: de route stuurt zelf door naar de komende lijst of
+         # het archief, dus een vooraf gedeelde link blijft ná het evenement
+         # werken.
+         "deellink": (f"{tenant_base_url(db)}/activiteiten/"
+                      f"{activiteit.slug or activity_id}")})
 
 
 @router.post("/admin/activiteiten", response_class=HTMLResponse,
@@ -1076,7 +1077,7 @@ def _record_tabs(activiteit, reg_count: int, db, email: str, actief: str) -> dic
                                        reg_count=reg_count)}
 
 
-def _record_rail(db, activiteit, totaal: int) -> dict:
+def _record_rail(db, activiteit) -> dict:
     """De rechterrail van de recordpagina: publicatie-info en bezetting per
     onderdeel — via dezelfde telling als de volzet-berekening (#451), in één
     query (#651: het detailscherm haalt niet de hele boom op)."""
@@ -1088,8 +1089,9 @@ def _record_rail(db, activiteit, totaal: int) -> dict:
         "bezet": bezetting.get(c.id, 0),
         "max": c.max_participants,
     } for c in activiteit.sub_registrations]
-    return {"rail_onderdelen": onderdelen,
-            "rail_inschrijvingen_totaal": totaal}
+    # "Inschrijvingen totaal" verdween op Koens vraag (15 sep): het aantal
+    # staat al op de tab.
+    return {"rail_onderdelen": onderdelen}
 
 
 @router.get("/admin/activiteiten/{activity_id}/inschrijvingen",

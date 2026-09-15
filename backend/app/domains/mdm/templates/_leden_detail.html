@@ -27,7 +27,7 @@
   </div>
   <form id="pc-{{ m.id }}" x-show="edit" x-cloak class="space-y-3"
         hx-post="/admin/leden/gezin/{{ family.id }}/persoon/{{ m.id }}"
-        hx-target="#leden-detail" hx-swap="innerHTML">
+        hx-target="#leden-detail" hx-swap="innerHTML" style="display: none">
     {# Veldenset incl. relatie (#498) via de gedeelde macro — zie _leden_persoon_velden. #}
     {% with p = m %}{% include "_leden_persoon_velden.html" %}{% endwith %}
   </form>
@@ -62,7 +62,7 @@
     </div>
     <form id="adres-form" x-show="edit" x-cloak class="space-y-3"
           hx-post="/admin/leden/gezin/{{ family.id }}/adres"
-          hx-target="#leden-detail" hx-swap="innerHTML">
+          hx-target="#leden-detail" hx-swap="innerHTML" style="display: none">
       <div class="grid grid-cols-4 gap-3">
         <div class="col-span-2">{{ ui.label(_("Straat"), "street", required=True) }}
           {{ ui.input_control("street", id="street", value=family.street, required=True, cls="w-full") }}</div>
