@@ -58,22 +58,23 @@ def test_de_affichelink_staat_er_twee_keer_maar_nooit_tegelijk(client, db_sessio
 
 
 def test_ook_de_locatie_hangt_aan_de_leesmodus(client, db_session):
-    """Zelfde fout, gevonden bij het schrijven van de lintregel: de locatie bleef
-    staan terwijl je ze in het formulier aan het wijzigen was."""
+    """Herzien op de feedbackronde van 15 sep (golf 8): de locatie staat nu in
+    de RECORDKOP (die blijft in elke modus staan — hij zegt wat je bewerkt,
+    zoals de #648-uitzondering voor koppen) en niet meer als leesregel in de
+    kaart. Wat niet mag terugkomen: een tweede locatieregel in de kaart die
+    tijdens het bewerken naast het invoerveld staat."""
     activity, _c, _p = seed_activity_with_product(db_session)
     activity.location = "Parochiezaal"
     db_session.flush()
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
 
-    # Op het element zoeken, niet per regel: sinds #659 rendert ui.input_control()
-    # zijn tag over twee regels, dus "de regel zonder <input>" bestaat niet meer.
     alineas = re.findall(r"<p\b[^>]*>(?:(?!</p>).)*Parochiezaal", html, re.S)
-    assert alineas, "de locatie staat niet als leesregel op het scherm"
-    for alinea in alineas:
-        opening = alinea[:alinea.index(">") + 1]
-        assert 'x-show="!edit"' in opening, (
-            f"de locatie blijft staan tijdens het bewerken: {opening}")
+    assert len(alineas) == 1, (
+        "de locatie hoort precies één keer als tekst te staan — in de recordkop")
+    opening = alineas[0][:alineas[0].index(">") + 1]
+    assert "x-show" not in opening, (
+        "de recordkop-regel hoort modusloos te zijn — hij zegt wat je bewerkt")
 
 
 def test_zonder_bijlage_geen_leeslink(client, db_session):

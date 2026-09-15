@@ -84,7 +84,9 @@ def _activiteit_scope(db: Session, activiteit_id: int):
 
 
 def _view(request: Request, db: Session, email: str,
-          nav_items: list | None = None) -> BetalingenView:
+          nav_items: list | None = None, *,
+          forceer_activiteit: int | None = None,
+          scope_stil: bool = False) -> BetalingenView:
     """View-model voor het betalingenscherm.
 
     Filteren, optellen, groeperen en het afleiden van de status gebeuren in
@@ -130,9 +132,14 @@ def _view(request: Request, db: Session, email: str,
     # de Betalingen-tab op haar recordpagina. Zelfde regels als de
     # inschrijvingscope; de resolutie naar inschrijving-ids gebeurt in
     # _activiteit_scope via de activities-facade.
-    activiteit_id = (stand.get("activiteit") or "").strip()
+    activiteit_id = (str(forceer_activiteit) if forceer_activiteit
+                     else (stand.get("activiteit") or "").strip())
     if not activiteit_id.isdigit():
         activiteit_id = ""
+    # Golf 8-feedback: op de ingebedde tab zegt de recordkop al waar je bent —
+    # de scope-regel zou dat herhalen. De vlag reist als hidden field mee met
+    # elke filterwissel, anders dook de regel na de eerste wissel alsnog op.
+    stil = scope_stil or stand.get("scope_stil") == "1"
     records = enriched_records(db)
 
     # Filter-opties opbouwen: onderdelen (per activiteit) + lidmaatschapjaren.
@@ -169,6 +176,7 @@ def _view(request: Request, db: Session, email: str,
             "titel_url": f"/admin/activiteiten/{activiteit_id}",
             "alles_url": "/admin/betalingen",
             "param_naam": "activiteit", "param_waarde": activiteit_id,
+            "stil": stil,
         }
     elif inschrijving_id:
         from urllib.parse import quote
@@ -291,6 +299,28 @@ def betalingen_page(request: Request, db: Session = Depends(get_db),
     return templates.TemplateResponse(
         request, "betalingen.html",
         _view(request, db, email, nav_items=nav).as_context())
+
+
+@router.get("/admin/activiteiten/{activity_id}/betalingen",
+            response_class=HTMLResponse)
+def activiteit_betalingen_tab(activity_id: int, request: Request,
+                              db: Session = Depends(get_db),
+                              email: str = Depends(require_finance_ui)):
+    """De Betalingen-tab van de activiteit-recordpagina (golf 8-feedback):
+    exact het betalingenscherm, gefilterd op dit record, onder de recordkop —
+    zonder scope-regel, want de kop zegt al waar je bent. FINANCE-gated zoals
+    /admin/betalingen zelf (#544)."""
+    from app.domains.activities.api import get_activity_detail, record_tabs
+
+    activiteit = get_activity_detail(db, activity_id)
+    if activiteit is None:
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    ctx = _view(request, db, email, nav_items=NAV,
+                forceer_activiteit=activity_id, scope_stil=True).as_context()
+    ctx["a"] = activiteit
+    ctx["record_tabs"] = record_tabs(db, activiteit, email, "betalingen")
+    return templates.TemplateResponse(
+        request, "admin_activiteit_betalingen.html", ctx)
 
 
 @router.get("/admin/betalingen/lijst", response_class=HTMLResponse)

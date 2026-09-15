@@ -13,19 +13,15 @@
         <th class="px-3 py-2"></th>
       </tr>
     </thead>
-    {# #510: per inschrijving een eigen <tbody> met Alpine-state, zodat "Bewerken"
-       de gedeelde editor (`_inschrijving_detail.html`, hergebruikt) in een detail-rij
-       in-lijn openvouwt. Rij-acties via de row_actions-macro: Bewerken + Verwijder
-       (laatst/rood). Geen nieuwe backend. #}
+    {# Feedbackronde 15 sep (golf 8): de rij-acties zijn teruggebracht tot één
+       "Bewerken", die de inschrijvingspagina meteen in bewerkmodus opent —
+       Details was een tussenklik, en direct Verwijderen op de rij botste met de
+       afspraak dat verwijderen achter een klik zit (het staat op de pagina
+       uiterst links in het cluster). Het inline openvouwen (#510/#676) verdween
+       daarmee uit deze lijst. #}
     {% for r in registrations %}
-    <tbody x-data="{ open: false }" class="align-top">
-      {# #676: de rij WIJKT voor het paneel in plaats van ernaast te blijven staan.
-         `_inschrijving_detail.html` is een zelfstandige weergave — naam, contact,
-         producten, opmerking én een eigen bewerk-toggle. Naast een rij die
-         hetzelfde toont, staan er twee leesweergaven van één ding, elk met hun
-         eigen bewerkstand: precies de dubbele toestand die #648 wegnam. Zelfde
-         keuze als de betaalkaart maakt (§2.8). #}
-      <tr x-show="!open" class="border-b border-gray-100">
+    <tbody class="align-top">
+      <tr class="border-b border-gray-100">
         <td class="px-3 py-2 whitespace-nowrap">{{ r.registered_at.strftime("%d-%m-%Y") if r.registered_at else "—" }}</td>
         {# B2 (golf 4, #913): de recordnaam opent de volwaardige pagina; het inline
            openvouwen via "Details" blijft de secundaire variant. `terug` is de
@@ -37,18 +33,7 @@
           {% if r.remarks %}<div class="text-xs text-gray-500 mt-1">💬 {{ r.remarks }}</div>{% endif %}
         </td>
         <td class="px-3 py-2 text-right">
-          {{ ui.row_actions(
-               actions=[ui.detail_disclosure("/admin/inschrijvingen/" ~ r.id ~ "/fragment", "insch-det-" ~ r.id, _("Details"))],
-               delete_attrs='hx-post="/admin/activiteiten/' ~ activity_id ~ '/inschrijvingen/' ~ r.id ~ '/verwijderen?sort=' ~ sort ~ '&amp;richting=' ~ richting ~ ('&amp;component_id=' ~ component_id if component_id else '') ~ '" hx-target="' ~ doel ~ '" hx-swap="innerHTML" ' ~ confirm_attrs(_("Inschrijving"), r.contact_name),
-               delete_label=_("Verwijderen")) }}
-        </td>
-      </tr>
-      <tr x-show="open" x-cloak class="border-b border-gray-100">
-        <td colspan="5" class="px-3 py-2">
-          <div class="flex justify-end">
-            {{ ui.btn_secondary(_("Sluiten"), size="sm", attrs='@click="open = false"') }}
-          </div>
-          <div id="insch-det-{{ r.id }}" class="bg-gray-50 rounded-lg"></div>
+          {{ ui.btn_secondary(_("Bewerken"), size="sm", href="/admin/inschrijvingen/" ~ r.id ~ "?bewerk=1&terug=/admin/activiteiten/" ~ activity_id) }}
         </td>
       </tr>
     </tbody>

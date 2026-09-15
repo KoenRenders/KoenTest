@@ -67,37 +67,36 @@ def test_de_lijst_staat_in_een_eigen_omkaderd_blok(client, db_session):
     assert "Inschrijvingen" in blok, "het blok heeft geen eigen kop"
 
 
-def test_de_rij_wijkt_voor_het_paneel(client, db_session):
-    """De kern: één weergave, niet twee onder elkaar."""
+def test_geen_inline_paneel_meer(client, db_session):
+    """Herzien op de feedbackronde van 15 sep (golf 8): het inline openvouwen
+    (#510/#676) verdween uit deze lijst — de rij-knop "Bewerken" opent de
+    inschrijvingspagina meteen in bewerkmodus. De oude zorg (twee leesweergaven
+    van hetzelfde, #648) kan dus niet terugkomen via een paneel dat er niet is.
+    """
     activity, comp, _reg = _met_inschrijving(client, db_session)
     _login(client)
     html = client.get(
         f"/admin/activiteiten/{activity.id}/onderdelen/{comp.id}/inschrijvingen").text
 
-    assert 'x-show="!open"' in html, (
-        "de rij blijft staan naast het paneel — twee leesweergaven van hetzelfde")
-    assert 'x-show="open"' in html
+    assert 'x-show="!open"' not in html and 'x-show="open"' not in html, (
+        "het inline paneel is terug — de feedbackronde van 15 sep haalde het weg")
+    assert "detail_disclosure" not in html
 
 
-def test_er_staat_een_uitweg_uit_het_paneel(client, db_session):
-    activity, comp, _reg = _met_inschrijving(client, db_session)
-    _login(client)
-    html = client.get(
-        f"/admin/activiteiten/{activity.id}/onderdelen/{comp.id}/inschrijvingen").text
-    assert "Sluiten" in html, "het paneel is niet te sluiten"
-
-
-def test_de_rijknop_heet_geen_bewerken(client, db_session):
-    """Twee knoppen met dezelfde naam die iets anders doen — de rijknop vouwt een
-    detail open, de knop ín het paneel schakelt de bewerkstand om."""
-    activity, comp, _reg = _met_inschrijving(client, db_session)
+def test_de_rijknop_heet_bewerken_en_opent_de_bewerkstand(client, db_session):
+    """Eén klik naar het bewerkscherm (feedbackronde 15 sep): de rij-knop heet
+    "Bewerken" en de pagina waar hij op landt opent mét de editor open. #676
+    ("Details, want de rijknop bewerkt niets") is daarmee herroepen: de knop
+    bewerkt nu wél — hij landt op het bewerkscherm zelf."""
+    activity, comp, reg = _met_inschrijving(client, db_session)
     _login(client)
     html = client.get(
         f"/admin/activiteiten/{activity.id}/onderdelen/{comp.id}/inschrijvingen").text
 
-    assert "Details" in html
-    assert html.count(">Bewerken<") == 0, (
-        "de rij biedt nog een knop 'Bewerken' aan naast die in het paneel")
+    assert ">Bewerken<" in html
+    assert ">Details<" not in html and ">Verwijderen<" not in html
+    pagina = client.get(f"/admin/inschrijvingen/{reg}?bewerk=1").text
+    assert "{ edit: true }" in pagina, "bewerk=1 opent de pagina niet in bewerkmodus"
 
 
 def test_de_macro_belooft_geen_bewerken_meer():

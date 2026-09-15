@@ -55,7 +55,7 @@ def test_zonder_finance_geen_betalingen_tab(client, db_session):
     client.cookies.set(SESSION_COOKIE, waarde)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
     assert "Inschrijvingen 2" in html
-    assert f"/admin/betalingen?activiteit={activity.id}" not in html
+    assert f"/admin/activiteiten/{activity.id}/betalingen" not in html
 
 
 def test_finance_ziet_de_betalingen_tab(client, db_session):
@@ -64,7 +64,8 @@ def test_finance_ziet_de_betalingen_tab(client, db_session):
     db_session.commit()
     _login(client)
     html = client.get(f"/admin/activiteiten/{activity.id}").text
-    assert f'href="/admin/betalingen?activiteit={activity.id}"' in html
+    # Feedbackronde 15 sep: de tab is de INGEBEDDE pagina onder het record.
+    assert f'href="/admin/activiteiten/{activity.id}/betalingen"' in html
     assert "Betalingen 2" in html  # twee inschrijvingen, elk één betaalrecord
 
 

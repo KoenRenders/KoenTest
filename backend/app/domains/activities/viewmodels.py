@@ -45,6 +45,8 @@ class AdminInschrijvingView(ViewModel):
     ploegnaam_verplicht: bool
     editable: bool
     edit_open: bool
+    # Golf 8-feedback: op de eigen pagina draagt het cluster ook Verwijderen.
+    op_pagina: bool
     csrf_token: str
     error: str | None
     toast_bericht: str | None

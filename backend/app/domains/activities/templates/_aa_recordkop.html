@@ -1,0 +1,18 @@
+{% import "_macros.html" as ui %}
+{# Recordkop van de activiteit (golf 8-feedbackronde, 15 sep 2026): naam +
+   status + doelgroep als titel, met datum/uur en locatie eronder — zoals de
+   Cobalt-mockup. Gedeeld door de drie tabpagina's (Overzicht, Inschrijvingen,
+   Betalingen); de tabbalk komt uit activities.api.record_tabs. #}
+<div class="mb-2">
+  <h1 class="text-3xl font-bold text-blue-700 inline-flex flex-wrap items-center gap-3">{{ a.name }}
+    <span class="inline-flex gap-1">
+      {% if a.is_cancelled %}{{ ui.badge(_("geannuleerd"), "red") }}{% else %}{{ ui.badge(_("actief"), "green") }}{% endif %}
+      {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% else %}{{ ui.badge(_("iedereen welkom")) }}{% endif %}
+    </span>
+  </h1>
+  <p class="text-sm text-ink-soft mt-1">
+    {%- if a.dates %}{{ a.dates[0].start_date|langedatum }}{% if a.dates[0].start_time %} · {{ a.dates[0].start_time.strftime("%H.%M") }}{% if a.dates[0].end_time %}–{{ a.dates[0].end_time.strftime("%H.%M") }}{% endif %} u.{% endif %}{% endif %}
+    {%- if a.location %} · {{ a.location }}{% endif %}
+  </p>
+</div>
+{{ ui.tabs(record_tabs) }}

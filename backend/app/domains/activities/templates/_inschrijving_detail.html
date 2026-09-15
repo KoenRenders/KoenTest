@@ -26,7 +26,8 @@
     {% if editable %}
     <div class="flex gap-2">
       {{ ui.edit_toggle("edit", size="sm") }}
-      <div x-show="edit" x-cloak>{{ ui.action_bar(form="insch-form-" ~ reg.id, cancel_attrs='@click="edit = false"') }}</div>
+      <div x-show="edit" x-cloak>{{ ui.action_bar(form="insch-form-" ~ reg.id, cancel_attrs='@click="edit = false"',
+           delete_attrs=('hx-post="/admin/activiteiten/' ~ reg.activity_id ~ '/inschrijvingen/' ~ reg.id ~ '/verwijderen?vanuit=pagina" ' ~ confirm_attrs(_("Inschrijving"), reg.contact_name)) if op_pagina|default(false) else "") }}</div>
     </div>
     {% endif %}
   </div>

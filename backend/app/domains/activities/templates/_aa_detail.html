@@ -7,20 +7,15 @@
        wisselt hem voor het cluster — nooit twee Annulerens. Sticky: lang
        formulier, Opslaan blijft in beeld. #}
     <div class="flex items-center justify-between sticky top-0 z-20 bg-white py-1">
-      <h2 class="font-bold text-lg">{{ a.name }}
-        {% if a.is_cancelled %}{{ ui.badge(_("geannuleerd"), "red") }}{% endif %}
-        {% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% endif %}
-      </h2>
+      {# Naam, status en locatie staan sinds de feedbackronde in de recordkop
+         (_aa_recordkop.html); deze kaart draagt de rest. #}
+      <h2 class="font-bold text-lg">{{ _("Activiteit") }}</h2>
       <div class="flex gap-2">
         {{ ui.edit_toggle("edit") }}
         <div x-show="edit" x-cloak>{{ ui.action_bar(form="aa-act-form", cancel_attrs='@click="edit = false"',
              delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/verwijderen" ' ~ confirm_attrs(_("Activiteit"), a.name)) }}</div>
       </div>
     </div>
-    {# Dezelfde fout als de affichelink hieronder, gevonden bij het schrijven van de
-       lintregel: de locatie bleef staan terwijl je ze in het formulier aan het
-       wijzigen was (§2.8/#653). #}
-    {% if a.location %}<p class="text-sm text-gray-500 mt-1 flex items-start gap-1" x-show="!edit" x-cloak>{{ ui.icon("map-pin", cls="mt-0.5 shrink-0") }} {{ a.location }}</p>{% endif %}
     {# De leeslink naar de affiche (#503). Het commentaar zei "in read-modus" maar
        de x-show ontbrak, dus stond ze óók tijdens het bewerken — naast diezelfde
        link in het uploadblok (#653). §2.12: de bijlage staat nooit twee keer
@@ -112,8 +107,10 @@
 
   {# Onderdelen-sectie (#509): sectiekop met "+ Onderdeel", sterk-afgelijnde
      onderdeel-kaarten, en de producten genest in een subpaneel per onderdeel. #}
-  <div x-data="{ addcomp: false }">
-    {{ ui.section_header(_("Onderdelen"), _("+ Onderdeel"), '@click="addcomp = !addcomp"') }}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ addcomp: false }">
+    {# Feedbackronde 15 sep: de titel hoort ín de kaart, zoals bij Datums —
+       en heet "Onderdelen & producten", zoals de mockup. #}
+    {{ ui.section_header(_("Onderdelen & producten"), _("+ Onderdeel"), '@click="addcomp = !addcomp"') }}
     {# #715: de info-bijlage hoort al bij het aanmaken te kunnen, niet pas na een
        tweede ronde via "Bewerken". Vandaar enctype + hx-encoding: zonder die twee
        stuurt htmx het bestand niet mee en verdwijnt het stil. #}
@@ -142,7 +139,7 @@
     </form>
     <div class="space-y-3">
   {% for c in a.sub_registrations %}
-  <div class="bg-white rounded-2xl shadow-sm border-2 border-gray-200 p-4" x-data="{ edit: false, addprod: false, insch: false }">
+  <div class="bg-white rounded-xl border border-gray-200 p-4" x-data="{ edit: false, addprod: false, insch: false }">
     <div class="flex items-center justify-between">
       <h3 class="font-semibold">{{ c.name }}
         {% if c.team_name_required %}{{ ui.badge(_("ploegnaam"), "blue") }}{% endif %}

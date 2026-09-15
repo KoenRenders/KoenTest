@@ -201,12 +201,17 @@ def admin_activiteit_detail(activity_id: int, request: Request,
         raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
     from app.domains.activities.api import registration_count_for
 
+    from app.kernel.tenant_config import tenant_base_url
+
     reg_count = registration_count_for(db, activity_id)
     return templates.TemplateResponse(
         request, "admin_activiteit.html",
         {"nav_items": NAV, **_aa_detail_ctx(request, db, activiteit),
          **_record_tabs(activiteit, reg_count, db, email, "overzicht"),
-         **_record_rail(db, activiteit, reg_count)})
+         **_record_rail(db, activiteit, reg_count),
+         # De deellink (feedbackronde): de publieke lijst, verankerd op de kaart
+         # van deze activiteit — het enige publieke adres dat vandaag bestaat.
+         "deellink": f"{tenant_base_url(db)}/activiteiten#act-{activity_id}"})
 
 
 @router.post("/admin/activiteiten", response_class=HTMLResponse,
@@ -756,6 +761,12 @@ def _render_detail(request: Request, db: Session, registration_id: int,
         return HTMLResponse("")
     ctx["error"] = error
     ctx["toast_bericht"] = toast
+    # Golf 8-feedback: op de eigen pagina draagt het cluster ook Verwijderen
+    # (achter de bewerkklik, uiterst links). Of we óp die pagina zijn, zegt
+    # HX-Current-URL — de POSTs van het fragment reizen daarmee.
+    huidig = request.headers.get("HX-Current-URL", "")
+    ctx["op_pagina"] = (f"/admin/inschrijvingen/{registration_id}" in huidig
+                        and "/fragment" not in huidig)
     resp = templates.TemplateResponse(request, "_inschrijving_detail.html", ctx)
     if ververs:
         resp.headers["HX-Trigger"] = "betalingen-ververst"
@@ -780,7 +791,7 @@ def inschrijving_detail(registration_id: int, request: Request,
 
 @router.get("/admin/inschrijvingen/{registration_id}", response_class=HTMLResponse)
 def inschrijving_pagina(registration_id: int, request: Request,
-                        terug: str = "",
+                        terug: str = "", bewerk: int = 0,
                         db: Session = Depends(get_db),
                         email: str = Depends(require_admin_ui)):
     """De inschrijving als volwaardige pagina (golf 4, #913 — B2).
@@ -796,7 +807,9 @@ def inschrijving_pagina(registration_id: int, request: Request,
     from app.domains.activities.viewmodels import AdminInschrijvingView
     from app.ui import veilige_terug
 
-    ctx = _detail_ctx(request, db, registration_id)
+    # `bewerk=1` (feedbackronde 15 sep): de rij-knop "Bewerken" opent de pagina
+    # meteen in bewerkmodus — Details en dan nog eens Bewerken is twee klikken.
+    ctx = _detail_ctx(request, db, registration_id, edit_open=bool(bewerk))
     if ctx is None:
         raise HTTPException(status_code=404, detail=_("Inschrijving niet gevonden"))
     # P13 (golf 5, #913): relatiebalk met aantallen. Betalingen is vandaag de
@@ -821,7 +834,7 @@ def inschrijving_pagina(registration_id: int, request: Request,
     else:
         label = _("Terug")
     vm = AdminInschrijvingView(
-        **ctx, error=None, toast_bericht=None,
+        **ctx, error=None, toast_bericht=None, op_pagina=True,
         terug=pad, terug_label=label, relaties=relaties, nav_items=NAV)
     return templates.TemplateResponse(request, "admin_inschrijving.html",
                                       vm.as_context())
@@ -1116,31 +1129,12 @@ _ALLE_INSCHRIJVING_SORT["onderdeel"] = lambda r: (
 
 
 def _record_tabs(activiteit, reg_count: int, db, email: str, actief: str) -> dict:
-    """De tabbalk van de activiteit-recordpagina (golf 8, #913).
+    """Doorgeefluik naar de ene tabs-bouwer in de service (golf 8, #913):
+    de payment-kant rendert dezelfde recordkop en mag alleen via de facade."""
+    from app.domains.activities.api import record_tabs
 
-    P13 in tabvorm: elke tab toont een bestaand lijstscherm in de scope van dit
-    record. Betalingen alleen voor wie ze mag zien (#544: +FINANCE) — een tab
-    die op een 403 uitkomt is erger dan geen tab. De Betalingen-tab navigeert
-    naar het gewone betalingenscherm in activiteitscope; de scope-regel daar
-    draagt de weg terug.
-    """
-    from app.domains.auth.api import get_user_roles
-    from app.domains.payment.api import count_registration_records_by_activity
-
-    tabs = [
-        {"label": _("Overzicht"),
-         "href": f"/admin/activiteiten/{activiteit.id}",
-         "active": actief == "overzicht"},
-        {"label": _("Inschrijvingen") + f" {reg_count}",
-         "href": f"/admin/activiteiten/{activiteit.id}/inschrijvingen",
-         "active": actief == "inschrijvingen"},
-    ]
-    if "FINANCE" in get_user_roles(db, email):
-        n = count_registration_records_by_activity(db, activiteit.id)
-        tabs.append({"label": _("Betalingen") + f" {n}",
-                     "href": f"/admin/betalingen?activiteit={activiteit.id}",
-                     "active": False})
-    return {"record_tabs": tabs}
+    return {"record_tabs": record_tabs(db, activiteit, email, actief,
+                                       reg_count=reg_count)}
 
 
 def _record_rail(db, activiteit, totaal: int) -> dict:
@@ -1223,12 +1217,18 @@ def onderdeel_inschrijvingen(activity_id: int, component_id: int, request: Reque
 def inschrijving_verwijderen(activity_id: int, registration_id: int, request: Request,
                              component_id: int | None = None,
                              sort: str = "datum", richting: str = "asc",
+                             vanuit: str = "",
                              db: Session = Depends(get_db),
                              email: str = Depends(require_admin_ui)):
     from app.domains.activities import service
 
     if not service.delete_registration(db, activity_id, registration_id, actor=email):
         raise HTTPException(status_code=404, detail=_("Registration not found"))
+    # Vanuit de inschrijvingspagina (golf 8-feedback): het record is weg, dus
+    # terug naar de activiteit — een lijstfragment heeft daar geen doel.
+    if vanuit == "pagina":
+        return Response(status_code=204, headers={
+            "HX-Redirect": f"/admin/activiteiten/{activity_id}"})
     # Dezelfde lijst terug, niet "alle": de knop stond in één bepaalde lijst — en in
     # dezelfde volgorde (golf 4): de delete-URL draagt de sorteerstand mee, anders
     # springt de lijst na een verwijdering terug naar de default.

@@ -159,8 +159,8 @@
 <div class="sticky top-0 z-50 h-6 leading-6 bg-orange-500 text-white text-center text-xs font-semibold">{{ omgeving|upper }} — testomgeving (geen productie)</div>
 {%- endmacro %}
 
-{% macro card() -%}
-<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">{{ caller() }}</div>
+{% macro card(id=None) -%}
+<div{% if id %} id="{{ id }}" class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6 scroll-mt-24"{% else %} class="bg-white rounded-2xl shadow-sm border border-gray-200 p-6"{% endif %}>{{ caller() }}</div>
 {%- endmacro %}
 
 {# Golf 3 (#913, triage A10): drie vormen van leegte. "Nog geen <items>." mag

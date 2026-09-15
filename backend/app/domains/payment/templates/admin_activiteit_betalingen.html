@@ -1,0 +1,11 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ a.name }} — {{ _("Betalingen") }}{% endblock %}
+{% block content %}
+{# De Betalingen-tab van de recordpagina (golf 8-feedback, 15 sep 2026):
+   exact het betalingenscherm, gefilterd op deze activiteit, onder de
+   gedeelde recordkop. Geen scope-regel — de kop zegt al waar je bent. #}
+<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/activiteiten">{{ _("‹ Alle activiteiten") }}</a></p>
+{% include "_aa_recordkop.html" %}
+{% include "_betalingen_scherm.html" %}
+{% endblock %}
