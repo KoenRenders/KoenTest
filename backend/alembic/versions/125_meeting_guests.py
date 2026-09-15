@@ -18,8 +18,11 @@ en niet alleen in een verzendlijstje. Twee gevolgen voor het schema:
 import sqlalchemy as sa
 from alembic import op
 
-revision = "124"
-down_revision = "123"
+# 125 en niet 124: master landde intussen een eigen 124
+# (organisatielijsten). Twee migraties met hetzelfde nummer geven twee
+# hoofden, en dan weigert alembic te draaien — de keten moet één lijn zijn.
+revision = "125"
+down_revision = "124"
 branch_labels = None
 depends_on = None
 
