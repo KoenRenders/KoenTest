@@ -66,13 +66,48 @@ plugs the drafting into the architecture that now exists.
    link contributes only its text; an item that should appear with a
    registration link gets one by first creating the activity in the portal
    and linking it, never by the model guessing.
-5. **Open question — the half-yearly edition and the members.** Today the
-   ~800 do not include the members; the half-yearly went to the mailing
-   list only, while members get the monthly edition. To choose at or before
-   the compose/send phase: (a) half-yearly to subscribers only; or (b) to
-   subscribers **and** members, deduplicated by e-mail address at send
-   time, member newsletter opt-out respected. An audience-builder question,
-   not a schema question.
+5. **The audience is chosen per letter** (Koen, 15 September 2026 —
+   replaces the earlier open question about the half-yearly edition). Three
+   choices at compose time, **with no pre-selected value** so it is made
+   rather than inherited: *leden*, *niet-leden*, or *allebei* (merged and
+   **deduplicated by e-mail address** — the two lists will overlap, because
+   someone from the mailing list who becomes a member stays on it). The
+   content differs, not only the audience: a member letter names things a
+   non-member does not get (the member discount, a refund), so "allebei" is
+   for a letter written for both, never a convenient default.
+6. **Members cannot unsubscribe from the newsletter** (Koen, 15 September
+   2026 — **reverses** the decision of 17 June 2026, which gave every
+   newsletter a working unsubscribe link for members too). His reasoning:
+   they are members, the monthly newsletter is part of that, and that is how
+   it works today. Nothing at all, deliberately: no link, no footer line.
+
+   Recorded with the two objections that were put to him, because they do
+   not disappear by being overruled: (a) for direct **marketing** the GDPR
+   gives an absolute right to object — the crux is whether an association's
+   own programme to its own members counts as marketing, which is arguable
+   both ways and was not settled here; (b) bulk senders without a
+   `List-Unsubscribe` header are filtered to spam more often, so the risk is
+   not legal but delivery — and a member who lands in spam is a member who
+   does not read it. **For non-members nothing changes**: a real, working
+   unsubscribe link stays mandatory there.
+7. **A newsletter can be copied.** Content, subject and blocks come along;
+   the **audience does not** — you copy precisely because you are writing to
+   someone else, so the new draft asks again. The original is untouched: a
+   copy of a sent letter is a new object, and what was sent stays as it went
+   out (the same rule as a sent meeting report).
+8. **Mailing the people registered for an activity is NOT a newsletter**
+   (Koen, 15 September 2026). It is operational mail about an arrangement
+   they made themselves — the departure time moved, bring boots, mind the
+   payment — so it carries **no unsubscribe link** and needs no consent,
+   exactly like the board mail of CR-09. It therefore belongs **with the
+   activity**, on the component (the barbecue and the cornhole tournament
+   have different participants), with the option to reach a whole activity.
+   What it shares with the newsletter is the *sending machinery*: one mail
+   per recipient, queued under the daily limit, logged. The three audiences
+   — members, subscribers, registrants — become three ways to build a
+   recipient list on one engine, each with its own lawful basis. Open: which
+   address (the registration's contact address is the obvious candidate,
+   because that is who made the arrangement).
 
 **Phasing after this update:** phase 0 (+ the import) → phase 2′ (compose &
 send via the Gmail SMTP provider, per recipient, queued; personal
