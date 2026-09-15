@@ -45,9 +45,11 @@ def _bewerkvorm(html: str, activity_id: int, component_id: int) -> str:
 
 
 def _kaart(html: str, activity_id: int, component_id: int) -> str:
-    """De hele onderdeelkaart, tot de doel-div die haar afsluit (#650)."""
+    """De onderdeelkaart. Het oude aa-insch-anker verdween in ronde 2 van
+    golf 8; deze seeds hebben één onderdeel, dus tot het einde lezen volstaat
+    voor de /info-vorm-controle."""
     start = html.index(f'hx-post="/admin/activiteiten/{activity_id}/onderdelen/{component_id}"')
-    return html[start:html.index(f'id="aa-insch-{component_id}"', start)]
+    return html[start:]
 
 
 def test_een_onderdeel_in_bewerkmodus_toont_precies_een_opslaan(client, db_session):

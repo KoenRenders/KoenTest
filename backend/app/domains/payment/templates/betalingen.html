@@ -6,44 +6,5 @@
 {# Records-lijst-gedrag (C1 §4, #591): zoeken bovenaan, filters eronder, alles
    live via de kit-filterbalk. De balk swapt enkel de kaartenlijst, zodat het
    zoekveld niet onder je vingers vervangen wordt. #}
-{% call ui.filter_bar("/admin/betalingen/lijst", "#betalingen-lijst") %}
-  {# P13 (golf 5, #913): de recordscope reist als hidden field met élke
-     filterwijziging mee — de scope overleeft filteren en wissen, en verdwijnt
-     alleen via "Alle bekijken" in de scope-regel. #}
-  {% if scope %}<input type="hidden" name="{{ scope.param_naam }}" value="{{ scope.param_waarde }}">{% endif %}
-  <div>{{ ui.search(value=q, placeholder=_('Zoek op naam, OGM of omschrijving…'), standalone=False) }}</div>
-  <div class="flex flex-wrap gap-3 items-center">
-    {# Gegroepeerde context-filter via de gedeelde macro (#549); geen hx-* op de select
-       zelf — de omhullende filterbalk vangt de change al op. #}
-    {{ ui.grouped_filter("context", context_top, context_groups, current=context) }}
-    {# #669: de keuzelijst gaat over de statusKOLOM, "Openstaand saldo" over een
-       AFGELEIDE toestand (amount != amount_paid). Die twee stonden door elkaar in
-       één lijst, dus je kon er maar één tegelijk kiezen — "openstaande posten
-       onder de mislukte betalingen" kon niet. Nu combineren ze met EN, zoals in
-       v1.14, waar het vier losse knoppen waren. #}
-    {% call ui.select_control("status") %}
-      {% for s in ["all", "pending", "paid", "failed", "cancelled"] %}
-      <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ status_labels[s] }}</option>
-      {% endfor %}
-    {% endcall %}
-    {{ ui.chips("openstaand", [("", _("Alles")), ("1", status_labels["openstaand"])],
-                current="1" if openstaand else "") }}
-    {# De exportknop draagt de filterstand mee: zonder de nieuwe parameter
-       exporteert hij iets anders dan wat op het scherm staat. #}
-    {{ ui.btn_secondary(_("Export (.ods)"), lead_icon="download",
-                        href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status ~ ("&openstaand=1" if openstaand else "") ~ ("&inschrijving=" ~ scope.param_waarde if scope and scope.param_naam == "inschrijving" else ""), size="sm",
-                        attrs='hx-boost="false"') }}
-  </div>
-{% endcall %}
-
-{# Verversen na een bewerking in het inschrijvingsdetail (#613-4/#617-3). Dat
-   fragment swapt enkel zichzelf, dus de kaart erboven bleef op het oude bedrag
-   staan — en een nieuwe terugbetaling verscheen pas na F5 — terwijl de server al
-   gereconcilieerd had. De detailroutes zetten `HX-Trigger: betalingen-ververst`;
-   hier halen we de lijst opnieuw op mét de huidige filterstand. #}
-<div id="betalingen-lijst"
-     hx-get="/admin/betalingen/lijst" hx-trigger="betalingen-ververst from:body"
-     hx-include="[name='q'],[name='status'],[name='context'],[name='inschrijving'],[name='record']" hx-swap="innerHTML">
-  {% include "_betalingen_lijst.html" %}
-</div>
+{% include "_betalingen_scherm.html" %}
 {% endblock %}

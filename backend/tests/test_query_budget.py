@@ -150,7 +150,11 @@ def gevulde_databank(client, db_session):
 #
 # Allebei schalen ze mee met AANTAL_ACTIVITEITEN, dus een terugval wordt met de
 # fixture alleen maar duidelijker zichtbaar.
-BUDGET_ACTIVITEITDETAIL = 16
+# 16 → 17 op 15 september 2026 (golf 8, #913): de recordpagina kreeg tabs en
+# een rechterrail — dat kost precies één extra COUNT (inschrijvingen) naast de
+# bestaande zonder-onderdeel-telling; bezetting en betalingen-tel zijn elk één
+# query. Een verdere stijging is weer een bevinding.
+BUDGET_ACTIVITEITDETAIL = 17
 RIJEN_ACTIVITEITDETAIL = 20
 
 

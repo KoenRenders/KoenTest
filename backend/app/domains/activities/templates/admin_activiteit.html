@@ -1,10 +1,50 @@
 {% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
 {% block title %}{{ a.name }} — {{ _("Raak beheer") }}{% endblock %}
 {% block content %}
 {# Paginabrede editor (C1, #586): de kaart-klik landt hier. De bewerkingen binnen
    het detail blijven htmx-fragmenten die #aa-detail vervangen. #}
 <p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/activiteiten">{{ _("‹ Alle activiteiten") }}</a></p>
-<div id="aa-detail">
-  {% include "_aa_detail.html" %}
+{# Golf 8 (#913): de recordpagina — P13 in tabvorm. Elke tab is een bestaand
+   lijstscherm in de scope van dit record; Betalingen alleen met FINANCE. #}
+{% include "_aa_recordkop.html" %}
+<div class="grid grid-cols-1 xl:grid-cols-[1fr,20rem] gap-6 items-start">
+  <div id="aa-detail" class="min-w-0">
+    {% include "_aa_detail.html" %}
+  </div>
+  {# De rechterrail: publicatie-info en bezetting, uit al geladen data. Buiten
+     #aa-detail, dus fragment-swaps raken haar niet; een paginalading ververst. #}
+  <aside class="space-y-4 xl:sticky xl:top-4">
+    {% call ui.card() %}
+      <h3 class="font-semibold mb-2">{{ _("Publicatie") }}</h3>
+      {# Label-waarde zoals de mockup: links het label, rechts de waarde. #}
+      <dl class="text-sm space-y-1 mb-3">
+        <div class="flex justify-between gap-2"><dt class="text-ink-soft">{{ _("Status") }}</dt>
+          <dd>{% if a.is_cancelled %}{{ ui.badge(_("geannuleerd"), "red") }}{% else %}{{ ui.badge(_("actief"), "green") }}{% endif %}</dd></div>
+        <div class="flex justify-between gap-2"><dt class="text-ink-soft">{{ _("Toegang") }}</dt>
+          <dd>{% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% else %}{{ ui.badge(_("iedereen welkom")) }}{% endif %}</dd></div>
+      </dl>
+      {# Deel de activiteit (feedbackronde): de publieke lijst, verankerd op deze
+         kaart. Een echte activiteitspagina bestaat nog niet — zie het
+         issuevoorstel in golfpakket-8. #}
+      <h3 class="font-semibold mb-1">{{ _("Deel de activiteit") }}</h3>
+      <div class="flex items-center gap-2 mb-3 text-xs">
+        <span class="font-mono bg-surface-2 border border-line rounded px-2 py-1 truncate">{{ deellink }}</span>
+        {{ ui.copy_button(deellink, _("Kopieer de link")) }}
+      </div>
+      <h3 class="font-semibold mb-1">{{ _("Bezetting") }}</h3>
+      {% if rail_onderdelen %}
+      <dl class="text-sm space-y-1">
+        {% for o in rail_onderdelen %}
+        <div class="flex justify-between gap-2"><dt class="text-ink-soft truncate">{{ o.naam }}</dt>
+          <dd class="whitespace-nowrap">{{ o.bezet }}{% if o.max %} / {{ o.max }}{% endif %}</dd></div>
+        {% endfor %}
+      </dl>
+      {% else %}
+      <p class="text-sm text-ink-soft">{{ _("Nog geen onderdelen.") }}</p>
+      {% endif %}
+      <p class="text-sm text-ink-soft mt-3">{{ _("Inschrijvingen totaal") }}: {{ rail_inschrijvingen_totaal }}</p>
+    {% endcall %}
+  </aside>
 </div>
 {% endblock %}

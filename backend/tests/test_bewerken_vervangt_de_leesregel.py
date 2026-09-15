@@ -102,7 +102,9 @@ def test_de_koppen_blijven_wel_staan(client, db_session):
     _login(client)
     html = _detail(client, activity.id)
 
-    for kop, tekst in (("h2", activity.name), ("h3", comp.name)):
+    # Sinds de feedbackronde van 15 sep (golf 8) draagt de recordkop (h1) de
+    # naam en heet de kaartkop "Activiteit"; de onderdeelkop draagt zijn naam.
+    for kop, tekst in (("h2", "Activiteit"), ("h3", comp.name)):
         m = re.search(rf"<{kop}[^>]*>(?:(?!</{kop}>).)*{re.escape(tekst)}", html, re.S)
         assert m, f"de {kop}-kop met {tekst!r} staat niet op het scherm"
         assert "x-show" not in m.group(0), (
