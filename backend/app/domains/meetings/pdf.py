@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from datetime import date
 from io import BytesIO
+from pathlib import Path
 
 from weasyprint import HTML
 
@@ -61,6 +62,13 @@ def filename_for(meeting, *, kind: str) -> str:
     return f"{stem}-{meeting.meeting_date.isoformat()}.pdf"
 
 
+# Waar de lettertypes staan. De PDF laadt ze rechtstreeks van schijf: WeasyPrint
+# rendert los van de webserver, dus een URL zou niets opleveren — en een verslag
+# dat bij het genereren het net op moet, komt op een dag zonder letters uit de
+# printer.
+STATIC_DIR = Path(__file__).resolve().parents[2] / "static"
+
+
 def render(*, context: dict, base_url: str | None = None) -> bytes:
     """Render the meeting document to PDF bytes.
 
@@ -71,5 +79,5 @@ def render(*, context: dict, base_url: str | None = None) -> bytes:
 
     html = templates.env.get_template("meeting_pdf.html").render(**context)
     buffer = BytesIO()
-    HTML(string=html, base_url=base_url).write_pdf(buffer)
+    HTML(string=html, base_url=base_url or f"{STATIC_DIR}/").write_pdf(buffer)
     return buffer.getvalue()
