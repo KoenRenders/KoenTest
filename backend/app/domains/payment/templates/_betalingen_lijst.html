@@ -57,12 +57,14 @@
    totaalregel als laatste rij. De kaartweergave van #617 is hiermee
    vervangen; alle acties bleven, alleen de vorm verdichtte.
 
-   De "Toon inschrijvingsdetails"-disclosure verdween bewust: de naam ís de
-   B2-link naar de inschrijvingspagina, die sinds golf 8 ook de betalingen als
-   tab draagt — een tweede inline-detail ernaast was dubbel. #}
+   De "Toon inschrijvingsdetails"-disclosure verdween bewust: de rij-actie
+   "Details" opent de inschrijvingspagina, die sinds golf 8 ook de betalingen
+   als tab draagt — een tweede inline-detail ernaast was dubbel. De NAAM is
+   gewone tekst (feedbackronde 3, Koen): een persoonsnaam als link wekt de
+   verwachting dat je naar de persoon gaat, niet naar de inschrijving. #}
 {% macro _naam(k) %}
 {% set r = k.rec %}
-{% if r.payable_type == "registration" and r.payable_id %}<a class="font-medium text-blue-700 hover:underline" href="/admin/inschrijvingen/{{ r.payable_id }}?terug=/admin/betalingen">{{ r.contact_name or "—" }}</a>{% else %}<span class="font-medium">{{ r.contact_name or "—" }}</span>{% endif %}
+<span class="font-medium">{{ r.contact_name or "—" }}</span>
 {% endmacro %}
 
 {% macro _rij(k, kind=False) %}
@@ -101,6 +103,12 @@
        even breed, dus rechts vormt hij een strakke kolom — de wisselende
        snelactie staat ernaast links. #}
     <div class="flex justify-end gap-2 whitespace-nowrap">
+      {# "Details" opent de inschrijvingspagina — de expliciete opvolger van
+         "Toon inschrijvingsdetails". Alleen op de hoofdregel: de kind- en
+         extra-rijen horen bij dezelfde inschrijving. #}
+      {% if r.payable_type == "registration" and r.payable_id and not (kind or k.get('is_extra')) %}
+      {{ ui.btn_secondary(_("Details"), size="xs", href="/admin/inschrijvingen/" ~ r.payable_id ~ "?terug=/admin/betalingen") }}
+      {% endif %}
       {# #661: de snelkoppeling voor het meest voorkomende geval, met label én
          vraag per type — op een terugbetaling vertrekt er geld. #}
       {% if r.status != "paid" %}

@@ -320,6 +320,10 @@ by the status choice; convert one and the field shows two notations.
     rows ±46 px; row buttons use size `xs` (28 px on desktop, 44 px touch on
     mobile). Row actions remain **buttons**, not Cobalt's text links —
     Koen, 16 Sep 2026: links only come with a portal-wide pass.
+  - **The name is plain text** when it is a person's name on a row whose
+    record is something else (a booking): a name-link reads as "go to the
+    person" (Koen, 16 Sep 2026). The row's **Details** button opens the
+    record page instead, on the parent row only.
   - Row editors expand as a row beneath the record (`ui.edit_toggle` with
     `waarde=` for lists where one holder marks the open record); Verwijderen
     (far left) and content actions live in that editor row, per A2.
