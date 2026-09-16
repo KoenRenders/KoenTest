@@ -353,6 +353,28 @@ def tenant_meeting_signature(db: Session, tenant_id: int | None = None) -> str:
     return (get_setting(db, "meeting_mail_signature", tenant_id=tenant_id) or "").strip()
 
 
+# De dagelijkse bovengrens voor nieuwsbriefmails (#984, CR-05 §3.7). Voorzichtig
+# gekozen: het Gmail-account van het portaal verstuurt ook de inschrijvings- en
+# betaalmails, en die mogen nooit wachten omdat een nieuwsbrief het quotum
+# opgebruikte. Weigert Gmail toch, dan pauzeert de wachtrij tot de volgende dag.
+NEWSLETTER_DAILY_CAP_DEFAULT = 300
+
+
+def tenant_newsletter_daily_cap(db: Session, tenant_id: int | None = None) -> int:
+    """Hoeveel nieuwsbriefmails er per 24 uur vertrekken (#984)."""
+    return max(1, _int_setting(db, "newsletter_daily_cap", NEWSLETTER_DAILY_CAP_DEFAULT,
+                               tenant_id=tenant_id))
+
+
+def tenant_newsletter_house_style(db: Session, tenant_id: int | None = None) -> str:
+    """De huisstijl waarin Raakje een nieuwsbrief schrijft (#984, CR-05 §8.3).
+
+    Leeg is toegestaan: dan schrijft Raakje in de toon van de voorbeeldbrieven,
+    of neutraal als er nog geen zijn.
+    """
+    return (get_setting(db, "newsletter_house_style", tenant_id=tenant_id) or "").strip()
+
+
 def tenant_mollie_key(db: Session, tenant_id: int | None = None) -> str | None:
     from app.config import settings
 

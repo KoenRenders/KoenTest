@@ -53,6 +53,7 @@ from app.domains.mail.router import router as email_log_router
 from app.domains.mail.ui import router as email_log_ui_router
 from app.domains.mdm.ui import router as mdm_ui_router
 from app.domains.mail.handlers import retry_mail  # noqa: F401 - registreert de mail.retry-job (#399)
+from app.domains.newsletter.handlers import send_newsletter  # noqa: F401 - registreert de newsletter.send-job (#984)
 from app.domains.payment.router import router as payment_router
 from app.domains.payment.ui import router as payment_ui_router
 from app.domains.reporting.admin_ui import router as reporting_admin_ui_router

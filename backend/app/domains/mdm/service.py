@@ -375,6 +375,31 @@ def new_members_between(db: Session, start: date, end: date) -> list[dict]:
     return out
 
 
+def email_addresses_of_members(db: Session, member_ids) -> list[str]:
+    """Every e-mail address of every person in these households (#984).
+
+    The newsletter's member audience (CR-05 §3.3): not only the main member and
+    not only adults — every person of the household with an address. Lower-case
+    and without duplicates, so partners sharing one address get one mail. Sorted,
+    so a recipient list is the same list twice.
+    """
+    from app.domains.mdm.models import MemberPerson, Person
+
+    ids = list(member_ids or [])
+    if not ids:
+        return []
+    persons = (db.query(Person)
+               .join(MemberPerson, MemberPerson.person_id == Person.id)
+               .filter(MemberPerson.member_id.in_(ids))
+               .all())
+    addresses = set()
+    for person in persons:
+        email = _email_of(person)
+        if email and email.strip():
+            addresses.add(email.strip().lower())
+    return sorted(addresses)
+
+
 def gezin_tabs(db, family, viewer_email: str, actief: str) -> list[dict]:
     """De tabbalk van de gezins-recordpagina (golf 9, #913) — zelfde patroon
     als activities.record_tabs: P13 in tabvorm. Overzicht · Inschrijvingen N ·
