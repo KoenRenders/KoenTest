@@ -569,8 +569,9 @@ Approved by Koen on 16 September 2026, with a limit.
     **tenant setting** can override it per unit; only OPERATOR can change
     that setting. Without a tenant value, the `.env` value applies;
   - BFL reports the cost of each request in credits (1 credit = $0.01).
-    That cost is converted to euro at a configured rate and added to the
-    unit's month;
+    That cost is stored in the AI call log (#978). **The month's spend is
+    read from that log** with #978's read function, converted to euro at a
+    configured rate;
   - **before sending**, the service estimates the cost of the request (known
     price per megapixel × four variants). It refuses the request when the
     estimate would take the month over budget, so the budget is never
@@ -582,7 +583,12 @@ Approved by Koen on 16 September 2026, with a limit.
   €50 buys a few hundred images. Print-sized images cost more; the build
   takes the rate per megapixel from BFL's price list.
 
-  Every generation is logged with model, seed, prompt, cost and user.
+  **Every generation is logged in the existing AI call log**
+  (`ai.ai_call_log`, CR-07), through the same seam as the Mistral calls,
+  with tenant, provider, endpoint, user, prompt, credits, cost, duration and
+  time. **#978** adds those columns to the log. The Design Studio builds on
+  that issue and keeps no cost log of its own: two logs would record the same
+  fact twice.
 - **Key:** one platform key (`BFL_API_KEY` in `.env`), since the platform
   holds the contract. A per-unit encrypted key can be added later through
   tenant settings if a unit ever pays for its own usage.
@@ -677,10 +683,11 @@ designstudio.design_renditions      -- stored only for final designs
   size_code (A3|A4|1080x1350|…), media_asset_id, rendered_at,
   min_effective_dpi
 
-designstudio.image_generations      -- audit + quota
-  id, tenant_id, design_id, provider, model, prompt, seed,
-  width, height, cost_credits, status, picked_media_asset_id,
-  requested_by, requested_at
+designstudio.image_generations      -- which design asked, and what was picked
+  id, design_id, ai_call_log_id, seed, width, height,
+  picked_media_asset_id
+  -- tenant, provider, model, prompt, user, credits, cost, status and time
+  -- live in ai.ai_call_log (#978), not here
 
 activities.activities
   + registration_closes_on  date         null   -- inclusive, Belgian date (§3.8a)
