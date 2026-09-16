@@ -7,8 +7,10 @@
      filterwijziging mee — de scope overleeft filteren en wissen, en verdwijnt
      alleen via "Alle bekijken" in de scope-regel. #}
   {% if scope %}<input type="hidden" name="{{ scope.param_naam }}" value="{{ scope.param_waarde }}">{% if scope.get("stil") %}<input type="hidden" name="scope_stil" value="1">{% endif %}{% endif %}
-  <div>{{ ui.search(value=q, placeholder=_('Zoek op naam, OGM of omschrijving…'), standalone=False) }}</div>
+  {# Golf-10-feedback (Koen): zoeken en de keuzelijsten op ÉÉN regel, zoals de
+     Cobalt-referentie — de export rechts. Wrapt op smal naar meerdere regels. #}
   <div class="flex flex-wrap gap-3 items-center">
+    <div class="flex-1 min-w-[14rem] max-w-sm">{{ ui.search(value=q, placeholder=_('Zoek op naam, OGM of omschrijving…'), standalone=False) }}</div>
     {# Gegroepeerde context-filter via de gedeelde macro (#549); geen hx-* op de select
        zelf — de omhullende filterbalk vangt de change al op. #}
     {% if not (scope and scope.get("stil")) %}

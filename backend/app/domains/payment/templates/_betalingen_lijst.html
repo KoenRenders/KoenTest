@@ -22,19 +22,19 @@
    zegt het tab "Betaald" dat er € 0 openstaat. #}
 <div class="mb-4 flex flex-wrap rounded-2xl border border-gray-200 bg-white shadow-sm divide-x divide-gray-100">
   <div class="flex-1 min-w-[9rem] px-4 py-3">
-    <div class="text-xs text-ink-soft">{{ _("Netto te betalen") }}</div>
+    <div class="text-[11px] text-ink-soft">{{ _("Netto te betalen") }}</div>
     <div class="text-2xl font-bold tracking-tight tabular-nums">€ {{ kpi.due|geld }}</div>
-    <div class="text-xs text-ink-soft">{{ kpi.boekingen }} {{ _("boekingen") }}</div>
+    <div class="text-[11px] text-ink-soft">{{ kpi.boekingen }} {{ _("boekingen") }}</div>
   </div>
   <div class="flex-1 min-w-[9rem] px-4 py-3">
-    <div class="text-xs text-ink-soft">{{ _("Ontvangen") }}</div>
+    <div class="text-[11px] text-ink-soft">{{ _("Ontvangen") }}</div>
     <div class="text-2xl font-bold tracking-tight tabular-nums text-green-700">€ {{ kpi.paid|geld }}</div>
-    <div class="text-xs text-ink-soft">{{ _("Na terugbetalingen") }}</div>
+    <div class="text-[11px] text-ink-soft">{{ _("Na terugbetalingen") }}</div>
   </div>
   <div class="flex-1 min-w-[9rem] px-4 py-3">
-    <div class="text-xs text-ink-soft">{{ _("Openstaand") }}</div>
+    <div class="text-[11px] text-ink-soft">{{ _("Openstaand") }}</div>
     <div class="text-2xl font-bold tracking-tight tabular-nums {{ 'text-orange-700' if kpi.saldo > 0 else 'text-green-700' }}">€ {{ kpi.saldo|geld }}</div>
-    <div class="text-xs text-ink-soft">{{ kpi.open }} {{ _("boekingen") }}</div>
+    <div class="text-[11px] text-ink-soft">{{ kpi.open }} {{ _("boekingen") }}</div>
   </div>
 </div>
 
@@ -68,45 +68,45 @@
 {% macro _rij(k, kind=False) %}
 {% set r = k.rec %}
 <tr class="border-t border-gray-100 align-top {{ 'text-ink-soft' if k.get('is_context') else 'hover:bg-blue-50/40' }}">
-  <td class="px-3 py-2.5 {{ 'pl-9' if kind or k.get('is_extra') }}">
+  <td class="px-3 py-2 {{ 'pl-9' if kind or k.get('is_extra') }}">
     {% if kind or k.get('is_extra') %}<span class="text-gray-400" aria-hidden="true">↳</span> {% endif %}{{ _naam(k) }}
-    {% if k.get('is_context') %}<div class="text-xs">{{ _("Ter context — valt buiten het filter") }}</div>{% endif %}
-    {% if k.get('is_extra') %}<div class="text-xs text-ink-soft">{{ _("Bijkomende vordering op dezelfde inschrijving") }}</div>{% endif %}
-    {% if r.structured_communication %}<div class="text-xs text-gray-400 font-mono">{{ r.structured_communication }}</div>{% endif %}
+    {% if k.get('is_context') %}<div class="text-[11px]">{{ _("Ter context — valt buiten het filter") }}</div>{% endif %}
+    {% if k.get('is_extra') %}<div class="text-[11px] text-ink-soft">{{ _("Bijkomende vordering op dezelfde inschrijving") }}</div>{% endif %}
+    {% if r.structured_communication %}<div class="text-[11px] text-gray-400 font-mono">{{ r.structured_communication }}</div>{% endif %}
   </td>
-  <td class="px-3 py-2.5">
+  <td class="px-3 py-2">
     <div>{{ r.description or "—" }}{% if r.component_name %} — {{ r.component_name }}{% endif %}</div>
-    <div class="text-xs text-ink-soft">{{ method_labels.get(r.method, _("Onbekende betaalwijze")) }}{% if r.paid_at %} · {{ _("Betaald op") }} {{ r.paid_at.strftime("%d-%m-%Y") }}{% endif %}</div>
-    {% if r.note %}<div class="text-xs text-ink-soft">{{ r.note }}</div>{% endif %}
+    <div class="text-[11px] text-ink-soft">{{ method_labels.get(r.method, _("Onbekende betaalwijze")) }}{% if r.paid_at %} · {{ _("Betaald op") }} {{ r.paid_at.strftime("%d-%m-%Y") }}{% endif %}</div>
+    {% if r.note %}<div class="text-[11px] text-ink-soft">{{ r.note }}</div>{% endif %}
   </td>
-  <td class="px-3 py-2.5">
+  <td class="px-3 py-2">
     {# #686: eerst de SOORT, dan de status — de statusbadges van samenhorende
        rijen blijven zo op één lijn. #}
     {% if r.type == "refund" %}{{ ui.badge(_("Terugbetaling"), "orange") }} {% endif %}
     {% set _st = kaart_status.get(k.status) %}
     {% if _st %}{{ ui.badge(_st[0], _st[1]) }}{% else %}{{ ui.badge(status_labels.get(r.status, _("Onbekende status")), "gray") }}{% endif %}
   </td>
-  <td class="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">€ {{ k.bedrag|geld }}</td>
+  <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap">€ {{ k.bedrag|geld }}</td>
   {# `Ontvangen`/`Saldo` blijven leeg zolang er niets uitbetaald is — € 0,00
      tonen suggereert dat er al iets gebeurd is (#617-2a). #}
-  <td class="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">{% if k.ontvangen is not none %}€ {{ k.ontvangen|geld }}{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
-  <td class="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">{% if k.saldo is not none %}<strong class="{{ 'text-orange-700' if k.saldo > 0 else ('text-teal-700' if k.saldo < 0 else 'text-ink-soft') }}">€ {{ k.saldo|geld }}</strong>{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
-  <td class="px-3 py-2.5">
+  <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap">{% if k.ontvangen is not none %}€ {{ k.ontvangen|geld }}{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
+  <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap">{% if k.saldo is not none %}<strong class="{{ 'text-orange-700' if k.saldo > 0 else ('text-teal-700' if k.saldo < 0 else 'text-ink-soft') }}">€ {{ k.saldo|geld }}</strong>{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
+  <td class="px-3 py-2">
     {# Een contextrij krijgt geen acties: ze staat er om te verklaren (#668).
        In de rij staan alleen de opener en de snelactie; verversen en
        verwijderen wonen in de bewerk-uitklaprij (A2: verwijderen achter de
        bewerkstap) — een ⋯-menu zou in de overflow-x-container clippen. #}
     {% if is_finance and not k.get('is_context') %}
     <div class="flex justify-end gap-2 whitespace-nowrap">
-      {{ ui.edit_toggle("open", waarde="'" ~ r.id ~ "'", ook="terug = null") }}
+      {{ ui.edit_toggle("open", size="xs", waarde="'" ~ r.id ~ "'", ook="terug = null") }}
       {# #661: de snelkoppeling voor het meest voorkomende geval, met label én
          vraag per type — op een terugbetaling vertrekt er geld. #}
       {% if r.status != "paid" %}
       {% set _bevestig_label = _("Bevestig terugbetaald") if r.type == "refund" else _("Bevestig betaald") %}
       {% set _bevestig_vraag = _("Als volledig terugbetaald bevestigen?") if r.type == "refund" else _("Als volledig betaald bevestigen?") %}
-      {{ ui.btn_secondary(_bevestig_label, size="sm", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_bevestig_vraag) }}
+      {{ ui.btn_secondary(_bevestig_label, size="xs", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_bevestig_vraag) }}
       {% elif r.type != "refund" %}
-      {{ ui.btn_secondary(_("Terugbetaling registreren"), size="sm", attrs='@click="terug = terug === \'' ~ r.id ~ '\' ? null : \'' ~ r.id ~ '\'; open = null"') }}
+      {{ ui.btn_secondary(_("Terugbetaling registreren"), size="xs", attrs='@click="terug = terug === \'' ~ r.id ~ '\' ? null : \'' ~ r.id ~ '\'; open = null"') }}
       {% endif %}
     </div>
     {% endif %}
@@ -197,7 +197,7 @@
 
 {% if groepen %}
 <div class="mb-4 rounded-2xl border border-gray-200 bg-white shadow-sm overflow-x-auto">
-  <table class="w-full text-sm">
+  <table class="w-full text-xs">
     <thead>
       <tr class="bg-gray-50 text-xs text-ink-soft text-left">
         <th scope="col" class="px-3 py-2 font-medium">{{ _("Naam / referentie") }}</th>
