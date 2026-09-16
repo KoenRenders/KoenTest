@@ -90,11 +90,20 @@ enters this repository.
 
 ### 1.2 The unit's assets
 
-- Logo lockups for Raak Millegem in blue, green, yellow and black, as `.ai`
-  and `.png`.
-- The `.ai` files are PDF-compatible. `pdftocairo -svg` turns them into
-  **pure vector SVG** (16 paths, no embedded bitmap).
-- The unit's tagline is part of its lockup.
+- **Official SVG lockups** for Raak Millegem, supplied on 16 September 2026.
+  There are five: four colour variants and one monochrome.
+  - Each is a coloured tile with the white wordmark and the baseline
+    "Beleef meer in Millegem". The file name gives the tile colour first,
+    then the baseline colour.
+  - The four colour variants are Ocean Blue/Golden Yellow, Ocean Blue/Hot
+    Pink, Golden Yellow/Indigo and Dark Green/Golden Yellow. All four are
+    permitted duos (§1.1).
+  - The monochrome variant is black/white.
+- **Measured:** all five files have the same structure — the same viewBox
+  (702 × 451), 17 paths, and no embedded bitmaps, scripts or external
+  references. They differ **only in their fill values**: the tile colour,
+  the baseline colour, and white.
+- The older `.ai` and `.png` files are superseded.
 
 ### 1.3 Four example posters, and what they share
 
@@ -205,6 +214,14 @@ CourtBouillon (FR). This was already approved for CR-09.
 - **Logos are tenant assets, not repository files.** Each unit uploads its
   lockups as SVG (colour variants and monochrome). The repository ships a
   neutral placeholder only.
+
+  *Open (§8):* the supplied variants differ only in two fill values, so one
+  master lockup could be **recoloured to any permitted duo** — one source
+  instead of a file per variant, and the logo tile always matches the
+  poster's duo. Whether recolouring beyond the variants the guide offers is
+  brand-acceptable is Koen's call. Until then, a template uses the uploaded
+  variant that matches the design's duo, and otherwise the variant closest
+  to it.
 
   **Uploaded SVG is sanitised** — no `<script>`, no event attributes, no
   external references — because an SVG served to a browser is active
@@ -589,8 +606,9 @@ The tests must be able to go red:
    request = four images, about $0.12–0.20.)
 3. **V.U.** Which name and address, per unit? This is entered as a setting
    on the server, never in this repository.
-4. **Logos.** Koen expects official SVG files. Until then, the lockups
-   converted from the `.ai` files work — acceptable for testing on HDEV?
+4. **Logo recolouring.** May the engine recolour the unit's lockup to any
+   of the twelve permitted duos (§3.3), or only use the variants Raak
+   supplies? (The official SVGs arrived on 16 September 2026, §1.2.)
 5. **CMYK.** Accept RGB PDFs for phase 1 and judge the print-shop proof, or
    require a CMYK/PDF-X export before the first print-shop run?
 
