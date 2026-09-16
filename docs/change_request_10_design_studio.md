@@ -809,6 +809,24 @@ build takes from them:
   towards ochre. That is acceptable for an illustration, because text and
   colour fields stay in exact brand colours in the template, and the image
   never carries text.
+- **A style reference makes the difference.** Prompt-only line art came
+  out grey and generic. With a cut-out of the unit's own poster illustration
+  passed as `input_image`, the style matched what Koen liked (6 credits per
+  image instead of 4.5, because the reference counts as input).
+- **Counts and single objects are unreliable.** "Exactly two children and
+  one adult", "one ladder golf set" and "one ball": in the final round, one
+  of four variants followed all of it, while the style was right in all four.
+  The four variants per request (§3.12) are therefore a requirement, not a
+  convenience.
+- **Moderation is intermittent.** With a reference image and children in the
+  prompt, one request was refused ("Content Policy Violation") and later
+  requests with the same combination passed. The client handles a refusal
+  per request (`status` `moderated` in the log, #978) and carries on with
+  the other variants; the screen says which variant was refused.
+- **Words that mean something else in US English.** "Football" came back as
+  an American football and "torch" as a burning torch. The prompt says
+  "round soccer ball" and "electric LED flashlight". Prompts are written in
+  English and checked for such words.
 - **Decorations that belong to the scene live in the scene.** When the image
   has its own sun or bunting, a sticker placed over the image collides with
   it. The price therefore sits in a zone (a bar next to the registration
