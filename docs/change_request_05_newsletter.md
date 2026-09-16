@@ -172,9 +172,23 @@ shows a **direction**, not the scope of the first release (§3.10).
 7. **The portal sends one mail per recipient through Gmail SMTP, queued under
    a daily limit** (14 and 16 September 2026).
    - The account is a **free Gmail account** (Koen, 16 September 2026).
-     Google publishes a limit of roughly 500 recipients a day for such an
-     account. **Confirm the current figure against Google's documentation
-     before building.**
+     **The exact limit is uncertain, and this design does not depend on
+     it.** What we know:
+     - Google's published figures for free accounts are in the order of 500
+       a day, but they differ between the web interface and SMTP, and
+       between counting messages and counting recipients.
+     - The half-yearly letter used to leave from this account **in one day,
+       as 4 mails with all ~800 addresses in Bcc** (Koen). So roughly 800
+       recipients in one day was accepted, through the web interface.
+     - One mail per recipient is 800 *messages* instead of 4. If Google
+       counts messages, that is a different load from what was accepted
+       before.
+     - Therefore: the cap is a tenant setting with a conservative default,
+       and **the queue reads Gmail's own answer**. On the "daily sending
+       quota exceeded" error it stops, marks nothing as failed, and resumes
+       the next day. A wrong estimate then costs a day, not a pile of failed
+       deliveries. The first real send tells us the actual figure, and the
+       cap is adjusted to it.
    - **That limit is shared with every other mail the portal sends**:
      registration confirmations, payment instructions, login links, the
      meeting mails. A newsletter that uses the whole quota blocks a
@@ -198,8 +212,16 @@ shows a **direction**, not the scope of the first release (§3.10).
 8. **The newsletter leaves the way a registration confirmation does** (Koen,
    16 September 2026). Technically it goes through the Gmail account the
    portal logs in with (`gmail_user`, today Koen's own free account); the
-   recipient sees the association's address as sender (`gmail_from`), and
-   replies go to the admin who sends. No new account, no new setting.
+   recipient sees the association's address as sender (`gmail_from`). No new
+   account, no new setting.
+
+   **Replies go to the association by default, and the sender may choose**
+   (Koen, 16 September 2026). The send dialog offers *antwoorden naar de
+   vereniging* (pre-selected) or *antwoorden naar mezelf*. The association
+   address is the organisation's e-mail contact (`mdm` contact details,
+   #945), not a new setting. This differs from the meeting mails, whose
+   replies go to the secretary (CR-09 §3.24): a board mail is a conversation
+   between people, a newsletter speaks for the association.
    Consequence, accepted with the choice: the daily limit of §3.7 is that
    account's limit, shared with every other portal mail, and a Google
    restriction for bulk sending would also hit that personal mailbox. That is
@@ -208,8 +230,9 @@ shows a **direction**, not the scope of the first release (§3.10).
    meeting mails, CR-09 §3.12).
    - The compose screen has a **"send a test to myself"** button, which
      sends the real mail to the signed-in admin.
-   - Sending asks for confirmation and repeats the chosen audience and the
-     number of addresses.
+   - Sending asks for confirmation. The dialog repeats the chosen audience
+     and the number of addresses, and holds the choice of reply address
+     (§3.8).
    - Nothing is ever sent automatically.
 
 ### Content
@@ -513,8 +536,12 @@ leaves: an address that unsubscribed in the meantime is `skipped`.
    resubscribes an unsubscribed address.
 8. A send of about 950 recipients with a daily cap below that spreads over
    several days, resumes after a restart without sending anyone a second
-   time, and never goes above the cap.
-9. An address that unsubscribes during a running send is skipped.
+   time, and never goes above the cap. A "daily quota exceeded" answer from
+   Gmail pauses the send until the next day and marks no delivery as
+   failed.
+9. An address that unsubscribes during a running send is skipped. Replies
+   go to the association's e-mail contact unless the sender chose their own
+   address.
 10. The test mail goes only to the signed-in admin and does not change the
     letter's status.
 11. A drafting payload contains no recipient address and no known person
