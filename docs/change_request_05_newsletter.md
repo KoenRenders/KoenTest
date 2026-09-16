@@ -4,8 +4,9 @@
 **Status:** Being shaped with Koen. First decided 17 June 2026 (consent model,
 `Subscriber`, provider adapter); reshaped on 14, 15 and 16 September 2026
 alongside the meeting module (CR-09). **Not assigned to a release** — Koen
-expects v2.6 but has not decided (16 September 2026). One question is open
-(§8b); the others were answered on 16 September 2026 (§8).
+expects v2.6 but has not decided (16 September 2026). No question is open:
+all were answered on 16 and 17 September 2026 (§8). The document is ready to
+build once the newsletter is assigned to a release.
 **Apply to:** a new `newsletter` domain (backend, admin screens, public signup
 pages). Mail goes through the existing `mail` domain; the member audience comes
 from `membership` and `mdm` through their `api.py`.
@@ -433,7 +434,13 @@ shows a **direction**, not the scope of the first release (§3.10).
        can miss something; that is why it is not the only layer.
     5. **The author decides, per mark.** A marked passage is shown with its
        reason ("staat niet in de flyer", "€ 12 is geen prijs van de BBQ").
-       What happens to it by default is open, see §8.5.
+       **On *Toepassen*, a marked passage is left out** unless the author
+       ticked "klopt, behouden" for it (Koen, 17 September 2026). The safe
+       choice costs nothing; keeping an unsupported claim is always a
+       deliberate click. Koen called this *"een goed patroon, een
+       dubbelcheck in de response van een AI"*: the model's answer is
+       checked against the sources before it is used, and what cannot be
+       checked does not pass by default.
 
     **Tested on the failures we know.** The test set keeps the known
     hallucinations as fixed cases with canned model answers: extra games at
@@ -573,7 +580,7 @@ leaves: an address that unsubscribed in the meantime is `skipped`.
 
 ---
 
-## 8. Answered questions (16 September 2026)
+## 8. Answered questions (16 and 17 September 2026)
 
 No shaping question is open. For the record, what was asked and answered:
 
@@ -588,14 +595,9 @@ No shaping question is open. For the record, what was asked and answered:
 4. **How does a letter close?** Without personal names, with the association
    as sender, taken from the organisation's name (§3.10).
 
-## 8b. Open question
-
-5. **What happens to a marked passage by default?**
-   **Recommendation:** it is **left out** when the author clicks
-   *Toepassen*, unless the author ticks "klopt, behouden" for that passage.
-   The safe choice then costs no effort; keeping an unsupported claim takes
-   a deliberate click. The alternative is to apply everything and only show
-   the marks, which relies on the author reading every mark.
+5. **What happens to a marked passage by default?** It is left out on
+   *Toepassen*, unless the author ticks "klopt, behouden" for it (answered
+   17 September 2026; §3.16, layer 5).
 
 ---
 
