@@ -335,3 +335,18 @@ def test_een_ongeldig_adres_blijft_op_het_formulier(client, db_session, confirma
                            headers={"HX-Request": "true"})
     assert "geen geldig e-mailadres" in antwoord.text
     assert 'name="email"' in antwoord.text
+
+
+def test_automatisch_bewaren_maakt_het_formulier_niet_onklikbaar(client, db_session):
+    """The shell greys out and blocks the element that makes a request
+    (`.htmx-request`). The autosave form points its indicator at the status
+    line, so typing never blocks the editor.
+
+    Broken on purpose: `hx-indicator` removed → this test fails (and the e2e
+    click on "Leden" lands on a div).
+    """
+    _login(client)
+    letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
+    html = client.get(f"/admin/nieuwsbrieven/{letter.id}").text
+    formulier = html.split('id="nb-formulier"')[1].split(">")[0]
+    assert 'hx-indicator="#nb-bewaard"' in formulier

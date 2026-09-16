@@ -32,7 +32,7 @@
 
   {% if report_points %}
   <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/raakje/punten" hx-target="#nb-raakje"
-        hx-swap="innerHTML" hx-trigger="change">
+        hx-swap="innerHTML" hx-trigger="change" hx-indicator="#nb-raakje-bezig">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     <p class="text-sm font-semibold">{{ _("Uit de recente verslagen") }}</p>
     <p class="text-xs text-ink-soft">{{ _("Alleen wat je aanvinkt, gaat naar Raakje. Namen gaan nooit mee.") }}</p>

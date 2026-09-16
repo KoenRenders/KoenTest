@@ -381,9 +381,9 @@ shows a **direction**, not the scope of the first release (§3.10).
       the panel is not shown and the letter is written by hand; nothing else
       changes. The calls count against the same budgets and land in the same
       payload log.
-    - **Provider:** Mistral (EU), as for the rest of Raakje. The mock provider
-      gets canned drafts and canned operations, so the whole chain is
-      testable without a model.
+    - **Provider:** Mistral (EU), as for the rest of Raakje. The tests put a
+      scripted provider behind the real seam guard, so the whole chain is
+      testable without a model (§9).
 
 16. **Raakje invents no facts** (Koen, 16 September 2026: *"hij mag niets
     verzinnen wat hij niet in de data vindt. Wel proza, mooie enthousiaste
@@ -600,6 +600,53 @@ No shaping question is open. For the record, what was asked and answered:
 
 ---
 
+## 9. What the build decided (17 September 2026, #984)
+
+Decisions the code settled that this document had left open or had wrong.
+Recorded so the next reader does not re-derive them.
+
+1. **The name scrubber was not moved to the kernel, and not reused.** §3.15
+   first said the reporting assistant's scrubber would move to the kernel. It
+   turns names into tokens *in order to restore them*; the newsletter must
+   never restore a name (§3.16). What the two share is the name list, and that
+   already lives in one place: `mdm.person_name_parts`, the list the seam guard
+   scans against. The newsletter scrubs every outbound text with it — sources,
+   tool results, the current letter, the history, and the proposal under
+   verification. That last one was found by a test: a name the model wrote
+   itself made the guard block the verification call. No change to
+   `reporting/assistant.py` or the kernel, and so no overlap with the CR-07
+   work running at the same time.
+2. **Links are frozen when sending starts.** The send runs in a background job,
+   where no request says which host the association is reached on. The
+   letter stores its public origin (`link_base`) at the moment a human presses
+   send, so a unit without its own domain keeps links with its own prefix.
+3. **Confirming and unsubscribing happen behind a button.** Opening the link
+   shows a page with one button; the POST acts. Mail security scanners open
+   every link in a mail before the recipient does, and would otherwise confirm
+   addresses nobody confirmed and unsubscribe people who never asked. The mail
+   client's one-click unsubscribe (RFC 8058) is a POST and is served by the
+   same route. The public form also carries a honeypot and its own rate limit.
+4. **The autosave form points its busy indicator at the status line.** The
+   admin shell greys out and blocks the element that makes a request
+   (`.htmx-request`). Without an explicit indicator that was the whole
+   compose form, editor included, at every autosave — found by the browser
+   test, where a click on an audience landed on a div.
+5. **A confirmation question belongs on the form.** htmx reads `data-confirm`
+   on the element that makes the request; for a form that is the form, not the
+   button inside it (its own source passes the form to `htmx:confirm`). Three
+   meeting forms had the question on the button, so removing an agenda point,
+   an attachment or a circle member never asked. Fixed, with a UI gate rule and
+   a browser test that fails on the old shape. One case in the form builder
+   (the JSON import that replaces the whole build) has the same flaw and is
+   reported rather than fixed here.
+6. **The verifier counts paragraphs from 1.** A model — and a person — counts
+   from 1; the server maps back. The first build numbered from 0 and lost
+   every mark on a whole-letter proposal.
+7. **A proposal is applied through Trix itself** (select all, insert), after
+   recording an undo entry, so "ongedaan maken" works. An edit proposal on a
+   letter that changed since it was made is refused: its paragraph numbers
+   would point at other text.
+
 ## Non-goals
 
 - No family data at newsletter signup; that is the membership flow.
@@ -615,10 +662,9 @@ No shaping question is open. For the record, what was asked and answered:
   grounds the drafting (§3.15). The sending pattern (a human reads first,
   Reply-To the sender) is the same.
 - **CR-07 (AI kernel):** the drafting of §3.15 is its first acting capability
-  pack. It reuses the name scrubber of `reporting/assistant.py` (with a
-  replacement that is never restored) and the public Raakje's activity tools.
-  The scrubber belongs in the kernel once a second capability uses it; moving
-  it there is part of this build.
+  pack, reaching the kernel only through `chatbot.api` and reusing the public
+  Raakje's activity tools. The reporting assistant's scrubber was **not** moved
+  or reused (§9.1).
 - **`mail` domain:** the transport, the log, and the `log_only` mode. The
   queue and the daily cap are new and belong there, because the registrant
   mail of phase B needs them too.

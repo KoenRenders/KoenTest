@@ -80,10 +80,16 @@
 <div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] items-start">
   {# Eén formulier voor onderwerp, doelgroep en tekst: elke wijziging bewaart
      zichzelf, en het antwoord vervangt alleen de statusregel — nooit de editor
-     onder je vingers. #}
+     onder je vingers.
+
+     `hx-indicator` wijst naar die statusregel, en dat is geen detail: de schil
+     maakt het element dat een verzoek doet tijdens dat verzoek doorschijnend en
+     onklikbaar (`.htmx-request`). Zonder indicator was dat het HELE formulier —
+     bij elk automatisch bewaren flitste de editor en ging een klik verloren
+     (gemeten in de e2e: de klik op "Leden" landde op een div). #}
   <form id="nb-formulier" class="space-y-4"
         hx-post="/admin/nieuwsbrieven/{{ letter.id }}/bewaren"
-        hx-target="#nb-bewaard" hx-swap="innerHTML"
+        hx-target="#nb-bewaard" hx-swap="innerHTML" hx-indicator="#nb-bewaard"
         hx-trigger="change, keyup changed delay:1500ms from:#nb-onderwerp, trix-change delay:1500ms from:#nb-trix, trix-blur from:#nb-trix">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
 
