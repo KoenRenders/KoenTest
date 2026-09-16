@@ -58,6 +58,11 @@
                          delete_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/affiche/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML"',
                          delete_confirm=_("De opgeladen affiche verwijderen?"),
                          hint=_("Een opgeladen affiche primeert op de Poster-URL.")) }}
+      {# #974: leeg laten = geen deadline. Leegmaken is een geldige keuze, dus de
+         route stuurt dit veld altijd door, ook als het leeg is. #}
+      <div class="max-w-xs">{{ ui.label(_("Inschrijven tot"), "registration_closes_on") }}
+        {{ ui.input_control("registration_closes_on", id="registration_closes_on", type="date", value=(a.registration_closes_on.strftime("%Y-%m-%d") if a.registration_closes_on else ""), cls="w-full") }}
+        <p class="text-xs text-ink-soft mt-1">{{ _("Optioneel. Inschrijven kan tot en met die dag; daarna niet meer.") }}</p></div>
       <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="members_only" value="1" {% if a.members_only %}checked{% endif %}> {{ _("Enkel voor leden") }}</label>
       <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_cancelled" value="1" {% if a.is_cancelled %}checked{% endif %}> {{ _("Geannuleerd") }}</label>
     </form>

@@ -101,6 +101,11 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
     poster_url = Column(Text, nullable=True)
     is_cancelled = Column(Boolean, default=False, nullable=False)
     members_only = Column(Boolean, default=False, nullable=False)
+    # #974: the last day on which a NEW registration is accepted, inclusive, in
+    # Belgian time. A date and not a timestamp: what the board types is a day. Who
+    # decides whether registration is open is `service.registration_state` — this
+    # column is only one of its inputs, and nothing else should read it to decide.
+    registration_closes_on = Column(Date, nullable=True)
     notes = Column(Text, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)

@@ -58,15 +58,9 @@ from app.i18n import install_jinja_i18n  # noqa: E402
 install_jinja_i18n(templates.env)
 
 
-def _langedatum(d) -> str:
-    """Lange Nederlandse datum, bv. 'zaterdag 29 augustus 2026' (#451)."""
-    if d is None:
-        return ""
-    from babel.dates import format_date
-    from app.i18n import current_locale
-
-    return format_date(d, format="full", locale=current_locale.get())
-
+# #974: de opmaak zelf staat in `app.i18n.long_date`, zodat een domein dezelfde
+# woorden kan gebruiken zonder de UI-laag te importeren.
+from app.i18n import long_date as _langedatum  # noqa: E402
 
 templates.env.filters["langedatum"] = _langedatum
 
