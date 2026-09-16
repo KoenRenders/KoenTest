@@ -1,4 +1,5 @@
 {% import "_macros.html" as ui %}
+{% import "_raakje_ballon.html" as ballon %}
 {# Recordkop van de activiteit (golf 8-feedbackronde, 15 sep 2026): naam +
    status + doelgroep als titel, met datum/uur en locatie eronder — zoals de
    Cobalt-mockup. Gedeeld door de drie tabpagina's (Overzicht, Inschrijvingen,
@@ -18,8 +19,10 @@
   </div>
   {# Raakje Admin (golf 10, #913 — Koen: overlay over het record, in de stijl
      van de publieke Raakje). De knop bestaat alleen als de beheer-assistent
-     aan staat (kernelvlag, CR-07 §6.3); het vraagendpoint per record bestaat
-     nog niet, dus de overlay toont een nette uitgeschakelde staat. #}
+     aan staat (kernelvlag, CR-07 §6.3). Het gesprek loopt via het
+     #975-endpoint: de activiteit zit in het PAD (een formveld kan stil
+     wegvallen, een pad niet) en een uitgeschakelde of vreemde tenant krijgt
+     daar een 404. #}
   {% if raakje_admin|default(false) %}
   <div x-data="{ raakje: false }" class="shrink-0 mt-1">
     {{ ui.btn_secondary(_("AI · Activiteit"), size="sm", attrs='@click="raakje = true"') }}
@@ -33,9 +36,29 @@
           <button type="button" class="hover:opacity-80" @click="raakje = false" aria-label="{{ _('Sluiten') }}">{{ ui.icon("x") }}</button>
         </div>
         <div class="p-4 text-sm">
-          <div class="bg-gray-100 rounded-2xl rounded-tl-sm px-3 py-2 inline-block">
-            {{ _("Ik kan hier nog niet meehelpen — de assistent voor deze pagina is nog niet beschikbaar.") }}
+          {# Zelfde ballonnen als de publieke en de rapporten-Raakje (#791):
+             het is dezelfde bot met een andere gereedschapskist. #}
+          <div id="aa-raakje-gesprek" class="space-y-3 mb-3 max-h-[50vh] overflow-y-auto">
+            <div><div class="{{ ballon.van_raakje() }}">{{ _("Dag! Vraag me iets over deze activiteit — bijvoorbeeld “hoeveel inschrijvingen zijn er?” of “wat staat er nog open?”. Namen van personen geef ik niet: ik antwoord op groepsniveau.") }}</div></div>
           </div>
+          {# De geschiedenis reist mee in het formulier en staat niet op de
+             server (CR-07 §10); het antwoordfragment werkt dit veld
+             out-of-band bij, dus het id is dat van de rapporten-Raakje. #}
+          <form hx-post="/admin/rapporten/raakje/activiteit/{{ a.id }}"
+                hx-target="#aa-raakje-gesprek" hx-swap="beforeend"
+                hx-on::after-request="this.querySelector('textarea').value = ''; this.querySelector('textarea').style.height = 'auto'"
+                x-data class="flex gap-2 items-end">
+            <input type="hidden" name="historie" id="rp-raakje-historie" value="">
+            {{ ui.textarea_control("vraag", id="aa-raakje-vraag", rows=1, required=True,
+                                   placeholder=_("Typ je vraag…"),
+                                   cls="flex-1 resize-none max-h-[120px] overflow-y-auto",
+                                   attrs='x-on:input="$el.style.height = `auto`; $el.style.height = Math.min($el.scrollHeight, 120) + `px`"'
+                                         ' x-on:keydown.enter="if (!$event.shiftKey) { $event.preventDefault(); $el.form.requestSubmit(); }"') }}
+            {{ ui.btn_primary(_("Vraag"), size="sm") }}
+          </form>
+          {# Een antwoord duurt 15 tot 30 seconden (CR-07 §4.3): zonder deze
+             regel lijkt de overlay stuk. #}
+          {{ ui.loading(_("Raakje denkt na… dit kan een halve minuut duren.")) }}
         </div>
       </div>
     </div>
