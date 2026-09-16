@@ -45,13 +45,17 @@ def test_finance_kan_geen_admin_aanmaken(client, db_session):
         User.email == "nieuw-admin@example.com").first() is None
 
 
-def test_operator_kan_gebruiker_niet_verwijderen(client, db_session):
-    slachtoffer = _make_backoffice(db_session, "victim@example.com", "OPERATOR")
+def test_operator_kan_gebruiker_wel_verwijderen(client, db_session):
+    """Herzien op 16 sep: OPERATOR is de platformbeheerder die o.a. de eerste
+    gebruikers van een tenant aanmaakt — gebruikersbeheer hoort dus bij hem
+    (zoals de rollen-matrix #544 al zei; de UI-poort telde OPERATOR ten
+    onrechte niet mee). De JSON-API liet dit via require_roles altijd al toe."""
+    slachtoffer = _make_backoffice(db_session, "victim@example.com", "FINANCE")
     _make_backoffice(db_session, "op@example.com", "OPERATOR")
     csrf = _session(client, "op@example.com")
     resp = client.post(f"/admin/gebruikers/{slachtoffer.id}/verwijderen",
                        headers={"X-CSRF-Token": csrf})
-    assert resp.status_code == 403
+    assert resp.status_code == 200
 
 
 def test_admin_kan_gebruikersbeheer_wel(client, db_session):

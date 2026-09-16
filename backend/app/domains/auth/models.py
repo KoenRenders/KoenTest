@@ -24,13 +24,21 @@ class User(SoftDeleteMixin, Base):
 
 
 class UserRole(Base):
+    """Eén roltoekenning, sinds #963 per werkruimte: ``tenant_id`` wijst de
+    werkruimte aan; NULL betekent platformbreed (vandaag alleen OPERATOR).
+    Surrogaat-PK omdat NULL niet in een samengestelde sleutel kan; de twee
+    partiële unieke indexen van migratie 127 bewaken de uniciteit. Bewust
+    GEEN tenant-mixin: rollen worden expliciet gefilterd (NULL ∪ actieve
+    werkruimte), nooit stil door de tenant-listener."""
     __tablename__ = "user_roles"
     __table_args__ = {"schema": "auth"}
 
-    user_id = Column(Integer, ForeignKey("auth.users.id"), primary_key=True)
-    # Bewust GEEN FK naar public.role_codes (§8: geen cross-schema FK's);
-    # geldigheid van rolcodes wordt in de servicelaag afgedwongen.
-    role_code = Column(String(20), primary_key=True)
+    id = Column(Integer, primary_key=True)
+    user_id = Column(Integer, ForeignKey("auth.users.id"), nullable=False)
+    # Bewust GEEN FK naar public.role_codes of mdm.organizations (§8: geen
+    # cross-schema FK's); geldigheid wordt in de servicelaag afgedwongen.
+    role_code = Column(String(20), nullable=False)
+    tenant_id = Column(Integer, nullable=True)
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
 
     user = relationship("User", back_populates="roles")

@@ -132,8 +132,10 @@ def test_media_zoekt_op_titel_en_behoudt_het_filter_bij_opslaan(client, db_sessi
 
 def test_gebruikers_zoeken_en_rolfilter(client, db_session):
     csrf = _login(client)
+    # 16 sep: OPERATOR is buiten het platform niet toekenbaar, dus de
+    # rolfilter oefent hier met FINANCE.
     for adres, rollen in (("penning@example.com", ["FINANCE"]),
-                          ("helper@example.com", ["OPERATOR"])):
+                          ("helper@example.com", ["ADMIN"])):
         client.post("/admin/gebruikers", data={"email": adres, "role_codes": rollen},
                     headers={"X-CSRF-Token": csrf})
 
@@ -141,9 +143,9 @@ def test_gebruikers_zoeken_en_rolfilter(client, db_session):
     assert "penning@example.com" in gezocht.text
     assert "helper@example.com" not in gezocht.text
 
-    op_rol = client.get("/admin/gebruikers", params={"rol": "OPERATOR"})
-    assert "helper@example.com" in op_rol.text
-    assert "penning@example.com" not in op_rol.text
+    op_rol = client.get("/admin/gebruikers", params={"rol": "FINANCE"})
+    assert "penning@example.com" in op_rol.text
+    assert "helper@example.com" not in op_rol.text
 
 
 def test_gebruikers_actieffilter_en_htmx_fragment(client, db_session):

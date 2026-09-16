@@ -30,10 +30,30 @@ def _require_admin(db: Session, email: str) -> None:
     toekennen) mag enkel een ADMIN, anders escaleert bv. een FINANCE-account zichzelf
     naar ADMIN via dit scherm. De JSON-API dwingt dit al af via get_current_admin;
     deze check sluit het server-rendered UI-pad dat die dependency omzeilt."""
-    if "ADMIN" not in get_user_roles(db, email):
+    # OPERATOR telt overal mee (rollen-matrix #544: gebruikersbeheer =
+    # ADMIN/OPERATOR) — vóór 16 sep verstopte deze check dat, wat op het
+    # platform meteen opviel: een OPERATOR heeft daar geen eigen ADMIN-rij.
+    if not ({"ADMIN", "OPERATOR"} & get_user_roles(db, email)):
         raise HTTPException(
             status_code=403,
             detail=_("Alleen een beheerder (ADMIN) mag gebruikers en rollen beheren."))
+
+
+def _werkruimtes(db) -> list:
+    """(id, naam) van elke werkruimte — platform eerst, dan de afdelingen;
+    dezelfde bron als /admin/tenants."""
+    from app.domains.mdm.api import list_manageable_tenants
+
+    return [(org.id, org.name) for org in list_manageable_tenants(db)]
+
+
+def _platform_rollen_uit(form, db) -> tuple:
+    """({tenant_id: [codes]}, operator?) uit de platform-rolvelden. Alleen
+    bekende werkruimtes worden gelezen — een verzonnen `rollen_999` bestaat
+    niet als veld en wordt dus nooit een rij."""
+    per_werkruimte = {wid: [str(c) for c in form.getlist(f"rollen_{wid}")]
+                      for wid, _naam in _werkruimtes(db)}
+    return per_werkruimte, bool(form.get("operator"))
 
 
 def _filters_uit(form) -> dict:
@@ -44,22 +64,47 @@ def _filters_uit(form) -> dict:
 
 
 def _lijst_ctx(request: Request, db: Session, q: str = "", rol: str = "",
-               actief: str = "") -> dict:
+               actief: str = "", viewer_email: str = "") -> dict:
     """Records-lijst (C1, #589): zoeken op e-mail + filter op rol en actief-status.
 
     Backoffice-accounts zijn er tientallen, geen duizenden — filteren gebeurt op
     de opgehaalde lijst, in dezelfde stijl als de andere lijstschermen.
+
+    Sinds #963 werkruimte-bewust: getoond en gefilterd worden de rollen in de
+    ACTIEVE werkruimte (plus de platformbrede NULL-rijen), en het
+    OPERATOR-vinkje bestaat alleen voor wie zelf OPERATOR is — een ADMIN kent
+    rollen toe binnen zijn werkruimte, niet daarboven.
     """
     from app.domains.auth.api import list_assignable_roles
-    from app.domains.auth.users import list_users
+    from app.domains.auth.users import is_platform_workspace, list_users
+    from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
 
+    actieve_werkruimte = current_tenant_id.get() or DEFAULT_TENANT_ID
+    op_platform = is_platform_workspace(db)
+    werkruimtes = _werkruimtes(db) if op_platform else []
     users = list_users(db=db, _admin=None)
+    # Aanscherping 16 sep: op het platform beheert de kaart álle werkruimtes
+    # (zo maakt een OPERATOR de eerste gebruikers van een nieuwe tenant aan);
+    # in een gewone werkruimte alleen de eigen rijen.
+    rollen_matrix: dict[int, dict[int, set]] = {u.id: {} for u in users}
+    operator_van = {u.id: False for u in users}
+    for u in users:
+        for r in u.roles:
+            if r.tenant_id is None:
+                if r.role_code == "OPERATOR":
+                    operator_van[u.id] = True
+            else:
+                rollen_matrix[u.id].setdefault(r.tenant_id, set()).add(r.role_code)
+    rollen_hier = {u.id: (set().union(*rollen_matrix[u.id].values())
+                          if op_platform and rollen_matrix[u.id]
+                          else rollen_matrix[u.id].get(actieve_werkruimte, set()))
+                   | ({"OPERATOR"} if operator_van[u.id] else set())
+                   for u in users}
     term = q.strip().lower()
     if term:
         users = [u for u in users if term in (u.email or "").lower()]
     if rol:
-        users = [u for u in users
-                 if rol in [r.role_code for r in u.roles]]
+        users = [u for u in users if rol in rollen_hier[u.id]]
     if actief == "ja":
         users = [u for u in users if u.is_active]
     elif actief == "nee":
@@ -67,9 +112,16 @@ def _lijst_ctx(request: Request, db: Session, q: str = "", rol: str = "",
 
     # Welke rollen toekenbaar zijn (en waarom USER/MEMBER niet) staat in de
     # service — het scherm hoeft die regel niet te kennen (#635 regel 2).
-    rollen = list_assignable_roles(db)
+    # OPERATOR zit hier nooit tussen: die is platformbreed en heeft op het
+    # platform zijn eigen vinkje (aanscherping 16 sep — nergens anders).
+    is_operator = "OPERATOR" in get_user_roles(db, viewer_email)
+    rollen = [r for r in list_assignable_roles(db) if r.code != "OPERATOR"]
     return {"users": users, "q": q, "rol": rol, "actief": actief,
             "gefilterd": bool(term or rol or actief),
+            "rollen_hier": rollen_hier, "rollen_matrix": rollen_matrix,
+            "operator_van": operator_van,
+            "op_platform": op_platform, "werkruimtes": werkruimtes,
+            "toon_operator": op_platform and is_operator,
             # Chip-opties per request: _() volgt de taal van de tenant.
             "rol_options": [("", _("Alle rollen"))] + [(r.code, r.code) for r in rollen],
             "actief_options": [("", _("Alle accounts")), ("ja", _("Actief")),
@@ -79,9 +131,10 @@ def _lijst_ctx(request: Request, db: Session, q: str = "", rol: str = "",
 
 
 def _lijst_response(request: Request, db: Session, error: str | None = None,
-                    q: str = "", rol: str = "", actief: str = ""):
+                    q: str = "", rol: str = "", actief: str = "",
+                    viewer_email: str = ""):
     """Enkel de kaarten (C1, #589): kop, knop en filterbalk staan op de pagina."""
-    ctx = _lijst_ctx(request, db, q, rol, actief)
+    ctx = _lijst_ctx(request, db, q, rol, actief, viewer_email)
     ctx["error"] = error
     return templates.TemplateResponse(request, "_gu_lijst.html", ctx)
 
@@ -92,9 +145,11 @@ def admin_gebruikers(request: Request, db: Session = Depends(get_db),
                      q: str = "", rol: str = "", actief: str = ""):
     _require_admin(db, email)
     if is_fragment_request(request):
-        return _lijst_response(request, db, q=q, rol=rol, actief=actief)
+        return _lijst_response(request, db, q=q, rol=rol, actief=actief,
+                               viewer_email=email)
     return templates.TemplateResponse(request, "admin_gebruikers.html", {
-        "nav_items": NAV, "error": None, **_lijst_ctx(request, db, q, rol, actief)})
+        "nav_items": NAV, "error": None,
+        **_lijst_ctx(request, db, q, rol, actief, viewer_email=email)})
 
 
 @router.get("/admin/gebruikers/nieuw", response_class=HTMLResponse)
@@ -112,7 +167,7 @@ def gebruiker_nieuw(request: Request, db: Session = Depends(get_db),
         "nav_items": NAV,
         "csrf_token": csrf_from_request(request),
         "error": None,
-        **_lijst_ctx(request, db),
+        **_lijst_ctx(request, db, viewer_email=email),
     })
 
 
@@ -120,7 +175,10 @@ def gebruiker_nieuw(request: Request, db: Session = Depends(get_db),
              dependencies=[Depends(require_csrf)])
 async def gebruiker_aanmaken(request: Request, db: Session = Depends(get_db),
                              email: str = Depends(require_admin_ui)):
-    from app.domains.auth.users import UserCreate, create_user
+    from app.domains.auth.users import (
+        UserCreate, is_platform_workspace, create_user, set_roles_for_workspaces,
+    )
+    from app.domains.auth.api import get_user_roles as _rollen_van
 
     _require_admin(db, email)
     form = await request.form()
@@ -129,12 +187,22 @@ async def gebruiker_aanmaken(request: Request, db: Session = Depends(get_db),
     if not nieuw_email:
         return _lijst_response(request, db, "E-mailadres is verplicht.", **filters)
     try:
-        create_user(UserCreate(email=nieuw_email,
-                               role_codes=[str(c) for c in form.getlist("role_codes")]),
-                    db=db, _admin=None)
+        if is_platform_workspace(db):
+            # Aanscherping 16 sep: vanaf het platform krijgt een nieuwe
+            # gebruiker zijn rollen per werkruimte — zo ontstaan de eerste
+            # accounts van een nieuwe tenant.
+            per_werkruimte, operator = _platform_rollen_uit(form, db)
+            user = create_user(UserCreate(email=nieuw_email, role_codes=[]),
+                               db=db, _admin=admin_user_by_email(db, email))
+            set_roles_for_workspaces(db, user.id, per_werkruimte, operator,
+                                     _rollen_van(db, email))
+        else:
+            create_user(UserCreate(email=nieuw_email,
+                                   role_codes=[str(c) for c in form.getlist("role_codes")]),
+                        db=db, _admin=admin_user_by_email(db, email))
     except HTTPException as exc:
         # Op het aanmaakscherm blijven mét de fout (#627).
-        ctx = _lijst_ctx(request, db, **filters)
+        ctx = _lijst_ctx(request, db, **filters, viewer_email=email)
         ctx["nav_items"] = NAV
         ctx["error"] = str(exc.detail)
         return templates.TemplateResponse(request, "admin_gebruiker_nieuw.html", ctx)
@@ -147,7 +215,10 @@ async def gebruiker_aanmaken(request: Request, db: Session = Depends(get_db),
 async def gebruiker_bijwerken(user_id: int, request: Request,
                               db: Session = Depends(get_db),
                               email: str = Depends(require_admin_ui)):
-    from app.domains.auth.users import UserUpdate, update_user
+    from app.domains.auth.users import (
+        UserUpdate, is_platform_workspace, set_roles_for_workspaces, update_user,
+    )
+    from app.domains.auth.api import get_user_roles as _rollen_van
 
     _require_admin(db, email)
     form = await request.form()
@@ -155,14 +226,25 @@ async def gebruiker_bijwerken(user_id: int, request: Request,
     try:
         _email_raw = form.get("email")
         _email = _email_raw.strip() if isinstance(_email_raw, str) else ""
-        update_user(user_id, UserUpdate(
-            email=_email or None,
-            is_active=bool(form.get("is_active")),
-            role_codes=[str(c) for c in form.getlist("role_codes")],
-        ), db=db, _admin=None)
+        if is_platform_workspace(db):
+            per_werkruimte, operator = _platform_rollen_uit(form, db)
+            update_user(user_id, UserUpdate(
+                email=_email or None,
+                is_active=bool(form.get("is_active")),
+                role_codes=None,
+            ), db=db, _admin=admin_user_by_email(db, email))
+            set_roles_for_workspaces(db, user_id, per_werkruimte, operator,
+                                     _rollen_van(db, email))
+        else:
+            update_user(user_id, UserUpdate(
+                email=_email or None,
+                is_active=bool(form.get("is_active")),
+                role_codes=[str(c) for c in form.getlist("role_codes")],
+            ), db=db, _admin=admin_user_by_email(db, email))
     except HTTPException as exc:
-        return _lijst_response(request, db, str(exc.detail), **filters)
-    return _lijst_response(request, db, **filters)
+        return _lijst_response(request, db, str(exc.detail), **filters,
+                               viewer_email=email)
+    return _lijst_response(request, db, **filters, viewer_email=email)
 
 
 @router.post("/admin/gebruikers/{user_id}/verwijderen", response_class=HTMLResponse,
@@ -179,5 +261,6 @@ async def gebruiker_verwijderen(user_id: int, request: Request,
     try:
         delete_user(user_id, db=db, current_admin=admin_user_by_email(db, email))
     except HTTPException as exc:
-        return _lijst_response(request, db, str(exc.detail), **filters)
-    return _lijst_response(request, db, **filters)
+        return _lijst_response(request, db, str(exc.detail), **filters,
+                               viewer_email=email)
+    return _lijst_response(request, db, **filters, viewer_email=email)

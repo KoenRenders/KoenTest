@@ -44,6 +44,100 @@ class UserUpdate(BaseModel):
 # dat wordt afgeleid uit het leden-domein (e-mail -> Person) en heeft geen
 # user-record nodig.
 
+def _actieve_werkruimte() -> int:
+    from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
+
+    return current_tenant_id.get() or DEFAULT_TENANT_ID
+
+
+def is_platform_workspace(db: Session) -> bool:
+    """Is de actieve werkruimte het platform? (Koens aanscherping van 16 sep:
+    OPERATOR wordt alléén daar toegekend, en alleen daar beheert een scherm
+    meerdere werkruimtes tegelijk.)"""
+    from app.domains.mdm.api import platform_tenant_id
+
+    platform = platform_tenant_id(db)
+    return platform is not None and _actieve_werkruimte() == platform
+
+
+def _ken_rollen_toe(db: Session, user_id: int, codes: List[str],
+                    actor_roles: set | None) -> None:
+    """Vervang de rollen van een gebruiker BINNEN de actieve werkruimte (#963).
+
+    Rijen van andere werkruimtes blijven onaangeroerd — ADMIN van werkruimte A
+    beheert werkruimte B niet (Koens besluit 3). OPERATOR is de platformbrede
+    rij (tenant_id NULL, besluit 1) en wordt ALLEEN binnen het platform
+    toegekend (aanscherping 16 sep) — dit is de werkruimte-variant, dus een
+    OPERATOR-code hier is altijd een 403, nooit een stille escalatie."""
+    from app.domains.auth.models import UserRole
+
+    actief = _actieve_werkruimte()
+    nieuwe = set(codes)
+    if "OPERATOR" in nieuwe:
+        raise HTTPException(
+            status_code=403,
+            detail=_("OPERATOR wordt alleen binnen het platform toegekend."))
+    db.query(UserRole).filter(UserRole.user_id == user_id,
+                              UserRole.tenant_id == actief).delete()
+    for code in nieuwe:
+        db.add(UserRole(user_id=user_id, role_code=code, tenant_id=actief))
+
+
+def set_roles_for_workspaces(db: Session, user_id: int,
+                             per_werkruimte: dict, operator: bool,
+                             actor_roles: set | None) -> None:
+    """Het platform-gebruikersbeheer (Koen, 16 sep): rollen voor MEERDERE
+    werkruimtes in één beweging — zo maakt een OPERATOR de eerste gebruikers
+    van een nieuwe tenant aan en beheert hij ze namens de afdelingen.
+
+    ``per_werkruimte`` is {tenant_id: [codes]} voor élke getoonde werkruimte
+    (het formulier toont ze allemaal, dus vervangen per werkruimte is juist).
+    ``operator`` stuurt de platformbrede rij; die wijzigen mag alleen een
+    OPERATOR — het vinkje is voor anderen verborgen en een omzeild formulier
+    krijgt hier de 403."""
+    from app.domains.auth.models import UserRole
+
+    for codes in per_werkruimte.values():
+        _validate_role_codes(db, [c for c in codes if c != "OPERATOR"])
+        if "OPERATOR" in codes:
+            raise HTTPException(
+                status_code=403,
+                detail=_("OPERATOR is platformbreed en hoort niet bij één "
+                         "werkruimte."))
+    mag_operator = bool(actor_roles and "OPERATOR" in actor_roles)
+    platform_rij = (db.query(UserRole)
+                    .filter(UserRole.user_id == user_id,
+                            UserRole.role_code == "OPERATOR",
+                            UserRole.tenant_id.is_(None)).first())
+    if operator != (platform_rij is not None) and not mag_operator:
+        raise HTTPException(
+            status_code=403,
+            detail=_("Alleen een OPERATOR kan de OPERATOR-rol toekennen."))
+    for tenant_id, codes in per_werkruimte.items():
+        db.query(UserRole).filter(UserRole.user_id == user_id,
+                                  UserRole.tenant_id == tenant_id).delete()
+        for code in set(codes):
+            db.add(UserRole(user_id=user_id, role_code=code,
+                            tenant_id=tenant_id))
+    if mag_operator:
+        if operator and platform_rij is None:
+            db.add(UserRole(user_id=user_id, role_code="OPERATOR",
+                            tenant_id=None))
+        elif not operator and platform_rij is not None:
+            db.delete(platform_rij)
+    # Zelf committen, zoals create_user/update_user: de UI-laag mag geen
+    # sessiebeheer doen (laaggrens, #635 regel 2).
+    db.commit()
+
+
+def _actor_roles(db: Session, admin) -> set | None:
+    """Rollen van de handelende beheerder, of None wanneer die onbekend is
+    (dan geldt de strengste lezing: geen OPERATOR-bevoegdheid)."""
+    from app.domains.auth.service import get_user_roles
+
+    return get_user_roles(db, admin.email) if admin is not None else None
+
+
 def _validate_role_codes(db: Session, codes: List[str]) -> None:
     """Rolcodes valideren tegen de codetabel. Sinds migratie 076 is er bewust
     geen FK meer naar public.role_codes (§8: geen cross-schema FK's) — deze
@@ -71,8 +165,7 @@ def create_user(body: UserCreate, db: Session = Depends(get_db), _admin=Depends(
     user = User(email=body.email, is_active=body.is_active)
     db.add(user)
     db.flush()
-    for code in body.role_codes:
-        db.add(UserRole(user_id=user.id, role_code=code))
+    _ken_rollen_toe(db, user.id, body.role_codes, _actor_roles(db, _admin))
     db.commit()
     db.refresh(user)
     return user
@@ -92,9 +185,7 @@ def update_user(user_id: int, body: UserUpdate, db: Session = Depends(get_db), _
         user.is_active = body.is_active
     if body.role_codes is not None:
         _validate_role_codes(db, body.role_codes)
-        db.query(UserRole).filter(UserRole.user_id == user_id).delete()
-        for code in body.role_codes:
-            db.add(UserRole(user_id=user_id, role_code=code))
+        _ken_rollen_toe(db, user_id, body.role_codes, _actor_roles(db, _admin))
     db.commit()
     db.refresh(user)
     return user

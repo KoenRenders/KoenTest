@@ -65,16 +65,41 @@ def _email_from_token(token: str) -> str:
 
 
 def get_user_roles(db: Session, email: str) -> set:
-    """Backoffice-rollen voor dit e-mailadres. Leeg als er geen actief account is."""
-    from app.domains.auth.models import User, UserRole
+    """Backoffice-rollen voor dit e-mailadres in de ACTIEVE werkruimte (#963):
+    de platformbrede rijen (tenant_id NULL, vandaag alleen OPERATOR) plus de
+    rijen van de werkruimte waar dit request in draait. Leeg als er geen
+    actief account is — en dus ook wanneer iemand enkel rollen in een
+    ándere werkruimte heeft: ADMIN in A is geen ADMIN in B."""
+    from sqlalchemy import or_
 
+    from app.domains.auth.models import User, UserRole
+    from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
+
+    actief = current_tenant_id.get() or DEFAULT_TENANT_ID
     rows = (
         db.query(UserRole.role_code)
         .join(User, User.id == UserRole.user_id)
         .filter(func.lower(User.email) == email.strip().lower(), User.is_active == True)
+        .filter(or_(UserRole.tenant_id.is_(None), UserRole.tenant_id == actief))
         .all()
     )
     return {r[0] for r in rows}
+
+
+def get_user_role_rows(db: Session, email: str) -> list:
+    """Alle (role_code, tenant_id)-paren van dit account, over de werkruimtes
+    heen (#963) — voor Mijn profiel en het accountmenu. tenant_id None is de
+    platformbrede rij. Autorisatie blijft bij get_user_roles: dat is de enige
+    functie die 'wat mag ik HIER' beantwoordt."""
+    from app.domains.auth.models import User, UserRole
+
+    rows = (
+        db.query(UserRole.role_code, UserRole.tenant_id)
+        .join(User, User.id == UserRole.user_id)
+        .filter(func.lower(User.email) == email.strip().lower(), User.is_active == True)
+        .all()
+    )
+    return [(r[0], r[1]) for r in rows]
 
 
 def get_current_identity(token: str = Depends(oauth2_scheme)) -> str:

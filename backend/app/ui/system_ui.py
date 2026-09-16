@@ -96,17 +96,90 @@ def admin_dashboard(request: Request, db: Session = Depends(get_db),
         "csrf_token": csrf_from_request(request)})
 
 
+def _werkruimte_namen(db) -> dict:
+    """id → naam van elke werkruimte (platform + afdelingen), voor de
+    accountschermen. Eén bron: dezelfde lijst als /admin/tenants."""
+    from app.domains.mdm.api import list_manageable_tenants
+
+    return {org.id: org.name for org in list_manageable_tenants(db)}
+
+
+def _mijn_werkruimtes(db, email: str) -> list:
+    """De werkruimtes waar dit account iets mag (#963): de werkruimtes met een
+    eigen rolrij, of álle werkruimtes voor wie een platformbrede rij heeft
+    (vandaag alleen OPERATOR). Gesorteerd op id, elk als (id, naam)."""
+    from app.domains.auth.api import get_user_role_rows
+
+    rows = get_user_role_rows(db, email)
+    namen = _werkruimte_namen(db)
+    if any(t is None for _, t in rows):
+        ids = sorted(namen)
+    else:
+        ids = sorted({t for _, t in rows if t is not None})
+    return [(t, namen.get(t, f"Werkruimte #{t}")) for t in ids]
+
+
 @router.get("/admin/profiel", response_class=HTMLResponse)
 def admin_profiel(request: Request, db: Session = Depends(get_db),
                   email: str = Depends(require_admin_ui)):
-    """Mijn profiel (golf 9, #913): read-only — e-mail, werkruimte, rollen.
-    Wordt met #963 (rollen per werkruimte) de plek die rechten pér werkruimte
-    toont; tot dan zegt de pagina eerlijk dat rollen werkruimte-breed zijn."""
-    from app.domains.auth.api import get_user_roles
+    """Mijn profiel (golf 9, #913): read-only — e-mail, werkruimte, en sinds
+    #963 de rollen pér werkruimte, met de platformbrede rollen apart."""
+    from app.domains.auth.api import get_user_role_rows
 
+    rows = get_user_role_rows(db, email)
+    namen = _werkruimte_namen(db)
+    per_werkruimte: dict = {}
+    for code, tenant in rows:
+        if tenant is not None:
+            per_werkruimte.setdefault(tenant, set()).add(code)
     return templates.TemplateResponse(request, "admin_profiel.html", {
         "nav_items": admin_nav(""), "profiel_email": email,
-        "profiel_rollen": sorted(get_user_roles(db, email)),
+        "profiel_platform_rollen": sorted(
+            {c for c, t in rows if t is None}),
+        "profiel_werkruimtes": [
+            {"naam": namen.get(t, f"Werkruimte #{t}"),
+             "rollen": sorted(codes)}
+            for t, codes in sorted(per_werkruimte.items())],
+        "csrf_token": csrf_from_request(request)})
+
+
+@router.get("/admin/accountmenu", response_class=HTMLResponse)
+def admin_accountmenu(request: Request, db: Session = Depends(get_db),
+                      email: str = Depends(require_admin_ui)):
+    """De inhoud van het accountmenu (#963): lui geladen zodra het menu
+    opengaat, want of "Werkruimte wisselen" bestaat hangt aan de database en
+    de schil-chrome mag geen query per paginaweergave kosten (dezelfde
+    afweging als werkruimte_naam)."""
+    return templates.TemplateResponse(request, "_account_menu.html", {
+        "toon_wisselen": len(_mijn_werkruimtes(db, email)) > 1})
+
+
+@router.get("/admin/werkruimte-wisselen", response_class=HTMLResponse)
+def admin_werkruimte_wisselen(request: Request, db: Session = Depends(get_db),
+                              email: str = Depends(require_admin_ui)):
+    """Kies een werkruimte (#963): elke werkruimte waar dit account een rol
+    heeft, met de padprefix-link die de tenantkeuze zet (§7). De actieve
+    werkruimte staat gemarkeerd i.p.v. weggelaten — je wil zien waar je bent."""
+    from app.domains.mdm.api import list_manageable_tenants, platform_tenant_id
+    from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
+    from app.kernel.tenant_config import tenant_base_url
+
+    actief = current_tenant_id.get() or DEFAULT_TENANT_ID
+    platform = platform_tenant_id(db)
+    codes = {org.id: org.code for org in list_manageable_tenants(db)}
+
+    def _href(t: int) -> str:
+        # Afdelingen wisselen via de padprefix (§7 — werkt ook wanneer alle
+        # werkruimtes op één host wonen); het platform kent geen prefix
+        # (tenant_codes bevat alleen UNITs) en gaat via zijn eigen host.
+        if t == platform:
+            return f"{tenant_base_url(db, tenant_id=t)}/admin"
+        return f"/{codes.get(t, '')}/admin"
+
+    keuzes = [{"naam": naam, "actief": t == actief, "href": _href(t)}
+              for t, naam in _mijn_werkruimtes(db, email)]
+    return templates.TemplateResponse(request, "admin_werkruimte_wisselen.html", {
+        "nav_items": admin_nav(""), "keuzes": keuzes,
         "csrf_token": csrf_from_request(request)})
 
 

@@ -16,10 +16,12 @@
                         required=True, cls="font-medium min-w-56",
                         aria_label=_("E-mailadres")) }}
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_active" value="1" {% if u.is_active %}checked{% endif %}> {{ _("Actief") }}</label>
-    {% set user_roles = u.roles | map(attribute="role_code") | list %}
-    {% for rc in role_codes %}
-    <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="role_codes" value="{{ rc.code }}" {% if rc.code in user_roles %}checked{% endif %}> {{ rc.code }}</label>
-    {% endfor %}
+    {# #963 + 16 sep: rolvelden via de gedeelde partial — per werkruimte op
+       het platform, één werkruimte daarbuiten. #}
+    {% with sel = (rollen_matrix[u.id] if op_platform else rollen_hier[u.id]),
+            operator_aan = operator_van[u.id] %}
+    {% include "_gu_rollen_velden.html" %}
+    {% endwith %}
     <span class="ml-auto flex gap-2">
       {{ ui.btn_primary(_("Opslaan")) }}
       {# §2.8 (#694): deze rij staat altijd open, dus er is geen paneel om te
