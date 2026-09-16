@@ -12,9 +12,9 @@ WeasyPrint (#258); text proposals reuse the Mistral provider (chatbot).
 
 ## Goal
 
-Units announce their activities with a printed poster (A3/A4, about half
-printed at home, half at a print shop) and with images on Facebook and
-Instagram. Today each poster is made by hand — in Word, Canva, LibreOffice
+Units announce their activities with a printed poster (A3/A4) and with
+images on Facebook and Instagram. About half of the posters are printed at
+home. The rest are ordered from online print services. Today each poster is made by hand — in Word, Canva, LibreOffice
 Draw, or by asking a chatbot — and each one looks different. A chatbot
 poster cannot be amended a week later: "add this line" gives a new poster.
 
@@ -27,8 +27,8 @@ This change request adds a **Design Studio**:
 3. **Fill in what the activity does not know**: a subtitle, a few
    highlights, an image — uploaded, taken from the activity's photo archive,
    or generated.
-4. **Render every format at once**: a print PDF for home printing, a print
-   PDF with bleed for the print shop, and images for social media.
+4. **Render every format at once**: a print PDF for borderless home
+   printing and images for social media.
 5. **Mark one design final.** It becomes the activity's poster on the
    website and its share image. When the activity changes afterwards, the
    design says it is stale and re-renders with one click.
@@ -280,27 +280,28 @@ same duo.
   crops the image around that point (`object-position`), so the swing stays
   in view in both the square and the landscape layout.
 
-### 3.5 Print: two PDFs from the same layout
+### 3.5 Print: one PDF for borderless home printing
 
-Koen's brief combines two separate needs.
+Decided by Koen on 16 September 2026: **borderless printing at home is the
+target**, and it works well on his printer. Units that use a printer order
+online, where a bleed file is not a must. **Print-shop output — bleed,
+crop marks, CMYK/PDF-X — is out of scope for now.**
 
-- **Home print, borderless.** The PDF page is **exactly A3 (or A4)** and the
-  colour runs to the page edge. A borderless printer enlarges the page
-  slightly and prints past the paper edge, so a few millimetres are lost on
-  each side. Text therefore stays inside a **safe zone of at least 8 mm**. A
-  PDF with bleed would be the *wrong* file here: its page is 10 mm larger, so
-  the driver shrinks it or cuts it unpredictably.
-- **Print shop.** The page is A3 + **5 mm bleed** on every side, with
-  `TrimBox`/`BleedBox` set and optional crop marks. It uses the same layout
-  and the same safe zone.
-
-The safe zone is the same in both files, so one layout serves both PDFs.
-Validation includes one real borderless print on Koen's printer, to measure
-how much the printer actually crops, and one print at a print shop.
-
-**Colour:** WeasyPrint writes RGB. Print shops normally convert, but Ocean
-Blue in particular can shift. The CMYK values are recorded (§3.3) so that a
-later PDF/X export can use them. See §8.
+- The PDF page is **exactly A3 (or A4)** and the colour runs to the page
+  edge. A borderless printer enlarges the page slightly and prints past the
+  paper edge, so a few millimetres are lost on each side. Text therefore
+  stays inside a **safe zone of at least 8 mm**.
+- A PDF with bleed would be the wrong file for this printer: its page is
+  10 mm larger, so the driver shrinks it or cuts it unpredictably. This
+  resolves the "5 mm bleed" wording in the brief (§1.3): what the brief
+  wants is colour to the edge, and the home PDF delivers that.
+- Validation includes one real borderless print on Koen's printer, to
+  measure how much the printer actually crops. The safe zone is a single
+  template constant, adjusted to that measurement.
+- Adding a bleed variant later is cheap. The layout already extends its
+  colour fields to the edge, and WeasyPrint supports `@page { bleed }`. The
+  CMYK values stay recorded in the palette constant (§3.3) for the same
+  reason.
 
 **Image resolution:** a rendered print design reports the effective dpi of
 every image at its placed size. Below 150 dpi, the editor shows a warning.
@@ -520,7 +521,7 @@ designstudio.design_supporters      -- supporter / funder logos
   id, design_id, media_asset_id, sort_order
 
 designstudio.design_renditions      -- stored only for final designs
-  id, design_id, layout_code, variant (home|bleed|jpeg|png),
+  id, design_id, layout_code, variant (pdf|jpeg|png),
   size_code (A3|A4|1080x1350|…), media_asset_id, rendered_at,
   min_effective_dpi
 
@@ -568,7 +569,7 @@ Each phase ships on its own.
    - Domain, the two activity fields, the media kinds, and the house-style
      constant with its gate.
    - One template, **"Illustratie"** (the play-afternoon and walking-group
-     family), with the `print_a` (home + bleed), `feed_portrait`, `square`
+     family), with the `print_a` (borderless home PDF), `feed_portrait`, `square`
      and `landscape` layouts.
    - Images from upload or archive, QR code, contact persons, supporter
      logos, V.U.
@@ -601,8 +602,8 @@ structure of two of the examples in §1.3:
 The tests must be able to go red:
 - a long title (40 characters) still fits `print_a` and `square`;
 - the six-date grid collapses to the recurrence line in `square`;
-- the bleed PDF's page is exactly 307 × 430 mm, with a `TrimBox` of
-  297 × 420 mm, and the home PDF's page is exactly 297 × 420 mm;
+- the A3 PDF's page is exactly 297 × 420 mm, and a coloured background
+  reaches all four page edges;
 - a text box placed inside the 8 mm safe zone makes the safe-zone check
   fail — the guard is proven by that violation;
 - a template with a hex value outside the palette fails the gate;
@@ -627,8 +628,6 @@ The tests must be able to go red:
    on the server, never in this repository.
 4. **Neutral lockup as SVG.** Can Raak supply the neutral lockup ("Beleef
    meer!") as SVG? Until then the PNGs serve (§3.3).
-5. **CMYK.** Accept RGB PDFs for phase 1 and judge the print-shop proof, or
-   require a CMYK/PDF-X export before the first print-shop run?
 
 ## Non-goals
 
@@ -640,6 +639,7 @@ The tests must be able to go red:
 - A recurrence engine for activity dates.
 - Templates that units edit themselves.
 - Text inside AI images.
+- Print-shop output: bleed, crop marks, CMYK/PDF-X (§3.5).
 
 ## Relationship to existing work
 
