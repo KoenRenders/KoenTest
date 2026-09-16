@@ -68,8 +68,9 @@ Taken by Koen on 14 September 2026, in the CR-shaping conversation:
    - **evaluation**: the activities between the previous meeting and this
      one, from the platform — plus manual additions for something that was
      not on the portal's calendar;
-   - **upcoming**: **all** planned future activities, however far ahead,
-     same source (decision §3.14);
+   - **upcoming**: the planned activities within the next three months,
+     same source; anything further out is one click away in the picker
+     (decision §3.14);
    - **members**: the new members since the previous meeting, with their
      steward assignment;
    - **ideas**: textual, carried over between meetings (the brainstorm);
@@ -130,13 +131,25 @@ Decided later the same day (14 September 2026), while PR #932 ran:
     other and replies-all (the report mail is a reply to the agenda mail
     today). Deliberately the opposite of the newsletter's per-recipient
     campaign path; no Bcc, no unsubscribe machinery.
-14. **"Upcoming activities" has no time window.** It lists everything
-    planned, however far out — booking a venue a year ahead is a normal
-    agenda point. Evaluation covers what *started* since the previous
-    meeting, running activities included (the photo hunt sat under
-    evaluation while it ran). The secretary curates: manual additions for
-    off-portal items, and far-out items with nothing to discuss can be
-    left off this month's agenda.
+14. **"Upcoming activities" is generated three months ahead** — revised on
+    16 September 2026; this decision first read "no time window". Koen: *"Bij
+    ons is de consensus 3 maanden vooruit te agenderen, dat geeft ons tijd om
+    flyers te maken, helpers te zoeken, op sociale media en nieuwsbrief te
+    zetten."* Three months is the board's lead time, so the section lists the
+    activities it can still act on; the horizon is the same day three months
+    later, not a rounding to whole months.
+
+    **The picker is not bounded.** Booking a venue a year ahead stays a normal
+    agenda point (§3.14 as first written, and the reason it was written): the
+    "add an activity" picker shows every future activity, so anything beyond
+    the horizon is one click away. The horizon decides what appears *by
+    itself*, never what is *possible* — bounding the picker too would turn a
+    default into a wall.
+
+    Evaluation covers what *started* since the previous meeting, running
+    activities included (the photo hunt sat under evaluation while it ran).
+    The secretary still curates: manual additions for off-portal items, and
+    anything with nothing to discuss can be left off this month's agenda.
 
 Added after the first mockup round (14 September 2026, Koen's review):
 
@@ -235,6 +248,31 @@ Added after the first mockup round (14 September 2026, Koen's review):
 Inherited, not reopened: **#785 triage A17** — the AI-per-module contract
 (read / propose / execute separated). This module has no AI at all, which is
 the simplest way to honour it.
+
+Added during the HDEV validation (16 September 2026, Koen testing):
+
+26. **The mail signature is a setting, never code.** Every Raak Millegem
+    meeting mail closes with *"Met vriendelijke groet,"* and the first names of
+    the daily board. Koen: *"Ik wil niet dat je dat hard codeert — want dat zijn
+    bij andere raak-afdelingen andere mensen."* It is one tenant setting, edited
+    on the circle screen (the one screen about meeting as a habit rather than
+    about one meeting), prefilled into the agenda and report mail and still
+    editable per mail. **Empty is the default and stays allowed**: no signature
+    beats the wrong names on something that leaves the building.
+
+    Not derived from the circle: that includes the regional support worker and
+    the regular participants, who are not the people who sign. Who signs is a
+    choice, not a consequence.
+27. **"Sent" is stamped per attachment, not derived.** An attachment carries two
+    intentions — *with the agenda*, *with the report* — and the screen used to
+    reason from them: "the agenda went out and this box was ticked, so it was
+    sent". That is wrong for the commonest case, an attachment uploaded *after*
+    the agenda mail for use with the report: it is ticked for the agenda by
+    default, read as sent, and could then no longer be removed or retargeted —
+    while it had reached nobody. Each attachment now carries the moment it
+    actually travelled, per mail, written in the same transaction as the send.
+    The screen shows *with which mail* it went, which is the part that survives
+    the meeting being closed and the tick-boxes disappearing.
 
 ## 4. Data model (sketch)
 

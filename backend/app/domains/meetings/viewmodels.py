@@ -144,6 +144,7 @@ class MeetingCircleView(ViewModel):
     circle: list[Any]
     candidates: list[Any]
     query: str
+    signature: str
     csrf_token: str
     error: Optional[str] = None
     nav_items: list[dict[str, Any]] = field(default_factory=list)
