@@ -16,6 +16,7 @@
 {# Eén scherm voor agenda én verslag (CR-09 §3.23). De statusbadge zegt waar je
    staat; er is geen modus om in of uit te gaan. Elke schrijfactie vervangt dit
    ene fragment, zodat er maar één waarheid op het scherm staat. #}
+{{ ui.back_link(_("Alle vergaderingen"), "/admin/vergaderingen") }}
 <div id="vg-document">
   {% include "_vg_document.html" %}
 </div>

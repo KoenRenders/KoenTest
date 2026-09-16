@@ -1150,3 +1150,21 @@ def test_een_vertrokken_deelnemer_blijft_in_het_oude_verslag(client, db_session)
     tekst = _pdf_tekst(client.get(f"/admin/vergaderingen/{meeting.id}/pdf").content)
     assert "Kris Vermeulen" in tekst, \
         "de aanwezigheid van die avond verdween uit het verslag"
+
+
+# ── 25. Terug naar de lijst ──────────────────────────────────────────────────
+
+def test_de_detailschermen_hebben_een_weg_terug(client, db_session):
+    """Bovenaan een detailscherm staat "‹ Alle vergaderingen", zoals overal.
+
+    Zonder die link is de enige weg terug de navigatiebalk links, en die brengt je
+    naar hetzelfde scherm via een omweg — op elk ander detailscherm in de app
+    staat de link er wél, dus het ontbreken valt juist op.
+    """
+    _login(client)
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+
+    for pad in (f"/admin/vergaderingen/{meeting.id}", "/admin/vergaderingen/kring"):
+        html = client.get(pad).text
+        assert 'href="/admin/vergaderingen"' in html, f"geen weg terug op {pad}"
+        assert "Alle vergaderingen" in html, f"geen weg terug op {pad}"
