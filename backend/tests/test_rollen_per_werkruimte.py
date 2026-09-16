@@ -245,3 +245,49 @@ def test_werkruimte_wisselen_linkt_via_de_padprefix(client, db_session):
     assert "Huidige" in html  # de actieve werkruimte gemarkeerd, niet verstopt
     # En de prefix-link komt ook echt in de andere werkruimte uit.
     assert client.get("/raakvoorbeeldafdeling/admin").status_code == 200
+
+
+def _migratie_127():
+    """Laad de migratiemodule zelf, zodat de test exact de SQL draait die op
+    een host draait — geen herimplementatie die stilletjes kan afwijken."""
+    import importlib.util
+    from pathlib import Path
+
+    pad = (Path(__file__).resolve().parents[1]
+           / "alembic" / "versions" / "127_roles_per_workspace.py")
+    spec = importlib.util.spec_from_file_location("migratie_127", pad)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_migratie_plaatst_account_admin_bij_raak_vzw_en_platform(db_session):
+    """Koen, 16 september 2026: "account_admin hoort bij Raak vzw en platform".
+
+    Een account met ACCOUNT_ADMIN én ADMIN, aanwezig in de seed-lijst: na de
+    datastappen staat ACCOUNT_ADMIN op org 1 en het platform — en NIET op
+    Millegem (2) of de Voorbeeldafdeling (3) — terwijl ADMIN wél op 1, 2 en 3
+    staat. Rood bewezen met de mutatie die de bescherming echt draagt: de
+    Millegem-stap vóór de ACCOUNT_ADMIN-plaatsing gezet én beide
+    uitzonderingen weggehaald → ACCOUNT_ADMIN kreeg {1, 2, 3} i.p.v.
+    {1, platform}. Eén uitzondering alléén weghalen blijft groen: in de
+    gecommitte volgorde is elk van de twee dubbelop — ze maken de stappen
+    volgorde-onafhankelijk, en dát is wat deze test bewaakt.
+    """
+    from app.domains.mdm.api import platform_tenant_id
+
+    m = _migratie_127()
+    email = "hoofdbeheer@example.com"
+    # Pre-migratiestand: rijen zonder werkruimte, zoals vóór #963.
+    u = _user(db_session, email,
+              ("ACCOUNT_ADMIN", None), ("ADMIN", None))
+    bind = db_session.connection()
+    m.scope_existing_roles(bind)
+    m.copy_seed_roles(bind, [email])
+
+    rijen = {(r.role_code, r.tenant_id) for r in
+             db_session.query(UserRole).filter(UserRole.user_id == u.id)}
+    platform = platform_tenant_id(db_session)
+    assert platform is not None
+    assert {t for c, t in rijen if c == "ACCOUNT_ADMIN"} == {1, platform}
+    assert {t for c, t in rijen if c == "ADMIN"} == {1, 2, 3}

@@ -27,7 +27,7 @@ class UserRole(Base):
     """Eén roltoekenning, sinds #963 per werkruimte: ``tenant_id`` wijst de
     werkruimte aan; NULL betekent platformbreed (vandaag alleen OPERATOR).
     Surrogaat-PK omdat NULL niet in een samengestelde sleutel kan; de twee
-    partiële unieke indexen van migratie 126 bewaken de uniciteit. Bewust
+    partiële unieke indexen van migratie 127 bewaken de uniciteit. Bewust
     GEEN tenant-mixin: rollen worden expliciet gefilterd (NULL ∪ actieve
     werkruimte), nooit stil door de tenant-listener."""
     __tablename__ = "user_roles"
