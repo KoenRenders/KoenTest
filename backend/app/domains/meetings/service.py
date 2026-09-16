@@ -964,9 +964,6 @@ def _address_line(person) -> str:
 # het zoekveld maakt een lange lijst hanteerbaar.
 EVALUATION_LOOKBACK = timedelta(days=365)
 
-# Hoeveel activiteiten de kiezer toont vóór je moet zoeken.
-PICKER_LIMIT = 8
-
 
 def addable_activities(db: Session, meeting: Meeting, query: str = "",
                        section_id: Optional[int] = None) -> list:
@@ -1011,10 +1008,12 @@ def addable_activities(db: Session, meeting: Meeting, query: str = "",
         if query and query not in span.activity.name.lower():
             continue
         out.append(span)
-    # Afkappen, want een vereniging met een vol programma levert hier tientallen
-    # regels en dan scrol je door een lijst in plaats van te kiezen. Het zoekveld
-    # erboven is de weg naar de rest; de sectie wijst al de goede kant op.
-    return out[:PICKER_LIMIT]
+    # Géén afkapping (Koen, 16 september 2026). De lijst stond eerst op acht omdat
+    # je er anders langs moest scrollen om bij het vrije punt te komen; dat staat
+    # nu bovenaan, dus de lengte is geen hindernis meer. En ze is zelfs nuttig:
+    # de secretaris loopt bij het opstellen van de agenda alles even langs en
+    # beslist wat er besproken moet worden.
+    return out
 
 
 @dataclass(frozen=True)
