@@ -81,6 +81,31 @@ def registration_state(activity: Activity, *,
     return RegistrationState.OPEN
 
 
+# The status label an activity shows, per registration state (#977).
+#
+# Until #977 the router worked this label out on its own — past, cancelled or open
+# — next to `registration_state`, which since #974 decides exactly that with a
+# reason. Two places deciding "open" is how the deadline would have been missing
+# from the label: a card read "Open" next to "Inschrijvingen afgesloten". The label
+# is now a lookup on the state, so a new reason to close appears here or fails the
+# test that walks every state.
+#
+# "Afgesloten" for a passed deadline was decided by Koen on 16 September 2026: an
+# activity that no longer takes registrations is not "open", even though it has not
+# taken place yet.
+STATUS_LABELS: dict["RegistrationState", str] = {
+    RegistrationState.OPEN: "Open",
+    RegistrationState.CLOSED: "Afgesloten",
+    RegistrationState.PAST: "Voorbij",
+    RegistrationState.CANCELLED: "Geannuleerd",
+}
+
+
+def status_label(activity: Activity, *, today: Optional[date] = None) -> str:
+    """The label for this activity, derived from `registration_state`."""
+    return STATUS_LABELS[registration_state(activity, today=today)]
+
+
 def registration_refusal(activity: Activity, *,
                          today: Optional[date] = None) -> Optional[str]:
     """Why a new registration is refused, in the words the visitor reads — or None.

@@ -257,7 +257,11 @@ def activiteit_deeplink(sleutel: str, request: Request,
     # lijstscopes: zonder datums blijft ze op de komende lijst staan.
     laatste = max((d.end_date or d.start_date for d in activiteit.dates),
                   default=None)
-    lijst = ("/activiteiten/archief" if laatste and laatste < date.today()
+    # #977: de Belgische datum, zoals de lijst zelf — anders stuurt een link rond
+    # middernacht door naar een lijst waar de kaart (nog) niet op staat.
+    from app.kernel.clock import belgian_today
+
+    lijst = ("/activiteiten/archief" if laatste and laatste < belgian_today()
              else "/activiteiten")
     anker = activiteit.slug or f"act-{activiteit.id}"
     return RedirectResponse(path_for(f"{lijst}#{anker}"), status_code=302)

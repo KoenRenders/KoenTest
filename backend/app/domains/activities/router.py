@@ -50,6 +50,7 @@ from app.domains.activities.export import build_component_export_ods
 from app.soft_delete import soft_delete
 from app.limiter import registration_limiter
 from app.i18n import _
+from app.kernel.clock import belgian_today
 
 router = APIRouter(tags=["activities"])
 
@@ -69,15 +70,12 @@ def compute_activity_status(
     if registration_count is None:
         registration_count = len(activity.registrations)
 
-    today = date.today()
-    all_past = not any(_is_future(d, today) for d in activity.dates)
+    # #977: het label volgt uit `registration_state`. Hier stond een eigen
+    # berekening (voorbij / geannuleerd / open) naast die van de service — twee
+    # plekken die "open" beslissen, en de deadline van #974 zat maar in één.
+    from app.domains.activities.service import status_label
 
-    if all_past or not activity.dates:
-        status = "Voorbij"
-    elif activity.is_cancelled:
-        status = "Geannuleerd"
-    else:
-        status = "Open"
+    status = status_label(activity)
 
     return {
         "status": status,
@@ -166,7 +164,7 @@ def list_activities(scope: str = "upcoming", db: Session = Depends(get_db)):
         recente voorbije datum; enkel de voorbije datums; status altijd Voorbij.
       - ``all`` (admin): álle activiteiten met álle datums.
     """
-    today = date.today()
+    today = belgian_today()
     effective_end = func.coalesce(ActivityDate.end_date, ActivityDate.start_date)
 
     base = db.query(Activity).options(
@@ -264,7 +262,7 @@ def get_activity_detail(db: Session, activity_id: int) -> Optional[ActivityRespo
     )
     if activity is None:
         return None
-    today = date.today()
+    today = belgian_today()
     reg_count = _registration_counts(db, [activity.id]).get(activity.id, 0)
     info = compute_activity_status(activity, reg_count)
     resp = _build_response(activity, today, all_dates=True, reg_count=reg_count,
@@ -296,7 +294,10 @@ def create_activity(
         raise HTTPException(status_code=422, detail=str(fout))
     activity = service._activity_met_boom(db, nieuw.id)
     assert activity is not None  # net aangemaakt in dezelfde transactie
-    return _build_response(activity, date.today(), status="Open", reg_count=0)
+    # #977: ook een verse activiteit krijgt het label van de service en niet een vast
+    # "Open" — ze kan met een voorbije deadline of een voorbije datum aangemaakt zijn.
+    info = compute_activity_status(activity, 0)
+    return _build_response(activity, belgian_today(), status=info["status"], reg_count=0)
 
 
 @router.put("/activities/{activity_id}", response_model=ActivityResponse)
@@ -317,7 +318,7 @@ def update_activity(
     if activity is None:
         raise HTTPException(status_code=404, detail=_("Activity not found"))
     info = compute_activity_status(activity)
-    return _build_response(activity, date.today(), status=info["status"],
+    return _build_response(activity, belgian_today(), status=info["status"],
                            reg_count=info["registration_count"])
 
 
