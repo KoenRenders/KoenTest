@@ -180,11 +180,15 @@
   <h2 class="font-semibold text-blue-700">{{ _("Bijlagen") }}</h2>
   <p class="text-sm text-ink-soft mt-0.5">{{ _("Gaan mee met de agenda- en verslagmail — bijvoorbeeld een werkgroepverslag of een document van de gemeente.") }}</p>
   <div class="flex flex-wrap gap-2 mt-3 items-center">
-    {% for file, verstuurd in attachments %}
+    {% for file, verstuurd, waarmee in attachments %}
     <span class="inline-flex items-center gap-2 rounded-lg border border-line bg-surface-2 px-3 py-1.5 text-sm">
       {{ ui.icon("file-text", 14) }}
       <a href="/admin/vergaderingen/{{ meeting.id }}/bestand/{{ file.id }}" hx-boost="false" class="hover:underline">{{ file.filename }}</a>
-      {% if verstuurd %}<span class="text-xs text-ink-soft">{{ _("verstuurd") }}</span>{% endif %}
+      {# Niet "verstuurd" maar wáármee: op een afgesloten vergadering zijn de
+         aanvinkvakjes weg, en dan is dit het enige dat nog vertelt of de
+         ontvanger de bijlage bij de agenda of bij het verslag kreeg. #}
+      {% if waarmee %}<span class="text-xs text-ink-soft">{{ waarmee }}</span>
+      {% elif verstuurd %}<span class="text-xs text-ink-soft">{{ _("verstuurd") }}</span>{% endif %}
       {# Per bijlage kiezen met wélke mail ze meegaat: soms hoort een draaiboek bij
          de agenda en een ander document bij het verslag. Eén klik keert de stand om. #}
       {% if editable and not verstuurd %}

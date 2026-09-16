@@ -85,7 +85,11 @@ def test_zoeken_filtert_de_lijst(client, db_session):
 def test_settings_persisteren_en_secret_blijft_geheim(client, db_session):
     csrf = _login(client, db_session, operator=True)
     resp = client.get(f"/admin/tenants/{TENANT_VOORBEELD_ID}")
-    assert resp.status_code == 200 and "Instellingen van deze afdeling" in resp.text
+    # Op een invoerveld dat dit scherm draagt en niet op de kop: die zei tot #971
+    # "Instellingen van deze afdeling" en zegt nu "van deze site" — het platform is
+    # geen afdeling. Een test die op een zin uit de kop staat, valt om bij elke
+    # herformulering zonder dat er iets stuk is.
+    assert resp.status_code == 200 and 'name="tagline"' in resp.text
 
     resp = client.post(f"/admin/tenants/{TENANT_VOORBEELD_ID}", data={
         "tagline": "Onze eigen leuze", "mail_mode": "log_only",

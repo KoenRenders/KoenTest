@@ -160,7 +160,10 @@ def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
         "/admin/vergaderingen",
         "/admin", "/admin/rapporten",
         "/admin/gebruikers", "/admin/ledenwijzigingen", "/admin/e-maillog",
-        "/admin/tenants", "/admin/info",
+        # #971: Organisaties staat vóór Tenants, en het zijn twee items omdat het
+        # twee dingen zijn — een rechtspersoon en een site. De ACCOUNT-organisatie
+        # is geen tenant en stond daardoor in geen enkel menu.
+        "/admin/organisaties", "/admin/tenants", "/admin/info",
     ]
     # Sinds de Inzicht-groep (Koen, 14 sep) staat Rapporten naast het Dashboard,
     # niet meer naast Betalingen — rapportering is niet enkel financieel.

@@ -232,6 +232,10 @@ class MeetingFile(TenantMixin, SoftDeleteMixin, Base):
     data = Column(LargeBinary, nullable=False)
     on_agenda_mail = Column(Boolean, nullable=False, default=True)
     on_report_mail = Column(Boolean, nullable=False, default=True)
+    # De twee vlaggen hierboven zijn een VOORNEMEN; deze twee stempels zijn het
+    # FEIT. Ze worden gezet op het moment dat het bestand echt in een mail zit.
+    sent_with_agenda_at = Column(DateTime(timezone=True), nullable=True)
+    sent_with_report_at = Column(DateTime(timezone=True), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)
 
     meeting = relationship("Meeting", back_populates="files")

@@ -365,6 +365,12 @@ _ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = [
         ("/admin/gebruikers", "Gebruikers"),
         ("/admin/ledenwijzigingen", "Wijzigingen"),
         ("/admin/e-maillog", "E-maillog"),
+        # #971: twee items en geen één, want het zijn twee dingen. Een ORGANISATIE
+        # is een rechtspersoon — naam, rechtsvorm, ondernemingsnummer, rekening —
+        # en een TENANT is een site met haar instellingen. Meestal vallen ze samen,
+        # maar de ACCOUNT-organisatie is geen tenant en stond daardoor nergens in
+        # dit menu; net zij is de vzw met een ondernemingsnummer.
+        ("/admin/organisaties", "Organisaties"),
         ("/admin/tenants", "Tenants"),
         # GEEN Design system hier (#878). De balk is voor schermen waar een bestuurder
         # werk doet; `/admin/design-system` is naslag over knoppen, kleuren en afstanden —

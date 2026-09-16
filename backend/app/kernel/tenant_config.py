@@ -337,6 +337,22 @@ def tenant_display_name(db: Session, tenant_id: int | None = None) -> str:
     return organisatie.name if organisatie else "Raak Millegem"
 
 
+def tenant_meeting_signature(db: Session, tenant_id: int | None = None) -> str:
+    """De ondertekening onder de agenda- en verslagmail (CR-09 §3.26).
+
+    Leeg is de juiste standaard. Bij Raak Millegem eindigt elke vergadermail met
+    *"Met vriendelijke groet,"* en daaronder de voornamen van het dagelijks
+    bestuur — maar dat zijn bij een andere Raak-afdeling andere mensen (Koen,
+    16 september 2026). Een ingebakken tekst zou bij iedereen behalve Millegem
+    fout zijn, en fout op een plek die naar buiten gaat.
+
+    Géén afleiding uit de vergaderkring: die telt ook de afdelingsondersteuner en
+    de vaste deelnemers, en dat zijn niet de mensen die tekenen. Wie ondertekent
+    is een keuze, geen gevolg.
+    """
+    return (get_setting(db, "meeting_mail_signature", tenant_id=tenant_id) or "").strip()
+
+
 def tenant_mollie_key(db: Session, tenant_id: int | None = None) -> str | None:
     from app.config import settings
 

@@ -1,4 +1,9 @@
-"""#954: elk veld op het tenantscherm kan ingevuld worden — en blijft staan.
+"""#954: elk veld op het scherm kan ingevuld worden — en blijft staan.
+
+Sinds #971 zijn dat er twee: `/admin/organisaties` draagt wat de organisatie IS,
+`/admin/tenants` de instellingen van de site. Dit bestand loopt ze allebei af, en de
+laatste test bewaakt dat geen enkel veld op allebei staat — dat zou twee bewerkbare
+bronnen zijn, precies wat #924 en #945 uit de kolommen haalden.
 
 Koens vraag na #945: *"Kan het zijn dat de naam 'Raak Millegem' van de organisatie
 niet meer editeerbaar is via tenant config?"* Ja. #945 haalde de
@@ -47,8 +52,8 @@ import pytest
 
 from app.domains.mdm.api import secrets_gezet
 from app.kernel.tenant_config import get_setting
-from app.ui.tenants_ui import (BEKENDE_SLEUTELS, GEHEIME_SLEUTELS,
-                               ORGANISATIEVELDEN)
+from app.domains.mdm.api import ALLE_ORGANISATIEVELDEN
+from app.ui.tenants_ui import BEKENDE_SLEUTELS, GEHEIME_SLEUTELS
 from app.kernel.tenancy import TENANT_VOORBEELD_ID
 
 TENANT = TENANT_VOORBEELD_ID
@@ -98,9 +103,20 @@ def _volledig_formulier() -> dict[str, str]:
     álles mee, en een handler die maar één sleutel tegelijk aankan zou hier
     doorheen glippen.
     """
-    velden = {key: _waarde(key) for key, _label, _hulp in ORGANISATIEVELDEN}
-    velden.update({key: _waarde(key) for key, _label, _hulp in BEKENDE_SLEUTELS})
-    return velden
+    return {key: _waarde(key) for key, _label, _hulp in BEKENDE_SLEUTELS}
+
+
+def _organisatieformulier() -> dict[str, str]:
+    """Alle organisatievelden tegelijk, uit de lijst van de SERVICE.
+
+    Sinds #971 is dat de enige lijst die er nog is: het scherm rendert zijn eigen
+    groepen, maar wát er schrijfbaar is staat in `ALLE_ORGANISATIEVELDEN`. De oude
+    versie van dit bestand hield twee lijsten naast elkaar en noemde de test die ze
+    vergeleek "wat de duplicatie draaglijk maakt". Ze is nu weg in plaats van
+    draaglijk — er is één bron, en de test kijkt door het scherm heen of elk veld
+    daar werkelijk staat.
+    """
+    return {key: _waarde(key) for key in ALLE_ORGANISATIEVELDEN}
 
 
 @pytest.fixture
@@ -112,17 +128,33 @@ def opgeslagen(client, db_session):
     return client.get(f"/admin/tenants/{TENANT}").text
 
 
-@pytest.mark.parametrize("key,label", [(k, l) for k, l, _h in ORGANISATIEVELDEN])
-def test_elk_organisatieveld_is_invulbaar(key, label, opgeslagen):
+@pytest.fixture
+def organisatie_opgeslagen(client, db_session):
+    csrf = _operator(client, db_session)
+    antwoord = client.post(f"/admin/organisaties/{TENANT}",
+                           data=_organisatieformulier(),
+                           headers={"X-CSRF-Token": csrf})
+    assert antwoord.status_code == 200, antwoord.text[:400]
+    return client.get(f"/admin/organisaties/{TENANT}").text
+
+
+@pytest.mark.parametrize("key", list(ALLE_ORGANISATIEVELDEN))
+def test_elk_organisatieveld_is_invulbaar(key, organisatie_opgeslagen):
     """Invullen, opslaan, terugleezen — en identiek terugkrijgen.
 
-    De lijst komt uit `tenants_ui`; `name` hoorde er tussen #945 en #954 niet in
-    te staan en daarom kon niemand de naam van de vereniging nog wijzigen.
+    De lijst komt uit de SERVICE en niet uit het scherm (#971). Dat is precies wat
+    de blinde vlek van #954 dichtte: een lijstgestuurde test kan niet zien dat er
+    iets uit zijn EIGEN lijst ontbreekt, dus wordt de lijst gelezen bij degene die
+    het veld kan schrijven. Staat het dan niet op het scherm, dan valt dit om.
     """
-    assert f'name="{key}"' in opgeslagen, (
-        f"het veld `{key}` ({label}) staat niet op het scherm — dan is het "
-        "nergens te bewerken, ook al kan de service het schrijven (#954)")
-    assert f'value="{_waarde(key)}"' in opgeslagen, (
+    assert f'name="{key}"' in organisatie_opgeslagen, (
+        f"het veld `{key}` staat niet op het organisatiescherm — dan is het "
+        "nergens te bewerken, ook al kan de service het schrijven (#954, #971)")
+    if key == "legal_form":
+        # Een dropdown toont zijn waarde met `selected`, niet met `value=`.
+        assert f'value="{_waarde(key)}" selected' in organisatie_opgeslagen
+        return
+    assert f'value="{_waarde(key)}"' in organisatie_opgeslagen, (
         f"`{key}` kwam niet terug met de opgeslagen waarde; het scherm toont "
         "iets anders dan wat er bewaard is")
 
@@ -155,37 +187,21 @@ def test_elke_geheime_sleutel_wordt_bewaard(client, db_session):
             f"`{key}` wordt teruggetoond op het scherm — een geheim hoort dat nooit")
 
 
-def test_elk_schrijfbaar_organisatieveld_staat_op_het_scherm():
-    """De schermlijst en de servicelijst mogen niet uit elkaar lopen.
-
-    `tenants_ui.ORGANISATIEVELDEN` draagt de labels, `mdm`'s
-    `ALLE_ORGANISATIEVELDEN` zegt wat er geschreven kan worden. Twee plaatsen voor
-    één feit — en het gevolg van een verschil is precies de bug van #954: een veld
-    dat de service kan bewaren en dat nergens te bewerken is, of een invoerveld
-    waarvan de waarde nergens aankomt.
-
-    Zolang de lijsten niet samengevoegd zijn, is dit de goedkope vangrail.
-    """
-    from app.domains.mdm.api import ALLE_ORGANISATIEVELDEN
-
-    op_scherm = {key for key, _l, _h in ORGANISATIEVELDEN}
-    schrijfbaar = set(ALLE_ORGANISATIEVELDEN)
-    assert op_scherm == schrijfbaar, (
-        "de schermlijst en wat de service schrijft lopen uiteen — "
-        f"alleen op het scherm: {sorted(op_scherm - schrijfbaar)}; "
-        f"alleen in de service: {sorted(schrijfbaar - op_scherm)}")
-
-
-def test_de_naam_staat_op_het_scherm():
+def test_de_naam_staat_op_het_scherm(client, db_session):
     """De regressie van #954, met zoveel woorden vastgepind.
 
-    Bewust hardgecodeerd, en dat is geen slordigheid: een lijstgestuurde test kan
-    niet zien dat er iets uit zijn eigen lijst ontbreekt — haal `name` weg en er
-    verdwijnt gewoon een testgeval. Gemeten op 15 september 2026: de parametrische
+    Bewust hardgecodeerd, en dat is geen slordigheid: de parametrische test
+    hierboven leest zijn gevallen uit een lijst, dus een veld dat uit die lijst
+    verdwijnt neemt zijn eigen testgeval mee. Gemeten op 15 september 2026: die
     test bleef groen, deze wordt rood.
+
+    Sinds #971 staat de naam op `/admin/organisaties` — waar hij hoort, want het is
+    de naam van de RECHTSPERSOON en niet een instelling van de site.
     """
-    assert "name" in {key for key, _l, _h in ORGANISATIEVELDEN}, (
-        "de naam van de organisatie staat niet op het tenantscherm. Sinds #945 is "
+    _operator(client, db_session)
+    html = client.get(f"/admin/organisaties/{TENANT}").text
+    assert 'name="name"' in html, (
+        "de naam van de organisatie staat nergens. Sinds #945 is "
         "`organizations.name` de enige bron voor de paginatitel, de afzender en de "
         "footer — zonder invoerveld is hij alleen bij het aanmaken te zetten (#954)")
 
@@ -196,7 +212,7 @@ def test_de_lijsten_overlappen_niet(db_session):
     Precies wat #924 en #945 hebben weggehaald: de instelling won dan van de
     organisatie, of andersom, afhankelijk van de volgorde van opslaan.
     """
-    organisatie = {key for key, _l, _h in ORGANISATIEVELDEN}
+    organisatie = set(ALLE_ORGANISATIEVELDEN)
     instellingen = {key for key, _l, _h in BEKENDE_SLEUTELS}
     geheimen = {key for key, _l, _h in GEHEIME_SLEUTELS}
     assert not (organisatie & instellingen), organisatie & instellingen
@@ -214,14 +230,14 @@ def test_een_lege_naam_wordt_geweigerd_met_een_zichtbare_melding(client, db_sess
     op te slaan te zijn — en de gebruiker hoort te lezen waaróm.
     """
     csrf = _operator(client, db_session)
-    formulier = _volledig_formulier()
+    formulier = _organisatieformulier()
     formulier["name"] = "   "
 
-    antwoord = client.post(f"/admin/tenants/{TENANT}", data=formulier,
+    antwoord = client.post(f"/admin/organisaties/{TENANT}", data=formulier,
                            headers={"X-CSRF-Token": csrf})
 
     assert antwoord.status_code == 422
-    assert "Naam van de organisatie" in antwoord.text, (
+    assert "Naam" in antwoord.text, (
         "de melding noemt het veld niet bij zijn label")
     assert "paginatitel" in antwoord.text, (
         "de melding zegt niet waaróm een lege naam niet kan")
@@ -236,16 +252,16 @@ def test_een_geweigerde_naam_laat_de_rest_ongemoeid(client, db_session):
     from app.domains.mdm.api import Organization
 
     csrf = _operator(client, db_session)
-    client.post(f"/admin/tenants/{TENANT}",
-                data={**_volledig_formulier(), "legal_form": "VZW"},
+    client.post(f"/admin/organisaties/{TENANT}",
+                data={**_organisatieformulier(), "legal_form": "VZW"},
                 headers={"X-CSRF-Token": csrf})
     organisatie = (db_session.query(Organization).filter(Organization.id == TENANT)
                    .execution_options(include_all_tenants=True).one())
     db_session.refresh(organisatie)
     naam_vooraf = organisatie.name
 
-    client.post(f"/admin/tenants/{TENANT}",
-                data={**_volledig_formulier(), "name": "",
+    client.post(f"/admin/organisaties/{TENANT}",
+                data={**_organisatieformulier(), "name": "",
                       "legal_form": "FEITELIJKE_VERENIGING"},
                 headers={"X-CSRF-Token": csrf})
 
@@ -264,8 +280,8 @@ def test_de_naam_wijzigen_verandert_de_paginatitel(client, db_session):
     tweede bron.
     """
     csrf = _operator(client, db_session)
-    client.post(f"/admin/tenants/{TENANT}",
-                data={**_volledig_formulier(), "name": "Raak Andersgem"},
+    client.post(f"/admin/organisaties/{TENANT}",
+                data={**_organisatieformulier(), "name": "Raak Andersgem"},
                 headers={"X-CSRF-Token": csrf})
 
     from app.kernel.tenant_config import tenant_display_name

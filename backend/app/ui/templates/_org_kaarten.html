@@ -1,0 +1,27 @@
+{% import "_macros.html" as ui %}
+{# Alleen de kaarten: de filterbalk swapt dít fragment en niet de hele pagina,
+   anders wordt het zoekveld onder je vingers vervangen. #}
+{% if organisaties %}
+<div class="space-y-3">
+  {% for o in organisaties %}
+  <div class="relative bg-white border border-gray-200 rounded-xl p-4 hover:shadow-md transition">
+    <a href="/admin/organisaties/{{ o.id }}" class="absolute inset-0 rounded-xl"
+       aria-label="{{ o.name }}"></a>
+    <div class="flex items-start justify-between gap-3">
+      <div>
+        <div class="font-semibold text-ink">{{ o.name }}</div>
+        <div class="mt-0.5 flex flex-wrap items-center gap-2 text-sm text-ink-soft">
+          {{ ui.badge(soort_labels.get(o.org_type, o.org_type)|lower, "blue" if o.org_type == "ACCOUNT" else "gray") }}
+          <span class="font-mono text-xs">{{ o.code }}</span>
+          {% if o.legal_form %}<span>· {{ o.legal_form|lower|replace("_", " ") }}</span>{% endif %}
+          {% if not o.is_active %}{{ ui.badge(_("inactief"), "red") }}{% endif %}
+        </div>
+      </div>
+      <span class="shrink-0 text-sm text-ink-soft">{{ _("Bewerken") }} ›</span>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+{% else %}
+{{ ui.empty_state(_("Geen organisaties gevonden.") if gefilterd else _("Nog geen organisaties.")) }}
+{% endif %}

@@ -55,6 +55,14 @@ class MeetingError(Exception):
 
 # What a standard section is called on screen and in the PDF. One place, so a
 # rename is one line and not a data migration over every meeting ever held.
+# Hoe ver de agenda vooruit kijkt bij het samenstellen. Drie maanden, want dat is
+# wat het bestuur nodig heeft om te handelen: een flyer maken, helpers zoeken, de
+# activiteit op de sociale media en in de nieuwsbrief zetten (Koen, 16 september
+# 2026). Wat verder ligt, staat niet in de weg maar is één klik weg via de kiezer
+# — die toont wél alles, ook de zaal die een jaar vooruit vastligt.
+UPCOMING_MONTHS = 3
+
+
 SECTION_LABELS = {
     SECTION_EVALUATION: "Evaluatie voorbije activiteiten",
     SECTION_UPCOMING: "Volgende activiteiten",
@@ -219,10 +227,11 @@ def generate_agenda(db: Session, meeting: Meeting,
         _add_activities(db, meeting, evaluation,
                         activities_active_between(db, since, meeting.meeting_date))
 
-    # Upcoming: the whole planned programme, however far ahead.
+    # Upcoming: wat binnen de agendeerhorizon valt (§3.14, herzien 16 sep 2026).
     if upcoming is not None:
         _add_activities(db, meeting, upcoming,
-                        activities_from(db, meeting.meeting_date))
+                        [span for span in activities_from(db, meeting.meeting_date)
+                         if span.start <= _horizon(meeting.meeting_date)])
 
     # Members: who joined since the previous meeting.
     members = by_kind.get(SECTION_MEMBERS)
@@ -265,6 +274,20 @@ def _add_activities(db: Session, meeting: Meeting, section: MeetingSection,
                            sort_key=span.start))
         aanwezig.add(span.activity.id)
     db.flush()
+
+
+def _horizon(vanaf: date) -> date:
+    """Dezelfde dag, `UPCOMING_MONTHS` maanden later.
+
+    In maanden en niet in dagen: "drie maanden vooruit" is hoe het bestuur denkt,
+    en 90 dagen verschuift met de lengte van de maanden mee.
+    """
+    maand = vanaf.month - 1 + UPCOMING_MONTHS
+    jaar = vanaf.year + maand // 12
+    maand = maand % 12 + 1
+    dag = min(vanaf.day, [31, 29 if jaar % 4 == 0 and (jaar % 100 != 0 or jaar % 400 == 0)
+                          else 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31][maand - 1])
+    return date(jaar, maand, dag)
 
 
 def _replace_generated(db: Session, section: MeetingSection) -> None:
@@ -333,6 +356,12 @@ def add_item(db: Session, meeting: Meeting, section: MeetingSection, *,
     _refuse_when_sent(meeting)
     if activity_id is None and not (title or "").strip():
         raise MeetingError(_("Kies een activiteit of typ een titel voor het punt."))
+    if activity_id is not None and _al_op_de_agenda(db, meeting, activity_id):
+        # De kiezer biedt zo'n activiteit niet aan, maar dat is een scherm en geen
+        # grendel: een dubbele klik, een openstaande kiezer in een tweede tabblad
+        # of een herhaalde post levert anders twee identieke punten op — en die
+        # staan dan allebei in het verslag.
+        raise MeetingError(_("Die activiteit staat al op deze agenda."))
     sort_key = None
     if activity_id is not None:
         from app.domains.activities.api import Activity, ActivityDate
@@ -350,6 +379,12 @@ def add_item(db: Session, meeting: Meeting, section: MeetingSection, *,
     _touch(db, meeting)
     db.commit()
     return item
+
+
+def _al_op_de_agenda(db: Session, meeting: Meeting, activity_id: int) -> bool:
+    return db.query(MeetingItem).filter(
+        MeetingItem.meeting_id == meeting.id,
+        MeetingItem.activity_id == activity_id).first() is not None
 
 
 def update_item(db: Session, meeting: Meeting, item_id: int, *,
@@ -537,12 +572,38 @@ def file_is_sent(meeting: Meeting, record: MeetingFile) -> bool:
     enkel de agenda vertrok — en die moet je dus nog kunnen weghalen. De eerste
     versie keek naar de vergadering in plaats van naar het bestand, en sloot
     daarmee te veel af (Koen, 15 september 2026).
+
+    Sinds #258/126 is dit een **stempel** en geen afleiding meer. De afleiding
+    ("de agenda is weg én dit bestand stond aangevinkt") gaf het verkeerde
+    antwoord voor precies het geval dat het vaakst voorkomt: een bijlage die je
+    ná de agendamail uploadt voor bij het verslag. Die staat standaard ook voor
+    de agenda aangevinkt, las dus als "verstuurd", en was daarna niet meer te
+    verwijderen of om te zetten — terwijl ze nooit iemand bereikt had. Een
+    stempel kan dat niet: hij wordt gezet op het moment dat het bestand écht
+    meegaat, in dezelfde transactie als de verzending.
     """
     if record.purpose == FILE_SENT_PDF:
         return True
-    if meeting.agenda_sent_at is not None and record.on_agenda_mail:
-        return True
-    return meeting.report_sent_at is not None and record.on_report_mail
+    return record.sent_with_agenda_at is not None or record.sent_with_report_at is not None
+
+
+def sent_with_label(record: MeetingFile) -> str:
+    """Waarmee is deze bijlage vertrokken? Leeg wanneer ze nog niet weg is.
+
+    Het antwoord hoort op het scherm, ook — juist — bij een afgesloten
+    vergadering: daar zijn de aanvinkvakjes weg en bleef er anders alleen het
+    woord "verstuurd" over, dat niet zegt of de ontvanger het bij de agenda of
+    bij het verslag in zijn mailbox vond (Koen, 16 september 2026).
+    """
+    met_agenda = record.sent_with_agenda_at is not None
+    met_verslag = record.sent_with_report_at is not None
+    if met_agenda and met_verslag:
+        return _("met agenda en verslag")
+    if met_agenda:
+        return _("met de agenda")
+    if met_verslag:
+        return _("met het verslag")
+    return ""
 
 
 def delete_file(db: Session, meeting: Meeting, file_id: int) -> None:
@@ -624,6 +685,21 @@ class Recipients:
     without_email: list[str]
 
 
+def mail_signature(db: Session) -> str:
+    """De ondertekening onder de vergadermails, zoals deze afdeling hem voert."""
+    from app.kernel.tenant_config import tenant_meeting_signature
+
+    return tenant_meeting_signature(db)
+
+
+def set_mail_signature(db: Session, text: str) -> None:
+    """Bewaar de ondertekening. Leeg wissen mag: dan eindigt de mail zonder groet."""
+    from app.kernel.tenant_config import set_setting
+
+    set_setting(db, "meeting_mail_signature", (text or "").strip() or None)
+    db.commit()
+
+
 def recipients_for(db: Session, meeting: Meeting) -> Recipients:
     """The circle plus this meeting's one-off addresses.
 
@@ -670,10 +746,12 @@ def send_meeting_mail(db: Session, meeting: Meeting, *, kind: str, subject: str,
         raise MeetingError(_("Er is niemand met een e-mailadres om naar te versturen."))
 
     attachments = [(pdf_filename, "application/pdf", pdf)]
+    meegestuurd = []
     for record in files_of(db, meeting):
         wanted = record.on_agenda_mail if kind == "agenda" else record.on_report_mail
         if wanted:
             attachments.append((record.filename, record.content_type, record.data))
+            meegestuurd.append(record)
 
     send_with_attachments(to_emails=recipients.emails, subject=subject,
                           body_html=body_html, attachments=attachments,
@@ -684,6 +762,14 @@ def send_meeting_mail(db: Session, meeting: Meeting, *, kind: str, subject: str,
     add_file(db, meeting, filename=pdf_filename, content_type="application/pdf",
              data=pdf, purpose=FILE_SENT_PDF, commit=False)
     now = datetime.now(timezone.utc)
+    # Per bijlage vastleggen dát ze mee was, en met wélke mail. Zonder dit stempel
+    # blijft er van een afgesloten vergadering alleen een aanvinkvakje over, en dat
+    # zegt wat iemand van plan was — niet wat de ontvanger gekregen heeft.
+    for record in meegestuurd:
+        if kind == "agenda":
+            record.sent_with_agenda_at = now
+        else:
+            record.sent_with_report_at = now
     if kind == "agenda":
         meeting.agenda_sent_at = now
         _touch(db, meeting)
@@ -964,9 +1050,6 @@ def _address_line(person) -> str:
 # het zoekveld maakt een lange lijst hanteerbaar.
 EVALUATION_LOOKBACK = timedelta(days=365)
 
-# Hoeveel activiteiten de kiezer toont vóór je moet zoeken.
-PICKER_LIMIT = 8
-
 
 def addable_activities(db: Session, meeting: Meeting, query: str = "",
                        section_id: Optional[int] = None) -> list:
@@ -1011,10 +1094,12 @@ def addable_activities(db: Session, meeting: Meeting, query: str = "",
         if query and query not in span.activity.name.lower():
             continue
         out.append(span)
-    # Afkappen, want een vereniging met een vol programma levert hier tientallen
-    # regels en dan scrol je door een lijst in plaats van te kiezen. Het zoekveld
-    # erboven is de weg naar de rest; de sectie wijst al de goede kant op.
-    return out[:PICKER_LIMIT]
+    # Géén afkapping (Koen, 16 september 2026). De lijst stond eerst op acht omdat
+    # je er anders langs moest scrollen om bij het vrije punt te komen; dat staat
+    # nu bovenaan, dus de lengte is geen hindernis meer. En ze is zelfs nuttig:
+    # de secretaris loopt bij het opstellen van de agenda alles even langs en
+    # beslist wat er besproken moet worden.
+    return out
 
 
 @dataclass(frozen=True)
