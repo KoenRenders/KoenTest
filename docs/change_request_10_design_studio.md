@@ -827,6 +827,41 @@ build takes from them:
   an American football and "torch" as a burning torch. The prompt says
   "round soccer ball" and "electric LED flashlight". Prompts are written in
   English and checked for such words.
+- **A fourth template, "Reeks", for recurring activities** (built as
+  "Stappen en Klappen", iterations 10–13, approved by Koen). Its parts:
+  - a frame in Dark Green, with the unit's wordmark in a rounded corner of
+    that frame;
+  - a speckled, slightly rotated two-word title, where "en" sits in a speech
+    bubble;
+  - a brush-edged bar under the title;
+  - icon bullets with dotted rules, with one date bullet and one place
+    bullet emphasised;
+  - a ragged-edged main photo and a polaroid inset;
+  - a "DATA IN <year>" table filled from the activity's dates;
+  - a handwritten note ("Zet het in je agenda!");
+  - a brush-edged footer.
+
+  How the pieces are built:
+  - **Speckles:** WeasyPrint cannot use text as a clip path, so the title is
+    glyph outlines with white dots. A dot is placed only where a raster of
+    the same glyph says "inside".
+  - **Bolder titles:** Radio Canada Big stops at weight 700, so the letters
+    get a stroke in their own colour. The stroke width must be converted into
+    glyph units, because a stroke scales with the glyph transform.
+  - **Frame and corner as one shape:** the page minus the paper with its
+    rounded notch. Two overlapping shapes left a visible hairline seam.
+  - **The wordmark without its tile:** the tile is a separate path in the
+    lockup and is left out. The crop must match the wordmark's real bounds,
+    and the SVG's width and height attributes must change with the viewBox.
+    Otherwise the wordmark stays letterboxed, or is clipped. The render check
+    therefore measures the wordmark's full height, not only its offsets.
+  - **Handwriting:** Caveat (OFL), as vector outlines.
+  - **Title split:** "X en Y" titles get the bubble; any other title falls
+    back to a plain title.
+- **Colours checked, not assumed.** Every colour code in the rendered poster
+  is one of the guide's colours or white. The ChatGPT original used a darker
+  green (about `#014411`). The official Dark Green is `#005d29`, which is
+  the value in Koen's colour list with a typo removed.
 - **Decorations that belong to the scene live in the scene.** When the image
   has its own sun or bunting, a sticker placed over the image collides with
   it. The price therefore sits in a zone (a bar next to the registration
