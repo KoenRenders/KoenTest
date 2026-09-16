@@ -4,8 +4,8 @@
 **Status:** Being shaped with Koen. First decided 17 June 2026 (consent model,
 `Subscriber`, provider adapter); reshaped on 14, 15 and 16 September 2026
 alongside the meeting module (CR-09). **Not assigned to a release** — Koen
-expects v2.6 but has not decided (16 September 2026). The questions still
-open are in §8.
+expects v2.6 but has not decided (16 September 2026). All shaping questions
+were answered on 16 September 2026; §8 records the answers.
 **Apply to:** a new `newsletter` domain (backend, admin screens, public signup
 pages). Mail goes through the existing `mail` domain; the member audience comes
 from `membership` and `mdm` through their `api.py`.
@@ -70,6 +70,12 @@ shows a **direction**, not the scope of the first release (§3.10).
 - **Tenant settings** (`kernel_tenant_settings`) for per-association values,
   such as the meeting mail signature.
 - **Background jobs** (`JOBS_ENABLED`) to run a sending queue.
+- **The public Raakje's activity tools** (`chatbot/tools.py`):
+  `get_activities` and `get_activity_detail` return public activity data,
+  including dates, prices and the flyer text with its AI addition
+  (`ChatbotInfo.effective_text`). A field contract already limits what those
+  results may carry to the model.
+- **Photo albums per activity** at `/activiteiten/{key}/fotos` (`media`).
 - **Raakje in the back office** (CR-07, `reporting/assistant.py`) on the AI
   kernel in `chatbot/`: the Mistral provider (EU), budgets, a payload log, and
   the **seam guard** (`chatbot/seam.py`). That guard refuses any outbound
@@ -189,7 +195,15 @@ shows a **direction**, not the scope of the first release (§3.10).
      risk for a personal account, which is why it is named.
    - This reverses the 17 June 2026 plan to send newsletters through an ESP
      from the start.
-8. **Sender address — open, see §8.1.**
+8. **The newsletter leaves the way a registration confirmation does** (Koen,
+   16 September 2026). Technically it goes through the Gmail account the
+   portal logs in with (`gmail_user`, today Koen's own free account); the
+   recipient sees the association's address as sender (`gmail_from`), and
+   replies go to the admin who sends. No new account, no new setting.
+   Consequence, accepted with the choice: the daily limit of §3.7 is that
+   account's limit, shared with every other portal mail, and a Google
+   restriction for bulk sending would also hit that personal mailbox. That is
+   one of the named triggers for the provider swap.
 9. **The mail is shown to a human before it goes out** (in line with the
    meeting mails, CR-09 §3.12).
    - The compose screen has a **"send a test to myself"** button, which
@@ -226,7 +240,10 @@ shows a **direction**, not the scope of the first release (§3.10).
     - **The newsletter is not signed with the meeting signature** (Koen, 16
       September 2026: *"We gaan daar wel niet onderzetten 'Tot binnenkort!
       Mon, Steven en Koen'."*). The meeting mail signature of CR-09 §3.26
-      stays a board-mail setting; how a newsletter closes is open, see §8.4.
+      stays a board-mail setting. A newsletter closes **without personal
+      names**, with the association as sender (*"Het bestuur van Raak
+      Millegem"*), built from the organisation's name rather than typed in
+      (§8.4).
     - This replaces the fixed blocks of the 14 September 2026 update: intro,
       *in de kijker*, calendar, outlook, external events.
 11. **The compose screen offers the points of recent meeting reports** (14
@@ -263,41 +280,84 @@ shows a **direction**, not the scope of the first release (§3.10).
     moved into the first release by Koen on 16 September 2026: *"dat is net
     het deel van het opzet. De AI die helpt om snel een nieuwsbrief te
     maken."*).
-    - **Where:** a *"Voorstel laten schrijven"* button on the compose screen.
-      The author picks activities (the same picker as the insert helper),
-      ticks meeting points (§3.11), may type what the letter should say, and
-      Raakje returns a proposal that lands in the editor. What the proposal
-      covers is open, see §8.2.
-    - **It is the first acting capability pack on the CR-07 kernel.** The
-      kernel's rules apply: drafting is not sending; there is one write path;
-      prompt injection weighs heavier once a tool can act. The draft is text
-      in an editor, nothing more. **Raakje never sends, never sees a
-      recipient list, and never picks the audience.**
-    - **The model never writes a date, a time, a place or a link.** It places
-      a marker per activity, and the server replaces that marker with the
-      same line the insert helper produces, from the activity data. That makes
-      a wrong date or an invented registration link impossible rather than
-      unlikely. The chatbot's grounding rule (structured fields win) becomes
-      structural here.
+
+    **How the author works with it.**
+    - The compose screen has a **Raakje panel**: a conversation next to the
+      editor. The author picks activities (the same picker as the insert
+      helper), ticks meeting points (§3.11), and says what the letter should
+      do.
+    - The first answer is **the whole letter as a proposal**: subject, a
+      short intro, a paragraph per chosen activity or meeting point, and the
+      closing of §3.10 (§8.2).
+    - After that the conversation works on **pieces** (Koen: *"je moet dus
+      stukken kunnen vervangen of stukken invoegen op basis van het
+      gesprek"*). "Maak de intro korter", "zet de BBQ er ook bij", or a
+      selected passage with "herschrijf dit" produce a proposal to replace,
+      insert or remove one piece.
+    - **Nothing lands in the editor without a click.** Every proposal is
+      shown first, with *Toepassen*; applying goes through the editor's own
+      functions, so the editor's undo still works. This is the confirmation
+      step the kernel requires for an acting capability.
+    - To target pieces, the server hands the model the current text as
+      numbered paragraphs, and the model answers with operations on those
+      numbers (replace, insert after, remove). A selection in the editor
+      becomes the target of the next operation.
+    - The conversation is kept with the draft, so the author can continue
+      the next day, and is removed when the letter is sent: the sent letter
+      is the record, and the payload log already holds what left.
+
+    **What Raakje knows.**
+    - **All activities**, through the public Raakje's read tools: dates,
+      places, prices, and the flyer text with its AI addition. So the author
+      can say "zet de BBQ er ook bij" without picking it first.
+    - **The photo album of an activity**, when there is one: Raakje may add a
+      link to it ("de foto's van het Comedy Festival staan online").
+    - **The ticked meeting points**, including the evaluation of past
+      activities. Positive feedback from the meeting may be used to say
+      something ("het Comedy Festival was uitverkocht").
+    - **The house style** (§8.3) and the last two letters to the same
+      audience.
+
+    **Fixed rules.**
+    - **Raakje never sends, never sees a recipient list, and never picks the
+      audience.** The draft is text in an editor, nothing more. The kernel's
+      rules apply: drafting is not sending; there is one write path; prompt
+      injection weighs heavier once a tool can act.
+    - **The model never writes a date, a time, a place, a registration link or
+      a photo link.** It places a marker, and the server replaces the marker
+      with a line built from the activity data (the same line the insert
+      helper produces). A wrong date or an invented link becomes impossible,
+      not merely unlikely.
+    - **Every amount in a proposal is checked.** Prices may appear in prose
+      ("leden betalen minder"), so they cannot all be markers. The server
+      compares every amount in a proposal with the prices of the activities
+      involved, and marks an amount it cannot find before the author applies
+      the proposal.
     - **The model never detects activities in prose.** A meeting point
       carries the `activity_id` set when the agenda was generated (CR-09 §4);
       a free point without one contributes only its text.
-    - **Names do not leave the system.** Meeting notes name volunteers
-      ("Kris regelt de bus"), and the seam guard would block that payload
-      outright. The ticked points and the typed instruction therefore go
-      through the name scrubber first: a known name becomes a token
-      (`persoon-12`), and the server puts the name back in the proposal after
-      the model is done. This is CR-07's pattern; the guard stays on as the
-      last check. A name the scrubber does not know (a typo, someone outside
-      the administration) is what the payload log exists for.
+    - **Individual organisers are never thanked, and people from our
+      administration are never named** (Koen, 16 September 2026: *"We
+      bedanken NOOIT individuele organisatoren."*). This is a rule of the
+      association, and the design makes it structural:
+      - Names in ticked meeting points, in the typed instruction and in the
+        example letters are replaced by the name scrubber before anything
+        leaves. The replacement is a neutral placeholder, and **it is never
+        turned back into the name**.
+      - The house-style prompt states the rule.
+      - A proposal that still contains a known person name is marked before
+        it can be applied.
+      - The seam guard stays on as the last check.
+      This replaces the earlier plan of this document to put the names back
+      after the model was done.
     - **It uses the same switch as Raakje in the back office**
       (`admin_chat_enabled` plus `ADMIN_CHAT_ENABLED`). With the switch off,
-      the button is not shown and the letter is written by hand; nothing else
-      changes. The drafting calls count against the same budgets and land in
-      the same payload log.
-    - **Provider:** Mistral (EU), as for the rest of Raakje. The mock
-      provider gets canned drafts, so the whole chain is testable without a
-      model.
+      the panel is not shown and the letter is written by hand; nothing else
+      changes. The calls count against the same budgets and land in the same
+      payload log.
+    - **Provider:** Mistral (EU), as for the rest of Raakje. The mock provider
+      gets canned drafts and canned operations, so the whole chain is
+      testable without a model.
 
 ---
 
@@ -358,8 +418,9 @@ leaves: an address that unsubscribed in the meantime is `skipped`.
       PROD.
 - [ ] Privacy statement updated (newsletter, import, retention).
 - [ ] No recipient data in any LLM payload.
-- [ ] Names in ticked meeting points and in the typed instruction are
-      replaced by tokens before the payload leaves; the seam guard stays on.
+- [ ] Names in ticked meeting points, the typed instruction and the example
+      letters are replaced before the payload leaves and never restored; the
+      seam guard stays on.
 
 ## 6. Phasing
 
@@ -367,7 +428,7 @@ leaves: an address that unsubscribed in the meantime is `skipped`.
 |---|---|---|
 | **A** (first release) | The shared editor macro; subscribers, public signup with double opt-in, unsubscribe page, import upload, manual add; compose (editor, the two insert helpers, meeting points), **drafting by Raakje**, test mail, send per recipient in a queue under the daily cap; copy; archive. | Yes |
 | **B** | Mail to the registrants of an activity or component (decision §3.14), on the same sending machinery. | No |
-| **C** | Card layout following Raak nationaal, and more drafting help (rewrite one paragraph, shorter or longer). | Optional |
+| **C** | Card layout following Raak nationaal: flyer, title, teaser, registration button. | No |
 | **D** | Provider swap to an EU campaign service, only when a trigger from §3.7 fires. | No |
 
 ## 7. Test set — what phase A must prove
@@ -394,45 +455,40 @@ leaves: an address that unsubscribed in the meantime is `skipped`.
 10. The test mail goes only to the signed-in admin and does not change the
     letter's status.
 11. A drafting payload contains no recipient address and no known person
-    name: a ticked point "Kris regelt de bus" leaves as a token and comes back
-    as "Kris" in the proposal.
+    name: a ticked point "Kris regelt de bus" leaves without the name, and the
+    name does not come back in the proposal.
 12. An unticked meeting point never appears in a drafting payload.
 13. A date, place or link in the proposal always comes from the activity
     data: a model answer that writes its own date for an activity does not
     reach the editor unchanged.
-14. With the Raakje switch off, the button is absent, and composing and
+14. An amount in a proposal that matches no price of the activities involved
+    is marked before the proposal can be applied.
+15. A proposal that contains a known person name is marked before it can be
+    applied.
+16. A piece operation (replace, insert, remove) changes exactly the paragraph
+    it names, and nothing reaches the editor before *Toepassen*.
+17. A photo link is only offered for an activity that has an album.
+18. With the Raakje switch off, the panel is absent, and composing and
     sending still work.
-15. The pages and the meeting notes still save their text after moving to the
+19. The pages and the meeting notes still save their text after moving to the
     shared editor macro.
 
 ---
 
-## 8. Open questions
+## 8. Answered questions (16 September 2026)
 
-1. **Which account sends the newsletter?** Today Koen sends from a personal
-   Gmail account. The portal already sends everything else through the
-   Gmail account configured for the association, with Reply-To set to the
-   admin who sends (CR-09 §3.24).
-   **Recommendation:** use that same association account for the newsletter,
-   not a personal account. A personal password in the portal ties the
-   association to one person, and a Google block on that account would also
-   hit that personal mailbox. If the association account is also a free Gmail
-   account, the limit and risk of §3.7 apply to it.
-2. **What does Raakje write in one go?**
-   **Recommendation:** the whole letter as a proposal: a subject, a short
-   intro, a paragraph per chosen activity or meeting point, and a closing
-   (see question 4). Rewriting a single paragraph comes later (phase C). If
-   the editor already holds text, the author chooses between replacing it and
-   inserting at the cursor.
-3. **Where does Raakje learn the tone from?**
-   **Recommendation:** a short house-style text per association, as a tenant
-   setting (e.g. "warm, jij-vorm, kort"), plus the last two letters sent to
-   the same audience as examples once the archive holds any. Those letters
-   may name volunteers, so they pass the same name scrubber.
-4. **How does a newsletter close?** Not with the meeting signature (§3.10).
-   **Recommendation:** no personal names. The letter ends with a closing line
-   and the association as sender (for example *"Het bestuur van Raak
-   Millegem"*), taken from the organisation's name rather than typed in.
+No shaping question is open. For the record, what was asked and answered:
+
+1. **Which account sends?** The same way as a registration confirmation:
+   technically through the portal's Gmail login, shown as the association's
+   address (§3.8).
+2. **What does Raakje write in one go?** The whole letter as a proposal, and
+   then pieces, replaced or inserted following the conversation (§3.15).
+3. **Where does Raakje learn the tone?** A short house-style text per
+   association, as a tenant setting next to the meeting mail signature, plus
+   the last two letters sent to the same audience once the archive holds any.
+4. **How does a letter close?** Without personal names, with the association
+   as sender, taken from the organisation's name (§3.10).
 
 ---
 
@@ -451,9 +507,10 @@ leaves: an address that unsubscribed in the meantime is `skipped`.
   grounds the drafting (§3.15). The sending pattern (a human reads first,
   Reply-To the sender) is the same.
 - **CR-07 (AI kernel):** the drafting of §3.15 is its first acting capability
-  pack, and it reuses the name scrubber of `reporting/assistant.py`. That
-  scrubber belongs in the kernel once a second capability uses it; moving it
-  there is part of this build.
+  pack. It reuses the name scrubber of `reporting/assistant.py` (with a
+  replacement that is never restored) and the public Raakje's activity tools.
+  The scrubber belongs in the kernel once a second capability uses it; moving
+  it there is part of this build.
 - **`mail` domain:** the transport, the log, and the `log_only` mode. The
   queue and the daily cap are new and belong there, because the registrant
   mail of phase B needs them too.
