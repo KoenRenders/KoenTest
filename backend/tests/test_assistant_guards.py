@@ -508,8 +508,12 @@ def test_the_catalogue_is_rendered_from_the_declaration(db_session):
     from app.domains.reporting.universe import OBJECTS
 
     catalogue = build_system_prompt()
-    ontbreekt = [o.key for o in OBJECTS if f"`{o.key}`" not in catalogue]
+    # `in_pane=False` (#975) is an object the server filters on and nobody picks —
+    # it is deliberately not offered, here or in the panel.
+    ontbreekt = [o.key for o in OBJECTS if o.in_pane and f"`{o.key}`" not in catalogue]
     assert not ontbreekt, f"niet in de catalogus: {ontbreekt[:5]}"
+    verborgen = [o.key for o in OBJECTS if not o.in_pane and f"`{o.key}`" in catalogue]
+    assert not verborgen, f"verborgen object toch aangeboden: {verborgen}"
     assert "GEWEIGERD" in catalogue
     # The money default is declared rather than assumed (CR-07 §7).
     assert "GEFACTUREERDE" in catalogue

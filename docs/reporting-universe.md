@@ -107,7 +107,7 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 
 | Universe role | Meaning | Objects |
 |---|---|---|
-| `admin` | the default: what an admin screen already shows | 83 |
+| `admin` | the default: what an admin screen already shows | 84 |
 | `finance` | money — every measure formatted as money, and the Betalingen class | 30 |
 | `member_details` | person-level details; CR-06 §7.3 keeps these out of the universe, so nothing carries it yet | 9 |
 
@@ -179,6 +179,7 @@ Every object carries a role. In v2.3.0 these are **declared and not enforced**: 
 | `registration_quantity` | Aantal stuks | measure | count | `admin` | admin_plain | `SUM(f_registrations.quantity)` | Som van de aantallen op de inschrijfregels — de bezetting, dus wat je neemt voor 'hoeveel deelnemers'. Een inschrijving met vier kaarten telt hier vier en bij 'Aantal inschrijvingen' één. |
 | `registration_amount` | Inschrijfbedrag | measure | money | `finance` | admin_plain | `SUM(f_registrations.line_amount)` | Waarde van de inschrijfregels aan de prijs van dat moment — de omzet uit inschrijvingen, gefactureerd en niet ontvangen. Gratis producten en 'ter plaatse te betalen' tellen niet mee. Wat er werkelijk betaald is, staat bij Betalingen. |
 | `activity` | Activiteit | dimension | label | `admin` | admin_plain | `d_activity.activity_name` | Naam van de activiteit. Klik door naar het activiteitdossier. |
+| `activity_id` | Activiteitnummer | dimension | label | `admin` | admin_plain | `d_activity.activity_id` | Het technische nummer van de activiteit. Niet in het objectenpaneel: het bestaat om op één activiteit te kunnen filteren, want de naam is daar niet eenduidig genoeg voor — een activiteit die elk jaar terugkomt, heet elk jaar hetzelfde (#975). |
 | `activity_year` | Jaar van de activiteit | dimension | year | `admin` | admin_plain | `d_activity.activity_year` | Het jaar van de eerste datum van de activiteit, als eigenschap van de activiteit zelf. Neem dit voor 'welke activiteiten in 2026'; wil je per maand of kwartaal groeperen, gebruik dan Startdatum. Het model kent geen seizoen (CR-06 §12). |
 | `activity_location` | Locatie | dimension | label | `admin` | admin_plain | `d_activity.location` | Waar de activiteit doorgaat, zoals ingevuld bij de activiteit — vrije tekst, dus geen adres en niet genormaliseerd. |
 | `activity_cancelled` | Geannuleerd | dimension | label | `admin` | admin_plain | `CASE WHEN d_activity.is_cancelled THEN 'Ja' ELSE 'Nee' END` | Of de activiteit geannuleerd werd. Geannuleerde activiteiten blijven in de cijfers staan, dus filter hierop als je ze niet wil meetellen. |
