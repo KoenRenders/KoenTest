@@ -16,7 +16,7 @@
   {% for a in activities %}
   {% set _jaar = a.sort_date.year if a.sort_date else None %}
   {% if _jaar and _jaar != _ns.jaar %}
-  <h3 class="text-xl md:text-lg font-semibold text-blue-700 border-b border-line pb-1{% if not loop.first %} pt-2{% endif %}">{{ _jaar }}</h3>
+  <h3 class="text-xl md:text-lg font-semibold text-kop border-b border-line pb-1{% if not loop.first %} pt-2{% endif %}">{{ _jaar }}</h3>
   {% set _ns.jaar = _jaar %}
   {% endif %}
   {# Anker voor de deellink op de recordpagina (golf 8): de slug als hij

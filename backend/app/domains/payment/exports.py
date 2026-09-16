@@ -63,14 +63,14 @@ def _enrich(db, r) -> tuple[str, Optional[int], Optional[int]]:
 def build_payments_export_ods(db, context: str = "all", status: str = "all",
                               q: str = "", openstaand: bool = False,
                               registration_id: str = "",
-                              payables=None) -> bytes:
+                              payables=None, zicht: str = "alle") -> bytes:
     """Bouw de .ods met de (gefilterde) betalingen & vorderingen + totaalrij. Bytes terug.
 
     De filter is `payment.service.matches_filter` — dezelfde functie die het scherm
     gebruikt (#635). `membership_year` en `component_id` komen hier uit `_enrich`,
     want de rauwe records dragen ze niet.
     """
-    from app.domains.payment.service import matches_filter
+    from app.domains.payment.service import matches_filter, matches_zicht
 
     records = db.query(PaymentRecord).order_by(PaymentRecord.created_at.desc()).all()
     # P13 (golf 5, #913): de recordscope geldt ook hier — de exportknop draagt
@@ -94,6 +94,10 @@ def build_payments_export_ods(db, context: str = "all", status: str = "all",
                               openstaand=openstaand,
                               membership_year=membership_year,
                               component_id=component_id):
+            continue
+        # Golf 10 (#913): het actieve statustab-zicht geldt ook in de export —
+        # anders exporteert "Openstaand" stil alles.
+        if not matches_zicht(r, zicht):
             continue
         amount = Decimal(str(r.amount or 0))
         paid = Decimal(str(r.amount_paid)) if r.amount_paid is not None else Decimal("0")

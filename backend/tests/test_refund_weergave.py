@@ -82,9 +82,10 @@ def test_totaalregel_telt_charge_en_refunds_samen(client, db_session):
 
     html = client.get("/admin/betalingen/lijst").text
     assert "Totaal inschrijving" in html
-    # Sinds #617-2c draagt de totaalregel dezelfde labels als de kaarten en doet het
-    # teken het werk: een negatief saldo betekent dat wij moeten terugstorten.
-    assert "Saldo: € -27,50" in html
+    # Het teken doet het werk (#617-2c): een negatief saldo betekent dat wij
+    # moeten terugstorten. Sinds golf 10 is de totaalregel een tabelrij zonder
+    # "Saldo:"-label — de kolomkop draagt dat woord.
+    assert "€ -27,50" in html
 
 
 def test_geen_totaalregel_zonder_refunds(client, db_session):

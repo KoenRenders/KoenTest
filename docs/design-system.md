@@ -48,6 +48,11 @@ change to all four, in one pull request.
 | 14 Sep 2026 | One action cluster per edit surface, **at the top** (revised from bottom on owner feedback the same day): read mode shows the opener; edit mode swaps it for [Verwijderen]·[Annuleren][Opslaan] with Opslaan on the opener's spot; sticky header on long editors — replaces the #722 adjacency rule on edit surfaces | #913 (wave 6, A2) |
 | 14 Sep 2026 | The meetings module (CR-09) **keeps autosave** as its saving model — owner decision; A8's "autosave only as named concept behaviour" is satisfied at module level, no per-field naming required | #913 (wave 6, A8) |
 | 15 Sep 2026 | Heading colour is a **shell token** (`text-kop`): admin headings in ink per the Cobalt mockup (blue is for actions/links/selection); the public shell keeps brand-blue headings until the wave-10 public token pass | #913 (wave 8, round 3) |
+| 16 Sep 2026 | The public token pass is done: public headings carry `text-kop` (brand blue on the site shell); no hardcoded heading blues remain | #913 (wave 10) |
+| 16 Sep 2026 | Dense list reference is **Betalingen**: KPI strip → status tabs with counts → dense table (child rows with ↳, per-record subtotal rows, net footer) → pivot below | #913 (wave 10) |
+| 16 Sep 2026 | Dense-list tabs slice on derived saldo/kind, never the raw status column; the status select stays the column filter (AND, #669) | #913 (wave 10, feedback 1) |
+| 16 Sep 2026 | Row actions stay buttons (size `xs` in dense tables); Cobalt's text links wait for a portal-wide pass | #913 (wave 10, feedback 1) |
+| 16 Sep 2026 | The record AI button ("AI · <record>") exists only where `tenant_admin_chat_enabled` is true; one kernel switch, never a UI-side flag; the overlay uses the public Raakje look | #913 (wave 10), CR-07 §6.3 |
 | 13 Sep 2026 | Dashboard is a first-class screen type, defined as a **reporting** surface (tiles, drill-through, peilmoment) — expressly separate from the werkbank, which is process | #785 (B3) |
 | 13 Sep 2026 | The unsaved-changes promise is dropped as a system rule; it returns as a per-editor pattern field for long editors | #785 (B1) |
 | 13 Sep 2026 | Judging viewports follow the audience: public phone-first, admin desktop-first | CR-08 |
@@ -298,6 +303,31 @@ by the status choice; convert one and the field shows two notations.
 
 - **Default list = table** in a `card` with `overflow-x-auto`; cards only for
   hierarchical or visual content (§9). Row height ~50 px, subtle hover.
+- **Dense list (wave 10, #913 — reference: Betalingen).** A money- or
+  status-heavy list stacks, top to bottom: **one filter row** (search plus
+  the filter selects and the export, on a single wrapping line), a **KPI
+  strip** (2–4 tiles, counted over the slice-free base), **status tabs with
+  counts** (`ui.tabs` with `count`), the dense table (child rows marked `↳`,
+  one `<tbody>` per parent record with its subtotal row, net totals in the
+  `tfoot`), and the pivot ("Financieel overzicht") below.
+  - **Tabs slice on the DERIVED state — saldo and kind — never on the raw
+    status column** (Koen, 16 Sep 2026): "Openstaand" is the #668 balance
+    test, "Betaald" is settled per `derived_status`, "Terugbetaald" is the
+    refund kind. The status select stays the column filter and combines with
+    AND (#669). The active slice rides along as a hidden field bound to the
+    filter bar with the `form=` attribute, and the export carries it.
+  - **Density**: table text 12px, column headers and sub-lines 11px muted,
+    rows ±46 px; row buttons use size `xs` (28 px on desktop, 44 px touch on
+    mobile). Row actions remain **buttons**, not Cobalt's text links —
+    Koen, 16 Sep 2026: links only come with a portal-wide pass.
+  - **The name is plain text** when it is a person's name on a row whose
+    record is something else (a booking): a name-link reads as "go to the
+    person" (Koen, 16 Sep 2026). The row carries a button NAMED AFTER the
+    record it opens ("Inschrijving") instead, on the parent row only —
+    "Details" would read as details of the row itself (the payment).
+  - Row editors expand as a row beneath the record (`ui.edit_toggle` with
+    `waarde=` for lists where one holder marks the open record); Verwijderen
+    (far left) and content actions live in that editor row, per A2.
 - **Every list that can grow gets `ui.search()`** (rule of thumb: > 20 items
   possible): `type="search"`, placeholder **"Zoek op <velden>…"**, server-side,
   debounced (300 ms), no separate search button; parameter `q` by default.

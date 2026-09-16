@@ -61,7 +61,8 @@ class Gezinsportaal:
 
 
 class Betalingenscherm:
-    """/admin/betalingen — de kaartenlijst met de FINANCE-acties."""
+    """/admin/betalingen — sinds golf 10 (#913) een dichte tabel: één rij per
+    boeking, de FINANCE-acties per rij, de editors als uitklaprij eronder."""
 
     pad = "/admin/betalingen"
 
@@ -75,95 +76,82 @@ class Betalingenscherm:
         self.page.wait_for_selector("#betalingen-lijst", timeout=5000)
         return self
 
-    def kaart(self, ogm: str):
-        """Een kaart aanwijzen via haar OGM — die is uniek en zichtbaar."""
-        return self.page.locator(".bg-white", has_text=ogm).first
+    def rij(self, ogm: str):
+        """Een rij aanwijzen via haar OGM — die is uniek en zichtbaar."""
+        return self.page.locator("#betalingen-lijst tbody tr", has_text=ogm).first
 
-    def kaart_met_knop(self, knoplabel: str):
-        """De eerste kaart die deze actie aanbiedt.
+    def rij_met_knop(self, knoplabel: str):
+        """De eerste rij die deze actie aanbiedt.
 
-        Betrouwbaarder dan "de eerste kaart" of een kaart op naam (#644-D): op één
+        Betrouwbaarder dan "de eerste rij" of een rij op naam (#644-D): op één
         payable staan meerdere records (een openstaande vordering, een betaalde,
         een terugbetaling) met dezelfde contactnaam, en welke bovenaan staat hangt
         van de aanmaakvolgorde af. Een test die "bevestig betaald" wil, hoort de
-        kaart te kiezen die dat kán.
+        rij te kiezen die dat kán.
         """
         return self.page.locator(
-            ".bg-white", has=self.page.get_by_role("button", name=knoplabel)).first
+            "#betalingen-lijst tbody tr",
+            has=self.page.get_by_role("button", name=knoplabel)).first
 
-    def ogm_van(self, kaart) -> str | None:
-        tekst = kaart.locator("text=OGM").first
-        if tekst.count() == 0:
+    def ogm_van(self, rij) -> str | None:
+        """Sinds golf 10 staat de OGM kaal (mono) onder de naam, zonder
+        "OGM"-voorvoegsel — zoals de Cobalt-referentie."""
+        cel = rij.locator(".font-mono").first
+        if cel.count() == 0:
             return None
-        return tekst.inner_text().split("OGM")[-1].strip()
+        return cel.inner_text().strip()
 
-    def bevestig_betaald(self, kaart):
-        kaart.get_by_role("button", name="Bevestig betaald").click()
+    def bevestig_betaald(self, rij):
+        rij.get_by_role("button", name="Bevestig betaald").click()
         # In-app bevestigingsmodal (#595), geen browser-confirm.
         self.page.get_by_role("button", name="Bevestigen").click()
         self.page.wait_for_timeout(300)
 
     def badges(self, ogm: str) -> list[str]:
-        return self.kaart(ogm).locator("span.rounded-full").all_inner_texts()
-
-    def toon_inschrijvingsdetails(self, kaart):
-        """Klap het detail open en geef het paneel terug, zodat de bewerkingen
-        erna binnen díe kaart gebeuren en niet in een andere op de pagina.
-
-        Wacht op de INHOUD, niet op de zichtbaarheid van het paneel zelf. Alpine
-        zet `x-show` meteen om, maar htmx vult het paneel pas met de eerste
-        `hx-get`. Een lege div heeft geen hoogte, en Playwright rekent een element
-        van nul bij nul als verborgen — dus "wacht tot het paneel zichtbaar is"
-        was in werkelijkheid "wacht tot het antwoord binnen is", met een
-        wedloop als het even traag ging. Deze test viel daar geregeld over.
-        """
-        kaart.get_by_text("Toon inschrijvingsdetails").click()
-        paneel = kaart.locator('[id^="det-"]').first
-        paneel.locator(":scope > *").first.wait_for(state="visible", timeout=10000)
-        return paneel
+        return self.rij(ogm).locator("span.rounded-full").all_inner_texts()
 
     def bewerkbaar_detailpaneel(self):
-        """Het eerste detailpaneel dat écht te bewerken is.
+        """Het eerste inschrijvingsdetail dat écht te bewerken is.
 
-        "De eerste kaart met een detailknop" is niet genoeg: een geschrapte
-        inschrijving toont haar paneel wel maar zonder bewerk-toggle, en sinds #673
-        kan een andere kaart bovenaan staan (een lege vordering valt weg, een
-        bijkomende springt in). Dezelfde redenering als bij `kaart_met_knop`
-        (#644-D): kies de kaart die de handeling kán, niet de kaart die toevallig
-        eerst staat.
+        Sinds golf 10 zonder inline-disclosure op het betalingenscherm: de naam
+        in de tabel is de B2-link naar de inschrijvingspagina, en het gedeelde
+        detailfragment staat dáár. Dezelfde #644-D-redenering blijft: kies de
+        inschrijving die de handeling kán — een geschrapte toont haar paneel
+        read-only, zonder bewerk-toggle.
 
-        Geeft None als geen enkele kaart bewerkbaar is — dan is het een
+        Geeft None als geen enkele inschrijving bewerkbaar is — dan is het een
         overslaan-geval voor de test, geen bevinding.
         """
-        # #736: begin bij een VERSE pagina. Deze helper wordt ook aangeroepen ná een
-        # bewerking, en dan staat er al een paneel open met een verbruikte
-        # `hx-trigger="click once"`. De klik hieronder haalt dan geen nieuw fragment
-        # op maar klapt dat oude paneel dicht, waarna de test wacht op iets dat nooit
-        # meer zichtbaar wordt — het beeld van de mislukking was letterlijk
-        # `x-data="{ edit: true }"`, verborgen.
-        #
-        # Een verse pagina in plaats van langer wachten: het gaat niet om een trage
-        # verversing maar om een toestand die er al ís. Wachten lost dat niet op, het
-        # verbergt het alleen tot de volgende keer dat de machine druk staat — en dat
-        # is precies waarom dit enkel in de volle suite omviel.
+        # Begin bij een VERSE lijst (#736): de helper wordt ook ná een bewerking
+        # aangeroepen, en de tabel van dat moment kan al ververst zijn.
         self.open()
-        kaarten = self.page.locator(
-            ".bg-white", has=self.page.get_by_role(
-                "button", name="Toon inschrijvingsdetails"))
-        for i in range(kaarten.count()):
-            kaart = kaarten.nth(i)
-            paneel = self.toon_inschrijvingsdetails(kaart)
-            if paneel.get_by_role("button", name="Bewerken").count():
+        links = self.page.locator(
+            '#betalingen-lijst a[href*="/admin/inschrijvingen/"]')
+        hrefs: list[str] = []
+        for i in range(links.count()):
+            href = links.nth(i).get_attribute("href")
+            if href and href not in hrefs:
+                hrefs.append(href)
+        for href in hrefs:
+            self.page.goto(href)
+            # Ankeren op het formulier-id en niet op de Bewerken-knop: locators
+            # her-resolven bij elke actie, en zodra Bewerken geklikt is verbergt
+            # x-show hem — een has=Bewerken-paneel lost dan op naar niets.
+            paneel = self.page.locator(
+                "div.bg-gray-50.border",
+                has=self.page.locator('form[id^="insch-form-"]')).first
+            if paneel.count() and paneel.get_by_role(
+                    "button", name="Bewerken").count():
                 return paneel
         return None
 
 
 class Inschrijvingsdetail:
-    """Het gedeelde detail/editor-fragment onder een betaalkaart.
+    """Het gedeelde detail/editor-fragment (#455/#613), sinds golf 10 op de
+    inschrijvingspagina zelf.
 
-    Krijgt het paneel mee i.p.v. de hele pagina: op het betalingenscherm staan
-    meerdere kaarten met elk hun eigen "Bewerken" en "Opslaan", en `.first` op de
-    pagina belandde in de verkeerde.
+    Krijgt het paneel mee i.p.v. de hele pagina, zodat de bewerkingen binnen
+    het fragment blijven en niet in een ander element met dezelfde knoppen.
     """
 
     def __init__(self, paneel):

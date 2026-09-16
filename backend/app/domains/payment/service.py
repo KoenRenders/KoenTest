@@ -766,31 +766,65 @@ def matches_filter(record, *, context: str = "all", status: str = "all", q: str 
     # blijft werken, zodat een bestaande link of export-URL niet stil iets anders
     # gaat tonen.
     if openstaand or status == "openstaand":
-        # Openstaand komt uit het saldo, niet uit de statuskolom: betaald =
-        # waarheid (#198).
-        #
-        # Op de ABSOLUTE waarde (#668). De oude vergelijking ging uit van één
-        # richting: bij een vordering is amount positief, dus `amount - betaald`
-        # is positief zolang er iets openstaat. Bij een terugbetaling is amount
-        # NEGATIEF — een openstaande refund van 10 gaf -10, kleiner dan de
-        # drempel, en verdween uit het filter. Op HDEV waren zo veertien
-        # openstaande terugbetalingen onzichtbaar, een derde van alles wat
-        # openstond. Geld dat de vereniging nog moet uitbetalen.
-        #
-        # abs() is hier niet ruwer maar preciezer, en het haalt een tweede geval
-        # boven water: een TE VEEL betaalde vordering heeft ook een negatief
-        # verschil en was even onzichtbaar, terwijl die net actie vraagt.
-        if abs(_bedrag(record.amount) - _bedrag(record.amount_paid)) <= _SALDO_DREMPEL:
+        if not saldo_open(record):
             return False
     if status in ("pending", "paid", "failed", "cancelled"):
         return record.status == status
     return True
 
 
+def saldo_open(record) -> bool:
+    """Staat er op dit record nog saldo open?
+
+    Openstaand komt uit het saldo, niet uit de statuskolom: betaald = waarheid
+    (#198). Op de ABSOLUTE waarde (#668): een terugbetaling heeft een NEGATIEF
+    bedrag, dus de eenrichtingsvergelijking liet veertien openstaande refunds
+    (en elke te veel betaalde vordering) uit het filter vallen. Gedeeld door
+    matches_filter en de zichten (golf 10, #913) — twee eigen kopieën van deze
+    drempeltest zouden precies de duplicatiefout uit CLAUDE.md zijn.
+    """
+    return abs(_bedrag(record.amount) - _bedrag(record.amount_paid)) > _SALDO_DREMPEL
+
+
+ZICHTEN = ("alle", "openstaand", "betaald", "terugbetaald")
+
+
+def matches_zicht(record, zicht: str) -> bool:
+    """Golf 10 (#913): de statustabs boven de betalingenlijst.
+
+    Een zicht is een AFGELEIDE doorsnede naast de statuskolom — het combineert
+    met EN met de andere filters, precies de #669-les. 'openstaand' deelt de
+    saldotest met het oude schakelaar-erfgoed; 'betaald' is vereffend volgens
+    derived_status; 'terugbetaald' is het refund-type, ongeacht status.
+    """
+    if zicht == "openstaand":
+        return saldo_open(record)
+    if zicht == "betaald":
+        return derived_status(record) == "paid"
+    if zicht == "terugbetaald":
+        return getattr(record, "type", None) == "refund"
+    return True
+
+
+def apply_zicht(records, zicht: str) -> list:
+    """Het zicht toepassen op een al gefilterde set. Los aanroepbaar zodat het
+    scherm eerst zonder zicht kan tellen (de tab-aantallen) en daarna dezelfde
+    doorsnede toont die filter_records en de export maken."""
+    if zicht in ("", "alle"):
+        return list(records)
+    return [r for r in records if matches_zicht(r, zicht)]
+
+
+def count_zichten(records) -> dict:
+    """Aantal records per zicht, over de zicht-loze (wel gefilterde) set —
+    de getallen op de tabs."""
+    return {z: sum(1 for r in records if matches_zicht(r, z)) for z in ZICHTEN}
+
+
 def filter_records(records, *, context: str = "all", status: str = "all", q: str = "",
                    openstaand: bool = False, record_id: str = "",
                    registration_id: str = "",
-                   payables: set | None = None) -> list:
+                   payables: set | None = None, zicht: str = "alle") -> list:
     """#704: `record_id` toont één betaling, ongeacht de andere filters.
 
     Een werkbanktaak linkt hierheen. Bewust een FILTER en geen anker: de lijst wordt
@@ -819,10 +853,11 @@ def filter_records(records, *, context: str = "all", status: str = "all", q: str
                    if (r.payable_type, r.payable_id) in payables]
     doel = (record_id or "").strip()
     if doel:
+        # #704 is een schijnwerper, geen filter: het zicht geldt er niet op.
         return [r for r in records if str(r.id) == doel]
-    return [r for r in records
-            if matches_filter(r, context=context, status=status, q=q,
-                              openstaand=openstaand)]
+    return apply_zicht([r for r in records
+                        if matches_filter(r, context=context, status=status, q=q,
+                                          openstaand=openstaand)], zicht)
 
 
 def aggregate(records) -> dict:

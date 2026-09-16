@@ -82,5 +82,8 @@ class AdminActiviteitInschrijvingenView(ViewModel):
     # A7-retourcontext (url-ge-encodeerd) die de naamlinks meegeven.
     terug: str
     record_tabs: list[dict[str, Any]]
+    # Golf 10 (#913): staat de beheer-assistent aan? Stuurt de
+    # "AI · Activiteit"-knop in de recordkop.
+    raakje_admin: bool
     csrf_token: str
     nav_items: list[dict[str, Any]] = field(default_factory=list)
