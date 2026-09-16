@@ -218,8 +218,11 @@ shows a **direction**, not the scope of the first release (§3.10).
    **Replies go to the association by default, and the sender may choose**
    (Koen, 16 September 2026). The send dialog offers *antwoorden naar de
    vereniging* (pre-selected) or *antwoorden naar mezelf*. The association
-   address is the organisation's e-mail contact (`mdm` contact details,
-   #945), not a new setting. This differs from the meeting mails, whose
+   address is the sender address from the tenant configuration
+   (`gmail_from`; Koen, 16 September 2026), so *antwoorden naar de
+   vereniging* simply means replies go to the address the mail came from.
+   No new setting. (The organisation also carries an e-mail contact on
+   `/admin/organisaties`; the newsletter does not read it.) This differs from the meeting mails, whose
    replies go to the secretary (CR-09 §3.24): a board mail is a conversation
    between people, a newsletter speaks for the association.
    Consequence, accepted with the choice: the daily limit of §3.7 is that
@@ -540,8 +543,8 @@ leaves: an address that unsubscribed in the meantime is `skipped`.
    Gmail pauses the send until the next day and marks no delivery as
    failed.
 9. An address that unsubscribes during a running send is skipped. Replies
-   go to the association's e-mail contact unless the sender chose their own
-   address.
+   go to the tenant's sender address (`gmail_from`) unless the sender chose
+   their own address.
 10. The test mail goes only to the signed-in admin and does not change the
     letter's status.
 11. A drafting payload contains no recipient address and no known person
