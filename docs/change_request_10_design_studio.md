@@ -4,8 +4,9 @@
 **Status:** Shaped with Koen on 16 September 2026 (brainstorm on
 `feature/designstudio`). Not assigned to a release. Decisions in §3 are
 settled unless marked *open*; §8 lists what still needs Koen.
-**Apply to:** a new `designstudio` domain (backend + admin screens), two
-columns and a contacts table on `activities`, two new media kinds, and the
+**Apply to:** a new `designstudio` domain (backend + admin screens), three
+columns and a contacts table on `activities` (one of them a registration
+deadline the form enforces), two new media kinds, and the
 name search moving into MDM. Rendering reuses
 WeasyPrint (#258); text proposals reuse the Mistral provider (chatbot).
 
@@ -352,12 +353,54 @@ later" is an edit plus a re-render.
 undefined column reintroduces the ambiguity. Whether to remove it is outside
 this CR.
 
-A **registration deadline** appears in the examples, but a deadline that
-only exists on a poster is a promise the registration form does not keep.
-See §8.
+A **registration deadline** is added as a real rule — see §3.8a.
 
 A recurrence engine is **not** added. The concrete dates are the existing
 `ActivityDate` rows. The phrase "every 2nd Monday" is design text.
+
+### 3.8a A registration deadline that the form enforces
+
+Koen, 16 September 2026: some activities have a deadline (bowling, a wine
+estate visit, …). Today it cannot be entered, and **after that date,
+registering must no longer be possible**. A deadline printed only on a
+poster would be a promise the form does not keep, so the deadline is a rule
+of the activities domain first, and a poster field second.
+
+- **One field on the activity:** `registration_closes_on` (a date, null for
+  no deadline). The date is **inclusive**: registering is possible through
+  the end of that day, Belgian time.
+  - It is an activity-level date, because the examples (bowling, wine
+    estate) are activity-wide.
+  - A deadline per component is not added until an activity needs one.
+- **The service decides whether registration is open.** Today the
+  "no longer open for registration" check (no future date left) sits inline
+  in the registration route, and the public card works out by itself
+  whether to show the button. With a second reason to be closed, both
+  conditions move into **one service function**. The route and the public
+  screens call it, so they can never disagree about whether an activity is
+  open.
+- **Enforced on every path that creates a registration.** The public form
+  and the JSON API refuse a registration after the deadline with a clear
+  message, not a generic 400.
+  - Corrections in the back office to *existing* registrations stay
+    possible. They are corrections, not new registrations.
+- **Public screens.** After the deadline, the activity card shows
+  "Inschrijvingen afgesloten" instead of the registration button, the same
+  mechanism as the 'Volzet' badge (#451). The link to an **external
+  registration form** is hidden as well. The external form itself cannot be
+  closed from here.
+- **Before the deadline**, the card and the modal say "Inschrijven kan tot
+  <date>".
+- **On the poster**, the registration block prints "Inschrijven tot <date>"
+  when the field is set. The date is part of the stale fingerprint
+  (§3.14).
+- **Server date.** The existing check uses `date.today()`, which follows the
+  container's time zone. The shared function uses the Belgian date
+  explicitly, so a deadline does not close at 01:00 or 02:00 local time
+  instead of midnight.
+
+This part changes registration behaviour and **ships on its own**, ahead
+of the Design Studio (§6, phase 0). It gets its own issue.
 
 ### 3.9 Contacts belong to the activity: a member or the association
 
@@ -565,8 +608,9 @@ designstudio.image_generations      -- audit + quota
   requested_by, requested_at
 
 activities.activities
-  + tagline      varchar(90)  null
-  + description  text         null
+  + tagline                 varchar(90)  null
+  + description             text         null
+  + registration_closes_on  date         null   -- inclusive, Belgian date (§3.8a)
 
 activities.activity_contacts        -- ordered; a member or the association
   id, tenant_id, activity_id, sort_order,
@@ -608,6 +652,13 @@ switch, default off).
 
 Each phase ships on its own.
 
+0. **Registration deadline** (§3.8a). This phase is independent of the
+   Design Studio and useful without it:
+   - the field on the activity;
+   - one service function that decides "open for registration";
+   - enforcement in the registration route;
+   - the closed state and the "until" line on the public screens;
+   - the admin field.
 1. **Engine and first template.**
    - Domain, the two activity fields, the media kinds, and the house-style
      constant with its gate.
@@ -655,6 +706,14 @@ The tests must be able to go red:
 - changing an activity date marks its final design stale — tested through
   the activity service, not by calling the fingerprint function directly;
 - changing an activity's contacts also marks its final design stale;
+- a registration at 23:30 Belgian time on the deadline day is accepted
+  through the public route;
+- one at 00:30 Belgian time the next day is refused, even though the UTC
+  date is then still the deadline day (summer time);
+- after the deadline, the public card shows "Inschrijvingen afgesloten" and
+  neither the registration button nor the external link;
+- a back-office correction to an existing registration still succeeds
+  after the deadline;
 - an override wins over the member's own number, and removing the override
   brings the member's number back;
 - an association contact renders website, e-mail and mobile, and no name;
@@ -671,17 +730,13 @@ The tests must be able to go red:
 
 ## 8. Open questions
 
-1. **Registration deadline.** Add a real `registration_closes_on` that the
-   registration form enforces, so the poster can print "until …"? That is
-   new behaviour, outside the poster, with its own issue. Or leave the
-   deadline out of the posters for now?
-2. **Default AI quota.** How many generations per unit per month? (One
+1. **Default AI quota.** How many generations per unit per month? (One
    request = four images, about $0.12–0.20.)
-3. **Who is a member (§3.9)?** Every person in a household, or only a
+2. **Who is a member (§3.9)?** Every person in a household, or only a
    household with a paid membership for the current year?
-4. **Contacts on the website (§3.9).** Show the activity's contacts on the
+3. **Contacts on the website (§3.9).** Show the activity's contacts on the
    public activity page as well, or only on posters and social images?
-5. **Neutral lockup as SVG.** Can Raak supply the neutral lockup ("Beleef
+4. **Neutral lockup as SVG.** Can Raak supply the neutral lockup ("Beleef
    meer!") as SVG? Until then the PNGs serve (§3.3).
 
 ## Non-goals
