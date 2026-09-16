@@ -1,0 +1,13 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ gezinslabel(family) }} — {{ _("Inschrijvingen") }}{% endblock %}
+{% block content %}
+{# De Inschrijvingen-tab van de gezinspagina (Koen, 15 sep — verving de
+   Wijzigingen-tab): per activiteit gegroepeerd, via hetzelfde gedeelde
+   sjabloon als de activiteitstab (unificatievraag van diezelfde dag) — de
+   spronglink in de groepskop opent de activiteit, de Onderdeel-kolom staat
+   hier wél (de groep legt hem niet vast). #}
+<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="/admin/leden">{{ _("‹ Alle leden") }}</a></p>
+{% include "_leden_recordkop.html" %}
+{% include "_inschrijvingen_groepen.html" %}
+{% endblock %}

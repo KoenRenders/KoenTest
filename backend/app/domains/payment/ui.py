@@ -238,7 +238,11 @@ def _view(request: Request, db: Session, email: str,
     charges = [r for r in zichtbaar if r.type != "refund"]
     refunds = [r for r in zichtbaar if r.type == "refund"]
     m_bet, m_ref = aggregate(charges), aggregate(refunds)
-    m_net = {k: m_bet[k] - m_ref[k] for k in ("due", "paid", "saldo")}
+    # Terugbetalingen staan al NEGATIEF in de records (create_refund bewaart
+    # -bedrag), dus netto is een OPTELSOM. De oude aftrekking telde ze dubbel:
+    # 18 − (−9) = 27, terwijl de totaalregels onderaan (aggregate over alle
+    # records van een groep) correct 9 zeiden (HDEV-melding Koen, 15 sep).
+    m_net = {k: m_bet[k] + m_ref[k] for k in ("due", "paid", "saldo")}
 
     def _kaart(rec) -> dict:
         """Per kaart de geldregel én of ze verwijderbaar is (#617-2a).

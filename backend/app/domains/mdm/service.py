@@ -377,9 +377,9 @@ def new_members_between(db: Session, start: date, end: date) -> list[dict]:
 
 def gezin_tabs(db, family, viewer_email: str, actief: str) -> list[dict]:
     """De tabbalk van de gezins-recordpagina (golf 9, #913) — zelfde patroon
-    als activities.record_tabs: P13 in tabvorm. Betalingen alleen met FINANCE
-    (#544); Wijzigingen zonder aantal — de feed over tien history-tabellen
-    materialiseren voor één getal is de prijs niet waard. Lokale imports:
+    als activities.record_tabs: P13 in tabvorm. Overzicht · Inschrijvingen N ·
+    Betalingen N (dat laatste alleen voor wie betalingen mag zien, #544).
+    De Wijzigingen-tab verviel op Koens vraag (15 sep). Lokale imports:
     auth en payment importeren zelf uit mdm."""
     from app.i18n import _
     from app.domains.auth.api import may_view_payments
@@ -389,16 +389,79 @@ def gezin_tabs(db, family, viewer_email: str, actief: str) -> list[dict]:
         {"label": _("Overzicht"),
          "href": f"/admin/leden/gezin/{family.id}",
          "active": actief == "overzicht"},
+        {"label": _("Inschrijvingen") + f" {family_registration_count(db, family.id)}",
+         "href": f"/admin/leden/gezin/{family.id}/inschrijvingen",
+         "active": actief == "inschrijvingen"},
     ]
     if may_view_payments(db, viewer_email):
         n = count_records_for_family(db, family.id)
         tabs.append({"label": _("Betalingen") + f" {n}",
                      "href": f"/admin/leden/gezin/{family.id}/betalingen",
                      "active": actief == "betalingen"})
-    tabs.append({"label": _("Wijzigingen"),
-                 "href": f"/admin/leden/gezin/{family.id}/wijzigingen",
-                 "active": actief == "wijzigingen"})
     return tabs
+
+
+def _family_registration_ids(db, family_id: int) -> list[int]:
+    """De inschrijving-ids van een gezin — via dezelfde payable-verzameling
+    als de Betalingen-tab (person_id + e-mail-terugval, family_payables is
+    de ene bron voor "hoort deze inschrijving bij dit gezin")."""
+    from app.domains.payment.api import family_payables
+
+    return [i for t, i in family_payables(db, family_id) if t == "registration"]
+
+
+def family_registration_count(db, family_id: int) -> int:
+    """Het getal op de Inschrijvingen-tab: één COUNT, zonder geschrapte
+    inschrijvingen — dit is een deelnamelijst, geen financieel feit."""
+    from sqlalchemy import func
+    from app.domains.activities.api import Registration
+
+    ids = _family_registration_ids(db, family_id)
+    if not ids:
+        return 0
+    return db.query(func.count(Registration.id)).filter(
+        Registration.id.in_(ids)).scalar() or 0
+
+
+def family_registrations(db, family_id: int, sort: str = "datum",
+                         richting: str = "asc") -> list[dict]:
+    """De inschrijvingen van een gezin, per activiteit gegroepeerd (feedback
+    15 sep, verving de Wijzigingen-tab): recentste activiteit eerst. De
+    groepen volgen het contract van `_inschrijvingen_groepen.html` — het
+    gedeelde sjabloon met de activiteitstab (unificatie, zelfde dag) — en
+    binnen elke groep sorteert dezelfde whitelist-helper als daar."""
+    from app.domains.activities.api import (
+        Registration, enrich_registration, sorteer_inschrijvingen,
+    )
+
+    ids = _family_registration_ids(db, family_id)
+    if not ids:
+        return []
+    regs = (db.query(Registration).filter(Registration.id.in_(ids))
+            .order_by(Registration.id.desc()).all())
+    per_activiteit: dict = {}
+    for reg in regs:
+        # Defensief: een inschrijving waarvan de activiteit niet meer zichtbaar
+        # is (soft-deleted) hoort de tab niet te laten crashen; ze staat dan
+        # ook niet in een deelnamelijst.
+        if reg.activity is None:
+            continue
+        per_activiteit.setdefault(reg.activity, []).append(
+            enrich_registration(reg, reg.activity))
+
+    def _laatste_datum(activity):
+        datums = [(d.end_date or d.start_date) for d in activity.dates
+                  if d.start_date or d.end_date]
+        return max(datums) if datums else None
+
+    groepen = [{"naam": a.name, "aantal": len(rijen),
+                "regs": sorteer_inschrijvingen(rijen, sort, richting)[0],
+                "titel_url": f"/admin/activiteiten/{a.id}",
+                "export_href": None, "datum": _laatste_datum(a)}
+               for a, rijen in per_activiteit.items()]
+    groepen.sort(key=lambda g: (g["datum"] is not None, g["datum"] or date.min),
+                 reverse=True)
+    return groepen
 
 
 def create_person_for_circle(db: Session, *, first_name: str, last_name: str,
