@@ -322,8 +322,9 @@ by the status choice; convert one and the field shows two notations.
     Koen, 16 Sep 2026: links only come with a portal-wide pass.
   - **The name is plain text** when it is a person's name on a row whose
     record is something else (a booking): a name-link reads as "go to the
-    person" (Koen, 16 Sep 2026). The row's **Details** button opens the
-    record page instead, on the parent row only.
+    person" (Koen, 16 Sep 2026). The row carries a button NAMED AFTER the
+    record it opens ("Inschrijving") instead, on the parent row only —
+    "Details" would read as details of the row itself (the payment).
   - Row editors expand as a row beneath the record (`ui.edit_toggle` with
     `waarde=` for lists where one holder marks the open record); Verwijderen
     (far left) and content actions live in that editor row, per A2.

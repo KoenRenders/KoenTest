@@ -103,11 +103,12 @@
        even breed, dus rechts vormt hij een strakke kolom — de wisselende
        snelactie staat ernaast links. #}
     <div class="flex justify-end gap-2 whitespace-nowrap">
-      {# "Details" opent de inschrijvingspagina — de expliciete opvolger van
-         "Toon inschrijvingsdetails". Alleen op de hoofdregel: de kind- en
-         extra-rijen horen bij dezelfde inschrijving. #}
+      {# "Inschrijving" opent de inschrijvingspagina — de opvolger van "Toon
+         inschrijvingsdetails". Niet "Details" (feedbackronde 4, Koen): dat
+         leest als de details van de BETALING. Alleen op de hoofdregel: de
+         kind- en extra-rijen horen bij dezelfde inschrijving. #}
       {% if r.payable_type == "registration" and r.payable_id and not (kind or k.get('is_extra')) %}
-      {{ ui.btn_secondary(_("Details"), size="xs", href="/admin/inschrijvingen/" ~ r.payable_id ~ "?terug=/admin/betalingen") }}
+      {{ ui.btn_secondary(_("Inschrijving"), size="xs", href="/admin/inschrijvingen/" ~ r.payable_id ~ "?terug=/admin/betalingen") }}
       {% endif %}
       {# #661: de snelkoppeling voor het meest voorkomende geval, met label én
          vraag per type — op een terugbetaling vertrekt er geld. #}
