@@ -155,7 +155,7 @@ The chatbot brief that produced the first two posters asks for:
 | Registration: link, QR code, deadline | 2 | activity |
 | Contact: website, e-mail, contact persons | 4 | organisation + chosen persons |
 | Supporter / funder logos | 2 | media, kind `sponsor` |
-| Responsible publisher (V.U.) | 1 | unit setting |
+| Responsible publisher (V.U.) | 1 | out of scope for now (§3.10) |
 | Image slot, optional inset image | 4 | design |
 
 ## 2. What exists to build on
@@ -366,15 +366,14 @@ show.
 This is personal data printed in public. The editor says so next to the
 picker, and a person's details are never sent to an LLM (§5).
 
-### 3.10 Responsible publisher on print
+### 3.10 Responsible publisher — out of scope for now
 
-Belgian printed matter distributed in public carries a responsible
-publisher (V.U.: name and address). One of the examples has one; the
-others do not.
+One of the examples carries a responsible publisher (V.U.: name and
+address); the others do not. **Koen put the V.U. out of scope on
+16 September 2026.** No setting, no block, no warning.
 
-The V.U. is **a unit setting** (`print_publisher`, a tenant setting). It is
-rendered on the print layouts only and never on social images. If it is not
-set, the print render shows a warning.
+If it comes back, the shape is already clear: it would be a unit setting,
+rendered on the print layout only and never on social images.
 
 ### 3.11 Images: three sources, one media kind
 
@@ -543,7 +542,7 @@ Codes (`duo_code`, `layout_code`, `icon_code`) are validated in code against
 the constants of §3.3 and the template's icon subset. There are no
 cross-schema foreign keys, as elsewhere.
 
-Tenant settings: `print_publisher`, `ai_image_monthly_quota`.
+Tenant setting: `ai_image_monthly_quota`.
 Environment: `BFL_API_KEY`, `DESIGNSTUDIO_AI_IMAGES_ENABLED` (the kill
 switch, default off).
 
@@ -557,7 +556,7 @@ switch, default off).
 
 - **Uploaded photos and archive photos are never sent to BFL** (no image
   editing of member photos). Doing that would be a separate decision.
-- Contact persons and the V.U. are rendered locally and never sent anywhere.
+- Contact persons are rendered locally and never sent anywhere.
 - BFL's zero-retention option is an enterprise offer. The standard API keeps
   results for about 10 minutes.
 
@@ -572,7 +571,7 @@ Each phase ships on its own.
      family), with the `print_a` (borderless home PDF), `feed_portrait`, `square`
      and `landscape` layouts.
    - Images from upload or archive, QR code, contact persons, supporter
-     logos, V.U.
+     logos.
    - Draft, final, stale; the final design becomes the poster and share
      image; downloads.
    - Logo upload with sanitising.
@@ -624,9 +623,7 @@ The tests must be able to go red:
    deadline out of the posters for now?
 2. **Default AI quota.** How many generations per unit per month? (One
    request = four images, about $0.12–0.20.)
-3. **V.U.** Which name and address, per unit? This is entered as a setting
-   on the server, never in this repository.
-4. **Neutral lockup as SVG.** Can Raak supply the neutral lockup ("Beleef
+3. **Neutral lockup as SVG.** Can Raak supply the neutral lockup ("Beleef
    meer!") as SVG? Until then the PNGs serve (§3.3).
 
 ## Non-goals
@@ -640,6 +637,7 @@ The tests must be able to go red:
 - Templates that units edit themselves.
 - Text inside AI images.
 - Print-shop output: bleed, crop marks, CMYK/PDF-X (§3.5).
+- The responsible publisher (V.U.) on print (§3.10).
 
 ## Relationship to existing work
 
