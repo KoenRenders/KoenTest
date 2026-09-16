@@ -44,6 +44,54 @@ class UserUpdate(BaseModel):
 # dat wordt afgeleid uit het leden-domein (e-mail -> Person) en heeft geen
 # user-record nodig.
 
+def _actieve_werkruimte() -> int:
+    from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
+
+    return current_tenant_id.get() or DEFAULT_TENANT_ID
+
+
+def _ken_rollen_toe(db: Session, user_id: int, codes: List[str],
+                    actor_roles: set | None) -> None:
+    """Vervang de rollen van een gebruiker BINNEN de actieve werkruimte (#963).
+
+    Rijen van andere werkruimtes blijven onaangeroerd — ADMIN van werkruimte A
+    beheert werkruimte B niet (Koens besluit 3). OPERATOR is de platformbrede
+    rij (tenant_id NULL, besluit 1) en mag alleen door een OPERATOR gezet of
+    weggenomen worden; een ADMIN die hem probeert toe te kennen krijgt een
+    403 in plaats van een stille escalatie."""
+    from app.domains.auth.models import UserRole
+
+    actief = _actieve_werkruimte()
+    nieuwe = set(codes)
+    mag_operator = bool(actor_roles and "OPERATOR" in actor_roles)
+    platform_rij = (db.query(UserRole)
+                    .filter(UserRole.user_id == user_id,
+                            UserRole.role_code == "OPERATOR",
+                            UserRole.tenant_id.is_(None)).first())
+    if "OPERATOR" in nieuwe and platform_rij is None and not mag_operator:
+        raise HTTPException(
+            status_code=403,
+            detail=_("Alleen een OPERATOR kan de OPERATOR-rol toekennen."))
+    db.query(UserRole).filter(UserRole.user_id == user_id,
+                              UserRole.tenant_id == actief).delete()
+    for code in nieuwe - {"OPERATOR"}:
+        db.add(UserRole(user_id=user_id, role_code=code, tenant_id=actief))
+    if mag_operator:
+        if "OPERATOR" in nieuwe and platform_rij is None:
+            db.add(UserRole(user_id=user_id, role_code="OPERATOR",
+                            tenant_id=None))
+        elif "OPERATOR" not in nieuwe and platform_rij is not None:
+            db.delete(platform_rij)
+
+
+def _actor_roles(db: Session, admin) -> set | None:
+    """Rollen van de handelende beheerder, of None wanneer die onbekend is
+    (dan geldt de strengste lezing: geen OPERATOR-bevoegdheid)."""
+    from app.domains.auth.service import get_user_roles
+
+    return get_user_roles(db, admin.email) if admin is not None else None
+
+
 def _validate_role_codes(db: Session, codes: List[str]) -> None:
     """Rolcodes valideren tegen de codetabel. Sinds migratie 076 is er bewust
     geen FK meer naar public.role_codes (§8: geen cross-schema FK's) — deze
@@ -71,8 +119,7 @@ def create_user(body: UserCreate, db: Session = Depends(get_db), _admin=Depends(
     user = User(email=body.email, is_active=body.is_active)
     db.add(user)
     db.flush()
-    for code in body.role_codes:
-        db.add(UserRole(user_id=user.id, role_code=code))
+    _ken_rollen_toe(db, user.id, body.role_codes, _actor_roles(db, _admin))
     db.commit()
     db.refresh(user)
     return user
@@ -92,9 +139,7 @@ def update_user(user_id: int, body: UserUpdate, db: Session = Depends(get_db), _
         user.is_active = body.is_active
     if body.role_codes is not None:
         _validate_role_codes(db, body.role_codes)
-        db.query(UserRole).filter(UserRole.user_id == user_id).delete()
-        for code in body.role_codes:
-            db.add(UserRole(user_id=user_id, role_code=code))
+        _ken_rollen_toe(db, user_id, body.role_codes, _actor_roles(db, _admin))
     db.commit()
     db.refresh(user)
     return user

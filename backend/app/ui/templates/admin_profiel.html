@@ -2,19 +2,30 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Mijn profiel") }} — {{ _("Raak beheer") }}{% endblock %}
 {% block content %}
-{# Mijn profiel (golf 9, #913): read-only — wie ben ik en wat mag ik. Zolang
-   het rolmodel geen werkruimte-dimensie kent (#963), zegt de pagina er
-   eerlijk bij dat de rollen werkruimte-breed gelden. #}
+{# Mijn profiel (golf 9, #913 / #963): read-only — wie ben ik en wat mag ik,
+   pér werkruimte. Platformbrede rollen (vandaag alleen OPERATOR) staan apart:
+   ze gelden overal en horen niet bij één werkruimte te liegen. #}
 {{ ui.page_header(_("Mijn profiel")) }}
 {% call ui.card() %}
   <dl class="text-sm space-y-2 max-w-md">
     <div class="flex justify-between gap-4"><dt class="text-ink-soft">{{ _("E-mailadres") }}</dt>
       <dd>{{ profiel_email }}</dd></div>
-    <div class="flex justify-between gap-4"><dt class="text-ink-soft">{{ _("Werkruimte") }}</dt>
+    <div class="flex justify-between gap-4"><dt class="text-ink-soft">{{ _("Actieve werkruimte") }}</dt>
       <dd>{{ werkruimte_naam() }}</dd></div>
+    {% if profiel_platform_rollen %}
+    <div class="flex justify-between gap-4"><dt class="text-ink-soft">{{ _("Platformbreed") }}</dt>
+      <dd class="flex flex-wrap gap-1 justify-end">{% for rol in profiel_platform_rollen %}{{ ui.badge(rol, "blue") }}{% endfor %}</dd></div>
+    {% endif %}
+    {% for wr in profiel_werkruimtes %}
+    <div class="flex justify-between gap-4"><dt class="text-ink-soft">{{ wr.naam }}</dt>
+      <dd class="flex flex-wrap gap-1 justify-end">{% for rol in wr.rollen %}{{ ui.badge(rol, "blue") }}{% endfor %}</dd></div>
+    {% else %}
+    {% if not profiel_platform_rollen %}
     <div class="flex justify-between gap-4"><dt class="text-ink-soft">{{ _("Rollen") }}</dt>
-      <dd class="flex flex-wrap gap-1 justify-end">{% for rol in profiel_rollen %}{{ ui.badge(rol, "blue") }}{% else %}<span class="text-ink-soft">—</span>{% endfor %}</dd></div>
+      <dd class="text-ink-soft">—</dd></div>
+    {% endif %}
+    {% endfor %}
   </dl>
-  <p class="text-xs text-ink-soft mt-4">{{ _("Rollen gelden vandaag voor alle werkruimtes; rollen per werkruimte staan gepland (#963).") }}</p>
+  <p class="text-xs text-ink-soft mt-4">{{ _("Een rol geldt in de werkruimte waar hij staat; platformbrede rollen gelden overal (#963).") }}</p>
 {% endcall %}
 {% endblock %}

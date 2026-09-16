@@ -16,7 +16,9 @@
                         required=True, cls="font-medium min-w-56",
                         aria_label=_("E-mailadres")) }}
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="is_active" value="1" {% if u.is_active %}checked{% endif %}> {{ _("Actief") }}</label>
-    {% set user_roles = u.roles | map(attribute="role_code") | list %}
+    {# #963: de rollen in de ACTIEVE werkruimte (incl. platformbrede), uit de
+       route — u.roles zelf draagt álle werkruimtes en zou hier te veel tonen. #}
+    {% set user_roles = rollen_hier[u.id] %}
     {% for rc in role_codes %}
     <label class="flex items-center gap-2 text-sm"><input type="checkbox" name="role_codes" value="{{ rc.code }}" {% if rc.code in user_roles %}checked{% endif %}> {{ rc.code }}</label>
     {% endfor %}

@@ -44,22 +44,31 @@ def _filters_uit(form) -> dict:
 
 
 def _lijst_ctx(request: Request, db: Session, q: str = "", rol: str = "",
-               actief: str = "") -> dict:
+               actief: str = "", viewer_email: str = "") -> dict:
     """Records-lijst (C1, #589): zoeken op e-mail + filter op rol en actief-status.
 
     Backoffice-accounts zijn er tientallen, geen duizenden — filteren gebeurt op
     de opgehaalde lijst, in dezelfde stijl als de andere lijstschermen.
+
+    Sinds #963 werkruimte-bewust: getoond en gefilterd worden de rollen in de
+    ACTIEVE werkruimte (plus de platformbrede NULL-rijen), en het
+    OPERATOR-vinkje bestaat alleen voor wie zelf OPERATOR is — een ADMIN kent
+    rollen toe binnen zijn werkruimte, niet daarboven.
     """
     from app.domains.auth.api import list_assignable_roles
     from app.domains.auth.users import list_users
+    from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
 
+    actieve_werkruimte = current_tenant_id.get() or DEFAULT_TENANT_ID
     users = list_users(db=db, _admin=None)
+    rollen_hier = {u.id: {r.role_code for r in u.roles
+                          if r.tenant_id in (None, actieve_werkruimte)}
+                   for u in users}
     term = q.strip().lower()
     if term:
         users = [u for u in users if term in (u.email or "").lower()]
     if rol:
-        users = [u for u in users
-                 if rol in [r.role_code for r in u.roles]]
+        users = [u for u in users if rol in rollen_hier[u.id]]
     if actief == "ja":
         users = [u for u in users if u.is_active]
     elif actief == "nee":
@@ -67,9 +76,12 @@ def _lijst_ctx(request: Request, db: Session, q: str = "", rol: str = "",
 
     # Welke rollen toekenbaar zijn (en waarom USER/MEMBER niet) staat in de
     # service — het scherm hoeft die regel niet te kennen (#635 regel 2).
-    rollen = list_assignable_roles(db)
+    is_operator = "OPERATOR" in get_user_roles(db, viewer_email)
+    rollen = [r for r in list_assignable_roles(db)
+              if r.code != "OPERATOR" or is_operator]
     return {"users": users, "q": q, "rol": rol, "actief": actief,
             "gefilterd": bool(term or rol or actief),
+            "rollen_hier": rollen_hier,
             # Chip-opties per request: _() volgt de taal van de tenant.
             "rol_options": [("", _("Alle rollen"))] + [(r.code, r.code) for r in rollen],
             "actief_options": [("", _("Alle accounts")), ("ja", _("Actief")),
@@ -79,9 +91,10 @@ def _lijst_ctx(request: Request, db: Session, q: str = "", rol: str = "",
 
 
 def _lijst_response(request: Request, db: Session, error: str | None = None,
-                    q: str = "", rol: str = "", actief: str = ""):
+                    q: str = "", rol: str = "", actief: str = "",
+                    viewer_email: str = ""):
     """Enkel de kaarten (C1, #589): kop, knop en filterbalk staan op de pagina."""
-    ctx = _lijst_ctx(request, db, q, rol, actief)
+    ctx = _lijst_ctx(request, db, q, rol, actief, viewer_email)
     ctx["error"] = error
     return templates.TemplateResponse(request, "_gu_lijst.html", ctx)
 
@@ -92,9 +105,11 @@ def admin_gebruikers(request: Request, db: Session = Depends(get_db),
                      q: str = "", rol: str = "", actief: str = ""):
     _require_admin(db, email)
     if is_fragment_request(request):
-        return _lijst_response(request, db, q=q, rol=rol, actief=actief)
+        return _lijst_response(request, db, q=q, rol=rol, actief=actief,
+                               viewer_email=email)
     return templates.TemplateResponse(request, "admin_gebruikers.html", {
-        "nav_items": NAV, "error": None, **_lijst_ctx(request, db, q, rol, actief)})
+        "nav_items": NAV, "error": None,
+        **_lijst_ctx(request, db, q, rol, actief, viewer_email=email)})
 
 
 @router.get("/admin/gebruikers/nieuw", response_class=HTMLResponse)
@@ -112,7 +127,7 @@ def gebruiker_nieuw(request: Request, db: Session = Depends(get_db),
         "nav_items": NAV,
         "csrf_token": csrf_from_request(request),
         "error": None,
-        **_lijst_ctx(request, db),
+        **_lijst_ctx(request, db, viewer_email=email),
     })
 
 
@@ -131,10 +146,10 @@ async def gebruiker_aanmaken(request: Request, db: Session = Depends(get_db),
     try:
         create_user(UserCreate(email=nieuw_email,
                                role_codes=[str(c) for c in form.getlist("role_codes")]),
-                    db=db, _admin=None)
+                    db=db, _admin=admin_user_by_email(db, email))
     except HTTPException as exc:
         # Op het aanmaakscherm blijven mét de fout (#627).
-        ctx = _lijst_ctx(request, db, **filters)
+        ctx = _lijst_ctx(request, db, **filters, viewer_email=email)
         ctx["nav_items"] = NAV
         ctx["error"] = str(exc.detail)
         return templates.TemplateResponse(request, "admin_gebruiker_nieuw.html", ctx)
@@ -159,10 +174,11 @@ async def gebruiker_bijwerken(user_id: int, request: Request,
             email=_email or None,
             is_active=bool(form.get("is_active")),
             role_codes=[str(c) for c in form.getlist("role_codes")],
-        ), db=db, _admin=None)
+        ), db=db, _admin=admin_user_by_email(db, email))
     except HTTPException as exc:
-        return _lijst_response(request, db, str(exc.detail), **filters)
-    return _lijst_response(request, db, **filters)
+        return _lijst_response(request, db, str(exc.detail), **filters,
+                               viewer_email=email)
+    return _lijst_response(request, db, **filters, viewer_email=email)
 
 
 @router.post("/admin/gebruikers/{user_id}/verwijderen", response_class=HTMLResponse,
@@ -179,5 +195,6 @@ async def gebruiker_verwijderen(user_id: int, request: Request,
     try:
         delete_user(user_id, db=db, current_admin=admin_user_by_email(db, email))
     except HTTPException as exc:
-        return _lijst_response(request, db, str(exc.detail), **filters)
-    return _lijst_response(request, db, **filters)
+        return _lijst_response(request, db, str(exc.detail), **filters,
+                               viewer_email=email)
+    return _lijst_response(request, db, **filters, viewer_email=email)

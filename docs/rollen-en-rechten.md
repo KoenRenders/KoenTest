@@ -10,11 +10,38 @@
 
 | Rol | Seed | Betekenis | Scope |
 |-----|------|-----------|-------|
-| **ADMIN** | 001 "Beheerder" | Volledige beheerder **binnen één tenant**. | per tenant |
+| **ADMIN** | 001 "Beheerder" | Volledige beheerder **binnen één tenant** — sinds #963 letterlijk: de rolrij draagt de werkruimte. | per tenant |
 | **FINANCE** | 056 "Penningmeester" | **Enkel** betalingen/vorderingen. Verder géén beheer. | per tenant |
 | **OPERATOR** | 087 "Platformbeheerder" | **Platform-superuser**: telt mee voor élke rolcheck (`require_roles`), ziet/beheert alles over **alle tenants**. Enige die tenant-instellingen wijzigt en (toekomstig #546) tenants aanmaakt. | platform |
 | **ACCOUNT_ADMIN** | 087 "Accountbeheerder" | Bedoeld voor "alle units binnen één account". **Nog niet functioneel ingevuld** — geeft vandaag géén algemene toegang (placeholder tot het multi-unit-verhaal). | (account) |
 | ~~MEMBER~~ / ~~USER~~ | 001 | **Dood/legacy** — geen enkele autorisatie hangt eraan; uit de rollenkeuzelijst gefilterd (#521/#458). Lidmaatschap is **data-gedreven** (`Membership`), geen rol. | — |
+
+## Roles per workspace (#963, 16 September 2026)
+
+Since migration 126 a role assignment carries a **workspace dimension**:
+`auth.user_roles.tenant_id` names the workspace the role applies in, and
+`NULL` means **platform-wide** (today only OPERATOR). The consequences, per
+Koen's three decisions of 15 September 2026:
+
+- **ADMIN in workspace A is not ADMIN in workspace B.** `get_user_roles`
+  answers "what may I do *here*": the platform-wide rows plus the rows of the
+  workspace the request resolves to (§7 of the architecture doc — hostname,
+  path prefix, tenant cookie).
+- **OPERATOR is platform-wide** — one `NULL` row, valid in every workspace.
+- **User management is workspace-bound.** The role checkboxes in
+  `/admin/gebruikers` show and replace only the roles of the *active*
+  workspace; assignments in other workspaces are never touched. Granting or
+  revoking OPERATOR requires being OPERATOR yourself — the checkbox is hidden
+  for others and the service layer refuses a forged submission with a 403
+  (`_ken_rollen_toe`, `auth/users.py`).
+- **Existing data** migrated to Raak Millegem (org 2), except the accounts in
+  the `SEED_ALLE_WERKRUIMTES_EMAILS` env var (comma-separated, set per host,
+  never committed), whose non-OPERATOR roles were copied to every workspace.
+- **My profile** (`/admin/profiel`) lists roles per workspace; the account
+  menu offers "Werkruimte wisselen" only when more than one workspace applies
+  (`/admin/werkruimte-wisselen`, links via the path prefix).
+
+Verifying tests: `test_rollen_per_werkruimte.py`.
 
 ## Rol → bevoegdheden
 

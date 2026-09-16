@@ -186,16 +186,16 @@
             <span class="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-700 text-xs font-bold" aria-hidden="true">{{ _account.initialen }}</span>
             <span class="text-sm text-ink">{{ _account.email }}</span>
           </button>
-          {# Golf 9 (#913): het volwaardige accountmenu — Mijn profiel,
-             Werkruimte wisselen (alleen bij meer dan één; vandaag heeft een
-             account er één, dus het item verschijnt pas met het rolmodel per
-             werkruimte, #963), Uitloggen. #}
+          {# Golf 9 (#913)/#963: het accountmenu. De inhoud komt lui van de
+             server zodra het menu zichtbaar wordt (intersect): of "Werkruimte
+             wisselen" bestaat hangt aan de database, en schil-chrome mag geen
+             query per paginaweergave kosten. Tot de swap staat hier de
+             terugval zonder dat item. #}
           <div x-show="acc" x-cloak @click.outside="acc = false"
+               hx-get="/admin/accountmenu" hx-trigger="intersect once"
+               hx-swap="innerHTML"
                class="absolute right-0 mt-1 w-52 rounded-xl border border-line bg-surface shadow-md py-1 z-40">
             <a href="/admin/profiel" class="block px-4 py-2 text-sm text-ink hover:bg-surface-2">{{ _("Mijn profiel") }}</a>
-            {% if _account.werkruimtes|default(1) > 1 %}
-            <a href="/admin/werkruimte-wisselen" class="block px-4 py-2 text-sm text-ink hover:bg-surface-2">{{ _("Werkruimte wisselen") }}</a>
-            {% endif %}
             <div class="border-t border-line my-1"></div>
             <a href="/afmelden" hx-boost="false" class="block px-4 py-2 text-sm text-brand-danger hover:bg-surface-2">{{ _("Uitloggen") }}</a>
           </div>

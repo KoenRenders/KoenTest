@@ -168,12 +168,16 @@ def test_accountmenu_draagt_mijn_profiel(client, db_session):
     assert "Werkruimte wisselen" not in html  # één werkruimte vandaag
 
 
-def test_mijn_profiel_toont_rollen_werkruimtebreed(client, db_session):
+def test_mijn_profiel_toont_rollen_per_werkruimte(client, db_session):
+    """Sinds #963: rollen pér werkruimte, met de platformbrede (OPERATOR,
+    migratie 087) apart — die gelden overal en horen bij geen werkruimte."""
     _login(client)
     html = client.get("/admin/profiel").text
     assert SEEDED_ADMIN_EMAIL in html
-    assert "ADMIN" in html and "FINANCE" in html  # migraties 014/056
-    assert "#963" in html  # de eerlijke kanttekening tot rollen-per-werkruimte
+    assert "Raak Millegem" in html            # de werkruimte-rij (migratie 126)
+    assert "ADMIN" in html and "FINANCE" in html
+    assert "Platformbreed" in html and "OPERATOR" in html
+    assert "#963" in html
 
 
 def test_opslaan_ververst_de_kop_out_of_band(client, db_session):

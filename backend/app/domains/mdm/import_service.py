@@ -571,7 +571,10 @@ def _create_admin_users(db: Session, all_bl_names: list[str], bl_index: dict,
             user = User(email=best["email"], is_active=True)
             db.add(user)
             db.flush()
-            db.add(UserRole(user_id=user.id, role_code="ADMIN"))
+            from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
+
+            db.add(UserRole(user_id=user.id, role_code="ADMIN",
+                            tenant_id=current_tenant_id.get() or DEFAULT_TENANT_ID))
             db.flush()
 
 
