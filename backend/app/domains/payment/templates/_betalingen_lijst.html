@@ -40,12 +40,14 @@
 
 {# Statustabs met aantallen (golf 10, #913). In het fragment, zodat de
    aantallen elke filterwissel meebewegen; elke tab draagt zijn volledige
-   filterstand in zijn eigen URL — geen hx-include-samenloop met de balk. De
+   filterstand in zijn eigen URL. hx-include="unset" is verplicht: de tabs
+   staan in #betalingen-lijst en zouden anders diens include-form erven,
+   waarvan het oude zicht-veld het nieuwe uit de tab-URL overschrijft. De
    href is de volwaardige pagina (werkt zonder JS), de hx-get het fragment. #}
 {% set _tabitems = [] %}
 {% for z in zichten %}
 {% set _ignore = _tabitems.append({"label": z.label, "href": z.page_url, "active": z.actief, "count": z.count,
-                                   "attrs": 'hx-get="' ~ z.url ~ '" hx-target="#betalingen-lijst" hx-swap="innerHTML"'}) %}
+                                   "attrs": 'hx-get="' ~ z.url ~ '" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset"'}) %}
 {% endfor %}
 {{ ui.tabs(_tabitems) }}
 
@@ -90,27 +92,22 @@
   <td class="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">{% if k.ontvangen is not none %}€ {{ k.ontvangen|geld }}{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
   <td class="px-3 py-2.5 text-right tabular-nums whitespace-nowrap">{% if k.saldo is not none %}<strong class="{{ 'text-orange-700' if k.saldo > 0 else ('text-teal-700' if k.saldo < 0 else 'text-ink-soft') }}">€ {{ k.saldo|geld }}</strong>{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
   <td class="px-3 py-2.5">
-    {# Een contextrij krijgt geen acties: ze staat er om te verklaren (#668). #}
+    {# Een contextrij krijgt geen acties: ze staat er om te verklaren (#668).
+       In de rij staan alleen de opener en de snelactie; verversen en
+       verwijderen wonen in de bewerk-uitklaprij (A2: verwijderen achter de
+       bewerkstap) — een ⋯-menu zou in de overflow-x-container clippen. #}
     {% if is_finance and not k.get('is_context') %}
-    {% set _acts = [ui.edit_toggle("open", waarde=r.id, ook="terug = null")] %}
-    {# #661: de snelkoppeling voor het meest voorkomende geval, met label én
-       vraag per type — op een terugbetaling vertrekt er geld. #}
-    {% if r.status != "paid" %}
-    {% set _bevestig_label = _("Bevestig terugbetaald") if r.type == "refund" else _("Bevestig betaald") %}
-    {% set _bevestig_vraag = _("Als volledig terugbetaald bevestigen?") if r.type == "refund" else _("Als volledig betaald bevestigen?") %}
-    {% set _ignore = _acts.append(ui.btn_secondary(_bevestig_label, size="sm", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_bevestig_vraag)) %}
-    {% endif %}
-    {% if r.status == "paid" and r.type != "refund" %}
-    {% set _ignore = _acts.append(ui.btn_secondary(_("Terugbetaling registreren"), size="sm", attrs='@click="terug = terug === ' ~ r.id ~ ' ? null : ' ~ r.id ~ '; open = null"')) %}
-    {% endif %}
-    {% if r.method == "online" %}
-    {% set _ignore = _acts.append(ui.btn_secondary(_("Status verversen"), size="sm", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/verversen" hx-target="#betalingen-lijst" hx-swap="innerHTML"')) %}
-    {% endif %}
-    {# De verwijder-guard respecteren: geen knop tonen die de server toch weigert. #}
-    <div class="flex justify-end">
-      {{ ui.row_actions(actions=_acts, max_visible=2,
-                        delete_attrs=('hx-post="/admin/betalingen/' ~ r.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML"') if k.mag_verwijderen else '',
-                        delete_confirm=_("Deze terugbetaling verwijderen?") if r.type == "refund" else _("Deze betaling verwijderen (uit het saldo)?")) }}
+    <div class="flex justify-end gap-2 whitespace-nowrap">
+      {{ ui.edit_toggle("open", waarde="'" ~ r.id ~ "'", ook="terug = null") }}
+      {# #661: de snelkoppeling voor het meest voorkomende geval, met label én
+         vraag per type — op een terugbetaling vertrekt er geld. #}
+      {% if r.status != "paid" %}
+      {% set _bevestig_label = _("Bevestig terugbetaald") if r.type == "refund" else _("Bevestig betaald") %}
+      {% set _bevestig_vraag = _("Als volledig terugbetaald bevestigen?") if r.type == "refund" else _("Als volledig betaald bevestigen?") %}
+      {{ ui.btn_secondary(_bevestig_label, size="sm", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_bevestig_vraag) }}
+      {% elif r.type != "refund" %}
+      {{ ui.btn_secondary(_("Terugbetaling registreren"), size="sm", attrs='@click="terug = terug === \'' ~ r.id ~ '\' ? null : \'' ~ r.id ~ '\'; open = null"') }}
+      {% endif %}
     </div>
     {% endif %}
   </td>
@@ -130,7 +127,18 @@
 {% macro bewerkvorm(k, vlag, sluit) %}
 {% set rec = k.rec %}
 {% set is_refund = rec.type == "refund" %}
-<form x-show="{{ vlag }}" x-cloak class="flex flex-wrap gap-2 items-end"
+<div class="flex flex-wrap gap-2 items-end">
+{# A2: verwijderen hoort achter de bewerkstap, uiterst links en met afstand
+   tot Opslaan/Annuleren. De verwijder-guard blijft gelden: geen knop tonen
+   die de server toch weigert. Status verversen is een inhoudsactie op het
+   record en woont hier sinds de verdichting ook. #}
+{% if k.mag_verwijderen %}
+<div class="mr-3">{{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/betalingen/' ~ rec.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_("Deze terugbetaling verwijderen?") if is_refund else _("Deze betaling verwijderen (uit het saldo)?")) }}</div>
+{% endif %}
+{% if rec.method == "online" %}
+<div class="mr-3">{{ ui.btn_secondary(_("Status verversen"), size="sm", attrs='hx-post="/admin/betalingen/' ~ rec.id ~ '/verversen" hx-target="#betalingen-lijst" hx-swap="innerHTML"') }}</div>
+{% endif %}
+<form class="flex flex-wrap gap-2 items-end"
       {# #769: de twee plekken die `bedrag` vullen moeten DEZELFDE notatie schrijven.
          Hier bij het renderen, en hieronder in de statuskeuze die het veld met het
          volle bedrag vult. #}
@@ -153,6 +161,7 @@
   <p class="w-full order-last text-xs text-gray-400">{{ _("Zet op 0 om te corrigeren — dan is de terugbetaling verwijderbaar.") }}</p>
   {% endif %}
 </form>
+</div>
 {% endmacro %}
 
 {# De uitklaprijen onder een boeking: bewerken, en (op een betaalde vordering)
@@ -161,13 +170,16 @@
 {% macro _editrijen(k) %}
 {% set r = k.rec %}
 {% if is_finance and not k.get('is_context') %}
-<tr x-show="open === {{ r.id }}" x-cloak style="display: none">
-  <td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">{{ bewerkvorm(k, "open === " ~ r.id, "open = null") }}</td>
+{# Het record-id is een UUID-string, dus GECITEERD in elke expressie —
+   onaangehaald is `open === 51b9…` geen JavaScript en deed de rij niets
+   (gevonden bij de golf-10-schermafdrukken). #}
+<tr x-show="open === '{{ r.id }}'" x-cloak style="display: none">
+  <td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">{{ bewerkvorm(k, "open === '" ~ r.id ~ "'", "open = null") }}</td>
 </tr>
 {% if r.status == "paid" and r.type != "refund" %}
 {# Terugbetaling registreren = een nieuwe refund aanmaken met een terug te
    betalen bedrag; afboeken gebeurt daarna via Bewerken (#617-2b). #}
-<tr x-show="terug === {{ r.id }}" x-cloak style="display: none">
+<tr x-show="terug === '{{ r.id }}'" x-cloak style="display: none">
   <td colspan="7" class="px-3 pb-3 pt-1 bg-blue-50/30">
     <form class="flex flex-wrap gap-2 items-end"
           hx-post="/admin/betalingen/{{ r.id }}/refund" hx-target="#betalingen-lijst" hx-swap="innerHTML">
@@ -194,7 +206,10 @@
         <th scope="col" class="px-3 py-2 font-medium text-right">{{ _("Bedrag") }}</th>
         <th scope="col" class="px-3 py-2 font-medium text-right">{{ _("Ontvangen") }}</th>
         <th scope="col" class="px-3 py-2 font-medium text-right">{{ _("Saldo") }}</th>
-        <th scope="col" class="px-3 py-2"><span class="sr-only">{{ _("Acties") }}</span></th>
+        {# `relative` is dragend: sr-only is absoluut gepositioneerd, en zonder
+           gepositioneerde voorouder ontsnapt hij aan de scrollcontainer — op
+           mobiel rekte hij zo de hele pagina tot tabelbreedte op. #}
+        <th scope="col" class="px-3 py-2 relative"><span class="sr-only">{{ _("Acties") }}</span></th>
       </tr>
     </thead>
     {# Eén tbody per inschrijving: al haar betalingen en terugbetalingen, met

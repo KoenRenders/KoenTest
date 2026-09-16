@@ -42,6 +42,11 @@
    hier halen we de lijst opnieuw op mét de huidige filterstand. #}
 <div id="betalingen-lijst"
      hx-get="/admin/betalingen/lijst" hx-trigger="betalingen-ververst from:body"
-     hx-include="[name='q'],[name='status'],[name='context'],[name='zicht'],[name='inschrijving'],[name='activiteit'],[name='gezin'],[name='record']" hx-swap="innerHTML">
+     {# Op het FORMULIER scopen en niet op losse [name=…]-selectors: die selectors
+        matchten ook de status-selects van de verborgen bewerk-formulieren in de
+        lijst, waardoor een verversing stil status=pending meekreeg (gevonden
+        bij de golf-10-schermafdrukken). #bt-filter serialiseert ook het
+        zicht-veld, dat er via het form-attribuut bij hoort. #}
+     hx-include="#bt-filter" hx-swap="innerHTML">
   {% include "_betalingen_lijst.html" %}
 </div>

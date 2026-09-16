@@ -105,6 +105,34 @@ def test_zicht_overleeft_een_filterwissel(client, db_session):
 
     html = client.get("/admin/betalingen/lijst?zicht=betaald").text
     assert '<input type="hidden" name="zicht" value="betaald" form="bt-filter">' in html
+    # De tabs doorbreken de include-overerving van #betalingen-lijst: zonder
+    # "unset" reisde het oude zicht-veld (en zelfs de status-selects van de
+    # verborgen bewerk-formulieren) mee en overschreef het de tab-URL —
+    # gevonden bij de golf-10-schermafdrukken.
+    assert 'hx-include="unset"' in html
+    scherm = client.get("/admin/betalingen").text
+    assert 'hx-include="#bt-filter"' in scherm
+
+
+def test_uitklap_expressies_citeren_het_record_id(client, db_session):
+    """Het record-id is een UUID-string: onaangehaald is `open === 51b9…` geen
+    geldig JavaScript en klapte er niets uit (gevonden bij de golf-10-
+    schermafdrukken, met werkende unit-tests ernaast — die toetsten alleen
+    markup-aanwezigheid, niet de geldigheid van de expressie)."""
+    from app.domains.auth.api import User, UserRole
+    from tests.conftest import SEEDED_ADMIN_EMAIL as _admin
+
+    _drie_boekingen(db_session)
+    user = db_session.query(User).filter(User.email == _admin).first()
+    if not any(r.role_code == "FINANCE" for r in user.roles):
+        db_session.add(UserRole(user_id=user.id, role_code="FINANCE"))
+        db_session.commit()
+    _login(client)
+
+    html = client.get("/admin/betalingen/lijst").text
+    assert "open === '" in html and "terug === '" in html
+    import re
+    assert not re.search(r"open === [^'\"]", html.replace("open === '", ""))
 
 
 def test_export_draagt_het_zicht(client, db_session):
