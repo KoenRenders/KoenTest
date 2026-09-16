@@ -235,6 +235,14 @@
    htmx:afterSettle-listener (zie htmx_ux()) de focus naar de titel van het nieuwe
    scherm. Zonder dat blijft de focus op de zijbalk-link staan en weet een
    toetsenbord- of schermlezergebruiker niet dat de pagina gewisseld is. #}
+{# Terug naar de lijst, bovenaan een detailscherm (#939). Stond als losse markup
+   op zes schermen en als knop op twee — negen keer dezelfde regel overtypen is
+   hoe de ene op een dag een ander teken of een andere kleur krijgt. Hier één
+   keer; de bestaande kopieën mogen er in een aparte veeg naartoe. #}
+{% macro back_link(label, href) -%}
+<p class="mb-4"><a class="text-sm text-blue-700 hover:underline" href="{{ href }}">‹ {{ label }}</a></p>
+{%- endmacro %}
+
 {% macro page_header(title, subtitle=None) -%}
 <div class="flex flex-wrap items-end justify-between gap-3 mb-6">
   <div>

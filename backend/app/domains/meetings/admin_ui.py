@@ -48,6 +48,9 @@ from app.domains.meetings.api import (
     document_of,
     extra_recipients_of,
     file_is_sent,
+    mail_signature,
+    sent_with_label,
+    set_mail_signature,
     files_of,
     filename_for,
     get_file,
@@ -246,6 +249,7 @@ def _circle_view(request: Request, db: Session, query: str = "",
             if len(candidates) >= 15:
                 break
     return MeetingCircleView(circle=circle, candidates=candidates, query=query,
+                             signature=mail_signature(db),
                              csrf_token=_csrf(request), error=error,
                              nav_items=admin_nav(NAV))
 
@@ -308,6 +312,23 @@ def circle_new_person(request: Request, db: Session = Depends(get_db),
                                       _circle_view(request, db).as_context())
 
 
+@router.post("/admin/vergaderingen/kring/ondertekening", response_class=HTMLResponse,
+             dependencies=[Depends(require_csrf)])
+def circle_signature(request: Request, db: Session = Depends(get_db),
+                     _email: str = Depends(require_admin_ui),
+                     signature: str = Form("")):
+    """De ondertekening onder elke vergadermail — per afdeling, niet in de code.
+
+    Staat op dit scherm en niet bij de tenant-instellingen: die zijn OPERATOR-only
+    en dit is werk van de secretaris. Het hoort ook hier thuis — dit is het ene
+    scherm dat gaat over de vergadering als gewoonte in plaats van over één
+    vergadering.
+    """
+    set_mail_signature(db, signature)
+    return templates.TemplateResponse(request, "_vg_kring.html",
+                                      _circle_view(request, db).as_context())
+
+
 @router.post("/admin/vergaderingen/kring/{relation_id}/beeindigen",
              response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
 def circle_end(relation_id: int, request: Request, db: Session = Depends(get_db),
@@ -342,7 +363,8 @@ def _document_view(request: Request, db: Session, meeting,
         standing=member_standing(db),
         picker_section_id=picker_section_id, picker_options=picker_options,
         picker_query=picker_query,
-        attachments=[(f, file_is_sent(meeting, f)) for f in files_of(db, meeting)],
+        attachments=[(f, file_is_sent(meeting, f), sent_with_label(f))
+                     for f in files_of(db, meeting)],
         sent_pdfs=files_of(db, meeting, purpose=FILE_SENT_PDF),
         editable=meeting.status != STATUS_SENT,
         csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
@@ -713,12 +735,23 @@ def _default_subject(meeting, kind: str) -> str:
     return stem if kind == "agenda" else f"Re: {stem} — {_('verslag')}"
 
 
-def _default_body(meeting, kind: str) -> str:
+def _default_body(db: Session, meeting, kind: str) -> str:
+    """De tekst waarmee het scherm opent — een voorstel, geen sjabloon.
+
+    De ondertekening komt uit de instellingen van de afdeling en staat nergens in
+    de code: bij Raak Millegem tekent het dagelijks bestuur met zijn voornamen,
+    bij een andere afdeling zijn dat andere mensen (Koen, 16 september 2026). Is
+    er geen ondertekening ingesteld, dan eindigt de tekst zonder groet — beter
+    dan de verkeerde namen onder een mail die de deur uit gaat.
+    """
     if kind == "agenda":
-        return _("Hallo allemaal,\n\nIn bijlage de agenda van onze vergadering "
-                 "van %s.\n\nAllen warm uitgenodigd!") % _wanneer(meeting)
-    return _("Hoi allemaal,\n\nIn bijlage het verslag van onze vergadering "
-             "van %s.") % _wanneer(meeting)
+        tekst = _("Hallo allemaal,\n\nIn bijlage de agenda van onze vergadering "
+                  "van %s.\n\nAllen warm uitgenodigd!") % _wanneer(meeting)
+    else:
+        tekst = _("Hoi allemaal,\n\nIn bijlage het verslag van onze vergadering "
+                  "van %s.") % _wanneer(meeting)
+    ondertekening = mail_signature(db)
+    return f"{tekst}\n\n{ondertekening}" if ondertekening else tekst
 
 
 def _send_view(request: Request, db: Session, meeting, kind: str, email: str,
@@ -729,7 +762,7 @@ def _send_view(request: Request, db: Session, meeting, kind: str, email: str,
         meeting=meeting, kind=internal,
         kind_label=_("agenda") if internal == "agenda" else _("verslag"),
         subject=subject or _default_subject(meeting, internal),
-        body=body or _default_body(meeting, internal),
+        body=body or _default_body(db, meeting, internal),
         recipients=recipients_for(db, meeting),
         extra_recipients=extra_recipients_of(db, meeting),
         attachments=[f for f in files_of(db, meeting)

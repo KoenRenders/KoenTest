@@ -30,6 +30,23 @@
   {% endif %}
 </div>
 
+{# De ondertekening staat hier en niet in de code: bij Raak Millegem tekent het
+   dagelijks bestuur met zijn voornamen, bij een andere afdeling zijn dat andere
+   mensen (Koen, 16 september 2026). Leeg laten mag — dan eindigt de mail zonder
+   groet, wat beter is dan de verkeerde namen. #}
+<div class="bg-surface border border-line rounded-2xl p-5 mt-4">
+  <h2 class="font-semibold text-blue-700">{{ _("Ondertekening van de mails") }}</h2>
+  <p class="text-sm text-ink-soft mt-0.5">{{ _("Komt onderaan de agenda- en verslagmail te staan. Je kunt de tekst per mail nog aanpassen voor je verstuurt.") }}</p>
+  <form class="mt-3" hx-post="/admin/vergaderingen/kring/ondertekening"
+        hx-target="#vg-kring" hx-swap="innerHTML">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {{ ui.textarea_control("signature", id="vg-ondertekening", value=signature, rows=3,
+                           cls="w-full sm:w-96",
+                           placeholder=_("Met vriendelijke groet,\nVoornaam, Voornaam en Voornaam")) }}
+    <div class="mt-2">{{ ui.btn_secondary(_("Ondertekening bewaren"), type="submit", size="sm") }}</div>
+  </form>
+</div>
+
 <div class="bg-surface border border-line rounded-2xl p-5 mt-4">
   <h2 class="font-semibold text-blue-700">{{ _("Iemand toevoegen") }}</h2>
   {# Het zoekveld vervangt ALLEEN de resultaten en niet zichzelf. Vervang je het

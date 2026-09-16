@@ -2,9 +2,10 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Vergaderkring — Raak beheer") }}{% endblock %}
 {% block content %}
-{% call ui.page_header(_("Vergaderkring"), _("Wie agenda en verslag krijgt, en wie je kunt aanvinken bij de aanwezigheid.")) %}
-  {{ ui.btn_secondary(_("Naar de vergaderingen"), href="/admin/vergaderingen") }}
-{% endcall %}
+{# De terugkoppeling bovenaan in plaats van een knop in de kop: zo staat ze waar
+   ze op élk detailscherm staat, en blijft de kop voor acties. #}
+{{ ui.back_link(_("Alle vergaderingen"), "/admin/vergaderingen") }}
+{{ ui.page_header(_("Vergaderkring"), _("Wie agenda en verslag krijgt, en wie je kunt aanvinken bij de aanwezigheid.")) }}
 <div id="vg-kring">
   {% include "_vg_kring.html" %}
 </div>

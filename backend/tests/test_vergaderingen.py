@@ -34,12 +34,15 @@ from app.domains.mdm.api import (ContactDetail, Organization, OrganizationPerson
 from app.domains.meetings.api import (
     ATTENDANCE_PRESENT,
     FILE_SENT_PDF,
+    SECTION_UPCOMING,
     MeetingError,
     add_file,
     add_item,
+    addable_activities,
     create_meeting,
     delete_file,
     document_of,
+    file_is_sent,
     files_of,
     get_meeting,
     items_of,
@@ -1150,3 +1153,191 @@ def test_een_vertrokken_deelnemer_blijft_in_het_oude_verslag(client, db_session)
     tekst = _pdf_tekst(client.get(f"/admin/vergaderingen/{meeting.id}/pdf").content)
     assert "Kris Vermeulen" in tekst, \
         "de aanwezigheid van die avond verdween uit het verslag"
+
+
+# ── 25. Terug naar de lijst ──────────────────────────────────────────────────
+
+def test_de_detailschermen_hebben_een_weg_terug(client, db_session):
+    """Bovenaan een detailscherm staat "‹ Alle vergaderingen", zoals overal.
+
+    Zonder die link is de enige weg terug de navigatiebalk links, en die brengt je
+    naar hetzelfde scherm via een omweg — op elk ander detailscherm in de app
+    staat de link er wél, dus het ontbreken valt juist op.
+    """
+    _login(client)
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+
+    for pad in (f"/admin/vergaderingen/{meeting.id}", "/admin/vergaderingen/kring"):
+        html = client.get(pad).text
+        assert 'href="/admin/vergaderingen"' in html, f"geen weg terug op {pad}"
+        assert "Alle vergaderingen" in html, f"geen weg terug op {pad}"
+
+
+# ── 26. Drie maanden vooruit agenderen ───────────────────────────────────────
+
+def test_de_agenda_kijkt_drie_maanden_vooruit(db_session):
+    """Wat verder ligt dan drie maanden, staat er niet vanzelf op.
+
+    Koen, 16 september 2026: *"Bij ons is de consensus 3 maanden vooruit te
+    agenderen, dat geeft ons tijd om flyers te maken, helpers te zoeken, op
+    sociale media en nieuwsbrief te zetten."* Alles tonen maakte de sectie een
+    kalender in plaats van een agenda — en de zaal die een jaar vooruit vastligt
+    stond dan elke maand opnieuw als te bespreken punt.
+
+    De grens is geen afronding op maanden maar dezelfde dag drie maanden later,
+    dus de test zet er één net binnen en één net buiten. Gemeten met de horizon
+    weggehaald: dan staat "Net buiten" er wél bij en faalt de tweede assertie.
+    """
+    _activity(db_session, "Binnen de horizon", date(2026, 12, 20))
+    _activity(db_session, "Net buiten", date(2027, 1, 5))
+
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+    upcoming = next(s for s in document_of(db_session, meeting)
+                    if s.kind == SECTION_UPCOMING)
+    labels = [i.label for i in upcoming.items]
+
+    assert "Binnen de horizon" in labels
+    assert "Net buiten" not in labels, "januari ligt voorbij de drie maanden"
+
+
+def test_wat_buiten_de_horizon_valt_is_wel_met_de_hand_te_agenderen(db_session):
+    """De grens geldt voor het samenstellen, niet voor de kiezer.
+
+    Het hotel dat een jaar vooruit vastligt moet je wél kunnen agenderen op het
+    moment dat je het vastlegt (Koen, 14 september 2026). Zou de kiezer dezelfde
+    grens hanteren, dan was de horizon geen standaard maar een muur.
+    """
+    ver = _activity(db_session, "Zomerkamp 2027", date(2027, 6, 20))
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+
+    assert any(s.activity.id == ver.id
+               for s in addable_activities(db_session, meeting)), \
+        "de kiezer hoort ook verder te kijken dan de agenda zelf"
+
+
+def test_dezelfde_activiteit_komt_niet_twee_keer_op_de_agenda(db_session):
+    """Een tweede keer toevoegen wordt geweigerd i.p.v. verdubbeld.
+
+    Gevonden door de doorloop in `test_vergadering_routes.py`: wie tijdens de
+    vergadering een activiteit toevoegt die al gegenereerd was, kreeg haar er een
+    tweede keer bij — en dan staat ze ook twee keer in het verslag. Gemeten met
+    de wacht uitgeschakeld: dan komt er geen `MeetingError` en staat "Bowlen"
+    twee keer in het document.
+    """
+    activiteit = _activity(db_session, "Bowlen", date(2026, 11, 15))
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+    sectie = next(s for s in sections_of(db_session, meeting)
+                  if s.kind == SECTION_UPCOMING)
+
+    with pytest.raises(MeetingError):
+        add_item(db_session, meeting, sectie, activity_id=activiteit.id)
+
+    getoond = next(s for s in document_of(db_session, meeting)
+                   if s.kind == SECTION_UPCOMING)
+    assert [i.label for i in getoond.items].count("Bowlen") == 1
+
+
+# ── 27. De ondertekening staat niet in de code ───────────────────────────────
+
+def test_de_mail_ondertekent_met_wat_de_afdeling_instelde(client, db_session):
+    """Geen namen in de code: de ondertekening komt uit de instellingen.
+
+    Koen, 16 september 2026: *"De agenda wordt momenteel altijd verstuurd met
+    daaronder 'Met vriendelijke groet,' en dan volgende regel 'Mon, Steven en
+    Koen'. Ik wil niet dat je dat hard codeert — want dat zijn bij andere
+    raak-afdelingen andere mensen."*
+
+    Kapotgemaakt om te toetsen dat de test iets meet: met de ondertekening uit
+    `_default_body` weggelaten faalt de tweede helft.
+    """
+    csrf = _login(client)
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+    pad = f"/admin/vergaderingen/{meeting.id}/verstuur?kind=agenda"
+
+    # Niets ingesteld: de mail eindigt zonder groet. Beter dan vreemde namen.
+    assert "vriendelijke groet" not in client.get(pad).text
+
+    client.post("/admin/vergaderingen/kring/ondertekening",
+                headers={"X-CSRF-Token": csrf},
+                data={"signature": "Met vriendelijke groet,\nMon, Steven en Koen"})
+
+    tekst = client.get(pad).text
+    assert "Mon, Steven en Koen" in tekst
+    assert "In bijlage de agenda" in tekst, "de eigen tekst hoort te blijven staan"
+
+
+def test_de_ondertekening_is_te_wissen(client, db_session):
+    """Leegmaken mag: dan eindigt de mail weer zonder groet.
+
+    Een instelling die je niet meer leeg krijgt, is een instelling die je maar één
+    keer goed kunt zetten — en bij een wissel van bestuur is dat precies het
+    verkeerde moment om vast te zitten.
+    """
+    csrf = _login(client)
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+    pad = f"/admin/vergaderingen/{meeting.id}/verstuur?kind=agenda"
+
+    client.post("/admin/vergaderingen/kring/ondertekening",
+                headers={"X-CSRF-Token": csrf}, data={"signature": "Groetjes, het bestuur"})
+    assert "Groetjes, het bestuur" in client.get(pad).text
+
+    client.post("/admin/vergaderingen/kring/ondertekening",
+                headers={"X-CSRF-Token": csrf}, data={"signature": "   "})
+    assert "Groetjes, het bestuur" not in client.get(pad).text
+
+
+# ── 28. Wat er écht met welke mail meeging ───────────────────────────────────
+
+def test_een_bijlage_weet_met_welke_mail_ze_vertrok(db_session, mailbox):
+    """Na het versturen zegt de bijlage zelf of ze bij de agenda of het verslag zat.
+
+    Koen, 16 september 2026: *"Als een vergadering afgesloten is kan je niet zien
+    of een toegevoegde bijlage bij het verslag of de agenda verstuurd werd."* Op
+    een afgesloten vergadering zijn de aanvinkvakjes weg — die tonen sowieso een
+    voornemen — dus zonder stempel bleef alleen het woord "verstuurd" over.
+    """
+    from app.domains.meetings.api import sent_with_label
+
+    _in_circle(db_session, _person(db_session, "Mon", "Essers", "mon@example.org"))
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+    draaiboek = add_file(db_session, meeting, filename="draaiboek.pdf",
+                         content_type="application/pdf", data=b"%PDF draaiboek")
+
+    assert sent_with_label(draaiboek) == ""
+
+    send_meeting_mail(db_session, meeting, kind="agenda", subject="Agenda",
+                      body_html="Hallo", reply_to="s@example.org",
+                      pdf=b"%PDF", pdf_filename="agenda.pdf")
+    assert sent_with_label(draaiboek) == "met de agenda"
+
+    send_meeting_mail(db_session, meeting, kind="report", subject="Verslag",
+                      body_html="Hoi", reply_to="s@example.org",
+                      pdf=b"%PDF", pdf_filename="verslag.pdf")
+    assert sent_with_label(draaiboek) == "met agenda en verslag"
+
+
+def test_een_bijlage_van_na_de_agendamail_geldt_niet_als_verstuurd(db_session, mailbox):
+    """Het geval waarvoor het stempel bestaat, en waar de afleiding op strandde.
+
+    Je uploadt ná de agendamail een stuk voor bij het verslag. Dat stuk staat
+    standaard óók voor de agenda aangevinkt — de oude afleiding las dat als
+    "verstuurd", waarna het niet meer te verwijderen of om te zetten was, terwijl
+    het nooit iemand bereikt had.
+
+    Kapotgemaakt om te toetsen dat de test iets meet: met `file_is_sent` terug op
+    de oude afleiding faalt de eerste assertie.
+    """
+    _in_circle(db_session, _person(db_session, "Mon", "Essers", "mon@example.org"))
+    meeting = create_meeting(db_session, meeting_date=date(2026, 10, 1))
+    send_meeting_mail(db_session, meeting, kind="agenda", subject="Agenda",
+                      body_html="Hallo", reply_to="s@example.org",
+                      pdf=b"%PDF", pdf_filename="agenda.pdf")
+
+    laat = add_file(db_session, meeting, filename="gemeente.pdf",
+                    content_type="application/pdf", data=b"%PDF gemeente")
+    assert file_is_sent(meeting, laat) is False, \
+        "een bijlage van ná de agendamail is niet met die mail meegegaan"
+
+    # En dus ook nog te verwijderen — dat was de praktische schade.
+    delete_file(db_session, meeting, laat.id)
+    assert not any(f.id == laat.id for f in files_of(db_session, meeting))
