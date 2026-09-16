@@ -343,11 +343,11 @@ _ADMIN_NAV_GROEPEN: list[tuple[str | None, list[tuple[str, str]]]] = [
     ("Financieel", [
         ("/admin/betalingen", "Betalingen"),
     ]),
-    # Communicatie (#258): de vergadermodule. Een eigen werkgebied en niet onder
-    # "Werking", omdat wat hier staat naar buiten gaat — straks komt de
-    # nieuwsbrief (CR-05) ernaast te staan.
+    # Communicatie (#258): wat naar buiten gaat. De vergaderingen gaan naar het
+    # bestuur, de nieuwsbrief (#984, CR-05) naar leden en niet-leden.
     ("Communicatie", [
         ("/admin/vergaderingen", "Vergaderingen"),
+        ("/admin/nieuwsbrieven", "Nieuwsbrief"),
     ]),
     # Inzicht (Rapporten is niet enkel financieel; het dashboard verdient een
     # menuplek) staat vlak boven Systeem — volgorde beslist door Koen, 14 sep.
@@ -658,6 +658,10 @@ def site_context(db, request=None) -> dict:
             # staan: `site-footer` is vrije tekst en een migratie kan een adres
             # niet van een zin onderscheiden, dus er verdwijnt niets.
             "organisatie": _footer_organisatie(db, organisatie),
+            # De inschrijving op de nieuwsbrief onderaan (#984). Niet op het
+            # platform: dat heeft geen leden en verstuurt geen nieuwsbrief.
+            "nieuwsbrief_inschrijven": (organisatie is not None
+                                        and getattr(organisatie, "org_type", "") != "PLATFORM"),
             # Privacyverklaring-link per tenant (#493, raakt #453): leeg = niet tonen.
             "privacy_url": get_setting(db, "privacy_url") or None,
             # SEO (#454): canonieke origin + huidige canonical-URL voor OG/canonical.

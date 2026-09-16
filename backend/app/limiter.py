@@ -112,6 +112,10 @@ form_submit_limiter = RateLimiter(max_calls=10, window_seconds=60)
 # tegenhouden, geen bezoeker — en zestig per minuut is sneller dan iemand klikt en traag
 # genoeg om een teller niet in een uitslag te veranderen.
 thumb_limiter = RateLimiter(max_calls=60, window_seconds=60)
+# De publieke nieuwsbriefinschrijving (#984): elke inzending kan een
+# bevestigingsmail kosten, en die mails delen het Gmail-quotum met de
+# inschrijvingen. Streng per IP; de dienst zelf remt daarnaast per adres en per dag.
+newsletter_signup_limiter = RateLimiter(max_calls=5, window_seconds=60)
 # Chatbot: matige burst-limiet + dagelijks tekenbudget tegen 'pagina-droppen'.
 chat_limiter = RateLimiter(max_calls=20, window_seconds=60)
 # Mollie-webhook: ruime limiet (#182). Mollie deelt enkele IP's en kan bursts/

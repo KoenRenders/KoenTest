@@ -1,0 +1,25 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Abonnees — Raak beheer") }}{% endblock %}
+{% block content %}
+{{ ui.back_link(_("Alle nieuwsbrieven"), "/admin/nieuwsbrieven") }}
+{% call ui.page_header(_("Abonnees"), _("Niet-leden die de nieuwsbrief krijgen. Leden staan hier niet: die volgen uit hun lidmaatschap.")) %}
+  {{ ui.btn_secondary(_("Lijst importeren"), href="/admin/nieuwsbrieven/abonnees/import", lead_icon="upload") }}
+{% endcall %}
+
+{% call ui.filter_bar("/admin/nieuwsbrieven/abonnees", "#nb-abonnees") %}
+<div class="flex flex-wrap gap-2">
+  {{ ui.search(value=q, placeholder=_('Zoek op adres of voornaam…'), standalone=False) }}
+  {% call ui.select_control("status", aria_label=_("Status")) %}
+    <option value="">{{ _("Alle statussen") }}</option>
+    {% for value, label in status_labels.items() %}
+    <option value="{{ value }}"{% if status == value %} selected{% endif %}>{{ label }}</option>
+    {% endfor %}
+  {% endcall %}
+</div>
+{% endcall %}
+
+<div id="nb-abonnees">
+  {% include "_nb_abonnees.html" %}
+</div>
+{% endblock %}

@@ -157,7 +157,7 @@ def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
         "/admin/activiteiten", "/admin/leden", "/admin/formulieren",
         "/admin/paginas", "/admin/media", "/admin/ai-context",
         "/admin/betalingen",
-        "/admin/vergaderingen",
+        "/admin/vergaderingen", "/admin/nieuwsbrieven",
         "/admin", "/admin/rapporten",
         "/admin/gebruikers", "/admin/ledenwijzigingen", "/admin/e-maillog",
         # #971: Organisaties staat vóór Tenants, en het zijn twee items omdat het

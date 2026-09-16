@@ -1,0 +1,130 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ letter.subject or _("Nieuwsbrief") }} — {{ _("Raak beheer") }}{% endblock %}
+{% block content %}
+{{ ui.back_link(_("Alle nieuwsbrieven"), "/admin/nieuwsbrieven") }}
+<script>
+  // Invoegen op de cursor (#984). Eén keer registreren: onder hx-boost wordt dit
+  // blok bij elke navigatie opnieuw uitgevoerd. De server levert het stukje HTML;
+  // de browser weet niets van activiteiten — datum, uur en link komen uit
+  // dezelfde bron als de agenda.
+  if (!window.nbInvoegen) {
+    window.nbInvoegen = function (url) {
+      fetch(url, { credentials: "same-origin" })
+        .then(function (r) { if (!r.ok) { throw new Error(r.status); } return r.text(); })
+        .then(function (html) {
+          var editor = document.getElementById("nb-trix").editor;
+          editor.insertHTML(html);
+          document.getElementById("nb-trix").focus();
+        })
+        .catch(function (fout) { console.error("invoegen mislukt", fout); });
+      var kiezer = document.getElementById("nb-kiezer");
+      if (kiezer) { kiezer.innerHTML = ""; }
+    };
+  }
+</script>
+
+{% call ui.page_header(letter.subject or _("Nieuwe nieuwsbrief"), _("Concept — wordt automatisch bewaard.")) %}
+  {# De bevestiging staat op het FORMULIER: htmx leest `data-confirm` op het
+     element dat het verzoek doet, en dat is bij een formulier het formulier,
+     niet de knop erin. #}
+  <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/verwijderen"
+        {{ confirm_attrs(_("Concept"), letter.subject or _("zonder onderwerp"))|safe }}>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {{ ui.btn_danger(_("Verwijderen"), type="submit") }}
+  </form>
+  <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/kopieren">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {{ ui.btn_secondary(_("Kopiëren"), type="submit") }}
+  </form>
+  <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/testmail" hx-target="#nb-bewaard" hx-swap="innerHTML">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {{ ui.btn_outline(_("Testmail naar mezelf"), type="submit", size="md", lead_icon="mail") }}
+  </form>
+  {{ ui.btn_primary(_("Versturen…"), href="/admin/nieuwsbrieven/" ~ letter.id ~ "/versturen", lead_icon="send") }}
+{% endcall %}
+
+<div id="nb-bewaard" class="mb-4 min-h-[1.5rem]">
+  {% include "_nb_bewaard.html" %}
+</div>
+
+<div class="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem] items-start">
+  {# Eén formulier voor onderwerp, doelgroep en tekst: elke wijziging bewaart
+     zichzelf, en het antwoord vervangt alleen de statusregel — nooit de editor
+     onder je vingers. #}
+  <form id="nb-formulier" class="space-y-4"
+        hx-post="/admin/nieuwsbrieven/{{ letter.id }}/bewaren"
+        hx-target="#nb-bewaard" hx-swap="innerHTML"
+        hx-trigger="change, keyup changed delay:1500ms from:#nb-onderwerp, trix-change delay:1500ms from:#nb-trix, trix-blur from:#nb-trix">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+
+    <fieldset class="bg-surface border border-line rounded-2xl p-5">
+      <legend class="sr-only">{{ _("Voor wie?") }}</legend>
+      <h2 class="font-semibold text-blue-700">{{ _("Voor wie?") }}</h2>
+      <p class="text-sm text-ink-soft mt-0.5">{{ _("Er is bewust geen standaardkeuze: een ledenbrief vertelt dingen die niet voor niet-leden bedoeld zijn.") }}</p>
+      <div class="grid gap-2 sm:grid-cols-3 mt-3">
+        {% for value, label, hint in audience_options %}
+        <label class="flex gap-3 items-start rounded-xl border border-line p-3 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:ring-2 has-[:checked]:ring-blue-200">
+          <input type="radio" name="audience" value="{{ value }}" class="mt-1"{% if letter.audience == value %} checked{% endif %}>
+          <span><span class="block font-semibold text-sm">{{ label }}</span>
+                <span class="block text-xs text-ink-soft mt-0.5">{{ hint }}</span></span>
+        </label>
+        {% endfor %}
+      </div>
+    </fieldset>
+
+    <div class="bg-surface border border-line rounded-2xl p-5">
+      {{ ui.label(_("Onderwerp"), "nb-onderwerp", required=True) }}
+      {{ ui.input_control("subject", id="nb-onderwerp", value=letter.subject, cls="w-full",
+                          placeholder=_("Het najaar in Millegem")) }}
+    </div>
+
+    <div class="bg-surface border border-line rounded-2xl p-5">
+      <div class="flex flex-wrap items-center gap-2">
+        <h2 class="font-semibold text-blue-700 mr-auto">{{ _("Inhoud") }}</h2>
+        {{ ui.btn_outline(_("Activiteit invoegen"), lead_icon="plus",
+                          attrs='hx-get="/admin/nieuwsbrieven/' ~ letter.id ~ '/activiteiten" hx-target="#nb-kiezer" hx-swap="innerHTML"') }}
+        {{ ui.btn_outline(_("Kalender invoegen"), lead_icon="calendar",
+                          attrs='onmousedown="event.preventDefault()" onclick="nbInvoegen(\'/admin/nieuwsbrieven/' ~ letter.id ~ '/invoegen/kalender\')"') }}
+        {{ ui.btn_outline(_("Afsluiting invoegen"), lead_icon="pencil",
+                          attrs='onmousedown="event.preventDefault()" onclick="nbInvoegen(\'/admin/nieuwsbrieven/' ~ letter.id ~ '/invoegen/afsluiting\')"') }}
+      </div>
+      <p class="text-sm text-ink-soft mt-0.5">{{ _("Opgemaakte tekst, zoals je hem in Gmail schrijft. De knoppen zetten een voorstel op de plek van de cursor — daarna pas je het vrij aan.") }}</p>
+      <div id="nb-kiezer"></div>
+      <div class="mt-3">
+        {{ ui.rich_text("body_html", "nb-trix", value=letter.body_html, input_id="nb-inhoud",
+                        cls="min-h-[22rem]", placeholder=_("Beste,")) }}
+      </div>
+    </div>
+  </form>
+
+  <div class="space-y-4">
+    {% if raakje_enabled %}
+    <div id="nb-raakje">
+      {% include "_nb_raakje.html" %}
+    </div>
+    {% endif %}
+
+    <div class="bg-surface border border-line rounded-2xl p-5">
+      <p class="text-xs font-bold uppercase tracking-wider text-ink-soft">{{ _("Zo vertrekt hij") }}</p>
+      <dl class="mt-3 grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
+        <dt class="text-ink-soft">{{ _("Van") }}</dt><dd>{{ _("het adres van de vereniging, zoals een inschrijvingsbevestiging") }}</dd>
+        <dt class="text-ink-soft">{{ _("Antwoorden") }}</dt><dd>{{ _("naar de vereniging of naar jezelf — je kiest bij het versturen") }}</dd>
+        <dt class="text-ink-soft">{{ _("Per mail") }}</dt><dd>{{ _("één ontvanger — niemand ziet de anderen") }}</dd>
+        <dt class="text-ink-soft">{{ _("Onderaan") }}</dt><dd>{{ _("de naam van de vereniging; bij niet-leden ook de uitschrijflink") }}</dd>
+      </dl>
+    </div>
+
+    {% if first_letter_after_import %}
+    <div class="rounded-2xl border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-900">
+      <p class="font-semibold">{{ _("Eerste brief aan de geïmporteerde adressen") }}</p>
+      <p class="mt-1">{{ _("Kies je niet-leden of allebei, zeg dan in de tekst waarom ze deze mail krijgen. Dat is de voorwaarde waaronder we hen zonder bevestiging mogen mailen.") }}</p>
+      <div class="mt-2">
+        {{ ui.btn_secondary(_("Voorstelzin invoegen"), size="sm",
+                            attrs='onmousedown="event.preventDefault()" onclick="nbInvoegen(\'/admin/nieuwsbrieven/' ~ letter.id ~ '/invoegen/herkomst\')"') }}
+      </div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

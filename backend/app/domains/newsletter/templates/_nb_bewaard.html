@@ -1,0 +1,4 @@
+{% import "_macros.html" as ui %}
+{% if error %}{{ ui.error_banner(error) }}
+{% elif notice %}{{ ui.success_banner(notice) }}
+{% else %}<p class="text-sm text-ink-soft">{{ _("Bewaard om %(m)s", m=saved_at) }}</p>{% endif %}

@@ -1,0 +1,25 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Nieuwsbrieven — Raak beheer") }}{% endblock %}
+{% block content %}
+{# Records-lijst (design-system C1), zoals Vergaderingen: titel met duidingsregel,
+   de acties rechts — secundair eerst, de primaire actie uiterst rechts. De
+   primaire knop is een formulier: hij maakt een concept aan en opent dat als
+   volledige pagina (geen aanmaak-modal, #627). #}
+{% call ui.page_header(_("Nieuwsbrieven"), _("Opstellen, versturen en terugvinden wat er vertrokken is.")) %}
+    {{ ui.btn_secondary(_("Instellingen"), href="/admin/nieuwsbrieven/instellingen") }}
+    {{ ui.btn_secondary(_("Abonnees"), href="/admin/nieuwsbrieven/abonnees") }}
+    <form hx-post="/admin/nieuwsbrieven">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {{ ui.btn_primary(_("+ Nieuwe nieuwsbrief"), type="submit") }}
+    </form>
+  {% endcall %}
+
+{% call ui.filter_bar("/admin/nieuwsbrieven", "#nb-lijst") %}
+  <div>{{ ui.search(value=q, placeholder=_('Zoek op onderwerp…'), standalone=False) }}</div>
+{% endcall %}
+
+<div id="nb-lijst">
+  {% include "_nb_lijst.html" %}
+</div>
+{% endblock %}

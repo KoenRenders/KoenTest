@@ -1,0 +1,66 @@
+{% import "_macros.html" as ui %}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+{% if notice %}{{ ui.success_banner(notice) }}{% endif %}
+
+<p class="text-sm text-ink-soft mb-3">
+  {{ _("%(b)s bevestigd · %(w)s wachten op bevestiging · %(u)s uitgeschreven",
+       b=counts["confirmed"], w=counts["pending"], u=counts["unsubscribed"]) }}
+</p>
+
+<div class="bg-surface border border-line rounded-2xl overflow-x-auto">
+<table class="w-full text-sm">
+  <thead><tr class="text-left text-ink-soft border-b border-line">
+    <th scope="col" class="px-4 py-3 font-semibold">{{ _("Adres") }}</th>
+    <th scope="col" class="px-4 py-3 font-semibold">{{ _("Voornaam") }}</th>
+    <th scope="col" class="px-4 py-3 font-semibold">{{ _("Bron") }}</th>
+    <th scope="col" class="px-4 py-3 font-semibold">{{ _("Status") }}</th>
+    <th scope="col" class="px-4 py-3 font-semibold">{{ _("Sinds") }}</th>
+    <th scope="col" class="px-4 py-3"><span class="sr-only">{{ _("Acties") }}</span></th>
+  </tr></thead>
+  <tbody class="divide-y divide-line">
+  {% for s in subscribers %}
+    <tr>
+      <td class="px-4 py-3">{{ s.email }}</td>
+      <td class="px-4 py-3">{{ s.first_name or "" }}</td>
+      <td class="px-4 py-3 text-ink-soft">{{ source_labels[s.id] }}</td>
+      <td class="px-4 py-3">{{ ui.badge(status_labels[s.status], status_tones[s.status]) }}</td>
+      <td class="px-4 py-3 text-ink-soft">{{ moments[s.id] }}</td>
+      <td class="px-4 py-3">
+        <div class="flex justify-end gap-2">
+        {% if s.status != "unsubscribed" %}
+          <form hx-post="/admin/nieuwsbrieven/abonnees/{{ s.id }}/uitschrijven" hx-target="#nb-abonnees" hx-swap="innerHTML"
+                data-confirm="{{ _("%(adres)s uitschrijven? Het adres krijgt geen nieuwsbrief meer.", adres=s.email) }}">
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            {{ ui.btn_secondary(_("Uitschrijven"), type="submit", size="sm") }}
+          </form>
+        {% endif %}
+          {# Verwijderen wist het adres helemaal — ook in het archief (recht op
+             vergetelheid). Uitschrijven bewaart de keuze; verwijderen bewaart niets. #}
+          <form hx-post="/admin/nieuwsbrieven/abonnees/{{ s.id }}/verwijderen" hx-target="#nb-abonnees" hx-swap="innerHTML"
+                {{ confirm_attrs(_("Adres"), s.email)|safe }}>
+            <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+            {{ ui.btn_danger(_("Verwijderen"), type="submit", size="sm") }}
+          </form>
+        </div>
+      </td>
+    </tr>
+  {% else %}
+    <tr><td colspan="6" class="px-4 py-4 text-ink-soft">{{ _("Geen abonnees die hierbij passen.") }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+
+<div class="bg-surface border border-line rounded-2xl p-5 mt-4">
+  <h2 class="font-semibold text-blue-700">{{ _("Adres toevoegen") }}</h2>
+  <p class="text-sm text-ink-soft mt-0.5">{{ _("Voor iemand die het je persoonlijk vroeg. Wie zich uitschreef, kan zich alleen zelf opnieuw inschrijven.") }}</p>
+  <form class="mt-3 flex flex-wrap items-center gap-2" hx-post="/admin/nieuwsbrieven/abonnees"
+        hx-target="#nb-abonnees" hx-swap="innerHTML">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {{ ui.input_control("subscriber_email", id="nb-nieuw-adres", type="email", cls="w-full sm:w-72",
+                        placeholder=_("naam@voorbeeld.be"), required=True, aria_label=_("E-mailadres")) }}
+    {{ ui.input_control("first_name", id="nb-nieuw-voornaam", cls="w-full sm:w-40",
+                        placeholder=_("Voornaam (niet verplicht)"), aria_label=_("Voornaam")) }}
+    {{ ui.btn_primary(_("Toevoegen"), type="submit", size="sm") }}
+  </form>
+</div>

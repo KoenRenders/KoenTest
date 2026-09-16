@@ -507,7 +507,7 @@ _LONG_MONTHS = ["", "januari", "februari", "maart", "april", "mei", "juni", "jul
                 "augustus", "september", "oktober", "november", "december"]
 
 
-def _short_date(day: date) -> str:
+def short_date(day: date) -> str:
     return f"{_WEEKDAYS[day.weekday()]} {day.day} {_MONTHS[day.month]}"
 
 
@@ -648,7 +648,7 @@ def calendar_html(db: Session, *, base_url: str, today: Optional[date] = None) -
             continue
         where = f", {esc(fact.location)}" if fact.location else ""
         full = f" · <em>{esc(_('volzet'))}</em>" if fact.is_full else ""
-        lines.append(f'<li>{esc(_short_date(fact.start))} — '
+        lines.append(f'<li>{esc(short_date(fact.start))} — '
                      f'<a href="{esc(fact.url)}">{esc(fact.name)}</a>{where}{full}</li>')
     return f"<ul>{''.join(lines)}</ul>"
 
@@ -663,6 +663,20 @@ def insertable_activities(db: Session, *, query: str = "",
     if needle:
         spans = [s for s in spans if needle in s.activity.name.lower()]
     return spans[:40]
+
+
+def save_settings(db: Session, *, house_style: str, daily_cap: Optional[int]) -> None:
+    """The house style Raakje writes in, and the daily cap (CR-05 §3.7, §8.3).
+
+    An empty value removes the setting, so the default applies again.
+    """
+    from app.kernel.tenant_config import set_setting
+
+    if daily_cap is not None and daily_cap < 1:
+        raise NewsletterError(_("Het dagplafond is een getal groter dan nul."))
+    set_setting(db, "newsletter_house_style", (house_style or "").strip()[:2000] or None)
+    set_setting(db, "newsletter_daily_cap", str(daily_cap) if daily_cap else None)
+    db.commit()
 
 
 # ── The mail ─────────────────────────────────────────────────────────────────

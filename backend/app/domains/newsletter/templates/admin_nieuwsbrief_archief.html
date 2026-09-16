@@ -1,0 +1,64 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ letter.subject }} — {{ _("Raak beheer") }}{% endblock %}
+{% block content %}
+{{ ui.back_link(_("Alle nieuwsbrieven"), "/admin/nieuwsbrieven") }}
+{# Een verstuurde brief staat hier zoals hij vertrok — niet meer te wijzigen.
+   "Kopiëren" maakt een nieuw concept (CR-05 §3.12). #}
+{% call ui.page_header(letter.subject, _("Voor %(wie)s", wie=audience_label)) %}
+  <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/kopieren">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {{ ui.btn_primary(_("Kopiëren naar een nieuw concept"), type="submit", lead_icon="copy") }}
+  </form>
+{% endcall %}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+
+<div class="grid gap-4 lg:grid-cols-[22rem_minmax(0,1fr)] items-start">
+  <div class="bg-surface border border-line rounded-2xl p-5 space-y-3">
+    <div class="flex items-center gap-2">{{ ui.badge(status_label, status_tone) }}</div>
+    <dl class="grid grid-cols-[auto_1fr] gap-x-3 gap-y-2 text-sm">
+      <dt class="text-ink-soft">{{ _("Gestart") }}</dt><dd>{{ started }}</dd>
+      {% if finished %}<dt class="text-ink-soft">{{ _("Klaar") }}</dt><dd>{{ finished }}</dd>{% endif %}
+      {% if expected %}<dt class="text-ink-soft">{{ _("Klaar rond") }}</dt><dd>{{ expected }}</dd>{% endif %}
+      {% if letter.paused_until %}<dt class="text-ink-soft">{{ _("Gaat verder") }}</dt><dd>{{ _("na het dagplafond") }}</dd>{% endif %}
+      <dt class="text-ink-soft">{{ _("Verstuurd") }}</dt><dd>{{ progress.sent }} / {{ progress.total }}</dd>
+      {% if progress.failed %}<dt class="text-ink-soft">{{ _("Mislukt") }}</dt><dd>{{ progress.failed }}</dd>{% endif %}
+      {% if progress.skipped %}<dt class="text-ink-soft">{{ _("Overgeslagen") }}</dt><dd>{{ progress.skipped }}</dd>{% endif %}
+      <dt class="text-ink-soft">{{ _("Verstuurd door") }}</dt><dd>{{ letter.sent_by }}</dd>
+      <dt class="text-ink-soft">{{ _("Antwoorden") }}</dt>
+      <dd>{% if letter.reply_to_address %}{{ letter.reply_to_address }}{% else %}{{ _("naar de vereniging") }}{% endif %}</dd>
+    </dl>
+    {% if progress.queued %}
+    <div class="h-1.5 w-full rounded-full bg-line overflow-hidden" role="progressbar"
+         aria-valuemin="0" aria-valuemax="{{ progress.total }}" aria-valuenow="{{ progress.total - progress.queued }}">
+      <div class="h-full bg-blue-500" style="width: {{ ((progress.total - progress.queued) * 100 // progress.total) if progress.total else 0 }}%"></div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="space-y-4">
+    <div class="bg-surface border border-line rounded-2xl p-5">
+      <h2 class="font-semibold text-blue-700">{{ _("De tekst zoals hij vertrok") }}</h2>
+      <div class="cms-content mt-3 text-sm">{{ letter.body_html|safe }}</div>
+    </div>
+
+    <div class="bg-surface border border-line rounded-2xl p-5">
+      <h2 class="font-semibold text-blue-700">{{ _("Per adres") }}</h2>
+      {% call ui.filter_bar("/admin/nieuwsbrieven/" ~ letter.id, "#nb-afleveringen") %}
+      <div class="flex flex-wrap gap-2 mt-3">
+        {{ ui.search(value=q, placeholder=_('Zoek een adres…'), standalone=False) }}
+        {% call ui.select_control("status", aria_label=_("Status")) %}
+          <option value="">{{ _("Alle") }}</option>
+          {% for value, label in delivery_labels.items() %}
+          <option value="{{ value }}"{% if status_filter == value %} selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        {% endcall %}
+      </div>
+      {% endcall %}
+      <div id="nb-afleveringen">
+        {% include "_nb_afleveringen.html" %}
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

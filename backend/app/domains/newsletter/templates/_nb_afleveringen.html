@@ -1,0 +1,23 @@
+{% import "_macros.html" as ui %}
+<div class="overflow-x-auto">
+<table class="w-full text-sm">
+  <thead><tr class="text-left text-ink-soft border-b border-line">
+    <th scope="col" class="py-2 pr-3 font-semibold">{{ _("Adres") }}</th>
+    <th scope="col" class="py-2 pr-3 font-semibold">{{ _("Status") }}</th>
+    <th scope="col" class="py-2 pr-3 font-semibold">{{ _("Wanneer") }}</th>
+    <th scope="col" class="py-2 font-semibold">{{ _("Reden") }}</th>
+  </tr></thead>
+  <tbody class="divide-y divide-line">
+  {% for delivery in deliveries %}
+    <tr>
+      <td class="py-2 pr-3">{{ delivery.email }}</td>
+      <td class="py-2 pr-3">{{ ui.badge(delivery_labels[delivery.status], delivery_tones[delivery.status]) }}</td>
+      <td class="py-2 pr-3 text-ink-soft">{{ moments[delivery.id] }}</td>
+      <td class="py-2 text-ink-soft">{{ delivery.error or "" }}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="4" class="py-3 text-ink-soft">{{ _("Geen adressen die hierbij passen.") }}</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
