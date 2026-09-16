@@ -66,7 +66,9 @@ def test_P1_bevestig_betaald_toont_de_volle_som(client, db_session):
     # Bedrag/status → op de records; label → op de HTML.
     db_session.expire_all()
     assert db_session.get(PaymentRecord, charge.id).amount_paid == Decimal("30.00")
-    assert "Openstaand" not in html
+    # De BADGE (span), niet het woord: sinds golf 10 heet een KPI-tegel en een
+    # statustab ook "Openstaand", en die staan er altijd.
+    assert ">Openstaand</span>" not in html
     assert_saldo_klopt(db_session, *PAYABLE, "30.00")
     assert_geen_pending_als_betaald(html)
 
@@ -80,7 +82,7 @@ def test_P2_status_paid_met_leeg_bedrag_boekt_volledig(client, db_session):
 
     db_session.expire_all()
     assert db_session.get(PaymentRecord, charge.id).amount_paid == Decimal("30.00")
-    assert "Openstaand" not in html
+    assert ">Openstaand</span>" not in html
     assert_saldo_klopt(db_session, *PAYABLE, "30.00")
 
 

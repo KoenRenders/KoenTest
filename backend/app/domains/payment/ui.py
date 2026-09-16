@@ -116,8 +116,8 @@ def _view(request: Request, db: Session, email: str,
     bewijzen dat de template niets vraagt wat hier niet staat.
     """
     from app.domains.payment.api import (
-        aggregate, derived_status, enriched_records, filter_records, group_cards,
-        may_delete,
+        aggregate, apply_zicht, count_zichten, derived_status, enriched_records,
+        filter_records, group_cards, may_delete,
     )
 
     # #671: uit HX-Current-URL als htmx die meestuurt, anders uit de query-string.
@@ -132,6 +132,13 @@ def _view(request: Request, db: Session, email: str,
     openstaand = stand.get("openstaand") == "1" or status == "openstaand"
     if status == "openstaand":
         status = "all"
+    # Golf 10 (#913): de statustabs. Een oude openstaand-link (of -export-URL)
+    # landt op het Openstaand-tab, zodat hij hetzelfde blijft tonen; een
+    # onbekende waarde valt terug op "alle" en vervalst nooit een tab.
+    zicht = (stand.get("zicht") or "").strip()
+    if zicht not in ("alle", "openstaand", "betaald", "terugbetaald"):
+        zicht = "openstaand" if openstaand else "alle"
+    openstaand = False
     # #704: `?record=<id>` toont die ene betaling, ongeacht de andere filters.
     # Zo landt een werkbanktaak op de kaart die ze bedoelt, ook als die buiten
     # het huidige filter valt. Alleen hier en niet in de export: een export van
@@ -183,10 +190,15 @@ def _view(request: Request, db: Session, email: str,
         scope_naam, scope_payables = _activiteit_scope(db, int(activiteit_id))
     elif gezin_id:
         scope_naam, scope_payables = _gezin_scope(db, int(gezin_id))
-    zichtbaar = filter_records(records, context=context, status=status, q=q,
-                               openstaand=openstaand, record_id=record_id,
-                               registration_id=inschrijving_id,
-                               payables=scope_payables)
+    # Eerst zónder zicht (de tab-aantallen tellen over deze basis), daarna de
+    # doorsnede van het actieve tab — dezelfde apply_zicht die filter_records
+    # en de export gebruiken, dus scherm en bestand kunnen niet uiteenlopen.
+    zicht_basis = filter_records(records, context=context, status=status, q=q,
+                                 openstaand=openstaand, record_id=record_id,
+                                 registration_id=inschrijving_id,
+                                 payables=scope_payables)
+    telling = count_zichten(zicht_basis)
+    zichtbaar = zicht_basis if record_id else apply_zicht(zicht_basis, zicht)
 
     # De scope-regel (P13): benoemt de scope en linkt naar het record zelf, met
     # de weg terug naar deze gescopeerde lijst (P3). De naam komt via de
@@ -238,6 +250,38 @@ def _view(request: Request, db: Session, email: str,
     charges = [r for r in zichtbaar if r.type != "refund"]
     refunds = [r for r in zichtbaar if r.type == "refund"]
     m_bet, m_ref = aggregate(charges), aggregate(refunds)
+    # De KPI-band telt over de zicht-BASIS: de tabs snijden de tabel, niet de
+    # kengetallen — anders zegt het tab "Betaald" dat er € 0 openstaat.
+    basis_tot = aggregate(zicht_basis)
+    kpi = {"due": basis_tot["due"], "paid": basis_tot["paid"],
+           "saldo": basis_tot["saldo"],
+           "boekingen": len(zicht_basis), "open": telling["openstaand"]}
+
+    # Tab-URLs server-side opgebouwd mét de actieve filterstand: de tabs staan
+    # in het fragment (verse aantallen bij elke filterwissel) en een link die
+    # zijn stand zelf draagt heeft geen hx-include-samenloop met de filterbalk.
+    from urllib.parse import urlencode
+
+    _tabstand: list = [("q", q) if q else None,
+                       ("context", context) if context != "all" else None,
+                       ("status", status) if status != "all" else None]
+    if inschrijving_id:
+        _tabstand.append(("inschrijving", inschrijving_id))
+    elif activiteit_id:
+        _tabstand.append(("activiteit", activiteit_id))
+    elif gezin_id:
+        _tabstand.append(("gezin", gezin_id))
+    if stil:
+        _tabstand.append(("scope_stil", "1"))
+    zichten = []
+    for _zkey, _zlabel in (("alle", _("Alle")), ("openstaand", _("Openstaand")),
+                           ("betaald", _("Betaald")),
+                           ("terugbetaald", _("Terugbetaald"))):
+        _qs = urlencode([("zicht", _zkey)] + [p for p in _tabstand if p])
+        zichten.append({"key": _zkey, "label": _zlabel, "count": telling[_zkey],
+                        "url": f"/admin/betalingen/lijst?{_qs}",
+                        "page_url": f"/admin/betalingen?{_qs}",
+                        "actief": _zkey == zicht})
     # Terugbetalingen staan al NEGATIEF in de records (create_refund bewaart
     # -bedrag), dus netto is een OPTELSOM. De oude aftrekking telde ze dubbel:
     # 18 − (−9) = 27, terwijl de totaalregels onderaan (aggregate over alle
@@ -321,6 +365,7 @@ def _view(request: Request, db: Session, email: str,
             "cancelled": (_("Geannuleerd"), "gray"),
         },
         status=status, openstaand=openstaand, q=q, scope=scope,
+        zicht=zicht, zichten=zichten, kpi=kpi,
         componenten=_comp, jaren=_jaren,
         context_top=context_top, context_groups=context_groups,
         matrix={"betalingen": m_bet, "terugbetalingen": m_ref, "netto": m_net},
@@ -444,6 +489,11 @@ def betalingen_export(request: Request, db: Session = Depends(get_db),
     openstaand = stand.get("openstaand") == "1" or status == "openstaand"
     if status == "openstaand":
         status = "all"
+    # Golf 10 (#913): het tab-zicht reist mee — zelfde afleiding als _view.
+    zicht = (stand.get("zicht") or "").strip()
+    if zicht not in ("alle", "openstaand", "betaald", "terugbetaald"):
+        zicht = "openstaand" if openstaand else "alle"
+    openstaand = False
     # P13 (golf 5, #913): de recordscope reist mee, zoals elke filterstand —
     # dezelfde cijfercontrole als in _view.
     inschrijving_id = (stand.get("inschrijving") or "").strip()
@@ -457,7 +507,7 @@ def betalingen_export(request: Request, db: Session = Depends(get_db),
     content = build_payments_export_ods(
         db, context=context, status=status, openstaand=openstaand,
         registration_id=inschrijving_id if inschrijving_id.isdigit() else "",
-        payables=paren)
+        payables=paren, zicht=zicht)
     return Response(
         content=content,
         media_type="application/vnd.oasis.opendocument.spreadsheet",

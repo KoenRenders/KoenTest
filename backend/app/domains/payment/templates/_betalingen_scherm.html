@@ -2,7 +2,7 @@
 {# Het betalingenscherm zonder schil (golf 8, #913): filterbalk + lijst.
    Gedeeld door /admin/betalingen en de ingebedde Betalingen-tab van een
    activiteit — één bron, twee koppen. #}
-{% call ui.filter_bar("/admin/betalingen/lijst", "#betalingen-lijst") %}
+{% call ui.filter_bar("/admin/betalingen/lijst", "#betalingen-lijst", id="bt-filter") %}
   {# P13 (golf 5, #913): de recordscope reist als hidden field met élke
      filterwijziging mee — de scope overleeft filteren en wissen, en verdwijnt
      alleen via "Alle bekijken" in de scope-regel. #}
@@ -24,12 +24,13 @@
       <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ status_labels[s] }}</option>
       {% endfor %}
     {% endcall %}
-    {{ ui.chips("openstaand", [("", _("Alles")), ("1", status_labels["openstaand"])],
-                current="1" if openstaand else "") }}
+    {# De openstaand-chips van #669 zijn opgegaan in de statustabs (golf 10,
+       #913): het Openstaand-tab is dezelfde afgeleide saldotest, en hij
+       combineert nog altijd met EN met de statuskeuzelijst hierboven. #}
     {# De exportknop draagt de filterstand mee: zonder de nieuwe parameter
        exporteert hij iets anders dan wat op het scherm staat. #}
     {{ ui.btn_secondary(_("Export (.ods)"), lead_icon="download",
-                        href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status ~ ("&openstaand=1" if openstaand else "") ~ ("&" ~ scope.param_naam ~ "=" ~ scope.param_waarde if scope and scope.param_naam != "record" else ""), size="sm",
+                        href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status ~ "&zicht=" ~ zicht ~ ("&" ~ scope.param_naam ~ "=" ~ scope.param_waarde if scope and scope.param_naam != "record" else ""), size="sm",
                         attrs='hx-boost="false"') }}
   </div>
 {% endcall %}
@@ -41,6 +42,6 @@
    hier halen we de lijst opnieuw op mét de huidige filterstand. #}
 <div id="betalingen-lijst"
      hx-get="/admin/betalingen/lijst" hx-trigger="betalingen-ververst from:body"
-     hx-include="[name='q'],[name='status'],[name='context'],[name='inschrijving'],[name='activiteit'],[name='gezin'],[name='record']" hx-swap="innerHTML">
+     hx-include="[name='q'],[name='status'],[name='context'],[name='zicht'],[name='inschrijving'],[name='activiteit'],[name='gezin'],[name='record']" hx-swap="innerHTML">
   {% include "_betalingen_lijst.html" %}
 </div>
