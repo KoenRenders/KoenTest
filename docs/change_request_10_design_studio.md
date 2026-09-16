@@ -543,7 +543,11 @@ Approved by Koen on 16 September 2026, with a limit.
 - **Budget, not a count** (Koen, 16 September 2026):
   - a **monthly budget in euro per unit**, **configurable**, set to
     **€50 per month** while testing;
-  - the budget is a tenant setting that only OPERATOR can change;
+  - **the budget lives in `.env`** (`DESIGNSTUDIO_AI_MONTHLY_BUDGET_EUR`,
+    default 50), the same pattern as `max_registrations_per_email`: a
+    default in `app/config.py` that the environment file overrides. A
+    **tenant setting** can override it per unit; only OPERATOR can change
+    that setting. Without a tenant value, the `.env` value applies;
   - BFL reports the cost of each request in credits (1 credit = $0.01).
     That cost is converted to euro at a configured rate and added to the
     unit's month;
@@ -676,8 +680,10 @@ Codes (`duo_code`, `layout_code`, `icon_code`) are validated in code against
 the constants of §3.3 and the template's icon subset. There are no
 cross-schema foreign keys, as elsewhere.
 
-Tenant setting: `ai_image_monthly_budget_eur` (€50 while testing).
-Environment: `BFL_USD_EUR_RATE` for the cost conversion.
+Environment: `DESIGNSTUDIO_AI_MONTHLY_BUDGET_EUR` (default 50, the budget
+per unit per month) and `BFL_USD_EUR_RATE` (the cost conversion).
+Tenant setting: `ai_image_monthly_budget_eur` — an optional per-unit
+override of the `.env` budget.
 Environment: `BFL_API_KEY`, `DESIGNSTUDIO_AI_IMAGES_ENABLED` (the kill
 switch, default off).
 
