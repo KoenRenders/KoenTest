@@ -532,6 +532,8 @@ Approved by Koen on 16 September 2026, with a limit.
   - Pricing is per megapixel, from about **$0.03 per image** (1 credit =
     $0.01). The response reports the actual cost, and that cost is stored
     per generation.
+  - **Measured on 16 September 2026** (§6a): 4.5 credits ($0.045) and
+    15–21 seconds for a 1920 × 1072 px image.
 - **Flow:** the request is asynchronous and the response contains a
   `polling_url`. **Result URLs expire after about 10 minutes**, so the
   worker downloads the image into `design_image` immediately and never
@@ -756,6 +758,54 @@ New dependencies:
 - phase 1: `pypdfium2`, plus a QR library — **`segno`** (BSD, pure Python,
   no dependencies) or `qrcode`; the build weighs them under Europe First;
 - phase 3: an HTTP client for BFL, which the codebase already has.
+
+## 6a. Prototype findings (16 September 2026)
+
+Six iterations of throwaway prototypes, rendered with the real stack
+(WeasyPrint 70, pypdfium2, segno, Radio Canada Big). The results and scripts
+are in Koen's Nextcloud project folder (`designstudio/iteraties/`) and not in
+this repository: they contain photos and test data from real posters. What the
+build takes from them:
+
+- **Three templates carry the Design Studio.**
+  - **"Beeld"**: a photo on top, the subtitle curving along a brand wave, a
+    colour corner holding the logo and the QR code.
+  - **"Tekstflyer"**: an A4 text flyer with a header, a photo, a "Praktisch"
+    box and a contact footer. Koen: "mooi zo".
+  - **"Illustratie"**: built from zones, with the date and a concrete
+    location next to the logo, three short messages, and a registration or
+    "Meer info" block that depends on the activity.
+- **Zones, not free positioning.** A layout is a column of fixed-height
+  zones, with normal flow and flexbox inside each zone. **After layout, a
+  check walks the box tree and fails the render when any box leaves its
+  zone.** The pages use `overflow: hidden`, which would otherwise hide such
+  a box silently.
+  - The check caught three real faults during the prototypes.
+  - It must treat only block boxes as zones: line and text boxes inherit
+    their block's element, and a check that misses this compares a box with
+    itself.
+- **Title size is fitted on real glyph advances** from the font's `hmtx`
+  table, not on a character count.
+- **Curved text is set glyph by glyph.** WeasyPrint ignores SVG `<textPath>`
+  and draws the text straight. The subtitle along the wave is therefore
+  built from the font's glyph outlines (fontTools, with the variable font
+  instanced at the wanted weight). Each glyph is placed with its own
+  translation and rotation along the curve. The output is plain vector
+  paths; if the text is longer than the curve, the render fails.
+- **Radio Canada Big's weight axis ends at 700.** A weight above that renders
+  as 700, so templates never ask for more.
+- **QR codes keep their quiet zone** (`border=4`, on white).
+- **AI images need a whitening step.** FLUX returns a near-white background
+  (RGB 253), which shows as a pale block on a white page. The import step
+  lifts near-white to pure white before the image is stored.
+- **AI colours are close to the palette, not on it.** The yellow tends
+  towards ochre. That is acceptable for an illustration, because text and
+  colour fields stay in exact brand colours in the template, and the image
+  never carries text.
+- **Decorations that belong to the scene live in the scene.** When the image
+  has its own sun or bunting, a sticker placed over the image collides with
+  it. The price therefore sits in a zone (a bar next to the registration
+  block), not on the image.
 
 ## 7. Test set — what the build must reproduce
 
