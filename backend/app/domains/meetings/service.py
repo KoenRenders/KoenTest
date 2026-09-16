@@ -1015,3 +1015,57 @@ def addable_activities(db: Session, meeting: Meeting, query: str = "",
     # regels en dan scrol je door een lijst in plaats van te kiezen. Het zoekveld
     # erboven is de weg naar de rest; de sectie wijst al de goede kant op.
     return out[:PICKER_LIMIT]
+
+
+@dataclass(frozen=True)
+class Participant:
+    """Iemand die bij deze vergadering hoort: uit de kring, of een gast."""
+
+    key: str            # `p<id>` of `g<id>` — personen en gasten tellen apart
+    name: str
+    person_id: Optional[int]
+    guest_id: Optional[int]
+    is_guest: bool
+    in_circle: bool     # False = stond ooit aangevinkt maar zit niet (meer) in de kring
+
+
+def participants_of(db: Session, meeting: Meeting) -> list[Participant]:
+    """Wie er bij deze vergadering hoort — de kring van dát moment, plus iedereen
+    die er al aangevinkt staat.
+
+    Dat tweede deel is geen luxe. De kring is een momentopname: wie hem verlaat,
+    krijgt een einddatum, en daarna zou hij uit de lijst van een oud verslag
+    verdwijnen terwijl zijn aanwezigheid gewoon in de databank staat. Dan klopt
+    het verslag niet meer met wat er die avond gebeurd is — en niemand die het
+    leest, kan het zien. Wie er wás, blijft er dus staan.
+    """
+    from app.domains.mdm.api import Person, organization_circle
+
+    aangevinkt = attendance_of(db, meeting)
+    uit = []
+    gezien = set()
+    for entry in organization_circle(db, on_day=meeting.meeting_date):
+        sleutel = f"p{entry.person.id}"
+        gezien.add(sleutel)
+        uit.append(Participant(
+            key=sleutel,
+            name=f"{entry.person.first_name} {entry.person.last_name}".strip(),
+            person_id=entry.person.id, guest_id=None, is_guest=False,
+            in_circle=True))
+
+    # Personen die aangevinkt staan maar niet (meer) in de kring zitten.
+    ontbrekend = [int(k[1:]) for k in aangevinkt
+                  if k.startswith("p") and k not in gezien]
+    if ontbrekend:
+        for person in db.query(Person).filter(Person.id.in_(ontbrekend)).all():
+            uit.append(Participant(
+                key=f"p{person.id}",
+                name=f"{person.first_name} {person.last_name}".strip(),
+                person_id=person.id, guest_id=None, is_guest=False,
+                in_circle=False))
+
+    for gast in extra_recipients_of(db, meeting):
+        uit.append(Participant(key=f"g{gast.id}", name=gast.name or gast.email,
+                               person_id=None, guest_id=gast.id, is_guest=True,
+                               in_circle=True))
+    return uit

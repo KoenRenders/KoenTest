@@ -56,6 +56,7 @@ from app.domains.meetings.api import (
     previous_meeting,
     long_date,
     member_standing,
+    participants_of,
     recipients_for,
     remove_extra_recipient,
     render,
@@ -335,8 +336,8 @@ def _document_view(request: Request, db: Session, meeting,
         status_label=_(STATUS_LABELS.get(meeting.status, meeting.status)),
         status_tone=STATUS_TONES.get(meeting.status, "gray"),
         sections=document_of(db, meeting),
+        participants=participants_of(db, meeting),
         circle=organization_circle(db, on_day=meeting.meeting_date),
-        guests=extra_recipients_of(db, meeting),
         attendance=attendance_of(db, meeting),
         standing=member_standing(db),
         picker_section_id=picker_section_id, picker_options=picker_options,
@@ -642,18 +643,17 @@ def _pdf_context(db: Session, meeting, *, kind: str) -> dict:
 
     ticked = attendance_of(db, meeting)
     present, excused = [], []
-    deelnemers = [(f"p{e.person.id}",
-                   f"{e.person.first_name} {e.person.last_name}".strip())
-                  for e in organization_circle(db, on_day=meeting.meeting_date)]
-    # Gasten staan in dezelfde lijst, met "(gast)" erbij: wie het verslag leest,
-    # moet kunnen zien dat iemand niet tot de vaste kring hoort.
-    deelnemers += [(f"g{g.id}", f"{g.name or g.email} ({_('gast')})")
-                   for g in extra_recipients_of(db, meeting)]
-    for sleutel, name in deelnemers:
-        if ticked.get(sleutel) == ATTENDANCE_PRESENT:
-            present.append(name)
-        elif ticked.get(sleutel) == ATTENDANCE_EXCUSED:
-            excused.append(name)
+    # Dezelfde lijst als het scherm: de kring van dát moment plus iedereen die
+    # aangevinkt staat. Zou het verslag alleen de huidige kring tonen, dan
+    # verdween wie intussen vertrokken is uit een oud verslag — terwijl hij er
+    # die avond wél was. Gasten dragen "(gast)", zodat een lezer ziet wie niet
+    # tot de vaste kring hoorde.
+    for deelnemer in participants_of(db, meeting):
+        naam = f"{deelnemer.name} ({_('gast')})" if deelnemer.is_guest else deelnemer.name
+        if ticked.get(deelnemer.key) == ATTENDANCE_PRESENT:
+            present.append(naam)
+        elif ticked.get(deelnemer.key) == ATTENDANCE_EXCUSED:
+            excused.append(naam)
     return {"meeting": meeting, "kind": kind, "logo": _logo_data_uri(db),
             "kind_label": _("Agenda") if kind == "agenda" else _("Verslag"),
             "date_label": long_date(meeting.meeting_date),
