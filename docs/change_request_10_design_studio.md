@@ -5,7 +5,8 @@
 `feature/designstudio`). Not assigned to a release. Decisions in §3 are
 settled unless marked *open*; §8 lists what still needs Koen.
 **Apply to:** a new `designstudio` domain (backend + admin screens), two
-columns on `activities.activities`, two new media kinds. Rendering reuses
+columns and a contacts table on `activities`, two new media kinds, and the
+name search moving into MDM. Rendering reuses
 WeasyPrint (#258); text proposals reuse the Mistral provider (chatbot).
 
 ---
@@ -153,7 +154,7 @@ The chatbot brief that produced the first two posters asks for:
 | Welcome line ("Iedereen welkom!") | 2 | design |
 | Explanation, one or two paragraphs | 1 | activity description; design may shorten |
 | Registration: link, QR code, deadline | 2 | activity |
-| Contact: website, e-mail, contact persons | 4 | organisation; contact lines typed on the design |
+| Contact: website, e-mail, contact persons | 4 | the activity's contacts: members and/or the association |
 | Supporter / funder logos | 2 | media, kind `sponsor` |
 | Responsible publisher (V.U.) | 1 | out of scope for now (§3.10) |
 | Image slot, optional inset image | 4 | design |
@@ -271,7 +272,7 @@ same duo.
   1. the explanation;
   2. the concrete-dates grid, replaced by the recurrence line;
   3. highlights beyond three;
-  4. contact lines.
+  4. contacts.
 
   Title, date, place, image and the link are never dropped.
 - **Social layouts keep text inside a safe zone**, because Facebook crops the
@@ -325,14 +326,16 @@ A design can be downloaded file by file, or as one ZIP. File names follow
 
 One place per fact:
 - **From the activity, always live:** title, dates and times, location,
-  prices, registration link and QR code (from `slug`), description, tagline.
-- **From the organisation:** website, e-mail, logo lockup, unit name.
+  prices, registration link and QR code (from `slug`), description, tagline,
+  contacts.
+- **From the organisation:** logo lockup, unit name, and — when the
+  association is a contact — its website, e-mail and mobile number.
 - **Only on the design:**
   - a title override (for line breaks: "SPEELNAMIDDAG / EN / ZOMERBAR");
   - subtitle, recurrence line, highlights, welcome line;
   - price-badge wording, a shortened explanation;
   - images and focal point;
-  - contact lines and supporter logos;
+  - supporter logos;
   - the kicker toggle.
 
 A design stores its **inputs, not its renders**. "Add this line a week
@@ -356,29 +359,50 @@ See §8.
 A recurrence engine is **not** added. The concrete dates are the existing
 `ActivityDate` rows. The phrase "every 2nd Monday" is design text.
 
-### 3.9 Contact lines are typed on the design
+### 3.9 Contacts belong to the activity: a member or the association
 
-Koen, 16 September 2026: contacts are **typed in the Design Studio**, not
-selected from the member records. Not everyone wants their phone number on a
-poster, and some prefer to be reachable as "Raak" rather than by their own
-name. What goes on a poster is therefore the person's own choice, not a copy
-of their record.
+Koen, 16 September 2026, after two earlier drafts: contacts are recorded
+**on the activity**. A contact is either **a member**, optionally with a
+different mobile number or e-mail address, or **the association itself**.
 
-- **A design has up to three contact lines.** Each line has a free label
-  (a first name, "Raak Millegem", …), an optional phone number and an
-  optional e-mail address. A line needs a label and at least one of the two.
-- **The default is the organisation.** A design without contact lines shows
-  the organisation's website and e-mail (#945) — the footer the examples
-  already have.
-- **Convenience, not a second source.** A new design of an activity starts
-  with the contact lines of that activity's most recent design, so they are
-  not typed twice. After that, each design owns its own lines.
-- **Design text, not a fact.** Contact lines do not count toward the stale
-  fingerprint (§3.14).
+- **On the activity.** Who answers questions about an activity is a fact
+  about that activity, so every design of it shows the same contacts.
+  Changing a contact marks the final design stale (§3.14), like a changed
+  date.
+- **Two kinds of contact.** Each contact row points to exactly one party:
+  - **A member.** The name is shown. Mobile number and e-mail come from the
+    person's `ContactDetail` rows, **unless the contact row overrides
+    them**. Per channel, the row can also leave it off the poster —
+    someone may be fine with their e-mail but not their number.
+  - **The association (Raak).** **The name is not shown**. The contact
+    shows the organisation's website, e-mail and mobile number, taken from
+    its own `ContactDetail` rows (#945 — the organisation already has
+    EMAIL, MOBILE and WEBSITE). This is what some posters already do.
+- **Exactly one party per row.** Following `ContactDetail` and `Address`,
+  exactly one of `person_id` and `organization_id` is filled, enforced by a
+  CHECK. The association can be added at most once per activity.
+- **The picker follows the meeting circle** (CR-09). It has a search field
+  over names, a short result list and an "Add" button, plus one fixed
+  option, "Raak (de vereniging)". Added contacts form an ordered list; each
+  row has the two override fields, the two show toggles, and a remove
+  button. The picker marks a member who has neither a mobile number nor an
+  e-mail.
+- **Members only.** This is the difference with the circle, which
+  deliberately admits non-members. A candidate is a person in a household
+  (`MemberPerson`). *Open (§8):* is every household person a member, or
+  only a household with a paid membership for the current year?
+- **One search, not two.** The circle screen filters `list_persons` inside
+  its UI module; its comment says a search argument in MDM "would be a
+  second contract for one caller". With this second caller, the name search
+  moves into MDM as one function with a members-only option, and the circle
+  calls it too. Two copies of the same filter would drift apart.
+- **Where contacts are shown.** On posters and social images, the contact
+  block follows the layout priority (§3.4). Whether the public activity
+  page shows them as well is a separate decision, because a web page is
+  indexed and stays online (§8).
 
-This is personal data printed in public. The editor says so next to the
-fields. Contact lines are never sent to an LLM (§5), and the phone and
-e-mail fields are validated for format only.
+A member's number printed on a poster is personal data made public. The
+picker says so, and contact details are never sent to an LLM (§5).
 
 ### 3.10 Responsible publisher — out of scope for now
 
@@ -527,9 +551,6 @@ designstudio.designs
 designstudio.design_highlights      -- up to six, ordered
   id, design_id, sort_order, icon_code, text
 
-designstudio.design_contact_lines  -- up to three, ordered, typed
-  id, design_id, sort_order, label, phone, email
-
 designstudio.design_supporters      -- supporter / funder logos
   id, design_id, media_asset_id, sort_order
 
@@ -546,6 +567,16 @@ designstudio.image_generations      -- audit + quota
 activities.activities
   + tagline      varchar(90)  null
   + description  text         null
+
+activities.activity_contacts        -- ordered; a member or the association
+  id, tenant_id, activity_id, sort_order,
+  person_id        (soft ref, null)   -- a member
+  organization_id  (soft ref, null)   -- the association; name not shown
+  mobile_override  varchar(50)  null
+  email_override   varchar(255) null
+  show_mobile, show_email       boolean
+  check: exactly one of person_id, organization_id
+  unique (activity_id, person_id), unique (activity_id, organization_id)
 media.media_assets.kind
   + design_image   (no 1600 px resize; see §3.11)
   + design_render  (rendered PDF / image)
@@ -569,7 +600,7 @@ switch, default off).
 
 - **Uploaded photos and archive photos are never sent to BFL** (no image
   editing of member photos). Doing that would be a separate decision.
-- Contact lines are rendered locally and never sent anywhere.
+- Contacts are rendered locally and never sent anywhere.
 - BFL's zero-retention option is an enterprise offer. The standard API keeps
   results for about 10 minutes.
 
@@ -583,7 +614,7 @@ Each phase ships on its own.
    - One template, **"Illustratie"** (the play-afternoon and walking-group
      family), with the `print_a` (borderless home PDF), `feed_portrait`, `square`
      and `landscape` layouts.
-   - Images from upload or archive, QR code, contact lines, supporter
+   - Images from upload or archive, QR code, contacts, supporter
      logos.
    - Draft, final, stale; the final design becomes the poster and share
      image; downloads.
@@ -606,8 +637,8 @@ With **seed data only**, the "Illustratie" template must reproduce the
 structure of two of the examples in §1.3:
 
 - **a one-day activity:** date badge with a time range, five highlights, a
-  price badge, a supporter logo, and a footer with website, e-mail and one
-  contact line;
+  price badge, a supporter logo, and a footer with two contacts — one member
+  and the association;
 - **a recurring activity with six dates:** recurrence line, dates grid,
   highlights, and an inset image.
 
@@ -623,9 +654,16 @@ The tests must be able to go red:
 - a scripted SVG upload is refused;
 - changing an activity date marks its final design stale — tested through
   the activity service, not by calling the fingerprint function directly;
-- a contact line with only a label is refused by the service;
-- a new design of an activity starts with the previous design's contact
-  lines, and editing them does not change the previous design;
+- changing an activity's contacts also marks its final design stale;
+- an override wins over the member's own number, and removing the override
+  brings the member's number back;
+- an association contact renders website, e-mail and mobile, and no name;
+- a row with both or neither of person and organisation is refused by the
+  database, not only by the form;
+- the picker refuses a person who is not a member — tested through the
+  route, because the picker only hides non-members;
+- the meeting circle still finds non-members after the name search moves to
+  MDM;
 - marking a design final replaces the activity's poster — tested through the
   public activity page;
 - the quota refuses the generation after the limit, and the kill switch
@@ -639,7 +677,11 @@ The tests must be able to go red:
    deadline out of the posters for now?
 2. **Default AI quota.** How many generations per unit per month? (One
    request = four images, about $0.12–0.20.)
-3. **Neutral lockup as SVG.** Can Raak supply the neutral lockup ("Beleef
+3. **Who is a member (§3.9)?** Every person in a household, or only a
+   household with a paid membership for the current year?
+4. **Contacts on the website (§3.9).** Show the activity's contacts on the
+   public activity page as well, or only on posters and social images?
+5. **Neutral lockup as SVG.** Can Raak supply the neutral lockup ("Beleef
    meer!") as SVG? Until then the PNGs serve (§3.3).
 
 ## Non-goals
@@ -657,7 +699,8 @@ The tests must be able to go red:
 
 ## Relationship to existing work
 
-- **#258 / CR-09:** WeasyPrint and its Dockerfile packages.
+- **#258 / CR-09:** WeasyPrint and its Dockerfile packages; the meeting
+  circle picker whose pattern and name search §3.9 reuses.
 - **#223:** the poster media slot that a final design fills.
 - **#884:** the stable slug behind the QR code and the share link.
 - **#945:** the organisation's website and e-mail.
