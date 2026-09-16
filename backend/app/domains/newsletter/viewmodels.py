@@ -161,4 +161,6 @@ class PublicNewsletterView(ViewModel):
         context = super().as_context()
         context.pop("site", None)
         context.update(self.site)
+        # The page IS the signup: the footer block would be the same form twice.
+        context["nieuwsbrief_inschrijven"] = False
         return context

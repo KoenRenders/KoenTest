@@ -272,14 +272,14 @@ def test_een_mislukte_controleronde_laat_het_voorstel_niet_gecontroleerd_lijken(
 
 
 def test_een_naam_in_het_antwoord_wordt_gemarkeerd(db_session, raakje):
-    db_session.add(Person(first_name="Ivo", last_name="Verwimp"))
+    db_session.add(Person(first_name="Wannes", last_name="Fabriekx"))
     db_session.flush()
     letter = _letter(db_session)
-    raakje(_draft(["Bedankt Verwimp voor het vele werk."]), _verdict())
+    raakje(_draft(["Bedankt Fabriekx voor het vele werk."]), _verdict())
 
     turn = _ask(db_session, letter)
 
-    assert any(m["quote"] == "Verwimp" for m in turn.proposal["marks"])
+    assert any(m["quote"] == "Fabriekx" for m in turn.proposal["marks"])
 
 
 def test_een_fotolink_alleen_als_er_een_album_is(db_session, raakje, monkeypatch):

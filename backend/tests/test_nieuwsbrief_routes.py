@@ -350,3 +350,10 @@ def test_automatisch_bewaren_maakt_het_formulier_niet_onklikbaar(client, db_sess
     html = client.get(f"/admin/nieuwsbrieven/{letter.id}").text
     formulier = html.split('id="nb-formulier"')[1].split(">")[0]
     assert 'hx-indicator="#nb-bewaard"' in formulier
+
+
+def test_de_inschrijfpagina_toont_het_formulier_een_keer(client, db_session):
+    """The footer block is left out on the page that is the signup itself."""
+    html = client.get("/nieuwsbrief").text
+    assert html.count('name="email"') == 1
+    assert 'id="nb-voet"' not in html

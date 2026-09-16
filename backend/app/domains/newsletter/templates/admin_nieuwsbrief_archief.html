@@ -5,7 +5,7 @@
 {{ ui.back_link(_("Alle nieuwsbrieven"), "/admin/nieuwsbrieven") }}
 {# Een verstuurde brief staat hier zoals hij vertrok — niet meer te wijzigen.
    "Kopiëren" maakt een nieuw concept (CR-05 §3.12). #}
-{% call ui.page_header(letter.subject, _("Voor %(wie)s", wie=audience_label)) %}
+{% call ui.page_header(letter.subject, _("Doelgroep: %(wie)s", wie=audience_label)) %}
   <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/kopieren">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {{ ui.btn_primary(_("Kopiëren naar een nieuw concept"), type="submit", lead_icon="copy") }}

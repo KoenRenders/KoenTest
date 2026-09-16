@@ -32,7 +32,7 @@
     <span class="text-blue-700">{{ ui.icon("send", 18) }}</span>
     <p class="text-sm text-blue-700"><strong>{{ _("Nagelezen?") }}</strong>
       {{ _("Stuur eerst een testmail naar jezelf als je dat nog niet deed.") }}</p>
-    <span class="ml-auto">{{ ui.btn_primary(_("Versturen (%(n)s)", n=recipient_count), type="submit", lead_icon="send") }}</span>
+    <span class="ml-auto shrink-0">{{ ui.btn_primary(_("Versturen (%(n)s)", n=recipient_count), type="submit", lead_icon="send", cls="whitespace-nowrap") }}</span>
   </div>
 </form>
 {% elif letter.audience %}
