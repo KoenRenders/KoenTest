@@ -128,6 +128,14 @@ Vier regels, elk met een reden:
     met een eigen verborgen veld en eigen CSS voor de balk; de nieuwsbrief zou
     de derde kopie worden. Eén macro, en deze regel houdt haar de enige.
 
+37. **Een bevestigingsvraag staat op het element dat het verzoek doet** (#984).
+    htmx leest `data-confirm` op het element met `hx-post`; bij een formulier is
+    dat het formulier, niet de knop erin (gemeten in de broncode van htmx:
+    `htmx:confirm` krijgt `elt` = het formulier). Een `data-confirm` of
+    `confirm=` op een knop zonder eigen `hx-post`, in een `hx-post`-formulier,
+    wordt dus nooit getoond — en het verzoek gaat zonder vraag door. Drie keer
+    zo in de vergadermodule.
+
 Uitzonderingen staan expliciet in ALLOWLIST, met reden — zoals de allowlists in
 de andere gates: een regel toevoegen mag, maar niet stilzwijgend.
 """
@@ -1433,3 +1441,37 @@ def test_de_opgemaakte_tekst_editor_komt_uit_de_kit():
     )
     kit = (APP / "ui" / "templates" / "_macros.html").read_text()
     assert "<trix-editor" in kit, "de macro zelf is verdwenen — dan bewaakt deze regel niets"
+
+
+# Bekend en gemeld, niet in dit spoor opgelost (#984): de JSON-import van de
+# formulierbouwer vraagt "De volledige opbouw vervangen?" op de knop, dus de
+# vraag verschijnt nooit. Een ander domein; aan Koen voorgelegd.
+BEVESTIGING_OP_KNOP_BEKEND = {"_fb_builder.html"}
+
+
+def test_een_bevestigingsvraag_staat_op_het_formulier():
+    """#984 — `data-confirm` in een `hx-post`-formulier hoort op het formulier.
+
+    Kapotgemaakt om te controleren dat deze test rood kan worden: in
+    `_vg_document.html` de vraag terug van het formulier naar de knop gezet →
+    de test valt om met dat pad.
+    """
+    formulier = re.compile(r"<form\b([^>]*)>(.*?)</form>", re.S)
+    fouten = []
+    for pad in TEMPLATES:
+        if pad.name in BEVESTIGING_OP_KNOP_BEKEND:
+            continue
+        tekst = _zonder_commentaar(pad)
+        for treffer in formulier.finditer(tekst):
+            kop, binnen = treffer.group(1), treffer.group(2)
+            if "hx-post" not in kop or "data-confirm" in kop or "hx-post" in binnen:
+                continue
+            if re.search(r"data-confirm|\bconfirm\s*=\s*_", binnen):
+                regel = tekst[:treffer.start()].count("\n") + 1
+                fouten.append(f"{pad.relative_to(APP)}:{regel}")
+    assert not fouten, (
+        "Zet `data-confirm` op het <form> met hx-post, niet op de knop erin — "
+        "htmx leest het daar en nergens anders:\n  " + "\n  ".join(fouten)
+    )
+    bekend = [p for p in TEMPLATES if p.name in BEVESTIGING_OP_KNOP_BEKEND]
+    assert bekend, "de bekende uitzondering bestaat niet meer — haal ze uit de lijst"

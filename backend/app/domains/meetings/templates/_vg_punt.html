@@ -17,12 +17,14 @@
         <span class="inline-flex items-center text-xs text-ink-soft bg-surface-2 rounded-md px-2 py-0.5">{{ _("vrij punt") }}</span>
       {% endif %}
       {% if editable %}
+      {# `data-confirm` op het formulier: htmx leest het op het element dat het
+         verzoek doet (#984). Op de knop stond het er, maar verscheen het nooit. #}
       <form class="ml-auto" hx-post="/admin/vergaderingen/{{ meeting.id }}/punt/{{ item.id }}/verwijder"
-            hx-target="#vg-document" hx-swap="innerHTML">
+            hx-target="#vg-document" hx-swap="innerHTML"
+            data-confirm="{{ _("Dit punt van de agenda halen?") }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
         <button type="submit" class="text-ink-soft hover:text-brand-danger p-1 rounded"
-                aria-label="{{ _("Punt van deze agenda halen") }}"
-                data-confirm="{{ _("Dit punt van de agenda halen?") }}">{{ ui.icon("x", 15) }}</button>
+                aria-label="{{ _("Punt van deze agenda halen") }}">{{ ui.icon("x", 15) }}</button>
       </form>
       {% endif %}
     </div>
