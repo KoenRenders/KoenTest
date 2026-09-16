@@ -72,6 +72,9 @@ else:
 echo "==> Seeding sponsors from assets/seed (if present)..."
 python seed_sponsors.py || echo "  sponsor seeding skipped/failed (non-fatal)"
 
+echo "==> Seeding example newsletter subscribers (never on prod)..."
+python seed_newsletter.py || echo "  newsletter seeding skipped/failed (non-fatal)"
+
 echo "==> Seeding tenant settings (footer links)..."
 python seed_tenant_settings.py || echo "  tenant-settings seeding skipped/failed (non-fatal)"
 

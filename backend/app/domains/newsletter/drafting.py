@@ -404,10 +404,9 @@ def deterministic_marks(text: str, sources: Sources, prices: set[Decimal],
         if number not in fact_numbers:
             marks.append({"quote": number,
                           "reason": _("dit getal staat in geen enkele bron")})
-    lowered = prose.lower()
     for word in FUNCTION_WORDS:
-        if re.search(rf"\b{re.escape(word)}\b", lowered) and word not in fact_text:
-            found = re.search(rf"\b{re.escape(word)}\b", prose, re.IGNORECASE)
+        found = re.search(rf"\b{re.escape(word)}\b", prose, re.IGNORECASE)
+        if found is not None and word not in fact_text:
             marks.append({"quote": found.group(0),
                           "reason": _("deze rol staat in geen enkele bron")})
     for word in _WORD.findall(prose):
@@ -419,9 +418,9 @@ def deterministic_marks(text: str, sources: Sources, prices: set[Decimal],
     return marks
 
 
-def _attach(marks: list[dict[str, str]], texts: dict[int, str]) -> list[dict[str, Any]]:
+def _attach(marks: list[dict[str, Any]], texts: dict[int, str]) -> list[dict[str, Any]]:
     """Give every mark its paragraph, its sentence and an id."""
-    out = []
+    out: list[dict[str, Any]] = []
     for mark in marks:
         index = mark.get("index")
         if index is None or index not in texts:
@@ -533,10 +532,10 @@ def build_proposal(db: Session, letter: Newsletter, data: dict[str, Any], *,
     """The model's JSON → a proposal the screen can show and apply."""
     ops: list[dict[str, Any]] = []
     if whole or "paragraphs" in data and not data.get("operations"):
-        texts = [str(t) for t in (data.get("paragraphs") or []) if str(t).strip()]
-        if not texts:
+        parts = [str(t) for t in (data.get("paragraphs") or []) if str(t).strip()]
+        if not parts:
             raise DraftingError(_("Raakje gaf een leeg voorstel. Probeer het opnieuw."))
-        ops = [{"op": "insert_after", "paragraph": 0, "text": "\n\n".join(texts)}]
+        ops = [{"op": "insert_after", "paragraph": 0, "text": "\n\n".join(parts)}]
         kind = "draft"
     else:
         count = len(sources.letter)
@@ -545,7 +544,7 @@ def build_proposal(db: Session, letter: Newsletter, data: dict[str, Any], *,
                 continue
             op = raw.get("op")
             try:
-                number = int(raw.get("paragraph"))
+                number = int(str(raw.get("paragraph")))
             except (TypeError, ValueError):
                 continue
             if op not in ("replace", "insert_after", "remove"):
@@ -566,7 +565,7 @@ def build_proposal(db: Session, letter: Newsletter, data: dict[str, Any], *,
     facts = nb.activity_facts(db, ids, base_url=base_url)
     prices = {p for f in facts.values() for p in f.prices}
     texts = {i: o["text"] for i, o in enumerate(ops) if o["text"]}
-    raw_marks = []
+    raw_marks: list[dict[str, Any]] = []
     for index, text in texts.items():
         for mark in deterministic_marks(text, sources, prices, names):
             raw_marks.append({**mark, "index": index})
@@ -616,7 +615,7 @@ def verify(db: Session, proposal: dict[str, Any], *, sources: Sources, provider,
         if not isinstance(item, dict):
             continue
         try:
-            index = int(item.get("paragraph")) - 1
+            index = int(str(item.get("paragraph"))) - 1
         except (TypeError, ValueError):
             continue
         quote = str(item.get("quote") or "").strip()
@@ -661,7 +660,7 @@ def apply(db: Session, letter: Newsletter, message: DraftingMessage, *,
         raise DraftingError(_("Dit voorstel is al afgehandeld."))
     nb.update_draft(db, letter, subject=letter.subject, body_html=body_html,
                     audience=letter.audience)
-    drop = {}
+    drop: dict[int, list[str]] = {}
     for mark in proposal.get("marks") or []:
         if mark["id"] not in keep:
             drop.setdefault(mark["index"], []).append(mark["sentence"])

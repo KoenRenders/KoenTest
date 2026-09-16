@@ -596,7 +596,7 @@ async def raakje_points(newsletter_id: int, request: Request, db: Session = Depe
     """The ticked meeting points — the input gate (CR-05 §3.11)."""
     letter = _raakje_letter(db, newsletter_id)
     form = await request.form()
-    ticked = [int(v) for v in form.getlist("point_id") if str(v).isdigit()]
+    ticked = [int(str(v)) for v in form.getlist("point_id") if str(v).isdigit()]
     nb.set_draft_sources(db, letter, activity_ids=letter.draft_activity_ids,
                          meeting_item_ids=ticked)
     return _panel(request, db, letter)
@@ -646,7 +646,7 @@ async def raakje_apply(newsletter_id: int, message_id: int, request: Request,
     if message is None or not message.proposal:
         raise HTTPException(status_code=404, detail=_("Voorstel niet gevonden."))
     form = await request.form()
-    keep = {int(v) for v in form.getlist("keep") if str(v).isdigit()}
+    keep = {int(str(v)) for v in form.getlist("keep") if str(v).isdigit()}
     placement = "cursor" if form.get("placement") == "cursor" else "replace"
     try:
         html = nb.apply_proposal(db, letter, message, keep=keep,

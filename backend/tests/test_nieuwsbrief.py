@@ -519,3 +519,21 @@ def test_de_afsluiting_draagt_geen_persoonsnamen(db_session):
     """CR-05 §3.10: the closing names the association, never people."""
     tekst = nb.closing_html(db_session)
     assert "Het bestuur van" in tekst
+
+
+# ── The example subscribers ──────────────────────────────────────────────────
+
+def test_voorbeeldabonnees_nooit_op_prod(db_session):
+    """CR-05 §3.6: the real list only on PROD, examples everywhere else.
+
+    Broken on purpose: `prod` added to `EXAMPLE_ENVIRONMENTS` → this test fails.
+    """
+    import seed_newsletter
+
+    assert seed_newsletter.seed(db_session, "prod") == 0
+    assert db_session.query(Subscriber).count() == 0
+
+    assert seed_newsletter.seed(db_session, "hdev") == len(seed_newsletter.EXAMPLES)
+    assert seed_newsletter.seed(db_session, "hdev") == 0, "niet twee keer"
+    assert all(s.email.endswith(("@example.org", ".example.org"))
+               for s in db_session.query(Subscriber))
