@@ -9,7 +9,10 @@
       <div x-show="!edit">
         <span class="font-semibold">{{ m.first_name }} {{ m.last_name }}</span>
         <span class="text-xs text-gray-500 ml-1">({{ m.relation_type | relatielabel }})</span>
-        {% if m.date_of_birth %}<p class="text-sm text-gray-500 mt-0.5">° {{ m.date_of_birth.strftime("%d-%m-%Y") }}</p>{% endif %}
+        {# Alle invulbare velden zichtbaar in leesmodus (Koen, 15 sep — de
+           golf 8-regel geldt ook hier): het geslacht ontbrak als enige. #}
+        {% set geslacht = gender_codes | selectattr("code", "equalto", m.gender) | map(attribute="value") | first | default(none) %}
+        {% if m.date_of_birth or geslacht %}<p class="text-sm text-gray-500 mt-0.5">{% if m.date_of_birth %}° {{ m.date_of_birth.strftime("%d-%m-%Y") }}{% endif %}{% if m.date_of_birth and geslacht %} · {% endif %}{{ geslacht or "" }}</p>{% endif %}
         <div class="text-sm text-gray-500 mt-0.5 flex gap-3 flex-wrap">
           {# #638: kit-iconen i.p.v. emoji — dezelfde markup als het gezinsportaal. #}
           {% if m.email %}<span class="inline-flex items-start gap-1">{{ ui.icon("mail", cls="mt-0.5 shrink-0") }} {{ m.email }}</span>{% endif %}

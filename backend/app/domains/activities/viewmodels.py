@@ -65,8 +65,12 @@ class AdminInschrijvingView(ViewModel):
 @dataclass(frozen=True, kw_only=True)
 class AdminActiviteitInschrijvingenView(ViewModel):
     """`admin_activiteit_inschrijvingen.html` — de Inschrijvingen-tab van de
-    recordpagina (golf 8, #913): alle inschrijvingen over de onderdelen heen."""
+    recordpagina (golf 8, #913): alle inschrijvingen over de onderdelen heen,
+    sinds 15 sep via het gedeelde `_inschrijvingen_groepen.html` (één bron
+    met de gezinstab; de activiteit groepeert per onderdeel, dus zonder
+    Onderdeel-kolom)."""
 
+    toon_onderdeel: bool
     a: Any
     # Feedbackronde 2: per onderdeel gegroepeerd — {naam, aantal, regs,
     # export_href (None bij "Zonder onderdeel")}.
