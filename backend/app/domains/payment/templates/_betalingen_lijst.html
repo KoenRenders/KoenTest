@@ -97,8 +97,10 @@
        verwijderen wonen in de bewerk-uitklaprij (A2: verwijderen achter de
        bewerkstap) — een ⋯-menu zou in de overflow-x-container clippen. #}
     {% if is_finance and not k.get('is_context') %}
+    {# Bewerken RECHTS (Koen, feedbackronde 2): hij staat op elke rij en is
+       even breed, dus rechts vormt hij een strakke kolom — de wisselende
+       snelactie staat ernaast links. #}
     <div class="flex justify-end gap-2 whitespace-nowrap">
-      {{ ui.edit_toggle("open", size="xs", waarde="'" ~ r.id ~ "'", ook="terug = null") }}
       {# #661: de snelkoppeling voor het meest voorkomende geval, met label én
          vraag per type — op een terugbetaling vertrekt er geld. #}
       {% if r.status != "paid" %}
@@ -108,6 +110,7 @@
       {% elif r.type != "refund" %}
       {{ ui.btn_secondary(_("Terugbetaling registreren"), size="xs", attrs='@click="terug = terug === \'' ~ r.id ~ '\' ? null : \'' ~ r.id ~ '\'; open = null"') }}
       {% endif %}
+      {{ ui.edit_toggle("open", size="xs", waarde="'" ~ r.id ~ "'", ook="terug = null") }}
     </div>
     {% endif %}
   </td>
