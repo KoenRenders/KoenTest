@@ -6,10 +6,9 @@
 answers. **Phase 0** (the registration deadline, §3.8a) is #974 and
 assigned to **v2.5** (#925). The Design Studio itself (phases 1–4) is not
 on a release yet.
-**Apply to:** a new `designstudio` domain (backend + admin screens), three
-columns and a contacts table on `activities` (one of them a registration
-deadline the form enforces), two new media kinds, and the
-name search moving into MDM. Rendering reuses
+**Apply to:** a new `designstudio` domain (backend + admin screens), a
+contacts table on `activities`, two new media kinds, and the name search
+moving into MDM. The registration deadline column is phase 0 (#974). Rendering reuses
 WeasyPrint (#258); text proposals reuse the Mistral provider (chatbot).
 
 ---
@@ -34,7 +33,7 @@ This change request adds a **Design Studio**:
 4. **Render every format at once**: a print PDF for borderless home
    printing and images for social media.
 5. **Mark one design final.** It becomes the activity's poster on the
-   website and its share image. When the activity changes afterwards, the
+   website (and, once the landscape layout exists, its share image). When the activity changes afterwards, the
    design says it is stale and re-renders with one click.
 
 AI helps in two places, always as a proposal: **text suggestions**
@@ -159,7 +158,7 @@ The chatbot brief that produced the first two posters asks for:
 | Highlights: icon + short line, up to six | 2 | design |
 | Price badge ("Gratis", "Alles aan 1 euro") | 2 | activity prices; wording from design |
 | Welcome line ("Iedereen welkom!") | 2 | design |
-| Explanation, one or two paragraphs | 1 | activity description; design may shorten |
+| Explanation, one or two paragraphs | 1 | design |
 | Registration: link, QR code, deadline | 2 | activity |
 | Contact: website, e-mail, contact persons | 4 | the activity's contacts: members and/or the association |
 | Supporter / funder logos | 2 | media, kind `sponsor` |
@@ -279,10 +278,10 @@ same duo.
 
 | Layout | Ratio | Serves | Size |
 |---|---|---|---|
-| `print_a` | 1 : √2 | A3, A4, A5 print — **one layout**, because all A sizes share the ratio. Units and type scale with the page. | 297 × 420 mm, etc. |
-| `feed_portrait` | 4 : 5 | Instagram / Facebook feed | 1080 × 1350 px |
-| `square` | 1 : 1 | Instagram / Facebook post | 1080 × 1080 px |
-| `landscape` | 1.91 : 1 | Facebook event cover **and** the share image (`og:image`) | 1920 × 1005 px |
+| `print_a` | 1 : √2 | A3 and A4 print — **one layout**, because all A sizes share the ratio. Units and type scale with the page. **Phase 1.** | 297 × 420 / 210 × 297 mm |
+| `feed_portrait` | 4 : 5 | Instagram / Facebook feed. **Phase 1.** | 1080 × 1350 px |
+| `square` | 1 : 1 | Instagram / Facebook post (phase 4) | 1080 × 1080 px |
+| `landscape` | 1.91 : 1 | Facebook event cover **and** the share image (`og:image`) (phase 4) | 1920 × 1005 px |
 | `story` | 9 : 16 | Stories (phase 4) | 1080 × 1920 px |
 
 - **Blocks carry a priority.** Smaller layouts drop blocks from the bottom of
@@ -297,7 +296,12 @@ same duo.
   event cover differently on mobile.
 - **The image has one focal point**, stored as x/y percentages. Each layout
   crops the image around that point (`object-position`), so the swing stays
-  in view in both the square and the landscape layout.
+  in view in every layout.
+
+**Phase 1 renders A3, A4 and 4:5** (Koen, 16 September 2026). The Facebook
+event cover and the square format come later. **A5 is not a separate
+output:** it has the same ratio as A4, so the A4 PDF prints on A5 paper at
+reduced size.
 
 ### 3.5 Print: one PDF for borderless home printing
 
@@ -357,14 +361,15 @@ A design can be downloaded file by file, or as one ZIP. File names follow
 
 One place per fact:
 - **From the activity, always live:** title, dates and times, location,
-  prices, registration link and QR code (from `slug`), description, tagline,
-  contacts.
+  prices, registration link and QR code (from `slug`), registration
+  deadline, contacts.
 - **From the organisation:** logo lockup, unit name, and — when the
   association is a contact — its website, e-mail and mobile number.
 - **Only on the design:**
   - a title override (for line breaks: "SPEELNAMIDDAG / EN / ZOMERBAR");
-  - subtitle, recurrence line, highlights, welcome line;
-  - price-badge wording, a shortened explanation;
+  - tagline, explanation, subtitle, recurrence line, highlights, welcome
+    line;
+  - price-badge wording;
   - images and focal point;
   - supporter logos;
   - the kicker toggle.
@@ -372,12 +377,18 @@ One place per fact:
 A design stores its **inputs, not its renders**. "Add this line a week
 later" is an edit plus a re-render.
 
-### 3.8 Two new activity fields — useful on the website as well
+### 3.8 Tagline and explanation live on the design, for now
 
-- `tagline` — one short line (≤ 90 characters), the hook under the title on
-  the poster *and* on the activity card.
-- `description` — the public explanation, plain text with paragraphs. The
-  activity page shows it as well.
+Koen, 16 September 2026: the activity is **not** extended with a tagline or
+a public description yet. Both are entered **in the Design Studio**:
+- `tagline` — one short line (≤ 90 characters), the hook under the title;
+- `explanation` — plain text with paragraphs, for the layouts that have
+  room for it.
+
+The public website does not change. Later, the activity can get these
+fields in the activities module, and the Design Studio will read them from
+there instead. When that happens, the design fields become overrides or
+disappear, so that there is one place per fact.
 
 `notes` is not repurposed: its meaning was never defined, and reusing an
 undefined column reintroduces the ambiguity. Whether to remove it is outside
@@ -528,8 +539,8 @@ Approved by Koen on 16 September 2026, with a limit.
     background, **no text, no letters, no logos**".
 
   Text belongs to the template. Image models render text unreliably.
-- **Prompt:** Mistral drafts it from the activity title, tagline,
-  description, and a few **mood keywords** the person types ("playground,
+- **Prompt:** Mistral drafts it from the activity title, the design's
+  tagline and explanation, and a few **mood keywords** the person types ("playground,
   climbing house, swing, lemonade bar"). The person can edit it before
   sending.
 
@@ -572,8 +583,9 @@ Approved by Koen on 16 September 2026, with a limit.
 
 ### 3.13 AI text proposals — Mistral
 
-- One action, "Suggest text", sends the activity's title, tagline,
-  description, dates, place and price to the existing Mistral provider.
+- One action, "Suggest text", sends the activity's title, dates, place and
+  price, plus whatever the design already has as tagline, explanation or
+  mood keywords, to the existing Mistral provider.
 - It returns proposals for:
   - title line breaks;
   - subtitle;
@@ -593,9 +605,13 @@ Approved by Koen on 16 September 2026, with a limit.
   PNG that is re-rendered on change and not stored.
 - **Mark final:**
   - every chosen layout and PDF is rendered and stored;
-  - the `print_a` PDF (home-print variant) becomes the activity's
-    **`activity_poster`**, replacing the one that was there;
-  - the `landscape` image becomes the activity page's **share image**.
+  - the A3 PDF becomes the activity's **`activity_poster`**;
+  - **if the activity already has a poster**, the person is asked first. The
+    confirmation says explicitly that the current poster — possibly
+    uploaded by hand — will be replaced (Koen: "the user in control").
+    Declining still finalises the design, without touching the poster;
+  - once the `landscape` layout exists (phase 4), its image becomes the
+    activity page's **share image**.
 - **Stale:**
   - a final design stores a **fingerprint of the facts it used** (§3.7);
   - when the activity changes those facts (a new date, a changed time, a
@@ -635,8 +651,8 @@ modelling rule in `CLAUDE.md`).
 ```
 designstudio.designs
   id, tenant_id, activity_id (soft ref), template_key, template_version,
-  duo_code, status (draft|final), title_override, subtitle,
-  recurrence_line, welcome_line, price_badge_text, explanation_override,
+  duo_code, status (draft|final), title_override, tagline (90),
+  explanation, subtitle, recurrence_line, welcome_line, price_badge_text,
   show_kicker, main_image_id, main_focus_x, main_focus_y,
   inset_image_id, facts_fingerprint, finalised_at, finalised_by,
   created_at, updated_at, created_by
@@ -658,8 +674,6 @@ designstudio.image_generations      -- audit + quota
   requested_by, requested_at
 
 activities.activities
-  + tagline                 varchar(90)  null
-  + description             text         null
   + registration_closes_on  date         null   -- inclusive, Belgian date (§3.8a)
 
 activities.activity_contacts        -- ordered; a member or the association
@@ -713,22 +727,23 @@ Each phase ships on its own.
    - the closed state and the "until" line on the public screens;
    - the admin field.
 1. **Engine and first template.**
-   - Domain, the two activity fields, the media kinds, and the house-style
+   - Domain, the contacts table, the media kinds, and the house-style
      constant with its gate.
    - One template, **"Illustratie"** (the play-afternoon and walking-group
-     family), with the `print_a` (borderless home PDF), `feed_portrait`, `square`
-     and `landscape` layouts.
+     family), with the `print_a` layout (borderless A3 and A4 PDF) and the
+     `feed_portrait` layout (4:5).
    - Images from upload or archive, QR code, contacts, supporter
      logos.
-   - Draft, final, stale; the final design becomes the poster and share
-     image; downloads.
+   - Draft, final, stale; the final design becomes the poster, after
+     confirmation; downloads.
    - Logo upload with sanitising.
 2. **Text proposals** (Mistral).
 3. **AI illustrations** (BFL): quota, kill switch, audit, style references.
 4. **More templates and formats:**
    - "Beeld" — a photo-led template like the father-and-son poster;
    - "Tekstflyer" — the A4 text flyer from the Word template;
-   - the `story` layout.
+   - the `landscape` layout (Facebook event cover and share image), the
+     `square` layout, and the `story` layout.
 
 New dependencies:
 - phase 1: `pypdfium2`, plus a QR library — **`segno`** (BSD, pure Python,
@@ -747,8 +762,10 @@ structure of two of the examples in §1.3:
   highlights, and an inset image.
 
 The tests must be able to go red:
-- a long title (40 characters) still fits `print_a` and `square`;
-- the six-date grid collapses to the recurrence line in `square`;
+- a long title (40 characters) still fits `print_a` and `feed_portrait`;
+- the six-date grid collapses to the recurrence line in `feed_portrait`;
+- finalising a design for an activity that already has a poster does not
+  replace it without the confirmation — tested through the route;
 - the A3 PDF's page is exactly 297 × 420 mm, and a coloured background
   reaches all four page edges;
 - a text box placed inside the 8 mm safe zone makes the safe-zone check
@@ -797,6 +814,10 @@ The tests must be able to go red:
 | Contacts | on the activity; a member (with overrides) or the association | §3.9 |
 | Who is a member | every person in a household | §3.9 |
 | Contacts on the website | no — posters and social images only | §3.9 |
+| Tagline on yellow tile | Indigo, as in the unit's yellow lockup | §3.3 |
+| Formats in phase 1 | A3 + A4 borderless and 4:5; Facebook cover and square later; A5 is the A4 PDF | §3.4 |
+| Replacing an existing poster | only after an explicit confirmation | §3.14 |
+| Tagline and explanation | on the design for now, not on the activity or the website | §3.8 |
 
 No open questions remain for phase 1.
 
@@ -822,5 +843,5 @@ No open questions remain for phase 1.
 - **#945:** the organisation's website and e-mail.
 - **#913 (design track):** the site's palette. Posters deliberately follow
   the Raak house style guide instead (§3.3).
-- **CR-05 (newsletter):** a final design's `landscape` image is a natural
+- **CR-05 (newsletter):** a final design's `landscape` image (phase 4) is a natural
   illustration for the activity in a newsletter. That link belongs to CR-05.
