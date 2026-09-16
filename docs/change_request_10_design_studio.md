@@ -2,8 +2,10 @@
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** Shaped with Koen on 16 September 2026 (brainstorm on
-`feature/designstudio`). Not assigned to a release. Decisions in §3 are
-settled unless marked *open*; §8 lists what still needs Koen.
+`feature/designstudio`). All decisions in §3 are settled; §8 records Koen's
+answers. **Phase 0** (the registration deadline, §3.8a) is #974 and
+assigned to **v2.5** (#925). The Design Studio itself (phases 1–4) is not
+on a release yet.
 **Apply to:** a new `designstudio` domain (backend + admin screens), three
 columns and a contacts table on `activities` (one of them a registration
 deadline the form enforces), two new media kinds, and the
@@ -108,10 +110,14 @@ enters this repository.
 - The older `.ai` and `.png` files are superseded.
 - **The neutral Raak lockup** (wordmark with the baseline "Beleef meer!", no
   unit name), supplied on 16 September 2026:
-  - **24 PNG files**, 6090 × 4060 px, raster only — there is no SVG yet;
+  - **24 PNG files**, 6090 × 4060 px;
   - they are **exactly the twelve permitted duos of §1.1, each in both
     directions** (tile colour / baseline colour). Raak itself thus offers the
     lockup in every permitted duo.
+  - **One SVG** followed the same day: Ocean Blue tile, Golden Yellow
+    baseline. It has a 2048 × 1365 viewBox, 15 paths, no bitmaps, scripts or
+    external references, and the same structure as the unit lockups. It is
+    the master for recolouring, so the PNGs are no longer needed.
 
   (In the file names, "appelblauwzeegroen" is Cool Green and "groen" is Dark
   Green.)
@@ -211,7 +217,19 @@ CourtBouillon (FR). This was already approved for CR-09.
   **one constant in code**. Templates reference them by name, never by hex.
 - A design picks **one duo**. The template derives its palette from that
   duo plus at most two accents drawn from the eight colours. The picker
-  offers only the twelve duos, so a forbidden pair cannot be chosen.
+  offers only permitted duos, so a forbidden pair cannot be chosen.
+- **Enabled for now: three duos** (Koen, 16 September 2026 — the ones the
+  unit uses today):
+
+  | Tile | Baseline |
+  |---|---|
+  | Ocean Blue | Golden Yellow |
+  | Dark Green | Golden Yellow |
+  | Golden Yellow | Indigo |
+
+  The constant holds all twelve; a short list of enabled duos limits the
+  picker. Enabling another duo is a one-line change. (The baseline on the
+  yellow tile is Indigo, as in the unit's own yellow lockup.)
 - A gate test fails when a template contains a hex value outside the eight
   colours, and when a template declares more than five colours. This is the
   same shape as the existing css gate.
@@ -226,7 +244,8 @@ CourtBouillon (FR). This was already approved for CR-09.
   lockups as SVG (colour variants and monochrome). The repository ships a
   neutral placeholder only.
 
-  **The lockup is recoloured per duo.** A unit uploads **one** SVG. The
+  **The lockup is recoloured per duo** (approved by Koen, 16 September
+  2026). A unit uploads **one** SVG. The
   engine sets the tile colour and the baseline colour from the design's duo,
   in either direction; the wordmark stays white. That gives one source
   instead of 24 files, and the logo tile always matches the poster.
@@ -240,9 +259,7 @@ CourtBouillon (FR). This was already approved for CR-09.
 
 - **The neutral lockup is the fallback** for a unit without its own lockup.
   It is a platform asset in the database, like the unit lockups, and not a
-  repository file. Until Raak supplies it as SVG, the 6090 px PNGs are
-  sharp enough for A3. They cannot be recoloured, so the engine picks the
-  PNG that matches the design's duo — all 24 exist.
+  repository file. It is the supplied SVG (§1.2), recoloured in the same way.
 
   **Uploaded SVG is sanitised** — no `<script>`, no event attributes, no
   external references — because an SVG served to a browser is active
@@ -301,9 +318,22 @@ crop marks, CMYK/PDF-X — is out of scope for now.**
   measure how much the printer actually crops. The safe zone is a single
   template constant, adjusted to that measurement.
 - Adding a bleed variant later is cheap. The layout already extends its
-  colour fields to the edge, and WeasyPrint supports `@page { bleed }`. The
-  CMYK values stay recorded in the palette constant (§3.3) for the same
-  reason.
+  colour fields to the edge, and WeasyPrint supports `@page { bleed }`.
+
+**Colour: RGB, deliberately.** Koen asked for CMYK straight away if it is
+feasible, and otherwise a route that does not force a change of modules
+later.
+- For the target printer, **RGB is the right output, not a compromise**.
+  An inkjet driver takes RGB and does its own conversion to its inks. A CMYK
+  PDF is converted back by the driver, and colours usually get worse.
+- CMYK matters for offset print, which is out of scope (above).
+- **The route to CMYK needs no module change.** A CMYK or PDF/X file is a
+  post-processing step on WeasyPrint's PDF: Ghostscript converts it with an
+  ICC print profile. Ghostscript is an apt package and self-hosted, but its
+  maintainer, Artifex, is US-based, so the Europe First comparison is made
+  when that step is added. The CMYK and PMS
+  values stay recorded in the palette constant (§3.3), so the brand values
+  are there when that step is added.
 
 **Image resolution:** a rendered print design reports the effective dpi of
 every image at its placed size. Below 150 dpi, the editor shows a warning.
@@ -400,7 +430,10 @@ of the activities domain first, and a poster field second.
   instead of midnight.
 
 This part changes registration behaviour and **ships on its own**, ahead
-of the Design Studio (§6, phase 0). It gets its own issue.
+of the Design Studio (§6, phase 0): **#974**, assigned to v2.5 (#925) by
+Koen on 16 September 2026 and built by the finetuning CLI. The issue
+records one adjacent finding that is not part of it: a *cancelled*
+activity is not refused server-side either.
 
 ### 3.9 Contacts belong to the activity: a member or the association
 
@@ -432,17 +465,18 @@ different mobile number or e-mail address, or **the association itself**.
   e-mail.
 - **Members only.** This is the difference with the circle, which
   deliberately admits non-members. A candidate is a person in a household
-  (`MemberPerson`). *Open (§8):* is every household person a member, or
-  only a household with a paid membership for the current year?
+  (`MemberPerson`). **Every person in a household counts as a member**
+  (Koen, 16 September 2026), regardless of whether this year's fee is
+  paid.
 - **One search, not two.** The circle screen filters `list_persons` inside
   its UI module; its comment says a search argument in MDM "would be a
   second contract for one caller". With this second caller, the name search
   moves into MDM as one function with a members-only option, and the circle
   calls it too. Two copies of the same filter would drift apart.
-- **Where contacts are shown.** On posters and social images, the contact
-  block follows the layout priority (§3.4). Whether the public activity
-  page shows them as well is a separate decision, because a web page is
-  indexed and stays online (§8).
+- **Where contacts are shown: only on posters and social images** (Koen,
+  16 September 2026). There, the contact block follows the layout priority
+  (§3.4). **They are not shown on the public website**, which is indexed and
+  stays online.
 
 A member's number printed on a poster is personal data made public. The
 picker says so, and contact details are never sent to an LLM (§5).
@@ -505,12 +539,23 @@ Approved by Koen on 16 September 2026, with a limit.
   around the focal point. Expected print resolution is 150–200 dpi for a
   half-page A3 image. That is acceptable for line illustrations, and the dpi
   warning (§3.5) makes it visible.
-- **Quota:**
-  - a monthly number of generations per unit, where one request with four
-    variants counts as four;
-  - the limit is a tenant setting that only OPERATOR can change;
-  - the platform default is set at go-live (§8);
+- **Budget, not a count** (Koen, 16 September 2026):
+  - a **monthly budget in euro per unit**, **configurable**, set to
+    **€50 per month** while testing;
+  - the budget is a tenant setting that only OPERATOR can change;
+  - BFL reports the cost of each request in credits (1 credit = $0.01).
+    That cost is converted to euro at a configured rate and added to the
+    unit's month;
+  - **before sending**, the service estimates the cost of the request (known
+    price per megapixel × four variants). It refuses the request when the
+    estimate would take the month over budget, so the budget is never
+    exceeded by more than a rounding difference;
+  - the editor shows what is left this month;
   - a platform-wide **kill switch** turns generation off everywhere.
+
+  BFL prices FLUX.2 per megapixel, from about $0.03 for a small image, so
+  €50 buys a few hundred images. Print-sized images cost more; the build
+  takes the rate per megapixel from BFL's price list.
 
   Every generation is logged with model, seed, prompt, cost and user.
 - **Key:** one platform key (`BFL_API_KEY` in `.env`), since the platform
@@ -630,7 +675,8 @@ Codes (`duo_code`, `layout_code`, `icon_code`) are validated in code against
 the constants of §3.3 and the template's icon subset. There are no
 cross-schema foreign keys, as elsewhere.
 
-Tenant setting: `ai_image_monthly_quota`.
+Tenant setting: `ai_image_monthly_budget_eur` (€50 while testing).
+Environment: `BFL_USD_EUR_RATE` for the cost conversion.
 Environment: `BFL_API_KEY`, `DESIGNSTUDIO_AI_IMAGES_ENABLED` (the kill
 switch, default off).
 
@@ -728,16 +774,24 @@ The tests must be able to go red:
 - the quota refuses the generation after the limit, and the kill switch
   refuses every generation — with the BFL client mocked.
 
-## 8. Open questions
+## 8. Koen's answers (16 September 2026)
 
-1. **Default AI quota.** How many generations per unit per month? (One
-   request = four images, about $0.12–0.20.)
-2. **Who is a member (§3.9)?** Every person in a household, or only a
-   household with a paid membership for the current year?
-3. **Contacts on the website (§3.9).** Show the activity's contacts on the
-   public activity page as well, or only on posters and social images?
-4. **Neutral lockup as SVG.** Can Raak supply the neutral lockup ("Beleef
-   meer!") as SVG? Until then the PNGs serve (§3.3).
+| Question | Answer | Where |
+|---|---|---|
+| House style for posters | the Raak house style guide | §3.3 |
+| Print | borderless home print, **A3 required**; print shops out of scope | §3.5 |
+| CMYK | RGB for now; CMYK later as a post-processing step, no module change | §3.5 |
+| Responsible publisher (V.U.) | out of scope for now | §3.10 |
+| Logo recolouring | approved; three duos enabled to start | §3.3 |
+| Neutral lockup as SVG | supplied | §1.2 |
+| AI image provider | Black Forest Labs, with a limit | §3.12 |
+| AI limit | configurable monthly budget, €50 while testing | §3.12 |
+| Registration deadline | a real, enforced field on the activity — #974, v2.5 | §3.8a |
+| Contacts | on the activity; a member (with overrides) or the association | §3.9 |
+| Who is a member | every person in a household | §3.9 |
+| Contacts on the website | no — posters and social images only | §3.9 |
+
+No open questions remain for phase 1.
 
 ## Non-goals
 
