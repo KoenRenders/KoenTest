@@ -739,9 +739,10 @@ OBJECTS: tuple[UniverseObject, ...] = (
         kind=ObjectKind.DIMENSION, view="d_membership_year", sql="{view}.year",
         format=Format.YEAR, role=Role.ADMIN,
         description=(
-            "Het lidmaatschapsjaar. Eén object voor beide lidmaatschapsfeiten "
-            "(#894) — en géén hiërarchie, want de dag eronder is 1 januari en dus "
-            "verzonnen."
+            "Het jaar waarover een lidmaatschap gaat. Eén object voor beide "
+            "lidmaatschapsfeiten (#894) — en géén hiërarchie, want de dag eronder is 1 "
+            "januari en dus verzonnen. Niet te verwarren met 'Lid sinds' (het eerste "
+            "jaar) of met de aanmaakdatum van het gezin."
         ),
         ai_exposure=AiExposure.PLAIN,
     ),
@@ -754,10 +755,8 @@ OBJECTS: tuple[UniverseObject, ...] = (
         kind=ObjectKind.DIMENSION, view="d_paid_date", sql="{view}.year",
         format=Format.YEAR, role=Role.FINANCE,
         description=(
-            "Het jaar waarover een lidmaatschap gaat. Eén object voor beide "
-            "lidmaatschapsfeiten (#894) — en géén hiërarchie, want de dag eronder is 1 "
-            "januari en dus verzonnen. Niet te verwarren met 'Lid sinds' (het eerste jaar) "
-            "of met de aanmaakdatum van het gezin."
+            "Wanneer er betaald is — iets anders dan wanneer de vordering gemaakt werd. "
+            "Opgerold tot jaar."
         ),
         ai_exposure=AiExposure.PLAIN,
     ),
@@ -1152,8 +1151,9 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="person_gender", name="Geslacht", klass="Leden", kind=ObjectKind.DIMENSION,
         view="d_person", sql="{view}.gender_label", format=Format.LABEL, role=Role.ADMIN, sensitive=True,
         description=(
-            "Geslacht van de persoon in het feit: de inschrijver bij "
-            "inschrijvingen, het hoofdlid bij een gezinsrapport."
+            "Het geslacht van de persoon in het feit: de inschrijver bij inschrijvingen, "
+            "het hoofdlid bij een gezinsrapport. Niet ingevuld blijft een eigen waarde en "
+            "verdwijnt niet uit het rapport."
         ),
         ai_exposure=AiExposure.PLAIN,
     ),
@@ -1161,11 +1161,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="person_relation_type", name="Relatietype", klass="Leden",
         kind=ObjectKind.DIMENSION, view="d_person", sql="{view}.relation_type_label",
         format=Format.LABEL, role=Role.ADMIN, sensitive=True,
-        description=(
-            "Het geslacht van de persoon in het feit: de inschrijver bij inschrijvingen, "
-            "het hoofdlid bij een gezinsrapport. Niet ingevuld blijft een eigen waarde en "
-            "verdwijnt niet uit het rapport."
-        ),
+        description="Hoofdlid, partner of (meerderjarig) kind binnen het gezin.",
         ai_exposure=AiExposure.PLAIN,
     ),
 
@@ -1198,16 +1194,6 @@ OBJECTS: tuple[UniverseObject, ...] = (
         kind=ObjectKind.MEASURE, view="f_registrations", sql="SUM({view}.line_amount)",
         format=Format.MONEY, role=Role.FINANCE, fact="f_registrations",
         description=(
-            "Waarde van de inschrijfregels aan de prijs van dat moment. Gratis "
-            "producten en 'ter plaatse te betalen' tellen niet mee."
-        ),
-        ai_exposure=AiExposure.PLAIN,
-    ),
-    UniverseObject(
-        key="activity", name="Activiteit", klass="Activiteiten", kind=ObjectKind.DIMENSION,
-        view="d_activity", sql="{view}.activity_name", format=Format.LABEL,
-        role=Role.ADMIN, drill="activity", drill_sql="{view}.activity_id",
-        description=(
             "Waarde van de inschrijfregels aan de prijs van dat moment — de omzet uit "
             "inschrijvingen, gefactureerd en niet ontvangen. Gratis producten en 'ter "
             "plaatse te betalen' tellen niet mee. Wat er werkelijk betaald is, staat bij "
@@ -1216,11 +1202,20 @@ OBJECTS: tuple[UniverseObject, ...] = (
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
+        key="activity", name="Activiteit", klass="Activiteiten", kind=ObjectKind.DIMENSION,
+        view="d_activity", sql="{view}.activity_name", format=Format.LABEL,
+        role=Role.ADMIN, drill="activity", drill_sql="{view}.activity_id",
+        description="Naam van de activiteit. Klik door naar het activiteitdossier.",
+        ai_exposure=AiExposure.PLAIN,
+    ),
+    UniverseObject(
         key="activity_year", name="Jaar van de activiteit", klass="Activiteiten",
         kind=ObjectKind.DIMENSION, view="d_activity", sql="{view}.activity_year",
         format=Format.YEAR, role=Role.ADMIN,
         description=(
-            "Het jaar van de eerste datum van de activiteit. Het model kent geen "
+            "Het jaar van de eerste datum van de activiteit, als eigenschap van de "
+            "activiteit zelf. Neem dit voor 'welke activiteiten in 2026'; wil je per "
+            "maand of kwartaal groeperen, gebruik dan Startdatum. Het model kent geen "
             "seizoen (CR-06 §12)."
         ),
         ai_exposure=AiExposure.PLAIN,
@@ -1230,10 +1225,8 @@ OBJECTS: tuple[UniverseObject, ...] = (
         kind=ObjectKind.DIMENSION, view="d_activity", sql="{view}.location",
         format=Format.LABEL, role=Role.ADMIN,
         description=(
-            "Het jaar van de eerste datum van de activiteit, als eigenschap van de "
-            "activiteit zelf. Neem dit voor 'welke activiteiten in 2026'; wil je per maand "
-            "of kwartaal groeperen, gebruik dan Startdatum. Het model kent geen seizoen "
-            "(CR-06 §12)."
+            "Waar de activiteit doorgaat, zoals ingevuld bij de activiteit — vrije tekst, "
+            "dus geen adres en niet genormaliseerd."
         ),
         ai_exposure=AiExposure.PLAIN,
     ),
@@ -1242,8 +1235,8 @@ OBJECTS: tuple[UniverseObject, ...] = (
         kind=ObjectKind.DIMENSION, view="d_activity",
         sql=_boolean_label("is_cancelled"), format=Format.LABEL, role=Role.ADMIN,
         description=(
-            "Waar de activiteit doorgaat, zoals ingevuld bij de activiteit — vrije tekst, "
-            "dus geen adres en niet genormaliseerd."
+            "Of de activiteit geannuleerd werd. Geannuleerde activiteiten blijven in de "
+            "cijfers staan, dus filter hierop als je ze niet wil meetellen."
         ),
         ai_exposure=AiExposure.PLAIN,
     ),
@@ -1251,10 +1244,7 @@ OBJECTS: tuple[UniverseObject, ...] = (
         key="activity_members_only", name="Enkel voor leden", klass="Activiteiten",
         kind=ObjectKind.DIMENSION, view="d_activity",
         sql=_boolean_label("members_only"), format=Format.LABEL, role=Role.ADMIN,
-        description=(
-            "Of de activiteit geannuleerd werd. Geannuleerde activiteiten blijven in de "
-            "cijfers staan, dus filter hierop als je ze niet wil meetellen."
-        ),
+        description="Of enkel leden zich mochten inschrijven op deze activiteit.",
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
