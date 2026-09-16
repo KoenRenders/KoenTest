@@ -43,9 +43,15 @@ class NewsletterComposeView(ViewModel):
     report_points: list[Any]
     ticked_points: list[int]
     messages: list[Any]
+    # Per Raakje message id: the proposal as the screen shows it.
+    proposals: dict[int, Any]
     csrf_token: str
     error: Optional[str] = None
     notice: Optional[str] = None
+    raakje_error: Optional[str] = None
+    # After "Toepassen": the HTML the editor takes over, and where it goes.
+    apply_html: str = ""
+    apply_placement: str = ""
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 
 

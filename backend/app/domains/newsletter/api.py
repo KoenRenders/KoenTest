@@ -34,6 +34,15 @@ from app.domains.newsletter.models import (  # noqa: F401
     Newsletter,
     Subscriber,
 )
+from app.domains.newsletter.drafting import (  # noqa: F401
+    DraftingError,
+    apply as apply_proposal,
+    ask as ask_raakje,
+    dismiss as dismiss_proposal,
+    display as display_proposal,
+    get_message as get_drafting_message,
+    record as record_turn,
+)
 from app.domains.newsletter.service import (  # noqa: F401
     SEND_JOB,
     NewsletterError,
@@ -86,6 +95,8 @@ __all__ = [
     "SOURCE_ADMIN", "SOURCE_IMPORT", "SOURCE_PUBLIC_FORM",
     "SUBSCRIBER_CONFIRMED", "SUBSCRIBER_PENDING", "SUBSCRIBER_UNSUBSCRIBED",
     "Delivery", "DraftingMessage", "Newsletter", "Subscriber",
+    "DraftingError", "apply_proposal", "ask_raakje", "dismiss_proposal",
+    "display_proposal", "get_drafting_message", "record_turn",
     "SEND_JOB", "NewsletterError", "activity_facts", "activity_line_html",
     "add_by_admin", "audience_counts", "calendar_html", "closing_html", "confirm",
     "copy_newsletter", "create_newsletter", "deliveries_of", "delete_draft", "erase",

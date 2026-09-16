@@ -22,6 +22,35 @@
       if (kiezer) { kiezer.innerHTML = ""; }
     };
   }
+  // De geselecteerde tekst in de editor: Raakje herschrijft dan alleen die alinea.
+  if (!window.nbSelectie) {
+    window.nbSelectie = function () {
+      var el = document.getElementById("nb-trix");
+      if (!el || !el.editor) { return ""; }
+      var bereik = el.editor.getSelectedRange();
+      if (bereik[0] === bereik[1]) { return ""; }
+      return el.editor.getDocument().getStringAtRange(bereik).toString();
+    };
+  }
+  // Een toegepast voorstel komt via een <template> in het Raakje-paneel. Het gaat
+  // de editor in via Trix zelf, zodat "ongedaan maken" blijft werken.
+  if (!window.__nbToepassen) {
+    window.__nbToepassen = true;
+    document.body.addEventListener("htmx:afterSettle", function () {
+      var sjabloon = document.getElementById("nb-toepassen");
+      var el = document.getElementById("nb-trix");
+      if (!sjabloon || !el || !el.editor) { return; }
+      var html = sjabloon.innerHTML;
+      var plaats = sjabloon.getAttribute("data-plaatsing");
+      sjabloon.remove();
+      el.editor.recordUndoEntry("Raakje");
+      if (plaats !== "cursor") {
+        el.editor.setSelectedRange([0, el.editor.getDocument().getLength()]);
+      }
+      el.editor.insertHTML(html);
+      el.focus();
+    });
+  }
 </script>
 
 {% call ui.page_header(letter.subject or _("Nieuwe nieuwsbrief"), _("Concept — wordt automatisch bewaard.")) %}

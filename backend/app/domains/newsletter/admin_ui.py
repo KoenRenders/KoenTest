@@ -307,7 +307,8 @@ def settings_save(request: Request, db: Session = Depends(get_db),
 # ── One letter ───────────────────────────────────────────────────────────────
 
 def _compose_view(request: Request, db: Session, letter, error: Optional[str] = None,
-                  notice: Optional[str] = None) -> NewsletterComposeView:
+                  notice: Optional[str] = None, raakje_error: Optional[str] = None,
+                  apply_html: str = "", apply_placement: str = "") -> NewsletterComposeView:
     from app.domains.meetings.api import recent_report_points
 
     counts = nb.audience_counts(db)
@@ -324,6 +325,7 @@ def _compose_view(request: Request, db: Session, letter, error: Optional[str] = 
     raakje = _raakje_enabled(db)
     chosen = []
     points = []
+    messages = nb.messages_of(db, letter) if raakje else []
     if raakje:
         facts = nb.activity_facts(db, letter.draft_activity_ids, base_url=_base_url(db))
         chosen = [facts[i] for i in letter.draft_activity_ids if i in facts]
@@ -334,8 +336,10 @@ def _compose_view(request: Request, db: Session, letter, error: Optional[str] = 
         first_letter_after_import=nb.imported_without_letter(db),
         raakje_enabled=raakje, chosen_activities=chosen, report_points=points,
         ticked_points=list(letter.draft_meeting_item_ids or []),
-        messages=nb.messages_of(db, letter) if raakje else [],
-        csrf_token=_csrf(request), error=error, notice=notice, nav_items=admin_nav(NAV))
+        messages=messages,
+        proposals={m.id: nb.display_proposal(db, letter, m) for m in messages if m.proposal},
+        csrf_token=_csrf(request), error=error, notice=notice, raakje_error=raakje_error,
+        apply_html=apply_html, apply_placement=apply_placement, nav_items=admin_nav(NAV))
 
 
 def _archive_view(request: Request, db: Session, letter, status: str = "",
@@ -543,3 +547,123 @@ def send_letter(newsletter_id: int, request: Request, db: Session = Depends(get_
             request, "_nb_versturen.html",
             _send_view(request, db, letter, email, error=str(exc)).as_context())
     return _go(request, f"/admin/nieuwsbrieven/{letter.id}")
+
+
+# ── Raakje ───────────────────────────────────────────────────────────────────
+# Every route here answers with the Raakje panel only; the editor is never
+# replaced from the server. Off — and 404 — when Raakje in the back office is
+# off for this tenant or this environment.
+
+def _raakje_letter(db: Session, newsletter_id: int):
+    if not _raakje_enabled(db):
+        raise HTTPException(status_code=404, detail=_("Niet gevonden"))
+    return _letter_or_404(db, newsletter_id)
+
+
+def _panel(request: Request, db: Session, letter, **extra) -> HTMLResponse:
+    return templates.TemplateResponse(request, "_nb_raakje.html",
+                                      _compose_view(request, db, letter, **extra).as_context())
+
+
+@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/raakje/activiteit",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def raakje_add_activity(newsletter_id: int, request: Request, db: Session = Depends(get_db),
+                        _email: str = Depends(require_admin_ui),
+                        activity_id: int = Form(...)):
+    letter = _raakje_letter(db, newsletter_id)
+    nb.set_draft_sources(db, letter,
+                         activity_ids=[*letter.draft_activity_ids, activity_id],
+                         meeting_item_ids=letter.draft_meeting_item_ids)
+    return _panel(request, db, letter)
+
+
+@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/raakje/activiteit/{activity_id:int}/weg",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def raakje_remove_activity(newsletter_id: int, activity_id: int, request: Request,
+                           db: Session = Depends(get_db),
+                           _email: str = Depends(require_admin_ui)):
+    letter = _raakje_letter(db, newsletter_id)
+    nb.set_draft_sources(db, letter,
+                         activity_ids=[i for i in letter.draft_activity_ids if i != activity_id],
+                         meeting_item_ids=letter.draft_meeting_item_ids)
+    return _panel(request, db, letter)
+
+
+@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/raakje/punten",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+async def raakje_points(newsletter_id: int, request: Request, db: Session = Depends(get_db),
+                        _email: str = Depends(require_admin_ui)):
+    """The ticked meeting points — the input gate (CR-05 §3.11)."""
+    letter = _raakje_letter(db, newsletter_id)
+    form = await request.form()
+    ticked = [int(v) for v in form.getlist("point_id") if str(v).isdigit()]
+    nb.set_draft_sources(db, letter, activity_ids=letter.draft_activity_ids,
+                         meeting_item_ids=ticked)
+    return _panel(request, db, letter)
+
+
+@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/raakje/vraag",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def raakje_ask(newsletter_id: int, request: Request, db: Session = Depends(get_db),
+               email: str = Depends(require_admin_ui),
+               instruction: str = Form(""), body_html: str = Form(""),
+               selection: str = Form("")):
+    """One turn with Raakje. The current text is saved first, so the proposal
+    works on what the author sees."""
+    from app.domains.chatbot.api import ChatTimeout, SeamBlocked, admin_chat_char_budget
+
+    letter = _raakje_letter(db, newsletter_id)
+    try:
+        nb.update_draft(db, letter, subject=letter.subject, body_html=body_html,
+                        audience=letter.audience)
+    except nb.NewsletterError as exc:
+        return _panel(request, db, letter, raakje_error=str(exc))
+    admin_chat_char_budget.charge(request, max(len(instruction), 1), key=email)
+    try:
+        turn = nb.ask_raakje(db, letter, instruction=instruction, actor=email,
+                             base_url=_base_url(db), selection=selection)
+    except (nb.DraftingError, SeamBlocked, ChatTimeout) as exc:
+        nb.record_turn(db, letter, author_text=instruction, error=str(exc))
+        return _panel(request, db, letter, raakje_error=str(exc))
+    except Exception:
+        logger.exception("Raakje kon geen nieuwsbriefvoorstel maken (brief %s)", letter.id)
+        message = _("Sorry, dat lukte niet. Probeer het opnieuw of zeg het anders.")
+        nb.record_turn(db, letter, author_text=instruction, error=message)
+        return _panel(request, db, letter, raakje_error=message)
+    nb.record_turn(db, letter, author_text=instruction, turn=turn)
+    return _panel(request, db, letter)
+
+
+@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/raakje/{message_id:int}/toepassen",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+async def raakje_apply(newsletter_id: int, message_id: int, request: Request,
+                       db: Session = Depends(get_db),
+                       _email: str = Depends(require_admin_ui)):
+    """Apply a proposal. A marked sentence stays out unless it was ticked
+    "klopt, behouden" (CR-05 §3.16)."""
+    letter = _raakje_letter(db, newsletter_id)
+    message = nb.get_drafting_message(db, letter, message_id)
+    if message is None or not message.proposal:
+        raise HTTPException(status_code=404, detail=_("Voorstel niet gevonden."))
+    form = await request.form()
+    keep = {int(v) for v in form.getlist("keep") if str(v).isdigit()}
+    placement = "cursor" if form.get("placement") == "cursor" else "replace"
+    try:
+        html = nb.apply_proposal(db, letter, message, keep=keep,
+                                 body_html=str(form.get("body_html") or ""),
+                                 base_url=_base_url(db), placement=placement)
+    except nb.DraftingError as exc:
+        return _panel(request, db, letter, raakje_error=str(exc))
+    return _panel(request, db, letter, apply_html=html, apply_placement=placement)
+
+
+@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/raakje/{message_id:int}/weigeren",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+def raakje_dismiss(newsletter_id: int, message_id: int, request: Request,
+                   db: Session = Depends(get_db),
+                   _email: str = Depends(require_admin_ui)):
+    letter = _raakje_letter(db, newsletter_id)
+    message = nb.get_drafting_message(db, letter, message_id)
+    if message is not None:
+        nb.dismiss_proposal(db, message)
+    return _panel(request, db, letter)
