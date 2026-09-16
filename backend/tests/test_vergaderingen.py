@@ -1341,3 +1341,39 @@ def test_een_bijlage_van_na_de_agendamail_geldt_niet_als_verstuurd(db_session, m
     # En dus ook nog te verwijderen — dat was de praktische schade.
     delete_file(db_session, meeting, laat.id)
     assert not any(f.id == laat.id for f in files_of(db_session, meeting))
+
+
+def test_de_ondertekening_staat_onderaan_het_kringscherm(client, db_session):
+    """Onderaan, ná het toevoegen van mensen (Koen, 16 september 2026).
+
+    Het scherm gaat over de kring; de ondertekening zet je één keer en daarna
+    nooit meer. Ze bovenaan zetten duwt de handeling waarvoor je komt naar
+    beneden. Gemeten door het blok terug boven "Iemand toevoegen" te plaatsen:
+    dan keert de volgorde om en faalt deze test.
+    """
+    _login(client)
+    html = client.get("/admin/vergaderingen/kring").text
+
+    volgorde = [naam for naam in ("In de kring", "Iemand toevoegen",
+                                  "Iemand toevoegen die geen lid is",
+                                  "Ondertekening van de mails")]
+    posities = [html.index(naam) for naam in volgorde]
+    assert posities == sorted(posities), \
+        f"de blokken staan in de verkeerde volgorde: {volgorde}"
+
+
+def test_de_lijstkop_volgt_de_conventie_van_de_andere_schermen(client, db_session):
+    """Titel links, acties rechts — secundair eerst, de primaire knop uiterst rechts.
+
+    Dezelfde `page_header`-macro als Pagina's en Formulieren, dus dezelfde
+    afstanden en dezelfde volgorde; het scherm mag geen eigen knoppenrij bouwen.
+    Gemeten door de twee knoppen om te wisselen: dan faalt de volgordeassertie.
+    """
+    _login(client)
+    html = client.get("/admin/vergaderingen").text
+
+    # De macro zelf: titelrij met de acties rechts uitgelijnd.
+    assert 'class="flex flex-wrap items-end justify-between gap-3 mb-6"' in html, \
+        "de kop komt niet uit page_header"
+    assert html.index("Vergaderkring") < html.index("+ Nieuwe vergadering"), \
+        "de primaire knop hoort uiterst rechts te staan, dus als laatste"
