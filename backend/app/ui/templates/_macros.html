@@ -328,7 +328,10 @@
 <div class="border-b border-gray-200 mb-6">
   <nav class="-mb-px flex flex-wrap gap-6 text-sm">
     {% for t in items %}
-    <a href="{{ t.href }}" class="py-2 border-b-2 {% if t.active %}border-blue-700 text-blue-700 font-semibold{% else %}border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300{% endif %}">{{ t.label }}</a>
+    {# `count` en `attrs` zijn optioneel (golf 10, #913): de statustabs op de
+       betalingenlijst dragen een aantal en een hx-get naar hun fragment; de
+       recordtabs blijven kale paginalinks. #}
+    <a href="{{ t.href }}"{% if t.get("attrs") %} {{ t.attrs|safe }}{% endif %} class="py-2 border-b-2 {% if t.active %}border-blue-700 text-blue-700 font-semibold{% else %}border-transparent text-gray-500 hover:text-gray-800 hover:border-gray-300{% endif %}">{{ t.label }}{% if t.get("count") is not none %} <span class="font-normal text-xs text-gray-400">{{ t.count }}</span>{% endif %}</a>
     {% endfor %}
   </nav>
 </div>
@@ -810,8 +813,16 @@ x-data x-init="$el.style.height = `auto`; $el.style.height = Math.min($el.scroll
    twee-standenknop (#615) gaf in bewerkmodus een tweede Annuleren naast die
    van het cluster; de toestandseerlijkheid zit nu in de wissel zelf: er staat
    nooit een knop die liegt over de stand, er staat een andere set. #}
-{% macro edit_toggle(state="edit", size="sm", cls="") -%}
+{# `waarde` (golf 10, #913): in een tabel deelt een inschrijving één houder
+   (`open`) over haar rijen — de opener toont zich zolang zíjn record niet
+   openstaat en zet de houder op zijn record-id; `ook` sluit dan bv. het
+   andere uitklappaneel. Zelfde openergedrag, andere toestandsvorm. #}
+{% macro edit_toggle(state="edit", size="sm", cls="", waarde=None, ook="") -%}
+{% if waarde is not none -%}
+<button type="button" x-show="{{ state }} !== {{ waarde }}" class="{{ btn_class('secondary', size) }}{% if cls %} {{ cls }}{% endif %}" @click="{{ state }} = {{ waarde }}{% if ook %}; {{ ook }}{% endif %}">{{ _("Bewerken") }}</button>
+{%- else -%}
 <button type="button" x-show="!{{ state }}" class="{{ btn_class('secondary', size) }}{% if cls %} {{ cls }}{% endif %}" @click="{{ state }} = true">{{ _("Bewerken") }}</button>
+{%- endif %}
 {%- endmacro %}
 
 {% macro row_actions(actions=[], delete_attrs="", delete_label="", max_visible=2, size="sm", delete_confirm=None) -%}

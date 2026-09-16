@@ -11,7 +11,7 @@
    er niet bij en ze bleven op élke stap staan. De TITEL blijft wel staan: die zegt
    waar je bent, en dat wil je op elke stap zien. #}
 <div class="max-w-2xl mx-auto"{% if wizard %} x-data='formWizard({{ wizard_steps|tojson }}, {{ start_step }})' @change="recompute()"{% endif %}>
-  <h1 class="text-2xl font-bold text-blue-700 mb-2">{{ form.title }}</h1>
+  <h1 class="text-2xl font-bold text-kop mb-2">{{ form.title }}</h1>
   {% if form.description %}<p class="text-gray-600 mb-6 whitespace-pre-wrap"{% if wizard %} x-show="step === 0" x-cloak{% endif %}>{{ form.description }}</p>{% endif %}
   {{ ui.error_banner(error|default(None)) }}
   {# Het enige publieke formulier dat geen htmx gebruikt: een gewone POST met

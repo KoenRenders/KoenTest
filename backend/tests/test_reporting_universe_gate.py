@@ -242,6 +242,14 @@ def test_every_description_can_carry_its_weight():
     Broken to see it red: `address_street` set to "De straat." (too short) and
     `member_postal_code` given the description of `address_postal_code`
     (duplicate); both named in the failure.
+
+    **What this gate cannot see, measured (#980).** A description that belongs to
+    ANOTHER object passes here as long as it appears only once. In CR-07 phase 1 a
+    script shifted six descriptions one object down — "Activiteit" read as a
+    revenue amount — and this gate stayed green, because every shifted text still
+    stood only once. Checked again after the repair: putting the revenue text back
+    on `activity` leaves this gate green. What an object's description is ABOUT is
+    pinned by hand in `test_universe_descriptions_belong_to_their_object.py`.
     """
     seen: dict[str, str] = {}
     fouten = []

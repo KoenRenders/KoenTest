@@ -2,13 +2,15 @@
 {# Het betalingenscherm zonder schil (golf 8, #913): filterbalk + lijst.
    Gedeeld door /admin/betalingen en de ingebedde Betalingen-tab van een
    activiteit — één bron, twee koppen. #}
-{% call ui.filter_bar("/admin/betalingen/lijst", "#betalingen-lijst") %}
+{% call ui.filter_bar("/admin/betalingen/lijst", "#betalingen-lijst", id="bt-filter") %}
   {# P13 (golf 5, #913): de recordscope reist als hidden field met élke
      filterwijziging mee — de scope overleeft filteren en wissen, en verdwijnt
      alleen via "Alle bekijken" in de scope-regel. #}
   {% if scope %}<input type="hidden" name="{{ scope.param_naam }}" value="{{ scope.param_waarde }}">{% if scope.get("stil") %}<input type="hidden" name="scope_stil" value="1">{% endif %}{% endif %}
-  <div>{{ ui.search(value=q, placeholder=_('Zoek op naam, OGM of omschrijving…'), standalone=False) }}</div>
+  {# Golf-10-feedback (Koen): zoeken en de keuzelijsten op ÉÉN regel, zoals de
+     Cobalt-referentie — de export rechts. Wrapt op smal naar meerdere regels. #}
   <div class="flex flex-wrap gap-3 items-center">
+    <div class="flex-1 min-w-[14rem] max-w-sm">{{ ui.search(value=q, placeholder=_('Zoek op naam, OGM of omschrijving…'), standalone=False) }}</div>
     {# Gegroepeerde context-filter via de gedeelde macro (#549); geen hx-* op de select
        zelf — de omhullende filterbalk vangt de change al op. #}
     {% if not (scope and scope.get("stil")) %}
@@ -24,12 +26,13 @@
       <option value="{{ s }}" {% if status == s %}selected{% endif %}>{{ status_labels[s] }}</option>
       {% endfor %}
     {% endcall %}
-    {{ ui.chips("openstaand", [("", _("Alles")), ("1", status_labels["openstaand"])],
-                current="1" if openstaand else "") }}
+    {# De openstaand-chips van #669 zijn opgegaan in de statustabs (golf 10,
+       #913): het Openstaand-tab is dezelfde afgeleide saldotest, en hij
+       combineert nog altijd met EN met de statuskeuzelijst hierboven. #}
     {# De exportknop draagt de filterstand mee: zonder de nieuwe parameter
        exporteert hij iets anders dan wat op het scherm staat. #}
     {{ ui.btn_secondary(_("Export (.ods)"), lead_icon="download",
-                        href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status ~ ("&openstaand=1" if openstaand else "") ~ ("&" ~ scope.param_naam ~ "=" ~ scope.param_waarde if scope and scope.param_naam != "record" else ""), size="sm",
+                        href="/admin/betalingen/export?context=" ~ context ~ "&status=" ~ status ~ "&zicht=" ~ zicht ~ ("&" ~ scope.param_naam ~ "=" ~ scope.param_waarde if scope and scope.param_naam != "record" else ""), size="sm",
                         attrs='hx-boost="false"') }}
   </div>
 {% endcall %}
@@ -41,6 +44,11 @@
    hier halen we de lijst opnieuw op mét de huidige filterstand. #}
 <div id="betalingen-lijst"
      hx-get="/admin/betalingen/lijst" hx-trigger="betalingen-ververst from:body"
-     hx-include="[name='q'],[name='status'],[name='context'],[name='inschrijving'],[name='activiteit'],[name='gezin'],[name='record']" hx-swap="innerHTML">
+     {# Op het FORMULIER scopen en niet op losse [name=…]-selectors: die selectors
+        matchten ook de status-selects van de verborgen bewerk-formulieren in de
+        lijst, waardoor een verversing stil status=pending meekreeg (gevonden
+        bij de golf-10-schermafdrukken). #bt-filter serialiseert ook het
+        zicht-veld, dat er via het form-attribuut bij hoort. #}
+     hx-include="#bt-filter" hx-swap="innerHTML">
   {% include "_betalingen_lijst.html" %}
 </div>

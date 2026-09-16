@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import Any
+from typing import Any, Optional
 
 from sqlalchemy import text as sql_text
 from sqlalchemy.orm import Session
@@ -37,6 +37,7 @@ from app.domains.reporting.api import (
     CLASSES,
     FACTS,
     HIERARCHY_OF,
+    JOINS,
     OBJECTS,
     Selection,
     SelectionError,
@@ -387,7 +388,8 @@ def render_catalogue() -> str:
 
     lines += ["", "## Objecten", ""]
     for klass in CLASSES:
-        members = [o for o in OBJECTS if o.klass == klass]
+        # `in_pane=False` (#975): an object the server filters on and nobody picks.
+        members = [o for o in OBJECTS if o.klass == klass and o.in_pane]
         if not members:
             continue
         lines.append(f"### {klass}")
@@ -472,6 +474,12 @@ zinnen. Weet je een filterwaarde niet zeker, vraag ze eerst op met \
 `list_values`. Is de vraag op meer dan één manier te lezen, stel dan een \
 wedervraag in plaats van te gokken.
 
+Voor de INHOUD van een activiteit — datums, locatie, onderdelen, prijzen, \
+opmerkingen, de tekst van de affiche — gebruik je `get_activities` en \
+`get_activity_detail`. Cijfers (inschrijvingen, bezetting, bedragen) komen \
+altijd uit `run_report`.
+{scope}
+
 Antwoord in het Nederlands, kort, met opsommingstekens waar dat helpt. Geen \
 tabellen, geen grafieken. Sluit af met één regel herkomst: 'op basis van: \
 <objecten>, <filters>'.
@@ -480,8 +488,27 @@ tabellen, geen grafieken. Sluit af met één regel herkomst: 'op basis van: \
 """
 
 
-def build_system_prompt() -> str:
-    return SYSTEM_PROMPT.format(catalogue=render_catalogue())
+SCOPE_PROMPT = """
+DIT GESPREK GAAT OVER ÉÉN ACTIVITEIT (nummer {activity_id}). Elk rapport en elke \
+opzoeking wordt op de server tot die activiteit beperkt; je hoeft er niet zelf op \
+te filteren. Vragen over andere activiteiten, of over gegevens die niet aan een \
+activiteit hangen (lidmaatschappen, formulieren, taken), kan je hier niet \
+beantwoorden — zeg dat dan. Voor de inhoud: `get_activity_detail` met \
+activity_id {activity_id}.
+"""
+
+
+def build_system_prompt(activity_id: Optional[int] = None) -> str:
+    """The system prompt, optionally bound to one activity (#975).
+
+    Only the NUMBER of the activity goes in, never its name. The prompt of this pack
+    is exempt from the seam guard's name check (`SCAN_PROMPT_NAMES`) because it is
+    rendered from the declaration and carries no stored value; an activity name is
+    stored content, so it would break that promise. The model gets the name the way
+    it gets everything else — through a tool, whose result IS scanned.
+    """
+    scope = SCOPE_PROMPT.format(activity_id=activity_id) if activity_id else ""
+    return SYSTEM_PROMPT.format(catalogue=render_catalogue(), scope=scope)
 
 
 # ── The tools ────────────────────────────────────────────────────────────────
@@ -588,10 +615,16 @@ def _check_exposure(keys: list[str]) -> str:
 
 
 def run_report(db: Session, arguments: dict[str, Any], *,
-               tenant_id: int, max_rows: int) -> dict[str, Any]:
+               tenant_id: int, max_rows: int,
+               activity_id: Optional[int] = None) -> dict[str, Any]:
     objects = [str(k) for k in (arguments.get("objects") or [])]
     if not objects:
         return {"error": "Geef minstens één object mee."}
+    if activity_id is not None:
+        arguments, weigering = _scope_report(db, arguments, tenant_id=tenant_id,
+                                             activity_id=activity_id)
+        if weigering:
+            return weigering
 
     filters = arguments.get("filters") or []
     filter_keys = [str(f.get("object") or "") for f in filters
@@ -675,26 +708,200 @@ def list_values(db: Session, arguments: dict[str, Any], *,
     return {"object": key, "values": values}
 
 
+# ── Activity scope (#975) ────────────────────────────────────────────────────
+#
+# In the activity mode the conversation is bound to ONE activity, and the binding
+# lives here, on the server — not in the prompt. A filter that only exists in the
+# question or the system prompt is not a boundary: the model can forget it, ignore
+# it, or talk around it. So every tool call in this mode is constrained here,
+# whether the model asked for the constraint or not.
+#
+# The boundary is a FILTER on the existing path (CR-07 §4.2, "one path to one
+# number"), not a second path: a scoped report is the same report with one more
+# condition.
+
+#: The facts a report can be about in activity mode: the ones the activity
+#: dimension joins. Read from the join graph, so a fact that gains an activity
+#: link later is in scope without an edit here.
+ACTIVITY_FACTS = frozenset(j.fact for j in JOINS if j.dimension == "d_activity")
+
+#: A count measure per activity fact, for `list_values` in scope — the values of a
+#: dimension are the groups of a scoped count. Guarded by a test against
+#: `ACTIVITY_FACTS`, so a new activity fact cannot silently lack one.
+SCOPE_COUNT_MEASURE = {
+    "f_registrations": "registration_count",
+    "f_payments": "payment_count",
+    "f_activities": "activity_count",
+}
+
+_ACTIVITY_FILTER_KEYS = ("activity", "activity_id")
+
+
+def _outside_scope(what: str) -> dict[str, Any]:
+    return {"error": (
+        f"Dit gesprek gaat over één activiteit; {what} valt daarbuiten. Beantwoord "
+        "de vraag voor deze activiteit, of zeg dat ze hier niet te beantwoorden is.")}
+
+
+def _activity_name(db: Session, *, tenant_id: int, activity_id: int) -> Optional[str]:
+    return db.execute(sql_text(
+        "SELECT activity_name FROM reporting.d_activity "
+        "WHERE tenant_id = :t AND activity_id = :a"),
+        {"t": tenant_id, "a": activity_id}).scalar()
+
+
+def _scope_report(db: Session, arguments: dict[str, Any], *, tenant_id: int,
+                  activity_id: int) -> tuple[dict[str, Any], Optional[dict]]:
+    """The arguments of `run_report`, bound to the activity — or a refusal.
+
+    Three things, in order:
+
+    1. **A fact that does not hang on an activity** is refused by name. Without
+       this the engine would refuse too, but with "geen verband met d_activity",
+       which tells the model nothing it can act on.
+    2. **A filter the model wrote on the activity itself** must be about THIS
+       activity. Same activity: dropped, because the scope filter says it exactly.
+       Another one: refused, with the reason — so the model routes around it
+       instead of losing a round.
+    3. **The scope filter is added**, always, whether the model filtered or not.
+       That line is the boundary; everything above it is courtesy.
+    """
+    objects = [str(k) for k in (arguments.get("objects") or [])]
+    fact = population_of(objects)
+    feiten: set[str] = ({fact.key} if fact else
+                        {f for k in objects if k in BY_KEY and (f := BY_KEY[k].fact)})
+    buiten = sorted(f for f in feiten if f not in ACTIVITY_FACTS)
+    if buiten:
+        namen = ", ".join(next((x.name for x in FACTS if x.key == f), f) for f in buiten)
+        return {}, _outside_scope(f"'{namen}'")
+
+    filters = [f for f in (arguments.get("filters") or []) if isinstance(f, dict)]
+    eigen_naam = None
+    overige = []
+    for flt in filters:
+        key = str(flt.get("object") or "")
+        if key not in _ACTIVITY_FILTER_KEYS:
+            overige.append(flt)
+            continue
+        waarden = [str(v).strip() for v in (flt.get("values") or [])]
+        if key == "activity_id":
+            if any(w != str(activity_id) for w in waarden):
+                return {}, _outside_scope("een andere activiteit")
+        else:
+            if eigen_naam is None:
+                eigen_naam = _activity_name(db, tenant_id=tenant_id,
+                                            activity_id=activity_id) or ""
+            if any(w.lower() != eigen_naam.lower() for w in waarden):
+                return {}, _outside_scope("een andere activiteit")
+
+    # The model's own filter on THIS activity is dropped rather than kept: the
+    # scope filter says the same thing exactly, and a name filter compares text —
+    # "quiz" would find nothing where the activity is called "Quiz".
+    gebonden = dict(arguments)
+    gebonden["filters"] = overige + [
+        {"object": "activity_id", "operator": "eq", "values": [str(activity_id)]}]
+    return gebonden, None
+
+
+def _scoped_values(db: Session, arguments: dict[str, Any], *, tenant_id: int,
+                   activity_id: int, max_rows: int) -> dict[str, Any]:
+    """`list_values` within the activity: the groups of a scoped count.
+
+    The plain `list_values` reads a whole dimension — every activity's components,
+    every product. In this mode that would show the model what lies outside its
+    scope, so the values come from the same scoped report path instead.
+    """
+    key = str(arguments.get("object") or "")
+    obj = BY_KEY.get(key)
+    if obj is None or obj.is_measure:
+        return list_values(db, arguments, tenant_id=tenant_id)
+    if key in _ACTIVITY_FILTER_KEYS:
+        return _outside_scope("een lijst van activiteiten")
+    fout = None
+    for fact, maat in SCOPE_COUNT_MEASURE.items():
+        antwoord = run_report(db, {"objects": [key, maat]}, tenant_id=tenant_id,
+                              max_rows=max_rows, activity_id=activity_id)
+        if "error" not in antwoord:
+            waarden = [r.get(key) for r in antwoord.get("rows", [])]
+            return {"object": key, "values": [w for w in waarden if w is not None]}
+        fout = antwoord
+    return fout or _outside_scope(f"'{obj.name}'")
+
+
+def _scoped_read_tool(db: Session, name: str, arguments: dict[str, Any], *,
+                      activity_id: int) -> str:
+    """The public read tools, bound to the activity.
+
+    `get_activities` is the treacherous one: it returns a LIST by nature. Unbound,
+    it would hand the model every activity of the tenant — a way out of the scope
+    through the side door. So its result is cut down to this one activity.
+    """
+    from app.domains.chatbot.api import execute_read_tool
+
+    args = dict(arguments or {})
+    if name == "get_activity_detail":
+        gevraagd = args.get("activity_id")
+        if gevraagd not in (None, "", activity_id, str(activity_id)):
+            return json.dumps(_outside_scope("een andere activiteit"), ensure_ascii=False)
+        args["activity_id"] = activity_id
+        return execute_read_tool(name, args, db)
+
+    resultaat = json.loads(execute_read_tool(name, args, db))
+    if isinstance(resultaat, dict) and isinstance(resultaat.get("activities"), list):
+        resultaat["activities"] = [a for a in resultaat["activities"]
+                                   if a.get("id") == activity_id]
+    return json.dumps(resultaat, ensure_ascii=False, default=str)
+
+
+def tool_specs() -> list[dict[str, Any]]:
+    """Everything this pack offers: the reporting tools plus the public read tools.
+
+    A function and not a module constant, because the read tools are borrowed
+    through the chatbot facade, and that import must not run at module load (the
+    same cycle `run_public_chat` avoids).
+    """
+    from app.domains.chatbot.api import read_tool_specs
+
+    return TOOL_SPECS + read_tool_specs()
+
+
 # ── Dispatch (the security boundary of this pack) ─────────────────────────────
 
-def dispatcher(*, tenant_id: int, max_rows: int = 0):
+def dispatcher(*, tenant_id: int, max_rows: int = 0,
+               activity_id: Optional[int] = None):
     """A dispatcher bound to one tenant — the shape the shared loop expects.
 
     The tenant is bound here and cannot be reached by the model: it comes from the
     session, travels through a closure, and no tool takes it as an argument. That
     is the tenant fence for this surface, and it is closed by construction rather
     than by validation.
+
+    `activity_id` (#975) binds the conversation to one activity the same way: it
+    comes from the route, which checked it, and every tool below is constrained to
+    it here. The model can name another activity; it cannot reach one.
     """
+    from app.domains.chatbot.api import execute_read_tool, read_only_tool_names
+
     cap = max_rows or settings.admin_chat_max_rows
+    leestools = read_only_tool_names()
+    toegelaten = ALLOWED_TOOLS | leestools
 
     def dispatch(name: str, arguments: dict[str, Any], db: Session) -> str:
-        if name not in ALLOWED_TOOLS:
+        if name not in toegelaten:
             logger.warning("Assistent vroeg niet-toegelaten tool aan: %s", name)
             return json.dumps({"error": f"Onbekende tool: {name}."})
         args = arguments or {}
         try:
+            if name in leestools:
+                if activity_id is not None:
+                    return _scoped_read_tool(db, name, args, activity_id=activity_id)
+                return execute_read_tool(name, args, db)
             if name == "run_report":
-                result = run_report(db, args, tenant_id=tenant_id, max_rows=cap)
+                result = run_report(db, args, tenant_id=tenant_id, max_rows=cap,
+                                    activity_id=activity_id)
+            elif activity_id is not None:
+                result = _scoped_values(db, args, tenant_id=tenant_id,
+                                        activity_id=activity_id, max_rows=cap)
             else:
                 result = list_values(db, args, tenant_id=tenant_id)
         except (TypeError, ValueError) as exc:

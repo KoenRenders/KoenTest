@@ -79,15 +79,15 @@ def admin_page():
 def test_betaling_bevestigen(admin_page):
     """De knop die in #616 inert was: doet ze in een echte browser wat ze belooft?"""
     betalingen = Betalingenscherm(admin_page).open()
-    kaart = betalingen.kaart_met_knop("Bevestig betaald")
-    if kaart.count() == 0:
+    rij = betalingen.rij_met_knop("Bevestig betaald")
+    if rij.count() == 0:
         _ontbreekt("geen openstaande betaling om te bevestigen")
 
-    ogm = betalingen.ogm_van(kaart)
+    ogm = betalingen.ogm_van(rij)
     if ogm is None:
         _ontbreekt("de openstaande betaling heeft geen OGM om haar aan te herkennen")
 
-    betalingen.bevestig_betaald(kaart)
+    betalingen.bevestig_betaald(rij)
 
     assert "Vereffend" in " ".join(betalingen.badges(ogm))
 
@@ -108,10 +108,9 @@ def test_bestelregel_wijzigen_werkt_de_bedragen_bij(admin_page):
     detail.zet_aantal(0, 3)
     detail.opslaan()
 
-    # Opslaan zet `HX-Trigger: betalingen-ververst`, dus de kaartenlijst wordt
-    # opnieuw opgebouwd en het detailpaneel gaat mee. De invariant is niet dat het
-    # paneel open blijft staan, maar dat het gewijzigde aantal bewaard is en de
-    # bedragen herrekend zijn (#613-4) — dus openen we opnieuw.
+    # De invariant is niet dat het paneel open blijft staan, maar dat het
+    # gewijzigde aantal bewaard is en de bedragen herrekend zijn (#613-4) —
+    # dus openen we het detail opnieuw, via een verse betalingenlijst.
     paneel = betalingen.bewerkbaar_detailpaneel()
     assert paneel is not None, "het paneel is na het opslaan niet meer te openen"
     detail = Inschrijvingsdetail(paneel)
@@ -252,8 +251,8 @@ def test_een_lopende_actie_is_zichtbaar(admin_page):
     onderweg. Een `wait_for_timeout` ná de klik zou een race zijn.
     """
     betalingen = Betalingenscherm(admin_page).open()
-    kaart = betalingen.kaart_met_knop("Bevestig betaald")
-    if kaart.count() == 0:
+    rij = betalingen.rij_met_knop("Bevestig betaald")
+    if rij.count() == 0:
         _ontbreekt("geen openstaande betaling om te bevestigen")
 
     gezien = {}
@@ -267,7 +266,7 @@ def test_een_lopende_actie_is_zichtbaar(admin_page):
 
     admin_page.route("**/admin/betalingen/**", onderschep)
     try:
-        betalingen.bevestig_betaald(kaart)
+        betalingen.bevestig_betaald(rij)
     finally:
         admin_page.unroute("**/admin/betalingen/**", onderschep)
 
