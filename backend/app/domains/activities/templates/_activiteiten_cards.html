@@ -98,7 +98,13 @@
           {% if _multi %}<span class="text-base md:text-sm font-semibold text-ink sm:mr-1">{{ c.name }}</span>{% endif %}
           <div class="flex flex-wrap gap-2">
           {% if scope != "archived" %}
-          {% if c.external_register_url %}
+          {# #974: of er nog ingeschreven kan worden, zegt de SERVICE
+             (`registration_state`), en de kaart rekent het niet opnieuw uit. Na de
+             deadline verdwijnt ook de externe link: het formulier daarachter kunnen
+             we niet sluiten, maar we hoeven er niet meer naartoe te wijzen. #}
+          {% if a.registration_state == "closed" %}
+          {{ ui.badge(_("Inschrijvingen afgesloten"), "gray") }}
+          {% elif c.external_register_url %}
           <a class="{{ _btn }}" href="{{ c.external_register_url }}" target="_blank" rel="noopener">{{ _("Inschrijven") }} ↗</a>
           {% elif c.is_full %}
           {{ ui.badge(_("Volzet"), "orange") }}
@@ -109,6 +115,9 @@
                   @click="ins = true"
                   hx-get="/activiteiten/{{ a.id }}/inschrijven/{{ c.id }}"
                   hx-target="#inschrijf-{{ a.id }}-{{ c.id }}" hx-swap="innerHTML">{{ _("Inschrijven") }}</button>
+          {% endif %}
+          {% if a.registration_state == "open" and a.registration_closes_on and not c.is_full %}
+          <span class="text-xs text-ink-soft">{{ _("Inschrijven kan tot") }} {{ a.registration_closes_on | langedatum }}</span>
           {% endif %}
           {% endif %}
           {% if c.external_registrations_url %}

@@ -92,6 +92,9 @@ def register_for_activity(db, activity_id: int, data, background_tasks,
 from app.domains.activities.export import build_component_export_ods  # noqa: F401
 
 from app.domains.activities.service import (  # noqa: F401
+    RegistrationState,
+    registration_refusal,
+    registration_state,
     ActivitySpan,
     activities_active_between,
     activities_from,
@@ -117,6 +120,7 @@ from app.domains.activities.service import (  # noqa: F401
 )
 
 __all__ = [
+    "RegistrationState", "registration_refusal", "registration_state",
     "ActivityOption", "activity_options", "get_activity", "get_component",
     "INSCHRIJVING_SORT_VELDEN", "booked_per_component", "get_registration",
     "inschrijving_kop_ctx", "sorteer_inschrijvingen",

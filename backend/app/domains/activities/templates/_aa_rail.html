@@ -11,6 +11,10 @@
           <dd>{% if a.is_cancelled %}{{ ui.badge(_("geannuleerd"), "red") }}{% else %}{{ ui.badge(_("actief"), "green") }}{% endif %}</dd></div>
         <div class="flex justify-between gap-2"><dt class="text-ink-soft">{{ _("Toegang") }}</dt>
           <dd>{% if a.members_only %}{{ ui.badge(_("enkel leden"), "blue") }}{% else %}{{ ui.badge(_("iedereen welkom")) }}{% endif %}</dd></div>
+        {# #974: zichtbaar in de detailweergave, met de toestand zoals de service
+           ze beslist — niet opnieuw uitgerekend in het sjabloon. #}
+        <div class="flex justify-between gap-2"><dt class="text-ink-soft">{{ _("Inschrijven tot") }}</dt>
+          <dd>{% if a.registration_closes_on %}{{ a.registration_closes_on | langedatum }}{% if a.registration_state == "closed" %} {{ ui.badge(_("afgesloten"), "gray") }}{% endif %}{% else %}—{% endif %}</dd></div>
       </dl>
       {# Deel de activiteit (feedbackronde): de publieke lijst, verankerd op deze
          kaart. Een echte activiteitspagina bestaat nog niet — zie het

@@ -14,12 +14,92 @@ De transactiegrens ligt hier (§635 regel 2): de service commit, het scherm niet
 Zo volgt élke ingang — JSON-router, UI-route, script — dezelfde regel.
 """
 from datetime import date
+from enum import Enum
 from typing import NamedTuple, Optional
 
 from sqlalchemy import func, nulls_last
 
 from app.domains.activities.models import (ActiviteitFout, Activity, ActivityDate,
                                            ActivitySubRegistration, Registration)
+
+
+class RegistrationState(str, Enum):
+    """Whether an activity accepts a NEW registration, and if not, why (#974).
+
+    The reason matters as much as the answer: the refusal message and the badge on
+    the card say different things for "this has passed" and "registrations closed
+    on 1 October", and a caller that only gets a boolean will guess.
+    """
+
+    OPEN = "open"
+    #: No date of the activity lies today or later.
+    PAST = "past"
+    #: The registration deadline has passed.
+    CLOSED = "closed"
+    #: The activity is cancelled. Until #974 only the public card knew this: it
+    #: hid the button, while the server accepted a form that was posted anyway.
+    #: Koen decided on 16 September 2026 that the server refuses too.
+    CANCELLED = "cancelled"
+
+
+def _effective_end(ad: ActivityDate) -> date:
+    return ad.end_date or ad.start_date
+
+
+def registration_state(activity: Activity, *,
+                       today: Optional[date] = None) -> RegistrationState:
+    """The one place that decides whether an activity takes a new registration.
+
+    Until #974 two places decided that, each in its own way. The registration route
+    refused when no date lay in the future; the public card decided separately
+    whether to show the button. Adding a deadline to both would have been the
+    duplication `CLAUDE.md` warns about — so both ask this function instead.
+
+    **The deadline is inclusive and Belgian.** `registration_closes_on` is the last
+    day a registration is accepted, until midnight in Brussels. `today` defaults to
+    `belgian_today()` and not to `date.today()`, because the container may run on
+    UTC and a deadline would then close two hours late in summer.
+
+    **Only for NEW registrations.** A board member correcting an existing
+    registration after the deadline — or refunding one on a cancelled activity — is
+    fixing a record, not letting someone in.
+    Call this where a registration is created, and nowhere a registration is merely
+    changed.
+    """
+    from app.kernel.clock import belgian_today
+
+    vandaag = today or belgian_today()
+    # Cancelled first: for whoever reads the refusal, "this activity was cancelled"
+    # is the true reason even when its dates have also passed.
+    if activity.is_cancelled:
+        return RegistrationState.CANCELLED
+    if not any(_effective_end(d) >= vandaag for d in activity.dates):
+        return RegistrationState.PAST
+    deadline = activity.registration_closes_on
+    if deadline is not None and vandaag > deadline:
+        return RegistrationState.CLOSED
+    return RegistrationState.OPEN
+
+
+def registration_refusal(activity: Activity, *,
+                         today: Optional[date] = None) -> Optional[str]:
+    """Why a new registration is refused, in the words the visitor reads — or None.
+
+    Next to `registration_state` and not inside the route, because two callers show
+    this text: the registration route when a form is posted, and the modal when it
+    is opened. Two copies of the wording would drift the first time one is edited.
+    """
+    from app.i18n import _, long_date
+
+    toestand = registration_state(activity, today=today)
+    if toestand is RegistrationState.CANCELLED:
+        return _("Deze activiteit is geannuleerd; inschrijven kan niet meer.")
+    if toestand is RegistrationState.CLOSED:
+        return (_("De inschrijvingen voor deze activiteit zijn afgesloten sinds "
+                  "%(datum)s.") % {"datum": long_date(activity.registration_closes_on)})
+    if toestand is RegistrationState.PAST:
+        return _("Activity is no longer open for registration")
+    return None
 
 
 class ActivityOption(NamedTuple):
@@ -116,7 +196,8 @@ def _controleer_slug(db, slug: str | None, *, behalve_id: int | None = None) -> 
 
 def create_activity(db, *, name: str, location=None, poster_url=None,
                     members_only: bool = False, dates=(), actor=None,
-                    slug: str | None = None) -> Activity:
+                    slug: str | None = None,
+                    registration_closes_on: Optional[date] = None) -> Activity:
     """Maak een activiteit met haar eerste datums (#679, batch 1).
 
     De audit-snapshots horen bij de mutatie, niet bij de route: een activiteit die
@@ -136,7 +217,8 @@ def create_activity(db, *, name: str, location=None, poster_url=None,
     else:
         slug = _controleer_slug(db, slug)
     activity = Activity(name=name, location=location, poster_url=poster_url,
-                        members_only=bool(members_only), slug=slug)
+                        members_only=bool(members_only), slug=slug,
+                        registration_closes_on=registration_closes_on)
     db.add(activity)
     db.flush()
     snapshot_activity(db, activity, operation="insert", action="activity_created",
