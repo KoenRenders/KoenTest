@@ -431,9 +431,10 @@ of the activities domain first, and a poster field second.
 
 This part changes registration behaviour and **ships on its own**, ahead
 of the Design Studio (§6, phase 0): **#974**, assigned to v2.5 (#925) by
-Koen on 16 September 2026 and built by the finetuning CLI. The issue
-records one adjacent finding that is not part of it: a *cancelled*
-activity is not refused server-side either.
+Koen on 16 September 2026 and built by the finetuning CLI. At Koen's
+request, the same service function also refuses a **cancelled** activity.
+Until now only the card hid its button; the server accepted the
+registration.
 
 ### 3.9 Contacts belong to the activity: a member or the association
 
