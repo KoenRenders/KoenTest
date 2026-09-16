@@ -492,6 +492,28 @@ x-data x-init="$el.style.height = `auto`; $el.style.height = Math.min($el.scroll
           class="{{ _basis(cls) }}{% if cls %} {{ cls }}{% endif %}" {{ attrs|safe }}>{{ value }}</textarea>
 {%- endmacro %}
 
+{# De opgemaakte-tekst-editor (Trix) — één vorm voor elk scherm dat opgemaakte
+   tekst bewaart (#984). Hij stond als losse markup in de pagina-editor en in de
+   vergadernotities, en de nieuwsbrief zou de derde kopie worden.
+
+   Trix leest de beginwaarde uit het verborgen veld en schrijft elke wijziging er
+   meteen in terug; het formulier verstuurt dus gewoon `name`. De server
+   ontsmet de HTML bij het bewaren (`cms/render.py`) — deze macro belooft niets
+   over veiligheid.
+
+   `toolbar_on_focus` klapt de opmaakbalk in tot je in het veld klikt: voor
+   schermen met veel editors onder elkaar, zoals twintig agendapunten. De CSS
+   daarvoor staat in de beheerschil, naast waar Trix geladen wordt. `attrs` gaat
+   naar de editor zelf (bv. `x-show`), niet naar het verborgen veld. #}
+{% macro rich_text(name, id, value="", input_id=None, placeholder="", cls="",
+                   attrs="", toolbar_on_focus=False) -%}
+{%- set veld = input_id or (id ~ "-input") -%}
+<input type="hidden" id="{{ veld }}" name="{{ name }}" value="{{ value or '' }}">
+<div class="rich-text{% if toolbar_on_focus %} rich-text--balk-bij-focus{% endif %}">
+<trix-editor id="{{ id }}" input="{{ veld }}" class="cms-content bg-white text-sm rounded-lg border border-line{% if cls %} {{ cls }}{% endif %}"{% if placeholder %} placeholder="{{ placeholder }}"{% endif %} {{ attrs|safe }}></trix-editor>
+</div>
+{%- endmacro %}
+
 {# `aria_label` als parameter en niet via `attrs` (#663/#699): `_()` levert Markup,
    dus een vertaalde tekst met `~` in een attrs-string aan elkaar plakken escapet de
    gewone helft — de klasse fout uit #514/#613. #}

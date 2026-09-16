@@ -175,6 +175,14 @@
                              cls="w-full", attrs=ui.autogrow(200)) }}
     </div>
     <div>
+      {# `rich_text` is de opgemaakte-tekst-editor van elk beheerscherm (#984):
+         pagina's, vergadernotities, nieuwsbrief. Hier met de balk die pas bij
+         focus verschijnt, zoals in de vergadernotities. #}
+      {{ ui.label(_("Opgemaakte tekst"), "ds-opgemaakt") }}
+      {{ ui.rich_text("opgemaakt", "ds-opgemaakt", value="<div>Een <strong>vetgedrukt</strong> en een <em>cursief</em> woord.</div>",
+                      placeholder=_("Klik om te typen…"), cls="min-h-[4rem]", toolbar_on_focus=True) }}
+    </div>
+    <div>
       {{ ui.label(_("Status"), "ds-status") }}
       {% call ui.select_control("status", cls="w-full", attrs='id="ds-status"') %}
         <option selected>{{ _("Open") }}</option><option>{{ _("Gesloten") }}</option>

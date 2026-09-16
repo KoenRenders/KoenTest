@@ -3,10 +3,9 @@
 **Project:** Web Portal "Raak Millegem"
 **Status:** Being shaped with Koen. First decided 17 June 2026 (consent model,
 `Subscriber`, provider adapter); reshaped on 14, 15 and 16 September 2026
-alongside the meeting module (CR-09). **Not assigned to a release** — Koen
-expects v2.6 but has not decided (16 September 2026). No question is open:
-all were answered on 16 and 17 September 2026 (§8). The document is ready to
-build once the newsletter is assigned to a release.
+alongside the meeting module (CR-09). **Assigned to v2.5.0 by Koen on 17
+September 2026** (#984). No question is open: all were answered on 16 and 17
+September 2026 (§8).
 **Apply to:** a new `newsletter` domain (backend, admin screens, public signup
 pages). Mail goes through the existing `mail` domain; the member audience comes
 from `membership` and `mdm` through their `api.py`.

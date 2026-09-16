@@ -123,6 +123,11 @@ Vier regels, elk met een reden:
     24 px regel op een telefoon (4 px marge), 20 px op een breed scherm (2 px). Een
     kale `mt-1` op een icoon is dus 2 px te veel op het brede scherm.
 
+36. **Een `<trix-editor>` staat alleen in `ui.rich_text`** (#984). De editor
+    stond als losse markup in de pagina-editor en in de vergadernotities, elk
+    met een eigen verborgen veld en eigen CSS voor de balk; de nieuwsbrief zou
+    de derde kopie worden. Eén macro, en deze regel houdt haar de enige.
+
 Uitzonderingen staan expliciet in ALLOWLIST, met reden — zoals de allowlists in
 de andere gates: een regel toevoegen mag, maar niet stilzwijgend.
 """
@@ -1405,3 +1410,26 @@ def test_verborgen_beginstand_met_id_staat_ook_in_de_servermarkup():
         'Element met id én x-show zonder letterlijke style="display: none" — '
         "htmx' settle wist anders de Alpine-stand na een swap (#726):\n  "
         + "\n  ".join(fouten))
+
+
+def test_de_opgemaakte_tekst_editor_komt_uit_de_kit():
+    """#984 — `<trix-editor>` hoort alleen in `ui.rich_text` (`_macros.html`).
+
+    Kapotgemaakt om te controleren dat deze test rood kan worden: in
+    `_vg_punt.html` de macro-aanroep terug vervangen door de losse
+    `<trix-editor>`-markup → de test valt om met dat pad.
+    """
+    fouten = [
+        f"{pad.relative_to(APP)}:{nr}"
+        for pad in TEMPLATES
+        if pad.name != "_macros.html"
+        for nr, regel in enumerate(_zonder_commentaar(pad).splitlines(), 1)
+        if "<trix-editor" in regel
+    ]
+    assert not fouten, (
+        "Gebruik `ui.rich_text(...)` in plaats van een losse `<trix-editor>`; zo "
+        "delen alle schermen hetzelfde verborgen veld en dezelfde balk:\n  "
+        + "\n  ".join(fouten)
+    )
+    kit = (APP / "ui" / "templates" / "_macros.html").read_text()
+    assert "<trix-editor" in kit, "de macro zelf is verdwenen — dan bewaakt deze regel niets"

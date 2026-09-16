@@ -55,17 +55,12 @@
           hx-target="#vg-punt-{{ item.id }}" hx-swap="outerHTML"
           hx-trigger="trix-blur from:find trix-editor">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-      <input type="hidden" id="vg-notes-{{ item.id }}" name="notes" value="{{ item.notes }}">
       {# De opmaakbalk staat ingeklapt en verschijnt zodra je in het veld klikt.
          Tijdens een vergadering typ je; een balk boven elk van de twintig punten
-         maakt van het verslag een gereedschapskist. `:has()` kan dat zonder JS —
-         de balk staat vóór de editor in de DOM, dus een buurselector volstaat
-         niet. #}
-      <div class="vg-notitie">
-        <trix-editor input="vg-notes-{{ item.id }}"
-                     class="cms-content bg-white text-sm rounded-lg border border-line min-h-[4rem]"
-                     placeholder="{{ _("Notities…") }}"></trix-editor>
-      </div>
+         maakt van het verslag een gereedschapskist. #}
+      {{ ui.rich_text("notes", "vg-trix-" ~ item.id, value=item.notes,
+                      input_id="vg-notes-" ~ item.id, placeholder=_("Notities…"),
+                      cls="min-h-[4rem]", toolbar_on_focus=True) }}
     </form>
     {% elif item.notes %}
     <div class="cms-content mt-2 text-sm">{{ item.notes|safe }}</div>
