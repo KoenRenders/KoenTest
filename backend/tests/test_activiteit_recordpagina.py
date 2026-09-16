@@ -251,4 +251,7 @@ def test_raakje_knop_volgt_de_beheerassistent_schakelaar(client, db_session, mon
 
     html = client.get(f"/admin/activiteiten/{activity.id}").text
     assert "AI · Activiteit" in html
-    assert "nog niet beschikbaar" in html
+    # De overlay draagt het echte gesprek (#975): het pad-gebonden endpoint en
+    # het historie-veld dat het antwoordfragment out-of-band bijwerkt.
+    assert f'hx-post="/admin/rapporten/raakje/activiteit/{activity.id}"' in html
+    assert 'name="historie" id="rp-raakje-historie"' in html
