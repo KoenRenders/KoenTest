@@ -6,7 +6,7 @@
 {% block title %}Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %} — {{ site_name }}{% endblock %}
 {% block content %}
 <a href="{{ path_for("/fotos") }}" class="text-blue-700 hover:underline text-sm">← {{ _("Terug naar alle albums") }}</a>
-<h1 class="text-3xl font-bold text-blue-700 mt-2">Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %}</h1>
+<h1 class="text-3xl font-bold text-kop mt-2">Foto's{% if activiteit %} — {{ activiteit.name }}{% endif %}</h1>
 {# #883: deze zin hoort op het SCHERM en niet alleen in het issue. Een duimpjestelling
    meet vooral positie: foto's bovenaan krijgen er meer omdat ze vaker gezien worden.
    Als warm signaal prima; kies er geen headerfoto of flyerbeeld mee, want dan meet je

@@ -3,7 +3,8 @@
    status + doelgroep als titel, met datum/uur en locatie eronder — zoals de
    Cobalt-mockup. Gedeeld door de drie tabpagina's (Overzicht, Inschrijvingen,
    Betalingen); de tabbalk komt uit activities.api.record_tabs. #}
-<div class="mb-2">
+<div class="mb-2 flex items-start justify-between gap-4">
+  <div>
   <h1 class="text-3xl font-bold text-kop inline-flex flex-wrap items-center gap-3">{{ a.name }}
     <span class="inline-flex gap-1">
       {% if a.is_cancelled %}{{ ui.badge(_("geannuleerd"), "red") }}{% else %}{{ ui.badge(_("actief"), "green") }}{% endif %}
@@ -14,5 +15,31 @@
     {%- if a.dates %}{{ a.dates[0].start_date|langedatum }}{% if a.dates[0].start_time %} · {{ a.dates[0].start_time.strftime("%H.%M") }}{% if a.dates[0].end_time %}–{{ a.dates[0].end_time.strftime("%H.%M") }}{% endif %} u.{% endif %}{% endif %}
     {%- if a.location %} · {{ a.location }}{% endif %}
   </p>
+  </div>
+  {# Raakje Admin (golf 10, #913 — Koen: overlay over het record, in de stijl
+     van de publieke Raakje). De knop bestaat alleen als de beheer-assistent
+     aan staat (kernelvlag, CR-07 §6.3); het vraagendpoint per record bestaat
+     nog niet, dus de overlay toont een nette uitgeschakelde staat. #}
+  {% if raakje_admin|default(false) %}
+  <div x-data="{ raakje: false }" class="shrink-0 mt-1">
+    {{ ui.btn_secondary(_("AI · Activiteit"), size="sm", attrs='@click="raakje = true"') }}
+    <div x-show="raakje" x-cloak role="dialog" aria-modal="true" aria-label="{{ _('Raakje') }}"
+         class="fixed inset-0 z-50 flex items-center justify-center p-4"
+         style="display: none; background: rgba(17,17,17,.5)"
+         @keydown.escape.window="raakje = false">
+      <div class="bg-white rounded-2xl shadow-xl w-full max-w-md overflow-hidden" @click.outside="raakje = false">
+        <div class="px-4 py-3 bg-blue-700 text-white flex items-center justify-between gap-2">
+          <span class="font-semibold">{{ _("Raakje") }}</span>
+          <button type="button" class="hover:opacity-80" @click="raakje = false" aria-label="{{ _('Sluiten') }}">{{ ui.icon("x") }}</button>
+        </div>
+        <div class="p-4 text-sm">
+          <div class="bg-gray-100 rounded-2xl rounded-tl-sm px-3 py-2 inline-block">
+            {{ _("Ik kan hier nog niet meehelpen — de assistent voor deze pagina is nog niet beschikbaar.") }}
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  {% endif %}
 </div>
 {{ ui.tabs(record_tabs) }}

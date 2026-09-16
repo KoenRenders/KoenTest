@@ -1067,9 +1067,14 @@ def _record_tabs(activiteit, reg_count: int, db, email: str, actief: str) -> dic
     """Doorgeefluik naar de ene tabs-bouwer in de service (golf 8, #913):
     de payment-kant rendert dezelfde recordkop en mag alleen via de facade."""
     from app.domains.activities.api import record_tabs
+    from app.kernel.tenant_config import tenant_admin_chat_enabled
 
+    # Golf 10 (#913): de "AI · Activiteit"-knop in de recordkop bestaat alleen
+    # als Raakje voor beheer aan staat — één bron (kernel, CR-07 §6.3), geen
+    # eigen vlag ernaast.
     return {"record_tabs": record_tabs(db, activiteit, email, actief,
-                                       reg_count=reg_count)}
+                                       reg_count=reg_count),
+            "raakje_admin": tenant_admin_chat_enabled(db)}
 
 
 def _record_rail(db, activiteit) -> dict:

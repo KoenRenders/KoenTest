@@ -407,6 +407,9 @@ def activiteit_betalingen_tab(activity_id: int, request: Request,
                 forceer_activiteit=activity_id, scope_stil=True).as_context()
     ctx["a"] = activiteit
     ctx["record_tabs"] = record_tabs(db, activiteit, email, "betalingen")
+    from app.kernel.tenant_config import tenant_admin_chat_enabled
+
+    ctx["raakje_admin"] = tenant_admin_chat_enabled(db)
     return templates.TemplateResponse(
         request, "admin_activiteit_betalingen.html", ctx)
 
