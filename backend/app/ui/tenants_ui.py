@@ -65,42 +65,18 @@ BEKENDE_SLEUTELS = [
      "Werkt enkel als ADMIN_CHAT_ENABLED ook aan staat (#917)."),
 ]
 
-# #924: wat de organisatie IS. Aparte lijst en een aparte sectie op het scherm,
-# want dit zijn geen instellingen van de site maar eigenschappen van de vereniging
-# erachter — de twee assen uit het issue. Ze komen uit `mdm.organizations` en niet
-# uit `kernel_tenant_settings`.
+# #971: hier stond `ORGANISATIEVELDEN` — naam, rechtsvorm, nummers, contact,
+# rekening. Ze zijn verhuisd naar `/admin/organisaties`, en ze staan hier niet
+# meer NAAST: twee schermen voor één feit is dezelfde duplicatie die #924 en #945
+# uit de kolommen haalden, alleen een laag hoger.
 #
-# Dit scherm en geen nieuw: sinds Koens omkering ZIJN de tenants organisaties, dus
-# een tweede scherm voor dezelfde rijen zou de duplicatie zijn die dit issue
-# opruimt — nu in schermen in plaats van in kolommen.
+# De reden dat ze ooit hier stonden was juist: er was geen ander scherm. De reden
+# dat ze nu weg zijn is even eenvoudig: dit scherm bestaat alleen voor organisaties
+# die een SITE draaien, en de ACCOUNT-organisatie draait er geen. Zij is nu net
+# degene met een ondernemingsnummer en een rekening, en ze was daardoor nergens
+# bereikbaar.
 #
-# #945: achter deze invoervelden zitten sinds #945 drie tabellen in plaats van elf
-# kolommen. Het scherm bleef bewust hetzelfde — één invoer per soort — want dat is
-# wat er vandaag nodig is. Een tweede rekening of een tweede btw-nummer past in het
-# model en nog niet in dit scherm; dat is het verschil tussen "de vorm laat het
-# toe" en "we bouwen het vooruit".
-ORGANISATIEVELDEN = [
-    # #954: de naam stond hier niet, en daardoor was hij sinds #945 nergens meer
-    # te wijzigen — wél te zetten bij het aanmaken van een tenant, en daarna
-    # nooit meer. Hij staat vooraan omdat alle andere velden erbij horen.
-    ("name", "Naam van de organisatie",
-     "Staat in de paginatitel, de afzender van je mails en de footer. Mag niet leeg."),
-    ("legal_form", "Rechtsvorm", "VZW, FEITELIJKE_VERENIGING of BEDRIJF."),
-    ("enterprise_number", "Ondernemingsnummer", "Optioneel, bv. 0123.456.789."),
-    ("vat_number", "Btw-nummer", "Optioneel."),
-    ("email", "E-mailadres", "Contactadres van de vereniging; komt in de footer."),
-    ("phone", "Telefoon", "Optioneel; komt in de footer."),
-    ("website", "Website", "Optioneel."),
-    ("payment_iban", "Rekeningnummer (IBAN)",
-     "Voor de overschrijvingsinstructies. Leeg = .env-default."),
-    ("payment_beneficiary", "Begunstigde",
-     "Naam op de overschrijving. Leeg = .env-default."),
-    ("payment_bic", "BIC", "Optioneel; staat bij het rekeningnummer in de footer."),
-    ("facebook_url", "Facebook-link", "Footer-icoon. Leeg = niet tonen."),
-    ("instagram_url", "Instagram-link", "Footer-icoon. Leeg = niet tonen."),
-    ("tiktok_url", "TikTok-link", "Footer-icoon. Leeg = niet tonen."),
-]
-
+# Wat hier overblijft is wat dit scherm werkelijk is: de instellingen van de site.
 GEHEIME_SLEUTELS = [
     ("mollie_api_key", "Mollie API-key", "Versleuteld opgeslagen; wordt nooit teruggetoond."),
     ("gmail_app_password", "Gmail app-wachtwoord", "Versleuteld opgeslagen; wordt nooit teruggetoond."),
@@ -172,12 +148,7 @@ def _editor_ctx(request: Request, db: Session, tenant_id: int) -> dict:
                for key, _label, _hulp in sleutels}
     secrets_gezet = _secrets_gezet(
         db, tenant_id, [key for key, _label, _hulp in GEHEIME_SLEUTELS])
-    from app.domains.mdm.api import organization_details
-
-    organisatievelden = list(ORGANISATIEVELDEN)
-    organisatie = organization_details(db, tenant_id)
     return {"nav_items": admin_nav("/admin/tenants"), "unit": unit,
-            "organisatievelden": organisatievelden, "organisatie": organisatie,
             "tenant_id": tenant_id, "sleutels": sleutels,
             "geheime_sleutels": GEHEIME_SLEUTELS, "waarden": waarden,
             "secrets_gezet": secrets_gezet, "error": None, "opgeslagen": False,
@@ -250,19 +221,15 @@ def tenant_aanmaken(request: Request, db: Session = Depends(get_db),
 async def tenant_opslaan(tenant_id: int, request: Request,
                          db: Session = Depends(get_db),
                          email: str = Depends(require_admin_ui)):
-    from app.domains.mdm.api import (OngeldigeInstelling,
-                                     update_organization_details,
-                                     update_tenant_settings)
+    from app.domains.mdm.api import OngeldigeInstelling, update_tenant_settings
 
     require_operator_ui(db, email)
     if tenant_id not in {u.id for u in _units(db)}:
         raise HTTPException(status_code=404, detail=_("Onbekende tenant"))
     form = await request.form()
-    # #924: de organisatievelden gaan naar `mdm.organizations` en niet naar de
-    # instellingen. Vóór de instellingen, zodat een validatiefout hieronder het
-    # formulier terugtoont met wat er al bewaard is.
+    # #971: enkel nog de instellingen van de site. Wat de organisatie IS, wordt op
+    # `/admin/organisaties` bewerkt — één scherm per feit.
     try:
-        update_organization_details(db, tenant_id, form)
         update_tenant_settings(
             db, tenant_id, form,
             known=[key for key, _l, _h in BEKENDE_SLEUTELS],
@@ -272,18 +239,10 @@ async def tenant_opslaan(tenant_id: int, request: Request,
         # betekenen dat één tikfout in een bedrag het hele scherm leegveegt, en dan
         # is de melding erger dan de fout.
         ctx = _editor_ctx(request, db, tenant_id)
-        # #954: ook de organisatievelden kunnen nu weigeren, dus hun labels horen
-        # in dezelfde melding. Zonder die helft zou een lege naam "name: …" tonen.
-        labels = {key: label
-                  for key, label, _h in (*BEKENDE_SLEUTELS, *ORGANISATIEVELDEN)}
+        labels = {key: label for key, label, _h in BEKENDE_SLEUTELS}
         ctx["error"] = " ".join(f"{labels.get(k, k)}: {m}" for k, m in fout.fouten.items())
         ctx["waarden"] = {**ctx["waarden"],
                           **{k: v for k, v in form.items() if k in labels}}
-        # De ingetypte organisatiewaarden ook terug, om dezelfde reden als #797:
-        # één tikfout mag het scherm niet leegvegen.
-        ctx["organisatie"] = {**ctx["organisatie"],
-                              **{k: v for k, v in form.items()
-                                 if k in ctx["organisatie"]}}
         return templates.TemplateResponse(request, "admin_tenant.html", ctx,
                                           status_code=422)
     ctx = _editor_ctx(request, db, tenant_id)

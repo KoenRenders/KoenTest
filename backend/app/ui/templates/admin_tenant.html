@@ -5,7 +5,10 @@
 {# Paginabrede editor van één tenant (#581). Alle settings die vroeger op
    /admin/instellingen stonden, nu zonder afdelingskiezer: welke tenant je bewerkt
    volgt uit de URL. #}
-{% call ui.page_header(unit.name, _("Instellingen van deze afdeling. Een leeg veld = de standaardwaarde (Millegem/.env).")) %}
+{% call ui.page_header(unit.name, _("Instellingen van deze site. Een leeg veld = de standaardwaarde (Millegem/.env).")) %}
+  {# #971: de weg naar de organisatie erachter. Naam, rechtsvorm, adres, rekening en
+     nummers staan daar — dit scherm gaat over de site. #}
+  {{ ui.btn_secondary(_("De organisatie"), href="/admin/organisaties/" ~ tenant_id, size="sm") }}
   {{ ui.btn_secondary(_("‹ Alle tenants"), href="/admin/tenants", size="sm") }}
 {% endcall %}
 {{ ui.error_banner(error) }}
@@ -20,21 +23,15 @@
 </div>
 <form id="tn-form" hx-post="/admin/tenants/{{ tenant_id }}" hx-target="body" hx-swap="innerHTML"
       class="space-y-4 max-w-2xl">
-  {# #924: eerst wat de organisatie IS, dan de instellingen van deze site. Twee
-     assen, twee secties — en niet twee schermen, want sinds de omkering zijn de
-     tenants organisaties en zou een tweede scherm dezelfde rijen bewerken. #}
-  {{ ui.section_header(_("De organisatie")) }}
-  {% for key, label, hulp in organisatievelden %}
-  <div>
-    {{ ui.label(label, "org_" ~ key) }}
-    <input name="{{ key }}" id="org_{{ key }}" value="{{ organisatie[key] }}" class="w-full">
-    <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p>
-  </div>
-  {% endfor %}
+  {# #971: de organisatievelden stonden hier en zijn verhuisd. Wat dit scherm is,
+     staat nu in de kop: de instellingen van de SITE. Wat de organisatie IS — naam,
+     rechtsvorm, adres, rekening, nummers — bewerk je op `/admin/organisaties`, en
+     alleen daar. Twee schermen voor één feit is dezelfde duplicatie die #924 en
+     #945 uit de kolommen haalden.
 
-  <div class="border-t border-line pt-4">
-    {{ ui.section_header(_("Instellingen van deze site")) }}
-  </div>
+     De link staat in de kop van dit scherm en niet hier, zodat hij ook zichtbaar
+     is zonder naar beneden te scrollen. #}
+  {{ ui.section_header(_("Instellingen van deze site")) }}
   {% for key, label, hulp in sleutels %}
   <div>
     {{ ui.label(label, key) }}

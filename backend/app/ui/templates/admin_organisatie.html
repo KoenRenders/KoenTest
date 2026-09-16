@@ -1,0 +1,107 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ organisatie.name }} — {{ _("Raak beheer") }}{% endblock %}
+{% block content %}
+{% call ui.page_header(organisatie.name, soort_labels.get(organisatie.org_type, organisatie.org_type) ~ " · " ~ organisatie.code) %}
+  {% if heeft_site %}
+  {# De site van deze organisatie. Niet dezelfde velden: dáár staan mail, Umami,
+     taal en lidgeld — de instellingen van de site, niet wat de organisatie IS. #}
+  {{ ui.btn_secondary(_("Instellingen van de site"), href="/admin/tenants/" ~ organisatie.id) }}
+  {% endif %}
+  {{ ui.btn_secondary(_("Naar de lijst"), href="/admin/organisaties") }}
+{% endcall %}
+
+{{ ui.error_banner(error) }}
+{% if toast_opgeslagen %}{{ ui.toast(_("Opgeslagen.")) }}{% endif %}
+
+{# Gegroepeerd per TABEL, en dat is geen opmaakkeuze (#971): tot nu toe stonden
+   rekeningnummer, btw-nummer en Facebook onder elkaar alsof ze hetzelfde soort ding
+   waren. Het zijn rijen in vier verschillende tabellen, en het scherm hoort te laten
+   zien hoe het model in elkaar zit. #}
+<form id="org-form" hx-post="/admin/organisaties/{{ organization_id }}"
+      hx-target="body" hx-swap="innerHTML" class="space-y-6 max-w-2xl">
+
+  <section>
+    {{ ui.section_header(_("Naam en rechtsvorm")) }}
+    <div class="space-y-3">
+      <div>{{ ui.label(_("Naam"), "org-name", required=True) }}
+        {{ ui.input_control("name", id="org-name", value=velden.name, required=True, cls="w-full") }}
+        <p class="text-xs text-ink-soft mt-1">{{ _("Staat in de paginatitel, de afzender van je mails en de footer.") }}</p></div>
+      <div>{{ ui.label(_("Rechtsvorm"), "org-legal-form") }}
+        {# Uit `mdm.legal_form_codes` en niet uit een lijst hier: die tabel draagt de
+           labels al, en een tweede opsomming in een sjabloon is een tweede plek voor
+           hetzelfde feit. Voeg er een rij aan toe en deze dropdown groeit mee. #}
+        {% call ui.select_control("legal_form", cls="w-full", attrs='id="org-legal-form"') %}
+          <option value="">{{ _("— Geen —") }}</option>
+          {% for code, label in rechtsvormen %}
+          <option value="{{ code }}" {% if velden.legal_form == code %}selected{% endif %}>{{ label }}</option>
+          {% endfor %}
+        {% endcall %}</div>
+    </div>
+  </section>
+
+  <section>
+    {{ ui.section_header(_("Adres")) }}
+    {# Exact de vorm van het hoofdlid — een vastgelegde UI-beslissing (CLAUDE.md):
+       vier kolommen, straat over twee, huisnummer en bus ernaast, postcode als
+       dropdown over de volle breedte. Overgenomen, niet opnieuw bedacht. #}
+    <div class="grid grid-cols-4 gap-3">
+      <div class="col-span-2">{{ ui.label(_("Straat"), "street") }}
+        {{ ui.input_control("street", id="street", value=adres.street, cls="w-full") }}</div>
+      <div>{{ ui.label(_("Huisnummer"), "house_number") }}
+        {{ ui.input_control("house_number", id="house_number", value=adres.house_number, cls="w-full") }}</div>
+      <div>{{ ui.label(_("Bus"), "bus_number") }}
+        {{ ui.input_control("bus_number", id="bus_number", value=adres.bus_number, cls="w-full") }}</div>
+      <div class="col-span-4">{{ ui.label(_("Postcode"), "postal_code") }}
+        {% call ui.select_control("postal_code", cls="w-full", attrs='id="postal_code"') %}
+          <option value="">{{ _("— Kies een postcode —") }}</option>
+          {% for pc in postal_codes %}
+          <option value="{{ pc.postal_code }}" {% if pc.postal_code == adres.postal_code %}selected{% endif %}>{{ pc.postal_code }} {{ pc.municipality }}</option>
+          {% endfor %}
+        {% endcall %}</div>
+    </div>
+    <p class="text-xs text-ink-soft mt-1">{{ _("Straat en huisnummer leeg laten haalt het adres weg.") }}</p>
+  </section>
+
+  <section>
+    {{ ui.section_header(_("Contactgegevens")) }}
+    {# Eén groep, inclusief de sociale links (#971). Het zijn allemaal rijen in
+       dezelfde tabel met een ander type; ze als aparte secties tonen zou een
+       onderscheid suggereren dat het model niet maakt. #}
+    <div class="space-y-3">
+      {% for key, label, hulp in contactgroep %}
+      <div>{{ ui.label(label, "org-" ~ key) }}
+        {{ ui.input_control(key, id="org-" ~ key, value=velden[key], cls="w-full") }}
+        <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p></div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section>
+    {{ ui.section_header(_("Rekening")) }}
+    {# Vaste velden en geen lijst. Koen: "als er meerdere ingevoerd worden weet het
+       systeem toch niet wat ermee te doen." Staat er toch een tweede rekening in de
+       databank, dan bewerkt dit de eerste en blijft de tweede ongemoeid. #}
+    <div class="space-y-3">
+      {% for key, label, hulp in rekeninggroep %}
+      <div>{{ ui.label(label, "org-" ~ key) }}
+        {{ ui.input_control(key, id="org-" ~ key, value=velden[key], cls="w-full") }}
+        <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p></div>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section>
+    {{ ui.section_header(_("Nummers")) }}
+    <div class="space-y-3">
+      {% for key, label, hulp in nummergroep %}
+      <div>{{ ui.label(label, "org-" ~ key) }}
+        {{ ui.input_control(key, id="org-" ~ key, value=velden[key], cls="w-full") }}
+        <p class="text-xs text-ink-soft mt-1">{{ hulp }}</p></div>
+      {% endfor %}
+    </div>
+  </section>
+
+  {{ ui.action_bar(form="org-form") }}
+</form>
+{% endblock %}
