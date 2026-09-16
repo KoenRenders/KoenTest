@@ -6,6 +6,11 @@
 answers. **Phase 0** (the registration deadline, §3.8a) is #974 and
 assigned to **v2.5** (#925). The Design Studio itself (phases 1–4) is not
 on a release yet.
+**On hold (Koen, 16 September 2026, late evening):** before issues are written
+or anything is built, the CR gets a review from all sides with Fable 5.1, and a
+look at existing template tools for concepts worth borrowing. The prototypes
+so far started from the unit's own posters. The proposals awaiting Koen's
+answer are listed in §8a.
 **Apply to:** a new `designstudio` domain (backend + admin screens), a
 contacts table on `activities`, two new media kinds, and the name search
 moving into MDM. The registration deadline column is phase 0 (#974). Rendering reuses
@@ -937,6 +942,32 @@ The tests must be able to go red:
 | Tagline and explanation | on the design for now, not on the activity or the website | §3.8 |
 
 No open questions remain for phase 1.
+
+## 8a. Proposals awaiting Koen (16 September 2026, not yet confirmed)
+
+1. **v2.5 scope:** the design editor with the four templates (Beeld,
+   Tekstflyer, Illustratie, Reeks); own photos and photos from the
+   activity's archive; A3, A4 and 4:5; contacts; "final" becomes the poster
+   after confirmation; AI images once #978 has landed. Later: Mistral text
+   proposals, the Facebook cover, the square format.
+2. **Contacts** are stored in the Design Studio module, per activity, so the
+   activities module does not change. They can move to the activity later.
+3. **Caveat** (OFL) goes into the repository. Reference drawings per
+   template and the unit logo are uploaded through the screen and never
+   committed.
+4. **HDEV:** Koen creates a BFL key in `.env.hdev`. The AI kill switch is off
+   by default.
+5. **Test material:** fictitious data and drawn test images only. No photos
+   of real people in the repository.
+
+Clarified in the same conversation:
+- **Facts stay on the activity:** the dates table is built from the
+  activity's dates, and the price comes from the activity. A price text of
+  the design's own (such as "Drankje of ijsje € 1") is an optional exception.
+- **The editor has fields only for design text:** title with line breaks and
+  colours, labels and bar, tagline, explanation, recurrence line, icon lines
+  with emphasis, welcome line, price override and handwritten note. Each
+  template shows only the fields it uses.
 
 ## Non-goals
 
