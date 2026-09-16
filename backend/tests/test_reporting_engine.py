@@ -210,10 +210,16 @@ def test_every_object_is_offered_to_whoever_gets_through_the_door():
     `require_admin_ui` is the whole fence. The objects pane therefore shows every
     object, and this test is the one that goes red if somebody re-introduces a
     half fence without also building — and testing — the switch.
+
+    One object is kept out of the pane, and not for a role: `activity_id` (#975)
+    exists only so the activity-scoped assistant can filter on an exact number.
+    It is named here, exactly, so hiding a second object is a deliberate edit.
     """
     pane = objects_in_pane_order()
-    assert len(pane) == len(OBJECTS)
-    assert {o.key for o in pane} == {o.key for o in OBJECTS}
+    hidden = {o.key for o in OBJECTS if not o.in_pane}
+    assert hidden == {"activity_id"}
+    assert len(pane) == len(OBJECTS) - len(hidden)
+    assert {o.key for o in pane} == {o.key for o in OBJECTS} - hidden
 
 
 def test_the_engine_takes_no_roles_at_all():

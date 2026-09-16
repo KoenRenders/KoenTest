@@ -21,6 +21,27 @@ from app.domains.chatbot.seam import (  # noqa: F401
 )
 from app.domains.chatbot.service import ChatTimeout, run_chat  # noqa: F401
 from app.domains.chatbot.providers import get_provider  # noqa: F401
+
+
+# #975: de leestools van de publieke bot, uitgeleend aan de beheer-assistent. Lazy,
+# om dezelfde reden als `run_public_chat`: `tools` haalt `media.api` binnen, dat op
+# zijn beurt deze facade importeert.
+def read_tool_specs():
+    from app.domains.chatbot.tools import read_tool_specs as _impl
+
+    return _impl()
+
+
+def execute_read_tool(name, arguments, db):
+    from app.domains.chatbot.tools import execute_read_tool as _impl
+
+    return _impl(name, arguments, db)
+
+
+def read_only_tool_names():
+    from app.domains.chatbot.tools import READ_ONLY_TOOLS
+
+    return READ_ONLY_TOOLS
 from app.domains.chatbot.info_service import (  # noqa: F401
     create_note,
     delete_row,
@@ -33,6 +54,7 @@ from app.domains.chatbot.info_service import (  # noqa: F401
 __all__ = [
     "admin_chat_char_budget", "chat_char_budget",
     "ChatTimeout", "GuardedProvider", "SeamBlocked", "admin_rules",
-    "get_provider", "public_rules", "run_chat", "sink_for", "create_note", "delete_row", "get_row",
+    "get_provider", "public_rules", "run_chat", "sink_for",
+    "execute_read_tool", "read_only_tool_names", "read_tool_specs", "create_note", "delete_row", "get_row",
     "list_chatbot_info",
     "toggle_row", "update_row","ChatbotInfo"]

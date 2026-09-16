@@ -143,7 +143,7 @@ def ask(db, question: Question, *, tenant_id: int, actor: str = "evaluatie") -> 
     )
     from app.domains.mdm.api import person_name_parts
     from app.domains.reporting.assistant import (
-        CAPABILITY, SCAN_PROMPT_NAMES, TOOL_SPECS, build_system_prompt,
+        CAPABILITY, SCAN_PROMPT_NAMES, build_system_prompt, tool_specs,
         detokenise, dispatcher, scrub_question,
     )
 
@@ -157,7 +157,7 @@ def ask(db, question: Question, *, tenant_id: int, actor: str = "evaluatie") -> 
         sink_for(actor))
     antwoord = run_chat(db, messages, provider,
                         max_rounds=settings.admin_chat_max_tool_rounds,
-                        tools=TOOL_SPECS, dispatch=dispatcher(tenant_id=tenant_id),
+                        tools=tool_specs(), dispatch=dispatcher(tenant_id=tenant_id),
                         deadline=time.monotonic() + settings.admin_chat_timeout_seconds)
     return detokenise(db, antwoord, tenant_id=tenant_id)
 

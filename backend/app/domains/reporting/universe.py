@@ -264,6 +264,11 @@ class UniverseObject:
     # result column stopped carrying it, because a field travelling to no reader is
     # the kind of thing that looks like a working mechanism.
     additive: bool = True
+    # #975: whether the object is offered to a PERSON — in the objects pane and in
+    # the assistant's catalogue. False for an object that exists only for the
+    # server to filter on. It stays a full universe object otherwise: validated,
+    # documented, resolvable, and refused by the same rules as every other one.
+    in_pane: bool = True
 
     @property
     def entity_source(self) -> str:
@@ -1209,6 +1214,21 @@ OBJECTS: tuple[UniverseObject, ...] = (
         ai_exposure=AiExposure.PLAIN,
     ),
     UniverseObject(
+        key="activity_id", name="Activiteitnummer", klass="Activiteiten",
+        kind=ObjectKind.DIMENSION, view="d_activity", sql="{view}.activity_id",
+        format=Format.LABEL, role=Role.ADMIN,
+        description=(
+            "Het technische nummer van de activiteit. Niet in het objectenpaneel: "
+            "het bestaat om op één activiteit te kunnen filteren, want de naam is "
+            "daar niet eenduidig genoeg voor — een activiteit die elk jaar "
+            "terugkomt, heet elk jaar hetzelfde (#975)."
+        ),
+        ai_exposure=AiExposure.PLAIN,
+        # #975: the activity mode of the assistant filters on this, server-side.
+        # Hidden from the pane and from the catalogue; see `in_pane`.
+        in_pane=False,
+    ),
+    UniverseObject(
         key="activity_year", name="Jaar van de activiteit", klass="Activiteiten",
         kind=ObjectKind.DIMENSION, view="d_activity", sql="{view}.activity_year",
         format=Format.YEAR, role=Role.ADMIN,
@@ -1887,8 +1907,9 @@ def objects_in_pane_order() -> list[UniverseObject]:
     that qualify them).
     """
     order = {name: i for i, name in enumerate(CLASSES)}
-    return sorted(OBJECTS, key=lambda o: (order.get(o.klass, len(order)),
-                                          OBJECTS.index(o)))
+    # #975: an object that exists only for the server to filter on is not offered.
+    return sorted((o for o in OBJECTS if o.in_pane),
+                  key=lambda o: (order.get(o.klass, len(order)), OBJECTS.index(o)))
 
 
 def classes_with_objects() -> list[tuple[str, list]]:
