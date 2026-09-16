@@ -104,6 +104,15 @@ enters this repository.
   references. They differ **only in their fill values**: the tile colour,
   the baseline colour, and white.
 - The older `.ai` and `.png` files are superseded.
+- **The neutral Raak lockup** (wordmark with the baseline "Beleef meer!", no
+  unit name), supplied on 16 September 2026:
+  - **24 PNG files**, 6090 × 4060 px, raster only — there is no SVG yet;
+  - they are **exactly the twelve permitted duos of §1.1, each in both
+    directions** (tile colour / baseline colour). Raak itself thus offers the
+    lockup in every permitted duo.
+
+  (In the file names, "appelblauwzeegroen" is Cool Green and "groen" is Dark
+  Green.)
 
 ### 1.3 Four example posters, and what they share
 
@@ -215,13 +224,23 @@ CourtBouillon (FR). This was already approved for CR-09.
   lockups as SVG (colour variants and monochrome). The repository ships a
   neutral placeholder only.
 
-  *Open (§8):* the supplied variants differ only in two fill values, so one
-  master lockup could be **recoloured to any permitted duo** — one source
-  instead of a file per variant, and the logo tile always matches the
-  poster's duo. Whether recolouring beyond the variants the guide offers is
-  brand-acceptable is Koen's call. Until then, a template uses the uploaded
-  variant that matches the design's duo, and otherwise the variant closest
-  to it.
+  **The lockup is recoloured per duo.** A unit uploads **one** SVG. The
+  engine sets the tile colour and the baseline colour from the design's duo,
+  in either direction; the wordmark stays white. That gives one source
+  instead of 24 files, and the logo tile always matches the poster.
+
+  The basis is §1.2: the unit's variants differ only in those two fill
+  values, and Raak's own neutral set covers every permitted duo in both
+  directions. The recolouring needs a structured master — the tile and the
+  baseline recognisable by an id — and the upload check refuses an SVG
+  without it. The monochrome variant stays a separate upload for
+  black-and-white print.
+
+- **The neutral lockup is the fallback** for a unit without its own lockup.
+  It is a platform asset in the database, like the unit lockups, and not a
+  repository file. Until Raak supplies it as SVG, the 6090 px PNGs are
+  sharp enough for A3. They cannot be recoloured, so the engine picks the
+  PNG that matches the design's duo — all 24 exist.
 
   **Uploaded SVG is sanitised** — no `<script>`, no event attributes, no
   external references — because an SVG served to a browser is active
@@ -606,9 +625,8 @@ The tests must be able to go red:
    request = four images, about $0.12–0.20.)
 3. **V.U.** Which name and address, per unit? This is entered as a setting
    on the server, never in this repository.
-4. **Logo recolouring.** May the engine recolour the unit's lockup to any
-   of the twelve permitted duos (§3.3), or only use the variants Raak
-   supplies? (The official SVGs arrived on 16 September 2026, §1.2.)
+4. **Neutral lockup as SVG.** Can Raak supply the neutral lockup ("Beleef
+   meer!") as SVG? Until then the PNGs serve (§3.3).
 5. **CMYK.** Accept RGB PDFs for phase 1 and judge the print-shop proof, or
    require a CMYK/PDF-X export before the first print-shop run?
 
