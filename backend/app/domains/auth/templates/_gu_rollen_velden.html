@@ -1,0 +1,30 @@
+{# Rolvelden van één gebruiker (#963, aanscherping 16 sep). In een gewone
+   werkruimte: één rij vinkjes voor díe werkruimte — zonder OPERATOR, want die
+   wordt alleen binnen het platform toegekend. Op het platform: een rij per
+   werkruimte (zo maakt een OPERATOR de eerste gebruikers van een nieuwe
+   tenant aan en beheert hij ze namens de afdelingen), plus het platformbrede
+   OPERATOR-vinkje voor wie zelf OPERATOR is.
+   Context: role_codes, op_platform, werkruimtes, toon_operator,
+   sel (set — of {tenant_id: set} op het platform) en operator_aan. #}
+{% if op_platform %}
+<div class="space-y-1 text-sm w-full">
+  {% for wid, wnaam in werkruimtes %}
+  <div class="flex flex-wrap items-center gap-4">
+    <span class="w-44 text-ink-soft">{{ wnaam }}</span>
+    {% for rc in role_codes %}
+    <label class="flex items-center gap-2"><input type="checkbox" name="rollen_{{ wid }}" value="{{ rc.code }}" {% if rc.code in sel.get(wid, ()) %}checked{% endif %}> {{ rc.code }}</label>
+    {% endfor %}
+  </div>
+  {% endfor %}
+  {% if toon_operator %}
+  <div class="flex flex-wrap items-center gap-4 border-t border-gray-100 pt-1 mt-1">
+    <span class="w-44 text-ink-soft">{{ _("Platformbreed") }}</span>
+    <label class="flex items-center gap-2"><input type="checkbox" name="operator" value="1" {% if operator_aan %}checked{% endif %}> OPERATOR</label>
+  </div>
+  {% endif %}
+</div>
+{% else %}
+{% for rc in role_codes %}
+<label class="flex items-center gap-2 text-sm"><input type="checkbox" name="role_codes" value="{{ rc.code }}" {% if rc.code in sel %}checked{% endif %}> {{ rc.code }}</label>
+{% endfor %}
+{% endif %}

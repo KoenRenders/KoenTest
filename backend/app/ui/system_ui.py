@@ -160,13 +160,23 @@ def admin_werkruimte_wisselen(request: Request, db: Session = Depends(get_db),
     """Kies een werkruimte (#963): elke werkruimte waar dit account een rol
     heeft, met de padprefix-link die de tenantkeuze zet (§7). De actieve
     werkruimte staat gemarkeerd i.p.v. weggelaten — je wil zien waar je bent."""
-    from app.domains.mdm.api import list_manageable_tenants
+    from app.domains.mdm.api import list_manageable_tenants, platform_tenant_id
     from app.kernel.tenancy import DEFAULT_TENANT_ID, current_tenant_id
+    from app.kernel.tenant_config import tenant_base_url
 
     actief = current_tenant_id.get() or DEFAULT_TENANT_ID
+    platform = platform_tenant_id(db)
     codes = {org.id: org.code for org in list_manageable_tenants(db)}
-    keuzes = [{"naam": naam, "actief": t == actief,
-               "href": f"/{codes.get(t, '')}/admin"}
+
+    def _href(t: int) -> str:
+        # Afdelingen wisselen via de padprefix (§7 — werkt ook wanneer alle
+        # werkruimtes op één host wonen); het platform kent geen prefix
+        # (tenant_codes bevat alleen UNITs) en gaat via zijn eigen host.
+        if t == platform:
+            return f"{tenant_base_url(db, tenant_id=t)}/admin"
+        return f"/{codes.get(t, '')}/admin"
+
+    keuzes = [{"naam": naam, "actief": t == actief, "href": _href(t)}
               for t, naam in _mijn_werkruimtes(db, email)]
     return templates.TemplateResponse(request, "admin_werkruimte_wisselen.html", {
         "nav_items": admin_nav(""), "keuzes": keuzes,

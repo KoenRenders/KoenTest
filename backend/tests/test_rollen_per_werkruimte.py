@@ -9,6 +9,8 @@ erboven. De kern: **ADMIN in werkruimte A is geen ADMIN in werkruimte B.**
 import pytest
 pytestmark = pytest.mark.ui_serverrendered
 
+import pytest as _pytest
+
 from tests.conftest import SEEDED_ADMIN_EMAIL
 from app.domains.auth.api import (SESSION_COOKIE, User, UserRole,
                                   csrf_token_for, get_user_roles,
@@ -77,15 +79,15 @@ def test_de_poort_volgt_de_werkruimte_van_het_request(client, db_session):
     assert r.status_code != 200, "ADMIN in A mag niet zomaar B binnen"
 
 
-def test_admin_kan_operator_niet_toekennen(client, db_session):
-    """Besluit 3, de scherpe kant: het OPERATOR-vinkje bestaat niet voor een
-    ADMIN, en wie het formulier omzeilt krijgt een 403-weigering — geen
-    stille escalatie."""
+def test_operator_wordt_nergens_buiten_het_platform_toegekend(client, db_session):
+    """Aanscherping 16 sep: OPERATOR toekennen kan alléén binnen het platform
+    — in een gewone werkruimte bestaat het vinkje voor niemand (ook niet voor
+    een OPERATOR), en een omzeild formulier krijgt een 403."""
     doel = _user(db_session, "doelwit@example.com", ("ADMIN", TENANT_MILLEGEM_ID))
     db_session.commit()
-    # bestuurslid: ADMIN zonder OPERATOR (migratie 014; 087 geeft alleen de
-    # beheerder OPERATOR).
-    csrf = _login(client, "bestuurslid@example.com")
+    # De beheerder is nota bene OPERATOR (migratie 087) — en ziet het vinkje
+    # in Millegem tóch niet.
+    csrf = _login(client)
 
     lijst = client.get("/admin/gebruikers").text
     assert 'value="OPERATOR"' not in lijst
@@ -93,29 +95,97 @@ def test_admin_kan_operator_niet_toekennen(client, db_session):
     r = client.post(f"/admin/gebruikers/{doel.id}",
                     data={"is_active": "on", "role_codes": ["ADMIN", "OPERATOR"]},
                     headers={"X-CSRF-Token": csrf})
-    assert "Alleen een OPERATOR" in r.text
+    assert "alleen binnen het platform" in r.text
     db_session.expire_all()
     assert (db_session.query(UserRole)
             .filter(UserRole.user_id == doel.id,
                     UserRole.role_code == "OPERATOR").count()) == 0
 
 
-def test_operator_ziet_en_zet_het_operator_vinkje(client, db_session):
-    doel = _user(db_session, "doelwit@example.com", ("ADMIN", TENANT_MILLEGEM_ID))
-    _user(db_session, "platform@example.com", ("OPERATOR", None),
-          ("ADMIN", TENANT_MILLEGEM_ID))
-    db_session.commit()
-    csrf = _login(client, "platform@example.com")
+PLATFORM_HOST = "platform.example.test"
 
-    assert 'value="OPERATOR"' in client.get("/admin/gebruikers").text
+
+@_pytest.fixture
+def platform_host(monkeypatch):
+    """`PLATFORM_HOSTS` zoals op de server, plus een schone lookup-cache —
+    zelfde patroon als test_platform_tenant.py."""
+    from app.config import settings
+    from app.domains.mdm.api import invalidate_tenant_codes
+
+    monkeypatch.setattr(settings, "platform_hosts", PLATFORM_HOST)
+    invalidate_tenant_codes()
+    yield PLATFORM_HOST
+    invalidate_tenant_codes()
+
+
+def test_platform_beheert_rollen_per_werkruimte(client, db_session, platform_host):
+    """Aanscherping 16 sep: op het platform toont de gebruikerskaart een rij
+    vinkjes PER werkruimte — zo maakt een OPERATOR de eerste gebruikers van
+    een nieuwe tenant aan — en dáár staat ook het OPERATOR-vinkje."""
+    doel = _user(db_session, "doelwit@example.com", ("ADMIN", TENANT_MILLEGEM_ID))
+    db_session.commit()
+    csrf = _login(client)  # beheerder = OPERATOR (087)
+
+    lijst = client.get("/admin/gebruikers",
+                       headers={"host": platform_host}).text
+    assert f'name="rollen_{TENANT_VOORBEELD_ID}"' in lijst
+    assert 'name="operator"' in lijst and 'value="OPERATOR"' not in lijst
+
+    # Rollen voor twee werkruimtes tegelijk + OPERATOR platformbreed.
     r = client.post(f"/admin/gebruikers/{doel.id}",
-                    data={"is_active": "on", "role_codes": ["ADMIN", "OPERATOR"]},
-                    headers={"X-CSRF-Token": csrf})
-    assert r.status_code == 200 and "Alleen een OPERATOR" not in r.text
-    rij = (db_session.query(UserRole)
-           .filter(UserRole.user_id == doel.id,
-                   UserRole.role_code == "OPERATOR").one())
-    assert rij.tenant_id is None  # platformbreed, per besluit 1
+                    data={"is_active": "on",
+                          f"rollen_{TENANT_MILLEGEM_ID}": ["ADMIN", "FINANCE"],
+                          f"rollen_{TENANT_VOORBEELD_ID}": ["ADMIN"],
+                          "operator": "1"},
+                    headers={"X-CSRF-Token": csrf, "host": platform_host})
+    assert r.status_code == 200
+    db_session.expire_all()
+    paren = {(rij.role_code, rij.tenant_id) for rij in
+             db_session.query(UserRole).filter(UserRole.user_id == doel.id)}
+    assert paren == {("ADMIN", TENANT_MILLEGEM_ID),
+                     ("FINANCE", TENANT_MILLEGEM_ID),
+                     ("ADMIN", TENANT_VOORBEELD_ID),
+                     ("OPERATOR", None)}
+
+
+def test_eerste_gebruiker_van_een_nieuwe_tenant_via_het_platform(client, db_session, platform_host):
+    """Het doel achter de matrix: vanaf het platform een gloednieuwe
+    gebruiker zijn eerste rol in een afdeling geven — en die kan daar dan
+    ook echt binnen, maar nergens anders."""
+    csrf = _login(client)
+    r = client.post("/admin/gebruikers",
+                    data={"email": "nieuwe-tenantadmin@example.com",
+                          f"rollen_{TENANT_VOORBEELD_ID}": ["ADMIN"]},
+                    headers={"X-CSRF-Token": csrf, "host": platform_host})
+    assert r.status_code in (200, 204)
+
+    _login(client, "nieuwe-tenantadmin@example.com")
+    assert client.get("/raakvoorbeeldafdeling/admin").status_code == 200
+    assert client.get("/admin").status_code != 200  # Millegem blijft dicht
+
+
+def test_platform_admin_zonder_operator_kan_operator_niet_zetten(client, db_session, platform_host):
+    """Ook op het platform blijft de OPERATOR-wissel OPERATOR-only: een
+    platform-ADMIN die het formulier omzeilt krijgt de 403."""
+    doel = _user(db_session, "doelwit@example.com", ("ADMIN", TENANT_MILLEGEM_ID))
+    from app.domains.mdm.api import platform_tenant_id
+
+    pid = platform_tenant_id(db_session)
+    _user(db_session, "platform-admin@example.com", ("ADMIN", pid))
+    db_session.commit()
+    csrf = _login(client, "platform-admin@example.com")
+
+    assert 'name="operator"' not in client.get(
+        "/admin/gebruikers", headers={"host": platform_host}).text
+    r = client.post(f"/admin/gebruikers/{doel.id}",
+                    data={"is_active": "on", "operator": "1",
+                          f"rollen_{TENANT_MILLEGEM_ID}": ["ADMIN"]},
+                    headers={"X-CSRF-Token": csrf, "host": platform_host})
+    assert "Alleen een OPERATOR" in r.text
+    db_session.expire_all()
+    assert (db_session.query(UserRole)
+            .filter(UserRole.user_id == doel.id,
+                    UserRole.role_code == "OPERATOR").count()) == 0
 
 
 def test_rollen_vervangen_raakt_andere_werkruimte_niet(client, db_session):

@@ -29,9 +29,9 @@
       <div>{{ ui.label(_("E-mailadres"), "gu-email", required=True) }}
         <input type="email" name="email" id="gu-email" required class="w-full"></div>
       <div class="flex flex-wrap gap-4 text-sm">
-        {% for rc in role_codes %}
-        <label class="flex items-center gap-2"><input type="checkbox" name="role_codes" value="{{ rc.code }}"> {{ rc.code }}</label>
-        {% endfor %}
+        {% with sel = {}, operator_aan = False %}
+        {% include "_gu_rollen_velden.html" %}
+        {% endwith %}
       </div>
     </form>
 </div>

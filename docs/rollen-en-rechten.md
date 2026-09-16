@@ -30,10 +30,17 @@ Koen's three decisions of 15 September 2026:
 - **OPERATOR is platform-wide** — one `NULL` row, valid in every workspace.
 - **User management is workspace-bound.** The role checkboxes in
   `/admin/gebruikers` show and replace only the roles of the *active*
-  workspace; assignments in other workspaces are never touched. Granting or
-  revoking OPERATOR requires being OPERATOR yourself — the checkbox is hidden
-  for others and the service layer refuses a forged submission with a 403
-  (`_ken_rollen_toe`, `auth/users.py`).
+  workspace; assignments in other workspaces are never touched.
+- **OPERATOR is granted only inside the platform workspace** (Koen,
+  16 September 2026) — in a regular workspace the checkbox exists for no one,
+  and a forged submission gets a 403 (`_ken_rollen_toe`, `auth/users.py`).
+  Inside the platform the checkbox exists only for operators, and changing it
+  is guarded again in the service layer (`set_roles_for_workspaces`).
+- **The platform user screen manages roles per workspace**: one row of
+  checkboxes per workspace on each user card, so an OPERATOR creates the
+  first users of a new tenant and manages accounts on behalf of the
+  afdelingen. OPERATOR counts for the user-management gate itself
+  (ADMIN/OPERATOR, as the matrix below always said).
 - **Existing data** migrated to Raak Millegem (org 2), except the accounts in
   the `SEED_ALLE_WERKRUIMTES_EMAILS` env var (comma-separated, set per host,
   never committed), whose non-OPERATOR roles were copied to every workspace.
