@@ -321,6 +321,13 @@ crop marks, CMYK/PDF-X — is out of scope for now.**
 - Validation includes one real borderless print on Koen's printer, to
   measure how much the printer actually crops. The safe zone is a single
   template constant, adjusted to that measurement.
+- **Measured on 16 September 2026** with an edge-test page (numbered marks
+  1–12 mm from each edge). The lowest visible mark was 5 at the top, 2 at the
+  bottom, and 3 on each side, so the printer crops less than 5, 2 and 3 mm
+  respectively. **The 8 mm safe zone stands**: it leaves at least 3 mm
+  everywhere. The crop is not symmetrical, so an A3 that is correct on one
+  printer is not proof for another; the edge-test page ships with the
+  Design Studio as a download.
 - Adding a bleed variant later is cheap. The layout already extends its
   colour fields to the edge, and WeasyPrint supports `@page { bleed }`.
 
