@@ -18,6 +18,7 @@ code (CLAUDE.md, "URL paths follow the audience").
 from __future__ import annotations
 
 import logging
+from typing import Optional
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -805,6 +806,40 @@ def assistant_page(request: Request, db: Session = Depends(get_db),
              dependencies=[Depends(require_csrf)])
 async def assistant_ask(request: Request, db: Session = Depends(get_db),
                         email: str = Depends(require_admin_ui)):
+    return await _ask(request, db, email, activity_id=None)
+
+
+@router.post("/admin/rapporten/raakje/activiteit/{activity_id}",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+async def assistant_ask_about_activity(activity_id: int, request: Request,
+                                       db: Session = Depends(get_db),
+                                       email: str = Depends(require_admin_ui)):
+    """Raakje bound to one activity (#975) — the endpoint behind the overlay.
+
+    The activity is in the PATH and not in the form. A form field can be dropped
+    by a caller without anyone noticing, and the conversation would then silently
+    run unscoped. A path cannot be half-sent.
+
+    Checked before anything else: the activity must exist and belong to this
+    tenant. The tenant filter on the query answers the second question —
+    another tenant's activity is simply not found, which is also the answer the
+    visitor gets: 404, no hint that it exists elsewhere. Every admin role may see
+    an activity, so `require_admin_ui` is the role check.
+    """
+    from app.domains.activities.api import get_activity
+
+    if get_activity(db, activity_id) is None:
+        raise HTTPException(status_code=404, detail=_("Activiteit niet gevonden"))
+    return await _ask(request, db, email, activity_id=activity_id)
+
+
+async def _ask(request: Request, db: Session, email: str, *,
+               activity_id: Optional[int]):
+    """One question to Raakje, with or without an activity scope.
+
+    One implementation for both routes: the scope is a parameter of the SAME path,
+    not a second assistant (CR-07 §4.2, and Koen's decision for #975).
+    """
     import time
 
     from app.config import settings
@@ -814,8 +849,8 @@ async def assistant_ask(request: Request, db: Session = Depends(get_db),
     )
     from app.domains.mdm.api import person_name_parts
     from app.domains.reporting.assistant import (
-        CAPABILITY, SCAN_PROMPT_NAMES, TOOL_SPECS, build_system_prompt,
-        detokenise, dispatcher, scrub_question,
+        CAPABILITY, SCAN_PROMPT_NAMES, build_system_prompt, detokenise,
+        dispatcher, scrub_question, tool_specs,
     )
 
     form = await request.form()
@@ -842,7 +877,8 @@ async def assistant_ask(request: Request, db: Session = Depends(get_db),
     tenant = _tenant(request)
     verstuurd = scrub_question(db, vraag, tenant_id=tenant)
 
-    messages = [{"role": "system", "content": build_system_prompt()}]
+    messages = [{"role": "system",
+                 "content": build_system_prompt(activity_id=activity_id)}]
     messages += turns
     messages.append({"role": "user", "content": verstuurd})
 
@@ -856,8 +892,9 @@ async def assistant_ask(request: Request, db: Session = Depends(get_db),
     try:
         antwoord = run_chat(db, messages, provider,
                             max_rounds=settings.admin_chat_max_tool_rounds,
-                            tools=TOOL_SPECS,
-                            dispatch=dispatcher(tenant_id=tenant),
+                            tools=tool_specs(),
+                            dispatch=dispatcher(tenant_id=tenant,
+                                                activity_id=activity_id),
                             deadline=deadline)
     except (SeamBlocked, ChatTimeout) as gestopt:
         # The log row is already written, in the logbook's own session — precisely
