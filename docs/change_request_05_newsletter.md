@@ -4,8 +4,8 @@
 **Status:** Being shaped with Koen. First decided 17 June 2026 (consent model,
 `Subscriber`, provider adapter); reshaped on 14, 15 and 16 September 2026
 alongside the meeting module (CR-09). **Not assigned to a release** — Koen
-expects v2.6 but has not decided (16 September 2026). All shaping questions
-were answered on 16 September 2026; §8 records the answers.
+expects v2.6 but has not decided (16 September 2026). One question is open
+(§8b); the others were answered on 16 September 2026 (§8).
 **Apply to:** a new `newsletter` domain (backend, admin screens, public signup
 pages). Mail goes through the existing `mail` domain; the member audience comes
 from `membership` and `mdm` through their `api.py`.
@@ -359,6 +359,69 @@ shows a **direction**, not the scope of the first release (§3.10).
       gets canned drafts and canned operations, so the whole chain is
       testable without a model.
 
+16. **Raakje invents no facts** (Koen, 16 September 2026: *"hij mag niets
+    verzinnen wat hij niet in de data vindt. Wel proza, mooie enthousiaste
+    taal. Maar geen feiten bijverzinnen."*).
+
+    **Why a rule in the prompt is not enough.** The public Raakje already has
+    one (`chatbot/context.py`: *"verzin NOOIT iets"*) and still invented
+    facts in testing: extra games at Brood & Spelen, and a function for a
+    board member that the person did not hold (#309). A newsletter goes to
+    hundreds of people, so the protection has to be in the design and not in
+    the model's goodwill.
+
+    **The division of labour.** Raakje writes the *language*: the
+    enthusiasm, the transitions, the order. The *facts* come from the
+    sources and nowhere else. The sources are, and are only:
+    - the activity data (name, dates, places, prices, components);
+    - the flyer text with its AI addition;
+    - whether a photo album exists;
+    - the ticked meeting points;
+    - the instruction the author typed.
+
+    The example letters of §8.3 are **style only**: a fact that appears only
+    in an old letter (last year's price, last year's programme) counts as
+    invented.
+
+    **Five layers, each catching what the previous one misses.**
+    1. **Facts as markers.** Dates, times, places, prices of a named
+       component, registration links and photo links are never written by
+       the model. It places a marker; the server fills it in from the data
+       (§3.15).
+    2. **Few sources, stated per call.** The model receives only the sources
+       above for the activities and points in play, not the whole calendar
+       in one go. The prompt states the rule, and adds that leaving something
+       out is always better than filling a gap.
+    3. **Deterministic checks on the proposal.** Checks that need no model:
+       - every number, amount, time and date word must occur in a source;
+       - every function word (voorzitter, secretaris, penningmeester,
+         wijkmeester, bestuurslid, organisator, …) must occur in a source;
+       - no known person name may appear (§3.15).
+       Anything that fails is marked.
+    4. **A verification pass.** A second, separate model call receives the
+       proposal and the sources, and lists every factual claim with the
+       source passage that supports it. A claim without support is marked.
+       This is the layer that catches an invented game: *zaklopen* is an
+       ordinary Dutch word, so no word list would find it, but it has no
+       supporting passage in the flyer text. The verifier is a model too and
+       can miss something; that is why it is not the only layer.
+    5. **The author decides, per mark.** A marked passage is shown with its
+       reason ("staat niet in de flyer", "€ 12 is geen prijs van de BBQ").
+       What happens to it by default is open, see §8.5.
+
+    **Tested on the failures we know.** The test set keeps the known
+    hallucinations as fixed cases with canned model answers: extra games at
+    Brood & Spelen, a function attached to a board member, a price from last
+    year's letter. Layers 3 and 4 must mark each of them. Before each
+    release that touches the drafting, a live run against Mistral goes
+    through the same cases, graded by a person, the way the CR-07
+    evaluation harness works (`reporting/evaluation.py`).
+
+    **Said plainly:** no mechanism makes free prose free of invented facts
+    with certainty. These layers make an invented fact unlikely to get past
+    unnoticed, and the author remains the last check before anything is
+    applied.
+
 ---
 
 ## 4. Data model (sketch)
@@ -461,16 +524,21 @@ leaves: an address that unsubscribed in the meantime is `skipped`.
 13. A date, place or link in the proposal always comes from the activity
     data: a model answer that writes its own date for an activity does not
     reach the editor unchanged.
-14. An amount in a proposal that matches no price of the activities involved
-    is marked before the proposal can be applied.
+14. An amount, number, time or date word in a proposal that occurs in no
+    source is marked before the proposal can be applied; so is a function
+    word (voorzitter, penningmeester, …) that occurs in no source.
 15. A proposal that contains a known person name is marked before it can be
     applied.
 16. A piece operation (replace, insert, remove) changes exactly the paragraph
     it names, and nothing reaches the editor before *Toepassen*.
 17. A photo link is only offered for an activity that has an album.
-18. With the Raakje switch off, the panel is absent, and composing and
+18. The known hallucinations are marked: a canned answer that adds games to
+    Brood & Spelen that are not in its flyer text, one that attaches a
+    function to a board member, and one that reuses a price found only in an
+    example letter. Each must come out of layers 3 and 4 marked.
+19. With the Raakje switch off, the panel is absent, and composing and
     sending still work.
-19. The pages and the meeting notes still save their text after moving to the
+20. The pages and the meeting notes still save their text after moving to the
     shared editor macro.
 
 ---
@@ -489,6 +557,15 @@ No shaping question is open. For the record, what was asked and answered:
    the last two letters sent to the same audience once the archive holds any.
 4. **How does a letter close?** Without personal names, with the association
    as sender, taken from the organisation's name (§3.10).
+
+## 8b. Open question
+
+5. **What happens to a marked passage by default?**
+   **Recommendation:** it is **left out** when the author clicks
+   *Toepassen*, unless the author ticks "klopt, behouden" for that passage.
+   The safe choice then costs no effort; keeping an unsupported claim takes
+   a deliberate click. The alternative is to apply everything and only show
+   the marks, which relies on the author reading every mark.
 
 ---
 
