@@ -1,0 +1,28 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Organisaties — Raak beheer") }}{% endblock %}
+{% block content %}
+{# Lijst-index (design-system C1). Geen "+ Nieuw": een organisatie ontstaat bij het
+   aanmaken van een tenant, of ze bestaat al als rechtspersoon. Een knop die een
+   losse organisatierij maakt, zou een vierde soort introduceren waar niemand om
+   vroeg (#971, buiten scope: geen adresboek voor externe organisaties). #}
+{% call ui.page_header(_("Organisaties"), _("De rechtspersonen achter dit platform: hun naam, adres, contactgegevens, rekening en nummers.")) %}
+  {{ ui.btn_secondary(_("Naar de tenants"), href="/admin/tenants") }}
+{% endcall %}
+
+{% call ui.filter_bar("/admin/organisaties", "#org-lijst") %}
+  <div>{{ ui.search(value=q, placeholder=_('Zoek op naam of code…'), standalone=False) }}</div>
+  <div class="flex flex-wrap items-center gap-3">
+    {% call ui.select_control("org_type", aria_label=_("Soort")) %}
+      <option value="">{{ _("Alle soorten") }}</option>
+      {% for code, label in soort_options %}
+      <option value="{{ code }}" {% if org_type == code %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    {% endcall %}
+  </div>
+{% endcall %}
+
+<div id="org-lijst">
+  {% include "_org_kaarten.html" %}
+</div>
+{% endblock %}

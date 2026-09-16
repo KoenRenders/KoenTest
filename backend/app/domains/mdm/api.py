@@ -76,6 +76,18 @@ from app.domains.mdm.service import (  # noqa: F401
     list_persons,
     list_postal_codes,
 )
+# De organisatie als rechtspersoon staat sinds #971 apart van de tenant als site.
+# Zie de moduledocstring daar: de ACCOUNT-organisatie is geen tenant, en zolang deze
+# functies onder "tenant" hingen, las de code alsof zo'n organisatie niet bestond.
+from app.domains.mdm.organization_service import (  # noqa: F401
+    ALLE_ORGANISATIEVELDEN,
+    legal_form_options,
+    organization_address,
+    organization_details,
+    organization_options,
+    update_organization_address,
+    update_organization_details,
+)
 from app.domains.mdm.tenant_service import (  # noqa: F401
     OngeldigeInstelling,
     TenantFout,
@@ -86,9 +98,6 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
     platform_org,
     secrets_gezet,
     update_tenant_settings,
-    organization_details,
-    update_organization_details,
-    ALLE_ORGANISATIEVELDEN,
 )
 
 __all__ = [
@@ -97,6 +106,8 @@ __all__ = [
     "list_persons", "list_postal_codes", "list_accounts", "list_units",
     "secrets_gezet", "update_tenant_settings", "platform_tenant_id",
     "organization_details", "update_organization_details",
+    "organization_address", "update_organization_address",
+    "organization_options", "legal_form_options",
     "ALLE_ORGANISATIEVELDEN",
     "list_manageable_tenants", "platform_org",
     "Address", "AddressHistory", "ContactDetail", "ContactDetailHistory",

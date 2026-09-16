@@ -297,18 +297,32 @@ def test_the_organisation_fields_have_a_screen(client, db_session):
     penningmeester kon het rekeningnummer daarna langs geen enkele weg wijzigen.
     Dubbel is verwarrend; onbereikbaar is stuk.
 
-    Eén scherm en geen tweede: sinds Koens omkering ZIJN de tenants organisaties,
-    dus een apart organisatiescherm zou dezelfde rijen bewerken — de duplicatie die
-    dit issue opruimt, dan in schermen.
+    **Sinds #971 staan ze op `/admin/organisaties` en NIET meer op
+    `/admin/tenants`.** Die tweede helft hoort in dezelfde test: verhuisd en
+    gekopieerd zien er in de uitvoer identiek uit zolang je alleen kijkt of het veld
+    érgens staat. Zonder de tegenproef zou dit groen blijven bij twee schermen voor
+    één feit — precies de duplicatie die #924 en #945 uit de kolommen haalden.
+
+    De reden dat ze ooit op het tenantscherm stonden was juist: er was geen ander.
+    De reden dat ze daar weg zijn is even eenvoudig: dat scherm bestaat alleen voor
+    organisaties die een site draaien, en de rechtspersoon draait er geen.
     """
     from tests.conftest import SEEDED_ADMIN_EMAIL
     from tests.test_reporting_panel_ui import login
 
     login(client, db_session, SEEDED_ADMIN_EMAIL, ("OPERATOR",))
-    html = client.get(f"/admin/tenants/{TENANT}").text
-    for veld in ("payment_iban", "payment_beneficiary", "legal_form",
-                 "facebook_url", "email"):
-        assert f'name="{veld}"' in html, f"{veld} is nergens te bewerken"
+    velden = ("payment_iban", "payment_beneficiary", "legal_form",
+              "facebook_url", "email")
+
+    organisatie = client.get(f"/admin/organisaties/{TENANT}").text
+    for veld in velden:
+        assert f'name="{veld}"' in organisatie, f"{veld} is nergens te bewerken"
+
+    tenant = client.get(f"/admin/tenants/{TENANT}").text
+    for veld in velden:
+        assert f'name="{veld}"' not in tenant, (
+            f"{veld} staat nog op het tenantscherm — dan is het gekopieerd en niet "
+            "verhuisd, en zijn er twee plaatsen voor één feit")
 
 
 def test_saving_the_screen_writes_to_the_organisation(client, db_session,
