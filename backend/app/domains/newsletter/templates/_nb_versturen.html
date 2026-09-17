@@ -1,0 +1,40 @@
+{% import "_macros.html" as ui %}
+{{ ui.page_header(_("Nieuwsbrief versturen"), letter.subject or _("(nog zonder onderwerp)")) }}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+
+{% if letter.audience and recipient_count %}
+{# Nooit automatisch (CR-05 §3.9): dit scherm is de stap waarin een mens zegt
+   "ja, naar deze mensen". Het herhaalt de doelgroep en het aantal adressen. #}
+<form class="max-w-2xl space-y-4" hx-post="/admin/nieuwsbrieven/{{ letter.id }}/versturen"
+      hx-target="#nb-versturen" hx-swap="innerHTML">
+  <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+  <div class="bg-surface border border-line rounded-2xl p-5 space-y-2">
+    <p class="text-base"><strong>{{ audience_label }} · {{ _("%(n)s adressen", n=recipient_count) }}</strong></p>
+    {% if days > 1 %}
+    <p class="text-sm">{{ _("Met hoogstens %(cap)s nieuwsbriefmails per dag duurt dat %(d)s dagen. De rest van het dagquotum blijft vrij voor inschrijvingen en betalingen; je volgt de voortgang in de lijst.", cap=daily_cap, d=days) }}</p>
+    {% else %}
+    <p class="text-sm">{{ _("Dat past vandaag in het dagplafond van %(cap)s mails.", cap=daily_cap) }}</p>
+    {% endif %}
+  </div>
+
+  <fieldset class="bg-surface border border-line rounded-2xl p-5">
+    <legend class="sr-only">{{ _("Antwoorden gaan naar") }}</legend>
+    <h2 class="font-semibold text-blue-700">{{ _("Antwoorden gaan naar") }}</h2>
+    <div class="mt-2 space-y-2 text-sm">
+      <label class="flex items-center gap-2"><input type="radio" name="reply_to" value="association" checked>
+        {{ _("de vereniging — het adres waarvan de mail vertrekt") }}</label>
+      <label class="flex items-center gap-2"><input type="radio" name="reply_to" value="sender">
+        {{ _("mezelf (%(adres)s)", adres=reply_to_sender) }}</label>
+    </div>
+  </fieldset>
+
+  <div class="flex items-center gap-3 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3">
+    <span class="text-blue-700">{{ ui.icon("send", 18) }}</span>
+    <p class="text-sm text-blue-700"><strong>{{ _("Nagelezen?") }}</strong>
+      {{ _("Stuur eerst een testmail naar jezelf als je dat nog niet deed.") }}</p>
+    <span class="ml-auto shrink-0">{{ ui.btn_primary(_("Versturen (%(n)s)", n=recipient_count), type="submit", lead_icon="send", cls="whitespace-nowrap") }}</span>
+  </div>
+</form>
+{% elif letter.audience %}
+{{ ui.empty_state(_("Er is niemand om deze nieuwsbrief naar te sturen.")) }}
+{% endif %}

@@ -20,6 +20,11 @@ EMAIL_TYPES = (
     # voor beide — de log beantwoordt "wie kreeg wat wanneer", en het onderwerp
     # zegt al welke van de twee het was.
     "meeting",
+    # De nieuwsbrief (#984): de brief zelf, en de bevestigingsmail van de
+    # dubbele opt-in. Twee types, want de log moet kunnen tonen dat iemand de
+    # bevestiging kreeg lang voor er ooit een brief vertrok.
+    "newsletter",
+    "newsletter_confirmation",
     "other",
 )
 

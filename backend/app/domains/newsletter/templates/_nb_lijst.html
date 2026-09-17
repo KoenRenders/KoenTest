@@ -1,0 +1,31 @@
+{% import "_macros.html" as ui %}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+{% if not letters %}
+  {{ ui.empty_state(_("Nog geen nieuwsbrieven. Maak er een aan — Raakje kan meeschrijven.")) }}
+{% else %}
+<div class="space-y-2">
+  {% for letter in letters %}
+  <a href="/admin/nieuwsbrieven/{{ letter.id }}"
+     class="block bg-surface border border-line rounded-2xl px-5 py-4 hover:bg-surface-2 transition-colors">
+    <div class="flex items-center gap-3 flex-wrap">
+      <span class="font-semibold text-ink">{{ letter.subject or _("(nog zonder onderwerp)") }}</span>
+      {{ ui.badge(status_labels[letter.id], status_tones[letter.id]) }}
+      <span class="text-sm text-ink-soft">{{ audience_labels[letter.id] }}</span>
+      <span class="text-sm text-ink-soft ml-auto">{{ moments[letter.id] }}</span>
+    </div>
+    {% if letter.id in progress %}
+    {% set p = progress[letter.id] %}
+    <div class="mt-2 text-sm text-ink-soft">
+      {{ _("%(sent)s van %(total)s verstuurd", sent=p.sent, total=p.total) }}{% if p.failed %} · {{ _("%(n)s mislukt", n=p.failed) }}{% endif %}{% if p.skipped %} · {{ _("%(n)s overgeslagen", n=p.skipped) }}{% endif %}
+    </div>
+    {% if p.queued %}
+    <div class="mt-1.5 h-1.5 w-48 max-w-full rounded-full bg-line overflow-hidden" role="progressbar"
+         aria-valuemin="0" aria-valuemax="{{ p.total }}" aria-valuenow="{{ p.sent }}">
+      <div class="h-full bg-blue-500" style="width: {{ ((p.total - p.queued) * 100 // p.total) if p.total else 0 }}%"></div>
+    </div>
+    {% endif %}
+    {% endif %}
+  </a>
+  {% endfor %}
+</div>
+{% endif %}

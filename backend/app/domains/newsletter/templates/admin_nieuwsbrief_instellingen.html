@@ -1,0 +1,10 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Instellingen nieuwsbrief — Raak beheer") }}{% endblock %}
+{% block content %}
+{{ ui.back_link(_("Alle nieuwsbrieven"), "/admin/nieuwsbrieven") }}
+{{ ui.page_header(_("Instellingen nieuwsbrief"), _("Hoe Raakje schrijft, en hoeveel mails er per dag vertrekken.")) }}
+<div id="nb-instellingen" class="max-w-2xl">
+  {% include "_nb_instellingen.html" %}
+</div>
+{% endblock %}

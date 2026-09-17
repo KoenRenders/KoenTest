@@ -19,10 +19,10 @@
       <span class="text-sm text-brand-danger">{{ _("geen e-mailadres — krijgt de mails niet") }}</span>
       {% endif %}
       <form class="ml-auto" hx-post="/admin/vergaderingen/kring/{{ entry.relation_id }}/beeindigen"
-            hx-target="#vg-kring" hx-swap="innerHTML">
+            hx-target="#vg-kring" hx-swap="innerHTML"
+            data-confirm="{{ _("%(naam)s uit de vergaderkring halen? Oude verslagen blijven ongewijzigd.", naam=entry.person.first_name) }}">
         <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-        {{ ui.btn_secondary(_("Uit de kring"), type="submit", size="sm",
-                            confirm=_("%(naam)s uit de vergaderkring halen? Oude verslagen blijven ongewijzigd.", naam=entry.person.first_name)) }}
+        {{ ui.btn_secondary(_("Uit de kring"), type="submit", size="sm") }}
       </form>
     </div>
     {% endfor %}

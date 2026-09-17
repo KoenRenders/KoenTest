@@ -1,0 +1,45 @@
+{% import "_macros.html" as ui %}
+{% if error %}{{ ui.error_banner(error) }}{% endif %}
+{% if not preview %}
+<div class="bg-surface border border-line rounded-2xl p-5">
+  <p class="text-xs font-bold uppercase tracking-wider text-ink-soft">{{ _("Stap 1 van 2") }}</p>
+  <p class="text-sm mt-2">{{ _("Er wordt nog niets bewaard: je ziet eerst wat de import zal doen.") }}</p>
+  <form class="mt-3 flex items-end gap-2" hx-post="/admin/nieuwsbrieven/abonnees/import"
+        hx-target="#nb-import" hx-swap="innerHTML" hx-encoding="multipart/form-data">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <div class="flex-1">{{ ui.upload_field("file", text=_("Adressenlijst (.txt)"), accept=".txt,text/plain") }}</div>
+    {{ ui.btn_primary(_("Nakijken"), type="submit", size="sm") }}
+  </form>
+  <p class="text-sm text-ink-soft mt-3">{{ _("De echte lijst hoort alleen op de productieomgeving. Op de testomgevingen staan voorbeeldadressen.") }}</p>
+</div>
+{% else %}
+<div class="bg-surface border border-line rounded-2xl p-5">
+  <p class="text-xs font-bold uppercase tracking-wider text-ink-soft">{{ _("Stap 2 van 2") }}</p>
+  <div class="grid grid-cols-2 gap-2 mt-3">
+    <div class="rounded-xl border border-line p-3"><p class="font-brand text-2xl">{{ preview.new|length }}</p>
+      <p class="text-sm text-ink-soft">{{ _("nieuw — worden toegevoegd") }}</p></div>
+    <div class="rounded-xl border border-line p-3"><p class="font-brand text-2xl">{{ preview.known|length }}</p>
+      <p class="text-sm text-ink-soft">{{ _("al gekend — blijven ongewijzigd") }}</p></div>
+    <div class="rounded-xl border border-line p-3"><p class="font-brand text-2xl">{{ preview.unsubscribed|length }}</p>
+      <p class="text-sm text-ink-soft">{{ _("uitgeschreven — blijven uitgeschreven") }}</p></div>
+    <div class="rounded-xl border border-line p-3"><p class="font-brand text-2xl">{{ preview.invalid|length }}</p>
+      <p class="text-sm text-ink-soft">{{ _("ongeldig — worden overgeslagen") }}</p></div>
+  </div>
+  {% if preview.invalid %}
+  <details class="mt-3 text-sm">
+    <summary class="cursor-pointer text-blue-500">{{ _("Toon de ongeldige regels") }}</summary>
+    <ul class="mt-2 list-disc pl-5 text-ink-soft">{% for line in preview.invalid %}<li>{{ line }}</li>{% endfor %}</ul>
+  </details>
+  {% endif %}
+  <div class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 mt-3">
+    {{ _("Deze adressen krijgen geen bevestigingsmail: ze stonden al op onze lijst. Daarom krijgen ze in élke brief een uitschrijflink, en zeg je in de eerste brief waar hun adres vandaan komt.") }}
+  </div>
+  <form class="mt-4 flex justify-end gap-2" hx-post="/admin/nieuwsbrieven/abonnees/import/bevestigen"
+        hx-target="#nb-import" hx-swap="innerHTML">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    <textarea name="text" hidden aria-hidden="true">{{ text }}</textarea>
+    {{ ui.btn_secondary(_("Annuleren"), href="/admin/nieuwsbrieven/abonnees/import") }}
+    {{ ui.btn_primary(_("Importeren (%(n)s)", n=preview.new|length), type="submit") }}
+  </form>
+</div>
+{% endif %}

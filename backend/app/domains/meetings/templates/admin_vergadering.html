@@ -2,17 +2,6 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ title }} — {{ _("Raak beheer") }}{% endblock %}
 {% block content %}
-<style>
-  /* Ingeklapt tot de editor focus krijgt (#939). Geen knop: de klik waarmee je
-     begint te typen is al de bedoeling — een extra klik om de balk te openen zou
-     precies de handeling toevoegen die we willen besparen. */
-  .vg-notitie trix-toolbar { display: none; }
-  /* `focus-within` en niet `:has(trix-editor:focus)`: de linkknop opent een
-     dialoogje ín de balk, en dat neemt de focus over. Met de enge regel verdween
-     de balk precies op het moment dat je hem nodig had — je kon dus geen link
-     leggen. Gemeten in een browser: het href-dialoogje was nooit zichtbaar. */
-  .vg-notitie:focus-within trix-toolbar { display: block; }
-</style>
 {# Eén scherm voor agenda én verslag (CR-09 §3.23). De statusbadge zegt waar je
    staat; er is geen modus om in of uit te gaan. Elke schrijfactie vervangt dit
    ene fragment, zodat er maar één waarheid op het scherm staat. #}

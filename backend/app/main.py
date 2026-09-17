@@ -53,10 +53,13 @@ from app.domains.mail.router import router as email_log_router
 from app.domains.mail.ui import router as email_log_ui_router
 from app.domains.mdm.ui import router as mdm_ui_router
 from app.domains.mail.handlers import retry_mail  # noqa: F401 - registreert de mail.retry-job (#399)
+from app.domains.newsletter.handlers import send_newsletter  # noqa: F401 - registreert de newsletter.send-job (#984)
 from app.domains.payment.router import router as payment_router
 from app.domains.payment.ui import router as payment_ui_router
 from app.domains.reporting.admin_ui import router as reporting_admin_ui_router
 from app.domains.meetings.admin_ui import router as meetings_admin_ui_router
+from app.domains.newsletter.admin_ui import router as newsletter_admin_ui_router
+from app.domains.newsletter.ui import router as newsletter_ui_router
 
 configure_logging()
 
@@ -151,6 +154,8 @@ app.include_router(mdm_ui_router)
 app.include_router(payment_ui_router)
 app.include_router(reporting_admin_ui_router)
 app.include_router(meetings_admin_ui_router)
+app.include_router(newsletter_admin_ui_router)
+app.include_router(newsletter_ui_router)
 app.include_router(workflow_ui_router)
 app.include_router(email_log_router, prefix="/api/v1/admin")
 app.include_router(payment_router, prefix="/api/v1")

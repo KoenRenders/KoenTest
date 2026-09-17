@@ -23,6 +23,10 @@ from app.domains.payment.viewmodels import BetalingenView
 from app.domains.meetings.viewmodels import (
     MeetingCircleView, MeetingDocumentView, MeetingItemView, MeetingListView,
     MeetingNewView, MeetingSendView)
+from app.domains.newsletter.viewmodels import (
+    NewsletterArchiveView, NewsletterComposeView, NewsletterListView,
+    NewsletterPickerView, NewsletterSendView, NewsletterSettingsView,
+    SubscriberImportView, SubscriberListView)
 from app.domains.reporting.viewmodels import ReportListView, ReportPanelView
 from app.ui import templates
 
@@ -50,6 +54,22 @@ VIEWMODELS = {
     "_vg_verstuur.html": MeetingSendView,
     "admin_vergaderkring.html": MeetingCircleView,
     "_vg_kring.html": MeetingCircleView,
+    "admin_nieuwsbrieven.html": NewsletterListView,
+    "_nb_lijst.html": NewsletterListView,
+    "admin_nieuwsbrief.html": NewsletterComposeView,
+    "_nb_bewaard.html": NewsletterComposeView,
+    "_nb_raakje.html": NewsletterComposeView,
+    "_nb_kiezer.html": NewsletterPickerView,
+    "admin_nieuwsbrief_archief.html": NewsletterArchiveView,
+    "_nb_afleveringen.html": NewsletterArchiveView,
+    "admin_nieuwsbrief_versturen.html": NewsletterSendView,
+    "_nb_versturen.html": NewsletterSendView,
+    "admin_abonnees.html": SubscriberListView,
+    "_nb_abonnees.html": SubscriberListView,
+    "admin_abonnees_import.html": SubscriberImportView,
+    "_nb_import.html": SubscriberImportView,
+    "admin_nieuwsbrief_instellingen.html": NewsletterSettingsView,
+    "_nb_instellingen.html": NewsletterSettingsView,
 }
 
 # Namen die niet uit het view-model komen maar altijd bestaan:
