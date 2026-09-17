@@ -509,6 +509,11 @@ files stay small and renders are re-creatable from inputs.
 Cost is capped by the budget (refused before sending when the estimate
 would exceed it) and the kill switch; every call's cost is logged (#978).
 
+**Who pays (Koen, 17 September 2026):** for now everything comes out of the
+one budget set aside for FLUX — the platform key and the €50 test budget.
+Charging units for their image generation is **for later**; the per-call
+cost in the AI log (#978) makes that possible without new plumbing.
+
 ## B4. Detailed decisions
 
 ### 3.1 Templates, not free generation
@@ -1540,6 +1545,7 @@ not asked twice. Open questions carry no answer yet.
 | Q11 | 17 Sep | How many contact persons per activity? (reviewer, via Q3 of the review) | At most two, with name, e-mail and phone; none → Raak's website, e-mail and mobile (Koen, 17 Sep). |
 | Q12 | 17 Sep | Does a phone number on a poster need recorded consent? (reviewer) | No. Consent is asked beforehand outside the portal (meeting, WhatsApp, in person); the board member adding the contact vouches for it (Koen, 17 Sep). |
 | Q13 | 17 Sep | Who designs and maintains the templates? (reviewer) | Koen for now; in time Raak nationally (the ACCOUNT organisation). Templates stay platform-wide (Koen, 17 Sep). |
+| Q14 | 17 Sep | Is €50/unit/month a platform cost or a Millegem test figure; are units charged? (reviewer) | For now all generation comes from the one FLUX budget; charging units is for later, on the per-call cost in the AI log (Koen, 17 Sep). |
 
 ## Non-goals
 
