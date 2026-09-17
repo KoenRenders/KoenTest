@@ -380,8 +380,9 @@
     {% endif %}
   </div>
   {% endif %}
+  {% if grouped or loose_fields %}
   <div class="flex flex-wrap gap-2">
-    {% if not loose_fields and (grouped or loose_fields) %}
+    {% if not loose_fields %}
     <div x-data="{ nieuw: false }">
       {{ ui.btn_secondary(_("+ Vraag (zonder sectie)"), attrs='@click="nieuw = !nieuw"') }}
       {{ veld_vorm(None, None, tonen='nieuw') }}
@@ -391,6 +392,7 @@
       {{ ui.btn_secondary(_("+ Sectie toevoegen"), type="submit") }}
     </form>
   </div>
+  {% endif %}
 
   {# De vroegere Resultaten- en Inzendingen-kaarten zijn recordtabs geworden
      (F15/F23, #996): twee grote kaarten met alleen een titel en een
@@ -421,7 +423,9 @@
       {{ ui.btn_primary(_("Importeren (vervangt de opbouw)"),
                         confirm=_("De volledige opbouw van dit formulier vervangen?")) }}
     </form>
-    <p x-show="!jsonimport" class="text-xs text-gray-600">{{ _("Gebruik de knop \"JSON-import\" bovenaan om een definitie in te lezen.") }}</p>
+    {# F16 (#996): geen JSON-eerst-instructie meer als vaste voettekst — bij
+       een leeg formulier las hij als de verplichte start. De lege staat
+       verwijst zelf, en de knop bovenaan heet al wat hij doet. #}
   </div>
   {% endif %}
 </div>
