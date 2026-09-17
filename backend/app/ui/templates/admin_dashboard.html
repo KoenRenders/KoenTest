@@ -9,14 +9,16 @@
    bestaat niet in HTML. #}
 <div class="grid grid-cols-2 sm:grid-cols-3 gap-4">
   {% for tegel in tegels %}
-  <div class="rounded-xl p-5 transition hover:shadow-md {{ tegel.kleur }}">
+  {# F12 (#996): dezelfde neutrale kaart voor elk kengetal; kleur is voor
+     links en betekenisvolle statussen, niet om categorieën te kleuren. #}
+  <div class="rounded-card bg-white border border-gray-200 shadow-sm p-5 transition hover:shadow-md">
     <a href="{{ tegel.href }}" class="block hover:brightness-95">
       <div class="text-3xl font-extrabold font-brand">{{ tegel.waarde }}</div>
       <div class="text-sm font-medium mt-1">{{ tegel.label }}</div>
     </a>
     {% if tegel.rapport_href %}
     <a href="{{ tegel.rapport_href }}"
-       class="mt-2 inline-flex items-center gap-1 text-xs font-medium opacity-80 hover:opacity-100 hover:underline">
+       class="mt-2 inline-flex items-center gap-1 text-xs font-medium text-link hover:underline">
       {{ ui.icon("table", 12) }}{{ _("Rapport") }}
     </a>
     {% endif %}

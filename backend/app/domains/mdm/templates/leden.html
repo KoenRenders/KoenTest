@@ -20,24 +20,25 @@
   {% endcall %}
 
 
-{# Mock .kpi: witte kaart met rand, label (.k) bóven het cijfer (.v) — drie
-   identieke kaarten, geen getinte uitzondering voor de eerste (#611). #}
-<div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-  <div class="rounded-xl bg-white border border-line p-5">
-    <div class="text-xs font-semibold text-ink-soft">{{ _("Actieve leden") }}</div>
-    <div class="text-3xl font-extrabold font-brand">{{ kpi_gezinnen }}</div>
+{# Eén kengetallenband (F11/F13, #996 — zelfde vorm als Betalingen): mobiel
+   drie compacte regels met label links en cijfer rechts, op md+ de
+   kolomindeling. "Actieve gezinnen" en niet "Actieve leden": een Member is
+   een gezin, en de tegel telde geen personen. #}
+<div class="mb-6 flex flex-col md:flex-row rounded-card border border-gray-200 bg-white shadow-sm divide-y md:divide-y-0 md:divide-x divide-gray-100">
+  <div class="flex-1 px-4 py-2 md:py-4 flex items-baseline justify-between gap-3 md:block">
+    <div class="text-xs font-semibold text-ink-soft">{{ _("Actieve gezinnen") }}</div>
+    <div class="text-xl md:text-3xl font-extrabold font-brand">{{ kpi_gezinnen }}</div>
   </div>
-  <div class="rounded-xl bg-white border border-line p-5">
+  <div class="flex-1 px-4 py-2 md:py-4 flex items-baseline justify-between gap-3 md:block">
     <div class="text-xs font-semibold text-ink-soft">{{ _("Actieve personen") }}</div>
-    <div class="text-3xl font-extrabold font-brand">{{ kpi_personen }}</div>
+    <div class="text-xl md:text-3xl font-extrabold font-brand">{{ kpi_personen }}</div>
   </div>
   {# Het doeljaar staat in het label (het kantelt op de tenant-datum 'Volgend jaar
-     vanaf'); de derde regel noemt het REFERENTIEjaar, zodat duidelijk is dat we
+     vanaf'); de subregel noemt het REFERENTIEjaar, zodat duidelijk is dat we
      naar vorig jaar kijken en niet twee jaar terug. #}
-  <div class="rounded-xl bg-white border border-line p-5">
-    <div class="text-xs font-semibold text-ink-soft">{{ _("Nog niet vernieuwd") }} ({{ kpi_doeljaar }})</div>
-    <div class="text-3xl font-extrabold font-brand">{{ kpi_niet_vernieuwd }}</div>
-    <div class="text-xs font-semibold text-ink-soft">{{ _("Was lid in %(jaar)s", jaar=kpi_referentiejaar) }}</div>
+  <div class="flex-1 px-4 py-2 md:py-4 flex items-baseline justify-between gap-3 md:block">
+    <div class="text-xs font-semibold text-ink-soft">{{ _("Nog niet vernieuwd") }} ({{ kpi_doeljaar }}) <span class="font-normal">· {{ _("was lid in %(jaar)s", jaar=kpi_referentiejaar) }}</span></div>
+    <div class="text-xl md:text-3xl font-extrabold font-brand">{{ kpi_niet_vernieuwd }}</div>
   </div>
 </div>
 
