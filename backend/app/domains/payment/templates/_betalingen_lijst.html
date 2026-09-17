@@ -116,17 +116,14 @@
 {% set rec = k.rec %}
 {% set is_refund = rec.type == "refund" %}
 <div class="flex flex-wrap gap-2 items-end">
-{# A2: verwijderen hoort achter de bewerkstap, uiterst links en met afstand
-   tot Opslaan/Annuleren. De verwijder-guard blijft gelden: geen knop tonen
-   die de server toch weigert. Status verversen is een inhoudsactie op het
-   record en woont hier sinds de verdichting ook. #}
-{% if k.mag_verwijderen %}
-<div class="mr-3">{{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/betalingen/' ~ rec.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_("Deze terugbetaling verwijderen?") if is_refund else _("Deze betaling verwijderen (uit het saldo)?")) }}</div>
-{% endif %}
+{# Status verversen is een inhoudsactie op het record en staat links bij de
+   velden; het actiecluster staat rechts (Koens ronde 5): [Verwijderen] met
+   afstand, dan [Annuleren] [Opslaan] — Opslaan uiterst rechts, zoals het
+   A2-cluster op de recordpagina's. De verwijder-guard blijft gelden. #}
 {% if rec.method == "online" %}
 <div class="mr-3">{{ ui.btn_secondary(_("Status verversen"), size="sm", attrs='hx-post="/admin/betalingen/' ~ rec.id ~ '/verversen" hx-target="#betalingen-lijst" hx-swap="innerHTML"') }}</div>
 {% endif %}
-<form class="flex flex-wrap gap-2 items-end"
+<form class="flex flex-wrap gap-2 items-end flex-1"
       {# #769: de twee plekken die `bedrag` vullen moeten DEZELFDE notatie schrijven.
          Hier bij het renderen, en hieronder in de statuskeuze die het veld met het
          volle bedrag vult. #}
@@ -143,8 +140,11 @@
     {{ ui.input_control("amount_paid", id="ap-" ~ rec.id, placeholder="0,00", cls="w-28", attrs='x-model="bedrag" inputmode="decimal"') }}
   </div>
   {{ ui.input_control("note", id="note-" ~ rec.id, placeholder=_("Opmerking"), cls="w-40") }}
-  {{ ui.btn_primary(_("Opslaan"), type="submit") }}
-  {{ ui.btn_secondary(_("Annuleren"), attrs='@click="' ~ sluit ~ '"') }}
+  {% if k.mag_verwijderen %}
+  <span class="ml-auto mr-3">{{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/betalingen/' ~ rec.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_("Deze terugbetaling verwijderen?") if is_refund else _("Deze betaling verwijderen (uit het saldo)?")) }}</span>
+  {% else %}<span class="ml-auto"></span>{% endif %}
+  {{ ui.btn_secondary(_("Annuleren"), size="sm", attrs='@click="' ~ sluit ~ '"') }}
+  {{ ui.btn_primary(_("Opslaan"), size="sm", type="submit") }}
   {% if is_refund %}
   <p class="w-full order-last text-xs text-gray-400">{{ _("Zet op 0 om te corrigeren — dan is de terugbetaling verwijderbaar.") }}</p>
   {% endif %}
@@ -174,8 +174,9 @@
       <div>{{ ui.label(_("Terug te betalen bedrag"), "rf-amount-" ~ r.id, required=True) }}
         {{ ui.input_control("amount", id="rf-amount-" ~ r.id, required=True, placeholder=_("Bedrag"), cls="w-28", attrs='inputmode="decimal"') }}</div>
       {{ ui.input_control("note", id="rf-note-" ~ r.id, placeholder=_("Reden"), cls="w-40") }}
-      {{ ui.btn_primary(_("Registreren"), type="submit") }}
-      {{ ui.btn_secondary(_("Annuleren"), attrs='@click="terug = null"') }}
+      <span class="ml-auto"></span>
+      {{ ui.btn_secondary(_("Annuleren"), size="sm", attrs='@click="terug = null"') }}
+      {{ ui.btn_primary(_("Registreren"), size="sm", type="submit") }}
     </form>
   </td>
 </tr>
