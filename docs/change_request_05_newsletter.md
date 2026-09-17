@@ -156,9 +156,17 @@ shows a **direction**, not the scope of the first release (§3.10).
      new, already known, or invalid. Other environments get `example.org`
      addresses from the seed.
    - The import rests on the existing relationship (legitimate interest), not
-     on double opt-in. It is allowed only because every letter to these
-     addresses carries a working unsubscribe link, and because the **first
-     letter after the import says where the address came from**.
+     on double opt-in. Every letter to these addresses carries a working
+     unsubscribe link: that is the opt-out.
+   - **No explanation in the first letter** (Koen, 17 September 2026,
+     validating on HDEV: *"Dat wil ik niet, wel de mogelijkheid te
+     opt-outen."*). This reverses the 14 September 2026 condition that the
+     first letter after the import says where the address came from, and with
+     it the reminder on the compose screen and the notice on the import
+     preview. These people received the letter from the same association
+     before; to them nothing changes but the sender tool. Recorded as a
+     choice, not a legal finding: whether a change of tool calls for a notice
+     was not settled here.
    - Every imported row records its provenance (`source = "import"`, the
      import date).
    - **An import never resubscribes an address that unsubscribed.** Otherwise
@@ -317,17 +325,30 @@ shows a **direction**, not the scope of the first release (§3.10).
       closing of §3.10 (§8.2).
     - After that the conversation works on **pieces** (Koen: *"je moet dus
       stukken kunnen vervangen of stukken invoegen op basis van het
-      gesprek"*). "Maak de intro korter", "zet de BBQ er ook bij", or a
-      selected passage with "herschrijf dit" produce a proposal to replace,
-      insert or remove one piece.
+      gesprek"*). **The author decides where a piece goes, not Raakje**
+      (Koen, 17 September 2026, validating on HDEV: *"Zou je niet beter
+      injecteren waar de gebruiker met zijn cursor gaat staan? Of vervangen
+      wat hij selecteerde?"*). With text selected, Raakje rewrites exactly
+      that text and *Toepassen* replaces the selection; without a selection,
+      Raakje writes a piece that fits after the text before the cursor, and
+      *Toepassen* puts it at the cursor. This replaces the first build, in
+      which the model returned operations on numbered paragraphs and landed
+      a piece in the middle of the letter.
     - **Nothing lands in the editor without a click.** Every proposal is
       shown first, with *Toepassen*; applying goes through the editor's own
       functions, so the editor's undo still works. This is the confirmation
       step the kernel requires for an acting capability.
-    - To target pieces, the server hands the model the current text as
-      numbered paragraphs, and the model answers with operations on those
-      numbers (replace, insert after, remove). A selection in the editor
-      becomes the target of the next operation.
+    - **A whole letter has a fixed shape** (Koen, 17 September 2026): the
+      portal sets the greeting (*"Beste,"*) at the top and the closing at the
+      bottom, each set apart by a blank line; every topic starts with a
+      heading, with a blank line above it. The model writes neither greeting
+      nor closing.
+    - **Activity names read as names.** Inside a sentence the model writes
+      `[[naam:ID]]` and the server puts the activity's name there, in bold,
+      once. The model builds the sentence around it and is told to proofread
+      for doubled words and missing conjunctions — the first build produced
+      "er op Wandelweekend Eifel op uit" and "Sint komt naar onze gezinnen
+      brengt weer".
     - The conversation is kept with the draft, so the author can continue
       the next day, and is removed when the letter is sent: the sent letter
       is the record, and the payload log already holds what left.
@@ -503,7 +524,6 @@ leaves: an address that unsubscribed in the meantime is `skipped`.
 - [ ] Double opt-in for the public form, with the consent record stored.
 - [ ] Unsubscribe link plus one-click `List-Unsubscribe` header on every mail
       to a non-member.
-- [ ] The first letter after the import says where the address came from.
 - [ ] An import never resubscribes an unsubscribed address.
 - [ ] Data minimisation: an e-mail address and an optional first name; no
       family data.
@@ -642,10 +662,13 @@ Recorded so the next reader does not re-derive them.
 6. **The verifier counts paragraphs from 1.** A model — and a person — counts
    from 1; the server maps back. The first build numbered from 0 and lost
    every mark on a whole-letter proposal.
-7. **A proposal is applied through Trix itself** (select all, insert), after
-   recording an undo entry, so "ongedaan maken" works. An edit proposal on a
-   letter that changed since it was made is refused: its paragraph numbers
-   would point at other text.
+7. **A proposal is applied through Trix itself**, after recording an undo
+   entry, so "ongedaan maken" works: a whole letter replaces everything, a
+   piece goes to the cursor, a rewrite replaces the selection remembered when
+   the author asked. That rewrite is refused when the letter changed in
+   between: the remembered selection would point at other text. The server
+   never rewrites the letter for a piece; autosave stores what the editor
+   shows.
 
 ## Non-goals
 

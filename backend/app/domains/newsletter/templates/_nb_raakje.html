@@ -83,9 +83,13 @@
           <p class="text-xs text-brand-danger mt-2">{{ _("De brief veranderde sinds dit voorstel. Vraag het opnieuw.") }}</p>
           {% else %}
           <div class="flex flex-wrap gap-2 mt-3">
-            {% if p.kind == "draft" and p.has_text %}
+            {% if p.kind == "letter" and p.has_text %}
             {{ ui.btn_primary(_("Vervang de brief"), size="sm", attrs='name="placement" value="replace"') }}
             {{ ui.btn_secondary(_("Invoegen bij de cursor"), type="submit", size="sm", attrs='name="placement" value="cursor"') }}
+            {% elif p.kind == "insert" %}
+            {{ ui.btn_primary(_("Invoegen bij de cursor"), size="sm", attrs='name="placement" value="cursor"') }}
+            {% elif p.kind == "replace" %}
+            {{ ui.btn_primary(_("Vervang de selectie"), size="sm", attrs='name="placement" value="selection"') }}
             {% else %}
             {{ ui.btn_primary(_("Toepassen"), size="sm", attrs='name="placement" value="replace"') }}
             {% endif %}
@@ -112,13 +116,13 @@
   {% endif %}
 
   <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/raakje/vraag" hx-target="#nb-raakje"
-        hx-swap="innerHTML" hx-include="#nb-inhoud" hx-vals='js:{selection: window.nbSelectie ? nbSelectie() : ""}'
+        hx-swap="innerHTML" hx-include="#nb-inhoud" hx-vals='js:{selection: window.nbSelectie ? nbSelectie() : "", selection_range: window.nbBereik ? nbBereik() : "", before_cursor: window.nbVoorCursor ? nbVoorCursor() : ""}'
         hx-indicator="#nb-raakje-bezig">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
     {{ ui.label(_("Wat wil je vertellen?") if not messages else _("Vraag Raakje iets"), "nb-raakje-vraag") }}
-    {{ ui.textarea_control("instruction", id="nb-raakje-vraag", rows=2, cls="w-full",
+    {{ ui.textarea_control("instruction", id="nb-raakje-vraag", rows=2, cls="w-full", attrs=ui.autogrow(240),
                            placeholder=(_("Bv. nadruk op de Rumproefavond, feestelijke toon") if not messages
-                                        else _("Bv. maak de intro korter — of selecteer tekst om alleen die te herschrijven"))) }}
+                                        else _("Selecteer tekst om die te herschrijven, of zet je cursor waar een nieuw stuk moet komen"))) }}
     <div class="flex items-center gap-2 mt-2">
       {{ ui.btn_primary(_("Voorstel laten schrijven") if not messages else _("Vraag Raakje"), type="submit", size="sm", lead_icon="send") }}
       <span id="nb-raakje-bezig" class="htmx-indicator text-sm text-ink-soft">{{ _("Raakje schrijft…") }}</span>
@@ -129,6 +133,6 @@
     <mark class="bg-yellow-100 text-ink rounded px-0.5">{{ _("Zo ziet een markering eruit.") }}</mark></p>
 
   {% if apply_html %}
-  <template id="nb-toepassen" data-plaatsing="{{ apply_placement }}">{{ apply_html|safe }}</template>
+  <template id="nb-toepassen" data-plaatsing="{{ apply_placement }}" data-bereik="{{ apply_range }}">{{ apply_html|safe }}</template>
   {% endif %}
 </div>

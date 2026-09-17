@@ -231,6 +231,8 @@ def test_de_import_via_het_scherm(client, db_session):
                         files={"file": ("adressen.txt", inhoud, "text/plain")})
     assert stap2.status_code == 200
     assert "Importeren (1)" in stap2.text
+    # Koen, 17 September 2026: no notice about a first-letter explanation.
+    assert "geen bevestigingsmail" not in stap2.text
     assert db_session.query(Subscriber).count() == 1, "de voorvertoning schrijft niets"
 
     tekst = stap2.text.split('<textarea name="text"')[1].split(">", 1)[1].split("</textarea>")[0]

@@ -31,9 +31,6 @@
     <ul class="mt-2 list-disc pl-5 text-ink-soft">{% for line in preview.invalid %}<li>{{ line }}</li>{% endfor %}</ul>
   </details>
   {% endif %}
-  <div class="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700 mt-3">
-    {{ _("Deze adressen krijgen geen bevestigingsmail: ze stonden al op onze lijst. Daarom krijgen ze in élke brief een uitschrijflink, en zeg je in de eerste brief waar hun adres vandaan komt.") }}
-  </div>
   <form class="mt-4 flex justify-end gap-2" hx-post="/admin/nieuwsbrieven/abonnees/import/bevestigen"
         hx-target="#nb-import" hx-swap="innerHTML">
     <input type="hidden" name="csrf_token" value="{{ csrf_token }}">

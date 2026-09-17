@@ -303,18 +303,6 @@ def test_de_import_toont_eerst_wat_hij_zal_doen(db_session):
     assert nb.subscriber_by_email(db_session, "weg@example.org").status == SUBSCRIBER_UNSUBSCRIBED
 
 
-def test_de_eerste_brief_na_de_import_wordt_opgemerkt(db_session, mailbox):
-    """While imported addresses never got a letter, the screen reminds the author."""
-    nb.run_import(db_session, "piet@example.org")
-    assert nb.imported_without_letter(db_session) is True
-
-    letter = _letter(db_session, audience=AUDIENCE_NON_MEMBERS)
-    nb.start_sending(db_session, letter, sent_by="s@example.org",
-                     reply_to_mode="association", base_url=BASE)
-    _run_until_done(db_session, letter)
-    assert nb.imported_without_letter(db_session) is False
-
-
 def test_handmatig_toevoegen_herstelt_geen_uitschrijving(db_session):
     _subscriber(db_session, "weg@example.org", status=SUBSCRIBER_UNSUBSCRIBED)
     with pytest.raises(nb.NewsletterError):
