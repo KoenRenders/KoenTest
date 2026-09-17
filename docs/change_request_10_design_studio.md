@@ -6,8 +6,10 @@
 request template (`docs/change_request_template.md`) as its first example.
 **Reviewed on 17 September 2026** (independent review and a template-tool
 survey, both in Koen's Nextcloud folder `designstudio/review/`); the
-rendering engine was then decided (Inkscape, B1.3). Not on a release yet,
-apart from **phase 0** (the registration deadline, B4 §3.8a)
+rendering engine was then decided (Inkscape, B1.3). **#974 (deadline) and
+#978 (AI call log) are on master** (verified 17 September 2026, master
+55f2fd54), so the Design Studio stands on them rather than waiting for
+them. The Design Studio itself is not on a release yet, apart from **phase 0** (the registration deadline, B4 §3.8a)
 is #974 and assigned to **v2.5** (#925). The Design Studio itself is not on a
 release yet.
 **Applies to:** a new `designstudio` domain (backend + admin screens), a
