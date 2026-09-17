@@ -1,0 +1,51 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("AI-kosten — Raak beheer") }}{% endblock %}
+{% block content %}
+{{ ui.back_link(_("Systeeminfo"), "/admin/info") }}
+{{ ui.page_header(_("AI-kosten"), _("Elke oproep naar een AI-dienst vanuit deze afdeling: wie, wat, hoe lang en wat het kostte. Wat er precies vertrok, zie je bij het antwoord zelf.")) }}
+
+<section class="bg-surface border border-line rounded-2xl p-4 mb-6" aria-labelledby="ai-totaal-kop">
+  <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+    <h2 id="ai-totaal-kop" class="font-semibold text-blue-700">{{ _("Totaal in %(maand)s", maand=month_label) }}</h2>
+    <div class="flex gap-1">
+      {{ ui.btn_secondary(_("‹ Vorige maand"), href="/admin/info/ai-kosten?maand=" ~ prev_month, size="sm") }}
+      {{ ui.btn_secondary(_("Volgende maand ›"), href="/admin/info/ai-kosten?maand=" ~ next_month, size="sm") }}
+    </div>
+  </div>
+  {% if totals %}
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm">
+    <thead><tr class="text-left text-ink-soft border-b border-line">
+      <th scope="col" class="px-3 py-2 font-semibold">{{ _("Onderdeel") }}</th>
+      <th scope="col" class="px-3 py-2 font-semibold">{{ _("Provider") }}</th>
+      <th scope="col" class="px-3 py-2 font-semibold text-right">{{ _("Oproepen") }}</th>
+      <th scope="col" class="px-3 py-2 font-semibold text-right">{{ _("Tokens") }}</th>
+      <th scope="col" class="px-3 py-2 font-semibold text-right">{{ _("Credits") }}</th>
+      <th scope="col" class="px-3 py-2 font-semibold text-right">{{ _("Kost") }}</th>
+    </tr></thead>
+    <tbody class="divide-y divide-line">
+    {% for t in totals %}
+      <tr>
+        <td class="px-3 py-2">{{ t.what }}</td>
+        <td class="px-3 py-2 text-ink-soft">{{ t.provider }}</td>
+        <td class="px-3 py-2 text-right tabular-nums">{{ t.calls }}</td>
+        <td class="px-3 py-2 text-right tabular-nums">{{ t.tokens }}</td>
+        <td class="px-3 py-2 text-right tabular-nums">{{ t.credits }}</td>
+        <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap">{{ t.amount }}</td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <p class="text-xs text-ink-soft mt-2">{{ _("Een kost staat er alleen als de provider ze meldt. Mistral meldt tokens, geen bedrag; die omrekening komt later.") }}</p>
+  {% else %}
+  {{ ui.empty_state(_("Geen AI-oproepen in deze maand.")) }}
+  {% endif %}
+</section>
+
+<h2 class="font-semibold text-blue-700 mb-2">{{ _("Alle oproepen") }}</h2>
+<div id="ai-oproepen">
+  {% include "_ai_kosten_lijst.html" %}
+</div>
+{% endblock %}

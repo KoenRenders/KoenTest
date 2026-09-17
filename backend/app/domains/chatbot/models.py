@@ -14,7 +14,7 @@ Velden met elk hun eigen bedoeling:
 from datetime import datetime, timezone
 
 from sqlalchemy import (
-    Column, Integer, String, Text, DateTime, Boolean, ForeignKey,
+    CHAR, Column, Integer, Numeric, String, Text, DateTime, Boolean, ForeignKey,
 )
 from sqlalchemy.orm import relationship
 
@@ -95,4 +95,16 @@ class AiCallLog(TenantMixin, Base):
     tokens_prompt = Column(Integer, nullable=True)
     tokens_completion = Column(Integer, nullable=True)
     blocked_reason = Column(Text, nullable=False, default="")
+    # #978: which provider and API, how it went, and what it cost. `cost_credits`
+    # is the provider's own unit; `cost_amount` + `cost_currency` (ISO 4217) is
+    # the same cost in money, so a sum never adds credits to euros.
+    provider = Column(String(32), nullable=False, default="")
+    endpoint = Column(String(128), nullable=False, default="")
+    provider_request_id = Column(String(128), nullable=False, default="")
+    status = Column(String(16), nullable=False, default="")
+    duration_ms = Column(Integer, nullable=True)
+    cost_credits = Column(Numeric(12, 4), nullable=True)
+    cost_amount = Column(Numeric(12, 6), nullable=True)
+    cost_currency = Column(CHAR(3), nullable=True)
+    output_megapixels = Column(Numeric(6, 2), nullable=True)
     created_at = Column(DateTime(timezone=True), default=_now_utc, nullable=False)

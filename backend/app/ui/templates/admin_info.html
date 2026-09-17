@@ -35,6 +35,18 @@
     </div>
     {{ ui.btn_secondary(_("Openen"), href="/admin/design-system") }}
   </div>
+  {# #978: the AI cost list, behind the same door as this page (Koen, 16
+     September 2026). Linked from here because it is about what the system does,
+     not about the association's data. #}
+  <div class="bg-white border border-gray-200 rounded-xl p-4 flex items-center justify-between gap-4">
+    <div>
+      <h2 class="font-bold text-blue-700">{{ _("AI-kosten") }}</h2>
+      <p class="text-sm text-gray-600">
+        {{ _("Elke oproep naar een AI-dienst, met de totalen per maand.") }}
+      </p>
+    </div>
+    {{ ui.btn_secondary(_("Openen"), href="/admin/info/ai-kosten") }}
+  </div>
   {{ sectie(_("Versie & omgeving"), [
       (_("Versie"), info.version), (_("Commit"), info.commit),
       (_("Omgeving"), info.environment), (_("Servertijd"), info.server_time),

@@ -13,6 +13,15 @@ from app.domains.chatbot.limits import (  # noqa: F401
 # hoeft te kennen — en zodat de wachter en het logboek er niet omheen te bouwen
 # zijn.
 from app.domains.chatbot.logbook import sink_for  # noqa: F401
+
+# #978: what the AI cost a department — one reader for the screen and for CR-10.
+from app.domains.chatbot.costs import (  # noqa: F401
+    CallRow,
+    CostLine,
+    cost_per_period,
+    list_calls,
+    month_period,
+)
 from app.domains.chatbot.seam import (  # noqa: F401
     GuardedProvider,
     SeamBlocked,
@@ -55,6 +64,7 @@ __all__ = [
     "admin_chat_char_budget", "chat_char_budget",
     "ChatTimeout", "GuardedProvider", "SeamBlocked", "admin_rules",
     "get_provider", "public_rules", "run_chat", "sink_for",
+    "CallRow", "CostLine", "cost_per_period", "list_calls", "month_period",
     "execute_read_tool", "read_only_tool_names", "read_tool_specs", "create_note", "delete_row", "get_row",
     "list_chatbot_info",
     "toggle_row", "update_row","ChatbotInfo"]

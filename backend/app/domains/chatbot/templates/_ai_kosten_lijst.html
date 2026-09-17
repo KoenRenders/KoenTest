@@ -1,0 +1,34 @@
+{% import "_macros.html" as ui %}
+{% if calls %}
+<div class="bg-surface border border-line rounded-2xl overflow-x-auto">
+<table class="w-full text-sm">
+  <thead><tr class="text-left text-ink-soft border-b border-line">
+    <th scope="col" class="px-4 py-3 font-semibold">{{ _("Datum") }}</th>
+    <th scope="col" class="px-4 py-3 font-semibold">{{ _("Onderdeel") }}</th>
+    <th scope="col" class="px-4 py-3 font-semibold">{{ _("Wie") }}</th>
+    <th scope="col" class="px-4 py-3 font-semibold">{{ _("Model") }}</th>
+    <th scope="col" class="px-4 py-3 font-semibold">{{ _("Provider") }}</th>
+    <th scope="col" class="px-4 py-3 font-semibold">{{ _("Status") }}</th>
+    <th scope="col" class="px-4 py-3 font-semibold text-right">{{ _("Duur") }}</th>
+    <th scope="col" class="px-4 py-3 font-semibold text-right">{{ _("Kost") }}</th>
+  </tr></thead>
+  <tbody class="divide-y divide-line">
+  {% for c in calls %}
+    <tr>
+      <td class="px-4 py-2 whitespace-nowrap">{{ c.moment }}</td>
+      <td class="px-4 py-2 whitespace-nowrap">{{ c.what }}</td>
+      <td class="px-4 py-2 text-ink-soft">{{ c.actor }}</td>
+      <td class="px-4 py-2 text-ink-soft">{{ c.model }}</td>
+      <td class="px-4 py-2 text-ink-soft">{{ c.provider }}</td>
+      <td class="px-4 py-2">{{ ui.badge(c.status_label, c.status_tone) }}</td>
+      <td class="px-4 py-2 text-right tabular-nums whitespace-nowrap">{{ c.duration }}</td>
+      <td class="px-4 py-2 text-right tabular-nums whitespace-nowrap">{{ c.cost }}</td>
+    </tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{{ ui.pager(page, has_prev=has_prev, has_next=has_next, hx_get="/admin/info/ai-kosten", hx_target="#ai-oproepen") }}
+{% else %}
+{{ ui.empty_state(_("Nog geen AI-oproepen in deze afdeling.")) }}
+{% endif %}
