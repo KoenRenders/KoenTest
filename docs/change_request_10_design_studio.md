@@ -1323,7 +1323,7 @@ The tests must be able to go red:
   after the deadline;
 - an override wins over the member's own number, and removing the override
   brings the member's number back;
-- an association contact renders website, e-mail and mobile, and no name;
+- with no contact persons the poster renders Raak's website, e-mail and mobile, and no name;
 - a third contact on an activity is refused by the service; with no
   contacts the poster shows Raak's website, e-mail and mobile;
 - the picker refuses a person who is not a member — tested through the
@@ -1435,6 +1435,29 @@ build takes from them:
   has its own sun or bunting, a sticker placed over the image collides with
   it. The price therefore sits in a zone (a bar next to the registration
   block), not on the image.
+
+### B9.1 Engine prototypes (17 September 2026 — iterations 14 and 15)
+
+- **LibreOffice Draw (iteration 14):** an ODG template with placeholders,
+  filled by text substitution without LibreOffice, fonts embedded in the
+  file (ODF embedded fonts — a variable font breaks Fontwork, so static Bold
+  and SemiBold instances were generated with fontTools), PDF in ~1 s warm
+  and ~2 s cold. Fontwork tested to its limits: every shape, pattern fill
+  and stroke renders, but glyphs show slits and are stretched to the box;
+  overflow is silently squeezed; one style per object. Not usable for
+  titles. On the laptop the Debian `libreoffice-core-nogui` package cannot
+  load anything (no Draw filters); the Flatpak works but joins an open
+  window and does not see `/tmp`.
+- **Inkscape (iteration 15):** the same poster as one SVG with real text
+  reaches pixel parity with iteration 13; PDF, PNG and A4 from one file in
+  ~0.8 s (2–5 s with filters); fonts embedded; the SVG survives an Inkscape
+  round trip with all text objects. Two lessons: `--export-text-to-path=false`
+  is read as *true* (leave the flag out), and a tiled pattern shows hairline
+  seams in poppler viewers — use one tile per title. Ragged photo edges as
+  a mask with a displacement filter keep the photo sharp; the filter on the
+  photo itself distorts it. LibreOffice imports the SVG as a single picture.
+- The full comparison, with Chromium and Scribus on paper, is B1.3; the
+  decision is Inkscape (Q10).
 
 ## B10. Decisions log
 
