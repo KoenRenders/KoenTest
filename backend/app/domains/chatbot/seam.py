@@ -66,6 +66,7 @@ from __future__ import annotations
 import json
 import logging
 import re
+import time
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional, Sequence
 
@@ -199,6 +200,10 @@ def findings(messages: Sequence[dict[str, Any]], rules: GuardRules) -> list[str]
     return found
 
 
+def _ms_since(begin: float) -> int:
+    return int(round((time.monotonic() - begin) * 1000))
+
+
 class GuardedProvider(LLMProvider):
     """Wraps any provider: scan, log, then send — in that order.
 
@@ -229,12 +234,23 @@ class GuardedProvider(LLMProvider):
             raise SeamBlocked(self._rules.message.format(reden=reden))
 
         self.sent.append(text)
-        reply = self._inner.complete(messages, tools=tools, tool_choice=tool_choice)
-        self._log(text, usage=getattr(reply, "usage", None))
+        begin = time.monotonic()
+        try:
+            reply = self._inner.complete(messages, tools=tools, tool_choice=tool_choice)
+        except Exception:
+            # #978: the payload left, so the call counts — a failed call is
+            # still a call the provider may bill.
+            self._log(text, status="error", duration_ms=_ms_since(begin))
+            raise
+        self._log(text, usage=getattr(reply, "usage", None),
+                  duration_ms=_ms_since(begin),
+                  provider_request_id=getattr(reply, "request_id", "") or "")
         return reply
 
     def _log(self, text: str, *, blocked_reason: str = "",
-             usage: Optional[dict[str, int]] = None) -> None:
+             usage: Optional[dict[str, int]] = None, status: str = "",
+             duration_ms: Optional[int] = None,
+             provider_request_id: str = "") -> None:
         if self._sink is None:
             return
         try:
@@ -245,6 +261,11 @@ class GuardedProvider(LLMProvider):
                 payload=text,
                 blocked_reason=blocked_reason,
                 usage=usage or {},
+                provider=getattr(self._inner, "name", "") or "",
+                endpoint=getattr(self._inner, "endpoint", "") or "",
+                provider_request_id=provider_request_id,
+                status=status or ("blocked" if blocked_reason else "ok"),
+                duration_ms=duration_ms,
             )
         except Exception:  # pragma: no cover - a log must not break an answer
             logger.exception("Kon de uitgaande AI-oproep niet loggen")

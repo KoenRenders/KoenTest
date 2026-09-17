@@ -39,6 +39,7 @@ from app.domains.media.ui import router as media_ui_router
 from app.domains.chatbot.router import router as chat_router
 from app.domains.chatbot.info_router import router as chatbot_info_router
 from app.domains.chatbot.ui import router as chatbot_ui_router
+from app.domains.chatbot.admin_ui import router as chatbot_admin_ui_router
 from app.domains.membership.ui import router as membership_ui_router
 from app.domains.cms.ui import router as cms_public_ui_router
 from app.domains.stt.router import router as stt_router
@@ -138,6 +139,7 @@ app.include_router(forms_admin_ui_router)
 app.include_router(activities_ui_router)
 app.include_router(activities_admin_ui_router)
 app.include_router(chatbot_ui_router)
+app.include_router(chatbot_admin_ui_router)
 app.include_router(membership_ui_router)
 app.include_router(auth_ui_router)
 app.include_router(auth_admin_ui_router)

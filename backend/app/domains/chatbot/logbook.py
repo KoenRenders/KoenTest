@@ -19,7 +19,8 @@ the route, where the layer gate rightly does not want one (#635 rule 2).
 from __future__ import annotations
 
 import logging
-from typing import Any, Callable
+from decimal import Decimal
+from typing import Callable
 
 from app.database import SessionLocal
 
@@ -34,30 +35,67 @@ MAX_PAYLOAD = 100_000
 _CUT = "\n… [afgekapt: de payload was groter dan het logboek bewaart]"
 
 
+#: The values `status` takes (#978). Empty is not one of them: a row that does
+#: not say how the call went cannot be counted either way.
+STATUSES = ("ok", "blocked", "error", "moderated")
+
+
 def sink_for(actor: str = "") -> Callable[..., None]:
-    """A log sink for this caller."""
+    """A log sink for this caller.
+
+    Every field is named (#978). An unknown keyword is a TypeError rather than
+    something swallowed: a field that silently disappears is how a cost goes
+    missing from the total.
+
+    `tenant_id` is only for callers outside a request — a background job has no
+    tenant in its context, and the row would otherwise land on the default one.
+    """
 
     def write(*, surface: str, capability: str, model: str, payload: str,
               blocked_reason: str = "", usage: dict[str, int] | None = None,
-              **_extra: Any) -> None:
+              provider: str = "", endpoint: str = "", provider_request_id: str = "",
+              status: str = "", duration_ms: int | None = None,
+              cost_credits: Decimal | float | None = None,
+              cost_amount: Decimal | float | None = None,
+              cost_currency: str | None = None,
+              output_megapixels: Decimal | float | None = None,
+              tenant_id: int | None = None) -> None:
         text = payload if len(payload) <= MAX_PAYLOAD else payload[:MAX_PAYLOAD] + _CUT
         counts = usage or {}
+        status = status or ("blocked" if blocked_reason else "ok")
+        if status not in STATUSES:
+            raise ValueError(f"onbekende status voor het AI-logboek: {status!r}")
+        rij = AiCallLog(
+            surface=surface,
+            capability=capability or "",
+            actor=actor or "",
+            model=model or "",
+            payload=text,
+            tokens_prompt=counts.get("prompt"),
+            tokens_completion=counts.get("completion"),
+            blocked_reason=blocked_reason or "",
+            provider=(provider or "")[:32],
+            endpoint=(endpoint or "")[:128],
+            provider_request_id=(provider_request_id or "")[:128],
+            status=status,
+            duration_ms=duration_ms,
+            cost_credits=_decimal(cost_credits),
+            cost_amount=_decimal(cost_amount),
+            cost_currency=(cost_currency or None) and cost_currency.upper(),
+            output_megapixels=_decimal(output_megapixels),
+        )
+        if tenant_id is not None:
+            rij.tenant_id = tenant_id
         eigen = SessionLocal()
         try:
-            eigen.add(
-                AiCallLog(
-                    surface=surface,
-                    capability=capability or "",
-                    actor=actor or "",
-                    model=model or "",
-                    payload=text,
-                    tokens_prompt=counts.get("prompt"),
-                    tokens_completion=counts.get("completion"),
-                    blocked_reason=blocked_reason or "",
-                )
-            )
+            eigen.add(rij)
             eigen.commit()
         finally:
             eigen.close()
 
     return write
+
+
+def _decimal(value: Decimal | float | None) -> Decimal | None:
+    """Through `str`, so 4.5 is stored as 4.5 and not as its binary neighbour."""
+    return None if value is None else Decimal(str(value))

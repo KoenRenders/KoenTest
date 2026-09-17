@@ -20,6 +20,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import time
 
 from fastapi import APIRouter, WebSocket
 from starlette.websockets import WebSocketState
@@ -65,6 +66,49 @@ audio_budget = DailyAudioBudget(settings.stt_daily_audio_budget_bytes)
 # STT_MODE-waarden waarin de provider (Voxtral) effectief wordt aangesproken; in
 # 'browser_only' (default) blijft de provider dark en weigert de route.
 _PROVIDER_MODES = ("native_first", "provider_only")
+
+
+def _tenant_of(websocket: WebSocket) -> int:
+    """The department this socket belongs to.
+
+    The tenant middleware is HTTP-only, so a WebSocket arrives without one in its
+    context; resolved here the same way, or every dictation would be billed to
+    the default department.
+    """
+    from app.domains.mdm.api import platform_tenant_id, tenant_codes
+    from app.kernel.tenancy import parse_hostname_map, resolve_request
+
+    platform_hosts = {h.strip().lower() for h in settings.platform_hosts.split(",")
+                      if h.strip()}
+    tenant, _pad, _landing = resolve_request(
+        websocket.headers.get("host"), websocket.url.path,
+        websocket.cookies.get("raak_tenant"),
+        parse_hostname_map(settings.tenant_hostnames), platform_hosts,
+        tenant_codes(), platform_tenant_id())
+    return tenant
+
+
+def _log_ai_call(websocket: WebSocket, provider, *, status: str, duration_ms: int,
+                 audio_bytes: int, sample_rate: int) -> None:
+    """One row in the AI log per dictation session (#978).
+
+    The audio is not stored; its size and rate are — that is what the session
+    costs, and what the fold-out can honestly say about what left.
+    """
+    from app.domains.chatbot.api import sink_for
+
+    try:
+        sink_for()(
+            surface="public", capability="dictation",
+            model=getattr(provider, "model", "") or provider.name,
+            payload=f"[audio: {audio_bytes} bytes, {sample_rate} Hz]",
+            provider=getattr(provider, "vendor", "") or provider.name,
+            endpoint=getattr(provider, "endpoint", ""),
+            status=status, duration_ms=duration_ms,
+            tenant_id=_tenant_of(websocket),
+        )
+    except Exception:  # a log must not break the socket
+        logger.exception("Kon de STT-sessie niet in het AI-logboek zetten")
 
 
 @router.websocket("/stt/voxtral")
@@ -143,6 +187,7 @@ async def stt_voxtral(websocket: WebSocket) -> None:
     logger.info("STT-sessie: %d Hz", sample_rate)
 
     provider = get_stt_provider(sample_rate=sample_rate)
+    begin = time.monotonic()
 
     # #772: drie uitkomsten die er in de logs identiek uitzagen — de provider
     # weigerde het formaat, de provider aanvaardde het maar herkende geen spraak, of
@@ -245,6 +290,9 @@ async def stt_voxtral(websocket: WebSocket) -> None:
         except Exception:
             pump_task.cancel()
         _log_uitkomst()
+        _log_ai_call(websocket, provider, status="error" if provider_fout else "ok",
+                     duration_ms=int(round((time.monotonic() - begin) * 1000)),
+                     audio_bytes=session_bytes, sample_rate=sample_rate)
         if websocket.application_state == WebSocketState.CONNECTED:
             try:
                 await websocket.close(code=close_code, reason=close_reason)
