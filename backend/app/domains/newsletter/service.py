@@ -564,6 +564,14 @@ class ActivityFacts:
     prices: tuple
     # Took place already: its line has no registration link (CR-05 §3.15).
     is_past: bool = False
+    members_only: bool = False
+    end_time: Optional[object] = None
+    # The date rows as (start, end) — more than one for a recurring activity.
+    days: tuple = ()
+    # Where "inschrijven" and "inschrijvingen" lead; None when there is nothing
+    # to link (registration closed, or no participant list).
+    register_url: Optional[str] = None
+    registrations_url: Optional[str] = None
 
 
 def _activity_key(activity) -> str:
@@ -600,7 +608,7 @@ def activity_facts(db: Session, activity_ids, *, base_url: str,
 
     ``base_url`` makes the links absolute: they end up in a mail.
     """
-    from app.domains.activities.api import Activity, activities_from
+    from app.domains.activities.api import Activity, activities_from, registration_state
 
     wanted = {int(i) for i in (activity_ids or [])}
     if not wanted:
@@ -619,42 +627,112 @@ def activity_facts(db: Session, activity_ids, *, base_url: str,
         if start is None:
             continue
         key = _activity_key(activity)
+        page = f"{base_url}/activiteiten/{key}"
+        components = list(getattr(activity, "sub_registrations", []) or [])
+        is_full = bool(span and span.capacity and span.registered >= span.capacity)
+        is_past = (span.end if span else start) < (today or date.today())
+        # The same rules as the public card: register while it is open, and a
+        # participant list for an internal registration or an external list.
+        register_url = None
+        if components and not is_past and not is_full \
+                and registration_state(activity).value == "open":
+            external = [c.external_register_url for c in components if c.external_register_url]
+            register_url = external[0] if len(components) == 1 and external else page
+        registrations_url = None
+        if components and not is_past:
+            lists = [c.external_registrations_url for c in components
+                     if c.external_registrations_url]
+            internal = [c for c in components
+                        if not c.external_register_url and not c.external_registrations_url]
+            if lists and len(components) == 1:
+                registrations_url = lists[0]
+            elif internal or lists:
+                registrations_url = page
         out[activity.id] = ActivityFacts(
             id=activity.id, name=activity.name, start=start,
             end=span.end if span else start,
             start_time=first.start_time if first else None,
             location=activity.location or "",
-            url=f"{base_url}/activiteiten/{key}",
+            url=page,
             photos_url=(f"{base_url}/activiteiten/{key}/fotos"
                         if activity.id in albums else None),
-            is_full=bool(span and span.capacity and span.registered >= span.capacity),
+            is_full=is_full,
             prices=_prices_of(activity),
-            is_past=(span.end if span else start) < (today or date.today()))
+            is_past=is_past,
+            members_only=bool(getattr(activity, "members_only", False)),
+            end_time=first.end_time if first else None,
+            days=tuple((d.start_date, d.end_date or d.start_date) for d in dates),
+            register_url=register_url,
+            registrations_url=registrations_url)
     return out
 
 
-def activity_line_html(facts: ActivityFacts) -> str:
-    """The one line "Activiteit invoegen" writes (CR-05 §3.10).
+_MONTH_ONLY = ["", "januari", "februari", "maart", "april", "mei", "juni", "juli",
+               "augustus", "september", "oktober", "november", "december"]
+# From this many days on, a span reads as months ("juni-september") and not as
+# two dates — the photo hunt that runs all summer.
+LONG_SPAN_DAYS = 28
 
-    The same line the drafting uses for its activity markers, so a date or a
-    link in a letter always comes from here and never from a model.
+
+def _day(day: date) -> str:
+    return f"{_LONG_WEEKDAYS[day.weekday()]} {day.day} {_LONG_MONTHS[day.month]}"
+
+
+def when_text(facts: ActivityFacts) -> str:
+    """The date part of an activity line, the way the board wrote it by hand
+    (Koen, 17 September 2026):
+
+    - one day, with the hour or the hours: "vrijdag 12 juni 20u",
+      "zondag 16 augustus 7u45-19u45";
+    - two days in a row in one month: "vrijdag 27 en zaterdag 28 november";
+    - a few days: "vrijdag 18 september - zondag 20 september";
+    - a long run: "juni-september".
     """
-    parts = [_long_date(facts.start)]
-    if facts.end and facts.end != facts.start:
-        parts[0] = f"{_long_date(facts.start)} tot {_long_date(facts.end)}"
-    if facts.start_time:
-        parts.append(_clock(facts.start_time))
-    if facts.location:
-        parts.append(facts.location)
-    text = ", ".join(parts)
+    start, end = facts.start, facts.end or facts.start
+    if (end - start).days >= LONG_SPAN_DAYS:
+        first, last = _MONTH_ONLY[start.month], _MONTH_ONLY[end.month]
+        return first if first == last else f"{first}-{last}"
+    if end == start:
+        text = _day(start)
+        if facts.start_time:
+            text += " " + _clock(facts.start_time)
+            if facts.end_time:
+                text += "-" + _clock(facts.end_time)
+        return text
+    if (end - start).days == 1 and start.month == end.month:
+        return (f"{_LONG_WEEKDAYS[start.weekday()]} {start.day} en "
+                f"{_LONG_WEEKDAYS[end.weekday()]} {end.day} {_LONG_MONTHS[end.month]}")
+    return f"{_day(start)} - {_day(end)}"
+
+
+def activity_line_html(facts: ActivityFacts) -> str:
+    """The one line "Activiteit invoegen" writes (CR-05 §3.10), in the format the
+    board pasted into reports and letters for years (Koen, 17 September 2026):
+
+        Naam (enkel leden) | vrijdag 12 juni 20u Miloheem | inschrijven | inschrijvingen
+
+    The name links to the activity. "inschrijven" appears while registration is
+    open, "volzet" when it is full, and "inschrijvingen" when there is a
+    participant list; a past activity gets neither. The same line fills the
+    drafting's activity markers, so a date or a link in a letter always comes
+    from here and never from a model.
+    """
     esc = html_lib.escape
-    if facts.is_past:
-        link = ""
-    elif facts.is_full:
-        link = f" <em>{esc(_('volzet'))}</em>"
-    else:
-        link = f' <a href="{esc(facts.url)}">{esc(_("Schrijf je in"))}</a>'
-    return f"<strong>{esc(facts.name)}</strong> — {esc(text)}.{link}"
+    name = f'<a href="{esc(facts.url)}">{esc(facts.name)}</a>'
+    if facts.members_only:
+        name += f" {esc(_('(enkel leden)'))}"
+    when = when_text(facts)
+    if facts.location:
+        when += f" {facts.location}"
+    parts = [name, esc(when)]
+    if not facts.is_past:
+        if facts.is_full:
+            parts.append(f"<em>{esc(_('volzet'))}</em>")
+        elif facts.register_url:
+            parts.append(f'<a href="{esc(facts.register_url)}">{esc(_("inschrijven"))}</a>')
+        if facts.registrations_url:
+            parts.append(f'<a href="{esc(facts.registrations_url)}">{esc(_("inschrijvingen"))}</a>')
+    return " | ".join(parts)
 
 
 def photos_line_html(facts: ActivityFacts) -> str:
@@ -667,7 +745,8 @@ def photos_line_html(facts: ActivityFacts) -> str:
 
 
 def calendar_html(db: Session, *, base_url: str, today: Optional[date] = None) -> str:
-    """"Kalender invoegen": the activities of the coming weeks as a list."""
+    """"Kalender invoegen": the activities of the coming weeks, one line each,
+    in the same format as "Activiteit invoegen"."""
     from app.domains.activities.api import activities_from
 
     start = today or date.today()
@@ -676,17 +755,8 @@ def calendar_html(db: Session, *, base_url: str, today: Optional[date] = None) -
     if not spans:
         return f"<div>{html_lib.escape(_('Er staan de komende weken geen activiteiten gepland.'))}</div>"
     facts = activity_facts(db, [s.activity.id for s in spans], base_url=base_url, today=start)
-    esc = html_lib.escape
-    lines = []
-    for span in spans:
-        fact = facts.get(span.activity.id)
-        if fact is None:
-            continue
-        where = f", {esc(fact.location)}" if fact.location else ""
-        full = f" · <em>{esc(_('volzet'))}</em>" if fact.is_full else ""
-        lines.append(f'<li>{esc(short_date(fact.start))} — '
-                     f'<a href="{esc(fact.url)}">{esc(fact.name)}</a>{where}{full}</li>')
-    return f"<ul>{''.join(lines)}</ul>"
+    return "".join(f"<div>{activity_line_html(facts[s.activity.id])}</div>"
+                   for s in spans if s.activity.id in facts)
 
 
 def insertable_activities(db: Session, *, query: str = "", past: bool = False,

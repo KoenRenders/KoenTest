@@ -603,12 +603,12 @@ def test_een_nieuwe_brief_start_met_voorbije_en_volgende_activiteiten(db_session
 
 
 def test_een_voorbije_activiteit_krijgt_geen_inschrijflink(db_session):
-    voorbij = _activity(db_session, "Raak Café", days_ahead=-5)
-    komt = _activity(db_session, "Zo vader zo zoon", days_ahead=5)
+    voorbij = _activity(db_session, "Raak Café", days_ahead=-5, price="5")
+    komt = _activity(db_session, "Zo vader zo zoon", days_ahead=5, price="5")
     facts = nb.activity_facts(db_session, [voorbij.id, komt.id], base_url=BASE)
 
-    assert "Schrijf je in" not in nb.activity_line_html(facts[voorbij.id])
-    assert "Schrijf je in" in nb.activity_line_html(facts[komt.id])
+    assert "inschrijven" not in nb.activity_line_html(facts[voorbij.id])
+    assert "inschrijven" in nb.activity_line_html(facts[komt.id])
 
 
 def test_de_prompt_vraagt_eerst_terugblik_dan_vooruitblik():
