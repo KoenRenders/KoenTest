@@ -4,9 +4,10 @@
 **Status:** Shaped with Koen on 16 September 2026 (brainstorm on
 `feature/designstudio`); **restructured on 17 September 2026** to the change
 request template (`docs/change_request_template.md`) as its first example.
-**On hold:** before issues are written or anything is built, the CR gets a
-review from all sides with Fable 5.1 and a look at existing template tools
-for concepts worth borrowing. **Phase 0** (the registration deadline, B4 §3.8a)
+**Reviewed on 17 September 2026** (independent review and a template-tool
+survey, both in Koen's Nextcloud folder `designstudio/review/`); the
+rendering engine was then decided (Inkscape, B1.3). Not on a release yet,
+apart from **phase 0** (the registration deadline, B4 §3.8a)
 is #974 and assigned to **v2.5** (#925). The Design Studio itself is not on a
 release yet.
 **Applies to:** a new `designstudio` domain (backend + admin screens), a
@@ -170,7 +171,7 @@ The chatbot brief that produced the first two posters asks for:
 | Welcome line ("Iedereen welkom!") | 2 | design |
 | Explanation, one or two paragraphs | 1 | design |
 | Registration: link, QR code, deadline | 2 | activity |
-| Contact: website, e-mail, contact persons | 4 | the activity's contacts: members and/or the association |
+| Contact: website, e-mail, contact persons | 4 | the activity's contact persons (at most two); Raak's details when there are none |
 | Supporter / funder logos | 2 | media, kind `sponsor` |
 | Responsible publisher (V.U.) | 1 | out of scope for now (B4 §3.10) |
 | Image slot, optional inset image | 4 | design |
@@ -252,29 +253,30 @@ a US non-profit), Black Forest Labs (DE, EU endpoint), Mistral (FR), segno
 
 Derived by the CLI from the business requirements (A5) and Koen's decisions
 of 16 September 2026. These are design, not business input; MoSCoW here is
-the CLI's proposal.
+the CLI's proposal. Numbered FR to keep them apart from the business
+requirements R1–R10 in A5; the derived acceptance checks are DAC.
 
 | # | Requirement | MoSCoW | Source |
 |---|---|---|---|
-| R1 | A poster is made **from the activity**: title, dates, hours, place, price and registration link come from the portal and are never retyped. | Must | Koen, 16 Sep |
-| R2 | A poster follows the **Raak house style** (colours, permitted colour pairs, logo rules, Radio Canada Big) without the maker having to know the guide. | Must | Koen, style guide |
-| R3 | A poster can be **amended later** — add a line, change a photo — without starting over. | Must | Koen, 16 Sep |
-| R4 | A poster prints **borderless on A3 and A4** at home, with nothing cut off. | Must | Koen, 16 Sep |
-| R5 | The same design is available as an **Instagram image (4:5)**. | Must | Koen, 16 Sep |
-| R6 | A **final** design becomes the activity's poster on the public site. | Must | Koen, 16 Sep |
-| R7 | The unit can get a **generated illustration** in its own drawing style, with a choice of variants. | Should | Koen, 16 Sep |
-| R8 | A generated illustration never carries text, logos or a recognisable person. | Must | Koen, 16 Sep |
-| R9 | A **registration deadline** can be set on an activity, is enforced by the registration form, and appears on the poster. | Must | Koen, 16 Sep (#974) |
-| R10 | Contacts on a poster are **members chosen from the list** (with an optional other number or e-mail) or **Raak itself** — never typed. | Must | Koen, 16 Sep |
-| R11 | A changed activity fact **marks the design stale**; nothing re-renders silently. | Must | Koen, 16 Sep |
-| R12 | Several templates: photo-led, text flyer, illustration, recurring series. | Should | Koen, iterations 02–13 |
-| R13 | The unit's own **logo** and **drawing-style references** are uploaded by the unit, not shipped in the code. | Should | Koen, 16 Sep |
-| R14 | Suggested texts (subtitle, highlights) from an AI assistant. | Could | Koen, 16 Sep — later phase |
-| R15 | Facebook event cover and square formats. | Could | Koen, 16 Sep — later |
-| R16 | Print-shop output (bleed, crop marks, CMYK). | Won't (for now) | Koen, 16 Sep |
-| R17 | The responsible publisher (V.U.) on print. | Won't (for now) | Koen, 16 Sep |
-| R18 | Contacts on the public activity page. | Won't (for now) | Koen, 16 Sep |
-| R19 | A free-form editor (move boxes, Canva-like). | Won't | Koen, 16 Sep |
+| FR1 | A poster is made **from the activity**: title, dates, hours, place, price and registration link come from the portal and are never retyped. | Must | Koen, 16 Sep |
+| FR2 | A poster follows the **Raak house style** (colours, permitted colour pairs, logo rules, Radio Canada Big) without the maker having to know the guide. | Must | Koen, style guide |
+| FR3 | A poster can be **amended later** — add a line, change a photo — without starting over. | Must | Koen, 16 Sep |
+| FR4 | A poster prints **borderless on A3 and A4** at home, with nothing cut off. | Must | Koen, 16 Sep |
+| FR5 | The same design is available as an **Instagram image (4:5)**. | Must | Koen, 16 Sep |
+| FR6 | A **final** design becomes the activity's poster on the public site. | Must | Koen, 16 Sep |
+| FR7 | The unit can get a **generated illustration** in its own drawing style, with a choice of variants. | Should | Koen, 16 Sep |
+| FR8 | A generated illustration never carries text, logos or a recognisable person. | Must | Koen, 16 Sep |
+| FR9 | A **registration deadline** can be set on an activity, is enforced by the registration form, and appears on the poster. | Must | Koen, 16 Sep (#974) |
+| FR10 | Contacts on a poster are **members chosen from the list** (at most two, with an optional other number or e-mail) — never typed; with none, Raak's own details. | Must | Koen, 16–17 Sep |
+| FR11 | A changed activity fact **marks the design stale**; nothing re-renders silently. | Must | Koen, 16 Sep |
+| FR12 | Several templates: photo-led, text flyer, illustration, recurring series. | Should | Koen, iterations 02–13 |
+| FR13 | The unit's own **logo** and **drawing-style references** are uploaded by the unit, not shipped in the code. | Should | Koen, 16 Sep |
+| FR14 | Suggested texts (subtitle, highlights) from an AI assistant. | Could | Koen, 16 Sep — later phase |
+| FR15 | Facebook event cover and square formats. | Could | Koen, 16 Sep — later |
+| FR16 | Print-shop output (bleed, crop marks, CMYK). | Won't (for now) | Koen, 16 Sep |
+| FR17 | The responsible publisher (V.U.) on print. | Won't (for now) | Koen, 16 Sep |
+| FR18 | Contacts on the public activity page. | Won't (for now) | Koen, 16 Sep |
+| FR19 | A free-form editor (move boxes, Canva-like). | Won't | Koen, 16 Sep |
 
 ## B1.2 Functional acceptance — derived
 
@@ -284,18 +286,18 @@ Each is checked by a person on HDEV.
 
 | # | Criterion | Requirement |
 |---|---|---|
-| AC1 | Change the hour of an activity with a final design: the design shows "stale" on the activity page; after "Re-render" the new hour is on the A3 PDF. | R1, R11 |
-| AC2 | Every colour on a rendered poster is one of the eight guide colours or white (checked with a colour picker on three elements); the logo tile matches the chosen pair. | R2 |
-| AC3 | Add a line to a final design, re-render: the new PDF differs only in that line. | R3 |
-| AC4 | Print the A3 PDF borderless at home: no white edge, no text within the cropped margin (measured 2–5 mm on Koen's printer). | R4 |
-| AC5 | The Instagram image is 1080 × 1350 px and shows title, date, place and image without cropped text. | R5 |
-| AC6 | Mark a design final on an activity that already has a poster: a confirmation names the replacement; decline keeps the old poster; accept shows the new one on the public activity page. | R6 |
-| AC7 | Ask for illustrations: four variants arrive within a minute; none contains letters; the chosen one is on the poster. | R7, R8 |
-| AC8 | Set a deadline of yesterday: the public card shows "Inschrijvingen afgesloten" and a submitted form is refused; the poster prints "Inschrijven tot …". | R9 |
-| AC9 | Add a member as contact with another mobile number, and "Raak": the poster shows the member's name with the override, and Raak's website, e-mail and mobile without a name. | R10 |
-| AC10 | Upload an SVG logo with a script tag: refused with a clear message. | A6 security |
-| AC11 | Exceed the unit's monthly image budget: the request is refused before it is sent, and the remaining budget is shown. | A6 operations |
-| AC12 | The month's AI cost per unit is visible in the AI call log. | A6 reporting |
+| DAC1 | Change the hour of an activity with a final design: the design shows "stale" on the activity page; after "Re-render" the new hour is on the A3 PDF. | FR1, FR11 |
+| DAC2 | Every colour on a rendered poster is one of the eight guide colours or white (checked with a colour picker on three elements); the logo tile matches the chosen pair. | FR2 |
+| DAC3 | Add a line to a final design, re-render: the new PDF differs only in that line. | FR3 |
+| DAC4 | Print the A3 PDF borderless at home: no white edge, no text within the cropped margin (measured 2–5 mm on Koen's printer). | FR4 |
+| DAC5 | The Instagram image is 1080 × 1350 px and shows title, date, place and image without cropped text. | FR5 |
+| DAC6 | Mark a design final on an activity that already has a poster: a confirmation names the replacement; decline keeps the old poster; accept shows the new one on the public activity page. | FR6 |
+| DAC7 | Ask for illustrations: four variants arrive within a minute; none contains letters; the chosen one is on the poster. | FR7, FR8 |
+| DAC8 | Set a deadline of yesterday: the public card shows "Inschrijvingen afgesloten" and a submitted form is refused; the poster prints "Inschrijven tot …". | FR9 |
+| DAC9 | Add a member as contact with another mobile number: the poster shows the member's name with the override. Remove all contacts: the poster shows Raak's website, e-mail and mobile without a name. | FR10 |
+| DAC10 | Upload an SVG logo with a script tag: refused with a clear message. | A6 security |
+| DAC11 | Exceed the unit's monthly image budget: the request is refused before it is sent, and the remaining budget is shown. | A6 operations |
+| DAC12 | The month's AI cost per unit is visible in the AI call log. | A6 reporting |
 
 ## B1.3 Rendering engine — options compared (17 September 2026)
 
@@ -386,7 +388,7 @@ flowchart LR
     s4["Image panel: upload · archive · generate"]
     s5["Live preview per layout + overflow check"]
     s6["Finalise: renders stored, poster replaced after confirmation"]
-    s7["Downloads: A3/A4 PDF, 4:5 image"]
+    s7["Downloads: A3/A4 PDF, 4:5 image, editable SVG; upload of a reworked SVG"]
     s8["Stale flag + Re-render"]
   end
   p1 --> s1
@@ -688,8 +690,9 @@ crop marks, CMYK/PDF-X — is out of scope for now.**
   everywhere. The crop is not symmetrical, so an A3 that is correct on one
   printer is not proof for another; the edge-test page ships with the
   Design Studio as a download.
-- Adding a bleed variant later is cheap. The layout already extends its
-  colour fields to the edge, and WeasyPrint supports `@page { bleed }`.
+- Adding a bleed variant later is cheap: the layout already extends its
+  colour fields to the edge, and a bleed is a larger SVG page with the same
+  content, plus crop marks.
 
 **Colour: RGB, deliberately.** Koen asked for CMYK straight away if it is
 feasible, and otherwise a route that does not force a change of modules
@@ -699,7 +702,7 @@ later.
   PDF is converted back by the driver, and colours usually get worse.
 - CMYK matters for offset print, which is out of scope (above).
 - **The route to CMYK needs no module change.** A CMYK or PDF/X file is a
-  post-processing step on WeasyPrint's PDF: Ghostscript converts it with an
+  post-processing step on the rendered PDF: Ghostscript converts it with an
   ICC print profile. Ghostscript is an apt package and self-hosted, but its
   maintainer, Artifex, is US-based, so the Europe First comparison is made
   when that step is added. The CMYK and PMS
@@ -755,7 +758,7 @@ One place per fact:
   prices, registration link and QR code (from `slug`), registration
   deadline, contacts.
 - **From the organisation:** logo lockup, unit name, and — when the
-  association is a contact — its website, e-mail and mobile number.
+  activity has no contact persons — its website, e-mail and mobile number.
 - **Only on the design:**
   - a title override (for line breaks: "SPEELNAMIDDAG / EN / ZOMERBAR");
   - tagline, explanation, subtitle, recurrence line, highlights, welcome
@@ -852,7 +855,7 @@ activity.
   about that activity, so every design of it shows the same contacts.
   Changing a contact marks the final design stale (B4 §3.14), like a changed
   date.
-- **Two kinds of contact.** Each contact row points to exactly one party:
+- **A contact row is a member.**
   - **A member.** The name is shown. Mobile number and e-mail come from the
     person's `ContactDetail` rows, **unless the contact row overrides
     them**. Per channel, the row can also leave it off the poster —
@@ -866,8 +869,9 @@ activity.
   default when there are no rows. `organization_id` therefore drops out of
   the table.
 - **The picker follows the meeting circle** (CR-09). It has a search field
-  over names, a short result list and an "Add" button, plus one fixed
-  option, "Raak (de vereniging)". Added contacts form an ordered list; each
+  over names, a short result list and an "Add" button; with no contacts the
+  editor says "Zonder contactpersonen tonen we de gegevens van Raak". Added
+  contacts form an ordered list (at most two); each
   row has the two override fields, the two show toggles, and a remove
   button. The picker marks a member who has neither a mobile number nor an
   e-mail.
@@ -1301,8 +1305,7 @@ With **seed data only**, the "Illustratie" template must reproduce the
 structure of two of the examples in A4.3:
 
 - **a one-day activity:** date badge with a time range, five highlights, a
-  price badge, a supporter logo, and a footer with two contacts — one member
-  and the association;
+  price badge, a supporter logo, and a footer with two member contacts;
 - **a recurring activity with six dates:** recurrence line, dates grid,
   highlights, and an inset image.
 
@@ -1352,8 +1355,9 @@ The tests must be able to go red:
 
 ## B9. Prototype findings (16 September 2026)
 
-Six iterations of throwaway prototypes, rendered with the real stack
-(WeasyPrint 70, pypdfium2, segno, Radio Canada Big). The results and scripts
+Thirteen iterations of throwaway prototypes on the first engine
+(WeasyPrint 70, pypdfium2, segno, Radio Canada Big); the engine prototypes
+of 17 September are B9.1. The results and scripts
 are in Koen's Nextcloud project folder (`designstudio/iteraties/`) and not in
 this repository: they contain photos and test data from real posters. What the
 build takes from them:
@@ -1489,7 +1493,7 @@ build takes from them:
 | AI image provider | Black Forest Labs, with a limit | B4 §3.12 |
 | AI limit | configurable monthly budget, €50 while testing | B4 §3.12 |
 | Registration deadline | a real, enforced field on the activity — #974, v2.5 | B4 §3.8a |
-| Contacts | on the activity; a member (with overrides) or the association | B4 §3.9 |
+| Contacts | on the activity; at most two members (with overrides), else Raak's details | B4 §3.9 |
 | Who is a member | every person in a household | B4 §3.9 |
 | Contacts on the website | no — posters and social images only | B4 §3.9 |
 | Tagline on yellow tile | Indigo, as in the unit's yellow lockup | B4 §3.3 |
@@ -1506,8 +1510,8 @@ Open items are in B10.2 and the Q&A log.
    activity's archive; A3, A4 and 4:5; contacts; "final" becomes the poster
    after confirmation; AI images once #978 has landed. Later: Mistral text
    proposals, the Facebook cover, the square format.
-2. **Contacts** are stored in the Design Studio module, per activity, so the
-   activities module does not change. They can move to the activity later.
+2. ~~Contacts stored in the Design Studio module~~ — superseded: they are
+   on the activity (§3.9, Q11).
 3. **Caveat** (OFL) goes into the repository. Reference drawings per
    template and the unit logo are uploaded through the screen and never
    committed.
