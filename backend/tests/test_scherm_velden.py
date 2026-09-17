@@ -77,6 +77,7 @@ BIJZONDERE_WAARDEN = {
     "max_item_quantity": "50",
     "max_registrations_per_email": "3",
     "admin_chat_enabled": "1",
+    "site_header_color": "#005d29",
     "base_url": "https://voorbeeld.example",
     "privacy_url": "https://voorbeeld.example/privacy",
     "umami_src": "https://stats.example/script.js",

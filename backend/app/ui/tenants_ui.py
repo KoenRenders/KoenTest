@@ -36,6 +36,9 @@ BEKENDE_SLEUTELS = [
     # nu uit de organisatie. Komt er ooit een merknaam die van de statutaire naam
     # afwijkt, dan is dat een kolom op de organisatie en geen tenant-instelling.
     ("tagline", "Tagline", "Ondertitel in de header. Leeg = geen ondertitel (#519)."),
+    ("site_header_color", "Kleur van de kopbalk",
+     "Achtergrond van de kopbalk op de publieke site, als #rrggbb (bv. #005d29). "
+     "Moet donker genoeg zijn voor witte tekst. Leeg = de standaardkleur (#992)."),
     # #924: de sociale links staan bij de ORGANISATIE — ze bestaan ook als de
     # vereniging geen site heeft. Hier laten staan zou een tweede bewerkbare bron
     # zijn.

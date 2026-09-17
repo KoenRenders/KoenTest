@@ -109,7 +109,13 @@
      `nav_oob` in app/ui/__init__.py. #}
   {% set _oob = nav_oob(request) if request is defined else False %}
   <header class="sticky {{ 'top-6' if env_bar else 'top-0' }} z-40">
-    <nav class="bg-blue-700 text-white shadow-md" x-data="{ open: false }">
+    {# #992: the tenant's header colour, when set, overrides bg-blue-700 on the
+       <nav> — which holds both the wide and the mobile menu, so one place covers
+       both. On the <nav> and not on #site-nav-mobiel: the nav has no id and is
+       never an oob target, so htmx' settle (#726) cannot reset it, and a full
+       render always carries the right value. Validated as #rrggbb on write AND
+       on read (`tenant_site_header_color`), because this is a style attribute. #}
+    <nav class="bg-blue-700 text-white shadow-md"{% if site_header_color %} style="background-color: {{ site_header_color }}"{% endif %} x-data="{ open: false }">
       <div class="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
         <a href="{{ path_for("/") }}" class="hover:opacity-80">
           {# Woordmerk "RaaK" (huisstijl): kapitale R en K, kleine "aa" opgetrokken naar

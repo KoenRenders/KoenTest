@@ -606,7 +606,7 @@ def site_context(db, request=None) -> dict:
                 .filter(MediaAsset.kind == "sponsor", MediaAsset.is_active == True)  # noqa: E712
                 .order_by(MediaAsset.sort_order, MediaAsset.id).all())
     from app.kernel.tenant_config import (get_setting, tenant_display_name,
-                                          umami_tracking)
+                                          tenant_site_header_color, umami_tracking)
     from app.config import settings
 
     base_url = (get_setting(db, "base_url") or "").rstrip("/")
@@ -640,6 +640,9 @@ def site_context(db, request=None) -> dict:
             "og_image": None,
             "site_name": tenant_display_name(db),
             "site_tagline": get_setting(db, "tagline") or "",
+            # #992: the public header's own colour, or None for the shell's.
+            # Validated again on read, so it can go into a style attribute.
+            "site_header_color": tenant_site_header_color(db),
             # Het logo van de vereniging (#258), als het er is: de header toont het
             # in plaats van het ingetypte woordmerk, en de vergader-PDF gebruikt
             # hetzelfde logo. Eén bron, twee afnemers — daarom staat het bij de

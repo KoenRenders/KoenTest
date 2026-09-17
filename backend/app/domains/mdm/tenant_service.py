@@ -137,7 +137,8 @@ def update_tenant_settings(db, tenant_id: int, form: Mapping, *,
     schrijven: anders staat de helft van het formulier in de databank en de andere
     helft niet, en dan is de toestand na een tikfout onduidelijker dan ervoor.
     """
-    from app.kernel.tenant_config import set_setting
+    from app.kernel.tenant_config import (SITE_HEADER_COLOR_KEY, header_color_problem,
+                                          set_setting)
 
     def _tekst(key: str) -> str:
         waarde = form.get(key)
@@ -155,6 +156,13 @@ def update_tenant_settings(db, tenant_id: int, form: Mapping, *,
                 schoon[key] = _als_bedrag(ruw)
             elif key in GEHEEL_SLEUTELS:
                 schoon[key] = _als_geheel(ruw)
+            elif key == SITE_HEADER_COLOR_KEY:
+                # #992: refused, never repaired — the value goes into a style
+                # attribute, and the header text is white.
+                probleem = header_color_problem(ruw)
+                if probleem:
+                    raise ValueError(probleem)
+                schoon[key] = ruw.lower()
             else:
                 schoon[key] = ruw
         except ValueError as fout:
