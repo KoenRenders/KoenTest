@@ -6,7 +6,7 @@
 request template (`docs/change_request_template.md`) as its first example.
 **On hold:** before issues are written or anything is built, the CR gets a
 review from all sides with Fable 5.1 and a look at existing template tools
-for concepts worth borrowing. **Phase 0** (the registration deadline, B4 B4 §3.8a)
+for concepts worth borrowing. **Phase 0** (the registration deadline, B4 §3.8a)
 is #974 and assigned to **v2.5** (#925). The Design Studio itself is not on a
 release yet.
 **Applies to:** a new `designstudio` domain (backend + admin screens), a
