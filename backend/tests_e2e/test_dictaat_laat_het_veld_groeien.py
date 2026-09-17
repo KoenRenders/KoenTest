@@ -39,7 +39,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE  # noqa: E402
+from tests_e2e.schermen import BASE, pagina_klaar  # noqa: E402
 
 SJABLONEN = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                          "app", "domains", "chatbot", "templates")
@@ -81,13 +81,28 @@ def _open(page):
     veld dat hoog blijft staan.
     """
     page.goto("/raakje")
-    page.wait_for_selector("#raakje-vraag", timeout=5000)
+    pagina_klaar(page)
     veld = page.locator("#raakje-vraag")
     natuurlijk = veld.bounding_box()["height"]
     page.evaluate("""() => document.querySelector('#raakje-vraag')
         .dispatchEvent(new Event('input', { bubbles: true }))""")
-    page.wait_for_timeout(100)
+    # #997: the handler has run once it has set an inline height.
+    page.wait_for_function(
+        "() => document.querySelector('#raakje-vraag').style.height !== ''", timeout=5000)
     return veld, veld.bounding_box()["height"], natuurlijk
+
+
+def _hoogte_wordt(page, voorwaarde: str, arg, melding: str) -> None:
+    """Wait until the field's height meets `voorwaarde` (`(h, a) => …`) — #997.
+
+    The height must BECOME so; a timeout is the finding, reported as `melding`.
+    """
+    try:
+        page.wait_for_function(
+            f"a => ({voorwaarde})(document.querySelector('#raakje-vraag')"
+            f".getBoundingClientRect().height, a)", arg=arg, timeout=5000)
+    except Exception as fout:
+        raise AssertionError(melding) from fout
 
 
 def _knop(page):
@@ -160,10 +175,9 @@ def test_het_veld_volgt_ook_de_eindtekst(page):
     _stop_zoals_de_app(page)
     page.wait_for_function(
         "() => document.querySelector('#raakje-vraag').value.length < 100", timeout=10000)
-    page.wait_for_timeout(200)
 
-    assert veld.bounding_box()["height"] == hoogte_leeg, (
-        "het veld blijft hoog terwijl de eindtekst op één regel past")
+    _hoogte_wordt(page, "(h, a) => h === a", hoogte_leeg,
+                  "het veld blijft hoog terwijl de eindtekst op één regel past")
 
 
 def test_na_verzenden_staat_het_veld_weer_op_een_regel(page):
@@ -171,13 +185,18 @@ def test_na_verzenden_staat_het_veld_weer_op_een_regel(page):
     groen wanneer het veld na gebruik nooit meer dichtgaat."""
     veld, hoogte_leeg, natuurlijk = _open(page)
     veld.fill("Ik heb een vrij lange vraag over het lidmaatschap. " * 4)
-    page.wait_for_timeout(200)
-    assert veld.bounding_box()["height"] > hoogte_leeg  # voorwaarde van deze test
+    _hoogte_wordt(page, "(h, a) => h > a", hoogte_leeg,
+                  "voorwaarde van deze test: het veld groeit niet mee")
 
     veld.press("Enter")
     page.wait_for_function(
         "() => document.querySelector('#raakje-vraag').value === ''", timeout=10000)
-    page.wait_for_timeout(200)
+    try:
+        page.wait_for_function(
+            "() => document.querySelector('#raakje-vraag').style.height === 'auto'",
+            timeout=5000)
+    except Exception as fout:
+        raise AssertionError("de hoogte wordt na het verzenden niet teruggezet") from fout
 
     # De terugzetting gebeurt met `height = auto`, dus je landt op de natuurlijke
     # hoogte van 38 en niet op de 36 die de handler zou zetten. Waar het om gaat is

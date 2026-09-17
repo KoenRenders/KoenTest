@@ -25,7 +25,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE  # noqa: E402
+from tests_e2e.schermen import BASE, htmx_afgerond, pagina_klaar  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -40,7 +40,7 @@ def page():
 
 def _veld(page):
     page.goto("/raakje")
-    page.wait_for_selector("#raakje-vraag", timeout=5000)
+    pagina_klaar(page)
     return page.locator("#raakje-vraag")
 
 
@@ -49,7 +49,10 @@ def test_het_veld_groeit_mee_met_een_lange_vraag(page):
     hoogte_leeg = veld.bounding_box()["height"]
 
     veld.fill("Ik heb een vrij lange vraag over het lidmaatschap. " * 4)
-    page.wait_for_timeout(200)
+    # #997: wait for the growth itself; it failing to come is the finding.
+    page.wait_for_function(
+        "h => document.querySelector('#raakje-vraag').getBoundingClientRect().height > h",
+        arg=hoogte_leeg, timeout=5000)
 
     hoogte_vol = veld.bounding_box()["height"]
     assert hoogte_vol > hoogte_leeg, (
@@ -75,8 +78,9 @@ def test_enter_verstuurt(page):
     veld = _veld(page)
     veld.click()
     page.keyboard.type("Wanneer is de volgende activiteit?")
-    page.keyboard.press("Enter")
-    page.wait_for_timeout(1200)
+    # #997: Enter posts the form (hx-post); wait for that answer to be swapped in.
+    with htmx_afgerond(page):
+        page.keyboard.press("Enter")
 
     assert "\n" not in veld.input_value(), (
         "Enter zette een nieuwe regel in plaats van te versturen")
@@ -106,7 +110,7 @@ def test_de_microfoonknop_keert_terug_na_stoppen(page):
         };
     """)
     page.goto("/raakje")
-    page.wait_for_selector("[data-stt-target]", timeout=5000)
+    pagina_klaar(page)
     knop = page.locator("[data-stt-target]").first
 
     def inhoud():
@@ -115,13 +119,20 @@ def test_de_microfoonknop_keert_terug_na_stoppen(page):
     rust = inhoud()
     assert rust, "de knop is bij het laden al leeg"
 
+    # #997: each click must CHANGE the button; wait for that change instead of a
+    # fixed time. A timeout here is the finding the messages describe.
+    wordt = "([el, r, gelijk]) => { const h = el.innerHTML.trim(); " \
+            "return gelijk ? h === r : (h !== '' && h !== r); }"
     knop.click()
-    page.wait_for_timeout(300)
-    opnemen = inhoud()
-    assert opnemen and opnemen != rust, "de knop toont geen andere stand tijdens opnemen"
+    try:
+        page.wait_for_function(wordt, arg=[knop.element_handle(), rust, False], timeout=5000)
+    except Exception as fout:
+        raise AssertionError("de knop toont geen andere stand tijdens opnemen") from fout
 
     knop.click()
-    page.wait_for_timeout(300)
-    assert inhoud() == rust, (
-        "de knop keert niet terug naar de microfoon — ze blijft leeg of op het "
-        "vierkantje staan (#762)")
+    try:
+        page.wait_for_function(wordt, arg=[knop.element_handle(), rust, True], timeout=5000)
+    except Exception as fout:
+        raise AssertionError(
+            "de knop keert niet terug naar de microfoon — ze blijft leeg of op het "
+            "vierkantje staan (#762)") from fout

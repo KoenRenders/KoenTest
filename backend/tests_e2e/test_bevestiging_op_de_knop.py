@@ -12,17 +12,22 @@ Only a browser proves it: the server renders the same markup either way.
 Broken on purpose: the `submitter` lookup removed from the `htmx:confirm`
 handler → no dialog opens, the import request goes out on the first click, and
 both tests fail on the missing dialog (measured, 2 failed).
+
+#997: "cancel sends nothing" is an absence, so it is checked behind
+`netwerk_bijgewerkt` and not after 500 ms. Proved by making it happen: the
+confirm store's `cancel()` sending the request anyway → the first test fails on
+the import request (measured).
 """
 import os
 import re
 import sys
 
 import pytest
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, login_als_admin  # noqa: E402
+from tests_e2e.schermen import BASE, login_als_admin, netwerk_bijgewerkt  # noqa: E402
 
 VRAAG = "De volledige opbouw van dit formulier vervangen?"
 PAYLOAD = """{"title": "E2E geimporteerd", "status": "draft",
@@ -78,7 +83,8 @@ def test_importeren_vraagt_eerst_en_annuleren_laat_de_opbouw_staan(importkaart):
 
     page.get_by_text(VRAAG).wait_for(timeout=3_000)
     page.get_by_role("button", name="Annuleren").click()
-    page.wait_for_timeout(500)
+    expect(page.get_by_text(VRAAG)).to_be_hidden()
+    netwerk_bijgewerkt(page)
 
     assert imports == [], "the import went out although the user cancelled"
     assert page.get_by_text("Vraag uit de import").count() == 0

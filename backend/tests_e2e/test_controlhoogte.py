@@ -18,7 +18,7 @@ import os
 import sys
 
 import pytest
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -66,7 +66,9 @@ def test_input_en_select_zijn_even_hoog(admin_page):
     if knop.count() == 0:
         _ontbreekt("dit onderdeel heeft geen '+ Product'-vorm")
     knop.click()
-    admin_page.wait_for_timeout(200)
+    # #997: wait for the opened fields themselves, not for a fixed time.
+    expect(admin_page.locator(
+        'form[hx-post*="/producten"] input:not([type=hidden]):visible').first).to_be_visible()
 
     hoogtes = controlhoogtes(admin_page, 'form[hx-post*="/producten"]')
     if len(hoogtes) < 2:
@@ -88,7 +90,8 @@ def test_datum_en_tijdvelden_lopen_mee(admin_page):
         _ontbreekt("de activiteit heeft geen datumregel")
 
     scherm.bewerk_de_eerste_datum()
-    admin_page.wait_for_timeout(200)
+    expect(admin_page.locator(
+        'form[hx-post*="/datums/"] input:not([type=hidden]):visible').first).to_be_visible()
 
     hoogtes = controlhoogtes(admin_page, 'form[hx-post*="/datums/"]')
     if len(hoogtes) < 2:

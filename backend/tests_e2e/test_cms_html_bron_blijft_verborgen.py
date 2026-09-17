@@ -21,12 +21,16 @@ verklaring is gemeten en verworpen.
 
 De tweede test is de tegenproef: zonder haar staat de eerste ook groen wanneer de
 toggle gesloopt is in plaats van gerepareerd, en dan is de HTML-bron onbereikbaar.
+
+#997: `opslaan()` wacht tot htmx gesetteld is — precies het moment waarop #726
+toesloeg — in plaats van 800 ms. Gemeten: `style="display: none"` weg van
+`#cp-htmlsrc` → de eerste test valt om.
 """
 import os
 import sys
 
 import pytest
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -83,5 +87,5 @@ def test_de_html_bron_gaat_daarna_nog_steeds_open(admin_page):
     scherm.opslaan()
     scherm.toon_html_bron()
 
-    assert scherm.htmlbron().is_visible(), (
-        "de HTML-bron is na het opslaan niet meer te openen")
+    expect(scherm.htmlbron(),
+           "de HTML-bron is na het opslaan niet meer te openen").to_be_visible()
