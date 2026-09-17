@@ -758,8 +758,9 @@ the three series (1b) are alike but carry dates. Proposal: **one template,
 Photo or generated illustration is only the image; the look is the same.
 The "Beeld", "Tekstflyer", "Illustratie" and "Reeks" prototypes become
 **presets of block choices** within "Affiche", not separate templates. A
-second template only when a poster needs a different structure. **Koen
-decides** whether the pilot also includes generated illustrations (Q20). **A5 is not a separate
+second template only when a poster needs a different structure. **The
+pilot offers both image sources** (Koen, 17 September 2026, Q20): upload a
+photo, or have an illustration generated. **A5 is not a separate
 output:** it has the same ratio as A4, so the A4 PDF prints on A5 paper at
 reduced size.
 
@@ -1482,31 +1483,32 @@ Each phase ships on its own.
    - enforcement in the registration route;
    - the closed state and the "until" line on the public screens;
    - the admin field.
-1. **Engine and first template.**
-   - Domain, the contacts table, the media kinds, and the house-style
-     constant with its gate; Inkscape in the image; the SVG sanitiser.
-   - One template, **"Illustratie"** (the play-afternoon and walking-group
-     family), with the `print_a` layout (borderless A3 and A4 PDF) and the
-     `feed_portrait` layout (4:5).
-   - Images from upload or archive, QR code, contacts, supporter
-     logos.
+1. **Pilot: engine, the "Affiche" template, photos and generated images.**
+   - Domain, the contacts block on the activity, the media kinds, and the
+     house-style constant with its gate; Inkscape in the image; the SVG
+     sanitiser; the overflow prototype first (B4 §3.2).
+   - One content-driven template, **"Affiche"** (B4 §3.4), with the
+     `print_a` layout (borderless A3 and A4 PDF) and the `feed_portrait`
+     layout (4:5), covering the 1a and 1b target designs.
+   - Images from upload or archive **and generated illustrations** (BFL:
+     budget, kill switch, state machine, style references — Koen, 17 Sep,
+     Q20), QR code, contacts, supporter logos.
    - Draft, final, stale; the final design becomes the poster, after
      confirmation; downloads of PDF, PNG and SVG.
    - Upload of a reworked SVG ("handmatig bewerkt") with sanitising.
    - Logo upload with sanitising.
 2. **Text proposals** (Mistral).
-3. **AI illustrations** (BFL): quota, kill switch, audit, style references.
-4. **More templates and formats:**
-   - "Beeld" — a photo-led template like the father-and-son poster;
-   - "Tekstflyer" — the A4 text flyer from the Word template;
-   - the `landscape` layout (Facebook event cover and share image), the
-     `square` layout, and the `story` layout.
+3. **More formats:** the `landscape` layout (Facebook event cover and share
+   image; reference: Raak's Facebook banner, A4.4), the `square` layout,
+   and the `story` layout.
+4. **A second template**, only if a poster needs a structure "Affiche"
+   cannot give.
 
 New dependencies:
 - phase 1: Inkscape (apt, in the Dockerfile — named in the "Na de merge"
   block), `defusedxml`, `fontTools`, and a QR library — **`segno`** (BSD,
   pure Python, no dependencies);
-- phase 3: an HTTP client for BFL, which the codebase already has.
+- phase 1 also: an HTTP client for BFL, which the codebase already has.
 
 ## B8. Tests — what the build must reproduce
 
@@ -1788,7 +1790,7 @@ not asked twice. Open questions carry no answer yet.
 | Q17 | 17 Sep | One shared €50 budget or €50 per unit? (external review) | Both, layered: per-unit default plus a platform cap; for now all from the one FLUX budget (§3.12, Q14). |
 | Q18 | 17 Sep | May a hand-edited SVG leave the house style (gate warns only), or does the gate block with an admin override? (second external review) | **Warn only** (Koen, 17 Sep): the person may upload any poster, as today through the media screen. |
 | Q19 | 17 Sep | Removing the last contact person silently falls back to Raak's details — silent, or with a confirmation? And which module holds the contacts? (second external review; Koen) | **With a confirmation** (Koen, 17 Sep). Module: **the `activities` module**, entered on the activity's own screen; the Design Studio reads them through the facade. Empty shows nothing on the activity and the site; only the poster falls back to Raak's details (Koen, 17 Sep). |
-| Q20 | 17 Sep | Does the pilot include generated illustrations, or photos only? (CLI) | *open — Koen*. The 1a/1b targets are mostly photos; AI images are phase 3 in B7. |
+| Q20 | 17 Sep | Does the pilot include generated illustrations, or photos only? (CLI) | **Both** (Koen, 17 Sep): the person chooses to upload a photo or to generate. AI illustrations move from phase 3 into the pilot; #978 is on master. |
 
 ## Non-goals
 
