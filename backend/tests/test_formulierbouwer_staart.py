@@ -59,7 +59,11 @@ def test_zonder_losse_velden_staat_er_geen_lege_kaart(client, admin_headers):
 
     assert "Velden zonder sectie" not in html, (
         "de kaart staat er terwijl er geen losse velden zijn")
-    assert "+ Vraag (zonder sectie)" in html, "de knop is meeverdwenen"
+    # F16 (#996): een LEEG formulier toont de lege staat die bij de eerste
+    # vraag begint; de losse knop hoort daar niet naast (twee ingangen voor
+    # hetzelfde). Hij verschijnt pas zodra er secties zijn.
+    assert "+ Eerste vraag toevoegen" in html
+    assert "+ Vraag (zonder sectie)" not in html
 
 
 def test_met_losse_velden_blijft_de_kaart(client, admin_headers):

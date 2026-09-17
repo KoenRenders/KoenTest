@@ -44,8 +44,9 @@ def test_F30_conceptbadge_is_grijs():
     """Concept is een ontwerpstatus, geen openstaande handeling (§2.5)."""
     from pathlib import Path
 
+    # Sinds F15 draagt de recordkop de statusbadge.
     bron = (Path(__file__).resolve().parents[1] / "app" / "domains" / "forms"
-            / "templates" / "_fb_builder.html").read_text()
+            / "templates" / "_fb_recordkop.html").read_text()
     assert '_("concept"), "gray"' in bron
     assert '_("concept"), "yellow"' not in bron
 
@@ -116,3 +117,29 @@ def test_F24_migratie_vervangt_de_contactzin(db_session):
     assert inhoud.startswith("<p>Eigen intro.</p>")  # omliggende tekst blijft
     # Idempotent: nog eens draaien raakt niets meer.
     assert m.vervang(bind) == 0
+
+
+def test_F15_formulier_heeft_recordtabs(client, db_session):
+    """De twee grote navigatiekaarten zijn recordtabs geworden (golf-8-
+    patroon): Formulier · Inzendingen N · Resultaten, op alle drie de
+    pagina's; een htmx-verzoek naar de tabroutes blijft het kale fragment
+    krijgen (de verwijder-swap hangt daarvan af)."""
+    from app.domains.forms.api import Form
+
+    f = Form(title="Tabtest", share_token="tabtest-token-xyz")
+    db_session.add(f); db_session.commit()
+    _login(client)
+
+    basis = f"/admin/formulieren/{f.id}"
+    bouwer = client.get(basis).text
+    assert f'href="{basis}/inzendingen"' in bouwer and "Resultaten" in bouwer
+    assert "Toon inzendingen" not in bouwer  # de oude kaarten zijn weg
+
+    pagina = client.get(f"{basis}/inzendingen").text
+    assert "Tabtest" in pagina and f'href="{basis}/resultaten"' in pagina
+    fragment = client.get(f"{basis}/inzendingen",
+                          headers={"HX-Request": "true"}).text
+    assert "Resultaten" not in fragment  # kaal fragment, geen tabs/kop
+
+    resultaten = client.get(f"{basis}/resultaten").text
+    assert f'href="{basis}/inzendingen"' in resultaten

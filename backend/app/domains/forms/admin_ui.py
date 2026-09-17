@@ -164,14 +164,28 @@ def formulier_aanmaken(request: Request, db: Session = Depends(get_db),
                     headers={"HX-Redirect": f"/admin/formulieren/{form.id}"})
 
 
+def _form_tabs(form, aantal: int, actief: str) -> dict:
+    """De recordtabs van het formulier (F15, #996 — golf-8-patroon): de twee
+    grote navigatiekaarten onderaan de bouwer zijn hiermee vervangen."""
+    basis = f"/admin/formulieren/{form.id}"
+    return {"form_tabs": [
+        {"label": _("Formulier"), "href": basis, "active": actief == "formulier"},
+        {"label": _("Inzendingen"), "count": aantal,
+         "href": f"{basis}/inzendingen", "active": actief == "inzendingen"},
+        {"label": _("Resultaten"), "href": f"{basis}/resultaten",
+         "active": actief == "resultaten"},
+    ]}
+
+
 @router.get("/admin/formulieren/{form_id}", response_class=HTMLResponse)
 def formulier_builder(form_id: int, request: Request, db: Session = Depends(get_db),
                       email: str = Depends(require_admin_ui)):
     form = _form_or_404(db, form_id)
     if is_fragment_request(request):
         return _builder_response(request, db, form)
-    return templates.TemplateResponse(request, "admin_formulier_builder.html", {
-        "nav_items": NAV, **_builder_ctx(request, db, form)})
+    ctx = {"nav_items": NAV, **_builder_ctx(request, db, form)}
+    ctx.update(_form_tabs(form, ctx["submission_count"], "formulier"))
+    return templates.TemplateResponse(request, "admin_formulier_builder.html", ctx)
 
 
 @router.post("/admin/formulieren/{form_id}/verwijderen",
@@ -520,8 +534,13 @@ def inzendingen_tab(form_id: int, request: Request, db: Session = Depends(get_db
     form = _form_or_404(db, form_id)
     subs = list_submissions(db, form.id)
     rows = [{"submission": s, "answers": submission_view(db, s.id)} for s in subs]
-    return templates.TemplateResponse(request, "_fb_inzendingen.html", {
-        "form": form, "rows": rows, "csrf_token": csrf_from_request(request)})
+    ctx = {"form": form, "rows": rows, "csrf_token": csrf_from_request(request)}
+    # F15 (#996): een volwaardige tabpagina; de mutaties hieronder blijven het
+    # kale fragment swappen (#fb-inzendingen).
+    if is_fragment_request(request):
+        return templates.TemplateResponse(request, "_fb_inzendingen.html", ctx)
+    ctx.update({"nav_items": NAV, **_form_tabs(form, len(rows), "inzendingen")})
+    return templates.TemplateResponse(request, "admin_formulier_inzendingen.html", ctx)
 
 
 @router.post("/admin/formulieren/{form_id}/inzendingen/{submission_id}/verwijderen",
@@ -529,8 +548,14 @@ def inzendingen_tab(form_id: int, request: Request, db: Session = Depends(get_db
 def inzending_verwijderen(form_id: int, submission_id: int, request: Request,
                           db: Session = Depends(get_db),
                           email: str = Depends(require_admin_ui)):
+    from app.domains.forms.api import submission_view
+
     delete_submission(db, form_id, submission_id)
-    return inzendingen_tab(form_id, request, db=db, email=email)
+    form = _form_or_404(db, form_id)
+    subs = list_submissions(db, form.id)
+    rows = [{"submission": s, "answers": submission_view(db, s.id)} for s in subs]
+    return templates.TemplateResponse(request, "_fb_inzendingen.html", {
+        "form": form, "rows": rows, "csrf_token": csrf_from_request(request)})
 
 
 @router.get("/admin/formulieren/{form_id}/export")
@@ -551,8 +576,12 @@ def resultaten_tab(form_id: int, request: Request, db: Session = Depends(get_db)
     from app.domains.forms.results import compute_results
 
     form = _form_or_404(db, form_id)
-    return templates.TemplateResponse(request, "_fb_resultaten.html", {
-        "form": form, "results": compute_results(db, form)})
+    ctx = {"form": form, "results": compute_results(db, form)}
+    if is_fragment_request(request):
+        return templates.TemplateResponse(request, "_fb_resultaten.html", ctx)
+    ctx.update({"nav_items": NAV,
+                **_form_tabs(form, submission_count(db, form.id), "resultaten")})
+    return templates.TemplateResponse(request, "admin_formulier_resultaten.html", ctx)
 
 
 @router.get("/admin/formulieren/{form_id}/json")

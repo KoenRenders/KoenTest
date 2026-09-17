@@ -1,0 +1,9 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ form.title }} — {{ _("resultaten") }}{% endblock %}
+{% block content %}
+{% include "_fb_recordkop.html" %}
+<div id="fb-resultaten">
+  {% include "_fb_resultaten.html" %}
+</div>
+{% endblock %}
