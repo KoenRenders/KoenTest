@@ -8,7 +8,7 @@ and a send of one mail per recipient in a queue under a daily cap.
 
 - **Subscribers:** `subscribe_public`, `confirm`, `unsubscribe`, `resubscribe`,
   `add_by_admin`, `unsubscribe_by_admin`, `erase`, `list_subscribers`,
-  `subscriber_counts`, `preview_import`, `run_import`, `imported_without_letter`.
+  `subscriber_counts`, `preview_import`, `run_import`.
 - **Audiences:** `member_addresses`, `recipients_for`, `audience_counts`.
 - **Letters:** `create_newsletter`, `update_draft`, `set_draft_sources`,
   `copy_newsletter`, `delete_draft`, `list_newsletters`, `get_newsletter`.

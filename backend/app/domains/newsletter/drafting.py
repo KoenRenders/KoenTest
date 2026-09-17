@@ -71,7 +71,9 @@ MAX_TOOL_ROUNDS = 3
 # the guard need not scan it for names (CR-07's rule; proven by a test).
 SCAN_PROMPT_NAMES = False
 
-_MARKER = re.compile(r"\[\[(activiteit|fotos):(\d+)\]\]")
+_MARKER = re.compile(r"\[\[(activiteit|fotos|naam):(\d+)\]\]")
+# The blank line between blocks, the way Trix writes one.
+BLANK = "<div><br></div>"
 _NUMBER = re.compile(r"\d+(?:[.,:]\d+)*")
 _AMOUNT = re.compile(r"(?:€\s*(\d+(?:[.,]\d{1,2})?))|(?:(\d+(?:[.,]\d{1,2})?)\s*(?:euro|eur)\b)",
                      re.IGNORECASE)
@@ -267,18 +269,21 @@ WAT JE DOET
 - De FEITEN komen uitsluitend uit de BRONNEN die je krijgt, en uit de leestools voor activiteiten. Staat iets niet in een bron, schrijf het dan niet. Weglaten is altijd beter dan aanvullen.
 
 VASTE REGELS
-- Schrijf NOOIT zelf een datum, een uur, een plaats, een inschrijflink of een fotolink. Zet in de plaats daarvan een markering op een eigen regel: [[activiteit:ID]] voor de regel met datum, uur, plaats en inschrijflink van activiteit ID, en [[fotos:ID]] voor de link naar het fotoalbum van activiteit ID. Het portaal vult die in.
+- Schrijf NOOIT zelf een datum, een uur, een plaats, een inschrijflink of een fotolink. Zet in de plaats daarvan een markering op een EIGEN regel: [[activiteit:ID]] voor de regel met datum, uur, plaats en inschrijflink van activiteit ID, en [[fotos:ID]] voor de link naar het fotoalbum van activiteit ID. Het portaal vult die in. Verwijs daarom nooit met "hier" of "hieronder" naar een link.
+- Noem je een activiteit midden in een zin, schrijf dan [[naam:ID]]: het portaal zet daar de naam van de activiteit in het vet. Schrijf de naam dan niet zelf, en bouw de zin zo dat hij klopt MET die naam erin. Een naam is een eigennaam, ook als hij als een zin klinkt: schrijf "tijdens [[naam:12]]" of "op [[naam:12]]", nooit een zin waarin de naam als werkwoord of onderwerp moet werken.
 - Noem nooit personen en bedank nooit individuele organisatoren of vrijwilligers. [naam] betekent dat er een naam weggehaald is: neem die nooit over en raad nooit wie het was.
 - Geef niemand een functie of rol die niet letterlijk in een bron staat.
 - Verzin geen programma-onderdelen, spelletjes, gerechten, prijzen of aantallen. Een bedrag noem je alleen zoals het in de activiteitgegevens staat.
-- Schrijf geen afsluiting of groet onderaan: het portaal zet die er zelf onder.
-- Kopjes schrijf je als een regel die begint met "# ". Vet schrijf je als **zo**.
+- Schrijf geen aanhef ("Beste,") en geen afsluiting of groet: het portaal zet die er zelf bij.
+- Deel de brief op in onderwerpen. Elk onderwerp begint met een kopje: een regel die begint met "# ". Daaronder één tot drie korte zinnen, en daarna de markeringen van de activiteiten van dat onderwerp, elk op een eigen regel. Vet schrijf je als **zo**.
+- Schrijf correct Nederlands. Lees elke zin na voor je antwoordt: geen woord dat twee keer staat ("er op ... op uit"), geen ontbrekend voegwoord of lidwoord, en elke zin moet kloppen zoals hij er staat.
 
 ANTWOORD
 Antwoord met één JSON-object en niets anders.
-- Voor een volledige brief: {"reply": "één korte zin voor de auteur", "subject": "onderwerp", "paragraphs": ["alinea", "..."]}
-- Voor een wijziging aan de bestaande brief: {"reply": "één korte zin", "subject": null of een nieuw onderwerp, "operations": [{"op": "replace", "paragraph": N, "text": "..."}, {"op": "insert_after", "paragraph": N, "text": "..."}, {"op": "remove", "paragraph": N}]}
-  De alinea's van de bestaande brief zijn genummerd vanaf 1; "insert_after" met paragraph 0 zet iets bovenaan.
+- Voor een volledige brief: {"reply": "één korte zin voor de auteur", "subject": "onderwerp", "paragraphs": ["regel", "..."]}
+- Voor een stuk tekst: {"reply": "één korte zin", "text": "de tekst"}
+  Als de auteur tekst SELECTEERDE, herschrijf je alleen die tekst: je antwoord vervangt de selectie, dus geef enkel de nieuwe versie van dat stuk.
+  Selecteerde de auteur niets, dan schrijf je een stuk dat op de plaats van de CURSOR komt; je krijgt de tekst vlak voor de cursor, zodat je stuk er goed op aansluit.
 """
 
 VERIFY_PROMPT = """Je controleert een voorstel voor een nieuwsbrief tegen de BRONNEN. Je schrijft zelf niets bij.
@@ -335,8 +340,13 @@ def _inline(text: str) -> str:
 
 
 def _paragraph_html(text: str, facts: dict[int, Any]) -> str:
-    """Model text → editor HTML, with every marker filled in by the server."""
-    blocks = []
+    """Model text → editor HTML, with every marker filled in by the server.
+
+    A heading starts a new topic and gets a blank line above it, except at the
+    very top (Koen, 17 September 2026: space between the topics). An inline
+    ``[[naam:ID]]`` becomes the activity's name in bold.
+    """
+    blocks: list[str] = []
     for line in (text or "").splitlines():
         line = line.strip()
         if not line:
@@ -352,14 +362,32 @@ def _paragraph_html(text: str, facts: dict[int, Any]) -> str:
             if html:
                 blocks.append(f"<div>{html}</div>")
             continue
-        line = _MARKER.sub("", line).strip()
-        if not line:
+        heading = line.startswith("# ")
+        body = _with_names(line[2:].strip() if heading else line, facts)
+        if not body:
             continue
-        if line.startswith("# "):
-            blocks.append(f"<div><strong>{_inline(line[2:].strip())}</strong></div>")
+        if heading:
+            if blocks:
+                blocks.append(BLANK)
+            blocks.append(f"<div><strong>{body}</strong></div>")
         else:
-            blocks.append(f"<div>{_inline(line)}</div>")
+            blocks.append(f"<div>{body}</div>")
     return "".join(blocks)
+
+
+def _with_names(line: str, facts: dict[int, Any]) -> str:
+    """Escape a prose line; an inline name marker becomes the name in bold.
+    Any other marker inside a sentence is dropped — its line belongs on its own."""
+    out = []
+    position = 0
+    for match in _MARKER.finditer(line):
+        out.append(_inline(line[position:match.start()]))
+        fact = facts.get(int(match.group(2)))
+        if match.group(1) == "naam" and fact is not None:
+            out.append(f"<strong>{html_lib.escape(fact.name)}</strong>")
+        position = match.end()
+    out.append(_inline(line[position:]))
+    return re.sub(r"\s{2,}", " ", "".join(out)).strip()
 
 
 def _marker_ids(texts: list[str]) -> set[int]:
@@ -479,9 +507,22 @@ def _dispatcher(names: set[str], collected: list[str]) -> Callable[[str, dict, S
     return dispatch
 
 
+MODE_LETTER = "letter"
+MODE_INSERT = "insert"
+MODE_REPLACE = "replace"
+
+
 def ask(db: Session, letter: Newsletter, *, instruction: str, actor: str,
-        base_url: str, selection: str = "") -> Turn:
-    """One request: the whole letter when it is empty, pieces otherwise.
+        base_url: str, selection: str = "", selection_range: str = "",
+        before_cursor: str = "") -> Turn:
+    """One request to Raakje.
+
+    Where the answer goes is decided by the author, not by the model (Koen,
+    17 September 2026):
+
+    - an empty letter → a whole letter;
+    - a selection → a rewrite of exactly that text, which replaces it;
+    - otherwise → a piece of text that goes where the cursor stands.
 
     Raises ``DraftingError`` for a proposal that cannot be used, and lets the
     kernel's ``SeamBlocked`` / ``ChatTimeout`` through for the screen.
@@ -494,17 +535,26 @@ def ask(db: Session, letter: Newsletter, *, instruction: str, actor: str,
     instruction = (instruction or "").strip()
     names = _names(db)
     sources = gather_sources(db, letter, instruction=instruction, names=names)
-    whole = not sources.letter
+    chosen = (selection or "").strip()
+    if not sources.letter:
+        mode = MODE_LETTER
+    elif chosen:
+        mode = MODE_REPLACE
+    else:
+        mode = MODE_INSERT
 
-    request = instruction or (_("Schrijf een volledige nieuwsbrief.") if whole
-                              else _("Verbeter de brief."))
-    if selection.strip():
-        target = scrub(selection.strip(), names)
-        match = next((i for i, p in enumerate(sources.letter, 1) if target[:40] in p), None)
-        if match:
-            request += "\n" + _("(Dit gaat over alinea %(n)s.)") % {"n": match}
-    request += "\n" + (_("Geef een volledige brief (paragraphs).") if whole
-                       else _("Geef wijzigingen (operations)."))
+    if mode == MODE_LETTER:
+        request = (instruction or _("Schrijf een volledige nieuwsbrief.")) + "\n" + \
+            _("Geef een volledige brief (paragraphs).")
+    elif mode == MODE_REPLACE:
+        request = (instruction or _("Herschrijf deze tekst.")) + "\n" + \
+            _("GESELECTEERDE TEKST (je antwoord vervangt precies dit):") + "\n" + chosen + \
+            "\n" + _("Geef enkel de nieuwe versie (text).")
+    else:
+        context = (before_cursor or "").strip()[-400:]
+        request = (instruction or _("Schrijf een stuk voor de brief.")) + "\n" + \
+            _("TEKST VLAK VOOR DE CURSOR:") + "\n" + (context or _("(de cursor staat bovenaan)")) + \
+            "\n" + _("Geef het stuk dat op de cursor komt (text).")
 
     messages = [{"role": "system", "content": SYSTEM_PROMPT},
                 {"role": "user", "content": _sources_message(sources)},
@@ -521,61 +571,50 @@ def ask(db: Session, letter: Newsletter, *, instruction: str, actor: str,
     data = _parse_json(answer)
 
     proposal = build_proposal(db, letter, data, sources=sources, names=names,
-                              base_url=base_url, whole=whole)
+                              base_url=base_url, mode=mode)
+    if mode == MODE_REPLACE:
+        proposal["selected"] = chosen[:2000]
+        proposal["range"] = _range(selection_range)
     verify(db, proposal, sources=sources, provider=provider, names=names)
     return Turn(reply=str(data.get("reply") or "").strip()[:500], proposal=proposal)
 
 
+def _range(raw: str) -> Optional[list[int]]:
+    """``"start,end"`` from the editor, or None when it does not parse."""
+    try:
+        start, end = (int(part) for part in (raw or "").split(","))
+    except ValueError:
+        return None
+    return [start, end] if 0 <= start < end else None
+
+
 def build_proposal(db: Session, letter: Newsletter, data: dict[str, Any], *,
                    sources: Sources, names: set[str], base_url: str,
-                   whole: bool) -> dict[str, Any]:
+                   mode: str) -> dict[str, Any]:
     """The model's JSON → a proposal the screen can show and apply."""
-    ops: list[dict[str, Any]] = []
-    if whole or "paragraphs" in data and not data.get("operations"):
+    if mode == MODE_LETTER:
         parts = [str(t) for t in (data.get("paragraphs") or []) if str(t).strip()]
-        if not parts:
-            raise DraftingError(_("Raakje gaf een leeg voorstel. Probeer het opnieuw."))
-        ops = [{"op": "insert_after", "paragraph": 0, "text": "\n\n".join(parts)}]
-        kind = "draft"
+        text = "\n".join(parts)
     else:
-        count = len(sources.letter)
-        for raw in data.get("operations") or []:
-            if not isinstance(raw, dict):
-                continue
-            op = raw.get("op")
-            try:
-                number = int(str(raw.get("paragraph")))
-            except (TypeError, ValueError):
-                continue
-            if op not in ("replace", "insert_after", "remove"):
-                continue
-            if op == "insert_after" and not 0 <= number <= count:
-                continue
-            if op in ("replace", "remove") and not 1 <= number <= count:
-                continue
-            text = str(raw.get("text") or "") if op != "remove" else ""
-            if op != "remove" and not text.strip():
-                continue
-            ops.append({"op": op, "paragraph": number, "text": text})
-        if not ops and not data.get("subject"):
-            raise DraftingError(_("Raakje stelde geen wijziging voor. Zeg anders wat er moet veranderen."))
-        kind = "edit"
+        text = str(data.get("text") or "")
+        if not text.strip() and data.get("paragraphs"):
+            text = "\n".join(str(t) for t in data["paragraphs"] if str(t).strip())
+    if not text.strip():
+        raise DraftingError(_("Raakje gaf een leeg voorstel. Probeer het opnieuw."))
+    ops: list[dict[str, Any]] = [{"op": mode, "index": 0, "text": text}]
 
-    ids = set(sources.activity_ids) | _marker_ids([o["text"] for o in ops])
+    ids = set(sources.activity_ids) | _marker_ids([text])
     facts = nb.activity_facts(db, ids, base_url=base_url)
     prices = {p for f in facts.values() for p in f.prices}
-    texts = {i: o["text"] for i, o in enumerate(ops) if o["text"]}
-    raw_marks: list[dict[str, Any]] = []
-    for index, text in texts.items():
-        for mark in deterministic_marks(text, sources, prices, names):
-            raw_marks.append({**mark, "index": index})
-    for index, op in enumerate(ops):
-        op["index"] = index
-        op["html"] = _paragraph_html(op["text"], facts)
-    subject = data.get("subject")
-    return {"kind": kind, "subject": scrub(str(subject), names).strip()[:500] if subject else None,
-            "operations": ops, "marks": _attach(raw_marks, texts),
+    raw_marks: list[dict[str, Any]] = [
+        {**mark, "index": 0} for mark in deterministic_marks(text, sources, prices, names)]
+    ops[0]["html"] = _paragraph_html(text, facts)
+    subject = data.get("subject") if mode == MODE_LETTER else None
+    return {"kind": mode,
+            "subject": scrub(str(subject), names).strip()[:500] if subject else None,
+            "operations": ops, "marks": _attach(raw_marks, {0: text}),
             "facts": sorted(facts), "snapshot": nb_snapshot(letter.body_html),
+            "names": {str(i): scrub(f.name, names) for i, f in facts.items()},
             "status": "open"}
 
 
@@ -591,8 +630,15 @@ def verify(db: Session, proposal: dict[str, Any], *, sources: Sources, provider,
         return
     # Scrubbed like everything else that leaves: a name the model wrote itself
     # would otherwise block this call. It is marked by layer 3 anyway.
-    # Numbered from 1, as a reader counts; mapped back below.
-    listing = "\n".join(f"{i + 1}. {scrub(_MARKER.sub('[markering]', t), names)}"
+    # Numbered from 1, as a reader counts; mapped back below. A name marker
+    # shows the name, so the verifier reads the sentence as it will stand.
+    labels = proposal.get("names") or {}
+
+    def readable(text: str) -> str:
+        return _MARKER.sub(lambda m: labels.get(m.group(2), "[markering]")
+                           if m.group(1) == "naam" else "[markering]", text)
+
+    listing = "\n".join(f"{i + 1}. {scrub(readable(t), names)}"
                         for i, t in texts.items())
     messages = [{"role": "system", "content": VERIFY_PROMPT},
                 {"role": "user", "content": _sources_message(sources)
@@ -643,71 +689,65 @@ def _without(text: str, sentences: list[str]) -> str:
     return re.sub(r"[ \t]{2,}", " ", text).strip()
 
 
+@dataclass
+class Applied:
+    """What the editor does with an applied proposal."""
+
+    html: str
+    placement: str            # "replace" (whole letter), "cursor" or "selection"
+    range: Optional[list[int]] = None
+
+
 def apply(db: Session, letter: Newsletter, message: DraftingMessage, *,
           keep: set[int], body_html: str, base_url: str,
-          placement: str = "replace") -> str:
-    """The letter as it becomes when this proposal is applied.
+          placement: str = "replace") -> Applied:
+    """The HTML the editor takes over, and where it goes.
 
     A marked sentence is left out unless its mark id is in ``keep``
-    (CR-05 §3.16, layer 5). An edit is refused when the letter changed since
-    the proposal was made: its paragraph numbers would point elsewhere.
+    (CR-05 §3.16, layer 5). The server never rewrites the letter itself for a
+    piece of text: the editor inserts it at the cursor or over the selection,
+    through Trix, so undo keeps working and autosave stores the result.
 
-    Returns the HTML the editor takes over. For a whole draft with
-    ``placement="cursor"`` that is only the proposal, to insert at the cursor.
+    A replacement is refused when the letter changed since the proposal was
+    made: the remembered selection would point at other text.
     """
+    from app.domains.cms.api import sanitize_cms_html
+
     proposal = dict(message.proposal or {})
     if proposal.get("status") != "open":
         raise DraftingError(_("Dit voorstel is al afgehandeld."))
     nb.update_draft(db, letter, subject=letter.subject, body_html=body_html,
                     audience=letter.audience)
-    drop: dict[int, list[str]] = {}
-    for mark in proposal.get("marks") or []:
-        if mark["id"] not in keep:
-            drop.setdefault(mark["index"], []).append(mark["sentence"])
-
+    drop: list[str] = [m["sentence"] for m in proposal.get("marks") or []
+                       if m["id"] not in keep]
     facts = nb.activity_facts(db, proposal.get("facts") or [], base_url=base_url)
-    rendered = {}
-    for op in proposal.get("operations") or []:
-        text = _without(op["text"], drop.get(op["index"], []))
-        rendered[op["index"]] = _paragraph_html(text, facts)
+    operation = (proposal.get("operations") or [{}])[0]
+    html = _paragraph_html(_without(operation.get("text") or "", drop), facts)
+    kind = proposal.get("kind")
 
-    closing = nb.closing_html(db)
-    if proposal.get("kind") == "draft":
-        html = rendered.get(0, "")
-        result = html if placement == "cursor" else html + closing
+    if kind == MODE_LETTER and placement != "cursor":
+        # A whole letter gets its greeting and its closing from the portal, each
+        # set apart by a blank line (Koen, 17 September 2026).
+        result = Applied(html=nb.greeting_html() + BLANK + html + BLANK + nb.closing_html(db),
+                         placement="replace")
+        if proposal.get("subject"):
+            letter.subject = proposal["subject"]
+    elif kind == MODE_REPLACE:
+        if proposal.get("snapshot") != nb_snapshot(letter.body_html) or not proposal.get("range"):
+            raise DraftingError(_("De brief veranderde sinds dit voorstel. Selecteer de "
+                                  "tekst opnieuw en vraag het Raakje nog eens."))
+        result = Applied(html=html, placement="selection", range=proposal["range"])
     else:
-        if proposal.get("snapshot") != nb_snapshot(letter.body_html):
-            raise DraftingError(_("De brief veranderde sinds dit voorstel. Vraag het "
-                                  "Raakje opnieuw, dan werkt het op de tekst van nu."))
-        blocks = paragraphs(letter.body_html)
-        inserts: dict[int, list[str]] = {}
-        replaced: dict[int, str] = {}
-        removed: set[int] = set()
-        for op in proposal.get("operations") or []:
-            if op["op"] == "insert_after":
-                inserts.setdefault(op["paragraph"], []).append(rendered[op["index"]])
-            elif op["op"] == "replace":
-                replaced[op["paragraph"]] = rendered[op["index"]]
-            else:
-                removed.add(op["paragraph"])
-        out = list(inserts.get(0, []))
-        for number, block in enumerate(blocks, 1):
-            if number not in removed:
-                out.append(replaced.get(number, block))
-            out.extend(inserts.get(number, []))
-        result = "".join(out)
+        result = Applied(html=html, placement="cursor")
+        if kind == MODE_LETTER and proposal.get("subject") and not letter.subject:
+            letter.subject = proposal["subject"]
 
-    if proposal.get("subject") and (placement != "cursor" or not letter.subject):
-        letter.subject = proposal["subject"]
     proposal["status"] = "applied"
     proposal["kept"] = sorted(keep)
     message.proposal = proposal
-    new_body = result if placement != "cursor" else letter.body_html
-    nb.update_draft(db, letter, subject=letter.subject, body_html=new_body,
-                    audience=letter.audience)
-    from app.domains.cms.api import sanitize_cms_html
-
-    return sanitize_cms_html(result) or ""
+    db.commit()
+    result.html = sanitize_cms_html(result.html) or ""
+    return result
 
 
 def dismiss(db: Session, message: DraftingMessage) -> None:
@@ -763,33 +803,26 @@ def display(db: Session, letter: Newsletter, message: DraftingMessage) -> dict[s
         def chip(match: re.Match) -> str:
             kind, activity_id = match.group(1), int(match.group(2))
             name = html_lib.escape(names.get(activity_id, str(activity_id)))
+            if kind == "naam":
+                return f"<strong>{name}</strong>"
             label = (_("datum, plaats en inschrijflink van %(n)s") if kind == "activiteit"
                      else _("link naar de foto's van %(n)s")) % {"n": name}
             return f'<span class="text-ink-soft italic">[{label}]</span>'
 
-        out = re.sub(r"\[\[(activiteit|fotos):(\d+)\]\]", chip, out)
+        out = _MARKER.sub(chip, out)
         return out.replace("\n", "<br>")
 
+    kind = proposal.get("kind")
+    label = {MODE_LETTER: _("Volledige brief"), MODE_REPLACE: _("Vervangt je selectie"),
+             MODE_INSERT: _("Komt waar je cursor staat")}.get(str(kind), _("Voorstel"))
     operations = []
     for op in proposal.get("operations") or []:
-        number = op.get("paragraph", 0)
-        if proposal.get("kind") == "draft":
-            label = _("Volledige brief")
-        elif op["op"] == "replace":
-            label = _("Vervang alinea %(n)s") % {"n": number}
-        elif op["op"] == "remove":
-            label = _("Schrap alinea %(n)s") % {"n": number}
-        elif number == 0:
-            label = _("Invoegen bovenaan")
-        else:
-            label = _("Invoegen na alinea %(n)s") % {"n": number}
-        old = (current[number - 1] if unchanged and op["op"] in ("replace", "remove")
-               and 0 < number <= len(current) else "")
-        operations.append({"label": label, "old": old,
+        operations.append({"label": label,
+                           "old": proposal.get("selected", "") if kind == MODE_REPLACE else "",
                            "new_html": shown(op.get("text") or "", marks_by_op.get(op["index"], [])),
                            "marks": marks_by_op.get(op["index"], [])})
     return {"id": message.id, "kind": proposal.get("kind"), "status": proposal.get("status"),
             "subject": proposal.get("subject"), "operations": operations,
             "unverified": bool(proposal.get("unverified")),
-            "stale": proposal.get("kind") == "edit" and not unchanged,
+            "stale": kind == MODE_REPLACE and not unchanged,
             "has_text": bool(current)}

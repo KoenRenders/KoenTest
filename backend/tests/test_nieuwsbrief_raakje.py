@@ -65,8 +65,8 @@ def _draft(paragraphs, reply="Voorstel klaar.", subject="Het najaar"):
     return json.dumps({"reply": reply, "subject": subject, "paragraphs": paragraphs})
 
 
-def _edit(operations, reply="Aangepast."):
-    return json.dumps({"reply": reply, "subject": None, "operations": operations})
+def _piece(text, reply="Aangepast."):
+    return json.dumps({"reply": reply, "text": text})
 
 
 def _verdict(*items):
@@ -99,9 +99,11 @@ def _letter(db, body="", audience=AUDIENCE_MEMBERS, activity_ids=()):
     return letter
 
 
-def _ask(db, letter, instruction="Schrijf de najaarsbrief.", selection=""):
+def _ask(db, letter, instruction="Schrijf de najaarsbrief.", selection="",
+         selection_range="", before_cursor=""):
     return drafting.ask(db, letter, instruction=instruction, actor="s@example.org",
-                        base_url=BASE, selection=selection)
+                        base_url=BASE, selection=selection,
+                        selection_range=selection_range, before_cursor=before_cursor)
 
 
 def _sent_meeting_with_point(db, notes, activity=None):
@@ -320,7 +322,7 @@ def test_een_gemarkeerde_zin_blijft_weg_tenzij_je_hem_behoudt(db_session, raakje
         assert letter.body_html == "", "niets in de brief vóór Toepassen"
 
         html = drafting.apply(db_session, letter, message, keep=keep,
-                              body_html="", base_url=BASE)
+                              body_html="", base_url=BASE).html
 
         assert ("zaklopen" in html) is expected
         assert "Kom naar Brood &amp; Spelen!" in html
@@ -328,31 +330,61 @@ def test_een_gemarkeerde_zin_blijft_weg_tenzij_je_hem_behoudt(db_session, raakje
         assert message.proposal["status"] == "applied"
 
 
-def test_een_wijziging_raakt_precies_haar_alinea(db_session, raakje):
-    body = "<div>Eerste alinea.</div><div>Tweede alinea.</div><div>Derde alinea.</div>"
+def test_zonder_selectie_komt_het_stuk_waar_de_cursor_staat(db_session, raakje):
+    """Koen, 17 September 2026: Raakje does not choose the place — the author
+    does. Without a selection the piece goes to the cursor, the letter itself is
+    not rewritten by the server, and the model gets the text before the cursor.
+    """
+    body = "<div>Beste,</div><div>Eerste alinea.</div>"
     letter = _letter(db_session, body=body)
-    raakje(_edit([{"op": "replace", "paragraph": 2, "text": "Nieuwe tweede."},
-                  {"op": "insert_after", "paragraph": 3, "text": "Een vierde."},
-                  {"op": "remove", "paragraph": 1}]), _verdict())
-    turn = _ask(db_session, letter, instruction="Pas aan.")
+    provider = raakje(_piece("Een nieuw stuk."), _verdict())
+
+    turn = _ask(db_session, letter, instruction="Een stuk over de BBQ.",
+                before_cursor="Eerste alinea.")
     message = _proposal_message(db_session, letter, turn)
+    applied = drafting.apply(db_session, letter, message, keep=set(),
+                             body_html=body, base_url=BASE)
 
-    html = drafting.apply(db_session, letter, message, keep=set(),
-                          body_html=letter.body_html, base_url=BASE)
+    assert turn.proposal["kind"] == "insert"
+    assert "TEKST VLAK VOOR DE CURSOR" in provider.asked[0][-1]["content"]
+    assert "Eerste alinea." in provider.asked[0][-1]["content"]
+    assert (applied.placement, applied.html) == ("cursor", "<div>Een nieuw stuk.</div>")
+    assert letter.body_html == body, "de server herschrijft de brief niet zelf"
 
-    assert html == "<div>Nieuwe tweede.</div><div>Derde alinea.</div><div>Een vierde.</div>"
+
+def test_een_selectie_wordt_vervangen(db_session, raakje):
+    body = "<div>Beste,</div><div>Een te lange zin die korter mag.</div>"
+    letter = _letter(db_session, body=body)
+    provider = raakje(_piece("Een korte zin."), _verdict())
+
+    turn = _ask(db_session, letter, instruction="Korter.",
+                selection="Een te lange zin die korter mag.", selection_range="7,39")
+    message = _proposal_message(db_session, letter, turn)
+    applied = drafting.apply(db_session, letter, message, keep=set(),
+                             body_html=body, base_url=BASE)
+
+    assert turn.proposal["kind"] == "replace"
+    assert "Een te lange zin die korter mag." in provider.asked[0][-1]["content"]
+    assert (applied.placement, applied.range, applied.html) == (
+        "selection", [7, 39], "<div>Een korte zin.</div>")
 
 
-def test_een_wijziging_op_een_intussen_veranderde_brief_wordt_geweigerd(db_session, raakje):
-    letter = _letter(db_session, body="<div>Een.</div><div>Twee.</div>")
-    raakje(_edit([{"op": "remove", "paragraph": 2}]), _verdict())
-    turn = _ask(db_session, letter, instruction="Schrap de tweede.")
+def test_een_selectie_op_een_intussen_veranderde_brief_wordt_geweigerd(db_session, raakje):
+    """The remembered selection would point at other text.
+
+    Broken on purpose: the snapshot check removed from `apply` → the stale
+    replacement goes through and this test fails.
+    """
+    body = "<div>Een.</div><div>Twee.</div>"
+    letter = _letter(db_session, body=body)
+    raakje(_piece("Drie."), _verdict())
+    turn = _ask(db_session, letter, instruction="Anders.", selection="Twee.",
+                selection_range="4,9")
     message = _proposal_message(db_session, letter, turn)
 
     with pytest.raises(drafting.DraftingError):
         drafting.apply(db_session, letter, message, keep=set(),
-                       body_html="<div>Nul.</div><div>Een.</div><div>Twee.</div>",
-                       base_url=BASE)
+                       body_html="<div>Nul.</div>" + body, base_url=BASE)
     assert message.proposal["status"] == "open"
 
 
@@ -469,3 +501,51 @@ def test_versturen_ruimt_het_gesprek_op(db_session, raakje, monkeypatch):
                      reply_to_mode="association", base_url=BASE)
 
     assert db_session.query(DraftingMessage).count() == 0
+
+
+# ── The shape of a whole letter (Koen, 17 September 2026) ────────────────────
+
+def test_een_volledige_brief_krijgt_aanhef_witregels_en_afsluiting(db_session, raakje):
+    """A greeting at the top, a blank line before every topic but the first, and
+    a blank line before the closing — all set by the portal, not the model.
+
+    Broken on purpose: the blank line before a heading left out of
+    `_paragraph_html` → the second assertion fails.
+    """
+    wandel = _activity(db_session, "Wandelweekend Eifel")
+    letter = _letter(db_session, activity_ids=[wandel.id])
+    raakje(_draft(["# Vooruitblik", "De komende maanden zitten vol.", f"[[activiteit:{wandel.id}]]",
+                   "# Terugblik", "Het was gezellig."]), _verdict())
+    turn = _ask(db_session, letter)
+    message = drafting.record(db_session, letter, author_text="vraag", turn=turn)
+
+    html = drafting.apply(db_session, letter, message, keep=set(), body_html="",
+                          base_url=BASE).html
+
+    assert html.startswith("<div>Beste,</div><div><br></div><div><strong>Vooruitblik</strong></div>")
+    assert "<div><br></div><div><strong>Terugblik</strong></div>" in html
+    assert "Het was gezellig.</div><div><br></div><div>Tot binnenkort!" in html
+    assert html.count("<div><br></div>") == 3
+
+
+def test_een_naam_in_een_zin_komt_er_een_keer_en_vet_in(db_session, raakje):
+    """`[[naam:ID]]` inside a sentence becomes the name in bold, exactly once —
+    the model builds the sentence around it and never writes the name itself."""
+    sint = _activity(db_session, "Sint komt naar onze gezinnen")
+    letter = _letter(db_session, activity_ids=[sint.id])
+    raakje(_draft([f"Tijdens [[naam:{sint.id}]] beleven groot en klein magische momenten."]),
+           _verdict())
+
+    turn = _ask(db_session, letter)
+
+    html = turn.proposal["operations"][0]["html"]
+    assert "Tijdens <strong>Sint komt naar onze gezinnen</strong> beleven" in html
+    assert "[[" not in html
+    assert html.count("Sint komt naar onze gezinnen") == 1
+
+
+def test_de_prompt_vraagt_correct_nederlands_en_laat_aanhef_en_groet_aan_het_portaal():
+    prompt = drafting.SYSTEM_PROMPT
+    assert "[[naam:ID]]" in prompt
+    assert "geen aanhef" in prompt
+    assert "correct Nederlands" in prompt

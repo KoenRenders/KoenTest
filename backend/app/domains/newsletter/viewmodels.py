@@ -35,8 +35,6 @@ class NewsletterComposeView(ViewModel):
     counts: Any
     audience_options: list[tuple[str, str, str]]
     saved_at: str
-    # The reminder of CR-05 §3.6: imported addresses that never got a letter.
-    first_letter_after_import: bool
     # Raakje (CR-05 §3.15): off when the back-office switch is off.
     raakje_enabled: bool
     chosen_activities: list[Any]
@@ -52,6 +50,7 @@ class NewsletterComposeView(ViewModel):
     # After "Toepassen": the HTML the editor takes over, and where it goes.
     apply_html: str = ""
     apply_placement: str = ""
+    apply_range: str = ""
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 
 

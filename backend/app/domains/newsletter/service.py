@@ -344,22 +344,6 @@ def run_import(db: Session, text: str) -> ImportPreview:
     return preview
 
 
-def imported_without_letter(db: Session) -> bool:
-    """Are there imported addresses that never received a letter yet?
-
-    The first letter to them has to say where their address came from — the
-    condition under which they may be mailed without confirming (CR-05 §3.6).
-    The compose screen reminds the author while this is true.
-    """
-    imported = (db.query(Subscriber.id)
-                .filter(Subscriber.source == SOURCE_IMPORT,
-                        Subscriber.status == SUBSCRIBER_CONFIRMED))
-    reached = (db.query(Delivery.subscriber_id)
-               .filter(Delivery.subscriber_id.isnot(None),
-                       Delivery.status == DELIVERY_SENT))
-    return db.query(imported.filter(~Subscriber.id.in_(reached)).exists()).scalar()
-
-
 # ── Audiences ────────────────────────────────────────────────────────────────
 
 def member_addresses(db: Session, today: Optional[date] = None) -> list[str]:
@@ -702,6 +686,11 @@ def _organisation_footer(db: Session) -> tuple[str, str]:
     except Exception:  # noqa: BLE001 — a missing address must not stop a letter
         logger.exception("Adres van de vereniging niet leesbaar voor de nieuwsbrief")
     return name, line
+
+
+def greeting_html() -> str:
+    """The greeting a whole letter from Raakje starts with."""
+    return f"<div>{html_lib.escape(_('Beste,'))}</div>"
 
 
 def closing_html(db: Session) -> str:
