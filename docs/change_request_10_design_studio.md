@@ -219,6 +219,8 @@ End-to-end, by a person on HDEV, without reading code.
 | AC4 | The design can be opened in LibreOffice (or another tool), a sentence changed and a box added, and the result saved. | R4 |
 | AC5 | Three elements checked with a colour picker are Raak colours; the logo and typeface are the official ones. | R5 |
 | AC6 | The unit's monthly spend on generated images is visible. | A6 reporting |
+| AC7 | A board member who never used the tool makes, from an existing activity, a usable A3 poster and Instagram image **within ten minutes**, without help and without retyping activity data. Tried with a few real board members on three activities: a simple one, a series, one with several prices. | R1 — proposed by the external review of 17 Sep 2026, to be confirmed by Koen |
+| AC8 | The A4 PDF printed at A5 (reduced) is still readable: the smallest text at least 6 pt, the QR code at least 20 mm, the safe margin kept. | R2 |
 
 # Part B — The solution
 
@@ -287,7 +289,7 @@ Each is checked by a person on HDEV.
 | # | Criterion | Requirement |
 |---|---|---|
 | DAC1 | Change the hour of an activity with a final design: the design shows "stale" on the activity page; after "Re-render" the new hour is on the A3 PDF. | FR1, FR11 |
-| DAC2 | Every colour on a rendered poster is one of the eight guide colours or white (checked with a colour picker on three elements); the logo tile matches the chosen pair. | FR2 |
+| DAC2 | Every template-defined element on a rendered poster (fields, text, ornaments, lockup) is one of the eight guide colours or white — checked with a colour picker in the centre of three flat fields on the PDF; photos, illustrations and supporter logos excepted; the logo tile matches the chosen pair. | FR2 |
 | DAC3 | Add a line to a final design, re-render: the new PDF differs only in that line. | FR3 |
 | DAC4 | Print the A3 PDF borderless at home: no white edge, no text within the cropped margin (measured 2–5 mm on Koen's printer). | FR4 |
 | DAC5 | The Instagram image is 1080 × 1350 px and shows title, date, place and image without cropped text. | FR5 |
@@ -593,7 +595,10 @@ international; its fiscal host is a US non-profit).
   yellow tile is Indigo, as in the unit's own yellow lockup.)
 - A gate test fails when a template contains a hex value outside the eight
   colours, and when a template declares more than five colours. This is the
-  same shape as the existing css gate.
+  same shape as the existing css gate. **The rule covers the elements the
+  template defines** — colour fields, text, ornaments, the lockup — not
+  photos, generated illustrations or supporter logos, which carry their own
+  colours.
 - **Logo rules are template rules:**
   - the pin sits only on a coloured field;
   - the wordmark in the pin is white;
@@ -654,6 +659,23 @@ same duo.
   4. contacts.
 
   Title, date, place, image and the link are never dropped.
+- **Every template carries a contract per layout** (external review,
+  17 September 2026), as a small declaration next to the SVG:
+  - which fields are required, optional or repeatable (highlights ≤ 6,
+    dates ≤ 6, contacts ≤ 2);
+  - per block: its box, its minimum font size, and its overflow rule
+    (shrink to the minimum, break into a second line, or refuse);
+  - which blocks may be dropped, in which order (the priority list above);
+  - the image slots: ratio, and crop around the focal point.
+
+  The merge step reads the contract; the check at "final" measures text
+  width **and height** against the box and rejects overlap with another
+  block. Effects that extend past a box (a rough edge, a rotated title)
+  declare their overshoot in the contract, so the check knows what is
+  allowed.
+- **What a format leaves out is shown before download:** "Op Instagram
+  worden de zes data vervangen door 'iedere 2de maandag'." Each layout's
+  download carries that line, so nobody assumes all formats say the same.
 - **Social layouts keep text inside a safe zone**, because Facebook crops the
   event cover differently on mobile.
 - **The image has one focal point**, stored as x/y percentages. Each layout
@@ -735,9 +757,19 @@ Inkscape decision makes the merged SVG that file.
 - **Upload.** A unit can upload a reworked SVG back onto the design, per
   layout. From then on that layout is **"handmatig bewerkt"**: the portal
   renders the uploaded SVG instead of merging the template, and shows the
-  state on the design. The stale mechanism (§3.14) still fires when facts
-  change, but re-render then offers two choices: "render my edited file
-  again" or "discard my edits and merge afresh".
+  state on the design and on each download.
+- **A hand-edited layout does not become current by re-rendering** (external
+  review, 17 September 2026). The uploaded file holds "19u" as literal
+  text; re-rendering it after the activity moved to "20u" still prints
+  "19u". So, when a fact changes:
+  - a template-merged layout re-renders with the new facts (§3.14);
+  - a hand-edited layout stays **stale with a list of what changed** ("uur:
+    19u → 20u"). The person either edits the file and uploads it again, or
+    returns to the template ("discard my edits"). Re-rendering the same
+    file does not clear the warning.
+  - Staleness is tracked **per layout**: a hand-edited print layout and a
+    template-merged Instagram layout can differ in currency, and the design
+    shows both states.
 - **Sanitising, without exception.** An uploaded SVG is active content and
   reaches the renderer. It is parsed with defusedxml (no entity expansion)
   and **re-serialised through an allowlist**: known elements and attributes
@@ -760,16 +792,37 @@ One place per fact:
 - **From the organisation:** logo lockup, unit name, and — when the
   activity has no contact persons — its website, e-mail and mobile number.
 - **Only on the design:**
-  - a title override (for line breaks: "SPEELNAMIDDAG / EN / ZOMERBAR");
+  - **title line breaks** (where the activity title breaks: "SPEELNAMIDDAG /
+    EN / ZOMERBAR") — the words stay the activity's, only the breaks are
+    design; a **deviating title** is a separate, explicit choice, shown in
+    the editor as "eigen tekst, wijkt af van de activiteit";
   - tagline, explanation, subtitle, recurrence line, highlights, welcome
     line;
-  - price-badge wording;
+  - price-badge wording, as an explicit deviation from the computed price
+    (below);
   - images and focal point;
   - supporter logos;
   - the kicker toggle.
 
 A design stores its **inputs, not its renders**. "Add this line a week
 later" is an edit plus a re-render.
+
+**Design text that shadows a fact ages** (external review, 17 September
+2026): a deviating title, a price text, a recurrence line. Each such field
+is marked in the editor as design text, and **when the related fact changes
+the design shows a warning naming both** ("prijs gewijzigd naar € 6; de
+affiche zegt nog 'Alles aan € 1'"). The warning is part of the stale state
+(§3.14) and clears when the person confirms or changes the text.
+
+**Price display, decided here and not by the builder:**
+- no payable component → **"Gratis"**;
+- one price → **"€ 6"**; with a member price → **"€ 6 · leden € 4"**;
+- several components with different prices → **"vanaf € 4"** (the lowest),
+  and the layouts with room list the components ("Volwassenen € 6 ·
+  Kinderen € 4");
+- pay on site → the price followed by **"ter plaatse"**;
+- a price text of the design's own replaces all of the above and carries
+  the ageing warning.
 
 ### 3.8 Tagline and explanation live on the design, for now
 
@@ -885,10 +938,14 @@ activity.
   second contract for one caller". With this second caller, the name search
   moves into MDM as one function with a members-only option, and the circle
   calls it too. Two copies of the same filter would drift apart.
-- **Where contacts are shown: only on posters and social images** (Koen,
-  16 September 2026). There, the contact block follows the layout priority
-  (B4 §3.4). **They are not shown on the public website**, which is indexed and
-  stays online.
+- **Where contacts are shown.** On posters and social images the contact
+  block follows the layout priority (B4 §3.4). Koen (16 September 2026):
+  no separate contact block on the public website. **Open (Q15):** a
+  published poster with contact persons *is* shown on the public activity
+  page (§3.14) — is that acceptable ("no contact block on the site, but the
+  poster may carry them"), or must the published web copy be rendered
+  without personal contacts (Raak's details instead)? Until decided, the
+  build assumes the first reading.
 
 A member's number printed on a poster is personal data made public.
 **Consent is given outside the portal** — at the board meeting, by WhatsApp,
@@ -936,6 +993,21 @@ Approved by Koen on 16 September 2026, with a limit.
   stores or serves a BFL URL. The screen polls with htmx.
 - **Four variants per request.** The person picks one and discards the rest.
   Unpicked results are not kept.
+- **Rules for the background work** (external review, 17 September 2026):
+  - generation and full renders run as jobs; the screen polls and shows
+    per variant "bezig · klaar · geweigerd · mislukt";
+  - partial success is shown as such: three variants, one refused, with the
+    reason; the person can keep the three;
+  - a refresh or a second click on "Genereer" does not start a second job
+    while one runs for that design (idempotent on design + prompt);
+  - a failed or refused variant may be retried once by the person; retries
+    are charged like any request;
+  - a preview render is tagged with the design's change counter; a result
+    for an older counter is dropped, never shown over a newer one;
+  - "four variants within a minute" is a target, not a guarantee: measured
+    15–22 s per image (B9). Acceptance covers delay (a job past 3 minutes
+    is shown as failed and releases its reservation), refusal and partial
+    failure.
 - **House style through references:**
   - each template carries a small set of **style reference images** (up to
     eight inputs are accepted);
@@ -973,6 +1045,15 @@ Approved by Koen on 16 September 2026, with a limit.
     estimate would take the month over budget, so the budget is never
     exceeded by more than a rounding difference;
   - the editor shows what is left this month;
+  - **a platform-wide cap** next to the per-unit budgets (external review,
+    17 September 2026): with N units, N × €50 is not what Koen set aside.
+    `DESIGNSTUDIO_AI_MONTHLY_BUDGET_EUR` is the per-unit default; a second
+    setting, `DESIGNSTUDIO_AI_PLATFORM_BUDGET_EUR`, caps the sum. For now
+    both come out of the one FLUX budget (Q14);
+  - **a request reserves its estimated cost** before it is sent, so two
+    simultaneous requests cannot both pass the check; the reservation is
+    replaced by the reported cost when the call returns, or released when it
+    fails;
   - a platform-wide **kill switch** turns generation off everywhere.
 
   BFL prices FLUX.2 per megapixel, from about $0.03 for a small image, so
@@ -1014,14 +1095,22 @@ Approved by Koen on 16 September 2026, with a limit.
   **At most one design per activity is final.**
 - **Draft:** the editor shows a live preview per layout — a low-resolution
   PNG that is re-rendered on change and not stored.
-- **Mark final:**
-  - every chosen layout and PDF is rendered and stored;
-  - the A3 PDF becomes the activity's **`activity_poster`**;
+- **Mark final** creates a **numbered version** of the design: every chosen
+  layout and format is rendered and stored under that version number. If
+  any render fails, **no version is created** and nothing is replaced —
+  all files or none (external review, 17 September 2026). The editable
+  draft lives on next to its versions.
+- **Publish is a separate step from final.** A version becomes the
+  activity's **`activity_poster`** (A3 PDF) only when the person publishes
+  it:
   - **if the activity already has a poster**, the person is asked first. The
     confirmation says explicitly that the current poster — possibly
     uploaded by hand — will be replaced (Koen: "the user in control").
-    Declining still finalises the design, without touching the poster;
-  - once the `landscape` layout exists (phase 4), its image becomes the
+    Declining keeps the version final and unpublished;
+  - the design records **which version is published**, and shows it:
+    "Versie 4 is definitief. Op de website staat versie 3." A wrong
+    publication is undone by publishing an earlier version again;
+  - once the `landscape` layout exists (phase 4), publishing also sets the
     activity page's **share image**.
 - **Stale:**
   - a final design stores a **fingerprint of the facts it used** (B4 §3.7);
@@ -1033,8 +1122,8 @@ Approved by Koen on 16 September 2026, with a limit.
 
   Nothing re-renders automatically: a poster that is already printed should
   not silently differ from the file.
-- **Reopen:** a final design can go back to draft. The published poster
-  stays until the design is marked final again.
+- **Reopen:** the draft is always editable; the published version stays on
+  the website until another version is published.
 
 ### 3.15 Screens and roles
 
@@ -1196,7 +1285,7 @@ designstudio.designs
   duo_code, status (draft|final), title_override, tagline (90),
   explanation, subtitle, recurrence_line, welcome_line, price_badge_text,
   show_kicker, main_image_id, main_focus_x, main_focus_y,
-  inset_image_id, facts_fingerprint, finalised_at, finalised_by,
+  inset_image_id, facts_fingerprint, published_version_id,
   created_at, updated_at, created_by
 
 designstudio.design_highlights      -- up to six, ordered
@@ -1205,8 +1294,12 @@ designstudio.design_highlights      -- up to six, ordered
 designstudio.design_supporters      -- supporter / funder logos
   id, design_id, media_asset_id, sort_order
 
-designstudio.design_renditions      -- stored for final designs; svg_edited also for drafts
-  id, design_id, layout_code, variant (pdf|jpeg|png|svg|svg_edited),
+designstudio.design_versions        -- one row per "final"; published_version_id on designs
+  id, design_id, number, facts_fingerprint, created_at, created_by
+
+designstudio.design_renditions      -- per version; svg_edited also on the draft
+  id, design_id, version_id (null for the draft's svg_edited), layout_code,
+  variant (pdf|jpeg|png|svg|svg_edited),
   size_code (A3|A4|1080x1350|…), media_asset_id, rendered_at,
   min_effective_dpi
 
@@ -1237,7 +1330,8 @@ the constants of B4 §3.3 and the template's icon subset. There are no
 cross-schema foreign keys, as elsewhere.
 
 Environment: `DESIGNSTUDIO_AI_MONTHLY_BUDGET_EUR` (default 50, the budget
-per unit per month) and `BFL_USD_EUR_RATE` (the cost conversion).
+per unit per month), `DESIGNSTUDIO_AI_PLATFORM_BUDGET_EUR` (the cap on the
+sum) and `BFL_USD_EUR_RATE` (the cost conversion).
 Tenant setting: `ai_image_monthly_budget_eur` — an optional per-unit
 override of the `.env` budget.
 Environment: `BFL_API_KEY`, `DESIGNSTUDIO_AI_IMAGES_ENABLED` (the kill
@@ -1247,8 +1341,8 @@ switch, default off).
 
 | Leaves the platform | To | Contains |
 |---|---|---|
-| Text proposal request | Mistral (EU) | activity facts only — no persons, no registrations |
-| Image prompt | BFL, EU endpoint | a prompt the person has seen and may edit; the editor warns against names |
+| Text proposal request | Mistral (EU) | activity title, dates, place, price and the design's own texts — no contact fields, no registrations; the editor shows the exact text before sending, because a free text or a title can still hold a name |
+| Image prompt | BFL, EU endpoint | a prompt the person has seen and may edit; the editor shows the exact text that will be sent and warns against names |
 | Style references | BFL, EU endpoint | template-owned reference illustrations — never member photos |
 
 - **Uploaded photos and archive photos are never sent to BFL** (no image
@@ -1324,8 +1418,15 @@ The tests must be able to go red:
   external `href`, a `javascript:` href and an entity bomb — each proven by
   violation;
 - the merged SVG round-trips through Inkscape with every text object kept;
-- an uploaded, reworked SVG renders instead of the template, and a changed
-  fact then offers "render my file again" and "discard my edits";
+- an uploaded, reworked SVG renders instead of the template; after a
+  changed fact the layout stays stale with the changed fact named, and only
+  a new upload or "discard my edits" clears it — per layout;
+- marking final with one failing render creates no version and replaces
+  nothing; publishing an earlier version restores the previous poster;
+- two simultaneous generation requests cannot together exceed the budget
+  (reservation), and a second click while a job runs starts no second job;
+- a deviating title or price text shows the ageing warning when the fact
+  changes, naming both values;
 - a title longer than its box is shrunk or refused per the template rule,
   measured with the font metrics, not by a character count;
 - changing an activity date marks its final design stale — tested through
@@ -1354,6 +1455,11 @@ The tests must be able to go red:
   refuses every generation — with the BFL client mocked.
 
 ## B9. Prototype findings (16 September 2026)
+
+> **Historical.** These findings were made on the first engine (WeasyPrint)
+> and explain decisions; the mechanics described here (glyph outlines,
+> box-tree check) are **not build instructions** for the Inkscape build in
+> B4 §3.2. What still applies is marked in B4.
 
 Thirteen iterations of throwaway prototypes on the first engine
 (WeasyPrint 70, pypdfium2, segno, Radio Canada Big); the engine prototypes
@@ -1503,13 +1609,12 @@ build takes from them:
 
 Open items are in B10.2 and the Q&A log.
 
-### B10.2 Proposals awaiting Koen (16 September 2026, not yet confirmed)
+### B10.2 Proposals of 16 September 2026 (historical; see the Q&A log for the current state)
 
-1. **v2.5 scope:** the design editor with the four templates (Beeld,
-   Tekstflyer, Illustratie, Reeks); own photos and photos from the
-   activity's archive; A3, A4 and 4:5; contacts; "final" becomes the poster
-   after confirmation; AI images once #978 has landed. Later: Mistral text
-   proposals, the Facebook cover, the square format.
+1. ~~**v2.5 scope:** the editor with the four templates and AI images~~ —
+   **superseded**: after the review the scope of the first release is an
+   open decision (Q16). B7's phase 1 (one template, no AI images) is the
+   current proposal.
 2. ~~Contacts stored in the Design Studio module~~ — superseded: they are
    on the activity (§3.9, Q11).
 3. **Caveat** (OFL) goes into the repository. Reference drawings per
@@ -1550,6 +1655,9 @@ not asked twice. Open questions carry no answer yet.
 | Q12 | 17 Sep | Does a phone number on a poster need recorded consent? (reviewer) | No. Consent is asked beforehand outside the portal (meeting, WhatsApp, in person); the board member adding the contact vouches for it (Koen, 17 Sep). |
 | Q13 | 17 Sep | Who designs and maintains the templates? (reviewer) | Koen for now; in time Raak nationally (the ACCOUNT organisation). Templates stay platform-wide (Koen, 17 Sep). |
 | Q14 | 17 Sep | Is €50/unit/month a platform cost or a Millegem test figure; are units charged? (reviewer) | For now all generation comes from the one FLUX budget; charging units is for later, on the per-call cost in the AI log (Koen, 17 Sep). |
+| Q15 | 17 Sep | May a published poster on the public activity page carry the contact persons, given "no contacts on the website"? (external review) | *open — Koen*. Build assumes yes: no contact block on the site, the poster itself may carry them. |
+| Q16 | 17 Sep | Scope of the first release: B7 phase 1 (one template, no AI images) or the four templates with AI images? (external review, reviewer Q2) | *open — Koen*. |
+| Q17 | 17 Sep | One shared €50 budget or €50 per unit? (external review) | Both, layered: per-unit default plus a platform cap; for now all from the one FLUX budget (§3.12, Q14). |
 
 ## Non-goals
 
