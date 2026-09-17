@@ -202,7 +202,7 @@ how they are met is Part B.
 |---|---|
 | **Reporting** | What each unit spends on generated images must be countable, per month. |
 | **Security** | Only the unit's board reaches the design tools. Nothing a unit uploads may harm another unit or the platform. |
-| **Privacy** | People named on a poster agreed to it; members' photos do not leave the movement's own systems to an outside service; no photos of children as test material. |
+| **Privacy** | People named on a poster have agreed to it — the board asks them beforehand, at a meeting, by WhatsApp or in person; the portal records no consent of its own (Koen, 17 Sep 2026). Members' photos do not leave the movement's own systems to an outside service; no photos of children as test material. |
 | **House style** | Designs follow the Raak style guide; the tool's own screens follow the portal's UI norm. |
 | **Multi-tenant** | Each unit has its own logo, its own designs and its own spending; the templates and the style guide are shared by all units. |
 
@@ -874,8 +874,11 @@ activity.
   (B4 §3.4). **They are not shown on the public website**, which is indexed and
   stays online.
 
-A member's number printed on a poster is personal data made public. The
-picker says so, and contact details are never sent to an LLM (B6).
+A member's number printed on a poster is personal data made public.
+**Consent is given outside the portal** — at the board meeting, by WhatsApp,
+at the café — and the board member who adds the contact vouches for it
+(Koen, 17 September 2026). The portal stores no consent flag; the picker
+reminds the person of that. Contact details are never sent to an LLM (B6).
 
 ### 3.10 Responsible publisher — out of scope for now
 
@@ -1528,6 +1531,7 @@ not asked twice. Open questions carry no answer yet.
 | Q9 | 17 Sep | Is A6 a real print size? (reviewer) | No — A6 is not needed (Koen, 17 Sep). R2 is A3, A4, A5. |
 | Q10 | 17 Sep | Which rendering engine: WeasyPrint, LibreOffice Draw, Inkscape, Chromium or Scribus? (see B1.3) | **Inkscape** (Koen, 17 Sep). Download and upload of the SVG are part of the scope (§3.6a). |
 | Q11 | 17 Sep | How many contact persons per activity? (reviewer, via Q3 of the review) | At most two, with name, e-mail and phone; none → Raak's website, e-mail and mobile (Koen, 17 Sep). |
+| Q12 | 17 Sep | Does a phone number on a poster need recorded consent? (reviewer) | No. Consent is asked beforehand outside the portal (meeting, WhatsApp, in person); the board member adding the contact vouches for it (Koen, 17 Sep). |
 
 ## Non-goals
 
