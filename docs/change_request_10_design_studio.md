@@ -204,7 +204,7 @@ how they are met is Part B.
 | **Security** | Only the unit's board reaches the design tools. Nothing a unit uploads may harm another unit or the platform. |
 | **Privacy** | People named on a poster have agreed to it — the board asks them beforehand, at a meeting, by WhatsApp or in person; the portal records no consent of its own (Koen, 17 Sep 2026). Members' photos do not leave the movement's own systems to an outside service; no photos of children as test material. |
 | **House style** | Designs follow the Raak style guide; the tool's own screens follow the portal's UI norm. |
-| **Multi-tenant** | Each unit has its own logo, its own designs and its own spending; the templates and the style guide are shared by all units. |
+| **Multi-tenant** | Each unit has its own logo, its own designs and its own spending; the templates and the style guide are shared by all units and maintained centrally — by Koen for now, by Raak nationally in time. |
 
 ## A7. Acceptance criteria
 
@@ -550,6 +550,13 @@ Decided by Koen on 17 September 2026 after the comparison in B1.3.
   five colours, a pin on an image). A designer can author them in Inkscape;
   the gate keeps them in the house style. A design records the template
   version it was rendered with.
+- **Who maintains them (Koen, 17 September 2026):** for now Koen; in time
+  **Raak nationally**, the ACCOUNT organisation in MDM. Templates are
+  therefore platform-wide, never per unit, and the path to "a designer at
+  Raak uploads a new template version through the portal" is kept open: a
+  template is a versioned SVG that passes the brand gate, whether it comes
+  from the repository or from an upload. Phase 1 ships them in the
+  repository.
 - **Why not WeasyPrint** (the prototypes' engine): effects only as glyph
   outlines, no editable file. **Why not LibreOffice Draw:** Fontwork
   distorts glyphs and leaves slits; effects would be pictures; a 300–400 MB
@@ -1532,6 +1539,7 @@ not asked twice. Open questions carry no answer yet.
 | Q10 | 17 Sep | Which rendering engine: WeasyPrint, LibreOffice Draw, Inkscape, Chromium or Scribus? (see B1.3) | **Inkscape** (Koen, 17 Sep). Download and upload of the SVG are part of the scope (§3.6a). |
 | Q11 | 17 Sep | How many contact persons per activity? (reviewer, via Q3 of the review) | At most two, with name, e-mail and phone; none → Raak's website, e-mail and mobile (Koen, 17 Sep). |
 | Q12 | 17 Sep | Does a phone number on a poster need recorded consent? (reviewer) | No. Consent is asked beforehand outside the portal (meeting, WhatsApp, in person); the board member adding the contact vouches for it (Koen, 17 Sep). |
+| Q13 | 17 Sep | Who designs and maintains the templates? (reviewer) | Koen for now; in time Raak nationally (the ACCOUNT organisation). Templates stay platform-wide (Koen, 17 Sep). |
 
 ## Non-goals
 
