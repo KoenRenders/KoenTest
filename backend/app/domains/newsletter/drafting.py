@@ -59,7 +59,7 @@ from app.domains.newsletter import service as nb
 logger = logging.getLogger(__name__)
 
 CAPABILITY = "newsletter_drafting"
-NAME_PLACEHOLDER = "[naam]"
+NAME_PLACEHOLDER = nb.NAME_PLACEHOLDER
 # How many earlier letters to the same audience go along as style examples.
 EXAMPLE_LETTERS = 2
 # The part of an example letter that goes along — enough for the tone.
@@ -459,7 +459,9 @@ def deterministic_marks(text: str, sources: Sources, prices: set[Decimal],
     if NAME_PLACEHOLDER in prose:
         marks.append({"quote": NAME_PLACEHOLDER,
                       "reason": _("hier stond een weggehaalde naam")})
-    for placeholder in ("[e-mailadres]", "[telefoonnummer]", "[rekeningnummer]"):
+    from app.domains.chatbot.api import REDACTION_PLACEHOLDERS
+
+    for placeholder in REDACTION_PLACEHOLDERS:
         if placeholder in prose:
             marks.append({"quote": placeholder,
                           "reason": _("hier stond een weggehaald contactgegeven")})

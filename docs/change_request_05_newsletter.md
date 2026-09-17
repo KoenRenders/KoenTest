@@ -689,6 +689,16 @@ Recorded so the next reader does not re-derive them.
    between: the remembered selection would point at other text. The server
    never rewrites the letter for a piece; autosave stores what the editor
    shows.
+8. **A placeholder stops the real send, not the test mail** (Koen,
+   17 September 2026). A placeholder — `[e-mailadres]`, `[telefoonnummer]`,
+   `[rekeningnummer]`, `[naam]` — only reaches a letter when the author keeps
+   a marked sentence or types one; between brackets it reads like real text,
+   so it slips through proofreading, and a sent mail cannot be recalled. The
+   send screen names every sentence that still carries one and offers no send
+   button; `start_sending` refuses as well. A test mail goes out regardless:
+   there the placeholder shows what is left to fill in. The list is the
+   redaction's own (`chatbot.api.REDACTION_PLACEHOLDERS`) plus the name
+   placeholder, so there is no second list to keep in step.
 
 ## Non-goals
 

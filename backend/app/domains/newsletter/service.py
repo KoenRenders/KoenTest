@@ -51,6 +51,9 @@ from app.domains.newsletter.models import (
 
 logger = logging.getLogger(__name__)
 
+# A name Raakje removed before anything left for the model.
+NAME_PLACEHOLDER = "[naam]"
+
 SEND_JOB = "newsletter.send"
 # How many mails one job run sends before it hands over to the next run. Small,
 # so a run never holds the scheduler for minutes and a restart loses little.
@@ -944,6 +947,38 @@ def send_test(db: Session, letter: Newsletter, *, to_email: str, base_url: str) 
 
 # ── Sending ──────────────────────────────────────────────────────────────────
 
+def unfilled_placeholders(body_html: Optional[str]) -> list[str]:
+    """The sentences of the letter that still carry a placeholder.
+
+    A placeholder only gets into a letter when the author keeps a marked
+    sentence ("klopt, behouden") or types one; between brackets it reads like
+    real text, so it slips through proofreading. Koen, 17 September 2026: the
+    real send is refused, a test mail is not — there it shows what to fill in.
+    """
+    from app.domains.chatbot.api import REDACTION_PLACEHOLDERS
+
+    placeholders = (*REDACTION_PLACEHOLDERS, NAME_PLACEHOLDER)
+    text = re.sub(r"<br\s*/?>|</(?:div|p|li|h\d)>", "\n", body_html or "", flags=re.I)
+    text = html_lib.unescape(re.sub(r"<[^>]+>", "", text))
+    found: list[str] = []
+    for line in text.splitlines():
+        for sentence in re.split(r"(?<=[.!?])\s+", line):
+            sentence = re.sub(r"\s+", " ", sentence).strip()
+            if any(p in sentence for p in placeholders) and sentence not in found:
+                found.append(sentence if len(sentence) <= 120 else sentence[:117] + "…")
+    return found
+
+
+def placeholder_refusal(body_html: Optional[str]) -> Optional[str]:
+    """The message that refuses the send, naming where; None when clean."""
+    sentences = unfilled_placeholders(body_html)
+    if not sentences:
+        return None
+    return _("Er staat nog een plaatshouder in de brief. Vul hem in of haal hem weg "
+             "voor je verstuurt: %(zinnen)s") % {
+                 "zinnen": " · ".join(f"«{s}»" for s in sentences)}
+
+
 def start_sending(db: Session, letter: Newsletter, *, sent_by: str, reply_to_mode: str,
                   base_url: str) -> int:
     """Fix the recipient list and hand the letter to the queue (CR-05 §3.7).
@@ -961,6 +996,9 @@ def start_sending(db: Session, letter: Newsletter, *, sent_by: str, reply_to_mod
         raise NewsletterError(_("Geef de nieuwsbrief eerst een onderwerp."))
     if not re.sub(r"<[^>]+>|\s|&nbsp;", "", letter.body_html or ""):
         raise NewsletterError(_("De nieuwsbrief heeft nog geen inhoud."))
+    refusal = placeholder_refusal(letter.body_html)
+    if refusal:
+        raise NewsletterError(refusal)
     if reply_to_mode not in REPLY_TO_MODES:
         raise NewsletterError(_("Kies waar antwoorden naartoe gaan."))
     recipients = recipients_for(db, letter.audience)
