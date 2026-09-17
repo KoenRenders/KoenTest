@@ -546,11 +546,21 @@ Decided by Koen on 17 September 2026 after the comparison in B1.3.
   text stays text in the PDF. Measured: 0.8 s without filters, 2–5 s with
   filters, per export, on a laptop.
 - **Text has no flow in SVG, so the overflow check moves to the merge
-  step:** the width of every text is measured with the font's metrics
-  (fontTools) against the box the template declares for it. Too long → the
-  template's rule for that block (shrink to a minimum size, break into two
-  lines, or refuse). The check is a gate at "final", like the box-tree check
-  of the HTML prototypes.
+  step.** Two measurements, one authority (second external review,
+  17 September 2026):
+  - while typing, a fast estimate from the font's metrics (fontTools)
+    decides the block's rule — shrink to the minimum size, break into two
+    lines, or refuse;
+  - at "final", **Inkscape itself is the source of truth**: `inkscape
+    --query-all` on the merged SVG returns the rendered bounding box of
+    every element (rotated titles, `textPath`, filters included); the gate
+    compares those boxes with the template contract (B4 §3.4) and refuses
+    overlap or overshoot. A metrics estimate that disagrees with Inkscape
+    is a bug in the estimate, never a reason to ship.
+  - **Before phase 1, a time-boxed prototype** compares the fontTools
+    estimate with `--query-all` on a long title, a rotated title and a
+    curved subtitle, and fixes the tolerance. This is the largest untried
+    piece of the build and is done first.
 - **Pattern tiles cover a whole block.** A tiled pattern shows hairline
   seams in poppler viewers (Okular) and possibly on some printers; one tile
   per title avoids that (B9).
@@ -723,11 +733,11 @@ later.
   An inkjet driver takes RGB and does its own conversion to its inks. A CMYK
   PDF is converted back by the driver, and colours usually get worse.
 - CMYK matters for offset print, which is out of scope (above).
-- **The route to CMYK needs no module change.** A CMYK or PDF/X file is a
-  post-processing step on the rendered PDF: Ghostscript converts it with an
-  ICC print profile. Ghostscript is an apt package and self-hosted, but its
-  maintainer, Artifex, is US-based, so the Europe First comparison is made
-  when that step is added. The CMYK and PMS
+- **The route to CMYK leaves the render path untouched, but is not free.**
+  A CMYK or PDF/X file is a new post-processing step on the rendered PDF —
+  a new apt dependency with its own licence and Europe First choice
+  (Ghostscript with an ICC profile is the obvious candidate, but Artifex is
+  US-based). That choice is made when the step is added, not now. The CMYK and PMS
   values stay recorded in the palette constant (B4 §3.3), so the brand values
   are there when that step is added.
 
@@ -780,8 +790,10 @@ Inkscape decision makes the merged SVG that file.
 - **Two sources, one design:** the merged SVG is derived and re-creatable;
   the uploaded SVG is stored as a `design_render`-kind asset with
   `variant = svg_edited`. The overflow check does not run on an uploaded
-  file (the person took over); the brand gate runs and warns, but does not
-  block.
+  file (the person took over). **Whether the brand gate warns or blocks on
+  an uploaded file is open (Q18)**; the second external review advises
+  blocking, with an override for an administrator, because nothing in this
+  CR gives a reason to drop the house style on uploads.
 
 ### 3.7 Facts stay live; design text belongs to the design
 
@@ -993,6 +1005,13 @@ Approved by Koen on 16 September 2026, with a limit.
   stores or serves a BFL URL. The screen polls with htmx.
 - **Four variants per request.** The person picks one and discards the rest.
   Unpicked results are not kept.
+- **State machine of `image_generations`** (second external review): each
+  variant row is `requested` → `fetched` (bytes stored as `design_image`) →
+  `picked` or `discarded`; or `refused` (moderation), `failed` (error,
+  timeout, or the worker died between generation and storage — the BFL URL
+  has expired by then and the row stays `failed` with the reason). Only
+  `fetched` rows can be picked; `failed`/`refused` rows keep their logged
+  cost and can be retried once (below).
 - **Rules for the background work** (external review, 17 September 2026):
   - generation and full renders run as jobs; the screen polls and shows
     per variant "bezig · klaar · geweigerd · mislukt";
@@ -1305,7 +1324,8 @@ designstudio.design_renditions      -- per version; svg_edited also on the draft
 
 designstudio.image_generations      -- which design asked, and what was picked
   id, design_id, ai_call_log_id, seed, width, height,
-  picked_media_asset_id
+  status (requested|fetched|picked|discarded|refused|failed), failure_reason,
+  media_asset_id (the fetched variant), picked bool
   -- tenant, provider, model, prompt, user, credits, cost, status and time
   -- live in ai.ai_call_log (#978), not here
 
@@ -1322,8 +1342,15 @@ activities.activity_contacts        -- at most two members per activity
   -- no rows → the poster shows Raak's website, e-mail and mobile (#945)
 media.media_assets.kind
   + design_image   (no 1600 px resize; see B4 §3.11)
-  + design_render  (rendered PDF / image)
+  + design_render  (rendered PDF / image / SVG)
 ```
+
+**Storage (second external review):** `media_assets.data` is a `LargeBinary`
+column in PostgreSQL, as for today's `activity_poster` PDFs; renders (1–3 MB
+per version) and `design_image` files (≤ 4096 px, a few MB) stay in it, under
+the existing 15 MB upload limit. Old versions' renders are the only growth;
+a version's files are deleted when the version is deleted, and B7 phase 1
+keeps at most the last three versions per design.
 
 Codes (`duo_code`, `layout_code`, `icon_code`) are validated in code against
 the constants of B4 §3.3 and the template's icon subset. There are no
@@ -1413,6 +1440,8 @@ The tests must be able to go red:
 - a text box placed inside the 8 mm safe zone makes the safe-zone check
   fail — the guard is proven by that violation;
 - a template with a hex value outside the palette fails the gate;
+- a lockup SVG without the `tile` and `baseline` ids is refused at upload,
+  because recolouring per duo depends on them (B4 §3.3);
 - a forbidden duo is refused by the service, not only hidden in the picker;
 - a scripted SVG upload is refused, and so are `<foreignObject>`, an
   external `href`, a `javascript:` href and an entity bomb — each proven by
@@ -1452,7 +1481,11 @@ The tests must be able to go red:
 - marking a design final replaces the activity's poster — tested through the
   public activity page;
 - the quota refuses the generation after the limit, and the kill switch
-  refuses every generation — with the BFL client mocked.
+  refuses every generation — with the BFL client mocked;
+- a generation whose download fails after BFL returned ends as `failed`
+  with a reason, keeps its logged cost, and cannot be picked;
+- removing the last contact person makes the poster show Raak's details —
+  with the behaviour Koen decides in Q19 (silent or confirmed).
 
 ## B9. Prototype findings (16 September 2026)
 
@@ -1581,6 +1614,13 @@ build takes from them:
   seams in poppler viewers — use one tile per title. Ragged photo edges as
   a mask with a displacement filter keep the photo sharp; the filter on the
   photo itself distorts it. LibreOffice imports the SVG as a single picture.
+- **All "Reeks" effects were reproduced in Inkscape**, not a subset:
+  iteration 15 *is* "Stappen en Klappen" — speckled rotated titles (pattern
+  fill, one tile per title), the speech bubble, the brush-edged bar and
+  footer (displacement filter), the handwritten note, the ragged photo edge
+  (filter on a mask), the dotted rules, the dates table; the curved subtitle
+  of "Beeld" via `textPath` in the effects test. Phase 4 does not need a
+  redesign.
 - The full comparison, with Chromium and Scribus on paper, is B1.3; the
   decision is Inkscape (Q10).
 
@@ -1658,6 +1698,8 @@ not asked twice. Open questions carry no answer yet.
 | Q15 | 17 Sep | May a published poster on the public activity page carry the contact persons, given "no contacts on the website"? (external review) | *open — Koen*. Build assumes yes: no contact block on the site, the poster itself may carry them. |
 | Q16 | 17 Sep | Scope of the first release: B7 phase 1 (one template, no AI images) or the four templates with AI images? (external review, reviewer Q2) | *open — Koen*. |
 | Q17 | 17 Sep | One shared €50 budget or €50 per unit? (external review) | Both, layered: per-unit default plus a platform cap; for now all from the one FLUX budget (§3.12, Q14). |
+| Q18 | 17 Sep | May a hand-edited SVG leave the house style (gate warns only), or does the gate block with an admin override? (second external review) | *open — Koen*; the review advises block + override. |
+| Q19 | 17 Sep | Removing the last contact person silently falls back to Raak's details — silent, or with a confirmation like the poster replacement? (second external review) | *open — Koen*. |
 
 ## Non-goals
 
