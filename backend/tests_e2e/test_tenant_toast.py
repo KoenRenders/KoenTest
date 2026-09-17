@@ -36,7 +36,8 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, login_met_sessie  # noqa: E402
+from tests_e2e.schermen import (BASE, htmx_afgerond, login_met_sessie,  # noqa: E402
+                                pagina_klaar)
 
 
 def _ontbreekt(reden: str) -> None:
@@ -68,7 +69,7 @@ def _open_editor(page):
     """De editor van één tenant. Bewust niet de eerste link op het scherm: dat is
     "Nieuwe tenant", en daar staat een ander formulier."""
     page.goto("/admin/tenants")
-    page.wait_for_timeout(400)
+    pagina_klaar(page)
     link = page.locator(
         "xpath=//a[starts-with(@href,'/admin/tenants/') and "
         "translate(substring-after(@href,'/admin/tenants/'),'0123456789','')='']").first
@@ -83,8 +84,9 @@ def test_de_bevestiging_is_zichtbaar_na_het_opslaan(admin_page):
     assert admin_page.locator("#toasts > *").count() == 0, (
         "er stond al een bevestiging vóór het opslaan")
 
-    admin_page.get_by_role("button", name="Opslaan").first.click()
-    admin_page.wait_for_timeout(800)
+    # #997: read the result once the body swap has been answered and settled.
+    with htmx_afgerond(admin_page):
+        admin_page.get_by_role("button", name="Opslaan").first.click()
 
     toast = admin_page.locator("#toasts > *")
     assert toast.count() == 1, (
@@ -97,8 +99,9 @@ def test_de_bevestiging_is_zichtbaar_na_het_opslaan(admin_page):
 def test_de_navigatie_staat_er_nog_na_het_opslaan(admin_page):
     """#718 kan langs deze weg terugkomen: dit is een body-swap."""
     _open_editor(admin_page)
-    admin_page.get_by_role("button", name="Opslaan").first.click()
-    admin_page.wait_for_timeout(800)
+    # #997: read the result once the body swap has been answered and settled.
+    with htmx_afgerond(admin_page):
+        admin_page.get_by_role("button", name="Opslaan").first.click()
 
     assert admin_page.locator("#admin-nav-zijbalk").count() == 1, (
         "de zijbalk is uit het lichaam verdwenen")

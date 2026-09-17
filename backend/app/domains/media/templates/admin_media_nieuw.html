@@ -71,7 +71,9 @@
          kiezen wélke bestanden. Andersom kies je bestanden en moet je daarna weer
          omhoog scrollen om te zeggen waar ze bij horen. #}
       <div>{{ ui.label(_("Bestanden (afbeeldingen)"), "me-files", required=True) }}
-        <input type="file" name="files" id="me-files" accept="image/*" multiple required class="block text-sm"></div>
+        <input type="file" name="files" id="me-files" accept="image/*" multiple required class="block text-sm" aria-describedby="me-files-hint">
+        {# #989: said here because the server refuses it for every other kind. #}
+        <p id="me-files-hint" x-show="soort === 'tenant_logo'" style="display: none" class="text-xs text-ink-soft mt-1">{{ _("Een logo mag ook een SVG-bestand zijn: scherp op elk scherm. Voor e-mail maken we er zelf een PNG van.") }}</p></div>
     </form>
 </div>
 {% endblock %}

@@ -20,17 +20,20 @@ staat in `tests/test_formulier_wizard_startstap.py`.
 
 Kapotgemaakt om te controleren dat deze tests rood kunnen worden: `if
 (!this.controleer()) return;` uit `next()` gehaald → de eerste test valt om (de
-wizard springt gewoon door) en de andere twee blijven groen.
+wizard springt gewoon door). Sinds #997 wachten de tests op het zichtbare gevolg
+van een klik in plaats van 300 ms; opnieuw gemeten: dan vallen de eerste drie om
+(geen markering, geen melding), de laatste twee blijven groen.
 """
 import os
+import re
 import sys
 
 import pytest
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE  # noqa: E402
+from tests_e2e.schermen import BASE, pagina_klaar  # noqa: E402
 
 
 @pytest.fixture(scope="module")
@@ -97,16 +100,17 @@ def test_een_leeg_verplicht_veld_houdt_de_stap_vast(page, vertakt_formulier):
     staat groen mét de bug erin.
     """
     page.goto(f"/formulier/{vertakt_formulier}")
-    page.wait_for_selector('[data-step="0"]', timeout=5000)
+    pagina_klaar(page)
 
     page.get_by_role("button", name="Volgende").click()
-    page.wait_for_timeout(300)
 
+    # #997: the marking is the sign that the click was handled; the step checks
+    # after it are about that same handling.
+    gemarkeerd = page.locator('[data-step="0"] [aria-invalid="true"]')
+    expect(gemarkeerd.first, "de onbeantwoorde vraag is niet gemarkeerd — dan lijkt "
+                             "de knop kapot").to_be_attached()
     assert _stap(page, 0).is_visible(), "de wizard sprong door met een leeg veld"
     assert not _stap(page, 1).is_visible()
-    gemarkeerd = page.locator('[data-step="0"] [aria-invalid="true"]')
-    assert gemarkeerd.count() > 0, (
-        "de onbeantwoorde vraag is niet gemarkeerd — dan lijkt de knop kapot")
 
 
 def test_je_ziet_waarom_je_niet_verder_kan(page, vertakt_formulier):
@@ -119,14 +123,13 @@ def test_je_ziet_waarom_je_niet_verder_kan(page, vertakt_formulier):
     Getoetst op wat ZICHTBAAR is: de melding, en de markering op het vraagblok.
     """
     page.goto(f"/formulier/{vertakt_formulier}")
-    page.wait_for_selector('[data-step="0"]', timeout=5000)
+    pagina_klaar(page)
 
     page.get_by_role("button", name="Volgende").click()
-    page.wait_for_timeout(300)
 
     melding = page.locator('[role="alert"]')
-    assert melding.count() > 0 and melding.first.is_visible(), (
-        "er staat geen zichtbare melding — dan lijkt de knop kapot")
+    expect(melding.first, "er staat geen zichtbare melding — dan lijkt de knop "
+                          "kapot").to_be_visible()
     blok = page.locator('[data-step="0"] [data-veld].border-red-600')
     assert blok.count() > 0, (
         "de vraag zelf is niet gemarkeerd; een rode rand op een radio doet niets")
@@ -136,32 +139,30 @@ def test_na_het_antwoorden_zijn_melding_en_markering_weg(page, vertakt_formulier
     """De tegenproef. Zonder haar staat de vorige test ook groen wanneer de melding
     er permanent staat — en dan meldt het scherm een fout die er niet is."""
     page.goto(f"/formulier/{vertakt_formulier}")
-    page.wait_for_selector('[data-step="0"]', timeout=5000)
+    pagina_klaar(page)
     page.get_by_role("button", name="Volgende").click()
-    page.wait_for_timeout(300)
+    expect(page.locator('[role="alert"]').first).to_be_visible()
 
     page.get_by_label("A", exact=True).check()
     page.get_by_role("button", name="Volgende").click()
-    page.wait_for_timeout(300)
 
-    assert _stap(page, 1).is_visible(), "de wizard ging niet door na het antwoorden"
-    melding = page.locator('[role="alert"]')
-    assert melding.count() == 0 or not melding.first.is_visible(), (
-        "de melding blijft staan nadat de vraag beantwoord is")
-    assert page.locator('[data-veld].border-red-600').count() == 0, (
-        "de markering blijft staan nadat de vraag beantwoord is")
+    expect(_stap(page, 1), "de wizard ging niet door na het antwoorden").to_be_visible()
+    # Both must GO; `expect` waits for that and fails if they stay.
+    expect(page.locator('[role="alert"]:visible'),
+           "de melding blijft staan nadat de vraag beantwoord is").to_have_count(0)
+    expect(page.locator('[data-veld].border-red-600'),
+           "de markering blijft staan nadat de vraag beantwoord is").to_have_count(0)
 
 
 def test_ingevuld_gaat_de_stap_wel_door(page, vertakt_formulier):
     """De tegenhanger: zonder haar zou "blokkeer altijd" ook groen staan."""
     page.goto(f"/formulier/{vertakt_formulier}")
-    page.wait_for_selector('[data-step="0"]', timeout=5000)
+    pagina_klaar(page)
 
     page.get_by_label("A", exact=True).check()
     page.get_by_role("button", name="Volgende").click()
-    page.wait_for_timeout(300)
 
-    assert _stap(page, 1).is_visible(), "de wizard blijft steken op een ingevulde stap"
+    expect(_stap(page, 1), "de wizard blijft steken op een ingevulde stap").to_be_visible()
 
 
 def test_een_verplicht_veld_in_een_overgeslagen_sectie_blokkeert_niets(
@@ -172,16 +173,15 @@ def test_een_verplicht_veld_in_een_overgeslagen_sectie_blokkeert_niets(
     hoort het verzenden niet tegen te houden — de server slaat die sectie ook over.
     """
     page.goto(f"/formulier/{vertakt_formulier}")
-    page.wait_for_selector('[data-step="0"]', timeout=5000)
+    pagina_klaar(page)
 
     page.get_by_label("B", exact=True).check()
     page.get_by_role("button", name="Volgende").click()
-    page.wait_for_timeout(300)
-    assert _stap(page, 2).is_visible(), "de sprong naar de laatste sectie werkte niet"
+    expect(_stap(page, 2), "de sprong naar de laatste sectie werkte niet").to_be_visible()
 
     page.locator('[data-step="2"] input[type=text]').first.fill("Klaar")
     page.get_by_role("button", name="Verzenden").click()
-    page.wait_for_timeout(800)
 
-    assert "verzonden" in page.content().lower() or "bedankt" in page.content().lower(), (
-        "het formulier is niet verzonden terwijl alle bereikte velden ingevuld waren")
+    expect(page.locator("body"), "het formulier is niet verzonden terwijl alle bereikte "
+                                 "velden ingevuld waren").to_contain_text(
+        re.compile("verzonden|bedankt", re.I))

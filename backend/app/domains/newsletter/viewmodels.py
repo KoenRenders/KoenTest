@@ -103,6 +103,8 @@ class NewsletterSendView(ViewModel):
     days: int
     daily_cap: int
     reply_to_sender: str
+    # A placeholder is still in the letter: the send button is not offered.
+    blocked: bool
     csrf_token: str
     error: Optional[str] = None
     nav_items: list[dict[str, Any]] = field(default_factory=list)

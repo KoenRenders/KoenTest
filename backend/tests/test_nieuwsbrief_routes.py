@@ -174,6 +174,29 @@ def test_versturen_zonder_doelgroep_toont_de_reden(client, db_session, mailbox):
     assert db_session.query(Delivery).count() == 0
 
 
+def test_met_een_plaatshouder_toont_het_scherm_de_zin_en_geen_verzendknop(
+        client, db_session, mailbox):
+    """Broken on purpose: `not blocked` taken out of `_nb_versturen.html` →
+    the button is back and this test fails."""
+    headers = _login(client)
+    _subscriber(db_session, "piet@example.org")
+    letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
+    nb.update_draft(db_session, letter, subject="Het najaar", audience="non_members",
+                    body_html="<div>Inschrijven via [e-mailadres].</div>")
+
+    stap = client.get(f"/admin/nieuwsbrieven/{letter.id}/versturen")
+    assert "Er staat nog een plaatshouder" in stap.text
+    assert "«Inschrijven via [e-mailadres].»" in stap.text
+    assert "Versturen (1)" not in stap.text
+    poging = client.post(f"/admin/nieuwsbrieven/{letter.id}/versturen", headers=headers,
+                         data={"reply_to": "association"})
+    assert "Er staat nog een plaatshouder" in poging.text
+    assert db_session.query(Delivery).count() == 0
+
+    test = client.post(f"/admin/nieuwsbrieven/{letter.id}/testmail", headers=headers)
+    assert "Testmail verstuurd" in test.text
+
+
 def test_een_concept_verwijderen_vraagt_bevestiging_op_het_formulier(client, db_session):
     """htmx reads `data-confirm` on the element that makes the request — for a
     form that is the form, not the button inside it (measured in htmx's source).

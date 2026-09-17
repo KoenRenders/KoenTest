@@ -5,8 +5,12 @@ WORKDIR /app
 # de laag gecachet blijft, en `check_imports.py` verderop importeert weasyprint:
 # ontbreekt een van deze pakketten, dan faalt de BUILD en niet de eerste PDF in
 # productie.
+#
+# libcairo2 (#989): CairoSVG renders the PNG version of an SVG logo for e-mail.
+# Measured: WeasyPrint 70 no longer uses Cairo, and the Pango packages do not
+# bring it along — Koen chose to add it (17 September 2026).
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 \
+    && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libcairo2 \
     && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt

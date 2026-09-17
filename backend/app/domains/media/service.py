@@ -12,6 +12,7 @@ gevonden); de route vertaalt die naar een statuscode.
 from typing import Optional, Sequence
 
 from app.domains.media.images import ALLOWED_CONTENT_TYPES, ImageError, process_image
+from app.domains.media.svg import SVG_CONTENT_TYPE, process_svg
 from app.domains.media.models import MediaAsset
 from app.i18n import _
 
@@ -307,11 +308,17 @@ async def upload_media(db, *, files: Sequence, kind: str,
 
     gemaakt = []
     for index, upload in enumerate(files):
-        if upload.content_type not in ALLOWED_CONTENT_TYPES:
+        # #989: SVG only for the association logo, and then cleaned rather than
+        # re-encoded (see `media/svg.py`). Every other kind stays raster.
+        is_svg = upload.content_type == SVG_CONTENT_TYPE
+        if is_svg and kind != "tenant_logo":
+            raise MediaFout(_("%(bestand)s: een SVG kan alleen als logo van de "
+                              "vereniging.") % {"bestand": upload.filename})
+        if not is_svg and upload.content_type not in ALLOWED_CONTENT_TYPES:
             raise MediaFout(f"Niet-ondersteund bestandstype: {upload.filename}")
         rauw = await upload.read()
         try:
-            verwerkt = process_image(rauw)
+            verwerkt = process_svg(rauw) if is_svg else process_image(rauw)
         except ImageError as exc:
             raise MediaFout(f"{upload.filename}: {exc}")
 

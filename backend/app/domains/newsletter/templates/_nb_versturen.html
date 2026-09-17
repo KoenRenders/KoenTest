@@ -2,7 +2,7 @@
 {{ ui.page_header(_("Nieuwsbrief versturen"), letter.subject or _("(nog zonder onderwerp)")) }}
 {% if error %}{{ ui.error_banner(error) }}{% endif %}
 
-{% if letter.audience and recipient_count %}
+{% if letter.audience and recipient_count and not blocked %}
 {# Nooit automatisch (CR-05 §3.9): dit scherm is de stap waarin een mens zegt
    "ja, naar deze mensen". Het herhaalt de doelgroep en het aantal adressen. #}
 <form class="max-w-2xl space-y-4" hx-post="/admin/nieuwsbrieven/{{ letter.id }}/versturen"
@@ -35,6 +35,8 @@
     <span class="ml-auto shrink-0">{{ ui.btn_primary(_("Versturen (%(n)s)", n=recipient_count), type="submit", lead_icon="send", cls="whitespace-nowrap") }}</span>
   </div>
 </form>
+{% elif blocked %}
+{# The banner above names the sentences; the back link leads to the draft. #}
 {% elif letter.audience %}
 {{ ui.empty_state(_("Er is niemand om deze nieuwsbrief naar te sturen.")) }}
 {% endif %}

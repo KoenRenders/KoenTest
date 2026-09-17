@@ -94,6 +94,12 @@ _PHONE = re.compile(r"(?:\+32|0032|\b0)[\s./-]?\d(?:[\s./-]?\d){7,9}\b")
 # An IBAN: two letters, two check digits, then up to 30 alphanumerics in groups.
 _IBAN = re.compile(r"\b[A-Z]{2}\d{2}(?:[ ]?[A-Z0-9]{4}){2,7}\b")
 
+# What `redact` puts in their place; a letter still carrying one is not sent (#984).
+EMAIL_PLACEHOLDER = "[e-mailadres]"
+IBAN_PLACEHOLDER = "[rekeningnummer]"
+PHONE_PLACEHOLDER = "[telefoonnummer]"
+REDACTION_PLACEHOLDERS = (EMAIL_PLACEHOLDER, PHONE_PLACEHOLDER, IBAN_PLACEHOLDER)
+
 _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
     ("een telefoonnummer", _PHONE),
     ("een rekeningnummer", _IBAN),
@@ -112,9 +118,9 @@ def redact(text: str) -> str:
     """
     if not text:
         return text or ""
-    text = _EMAIL.sub("[e-mailadres]", text)
-    text = _IBAN.sub("[rekeningnummer]", text)
-    return _PHONE.sub("[telefoonnummer]", text)
+    text = _EMAIL.sub(EMAIL_PLACEHOLDER, text)
+    text = _IBAN.sub(IBAN_PLACEHOLDER, text)
+    return _PHONE.sub(PHONE_PLACEHOLDER, text)
 
 _ADMIN_MESSAGE = (
     "Deze vraag is niet verstuurd: er stond een persoonsgegeven in ({reden}). "
