@@ -359,3 +359,43 @@ def test_de_inschrijfpagina_toont_het_formulier_een_keer(client, db_session):
     html = client.get("/nieuwsbrief").text
     assert html.count('name="email"') == 1
     assert 'id="nb-voet"' not in html
+
+
+# ── Attachments as links (Koen, 17 September 2026) ───────────────────────────
+
+def test_een_bijlage_wordt_een_link_op_de_cursor(client, db_session):
+    """Upload a PDF → a public media file and the link that goes at the cursor.
+
+    Broken on purpose: the newsletter kind left out of `DOCUMENT_KINDS` → the
+    upload is refused and this test fails.
+    """
+    from app.domains.media.api import MediaAsset
+
+    headers = _login(client)
+    letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
+    pdf = b"%PDF-1.4 het programma"
+
+    antwoord = client.post(f"/admin/nieuwsbrieven/{letter.id}/bijlage", headers=headers,
+                           files={"file": ("Het_programma.pdf", pdf, "application/pdf")})
+
+    assert antwoord.status_code == 200, antwoord.text
+    asset = db_session.query(MediaAsset).filter(MediaAsset.kind == "newsletter_file").one()
+    assert f"/api/v1/media/{asset.id}" in antwoord.text
+    assert "Download Het programma (pdf)" in antwoord.text
+    publiek = client.get(f"/api/v1/media/{asset.id}", cookies={})
+    assert publiek.status_code == 200 and publiek.content == pdf
+
+
+def test_een_verkeerd_bestand_wordt_geweigerd_met_de_reden(client, db_session):
+    headers = _login(client)
+    letter = nb.create_newsletter(db_session, created_by=SEEDED_ADMIN_EMAIL)
+    antwoord = client.post(f"/admin/nieuwsbrieven/{letter.id}/bijlage", headers=headers,
+                           files={"file": ("macro.docm", b"PK...", "application/vnd.ms-word")})
+    assert antwoord.status_code == 400
+    assert "PDF of een afbeelding" in antwoord.text
+
+
+def test_de_bijlagen_staan_niet_in_de_mediabibliotheek(client, db_session):
+    from app.domains.media.api import VALID_KINDS
+
+    assert "newsletter_file" not in VALID_KINDS

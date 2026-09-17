@@ -280,11 +280,15 @@ shows a **direction**, not the scope of the first release (§3.10).
       (§8.4).
     - This replaces the fixed blocks of the 14 September 2026 update: intro,
       *in de kijker*, calendar, outlook, external events.
-11. **The compose screen offers the points of recent meeting reports** (14
+11. **The compose screen offers the recent meeting reports, as a whole** (14
     September 2026; kept in the first release on 16 September 2026, because
-    the drafting is in it). The author ticks the points that should come
-    along. That selection is the **input gate** for Raakje: a point that is
-    not ticked never reaches the model.
+    the drafting is in it; **reports instead of points** since 17 September
+    2026). The author ticks whole reports — Koen: *"Gelieve enkel verslagen te
+    kunnen aanvinken, geen punten."* Three are visible at once and the list
+    scrolls; the latest one is ticked by default, and unticking it keeps the
+    report data out altogether. That selection is the **input gate** for
+    Raakje: a report that is not ticked never reaches the model, and member
+    points never do.
 12. **A newsletter can be copied** (15 September 2026).
     - Subject and body come along. **The audience does not**: you copy
       precisely because you are writing to someone else, so the new draft
@@ -317,12 +321,20 @@ shows a **direction**, not the scope of the first release (§3.10).
 
     **How the author works with it.**
     - The compose screen has a **Raakje panel**: a conversation next to the
-      editor. The author picks activities (the same picker as the insert
-      helper), ticks meeting points (§3.11), and says what the letter should
+      editor, and what it starts from (Koen, 17 September 2026). Two groups
+      of activities, filled in when the letter is created and editable:
+      *voorbije activiteiten* — everything that took place since the previous
+      letter went out, or in the last three months when there is none — and
+      *volgende activiteiten*, everything in the coming three months. Plus the
+      latest meeting report (§3.11). The author says what the letter should
       do.
-    - The first answer is **the whole letter as a proposal**: subject, a
-      short intro, a paragraph per chosen activity or meeting point, and the
-      closing of §3.10 (§8.2).
+    - The first answer is **the whole letter as a proposal**: subject, a look
+      back at the past activities, then a look ahead; the portal adds the
+      greeting and the closing (§3.10, §8.2). A past activity is named, with
+      its photo album when there is one, and never gets a registration link.
+    - **From a report Raakje takes only what matters to readers**: what went
+      well, what people enjoyed, an improvement on last year. Never money,
+      discussions, tasks, trouble between people or open decisions.
     - After that the conversation works on **pieces** (Koen: *"je moet dus
       stukken kunnen vervangen of stukken invoegen op basis van het
       gesprek"*). **The author decides where a piece goes, not Raakje**

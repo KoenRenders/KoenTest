@@ -188,3 +188,25 @@ def test_een_voorstel_komt_op_de_cursor_of_over_de_selectie(admin_page):
 
     page.evaluate("() => document.getElementById('nb-trix').editor.undo()")
     assert not page.evaluate(tekst).startswith("Bovenaan."), "ongedaan maken werkt niet"
+
+
+def test_voor_wie_is_een_regel_hoog_en_lijnt_uit_met_de_rechterkolom(admin_page):
+    """Koen, 17 September 2026: the audience choice stood in the way next to
+    Raakje, and sat lower than the right column.
+
+    Broken on purpose: the hidden CSRF field back as the form's first child →
+    `space-y-4` pushes the card 16 px down and the alignment assertion fails.
+    """
+    page = admin_page
+    page.get_by_role("button", name="+ Nieuwe nieuwsbrief").click()
+    page.wait_for_selector("#nb-trix", timeout=10_000)
+    _klikbaar(page, "#nb-onderwerp")
+
+    maten = page.evaluate("""() => {
+        const links = document.querySelector('#nb-formulier fieldset').getBoundingClientRect();
+        const rechts = document.querySelector('#nb-formulier').parentElement.children[1]
+                               .firstElementChild.getBoundingClientRect();
+        return {links: links.top, rechts: rechts.top, hoogte: links.height};
+    }""")
+    assert abs(maten["links"] - maten["rechts"]) <= 1, maten
+    assert maten["hoogte"] < 110, f"de keuze is {maten['hoogte']} px hoog"

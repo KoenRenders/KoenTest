@@ -18,7 +18,7 @@
       <span class="text-sm"><span class="font-medium">{{ span.activity.name }}</span>
         <span class="text-ink-soft"> · {{ dates[span.activity.id] }}</span></span>
       <span class="ml-auto">
-      {% if purpose == "raakje" %}
+      {% if purpose != "insert" %}
         <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/raakje/activiteit" hx-target="#nb-raakje" hx-swap="innerHTML">
           <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
           <input type="hidden" name="activity_id" value="{{ span.activity.id }}">

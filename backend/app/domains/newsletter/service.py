@@ -421,9 +421,54 @@ def get_newsletter(db: Session, newsletter_id: int) -> Optional[Newsletter]:
     return db.get(Newsletter, newsletter_id)
 
 
+# How far Raakje looks ahead for the coming activities, and back when there is
+# no earlier letter (Koen, 17 September 2026). The same three months the board
+# agendas with — a separate decision that happens to agree, so its own name.
+MONTHS_AHEAD = 3
+MONTHS_BACK_WITHOUT_LETTER = 3
+
+
+def _months_later(day: date, months: int) -> date:
+    import calendar
+
+    month = day.month - 1 + months
+    year = day.year + month // 12
+    month = month % 12 + 1
+    return date(year, month, min(day.day, calendar.monthrange(year, month)[1]))
+
+
+def default_sources(db: Session, today: Optional[date] = None) -> tuple[list[int], list[int]]:
+    """What a new letter starts with for Raakje (Koen, 17 September 2026).
+
+    - the activities that took place since the previous letter went out — or in
+      the last three months when there is none;
+    - the activities of the coming three months;
+    - the latest sent meeting report.
+
+    The author can remove any of them; unticking the report keeps the report
+    data out altogether.
+    """
+    from app.domains.activities.api import activities_active_between, activities_from
+    from app.domains.meetings.api import sent_reports
+
+    today = today or date.today()
+    previous = (db.query(Newsletter)
+                .filter(Newsletter.status != LETTER_DRAFT,
+                        Newsletter.send_started_at.isnot(None))
+                .order_by(Newsletter.send_started_at.desc()).first())
+    since = (previous.send_started_at.date() if previous is not None
+             else _months_later(today, -MONTHS_BACK_WITHOUT_LETTER))
+    until = _months_later(today, MONTHS_AHEAD)
+    past = [s.activity.id for s in activities_active_between(db, since, today)]
+    coming = [s.activity.id for s in activities_from(db, today) if s.start <= until]
+    reports = sent_reports(db, limit=1)
+    return sorted(set(past) | set(coming)), [r.id for r in reports]
+
+
 def create_newsletter(db: Session, *, created_by: str) -> Newsletter:
+    activity_ids, meeting_ids = default_sources(db)
     letter = Newsletter(created_by=created_by, subject="", body_html="",
-                        draft_activity_ids=[], draft_meeting_item_ids=[])
+                        draft_activity_ids=activity_ids, draft_meeting_ids=meeting_ids)
     db.add(letter)
     db.commit()
     return letter
@@ -453,11 +498,11 @@ def update_draft(db: Session, letter: Newsletter, *, subject: str, body_html: st
 
 
 def set_draft_sources(db: Session, letter: Newsletter, *, activity_ids: list[int],
-                      meeting_item_ids: list[int]) -> None:
-    """What Raakje writes about: the chosen activities and ticked points."""
+                      meeting_ids: list[int]) -> None:
+    """What Raakje writes about: the chosen activities and ticked reports."""
     _refuse_unless_draft(letter)
     letter.draft_activity_ids = sorted({int(i) for i in activity_ids})
-    letter.draft_meeting_item_ids = sorted({int(i) for i in meeting_item_ids})
+    letter.draft_meeting_ids = sorted({int(i) for i in meeting_ids})
     db.commit()
 
 
@@ -466,7 +511,7 @@ def copy_newsletter(db: Session, letter: Newsletter, *, created_by: str) -> News
     copy = Newsletter(subject=letter.subject, body_html=letter.body_html,
                       audience=None, created_by=created_by, copied_from_id=letter.id,
                       draft_activity_ids=list(letter.draft_activity_ids or []),
-                      draft_meeting_item_ids=list(letter.draft_meeting_item_ids or []))
+                      draft_meeting_ids=list(letter.draft_meeting_ids or []))
     db.add(copy)
     db.commit()
     return copy
@@ -517,6 +562,16 @@ class ActivityFacts:
     photos_url: Optional[str]
     is_full: bool
     prices: tuple
+    # Took place already: its line has no registration link (CR-05 §3.15).
+    is_past: bool = False
+    members_only: bool = False
+    end_time: Optional[object] = None
+    # The date rows as (start, end) — more than one for a recurring activity.
+    days: tuple = ()
+    # Where "inschrijven" and "inschrijvingen" lead; None when there is nothing
+    # to link (registration closed, or no participant list).
+    register_url: Optional[str] = None
+    registrations_url: Optional[str] = None
 
 
 def _activity_key(activity) -> str:
@@ -553,7 +608,7 @@ def activity_facts(db: Session, activity_ids, *, base_url: str,
 
     ``base_url`` makes the links absolute: they end up in a mail.
     """
-    from app.domains.activities.api import Activity, activities_from
+    from app.domains.activities.api import Activity, activities_from, registration_state
 
     wanted = {int(i) for i in (activity_ids or [])}
     if not wanted:
@@ -572,37 +627,112 @@ def activity_facts(db: Session, activity_ids, *, base_url: str,
         if start is None:
             continue
         key = _activity_key(activity)
+        page = f"{base_url}/activiteiten/{key}"
+        components = list(getattr(activity, "sub_registrations", []) or [])
+        is_full = bool(span and span.capacity and span.registered >= span.capacity)
+        is_past = (span.end if span else start) < (today or date.today())
+        # The same rules as the public card: register while it is open, and a
+        # participant list for an internal registration or an external list.
+        register_url = None
+        if components and not is_past and not is_full \
+                and registration_state(activity).value == "open":
+            external = [c.external_register_url for c in components if c.external_register_url]
+            register_url = external[0] if len(components) == 1 and external else page
+        registrations_url = None
+        if components and not is_past:
+            lists = [c.external_registrations_url for c in components
+                     if c.external_registrations_url]
+            internal = [c for c in components
+                        if not c.external_register_url and not c.external_registrations_url]
+            if lists and len(components) == 1:
+                registrations_url = lists[0]
+            elif internal or lists:
+                registrations_url = page
         out[activity.id] = ActivityFacts(
             id=activity.id, name=activity.name, start=start,
             end=span.end if span else start,
             start_time=first.start_time if first else None,
             location=activity.location or "",
-            url=f"{base_url}/activiteiten/{key}",
+            url=page,
             photos_url=(f"{base_url}/activiteiten/{key}/fotos"
                         if activity.id in albums else None),
-            is_full=bool(span and span.capacity and span.registered >= span.capacity),
-            prices=_prices_of(activity))
+            is_full=is_full,
+            prices=_prices_of(activity),
+            is_past=is_past,
+            members_only=bool(getattr(activity, "members_only", False)),
+            end_time=first.end_time if first else None,
+            days=tuple((d.start_date, d.end_date or d.start_date) for d in dates),
+            register_url=register_url,
+            registrations_url=registrations_url)
     return out
 
 
-def activity_line_html(facts: ActivityFacts) -> str:
-    """The one line "Activiteit invoegen" writes (CR-05 §3.10).
+_MONTH_ONLY = ["", "januari", "februari", "maart", "april", "mei", "juni", "juli",
+               "augustus", "september", "oktober", "november", "december"]
+# From this many days on, a span reads as months ("juni-september") and not as
+# two dates — the photo hunt that runs all summer.
+LONG_SPAN_DAYS = 28
 
-    The same line the drafting uses for its activity markers, so a date or a
-    link in a letter always comes from here and never from a model.
+
+def _day(day: date) -> str:
+    return f"{_LONG_WEEKDAYS[day.weekday()]} {day.day} {_LONG_MONTHS[day.month]}"
+
+
+def when_text(facts: ActivityFacts) -> str:
+    """The date part of an activity line, the way the board wrote it by hand
+    (Koen, 17 September 2026):
+
+    - one day, with the hour or the hours: "vrijdag 12 juni 20u",
+      "zondag 16 augustus 7u45-19u45";
+    - two days in a row in one month: "vrijdag 27 en zaterdag 28 november";
+    - a few days: "vrijdag 18 september - zondag 20 september";
+    - a long run: "juni-september".
     """
-    parts = [_long_date(facts.start)]
-    if facts.end and facts.end != facts.start:
-        parts[0] = f"{_long_date(facts.start)} tot {_long_date(facts.end)}"
-    if facts.start_time:
-        parts.append(_clock(facts.start_time))
-    if facts.location:
-        parts.append(facts.location)
-    text = ", ".join(parts)
+    start, end = facts.start, facts.end or facts.start
+    if (end - start).days >= LONG_SPAN_DAYS:
+        first, last = _MONTH_ONLY[start.month], _MONTH_ONLY[end.month]
+        return first if first == last else f"{first}-{last}"
+    if end == start:
+        text = _day(start)
+        if facts.start_time:
+            text += " " + _clock(facts.start_time)
+            if facts.end_time:
+                text += "-" + _clock(facts.end_time)
+        return text
+    if (end - start).days == 1 and start.month == end.month:
+        return (f"{_LONG_WEEKDAYS[start.weekday()]} {start.day} en "
+                f"{_LONG_WEEKDAYS[end.weekday()]} {end.day} {_LONG_MONTHS[end.month]}")
+    return f"{_day(start)} - {_day(end)}"
+
+
+def activity_line_html(facts: ActivityFacts) -> str:
+    """The one line "Activiteit invoegen" writes (CR-05 §3.10), in the format the
+    board pasted into reports and letters for years (Koen, 17 September 2026):
+
+        Naam (enkel leden) | vrijdag 12 juni 20u Miloheem | inschrijven | inschrijvingen
+
+    The name links to the activity. "inschrijven" appears while registration is
+    open, "volzet" when it is full, and "inschrijvingen" when there is a
+    participant list; a past activity gets neither. The same line fills the
+    drafting's activity markers, so a date or a link in a letter always comes
+    from here and never from a model.
+    """
     esc = html_lib.escape
-    link = (f' <a href="{esc(facts.url)}">{esc(_("Schrijf je in"))}</a>'
-            if not facts.is_full else f" <em>{esc(_('volzet'))}</em>")
-    return f"<strong>{esc(facts.name)}</strong> — {esc(text)}.{link}"
+    name = f'<a href="{esc(facts.url)}">{esc(facts.name)}</a>'
+    if facts.members_only:
+        name += f" {esc(_('(enkel leden)'))}"
+    when = when_text(facts)
+    if facts.location:
+        when += f" {facts.location}"
+    parts = [name, esc(when)]
+    if not facts.is_past:
+        if facts.is_full:
+            parts.append(f"<em>{esc(_('volzet'))}</em>")
+        elif facts.register_url:
+            parts.append(f'<a href="{esc(facts.register_url)}">{esc(_("inschrijven"))}</a>')
+        if facts.registrations_url:
+            parts.append(f'<a href="{esc(facts.registrations_url)}">{esc(_("inschrijvingen"))}</a>')
+    return " | ".join(parts)
 
 
 def photos_line_html(facts: ActivityFacts) -> str:
@@ -615,7 +745,8 @@ def photos_line_html(facts: ActivityFacts) -> str:
 
 
 def calendar_html(db: Session, *, base_url: str, today: Optional[date] = None) -> str:
-    """"Kalender invoegen": the activities of the coming weeks as a list."""
+    """"Kalender invoegen": the activities of the coming weeks, one line each,
+    in the same format as "Activiteit invoegen"."""
     from app.domains.activities.api import activities_from
 
     start = today or date.today()
@@ -624,29 +755,52 @@ def calendar_html(db: Session, *, base_url: str, today: Optional[date] = None) -
     if not spans:
         return f"<div>{html_lib.escape(_('Er staan de komende weken geen activiteiten gepland.'))}</div>"
     facts = activity_facts(db, [s.activity.id for s in spans], base_url=base_url, today=start)
-    esc = html_lib.escape
-    lines = []
-    for span in spans:
-        fact = facts.get(span.activity.id)
-        if fact is None:
-            continue
-        where = f", {esc(fact.location)}" if fact.location else ""
-        full = f" · <em>{esc(_('volzet'))}</em>" if fact.is_full else ""
-        lines.append(f'<li>{esc(short_date(fact.start))} — '
-                     f'<a href="{esc(fact.url)}">{esc(fact.name)}</a>{where}{full}</li>')
-    return f"<ul>{''.join(lines)}</ul>"
+    return "".join(f"<div>{activity_line_html(facts[s.activity.id])}</div>"
+                   for s in spans if s.activity.id in facts)
 
 
-def insertable_activities(db: Session, *, query: str = "",
+def insertable_activities(db: Session, *, query: str = "", past: bool = False,
                           today: Optional[date] = None) -> list:
-    """The picker: every coming activity, soonest first, optionally filtered."""
-    from app.domains.activities.api import activities_from
+    """The picker: every coming activity, soonest first — or, with ``past``,
+    the activities of the last year, most recent first. Optionally filtered."""
+    from app.domains.activities.api import activities_active_between, activities_from
 
-    spans = activities_from(db, today or date.today())
+    today = today or date.today()
+    if past:
+        spans = sorted(activities_active_between(db, _months_later(today, -12), today),
+                       key=lambda s: s.start, reverse=True)
+    else:
+        spans = activities_from(db, today)
     needle = (query or "").strip().lower()
     if needle:
         spans = [s for s in spans if needle in s.activity.name.lower()]
     return spans[:40]
+
+
+def add_attachment(db: Session, letter: Newsletter, *, filename: str,
+                   content_type: str, data: bytes, base_url: str) -> str:
+    """Store a file for this letter and return the link that goes at the cursor.
+
+    A link and not an attachment (Koen, 17 September 2026): each letter leaves
+    as a separate mail to hundreds of addresses, and a file in every one of
+    them makes the send heavy and the mails likelier to be filtered.
+    """
+    import os
+
+    from app.domains.media.api import MediaFout, add_document
+
+    _refuse_unless_draft(letter)
+    try:
+        asset = add_document(db, kind="newsletter_file", filename=filename,
+                             content_type=content_type, data=data)
+    except MediaFout as exc:
+        raise NewsletterError(str(exc)) from exc
+    stem, extension = os.path.splitext(filename or "")
+    label = stem.replace("_", " ").strip() or _("bestand")
+    kind = extension.lstrip(".").lower() or ("pdf" if content_type == "application/pdf" else "")
+    esc = html_lib.escape
+    text = _("Download %(naam)s") % {"naam": label} + (f" ({kind})" if kind else "")
+    return f'<div><a href="{esc(base_url)}/api/v1/media/{asset.id}">{esc(text)}</a></div>'
 
 
 def save_settings(db: Session, *, house_style: str, daily_cap: Optional[int]) -> None:

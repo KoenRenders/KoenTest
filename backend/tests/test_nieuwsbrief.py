@@ -525,3 +525,109 @@ def test_voorbeeldabonnees_nooit_op_prod(db_session):
     assert seed_newsletter.seed(db_session, "hdev") == 0, "niet twee keer"
     assert all(s.email.endswith(("@example.org", ".example.org"))
                for s in db_session.query(Subscriber))
+
+
+# ── The activity line, as the board wrote it by hand (Koen, 17 September 2026) ─
+
+def _dated_activity(db, name, start, end=None, *, start_time=None, end_time=None,
+                    location=None, members_only=False, component=True,
+                    external_register=None, external_list=None, capacity=None):
+    from app.domains.activities.api import Activity, ActivityDate, ActivitySubRegistration
+
+    activity = Activity(name=name, location=location, members_only=members_only,
+                        slug=name.lower().replace(" ", "-"))
+    db.add(activity)
+    db.flush()
+    db.add(ActivityDate(activity_id=activity.id, start_date=start, end_date=end,
+                        start_time=start_time, end_time=end_time))
+    if component:
+        db.add(ActivitySubRegistration(activity_id=activity.id, name="Deelname",
+                                       external_register_url=external_register,
+                                       external_registrations_url=external_list,
+                                       max_participants=capacity))
+    db.flush()
+    return activity
+
+
+def _line(db, activity, today):
+    facts = nb.activity_facts(db, [activity.id], base_url="https://raak.example", today=today)
+    return nb.activity_line_html(facts[activity.id])
+
+
+def test_de_regel_van_een_activiteit_zoals_het_bestuur_ze_schreef(db_session):
+    """Naam (enkel leden) | datum uur plaats | inschrijven | inschrijvingen —
+    the name links to the activity.
+
+    Broken on purpose: `members_only` not passed into the facts → the
+    "(enkel leden)" assertion fails.
+    """
+    from datetime import time
+
+    vandaag = date.today()
+    dag = vandaag + timedelta(days=10)
+    kroeg = _dated_activity(db_session, "Mannenkroegentocht", dag, start_time=time(20, 0),
+                            location="Miloheem", members_only=True)
+
+    regel = _line(db_session, kroeg, vandaag)
+
+    link = 'href="https://raak.example/activiteiten/mannenkroegentocht"'
+    assert regel.startswith(f'<a {link}>Mannenkroegentocht</a> (enkel leden) | ')
+    assert " 20u Miloheem | " in regel
+    assert regel.endswith(f'<a {link}>inschrijven</a> | <a {link}>inschrijvingen</a>')
+
+
+def test_de_datum_leest_zoals_het_bestuur_ze_schrijft():
+    from datetime import time
+
+    def facts(start, end=None, start_time=None, end_time=None):
+        return nb.ActivityFacts(id=1, name="x", start=start, end=end or start,
+                                start_time=start_time, location="", url="",
+                                photos_url=None, is_full=False, prices=(),
+                                end_time=end_time)
+
+    assert nb.when_text(facts(date(2026, 6, 12), start_time=time(20, 0))) == "vrijdag 12 juni 20u"
+    assert nb.when_text(facts(date(2026, 8, 16), start_time=time(7, 45),
+                              end_time=time(19, 45))) == "zondag 16 augustus 7u45-19u45"
+    assert nb.when_text(facts(date(2026, 11, 27), date(2026, 11, 28))) == \
+        "vrijdag 27 en zaterdag 28 november"
+    assert nb.when_text(facts(date(2026, 9, 18), date(2026, 9, 20))) == \
+        "vrijdag 18 september - zondag 20 september"
+    assert nb.when_text(facts(date(2026, 6, 1), date(2026, 9, 30))) == "juni-september"
+
+
+def test_extern_inschrijven_en_zonder_inschrijving(db_session):
+    vandaag = date.today()
+    dag = vandaag + timedelta(days=10)
+    brood = _dated_activity(db_session, "Brood en Spelen", dag, component=False)
+    comedy = _dated_activity(db_session, "Comedy Festival", dag,
+                             external_register="https://tickets.example/comedy")
+
+    assert _line(db_session, brood, vandaag).count(" | ") == 1, "geen inschrijving, geen links"
+    comedy_regel = _line(db_session, comedy, vandaag)
+    assert '<a href="https://tickets.example/comedy">inschrijven</a>' in comedy_regel
+    assert "inschrijvingen" not in comedy_regel, "extern inschrijven zonder externe lijst"
+
+
+def test_volzet_vervangt_inschrijven():
+    facts = nb.ActivityFacts(id=1, name="Bowlen", start=date(2026, 11, 15), end=date(2026, 11, 15),
+                             start_time=None, location="", url="https://raak.example/a",
+                             photos_url=None, is_full=True, prices=(),
+                             register_url="https://raak.example/a",
+                             registrations_url="https://raak.example/a")
+    regel = nb.activity_line_html(facts)
+    assert "<em>volzet</em>" in regel
+    assert ">inschrijven<" not in regel
+    assert ">inschrijvingen<" in regel
+
+
+def test_de_kalender_is_een_regel_per_activiteit(db_session):
+    vandaag = date.today()
+    _dated_activity(db_session, "Eerste", vandaag + timedelta(days=3))
+    _dated_activity(db_session, "Tweede", vandaag + timedelta(days=6))
+
+    html = nb.calendar_html(db_session, base_url="https://raak.example", today=vandaag)
+
+    assert "<ul>" not in html
+    assert html.index("Eerste") < html.index("Tweede")
+    regels = [r for r in html.split("</div>") if r]
+    assert all(r.startswith("<div><a ") and " | " in r for r in regels)

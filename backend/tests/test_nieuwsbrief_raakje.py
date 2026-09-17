@@ -95,7 +95,7 @@ def _activity(db, name, days_ahead=20, price=None, member_price=None):
 def _letter(db, body="", audience=AUDIENCE_MEMBERS, activity_ids=()):
     letter = nb.create_newsletter(db, created_by="s@example.org")
     nb.update_draft(db, letter, subject="", body_html=body, audience=audience)
-    nb.set_draft_sources(db, letter, activity_ids=list(activity_ids), meeting_item_ids=[])
+    nb.set_draft_sources(db, letter, activity_ids=list(activity_ids), meeting_ids=[])
     return letter
 
 
@@ -134,7 +134,7 @@ def test_een_naam_uit_het_verslag_vertrekt_niet_en_komt_niet_terug(db_session, r
     db_session.flush()
     item = _sent_meeting_with_point(db_session, "<div>Kris regelt de bus voor iedereen.</div>")
     letter = _letter(db_session)
-    nb.set_draft_sources(db_session, letter, activity_ids=[], meeting_item_ids=[item.id])
+    nb.set_draft_sources(db_session, letter, activity_ids=[], meeting_ids=[item.meeting_id])
     provider = raakje(_draft(["Er rijdt een bus voor iedereen."]), _verdict())
 
     turn = _ask(db_session, letter)
@@ -145,15 +145,34 @@ def test_een_naam_uit_het_verslag_vertrekt_niet_en_komt_niet_terug(db_session, r
     assert "Kris" not in json.dumps(turn.proposal)
 
 
-def test_een_niet_aangevinkt_punt_gaat_nooit_mee(db_session, raakje):
+def test_een_niet_aangevinkt_verslag_gaat_nooit_mee(db_session, raakje):
+    """Whole reports are ticked (Koen, 17 September 2026); the latest one is
+    ticked by default, and unticking it keeps the report data out altogether.
+
+    Broken on purpose: `gather_sources` reading every sent report regardless of
+    the ticks → the unticked report's text is in the payload and this fails.
+    """
     item = _sent_meeting_with_point(db_session, "<div>Geheim punt over de kas.</div>")
-    letter = _letter(db_session)
-    assert item.id not in letter.draft_meeting_item_ids
+    letter = nb.create_newsletter(db_session, created_by="s@example.org")
+    assert letter.draft_meeting_ids == [item.meeting_id], "het laatste verslag staat aangevinkt"
+    nb.set_draft_sources(db_session, letter, activity_ids=[], meeting_ids=[])
     provider = raakje(_draft(["Een brief."]), _verdict())
 
     _ask(db_session, letter)
 
     assert "geheim punt" not in provider.payloads()
+
+
+def test_een_aangevinkt_verslag_gaat_als_geheel_mee(db_session, raakje):
+    item = _sent_meeting_with_point(db_session, "<div>Iedereen genoot van de soep.</div>")
+    letter = nb.create_newsletter(db_session, created_by="s@example.org")
+    provider = raakje(_draft(["Een brief."]), _verdict())
+
+    _ask(db_session, letter)
+
+    assert "iedereen genoot van de soep" in provider.payloads()
+    assert "intern" in provider.payloads(), "het model hoort dat een verslag intern is"
+    assert item.meeting_id in letter.draft_meeting_ids
 
 
 def test_niemands_adres_en_geen_ontvangerslijst_in_de_payload(db_session, raakje):
@@ -549,3 +568,51 @@ def test_de_prompt_vraagt_correct_nederlands_en_laat_aanhef_en_groet_aan_het_por
     assert "[[naam:ID]]" in prompt
     assert "geen aanhef" in prompt
     assert "correct Nederlands" in prompt
+
+
+# ── What a new letter starts with (Koen, 17 September 2026) ──────────────────
+
+def test_een_nieuwe_brief_start_met_voorbije_en_volgende_activiteiten(db_session, monkeypatch):
+    """Past: what took place since the previous letter went out. Coming: the
+    next three months. Older and further activities are left for the picker.
+
+    Broken on purpose: `default_sources` ignoring the previous letter (always
+    three months back) → the activity from before that letter is included and
+    this test fails.
+    """
+    from datetime import datetime, timezone
+
+    vorige = nb.create_newsletter(db_session, created_by="s@example.org")
+    nb.update_draft(db_session, vorige, subject="Vorige", body_html="<div>x</div>",
+                    audience=AUDIENCE_MEMBERS)
+    vorige.status = LETTER_SENT
+    vorige.send_started_at = datetime.now(timezone.utc) - timedelta(days=30)
+    db_session.commit()
+
+    voor_de_vorige = _activity(db_session, "Voor de vorige brief", days_ahead=-45)
+    sindsdien = _activity(db_session, "Sinds de vorige brief", days_ahead=-10)
+    binnenkort = _activity(db_session, "Binnenkort", days_ahead=40)
+    te_ver = _activity(db_session, "Te ver", days_ahead=120)
+
+    letter = nb.create_newsletter(db_session, created_by="s@example.org")
+
+    assert sindsdien.id in letter.draft_activity_ids
+    assert binnenkort.id in letter.draft_activity_ids
+    assert voor_de_vorige.id not in letter.draft_activity_ids
+    assert te_ver.id not in letter.draft_activity_ids
+
+
+def test_een_voorbije_activiteit_krijgt_geen_inschrijflink(db_session):
+    voorbij = _activity(db_session, "Raak Café", days_ahead=-5, price="5")
+    komt = _activity(db_session, "Zo vader zo zoon", days_ahead=5, price="5")
+    facts = nb.activity_facts(db_session, [voorbij.id, komt.id], base_url=BASE)
+
+    assert "inschrijven" not in nb.activity_line_html(facts[voorbij.id])
+    assert "inschrijven" in nb.activity_line_html(facts[komt.id])
+
+
+def test_de_prompt_vraagt_eerst_terugblik_dan_vooruitblik():
+    prompt = drafting.SYSTEM_PROMPT
+    assert "TERUGBLIK" in prompt and "VOORUITBLIK" in prompt
+    assert prompt.index("TERUGBLIK") < prompt.index("VOORUITBLIK")
+    assert "INTERN" in prompt

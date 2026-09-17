@@ -44,6 +44,8 @@ NAV = "/admin/nieuwsbrieven"
 # The import file stays small: one address per line, about 800 of them. A
 # megabyte is a hundred times that, and still refuses a file picked by mistake.
 MAX_IMPORT_BYTES = 1_000_000
+# A programme or a flyer, not a photo album.
+MAX_ATTACHMENT_BYTES = 10_000_000
 
 LETTER_STATUS_LABELS = {nb.LETTER_DRAFT: "Concept", nb.LETTER_SENDING: "Wordt verstuurd",
                         nb.LETTER_SENT: "Verstuurd"}
@@ -310,32 +312,39 @@ def _compose_view(request: Request, db: Session, letter, error: Optional[str] = 
                   notice: Optional[str] = None, raakje_error: Optional[str] = None,
                   apply_html: str = "", apply_placement: str = "",
                   apply_range: str = "") -> NewsletterComposeView:
-    from app.domains.meetings.api import recent_report_points
+    from app.domains.meetings.api import long_date, sent_reports
 
     counts = nb.audience_counts(db)
+    # (waarde, label, aantal, uitleg): het aantal staat op de knop, de uitleg in
+    # de tooltip — de keuze is één regel hoog (Koen, 17 september 2026).
     options = [
-        (nb.AUDIENCE_MEMBERS, _("Leden"),
-         _("%(n)s adressen · iedereen met een adres in een gezin met lidmaatschap %(j)s")
-         % {"n": counts.members, "j": datetime.now().year}),
-        (nb.AUDIENCE_NON_MEMBERS, _("Niet-leden"),
-         _("%(n)s bevestigde adressen · met uitschrijflink") % {"n": counts.non_members}),
-        (nb.AUDIENCE_BOTH, _("Allebei"),
-         _("%(n)s adressen · %(d)s dubbele samengevoegd")
-         % {"n": counts.both, "d": counts.overlap}),
+        (nb.AUDIENCE_MEMBERS, _("Leden"), str(counts.members),
+         _("Iedereen met een adres in een gezin met lidmaatschap %(j)s")
+         % {"j": datetime.now().year}),
+        (nb.AUDIENCE_NON_MEMBERS, _("Niet-leden"), str(counts.non_members),
+         _("Bevestigde abonnees; elke mail heeft een uitschrijflink")),
+        (nb.AUDIENCE_BOTH, _("Allebei"), str(counts.both),
+         _("Samengevoegd; %(d)s adressen stonden op beide lijsten")
+         % {"d": counts.overlap}),
     ]
     raakje = _raakje_enabled(db)
-    chosen = []
-    points = []
+    past: list = []
+    coming: list = []
+    reports: list[tuple[int, str]] = []
     messages = nb.messages_of(db, letter) if raakje else []
     if raakje:
         facts = nb.activity_facts(db, letter.draft_activity_ids, base_url=_base_url(db))
-        chosen = [facts[i] for i in letter.draft_activity_ids if i in facts]
-        points = recent_report_points(db)
+        chosen = sorted((facts[i] for i in letter.draft_activity_ids if i in facts),
+                        key=lambda f: f.start)
+        past = [f for f in chosen if f.is_past]
+        coming = [f for f in chosen if not f.is_past]
+        reports = [(m.id, _("Verslag van %(d)s") % {"d": long_date(m.meeting_date)})
+                   for m in sent_reports(db)]
     return NewsletterComposeView(
         letter=letter, counts=counts, audience_options=options,
         saved_at=_moment(letter.updated_at),
-        raakje_enabled=raakje, chosen_activities=chosen, report_points=points,
-        ticked_points=list(letter.draft_meeting_item_ids or []),
+        raakje_enabled=raakje, past_activities=past, coming_activities=coming,
+        reports=reports, ticked_reports=list(letter.draft_meeting_ids or []),
         messages=messages,
         proposals={m.id: nb.display_proposal(db, letter, m) for m in messages if m.proposal},
         csrf_token=_csrf(request), error=error, notice=notice, raakje_error=raakje_error,
@@ -406,10 +415,10 @@ def activity_picker(newsletter_id: int, request: Request, db: Session = Depends(
     """The picker: every coming activity. `purpose` says what a click does —
     insert a line in the editor, or give the activity to Raakje."""
     letter = _letter_or_404(db, newsletter_id)
-    spans = nb.insertable_activities(db, query=q)
+    purpose = purpose if purpose in ("insert", "raakje", "raakje-voorbij") else "insert"
+    spans = nb.insertable_activities(db, query=q, past=purpose == "raakje-voorbij")
     view = NewsletterPickerView(
-        letter=letter, spans=spans, q=q,
-        purpose="raakje" if purpose == "raakje" else "insert",
+        letter=letter, spans=spans, q=q, purpose=purpose,
         dates={s.activity.id: nb.short_date(s.start) for s in spans},
         csrf_token=_csrf(request))
     return templates.TemplateResponse(request, "_nb_kiezer.html", view.as_context())
@@ -442,6 +451,26 @@ def insert_closing(newsletter_id: int, db: Session = Depends(get_db),
                    _email: str = Depends(require_admin_ui)):
     _letter_or_404(db, newsletter_id)
     return HTMLResponse(nb.closing_html(db))
+
+
+@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/bijlage",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+async def insert_attachment(newsletter_id: int, db: Session = Depends(get_db),
+                            _email: str = Depends(require_admin_ui),
+                            file: UploadFile = File(...)):
+    """"Bijlage invoegen": the file is stored, the answer is the link that the
+    editor puts at the cursor. A refusal answers 400 with the reason as text."""
+    letter = _letter_or_404(db, newsletter_id)
+    data = await file.read(MAX_ATTACHMENT_BYTES + 1)
+    if len(data) > MAX_ATTACHMENT_BYTES:
+        return HTMLResponse(_("Dit bestand is te groot (hoogstens 10 MB)."), status_code=400)
+    try:
+        html = nb.add_attachment(db, letter, filename=file.filename or "",
+                                 content_type=file.content_type or "", data=data,
+                                 base_url=_base_url(db))
+    except nb.NewsletterError as exc:
+        return HTMLResponse(str(exc), status_code=400)
+    return HTMLResponse(html)
 
 
 @router.post("/admin/nieuwsbrieven/{newsletter_id:int}/testmail",
@@ -557,7 +586,7 @@ def raakje_add_activity(newsletter_id: int, request: Request, db: Session = Depe
     letter = _raakje_letter(db, newsletter_id)
     nb.set_draft_sources(db, letter,
                          activity_ids=[*letter.draft_activity_ids, activity_id],
-                         meeting_item_ids=letter.draft_meeting_item_ids)
+                         meeting_ids=letter.draft_meeting_ids)
     return _panel(request, db, letter)
 
 
@@ -569,20 +598,21 @@ def raakje_remove_activity(newsletter_id: int, activity_id: int, request: Reques
     letter = _raakje_letter(db, newsletter_id)
     nb.set_draft_sources(db, letter,
                          activity_ids=[i for i in letter.draft_activity_ids if i != activity_id],
-                         meeting_item_ids=letter.draft_meeting_item_ids)
+                         meeting_ids=letter.draft_meeting_ids)
     return _panel(request, db, letter)
 
 
-@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/raakje/punten",
+@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/raakje/verslagen",
              response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
-async def raakje_points(newsletter_id: int, request: Request, db: Session = Depends(get_db),
-                        _email: str = Depends(require_admin_ui)):
-    """The ticked meeting points — the input gate (CR-05 §3.11)."""
+async def raakje_reports(newsletter_id: int, request: Request, db: Session = Depends(get_db),
+                         _email: str = Depends(require_admin_ui)):
+    """The ticked meeting reports — the input gate (CR-05 §3.11). Unticking
+    every report keeps the report data out of the letter altogether."""
     letter = _raakje_letter(db, newsletter_id)
     form = await request.form()
-    ticked = [int(str(v)) for v in form.getlist("point_id") if str(v).isdigit()]
+    ticked = [int(str(v)) for v in form.getlist("meeting_id") if str(v).isdigit()]
     nb.set_draft_sources(db, letter, activity_ids=letter.draft_activity_ids,
-                         meeting_item_ids=ticked)
+                         meeting_ids=ticked)
     return _panel(request, db, letter)
 
 

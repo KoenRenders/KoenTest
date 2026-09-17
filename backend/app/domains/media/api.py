@@ -13,7 +13,7 @@ from app.domains.media.extraction import (  # noqa: F401
 from app.domains.media.models import MediaAsset, MediaThumbsUp  # noqa: F401
 
 __all__ = [
-    "MediaFout", "VALID_KINDS", "tenant_logo", "activity_ids_with_media",
+    "MediaFout", "VALID_KINDS", "DOCUMENT_KINDS", "add_document", "tenant_logo", "activity_ids_with_media",
     "activity_photo_covers", "delete_media",
     "list_activity_photos", "list_media", "move_media", "update_media", "upload_media",
     "thumb_counts", "thumbs_of_visitor", "toggle_thumb",
@@ -30,6 +30,8 @@ __all__ = [
 # `EXTRACTABLE_KINDS` nog niet gebonden wanneer de keten terugkomt. Onderaan wel.
 from app.domains.media.service import (  # noqa: F401
     VALID_KINDS,
+    DOCUMENT_KINDS,
+    add_document,
     tenant_logo,
     delete_activity_poster,
     delete_component_info,

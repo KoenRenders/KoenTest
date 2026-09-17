@@ -33,13 +33,16 @@ class NewsletterComposeView(ViewModel):
 
     letter: Any
     counts: Any
-    audience_options: list[tuple[str, str, str]]
+    audience_options: list[tuple[str, str, str, str]]
     saved_at: str
     # Raakje (CR-05 §3.15): off when the back-office switch is off.
     raakje_enabled: bool
-    chosen_activities: list[Any]
-    report_points: list[Any]
-    ticked_points: list[int]
+    # What Raakje writes about (Koen, 17 September 2026): past and coming
+    # activities, and whole meeting reports to tick.
+    past_activities: list[Any]
+    coming_activities: list[Any]
+    reports: list[tuple[int, str]]
+    ticked_reports: list[int]
     messages: list[Any]
     # Per Raakje message id: the proposal as the screen shows it.
     proposals: dict[int, Any]
