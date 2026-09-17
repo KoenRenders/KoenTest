@@ -984,8 +984,8 @@ own contact details, #945). A contact person is a member chosen from the
 list, with the option to enter a different number or address for this
 activity.
 
-- **On the activity — recommended, to confirm (Q19).** Koen asked which
-  module should hold them. Contact persons are a fact about the activity
+- **On the activity — decided (Koen, 17 September 2026, Q19).** Koen asked
+  which module should hold them. Contact persons are a fact about the activity
   ("who answers questions"), not about one poster: every design of the
   activity shows the same two, and a later consumer (a newsletter, a mail)
   can read them without knowing the Design Studio. So they belong in the
@@ -995,6 +995,12 @@ activity.
   alternative (contacts inside the Design Studio) would leave `activities`
   untouched, but ties an activity fact to one consumer. Changing a contact
   marks the final design stale (B4 §3.14), like a changed date.
+- **Empty means empty in the activities module.** The activity screen shows
+  nothing when no contact persons are entered, and the public website shows
+  no contact block at all (Q15). The fallback to Raak's website, e-mail and
+  mobile is **a poster rule** in the Design Studio (B4 §3.7), not a rule of
+  the activity — "it would be odd to show Raak's website when you are on
+  it" (Koen).
 - **Removing the last contact person asks first** (Koen, 17 September
   2026): "Zonder contactpersonen tonen de affiches de website, het
   e-mailadres en het gsm-nummer van Raak. Doorgaan?"
@@ -1781,7 +1787,7 @@ not asked twice. Open questions carry no answer yet.
 | Q16 | 17 Sep | Scope of the first release: which templates? (external review, reviewer Q2) | Koen: the one-off posters (1a) should fit one template; the series (1b) are alike but carry dates. **Proposal in B4 §3.4:** one content-driven template "Affiche", two layouts, dates grid when the activity has several dates. *Awaiting Koen's confirmation.* |
 | Q17 | 17 Sep | One shared €50 budget or €50 per unit? (external review) | Both, layered: per-unit default plus a platform cap; for now all from the one FLUX budget (§3.12, Q14). |
 | Q18 | 17 Sep | May a hand-edited SVG leave the house style (gate warns only), or does the gate block with an admin override? (second external review) | **Warn only** (Koen, 17 Sep): the person may upload any poster, as today through the media screen. |
-| Q19 | 17 Sep | Removing the last contact person silently falls back to Raak's details — silent, or with a confirmation? And which module holds the contacts? (second external review; Koen) | **With a confirmation** (Koen, 17 Sep). Module: the CLI recommends the `activities` module (an activity fact, read by the Design Studio through its facade); *awaiting Koen's confirmation*. |
+| Q19 | 17 Sep | Removing the last contact person silently falls back to Raak's details — silent, or with a confirmation? And which module holds the contacts? (second external review; Koen) | **With a confirmation** (Koen, 17 Sep). Module: **the `activities` module**, entered on the activity's own screen; the Design Studio reads them through the facade. Empty shows nothing on the activity and the site; only the poster falls back to Raak's details (Koen, 17 Sep). |
 | Q20 | 17 Sep | Does the pilot include generated illustrations, or photos only? (CLI) | *open — Koen*. The 1a/1b targets are mostly photos; AI images are phase 3 in B7. |
 
 ## Non-goals
