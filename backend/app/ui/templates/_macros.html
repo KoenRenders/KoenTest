@@ -142,13 +142,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="{{ size }}" height="{{ size }}" viewBox="{{ viewboxes.get(name, '0 0 24 24') }}" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="inline-block shrink-0 {{ cls }}" aria-hidden="true">{{ paths.get(name, '')|safe }}</svg>
 {%- endmacro %}
 
-{% macro badge(label, tone="gray") -%}
+{# `met_vinkje` (Betalingen-verfijning, #996): de Cobalt-referentie zet een
+   vinkje vóór de afgerond-status ("✓ Betaald") — als Lucide-icoon, geen
+   emoji. Optioneel, zodat bestaande badges niets verandert. #}
+{% macro badge(label, tone="gray", met_vinkje=False) -%}
 {%- set tones = {"gray": "bg-gray-100 text-gray-600", "green": "bg-green-100 text-green-800",
                  "yellow": "bg-yellow-100 text-yellow-800", "red": "bg-red-100 text-red-800",
                  "blue": "bg-blue-100 text-blue-700",
                  "teal": "bg-teal-100 text-teal-800", "orange": "bg-orange-100 text-orange-800",
                  "indigo": "bg-purple-100 text-purple-800"} -%}
-<span class="text-xs font-semibold px-2 py-0.5 rounded-full {{ tones.get(tone, tones['gray']) }}">{{ label }}</span>
+<span class="text-xs font-semibold px-2 py-0.5 rounded-full inline-flex items-center gap-1 {{ tones.get(tone, tones['gray']) }}">{% if met_vinkje %}{{ icon("check", 12) }}{% endif %}{{ label }}</span>
 {%- endmacro %}
 
 {# Omgevingsbanner (#464/#610). Sticky met een VASTE hoogte (h-6 = 1,5rem): de

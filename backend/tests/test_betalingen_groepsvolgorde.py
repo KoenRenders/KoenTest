@@ -236,7 +236,8 @@ def test_de_badge_en_de_totaalregel_zijn_niet_langer_dezelfde_tekst(client, db_s
 
 # ── 5. De statusbadge staat op elke kaart uiterst rechts (#686) ──────────────
 
-BADGE = __import__("re").compile(r'rounded-full[^>]*">([^<]*)</span>')
+# De badge kan sinds #996 een vinkje-icoon (svg) vóór het label dragen.
+BADGE = __import__("re").compile(r'rounded-full[^>]*">(?:<svg.*?</svg>)?([^<]*)</span>', __import__("re").S)
 
 
 def _badges(html: str) -> list[str]:

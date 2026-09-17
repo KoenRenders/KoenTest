@@ -2,6 +2,15 @@
 {# Het betalingenscherm zonder schil (golf 8, #913): filterbalk + lijst.
    Gedeeld door /admin/betalingen en de ingebedde Betalingen-tab van een
    activiteit — één bron, twee koppen. #}
+{# Cobalt-volgorde (#996): kengetallen → tabs → filterregel → tabel. De
+   band en de tabs staan in #bt-boven en verversen out-of-band met elk
+   lijstfragment (zelfde #748-patroon als de recordkop van golf 10): zo kan
+   de filterbalk ertussen BUITEN het fragment blijven en sneuvelt het
+   zoekveld niet onder je vingers. #}
+<div id="bt-boven">
+  {% include "_bt_boven.html" %}
+</div>
+
 {% call ui.filter_bar("/admin/betalingen/lijst", "#betalingen-lijst", id="bt-filter") %}
   {# P13 (golf 5, #913): de recordscope reist als hidden field met élke
      filterwijziging mee — de scope overleeft filteren en wissen, en verdwijnt

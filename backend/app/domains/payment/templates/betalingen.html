@@ -2,9 +2,10 @@
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Betalingen — Raak") }}{% endblock %}
 {% block content %}
-{{ ui.page_header(_("Betalingen & vorderingen"), _("Financiële feiten — enkel FINANCE kan bevestigen of terugbetalen.")) }}
-{# Records-lijst-gedrag (C1 §4, #591): zoeken bovenaan, filters eronder, alles
-   live via de kit-filterbalk. De balk swapt enkel de kaartenlijst, zodat het
-   zoekveld niet onder je vingers vervangen wordt. #}
+{# Cobalt-referentie (#996, Koens nabouw-vraag): breadcrumb, korte titel en de
+   referentie-ondertitel; de FINANCE-zin staat in de meta-regel boven de
+   tabel, zoals de mockup. #}
+<div class="text-[11px] text-ink-soft mb-2">{{ _("Financieel") }} › {{ _("Betalingen") }}</div>
+{{ ui.page_header(_("Betalingen"), _("Vorderingen, ontvangsten en terugbetalingen op één plek.")) }}
 {% include "_betalingen_scherm.html" %}
 {% endblock %}
