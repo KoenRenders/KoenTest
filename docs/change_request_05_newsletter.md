@@ -363,7 +363,10 @@ shows a **direction**, not the scope of the first release (§3.10).
       brengt weer".
     - The conversation is kept with the draft, so the author can continue
       the next day, and is removed when the letter is sent: the sent letter
-      is the record, and the payload log already holds what left.
+      is the record, and the payload log already holds what left. The newest turn is shown on top, with the question field above it;
+      within a turn the question stands above its answer. Asking for the
+      whole letter again gives a whole letter, also when text is present,
+      with the choice to replace the letter or insert at the cursor.
 
     **What Raakje knows.**
     - **All activities**, through the public Raakje's read tools: dates,
@@ -409,6 +412,11 @@ shows a **direction**, not the scope of the first release (§3.10).
       - The seam guard stays on as the last check.
       This replaces the earlier plan of this document to put the names back
       after the model was done.
+    - **Contact details leave neither** (found on HDEV, 17 September 2026): a
+      question without any address was refused because an activity's notes
+      carried one. Every outbound text also loses e-mail addresses, phone
+      numbers and account numbers, through the kernel's `redact`, which uses
+      the guard's own patterns.
     - **It uses the same switch as Raakje in the back office**
       (`admin_chat_enabled` plus `ADMIN_CHAT_ENABLED`). With the switch off,
       the panel is not shown and the letter is written by hand; nothing else

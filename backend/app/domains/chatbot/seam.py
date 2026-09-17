@@ -101,6 +101,21 @@ _PATTERNS: tuple[tuple[str, re.Pattern[str]], ...] = (
 
 _WORD = re.compile(r"[a-zà-ÿ]+")
 
+
+def redact(text: str) -> str:
+    """Replace what the guard refuses by a neutral placeholder (#984).
+
+    For a capability that sends content it did not write itself — flyer text,
+    meeting notes — and would otherwise be blocked by an address somebody put
+    there. The SAME patterns as the guard, so a redacted text never trips it on
+    these; names are the caller's business (the guard reads them from mdm).
+    """
+    if not text:
+        return text or ""
+    text = _EMAIL.sub("[e-mailadres]", text)
+    text = _IBAN.sub("[rekeningnummer]", text)
+    return _PHONE.sub("[telefoonnummer]", text)
+
 _ADMIN_MESSAGE = (
     "Deze vraag is niet verstuurd: er stond een persoonsgegeven in ({reden}). "
     "Raakje stuurt geen namen, e-mailadressen, telefoonnummers of "

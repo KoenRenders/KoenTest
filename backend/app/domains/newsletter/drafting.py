@@ -99,13 +99,21 @@ class DraftingError(RuntimeError):
 def scrub(text: str, names: set[str]) -> str:
     """Every known name part becomes ``[naam]`` — before anything leaves.
 
+    E-mail addresses, phone numbers and account numbers go too, through the
+    kernel's own ``redact`` (#984): flyer texts and meeting notes carry them
+    ("inschrijven via …@…"), and the guard refuses the whole call when one is
+    left. Found on HDEV: a question without any address was refused.
+
     The same list, and the same word rule, as the seam guard: whatever the guard
     would refuse, this removes first. A surname that is also an ordinary word is
     removed as well; the guard would block it just the same, and a slightly
     poorer sentence for the model is the safe side.
     """
+    from app.domains.chatbot.api import redact
+
+    text = redact(text or "")
     if not text or not names:
-        return text or ""
+        return text
 
     def replace(match: re.Match) -> str:
         word = match.group(0)
@@ -286,6 +294,7 @@ VASTE REGELS
 ANTWOORD
 Antwoord met één JSON-object en niets anders.
 - Voor een volledige brief: {"reply": "één korte zin voor de auteur", "subject": "onderwerp", "paragraphs": ["regel", "..."]}
+- Vraagt de auteur uitdrukkelijk de HELE brief (opnieuw) te schrijven, geef dan een volledige brief, ook als er al tekst staat.
 - Voor een stuk tekst: {"reply": "één korte zin", "text": "de tekst"}
   Als de auteur tekst SELECTEERDE, herschrijf je alleen die tekst: je antwoord vervangt de selectie, dus geef enkel de nieuwe versie van dat stuk.
   Selecteerde de auteur niets, dan schrijf je een stuk dat op de plaats van de CURSOR komt; je krijgt de tekst vlak voor de cursor, zodat je stuk er goed op aansluit.
@@ -450,6 +459,10 @@ def deterministic_marks(text: str, sources: Sources, prices: set[Decimal],
     if NAME_PLACEHOLDER in prose:
         marks.append({"quote": NAME_PLACEHOLDER,
                       "reason": _("hier stond een weggehaalde naam")})
+    for placeholder in ("[e-mailadres]", "[telefoonnummer]", "[rekeningnummer]"):
+        if placeholder in prose:
+            marks.append({"quote": placeholder,
+                          "reason": _("hier stond een weggehaald contactgegeven")})
     return marks
 
 
@@ -578,6 +591,10 @@ def ask(db: Session, letter: Newsletter, *, instruction: str, actor: str,
     sources.tool_results = collected
     data = _parse_json(answer)
 
+    if mode == MODE_INSERT and data.get("paragraphs") and not str(data.get("text") or "").strip():
+        # The author asked for the whole letter again: offer it as one, with the
+        # choice to replace the letter or insert at the cursor.
+        mode = MODE_LETTER
     proposal = build_proposal(db, letter, data, sources=sources, names=names,
                               base_url=base_url, mode=mode)
     if mode == MODE_REPLACE:

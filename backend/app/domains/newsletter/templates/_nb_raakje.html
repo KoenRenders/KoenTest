@@ -8,7 +8,10 @@
    <mark class="bg-yellow-100 text-ink rounded px-0.5"> voor een markering en
    <span class="text-ink-soft italic"> voor een ingevulde activiteitregel. #}
 <div class="bg-surface border border-blue-200 rounded-2xl p-5 space-y-4">
-  <p class="text-xs font-bold uppercase tracking-wider text-ink-soft">{{ _("Raakje schrijft mee") }}</p>
+  <div>
+    <h2 class="font-semibold text-blue-700">{{ _("Raakje schrijft mee") }}</h2>
+    <p class="text-sm text-ink-soft mt-0.5">{{ _("Kies waarover de brief gaat, en vraag Raakje een voorstel.") }}</p>
+  </div>
   {% if raakje_error %}{{ ui.error_banner(raakje_error) }}{% endif %}
 
   {# Twee groepen, standaard gevuld (Koen, 17 september 2026): wat doorging
@@ -57,9 +60,30 @@
   </form>
   {% endif %}
 
-  {% if messages %}
-  <div class="space-y-2 max-h-[32rem] overflow-y-auto">
-    {% for message in messages %}
+  {# Een eigen, gescheiden deel met een kop: zonder die kop liep het vraagveld
+     naadloos door na de verslagenlijst (Koen, 17 september 2026). #}
+  <div class="border-t border-line pt-4">
+  <h3 class="text-sm font-semibold text-blue-700">{{ _("Gesprek met Raakje") }}</h3>
+  <form class="mt-2" hx-post="/admin/nieuwsbrieven/{{ letter.id }}/raakje/vraag" hx-target="#nb-raakje"
+        hx-swap="innerHTML" hx-include="#nb-inhoud" hx-vals='js:{selection: window.nbSelectie ? nbSelectie() : "", selection_range: window.nbBereik ? nbBereik() : "", before_cursor: window.nbVoorCursor ? nbVoorCursor() : ""}'
+        hx-indicator="#nb-raakje-bezig">
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+    {{ ui.label(_("Wat wil je vertellen?") if not turns else _("Vraag Raakje iets"), "nb-raakje-vraag") }}
+    {{ ui.textarea_control("instruction", id="nb-raakje-vraag", rows=2, cls="w-full", attrs=ui.autogrow(240),
+                           placeholder=(_("Bv. nadruk op de Rumproefavond, feestelijke toon") if not turns
+                                        else _("Selecteer tekst om die te herschrijven, of zet je cursor waar een nieuw stuk moet komen"))) }}
+    <div class="flex items-center gap-2 mt-2">
+      {{ ui.btn_primary(_("Voorstel laten schrijven") if not turns else _("Vraag Raakje"), type="submit", size="sm", lead_icon="send") }}
+      <span id="nb-raakje-bezig" class="htmx-indicator text-sm text-ink-soft">{{ _("Raakje schrijft…") }}</span>
+    </div>
+  </form>
+
+  {# De nieuwste beurt bovenaan, oudere schuiven naar onder (Koen, 17 september
+     2026). Binnen een beurt staat je vraag boven het antwoord. #}
+  {% if turns %}
+  <div class="space-y-2 max-h-[32rem] overflow-y-auto mt-3">
+    {% for turn in turns %}
+    {% for message in turn %}
     {% if message.role == "author" %}
     <div class="ml-8 rounded-2xl rounded-br-sm bg-blue-700 text-white text-sm px-3 py-2">{{ message.text }}</div>
     {% else %}
@@ -121,22 +145,11 @@
     </div>
     {% endif %}
     {% endfor %}
+    {% endfor %}
   </div>
   {% endif %}
+  </div>
 
-  <form hx-post="/admin/nieuwsbrieven/{{ letter.id }}/raakje/vraag" hx-target="#nb-raakje"
-        hx-swap="innerHTML" hx-include="#nb-inhoud" hx-vals='js:{selection: window.nbSelectie ? nbSelectie() : "", selection_range: window.nbBereik ? nbBereik() : "", before_cursor: window.nbVoorCursor ? nbVoorCursor() : ""}'
-        hx-indicator="#nb-raakje-bezig">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-    {{ ui.label(_("Wat wil je vertellen?") if not messages else _("Vraag Raakje iets"), "nb-raakje-vraag") }}
-    {{ ui.textarea_control("instruction", id="nb-raakje-vraag", rows=2, cls="w-full", attrs=ui.autogrow(240),
-                           placeholder=(_("Bv. nadruk op de Rumproefavond, feestelijke toon") if not messages
-                                        else _("Selecteer tekst om die te herschrijven, of zet je cursor waar een nieuw stuk moet komen"))) }}
-    <div class="flex items-center gap-2 mt-2">
-      {{ ui.btn_primary(_("Voorstel laten schrijven") if not messages else _("Vraag Raakje"), type="submit", size="sm", lead_icon="send") }}
-      <span id="nb-raakje-bezig" class="htmx-indicator text-sm text-ink-soft">{{ _("Raakje schrijft…") }}</span>
-    </div>
-  </form>
 
   <p class="text-xs text-ink-soft">{{ _("Raakje verstuurt nooit en ziet niet wie de brief krijgt. Datums, plaatsen en links vult het portaal zelf in; wat nergens in de gegevens staat, wordt gemarkeerd.") }}
     <mark class="bg-yellow-100 text-ink rounded px-0.5">{{ _("Zo ziet een markering eruit.") }}</mark></p>

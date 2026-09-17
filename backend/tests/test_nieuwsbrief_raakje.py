@@ -190,15 +190,53 @@ def test_niemands_adres_en_geen_ontvangerslijst_in_de_payload(db_session, raakje
     assert "@" not in provider.payloads()
 
 
-def test_een_geblokkeerde_oproep_wordt_een_melding_en_geen_voorstel(db_session, raakje):
-    """Names are scrubbed before the guard sees them; an e-mail address is not,
-    and the guard refuses the call — visibly, as a message for the screen."""
-    from app.domains.chatbot.api import SeamBlocked
+def test_een_adres_in_de_gegevens_blokkeert_raakje_niet_meer(db_session, raakje):
+    """Found on HDEV (17 September 2026): a question without any address was
+    refused, because an activity's notes carried one. Everything outbound now
+    loses e-mail addresses, phone numbers and account numbers first, with the
+    guard's own patterns.
 
-    letter = _letter(db_session)
-    raakje(_draft(["Een brief."]))
-    with pytest.raises(SeamBlocked):
-        _ask(db_session, letter, instruction="Mail iedereen via info@example.org")
+    Broken on purpose: `scrub` without `redact` → the guard refuses the call
+    (SeamBlocked) and this test fails.
+    """
+    from app.domains.activities.api import Activity
+
+    activiteit = _activity(db_session, "Wandelweekend Eifel")
+    db_session.get(Activity, activiteit.id).notes = (
+        "Inschrijven via info@raak.example of 0473 12 34 56, betalen op BE68539007547034.")
+    db_session.commit()
+    letter = _letter(db_session, activity_ids=[activiteit.id])
+    provider = raakje(_draft(["Een brief."]), _verdict())
+
+    _ask(db_session, letter, instruction="Mail naar info@raak.example voor meer info")
+
+    payload = provider.payloads()
+    assert "@" not in payload
+    assert "0473" not in payload and "be68" not in payload
+    assert "[e-mailadres]" in payload and "[telefoonnummer]" in payload
+
+
+def test_redact_laat_niets_over_waar_de_wachter_op_weigert():
+    """One source for the patterns: after `redact`, the guard finds nothing."""
+    from app.domains.chatbot.api import admin_rules, redact
+    from app.domains.chatbot.seam import findings
+
+    tekst = "Mail an@example.org, bel +32 473 12 34 56 of stort op BE68 5390 0754 7034."
+    rules = admin_rules(lambda: set(), capability="test")
+    assert findings([{"role": "user", "content": tekst}], rules)
+    assert findings([{"role": "user", "content": redact(tekst)}], rules) == []
+
+
+def test_de_hele_brief_op_vraag_ook_als_er_al_tekst_staat(db_session, raakje):
+    """Koen asked to rewrite the whole letter; with text present that used to
+    become a piece at the cursor. A whole letter comes back as a whole letter,
+    with the choice to replace or insert."""
+    letter = _letter(db_session, body="<div>Beste,</div><div>Oude tekst.</div>")
+    raakje(_draft(["# Terugblik", "Nieuwe tekst."]), _verdict())
+
+    turn = _ask(db_session, letter, instruction="Herschrijf de hele nieuwsbrief.")
+
+    assert turn.proposal["kind"] == "letter"
 
 
 # ── 13–15, 17–18. What comes back ────────────────────────────────────────────
@@ -616,3 +654,23 @@ def test_de_prompt_vraagt_eerst_terugblik_dan_vooruitblik():
     assert "TERUGBLIK" in prompt and "VOORUITBLIK" in prompt
     assert prompt.index("TERUGBLIK") < prompt.index("VOORUITBLIK")
     assert "INTERN" in prompt
+
+
+def test_de_nieuwste_beurt_staat_bovenaan(client, db_session, monkeypatch, raakje):
+    """Koen, 17 September 2026: older conversations move down; within a turn the
+    question stays above its answer."""
+    headers = _login(client)
+    _switch(db_session, monkeypatch, True)
+    letter = _letter(db_session)
+    raakje(_draft(["Eerste voorstel."], reply="Antwoord een."), _verdict(),
+           _piece("Tweede stuk.", reply="Antwoord twee."), _verdict())
+
+    client.post(f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag", headers=headers,
+                data={"instruction": "Vraag een", "body_html": ""})
+    html = client.post(f"/admin/nieuwsbrieven/{letter.id}/raakje/vraag", headers=headers,
+                       data={"instruction": "Vraag twee",
+                             "body_html": "<div>Er staat al tekst.</div>"}).text
+
+    assert html.index("Vraag twee") < html.index("Antwoord twee") < html.index("Vraag een") \
+        < html.index("Antwoord een")
+    assert html.index("Gesprek met Raakje") < html.index("Vraag twee")

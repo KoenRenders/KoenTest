@@ -43,7 +43,8 @@ class NewsletterComposeView(ViewModel):
     coming_activities: list[Any]
     reports: list[tuple[int, str]]
     ticked_reports: list[int]
-    messages: list[Any]
+    # The conversation as turns (question, answer), newest turn first.
+    turns: list[Any]
     # Per Raakje message id: the proposal as the screen shows it.
     proposals: dict[int, Any]
     csrf_token: str
