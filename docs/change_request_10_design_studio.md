@@ -826,11 +826,15 @@ request, the same service function also refuses a **cancelled** activity.
 Until now only the card hid its button; the server accepted the
 registration.
 
-### 3.9 Contacts belong to the activity: a member or the association
+### 3.9 Contacts belong to the activity: at most two members, else Raak
 
-Koen, 16 September 2026, after two earlier drafts: contacts are recorded
-**on the activity**. A contact is either **a member**, optionally with a
-different mobile number or e-mail address, or **the association itself**.
+Koen, 16 and 17 September 2026: contacts are recorded **on the activity**.
+**Per activity at most two contact persons**, each shown with name, e-mail
+address and phone number. **Without contact persons, the poster shows the
+association's website, e-mail and mobile number** (from the organisation's
+own contact details, #945). A contact person is a member chosen from the
+list, with the option to enter a different number or address for this
+activity.
 
 - **On the activity.** Who answers questions about an activity is a fact
   about that activity, so every design of it shows the same contacts.
@@ -841,13 +845,14 @@ different mobile number or e-mail address, or **the association itself**.
     person's `ContactDetail` rows, **unless the contact row overrides
     them**. Per channel, the row can also leave it off the poster —
     someone may be fine with their e-mail but not their number.
-  - **The association (Raak).** **The name is not shown**. The contact
-    shows the organisation's website, e-mail and mobile number, taken from
-    its own `ContactDetail` rows (#945 — the organisation already has
-    EMAIL, MOBILE and WEBSITE). This is what some posters already do.
-- **Exactly one party per row.** Following `ContactDetail` and `Address`,
-  exactly one of `person_id` and `organization_id` is filled, enforced by a
-  CHECK. The association can be added at most once per activity.
+  - **No contact persons → Raak.** The contact block then shows the
+    organisation's website, e-mail and mobile number from its own
+    `ContactDetail` rows (#945 — EMAIL, MOBILE and WEBSITE exist), without
+    a person's name. This is what some posters already do.
+- **At most two rows per activity**, enforced in the service (and a CHECK
+  on `sort_order in (0, 1)`). The association is not a row: it is the
+  default when there are no rows. `organization_id` therefore drops out of
+  the table.
 - **The picker follows the meeting circle** (CR-09). It has a search field
   over names, a short result list and an "Add" button, plus one fixed
   option, "Raak (de vereniging)". Added contacts form an ordered list; each
@@ -1045,7 +1050,6 @@ erDiagram
   ACTIVITY ||--o{ DESIGN : "has designs (at most one final)"
   ACTIVITY ||--o| MEDIA_ASSET : "poster (kind activity_poster)"
   PERSON o|--o{ ACTIVITY_CONTACT : "member contact"
-  ORGANIZATION o|--o{ ACTIVITY_CONTACT : "the association as contact"
   DESIGN ||--o{ DESIGN_HIGHLIGHT : "up to six"
   DESIGN ||--o{ DESIGN_SUPPORTER : "supporter logos"
   DESIGN ||--o{ DESIGN_RENDITION : "stored when final"
@@ -1076,8 +1080,7 @@ erDiagram
   ACTIVITY_CONTACT {
     int id PK
     int activity_id FK
-    int person_id "soft ref, xor organization_id"
-    int organization_id "soft ref"
+    int person_id "soft ref; at most two rows per activity"
     string mobile_override
     string email_override
     bool show_mobile
@@ -1197,15 +1200,14 @@ designstudio.image_generations      -- which design asked, and what was picked
 activities.activities
   + registration_closes_on  date         null   -- inclusive, Belgian date (B4 §3.8a)
 
-activities.activity_contacts        -- ordered; a member or the association
-  id, tenant_id, activity_id, sort_order,
-  person_id        (soft ref, null)   -- a member
-  organization_id  (soft ref, null)   -- the association; name not shown
+activities.activity_contacts        -- at most two members per activity
+  id, tenant_id, activity_id, sort_order (0 | 1),
+  person_id        (soft ref)         -- a member
   mobile_override  varchar(50)  null
   email_override   varchar(255) null
   show_mobile, show_email       boolean
-  check: exactly one of person_id, organization_id
-  unique (activity_id, person_id), unique (activity_id, organization_id)
+  unique (activity_id, person_id), unique (activity_id, sort_order)
+  -- no rows → the poster shows Raak's website, e-mail and mobile (#945)
 media.media_assets.kind
   + design_image   (no 1600 px resize; see B4 §3.11)
   + design_render  (rendered PDF / image)
@@ -1322,8 +1324,8 @@ The tests must be able to go red:
 - an override wins over the member's own number, and removing the override
   brings the member's number back;
 - an association contact renders website, e-mail and mobile, and no name;
-- a row with both or neither of person and organisation is refused by the
-  database, not only by the form;
+- a third contact on an activity is refused by the service; with no
+  contacts the poster shows Raak's website, e-mail and mobile;
 - the picker refuses a person who is not a member — tested through the
   route, because the picker only hides non-members;
 - the meeting circle still finds non-members after the name search moves to
@@ -1502,6 +1504,7 @@ not asked twice. Open questions carry no answer yet.
 | Q8 | 17 Sep | R4 "reworkable in LibreOffice": an editable file next to the PDF (ODG/SVG), or editable fields in the tool? (CLI) | Koen: ideally **everything is editable except the images used** (photos and generated illustrations). So: an editable export next to the PDF, with text, shapes and layout as objects and the images as embedded bitmaps. Format and consequences for the renderer are for the review of Part B. |
 | Q9 | 17 Sep | Is A6 a real print size? (reviewer) | No — A6 is not needed (Koen, 17 Sep). R2 is A3, A4, A5. |
 | Q10 | 17 Sep | Which rendering engine: WeasyPrint, LibreOffice Draw, Inkscape, Chromium or Scribus? (see B1.3) | **Inkscape** (Koen, 17 Sep). Download and upload of the SVG are part of the scope (§3.6a). |
+| Q11 | 17 Sep | How many contact persons per activity? (reviewer, via Q3 of the review) | At most two, with name, e-mail and phone; none → Raak's website, e-mail and mobile (Koen, 17 Sep). |
 
 ## Non-goals
 
