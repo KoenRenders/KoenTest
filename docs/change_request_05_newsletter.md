@@ -156,9 +156,17 @@ shows a **direction**, not the scope of the first release (§3.10).
      new, already known, or invalid. Other environments get `example.org`
      addresses from the seed.
    - The import rests on the existing relationship (legitimate interest), not
-     on double opt-in. It is allowed only because every letter to these
-     addresses carries a working unsubscribe link, and because the **first
-     letter after the import says where the address came from**.
+     on double opt-in. Every letter to these addresses carries a working
+     unsubscribe link: that is the opt-out.
+   - **No explanation in the first letter** (Koen, 17 September 2026,
+     validating on HDEV: *"Dat wil ik niet, wel de mogelijkheid te
+     opt-outen."*). This reverses the 14 September 2026 condition that the
+     first letter after the import says where the address came from, and with
+     it the reminder on the compose screen and the notice on the import
+     preview. These people received the letter from the same association
+     before; to them nothing changes but the sender tool. Recorded as a
+     choice, not a legal finding: whether a change of tool calls for a notice
+     was not settled here.
    - Every imported row records its provenance (`source = "import"`, the
      import date).
    - **An import never resubscribes an address that unsubscribed.** Otherwise
@@ -503,7 +511,6 @@ leaves: an address that unsubscribed in the meantime is `skipped`.
 - [ ] Double opt-in for the public form, with the consent record stored.
 - [ ] Unsubscribe link plus one-click `List-Unsubscribe` header on every mail
       to a non-member.
-- [ ] The first letter after the import says where the address came from.
 - [ ] An import never resubscribes an unsubscribed address.
 - [ ] Data minimisation: an e-mail address and an optional first name; no
       family data.

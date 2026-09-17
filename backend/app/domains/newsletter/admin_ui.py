@@ -333,7 +333,6 @@ def _compose_view(request: Request, db: Session, letter, error: Optional[str] = 
     return NewsletterComposeView(
         letter=letter, counts=counts, audience_options=options,
         saved_at=_moment(letter.updated_at),
-        first_letter_after_import=nb.imported_without_letter(db),
         raakje_enabled=raakje, chosen_activities=chosen, report_points=points,
         ticked_points=list(letter.draft_meeting_item_ids or []),
         messages=messages,
@@ -441,23 +440,6 @@ def insert_closing(newsletter_id: int, db: Session = Depends(get_db),
                    _email: str = Depends(require_admin_ui)):
     _letter_or_404(db, newsletter_id)
     return HTMLResponse(nb.closing_html(db))
-
-
-@router.get("/admin/nieuwsbrieven/{newsletter_id:int}/invoegen/herkomst",
-            response_class=HTMLResponse)
-def insert_import_notice(newsletter_id: int, db: Session = Depends(get_db),
-                         _email: str = Depends(require_admin_ui)):
-    """The sentence the first letter after the import has to carry (CR-05 §3.6)."""
-    from app.kernel.tenant_config import tenant_display_name
-
-    _letter_or_404(db, newsletter_id)
-    import html as html_lib
-
-    text = _("Je krijgt deze nieuwsbrief omdat je adres al op de mailinglijst van "
-             "%(naam)s stond. Vanaf nu versturen we hem vanuit onze eigen website. "
-             "Wil je hem niet meer ontvangen? Onderaan elke mail kun je je met één "
-             "klik uitschrijven.") % {"naam": tenant_display_name(db)}
-    return HTMLResponse(f"<div><em>{html_lib.escape(text)}</em></div>")
 
 
 @router.post("/admin/nieuwsbrieven/{newsletter_id:int}/testmail",

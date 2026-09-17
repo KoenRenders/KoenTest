@@ -150,16 +150,6 @@
       </dl>
     </div>
 
-    {% if first_letter_after_import %}
-    <div class="rounded-2xl border border-yellow-300 bg-yellow-50 p-4 text-sm text-yellow-900">
-      <p class="font-semibold">{{ _("Eerste brief aan de geïmporteerde adressen") }}</p>
-      <p class="mt-1">{{ _("Kies je niet-leden of allebei, zeg dan in de tekst waarom ze deze mail krijgen. Dat is de voorwaarde waaronder we hen zonder bevestiging mogen mailen.") }}</p>
-      <div class="mt-2">
-        {{ ui.btn_secondary(_("Voorstelzin invoegen"), size="sm",
-                            attrs='onmousedown="event.preventDefault()" onclick="nbInvoegen(\'/admin/nieuwsbrieven/' ~ letter.id ~ '/invoegen/herkomst\')"') }}
-      </div>
-    </div>
-    {% endif %}
   </div>
 </div>
 {% endblock %}
