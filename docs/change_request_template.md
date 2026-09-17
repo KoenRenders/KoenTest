@@ -5,7 +5,8 @@
 > business, Part B from the solution.** Part A never mentions a component,
 > a library or a table; Part B never introduces a new business rule. A
 > reviewer must be able to read Part A on its own and agree with it before
-> Part B exists.
+> Part B exists. **Part A is written by the business, in its words; the
+> analyst does not fill it in on the business's behalf.**
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** <shaped with Koen on …> · <on hold / assigned to vX.Y / built>
@@ -17,6 +18,7 @@
 
 ## A1. Reason to act
 
+Written by the business, or left open when there is no single trigger.
 Why this change, and **why now**. What goes wrong today, who feels it, what it
 costs (time, money, mistakes, missed members), and what changed so that the
 moment is now. One or two paragraphs; no solution words.
@@ -55,10 +57,11 @@ MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked
 and deliberately not done — recorded so it is not asked again).
 
-## A6. Recurring requirements
+## A6. Non-functional requirements
 
 The requirements every change request is tested against, each answered
-explicitly, "not applicable" included:
+explicitly at business level, "not applicable" included. How they are met
+belongs in Part B:
 
 | Concern | This change |
 |---|---|
@@ -67,7 +70,6 @@ explicitly, "not applicable" included:
 | **Privacy** — personal data: what, where, who sees it, what leaves the system | … |
 | **House style / UI norm** — `docs/design-system.md`; brand rules | … |
 | **Multi-tenant** — what differs per unit, what is platform-wide | … |
-| **Operations** — settings, env vars, backups, cost limits, kill switch | … |
 
 ## A7. Acceptance criteria
 
@@ -88,6 +90,12 @@ business's unit tests; the developer's tests live in Part B.
 The solution in one paragraph, and the decisions that shape it, each with
 the alternatives weighed and why they lost (Europe First named where a tool
 or service is chosen).
+
+### B1.1 Functional analysis
+
+The derived, finer-grained requirements the solution answers, traced to A5.
+This is design work by the analyst, not business input — which is why it is
+not in Part A.
 
 ## B2. Architecture
 
@@ -114,9 +122,10 @@ where, and what talks to what?*
 What existing modules, tables, screens and contracts are touched, and how
 the layer rules (`docs/code-style.md`, CR-04, the import gate) are respected.
 
-## B3. Cost
+## B3. Cost and operations
 
-External and running cost: paid tools and services (per use and per month,
+Operations first: settings, env vars, backups, limits, kill switch.
+Then external and running cost: paid tools and services (per use and per month,
 with the measured figure where a prototype exists), storage, and the limits
 that cap it. One-off cost where relevant (e.g. a licence). "None" is an
 answer.

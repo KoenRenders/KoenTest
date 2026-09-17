@@ -18,60 +18,36 @@ Mistral provider (chatbot).
 
 # Part A — The business
 
+> Written by the business (Koen, 17 September 2026, corrected after a first
+> draft that the CLI had filled in itself). Everything here is what the
+> units and the movement say; nothing here names a component or a tool.
+
 ## A1. Reason to act
 
-Each Raak unit announces its activities with a printed poster (A3 or A4) and
-with images on Facebook and Instagram. Today every poster is a one-off,
-made by whoever volunteers: in Word, in Canva, in LibreOffice Draw, or by
-asking a chatbot. The four posters Koen collected were made with four
-different tools and look like four different associations. Every fact on
-them — title, date, hour, place, price — is retyped from the activity, and
-retyping is where the stale hours and wrong prices come from.
+*Left open by Koen: there is no single triggering event. The situation in A2
+is the reason.*
 
-The cost is volunteer time and inconsistency, and it recurs every month. A
-chatbot poster cannot be amended: "add one line" a week later means a new
-poster with a new look. A poster with a registration deadline promises
-something the portal does not enforce. And the Raak house style guide, which
-the units received to look like one movement, is applied by hand or not at
-all.
+## A2. As-is
 
-**Why now.** Three things came together in September 2026. The portal now
-holds the activity facts, so a poster can read them instead of retyping them
-(v2.0 and later). Raak supplied the official style guide, colour codes,
-logos and typeface as files, so the brand can be applied by a machine. And
-image generation became cheap enough (cents per image, measured) that a unit
-without a designer can still get a fitting illustration. Waiting means
-another season of hand-made posters.
+Announcing activities is **fragmented across the Raak units in Flanders**:
 
-## A2. As-is process
+- Many people make a poster in Word, in Canva, or by asking ChatGPT. Others
+  make almost none.
+- The result is a **scattered house style**: different tools, different
+  quality, different looks per unit and per maker.
+- Posters are usually made in **one format**, so they cannot be printed
+  properly, or they look bad on Facebook or Instagram. The format rarely
+  fits the channel it ends up on — paper, print, social media.
 
-| Step | Who | How today | Pain |
-|---|---|---|---|
-| 1. Decide to announce | board member | after the activity is planned in the portal | — |
-| 2. Gather the facts | board member | reads them from the portal or from memory and **retypes** them | typos, stale hours, a deadline that exists only on paper |
-| 3. Pick a tool | board member | Word, Canva, LibreOffice Draw, a chatbot — whatever the person knows | four tools, four looks; brand applied by hand |
-| 4. Find or make an image | board member | a photo from a phone, a stock image, or a chatbot drawing | photos of members without asking; chatbot drawings carry text errors and off-brand colours |
-| 5. Lay out the poster | board member | by hand, per poster | recurring effort for every activity |
-| 6. Print | board member | about half at home (borderless printer), half ordered online | no bleed knowledge; white edges or cut-off text |
-| 7. Post on social media | board member | crops the A4 by hand for Instagram | text lost in the crop |
-| 8. Publish on the portal | board member | uploads the PDF as the activity's poster, sometimes | often forgotten |
-| 9. Amend | board member | starts again from step 3 | the "add one line" problem |
+## A3. To-be
 
-## A3. To-be process
+When a unit has an activity, **professional, good-looking invitations** are
+made for it, in a consistent Raak look, and they can be:
 
-| Step | Who | How afterwards |
-|---|---|---|
-| 1. Open the activity | board member | the activity page in the back office has a "Designs" section |
-| 2. Start a design | board member | picks a template and a colour pair; the facts are already filled in and stay live |
-| 3. Add what the activity does not know | board member | subtitle, a few short lines with icons, a welcome line; contacts chosen from the members or "Raak" |
-| 4. Add an image | board member | uploads a photo, picks one from the activity's archive, or asks for four generated illustrations in the unit's drawing style and picks one |
-| 5. Check | board member | sees every format (A3, A4, Instagram) update while typing; text that does not fit is flagged |
-| 6. Make it final | board member | one click; the poster appears on the activity's public page (after confirming if one already existed) |
-| 7. Print and post | board member | downloads the borderless PDF for home printing and the Instagram image |
-| 8. Amend | board member | edits the design and re-renders; a changed activity fact marks the design stale until re-rendered |
-
-The result follows the house style without the maker knowing the guide, and
-the facts cannot be retyped wrongly.
+- published on the website;
+- posted on social media;
+- distributed by e-mail;
+- printed.
 
 ## A4. Supplied material (measured, 16 September 2026)
 
@@ -200,59 +176,46 @@ The chatbot brief that produced the first two posters asks for:
 
 ## A5. Business requirements
 
+MoSCoW to be classified by Koen; the table lists what the business asked
+for, in its words.
+
 | # | Requirement | MoSCoW | Source |
 |---|---|---|---|
-| R1 | A poster is made **from the activity**: title, dates, hours, place, price and registration link come from the portal and are never retyped. | Must | Koen, 16 Sep |
-| R2 | A poster follows the **Raak house style** (colours, permitted colour pairs, logo rules, Radio Canada Big) without the maker having to know the guide. | Must | Koen, style guide |
-| R3 | A poster can be **amended later** — add a line, change a photo — without starting over. | Must | Koen, 16 Sep |
-| R4 | A poster prints **borderless on A3 and A4** at home, with nothing cut off. | Must | Koen, 16 Sep |
-| R5 | The same design is available as an **Instagram image (4:5)**. | Must | Koen, 16 Sep |
-| R6 | A **final** design becomes the activity's poster on the public site. | Must | Koen, 16 Sep |
-| R7 | The unit can get a **generated illustration** in its own drawing style, with a choice of variants. | Should | Koen, 16 Sep |
-| R8 | A generated illustration never carries text, logos or a recognisable person. | Must | Koen, 16 Sep |
-| R9 | A **registration deadline** can be set on an activity, is enforced by the registration form, and appears on the poster. | Must | Koen, 16 Sep (#974) |
-| R10 | Contacts on a poster are **members chosen from the list** (with an optional other number or e-mail) or **Raak itself** — never typed. | Must | Koen, 16 Sep |
-| R11 | A changed activity fact **marks the design stale**; nothing re-renders silently. | Must | Koen, 16 Sep |
-| R12 | Several templates: photo-led, text flyer, illustration, recurring series. | Should | Koen, iterations 02–13 |
-| R13 | The unit's own **logo** and **drawing-style references** are uploaded by the unit, not shipped in the code. | Should | Koen, 16 Sep |
-| R14 | Suggested texts (subtitle, highlights) from an AI assistant. | Could | Koen, 16 Sep — later phase |
-| R15 | Facebook event cover and square formats. | Could | Koen, 16 Sep — later |
-| R16 | Print-shop output (bleed, crop marks, CMYK). | Won't (for now) | Koen, 16 Sep |
-| R17 | The responsible publisher (V.U.) on print. | Won't (for now) | Koen, 16 Sep |
-| R18 | Contacts on the public activity page. | Won't (for now) | Koen, 16 Sep |
-| R19 | A free-form editor (move boxes, Canva-like). | Won't | Koen, 16 Sep |
+| R1 | From the activity's data, **quickly** make good-looking designs. | — | Koen, 17 Sep 2026 |
+| R2 | Designs suited for **print**: A3, A4, A5 down to A6. | — | Koen, 17 Sep 2026 |
+| R3 | Designs suited for **social media**: Facebook, Instagram, square, events. | — | Koen, 17 Sep 2026 |
+| R4 | A design made by the system can still be **reworked by hand** afterwards, for instance in LibreOffice or another tool: add a text, add a box, rewrite a sentence. | — | Koen, 17 Sep 2026 |
+| R5 | The designs follow the **Raak house style** (guide, colours, logos, typeface in A4). | — | Koen, 16 Sep 2026 |
+| R6 | Print at home must work (borderless); print shops are ordered online and are not a must. | — | Koen, 16 Sep 2026 |
 
-## A6. Recurring requirements
+Decided out of scope for now by Koen on 16 September 2026: print-shop bleed
+and CMYK; the responsible publisher (V.U.); contacts on the public website.
+
+## A6. Non-functional requirements
+
+The requirements every change is tested against. Business-level answers;
+how they are met is Part B.
 
 | Concern | This change |
 |---|---|
-| **Reporting** | Per unit and per month: how many designs, how many generated images, and what they cost. The cost of every AI call is countable in one place (#978). |
-| **Security** | Uploaded SVG (logos) is active content and is sanitised. The image-provider key is a platform secret in the environment, never per user. Generation has a platform-wide kill switch and a per-unit budget. Only ADMIN/OPERATOR reach the editor; budget and kill switch are OPERATOR only. |
-| **Privacy** | Contacts printed on a poster are personal data made public by a deliberate choice; the editor says so. Member photos never go to an AI provider. Only activity facts and design text leave the system, to EU-hosted providers. Photos of children are not used as test material. |
-| **House style / UI norm** | Posters follow the Raak style guide (data in code, gated). The editor itself follows `docs/design-system.md`; back office, so desktop-first with a usable phone variant. |
-| **Multi-tenant** | Templates and the style guide are platform-wide. Logo, reference drawings, budget override and designs are per unit. |
-| **Operations** | New env vars (provider key, budget, kill switch, exchange rate) named in the "Na de merge" block. One additive migration. Generated files stay small; renders are re-creatable from inputs. |
+| **Reporting** | What each unit spends on generated images must be countable, per month. |
+| **Security** | Only the unit's board reaches the design tools. Nothing a unit uploads may harm another unit or the platform. |
+| **Privacy** | People named on a poster agreed to it; members' photos do not leave the movement's own systems to an outside service; no photos of children as test material. |
+| **House style** | Designs follow the Raak style guide; the tool's own screens follow the portal's UI norm. |
+| **Multi-tenant** | Each unit has its own logo, its own designs and its own spending; the templates and the style guide are shared by all units. |
 
 ## A7. Acceptance criteria
 
-Each is checked by a person on HDEV.
+End-to-end, by a person on HDEV, without reading code.
 
 | # | Criterion | Requirement |
 |---|---|---|
-| AC1 | Change the hour of an activity with a final design: the design shows "stale" on the activity page; after "Re-render" the new hour is on the A3 PDF. | R1, R11 |
-| AC2 | Every colour on a rendered poster is one of the eight guide colours or white (checked with a colour picker on three elements); the logo tile matches the chosen pair. | R2 |
-| AC3 | Add a line to a final design, re-render: the new PDF differs only in that line. | R3 |
-| AC4 | Print the A3 PDF borderless at home: no white edge, no text within the cropped margin (measured 2–5 mm on Koen's printer). | R4 |
-| AC5 | The Instagram image is 1080 × 1350 px and shows title, date, place and image without cropped text. | R5 |
-| AC6 | Mark a design final on an activity that already has a poster: a confirmation names the replacement; decline keeps the old poster; accept shows the new one on the public activity page. | R6 |
-| AC7 | Ask for illustrations: four variants arrive within a minute; none contains letters; the chosen one is on the poster. | R7, R8 |
-| AC8 | Set a deadline of yesterday: the public card shows "Inschrijvingen afgesloten" and a submitted form is refused; the poster prints "Inschrijven tot …". | R9 |
-| AC9 | Add a member as contact with another mobile number, and "Raak": the poster shows the member's name with the override, and Raak's website, e-mail and mobile without a name. | R10 |
-| AC10 | Upload an SVG logo with a script tag: refused with a clear message. | A6 security |
-| AC11 | Exceed the unit's monthly image budget: the request is refused before it is sent, and the remaining budget is shown. | A6 operations |
-| AC12 | The month's AI cost per unit is visible in the AI call log. | A6 reporting |
-
----
+| AC1 | For an activity in the portal, every input the design needs can be entered in the tool; nothing has to be retyped from the activity. | R1 |
+| AC2 | Each print format in R2 can be downloaded and printed borderless at home without cut-off text or white edges. | R2, R6 |
+| AC3 | Each social-media format in R3 can be downloaded and looks right on the channel it is meant for (checked on a phone). | R3 |
+| AC4 | The design can be opened in LibreOffice (or another tool), a sentence changed and a box added, and the result saved. | R4 |
+| AC5 | Three elements checked with a colour picker are Raak colours; the logo and typeface are the official ones. | R5 |
+| AC6 | The unit's monthly spend on generated images is visible. | A6 reporting |
 
 # Part B — The solution
 
@@ -276,6 +239,55 @@ amendable, off-brand); pure SVG templates (no text flow); ODF/LibreOffice
 headless (heavy, no variable text); poppler for raster (subprocess, apt
 package). Europe First: WeasyPrint (FR), Black Forest Labs (DE, EU
 endpoint), Mistral (FR), segno (DE, pure Python).
+
+## B1.1 Functional analysis — derived requirements
+
+Derived by the CLI from the business requirements (A5) and Koen's decisions
+of 16 September 2026. These are design, not business input; MoSCoW here is
+the CLI's proposal.
+
+| # | Requirement | MoSCoW | Source |
+|---|---|---|---|
+| R1 | A poster is made **from the activity**: title, dates, hours, place, price and registration link come from the portal and are never retyped. | Must | Koen, 16 Sep |
+| R2 | A poster follows the **Raak house style** (colours, permitted colour pairs, logo rules, Radio Canada Big) without the maker having to know the guide. | Must | Koen, style guide |
+| R3 | A poster can be **amended later** — add a line, change a photo — without starting over. | Must | Koen, 16 Sep |
+| R4 | A poster prints **borderless on A3 and A4** at home, with nothing cut off. | Must | Koen, 16 Sep |
+| R5 | The same design is available as an **Instagram image (4:5)**. | Must | Koen, 16 Sep |
+| R6 | A **final** design becomes the activity's poster on the public site. | Must | Koen, 16 Sep |
+| R7 | The unit can get a **generated illustration** in its own drawing style, with a choice of variants. | Should | Koen, 16 Sep |
+| R8 | A generated illustration never carries text, logos or a recognisable person. | Must | Koen, 16 Sep |
+| R9 | A **registration deadline** can be set on an activity, is enforced by the registration form, and appears on the poster. | Must | Koen, 16 Sep (#974) |
+| R10 | Contacts on a poster are **members chosen from the list** (with an optional other number or e-mail) or **Raak itself** — never typed. | Must | Koen, 16 Sep |
+| R11 | A changed activity fact **marks the design stale**; nothing re-renders silently. | Must | Koen, 16 Sep |
+| R12 | Several templates: photo-led, text flyer, illustration, recurring series. | Should | Koen, iterations 02–13 |
+| R13 | The unit's own **logo** and **drawing-style references** are uploaded by the unit, not shipped in the code. | Should | Koen, 16 Sep |
+| R14 | Suggested texts (subtitle, highlights) from an AI assistant. | Could | Koen, 16 Sep — later phase |
+| R15 | Facebook event cover and square formats. | Could | Koen, 16 Sep — later |
+| R16 | Print-shop output (bleed, crop marks, CMYK). | Won't (for now) | Koen, 16 Sep |
+| R17 | The responsible publisher (V.U.) on print. | Won't (for now) | Koen, 16 Sep |
+| R18 | Contacts on the public activity page. | Won't (for now) | Koen, 16 Sep |
+| R19 | A free-form editor (move boxes, Canva-like). | Won't | Koen, 16 Sep |
+
+## B1.2 Functional acceptance — derived
+
+Developer-level checks that follow from B1.1; the business criteria are A7.
+
+Each is checked by a person on HDEV.
+
+| # | Criterion | Requirement |
+|---|---|---|
+| AC1 | Change the hour of an activity with a final design: the design shows "stale" on the activity page; after "Re-render" the new hour is on the A3 PDF. | R1, R11 |
+| AC2 | Every colour on a rendered poster is one of the eight guide colours or white (checked with a colour picker on three elements); the logo tile matches the chosen pair. | R2 |
+| AC3 | Add a line to a final design, re-render: the new PDF differs only in that line. | R3 |
+| AC4 | Print the A3 PDF borderless at home: no white edge, no text within the cropped margin (measured 2–5 mm on Koen's printer). | R4 |
+| AC5 | The Instagram image is 1080 × 1350 px and shows title, date, place and image without cropped text. | R5 |
+| AC6 | Mark a design final on an activity that already has a poster: a confirmation names the replacement; decline keeps the old poster; accept shows the new one on the public activity page. | R6 |
+| AC7 | Ask for illustrations: four variants arrive within a minute; none contains letters; the chosen one is on the poster. | R7, R8 |
+| AC8 | Set a deadline of yesterday: the public card shows "Inschrijvingen afgesloten" and a submitted form is refused; the poster prints "Inschrijven tot …". | R9 |
+| AC9 | Add a member as contact with another mobile number, and "Raak": the poster shows the member's name with the override, and Raak's website, e-mail and mobile without a name. | R10 |
+| AC10 | Upload an SVG logo with a script tag: refused with a clear message. | A6 security |
+| AC11 | Exceed the unit's monthly image budget: the request is refused before it is sent, and the remaining budget is shown. | A6 operations |
+| AC12 | The month's AI cost per unit is visible in the AI call log. | A6 reporting |
 
 ## B2. Architecture
 
@@ -405,7 +417,12 @@ domain `api.py` facades; template context comes from view-models; the
 import-boundary test enforces it. No cross-schema foreign keys (soft
 references, as elsewhere).
 
-## B3. Cost
+## B3. Cost and operations
+
+**Operations:** new env vars (provider key, budget, kill switch, exchange
+rate) named in the "Na de merge" block; one additive migration; generated
+files stay small and renders are re-creatable from inputs.
+
 
 | Item | Basis | Measured / estimated |
 |---|---|---|
