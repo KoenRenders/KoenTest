@@ -43,9 +43,21 @@
   </button>
 
   {% call ui.card() %}
+    {# F3 (#996, meetronde ronde 2): wie hier rechtstreeks binnenkomt zag
+       nergens het tarief. Bedrag en geldigheid komen uit DEZELFDE helpers die
+       de inzending straks aanrekent (membership_price_for_date /
+       membership_valid_period via de payment-facade) — het scherm kan dus
+       niet iets anders beloven dan de betaling vraagt. #}
+    <p class="text-sm text-ink-soft mb-3">{{ _("Lidgeld") }}: <strong class="text-ink">€ {{ lidgeld.prijs|geld }}</strong> {{ _("per gezin, geldig tot en met") }} {{ lidgeld.tot|langedatum }}.</p>
     {{ ui.label(_("Betaalwijze"), "payment_method", required=True) }}
-    <label class="flex items-center gap-2 text-sm"><input type="radio" name="payment_method" value="online" {% if values.get('payment_method', 'online') == 'online' %}checked{% endif %}> {{ _("Online betalen") }}</label>
-    <label class="flex items-center gap-2 text-sm"><input type="radio" name="payment_method" value="transfer" {% if values.get('payment_method') == 'transfer' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
+    <div x-data="{ pm: '{{ values.get('payment_method', 'online') }}' }">
+    <label class="flex items-center gap-2 text-sm"><input type="radio" name="payment_method" value="online" x-model="pm" {% if values.get('payment_method', 'online') == 'online' %}checked{% endif %}> {{ _("Online betalen") }}</label>
+    <label class="flex items-center gap-2 text-sm"><input type="radio" name="payment_method" value="transfer" x-model="pm" {% if values.get('payment_method') == 'transfer' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
+    {# De knop zegt wat er volgt: bij online ga je meteen naar de betaalpagina,
+       bij overschrijving komen de instructies per e-mail. #}
+    <p class="text-xs text-ink-soft mt-2" x-show="pm === 'online'">{{ _("Na het versturen ga je meteen naar de beveiligde betaalpagina.") }}</p>
+    <p class="text-xs text-ink-soft mt-2" x-show="pm === 'transfer'" x-cloak>{{ _("Na het versturen ontvang je de betaalinstructies per e-mail.") }}</p>
+    </div>
   {% endcall %}
 
   {{ ui.btn_primary(_("Word lid")) }}

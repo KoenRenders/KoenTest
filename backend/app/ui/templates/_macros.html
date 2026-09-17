@@ -1273,6 +1273,13 @@ x-data x-init="$el.style.height = `auto`; $el.style.height = Math.min($el.scroll
         {% for cel in rij.cells %}{% for waarde in cel %}
         <td class="px-3 py-2 text-right tabular-nums">{{ _pivot_cell(waarde, _maten[loop.index0]) }}</td>
         {% endfor %}{% endfor %}
+        {# F2 (#996, meetronde ronde 2): een (subtotaal)rij met minder
+           celkolommen dan er kolomwaarden zijn, schoof zijn totaal onder de
+           eerste kolom — 37 stond onder "2025" terwijl het de groepssom was.
+           Opvullen tot de Totaal-kolom, zoals de eindtotaalrij al deed. #}
+        {% for _ in range((pivot.column_values|length - rij.cells|length) * _maten|length) %}
+        <td class="px-3 py-2"></td>
+        {% endfor %}
         {% for waarde in rij.total %}
         <td class="px-3 py-2 text-right tabular-nums font-semibold {% if loop.first %}border-l border-gray-200{% endif %}">{{ _pivot_cell(waarde, _maten[loop.index0]) }}</td>
         {% endfor %}

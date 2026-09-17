@@ -30,7 +30,19 @@ def _codes(db: Session) -> dict:
 @router.get("/lid-worden", response_class=HTMLResponse)
 def lid_worden(request: Request, db: Session = Depends(get_db)):
     return templates.TemplateResponse(request, "lid_worden.html", {
-        **site_context(db, request), **_codes(db), "error": None, "values": {}})
+        **site_context(db, request), **_codes(db), "error": None, "values": {},
+        **_lidgeld()})
+
+
+def _lidgeld() -> dict:
+    """Tarief en geldigheid voor het Word-lid-scherm (F3, #996): dezelfde
+    helpers als de inzending zelf gebruikt, dus scherm en aanrekening kunnen
+    niet uiteenlopen."""
+    from app.domains.payment.api import (membership_price_for_date,
+                                         membership_valid_period)
+
+    _van, tot = membership_valid_period()
+    return {"lidgeld": {"prijs": membership_price_for_date(), "tot": tot}}
 
 
 @router.get("/lid-worden/persoon-rij", response_class=HTMLResponse)
@@ -72,7 +84,10 @@ async def lid_worden_submit(request: Request, background_tasks: BackgroundTasks,
 
     form = await request.form()
     values = {k: (v if isinstance(v, str) else "") for k, v in form.items()}
-    ctx = {**site_context(db, request), **_codes(db), "values": values}
+    # Elk foutpad hieronder rendert hetzelfde sjabloon; het lidgeldblok (F3)
+    # hoort er dus ook hier bij, anders valt StrictUndefined over `lidgeld`.
+    ctx = {**site_context(db, request), **_codes(db), "values": values,
+           **_lidgeld()}
 
     members = _parse_members(form)
     if not members:
