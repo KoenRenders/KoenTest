@@ -30,7 +30,7 @@ and a send of one mail per recipient in a queue under a daily cap.
 | `mdm.api` | `email_addresses_of_members` (the member audience), `organization_address` (the mail footer), `person_name_parts` (the name list Raakje scrubs with, the guard's own) |
 | `activities.api` | `activities_from`, `Activity` — the facts of an activity |
 | `media.api` | `activity_photo_covers` (does an album exist), `tenant_logo` (the mail header) |
-| `meetings.api` | `recent_report_points` — the points the composer may tick |
+| `meetings.api` | `sent_reports`, `report_points_of` — the reports the composer may tick, and their points |
 | `cms.api` | `sanitize_cms_html` — the letter's HTML |
 | `mail.api` | `send_campaign_mail`, `send_newsletter_confirmation`, `SendingQuotaReached` |
 | `chatbot.api` | `GuardedProvider`, `admin_rules`, `sink_for`, `get_provider`, `run_chat`, `read_tool_specs`, `execute_read_tool`, `admin_chat_char_budget`, `SeamBlocked`, `ChatTimeout` |

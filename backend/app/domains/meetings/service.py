@@ -1054,7 +1054,7 @@ def _address_line(person) -> str:
 # het zoekveld maakt een lange lijst hanteerbaar.
 @dataclass(frozen=True)
 class ReportPoint:
-    """A point of a recent report, as the newsletter composer sees it (#984)."""
+    """A point of a sent report, as the newsletter's drafting reads it (#984)."""
 
     meeting_id: int
     meeting_date: date
@@ -1062,20 +1062,27 @@ class ReportPoint:
     item: DocumentItem
 
 
-def recent_report_points(db: Session, *, meetings: int = 2) -> list[ReportPoint]:
-    """The points of the last reports that went out, newest meeting first.
-
-    What the newsletter composer may tick (CR-05 §3.11). Only sent reports: an
-    agenda that has not been discussed yet is not something to write about.
-    Member points are left out on purpose — a new household is not newsletter
-    material, and it would put names and addresses one tick away from the model.
-    """
-    sent = (db.query(Meeting)
+def sent_reports(db: Session, limit: int = 24) -> list[Meeting]:
+    """The reports that went out, newest first — what the newsletter composer
+    may tick as a whole (Koen, 17 September 2026)."""
+    return (db.query(Meeting)
             .filter(Meeting.status == STATUS_SENT)
             .order_by(Meeting.meeting_date.desc(), Meeting.id.desc())
-            .limit(meetings).all())
+            .limit(limit).all())
+
+
+def report_points_of(db: Session, meeting_ids) -> list[ReportPoint]:
+    """The points of these sent reports, newest meeting first.
+
+    Member points are left out on purpose: a new household is not newsletter
+    material, and it would put names and addresses within reach of the model.
+    A meeting that is not (or no longer) sent contributes nothing.
+    """
+    wanted = {int(i) for i in (meeting_ids or [])}
     points: list[ReportPoint] = []
-    for meeting in sent:
+    for meeting in sent_reports(db, limit=200):
+        if meeting.id not in wanted:
+            continue
         for section in document_of(db, meeting):
             for item in section.items:
                 if item.kind == "member":

@@ -421,9 +421,54 @@ def get_newsletter(db: Session, newsletter_id: int) -> Optional[Newsletter]:
     return db.get(Newsletter, newsletter_id)
 
 
+# How far Raakje looks ahead for the coming activities, and back when there is
+# no earlier letter (Koen, 17 September 2026). The same three months the board
+# agendas with — a separate decision that happens to agree, so its own name.
+MONTHS_AHEAD = 3
+MONTHS_BACK_WITHOUT_LETTER = 3
+
+
+def _months_later(day: date, months: int) -> date:
+    import calendar
+
+    month = day.month - 1 + months
+    year = day.year + month // 12
+    month = month % 12 + 1
+    return date(year, month, min(day.day, calendar.monthrange(year, month)[1]))
+
+
+def default_sources(db: Session, today: Optional[date] = None) -> tuple[list[int], list[int]]:
+    """What a new letter starts with for Raakje (Koen, 17 September 2026).
+
+    - the activities that took place since the previous letter went out — or in
+      the last three months when there is none;
+    - the activities of the coming three months;
+    - the latest sent meeting report.
+
+    The author can remove any of them; unticking the report keeps the report
+    data out altogether.
+    """
+    from app.domains.activities.api import activities_active_between, activities_from
+    from app.domains.meetings.api import sent_reports
+
+    today = today or date.today()
+    previous = (db.query(Newsletter)
+                .filter(Newsletter.status != LETTER_DRAFT,
+                        Newsletter.send_started_at.isnot(None))
+                .order_by(Newsletter.send_started_at.desc()).first())
+    since = (previous.send_started_at.date() if previous is not None
+             else _months_later(today, -MONTHS_BACK_WITHOUT_LETTER))
+    until = _months_later(today, MONTHS_AHEAD)
+    past = [s.activity.id for s in activities_active_between(db, since, today)]
+    coming = [s.activity.id for s in activities_from(db, today) if s.start <= until]
+    reports = sent_reports(db, limit=1)
+    return sorted(set(past) | set(coming)), [r.id for r in reports]
+
+
 def create_newsletter(db: Session, *, created_by: str) -> Newsletter:
+    activity_ids, meeting_ids = default_sources(db)
     letter = Newsletter(created_by=created_by, subject="", body_html="",
-                        draft_activity_ids=[], draft_meeting_item_ids=[])
+                        draft_activity_ids=activity_ids, draft_meeting_ids=meeting_ids)
     db.add(letter)
     db.commit()
     return letter
@@ -453,11 +498,11 @@ def update_draft(db: Session, letter: Newsletter, *, subject: str, body_html: st
 
 
 def set_draft_sources(db: Session, letter: Newsletter, *, activity_ids: list[int],
-                      meeting_item_ids: list[int]) -> None:
-    """What Raakje writes about: the chosen activities and ticked points."""
+                      meeting_ids: list[int]) -> None:
+    """What Raakje writes about: the chosen activities and ticked reports."""
     _refuse_unless_draft(letter)
     letter.draft_activity_ids = sorted({int(i) for i in activity_ids})
-    letter.draft_meeting_item_ids = sorted({int(i) for i in meeting_item_ids})
+    letter.draft_meeting_ids = sorted({int(i) for i in meeting_ids})
     db.commit()
 
 
@@ -466,7 +511,7 @@ def copy_newsletter(db: Session, letter: Newsletter, *, created_by: str) -> News
     copy = Newsletter(subject=letter.subject, body_html=letter.body_html,
                       audience=None, created_by=created_by, copied_from_id=letter.id,
                       draft_activity_ids=list(letter.draft_activity_ids or []),
-                      draft_meeting_item_ids=list(letter.draft_meeting_item_ids or []))
+                      draft_meeting_ids=list(letter.draft_meeting_ids or []))
     db.add(copy)
     db.commit()
     return copy
@@ -517,6 +562,8 @@ class ActivityFacts:
     photos_url: Optional[str]
     is_full: bool
     prices: tuple
+    # Took place already: its line has no registration link (CR-05 §3.15).
+    is_past: bool = False
 
 
 def _activity_key(activity) -> str:
@@ -581,7 +628,8 @@ def activity_facts(db: Session, activity_ids, *, base_url: str,
             photos_url=(f"{base_url}/activiteiten/{key}/fotos"
                         if activity.id in albums else None),
             is_full=bool(span and span.capacity and span.registered >= span.capacity),
-            prices=_prices_of(activity))
+            prices=_prices_of(activity),
+            is_past=(span.end if span else start) < (today or date.today()))
     return out
 
 
@@ -600,8 +648,12 @@ def activity_line_html(facts: ActivityFacts) -> str:
         parts.append(facts.location)
     text = ", ".join(parts)
     esc = html_lib.escape
-    link = (f' <a href="{esc(facts.url)}">{esc(_("Schrijf je in"))}</a>'
-            if not facts.is_full else f" <em>{esc(_('volzet'))}</em>")
+    if facts.is_past:
+        link = ""
+    elif facts.is_full:
+        link = f" <em>{esc(_('volzet'))}</em>"
+    else:
+        link = f' <a href="{esc(facts.url)}">{esc(_("Schrijf je in"))}</a>'
     return f"<strong>{esc(facts.name)}</strong> — {esc(text)}.{link}"
 
 
@@ -637,12 +689,18 @@ def calendar_html(db: Session, *, base_url: str, today: Optional[date] = None) -
     return f"<ul>{''.join(lines)}</ul>"
 
 
-def insertable_activities(db: Session, *, query: str = "",
+def insertable_activities(db: Session, *, query: str = "", past: bool = False,
                           today: Optional[date] = None) -> list:
-    """The picker: every coming activity, soonest first, optionally filtered."""
-    from app.domains.activities.api import activities_from
+    """The picker: every coming activity, soonest first — or, with ``past``,
+    the activities of the last year, most recent first. Optionally filtered."""
+    from app.domains.activities.api import activities_active_between, activities_from
 
-    spans = activities_from(db, today or date.today())
+    today = today or date.today()
+    if past:
+        spans = sorted(activities_active_between(db, _months_later(today, -12), today),
+                       key=lambda s: s.start, reverse=True)
+    else:
+        spans = activities_from(db, today)
     needle = (query or "").strip().lower()
     if needle:
         spans = [s for s in spans if needle in s.activity.name.lower()]

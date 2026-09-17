@@ -132,11 +132,12 @@ class Newsletter(TenantMixin, SoftDeleteMixin, Base):
                                                 ondelete="SET NULL"),
                             nullable=True)
     created_by = Column(String(255), nullable=True)
-    # What Raakje works from (CR-05 §3.15): the chosen activities and the ticked
-    # meeting points. Soft references into two other schemas, so JSON lists of
-    # ids and not join tables with foreign keys.
+    # What Raakje works from (CR-05 §3.15): the chosen activities — past and
+    # coming, told apart by their date — and the ticked meeting reports. Soft
+    # references into two other schemas, so JSON lists of ids and not join
+    # tables with foreign keys.
     draft_activity_ids = Column(JSON, nullable=False, default=list)
-    draft_meeting_item_ids = Column(JSON, nullable=False, default=list)
+    draft_meeting_ids = Column(JSON, nullable=False, default=list)
     # Frozen at send time: who sent, where replies go.
     reply_to_mode = Column(String(20), nullable=True)
     reply_to_address = Column(String(255), nullable=True)

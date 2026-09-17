@@ -189,6 +189,8 @@ class Sources:
 
     activity_ids: list[int]
     activity_texts: dict[int, str]
+    # Which chosen activities already took place (the rest is still to come).
+    past_ids: set[int]
     points: list[str]
     instruction: str
     letter: list[str]
@@ -230,16 +232,15 @@ def _examples(db: Session, letter: Newsletter, names: set[str]) -> list[str]:
 
 
 def gather_sources(db: Session, letter: Newsletter, *, instruction: str,
-                   names: set[str]) -> Sources:
-    from app.domains.meetings.api import recent_report_points
+                   names: set[str], base_url: str = "") -> Sources:
+    from app.domains.meetings.api import report_points_of
     from app.kernel.tenant_config import tenant_newsletter_house_style
 
-    ticked = set(letter.draft_meeting_item_ids or [])
+    # Whole reports are ticked, never single points (Koen, 17 September 2026).
+    # An unticked report never reaches the model.
     points = []
-    for point in recent_report_points(db):
-        if point.item.id not in ticked:
-            continue
-        line = f"[{point.section}] {point.item.label}"
+    for point in report_points_of(db, letter.draft_meeting_ids or []):
+        line = f"[{point.meeting_date.strftime('%d/%m')} · {point.section}] {point.item.label}"
         if point.item.activity_id:
             line += f" (activiteit {point.item.activity_id})"
         notes = plain(point.item.notes)
@@ -247,9 +248,11 @@ def gather_sources(db: Session, letter: Newsletter, *, instruction: str,
             line += f": {notes}"
         points.append(scrub(line, names))
     activity_ids = list(letter.draft_activity_ids or [])
+    facts = nb.activity_facts(db, activity_ids, base_url=base_url)
     return Sources(
         activity_ids=activity_ids,
         activity_texts={i: scrub(_activity_text(db, i), names) for i in activity_ids},
+        past_ids={i for i, f in facts.items() if f.is_past},
         points=points,
         instruction=scrub(instruction, names),
         letter=[scrub(plain(p), names) for p in paragraphs(letter.body_html)],
@@ -276,6 +279,8 @@ VASTE REGELS
 - Verzin geen programma-onderdelen, spelletjes, gerechten, prijzen of aantallen. Een bedrag noem je alleen zoals het in de activiteitgegevens staat.
 - Schrijf geen aanhef ("Beste,") en geen afsluiting of groet: het portaal zet die er zelf bij.
 - Deel de brief op in onderwerpen. Elk onderwerp begint met een kopje: een regel die begint met "# ". Daaronder één tot drie korte zinnen, en daarna de markeringen van de activiteiten van dat onderwerp, elk op een eigen regel. Vet schrijf je als **zo**.
+- Een volledige brief heeft deze volgorde: eerst een TERUGBLIK op de voorbije activiteiten, dan een VOORUITBLIK op de activiteiten die nog komen. Een voorbije activiteit noem je met [[naam:ID]] en, als er een album is, [[fotos:ID]]; nooit met [[activiteit:ID]], want inschrijven kan niet meer. Een activiteit die nog komt krijgt [[activiteit:ID]].
+- De vergaderverslagen zijn INTERN. Neem er alleen uit over wat een lezer aanbelangt: wat goed ging, waar mensen van genoten, een verbetering tegenover vorig jaar. Nooit geld, discussies, taken, problemen tussen mensen of wat nog beslist moet worden. Wat je eruit overneemt, hoort in de terugblik bij de activiteit waarover het gaat.
 - Schrijf correct Nederlands. Lees elke zin na voor je antwoordt: geen woord dat twee keer staat ("er op ... op uit"), geen ontbrekend voegwoord of lidwoord, en elke zin moet kloppen zoals hij er staat.
 
 ANTWOORD
@@ -300,9 +305,11 @@ Een lege lijst betekent: alles is gestaafd.
 def _sources_message(src: Sources) -> str:
     parts = ["BRONNEN"]
     for activity_id in src.activity_ids:
-        parts.append(f"## Activiteit {activity_id} (gekozen)\n{src.activity_texts.get(activity_id, '')}")
+        when = "voorbij" if activity_id in src.past_ids else "komt nog"
+        parts.append(f"## Activiteit {activity_id} ({when})\n{src.activity_texts.get(activity_id, '')}")
     if src.points:
-        parts.append("## Aangevinkte punten uit het vergaderverslag\n" + "\n".join(f"- {p}" for p in src.points))
+        parts.append("## Uit de aangevinkte vergaderverslagen (INTERN — neem alleen over wat "
+                     "lezers aanbelangt)\n" + "\n".join(f"- {p}" for p in src.points))
     if src.instruction:
         parts.append(f"## Wat de auteur wil vertellen\n{src.instruction}")
     if src.upcoming:
@@ -534,7 +541,8 @@ def ask(db: Session, letter: Newsletter, *, instruction: str, actor: str,
         raise DraftingError(_("Deze nieuwsbrief is al verstuurd."))
     instruction = (instruction or "").strip()
     names = _names(db)
-    sources = gather_sources(db, letter, instruction=instruction, names=names)
+    sources = gather_sources(db, letter, instruction=instruction, names=names,
+                             base_url=base_url)
     chosen = (selection or "").strip()
     if not sources.letter:
         mode = MODE_LETTER
