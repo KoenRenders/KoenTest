@@ -132,15 +132,20 @@
              woordmerk hieronder. Dezelfde bron als de vergader-PDF (#258), zodat
              de vereniging haar logo één keer uploadt. De hoogte is begrensd zodat
              een groot bestand de balk niet oprekt. #}
+          {# #1001: a logo usually carries the name and the tagline itself, so with a
+             logo the tagline is not repeated as text. It moves into the alt, or a
+             screen reader would read it nowhere. The <title> and og:description
+             keep it — that is text, not image. No "show tagline" switch: the logo
+             is the signal. #}
           {% if site_logo_url %}
-          <img src="{{ site_logo_url }}" alt="{{ site_name }}" class="h-10 md:h-12 w-auto">
+          <img src="{{ site_logo_url }}" alt="{{ site_name }}{% if site_tagline %} — {{ site_tagline }}{% endif %}" class="h-10 md:h-12 w-auto">
           {% else %}
           <span class="flex items-baseline font-brand font-bold tracking-tight leading-none text-3xl" aria-label="{{ _('Raak') }}">R<span class="text-[1.3em]">aa</span>K</span>
-          {% endif %}
           {# #804: `text-base md:text-sm` — mobiel-eerst. Zie §1.2a van het
              design-system: 14 px is een bijschrift op een breed scherm en leestekst
              op een telefoon, en 80% van het bezoek is mobiel. #}
           {% if site_tagline %}<span class="block font-brand text-base md:text-sm font-medium text-yellow-300">{{ site_tagline }}</span>{% endif %}
+          {% endif %}
         </a>
         {# #804: een ICOON en geen tekstteken. `☰` erfde de dikte en de hoogte van het
              lettertype van het toestel, dus het oogde dun naast een woordmerk van 30 px
