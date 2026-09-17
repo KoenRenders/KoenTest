@@ -290,6 +290,53 @@ Each is checked by a person on HDEV.
 | AC11 | Exceed the unit's monthly image budget: the request is refused before it is sent, and the remaining budget is shown. | A6 operations |
 | AC12 | The month's AI cost per unit is visible in the AI call log. | A6 reporting |
 
+## B1.3 Rendering engine — options compared (17 September 2026)
+
+Requirement R4 (reworkable by hand afterwards) and the review of 17 September
+turned the rendering engine into an open decision. Five options, three of
+them tried on the same poster ("Stappen en Klappen", iteration 13 as the
+reference). Prototypes in Koen's Nextcloud folder, iterations 14 (Draw) and
+15 (Inkscape).
+
+| | A. HTML/CSS → WeasyPrint | B. ODG template → LibreOffice Draw | C. SVG template → Inkscape | D. HTML/SVG → headless Chromium | E. Scribus (.sla) |
+|---|---|---|---|---|---|
+| Tried | yes (it. 01–13) | yes (it. 14) | yes (it. 15) | no | no |
+| Effects (speckles, curved text, rough edges) | as glyph outlines (paths) | only as embedded SVG images; Fontwork breaks glyphs and distorts | **native, as editable text** (pattern fill, textPath, filters) | native (browser) | text on path yes; grain/rough limited |
+| Text stays text in the PDF | partly (effects are paths) | yes | **yes** (fonts embedded) | yes | yes |
+| Editable afterwards, in | LibreOffice Draw via PDF import (per line) | **LibreOffice Draw, natively** (ODG) | Inkscape (SVG); LibreOffice imports the SVG as one picture | none without extra export | Scribus |
+| Template authoring | code (Jinja/CSS) | designer in Draw, or code (odfpy) | designer in Inkscape, or code (SVG) | code | designer in Scribus |
+| One layout per ratio, safe zones, overflow check | built (zones + box-tree check) | shrink-to-fit only; no overflow signal | to build (text length check on the SVG) | to build | to build |
+| Fonts | embedded by WeasyPrint | must be embedded in the ODG (done) or installed | embedded by Inkscape | installed in the image | installed |
+| Server footprint | Pango/Cairo (present) | LibreOffice ~300–400 MB, a daemon to keep warm | Inkscape ~100 MB, no daemon | Chromium ~400 MB + Playwright | Scribus ~150 MB + Qt |
+| Render time (A3, measured) | < 1 s in-process | ~1 s warm, ~2 s cold | ~0.8 s per export | not measured | not measured |
+| Live preview | in-process, fast | not live | subprocess, ~1 s | subprocess | subprocess |
+| Brand gate on templates | on CSS (built) | on ODG styles (to build) | on SVG (simple: same hex gate) | on CSS/SVG | on .sla |
+| Europe First | CourtBouillon (FR) | The Document Foundation (DE) | Inkscape project (int., US non-profit host) | Chromium (US) | Scribus (int.) |
+| Fits R4 "everything editable except images" | no | yes, but effects become pictures | yes, in Inkscape | no | yes |
+
+**What the prototypes showed**
+- B: templates in Draw work end to end (placeholders, fill without LibreOffice,
+  fonts embedded in the file, exact A3 in ~1 s). Fontwork, Draw's own text
+  effects, was tested to its limits: it renders arches, waves, pattern fills
+  and strokes, but the glyphs come out with slits and are stretched to the
+  box; overflow is silently squeezed. Not usable for the titles.
+- C: the poster is pixel-equal to iteration 13 with every effect as native
+  SVG on real text; PDF, PNG and A4 from one file; the SVG survives an
+  Inkscape round trip with all text objects. LibreOffice, however, imports
+  that SVG as a single picture — so "editable afterwards" means Inkscape.
+- A: what the Design Studio was designed on; fastest preview and the
+  strongest overflow check, but the effects are outlines and there is no
+  editable file without a second export.
+
+**Combinations that keep both R4 readings open**
+- C + B: SVG as the master; a second export writes an ODG from the same
+  block model for LibreOffice users (effects as embedded SVG pictures there).
+- A + C: the existing zone/overflow machinery, with SVG instead of HTML as
+  the template language, rendered by Inkscape.
+
+**Decision: open — Koen decides** after reading iterations 14 and 15.
+Question Q10 in the Q&A log.
+
 ## B2. Architecture
 
 ### B2.1 Components
@@ -1379,6 +1426,7 @@ not asked twice. Open questions carry no answer yet.
 | Q7 | 17 Sep | MoSCoW in A5: does Koen fill it in, or does the CLI propose? (CLI) | The CLI proposes, Koen validates. Proposal entered in A5 on 17 Sep; **validation open**. |
 | Q8 | 17 Sep | R4 "reworkable in LibreOffice": an editable file next to the PDF (ODG/SVG), or editable fields in the tool? (CLI) | Koen: ideally **everything is editable except the images used** (photos and generated illustrations). So: an editable export next to the PDF, with text, shapes and layout as objects and the images as embedded bitmaps. Format and consequences for the renderer are for the review of Part B. |
 | Q9 | 17 Sep | Is A6 a real print size? (reviewer) | No — A6 is not needed (Koen, 17 Sep). R2 is A3, A4, A5. |
+| Q10 | 17 Sep | Which rendering engine: WeasyPrint, LibreOffice Draw, Inkscape, Chromium or Scribus? (see B1.3) | *open — Koen* |
 
 ## Non-goals
 
