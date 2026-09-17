@@ -537,6 +537,7 @@ def _send_view(request: Request, db: Session, letter, email: str,
         letter=letter,
         audience_label=_(AUDIENCE_LABELS.get(letter.audience or "", "")),
         recipient_count=count, days=nb.expected_days(db, count) if count else 0,
+        blocked=bool(nb.unfilled_placeholders(letter.body_html)),
         daily_cap=tenant_newsletter_daily_cap(db), reply_to_sender=email,
         csrf_token=_csrf(request), error=error, nav_items=admin_nav(NAV))
 
@@ -551,6 +552,7 @@ def send_screen(newsletter_id: int, request: Request, db: Session = Depends(get_
     error = None
     if not letter.audience:
         error = _("Kies eerst voor wie deze nieuwsbrief is.")
+    error = error or nb.placeholder_refusal(letter.body_html)
     return templates.TemplateResponse(request, "admin_nieuwsbrief_versturen.html",
                                       _send_view(request, db, letter, email,
                                                  error=error).as_context())

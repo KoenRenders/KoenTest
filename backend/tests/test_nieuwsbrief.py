@@ -481,6 +481,47 @@ def test_de_testmail_gaat_alleen_naar_mezelf(db_session, mailbox):
     assert db_session.query(Delivery).count() == 0
 
 
+# ── 11. A placeholder stops the real send, not the test mail ────────────────
+
+VERGETEN = ("<div>Beste,</div><div>Inschrijven kan via [e-mailadres]. "
+            "Tot dan!</div><div>Vragen? Bel [telefoonnummer].</div>")
+
+
+def test_een_plaatshouder_houdt_het_versturen_tegen_en_noemt_de_zin(db_session, mailbox):
+    """Koen, 17 September 2026. Broken on purpose: the `placeholder_refusal`
+    check taken out of `start_sending` → the queue fills and this test fails."""
+    _subscriber(db_session, "a@example.org")
+    letter = _letter(db_session, audience=AUDIENCE_NON_MEMBERS, body=VERGETEN)
+
+    with pytest.raises(nb.NewsletterError) as refused:
+        nb.start_sending(db_session, letter, sent_by="s@example.org",
+                         reply_to_mode="association", base_url=BASE)
+
+    assert "«Inschrijven kan via [e-mailadres].»" in str(refused.value)
+    assert "«Bel [telefoonnummer].»" in str(refused.value)
+    assert "Tot dan" not in str(refused.value), "alleen de zinnen met een plaatshouder"
+    assert letter.status == LETTER_DRAFT
+    assert db_session.query(Delivery).count() == 0
+
+
+@pytest.mark.parametrize("placeholder", ["[e-mailadres]", "[telefoonnummer]",
+                                         "[rekeningnummer]", "[naam]"])
+def test_elke_plaatshouder_telt(placeholder):
+    """The list comes from the redaction itself; a new placeholder there is
+    caught here without a second list to keep in step."""
+    assert nb.unfilled_placeholders(f"<div>Met dank aan {placeholder}.</div>")
+    assert nb.unfilled_placeholders("<div>Met dank aan iedereen [x].</div>") == []
+
+
+def test_de_testmail_mag_met_een_plaatshouder(db_session, mailbox):
+    letter = _letter(db_session, audience=AUDIENCE_MEMBERS, body=VERGETEN)
+
+    nb.send_test(db_session, letter, to_email="s@example.org", base_url=BASE)
+
+    assert mailbox.addresses == ["s@example.org"]
+    assert "[e-mailadres]" in mailbox.sent[0]["body"]
+
+
 # ── Sent letters stay as they went out ───────────────────────────────────────
 
 def test_een_verstuurde_brief_is_niet_meer_te_wijzigen(db_session, mailbox):

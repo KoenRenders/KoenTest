@@ -77,12 +77,14 @@ from app.domains.newsletter.service import (  # noqa: F401
     send_test,
     set_draft_sources,
     short_date,
+    placeholder_refusal,
     start_sending,
     subscribe_public,
     subscriber_by_confirm_token,
     subscriber_by_unsubscribe_token,
     subscriber_counts,
     unsubscribe,
+    unfilled_placeholders,
     unsubscribe_by_admin,
     update_draft,
 )
@@ -109,4 +111,5 @@ __all__ = [
     "subscribe_public", "subscriber_by_confirm_token",
     "subscriber_by_unsubscribe_token", "subscriber_counts", "unsubscribe",
     "unsubscribe_by_admin", "update_draft",
+    "placeholder_refusal", "unfilled_placeholders",
 ]
