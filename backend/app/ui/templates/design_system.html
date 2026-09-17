@@ -29,20 +29,43 @@
 </p>
 
 {# ── 1. Tokens ─────────────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("1 · Kleurtokens")) }}
+{# F29 (#996): de gegevens van een demografiek als tabel — zelfde dict, dus
+   ze kunnen niet uiteenlopen. #}
+{% macro _chart_tabel(chart) %}
+<div class="mt-3 overflow-x-auto">
+  <table class="text-xs border border-gray-200 rounded-card overflow-hidden">
+    <thead><tr class="bg-gray-50 text-gray-500">
+      <th class="px-3 py-1.5 text-left font-medium">{{ chart.title }}</th>
+      {% for x in chart.x_labels %}<th class="px-3 py-1.5 text-right font-medium">{{ x }}</th>{% endfor %}
+    </tr></thead>
+    <tbody>
+      {% for reeks in chart.series %}
+      <tr class="border-t border-gray-100">
+        <td class="px-3 py-1.5">{{ reeks.name }}</td>
+        {% for w in reeks.points %}<td class="px-3 py-1.5 text-right tabular-nums">{{ w if w is not none else "—" }}</td>{% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+</div>
+{% endmacro %}
+
+{{ ui.section_header(_("1 · Kleurtokens"), cls="mt-10") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-3">
     {{ _("Gelezen uit de gegenereerde app.css, niet overgetypt — §1.1.") }}
   </p>
   {% if tokens %}
   <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-    {% for naam, waarde in tokens %}
+    {% for naam, waarde, schil in tokens %}
     <div class="flex items-center gap-3">
+      {# De staal is al live (var(--…)), dus zij toont vanzelf de actieve
+         schilwaarde; sinds F27 (#996) zegt het WAARDElabel hetzelfde. #}
       <span class="w-10 h-10 rounded-lg border border-line shrink-0"
             style="background: var(--{{ naam }})" aria-hidden="true"></span>
       <span class="min-w-0">
         <span class="block text-sm font-medium truncate">{{ naam }}</span>
-        <span class="block text-xs text-gray-500 truncate">{{ waarde }}</span>
+        <span class="block text-xs text-gray-500 truncate">{{ waarde }}{% if schil %} · {{ _("beheerschil") }}{% endif %}</span>
       </span>
     </div>
     {% endfor %}
@@ -53,7 +76,7 @@
 {% endcall %}
 
 {# ── 2. Typografie ─────────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("2 · Typografie")) }}
+{{ ui.section_header(_("2 · Typografie"), cls="mt-10") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-3">
     {{ _("Mobiel-eerst: de kale klasse is de telefoonmaat, de md:-variant is de uitzondering.") }}
@@ -77,7 +100,7 @@
 {% endcall %}
 
 {# ── 3. Iconen ─────────────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("3 · Iconen"), _("Naar de activiteiten"), action_href="/admin/activiteiten") }}
+{{ ui.section_header(_("3 · Iconen"), _("Naar de activiteiten"), action_href="/admin/activiteiten", cls="mt-10") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-3">
     {{ _("De volledige set van ui.icon() — §1.4. Symbolen zijn iconen, nooit teksttekens.") }}
@@ -94,7 +117,7 @@
 {% endcall %}
 
 {# ── 4. Knoppen ────────────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("4 · Knoppen"), _("Naar de betalingen"), action_href="/admin/betalingen") }}
+{{ ui.section_header(_("4 · Knoppen"), _("Naar de betalingen"), action_href="/admin/betalingen", cls="mt-10") }}
 {% call ui.card() %}
   <div class="flex flex-wrap items-center gap-2 mb-3">
     {{ ui.btn_primary(_("Opslaan")) }}
@@ -129,7 +152,7 @@
 {% endcall %}
 
 {# ── 5. Badges ─────────────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("5 · Statusbadges")) }}
+{{ ui.section_header(_("5 · Statusbadges"), cls="mt-10") }}
 {% call ui.card() %}
   <div class="flex flex-wrap items-center gap-2">
     {{ ui.badge(_("Betaald"), "green") }}
@@ -145,7 +168,7 @@
 {% endcall %}
 
 {# ── 6. Formuliervelden ────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("6 · Formuliervelden"), _("Naar de formulierbouwer"), action_href="/admin/formulieren") }}
+{{ ui.section_header(_("6 · Formuliervelden"), _("Naar de formulierbouwer"), action_href="/admin/formulieren", cls="mt-10") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-3">
     {{ _("Eén familie (sinds golf 0b): label + control, expliciete id en breedte. Hint- en foutregel zet het scherm zelf — de vaste vorm staat hieronder.") }}
@@ -219,7 +242,7 @@
 {% endcall %}
 
 {# ── 7. Persoonsvelden ─────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("7 · Persoonsvelden"), _("Naar de leden"), action_href="/admin/leden") }}
+{{ ui.section_header(_("7 · Persoonsvelden"), _("Naar de leden"), action_href="/admin/leden", cls="mt-10") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-3">
     {{ _("Eén blok voor naam, geboortedatum en contact — overal dezelfde volgorde.") }}
@@ -236,7 +259,7 @@
 {% endcall %}
 
 {# ── 8. Schermtype: de records-lijst, in de vaste volgorde ─────────────────── #}
-{{ ui.section_header(_("8 · Schermtype: records-lijst"), _("Naar de activiteiten"), action_href="/admin/activiteiten") }}
+{{ ui.section_header(_("8 · Schermtype: records-lijst"), _("Naar de activiteiten"), action_href="/admin/activiteiten", cls="mt-10") }}
 {% call ui.card() %}
   {# #811: de vaste volgorde van §3.2, als miniatuur. Dat was punt 2 van #783 en
      ontbrak: er stond wel een tabel met filters, maar niet de KOP met de primaire
@@ -266,7 +289,7 @@
 {% endcall %}
 
 {# ── 8b. De onderdelen van die lijst ───────────────────────────────────────── #}
-{{ ui.section_header(_("8b · Zoeken, filteren, pagineren"), _("Naar de activiteiten"), action_href="/admin/activiteiten") }}
+{{ ui.section_header(_("8b · Zoeken, filteren, pagineren"), _("Naar de activiteiten"), action_href="/admin/activiteiten", cls="mt-10") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-3">
     {{ _("De vaste volgorde van een records-lijst — §3.2: zoeken, filters, tabel, pager.") }}
@@ -334,7 +357,7 @@
 
 {# ── 9. Lege en ladende toestand ───────────────────────────────────────────── #}
 {# ── 8b2. Meetwaarden ─────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("8b · Meetwaarden per soort")) }}
+{{ ui.section_header(_("8b · Meetwaarden per soort"), cls="mt-10") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-3">
     {{ _("Eén cel per opmaaksoort die de universe declareert (#875). Vóór deze macro kende het paneel alleen geld en drukte de rest rauw af — een gemiddelde kwam als 0E-20 op het scherm. Elke soort hoort hier te staan; een soort zonder weergave laat de gate in test_reporting_number_format.py falen.") }}
@@ -366,7 +389,7 @@
 {% endcall %}
 
 {# ── 8c. Draaitabel ────────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("8c · Draaitabel"), _("Naar de rapporten"), action_href="/admin/rapporten") }}
+{{ ui.section_header(_("8c · Draaitabel"), _("Naar de rapporten"), action_href="/admin/rapporten", cls="mt-10") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-3">
     {{ _("Rijen × kolommen × maten, met subtotalen per rijgroep en een eindtotaal — §2.9. De cijfers hieronder zijn verzonnen; de vorm is die van het rapportenscherm.") }}
@@ -396,7 +419,7 @@
 {% endcall %}
 
 {# ── 8d. Grafieken ─────────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("8d · Grafieken"), _("Naar de rapporten"), action_href="/admin/rapporten") }}
+{{ ui.section_header(_("8d · Grafieken"), _("Naar de rapporten"), action_href="/admin/rapporten", cls="mt-10") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-3">
     {{ _("Drie soorten — staaf, lijn, gestapelde staaf — als server-gerenderde SVG, §2.10. Kleuren uit de tokens, schaal van de server, geen bibliotheek. De cijfers hieronder zijn verzonnen.") }}
@@ -411,7 +434,10 @@
     ],
     "y_min": 0, "y_max": 40, "y_ticks": [0, 10, 20, 30, 40], "money": False
   } %}
-  {{ ui.chart_bar(demo_chart, id="ds-bar") }}
+  <div class="overflow-x-auto">{{ ui.chart_bar(demo_chart, id="ds-bar") }}</div>
+  {# F29 (#996): §2.10 — elke grafiek met de tabel van exact dezelfde
+     gegevens; de kitpagina hield zich niet aan haar eigen conventie. #}
+  {{ _chart_tabel(demo_chart) }}
 
   {% set demo_line = {
     "kind": "line",
@@ -424,7 +450,8 @@
     ],
     "y_min": 0, "y_max": 400, "y_ticks": [0, 100, 200, 300, 400], "money": True
   } %}
-  <div class="mt-6">{{ ui.chart_line(demo_line, id="ds-line") }}</div>
+  <div class="mt-6 overflow-x-auto">{{ ui.chart_line(demo_line, id="ds-line") }}</div>
+  {{ _chart_tabel(demo_line) }}
 
   {% set demo_stacked = {
     "kind": "stacked",
@@ -437,7 +464,8 @@
     ],
     "y_min": 0, "y_max": 40, "y_ticks": [0, 10, 20, 30, 40], "money": False
   } %}
-  <div class="mt-6">{{ ui.chart_stacked(demo_stacked, id="ds-stacked") }}</div>
+  <div class="mt-6 overflow-x-auto">{{ ui.chart_stacked(demo_stacked, id="ds-stacked") }}</div>
+  {{ _chart_tabel(demo_stacked) }}
 
   <p class="mt-3 text-sm text-gray-600">
     {# #942: de tags in de string zelf ge-escaped. `_()` geeft Markup terug (de
@@ -460,7 +488,7 @@
   <p class="text-xs text-gray-500 mt-2"><code>ui.sort_th(label, url, active=…, direction=…, include="#filters")</code> — {{ _("de route bewaakt de whitelist en de tiebreaker (#761).") }}</p>
 {% endcall %}
 
-{{ ui.section_header(_("9 · Leeg en ladend")) }}
+{{ ui.section_header(_("9 · Leeg en ladend"), cls="mt-10") }}
 {% call ui.card() %}
   {{ ui.empty_state(_("Nog geen inschrijvingen voor deze activiteit.")) }}
   {# Golf 3 (A10): de nog-leeg-vorm mag een passende eerste actie dragen. #}
@@ -470,7 +498,7 @@
 {% endcall %}
 
 {# ── 10. Meldingen ─────────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("10 · Meldingen")) }}
+{{ ui.section_header(_("10 · Meldingen"), cls="mt-10") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-3">
     {{ _("Eén bevestigingspatroon — §2.7. Een toast bevestigt, een banner legt uit.") }}
@@ -490,7 +518,7 @@
 {% endcall %}
 
 {# ── 11. Modal en bevestiging ──────────────────────────────────────────────── #}
-{{ ui.section_header(_("11 · Modal")) }}
+{{ ui.section_header(_("11 · Modal"), cls="mt-10") }}
 {% call ui.card() %}
   <div x-data="{ demo: false }">
     {{ ui.btn_secondary(_("Toon de modal"), type="button", attrs='@click="demo = true"') }}
@@ -507,7 +535,7 @@
 {% endcall %}
 
 {# ── 12. Detailscherm ──────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("12 · Detailscherm")) }}
+{{ ui.section_header(_("12 · Detailscherm"), cls="mt-10") }}
 {% call ui.card() %}
   <div class="flex items-center justify-between mb-3">
     <h3 class="text-lg font-semibold">{{ _("Voorbeeldactiviteit") }}</h3>
@@ -535,7 +563,7 @@
 {% endcall %}
 
 {# ── 12b. Relatienavigatie (P13, golf 5 #913) ─────────────────────────────── #}
-{{ ui.section_header(_("12b · Relatienavigatie (P13)")) }}
+{{ ui.section_header(_("12b · Relatienavigatie (P13)"), cls="mt-10") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-3">{{ _("Relatiebalk onder een recordkop: elke chip opent de gewone lijst van dat domein in een expliciete recordscope.") }}</p>
   {{ ui.relatie_chips([{"label": _("Betalingen"), "count": 3, "href": "#"},
@@ -547,7 +575,7 @@
 {% endcall %}
 
 {# ── 12c. Terug naar de lijst ──────────────────────────────────────────────── #}
-{{ ui.section_header(_("12c · Terug naar de lijst")) }}
+{{ ui.section_header(_("12c · Terug naar de lijst"), cls="mt-10") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600 mb-2">
     {{ _("Bovenaan een detailscherm, vóór de paginakop. Eén vorm voor alle schermen: dezelfde tekstgrootte, hetzelfde teken, dezelfde kleur.") }}
@@ -556,14 +584,14 @@
 {% endcall %}
 
 {# ── 13. Tabs ──────────────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("13 · Tabs")) }}
+{{ ui.section_header(_("13 · Tabs"), cls="mt-10") }}
 {% call ui.card() %}
   {{ ui.tabs([{"label": _("Gegevens"), "href": "/admin/design-system", "active": True},
               {"label": _("Inschrijvingen"), "href": "/admin/design-system", "active": False}]) }}
 {% endcall %}
 
 {# ── 14. Publieke schil ────────────────────────────────────────────────────── #}
-{{ ui.section_header(_("14 · Publieke schil"), _("Naar de publieke activiteiten"), action_href="/activiteiten", action_attrs='hx-boost="false"') }}
+{{ ui.section_header(_("14 · Publieke schil"), _("Naar de publieke activiteiten"), action_href="/activiteiten", action_attrs='hx-boost="false"', cls="mt-10") }}
 {% call ui.card() %}
   <p class="text-sm text-gray-600">
     {{ _("De publieke kant deelt de kit maar niet de dichtheid — §3.1. Bekijk haar op een telefoon; de typeschaal is daar de basis (§1.2a).") }}

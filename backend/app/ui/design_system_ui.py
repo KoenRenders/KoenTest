@@ -49,7 +49,7 @@ _MACROS = Path(__file__).resolve().parent / "templates" / "_macros.html"
 
 
 @lru_cache(maxsize=1)
-def _tokens() -> list[tuple[str, str]]:
+def _tokens() -> list[tuple[str, str, bool]]:
     """De kleurtokens uit de GEGENEREERDE css, niet opnieuw ingetypt.
 
     Dat is het hele punt van dit scherm: een lijst die met de hand wordt
@@ -87,13 +87,31 @@ def _tokens() -> list[tuple[str, str]]:
                 return "#" + vol
         return None
 
+    # F27 (#996): de beheerschil overschrijft enkele tripletten
+    # (body[data-shell="admin"]); de staal rendert die al live via var(--…),
+    # maar het waardelabel toonde de basiswaarde — de referentiepagina sprak
+    # de toepassing tegen. De overrides winnen hier, met een merkteken.
+    schil = re.search(r'body\[data-shell="admin"\]\s*\{(.*?)\}', css, re.S)
+    schil_namen = set()
+    if schil:
+        for naam, waarde in re.findall(r"--([a-z0-9-]+):\s*([^;}]+)", schil.group(1)):
+            schil_namen.add(naam)
+            per_naam[naam] = waarde.strip()
+
     resultaat = []
     for naam, waarde in per_naam.items():
-        if naam.startswith("c-"):
+        if naam.startswith("c-") and naam not in schil_namen:
             continue
         kleur = _hex_van(waarde)
+        if naam in schil_namen and kleur is None:
+            delen = re.fullmatch(r"(\d{1,3}) (\d{1,3}) (\d{1,3})", waarde)
+            if delen:
+                kleur = "#" + "".join(f"{int(d):02x}" for d in delen.groups())
         if kleur:
-            resultaat.append((naam, kleur))
+            verwijzing = re.fullmatch(r"rgb\(var\(--([a-z0-9-]+)\)\)", waarde or "")
+            van_schil = naam in schil_namen or (
+                verwijzing is not None and verwijzing.group(1) in schil_namen)
+            resultaat.append((naam, kleur, van_schil))
     return resultaat
 
 

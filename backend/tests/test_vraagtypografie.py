@@ -126,16 +126,21 @@ def test_titel_vraag_en_antwoord_beginnen_op_dezelfde_lijn():
     Kapotgemaakt om te controleren dat deze test rood kan worden: de `pl-4` van de
     `<h2>` weggehaald → de eerste assert valt om.
     """
-    assert '<h2 class="text-lg font-bold mb-1 pl-4"' in FORMULIER, (
-        "de sectietitel springt niet even ver in als haar vragen")
-    assert 'class="text-sm text-gray-600 mb-3 pl-4 whitespace-pre-wrap"' in FORMULIER, (
-        "de sectieomschrijving springt niet mee in")
+    # F19 (#996) draaide de oplossing om: niet iedereen inspringen tot aan de
+    # goot, maar de goot (-ml-4) de kaartmarge in — titel, omschrijving, vraag
+    # én contactvelden beginnen nu allemaal op de nul-lijn.
+    assert '<h2 class="text-lg font-bold mb-1"' in FORMULIER
+    assert 'class="text-sm text-gray-600 mb-3 whitespace-pre-wrap"' in FORMULIER
+    assert "pl-3 -ml-4" in FORMULIER, "de foutgoot valt niet meer in de marge"
 
 
 def test_de_markering_verschuift_de_vraag_niet():
     """#741 zette `border-l-4 … pl-3` erbij op het moment van markeren, en dat
     verschóóf de vraag precies wanneer je hem staat te lezen. De rand staat er nu
     altijd, doorzichtig; alleen de kleur wisselt."""
-    assert 'class="border-l-4 border-transparent pl-3"' in FORMULIER
+    # Sinds F19 (#996) trekt -ml-3 de goot de kaartmarge in, zodat de vraag
+    # op de inhoudsrand van de contactvelden staat; het geen-verschuiven-punt
+    # blijft: de rand staat er altijd, alleen de kleur wisselt.
+    assert 'class="border-l-4 border-transparent pl-3 -ml-4"' in FORMULIER
     assert "'border-l-4', 'border-red-600', 'pl-3'" not in FORMULIER, (
         "de markering voegt de rand nog steeds toe in plaats van hem te kleuren")

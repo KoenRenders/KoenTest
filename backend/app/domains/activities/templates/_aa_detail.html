@@ -29,7 +29,11 @@
        #223); de vriendelijke URL zit in de deellink rechts, niet dubbel hier.
        x-show per regel: gate-regel 28 leest per element. #}
     {% if a.poster_asset_url %}<p class="mt-2 text-sm" x-show="!edit" x-cloak><span class="text-ink-soft">{{ _("Affiche") }}:</span> <a href="{{ a.poster_asset_url }}" target="_blank" rel="noopener" class="text-link underline">{{ a.poster_asset_title or _("Huidige affiche bekijken") }}</a></p>
-    {% elif a.poster_url %}<p class="mt-2 text-sm" x-show="!edit" x-cloak><span class="text-ink-soft">{{ _("Poster-URL") }}:</span> <a href="{{ a.poster_url }}" target="_blank" rel="noopener" class="text-link underline break-all">{{ a.poster_url }}</a></p>{% endif %}
+    {% elif a.poster_url %}<p class="mt-2 text-sm" x-show="!edit" x-cloak><span class="text-ink-soft">{{ _("Poster-URL") }}:</span> <a href="{{ a.poster_url }}" target="_blank" rel="noopener" class="text-link underline break-all">{{ a.poster_url }}</a></p>
+    {% else %}
+    {# F33 (#996): zonder affiche toonde deze kaart alleen haar kop en knop —
+       een kader dat inhoud suggereert die er niet is. Nu benoemt hij het. #}
+    <p class="mt-2 text-sm text-ink-soft" x-show="!edit" x-cloak>{{ _("Nog geen affiche — voeg er een toe via Bewerken.") }}</p>{% endif %}
     {# Eén vorm voor tekstvelden én affiche (#623). Poster-URL was uit het scherm
        verdwenen terwijl het veld op het model bleef bestaan — je kon alleen nog
        uploaden. En het uploadblok had een eigen "Uploaden"-knop, dus twee handelingen
@@ -153,7 +157,9 @@
     <div class="space-y-3">
   {% for c in a.sub_registrations %}
   <div class="bg-white rounded-xl border border-gray-200 p-4" x-data="{ edit: false, addprod: false }">
-    <div class="flex items-center justify-between">
+    {# F17 (#996): kop en actiecluster vallen bij ruimtegebrek als volledige
+       groepen onder elkaar in plaats van elkaar samen te drukken. #}
+    <div class="flex flex-wrap items-center justify-between gap-2">
       <h3 class="font-semibold">{{ c.name }}
         {% if c.team_name_required %}{{ ui.badge(_("ploegnaam"), "blue") }}{% endif %}
         {% if c.max_participants %}{{ ui.badge("max " ~ c.max_participants) }}{% endif %}
@@ -215,13 +221,13 @@
     {% call ui.nested_panel(_("Producten"), _("+ Product"), '@click="addprod = !addprod"') %}
       {% for p in c.products %}
       <div class="border-t border-gray-100 py-1" x-data="{ ed: false }">
-        <div class="flex items-center justify-between text-sm">
-          <span x-show="!ed">{{ p.name }} ·
+        <div class="flex flex-wrap items-center justify-between gap-2 text-sm">
+          <span x-show="!ed" class="min-w-0">{{ p.name }} ·
             {% if p.pay_on_site %}{{ _("ter plaatse") }}{% elif p.is_free or p.price == 0 %}{{ _("gratis") }}{% else %}€{{ p.price|geld }}{% if p.member_price is not none %} / leden €{{ p.member_price|geld }}{% endif %}{% endif %}
             {% if p.max_participants %} · max {{ p.max_participants }}{% endif %}
           </span>
           <span x-show="ed" x-cloak class="text-gray-500">{{ _("Product bewerken") }}</span>
-          <div class="flex gap-2">
+          <div class="flex gap-2 ml-auto shrink-0">
             {{ ui.reorder(
                  up_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verplaats" hx-vals=\'{"richting":"omhoog"}\' hx-target="#aa-detail" hx-swap="innerHTML"',
                  down_attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/onderdelen/' ~ c.id ~ '/producten/' ~ p.id ~ '/verplaats" hx-vals=\'{"richting":"omlaag"}\' hx-target="#aa-detail" hx-swap="innerHTML"') }}

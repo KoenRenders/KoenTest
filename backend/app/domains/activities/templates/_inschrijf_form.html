@@ -3,7 +3,10 @@
    _activiteiten_cards.html; dit fragment is de inhoud. `.inschrijf-card` is het
    hx-doel voor herrender (totaal/fout) en vervanging (klaar). #}
 <div class="inschrijf-card px-5 py-5">
-  <h3 class="font-bold text-lg mb-3 pr-6">{{ _("Inschrijven") }} — {{ component.name }}</h3>
+  <h3 class="font-bold text-lg pr-6">{{ _("Inschrijven") }} — {{ component.name }}</h3>
+  {# F22 (#996): de inschrijving blijft zelfstandig herkenbaar — activiteit en
+     datum stonden nergens in het venster. #}
+  <p class="text-sm text-ink-soft mb-3">{{ activity.name }}{% if activity.dates %} · {{ activity.dates[0].start_date|langedatum }}{% endif %}</p>
   {{ ui.error_banner(error) }}
   <form hx-post="/activiteiten/{{ activity.id }}/inschrijven/{{ component.id }}"
         hx-target="closest .inschrijf-card" hx-swap="outerHTML" class="space-y-3">
@@ -55,8 +58,14 @@
     {% if heeft_prijs %}
     <div>
       {{ ui.label(_("Betaalwijze"), "payment_method") }}
-      <label class="flex items-center gap-2 text-sm"><input type="radio" name="payment_method" value="ONLINE" {% if values.get('payment_method', 'ONLINE') == 'ONLINE' %}checked{% endif %}> {{ _("Online betalen") }}</label>
-      <label class="flex items-center gap-2 text-sm"><input type="radio" name="payment_method" value="OVERSCHRIJVING" {% if values.get('payment_method') == 'OVERSCHRIJVING' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
+      {# F21 (#996): de volle labelregel is aanklikbaar (44px) en de keuze
+         benoemt haar gevolg — zelfde uitleg als op Word-lid. #}
+      <div x-data="{ pm: '{{ values.get('payment_method', 'ONLINE') }}' }">
+      <label class="flex items-center gap-2 text-sm min-h-11 cursor-pointer"><input type="radio" name="payment_method" value="ONLINE" x-model="pm" {% if values.get('payment_method', 'ONLINE') == 'ONLINE' %}checked{% endif %}> {{ _("Online betalen") }}</label>
+      <label class="flex items-center gap-2 text-sm min-h-11 cursor-pointer"><input type="radio" name="payment_method" value="OVERSCHRIJVING" x-model="pm" {% if values.get('payment_method') == 'OVERSCHRIJVING' %}checked{% endif %}> {{ _("Overschrijving") }}</label>
+      <p class="text-xs text-ink-soft" x-show="pm === 'ONLINE'">{{ _("Na het versturen ga je meteen naar de beveiligde betaalpagina.") }}</p>
+      <p class="text-xs text-ink-soft" x-show="pm === 'OVERSCHRIJVING'" x-cloak>{{ _("Na het versturen ontvang je de betaalinstructies per e-mail.") }}</p>
+      </div>
     </div>
     {% endif %}
     {{ ui.btn_primary(_("Inschrijven")) }}
