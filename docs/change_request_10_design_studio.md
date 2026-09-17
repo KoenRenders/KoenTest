@@ -2,57 +2,85 @@
 
 **Project:** Web Portal "Raak Millegem"
 **Status:** Shaped with Koen on 16 September 2026 (brainstorm on
-`feature/designstudio`). All decisions in §3 are settled; §8 records Koen's
-answers. **Phase 0** (the registration deadline, §3.8a) is #974 and
-assigned to **v2.5** (#925). The Design Studio itself (phases 1–4) is not
-on a release yet.
-**On hold (Koen, 16 September 2026, late evening):** before issues are written
-or anything is built, the CR gets a review from all sides with Fable 5.1, and a
-look at existing template tools for concepts worth borrowing. The prototypes
-so far started from the unit's own posters. The proposals awaiting Koen's
-answer are listed in §8a.
-**Apply to:** a new `designstudio` domain (backend + admin screens), a
-contacts table on `activities`, two new media kinds, and the name search
-moving into MDM. The registration deadline column is phase 0 (#974). Rendering reuses
-WeasyPrint (#258); text proposals reuse the Mistral provider (chatbot).
+`feature/designstudio`); **restructured on 17 September 2026** to the change
+request template (`docs/change_request_template.md`) as its first example.
+**On hold:** before issues are written or anything is built, the CR gets a
+review from all sides with Fable 5.1 and a look at existing template tools
+for concepts worth borrowing. **Phase 0** (the registration deadline, B4 B4 §3.8a)
+is #974 and assigned to **v2.5** (#925). The Design Studio itself is not on a
+release yet.
+**Applies to:** a new `designstudio` domain (backend + admin screens), a
+contacts table, two new media kinds, the name search moving into MDM, the AI
+call log (#978). Rendering reuses WeasyPrint (#258); text proposals reuse the
+Mistral provider (chatbot).
 
 ---
 
-## Goal
+# Part A — The business
 
-Units announce their activities with a printed poster (A3/A4) and with
-images on Facebook and Instagram. About half of the posters are printed at
-home. The rest are ordered from online print services. Today each poster is made by hand — in Word, Canva, LibreOffice
-Draw, or by asking a chatbot — and each one looks different. A chatbot
-poster cannot be amended a week later: "add this line" gives a new poster.
+## A1. Reason to act
 
-This change request adds a **Design Studio**:
+Each Raak unit announces its activities with a printed poster (A3 or A4) and
+with images on Facebook and Instagram. Today every poster is a one-off,
+made by whoever volunteers: in Word, in Canva, in LibreOffice Draw, or by
+asking a chatbot. The four posters Koen collected were made with four
+different tools and look like four different associations. Every fact on
+them — title, date, hour, place, price — is retyped from the activity, and
+retyping is where the stale hours and wrong prices come from.
 
-1. **Start from an activity.** Title, dates, times, location, price and
-   registration link come from the activity. Nobody retypes them.
-2. **Pick a template and a colour pair.** Templates are designed centrally
-   in the Raak house style. Units choose one; they do not edit it.
-3. **Fill in what the activity does not know**: a subtitle, a few
-   highlights, an image — uploaded, taken from the activity's photo archive,
-   or generated.
-4. **Render every format at once**: a print PDF for borderless home
-   printing and images for social media.
-5. **Mark one design final.** It becomes the activity's poster on the
-   website (and, once the landscape layout exists, its share image). When the activity changes afterwards, the
-   design says it is stale and re-renders with one click.
+The cost is volunteer time and inconsistency, and it recurs every month. A
+chatbot poster cannot be amended: "add one line" a week later means a new
+poster with a new look. A poster with a registration deadline promises
+something the portal does not enforce. And the Raak house style guide, which
+the units received to look like one movement, is applied by hand or not at
+all.
 
-AI helps in two places, always as a proposal: **text suggestions**
-(Mistral) and **illustrations** (Black Forest Labs, EU endpoint, with a
-quota per unit).
+**Why now.** Three things came together in September 2026. The portal now
+holds the activity facts, so a poster can read them instead of retyping them
+(v2.0 and later). Raak supplied the official style guide, colour codes,
+logos and typeface as files, so the brand can be applied by a machine. And
+image generation became cheap enough (cents per image, measured) that a unit
+without a designer can still get a fitting illustration. Waiting means
+another season of hand-made posters.
 
-## 1. The source material (measured, 16 September 2026)
+## A2. As-is process
+
+| Step | Who | How today | Pain |
+|---|---|---|---|
+| 1. Decide to announce | board member | after the activity is planned in the portal | — |
+| 2. Gather the facts | board member | reads them from the portal or from memory and **retypes** them | typos, stale hours, a deadline that exists only on paper |
+| 3. Pick a tool | board member | Word, Canva, LibreOffice Draw, a chatbot — whatever the person knows | four tools, four looks; brand applied by hand |
+| 4. Find or make an image | board member | a photo from a phone, a stock image, or a chatbot drawing | photos of members without asking; chatbot drawings carry text errors and off-brand colours |
+| 5. Lay out the poster | board member | by hand, per poster | recurring effort for every activity |
+| 6. Print | board member | about half at home (borderless printer), half ordered online | no bleed knowledge; white edges or cut-off text |
+| 7. Post on social media | board member | crops the A4 by hand for Instagram | text lost in the crop |
+| 8. Publish on the portal | board member | uploads the PDF as the activity's poster, sometimes | often forgotten |
+| 9. Amend | board member | starts again from step 3 | the "add one line" problem |
+
+## A3. To-be process
+
+| Step | Who | How afterwards |
+|---|---|---|
+| 1. Open the activity | board member | the activity page in the back office has a "Designs" section |
+| 2. Start a design | board member | picks a template and a colour pair; the facts are already filled in and stay live |
+| 3. Add what the activity does not know | board member | subtitle, a few short lines with icons, a welcome line; contacts chosen from the members or "Raak" |
+| 4. Add an image | board member | uploads a photo, picks one from the activity's archive, or asks for four generated illustrations in the unit's drawing style and picks one |
+| 5. Check | board member | sees every format (A3, A4, Instagram) update while typing; text that does not fit is flagged |
+| 6. Make it final | board member | one click; the poster appears on the activity's public page (after confirming if one already existed) |
+| 7. Print and post | board member | downloads the borderless PDF for home printing and the Instagram image |
+| 8. Amend | board member | edits the design and re-renders; a changed activity fact marks the design stale until re-rendered |
+
+The result follows the house style without the maker knowing the guide, and
+the facts cannot be retyped wrongly.
+
+## A4. Supplied material (measured, 16 September 2026)
 
 Koen collected the input in his Nextcloud project folder
 (`designstudio/huisstijl Raak en Raak Millegem`). It stays there: the
 example posters carry names, phone numbers and addresses, and none of that
 enters this repository.
 
-### 1.1 The Raak house style guide (9 pages, for local groups)
+### A4.1 The Raak house style guide (9 pages, for local groups)
 
 - **Eight colours, all equal** — no primary or secondary colour. The
   general rule is **at most 4 or 5 colours per design**.
@@ -96,7 +124,7 @@ enters this repository.
 - **Typeface:** Radio Canada Big (Google Fonts, OFL) for all text, in
   regular, medium, semibold and bold.
 
-### 1.2 The unit's assets
+### A4.2 The unit's assets
 
 - **Official SVG lockups** for Raak Millegem, supplied on 16 September 2026.
   There are five: four colour variants and one monochrome.
@@ -105,7 +133,7 @@ enters this repository.
     then the baseline colour.
   - The four colour variants are Ocean Blue/Golden Yellow, Ocean Blue/Hot
     Pink, Golden Yellow/Indigo and Dark Green/Golden Yellow. All four are
-    permitted duos (§1.1).
+    permitted duos (A4.1).
   - The monochrome variant is black/white.
 - **Measured:** all five files have the same structure — the same viewBox
   (702 × 451), 17 paths, and no embedded bitmaps, scripts or external
@@ -115,7 +143,7 @@ enters this repository.
 - **The neutral Raak lockup** (wordmark with the baseline "Beleef meer!", no
   unit name), supplied on 16 September 2026:
   - **24 PNG files**, 6090 × 4060 px;
-  - they are **exactly the twelve permitted duos of §1.1, each in both
+  - they are **exactly the twelve permitted duos of A4.1, each in both
     directions** (tile colour / baseline colour). Raak itself thus offers the
     lockup in every permitted duo.
   - **One SVG** followed the same day: Ocean Blue tile, Golden Yellow
@@ -126,7 +154,7 @@ enters this repository.
   (In the file names, "appelblauwzeegroen" is Cool Green and "groen" is Dark
   Green.)
 
-### 1.3 Four example posters, and what they share
+### A4.3 Four example posters, and what they share
 
 | Example | Made with | Format | Bleed | Character |
 |---|---|---|---|---|
@@ -151,7 +179,7 @@ The chatbot brief that produced the first two posters asks for:
 - delivery both as an image and as a borderless A3 PDF;
 - no rounded corners.
 
-### 1.4 Content blocks, derived from the examples
+### A4.4 Content blocks, derived from the examples
 
 | Block | In examples | Source |
 |---|---|---|
@@ -167,10 +195,196 @@ The chatbot brief that produced the first two posters asks for:
 | Registration: link, QR code, deadline | 2 | activity |
 | Contact: website, e-mail, contact persons | 4 | the activity's contacts: members and/or the association |
 | Supporter / funder logos | 2 | media, kind `sponsor` |
-| Responsible publisher (V.U.) | 1 | out of scope for now (§3.10) |
+| Responsible publisher (V.U.) | 1 | out of scope for now (B4 §3.10) |
 | Image slot, optional inset image | 4 | design |
 
-## 2. What exists to build on
+## A5. Business requirements
+
+| # | Requirement | MoSCoW | Source |
+|---|---|---|---|
+| R1 | A poster is made **from the activity**: title, dates, hours, place, price and registration link come from the portal and are never retyped. | Must | Koen, 16 Sep |
+| R2 | A poster follows the **Raak house style** (colours, permitted colour pairs, logo rules, Radio Canada Big) without the maker having to know the guide. | Must | Koen, style guide |
+| R3 | A poster can be **amended later** — add a line, change a photo — without starting over. | Must | Koen, 16 Sep |
+| R4 | A poster prints **borderless on A3 and A4** at home, with nothing cut off. | Must | Koen, 16 Sep |
+| R5 | The same design is available as an **Instagram image (4:5)**. | Must | Koen, 16 Sep |
+| R6 | A **final** design becomes the activity's poster on the public site. | Must | Koen, 16 Sep |
+| R7 | The unit can get a **generated illustration** in its own drawing style, with a choice of variants. | Should | Koen, 16 Sep |
+| R8 | A generated illustration never carries text, logos or a recognisable person. | Must | Koen, 16 Sep |
+| R9 | A **registration deadline** can be set on an activity, is enforced by the registration form, and appears on the poster. | Must | Koen, 16 Sep (#974) |
+| R10 | Contacts on a poster are **members chosen from the list** (with an optional other number or e-mail) or **Raak itself** — never typed. | Must | Koen, 16 Sep |
+| R11 | A changed activity fact **marks the design stale**; nothing re-renders silently. | Must | Koen, 16 Sep |
+| R12 | Several templates: photo-led, text flyer, illustration, recurring series. | Should | Koen, iterations 02–13 |
+| R13 | The unit's own **logo** and **drawing-style references** are uploaded by the unit, not shipped in the code. | Should | Koen, 16 Sep |
+| R14 | Suggested texts (subtitle, highlights) from an AI assistant. | Could | Koen, 16 Sep — later phase |
+| R15 | Facebook event cover and square formats. | Could | Koen, 16 Sep — later |
+| R16 | Print-shop output (bleed, crop marks, CMYK). | Won't (for now) | Koen, 16 Sep |
+| R17 | The responsible publisher (V.U.) on print. | Won't (for now) | Koen, 16 Sep |
+| R18 | Contacts on the public activity page. | Won't (for now) | Koen, 16 Sep |
+| R19 | A free-form editor (move boxes, Canva-like). | Won't | Koen, 16 Sep |
+
+## A6. Recurring requirements
+
+| Concern | This change |
+|---|---|
+| **Reporting** | Per unit and per month: how many designs, how many generated images, and what they cost. The cost of every AI call is countable in one place (#978). |
+| **Security** | Uploaded SVG (logos) is active content and is sanitised. The image-provider key is a platform secret in the environment, never per user. Generation has a platform-wide kill switch and a per-unit budget. Only ADMIN/OPERATOR reach the editor; budget and kill switch are OPERATOR only. |
+| **Privacy** | Contacts printed on a poster are personal data made public by a deliberate choice; the editor says so. Member photos never go to an AI provider. Only activity facts and design text leave the system, to EU-hosted providers. Photos of children are not used as test material. |
+| **House style / UI norm** | Posters follow the Raak style guide (data in code, gated). The editor itself follows `docs/design-system.md`; back office, so desktop-first with a usable phone variant. |
+| **Multi-tenant** | Templates and the style guide are platform-wide. Logo, reference drawings, budget override and designs are per unit. |
+| **Operations** | New env vars (provider key, budget, kill switch, exchange rate) named in the "Na de merge" block. One additive migration. Generated files stay small; renders are re-creatable from inputs. |
+
+## A7. Acceptance criteria
+
+Each is checked by a person on HDEV.
+
+| # | Criterion | Requirement |
+|---|---|---|
+| AC1 | Change the hour of an activity with a final design: the design shows "stale" on the activity page; after "Re-render" the new hour is on the A3 PDF. | R1, R11 |
+| AC2 | Every colour on a rendered poster is one of the eight guide colours or white (checked with a colour picker on three elements); the logo tile matches the chosen pair. | R2 |
+| AC3 | Add a line to a final design, re-render: the new PDF differs only in that line. | R3 |
+| AC4 | Print the A3 PDF borderless at home: no white edge, no text within the cropped margin (measured 2–5 mm on Koen's printer). | R4 |
+| AC5 | The Instagram image is 1080 × 1350 px and shows title, date, place and image without cropped text. | R5 |
+| AC6 | Mark a design final on an activity that already has a poster: a confirmation names the replacement; decline keeps the old poster; accept shows the new one on the public activity page. | R6 |
+| AC7 | Ask for illustrations: four variants arrive within a minute; none contains letters; the chosen one is on the poster. | R7, R8 |
+| AC8 | Set a deadline of yesterday: the public card shows "Inschrijvingen afgesloten" and a submitted form is refused; the poster prints "Inschrijven tot …". | R9 |
+| AC9 | Add a member as contact with another mobile number, and "Raak": the poster shows the member's name with the override, and Raak's website, e-mail and mobile without a name. | R10 |
+| AC10 | Upload an SVG logo with a script tag: refused with a clear message. | A6 security |
+| AC11 | Exceed the unit's monthly image budget: the request is refused before it is sent, and the remaining budget is shown. | A6 operations |
+| AC12 | The month's AI cost per unit is visible in the AI call log. | A6 reporting |
+
+---
+
+# Part B — The solution
+
+## B1. Solution outline
+
+A new `designstudio` domain in the portal. A **design** belongs to an
+activity and stores its inputs: template, colour pair, design text, images
+and their focal points, contacts. **Templates are code** (Jinja + CSS, SVG
+ornaments), designed centrally in the house style; a design is data rendered
+through a template with **WeasyPrint**, which is already in the image
+(#258). Each template defines **one layout per aspect ratio** (A-series
+portrait, 4:5), so nothing is cropped. Raster outputs come from the PDF via
+**pypdfium2**; QR codes via **segno**. Illustrations come from **Black
+Forest Labs FLUX.2 [pro]** through the EU endpoint, steered by a per-template
+style reference; text proposals (later) from the existing **Mistral**
+provider. Every AI call is logged in the existing AI call log (#978), which
+also feeds the per-unit budget.
+
+Alternatives weighed (details in B4): free chatbot generation (not
+amendable, off-brand); pure SVG templates (no text flow); ODF/LibreOffice
+headless (heavy, no variable text); poppler for raster (subprocess, apt
+package). Europe First: WeasyPrint (FR), Black Forest Labs (DE, EU
+endpoint), Mistral (FR), segno (DE, pure Python).
+
+## B2. Architecture
+
+### B2.1 Components
+
+| Component | Status | Role in this change |
+|---|---|---|
+| `designstudio` domain (models, service, `admin_ui.py`, templates, renderer, AI client) | **new** | designs, templates, rendering, generation, budget |
+| Poster templates (`designstudio/templates/posters/*`) | **new** | Beeld, Tekstflyer, Illustratie, Reeks — one layout per ratio |
+| House-style constant + gate test | **new** | eight colours, twelve duos, enabled duos; template lint |
+| `activities` domain | used, **changed** | facts read through `api.py`; `registration_closes_on` (#974); contacts table |
+| `media` domain | used, **changed** | poster slot (#223); new kinds `design_image` (no 1600 px resize) and `design_render` |
+| `mdm` domain | used, **changed** | member search moves into MDM (shared with the meeting circle); organisation contact details |
+| `chatbot` domain — `AiCallLog`, `sink_for`, Mistral provider | used, **changed** (#978) | provider, endpoint, cost per call; text proposals later |
+| `kernel.tenant_config` | used | per-unit budget override, logo and reference assets |
+| WeasyPrint 70, Pango/Cairo | used | HTML/CSS → PDF |
+| pypdfium2, segno, Pillow, fontTools | **new** dependencies | PDF → raster; QR; image prep; glyph outlines for curved/speckled titles |
+| Black Forest Labs API (`api.eu.bfl.ai`) | **new** integration | illustrations |
+| Radio Canada Big, Caveat (OFL) | used / **new** font | poster typography, handwritten note |
+
+### B2.2 Application usage
+
+Business steps (A3) mapped onto the screens and services that serve them.
+
+```mermaid
+flowchart LR
+  subgraph P[Business process — to-be]
+    p1[1 Open the activity] --> p2[2 Start a design] --> p3[3 Add design text and contacts] --> p4[4 Add an image] --> p5[5 Check every format] --> p6[6 Make it final] --> p7[7 Print and post] --> p8[8 Amend]
+  end
+  subgraph S[Application]
+    s1[Activity detail — Designs section]
+    s2[Design editor]
+    s3[Contact picker]
+    s4[Image panel: upload · archive · generate]
+    s5[Live preview per layout + overflow check]
+    s6[Finalise: renders stored, poster replaced after confirmation]
+    s7[Downloads: A3/A4 PDF, 4:5 image]
+    s8[Stale flag + Re-render]
+  end
+  p1 --> s1
+  p2 --> s2
+  p3 --> s2
+  p3 --> s3
+  p4 --> s4
+  p5 --> s5
+  p6 --> s6
+  p7 --> s7
+  p8 --> s8
+```
+
+### B2.3 Application structure
+
+Screens, modules, facades, data stores and integrations, with dependencies.
+
+```mermaid
+flowchart TB
+  subgraph UI[Screens — designstudio/admin_ui.py, Dutch paths]
+    u1["/admin/activiteiten/{id}/ontwerpen"]
+    u2["/admin/ontwerpen/{id} — editor"]
+  end
+  subgraph DS[designstudio domain]
+    svc[service.py — designs, lifecycle, fingerprint]
+    rnd[render.py — Jinja + CSS → WeasyPrint → pypdfium2]
+    tpl[templates/posters — Beeld · Tekstflyer · Illustratie · Reeks]
+    brand[brand.py — colours, duos, gate]
+    ai[imaging.py — BFL client, budget, whitening]
+    api[api.py — facade]
+  end
+  subgraph EXT[Existing domains via their api.py]
+    act[activities — facts, dates, deadline, contacts]
+    med[media — poster slot, design_image, design_render]
+    mdm[mdm — member search, organisation contacts]
+    chat[chatbot — AiCallLog sink, Mistral provider]
+    cfg[kernel.tenant_config — budget override, assets]
+  end
+  subgraph DB[(PostgreSQL)]
+    d1[(designstudio.designs, highlights, contacts, renditions, image_generations)]
+    d2[(media.media_assets)]
+    d3[(ai.ai_call_log)]
+    d4[(activities.activities + activity_contacts)]
+  end
+  subgraph OUT[External]
+    bfl[Black Forest Labs — api.eu.bfl.ai]
+    mis[Mistral]
+  end
+  u1 --> svc
+  u2 --> svc
+  u2 --> rnd
+  svc --> api
+  svc --> act
+  svc --> med
+  svc --> mdm
+  svc --> d1
+  rnd --> tpl
+  rnd --> brand
+  rnd --> med
+  ai --> bfl
+  ai --> chat
+  ai --> cfg
+  chat --> d3
+  chat --> mis
+  med --> d2
+  act --> d4
+  svc --> ai
+```
+
+### B2.4 Impact on the existing architecture
+
+What the solution stands on, measured on master:
 
 | | measured |
 |---|---|
@@ -181,12 +395,32 @@ The chatbot brief that produced the first two posters asks for:
 | Poster slot | `MediaAsset(kind="activity_poster")` — an image or PDF that takes precedence over `poster_url` and is already shown publicly (#223). |
 | Photos | `MediaAsset(kind="activity_photo")` — the activity's archive; `kind="sponsor"` — supporter logos. |
 | Image processing | `media/images.py` resizes every upload to **1600 px** on the longest side. That is too small for print (A3 at 300 dpi is 3508 × 4961 px). |
-| Organisation | website and e-mail as the organisation's contact details (#945); the person↔organisation relation arrives with CR-09 §3.11. |
+| Organisation | website and e-mail as the organisation's contact details (#945); the person↔organisation relation arrives with CR-09 B4 §3.11. |
 | LLM | `chatbot/providers` — the Mistral provider behind an `LLMProvider` interface, plus a mock. |
 | Secrets | `kernel_tenant_settings` with encrypted values (Fernet). |
 | Pillow | 12.3, already a dependency. |
 
-## 3. Decisions
+Layer rules: `admin_ui.py` never touches `db` and imports only from
+domain `api.py` facades; template context comes from view-models; the
+import-boundary test enforces it. No cross-schema foreign keys (soft
+references, as elsewhere).
+
+## B3. Cost
+
+| Item | Basis | Measured / estimated |
+|---|---|---|
+| FLUX.2 [pro] illustration | per megapixel, 1 credit = $0.01 | **4.5 credits ($0.045)** per 1920 × 1072 image; **6 credits** with a style reference; four variants per request = $0.18–0.24 |
+| Monthly image budget | per unit, configurable in `.env`, per-unit override | **€50 while testing** ≈ 200–270 requests of four variants |
+| Prototype spend so far | 16 September 2026 | **about $1.20** for 26 images across 8 rounds |
+| Mistral text proposals | tokens per request, existing contract | small; a few hundred tokens per proposal (phase 2) |
+| Storage | renders per final design (A3 + A4 PDF, one JPEG) | ≈ 1–3 MB per final design in `media_assets`; drafts store nothing |
+| Fonts | Radio Canada Big, Caveat — OFL | free |
+| Rendering stack | WeasyPrint, pypdfium2, segno — open source | free; no new apt packages beyond #258 |
+
+Cost is capped by the budget (refused before sending when the estimate
+would exceed it) and the kill switch; every call's cost is logged (#978).
+
+## B4. Detailed decisions
 
 ### 3.1 Templates, not free generation
 
@@ -217,7 +451,7 @@ CourtBouillon (FR). This was already approved for CR-09.
 
 ### 3.3 The house style is data, and a gate checks it
 
-- The eight colours, with CMYK and PMS, and the twelve duos (§1.1) become
+- The eight colours, with CMYK and PMS, and the twelve duos (A4.1) become
   **one constant in code**. Templates reference them by name, never by hex.
 - A design picks **one duo**. The template derives its palette from that
   duo plus at most two accents drawn from the eight colours. The picker
@@ -254,7 +488,7 @@ CourtBouillon (FR). This was already approved for CR-09.
   in either direction; the wordmark stays white. That gives one source
   instead of 24 files, and the logo tile always matches the poster.
 
-  The basis is §1.2: the unit's variants differ only in those two fill
+  The basis is A4.2: the unit's variants differ only in those two fill
   values, and Raak's own neutral set covers every permitted duo in both
   directions. The recolouring needs a structured master — the tile and the
   baseline recognisable by an id — and the upload check refuses an SVG
@@ -263,7 +497,7 @@ CourtBouillon (FR). This was already approved for CR-09.
 
 - **The neutral lockup is the fallback** for a unit without its own lockup.
   It is a platform asset in the database, like the unit lockups, and not a
-  repository file. It is the supplied SVG (§1.2), recoloured in the same way.
+  repository file. It is the supplied SVG (A4.2), recoloured in the same way.
 
   **Uploaded SVG is sanitised** — no `<script>`, no event attributes, no
   external references — because an SVG served to a browser is active
@@ -321,7 +555,7 @@ crop marks, CMYK/PDF-X — is out of scope for now.**
   stays inside a **safe zone of at least 8 mm**.
 - A PDF with bleed would be the wrong file for this printer: its page is
   10 mm larger, so the driver shrinks it or cuts it unpredictably. This
-  resolves the "5 mm bleed" wording in the brief (§1.3): what the brief
+  resolves the "5 mm bleed" wording in the brief (A4.3): what the brief
   wants is colour to the edge, and the home PDF delivers that.
 - Validation includes one real borderless print on Koen's printer, to
   measure how much the printer actually crops. The safe zone is a single
@@ -348,7 +582,7 @@ later.
   ICC print profile. Ghostscript is an apt package and self-hosted, but its
   maintainer, Artifex, is US-based, so the Europe First comparison is made
   when that step is added. The CMYK and PMS
-  values stay recorded in the palette constant (§3.3), so the brand values
+  values stay recorded in the palette constant (B4 §3.3), so the brand values
   are there when that step is added.
 
 **Image resolution:** a rendered print design reports the effective dpi of
@@ -406,7 +640,7 @@ disappear, so that there is one place per fact.
 undefined column reintroduces the ambiguity. Whether to remove it is outside
 this CR.
 
-A **registration deadline** is added as a real rule — see §3.8a.
+A **registration deadline** is added as a real rule — see B4 §3.8a.
 
 A recurrence engine is **not** added. The concrete dates are the existing
 `ActivityDate` rows. The phrase "every 2nd Monday" is design text.
@@ -446,14 +680,14 @@ of the activities domain first, and a poster field second.
   <date>".
 - **On the poster**, the registration block prints "Inschrijven tot <date>"
   when the field is set. The date is part of the stale fingerprint
-  (§3.14).
+  (B4 §3.14).
 - **Server date.** The existing check uses `date.today()`, which follows the
   container's time zone. The shared function uses the Belgian date
   explicitly, so a deadline does not close at 01:00 or 02:00 local time
   instead of midnight.
 
 This part changes registration behaviour and **ships on its own**, ahead
-of the Design Studio (§6, phase 0): **#974**, assigned to v2.5 (#925) by
+of the Design Studio (B7, phase 0): **#974**, assigned to v2.5 (#925) by
 Koen on 16 September 2026 and built by the finetuning CLI. At Koen's
 request, the same service function also refuses a **cancelled** activity.
 Until now only the card hid its button; the server accepted the
@@ -467,7 +701,7 @@ different mobile number or e-mail address, or **the association itself**.
 
 - **On the activity.** Who answers questions about an activity is a fact
   about that activity, so every design of it shows the same contacts.
-  Changing a contact marks the final design stale (§3.14), like a changed
+  Changing a contact marks the final design stale (B4 §3.14), like a changed
   date.
 - **Two kinds of contact.** Each contact row points to exactly one party:
   - **A member.** The name is shown. Mobile number and e-mail come from the
@@ -499,11 +733,11 @@ different mobile number or e-mail address, or **the association itself**.
   calls it too. Two copies of the same filter would drift apart.
 - **Where contacts are shown: only on posters and social images** (Koen,
   16 September 2026). There, the contact block follows the layout priority
-  (§3.4). **They are not shown on the public website**, which is indexed and
+  (B4 §3.4). **They are not shown on the public website**, which is indexed and
   stays online.
 
 A member's number printed on a poster is personal data made public. The
-picker says so, and contact details are never sent to an LLM (§5).
+picker says so, and contact details are never sent to an LLM (B6).
 
 ### 3.10 Responsible publisher — out of scope for now
 
@@ -519,13 +753,13 @@ rendered on the print layout only and never on social images.
 - **Sources:**
   - an upload;
   - a photo from the activity's archive (`activity_photo`);
-  - an AI generation (§3.12).
+  - an AI generation (B4 §3.12).
 - The chosen image is copied into a new media kind, **`design_image`**,
   which is **exempt from the 1600 px resize**. It is stored at up to 4096 px
   on the longest side, with a thumbnail as usual.
 - A design has one main image and, optionally, one inset image (the walking
   poster uses one).
-- The pin logo is never placed on the image area — a template rule (§3.3).
+- The pin logo is never placed on the image area — a template rule (B4 §3.3).
 
 ### 3.12 AI illustrations — Black Forest Labs, EU endpoint, with a quota
 
@@ -537,7 +771,7 @@ Approved by Koen on 16 September 2026, with a limit.
   - Pricing is per megapixel, from about **$0.03 per image** (1 credit =
     $0.01). The response reports the actual cost, and that cost is stored
     per generation.
-  - **Measured on 16 September 2026** (§6a): 4.5 credits ($0.045) and
+  - **Measured on 16 September 2026** (B9): 4.5 credits ($0.045) and
     15–21 seconds for a 1920 × 1072 px image.
 - **Flow:** the request is asynchronous and the response contains a
   `polling_url`. **Result URLs expire after about 10 minutes**, so the
@@ -564,7 +798,7 @@ Approved by Koen on 16 September 2026, with a limit.
   layouts, at the ratio of the `print_a` slot, and the other layouts crop
   around the focal point. Expected print resolution is 150–200 dpi for a
   half-page A3 image. That is acceptable for line illustrations, and the dpi
-  warning (§3.5) makes it visible.
+  warning (B4 §3.5) makes it visible.
 - **Budget, not a count** (Koen, 16 September 2026):
   - a **monthly budget in euro per unit**, **configurable**, set to
     **€50 per month** while testing;
@@ -633,7 +867,7 @@ Approved by Koen on 16 September 2026, with a limit.
   - once the `landscape` layout exists (phase 4), its image becomes the
     activity page's **share image**.
 - **Stale:**
-  - a final design stores a **fingerprint of the facts it used** (§3.7);
+  - a final design stores a **fingerprint of the facts it used** (B4 §3.7);
   - when the activity changes those facts (a new date, a changed time, a
     changed price), the design shows *stale* in the list and on the activity
     detail;
@@ -663,7 +897,7 @@ Approved by Koen on 16 September 2026, with a limit.
   `/admin/ontwerpen/{id}`). Code is English (`designstudio`, `Design`,
   `render_design`).
 
-## 4. Data model (sketch)
+## B5. Data model (sketch)
 
 A new schema, `designstudio`. Repeatable things get their own table (the
 modelling rule in `CLAUDE.md`).
@@ -695,7 +929,7 @@ designstudio.image_generations      -- which design asked, and what was picked
   -- live in ai.ai_call_log (#978), not here
 
 activities.activities
-  + registration_closes_on  date         null   -- inclusive, Belgian date (§3.8a)
+  + registration_closes_on  date         null   -- inclusive, Belgian date (B4 §3.8a)
 
 activities.activity_contacts        -- ordered; a member or the association
   id, tenant_id, activity_id, sort_order,
@@ -707,12 +941,12 @@ activities.activity_contacts        -- ordered; a member or the association
   check: exactly one of person_id, organization_id
   unique (activity_id, person_id), unique (activity_id, organization_id)
 media.media_assets.kind
-  + design_image   (no 1600 px resize; see §3.11)
+  + design_image   (no 1600 px resize; see B4 §3.11)
   + design_render  (rendered PDF / image)
 ```
 
 Codes (`duo_code`, `layout_code`, `icon_code`) are validated in code against
-the constants of §3.3 and the template's icon subset. There are no
+the constants of B4 §3.3 and the template's icon subset. There are no
 cross-schema foreign keys, as elsewhere.
 
 Environment: `DESIGNSTUDIO_AI_MONTHLY_BUDGET_EUR` (default 50, the budget
@@ -722,7 +956,7 @@ override of the `.env` budget.
 Environment: `BFL_API_KEY`, `DESIGNSTUDIO_AI_IMAGES_ENABLED` (the kill
 switch, default off).
 
-## 5. Privacy
+## B6. Privacy and security — the mechanics
 
 | Leaves the platform | To | Contains |
 |---|---|---|
@@ -736,11 +970,11 @@ switch, default off).
 - BFL's zero-retention option is an enterprise offer. The standard API keeps
   results for about 10 minutes.
 
-## 6. Phasing
+## B7. Phasing
 
 Each phase ships on its own.
 
-0. **Registration deadline** (§3.8a). This phase is independent of the
+0. **Registration deadline** (B4 §3.8a). This phase is independent of the
    Design Studio and useful without it:
    - the field on the activity;
    - one service function that decides "open for registration";
@@ -771,7 +1005,55 @@ New dependencies:
   no dependencies) or `qrcode`; the build weighs them under Europe First;
 - phase 3: an HTTP client for BFL, which the codebase already has.
 
-## 6a. Prototype findings (16 September 2026)
+## B8. Tests — what the build must reproduce
+
+With **seed data only**, the "Illustratie" template must reproduce the
+structure of two of the examples in A4.3:
+
+- **a one-day activity:** date badge with a time range, five highlights, a
+  price badge, a supporter logo, and a footer with two contacts — one member
+  and the association;
+- **a recurring activity with six dates:** recurrence line, dates grid,
+  highlights, and an inset image.
+
+The tests must be able to go red:
+- a long title (40 characters) still fits `print_a` and `feed_portrait`;
+- the six-date grid collapses to the recurrence line in `feed_portrait`;
+- finalising a design for an activity that already has a poster does not
+  replace it without the confirmation — tested through the route;
+- the A3 PDF's page is exactly 297 × 420 mm, and a coloured background
+  reaches all four page edges;
+- a text box placed inside the 8 mm safe zone makes the safe-zone check
+  fail — the guard is proven by that violation;
+- a template with a hex value outside the palette fails the gate;
+- a forbidden duo is refused by the service, not only hidden in the picker;
+- a scripted SVG upload is refused;
+- changing an activity date marks its final design stale — tested through
+  the activity service, not by calling the fingerprint function directly;
+- changing an activity's contacts also marks its final design stale;
+- a registration at 23:30 Belgian time on the deadline day is accepted
+  through the public route;
+- one at 00:30 Belgian time the next day is refused, even though the UTC
+  date is then still the deadline day (summer time);
+- after the deadline, the public card shows "Inschrijvingen afgesloten" and
+  neither the registration button nor the external link;
+- a back-office correction to an existing registration still succeeds
+  after the deadline;
+- an override wins over the member's own number, and removing the override
+  brings the member's number back;
+- an association contact renders website, e-mail and mobile, and no name;
+- a row with both or neither of person and organisation is refused by the
+  database, not only by the form;
+- the picker refuses a person who is not a member — tested through the
+  route, because the picker only hides non-members;
+- the meeting circle still finds non-members after the name search moves to
+  MDM;
+- marking a design final replaces the activity's poster — tested through the
+  public activity page;
+- the quota refuses the generation after the limit, and the kill switch
+  refuses every generation — with the BFL client mocked.
+
+## B9. Prototype findings (16 September 2026)
 
 Six iterations of throwaway prototypes, rendered with the real stack
 (WeasyPrint 70, pypdfium2, segno, Radio Canada Big). The results and scripts
@@ -821,7 +1103,7 @@ build takes from them:
 - **Counts and single objects are unreliable.** "Exactly two children and
   one adult", "one ladder golf set" and "one ball": in the final round, one
   of four variants followed all of it, while the style was right in all four.
-  The four variants per request (§3.12) are therefore a requirement, not a
+  The four variants per request (B4 §3.12) are therefore a requirement, not a
   convenience.
 - **Moderation is intermittent.** With a reference image and children in the
   prompt, one request was refused ("Content Policy Violation") and later
@@ -872,78 +1154,32 @@ build takes from them:
   it. The price therefore sits in a zone (a bar next to the registration
   block), not on the image.
 
-## 7. Test set — what the build must reproduce
+## B10. Decisions log
 
-With **seed data only**, the "Illustratie" template must reproduce the
-structure of two of the examples in §1.3:
-
-- **a one-day activity:** date badge with a time range, five highlights, a
-  price badge, a supporter logo, and a footer with two contacts — one member
-  and the association;
-- **a recurring activity with six dates:** recurrence line, dates grid,
-  highlights, and an inset image.
-
-The tests must be able to go red:
-- a long title (40 characters) still fits `print_a` and `feed_portrait`;
-- the six-date grid collapses to the recurrence line in `feed_portrait`;
-- finalising a design for an activity that already has a poster does not
-  replace it without the confirmation — tested through the route;
-- the A3 PDF's page is exactly 297 × 420 mm, and a coloured background
-  reaches all four page edges;
-- a text box placed inside the 8 mm safe zone makes the safe-zone check
-  fail — the guard is proven by that violation;
-- a template with a hex value outside the palette fails the gate;
-- a forbidden duo is refused by the service, not only hidden in the picker;
-- a scripted SVG upload is refused;
-- changing an activity date marks its final design stale — tested through
-  the activity service, not by calling the fingerprint function directly;
-- changing an activity's contacts also marks its final design stale;
-- a registration at 23:30 Belgian time on the deadline day is accepted
-  through the public route;
-- one at 00:30 Belgian time the next day is refused, even though the UTC
-  date is then still the deadline day (summer time);
-- after the deadline, the public card shows "Inschrijvingen afgesloten" and
-  neither the registration button nor the external link;
-- a back-office correction to an existing registration still succeeds
-  after the deadline;
-- an override wins over the member's own number, and removing the override
-  brings the member's number back;
-- an association contact renders website, e-mail and mobile, and no name;
-- a row with both or neither of person and organisation is refused by the
-  database, not only by the form;
-- the picker refuses a person who is not a member — tested through the
-  route, because the picker only hides non-members;
-- the meeting circle still finds non-members after the name search moves to
-  MDM;
-- marking a design final replaces the activity's poster — tested through the
-  public activity page;
-- the quota refuses the generation after the limit, and the kill switch
-  refuses every generation — with the BFL client mocked.
-
-## 8. Koen's answers (16 September 2026)
+### B10.1 Koen's answers (16 September 2026)
 
 | Question | Answer | Where |
 |---|---|---|
-| House style for posters | the Raak house style guide | §3.3 |
-| Print | borderless home print, **A3 required**; print shops out of scope | §3.5 |
-| CMYK | RGB for now; CMYK later as a post-processing step, no module change | §3.5 |
-| Responsible publisher (V.U.) | out of scope for now | §3.10 |
-| Logo recolouring | approved; three duos enabled to start | §3.3 |
-| Neutral lockup as SVG | supplied | §1.2 |
-| AI image provider | Black Forest Labs, with a limit | §3.12 |
-| AI limit | configurable monthly budget, €50 while testing | §3.12 |
-| Registration deadline | a real, enforced field on the activity — #974, v2.5 | §3.8a |
-| Contacts | on the activity; a member (with overrides) or the association | §3.9 |
-| Who is a member | every person in a household | §3.9 |
-| Contacts on the website | no — posters and social images only | §3.9 |
-| Tagline on yellow tile | Indigo, as in the unit's yellow lockup | §3.3 |
-| Formats in phase 1 | A3 + A4 borderless and 4:5; Facebook cover and square later; A5 is the A4 PDF | §3.4 |
-| Replacing an existing poster | only after an explicit confirmation | §3.14 |
-| Tagline and explanation | on the design for now, not on the activity or the website | §3.8 |
+| House style for posters | the Raak house style guide | B4 §3.3 |
+| Print | borderless home print, **A3 required**; print shops out of scope | B4 §3.5 |
+| CMYK | RGB for now; CMYK later as a post-processing step, no module change | B4 §3.5 |
+| Responsible publisher (V.U.) | out of scope for now | B4 §3.10 |
+| Logo recolouring | approved; three duos enabled to start | B4 §3.3 |
+| Neutral lockup as SVG | supplied | A4.2 |
+| AI image provider | Black Forest Labs, with a limit | B4 §3.12 |
+| AI limit | configurable monthly budget, €50 while testing | B4 §3.12 |
+| Registration deadline | a real, enforced field on the activity — #974, v2.5 | B4 §3.8a |
+| Contacts | on the activity; a member (with overrides) or the association | B4 §3.9 |
+| Who is a member | every person in a household | B4 §3.9 |
+| Contacts on the website | no — posters and social images only | B4 §3.9 |
+| Tagline on yellow tile | Indigo, as in the unit's yellow lockup | B4 §3.3 |
+| Formats in phase 1 | A3 + A4 borderless and 4:5; Facebook cover and square later; A5 is the A4 PDF | B4 §3.4 |
+| Replacing an existing poster | only after an explicit confirmation | B4 §3.14 |
+| Tagline and explanation | on the design for now, not on the activity or the website | B4 §3.8 |
 
 No open questions remain for phase 1.
 
-## 8a. Proposals awaiting Koen (16 September 2026, not yet confirmed)
+### B10.2 Proposals awaiting Koen (16 September 2026, not yet confirmed)
 
 1. **v2.5 scope:** the design editor with the four templates (Beeld,
    Tekstflyer, Illustratie, Reeks); own photos and photos from the
@@ -979,17 +1215,17 @@ Clarified in the same conversation:
 - A recurrence engine for activity dates.
 - Templates that units edit themselves.
 - Text inside AI images.
-- Print-shop output: bleed, crop marks, CMYK/PDF-X (§3.5).
-- The responsible publisher (V.U.) on print (§3.10).
+- Print-shop output: bleed, crop marks, CMYK/PDF-X (B4 §3.5).
+- The responsible publisher (V.U.) on print (B4 §3.10).
 
 ## Relationship to existing work
 
 - **#258 / CR-09:** WeasyPrint and its Dockerfile packages; the meeting
-  circle picker whose pattern and name search §3.9 reuses.
+  circle picker whose pattern and name search B4 §3.9 reuses.
 - **#223:** the poster media slot that a final design fills.
 - **#884:** the stable slug behind the QR code and the share link.
 - **#945:** the organisation's website and e-mail.
 - **#913 (design track):** the site's palette. Posters deliberately follow
-  the Raak house style guide instead (§3.3).
+  the Raak house style guide instead (B4 §3.3).
 - **CR-05 (newsletter):** a final design's `landscape` image (phase 4) is a natural
   illustration for the activity in a newsletter. That link belongs to CR-05.
