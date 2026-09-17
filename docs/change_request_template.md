@@ -49,9 +49,9 @@ One table. Each requirement is a sentence a board member would say, with a
 MoSCoW class. Numbered, so Part B and the acceptance criteria can point at
 them.
 
-| # | Requirement | MoSCoW | Source |
-|---|---|---|---|
-| R1 | … | Must | Koen, <date> |
+| # | Requirement | MoSCoW | Source | Comment |
+|---|---|---|---|---|
+| R1 | … | Must | Koen, <date> | … |
 
 MoSCoW: **Must** (without it the change is worthless), **Should** (important,
 but the change ships without it), **Could** (nice, if cheap), **Won't** (asked

@@ -179,17 +179,18 @@ The chatbot brief that produced the first two posters asks for:
 The table lists what the business asked for, in its words. MoSCoW: proposed
 by the CLI on 17 September 2026, to be validated by Koen (Q7).
 
-| # | Requirement | MoSCoW | Source |
-|---|---|---|---|
-| R1 | From the activity's data, **quickly** make good-looking designs. | Must | Koen, 17 Sep 2026 |
-| R2 | Designs suited for **print**: A3, A4, A5 down to A6. | Must — all A sizes share one ratio, so one layout serves them | Koen, 17 Sep 2026 |
-| R3 | Designs suited for **social media**: Facebook, Instagram, square, events. | Must for Instagram 4:5; Should for the Facebook event cover and square (Koen, 16 Sep: "later") | Koen, 17 Sep 2026 |
-| R4 | A design made by the system can still be **reworked by hand** afterwards, for instance in LibreOffice or another tool: add a text, add a box, rewrite a sentence. | Should — see Q8: everything editable except the images | Koen, 17 Sep 2026 |
-| R5 | The designs follow the **Raak house style** (guide, colours, logos, typeface in A4). | Must | Koen, 16 Sep 2026 |
-| R6 | Print at home must work (borderless); print shops are ordered online and are not a must. | Must (home); Won't for print-shop output, for now | Koen, 16 Sep 2026 |
-
-Decided out of scope for now by Koen on 16 September 2026: print-shop bleed
-and CMYK; the responsible publisher (V.U.); contacts on the public website.
+| # | Requirement | MoSCoW | Source | Comment |
+|---|---|---|---|---|
+| R1 | From the activity's data, **quickly** make good-looking designs. | Must | Koen, 17 Sep 2026 | |
+| R2 | Designs suited for **print**: A3, A4, A5 down to A6. | Must | Koen, 17 Sep 2026 | All A sizes share one ratio, so one layout serves them. |
+| R3 | Designs suited for **Instagram** (4:5). | Must | Koen, 17 Sep 2026 | |
+| R4 | A design made by the system can still be **reworked by hand** afterwards, for instance in LibreOffice or another tool: add a text, add a box, rewrite a sentence. | Should | Koen, 17 Sep 2026 | Everything editable except the images used (Q8). |
+| R5 | The designs follow the **Raak house style** (guide, colours, logos, typeface in A4). | Must | Koen, 16 Sep 2026 | |
+| R6 | Print at home must work (borderless). | Must | Koen, 16 Sep 2026 | |
+| R7 | Designs for the **Facebook event cover** and the **square** social format. | Could | Koen, 17 Sep 2026 | "Later" (16 Sep). |
+| R8 | **Print-shop output**: bleed, crop marks, CMYK. | Won't | Koen, 16 Sep 2026 | Units order print online; not a must for now. |
+| R9 | The **responsible publisher** (V.U.) on print. | Won't | Koen, 16 Sep 2026 | For now. |
+| R10 | Contacts on the **public website**. | Won't | Koen, 16 Sep 2026 | Posters and social images only, for now. |
 
 ## A6. Non-functional requirements
 
