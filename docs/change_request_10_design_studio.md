@@ -181,6 +181,12 @@ The chatbot brief that produced the first two posters asks for:
   17 September 2026. They carry recognisable members and stay in Nextcloud;
   in the pilot they are the realistic test of "upload a photo" for a series
   poster (the cycling poster of 1b next to the walking one already built).
+- **Supporter logo Mona** (`Mona logo _ baseline quadri.jpg`, with the
+  baseline "Samen veilig naar onze toekomst"): the unit's sponsor. **The
+  agreement is a yearly amount in return for the logo on about five posters
+  a year** (Koen, 17 September 2026). Supplied as a JPEG on white; a version
+  with transparent background (PNG or SVG) is needed for coloured fields —
+  to ask the sponsor.
 - **The unit's site QR code** (`raakmillegem_qrcode_https.svg/.png`): the
   code the unit prints when a poster has no activity-specific link. The
   portal generates the same code from the URL (B4 §3.7), so the file is a
@@ -222,6 +228,7 @@ by the CLI and validated by Koen on 17 September 2026 (Q7).
 | R8 | **Print-shop output**: bleed, crop marks, CMYK. | Won't | Koen, 16 Sep 2026 | Units order print online; not a must for now. |
 | R9 | The **responsible publisher** (V.U.) on print. | Won't | Koen, 16 Sep 2026 | For now. |
 | R10 | Contacts on the **public website**. | Won't | Koen, 16 Sep 2026 | Posters and social images only, for now. |
+| R11 | A **supporter's logo** can be placed on a poster, and the unit can see on how many posters it appeared this year. | Should | Koen, 17 Sep 2026 | Mona: a yearly amount for about five posters a year (A4.4). |
 
 ## A6. Non-functional requirements
 
@@ -230,7 +237,7 @@ how they are met is Part B.
 
 | Concern | This change |
 |---|---|
-| **Reporting** | What each unit spends on generated images must be countable, per month. |
+| **Reporting** | What each unit spends on generated images must be countable, per month. On how many published posters a supporter's logo appeared, per year (R11). |
 | **Security** | Only the unit's board reaches the design tools. Nothing a unit uploads may harm another unit or the platform. |
 | **Privacy** | People named on a poster have agreed to it — the board asks them beforehand, at a meeting, by WhatsApp or in person; the portal records no consent of its own (Koen, 17 Sep 2026). Members' photos do not leave the movement's own systems to an outside service; no photos of children as test material. |
 | **House style** | Designs follow the Raak style guide; the tool's own screens follow the portal's UI norm. |
@@ -249,6 +256,7 @@ End-to-end, by a person on HDEV, without reading code.
 | AC5 | Three elements checked with a colour picker are Raak colours; the logo and typeface are the official ones. | R5 |
 | AC6 | The unit's monthly spend on generated images is visible. | A6 reporting |
 | AC7 | The A4 PDF printed at A5 (reduced) is still readable: the smallest text at least 6 pt, the QR code at least 20 mm, the safe margin kept. | R2 |
+| AC8 | Publish three posters with the Mona logo: the unit sees "Mona: 3 affiches in 2026". | R11 |
 
 The external review's proposal of a timed usage goal ("a first-time board
 member makes a poster within ten minutes") was **not adopted by Koen**
@@ -1010,6 +1018,15 @@ activity.
 - **Removing the last contact person asks first** (Koen, 17 September
   2026): "Zonder contactpersonen tonen de affiches de website, het
   e-mailadres en het gsm-nummer van Raak. Doorgaan?"
+
+**Supporter logos (R11).** A design picks its supporter logos from the
+unit's `sponsor` media assets (the ones the footer already uses). The
+template places them in the supporter slot on a white field, so a JPEG on
+white works; a coloured field needs a transparent version. Publishing a
+version records which supporter assets it carried (`design_supporters` of
+that version), so the Design Studio can answer "how many published posters
+carried Mona this year" — a count over published versions per sponsor asset
+and year, shown on the design list.
 - **A contact row is a member.**
   - **A member.** The name is shown. Mobile number and e-mail come from the
     person's `ContactDetail` rows, **unless the contact row overrides
@@ -1575,6 +1592,8 @@ The tests must be able to go red:
   MDM;
 - marking a design final replaces the activity's poster — tested through the
   public activity page;
+- publishing three versions with the same supporter logo counts three for
+  that sponsor in that year; an unpublished final version counts nothing;
 - the quota refuses the generation after the limit, and the kill switch
   refuses every generation — with the BFL client mocked;
 - a generation whose download fails after BFL returned ends as `failed`
