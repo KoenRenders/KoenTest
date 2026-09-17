@@ -215,7 +215,11 @@
        uitgeklapt staat — één editor tegelijk per inschrijving, en Alpine-scope
        over de rijen heen zonder een div die HTML in een tabel niet toestaat. #}
     {% for groep in groepen %}
-    <tbody class="border-t-2 border-gray-200"{% if is_finance %} x-data="{ open: null, terug: null }"{% endif %}>
+    {# Groepsbegin zwaarder (Koens ronde 4): de scheiding tussen
+       inschrijvingen is dikker en donkerder dan de rijlijnen erbinnen, en de
+       totaalregel plakt zonder eigen bovenrand aan zijn groep — zo lees je
+       begin én einde in één oogopslag. #}
+    <tbody class="border-t-2 border-gray-300"{% if is_finance %} x-data="{ open: null, terug: null }"{% endif %}>
       {% for kaart, refunds in groep.kaarten %}
       {{ _rij(kaart) }}
       {{ _editrijen(kaart) }}
@@ -231,11 +235,13 @@
          "Nog uit te betalen" is een BEDRAG over de inschrijving, een andere
          grootheid dan de statusbadge "Terug te betalen" erboven. #}
       {% if groep.toon_totaal %}
-      <tr class="border-t border-gray-100 bg-gray-50/60">
-        <td colspan="3" class="px-3 py-2 text-ink-soft">{{ _("Totaal inschrijving") }}{% if groep.terug_te_betalen > 0 %} <span class="text-teal-700 font-medium">· {{ _("Nog uit te betalen") }}: € {{ groep.terug_te_betalen|geld }}</span>{% endif %}</td>
-        <td class="px-3 py-2 text-right tabular-nums font-medium whitespace-nowrap">€ {{ groep.totaal.due|geld }}</td>
-        <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap">€ {{ groep.totaal.paid|geld }}</td>
-        <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap {{ 'text-teal-700 font-medium' if groep.totaal.saldo < 0 else ('text-orange-700 font-medium' if groep.totaal.saldo > 0 else 'text-ink-soft') }}">€ {{ groep.totaal.saldo|geld }}</td>
+      {# 3: de bedragcellen dragen exact de detailklassen (px-2) — een eigen
+         padding liet de totalen 4px naast de kolom vallen. #}
+      <tr class="bg-gray-50/60">
+        <td colspan="3" class="px-3 py-2 font-medium text-ink-soft">{{ _("Totaal inschrijving") }}{% if groep.terug_te_betalen > 0 %} <span class="text-teal-700">· {{ _("Nog uit te betalen") }}: € {{ groep.terug_te_betalen|geld }}</span>{% endif %}</td>
+        <td class="px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap">€ {{ groep.totaal.due|geld }}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ {{ groep.totaal.paid|geld }}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell {{ 'text-teal-700 font-medium' if groep.totaal.saldo < 0 else ('text-orange-700 font-medium' if groep.totaal.saldo > 0 else 'text-ink-soft') }}">€ {{ groep.totaal.saldo|geld }}</td>
         <td></td>
       </tr>
       {% endif %}
@@ -244,9 +250,9 @@
     <tfoot>
       <tr class="border-t-2 border-gray-300 bg-gray-50 font-semibold">
         <td colspan="3" class="px-3 py-2">{{ _("Netto totaal") }} · {{ records|length }} {{ _("boekingen") }}</td>
-        <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap">€ {{ matrix.netto.due|geld }}</td>
-        <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap text-green-700">€ {{ matrix.netto.paid|geld }}</td>
-        <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap {{ 'text-orange-700' if matrix.netto.saldo > 0 else 'text-green-700' }}">€ {{ matrix.netto.saldo|geld }}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ {{ matrix.netto.due|geld }}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell text-green-700">€ {{ matrix.netto.paid|geld }}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell {{ 'text-orange-700' if matrix.netto.saldo > 0 else 'text-green-700' }}">€ {{ matrix.netto.saldo|geld }}</td>
         <td></td>
       </tr>
     </tfoot>
