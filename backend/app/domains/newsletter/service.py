@@ -891,14 +891,23 @@ def render_mail(db: Session, letter: Newsletter, *, kind: str,
 
 def _logo_url(db: Session, base_url: str) -> Optional[str]:
     """The association logo as an absolute URL — the same asset the site header
-    and the meeting PDF use — or None."""
-    from app.domains.media.api import tenant_logo
+    and the meeting PDF use — or None.
+
+    An SVG logo goes out as its PNG rendering (#989): Gmail and Outlook do not
+    show SVG, and a broken image would head every letter. The PNG is the asset's
+    thumbnail, rendered at upload.
+    """
+    from app.domains.media.api import SVG_CONTENT_TYPE, tenant_logo
 
     try:
         asset = tenant_logo(db)
     except Exception:  # noqa: BLE001 — a letter without logo is still a letter
         return None
-    return f"{base_url}/api/v1/media/{asset.id}" if asset is not None else None
+    if asset is None:
+        return None
+    if asset.content_type == SVG_CONTENT_TYPE:
+        return f"{base_url}/api/v1/media/{asset.id}/thumb"
+    return f"{base_url}/api/v1/media/{asset.id}"
 
 
 def reply_address(mode: str, sender_email: str) -> Optional[str]:
