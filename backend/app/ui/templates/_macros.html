@@ -719,7 +719,8 @@ x-data x-init="$el.style.height = `auto`; $el.style.height = Math.min($el.scroll
    rest van de kit: een singleton `Alpine.store('confirm')` draagt de state (open,
    tekst, knoplabel) en de modal + knoppen zijn puur declaratief (`x-show`, `x-text`,
    `@click`). De enige brug die niet declaratief kan, is de htmx-lifecycle-listener:
-   `htmx:confirm` vuurt vóór ELK verzoek; draagt het element een `data-confirm`, dan
+   `htmx:confirm` vuurt vóór ELK verzoek; draagt het element — of, bij een
+   formulier-submit, de verzendende knop (#986) — een `data-confirm`, dan
    pauzeren we het verzoek (`preventDefault`) en geven we het door aan de store, die
    het op "Bevestigen" hervat via `issueRequest(true)`. Zonder `data-confirm` doet de
    handler niets. `confirm_attrs(type, naam)` (app/ui/__init__.py) levert het attribuut;
@@ -757,10 +758,18 @@ x-data x-init="$el.style.height = `auto`; $el.style.height = Math.min($el.scroll
     });
   });
   document.body.addEventListener('htmx:confirm', function (evt) {
-    var q = evt.detail.elt.getAttribute('data-confirm');
+    // #986: on a form submit, htmx names the FORM as elt. A question on the
+    // submitting button (`ui.btn_primary(confirm=…)`) must count too, or one
+    // click goes through unasked.
+    var bron = evt.detail.elt;
+    if (!bron.hasAttribute('data-confirm')) {
+      var submit = evt.detail.triggeringEvent;
+      bron = (submit && submit.type === 'submit' && submit.submitter) || bron;
+    }
+    var q = bron.getAttribute('data-confirm');
     if (!q) return;                 // geen bevestiging gevraagd → verzoek gaat door
     evt.preventDefault();           // htmx pauzeren tot de gebruiker kiest
-    Alpine.store('confirm').ask(evt.detail, q, evt.detail.elt.getAttribute('data-confirm-ok'));
+    Alpine.store('confirm').ask(evt.detail, q, bron.getAttribute('data-confirm-ok'));
   });
 </script>
 {%- endmacro %}
