@@ -311,6 +311,19 @@
                delete_confirm=_("Voorbeeldactiviteit")) }}
           </td>
         </tr>
+        <tr class="border-b border-line">
+          <td class="py-2">{{ _("Dichte rij (Betalingen-verfijning, #996)") }}</td>
+          <td>{{ ui.badge(_("Openstaand"), "yellow") }}</td>
+          <td class="text-right">
+            {# Stille tekstlinks voor dichte tabellen: zelfde acties, geen
+               drie kaders per rij. Betalingen is het referentiescherm. #}
+            <span class="inline-flex gap-3 items-center">
+              {{ ui.link_action(_("Inschrijving"), href="/admin/design-system") }}
+              {{ ui.link_action(_("Bevestig"), href="/admin/design-system",
+                                confirm=_("Als volledig betaald bevestigen?")) }}
+            </span>
+          </td>
+        </tr>
       </tbody>
     </table>
     {{ ui.pager(1, per_page=50, total=132, hx_get="/admin/design-system",

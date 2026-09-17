@@ -325,8 +325,11 @@
    dus elke tab heette "href", linkte naar "label" en was actief ("active" is als
    string waar). Dicts zijn nu het contract; er waren geen tuple-aanroepers. #}
 {% macro tabs(items) -%}
+{# F6 (#996): één regel die scrolt bij overloop — een tabgroep die in twee
+   blokken wrapt leest als twee losse groepen. Geldt voor record- én
+   statustabs. #}
 <div class="border-b border-gray-200 mb-6">
-  <nav class="-mb-px flex flex-wrap gap-6 text-sm">
+  <nav class="-mb-px flex gap-6 text-sm overflow-x-auto whitespace-nowrap">
     {% for t in items %}
     {# `count` en `attrs` zijn optioneel (golf 10, #913): de statustabs op de
        betalingenlijst dragen een aantal en een hx-get naar hun fragment; de
@@ -844,13 +847,28 @@ x-data x-init="$el.style.height = `auto`; $el.style.height = Math.min($el.scroll
    twee-standenknop (#615) gaf in bewerkmodus een tweede Annuleren naast die
    van het cluster; de toestandseerlijkheid zit nu in de wissel zelf: er staat
    nooit een knop die liegt over de stand, er staat een andere set. #}
+{# Stille rij-actie als tekstlink (Betalingen-verfijning, #996 — Koen,
+   17 sep 2026): in een dichte tabel domineren drie omrande knoppen per rij
+   het beeld; de Cobalt-referentie zet er stille links. Een <a> bij een href,
+   anders een <button> met linkuiterlijk; draagt hetzelfde data-confirm als
+   de knoppen (ui.confirm_host). §2.4 blijft voor gewone lijsten gelden tot
+   de portaalbrede ronde. #}
+{% macro link_action(label, href=None, attrs="", confirm=None, cls="") -%}
+{%- set _k = "text-xs font-medium text-link hover:underline whitespace-nowrap" ~ (" " ~ cls if cls else "") -%}
+{%- if href -%}
+<a href="{{ href }}" class="{{ _k }}"{% if confirm %} data-confirm="{{ confirm }}"{% endif %}{% if attrs %} {{ attrs|safe }}{% endif %}>{{ label }}</a>
+{%- else -%}
+<button type="button" class="{{ _k }}"{% if confirm %} data-confirm="{{ confirm }}"{% endif %}{% if "hx-disabled-elt" not in attrs %} hx-disabled-elt="this"{% endif %}{% if attrs %} {{ attrs|safe }}{% endif %}>{{ label }}</button>
+{%- endif %}
+{%- endmacro %}
+
 {# `waarde` (golf 10, #913): in een tabel deelt een inschrijving één houder
    (`open`) over haar rijen — de opener toont zich zolang zíjn record niet
    openstaat en zet de houder op zijn record-id; `ook` sluit dan bv. het
    andere uitklappaneel. Zelfde openergedrag, andere toestandsvorm. #}
-{% macro edit_toggle(state="edit", size="sm", cls="", waarde=None, ook="") -%}
+{% macro edit_toggle(state="edit", size="sm", cls="", waarde=None, ook="", stijl="knop") -%}
 {% if waarde is not none -%}
-<button type="button" x-show="{{ state }} !== {{ waarde }}" class="{{ btn_class('secondary', size) }}{% if cls %} {{ cls }}{% endif %}" @click="{{ state }} = {{ waarde }}{% if ook %}; {{ ook }}{% endif %}">{{ _("Bewerken") }}</button>
+<button type="button" x-show="{{ state }} !== {{ waarde }}" class="{% if stijl == 'link' %}text-xs font-medium text-link hover:underline whitespace-nowrap{% else %}{{ btn_class('secondary', size) }}{% endif %}{% if cls %} {{ cls }}{% endif %}" @click="{{ state }} = {{ waarde }}{% if ook %}; {{ ook }}{% endif %}">{{ _("Bewerken") }}</button>
 {%- else -%}
 <button type="button" x-show="!{{ state }}" class="{{ btn_class('secondary', size) }}{% if cls %} {{ cls }}{% endif %}" @click="{{ state }} = true">{{ _("Bewerken") }}</button>
 {%- endif %}

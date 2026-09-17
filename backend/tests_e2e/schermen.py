@@ -102,7 +102,9 @@ class Betalingenscherm:
         return cel.inner_text().strip()
 
     def bevestig_betaald(self, rij):
-        rij.get_by_role("button", name="Bevestig betaald").click()
+        # Sinds #996 een stille link met het korte label "Bevestig"; de
+        # bevestigingsvraag draagt de type-woorden.
+        rij.get_by_role("button", name="Bevestig", exact=True).click()
         # In-app bevestigingsmodal (#595), geen browser-confirm.
         self.page.get_by_role("button", name="Bevestigen").click()
         self.page.wait_for_timeout(300)

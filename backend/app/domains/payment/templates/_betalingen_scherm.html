@@ -10,7 +10,9 @@
   {# Golf-10-feedback (Koen): zoeken en de keuzelijsten op ÉÉN regel, zoals de
      Cobalt-referentie — de export rechts. Wrapt op smal naar meerdere regels. #}
   <div class="flex flex-wrap gap-3 items-center">
-    <div class="flex-1 min-w-[14rem] max-w-sm">{{ ui.search(value=q, placeholder=_('Zoek op naam, OGM of omschrijving…'), standalone=False) }}</div>
+    {# F8 (#996): het zoekveld neemt de restbreedte — de afgekapte
+       placeholder naast een leeg gat was precies de bevinding. #}
+    <div class="flex-1 min-w-[14rem]">{{ ui.search(value=q, placeholder=_('Zoek op naam, OGM of omschrijving…'), standalone=False) }}</div>
     {# Gegroepeerde context-filter via de gedeelde macro (#549); geen hx-* op de select
        zelf — de omhullende filterbalk vangt de change al op. #}
     {% if not (scope and scope.get("stil")) %}

@@ -228,7 +228,10 @@ def test_de_badge_en_de_totaalregel_zijn_niet_langer_dezelfde_tekst(client, db_s
 
     html = client.get("/admin/betalingen?context=all").text
     assert html.count("Nog uit te betalen") == 1, "de totaalregel"
-    assert html.count(">Terug te betalen<") == 1, "de statusbadge"
+    # 2 en niet 1 sinds F4 (#996): de badge staat één keer in de Status-kolom
+    # (desktop) en één keer in het mobiele naamblok (md:hidden) — per
+    # kijkbreedte is er precies één zichtbaar.
+    assert html.count(">Terug te betalen<") == 2, "de statusbadge"
 
 
 # ── 5. De statusbadge staat op elke kaart uiterst rechts (#686) ──────────────
@@ -241,30 +244,21 @@ def _badges(html: str) -> list[str]:
     return [m.strip() for m in BADGE.findall(html)]
 
 
-def test_de_soortbadge_staat_vóór_de_status(client, db_session):
-    """De POSITIE, niet de aanwezigheid.
-
-    Beide badges staan er ook in de verkeerde volgorde, dus `"Terugbetaling" in
-    html` zou vóór #686 net zo groen zijn geweest. Wat telt is welke van de twee
-    als laatste komt: dát is de badge die uiterst rechts op de kaart terechtkomt.
-    Zelfde vorm als de correctie bij #684.
-
-    De vordering draagt maar één badge, dus haar status staat sowieso rechts. Op de
-    terugbetaling moest de soort ervóór — anders liggen de statusbadges van
-    samenhorende kaarten niet op één lijn en moet je elke kaart apart lezen in
-    plaats van de rechterkolom te scannen (dezelfde redenering als #682).
-    """
+def test_een_rij_draagt_een_badge_en_het_soort_in_de_subregel(client, db_session):
+    """Sinds de Betalingen-verfijning (#996) is de soortbadge weg: een
+    terugbetalingsrij draagt één statusbadge, en het soort staat als tekst in
+    de contextsubregel — waarmee #686's doel (statusbadges op één lijn, de
+    rechterkolom scanbaar) vanzelf geldt: er ís maar één badge per rij."""
     vordering = _rec(db_session, 6860, "30.00", betaald="30.00", minuten=0)
     _rec(db_session, 6860, "-10.00", soort="refund", betaald="-10.00", minuten=5,
          refund_of=vordering.id)
     db_session.commit()
     _login(client)
 
-    labels = _badges(client.get("/admin/betalingen?context=all").text)
-    assert "Terugbetaling" in labels, "de soortbadge ontbreekt"
-    na_de_soort = labels[labels.index("Terugbetaling") + 1:]
-    assert na_de_soort and na_de_soort[0] == "Vereffend", (
-        f"de status hoort ná de soort te komen; volgorde was {labels}")
+    html = client.get("/admin/betalingen?context=all").text
+    labels = _badges(html)
+    assert "Terugbetaling" not in labels, "de soortbadge is terug"
+    assert "Terugbetaling · " in html
 
 
 def test_een_openstaande_terugbetaling_toont_dezelfde_volgorde(client, db_session):
@@ -276,10 +270,14 @@ def test_een_openstaande_terugbetaling_toont_dezelfde_volgorde(client, db_sessio
     db_session.commit()
     _login(client)
 
-    labels = _badges(client.get("/admin/betalingen?context=all").text)
-    na_de_soort = labels[labels.index("Terugbetaling") + 1:]
-    assert na_de_soort and na_de_soort[0] == "Terug te betalen", (
-        f"volgorde was {labels}")
+    html = client.get("/admin/betalingen?context=all").text
+    labels = _badges(html)
+    # Sinds #996 draagt de rij één badge: de status. Het soort staat als
+    # tekst in de subregel, vóór de betaalwijze — dezelfde leesvolgorde
+    # (soort, dan toestand) als #686 wilde, zonder tweede badge.
+    assert "Terugbetaling" not in labels
+    assert "Terug te betalen" in labels
+    assert "Terugbetaling · " in html
 
 
 def test_een_gewone_vordering_krijgt_geen_soortbadge(client, db_session):

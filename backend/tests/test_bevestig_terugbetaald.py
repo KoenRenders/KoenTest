@@ -92,7 +92,10 @@ def test_de_knop_staat_op_een_openstaande_terugbetaling(client, db_session):
         "de openstaande terugbetaling heeft geen bevestig-knop (#661). Let op: een "
         "refund die uit een charge ontstaat, rendert genest en niet als eigen kaart")
     blok = "\n".join(regels)
-    assert "Bevestig terugbetaald" in blok, f"verkeerd label: {blok[:200]}"
+    # Sinds #996 heet de link kort "Bevestig" — de eigen woorden per type
+    # (#661) leven in de bevestigingsvraag, die het geld-vertrekt-verschil
+    # nog altijd benoemt.
+    assert ">Bevestig</" in blok, f"verkeerd label: {blok[:200]}"
     assert "Als volledig terugbetaald bevestigen?" in blok, (
         f"verkeerde bevestigingstekst: {blok[:200]}")
 
@@ -112,7 +115,8 @@ def test_een_gewone_vordering_houdt_haar_eigen_woorden(client, db_session):
               if f"/admin/betalingen/{open_charge.id}/bevestigen" in r]
     assert regels
     blok = "\n".join(regels)
-    assert "Bevestig betaald" in blok and "terugbetaald" not in blok.lower()
+    assert "Als volledig betaald bevestigen?" in blok
+    assert "terugbetaald" not in blok.lower()
 
 
 def test_een_afgehandelde_terugbetaling_krijgt_de_knop_niet(client, db_session):
