@@ -182,7 +182,7 @@ by the CLI on 17 September 2026, to be validated by Koen (Q7).
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
 | R1 | From the activity's data, **quickly** make good-looking designs. | Must | Koen, 17 Sep 2026 | |
-| R2 | Designs suited for **print**: A3, A4, A5 down to A6. | Must | Koen, 17 Sep 2026 | All A sizes share one ratio, so one layout serves them. |
+| R2 | Designs suited for **print**: A3, A4 and A5. | Must | Koen, 17 Sep 2026 | A6 not needed (Koen, 17 Sep). All A sizes share one ratio, so one layout serves them; the safe zone is an absolute measure per size (review finding 4). |
 | R3 | Designs suited for **Instagram** (4:5). | Must | Koen, 17 Sep 2026 | |
 | R4 | A design made by the system can still be **reworked by hand** afterwards, for instance in LibreOffice or another tool: add a text, add a box, rewrite a sentence. | Should | Koen, 17 Sep 2026 | Everything editable except the images used (Q8). |
 | R5 | The designs follow the **Raak house style** (guide, colours, logos, typeface in A4). | Must | Koen, 16 Sep 2026 | |
@@ -1378,6 +1378,7 @@ not asked twice. Open questions carry no answer yet.
 | Q6 | 16 Sep | Is the AI budget stored in `.env`? (Koen) | Yes: `DESIGNSTUDIO_AI_MONTHLY_BUDGET_EUR`, with an optional per-unit override. |
 | Q7 | 17 Sep | MoSCoW in A5: does Koen fill it in, or does the CLI propose? (CLI) | The CLI proposes, Koen validates. Proposal entered in A5 on 17 Sep; **validation open**. |
 | Q8 | 17 Sep | R4 "reworkable in LibreOffice": an editable file next to the PDF (ODG/SVG), or editable fields in the tool? (CLI) | Koen: ideally **everything is editable except the images used** (photos and generated illustrations). So: an editable export next to the PDF, with text, shapes and layout as objects and the images as embedded bitmaps. Format and consequences for the renderer are for the review of Part B. |
+| Q9 | 17 Sep | Is A6 a real print size? (reviewer) | No — A6 is not needed (Koen, 17 Sep). R2 is A3, A4, A5. |
 
 ## Non-goals
 
