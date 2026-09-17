@@ -42,6 +42,9 @@ module.exports = {
       surface: {DEFAULT:'rgb(var(--c-surface) / <alpha-value>)', 2:'rgb(var(--c-surface-2) / <alpha-value>)'},
       yellow: {50:'rgb(var(--c-yellow-50) / <alpha-value>)', 100:'rgb(var(--c-yellow-100) / <alpha-value>)', 200:'rgb(var(--c-yellow-200) / <alpha-value>)', 300:'rgb(var(--c-yellow-300) / <alpha-value>)', 400:'rgb(var(--c-yellow-400) / <alpha-value>)', 500:'rgb(var(--c-yellow-500) / <alpha-value>)', 600:'rgb(var(--c-yellow-600) / <alpha-value>)', 700:'rgb(var(--c-yellow-700) / <alpha-value>)', 800:'rgb(var(--c-yellow-800) / <alpha-value>)', 900:'rgb(var(--c-yellow-900) / <alpha-value>)', 950:'rgb(var(--c-yellow-950) / <alpha-value>)'},
     },
+    // Cobalt-kaartradius (#996, Koens nabouwronde): 10px zoals de mockup's
+    // --r. Eén token; de uitrol per scherm volgt met de clusters.
+    borderRadius: { card: '0.625rem' },
     fontFamily: { brand: ['"Radio Canada Big"','system-ui','sans-serif'],
                   sans: ['Inter','system-ui','sans-serif'] },
   } }, plugins: [],

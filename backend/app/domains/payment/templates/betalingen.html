@@ -1,6 +1,9 @@
 {% extends "admin_base.html" %}
 {% import "_macros.html" as ui %}
 {% block title %}{{ _("Betalingen — Raak") }}{% endblock %}
+{# Cobalt groeit over de volle breedte (#996): de 5xl-grens is voor leesbare
+   formulieren, niet voor een dichte financiële tabel. #}
+{% block content_width %}max-w-none{% endblock %}
 {% block content %}
 {# Cobalt-referentie (#996, Koens nabouw-vraag): breadcrumb, korte titel en de
    referentie-ondertitel; de FINANCE-zin staat in de meta-regel boven de

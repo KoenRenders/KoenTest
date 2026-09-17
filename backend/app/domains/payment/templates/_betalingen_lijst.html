@@ -26,7 +26,9 @@
 
 {% macro _rij(k, kind=False) %}
 {% set r = k.rec %}
-<tr class="border-t border-gray-100 align-top {{ 'text-ink-soft' if k.get('is_context') else 'hover:bg-blue-50/40' }}">
+{# vertical-align: middle zoals de referentie — bedragen en acties
+   centreren naast meerregelige naam/context-cellen. #}
+<tr class="border-t border-gray-100 align-middle {{ 'text-ink-soft' if k.get('is_context') else 'hover:bg-blue-50/40' }}">
   <td class="px-3 py-2 {{ 'pl-9' if kind or k.get('is_extra') }}">
     {% if kind or k.get('is_extra') %}<span class="text-gray-400" aria-hidden="true">↳</span> {% endif %}{{ _naam(k) }}
     {% if k.get('is_context') %}<div class="text-[11px]">{{ _("Ter context — valt buiten het filter") }}</div>{% endif %}
@@ -184,11 +186,12 @@
 {% if groepen %}
 {# F9 (#996): geen kolomsortering nog — dan benoemen we de werkelijk gebruikte
    vaste volgorde (§2.3), zodat ze uitlegbaar is bij grote aantallen. #}
-<div class="mb-1 flex items-center justify-between gap-3 text-[11px] text-ink-soft">
+{# Verticaal gecentreerd tussen filterbalk en tabel (Cobalt view-meta). #}
+<div class="my-2.5 flex items-center justify-between gap-3 text-[11px] text-ink-soft">
   <span>{{ records|length }} {{ _("boekingen") }} · {{ _("recentste eerst, gegroepeerd per inschrijving") }}</span>
   <span>EUR · {{ _("alleen FINANCE kan bevestigen") }}</span>
 </div>
-<div class="mb-4 rounded-2xl border border-gray-200 bg-white shadow-sm overflow-x-auto">
+<div class="mb-4 rounded-card border border-gray-200 bg-white shadow-sm overflow-x-auto">
   <table class="w-full text-xs">
     <thead>
       <tr class="bg-gray-50 text-xs text-ink-soft text-left">
@@ -262,7 +265,7 @@
   <div class="overflow-x-auto">
     {# F7 (#996): drie bedragen per regel verdienen geen tweede horizontale
        zoekbeweging — compacter op mobiel, koppen mogen afbreken. #}
-    <table class="text-xs md:text-sm border border-gray-200 rounded-xl overflow-hidden">
+    <table class="text-xs md:text-sm border border-gray-200 rounded-card overflow-hidden">
       <thead>
         <tr class="bg-gray-50 text-gray-500">
           <th class="px-2 md:px-4 py-2 text-left font-medium"></th>
