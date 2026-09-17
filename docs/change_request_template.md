@@ -136,6 +136,13 @@ The design decisions in full, one subsection each, with their reasons.
 
 ## B5. Data model
 
+### B5.1 Entity-relationship diagram
+
+Mermaid `erDiagram`: entities with their key columns, relationships with
+cardinality; soft references across schemas drawn as relationships too.
+
+### B5.2 Tables
+
 Sketch of schemas, tables, columns, codes; validation layers.
 
 ## B6. Privacy and security — the mechanics

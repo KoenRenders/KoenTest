@@ -924,6 +924,139 @@ Approved by Koen on 16 September 2026, with a limit.
 
 ## B5. Data model (sketch)
 
+### B5.1 Entity-relationship diagram
+
+Soft references across schemas (no cross-schema foreign keys, as elsewhere)
+are drawn as relationships all the same. Subject to change after the review
+of 17 September 2026 (contacts, editable export, logo assets).
+
+```mermaid
+erDiagram
+  ACTIVITY ||--o{ ACTIVITY_DATE : "has dates"
+  ACTIVITY ||--o{ ACTIVITY_CONTACT : "names contacts"
+  ACTIVITY ||--o{ DESIGN : "has designs (at most one final)"
+  ACTIVITY ||--o| MEDIA_ASSET : "poster (kind activity_poster)"
+  PERSON o|--o{ ACTIVITY_CONTACT : "member contact"
+  ORGANIZATION o|--o{ ACTIVITY_CONTACT : "the association as contact"
+  DESIGN ||--o{ DESIGN_HIGHLIGHT : "up to six"
+  DESIGN ||--o{ DESIGN_SUPPORTER : "supporter logos"
+  DESIGN ||--o{ DESIGN_RENDITION : "stored when final"
+  DESIGN ||--o{ IMAGE_GENERATION : "asked for"
+  DESIGN }o--o| MEDIA_ASSET : "main image (kind design_image)"
+  DESIGN }o--o| MEDIA_ASSET : "inset image"
+  DESIGN_SUPPORTER }o--|| MEDIA_ASSET : "logo (kind sponsor)"
+  DESIGN_RENDITION }o--|| MEDIA_ASSET : "file (kind design_render)"
+  IMAGE_GENERATION }o--|| AI_CALL_LOG : "logged call (#978)"
+  IMAGE_GENERATION }o--o| MEDIA_ASSET : "picked variant"
+  TENANT ||--o{ DESIGN : "owns"
+  TENANT ||--o{ TENANT_SETTING : "budget override, assets"
+
+  ACTIVITY {
+    int id PK
+    string name
+    string slug
+    string location
+    date registration_closes_on "phase 0, #974"
+  }
+  ACTIVITY_DATE {
+    int id PK
+    int activity_id FK
+    date start_date
+    time start_time
+    time end_time
+  }
+  ACTIVITY_CONTACT {
+    int id PK
+    int activity_id FK
+    int person_id "soft ref, xor organization_id"
+    int organization_id "soft ref"
+    string mobile_override
+    string email_override
+    bool show_mobile
+    bool show_email
+    int sort_order
+  }
+  DESIGN {
+    int id PK
+    int tenant_id
+    int activity_id "soft ref"
+    string template_key
+    int template_version
+    string duo_code
+    string status "draft | final"
+    string title_override
+    string tagline
+    text explanation
+    string subtitle
+    string recurrence_line
+    string welcome_line
+    string price_badge_text
+    bool show_kicker
+    int main_image_id "soft ref"
+    decimal main_focus_x
+    decimal main_focus_y
+    int inset_image_id "soft ref"
+    string facts_fingerprint
+    datetime finalised_at
+  }
+  DESIGN_HIGHLIGHT {
+    int id PK
+    int design_id FK
+    int sort_order
+    string icon_code
+    string text
+  }
+  DESIGN_SUPPORTER {
+    int id PK
+    int design_id FK
+    int media_asset_id "soft ref"
+    int sort_order
+  }
+  DESIGN_RENDITION {
+    int id PK
+    int design_id FK
+    string layout_code "print_a | feed_portrait | ..."
+    string variant "pdf | jpeg | png"
+    string size_code "A3 | A4 | 1080x1350"
+    int media_asset_id "soft ref"
+    datetime rendered_at
+    int min_effective_dpi
+  }
+  IMAGE_GENERATION {
+    int id PK
+    int design_id FK
+    int ai_call_log_id "soft ref"
+    int seed
+    int width
+    int height
+    int picked_media_asset_id "soft ref"
+  }
+  MEDIA_ASSET {
+    int id PK
+    string kind "sponsor | activity_photo | activity_poster | design_image | design_render"
+    int activity_id "soft ref"
+    bytes data
+    string content_type
+  }
+  AI_CALL_LOG {
+    int id PK
+    int tenant_id
+    string provider "mistral | bfl (#978)"
+    string endpoint
+    decimal cost_credits
+    decimal cost_amount
+    string cost_currency
+    datetime created_at
+  }
+  TENANT_SETTING {
+    int tenant_id
+    string key "ai_image_monthly_budget_eur, ..."
+    string value
+  }
+```
+
+### B5.2 Tables
+
 A new schema, `designstudio`. Repeatable things get their own table (the
 modelling rule in `CLAUDE.md`).
 
