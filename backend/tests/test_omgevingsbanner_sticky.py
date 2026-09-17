@@ -23,7 +23,7 @@ TEMPLATES = Path(__file__).resolve().parents[1] / "app" / "ui" / "templates"
 
 BASIS = dict(nav_pages=[], sponsors=[], gebruiker=None, footer_block=None,
              current_year=2026, chat_enabled=False, canonical_url=None,
-             base_url="", site_name="Raak Voorbeeld", site_tagline="",
+             base_url="", site_name="Raak Voorbeeld", site_tagline="", site_header_color=None,
              facebook_url=None, instagram_url=None, tiktok_url=None,
              actief="dashboard", admin_nav=[])
 
