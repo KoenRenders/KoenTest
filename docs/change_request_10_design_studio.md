@@ -752,7 +752,7 @@ same duo.
 **Phase 1 renders A3, A4 and 4:5** (Koen, 16 September 2026). The Facebook
 event cover and the square format come later.
 
-**Pilot templates — proposal (Q16, 17 September 2026).** Koen's reading of
+**Pilot template — decided (Q16, Koen, 17 September 2026).** Koen's reading of
 the target designs (A4.4): the ten one-off posters (1a) fit one template;
 the three series (1b) are alike but carry dates. Proposal: **one template,
 "Affiche", with content-driven blocks**, in two layouts (`print_a` and
@@ -1532,6 +1532,109 @@ New dependencies:
   pure Python, no dependencies);
 - phase 1 also: an HTTP client for BFL, which the codebase already has.
 
+## B7a. The scenario, end to end
+
+Asked for by both external reviews of 17 September 2026: one full walk
+through, including the hand-edited variant, as the builder's starting
+point. Actors: **An**, board member of Raak Millegem; the **portal**.
+Activity: "Fietsen", five dates, departure Miloheem, free, no registration.
+
+**1. Open the activity.** An opens `/admin/activiteiten/12`. Under the
+facts she sees a block **Contactpersonen** (activities module): empty. She
+adds herself from the member list and enters another mobile number for
+this activity. The activity page on the website shows no contact block
+(Q15). Below, a section **Ontwerpen**: "Nog geen ontwerp — Nieuw ontwerp".
+
+**2. Start a design.** "Nieuw ontwerp" creates draft design 1 for activity
+12 with the template "Affiche" and the unit's default duo (Dark Green /
+Golden Yellow). The editor opens: left the fields, right the preview with
+a layout switcher (Print · Instagram). The facts are already there and
+greyed: title "Fietsen", the five dates (so the **dates grid** block is on,
+and the "wanneer" field shows "5 data — vul de herhalingsregel in"),
+departure Miloheem, "Gratis", contact An. An types the recurrence line
+"Iedere 3de donderdag om 19u", three highlight lines with icons, the
+welcome line. The preset "Reeks" was applied because the activity has more
+than one date; she leaves the explanation block off.
+
+**3. Add an image.** In the image panel An chooses between *Foto opladen*,
+*Uit het archief* and *Laten genereren*. She uploads the group photo from
+the last ride. The portal stores it as `design_image` (no 1600 px resize),
+asks for the focal point (she taps the front rider), and the preview
+re-renders within a second or two (Inkscape, debounced). Had she chosen
+*Laten genereren*, she would have typed mood keywords, seen the exact
+prompt, and got four variants — each `requested` → `fetched` → one
+`picked`; the cost booked in the AI log against the unit's month.
+
+**4. Check every format.** The preview for Instagram shows three
+highlights instead of four and the line "Op Instagram vervangt 'Iedere 3de
+donderdag om 19u' de vijf data." The overflow estimate flags nothing. An
+switches on the Mona supporter logo.
+
+**5. Make it final.** "Definitief maken" runs the authoritative check
+(`inkscape --query-all` against the template contract), renders A3 PDF, A4
+PDF, 4:5 PNG and the merged SVG per layout, and stores them as **version
+1**. Had the PNG render failed, no version would exist and An would see
+why. The design list now says "Versie 1 — definitief, niet gepubliceerd".
+
+**6. Publish.** "Publiceren" — the activity has no poster yet, so no
+confirmation is needed; version 1's A3 PDF becomes the activity's
+`activity_poster` through the media facade, and the design says "Versie 1
+gepubliceerd". The website's activity page now shows the poster, contacts
+included. The Mona count for 2026 goes up by one.
+
+**7. Download, print, post.** From the version An downloads the A3 PDF
+(prints it borderless at home), the 4:5 image (posts it), and the SVG (in
+case she wants to rework it). The download page links the two fonts.
+
+**8. The activity changes.** The board moves the July ride from the 16th
+to the 23rd. The activities module changes the date; nothing calls the
+Design Studio. When An next opens the design list, the Design Studio
+compares version 1's fingerprint with the live facts and shows **"Verouderd
+— datum 16 juli → 23 juli"** on version 1 and on the activity's Ontwerpen
+section. The website still shows the published version 1: nothing changes
+silently.
+
+**9. Update.** An opens the draft (which never went away), sees the same
+warning, presses **Opnieuw renderen → Definitief maken**: version 2, with
+the new date. "Publiceren" now asks: "Op de website staat versie 1; die
+wordt vervangen door versie 2. Doorgaan?" She confirms. The list shows
+"Versie 2 gepubliceerd · versie 1 bewaard". Her printed copies of version 1
+are of course unchanged; she prints version 2.
+
+**10. The hand-edited variant.** For the September ride An wants a line
+the template has no field for. She downloads the print SVG of the draft,
+opens it in Inkscape, adds a text box in the free space, saves, and uploads
+it on the design's print layout. The portal sanitises the file (allowlist;
+a file with a script or an external link is refused with a message),
+stores it as `svg_edited`, marks the **print layout "handmatig bewerkt"**,
+and renders it as it is; the brand gate only warns ("een kleur buiten de
+huisstijl"). The Instagram layout stays template-merged. "Definitief maken"
+makes version 3 from the edited print SVG and the merged Instagram SVG;
+she publishes it.
+
+**11. A fact changes again, with a hand-edited layout.** The departure
+moves to 19u30. The Instagram layout of the draft shows "Verouderd — uur
+19u → 19u30" and re-renders from the template on request. The **print
+layout stays "Verouderd — handmatig bewerkt: uur 19u → 19u30"**: re-rendering
+the uploaded file would keep "19u". An either edits the file in Inkscape
+and uploads it again, or presses "Mijn bewerkingen laten vallen" to go back
+to the template. Only then does the warning clear; then version 4, publish
+with confirmation.
+
+**12. Edge cases the scenario implies.**
+- An removes her contact: the portal asks "Zonder contactpersonen tonen de
+  affiches de gegevens van Raak. Doorgaan?" The website shows nothing
+  either way.
+- A second board member clicks "Genereer" while An's generation runs: no
+  second job, the same four variants appear for both.
+- The unit's month budget is nearly spent: the request is refused before
+  sending, with the remaining amount shown; the platform cap works the same
+  way for all units together.
+- Someone uploads a hand-made PDF poster through the media screen, as
+  before: it replaces the published version's poster on the website; the
+  design list shows "Op de website staat een handmatig opgeladen affiche"
+  until a version is published again.
+
 ## B8. Tests — what the build must reproduce
 
 With **seed data only**, the "Illustratie" template must reproduce the
@@ -1810,7 +1913,7 @@ not asked twice. Open questions carry no answer yet.
 | Q13 | 17 Sep | Who designs and maintains the templates? (reviewer) | Koen for now; in time Raak nationally (the ACCOUNT organisation). Templates stay platform-wide (Koen, 17 Sep). |
 | Q14 | 17 Sep | Is €50/unit/month a platform cost or a Millegem test figure; are units charged? (reviewer) | For now all generation comes from the one FLUX budget; charging units is for later, on the per-call cost in the AI log (Koen, 17 Sep). |
 | Q15 | 17 Sep | May a published poster on the public activity page carry the contact persons, given "no contacts on the website"? (external review) | **Yes** (Koen, 17 Sep): no contact block on the site, the poster may carry them — as with today's hand-made posters. |
-| Q16 | 17 Sep | Scope of the first release: which templates? (external review, reviewer Q2) | Koen: the one-off posters (1a) should fit one template; the series (1b) are alike but carry dates. **Proposal in B4 §3.4:** one content-driven template "Affiche", two layouts, dates grid when the activity has several dates. *Awaiting Koen's confirmation.* |
+| Q16 | 17 Sep | Scope of the first release: which templates? (external review, reviewer Q2) | **One content-driven template "Affiche"**, two layouts, dates grid when the activity has several dates; the four prototypes become presets (B4 §3.4). Confirmed by Koen, 17 Sep. |
 | Q17 | 17 Sep | One shared €50 budget or €50 per unit? (external review) | Both, layered: per-unit default plus a platform cap; for now all from the one FLUX budget (§3.12, Q14). |
 | Q18 | 17 Sep | May a hand-edited SVG leave the house style (gate warns only), or does the gate block with an admin override? (second external review) | **Warn only** (Koen, 17 Sep): the person may upload any poster, as today through the media screen. |
 | Q19 | 17 Sep | Removing the last contact person silently falls back to Raak's details — silent, or with a confirmation? And which module holds the contacts? (second external review; Koen) | **With a confirmation** (Koen, 17 Sep). Module: **the `activities` module**, entered on the activity's own screen; the Design Studio reads them through the facade. Empty shows nothing on the activity and the site; only the poster falls back to Raak's details (Koen, 17 Sep). |
