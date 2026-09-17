@@ -11,7 +11,8 @@ is #974 and assigned to **v2.5** (#925). The Design Studio itself is not on a
 release yet.
 **Applies to:** a new `designstudio` domain (backend + admin screens), a
 contacts table, two new media kinds, the name search moving into MDM, the AI
-call log (#978). Rendering reuses WeasyPrint (#258); text proposals reuse the
+call log (#978). Posters are rendered by **Inkscape** (decided 17 September
+2026, Q10); text proposals reuse the
 Mistral provider (chatbot).
 
 ---
@@ -177,7 +178,7 @@ The chatbot brief that produced the first two posters asks for:
 ## A5. Business requirements
 
 The table lists what the business asked for, in its words. MoSCoW: proposed
-by the CLI on 17 September 2026, to be validated by Koen (Q7).
+by the CLI and validated by Koen on 17 September 2026 (Q7).
 
 | # | Requirement | MoSCoW | Source | Comment |
 |---|---|---|---|---|
@@ -224,22 +225,28 @@ End-to-end, by a person on HDEV, without reading code.
 
 A new `designstudio` domain in the portal. A **design** belongs to an
 activity and stores its inputs: template, colour pair, design text, images
-and their focal points, contacts. **Templates are code** (Jinja + CSS, SVG
-ornaments), designed centrally in the house style; a design is data rendered
-through a template with **WeasyPrint**, which is already in the image
-(#258). Each template defines **one layout per aspect ratio** (A-series
-portrait, 4:5), so nothing is cropped. Raster outputs come from the PDF via
-**pypdfium2**; QR codes via **segno**. Illustrations come from **Black
+and their focal points, contacts. **Templates are SVG files** with
+`{{placeholders}}`, designed centrally in the house style — in Inkscape by a
+designer, or as code; a design is data merged into a template and rendered
+by **Inkscape** (headless, `inkscape --export-type=pdf|png`). Every effect
+is native SVG on real text: pattern fills, text on a path, filters. Each
+template defines **one layout per aspect ratio** (A-series portrait, 4:5),
+so nothing is cropped. **The merged SVG is the editable file**: a unit
+downloads it, reworks it in Inkscape, and uploads it back (R4). QR codes via
+**segno**. Illustrations come from **Black
 Forest Labs FLUX.2 [pro]** through the EU endpoint, steered by a per-template
 style reference; text proposals (later) from the existing **Mistral**
 provider. Every AI call is logged in the existing AI call log (#978), which
 also feeds the per-unit budget.
 
-Alternatives weighed (details in B4): free chatbot generation (not
-amendable, off-brand); pure SVG templates (no text flow); ODF/LibreOffice
-headless (heavy, no variable text); poppler for raster (subprocess, apt
-package). Europe First: WeasyPrint (FR), Black Forest Labs (DE, EU
-endpoint), Mistral (FR), segno (DE, pure Python).
+Alternatives weighed (B1.3, prototypes in iterations 01–15): HTML/CSS with
+WeasyPrint (fast, strong overflow check, but effects become outlines and
+there is no editable file); LibreOffice Draw (editable in LibreOffice, but
+Fontwork breaks the glyphs and effects become pictures); headless Chromium
+and Scribus (not tried; heavier, no editable-file gain). Europe First:
+Inkscape (open source, self-hosted; the project is international, hosted by
+a US non-profit), Black Forest Labs (DE, EU endpoint), Mistral (FR), segno
+(DE, pure Python).
 
 ## B1.1 Functional analysis — derived requirements
 
@@ -334,8 +341,13 @@ reference). Prototypes in Koen's Nextcloud folder, iterations 14 (Draw) and
 - A + C: the existing zone/overflow machinery, with SVG instead of HTML as
   the template language, rendered by Inkscape.
 
-**Decision: open — Koen decides** after reading iterations 14 and 15.
-Question Q10 in the Q&A log.
+**Decision (Koen, 17 September 2026): C — Inkscape.** The only option that
+gives the full Raak look *and* text that stays text, downloadable and
+editable. Consequences: the editable file is an SVG for Inkscape (not an
+ODG for LibreOffice); download and upload of that file become part of the
+Design Studio (B4 §3.6a); Inkscape (Debian package) joins the backend
+image; rendering is a subprocess of one to five seconds, so the live
+preview is debounced and full renders run as a job. Q10 in the Q&A log.
 
 ## B2. Architecture
 
@@ -344,17 +356,19 @@ Question Q10 in the Q&A log.
 | Component | Status | Role in this change |
 |---|---|---|
 | `designstudio` domain (models, service, `admin_ui.py`, templates, renderer, AI client) | **new** | designs, templates, rendering, generation, budget |
-| Poster templates (`designstudio/templates/posters/*`) | **new** | Beeld, Tekstflyer, Illustratie, Reeks — one layout per ratio |
+| Poster templates (`designstudio/templates/posters/*.svg`) | **new** | Beeld, Tekstflyer, Illustratie, Reeks — one SVG layout per ratio, with `{{placeholders}}` and two layers (Raak locked, Inhoud editable) |
 | House-style constant + gate test | **new** | eight colours, twelve duos, enabled duos; template lint |
 | `activities` domain | used, **changed** | facts read through `api.py`; `registration_closes_on` (#974); contacts table |
 | `media` domain | used, **changed** | poster slot (#223); new kinds `design_image` (no 1600 px resize) and `design_render` |
 | `mdm` domain | used, **changed** | member search moves into MDM (shared with the meeting circle); organisation contact details |
 | `chatbot` domain — `AiCallLog`, `sink_for`, Mistral provider | used, **changed** (#978) | provider, endpoint, cost per call; text proposals later |
 | `kernel.tenant_config` | used | per-unit budget override, logo and reference assets |
-| WeasyPrint 70, Pango/Cairo | used | HTML/CSS → PDF |
-| pypdfium2, segno, Pillow, fontTools | **new** dependencies | PDF → raster; QR; image prep; glyph outlines for curved/speckled titles |
+| Inkscape 1.4 (Debian package) | **new** in the image | SVG → PDF and PNG, headless subprocess |
+| segno, Pillow, fontTools, defusedxml | **new** dependencies | QR; image prep; text-width measurement for the overflow check; safe SVG parsing |
+| SVG sanitiser + restricted renderer | **new** | allowlist re-serialiser for uploaded SVG; Inkscape run without network and with assets from the store only |
 | Black Forest Labs API (`api.eu.bfl.ai`) | **new** integration | illustrations |
-| Radio Canada Big, Caveat (OFL) | used / **new** font | poster typography, handwritten note |
+| Radio Canada Big, Caveat (OFL) | used / **new** font | poster typography, handwritten note; installed in the image and offered for download to units that edit in Inkscape |
+| WeasyPrint (#258) | unchanged | stays for the meeting PDFs; not used for posters |
 
 ### B2.2 Application usage
 
@@ -398,7 +412,8 @@ flowchart TB
   end
   subgraph DS["designstudio domain"]
     svc["service.py - designs, lifecycle, fingerprint"]
-    rnd["render.py - Jinja + CSS to WeasyPrint to pypdfium2"]
+    rnd["render.py - SVG merge, overflow check, Inkscape subprocess to PDF/PNG"]
+    exp["export.py - download SVG, upload SVG (sanitised), re-render"]
     tpl["templates/posters - Beeld, Tekstflyer, Illustratie, Reeks"]
     brand["brand.py - colours, duos, gate"]
     ai["imaging.py - BFL client, budget, whitening"]
@@ -424,6 +439,8 @@ flowchart TB
   u1 --> svc
   u2 --> svc
   u2 --> rnd
+  u2 --> exp
+  exp --> svc
   svc --> api
   svc --> act
   svc --> med
@@ -448,7 +465,7 @@ What the solution stands on, measured on master:
 
 | | measured |
 |---|---|
-| PDF | **WeasyPrint 70** is in the backend image (#258) with Pango/Cairo. It supports CSS Paged Media, including `@page { bleed; marks }` and trim/bleed boxes. |
+| PDF | **WeasyPrint 70** is in the backend image (#258) for the meeting PDFs; it stays. Posters use **Inkscape**, a new Debian package in the image (~100 MB), as a subprocess. |
 | Fonts | `backend/app/static/fonts/` already holds **Radio Canada Big** (variable) and Inter. |
 | Icons | Lucide (ISC) through `ui.icon()` — one line style, already the UI norm. |
 | Activity | `name`, `slug` (#884, stable share link), `location`, `poster_url`, several `ActivityDate` rows (date + optional time range), and components with `price` / `member_price` / `is_free`. **There is no public description** — `notes` exists but no screen uses it. **There is no registration deadline.** |
@@ -487,7 +504,7 @@ files stay small and renders are re-creatable from inputs.
 | Mistral text proposals | tokens per request, existing contract | small; a few hundred tokens per proposal (phase 2) |
 | Storage | renders per final design (A3 + A4 PDF, one JPEG) | ≈ 1–3 MB per final design in `media_assets`; drafts store nothing |
 | Fonts | Radio Canada Big, Caveat — OFL | free |
-| Rendering stack | WeasyPrint, pypdfium2, segno — open source | free; no new apt packages beyond #258 |
+| Rendering stack | Inkscape (apt), segno — open source | free; one new apt package in the image (~100 MB); renders 1–5 s each as a background job |
 
 Cost is capped by the budget (refused before sending when the estimate
 would exceed it) and the kill switch; every call's cost is logged (#978).
@@ -502,24 +519,44 @@ sync with the activity, and gets text in images wrong. AI supplies
 *ingredients* (an illustration, text proposals). It never supplies the
 poster.
 
-### 3.2 Template technology: Jinja + CSS → WeasyPrint, ornaments in SVG
+### 3.2 Template technology: SVG templates rendered by Inkscape
 
-- A template is a **Jinja HTML file plus a stylesheet**, rendered by the
-  WeasyPrint that is already in the image. Logos, waves, pins and badges are
-  **SVG files** embedded in that HTML, and can be edited in Inkscape.
-- **Why not pure SVG:** SVG has no text flow. A long title or a longer
-  location overflows its box instead of wrapping or shrinking. The examples
-  are full of text whose length varies per activity.
-- **Why not ODF / LibreOffice headless:** it adds several hundred MB to the
-  image, placeholder replacement in ODG cannot fit variable text, and it
-  would be a second rendering stack next to WeasyPrint.
-- **Templates live in the repository**, versioned (`key` + `version`). They
-  are code: designed centrally, reviewed, tested. A design records the
-  template version it was rendered with, so an old design still re-renders
-  the way it looked.
+Decided by Koen on 17 September 2026 after the comparison in B1.3.
 
-Europe First: WeasyPrint is open source, self-hosted, and maintained by
-CourtBouillon (FR). This was already approved for CR-09.
+- A template is **one SVG file per layout** with `{{placeholders}}` for the
+  facts and design text, two layers (**Raak**: frame, logo, colour fields,
+  ornaments — locked; **Inhoud**: text, photos, boxes — editable), and the
+  house-style colours by name. Effects are native SVG on real text: pattern
+  fills for speckles, `textPath` for curved text, `feTurbulence` +
+  `feDisplacementMap` for rough edges, a stroke with `paint-order` for
+  bolder titles. Nothing is a picture except photos, generated illustrations
+  and the logo lockup.
+- **Merge, not layout:** the portal fills the placeholders (plain text
+  substitution with XML escaping), inserts images as data URIs, and hands the
+  SVG to `inkscape --export-type=pdf` / `png`. Fonts are embedded by Inkscape;
+  text stays text in the PDF. Measured: 0.8 s without filters, 2–5 s with
+  filters, per export, on a laptop.
+- **Text has no flow in SVG, so the overflow check moves to the merge
+  step:** the width of every text is measured with the font's metrics
+  (fontTools) against the box the template declares for it. Too long → the
+  template's rule for that block (shrink to a minimum size, break into two
+  lines, or refuse). The check is a gate at "final", like the box-tree check
+  of the HTML prototypes.
+- **Pattern tiles cover a whole block.** A tiled pattern shows hairline
+  seams in poppler viewers (Okular) and possibly on some printers; one tile
+  per title avoids that (B9).
+- **Templates live in the repository**, versioned (`key` + `version`),
+  reviewed with the brand gate (hex values outside the palette, more than
+  five colours, a pin on an image). A designer can author them in Inkscape;
+  the gate keeps them in the house style. A design records the template
+  version it was rendered with.
+- **Why not WeasyPrint** (the prototypes' engine): effects only as glyph
+  outlines, no editable file. **Why not LibreOffice Draw:** Fontwork
+  distorts glyphs and leaves slits; effects would be pictures; a 300–400 MB
+  daemon. Both measured in iterations 14 and 15.
+
+Europe First: Inkscape is open source and self-hosted (the project is
+international; its fiscal host is a US non-profit).
 
 ### 3.3 The house style is data, and a gate checks it
 
@@ -663,17 +700,41 @@ It does not block the render.
 
 ### 3.6 Raster output
 
-WeasyPrint no longer writes PNG. Images are produced by **rendering the
-layout's PDF to a bitmap with `pypdfium2`** (Apache-2.0/BSD, a
-self-contained wheel, in-process), then encoding it with Pillow:
-- **JPEG** for photos and illustrations;
-- **PNG** where the palette is flat.
-
-The alternative, poppler's `pdftoppm`, needs a subprocess and an apt
-package. Neither option sends data anywhere.
+Inkscape exports PNG directly from the same SVG (`--export-type=png
+--export-width=1080`); Pillow encodes JPEG where a photo dominates. Nothing
+leaves the machine.
 
 A design can be downloaded file by file, or as one ZIP. File names follow
 `<activity-slug>_<layout>_<size>.<ext>`.
+
+### 3.6a Editable file: download and upload (R4)
+
+Koen, 17 September 2026: "everything editable except the images", and the
+Inkscape decision makes the merged SVG that file.
+
+- **Download.** Every design offers its merged SVG per layout, next to the
+  PDF and images. It contains real text, the two layers, the fonts by name
+  (not embedded — SVG cannot), and the photos as data URIs. The download
+  page links the two fonts (Radio Canada Big, Caveat; both OFL) with a
+  one-line install note, because Inkscape needs them installed.
+- **Upload.** A unit can upload a reworked SVG back onto the design, per
+  layout. From then on that layout is **"handmatig bewerkt"**: the portal
+  renders the uploaded SVG instead of merging the template, and shows the
+  state on the design. The stale mechanism (§3.14) still fires when facts
+  change, but re-render then offers two choices: "render my edited file
+  again" or "discard my edits and merge afresh".
+- **Sanitising, without exception.** An uploaded SVG is active content and
+  reaches the renderer. It is parsed with defusedxml (no entity expansion)
+  and **re-serialised through an allowlist**: known elements and attributes
+  only; no `<script>`, `<foreignObject>`, event attributes, `javascript:`
+  hrefs, external `href`/`xlink:href` (images must be data URIs or store
+  assets), no `<style>` with `@import`. Inkscape runs without network access
+  and with a size limit on the file. A test proves refusal on each class.
+- **Two sources, one design:** the merged SVG is derived and re-creatable;
+  the uploaded SVG is stored as a `design_render`-kind asset with
+  `variant = svg_edited`. The overflow check does not run on an uploaded
+  file (the person took over); the brand gate runs and warns, but does not
+  block.
 
 ### 3.7 Facts stay live; design text belongs to the design
 
@@ -1063,7 +1124,7 @@ erDiagram
     int id PK
     int design_id FK
     string layout_code "print_a | feed_portrait | ..."
-    string variant "pdf | jpeg | png"
+    string variant "pdf | jpeg | png | svg | svg_edited"
     string size_code "A3 | A4 | 1080x1350"
     int media_asset_id "soft ref"
     datetime rendered_at
@@ -1122,8 +1183,8 @@ designstudio.design_highlights      -- up to six, ordered
 designstudio.design_supporters      -- supporter / funder logos
   id, design_id, media_asset_id, sort_order
 
-designstudio.design_renditions      -- stored only for final designs
-  id, design_id, layout_code, variant (pdf|jpeg|png),
+designstudio.design_renditions      -- stored for final designs; svg_edited also for drafts
+  id, design_id, layout_code, variant (pdf|jpeg|png|svg|svg_edited),
   size_code (A3|A4|1080x1350|…), media_asset_id, rendered_at,
   min_effective_dpi
 
@@ -1172,6 +1233,11 @@ switch, default off).
 - **Uploaded photos and archive photos are never sent to BFL** (no image
   editing of member photos). Doing that would be a separate decision.
 - Contacts are rendered locally and never sent anywhere.
+- **Uploaded SVG** (logos, style references, reworked designs) is parsed
+  with defusedxml and re-serialised through an allowlist before it is stored
+  or rendered; Inkscape runs without network and only sees the asset store
+  (§3.6a). This closes the local-file-read/SSRF path the review of
+  17 September named.
 - BFL's zero-retention option is an enterprise offer. The standard API keeps
   results for about 10 minutes.
 
@@ -1188,14 +1254,15 @@ Each phase ships on its own.
    - the admin field.
 1. **Engine and first template.**
    - Domain, the contacts table, the media kinds, and the house-style
-     constant with its gate.
+     constant with its gate; Inkscape in the image; the SVG sanitiser.
    - One template, **"Illustratie"** (the play-afternoon and walking-group
      family), with the `print_a` layout (borderless A3 and A4 PDF) and the
      `feed_portrait` layout (4:5).
    - Images from upload or archive, QR code, contacts, supporter
      logos.
    - Draft, final, stale; the final design becomes the poster, after
-     confirmation; downloads.
+     confirmation; downloads of PDF, PNG and SVG.
+   - Upload of a reworked SVG ("handmatig bewerkt") with sanitising.
    - Logo upload with sanitising.
 2. **Text proposals** (Mistral).
 3. **AI illustrations** (BFL): quota, kill switch, audit, style references.
@@ -1206,8 +1273,9 @@ Each phase ships on its own.
      `square` layout, and the `story` layout.
 
 New dependencies:
-- phase 1: `pypdfium2`, plus a QR library — **`segno`** (BSD, pure Python,
-  no dependencies) or `qrcode`; the build weighs them under Europe First;
+- phase 1: Inkscape (apt, in the Dockerfile — named in the "Na de merge"
+  block), `defusedxml`, `fontTools`, and a QR library — **`segno`** (BSD,
+  pure Python, no dependencies);
 - phase 3: an HTTP client for BFL, which the codebase already has.
 
 ## B8. Tests — what the build must reproduce
@@ -1232,7 +1300,14 @@ The tests must be able to go red:
   fail — the guard is proven by that violation;
 - a template with a hex value outside the palette fails the gate;
 - a forbidden duo is refused by the service, not only hidden in the picker;
-- a scripted SVG upload is refused;
+- a scripted SVG upload is refused, and so are `<foreignObject>`, an
+  external `href`, a `javascript:` href and an entity bomb — each proven by
+  violation;
+- the merged SVG round-trips through Inkscape with every text object kept;
+- an uploaded, reworked SVG renders instead of the template, and a changed
+  fact then offers "render my file again" and "discard my edits";
+- a title longer than its box is shrunk or refused per the template rule,
+  measured with the font metrics, not by a character count;
 - changing an activity date marks its final design stale — tested through
   the activity service, not by calling the fingerprint function directly;
 - changing an activity's contacts also marks its final design stale;
@@ -1382,7 +1457,7 @@ build takes from them:
 | Replacing an existing poster | only after an explicit confirmation | B4 §3.14 |
 | Tagline and explanation | on the design for now, not on the activity or the website | B4 §3.8 |
 
-No open questions remain for phase 1.
+Open items are in B10.2 and the Q&A log.
 
 ### B10.2 Proposals awaiting Koen (16 September 2026, not yet confirmed)
 
@@ -1423,10 +1498,10 @@ not asked twice. Open questions carry no answer yet.
 | Q4 | 16 Sep | Are drawn children a problem for the image engine? (Koen) | Not by themselves; one request with a reference image plus children was refused, later ones passed. Moderation is intermittent. |
 | Q5 | 16 Sep | Is the corner drawing from FLUX or hand-made? (Koen) | Hand-made in iteration 10; from FLUX since iteration 11. |
 | Q6 | 16 Sep | Is the AI budget stored in `.env`? (Koen) | Yes: `DESIGNSTUDIO_AI_MONTHLY_BUDGET_EUR`, with an optional per-unit override. |
-| Q7 | 17 Sep | MoSCoW in A5: does Koen fill it in, or does the CLI propose? (CLI) | The CLI proposes, Koen validates. Proposal entered in A5 on 17 Sep; **validation open**. |
+| Q7 | 17 Sep | MoSCoW in A5: does Koen fill it in, or does the CLI propose? (CLI) | The CLI proposed on 17 Sep; **validated by Koen the same day** ("MoSCoW is prima"). |
 | Q8 | 17 Sep | R4 "reworkable in LibreOffice": an editable file next to the PDF (ODG/SVG), or editable fields in the tool? (CLI) | Koen: ideally **everything is editable except the images used** (photos and generated illustrations). So: an editable export next to the PDF, with text, shapes and layout as objects and the images as embedded bitmaps. Format and consequences for the renderer are for the review of Part B. |
 | Q9 | 17 Sep | Is A6 a real print size? (reviewer) | No — A6 is not needed (Koen, 17 Sep). R2 is A3, A4, A5. |
-| Q10 | 17 Sep | Which rendering engine: WeasyPrint, LibreOffice Draw, Inkscape, Chromium or Scribus? (see B1.3) | *open — Koen* |
+| Q10 | 17 Sep | Which rendering engine: WeasyPrint, LibreOffice Draw, Inkscape, Chromium or Scribus? (see B1.3) | **Inkscape** (Koen, 17 Sep). Download and upload of the SVG are part of the scope (§3.6a). |
 
 ## Non-goals
 
@@ -1443,7 +1518,7 @@ not asked twice. Open questions carry no answer yet.
 
 ## Relationship to existing work
 
-- **#258 / CR-09:** WeasyPrint and its Dockerfile packages; the meeting
+- **#258 / CR-09:** WeasyPrint stays for the meeting PDFs; the meeting
   circle picker whose pattern and name search B4 §3.9 reuses.
 - **#223:** the poster media slot that a final design fills.
 - **#884:** the stable slug behind the QR code and the share link.
