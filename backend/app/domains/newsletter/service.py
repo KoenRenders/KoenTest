@@ -688,6 +688,11 @@ def _organisation_footer(db: Session) -> tuple[str, str]:
     return name, line
 
 
+def greeting_html() -> str:
+    """The greeting a whole letter from Raakje starts with."""
+    return f"<div>{html_lib.escape(_('Beste,'))}</div>"
+
+
 def closing_html(db: Session) -> str:
     """The closing of every letter: no personal names (CR-05 §3.10)."""
     from app.kernel.tenant_config import tenant_display_name

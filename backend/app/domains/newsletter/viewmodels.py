@@ -50,6 +50,7 @@ class NewsletterComposeView(ViewModel):
     # After "Toepassen": the HTML the editor takes over, and where it goes.
     apply_html: str = ""
     apply_placement: str = ""
+    apply_range: str = ""
     nav_items: list[dict[str, Any]] = field(default_factory=list)
 
 

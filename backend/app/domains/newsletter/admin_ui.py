@@ -308,7 +308,8 @@ def settings_save(request: Request, db: Session = Depends(get_db),
 
 def _compose_view(request: Request, db: Session, letter, error: Optional[str] = None,
                   notice: Optional[str] = None, raakje_error: Optional[str] = None,
-                  apply_html: str = "", apply_placement: str = "") -> NewsletterComposeView:
+                  apply_html: str = "", apply_placement: str = "",
+                  apply_range: str = "") -> NewsletterComposeView:
     from app.domains.meetings.api import recent_report_points
 
     counts = nb.audience_counts(db)
@@ -338,7 +339,8 @@ def _compose_view(request: Request, db: Session, letter, error: Optional[str] = 
         messages=messages,
         proposals={m.id: nb.display_proposal(db, letter, m) for m in messages if m.proposal},
         csrf_token=_csrf(request), error=error, notice=notice, raakje_error=raakje_error,
-        apply_html=apply_html, apply_placement=apply_placement, nav_items=admin_nav(NAV))
+        apply_html=apply_html, apply_placement=apply_placement, apply_range=apply_range,
+        nav_items=admin_nav(NAV))
 
 
 def _archive_view(request: Request, db: Session, letter, status: str = "",
@@ -589,7 +591,8 @@ async def raakje_points(newsletter_id: int, request: Request, db: Session = Depe
 def raakje_ask(newsletter_id: int, request: Request, db: Session = Depends(get_db),
                email: str = Depends(require_admin_ui),
                instruction: str = Form(""), body_html: str = Form(""),
-               selection: str = Form("")):
+               selection: str = Form(""), selection_range: str = Form(""),
+               before_cursor: str = Form("")):
     """One turn with Raakje. The current text is saved first, so the proposal
     works on what the author sees."""
     from app.domains.chatbot.api import ChatTimeout, SeamBlocked, admin_chat_char_budget
@@ -603,7 +606,8 @@ def raakje_ask(newsletter_id: int, request: Request, db: Session = Depends(get_d
     admin_chat_char_budget.charge(request, max(len(instruction), 1), key=email)
     try:
         turn = nb.ask_raakje(db, letter, instruction=instruction, actor=email,
-                             base_url=_base_url(db), selection=selection)
+                             base_url=_base_url(db), selection=selection,
+                             selection_range=selection_range, before_cursor=before_cursor)
     except (nb.DraftingError, SeamBlocked, ChatTimeout) as exc:
         nb.record_turn(db, letter, author_text=instruction, error=str(exc))
         return _panel(request, db, letter, raakje_error=str(exc))
@@ -629,14 +633,16 @@ async def raakje_apply(newsletter_id: int, message_id: int, request: Request,
         raise HTTPException(status_code=404, detail=_("Voorstel niet gevonden."))
     form = await request.form()
     keep = {int(str(v)) for v in form.getlist("keep") if str(v).isdigit()}
-    placement = "cursor" if form.get("placement") == "cursor" else "replace"
+    placement = str(form.get("placement") or "replace")
     try:
-        html = nb.apply_proposal(db, letter, message, keep=keep,
-                                 body_html=str(form.get("body_html") or ""),
-                                 base_url=_base_url(db), placement=placement)
+        applied = nb.apply_proposal(db, letter, message, keep=keep,
+                                    body_html=str(form.get("body_html") or ""),
+                                    base_url=_base_url(db), placement=placement)
     except nb.DraftingError as exc:
         return _panel(request, db, letter, raakje_error=str(exc))
-    return _panel(request, db, letter, apply_html=html, apply_placement=placement)
+    return _panel(request, db, letter, apply_html=applied.html,
+                  apply_placement=applied.placement,
+                  apply_range=",".join(str(n) for n in applied.range or []))
 
 
 @router.post("/admin/nieuwsbrieven/{newsletter_id:int}/raakje/{message_id:int}/weigeren",

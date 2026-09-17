@@ -151,3 +151,40 @@ def test_inschrijven_onderaan_de_site_op_een_telefoon(browser):
         assert breedte <= TELEFOON["width"], f"de pagina scrollt horizontaal ({breedte}px)"
     finally:
         page.close()
+
+
+def test_een_voorstel_komt_op_de_cursor_of_over_de_selectie(admin_page):
+    """The client glue of "Toepassen" (Koen, 17 September 2026): a piece goes
+    where the cursor stands, a rewrite replaces the selection — through Trix,
+    so undo still works.
+
+    The server side is tested with a scripted model; here the panel's answer is
+    simulated by placing the same <template> the route renders.
+    """
+    page = admin_page
+    page.get_by_role("button", name="+ Nieuwe nieuwsbrief").click()
+    page.wait_for_selector("#nb-trix", timeout=10_000)
+    _klikbaar(page, "#nb-trix")
+    page.evaluate("() => document.getElementById('nb-trix').editor.loadHTML('<div>Een twee drie.</div>')")
+
+    def pas_toe(html, plaats, bereik=""):
+        page.evaluate("""([html, plaats, bereik]) => {
+            const t = document.createElement('template');
+            t.id = 'nb-toepassen'; t.setAttribute('data-plaatsing', plaats);
+            t.setAttribute('data-bereik', bereik); t.innerHTML = html;
+            document.body.appendChild(t);
+            document.body.dispatchEvent(new CustomEvent('htmx:afterSettle'));
+        }""", [html, plaats, bereik])
+
+    tekst = "() => document.getElementById('nb-trix').editor.getDocument().toString()"
+    page.evaluate("() => document.getElementById('nb-trix').editor.setSelectedRange([4, 8])")
+    pas_toe("<div>TWEE</div>", "selection", "4,8")
+    assert page.evaluate(tekst).startswith("Een TWEE drie.")
+
+    page.evaluate("() => document.getElementById('nb-trix').editor.setSelectedRange([0, 0])")
+    pas_toe("<div>Bovenaan.</div>", "cursor")
+    assert page.evaluate(tekst).startswith("Bovenaan.")
+    assert "Een TWEE drie." in page.evaluate(tekst)
+
+    page.evaluate("() => document.getElementById('nb-trix').editor.undo()")
+    assert not page.evaluate(tekst).startswith("Bovenaan."), "ongedaan maken werkt niet"

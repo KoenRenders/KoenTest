@@ -31,6 +31,20 @@
       if (bereik[0] === bereik[1]) { return ""; }
       return el.editor.getDocument().getStringAtRange(bereik).toString();
     };
+    // Waar de selectie ligt, en wat er vlak voor de cursor staat: Raakje schrijft
+    // dan precies voor die plek (Koen, 17 september 2026).
+    window.nbBereik = function () {
+      var el = document.getElementById("nb-trix");
+      if (!el || !el.editor) { return ""; }
+      var bereik = el.editor.getSelectedRange();
+      return bereik[0] === bereik[1] ? "" : bereik[0] + "," + bereik[1];
+    };
+    window.nbVoorCursor = function () {
+      var el = document.getElementById("nb-trix");
+      if (!el || !el.editor) { return ""; }
+      var tot = el.editor.getSelectedRange()[0];
+      return el.editor.getDocument().getStringAtRange([Math.max(0, tot - 400), tot]).toString();
+    };
   }
   // Een toegepast voorstel komt via een <template> in het Raakje-paneel. Het gaat
   // de editor in via Trix zelf, zodat "ongedaan maken" blijft werken.
@@ -42,11 +56,16 @@
       if (!sjabloon || !el || !el.editor) { return; }
       var html = sjabloon.innerHTML;
       var plaats = sjabloon.getAttribute("data-plaatsing");
+      var bereik = (sjabloon.getAttribute("data-bereik") || "").split(",").map(Number);
       sjabloon.remove();
       el.editor.recordUndoEntry("Raakje");
-      if (plaats !== "cursor") {
+      if (plaats === "replace") {
         el.editor.setSelectedRange([0, el.editor.getDocument().getLength()]);
+      } else if (plaats === "selection" && bereik.length === 2) {
+        el.editor.setSelectedRange(bereik);
       }
+      // "cursor": Trix onthoudt waar de cursor stond, ook nadat je op een knop
+      // in het paneel klikte — daar komt het stuk.
       el.editor.insertHTML(html);
       el.focus();
     });
