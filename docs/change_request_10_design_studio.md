@@ -176,17 +176,17 @@ The chatbot brief that produced the first two posters asks for:
 
 ## A5. Business requirements
 
-MoSCoW to be classified by Koen; the table lists what the business asked
-for, in its words.
+The table lists what the business asked for, in its words. MoSCoW: proposed
+by the CLI on 17 September 2026, to be validated by Koen (Q7).
 
 | # | Requirement | MoSCoW | Source |
 |---|---|---|---|
-| R1 | From the activity's data, **quickly** make good-looking designs. | — | Koen, 17 Sep 2026 |
-| R2 | Designs suited for **print**: A3, A4, A5 down to A6. | — | Koen, 17 Sep 2026 |
-| R3 | Designs suited for **social media**: Facebook, Instagram, square, events. | — | Koen, 17 Sep 2026 |
-| R4 | A design made by the system can still be **reworked by hand** afterwards, for instance in LibreOffice or another tool: add a text, add a box, rewrite a sentence. | — | Koen, 17 Sep 2026 |
-| R5 | The designs follow the **Raak house style** (guide, colours, logos, typeface in A4). | — | Koen, 16 Sep 2026 |
-| R6 | Print at home must work (borderless); print shops are ordered online and are not a must. | — | Koen, 16 Sep 2026 |
+| R1 | From the activity's data, **quickly** make good-looking designs. | Must | Koen, 17 Sep 2026 |
+| R2 | Designs suited for **print**: A3, A4, A5 down to A6. | Must — all A sizes share one ratio, so one layout serves them | Koen, 17 Sep 2026 |
+| R3 | Designs suited for **social media**: Facebook, Instagram, square, events. | Must for Instagram 4:5; Should for the Facebook event cover and square (Koen, 16 Sep: "later") | Koen, 17 Sep 2026 |
+| R4 | A design made by the system can still be **reworked by hand** afterwards, for instance in LibreOffice or another tool: add a text, add a box, rewrite a sentence. | Should — see Q8: everything editable except the images | Koen, 17 Sep 2026 |
+| R5 | The designs follow the **Raak house style** (guide, colours, logos, typeface in A4). | Must | Koen, 16 Sep 2026 |
+| R6 | Print at home must work (borderless); print shops are ordered online and are not a must. | Must (home); Won't for print-shop output, for now | Koen, 16 Sep 2026 |
 
 Decided out of scope for now by Koen on 16 September 2026: print-shop bleed
 and CMYK; the responsible publisher (V.U.); contacts on the public website.
@@ -1242,8 +1242,8 @@ not asked twice. Open questions carry no answer yet.
 | Q4 | 16 Sep | Are drawn children a problem for the image engine? (Koen) | Not by themselves; one request with a reference image plus children was refused, later ones passed. Moderation is intermittent. |
 | Q5 | 16 Sep | Is the corner drawing from FLUX or hand-made? (Koen) | Hand-made in iteration 10; from FLUX since iteration 11. |
 | Q6 | 16 Sep | Is the AI budget stored in `.env`? (Koen) | Yes: `DESIGNSTUDIO_AI_MONTHLY_BUDGET_EUR`, with an optional per-unit override. |
-| Q7 | 17 Sep | MoSCoW in A5: does Koen fill it in, or does the CLI propose? (CLI) | *open* |
-| Q8 | 17 Sep | R4 "reworkable in LibreOffice": an editable file next to the PDF (ODG/SVG), or editable fields in the tool? (CLI) | *open* |
+| Q7 | 17 Sep | MoSCoW in A5: does Koen fill it in, or does the CLI propose? (CLI) | The CLI proposes, Koen validates. Proposal entered in A5 on 17 Sep; **validation open**. |
+| Q8 | 17 Sep | R4 "reworkable in LibreOffice": an editable file next to the PDF (ODG/SVG), or editable fields in the tool? (CLI) | Koen: ideally **everything is editable except the images used** (photos and generated illustrations). So: an editable export next to the PDF, with text, shapes and layout as objects and the images as embedded bitmaps. Format and consequences for the renderer are for the review of Part B. |
 
 ## Non-goals
 
