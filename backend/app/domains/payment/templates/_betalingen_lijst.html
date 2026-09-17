@@ -77,7 +77,7 @@
     {% if kind or k.get('is_extra') %}<span class="text-gray-400" aria-hidden="true">↳</span> {% endif %}{{ _naam(k) }}
     {% if k.get('is_context') %}<div class="text-[11px]">{{ _("Ter context — valt buiten het filter") }}</div>{% endif %}
     {% if k.get('is_extra') %}<div class="text-[11px] text-ink-soft">{{ _("Bijkomende vordering op dezelfde inschrijving") }}</div>{% endif %}
-    {% if r.structured_communication %}<div class="text-[11px] text-gray-400 font-mono">{{ r.structured_communication }}</div>{% endif %}
+    {% if r.structured_communication %}<div class="text-[10px] text-gray-400 font-mono">{{ r.structured_communication }}</div>{% endif %}
     {# F4 (#996): op mobiel horen status en saldo bij de naam in beeld — de
        kolommen Status/Ontvangen/Saldo zijn daar verborgen en dit blok neemt
        het over; de rest van de tabel blijft horizontaal scrollbaar. #}
@@ -96,13 +96,13 @@
        (statusbadges op één lijn) is daarmee vanzelf gedekt: er staat nog
        één badge per rij. #}
     <div class="text-[11px] text-ink-soft">{% if r.type == "refund" %}{{ _("Terugbetaling") }} · {% endif %}{{ method_labels.get(r.method, _("Onbekende betaalwijze")) }}{% if r.paid_at %} · {{ _("Betaald op") }} {{ r.paid_at.strftime("%d-%m-%Y") }}{% endif %}</div>
-    {% if r.note %}<div class="text-[11px] text-ink-soft truncate max-w-[18rem]" title="{{ r.note }}">{{ r.note }}</div>{% endif %}
+    {% if r.note %}<div class="text-[11px] text-ink-soft truncate max-w-[13rem]" title="{{ r.note }}">{{ r.note }}</div>{% endif %}
   </td>
   <td class="px-3 py-2 hidden md:table-cell">
     {% set _st = kaart_status.get(k.status) %}
     {% if _st %}{{ ui.badge(_st[0], _st[1]) }}{% else %}{{ ui.badge(status_labels.get(r.status, _("Onbekende status")), "gray") }}{% endif %}
   </td>
-  <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap">€ {{ k.bedrag|geld }}</td>
+  <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ {{ k.bedrag|geld }}</td>
   {# F1 (#996, beslist door Koen op ronde 2): 0 is echt nul — "niets
      ontvangen" is een bedrag, geen ontbrekend gegeven. Dit draait #617-2a
      bewust terug: dat argument paste bij kaarten; in een tabel horen
@@ -111,9 +111,9 @@
      toepassing" — en dat geval bestaat in deze kolommen niet. #}
   {% set _ontvangen = k.ontvangen if k.ontvangen is not none else 0 %}
   {% set _saldo = k.saldo if k.saldo is not none else k.bedrag %}
-  <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ {{ _ontvangen|geld }}</td>
-  <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="{{ 'text-orange-700' if _saldo > 0 else ('text-teal-700' if _saldo < 0 else 'text-ink-soft') }}">€ {{ _saldo|geld }}</strong></td>
-  <td class="px-3 py-2">
+  <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ {{ _ontvangen|geld }}</td>
+  <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="{{ 'text-orange-700' if _saldo > 0 else ('text-teal-700' if _saldo < 0 else 'text-ink-soft') }}">€ {{ _saldo|geld }}</strong></td>
+  <td class="px-3 py-2 w-px">
     {# Een contextrij krijgt geen acties: ze staat er om te verklaren (#668).
        In de rij staan alleen de opener en de snelactie; verversen en
        verwijderen wonen in de bewerk-uitklaprij (A2: verwijderen achter de
@@ -124,7 +124,7 @@
        domineerden het beeld. Bewerken RECHTS als vaste kolom (feedbackronde
        2); "Inschrijving" en niet "Details" (ronde 4): dat las als de details
        van de betaling. "Bevestig" kort — de bevestigingsvraag zegt de rest. #}
-    <div class="flex justify-end gap-3 items-center whitespace-nowrap">
+    <div class="flex justify-end gap-2 items-center whitespace-nowrap">
       {% if r.payable_type == "registration" and r.payable_id and not (kind or k.get('is_extra')) %}
       {{ ui.link_action(_("Inschrijving"), href="/admin/inschrijvingen/" ~ r.payable_id ~ "?terug=/admin/betalingen") }}
       {% endif %}
@@ -134,7 +134,10 @@
       {% set _bevestig_vraag = _("Als volledig terugbetaald bevestigen?") if r.type == "refund" else _("Als volledig betaald bevestigen?") %}
       {{ ui.link_action(_("Bevestig"), attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_bevestig_vraag) }}
       {% elif r.type != "refund" %}
-      {{ ui.link_action(_("Terugbetaling registreren"), attrs='@click="terug = terug === \'' ~ r.id ~ '\' ? null : \'' ~ r.id ~ '\'; open = null"') }}
+      {# Kort "Terugbetaling": het volle "Terugbetaling registreren" duwde de
+         actiekolom de kaart uit; de uitklaprij eronder benoemt de handeling
+         volledig ("Terug te betalen bedrag" + Registreren). #}
+      {{ ui.link_action(_("Terugbetaling"), attrs='@click="terug = terug === \'' ~ r.id ~ '\' ? null : \'' ~ r.id ~ '\'; open = null"') }}
       {% endif %}
       {{ ui.edit_toggle("open", stijl="link", waarde="'" ~ r.id ~ "'", ook="terug = null") }}
     </div>
@@ -237,13 +240,16 @@
         <th scope="col" class="px-3 py-2 font-medium">{{ _("Naam / referentie") }}</th>
         <th scope="col" class="px-3 py-2 font-medium">{{ _("Context") }}</th>
         <th scope="col" class="px-3 py-2 font-medium hidden md:table-cell">{{ _("Status") }}</th>
-        <th scope="col" class="px-3 py-2 font-medium text-right">{{ _("Bedrag") }}</th>
-        <th scope="col" class="px-3 py-2 font-medium text-right hidden md:table-cell">{{ _("Ontvangen") }}</th>
-        <th scope="col" class="px-3 py-2 font-medium text-right hidden md:table-cell">{{ _("Saldo") }}</th>
+        <th scope="col" class="px-2 py-2 font-medium text-right">{{ _("Bedrag") }}</th>
+        <th scope="col" class="px-2 py-2 font-medium text-right hidden md:table-cell">{{ _("Ontvangen") }}</th>
+        <th scope="col" class="px-2 py-2 font-medium text-right hidden md:table-cell">{{ _("Saldo") }}</th>
         {# `relative` is dragend: sr-only is absoluut gepositioneerd, en zonder
            gepositioneerde voorouder ontsnapt hij aan de scrollcontainer — op
            mobiel rekte hij zo de hele pagina tot tabelbreedte op. #}
-        <th scope="col" class="px-3 py-2 relative"><span class="sr-only">{{ _("Acties") }}</span></th>
+        {# w-px + nowrap: de tabel reserveert exact de inhoudsbreedte voor de
+           actiekolom; zonder dit drukte het layoutalgoritme haar samen en
+           knipte de kaartrand de laatste link af. #}
+        <th scope="col" class="px-3 py-2 relative w-px"><span class="sr-only">{{ _("Acties") }}</span></th>
       </tr>
     </thead>
     {# Eén tbody per inschrijving: al haar betalingen en terugbetalingen, met
