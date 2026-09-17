@@ -283,7 +283,10 @@
   {% endcall %}
   {{ ui.chips("status", [("", _("Alle")), ("open", _("Open")), ("dicht", _("Gesloten"))],
               current="open") }}
-  <div id="ds-lijst" class="mt-3">
+  {# F25 (#996, meetronde ronde 2): §2.3 zelf — een tabel hoort in een
+     overflow-x-auto-container; zonder die wrapper rekte dit voorbeeld de hele
+     kitpagina op mobiel tot 601px op (gemeten). #}
+  <div id="ds-lijst" class="mt-3 overflow-x-auto">
     <table class="w-full text-sm">
       <thead><tr class="text-left text-gray-500 border-b border-line">
         <th class="py-2">{{ _("Naam") }}</th><th>{{ _("Status") }}</th>
@@ -306,6 +309,19 @@
                                   lead_icon="copy")],
                delete_attrs='href="/admin/design-system"', delete_label=_("Verwijderen"),
                delete_confirm=_("Voorbeeldactiviteit")) }}
+          </td>
+        </tr>
+        <tr class="border-b border-line">
+          <td class="py-2">{{ _("Dichte rij (Betalingen-verfijning, #996)") }}</td>
+          <td>{{ ui.badge(_("Openstaand"), "yellow") }}</td>
+          <td class="text-right">
+            {# Stille tekstlinks voor dichte tabellen: zelfde acties, geen
+               drie kaders per rij. Betalingen is het referentiescherm. #}
+            <span class="inline-flex gap-3 items-center">
+              {{ ui.link_action(_("Inschrijving"), href="/admin/design-system") }}
+              {{ ui.link_action(_("Bevestig"), href="/admin/design-system",
+                                confirm=_("Als volledig betaald bevestigen?")) }}
+            </span>
           </td>
         </tr>
       </tbody>

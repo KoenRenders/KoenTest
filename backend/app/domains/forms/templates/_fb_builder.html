@@ -193,7 +193,7 @@
   <div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4" x-data="{ open: false }">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <h2 class="font-bold text-lg">{{ form.title }}
-        {% if form.status == "open" %}{{ ui.badge(_("open"), "green") }}{% elif form.status == "closed" %}{{ ui.badge(_("gesloten"), "red") }}{% else %}{{ ui.badge(_("concept"), "yellow") }}{% endif %}
+        {% if form.status == "open" %}{{ ui.badge(_("open"), "green") }}{% elif form.status == "closed" %}{{ ui.badge(_("gesloten"), "red") }}{% else %}{# F30 (#996): concept is een ontwerpstatus, geen openstaande handeling — grijs per §2.5. #}{{ ui.badge(_("concept"), "gray") }}{% endif %}
       </h2>
       <div class="flex flex-wrap gap-2">
         {# Dezelfde link als hieronder getoond wordt (#928): stond hier de sleutel-URL

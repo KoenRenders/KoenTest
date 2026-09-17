@@ -7,49 +7,6 @@
 {# P13 (golf 5, #913): de zichtbare recordscope. In het fragment en niet op de
    pagina, zodat ze elke verversing meebeweegt; alle cijfers eronder tellen
    dus zichtbaar BINNEN de scope. #}
-{% if scope and not scope.get("stil") %}
-{% call ui.scope_regel(scope.alles_url) %}{{ scope.soort }}{% if scope.titel %} <a class="font-medium hover:underline" href="{{ scope.titel_url }}">{{ scope.titel }}</a>{% endif %}{% endcall %}
-{% endif %}
-
-{# Golf 10 (#913): het actieve tab-zicht reist met elke filterwissel mee. Het
-   veld staat ín het fragment (vers na elke tabklik) maar hoort via het
-   form-attribuut bij de filterbalk erbuiten — anders viel de lijst bij de
-   eerstvolgende zoekterm terug op "Alle". #}
-<input type="hidden" name="zicht" value="{{ zicht }}" form="bt-filter">
-
-{# De kengetallenband (golf 10, #913 — Cobalt `summary-strip`). Telt over de
-   zicht-BASIS: de tabs snijden de tabel eronder, niet deze cijfers — anders
-   zegt het tab "Betaald" dat er € 0 openstaat. #}
-<div class="mb-4 flex flex-wrap rounded-2xl border border-gray-200 bg-white shadow-sm divide-x divide-gray-100">
-  <div class="flex-1 min-w-[9rem] px-4 py-3">
-    <div class="text-[11px] text-ink-soft">{{ _("Netto te betalen") }}</div>
-    <div class="text-2xl font-bold tracking-tight tabular-nums">€ {{ kpi.due|geld }}</div>
-    <div class="text-[11px] text-ink-soft">{{ kpi.boekingen }} {{ _("boekingen") }}</div>
-  </div>
-  <div class="flex-1 min-w-[9rem] px-4 py-3">
-    <div class="text-[11px] text-ink-soft">{{ _("Ontvangen") }}</div>
-    <div class="text-2xl font-bold tracking-tight tabular-nums text-green-700">€ {{ kpi.paid|geld }}</div>
-    <div class="text-[11px] text-ink-soft">{{ _("Na terugbetalingen") }}</div>
-  </div>
-  <div class="flex-1 min-w-[9rem] px-4 py-3">
-    <div class="text-[11px] text-ink-soft">{{ _("Openstaand") }}</div>
-    <div class="text-2xl font-bold tracking-tight tabular-nums {{ 'text-orange-700' if kpi.saldo > 0 else 'text-green-700' }}">€ {{ kpi.saldo|geld }}</div>
-    <div class="text-[11px] text-ink-soft">{{ kpi.open }} {{ _("boekingen") }}</div>
-  </div>
-</div>
-
-{# Statustabs met aantallen (golf 10, #913). In het fragment, zodat de
-   aantallen elke filterwissel meebewegen; elke tab draagt zijn volledige
-   filterstand in zijn eigen URL. hx-include="unset" is verplicht: de tabs
-   staan in #betalingen-lijst en zouden anders diens include-form erven,
-   waarvan het oude zicht-veld het nieuwe uit de tab-URL overschrijft. De
-   href is de volwaardige pagina (werkt zonder JS), de hx-get het fragment. #}
-{% set _tabitems = [] %}
-{% for z in zichten %}
-{% set _ignore = _tabitems.append({"label": z.label, "href": z.page_url, "active": z.actief, "count": z.count,
-                                   "attrs": 'hx-get="' ~ z.url ~ '" hx-target="#betalingen-lijst" hx-swap="innerHTML" hx-include="unset"'}) %}
-{% endfor %}
-{{ ui.tabs(_tabitems) }}
 
 {# ── De dichte tabel (golf 10, #913 — Cobalt `data-table`) ────────────────────
    Eén rij per boeking; terugbetalingen en bijkomende vorderingen als
@@ -69,57 +26,76 @@
 
 {% macro _rij(k, kind=False) %}
 {% set r = k.rec %}
-<tr class="border-t border-gray-100 align-top {{ 'text-ink-soft' if k.get('is_context') else 'hover:bg-blue-50/40' }}">
+{# vertical-align: middle zoals de referentie — bedragen en acties
+   centreren naast meerregelige naam/context-cellen. #}
+<tr class="border-t border-gray-100 align-middle {{ 'text-ink-soft' if k.get('is_context') else 'hover:bg-blue-50/40' }}">
   <td class="px-3 py-2 {{ 'pl-9' if kind or k.get('is_extra') }}">
     {% if kind or k.get('is_extra') %}<span class="text-gray-400" aria-hidden="true">↳</span> {% endif %}{{ _naam(k) }}
     {% if k.get('is_context') %}<div class="text-[11px]">{{ _("Ter context — valt buiten het filter") }}</div>{% endif %}
     {% if k.get('is_extra') %}<div class="text-[11px] text-ink-soft">{{ _("Bijkomende vordering op dezelfde inschrijving") }}</div>{% endif %}
-    {% if r.structured_communication %}<div class="text-[11px] text-gray-400 font-mono">{{ r.structured_communication }}</div>{% endif %}
+    {% if r.structured_communication %}<div class="text-[10px] text-gray-400 font-mono">{{ r.structured_communication }}</div>{% endif %}
+    {# F4 (#996): op mobiel horen status en saldo bij de naam in beeld — de
+       kolommen Status/Ontvangen/Saldo zijn daar verborgen en dit blok neemt
+       het over; de rest van de tabel blijft horizontaal scrollbaar. #}
+    <div class="md:hidden mt-1 flex items-center gap-2">
+      {% set _mst = kaart_status.get(k.status) %}
+      {% if _mst %}{{ ui.badge(_mst[0], _mst[1], met_vinkje=(k.status == "paid")) }}{% else %}{{ ui.badge(status_labels.get(r.status, _("Onbekende status")), "gray") }}{% endif %}
+      {% set _msaldo = k.saldo if k.saldo is not none else k.bedrag %}
+      <strong class="tabular-nums {{ 'text-orange-700' if _msaldo > 0 else ('text-teal-700' if _msaldo < 0 else 'text-ink-soft') }}">€ {{ _msaldo|geld }}</strong>
+    </div>
   </td>
   <td class="px-3 py-2">
     <div>{{ r.description or "—" }}{% if r.component_name %} — {{ r.component_name }}{% endif %}</div>
-    <div class="text-[11px] text-ink-soft">{{ method_labels.get(r.method, _("Onbekende betaalwijze")) }}{% if r.paid_at %} · {{ _("Betaald op") }} {{ r.paid_at.strftime("%d-%m-%Y") }}{% endif %}</div>
-    {% if r.note %}<div class="text-[11px] text-ink-soft">{{ r.note }}</div>{% endif %}
+    {# Het SOORT staat in de subregel, zoals de Cobalt-referentie
+       ("Annulering · Online") — vóór de verfijning droeg een terugbetaling
+       twee gestapelde badges en werd de rij dubbel zo hoog. #686's zorg
+       (statusbadges op één lijn) is daarmee vanzelf gedekt: er staat nog
+       één badge per rij. #}
+    <div class="text-[11px] text-ink-soft">{% if r.type == "refund" %}{{ _("Terugbetaling") }} · {% endif %}{{ method_labels.get(r.method, _("Onbekende betaalwijze")) }}</div>
+    {% if r.note %}<div class="text-[11px] text-ink-soft truncate max-w-[13rem]" title="{{ r.note }}">{{ r.note }}</div>{% endif %}
   </td>
-  <td class="px-3 py-2">
-    {# #686: eerst de SOORT, dan de status — de statusbadges van samenhorende
-       rijen blijven zo op één lijn. #}
-    {% if r.type == "refund" %}{{ ui.badge(_("Terugbetaling"), "orange") }} {% endif %}
+  <td class="px-3 py-2 hidden md:table-cell">
     {% set _st = kaart_status.get(k.status) %}
-    {% if _st %}{{ ui.badge(_st[0], _st[1]) }}{% else %}{{ ui.badge(status_labels.get(r.status, _("Onbekende status")), "gray") }}{% endif %}
+    {% if _st %}{{ ui.badge(_st[0], _st[1], met_vinkje=(k.status == "paid")) }}{% else %}{{ ui.badge(status_labels.get(r.status, _("Onbekende status")), "gray") }}{% endif %}
   </td>
-  <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap">€ {{ k.bedrag|geld }}</td>
-  {# `Ontvangen`/`Saldo` blijven leeg zolang er niets uitbetaald is — € 0,00
-     tonen suggereert dat er al iets gebeurd is (#617-2a). #}
-  <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap">{% if k.ontvangen is not none %}€ {{ k.ontvangen|geld }}{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
-  <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap">{% if k.saldo is not none %}<strong class="{{ 'text-orange-700' if k.saldo > 0 else ('text-teal-700' if k.saldo < 0 else 'text-ink-soft') }}">€ {{ k.saldo|geld }}</strong>{% else %}<span class="text-gray-300">—</span>{% endif %}</td>
-  <td class="px-3 py-2">
+  <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ {{ k.bedrag|geld }}</td>
+  {# F1 (#996, beslist door Koen op ronde 2): 0 is echt nul — "niets
+     ontvangen" is een bedrag, geen ontbrekend gegeven. Dit draait #617-2a
+     bewust terug: dat argument paste bij kaarten; in een tabel horen
+     kolommen vergelijkbaar te zijn, en juist de rij die actie vroeg was de
+     rij zonder cijfers. Het streepje is voortaan alleen "niet van
+     toepassing" — en dat geval bestaat in deze kolommen niet. #}
+  {% set _ontvangen = k.ontvangen if k.ontvangen is not none else 0 %}
+  {% set _saldo = k.saldo if k.saldo is not none else k.bedrag %}
+  <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ {{ _ontvangen|geld }}</td>
+  <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell"><strong class="{{ 'text-orange-700' if _saldo > 0 else ('text-teal-700' if _saldo < 0 else 'text-ink-soft') }}">€ {{ _saldo|geld }}</strong></td>
+  <td class="px-3 py-2 w-px">
     {# Een contextrij krijgt geen acties: ze staat er om te verklaren (#668).
        In de rij staan alleen de opener en de snelactie; verversen en
        verwijderen wonen in de bewerk-uitklaprij (A2: verwijderen achter de
        bewerkstap) — een ⋯-menu zou in de overflow-x-container clippen. #}
     {% if is_finance and not k.get('is_context') %}
-    {# Bewerken RECHTS (Koen, feedbackronde 2): hij staat op elke rij en is
-       even breed, dus rechts vormt hij een strakke kolom — de wisselende
-       snelactie staat ernaast links. #}
-    <div class="flex justify-end gap-2 whitespace-nowrap">
-      {# "Inschrijving" opent de inschrijvingspagina — de opvolger van "Toon
-         inschrijvingsdetails". Niet "Details" (feedbackronde 4, Koen): dat
-         leest als de details van de BETALING. Alleen op de hoofdregel: de
-         kind- en extra-rijen horen bij dezelfde inschrijving. #}
+    {# Stille tekstlinks i.p.v. omrande knoppen (Betalingen-verfijning, #996 —
+       Koen gaf de knoppen-keuze hier expliciet vrij): drie kaders per rij
+       domineerden het beeld. Bewerken RECHTS als vaste kolom (feedbackronde
+       2); "Inschrijving" en niet "Details" (ronde 4): dat las als de details
+       van de betaling. "Bevestig" kort — de bevestigingsvraag zegt de rest. #}
+    <div class="flex justify-end gap-2 items-center whitespace-nowrap">
       {% if r.payable_type == "registration" and r.payable_id and not (kind or k.get('is_extra')) %}
-      {{ ui.btn_secondary(_("Inschrijving"), size="xs", href="/admin/inschrijvingen/" ~ r.payable_id ~ "?terug=/admin/betalingen") }}
+      {{ ui.link_action(_("Inschrijving"), href="/admin/inschrijvingen/" ~ r.payable_id ~ "?terug=/admin/betalingen") }}
       {% endif %}
-      {# #661: de snelkoppeling voor het meest voorkomende geval, met label én
-         vraag per type — op een terugbetaling vertrekt er geld. #}
+      {# #661: de snelkoppeling voor het meest voorkomende geval; de vraag
+         blijft per type — op een terugbetaling vertrekt er geld. #}
       {% if r.status != "paid" %}
-      {% set _bevestig_label = _("Bevestig terugbetaald") if r.type == "refund" else _("Bevestig betaald") %}
       {% set _bevestig_vraag = _("Als volledig terugbetaald bevestigen?") if r.type == "refund" else _("Als volledig betaald bevestigen?") %}
-      {{ ui.btn_secondary(_bevestig_label, size="xs", attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_bevestig_vraag) }}
+      {{ ui.link_action(_("Bevestig"), attrs='hx-post="/admin/betalingen/' ~ r.id ~ '/bevestigen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_bevestig_vraag) }}
       {% elif r.type != "refund" %}
-      {{ ui.btn_secondary(_("Terugbetaling registreren"), size="xs", attrs='@click="terug = terug === \'' ~ r.id ~ '\' ? null : \'' ~ r.id ~ '\'; open = null"') }}
+      {# Kort "Terugbetaling": het volle "Terugbetaling registreren" duwde de
+         actiekolom de kaart uit; de uitklaprij eronder benoemt de handeling
+         volledig ("Terug te betalen bedrag" + Registreren). #}
+      {{ ui.link_action(_("Terugbetaling"), attrs='@click="terug = terug === \'' ~ r.id ~ '\' ? null : \'' ~ r.id ~ '\'; open = null"') }}
       {% endif %}
-      {{ ui.edit_toggle("open", size="xs", waarde="'" ~ r.id ~ "'", ook="terug = null") }}
+      {{ ui.edit_toggle("open", stijl="link", waarde="'" ~ r.id ~ "'", ook="terug = null") }}
     </div>
     {% endif %}
   </td>
@@ -140,17 +116,14 @@
 {% set rec = k.rec %}
 {% set is_refund = rec.type == "refund" %}
 <div class="flex flex-wrap gap-2 items-end">
-{# A2: verwijderen hoort achter de bewerkstap, uiterst links en met afstand
-   tot Opslaan/Annuleren. De verwijder-guard blijft gelden: geen knop tonen
-   die de server toch weigert. Status verversen is een inhoudsactie op het
-   record en woont hier sinds de verdichting ook. #}
-{% if k.mag_verwijderen %}
-<div class="mr-3">{{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/betalingen/' ~ rec.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_("Deze terugbetaling verwijderen?") if is_refund else _("Deze betaling verwijderen (uit het saldo)?")) }}</div>
-{% endif %}
+{# Status verversen is een inhoudsactie op het record en staat links bij de
+   velden; het actiecluster staat rechts (Koens ronde 5): [Verwijderen] met
+   afstand, dan [Annuleren] [Opslaan] — Opslaan uiterst rechts, zoals het
+   A2-cluster op de recordpagina's. De verwijder-guard blijft gelden. #}
 {% if rec.method == "online" %}
 <div class="mr-3">{{ ui.btn_secondary(_("Status verversen"), size="sm", attrs='hx-post="/admin/betalingen/' ~ rec.id ~ '/verversen" hx-target="#betalingen-lijst" hx-swap="innerHTML"') }}</div>
 {% endif %}
-<form class="flex flex-wrap gap-2 items-end"
+<form class="flex flex-wrap gap-2 items-end flex-1"
       {# #769: de twee plekken die `bedrag` vullen moeten DEZELFDE notatie schrijven.
          Hier bij het renderen, en hieronder in de statuskeuze die het veld met het
          volle bedrag vult. #}
@@ -167,8 +140,11 @@
     {{ ui.input_control("amount_paid", id="ap-" ~ rec.id, placeholder="0,00", cls="w-28", attrs='x-model="bedrag" inputmode="decimal"') }}
   </div>
   {{ ui.input_control("note", id="note-" ~ rec.id, placeholder=_("Opmerking"), cls="w-40") }}
-  {{ ui.btn_primary(_("Opslaan"), type="submit") }}
-  {{ ui.btn_secondary(_("Annuleren"), attrs='@click="' ~ sluit ~ '"') }}
+  {% if k.mag_verwijderen %}
+  <span class="ml-auto mr-3">{{ ui.btn_danger(_("Verwijderen"), size="sm", attrs='hx-post="/admin/betalingen/' ~ rec.id ~ '/verwijderen" hx-target="#betalingen-lijst" hx-swap="innerHTML"', confirm=_("Deze terugbetaling verwijderen?") if is_refund else _("Deze betaling verwijderen (uit het saldo)?")) }}</span>
+  {% else %}<span class="ml-auto"></span>{% endif %}
+  {{ ui.btn_secondary(_("Annuleren"), size="sm", attrs='@click="' ~ sluit ~ '"') }}
+  {{ ui.btn_primary(_("Opslaan"), size="sm", type="submit") }}
   {% if is_refund %}
   <p class="w-full order-last text-xs text-gray-400">{{ _("Zet op 0 om te corrigeren — dan is de terugbetaling verwijderbaar.") }}</p>
   {% endif %}
@@ -198,8 +174,9 @@
       <div>{{ ui.label(_("Terug te betalen bedrag"), "rf-amount-" ~ r.id, required=True) }}
         {{ ui.input_control("amount", id="rf-amount-" ~ r.id, required=True, placeholder=_("Bedrag"), cls="w-28", attrs='inputmode="decimal"') }}</div>
       {{ ui.input_control("note", id="rf-note-" ~ r.id, placeholder=_("Reden"), cls="w-40") }}
-      {{ ui.btn_primary(_("Registreren"), type="submit") }}
-      {{ ui.btn_secondary(_("Annuleren"), attrs='@click="terug = null"') }}
+      <span class="ml-auto"></span>
+      {{ ui.btn_secondary(_("Annuleren"), size="sm", attrs='@click="terug = null"') }}
+      {{ ui.btn_primary(_("Registreren"), size="sm", type="submit") }}
     </form>
   </td>
 </tr>
@@ -208,20 +185,30 @@
 {% endmacro %}
 
 {% if groepen %}
-<div class="mb-4 rounded-2xl border border-gray-200 bg-white shadow-sm overflow-x-auto">
+{# F9 (#996): geen kolomsortering nog — dan benoemen we de werkelijk gebruikte
+   vaste volgorde (§2.3), zodat ze uitlegbaar is bij grote aantallen. #}
+{# Verticaal gecentreerd tussen filterbalk en tabel (Cobalt view-meta). #}
+<div class="my-2.5 flex items-center justify-between gap-3 text-[11px] text-ink-soft">
+  <span>{{ records|length }} {{ _("boekingen") }} · {{ _("recentste eerst, gegroepeerd per inschrijving") }}</span>
+  <span>EUR · {{ _("alleen FINANCE kan bevestigen") }}</span>
+</div>
+<div class="mb-4 rounded-card border border-gray-200 bg-white shadow-sm overflow-x-auto">
   <table class="w-full text-xs">
     <thead>
       <tr class="bg-gray-50 text-xs text-ink-soft text-left">
         <th scope="col" class="px-3 py-2 font-medium">{{ _("Naam / referentie") }}</th>
         <th scope="col" class="px-3 py-2 font-medium">{{ _("Context") }}</th>
-        <th scope="col" class="px-3 py-2 font-medium">{{ _("Status") }}</th>
-        <th scope="col" class="px-3 py-2 font-medium text-right">{{ _("Bedrag") }}</th>
-        <th scope="col" class="px-3 py-2 font-medium text-right">{{ _("Ontvangen") }}</th>
-        <th scope="col" class="px-3 py-2 font-medium text-right">{{ _("Saldo") }}</th>
+        <th scope="col" class="px-3 py-2 font-medium hidden md:table-cell">{{ _("Status") }}</th>
+        <th scope="col" class="px-2 py-2 font-medium text-right">{{ _("Bedrag") }}</th>
+        <th scope="col" class="px-2 py-2 font-medium text-right hidden md:table-cell">{{ _("Ontvangen") }}</th>
+        <th scope="col" class="px-2 py-2 font-medium text-right hidden md:table-cell">{{ _("Saldo") }}</th>
         {# `relative` is dragend: sr-only is absoluut gepositioneerd, en zonder
            gepositioneerde voorouder ontsnapt hij aan de scrollcontainer — op
            mobiel rekte hij zo de hele pagina tot tabelbreedte op. #}
-        <th scope="col" class="px-3 py-2 relative"><span class="sr-only">{{ _("Acties") }}</span></th>
+        {# w-px + nowrap: de tabel reserveert exact de inhoudsbreedte voor de
+           actiekolom; zonder dit drukte het layoutalgoritme haar samen en
+           knipte de kaartrand de laatste link af. #}
+        <th scope="col" class="px-3 py-2 font-medium text-right w-px">{{ _("Acties") }}</th>
       </tr>
     </thead>
     {# Eén tbody per inschrijving: al haar betalingen en terugbetalingen, met
@@ -229,7 +216,11 @@
        uitgeklapt staat — één editor tegelijk per inschrijving, en Alpine-scope
        over de rijen heen zonder een div die HTML in een tabel niet toestaat. #}
     {% for groep in groepen %}
-    <tbody class="border-t-2 border-gray-200"{% if is_finance %} x-data="{ open: null, terug: null }"{% endif %}>
+    {# Groepsbegin zwaarder (Koens ronde 4): de scheiding tussen
+       inschrijvingen is dikker en donkerder dan de rijlijnen erbinnen, en de
+       totaalregel plakt zonder eigen bovenrand aan zijn groep — zo lees je
+       begin én einde in één oogopslag. #}
+    <tbody class="border-t-2 border-gray-300"{% if is_finance %} x-data="{ open: null, terug: null }"{% endif %}>
       {% for kaart, refunds in groep.kaarten %}
       {{ _rij(kaart) }}
       {{ _editrijen(kaart) }}
@@ -245,11 +236,13 @@
          "Nog uit te betalen" is een BEDRAG over de inschrijving, een andere
          grootheid dan de statusbadge "Terug te betalen" erboven. #}
       {% if groep.toon_totaal %}
-      <tr class="border-t border-gray-100 bg-gray-50/60">
-        <td colspan="3" class="px-3 py-2 text-ink-soft">{{ _("Totaal inschrijving") }}{% if groep.terug_te_betalen > 0 %} <span class="text-teal-700 font-medium">· {{ _("Nog uit te betalen") }}: € {{ groep.terug_te_betalen|geld }}</span>{% endif %}</td>
-        <td class="px-3 py-2 text-right tabular-nums font-medium whitespace-nowrap">€ {{ groep.totaal.due|geld }}</td>
-        <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap">€ {{ groep.totaal.paid|geld }}</td>
-        <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap {{ 'text-teal-700 font-medium' if groep.totaal.saldo < 0 else ('text-orange-700 font-medium' if groep.totaal.saldo > 0 else 'text-ink-soft') }}">€ {{ groep.totaal.saldo|geld }}</td>
+      {# 3: de bedragcellen dragen exact de detailklassen (px-2) — een eigen
+         padding liet de totalen 4px naast de kolom vallen. #}
+      <tr class="bg-gray-50/60">
+        <td colspan="3" class="px-3 py-2 font-medium text-ink-soft">{{ _("Totaal inschrijving") }}{% if groep.terug_te_betalen > 0 %} <span class="text-teal-700">· {{ _("Nog uit te betalen") }}: € {{ groep.terug_te_betalen|geld }}</span>{% endif %}</td>
+        <td class="px-2 py-2 text-right tabular-nums font-medium whitespace-nowrap">€ {{ groep.totaal.due|geld }}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell">€ {{ groep.totaal.paid|geld }}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell {{ 'text-teal-700 font-medium' if groep.totaal.saldo < 0 else ('text-orange-700 font-medium' if groep.totaal.saldo > 0 else 'text-ink-soft') }}">€ {{ groep.totaal.saldo|geld }}</td>
         <td></td>
       </tr>
       {% endif %}
@@ -258,9 +251,9 @@
     <tfoot>
       <tr class="border-t-2 border-gray-300 bg-gray-50 font-semibold">
         <td colspan="3" class="px-3 py-2">{{ _("Netto totaal") }} · {{ records|length }} {{ _("boekingen") }}</td>
-        <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap">€ {{ matrix.netto.due|geld }}</td>
-        <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap text-green-700">€ {{ matrix.netto.paid|geld }}</td>
-        <td class="px-3 py-2 text-right tabular-nums whitespace-nowrap {{ 'text-orange-700' if matrix.netto.saldo > 0 else 'text-green-700' }}">€ {{ matrix.netto.saldo|geld }}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap">€ {{ matrix.netto.due|geld }}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell text-green-700">€ {{ matrix.netto.paid|geld }}</td>
+        <td class="px-2 py-2 text-right tabular-nums whitespace-nowrap hidden md:table-cell {{ 'text-orange-700' if matrix.netto.saldo > 0 else 'text-green-700' }}">€ {{ matrix.netto.saldo|geld }}</td>
         <td></td>
       </tr>
     </tfoot>
@@ -277,31 +270,43 @@
 <div class="mb-4 max-w-md">
   <h2 class="text-sm font-semibold text-kop mb-2">{{ _("Financieel overzicht") }} <span class="font-normal text-ink-soft">· {{ _("huidige selectie") }}</span></h2>
   <div class="overflow-x-auto">
-    <table class="text-sm border border-gray-200 rounded-xl overflow-hidden">
+    {# F7 (#996): drie bedragen per regel verdienen geen tweede horizontale
+       zoekbeweging — compacter op mobiel, koppen mogen afbreken. #}
+    <table class="text-xs md:text-sm border border-gray-200 rounded-card overflow-hidden">
       <thead>
         <tr class="bg-gray-50 text-gray-500">
-          <th class="px-4 py-2 text-left font-medium"></th>
-          <th class="px-4 py-2 text-right font-medium">{{ _("Te betalen") }}</th>
-          <th class="px-4 py-2 text-right font-medium">{{ _("Betaald") }}</th>
-          <th class="px-4 py-2 text-right font-medium">{{ _("Saldo") }}</th>
+          <th class="px-2 md:px-4 py-2 text-left font-medium"></th>
+          <th class="px-2 md:px-4 py-2 text-right font-medium">{{ _("Te betalen") }}</th>
+          <th class="px-2 md:px-4 py-2 text-right font-medium">{{ _("Betaald") }}</th>
+          <th class="px-2 md:px-4 py-2 text-right font-medium">{{ _("Saldo") }}</th>
         </tr>
       </thead>
       <tbody>
         {% for naam, rij in [(_("Betalingen"), matrix.betalingen), (_("Terugbetalingen"), matrix.terugbetalingen)] %}
         <tr class="border-t border-gray-100">
-          <td class="px-4 py-2 text-gray-700">{{ naam }}</td>
-          <td class="px-4 py-2 text-right whitespace-nowrap">€ {{ rij.due|geld }}</td>
-          <td class="px-4 py-2 text-right whitespace-nowrap text-green-700">€ {{ rij.paid|geld }}</td>
-          <td class="px-4 py-2 text-right whitespace-nowrap">€ {{ rij.saldo|geld }}</td>
+          <td class="px-2 md:px-4 py-2 text-gray-700">{{ naam }}</td>
+          <td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ {{ rij.due|geld }}</td>
+          <td class="px-2 md:px-4 py-2 text-right whitespace-nowrap text-green-700">€ {{ rij.paid|geld }}</td>
+          <td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ {{ rij.saldo|geld }}</td>
         </tr>
         {% endfor %}
         <tr class="border-t-2 border-gray-300 bg-gray-50 font-semibold">
-          <td class="px-4 py-2">{{ _("Netto") }}</td>
-          <td class="px-4 py-2 text-right whitespace-nowrap">€ {{ matrix.netto.due|geld }}</td>
-          <td class="px-4 py-2 text-right whitespace-nowrap text-green-700">€ {{ matrix.netto.paid|geld }}</td>
-          <td class="px-4 py-2 text-right whitespace-nowrap {% if matrix.netto.saldo > 0 %}text-orange-700{% else %}text-green-700{% endif %}">€ {{ matrix.netto.saldo|geld }}</td>
+          <td class="px-2 md:px-4 py-2">{{ _("Netto") }}</td>
+          <td class="px-2 md:px-4 py-2 text-right whitespace-nowrap">€ {{ matrix.netto.due|geld }}</td>
+          <td class="px-2 md:px-4 py-2 text-right whitespace-nowrap text-green-700">€ {{ matrix.netto.paid|geld }}</td>
+          <td class="px-2 md:px-4 py-2 text-right whitespace-nowrap {% if matrix.netto.saldo > 0 %}text-orange-700{% else %}text-green-700{% endif %}">€ {{ matrix.netto.saldo|geld }}</td>
         </tr>
       </tbody>
     </table>
   </div>
 </div>
+
+{# De band en de tabs staan búiten dit fragment (#bt-boven): ze reizen
+   out-of-band mee zodat aantallen en actieve tab elke wissel volgen — zelfde
+   #748-patroon als de recordkop van golf 10. Alleen op fragmentantwoorden;
+   de volledige pagina rendert #bt-boven zelf al. #}
+{% if oob_boven|default(false) %}
+<div id="bt-boven" hx-swap-oob="true">
+  {% include "_bt_boven.html" %}
+</div>
+{% endif %}

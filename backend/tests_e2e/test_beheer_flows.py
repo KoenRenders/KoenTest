@@ -79,7 +79,7 @@ def admin_page():
 def test_betaling_bevestigen(admin_page):
     """De knop die in #616 inert was: doet ze in een echte browser wat ze belooft?"""
     betalingen = Betalingenscherm(admin_page).open()
-    rij = betalingen.rij_met_knop("Bevestig betaald")
+    rij = betalingen.rij_met_knop("Bevestig")
     if rij.count() == 0:
         _ontbreekt("geen openstaande betaling om te bevestigen")
 
@@ -255,7 +255,7 @@ def test_een_lopende_actie_is_zichtbaar(admin_page):
     onderweg. Een `wait_for_timeout` ná de klik zou een race zijn.
     """
     betalingen = Betalingenscherm(admin_page).open()
-    rij = betalingen.rij_met_knop("Bevestig betaald")
+    rij = betalingen.rij_met_knop("Bevestig")
     if rij.count() == 0:
         _ontbreekt("geen openstaande betaling om te bevestigen")
 

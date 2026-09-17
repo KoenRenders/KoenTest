@@ -44,6 +44,9 @@ class BetalingenView(ViewModel):
     zicht: str
     zichten: list[dict[str, Any]]
     kpi: dict[str, Any]
+    # #996: band + tabs (#bt-boven) reizen alleen op fragmentantwoorden
+    # out-of-band mee; de volledige pagina rendert ze zelf.
+    oob_boven: bool = False
 
     # Filteropties, opgebouwd uit de zichtbare records.
     componenten: list[tuple[int, str]]

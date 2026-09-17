@@ -69,6 +69,8 @@ def _uitvoeren(bewerking, request: Request, db: Session, email: str,
         fout = str(exc)
     context = _view(request, db, email).as_context()
     context["error"] = fout
+    # Fragmentantwoord: band + tabs reizen out-of-band mee (zie de partial).
+    context["oob_boven"] = True
     return templates.TemplateResponse(request, "_betalingen_lijst.html", context)
 
 
@@ -473,8 +475,9 @@ def inschrijving_betalingen_tab(registration_id: int, request: Request,
 @router.get("/admin/betalingen/lijst", response_class=HTMLResponse)
 def betalingen_lijst(request: Request, db: Session = Depends(get_db),
                      email: str = Depends(require_finance_ui)):
-    return templates.TemplateResponse(request, "_betalingen_lijst.html",
-                                      _view(request, db, email).as_context())
+    ctx = _view(request, db, email).as_context()
+    ctx["oob_boven"] = True
+    return templates.TemplateResponse(request, "_betalingen_lijst.html", ctx)
 
 
 @router.get("/admin/betalingen/export")
