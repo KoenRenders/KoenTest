@@ -308,6 +308,17 @@ def settings_save(request: Request, db: Session = Depends(get_db),
 
 # ── One letter ───────────────────────────────────────────────────────────────
 
+def _turns(messages: list) -> list[list]:
+    """The conversation as turns — a question and its answer — newest first."""
+    turns: list[list] = []
+    for message in messages:
+        if message.role == nb.MESSAGE_AUTHOR or not turns:
+            turns.append([message])
+        else:
+            turns[-1].append(message)
+    return list(reversed(turns))
+
+
 def _compose_view(request: Request, db: Session, letter, error: Optional[str] = None,
                   notice: Optional[str] = None, raakje_error: Optional[str] = None,
                   apply_html: str = "", apply_placement: str = "",
@@ -345,7 +356,7 @@ def _compose_view(request: Request, db: Session, letter, error: Optional[str] = 
         saved_at=_moment(letter.updated_at),
         raakje_enabled=raakje, past_activities=past, coming_activities=coming,
         reports=reports, ticked_reports=list(letter.draft_meeting_ids or []),
-        messages=messages,
+        turns=_turns(messages),
         proposals={m.id: nb.display_proposal(db, letter, m) for m in messages if m.proposal},
         csrf_token=_csrf(request), error=error, notice=notice, raakje_error=raakje_error,
         apply_html=apply_html, apply_placement=apply_placement, apply_range=apply_range,

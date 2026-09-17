@@ -27,6 +27,7 @@ from app.domains.chatbot.seam import (  # noqa: F401
     SeamBlocked,
     admin_rules,
     public_rules,
+    redact,
 )
 from app.domains.chatbot.service import ChatTimeout, run_chat  # noqa: F401
 from app.domains.chatbot.providers import get_provider  # noqa: F401
@@ -63,7 +64,7 @@ from app.domains.chatbot.info_service import (  # noqa: F401
 __all__ = [
     "admin_chat_char_budget", "chat_char_budget",
     "ChatTimeout", "GuardedProvider", "SeamBlocked", "admin_rules",
-    "get_provider", "public_rules", "run_chat", "sink_for",
+    "get_provider", "public_rules", "redact", "run_chat", "sink_for",
     "CallRow", "CostLine", "cost_per_period", "list_calls", "month_period",
     "execute_read_tool", "read_only_tool_names", "read_tool_specs", "create_note", "delete_row", "get_row",
     "list_chatbot_info",
