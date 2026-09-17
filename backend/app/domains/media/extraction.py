@@ -22,14 +22,16 @@ import base64
 import io
 import logging
 import re
+import time
 from datetime import datetime, timezone
+from typing import Optional
 
 import httpx
 
 from app.config import settings
 from app.database import SessionLocal
 from app.domains.media.models import MediaAsset
-from app.domains.chatbot.api import ChatbotInfo
+from app.domains.chatbot.api import ChatbotInfo, sink_for
 
 logger = logging.getLogger(__name__)
 
@@ -78,8 +80,15 @@ def _extract_pdf_text_layer(raw: bytes) -> str:
         return ""
 
 
-def _ocr_via_mistral(raw: bytes, content_type: str) -> str:
-    """Lees een afbeelding of scan-PDF uit via de Mistral OCR-API."""
+def _ocr_via_mistral(raw: bytes, content_type: str,
+                     tenant_id: Optional[int] = None) -> str:
+    """Lees een afbeelding of scan-PDF uit via de Mistral OCR-API.
+
+    Every call lands in the AI log (#978), failed ones included: the document
+    left the building either way. The log gets a description of the document,
+    not the document — a scan of a poster is not what "wat zag Mistral" is for,
+    and a base64 copy would fill the table.
+    """
     b64 = base64.b64encode(raw).decode("ascii")
     data_uri = f"data:{content_type};base64,{b64}"
     if content_type == "application/pdf":
@@ -87,22 +96,44 @@ def _ocr_via_mistral(raw: bytes, content_type: str) -> str:
     else:
         document = {"type": "image_url", "image_url": data_uri}
 
-    response = httpx.post(
-        MISTRAL_OCR_URL,
-        headers={
-            "Authorization": f"Bearer {settings.mistral_api_key}",
-            "Content-Type": "application/json",
-        },
-        json={"model": settings.ocr_model, "document": document},
-        timeout=120.0,
-    )
-    response.raise_for_status()
-    data = response.json()
+    begin = time.monotonic()
+    status, request_id = "error", ""
+    try:
+        response = httpx.post(
+            MISTRAL_OCR_URL,
+            headers={
+                "Authorization": f"Bearer {settings.mistral_api_key}",
+                "Content-Type": "application/json",
+            },
+            json={"model": settings.ocr_model, "document": document},
+            timeout=120.0,
+        )
+        response.raise_for_status()
+        data = response.json()
+        status, request_id = "ok", str(data.get("id") or "")
+    finally:
+        _log_ocr(raw, content_type, tenant_id=tenant_id, status=status,
+                 request_id=request_id,
+                 duration_ms=int(round((time.monotonic() - begin) * 1000)))
     pages = data.get("pages") or []
     return "\n\n".join((p.get("markdown") or "").strip() for p in pages).strip()
 
 
-def _select_text(raw: bytes, content_type: str) -> str:
+def _log_ocr(raw: bytes, content_type: str, *, tenant_id: Optional[int],
+             status: str, request_id: str, duration_ms: int) -> None:
+    try:
+        sink_for()(
+            surface="admin", capability="ocr", model=settings.ocr_model,
+            payload=f"[document: {content_type}, {len(raw)} bytes]",
+            provider="mistral", endpoint="ocr", provider_request_id=request_id,
+            status=status, duration_ms=duration_ms, tenant_id=tenant_id,
+        )
+    except Exception:  # pragma: no cover - a log must not break the reading
+        logger.exception("Kon de OCR-oproep niet loggen")
+
+
+def _select_text(raw: bytes, content_type: str,
+                 tenant_id: Optional[int] = None) -> str:
     """Kies het goedkoopste pad dat tekst oplevert (nog ongekuist).
 
     PDF met bruikbare tekstlaag → die tekst. Anders (scan/afbeelding) → OCR, mits
@@ -120,19 +151,20 @@ def _select_text(raw: bytes, content_type: str) -> str:
         return pdf_text  # niets meer te doen zonder key (leeg voor afbeeldingen)
 
     try:
-        return _ocr_via_mistral(raw, content_type)
+        return _ocr_via_mistral(raw, content_type, tenant_id=tenant_id)
     except httpx.HTTPError as exc:
         logger.warning("Mistral OCR mislukte: %s", exc)
         return pdf_text  # val terug op wat we al hadden
 
 
-def extract_document_text(raw: bytes, content_type: str) -> str:
+def extract_document_text(raw: bytes, content_type: str,
+                          tenant_id: Optional[int] = None) -> str:
     """Geëxtraheerde tekst, opgekuist voor de bot (#240).
 
     Kiest het goedkoopste pad (tekstlaag of OCR) en normaliseert het resultaat:
     OCR-image-placeholders weg, witruimte/lege regels samengeklapt.
     """
-    return _clean_extracted_text(_select_text(raw, content_type))
+    return _clean_extracted_text(_select_text(raw, content_type, tenant_id=tenant_id))
 
 
 def update_media_extracted_text(asset_id: int, db=None, force: bool = False) -> None:
@@ -161,7 +193,8 @@ def update_media_extracted_text(asset_id: int, db=None, force: bool = False) -> 
         if row and row.extracted_text and not force:
             return  # al uitgelezen → niets te doen
 
-        text = extract_document_text(asset.data, asset.content_type)
+        text = extract_document_text(asset.data, asset.content_type,
+                                     tenant_id=asset.tenant_id)
         if row is None:
             row = ChatbotInfo(media_asset_id=asset_id, title=asset.title)
             db.add(row)

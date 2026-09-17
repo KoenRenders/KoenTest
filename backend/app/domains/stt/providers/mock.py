@@ -14,6 +14,7 @@ from .base import SttProvider, TranscriptEvent
 
 class MockSttProvider(SttProvider):
     name = "mock"
+    vendor = "mock"
 
     async def stream(self, audio: AsyncIterator[bytes]) -> AsyncIterator[TranscriptEvent]:
         chunks = 0

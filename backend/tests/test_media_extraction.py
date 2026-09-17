@@ -35,7 +35,7 @@ def test_scanned_pdf_falls_back_to_ocr(monkeypatch):
     monkeypatch.setattr(mx, "_extract_pdf_text_layer", lambda raw: "")
     monkeypatch.setattr(settings, "mistral_api_key", "test-key")
     monkeypatch.setattr(settings, "ocr_enabled", True)
-    monkeypatch.setattr(mx, "_ocr_via_mistral", lambda raw, ct: "OCR-TEKST")
+    monkeypatch.setattr(mx, "_ocr_via_mistral", lambda raw, ct, **_k: "OCR-TEKST")
     assert mx.extract_document_text(b"%PDF", "application/pdf") == "OCR-TEKST"
 
 
@@ -75,7 +75,7 @@ def test_extract_document_text_cleans_ocr_output(monkeypatch):
     monkeypatch.setattr(settings, "mistral_api_key", "test-key")
     monkeypatch.setattr(settings, "ocr_enabled", True)
     monkeypatch.setattr(
-        mx, "_ocr_via_mistral", lambda raw, ct: "![img-0.jpeg](img-0.jpeg)\n\nKostprijs:   €5"
+        mx, "_ocr_via_mistral", lambda raw, ct, **_k: "![img-0.jpeg](img-0.jpeg)\n\nKostprijs:   €5"
     )
     out = mx.extract_document_text(b"%PDF", "application/pdf")
     assert out == "Kostprijs: €5"
@@ -101,7 +101,7 @@ def test_extraction_creates_chatbot_info_row_and_skips_unless_force(db_session, 
 
     calls = {"n": 0}
 
-    def _fake_extract(raw, ct):
+    def _fake_extract(raw, ct, **_k):
         calls["n"] += 1
         return "Breng stevige schoenen mee."
 
@@ -122,7 +122,7 @@ def test_extraction_creates_chatbot_info_row_and_skips_unless_force(db_session, 
     row.text_override = "Handmatig gecorrigeerd."
     row.text_addition = "Honden welkom."
     db_session.flush()
-    monkeypatch.setattr(mx, "extract_document_text", lambda raw, ct: "Verse OCR.")
+    monkeypatch.setattr(mx, "extract_document_text", lambda raw, ct, **_k: "Verse OCR.")
     mx.update_media_extracted_text(asset.id, db=db_session, force=True)
     db_session.refresh(row)
     assert row.extracted_text == "Verse OCR."
@@ -140,7 +140,7 @@ def test_non_extractable_kind_creates_no_row(db_session, monkeypatch):
     )
     db_session.add(photo)
     db_session.flush()
-    monkeypatch.setattr(mx, "extract_document_text", lambda raw, ct: "ZOU NIET MOGEN")
+    monkeypatch.setattr(mx, "extract_document_text", lambda raw, ct, **_k: "ZOU NIET MOGEN")
     mx.update_media_extracted_text(photo.id, db=db_session)
     assert db_session.query(ChatbotInfo).filter(ChatbotInfo.media_asset_id == photo.id).first() is None
 

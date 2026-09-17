@@ -36,11 +36,14 @@ logger = logging.getLogger(__name__)
 
 class VoxtralRealtimeProvider(SttProvider):
     name = "voxtral"
+    vendor = "mistral"
+    endpoint = "audio.realtime.transcribe_stream"
 
     def __init__(self, api_key: str, model: str, base_url: str, sample_rate: int,
                  language: str = ""):
         self._api_key = api_key
         self._model = model
+        self.model = model
         self._base_url = base_url
         self._sample_rate = sample_rate
         self._language = (language or "").strip()
