@@ -176,6 +176,11 @@ The chatbot brief that produced the first two posters asks for:
   and overlapping colour blobs in Golden Yellow, Hot Pink, Ocean Blue and
   Cool Green with small pin marks, "raakvzw.be" in a pill. The reference for
   the `landscape` layout (Facebook, phase 4) and for the pin motif.
+- **Input photos** (`designstudio/input fotos/<activiteit>/`): the unit's
+  own photos per activity — walking (three) and cycling (two), as of
+  17 September 2026. They carry recognisable members and stay in Nextcloud;
+  in the pilot they are the realistic test of "upload a photo" for a series
+  poster (the cycling poster of 1b next to the walking one already built).
 - **The unit's site QR code** (`raakmillegem_qrcode_https.svg/.png`): the
   code the unit prints when a poster has no activity-specific link. The
   portal generates the same code from the URL (B4 §3.7), so the file is a
