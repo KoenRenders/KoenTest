@@ -20,8 +20,9 @@ from alembic import op
 import sqlalchemy as sa
 
 # De id is een tijdstempel en geen volgnummer (#951).
-revision = "130_2026_09_17_073104"
-down_revision = "129_2026_09_16_221108"
+# 131 en onder de 130 van #978 (AI-logboek met kost): die kwam tegelijk op master.
+revision = "131_2026_09_17_073104"
+down_revision = "130_2026_09_17_070503"
 branch_labels = None
 depends_on = None
 
