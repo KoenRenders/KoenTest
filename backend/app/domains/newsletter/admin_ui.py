@@ -44,6 +44,8 @@ NAV = "/admin/nieuwsbrieven"
 # The import file stays small: one address per line, about 800 of them. A
 # megabyte is a hundred times that, and still refuses a file picked by mistake.
 MAX_IMPORT_BYTES = 1_000_000
+# A programme or a flyer, not a photo album.
+MAX_ATTACHMENT_BYTES = 10_000_000
 
 LETTER_STATUS_LABELS = {nb.LETTER_DRAFT: "Concept", nb.LETTER_SENDING: "Wordt verstuurd",
                         nb.LETTER_SENT: "Verstuurd"}
@@ -313,15 +315,17 @@ def _compose_view(request: Request, db: Session, letter, error: Optional[str] = 
     from app.domains.meetings.api import long_date, sent_reports
 
     counts = nb.audience_counts(db)
+    # (waarde, label, aantal, uitleg): het aantal staat op de knop, de uitleg in
+    # de tooltip — de keuze is één regel hoog (Koen, 17 september 2026).
     options = [
-        (nb.AUDIENCE_MEMBERS, _("Leden"),
-         _("%(n)s adressen · iedereen met een adres in een gezin met lidmaatschap %(j)s")
-         % {"n": counts.members, "j": datetime.now().year}),
-        (nb.AUDIENCE_NON_MEMBERS, _("Niet-leden"),
-         _("%(n)s bevestigde adressen · met uitschrijflink") % {"n": counts.non_members}),
-        (nb.AUDIENCE_BOTH, _("Allebei"),
-         _("%(n)s adressen · %(d)s dubbele samengevoegd")
-         % {"n": counts.both, "d": counts.overlap}),
+        (nb.AUDIENCE_MEMBERS, _("Leden"), str(counts.members),
+         _("Iedereen met een adres in een gezin met lidmaatschap %(j)s")
+         % {"j": datetime.now().year}),
+        (nb.AUDIENCE_NON_MEMBERS, _("Niet-leden"), str(counts.non_members),
+         _("Bevestigde abonnees; elke mail heeft een uitschrijflink")),
+        (nb.AUDIENCE_BOTH, _("Allebei"), str(counts.both),
+         _("Samengevoegd; %(d)s adressen stonden op beide lijsten")
+         % {"d": counts.overlap}),
     ]
     raakje = _raakje_enabled(db)
     past: list = []
@@ -447,6 +451,26 @@ def insert_closing(newsletter_id: int, db: Session = Depends(get_db),
                    _email: str = Depends(require_admin_ui)):
     _letter_or_404(db, newsletter_id)
     return HTMLResponse(nb.closing_html(db))
+
+
+@router.post("/admin/nieuwsbrieven/{newsletter_id:int}/bijlage",
+             response_class=HTMLResponse, dependencies=[Depends(require_csrf)])
+async def insert_attachment(newsletter_id: int, db: Session = Depends(get_db),
+                            _email: str = Depends(require_admin_ui),
+                            file: UploadFile = File(...)):
+    """"Bijlage invoegen": the file is stored, the answer is the link that the
+    editor puts at the cursor. A refusal answers 400 with the reason as text."""
+    letter = _letter_or_404(db, newsletter_id)
+    data = await file.read(MAX_ATTACHMENT_BYTES + 1)
+    if len(data) > MAX_ATTACHMENT_BYTES:
+        return HTMLResponse(_("Dit bestand is te groot (hoogstens 10 MB)."), status_code=400)
+    try:
+        html = nb.add_attachment(db, letter, filename=file.filename or "",
+                                 content_type=file.content_type or "", data=data,
+                                 base_url=_base_url(db))
+    except nb.NewsletterError as exc:
+        return HTMLResponse(str(exc), status_code=400)
+    return HTMLResponse(html)
 
 
 @router.post("/admin/nieuwsbrieven/{newsletter_id:int}/testmail",

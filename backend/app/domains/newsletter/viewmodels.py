@@ -33,7 +33,7 @@ class NewsletterComposeView(ViewModel):
 
     letter: Any
     counts: Any
-    audience_options: list[tuple[str, str, str]]
+    audience_options: list[tuple[str, str, str, str]]
     saved_at: str
     # Raakje (CR-05 §3.15): off when the back-office switch is off.
     raakje_enabled: bool

@@ -777,6 +777,32 @@ def insertable_activities(db: Session, *, query: str = "", past: bool = False,
     return spans[:40]
 
 
+def add_attachment(db: Session, letter: Newsletter, *, filename: str,
+                   content_type: str, data: bytes, base_url: str) -> str:
+    """Store a file for this letter and return the link that goes at the cursor.
+
+    A link and not an attachment (Koen, 17 September 2026): each letter leaves
+    as a separate mail to hundreds of addresses, and a file in every one of
+    them makes the send heavy and the mails likelier to be filtered.
+    """
+    import os
+
+    from app.domains.media.api import MediaFout, add_document
+
+    _refuse_unless_draft(letter)
+    try:
+        asset = add_document(db, kind="newsletter_file", filename=filename,
+                             content_type=content_type, data=data)
+    except MediaFout as exc:
+        raise NewsletterError(str(exc)) from exc
+    stem, extension = os.path.splitext(filename or "")
+    label = stem.replace("_", " ").strip() or _("bestand")
+    kind = extension.lstrip(".").lower() or ("pdf" if content_type == "application/pdf" else "")
+    esc = html_lib.escape
+    text = _("Download %(naam)s") % {"naam": label} + (f" ({kind})" if kind else "")
+    return f'<div><a href="{esc(base_url)}/api/v1/media/{asset.id}">{esc(text)}</a></div>'
+
+
 def save_settings(db: Session, *, house_style: str, daily_cap: Optional[int]) -> None:
     """The house style Raakje writes in, and the daily cap (CR-05 §3.7, §8.3).
 

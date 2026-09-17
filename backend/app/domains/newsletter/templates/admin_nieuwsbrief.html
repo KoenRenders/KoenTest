@@ -22,6 +22,29 @@
       if (kiezer) { kiezer.innerHTML = ""; }
     };
   }
+  // Een bijlage opladen en de link op de cursor zetten. Een weigering (verkeerd
+  // type, te groot) komt als tekst terug en verschijnt in de statusregel.
+  if (!window.nbBijlage) {
+    window.nbBijlage = function (veld, url, token) {
+      if (!veld.files || !veld.files.length) { return; }
+      var data = new FormData();
+      data.append("file", veld.files[0]);
+      fetch(url, { method: "POST", body: data, credentials: "same-origin",
+                   headers: { "X-CSRF-Token": token } })
+        .then(function (r) { return r.text().then(function (t) { return { ok: r.ok, tekst: t }; }); })
+        .then(function (antwoord) {
+          if (!antwoord.ok) {
+            var status = document.getElementById("nb-bewaard");
+            if (status) { status.textContent = antwoord.tekst; }
+            return;
+          }
+          var el = document.getElementById("nb-trix");
+          el.editor.insertHTML(antwoord.tekst);
+          el.focus();
+        })
+        .finally(function () { veld.value = ""; });
+    };
+  }
   // De geselecteerde tekst in de editor: Raakje herschrijft dan alleen die alinea.
   if (!window.nbSelectie) {
     window.nbSelectie = function () {
@@ -110,21 +133,24 @@
         hx-post="/admin/nieuwsbrieven/{{ letter.id }}/bewaren"
         hx-target="#nb-bewaard" hx-swap="innerHTML" hx-indicator="#nb-bewaard"
         hx-trigger="change, keyup changed delay:1500ms from:#nb-onderwerp, trix-change delay:1500ms from:#nb-trix, trix-blur from:#nb-trix">
-    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
-
-    <fieldset class="bg-surface border border-line rounded-2xl p-5">
+    {# Eén regel hoog, zodat de keuze niet in de weg staat naast Raakje (Koen,
+       17 september 2026). Het aantal staat op de knop, de uitleg in de tooltip.
+       Het verborgen veld staat ONDERAAN: als eerste kind telde het mee voor
+       `space-y-4`, en zakte deze kaart 16 px onder het Raakje-paneel. #}
+    <fieldset class="bg-surface border border-line rounded-2xl px-5 py-3">
       <legend class="sr-only">{{ _("Voor wie?") }}</legend>
-      <h2 class="font-semibold text-blue-700">{{ _("Voor wie?") }}</h2>
-      <p class="text-sm text-ink-soft mt-0.5">{{ _("Er is bewust geen standaardkeuze: een ledenbrief vertelt dingen die niet voor niet-leden bedoeld zijn.") }}</p>
-      <div class="grid gap-2 sm:grid-cols-3 mt-3">
-        {% for value, label, hint in audience_options %}
-        <label class="flex gap-3 items-start rounded-xl border border-line p-3 cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:ring-2 has-[:checked]:ring-blue-200">
-          <input type="radio" name="audience" value="{{ value }}" class="mt-1"{% if letter.audience == value %} checked{% endif %}>
-          <span><span class="block font-semibold text-sm">{{ label }}</span>
-                <span class="block text-xs text-ink-soft mt-0.5">{{ hint }}</span></span>
+      <div class="flex flex-wrap items-center gap-2">
+        <h2 class="font-semibold text-blue-700 mr-1">{{ _("Voor wie?") }}</h2>
+        {% for value, label, count, hint in audience_options %}
+        <label title="{{ hint }}"
+               class="inline-flex items-center gap-2 rounded-full border border-line px-3 py-1.5 text-sm cursor-pointer has-[:checked]:border-blue-500 has-[:checked]:ring-2 has-[:checked]:ring-blue-200">
+          <input type="radio" name="audience" value="{{ value }}"{% if letter.audience == value %} checked{% endif %}>
+          <span class="font-semibold">{{ label }}</span>
+          <span class="text-ink-soft">{{ count }}</span>
         </label>
         {% endfor %}
       </div>
+      <p class="text-xs text-ink-soft mt-1.5">{{ _("Geen standaardkeuze: een ledenbrief vertelt dingen die niet voor niet-leden bedoeld zijn.") }}</p>
     </fieldset>
 
     <div class="bg-surface border border-line rounded-2xl p-5">
@@ -140,6 +166,13 @@
                           attrs='hx-get="/admin/nieuwsbrieven/' ~ letter.id ~ '/activiteiten" hx-target="#nb-kiezer" hx-swap="innerHTML"') }}
         {{ ui.btn_outline(_("Kalender invoegen"), lead_icon="calendar",
                           attrs='onmousedown="event.preventDefault()" onclick="nbInvoegen(\'/admin/nieuwsbrieven/' ~ letter.id ~ '/invoegen/kalender\')"') }}
+        {# Een bijlage wordt een link in de tekst (Koen, 17 september 2026): de
+           brief vertrekt als aparte mail naar honderden adressen. #}
+        <input type="file" id="nb-bijlage" class="hidden" accept="application/pdf,image/*"
+               aria-label="{{ _("Bijlage kiezen") }}"
+               onchange="nbBijlage(this, '/admin/nieuwsbrieven/{{ letter.id }}/bijlage', '{{ csrf_token }}')">
+        {{ ui.btn_outline(_("Bijlage invoegen"), lead_icon="upload",
+                          attrs='onmousedown="event.preventDefault()" onclick="document.getElementById(\'nb-bijlage\').click()"') }}
         {{ ui.btn_outline(_("Afsluiting invoegen"), lead_icon="pencil",
                           attrs='onmousedown="event.preventDefault()" onclick="nbInvoegen(\'/admin/nieuwsbrieven/' ~ letter.id ~ '/invoegen/afsluiting\')"') }}
       </div>
@@ -150,6 +183,7 @@
                         cls="min-h-[22rem]", placeholder=_("Beste,")) }}
       </div>
     </div>
+    <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
   </form>
 
   <div class="space-y-4">
