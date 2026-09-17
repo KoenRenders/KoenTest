@@ -161,6 +161,15 @@ things that did not work).
 
 Dated answers from Koen and open proposals awaiting an answer.
 
+## Q&A log
+
+Questions asked during shaping, review and build, dated, with who asked and
+the answer — so nothing is asked twice and open questions are visible.
+
+| # | Date | Question (who) | Answer |
+|---|---|---|---|
+| Q1 | … | … | … / *open* |
+
 ## Non-goals
 
 What is deliberately outside this change.

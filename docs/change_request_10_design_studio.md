@@ -314,18 +314,18 @@ Business steps (A3) mapped onto the screens and services that serve them.
 
 ```mermaid
 flowchart LR
-  subgraph P[Business process — to-be]
-    p1[1 Open the activity] --> p2[2 Start a design] --> p3[3 Add design text and contacts] --> p4[4 Add an image] --> p5[5 Check every format] --> p6[6 Make it final] --> p7[7 Print and post] --> p8[8 Amend]
+  subgraph P["Business process - to-be"]
+    p1["1 Open the activity"] --> p2["2 Start a design"] --> p3["3 Add design text and contacts"] --> p4["4 Add an image"] --> p5["5 Check every format"] --> p6["6 Make it final"] --> p7["7 Print and post"] --> p8["8 Amend"]
   end
-  subgraph S[Application]
-    s1[Activity detail — Designs section]
-    s2[Design editor]
-    s3[Contact picker]
-    s4[Image panel: upload · archive · generate]
-    s5[Live preview per layout + overflow check]
-    s6[Finalise: renders stored, poster replaced after confirmation]
-    s7[Downloads: A3/A4 PDF, 4:5 image]
-    s8[Stale flag + Re-render]
+  subgraph S["Application"]
+    s1["Activity detail — Designs section"]
+    s2["Design editor"]
+    s3["Contact picker"]
+    s4["Image panel: upload · archive · generate"]
+    s5["Live preview per layout + overflow check"]
+    s6["Finalise: renders stored, poster replaced after confirmation"]
+    s7["Downloads: A3/A4 PDF, 4:5 image"]
+    s8["Stale flag + Re-render"]
   end
   p1 --> s1
   p2 --> s2
@@ -344,34 +344,34 @@ Screens, modules, facades, data stores and integrations, with dependencies.
 
 ```mermaid
 flowchart TB
-  subgraph UI[Screens — designstudio/admin_ui.py, Dutch paths]
+  subgraph UI["Screens - designstudio/admin_ui.py, Dutch paths"]
     u1["/admin/activiteiten/{id}/ontwerpen"]
-    u2["/admin/ontwerpen/{id} — editor"]
+    u2["/admin/ontwerpen/{id} - editor"]
   end
-  subgraph DS[designstudio domain]
-    svc[service.py — designs, lifecycle, fingerprint]
-    rnd[render.py — Jinja + CSS → WeasyPrint → pypdfium2]
-    tpl[templates/posters — Beeld · Tekstflyer · Illustratie · Reeks]
-    brand[brand.py — colours, duos, gate]
-    ai[imaging.py — BFL client, budget, whitening]
-    api[api.py — facade]
+  subgraph DS["designstudio domain"]
+    svc["service.py - designs, lifecycle, fingerprint"]
+    rnd["render.py - Jinja + CSS to WeasyPrint to pypdfium2"]
+    tpl["templates/posters - Beeld, Tekstflyer, Illustratie, Reeks"]
+    brand["brand.py - colours, duos, gate"]
+    ai["imaging.py - BFL client, budget, whitening"]
+    api["api.py - facade"]
   end
-  subgraph EXT[Existing domains via their api.py]
-    act[activities — facts, dates, deadline, contacts]
-    med[media — poster slot, design_image, design_render]
-    mdm[mdm — member search, organisation contacts]
-    chat[chatbot — AiCallLog sink, Mistral provider]
-    cfg[kernel.tenant_config — budget override, assets]
+  subgraph EXT["Existing domains, via their api.py"]
+    act["activities - facts, dates, deadline, contacts"]
+    med["media - poster slot, design_image, design_render"]
+    mdm["mdm - member search, organisation contacts"]
+    chat["chatbot - AiCallLog sink, Mistral provider"]
+    cfg["kernel.tenant_config - budget override, assets"]
   end
-  subgraph DB[(PostgreSQL)]
-    d1[(designstudio.designs, highlights, contacts, renditions, image_generations)]
-    d2[(media.media_assets)]
-    d3[(ai.ai_call_log)]
-    d4[(activities.activities + activity_contacts)]
+  subgraph DB["PostgreSQL"]
+    d1[("designstudio: designs, highlights, contacts, renditions, image_generations")]
+    d2[("media.media_assets")]
+    d3[("ai.ai_call_log")]
+    d4[("activities.activities + activity_contacts")]
   end
-  subgraph OUT[External]
-    bfl[Black Forest Labs — api.eu.bfl.ai]
-    mis[Mistral]
+  subgraph OUT["External"]
+    bfl["Black Forest Labs - api.eu.bfl.ai"]
+    mis["Mistral"]
   end
   u1 --> svc
   u2 --> svc
@@ -381,6 +381,7 @@ flowchart TB
   svc --> med
   svc --> mdm
   svc --> d1
+  svc --> ai
   rnd --> tpl
   rnd --> brand
   rnd --> med
@@ -391,7 +392,6 @@ flowchart TB
   chat --> mis
   med --> d2
   act --> d4
-  svc --> ai
 ```
 
 ### B2.4 Impact on the existing architecture
@@ -411,6 +411,13 @@ What the solution stands on, measured on master:
 | LLM | `chatbot/providers` — the Mistral provider behind an `LLMProvider` interface, plus a mock. |
 | Secrets | `kernel_tenant_settings` with encrypted values (Fernet). |
 | Pillow | 12.3, already a dependency. |
+
+**AI call log (#978):** every call to the image engine (FLUX) and, later,
+to Mistral for text proposals is written to the existing `ai.ai_call_log` at
+the provider seam, with provider, endpoint, cost and duration. #978 adds
+those columns; the Design Studio keeps no log of its own and reads the
+per-unit spend from that table. This is an impact on the `chatbot` domain
+(model, migration, `sink_for`) and on the reporting of AI cost.
 
 Layer rules: `admin_ui.py` never touches `db` and imports only from
 domain `api.py` facades; template context comes from view-models; the
@@ -1221,6 +1228,22 @@ Clarified in the same conversation:
   colours, labels and bar, tagline, explanation, recurrence line, icon lines
   with emphasis, welcome line, price override and handwritten note. Each
   template shows only the fields it uses.
+
+## Q&A log
+
+Questions asked during shaping and review, with their answers, so they are
+not asked twice. Open questions carry no answer yet.
+
+| # | Date | Question (who) | Answer |
+|---|---|---|---|
+| Q1 | 16 Sep | Which FLUX API and why? (Koen) | FLUX.2 [pro] via `api.eu.bfl.ai`: style references (up to 8), measured $0.045/image, EU processing. Other FLUX.2 variants not compared. |
+| Q2 | 16 Sep | Does the poster use the official Raak colours? (Koen) | Yes, checked on the rendered file: only the eight guide colours and white; photos and AI drawings approximate. |
+| Q3 | 16 Sep | Which dark green is right? (Koen) | `#005d29` (guide). The ChatGPT poster used about `#014411`. |
+| Q4 | 16 Sep | Are drawn children a problem for the image engine? (Koen) | Not by themselves; one request with a reference image plus children was refused, later ones passed. Moderation is intermittent. |
+| Q5 | 16 Sep | Is the corner drawing from FLUX or hand-made? (Koen) | Hand-made in iteration 10; from FLUX since iteration 11. |
+| Q6 | 16 Sep | Is the AI budget stored in `.env`? (Koen) | Yes: `DESIGNSTUDIO_AI_MONTHLY_BUDGET_EUR`, with an optional per-unit override. |
+| Q7 | 17 Sep | MoSCoW in A5: does Koen fill it in, or does the CLI propose? (CLI) | *open* |
+| Q8 | 17 Sep | R4 "reworkable in LibreOffice": an editable file next to the PDF (ODG/SVG), or editable fields in the tool? (CLI) | *open* |
 
 ## Non-goals
 
