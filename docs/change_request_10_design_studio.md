@@ -159,7 +159,29 @@ The chatbot brief that produced the first two posters asks for:
 - delivery both as an image and as a borderless A3 PDF;
 - no rounded corners.
 
-### A4.4 Content blocks, derived from the examples
+### A4.4 Added on 17 September 2026
+
+- **Target designs, version 1a** (`designstudio/design objectief versie 1a`):
+  ten existing posters of one-off activities — father-and-son evening (two
+  versions), cooking workshop, wine-estate visit, beer tasting, bowling,
+  bunker walk, darts tournament, members' party, Scherpenheuvel walk/ride.
+  Koen's reading: all of these should come out of **one template** (perhaps
+  one for A4/A3 and one for Instagram), because they are alike.
+- **Target designs, version 1b** (`… versie 1b`): three **series** — cycling
+  (five dates, none in winter), walking (twelve dates next year, one per
+  month), litter pick-up (three dates). Same template as 1a, or a second?
+  (see B4 §3.4, Q16).
+- **Raak national's Facebook banner** (`Kopie van Raak banner Facebook.png`,
+  from Raak vzw's house-style page): the neutral lockup on Indigo, a photo,
+  and overlapping colour blobs in Golden Yellow, Hot Pink, Ocean Blue and
+  Cool Green with small pin marks, "raakvzw.be" in a pill. The reference for
+  the `landscape` layout (Facebook, phase 4) and for the pin motif.
+- **The unit's site QR code** (`raakmillegem_qrcode_https.svg/.png`): the
+  code the unit prints when a poster has no activity-specific link. The
+  portal generates the same code from the URL (B4 §3.7), so the file is a
+  reference, not an asset to upload.
+
+### A4.5 Content blocks, derived from the examples
 
 | Block | In examples | Source |
 |---|---|---|
@@ -221,8 +243,11 @@ End-to-end, by a person on HDEV, without reading code.
 | AC4 | The design can be opened in LibreOffice (or another tool), a sentence changed and a box added, and the result saved. | R4 |
 | AC5 | Three elements checked with a colour picker are Raak colours; the logo and typeface are the official ones. | R5 |
 | AC6 | The unit's monthly spend on generated images is visible. | A6 reporting |
-| AC7 | A board member who never used the tool makes, from an existing activity, a usable A3 poster and Instagram image **within ten minutes**, without help and without retyping activity data. Tried with a few real board members on three activities: a simple one, a series, one with several prices. | R1 — proposed by the external review of 17 Sep 2026, to be confirmed by Koen |
-| AC8 | The A4 PDF printed at A5 (reduced) is still readable: the smallest text at least 6 pt, the QR code at least 20 mm, the safe margin kept. | R2 |
+| AC7 | The A4 PDF printed at A5 (reduced) is still readable: the smallest text at least 6 pt, the QR code at least 20 mm, the safe margin kept. | R2 |
+
+The external review's proposal of a timed usage goal ("a first-time board
+member makes a poster within ten minutes") was **not adopted by Koen**
+(17 September 2026).
 
 # Part B — The solution
 
@@ -490,6 +515,23 @@ those columns; the Design Studio keeps no log of its own and reads the
 per-unit spend from that table. This is an impact on the `chatbot` domain
 (model, migration, `sink_for`) and on the reporting of AI cost.
 
+**Coupling (Koen, 17 September 2026: "we want decoupled modules").** The
+Design Studio is a consumer of the other domains, never the other way
+round:
+- it **reads** activity facts, dates, deadline and contacts through
+  `activities.api`, members through `mdm.api`, and photos through
+  `media.api`;
+- it **writes** into the other domains at one point only: **publishing**
+  hands the rendered A3 PDF to `media.api` as the activity's
+  `activity_poster` — a copy of the bytes, the same call the manual upload
+  makes today. Media keeps no reference to the design; the activity page
+  shows whatever poster media holds, whether it came from the Design
+  Studio or from a hand upload;
+- nothing in `activities`, `media` or `mdm` imports `designstudio`;
+  staleness is computed inside the Design Studio by comparing its stored
+  fingerprint with the live facts when a design is listed — no callback
+  from the activity.
+
 Layer rules: `admin_ui.py` never touches `db` and imports only from
 domain `api.py` facades; template context comes from view-models; the
 import-boundary test enforces it. No cross-schema foreign keys (soft
@@ -695,7 +737,29 @@ same duo.
   in view in every layout.
 
 **Phase 1 renders A3, A4 and 4:5** (Koen, 16 September 2026). The Facebook
-event cover and the square format come later. **A5 is not a separate
+event cover and the square format come later.
+
+**Pilot templates — proposal (Q16, 17 September 2026).** Koen's reading of
+the target designs (A4.4): the ten one-off posters (1a) fit one template;
+the three series (1b) are alike but carry dates. Proposal: **one template,
+"Affiche", with content-driven blocks**, in two layouts (`print_a` and
+`feed_portrait`):
+- always: frame, lockup, title (speckled, optional "X en Y" bubble),
+  when/where, image, contacts/Raak, footer with website and QR;
+- when present: kicker, subtitle band (the father-and-son curve), highlight
+  lines (≤ 6), explanation (≤ 2 paragraphs — bowling, bunker walk), practical
+  box (price, registration, deadline — cooking workshop, wine visit),
+  supporter logo (Mona, Krishna);
+- **when the activity has more than one date: the dates grid** (≤ 12 dates
+  in `print_a`, three columns; in `feed_portrait` the recurrence line
+  instead). That covers cycling (5), walking (12 next year) and litter
+  pick-up (3) without a second template.
+
+Photo or generated illustration is only the image; the look is the same.
+The "Beeld", "Tekstflyer", "Illustratie" and "Reeks" prototypes become
+**presets of block choices** within "Affiche", not separate templates. A
+second template only when a poster needs a different structure. **Koen
+decides** whether the pilot also includes generated illustrations (Q20). **A5 is not a separate
 output:** it has the same ratio as A4, so the A4 PDF prints on A5 paper at
 reduced size.
 
@@ -792,17 +856,19 @@ Inkscape decision makes the merged SVG that file.
 - **Two sources, one design:** the merged SVG is derived and re-creatable;
   the uploaded SVG is stored as a `design_render`-kind asset with
   `variant = svg_edited`. The overflow check does not run on an uploaded
-  file (the person took over). **Whether the brand gate warns or blocks on
-  an uploaded file is open (Q18)**; the second external review advises
-  blocking, with an override for an administrator, because nothing in this
-  CR gives a reason to drop the house style on uploads.
+  file (the person took over). **The brand gate warns and does not block**
+  on an uploaded file (Koen, 17 September 2026, Q18): the person may choose
+  to leave the house style, exactly as today, where any poster can be
+  uploaded onto an activity through the media screen. That manual path
+  stays; blocking inside the Design Studio would only push people to it.
 
 ### 3.7 Facts stay live; design text belongs to the design
 
 One place per fact:
 - **From the activity, always live:** title, dates and times, location,
-  prices, registration link and QR code (from `slug`), registration
-  deadline, contacts.
+  prices, registration link and QR code (from `slug`; **without a slug the
+  QR code points to the unit's site**, as the unit does today with its
+  printed site code, A4.4), registration deadline, contacts.
 - **From the organisation:** logo lockup, unit name, and — when the
   activity has no contact persons — its website, e-mail and mobile number.
 - **Only on the design:**
@@ -918,10 +984,20 @@ own contact details, #945). A contact person is a member chosen from the
 list, with the option to enter a different number or address for this
 activity.
 
-- **On the activity.** Who answers questions about an activity is a fact
-  about that activity, so every design of it shows the same contacts.
-  Changing a contact marks the final design stale (B4 §3.14), like a changed
-  date.
+- **On the activity — recommended, to confirm (Q19).** Koen asked which
+  module should hold them. Contact persons are a fact about the activity
+  ("who answers questions"), not about one poster: every design of the
+  activity shows the same two, and a later consumer (a newsletter, a mail)
+  can read them without knowing the Design Studio. So they belong in the
+  `activities` module, entered on the **activity's own admin screen** in a
+  "Contactpersonen" block, and the Design Studio only reads them through
+  `activities.api` — which keeps the modules decoupled (B2.4). The
+  alternative (contacts inside the Design Studio) would leave `activities`
+  untouched, but ties an activity fact to one consumer. Changing a contact
+  marks the final design stale (B4 §3.14), like a changed date.
+- **Removing the last contact person asks first** (Koen, 17 September
+  2026): "Zonder contactpersonen tonen de affiches de website, het
+  e-mailadres en het gsm-nummer van Raak. Doorgaan?"
 - **A contact row is a member.**
   - **A member.** The name is shown. Mobile number and e-mail come from the
     person's `ContactDetail` rows, **unless the contact row overrides
@@ -1145,6 +1221,10 @@ Approved by Koen on 16 September 2026, with a limit.
   not silently differ from the file.
 - **Reopen:** the draft is always editable; the published version stays on
   the website until another version is published.
+- **A published poster may carry the contact persons** (Koen, 17 September
+  2026, Q15): there is no separate contact block on the website, but the
+  poster itself is shown as it is — exactly as with today's hand-made
+  posters. No second web-only render.
 
 ### 3.15 Screens and roles
 
@@ -1697,11 +1777,12 @@ not asked twice. Open questions carry no answer yet.
 | Q12 | 17 Sep | Does a phone number on a poster need recorded consent? (reviewer) | No. Consent is asked beforehand outside the portal (meeting, WhatsApp, in person); the board member adding the contact vouches for it (Koen, 17 Sep). |
 | Q13 | 17 Sep | Who designs and maintains the templates? (reviewer) | Koen for now; in time Raak nationally (the ACCOUNT organisation). Templates stay platform-wide (Koen, 17 Sep). |
 | Q14 | 17 Sep | Is €50/unit/month a platform cost or a Millegem test figure; are units charged? (reviewer) | For now all generation comes from the one FLUX budget; charging units is for later, on the per-call cost in the AI log (Koen, 17 Sep). |
-| Q15 | 17 Sep | May a published poster on the public activity page carry the contact persons, given "no contacts on the website"? (external review) | *open — Koen*. Build assumes yes: no contact block on the site, the poster itself may carry them. |
-| Q16 | 17 Sep | Scope of the first release: B7 phase 1 (one template, no AI images) or the four templates with AI images? (external review, reviewer Q2) | *open — Koen*. |
+| Q15 | 17 Sep | May a published poster on the public activity page carry the contact persons, given "no contacts on the website"? (external review) | **Yes** (Koen, 17 Sep): no contact block on the site, the poster may carry them — as with today's hand-made posters. |
+| Q16 | 17 Sep | Scope of the first release: which templates? (external review, reviewer Q2) | Koen: the one-off posters (1a) should fit one template; the series (1b) are alike but carry dates. **Proposal in B4 §3.4:** one content-driven template "Affiche", two layouts, dates grid when the activity has several dates. *Awaiting Koen's confirmation.* |
 | Q17 | 17 Sep | One shared €50 budget or €50 per unit? (external review) | Both, layered: per-unit default plus a platform cap; for now all from the one FLUX budget (§3.12, Q14). |
-| Q18 | 17 Sep | May a hand-edited SVG leave the house style (gate warns only), or does the gate block with an admin override? (second external review) | *open — Koen*; the review advises block + override. |
-| Q19 | 17 Sep | Removing the last contact person silently falls back to Raak's details — silent, or with a confirmation like the poster replacement? (second external review) | *open — Koen*. |
+| Q18 | 17 Sep | May a hand-edited SVG leave the house style (gate warns only), or does the gate block with an admin override? (second external review) | **Warn only** (Koen, 17 Sep): the person may upload any poster, as today through the media screen. |
+| Q19 | 17 Sep | Removing the last contact person silently falls back to Raak's details — silent, or with a confirmation? And which module holds the contacts? (second external review; Koen) | **With a confirmation** (Koen, 17 Sep). Module: the CLI recommends the `activities` module (an activity fact, read by the Design Studio through its facade); *awaiting Koen's confirmation*. |
+| Q20 | 17 Sep | Does the pilot include generated illustrations, or photos only? (CLI) | *open — Koen*. The 1a/1b targets are mostly photos; AI images are phase 3 in B7. |
 
 ## Non-goals
 
