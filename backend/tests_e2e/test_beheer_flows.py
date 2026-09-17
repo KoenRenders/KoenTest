@@ -14,7 +14,7 @@ import sys
 import time
 
 import pytest
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -131,9 +131,13 @@ def test_lidmaatschap_schrappen_geeft_een_terugbetaling(admin_page):
     if admin_page.locator("#leden-lijst a").count() == 0:
         _ontbreekt("geen gezinnen op deze omgeving")
 
+    # #997: this waited 400 ms and then read the whole page for "Lidmaatschappen" —
+    # a race, and an empty one: the list page itself already carries that word
+    # (measured), so the check passed before the detail was there. Now it waits
+    # for the section heading inside the detail.
     admin_page.locator("#leden-lijst a").first.click()
-    admin_page.wait_for_timeout(400)
-    assert "Lidmaatschappen" in admin_page.content(), "geen lidmaatschapssectie op het gezinsdetail"
+    expect(leden.lidmaatschapskop(),
+           "geen lidmaatschapssectie op het gezinsdetail").to_be_visible()
 
     knop = leden.lidmaatschap_verwijderknop()
     if knop.count() == 0:
@@ -311,8 +315,8 @@ def test_bewerken_vervangt_de_datumregel(admin_page):
     datum = leesregel.inner_text().strip()
 
     scherm.bewerk_de_eerste_datum()
-    admin_page.wait_for_timeout(200)
 
-    assert not leesregel.is_visible(), (
-        f"de leesregel {datum!r} blijft staan naast het bewerkformulier (#648)")
-    assert scherm.datumregel().is_visible(), "het bewerkformulier ging niet open"
+    # Both must BECOME so; `expect` waits for it instead of guessing a time.
+    expect(scherm.datumregel(), "het bewerkformulier ging niet open").to_be_visible()
+    expect(leesregel, f"de leesregel {datum!r} blijft staan naast het "
+                      f"bewerkformulier (#648)").to_be_hidden()

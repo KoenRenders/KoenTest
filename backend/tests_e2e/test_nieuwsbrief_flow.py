@@ -12,11 +12,12 @@ import os
 import sys
 
 import pytest
-from playwright.sync_api import sync_playwright
+from playwright.sync_api import expect, sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, login_als_admin  # noqa: E402
+from tests_e2e.schermen import (BASE, htmx_afgerond, login_als_admin,  # noqa: E402
+                                netwerk_bijgewerkt)
 
 TELEFOON = {"width": 390, "height": 844}
 
@@ -96,9 +97,10 @@ def test_een_activiteit_invoegen_en_bewaren(admin_page):
         "naam => document.getElementById('nb-trix').editor.getDocument().toString().includes(naam)",
         arg=naam, timeout=5_000)
 
-    # Autosave waits 1.5 s after the last change; leaving the editor saves at once.
-    page.locator("#nb-onderwerp").click()
-    page.wait_for_timeout(2_500)
+    # Autosave waits 1.5 s after the last change; leaving the editor saves at once
+    # (`trix-blur`). #997: wait for that save to be answered, not for 2.5 s.
+    with htmx_afgerond(page):
+        page.locator("#nb-onderwerp").click()
 
     page.goto(adres)
     page.wait_for_selector("#nb-trix")
@@ -115,6 +117,10 @@ def test_een_agendapunt_weghalen_vraagt_eerst_bevestiging(admin_page):
     Broken on purpose: `data-confirm` moved back from the form to the button in
     `_vg_punt.html` → no dialog opens, and this test fails — the same thing a
     board member saw before the fix.
+
+    #997: the unchanged count is an absence, checked behind `netwerk_bijgewerkt`.
+    Proved by making it happen: `cancel()` sending the request anyway → this test
+    fails on the count (measured).
     """
     page = admin_page
     page.goto("/admin/vergaderingen/nieuw")
@@ -131,7 +137,9 @@ def test_een_agendapunt_weghalen_vraagt_eerst_bevestiging(admin_page):
     dialoog = page.get_by_text("Dit punt van de agenda halen?")
     dialoog.wait_for(timeout=3_000)
     page.get_by_role("button", name="Annuleren").click()
-    page.wait_for_timeout(500)
+    expect(dialoog).to_be_hidden()
+    # #997: an absence check — only after the barrier, not after a fixed wait.
+    netwerk_bijgewerkt(page)
     assert page.locator("button[aria-label='Punt van deze agenda halen']").count() == aantal
 
 

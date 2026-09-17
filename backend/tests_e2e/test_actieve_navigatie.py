@@ -18,7 +18,7 @@ from playwright.sync_api import sync_playwright
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tests_e2e.schermen import BASE, login_als_admin  # noqa: E402
+from tests_e2e.schermen import BASE, htmx_afgerond, login_als_admin  # noqa: E402
 
 
 def _ontbreekt(reden: str) -> None:
@@ -61,14 +61,18 @@ def test_de_markering_volgt_een_geboorde_navigatie(admin_page):
 
     We navigeren via een KLIK in de zijbalk, niet via `goto()` — een harde navigatie
     laadt de pagina opnieuw en verbergt juist de fout. Het gaat om de gebooste swap.
+
+    #997: gelezen na de settle, niet na 300 ms. Gemeten: `nav_oob` altijd False →
+    deze test valt om.
     """
     admin_page.goto("/admin/leden")
     admin_page.wait_for_selector("#admin-nav-zijbalk")
     assert _actief(admin_page) == ["/admin/leden"], _actief(admin_page)
 
-    admin_page.click('#admin-nav-zijbalk a[href="/admin/activiteiten"]')
+    # #997: read the marking once htmx has swapped AND settled the oob nav.
+    with htmx_afgerond(admin_page):
+        admin_page.click('#admin-nav-zijbalk a[href="/admin/activiteiten"]')
     admin_page.wait_for_url("**/admin/activiteiten")
-    admin_page.wait_for_timeout(300)
 
     na = _actief(admin_page)
     assert na == ["/admin/activiteiten"], (
@@ -80,8 +84,9 @@ def test_er_licht_altijd_precies_een_item_op(admin_page):
     dat is wat je krijgt als de oude zijbalk blijft staan naast een nieuwe."""
     admin_page.goto("/admin/leden")
     admin_page.wait_for_selector("#admin-nav-zijbalk")
-    admin_page.click('#admin-nav-zijbalk a[href="/admin/betalingen"]')
+    # #997: read the marking once htmx has swapped AND settled the oob nav.
+    with htmx_afgerond(admin_page):
+        admin_page.click('#admin-nav-zijbalk a[href="/admin/betalingen"]')
     admin_page.wait_for_url("**/admin/betalingen")
-    admin_page.wait_for_timeout(300)
 
     assert len(_actief(admin_page)) == 1, _actief(admin_page)

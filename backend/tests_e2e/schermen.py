@@ -8,8 +8,101 @@ raakt in plaats van elke flow.
 De testfuncties lezen dan als scenario's, niet als klikinstructies.
 """
 import os
+from contextlib import contextmanager
 
 BASE = os.environ.get("E2E_BASE_URL", "http://localhost:8000")
+
+
+# ── Waiting on htmx, not on the clock (#997) ─────────────────────────────────
+#
+# A fixed `wait_for_timeout` after a click is a race: on a slow runner the next
+# line looks at a screen that is not there yet. Where something must APPEAR, a
+# test waits on Playwright's own `expect(...)`. Where a test proves that
+# something did NOT happen, there is nothing to wait for — so it waits until
+# htmx is demonstrably done, and only then checks the absence.
+#
+# "Done" is read from htmx itself: every request that began has ended (its
+# XHR fired `loadend`), and no element still carries `htmx-request`,
+# `htmx-swapping` or `htmx-settling`. htmx sets `htmx-swapping` synchronously
+# before a swap — also one delayed by a view transition — and removes
+# `htmx-settling` only after the settle in which #726 resets attributes. So the
+# condition cannot be true between the response and the end of the settle.
+_HTMX_TELLER = """() => {
+  if (!window.__htmxTel) {
+    const t = window.__htmxTel = {begonnen: 0, afgerond: 0};
+    // Counted on the XHR and not with `htmx:afterRequest`: htmx fires that on the
+    // element that made the request, and when the swap removed that element the
+    // event never reaches the document (measured: 2 begun, 1 ended, forever).
+    // `loadend` comes after htmx's own load/error/abort handling, always.
+    document.addEventListener('htmx:beforeRequest', (e) => {
+      const tel = window.__htmxTel;
+      tel.begonnen++;
+      e.detail.xhr.addEventListener('loadend', () => { tel.afgerond++; });
+    });
+  }
+  window.__htmxTel.begonnen = 0;
+  window.__htmxTel.afgerond = 0;
+}"""
+_HTMX_STIL = """(minstens) => {
+  const t = window.__htmxTel;
+  // No counters: the answer replaced the whole document (HX-Redirect,
+  // HX-Refresh). Then "done" is that document having loaded.
+  if (!t) return document.readyState === 'complete';
+  return t.begonnen >= minstens && t.afgerond >= t.begonnen
+    && !document.querySelector('.htmx-request, .htmx-swapping, .htmx-settling');
+}"""
+
+
+@contextmanager
+def htmx_afgerond(page, *, verzoeken: int = 1, timeout: int = 10_000):
+    """Run the block, then wait until the htmx requests it started are settled.
+
+    `verzoeken` is how many requests the block must start at least — a debounced
+    input starts its request later, and waiting for "nothing running" before it
+    began would be the race again. Only for htmx actions: a full page load
+    replaces the document and its counters; then the wait ends once the new
+    document has loaded.
+    """
+    page.evaluate(_HTMX_TELLER)
+    yield
+    page.wait_for_function(_HTMX_STIL, arg=verzoeken, timeout=timeout)
+
+
+def netwerk_bijgewerkt(page, *, timeout: int = 10_000) -> None:
+    """A barrier for proving that something did NOT happen (#997).
+
+    Requests leave in the order the page starts them. So once a fresh sentinel
+    request has been answered, any request the page started before it has gone
+    out too — and `htmx_stil` then waits until such a request is also swapped.
+    Only after that is "nothing changed" a finding. A fixed wait passes just as
+    well when the thing is merely slow, and then the test proves nothing.
+    """
+    with page.expect_response(lambda r: "e2e-grens" in r.url, timeout=timeout):
+        page.evaluate("() => fetch('/static/app.css?e2e-grens=' + Date.now())")
+    htmx_stil(page, timeout=timeout)
+
+
+def pagina_klaar(page, *, timeout: int = 10_000) -> None:
+    """After a `goto`: Alpine has initialised every `x-data`, and htmx is idle.
+
+    A check on the starting state ("the menu is closed") says nothing while
+    Alpine has not yet evaluated its `x-show` — this is the moment it does.
+    """
+    page.wait_for_function(
+        "() => !!window.Alpine && [...document.querySelectorAll('[x-data]')]"
+        ".every(e => e._x_dataStack)", timeout=timeout)
+    htmx_stil(page, timeout=timeout)
+
+
+def htmx_stil(page, *, timeout: int = 10_000) -> None:
+    """Wait until nothing htmx started is still running — after a page load.
+
+    For a check right after `goto`: htmx may still be processing what the page
+    loads (`hx-trigger="load"`). Starts no request of its own.
+    """
+    page.wait_for_function(
+        "() => !!window.htmx && !document.querySelector("
+        "'.htmx-request, .htmx-swapping, .htmx-settling')", timeout=timeout)
 
 
 def login_met_sessie(page, sessiewaarde: str) -> None:
@@ -56,8 +149,8 @@ class Gezinsportaal:
         self.page.fill("#np-last_name", achternaam)
         self.page.fill("#np-date_of_birth", "2012-03-04")
         self.page.select_option("#np-gender_code", "M")
-        self.page.get_by_role("button", name="Toevoegen", exact=True).click()
-        self.page.wait_for_timeout(600)
+        with htmx_afgerond(self.page):
+            self.page.get_by_role("button", name="Toevoegen", exact=True).click()
 
 
 class Betalingenscherm:
@@ -104,8 +197,8 @@ class Betalingenscherm:
     def bevestig_betaald(self, rij):
         rij.get_by_role("button", name="Bevestig betaald").click()
         # In-app bevestigingsmodal (#595), geen browser-confirm.
-        self.page.get_by_role("button", name="Bevestigen").click()
-        self.page.wait_for_timeout(300)
+        with htmx_afgerond(self.page):
+            self.page.get_by_role("button", name="Bevestigen").click()
 
     def badges(self, ogm: str) -> list[str]:
         return self.rij(ogm).locator("span.rounded-full").all_inner_texts()
@@ -168,8 +261,8 @@ class Inschrijvingsdetail:
         self.aantalvelden().nth(index).fill(str(aantal))
 
     def opslaan(self):
-        self.paneel.get_by_role("button", name="Opslaan").first.click()
-        self.page.wait_for_timeout(400)
+        with htmx_afgerond(self.page):
+            self.paneel.get_by_role("button", name="Opslaan").first.click()
 
     def totaal(self) -> str:
         return self.paneel.locator("text=Totaal").first.inner_text()
@@ -195,7 +288,7 @@ class Paginascherm:
 
     def open_eerste(self):
         self.page.goto(self.pad)
-        self.page.wait_for_timeout(400)
+        htmx_stil(self.page)
         # De kaarten zijn gewone links naar /admin/paginas/<id>; hx-boost maakt er
         # een fragment-navigatie van. "Nieuw" valt af omdat die op /nieuw uitkomt.
         links = self.page.locator("a[href^='/admin/paginas/']:not([href$='/nieuw'])")
@@ -211,12 +304,12 @@ class Paginascherm:
         return self.page.locator("#cp-htmlsrc")
 
     def opslaan(self):
-        self.page.get_by_role("button", name="Opslaan").first.click()
-        self.page.wait_for_timeout(800)
+        with htmx_afgerond(self.page):
+            self.page.get_by_role("button", name="Opslaan").first.click()
 
     def toon_html_bron(self):
+        # Alpine only, no request: the caller waits on the box itself.
         self.page.get_by_role("button", name="HTML").first.click()
-        self.page.wait_for_timeout(300)
 
     def editorinhoud(self) -> str:
         return self.page.locator("#cp-content-input").first.input_value() or ""
@@ -255,7 +348,14 @@ class Ledenscherm:
         (personen, lidmaatschappen) en welke de laatste is, hangt af van de data
         (#644-D).
         """
-        return self.page.locator("div", has_text="Lidmaatschappen").last
+        # #997: anchored on the detail and on the card's own heading. The old
+        # `div has_text=… .last` also matched on the list page, which carries the
+        # word too — before the detail had arrived, it found some other div.
+        return self.page.locator("#leden-detail div").filter(
+            has=self.page.locator("h3", has_text="Lidmaatschappen")).last
+
+    def lidmaatschapskop(self):
+        return self.page.locator("#leden-detail h3", has_text="Lidmaatschappen")
 
     def lidmaatschap_verwijderknop(self):
         return self.lidmaatschapskaart().get_by_role("button", name="Verwijderen").first
@@ -263,8 +363,8 @@ class Ledenscherm:
     def verwijder_lidmaatschap(self):
         self.lidmaatschap_verwijderknop().click()
         # In-app bevestigingsmodal (#595), geen browser-confirm.
-        self.page.get_by_role("button", name="Bevestigen").click()
-        self.page.wait_for_timeout(400)
+        with htmx_afgerond(self.page):
+            self.page.get_by_role("button", name="Bevestigen").click()
 
 
 class Adminschil:
@@ -287,9 +387,9 @@ class Adminschil:
             "!!(document.querySelector('aside') && document.querySelector('aside').__raakMerk)"))
 
     def klik_in_de_zijbalk(self, href: str) -> None:
-        self.page.locator(f'aside a[href="{href}"]').first.click()
+        with htmx_afgerond(self.page):
+            self.page.locator(f'aside a[href="{href}"]').first.click()
         self.page.wait_for_selector("#main h1", timeout=5000)
-        self.page.wait_for_timeout(200)
 
 
 def controlhoogtes(page, container_selector: str) -> dict:
