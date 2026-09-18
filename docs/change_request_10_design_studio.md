@@ -1273,6 +1273,72 @@ Approved by Koen on 16 September 2026, with a limit.
   `/admin/ontwerpen/{id}`). Code is English (`designstudio`, `Design`,
   `render_design`).
 
+### 3.16 Coverage of the target designs (18 September 2026)
+
+Koen asked whether every real poster in `design objectief versie 1`
+(thirteen, A4.4) can be generated **content-complete** by the "Affiche"
+template. Read poster by poster against the blocks of B4 §3.4 and the
+data model. ✓ = covered as designed; **gap** = needs a change or a decision.
+
+| Poster | Covered | Gaps |
+|---|---|---|
+| Kookworkshop Indische keuken | kicker, title, date/time/place, deadline "of tot volzet" (deadline + full), max 16 (component `max_participants`), price € 20, partner logo | **three contact names** (cap is two); explanation of six short paragraphs; practical lines "Voor wie", "Meebrengen" |
+| Wijnbezoek Aldeneyck | title, subtitle, date, price € 27,50, deadline, two contacts with phone, two images | **programme lines with times** (vertrek 9u, rondgang 10u30–12u, degustatie 12–13u); note "eten apart inschrijven" (explanation ✓) |
+| Bierproefavond | date/time/place, title, price, "met lekkere hapjes", guest name, deadline, two contacts, photo | partner logo (Vals Peterke) — see *partner logos* below |
+| Bowlen | all (built as prototype) | — |
+| Bunkerwandeling | kicker, title, date/time, start place, two paragraphs, five highlight lines, deadline, one contact, two photos, partner line | — |
+| Dartstornooi | title, date/time/place, three paragraphs, price € 3, deadline, one contact, photos | **payment by bank transfer** (IBAN + message) |
+| Ledenfeest | title, date/time, place with address, two prices (adults/children → components), photo, one contact with a note | **programme lines** (14u receptie, 17u buffet); "Voor wie"; **payment by bank transfer with its own payment deadline** (17 June, registration is a separate step) |
+| Scherpenheuvel | title, date, two groups each with a contact (exactly two), two images, deadline 2 May | **a second registration with its own deadline and link** (frieten, before 28 April — Raak national's event) → per-component deadline and a second QR |
+| Stappen en klappen · Fietsen | all (built) | Fietsen needs a fresh generated drawing (bike, village/forest) — proof item, not a gap |
+| Zo vader, zo zoon (A3 Canva) | all (built); V.U. out of scope by decision | — |
+| Zo vader, zo zoon (A4, Raak national) | label "workshop voor vaders", long explanation, expert name | — |
+| Zwerfvuil (3× per jaar) | date/time, title, photo | **a poster for one occurrence of a series** (the poster shows one date, the activity has three); the stock photo's rights are the unit's matter |
+
+**What the template cannot do yet, and the proposed answer**
+
+1. **Contacts: two or three?** Kookworkshop names three people. Either the
+   cap becomes three, or that poster names two. *Decision for Koen.*
+2. **Practical lines** (label: value — "Voor wie", "Meebrengen", "Afstand",
+   "Honden welkom") — five of the thirteen use them. Proposal: a repeatable
+   block **"Praktisch"** of up to six label/value lines, design text; max
+   participants and "volzet" come from the activity automatically.
+3. **Programme lines** (time: what — Wijnbezoek, Ledenfeest). Proposal: a
+   repeatable block **"Programma"** of up to six time/text lines, design
+   text, in the print layout only.
+4. **Explanation length.** Several posters carry three to six paragraphs;
+   the current "≤ 2 paragraphs" is too tight for print. Proposal: on
+   `print_a` up to about 1 200 characters with the overflow rule "shrink to
+   the minimum, then refuse"; Instagram keeps dropping it.
+5. **Payment by bank transfer** (Dartstornooi, Ledenfeest): IBAN, message
+   and a payment deadline distinct from the registration deadline. The
+   organisation's account exists in MDM (#945). Proposal: an optional block
+   **"Betaling"** that prints the organisation's IBAN and a message pattern
+   from the activity ("Dartstornooi + naam"), with a payment-deadline field.
+   *Decision for Koen:* keep this, or push these activities to online
+   payment through the portal (Mollie), which needs no block?
+6. **A second registration with its own deadline** (Scherpenheuvel's
+   frieten). The CR has one deadline per activity (B4 §3.8a). Options: (a) a
+   deadline per component, with the poster printing both; (b) two
+   activities, one poster each; (c) the second deadline as a free line.
+   *Decision for Koen*; the CLI suggests (c) for the pilot and (a) when a
+   second case appears.
+7. **One occurrence of a series** (Zwerfvuil). Proposal: on a series
+   activity the design can be made for **all dates** (grid) or for **one
+   date** (chosen in the editor); the fingerprint follows that date.
+8. **Partner logos are not sponsors.** Krishna and Vals Peterke appear on
+   one poster each; uploading them as `sponsor` media would put them in the
+   website footer. Proposal: the supporter slot accepts **either** a
+   sponsor asset (Mona, counted per year, R11) **or** a one-off partner
+   image uploaded on the design (`design_image`, not counted).
+9. **Two images** (main + inset) suffice for all thirteen.
+10. **Guests and experts by name** ("Met Ivan Geudens", "gegidst door Dries
+    Majewski", "met expert Alexander Witpas") go in the subtitle or the
+    explanation as design text — fine, they are public roles, not members.
+
+With 2, 3, 4, 7 and 8 built and 1, 5, 6 decided, all thirteen posters are
+content-complete from the template.
+
 ## B5. Data model (sketch)
 
 ### B5.1 Entity-relationship diagram
@@ -1918,6 +1984,7 @@ not asked twice. Open questions carry no answer yet.
 | Q18 | 17 Sep | May a hand-edited SVG leave the house style (gate warns only), or does the gate block with an admin override? (second external review) | **Warn only** (Koen, 17 Sep): the person may upload any poster, as today through the media screen. |
 | Q19 | 17 Sep | Removing the last contact person silently falls back to Raak's details — silent, or with a confirmation? And which module holds the contacts? (second external review; Koen) | **With a confirmation** (Koen, 17 Sep). Module: **the `activities` module**, entered on the activity's own screen; the Design Studio reads them through the facade. Empty shows nothing on the activity and the site; only the poster falls back to Raak's details (Koen, 17 Sep). |
 | Q20 | 17 Sep | Does the pilot include generated illustrations, or photos only? (CLI) | **Both** (Koen, 17 Sep): the person chooses to upload a photo or to generate. AI illustrations move from phase 3 into the pilot; #978 is on master. |
+| Q21 | 18 Sep | Coverage of the thirteen real posters (B4 §3.16): contacts two or three? bank-transfer block or online payment? second deadline per component, second activity, or a free line? (CLI) | *open — Koen*. |
 
 ## Non-goals
 
