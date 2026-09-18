@@ -41,6 +41,15 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements-dev.txt
 
+      # Design Studio (#1007) renders posters through Inkscape as a subprocess;
+      # the render tests call the real binary, as the image does. The app's own
+      # fonts are made visible to fontconfig the same way the Dockerfile does.
+      - name: Install Inkscape and the app fonts
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q --no-install-recommends inkscape fontconfig
+          mkdir -p ~/.local/share/fonts && ln -s "$PWD/app/static/fonts" ~/.local/share/fonts/raak && fc-cache -f
+
       # Static type-check vangt None-dereferences en verkeerde argument-types vóór
       # de deploy — voorheen sneuvelden die pas op runtime (PROD). Symmetrie met
       # de frontend-job die `tsc --noEmit` draait.

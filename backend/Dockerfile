@@ -9,8 +9,13 @@ WORKDIR /app
 # libcairo2 (#989): CairoSVG renders the PNG version of an SVG logo for e-mail.
 # Measured: WeasyPrint 70 no longer uses Cairo, and the Pango packages do not
 # bring it along — Koen chose to add it (17 September 2026).
+#
+# Inkscape (#1007, CR-10): renders the poster SVGs to PDF and PNG as a
+# subprocess, without network. fontconfig sees the app's own fonts (Radio Canada
+# Big, Caveat, Inter) through the symlink below, so a poster embeds the same
+# faces on every host; `fc-cache` makes them known at build time.
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libcairo2 \
+    && apt-get install -y --no-install-recommends libpango-1.0-0 libpangoft2-1.0-0 libcairo2 inkscape fontconfig \
     && rm -rf /var/lib/apt/lists/*
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
@@ -20,6 +25,7 @@ ARG GIT_SHA=onbekend
 ENV APP_VERSION=$APP_VERSION
 ENV GIT_SHA=$GIT_SHA
 RUN chmod +x startup.sh
+RUN mkdir -p /usr/local/share/fonts && ln -s /app/app/static/fonts /usr/local/share/fonts/raak && fc-cache -f
 RUN APP_ENV=build SECRET_KEY=build-time-check DATABASE_URL=postgresql://x:x@localhost/x python check_imports.py
 # Non-root (#395): de app heeft geen root nodig; beperkt de schade bij een
 # container-escape of RCE in de applicatie.

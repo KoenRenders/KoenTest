@@ -1,0 +1,71 @@
+{#- Template "Affiche" (CR-10 §3.4) — the look of the page. -#}
+{#- Content blocks arrive positioned from blocks.plan_affiche; this file draws -#}
+{#- the frame, the corner tile with the lockup, the speckled title, the bar and -#}
+{#- the band. Colours come only from the palette (brand.palette_for). -#}
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink"
+     xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
+     xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
+     width="{{ p.width }}mm" height="{{ p.height }}mm" viewBox="0 0 {{ p.width }} {{ p.height }}"
+     font-family="Radio Canada Big">
+<title>{{ title }}</title>
+<defs>
+  {{ speckles("sp1", p.seed, p.pal.tile, p.pal.white) | safe }}
+  {{ speckles("sp2", p.seed + 1, p.pal.accent4, p.pal.white) | safe }}
+  <filter id="rough" x="-5%" y="-20%" width="110%" height="140%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="{{ p.seed + 4 }}" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="0.9" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <filter id="ragged" x="-3%" y="-3%" width="106%" height="106%">
+    <feTurbulence type="fractalNoise" baseFrequency="0.05" numOctaves="3" seed="{{ p.seed + 9 }}" result="n"/>
+    <feDisplacementMap in="SourceGraphic" in2="n" scale="7" xChannelSelector="R" yChannelSelector="G" result="d"/>
+    <feTurbulence type="fractalNoise" baseFrequency="1.2" numOctaves="1" seed="{{ p.seed + 2 }}" result="f"/>
+    <feDisplacementMap in="d" in2="f" scale="1.6" xChannelSelector="R" yChannelSelector="G"/>
+  </filter>
+  <filter id="paint" x="0" y="0" width="100%" height="100%"><feGaussianBlur stdDeviation="0.12"/></filter>
+</defs>
+{#- The reference rectangle turns `inkscape --query-all` units into mm. -#}
+<rect id="ref100mm" x="0" y="0" width="100" height="1" fill="none" stroke="none"/>
+<rect width="{{ p.width }}" height="{{ p.height }}" fill="{{ p.pal.white }}"/>
+<g id="raak" inkscape:label="Raak (vast)" inkscape:groupmode="layer" sodipodi:insensitive="true">
+  <path fill-rule="evenodd" fill="{{ p.pal.tile }}" d="M0 0 H{{ p.width }} V{{ p.height }} H0 Z {{ p.paper_path }}"/>
+  {{ wordmark | safe }}
+  <path d="{{ p.band.path }}" fill="{{ p.pal.tile }}" filter="url(#rough)"/>
+  {{ icon("globe", p.pal.white, p.pal.accent3, 70, p.band.y + 13.5, 7) | safe }}
+  {{ icon("mail", p.pal.white, p.pal.accent2, 160, p.band.y + 13.5, 7) | safe }}
+</g>
+<g id="inhoud" inkscape:label="Inhoud (bewerkbaar)" inkscape:groupmode="layer">
+  {%- if p.kicker %}
+  <text id="t-kicker" x="{{ p.width - p.frame - 6 }}" y="{{ p.frame + 16 }}" font-size="8" font-weight="bold" fill="{{ p.pal.ink }}" text-anchor="end" letter-spacing="0.3">{{ p.kicker }}</text>
+  {%- endif %}
+  <g transform="rotate(-2.2 19 100)">
+    {%- for t in p.title %}
+    <text id="{{ t.id }}" x="{{ t.x }}" y="{{ t.y }}" font-size="{{ t.size }}" font-weight="bold" fill="url(#{{ t.pattern }})" text-anchor="{{ t.anchor }}" letter-spacing="{{ '%.2f' % t.tracking }}" stroke="{{ t.stroke }}" stroke-width="1.4" stroke-linejoin="round" paint-order="stroke">{{ t.text }}</text>
+    {%- endfor %}
+    {%- if p.joiner %}
+    <path d="M{{ p.joiner.cx - 16 }} {{ p.joiner.cy + 16 }} L{{ p.joiner.cx - 27 }} {{ p.joiner.cy + 30 }} L{{ p.joiner.cx - 6 }} {{ p.joiner.cy + 19 }} Z" fill="{{ p.pal.white }}" stroke="{{ p.pal.tile }}" stroke-width="2.4" stroke-linejoin="round"/>
+    <ellipse cx="{{ p.joiner.cx }}" cy="{{ p.joiner.cy }}" rx="26" ry="18.5" fill="{{ p.pal.white }}" stroke="{{ p.pal.tile }}" stroke-width="2.4"/>
+    <path d="M{{ p.joiner.cx - 15 }} {{ p.joiner.cy + 15 }} L{{ p.joiner.cx - 23 }} {{ p.joiner.cy + 26 }} L{{ p.joiner.cx - 7 }} {{ p.joiner.cy + 18 }} Z" fill="{{ p.pal.white }}"/>
+    <text id="t-joiner" x="{{ p.joiner.cx }}" y="{{ p.joiner.cy + 9.5 }}" font-size="27" font-weight="bold" fill="{{ p.pal.ink }}" text-anchor="middle">{{ p.joiner.text }}</text>
+    {%- endif %}
+    {%- if p.bar %}
+    <path d="{{ p.bar.path }}" fill="{{ p.pal.tile }}" filter="url(#rough)"/>
+    <text id="t-bar" x="{{ p.bar.x }}" y="{{ p.bar.y }}" font-size="{{ p.bar.size }}" font-weight="bold" fill="{{ p.pal.white }}" text-anchor="middle" letter-spacing="0.3">{{ p.bar.text }}</text>
+    {%- endif %}
+  </g>
+  {{ p.left | safe }}
+  {{ p.right | safe }}
+  {{ p.full | safe }}
+  {{ p.logos | safe }}
+  <text id="t-meerinfo" x="148.5" y="{{ p.band.y + 10.5 }}" font-size="9.5" font-weight="bold" fill="{{ p.pal.white }}" text-anchor="middle" letter-spacing="0.4">{{ p.band.label }}</text>
+  <g stroke="{{ p.pal.accent }}" stroke-width="1.1" stroke-linecap="round" fill="none"><path d="M116 {{ p.band.y + 7 }} h4 M117 {{ p.band.y + 4.5 }} l3 2.5 M117 {{ p.band.y + 9.5 }} l3 -2.5"/><path d="M181 {{ p.band.y + 7 }} h-4 M180 {{ p.band.y + 4.5 }} l-3 2.5 M180 {{ p.band.y + 9.5 }} l-3 -2.5"/></g>
+  <text id="t-website" x="79" y="{{ p.band.y + 18.7 }}" font-size="6.2" font-weight="600" fill="{{ p.pal.white }}">{{ p.band.website }}</text>
+  <text id="t-email" x="169" y="{{ p.band.y + 18.7 }}" font-size="6.2" font-weight="600" fill="{{ p.pal.white }}">{{ p.band.email }}</text>
+  {%- if p.band.contacts %}
+  <text id="t-contacts" x="148.5" y="{{ p.band.y + 26.3 }}" font-size="5.6" font-weight="600" fill="{{ p.pal.white }}" text-anchor="middle">{{ p.band.contacts }}</text>
+  {%- endif %}
+  {%- if qr %}
+  <rect x="{{ p.width - p.frame - 2 - 24 }}" y="{{ p.band.y + 3 }}" width="22" height="22" fill="{{ p.pal.white }}"/>
+  <svg x="{{ p.width - p.frame - 2 - 23 }}" y="{{ p.band.y + 4 }}" width="20" height="20" {{ qr | safe }}
+  {%- endif %}
+</g>
+</svg>

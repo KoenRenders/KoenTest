@@ -1,0 +1,32 @@
+{
+  "key": "affiche",
+  "version": 1,
+  "name": "Affiche",
+  "layouts": {
+    "print_a": {
+      "label": "Print (A3/A4)",
+      "width_mm": 297,
+      "height_mm": 420,
+      "sizes": {"a3": [297, 420], "a4": [210, 297]},
+      "safe_zone_mm": 8,
+      "png_width_px": 1754
+    },
+    "feed_portrait": {
+      "label": "Instagram (4:5)",
+      "width_mm": 297,
+      "height_mm": 371.25,
+      "sizes": {"feed": [297, 371.25]},
+      "safe_zone_mm": 0,
+      "png_width_px": 1080
+    }
+  },
+  "fonts": ["Radio Canada Big", "Caveat"],
+  "limits": {
+    "highlights": 6,
+    "dates": 12,
+    "logos": 2,
+    "title_lines": 2
+  },
+  "overflow_margin": 1.0,
+  "rotated_text_ids": ["t-title-0", "t-title-1", "t-bar", "t-joiner"]
+}
