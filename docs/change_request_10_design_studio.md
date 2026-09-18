@@ -9,7 +9,9 @@ survey, both in Koen's Nextcloud folder `designstudio/review/`); the
 rendering engine was then decided (Inkscape, B1.3). **#974 (deadline) and
 #978 (AI call log) are on master** (verified 17 September 2026, master
 55f2fd54), so the Design Studio stands on them rather than waiting for
-them. The Design Studio itself is not on a release yet, apart from **phase 0** (the registration deadline, B4 §3.8a)
+them. **Assigned to v2.5 on 18 September 2026** (Koen, confirmed with the master
+CLI): #1006 (member search), #1004 (organisers), #1005 (media kinds) for the
+finetuning CLI; #1007 (the pilot) for the designstudio CLI. Phase 0 is (the registration deadline, B4 §3.8a)
 is #974 and assigned to **v2.5** (#925). The Design Studio itself is not on a
 release yet.
 **Applies to:** a new `designstudio` domain (backend + admin screens), a
