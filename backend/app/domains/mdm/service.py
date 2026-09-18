@@ -198,6 +198,19 @@ def search_persons(db, query: str, *, members_only: bool = False,
             .limit(limit).all())
 
 
+def is_member(db, person_id: int) -> bool:
+    """Is this person in a household (#1004)?
+
+    That is what "member" means here: everyone in a `MemberPerson` row, whatever
+    the relation, without a test on paid dues — Koen, 16 September 2026. Same
+    definition as `search_persons(..., members_only=True)`, and the only one.
+    """
+    from app.domains.mdm.models import MemberPerson
+
+    return db.query(db.query(MemberPerson.id)
+                    .filter(MemberPerson.person_id == person_id).exists()).scalar()
+
+
 def list_postal_codes(db):
     from app.domains.mdm.models import PostalCode
 

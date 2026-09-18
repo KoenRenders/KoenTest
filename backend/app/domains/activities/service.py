@@ -1305,3 +1305,131 @@ def _booked_per_component(db, activity_ids: list[int]) -> dict[int, int]:
 # Publieke naam (golf 8, #913): de recordpagina leest de bezetting via de
 # facade; de router-doorgang blijft voor zijn vier bestaande aanroepers.
 booked_per_component = _booked_per_component
+
+
+# ── Organisatoren (#1004, CR-10 §3.9) ────────────────────────────────────────
+#
+# Up to three "trekkers" per activity. The limit lives in THREE places on
+# purpose (CLAUDE.md, "Validation layers"): the screen hides the button (a
+# courtesy), this service refuses the fourth with a readable message (the rule),
+# and a CHECK on `sort_order` in the database is the net (migration 133).
+#
+# Who is pickable is a member: everyone in a household (Koen, 16 September
+# 2026). The circle of a meeting is deliberately wider — see `search_persons`.
+
+MAX_ORGANISERS = 3
+
+
+class OrganiserView(NamedTuple):
+    """One organiser as a poster (or a letter) reads it.
+
+    `email` and `mobile` are what should be published: the override of this
+    activity when it is filled, otherwise the person's own contact details. The
+    caller does not have to know that difference exists.
+    """
+
+    id: int
+    person_id: int
+    name: str
+    is_contact: bool
+    email: str
+    mobile: str
+    email_override: str
+    mobile_override: str
+    sort_order: int
+
+
+def _organiser_rows(db, activity_id: int):
+    from app.domains.activities.models import ActivityOrganiser
+
+    return (db.query(ActivityOrganiser)
+            .filter(ActivityOrganiser.activity_id == activity_id)
+            .order_by(ActivityOrganiser.sort_order, ActivityOrganiser.id).all())
+
+
+def organisers_for(db, activity_id: int) -> list:
+    """The organisers of one activity, in their own order (#1004)."""
+    from app.domains.mdm.api import ContactDetail, Person
+
+    rijen = _organiser_rows(db, activity_id)
+    if not rijen:
+        return []
+    person_ids = [r.person_id for r in rijen]
+    personen = {p.id: p for p in db.query(Person).filter(Person.id.in_(person_ids)).all()}
+    contacten: dict[tuple[int, str], str] = {}
+    for detail in (db.query(ContactDetail)
+                   .filter(ContactDetail.person_id.in_(person_ids)).all()):
+        sleutel = (detail.person_id, (detail.contact_type_code or "").upper())
+        if detail.value and sleutel not in contacten:
+            contacten[sleutel] = detail.value
+
+    gezien = []
+    for rij in rijen:
+        person = personen.get(rij.person_id)
+        naam = f"{person.first_name} {person.last_name}".strip() if person else ""
+        gezien.append(OrganiserView(
+            id=rij.id, person_id=rij.person_id, name=naam,
+            is_contact=bool(rij.is_contact),
+            email=rij.email_override or contacten.get((rij.person_id, "EMAIL"), ""),
+            mobile=rij.mobile_override or contacten.get((rij.person_id, "MOBILE"), ""),
+            email_override=rij.email_override or "",
+            mobile_override=rij.mobile_override or "",
+            sort_order=rij.sort_order))
+    return gezien
+
+
+def add_organiser(db, activity_id: int, person_id: int):
+    """Add one organiser. Refuses a fourth, and someone who is no member."""
+    from app.domains.activities.models import ActivityOrganiser
+    from app.domains.mdm.api import Person, is_member
+    from app.i18n import _
+
+    if db.query(Activity).filter(Activity.id == activity_id).first() is None:
+        raise LookupError("Activiteit niet gevonden")
+    rijen = _organiser_rows(db, activity_id)
+    if len(rijen) >= MAX_ORGANISERS:
+        raise ActiviteitFout(_(
+            "Een activiteit heeft hoogstens %(n)s organisatoren.") % {"n": MAX_ORGANISERS})
+    if any(r.person_id == person_id for r in rijen):
+        raise ActiviteitFout(_("Die persoon staat er al bij."))
+    person = db.query(Person).filter(Person.id == person_id).first()
+    if person is None:
+        raise LookupError("Persoon niet gevonden")
+    if not is_member(db, person_id):
+        # The rule, not the screen: the picker only SHOWS members, and a form
+        # post does not go through the picker.
+        raise ActiviteitFout(_("Alleen leden kunnen organisator zijn."))
+
+    gebruikt = {r.sort_order for r in rijen}
+    volgende = next(i for i in range(MAX_ORGANISERS) if i not in gebruikt)
+    rij = ActivityOrganiser(activity_id=activity_id, person_id=person_id,
+                            sort_order=volgende)
+    db.add(rij)
+    db.commit()
+    db.refresh(rij)
+    return rij
+
+
+def update_organiser(db, activity_id: int, organiser_id: int, velden: dict):
+    """The tick and the two overrides. An empty override means "the member's own"."""
+    rij = next((r for r in _organiser_rows(db, activity_id) if r.id == organiser_id), None)
+    if rij is None:
+        raise LookupError("Organisator niet gevonden")
+    if "is_contact" in velden:
+        rij.is_contact = bool(velden["is_contact"])
+    for veld in ("email_override", "mobile_override"):
+        if veld in velden:
+            waarde = (velden[veld] or "").strip()
+            setattr(rij, veld, waarde or None)
+    db.commit()
+    db.refresh(rij)
+    return rij
+
+
+def remove_organiser(db, activity_id: int, organiser_id: int) -> bool:
+    rij = next((r for r in _organiser_rows(db, activity_id) if r.id == organiser_id), None)
+    if rij is None:
+        return False
+    db.delete(rij)
+    db.commit()
+    return True

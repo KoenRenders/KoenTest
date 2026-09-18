@@ -64,7 +64,15 @@ PAYABLE_MODELLEN = {
 
 # (bestand, regel) → reden. Leeg is het doel; een uitzondering staat hier
 # zichtbaar in de diff, niet verstopt in een commentaar.
-ALLOWLIST: dict[tuple[str, int], str] = {}
+ALLOWLIST: dict[tuple[str, int], str] = {
+    # #1004: een organisator is geen payable en draagt bewust geen soft delete —
+    # de rij zegt "deze persoon trekt deze activiteit", en wie dat niet meer doet,
+    # heeft geen grafsteen nodig. Er hangt geen betaling aan, dus er kan geen wees
+    # ontstaan. De sleutel draagt het regelnummer: verschuift de aanroep, dan valt
+    # de gate om en kijkt iemand er opnieuw naar — dat is de bedoeling.
+    ("domains/activities/service.py", 1433): (
+        "ActivityOrganiser: geen payable, geen soft delete (#1004)"),
+}
 
 REDEN = (
     "een PaymentRecord verwijst hiernaar via payable_type/payable_id zonder "

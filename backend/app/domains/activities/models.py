@@ -37,6 +37,39 @@ class ActiviteitFout(ValueError):
     """
 
 
+class ActivityOrganiser(TenantMixin, Base):
+    """One "trekker" of an activity (#1004, CR-10 §3.9).
+
+    Up to three, kept in `sort_order` 0..2 — a CHECK in the database says so and
+    the service refuses the fourth with a readable message. The screen hiding the
+    button is a courtesy, not the limit.
+
+    `person_id` is a soft reference to `mdm.persons` (§8: no foreign key across
+    schemas). No soft delete: removing an organiser removes the fact that they
+    carried this activity; there is nothing to keep a tombstone for.
+
+    `is_contact` is what a poster reads: ticked means name and details are
+    published. The overrides are per activity — someone can be reachable on
+    another address for this one without touching their member record.
+    """
+
+    __tablename__ = "activity_organisers"
+    __table_args__ = {"schema": "activities"}
+
+    id = Column(Integer, primary_key=True, index=True)
+    activity_id = Column(Integer, ForeignKey("activities.activities.id", ondelete="CASCADE"),
+                         nullable=False, index=True)
+    person_id = Column(Integer, nullable=False)
+    sort_order = Column(Integer, nullable=False, default=0)
+    is_contact = Column(Boolean, nullable=False, default=False)
+    email_override = Column(String(255), nullable=True)
+    mobile_override = Column(String(50), nullable=True)
+    created_at = Column(DateTime(timezone=True),
+                        default=lambda: datetime.now(timezone.utc), nullable=False)
+
+    activity = relationship("Activity", back_populates="organisers")
+
+
 class ActivityDate(TenantMixin, SoftDeleteMixin, Base):
     __tablename__ = "activity_dates"
     __table_args__ = {"schema": "activities"}
@@ -110,6 +143,9 @@ class Activity(TenantMixin, SoftDeleteMixin, Base):
     created_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), nullable=False)
     updated_at = Column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc), onupdate=lambda: datetime.now(timezone.utc), nullable=False)
 
+    organisers = relationship(
+        "ActivityOrganiser", back_populates="activity", cascade="all, delete-orphan",
+        order_by="ActivityOrganiser.sort_order")
     dates = relationship("ActivityDate", back_populates="activity", cascade="all, delete-orphan")
     registrations = relationship("Registration", back_populates="activity", cascade="all, delete-orphan")
     sub_registrations = relationship("ActivitySubRegistration", back_populates="activity", cascade="all, delete-orphan", order_by="ActivitySubRegistration.sort_order")
