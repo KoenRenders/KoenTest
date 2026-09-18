@@ -184,20 +184,13 @@ def delete_design(db: Session, design: Design) -> None:
 # ── Facts ───────────────────────────────────────────────────────────────────
 
 def _organisers(db: Session, activity_id: int) -> list[Contact]:
-    """The organisers ticked as contact (#1004). Until that issue is on master
-    the facade has no `organisers_for`; the poster then shows the association's
-    own lines, which is also the rule when nobody is ticked."""
-    import app.domains.activities.api as activities_api
+    """The organisers ticked as contact (#1004), with the e-mail and gsm the
+    activity publishes (override or the person's own). Nobody ticked → the
+    poster shows the association's own lines."""
+    from app.domains.activities.api import organisers_for
 
-    reader = getattr(activities_api, "organisers_for", None)
-    if reader is None:
-        return []
-    out = []
-    for row in reader(db, activity_id):
-        if getattr(row, "is_contact", False):
-            out.append(Contact(name=getattr(row, "name", ""), mobile=getattr(row, "mobile", "") or "",
-                               email=getattr(row, "email", "") or ""))
-    return out
+    return [Contact(name=row.name, mobile=row.mobile or "", email=row.email or "")
+            for row in organisers_for(db, activity_id) if row.is_contact]
 
 
 def _association(db: Session) -> dict[str, str]:

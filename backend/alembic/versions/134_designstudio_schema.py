@@ -17,8 +17,8 @@ from alembic import op
 # "the next number" at the same time choose the same one; two that get a
 # timestamp cannot collide. The sequence number leads the FILENAME, for
 # readability and sorting — alembic does not look at it.
-revision = "133_2026_09_18_153000"
-down_revision = "132_2026_09_17_104125"
+revision = "134_2026_09_18_153000"
+down_revision = "133_2026_09_18_141900"
 branch_labels = None
 depends_on = None
 

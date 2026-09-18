@@ -102,6 +102,26 @@ def test_the_fingerprint_changes_when_a_fact_changes(db_session, design, activit
     assert fingerprint(facts_for(db_session, design)) == before
 
 
+def test_a_ticked_organiser_lands_on_the_poster_and_an_unticked_one_does_not(db_session, design, activity):
+    """#1004 through its facade: the contact line follows the tick and the
+    override; nobody ticked → the association's own line."""
+    from app.domains.activities.api import add_organiser, organisers_for, update_organiser
+    from tests.conftest import create_test_family
+
+    _member, person = create_test_family(db_session, email="trekker@example.com")
+    add_organiser(db_session, activity.id, person.id)
+    organiser = organisers_for(db_session, activity.id)[0]
+    facts = facts_for(db_session, design)
+    assert facts["organisers"] == []
+    update_organiser(db_session, activity.id, organiser.id,
+                     {"is_contact": True, "mobile_override": "0470 00 00 00", "email_override": ""})
+    facts = facts_for(db_session, design)
+    assert facts["organisers"] == [{"name": "Test Persoon", "mobile": "0470 00 00 00", "email": "trekker@example.com"}]
+    content = content_for(db_session, design, facts)
+    assert content.contacts[0].name == "Test Persoon" and content.contacts[0].mobile == "0470 00 00 00"
+    assert "Test Persoon 0470 00 00 00" in render.merge(content, layout="print_a").svg
+
+
 def test_title_splitting_rules():
     class D:
         title_breaks = None
