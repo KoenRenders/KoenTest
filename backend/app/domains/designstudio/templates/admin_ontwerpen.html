@@ -1,0 +1,18 @@
+{% extends "admin_base.html" %}
+{% import "_macros.html" as ui %}
+{% block title %}{{ _("Design Studio — Raak beheer") }}{% endblock %}
+{% block content %}
+{# Records-lijst (design-system C1): titel met duidingsregel, de primaire actie
+   rechts in de kop, daaronder de kit-filterbalk. #}
+{% call ui.page_header(_("Design Studio"), _("Affiches en sociale beelden uit een activiteit, in de huisstijl. Een ontwerp bewaart wat jij kiest; de feiten komen van de activiteit.")) %}
+    {{ ui.btn_primary(_("+ Nieuw ontwerp"), href="/admin/ontwerpen/nieuw") }}
+  {% endcall %}
+
+{% call ui.filter_bar("/admin/ontwerpen", "#ds-lijst") %}
+  <div>{{ ui.search(value=q, placeholder=_('Zoek op activiteit…'), standalone=False) }}</div>
+{% endcall %}
+
+<div id="ds-lijst">
+  {% include "_ds_lijst.html" %}
+</div>
+{% endblock %}
