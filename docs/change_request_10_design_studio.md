@@ -1093,8 +1093,11 @@ rendered on the print layout only and never on social images.
 - The chosen image is copied into a new media kind, **`design_image`**,
   which is **exempt from the 1600 px resize**. It is stored at up to 4096 px
   on the longest side, with a thumbnail as usual.
-- A design has one main image and, optionally, one inset image (the walking
-  poster uses one).
+- A design has one main image and, optionally, an inset (polaroid) and a
+  third image (print only). Each slot takes a photo or a generated
+  illustration. **Main image and polaroid are rendered as large as the
+  layout allows** — the space left by the blocks that are on — not at a
+  fixed size (Koen, 18 September 2026).
 - The pin logo is never placed on the image area — a template rule (B4 §3.3).
 
 ### 3.12 AI illustrations — Black Forest Labs, EU endpoint, with a quota
@@ -1348,10 +1351,15 @@ prose, which formatted text covers. It goes into the pilot as the
    R11). Nothing else belongs in the strip: Vals Peterke was the *subject*
    of the beer evening and Krishna the *partner* of the workshop — those
    are ordinary pictures in the image slots, not logos.
-9. **Three image slots on print** — main, inset and a third; the series
-   posters use all three (two photos plus the small generated drawing at
-   the top right, Koen, 18 September 2026), "Brood en spelen" uses three
-   photos between its paragraphs. Two on Instagram.
+9. **Three image slots on print** — main, inset (polaroid) and a third;
+   the series posters use all three (two photos plus the small generated
+   drawing at the top right, Koen, 18 September 2026), "Brood en spelen"
+   uses three photos between its paragraphs. Two on Instagram. **The main
+   image and the polaroid take the largest size the layout allows** (Koen,
+   18 September 2026): the template contract gives them the space left
+   after the blocks that are on, not a fixed small box. **Any slot accepts
+   a photo or a generated illustration**; the main image may be a
+   line drawing just as well as a photo.
 10. **Guests and experts by name** ("Met Ivan Geudens", "gegidst door Dries
     Majewski", "met expert Alexander Witpas") go in the subtitle or the
     explanation as design text — fine, they are public roles, not members.
