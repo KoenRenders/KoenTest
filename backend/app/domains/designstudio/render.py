@@ -127,18 +127,26 @@ def _texts(svg: str) -> dict[str, ET.Element]:
     return {eid: el for el in root.iter(f"{{{SVG_NS}}}text") if (eid := el.get("id"))}
 
 
-def _lines_of(el: ET.Element) -> list[str]:
-    """The text per visual line: each ``tspan`` with an ``x`` starts a line."""
-    lines: list[str] = [el.text or ""]
-    for child in el.iter():
-        if child is el:
-            continue
-        if child.tag == f"{{{SVG_NS}}}tspan" and child.get("x") is not None:
-            lines.append("")
-        lines[-1] += child.text or ""
-        if child.tail:
-            lines[-1] += child.tail
-    return [ln for ln in lines if ln.strip()] or [""]
+def _lines_of(el: ET.Element) -> list[list[tuple[str, bool]]]:
+    """The runs per visual line, each with its weight: a ``tspan`` with an
+    ``x`` starts a line, a ``tspan`` with ``font-weight="bold"`` is a bold
+    run. Its tail text belongs to the enclosing line again."""
+    base_bold = el.get("font-weight") in ("bold", "700")
+    lines: list[list[tuple[str, bool]]] = [[(el.text or "", base_bold)]]
+
+    def walk(node: ET.Element, bold: bool) -> None:
+        for child in node:
+            if child.tag == f"{{{SVG_NS}}}tspan" and child.get("x") is not None:
+                lines.append([])
+            child_bold = bold or child.get("font-weight") in ("bold", "700")
+            lines[-1].append((child.text or "", child_bold))
+            walk(child, child_bold)
+            if child.tail:
+                lines[-1].append((child.tail, bold))
+
+    walk(el, base_bold)
+    kept = [ln for ln in lines if "".join(r[0] for r in ln).strip()]
+    return kept or [[("", base_bold)]]
 
 
 def estimate(merged: Merged) -> list[str]:
@@ -152,9 +160,9 @@ def estimate(merged: Merged) -> list[str]:
             continue
         size = float(el.get("font-size", "0"))
         tracking = float(el.get("letter-spacing", "0") or 0)
-        bold = el.get("font-weight") in ("bold", "700")
         font = richtext.HAND_FONT if "Caveat" in (el.get("font-family") or "") else richtext.BODY_FONT
-        widest = max(richtext.text_width(ln, size, bold=bold, tracking=tracking, font=font) for ln in _lines_of(el))
+        widest = max(sum(richtext.text_width(run, size, bold=bold, tracking=tracking, font=font) for run, bold in ln)
+                     for ln in _lines_of(el))
         if widest * margin > max_w:
             problems.append(f"{eid}: {widest:.1f} mm geschat, {max_w:.1f} mm beschikbaar")
     return problems

@@ -123,8 +123,8 @@ def highlight_rows(plan: Plan, content: PosterContent, x: float, y: float, w: fl
     accents = (pal["tile"], pal["accent3"], pal["accent2"], pal["tile"], pal["accent"], pal["tile"])
     for i, hl in enumerate(content.highlights, start=index_offset):
         size = 8.2 if hl.emphasis else 7.4
-        # The first line is drawn bold; wrap on the bold width so it fits too.
-        lines = richtext.wrap(richtext.parse(hl.text), width=text_w / 1.04, size=size)
+        # The first line is drawn bold: wrap on the bold metrics so it fits too.
+        lines = richtext.wrap(richtext.parse("**" + hl.text.replace("*", "") + "**"), width=text_w, size=size)
         if len(lines) > 2:
             plan.violations.append(f"Kernpunt {i + 1} past niet in twee regels op deze breedte")
             lines = lines[:2]

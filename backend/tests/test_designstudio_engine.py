@@ -235,6 +235,31 @@ def test_inkscape_measures_what_the_estimate_promised_and_names_an_overflow():
 
 
 @needs_inkscape
+def test_the_estimate_stays_above_inkscape_for_small_and_large_text(tmp_path):
+    """The font-metric estimate must be an upper bound of what Inkscape draws,
+    for lower case at 6.4 mm as much as for a 51 mm title (iteration 17: Pango
+    lays small text out up to 8 % wider than the advances). If a font or an
+    Inkscape upgrade changes that, this goes red before a poster does."""
+    samples = [("Een rustige tocht langs de kanaaldijk en door", False, 6.4), ("Helm aanbevolen.", True, 6.4),
+               ("IEDERE 2DE MAANDAG VAN DE MAAND", True, 8.2), ("VERTREK AAN HET MILOHEEM", False, 7.4),
+               ("Kinderen fietsen mee onder begeleiding van", False, 6.4), ("STAPPEN", True, 51)]
+    parts = ['<rect id="ref100mm" x="0" y="0" width="100" height="1" fill="none"/>']
+    for i, (text, bold, size) in enumerate(samples):
+        parts.append(f'<text id="t{i}" x="10" y="{20 + i * 20}" font-size="{size}" '
+                     f'font-weight="{"bold" if bold else "normal"}">{text}</text>')
+    svg = ('<svg xmlns="http://www.w3.org/2000/svg" width="297mm" height="200mm" viewBox="0 0 297 200" '
+           f'font-family="Radio Canada Big">{"".join(parts)}</svg>')
+    path = tmp_path / "measure.svg"
+    path.write_text(svg)
+    boxes = render.query_all(path)
+    for i, (text, bold, size) in enumerate(samples):
+        estimate = richtext.text_width(text, size, bold=bold)
+        ink = boxes[f"t{i}"][2]
+        assert ink <= estimate, f"{text!r} at {size}: Inkscape {ink:.2f} mm > estimate {estimate:.2f} mm"
+        assert ink >= estimate * 0.85, f"{text!r}: the estimate is far too loose ({estimate:.2f} vs {ink:.2f})"
+
+
+@needs_inkscape
 def test_inkscape_exports_a_pdf_with_text_and_a_png_of_the_asked_width():
     merged = render.merge(_content(), layout="print_a")
     pdf = render.export(merged.svg, "pdf")

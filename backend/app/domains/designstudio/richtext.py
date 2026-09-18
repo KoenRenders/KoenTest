@@ -30,6 +30,15 @@ from fontTools.ttLib import TTFont
 FONTS_DIR = Path(__file__).resolve().parents[2] / "static" / "fonts"
 BODY_FONT = FONTS_DIR / "RadioCanadaBig-VariableFont_wght.ttf"
 
+#: Inkscape (Pango) lays small text out wider than the font's advances say —
+#: measured on 18 September 2026 (iteration 17, `--query-all` against fontTools):
+#: +5.5 % regular and +7.9 % bold at 6.4 mm, +3.9 % bold at 8.2 mm, −0.5 % at
+#: 7.4 mm upper case, −5.5 % on a 51 mm title (advance vs ink). The drift
+#: shrinks with the size, as glyph-position rounding does, so the bound grows
+#: with 1/size: 0.55 / size keeps every sample under the estimate. Inkscape
+#: stays the authority; this only keeps the wrap and the quick check honest.
+INK_SLACK_PER_MM = 0.55
+
 _BOLD = re.compile(r"\*\*(.+?)\*\*")
 _BULLET = re.compile(r"^[-*]\s+")
 _ALLOWED_INLINE = re.compile(r"[^\S\n]+")
@@ -51,28 +60,39 @@ class Block:
 HAND_FONT = FONTS_DIR / "Caveat-VariableFont_wght.ttf"
 
 
-@lru_cache(maxsize=4)
-def _metrics(font_path: str) -> tuple[dict, dict, int]:
+@lru_cache(maxsize=8)
+def _metrics(font_path: str, weight: int) -> tuple[dict, dict, int]:
+    """cmap, advance widths and units-per-em of one static instance of the
+    variable font. Bold is the real 700 instance, not a surcharge on regular:
+    Radio Canada Big Bold runs about 8 % wider than Regular, and a guessed
+    factor is exactly the kind of estimate Inkscape then contradicts."""
+    from fontTools.varLib.instancer import instantiateVariableFont
+
     font = TTFont(font_path)
+    if "fvar" in font:
+        axes = {a.axisTag: (a.minValue, a.maxValue) for a in font["fvar"].axes}
+        if "wght" in axes:
+            lo, hi = axes["wght"]
+            font = instantiateVariableFont(font, {"wght": max(lo, min(hi, weight))})
     return font.getBestCmap(), font["hmtx"], font["head"].unitsPerEm
 
 
 def text_width(text: str, size: float, *, bold: bool = False, tracking: float = 0.0,
                font: Path = BODY_FONT) -> float:
     """Advance width of ``text`` at ``size`` (same unit as the result), from the
-    font's ``hmtx`` table. The variable font's default instance is used for both
-    weights, with a 4 % surcharge for bold: measured on iteration 16, the
-    estimate then lies 0.3–3.4 % above the ink width Inkscape draws — an upper
-    bound, which is what an overflow check needs."""
-    cmap, hmtx, upm = _metrics(str(font))
+    ``hmtx`` table of the weight that is drawn (400 or 700), plus the slack
+    Inkscape adds at small sizes (:data:`INK_SLACK_PER_MM`) — an upper bound
+    of the ink width, which is what an overflow check needs; proven against
+    Inkscape in ``test_designstudio_engine``."""
+    cmap, hmtx, upm = _metrics(str(font), 700 if bold else 400)
     advance = 0
     for ch in text:
         name = cmap.get(ord(ch))
         if name is None:
             name = cmap.get(ord("n"), ".notdef")
         advance += hmtx[name][0]
-    width = advance / upm * size + tracking * max(len(text) - 1, 0)
-    return width * 1.04 if bold else width
+    width = advance / upm * size * (1 + INK_SLACK_PER_MM / size)
+    return width + tracking * max(len(text) - 1, 0)
 
 
 def parse(source: str) -> list[Block]:
