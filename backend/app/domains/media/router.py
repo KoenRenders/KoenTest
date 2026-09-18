@@ -30,7 +30,9 @@ from app.i18n import _
 
 router = APIRouter(tags=["media"])
 
-VALID_KINDS = {"sponsor", "activity_photo", "tenant_logo"}
+# #1005: hier stond een tweede kopie van VALID_KINDS, die niemand las. Weg in
+# plaats van bijgewerkt: twee lijsten van dezelfde soorten lopen uit elkaar, en
+# de service heeft de enige die telt.
 MAX_BATCH = 20
 SVG_CSP = "default-src 'none'; style-src 'unsafe-inline'"
 
