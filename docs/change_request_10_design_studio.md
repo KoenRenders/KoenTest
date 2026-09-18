@@ -616,10 +616,14 @@ Decided by Koen on 17 September 2026 after the comparison in B1.3.
     compares those boxes with the template contract (B4 §3.4) and refuses
     overlap or overshoot. A metrics estimate that disagrees with Inkscape
     is a bug in the estimate, never a reason to ship.
-  - **Before phase 1, a time-boxed prototype** compares the fontTools
-    estimate with `--query-all` on a long title, a rotated title and a
-    curved subtitle, and fixes the tolerance. This is the largest untried
-    piece of the build and is done first.
+  - **Done on 18 September 2026** (iteration 16): the fontTools estimate
+    lies 0.3–3.4 % *above* Inkscape's ink width on six cases (advances
+    include side bearings), so it is a safe upper bound with a 5 % margin;
+    `--query-all` measures rotated text and `textPath` correctly (rotated
+    text needs its overshoot declared in the contract: 44 mm bbox for a
+    30 mm title at −2.2°); values come back in user units, so the merged SVG
+    carries a 100 mm reference rectangle to derive the scale. ~0.6 s per
+    query on an A3.
 - **Pattern tiles cover a whole block.** A tiled pattern shows hairline
   seams in poppler viewers (Okular) and possibly on some printers; one tile
   per title avoids that (B9).
