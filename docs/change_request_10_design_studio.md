@@ -1414,7 +1414,7 @@ erDiagram
     int id PK
     int activity_id FK
     int person_id "soft ref; at most three rows per activity"
-    bool is_contact "vermelden als contactpersoon"
+    bool is_contact "shown as contact on the poster"
     string mobile_override
     string email_override
     int sort_order
@@ -1544,7 +1544,7 @@ activities.activities
 activities.activity_organisers      -- "trekkers": at most three members per activity
   id, tenant_id, activity_id, sort_order (0 | 1 | 2),
   person_id        (soft ref)         -- a member
-  is_contact       boolean            -- "vermelden als contactpersoon"
+  is_contact       boolean            -- shown as contact on the poster (UI label: "vermelden als contactpersoon")
   mobile_override  varchar(50)  null
   email_override   varchar(255) null
   unique (activity_id, person_id), unique (activity_id, sort_order)
