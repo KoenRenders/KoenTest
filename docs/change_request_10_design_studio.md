@@ -1306,9 +1306,11 @@ games, a barbecue with three prices and a meat choice, a sjoelbak
 championship, three photos between the paragraphs, a strip of four logos
 (partner gild, the municipality, Mona, Raak), a QR code and Raak's contact
 details. Koen had left it out as "probably too complex". **Assessment: it
-fits "Affiche"** once three things are in the template anyway: formatted
-explanation text (point 2), **three image slots on print** instead of two
-(point 9), and a **logo strip of up to four images** (point 8). The prices
+fits "Affiche"** once two things are in the template anyway: formatted
+explanation text (point 2) and **three image slots on print** instead of
+two (point 9); its strip of four logos reduces to Mona and Mol (point 8),
+the gild's emblem being a picture and Raak's own lockup already on the
+poster. The prices
 are components with products in the portal; the poster explains them in
 prose, which formatted text covers. It goes into the pilot as the
 "Tekstflyer" preset with images between the paragraphs.
@@ -1340,10 +1342,12 @@ prose, which formatted text covers. It goes into the pilot as the
    unit's own event; a free text line covers such a case.
 7. **A series is always a series** (Koen): no per-occurrence poster; the
    dates grid shows all dates.
-8. **Logo strip: plain images** (Koen: "no extra complexity"). Up to four
-   logo images on the design, uploaded like any picture (Krishna, Vals
-   Peterke, the municipality). The Mona logo is picked from the sponsor
-   assets so that R11's yearly count works; that is the only distinction.
+8. **Logo strip: at most two logos** (Koen, 18 September 2026): **Mona
+   always**, and **the municipality of Mol** when the unit borrows its
+   material. Both are sponsor assets in media (Mona counted per year,
+   R11). Nothing else belongs in the strip: Vals Peterke was the *subject*
+   of the beer evening and Krishna the *partner* of the workshop — those
+   are ordinary pictures in the image slots, not logos.
 9. **Three image slots on print** — main, inset and a third; the series
    posters use all three (two photos plus the small generated drawing at
    the top right, Koen, 18 September 2026), "Brood en spelen" uses three
@@ -1371,7 +1375,7 @@ erDiagram
   ACTIVITY ||--o| MEDIA_ASSET : "poster (kind activity_poster)"
   PERSON o|--o{ ACTIVITY_ORGANISER : "member"
   DESIGN ||--o{ DESIGN_HIGHLIGHT : "up to six"
-  DESIGN ||--o{ DESIGN_LOGO : "logo strip, up to four"
+  DESIGN ||--o{ DESIGN_LOGO : "logo strip: Mona, and Mol when material is borrowed"
   DESIGN ||--o{ DESIGN_RENDITION : "stored when final"
   DESIGN ||--o{ IMAGE_GENERATION : "asked for"
   DESIGN }o--o| MEDIA_ASSET : "main image (kind design_image)"
@@ -1442,8 +1446,8 @@ erDiagram
   DESIGN_LOGO {
     int id PK
     int design_id FK
-    int media_asset_id "soft ref: sponsor (counted, R11) or design_image"
-    int sort_order "0..3"
+    int media_asset_id "soft ref: sponsor asset (Mona counted, R11)"
+    int sort_order "0..1"
   }
   DESIGN_RENDITION {
     int id PK
@@ -1506,8 +1510,8 @@ designstudio.designs
 designstudio.design_highlights      -- up to six, ordered
   id, design_id, sort_order, icon_code, text
 
-designstudio.design_logos           -- logo strip, up to four: sponsor asset or plain design image
-  id, design_id, media_asset_id, sort_order (0..3)
+designstudio.design_logos           -- logo strip, at most two sponsor assets (Mona; Mol when borrowing)
+  id, design_id, media_asset_id, sort_order (0..1)
 
 designstudio.design_versions        -- one row per "final"; published_version_id on designs
   id, design_id, number, facts_fingerprint, created_at, created_by
