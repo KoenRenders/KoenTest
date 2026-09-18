@@ -124,7 +124,7 @@ def merge(content: PosterContent, *, layout: str, template_key: str = "affiche",
 
 def _texts(svg: str) -> dict[str, ET.Element]:
     root = ET.fromstring(svg)
-    return {el.get("id"): el for el in root.iter(f"{{{SVG_NS}}}text") if el.get("id")}
+    return {eid: el for el in root.iter(f"{{{SVG_NS}}}text") if (eid := el.get("id"))}
 
 
 def _lines_of(el: ET.Element) -> list[str]:

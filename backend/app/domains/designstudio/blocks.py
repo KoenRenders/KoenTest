@@ -213,7 +213,7 @@ def dates_grid(plan: Plan, content: PosterContent, x: float, y: float, w: float)
 def tagline_block(plan: Plan, text: str, x_right: float, y: float, w: float) -> tuple[str, float]:
     """Handwritten line, right-aligned, with the arrow and the underline."""
     pal = plan.pal
-    size = 10
+    size: float = 10
     tw = richtext.text_width(text, size, bold=True, font=richtext.HAND_FONT)
     if tw > w - 30:
         size = fit_size(text, w - 30, 10, 7, bold=True)
@@ -279,10 +279,10 @@ def logo_strip(plan: Plan, logos: tuple[ImageBytes, ...], x_right: float, y: flo
 
 def plan_affiche(content: PosterContent, *, layout: str, width: float, height: float,
                  pal: dict[str, str]) -> Plan:
-    frame = 9
+    frame = 9.0
     p = Plan(width=width, height=height, frame=frame, pal=pal, seed=content.seed)
     x0, y0, x1, y1 = frame, frame, width - frame, height - frame
-    cw, ch, r = 92, 50, 22
+    cw, ch, r = 92.0, 50.0, 22.0
     p.paper_path = (f"M{x0 + cw} {y0} H{x1} V{y1} H{x0} V{y0 + ch} H{x0 + cw - r} "
                     f"A{r} {r} 0 0 0 {x0 + cw} {y0 + ch - r} Z")
     p.kicker = content.kicker
@@ -292,15 +292,15 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
     lines = [t for t in content.title_lines if t][:2]
     if not lines:
         p.violations.append("Geen titel")
-    top = 101 if len(lines) == 2 else 118
+    top: float = 101 if len(lines) == 2 else 118
     for i, text in enumerate(lines):
         size = fit_size(text, title_w if i == 0 else title_w - 10, 51 if i == 0 else 46, 24, tracking_per_em=-0.016)
         if richtext.text_width(text, size, bold=True, tracking=-0.016 * size) > (title_w if i == 0 else title_w - 10):
             p.violations.append(f"Titelregel {i + 1} is te lang voor de affiche")
         anchor = "start" if i == 0 else "end"
         x = 17 if i == 0 else width - 17
-        y = top if i == 0 else top + 46
-        p.title.append({"id": f"t-title-{i}", "text": text, "x": x, "y": y, "size": size, "anchor": anchor,
+        ty = top if i == 0 else top + 46
+        p.title.append({"id": f"t-title-{i}", "text": text, "x": x, "y": ty, "size": size, "anchor": anchor,
                         "tracking": -0.016 * size, "pattern": f"sp{i + 1}",
                         "stroke": pal["tile"] if i == 0 else pal["accent4"]})
         p.boxes[f"t-title-{i}"] = title_w if i == 0 else title_w - 10
@@ -315,8 +315,8 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         p.boxes["t-bar"] = 118
 
     # Band at the bottom: MEER INFO, website, e-mail, contacts, QR.
-    band_h = 30
-    band_y = y1 - band_h - 2
+    band_h: float = 30
+    band_y: float = y1 - band_h - 2
     p.band_y = band_y
     p.band = {"path": rough_band(frame + 2, band_y, width - 2 * frame - 4, band_h, seed=content.seed + 5, jag=2.5),
               "y": band_y, "h": band_h, "website": content.website, "email": content.email,
@@ -328,12 +328,14 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         p.boxes["t-contacts"] = width - 2 * frame - 60
 
     # Content area between the title and the band, two columns.
-    top_y = 186 if (len(lines) == 2 or content.bar_text) else 150
-    limit = band_y - 1
-    lx, lw = 19, 119
-    rx, rw = 151, width - frame - 4 - 151
+    top_y: float = 186 if (len(lines) == 2 or content.bar_text) else 150
+    limit: float = band_y - 1
+    lx, lw = 19.0, 119.0
+    rx, rw = 151.0, width - frame - 4 - 151
     left: list[str] = []
     right: list[str] = []
+    full: list[str] = []
+    y: float
 
     if content.logos:
         limit -= 22
@@ -341,14 +343,13 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
 
     if layout == "feed_portrait":
         y = top_y - 4
-        full = []
         if content.main_image:
             frag, y = main_image_block(p, content.main_image, lx, y, width - lx - frame - 4 - 6, 85)
             full.append(frag)
             y += 6
         cols = ((lx, lw), (rx, rw))
         shown = content.highlights[:4]
-        col_y = [y, y]
+        col_y: list[float] = [y, y]
         for i, hl in enumerate(shown):
             cx, cw_ = cols[i % 2]
             one = PosterContent(duo_code=content.duo_code, highlights=(hl,))
@@ -363,7 +364,6 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
             p.violations.append(f"Te veel inhoud: {y - limit:.0f} mm te veel")
     elif content.preset == "tekstflyer":
         y = top_y
-        full: list[str] = []
         if content.highlights:
             frag, y = highlight_rows(p, content, lx, y, lw)
             left.append(frag)
@@ -393,7 +393,8 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         if y > limit:
             p.violations.append(f"Te veel inhoud: {y - limit:.0f} mm te veel")
     else:
-        ly = ry = top_y
+        ly: float = top_y
+        ry: float = top_y
         if content.highlights:
             frag, ly = highlight_rows(p, content, lx, ly, lw)
             left.append(frag)
@@ -432,8 +433,8 @@ def plan_affiche(content: PosterContent, *, layout: str, width: float, height: f
         if content.third_image:
             frag, ly = polaroid_block(p, content.third_image, lx + 8, ly + 2, 88, angle=3)
             left.append(frag)
-        for name, y in (("links", ly), ("rechts", ry)):
-            if y > limit:
-                p.violations.append(f"Te veel inhoud in de kolom {name}: {y - limit:.0f} mm te veel")
+        for name, bottom in (("links", ly), ("rechts", ry)):
+            if bottom > limit:
+                p.violations.append(f"Te veel inhoud in de kolom {name}: {bottom - limit:.0f} mm te veel")
     p.left, p.right = "".join(left), "".join(right)
     return p

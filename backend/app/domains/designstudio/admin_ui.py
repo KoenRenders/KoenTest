@@ -297,12 +297,12 @@ async def design_save(request: Request, design_id: int, db: Session = Depends(ge
                       _email: str = Depends(require_admin_ui)):
     design = _design_or_404(db, design_id)
     form = await request.form()
-    values = {k: v for k, v in form.items() if not hasattr(v, "filename")}
-    highlights = []
+    values = {k: str(v) for k, v in form.items() if not hasattr(v, "filename")}
+    highlights: list[tuple[str, str, bool]] = []
     for i in range(MAX_HIGHLIGHTS):
-        highlights.append((form.get(f"hl_icon_{i}", "smile"), form.get(f"hl_text_{i}", ""),
+        highlights.append((str(form.get(f"hl_icon_{i}", "smile")), str(form.get(f"hl_text_{i}", "")),
                            bool(form.get(f"hl_emphasis_{i}"))))
-    logo_ids = [int(v) for v in form.getlist("logo_ids") if str(v).isdigit()]
+    logo_ids = [int(str(v)) for v in form.getlist("logo_ids") if str(v).isdigit()]
     layout = values.get("layout", "print_a")
     try:
         save_design(db, design, values, highlights=highlights, logo_ids=logo_ids)
