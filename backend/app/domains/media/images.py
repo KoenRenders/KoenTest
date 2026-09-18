@@ -17,6 +17,17 @@ MAX_FULL = 1600       # langste zijde van het "volledige" beeld
 MAX_THUMB = 400       # langste zijde van de thumbnail
 JPEG_QUALITY = 82
 
+# Per SOORT en niet per formaat (#1005, CR-10 §3.11). Een A3-affiche vraagt een
+# beeld tot 4096 px; 1600 px is daarvoor te weinig. De uitzondering hangt aan de
+# soort, zodat een activiteitsfoto er nooit onder valt — een grens die aan het
+# formaat hing, zou voor elke grote upload gelden.
+#
+# Wat NIET verandert: elk beeld wordt heropend en opnieuw gecodeerd. Die
+# hercodering is de beveiliging — ze strips EXIF en kleurprofiel, en een bestand
+# dat zich als afbeelding voordoet komt er niet doorheen. Alleen de doelmaat
+# verschilt.
+MAX_FULL_BY_KIND = {"design_image": 4096}
+
 ALLOWED_CONTENT_TYPES = {
     "image/jpeg",
     "image/png",
@@ -32,13 +43,29 @@ class ImageError(ValueError):
 
 
 def _encode(img: Image.Image, *, keep_alpha: bool) -> tuple[bytes, str]:
+    """Hercodeer het beeld — en schrijf géén metadata mee.
+
+    `icc_profile=None` staat er expliciet (#1005). Zonder die parameter haalt
+    Pillows PNG-writer het profiel uit `img.info` van het ORIGINEEL en schrijft
+    het alsnog weg: gemeten, een profiel van de bron stond gewoon weer in de
+    uitvoer. De JPEG-writer leest alleen wat je meegeeft; de parameter staat er
+    ook bij, zodat beide takken hetzelfde zeggen.
+
+    EXIF hoeft niet uitgezet te worden: geen van beide writers neemt het uit
+    `info` over — nagemeten met een bron die EXIF droeg.
+
+    Dat is geen detail: de hercodering IS de beveiliging van een upload (EXIF
+    met locatie eruit, polyglot-bestanden geneutraliseerd), en die belofte staat
+    in het contract van dit domein.
+    """
     buf = BytesIO()
     if keep_alpha:
-        img.save(buf, format="PNG", optimize=True)
+        img.save(buf, format="PNG", optimize=True, icc_profile=None)
         return buf.getvalue(), "image/png"
     if img.mode != "RGB":
         img = img.convert("RGB")
-    img.save(buf, format="JPEG", quality=JPEG_QUALITY, optimize=True, progressive=True)
+    img.save(buf, format="JPEG", quality=JPEG_QUALITY, optimize=True, progressive=True,
+             icc_profile=None)
     return buf.getvalue(), "image/jpeg"
 
 
@@ -48,12 +75,16 @@ def _resized(img: Image.Image, max_side: int) -> Image.Image:
     return clone
 
 
-def process_image(raw: bytes) -> dict:
+def process_image(raw: bytes, *, kind: str = "") -> dict:
     """Verwerk ruwe bytes tot (full, thumb) + metadata.
 
     Returns een dict met: data, content_type, thumbnail, thumb_content_type,
     width, height, byte_size.
     Werpt :class:`ImageError` als de input geen geldige afbeelding is.
+
+    `kind` bepaalt alleen de doelmaat (`MAX_FULL_BY_KIND`, #1005); de
+    hercodering zelf gebeurt voor élke soort. Het type komt uit de INHOUD —
+    Pillow leest de bytes, niet de bestandsnaam.
     """
     if not raw:
         raise ImageError("Leeg bestand")
@@ -73,7 +104,7 @@ def process_image(raw: bytes) -> dict:
     if keep_alpha and img.mode != "RGBA":
         img = img.convert("RGBA")
 
-    full = _resized(img, MAX_FULL)
+    full = _resized(img, MAX_FULL_BY_KIND.get(kind, MAX_FULL))
     thumb = _resized(img, MAX_THUMB)
 
     data, content_type = _encode(full, keep_alpha=keep_alpha)
