@@ -1340,8 +1340,10 @@ prose, which formatted text covers. It goes into the pilot as the
    logo images on the design, uploaded like any picture (Krishna, Vals
    Peterke, the municipality). The Mona logo is picked from the sponsor
    assets so that R11's yearly count works; that is the only distinction.
-9. **Three image slots on print** (main, inset, third — "Brood en spelen"
-   has three photos between its paragraphs); two on Instagram.
+9. **Three image slots on print** — main, inset and a third; the series
+   posters use all three (two photos plus the small generated drawing at
+   the top right, Koen, 18 September 2026), "Brood en spelen" uses three
+   photos between its paragraphs. Two on Instagram.
 10. **Guests and experts by name** ("Met Ivan Geudens", "gegidst door Dries
     Majewski", "met expert Alexander Witpas") go in the subtitle or the
     explanation as design text — fine, they are public roles, not members.
