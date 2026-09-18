@@ -212,11 +212,36 @@ def check(merged: Merged, *, authority: bool = False) -> list[str]:
 
 # ── Export ────────────────────────────────────────────────────────────────
 
+FONTS_DIR = Path(__file__).resolve().parents[2] / "static" / "fonts"
+
+
+@lru_cache(maxsize=1)
+def _fontconfig_file() -> str:
+    """A fontconfig that adds the app's own fonts to the system's.
+
+    The poster fonts (Radio Canada Big, Caveat) ship in the repo; Inkscape must
+    find them on every host — the image, CI, a laptop — without anyone
+    installing them. A private config that includes the system one and adds
+    ``static/fonts`` does that; ``FONTCONFIG_FILE`` points Inkscape at it. Its
+    cache lands next to it, never in a user's home.
+    """
+    home = Path(tempfile.gettempdir()) / "designstudio-fontconfig"
+    home.mkdir(exist_ok=True)
+    conf = home / "fonts.conf"
+    conf.write_text(
+        '<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "fonts.dtd">\n<fontconfig>'
+        '<include ignore_missing="yes">/etc/fonts/fonts.conf</include>'
+        f'<dir>{FONTS_DIR}</dir><cachedir>{home / "cache"}</cachedir></fontconfig>\n',
+        encoding="utf-8")
+    return str(conf)
+
+
 def _run(args: list[str]) -> subprocess.CompletedProcess:
     if shutil.which(INKSCAPE) is None:
         raise RenderError("Inkscape is niet geïnstalleerd op deze server")
     env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": tempfile.gettempdir(),
-           "LANG": "C.UTF-8", "INKSCAPE_PROFILE_DIR": tempfile.gettempdir()}
+           "LANG": "C.UTF-8", "INKSCAPE_PROFILE_DIR": tempfile.gettempdir(),
+           "FONTCONFIG_FILE": _fontconfig_file()}
     try:
         result = subprocess.run([INKSCAPE, *args], capture_output=True, text=True,
                                 timeout=INKSCAPE_TIMEOUT, env=env, check=False)

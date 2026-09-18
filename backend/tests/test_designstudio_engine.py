@@ -6,7 +6,9 @@ one violation, the intended message, then the clean case.
 """
 from __future__ import annotations
 
+import os
 import shutil
+import tempfile
 from pathlib import Path
 
 import pytest
@@ -232,6 +234,23 @@ def test_inkscape_measures_what_the_estimate_promised_and_names_an_overflow():
     shrunk = render.Merged(svg=merged.svg, boxes=boxes, violations=(), width_mm=297, height_mm=420)
     problems = render.check(shrunk, authority=True)
     assert any(p.startswith("t-bar") and "gemeten door Inkscape" in p for p in problems)
+
+
+@pytest.mark.skipif(shutil.which("fc-match") is None, reason="fontconfig not installed")
+def test_inkscape_gets_the_poster_fonts_from_the_repo_not_from_the_host():
+    """The renderer's private fontconfig must resolve both poster faces to the
+    files in app/static/fonts. Without that config CI fell back to DejaVu and
+    every bar text measured 10 % too wide (run 35357001948); with an empty
+    fonts directory `fc-list` shows neither face — so this goes red the moment
+    the directory drops out of the config."""
+    import subprocess
+
+    env = {"PATH": os.environ.get("PATH", "/usr/bin:/bin"), "HOME": str(Path(tempfile.gettempdir())),
+           "FONTCONFIG_FILE": render._fontconfig_file()}
+    for family in ("Radio Canada Big", "Caveat"):
+        out = subprocess.run(["fc-match", "-f", "%{file}", family], capture_output=True, text=True,
+                             env=env, check=True).stdout
+        assert Path(out).resolve().parent == render.FONTS_DIR.resolve(), f"{family} resolved to {out}"
 
 
 @needs_inkscape

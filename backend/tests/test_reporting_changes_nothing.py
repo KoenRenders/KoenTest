@@ -157,7 +157,8 @@ def test_the_menu_gained_exactly_one_item_and_nothing_else_moved():
         "/admin/activiteiten", "/admin/leden", "/admin/formulieren",
         "/admin/paginas", "/admin/media", "/admin/ai-context",
         "/admin/betalingen",
-        "/admin/vergaderingen", "/admin/nieuwsbrieven",
+        # #1007: Design Studio joins Communicatie, after the newsletter.
+        "/admin/vergaderingen", "/admin/nieuwsbrieven", "/admin/ontwerpen",
         "/admin", "/admin/rapporten",
         "/admin/gebruikers", "/admin/ledenwijzigingen", "/admin/e-maillog",
         # #971: Organisaties staat vóór Tenants, en het zijn twee items omdat het

@@ -42,13 +42,12 @@ jobs:
         run: pip install -r requirements-dev.txt
 
       # Design Studio (#1007) renders posters through Inkscape as a subprocess;
-      # the render tests call the real binary, as the image does. The app's own
-      # fonts are made visible to fontconfig the same way the Dockerfile does.
-      - name: Install Inkscape and the app fonts
+      # the render tests call the real binary, as the image does. The poster
+      # fonts come from app/static/fonts through the renderer's own fontconfig.
+      - name: Install Inkscape
         run: |
           sudo apt-get update -q
-          sudo apt-get install -y -q --no-install-recommends inkscape fontconfig
-          mkdir -p ~/.local/share/fonts && ln -s "$PWD/app/static/fonts" ~/.local/share/fonts/raak && fc-cache -f
+          sudo apt-get install -y -q --no-install-recommends inkscape
 
       # Static type-check vangt None-dereferences en verkeerde argument-types vóór
       # de deploy — voorheen sneuvelden die pas op runtime (PROD). Symmetrie met
