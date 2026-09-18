@@ -882,7 +882,11 @@ One place per fact:
 - **From the activity, always live:** title, dates and times, location,
   prices, registration link and QR code (from `slug`; **without a slug the
   QR code points to the unit's site**, as the unit does today with its
-  printed site code, A4.4), registration deadline, contacts.
+  printed site code, A4.4), registration deadline, contacts. **Every link
+  and QR code uses `https://`** (Koen, 18 September 2026); the printed
+  address may drop the scheme ("www.raakmillegem.be"), the encoded URL
+  never does. The organisation's WEBSITE contact detail is stored with
+  `https://`, and the poster derives both forms from it.
 - **From the organisation:** logo lockup, unit name, and — when the
   activity has no contact persons — its website, e-mail and mobile number.
 - **Only on the design:**
