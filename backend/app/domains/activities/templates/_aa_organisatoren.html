@@ -1,0 +1,81 @@
+{% import "_macros.html" as ui %}
+{# Organisatoren van een activiteit (#1004, CR-10 §3.9). Zelfde vorm als de
+   vergaderkring: lijst, dan zoekveld → korte lijst → Toevoegen. Het zoekveld
+   vervangt alleen de resultaten (`hx-select`), anders wordt het bij elke
+   toetsaanslag opnieuw opgebouwd en springt de focus weg (#939). #}
+<div class="bg-white rounded-2xl shadow-sm border border-gray-200 p-4">
+  {{ ui.section_header(_("Organisatoren")) }}
+  <p class="text-sm text-ink-soft -mt-2 mb-3">
+    {{ _("Wie aangevinkt is, komt met naam en gegevens op de affiches.") }}
+  </p>
+  {% if organisers %}
+  <div class="divide-y divide-line">
+    {% for o in organisers %}
+    <form class="flex flex-wrap items-end gap-3 py-3"
+          hx-post="/admin/activiteiten/{{ a.id }}/organisatoren/{{ o.id }}"
+          hx-target="#aa-detail" hx-swap="innerHTML"
+          {% if o.is_contact and contact_count == 1 %}data-confirm="{{ _("Zonder contactpersoon tonen de affiches de website, het e-mailadres en het gsm-nummer van Raak. Doorgaan?") }}"{% endif %}>
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      {# #1004: de bevestiging is óók een serverregel. Zonder dit veld weigert de
+         route het laatste vinkje weg te halen, dus een script of een tweede
+         scherm kan de contactpersoon niet stil laten verdwijnen. #}
+      <input type="hidden" name="bevestigd" value="1">
+      <span class="font-medium text-sm min-w-40">{{ o.name }}</span>
+      <label class="flex items-center gap-2 text-sm pb-2">
+        <input type="checkbox" name="is_contact" value="1" {% if o.is_contact %}checked{% endif %}
+               hx-trigger="none">
+        {{ _("vermelden als contactpersoon") }}
+      </label>
+      <div>{{ ui.label(_("Ander e-mailadres"), "org-mail-" ~ o.id) }}
+        {{ ui.input_control("email_override", id="org-mail-" ~ o.id, type="email",
+                            value=o.email_override, placeholder=o.email or _("uit de ledenfiche"),
+                            cls="w-56") }}</div>
+      <div>{{ ui.label(_("Ander gsm-nummer"), "org-gsm-" ~ o.id) }}
+        {{ ui.input_control("mobile_override", id="org-gsm-" ~ o.id,
+                            value=o.mobile_override, placeholder=o.mobile or _("uit de ledenfiche"),
+                            cls="w-40") }}</div>
+      <div class="flex gap-2 pb-1 ml-auto">
+        {{ ui.btn_primary(_("Bewaren"), size="sm") }}
+        {{ ui.btn_danger(_("Verwijderen"), size="sm",
+             attrs='hx-post="/admin/activiteiten/' ~ a.id ~ '/organisatoren/' ~ o.id ~ '/verwijderen" hx-target="#aa-detail" hx-swap="innerHTML" ' ~ confirm_attrs(_("Organisator"), o.name)) }}
+      </div>
+    </form>
+    {% endfor %}
+  </div>
+  {% else %}
+  {{ ui.empty_state(_("Nog geen organisatoren.")) }}
+  {% endif %}
+
+  {% if organisers|length < max_organisers %}
+  <div class="mt-3 border-t border-line pt-3">
+    <input type="search" name="organiser_q" value="{{ organiser_query }}"
+           placeholder="{{ _("Zoek een lid op naam…") }}"
+           class="w-full sm:w-80 rounded-lg border border-line px-3 py-2 text-sm"
+           hx-get="/admin/activiteiten/{{ a.id }}/organisatoren" hx-target="#aa-org-kandidaten"
+           hx-select="#aa-org-kandidaten" hx-swap="outerHTML"
+           hx-trigger="input changed delay:300ms" aria-label="{{ _("Zoek een lid") }}">
+    <div id="aa-org-kandidaten">
+      {% if organiser_query %}
+      <div class="mt-2 divide-y divide-line">
+        {% for person in organiser_candidates %}
+        <form class="flex items-center gap-3 py-2"
+              hx-post="/admin/activiteiten/{{ a.id }}/organisatoren"
+              hx-target="#aa-detail" hx-swap="innerHTML">
+          <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+          <input type="hidden" name="person_id" value="{{ person.id }}">
+          <span class="text-sm">{{ person.first_name }} {{ person.last_name }}</span>
+          <span class="ml-auto">{{ ui.btn_outline(_("Toevoegen"), type="submit", size="sm") }}</span>
+        </form>
+        {% else %}
+        <p class="text-sm text-ink-soft py-2">{{ _("Geen lid gevonden dat er nog niet bij staat.") }}</p>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% else %}
+  <p class="text-sm text-ink-soft mt-3">
+    {{ _("Een activiteit heeft hoogstens %(n)s organisatoren.", n=max_organisers) }}
+  </p>
+  {% endif %}
+</div>

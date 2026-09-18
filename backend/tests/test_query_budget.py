@@ -154,7 +154,11 @@ def gevulde_databank(client, db_session):
 # een rechterrail — dat kost precies één extra COUNT (inschrijvingen) naast de
 # bestaande zonder-onderdeel-telling; bezetting en betalingen-tel zijn elk één
 # query. Een verdere stijging is weer een bevinding.
-BUDGET_ACTIVITEITDETAIL = 17
+# 17 → 18 op 18 september 2026 (#1004): de organisatoren van de activiteit. Eén
+# query zolang er geen zijn; met organisatoren komen er twee bij (personen en
+# contactgegevens), en dat schaalt niet mee met het aantal activiteiten. Gemeten
+# met een warme cache — zie de opmerking in de test zelf.
+BUDGET_ACTIVITEITDETAIL = 18
 RIJEN_ACTIVITEITDETAIL = 20
 
 
@@ -203,6 +207,13 @@ def test_het_activiteitdetail_haalt_niet_de_hele_lijst_op(gevulde_databank, db_s
         Activity.name == "Testactiviteit").first()
     assert activiteit is not None, "de fixture levert geen activiteit om te openen"
     pad = f"/admin/activiteiten/{activiteit.id}"
+
+    # Eén keer opvragen vóór de meting (#1004). De tenant-caches (code→id,
+    # platform-tenant) zijn procesbreed en koud bij de eerste aanroep in een
+    # proces: dan telt de gate drie cachemissers mee die niets met dit scherm te
+    # maken hebben. Gemeten: koud 20, warm 17 op dezelfde code — dus stond het
+    # plafond te halen of niet naargelang de volgorde van de testbestanden.
+    gevulde_databank.get(pad)
 
     with Rijenteller() as teller:
         antwoord = gevulde_databank.get(pad)

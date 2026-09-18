@@ -75,6 +75,8 @@ from app.domains.mdm.service import (  # noqa: F401
     admin_code_lists,
     form_code_lists,
     list_persons,
+    search_persons,
+    is_member,
     list_postal_codes,
 )
 # De organisatie als rechtspersoon staat sinds #971 apart van de tenant als site.
@@ -104,7 +106,7 @@ from app.domains.mdm.tenant_service import (  # noqa: F401
 __all__ = [
     "family_registrations", "gezin_tabs", "person_name_parts",
     "OngeldigeInstelling", "TenantFout", "admin_code_lists", "import_commit", "import_preview", "create_tenant", "form_code_lists",
-    "list_persons", "list_postal_codes", "list_accounts", "list_units",
+    "list_persons", "search_persons", "is_member", "list_postal_codes", "list_accounts", "list_units",
     "secrets_gezet", "update_tenant_settings", "platform_tenant_id",
     "organization_details", "update_organization_details",
     "organization_address", "update_organization_address",
