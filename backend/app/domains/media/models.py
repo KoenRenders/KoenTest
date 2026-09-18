@@ -32,6 +32,12 @@ class MediaAsset(TenantMixin, Base):
       afbeelding óf PDF; primeert op ``Activity.poster_url`` (#223).
     - ``kind="component_info"`` → info/reglement bij één onderdeel (``component_id``):
       afbeelding óf PDF; primeert op ``ActivitySubRegistration.info_url`` (#223).
+    - ``kind="design_image"`` → een beeld dat in een affiche gaat (CR-10, #1005),
+      soft-gekoppeld aan een activiteit. Wordt net als elke upload heropend en
+      opnieuw gecodeerd, alleen tot 4096 px in plaats van 1600 — een A3-affiche
+      vraagt dat.
+    - ``kind="design_render"`` → de gerenderde affiche (PDF/PNG/SVG) van één
+      versie. Komt van de Design Studio zelf en nooit van een upload.
 
     PDF's worden ongewijzigd bewaard (geen thumbnail); afbeeldingen verkleind +
     voorzien van een aparte thumbnail. Geen soft delete (bewust, zoals #166): bij
@@ -42,7 +48,7 @@ class MediaAsset(TenantMixin, Base):
     __table_args__ = {"schema": "media"}
 
     id = Column(Integer, primary_key=True, index=True)
-    kind = Column(String(20), nullable=False, index=True)  # sponsor | activity_photo | activity_poster | component_info
+    kind = Column(String(20), nullable=False, index=True)  # sponsor | activity_photo | activity_poster | component_info | newsletter_file | design_image | design_render
     activity_id = Column(
         Integer, nullable=True, index=True  # soft-ref naar activities.activities (§8, migr. 081)
     )
