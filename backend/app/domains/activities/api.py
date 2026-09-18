@@ -92,6 +92,12 @@ def register_for_activity(db, activity_id: int, data, background_tasks,
 from app.domains.activities.export import build_component_export_ods  # noqa: F401
 
 from app.domains.activities.service import (  # noqa: F401
+    MAX_ORGANISERS,
+    OrganiserView,
+    add_organiser,
+    organisers_for,
+    remove_organiser,
+    update_organiser,
     RegistrationState,
     registration_refusal,
     registration_state,
@@ -135,6 +141,8 @@ __all__ = [
     "quote_registration",
     "enrich_registration", "get_activity_detail", "list_activities", "move_within",
     "public_registrations", "register_for_activity",
+    "MAX_ORGANISERS", "OrganiserView", "add_organiser", "organisers_for",
+    "remove_organiser", "update_organiser",
     "ActivitySpan", "activities_active_between", "activities_from",
     "registration_counts",
 ]
