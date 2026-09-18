@@ -1097,7 +1097,8 @@ rendered on the print layout only and never on social images.
   third image (print only). Each slot takes a photo or a generated
   illustration. **Main image and polaroid are rendered as large as the
   layout allows** — the space left by the blocks that are on — not at a
-  fixed size (Koen, 18 September 2026).
+  fixed size (Koen, 18 September 2026). **The polaroid is optional**: left
+  empty, the main image takes its space too.
 - The pin logo is never placed on the image area — a template rule (B4 §3.3).
 
 ### 3.12 AI illustrations — Black Forest Labs, EU endpoint, with a quota
