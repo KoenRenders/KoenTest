@@ -474,7 +474,7 @@ flowchart TB
     d1[("designstudio: designs, highlights, contacts, renditions, image_generations")]
     d2[("media.media_assets")]
     d3[("ai.ai_call_log")]
-    d4[("activities.activities + activity_contacts")]
+    d4[("activities.activities + activity_organisers")]
   end
   subgraph OUT["External"]
     bfl["Black Forest Labs - api.eu.bfl.ai"]
@@ -988,15 +988,15 @@ request, the same service function also refuses a **cancelled** activity.
 Until now only the card hid its button; the server accepted the
 registration.
 
-### 3.9 Contacts belong to the activity: at most two members, else Raak
+### 3.9 Organisers belong to the activity; the poster names those ticked as contact
 
-Koen, 16 and 17 September 2026: contacts are recorded **on the activity**.
-**Per activity at most two contact persons**, each shown with name, e-mail
-address and phone number. **Without contact persons, the poster shows the
-association's website, e-mail and mobile number** (from the organisation's
-own contact details, #945). A contact person is a member chosen from the
-list, with the option to enter a different number or address for this
-activity.
+Koen, 16–18 September 2026. An activity has **organisers** ("trekkers"):
+**up to three members**, a concept of the activities module, entered on the
+activity's own screen. Per organiser a tick **"vermelden als
+contactpersoon"** and, optionally, another e-mail address or phone number
+for this activity. The poster shows the ticked organisers with name, e-mail
+and phone; **with none ticked it shows the association's website, e-mail
+and mobile number** (from the organisation's own contact details, #945).
 
 - **On the activity — decided (Koen, 17 September 2026, Q19).** Koen asked
   which module should hold them. Contact persons are a fact about the activity
@@ -1015,9 +1015,9 @@ activity.
   mobile is **a poster rule** in the Design Studio (B4 §3.7), not a rule of
   the activity — "it would be odd to show Raak's website when you are on
   it" (Koen).
-- **Removing the last contact person asks first** (Koen, 17 September
-  2026): "Zonder contactpersonen tonen de affiches de website, het
-  e-mailadres en het gsm-nummer van Raak. Doorgaan?"
+- **Unticking the last contact asks first** (Koen, 17 September 2026):
+  "Zonder contactpersoon tonen de affiches de website, het e-mailadres en
+  het gsm-nummer van Raak. Doorgaan?"
 
 **Supporter logos (R11).** A design picks its supporter logos from the
 unit's `sponsor` media assets (the ones the footer already uses). The
@@ -1036,10 +1036,9 @@ and year, shown on the design list.
     organisation's website, e-mail and mobile number from its own
     `ContactDetail` rows (#945 — EMAIL, MOBILE and WEBSITE exist), without
     a person's name. This is what some posters already do.
-- **At most two rows per activity**, enforced in the service (and a CHECK
-  on `sort_order in (0, 1)`). The association is not a row: it is the
-  default when there are no rows. `organization_id` therefore drops out of
-  the table.
+- **At most three organisers per activity**, enforced in the service (and
+  a CHECK on `sort_order in (0, 1, 2)`). The association is not a row: it
+  is the default when no organiser is ticked as contact.
 - **The picker follows the meeting circle** (CR-09). It has a search field
   over names, a short result list and an "Add" button; with no contacts the
   editor says "Zonder contactpersonen tonen we de gegevens van Raak". Added
@@ -1295,49 +1294,60 @@ data model. ✓ = covered as designed; **gap** = needs a change or a decision.
 | Zo vader, zo zoon (A4, Raak national) | label "workshop voor vaders", long explanation, expert name | — |
 | Zwerfvuil (3× per jaar) | date/time, title, photo | **a poster for one occurrence of a series** (the poster shows one date, the activity has three); the stock photo's rights are the unit's matter |
 
-**What the template cannot do yet, and the proposed answer**
+**Koen's answers (18 September 2026)** are folded into the list below; the
+open points are closed. One more real poster was added as the harder test:
+**"Brood en spelen"** (A4 flyer, `voorbeeld designs/brood en spelen -
+flyer_v2.pdf`): a co-organised village day with a cornhole tournament,
+games, a barbecue with three prices and a meat choice, a sjoelbak
+championship, three photos between the paragraphs, a strip of four logos
+(partner gild, the municipality, Mona, Raak), a QR code and Raak's contact
+details. Koen had left it out as "probably too complex". **Assessment: it
+fits "Affiche"** once three things are in the template anyway: formatted
+explanation text (point 2), **three image slots on print** instead of two
+(point 9), and a **logo strip of up to four images** (point 8). The prices
+are components with products in the portal; the poster explains them in
+prose, which formatted text covers. It goes into the pilot as the
+"Tekstflyer" preset with images between the paragraphs.
 
-1. **Contacts: two or three?** Kookworkshop names three people. Either the
-   cap becomes three, or that poster names two. *Decision for Koen.*
-2. **Practical lines** (label: value — "Voor wie", "Meebrengen", "Afstand",
-   "Honden welkom") — five of the thirteen use them. Proposal: a repeatable
-   block **"Praktisch"** of up to six label/value lines, design text; max
-   participants and "volzet" come from the activity automatically.
-3. **Programme lines** (time: what — Wijnbezoek, Ledenfeest). Proposal: a
-   repeatable block **"Programma"** of up to six time/text lines, design
-   text, in the print layout only.
-4. **Explanation length.** Several posters carry three to six paragraphs;
-   the current "≤ 2 paragraphs" is too tight for print. Proposal: on
-   `print_a` up to about 1 200 characters with the overflow rule "shrink to
-   the minimum, then refuse"; Instagram keeps dropping it.
-5. **Payment by bank transfer** (Dartstornooi, Ledenfeest): IBAN, message
-   and a payment deadline distinct from the registration deadline. The
-   organisation's account exists in MDM (#945). Proposal: an optional block
-   **"Betaling"** that prints the organisation's IBAN and a message pattern
-   from the activity ("Dartstornooi + naam"), with a payment-deadline field.
-   *Decision for Koen:* keep this, or push these activities to online
-   payment through the portal (Mollie), which needs no block?
-6. **A second registration with its own deadline** (Scherpenheuvel's
-   frieten). The CR has one deadline per activity (B4 §3.8a). Options: (a) a
-   deadline per component, with the poster printing both; (b) two
-   activities, one poster each; (c) the second deadline as a free line.
-   *Decision for Koen*; the CLI suggests (c) for the pilot and (a) when a
-   second case appears.
-7. **One occurrence of a series** (Zwerfvuil). Proposal: on a series
-   activity the design can be made for **all dates** (grid) or for **one
-   date** (chosen in the editor); the fingerprint follows that date.
-8. **Partner logos are not sponsors.** Krishna and Vals Peterke appear on
-   one poster each; uploading them as `sponsor` media would put them in the
-   website footer. Proposal: the supporter slot accepts **either** a
-   sponsor asset (Mona, counted per year, R11) **or** a one-off partner
-   image uploaded on the design (`design_image`, not counted).
-9. **Two images** (main + inset) suffice for all thirteen.
+**What the template needed, and the answer**
+
+1. **Contacts → "organisers" (Koen, 18 September 2026).** The people on
+   a poster are the activity's **organisers** ("trekkers"), up to **three**,
+   a concept of the activities module. Per organiser a tick "vermelden als
+   contactpersoon", with an optional other e-mail or phone for this
+   activity; with no organiser ticked the poster shows Raak's website,
+   e-mail and mobile. B4 §3.9 is rewritten accordingly.
+2. **Formatted text blocks** (Koen: "geformatteerde tekst"). "Praktisch"
+   ("Voor wie", "Meebrengen", "Afstand", "Honden welkom"), "Programma"
+   (14u receptie, 17u buffet) and the explanation are **formatted text**
+   entered in the Design Studio: paragraphs, **bold**, bullet lists and
+   line breaks — nothing else (no fonts, sizes or colours; the house style
+   sets those). Stored as a small Markdown subset, rendered to SVG text
+   spans by the merge step. Max participants and "volzet" still come from
+   the activity. The explanation may run to about 1 200 characters on
+   `print_a` (overflow rule: shrink to the minimum, then refuse);
+   `feed_portrait` drops it.
+5. **No payment block** (Koen, 18 September 2026). Bank transfers with
+   IBAN and message are how it used to be; today registration is always
+   through the website, with online payment or a mail with transfer
+   details. The poster prints "Inschrijven via www.raakmillegem.be" with the
+   deadline, and nothing about payment.
+6. **Scherpenheuvel's second registration is ignored** (Koen): not the
+   unit's own event; a free text line covers such a case.
+7. **A series is always a series** (Koen): no per-occurrence poster; the
+   dates grid shows all dates.
+8. **Logo strip: plain images** (Koen: "no extra complexity"). Up to four
+   logo images on the design, uploaded like any picture (Krishna, Vals
+   Peterke, the municipality). The Mona logo is picked from the sponsor
+   assets so that R11's yearly count works; that is the only distinction.
+9. **Three image slots on print** (main, inset, third — "Brood en spelen"
+   has three photos between its paragraphs); two on Instagram.
 10. **Guests and experts by name** ("Met Ivan Geudens", "gegidst door Dries
     Majewski", "met expert Alexander Witpas") go in the subtitle or the
     explanation as design text — fine, they are public roles, not members.
 
-With 2, 3, 4, 7 and 8 built and 1, 5, 6 decided, all thirteen posters are
-content-complete from the template.
+With 1, 2, 8 and 9 built, all fourteen posters (the thirteen plus "Brood en
+spelen") are content-complete from the template.
 
 ## B5. Data model (sketch)
 
@@ -1350,17 +1360,17 @@ of 17 September 2026 (contacts, editable export, logo assets).
 ```mermaid
 erDiagram
   ACTIVITY ||--o{ ACTIVITY_DATE : "has dates"
-  ACTIVITY ||--o{ ACTIVITY_CONTACT : "names contacts"
+  ACTIVITY ||--o{ ACTIVITY_ORGANISER : "has organisers (max three)"
   ACTIVITY ||--o{ DESIGN : "has designs (at most one final)"
   ACTIVITY ||--o| MEDIA_ASSET : "poster (kind activity_poster)"
-  PERSON o|--o{ ACTIVITY_CONTACT : "member contact"
+  PERSON o|--o{ ACTIVITY_ORGANISER : "member"
   DESIGN ||--o{ DESIGN_HIGHLIGHT : "up to six"
-  DESIGN ||--o{ DESIGN_SUPPORTER : "supporter logos"
+  DESIGN ||--o{ DESIGN_LOGO : "logo strip, up to four"
   DESIGN ||--o{ DESIGN_RENDITION : "stored when final"
   DESIGN ||--o{ IMAGE_GENERATION : "asked for"
   DESIGN }o--o| MEDIA_ASSET : "main image (kind design_image)"
   DESIGN }o--o| MEDIA_ASSET : "inset image"
-  DESIGN_SUPPORTER }o--|| MEDIA_ASSET : "logo (kind sponsor)"
+  DESIGN_LOGO }o--|| MEDIA_ASSET : "sponsor asset or design_image"
   DESIGN_RENDITION }o--|| MEDIA_ASSET : "file (kind design_render)"
   IMAGE_GENERATION }o--|| AI_CALL_LOG : "logged call (#978)"
   IMAGE_GENERATION }o--o| MEDIA_ASSET : "picked variant"
@@ -1381,14 +1391,13 @@ erDiagram
     time start_time
     time end_time
   }
-  ACTIVITY_CONTACT {
+  ACTIVITY_ORGANISER {
     int id PK
     int activity_id FK
-    int person_id "soft ref; at most two rows per activity"
+    int person_id "soft ref; at most three rows per activity"
+    bool is_contact "vermelden als contactpersoon"
     string mobile_override
     string email_override
-    bool show_mobile
-    bool show_email
     int sort_order
   }
   DESIGN {
@@ -1411,6 +1420,9 @@ erDiagram
     decimal main_focus_x
     decimal main_focus_y
     int inset_image_id "soft ref"
+    int third_image_id "soft ref; print only"
+    text practical_md "formatted: paragraphs, bold, bullets"
+    text programme_md "formatted; print only"
     string facts_fingerprint
     datetime finalised_at
   }
@@ -1421,11 +1433,11 @@ erDiagram
     string icon_code
     string text
   }
-  DESIGN_SUPPORTER {
+  DESIGN_LOGO {
     int id PK
     int design_id FK
-    int media_asset_id "soft ref"
-    int sort_order
+    int media_asset_id "soft ref: sponsor (counted, R11) or design_image"
+    int sort_order "0..3"
   }
   DESIGN_RENDITION {
     int id PK
@@ -1481,14 +1493,15 @@ designstudio.designs
   duo_code, status (draft|final), title_override, tagline (90),
   explanation, subtitle, recurrence_line, welcome_line, price_badge_text,
   show_kicker, main_image_id, main_focus_x, main_focus_y,
-  inset_image_id, facts_fingerprint, published_version_id,
+  inset_image_id, third_image_id, practical_md, programme_md,
+  facts_fingerprint, published_version_id,
   created_at, updated_at, created_by
 
 designstudio.design_highlights      -- up to six, ordered
   id, design_id, sort_order, icon_code, text
 
-designstudio.design_supporters      -- supporter / funder logos
-  id, design_id, media_asset_id, sort_order
+designstudio.design_logos           -- logo strip, up to four: sponsor asset or plain design image
+  id, design_id, media_asset_id, sort_order (0..3)
 
 designstudio.design_versions        -- one row per "final"; published_version_id on designs
   id, design_id, number, facts_fingerprint, created_at, created_by
@@ -1509,14 +1522,14 @@ designstudio.image_generations      -- which design asked, and what was picked
 activities.activities
   + registration_closes_on  date         null   -- inclusive, Belgian date (B4 §3.8a)
 
-activities.activity_contacts        -- at most two members per activity
-  id, tenant_id, activity_id, sort_order (0 | 1),
+activities.activity_organisers      -- "trekkers": at most three members per activity
+  id, tenant_id, activity_id, sort_order (0 | 1 | 2),
   person_id        (soft ref)         -- a member
+  is_contact       boolean            -- "vermelden als contactpersoon"
   mobile_override  varchar(50)  null
   email_override   varchar(255) null
-  show_mobile, show_email       boolean
   unique (activity_id, person_id), unique (activity_id, sort_order)
-  -- no rows → the poster shows Raak's website, e-mail and mobile (#945)
+  -- no organiser with is_contact → the poster shows Raak's website, e-mail and mobile (#945)
 media.media_assets.kind
   + design_image   (no 1600 px resize; see B4 §3.11)
   + design_render  (rendered PDF / image / SVG)
@@ -1753,8 +1766,10 @@ The tests must be able to go red:
 - an override wins over the member's own number, and removing the override
   brings the member's number back;
 - with no contact persons the poster renders Raak's website, e-mail and mobile, and no name;
-- a third contact on an activity is refused by the service; with no
-  contacts the poster shows Raak's website, e-mail and mobile;
+- a fourth organiser on an activity is refused by the service; with no
+  organiser ticked as contact the poster shows Raak's website, e-mail and
+  mobile;
+- formatted text renders bold and bullets and refuses any other markup;
 - the picker refuses a person who is not a member — tested through the
   route, because the picker only hides non-members;
 - the meeting circle still finds non-members after the name search moves to
@@ -1984,7 +1999,7 @@ not asked twice. Open questions carry no answer yet.
 | Q18 | 17 Sep | May a hand-edited SVG leave the house style (gate warns only), or does the gate block with an admin override? (second external review) | **Warn only** (Koen, 17 Sep): the person may upload any poster, as today through the media screen. |
 | Q19 | 17 Sep | Removing the last contact person silently falls back to Raak's details — silent, or with a confirmation? And which module holds the contacts? (second external review; Koen) | **With a confirmation** (Koen, 17 Sep). Module: **the `activities` module**, entered on the activity's own screen; the Design Studio reads them through the facade. Empty shows nothing on the activity and the site; only the poster falls back to Raak's details (Koen, 17 Sep). |
 | Q20 | 17 Sep | Does the pilot include generated illustrations, or photos only? (CLI) | **Both** (Koen, 17 Sep): the person chooses to upload a photo or to generate. AI illustrations move from phase 3 into the pilot; #978 is on master. |
-| Q21 | 18 Sep | Coverage of the thirteen real posters (B4 §3.16): contacts two or three? bank-transfer block or online payment? second deadline per component, second activity, or a free line? (CLI) | *open — Koen*. |
+| Q21 | 18 Sep | Coverage of the real posters (B4 §3.16): contacts two or three? bank-transfer block? second deadline? (CLI) | Koen, 18 Sep: **organisers**, up to three, tick who is a contact; **no payment block** (registration is always via the website); Scherpenheuvel ignored; series always as a series; partner logos are plain images; practical/programme as **formatted text**. "Brood en spelen" assessed and taken into the pilot. |
 
 ## Non-goals
 
